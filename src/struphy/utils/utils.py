@@ -53,9 +53,12 @@ def update_state(state):
 
 
 def save_state(state, libpath=STRUPHY_LIBPATH):
-    """Save the state to the state.yml file."""
+    """Save the state to state.yml and write the kernels to kernels.txt."""
     state_file = os.path.join(libpath, "state.yml")
     dict_to_yaml(state, state_file)
+    if "kernels" in state:
+        kernel_file = os.path.join(libpath, "kernels.txt")
+        kernels_to_txt(state["kernels"], kernel_file)
 
 
 def print_all_attr(obj):
@@ -84,6 +87,15 @@ def dict_to_yaml(dictionary: dict, output: str):
             indent=4,
             line_break="\n",
         )
+    # print(f"dict written to {output}.")
+
+
+def kernels_to_txt(kernels: list, output: str):
+    """Write state[kernels] to .txt file for pyccel make."""
+    with open(output, "w") as file:
+        for ker in kernels:
+            file.write(f"{ker}\n")
+    # print(f"kernels written to {output}.")
 
 
 class MyDumper(yaml.SafeDumper):
