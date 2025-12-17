@@ -4,7 +4,7 @@
 # Load HPC modules
 module purge
 #module load "$1"   # Pass modules as first argument
-source .github/scripts/modules.sh load
+source ./setup/modules.sh load
 module list
 
 # For gvec
