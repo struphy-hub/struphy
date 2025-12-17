@@ -3,9 +3,6 @@ name: Reusable workflow for testing
 on:
   workflow_call:
     inputs:
-      modules:
-        required: true
-        type: string
       runner_tags:
         description: JSON array of runner labels
         required: true
