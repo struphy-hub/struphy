@@ -5,11 +5,19 @@ on:
       - protected-install-on-clusters
 
 jobs:
-  raven-test:
+  Raven:
     uses: ./.github/workflows/reusable-clusters.yml
     with:
       runner_tags: '["self-hosted", "protected", "raven"]'
-  tok-test:
+  # Viper:
+  #   uses: ./.github/workflows/reusable-clusters.yml
+  #   with:
+  #     runner_tags: '["self-hosted", "protected", "viper"]'
+  TOK:
     uses: ./.github/workflows/reusable-clusters.yml
     with:
       runner_tags: '["self-hosted", "protected", "tok"]'
+  # Pitagora:
+  #   uses: ./.github/workflows/reusable-clusters.yml
+  #   with:
+  #     runner_tags: '["self-hosted", "protected", "pitagora"]'
