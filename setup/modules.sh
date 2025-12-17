@@ -9,7 +9,8 @@ MODULES="unknown"
 # Detect system
 CLUSTER="${CLUSTER:-}"      # Provide default empty if unset
 HPC_SYSTEM="${HPC_SYSTEM:-}" # Provide default empty if unset
-COMPILER_FAMILY="${INTEL:-}" # Provide default empty if unset
+COMPILER_FAMILY="${COMPILER_FAMILY:-intel}" # Use intel compiler by default
+
 case "$CLUSTER" in
     TOK)
         MACHINE="tok"
@@ -56,13 +57,14 @@ case "$COMPILER_FAMILY" in
         ;;
 esac
 
+echo $ACTION
+
 case "$ACTION" in
     load)
         echo "Loading modules for $MACHINE, MODULES=$MODULES"
         #module purge
         module load $MODULES
-	module list
-	echo 
+	module list 
         ;;
     display)
         #echo "MACHINE=$MACHINE"
