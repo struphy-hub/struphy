@@ -16,7 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         compile-language: ["fortran", "c"]
-        test-type: ["unit", "model", "verification"]
+        # test-type: ["unit", "model", "verification"]
 
     steps:
       # Checkout the repository
@@ -26,4 +26,5 @@ jobs:
       - name: Install and run tests
         shell: bash
         run: |
-          bash .github/scripts/install_and_test.sh "${{ matrix.compile-language }}" "${{ matrix.test-type }}"
+          bash .github/scripts/install_and_test.sh "${{ matrix.compile-language }}"
+        # "${{ matrix.test-type }}"

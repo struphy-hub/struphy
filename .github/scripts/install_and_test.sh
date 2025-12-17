@@ -55,22 +55,26 @@ assert comm.Get_size() == 4
 pyccel --version
 struphy compile -y --language "$LANGUAGE"
 
-# Run tests based on type
-case "$TEST_TYPE" in
-    install)
-        echo "Install completed. No tests run."
-        ;;
-    unit)
-        struphy test unit --mpi 2
-        ;;
-    model)
-        struphy test models --mpi 2
-        ;;
-    verification)
-        struphy test verification --mpi 2
-        ;;
-    *)
-        echo "Unknown test type: $TEST_TYPE"
-        exit 1
-        ;;
-esac
+struphy test unit --mpi 2
+struphy test models --mpi 2
+struphy test verification --mpi 2
+
+# # Run tests based on type
+# case "$TEST_TYPE" in
+#     install)
+#         echo "Install completed. No tests run."
+#         ;;
+#     unit)
+#         struphy test unit --mpi 2
+#         ;;
+#     model)
+#         struphy test models --mpi 2
+#         ;;
+#     verification)
+#         struphy test verification --mpi 2
+#         ;;
+#     *)
+#         echo "Unknown test type: $TEST_TYPE"
+#         exit 1
+#         ;;
+# esac
