@@ -22,7 +22,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: true  # This is crucial!
-          fetch-depth: 5
+          fetch-depth: 10
 
       - name: Check for submodule changes
       # This checks if submodule commits have changed
@@ -36,6 +36,7 @@ jobs:
       # Check if the specific submodule 'mymod' has changed
       # This checks if mymod's HEAD file changed (commit update)
         run: |
+          git diff --name-only HEAD~1 HEAD -- struphy-parameter-files
           if git diff --name-only HEAD~1 HEAD -- struphy-parameter-files | grep -q .; then
             echo "SM1_CHANGED=true" >> $GITHUB_ENV
             echo "SM1_NAME=struphy-parameter-files" >> $GITHUB_ENV
@@ -48,6 +49,7 @@ jobs:
       # Check if the specific submodule 'mymod' has changed
       # This checks if mymod's HEAD file changed (commit update)
         run: |
+          git diff --name-only HEAD~4 HEAD -- struphy-parameter-files
           if git diff --name-only HEAD~4 HEAD -- struphy-parameter-files | grep -q .; then
             echo "SM4_CHANGED=true" >> $GITHUB_ENV
             echo "SM4_NAME=struphy-parameter-files" >> $GITHUB_ENV
@@ -60,6 +62,7 @@ jobs:
       # Check if the specific submodule 'mymod' has changed
       # This checks if mymod's HEAD file changed (commit update)
         run: |
+          git diff --name-only HEAD~5 HEAD -- struphy-parameter-files
           if git diff --name-only HEAD~5 HEAD -- struphy-parameter-files | grep -q .; then
             echo "SM5_CHANGED=true" >> $GITHUB_ENV
             echo "SM5_NAME=struphy-parameter-files" >> $GITHUB_ENV
