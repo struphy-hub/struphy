@@ -1,1 +1,1 @@
-MODULES="gcc/14 openmpi/5.0 python-waterboa/2025.06 cmake/4.0 netcdf-serial/4.9.2 mkl/2025.3 hdf5-serial/2.0.0"
+MODULES="intel/2024.0 impi/2021.11 python-waterboa/2025.06 cmake/4.0 netcdf-serial/4.9.2 mkl/2025.3 hdf5-serial/2.0.0"
