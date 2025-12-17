@@ -4,7 +4,7 @@ set -euo pipefail
 # Load HPC modules
 module purge
 #module load "$1"   # Pass modules as first argument
-module load gcc/14 openmpi/5.0 python-waterboa/2025.06 cmake netcdf-serial mkl hdf5-serial
+.github/scripts/modules.sh
 module list
 
 # For gvec
@@ -33,7 +33,7 @@ mpirun --oversubscribe --report-bindings -n 4 python -c "from mpi4py import MPI;
 
 # Compile kernels
 pyccel --version
-struphy compile -y --language "$2"  # Pass compile language as second argument
+struphy compile -y # --language "$2"  # Pass compile language as second argument
 
 # # Run tests depending on type
 # TEST_TYPE="$3"  # unit, model, or verification
