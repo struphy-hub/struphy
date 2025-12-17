@@ -18,9 +18,21 @@ source ./setup/modules.sh load
 module list
 
 # For gvec
-export FC=`which gfortran`
-export CC=`which gcc`
-export CXX=`which g++`
+export JAX_DISABLE_JIT=1
+# gcc
+# export FC=`which gfortran`
+# export CC=`which gcc`
+# export CXX=`which g++`
+
+export FC=`which mpiifort`
+export CC=`which mpiicc`
+export CXX=`which mpiicpc`
+export CMAKE=`which cmake`
+
+echo "FC=$FC"
+echo "CC=$CC"
+echo "CXX=$CXX"
+echo "CMAKE=$CMAKE"
 
 # Python virtual environment setup
 which python
