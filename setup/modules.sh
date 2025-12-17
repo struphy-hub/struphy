@@ -9,6 +9,7 @@ MODULES="unknown"
 # Detect system
 CLUSTER="${CLUSTER:-}"      # Provide default empty if unset
 HPC_SYSTEM="${HPC_SYSTEM:-}" # Provide default empty if unset
+COMPILER_FAMILY="${INTEL:-}" # Provide default empty if unset
 case "$CLUSTER" in
     TOK)
         MACHINE="tok"
@@ -34,9 +35,26 @@ if [[ -f "$MODULE_FILE" ]]; then
     source "$MODULE_FILE"
 else
     echo "Warning: module file $MODULE_FILE not found"
-    MODULES=""
+    MODULES_INTEL=""
+    MODULES_GCC=""
     exit 1
 fi
+
+# Set MODULES to the intel/gcc modules
+case "$COMPILER_FAMILY" in
+    intel)
+        MODULES=$MODULES_INTEL
+        ;;
+    gcc)
+        # MODULES=$MODULES_GCC
+        echo "GCC modules not known"
+        exit 1
+        ;;
+    *)
+        echo "Usage: $0 {load|display}"
+        exit 1
+        ;;
+esac
 
 case "$ACTION" in
     load)
