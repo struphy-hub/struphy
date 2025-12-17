@@ -25,7 +25,7 @@ struphy -h
 struphy --refresh-models
 
 # Test mpirun
-echo "OMPI oversubscribe: $OMPI_MCA_rmaps_base_oversubscribe"
+# echo "OMPI oversubscribe: $OMPI_MCA_rmaps_base_oversubscribe"
 which mpirun
 mpirun --version
 python -c "from mpi4py import MPI; print(MPI)"
