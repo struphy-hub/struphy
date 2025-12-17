@@ -74,6 +74,26 @@ jobs:
           source env/bin/activate
           struphy compile -d
           struphy compile --status
+      
+      - name: MPI run check
+        shell: bash
+        run: |
+            source env/bin/activate
+            mpirun --version
+            mpirun --oversubscribe -n 1 python -c "from mpi4py import MPI; print('rank:', MPI.COMM_WORLD.rank); print('size:', MPI.COMM_WORLD.size)"
+      
+      - name: Pytest-MPI plugin check
+        shell: bash
+        run: |
+          source env/bin/activate
+          pytest --trace-config | grep mpi || true
+
+      - name: Pytest with collect-only
+        shell: bash
+        run: |
+          source env/bin/activate
+          cd src/struphy
+          mpirun --oversubscribe -n 1 pytest --collect-only -q
 
       - name: LinearMHD test
         shell: bash
