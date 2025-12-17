@@ -11,9 +11,9 @@ runs:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        ref: ${{ github.event.pull_request.head.sha }}
+        # ref: ${{ github.event.pull_request.head.sha }}
         submodules: true  # This is crucial!
-        fetch-depth: 3
+        fetch-depth: 5
 
     - name: Check for changes in submodule (just one commit back)
       shell: bash
