@@ -28,8 +28,8 @@ struphy --refresh-models
 echo "OMPI oversubscribe: $OMPI_MCA_rmaps_base_oversubscribe"
 which mpirun
 mpirun --version
-mpirun --oversubscribe --report-bindings -n 4 \
-  python -c "from mpi4py import MPI; comm=MPI.COMM_WORLD; print(f'Hello from rank {comm.Get_rank()} of {comm.Get_size()}'); assert comm.Get_size()==4"
+python -c "from mpi4py import MPI; print(MPI)"
+mpirun --oversubscribe --report-bindings -n 4 python -c "from mpi4py import MPI; comm=MPI.COMM_WORLD; print(f'Hello from rank {comm.Get_rank()} of {comm.Get_size()}'); assert comm.Get_size()==4"
 
 # Compile kernels
 pyccel --version
