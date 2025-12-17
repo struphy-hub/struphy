@@ -1,0 +1,28 @@
+name: Submodule struphy-parameter-files
+
+on:
+  pull_request:
+    branches:
+      - devel
+
+jobs:
+  check-submodule-changes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true  # This is crucial!
+
+      - name: Check for submodule changes
+      # This checks if submodule commits have changed
+        run: |
+            if git diff --submodule=diff HEAD~1 HEAD -- .gitmodules; then
+            echo "SUBMODULE_CHANGED=true" >> $GITHUB_ENV
+            fi
+            echo ${{ env.SUBMODULE_CHANGED }}
+
+      - name: Run workflow if submodule changed
+        if: env.SUBMODULE_CHANGED == 'true'
+        run: |
+          echo "Submodule has changed, running relevant jobs..."
