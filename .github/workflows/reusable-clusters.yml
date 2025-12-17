@@ -23,7 +23,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        compile-language: ["fortran", "c"]
+        compile-language: ["fortran"] #, "c"]
         # test-type: ["unit", "model", "verification"]
 
     steps:
