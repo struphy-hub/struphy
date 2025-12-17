@@ -16,6 +16,7 @@ runs:
         fetch-depth: 3
 
     - name: Check for changes in submodule
+      shell: bash
       run: |
         git diff --name-only HEAD~1 HEAD 
         if git diff --name-only HEAD~1 HEAD -- ${{ inputs.submod-name }} | grep -q .; then
