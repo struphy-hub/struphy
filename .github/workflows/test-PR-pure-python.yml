@@ -68,10 +68,12 @@ jobs:
           source env/bin/activate
           pip install .[dev]
 
-      - name: Compile Struphy
+      - name: Uncompile Struphy
+        shell: bash
         run: |
           source env/bin/activate
-          struphy compile
+          struphy compile -d
+          struphy compile --status
 
       - name: LinearMHD test
         shell: bash
@@ -79,7 +81,6 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python
         run: |
           source env/bin/activate
-          struphy compile --status
           struphy test LinearMHD
 
       - name: Vlasov test
