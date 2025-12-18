@@ -4,7 +4,10 @@ import cunumpy as xp
 from line_profiler import profile
 from psydac.ddm.mpi import mpi as MPI
 
-from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
+from struphy.kernel_arguments.pusher_args_kernels import (
+    DerhamArguments,
+    DomainArguments,
+)
 from struphy.pic.base import Particles
 from struphy.profiling.profiling import ProfileManager
 from struphy.utils.pyccel import Pyccelkernel
@@ -135,9 +138,9 @@ class Pusher:
 
             # check marker array column number
             assert isinstance(comps, xp.ndarray)
-            assert column_nr + comps.size < particles.n_cols, (
-                f"{column_nr + comps.size} not smaller than {particles.n_cols =}; not enough columns in marker array !!"
-            )
+            assert (
+                column_nr + comps.size < particles.n_cols
+            ), f"{column_nr + comps.size} not smaller than {particles.n_cols =}; not enough columns in marker array !!"
 
         # prepare and check eval_kernels
         for ker_args in eval_kernels:
@@ -147,9 +150,9 @@ class Pusher:
 
             # check marker array column number
             assert isinstance(comps, xp.ndarray)
-            assert column_nr + comps.size < particles.n_cols, (
-                f"{column_nr + comps.size} not smaller than {particles.n_cols =}; not enough columns in marker array !!"
-            )
+            assert (
+                column_nr + comps.size < particles.n_cols
+            ), f"{column_nr + comps.size} not smaller than {particles.n_cols =}; not enough columns in marker array !!"
 
         self._init_kernels = init_kernels
         self._eval_kernels = eval_kernels
@@ -287,6 +290,9 @@ class Pusher:
                         self._args_domain,
                         *self._args_kernel,
                     )
+
+                # self.particles.non_periodic_positions += dt * self.particles.velocities
+                #    self.particles.save_non_periodic_positions()
 
                 self.particles.apply_kinetic_bc(newton=self._newton)
                 self.particles.update_holes()

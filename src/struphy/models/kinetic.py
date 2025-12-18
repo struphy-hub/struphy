@@ -1,4 +1,8 @@
 import cunumpy as xp
+import numpy as np
+import matplotlib.pyplot as plt
+
+import torch
 from psydac.ddm.mpi import mpi as MPI
 
 from struphy.feec.projectors import L2Projector
@@ -9,10 +13,610 @@ from struphy.models.species import FieldSpecies, FluidSpecies, ParticleSpecies
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
-from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
+from struphy.propagators import (
+    propagators_coupling,
+    propagators_fields,
+    propagators_markers,
+)
 from struphy.utils.pyccel import Pyccelkernel
 
+
+from scimba_torch.flows.deep_flows import DiscreteFlowSpace
+from scimba_torch.flows.flow_trainer import FlowTrainer, NaturalGradientFlowTrainer
+from scimba_torch.neural_nets.coordinates_based_nets.mlp import GenericMLP
+from scimba_torch.neural_nets.coordinates_based_nets.features import PeriodicMLP
+from scimba_torch.numerical_solvers.collocation_projector import (
+    CollocationProjector,
+    NaturalGradientProjector,
+)
+
+from scimba_torch.integration.mesh_based_quadrature import RectangleMethod
+
+from scimba_torch.neural_nets.structure_preserving_nets.sympnet import SympNet
+from scimba_torch.approximation_space.nn_space import NNxSpace
+from scimba_torch.neural_nets.coordinates_based_nets.features import PeriodicMLP
+from scimba_torch.domain.mesh_based_domain.cuboid import Cuboid
+
+from scimba_torch.integration.monte_carlo import DomainSampler, TensorizedSampler
+from scimba_torch.integration.monte_carlo_parameters import (
+    UniformParametricSampler,
+    UniformVelocitySampler,
+)
+
 rank = MPI.COMM_WORLD.Get_rank()
+
+
+class VlasovAmpereOneSpecies_neural(StruphyModel):
+
+    class EMFields(FieldSpecies):
+        def __init__(self):
+            self.e_field = FEECVariable(space="Hcurl")
+            self.phi = FEECVariable(space="H1")
+            self.init_variables()
+
+    class KineticIons(ParticleSpecies):
+        def __init__(self):
+            self.var = PICVariable(space="Particles6D")
+            self.init_variables()
+
+    ## propagators
+
+    class Propagators:
+        def __init__(self, with_B0: bool = True):
+            self.push_eta = propagators_markers.PushEta()
+            if with_B0:
+                self.push_vxb = propagators_markers.PushVxB()
+            self.coupling_va = propagators_coupling.VlasovAmpere()
+            self.compute_backward_flow = propagators_markers.ComputeBackwardFlow()
+
+    ## abstract methods
+
+    def __init__(
+        self,
+        with_B0: bool = False,
+        Nt_Psi=0,
+        layers_Psi=[10] * 8,
+        epochs_Ad_Psi=300,
+        epochs_NG_Psi=1000,
+        tol_Psi=[None, None],
+        Nt_f0=0,
+        layers_f0=[20] * 3,
+        epochs_Ad_f0=300,
+        epochs_NG_f0=1000,
+        tol_f0=[None, None],
+        plot_distribution_at_each_learning=False,
+    ):
+        if rank == 0:
+            print(
+                f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':"
+            )
+
+        self.with_B0 = with_B0
+
+        # 1. instantiate all species
+        self.em_fields = self.EMFields()
+        self.kinetic_ions = self.KineticIons()
+
+        # 2. instantiate all propagators
+        self.propagators = self.Propagators(with_B0=with_B0)
+
+        # 3. assign variables to propagators
+        self.propagators.push_eta.variables.var = self.kinetic_ions.var
+        if with_B0:
+            self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
+        self.propagators.coupling_va.variables.e = self.em_fields.e_field
+        self.propagators.coupling_va.variables.ions = self.kinetic_ions.var
+        self.propagators.compute_backward_flow.variables.var = self.kinetic_ions.var
+        # define scalars for update_scalar_quantities
+        self.add_scalar("en_E")
+        self.add_scalar(
+            "en_f", compute="from_particles", variable=self.kinetic_ions.var
+        )
+        self.add_scalar("en_tot")
+
+        # initial Poisson (not a propagator used in time stepping)
+        self.initial_poisson = propagators_fields.Poisson()
+        self.initial_poisson.variables.phi = self.em_fields.phi
+
+        # Training parameters
+        self.n = 1
+        self.Nt_train = Nt_Psi
+        self.layer_Psi = layers_Psi
+        self.epochs_Ad_Psi = epochs_Ad_Psi
+        self.epochs_NG_Psi = epochs_NG_Psi
+        self.tol_Psi = tol_Psi
+        self.Nt_f0 = Nt_f0
+        self.layers_f0 = layers_f0
+        self.epochs_Ad_f0 = epochs_Ad_f0
+        self.epochs_NG_f0 = epochs_NG_f0
+        self.tol_f0 = tol_f0
+        self.space_list = []
+        self.x_before = []
+        self.f0_remap = Nt_Psi > 0
+        if Nt_Psi != 0:
+            if Nt_f0 % Nt_Psi != 0:
+                raise ValueError(f"Nt_f0 = {Nt_f0} must be a multiple of Nt_Psi")
+            else:
+                self.max_nb_Psi_networks = Nt_f0 // Nt_Psi
+
+        self.plot_distribution_at_each_learning = plot_distribution_at_each_learning
+
+    #  self.original_f0 = self.kinetic_ions.var.particles.f0
+
+    @property
+    def bulk_species(self):
+        return self.kinetic_ions
+
+    @property
+    def velocity_scale(self):
+        return "light"
+
+    def allocate_helpers(self):
+        self._tmp = xp.empty(1, dtype=float)
+
+    def update_scalar_quantities(self):
+        # e*M1*e/2
+        e = self.em_fields.e_field.spline.vector
+        en_E = 0.5 * self.mass_ops.M1.dot_inner(e, e)
+        self.update_scalar("en_E", en_E)
+
+        # alpha^2 / 2 / N * sum_p w_p v_p^2
+        particles = self.kinetic_ions.var.particles
+        alpha = self.kinetic_ions.equation_params.alpha
+        self._tmp[0] = (
+            alpha**2
+            / (2 * particles.Np)
+            * xp.dot(
+                particles.markers_wo_holes[:, 3] ** 2
+                + particles.markers_wo_holes[:, 4] ** 2
+                + particles.markers_wo_holes[:, 5] ** 2,
+                particles.markers_wo_holes[:, 6],
+            )
+        )
+        self.update_scalar("en_f", self._tmp[0])
+
+        # en_tot = en_w + en_e
+        self.update_scalar("en_tot", en_E + self._tmp[0])
+
+    def allocate_propagators(self):
+        """Solve initial Poisson equation.
+
+        :meta private:
+        """
+
+        # initialize fields and particles
+        super().allocate_propagators()
+
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print("\nINITIAL POISSON SOLVE:")
+
+        # use control variate method
+        particles = self.kinetic_ions.var.particles
+        particles.update_weights()
+
+        # sanity check
+        # self.pointer['species1'].show_distribution_function(
+        #     [True] + [False]*5, [xp.linspace(0, 1, 32)])
+
+        # accumulate charge density
+        charge_accum = AccumulatorVector(
+            particles,
+            "H1",
+            Pyccelkernel(accum_kernels.charge_density_0form),
+            self.mass_ops,
+            self.domain.args_domain,
+        )
+
+        # another sanity check: compute FE coeffs of density
+        # charge_accum.show_accumulated_spline_field(self.mass_ops)
+
+        alpha = self.kinetic_ions.equation_params.alpha
+        epsilon = self.kinetic_ions.equation_params.epsilon
+
+        self.initial_poisson.options.rho = charge_accum
+        self.initial_poisson.options.rho_coeffs = alpha**2 / epsilon
+        self.initial_poisson.allocate()
+
+        # Solve with dt=1. and compute electric field
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print("\nSolving initial Poisson problem...")
+        self.initial_poisson(1.0)
+
+        phi = self.initial_poisson.variables.phi.spline.vector
+        self.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print("Done.")
+
+    ## default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "coupling_va.Options" in line:
+                    new_file += [line]
+                    new_file += [
+                        "model.initial_poisson.options = model.initial_poisson.Options()\n"
+                    ]
+                elif "push_vxb.Options" in line:
+                    new_file += ["if model.with_B0:\n"]
+                    new_file += ["    " + line]
+                elif "set_save_data" in line:
+                    new_file += [
+                        "\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"
+                    ]
+                    new_file += [
+                        "model.kinetic_ions.set_save_data(binning_plots=(binplot,))\n"
+                    ]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
+
+    # def compute_backward_flow(
+    #     self,
+    #     x_before,
+    #     x_non_periodic,
+    #     period=1,
+    # ):
+    #     use_natural_gradient = True
+    #     Np = self.kinetic_ions.var.particles.Np
+
+    #     def apply_at_each_step(outputs):
+
+    #         x = outputs[:, :3] % period
+    #         v = outputs[:, 3:]
+    #         return torch.cat((x, v), dim=1)
+
+    #     pos0 = x_before[0].copy()
+    #     vel0 = x_before[1].copy()
+    #     x_arr = np.stack([pos0, vel0], axis=0)
+    #     # x_arr = np.array(x_before)
+    #     print(f"x_arr_shape = {x_arr.shape}")
+    #     print(f"x_before.shape = {np.array(x_before).shape}")
+    #     y_non_periodic_arr = np.array(x_non_periodic)
+
+    #     # print(f"y_non_periodic_shape = {y_non_periodic_arr.shape}")
+
+    #     x_tensor = torch.tensor(x_arr, dtype=torch.float64)
+    #     #   print(f"x_tensor_shape = {x_tensor.shape}")
+    #     #   print(f"x_tensor_shape[0] = {x_tensor[0].shape}")
+    #     #   print(f"x_tensor_shape[1] = {x_tensor[1].shape}")
+
+    #     # x_tensor = x_tensor.permute(0, 2, 1, 3)
+    #     # x_tensor = x_tensor.reshape(x_tensor.shape[0], Np, 6)
+    #     # x_tensor = torch.tensor(x_arr).permute(1, 0, 2)
+    #     # x_tensor = x_tensor.reshape(Np, 6)
+    #     x_tensor = torch.cat((x_tensor[0], x_tensor[1]), dim=1)
+    #     #   print(f"x_tensor_shape = {x_tensor.shape}")
+    #     y_non_periodic_tensor = torch.tensor(y_non_periodic_arr)
+    #     #   print(f"y_non_periodic_tensor_shape = {y_non_periodic_tensor.shape}")
+    #     #   print(f"y_non_periodic_tensor_shape[0] = {y_non_periodic_tensor[0].shape}")
+    #     #   print(f"y_non_periodic_tensor_shape[1] = {y_non_periodic_tensor[1].shape}")
+
+    #     # y_non_periodic_tensor = y_non_periodic_tensor.permute(1, 0, 2)
+    #     y_non_periodic_tensor = torch.cat(
+    #         (y_non_periodic_tensor[0], y_non_periodic_tensor[1]), dim=1
+    #     )
+    #     # y_non_periodic_tensor = y_non_periodic_tensor.reshape(
+    #     #     Np,
+    #     #     2 * 3,
+    #     # )
+
+    #     #  print(f"y_non_periodic_tensor_shape = {y_non_periodic_tensor.shape}")
+    #     x_input = y_non_periodic_tensor
+
+    #     y_target = x_tensor
+    #     #  print(f"x_tensor_shape = {x_tensor.shape}")
+
+    #     #  print(f"x_input_shape = {x_input.shape}")
+    #     #  print(f"y_target_shape = {y_target.shape}")
+
+    #     data = x_input, y_target
+    #     flow_type = SympNet
+    #     trainer_type = FlowTrainer
+    #     trainer_NG = NaturalGradientFlowTrainer
+    #     space = DiscreteFlowSpace(
+    #         6,
+    #         0,
+    #         flow_type=flow_type,
+    #         rollout=1,
+    #         layer_sizes=self.layer_Psi,
+    #         apply_at_each_step=apply_at_each_step,
+    #         activation_type="silu",
+    #         periodic=False,
+    #         periods=torch.tensor([period, period, period]),
+    #         # periods=torch.tensor([period]),
+    #     )
+
+    #     trainer = trainer_type(space, data)
+
+    #     # if tol[0] is None:
+    #     #     trainer.solve(epochs=epochs_Ad, verbose=True, batch_size=1000)
+    #     # else:
+    #     trainer.solve(
+    #         max_epochs=self.epochs_Ad_Psi,  # loss_target=tol[0],
+    #         verbose=True,
+    #         batch_size=1000,
+    #     )
+
+    #     # store_losses[0].append(trainer.losses.loss_history[-1])
+    #     # store_epochs[0].append(len(trainer.losses.loss_history))
+
+    #     if use_natural_gradient:
+    #         trainer = trainer_NG(space, data)
+    #         # if tol[1] is None:
+    #         #     trainer.solve(epochs=epochs_NG, verbose=True, batch_size=1000)
+    #         # else:
+    #         trainer.solve(
+    #             max_epochs=self.epochs_NG_Psi,
+    #             # loss_target=tol[1],
+    #             verbose=True,
+    #             batch_size=1000,
+    #         )
+
+    #         # store_losses[1].append(trainer.losses.loss_history[-1])
+    #         # store_epochs[1].append(len(trainer.losses.loss_history))
+
+    #     return space
+
+    def compute_backward_flow(
+        self,
+        x_before,
+        x_non_periodic,
+        period=1.0,
+    ):
+        use_natural_gradient = True
+        Np = self.kinetic_ions.var.particles.Np
+
+        def apply_at_each_step(outputs):
+            x = outputs[:, :3] % period
+            v = outputs[:, 3:]
+            return torch.cat((x, v), dim=1)
+
+        pos0 = torch.from_numpy(x_before[0]).to(dtype=torch.float64)
+        vel0 = torch.from_numpy(x_before[1]).to(dtype=torch.float64)
+        y_target = torch.cat((pos0, vel0), dim=1)  # (Np, 6)
+
+        posT = torch.from_numpy(x_non_periodic[0]).to(dtype=torch.float64)
+        velT = torch.from_numpy(x_non_periodic[1]).to(dtype=torch.float64)
+        x_input = torch.cat((posT, velT), dim=1)  # (Np, 6)
+
+        # sanity checks (leave them during debugging)
+        assert x_input.shape == y_target.shape
+        assert x_input.shape[1] == 6
+
+        data = (x_input, y_target)
+
+        space = DiscreteFlowSpace(
+            6,
+            0,
+            flow_type=SympNet,
+            rollout=1,
+            layer_sizes=self.layer_Psi,
+            apply_at_each_step=apply_at_each_step,
+            activation_type="silu",
+            periodic=True,
+            periods=torch.tensor([period, period, period], dtype=torch.float64),
+        )
+
+        trainer = FlowTrainer(space, data)
+        trainer.solve(
+            max_epochs=self.epochs_Ad_Psi,
+            verbose=True,
+            batch_size=5000,
+        )
+
+        if use_natural_gradient:
+            trainer_ng = NaturalGradientFlowTrainer(space, data)
+            trainer_ng.solve(
+                max_epochs=self.epochs_NG_Psi,
+                verbose=True,
+                batch_size=5000,
+            )
+
+        return space
+
+    def update_bulk_current(self):
+        pass
+
+    def update_f_bulk(self):
+
+        def new_f_bulk(x1, x2, x3, v1, v2, v3):
+            x1_flat = np.ravel(x1)
+            x2_flat = np.ravel(x2)
+            x3_flat = np.ravel(x3)
+            v1_flat = np.ravel(v1)
+            v2_flat = np.ravel(v2)
+            v3_flat = np.ravel(v3)
+            original_shape = x1.shape
+            z = torch.tensor(
+                np.stack(
+                    [x1_flat, x2_flat, x3_flat, v1_flat, v2_flat, v3_flat], axis=1
+                ),
+                dtype=torch.float64,
+            )
+            mu = torch.empty(0)
+            with torch.no_grad():
+
+                for space in reversed(self.space_list):
+                    z = space.inference(z, mu, 1).squeeze(0)
+            z_np = z.detach().cpu().numpy()
+
+            f_bulk_vals = self.original_f0(
+                z_np[:, 0], z_np[:, 1], z_np[:, 2], z_np[:, 3], z_np[:, 4], z_np[:, 5]
+            )
+
+            return f_bulk_vals.reshape(original_shape)
+
+        # Mettre à jour f0
+        #    particles.f0 = particles._original_f0
+        self.kinetic_ions.var.particles.f0 = new_f_bulk
+        self.kinetic_ions.var.particles.f0.coords = None
+        self.update_bulk_current()
+        self.kinetic_ions.var.particles.update_weights()
+
+    def project_density(self):
+
+        pass
+
+    def plot_f_bulk(self):
+
+        vmin = -8
+        vmax = 8
+
+        e1 = np.linspace(0.0, 1.0, 128)
+        v1 = np.linspace(vmin, vmax, 256)
+        E1, V1 = np.meshgrid(e1, v1, indexing="ij")
+
+        E1_flat = E1.flatten()
+        V1_flat = V1.flatten()
+
+        X_eval = torch.tensor(
+            np.stack(
+                [
+                    E1_flat,
+                    np.zeros_like(E1_flat),
+                    np.zeros_like(E1_flat),
+                    V1_flat,
+                    np.zeros_like(E1_flat),
+                    np.zeros_like(E1_flat),
+                ],
+                axis=1,
+            ),
+            dtype=torch.float64,
+        )
+
+        # Appliquer les transformations
+        X_transformed = X_eval.clone()
+        mu = torch.empty(0)
+        # if flow_inversed:
+        #     for space in reversed(space_list):
+        #         X_transformed = space.inference(X_transformed, 1).squeeze(0)
+        # else:
+        for space in self.space_list:
+            X_transformed = space.inference(X_transformed, mu, 1).squeeze(0)
+        X_np = X_transformed.detach().cpu().numpy()
+
+        # Évaluer f0 transformé
+        f_bulk_vals = self.kinetic_ions.var.particles.f_init(
+            X_np[:, 0],
+            X_np[:, 1],
+            X_np[:, 2],
+            X_np[:, 3],
+            X_np[:, 4],
+            X_np[:, 5],
+        ).reshape(E1.shape)
+
+        # Binning des particules
+        # f_e1v1, df_e1v1 = particles.binning(
+        #     components=components, bin_edges=[bin_edges_e, bin_edges_v]
+        # )
+
+        # Visualisation
+        fig, axes = plt.subplots(1, 1, figsize=(21, 5))
+
+        # Plot f0 along the curve B(...)
+        im0 = axes.pcolormesh(E1, V1, f_bulk_vals, shading="auto", cmap="turbo")
+        axes.set_xlabel(r"$\eta_1$")
+        axes.set_ylabel(r"$v_x$")
+        axes.set_title(r"$f^0(B(\eta_1, 0, 0,v_x, 0, 0))$")
+        fig.colorbar(im0, ax=axes)
+
+        plt.tight_layout()
+        plt.show()
+
+    def integrate(self, dt, split_algo):
+        print("coucou integrate dans le model direct")
+        print(f"n = {self.n}")
+        # particles = self.kinetic_ions.var.particles
+        if self.n == 1:
+            self.original_f0 = self.kinetic_ions.var.particles.f0
+            self.kinetic_ions.var.particles.non_periodic_positions = (
+                self.kinetic_ions.var.particles.positions.copy()
+            )
+            self.plot_f_bulk()
+        pos_before = self.kinetic_ions.var.particles.positions.copy()
+        vel_before = self.kinetic_ions.var.particles.velocities.copy()
+        self.x_before.append([pos_before, vel_before])
+
+        # self.x_before = [pos_before, vel_before])
+        print(f"pos_before.shape = {pos_before.shape}")
+
+        self.propagators.push_eta(dt / 2)
+        self.kinetic_ions.var.particles.non_periodic_positions += (
+            dt / 2 * self.kinetic_ions.var.particles.velocities
+        )
+        self.propagators.coupling_va(dt)
+        self.propagators.push_eta(dt / 2)
+        self.kinetic_ions.var.particles.non_periodic_positions += (
+            dt / 2 * self.kinetic_ions.var.particles.velocities
+        )
+        print(f"Nt_train = {self.Nt_train}")
+        if self.n % self.Nt_train == 0 and self.n > 1:
+
+            x_non_periodic = [
+                self.kinetic_ions.var.particles.non_periodic_positions.copy(),
+                self.kinetic_ions.var.particles.velocities.copy(),
+            ]
+
+            x0 = self.x_before[0]
+            space = self.compute_backward_flow(
+                x0,
+                x_non_periodic,
+                period=1,
+            )
+            #   self.store_train_times_Psi.append(self.t)
+            self.space_list.append(space)
+            # self.update_f_bulk()
+            self.kinetic_ions.var.particles.non_periodic_positions = (
+                self.kinetic_ions.var.particles.positions.copy()
+            )
+            self.x_before.clear()
+
+            # Plot
+            if self.plot_distribution_at_each_learning:
+                self.plot_f_bulk()
+
+            if self.f0_remap and len(self.space_list) == self.max_nb_Psi_networks:
+                print(f"Remapping f0")
+                rhs = self.particles.f_bulk
+                f0_torch = self.project_density(
+                    rhs,
+                    self.particles.boxsize,
+                    self.particles.vmax,
+                    epochs_Adam=epochs_Ad_f0,
+                    epochs_NG=epochs_NG_f0,
+                    layers_size=layers_f0,
+                    tol=tol_f0,
+                    store_losses=self.store_losses_f0,
+                    store_epochs=self.store_epochs_f0,
+                )
+                self.store_train_times_f0.append(self.t)
+
+                def f0_np(x, v):
+
+                    x_flat = np.ravel(x)
+                    v_flat = np.ravel(v)
+
+                    z = torch.tensor(
+                        np.stack([x_flat, v_flat], axis=1), dtype=torch.float64
+                    )
+                    with torch.no_grad():
+                        f0_vals = f0_torch(z)
+
+                    f0_vals_np = np.abs(f0_vals.detach().cpu().numpy().reshape(x.shape))
+
+                    return f0_vals_np
+
+                self.particles.f_bulk = f0_np
+                self.particles.f0 = f0_np
+                self.space_list = []
+                particles.update_weights()
+
+        self.n += 1
 
 
 class VlasovAmpereOneSpecies(StruphyModel):
@@ -110,7 +714,9 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
     def __init__(self, with_B0: bool = True):
         if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
+            print(
+                f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':"
+            )
 
         self.with_B0 = with_B0
 
@@ -130,7 +736,9 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
         # define scalars for update_scalar_quantities
         self.add_scalar("en_E")
-        self.add_scalar("en_f", compute="from_particles", variable=self.kinetic_ions.var)
+        self.add_scalar(
+            "en_f", compute="from_particles", variable=self.kinetic_ions.var
+        )
         self.add_scalar("en_tot")
 
         # initial Poisson (not a propagator used in time stepping)
@@ -229,13 +837,19 @@ class VlasovAmpereOneSpecies(StruphyModel):
             for line in f:
                 if "coupling_va.Options" in line:
                     new_file += [line]
-                    new_file += ["model.initial_poisson.options = model.initial_poisson.Options()\n"]
+                    new_file += [
+                        "model.initial_poisson.options = model.initial_poisson.Options()\n"
+                    ]
                 elif "push_vxb.Options" in line:
                     new_file += ["if model.with_B0:\n"]
                     new_file += ["    " + line]
                 elif "set_save_data" in line:
-                    new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
-                    new_file += ["model.kinetic_ions.set_save_data(binning_plots=(binplot,))\n"]
+                    new_file += [
+                        "\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"
+                    ]
+                    new_file += [
+                        "model.kinetic_ions.set_save_data(binning_plots=(binplot,))\n"
+                    ]
                 else:
                     new_file += [line]
 
@@ -350,7 +964,9 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
     def __init__(self):
         if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
+            print(
+                f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':"
+            )
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -370,7 +986,9 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # define scalars for update_scalar_quantities
         self.add_scalar("en_E")
         self.add_scalar("en_B")
-        self.add_scalar("en_f", compute="from_particles", variable=self.kinetic_ions.var)
+        self.add_scalar(
+            "en_f", compute="from_particles", variable=self.kinetic_ions.var
+        )
         self.add_scalar("en_tot")
 
         # initial Poisson (not a propagator used in time stepping)
@@ -474,14 +1092,20 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             for line in f:
                 if "coupling_va.Options" in line:
                     new_file += [line]
-                    new_file += ["model.initial_poisson.options = model.initial_poisson.Options()\n"]
+                    new_file += [
+                        "model.initial_poisson.options = model.initial_poisson.Options()\n"
+                    ]
                 elif "push_vxb.Options" in line:
                     new_file += [
                         "model.propagators.push_vxb.options = model.propagators.push_vxb.Options(b2_var=model.em_fields.b_field)\n",
                     ]
                 elif "set_save_data" in line:
-                    new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
-                    new_file += ["model.kinetic_ions.set_save_data(binning_plots=(binplot,))\n"]
+                    new_file += [
+                        "\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"
+                    ]
+                    new_file += [
+                        "model.kinetic_ions.set_save_data(binning_plots=(binplot,))\n"
+                    ]
                 else:
                     new_file += [line]
 
@@ -593,7 +1217,9 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         with_E0: bool = True,
     ):
         if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
+            print(
+                f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':"
+            )
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -613,7 +1239,9 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
         # define scalars for update_scalar_quantities
         self.add_scalar("en_E")
-        self.add_scalar("en_w", compute="from_particles", variable=self.kinetic_ions.var)
+        self.add_scalar(
+            "en_w", compute="from_particles", variable=self.kinetic_ions.var
+        )
         self.add_scalar("en_tot")
 
         # initial Poisson (not a propagator used in time stepping)
@@ -664,7 +1292,8 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             / (2 * particles.Np)
             * xp.dot(
                 particles.weights**2,  # w_p^2
-                particles.sampling_density / self._f0_values[particles.valid_mks],  # s_{0,p} / f_{0,p}
+                particles.sampling_density
+                / self._f0_values[particles.valid_mks],  # s_{0,p} / f_{0,p}
             )
         )
 
@@ -729,10 +1358,16 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
                 if "maxwellian_1 + maxwellian_2" in line:
                     new_file += ["background = maxwellian_1\n"]
                 elif "maxwellian_1pt =" in line:
-                    new_file += ["maxwellian_1pt = maxwellians.Maxwellian3D(n=(0.0, perturbation))\n"]
+                    new_file += [
+                        "maxwellian_1pt = maxwellians.Maxwellian3D(n=(0.0, perturbation))\n"
+                    ]
                 elif "set_save_data" in line:
-                    new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
-                    new_file += ["model.kinetic_ions.set_save_data(binning_plots=(binplot,))\n"]
+                    new_file += [
+                        "\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"
+                    ]
+                    new_file += [
+                        "model.kinetic_ions.set_save_data(binning_plots=(binplot,))\n"
+                    ]
                 else:
                     new_file += [line]
 
@@ -849,7 +1484,9 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         with_E0: bool = True,
     ):
         if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
+            print(
+                f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':"
+            )
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -872,7 +1509,9 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         # define scalars for update_scalar_quantities
         self.add_scalar("en_E")
         self.add_scalar("en_B")
-        self.add_scalar("en_w", compute="from_particles", variable=self.kinetic_ions.var)
+        self.add_scalar(
+            "en_w", compute="from_particles", variable=self.kinetic_ions.var
+        )
         self.add_scalar("en_tot")
 
         # initial Poisson (not a propagator used in time stepping)
@@ -886,7 +1525,9 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         b = self.em_fields.b_field.spline.vector
 
         en_B = 0.5 * self._mass_ops.M2.dot_inner(b, b)
-        self.update_scalar("en_tot", self.scalar_quantities["en_tot"]["value"][0] + en_B)
+        self.update_scalar(
+            "en_tot", self.scalar_quantities["en_tot"]["value"][0] + en_B
+        )
 
 
 class DriftKineticElectrostaticAdiabatic(StruphyModel):
@@ -962,7 +1603,9 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
     def __init__(self):
         if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
+            print(
+                f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':"
+            )
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -978,7 +1621,9 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
         # define scalars for update_scalar_quantities
         self.add_scalar("en_phi")
-        self.add_scalar("en_particles", compute="from_particles", variable=self.kinetic_ions.var)
+        self.add_scalar(
+            "en_particles", compute="from_particles", variable=self.kinetic_ions.var
+        )
         self.add_scalar("en_tot")
 
     @property
@@ -993,7 +1638,9 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         self._tmp3 = xp.empty(1, dtype=float)
         self._e_field = self.derham.Vh["1"].zeros()
 
-        assert self.kinetic_ions.charge_number > 0, "Model written only for positive ions."
+        assert (
+            self.kinetic_ions.charge_number > 0
+        ), "Model written only for positive ions."
 
     def allocate_propagators(self):
         """Solve initial Poisson equation.
@@ -1061,7 +1708,8 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
             1
             / particles.Np
             * xp.sum(
-                particles.weights * particles.velocities[:, 0] ** 2 / 2.0 + particles.markers_wo_holes_and_ghost[:, 8],
+                particles.weights * particles.velocities[:, 0] ** 2 / 2.0
+                + particles.markers_wo_holes_and_ghost[:, 8],
             )
         )
 
@@ -1086,8 +1734,12 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
                         "model.propagators.push_gc_para.options = model.propagators.push_gc_para.Options(phi=model.em_fields.phi)\n",
                     ]
                 elif "set_save_data" in line:
-                    new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
-                    new_file += ["model.kinetic_ions.set_save_data(binning_plots=(binplot,))\n"]
+                    new_file += [
+                        "\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"
+                    ]
+                    new_file += [
+                        "model.kinetic_ions.set_save_data(binning_plots=(binplot,))\n"
+                    ]
                 else:
                     new_file += [line]
 

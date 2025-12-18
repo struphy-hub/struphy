@@ -35,6 +35,87 @@ from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
 
 
+class ComputeBackwardFlow(Propagator):
+
+    class Variables:
+        def __init__(self):
+            self._var: PICVariable | SPHVariable = None
+
+        @property
+        def var(self) -> PICVariable | SPHVariable:
+            return self._var
+
+        @var.setter
+        def var(self, new):
+            assert isinstance(new, PICVariable | SPHVariable)
+            self._var = new
+
+    def __init__(self):
+        self.variables = self.Variables()
+
+    @dataclass
+    class Options:
+        butcher: ButcherTableau = None
+
+        def __post_init__(self):
+            # defaults
+            if self.butcher is None:
+                self.butcher = ButcherTableau()
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    @profile
+    def allocate(self):
+        # get kernel
+        kernel = Pyccelkernel(pusher_kernels.push_eta_stage)
+
+        # define algorithm
+        butcher = self.options.butcher
+        # temp fix due to refactoring of ButcherTableau:
+        import cunumpy as xp
+
+        butcher._a = xp.diag(butcher.a, k=-1)
+        butcher._a = xp.array(list(butcher.a) + [0.0])
+
+        args_kernel = (
+            butcher.a,
+            butcher.b,
+            butcher.c,
+        )
+
+        self._pusher = Pusher(
+            self.variables.var.particles,
+            kernel,
+            args_kernel,
+            self.domain.args_domain,
+            alpha_in_kernel=1.0,
+            n_stages=butcher.n_stages,
+            mpi_sort="each",
+        )
+
+    @profile
+    def __call__(self, dt):
+        # self._pusher(dt)
+        print("hello")
+
+    # # update_weights
+    # if self.variables.var.particles.control_variate:
+    #     self.variables.var.particles.update_weights()
+
+
 class PushEta(Propagator):
     r"""For each marker :math:`p`, solves
 
@@ -196,7 +277,9 @@ class PushVxB(Propagator):
     def allocate(self):
         # scaling factor
         self._epsilon = self.variables.ions.species.equation_params.epsilon
-        assert self.derham is not None, f"{self.__class__.__name__} needs a Derham object."
+        assert (
+            self.derham is not None
+        ), f"{self.__class__.__name__} needs a Derham object."
 
         # TODO: treat PolarVector as well, but polar splines are being reworked at the moment
         if self.projected_equil is not None:
@@ -305,7 +388,10 @@ class PushVinEfield(Propagator):
         def __post_init__(self):
             # checks
             if self.e_field is not None:
-                assert isinstance(self.e_field, tuple[Callable]) or self.e_field.space == "Hcurl"
+                assert (
+                    isinstance(self.e_field, tuple[Callable])
+                    or self.e_field.space == "Hcurl"
+                )
             else:
                 if self.phi is not None:
                     assert isinstance(self.phi, Callable) or self.phi.space == "H1"
@@ -612,7 +698,9 @@ class PushGuidingCenterBxEstar(Propagator):
 
             self._PB = getattr(self.basis_ops, "PB")
 
-            B_dot_b = self._PB.dot(self.options.b_tilde.spline.vector, out=self._B_dot_b)
+            B_dot_b = self._PB.dot(
+                self.options.b_tilde.spline.vector, out=self._B_dot_b
+            )
             B_dot_b.update_ghost_regions()
 
             grad_b_full = self.derham.grad.dot(B_dot_b, out=self._grad_b_full)
@@ -743,7 +831,9 @@ class PushGuidingCenterBxEstar(Propagator):
                     )
 
                     # pusher kernel
-                    kernel = Pyccelkernel(pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order_newton)
+                    kernel = Pyccelkernel(
+                        pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order_newton
+                    )
 
                     alpha_in_kernel = 1.0  # evaluate at eta^{n+1,k} and save
                     args_kernel = (
@@ -777,7 +867,9 @@ class PushGuidingCenterBxEstar(Propagator):
                     )  # evaluate at eta^{n+1,k} and save
 
                     # pusher kernel
-                    kernel = Pyccelkernel(pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order)
+                    kernel = Pyccelkernel(
+                        pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order
+                    )
 
                     alpha_in_kernel = 0.5  # evaluate at mid-point
                     args_kernel = (
@@ -823,7 +915,9 @@ class PushGuidingCenterBxEstar(Propagator):
                 )  # evaluate at eta^{n+1,k} and save)
 
                 # pusher kernel
-                kernel = Pyccelkernel(pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_2nd_order)
+                kernel = Pyccelkernel(
+                    pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_2nd_order
+                )
 
                 alpha_in_kernel = 0.5  # evaluate at mid-point
                 args_kernel = (
@@ -912,7 +1006,9 @@ class PushGuidingCenterBxEstar(Propagator):
 
         # magnetic perturbation
         if self.options.b_tilde is not None:
-            B_dot_b = self._PB.dot(self.options.b_tilde.spline.vector, out=self._B_dot_b)
+            B_dot_b = self._PB.dot(
+                self.options.b_tilde.spline.vector, out=self._B_dot_b
+            )
             B_dot_b.update_ghost_regions()
 
             grad_b_full = self.derham.grad.dot(B_dot_b, out=self._grad_b_full)
@@ -1054,7 +1150,9 @@ class PushGuidingCenterParallel(Propagator):
 
             self._PB = getattr(self.basis_ops, "PB")
 
-            B_dot_b = self._PB.dot(self.options.b_tilde.spline.vector, out=self._B_dot_b)
+            B_dot_b = self._PB.dot(
+                self.options.b_tilde.spline.vector, out=self._B_dot_b
+            )
             B_dot_b.update_ghost_regions()
 
             grad_b_full = self.derham.grad.dot(B_dot_b, out=self._grad_b_full)
@@ -1189,7 +1287,9 @@ class PushGuidingCenterParallel(Propagator):
                     )
 
                     # pusher kernel
-                    kernel = Pyccelkernel(pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order_newton)
+                    kernel = Pyccelkernel(
+                        pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order_newton
+                    )
 
                     alpha_in_kernel = 1.0  # evaluate at eta^{n+1,k} and save
                     args_kernel = (
@@ -1222,7 +1322,9 @@ class PushGuidingCenterParallel(Propagator):
                     )  # evaluate at Z^{n+1,k} and save
 
                     # pusher kernel
-                    kernel = Pyccelkernel(pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order)
+                    kernel = Pyccelkernel(
+                        pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order
+                    )
 
                     alpha_in_kernel = 0.5  # evaluate at mid-point
                     args_kernel = (
@@ -1268,7 +1370,9 @@ class PushGuidingCenterParallel(Propagator):
                 )  # evaluate at Z^{n+1,k} and save
 
                 # pusher kernel
-                kernel = Pyccelkernel(pusher_kernels_gc.push_gc_Bstar_discrete_gradient_2nd_order)
+                kernel = Pyccelkernel(
+                    pusher_kernels_gc.push_gc_Bstar_discrete_gradient_2nd_order
+                )
 
                 alpha_in_kernel = 0.5  # evaluate at mid-point
                 args_kernel = (
@@ -1363,7 +1467,9 @@ class PushGuidingCenterParallel(Propagator):
 
         # magnetic perturbation
         if self.options.b_tilde is not None:
-            B_dot_b = self._PB.dot(self.options.b_tilde.spline.vector, out=self._B_dot_b)
+            B_dot_b = self._PB.dot(
+                self.options.b_tilde.spline.vector, out=self._B_dot_b
+            )
             B_dot_b.update_ghost_regions()
 
             grad_b_full = self.derham.grad.dot(B_dot_b, out=self._grad_b_full)
@@ -1723,9 +1829,18 @@ class PushVinSPHpressure(Propagator):
         kernel_nr = particles.ker_dct()[self.options.kernel_type]
 
         if self.options.kernel_width is None:
-            self.options.kernel_width = tuple([1 / ni for ni in particles.boxes_per_dim])
+            self.options.kernel_width = tuple(
+                [1 / ni for ni in particles.boxes_per_dim]
+            )
         else:
-            assert all([hi <= 1 / ni for hi, ni in zip(self.options.kernel_width, particles.boxes_per_dim)])
+            assert all(
+                [
+                    hi <= 1 / ni
+                    for hi, ni in zip(
+                        self.options.kernel_width, particles.boxes_per_dim
+                    )
+                ]
+            )
 
         # init kernel
         args_init = (
@@ -1815,7 +1930,9 @@ class PushVinViscousPotential2D(Propagator):
         *,
         kernel_type: str = "gaussian_2d",
         kernel_width: tuple = None,
-        algo: str = options(default=True)["algo"],  # TODO: implement other algos than forward Euler
+        algo: str = options(default=True)[
+            "algo"
+        ],  # TODO: implement other algos than forward Euler
     ):
         # base class constructor call
         super().__init__(particles)
@@ -1843,7 +1960,12 @@ class PushVinViscousPotential2D(Propagator):
         if kernel_width is None:
             kernel_width = tuple([1 / ni for ni in self.particles[0].boxes_per_dim])
         else:
-            assert all([hi <= 1 / ni for hi, ni in zip(kernel_width, self.particles[0].boxes_per_dim)])
+            assert all(
+                [
+                    hi <= 1 / ni
+                    for hi, ni in zip(kernel_width, self.particles[0].boxes_per_dim)
+                ]
+            )
 
         # init kernel
         args_init = (
@@ -1946,7 +2068,9 @@ class PushVinViscousPotential3D(Propagator):
         *,
         kernel_type: str = "gaussian_3d",
         kernel_width: tuple = None,
-        algo: str = options(default=True)["algo"],  # TODO: implement other algos than forward Euler
+        algo: str = options(default=True)[
+            "algo"
+        ],  # TODO: implement other algos than forward Euler
     ):
         # base class constructor call
         super().__init__(particles)
@@ -1974,7 +2098,12 @@ class PushVinViscousPotential3D(Propagator):
         if kernel_width is None:
             kernel_width = tuple([1 / ni for ni in self.particles[0].boxes_per_dim])
         else:
-            assert all([hi <= 1 / ni for hi, ni in zip(kernel_width, self.particles[0].boxes_per_dim)])
+            assert all(
+                [
+                    hi <= 1 / ni
+                    for hi, ni in zip(kernel_width, self.particles[0].boxes_per_dim)
+                ]
+            )
 
         # init kernel
         args_init = (

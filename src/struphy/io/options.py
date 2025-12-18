@@ -22,14 +22,20 @@ BackgroundTypes = Literal["LogicalConst", "FluidEquilibrium"]
 
 # perturbations
 NoiseDirections = Literal["e1", "e2", "e3", "e1e2", "e1e3", "e2e3", "e1e2e3"]
-GivenInBasis = Literal["0", "1", "2", "3", "v", "physical", "physical_at_eta", "norm", None]
+GivenInBasis = Literal[
+    "0", "1", "2", "3", "v", "physical", "physical_at_eta", "norm", None
+]
 
 # solvers
 OptsSymmSolver = Literal["pcg", "cg"]
 OptsGenSolver = Literal["pbicgstab", "bicgstab", "GMRES"]
-OptsMassPrecond = Literal["MassMatrixPreconditioner", "MassMatrixDiagonalPreconditioner", None]
+OptsMassPrecond = Literal[
+    "MassMatrixPreconditioner", "MassMatrixDiagonalPreconditioner", None
+]
 OptsSaddlePointSolver = Literal["Uzawa", "GMRES"]
-OptsDirectSolver = Literal["SparseSolver", "ScipySparse", "InexactNPInverse", "DirectNPInverse"]
+OptsDirectSolver = Literal[
+    "SparseSolver", "ScipySparse", "InexactNPInverse", "DirectNPInverse"
+]
 OptsNonlinearSolver = Literal["Picard", "Newton"]
 
 # markers
@@ -175,7 +181,13 @@ class Units:
         """Unit of current density in A/m^2."""
         return self._j
 
-    def derive_units(self, velocity_scale: str = "light", A_bulk: int = None, Z_bulk: int = None, verbose=False):
+    def derive_units(
+        self,
+        velocity_scale: str = "light",
+        A_bulk: int = None,
+        Z_bulk: int = None,
+        verbose=False,
+    ):
         """Derive the remaining units from the base units, velocity scale and bulk species' A and Z."""
 
         con = ConstantsOfNature()
@@ -188,16 +200,24 @@ class Units:
             self._v = con.c
 
         elif velocity_scale == "alfvén":
-            assert A_bulk is not None, 'Need bulk species to choose velocity scale "alfvén".'
+            assert (
+                A_bulk is not None
+            ), 'Need bulk species to choose velocity scale "alfvén".'
             self._v = self.B / xp.sqrt(self.n * A_bulk * con.mH * con.mu0)
 
         elif velocity_scale == "cyclotron":
-            assert Z_bulk is not None, 'Need bulk species to choose velocity scale "cyclotron".'
-            assert A_bulk is not None, 'Need bulk species to choose velocity scale "cyclotron".'
+            assert (
+                Z_bulk is not None
+            ), 'Need bulk species to choose velocity scale "cyclotron".'
+            assert (
+                A_bulk is not None
+            ), 'Need bulk species to choose velocity scale "cyclotron".'
             self._v = Z_bulk * con.e * self.B / (A_bulk * con.mH) * self.x
 
         elif velocity_scale == "thermal":
-            assert A_bulk is not None, 'Need bulk species to choose velocity scale "thermal".'
+            assert (
+                A_bulk is not None
+            ), 'Need bulk species to choose velocity scale "thermal".'
             assert self.kBT is not None
             self._v = xp.sqrt(self.kBT * 1000 * con.e / (con.mH * A_bulk))
 

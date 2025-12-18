@@ -35,7 +35,13 @@ from struphy.io.options import BaseUnits, DerhamOptions, Time, Units
 from struphy.io.output_handling import DataContainer
 from struphy.io.setup import descend_options_dict, setup_derham
 from struphy.kinetic_background import maxwellians
-from struphy.models.species import DiagnosticSpecies, FieldSpecies, FluidSpecies, ParticleSpecies, Species
+from struphy.models.species import (
+    DiagnosticSpecies,
+    FieldSpecies,
+    FluidSpecies,
+    ParticleSpecies,
+    Species,
+)
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.pic import particles
 from struphy.pic.base import Particles
@@ -166,7 +172,9 @@ class StruphyModel(metaclass=ABCMeta):
     @property
     def species(self):
         if not hasattr(self, "_species"):
-            self._species = self.field_species | self.fluid_species | self.particle_species
+            self._species = (
+                self.field_species | self.fluid_species | self.particle_species
+            )
         return self._species
 
     ## allocate methods
@@ -241,7 +249,9 @@ class StruphyModel(metaclass=ABCMeta):
             Propagator.basis_ops = self.basis_ops
             Propagator.projected_equil = self.projected_equil
 
-        assert len(self.prop_list) > 0, "No propagators in this model, check the model class."
+        assert (
+            len(self.prop_list) > 0
+        ), "No propagators in this model, check the model class."
         for prop in self.prop_list:
             assert isinstance(prop, Propagator)
             prop.allocate()
@@ -346,7 +356,8 @@ class StruphyModel(metaclass=ABCMeta):
     @property
     def kwargs(self):
         """Dictionary holding the keyword arguments for each propagator specified in :attr:`~propagators_cls`.
-        Keys must be the same as in :attr:`~propagators_cls`, values are dictionaries holding the keyword arguments."""
+        Keys must be the same as in :attr:`~propagators_cls`, values are dictionaries holding the keyword arguments.
+        """
         return self._kwargs
 
     @property
@@ -458,7 +469,13 @@ class StruphyModel(metaclass=ABCMeta):
             assert key is not None, "Must provide key if option is not a class."
             setInDict(dct, species + ["options"] + key, option)
 
-    def add_scalar(self, name: str, variable: PICVariable | SPHVariable = None, compute=None, summands=None):
+    def add_scalar(
+        self,
+        name: str,
+        variable: PICVariable | SPHVariable = None,
+        compute=None,
+        summands=None,
+    ):
         """
         Add a scalar to be saved during the simulation.
 
@@ -478,7 +495,9 @@ class StruphyModel(metaclass=ABCMeta):
 
         assert isinstance(name, str), "name must be a string"
         if compute == "from_particles":
-            assert isinstance(variable, (PICVariable, SPHVariable)), f"Variable is needed when {compute =}"
+            assert isinstance(
+                variable, (PICVariable, SPHVariable)
+            ), f"Variable is needed when {compute =}"
 
         if not hasattr(self, "_scalar_quantities"):
             self._scalar_quantities = {}
@@ -540,7 +559,10 @@ class StruphyModel(metaclass=ABCMeta):
                     op=MPI.SUM,
                 )
 
-            if "sum_within_clone" in compute_operations and self.derham.comm is not None:
+            if (
+                "sum_within_clone" in compute_operations
+                and self.derham.comm is not None
+            ):
                 self.derham.comm.Allreduce(
                     MPI.IN_PLACE,
                     value_array,
@@ -576,7 +598,9 @@ class StruphyModel(metaclass=ABCMeta):
 
         else:
             # Sum the values of the summands
-            value = sum(self._scalar_quantities[summand]["value"][0] for summand in summands)
+            value = sum(
+                self._scalar_quantities[summand]["value"][0] for summand in summands
+            )
             self._scalar_quantities[name]["value"][0] = value
 
     def add_time_state(self, time_state):
@@ -727,7 +751,9 @@ class StruphyModel(metaclass=ABCMeta):
 
         for name, species in self.particle_species.items():
             assert isinstance(species, ParticleSpecies)
-            assert len(species.variables) == 1, "More than 1 variable per kinetic species is not allowed."
+            assert (
+                len(species.variables) == 1
+            ), "More than 1 variable per kinetic species is not allowed."
             for _, var in species.variables.items():
                 assert isinstance(var, PICVariable | SPHVariable)
                 obj = var.particles
@@ -752,7 +778,9 @@ class StruphyModel(metaclass=ABCMeta):
 
         for name, species in self.particle_species.items():
             assert isinstance(species, ParticleSpecies)
-            assert len(species.variables) == 1, "More than 1 variable per kinetic species is not allowed."
+            assert (
+                len(species.variables) == 1
+            ), "More than 1 variable per kinetic species is not allowed."
             for _, var in species.variables.items():
                 assert isinstance(var, PICVariable | SPHVariable)
                 obj = var.particles
@@ -772,7 +800,9 @@ class StruphyModel(metaclass=ABCMeta):
 
                     edges = bin_plot.bin_edges
                     divide_by_jac = bin_plot.divide_by_jac
-                    f_slice, df_slice = obj.binning(components, edges, divide_by_jac=divide_by_jac)
+                    f_slice, df_slice = obj.binning(
+                        components, edges, divide_by_jac=divide_by_jac
+                    )
 
                     bin_plot.f[:] = f_slice
                     bin_plot.df[:] = df_slice
@@ -1062,7 +1092,9 @@ class StruphyModel(metaclass=ABCMeta):
                 pass
 
             # save feec data in group 'feec/'
-            feec_species = self.field_species | self.fluid_species | self.diagnostic_species
+            feec_species = (
+                self.field_species | self.fluid_species | self.diagnostic_species
+            )
             for species, val in feec_species.items():
                 assert isinstance(val, Species)
 
@@ -1107,7 +1139,9 @@ class StruphyModel(metaclass=ABCMeta):
                         )
                     else:
                         for n in range(3):
-                            key_component_restart = os.path.join(key_field_restart, str(n + 1))
+                            key_component_restart = os.path.join(
+                                key_field_restart, str(n + 1)
+                            )
                             data.add_data(
                                 {key_component_restart: spline.vector_stencil[n]._data},
                             )
@@ -1115,7 +1149,9 @@ class StruphyModel(metaclass=ABCMeta):
             # save kinetic data in group 'kinetic/'
             for name, species in self.particle_species.items():
                 assert isinstance(species, ParticleSpecies)
-                assert len(species.variables) == 1, "More than 1 variable per kinetic species is not allowed."
+                assert (
+                    len(species.variables) == 1
+                ), "More than 1 variable per kinetic species is not allowed."
                 for varname, var in species.variables.items():
                     assert isinstance(var, PICVariable | SPHVariable)
                     obj = var.particles
@@ -1140,7 +1176,9 @@ class StruphyModel(metaclass=ABCMeta):
                     data.add_data({key_df: bin_plot.df})
 
                     for dim, be in enumerate(bin_plot.bin_edges):
-                        file[key_f].attrs["bin_centers" + "_" + str(dim + 1)] = be[:-1] + (be[1] - be[0]) / 2
+                        file[key_f].attrs["bin_centers" + "_" + str(dim + 1)] = (
+                            be[:-1] + (be[1] - be[0]) / 2
+                        )
 
                 for i, kd_plot in enumerate(species.kernel_density_plots):
                     key_n = os.path.join(key_spec, "n_sph", f"view_{i}")
@@ -1205,7 +1243,9 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 print(tab + spec_name + ":")
                 print(2 * tab + "options:")
                 if "options" in cls.options()["fluid"][spec_name]:
-                    for opt_k, opt_v in cls.options()["fluid"][spec_name]["options"].items():
+                    for opt_k, opt_v in cls.options()["fluid"][spec_name][
+                        "options"
+                    ].items():
                         if isinstance(opt_v, dict):
                             print((3 * tab + opt_k + " :").ljust(25))
                             for key, val in opt_v.items():
@@ -1223,7 +1263,9 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 print(tab + spec_name + ":")
                 print(2 * tab + "options:")
                 if "options" in cls.options()["kinetic"][spec_name]:
-                    for opt_k, opt_v in cls.options()["kinetic"][spec_name]["options"].items():
+                    for opt_k, opt_v in cls.options()["kinetic"][spec_name][
+                        "options"
+                    ].items():
                         if isinstance(opt_v, dict):
                             print((3 * tab + opt_k + " :").ljust(25))
                             for key, val in opt_v.items():
@@ -1236,7 +1278,9 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             print("None.")
 
     @classmethod
-    def write_parameters_to_file(cls, parameters=None, file=None, save=True, prompt=True):
+    def write_parameters_to_file(
+        cls, parameters=None, file=None, save=True, prompt=True
+    ):
         import os
 
         import yaml
@@ -1247,12 +1291,16 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         state = utils.read_state()
 
         i_path = state["i_path"]
-        assert os.path.exists(i_path), f"The path '{i_path}' does not exist. Set path with `struphy --set-i PATH`"
+        assert os.path.exists(
+            i_path
+        ), f"The path '{i_path}' does not exist. Set path with `struphy --set-i PATH`"
 
         if file is None:
             file = os.path.join(i_path, "params_" + cls.__name__ + ".yml")
         else:
-            assert ".yml" in file or ".yaml" in file, "File must have a a .yml (.yaml) extension."
+            assert (
+                ".yml" in file or ".yaml" in file
+            ), "File must have a a .yml (.yaml) extension."
             file = os.path.join(i_path, file)
 
         if save:
@@ -1322,7 +1370,9 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 print("exiting ...")
                 exit()
 
-        file.write("from struphy.io.options import EnvironmentOptions, BaseUnits, Time\n")
+        file.write(
+            "from struphy.io.options import EnvironmentOptions, BaseUnits, Time\n"
+        )
         file.write("from struphy.geometry import domains\n")
         file.write("from struphy.fields_background import equils\n")
 
@@ -1342,13 +1392,21 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     particle_params += "\nloading_params = LoadingParameters()\n"
                     particle_params += "weights_params = WeightsParameters()\n"
                     particle_params += "boundary_params = BoundaryParameters()\n"
-                    particle_params += f"model.{sn}.set_markers(loading_params=loading_params,\n"
+                    particle_params += (
+                        f"model.{sn}.set_markers(loading_params=loading_params,\n"
+                    )
                     txt = "weights_params=weights_params,\n"
-                    particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
+                    particle_params += indent(
+                        txt, " " * len(f"model.{sn}.set_markers(")
+                    )
                     txt = "boundary_params=boundary_params,\n"
-                    particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
+                    particle_params += indent(
+                        txt, " " * len(f"model.{sn}.set_markers(")
+                    )
                     txt = ")\n"
-                    particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
+                    particle_params += indent(
+                        txt, " " * len(f"model.{sn}.set_markers(")
+                    )
                     particle_params += f"model.{sn}.set_sorting_boxes()\n"
                     particle_params += f"model.{sn}.set_save_data()\n"
 
@@ -1356,42 +1414,54 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 if isinstance(var, FEECVariable):
                     has_feec = True
                     if var.space in ("H1", "L2"):
-                        init_bckgr_feec = f"model.{sn}.{vn}.add_background(FieldsBackground())\n"
+                        init_bckgr_feec = (
+                            f"model.{sn}.{vn}.add_background(FieldsBackground())\n"
+                        )
                         init_pert_feec = f"model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos())\n"
                     else:
-                        init_bckgr_feec = f"model.{sn}.{vn}.add_background(FieldsBackground())\n"
-                        init_pert_feec = (
-                            f"model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v', comp=0))\n\
+                        init_bckgr_feec = (
+                            f"model.{sn}.{vn}.add_background(FieldsBackground())\n"
+                        )
+                        init_pert_feec = f"model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v', comp=0))\n\
 model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v', comp=1))\n\
 model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v', comp=2))\n"
-                        )
 
                 elif isinstance(var, PICVariable):
                     has_pic = True
-                    init_pert_pic = (
-                        "\n# if .add_initial_condition is not called, the background is the kinetic initial condition\n"
-                    )
+                    init_pert_pic = "\n# if .add_initial_condition is not called, the background is the kinetic initial condition\n"
                     init_pert_pic += "perturbation = perturbations.TorusModesCos()\n"
                     if "6D" in var.space:
-                        init_bckgr_pic = "maxwellian_1 = maxwellians.Maxwellian3D(n=(1.0, None))\n"
-                        init_bckgr_pic += "maxwellian_2 = maxwellians.Maxwellian3D(n=(0.1, None))\n"
+                        init_bckgr_pic = (
+                            "maxwellian_1 = maxwellians.Maxwellian3D(n=(1.0, None))\n"
+                        )
+                        init_bckgr_pic += (
+                            "maxwellian_2 = maxwellians.Maxwellian3D(n=(0.1, None))\n"
+                        )
                         init_pert_pic += "maxwellian_1pt = maxwellians.Maxwellian3D(n=(1.0, perturbation))\n"
                         init_pert_pic += "init = maxwellian_1pt + maxwellian_2\n"
-                        init_pert_pic += f"model.{sn}.{vn}.add_initial_condition(init)\n"
+                        init_pert_pic += (
+                            f"model.{sn}.{vn}.add_initial_condition(init)\n"
+                        )
                     elif "5D" in var.space:
                         init_bckgr_pic = "maxwellian_1 = maxwellians.GyroMaxwellian2D(n=(1.0, None), equil=equil)\n"
                         init_bckgr_pic += "maxwellian_2 = maxwellians.GyroMaxwellian2D(n=(0.1, None), equil=equil)\n"
-                        init_pert_pic += (
-                            "maxwellian_1pt = maxwellians.GyroMaxwellian2D(n=(1.0, perturbation), equil=equil)\n"
-                        )
+                        init_pert_pic += "maxwellian_1pt = maxwellians.GyroMaxwellian2D(n=(1.0, perturbation), equil=equil)\n"
                         init_pert_pic += "init = maxwellian_1pt + maxwellian_2\n"
-                        init_pert_pic += f"model.{sn}.{vn}.add_initial_condition(init)\n"
+                        init_pert_pic += (
+                            f"model.{sn}.{vn}.add_initial_condition(init)\n"
+                        )
                     if "3D" in var.space:
-                        init_bckgr_pic = "maxwellian_1 = maxwellians.ColdPlasma(n=(1.0, None))\n"
-                        init_bckgr_pic += "maxwellian_2 = maxwellians.ColdPlasma(n=(0.1, None))\n"
+                        init_bckgr_pic = (
+                            "maxwellian_1 = maxwellians.ColdPlasma(n=(1.0, None))\n"
+                        )
+                        init_bckgr_pic += (
+                            "maxwellian_2 = maxwellians.ColdPlasma(n=(0.1, None))\n"
+                        )
                         init_pert_pic += "maxwellian_1pt = maxwellians.ColdPlasma(n=(1.0, perturbation))\n"
                         init_pert_pic += "init = maxwellian_1pt + maxwellian_2\n"
-                        init_pert_pic += f"model.{sn}.{vn}.add_initial_condition(init)\n"
+                        init_pert_pic += (
+                            f"model.{sn}.{vn}.add_initial_condition(init)\n"
+                        )
                     init_bckgr_pic += "background = maxwellian_1 + maxwellian_2\n"
                     init_bckgr_pic += f"model.{sn}.{vn}.add_background(background)\n"
 
@@ -1402,7 +1472,9 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                     init_bckgr_sph = "background = equils.ConstantVelocity()\n"
                     init_bckgr_sph += f"model.{sn}.{vn}.add_background(background)\n"
                     init_pert_sph = "perturbation = perturbations.TorusModesCos()\n"
-                    init_pert_sph += f"model.{sn}.{vn}.add_perturbation(del_n=perturbation)\n"
+                    init_pert_sph += (
+                        f"model.{sn}.{vn}.add_perturbation(del_n=perturbation)\n"
+                    )
                 exclude = f"# model.{sn}.{vn}.save_data = False\n"
 
         file.write("from struphy.topology import grids\n")
@@ -1436,7 +1508,9 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
         file.write("\n# geometry\n")
         file.write("domain = domains.Cuboid()\n")
 
-        file.write("\n# fluid equilibrium (can be used as part of initial conditions)\n")
+        file.write(
+            "\n# fluid equilibrium (can be used as part of initial conditions)\n"
+        )
         file.write("equil = equils.HomogenSlab()\n")
 
         # if has_feec:
@@ -1463,7 +1537,9 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
 
         file.write("\n# propagator options\n")
         for prop in self.propagators.__dict__:
-            file.write(f"model.propagators.{prop}.options = model.propagators.{prop}.Options()\n")
+            file.write(
+                f"model.propagators.{prop}.options = model.propagators.{prop}.Options()\n"
+            )
 
         file.write("\n# background, perturbations and initial conditions\n")
         if has_feec:
