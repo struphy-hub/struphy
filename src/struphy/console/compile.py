@@ -1,6 +1,4 @@
-import sys
-
-from struphy.utils.utils import subp_run
+from struphy.utils.utils import subp_run, STRUPHY_LIBPATH
 
 
 def struphy_compile(
@@ -67,7 +65,7 @@ def struphy_compile(
     import struphy.dependencies as depmod
     import struphy.utils.utils as utils
 
-    libpath = struphy.__path__[0]
+    libpath = STRUPHY_LIBPATH
 
     so_suffix = sysconfig.get_config_var("EXT_SUFFIX")
 
