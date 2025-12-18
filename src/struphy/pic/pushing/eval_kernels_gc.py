@@ -1002,13 +1002,35 @@ def sph_viscosity_tensor(
                     h3,
                 )
 
-        mu = 0.007
+        #mu = 1e-4
+        #d = 0.5 * (grad_v_at_eta + grad_v_at_eta.T)
+        #trace_d = d[0, 0] + d[1, 1] + d[2, 2]
+        #d_dev[0, 0] = d[0, 0] - (trace_d / 3.0)
+        #d_dev[1, 1] = d[1, 1] - (trace_d / 3.0)
+        #d_dev[2, 2] = d[2, 2] - (trace_d / 3.0)
+        #d_dev *= 2 * mu * weight / n_at_eta
+        
+        
+        
+        mu = 1e-4
+
         d = 0.5 * (grad_v_at_eta + grad_v_at_eta.T)
+
+        
         trace_d = d[0, 0] + d[1, 1] + d[2, 2]
-        d_dev[0, 0] = d[0, 0] - (trace_d / 3.0)
-        d_dev[1, 1] = d[1, 1] - (trace_d / 3.0)
-        d_dev[2, 2] = d[2, 2] - (trace_d / 3.0)
+
+        
+        d_dev = d.copy()
+
+        
+        mean_trace = trace_d / 3.0
+        d_dev[0, 0] -= mean_trace
+        d_dev[1, 1] -= mean_trace
+        d_dev[2, 2] -= mean_trace
+
+        
         d_dev *= 2 * mu * weight / n_at_eta
+
         for j in range(3):
             for k in range(3):
                 markers[ip, column_nr + 3 * j + k] = d_dev[j, k]

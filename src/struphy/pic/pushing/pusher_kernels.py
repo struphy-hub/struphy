@@ -3130,6 +3130,7 @@ def push_v_viscosity(
         for j in range(3):  # row of viscosity tensor
             for k in range(3):  # column = derivative direction
                 coeff_idx = first_free_idx + 3 * j + k + 15
+                #coeff_idx = first_free_idx +  j + k + 15
 
                 # if k == 0:
                 #     deriv_type = kernel_type + 1

@@ -2977,12 +2977,12 @@ class ConstantVelocity(CartesianFluidEquilibrium):
             return self.params["n"] + self.params["n1"] * x
         elif self.params["density_profile"] == "gaussian_xy":
             return self.params["n"] * xp.exp(-(x**2 + y**2) / self.params["p0"])
-        elif self.params["density_profile"] == "step_function_x":
+        elif self.params["density_profile"] == "step_function_y":
             out = 1e-8 + 0 * x
             # mask_x = xp.logical_and(x < .6, x > .4)
             # mask_y = xp.logical_and(y < .6, y > .4)
             # mask = xp.logical_and(mask_x, mask_y)
-            mask = x < -2.0
+            mask = y < -2.0
             out[mask] = self.params["n"]
             return out
 

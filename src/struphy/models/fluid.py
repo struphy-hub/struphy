@@ -2230,31 +2230,34 @@ class EulerSPH(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self, with_B0: bool = True):
+        def __init__(self, with_B0: bool = True, with_p: bool = True,):
             self.push_eta = propagators_markers.PushEta()
             if with_B0:
                 self.push_vxb = propagators_markers.PushVxB()
-            self.push_sph_p = propagators_markers.PushVinSPHpressure()
+            if with_p:
+                self.push_sph_p = propagators_markers.PushVinSPHpressure()
 
     ## abstract methods
 
-    def __init__(self, with_B0: bool = True):
+    def __init__(self, with_B0: bool = True, with_p: bool = True,):
         if rank == 0:
             print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
 
         self.with_B0 = with_B0
+        self.with_p = with_p
 
         # 1. instantiate all species
         self.euler_fluid = self.EulerFluid()
 
         # 2. instantiate all propagators
-        self.propagators = self.Propagators(with_B0=with_B0)
+        self.propagators = self.Propagators(with_B0=with_B0, with_p= with_p)
 
         # 3. assign variables to propagators
         self.propagators.push_eta.variables.var = self.euler_fluid.var
         if with_B0:
             self.propagators.push_vxb.variables.ions = self.euler_fluid.var
-        self.propagators.push_sph_p.variables.fluid = self.euler_fluid.var
+        if with_p: 
+            self.propagators.push_sph_p.variables.fluid = self.euler_fluid.var
 
         # define scalars for update_scalar_quantities
         self.add_scalar("en_kin", compute="from_sph", variable=self.euler_fluid.var)
@@ -2353,33 +2356,39 @@ class ViscousEulerSPH(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self, with_B0: bool = True):
+        def __init__(self, with_B0: bool = True, with_p: bool = True, with_viscosity: bool = True,):
             self.push_eta = propagators_markers.PushEta()
             if with_B0:
                 self.push_vxb = propagators_markers.PushVxB()
-            self.push_sph_p = propagators_markers.PushVinSPHpressure()
-            self.push_viscous = propagators_markers.PushVinViscousPotential()
+            if with_p:
+                self.push_sph_p = propagators_markers.PushVinSPHpressure()
+            if with_viscosity: 
+                self.push_viscous = propagators_markers.PushVinViscousPotential()
 
     ## abstract methods
 
-    def __init__(self, with_B0: bool = True):
+    def __init__(self, with_B0: bool = True, with_p: bool= True, with_viscosity: bool = True):
         if rank == 0:
             print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
 
         self.with_B0 = with_B0
+        self.with_p = with_p
+        self.with_viscosity = with_viscosity 
 
         # 1. instantiate all species
         self.euler_fluid = self.EulerFluid()
 
         # 2. instantiate all propagators
-        self.propagators = self.Propagators(with_B0=with_B0)
+        self.propagators = self.Propagators(with_B0=with_B0, with_p = with_p, with_viscosity= with_viscosity)
 
         # 3. assign variables to propagators
         self.propagators.push_eta.variables.var = self.euler_fluid.var
         if with_B0:
             self.propagators.push_vxb.variables.ions = self.euler_fluid.var
-        self.propagators.push_sph_p.variables.fluid = self.euler_fluid.var
-        self.propagators.push_viscous.variables.fluid = self.euler_fluid.var
+        if with_p: 
+            self.propagators.push_sph_p.variables.fluid = self.euler_fluid.var
+        if with_viscosity:
+            self.propagators.push_viscous.variables.fluid = self.euler_fluid.var
 
         # define scalars for update_scalar_quantities
         self.add_scalar("en_kin", compute="from_sph", variable=self.euler_fluid.var)
