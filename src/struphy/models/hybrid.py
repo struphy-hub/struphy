@@ -596,8 +596,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 self.push_bxe = propagators_markers.PushGuidingCenterBxEstar()
             if "PushGuidingCenterParallel" not in turn_off:
                 self.push_parallel = propagators_markers.PushGuidingCenterParallel()
-            if "ShearAlfvenCurrentCoupling5D" not in turn_off:
-                self.shearalfen_cc5d = propagators_fields.ShearAlfvenCurrentCoupling5D()
             if "Magnetosonic" not in turn_off:
                 self.magnetosonic = propagators_fields.Magnetosonic()
             if "CurrentCoupling5DDensity" not in turn_off:
@@ -606,6 +604,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 self.cc5d_gradb = propagators_coupling.CurrentCoupling5DGradB()
             if "CurrentCoupling5DCurlb" not in turn_off:
                 self.cc5d_curlb = propagators_coupling.CurrentCoupling5DCurlb()
+            if "ShearAlfvenCurrentCoupling5D" not in turn_off:
+                self.shearalfen_cc5d = propagators_fields.ShearAlfvenCurrentCoupling5D()
 
     def __init__(self, turn_off: tuple[str, ...] = (None,)):
         if rank == 0:
