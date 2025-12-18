@@ -101,6 +101,7 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python
         run: |
           source env/bin/activate
+          struphy compile --status
           struphy test LinearMHD
 
       - name: Vlasov test
