@@ -94,7 +94,17 @@ jobs:
           source env/bin/activate
           cd src/struphy
           mpirun --oversubscribe -n 1 pytest --collect-only -q
-
+      
+      - name: Manual LinearMHD test
+        shell: bash
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python
+        run: |
+          source env/bin/activate
+          struphy compile --status
+          cd src/struphy/
+          mpirun --oversubscribe -n 1 pytest -m single -xvs --with-mpi --model-name LinearMHD
+      
       - name: LinearMHD test
         shell: bash
         env:
