@@ -89,6 +89,7 @@ code_analysis_report.html
 src/struphy/io/out/
 src/struphy/state.yml
 src/struphy/io/inp/params_*
+*.bin
 
 # models list
 src/struphy/models/models_list
