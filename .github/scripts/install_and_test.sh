@@ -58,9 +58,15 @@ struphy params Maxwell -y
 python params_Maxwell.py
 mpirun -n 4 python params_Maxwell.py
 
+# Run Model tests
+echo "Model tests"
+struphy test models --mpi 2
+
+# Verification tests
+struphy test verification --mpi 2
+
+# Unit tests
 # struphy test unit --mpi 2
-# struphy test models --mpi 2
-# struphy test verification --mpi 2
 
 # # Run tests based on type
 # case "$TEST_TYPE" in
