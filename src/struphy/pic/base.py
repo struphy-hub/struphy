@@ -4439,9 +4439,9 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
         return _tmp
 
-    def save_non_periodic_positions(self):
+    # def save_non_periodic_positions(self):
 
-        self.non_periodic_positions = self.positions.copy()
+    #     self.non_periodic_positions = self.positions.copy()
 
 
 class Tesselation:
