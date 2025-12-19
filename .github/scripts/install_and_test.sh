@@ -3,10 +3,16 @@
 # 1: language (for compilation)
 # 2: test_type (unit, model, verification, or install; default=install)
 
-# set -euo pipefail
+# Enable strict mode only in CI environments
+if [ "${CI:-}" = "true" ]; then
+    echo "CI environment detected: enabling strict mode (set -euo pipefail)"
+    set -euo pipefail
+else
+    echo "Non-CI environment: skipping strict mode"
+fi
 
 echo "========================================"
-echo "Starting Struphy HPC setup script"
+echo "Starting Struphy setup script"
 echo "========================================"
 echo
 
@@ -17,9 +23,9 @@ echo "Selected compilation language: $LANGUAGE"
 echo "Selected test type: $TEST_TYPE"
 echo
 
-# Load HPC modules
+# Load modules
 echo "----------------------------------------"
-echo "Purging and loading HPC modules"
+echo "Purging and loading modules"
 echo "----------------------------------------"
 module purge
 source ./setup/modules.sh load
