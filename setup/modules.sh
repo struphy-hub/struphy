@@ -9,7 +9,7 @@ MODULES="unknown"
 # Detect system
 CLUSTER="${CLUSTER:-}"      # Provide default empty if unset
 HPC_SYSTEM="${HPC_SYSTEM:-}" # Provide default empty if unset
-COMPILER_FAMILY="${COMPILER_FAMILY:-intel}" # Use intel compiler by default
+COMPILER_FAMILY="${COMPILER_FAMILY:-gcc}" # Use intel compiler by default
 
 case "$CLUSTER" in
     TOK)
@@ -47,9 +47,7 @@ case "$COMPILER_FAMILY" in
         MODULES=$MODULES_INTEL
         ;;
     gcc)
-        # MODULES=$MODULES_GCC
-        echo "GCC modules not known"
-        exit 1
+        MODULES=$MODULES_GCC
         ;;
     *)
         echo "Usage: $0 {load|display}"

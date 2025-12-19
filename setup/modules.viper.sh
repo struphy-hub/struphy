@@ -1,1 +1,11 @@
-MODULES_INTEL="intel/2024.0 impi/2021.11 python-waterboa/2025.06 cmake/4.0 netcdf-serial/4.9.2 mkl/2025.3 hdf5-serial/2.0.0"
+MODULES_INTEL="intel/2024.0 \
+impi/2021.11 \
+python-waterboa/2025.06 \
+pandoc/3.1 \
+git/2.5.0"
+
+MODULES_GCC="gcc/15 \
+openmpi/5.0 \
+python-waterboa/2025.06 \
+pandoc/3.1 \
+git/2.5.0"

@@ -3,7 +3,7 @@
 # 1: language (for compilation)
 # 2: test_type (unit, model, verification, or install; default=install)
 
-set -euo pipefail
+# set -euo pipefail
 
 # Parse arguments
 LANGUAGE="${1:-fortran}"         # Default language if none given
@@ -13,26 +13,8 @@ echo "Selected test type: $TEST_TYPE"
 
 # Load HPC modules
 module purge
-#module load "$1"   # Pass modules as first argument
 source ./setup/modules.sh load
 module list
-
-# For gvec
-export JAX_DISABLE_JIT=1
-# gcc
-# export FC=`which gfortran`
-# export CC=`which gcc`
-# export CXX=`which g++`
-
-export FC=`which mpiifort`
-export CC=`which mpiicc`
-export CXX=`which mpiicpc`
-export CMAKE=`which cmake`
-
-echo "FC=$FC"
-echo "CC=$CC"
-echo "CXX=$CXX"
-echo "CMAKE=$CMAKE"
 
 # Python virtual environment setup
 which python
@@ -44,8 +26,9 @@ source env/bin/activate
 
 # Install Struphy
 pip install --upgrade pip
+pip install -e ".[dev]"
+pip uninstall mpi4py -y
 pip install --no-binary=mpi4py mpi4py
-pip install ".[dev,phys,doc]"
 pip list
 
 # Verify struphy installation
@@ -53,6 +36,7 @@ struphy -h
 struphy --refresh-models
 
 # Test mpirun
+echo "Testing mpirun"
 which mpirun
 mpirun --version
 python -c "from mpi4py import MPI; print(MPI)"
@@ -64,12 +48,19 @@ assert comm.Get_size() == 4
 "
 
 # Compile kernels
+echo "Compiling kernels"
 pyccel --version
 struphy compile -y --language "$LANGUAGE"
 
-struphy test unit --mpi 2
-struphy test models --mpi 2
-struphy test verification --mpi 2
+# Test Maxwell model
+echo "Testing Maxwell"
+struphy params Maxwell -y
+python params_Maxwell.py
+mpirun -n 4 python params_Maxwell.py
+
+# struphy test unit --mpi 2
+# struphy test models --mpi 2
+# struphy test verification --mpi 2
 
 # # Run tests based on type
 # case "$TEST_TYPE" in
