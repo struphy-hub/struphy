@@ -643,7 +643,7 @@ class CurrentCoupling6DParallel(DispersionRelations1D):
             out = w**2
             out -= B0**2 * k**2
             out += pol * nuh * w * Zh * B0 / Ab * self._kappa
-            out -= pol * nuh * Zh * B0 / Ab * self._kappa * v0 * k
+            #out -= pol * nuh * Zh * B0 / Ab * self._kappa * v0 * k
             out += nuh * Zh**2 * B0**2 / (Ah * Ab) * self._kappa**2 * (w - k * v0) / (k * vth) * Zplasma(xi, 0)
 
         else:
@@ -707,8 +707,33 @@ class PressureCouplingFull6DParallel(DispersionRelations1D):
 
     """
 
-    def __init__(self, params):
-        super().__init__("shear Alfvén_R", "shear Alfvén_L", "sonic", **params)
+    def __init__(self, **params):
+        # set default parameters
+        params_default = {
+            "B0": 1.0,
+            "p0": 0.5,
+            "gamma": 5 / 3,
+            "Ab": 1,
+            "Ah": 1,
+            "Zh": 1,
+            "vthpara": 1.0,
+            "vthperp": 1.0,
+            "v0": 2.0,
+            "nuh": 0.05,
+            "nb": 1.,
+        }
+
+        params_all = set_defaults(params, params_default)
+
+        super().__init__("shear_Alfvén_R", "shear_Alfvén_L", "sonic", **params_all)
+
+        # some constants
+        mp = 1.672621924e-27
+        mu = 1.256637062e-6
+        ee = 1.602176634e-19
+
+        # calculate coupling parameter alpha_c from bulk number density and mass number
+        self._kappa = ee * xp.sqrt(mu * self.params["Ab"] * self.params["nb"] * 1e20 / mp)
 
     def __call__(self, k, tol=1e-10):
         """
@@ -739,25 +764,25 @@ class PressureCouplingFull6DParallel(DispersionRelations1D):
         for i, ki in enumerate(k):
             # choose initial guess wRL = vA*k, wS = cS*k for first iteration and result from last k otherwise
             if i == 0:
-                wR = [1 * ki, 0.0]  # TODO: use vA
-                wL = [1 * ki, 0.0]  # TODO: use vA
-                wS = [1 * ki, 0.0]  # TODO: use cS
+                wR = [self.params["B0"] * ki, 0.0]
+                wL = [self.params["B0"] * ki, 0.0]
+                wS = [self.params["gamma"]  * self.params["p0"] * ki, 0.0]
             else:
                 wR = [xp.real(tmps[0][i - 1]), xp.imag(tmps[0][i - 1])]
                 wL = [xp.real(tmps[1][i - 1]), xp.imag(tmps[1][i - 1])]
                 wS = [xp.real(tmps[2][i - 1]), xp.imag(tmps[2][i - 1])]
 
             # R/L shear Alfvén wave
-            sol_R = fsolve(self.D_RL, x0=wR, args=(ki, +1), xtol=tol)
-            sol_L = fsolve(self.D_RL, x0=wL, args=(ki, -1), xtol=tol)
+            wR = fsolve(self.D_RL, x0=wR, args=(ki, +1), xtol=tol)
+            wL = fsolve(self.D_RL, x0=wL, args=(ki, -1), xtol=tol)
 
-            tmps[0][i] = sol_R[0] + 1j * sol_R[1]
-            tmps[1][i] = sol_L[0] + 1j * sol_L[1]
+            tmps[0][i] = wR[0] + 1j * wR[1]
+            tmps[1][i] = wL[0] + 1j * wL[1]
 
             # sonic wave
-            sol_S = fsolve(self.D_sonic, x0=wS, args=(ki,), xtol=tol)
+            wS = fsolve(self.D_sonic, x0=wS, args=(ki,), xtol=tol)
 
-            tmps[2][i] = sol_S[0] + 1j * sol_S[1]
+            tmps[2][i] = wS[0] + 1j * wS[1]
 
         ##############################################################
 
@@ -796,20 +821,19 @@ class PressureCouplingFull6DParallel(DispersionRelations1D):
 
         w = w[0] + 1j * w[1]
 
-        # Alfvén velocity and speed of sound
-        # TODO: call the parameters from the yml file.
-        wc = 1.0
-        u0 = 2.5  # TODO
-        vpara = 1.0  # TODO
-        vperp = 1.0  # TODO
-        vth = 1.0
+        vpara = self.params["vthpara"]
+        vperp = self.params["vthperp"]
+        u0 = self.params["v0"]
+        B0 = self.params["B0"]
+        Zh = self.params["Zh"]
+        Ah = self.params["Ah"]
+        Ab = self.params["Ab"]
+        nu = self.params["nuh"]
 
-        vA = xp.sqrt((self.params["B0x"] ** 2 + self.params["B0y"] ** 2 + self.params["B0z"] ** 2) / self.params["n0"])
-        # cS = xp.sqrt(self.params['beta']*vA)
-        cS = 1.0
+        vA = B0
+        wc = B0 * Zh * self._kappa / Ab
 
-        a0 = u0 / vpara  # TODO
-        nu = 0.05  # TODO
+        a0 = u0 / vpara
 
         zp = self._zetap(w, k, u0, vpara, wc)
         zm = self._zetam(w, k, u0, vpara, wc)
@@ -873,20 +897,20 @@ class PressureCouplingFull6DParallel(DispersionRelations1D):
 
         w = w[0] + 1j * w[1]
 
-        # Alfvén velocity and speed of sound
-        # TODO: call the parameters from the yml file.
-        wc = 1.0
-        u0 = 2.5  # TODO
-        vpara = 1.0  # TODO
-        vperp = 1.0  # TODO
-        vth = 1.0
+        vpara = self.params["vthpara"]
+        vperp = self.params["vthperp"]
+        u0 = self.params["v0"]
+        B0 = self.params["B0"]
+        Zh = self.params["Zh"]
+        Ah = self.params["Ah"]
+        Ab = self.params["Ab"]
+        nu = self.params["nuh"]
 
-        vA = xp.sqrt((self.params["B0x"] ** 2 + self.params["B0y"] ** 2 + self.params["B0z"] ** 2) / self.params["n0"])
-        # cS = xp.sqrt(self.params['beta']*vA)
-        cS = 1.0
+        a0 = u0 / vpara
+        
+        cS = 1.0  # TODO
 
-        a0 = u0 / vpara  # TODO
-        nu = 0.05  # TODO
+        a0 = u0 / vpara 
 
         z0 = self._zeta0(w, k, u0, vpara)
         x4 = self._X4(z0, a0)

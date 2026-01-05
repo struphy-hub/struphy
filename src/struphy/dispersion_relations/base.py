@@ -32,11 +32,17 @@ class DispersionRelations1D(metaclass=ABCMeta):
         for name in branch_names:
             self._branches[name] = None
 
+        self._nbranches = len(branch_names)
         self._velocity_scale = velocity_scale
         self._params = params
 
         # critical k-values
         self._k_crit = {}
+
+    @property
+    def nbranches(self):
+        """Integer : number of branches."""
+        return self._nbranches
 
     @property
     def branches(self):
