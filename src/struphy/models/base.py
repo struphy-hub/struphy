@@ -6,8 +6,8 @@ from functools import reduce
 from textwrap import indent
 
 import cunumpy as xp
-import numpy as np
 import h5py
+import numpy as np
 import yaml
 from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
