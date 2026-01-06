@@ -229,7 +229,7 @@ def get_span_and_basis(pts, space):
         3d array of values of basis functions indexed by (n, nq, basis function).
     """
 
-    import psydac.core.bsplines as bsp
+    import feectools.core.bsplines as bsp
 
     # Extract knot vectors, degree and kind of basis
     T = space.knots
@@ -625,10 +625,10 @@ def evaluate_relevant_splines_at_relevant_points(
         list of 3 float arrays, the ith array contains the points on the ith spatial direction this MPI rank needs to compute its share of FE coefficients.
 
     Bspaces_1d : list
-        list of tuples, each tuple has three elements the ith one being the psydac.fem.splines.SplineSpace for H1 on the ith spatial direction.
+        list of tuples, each tuple has three elements the ith one being the feectools.fem.splines.SplineSpace for H1 on the ith spatial direction.
 
     Dspaces_1d : list
-        list of tuples, each tuple has three elements the ith one being the psydac.fem.splines.SplineSpace for L2 on the ith spatial direction.
+        list of tuples, each tuple has three elements the ith one being the feectools.fem.splines.SplineSpace for L2 on the ith spatial direction.
 
     Basis_functions_indices_B : list
         list of int arrays with the indices of those B-splines that produce non-zero entries in the BasisProjectionOperatorLocal for the rows relevant to the current MPI rank.

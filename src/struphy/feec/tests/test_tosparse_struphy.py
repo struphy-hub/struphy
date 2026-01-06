@@ -16,8 +16,8 @@ def test_tosparse_struphy(Nel, p, spl_kind, mapping):
     """
 
     import cunumpy as xp
-    from psydac.ddm.mpi import MockComm
-    from psydac.ddm.mpi import mpi as MPI
+    from feectools.ddm.mpi import MockComm
+    from feectools.ddm.mpi import mpi as MPI
 
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham

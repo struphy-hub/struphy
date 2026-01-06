@@ -49,8 +49,8 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     import copy
 
     import cunumpy as xp
-    from psydac.ddm.mpi import MockComm
-    from psydac.ddm.mpi import mpi as MPI
+    from feectools.ddm.mpi import MockComm
+    from feectools.ddm.mpi import mpi as MPI
 
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
@@ -89,7 +89,10 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
             comm=None,
         )
     else:
-        clone_config = CloneConfig(comm=mpi_comm, params=params, num_clones=num_clones)
+        if mpi_comm.Get_size() % num_clones == 0:
+            clone_config = CloneConfig(comm=mpi_comm, params=params, num_clones=num_clones)
+        else:
+            return
 
         derham = Derham(
             Nel,

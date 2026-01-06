@@ -8,12 +8,12 @@ Derham sequence (3D)
     :undoc-members:
     :show-inheritance:
 
-.. autoclass:: psydac.fem.tensor.TensorFemSpace
+.. autoclass:: feectools.fem.tensor.TensorFemSpace
     :members:
     :undoc-members:
     :show-inheritance:
 
-.. autoclass:: psydac.fem.vector.VectorFemSpace
+.. autoclass:: feectools.fem.vector.VectorFemSpace
     :members:
     :undoc-members:
     :show-inheritance:    

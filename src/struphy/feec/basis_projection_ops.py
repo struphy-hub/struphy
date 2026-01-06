@@ -1,11 +1,11 @@
 import cunumpy as xp
-from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
-from psydac.ddm.mpi import mpi as MPI
-from psydac.fem.basic import FemSpace
-from psydac.fem.tensor import TensorFemSpace
-from psydac.linalg.basic import IdentityOperator, LinearOperator, Vector
-from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
-from psydac.linalg.stencil import StencilMatrix, StencilVector, StencilVectorSpace
+from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
+from feectools.ddm.mpi import mpi as MPI
+from feectools.fem.basic import FemSpace
+from feectools.fem.tensor import TensorFemSpace
+from feectools.linalg.basic import IdentityOperator, LinearOperator, Vector
+from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
+from feectools.linalg.stencil import StencilMatrix, StencilVector, StencilVectorSpace
 
 from struphy.feec import basis_projection_kernels
 from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
@@ -950,7 +950,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
     P : struphy.feec.projectors.CommutingProjectorLocal
         Local commuting projector mapping into TensorFemSpace/VectorFemSpace W = P.space (codomain of operator).
 
-    V : psydac.fem.basic.FemSpace
+    V : feectools.fem.basic.FemSpace
         Finite element spline space (domain, input space).
 
     weights : list
@@ -1158,15 +1158,15 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
 
         Parameters
         ----------
-        v : psydac.linalg.basic.Vector
+        v : feectools.linalg.basic.Vector
             Vector the operator shall be applied to.
 
-        out : psydac.linalg.basic.Vector, optional
+        out : feectools.linalg.basic.Vector, optional
             If given, the output will be written in-place into this vector.
 
         Returns
         -------
-         out : psydac.linalg.basic.Vector
+         out : feectools.linalg.basic.Vector
             The output (codomain) vector.
         """
 
@@ -1609,7 +1609,7 @@ class BasisProjectionOperator(LinOpWithTransp):
     P : struphy.feec.projectors.Projector
         Global commuting projector mapping into TensorFemSpace/VectorFemSpace W = P.space (codomain of operator).
 
-    V : psydac.fem.basic.FemSpace
+    V : feectools.fem.basic.FemSpace
         Finite element spline space (domain, input space).
 
     weights : list
@@ -1804,10 +1804,10 @@ class BasisProjectionOperator(LinOpWithTransp):
 
         Parameters
         ----------
-        v : psydac.linalg.basic.Vector
+        v : feectools.linalg.basic.Vector
             Vector the operator shall be applied to.
 
-        out : psydac.linalg.basic.Vector, optional
+        out : feectools.linalg.basic.Vector, optional
             If given, the output will be written in-place into this vector.
 
         tol : float, optional
@@ -1821,7 +1821,7 @@ class BasisProjectionOperator(LinOpWithTransp):
 
         Returns
         -------
-         out : psydac.linalg.basic.Vector
+         out : feectools.linalg.basic.Vector
             The output (codomain) vector.
         """
 
@@ -2161,7 +2161,7 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, pol
 
 class CoordinateProjector(LinearOperator):
     r"""
-    Class of projectors on one component of a :class:`~psydac.linalg.block.BlockVectorSpace`.
+    Class of projectors on one component of a :class:`~feectools.linalg.block.BlockVectorSpace`.
     Represent the projection on the :math:`\mu`-th component :
 
     .. math::
@@ -2265,7 +2265,7 @@ class CoordinateProjector(LinearOperator):
 
 class CoordinateInclusion(LinearOperator):
     r"""
-    Class of inclusion operator from one component of a :class:`~psydac.linalg.block.BlockVectorSpace`.
+    Class of inclusion operator from one component of a :class:`~feectools.linalg.block.BlockVectorSpace`.
     Represent the canonical inclusion on the :math:`\mu`-th component :
 
     .. math::

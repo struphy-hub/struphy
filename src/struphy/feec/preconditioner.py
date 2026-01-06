@@ -1,12 +1,12 @@
 import cunumpy as xp
-from psydac.api.essential_bc import apply_essential_bc_stencil
-from psydac.ddm.cart import CartDecomposition, DomainDecomposition
-from psydac.fem.tensor import TensorFemSpace
-from psydac.linalg.basic import ComposedLinearOperator, LinearOperator, Vector
-from psydac.linalg.block import BlockLinearOperator
-from psydac.linalg.direct_solvers import BandedSolver, SparseSolver
-from psydac.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
-from psydac.linalg.stencil import StencilMatrix, StencilVectorSpace
+from feectools.api.essential_bc import apply_essential_bc_stencil
+from feectools.ddm.cart import CartDecomposition, DomainDecomposition
+from feectools.fem.tensor import TensorFemSpace
+from feectools.linalg.basic import ComposedLinearOperator, LinearOperator, Vector
+from feectools.linalg.block import BlockLinearOperator
+from feectools.linalg.direct_solvers import BandedSolver, SparseSolver
+from feectools.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
+from feectools.linalg.stencil import StencilMatrix, StencilVectorSpace
 from scipy import sparse
 from scipy.linalg import solve_circulant
 
@@ -355,15 +355,15 @@ class MassMatrixPreconditioner(LinearOperator):
 
         Parameters
         ----------
-        rhs : psydac.linalg.basic.Vector
+        rhs : feectools.linalg.basic.Vector
             The right-hand side vector.
 
-        out : psydac.linalg.basic.Vector, optional
+        out : feectools.linalg.basic.Vector, optional
             If given, the output vector will be written into this vector in-place.
 
         Returns
         -------
-        out : psydac.linalg.basic.Vector
+        out : feectools.linalg.basic.Vector
             The result of (B * E * M^(-1) * E^T * B^T) * rhs.
         """
 
@@ -764,15 +764,15 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
 
         Parameters
         ----------
-        rhs : psydac.linalg.basic.Vector
+        rhs : feectools.linalg.basic.Vector
             The right-hand side vector.
 
-        out : psydac.linalg.basic.Vector
+        out : feectools.linalg.basic.Vector
             The output vector will be written into this vector in-place.
 
         Returns
         -------
-        out : psydac.linalg.basic.Vector
+        out : feectools.linalg.basic.Vector
             The result of M^(-1) * rhs.
         """
 

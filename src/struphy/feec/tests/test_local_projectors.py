@@ -4,8 +4,8 @@ import time
 import cunumpy as xp
 import matplotlib.pyplot as plt
 import pytest
-from psydac.ddm.mpi import MockComm
-from psydac.ddm.mpi import mpi as MPI
+from feectools.ddm.mpi import MockComm
+from feectools.ddm.mpi import mpi as MPI
 
 from struphy.bsplines.bsplines import basis_funs, find_span
 from struphy.bsplines.evaluation_kernels_1d import evaluation_kernel_1d
