@@ -16,7 +16,15 @@ class Pyccelkernel:
             args_np = [x.get() if isinstance(x, xp.ndarray) else x for x in args]
             # Convert all kwargs from CuPy to NumPy
             kwargs_np = {k: v.get() if isinstance(v, xp.ndarray) else v for k, v in kwargs.items()}
-            return self._kernel(*args_np, **kwargs_np)
+            
+            # Call kernel
+            result = self._kernel(*args_np, **kwargs_np)
+
+            # Convert NumPy arrays back to CuPy
+            if isinstance(result, tuple):
+                return tuple(xp.asarray(r) for r in result)
+            return xp.asarray(result)
+        
         else:
             return self._kernel(*args, **kwargs)
 
