@@ -29,7 +29,7 @@ class Pyccelkernel:
             return self._kernel(*args, **kwargs)
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self.kernel.__name__
 
     @property
@@ -37,5 +37,5 @@ class Pyccelkernel:
         return self._kernel
 
     @property
-    def use_cupy(self):
+    def use_cupy(self) -> bool:
         return self._use_cupy
