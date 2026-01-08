@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import importlib.metadata
-
+import numpy as np
 import cunumpy as xp
 import feectools.core.bsplines as bsp
 from feectools.ddm.cart import DomainDecomposition
