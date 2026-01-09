@@ -2213,6 +2213,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
         """All Struphy units."""
         return self._units
 
+    @profile
     def bv(self, *etas, squeeze_out=False):
         """Contra-variant (vector field) magnetic field on logical cube [0, 1]^3 in Tesla / meter."""
         # evaluate
@@ -2233,6 +2234,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
 
         return out
 
+    @profile
     def jv(self, *etas, squeeze_out=False):
         """Contra-variant (vector field) current density (=curl B) on logical cube [0, 1]^3 in Ampere / meter^3."""
         # evaluate
@@ -2261,6 +2263,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
 
         return out
 
+    @profile
     def p0(self, *etas, squeeze_out=False):
         """0-form equilibrium pressure on logical cube [0, 1]^3."""
         # evaluate
@@ -2279,6 +2282,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
 
         return self._params["p0"] + tmp / self.units.p
 
+    @profile
     def n0(self, *etas, squeeze_out=False):
         """0-form equilibrium density on logical cube [0, 1]^3."""
 
@@ -2310,6 +2314,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
             else:
                 raise ValueError("wrong type of density profile for GVEC equilibrium")
 
+    @profile
     def gradB1(self, *etas, squeeze_out=False):
         """1-form gradient of magnetic field strength on logical cube [0, 1]^3."""
         raise NotImplementedError(
@@ -2512,6 +2517,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
         """All Struphy units."""
         return self._units
 
+    @profile
     def bv(self, *etas, squeeze_out=False):
         """Contra-variant (vector field) magnetic field on logical cube [0, 1]^3 in Tesla / meter."""
         # check if already cached
@@ -2544,6 +2550,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         return out
 
+    @profile
     def _eval_bv(self, *etas, squeeze_out=False):
         # flat (marker) evaluation
         if len(etas) == 1:
@@ -2583,6 +2590,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         return out
 
+    @profile
     def jv(self, *etas, squeeze_out=False):
         """Contra-variant (vector field) current density (=curl B)
         on logical cube [0, 1]^3 in Ampere / meter^3.
@@ -2617,6 +2625,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         return out
 
+    @profile
     def _eval_jv(self, *etas, squeeze_out=False):
         # flat (marker) evaluation
         if len(etas) == 1:
@@ -2656,6 +2665,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         return out
 
+    @profile
     def p0(self, *etas, squeeze_out=False):
         """0-form equilibrium pressure on logical cube [0, 1]^3 in Pascal."""
         # flat (marker) evaluation
@@ -2686,6 +2696,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         return out
 
+    @profile
     def n0(self, *etas, squeeze_out=False):
         """0-form equilibrium density on logical cube [0, 1]^3."""
         # flat (marker) evaluation
@@ -2709,6 +2720,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
         # density in default units, n=1 --> 10^20 m^(-3)
         return p0_pascal / (self._params["T_kelvin"] * k_Boltzmann) / self.units.n
 
+    @profile
     def gradB1(self, *etas, squeeze_out=False):
         """1-form gradient of magnetic field strength on logical cube [0, 1]^3."""
         # check if already cached
@@ -2740,6 +2752,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         return out
 
+    @profile
     def _eval_gradB1(self, *etas, squeeze_out=False):
         # flat (marker) evaluation
         if len(etas) == 1:
