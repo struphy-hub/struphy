@@ -146,16 +146,14 @@ def struphy_test(
 
     else:
         cmd = [
-            "mpirun",
-            "--oversubscribe",
-            "-n",
-            str(mpi),
+            # "mpirun",
+            # "-n",
+            # str(mpi),
             "pytest",
             "-m",
             "single",
-            # "--testmon-forceselect",
             "-xvs",
-            "--with-mpi",
+            # "--with-mpi",
             "--model-name",
             group,
         ]
@@ -166,4 +164,5 @@ def struphy_test(
         if show_plots:
             cmd += ["--show-plots"]
 
+        # subp_run(["mpirun", "-n", str(mpi), sys.executable, "-c", "\"print('hello')\""], check=True)
         subp_run(cmd, check=True)
