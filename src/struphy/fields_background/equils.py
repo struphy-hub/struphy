@@ -13,6 +13,7 @@ from feectools.ddm.mpi import mpi as MPI
 from scipy.integrate import odeint, quad
 from scipy.interpolate import RectBivariateSpline, UnivariateSpline
 from scipy.optimize import fsolve, minimize
+from line_profiler import profile
 
 import struphy
 from struphy.fields_background.base import (
@@ -2315,6 +2316,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
             "1-form gradient of magnetic field of GVECequilibrium is not implemented",
         )
 
+    @profile
     def _gvec_evaluations(self, *etas):
         """Call gvec.Evaluations with Struphy coordinates."""
         import gvec
@@ -2777,6 +2779,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         return out
 
+    @profile
     def desc_eval(
         self,
         var: str,
