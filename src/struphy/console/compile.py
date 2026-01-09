@@ -1,4 +1,4 @@
-from struphy.utils.utils import subp_run, STRUPHY_LIBPATH
+from struphy.utils.utils import STRUPHY_LIBPATH, subp_run
 
 
 def struphy_compile(
