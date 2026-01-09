@@ -1306,7 +1306,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
         """Toroidal field function g = g(R, Z)."""
 
         if dR == 0 and dZ == 0:
-            out = -self._params["B0"] * self._params["R0"] - 0 * R
+            out = -self.params["B0"] * self.params["R0"] - 0 * R
         elif dR == 1 and dZ == 0:
             out = 0 * R
         elif dR == 0 and dZ == 1:
@@ -1320,7 +1320,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
 
     def p_xyz(self, x, y, z):
         """Pressure p = p(x, y, z)."""
-        r = xp.sqrt((xp.sqrt(x**2 + y**2) - self._params["R0"]) ** 2 + z**2)
+        r = xp.sqrt((xp.sqrt(x**2 + y**2) - self.params["R0"]) ** 2 + z**2)
 
         pp = self.p_r(r)
 
@@ -1328,7 +1328,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
 
     def n_xyz(self, x, y, z):
         """Number density n = n(x, y, z)."""
-        r = xp.sqrt((xp.sqrt(x**2 + y**2) - self._params["R0"]) ** 2 + z**2)
+        r = xp.sqrt((xp.sqrt(x**2 + y**2) - self.params["R0"]) ** 2 + z**2)
 
         nn = self.n_r(r)
 
@@ -1672,7 +1672,7 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
         """Toroidal field function g = g(R, Z)."""
 
         if dR == 0 and dZ == 0:
-            out = -self._params["B0"] * self._params["R0"] - 0 * R
+            out = -self.params["B0"] * self.params["R0"] - 0 * R
         elif dR == 1 and dZ == 0:
             out = 0 * R
         elif dR == 0 and dZ == 1:
@@ -1686,13 +1686,13 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
 
     def p_xyz(self, x, y, z):
         """Pressure p = p(x, y, z)."""
-        r = xp.sqrt((xp.sqrt(x**2 + y**2) - self._params["R0"]) ** 2 + z**2)
+        r = xp.sqrt((xp.sqrt(x**2 + y**2) - self.params["R0"]) ** 2 + z**2)
 
         return self.p_psi(self.psi_r(r))
 
     def n_xyz(self, x, y, z):
         """Number density n = n(x, y, z)."""
-        r = xp.sqrt((xp.sqrt(x**2 + y**2) - self._params["R0"]) ** 2 + z**2)
+        r = xp.sqrt((xp.sqrt(x**2 + y**2) - self.params["R0"]) ** 2 + z**2)
 
         return self.n_psi(self.psi_r(r))
 
@@ -2243,7 +2243,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
         jt = "J_contra_t"
         jz = "J_contra_z"
         self.state.compute(ev, jr, jt, jz)
-        rmin = self._params["rmin"]
+        rmin = self.params["rmin"]
         jv_1 = ev.J_contra_r.data / (1.0 - rmin)
         jv_2 = ev.J_contra_t.data / (2 * xp.pi)
         jv_3 = ev.J_contra_z.data / (2 * xp.pi) * self._nfp
@@ -2280,14 +2280,14 @@ class GVECequilibrium(NumericalMHDequilibrium):
         else:
             tmp = ev.p.data
 
-        return self._params["p0"] + tmp / self.units.p
+        return self.params["p0"] + tmp / self.units.p
 
     @profile
     def n0(self, *etas, squeeze_out=False):
         """0-form equilibrium density on logical cube [0, 1]^3."""
 
-        if self._params["density_profile"] == "pressure":
-            return self._params["n0"] * self.p0(*etas)
+        if self.params["density_profile"] == "pressure":
+            return self.params["n0"] * self.p0(*etas)
         else:
             # flat (marker) evaluation
             if len(etas) == 1:
@@ -2304,13 +2304,13 @@ class GVECequilibrium(NumericalMHDequilibrium):
                 eta3 = etas[2]
                 flat_eval = False
 
-            rmin = self._params["rmin"]
+            rmin = self.params["rmin"]
             r = rmin + eta1 * (1.0 - rmin)
 
-            if self._params["density_profile"] == "parabolic":
-                return self._params["n1"] + (1.0 - r**2) * (self._params["n0"] - self._params["n1"])
-            elif self._params["density_profile"] == "linear":
-                return self._params["n1"] + (1.0 - r) * (self._params["n0"] - self._params["n1"])
+            if self.params["density_profile"] == "parabolic":
+                return self.params["n1"] + (1.0 - r**2) * (self.params["n0"] - self.params["n1"])
+            elif self.params["density_profile"] == "linear":
+                return self.params["n1"] + (1.0 - r) * (self.params["n0"] - self.params["n1"])
             else:
                 raise ValueError("wrong type of density profile for GVEC equilibrium")
 
@@ -2352,7 +2352,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
                 eta3 = etas[2][0, 0, :]
             flat_eval = False
 
-        rmin = self._params["rmin"]
+        rmin = self.params["rmin"]
 
         # gvec coordinates
         rho = rmin + eta1 * (1.0 - rmin)
@@ -2718,7 +2718,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
         k_Boltzmann = 1.38 * 1e-23
         p0_pascal = self.p0(*etas, squeeze_out=squeeze_out) * self.units.p  # computes pressure in units of 1 Pa
         # density in default units, n=1 --> 10^20 m^(-3)
-        return p0_pascal / (self._params["T_kelvin"] * k_Boltzmann) / self.units.n
+        return p0_pascal / (self.params["T_kelvin"] * k_Boltzmann) / self.units.n
 
     @profile
     def gradB1(self, *etas, squeeze_out=False):
@@ -3213,7 +3213,7 @@ class CircularTokamak(AxisymmMHDequilibrium):
         """Toroidal field function g = g(R, Z)."""
 
         if dR == 0 and dZ == 0:
-            out = self._params["B0"] * self._params["R0"]
+            out = self.params["B0"] * self.params["R0"]
         elif dR == 1 and dZ == 0:
             out = 0 * R
         elif dR == 0 and dZ == 1:
@@ -3349,11 +3349,11 @@ class CurrentSheet(CartesianMHDequilibrium):
         """Magnetic field."""
 
         bz = 0 * x
-        by = xp.tanh(z / self._params["delta"])
+        by = xp.tanh(z / self.params["delta"])
         bx = xp.sqrt(1 - by**2)
 
-        bxs = self._params["amp"] * bx
-        bys = self._params["amp"] * by
+        bxs = self.params["amp"] * bx
+        bys = self.params["amp"] * by
 
         return bxs, bys, bz
 
