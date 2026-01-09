@@ -13,7 +13,7 @@ def test_toy(
     nclones: int,
     show_plots: bool,
 ):
-    ut.call_test(model_name=model, module=ut.toy, verbose=vrbose)
+    ut.call_test(model_name=model, module=ut.toy, verbose=vrbose, test_profiling=True)
 
 
 @pytest.mark.models
@@ -25,7 +25,7 @@ def test_fluid(
     nclones: int,
     show_plots: bool,
 ):
-    ut.call_test(model_name=model, module=ut.fluid, verbose=vrbose)
+    ut.call_test(model_name=model, module=ut.fluid, verbose=vrbose, test_profiling=True)
 
 
 @pytest.mark.models
@@ -37,7 +37,7 @@ def test_kinetic(
     nclones: int,
     show_plots: bool,
 ):
-    ut.call_test(model_name=model, module=ut.kinetic, verbose=vrbose)
+    ut.call_test(model_name=model, module=ut.kinetic, verbose=vrbose, test_profiling=True)
 
 
 @pytest.mark.models
@@ -49,7 +49,7 @@ def test_hybrid(
     nclones: int,
     show_plots: bool,
 ):
-    ut.call_test(model_name=model, module=ut.hybrid, verbose=vrbose)
+    ut.call_test(model_name=model, module=ut.hybrid, verbose=vrbose, test_profiling=True)
 
 
 @pytest.mark.single
@@ -59,7 +59,7 @@ def test_single_model(
     nclones: int,
     show_plots: bool,
 ):
-    ut.call_test(model_name=model_name, module=None, verbose=vrbose)
+    ut.call_test(model_name=model_name, module=None, verbose=vrbose, test_profiling=True)
 
 
 if __name__ == "__main__":
