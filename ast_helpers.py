@@ -1,8 +1,9 @@
 import ast
 import inspect
+from typing import Any, Optional, Union
 
 
-def import_from(module, names):
+def import_from(module: str, names: list[str]) -> ast.ImportFrom:
     return ast.ImportFrom(
         module=module,
         names=[ast.alias(name=n, asname=None) for n in names],
@@ -10,7 +11,12 @@ def import_from(module, names):
     )
 
 
-def assign_constructor(var_name, cls_or_str, cls_name_for_ast=None, **overrides):
+def assign_constructor(
+    var_name: str,
+    cls_or_str: Union[type, str],
+    cls_name_for_ast: Optional[str] = None,
+    **overrides: Any,
+) -> ast.Assign:
 
     def ast_value(v):
         if isinstance(v, tuple):
@@ -45,8 +51,11 @@ def assign_constructor(var_name, cls_or_str, cls_name_for_ast=None, **overrides)
 
 
 def assign_constructor_with_defaults(
-    var_name, cls_or_str, cls_name_for_ast=None, **overrides
-):
+    var_name: str,
+    cls_or_str: Union[type, str],
+    cls_name_for_ast: Optional[str] = None,
+    **overrides: Any,
+) -> ast.Assign:
     """Create AST for: var_name = cls(**all_defaults_and_overrides)
 
     Args:
@@ -115,7 +124,12 @@ def assign_constructor_with_defaults(
     )
 
 
-def call_attr(obj, attr, args=None, keywords=None):
+def call_attr(
+    obj: ast.expr,
+    attr: str,
+    args: Optional[list[ast.expr]] = None,
+    keywords: Optional[list[ast.keyword]] = None,
+) -> ast.Expr:
     return ast.Expr(
         value=ast.Call(
             func=ast.Attribute(value=obj, attr=attr, ctx=ast.Load()),
@@ -125,7 +139,7 @@ def call_attr(obj, attr, args=None, keywords=None):
     )
 
 
-def attr_chain(names, ctx=ast.Load()):
+def attr_chain(names: list[str], ctx: ast.expr_context = ast.Load()) -> ast.expr:
     """Create a nested Attribute node from a list: e.g., model.em_fields.b_field"""
     node = ast.Name(id=names[0], ctx=ctx)
     for name in names[1:]:
