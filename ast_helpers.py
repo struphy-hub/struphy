@@ -1,5 +1,4 @@
 import ast
-
 import inspect
 
 
@@ -11,21 +10,35 @@ def import_from(module, names):
     )
 
 
-def assign_constructor(var, cls, **kwargs):
-    """Create AST for: var = cls(**kwargs)"""
+def assign_constructor(var_name, cls_or_str, cls_name_for_ast=None, **overrides):
 
     def ast_value(v):
         if isinstance(v, tuple):
             return ast.Tuple(elts=[ast_value(x) for x in v], ctx=ast.Load())
         return ast.Constant(v)
 
+    # Determine the class name for AST
+    if isinstance(cls_or_str, str):
+        cls_name_for_ast = cls_name_for_ast or cls_or_str
+    else:
+        cls_name_for_ast = cls_name_for_ast or cls_or_str.__name__
+
+    # Build the function AST node from the class name string
+    if "." in cls_name_for_ast:
+        parts = cls_name_for_ast.split(".")
+        func = ast.Name(id=parts[0], ctx=ast.Load())
+        for part in parts[1:]:
+            func = ast.Attribute(value=func, attr=part, ctx=ast.Load())
+    else:
+        func = ast.Name(id=cls_name_for_ast, ctx=ast.Load())
+
     return ast.Assign(
-        targets=[ast.Name(id=var, ctx=ast.Store())],
+        targets=[ast.Name(id=var_name, ctx=ast.Store())],
         value=ast.Call(
-            func=ast.Name(id=cls, ctx=ast.Load()),
+            func=func,
             args=[],
             keywords=[
-                ast.keyword(arg=k, value=ast_value(v)) for k, v in kwargs.items()
+                ast.keyword(arg=k, value=ast_value(v)) for k, v in overrides.items()
             ],
         ),
     )

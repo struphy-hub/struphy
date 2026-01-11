@@ -1,31 +1,40 @@
 import ast
-from struphy.io.options import (
-    EnvironmentOptions,
-    BaseUnits,
-    Time,
-    DerhamOptions,
-    FieldsBackground,
-)
-from struphy.geometry import domains
-from struphy.fields_background import equils
-from struphy.topology import grids
-from struphy.initial import perturbations
-from struphy.kinetic_background import maxwellians
-from struphy.pic.utilities import (
-    LoadingParameters,
-    WeightsParameters,
-    BoundaryParameters,
-    BinningPlot,
-    KernelDensityPlot,
-)
-from struphy import main
-from struphy.models.toy import Maxwell
+
 from ast_helpers import (
+    assign_constructor,
     assign_constructor_with_defaults,
     attr_chain,
     call_attr,
     import_from,
 )
+from struphy import main
+from struphy.fields_background import equils
+from struphy.geometry import domains
+from struphy.initial import perturbations
+from struphy.io.options import (
+    BaseUnits,
+    DerhamOptions,
+    EnvironmentOptions,
+    FieldsBackground,
+    Time,
+)
+from struphy.kinetic_background import maxwellians
+from struphy.models.toy import Maxwell
+from struphy.pic.utilities import (
+    BinningPlot,
+    BoundaryParameters,
+    KernelDensityPlot,
+    LoadingParameters,
+    WeightsParameters,
+)
+from struphy.topology import grids
+
+specify_defaults: bool = False
+
+if specify_defaults:
+    assign_constructor_func = assign_constructor_with_defaults
+else:
+    assign_constructor_func = assign_constructor
 
 # Imports
 imports = [
@@ -60,16 +69,14 @@ imports = [
 
 # Assignments
 assignments = [
-    assign_constructor_with_defaults("env", EnvironmentOptions),
-    assign_constructor_with_defaults("base_units", BaseUnits),
-    assign_constructor_with_defaults("time_opts", Time, None, dt=0.01, Tend=0.10),
-    assign_constructor_with_defaults("domain", domains.Cuboid, "domains.Cuboid"),
-    assign_constructor_with_defaults("equil", equils.HomogenSlab, "equils.HomogenSlab"),
-    assign_constructor_with_defaults(
-        "grid", grids.TensorProductGrid, "grids.TensorProductGrid"
-    ),
-    assign_constructor_with_defaults("derham_opts", DerhamOptions),
-    assign_constructor_with_defaults("model", Maxwell),
+    assign_constructor_func("env", EnvironmentOptions),
+    assign_constructor_func("base_units", BaseUnits),
+    assign_constructor_func("time_opts", Time, None, dt=0.01, Tend=0.10),
+    assign_constructor_func("domain", domains.Cuboid, "domains.Cuboid"),
+    assign_constructor_func("equil", equils.HomogenSlab, "equils.HomogenSlab"),
+    assign_constructor_func("grid", grids.TensorProductGrid, "grids.TensorProductGrid"),
+    assign_constructor_func("derham_opts", DerhamOptions),
+    assign_constructor_func("model", Maxwell),
 ]
 
 # propagator options
