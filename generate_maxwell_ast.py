@@ -30,7 +30,9 @@ from struphy.pic.utilities import (
 from struphy.topology import grids
 
 
-def generate_maxwell_ast(specify_defaults: bool = False):
+def generate_maxwell_ast(
+    specify_defaults: bool = False,
+) -> str:
     if specify_defaults:
         assign_constructor_func = assign_constructor_with_defaults
     else:
