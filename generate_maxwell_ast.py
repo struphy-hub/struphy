@@ -189,8 +189,9 @@ def generate_maxwell_ast(
     # return source code
     return ast.unparse(module)
 
+
 if __name__ == "__main__":
-    
-    # source = generate_maxwell_ast(specify_defaults=False)
-    # # print source code
-    # print(source)
+
+    source = generate_maxwell_ast(specify_defaults=False)
+    # print source code
+    print(source)

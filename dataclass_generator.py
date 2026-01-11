@@ -1,7 +1,13 @@
-from struphy.io.options import Time, EnvironmentOptions, BaseUnits, DerhamOptions, FieldsBackground
-
 import ast
 import inspect
+
+from struphy.io.options import (
+    BaseUnits,
+    DerhamOptions,
+    EnvironmentOptions,
+    FieldsBackground,
+    Time,
+)
 
 
 def generate_params_dataclass(cls):
@@ -11,6 +17,7 @@ def generate_params_dataclass(cls):
     type_hints = {}
     try:
         import typing
+
         type_hints = typing.get_type_hints(cls.__init__)
     except Exception:
         # If we can't get type hints, we'll fall back to Any
@@ -67,7 +74,9 @@ def generate_params_dataclass(cls):
     module = ast.Module(
         body=[
             ast.ImportFrom(
-                module="dataclasses", names=[ast.alias(name="dataclass", asname=None)], level=0
+                module="dataclasses",
+                names=[ast.alias(name="dataclass", asname=None)],
+                level=0,
             ),
             ast.ImportFrom(
                 module="typing", names=[ast.alias(name="Any", asname=None)], level=0
@@ -84,7 +93,7 @@ def generate_params_dataclass(cls):
 def _type_to_ast(type_hint):
     """Convert a type hint to an AST node."""
     import typing
-    
+
     # Handle basic types
     if type_hint is type(None):
         return ast.Constant(value=None)
@@ -94,7 +103,7 @@ def _type_to_ast(type_hint):
     elif hasattr(type_hint, "__origin__"):
         # Generic types like Optional[int], list[str], etc.
         origin = type_hint.__origin__
-        
+
         if origin is typing.Union:
             # Union or Optional
             args = type_hint.__args__
@@ -121,13 +130,17 @@ def _type_to_ast(type_hint):
             args = type_hint.__args__
             return ast.Subscript(
                 value=ast.Name(id=origin.__name__, ctx=ast.Load()),
-                slice=ast.Tuple(
-                    elts=[_type_to_ast(arg) for arg in args],
-                    ctx=ast.Load(),
-                ) if len(args) > 1 else _type_to_ast(args[0]),
+                slice=(
+                    ast.Tuple(
+                        elts=[_type_to_ast(arg) for arg in args],
+                        ctx=ast.Load(),
+                    )
+                    if len(args) > 1
+                    else _type_to_ast(args[0])
+                ),
                 ctx=ast.Load(),
             )
-    
+
     # Fall back to Any
     return ast.Name(id="Any", ctx=ast.Load())
 
