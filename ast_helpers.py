@@ -145,3 +145,61 @@ def attr_chain(names: list[str], ctx: ast.expr_context = ast.Load()) -> ast.expr
     for name in names[1:]:
         node = ast.Attribute(value=node, attr=name, ctx=ctx)
     return node
+
+
+def create_dataclass_from_class(
+    cls: type, dataclass_name: Optional[str] = None
+) -> ast.ClassDef:
+    """Create a dataclass AST node with fields from a class's __init__ parameters.
+
+    Args:
+        cls: Class to introspect for parameters
+        dataclass_name: Name for the dataclass. If None, uses cls.__name__ + "Params"
+
+    Returns:
+        ast.ClassDef node for a dataclass
+    """
+    if dataclass_name is None:
+        dataclass_name = f"{cls.__name__}Params"
+
+    sig = inspect.signature(cls.__init__)
+    fields = []
+
+    for name, param in sig.parameters.items():
+        if name == "self":
+            continue
+
+        # Create an annotated assignment for each field
+        # field_name: type = default_value
+        annotation = ast.Name(id="Any", ctx=ast.Load())  # Use Any for now
+
+        if param.default is not param.empty:
+            # Has a default value
+            if isinstance(param.default, tuple):
+                value = ast.Tuple(
+                    elts=[ast.Constant(v) for v in param.default], ctx=ast.Load()
+                )
+            else:
+                value = ast.Constant(param.default)
+        else:
+            # No default - this is a required field
+            value = None
+
+        ann_assign = ast.AnnAssign(
+            target=ast.Name(id=name, ctx=ast.Store()),
+            annotation=annotation,
+            value=value,
+            simple=1,
+        )
+        fields.append(ann_assign)
+
+    # Create the class definition with @dataclass decorator
+    class_def = ast.ClassDef(
+        name=dataclass_name,
+        bases=[],
+        keywords=[],
+        body=fields if fields else [ast.Pass()],
+        decorator_list=[ast.Name(id="dataclass", ctx=ast.Load())],
+    )
+
+    return class_def
