@@ -2,7 +2,7 @@ import time
 
 import cunumpy as xp
 import pytest
-from psydac.ddm.mpi import mpi as MPI
+from feectools.ddm.mpi import mpi as MPI
 
 
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
@@ -14,7 +14,7 @@ def test_bsplines_span_and_basis(Nel, p, spl_kind):
     Print timings.
     """
 
-    import psydac.core.bsplines_kernels as bsp_psy
+    import feectools.core.bsplines_kernels as bsp_psy
 
     import struphy.bsplines.bsplines_kernels as bsp
     from struphy.feec.psydac_derham import Derham

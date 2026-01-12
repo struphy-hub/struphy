@@ -4,7 +4,7 @@ import shutil
 from types import ModuleType
 
 import pytest
-from psydac.ddm.mpi import mpi as MPI
+from feectools.ddm.mpi import mpi as MPI
 
 from struphy import main
 from struphy.io.options import EnvironmentOptions
@@ -45,7 +45,7 @@ if rank == 0:
 
 
 # generic function for calling model tests
-def call_test(model_name: str, module: ModuleType = None, verbose=True):
+def call_test(model_name: str, module: ModuleType = None, test_profiling: bool = False, verbose=True):
     if rank == 0:
         print(f"\n*** Testing '{model_name}':")
 
@@ -77,7 +77,12 @@ def call_test(model_name: str, module: ModuleType = None, verbose=True):
     MPI.COMM_WORLD.Barrier()
 
     # set environment options
-    env = EnvironmentOptions(out_folders=test_folder, sim_folder=f"{model_name}")
+    env = EnvironmentOptions(
+        out_folders=test_folder,
+        sim_folder=f"{model_name}",
+        profiling_activated=test_profiling,
+        profiling_trace=test_profiling,
+    )
 
     # read parameters
     params_in = import_parameters_py(path)

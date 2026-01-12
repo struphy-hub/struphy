@@ -8,7 +8,7 @@ Linear algebra
 Psydac solvers
 ^^^^^^^^^^^^^^
 
-.. automodule:: psydac.linalg.solvers
+.. automodule:: feectools.linalg.solvers
     :members:
     :undoc-members:
     :show-inheritance:

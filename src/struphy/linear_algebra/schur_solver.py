@@ -1,6 +1,6 @@
-from psydac.linalg.basic import IdentityOperator, LinearOperator, Vector
-from psydac.linalg.block import BlockLinearOperator, BlockVector
-from psydac.linalg.solvers import inverse
+from feectools.linalg.basic import IdentityOperator, LinearOperator, Vector
+from feectools.linalg.block import BlockLinearOperator, BlockVector
+from feectools.linalg.solvers import inverse
 
 from struphy.linear_algebra.solver import SolverParameters
 
@@ -42,7 +42,7 @@ class SchurSolver:
         Product from [[A B], [C Id]].
 
     solver_name : str
-        See [psydac.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
+        See [feectools.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
 
     **solver_params :
         Must correspond to the chosen solver.
@@ -111,21 +111,21 @@ class SchurSolver:
 
         Parameters
         ----------
-        xn : psydac.linalg.basic.Vector
+        xn : feectools.linalg.basic.Vector
             Solution from previous time step.
 
-        Byn : psydac.linalg.basic.Vector
+        Byn : feectools.linalg.basic.Vector
             The product B*yn.
 
         dt : float
             Time step size.
 
-        out : psydac.linalg.basic.Vector, optional
+        out : feectools.linalg.basic.Vector, optional
             If given, the converged solution will be written into this vector (in-place).
 
         Returns
         -------
-        out : psydac.linalg.basic.Vector
+        out : feectools.linalg.basic.Vector
             Converged solution.
 
         info : dict
@@ -195,7 +195,7 @@ class SchurSolverFull:
         Matrix [[A B], [C Id]].
 
     solver_name : str
-        See [psydac.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
+        See [feectools.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
 
     **solver_params :
         Must correspond to the chosen solver.
@@ -230,15 +230,15 @@ class SchurSolverFull:
 
         Parameters
         ----------
-        v : psydac.linalg.basic.Vector
+        v : feectools.linalg.basic.Vector
             Left hand side of the system.
 
-        out : psydac.linalg.basic.Vector, optional
+        out : feectools.linalg.basic.Vector, optional
             If given, the converged solution will be written into this vector (in-place).
 
         Returns
         -------
-        out : psydac.linalg.block.BLockVector
+        out : feectools.linalg.block.BLockVector
             Converged solution.
 
         info : dict
@@ -305,7 +305,7 @@ class SchurSolverFull3:
         Matrix [[A B D], [C Id 0], [E 0 Id]].
 
     solver_name : str
-        See [psydac.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
+        See [feectools.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
 
     **solver_params :
         Must correspond to the chosen solver.
@@ -347,15 +347,15 @@ class SchurSolverFull3:
 
         Parameters
         ----------
-        v : psydac.linalg.basic.Vector
+        v : feectools.linalg.basic.Vector
             Left hand side of the system.
 
-        out : psydac.linalg.basic.Vector, optional
+        out : feectools.linalg.basic.Vector, optional
             If given, the converged solution will be written into this vector (in-place).
 
         Returns
         -------
-        out : psydac.linalg.block.BLockVector
+        out : feectools.linalg.block.BLockVector
             Converged solution.
 
         info : dict
