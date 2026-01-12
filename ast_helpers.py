@@ -17,7 +17,6 @@ def assign_constructor(
     cls_name_for_ast: Optional[str] = None,
     **overrides: Any,
 ) -> ast.Assign:
-
     def ast_value(v):
         if isinstance(v, tuple):
             return ast.Tuple(elts=[ast_value(x) for x in v], ctx=ast.Load())
@@ -43,9 +42,7 @@ def assign_constructor(
         value=ast.Call(
             func=func,
             args=[],
-            keywords=[
-                ast.keyword(arg=k, value=ast_value(v)) for k, v in overrides.items()
-            ],
+            keywords=[ast.keyword(arg=k, value=ast_value(v)) for k, v in overrides.items()],
         ),
     )
 
@@ -87,9 +84,7 @@ def assign_constructor_with_defaults(
 
             # Convert to AST constant or tuple if needed
             if isinstance(value, tuple):
-                ast_value = ast.Tuple(
-                    elts=[ast.Constant(v) for v in value], ctx=ast.Load()
-                )
+                ast_value = ast.Tuple(elts=[ast.Constant(v) for v in value], ctx=ast.Load())
             else:
                 ast_value = ast.Constant(value)
             keywords.append(ast.keyword(arg=name, value=ast_value))
@@ -102,9 +97,7 @@ def assign_constructor_with_defaults(
         cls_name_for_ast = cls_or_str
         for name, value in overrides.items():
             if isinstance(value, tuple):
-                ast_value = ast.Tuple(
-                    elts=[ast.Constant(v) for v in value], ctx=ast.Load()
-                )
+                ast_value = ast.Tuple(elts=[ast.Constant(v) for v in value], ctx=ast.Load())
             else:
                 ast_value = ast.Constant(value)
             keywords.append(ast.keyword(arg=name, value=ast_value))
@@ -147,9 +140,7 @@ def attr_chain(names: list[str], ctx: ast.expr_context = ast.Load()) -> ast.expr
     return node
 
 
-def create_dataclass_from_class(
-    cls: type, dataclass_name: Optional[str] = None
-) -> ast.ClassDef:
+def create_dataclass_from_class(cls: type, dataclass_name: Optional[str] = None) -> ast.ClassDef:
     """Create a dataclass AST node with fields from a class's __init__ parameters.
 
     Args:
@@ -176,9 +167,7 @@ def create_dataclass_from_class(
         if param.default is not param.empty:
             # Has a default value
             if isinstance(param.default, tuple):
-                value = ast.Tuple(
-                    elts=[ast.Constant(v) for v in param.default], ctx=ast.Load()
-                )
+                value = ast.Tuple(elts=[ast.Constant(v) for v in param.default], ctx=ast.Load())
             else:
                 value = ast.Constant(param.default)
         else:

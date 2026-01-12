@@ -44,9 +44,7 @@ def generate_params_dataclass(cls):
         if param.default is not param.empty:
             # Has a default value
             if isinstance(param.default, tuple):
-                value = ast.Tuple(
-                    elts=[ast.Constant(v) for v in param.default], ctx=ast.Load()
-                )
+                value = ast.Tuple(elts=[ast.Constant(v) for v in param.default], ctx=ast.Load())
             else:
                 value = ast.Constant(param.default)
         else:
@@ -78,9 +76,7 @@ def generate_params_dataclass(cls):
                 names=[ast.alias(name="dataclass", asname=None)],
                 level=0,
             ),
-            ast.ImportFrom(
-                module="typing", names=[ast.alias(name="Any", asname=None)], level=0
-            ),
+            ast.ImportFrom(module="typing", names=[ast.alias(name="Any", asname=None)], level=0),
             class_def,
         ],
         type_ignores=[],

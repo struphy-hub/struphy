@@ -76,18 +76,14 @@ def generate_maxwell_ast(
         assign_constructor_func("time_opts", Time, None, dt=0.01, Tend=0.10),
         assign_constructor_func("domain", domains.Cuboid, "domains.Cuboid"),
         assign_constructor_func("equil", equils.HomogenSlab, "equils.HomogenSlab"),
-        assign_constructor_func(
-            "grid", grids.TensorProductGrid, "grids.TensorProductGrid"
-        ),
+        assign_constructor_func("grid", grids.TensorProductGrid, "grids.TensorProductGrid"),
         assign_constructor_func("derham_opts", DerhamOptions),
         assign_constructor_func("model", Maxwell),
     ]
 
     # propagator options
     prop_options_assign = ast.Assign(
-        targets=[
-            attr_chain(["model", "propagators", "maxwell", "options"], ctx=ast.Store())
-        ],
+        targets=[attr_chain(["model", "propagators", "maxwell", "options"], ctx=ast.Store())],
         value=ast.Call(
             func=attr_chain(["model", "propagators", "maxwell", "Options"]),
             args=[],
@@ -145,9 +141,7 @@ def generate_maxwell_ast(
                             arg="params_path",
                             value=ast.Name(id="__file__", ctx=ast.Load()),
                         ),
-                        ast.keyword(
-                            arg="env", value=ast.Name(id="env", ctx=ast.Load())
-                        ),
+                        ast.keyword(arg="env", value=ast.Name(id="env", ctx=ast.Load())),
                         ast.keyword(
                             arg="base_units",
                             value=ast.Name(id="base_units", ctx=ast.Load()),
@@ -156,22 +150,14 @@ def generate_maxwell_ast(
                             arg="time_opts",
                             value=ast.Name(id="time_opts", ctx=ast.Load()),
                         ),
-                        ast.keyword(
-                            arg="domain", value=ast.Name(id="domain", ctx=ast.Load())
-                        ),
-                        ast.keyword(
-                            arg="equil", value=ast.Name(id="equil", ctx=ast.Load())
-                        ),
-                        ast.keyword(
-                            arg="grid", value=ast.Name(id="grid", ctx=ast.Load())
-                        ),
+                        ast.keyword(arg="domain", value=ast.Name(id="domain", ctx=ast.Load())),
+                        ast.keyword(arg="equil", value=ast.Name(id="equil", ctx=ast.Load())),
+                        ast.keyword(arg="grid", value=ast.Name(id="grid", ctx=ast.Load())),
                         ast.keyword(
                             arg="derham_opts",
                             value=ast.Name(id="derham_opts", ctx=ast.Load()),
                         ),
-                        ast.keyword(
-                            arg="verbose", value=ast.Name(id="verbose", ctx=ast.Load())
-                        ),
+                        ast.keyword(arg="verbose", value=ast.Name(id="verbose", ctx=ast.Load())),
                     ],
                 )
             ),
@@ -180,9 +166,7 @@ def generate_maxwell_ast(
     )
 
     # Assemble module
-    module = ast.Module(
-        body=imports + assignments + perturb_calls + [main_guard], type_ignores=[]
-    )
+    module = ast.Module(body=imports + assignments + perturb_calls + [main_guard], type_ignores=[])
 
     ast.fix_missing_locations(module)
 
@@ -191,7 +175,6 @@ def generate_maxwell_ast(
 
 
 if __name__ == "__main__":
-
     source = generate_maxwell_ast(specify_defaults=False)
     # print source code
     print(source)
