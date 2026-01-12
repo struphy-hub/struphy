@@ -110,7 +110,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
     )
     print("-" * 154)
     for position, key in enumerate(dicts[0].keys()):
-        if list_of_funcs == None:
+        if list_of_funcs is None:
             for dict, sim_name, n, dim in zip(dicts, sim_names, nproc, Nel):
                 string = f"{sim_name}".ljust(20) + f"{n}".ljust(7) + f"{position:2d}".ljust(5) + str(key.ljust(70))
                 for value in dict[key].values():

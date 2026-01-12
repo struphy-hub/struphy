@@ -1,15 +1,15 @@
 import cunumpy as xp
-from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
-from psydac.ddm.mpi import mpi as MPI
-from psydac.feec.global_geometric_projectors import GlobalGeometricProjector
-from psydac.fem.basic import FemSpace
-from psydac.fem.tensor import TensorFemSpace
-from psydac.fem.vector import VectorFemSpace
-from psydac.linalg.basic import ComposedLinearOperator, IdentityOperator, LinearOperator, Vector
-from psydac.linalg.block import BlockLinearOperator, BlockVector
-from psydac.linalg.kron import KroneckerStencilMatrix
-from psydac.linalg.solvers import inverse
-from psydac.linalg.stencil import StencilMatrix, StencilVector
+from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
+from feectools.ddm.mpi import mpi as MPI
+from feectools.feec.global_geometric_projectors import GlobalGeometricProjector
+from feectools.fem.basic import FemSpace
+from feectools.fem.tensor import TensorFemSpace
+from feectools.fem.vector import VectorFemSpace
+from feectools.linalg.basic import ComposedLinearOperator, IdentityOperator, LinearOperator, Vector
+from feectools.linalg.block import BlockLinearOperator, BlockVector
+from feectools.linalg.kron import KroneckerStencilMatrix
+from feectools.linalg.solvers import inverse
+from feectools.linalg.stencil import StencilMatrix, StencilVector
 
 from struphy.feec import mass_kernels
 from struphy.feec.local_projectors_kernels import (
@@ -58,11 +58,11 @@ class CommutingProjector:
 
     * :math:`\mathbb B`: :class:`~struphy.feec.linear_operators.BoundaryOperator`,
     * :math:`\mathbb P`: :class:`~struphy.polar.linear_operators.PolarExtractionOperator` for degrees of freedom,
-    * :math:`\mathcal I`: Kronecker product inter-/histopolation matrix, from :class:`~psydac.feec.global_geometric_projectors.GlobalGeometricProjector`
+    * :math:`\mathcal I`: Kronecker product inter-/histopolation matrix, from :class:`~feectools.feec.global_geometric_projectors.GlobalGeometricProjector`
     * :math:`\mathbb E`: :class:`~struphy.polar.linear_operators.PolarExtractionOperator` for FE coefficients.
 
     :math:`\mathbb P` and :math:`\mathbb E` (and :math:`\mathbb B` in case of no boundary conditions) can be identity operators,
-    which gives the pure tensor-product Psydac :class:`~psydac.feec.global_geometric_projectors.GlobalGeometricProjector`.
+    which gives the pure tensor-product Psydac :class:`~feectools.feec.global_geometric_projectors.GlobalGeometricProjector`.
 
     Parameters
     ----------
@@ -298,7 +298,7 @@ class CommutingProjector:
 
         Parameters
         ----------
-        rhs : psydac.linalg.basic.vector
+        rhs : feectools.linalg.basic.vector
             The right-hand side of the linear system.
 
         transposed : bool, optional
@@ -307,12 +307,12 @@ class CommutingProjector:
         apply_bc : bool, optional
             Whether to apply essential boundary conditions to degrees of freedom and coefficients.
 
-        out : psydac.linalg.basic.vector, optional
+        out : feectools.linalg.basic.vector, optional
             If given, the result will be written into this vector in-place.
 
         Returns
         -------
-        x : psydac.linalg.basic.vector
+        x : feectools.linalg.basic.vector
             Output vector (result of linear system).
         """
 
@@ -373,7 +373,7 @@ class CommutingProjector:
         fun : callable | list
             The function for which the geometric degrees of freedom shall be computed. List of callables for vector-valued functions.
 
-        dofs : psydac.linalg.basic.vector, optional
+        dofs : feectools.linalg.basic.vector, optional
             If given, the dofs will be written into this vector in-place.
 
         apply_bc : bool, optional
@@ -381,7 +381,7 @@ class CommutingProjector:
 
         Returns
         -------
-        dofs : psydac.linalg.basic.vector
+        dofs : feectools.linalg.basic.vector
             The geometric degrees of freedom associated to given callable(s) "fun".
         """
         # get dofs on tensor-product grid + apply polar DOF extraction operator
@@ -410,10 +410,10 @@ class CommutingProjector:
         fun : callable | list
             The function to be projected. List of three callables for vector-valued functions.
 
-        out : psydac.linalg.basic.vector, optional
+        out : feectools.linalg.basic.vector, optional
             If given, the result will be written into this vector in-place.
 
-        dofs : psydac.linalg.basic.vector, optional
+        dofs : feectools.linalg.basic.vector, optional
             If given, the dofs will be written into this vector in-place.
 
         apply_bc : bool, optional
@@ -421,7 +421,7 @@ class CommutingProjector:
 
         Returns
         -------
-        coeffs : psydac.linalg.basic.vector
+        coeffs : feectools.linalg.basic.vector
             The FEM spline coefficients after projection.
         """
         return self.solve(
@@ -1278,12 +1278,12 @@ class CommutingProjectorLocal:
         rhs : numpy array
             The right-hand side of the linear system.
 
-        out : psydac.linalg.basic.vector, optional
+        out : feectools.linalg.basic.vector, optional
             If given, the result will be written into this vector in-place.
 
         Returns
         -------
-        out : psydac.linalg.basic.vector
+        out : feectools.linalg.basic.vector
             Output vector (result of linear system).
         """
         if isinstance(self._fem_space, TensorFemSpace):
@@ -1622,10 +1622,10 @@ class CommutingProjectorLocal:
         fun : callable | list
             The function to be projected. List of three callables for vector-valued functions.
 
-        out : psydac.linalg.basic.vector, optional
+        out : feectools.linalg.basic.vector, optional
             If given, the result will be written into this vector in-place.
 
-        dofs : psydac.linalg.basic.vector, optional
+        dofs : feectools.linalg.basic.vector, optional
             If given, the dofs will be written into this vector in-place.
 
         weighted : bool
@@ -1651,7 +1651,7 @@ class CommutingProjectorLocal:
 
         Returns
         -------
-        coeffs : psydac.linalg.basic.vector | xp.array 3D
+        coeffs : feectools.linalg.basic.vector | xp.array 3D
             The FEM spline coefficients after projection.
         """
         if not weighted:
@@ -1717,7 +1717,7 @@ class CommutingProjectorLocal:
             Array that tell us for which rows the basis function in the i-th direction produces non-zero entries in the BasisProjectionOperatorLocal matrix.
             This array contains the start indices of said regions.
         """
-        if h == None:
+        if h is None:
             rows_splines = getattr(self, f"_rows_B_or_D_splines_{i}")
             translation_indices = getattr(self, f"_translation_indices_B_or_D_splines_{i}")
             return rows_splines[self._B_or_D[i]][translation_indices[self._B_or_D[i]][self._basis_indices[i]]]
@@ -1745,7 +1745,7 @@ class CommutingProjectorLocal:
             Array that tell us for which rows the basis function in the i-th direction produces non-zero entries in the BasisProjectionOperatorLocal matrix.
             This array contains the end indices of said regions.
         """
-        if h == None:
+        if h is None:
             rowe_splines = getattr(self, f"_rowe_B_or_D_splines_{i}")
             translation_indices = getattr(self, f"_translation_indices_B_or_D_splines_{i}")
             return rowe_splines[self._B_or_D[i]][translation_indices[self._B_or_D[i]][self._basis_indices[i]]]
@@ -1772,7 +1772,7 @@ class CommutingProjectorLocal:
         self._values_B_or_D_splines_i[self._B_or_D[i]][self._translation_indices_B_or_D_splines_i[self._B_or_D[i]][self._basis_indices[i]]] : 1d float array
             Array with the evaluated basis function for the i-th direction.
         """
-        if h == None:
+        if h is None:
             values_splines = getattr(self, f"_values_B_or_D_splines_{i}")
             translation_indices = getattr(self, f"_translation_indices_B_or_D_splines_{i}")
             return values_splines[self._B_or_D[i]][translation_indices[self._B_or_D[i]][self._basis_indices[i]]]
@@ -1800,7 +1800,7 @@ class CommutingProjectorLocal:
             Array of zeros or ones. A one at index j means that for the set of quadrature points found in self._localpts[i][j] the basis function is not zero
             for at least one of them.
         """
-        if h == None:
+        if h is None:
             are_zero_splines = getattr(self, f"_are_zero_B_or_D_splines_{i}")
             translation_indices = getattr(self, f"_translation_indices_B_or_D_splines_{i}")
             return are_zero_splines[self._B_or_D[i]][translation_indices[self._B_or_D[i]][self._basis_indices[i]]]
@@ -1975,15 +1975,15 @@ class L2Projector:
 
         Parameters
         ----------
-        rhs : psydac.linalg.basic.vector
+        rhs : feectools.linalg.basic.vector
             The right-hand side of the linear system.
 
-        out : psydac.linalg.basic.vector, optional
+        out : feectools.linalg.basic.vector, optional
             If given, the result will be written into this vector in-place.
 
         Returns
         -------
-        out : psydac.linalg.basic.vector
+        out : feectools.linalg.basic.vector
             Output vector (result of linear system).
         """
 
@@ -2156,10 +2156,10 @@ class L2Projector:
         fun : callable | list
             The function to be projected. List of three callables for vector-valued functions.
 
-        out : psydac.linalg.basic.vector, optional
+        out : feectools.linalg.basic.vector, optional
             If given, the result will be written into this vector in-place.
 
-        dofs : psydac.linalg.basic.vector, optional
+        dofs : feectools.linalg.basic.vector, optional
             If given, the dofs will be written into this vector in-place.
 
         apply_bc : bool, optional
@@ -2167,7 +2167,7 @@ class L2Projector:
 
         Returns
         -------
-        coeffs : psydac.linalg.basic.vector
+        coeffs : feectools.linalg.basic.vector
             The FEM spline coefficients after projection.
         """
         return self.solve(self.get_dofs(fun, dofs=dofs, apply_bc=apply_bc), out=out)
@@ -2279,15 +2279,15 @@ class ProjectorPreconditioner(LinearOperator):
 
         Parameters
         ----------
-        rhs : psydac.linalg.basic.Vector
+        rhs : feectools.linalg.basic.Vector
             The right-hand side vector.
 
-        out : psydac.linalg.basic.Vector, optional
+        out : feectools.linalg.basic.Vector, optional
             If given, the output vector will be written into this vector in-place.
 
         Returns
         -------
-        out : psydac.linalg.basic.Vector
+        out : feectools.linalg.basic.Vector
             The result of (B * E * M^(-1) * E^T * B^T) * rhs, resp. (B * P * I^(-T) * E^T * B^T) * rhs (transposed=True).
         """
 

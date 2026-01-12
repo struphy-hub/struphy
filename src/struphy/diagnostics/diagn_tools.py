@@ -120,19 +120,19 @@ def power_spectrum_2d(
         temp[n, :, :, :] = snapshot[component]
 
     # Extract 2d data (t, eta) for fft
-    if slice_at[0] == None:
+    if slice_at[0] is None:
         data = temp[:, :, slice_at[1], slice_at[2]]
         grid = grids[0]
         if grids_mapped is not None:
             grid = grids_mapped[0][:, slice_at[1], slice_at[2]]
 
-    elif slice_at[1] == None:
+    elif slice_at[1] is None:
         data = temp[:, slice_at[0], :, slice_at[2]]
         grid = grids[1]
         if grids_mapped is not None:
             grid = grids_mapped[1][slice_at[0], :, slice_at[2]]
 
-    elif slice_at[2] == None:
+    elif slice_at[2] is None:
         data = temp[:, slice_at[0], slice_at[1], :]
         grid = grids[2].flatten()
         if grids_mapped is not None:

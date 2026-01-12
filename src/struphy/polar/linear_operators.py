@@ -1,7 +1,7 @@
 import cunumpy as xp
-from psydac.ddm.mpi import mpi as MPI
-from psydac.linalg.block import BlockVector, BlockVectorSpace
-from psydac.linalg.stencil import StencilVector, StencilVectorSpace
+from feectools.ddm.mpi import mpi as MPI
+from feectools.linalg.block import BlockVector, BlockVectorSpace
+from feectools.linalg.stencil import StencilVector, StencilVectorSpace
 from scipy.sparse import csr_matrix, identity
 
 from struphy.feec.linear_operators import LinOpWithTransp

@@ -54,16 +54,15 @@ class InitFromOutput:
         else:
             key = "restart/" + species + "_" + name
 
-        if isinstance(data.file[key], h5py.Dataset):
-            self._vector = data.file[key][-1]
+        with h5py.File(data.file_path, "a") as file:
+            if isinstance(file[key], h5py.Dataset):
+                self._vector = file[key][-1]
 
-        else:
-            self._vector = []
+            else:
+                self._vector = []
 
-            for n in range(3):
-                self._vector += [data.file[key + "/" + str(n + 1)][-1]]
-
-        data.file.close()
+                for n in range(3):
+                    self._vector += [file[key + "/" + str(n + 1)][-1]]
 
     @property
     def vector(self):

@@ -9,12 +9,12 @@ Preconditioners
 Linear operators
 ----------------
 
-.. autoclass:: psydac.linalg.basic.LinearOperator
+.. autoclass:: feectools.linalg.basic.LinearOperator
     :members:
     :undoc-members:
     :show-inheritance:
 
-.. autoclass:: psydac.linalg.block.BlockLinearOperator
+.. autoclass:: feectools.linalg.block.BlockLinearOperator
     :members:
     :undoc-members:
     :show-inheritance:
