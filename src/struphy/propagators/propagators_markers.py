@@ -121,9 +121,12 @@ class PushEta(Propagator):
             n_stages=butcher.n_stages,
             mpi_sort="each",
         )
-
+    
     @profile
     def __call__(self, dt):
+        v = self.variables.var.particles.velocities[:10]
+        print(v)
+        print("")
         self._pusher(dt)
 
         # update_weights
