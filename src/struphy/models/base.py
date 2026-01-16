@@ -771,9 +771,12 @@ class StruphyModel(metaclass=ABCMeta):
                         components[dim_to_int[comp]] = True
 
                     edges = bin_plot.bin_edges
+                    binning_quantity = bin_plot.output_quantity
                     divide_by_jac = bin_plot.divide_by_jac
-                    f_slice, df_slice = obj.binning(components, edges, divide_by_jac=divide_by_jac)
-
+                    f_slice, df_slice = obj.binning(components, edges, 
+                                                    output_quantity = binning_quantity,
+                                                    divide_by_jac=divide_by_jac)
+                    
                     bin_plot.f[:] = f_slice
                     bin_plot.df[:] = df_slice
 
@@ -1115,8 +1118,14 @@ class StruphyModel(metaclass=ABCMeta):
 
                 # binning plot data
                 for bin_plot in species.binning_plots:
-                    key_f = os.path.join(key_spec, "f", bin_plot.slice)
-                    key_df = os.path.join(key_spec, "df", bin_plot.slice)
+
+                    # define slice name with binning quantity
+                    slice, output_quantity = bin_plot.slice, bin_plot.output_quantity
+                    if output_quantity != "particle":
+                        slice = f"{slice}_{output_quantity}"
+
+                    key_f = os.path.join(key_spec, "f", slice)
+                    key_df = os.path.join(key_spec, "df", slice)
 
                     data.add_data({key_f: bin_plot.f})
                     data.add_data({key_df: bin_plot.df})
