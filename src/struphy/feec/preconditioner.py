@@ -7,9 +7,9 @@ from feectools.linalg.block import BlockLinearOperator
 from feectools.linalg.direct_solvers import BandedSolver, SparseSolver
 from feectools.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
 from feectools.linalg.stencil import StencilMatrix, StencilVectorSpace
+from line_profiler import profile
 from scipy import sparse
 from scipy.linalg import solve_circulant
-from line_profiler import profile
 
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.mass import WeightedMassOperator

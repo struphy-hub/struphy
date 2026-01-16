@@ -10,10 +10,10 @@ from time import time
 import cunumpy as xp
 from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
+from line_profiler import profile
 from scipy.integrate import odeint, quad
 from scipy.interpolate import RectBivariateSpline, UnivariateSpline
 from scipy.optimize import fsolve, minimize
-from line_profiler import profile
 
 import struphy
 from struphy.fields_background.base import (
@@ -32,8 +32,8 @@ from struphy.fields_background.base import (
     NumericalMHDequilibrium,
 )
 from struphy.fields_background.mhd_equil.eqdsk import readeqdsk
-from struphy.utils.utils import read_state, subp_run
 from struphy.io.options import BaseUnits, Units
+from struphy.utils.utils import read_state, subp_run
 
 if isinstance(MPI, MockMPI):
     comm = None
@@ -1992,7 +1992,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
             out = out.item()
 
         # rescale to Struphy units
-        out /= self.units.B * self.units.x ** 2
+        out /= self.units.B * self.units.x**2
 
         return out
 

@@ -105,14 +105,16 @@ class StruphyModel(metaclass=ABCMeta):
             else:
                 self._domain = domain
                 self._equil.domain = domain
-                
+
             if hasattr(equil, "units"):
                 assert isinstance(equil.units, Units)
-                equil.units.derive_units(velocity_scale=self.velocity_scale,
-                                         A_bulk=self.bulk_species.mass_number,
-                                         Z_bulk=self.bulk_species.charge_number,
-                                         verbose=self.verbose,)
-                
+                equil.units.derive_units(
+                    velocity_scale=self.velocity_scale,
+                    A_bulk=self.bulk_species.mass_number,
+                    Z_bulk=self.bulk_species.charge_number,
+                    verbose=self.verbose,
+                )
+
             self._equil = equil
         else:
             self._domain = domain

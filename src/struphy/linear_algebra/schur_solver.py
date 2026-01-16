@@ -1,9 +1,9 @@
 from feectools.linalg.basic import IdentityOperator, LinearOperator, Vector
 from feectools.linalg.block import BlockLinearOperator, BlockVector
 from feectools.linalg.solvers import inverse
+from line_profiler import profile
 
 from struphy.linear_algebra.solver import SolverParameters
-from line_profiler import profile
 
 
 class SchurSolver:
