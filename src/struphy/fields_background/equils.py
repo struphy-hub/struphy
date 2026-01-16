@@ -33,7 +33,7 @@ from struphy.fields_background.base import (
 )
 from struphy.fields_background.mhd_equil.eqdsk import readeqdsk
 from struphy.utils.utils import read_state, subp_run
-from struphy.io.options import Units
+from struphy.io.options import BaseUnits, Units
 
 if isinstance(MPI, MockMPI):
     comm = None
@@ -1723,24 +1723,8 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         2nd shape factor for ion number density profile n = n(psi) (default: 0.).
     na : float
         Ion number density at plasma boundary (default: 1.).
-    units : Units
-        All Struphy units. If None, no rescaling of EQDSK output is performed.
-
-    Note
-    ----
-    In the parameter .yml, use the following in the section ``fluid_background``::
-
-        EQDSKequilibrium :
-            rel_path        : True # whether eqdsk file path relative to "<struphy_path>/fields_background/mhd_equil/eqdsk/data/", or the absolute path
-            file            : 'AUGNLED_g031213.00830.high' # path to eqdsk file
-            data_type       : 0 # 0: there is no space between data, 1: there is space between data
-            p_for_psi       : [3, 3]      # spline degrees used in interpolation of poloidal flux function grid data
-            psi_resolution  : [25., 6.25] # resolution used in interpolation of poloidal flux function grid data in %, i.e. [100., 100.] uses all grid points
-            p_for_flux      : 3   # spline degree used in interpolation of 1d functions f=f(psi) (e.g. toroidal field function)
-            flux_resolution : 50. # resolution used in interpolation of of 1d functions f=f(psi) in %
-            n1              : 0.  # 1st shape factor for number density profile n(psi) = (1-na)*(1 - psi_norm^n1)^n2 + na
-            n2              : 0.  # 2nd shape factor for number density profile n(psi) = (1-na)*(1 - psi_norm^n1)^n2 + na
-            na              : 1.  # number density at last closed flux surface
+    base_units : BaseUnits
+        Struphy base units. If None, no rescaling of output is performed.
     """
 
     def __init__(
@@ -1755,7 +1739,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         n1: float = 2.0,
         n2: float = 1.0,
         na: float = 0.2,
-        units: Units = None,
+        base_units: BaseUnits = None,
     ):
         # use params setter
         self.params = copy.deepcopy(locals())
@@ -1766,17 +1750,16 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
             if rank == 0:
                 print(f"EQDSK: taking default file {file}.")
 
-        # no rescaling if units are not provided
-        if units is None:
-            units = Units()
-            units._j = 1.0
-            units._p = 1.0
+        # units
+        self._units = Units(base=base_units)
+        if base_units is None:
+            self.units._j = 1.0
+            self.units._p = 1.0
             warnings.warn(
-                f"{units =}, no rescaling performed in EQDSK output.",
+                f"{self.units =}, no rescaling performed in EQDSK output.",
             )
 
-        self._units = units
-
+        # path
         if self.params["rel_path"]:
             _path = struphy.__path__[0] + "/fields_background/mhd_equil/eqdsk/data/" + file
         else:
@@ -2070,8 +2053,6 @@ class GVECequilibrium(NumericalMHDequilibrium):
 
     Parameters
     ----------
-    units : Units
-        All Struphy units. If None, no rescaling of EQDSK output is performed.
     rel_path : bool
         Whether dat_file (json_file) are relative to "<struphy_path>/fields_background/mhd_equil/gvec/", or are absolute paths (default: True).
     dat_file : str
@@ -2090,29 +2071,14 @@ class GVECequilibrium(NumericalMHDequilibrium):
         Spline degree in each direction used for interpolation of the mapping (default: (3, 3, 3)).
     density_profile : str
         'parabolic' for a parabolic density profile, 'linear' for a linear density profile or 'pressure' for a density profile proportional to pressure
+    p0 : float
+        constant added to the pressure (default: 0.)
     n0 : float
         shape factor for ion number density profile (default: 0.2).
     n1 : float
         shape factor for ion number density profile (default: 0.).
-    p0 : float
-        constant added to the pressure (default: 0.)
-    Note
-    ----
-    In the parameter .yml, use the following in the section ``fluid_background``::
-
-        GVECequilibrium :
-            rel_path : True # whether file path is relative to "<struphy_path>/fields_background/mhd_equil/gvec/", or the absolute path
-            dat_file : '/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat' # path to gvec .dat output file
-            param_file : null # give directly the parsed json file, if it exists (then dat_file is not used)
-            use_boozer : False # whether to use Boozer coordinates
-            use_nfp : True # whether to use the field periods of the stellarator in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake).
-            rmin : 0.0 # radius of domain hole around magnetic axis.
-            Nel : [32, 32, 32] # number of cells in each direction used for interpolation of the mapping.
-            p : [3, 3, 3] # spline degree in each direction used for interpolation of the mapping.
-            density_profile : 'pressure'
-            n0 : 0.2
-            n1 : 0.
-            p0 : 1.
+    base_units : BaseUnits
+        All Struphy units. If None, no rescaling of output is performed.
     """
 
     def __init__(
@@ -2133,7 +2099,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
         p0: float = 0.1,
         n0: float = 0.2,
         n1: float = 0.0,
-        units: Units = None,
+        base_units: BaseUnits = None,
     ):
         # use params setter
         self.params = copy.deepcopy(locals())
@@ -2154,17 +2120,16 @@ class GVECequilibrium(NumericalMHDequilibrium):
 
         from struphy.geometry.domains import GVECunit
 
-        # no rescaling if units are not provided
-        if units is None:
-            units = Units()
-            units._j = 1.0
-            units._p = 1.0
+        # units
+        self._units = Units(base=base_units)
+        if base_units is None:
+            self.units._j = 1.0
+            self.units._p = 1.0
             warnings.warn(
-                f"{units =}, no rescaling performed in GVEC output.",
+                f"{self.units =}, no rescaling performed in GVEC output.",
             )
 
-        self._units = units
-
+        # path
         assert self.params["dat_file"][-4:] == ".dat"
         assert self.params["param_file"][-4:] == ".ini"
 
@@ -2388,24 +2353,10 @@ class DESCequilibrium(NumericalMHDequilibrium):
         Number of cells in each direction used for interpolation of the mapping (default: (16, 16, 16)).
     p : tuple[int]
         Spline degree in each direction used for interpolation of the mapping (default: (3, 3, 3)).
-    units : Units
-        All Struphy units. If None, no rescaling of EQDSK output is performed.
-
-    T_kelvin : maximum of temperature in Kelvin (default: 100000).
-
-    Note
-    ----
-    In the parameter .yml, use the following in the section ``fluid_background``::
-
-        DESCequilibrium :
-            eq_name : null # name of DESC equilibrium; if None, the example "DSHAPE" is chosen
-            rel_path : False # whether to add "<struphy_path>/fields_background/mhd_equil/desc/" before eq_name.
-            use_pest : False # whether to use straight-field line coordinates (PEST)
-            use_nfp : True # whether to use the field periods of the stellarator in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake).
-            rmin : 0.0 # radius of domain hole around magnetic axis.
-            Nel : [32, 32, 32] # number of cells in each direction used for interpolation of the mapping.
-            p : [3, 3, 3] # spline degree in each direction used for interpolation of the mapping.
-            T_kelvin : 100000 # maximum temperature in Kelvin used to set density
+    T_kelvin : float
+        maximum of temperature in Kelvin (default: 100000).
+    base_units : BaseUnits
+        Struphy base units. If None, no rescaling of output is performed.
     """
 
     def __init__(
@@ -2418,7 +2369,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
         Nel: tuple[int] = (16, 16, 50),
         p: tuple[int] = (3, 3, 3),
         T_kelvin: float = 100000.0,
-        units: Units = None,
+        base_units: BaseUnits = None,
     ):
         # use params setter
         self.params = copy.deepcopy(locals())
@@ -2439,17 +2390,16 @@ class DESCequilibrium(NumericalMHDequilibrium):
             print(f"DESC import: {time() - t} seconds")
         from struphy.geometry.domains import DESCunit
 
-        # no rescaling if units are not provided
-        if units is None:
-            units = Units()
-            units._j = 1.0
-            units._p = 1.0
+        # units
+        self._units = Units(base=base_units)
+        if base_units is None:
+            self.units._j = 1.0
+            self.units._p = 1.0
             warnings.warn(
-                f"{units =}, no rescaling performed in DESC output.",
+                f"{self.units =}, no rescaling performed in DESC output.",
             )
 
-        self._units = units
-
+        # path
         if self.params["rel_path"]:
             eq_name = os.path.join(
                 struphy.__path__[0],
@@ -2513,7 +2463,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
         return self._use_nfp
 
     @property
-    def units(self):
+    def units(self) -> Units:
         """All Struphy units."""
         return self._units
 
