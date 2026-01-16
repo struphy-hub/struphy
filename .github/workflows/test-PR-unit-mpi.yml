@@ -65,7 +65,7 @@ jobs:
 
       - name: Compile Struphy
         run: |
-          source /struphy_c_/env_c_/bin/activate
+          source /struphy_fortran_/env_fortran_/bin/activate
           struphy compile
 
       - name: Run unit tests with MPI
@@ -74,6 +74,6 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit-mpi
         # init .testmondata with non-MPI call
         run: |
-          source /struphy_c_/env_c_/bin/activate
+          source /struphy_fortran_/env_fortran_/bin/activate
           struphy test Maxwell
           struphy test unit --mpi 2
