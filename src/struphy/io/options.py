@@ -64,6 +64,24 @@ OptsKernel = Literal[
     "linear_3d",
 ]
 
+# binning
+
+# Create new Literal to determine type of binning output
+BinningOutput = Literal[
+    "particle",
+    "current_density_v1",
+    "current_density_v2",
+    "current_density_v3",
+    "energy_tensor_v1v1",
+    "energy_tensor_v2v2",
+    "energy_tensor_v3v3",
+    "energy_tensor_v1v2",
+    "energy_tensor_v1v3",
+    "energy_tensor_v2v3",
+    "heat_flux_v1",
+    "heat_flux_v2",
+    "heat_flux_v3",
+]
 
 ## Option classes
 
