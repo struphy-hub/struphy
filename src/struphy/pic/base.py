@@ -28,7 +28,7 @@ from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial.base import Perturbation
-from struphy.io.options import OptsLoading
+from struphy.io.options import OptsLoading, BinningOutput
 from struphy.io.output_handling import DataContainer
 from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
 from struphy.kinetic_background.base import KineticBackground, Maxwellian
@@ -1896,8 +1896,8 @@ class Particles(metaclass=ABCMeta):
         self,
         components: tuple[bool],
         bin_edges: tuple[xp.ndarray],
+        output_quantity: BinningOutput,
         divide_by_jac: bool = True,
-        bin_vx: bool = False,
     ):
         r"""Computes full-f and delta-f distribution functions via marker binning in logical space.
         Numpy's histogramdd is used, following the algorithm outlined in :ref:`binning`.
@@ -1910,11 +1910,11 @@ class Particles(metaclass=ABCMeta):
         bin_edges : tuple[array]
             List of bin edges (resolution) having the length of True entries in components.
 
+        output_quantity : BinningOutput
+            String literal used to determine weights in binning and the type of output
+
         divide_by_jac : bool
             Whether to divide the weights by the Jacobian determinant for binning.
-
-        bin_vx : bool
-            Whether to bin the first velocity coordinate (self.velocities[:, 0]).
 
         Returns
         -------
@@ -1939,9 +1939,31 @@ class Particles(metaclass=ABCMeta):
         # compute weights of histogram:
         _weights0 = self.weights0
         _weights = self.weights
-        if bin_vx:
-            _weights0 *= self.velocities[:, 0]
-            _weights *= self.velocities[:, 0]
+
+        # determine type of output quantity
+        if output_quantity != "particle":
+            quantity, v_axis = output_quantity.rsplit(sep = "_", maxsplit = 1)
+            v_axis = [int(char) - 1 for char in v_axis if char.isnumeric()] # convert dimension axis to index 
+
+            if quantity == "current_density":
+                assert(len(v_axis) == 1)
+
+                _weights0 *= self.velocities[:, v_axis[0]]
+                _weights *= self.velocities[:, v_axis[0]]
+            
+            elif quantity == "energy_tensor":
+                assert(len(v_axis) == 2)
+
+                _weights0 *= self.velocities[:, v_axis[0]] * self.velocities[:, v_axis[1]]
+                _weights *= self.velocities[:, v_axis[0]] * self.velocities[:, v_axis[1]]
+
+            elif quantity == "heat_flux":
+                assert(len(v_axis) == 1)
+
+                velocity_norm = xp.linalg.norm(self.velocities, axis = 1)
+
+                _weights0 *= velocity_norm * self.velocities[:, v_axis[0]]
+                _weights *= velocity_norm * self.velocities[:, v_axis[0]]
 
         if divide_by_jac:
             _weights /= self.domain.jacobian_det(self.positions, remove_outside=False)
