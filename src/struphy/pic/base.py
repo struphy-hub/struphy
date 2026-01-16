@@ -1936,34 +1936,22 @@ class Particles(metaclass=ABCMeta):
         _n = len(components)
         slicing = components + [False] * (self.markers.shape[1] - _n)
 
-        # compute weights of histogram:
-        _weights0 = self.weights0
-        _weights = self.weights
-
+        # determine histogram weights multiplier
+        multiplier = 1
         # determine type of output quantity
         if output_quantity != "particle":
             quantity, v_axis = output_quantity.rsplit(sep = "_", maxsplit = 1)
             v_axis = [int(char) - 1 for char in v_axis if char.isnumeric()] # convert dimension axis to index 
 
-            if quantity == "current_density":
-                assert(len(v_axis) == 1)
-
-                _weights0 *= self.velocities[:, v_axis[0]]
-                _weights *= self.velocities[:, v_axis[0]]
-            
-            elif quantity == "energy_tensor":
-                assert(len(v_axis) == 2)
-
-                _weights0 *= self.velocities[:, v_axis[0]] * self.velocities[:, v_axis[1]]
-                _weights *= self.velocities[:, v_axis[0]] * self.velocities[:, v_axis[1]]
-
+            if quantity == "current_density": multiplier = self.velocities[:, v_axis[0]]
+            elif quantity == "energy_tensor": multiplier = self.velocities[:, v_axis[0]] * self.velocities[:, v_axis[1]]
             elif quantity == "heat_flux":
-                assert(len(v_axis) == 1)
-
                 velocity_norm = xp.linalg.norm(self.velocities, axis = 1)
+                multiplier = velocity_norm * self.velocities[:, v_axis[0]]
 
-                _weights0 *= velocity_norm * self.velocities[:, v_axis[0]]
-                _weights *= velocity_norm * self.velocities[:, v_axis[0]]
+        # compute weights of histogram:
+        _weights0 = self.weights0 * multiplier
+        _weights = self.weights * multiplier
 
         if divide_by_jac:
             _weights /= self.domain.jacobian_det(self.positions, remove_outside=False)
