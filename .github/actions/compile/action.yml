@@ -3,7 +3,7 @@ name: "Compile kernels with pyccel"
 inputs:
   language:
     required: true
-    default: c
+    default: fortran
 
 runs:
   using: composite
