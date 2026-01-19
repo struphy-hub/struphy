@@ -2,12 +2,12 @@ import cunumpy as xp
 
 import struphy.pic.utilities_kernels as utils
 from struphy.io.options import (
+    BinningQuantity,
     OptsLoading,
     OptsMarkerBC,
     OptsRecontructBC,
     OptsSpatialLoading,
-    BinningQuantity,
-    check_option
+    check_option,
 )
 
 
@@ -169,7 +169,7 @@ class BinningPlot:
         n_bins: int | tuple[int] = 128,
         ranges: tuple[float] | tuple[tuple[float]] = (0.0, 1.0),
         divide_by_jac: bool = True,
-        output_quantity: BinningQuantity = "density"   # new parameter to determine type of output
+        output_quantity: BinningQuantity = "density",  # new parameter to determine type of output
     ):
         if isinstance(n_bins, int):
             n_bins = (n_bins,)
@@ -211,7 +211,6 @@ class BinningPlot:
     def df(self) -> xp.ndarray:
         """The binned distribution function minus the background (delta-f)."""
         return self._df
-    
 
 
 class KernelDensityPlot:

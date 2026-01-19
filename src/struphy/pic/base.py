@@ -28,7 +28,7 @@ from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial.base import Perturbation
-from struphy.io.options import OptsLoading, BinningQuantity
+from struphy.io.options import BinningQuantity, OptsLoading
 from struphy.io.output_handling import DataContainer
 from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
 from struphy.kinetic_background.base import KineticBackground, Maxwellian
@@ -1939,15 +1939,18 @@ class Particles(metaclass=ABCMeta):
         # determine histogram weights multiplier
 
         # determine type of output quantity
-            # Note: "density" Literal does not have "_"
-        quantity, *v_axis = output_quantity.rsplit(sep = "_", maxsplit = 1)
-        v_axis = [int(char) - 1 for char in "".join(v_axis)] # convert dimension axis to index 
+        # Note: "density" Literal does not have "_"
+        quantity, *v_axis = output_quantity.rsplit(sep="_", maxsplit=1)
+        v_axis = [int(char) - 1 for char in "".join(v_axis)]  # convert dimension axis to index
 
-        if quantity == "density": multiplier = 1
-        elif quantity == "current": multiplier = self.velocities[:, v_axis[0]]
-        elif quantity == "energy_tensor": multiplier = self.velocities[:, v_axis[0]] * self.velocities[:, v_axis[1]]
+        if quantity == "density":
+            multiplier = 1
+        elif quantity == "current":
+            multiplier = self.velocities[:, v_axis[0]]
+        elif quantity == "energy_tensor":
+            multiplier = self.velocities[:, v_axis[0]] * self.velocities[:, v_axis[1]]
         elif quantity == "heat_flux":
-            velocity_norm = xp.linalg.norm(self.velocities, axis = 1)
+            velocity_norm = xp.linalg.norm(self.velocities, axis=1)
             multiplier = velocity_norm * self.velocities[:, v_axis[0]]
 
         # compute weights of histogram:

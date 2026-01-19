@@ -773,10 +773,10 @@ class StruphyModel(metaclass=ABCMeta):
                     edges = bin_plot.bin_edges
                     binning_quantity = bin_plot.output_quantity
                     divide_by_jac = bin_plot.divide_by_jac
-                    f_slice, df_slice = obj.binning(components, edges, 
-                                                    output_quantity = binning_quantity,
-                                                    divide_by_jac=divide_by_jac)
-                    
+                    f_slice, df_slice = obj.binning(
+                        components, edges, output_quantity=binning_quantity, divide_by_jac=divide_by_jac
+                    )
+
                     bin_plot.f[:] = f_slice
                     bin_plot.df[:] = df_slice
 
@@ -1118,7 +1118,6 @@ class StruphyModel(metaclass=ABCMeta):
 
                 # binning plot data
                 for bin_plot in species.binning_plots:
-
                     # define slice name with binning quantity
                     slice, output_quantity = bin_plot.slice, bin_plot.output_quantity
                     slice = f"{slice}_{output_quantity}"
