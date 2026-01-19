@@ -182,4 +182,4 @@ class AccumFilter:
                     # inverse FFT back to real space, write in-place
                     comp._data[ii, jj, pn[2] : pn[2] + ir[2]] = irfft(vec_temp, n=tor_Nel)
 
-            vec.update_ghost_regions()
+            comp.update_ghost_regions()

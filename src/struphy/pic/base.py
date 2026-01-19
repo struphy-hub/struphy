@@ -138,6 +138,9 @@ class Particles(metaclass=ABCMeta):
     perturbations : Perturbation | list
         Kinetic perturbation parameters.
 
+    equation_params : dict
+        Normalization parameters (epsilon, alpha, ...)
+
     verbose : bool
         Show some more Particle info.
     """
@@ -163,6 +166,7 @@ class Particles(metaclass=ABCMeta):
         initial_condition: KineticBackground = None,
         perturbations: dict[str, Perturbation] = None,
         n_as_volume_form: bool = False,
+        equation_params: dict= None,
         verbose: bool = False,
     ):
         self._clone_config = clone_config
@@ -193,6 +197,7 @@ class Particles(metaclass=ABCMeta):
         self._domain = domain
         self._equil = equil
         self._projected_equil = projected_equil
+        self._equation_params = equation_params
 
         # check for mpi communicator (i.e. sub_comm of clone)
         if self.mpi_comm is None:
@@ -377,6 +382,11 @@ class Particles(metaclass=ABCMeta):
     def n_cols_aux(self):
         """Number of auxiliary columns for each marker (e.g. for storing evaluation data)."""
         pass
+
+    @property
+    def equation_params(self):
+        """Parameters appearing in model equation due to Struphy normalization."""
+        return self._equation_params
 
     @property
     def first_diagnostics_idx(self):

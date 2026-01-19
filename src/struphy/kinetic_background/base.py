@@ -626,7 +626,7 @@ class CanonicalMaxwellian(KineticBackground):
         pass
 
     @abstractmethod
-    def psic_to_eta(self, psci):
+    def psic_to_eta(self, psic):
         """Callable function return evaluation points (etas) from canonical toroidal momentum (psic).
 
         Parameters

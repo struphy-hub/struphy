@@ -166,7 +166,15 @@ class ParticleSpecies(Species):
         boundary_params : BoundaryParameters
 
         bufsize : float
-            Size of buffer (as multiple of total size, default=.25) in markers array."""
+            Size of buffer (as multiple of total size, default=.25) in markers array.
+
+        n_cols_diag : int
+            Number of diagnostics columns.
+        
+        n_cols_aux : int
+            Number of auxiliary columns.
+        ----------
+        """
 
         # defaults
         if loading_params is None:

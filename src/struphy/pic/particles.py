@@ -46,9 +46,6 @@ class Particles6D(Particles):
         self._n_cols_diagnostics = kwargs.pop("n_cols_diag", 0)
         self._n_cols_aux = kwargs.pop("n_cols_aux", 5)
 
-        # equation_params
-        self._equation_params = kwargs.pop("equation_params", None)
-
         super().__init__(**kwargs)
 
         # call projected mhd equilibrium in case of CanonicalMaxwellian
@@ -67,23 +64,18 @@ class Particles6D(Particles):
 
     @property
     def n_cols_diagnostics(self):
-        """Number of the diagnostics columns."""
+        """Number of diagnostics columns."""
         return self._n_cols_diagnostics
 
     @property
     def n_cols_aux(self):
-        """Number of the auxiliary columns."""
+        """Number of auxiliary columns."""
         return self._n_cols_aux
 
     @property
     def coords(self):
         """Coordinates of the Particles6D, :math:`(v_1, v_2, v_3)`."""
         return "cartesian"
-
-    @property
-    def equation_params(self):
-        """Parameters appearing in model equation due to Struphy normalization."""
-        return self._equation_params
 
     def svol(self, eta1, eta2, eta3, *v):
         """Sampling density function as volume form.
@@ -328,9 +320,6 @@ class Particles5D(Particles):
         self._n_cols_diagnostics = kwargs.pop("n_cols_diag", 3)
         self._n_cols_aux = kwargs.pop("n_cols_aux", 12)
 
-        # equation_params
-        self._equation_params = kwargs.pop("equation_params", None)
-
         super().__init__(
             projected_equil=projected_equil,
             **kwargs,
@@ -354,12 +343,12 @@ class Particles5D(Particles):
 
     @property
     def n_cols_diagnostics(self):
-        """Number of the diagnostics columns."""
+        """Number of diagnostics columns."""
         return self._n_cols_diagnostics
 
     @property
     def n_cols_aux(self):
-        """Number of the auxiliary columns."""
+        """Number of auxiliary columns."""
         return self._n_cols_aux
 
     @property
@@ -371,11 +360,6 @@ class Particles5D(Particles):
     def unit_b1_h(self):
         """Discrete 1-form coefficients of B/|B|."""
         return self._unit_b1_h
-
-    @property
-    def equation_params(self):
-        """Parameters appearing in model equation due to Struphy normalization."""
-        return self._equation_params
 
     @property
     def coords(self):
@@ -640,9 +624,6 @@ class Particles3D(Particles):
         self._n_cols_diagnostics = kwargs.pop("n_cols_diag", 0)
         self._n_cols_aux = kwargs.pop("n_cols_aux", 5)
 
-        # equation_params
-        self._equation_params = kwargs.pop("equation_params", None)
-
         super().__init__(**kwargs)
 
     @property
@@ -652,18 +633,13 @@ class Particles3D(Particles):
 
     @property
     def n_cols_diagnostics(self):
-        """Number of the diagnostics columns."""
+        """Number of diagnostics columns."""
         return self._n_cols_diagnostics
 
     @property
     def n_cols_aux(self):
-        """Number of the auxiliary columns."""
+        """Number of auxiliary columns."""
         return self._n_cols_aux
-
-    @property
-    def equation_params(self):
-        """Parameters appearing in model equation due to Struphy normalization."""
-        return self._equation_params
 
     @property
     def coords(self):
@@ -801,12 +777,12 @@ class ParticlesSPH(Particles):
 
     @property
     def n_cols_diagnostics(self):
-        """Number of the diagnostics columns."""
+        """Number of diagnostics columns."""
         return self._n_cols_diagnostics
 
     @property
     def n_cols_aux(self):
-        """Number of the auxiliary columns."""
+        """Number of auxiliary columns."""
         return self._n_cols_aux
 
     @property
