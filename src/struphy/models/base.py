@@ -115,10 +115,10 @@ class StruphyModel(metaclass=ABCMeta):
                     verbose=self.verbose,
                 )
 
-            self._equil = equil
         else:
             self._domain = domain
-            self._equil = None
+            
+        self._equil = equil
 
         if MPI.COMM_WORLD.Get_rank() == 0 and self.verbose:
             print("\nDOMAIN:")
