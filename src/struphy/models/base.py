@@ -1121,8 +1121,7 @@ class StruphyModel(metaclass=ABCMeta):
 
                     # define slice name with binning quantity
                     slice, output_quantity = bin_plot.slice, bin_plot.output_quantity
-                    if output_quantity != "particle":
-                        slice = f"{slice}_{output_quantity}"
+                    slice = f"{slice}_{output_quantity}"
 
                     key_f = os.path.join(key_spec, "f", slice)
                     key_df = os.path.join(key_spec, "df", slice)
