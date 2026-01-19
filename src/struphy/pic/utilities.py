@@ -6,7 +6,7 @@ from struphy.io.options import (
     OptsMarkerBC,
     OptsRecontructBC,
     OptsSpatialLoading,
-    BinningOutput,
+    BinningQuantity,
     check_option
 )
 
@@ -169,7 +169,7 @@ class BinningPlot:
         n_bins: int | tuple[int] = 128,
         ranges: tuple[float] | tuple[tuple[float]] = (0.0, 1.0),
         divide_by_jac: bool = True,
-        output_quantity: BinningOutput = "particle"   # new parameter to determine type of output
+        output_quantity: BinningQuantity = "density"   # new parameter to determine type of output
     ):
         if isinstance(n_bins, int):
             n_bins = (n_bins,)
@@ -181,7 +181,7 @@ class BinningPlot:
         assert len(slice.split("_")) == len(ranges) == len(n_bins), (
             f"Number of slices names ({len(slice.split('_'))}), number of bins ({len(n_bins)}), and number of ranges ({len(ranges)}) are inconsistent with each other!\n\n"
         )
-        check_option(output_quantity, BinningOutput)
+        check_option(output_quantity, BinningQuantity)
 
         self.slice = slice
         self.n_bins = n_bins
