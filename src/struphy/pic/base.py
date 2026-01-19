@@ -1896,7 +1896,7 @@ class Particles(metaclass=ABCMeta):
         self,
         components: tuple[bool],
         bin_edges: tuple[xp.ndarray],
-        output_quantity: BinningQuantity,
+        output_quantity: BinningQuantity = "density",
         divide_by_jac: bool = True,
     ):
         r"""Computes full-f and delta-f distribution functions via marker binning in logical space.
