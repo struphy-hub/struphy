@@ -166,7 +166,7 @@ class Particles(metaclass=ABCMeta):
         initial_condition: KineticBackground = None,
         perturbations: dict[str, Perturbation] = None,
         n_as_volume_form: bool = False,
-        equation_params: dict= None,
+        equation_params: dict = None,
         verbose: bool = False,
     ):
         self._clone_config = clone_config

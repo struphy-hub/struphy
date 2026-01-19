@@ -170,7 +170,7 @@ class ParticleSpecies(Species):
 
         n_cols_diag : int
             Number of diagnostics columns.
-        
+
         n_cols_aux : int
             Number of auxiliary columns.
         ----------
