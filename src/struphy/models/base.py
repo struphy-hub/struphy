@@ -104,7 +104,7 @@ class StruphyModel(metaclass=ABCMeta):
                 self._domain = equil.domain
             else:
                 self._domain = domain
-                self._equil.domain = domain
+                equil.domain = domain
 
             if hasattr(equil, "units"):
                 assert isinstance(equil.units, Units)
