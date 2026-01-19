@@ -994,6 +994,76 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
 
     assert l2_error <= 0.04, f"Error between binned data and analytical result was {l2_error}"
 
+def test_binning_current_6D_full_f(mapping, show_plot = False):
+    # =========================================
+    # ===== Test cosine in eta1 direction =====
+    # =========================================
+
+    import cunumpy as xp
+    import matplotlib.pyplot as plt
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy.geometry import domains
+    from struphy.initial import perturbations
+    from struphy.kinetic_background.maxwellians import Maxwellian3D
+    from struphy.pic.particles import Particles6D
+    from struphy.pic.utilities import (
+        BoundaryParameters,
+        LoadingParameters,
+        WeightsParameters,
+    )
+
+    # test weights
+    amp_n = 0.1
+    l_n = 2
+    u1_norm = 2
+    pert = perturbations.ModesCos(ls = (l_n,), amps = (amp_n,))
+    maxwellian = Maxwellian3D(u1 = (u1_norm, pert))
+
+    # Set number of particles for which error is known <= 0.1
+    Np = int(1e6)
+
+    # Domain object
+    domain_class = getattr(domains, mapping[0])
+    domain = domain_class(**mapping[1])
+
+    loading_params = LoadingParameters(Np=Np, moments=(u1_norm,0,0,1,1,1))
+    boundary_params = BoundaryParameters()
+
+    particles = Particles6D(
+        loading_params = loading_params,
+        boundary_params = boundary_params,
+        domain = domain,
+        background = maxwellian,
+    )
+    particles.draw_markers()
+    particles.initialize_weights()
+
+    e1_bins = xp.linspace(0, 1, 200, endpoint = True)
+    de = e1_bins[1] - e1_bins[0]
+
+    binned_res, r2 = particles.binning(
+        [True, False, False, False, False, False],
+        [e1_bins], 
+        "current_1",
+    )
+
+    e1_plot = e1_bins[:-1] + de / 2
+
+    ana_res = u1_norm + amp_n * xp.cos(2 * xp.pi * l_n * e1_plot)
+
+    if show_plot:
+        plt.plot(e1_plot, ana_res, label = "Analytical result")
+        plt.plot(e1_plot, binned_res, "r*", label = "From binning")
+        plt.title(r"Full-$f$: Cosine in $\eta_1$-direction")
+        plt.xlabel(r"$\eta_1$")
+        plt.ylabel(r"$f(\eta_1)$")
+        plt.legend()
+        plt.show()
+    
+    l2_error = xp.sqrt(xp.sum((ana_res - binned_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
+
+    assert l2_error <= 0.02, f"Error between binned data and analytical result was {l2_error}"
 
 if __name__ == "__main__":
     from feectools.ddm.mpi import MockComm
@@ -1008,7 +1078,7 @@ if __name__ == "__main__":
         size = comm.Get_size()
         rank = comm.Get_rank()
 
-    if comm is None or size == 1:
+    if comm is None or size == 1: 
         test_binning_6D_full_f(
             mapping=[
                 "Cuboid",
@@ -1024,6 +1094,14 @@ if __name__ == "__main__":
             mapping=[
                 "Cuboid",
                 # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
+                {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
+            ],
+            show_plot=True,
+        )
+        test_binning_current_6D_full_f(
+            mapping=[
+                "Cuboid",
+               # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
                 {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
             ],
             show_plot=True,
