@@ -109,8 +109,8 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     # =========================================
     # test weights
     amp_n = 0.1
-    l_n = 2
-    pert = perturbations.ModesCos(ls=(l_n,), amps=(amp_n,))
+    mode_number = 2
+    pert = perturbations.ModesCos(ls=(mode_number,), amps=(amp_n,))
     maxwellian = Maxwellian3D(n=(1.0, pert))
 
     particles = Particles6D(
@@ -132,7 +132,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
 
     e1_plot = e1_bins[:-1] + de / 2
 
-    ana_res = 1.0 + amp_n * xp.cos(2 * xp.pi * l_n * e1_plot)
+    ana_res = 1.0 + amp_n * xp.cos(2 * xp.pi * mode_number * e1_plot)
 
     if show_plot:
         plt.plot(e1_plot, ana_res, label="Analytical result")
@@ -159,7 +159,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     l_n1 = 2
     l_n2 = 4
 
-    pert_1 = perturbations.ModesCos(ls=(l_n,), amps=(amp_n,))
+    pert_1 = perturbations.ModesCos(ls=(mode_number,), amps=(amp_n,))
     pert_2 = perturbations.ModesCos(ls=(l_n2,), amps=(amp_n2,))
     maxw_1 = Maxwellian3D(n=(n1, pert_1))
     maxw_2 = Maxwellian3D(n=(n2, pert_2), u1=(4.5, None), vth1=(0.5, None))
@@ -303,8 +303,8 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
 
     # test weights
     amp_n = 0.1
-    l_n = 2
-    pert = perturbations.ModesCos(ls=(l_n,), amps=(amp_n,))
+    mode_number = 2
+    pert = perturbations.ModesCos(ls=(mode_number,), amps=(amp_n,))
     background = Maxwellian3D(n=(1.0, pert))
 
     particles = DeltaFParticles6D(
@@ -326,7 +326,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
 
     e1_plot = e1_bins[:-1] + de / 2
 
-    ana_res = amp_n * xp.cos(2 * xp.pi * l_n * e1_plot)
+    ana_res = amp_n * xp.cos(2 * xp.pi * mode_number * e1_plot)
 
     if show_plot:
         plt.plot(e1_plot, ana_res, label="Analytical result")
@@ -353,7 +353,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
     l_n1 = 2
     l_n2 = 4
 
-    pert_1 = perturbations.ModesCos(ls=(l_n,), amps=(amp_n,))
+    pert_1 = perturbations.ModesCos(ls=(mode_number,), amps=(amp_n,))
     pert_2 = perturbations.ModesCos(ls=(l_n2,), amps=(amp_n2,))
     maxw_1 = Maxwellian3D(n=(n1, pert_1))
     maxw_2 = Maxwellian3D(n=(n2, pert_2), u1=(4.5, None), vth1=(0.5, None))
@@ -557,8 +557,8 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     # =========================================
     # test weights
     amp_n = 0.1
-    l_n = 2
-    pert = perturbations.ModesCos(ls=(l_n,), amps=(amp_n,))
+    mode_number = 2
+    pert = perturbations.ModesCos(ls=(mode_number,), amps=(amp_n,))
     maxwellian = Maxwellian3D(n=(1.0, pert))
 
     particles = Particles6D(
@@ -589,7 +589,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
 
     e1_plot = e1_bins[:-1] + de / 2
 
-    ana_res = 1.0 + amp_n * xp.cos(2 * xp.pi * l_n * e1_plot)
+    ana_res = 1.0 + amp_n * xp.cos(2 * xp.pi * mode_number * e1_plot)
 
     if show_plot and rank == 0:
         plt.plot(e1_plot, ana_res, label="Analytical result")
@@ -807,17 +807,17 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
 
     # test weights
     amp_n = 0.1
-    l_n = 2
+    mode_number = 2
     pert_params = {
         "n": {
             "ModesCos": {
                 "given_in_basis": "0",
-                "ls": [l_n],
+                "ls": [mode_number],
                 "amps": [amp_n],
             },
         },
     }
-    pert = perturbations.ModesCos(ls=(l_n,), amps=(amp_n,))
+    pert = perturbations.ModesCos(ls=(mode_number,), amps=(amp_n,))
     background = Maxwellian3D(n=(1.0, pert))
 
     particles = DeltaFParticles6D(
@@ -848,7 +848,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
 
     e1_plot = e1_bins[:-1] + de / 2
 
-    ana_res = amp_n * xp.cos(2 * xp.pi * l_n * e1_plot)
+    ana_res = amp_n * xp.cos(2 * xp.pi * mode_number * e1_plot)
 
     if show_plot and rank == 0:
         plt.plot(e1_plot, ana_res, label="Analytical result")
@@ -1014,11 +1014,8 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
         #     'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]
     ],
 )
+# TODO: Add unit test for case of different integrand and axis of integration (should result)
 def test_binning_current_6D_full_f(mapping, show_plot=False):
-    # =========================================
-    # ===== Test cosine in eta1 direction =====
-    # =========================================
-
     import cunumpy as xp
     import matplotlib.pyplot as plt
     from feectools.ddm.mpi import mpi as MPI
@@ -1032,13 +1029,14 @@ def test_binning_current_6D_full_f(mapping, show_plot=False):
         LoadingParameters,
         WeightsParameters,
     )
+    # ==============================================================
+    # ===== Setup default parameters =====
+    # ==============================================================
 
     # test weights
     amp_n = 0.1
-    l_n = 2
-    u1_norm = 2
-    pert = perturbations.ModesCos(ls=(l_n,), amps=(amp_n,))
-    maxwellian = Maxwellian3D(u1=(u1_norm, pert))
+    mode_number = 2
+    u_norm = 2.0
 
     # Set number of particles for which error is known <= 0.1
     Np = int(1e6)
@@ -1047,43 +1045,78 @@ def test_binning_current_6D_full_f(mapping, show_plot=False):
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
 
-    loading_params = LoadingParameters(Np=Np, moments=(u1_norm, 0, 0, 1, 1, 1))
-    boundary_params = BoundaryParameters()
+    def test_current_binning_helper(moments, u_axis):
+        """
+        Helper function to do testing in case of perturbation on different axis
 
-    particles = Particles6D(
-        loading_params=loading_params,
-        boundary_params=boundary_params,
-        domain=domain,
-        background=maxwellian,
-    )
-    particles.draw_markers()
-    particles.initialize_weights()
+        Parameters
+        ----------
+        moments: tuple[float]
+            moment for Gaussian sampling distribution
+        u_axis: int
+            axis of velocity component in moments to be tested
+        """
+        # define perturbation to use
+        mode_dict = {1: "ls", 2: "ms", 3: "ns"}
+        kwargs_pert = {mode_dict[u_axis]: (mode_number,), "amps": (amp_n,)}
 
-    e1_bins = xp.linspace(0, 1, 200, endpoint=True)
-    de = e1_bins[1] - e1_bins[0]
+        pert = perturbations.ModesCos(**kwargs_pert, comp=u_axis - 1)
 
-    binned_res, r2 = particles.binning(
-        [True, False, False, False, False, False],
-        [e1_bins],
-        "current_1",
-    )
+        kwargs_maxwell = {f"u{u_axis}": (moments[u_axis - 1], pert)}
 
-    e1_plot = e1_bins[:-1] + de / 2
+        maxwellian = Maxwellian3D(**kwargs_maxwell)
+        loading_params = LoadingParameters(Np=Np, moments=moments)
+        boundary_params = BoundaryParameters()
 
-    ana_res = u1_norm + amp_n * xp.cos(2 * xp.pi * l_n * e1_plot)
+        particles = Particles6D(
+            loading_params=loading_params,
+            boundary_params=boundary_params,
+            domain=domain,
+            background=maxwellian,
+        )
 
-    if show_plot:
-        plt.plot(e1_plot, ana_res, label="Analytical result")
-        plt.plot(e1_plot, binned_res, "r*", label="From binning")
-        plt.title(r"Full-$f$: Cosine in $\eta_1$-direction")
-        plt.xlabel(r"$\eta_1$")
-        plt.ylabel(r"$f(\eta_1)$")
-        plt.legend()
-        plt.show()
+        particles.draw_markers()
+        particles.initialize_weights()
 
-    l2_error = xp.sqrt(xp.sum((ana_res - binned_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
+        e_bins = xp.linspace(0, 1, 200, endpoint=True)
+        de = e_bins[1] - e_bins[0]
 
-    assert l2_error <= 0.02, f"Error between binned data and analytical result was {l2_error}"
+        components = [False] * 6
+        components[u_axis - 1] = True
+
+        print(components)
+        binned_res, r2 = particles.binning(
+            components,
+            [e_bins],
+            f"current_{u_axis}",
+        )
+
+        e_plot = e_bins[:-1] + de / 2
+
+        ana_res = u_norm + amp_n * xp.cos(2 * xp.pi * mode_number * e_plot)
+
+        if show_plot:
+            plt.plot(e_plot, ana_res, label="Analytical result")
+            plt.plot(e_plot, binned_res, "r*", label="From binning")
+            plt.title(r"Full-$f$: Cosine in $\eta_1$-direction")
+            plt.xlabel(rf"$\eta_{u_axis}$")
+            plt.ylabel(rf"$f(\eta_{u_axis})$")
+            plt.legend()
+            plt.show()
+
+        l2_error = xp.sqrt(xp.sum((ana_res - binned_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
+
+        assert l2_error <= 0.02, f"Error between binned data and analytical result was {l2_error}"
+
+    test_current_binning_helper(
+        moments=(u_norm, 0.0, 0.0, 1.0, 1.0, 1.0), u_axis=1
+    )  # test current_v1 in eta1 direction
+    test_current_binning_helper(
+        moments=(0.0, u_norm, 0.0, 1.0, 1.0, 1.0), u_axis=2
+    )  # test current_v2 in eta1 direction
+    test_current_binning_helper(
+        moments=(0.0, 0.0, u_norm, 1.0, 1.0, 1.0), u_axis=3
+    )  # test current_v3 in eta1 direction
 
 
 if __name__ == "__main__":
@@ -1100,30 +1133,30 @@ if __name__ == "__main__":
         rank = comm.Get_rank()
 
     if comm is None or size == 1:
-        test_binning_6D_full_f(
-            mapping=[
-                "Cuboid",
-                # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
-                {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
-                # 'ShafranovDshapedCylinder',
-                # {'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07,
-                #     'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}
-            ],
-            show_plot=True,
-        )
-        test_binning_6D_delta_f(
-            mapping=[
-                "Cuboid",
-                # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
-                {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
-            ],
-            show_plot=True,
-        )
+        # test_binning_6D_full_f(
+        #     mapping=[
+        #         "Cuboid",
+        #         # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
+        #         {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
+        #         # 'ShafranovDshapedCylinder',
+        #         # {'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07,
+        #         #     'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}
+        #     ],
+        #     show_plot=True,
+        # )
+        # test_binning_6D_delta_f(
+        #     mapping=[
+        #         "Cuboid",
+        #         # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
+        #         {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
+        #     ],
+        #     show_plot=True,
+        # )
         test_binning_current_6D_full_f(
             mapping=[
                 "Cuboid",
-                # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
-                {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
+                {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0},
+                # {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
             ],
             show_plot=True,
         )
