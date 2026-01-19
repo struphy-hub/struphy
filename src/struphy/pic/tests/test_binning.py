@@ -994,6 +994,25 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
 
     assert l2_error <= 0.04, f"Error between binned data and analytical result was {l2_error}"
 
+@pytest.mark.mpi_skip
+@pytest.mark.parametrize(
+    "mapping",
+    [
+        [
+            "Cuboid",
+            {
+                "l1": 1.0,
+                "r1": 2.0,
+                "l2": 10.0,
+                "r2": 20.0,
+                "l3": 3.0,
+                "r3": 4.0,
+            },
+        ],
+        # ['ShafranovDshapedCylinder', {
+        #     'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]
+    ],
+)
 def test_binning_current_6D_full_f(mapping, show_plot = False):
     # =========================================
     # ===== Test cosine in eta1 direction =====
