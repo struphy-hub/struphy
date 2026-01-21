@@ -2,8 +2,9 @@ name: Ubuntu
 
 on:
   schedule:
-    # run at 1 a.m. on Sunday
+    # run at 1 a.m. on Sundays and Wednesdays
     - cron: "0 1 * * 0" 
+    - cron: "0 1 * * 3"
   workflow_dispatch:
 
 jobs:
