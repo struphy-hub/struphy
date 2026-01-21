@@ -3853,6 +3853,96 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         )
 
         return v1, v2, v3
+    
+    def eval_viscosity(
+        self,
+        eta1,
+        eta2,
+        eta3,
+        h1,
+        h2,
+        h3,
+        kernel_type="gaussian_3d",
+        derivative=1,
+        fast=True,
+    ) -> tuple:
+        
+        first_free_idx = self.args_markers.first_free_idx
+        comps = xp.array((0, 1, 2, 3, 4, 5, 6, 7, 8))
+        
+        self.put_particles_in_boxes()
+        func = Pyccelkernel(eval_kernels_gc.sph_grad_mean_velocity)
+          
+        func(
+            alpha=xp.array((0.0, 0.0, 0.0)),
+            column_nr=first_free_idx,
+            comps=comps,
+            args_markers=self.args_markers,
+            args_domain=self.domain.args_domain,
+            boxes=self.sorting_boxes.boxes,
+            neighbours=self.sorting_boxes.neighbours,
+            holes=self.holes,
+            periodic1=self.boundary_params.bc_sph[0] == "periodic",
+            periodic2=self.boundary_params.bc_sph[1] == "periodic",
+            periodic3=self.boundary_params.bc_sph[2] == "periodic",
+            kernel_type=self.ker_dct()[kernel_type],
+            h1=h1,
+            h2=h2,
+            h3=h3,
+        )
+        
+        
+        v1 = self.eval_sph(
+            eta1,
+            eta2,
+            eta3,
+            first_free_idx,
+            kernel_type=kernel_type,
+            derivative=derivative,
+            h1=h1,
+            h2=h2,
+            h3=h3,
+            fast=fast,
+        )
+
+        # print(f"{self.markers.shape = }")
+        # print(f"{first_free_idx = }")
+        # print(f"{self.markers[:, first_free_idx]}")
+        # print(f"{v1.squeeze() = }")
+
+        v2 = self.eval_sph(
+            eta1,
+            eta2,
+            eta3,
+            first_free_idx + 1,
+            kernel_type=kernel_type,
+            derivative=derivative,
+            h1=h1,
+            h2=h2,
+            h3=h3,
+            fast=fast,
+        )
+
+        v3 = self.eval_sph(
+            eta1,
+            eta2,
+            eta3,
+            first_free_idx + 2,
+            kernel_type=kernel_type,
+            derivative=derivative,
+            h1=h1,
+            h2=h2,
+            h3=h3,
+            fast=fast,
+        )
+
+        return v1, v2, v3
+    
+        
+        
+        
+
+    
 
     def eval_sph(
         self,

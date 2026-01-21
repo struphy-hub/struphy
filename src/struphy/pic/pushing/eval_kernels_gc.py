@@ -995,14 +995,14 @@ def sph_viscosity_tensor(
                     periodic1,
                     periodic2,
                     periodic3,
-                    first_free_idx + 3 + j,
+                    first_free_idx  + j +3, 
                     kernel_type + 1 + k,
                     h1,
                     h2,
                     h3,
                 )
 
-        mu = 0.007
+        mu = 0.001
         d = 0.5 * (grad_v_at_eta + grad_v_at_eta.T)
 
         
