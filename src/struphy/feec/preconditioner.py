@@ -7,6 +7,7 @@ from feectools.linalg.block import BlockLinearOperator
 from feectools.linalg.direct_solvers import BandedSolver, SparseSolver
 from feectools.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
 from feectools.linalg.stencil import StencilMatrix, StencilVectorSpace
+from line_profiler import profile
 from scipy import sparse
 from scipy.linalg import solve_circulant
 
@@ -344,6 +345,7 @@ class MassMatrixPreconditioner(LinearOperator):
         """
         return MassMatrixPreconditioner(self._mass_operator.transpose(), self._apply_bc)
 
+    @profile
     def solve(self, rhs, out=None):
         """
         Computes (B * E * M^(-1) * E^T * B^T) * rhs as an approximation for an inverse mass matrix.
@@ -780,6 +782,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
 
         return out
 
+    @profile
     def solve(self, rhs, out=None):
         r"""
         Computes :math:`(B * E * M^{-1} * E^T * B^T) * rhs` as an approximation for an inverse mass matrix,
@@ -874,7 +877,7 @@ class FFTSolver(BandedSolver):
     def space(self):
         return self._space
 
-    # ...
+    @profile
     def solve(self, rhs, out=None, transposed=False):
         """
         Solves for the given right-hand side.
