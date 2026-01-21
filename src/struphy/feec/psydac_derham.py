@@ -35,7 +35,7 @@ from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial import perturbations, utilities
 from struphy.initial.base import Perturbation
 from struphy.initial.perturbations import Noise
-from struphy.io.options import FieldsBackground, GivenInBasis, NoiseDirections
+from struphy.io.options import FieldsBackground, GivenInBasis, NoiseDirections, OptsFEECSpace
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
@@ -884,7 +884,7 @@ class Derham:
     def create_spline_function(
         self,
         name: str,
-        space_id: str,
+        space_id: OptsFEECSpace,
         coeffs: StencilVector | BlockVector = None,
         backgrounds: FieldsBackground | list = None,
         perturbations: Perturbation | list = None,
