@@ -171,26 +171,36 @@ class Units:
     @property
     def v(self):
         """Unit of velocity in m/s."""
+        if not hasattr(self, "_v"):
+            raise AttributeError("Must call Units.derive_units() to get full set of units.")
         return self._v
 
     @property
     def t(self):
         """Unit of time in s."""
+        if not hasattr(self, "_t"):
+            raise AttributeError("Must call Units.derive_units() to get full set of units.")
         return self._t
 
     @property
     def p(self):
         """Unit of pressure in Pa, equal to B^2/mu0 if velocity_scale='alfvén'."""
+        if not hasattr(self, "_p"):
+            raise AttributeError("Must call Units.derive_units() to get full set of units.")
         return self._p
 
     @property
     def rho(self):
         """Unit of mass density in kg/m^3."""
+        if not hasattr(self, "_rho"):
+            raise AttributeError("Must call Units.derive_units() to get full set of units.")
         return self._rho
 
     @property
     def j(self):
         """Unit of current density in A/m^2."""
+        if not hasattr(self, "_j"):
+            raise AttributeError("Must call Units.derive_units() to get full set of units.")
         return self._j
 
     def derive_units(self, velocity_scale: str = "light", A_bulk: int = None, Z_bulk: int = None, verbose=False):

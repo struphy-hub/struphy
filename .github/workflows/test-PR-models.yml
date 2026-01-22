@@ -66,7 +66,7 @@ jobs:
 
       - name: Compile Struphy
         run: |
-          source /struphy_c_/env_c_/bin/activate
+          source /struphy_fortran_/env_fortran_/bin/activate
           struphy compile
 
       - name: LinearMHD test
@@ -74,7 +74,7 @@ jobs:
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
         run: |
-          source /struphy_c_/env_c_/bin/activate
+          source /struphy_fortran_/env_fortran_/bin/activate
           struphy test LinearMHD
 
       - name: Toy test
@@ -82,7 +82,7 @@ jobs:
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
         run: |
-          source /struphy_c_/env_c_/bin/activate
+          source /struphy_fortran_/env_fortran_/bin/activate
           struphy test toy
 
       - name: Model tests
@@ -90,7 +90,7 @@ jobs:
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
         run: |
-          source /struphy_c_/env_c_/bin/activate
+          source /struphy_fortran_/env_fortran_/bin/activate
           struphy test models 
 
       - name: Verification tests
@@ -98,7 +98,7 @@ jobs:
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
         run: |
-          source /struphy_c_/env_c_/bin/activate
+          source /struphy_fortran_/env_fortran_/bin/activate
           struphy test verification
 
       - name: Model tests with MPI
@@ -107,7 +107,7 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model-mpi
         # init .testmondata with non-MPI call
         run: |
-          source /struphy_c_/env_c_/bin/activate
+          source /struphy_fortran_/env_fortran_/bin/activate
           struphy test Maxwell
           struphy test models --mpi 2
 
@@ -116,5 +116,5 @@ jobs:
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model-mpi
         run: |
-          source /struphy_c_/env_c_/bin/activate
+          source /struphy_fortran_/env_fortran_/bin/activate
           struphy test verification --mpi 2

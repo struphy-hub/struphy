@@ -100,15 +100,25 @@ class StruphyModel(metaclass=ABCMeta):
     def setup_domain_and_equil(self, domain: Domain, equil: FluidEquilibrium):
         """If a numerical equilibirum is used, the domain is taken from this equilibirum."""
         if equil is not None:
-            self._equil = equil
-            if isinstance(self.equil, NumericalMHDequilibrium):
-                self._domain = self.equil.domain
+            if isinstance(equil, NumericalMHDequilibrium):
+                self._domain = equil.domain
             else:
                 self._domain = domain
-                self._equil.domain = domain
+                equil.domain = domain
+
+            if hasattr(equil, "units"):
+                assert isinstance(equil.units, Units)
+                equil.units.derive_units(
+                    velocity_scale=self.velocity_scale,
+                    A_bulk=self.bulk_species.mass_number,
+                    Z_bulk=self.bulk_species.charge_number,
+                    verbose=self.verbose,
+                )
+
         else:
             self._domain = domain
-            self._equil = None
+
+        self._equil = equil
 
         if MPI.COMM_WORLD.Get_rank() == 0 and self.verbose:
             print("\nDOMAIN:")
