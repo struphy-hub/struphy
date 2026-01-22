@@ -27,7 +27,7 @@ def get_cprofile_data(path, print_callers=None):
     p = pstats.Stats(os.path.join(path, "profile_tmp"), stream=stdout)
     p.strip_dirs().sort_stats(SortKey.CUMULATIVE).print_stats()
     stdout.close()
-
+    name_li = None
     data_cprofile = dict()
     with open(os.path.join(path, "profile_out.txt")) as f:
         lines = f.readlines()
@@ -118,12 +118,12 @@ def replace_keys(d):
 
     import os
 
-    import psydac
+    import feectools
 
     import struphy
 
     struphy_path = struphy.__path__[0]
-    psydac_path = psydac.__path__[0]
+    psydac_path = feectools.__path__[0]
 
     key_list = []
     for key in d.keys():

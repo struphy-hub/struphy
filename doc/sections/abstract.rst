@@ -28,7 +28,7 @@ provided by the Struphy classes. Check out :ref:`add_model` to learn more.
 
 At present, abstractions for the following numerical methods are available:
 
-* **Finite Element Exterior Calculus (FEEC)**, through `Psydac <https://github.com/pyccel/psydac>`_
+* **Finite Element Exterior Calculus (FEEC)**, through ` <https://github.com/pyccel/psydac>`_
 * **Particle-In-Cell (PIC)**
 * **Smoothed-Particle Hydrodynamics (SPH)**
 

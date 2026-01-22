@@ -52,7 +52,7 @@ class DataContainer:
 
             with h5py.File(self.file_path, "a") as file:
                 file.visit(
-                    lambda key: dataset_keys.append(key) if isinstance(self._file[key], h5py.Dataset) else None,
+                    lambda key: dataset_keys.append(key) if isinstance(file[key], h5py.Dataset) else None,
                 )
 
             for key in dataset_keys:
@@ -88,7 +88,8 @@ class DataContainer:
 
             # if dataset already exists, check for compatibility with given array
             if key in self._dset_dict:
-                dataset_shape = self.file[key].shape
+                with h5py.File(self.file_path, "a") as file:
+                    dataset_shape = file[key].shape
 
                 # scalar values are saved as 1d arrays of size 1
                 if len(dataset_shape) == 1:

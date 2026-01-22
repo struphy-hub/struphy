@@ -5,6 +5,8 @@ runs:
   steps:
     - name: Run unit tests with MPI
       shell: bash
+      env:
+        TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-${{ matrix.test-type }}
       run: |
         struphy compile --status
       # run: |

@@ -1,9 +1,5 @@
 import cunumpy as xp
-import numpy as np
-import matplotlib.pyplot as plt
-
-import torch
-from psydac.ddm.mpi import mpi as MPI
+from feectools.ddm.mpi import mpi as MPI
 
 from struphy.feec.projectors import L2Projector
 from struphy.kinetic_background.base import KineticBackground
@@ -42,6 +38,7 @@ from scimba_torch.integration.monte_carlo_parameters import (
     UniformParametricSampler,
     UniformVelocitySampler,
 )
+import torch
 
 rank = MPI.COMM_WORLD.Get_rank()
 

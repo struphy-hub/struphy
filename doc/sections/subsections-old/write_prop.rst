@@ -34,7 +34,7 @@ As an example, let us look at :class:`struphy.propagators.propagators_coupling.V
         solver=options(default=True)['solver'],
         ):
 
-Here, a variable ``e`` of type :class:`~psydac.linalg.block.BlockVector` and a variable ``particles`` of type :class:`~struphy.pic.particles.Particles6D`
+Here, a variable ``e`` of type :class:`~feectools.linalg.block.BlockVector` and a variable ``particles`` of type :class:`~struphy.pic.particles.Particles6D`
 are updated by the Propagator.
 Check available :ref:`data_structures` for possible types of variables.
 The parameters of this Propagator are the two floats ``c1`` and ``c2``, as well as some ``solver``
@@ -176,7 +176,7 @@ for the charge deposition in the Vlasov-Ampère system::
 
 Some remarks to this code:
 
-1. This Propagator updates two variables: ``e`` of type :class:`~psydac.linalg.block.BlockVector` and  ``particles`` of type :class:`~struphy.pic.particles.Particles6D`
+1. This Propagator updates two variables: ``e`` of type :class:`~feectools.linalg.block.BlockVector` and  ``particles`` of type :class:`~struphy.pic.particles.Particles6D`
 2. The :class:`~struphy.propagators.base.Propagator` base class has to be instantiated with a call to ``super().__init__()`` 
 3. The kernel is ``vlasov_maxwell`` from the kernel file ``accum_kernels.py``
 4. The :class:`~struphy.pic.accumulation.particles_to_grid.Accumulator` is instantiated as ``self._accum`` with its necessary arguments, in particular the ``particles`` object, the space ``'Hcurl'`` of the deposition and the ``accum_kernel``
