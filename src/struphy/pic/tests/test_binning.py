@@ -1045,7 +1045,10 @@ def test_binning_current_6D_full_f(mapping, show_plot=False):
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
 
-    def test_current_binning_helper(moments, u_axis):
+    same_axis_ana_res =  lambda e_plot: u_norm + amp_n * xp.cos(2 * xp.pi * mode_number * e_plot)
+    off_axis_ana_res = lambda e_plot: xp.zeros(len(e_plot))
+
+    def test_helper(moments, u_axis, current_axis, ana_func):
         """
         Helper function to do testing in case of perturbation on different axis
 
@@ -1055,19 +1058,25 @@ def test_binning_current_6D_full_f(mapping, show_plot=False):
             moment for Gaussian sampling distribution
         u_axis: int
             axis of velocity component in moments to be tested
+        current_axis: int
+            axis of current to be binned
+        ana_func: funtion
+            function to calculate analytical result
         """
-        # define perturbation to use
+        # define perturbation
         mode_dict = {1: "ls", 2: "ms", 3: "ns"}
         kwargs_pert = {mode_dict[u_axis]: (mode_number,), "amps": (amp_n,)}
 
         pert = perturbations.ModesCos(**kwargs_pert, comp=u_axis - 1)
 
+        # define maxwellian distribution
         kwargs_maxwell = {f"u{u_axis}": (moments[u_axis - 1], pert)}
 
         maxwellian = Maxwellian3D(**kwargs_maxwell)
         loading_params = LoadingParameters(Np=Np, moments=moments)
         boundary_params = BoundaryParameters()
 
+        # make binning
         particles = Particles6D(
             loading_params=loading_params,
             boundary_params=boundary_params,
@@ -1084,17 +1093,18 @@ def test_binning_current_6D_full_f(mapping, show_plot=False):
         components = [False] * 6
         components[u_axis - 1] = True
 
-        print(components)
         binned_res, r2 = particles.binning(
             components,
             [e_bins],
-            f"current_{u_axis}",
+            f"current_{current_axis}",
         )
 
         e_plot = e_bins[:-1] + de / 2
 
-        ana_res = u_norm + amp_n * xp.cos(2 * xp.pi * mode_number * e_plot)
+        # calculate analytical result
+        ana_res = ana_func(e_plot)
 
+        # compare results
         if show_plot:
             plt.plot(e_plot, ana_res, label="Analytical result")
             plt.plot(e_plot, binned_res, "r*", label="From binning")
@@ -1103,21 +1113,22 @@ def test_binning_current_6D_full_f(mapping, show_plot=False):
             plt.ylabel(rf"$f(\eta_{u_axis})$")
             plt.legend()
             plt.show()
+        
+        if u_axis != current_axis: ana_res += 10; binned_res += 10 #to prevent zero division error
 
         l2_error = xp.sqrt(xp.sum((ana_res - binned_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
 
         assert l2_error <= 0.02, f"Error between binned data and analytical result was {l2_error}"
 
-    test_current_binning_helper(
-        moments=(u_norm, 0.0, 0.0, 1.0, 1.0, 1.0), u_axis=1
-    )  # test current_v1 in eta1 direction
-    test_current_binning_helper(
-        moments=(0.0, u_norm, 0.0, 1.0, 1.0, 1.0), u_axis=2
-    )  # test current_v2 in eta1 direction
-    test_current_binning_helper(
-        moments=(0.0, 0.0, u_norm, 1.0, 1.0, 1.0), u_axis=3
-    )  # test current_v3 in eta1 direction
+    for i in range(1,4): # axis of current
+        moments = [0.0,0.0,0.0,1.0,1.0,1.0]
+        moments[i-1] = u_norm
+        for j in range(1,4): # axis of binning
 
+            ana_func = off_axis_ana_res if i != j else same_axis_ana_res
+            test_helper(
+                moments = tuple(moments), u_axis = i, current_axis = j, ana_func = ana_func
+            )
 
 if __name__ == "__main__":
     from feectools.ddm.mpi import MockComm
@@ -1133,25 +1144,25 @@ if __name__ == "__main__":
         rank = comm.Get_rank()
 
     if comm is None or size == 1:
-        # test_binning_6D_full_f(
-        #     mapping=[
-        #         "Cuboid",
-        #         # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
-        #         {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
-        #         # 'ShafranovDshapedCylinder',
-        #         # {'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07,
-        #         #     'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}
-        #     ],
-        #     show_plot=True,
-        # )
-        # test_binning_6D_delta_f(
-        #     mapping=[
-        #         "Cuboid",
-        #         # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
-        #         {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
-        #     ],
-        #     show_plot=True,
-        # )
+        test_binning_6D_full_f(
+            mapping=[
+                "Cuboid",
+                # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
+                {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
+                # 'ShafranovDshapedCylinder',
+                # {'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07,
+                #     'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}
+            ],
+            show_plot=True,
+        )
+        test_binning_6D_delta_f(
+            mapping=[
+                "Cuboid",
+                # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
+                {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
+            ],
+            show_plot=True,
+        )
         test_binning_current_6D_full_f(
             mapping=[
                 "Cuboid",
