@@ -167,6 +167,8 @@ class Particles(metaclass=ABCMeta):
         perturbations: dict[str, Perturbation] = None,
         n_as_volume_form: bool = False,
         equation_params: dict = None,
+        n_cols_diag: int = None,
+        n_cols_aux: int = None,
         verbose: bool = False,
     ):
         self._clone_config = clone_config
@@ -198,6 +200,8 @@ class Particles(metaclass=ABCMeta):
         self._equil = equil
         self._projected_equil = projected_equil
         self._equation_params = equation_params
+        self._n_cols_diag = n_cols_diag
+        self._n_cols_aux = n_cols_aux
 
         # check for mpi communicator (i.e. sub_comm of clone)
         if self.mpi_comm is None:
@@ -372,16 +376,14 @@ class Particles(metaclass=ABCMeta):
         pass
 
     @property
-    @abstractmethod
-    def n_cols_diagnostics(self):
+    def n_cols_diag(self):
         """Number of columns for storing diagnostics for each marker."""
-        pass
+        return self._n_cols_diag
 
     @property
-    @abstractmethod
     def n_cols_aux(self):
         """Number of auxiliary columns for each marker (e.g. for storing evaluation data)."""
-        pass
+        return self._n_cols_aux
 
     @property
     def equation_params(self):
@@ -397,7 +399,7 @@ class Particles(metaclass=ABCMeta):
     @property
     def first_pusher_idx(self):
         """Starting index for storing initial conditions for a Pusher call."""
-        return self.first_diagnostics_idx + self.n_cols_diagnostics
+        return self.first_diagnostics_idx + self.n_cols_diag
 
     @property
     def n_cols_pusher(self):
@@ -1023,13 +1025,13 @@ class Particles(metaclass=ABCMeta):
     def _set_background_coordinates(self):
         if self.type != "sph" and self.f0.coords == "constants_of_motion":
             if self.vdim == 3:
-                assert self.n_cols_diagnostics >= 7, (
+                assert self.n_cols_diag >= 7, (
                     f"In case of the distribution '{self.f0}' with Particles6D, minimum number of n_cols_diagnostics is 7!"
                 )
                 self._f_coords_index = self.index["com"]["6D"]
                 self._f_jacobian_coords_index = self.index["pos+energy"]["6D"]
             elif self.vdim == 2:
-                assert self.n_cols_diagnostics >= 3, (
+                assert self.n_cols_diag >= 3, (
                     f"In case of the distribution '{self.f0}' with Particles5D, minimum number of n_cols_diagnostics is 3!"
                 )
                 self._f_coords_index = self.index["com"]["5D"]

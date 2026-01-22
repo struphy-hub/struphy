@@ -758,14 +758,14 @@ class StruphyModel(metaclass=ABCMeta):
                 obj = var.particles
                 assert isinstance(obj, Particles)
 
-                if obj.n_cols_diagnostics > 0:
-                    for i in range(obj.n_cols_diagnostics):
+                if obj.n_cols_diag > 0:
+                    for i in range(obj.n_cols_diag):
                         str_dn = f"d{i + 1}"
                         dim_to_int[str_dn] = 3 + obj.vdim + 3 + i
 
                 for bin_plot in species.binning_plots:
                     comps = bin_plot.slice.split("_")
-                    components = [False] * (3 + obj.vdim + 3 + obj.n_cols_diagnostics)
+                    components = [False] * (3 + obj.vdim + 3 + obj.n_cols_diag)
 
                     for comp in comps:
                         components[dim_to_int[comp]] = True

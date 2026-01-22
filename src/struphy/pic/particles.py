@@ -43,8 +43,8 @@ class Particles6D(Particles):
             kwargs["background"] = self.default_background()
 
         # default number of diagnostics and auxiliary columns
-        self._n_cols_diagnostics = kwargs.pop("n_cols_diag", 0)
-        self._n_cols_aux = kwargs.pop("n_cols_aux", 5)
+        kwargs.setdefault("n_cols_diag", 0)
+        kwargs.setdefault("n_cols_aux", 5)
 
         super().__init__(**kwargs)
 
@@ -61,16 +61,6 @@ class Particles6D(Particles):
     def vdim(self):
         """Dimension of the velocity space."""
         return 3
-
-    @property
-    def n_cols_diagnostics(self):
-        """Number of diagnostics columns."""
-        return self._n_cols_diagnostics
-
-    @property
-    def n_cols_aux(self):
-        """Number of auxiliary columns."""
-        return self._n_cols_aux
 
     @property
     def coords(self):
@@ -317,8 +307,8 @@ class Particles5D(Particles):
         #     kwargs["bckgr_params"] = self.default_bckgr_params()
 
         # default number of diagnostics and auxiliary columns
-        self._n_cols_diagnostics = kwargs.pop("n_cols_diag", 3)
-        self._n_cols_aux = kwargs.pop("n_cols_aux", 12)
+        kwargs.setdefault("n_cols_diag", 3)
+        kwargs.setdefault("n_cols_aux", 12)
 
         super().__init__(
             projected_equil=projected_equil,
@@ -340,16 +330,6 @@ class Particles5D(Particles):
     def vdim(self):
         """Dimension of the velocity space."""
         return 2
-
-    @property
-    def n_cols_diagnostics(self):
-        """Number of diagnostics columns."""
-        return self._n_cols_diagnostics
-
-    @property
-    def n_cols_aux(self):
-        """Number of auxiliary columns."""
-        return self._n_cols_aux
 
     @property
     def absB0_h(self):
@@ -621,8 +601,8 @@ class Particles3D(Particles):
             kwargs["background"] = self.default_background()
 
         # default number of diagnostics and auxiliary columns
-        self._n_cols_diagnostics = kwargs.pop("n_cols_diag", 0)
-        self._n_cols_aux = kwargs.pop("n_cols_aux", 5)
+        kwargs.setdefault("n_cols_diag", 0)
+        kwargs.setdefault("n_cols_aux", 5)
 
         super().__init__(**kwargs)
 
@@ -630,16 +610,6 @@ class Particles3D(Particles):
     def vdim(self):
         """Dimension of the velocity space."""
         return 0
-
-    @property
-    def n_cols_diagnostics(self):
-        """Number of diagnostics columns."""
-        return self._n_cols_diagnostics
-
-    @property
-    def n_cols_aux(self):
-        """Number of auxiliary columns."""
-        return self._n_cols_aux
 
     @property
     def coords(self):
@@ -762,8 +732,8 @@ class ParticlesSPH(Particles):
         #         kwargs["sorting_params"]["communicate"] = True
 
         # default number of diagnostics and auxiliary columns
-        self._n_cols_diagnostics = kwargs.pop("n_cols_diag", 0)
-        self._n_cols_aux = kwargs.pop("n_cols_aux", 24)
+        kwargs.setdefault("n_cols_diag", 0)
+        kwargs.setdefault("n_cols_aux", 24)
 
         clone_config = kwargs.get("clone_config", None)
         assert clone_config is None, "SPH can only be launched with --nclones 1"
@@ -774,16 +744,6 @@ class ParticlesSPH(Particles):
     def vdim(self):
         """Dimension of the velocity space."""
         return 3
-
-    @property
-    def n_cols_diagnostics(self):
-        """Number of diagnostics columns."""
-        return self._n_cols_diagnostics
-
-    @property
-    def n_cols_aux(self):
-        """Number of auxiliary columns."""
-        return self._n_cols_aux
 
     @property
     def coords(self):

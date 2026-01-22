@@ -627,7 +627,7 @@ class CanonicalMaxwellian(KineticBackground):
 
     @abstractmethod
     def psic_to_rc(self, psic):
-        """Callable function return evaluation points (:math:`r_c`) from canonical toroidal momentum (:math:`\psi_c`).
+        """Callable function return evaluation points ( :math:`r_c` ) from canonical toroidal momentum ( :math:`\psi_c` ).
 
         Parameters
         ----------
