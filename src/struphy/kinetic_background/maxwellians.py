@@ -430,7 +430,7 @@ class CanonicalMaxwellian2D(CanonicalMaxwellian):
         for kw, arg in kwargs:
             self._moment_factors[kw] = arg
 
-    def psic_to_eta(self, psic):
+    def psic_to_rc(self, psic):
         r""" Square root of radially normalized canonical toroidal momentum.
 
         .. math::

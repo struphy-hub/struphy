@@ -1704,7 +1704,7 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
     res = maxwellian(energy, mu, psic).squeeze()
 
     # calculate rc
-    rc = maxwellian.psic_to_eta(psic)
+    rc = maxwellian.psic_to_rc(psic)
 
     ana_res = n0 * c[3] * xp.exp(-c[2] / c[1] * xp.tanh((rc - c[0]) / c[2]))
     ana_res *= 2 * xp.sqrt(energy / xp.pi) / maxw_params["vth"] ** 3 * xp.exp(-energy / maxw_params["vth"] ** 2)

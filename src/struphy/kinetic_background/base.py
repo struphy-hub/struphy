@@ -626,8 +626,8 @@ class CanonicalMaxwellian(KineticBackground):
         pass
 
     @abstractmethod
-    def psic_to_eta(self, psic):
-        """Callable function return evaluation points (etas) from canonical toroidal momentum (psic).
+    def psic_to_rc(self, psic):
+        """Callable function return evaluation points (:math:`r_c`) from canonical toroidal momentum (:math:`\psi_c`).
 
         Parameters
         ----------
@@ -787,7 +787,7 @@ class CanonicalMaxwellian(KineticBackground):
             # if eta1.ndim == 1:
             #     out += background(eta1, eta2, eta3)
             # else:
-            out += background(self.psic_to_eta(psic))
+            out += background(self.psic_to_rc(psic))
 
         # add perturbation
         if add_perturbation is None:
@@ -796,7 +796,7 @@ class CanonicalMaxwellian(KineticBackground):
         perturbation = params[1]
         if perturbation is not None and add_perturbation:
             assert isinstance(perturbation, Perturbation)
-            out += perturbation(self.psic_to_eta(psic))
+            out += perturbation(self.psic_to_rc(psic))
 
         return out
 
