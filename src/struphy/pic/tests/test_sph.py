@@ -1380,3 +1380,119 @@ if __name__ == "__main__":
     # test_evaluation_SPH_Np_convergence_2d((32, 32, 1), "fixed", "periodic", tesselation=True, show_plot=True)
     # test_evaluation_SPH_Np_convergence_2d((32, 32, 1), "fixed", "fixed",   tesselation=True, show_plot=True)
     # test_evaluation_SPH_Np_convergence_2d((32, 32, 1), "mirror", "mirror",  tesselation=True, show_plot=True)
+
+
+
+
+@pytest.mark.parametrize("boxes_per_dim", [(12, 12, 1)])
+@pytest.mark.parametrize("kernel", ["gaussian_2d"])  # "trigonometric_2d", "linear_2d"])
+@pytest.mark.parametrize("derivative", [0, 1, 2])
+@pytest.mark.parametrize("bc_x", ["periodic", "mirror", "fixed"])
+@pytest.mark.parametrize("bc_y", ["periodic", "mirror", "fixed"])
+@pytest.mark.parametrize("eval_pts", [11])
+@pytest.mark.parametrize("tesselation", [False, True])
+def test_sph_viscosity_evaluation_2d(
+    boxes_per_dim,
+    kernel,
+    derivative,
+    bc_x,
+    bc_y,
+    eval_pts,
+    tesselation,
+    show_plot=False,
+):
+    if isinstance(MPI.COMM_WORLD, MockComm):
+        comm = None
+        rank = 0
+    else:
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+
+    dom_type = "Cuboid"
+    l1 = 0.0
+    r1 = 2.0
+    l2 = 0.0
+    r2 = 3.0
+    dom_params = {"l1": l1, "r1": r1, "l2": l2, "r2": r2, "l3": 0.0, "r3": 1.0}
+    domain_class = getattr(domains, dom_type)
+    domain: Domain = domain_class(**dom_params)
+
+    if tesselation:
+        ppb = 50
+        loading_params = LoadingParameters(ppb=ppb, seed=1607, loading="tesselation")
+    else:
+        ppb = 400
+        loading_params = LoadingParameters(ppb=ppb, seed=223)
+
+    Lx = r1 - l1
+    Ly = r2 - l2
+    
+    def u_xyz(x, y, z):
+        ux = xp.sin(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
+        uy = -xp.cos(2 * xp.pi * x) * xp.sin(2 * xp.pi * y)
+        uz = 0.0 * z
+        return ux, uy, uz
+
+
+    def analytic_pi(x, y):
+        val = 2 * xp.pi * xp.cos(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
+        Pi_analytic = xp.zeros((3, 3) + x.shape)
+        Pi_analytic[0, 0] = val
+        Pi_analytic[1, 1] = -val
+        return Pi_analytic
+    
+    
+    background = GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
+    background.domain = domain
+
+    boundary_params = BoundaryParameters(bc_sph=(bc_x, bc_y, "periodic"))
+
+    verbose = False
+
+    particles = ParticlesSPH(
+        comm_world=comm,
+        loading_params=loading_params,
+        boundary_params=boundary_params,
+        boxes_per_dim=boxes_per_dim,
+        bufsize=2.0,
+        box_bufsize=4.0,
+        domain=domain,
+        background=background,
+        n_as_volume_form=True,
+        verbose=verbose,
+    )
+
+    # evaluation grids
+    eta1 = xp.linspace(0, 1.0, eval_pts)
+    eta2 = xp.linspace(0, 1.0, eval_pts)
+    eta3 = xp.array([0.0])
+    ee1, ee2, ee3 = xp.meshgrid(eta1, eta2, eta3, indexing="ij")
+
+    x = xp.linspace(l1, r1, eval_pts)
+    y = xp.linspace(l2, r2, eval_pts)
+    z = xp.array([0.0])
+    xx, yy, zz = xp.meshgrid(x, y, z, indexing="ij")
+
+    # initialize particles
+    particles.draw_markers(sort=False, verbose=verbose)
+    if comm is not None:
+        particles.mpi_sort_markers()
+    particles.initialize_weights()
+
+    # evaluate velocity (and derivatives) via SPH
+    h1 = 1 / boxes_per_dim[0]
+    h2 = 1 / boxes_per_dim[1]
+    h3 = 1 / boxes_per_dim[2]
+
+    Viscosity_tensor = particles.eval_viscosity(
+        ee1,
+        ee2,
+        ee3,
+        h1=h1,
+        h2=h2,
+        h3=h3,
+        kernel_type=kernel,
+        derivative=derivative,
+    )
+    
+
