@@ -67,7 +67,6 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
             if with_B0:
                 self.push_vxb = propagators_markers.PushVxB()
             self.coupling_va = propagators_coupling.VlasovAmpere()
-            self.compute_backward_flow = propagators_markers.ComputeBackwardFlow()
 
     ## abstract methods
 
@@ -106,7 +105,7 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
             self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
         self.propagators.coupling_va.variables.e = self.em_fields.e_field
         self.propagators.coupling_va.variables.ions = self.kinetic_ions.var
-        self.propagators.compute_backward_flow.variables.var = self.kinetic_ions.var
+
         # define scalars for update_scalar_quantities
         self.add_scalar("en_E")
         self.add_scalar(
@@ -142,6 +141,8 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
         self.plot_distribution_at_each_learning = plot_distribution_at_each_learning
         self.non_periodic_positions = np.empty(0)
         self.n_iter_since_last_training = 0
+        self.num_p = 0
+        self.x_test = np.empty(0)
 
     #  self.original_f0 = self.kinetic_ions.var.particles.f0
 
@@ -257,125 +258,17 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
             for line in new_file:
                 f.write(line)
 
-    # def compute_backward_flow(
-    #     self,
-    #     x_before,
-    #     x_non_periodic,
-    #     period=1,
-    # ):
-    #     use_natural_gradient = True
-    #     Np = self.kinetic_ions.var.particles.Np
-
-    #     def apply_at_each_step(outputs):
-
-    #         x = outputs[:, :3] % period
-    #         v = outputs[:, 3:]
-    #         return torch.cat((x, v), dim=1)
-
-    #     pos0 = x_before[0].copy()
-    #     vel0 = x_before[1].copy()
-    #     x_arr = np.stack([pos0, vel0], axis=0)
-    #     # x_arr = np.array(x_before)
-    #     print(f"x_arr_shape = {x_arr.shape}")
-    #     print(f"x_before.shape = {np.array(x_before).shape}")
-    #     y_non_periodic_arr = np.array(x_non_periodic)
-
-    #     # print(f"y_non_periodic_shape = {y_non_periodic_arr.shape}")
-
-    #     x_tensor = torch.tensor(x_arr, dtype=torch.float64)
-    #     #   print(f"x_tensor_shape = {x_tensor.shape}")
-    #     #   print(f"x_tensor_shape[0] = {x_tensor[0].shape}")
-    #     #   print(f"x_tensor_shape[1] = {x_tensor[1].shape}")
-
-    #     # x_tensor = x_tensor.permute(0, 2, 1, 3)
-    #     # x_tensor = x_tensor.reshape(x_tensor.shape[0], Np, 6)
-    #     # x_tensor = torch.tensor(x_arr).permute(1, 0, 2)
-    #     # x_tensor = x_tensor.reshape(Np, 6)
-    #     x_tensor = torch.cat((x_tensor[0], x_tensor[1]), dim=1)
-    #     #   print(f"x_tensor_shape = {x_tensor.shape}")
-    #     y_non_periodic_tensor = torch.tensor(y_non_periodic_arr)
-    #     #   print(f"y_non_periodic_tensor_shape = {y_non_periodic_tensor.shape}")
-    #     #   print(f"y_non_periodic_tensor_shape[0] = {y_non_periodic_tensor[0].shape}")
-    #     #   print(f"y_non_periodic_tensor_shape[1] = {y_non_periodic_tensor[1].shape}")
-
-    #     # y_non_periodic_tensor = y_non_periodic_tensor.permute(1, 0, 2)
-    #     y_non_periodic_tensor = torch.cat(
-    #         (y_non_periodic_tensor[0], y_non_periodic_tensor[1]), dim=1
-    #     )
-    #     # y_non_periodic_tensor = y_non_periodic_tensor.reshape(
-    #     #     Np,
-    #     #     2 * 3,
-    #     # )
-
-    #     #  print(f"y_non_periodic_tensor_shape = {y_non_periodic_tensor.shape}")
-    #     x_input = y_non_periodic_tensor
-
-    #     y_target = x_tensor
-    #     #  print(f"x_tensor_shape = {x_tensor.shape}")
-
-    #     #  print(f"x_input_shape = {x_input.shape}")
-    #     #  print(f"y_target_shape = {y_target.shape}")
-
-    #     data = x_input, y_target
-    #     flow_type = SympNet
-    #     trainer_type = FlowTrainer
-    #     trainer_NG = NaturalGradientFlowTrainer
-    #     space = DiscreteFlowSpace(
-    #         6,
-    #         0,
-    #         flow_type=flow_type,
-    #         rollout=1,
-    #         layer_sizes=self.layer_Psi,
-    #         apply_at_each_step=apply_at_each_step,
-    #         activation_type="silu",
-    #         periodic=False,
-    #         periods=torch.tensor([period, period, period]),
-    #         # periods=torch.tensor([period]),
-    #     )
-
-    #     trainer = trainer_type(space, data)
-
-    #     # if tol[0] is None:
-    #     #     trainer.solve(epochs=epochs_Ad, verbose=True, batch_size=1000)
-    #     # else:
-    #     trainer.solve(
-    #         max_epochs=self.epochs_Ad_Psi,  # loss_target=tol[0],
-    #         verbose=True,
-    #         batch_size=1000,
-    #     )
-
-    #     # store_losses[0].append(trainer.losses.loss_history[-1])
-    #     # store_epochs[0].append(len(trainer.losses.loss_history))
-
-    #     if use_natural_gradient:
-    #         trainer = trainer_NG(space, data)
-    #         # if tol[1] is None:
-    #         #     trainer.solve(epochs=epochs_NG, verbose=True, batch_size=1000)
-    #         # else:
-    #         trainer.solve(
-    #             max_epochs=self.epochs_NG_Psi,
-    #             # loss_target=tol[1],
-    #             verbose=True,
-    #             batch_size=1000,
-    #         )
-
-    #         # store_losses[1].append(trainer.losses.loss_history[-1])
-    #         # store_epochs[1].append(len(trainer.losses.loss_history))
-
-    #     return space
-
     def compute_backward_flow(
         self,
         x_non_periodic,
         period=1.0,
     ):
         use_natural_gradient = True
-        Np = self.kinetic_ions.var.particles.Np
 
         def apply_at_each_step(outputs):
             x = outputs[:, :3] % period
-            v = outputs[:, 3:]
-            return torch.cat((x, v), dim=1)
+
+            return torch.cat((x, outputs[:, 3:]), dim=1)
 
         x0 = self.x_before[0]
         x0_tensor = torch.tensor(x0)
@@ -384,58 +277,20 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
         # vel0 = torch.tensor(x0[1])
         pos0 = x0_tensor[0]
         vel0 = x0_tensor[1]
-        num_p = np.argwhere(
-            (pos0[:, 0].detach().numpy() > 0.49)
-            * (pos0[:, 0].detach().numpy() < 0.51)
-            * (vel0[:, 0].detach().numpy() < 3)
-            * (vel0[:, 0].detach().numpy() > -3)
-        )
-        plt.figure()
-        plt.scatter(
-            pos0[:, 0],
-            vel0[:, 0],
-            c=self.kinetic_ions.var.particles.weights0,
-            s=3,
-            cmap="turbo",
-        )
-        plt.scatter(
-            pos0[num_p, 0].detach().numpy(),
-            vel0[num_p, 0].detach().numpy(),
-            c="red",
-            s=3,
-        )
-
-        plt.show()
-
-        print(f"pos0.shape = {pos0.shape}")
-        print(f"vel0.shape = {vel0.shape}")
 
         y_target = torch.cat((pos0, vel0), dim=1)  # (Np, 6)
         x_non_periodic_tensor = torch.tensor(x_non_periodic)
 
+        x_test_tensor = torch.tensor(self.x_test)
         # posT = torch.tensor(x_non_periodic[0])
         # velT = torch.tensor(x_non_periodic[1])
         posT = x_non_periodic_tensor[0]
         velT = x_non_periodic_tensor[1]
 
-        plt.figure()
-        plt.scatter(
-            posT[:, 0],
-            velT[:, 0],
-            c=self.kinetic_ions.var.particles.weights0,
-            s=3,
-            cmap="turbo",
-        )
-        plt.scatter(
-            posT[num_p, 0].detach().numpy(),
-            velT[num_p, 0].detach().numpy(),
-            c="red",
-            s=3,
-        )
+        posT_test = x_test_tensor
 
-        plt.show()
         x_input = torch.cat((posT, velT), dim=1)  # (Np, 6)
-
+        x_input_test = torch.cat((posT_test, velT), dim=1)
         # sanity checks (leave them during debugging)
         assert x_input.shape == y_target.shape
         assert x_input.shape[1] == 6
@@ -448,188 +303,10 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
             flow_type=SympNet,
             rollout=1,
             layer_sizes=self.layer_Psi,
-            #   apply_at_each_step=apply_at_each_step,
-            activation_type="silu",
-            periodic=True,
-            periods=torch.tensor([period, period, period], dtype=torch.float64),
-        )
-
-        trainer = FlowTrainer(space, data)
-        trainer.solve(
-            max_epochs=self.epochs_Ad_Psi,
-            verbose=True,
-            batch_size=1000,
-        )
-
-        if use_natural_gradient:
-            trainer_ng = NaturalGradientFlowTrainer(space, data)
-            trainer_ng.solve(
-                max_epochs=self.epochs_NG_Psi,
-                verbose=True,
-                batch_size=1000,
-            )
-
-        solution = x_input.clone()
-        mu = torch.empty(0)
-        solution = space.inference(solution, mu, 1).squeeze(0)
-        print(f"solution.shape = {solution.shape}")
-        plt.figure()
-        plt.scatter(
-            solution[:, 0].detach().numpy(),
-            solution[:, 3].detach().numpy(),
-            c=self.kinetic_ions.var.particles.weights0,
-            s=3,
-            cmap="turbo",
-        )
-        plt.scatter(
-            solution[num_p, 0].detach().numpy(),
-            solution[num_p, 3].detach().numpy(),
-            c="red",
-            s=3,
-        )
-        plt.show()
-        solution = y_target.clone()
-        mu = torch.empty(0)
-        solution = space.inference(solution, mu, 1).squeeze(0)
-        print(f"solution.shape = {solution.shape}")
-        plt.figure()
-        plt.scatter(
-            solution[:, 0].detach().numpy(),
-            solution[:, 3].detach().numpy(),
-            c=self.kinetic_ions.var.particles.weights0,
-            s=3,
-            cmap="turbo",
-        )
-        plt.scatter(
-            solution[num_p, 0].detach().numpy(),
-            solution[num_p, 3].detach().numpy(),
-            c="red",
-            s=3,
-        )
-        plt.show()
-        # e1 = np.linspace(0.0, 1.0, 256)
-        # v1 = np.linspace(-10, 10, 256)
-        # E1, V1 = np.meshgrid(e1, v1, indexing="ij")
-        # E1_flat = E1.ravel()
-        # V1_flat = V1.ravel()
-        # X_eval = torch.tensor(
-        #     np.stack(
-        #         [
-        #             E1_flat,
-        #             0.5 * np.ones_like(E1_flat),
-        #             0.5 * np.ones_like(E1_flat),
-        #             V1_flat,
-        #             np.zeros_like(E1_flat),
-        #             np.zeros_like(E1_flat),
-        #         ],
-        #         axis=1,
-        #     ),
-        #     dtype=torch.float64,
-        # )
-        # X_transformed = X_eval.clone()
-        # X_transformed = space.inference(X_transformed, mu, 1).squeeze(0)
-        # X_np = X_transformed.detach().cpu().numpy()
-
-        # # Évaluer f0 transformé
-        # f_vals = (
-        #     self.kinetic_ions.var.particles.f_init(
-        #         X_np[:, 0],
-        #         X_np[:, 1],
-        #         X_np[:, 2],
-        #         X_np[:, 3],
-        #         X_np[:, 4],
-        #         X_np[:, 5],
-        #     )
-        #     .squeeze()
-        #     .reshape(E1.shape)
-        # )
-        e1 = np.linspace(0.0, 1.0, 256)
-        v1 = np.linspace(-10, 10, 256)
-        E1, V1 = np.meshgrid(e1, v1, indexing="ij")
-
-        # Créer des meshgrids 2D pour toutes les coordonnées
-        Y1 = 0.5 * np.ones_like(E1)
-        Z1 = 0.5 * np.ones_like(E1)
-        VY1 = np.zeros_like(E1)
-        VZ1 = np.zeros_like(E1)
-        X_eval = torch.tensor(
-            np.stack(
-                [
-                    E1.ravel(),
-                    Y1.ravel(),
-                    Z1.ravel(),
-                    V1.ravel(),
-                    VY1.ravel(),
-                    VZ1.ravel(),
-                ],
-                axis=1,
-            ),
-            dtype=torch.float64,
-        )
-
-        # Appliquer le flot
-        X_transformed = space.inference(X_eval, mu, 1).squeeze(0)
-        X_np = X_transformed.detach().cpu().numpy()
-
-        # Reshape pour avoir des meshgrids 2D
-        X_mesh = X_np[:, 0].reshape(E1.shape)
-        Y_mesh = X_np[:, 1].reshape(E1.shape)
-        Z_mesh = X_np[:, 2].reshape(E1.shape)
-        VX_mesh = X_np[:, 3].reshape(E1.shape)
-        VY_mesh = X_np[:, 4].reshape(E1.shape)
-        VZ_mesh = X_np[:, 5].reshape(E1.shape)
-
-        # Évaluer f_init sur les meshgrids 2D
-        f_vals = self.kinetic_ions.var.particles.f_init(
-            X_mesh, Y_mesh, Z_mesh, VX_mesh, VY_mesh, VZ_mesh
-        )
-        plt.figure()
-        plt.pcolormesh(E1, V1, f_vals, cmap="turbo")
-        plt.show()
-
-        return space
-
-    def compute_backward_flow2D(
-        self,
-        x_non_periodic,
-        period=1.0,
-    ):
-        use_natural_gradient = True
-        Np = self.kinetic_ions.var.particles.Np
-
-        def apply_at_each_step(outputs):
-            x = outputs[:, 0] % period
-            v = outputs[:, 1]
-            return torch.stack((x, v), dim=1)
-
-        x0 = self.x_before[0]
-        pos0 = torch.tensor(x0[0])
-        vel0 = torch.tensor(x0[1])
-        print(f"pos0.shape = {pos0.shape}")
-        print(f"vel0.shape = {vel0.shape}")
-
-        y_target = torch.stack((pos0[:, 0], vel0[:, 0]), dim=1)  # (Np, 2)
-
-        posT = torch.tensor(x_non_periodic[0])
-        velT = torch.tensor(x_non_periodic[1])
-        x_input = torch.stack((posT[:, 0], velT[:, 0]), dim=1)  # (Np, 2)
-
-        # sanity checks (leave them during debugging)
-        assert x_input.shape == y_target.shape
-        assert x_input.shape[1] == 2
-
-        data = (x_input, y_target)
-
-        space = DiscreteFlowSpace(
-            2,
-            0,
-            flow_type=SympNet,
-            rollout=1,
-            layer_sizes=self.layer_Psi,
             apply_at_each_step=apply_at_each_step,
             activation_type="silu",
             periodic=True,
-            periods=torch.tensor([period]),
+            periods=torch.tensor([period, period, period], dtype=torch.float64),
         )
 
         trainer = FlowTrainer(space, data)
@@ -677,40 +354,6 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
 
             f_bulk_vals = self.original_f0(
                 z_np[:, 0], z_np[:, 1], z_np[:, 2], z_np[:, 3], z_np[:, 4], z_np[:, 5]
-            )
-
-            return f_bulk_vals.reshape(original_shape)
-
-        # Mettre à jour f0
-        #    particles.f0 = particles._original_f0
-        self.kinetic_ions.var.particles.f0 = new_f_bulk
-        self.kinetic_ions.var.particles.f0.coords = None
-        self.update_bulk_current()
-        self.kinetic_ions.var.particles.update_weights()
-
-    def update_f_bulk2D(self):
-
-        def new_f_bulk(x1, x2, x3, v1, v2, v3):
-            x1_flat = np.ravel(x1)
-            x2_flat = np.ravel(x2)
-            x3_flat = np.ravel(x3)
-            v1_flat = np.ravel(v1)
-            v2_flat = np.ravel(v2)
-            v3_flat = np.ravel(v3)
-            original_shape = x1.shape
-            z = torch.tensor(
-                np.stack([x1_flat, v1_flat], axis=1),
-                dtype=torch.float64,
-            )
-            mu = torch.empty(0)
-            with torch.no_grad():
-
-                for space in reversed(self.space_list):
-                    z = space.inference(z, mu, 1).squeeze(0)
-            z_np = z.detach().cpu().numpy()
-
-            f_bulk_vals = self.original_f0(
-                z_np[:, 0], x2_flat, x3_flat, z_np[:, 1], v2_flat, v3_flat
             )
 
             return f_bulk_vals.reshape(original_shape)
@@ -783,67 +426,7 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
         im0 = axes.pcolormesh(E1, V1, f_bulk_vals, shading="auto", cmap="turbo")
         axes.set_xlabel(r"$\eta_1$")
         axes.set_ylabel(r"$v_x$")
-        axes.set_title(r"$f^0(B(\eta_1, 0, 0,v_x, 0, 0))$")
-        fig.colorbar(im0, ax=axes)
-
-        plt.tight_layout()
-        plt.show()
-
-    def plot_f_bulk2D(self):
-
-        vmin = -8
-        vmax = 8
-
-        e1 = np.linspace(0.0, 1.0, 128)
-        v1 = np.linspace(vmin, vmax, 256)
-        E1, V1 = np.meshgrid(e1, v1, indexing="ij")
-
-        E1_flat = E1.flatten()
-        V1_flat = V1.flatten()
-
-        # Appliquer les transformations
-        X_eval = torch.tensor(
-            np.stack(
-                [
-                    E1_flat,
-                    V1_flat,
-                ],
-                axis=1,
-            ),
-            dtype=torch.float64,
-        )
-
-        # Appliquer les transformations
-        X_transformed = X_eval.clone()
-        mu = torch.empty(0)
-
-        for space in reversed(self.space_list):
-            X_transformed = space.inference(X_transformed, mu, 1).squeeze(0)
-        X_np = X_transformed.detach().cpu().numpy()
-
-        # Évaluer f0 transformé
-        f_bulk_vals = self.kinetic_ions.var.particles.f_init(
-            X_np[:, 0],
-            np.zeros_like(E1_flat),
-            np.zeros_like(E1_flat),
-            X_np[:, 1],
-            np.zeros_like(E1_flat),
-            np.zeros_like(E1_flat),
-        ).reshape(E1.shape)
-
-        # Binning des particules
-        # f_e1v1, df_e1v1 = particles.binning(
-        #     components=components, bin_edges=[bin_edges_e, bin_edges_v]
-        # )
-
-        # Visualisation
-        fig, axes = plt.subplots(1, 1, figsize=(12, 5))
-
-        # Plot f0 along the curve B(...)
-        im0 = axes.pcolormesh(E1, V1, f_bulk_vals, shading="auto", cmap="turbo")
-        axes.set_xlabel(r"$\eta_1$")
-        axes.set_ylabel(r"$v_x$")
-        axes.set_title(r"$f^0(B(\eta_1, 0, 0,v_x, 0, 0))$")
+        axes.set_title(r"$f^0(\Psi(\eta_1, 0, 0,v_x, 0, 0))$")
         fig.colorbar(im0, ax=axes)
 
         plt.tight_layout()
@@ -856,35 +439,74 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
         pos_before = self.kinetic_ions.var.particles.positions.copy()
         vel_before = self.kinetic_ions.var.particles.velocities.copy()
         if self.n == 1:
+
             self.original_f0 = self.kinetic_ions.var.particles.f0
             self.non_periodic_positions = (
                 self.kinetic_ions.var.particles.positions.copy()
             )
+            self.x_test = self.non_periodic_positions.copy()
             self.plot_f_bulk()
+
         if self.n_iter_since_last_training == 0:
             self.non_periodic_positions = (
                 self.kinetic_ions.var.particles.positions.copy()
             )
-            self.x_before.append([pos_before, vel_before])
+
+        self.x_before.append([pos_before, vel_before])
 
         # self.x_before.append([pos_before, vel_before])
 
         # self.x_before = [pos_before, vel_before])
-        print(f"pos_before.shape = {pos_before.shape}")
+        # print(f"pos_before.shape = {pos_before.shape}")
+
+        # # assert np.allclose(
+        # #     self.kinetic_ions.var.particles.positions, self.non_periodic_positions % 1
+        # # )
+        # print("first assert done")
+        # print("Before push : ")
+        # print(f"particles 0 = {self.kinetic_ions.var.particles.positions[0,0]}")
+        # print(f"particles 0  np = {self.non_periodic_positions[0,0]}")
+        # print(f"velocity 0 = {self.kinetic_ions.var.particles.velocities[0,0]}")
 
         self.propagators.push_eta(dt / 2)
-        self.non_periodic_positions += (
-            dt / 2
-        ) * self.kinetic_ions.var.particles.velocities
+        # print("push eta")
+        # print(f"particles 0 = {self.kinetic_ions.var.particles.positions[0,0]}")
+        # print(f"particles 0  np = {self.non_periodic_positions[0,0]}")
+        # print(f"velocity 0 = {self.kinetic_ions.var.particles.velocities[0,0]}")
+
+        self.non_periodic_positions = (
+            self.non_periodic_positions * 12.56
+            + (dt / 2) * self.kinetic_ions.var.particles.velocities
+        ) / 12.56
+        # print("push")
+        # print(f"particles 0 = {self.kinetic_ions.var.particles.positions[0,0]}")
+        # print(f"particles 0  np = {self.non_periodic_positions[0,0]}")
+        # print(f"velocity 0 = {self.kinetic_ions.var.particles.velocities[0,0]}")
+
+        # print(f"dt/2 = {dt/2}")
+        # diff = self.kinetic_ions.var.particles.positions[0, 0] - (
+        #     self.non_periodic_positions[0, 0] % 1
+        # )
+        # print(f"diff ={np.max(np.abs(diff))}")
+
+        # assert np.allclose(
+        #     self.kinetic_ions.var.particles.positions, self.non_periodic_positions % 1
+        # )
+
+        # self.x_test += (dt / 2) * self.kinetic_ions.var.particles.velocities
+
         self.propagators.coupling_va(dt)
 
         self.propagators.push_eta(dt / 2)
-        self.non_periodic_positions += (
-            dt / 2
-        ) * self.kinetic_ions.var.particles.velocities
+        self.non_periodic_positions = (
+            self.non_periodic_positions * 12.56
+            + (dt / 2) * self.kinetic_ions.var.particles.velocities
+        ) / 12.56
+        # self.x_test += (dt / 2) * self.kinetic_ions.var.particles.velocities
+
         print(f"Nt_train = {self.Nt_train}")
         self.n_iter_since_last_training += 1
-        if self.n % self.Nt_train == 0 and self.n > 1:
+        if self.n % self.Nt_train == 0:
 
             x_non_periodic = [
                 self.non_periodic_positions.copy(),
@@ -897,11 +519,13 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
             )
             #   self.store_train_times_Psi.append(self.t)
             self.space_list.append(space)
-            # self.update_f_bulk2D()
+
+            self.update_f_bulk()
+
             # self.kinetic_ions.var.particles.non_periodic_positions = (
             #     self.kinetic_ions.var.particles.positions.copy()
             # )
-            self.non_periodic_positions %= 1.0
+            #  self.non_periodic_positions %= 1.0
             # assert np.allclose(
             #     self.non_periodic_positions[:, 0],
             #     self.kinetic_ions.var.particles.positions[:, 0],

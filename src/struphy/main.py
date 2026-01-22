@@ -88,7 +88,9 @@ def run(
     start_simulation = time.time()
 
     # check model
-    assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
+    assert hasattr(
+        model, "propagators"
+    ), "Attribute 'self.propagators' must be set in model __init__!"
     model_name = model.__class__.__name__
     model.verbose = verbose
 
@@ -308,6 +310,7 @@ def run(
 
     # time loop
     run_time_now = 0.0
+    model.kinetic_ions.var.particles.positions[:, 0] = 0.4
     while True:
         Barrier()
 
@@ -344,7 +347,9 @@ def run(
 
         # update time and index (round time to 10 decimals for a clean time grid!)
         time_state["value"][0] = round(time_state["value"][0] + dt, 10)
-        time_state["value_sec"][0] = round(time_state["value_sec"][0] + dt * model.units.t, 10)
+        time_state["value_sec"][0] = round(
+            time_state["value_sec"][0] + dt * model.units.t, 10
+        )
         time_state["index"][0] += 1
 
         # perform one time step dt
@@ -363,7 +368,9 @@ def run(
             model.update_distr_functions()
 
             # extract FEEC coefficients
-            feec_species = model.field_species | model.fluid_species | model.diagnostic_species
+            feec_species = (
+                model.field_species | model.fluid_species | model.diagnostic_species
+            )
             for species, val in feec_species.items():
                 assert isinstance(val, Species)
                 for variable, subval in val.variables.items():
@@ -380,14 +387,19 @@ def run(
                 step = str(time_state["index"][0]).zfill(len(total_steps))
 
                 message = "time step: " + step + "/" + str(total_steps)
-                message += " | " + "time: {0:10.5f}/{1:10.5f}".format(time_state["value"][0], Tend)
+                message += " | " + "time: {0:10.5f}/{1:10.5f}".format(
+                    time_state["value"][0], Tend
+                )
                 message += " | " + "phys. time [s]: {0:12.10f}/{1:12.10f}".format(
                     time_state["value_sec"][0],
                     Tend * model.units.t,
                 )
-                message += " | " + "wall clock [s]: {0:8.4f} | last step duration [s]: {1:8.4f}".format(
-                    run_time_now * 60,
-                    t1 - t0,
+                message += (
+                    " | "
+                    + "wall clock [s]: {0:8.4f} | last step duration [s]: {1:8.4f}".format(
+                        run_time_now * 60,
+                        t1 - t0,
+                    )
                 )
 
                 print(message, end="\n")
@@ -466,7 +478,10 @@ def pproc(
         os.mkdir(path_pproc)
 
     if time_trace:
-        from struphy.post_processing.likwid.plot_time_traces import plot_gantt_chart, plot_time_vs_duration
+        from struphy.post_processing.likwid.plot_time_traces import (
+            plot_gantt_chart,
+            plot_time_vs_duration,
+        )
 
         path_time_trace = os.path.join(path, "profiling_time_trace.pkl")
         plot_time_vs_duration(path_time_trace, output_path=path_pproc)
@@ -476,7 +491,9 @@ def pproc(
     # check for fields and kinetic data in hdf5 file that need post processing
     with h5py.File(os.path.join(path, "data/", "data_proc0.hdf5"), "r") as file:
         # save time grid at which post-processing data is created
-        xp.save(os.path.join(path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
+        xp.save(
+            os.path.join(path_pproc, "t_grid.npy"), file["time/value"][::step].copy()
+        )
 
         if "feec" in file.keys():
             exist_fields = True
@@ -489,7 +506,9 @@ def pproc(
             kinetic_kinds = []
             for name in file["kinetic"].keys():
                 kinetic_species += [name]
-                kinetic_kinds += [next(iter(model.species[name].variables.values())).space]
+                kinetic_kinds += [
+                    next(iter(model.species[name].variables.values())).space
+                ]
 
                 # check for saved markers
                 if "markers" in file["kinetic"][name]:
@@ -507,7 +526,9 @@ def pproc(
     if exist_fields:
         fields, t_grid = create_femfields(path, params_in=params_in, step=step)
 
-        point_data, grids_log, grids_phy = eval_femfields(params_in, fields, celldivide=[celldivide] * 3)
+        point_data, grids_log, grids_phy = eval_femfields(
+            params_in, fields, celldivide=[celldivide] * 3
+        )
 
         if physical:
             point_data_phy, grids_log, grids_phy = eval_femfields(
@@ -534,12 +555,20 @@ def pproc(
                 except:
                     pass
 
-                with open(os.path.join(path_fields, species, name + "_log.bin"), "wb") as handle:
+                with open(
+                    os.path.join(path_fields, species, name + "_log.bin"), "wb"
+                ) as handle:
                     pickle.dump(val, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
                 if physical:
-                    with open(os.path.join(path_fields, species, name + "_phy.bin"), "wb") as handle:
-                        pickle.dump(point_data_phy[species][name], handle, protocol=pickle.HIGHEST_PROTOCOL)
+                    with open(
+                        os.path.join(path_fields, species, name + "_phy.bin"), "wb"
+                    ) as handle:
+                        pickle.dump(
+                            point_data_phy[species][name],
+                            handle,
+                            protocol=pickle.HIGHEST_PROTOCOL,
+                        )
 
         # save grids
         with open(os.path.join(path_fields, "grids_log.bin"), "wb") as handle:
@@ -552,7 +581,9 @@ def pproc(
         if not no_vtk:
             create_vtk(path_fields, t_grid, grids_phy, point_data)
             if physical:
-                create_vtk(path_fields, t_grid, grids_phy, point_data_phy, physical=True)
+                create_vtk(
+                    path_fields, t_grid, grids_phy, point_data_phy, physical=True
+                )
 
     # kinetic post-processing
     if exist_kinetic is not None:
@@ -589,10 +620,14 @@ def pproc(
 
                 if guiding_center:
                     assert kinetic_kinds[n] == "Particles6D"
-                    orbits_tools.post_process_orbit_guiding_center(path, path_kinetics_species, species)
+                    orbits_tools.post_process_orbit_guiding_center(
+                        path, path_kinetics_species, species
+                    )
 
                 if classify:
-                    orbits_tools.post_process_orbit_classification(path_kinetics_species, species)
+                    orbits_tools.post_process_orbit_classification(
+                        path_kinetics_species, species
+                    )
 
             # distribution function
             if exist_kinetic["f"]:
@@ -698,7 +733,9 @@ def load_data(path: str) -> SimData:
     """
 
     path_pproc = os.path.join(path, "post_processing")
-    assert os.path.exists(path_pproc), f"Path {path_pproc} does not exist, run 'pproc' first?"
+    assert os.path.exists(
+        path_pproc
+    ), f"Path {path_pproc} does not exist, run 'pproc' first?"
     print("\n*** Loading post-processed simulation data:")
     print(f"{path =}")
 
@@ -758,7 +795,9 @@ def load_data(path: str) -> SimData:
                             step = int(file.split(".")[0].split("_")[-1])
                             tmp = xp.load(os.path.join(path_dat, file))
                             if n == 0:
-                                simdata._orbits[spec] = xp.zeros((Nt, *tmp.shape), dtype=float)
+                                simdata._orbits[spec] = xp.zeros(
+                                    (Nt, *tmp.shape), dtype=float
+                                )
                             simdata._orbits[spec][step] = tmp
                             n += 1
 
@@ -981,4 +1020,6 @@ if __name__ == "__main__":
     pylikwid_markerclose()
     if config.time_trace:
         ProfileManager.print_summary()
-        ProfileManager.save_to_pickle(os.path.join(args.output, "profiling_time_trace.pkl"))
+        ProfileManager.save_to_pickle(
+            os.path.join(args.output, "profiling_time_trace.pkl")
+        )
