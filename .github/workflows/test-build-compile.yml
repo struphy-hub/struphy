@@ -32,6 +32,9 @@ jobs:
 
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          submodules: true  # This is crucial!
+          fetch-depth: 5
 
       - name: Build Struphy 
         run: |
@@ -51,6 +54,11 @@ jobs:
           ls dist/
           pip install dist/*.whl
           pip list
+
+      - name: Reinstall feectools from submodule
+        uses: ./.github/actions/install/feectools-submodule
+        with:
+          env-name: struphy_env
 
       - name: Compile Struphy
         run: |

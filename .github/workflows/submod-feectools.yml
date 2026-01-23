@@ -1,0 +1,35 @@
+name: Submodule feectools
+
+on:
+  pull_request:
+    branches:
+      - devel
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  check-submodule-changes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true  # This is crucial!
+          fetch-depth: 5
+
+      - name: Get submodule diff
+        uses: ./.github/actions/submodule-diff
+        with:
+          submod-name: feectools
+          
+      - name: Run workflow if submodule changed (all PR commits)
+        if: env.SUBMOD_CHANGED == 'true'
+        run: |
+          echo "${{ env.SUBMOD_NAME }} has changed, running tests..."
