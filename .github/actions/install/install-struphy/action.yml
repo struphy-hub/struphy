@@ -1,5 +1,7 @@
 name: "Install struphy in env"
 
+description: 
+
 inputs:
   optional-deps:
     required: true
