@@ -1936,13 +1936,12 @@ class Particles(metaclass=ABCMeta):
         _n = len(components)
         slicing = components + [False] * (self.markers.shape[1] - _n)
 
-        # determine histogram weights multiplier
-
         # determine type of output quantity
         # Note: "density" Literal does not have "_"
         quantity, *v_axis = output_quantity.rsplit(sep="_", maxsplit=1)
         v_axis = [int(char) - 1 for char in "".join(v_axis)]  # convert dimension axis to index
 
+        # determine histogram weights multiplier
         if quantity == "density":
             multiplier = 1
         elif quantity == "current":
