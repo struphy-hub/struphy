@@ -1,0 +1,26 @@
+name: "Install feectools from submodule"
+
+description: ""
+
+inputs:
+  env-name:
+    description: ""
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Install feectools from submodule
+      shell: bash
+      run: |
+          if [ -n "${{ inputs.env-name }}" ] ; then
+            echo "Using env: ${{ inputs.env-name }}"
+            source ${{ inputs.env-name }}/bin/activate
+          else
+            echo "No env specified, installing outside of any env"
+          fi
+          pip show feectools
+          psydac-accelerate --cleanup --yes
+          pip uninstall feectools -y
+          python3 -m pip install ./feectools/
