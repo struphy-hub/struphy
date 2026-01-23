@@ -24,6 +24,9 @@ jobs:
       # Checkout the repository
       - name: Checkout code
         uses: actions/checkout@v5
+        with:
+          submodules: true  # This is crucial!
+          fetch-depth: 5
 
       # https://docs.github.com/en/actions/tutorials/build-and-test-code/python
       - name: Set up Python ${{ matrix.python-version }}
