@@ -1,5 +1,7 @@
 name: "Compile kernels with pyccel"
 
+description: 
+
 inputs:
   language:
     required: true

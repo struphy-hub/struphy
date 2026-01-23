@@ -92,7 +92,7 @@ def split_points(
                     pos = int(startj1 + j1 + shift[n])
                 if IoH[n] == "I":
                     if wij[n][i][j1] != 0.0:
-                        localpts[pos] = pt[pos]
+                        localpts[pos] = pt[pos][0]
                 elif IoH[n] == "H":
                     if whij[n][i][j1] != 0.0:
                         localpts[pos] = pt[pos]

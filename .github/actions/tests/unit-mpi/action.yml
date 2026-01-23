@@ -1,5 +1,7 @@
 name: "Run unit tests with MPI"
 
+description: 
+
 runs:
   using: composite
   steps:
