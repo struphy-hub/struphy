@@ -66,7 +66,9 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
             if with_B0:
                 self.push_vxb = propagators_markers.PushVxB()
             self.coupling_va = propagators_coupling.VlasovAmpere()
-            self.push_current = propagators_fields.BulkCurrent()
+
+        #  self.push_current = propagators_fields.BulkCurrent()
+
     ## abstract methods
 
     def __init__(
@@ -327,24 +329,24 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
         return space
 
     def update_bulk_current(self):
-        
-        def n0u0(x,y,z):
-            from scipy import integrate
 
-                def integrand(vz, vy, vx):
-                    return self.kinetic_ions.var.particles.f0(x, y, z, vx, vy, vz)
-            
-            result, error = integrate.tplquad(
-            integrand,
-            -10, 10,  # limites pour vx
-            -10, 10,  # limites pour vy
-            -10, 10  # limites pour vz
-        )
-            
-        self.bulk_current = n0u0
-        
+        # def n0u0(x, y, z):
+        #     from scipy import integrate
 
+        #     def integrand(vz, vy, vx):
+        #         return self.kinetic_ions.var.particles.f0(x, y, z, vx, vy, vz)
 
+        #     result, error = integrate.tplquad(
+        #         integrand,
+        #         -10,
+        #         10,  # limites pour vx
+        #         -10,
+        #         10,  # limites pour vy
+        #         -10,
+        #         10,  # limites pour vz
+        #     )
+
+        # self.bulk_current = n0u0
 
         pass
 
@@ -473,8 +475,6 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
 
         self.x_before.append([pos_before, vel_before])
 
-
-
         self.propagators.push_eta(dt / 2)
 
         self.non_periodic_positions = (
@@ -482,7 +482,7 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
             + (dt / 2) * self.kinetic_ions.var.particles.velocities
         ) / 12.56
 
-        self.propagators.push_current(dt)
+        #  self.propagators.push_current(dt)
         self.propagators.coupling_va(dt)
 
         self.propagators.push_eta(dt / 2)
