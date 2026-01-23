@@ -1,6 +1,3 @@
-[submodule "struphy-parameter-files"]
-	path = struphy-parameter-files
-	url = https://github.com/struphy-hub/struphy-parameter-files.git
 [submodule "struphy-tutorials"]
 	path = struphy-tutorials
 	url = https://github.com/struphy-hub/struphy-tutorials.git
