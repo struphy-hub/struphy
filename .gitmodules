@@ -4,3 +4,6 @@
 [submodule "feectools"]
 	path = feectools
 	url = https://github.com/struphy-hub/feectools.git
+[submodule "struphy-parameter-files"]
+	path = struphy-parameter-files
+	url = https://github.com/struphy-hub/struphy-parameter-files.git
