@@ -66,13 +66,7 @@ jobs:
       - name: Install Struphy in Container
         uses: ./.github/actions/install/struphy_in_container
 
-      - name: Get submodule diff
-        uses: ./.github/actions/submodule-diff
-        with:
-          submod-name: feectools
-          
-      - name: Reinstall feectools if feectools submodule changed (all PR commits)
-        if: env.SUBMOD_CHANGED == 'true'
+      - name: Reinstall feectools from submodule
         uses: ./.github/actions/install/feectools-submodule
         with:
           env-name: /struphy_fortran_/env_fortran_

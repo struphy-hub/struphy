@@ -55,13 +55,7 @@ jobs:
           pip install dist/*.whl
           pip list
 
-      - name: Get submodule diff
-        uses: ./.github/actions/submodule-diff
-        with:
-          submod-name: feectools
-          
-      - name: Reinstall feectools if feectools submodule changed (all PR commits)
-        if: env.SUBMOD_CHANGED == 'true'
+      - name: Reinstall feectools from submodule
         uses: ./.github/actions/install/feectools-submodule
         with:
           env-name: struphy_env

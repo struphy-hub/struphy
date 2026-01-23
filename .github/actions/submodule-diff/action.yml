@@ -1,7 +1,10 @@
 name: Get diff in submodule to decide testing
 
+description: ""
+
 inputs:
   submod-name:
+    description: ""
     required: true
     default: struphy-parameter-files
 

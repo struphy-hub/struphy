@@ -71,13 +71,7 @@ jobs:
           source env/bin/activate
           pip install .[dev]
 
-      - name: Get submodule diff
-        uses: ./.github/actions/submodule-diff
-        with:
-          submod-name: feectools
-          
-      - name: Reinstall feectools if feectools submodule changed (all PR commits)
-        if: env.SUBMOD_CHANGED == 'true'
+      - name: Reinstall feectools from submodule
         uses: ./.github/actions/install/feectools-submodule
         with:
           env-name: env

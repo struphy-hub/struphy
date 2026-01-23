@@ -24,9 +24,6 @@ jobs:
       # Checkout the repository
       - name: Checkout code
         uses: actions/checkout@v5
-        with:
-          submodules: true  # This is crucial!
-          fetch-depth: 5
 
       # https://docs.github.com/en/actions/tutorials/build-and-test-code/python
       - name: Set up Python ${{ matrix.python-version }}
@@ -69,16 +66,6 @@ jobs:
           FC: ${{ env.FC }}
           CC: ${{ env.CC }}
           CXX: ${{ env.CXX }}
-
-      - name: Get submodule diff
-        uses: ./.github/actions/submodule-diff
-        with:
-          submod-name: feectools
-          
-      - name: Reinstall feectools if feectools submodule changed (all PR commits)
-        if: env.SUBMOD_CHANGED == 'true'
-        uses: ./.github/actions/install/feectools-submodule
-
 
       # Compile
       - name: Compile kernels
