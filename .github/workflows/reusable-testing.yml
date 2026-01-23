@@ -67,6 +67,16 @@ jobs:
           CC: ${{ env.CC }}
           CXX: ${{ env.CXX }}
 
+      - name: Get submodule diff
+        uses: ./.github/actions/submodule-diff
+        with:
+          submod-name: feectools
+          
+      - name: Reinstall feectools if feectools submodule changed (all PR commits)
+        if: env.SUBMOD_CHANGED == 'true'
+        uses: ./.github/actions/install/feectools-submodule
+
+
       # Compile
       - name: Compile kernels
         uses: ./.github/actions/compile
