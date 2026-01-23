@@ -1,4 +1,6 @@
 import cunumpy as xp
+import numpy as np
+import matplotlib.pyplot as plt
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.feec.projectors import L2Projector
@@ -64,7 +66,7 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
             if with_B0:
                 self.push_vxb = propagators_markers.PushVxB()
             self.coupling_va = propagators_coupling.VlasovAmpere()
-
+            self.push_current = propagators_fields.BulkCurrent()
     ## abstract methods
 
     def __init__(
@@ -103,6 +105,7 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
         self.propagators.coupling_va.variables.e = self.em_fields.e_field
         self.propagators.coupling_va.variables.ions = self.kinetic_ions.var
 
+        self
         # define scalars for update_scalar_quantities
         self.add_scalar("en_E")
         self.add_scalar(
@@ -324,6 +327,25 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
         return space
 
     def update_bulk_current(self):
+        
+        def n0u0(x,y,z):
+            from scipy import integrate
+
+                def integrand(vz, vy, vx):
+                    return self.kinetic_ions.var.particles.f0(x, y, z, vx, vy, vz)
+            
+            result, error = integrate.tplquad(
+            integrand,
+            -10, 10,  # limites pour vx
+            -10, 10,  # limites pour vy
+            -10, 10  # limites pour vz
+        )
+            
+        self.bulk_current = n0u0
+        
+
+
+
         pass
 
     def update_f_bulk(self):
@@ -451,47 +473,16 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
 
         self.x_before.append([pos_before, vel_before])
 
-        # self.x_before.append([pos_before, vel_before])
 
-        # self.x_before = [pos_before, vel_before])
-        # print(f"pos_before.shape = {pos_before.shape}")
-
-        # # assert np.allclose(
-        # #     self.kinetic_ions.var.particles.positions, self.non_periodic_positions % 1
-        # # )
-        # print("first assert done")
-        # print("Before push : ")
-        # print(f"particles 0 = {self.kinetic_ions.var.particles.positions[0,0]}")
-        # print(f"particles 0  np = {self.non_periodic_positions[0,0]}")
-        # print(f"velocity 0 = {self.kinetic_ions.var.particles.velocities[0,0]}")
 
         self.propagators.push_eta(dt / 2)
-        # print("push eta")
-        # print(f"particles 0 = {self.kinetic_ions.var.particles.positions[0,0]}")
-        # print(f"particles 0  np = {self.non_periodic_positions[0,0]}")
-        # print(f"velocity 0 = {self.kinetic_ions.var.particles.velocities[0,0]}")
 
         self.non_periodic_positions = (
             self.non_periodic_positions * 12.56
             + (dt / 2) * self.kinetic_ions.var.particles.velocities
         ) / 12.56
-        # print("push")
-        # print(f"particles 0 = {self.kinetic_ions.var.particles.positions[0,0]}")
-        # print(f"particles 0  np = {self.non_periodic_positions[0,0]}")
-        # print(f"velocity 0 = {self.kinetic_ions.var.particles.velocities[0,0]}")
 
-        # print(f"dt/2 = {dt/2}")
-        # diff = self.kinetic_ions.var.particles.positions[0, 0] - (
-        #     self.non_periodic_positions[0, 0] % 1
-        # )
-        # print(f"diff ={np.max(np.abs(diff))}")
-
-        # assert np.allclose(
-        #     self.kinetic_ions.var.particles.positions, self.non_periodic_positions % 1
-        # )
-
-        # self.x_test += (dt / 2) * self.kinetic_ions.var.particles.velocities
-
+        self.propagators.push_current(dt)
         self.propagators.coupling_va(dt)
 
         self.propagators.push_eta(dt / 2)
@@ -499,7 +490,6 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
             self.non_periodic_positions * 12.56
             + (dt / 2) * self.kinetic_ions.var.particles.velocities
         ) / 12.56
-        # self.x_test += (dt / 2) * self.kinetic_ions.var.particles.velocities
 
         print(f"Nt_train = {self.Nt_train}")
         self.n_iter_since_last_training += 1
