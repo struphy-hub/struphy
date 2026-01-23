@@ -1107,7 +1107,7 @@ def test_binning_current_6D_full_f(mapping, show_plot=False):
         if show_plot:
             plt.plot(e_plot, ana_res, label="Analytical result")
             plt.plot(e_plot, binned_res, "r*", label="From binning")
-            plt.title(r"Full-$f$: Cosine in $\eta_1$-direction")
+            plt.title(r"Full-$f$ plasma current: Cosine in $\eta_1$-direction")
             plt.xlabel(rf"$\eta_{u_axis}$")
             plt.ylabel(rf"$f(\eta_{u_axis})$")
             plt.legend()
@@ -1127,6 +1127,7 @@ def test_binning_current_6D_full_f(mapping, show_plot=False):
         for j in range(1, 4):  # axis of binning
             ana_func = off_axis_ana_res if i != j else same_axis_ana_res
             test_current_helper(moments=tuple(moments), u_axis=i, current_axis=j, ana_func=ana_func)
+
 
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize(
@@ -1165,16 +1166,16 @@ def test_binning_energy_tensor_6D_full_f(mapping, show_plot=False):
     # ===== Setup default parameters =====
     # ==============================================================
 
-    # test weights
-    amp_n = 0.1
-    mode_number = 2
-
     # Set number of particles for which error is known <= 0.1
     Np = int(1e6)
 
     # Domain object
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
+
+    # test weights
+    amp_n = 0.1
+    mode_number = 2
 
     ana_func = lambda e_plot: 1.0 + amp_n * xp.cos(2 * xp.pi * mode_number * e_plot)
 
@@ -1212,13 +1213,103 @@ def test_binning_energy_tensor_6D_full_f(mapping, show_plot=False):
         if show_plot:
             plt.plot(e_plot, ana_res, label="Analytical result")
             plt.plot(e_plot, binned_res, "r*", label="From binning")
-            plt.title(r"Full-$f$: Cosine in $\eta_1$-direction")
+            plt.title(r"Full-$f$ energy tensor: Cosine in $\eta_1$-direction")
             plt.legend()
             plt.show()
 
         l2_error = xp.sqrt(xp.sum((ana_res - binned_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
 
         assert l2_error <= 0.03, f"Error between binned data and analytical result was {l2_error}"
+
+
+@pytest.mark.mpi_skip
+@pytest.mark.parametrize(
+    "mapping",
+    [
+        [
+            "Cuboid",
+            {
+                "l1": 1.0,
+                "r1": 2.0,
+                "l2": 10.0,
+                "r2": 20.0,
+                "l3": 3.0,
+                "r3": 4.0,
+            },
+        ],
+        # ['ShafranovDshapedCylinder', {
+        #     'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]
+    ],
+)
+def test_binning_heat_flux_6D_full_f(mapping, show_plot=False):
+    import cunumpy as xp
+    import matplotlib.pyplot as plt
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy.geometry import domains
+    from struphy.initial import perturbations
+    from struphy.kinetic_background.maxwellians import Maxwellian3D
+    from struphy.pic.particles import Particles6D
+    from struphy.pic.utilities import (
+        BoundaryParameters,
+        LoadingParameters,
+        WeightsParameters,
+    )
+    # ==============================================================
+    # ===== Setup default parameters =====
+    # ==============================================================
+
+    # Set number of particles for which error is known <= 0.1
+    Np = int(1e6)
+
+    # Domain object
+    domain_class = getattr(domains, mapping[0])
+    domain = domain_class(**mapping[1])
+
+    # test weights
+    amp_n = 0.1
+    mode_number = 2
+    u_norm = 1.0
+
+    ana_func = lambda e_plot: xp.zeros(len(e_plot)) + 1
+
+    pert = perturbations.ModesCos(ms=(mode_number,), amps=(amp_n,), comp=1)
+    maxwellian = Maxwellian3D(n=(1.0, pert))
+
+    loading_params = LoadingParameters(Np=Np)
+    boundary_params = BoundaryParameters()
+
+    particles = Particles6D(
+        loading_params=loading_params, boundary_params=boundary_params, domain=domain, background=maxwellian
+    )
+
+    particles.draw_markers()
+    particles.initialize_weights()
+
+    e_bins = xp.linspace(0, 1, 200, endpoint=True)
+    de = e_bins[1] - e_bins[0]
+
+    components = [False] * 6
+    components[0] = True
+
+    e_plot = e_bins[:-1] + de / 2
+
+    for i in range(1, 4):
+        binned_res, r2 = particles.binning(components, [e_bins], f"heat_flux_{i}")
+
+        ana_res = ana_func(e_plot)
+        binned_res += 1
+
+        if show_plot:
+            plt.plot(e_plot, ana_res, label="Analytical result")
+            plt.plot(e_plot, binned_res, "r*", label="From binning")
+            plt.title(r"Full-$f$ energy tensor: Cosine in $\eta_1$-direction")
+            plt.legend()
+            plt.show()
+
+        l2_error = xp.sqrt(xp.sum((ana_res - binned_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
+
+        assert l2_error <= 0.04, f"Error between binned data and analytical result was {l2_error}"
 
 
 if __name__ == "__main__":
@@ -1254,21 +1345,29 @@ if __name__ == "__main__":
         #     ],
         #     show_plot=True,
         # )
-        test_binning_current_6D_full_f(
+        # test_binning_current_6D_full_f(
+        #     mapping=[
+        #         "Cuboid",
+        #         # {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0},
+        #         {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
+        #     ],
+        #     show_plot=False,
+        # )
+        # test_binning_energy_tensor_6D_full_f(
+        #     mapping=[
+        #         "Cuboid",
+        #         # {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0},
+        #         {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
+        #     ],
+        #     show_plot=False,
+        # )
+        test_binning_heat_flux_6D_full_f(
             mapping=[
                 "Cuboid",
                 # {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0},
                 {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
             ],
-            show_plot=False,
-        )
-        test_binning_energy_tensor_6D_full_f(
-            mapping=[
-                "Cuboid",
-                # {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0},
-                {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
-            ],
-            show_plot=False,
+            show_plot=True,
         )
     else:
         test_binning_6D_full_f_mpi(
