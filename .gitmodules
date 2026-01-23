@@ -4,3 +4,6 @@
 [submodule "struphy-tutorials"]
 	path = struphy-tutorials
 	url = https://github.com/struphy-hub/struphy-tutorials.git
+[submodule "feectools"]
+	path = feectools
+	url = https://github.com/struphy-hub/feectools.git
