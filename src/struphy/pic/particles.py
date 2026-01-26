@@ -220,6 +220,7 @@ class DeltaFParticles6D(Particles6D):
     """
     A class for kinetic species in full 6D phase space that solve for delta_f = f - f0.
     """
+
     def __post_init__(self):
         self.weights_params.control_variate = False
 
