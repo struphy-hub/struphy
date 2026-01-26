@@ -47,7 +47,7 @@ class Particles6D(Particles):
     @property
     def default_background(self):
         return maxwellians.Maxwellian3D()
-    
+
     @property
     def default_n_cols(self):
         return {"diagnostics": 0, "aux": 5}
@@ -220,7 +220,7 @@ class DeltaFParticles6D(Particles6D):
     A class for kinetic species in full 6D phase space that solve for delta_f = f - f0.
     """
 
-    def __post_init__(self,):
+    def __post_init__(self):
         self._type = "delta_f"
         self.weights_params.control_variate = False
 
@@ -270,7 +270,7 @@ class Particles5D(Particles):
 
     def __post_init__(self):
         self._type = "full_f"
-        
+
         assert self.projected_equil is not None, "Particles5D needs a projected MHD equilibrium."
 
         # magnetic background
@@ -289,11 +289,11 @@ class Particles5D(Particles):
     def vdim(self):
         """Dimension of the velocity space."""
         return 2
-    
+
     @property
     def default_background(self):
         return maxwellians.GyroMaxwellian2D()
-    
+
     @property
     def default_n_cols(self):
         return {"diagnostics": 3, "aux": 12}

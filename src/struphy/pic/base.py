@@ -61,6 +61,7 @@ from struphy.utils.pyccel import Pyccelkernel
 
 class Particles(metaclass=ABCMeta):
     """Base class for particle species."""
+
     def __init__(
         self,
         comm_world: Intracomm = None,
@@ -169,7 +170,7 @@ class Particles(metaclass=ABCMeta):
         verbose : bool
             Show some more Particle info.
         """
-        
+
         self._clone_config = clone_config
         if self.clone_config is None:
             self._mpi_comm = comm_world
@@ -183,10 +184,10 @@ class Particles(metaclass=ABCMeta):
         # defaults
         if n_cols_diagnostics is None:
             self._n_cols_diagnostics = self.default_n_cols["diagnostics"]
-            
+
         if n_cols_aux is None:
             self._n_cols_aux = self.default_n_cols["aux"]
-        
+
         if loading_params is None:
             loading_params = LoadingParameters()
 
@@ -356,7 +357,7 @@ class Particles(metaclass=ABCMeta):
         self._recvbufs = [None] * self.mpi_size
         self._send_to_i = [None] * self.mpi_size
         self._send_list = [None] * self.mpi_size
-        
+
         # post init
         self.__post_init__()
 
@@ -371,12 +372,12 @@ class Particles(metaclass=ABCMeta):
     def default_background(cls):
         """The default background (of type Maxwellian)."""
         pass
-    
+
     @property
     def default_n_cols(self):
         "Dictionary of the form {'diagnostics': 3, 'aux': 12} for default number of columns."
         pass
-    
+
     @abstractmethod
     def __post_init__(self):
         pass
