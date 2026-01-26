@@ -1969,8 +1969,8 @@ class Particles(metaclass=ABCMeta):
         elif quantity == "energy_tensor":
             multiplier = self.velocities[:, v_axis[0]] * self.velocities[:, v_axis[1]]
         elif quantity == "heat_flux":
-            velocity_norm = xp.linalg.norm(self.velocities, axis=1)
-            multiplier = velocity_norm * self.velocities[:, v_axis[0]]
+            velocity_norm2 = xp.linalg.norm(self.velocities, axis=1) ** 2
+            multiplier = velocity_norm2 * self.velocities[:, v_axis[0]]
 
         # compute weights of histogram:
         _weights0 = self.weights0 * multiplier
