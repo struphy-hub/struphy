@@ -324,7 +324,7 @@ class Particles(metaclass=ABCMeta):
             self._background = background
 
         # background p-form description in [eta, v] (False means 0-form, True means volume form -> divide by det)
-        if isinstance(background, FluidEquilibrium):
+        if isinstance(self.background, FluidEquilibrium):
             self._is_volume_form = (n_as_volume_form, False)
         else:
             self._is_volume_form = (
@@ -360,6 +360,12 @@ class Particles(metaclass=ABCMeta):
 
         # post init
         self.__post_init__()
+
+    @property
+    @abstractmethod
+    def type(self):
+        """Particle type: 'full_f', 'delta_f' or 'sph'."""
+        pass
 
     @property
     @abstractmethod
@@ -461,11 +467,6 @@ class Particles(metaclass=ABCMeta):
     def name(self):
         """Name of the kinetic species in DATA container."""
         return self._name
-
-    @property
-    def type(self):
-        """Particle type: 'full_f', 'delta_f' or 'sph'."""
-        return self._type
 
     @property
     def loading(self) -> OptsLoading:

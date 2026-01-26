@@ -28,8 +28,6 @@ class Particles6D(Particles):
     """
 
     def __post_init__(self):
-        self._type == "full_f"
-
         if isinstance(self.background, maxwellians.CanonicalMaxwellian):
             assert isinstance(self.equil, FluidEquilibriumWithB), (
                 "CanonicalMaxwellian needs background with magnetic field."
@@ -40,8 +38,11 @@ class Particles6D(Particles):
             self._epsilon = self.equation_params["epsilon"]
 
     @property
+    def type(self):
+        return "full_f"
+
+    @property
     def vdim(self):
-        """Dimension of the velocity space."""
         return 3
 
     @property
@@ -219,10 +220,12 @@ class DeltaFParticles6D(Particles6D):
     """
     A class for kinetic species in full 6D phase space that solve for delta_f = f - f0.
     """
-
     def __post_init__(self):
-        self._type = "delta_f"
         self.weights_params.control_variate = False
+
+    @property
+    def type(self):
+        return "delta_f"
 
     def _set_initial_condition(self):
         self.set_n_to_zero(self.initial_condition)
@@ -269,8 +272,6 @@ class Particles5D(Particles):
     """
 
     def __post_init__(self):
-        self._type = "full_f"
-
         assert self.projected_equil is not None, "Particles5D needs a projected MHD equilibrium."
 
         # magnetic background
@@ -284,6 +285,10 @@ class Particles5D(Particles):
 
         self._tmp0 = self.derham.Vh["0"].zeros()
         self._tmp2 = self.derham.Vh["2"].zeros()
+
+    @property
+    def type(self):
+        return "full_f"
 
     @property
     def vdim(self):
@@ -568,7 +573,11 @@ class Particles3D(Particles):
     """
 
     def __post_init__(self):
-        self._type = "full_f"
+        pass
+
+    @property
+    def type(self):
+        return "full_f"
 
     @property
     def vdim(self):
@@ -576,7 +585,7 @@ class Particles3D(Particles):
         return 0
 
     @property
-    def default_background(cls):
+    def default_background(self):
         return maxwellians.ColdPlasma()
 
     @property
@@ -668,8 +677,12 @@ class ParticlesSPH(Particles):
     """
 
     def __post_init__(self):
-        self._type = "sph"
         assert self.clone_config is None, "SPH can only be launched with --nclones 1"
+        self.background.domain = self.domain
+
+    @property
+    def type(self):
+        return "sph"
 
     @property
     def vdim(self):
@@ -677,7 +690,7 @@ class ParticlesSPH(Particles):
         return 3
 
     @property
-    def default_background(cls):
+    def default_background(self):
         return equils.ConstantVelocity()
 
     @property
