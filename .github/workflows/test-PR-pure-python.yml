@@ -39,6 +39,9 @@ jobs:
 
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          submodules: true  # This is crucial!
+          fetch-depth: 5
 
       - name: Check .testmondata 1
         run: |
@@ -67,6 +70,11 @@ jobs:
           python3 -m venv env
           source env/bin/activate
           pip install -e .[dev]
+
+      - name: Reinstall feectools from submodule
+        uses: ./.github/actions/install/feectools-submodule
+        with:
+          env-name: env
 
       - name: Uncompile Struphy
         shell: bash
@@ -104,7 +112,7 @@ jobs:
           struphy compile --status
           cd src/struphy/
           mpirun --oversubscribe -n 1 pytest -m single -xvs --with-mpi --model-name LinearMHD
-      
+
       - name: LinearMHD test
         shell: bash
         env:

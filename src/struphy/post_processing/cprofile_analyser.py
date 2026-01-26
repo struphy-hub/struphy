@@ -119,7 +119,6 @@ def replace_keys(d):
     import os
 
     import feectools
-
     import struphy
 
     struphy_path = struphy.__path__[0]

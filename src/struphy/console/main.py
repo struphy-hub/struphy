@@ -199,8 +199,8 @@ def add_parser_compile(
         "--language",
         type=str,
         metavar="LANGUAGE",
-        help='either "c" (default) or "fortran"',
-        default="c",
+        help='either "fortran" (default) or "c"',
+        default="fortran",
     )
 
     parser_compile.add_argument(

@@ -38,7 +38,12 @@ def call_test(model: StruphyModel, verbose: bool = True):
     MPI.COMM_WORLD.Barrier()
 
     # set environment options
-    env = EnvironmentOptions(out_folders=test_folder, sim_folder=f"{model_name}")
+    env = EnvironmentOptions(
+        out_folders=test_folder,
+        sim_folder=f"{model_name}",
+        profiling_activated=test_profiling,
+        profiling_trace=test_profiling,
+    )
 
     # read parameters
     params_in = import_parameters_py(path)

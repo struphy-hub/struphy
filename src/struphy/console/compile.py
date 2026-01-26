@@ -19,7 +19,7 @@ def struphy_compile(
     Parameters
     ----------
     language : str
-        Either "c" (default) or "fortran".
+        Either "fortran" (default) or "c".
 
     compiler : str
         Either "GNU" (default), "intel", "PGI", "nvidia", or "LLVM"

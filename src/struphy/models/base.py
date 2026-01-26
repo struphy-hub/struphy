@@ -12,6 +12,7 @@ from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
+from scope_profiler import ProfileManager
 
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
@@ -33,7 +34,6 @@ from struphy.io.setup import setup_derham
 from struphy.models.species import DiagnosticSpecies, FieldSpecies, FluidSpecies, ParticleSpecies, Species
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.pic.base import Particles
-from struphy.profiling.profiling import ProfileManager
 from struphy.propagators.base import Propagator
 from struphy.topology.grids import TensorProductGrid
 from struphy.utils.clone_config import CloneConfig
@@ -100,15 +100,25 @@ class StruphyModel(metaclass=ABCMeta):
     def setup_domain_and_equil(self, domain: Domain, equil: FluidEquilibrium):
         """If a numerical equilibirum is used, the domain is taken from this equilibirum."""
         if equil is not None:
-            self._equil = equil
-            if isinstance(self.equil, NumericalMHDequilibrium):
-                self._domain = self.equil.domain
+            if isinstance(equil, NumericalMHDequilibrium):
+                self._domain = equil.domain
             else:
                 self._domain = domain
-                self._equil.domain = domain
+                equil.domain = domain
+
+            if hasattr(equil, "units"):
+                assert isinstance(equil.units, Units)
+                equil.units.derive_units(
+                    velocity_scale=self.velocity_scale,
+                    A_bulk=self.bulk_species.mass_number,
+                    Z_bulk=self.bulk_species.charge_number,
+                    verbose=self.verbose,
+                )
+
         else:
             self._domain = domain
-            self._equil = None
+
+        self._equil = equil
 
         if MPI.COMM_WORLD.Get_rank() == 0 and self.verbose:
             print("\nDOMAIN:")
@@ -696,7 +706,7 @@ class StruphyModel(metaclass=ABCMeta):
             for propagator in self.prop_list:
                 prop_name = propagator.__class__.__name__
 
-                with ProfileManager.profile_region(prop_name):
+                with ProfileManager.profile_region("prop: " + prop_name):
                     propagator(dt)
 
         # second order in time
@@ -705,17 +715,17 @@ class StruphyModel(metaclass=ABCMeta):
 
             for propagator in self.prop_list[:-1]:
                 prop_name = type(propagator).__name__
-                with ProfileManager.profile_region(prop_name):
+                with ProfileManager.profile_region("prop: " + prop_name):
                     propagator(dt / 2)
 
             propagator = self.prop_list[-1]
             prop_name = type(propagator).__name__
-            with ProfileManager.profile_region(prop_name):
+            with ProfileManager.profile_region("prop: " + prop_name):
                 propagator(dt)
 
             for propagator in self.prop_list[:-1][::-1]:
                 prop_name = type(propagator).__name__
-                with ProfileManager.profile_region(prop_name):
+                with ProfileManager.profile_region("prop: " + prop_name):
                     propagator(dt / 2)
 
         else:

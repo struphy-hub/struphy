@@ -1491,10 +1491,10 @@ def aux_test_spline_evaluation(Nel, plist, spl_kind):
 if __name__ == "__main__":
     Nel = [14, 16, 18]
     p = [5, 4, 3]
-    spl_kind = [False, True, True]
+    spl_kind = [True, False, False]
 
     # test_spline_evaluation(Nel, p, spl_kind)
-    # test_local_projectors_compare_global(Nel, p, spl_kind)
+    test_local_projectors_compare_global(Nel, p, spl_kind)
     # test_local_projectors_convergence(2, 3, False, do_plot=False)
     # test_replication_of_basis(Nel, p, spl_kind)
     #'0', 'H1'
