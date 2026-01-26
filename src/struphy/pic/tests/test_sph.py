@@ -1410,9 +1410,9 @@ def test_sph_viscosity_evaluation_2d(
 
     dom_type = "Cuboid"
     l1 = 0.0
-    r1 = 2.0
+    r1 = 1.0
     l2 = 0.0
-    r2 = 3.0
+    r2 = 1.0
     dom_params = {"l1": l1, "r1": r1, "l2": l2, "r2": r2, "l3": 0.0, "r3": 1.0}
     domain_class = getattr(domains, dom_type)
     domain: Domain = domain_class(**dom_params)
@@ -1427,22 +1427,23 @@ def test_sph_viscosity_evaluation_2d(
     Lx = r1 - l1
     Ly = r2 - l2
     
-    def u_xyz(x, y, z):
-        ux = xp.sin(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
-        uy = -xp.cos(2 * xp.pi * x) * xp.sin(2 * xp.pi * y)
-        uz = 0.0 * z
-        return ux, uy, uz
+    
+    #def u_xyz(x, y, z):
+    #    ux = xp.sin(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
+    #    uy = -xp.cos(2 * xp.pi * x) * xp.sin(2 * xp.pi * y)
+    #    uz = 0.0 * z
+    #    return ux, uy, uz
 
 
-    def analytic_pi(x, y):
-        val = 2 * xp.pi * xp.cos(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
-        Pi_analytic = xp.zeros((3, 3) + x.shape)
-        Pi_analytic[0, 0] = val
-        Pi_analytic[1, 1] = -val
-        return Pi_analytic
+    #def analytic_pi(x, y):
+    #    val = 2 * xp.pi * xp.cos(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
+    #    Pi_analytic = xp.zeros((3, 3) + x.shape)
+    #    Pi_analytic[0, 0] = val
+    #    Pi_analytic[1, 1] = -val
+    #    return Pi_analytic
     
     
-    background = GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
+    background = ConstantVelocity(viscosity_profile="tensor")
     background.domain = domain
 
     boundary_params = BoundaryParameters(bc_sph=(bc_x, bc_y, "periodic"))
@@ -1495,4 +1496,65 @@ def test_sph_viscosity_evaluation_2d(
         derivative=derivative,
     )
     
+    (pi11, pi12, pi13), (pi21, pi22, pi23), (pi31, pi32, pi33) = Viscosity_tensor
 
+    Pi = background.pi_xyz(xx, yy, zz)
+    
+    (Pi_xx, Pi_xy, Pi_xz), (Pi_yx, Pi_yy, Pi_yz), (Pi_zx, Pi_zy, Pi_zz) = Pi
+
+    
+    all_Pi = xp.zeros_like(Viscosity_tensor)
+
+    if comm is not None:
+   
+        for i in range(3):
+            for j in range(3):
+                comm.Allreduce(Viscosity_tensor[i, j], all_Pi[i, j], op=MPI.SUM)
+    else:
+       
+        all_Pi[:] = Viscosity_tensor
+
+    def abs_err(num, exact):
+        max_exact = xp.max(xp.abs(exact))
+
+        return xp.max(xp.abs(num - exact)) / max_exact
+    
+    err_Pi = xp.zeros_like(all_Pi)
+
+    for i in range(3):
+        for j in range(3):
+            err_Pi[i,j] = abs_err(all_Pi[i,j], Pi[i,j])
+            
+            
+    for i in range(3):
+        for j in range(3):
+            print(f"Pi[{i},{j}] error = {err_Pi[i,j]:.3e}")
+    
+    if show_plot:
+        
+        fig, axes = plt.subplots(3, 3, figsize=(15, 12))
+        comp_names = [["xx","xy","xz"], ["yx","yy","yz"], ["zx","zy","zz"]]
+
+        for i in range(3):
+            for j in range(3):
+                ax = axes[i,j]
+                im = ax.pcolor(xx.squeeze(), yy.squeeze(), all_Pi[i,j].squeeze())
+                ax.set_title(f"SPH Pi_{comp_names[i][j]}")
+                plt.colorbar(im, ax=ax)
+
+        plt.tight_layout()
+        plt.savefig("viscosity_components.png")
+        plt.show()
+
+        # --- Optional: Fehlerplots ---
+        fig, axes = plt.subplots(3, 3, figsize=(15, 12))
+        for i in range(3):
+            for j in range(3):
+                ax = axes[i,j]
+                im = ax.pcolor(xx.squeeze(), yy.squeeze(), (all_Pi[i,j] - Pi[i,j]).squeeze())
+                ax.set_title(f"Error Pi_{comp_names[i][j]}")
+                plt.colorbar(im, ax=ax)
+
+        plt.tight_layout()
+        plt.savefig("viscosity_error_components.png")
+        plt.show()
