@@ -60,91 +60,7 @@ from struphy.utils.pyccel import Pyccelkernel
 
 
 class Particles(metaclass=ABCMeta):
-    r"""
-    Base class for particle species.
-
-    The marker information is stored in a 2D numpy array.
-    In ``markers[ip, j]`` The row index ``ip`` refers to a specific particle,
-    the column index ``j`` to its attributes.
-    The columns are indexed as follows:
-
-    * ``0:3``: position in the logical unit cube (:math:`\boldsymbol \eta_p \in [0, 1]^3`)
-    * ``3:3 + vdim``: velocities
-    * ``3 + vdim``: (time-dependent) weight :math:`w_k(t)`
-    * ``4 + vdim``: PDF :math:`s^0 = s^3/\sqrt g` at particle position
-    * ``5 + vdim``: initial weight :math:`w_0`
-    * ``6 + vdim <= j < -2``: buffer indices; see attributes ``first_diagnostics_idx``, ``first_pusher_idx`` and ``first_free_idx`` below
-    * ``-2``: number of the sorting box the particle is in
-    * ``-1``: particle ID
-
-    Parameters
-    ----------
-    comm_world : Intracomm
-        World MPI communicator.
-
-    clone_config : CloneConfig
-        Manages the configuration for clone-based (copied grids) parallel processing using MPI.
-
-    domain_decomp : tuple
-        The first entry is a domain_array (see :attr:`~struphy.feec.psydac_derham.Derham.domain_array`) and
-        the second entry is the number of MPI processes in each direction.
-
-    mpi_dims_mask: list | tuple of bool
-            True if the dimension is to be used in the domain decomposition (=default for each dimension).
-            If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
-
-    boxes_per_dim : tuple
-        Number of boxes in each logical direction (n_eta1, n_eta2, n_eta3).
-
-    box_bufsize : float
-        Between 0 and 1, relative buffer size for box array (default = 0.25).
-
-    type : str
-        Either 'full_f' (default), 'delta_f' or 'sph'.
-
-    name : str
-        Name of particle species.
-
-    loading_params : LoadingParameters
-        Parameterts for particle loading.
-
-    weights_params : WeightsParameters
-        Parameters for particle weights.
-
-    boundary_params : BoundaryParameters
-        Parameters for particle boundary conditions.
-
-    bufsize : float
-        Size of buffer (as multiple of total size, default=.25) in markers array.
-
-    domain : Domain
-        Struphy domain object.
-
-    equil : FluidEquilibrium
-        Struphy fluid equilibrium object.
-
-    projected_equil : ProjectedFluidEquilibrium
-        Struphy fluid equilibrium projected into a discrete Derham complex.
-
-    background : KineticBackground
-        Kinetic background.
-
-    initial_condition : KineticBackground
-        Kinetic initial condition.
-
-    n_as_volume_form: bool
-        Whether the number density n is given as a volume form or scalar function (=default).
-
-    perturbations : Perturbation | list
-        Kinetic perturbation parameters.
-
-    equation_params : dict
-        Normalization parameters (epsilon, alpha, ...)
-
-    verbose : bool
-        Show some more Particle info.
-    """
-
+    """Base class for particle species."""
     def __init__(
         self,
         comm_world: Intracomm = None,
@@ -153,6 +69,8 @@ class Particles(metaclass=ABCMeta):
         mpi_dims_mask: tuple | list = None,
         boxes_per_dim: tuple | list = None,
         box_bufsize: float = 5.0,
+        n_cols_diagnostics: int = None,
+        n_cols_aux: int = None,
         type: str = "full_f",
         name: str = "some_name",
         loading_params: LoadingParameters = None,
@@ -169,6 +87,89 @@ class Particles(metaclass=ABCMeta):
         equation_params: dict = None,
         verbose: bool = False,
     ):
+        r"""
+        The marker information is stored in a 2D numpy array.
+        In ``markers[ip, j]`` The row index ``ip`` refers to a specific particle,
+        the column index ``j`` to its attributes.
+        The columns are indexed as follows:
+
+        * ``0:3``: position in the logical unit cube (:math:`\boldsymbol \eta_p \in [0, 1]^3`)
+        * ``3:3 + vdim``: velocities
+        * ``3 + vdim``: (time-dependent) weight :math:`w_k(t)`
+        * ``4 + vdim``: PDF :math:`s^0 = s^3/\sqrt g` at particle position
+        * ``5 + vdim``: initial weight :math:`w_0`
+        * ``6 + vdim <= j < -2``: buffer indices; see attributes ``first_diagnostics_idx``, ``first_pusher_idx`` and ``first_free_idx`` below
+        * ``-2``: number of the sorting box the particle is in
+        * ``-1``: particle ID
+
+        Parameters
+        ----------
+        comm_world : Intracomm
+            World MPI communicator.
+
+        clone_config : CloneConfig
+            Manages the configuration for clone-based (copied grids) parallel processing using MPI.
+
+        domain_decomp : tuple
+            The first entry is a domain_array (see :attr:`~struphy.feec.psydac_derham.Derham.domain_array`) and
+            the second entry is the number of MPI processes in each direction.
+
+        mpi_dims_mask: list | tuple of bool
+                True if the dimension is to be used in the domain decomposition (=default for each dimension).
+                If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
+
+        boxes_per_dim : tuple
+            Number of boxes in each logical direction (n_eta1, n_eta2, n_eta3).
+
+        box_bufsize : float
+            Between 0 and 1, relative buffer size for box array (default = 0.25).
+
+        type : str
+            Either 'full_f' (default), 'delta_f' or 'sph'.
+
+        name : str
+            Name of particle species.
+
+        loading_params : LoadingParameters
+            Parameterts for particle loading.
+
+        weights_params : WeightsParameters
+            Parameters for particle weights.
+
+        boundary_params : BoundaryParameters
+            Parameters for particle boundary conditions.
+
+        bufsize : float
+            Size of buffer (as multiple of total size, default=.25) in markers array.
+
+        domain : Domain
+            Struphy domain object.
+
+        equil : FluidEquilibrium
+            Struphy fluid equilibrium object.
+
+        projected_equil : ProjectedFluidEquilibrium
+            Struphy fluid equilibrium projected into a discrete Derham complex.
+
+        background : KineticBackground
+            Kinetic background.
+
+        initial_condition : KineticBackground
+            Kinetic initial condition.
+
+        n_as_volume_form: bool
+            Whether the number density n is given as a volume form or scalar function (=default).
+
+        perturbations : Perturbation | list
+            Kinetic perturbation parameters.
+
+        equation_params : dict
+            Normalization parameters (epsilon, alpha, ...)
+
+        verbose : bool
+            Show some more Particle info.
+        """
+        
         self._clone_config = clone_config
         if self.clone_config is None:
             self._mpi_comm = comm_world
@@ -180,6 +181,12 @@ class Particles(metaclass=ABCMeta):
             self._clone_id = self.clone_config.clone_id
 
         # defaults
+        if n_cols_diagnostics is None:
+            self._n_cols_diagnostics = self.default_n_cols["diagnostics"]
+            
+        if n_cols_aux is None:
+            self._n_cols_aux = self.default_n_cols["aux"]
+        
         if loading_params is None:
             loading_params = LoadingParameters()
 
@@ -310,7 +317,8 @@ class Particles(metaclass=ABCMeta):
 
         # background
         if background is None:
-            raise ValueError("A background function must be passed to Particles.")
+            self._background = self.default_background
+            print(f"Background set to default {self.background = }.")
         else:
             self._background = background
 
@@ -348,11 +356,29 @@ class Particles(metaclass=ABCMeta):
         self._recvbufs = [None] * self.mpi_size
         self._send_to_i = [None] * self.mpi_size
         self._send_list = [None] * self.mpi_size
+        
+        # post init
+        self.__post_init__()
 
-    @classmethod
+    @property
+    @abstractmethod
+    def vdim(self):
+        """Dimension of the velocity space."""
+        pass
+
+    @property
     @abstractmethod
     def default_background(cls):
         """The default background (of type Maxwellian)."""
+        pass
+    
+    @property
+    def default_n_cols(self):
+        "Dictionary of the form {'diagnostics': 3, 'aux': 12} for default number of columns."
+        pass
+    
+    @abstractmethod
+    def __post_init__(self):
         pass
 
     @abstractmethod
@@ -366,22 +392,14 @@ class Particles(metaclass=ABCMeta):
         pass
 
     @property
-    @abstractmethod
-    def vdim(self):
-        """Dimension of the velocity space."""
-        pass
-
-    @property
-    @abstractmethod
     def n_cols_diagnostics(self):
         """Number of columns for storing diagnostics for each marker."""
-        pass
+        return self._n_cols_diagnostics
 
     @property
-    @abstractmethod
     def n_cols_aux(self):
         """Number of auxiliary columns for each marker (e.g. for storing evaluation data)."""
-        pass
+        return self._n_cols_aux
 
     @property
     def first_diagnostics_idx(self):
