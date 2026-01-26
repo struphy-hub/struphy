@@ -169,7 +169,7 @@ class BinningPlot:
         n_bins: int | tuple[int] = 128,
         ranges: tuple[float] | tuple[tuple[float]] = (0.0, 1.0),
         divide_by_jac: bool = True,
-        output_quantity: BinningQuantity = "density", 
+        output_quantity: BinningQuantity = "density",
     ):
         if isinstance(n_bins, int):
             n_bins = (n_bins,)
