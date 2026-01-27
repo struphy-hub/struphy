@@ -77,12 +77,4 @@ jobs:
           struphy compile
 
       - name: Run unit tests
-        shell: bash
-        env:
-          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit
-        run: |
-          source /struphy_fortran_/env_fortran_/bin/activate
-          struphy compile --status
-          pip show mpi4py
-          pip uninstall -y mpi4py
-          struphy test unit
+        uses: ./.github/actions/tests/unit

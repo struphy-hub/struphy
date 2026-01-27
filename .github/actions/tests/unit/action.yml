@@ -5,21 +5,30 @@ description:
 runs:
   using: composite
   steps:
-    - name: Run unit tests with MPI
+    - name: Run unit tests (serial) in container
       shell: bash
       env:
-        TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-${{ matrix.test-type }}
+        TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit
       run: |
+        source /struphy_fortran_/env_fortran_/bin/activate
         struphy compile --status
-      # run: |
-      #   struphy compile --status
-      #   struphy test unit --mpi 2
-
-    # - name: Run unit tests
-    #   shell: bash
-    #   run: |
-    #     struphy compile --status
-    #     pip show mpi4py
-    #     pip uninstall -y mpi4py
-    #     pip list
-    #     struphy test unit
+        pip show mpi4py
+        pip uninstall -y mpi4py
+        cd struphy_fortran_
+        git status
+        ls -a
+        cd src/struphy
+        pytest --testmon \
+        bsplines/tests/ \
+        console/tests/ \
+        feec/tests/" \
+        fields_background/tests/" \
+        geometry/tests/" \
+        initial/tests/" \
+        kinetic_background/tests/" \
+        linear_algebra/tests/" \
+        ode/tests/" \
+        pic/tests/" \
+        polar/tests/" \
+        post_processing/tests/" \
+        propagators/tests/"
