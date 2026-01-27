@@ -3852,7 +3852,8 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             fast=fast,
         )
 
-        return v1, v2, v3
+        return v1, v2, v3    
+    
     
     def eval_viscosity(
         self,
@@ -3868,10 +3869,10 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
     ) -> tuple:
         
         first_free_idx = self.args_markers.first_free_idx
-        comps = xp.array((0, 1, 2, 3, 4, 5, 6, 7, 8))
+        comps = xp.array((0, 1, 2))
         
         self.put_particles_in_boxes()
-        func = Pyccelkernel(eval_kernels_gc.sph_grad_mean_velocity)
+        func = Pyccelkernel(eval_kernels_gc.sph_mean_velocity_coeffs)
           
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
@@ -3890,57 +3891,33 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             h2=h2,
             h3=h3,
         )
-        
-        
-        v1 = self.eval_sph(
-            eta1,
-            eta2,
-            eta3,
-            first_free_idx,
-            kernel_type=kernel_type,
-            derivative=derivative,
-            h1=h1,
-            h2=h2,
-            h3=h3,
-            fast=fast,
-        )
+        #nested_list 
+        grad_v_at_eta = xp.zeros((3, 3), dtype=float) #<-- this line is wrong. i need a nested list, as the 3x3 matrix contains in every entry a matrix evaluated on a meshgrid 
+        grad_v_at_eta = []
+        for j in range(3):
+            grad_v_at_eta.append([])
+            for k in range(3):
+                grad_v_at_eta[j].append( self.eval_sph(
+                    eta1,
+                    eta2,
+                    eta3,
+                    first_free_idx + j,
+                    kernel_type=kernel_type,
+                    derivative=derivative + k ,
+                    h1=h1,
+                    h2=h2,
+                    h3=h3,
+                    fast=fast,
+                )
+                )
 
-        # print(f"{self.markers.shape = }")
-        # print(f"{first_free_idx = }")
-        # print(f"{self.markers[:, first_free_idx]}")
-        # print(f"{v1.squeeze() = }")
+        D = 0.5 * (grad_v_at_eta + grad_v_at_eta.T)
+        traceD = xp.trace(D)
+        Pi = D - (traceD / 3.0) * xp.eye(3)
 
-        v2 = self.eval_sph(
-            eta1,
-            eta2,
-            eta3,
-            first_free_idx + 1,
-            kernel_type=kernel_type,
-            derivative=derivative,
-            h1=h1,
-            h2=h2,
-            h3=h3,
-            fast=fast,
-        )
+        
 
-        v3 = self.eval_sph(
-            eta1,
-            eta2,
-            eta3,
-            first_free_idx + 2,
-            kernel_type=kernel_type,
-            derivative=derivative,
-            h1=h1,
-            h2=h2,
-            h3=h3,
-            fast=fast,
-        )
-
-        return v1, v2, v3
-    
-        
-        
-        
+        return Pi    
 
     
 
