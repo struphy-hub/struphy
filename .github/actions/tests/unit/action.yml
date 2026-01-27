@@ -14,9 +14,9 @@ runs:
         struphy compile --status
         pip show mpi4py
         pip uninstall -y mpi4py
-        cd struphy_fortran_
-        git status
         ls -a
+        cd /struphy_fortran_
+        git status
         cd src/struphy
         pytest --testmon \
         bsplines/tests/ \
