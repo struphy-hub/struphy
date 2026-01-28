@@ -22,3 +22,5 @@ jobs:
     with:
       os: ubuntu-latest
       n-procs: 1
+    secrets:
+      ghcr-token: ${{ secrets.GHCR_TOKEN }}
