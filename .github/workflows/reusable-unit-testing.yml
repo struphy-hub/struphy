@@ -30,6 +30,21 @@ jobs:
         username: spossann
         password: ${{ secrets.ghcr-token }}
 
+    env:
+      TEST_FILES: "bsplines/tests/ \
+                  console/tests/ \
+                  feec/tests/ \
+                  fields_background/tests/ \
+                  geometry/tests/ \
+                  initial/tests/ \
+                  kinetic_background/tests/ \
+                  linear_algebra/tests/ \
+                  ode/tests/ \
+                  pic/tests/ \
+                  polar/tests/ \
+                  post_processing/tests/ \
+                  propagators/tests/"
+
     steps:
       - name: Check for dockerenv file
         run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
@@ -77,7 +92,7 @@ jobs:
         if: inputs.n-procs == 1
         run: |
             UNINSTALL_MPI="pip uninstall -y mpi4py"
-            PYTEST_CMD="pytest --testmon \\"
+            PYTEST_CMD="pytest --testmon ${{ env.TEST_FILES }}"
             echo "UNINSTALL_MPI=${UNINSTALL_MPI}" >> $GITHUB_ENV
             echo "PYTEST_CMD=${PYTEST_CMD}" >> $GITHUB_ENV
 
@@ -85,7 +100,7 @@ jobs:
         if: inputs.n-procs > 1
         run: |
             RUN_MAXWELL="struphy test Maxwell"
-            PYTEST_CMD="mpirun -n ${{ inputs.n-procs }} pytest --testmon --with-mpi \\"
+            PYTEST_CMD="mpirun -n ${{ inputs.n-procs }} pytest --testmon --with-mpi ${{ env.TEST_FILES }}"
             echo "RUN_MAXWELL=${RUN_MAXWELL}" >> $GITHUB_ENV
             echo "PYTEST_CMD=${PYTEST_CMD}" >> $GITHUB_ENV
 
