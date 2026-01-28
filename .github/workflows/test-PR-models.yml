@@ -99,7 +99,8 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
-          struphy test verification
+          cd /struphy_fortran_/src/struphy
+          pytest --testmon models/tests/verification/
 
       - name: Model tests with MPI
         shell: bash
@@ -117,4 +118,5 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model-mpi
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
-          struphy test verification --mpi 2
+          cd /struphy_fortran_/src/struphy
+          mpirun --oversubscribe -n 2 pytest --testmon --with-mpi models/tests/verification/

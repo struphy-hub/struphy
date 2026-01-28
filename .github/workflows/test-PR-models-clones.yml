@@ -84,4 +84,5 @@ jobs:
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           struphy test Maxwell
-          struphy test verification --mpi 4 --nclones 2
+          cd /struphy_fortran_/src/struphy
+          mpirun --oversubscribe -n 4 pytest --testmon --with-mpi --nclones 2 models/tests/verification/

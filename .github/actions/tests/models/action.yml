@@ -11,7 +11,8 @@ runs:
         struphy compile --status
         struphy test LinearMHD
         struphy test models 
-        struphy test verification 
+        cd src/struphy
+        pytest --testmon models/tests/verification/
     - name: Model tests with  MPI
       shell: bash
       run: |

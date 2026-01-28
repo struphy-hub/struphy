@@ -75,10 +75,7 @@ jobs:
 
       - name: Run unit tests with MPI
         if: matrix.test-type == 'unit'
-        shell: bash
-        run: |
-          struphy test Maxwell
-          struphy test unit --mpi 2
+        uses: ./.github/actions/tests/unit-mpi
 
       - name: Run model tests with MPI
         if: matrix.test-type == 'model'
@@ -92,4 +89,5 @@ jobs:
         shell: bash
         run: |
           struphy test Maxwell
-          struphy test verification --mpi 2
+          cd src/struphy
+          mpirun --oversubscribe -n 2 pytest --testmon --with-mpi models/tests/verification/
