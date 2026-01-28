@@ -2,6 +2,11 @@ name: "Run unit tests"
 
 description: 
 
+inputs:
+  env-name:
+    required: true
+    default: ""
+
 runs:
   using: composite
   steps:
@@ -10,23 +15,23 @@ runs:
       env:
         TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit
       run: |
-        source /struphy_fortran_/env_fortran_/bin/activate
+        source {{ inputs.env-name }}/bin/activate || true
+        which python
         struphy compile --status
         pip show mpi4py
         pip uninstall -y mpi4py
-        ls -a
         cd src/struphy
-        ls -a
-        pytest --testmon bsplines/tests/ console/tests/
-      # console/tests/ \
-      # feec/tests/" \
-      # fields_background/tests/" \
-      # geometry/tests/" \
-      # initial/tests/" \
-      # kinetic_background/tests/" \
-      # linear_algebra/tests/" \
-      # ode/tests/" \
-      # pic/tests/" \
-      # polar/tests/" \
-      # post_processing/tests/" \
-      # propagators/tests/"
+        pytest --testmon \
+        bsplines/tests/ \
+        console/tests/ \
+        feec/tests/ \
+        fields_background/tests/ \
+        geometry/tests/ \
+        initial/tests/ \
+        kinetic_background/tests/ \
+        linear_algebra/tests/ \
+        ode/tests/ \
+        pic/tests/ \
+        polar/tests/ \
+        post_processing/tests/ \
+        propagators/tests/
