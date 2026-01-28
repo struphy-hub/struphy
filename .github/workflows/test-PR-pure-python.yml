@@ -161,7 +161,7 @@ jobs:
         # init .testmondata with non-MPI call
         run: |
           source env/bin/activate
-          mpirun -n 1 pytest -m single --testmon-forceselect -s --with-mpi --model-name Maxwell
+          mpirun -n 1 pytest -m single --testmon-forceselect -s --with-mpi --model-name Maxwell src/struphy
           struphy test Vlasov --mpi 2
 
       - name: GuidingCenter test MPI
