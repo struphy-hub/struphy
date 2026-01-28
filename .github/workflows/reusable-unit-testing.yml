@@ -55,6 +55,26 @@ jobs:
           submodules: true  # This is crucial!
           fetch-depth: 5
 
+      - name: Set commands for serial run
+        if: inputs.n-procs == 1
+        run: |
+            TESTMON_KEY="testmon-unit"
+            UNINSTALL_MPI="pip uninstall -y mpi4py"
+            PYTEST_CMD="pytest --testmon ${{ env.TEST_FILES }}"
+            echo "TESTMON_KEY=${TESTMON_KEY}" >> $GITHUB_ENV
+            echo "UNINSTALL_MPI=${UNINSTALL_MPI}" >> $GITHUB_ENV
+            echo "PYTEST_CMD=${PYTEST_CMD}" >> $GITHUB_ENV
+
+      - name: Set commands for mpi run
+        if: inputs.n-procs > 1
+        run: |
+            TESTMON_KEY="testmon-unit-mpi"
+            RUN_MAXWELL="struphy test Maxwell"
+            PYTEST_CMD="mpirun -n ${{ inputs.n-procs }} pytest --testmon --with-mpi ${{ env.TEST_FILES }}"
+            echo "TESTMON_KEY=${TESTMON_KEY}" >> $GITHUB_ENV
+            echo "RUN_MAXWELL=${RUN_MAXWELL}" >> $GITHUB_ENV
+            echo "PYTEST_CMD=${PYTEST_CMD}" >> $GITHUB_ENV
+
       - name: Check .testmondata 1
         run: |
           ls .testmon* || echo "No .testmondata"
@@ -64,12 +84,12 @@ jobs:
         with:
           path: |
             .testmondata-unit
-          key: testmon-unit-mpi-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
+          key: ${{ env.TESTMON_KEY }}-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
           restore-keys: |
-            testmon-unit-mpi-${{ github.ref_name }}-${{ github.event.number }}-
-            testmon-unit-mpi-${{ github.ref_name }}
-            testmon-unit-mpi-devel
-            testmon-unit-mpi-
+            ${{ env.TESTMON_KEY }}-${{ github.ref_name }}-${{ github.event.number }}-
+            ${{ env.TESTMON_KEY }}-${{ github.ref_name }}
+            ${{ env.TESTMON_KEY }}-devel
+            ${{ env.TESTMON_KEY }}-
 
       - name: Check .testmondata 2
         run: |
@@ -87,22 +107,6 @@ jobs:
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           struphy compile
-
-      - name: Set commands for serial run
-        if: inputs.n-procs == 1
-        run: |
-            UNINSTALL_MPI="pip uninstall -y mpi4py"
-            PYTEST_CMD="pytest --testmon ${{ env.TEST_FILES }}"
-            echo "UNINSTALL_MPI=${UNINSTALL_MPI}" >> $GITHUB_ENV
-            echo "PYTEST_CMD=${PYTEST_CMD}" >> $GITHUB_ENV
-
-      - name: Set commands for mpi run
-        if: inputs.n-procs > 1
-        run: |
-            RUN_MAXWELL="struphy test Maxwell"
-            PYTEST_CMD="mpirun -n ${{ inputs.n-procs }} pytest --testmon --with-mpi ${{ env.TEST_FILES }}"
-            echo "RUN_MAXWELL=${RUN_MAXWELL}" >> $GITHUB_ENV
-            echo "PYTEST_CMD=${PYTEST_CMD}" >> $GITHUB_ENV
 
       - name: Run unit tests with MPI
         uses: ./.github/actions/tests/unit
