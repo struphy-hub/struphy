@@ -109,7 +109,7 @@ jobs:
         # init .testmondata with non-MPI call
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
-          struphy test Maxwell
+          mpirun -n 2 pytest -m single --testmon-forceselect -s --with-mpi --model-name Maxwell /struphy_fortran_/src/struphy
           mpirun -oversubscribe -n 2 pytest -m models "--testmon-forceselect" --with-mpi  /struphy_fortran_/src/struphy/models/tests/default_params/
 
       - name: Verification tests with 2 MPI

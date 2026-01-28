@@ -19,12 +19,12 @@ runs:
         source ${{ inputs.dir-name }}${{ inputs.env-name }}bin/activate || true
         pip show struphy
         struphy compile --status
+        cd ${{ inputs.dir-name }}src/struphy
+        pwd
         echo "Running $RUN_MAXWELL"
         $RUN_MAXWELL
         echo "Running $UNINSTALL_MPI"
         $UNINSTALL_MPI
-        cd ${{ inputs.dir-name }}src/struphy
-        pwd
         git status || true
         echo "Running $PYTEST_CMD"
         $PYTEST_CMD
