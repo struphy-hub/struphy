@@ -3,8 +3,9 @@ name: "Run unit tests"
 description: 
 
 inputs:
+  dir-name:
+    default: ""
   env-name:
-    required: true
     default: ""
 
 runs:
@@ -15,12 +16,13 @@ runs:
       env:
         TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit
       run: |
-        source ${{ inputs.env-name }}/bin/activate || true
+        source ${{ inputs.dir-name }}/${{ inputs.env-name }}/bin/activate || true
         pip show struphy
         struphy compile --status
         pip show mpi4py
         pip uninstall -y mpi4py
-        cd src/struphy
+        cd ${{ inputs.dir-name }}
+        ls -a
         pytest --testmon \
         bsplines/tests/ \
         console/tests/ \

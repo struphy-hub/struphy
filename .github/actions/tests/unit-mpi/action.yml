@@ -3,8 +3,9 @@ name: "Run unit tests with MPI"
 description: 
 
 inputs:
+  dir-name:
+    default: ""
   env-name:
-    required: true
     default: ""
 
 runs:
@@ -15,11 +16,12 @@ runs:
       env:
         TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit-mpi
       run: |
-        source ${{ inputs.env-name }}/bin/activate || true
+        source ${{ inputs.dir-name }}/${{ inputs.env-name }}/bin/activate || true
         pip show struphy
         struphy compile --status
         struphy test Maxwell
-        cd src/struphy
+        cd ${{ inputs.dir-name }}
+        ls -a
         mpirun -n 2 pytest --testmon --with-mpi \
         bsplines/tests/ \
         console/tests/ \

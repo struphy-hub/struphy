@@ -66,10 +66,10 @@ jobs:
       - name: Install Struphy in Container
         uses: ./.github/actions/install/struphy_in_container
       
-      - name: Reinstall feectools from submodule
-        uses: ./.github/actions/install/feectools-submodule
-        with:
-          env-name: /struphy_fortran_/env_fortran_
+      # - name: Reinstall feectools from submodule
+      #   uses: ./.github/actions/install/feectools-submodule
+      #   with:
+      #     env-name: /struphy_fortran_/env_fortran_
 
       - name: Compile Struphy
         run: |
@@ -79,4 +79,5 @@ jobs:
       - name: Run unit tests with MPI
         uses: ./.github/actions/tests/unit-mpi
         with:
-          env-name: /struphy_fortran_/env_fortran_
+          dir-name: /struphy_fortran_
+          env-name: env_fortran_
