@@ -77,11 +77,6 @@ jobs:
           struphy compile
 
       - name: Run unit tests with MPI
-        shell: bash
-        env:
-          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit-mpi
-        # init .testmondata with non-MPI call
-        run: |
-          source /struphy_fortran_/env_fortran_/bin/activate
-          struphy test Maxwell
-          struphy test unit --mpi 2
+        uses: ./.github/actions/tests/unit-mpi
+        with:
+          env-name: /struphy_fortran_/env_fortran_

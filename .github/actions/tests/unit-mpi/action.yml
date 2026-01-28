@@ -2,10 +2,35 @@ name: "Run unit tests with MPI"
 
 description: 
 
+inputs:
+  env-name:
+    required: true
+    default: ""
+
 runs:
   using: composite
   steps:
-    - name: Run unit tests with MPI
+    - name: Run unit tests (with mpi) in container
       shell: bash
+      env:
+        TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit-mpi
       run: |
-        struphy test unit --mpi 2
+        source ${{ inputs.env-name }}/bin/activate || true
+        pip show struphy
+        struphy compile --status
+        struphy test Maxwell
+        cd src/struphy
+        mpirun -n 2 pytest --testmon --with-mpi \
+        bsplines/tests/ \
+        console/tests/ \
+        feec/tests/ \
+        fields_background/tests/ \
+        geometry/tests/ \
+        initial/tests/ \
+        kinetic_background/tests/ \
+        linear_algebra/tests/ \
+        ode/tests/ \
+        pic/tests/ \
+        polar/tests/ \
+        post_processing/tests/ \
+        propagators/tests/
