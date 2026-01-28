@@ -1,0 +1,93 @@
+name: Reusable workflow for unit testing
+
+on:
+  workflow_call:
+    inputs:
+      os:
+        required: true
+        type: string
+      n-procs:
+        type: number
+        default: 1
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests-in-container-with-struphy:
+    runs-on: ${{ inputs.os }}
+
+    container:
+      image: ghcr.io/struphy-hub/struphy/ubuntu-with-struphy:latest
+      credentials:
+        username: spossann
+        password: ${{ secrets.GHCR_TOKEN }}
+
+    steps:
+      - name: Check for dockerenv file
+        run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
+
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: true  # This is crucial!
+          fetch-depth: 5
+
+      - name: Check .testmondata 1
+        run: |
+          ls .testmon* || echo "No .testmondata"
+
+      - name: Setup cache for testmon
+        uses: actions/cache@v4
+        with:
+          path: |
+            .testmondata-unit
+          key: testmon-unit-mpi-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
+          restore-keys: |
+            testmon-unit-mpi-${{ github.ref_name }}-${{ github.event.number }}-
+            testmon-unit-mpi-${{ github.ref_name }}
+            testmon-unit-mpi-devel
+            testmon-unit-mpi-
+
+      - name: Check .testmondata 2
+        run: |
+          ls .testmon* || echo "No .testmondata"
+
+      - name: Install Struphy in Container
+        uses: ./.github/actions/install/struphy_in_container
+      
+      # - name: Reinstall feectools from submodule
+      #   uses: ./.github/actions/install/feectools-submodule
+      #   with:
+      #     env-name: /struphy_fortran_/env_fortran_
+
+      - name: Compile Struphy
+        run: |
+          source /struphy_fortran_/env_fortran_/bin/activate
+          struphy compile
+
+      - name: Set commands for serial run
+        if: inputs.n-procs == 1
+        run: |
+            UNINSTALL_MPI="pip uninstall -y mpi4py"
+            PYTEST_CMD="pytest --testmon \\"
+            echo "UNINSTALL_MPI=${UNINSTALL_MPI}" >> $GITHUB_ENV
+            echo "PYTEST_CMD=${PYTEST_CMD}" >> $GITHUB_ENV
+
+      - name: Set commands for mpi run
+        if: inputs.n-procs > 1
+        run: |
+            RUN_MAXWELL="struphy test Maxwell"
+            PYTEST_CMD="mpirun -n ${{ inputs.n-procs }} pytest --testmon --with-mpi \\"
+            echo "RUN_MAXWELL=${RUN_MAXWELL}" >> $GITHUB_ENV
+            echo "PYTEST_CMD=${PYTEST_CMD}" >> $GITHUB_ENV
+
+      - name: Run unit tests with MPI
+        uses: ./.github/actions/tests/unit
+        with:
+          dir-name: /struphy_fortran_/
+          env-name: env_fortran_/
