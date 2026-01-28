@@ -15,8 +15,8 @@ runs:
       env:
         TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit
       run: |
-        source {{ inputs.env-name }}/bin/activate || true
-        which python
+        source ${{ inputs.env-name }}/bin/activate || true
+        pip show struphy
         struphy compile --status
         pip show mpi4py
         pip uninstall -y mpi4py

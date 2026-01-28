@@ -63,11 +63,8 @@ jobs:
         run: |
           ls .testmon* || echo "No .testmondata"
 
-      - name: Install Struphy
-        uses: ./.github/actions/install/install-struphy
-        with:
-          env-name: /struphy_fortran_/env_fortran_
-          optional-deps: 'dev'
+      - name: Install Struphy in Container
+        uses: ./.github/actions/install/struphy_in_container
       
       # - name: Reinstall feectools from submodule
       #   uses: ./.github/actions/install/feectools-submodule

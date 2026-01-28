@@ -1,11 +1,8 @@
-name: "Install struphy in Python environment"
+name: "Install struphy in env"
 
 description: 
 
 inputs:
-  env-name:
-    required: true
-    default: ""
   optional-deps:
     required: true
     default: 'dev'
@@ -13,11 +10,10 @@ inputs:
 runs:
   using: composite
   steps:
+
     - name: Install struphy
       shell: bash
       run: |
-        source ${{ inputs.env-name }}/bin/activate || true
-        which python
         pip install --upgrade pip
         pip install ".[${{ inputs.optional-deps }}]"
         pip list
