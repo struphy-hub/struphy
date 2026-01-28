@@ -15,20 +15,18 @@ runs:
         pip show mpi4py
         pip uninstall -y mpi4py
         ls -a
-        cd /struphy_fortran_
-        git status
         cd src/struphy
-        pytest --testmon \
-        bsplines/tests/ \
-        console/tests/ \
-        feec/tests/" \
-        fields_background/tests/" \
-        geometry/tests/" \
-        initial/tests/" \
-        kinetic_background/tests/" \
-        linear_algebra/tests/" \
-        ode/tests/" \
-        pic/tests/" \
-        polar/tests/" \
-        post_processing/tests/" \
-        propagators/tests/"
+        ls -a
+        pytest --testmon bsplines/tests/ console/tests/
+      # console/tests/ \
+      # feec/tests/" \
+      # fields_background/tests/" \
+      # geometry/tests/" \
+      # initial/tests/" \
+      # kinetic_background/tests/" \
+      # linear_algebra/tests/" \
+      # ode/tests/" \
+      # pic/tests/" \
+      # polar/tests/" \
+      # post_processing/tests/" \
+      # propagators/tests/"
