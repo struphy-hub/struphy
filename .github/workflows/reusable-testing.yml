@@ -82,7 +82,7 @@ jobs:
         shell: bash
         run: |
           struphy test Maxwell
-          struphy test models --mpi 2
+          mpirun -oversubscribe -n 2 pytest -m models "--testmon-forceselect" --with-mpi src/struphy/models/tests/default_params/
 
       - name: Run verification tests with MPI
         if: matrix.test-type == 'verification'

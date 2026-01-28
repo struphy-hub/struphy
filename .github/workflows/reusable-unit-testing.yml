@@ -9,6 +9,9 @@ on:
       n-procs:
         type: number
         default: 1
+    secrets:
+      ghcr-token:
+        required: true
 
 defaults:
   run:
@@ -25,7 +28,7 @@ jobs:
       image: ghcr.io/struphy-hub/struphy/ubuntu-with-struphy:latest
       credentials:
         username: spossann
-        password: ${{ secrets.GHCR_TOKEN }}
+        password: ${{ secrets.ghcr-token }}
 
     steps:
       - name: Check for dockerenv file
