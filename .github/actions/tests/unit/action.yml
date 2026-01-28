@@ -16,12 +16,13 @@ runs:
       env:
         TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit
       run: |
-        source ${{ inputs.dir-name }}/${{ inputs.env-name }}/bin/activate || true
+        source ${{ inputs.dir-name }}${{ inputs.env-name }}bin/activate || true
         pip show struphy
         struphy compile --status
         pip show mpi4py
         pip uninstall -y mpi4py
-        cd ${{ inputs.dir-name }}
+        cd ${{ inputs.dir-name }}src/struphy
+        git status || true
         ls -a
         pytest --testmon \
         bsplines/tests/ \

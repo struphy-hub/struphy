@@ -16,11 +16,12 @@ runs:
       env:
         TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit-mpi
       run: |
-        source ${{ inputs.dir-name }}/${{ inputs.env-name }}/bin/activate || true
+        source ${{ inputs.dir-name }}${{ inputs.env-name }}bin/activate || true
         pip show struphy
         struphy compile --status
         struphy test Maxwell
-        cd ${{ inputs.dir-name }}
+        cd ${{ inputs.dir-name }}src/struphy
+        git status || true
         ls -a
         mpirun -n 2 pytest --testmon --with-mpi \
         bsplines/tests/ \

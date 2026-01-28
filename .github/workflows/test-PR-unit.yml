@@ -79,5 +79,5 @@ jobs:
       - name: Run unit tests
         uses: ./.github/actions/tests/unit
         with:
-          dir-name: /struphy_fortran_
-          env-name: env_fortran_
+          dir-name: /struphy_fortran_/
+          env-name: env_fortran_/
