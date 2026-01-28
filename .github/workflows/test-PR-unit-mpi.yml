@@ -51,7 +51,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            .testmondata-unit-mpi
+            .testmondata-unit
           key: testmon-unit-mpi-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
           restore-keys: |
             testmon-unit-mpi-${{ github.ref_name }}-${{ github.event.number }}-
@@ -77,7 +77,8 @@ jobs:
           struphy compile
 
       - name: Run unit tests with MPI
-        uses: ./.github/actions/tests/unit-mpi
+        uses: ./.github/actions/tests/unit
         with:
           dir-name: /struphy_fortran_/
           env-name: env_fortran_/
+          n-procs: 2
