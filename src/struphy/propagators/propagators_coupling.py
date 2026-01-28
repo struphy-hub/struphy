@@ -3,6 +3,10 @@
 from dataclasses import dataclass
 from typing import Literal
 
+import numpy as np
+from scipy import integrate
+from scipy.interpolate import RegularGridInterpolator
+from scipy.interpolate import interp1d
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector
@@ -12,12 +16,21 @@ from line_profiler import profile
 
 from struphy.feec import preconditioner
 from struphy.feec.linear_operators import LinOpWithTransp
-from struphy.io.options import OptsGenSolver, OptsMassPrecond, OptsSymmSolver, OptsVecSpace, check_option
+from struphy.io.options import (
+    OptsGenSolver,
+    OptsMassPrecond,
+    OptsSymmSolver,
+    OptsVecSpace,
+    check_option,
+)
 from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.linear_algebra.schur_solver import SchurSolver
-from struphy.linear_algebra.solver import DiscreteGradientSolverParameters, SolverParameters
+from struphy.linear_algebra.solver import (
+    DiscreteGradientSolverParameters,
+    SolverParameters,
+)
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.ode.utils import ButcherTableau
 from struphy.pic import utilities_kernels
@@ -30,6 +43,10 @@ from struphy.pic.pushing.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
+from struphy.geometry.utilities import TransformedPformComponent
+from struphy.ode.solvers import ODEsolverFEEC
+from struphy.feec.projectors import L2Projector
+from struphy.feec.mass import WeightedMassOperators
 
 
 class VlasovAmpere(Propagator):
@@ -142,7 +159,7 @@ class VlasovAmpere(Propagator):
 
         self._c1 = alpha**2 / epsilon
         self._c2 = 1.0 / epsilon
-
+        print(f"Valeur de _c1 dans Vlasov ampere: {self._c1}")
         self._info = self.options.solver_params.info
 
         # get accumulation kernel
@@ -396,7 +413,9 @@ class EfieldWeights(Propagator):
             self._f0 = backgrounds[0]
         else:
             self._f0 = backgrounds
-        assert isinstance(self._f0, Maxwellian3D), "The background distribution function must be a uniform Maxwellian!"
+        assert isinstance(
+            self._f0, Maxwellian3D
+        ), "The background distribution function must be a uniform Maxwellian!"
         self._vth = self._f0.maxw_params["vth1"][0]
 
         self._info = self.options.solver_params.info
@@ -437,7 +456,12 @@ class EfieldWeights(Propagator):
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         _A = self.mass_ops.M1
-        _BC = self._alpha**2 * self._kappa**2 * self._accum.operators[0] / (4 * self._vth**2)
+        _BC = (
+            self._alpha**2
+            * self._kappa**2
+            * self._accum.operators[0]
+            / (4 * self._vth**2)
+        )
 
         # Instantiate Schur solver
         self._schur_solver = SchurSolver(
@@ -485,7 +509,9 @@ class EfieldWeights(Propagator):
 
         # Update Schur solver
         self._schur_solver.BC = self._accum.operators[0]
-        self._schur_solver.BC *= (-1) * self._alpha**2 * self._kappa**2 / (4 * self._vth**2)
+        self._schur_solver.BC *= (
+            (-1) * self._alpha**2 * self._kappa**2 / (4 * self._vth**2)
+        )
 
         # Vector for schur solver
         self._e_scale *= 0.0
@@ -521,7 +547,8 @@ class EfieldWeights(Propagator):
             print("Maxdiff    e1   for StepEfieldWeights:", max_de)
             max_diff = xp.max(
                 xp.abs(
-                    self._old_weights[~particles.holes] - particles.markers[~particles.holes, 6],
+                    self._old_weights[~particles.holes]
+                    - particles.markers[~particles.holes, 6],
                 ),
             )
             print("Maxdiff weights for StepEfieldWeights:", max_diff)
@@ -1882,7 +1909,10 @@ class CurrentCoupling5DGradB(Propagator):
 
             # save en_fB_old
             particles.save_magnetic_energy(PB_b)
-            en_fB_old = xp.sum(markers[~holes, 8].dot(markers[~holes, 5])) * self.options.ep_scale
+            en_fB_old = (
+                xp.sum(markers[~holes, 8].dot(markers[~holes, 5]))
+                * self.options.ep_scale
+            )
             en_fB_old /= n_mks_tot
 
             buffer_array = xp.array([en_fB_old])
@@ -1928,7 +1958,10 @@ class CurrentCoupling5DGradB(Propagator):
 
             # save en_fB_new
             particles.save_magnetic_energy(PB_b)
-            en_fB_new = xp.sum(markers[~holes, 8].dot(markers[~holes, 5])) * self.options.ep_scale
+            en_fB_new = (
+                xp.sum(markers[~holes, 8].dot(markers[~holes, 5]))
+                * self.options.ep_scale
+            )
             en_fB_new /= n_mks_tot
 
             buffer_array = xp.array([en_fB_new])
@@ -1955,7 +1988,10 @@ class CurrentCoupling5DGradB(Propagator):
             while True:
                 iter_num += 1
 
-                if self.options.dg_solver_params.verbose and MPI.COMM_WORLD.Get_rank() == 0:
+                if (
+                    self.options.dg_solver_params.verbose
+                    and MPI.COMM_WORLD.Get_rank() == 0
+                ):
                     print("# of iteration: ", iter_num)
 
                 # calculate discrete gradient
@@ -1972,13 +2008,19 @@ class CurrentCoupling5DGradB(Propagator):
                 u_mid.update_ghost_regions()
 
                 # save H^{n+1, k}
-                markers[~holes, first_free_idx : first_free_idx + 3] = markers[~holes, 0:3]
+                markers[~holes, first_free_idx : first_free_idx + 3] = markers[
+                    ~holes, 0:3
+                ]
 
                 # calculate denominator ||z^{n+1, k} - z^n||^2
                 sum_u_diff_loc = xp.sum((u_diff.toarray() ** 2))
 
                 sum_H_diff_loc = xp.sum(
-                    (markers[~holes, :3] - markers[~holes, first_init_idx : first_init_idx + 3]) ** 2,
+                    (
+                        markers[~holes, :3]
+                        - markers[~holes, first_init_idx : first_init_idx + 3]
+                    )
+                    ** 2,
                 )
 
                 buffer_array = xp.array([sum_u_diff_loc])
@@ -2019,7 +2061,10 @@ class CurrentCoupling5DGradB(Propagator):
                     *self._args_accum_kernel_en_fB_mid,
                     first_free_idx + 3,
                 )
-                en_fB_mid = xp.sum(markers[~holes, first_free_idx + 3].dot(markers[~holes, 5])) * self.options.ep_scale
+                en_fB_mid = (
+                    xp.sum(markers[~holes, first_free_idx + 3].dot(markers[~holes, 5]))
+                    * self.options.ep_scale
+                )
 
                 en_fB_mid /= n_mks_tot
 
@@ -2072,7 +2117,10 @@ class CurrentCoupling5DGradB(Propagator):
                 )
 
                 sum_H_diff_loc = xp.sum(
-                    xp.abs(markers[~holes, 0:3] - markers[~holes, first_free_idx : first_free_idx + 3]),
+                    xp.abs(
+                        markers[~holes, 0:3]
+                        - markers[~holes, first_free_idx : first_free_idx + 3]
+                    ),
                 )
 
                 if particles.mpi_comm is not None:
@@ -2080,7 +2128,10 @@ class CurrentCoupling5DGradB(Propagator):
 
                 # update en_fB_new
                 particles.save_magnetic_energy(PB_b)
-                en_fB_new = xp.sum(markers[~holes, 8].dot(markers[~holes, 5])) * self.options.ep_scale
+                en_fB_new = (
+                    xp.sum(markers[~holes, 8].dot(markers[~holes, 5]))
+                    * self.options.ep_scale
+                )
                 en_fB_new /= n_mks_tot
 
                 buffer_array = xp.array([en_fB_new])
@@ -2138,7 +2189,10 @@ class CurrentCoupling5DGradB(Propagator):
 
                 # check convergence
                 if diff < self.options.dg_solver_params.tol:
-                    if self.options.dg_solver_params.verbose and MPI.COMM_WORLD.Get_rank() == 0:
+                    if (
+                        self.options.dg_solver_params.verbose
+                        and MPI.COMM_WORLD.Get_rank() == 0
+                    ):
                         print("converged diff: ", diff)
                         print("converged e_diff: ", e_diff)
 
@@ -2147,12 +2201,18 @@ class CurrentCoupling5DGradB(Propagator):
                     break
 
                 else:
-                    if self.options.dg_solver_params.verbose and MPI.COMM_WORLD.Get_rank() == 0:
+                    if (
+                        self.options.dg_solver_params.verbose
+                        and MPI.COMM_WORLD.Get_rank() == 0
+                    ):
                         print("not converged diff: ", diff)
                         print("not converged e_diff: ", e_diff)
 
                 if iter_num == self.options.dg_solver_params.maxiter:
-                    if self.options.dg_solver_params.info and MPI.COMM_WORLD.Get_rank() == 0:
+                    if (
+                        self.options.dg_solver_params.info
+                        and MPI.COMM_WORLD.Get_rank() == 0
+                    ):
                         print(
                             f"{iter_num =}, maxiter={self.options.dg_solver_params.maxiter} reached! diff: {diff}, e_diff: {e_diff}",
                         )
@@ -2179,3 +2239,397 @@ class CurrentCoupling5DGradB(Propagator):
             if self.options.dg_solver_params.info and MPI.COMM_WORLD.Get_rank() == 0:
                 print("Maxdiff up for CurrentCoupling5DGradB:", diffs["u"])
                 print()
+
+
+class ConstantCurrent(Propagator):
+    r"""Propagator for constant current term in Vlasov-Ampere system.
+
+    Solves the equation:
+
+    .. math::
+        -\partial_t \mathbf{E} = c_1 n_0 \mathbf{u}_0
+
+    where :math:`n_0(\mathbf{x})` is the background density and
+    :math:`\mathbf{u}_0(\mathbf{x})` is the background mean velocity.
+
+    The weak discretization reads:
+
+    .. math::
+        \dot{\mathbf{e}} = -c_1 (\mathbb{M}^1)^{-1} \int n_0 \mathbf{u}_0 \cdot \mathbf{\Lambda}^1 \, \mathrm{d}\mathbf{x}
+
+    The right-hand side is computed via L2 projection of :math:`n_0 \mathbf{u}_0`
+    into the discrete space :math:`V^1 \subset H(\textnormal{curl})`.
+
+    """
+
+    # -------------------------------------------------------------------------
+    # Variables
+    # -------------------------------------------------------------------------
+    class Variables:
+        def __init__(self):
+            self._e: FEECVariable = None
+            self._ions: PICVariable = None
+
+        @property
+        def e(self) -> FEECVariable:
+            return self._e
+
+        @e.setter
+        def e(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "Hcurl"
+            self._e = new
+
+        @property
+        def ions(self) -> PICVariable:
+            return self._ions
+
+        @ions.setter
+        def ions(self, new):
+            assert isinstance(new, PICVariable)
+            assert new.space == "Particles6D"
+            self._ions = new
+
+    def __init__(self):
+        """Initialize the ConstantCurrent propagator."""
+
+        self.variables = self.Variables()
+        self.n0u0_on_eta_grid = None
+
+    def compute_bulk_current_x(self, nv=16):
+        """
+        Pré-calcule le courant sur une grille 1D (variation uniquement en x).
+        Beaucoup plus rapide pour grille 32×1×1.
+        """
+        print("Pré-calcul du courant en x...")
+
+        # Grille spatiale 1D
+        nx = 32  # Augmenter la résolution puisque c'est 1D
+        x_grid = np.linspace(0, 1, nx)
+        y_val = 0.5  # Valeur fixe
+        z_val = 0.5  # Valeur fixe
+
+        # Grille de vitesses
+        nvx, nvy, nvz = nv, nv, nv
+        vx_grid = np.linspace(-6, 6, nvx)
+        vy_grid = np.linspace(-6, 6, nvy)
+        vz_grid = np.linspace(-6, 6, nvz)
+
+        dvx = vx_grid[1] - vx_grid[0]
+        dvy = vy_grid[1] - vy_grid[0]
+        dvz = vz_grid[1] - vz_grid[0]
+        dv = dvx * dvy * dvz
+
+        # Meshgrid des vitesses
+        VX, VY, VZ = np.meshgrid(vx_grid, vy_grid, vz_grid, indexing="ij")
+        VX_flat = VX.flatten()
+        VY_flat = VY.flatten()
+        VZ_flat = VZ.flatten()
+        n_vel = len(VX_flat)
+
+        # Créer grille 4D : x varie, y et z fixes
+        X_full = np.repeat(x_grid, n_vel)
+        Y_full = np.full(nx * n_vel, y_val)
+        Z_full = np.full(nx * n_vel, z_val)
+        VX_full = np.tile(VX_flat, nx)
+        VY_full = np.tile(VY_flat, nx)
+        VZ_full = np.tile(VZ_flat, nx)
+
+        print(f"  Évaluation de f0 sur {nx * n_vel:,} points...")
+
+        # Évaluer f0
+        f_values = self.variables.ions.particles.f0(
+            X_full, Y_full, Z_full, VX_full, VY_full, VZ_full
+        ).reshape(nx, n_vel)
+
+        # Intégrer sur les vitesses
+        VX_repeated = np.tile(VX_flat, nx).reshape(nx, n_vel)
+        integrand_values = VX_repeated * f_values
+        current_1d = np.sum(integrand_values, axis=1) * dv
+
+        print("  Création de l'interpolateur 1D...")
+        from scipy.interpolate import CubicSpline
+
+        # Interpolateur 1D (beaucoup plus rapide)
+        # interpolator = interp1d(
+        #     x_grid, current_1d, kind="cubic", bounds_error=False, fill_value=0.0
+        # )
+        interpolator = CubicSpline(x_grid, current_1d, bc_type="periodic")
+
+        print("  Terminé!")
+
+        def current_x(x, y, z):
+            """Interpolation 1D rapide (y et z ignorés)."""
+            is_scalar = np.isscalar(x)
+
+            if is_scalar:
+                return float(interpolator(x))
+            else:
+                x_arr = np.asarray(x)
+                return interpolator(x_arr)
+
+        return current_x
+
+    def compute_bulk_current_y(self, nv=16):
+        """
+        Pré-calcule le courant en y.
+        """
+        print("Pré-calcul du courant en y...")
+
+        nx = 32
+        x_grid = np.linspace(0, 1, nx)
+        y_val = 0.5
+        z_val = 0.5
+
+        nvx, nvy, nvz = nv, nv, nv
+        vx_grid = np.linspace(-6, 6, nvx)
+        vy_grid = np.linspace(-6, 6, nvy)
+        vz_grid = np.linspace(-6, 6, nvz)
+
+        dvx = vx_grid[1] - vx_grid[0]
+        dvy = vy_grid[1] - vy_grid[0]
+        dvz = vz_grid[1] - vz_grid[0]
+        dv = dvx * dvy * dvz
+
+        VX, VY, VZ = np.meshgrid(vx_grid, vy_grid, vz_grid, indexing="ij")
+        VX_flat = VX.flatten()
+        VY_flat = VY.flatten()
+        VZ_flat = VZ.flatten()
+        n_vel = len(VX_flat)
+
+        X_full = np.repeat(x_grid, n_vel)
+        Y_full = np.full(nx * n_vel, y_val)
+        Z_full = np.full(nx * n_vel, z_val)
+        VX_full = np.tile(VX_flat, nx)
+        VY_full = np.tile(VY_flat, nx)
+        VZ_full = np.tile(VZ_flat, nx)
+
+        print(f"  Évaluation de f0 sur {nx * n_vel:,} points...")
+
+        f_values = self.variables.ions.particles.f0(
+            X_full, Y_full, Z_full, VX_full, VY_full, VZ_full
+        ).reshape(nx, n_vel)
+
+        VY_repeated = np.tile(VY_flat, nx).reshape(nx, n_vel)
+        integrand_values = VY_repeated * f_values
+        current_1d = np.sum(integrand_values, axis=1) * dv
+
+        print("  Création de l'interpolateur 1D...")
+
+        interpolator = interp1d(
+            x_grid, current_1d, kind="cubic", bounds_error=False, fill_value=0.0
+        )
+
+        print("  Terminé!")
+
+        def current_y(x, y, z):
+            is_scalar = np.isscalar(x)
+
+            if is_scalar:
+                return float(interpolator(x))
+            else:
+                x_arr = np.asarray(x)
+                return interpolator(x_arr)
+
+        return current_y
+
+    def compute_bulk_current_z(self, nv=16):
+        """
+        Pré-calcule le courant en z.
+        """
+        print("Pré-calcul du courant en z...")
+
+        nx = 32
+        x_grid = np.linspace(0, 1, nx)
+        y_val = 0.5
+        z_val = 0.5
+
+        nvx, nvy, nvz = nv, nv, nv
+        vx_grid = np.linspace(-6, 6, nvx)
+        vy_grid = np.linspace(-6, 6, nvy)
+        vz_grid = np.linspace(-6, 6, nvz)
+
+        dvx = vx_grid[1] - vx_grid[0]
+        dvy = vy_grid[1] - vy_grid[0]
+        dvz = vz_grid[1] - vz_grid[0]
+        dv = dvx * dvy * dvz
+
+        VX, VY, VZ = np.meshgrid(vx_grid, vy_grid, vz_grid, indexing="ij")
+        VX_flat = VX.flatten()
+        VY_flat = VY.flatten()
+        VZ_flat = VZ.flatten()
+        n_vel = len(VX_flat)
+
+        X_full = np.repeat(x_grid, n_vel)
+        Y_full = np.full(nx * n_vel, y_val)
+        Z_full = np.full(nx * n_vel, z_val)
+        VX_full = np.tile(VX_flat, nx)
+        VY_full = np.tile(VY_flat, nx)
+        VZ_full = np.tile(VZ_flat, nx)
+
+        print(f"  Évaluation de f0 sur {nx * n_vel:,} points...")
+
+        f_values = self.variables.ions.particles.f0(
+            X_full, Y_full, Z_full, VX_full, VY_full, VZ_full
+        ).reshape(nx, n_vel)
+
+        VZ_repeated = np.tile(VZ_flat, nx).reshape(nx, n_vel)
+        integrand_values = VZ_repeated * f_values
+        current_1d = np.sum(integrand_values, axis=1) * dv
+
+        print("  Création de l'interpolateur 1D...")
+
+        interpolator = interp1d(
+            x_grid, current_1d, kind="cubic", bounds_error=False, fill_value=0.0
+        )
+
+        print("  Terminé!")
+
+        def current_z(x, y, z):
+            is_scalar = np.isscalar(x)
+
+            if is_scalar:
+                return float(interpolator(x))
+            else:
+                x_arr = np.asarray(x)
+                return interpolator(x_arr)
+
+        return current_z
+
+    # -------------------------------------------------------------------------
+    # Options
+    # -------------------------------------------------------------------------
+    @dataclass
+    class Options:
+        OptsAlgo = Literal["explicit"]
+        algo: OptsAlgo = "explicit"
+        butcher: ButcherTableau = None
+
+        def __post_init__(self):
+            check_option(self.algo, self.OptsAlgo)
+            if self.butcher is None:
+                self.butcher = ButcherTableau()
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    # -------------------------------------------------------------------------
+    # Initialization
+    # -------------------------------------------------------------------------
+
+    # -------------------------------------------------------------------------
+    # Allocation
+    # -------------------------------------------------------------------------
+    @profile
+    def allocate(self):
+        """Allocate FEEC vectors and compute L2 projection of n0*u0."""
+
+        self.n0u0_on_eta_grid = (
+            self.compute_bulk_current_x(),
+            self.compute_bulk_current_y(),
+            self.compute_bulk_current_z(),
+        )
+
+        import matplotlib.pyplot as plt
+
+        e1 = np.linspace(0, 1, 32)
+        plt.plot(e1, self.n0u0_on_eta_grid[0](e1, 0.5, 0.5))
+        plt.show()
+
+        print("Test courant:")
+        print(f"  current_x(0.5, 0.5, 0.5) = {self.n0u0_on_eta_grid[0](0.5, 0.5, 0.5)}")
+        print(f"  current_y(0.5, 0.5, 0.5) = {self.n0u0_on_eta_grid[1](0.5, 0.5, 0.5)}")
+        print(f"  current_z(0.5, 0.5, 0.5) = {self.n0u0_on_eta_grid[2](0.5, 0.5, 0.5)}")
+        alpha = self.variables.ions.species.equation_params.alpha
+        epsilon = self.variables.ions.species.equation_params.epsilon
+
+        self._c1 = alpha**2 / epsilon
+
+        # Compute L2 projection of n0*u0
+
+        P_L2 = L2Projector("Hcurl", self.mass_ops)
+
+        print("Initial projection...")
+
+        n0u0_projected = P_L2(self.n0u0_on_eta_grid)
+
+        field = self.derham.create_spline_function("fh", "Hcurl")
+        field.vector = n0u0_projected
+        field_vals = field(e1, 0.5, 0.5)
+        print(f"shape = {field_vals[0][:, :, :].shape}")
+        plt.plot(e1, field_vals[0][:, 0, 0])
+        plt.show()
+
+        #  print(f"Norme de _rhs_dofs: {np.linalg.norm(self._rhs_dofs._data)}")  # ou .n
+        # Setup explicit ODE solver
+        out = self.variables.e.spline.vector.space.zeros()
+
+        def rhs(t, y, out=out):
+
+            out *= 0.0
+            out += n0u0_projected
+            out *= self._c1
+            out *= -12.56
+
+            out.update_ghost_regions()
+            return out
+
+        vector_field = {self.variables.e.spline.vector: rhs}
+
+        self._ode_solver = ODEsolverFEEC(vector_field, butcher=self.options.butcher)
+
+    def update_current(self):
+        self.n0u0_on_eta_grid = (
+            self.compute_bulk_current_x(),
+            self.compute_bulk_current_y(),
+            self.compute_bulk_current_z(),
+        )
+        import matplotlib.pyplot as plt
+
+        e1 = np.linspace(0, 1, 64)
+
+        P_L2 = L2Projector("Hcurl", self.mass_ops)
+        n0u0_projected = P_L2(self.n0u0_on_eta_grid)
+        field = self.derham.create_spline_function("fh", "Hcurl")
+        field.vector = n0u0_projected
+        field_vals = field(e1, 0.5, 0.5)
+        print(f"shape = {len(field_vals[0])}")
+        plt.plot(e1, field_vals[0][:, 0, 0])
+        plt.title("Current projected")
+        plt.show()
+        # Setup explicit ODE solver
+        out = self.variables.e.spline.vector.space.zeros()
+
+        def rhs(t, y, out=out):
+
+            out *= 0.0
+            out += n0u0_projected
+            out *= self._c1
+            out *= -12.56
+
+            out.update_ghost_regions()
+            return out
+
+        vector_field = {self.variables.e.spline.vector: rhs}
+
+        self._ode_solver = ODEsolverFEEC(vector_field, butcher=self.options.butcher)
+
+    # -------------------------------------------------------------------------
+    # Time stepping
+    # -------------------------------------------------------------------------
+    @profile
+    def __call__(self, dt):
+
+        self._ode_solver(0.0, dt)
