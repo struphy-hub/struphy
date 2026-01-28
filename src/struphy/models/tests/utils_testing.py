@@ -16,7 +16,7 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 # generic function for calling model tests
-def call_test(model: StruphyModel, verbose: bool = True):
+def call_test(model: StruphyModel, test_profiling: bool = False, verbose: bool = True):
     model_name = model.name()
     if rank == 0:
         print(f"\n*** Testing '{model_name}':")
