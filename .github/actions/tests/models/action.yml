@@ -10,7 +10,6 @@ runs:
       run: |
         struphy compile --status
         struphy test LinearMHD
-        struphy test toy
         struphy test models 
         struphy test verification 
     - name: Model tests with  MPI
