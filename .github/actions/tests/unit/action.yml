@@ -7,28 +7,10 @@ inputs:
     default: ""
   env-name:
     default: ""
-  n-procs:
-    default: 1
 
 runs:
   using: composite
   steps:
-    - name: Set commands for serial run
-      if: ${{ inputs.n-procs }} == 1
-      shell: bash
-      run: |
-        UNINSTALL_MPI="pip uninstall -y mpi4py"
-        PYTEST_CMD="pytest --testmon \\"
-        echo "UNINSTALL_MPI=${UNINSTALL_MPI}" >> $GITHUB_ENV
-        echo "PYTEST_CMD=${PYTEST_CMD}" >> $GITHUB_ENV
-    - name: Set commands for mpi run
-      if: ${{ inputs.n-procs }} > 1
-      shell: bash
-      run: |
-        RUN_MAXWELL="struphy test Maxwell"
-        PYTEST_CMD="mpirun -n ${{ inputs.n-procs }} pytest --testmon --with-mpi \\"
-        echo "RUN_MAXWELL=${RUN_MAXWELL}" >> $GITHUB_ENV
-        echo "PYTEST_CMD=${PYTEST_CMD}" >> $GITHUB_ENV
     - name: Run unit tests (serial) in container
       shell: bash
       env:
