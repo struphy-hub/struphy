@@ -88,6 +88,4 @@ jobs:
         if: matrix.test-type == 'verification'
         shell: bash
         run: |
-          struphy test Maxwell
-          cd src/struphy
-          mpirun --oversubscribe -n 2 pytest --testmon --with-mpi models/tests/verification/
+          mpirun --oversubscribe -n 2 pytest --testmon --with-mpi src/struphy/models/tests/verification/
