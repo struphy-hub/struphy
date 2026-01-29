@@ -2420,7 +2420,6 @@ class ConstantCurrent(Propagator):
             VZ_flat = VZ.ravel()
             n_vel = VX_flat.size
 
-            # produit cartésien espace × vitesse
             X_full = np.repeat(X_flat, n_vel)
             Y_full = np.repeat(Y_flat, n_vel)
             Z_full = np.repeat(Z_flat, n_vel)
@@ -2470,7 +2469,7 @@ class ConstantCurrent(Propagator):
             )
 
             def _eval_interp(interp, args):
-                # mesh FEEC
+
                 x = args[0]
                 y = args[1]
                 z = args[2]
