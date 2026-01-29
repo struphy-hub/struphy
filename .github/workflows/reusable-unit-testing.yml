@@ -30,21 +30,6 @@ jobs:
         username: spossann
         password: ${{ secrets.ghcr-token }}
 
-    env:
-      TEST_FILES: "bsplines/tests/ \
-                  console/tests/ \
-                  feec/tests/ \
-                  fields_background/tests/ \
-                  geometry/tests/ \
-                  initial/tests/ \
-                  kinetic_background/tests/ \
-                  linear_algebra/tests/ \
-                  ode/tests/ \
-                  pic/tests/ \
-                  polar/tests/ \
-                  post_processing/tests/ \
-                  propagators/tests/"
-
     steps:
       - name: Check for dockerenv file
         run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)

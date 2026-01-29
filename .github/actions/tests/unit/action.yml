@@ -15,6 +15,19 @@ runs:
       shell: bash
       env:
         TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit
+        TEST_FILES: "bsplines/tests/ \
+                    console/tests/ \
+                    feec/tests/ \
+                    fields_background/tests/ \
+                    geometry/tests/ \
+                    initial/tests/ \
+                    kinetic_background/tests/ \
+                    linear_algebra/tests/ \
+                    ode/tests/ \
+                    pic/tests/ \
+                    polar/tests/ \
+                    post_processing/tests/ \
+                    propagators/tests/"
       run: |
         set +e
         source ${{ inputs.env-name }}/bin/activate || true
@@ -28,5 +41,5 @@ runs:
         echo "Running $UNINSTALL_MPI"
         $UNINSTALL_MPI
         git status || true
-        echo "Running $PYTEST_CMD"
+        echo "Running $PYTEST_CMD $TEST_FILES"
         $PYTEST_CMD
