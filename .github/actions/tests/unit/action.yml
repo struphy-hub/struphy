@@ -16,7 +16,9 @@ runs:
       env:
         TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit
       run: |
+        set +e
         source ${{ inputs.dir-name }}${{ inputs.env-name }}bin/activate || true
+        set -e
         pip show struphy
         struphy compile --status
         cd ${{ inputs.dir-name }}src/struphy
