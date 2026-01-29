@@ -55,25 +55,13 @@ jobs:
           submodules: true  # This is crucial!
           fetch-depth: 5
 
-      - name: Set commands for serial run
+      - name: Set environment for serial run
         if: inputs.n-procs == 1
-        run: |
-            TESTMON_KEY="testmon-unit"
-            UNINSTALL_MPI="pip uninstall -y mpi4py"
-            PYTEST_CMD="pytest --testmon ${{ env.TEST_FILES }}"
-            echo "TESTMON_KEY=${TESTMON_KEY}" >> $GITHUB_ENV
-            echo "UNINSTALL_MPI=${UNINSTALL_MPI}" >> $GITHUB_ENV
-            echo "PYTEST_CMD=${PYTEST_CMD}" >> $GITHUB_ENV
+        uses: ./.github/actions/environment/unit-serial
 
-      - name: Set commands for mpi run
+      - name: Set environment for mpi run
         if: inputs.n-procs > 1
-        run: |
-            TESTMON_KEY="testmon-unit-mpi"
-            RUN_MAXWELL="mpirun -n 1 pytest -m single --testmon-forceselect -s --with-mpi --model-name Maxwell"
-            PYTEST_CMD="mpirun -n ${{ inputs.n-procs }} pytest --testmon --with-mpi ${{ env.TEST_FILES }}"
-            echo "TESTMON_KEY=${TESTMON_KEY}" >> $GITHUB_ENV
-            echo "RUN_MAXWELL=${RUN_MAXWELL}" >> $GITHUB_ENV
-            echo "PYTEST_CMD=${PYTEST_CMD}" >> $GITHUB_ENV
+        uses: ./.github/actions/environment/unit-mpi
 
       - name: Check .testmondata 1
         run: |
