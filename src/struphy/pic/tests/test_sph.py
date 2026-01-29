@@ -994,7 +994,7 @@ def test_sph_velocity_evaluation(
     e1_bins = xp.linspace(0, 1.0, 200, endpoint=True)
     dv = e1_bins[1] - e1_bins[0]
 
-    binned_res, r2 = particles.binning([True, False, False, False, False, False], [e1_bins], bin_vx=True)
+    binned_res, r2 = particles.binning([True, False, False, False, False, False], [e1_bins], "current_1")
 
     v1_plot = e1_bins[:-1] + dv / 2
 

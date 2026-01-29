@@ -39,6 +39,9 @@ jobs:
 
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          submodules: true  # This is crucial!
+          fetch-depth: 5
 
       - name: Check .testmondata 1
         run: |
@@ -62,10 +65,15 @@ jobs:
 
       - name: Install Struphy in Container
         uses: ./.github/actions/install/struphy_in_container
+      
+      - name: Reinstall feectools from submodule
+        uses: ./.github/actions/install/feectools-submodule
+        with:
+          env-name: /struphy_fortran_/env_fortran_
 
       - name: Compile Struphy
         run: |
-          source /struphy_c_/env_c_/bin/activate
+          source /struphy_fortran_/env_fortran_/bin/activate
           struphy compile
 
       - name: Run unit tests
@@ -73,7 +81,7 @@ jobs:
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit
         run: |
-          source /struphy_c_/env_c_/bin/activate
+          source /struphy_fortran_/env_fortran_/bin/activate
           struphy compile --status
           pip show mpi4py
           pip uninstall -y mpi4py

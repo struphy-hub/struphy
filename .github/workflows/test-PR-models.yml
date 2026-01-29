@@ -39,6 +39,9 @@ jobs:
 
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          submodules: true  # This is crucial!
+          fetch-depth: 5
 
       - name: Check .testmondata 1
         run: |
@@ -64,9 +67,14 @@ jobs:
       - name: Install Struphy in Container
         uses: ./.github/actions/install/struphy_in_container
 
+      - name: Reinstall feectools from submodule
+        uses: ./.github/actions/install/feectools-submodule
+        with:
+          env-name: /struphy_fortran_/env_fortran_
+
       - name: Compile Struphy
         run: |
-          source /struphy_c_/env_c_/bin/activate
+          source /struphy_fortran_/env_fortran_/bin/activate
           struphy compile
 
       - name: LinearMHD test
@@ -74,7 +82,7 @@ jobs:
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
         run: |
-          source /struphy_c_/env_c_/bin/activate
+          source /struphy_fortran_/env_fortran_/bin/activate
           struphy test LinearMHD
 
       - name: Toy test
@@ -82,7 +90,7 @@ jobs:
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
         run: |
-          source /struphy_c_/env_c_/bin/activate
+          source /struphy_fortran_/env_fortran_/bin/activate
           struphy test toy
 
       - name: Model tests
@@ -90,7 +98,7 @@ jobs:
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
         run: |
-          source /struphy_c_/env_c_/bin/activate
+          source /struphy_fortran_/env_fortran_/bin/activate
           struphy test models 
 
       - name: Verification tests
@@ -98,7 +106,7 @@ jobs:
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
         run: |
-          source /struphy_c_/env_c_/bin/activate
+          source /struphy_fortran_/env_fortran_/bin/activate
           struphy test verification
 
       - name: Model tests with MPI
@@ -107,7 +115,7 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model-mpi
         # init .testmondata with non-MPI call
         run: |
-          source /struphy_c_/env_c_/bin/activate
+          source /struphy_fortran_/env_fortran_/bin/activate
           struphy test Maxwell
           struphy test models --mpi 2
 
@@ -116,5 +124,5 @@ jobs:
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model-mpi
         run: |
-          source /struphy_c_/env_c_/bin/activate
+          source /struphy_fortran_/env_fortran_/bin/activate
           struphy test verification --mpi 2
