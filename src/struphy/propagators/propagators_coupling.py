@@ -2296,278 +2296,212 @@ class ConstantCurrent(Propagator):
         self.variables = self.Variables()
         self.n0u0_on_eta_grid = None
 
-    def compute_bulk_current(self, nv=16):
+    def compute_bulk_current(self, nv=16, f0=None):
+        if f0 is None:
+            f0 = self.variables.ions.particles.f0
+        nx, ny, nz = self.derham.Nel
+        if ny == 1 and nz == 1:
+            print("Using lighter 1D version of compute bulk current")
 
-        nx = self.derham.Nel[0]
-        print(f"nx = {nx}")
-        x_grid = np.linspace(0, 1, nx)
-        y_val = 0.5  # Valeur fixe
-        z_val = 0.5  # Valeur fixe
+            nx = self.derham.Nel[0]
+            print(f"nx = {nx}")
+            x_grid = np.linspace(0, 1, nx)
+            y_val = 0.5
+            z_val = 0.5
 
-        nvx, nvy, nvz = nv, nv, nv
-        vx_grid = np.linspace(-6, 6, nvx)
-        vy_grid = np.linspace(-6, 6, nvy)
-        vz_grid = np.linspace(-6, 6, nvz)
+            nvx, nvy, nvz = nv, nv, nv
+            vx_grid = np.linspace(-6, 6, nvx)
+            vy_grid = np.linspace(-6, 6, nvy)
+            vz_grid = np.linspace(-6, 6, nvz)
 
-        dvx = vx_grid[1] - vx_grid[0]
-        dvy = vy_grid[1] - vy_grid[0]
-        dvz = vz_grid[1] - vz_grid[0]
-        dv = dvx * dvy * dvz
+            dvx = vx_grid[1] - vx_grid[0]
+            dvy = vy_grid[1] - vy_grid[0]
+            dvz = vz_grid[1] - vz_grid[0]
+            dv = dvx * dvy * dvz
 
-        # Meshgrid des vitesses
-        VX, VY, VZ = np.meshgrid(vx_grid, vy_grid, vz_grid, indexing="ij")
-        VX_flat = VX.flatten()
-        VY_flat = VY.flatten()
-        VZ_flat = VZ.flatten()
-        n_vel = len(VX_flat)
+            VX, VY, VZ = np.meshgrid(vx_grid, vy_grid, vz_grid, indexing="ij")
+            VX_flat = VX.flatten()
+            VY_flat = VY.flatten()
+            VZ_flat = VZ.flatten()
+            n_vel = len(VX_flat)
 
-        # Créer grille 4D : x varie, y et z fixes
-        X_full = np.repeat(x_grid, n_vel)
-        Y_full = np.full(nx * n_vel, y_val)
-        Z_full = np.full(nx * n_vel, z_val)
-        VX_full = np.tile(VX_flat, nx)
-        VY_full = np.tile(VY_flat, nx)
-        VZ_full = np.tile(VZ_flat, nx)
+            X_full = np.repeat(x_grid, n_vel)
+            Y_full = np.full(nx * n_vel, y_val)
+            Z_full = np.full(nx * n_vel, z_val)
+            VX_full = np.tile(VX_flat, nx)
+            VY_full = np.tile(VY_flat, nx)
+            VZ_full = np.tile(VZ_flat, nx)
 
-        print(f" Computing current")
+            print(f" Computing current")
 
-        # Évaluer f0
-        f_values = self.variables.ions.particles.f0(
-            X_full, Y_full, Z_full, VX_full, VY_full, VZ_full
-        ).reshape(nx, n_vel)
+            f_values = f0(X_full, Y_full, Z_full, VX_full, VY_full, VZ_full).reshape(
+                nx, n_vel
+            )
 
-        VX_repeated = np.tile(VX_flat, nx).reshape(nx, n_vel)
-        VY_repeated = np.tile(VY_flat, nx).reshape(nx, n_vel)
-        VZ_repeated = np.tile(VZ_flat, nx).reshape(nx, n_vel)
+            VX_repeated = np.tile(VX_flat, nx).reshape(nx, n_vel)
+            VY_repeated = np.tile(VY_flat, nx).reshape(nx, n_vel)
+            VZ_repeated = np.tile(VZ_flat, nx).reshape(nx, n_vel)
 
-        r1, r2, r3 = (
-            self.domain.params["r1"],
-            self.domain.params["r2"],
-            self.domain.params["r3"],
-        )
-        current_1d_x = r1 * np.sum(VX_repeated * f_values, axis=1) * dv
-        current_1d_y = r2 * np.sum(VY_repeated * f_values, axis=1) * dv
-        current_1d_z = r3 * np.sum(VZ_repeated * f_values, axis=1) * dv
+            r1, r2, r3 = (
+                self.domain.params["r1"],
+                self.domain.params["r2"],
+                self.domain.params["r3"],
+            )
+            current_1d_x = r1 * np.sum(VX_repeated * f_values, axis=1) * dv
+            current_1d_y = r2 * np.sum(VY_repeated * f_values, axis=1) * dv
+            current_1d_z = r3 * np.sum(VZ_repeated * f_values, axis=1) * dv
 
-        interpolator_x = interp1d(
-            x_grid, current_1d_x, kind="cubic", bounds_error=False, fill_value=0.0
-        )
-        interpolator_y = interp1d(
-            x_grid, current_1d_y, kind="cubic", bounds_error=False, fill_value=0.0
-        )
-        interpolator_z = interp1d(
-            x_grid, current_1d_z, kind="cubic", bounds_error=False, fill_value=0.0
-        )
+            interpolator_x = interp1d(
+                x_grid, current_1d_x, kind="cubic", bounds_error=False, fill_value=0.0
+            )
+            interpolator_y = interp1d(
+                x_grid, current_1d_y, kind="cubic", bounds_error=False, fill_value=0.0
+            )
+            interpolator_z = interp1d(
+                x_grid, current_1d_z, kind="cubic", bounds_error=False, fill_value=0.0
+            )
 
-        def current_x(x, y, z):
+            def current_x(x, y, z):
 
-            is_scalar = np.isscalar(x)
+                is_scalar = np.isscalar(x)
 
-            if is_scalar:
-                return float(interpolator_x(x))
-            else:
-                x_arr = np.asarray(x)
-                return interpolator_x(x_arr)
+                if is_scalar:
+                    return float(interpolator_x(x))
+                else:
+                    x_arr = np.asarray(x)
+                    return interpolator_x(x_arr)
 
-        def current_y(x, y, z):
+            def current_y(x, y, z):
 
-            is_scalar = np.isscalar(x)
+                is_scalar = np.isscalar(x)
 
-            if is_scalar:
-                return float(interpolator_y(x))
-            else:
-                x_arr = np.asarray(x)
-                return interpolator_y(x_arr)
+                if is_scalar:
+                    return float(interpolator_y(x))
+                else:
+                    x_arr = np.asarray(x)
+                    return interpolator_y(x_arr)
 
-        def current_z(x, y, z):
+            def current_z(x, y, z):
 
-            is_scalar = np.isscalar(x)
+                is_scalar = np.isscalar(x)
 
-            if is_scalar:
-                return float(interpolator_z(x))
-            else:
-                x_arr = np.asarray(x)
-                return interpolator_z(x_arr)
+                if is_scalar:
+                    return float(interpolator_z(x))
+                else:
+                    x_arr = np.asarray(x)
+                    return interpolator_z(x_arr)
+
+        else:
+
+            x_grid = np.linspace(0, 1, nx)
+            y_grid = np.linspace(0, 1, ny)
+            z_grid = np.linspace(0, 1, nz)
+
+            X, Y, Z = np.meshgrid(x_grid, y_grid, z_grid, indexing="ij")
+
+            n_space = nx * ny * nz
+
+            X_flat = X.ravel()
+            Y_flat = Y.ravel()
+            Z_flat = Z.ravel()
+
+            nvx, nvy, nvz = nv, nv, nv
+            vx_grid = np.linspace(-6, 6, nvx)
+            vy_grid = np.linspace(-6, 6, nvy)
+            vz_grid = np.linspace(-6, 6, nvz)
+
+            dvx = vx_grid[1] - vx_grid[0]
+            dvy = vy_grid[1] - vy_grid[0]
+            dvz = vz_grid[1] - vz_grid[0]
+            dv = dvx * dvy * dvz
+            VX, VY, VZ = np.meshgrid(vx_grid, vy_grid, vz_grid, indexing="ij")
+            VX_flat = VX.ravel()
+            VY_flat = VY.ravel()
+            VZ_flat = VZ.ravel()
+            n_vel = VX_flat.size
+
+            # produit cartésien espace × vitesse
+            X_full = np.repeat(X_flat, n_vel)
+            Y_full = np.repeat(Y_flat, n_vel)
+            Z_full = np.repeat(Z_flat, n_vel)
+
+            VX_full = np.tile(VX_flat, n_space)
+            VY_full = np.tile(VY_flat, n_space)
+            VZ_full = np.tile(VZ_flat, n_space)
+            f_values = f0(X_full, Y_full, Z_full, VX_full, VY_full, VZ_full).reshape(
+                n_space, n_vel
+            )
+
+            r1, r2, r3 = (
+                self.domain.params["r1"],
+                self.domain.params["r2"],
+                self.domain.params["r3"],
+            )
+
+            Jx = r1 * np.sum(VX_flat * f_values, axis=1) * dv
+            Jy = r2 * np.sum(VY_flat * f_values, axis=1) * dv
+            Jz = r3 * np.sum(VZ_flat * f_values, axis=1) * dv
+
+            Jx = Jx.reshape(nx, ny, nz)
+            Jy = Jy.reshape(nx, ny, nz)
+            Jz = Jz.reshape(nx, ny, nz)
+
+            from scipy.interpolate import RegularGridInterpolator
+
+            interp_Jx = RegularGridInterpolator(
+                (x_grid, y_grid, z_grid),
+                Jx,
+                bounds_error=False,
+                fill_value=0.0,
+            )
+
+            interp_Jy = RegularGridInterpolator(
+                (x_grid, y_grid, z_grid),
+                Jy,
+                bounds_error=False,
+                fill_value=0.0,
+            )
+
+            interp_Jz = RegularGridInterpolator(
+                (x_grid, y_grid, z_grid),
+                Jz,
+                bounds_error=False,
+                fill_value=0.0,
+            )
+
+            def _eval_interp(interp, args):
+                # mesh FEEC
+                x = args[0]
+                y = args[1]
+                z = args[2]
+
+                shape = np.shape(x)
+
+                # flatten
+                pts = np.column_stack(
+                    [
+                        np.asarray(x).ravel(),
+                        np.asarray(y).ravel(),
+                        np.asarray(z).ravel(),
+                    ]
+                )
+
+                vals = interp(pts)
+
+                return vals.reshape(shape)
+
+            def current_x(*args):
+                return _eval_interp(interp_Jx, args)
+
+            def current_y(*args):
+                return _eval_interp(interp_Jy, args)
+
+            def current_z(*args):
+                return _eval_interp(interp_Jz, args)
 
         return current_x, current_y, current_z
+        # -------------------------------------------------------------------------
 
-    def compute_bulk_current_x(self, nv=16):
-
-        nx = self.derham.Nel[0]
-        print(f"nx = {nx}")
-        x_grid = np.linspace(0, 1, nx)
-        y_val = 0.5  # Valeur fixe
-        z_val = 0.5  # Valeur fixe
-
-        nvx, nvy, nvz = nv, nv, nv
-        vx_grid = np.linspace(-6, 6, nvx)
-        vy_grid = np.linspace(-6, 6, nvy)
-        vz_grid = np.linspace(-6, 6, nvz)
-
-        dvx = vx_grid[1] - vx_grid[0]
-        dvy = vy_grid[1] - vy_grid[0]
-        dvz = vz_grid[1] - vz_grid[0]
-        dv = dvx * dvy * dvz
-
-        # Meshgrid des vitesses
-        VX, VY, VZ = np.meshgrid(vx_grid, vy_grid, vz_grid, indexing="ij")
-        VX_flat = VX.flatten()
-        VY_flat = VY.flatten()
-        VZ_flat = VZ.flatten()
-        n_vel = len(VX_flat)
-
-        # Créer grille 4D : x varie, y et z fixes
-        X_full = np.repeat(x_grid, n_vel)
-        Y_full = np.full(nx * n_vel, y_val)
-        Z_full = np.full(nx * n_vel, z_val)
-        VX_full = np.tile(VX_flat, nx)
-        VY_full = np.tile(VY_flat, nx)
-        VZ_full = np.tile(VZ_flat, nx)
-
-        print(f" Computing current")
-
-        # Évaluer f0
-        f_values = self.variables.ions.particles.f0(
-            X_full, Y_full, Z_full, VX_full, VY_full, VZ_full
-        ).reshape(nx, n_vel)
-
-        # Intégrer sur les vitesses
-        VX_repeated = np.tile(VX_flat, nx).reshape(nx, n_vel)
-        integrand_values = VX_repeated * f_values
-        r1 = self.domain.params["r1"]
-        current_1d = r1 * np.sum(integrand_values, axis=1) * dv
-
-        from scipy.interpolate import CubicSpline
-
-        interpolator = interp1d(
-            x_grid, current_1d, kind="cubic", bounds_error=False, fill_value=0.0
-        )
-        # interpolator = CubicSpline(x_grid, current_1d, bc_type="periodic")
-
-        def current_x(x, y, z):
-
-            is_scalar = np.isscalar(x)
-
-            if is_scalar:
-                return float(interpolator(x))
-            else:
-                x_arr = np.asarray(x)
-                return interpolator(x_arr)
-
-        return current_x
-
-    def compute_bulk_current_y(self, nv=16):
-
-        nx = self.derham.Nel[0]
-        print(f"nx = {nx}")
-        x_grid = np.linspace(0, 1, nx)
-        y_val = 0.5
-        z_val = 0.5
-
-        nvx, nvy, nvz = nv, nv, nv
-        vx_grid = np.linspace(-6, 6, nvx)
-        vy_grid = np.linspace(-6, 6, nvy)
-        vz_grid = np.linspace(-6, 6, nvz)
-
-        dvx = vx_grid[1] - vx_grid[0]
-        dvy = vy_grid[1] - vy_grid[0]
-        dvz = vz_grid[1] - vz_grid[0]
-        dv = dvx * dvy * dvz
-
-        VX, VY, VZ = np.meshgrid(vx_grid, vy_grid, vz_grid, indexing="ij")
-        VX_flat = VX.flatten()
-        VY_flat = VY.flatten()
-        VZ_flat = VZ.flatten()
-        n_vel = len(VX_flat)
-
-        X_full = np.repeat(x_grid, n_vel)
-        Y_full = np.full(nx * n_vel, y_val)
-        Z_full = np.full(nx * n_vel, z_val)
-        VX_full = np.tile(VX_flat, nx)
-        VY_full = np.tile(VY_flat, nx)
-        VZ_full = np.tile(VZ_flat, nx)
-
-        f_values = self.variables.ions.particles.f0(
-            X_full, Y_full, Z_full, VX_full, VY_full, VZ_full
-        ).reshape(nx, n_vel)
-
-        VY_repeated = np.tile(VY_flat, nx).reshape(nx, n_vel)
-        integrand_values = VY_repeated * f_values
-        r2 = self.domain.params["r2"]
-        current_1d = r2 * np.sum(integrand_values, axis=1) * dv
-
-        interpolator = interp1d(
-            x_grid, current_1d, kind="cubic", bounds_error=False, fill_value=0.0
-        )
-
-        def current_y(x, y, z):
-            is_scalar = np.isscalar(x)
-
-            if is_scalar:
-                return float(interpolator(x))
-            else:
-                x_arr = np.asarray(x)
-                return interpolator(x_arr)
-
-        return current_y
-
-    def compute_bulk_current_z(self, nv=16):
-
-        nx = self.derham.Nel[0]
-        r3 = self.domain.params["r3"]
-        print(f"nx = {nx}")
-        x_grid = np.linspace(0, 1, nx)
-        y_val = 0.5
-        z_val = 0.5
-
-        nvx, nvy, nvz = nv, nv, nv
-        vx_grid = np.linspace(-6, 6, nvx)
-        vy_grid = np.linspace(-6, 6, nvy)
-        vz_grid = np.linspace(-6, 6, nvz)
-
-        dvx = vx_grid[1] - vx_grid[0]
-        dvy = vy_grid[1] - vy_grid[0]
-        dvz = vz_grid[1] - vz_grid[0]
-        dv = dvx * dvy * dvz
-
-        VX, VY, VZ = np.meshgrid(vx_grid, vy_grid, vz_grid, indexing="ij")
-        VX_flat = VX.flatten()
-        VY_flat = VY.flatten()
-        VZ_flat = VZ.flatten()
-        n_vel = len(VX_flat)
-
-        X_full = np.repeat(x_grid, n_vel)
-        Y_full = np.full(nx * n_vel, y_val)
-        Z_full = np.full(nx * n_vel, z_val)
-        VX_full = np.tile(VX_flat, nx)
-        VY_full = np.tile(VY_flat, nx)
-        VZ_full = np.tile(VZ_flat, nx)
-
-        f_values = self.variables.ions.particles.f0(
-            X_full, Y_full, Z_full, VX_full, VY_full, VZ_full
-        ).reshape(nx, n_vel)
-
-        VZ_repeated = np.tile(VZ_flat, nx).reshape(nx, n_vel)
-        integrand_values = VZ_repeated * f_values
-
-        current_1d = r3 * np.sum(integrand_values, axis=1) * dv
-
-        interpolator = interp1d(
-            x_grid, current_1d, kind="cubic", bounds_error=False, fill_value=0.0
-        )
-
-        def current_z(x, y, z):
-            is_scalar = np.isscalar(x)
-
-            if is_scalar:
-                return float(interpolator(x))
-            else:
-                x_arr = np.asarray(x)
-                return interpolator(x_arr)
-
-        return current_z
-
-    # -------------------------------------------------------------------------
     # Options
     # -------------------------------------------------------------------------
     @dataclass

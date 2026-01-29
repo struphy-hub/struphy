@@ -206,7 +206,7 @@ class PushEta(Propagator):
     @profile
     def __call__(self, dt):
         self._pusher(dt)
-        print(f"dt push eta = {dt}")
+
         # update_weights
         if self.variables.var.particles.control_variate:
             self.variables.var.particles.update_weights()

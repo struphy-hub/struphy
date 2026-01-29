@@ -266,29 +266,6 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
             for line in new_file:
                 f.write(line)
 
-    # def compute_bulk_current(self):
-    #     from scipy import integrate
-
-    #     x1 = np.linspace(0, 1, 32)
-    #     x2 = np.linspace(0, 1, 1)
-    #     x3 = np.linspace(0, 1, 1)
-
-    #     x, y, z = np.meshgrid(x1, x2, x3, indexing="ij")
-
-    #     def integrand(vz, vy, vx):
-    #         return self.kinetic_ions.var.particles.f0(x, y, z, vx, vy, vz)
-
-    #     result, _ = integrate.tplquad(
-    #         integrand,
-    #         -10,
-    #         10,  # limites pour vx
-    #         -10,
-    #         10,  # limites pour vy
-    #         -10,
-    #         10,  # limites pour vz
-    #     )
-    #     return result
-
     def compute_backward_flow(
         self,
         x_non_periodic,
@@ -303,28 +280,17 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
 
         x0 = self.x_before[0]
         x0_tensor = torch.tensor(x0)
-        print(f"x0.shape = {x0_tensor.shape}")
-        # pos0 = torch.tensor(x0[0])
-        # vel0 = torch.tensor(x0[1])
+
         pos0 = x0_tensor[0]
         vel0 = x0_tensor[1]
 
         y_target = torch.cat((pos0, vel0), dim=1)  # (Np, 6)
         x_non_periodic_tensor = torch.tensor(x_non_periodic)
 
-        x_test_tensor = torch.tensor(self.x_test)
-        # posT = torch.tensor(x_non_periodic[0])
-        # velT = torch.tensor(x_non_periodic[1])
         posT = x_non_periodic_tensor[0]
         velT = x_non_periodic_tensor[1]
 
-        posT_test = x_test_tensor
-
         x_input = torch.cat((posT, velT), dim=1)  # (Np, 6)
-        x_input_test = torch.cat((posT_test, velT), dim=1)
-        # sanity checks (leave them during debugging)
-        assert x_input.shape == y_target.shape
-        assert x_input.shape[1] == 6
 
         data = x_input, y_target
 
@@ -357,28 +323,6 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
 
         return space
 
-    def update_bulk_current(self):
-
-        # def n0u0(x, y, z):
-        #     from scipy import integrate
-
-        #     def integrand(vz, vy, vx):
-        #         return self.kinetic_ions.var.particles.f0(x, y, z, vx, vy, vz)
-
-        #     result, error = integrate.tplquad(
-        #         integrand,
-        #         -10,
-        #         10,  # limites pour vx
-        #         -10,
-        #         10,  # limites pour vy
-        #         -10,
-        #         10,  # limites pour vz
-        #     )
-
-        # self.bulk_current = n0u0
-
-        pass
-
     def update_f_bulk(self):
 
         def new_f_bulk(x1, x2, x3, v1, v2, v3):
@@ -408,8 +352,6 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
 
             return f_bulk_vals.reshape(original_shape)
 
-        # Mettre à jour f0
-        #    particles.f0 = particles._original_f0
         self.kinetic_ions.var.particles.f0 = new_f_bulk
         self.kinetic_ions.var.particles.f0.coords = None
         self.propagators.coupling_current.update_current()
@@ -446,12 +388,8 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
             dtype=torch.float64,
         )
 
-        # Appliquer les transformations
         X_transformed = X_eval.clone()
-        # mu = torch.empty(0)
 
-        # for space in reversed(self.space_list):
-        #     X_transformed = space.inference(X_transformed, mu, 1).squeeze(0)
         X_np = X_transformed.detach().cpu().numpy()
 
         # Évaluer f0 transformé
@@ -464,15 +402,8 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
             X_np[:, 5],
         ).reshape(E1.shape)
 
-        # Binning des particules
-        # f_e1v1, df_e1v1 = particles.binning(
-        #     components=components, bin_edges=[bin_edges_e, bin_edges_v]
-        # )
-
-        # Visualisation
         fig, axes = plt.subplots(1, 1, figsize=(12, 5))
 
-        # Plot f0 along the curve B(...)
         im0 = axes.pcolormesh(E1, V1, f_bulk_vals, shading="auto", cmap="turbo")
         axes.set_xlabel(r"$\eta_1$")
         axes.set_ylabel(r"$v_x$")
@@ -549,7 +480,6 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
 
         fig, axes = plt.subplots(1, 1, figsize=(12, 5))
 
-        # Plot f0 along the curve B(...)
         axes.plot(self.t, self.electric_energy)
         axes.grid()
         axes.set_xlabel(r"$t$")
@@ -579,104 +509,6 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
             + (dt) * self.kinetic_ions.var.particles.velocities[:, 2]
         ) / r1
 
-    def compute_particle_current(self):
-        self.derham
-        # Récupérer les données des particules
-        positions = self.kinetic_ions.var.particles.positions  # Shape: (n_particles, 3)
-        velocities = (
-            self.kinetic_ions.var.particles.velocities
-        )  # Shape: (n_particles, 3)
-        weights = self.kinetic_ions.var.particles.weights  # Shape: (n_particles,)
-
-        # Grille spatiale
-        x_grid = np.linspace(0, 1, 100)  # Ajuster la résolution
-        dx = x_grid[1] - x_grid[0]
-
-        # Initialiser les courants
-        jx = np.zeros_like(x_grid)
-        jy = np.zeros_like(x_grid)
-        jz = np.zeros_like(x_grid)
-
-        # Déposer le courant sur la grille (méthode NGP - Nearest Grid Point)
-        for k in range(len(weights)):
-            # Trouver l'indice de grille le plus proche
-            i = int(np.round(positions[k, 0] / dx))
-            i = i % len(x_grid)  # Périodicité
-
-            # Ajouter la contribution de la particule
-            jx[i] += weights[k] * velocities[k, 0]
-            jy[i] += weights[k] * velocities[k, 1]
-            jz[i] += weights[k] * velocities[k, 2]
-
-        # Normaliser par le volume de cellule
-        #  jx /= dx
-        #  jy /= dx
-        #  jz /= dx
-        Np = self.kinetic_ions.var.particles.Np
-        jx /= Np
-        jy /= Np
-        jz /= Np
-        # Utilisation pour le plot
-        return x_grid, jx, jy, jz
-
-    def plot_current(self):
-        x_grid, jx_part, jy_part, jz_part = self.compute_particle_current()
-
-        # Calculer aussi le courant de fond
-        jx_bg = np.array(
-            [
-                self.propagators.coupling_current.compute_bulk_current_x()(x, 0.5, 0.5)
-                for x in x_grid
-            ]
-        )
-        jy_bg = np.array(
-            [
-                self.propagators.coupling_current.compute_bulk_current_y()(x, 0.5, 0.5)
-                for x in x_grid
-            ]
-        )
-        jz_bg = np.array(
-            [
-                self.propagators.coupling_current.compute_bulk_current_z()(x, 0.5, 0.5)
-                for x in x_grid
-            ]
-        )
-        self.propagators.coupling_current.compute_bulk_current_x
-        # Courant total
-        jx_total = jx_part + jx_bg
-        jy_total = jy_part + jy_bg
-        jz_total = jz_part + jz_bg
-
-        # Plot
-        import matplotlib.pyplot as plt
-
-        fig, axes = plt.subplots(3, 1, figsize=(10, 8))
-
-        axes[0].plot(x_grid, jx_part, label="Particules")
-        axes[0].plot(x_grid, jx_bg, label="Fond")
-        axes[0].plot(x_grid, jx_total, "k--", label="Total")
-        axes[0].set_ylabel("$j_x$")
-        axes[0].legend()
-        axes[0].grid(True)
-
-        axes[1].plot(x_grid, jy_part, label="Particules")
-        axes[1].plot(x_grid, jy_bg, label="Fond")
-        axes[1].plot(x_grid, jy_total, "k--", label="Total")
-        axes[1].set_ylabel("$j_y$")
-        axes[1].legend()
-        axes[1].grid(True)
-
-        axes[2].plot(x_grid, jz_part, label="Particules")
-        axes[2].plot(x_grid, jz_bg, label="Fond")
-        axes[2].plot(x_grid, jz_total, "k--", label="Total")
-        axes[2].set_ylabel("$j_z$")
-        axes[2].set_xlabel("x")
-        axes[2].legend()
-        axes[2].grid(True)
-
-        plt.tight_layout()
-        plt.show()
-
     def integrate(self, dt, split_algo):
 
         # x_test_list = [0, 0.2, 0.4, 0.6, 0.6, 1, 1.1]
@@ -696,7 +528,7 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
         #   assert 1 == 0
 
         print(f"n = {self.n}")
-        # particles = self.kinetic_ions.var.particles
+
         pos_before = self.kinetic_ions.var.particles.positions.copy()
         vel_before = self.kinetic_ions.var.particles.velocities.copy()
         if self.n == 1:
@@ -705,7 +537,6 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
             self.non_periodic_positions = (
                 self.kinetic_ions.var.particles.positions.copy()
             )
-            self.x_test = self.non_periodic_positions.copy()
             self.plot_f_bulk()
             self.plot_f()
 
@@ -718,10 +549,6 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
 
         self.propagators.push_eta(dt / 2)
 
-        # self.non_periodic_positions = (
-        #     self.non_periodic_positions * r1
-        #     + (dt / 2) * self.kinetic_ions.var.particles.velocities
-        # ) / r1
         self.update_training_particles(dt / 2)
 
         self.propagators.coupling_current(dt)
@@ -729,10 +556,7 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
         self.propagators.coupling_va(dt)
 
         self.propagators.push_eta(dt / 2)
-        # self.non_periodic_positions = (
-        #     self.non_periodic_positions * r1
-        #     + (dt / 2) * self.kinetic_ions.var.particles.velocities
-        # ) / r1
+
         self.update_training_particles(dt / 2)
         self.time += dt
 
@@ -757,14 +581,7 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
             self.space_list.append(space)
 
             self.update_f_bulk()
-            # self.kinetic_ions.var.particles.non_periodic_positions = (
-            #     self.kinetic_ions.var.particles.positions.copy()
-            # )
-            #  self.non_periodic_positions %= 1.0
-            # assert np.allclose(
-            #     self.non_periodic_positions[:, 0],
-            #     self.kinetic_ions.var.particles.positions[:, 0],
-            # )
+
             self.x_before.clear()
             assert self.x_before == []
             self.n_iter_since_last_training = 0
