@@ -42,4 +42,4 @@ runs:
         $UNINSTALL_MPI
         git status || true
         echo "Running $PYTEST_CMD $TEST_FILES"
-        $PYTEST_CMD
+        $PYTEST_CMD $TEST_FILES
