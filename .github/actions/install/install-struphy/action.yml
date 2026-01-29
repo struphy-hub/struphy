@@ -16,6 +16,7 @@ runs:
       run: |
         if [ -n "${{ inputs.env-name }}" ] ; then
           echo "Using env: ${{ inputs.env-name }}"
+          python3 -m venv ${{ inputs.env-name }}
           source ${{ inputs.env-name }}/bin/activate
         else
           echo "No env specified, installing outside of any env"
