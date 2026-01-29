@@ -2,10 +2,12 @@ import cunumpy as xp
 
 import struphy.pic.utilities_kernels as utils
 from struphy.io.options import (
+    BinningQuantity,
     OptsLoading,
     OptsMarkerBC,
     OptsRecontructBC,
     OptsSpatialLoading,
+    check_option,
 )
 
 
@@ -156,6 +158,9 @@ class BinningPlot:
 
     divide_by_jac : bool
         Whether to divide by the Jacobian determinant (volume-to-0-form).
+
+    output_quantity : BinningOutput
+        String literal used to determine weights in binning and the type of output
     """
 
     def __init__(
@@ -164,6 +169,7 @@ class BinningPlot:
         n_bins: int | tuple[int] = 128,
         ranges: tuple[float] | tuple[tuple[float]] = (0.0, 1.0),
         divide_by_jac: bool = True,
+        output_quantity: BinningQuantity = "density",
     ):
         if isinstance(n_bins, int):
             n_bins = (n_bins,)
@@ -175,10 +181,13 @@ class BinningPlot:
         assert len(slice.split("_")) == len(ranges) == len(n_bins), (
             f"Number of slices names ({len(slice.split('_'))}), number of bins ({len(n_bins)}), and number of ranges ({len(ranges)}) are inconsistent with each other!\n\n"
         )
+        check_option(output_quantity, BinningQuantity)
+
         self.slice = slice
         self.n_bins = n_bins
         self.ranges = ranges
         self.divide_by_jac = divide_by_jac
+        self.output_quantity = output_quantity
 
         # computations and allocations
         self._bin_edges = []
