@@ -99,5 +99,5 @@ jobs:
       - name: Run unit tests with MPI
         uses: ./.github/actions/tests/unit
         with:
-          dir-name: /struphy_fortran_/
-          env-name: env_fortran_/
+          struphy-path: ${{ env.STRUPHY_PATH }}
+          env-name: /struphy_fortran_/env_fortran_

@@ -79,6 +79,8 @@ jobs:
       - name: Run unit tests with MPI
         if: matrix.test-type == 'unit'
         uses: ./.github/actions/tests/unit
+        with:
+          struphy-path: ${{ env.STRUPHY_PATH }}
 
       - name: Run model tests with MPI
         if: matrix.test-type == 'model'

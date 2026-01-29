@@ -3,8 +3,8 @@ name: "Run unit tests"
 description: 
 
 inputs:
-  dir-name:
-    default: ""
+  struphy-path:
+    required: true
   env-name:
     default: ""
 
@@ -17,11 +17,11 @@ runs:
         TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit
       run: |
         set +e
-        source ${{ inputs.dir-name }}${{ inputs.env-name }}bin/activate || true
+        source ${{ inputs.env-name }}/bin/activate || true
         set -e
         pip show struphy
         struphy compile --status
-        cd ${{ inputs.dir-name }}src/struphy
+        cd ${{ inputs.struphy-path }}
         pwd
         echo "Running $RUN_MAXWELL"
         $RUN_MAXWELL
