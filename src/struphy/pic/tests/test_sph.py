@@ -1364,17 +1364,85 @@ def test_sph_viscosity_evaluation_2d(
     Ly = r2 - l2
     
     def u_xyz(x, y, z):
-       ux = xp.sin(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
-       uy = -xp.cos(2 * xp.pi * x) * xp.sin(2 * xp.pi * y)
-       uz = 0.0 * z
-       return ux, uy, uz
+        ux = xp.sin(2 * xp.pi * x) * xp.cos(2 * xp.pi * y) * xp.cos(2 * xp.pi * z)
+        uy = -xp.cos(2 * xp.pi * x) * xp.sin(2 * xp.pi * y) * xp.cos(2 * xp.pi * z)
+        uz = 2 * xp.cos(2 * xp.pi * x) * xp.cos(2 * xp.pi * y) * xp.sin(2 * xp.pi * z)
+        return ux, uy, uz
 
-    def analytic_div_viscosity(x, y):
-       val = 2 * xp.pi * xp.cos(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
-       Pi_analytic = xp.zeros((3, 3) + x.shape)
-       Pi_analytic[0, 0] = val
-       Pi_analytic[1, 1] = -val
-       return Pi_analytic
+    def analytic_viscosity(x, y, z):
+        Pi = xp.zeros((3, 3) + x.shape)
+
+        c = xp.cos(2 * xp.pi * x)
+        s = xp.sin(2 * xp.pi * x)
+        cy = xp.cos(2 * xp.pi * y)
+        sy = xp.sin(2 * xp.pi * y)
+        cz = xp.cos(2 * xp.pi * z)
+        sz = xp.sin(2 * xp.pi * z)
+
+        Pi[0, 0] =  c * cy * cz
+        Pi[1, 1] = -c * cy * cz
+        Pi[2, 2] =  2 * c * cy * cz
+
+        Pi[0, 1] = s * sy * cz
+        Pi[1, 0] = Pi[0, 1]
+
+        Pi[0, 2] = s * cy * sz
+        Pi[2, 0] = Pi[0, 2]
+
+        Pi[1, 2] = c * sy * sz
+        Pi[2, 1] = Pi[1, 2]
+
+        return Pi
+    
+    def div_analytic_viscosity(x, y, z):
+        divPi = xp.zeros((3,) + x.shape)
+
+        c = xp.cos(2 * xp.pi * x)
+        s = xp.sin(2 * xp.pi * x)
+        cy = xp.cos(2 * xp.pi * y)
+        sy = xp.sin(2 * xp.pi * y)
+        cz = xp.cos(2 * xp.pi * z)
+        sz = xp.sin(2 * xp.pi * z)
+
+        d = 2 * xp.pi
+
+        # divPi_x = d_x Pi_xx + d_y Pi_xy + d_z Pi_xz
+        divPi[0] = (
+            -d * s * cy * cz
+            + d * s * cy * cz
+            + d * s * cy * cz
+        )
+
+        # divPi_y = d_x Pi_yx + d_y Pi_yy + d_z Pi_yz
+        divPi[1] = (
+            d * c * sy * cz
+            + d * c * sy * cz
+            + d * c * sy * cz
+        )
+
+        # divPi_z = d_x Pi_zx + d_y Pi_zy + d_z Pi_zz
+        divPi[2] = (
+            d * c * cy * sz
+            + d * c * cy * sz
+            - 2 * d * c * cy * sz
+        )
+
+        return divPi
+
+
+    
+    # def u_xyz(x, y, z):
+    #    ux = xp.sin(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
+    #    uy = -xp.cos(2 * xp.pi * x) * xp.sin(2 * xp.pi * y)
+    #    uz = 0.0 * z
+    #    return ux, uy, uz
+
+    # def analytic_div_viscosity(x, y):
+    #    val = 2 * xp.pi * xp.cos(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
+    #    Pi_analytic = xp.zeros((3, 3) + x.shape)
+    #    Pi_analytic[0, 0] = val
+    #    Pi_analytic[1, 1] = -val
+    #    return Pi_analytic
     
     background = GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
     background.domain = domain
@@ -1433,6 +1501,7 @@ def test_sph_viscosity_evaluation_2d(
     plt.pcolor(xx.squeeze(), yy.squeeze(), density.squeeze())
     plt.title("density")
     plt.colorbar()
+    plt.savefig("density")
     
     # evaluate velocity
     vx, vy, vz = particles.eval_velocity(ee1,
@@ -1458,9 +1527,10 @@ def test_sph_viscosity_evaluation_2d(
     plt.title("vy")
     plt.colorbar()
     plt.show()
+    plt.savefig("velocity")
     
-    # evaluate div viscosity
-    viscosity_tensor = particles.eval_div_viscosity(
+    # evaluate div of viscosity tensor (numerically)
+    div_viscosity = particles.eval_div_viscosity(
         ee1,
         ee2,
         ee3,
@@ -1470,69 +1540,99 @@ def test_sph_viscosity_evaluation_2d(
         kernel_type=kernel,
         derivative=derivative,
     )
+    gamma_x = div_viscosity[0]
+    gamma_y = div_viscosity[1]
+    gamma_z = div_viscosity[2]
     
-    (pi11, pi12, pi13), (pi21, pi22, pi23), (pi31, pi32, pi33) = viscosity_tensor
-
-    Pi = background.pi_xyz(xx, yy, zz)
+    div_pi_analytic = div_analytic_viscosity(xx, yy, zz)
+    div_pi_x = div_pi_analytic[0]  
+    div_pi_y = div_pi_analytic[1]  
+    div_pi_z = div_pi_analytic[2]
     
-    (Pi_xx, Pi_xy, Pi_xz), (Pi_yx, Pi_yy, Pi_yz), (Pi_zx, Pi_zy, Pi_zz) = Pi
-
     
-    all_Pi = xp.zeros_like(viscosity_tensor)
-
     if comm is not None:
-   
-        for i in range(3):
-            for j in range(3):
-                comm.Allreduce(viscosity_tensor[i, j], all_Pi[i, j], op=MPI.SUM)
+        all_div_x = xp.zeros_like(gamma_x)
+        all_div_y = xp.zeros_like(gamma_y)
+        all_div_z = xp.zeros_like(gamma_z)
+        
+        comm.Allreduce(gamma_x, all_div_x, op=MPI.SUM)
+        comm.Allreduce(gamma_y, all_div_y, op=MPI.SUM)
+        comm.Allreduce(gamma_z, all_div_z, op=MPI.SUM)
     else:
-       
-        all_Pi[:] = viscosity_tensor
+        all_div_x, all_div_y, all_div_z = gamma_x, gamma_y, gamma_z
 
     def abs_err(num, exact):
         max_exact = xp.max(xp.abs(exact))
-
         return xp.max(xp.abs(num - exact)) / max_exact
-    
-    err_Pi = xp.zeros_like(all_Pi)
 
-    for i in range(3):
-        for j in range(3):
-            err_Pi[i,j] = abs_err(all_Pi[i,j], Pi[i,j])
-            
-            
-    for i in range(3):
-        for j in range(3):
-            print(f"Pi[{i},{j}] error = {err_Pi[i,j]:.3e}")
+    # compute errors
+    err_div_x = abs_err(all_div_x, div_pi_x)
+    err_div_y = abs_err(all_div_y, div_pi_y)
+    err_div_z = abs_err(all_div_z, div_pi_z)
     
+    
+    if rank == 0:
+        print(f"\n{boxes_per_dim = }")
+        print(f"{kernel = }, {derivative = }")
+        print(f"{bc_x = }, {bc_y = }, {eval_pts = }")
+        print(f"Divergence of viscosity errors: gx={err_div_x:.3e}, gy={err_div_y:.3e}, gz={err_div_z:.3e}")
+
     if show_plot:
+        # --- gamma_x and gamma_y plots ---
+        plt.figure(figsize=(12, 24))
         
-        fig, axes = plt.subplots(3, 3, figsize=(15, 12))
-        comp_names = [["xx","xy","xz"], ["yx","yy","yz"], ["zx","zy","zz"]]
+        # gamma_x plots
+        plt.subplot(3, 3, 1)
+        plt.pcolor(ee1.squeeze(), ee2.squeeze(), div_pi_x.squeeze())
+        plt.title("Exact div_viscosity_x")
+        plt.colorbar()
 
-        for i in range(3):
-            for j in range(3):
-                ax = axes[i,j]
-                im = ax.pcolor(xx.squeeze(), yy.squeeze(), all_Pi[i,j].squeeze())
-                ax.set_title(f"SPH Pi_{comp_names[i][j]}")
-                plt.colorbar(im, ax=ax)
+        plt.subplot(3, 3, 4)
+        plt.pcolor(ee1.squeeze(), ee2.squeeze(), all_div_x.squeeze())
+        plt.title("SPH div_viscosity_x")
+        plt.colorbar()
+
+        plt.subplot(3, 3, 7)
+        plt.pcolor(ee1.squeeze(), ee2.squeeze(), (all_div_x - div_pi_x).squeeze())
+        plt.title("Error div_viscosity_x")
+        plt.colorbar()
+
+        # gamma_y plots
+        plt.subplot(3, 3, 2)
+        plt.pcolor(ee1.squeeze(), ee2.squeeze(), div_pi_y.squeeze())
+        plt.title("Exact div_viscosity_y")
+        plt.colorbar()
+
+        plt.subplot(3, 3, 5)
+        plt.pcolor(ee1.squeeze(), ee2.squeeze(), all_div_y.squeeze())
+        plt.title("SPH div_viscosity_y")
+        plt.colorbar()
+
+        plt.subplot(3, 3, 8)
+        plt.pcolor(ee1.squeeze(), ee2.squeeze(), (all_div_y - div_pi_y).squeeze())
+        plt.title("Error div_viscosity_y")
+        plt.colorbar()
+
+        # gamma_z plots
+        plt.subplot(3, 3, 3)
+        plt.pcolor(ee1.squeeze(), ee2.squeeze(), div_pi_z.squeeze())
+        plt.title("Exact div_viscosity_z")
+        plt.colorbar()
+
+        plt.subplot(3, 3, 6)
+        plt.pcolor(ee1.squeeze(), ee2.squeeze(), all_div_z.squeeze())
+        plt.title("SPH div_viscosity_z")
+        plt.colorbar()
+
+        plt.subplot(3, 3, 9)
+        plt.pcolor(ee1.squeeze(), ee2.squeeze(), (all_div_z - div_pi_z).squeeze())
+        plt.title("Error div_viscosity_z")
+        plt.colorbar()
 
         plt.tight_layout()
-        plt.savefig("viscosity_components.png")
+        plt.savefig("div_viscosity_2d_all.png")
         plt.show()
 
-        # --- Optional: Fehlerplots ---
-        fig, axes = plt.subplots(3, 3, figsize=(15, 12))
-        for i in range(3):
-            for j in range(3):
-                ax = axes[i,j]
-                im = ax.pcolor(xx.squeeze(), yy.squeeze(), (all_Pi[i,j] - Pi[i,j]).squeeze())
-                ax.set_title(f"Error Pi_{comp_names[i][j]}")
-                plt.colorbar(im, ax=ax)
-
-        plt.tight_layout()
-        plt.savefig("viscosity_error_components.png")
-        plt.show()
 
 
 if __name__ == "__main__":
