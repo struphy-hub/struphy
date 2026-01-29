@@ -1320,70 +1320,6 @@ def test_sph_velocity_evaluation_2d(
     # assert err_uz_abs < 1e-6
 
 
-if __name__ == "__main__":
-    test_sph_velocity_evaluation_2d(
-        (12, 12, 1), "gaussian_2d", 1, "periodic", "periodic", 101, tesselation=False, show_plot=True
-    )
-
-    # test_sph_velocity_evaluation(
-    #    (12, 1, 1),
-    #    "gaussian_1d",
-    #    1,
-    #    "periodic",
-    #   11,
-    #    tesselation=False,
-    #    show_plot=True,
-    # )
-
-    # test_sph_evaluation_1d(
-    #     (24, 1, 1),
-    #     "trigonometric_1d",
-    #     # "gaussian_1d",
-    #     1,
-    #     # "periodic",
-    #     "mirror",
-    #     16,
-    #     tesselation=False,
-    #     show_plot=True,
-    # )
-
-    # test_sph_evaluation_2d(
-    #     (12, 12, 1),
-    #     # "trigonometric_2d",
-    #     "gaussian_2d",
-    #     1,
-    #     "periodic",
-    #     "periodic",
-    #     16,
-    #     show_plot=True
-    # )
-
-    # test_sph_evaluation_3d(
-    #     (12, 8, 8),
-    #     # "trigonometric_2d",
-    #     "gaussian_3d",
-    #     2,
-    #     "periodic",
-    #     "periodic",
-    #     "periodic",
-    #     11,
-    #     show_plot=True
-    # )
-
-    # for nb in range(4, 25):
-    #     print(f"\n{nb = }")
-    # test_evaluation_SPH_Np_convergence_1d((12,1,1), "fixed", eval_pts=16, tesselation=False, show_plot=True)
-    # test_evaluation_SPH_h_convergence_1d((12,1,1), "periodic", eval_pts=16, tesselation=True, show_plot=True)
-    # test_evaluation_mc_Np_and_h_convergence_1d((12,1,1),"mirror", eval_pts=16, tesselation = False,  show_plot=True)
-    # test_evaluation_SPH_Np_convergence_2d((24, 24, 1), "periodic", "periodic",  tesselation=True, show_plot=True)
-    # test_evaluation_SPH_Np_convergence_2d((24, 24, 1), "periodic", "fixed", tesselation=True, show_plot=True)
-    # test_evaluation_SPH_Np_convergence_2d((32, 32, 1), "fixed", "periodic", tesselation=True, show_plot=True)
-    # test_evaluation_SPH_Np_convergence_2d((32, 32, 1), "fixed", "fixed",   tesselation=True, show_plot=True)
-    # test_evaluation_SPH_Np_convergence_2d((32, 32, 1), "mirror", "mirror",  tesselation=True, show_plot=True)
-
-
-
-
 @pytest.mark.parametrize("boxes_per_dim", [(12, 12, 1)])
 @pytest.mark.parametrize("kernel", ["gaussian_2d"])  # "trigonometric_2d", "linear_2d"])
 @pytest.mark.parametrize("derivative", [0, 1, 2])
@@ -1558,3 +1494,68 @@ def test_sph_viscosity_evaluation_2d(
         plt.tight_layout()
         plt.savefig("viscosity_error_components.png")
         plt.show()
+
+
+if __name__ == "__main__":
+    test_sph_viscosity_evaluation_2d(
+        (12, 12, 1), "gaussian_2d", 1, "periodic", "periodic", 101, tesselation=False, show_plot=True
+    )
+    # test_sph_velocity_evaluation_2d(
+    #     (12, 12, 1), "gaussian_2d", 1, "periodic", "periodic", 101, tesselation=False, show_plot=True
+    # )
+
+    # test_sph_velocity_evaluation(
+    #    (12, 1, 1),
+    #    "gaussian_1d",
+    #    1,
+    #    "periodic",
+    #   11,
+    #    tesselation=False,
+    #    show_plot=True,
+    # )
+
+    # test_sph_evaluation_1d(
+    #     (24, 1, 1),
+    #     "trigonometric_1d",
+    #     # "gaussian_1d",
+    #     1,
+    #     # "periodic",
+    #     "mirror",
+    #     16,
+    #     tesselation=False,
+    #     show_plot=True,
+    # )
+
+    # test_sph_evaluation_2d(
+    #     (12, 12, 1),
+    #     # "trigonometric_2d",
+    #     "gaussian_2d",
+    #     1,
+    #     "periodic",
+    #     "periodic",
+    #     16,
+    #     show_plot=True
+    # )
+
+    # test_sph_evaluation_3d(
+    #     (12, 8, 8),
+    #     # "trigonometric_2d",
+    #     "gaussian_3d",
+    #     2,
+    #     "periodic",
+    #     "periodic",
+    #     "periodic",
+    #     11,
+    #     show_plot=True
+    # )
+
+    # for nb in range(4, 25):
+    #     print(f"\n{nb = }")
+    # test_evaluation_SPH_Np_convergence_1d((12,1,1), "fixed", eval_pts=16, tesselation=False, show_plot=True)
+    # test_evaluation_SPH_h_convergence_1d((12,1,1), "periodic", eval_pts=16, tesselation=True, show_plot=True)
+    # test_evaluation_mc_Np_and_h_convergence_1d((12,1,1),"mirror", eval_pts=16, tesselation = False,  show_plot=True)
+    # test_evaluation_SPH_Np_convergence_2d((24, 24, 1), "periodic", "periodic",  tesselation=True, show_plot=True)
+    # test_evaluation_SPH_Np_convergence_2d((24, 24, 1), "periodic", "fixed", tesselation=True, show_plot=True)
+    # test_evaluation_SPH_Np_convergence_2d((32, 32, 1), "fixed", "periodic", tesselation=True, show_plot=True)
+    # test_evaluation_SPH_Np_convergence_2d((32, 32, 1), "fixed", "fixed",   tesselation=True, show_plot=True)
+    # test_evaluation_SPH_Np_convergence_2d((32, 32, 1), "mirror", "mirror",  tesselation=True, show_plot=True)
