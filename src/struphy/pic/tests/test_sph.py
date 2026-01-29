@@ -1363,23 +1363,20 @@ def test_sph_viscosity_evaluation_2d(
     Lx = r1 - l1
     Ly = r2 - l2
     
-    
-    #def u_xyz(x, y, z):
-    #    ux = xp.sin(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
-    #    uy = -xp.cos(2 * xp.pi * x) * xp.sin(2 * xp.pi * y)
-    #    uz = 0.0 * z
-    #    return ux, uy, uz
+    def u_xyz(x, y, z):
+       ux = xp.sin(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
+       uy = -xp.cos(2 * xp.pi * x) * xp.sin(2 * xp.pi * y)
+       uz = 0.0 * z
+       return ux, uy, uz
 
-
-    #def analytic_pi(x, y):
-    #    val = 2 * xp.pi * xp.cos(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
-    #    Pi_analytic = xp.zeros((3, 3) + x.shape)
-    #    Pi_analytic[0, 0] = val
-    #    Pi_analytic[1, 1] = -val
-    #    return Pi_analytic
+    def analytic_div_viscosity(x, y):
+       val = 2 * xp.pi * xp.cos(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
+       Pi_analytic = xp.zeros((3, 3) + x.shape)
+       Pi_analytic[0, 0] = val
+       Pi_analytic[1, 1] = -val
+       return Pi_analytic
     
-    
-    background = ConstantVelocity(viscosity_profile="tensor")
+    background = GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
     background.domain = domain
 
     boundary_params = BoundaryParameters(bc_sph=(bc_x, bc_y, "periodic"))
@@ -1399,6 +1396,12 @@ def test_sph_viscosity_evaluation_2d(
         verbose=verbose,
     )
 
+    # initialize particles
+    particles.draw_markers(sort=False, verbose=verbose)
+    if comm is not None:
+        particles.mpi_sort_markers()
+    particles.initialize_weights()
+    
     # evaluation grids
     eta1 = xp.linspace(0, 1.0, eval_pts)
     eta2 = xp.linspace(0, 1.0, eval_pts)
@@ -1410,18 +1413,54 @@ def test_sph_viscosity_evaluation_2d(
     z = xp.array([0.0])
     xx, yy, zz = xp.meshgrid(x, y, z, indexing="ij")
 
-    # initialize particles
-    particles.draw_markers(sort=False, verbose=verbose)
-    if comm is not None:
-        particles.mpi_sort_markers()
-    particles.initialize_weights()
-
-    # evaluate velocity (and derivatives) via SPH
+    # evaluate density
     h1 = 1 / boxes_per_dim[0]
     h2 = 1 / boxes_per_dim[1]
     h3 = 1 / boxes_per_dim[2]
+    
+    density = particles.eval_density(ee1,
+        ee2,
+        ee3,
+        h1=h1,
+        h2=h2,
+        h3=h3,
+        kernel_type=kernel,
+        derivative=0,
+        )
 
-    Viscosity_tensor = particles.eval_viscosity(
+    print(f"{density.shape = }")
+    print(f"{xp.min(density) = }, {xp.max(density) = }")
+    plt.pcolor(xx.squeeze(), yy.squeeze(), density.squeeze())
+    plt.title("density")
+    plt.colorbar()
+    
+    # evaluate velocity
+    vx, vy, vz = particles.eval_velocity(ee1,
+        ee2,
+        ee3,
+        h1=h1,
+        h2=h2,
+        h3=h3,
+        kernel_type=kernel,
+        derivative=0,
+        )
+
+    print(f"{vx.shape = }, {vy.shape = }")
+    print(f"{xp.min(vx) = }, {xp.max(vx) = }")
+    print(f"{xp.min(vy) = }, {xp.max(vy) = }")
+    plt.figure(figsize=(10, 5))
+    plt.subplot(1, 2, 1)
+    plt.pcolor(xx.squeeze(), yy.squeeze(), vx.squeeze())
+    plt.title("vx")
+    plt.colorbar()
+    plt.subplot(1, 2, 2)
+    plt.pcolor(xx.squeeze(), yy.squeeze(), vy.squeeze())
+    plt.title("vy")
+    plt.colorbar()
+    plt.show()
+    
+    # evaluate div viscosity
+    viscosity_tensor = particles.eval_div_viscosity(
         ee1,
         ee2,
         ee3,
@@ -1432,23 +1471,23 @@ def test_sph_viscosity_evaluation_2d(
         derivative=derivative,
     )
     
-    (pi11, pi12, pi13), (pi21, pi22, pi23), (pi31, pi32, pi33) = Viscosity_tensor
+    (pi11, pi12, pi13), (pi21, pi22, pi23), (pi31, pi32, pi33) = viscosity_tensor
 
     Pi = background.pi_xyz(xx, yy, zz)
     
     (Pi_xx, Pi_xy, Pi_xz), (Pi_yx, Pi_yy, Pi_yz), (Pi_zx, Pi_zy, Pi_zz) = Pi
 
     
-    all_Pi = xp.zeros_like(Viscosity_tensor)
+    all_Pi = xp.zeros_like(viscosity_tensor)
 
     if comm is not None:
    
         for i in range(3):
             for j in range(3):
-                comm.Allreduce(Viscosity_tensor[i, j], all_Pi[i, j], op=MPI.SUM)
+                comm.Allreduce(viscosity_tensor[i, j], all_Pi[i, j], op=MPI.SUM)
     else:
        
-        all_Pi[:] = Viscosity_tensor
+        all_Pi[:] = viscosity_tensor
 
     def abs_err(num, exact):
         max_exact = xp.max(xp.abs(exact))

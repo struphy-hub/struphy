@@ -3888,7 +3888,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         return v1, v2, v3    
     
     
-    def eval_viscosity(
+    def eval_div_viscosity(
         self,
         eta1,
         eta2,
@@ -3896,17 +3896,17 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         h1,
         h2,
         h3,
-        kernel_type="gaussian_3d",
-        derivative=1,
+        kernel_type="gaussian_1d",
+        derivative=0,
         fast=True,
     ) -> tuple:
         
         first_free_idx = self.args_markers.first_free_idx
-        comps = xp.array((0, 1, 2))
-        
         self.put_particles_in_boxes()
+        
+        # 1st kernel
         func = Pyccelkernel(eval_kernels_gc.sph_mean_velocity_coeffs)
-          
+        comps = xp.array((0, 1, 2))
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
             column_nr=first_free_idx,
@@ -3924,36 +3924,76 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             h2=h2,
             h3=h3,
         )
-        #nested_list 
-        grad_v_at_eta = xp.zeros((3, 3), dtype=float) #<-- this line is wrong. i need a nested list, as the 3x3 matrix contains in every entry a matrix evaluated on a meshgrid 
-        grad_v_at_eta = []
-        for j in range(3):
-            grad_v_at_eta.append([])
-            for k in range(3):
-                grad_v_at_eta[j].append( self.eval_sph(
-                    eta1,
-                    eta2,
-                    eta3,
-                    first_free_idx + j,
-                    kernel_type=kernel_type,
-                    derivative=derivative + k ,
-                    h1=h1,
-                    h2=h2,
-                    h3=h3,
-                    fast=fast,
-                )
-                )
-
-        D = 0.5 * (grad_v_at_eta + grad_v_at_eta.T)
-        traceD = xp.trace(D)
-        Pi = D - (traceD / 3.0) * xp.eye(3)
-
         
+        # 2nd kernel
+        func = Pyccelkernel(eval_kernels_gc.sph_viscosity_tensor)
+        comps = xp.arange(9)
+        func(
+            alpha=xp.array((0.0, 0.0, 0.0)),
+            column_nr=first_free_idx + 3,
+            comps=comps,
+            args_markers=self.args_markers,
+            args_domain=self.domain.args_domain,
+            boxes=self.sorting_boxes.boxes,
+            neighbours=self.sorting_boxes.neighbours,
+            holes=self.holes,
+            periodic1=self.boundary_params.bc_sph[0] == "periodic",
+            periodic2=self.boundary_params.bc_sph[1] == "periodic",
+            periodic3=self.boundary_params.bc_sph[2] == "periodic",
+            kernel_type=self.ker_dct()[kernel_type],
+            h1=h1,
+            h2=h2,
+            h3=h3,
+        )
+        
+        # grid evaluation
+        gamma = []
+        for j in range(3):
+            gamma += [[]]
+            for k in range(3):
+                gamma[-1] += [self.eval_sph(eta1,
+                                eta2,
+                                eta3,
+                                first_free_idx + 3*j + k,
+                                kernel_type=kernel_type,
+                                derivative=k + 1,
+                                h1=h1,
+                                h2=h2,
+                                h3=h3,
+                                fast=fast,)]
+        
+        gamma_x = gamma[0][0] + gamma[0][1] + gamma[0][2]
+        gamma_y = gamma[1][0] + gamma[1][1] + gamma[1][2]
+        gamma_z = gamma[2][0] + gamma[2][1] + gamma[2][2]
+         
+        return gamma_x, gamma_y, gamma_z
+         
+        # grad_v_at_eta = xp.zeros((3, 3), dtype=float) #<-- this line is wrong. i need a nested list, as the 3x3 matrix contains in every entry a matrix evaluated on a meshgrid 
+        # grad_v_at_eta = []
+        # for j in range(3):
+        #     grad_v_at_eta.append([])
+        #     for k in range(3):
+        #         grad_v_at_eta[j].append( self.eval_sph(
+        #             eta1,
+        #             eta2,
+        #             eta3,
+        #             first_free_idx + j,
+        #             kernel_type=kernel_type,
+        #             derivative=derivative + k ,
+        #             h1=h1,
+        #             h2=h2,
+        #             h3=h3,
+        #             fast=fast,
+        #         )
+        #         )
 
-        return Pi    
+        # D = 0.5 * (grad_v_at_eta + grad_v_at_eta.T)
+        # traceD = xp.trace(D)
+        # Pi = D - (traceD / 3.0) * xp.eye(3)
+
+        # return Pi    
 
     
-
     def eval_sph(
         self,
         eta1: xp.ndarray,

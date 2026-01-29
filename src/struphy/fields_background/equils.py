@@ -2944,23 +2944,6 @@ class ConstantVelocity(CartesianFluidEquilibrium):
             mask = y < -2.0
             out[mask] = self.params["n"]
             return out
-        
-    def pi_xyz(self, x, y, z):
-        if self.params["viscosity_profile"] == "tensor":
-            """
-            Analytic viscosity.
-            Π_xx =  2π cos(2πx) cos(2πy)
-            Π_yy = -Π_xx
-            all other components = 0
-            """
-            val = 2 * xp.pi * xp.cos(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
-
-            Pi = xp.zeros((3, 3) + x.shape)
-
-            Pi[0, 0] = val
-            Pi[1, 1] = -val
-
-            return Pi
     
 
 class HomogenSlabITG(CartesianFluidEquilibriumWithB):
