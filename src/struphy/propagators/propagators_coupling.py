@@ -2296,20 +2296,14 @@ class ConstantCurrent(Propagator):
         self.variables = self.Variables()
         self.n0u0_on_eta_grid = None
 
-    def compute_bulk_current_x(self, nv=16):
-        """
-        Pré-calcule le courant sur une grille 1D (variation uniquement en x).
-        Beaucoup plus rapide pour grille 32×1×1.
-        """
-        print("Pré-calcul du courant en x...")
+    def compute_bulk_current(self, nv=16):
 
-        # Grille spatiale 1D
-        nx = 32  # Augmenter la résolution puisque c'est 1D
+        nx = self.derham.Nel[0]
+        print(f"nx = {nx}")
         x_grid = np.linspace(0, 1, nx)
         y_val = 0.5  # Valeur fixe
         z_val = 0.5  # Valeur fixe
 
-        # Grille de vitesses
         nvx, nvy, nvz = nv, nv, nv
         vx_grid = np.linspace(-6, 6, nvx)
         vy_grid = np.linspace(-6, 6, nvy)
@@ -2335,7 +2329,102 @@ class ConstantCurrent(Propagator):
         VY_full = np.tile(VY_flat, nx)
         VZ_full = np.tile(VZ_flat, nx)
 
-        print(f"  Évaluation de f0 sur {nx * n_vel:,} points...")
+        print(f" Computing current")
+
+        # Évaluer f0
+        f_values = self.variables.ions.particles.f0(
+            X_full, Y_full, Z_full, VX_full, VY_full, VZ_full
+        ).reshape(nx, n_vel)
+
+        VX_repeated = np.tile(VX_flat, nx).reshape(nx, n_vel)
+        VY_repeated = np.tile(VY_flat, nx).reshape(nx, n_vel)
+        VZ_repeated = np.tile(VZ_flat, nx).reshape(nx, n_vel)
+
+        r1, r2, r3 = (
+            self.domain.params["r1"],
+            self.domain.params["r2"],
+            self.domain.params["r3"],
+        )
+        current_1d_x = r1 * np.sum(VX_repeated * f_values, axis=1) * dv
+        current_1d_y = r2 * np.sum(VY_repeated * f_values, axis=1) * dv
+        current_1d_z = r3 * np.sum(VZ_repeated * f_values, axis=1) * dv
+
+        interpolator_x = interp1d(
+            x_grid, current_1d_x, kind="cubic", bounds_error=False, fill_value=0.0
+        )
+        interpolator_y = interp1d(
+            x_grid, current_1d_y, kind="cubic", bounds_error=False, fill_value=0.0
+        )
+        interpolator_z = interp1d(
+            x_grid, current_1d_z, kind="cubic", bounds_error=False, fill_value=0.0
+        )
+
+        def current_x(x, y, z):
+
+            is_scalar = np.isscalar(x)
+
+            if is_scalar:
+                return float(interpolator_x(x))
+            else:
+                x_arr = np.asarray(x)
+                return interpolator_x(x_arr)
+
+        def current_y(x, y, z):
+
+            is_scalar = np.isscalar(x)
+
+            if is_scalar:
+                return float(interpolator_y(x))
+            else:
+                x_arr = np.asarray(x)
+                return interpolator_y(x_arr)
+
+        def current_z(x, y, z):
+
+            is_scalar = np.isscalar(x)
+
+            if is_scalar:
+                return float(interpolator_z(x))
+            else:
+                x_arr = np.asarray(x)
+                return interpolator_z(x_arr)
+
+        return current_x, current_y, current_z
+
+    def compute_bulk_current_x(self, nv=16):
+
+        nx = self.derham.Nel[0]
+        print(f"nx = {nx}")
+        x_grid = np.linspace(0, 1, nx)
+        y_val = 0.5  # Valeur fixe
+        z_val = 0.5  # Valeur fixe
+
+        nvx, nvy, nvz = nv, nv, nv
+        vx_grid = np.linspace(-6, 6, nvx)
+        vy_grid = np.linspace(-6, 6, nvy)
+        vz_grid = np.linspace(-6, 6, nvz)
+
+        dvx = vx_grid[1] - vx_grid[0]
+        dvy = vy_grid[1] - vy_grid[0]
+        dvz = vz_grid[1] - vz_grid[0]
+        dv = dvx * dvy * dvz
+
+        # Meshgrid des vitesses
+        VX, VY, VZ = np.meshgrid(vx_grid, vy_grid, vz_grid, indexing="ij")
+        VX_flat = VX.flatten()
+        VY_flat = VY.flatten()
+        VZ_flat = VZ.flatten()
+        n_vel = len(VX_flat)
+
+        # Créer grille 4D : x varie, y et z fixes
+        X_full = np.repeat(x_grid, n_vel)
+        Y_full = np.full(nx * n_vel, y_val)
+        Z_full = np.full(nx * n_vel, z_val)
+        VX_full = np.tile(VX_flat, nx)
+        VY_full = np.tile(VY_flat, nx)
+        VZ_full = np.tile(VZ_flat, nx)
+
+        print(f" Computing current")
 
         # Évaluer f0
         f_values = self.variables.ions.particles.f0(
@@ -2345,21 +2434,18 @@ class ConstantCurrent(Propagator):
         # Intégrer sur les vitesses
         VX_repeated = np.tile(VX_flat, nx).reshape(nx, n_vel)
         integrand_values = VX_repeated * f_values
-        current_1d = np.sum(integrand_values, axis=1) * dv
+        r1 = self.domain.params["r1"]
+        current_1d = r1 * np.sum(integrand_values, axis=1) * dv
 
-        print("  Création de l'interpolateur 1D...")
         from scipy.interpolate import CubicSpline
 
-        # Interpolateur 1D (beaucoup plus rapide)
-        # interpolator = interp1d(
-        #     x_grid, current_1d, kind="cubic", bounds_error=False, fill_value=0.0
-        # )
-        interpolator = CubicSpline(x_grid, current_1d, bc_type="periodic")
-
-        print("  Terminé!")
+        interpolator = interp1d(
+            x_grid, current_1d, kind="cubic", bounds_error=False, fill_value=0.0
+        )
+        # interpolator = CubicSpline(x_grid, current_1d, bc_type="periodic")
 
         def current_x(x, y, z):
-            """Interpolation 1D rapide (y et z ignorés)."""
+
             is_scalar = np.isscalar(x)
 
             if is_scalar:
@@ -2371,12 +2457,9 @@ class ConstantCurrent(Propagator):
         return current_x
 
     def compute_bulk_current_y(self, nv=16):
-        """
-        Pré-calcule le courant en y.
-        """
-        print("Pré-calcul du courant en y...")
 
-        nx = 32
+        nx = self.derham.Nel[0]
+        print(f"nx = {nx}")
         x_grid = np.linspace(0, 1, nx)
         y_val = 0.5
         z_val = 0.5
@@ -2404,23 +2487,18 @@ class ConstantCurrent(Propagator):
         VY_full = np.tile(VY_flat, nx)
         VZ_full = np.tile(VZ_flat, nx)
 
-        print(f"  Évaluation de f0 sur {nx * n_vel:,} points...")
-
         f_values = self.variables.ions.particles.f0(
             X_full, Y_full, Z_full, VX_full, VY_full, VZ_full
         ).reshape(nx, n_vel)
 
         VY_repeated = np.tile(VY_flat, nx).reshape(nx, n_vel)
         integrand_values = VY_repeated * f_values
-        current_1d = np.sum(integrand_values, axis=1) * dv
-
-        print("  Création de l'interpolateur 1D...")
+        r2 = self.domain.params["r2"]
+        current_1d = r2 * np.sum(integrand_values, axis=1) * dv
 
         interpolator = interp1d(
             x_grid, current_1d, kind="cubic", bounds_error=False, fill_value=0.0
         )
-
-        print("  Terminé!")
 
         def current_y(x, y, z):
             is_scalar = np.isscalar(x)
@@ -2434,12 +2512,10 @@ class ConstantCurrent(Propagator):
         return current_y
 
     def compute_bulk_current_z(self, nv=16):
-        """
-        Pré-calcule le courant en z.
-        """
-        print("Pré-calcul du courant en z...")
 
-        nx = 32
+        nx = self.derham.Nel[0]
+        r3 = self.domain.params["r3"]
+        print(f"nx = {nx}")
         x_grid = np.linspace(0, 1, nx)
         y_val = 0.5
         z_val = 0.5
@@ -2467,23 +2543,18 @@ class ConstantCurrent(Propagator):
         VY_full = np.tile(VY_flat, nx)
         VZ_full = np.tile(VZ_flat, nx)
 
-        print(f"  Évaluation de f0 sur {nx * n_vel:,} points...")
-
         f_values = self.variables.ions.particles.f0(
             X_full, Y_full, Z_full, VX_full, VY_full, VZ_full
         ).reshape(nx, n_vel)
 
         VZ_repeated = np.tile(VZ_flat, nx).reshape(nx, n_vel)
         integrand_values = VZ_repeated * f_values
-        current_1d = np.sum(integrand_values, axis=1) * dv
 
-        print("  Création de l'interpolateur 1D...")
+        current_1d = r3 * np.sum(integrand_values, axis=1) * dv
 
         interpolator = interp1d(
             x_grid, current_1d, kind="cubic", bounds_error=False, fill_value=0.0
         )
-
-        print("  Terminé!")
 
         def current_z(x, y, z):
             is_scalar = np.isscalar(x)
@@ -2536,22 +2607,18 @@ class ConstantCurrent(Propagator):
     def allocate(self):
         """Allocate FEEC vectors and compute L2 projection of n0*u0."""
 
+        current_x, current_y, current_z = self.compute_bulk_current()
+
         self.n0u0_on_eta_grid = (
-            self.compute_bulk_current_x(),
-            self.compute_bulk_current_y(),
-            self.compute_bulk_current_z(),
+            current_x,
+            current_y,
+            current_z,
         )
-
-        import matplotlib.pyplot as plt
-
-        e1 = np.linspace(0, 1, 32)
-        plt.plot(e1, self.n0u0_on_eta_grid[0](e1, 0.5, 0.5))
-        plt.show()
-
-        print("Test courant:")
-        print(f"  current_x(0.5, 0.5, 0.5) = {self.n0u0_on_eta_grid[0](0.5, 0.5, 0.5)}")
-        print(f"  current_y(0.5, 0.5, 0.5) = {self.n0u0_on_eta_grid[1](0.5, 0.5, 0.5)}")
-        print(f"  current_z(0.5, 0.5, 0.5) = {self.n0u0_on_eta_grid[2](0.5, 0.5, 0.5)}")
+        # self.n0u0_on_eta_grid = (
+        #     self.compute_bulk_current_x(),
+        #     self.compute_bulk_current_y(),
+        #     self.compute_bulk_current_z(),
+        # )
         alpha = self.variables.ions.species.equation_params.alpha
         epsilon = self.variables.ions.species.equation_params.epsilon
 
@@ -2565,13 +2632,6 @@ class ConstantCurrent(Propagator):
 
         n0u0_projected = P_L2(self.n0u0_on_eta_grid)
 
-        field = self.derham.create_spline_function("fh", "Hcurl")
-        field.vector = n0u0_projected
-        field_vals = field(e1, 0.5, 0.5)
-        print(f"shape = {field_vals[0][:, :, :].shape}")
-        plt.plot(e1, field_vals[0][:, 0, 0])
-        plt.show()
-
         #  print(f"Norme de _rhs_dofs: {np.linalg.norm(self._rhs_dofs._data)}")  # ou .n
         # Setup explicit ODE solver
         out = self.variables.e.spline.vector.space.zeros()
@@ -2580,8 +2640,8 @@ class ConstantCurrent(Propagator):
 
             out *= 0.0
             out += n0u0_projected
-            out *= self._c1
-            out *= -12.56
+            out *= -self._c1
+            # out *= -12.56
 
             out.update_ghost_regions()
             return out
@@ -2591,24 +2651,22 @@ class ConstantCurrent(Propagator):
         self._ode_solver = ODEsolverFEEC(vector_field, butcher=self.options.butcher)
 
     def update_current(self):
+        print("Updating current...")
+        current_x, current_y, current_z = self.compute_bulk_current()
+
         self.n0u0_on_eta_grid = (
-            self.compute_bulk_current_x(),
-            self.compute_bulk_current_y(),
-            self.compute_bulk_current_z(),
+            current_x,
+            current_y,
+            current_z,
         )
-        import matplotlib.pyplot as plt
-
-        e1 = np.linspace(0, 1, 64)
-
+        # self.n0u0_on_eta_grid = (
+        #     self.compute_bulk_current_x(),
+        #     self.compute_bulk_current_y(),
+        #     self.compute_bulk_current_z(),
+        # )
         P_L2 = L2Projector("Hcurl", self.mass_ops)
         n0u0_projected = P_L2(self.n0u0_on_eta_grid)
-        field = self.derham.create_spline_function("fh", "Hcurl")
-        field.vector = n0u0_projected
-        field_vals = field(e1, 0.5, 0.5)
-        print(f"shape = {len(field_vals[0])}")
-        plt.plot(e1, field_vals[0][:, 0, 0])
-        plt.title("Current projected")
-        plt.show()
+
         # Setup explicit ODE solver
         out = self.variables.e.spline.vector.space.zeros()
 
@@ -2616,8 +2674,8 @@ class ConstantCurrent(Propagator):
 
             out *= 0.0
             out += n0u0_projected
-            out *= self._c1
-            out *= -12.56
+            out *= -self._c1
+            #  out *= -12.56
 
             out.update_ghost_regions()
             return out

@@ -560,11 +560,27 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
         plt.tight_layout()
         plt.show()
 
+    def update_training_particles(self, dt):
+
+        r1 = self.domain.params["r1"]
+        r2 = self.domain.params["r2"]
+        r3 = self.domain.params["r3"]
+        self.non_periodic_positions[:, 0] = (
+            self.non_periodic_positions[:, 0] * r1
+            + (dt) * self.kinetic_ions.var.particles.velocities[:, 0]
+        ) / r1
+        self.non_periodic_positions[:, 1] = (
+            self.non_periodic_positions[:, 1] * r2
+            + (dt) * self.kinetic_ions.var.particles.velocities[:, 1]
+        ) / r2
+
+        self.non_periodic_positions[:, 2] = (
+            self.non_periodic_positions[:, 2] * r1
+            + (dt) * self.kinetic_ions.var.particles.velocities[:, 2]
+        ) / r1
+
     def compute_particle_current(self):
-        """
-        Calcule le courant particulaire: j = sum_k w_k * v_k * delta(x - x_k)
-        Retourne les courants jx, jy, jz sur la grille.
-        """
+        self.derham
         # Récupérer les données des particules
         positions = self.kinetic_ions.var.particles.positions  # Shape: (n_particles, 3)
         velocities = (
@@ -678,8 +694,7 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
         #     print(f"jx(x ={x}): {jx(x,0.5,0.5)}")
 
         #   assert 1 == 0
-        print(f" domain.params = {self.domain.params}")
-        r1 = self.domain.params["r1"]
+
         print(f"n = {self.n}")
         # particles = self.kinetic_ions.var.particles
         pos_before = self.kinetic_ions.var.particles.positions.copy()
@@ -703,28 +718,24 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
 
         self.propagators.push_eta(dt / 2)
 
-        self.non_periodic_positions = (
-            self.non_periodic_positions * r1
-            + (dt / 2) * self.kinetic_ions.var.particles.velocities
-        ) / r1
-        e = self.em_fields.e_field.spline.vector
-        en_E_before = 0.5 * self.mass_ops.M1.dot_inner(e, e).copy()
+        # self.non_periodic_positions = (
+        #     self.non_periodic_positions * r1
+        #     + (dt / 2) * self.kinetic_ions.var.particles.velocities
+        # ) / r1
+        self.update_training_particles(dt / 2)
 
         self.propagators.coupling_current(dt)
-        print(f"en_E_before = {en_E_before}")
-        print(f"en_E after current step = {0.5 * self.mass_ops.M1.dot_inner(e, e)}")
-        # assert np.array_equal(en_E_before, 0.5 * self.mass_ops.M1.dot_inner(e, e))
-        # assert np.array_equal(vel_before, self.kinetic_ions.var.particles.velocities)
+
         self.propagators.coupling_va(dt)
-        print(f"en_E after coupling step= {0.5 * self.mass_ops.M1.dot_inner(e, e)}")
-        #   assert np.array_equal(vel_before, self.kinetic_ions.var.particles.velocities)
 
         self.propagators.push_eta(dt / 2)
-        self.non_periodic_positions = (
-            self.non_periodic_positions * r1
-            + (dt / 2) * self.kinetic_ions.var.particles.velocities
-        ) / r1
+        # self.non_periodic_positions = (
+        #     self.non_periodic_positions * r1
+        #     + (dt / 2) * self.kinetic_ions.var.particles.velocities
+        # ) / r1
+        self.update_training_particles(dt / 2)
         self.time += dt
+
         e = self.em_fields.e_field.spline.vector
         en_E = 0.5 * self.mass_ops.M1.dot_inner(e, e).copy()
         self.t.append(self.time)
