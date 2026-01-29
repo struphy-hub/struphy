@@ -16,6 +16,6 @@ concurrency:
 
 jobs:
   ubuntu-install-test:
-    uses: ./.github/workflows/reusable-testing.yml
+    uses: ./.github/workflows/reusable-scheduled.yml
     with:
       os: ubuntu-latest
