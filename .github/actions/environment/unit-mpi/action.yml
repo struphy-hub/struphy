@@ -2,6 +2,10 @@ name: Set environment variables for mpi unit tests
 
 description: 
 
+inputs:
+  n-procs:
+    default: 2
+
 runs:
   using: composite
   steps:
