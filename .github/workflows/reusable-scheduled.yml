@@ -84,11 +84,10 @@ jobs:
         if: matrix.test-type == 'model'
         shell: bash
         run: |
-          mpirun -n 1 pytest -m single --testmon-forceselect -s --with-mpi --model-name Maxwell $STRUPHY_PATH
-          mpirun -oversubscribe -n 2 pytest -m models --testmon-forceselect --with-mpi $STRUPHY_PATH/models/tests/default_params/
+          mpirun -oversubscribe -n 2 pytest -m models --with-mpi $STRUPHY_PATH/models/tests/default_params/
 
       - name: Run verification tests with MPI
         if: matrix.test-type == 'verification'
         shell: bash
         run: |
-          mpirun --oversubscribe -n 2 pytest --testmon --with-mpi $STRUPHY_PATH/models/tests/verification/
+          mpirun --oversubscribe -n 2 pytest --with-mpi $STRUPHY_PATH/models/tests/verification/
