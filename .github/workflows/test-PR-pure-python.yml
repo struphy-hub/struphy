@@ -65,11 +65,9 @@ jobs:
           ls .testmon* || echo "No .testmondata"
 
       - name: Install Struphy
-        shell: bash
-        run: |
-          python3 -m venv env
-          source env/bin/activate
-          pip install -e .[dev]
+        uses: ./.github/actions/install/install-struphy
+        with:
+          env-name: env
 
       - name: Reinstall feectools from submodule
         uses: ./.github/actions/install/feectools-submodule
@@ -110,8 +108,7 @@ jobs:
         run: |
           source env/bin/activate
           struphy compile --status
-          cd src/struphy/
-          mpirun --oversubscribe -n 1 pytest -m single -xvs --with-mpi --model-name LinearMHD
+          mpirun --oversubscribe -n 1 pytest -m single -xvs --with-mpi --model-name LinearMHD $STRUPHY_PATH
 
       - name: LinearMHD test
         shell: bash
@@ -120,7 +117,7 @@ jobs:
         run: |
           source env/bin/activate
           struphy compile --status
-          struphy test LinearMHD
+          pytest -m single -xvs --model-name LinearMHD $STRUPHY_PATH
 
       - name: Vlasov test
         shell: bash
@@ -128,7 +125,7 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python
         run: |
           source env/bin/activate
-          struphy test Vlasov
+          pytest -m single -xvs --model-name Vlasov $STRUPHY_PATH
 
       - name: GuidingCenter test
         shell: bash
@@ -136,7 +133,7 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python
         run: |
           source env/bin/activate
-          struphy test GuidingCenter
+          pytest -m single -xvs --model-name GuidingCenter $STRUPHY_PATH 
 
       - name: VlasovAmpere test
         shell: bash
@@ -144,7 +141,7 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python
         run: |
           source env/bin/activate
-          struphy test VlasovAmpereOneSpecies
+          pytest -m single -xvs --model-name VlasovAmpereOneSpecies $STRUPHY_PATH 
 
       - name: EulerSPH test
         shell: bash
@@ -152,7 +149,7 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python
         run: |
           source env/bin/activate
-          struphy test EulerSPH
+          pytest -m single -xvs --model-name EulerSPH $STRUPHY_PATH 
 
       - name: Vlasov test MPI
         shell: bash
@@ -161,8 +158,8 @@ jobs:
         # init .testmondata with non-MPI call
         run: |
           source env/bin/activate
-          mpirun -n 1 pytest -m single --testmon-forceselect -s --with-mpi --model-name Maxwell src/struphy
-          struphy test Vlasov --mpi 2
+          mpirun -n 1 pytest -m single --testmon-forceselect -s --with-mpi --model-name Maxwell $STRUPHY_PATH
+          mpirun -n 2 pytest -m single --testmon-forceselect -s --with-mpi --model-name Vlasov $STRUPHY_PATH
 
       - name: GuidingCenter test MPI
         shell: bash
@@ -170,7 +167,7 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python-mpi
         run: |
           source env/bin/activate
-          struphy test GuidingCenter --mpi 2
+          mpirun -n 2 pytest -m single --testmon-forceselect -s --with-mpi --model-name GuidingCenter $STRUPHY_PATH
 
       - name: VlasovAmpere test MPI
         shell: bash
@@ -178,7 +175,7 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python-mpi
         run: |
           source env/bin/activate
-          struphy test VlasovAmpereOneSpecies --mpi 2
+          mpirun -n 2 pytest -m single --testmon-forceselect -s --with-mpi --model-name VlasovAmpereOneSpecies $STRUPHY_PATH 
 
       - name: EulerSPH test MPI
         shell: bash
@@ -186,4 +183,4 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python-mpi
         run: |
           source env/bin/activate
-          struphy test EulerSPH --mpi 2
+          mpirun -n 2 pytest -m single --testmon-forceselect -s --with-mpi --model-name EulerSPH  $STRUPHY_PATH 

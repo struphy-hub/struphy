@@ -1,19 +1,20 @@
-name: "Install struphy in env"
+name: "Install struphy (in virtual environment)"
 
 description: 
 
 inputs:
+  env-name: 
+    default: ""
   optional-deps:
-    required: true
     default: 'dev'
 
 runs:
   using: composite
   steps:
-
     - name: Install struphy
       shell: bash
       run: |
+        source ${{ inputs.env-name }}/bin/activate || true
         pip install --upgrade pip
         pip install ".[${{ inputs.optional-deps }}]"
         pip list
