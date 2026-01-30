@@ -7,14 +7,7 @@ Struphy provides an abstract framework for seamless addition of new model equati
 A model consists of a set of PDEs that has been discretized within the 
 :ref:`GEMPIC <gempic>` framework.
 
-New Struphy models must be added in one of the four modules:
-
-* `models/toy.py <https://github.com/struphy-hub/struphy/blob/devel/src/struphy/models/toy.py>`_
-* `models/fluid.py <https://github.com/struphy-hub/struphy/blob/devel/src/struphy/models/fluid.py>`_
-* `models/kinetic.py <https://github.com/struphy-hub/struphy/blob/devel/src/struphy/models/kinetic.py>`_
-* `models/hybrid.py <https://github.com/struphy-hub/struphy/blob/devel/src/struphy/models/hybrid.py>`_
-
-as child classes of the :class:`StruphyModel <struphy.models.base.StruphyModel>`. **Please refer to existing models for templates.**
+New Struphy models are child classes of the :class:`StruphyModel <struphy.models.base.StruphyModel>`. **Please refer to existing models for templates.**. Each model is defined in a separate file in the :ref:`models` module.
 Here is a list of points that need to be followed when creating a new model:
 
 
