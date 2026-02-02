@@ -1363,71 +1363,49 @@ def test_sph_viscosity_evaluation_2d(
     Lx = r1 - l1
     Ly = r2 - l2
     
-    def u_xyz(x, y, z):
-        ux = xp.sin(2 * xp.pi * x) * xp.cos(2 * xp.pi * y) * xp.cos(2 * xp.pi * z)
-        uy = -xp.cos(2 * xp.pi * x) * xp.sin(2 * xp.pi * y) * xp.cos(2 * xp.pi * z)
-        uz = 2 * xp.cos(2 * xp.pi * x) * xp.cos(2 * xp.pi * y) * xp.sin(2 * xp.pi * z)
-        return ux, uy, uz
 
-    def analytic_viscosity(x, y, z):
-        Pi = xp.zeros((3, 3) + x.shape)
-
-        c = xp.cos(2 * xp.pi * x)
-        s = xp.sin(2 * xp.pi * x)
-        cy = xp.cos(2 * xp.pi * y)
-        sy = xp.sin(2 * xp.pi * y)
-        cz = xp.cos(2 * xp.pi * z)
-        sz = xp.sin(2 * xp.pi * z)
-
-        Pi[0, 0] =  c * cy * cz
-        Pi[1, 1] = -c * cy * cz
-        Pi[2, 2] =  2 * c * cy * cz
-
-        Pi[0, 1] = s * sy * cz
-        Pi[1, 0] = Pi[0, 1]
-
-        Pi[0, 2] = s * cy * sz
-        Pi[2, 0] = Pi[0, 2]
-
-        Pi[1, 2] = c * sy * sz
-        Pi[2, 1] = Pi[1, 2]
-
-        return Pi
+# -----------------------------
+# 1. Taylor-Green velocity field
+# -----------------------------
+def u_xyz(x, y, z, U0=1.0):
+    """
+    Compute the 3D Taylor-Green vortex velocity at points x, y, z.
+    u = [sin(x)cos(y)cos(z), -cos(x)sin(y)cos(z), 0]
+    """
+    u_x = U0 * xp.sin(x) * xp.cos(y) * xp.cos(z)
+    u_y = -U0 * xp.cos(x) * xp.sin(y) * xp.cos(z)
+    u_z = xp.zeros_like(x)
     
-    def div_analytic_viscosity(x, y, z):
-        divPi = xp.zeros((3,) + x.shape)
+    return u_x,u_y,u_z
 
-        c = xp.cos(2 * xp.pi * x)
-        s = xp.sin(2 * xp.pi * x)
-        cy = xp.cos(2 * xp.pi * y)
-        sy = xp.sin(2 * xp.pi * y)
-        cz = xp.cos(2 * xp.pi * z)
-        sz = xp.sin(2 * xp.pi * z)
+# -----------------------------
+# 2. Deviatoric stress tensor pi
+# -----------------------------
+def pi_tensor(x, y, z):
+    """
+    Compute the deviatoric viscous tensor pi for Taylor-Green vortex.
+    """
+    sin = np.sin
+    cos = np.cos
 
-        d = 2 * xp.pi
+    pi = np.zeros((3, 3, *x.shape))  # shape (3,3,Nx,Ny,Nz)
 
-        # divPi_x = d_x Pi_xx + d_y Pi_xy + d_z Pi_xz
-        divPi[0] = (
-            -d * s * cy * cz
-            + d * s * cy * cz
-            + d * s * cy * cz
-        )
+    # Diagonal
+    pi[0,0] = cos(x)*cos(y)*cos(z)
+    pi[1,1] = -cos(x)*cos(y)*cos(z)
+    pi[2,2] = 0
 
-        # divPi_y = d_x Pi_yx + d_y Pi_yy + d_z Pi_yz
-        divPi[1] = (
-            d * c * sy * cz
-            + d * c * sy * cz
-            + d * c * sy * cz
-        )
+    # Off-diagonal
+    pi[0,1] = pi[1,0] = 0
+    pi[0,2] = pi[2,0] = -0.5 * sin(x)*cos(y)*sin(z)
+    pi[1,2] = pi[2,1] = 0.5 * cos(x)*sin(y)*sin(z)
 
-        # divPi_z = d_x Pi_zx + d_y Pi_zy + d_z Pi_zz
-        divPi[2] = (
-            d * c * cy * sz
-            + d * c * cy * sz
-            - 2 * d * c * cy * sz
-        )
+    return pi
 
-        return divPi
+# -----------------------------
+# 3. Divergence of pi
+# -----------------------------
+
 
 
     
