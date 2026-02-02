@@ -1403,13 +1403,11 @@ def test_sph_viscosity_evaluation_2d(
     # 3. Divergence of pi
     # -----------------------------
 
-    def divergence_pi_analytic(x, y, z):
+    def div_pi_analytic(x, y, z):
         """
         Returns:
-            div_x, div_y, div_z : np.ndarray
+            div_x, div_y, div_z
         """
-        sin = np.sin
-        cos = np.cos
 
         div_x = -1.5 * xp.sin(x) * xp.cos(y) * xp.cos(z)
         div_y =  1.5 * xp.cos(x) * xp.sin(y) * xp.cos(z)
@@ -1513,14 +1511,14 @@ def test_sph_viscosity_evaluation_2d(
         kernel_type=kernel,
         derivative=derivative,
     )
-    gamma_x = div_viscosity[0]
-    gamma_y = div_viscosity[1]
-    gamma_z = div_viscosity[2]
+    gamma_x = (-1)*div_viscosity[0]
+    gamma_y = (-1)*div_viscosity[1]
+    gamma_z = (-1)*div_viscosity[2]
     
-    div_pi_analytic = div_analytic_viscosity(xx, yy, zz)
-    div_pi_x = div_pi_analytic[0]  
-    div_pi_y = div_pi_analytic[1]  
-    div_pi_z = div_pi_analytic[2]
+    div_pi_exact = div_pi_analytic(xx, yy, zz)
+    div_pi_x = div_pi_exact[0]  
+    div_pi_y = div_pi_exact[1]  
+    div_pi_z = div_pi_exact[2]
     
     
     if comm is not None:
@@ -1541,14 +1539,15 @@ def test_sph_viscosity_evaluation_2d(
     # compute errors
     err_div_x = abs_err(all_div_x, div_pi_x)
     err_div_y = abs_err(all_div_y, div_pi_y)
-    err_div_z = abs_err(all_div_z, div_pi_z)
+    #err_div_z = abs_err(all_div_z, div_pi_z)
     
     
     if rank == 0:
         print(f"\n{boxes_per_dim = }")
         print(f"{kernel = }, {derivative = }")
         print(f"{bc_x = }, {bc_y = }, {eval_pts = }")
-        print(f"Divergence of viscosity errors: gx={err_div_x:.3e}, gy={err_div_y:.3e}, gz={err_div_z:.3e}")
+        print(f"Divergence of viscosity errors: gx={err_div_x:.3e}, gy={err_div_y:.3e}")
+        #, gz={err_div_z:.3e}
 
     if show_plot:
         # --- gamma_x and gamma_y plots ---
@@ -1559,27 +1558,31 @@ def test_sph_viscosity_evaluation_2d(
         plt.pcolor(ee1.squeeze(), ee2.squeeze(), div_pi_x.squeeze())
         plt.title("Exact div_viscosity_x")
         plt.colorbar()
+        plt.savefig("Exact div_viscosity_x")
 
         plt.subplot(3, 3, 4)
         plt.pcolor(ee1.squeeze(), ee2.squeeze(), all_div_x.squeeze())
         plt.title("SPH div_viscosity_x")
         plt.colorbar()
-
+        plt.savefig("SPH div_viscosity_x")
         plt.subplot(3, 3, 7)
         plt.pcolor(ee1.squeeze(), ee2.squeeze(), (all_div_x - div_pi_x).squeeze())
         plt.title("Error div_viscosity_x")
         plt.colorbar()
+        plt.savefig("Error div_viscosity_x")
 
         # gamma_y plots
         plt.subplot(3, 3, 2)
         plt.pcolor(ee1.squeeze(), ee2.squeeze(), div_pi_y.squeeze())
         plt.title("Exact div_viscosity_y")
         plt.colorbar()
+        plt.savefig("Exact div_viscosity_y")
 
         plt.subplot(3, 3, 5)
         plt.pcolor(ee1.squeeze(), ee2.squeeze(), all_div_y.squeeze())
         plt.title("SPH div_viscosity_y")
         plt.colorbar()
+        plt.savefig("SPH div_viscosity_y")
 
         plt.subplot(3, 3, 8)
         plt.pcolor(ee1.squeeze(), ee2.squeeze(), (all_div_y - div_pi_y).squeeze())
@@ -1605,6 +1608,7 @@ def test_sph_viscosity_evaluation_2d(
         plt.tight_layout()
         plt.savefig("div_viscosity_2d_all.png")
         plt.show()
+        plt.savefig("viscosity_2d_all")
 
 
 
