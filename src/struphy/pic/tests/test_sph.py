@@ -1364,64 +1364,59 @@ def test_sph_viscosity_evaluation_2d(
     Ly = r2 - l2
     
 
-# -----------------------------
-# 1. Taylor-Green velocity field
-# -----------------------------
-def u_xyz(x, y, z, U0=1.0):
-    """
-    Compute the 3D Taylor-Green vortex velocity at points x, y, z.
-    u = [sin(x)cos(y)cos(z), -cos(x)sin(y)cos(z), 0]
-    """
-    u_x = U0 * xp.sin(x) * xp.cos(y) * xp.cos(z)
-    u_y = -U0 * xp.cos(x) * xp.sin(y) * xp.cos(z)
-    u_z = xp.zeros_like(x)
-    
-    return u_x,u_y,u_z
+    # -----------------------------
+    # 1. Taylor-Green velocity field
+    # -----------------------------
+    def u_xyz(x, y, z, U0=1.0):
+        """
+        Compute the 3D Taylor-Green vortex velocity at points x, y, z.
+        u = [sin(x)cos(y)cos(z), -cos(x)sin(y)cos(z), 0]
+        """
+        u_x = U0 * xp.sin(x) * xp.cos(y) * xp.cos(z)
+        u_y = -U0 * xp.cos(x) * xp.sin(y) * xp.cos(z)
+        u_z = xp.zeros_like(x)
+        
+        return u_x,u_y,u_z
 
-# -----------------------------
-# 2. Deviatoric stress tensor pi
-# -----------------------------
-def pi_tensor(x, y, z):
-    """
-    Compute the deviatoric viscous tensor pi for Taylor-Green vortex.
-    """
-    sin = np.sin
-    cos = np.cos
+    # -----------------------------
+    # 2. Deviatoric stress tensor pi
+    # -----------------------------
+    def pi_tensor(x, y, z):
+        """
+        Compute the deviatoric viscous tensor pi for Taylor-Green vortex.
+        """
+        pi = xp.zeros((3, 3, *x.shape))  # shape (3,3,Nx,Ny,Nz)
 
-    pi = np.zeros((3, 3, *x.shape))  # shape (3,3,Nx,Ny,Nz)
+        # Diagonal
+        pi[0,0] = xp.cos(x)*xp.cos(y)*xp.cos(z)
+        pi[1,1] = -xp.cos(x)*xp.cos(y)*xp.cos(z)
+        pi[2,2] = 0
 
-    # Diagonal
-    pi[0,0] = cos(x)*cos(y)*cos(z)
-    pi[1,1] = -cos(x)*cos(y)*cos(z)
-    pi[2,2] = 0
+        # Off-diagonal
+        pi[0,1] = pi[1,0] = 0
+        pi[0,2] = pi[2,0] = -0.5 * xp.sin(x)*xp.cos(y)*xp.sin(z)
+        pi[1,2] = pi[2,1] = 0.5 * xp.cos(x)*xp.sin(y)*xp.sin(z)
 
-    # Off-diagonal
-    pi[0,1] = pi[1,0] = 0
-    pi[0,2] = pi[2,0] = -0.5 * sin(x)*cos(y)*sin(z)
-    pi[1,2] = pi[2,1] = 0.5 * cos(x)*sin(y)*sin(z)
+        return pi
 
-    return pi
+    # -----------------------------
+    # 3. Divergence of pi
+    # -----------------------------
 
-# -----------------------------
-# 3. Divergence of pi
-# -----------------------------
+    def divergence_pi_analytic(x, y, z):
+        """
+        Returns:
+            div_x, div_y, div_z : np.ndarray
+        """
+        sin = np.sin
+        cos = np.cos
 
+        div_x = -1.5 * xp.sin(x) * xp.cos(y) * xp.cos(z)
+        div_y =  1.5 * xp.cos(x) * xp.sin(y) * xp.cos(z)
+        div_z = xp.zeros_like(x)
 
+        return div_x, div_y, div_z
 
-    
-    # def u_xyz(x, y, z):
-    #    ux = xp.sin(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
-    #    uy = -xp.cos(2 * xp.pi * x) * xp.sin(2 * xp.pi * y)
-    #    uz = 0.0 * z
-    #    return ux, uy, uz
-
-    # def analytic_div_viscosity(x, y):
-    #    val = 2 * xp.pi * xp.cos(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
-    #    Pi_analytic = xp.zeros((3, 3) + x.shape)
-    #    Pi_analytic[0, 0] = val
-    #    Pi_analytic[1, 1] = -val
-    #    return Pi_analytic
-    
     background = GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
     background.domain = domain
 
