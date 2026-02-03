@@ -255,14 +255,12 @@ def main():
         # iterate over species
         for species in params["kinetic"].keys():
             # Get model class
-            from struphy.models import fluid, hybrid, kinetic, toy
+            import struphy.models as models
 
-            objs = [fluid, kinetic, hybrid, toy]
-            for obj in objs:
-                try:
-                    model_class = getattr(obj, model_name)
-                except AttributeError:
-                    pass
+            try:
+                model_class = getattr(models, model_name)
+            except AttributeError:
+                raise ModuleNotFoundError(f"{model_name} not found!")
 
             # get particles class name
             species_dict = model_class.species()

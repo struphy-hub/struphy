@@ -61,7 +61,7 @@ jobs:
       - name: Install struphy
         uses: ./.github/actions/install/install-struphy
         with:
-          optional-deps: 'mpi'
+          optional-deps: 'mpi,phys'
         env:
           FC: ${{ env.FC }}
           CC: ${{ env.CC }}
@@ -73,20 +73,23 @@ jobs:
         with:
           language: ${{ matrix.compile-language }}
 
+      - name: Set environment for mpi run
+        uses: ./.github/actions/environment/unit-mpi
+
       - name: Run unit tests with MPI
         if: matrix.test-type == 'unit'
-        shell: bash
-        run: |
-          struphy test unit --mpi 2
+        uses: ./.github/actions/tests/unit
+        with:
+          struphy-path: ${{ env.STRUPHY_PATH }}
 
       - name: Run model tests with MPI
         if: matrix.test-type == 'model'
         shell: bash
         run: |
-          struphy test models --mpi 2
+          mpirun -oversubscribe -n 2 pytest -m models --with-mpi $STRUPHY_PATH/models/tests/default_params/
 
       - name: Run verification tests with MPI
         if: matrix.test-type == 'verification'
         shell: bash
         run: |
-          struphy test verification --mpi 2
+          mpirun --oversubscribe -n 2 pytest --with-mpi $STRUPHY_PATH/models/tests/verification/
