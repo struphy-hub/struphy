@@ -398,15 +398,12 @@ stages:
     - python3 -m build
   inspect_struphy:
     - struphy -h
-    - struphy --refresh-models
     - struphy run -h
   unit_tests:
     - struphy compile --status
-    - struphy --refresh-models
     - struphy test unit
   unit_tests_mpi:
     - struphy compile --status
-    - struphy --refresh-models
     - struphy test unit --mpi 2
   model_tests:
     - struphy compile --status

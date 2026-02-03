@@ -15,14 +15,6 @@ from struphy.utils.utils import read_state, subp_run
 libpath = struphy_lib.__path__[0]
 state = read_state()
 
-# Create models_list if it doesn't exist
-if not os.path.isfile(os.path.join(libpath, "models", "models_list")):
-    cmd = ["struphy", "--refresh-models"]
-    subp_run(cmd)
-
-with open(os.path.join(libpath, "models", "models_list"), "rb") as fp:
-    struphy_models = pickle.load(fp)
-
 
 def is_sublist(main_list, sub_list):
     """
@@ -117,8 +109,6 @@ def run_struphy(args):
         [["--fluid"], ["Fluid models"]],
         [["--kinetic"], ["Kinetic models"]],
         [["--hybrid"], ["Hybrid models"]],
-        [["--toy"], ["Toy models"]],
-        [["--refresh-models"], ["Collecting available models"]],
     ],
 )
 def test_main_options(args_expected, capsys):

@@ -3,8 +3,9 @@ import sys
 import yaml
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.models import fluid, hybrid, kinetic, toy
+import struphy.models as models
 from struphy.models.base import StruphyModel
+from struphy.models.utils import get_model_by_name
 
 
 def struphy_params(model_name: str, yes: bool = False, check_file: bool = False):
@@ -18,15 +19,11 @@ def struphy_params(model_name: str, yes: bool = False, check_file: bool = False)
     yes : bool
         If true, say yes on prompt to overwrite .yml FILE
     """
-    objs = [fluid, kinetic, hybrid, toy]
-    for obj in objs:
-        try:
-            model_class = getattr(obj, model_name)
-            model: StruphyModel = model_class()
-        except AttributeError:
-            pass
 
-    print(f"{model_name =}")
+    model_class = get_model_by_name(model_name=model_name)
+    model: StruphyModel = model_class()
+
+    # print(f"{model_name =} {model = }")
 
     # print units
     if check_file:
