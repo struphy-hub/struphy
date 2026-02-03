@@ -1,7 +1,7 @@
 import cunumpy as xp
 
 import struphy.pic.utilities_kernels as utils
-from struphy.public_api.options import (
+from struphy.api.options import (
     BinningQuantity,
     OptsLoading,
     OptsMarkerBC,

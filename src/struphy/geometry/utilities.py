@@ -16,7 +16,7 @@ from struphy.bsplines import bsplines as bsp
 # if TYPE_CHECKING:
 from struphy.geometry.base import Domain, PoloidalSplineTorus
 from struphy.geometry.utilities_kernels import weighted_arc_lengths_flux_surface
-from struphy.public_api.options import GivenInBasis
+from struphy.api.options import GivenInBasis
 from struphy.linear_algebra.linalg_kron import kron_lusolve_2d
 
 

@@ -1,6 +1,6 @@
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.public_api.options import ModelTypes
+from struphy.api.options import ModelTypes
 from struphy.models.linear_vlasov_ampere_one_species import LinearVlasovAmpereOneSpecies
 from struphy.models.species import (
     FieldSpecies,

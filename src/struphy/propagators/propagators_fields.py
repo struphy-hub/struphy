@@ -41,7 +41,7 @@ from struphy.feec.variational_utilities import (
 from struphy.fields_background.equils import set_defaults
 from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial import perturbations
-from struphy.public_api.options import (
+from struphy.api.options import (
     OptsDirectSolver,
     OptsGenSolver,
     OptsMassPrecond,

@@ -11,7 +11,7 @@ from struphy import main
 from struphy.fields_background import equils
 from struphy.geometry import domains
 from struphy.initial import perturbations
-from struphy.public_api.options import BaseUnits, EnvironmentOptions, Time
+from struphy.api.options import BaseUnits, EnvironmentOptions, Time
 from struphy.pic.utilities import (
     BinningPlot,
     BoundaryParameters,

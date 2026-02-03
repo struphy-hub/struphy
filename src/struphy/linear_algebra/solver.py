@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from struphy.public_api.options import OptsNonlinearSolver
+from struphy.api.options import OptsNonlinearSolver
 
 
 @dataclass

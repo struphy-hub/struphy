@@ -1,7 +1,7 @@
 import inspect
 
 import struphy.models as models
-from struphy.public_api.options import ModelTypes
+from struphy.api.options import ModelTypes
 from struphy.models.base import StruphyModel
 
 

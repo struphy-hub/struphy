@@ -17,7 +17,7 @@ expressed as :math:`a = 2 \cdot 1\, \textrm{meter}` or as
 of length was chosen to be 0.5 meter.
 
 The units :math:`\hat X` for a Struphy model
-can be influenced by the user through :class:`~struphy.public_api.options.BaseUnits` in the launch file,
+can be influenced by the user through :class:`~struphy.api.options.BaseUnits` in the launch file,
 where the user can set
 
 * the unit of **length** :math:`\hat x`, expressed in **Meter**,
@@ -58,7 +58,7 @@ There are four possibilities:
     \hat v = \sqrt{\frac{k_\textnormal{B} \hat T}{m_\textnormal{bulk}}}\,.
 
 Several additional units are derived internally from the above basic units, 
-in the class :class:`~struphy.public_api.options.Units`. In particular,
+in the class :class:`~struphy.api.options.Units`. In particular,
 
 * the **time** unit in **Seconds**:
 
@@ -92,7 +92,7 @@ We refer to :ref:`disc_example` for an example of how to derive a normalization 
 Units class
 -----------
 
-.. autoclass:: struphy.public_api.options.Units
+.. autoclass:: struphy.api.options.Units
     :members:
     :undoc-members:
 

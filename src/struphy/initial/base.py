@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import Callable
 
-from struphy.public_api.options import GivenInBasis, check_option
+from struphy.api.options import GivenInBasis, check_option
 
 
 class Perturbation(metaclass=ABCMeta):

@@ -8,7 +8,7 @@ import scipy
 import scipy.special
 
 from struphy.initial.base import Perturbation
-from struphy.public_api.options import GivenInBasis, NoiseDirections, check_option
+from struphy.api.options import GivenInBasis, NoiseDirections, check_option
 
 
 @dataclass

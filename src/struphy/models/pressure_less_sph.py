@@ -1,6 +1,6 @@
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.public_api.options import ModelTypes
+from struphy.api.options import ModelTypes
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     ParticleSpecies,

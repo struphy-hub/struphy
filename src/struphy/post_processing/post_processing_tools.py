@@ -12,7 +12,7 @@ from struphy.fields_background import equils
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.geometry import domains
 from struphy.geometry.base import Domain
-from struphy.public_api.options import BaseUnits, EnvironmentOptions, Time
+from struphy.api.options import BaseUnits, EnvironmentOptions, Time
 from struphy.io.setup import import_parameters_py
 from struphy.kinetic_background import maxwellians
 from struphy.kinetic_background.base import KineticBackground
