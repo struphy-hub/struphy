@@ -1,7 +1,7 @@
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector
 
-from struphy.io.options import ModelTypes
+from struphy.public_api.options import ModelTypes
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     FieldSpecies,

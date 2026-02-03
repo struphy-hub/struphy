@@ -35,7 +35,7 @@ from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial import perturbations, utilities
 from struphy.initial.base import Perturbation
 from struphy.initial.perturbations import Noise
-from struphy.io.options import FieldsBackground, GivenInBasis, NoiseDirections, OptsFEECSpace
+from struphy.public_api.options import FieldsBackground, GivenInBasis, NoiseDirections, OptsFEECSpace
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1

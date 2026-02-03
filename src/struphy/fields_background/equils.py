@@ -32,7 +32,7 @@ from struphy.fields_background.base import (
     NumericalMHDequilibrium,
 )
 from struphy.fields_background.mhd_equil.eqdsk import readeqdsk
-from struphy.io.options import BaseUnits, Units
+from struphy.public_api.options import BaseUnits, Units
 from struphy.utils.utils import read_state, subp_run
 
 if isinstance(MPI, MockMPI):
@@ -59,7 +59,7 @@ class HomogenSlab(CartesianMHDequilibrium):
 
         n &= n_0 = const.\,.
 
-    Units are those defned in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
+    Units are those defned in the parameter file (through :class:`~struphy.public_api.options.BaseUnits`).
 
     Parameters
     ----------
@@ -171,7 +171,7 @@ class ShearedSlab(CartesianMHDequilibrium):
 
         n(x) &= n_a + ( 1 - n_a ) \left( 1 - \left(\frac{x}{a}\right)^{n_1} \right)^{n_2} \,.
 
-    Units are those defned in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
+    Units are those defned in the parameter file (through :class:`~struphy.public_api.options.BaseUnits`).
 
     Parameters
     ----------
@@ -396,7 +396,7 @@ class ShearFluid(CartesianMHDequilibrium):
 
         \mathbf B &= B_{0x}\,\mathbf e_x + B_{0y}\,\mathbf e_y + B_{0z}\,\mathbf e_z = const.\,,
 
-    Units are those defned in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
+    Units are those defned in the parameter file (through :class:`~struphy.public_api.options.BaseUnits`).
 
     Parameters
     ----------
@@ -603,7 +603,7 @@ class ScrewPinch(CartesianMHDequilibrium):
 
         n(r) &= n_a + ( 1 - n_a )\left( 1 - \left(\frac{r}{a}\right)^{n_1} \right)^{n_2}\,.
 
-    Units are those defned in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
+    Units are those defned in the parameter file (through :class:`~struphy.public_api.options.BaseUnits`).
 
     Parameters
     ----------
@@ -879,7 +879,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
 
         n(r) = n_a + ( 1 - n_a ) \left( 1 - \left(\frac{r}{a}\right)^{n_1} \right)^{n_2}\,.
 
-    Units are those defned in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
+    Units are those defned in the parameter file (through :class:`~struphy.public_api.options.BaseUnits`).
 
     Parameters
     ----------
@@ -1381,7 +1381,7 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
 
         n(\psi) &= n_a + ( 1 - n_a ) \left( 1 - \psi_{\textnormal{norm}}^{n_1} \right)^{n_2}\,.
 
-    Units are those defned in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
+    Units are those defned in the parameter file (through :class:`~struphy.public_api.options.BaseUnits`).
 
     Parameters
     ----------
@@ -2957,7 +2957,7 @@ class HomogenSlabITG(CartesianFluidEquilibriumWithB):
 
         \mathbf u &= - \epsilon \frac{p_0}{L_x} \mathbf e_y\,.
 
-    Units are those defned in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
+    Units are those defned in the parameter file (through :class:`~struphy.public_api.options.BaseUnits`).
 
     Parameters
     ----------
@@ -3075,7 +3075,7 @@ class CircularTokamak(AxisymmMHDequilibrium):
 
     The pressure profile and the number density profile are not specified
 
-    Units are those defined in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
+    Units are those defined in the parameter file (through :class:`~struphy.public_api.options.BaseUnits`).
 
     Parameters
     ----------
@@ -3235,7 +3235,7 @@ class CurrentSheet(CartesianMHDequilibrium):
 
         n &= n_0 = 1 \,.
 
-    Units are those defned in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
+    Units are those defned in the parameter file (through :class:`~struphy.public_api.options.BaseUnits`).
 
     Parameters
     ----------

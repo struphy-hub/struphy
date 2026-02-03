@@ -28,7 +28,7 @@ from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial.base import Perturbation
-from struphy.io.options import BinningQuantity, OptsLoading
+from struphy.public_api.options import BinningQuantity, OptsLoading
 from struphy.io.output_handling import DataContainer
 from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
 from struphy.kinetic_background.base import KineticBackground, Maxwellian

@@ -13,7 +13,7 @@ from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
 from struphy.geometry.base import Domain
-from struphy.io.options import check_option
+from struphy.public_api.options import check_option
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 
 

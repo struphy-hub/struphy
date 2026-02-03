@@ -12,7 +12,7 @@ from line_profiler import profile
 
 from struphy.feec import preconditioner
 from struphy.feec.linear_operators import LinOpWithTransp
-from struphy.io.options import OptsGenSolver, OptsMassPrecond, OptsSymmSolver, OptsVecSpace, check_option
+from struphy.public_api.options import OptsGenSolver, OptsMassPrecond, OptsSymmSolver, OptsVecSpace, check_option
 from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import Maxwellian3D

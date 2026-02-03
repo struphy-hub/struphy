@@ -9,7 +9,7 @@ import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.geometry.base import Domain
-from struphy.io.options import DerhamOptions
+from struphy.public_api.options import DerhamOptions
 from struphy.topology.grids import TensorProductGrid
 
 

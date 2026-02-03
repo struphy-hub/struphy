@@ -12,7 +12,7 @@ from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.initial.perturbations import Perturbation
-from struphy.io.options import (
+from struphy.public_api.options import (
     FieldsBackground,
     OptsFEECSpace,
     OptsPICSpace,
