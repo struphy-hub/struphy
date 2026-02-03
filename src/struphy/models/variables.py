@@ -12,17 +12,13 @@ from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.initial.perturbations import Perturbation
-from struphy.api.options import (
-    FieldsBackground,
-    OptsFEECSpace,
-    OptsPICSpace,
-    check_option,
-)
+from struphy.api.options import FieldsBackground, LiteralOptions
 from struphy.kinetic_background.base import KineticBackground
 from struphy.pic import particles
 from struphy.pic.base import Particles
 from struphy.pic.particles import ParticlesSPH
 from struphy.utils.clone_config import CloneConfig
+from struphy.utils.utils import check_option
 
 if TYPE_CHECKING:
     from struphy.models.species import FieldSpecies, FluidSpecies, ParticleSpecies, Species
@@ -92,8 +88,8 @@ class Variable(metaclass=ABCMeta):
 class FEECVariable(Variable):
     """Variable discretized with :ref:`geomFE`."""
 
-    def __init__(self, space: OptsFEECSpace = "H1"):
-        check_option(space, OptsFEECSpace)
+    def __init__(self, space: LiteralOptions.OptsFEECSpace = "H1"):
+        check_option(space, LiteralOptions.OptsFEECSpace)
         self._space = space
 
     @property

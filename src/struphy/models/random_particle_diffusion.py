@@ -1,6 +1,6 @@
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.api.options import ModelTypes
+from struphy.api.options import LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     ParticleSpecies,
@@ -39,7 +39,7 @@ class RandomParticleDiffusion(StruphyModel):
     """
 
     @classmethod
-    def model_type(cls) -> ModelTypes:
+    def model_type(cls) -> LiteralOptions.ModelTypes:
         return "Kinetic"
 
     ## species

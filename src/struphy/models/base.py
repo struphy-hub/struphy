@@ -28,7 +28,7 @@ from struphy.fields_background.projected_equils import (
     ProjectedMHDequilibrium,
 )
 from struphy.geometry.base import Domain
-from struphy.api.options import DerhamOptions, ModelTypes, Units
+from struphy.api.options import DerhamOptions, LiteralOptions, Units
 from struphy.io.output_handling import DataContainer
 from struphy.io.setup import setup_derham
 from struphy.models.species import DiagnosticSpecies, FieldSpecies, FluidSpecies, ParticleSpecies, Species
@@ -54,7 +54,7 @@ class StruphyModel(metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
-    def model_type(cls) -> ModelTypes:
+    def model_type(cls) -> LiteralOptions.ModelTypes:
         """Model type (Fluid, Kinetic, Hybrid, or Toy)"""
         pass
 

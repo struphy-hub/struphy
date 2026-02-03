@@ -1,92 +1,105 @@
 import os
 from dataclasses import dataclass
-from typing import Literal, get_args
+from typing import Literal
 
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.physics.physics import ConstantsOfNature
+from struphy.utils.utils import check_option
 
-## Literal options
 
-# time
-SplitAlgos = Literal["LieTrotter", "Strang"]
+@dataclass
+class LiteralOptions:
+    """
+    (String) options for parameters in launch files, including:
+    
+    * Time stepping
+    * Derham finite element spaces
+    * Background/equilibrium types
+    * Model types
+    * Initial conditions / perturbations
+    * Linear, nonlinear, explicit (Butcher) and saddle-point solvers
+    * Drawing of markers, type of PIC methods
+    * Noise filtering in PIC
+    * Smoothing kernels for SPH methods
+    * Particle binning in phase space
+    """
+    # time
+    SplitAlgos = Literal["LieTrotter", "Strang"]
 
-# derham
-PolarRegularity = Literal[-1, 1]
-OptsFEECSpace = Literal["H1", "Hcurl", "Hdiv", "L2", "H1vec"]
-OptsVecSpace = Literal["Hcurl", "Hdiv", "H1vec"]
+    # derham
+    PolarRegularity = Literal[-1, 1]
+    OptsFEECSpace = Literal["H1", "Hcurl", "Hdiv", "L2", "H1vec"]
+    OptsVecSpace = Literal["Hcurl", "Hdiv", "H1vec"]
 
-# fields background
-BackgroundTypes = Literal["LogicalConst", "FluidEquilibrium"]
+    # fields background
+    BackgroundTypes = Literal["LogicalConst", "FluidEquilibrium"]
 
-# models
-ModelTypes = Literal["Toy", "Kinetic", "Fluid", "Hybrid"]
+    # models
+    ModelTypes = Literal["Toy", "Kinetic", "Fluid", "Hybrid"]
 
-# perturbations
-NoiseDirections = Literal["e1", "e2", "e3", "e1e2", "e1e3", "e2e3", "e1e2e3"]
-GivenInBasis = Literal["0", "1", "2", "3", "v", "physical", "physical_at_eta", "norm", None]
+    # perturbations
+    NoiseDirections = Literal["e1", "e2", "e3", "e1e2", "e1e3", "e2e3", "e1e2e3"]
+    GivenInBasis = Literal["0", "1", "2", "3", "v", "physical", "physical_at_eta", "norm", None]
 
-# solvers
-OptsSymmSolver = Literal["pcg", "cg"]
-OptsGenSolver = Literal["pbicgstab", "bicgstab", "GMRES"]
-OptsMassPrecond = Literal["MassMatrixPreconditioner", "MassMatrixDiagonalPreconditioner", None]
-OptsSaddlePointSolver = Literal["Uzawa", "GMRES"]
-OptsDirectSolver = Literal["SparseSolver", "ScipySparse", "InexactNPInverse", "DirectNPInverse"]
-OptsNonlinearSolver = Literal["Picard", "Newton"]
+    # solvers
+    OptsSymmSolver = Literal["pcg", "cg"]
+    OptsGenSolver = Literal["pbicgstab", "bicgstab", "GMRES"]
+    OptsMassPrecond = Literal["MassMatrixPreconditioner", "MassMatrixDiagonalPreconditioner", None]
+    OptsSaddlePointSolver = Literal["Uzawa", "GMRES"]
+    OptsDirectSolver = Literal["SparseSolver", "ScipySparse", "InexactNPInverse", "DirectNPInverse"]
+    OptsNonlinearSolver = Literal["Picard", "Newton"]
+    OptsButcher = Literal["rk4", "forward_euler", "heun2", "rk2", "heun3", "3/8 rule"]
 
-# markers
-OptsPICSpace = Literal["Particles6D", "DeltaFParticles6D", "Particles5D", "Particles3D"]
-OptsMarkerBC = Literal["periodic", "reflect"]
-OptsRecontructBC = Literal["periodic", "mirror", "fixed"]
-OptsLoading = Literal[
-    "pseudo_random",
-    "sobol_standard",
-    "sobol_antithetic",
-    "external",
-    "restart",
-    "tesselation",
-]
-OptsSpatialLoading = Literal["uniform", "disc"]
-OptsMPIsort = Literal["each", "last", None]
+    # markers
+    OptsPICSpace = Literal["Particles6D", "DeltaFParticles6D", "Particles5D", "Particles3D"]
+    OptsMarkerBC = Literal["periodic", "reflect"]
+    OptsRecontructBC = Literal["periodic", "mirror", "fixed"]
+    OptsLoading = Literal[
+        "pseudo_random",
+        "sobol_standard",
+        "sobol_antithetic",
+        "external",
+        "restart",
+        "tesselation",
+    ]
+    OptsSpatialLoading = Literal["uniform", "disc"]
+    OptsMPIsort = Literal["each", "last", None]
 
-# filters
-OptsFilter = Literal["fourier_in_tor", "hybrid", "three_point", None]
+    # filters
+    OptsFilter = Literal["fourier_in_tor", "hybrid", "three_point", None]
 
-# sph
-OptsKernel = Literal[
-    "trigonometric_1d",
-    "gaussian_1d",
-    "linear_1d",
-    "trigonometric_2d",
-    "gaussian_2d",
-    "linear_2d",
-    "trigonometric_3d",
-    "gaussian_3d",
-    "linear_isotropic_3d",
-    "linear_3d",
-]
+    # sph
+    OptsKernel = Literal[
+        "trigonometric_1d",
+        "gaussian_1d",
+        "linear_1d",
+        "trigonometric_2d",
+        "gaussian_2d",
+        "linear_2d",
+        "trigonometric_3d",
+        "gaussian_3d",
+        "linear_isotropic_3d",
+        "linear_3d",
+    ]
 
-# binning
-
-# Create new Literal to determine type of binning output
-BinningQuantity = Literal[
-    "density",
-    "current_1",
-    "current_2",
-    "current_3",
-    "energy_tensor_11",
-    "energy_tensor_22",
-    "energy_tensor_33",
-    "energy_tensor_12",
-    "energy_tensor_13",
-    "energy_tensor_23",
-    "heat_flux_1",
-    "heat_flux_2",
-    "heat_flux_3",
-]
-
-## Option classes
+    # Create new Literal to determine type of binning output
+    BinningQuantity = Literal[
+        "density",
+        "current_1",
+        "current_2",
+        "current_3",
+        "energy_tensor_11",
+        "energy_tensor_22",
+        "energy_tensor_33",
+        "energy_tensor_12",
+        "energy_tensor_13",
+        "energy_tensor_23",
+        "heat_flux_1",
+        "heat_flux_2",
+        "heat_flux_3",
+    ]
 
 
 @dataclass
@@ -107,10 +120,10 @@ class Time:
 
     dt: float = 0.01
     Tend: float = 0.03
-    split_algo: SplitAlgos = "LieTrotter"
+    split_algo: LiteralOptions.SplitAlgos = "LieTrotter"
 
     def __post_init__(self):
-        check_option(self.split_algo, SplitAlgos)
+        check_option(self.split_algo, LiteralOptions.SplitAlgos)
 
 
 @dataclass
@@ -307,11 +320,11 @@ class DerhamOptions:
     dirichlet_bc: tuple = ((False, False), (False, False), (False, False))
     nquads: tuple = None
     nq_pr: tuple = None
-    polar_ck: PolarRegularity = -1
+    polar_ck: LiteralOptions.PolarRegularity = -1
     local_projectors: bool = False
 
     def __post_init__(self):
-        check_option(self.polar_ck, PolarRegularity)
+        check_option(self.polar_ck, LiteralOptions.PolarRegularity)
 
 
 @dataclass
@@ -331,12 +344,12 @@ class FieldsBackground:
         Name of the method in :class:`~struphy.fields_background.base.FluidEquilibrium` that should be the background.
     """
 
-    type: BackgroundTypes = "LogicalConst"
+    type: LiteralOptions.BackgroundTypes = "LogicalConst"
     values: tuple = (1.5, 0.7, 2.4)
     variable: str = None
 
     def __post_init__(self):
-        check_option(self.type, BackgroundTypes)
+        check_option(self.type, LiteralOptions.BackgroundTypes)
 
 
 @dataclass
@@ -391,12 +404,3 @@ class EnvironmentOptions:
     def __repr__(self):
         for k, v in self.__dict__.items():
             print(f"{k}:".ljust(20), v)
-
-
-def check_option(opt, options):
-    """Check if opt is contained in options; if opt is a list, checks for each element."""
-    opts = get_args(options)
-    if not isinstance(opt, list):
-        opt = [opt]
-    for o in opt:
-        assert o in opts, f"Option '{o}' is not in {opts}."

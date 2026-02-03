@@ -1,6 +1,6 @@
 import os
 import subprocess
-
+from typing import Literal, get_args
 import yaml
 
 import struphy
@@ -96,6 +96,15 @@ def kernels_to_txt(kernels: list, output: str):
         for ker in kernels:
             file.write(f"{ker}\n")
     # print(f"kernels written to {output}.")
+
+
+def check_option(opt, options):
+    """Check if opt is contained in options; if opt is a list, checks for each element."""
+    opts = get_args(options)
+    if not isinstance(opt, list):
+        opt = [opt]
+    for o in opt:
+        assert o in opts, f"Option '{o}' is not in {opts}."
 
 
 class MyDumper(yaml.SafeDumper):

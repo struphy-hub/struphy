@@ -2,15 +2,7 @@ from dataclasses import dataclass
 from typing import Literal, get_args
 
 import cunumpy as xp
-
-OptsButcher = Literal[
-    "rk4",
-    "forward_euler",
-    "heun2",
-    "rk2",
-    "heun3",
-    "3/8 rule",
-]
+from struphy.api.options import LiteralOptions
 
 
 @dataclass
@@ -26,11 +18,11 @@ class ButcherTableau:
 
     Parameters
     ----------
-    algo : OptsButcher
+    algo : LiteralOptions.OptsButcher
         Name of the RK method.
     """
 
-    algo: OptsButcher = "rk4"
+    algo: LiteralOptions.OptsButcher = "rk4"
 
     def __post_init__(self):
         # choose algorithm
@@ -81,7 +73,7 @@ class ButcherTableau:
 
         self._conv_rate = conv_rate
 
-    __available_methods__ = get_args(OptsButcher)
+    __available_methods__ = get_args(LiteralOptions.OptsButcher)
 
     @property
     def a(self):

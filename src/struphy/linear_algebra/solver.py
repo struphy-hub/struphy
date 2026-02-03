@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from struphy.api.options import OptsNonlinearSolver
+from struphy.api.options import LiteralOptions
 
 
 @dataclass
@@ -33,5 +33,5 @@ class NonlinearSolverParameters:
     maxiter: int = 100
     info: bool = False
     verbose: bool = False
-    type: OptsNonlinearSolver = "Picard"
+    type: LiteralOptions.OptsNonlinearSolver = "Picard"
     linearize: bool = False

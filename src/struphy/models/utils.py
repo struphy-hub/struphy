@@ -1,7 +1,7 @@
 import inspect
 
 import struphy.models as models
-from struphy.api.options import ModelTypes
+from struphy.api.options import LiteralOptions
 from struphy.models.base import StruphyModel
 
 
@@ -16,7 +16,7 @@ def get_model_by_name(model_name: str) -> type[StruphyModel]:
         raise ModuleNotFoundError(f"{model_name} not found in models.")
 
 
-def get_models(model_type: ModelTypes | None = None) -> list[type[StruphyModel]]:
+def get_models(model_type: LiteralOptions.ModelTypes | None = None) -> list[type[StruphyModel]]:
     model_classes = []
 
     for name, obj in inspect.getmembers(models):
@@ -28,13 +28,13 @@ def get_models(model_type: ModelTypes | None = None) -> list[type[StruphyModel]]
     return model_classes
 
 
-def get_model_names(model_type: ModelTypes | None = None) -> list[str]:
+def get_model_names(model_type: LiteralOptions.ModelTypes | None = None) -> list[str]:
     model_classes = get_models(model_type=model_type)
 
     return [model.name() for model in model_classes]
 
 
-def get_model_type_message(model_type: ModelTypes) -> str:
+def get_model_type_message(model_type: LiteralOptions.ModelTypes) -> str:
     model_names = get_model_names(model_type=model_type)
 
     # fluid message

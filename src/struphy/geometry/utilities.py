@@ -16,7 +16,7 @@ from struphy.bsplines import bsplines as bsp
 # if TYPE_CHECKING:
 from struphy.geometry.base import Domain, PoloidalSplineTorus
 from struphy.geometry.utilities_kernels import weighted_arc_lengths_flux_surface
-from struphy.api.options import GivenInBasis
+from struphy.api.options import LiteralOptions
 from struphy.linear_algebra.linalg_kron import kron_lusolve_2d
 
 
@@ -347,7 +347,7 @@ class TransformedPformComponent:
     fun : Callable | list
         Callable function (components). Has to be length three for vector-valued funnctions,.
 
-    given_in_basis : GivenInBasis
+    given_in_basis : LiteralOptions.GivenInBasis
         In which basis fun is represented: either a p-form,
         then '0' or '3' for scalar
         and 'v', '1' or '2' for vector-valued,
@@ -368,7 +368,7 @@ class TransformedPformComponent:
     def __init__(
         self,
         fun: Callable | list,
-        given_in_basis: GivenInBasis,
+        given_in_basis: LiteralOptions.GivenInBasis,
         out_form: str,
         comp: int = 0,
         domain: Domain = None,

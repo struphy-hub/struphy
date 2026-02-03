@@ -1,8 +1,8 @@
 from abc import ABCMeta, abstractmethod
 from typing import Callable
 
-from struphy.api.options import GivenInBasis, check_option
-
+from struphy.api.options import LiteralOptions
+from struphy.utils.utils import check_option
 
 class Perturbation(metaclass=ABCMeta):
     """Base class for perturbations that can be chosen as initial conditions."""
@@ -30,7 +30,7 @@ class Perturbation(metaclass=ABCMeta):
 
     @given_in_basis.setter
     def given_in_basis(self, new: str):
-        check_option(new, GivenInBasis)
+        check_option(new, LiteralOptions.GivenInBasis)
         self._given_in_basis = new
 
     @property

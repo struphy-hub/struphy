@@ -41,16 +41,7 @@ from struphy.feec.variational_utilities import (
 from struphy.fields_background.equils import set_defaults
 from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial import perturbations
-from struphy.api.options import (
-    OptsDirectSolver,
-    OptsGenSolver,
-    OptsMassPrecond,
-    OptsNonlinearSolver,
-    OptsSaddlePointSolver,
-    OptsSymmSolver,
-    OptsVecSpace,
-    check_option,
-)
+from struphy.api.options import LiteralOptions
 from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3D
@@ -60,7 +51,7 @@ from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParam
 from struphy.models.species import Species
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.ode.solvers import ODEsolverFEEC
-from struphy.ode.utils import ButcherTableau, OptsButcher
+from struphy.ode.utils import ButcherTableau
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
@@ -69,6 +60,7 @@ from struphy.pic.particles import Particles5D, Particles6D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
+from struphy.utils.utils import check_option
 
 
 class Maxwell(Propagator):
@@ -118,16 +110,16 @@ class Maxwell(Propagator):
         OptsAlgo = Literal["implicit", "explicit"]
         # propagator options
         algo: OptsAlgo = "implicit"
-        solver: OptsSymmSolver = "pcg"
-        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         butcher: ButcherTableau = None
 
         def __post_init__(self):
             # checks
             check_option(self.algo, self.OptsAlgo)
-            check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
             # defaults
             if self.solver_params is None:
@@ -315,14 +307,14 @@ class OhmCold(Propagator):
     @dataclass
     class Options:
         # propagator options
-        solver: OptsSymmSolver = "pcg"
-        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
 
         def __post_init__(self):
             # checks
-            check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
             # defaults
             if self.solver_params is None:
@@ -444,14 +436,14 @@ class JxBCold(Propagator):
     @dataclass
     class Options:
         # propagator options
-        solver: OptsSymmSolver = "pcg"
-        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
 
         def __post_init__(self):
             # checks
-            check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
             # defaults
             if self.solver_params is None:
@@ -588,19 +580,19 @@ class ShearAlfven(Propagator):
         # specific literals
         OptsAlgo = Literal["implicit", "explicit"]
         # propagator options
-        u_space: OptsVecSpace = "Hdiv"
+        u_space: LiteralOptions.OptsVecSpace = "Hdiv"
         algo: OptsAlgo = "implicit"
-        solver: OptsSymmSolver = "pcg"
-        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver: LiteralOptions.LiteralOptions.OptsSymmSolver = "pcg"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         butcher: ButcherTableau = None
 
         def __post_init__(self):
             # checks
-            check_option(self.u_space, OptsVecSpace)
+            check_option(self.u_space, LiteralOptions.OptsVecSpace)
             check_option(self.algo, self.OptsAlgo)
-            check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.solver, LiteralOptions.LiteralOptions.OptsSymmSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
             # defaults
             if self.solver_params is None:
@@ -789,19 +781,19 @@ class ShearAlfvenB1(Propagator):
     @dataclass
     class Options:
         # propagator options
-        solver: OptsSymmSolver = "pcg"
-        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
-        solver_M1: OptsSymmSolver = "pcg"
-        precond_M1: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver_M1: LiteralOptions.OptsSymmSolver = "pcg"
+        precond_M1: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params_M1: SolverParameters = None
 
         def __post_init__(self):
             # checks
-            check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond)
-            check_option(self.solver_M1, OptsSymmSolver)
-            check_option(self.precond_M1, OptsMassPrecond)
+            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
+            check_option(self.solver_M1, LiteralOptions.OptsSymmSolver)
+            check_option(self.precond_M1, LiteralOptions.OptsMassPrecond)
 
             # defaults
             if self.solver_params is None:
@@ -948,15 +940,15 @@ class Hall(Propagator):
     @dataclass
     class Options:
         # propagator options
-        solver: OptsGenSolver = "pbicgstab"
-        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver: LiteralOptions.OptsGenSolver = "pbicgstab"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         epsilon_from: Species = None
 
         def __post_init__(self):
             # checks
-            check_option(self.solver, OptsGenSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.solver, LiteralOptions.OptsGenSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
             # defaults
             if self.solver_params is None:
@@ -1119,16 +1111,16 @@ class Magnetosonic(Propagator):
     @dataclass
     class Options:
         b_field: FEECVariable = None
-        u_space: OptsVecSpace = "Hdiv"
-        solver: OptsGenSolver = "pbicgstab"
-        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        u_space: LiteralOptions.OptsVecSpace = "Hdiv"
+        solver: LiteralOptions.OptsGenSolver = "pbicgstab"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
 
         def __post_init__(self):
             # checks
-            check_option(self.u_space, OptsVecSpace)
-            check_option(self.solver, OptsGenSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.u_space, LiteralOptions.OptsVecSpace)
+            check_option(self.solver, LiteralOptions.OptsGenSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
             # defaults
             if self.b_field is None:
@@ -1346,14 +1338,14 @@ class MagnetosonicUniform(Propagator):
 
     @dataclass
     class Options:
-        solver: OptsGenSolver = "pbicgstab"
-        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver: LiteralOptions.OptsGenSolver = "pbicgstab"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
 
         def __post_init__(self):
             # checks
-            check_option(self.solver, OptsGenSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.solver, LiteralOptions.OptsGenSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
             # defaults
             if self.solver_params is None:
@@ -1710,18 +1702,18 @@ class CurrentCoupling6DDensity(Propagator):
         # propagator options
         energetic_ions: PICVariable = None
         b_tilde: FEECVariable = None
-        u_space: OptsVecSpace = "Hdiv"
-        solver: OptsSymmSolver = "pcg"
-        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        u_space: LiteralOptions.OptsVecSpace = "Hdiv"
+        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         filter_params: FilterParameters = None
         boundary_cut: tuple = (0.0, 0.0, 0.0)
 
         def __post_init__(self):
             # checks
-            check_option(self.u_space, OptsVecSpace)
-            check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.u_space, LiteralOptions.OptsVecSpace)
+            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
             assert self.energetic_ions.space == "Particles6D"
             assert self.b_tilde.space == "Hdiv"
 
@@ -1983,10 +1975,10 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         # propagator options
         energetic_ions: PICVariable = None
         ep_scale: float = 1.0
-        u_space: OptsVecSpace = "Hdiv"
+        u_space: LiteralOptions.OptsVecSpace = "Hdiv"
         algo: OptsAlgo = "implicit"
-        solver: OptsSymmSolver = "pcg"
-        precond: OptsMassPrecond = "MassMatrixDiagonalPreconditioner"
+        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixDiagonalPreconditioner"
         solver_params: SolverParameters = None
         filter_params: FilterParameters = None
         butcher: ButcherTableau = None
@@ -1994,10 +1986,10 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         def __post_init__(self):
             # checks
-            check_option(self.u_space, OptsVecSpace)
+            check_option(self.u_space, LiteralOptions.OptsVecSpace)
             check_option(self.algo, self.OptsAlgo)
-            check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
             assert isinstance(self.energetic_ions, PICVariable)
             assert self.energetic_ions.space == "Particles5D"
             assert isinstance(self.ep_scale, float)
@@ -2355,17 +2347,17 @@ class CurrentCoupling5DDensity(Propagator):
         energetic_ions: PICVariable = None
         b_tilde: FEECVariable = None
         ep_scale: float = 1.0
-        u_space: OptsVecSpace = "Hdiv"
-        solver: OptsSymmSolver = "pcg"
-        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        u_space: LiteralOptions.OptsVecSpace = "Hdiv"
+        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         filter_params: FilterParameters = None
 
         def __post_init__(self):
             # checks
-            check_option(self.u_space, OptsVecSpace)
-            check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.u_space, LiteralOptions.OptsVecSpace)
+            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
             assert isinstance(self.energetic_ions, PICVariable)
             assert self.energetic_ions.space == "Particles5D"
             assert isinstance(self.b_tilde, FEECVariable)
@@ -2559,16 +2551,16 @@ class ImplicitDiffusion(Propagator):
         rho: FEECVariable | Callable | tuple[AccumulatorVector, Particles] | list = None
         rho_coeffs: float | list = None
         x0: StencilVector = None
-        solver: OptsSymmSolver = "pcg"
-        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
 
         def __post_init__(self):
             # checks
             check_option(self.stab_mat, self.OptsStabMat)
             check_option(self.diffusion_mat, self.OptsDiffusionMat)
-            check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
             # defaults
             if self.solver_params is None:
@@ -2818,15 +2810,15 @@ class Poisson(ImplicitDiffusion):
         rho: FEECVariable | Callable | tuple[AccumulatorVector, Particles] | list = None
         rho_coeffs: float | list = None
         x0: StencilVector = None
-        solver: OptsSymmSolver = "pcg"
-        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
 
         def __post_init__(self):
             # checks
             check_option(self.stab_mat, self.OptsStabMat)
-            check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
             # defaults
             if self.solver_params is None:
@@ -2906,15 +2898,15 @@ class VariationalMomentumAdvection(Propagator):
     @dataclass
     class Options:
         # propagator options
-        solver: OptsSymmSolver = "pcg"
-        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
 
         def __post_init__(self):
             # checks
-            check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
             # defaults
             if self.solver_params is None:
@@ -3197,8 +3189,8 @@ class VariationalDensityEvolve(Propagator):
         # propagator options
         model: OptsModel = "barotropic"
         gamma: float = 5.0 / 3.0
-        solver: OptsSymmSolver = "pcg"
-        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
         s: FEECVariable = None
@@ -3206,8 +3198,8 @@ class VariationalDensityEvolve(Propagator):
         def __post_init__(self):
             # checks
             check_option(self.model, self.OptsModel)
-            check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
             # defaults
             if self.solver_params is None:
@@ -3730,8 +3722,8 @@ class VariationalEntropyEvolve(Propagator):
         # propagator options
         model: OptsModel = "full"
         gamma: float = 5.0 / 3.0
-        solver: OptsSymmSolver = "pcg"
-        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
         rho: FEECVariable = None
@@ -3739,8 +3731,8 @@ class VariationalEntropyEvolve(Propagator):
         def __post_init__(self):
             # checks
             check_option(self.model, self.OptsModel)
-            check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
             # defaults
             if self.solver_params is None:
@@ -4135,16 +4127,16 @@ class VariationalMagFieldEvolve(Propagator):
         OptsModel = Literal["full", "full_p", "linear"]
         # propagator options
         model: OptsModel = "full"
-        solver: OptsSymmSolver = "pcg"
-        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
 
         def __post_init__(self):
             # checks
             check_option(self.model, self.OptsModel)
-            check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
             # defaults
             if self.solver_params is None:
@@ -4532,8 +4524,8 @@ class VariationalPBEvolve(Propagator):
         # propagator options
         model: OptsModel = "full_p"
         gamma: float = 5.0 / 3.0
-        solver: OptsSymmSolver = "pcg"
-        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
         div_u: FEECVariable = None
@@ -4544,8 +4536,8 @@ class VariationalPBEvolve(Propagator):
         def __post_init__(self):
             # checks
             check_option(self.model, self.OptsModel)
-            check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
             # defaults
             if self.solver_params is None:
@@ -5130,8 +5122,8 @@ class VariationalQBEvolve(Propagator):
         # propagator options
         model: OptsModel = "full_q"
         gamma: float = 5.0 / 3.0
-        solver: OptsSymmSolver = "pcg"
-        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
         div_u: FEECVariable = None
@@ -5142,8 +5134,8 @@ class VariationalQBEvolve(Propagator):
         def __post_init__(self):
             # checks
             check_option(self.model, self.OptsModel)
-            check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
             # defaults
             if self.solver_params is None:
@@ -5725,8 +5717,8 @@ class VariationalViscosity(Propagator):
         # propagator options
         model: OptsModel = "full"
         gamma: float = 5.0 / 3.0
-        solver: OptsSymmSolver = "pcg"
-        precond: OptsMassPrecond = "MassMatrixDiagonalPreconditioner"
+        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixDiagonalPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
         rho: FEECVariable = None
@@ -5738,8 +5730,8 @@ class VariationalViscosity(Propagator):
         def __post_init__(self):
             # checks
             check_option(self.model, self.OptsModel)
-            check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
             # defaults
             if self.solver_params is None:
@@ -6483,8 +6475,8 @@ class VariationalResistivity(Propagator):
         # propagator options
         model: OptsModel = "full"
         gamma: float = 5.0 / 3.0
-        solver: OptsSymmSolver = "pcg"
-        precond: OptsMassPrecond = "MassMatrixDiagonalPreconditioner"
+        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixDiagonalPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
         linearize_current: bool = False
@@ -6496,8 +6488,8 @@ class VariationalResistivity(Propagator):
         def __post_init__(self):
             # checks
             check_option(self.model, self.OptsModel)
-            check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
             # defaults
             if self.solver_params is None:
@@ -7519,15 +7511,15 @@ class HasegawaWakatani(Propagator):
         kappa: float = 1.0
         nu: float = 0.01
         butcher: ButcherTableau = None
-        solver: OptsSymmSolver = "pcg"
-        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
 
         def __post_init__(self):
             # checks
             check_option(self.c_fun, self.OptsCfun)
-            check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
             # defaults
             if self.solver_params is None:
@@ -7790,7 +7782,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         nu: float = 1.0
         nu_e: float = 0.01
         eps_norm: float = 1.0
-        solver: OptsGenSolver = "GMRES"
+        solver: LiteralOptions.OptsGenSolver = "GMRES"
         solver_params: SolverParameters = None
         a: float = 1.0
         R0: float = 1.0
@@ -7799,8 +7791,8 @@ class TwoFluidQuasiNeutralFull(Propagator):
         alpha: float = 0.1
         beta: float = 1.0
         stab_sigma: float = 1e-5
-        variant: OptsSaddlePointSolver = "Uzawa"
-        method_to_solve: OptsDirectSolver = "DirectNPInverse"
+        variant: LiteralOptions.OptsSaddlePointSolver = "Uzawa"
+        method_to_solve: LiteralOptions.OptsDirectSolver = "DirectNPInverse"
         preconditioner: bool = False
         spectralanalysis: bool = False
         lifting: bool = False
@@ -7809,9 +7801,9 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
         def __post_init__(self):
             # checks
-            check_option(self.solver, OptsGenSolver)
-            check_option(self.variant, OptsSaddlePointSolver)
-            check_option(self.method_to_solve, OptsDirectSolver)
+            check_option(self.solver, LiteralOptions.OptsGenSolver)
+            check_option(self.variant, LiteralOptions.OptsSaddlePointSolver)
+            check_option(self.method_to_solve, LiteralOptions.OptsDirectSolver)
             check_option(self.dimension, self.OptsDimension)
 
             # defaults

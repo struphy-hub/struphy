@@ -2,7 +2,7 @@ import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.feec.projectors import L2Projector
-from struphy.api.options import ModelTypes
+from struphy.api.options import LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     DiagnosticSpecies,
@@ -52,7 +52,7 @@ class ViscoResistiveLinearMHD_with_q(StruphyModel):
     """
 
     @classmethod
-    def model_type(cls) -> ModelTypes:
+    def model_type(cls) -> LiteralOptions.ModelTypes:
         return "Fluid"
 
     ## species
