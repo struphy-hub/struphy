@@ -12,7 +12,7 @@ from struphy.fields_background import equils
 from struphy.geometry import domains
 from struphy.initial import perturbations
 from struphy.api.options import BaseUnits, EnvironmentOptions, Time
-from struphy.pic.utilities import (
+from struphy.api.particles import (
     BinningPlot,
     BoundaryParameters,
     KernelDensityPlot,

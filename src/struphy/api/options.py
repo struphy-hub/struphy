@@ -100,7 +100,7 @@ class LiteralOptions:
 
 @dataclass
 class Time:
-    """Set options for time stepping in parameter/launch file.
+    """Set options for time stepping in parameter/launch files.
 
     Parameters
     ----------
@@ -124,7 +124,7 @@ class Time:
 
 @dataclass
 class BaseUnits:
-    """Set base units in parameter/launch file from which other units are derived. See :ref:`normalization`.
+    """Set base units in parameter/launch files from which other units are derived. See :ref:`normalization`.
 
     Parameters
     ----------
@@ -150,7 +150,7 @@ class BaseUnits:
 
 @dataclass
 class DerhamOptions:
-    """Set options for the Derham spaces in parameter/launch file. See :ref:`geomFE`.
+    """Set options for the Derham spaces in parameter/launch files. See :ref:`geomFE`.
 
     Parameters
     ----------
@@ -190,7 +190,7 @@ class DerhamOptions:
 
 @dataclass
 class FieldsBackground:
-    """Set options for static fluid backgrounds/equilibria in parameter/launch file.
+    """Set options for static fluid backgrounds/equilibria in parameter/launch files.
 
     Parameters
     ----------

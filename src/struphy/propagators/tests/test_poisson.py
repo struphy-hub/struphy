@@ -15,7 +15,7 @@ from struphy.models.variables import FEECVariable
 from struphy.pic.accumulation.accum_kernels import charge_density_0form
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.pic.particles import Particles6D
-from struphy.pic.utilities import (
+from struphy.api.particles import (
     BinningPlot,
     BoundaryParameters,
     LoadingParameters,

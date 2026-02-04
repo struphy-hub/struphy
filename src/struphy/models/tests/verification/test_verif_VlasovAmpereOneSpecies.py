@@ -11,7 +11,7 @@ from struphy.geometry import domains
 from struphy.initial import perturbations
 from struphy.api.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time
 from struphy.kinetic_background import maxwellians
-from struphy.pic.utilities import (
+from struphy.api.particles import (
     BinningPlot,
     BoundaryParameters,
     LoadingParameters,

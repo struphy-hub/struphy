@@ -1414,7 +1414,7 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
 
         file.write("from struphy.kinetic_background import maxwellians\n")
         file.write(
-            "from struphy.pic.utilities import (LoadingParameters,\n\
+            "from struphy.api.particles import (LoadingParameters,\n\
                                    WeightsParameters,\n\
                                    BoundaryParameters,\n\
                                    BinningPlot,\n\

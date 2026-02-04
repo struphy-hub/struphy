@@ -10,7 +10,7 @@ from struphy.fields_background.equils import ConstantVelocity
 from struphy.geometry import domains
 from struphy.initial import perturbations
 from struphy.pic.particles import ParticlesSPH
-from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
+from struphy.api.particles import BoundaryParameters, LoadingParameters, WeightsParameters
 
 
 @pytest.mark.parametrize("ppb", [8, 12])

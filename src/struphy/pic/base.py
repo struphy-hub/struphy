@@ -49,7 +49,7 @@ from struphy.pic.sph_eval_kernels import (
     naive_evaluation_flat,
     naive_evaluation_meshgrid,
 )
-from struphy.pic.utilities import (
+from struphy.api.particles import (
     BoundaryParameters,
     LoadingParameters,
     WeightsParameters,

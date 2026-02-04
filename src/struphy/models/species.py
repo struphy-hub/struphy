@@ -7,7 +7,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy.physics.physics import Units
 from struphy.models.variables import Variable
 from struphy.physics.physics import ConstantsOfNature
-from struphy.pic.utilities import (
+from struphy.api.particles import (
     BinningPlot,
     BoundaryParameters,
     KernelDensityPlot,
