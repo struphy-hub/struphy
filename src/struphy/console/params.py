@@ -3,9 +3,9 @@ import sys
 import yaml
 from feectools.ddm.mpi import mpi as MPI
 
-import struphy.plasma_models as plasma_models
-from struphy.plasma_models.base import StruphyModel
-from struphy.plasma_models.utils import get_model_by_name
+import struphy.models as models
+from struphy.models.base import StruphyModel
+from struphy.models.utils import get_model_by_name
 
 
 def struphy_params(model_name: str, yes: bool = False, check_file: bool = False):

@@ -88,7 +88,7 @@ from collections import defaultdict
 from tabulate import tabulate
 
 import struphy
-from struphy.plasma_models.base import StruphyModel
+from struphy.models.base import StruphyModel
 
 LIBPATH = struphy.__path__[0]
 
@@ -100,8 +100,7 @@ FAIL_RED = f"{RED_COLOR}FAIL{BLACK_COLOR}"
 PASS_GREEN = f"{GREEN_COLOR}PASS{BLACK_COLOR}"
 
 
-PLASMA_MODELS_INIT_PATH = os.path.join(LIBPATH, "plasma_models/__init__.py")
-API_MODELS_INIT_PATH = os.path.join(LIBPATH, "api/models/__init__.py")
+MODELS_INIT_PATH = os.path.join(LIBPATH, "models/__init__.py")
 PROPAGATORS_INIT_PATH = os.path.join(LIBPATH, "propagators/__init__.py")
 
 
@@ -1273,15 +1272,10 @@ def run_linters_on_files(linters, python_files, flags, verbose):
                     print(line, end="")
 
 
-def construct_models_init_file(models_dir: str = "src/struphy/plasma_models") -> tuple[str, list[str]]:
+def construct_models_init_file(models_dir: str = "src/struphy/models") -> str:
     """
     Constructs __init__.py for all generated model files by reading actual class names.
     Skips base.py and __init__.py.
-    
-    Returns
-    -------
-    tuple[str, list[str]]
-        The content for plasma_models/__init__.py and the list of model names.
     """
     models_init = ""
     model_names = []
@@ -1289,41 +1283,19 @@ def construct_models_init_file(models_dir: str = "src/struphy/plasma_models") ->
     for file_name in sorted(os.listdir(models_dir)):
         if file_name.endswith(".py") and file_name not in ["__init__.py", "base.py"]:
             module_name = file_name[:-3]  # strip .py
-            module = importlib.import_module(f"struphy.plasma_models.{module_name}")
+            module = importlib.import_module(f"struphy.models.{module_name}")
 
             # Loop over all classes in the module
             for _, cls in inspect.getmembers(module, inspect.isclass):
                 # Only subclasses of StruphyModel defined in this module
                 if issubclass(cls, StruphyModel) and cls.__module__ == module.__name__ and cls != StruphyModel:
                     class_name = cls.__name__
-                    models_init += f"from struphy.plasma_models.{module_name} import {class_name}\n"
+                    models_init += f"from struphy.models.{module_name} import {class_name}\n"
                     model_names.append(class_name)
 
     models_init += "\n\n"
     models_init += f"__all__ = {model_names}\n"
-    return models_init, model_names
-
-
-def construct_api_models_init_file(model_names: list) -> str:
-    """
-    Constructs __init__.py for api/models by re-exporting from plasma_models.
-    
-    Parameters
-    ----------
-    model_names : list
-        List of model class names to re-export.
-    
-    Returns
-    -------
-    str
-        The content for the api/models/__init__.py file.
-    """
-    api_models_init = "from struphy.plasma_models import (\n"
-    for name in model_names:
-        api_models_init += f"    {name},\n"
-    api_models_init += ")\n\n"
-    api_models_init += f"__all__ = {model_names}\n"
-    return api_models_init
+    return models_init
 
 
 def construct_propagators_init_file() -> str:
@@ -1388,20 +1360,14 @@ def struphy_format(config, verbose, yes=False):
         # with open(PROPAGATORS_INIT_PATH, "w") as f:
         #     f.write(propagators_init)
 
-        print(f"Rewriting {PLASMA_MODELS_INIT_PATH}")
-        models_init, model_names = construct_models_init_file()
-        with open(PLASMA_MODELS_INIT_PATH, "w") as f:
+        print(f"Rewriting {MODELS_INIT_PATH}")
+        models_init = construct_models_init_file()
+        with open(MODELS_INIT_PATH, "w") as f:
             f.write(models_init)
-        
-        print(f"Rewriting {API_MODELS_INIT_PATH}")
-        api_models_init = construct_api_models_init_file(model_names)
-        with open(API_MODELS_INIT_PATH, "w") as f:
-            f.write(api_models_init)
 
         python_files = [
             # PROPAGATORS_INIT_PATH,
-            PLASMA_MODELS_INIT_PATH,
-            API_MODELS_INIT_PATH,
+            MODELS_INIT_PATH,
         ]
         input_type = "path"
     else:

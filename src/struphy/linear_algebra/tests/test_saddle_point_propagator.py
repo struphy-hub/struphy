@@ -22,7 +22,7 @@ def test_propagator1D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
     from struphy.fields_background.equils import HomogenSlab
     from struphy.geometry import domains
     from struphy.initial import perturbations
-    from struphy.plasma_models.variables import FEECVariable
+    from struphy.models.variables import FEECVariable
     from struphy.propagators.propagators_fields import TwoFluidQuasiNeutralFull
 
     mpi_comm = MPI.COMM_WORLD
@@ -232,7 +232,7 @@ def test_propagator2D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
     from struphy.feec.utilities import compare_arrays
     from struphy.fields_background.equils import HomogenSlab
     from struphy.geometry import domains
-    from struphy.plasma_models.variables import FEECVariable
+    from struphy.models.variables import FEECVariable
     from struphy.propagators.propagators_fields import TwoFluidQuasiNeutralFull
 
     mpi_comm = MPI.COMM_WORLD

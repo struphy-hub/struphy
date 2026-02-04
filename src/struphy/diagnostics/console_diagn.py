@@ -255,10 +255,10 @@ def main():
         # iterate over species
         for species in params["kinetic"].keys():
             # Get model class
-            import struphy.plasma_models as plasma_models
+            import struphy.models as models
 
             try:
-                model_class = getattr(plasma_models, model_name)
+                model_class = getattr(models, model_name)
             except AttributeError:
                 raise ModuleNotFoundError(f"{model_name} not found!")
 

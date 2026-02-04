@@ -22,6 +22,7 @@ from struphy.io.options import (
     check_option,
 )
 from struphy.io.setup import descend_options_dict
+from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.ode.utils import ButcherTableau
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
@@ -29,7 +30,6 @@ from struphy.pic.base import Particles
 from struphy.pic.particles import Particles3D, Particles5D, Particles6D, ParticlesSPH
 from struphy.pic.pushing import eval_kernels_gc, pusher_kernels, pusher_kernels_gc
 from struphy.pic.pushing.pusher import Pusher
-from struphy.plasma_models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel

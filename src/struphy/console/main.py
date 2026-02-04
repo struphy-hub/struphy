@@ -16,7 +16,7 @@ import yaml
 
 # struphy path
 import struphy
-import struphy.plasma_models.utils as models_utils
+import struphy.models.utils as models_utils
 from struphy.utils import utils
 
 libpath = struphy.__path__[0]

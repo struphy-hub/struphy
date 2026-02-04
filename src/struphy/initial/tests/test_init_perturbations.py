@@ -29,7 +29,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
     from struphy.geometry.base import Domain
     from struphy.initial import perturbations
     from struphy.initial.base import Perturbation
-    from struphy.plasma_models.variables import FEECVariable
+    from struphy.models.variables import FEECVariable
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

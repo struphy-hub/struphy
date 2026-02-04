@@ -18,6 +18,7 @@ from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import DiscreteGradientSolverParameters, SolverParameters
+from struphy.models.variables import FEECVariable, PICVariable
 from struphy.ode.utils import ButcherTableau
 from struphy.pic import utilities_kernels
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
@@ -26,7 +27,6 @@ from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorV
 from struphy.pic.particles import Particles5D, Particles6D
 from struphy.pic.pushing import pusher_kernels, pusher_kernels_gc
 from struphy.pic.pushing.pusher import Pusher
-from struphy.plasma_models.variables import FEECVariable, PICVariable
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
