@@ -950,15 +950,18 @@ class TorusModesSin(Perturbation):
                 self._pfuns += [lambda eta1: xp.sin(ls * xp.pi * eta1)]
             elif pfun == "exp":
                 self._pfuns += [
-                    lambda eta1: xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
-                    / xp.sqrt(2 * xp.pi * params[1] ** 2),
+                    lambda eta1: (
+                        xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2)) / xp.sqrt(2 * xp.pi * params[1] ** 2)
+                    ),
                 ]
             elif pfun == "d_exp":
                 self._pfuns += [
-                    lambda eta1: -(eta1 - params[0])
-                    / params[1] ** 2
-                    * xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
-                    / xp.sqrt(2 * xp.pi * params[1] ** 2),
+                    lambda eta1: (
+                        -(eta1 - params[0])
+                        / params[1] ** 2
+                        * xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
+                        / xp.sqrt(2 * xp.pi * params[1] ** 2)
+                    ),
                 ]
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
@@ -1085,15 +1088,18 @@ class TorusModesCos(Perturbation):
                 self._pfuns += [lambda eta1: xp.cos(xp.pi * eta1)]
             elif pfun == "exp":
                 self._pfuns += [
-                    lambda eta1: xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
-                    / xp.sqrt(2 * xp.pi * params[1] ** 2),
+                    lambda eta1: (
+                        xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2)) / xp.sqrt(2 * xp.pi * params[1] ** 2)
+                    ),
                 ]
             elif pfun == "d_exp":
                 self._pfuns += [
-                    lambda eta1: -(eta1 - params[0])
-                    / params[1] ** 2
-                    * xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
-                    / xp.sqrt(2 * xp.pi * params[1] ** 2),
+                    lambda eta1: (
+                        -(eta1 - params[0])
+                        / params[1] ** 2
+                        * xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
+                        / xp.sqrt(2 * xp.pi * params[1] ** 2)
+                    ),
                 ]
             else:
                 raise ValueError(
