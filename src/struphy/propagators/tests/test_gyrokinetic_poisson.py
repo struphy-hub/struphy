@@ -6,7 +6,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.projectors import L2Projector
 from struphy.feec.psydac_derham import Derham
-from struphy.geometry import domains
+from struphy import domains
 from struphy.geometry.base import Domain
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable

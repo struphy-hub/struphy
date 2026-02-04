@@ -14,7 +14,7 @@ def test_eval_field(Nel, p, spl_kind):
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays
     from struphy.geometry.base import Domain
-    from struphy.initial import perturbations
+    from struphy import perturbations
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

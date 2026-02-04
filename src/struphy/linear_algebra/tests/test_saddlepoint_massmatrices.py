@@ -27,8 +27,8 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     from struphy.feec.psydac_derham import Derham, TransformedPformComponent
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
     from struphy.fields_background.equils import CircularTokamak, HomogenSlab
-    from struphy.geometry import domains
-    from struphy.initial import perturbations
+    from struphy import domains
+    from struphy import perturbations
     from struphy.linear_algebra.saddle_point import SaddlePointSolver
 
     mpi_comm = MPI.COMM_WORLD

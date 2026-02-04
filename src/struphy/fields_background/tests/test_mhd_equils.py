@@ -1,7 +1,7 @@
 import cunumpy as xp
 import pytest
 
-from struphy.fields_background import equils
+from struphy import equils
 
 
 @pytest.mark.parametrize(
@@ -137,7 +137,7 @@ def test_equils(equil_domain_pair):
     """
 
     from struphy.fields_background.base import CartesianMHDequilibrium, NumericalMHDequilibrium
-    from struphy.geometry import domains
+    from struphy import domains
 
     # logical evalution point
     pt = (xp.random.rand(), xp.random.rand(), xp.random.rand())

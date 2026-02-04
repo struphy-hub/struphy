@@ -6,11 +6,11 @@ from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 
 from struphy import main
-from struphy.geometry import domains
-from struphy.initial import perturbations
-from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time
+from struphy import domains
+from struphy import perturbations
+from struphy import BaseUnits, DerhamOptions, EnvironmentOptions, Time
 from struphy.models import Poisson
-from struphy.topology import grids
+from struphy import grids
 
 
 def test_poisson_1d(do_plot=False):

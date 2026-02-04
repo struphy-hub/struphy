@@ -7,17 +7,17 @@ from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 
 from struphy import main
-from struphy.geometry import domains
-from struphy.initial import perturbations
-from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time
-from struphy.kinetic_background import maxwellians
-from struphy.pic.utilities import (
+from struphy import domains
+from struphy import perturbations
+from struphy import BaseUnits, DerhamOptions, EnvironmentOptions, Time
+from struphy import maxwellians
+from struphy import (
     BinningPlot,
     BoundaryParameters,
     LoadingParameters,
     WeightsParameters,
 )
-from struphy.topology import grids
+from struphy import grids
 
 
 def test_weak_Landau(do_plot: bool = False):

@@ -15,7 +15,7 @@ from numpy import array, polynomial, random
 from struphy.feec.mass import WeightedMassOperators
 from struphy.fields_background.base import MHDequilibrium
 from struphy.fields_background.equils import set_defaults
-from struphy.io.options import (
+from struphy import (
     OptsKernel,
     OptsMPIsort,
     OptsVecSpace,

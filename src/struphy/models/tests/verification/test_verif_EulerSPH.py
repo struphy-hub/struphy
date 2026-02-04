@@ -8,11 +8,11 @@ from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
 
 from struphy import main
-from struphy.fields_background import equils
-from struphy.geometry import domains
-from struphy.initial import perturbations
-from struphy.io.options import BaseUnits, EnvironmentOptions, Time
-from struphy.pic.utilities import (
+from struphy import equils
+from struphy import domains
+from struphy import perturbations
+from struphy import BaseUnits, EnvironmentOptions, Time
+from struphy import (
     BinningPlot,
     BoundaryParameters,
     KernelDensityPlot,

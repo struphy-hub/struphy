@@ -54,11 +54,11 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
 
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
-    from struphy.geometry import domains
+    from struphy import domains
     from struphy.pic.accumulation import accum_kernels
     from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
     from struphy.pic.particles import Particles6D
-    from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
+    from struphy import BoundaryParameters, LoadingParameters, WeightsParameters
     from struphy.utils.clone_config import CloneConfig
 
     if isinstance(MPI.COMM_WORLD, MockComm):

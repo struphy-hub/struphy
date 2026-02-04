@@ -6,11 +6,11 @@ from matplotlib import pyplot as plt
 
 from struphy.fields_background.equils import ConstantVelocity
 from struphy.fields_background.generic import GenericCartesianFluidEquilibrium
-from struphy.geometry import domains
+from struphy import domains
 from struphy.geometry.base import Domain
-from struphy.initial import perturbations
+from struphy import perturbations
 from struphy.pic.particles import ParticlesSPH
-from struphy.pic.utilities import BinningPlot, BoundaryParameters, LoadingParameters, WeightsParameters
+from struphy import BinningPlot, BoundaryParameters, LoadingParameters, WeightsParameters
 
 
 @pytest.mark.parametrize("boxes_per_dim", [(24, 1, 1)])

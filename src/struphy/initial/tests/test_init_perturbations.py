@@ -25,9 +25,9 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
     from matplotlib import pyplot as plt
 
     from struphy.feec.psydac_derham import Derham
-    from struphy.geometry import domains
+    from struphy import domains
     from struphy.geometry.base import Domain
-    from struphy.initial import perturbations
+    from struphy import perturbations
     from struphy.initial.base import Perturbation
     from struphy.models.variables import FEECVariable
 
