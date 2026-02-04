@@ -115,7 +115,7 @@ class Particles(metaclass=ABCMeta):
             The first entry is a domain_array (see :attr:`~struphy.feec.psydac_derham.Derham.domain_array`) and
             the second entry is the number of MPI processes in each direction.
 
-        mpi_dims_mask: list | tuple of bool
+        mpi_dims_mask: tuple[bool]
                 True if the dimension is to be used in the domain decomposition (=default for each dimension).
                 If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
 
