@@ -11,7 +11,6 @@ from struphy.geometry.base import Domain
 from struphy.initial import perturbations
 from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.linear_algebra.solver import SolverParameters
-from struphy.plasma_models.variables import FEECVariable
 from struphy.pic.accumulation.accum_kernels import charge_density_0form
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.pic.particles import Particles6D
@@ -21,6 +20,7 @@ from struphy.pic.utilities import (
     LoadingParameters,
     WeightsParameters,
 )
+from struphy.plasma_models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.propagators.propagators_fields import ImplicitDiffusion, Poisson
 from struphy.utils.pyccel import Pyccelkernel

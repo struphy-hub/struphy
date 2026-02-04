@@ -4,14 +4,14 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy.feec.projectors import L2Projector
 from struphy.io.options import ModelTypes
 from struphy.kinetic_background.base import KineticBackground
+from struphy.pic.accumulation import accum_kernels_gc
+from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.plasma_models.base import StruphyModel
 from struphy.plasma_models.species import (
     FieldSpecies,
     ParticleSpecies,
 )
 from struphy.plasma_models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation import accum_kernels_gc
-from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.propagators import (
     propagators_fields,
     propagators_markers,

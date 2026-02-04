@@ -31,9 +31,9 @@ from struphy.geometry.base import Domain
 from struphy.io.options import DerhamOptions, ModelTypes, Units
 from struphy.io.output_handling import DataContainer
 from struphy.io.setup import setup_derham
+from struphy.pic.base import Particles
 from struphy.plasma_models.species import DiagnosticSpecies, FieldSpecies, FluidSpecies, ParticleSpecies, Species
 from struphy.plasma_models.variables import FEECVariable, PICVariable, SPHVariable
-from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.topology.grids import TensorProductGrid
 from struphy.utils.clone_config import CloneConfig

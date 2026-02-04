@@ -1,20 +1,21 @@
-from struphy import EnvironmentOptions, BaseUnits, Time
-from struphy import domains
-from struphy import equils
-from struphy import grids
-from struphy import DerhamOptions
-from struphy import FieldsBackground
-from struphy import perturbations
-from struphy import maxwellians
 from struphy import (
-    LoadingParameters,
-    WeightsParameters,
-    BoundaryParameters,
+    BaseUnits,
     BinningPlot,
+    BoundaryParameters,
+    DerhamOptions,
+    EnvironmentOptions,
+    FieldsBackground,
     KernelDensityPlot,
+    LoadingParameters,
+    Time,
+    WeightsParameters,
+    domains,
+    equils,
+    grids,
+    main,
+    maxwellians,
+    perturbations,
 )
-from struphy import main
-
 
 # import model, set verbosity
 from struphy.models import Vlasov

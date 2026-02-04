@@ -23,10 +23,10 @@ from struphy.geometry.base import Domain
 from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time, Units
 from struphy.io.output_handling import DataContainer
 from struphy.io.setup import import_parameters_py, setup_folders
+from struphy.pic.base import Particles
 from struphy.plasma_models.base import StruphyModel
 from struphy.plasma_models.species import Species
 from struphy.plasma_models.variables import FEECVariable
-from struphy.pic.base import Particles
 from struphy.post_processing.orbits import orbits_tools
 from struphy.post_processing.post_processing_tools import (
     create_femfields,

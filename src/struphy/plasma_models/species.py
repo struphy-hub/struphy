@@ -5,7 +5,6 @@ import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.io.options import Units
-from struphy.plasma_models.variables import Variable
 from struphy.physics.physics import ConstantsOfNature
 from struphy.pic.utilities import (
     BinningPlot,
@@ -14,6 +13,7 @@ from struphy.pic.utilities import (
     LoadingParameters,
     WeightsParameters,
 )
+from struphy.plasma_models.variables import Variable
 
 
 class Species(metaclass=ABCMeta):
