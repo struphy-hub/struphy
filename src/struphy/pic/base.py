@@ -3897,7 +3897,6 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         h2,
         h3,
         kernel_type="gaussian_1d",
-        derivative=0,
         fast=True,
     ) -> tuple:
         
@@ -3954,7 +3953,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                 gamma[-1] += [self.eval_sph(eta1,
                                 eta2,
                                 eta3,
-                                first_free_idx + 3*j + k,
+                                first_free_idx + 3*(j+1) + k,
                                 kernel_type=kernel_type,
                                 derivative=k + 1,
                                 h1=h1,
@@ -4003,7 +4002,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         out: xp.ndarray = None,
         fast: bool = True,
         kernel_type: str = "gaussian_1d",
-        derivative: int = "0",
+        derivative: int = 0,
         h1: float = 0.1,
         h2: float = 0.1,
         h3: float = 0.1,
@@ -4024,7 +4023,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             Logical evaluation points.
 
         index : int
-            At which index of the markers array are located the the coefficients :math:`a_k`.
+            At which index of the markers array are located the coefficients :math:`\beta_k`.
 
         out : array_like
             Output will be store in this array. A new array is created if not provided.

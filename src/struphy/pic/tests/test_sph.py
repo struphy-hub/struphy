@@ -1321,8 +1321,7 @@ def test_sph_velocity_evaluation_2d(
 
 
 @pytest.mark.parametrize("boxes_per_dim", [(12, 12, 1)])
-@pytest.mark.parametrize("kernel", ["gaussian_2d"])  # "trigonometric_2d", "linear_2d"])
-@pytest.mark.parametrize("derivative", [0, 1, 2])
+@pytest.mark.parametrize("kernel", ["gaussian_2d"])  # "trigonometric_2d", "linear_2d"]))
 @pytest.mark.parametrize("bc_x", ["periodic", "mirror", "fixed"])
 @pytest.mark.parametrize("bc_y", ["periodic", "mirror", "fixed"])
 @pytest.mark.parametrize("eval_pts", [11])
@@ -1330,7 +1329,6 @@ def test_sph_velocity_evaluation_2d(
 def test_sph_viscosity_evaluation_2d(
     boxes_per_dim,
     kernel,
-    derivative,
     bc_x,
     bc_y,
     eval_pts,
@@ -1367,13 +1365,13 @@ def test_sph_viscosity_evaluation_2d(
     # -----------------------------
     # 1. Taylor-Green velocity field
     # -----------------------------
-    def u_xyz(x, y, z, U0=1.0):
+    def u_xyz(x, y, z):
         """
         Compute the 3D Taylor-Green vortex velocity at points x, y, z.
         u = [sin(x)cos(y)cos(z), -cos(x)sin(y)cos(z), 0]
         """
-        u_x = U0 * xp.sin(2*xp.pi*x) * xp.cos(2*xp.pi*y)
-        u_y = -U0 * xp.cos(2*xp.pi*x) * xp.sin(2*xp.pi*y)
+        u_x = xp.sin(2*xp.pi*x) * xp.cos(2*xp.pi*y)
+        u_y = -xp.cos(2*xp.pi*x) * xp.sin(2*xp.pi*y)
         u_z = xp.zeros_like(x)
         
         return u_x,u_y,u_z
@@ -1409,8 +1407,8 @@ def test_sph_viscosity_evaluation_2d(
             div_x, div_y, div_z
         """
 
-        div_x = -1.5 * xp.sin(x) * xp.cos(y) 
-        div_y =  1.5 * xp.cos(x) * xp.sin(y)
+        div_x = -4*xp.pi**2 * xp.sin(2*xp.pi*x) * xp.cos(2*xp.pi*y) 
+        div_y =  4*xp.pi**2 * xp.cos(2*xp.pi*x) * xp.sin(2*xp.pi*y)
         div_z = xp.zeros_like(x)
 
         return div_x, div_y, div_z
@@ -1534,11 +1532,10 @@ def test_sph_viscosity_evaluation_2d(
         h2=h2,
         h3=h3,
         kernel_type=kernel,
-        derivative=derivative,
     )
-    gamma_x = (-1)*div_viscosity[0]
-    gamma_y = (-1)*div_viscosity[1]
-    gamma_z = (-1)*div_viscosity[2]
+    gamma_x = div_viscosity[0]
+    gamma_y = div_viscosity[1]
+    gamma_z = div_viscosity[2]
     
     div_pi_exact = div_pi_analytic(xx, yy, zz)
     div_pi_x = div_pi_exact[0]  
@@ -1569,21 +1566,21 @@ def test_sph_viscosity_evaluation_2d(
     
     if rank == 0:
         print(f"\n{boxes_per_dim = }")
-        print(f"{kernel = }, {derivative = }")
+        print(f"{kernel = }")
         print(f"{bc_x = }, {bc_y = }, {eval_pts = }")
         print(f"Divergence of viscosity errors: gx={err_div_x:.3e}, gy={err_div_y:.3e}")
         #, gz={err_div_z:.3e}
 
     if show_plot:
         # --- gamma_x and gamma_y plots ---
-        plt.figure(figsize=(12, 24))
+        plt.figure(figsize=(18, 18))
         
         # gamma_x plots
         plt.subplot(3, 3, 1)
         plt.pcolor(ee1.squeeze(), ee2.squeeze(), div_pi_x.squeeze())
         plt.title("Exact div_viscosity_x")
         plt.colorbar()
-        plt.savefig("Exact div_viscosity_x")
+        # plt.savefig("Exact div_viscosity_x")
 
         plt.subplot(3, 3, 4)
         plt.pcolor(ee1.squeeze(), ee2.squeeze(), all_div_x.squeeze())
@@ -1594,20 +1591,20 @@ def test_sph_viscosity_evaluation_2d(
         plt.pcolor(ee1.squeeze(), ee2.squeeze(), (all_div_x - div_pi_x).squeeze())
         plt.title("Error div_viscosity_x")
         plt.colorbar()
-        plt.savefig("Error div_viscosity_x")
+        # plt.savefig("Error div_viscosity_x")
 
         # gamma_y plots
         plt.subplot(3, 3, 2)
         plt.pcolor(ee1.squeeze(), ee2.squeeze(), div_pi_y.squeeze())
         plt.title("Exact div_viscosity_y")
         plt.colorbar()
-        plt.savefig("Exact div_viscosity_y")
+        # plt.savefig("Exact div_viscosity_y")
 
         plt.subplot(3, 3, 5)
         plt.pcolor(ee1.squeeze(), ee2.squeeze(), all_div_y.squeeze())
         plt.title("SPH div_viscosity_y")
         plt.colorbar()
-        plt.savefig("SPH div_viscosity_y")
+        # plt.savefig("SPH div_viscosity_y")
 
         plt.subplot(3, 3, 8)
         plt.pcolor(ee1.squeeze(), ee2.squeeze(), (all_div_y - div_pi_y).squeeze())
@@ -1631,15 +1628,16 @@ def test_sph_viscosity_evaluation_2d(
         plt.colorbar()
 
         plt.tight_layout()
-        plt.savefig("div_viscosity_2d_all.png")
-        plt.show()
+        # plt.savefig("div_viscosity_2d_all.png")
+        # plt.show()
         plt.savefig("viscosity_2d_all")
+        # plt.show()
 
 
 
 if __name__ == "__main__":
     test_sph_viscosity_evaluation_2d(
-        (12, 12, 1), "gaussian_2d", 1, "periodic", "periodic", 101, tesselation=False, show_plot=True
+        (12, 12, 1), "gaussian_2d", "periodic", "periodic", 101, tesselation=True, show_plot=True
     )
     # test_sph_velocity_evaluation_2d(
     #     (12, 12, 1), "gaussian_2d", 1, "periodic", "periodic", 101, tesselation=False, show_plot=True
