@@ -28,7 +28,8 @@ from struphy.fields_background.projected_equils import (
     ProjectedMHDequilibrium,
 )
 from struphy.geometry.base import Domain
-from struphy.api.options import DerhamOptions, LiteralOptions, Units
+from struphy.api.options import DerhamOptions, LiteralOptions
+from struphy.physics.physics import Units
 from struphy.io.output_handling import DataContainer
 from struphy.io.setup import setup_derham
 from struphy.models.species import DiagnosticSpecies, FieldSpecies, FluidSpecies, ParticleSpecies, Species
@@ -1793,6 +1794,9 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         #                 ),
         #                 units_affix[kinds],
         #             )
+
+
+
 
 
 class MyDumper(yaml.SafeDumper):

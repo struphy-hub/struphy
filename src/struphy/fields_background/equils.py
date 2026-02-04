@@ -32,7 +32,8 @@ from struphy.fields_background.base import (
     NumericalMHDequilibrium,
 )
 from struphy.fields_background.mhd_equil.eqdsk import readeqdsk
-from struphy.api.options import BaseUnits, Units
+from struphy.api.options import BaseUnits
+from struphy.physics.physics import Units
 from struphy.utils.utils import read_state, subp_run
 
 if isinstance(MPI, MockMPI):

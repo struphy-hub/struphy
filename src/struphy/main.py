@@ -20,7 +20,8 @@ from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWit
 from struphy.fields_background.equils import HomogenSlab
 from struphy.geometry import domains
 from struphy.geometry.base import Domain
-from struphy.api.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time, Units
+from struphy.api.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time
+from struphy.physics.physics import Units
 from struphy.io.output_handling import DataContainer
 from struphy.io.setup import import_parameters_py, setup_folders
 from struphy.models.base import StruphyModel
