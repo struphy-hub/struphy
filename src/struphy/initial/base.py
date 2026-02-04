@@ -4,6 +4,7 @@ from typing import Callable
 from struphy.api.options import LiteralOptions
 from struphy.utils.utils import check_option
 
+
 class Perturbation(metaclass=ABCMeta):
     """Base class for perturbations that can be chosen as initial conditions."""
 

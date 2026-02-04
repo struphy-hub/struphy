@@ -7,16 +7,16 @@ from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 
 from struphy import main
-from struphy.geometry import domains
-from struphy.initial import perturbations
 from struphy.api.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time
-from struphy.kinetic_background import maxwellians
 from struphy.api.particles import (
     BinningPlot,
     BoundaryParameters,
     LoadingParameters,
     WeightsParameters,
 )
+from struphy.geometry import domains
+from struphy.initial import perturbations
+from struphy.kinetic_background import maxwellians
 from struphy.topology import grids
 
 

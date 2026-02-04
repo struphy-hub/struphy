@@ -8,9 +8,6 @@ from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
 
 from struphy import main
-from struphy.fields_background import equils
-from struphy.geometry import domains
-from struphy.initial import perturbations
 from struphy.api.options import BaseUnits, EnvironmentOptions, Time
 from struphy.api.particles import (
     BinningPlot,
@@ -19,6 +16,9 @@ from struphy.api.particles import (
     LoadingParameters,
     WeightsParameters,
 )
+from struphy.fields_background import equils
+from struphy.geometry import domains
+from struphy.initial import perturbations
 
 
 @pytest.mark.parametrize("nx", [12, 24])

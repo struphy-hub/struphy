@@ -6,9 +6,9 @@ from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 
 from struphy import main
+from struphy.api.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time
 from struphy.geometry import domains
 from struphy.initial import perturbations
-from struphy.api.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time
 from struphy.models import Poisson
 from struphy.topology import grids
 

@@ -12,10 +12,10 @@ from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
 from numpy import array, polynomial, random
 
+from struphy.api.options import LiteralOptions
 from struphy.feec.mass import WeightedMassOperators
 from struphy.fields_background.base import MHDequilibrium
 from struphy.fields_background.equils import set_defaults
-from struphy.api.options import LiteralOptions
 from struphy.io.setup import descend_options_dict
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.ode.utils import ButcherTableau

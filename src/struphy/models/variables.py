@@ -7,12 +7,12 @@ from typing import TYPE_CHECKING
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy.api.options import FieldsBackground, LiteralOptions
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.initial.perturbations import Perturbation
-from struphy.api.options import FieldsBackground, LiteralOptions
 from struphy.kinetic_background.base import KineticBackground
 from struphy.pic import particles
 from struphy.pic.base import Particles
@@ -25,8 +25,8 @@ if TYPE_CHECKING:
 
 
 class Variable(metaclass=ABCMeta):
-    """Single variable of a Species object. 
-    
+    """Single variable of a Species object.
+
     The solution of a model is a collection of Variables.
     Multiple Variables can be combined within a Species.
     For example, a Species 'Hydrogen' could be composed of the Variables density, velocity and temperature,
@@ -97,7 +97,7 @@ class Variable(metaclass=ABCMeta):
 
 class FEECVariable(Variable):
     """Basic finite element variable for grid-based methods.
-    
+
     Initial conditions for a FEECVariable consist of a background plus a perturbation, which are added up.
     If neither a background nor a perturbation is present, the Variable is initialized as zero.
     """
@@ -158,8 +158,8 @@ class FEECVariable(Variable):
 
 class PICVariable(Variable):
     """Basic particle variable in PIC methods.
-    
-    A background is mandatory and can be used for noise reduction for instance. 
+
+    A background is mandatory and can be used for noise reduction for instance.
     The initial condition is a kinetic background with optional perturbations added to it.
     If no inital condition is specified, the background is taken as inital condition.
     If both a background and an initial condition are specified, they should be consistent
@@ -300,7 +300,7 @@ class PICVariable(Variable):
 
 class SPHVariable(Variable):
     """Basic variable for SPH methods.
-    
+
     Initial conditions for a SPHVariable consist of a background plus a perturbation for density and velocity, which are added up.
     If neither a background nor a perturbation is present, the Variable is initialized as zero.
     """

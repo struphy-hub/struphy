@@ -6,11 +6,11 @@ import pytest
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import main
+from struphy.api.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time
 from struphy.diagnostics.diagn_tools import power_spectrum_2d
 from struphy.fields_background import equils
 from struphy.geometry import domains
 from struphy.initial import perturbations
-from struphy.api.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time
 from struphy.topology import grids
 
 

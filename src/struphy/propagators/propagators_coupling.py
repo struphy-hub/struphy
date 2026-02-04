@@ -10,9 +10,9 @@ from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
 
+from struphy.api.options import LiteralOptions
 from struphy.feec import preconditioner
 from struphy.feec.linear_operators import LinOpWithTransp
-from struphy.api.options import LiteralOptions
 from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import Maxwellian3D

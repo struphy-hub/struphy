@@ -1,8 +1,10 @@
 from dataclasses import dataclass
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.api.options import BaseUnits
+
 
 @dataclass
 class ConstantsOfNature:
@@ -12,8 +14,8 @@ class ConstantsOfNature:
     eps0 = 8.8541878128e-12  # vacuum permittivity (F/m)
     kB = 1.380649e-23  # Boltzmann constant (J/K)
     c = 299792458  # speed of light (m/s)
-    
-    
+
+
 class Units:
     """
     Colllects base units and derives other units from these. See :ref:`normalization`.

@@ -1,8 +1,8 @@
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.feec.projectors import L2Projector
 from struphy.api.options import LiteralOptions
+from struphy.feec.projectors import L2Projector
 from struphy.kinetic_background.base import KineticBackground
 from struphy.models.base import StruphyModel
 from struphy.models.species import (

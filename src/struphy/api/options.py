@@ -9,7 +9,7 @@ from struphy.utils.utils import check_option
 class LiteralOptions:
     """
     (String) options for parameters in launch files, including:
-    
+
     * Time stepping
     * Derham finite element spaces
     * Background/equilibrium types
@@ -21,6 +21,7 @@ class LiteralOptions:
     * Smoothing kernels for SPH methods
     * Particle binning in phase space
     """
+
     # time
     SplitAlgos = Literal["LieTrotter", "Strang"]
 

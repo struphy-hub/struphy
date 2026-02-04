@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Literal, get_args
 
 import cunumpy as xp
+
 from struphy.api.options import LiteralOptions
 
 

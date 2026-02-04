@@ -14,6 +14,7 @@ from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
 from scope_profiler import ProfileManager
 
+from struphy.api.options import DerhamOptions, LiteralOptions
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
 from struphy.fields_background.base import (
@@ -28,12 +29,11 @@ from struphy.fields_background.projected_equils import (
     ProjectedMHDequilibrium,
 )
 from struphy.geometry.base import Domain
-from struphy.api.options import DerhamOptions, LiteralOptions
-from struphy.physics.physics import Units
 from struphy.io.output_handling import DataContainer
 from struphy.io.setup import setup_derham
 from struphy.models.species import DiagnosticSpecies, FieldSpecies, FluidSpecies, ParticleSpecies, Species
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
+from struphy.physics.physics import Units
 from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.topology.grids import TensorProductGrid
@@ -1794,9 +1794,6 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         #                 ),
         #                 units_affix[kinds],
         #             )
-
-
-
 
 
 class MyDumper(yaml.SafeDumper):

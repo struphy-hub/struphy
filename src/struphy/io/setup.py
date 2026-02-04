@@ -8,8 +8,8 @@ from types import ModuleType
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.geometry.base import Domain
 from struphy.api.options import DerhamOptions
+from struphy.geometry.base import Domain
 from struphy.topology.grids import TensorProductGrid
 
 

@@ -20,6 +20,12 @@ from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
 from sympy.ntheory import factorint
 
+from struphy.api.options import LiteralOptions
+from struphy.api.particles import (
+    BoundaryParameters,
+    LoadingParameters,
+    WeightsParameters,
+)
 from struphy.bsplines.bsplines import quadrature_grid
 from struphy.fields_background import equils
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB, NumericalFluidEquilibrium
@@ -28,7 +34,6 @@ from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial.base import Perturbation
-from struphy.api.options import LiteralOptions
 from struphy.io.output_handling import DataContainer
 from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
 from struphy.kinetic_background.base import KineticBackground, Maxwellian
@@ -48,11 +53,6 @@ from struphy.pic.sph_eval_kernels import (
     distance,
     naive_evaluation_flat,
     naive_evaluation_meshgrid,
-)
-from struphy.api.particles import (
-    BoundaryParameters,
-    LoadingParameters,
-    WeightsParameters,
 )
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig

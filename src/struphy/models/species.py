@@ -4,9 +4,6 @@ from abc import ABCMeta, abstractmethod
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.physics.physics import Units
-from struphy.models.variables import Variable
-from struphy.physics.physics import ConstantsOfNature
 from struphy.api.particles import (
     BinningPlot,
     BoundaryParameters,
@@ -14,6 +11,8 @@ from struphy.api.particles import (
     LoadingParameters,
     WeightsParameters,
 )
+from struphy.models.variables import Variable
+from struphy.physics.physics import ConstantsOfNature, Units
 
 
 class Species(metaclass=ABCMeta):
@@ -190,28 +189,28 @@ class ParticleSpecies(Species):
         box_bufsize: float = 2.0,
         dims_maks: tuple = (True, True, True),
     ):
-        """Set options for sorting particles/markers in parameter/launch files. 
+        """Set options for sorting particles/markers in parameter/launch files.
         The sorting boxes are used to sort particles in memory and for SPH kernel evaluations.
-        
+
         For SPH kernel evaluation, the box size 1.0/boxes_per_dim[i] defines the maximal
         kernel width in direction i.
-        
+
         Parameters
         ----------
-        do_sort: bool 
+        do_sort: bool
             Whether to sort particles in memory.
-        
+
         sorting_frequency: int
             The number of time steps between two sortings (=0 means no sorting is performed).
-        
+
         boxes_per_dim: tuple
-            Number of boxes in each direction of logical space, (n_eta1, n_eta2, n_eta3).  
-            
+            Number of boxes in each direction of logical space, (n_eta1, n_eta2, n_eta3).
+
         box_bufsize : float
-            Between 0 and 1, relative buffer size for box array (default = 0.25). 
+            Between 0 and 1, relative buffer size for box array (default = 0.25).
             A number of 1.0 means that the box array is double the size needed to hold N/n_boxes particles,
             where N is the total number of particles.
-            
+
         mpi_dims_mask: tuple[bool]
             True if the dimension is to be used in the domain decomposition (=default for each dimension).
             If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
@@ -229,16 +228,16 @@ class ParticleSpecies(Species):
         kernel_density_plots: tuple[KernelDensityPlot] = (),
     ):
         """Set options for saving particle/marker information in parameter/launch files.
-        
+
         Parameters
         ----------
         n_markers: int | float
-            Number of particles/markers for which to save trajectories. 
+            Number of particles/markers for which to save trajectories.
             If float and <1.0, then understood as the fraction of the total number of markers.
-        
+
         binned_data: tuple[BinningPlot]
             A tuple of BinningPlot objects.
-        
+
         kernel_density_plots: tuple[KernelDensityPlot]
             A tuple of KernelDensityPlot objects.
         """

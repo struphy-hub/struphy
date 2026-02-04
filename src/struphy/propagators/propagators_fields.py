@@ -18,6 +18,7 @@ from matplotlib import pyplot as plt
 from numpy import zeros
 
 import struphy.feec.utilities as util
+from struphy.api.options import LiteralOptions
 from struphy.examples.restelli2018 import callables
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import (
@@ -41,7 +42,6 @@ from struphy.feec.variational_utilities import (
 from struphy.fields_background.equils import set_defaults
 from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial import perturbations
-from struphy.api.options import LiteralOptions
 from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3D
