@@ -82,7 +82,7 @@ def struphy_test(
 
     elif group in {"models", "fluid", "kinetic", "hybrid", "toy"}:
         list_of_tests = [
-            f"{LIBPATH}/models/tests/default_params/",
+            f"{LIBPATH}/plasma_models/tests/default_params/",
         ]
 
         if mpi > 1:
@@ -116,7 +116,7 @@ def struphy_test(
 
     elif "verification" in group:
         list_of_tests = [
-            f"{LIBPATH}/models/tests/verification/",
+            f"{LIBPATH}/plasma_models/tests/verification/",
         ]
 
         if mpi > 1:

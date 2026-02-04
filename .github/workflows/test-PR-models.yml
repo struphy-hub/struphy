@@ -91,7 +91,7 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
-          pytest -m models --testmon-forceselect  /struphy_fortran_/src/struphy/models/tests/default_params/ 
+          pytest -m models --testmon-forceselect  /struphy_fortran_/src/struphy/plasma_models/tests/default_params/ 
 
       - name: Verification tests
         shell: bash
@@ -110,7 +110,7 @@ jobs:
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           mpirun -n 1 pytest -m single --testmon-forceselect -s --with-mpi --model-name Maxwell /struphy_fortran_/src/struphy
-          mpirun -oversubscribe -n 2 pytest -m models --testmon-forceselect --with-mpi  /struphy_fortran_/src/struphy/models/tests/default_params/
+          mpirun -oversubscribe -n 2 pytest -m models --testmon-forceselect --with-mpi  /struphy_fortran_/src/struphy/plasma_models/tests/default_params/
 
       - name: Verification tests with 2 MPI
         shell: bash
@@ -118,4 +118,4 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model-mpi
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
-          mpirun --oversubscribe -n 2 pytest --testmon --with-mpi  /struphy_fortran_/src/struphy/models/tests/verification/
+          mpirun --oversubscribe -n 2 pytest --testmon --with-mpi  /struphy_fortran_/src/struphy/plasma_models/tests/verification/

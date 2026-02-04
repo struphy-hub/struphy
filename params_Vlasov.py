@@ -1,3 +1,6 @@
+# import model, set verbosity
+from struphy.models import Vlasov
+
 from struphy import (
     BaseUnits,
     BinningPlot,
@@ -16,9 +19,6 @@ from struphy import (
     maxwellians,
     perturbations,
 )
-
-# import model, set verbosity
-from struphy.models import Vlasov
 
 # environment options
 env = EnvironmentOptions()
