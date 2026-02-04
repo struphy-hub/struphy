@@ -560,13 +560,13 @@ class PushGuidingCenterBxEstar(Propagator):
         butcher: ButcherTableau = None
         maxiter: int = 20
         tol: float = 1e-7
-        mpi_sort: OptsMPIsort = "each"
+        mpi_sort: LiteralOptions.OptsMPIsort = "each"
         verbose: bool = False
 
         def __post_init__(self):
             # checks
             check_option(self.algo, self.OptsAlgo)
-            check_option(self.mpi_sort, OptsMPIsort)
+            check_option(self.mpi_sort, LiteralOptions.OptsMPIsort)
 
             # defaults
             if self.phi is None:
@@ -1001,13 +1001,13 @@ class PushGuidingCenterParallel(Propagator):
         butcher: ButcherTableau = None
         maxiter: int = 20
         tol: float = 1e-7
-        mpi_sort: OptsMPIsort = "each"
+        mpi_sort: LiteralOptions.OptsMPIsort = "each"
         verbose: bool = False
 
         def __post_init__(self):
             # checks
             check_option(self.algo, self.OptsAlgo)
-            check_option(self.mpi_sort, OptsMPIsort)
+            check_option(self.mpi_sort, LiteralOptions.OptsMPIsort)
 
             # defaults
             if self.phi is None:
@@ -1675,7 +1675,7 @@ class PushVinSPHpressure(Propagator):
         OptsAlgo = Literal["forward_euler"]
         OptsThermo = Literal["isothermal", "polytropic"]
         # propagator options
-        kernel_type: OptsKernel = "gaussian_2d"
+        kernel_type: LiteralOptions.OptsKernel = "gaussian_2d"
         kernel_width: tuple = None
         algo: OptsAlgo = "forward_euler"
         gravity: tuple = (0.0, 0.0, 0.0)
@@ -1683,7 +1683,7 @@ class PushVinSPHpressure(Propagator):
 
         def __post_init__(self):
             # checks
-            check_option(self.kernel_type, OptsKernel)
+            check_option(self.kernel_type, LiteralOptions.OptsKernel)
             check_option(self.algo, self.OptsAlgo)
             check_option(self.thermodynamics, self.OptsThermo)
 
@@ -1815,13 +1815,13 @@ class PushVinViscousPotential(Propagator):
         # specific literals
         OptsAlgo = Literal["forward_euler"]
         # propagator options
-        kernel_type: OptsKernel = "gaussian_2d"
+        kernel_type: LiteralOptions.OptsKernel = "gaussian_2d"
         kernel_width: tuple = None
         algo: OptsAlgo = "forward_euler"
 
         def __post_init__(self):
             # checks
-            check_option(self.kernel_type, OptsKernel)
+            check_option(self.kernel_type, LiteralOptions.OptsKernel)
             check_option(self.algo, self.OptsAlgo)
 
     @property

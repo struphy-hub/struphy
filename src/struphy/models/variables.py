@@ -145,8 +145,8 @@ class FEECVariable(Variable):
 class PICVariable(Variable):
     """Variable discretized with :ref:`particle_discrete`."""
 
-    def __init__(self, space: OptsPICSpace = "Particles6D"):
-        check_option(space, OptsPICSpace)
+    def __init__(self, space: LiteralOptions.OptsPICSpace = "Particles6D"):
+        check_option(space, LiteralOptions.OptsPICSpace)
         self._space = space
 
     @property

@@ -582,7 +582,7 @@ class ShearAlfven(Propagator):
         # propagator options
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
         algo: OptsAlgo = "implicit"
-        solver: LiteralOptions.LiteralOptions.OptsSymmSolver = "pcg"
+        solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         butcher: ButcherTableau = None
@@ -591,7 +591,7 @@ class ShearAlfven(Propagator):
             # checks
             check_option(self.u_space, LiteralOptions.OptsVecSpace)
             check_option(self.algo, self.OptsAlgo)
-            check_option(self.solver, LiteralOptions.LiteralOptions.OptsSymmSolver)
+            check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
             # defaults

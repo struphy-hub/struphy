@@ -1,14 +1,8 @@
 import cunumpy as xp
 
 import struphy.pic.utilities_kernels as utils
-from struphy.api.options import (
-    BinningQuantity,
-    OptsLoading,
-    OptsMarkerBC,
-    OptsRecontructBC,
-    OptsSpatialLoading,
-    check_option,
-)
+from struphy.api.options import LiteralOptions
+from struphy.utils.utils import check_option
 
 
 class LoadingParameters:
@@ -25,7 +19,7 @@ class LoadingParameters:
     ppb : int
         Particles to load per sorting box. Sorting boxes are defined from ``boxes_per_dim``.
 
-    loading : OptsLoading
+    loading : LiteralOptions.OptsLoading
         How to load markers: multiple options for Monte-Carlo, or "tesselation" for positioning them on a regular grid.
 
     seed : int
@@ -35,7 +29,7 @@ class LoadingParameters:
         Mean velocities and temperatures for the Gaussian sampling distribution.
         If None, these are auto-calculated form the given background.
 
-    spatial : OptsSpatialLoading
+    spatial : LiteralOptions.OptsSpatialLoading
         Draw uniformly in eta, or draw uniformly on the "disc" image of (eta1, eta2).
 
     specific_markers : tuple[tuple]
@@ -62,10 +56,10 @@ class LoadingParameters:
         Np: int = None,
         ppc: int = None,
         ppb: int = 10,
-        loading: OptsLoading = "pseudo_random",
+        loading: LiteralOptions.OptsLoading = "pseudo_random",
         seed: int = None,
         moments: tuple = None,
-        spatial: OptsSpatialLoading = "uniform",
+        spatial: LiteralOptions.OptsSpatialLoading = "uniform",
         specific_markers: tuple[tuple] = None,
         n_quad: int = 1,
         dir_exrernal: str = None,
@@ -119,22 +113,22 @@ class BoundaryParameters:
 
     Parameters
     ----------
-    bc : tuple[OptsMarkerBC]
+    bc : tuple[LiteralOptions.OptsMarkerBC]
         Boundary conditions for particle movement.
         Either 'remove', 'reflect', 'periodic' or 'refill' in each direction.
 
     bc_refill : list
         Either 'inner' or 'outer'.
 
-    bc_sph : tuple[OptsRecontructBC]
+    bc_sph : tuple[LiteralOptions.OptsRecontructBC]
         Boundary conditions for sph kernel reconstruction.
     """
 
     def __init__(
         self,
-        bc: tuple[OptsMarkerBC] = ("periodic", "periodic", "periodic"),
+        bc: tuple[LiteralOptions.OptsMarkerBC] = ("periodic", "periodic", "periodic"),
         bc_refill=None,
-        bc_sph: tuple[OptsRecontructBC] = ("periodic", "periodic", "periodic"),
+        bc_sph: tuple[LiteralOptions.OptsRecontructBC] = ("periodic", "periodic", "periodic"),
     ):
         self.bc = bc
         self.bc_refill = bc_refill
@@ -169,7 +163,7 @@ class BinningPlot:
         n_bins: int | tuple[int] = 128,
         ranges: tuple[float] | tuple[tuple[float]] = (0.0, 1.0),
         divide_by_jac: bool = True,
-        output_quantity: BinningQuantity = "density",
+        output_quantity: LiteralOptions.BinningQuantity = "density",
     ):
         if isinstance(n_bins, int):
             n_bins = (n_bins,)
@@ -181,7 +175,7 @@ class BinningPlot:
         assert len(slice.split("_")) == len(ranges) == len(n_bins), (
             f"Number of slices names ({len(slice.split('_'))}), number of bins ({len(n_bins)}), and number of ranges ({len(ranges)}) are inconsistent with each other!\n\n"
         )
-        check_option(output_quantity, BinningQuantity)
+        check_option(output_quantity, LiteralOptions.BinningQuantity)
 
         self.slice = slice
         self.n_bins = n_bins

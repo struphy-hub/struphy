@@ -28,7 +28,7 @@ from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial.base import Perturbation
-from struphy.api.options import BinningQuantity, OptsLoading
+from struphy.api.options import LiteralOptions
 from struphy.io.output_handling import DataContainer
 from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
 from struphy.kinetic_background.base import KineticBackground, Maxwellian
@@ -469,7 +469,7 @@ class Particles(metaclass=ABCMeta):
         return self._name
 
     @property
-    def loading(self) -> OptsLoading:
+    def loading(self) -> LiteralOptions.OptsLoading:
         """Type of particle loading."""
         return self._loading
 
@@ -1916,7 +1916,7 @@ class Particles(metaclass=ABCMeta):
         self,
         components: tuple[bool],
         bin_edges: tuple[xp.ndarray],
-        output_quantity: BinningQuantity = "density",
+        output_quantity: LiteralOptions.BinningQuantity = "density",
         divide_by_jac: bool = True,
     ):
         r"""Computes full-f and delta-f distribution functions via marker binning in logical space.
