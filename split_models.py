@@ -2,12 +2,12 @@ import inspect
 import os
 import re
 
-import struphy.models.fluid as fluid
-import struphy.models.hybrid as hybrid
-import struphy.models.kinetic as kinetic
-import struphy.models.toy as toy
+import struphy.plasma_models.fluid as fluid
+import struphy.plasma_models.hybrid as hybrid
+import struphy.plasma_models.kinetic as kinetic
+import struphy.plasma_models.toy as toy
 
-from struphy.models.base import StruphyModel
+from struphy.plasma_models.base import StruphyModel
 
 
 def camel_to_snake(name):

@@ -1,3 +1,4 @@
+from struphy.api import models
 from struphy.api.domains import domains
 from struphy.api.equils import equils
 from struphy.api.grids import grids
@@ -13,9 +14,8 @@ from struphy.api.pic_utilities import (
     WeightsParameters,
 )
 
-# from struphy.api import models # This is redundant
-
 __all__ = [
+    "models",
     "domains",
     "equils",
     "grids",
@@ -31,5 +31,4 @@ __all__ = [
     "KernelDensityPlot",
     "DerhamOptions",
     "FieldsBackground",
-    # "models", # Redundant since struphy.models already points to this module
 ]

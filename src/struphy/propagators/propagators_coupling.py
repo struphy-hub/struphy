@@ -18,7 +18,7 @@ from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import DiscreteGradientSolverParameters, SolverParameters
-from struphy.models.variables import FEECVariable, PICVariable
+from struphy.plasma_models.variables import FEECVariable, PICVariable
 from struphy.ode.utils import ButcherTableau
 from struphy.pic import utilities_kernels
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc

@@ -57,8 +57,8 @@ from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3
 from struphy.linear_algebra.saddle_point import SaddlePointSolver
 from struphy.linear_algebra.schur_solver import SchurSolver, SchurSolverFull
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
-from struphy.models.species import Species
-from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
+from struphy.plasma_models.species import Species
+from struphy.plasma_models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.ode.solvers import ODEsolverFEEC
 from struphy.ode.utils import ButcherTableau, OptsButcher
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc

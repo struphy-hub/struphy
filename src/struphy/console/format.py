@@ -88,7 +88,7 @@ from collections import defaultdict
 from tabulate import tabulate
 
 import struphy
-from struphy.models.base import StruphyModel
+from struphy.plasma_models.base import StruphyModel
 
 LIBPATH = struphy.__path__[0]
 
@@ -100,7 +100,7 @@ FAIL_RED = f"{RED_COLOR}FAIL{BLACK_COLOR}"
 PASS_GREEN = f"{GREEN_COLOR}PASS{BLACK_COLOR}"
 
 
-MODELS_INIT_PATH = os.path.join(LIBPATH, "models/__init__.py")
+MODELS_INIT_PATH = os.path.join(LIBPATH, "api/models/__init__.py")
 PROPAGATORS_INIT_PATH = os.path.join(LIBPATH, "propagators/__init__.py")
 
 
@@ -1272,7 +1272,7 @@ def run_linters_on_files(linters, python_files, flags, verbose):
                     print(line, end="")
 
 
-def construct_models_init_file(models_dir: str = "src/struphy/models") -> str:
+def construct_models_init_file(models_dir: str = "src/struphy/plasma_models") -> str:
     """
     Constructs __init__.py for all generated model files by reading actual class names.
     Skips base.py and __init__.py.
@@ -1283,14 +1283,14 @@ def construct_models_init_file(models_dir: str = "src/struphy/models") -> str:
     for file_name in sorted(os.listdir(models_dir)):
         if file_name.endswith(".py") and file_name not in ["__init__.py", "base.py"]:
             module_name = file_name[:-3]  # strip .py
-            module = importlib.import_module(f"struphy.models.{module_name}")
+            module = importlib.import_module(f"struphy.plasma_models.{module_name}")
 
             # Loop over all classes in the module
             for _, cls in inspect.getmembers(module, inspect.isclass):
                 # Only subclasses of StruphyModel defined in this module
                 if issubclass(cls, StruphyModel) and cls.__module__ == module.__name__ and cls != StruphyModel:
                     class_name = cls.__name__
-                    models_init += f"from struphy.models.{module_name} import {class_name}\n"
+                    models_init += f"from struphy.plasma_models.{module_name} import {class_name}\n"
                     model_names.append(class_name)
 
     models_init += "\n\n"

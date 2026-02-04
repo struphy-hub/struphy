@@ -22,7 +22,7 @@ from struphy.io.options import (
     check_option,
 )
 from struphy.io.setup import descend_options_dict
-from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
+from struphy.plasma_models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.ode.utils import ButcherTableau
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
