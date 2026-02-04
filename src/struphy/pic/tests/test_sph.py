@@ -1482,7 +1482,7 @@ def test_sph_viscosity_evaluation_2d(
     plt.pcolor(xx.squeeze(), yy.squeeze(), density_exact.squeeze(), vmin=xp.min(density), vmax=xp.max(density))
     plt.title("density exact")
     plt.colorbar()
-    # plt.savefig("density")
+    plt.savefig("density")
     # plt.show()
     
     # evaluate velocity
@@ -1519,12 +1519,11 @@ def test_sph_viscosity_evaluation_2d(
     
     plt.subplot(2, 2, 4)
     plt.pcolor(xx.squeeze(), yy.squeeze(), vy_exact.squeeze(), vmin=xp.min(vy), vmax=xp.max(vy))
-    plt.title("vx exact")
+    plt.title("vy exact")
     plt.colorbar()
     
-    plt.show()
-    # plt.savefig("velocity")
-    exit()
+    # plt.show()
+    plt.savefig("velocity")
     
     # evaluate div of viscosity tensor (numerically)
     div_viscosity = particles.eval_div_viscosity(
