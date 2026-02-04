@@ -100,7 +100,7 @@ jobs:
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           cd /struphy_fortran_/src/struphy
-          pytest --testmon models/tests/verification/
+          pytest --testmon plasma_models/tests/verification/
 
       - name: Model tests with MPI
         shell: bash
