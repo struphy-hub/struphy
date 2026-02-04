@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 import cunumpy as xp
-from mpi4py import MPI
+from feectools.ddm.mpi import mpi as MPI
 
 from struphy.api.options import BaseUnits
 
