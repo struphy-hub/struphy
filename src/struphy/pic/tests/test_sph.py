@@ -1372,8 +1372,8 @@ def test_sph_viscosity_evaluation_2d(
         Compute the 3D Taylor-Green vortex velocity at points x, y, z.
         u = [sin(x)cos(y)cos(z), -cos(x)sin(y)cos(z), 0]
         """
-        u_x = U0 * xp.sin(x) * xp.cos(y) * xp.cos(z)
-        u_y = -U0 * xp.cos(x) * xp.sin(y) * xp.cos(z)
+        u_x = U0 * xp.sin(2*xp.pi*x) * xp.cos(2*xp.pi*y)
+        u_y = -U0 * xp.cos(2*xp.pi*x) * xp.sin(2*xp.pi*y)
         u_z = xp.zeros_like(x)
         
         return u_x,u_y,u_z
@@ -1388,14 +1388,14 @@ def test_sph_viscosity_evaluation_2d(
         pi = xp.zeros((3, 3, *x.shape))  # shape (3,3,Nx,Ny,Nz)
 
         # Diagonal
-        pi[0,0] = xp.cos(x)*xp.cos(y)*xp.cos(z)
-        pi[1,1] = -xp.cos(x)*xp.cos(y)*xp.cos(z)
+        pi[0,0] = xp.cos(x)*xp.cos(y)
+        pi[1,1] = -xp.cos(x)*xp.cos(y)
         pi[2,2] = 0
 
         # Off-diagonal
         pi[0,1] = pi[1,0] = 0
-        pi[0,2] = pi[2,0] = -0.5 * xp.sin(x)*xp.cos(y)*xp.sin(z)
-        pi[1,2] = pi[2,1] = 0.5 * xp.cos(x)*xp.sin(y)*xp.sin(z)
+        pi[0,2] = pi[2,0] = 0#-0.5 * xp.sin(x)*xp.cos(y)*xp.sin(z)
+        pi[1,2] = pi[2,1] = 0#0.5 * xp.cos(x)*xp.sin(y)*xp.sin(z)
 
         return pi
 
@@ -1409,8 +1409,8 @@ def test_sph_viscosity_evaluation_2d(
             div_x, div_y, div_z
         """
 
-        div_x = -1.5 * xp.sin(x) * xp.cos(y) * xp.cos(z)
-        div_y =  1.5 * xp.cos(x) * xp.sin(y) * xp.cos(z)
+        div_x = -1.5 * xp.sin(x) * xp.cos(y) 
+        div_y =  1.5 * xp.cos(x) * xp.sin(y)
         div_z = xp.zeros_like(x)
 
         return div_x, div_y, div_z
@@ -1451,6 +1451,10 @@ def test_sph_viscosity_evaluation_2d(
     y = xp.linspace(l2, r2, eval_pts)
     z = xp.array([0.0])
     xx, yy, zz = xp.meshgrid(x, y, z, indexing="ij")
+    
+    # exact values
+    density_exact = background.n_xyz(xx, yy, zz)
+    vx_exact, vy_exact, _ = background.u_xyz(xx, yy, zz) 
 
     # evaluate density
     h1 = 1 / boxes_per_dim[0]
@@ -1469,10 +1473,17 @@ def test_sph_viscosity_evaluation_2d(
 
     print(f"{density.shape = }")
     print(f"{xp.min(density) = }, {xp.max(density) = }")
-    plt.pcolor(xx.squeeze(), yy.squeeze(), density.squeeze())
-    plt.title("density")
+    plt.figure(figsize=(10, 5))
+    plt.subplot(1, 2, 1)
+    plt.pcolor(xx.squeeze(), yy.squeeze(), density.squeeze(), vmin=xp.min(density), vmax=xp.max(density))
+    plt.title("density sph")
     plt.colorbar()
-    plt.savefig("density")
+    plt.subplot(1, 2, 2)
+    plt.pcolor(xx.squeeze(), yy.squeeze(), density_exact.squeeze(), vmin=xp.min(density), vmax=xp.max(density))
+    plt.title("density exact")
+    plt.colorbar()
+    # plt.savefig("density")
+    # plt.show()
     
     # evaluate velocity
     vx, vy, vz = particles.eval_velocity(ee1,
@@ -1488,17 +1499,32 @@ def test_sph_viscosity_evaluation_2d(
     print(f"{vx.shape = }, {vy.shape = }")
     print(f"{xp.min(vx) = }, {xp.max(vx) = }")
     print(f"{xp.min(vy) = }, {xp.max(vy) = }")
-    plt.figure(figsize=(10, 5))
-    plt.subplot(1, 2, 1)
-    plt.pcolor(xx.squeeze(), yy.squeeze(), vx.squeeze())
-    plt.title("vx")
+    
+    plt.figure(figsize=(10, 8))
+    
+    plt.subplot(2, 2, 1)
+    plt.pcolor(xx.squeeze(), yy.squeeze(), vx.squeeze(), vmin=xp.min(vx), vmax=xp.max(vx))
+    plt.title("vx sph")
     plt.colorbar()
-    plt.subplot(1, 2, 2)
+    
+    plt.subplot(2, 2, 3)
+    plt.pcolor(xx.squeeze(), yy.squeeze(), vx_exact.squeeze(), vmin=xp.min(vx), vmax=xp.max(vx))
+    plt.title("vx exact")
+    plt.colorbar()
+    
+    plt.subplot(2, 2, 2)
     plt.pcolor(xx.squeeze(), yy.squeeze(), vy.squeeze())
-    plt.title("vy")
+    plt.title("vy sph")
     plt.colorbar()
+    
+    plt.subplot(2, 2, 4)
+    plt.pcolor(xx.squeeze(), yy.squeeze(), vy_exact.squeeze(), vmin=xp.min(vy), vmax=xp.max(vy))
+    plt.title("vx exact")
+    plt.colorbar()
+    
     plt.show()
-    plt.savefig("velocity")
+    # plt.savefig("velocity")
+    exit()
     
     # evaluate div of viscosity tensor (numerically)
     div_viscosity = particles.eval_div_viscosity(
