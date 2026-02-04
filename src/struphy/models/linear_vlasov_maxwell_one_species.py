@@ -1,5 +1,4 @@
 from feectools.ddm.mpi import mpi as MPI
-
 from struphy.api.options import LiteralOptions
 from struphy.models.linear_vlasov_ampere_one_species import LinearVlasovAmpereOneSpecies
 from struphy.models.species import (

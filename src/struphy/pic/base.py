@@ -15,11 +15,11 @@ except ModuleNotFoundError:
 
 
 import cunumpy as xp
-from feectools.ddm.mpi import MockComm
-from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
 from sympy.ntheory import factorint
 
+from feectools.ddm.mpi import MockComm
+from feectools.ddm.mpi import mpi as MPI
 from struphy.api.options import LiteralOptions
 from struphy.api.particles import (
     BoundaryParameters,

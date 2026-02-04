@@ -1,6 +1,5 @@
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector
-
 from struphy.api.options import LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.species import (

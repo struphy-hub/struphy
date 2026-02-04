@@ -1,4 +1,5 @@
 import pytest
+
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 

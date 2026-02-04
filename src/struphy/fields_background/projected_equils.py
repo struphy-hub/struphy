@@ -1,6 +1,5 @@
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilVector
-
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.base import (
     FluidEquilibrium,

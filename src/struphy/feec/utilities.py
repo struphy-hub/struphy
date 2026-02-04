@@ -1,12 +1,12 @@
 import cunumpy as xp
+
+import struphy.feec.utilities_kernels as kernels
 from feectools.api.essential_bc import apply_essential_bc_stencil
 from feectools.fem.tensor import TensorFemSpace
 from feectools.fem.vector import VectorFemSpace
 from feectools.linalg.basic import Vector
 from feectools.linalg.block import BlockLinearOperator, BlockVector
 from feectools.linalg.stencil import StencilMatrix, StencilVector
-
-import struphy.feec.utilities_kernels as kernels
 from struphy.feec import banded_to_stencil_kernels as bts
 from struphy.polar.basic import PolarVector
 

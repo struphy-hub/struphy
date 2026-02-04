@@ -8,14 +8,14 @@ import warnings
 from time import time
 
 import cunumpy as xp
-from feectools.ddm.mpi import MockMPI
-from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
 from scipy.integrate import odeint, quad
 from scipy.interpolate import RectBivariateSpline, UnivariateSpline
 from scipy.optimize import fsolve, minimize
 
 import struphy
+from feectools.ddm.mpi import MockMPI
+from feectools.ddm.mpi import mpi as MPI
 from struphy.api.options import BaseUnits
 from struphy.fields_background.base import (
     AxisymmMHDequilibrium,
