@@ -16,7 +16,7 @@ def test_desc_equil(do_plot=False):
     import desc
     from desc.grid import Grid
 
-    from struphy import base, equils
+    from struphy.fields_background import base, equils
 
     # default case, with and without use of toroidal field periods
     desc_eq = desc.examples.get("W7-X")
