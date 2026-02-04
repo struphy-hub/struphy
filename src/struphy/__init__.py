@@ -1,3 +1,5 @@
+import sys
+
 from struphy.api import models
 from struphy.api.domains import domains
 from struphy.api.equils import equils
@@ -14,6 +16,14 @@ from struphy.api.pic_utilities import (
     WeightsParameters,
 )
 
+# Expose submodules for easier access
+sys.modules["struphy.models"] = models
+
+__doc__ = """
+Struphy: A Python framework for plasma physics simulations.
+"""
+
+# Public API
 __all__ = [
     "models",
     "domains",
