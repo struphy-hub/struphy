@@ -5,12 +5,8 @@ import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 
-from struphy import main
-from struphy import domains
-from struphy import perturbations
-from struphy import BaseUnits, DerhamOptions, EnvironmentOptions, Time
+from struphy import BaseUnits, DerhamOptions, EnvironmentOptions, Time, domains, grids, main, perturbations
 from struphy.models import Poisson
-from struphy import grids
 
 
 def test_poisson_1d(do_plot=False):

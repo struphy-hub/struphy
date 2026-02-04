@@ -4,13 +4,11 @@ from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 
+from struphy import BinningPlot, BoundaryParameters, LoadingParameters, WeightsParameters, domains, perturbations
 from struphy.fields_background.equils import ConstantVelocity
 from struphy.fields_background.generic import GenericCartesianFluidEquilibrium
-from struphy import domains
 from struphy.geometry.base import Domain
-from struphy import perturbations
 from struphy.pic.particles import ParticlesSPH
-from struphy import BinningPlot, BoundaryParameters, LoadingParameters, WeightsParameters
 
 
 @pytest.mark.parametrize("boxes_per_dim", [(24, 1, 1)])

@@ -5,13 +5,8 @@ import cunumpy as xp
 import pytest
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy import main
+from struphy import BaseUnits, DerhamOptions, EnvironmentOptions, Time, domains, equils, grids, main, perturbations
 from struphy.diagnostics.diagn_tools import power_spectrum_2d
-from struphy import equils
-from struphy import domains
-from struphy import perturbations
-from struphy import BaseUnits, DerhamOptions, EnvironmentOptions, Time
-from struphy import grids
 
 
 @pytest.mark.parametrize("algo", ["implicit", "explicit"])

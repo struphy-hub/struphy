@@ -38,10 +38,9 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
 
+    from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
     from struphy.feec.psydac_derham import Derham
-    from struphy import domains
     from struphy.pic.particles import Particles6D
-    from struphy import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

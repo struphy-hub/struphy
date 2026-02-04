@@ -16,10 +16,10 @@ def test_toarray_struphy(Nel, p, spl_kind, mapping):
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
 
+    from struphy import domains
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
-    from struphy import domains
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

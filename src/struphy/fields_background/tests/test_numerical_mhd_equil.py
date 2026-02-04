@@ -28,8 +28,7 @@ def test_transformations(mapping, mhd_equil):
     """Test whether the class LogicalMHDequilibrium yields the same function values as CartesianMHDequilibrium.
     For this we construct an artificial numerical equilibrium from an analytical proxy."""
 
-    from struphy import equils
-    from struphy import domains
+    from struphy import domains, equils
 
     # domain (mapping from logical unit cube to physical domain)
     dom_type = mapping[0]

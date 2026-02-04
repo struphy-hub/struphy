@@ -4,10 +4,9 @@ import cunumpy as xp
 import pytest
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
 from struphy.feec.psydac_derham import Derham
-from struphy import domains
 from struphy.pic.particles import Particles6D
-from struphy import BoundaryParameters, LoadingParameters, WeightsParameters
 
 
 @pytest.mark.parametrize("nx", [8, 70])

@@ -7,14 +7,9 @@ from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 from scipy.special import jv, yn
 
-from struphy import main
+from struphy import BaseUnits, DerhamOptions, EnvironmentOptions, Time, domains, equils, grids, main, perturbations
 from struphy.diagnostics.diagn_tools import power_spectrum_2d
-from struphy import equils
-from struphy import domains
-from struphy import perturbations
-from struphy import BaseUnits, DerhamOptions, EnvironmentOptions, Time
 from struphy.models import Maxwell
-from struphy import grids
 
 
 @pytest.mark.parametrize("algo", ["implicit", "explicit"])

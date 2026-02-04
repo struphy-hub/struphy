@@ -19,10 +19,10 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     from feectools.linalg.block import BlockVector
     from feectools.linalg.stencil import StencilVector
 
+    from struphy import domains
     from struphy.feec.basis_projection_ops import BasisProjectionOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.fields_background.equils import HomogenSlab
-    from struphy import domains
 
     # mpi communicator
     MPI_COMM = MPI.COMM_WORLD
@@ -261,11 +261,11 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
 
+    from struphy import domains
     from struphy.feec.basis_projection_ops import BasisProjectionOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
     from struphy.fields_background.equils import ScrewPinch
-    from struphy import domains
     from struphy.polar.basic import PolarVector
 
     mpi_comm = MPI.COMM_WORLD
