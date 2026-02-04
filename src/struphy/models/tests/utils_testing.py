@@ -3,49 +3,21 @@ import os
 import shutil
 from types import ModuleType
 
-import pytest
 from feectools.ddm.mpi import mpi as MPI
 
+import struphy.models as models
+import struphy.models.utils as models_utils
 from struphy import main
 from struphy.io.options import EnvironmentOptions
 from struphy.io.setup import import_parameters_py
-from struphy.models import fluid, hybrid, kinetic, toy
 from struphy.models.base import StruphyModel
 
 rank = MPI.COMM_WORLD.Get_rank()
 
-# available models
-toy_models = []
-for name, obj in inspect.getmembers(toy):
-    if inspect.isclass(obj) and "models.toy" in obj.__module__:
-        toy_models += [name]
-if rank == 0:
-    print(f"\n{toy_models =}")
-
-fluid_models = []
-for name, obj in inspect.getmembers(fluid):
-    if inspect.isclass(obj) and "models.fluid" in obj.__module__:
-        fluid_models += [name]
-if rank == 0:
-    print(f"\n{fluid_models =}")
-
-kinetic_models = []
-for name, obj in inspect.getmembers(kinetic):
-    if inspect.isclass(obj) and "models.kinetic" in obj.__module__:
-        kinetic_models += [name]
-if rank == 0:
-    print(f"\n{kinetic_models =}")
-
-hybrid_models = []
-for name, obj in inspect.getmembers(hybrid):
-    if inspect.isclass(obj) and "models.hybrid" in obj.__module__:
-        hybrid_models += [name]
-if rank == 0:
-    print(f"\n{hybrid_models =}")
-
 
 # generic function for calling model tests
-def call_test(model_name: str, module: ModuleType = None, test_profiling: bool = False, verbose=True):
+def call_test(model: StruphyModel, test_profiling: bool = False, verbose: bool = True):
+    model_name = model.name()
     if rank == 0:
         print(f"\n*** Testing '{model_name}':")
 
@@ -54,18 +26,7 @@ def call_test(model_name: str, module: ModuleType = None, test_profiling: bool =
         print(f"WARNING: Model {model_name} cannot be tested for {MPI.COMM_WORLD.Get_size() =}")
         return
 
-    if module is None:
-        submods = [toy, fluid, kinetic, hybrid]
-        for submod in submods:
-            try:
-                model = getattr(submod, model_name)()
-            except AttributeError:
-                continue
-
-    else:
-        model = getattr(module, model_name)()
-
-    assert isinstance(model, StruphyModel)
+    assert isinstance(model, StruphyModel), f"{model} of {type(model) = } is not a StruphyModel"
 
     # generate paramater file for testing
     test_folder = os.path.join(os.getcwd(), "struphy_model_test")

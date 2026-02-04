@@ -94,7 +94,7 @@ def struphy_test(
                 "pytest",
                 "-m",
                 group,
-                "--testmon-forceselect",
+                # "--testmon-forceselect",
                 "--with-mpi",
             ] + list_of_tests
         else:
@@ -102,7 +102,7 @@ def struphy_test(
                 "pytest",
                 "-m",
                 group,
-                "--testmon-forceselect",
+                # "--testmon-forceselect",
             ] + list_of_tests
 
         if vrbose:
@@ -146,16 +146,14 @@ def struphy_test(
 
     else:
         cmd = [
-            "mpirun",
-            "--oversubscribe",
-            "-n",
-            str(mpi),
+            # "mpirun",
+            # "-n",
+            # str(mpi),
             "pytest",
             "-m",
             "single",
-            "--testmon-forceselect",
-            "-s",
-            "--with-mpi",
+            "-xvs",
+            # "--with-mpi",
             "--model-name",
             group,
         ]
@@ -166,4 +164,5 @@ def struphy_test(
         if show_plots:
             cmd += ["--show-plots"]
 
-        subp_run(cmd)
+        # subp_run(["mpirun", "-n", str(mpi), sys.executable, "-c", "\"print('hello')\""], check=True)
+        subp_run(cmd, check=True)

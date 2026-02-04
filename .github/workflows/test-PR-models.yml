@@ -83,15 +83,7 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
-          struphy test LinearMHD
-
-      - name: Toy test
-        shell: bash
-        env:
-          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
-        run: |
-          source /struphy_fortran_/env_fortran_/bin/activate
-          struphy test toy
+          pytest -m single -xvs --model-name LinearMHD $STRUPHY_PATH
 
       - name: Model tests
         shell: bash
@@ -99,7 +91,7 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
-          struphy test models 
+          pytest -m models --testmon-forceselect  /struphy_fortran_/src/struphy/models/tests/default_params/ 
 
       - name: Verification tests
         shell: bash
@@ -107,7 +99,8 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
-          struphy test verification
+          cd /struphy_fortran_/src/struphy
+          pytest --testmon models/tests/verification/
 
       - name: Model tests with MPI
         shell: bash
@@ -116,8 +109,8 @@ jobs:
         # init .testmondata with non-MPI call
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
-          struphy test Maxwell
-          struphy test models --mpi 2
+          mpirun -n 1 pytest -m single --testmon-forceselect -s --with-mpi --model-name Maxwell /struphy_fortran_/src/struphy
+          mpirun -oversubscribe -n 2 pytest -m models --testmon-forceselect --with-mpi  /struphy_fortran_/src/struphy/models/tests/default_params/
 
       - name: Verification tests with 2 MPI
         shell: bash
@@ -125,4 +118,4 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model-mpi
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
-          struphy test verification --mpi 2
+          mpirun --oversubscribe -n 2 pytest --testmon --with-mpi  /struphy_fortran_/src/struphy/models/tests/verification/

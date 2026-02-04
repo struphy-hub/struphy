@@ -1,6 +1,5 @@
 import os
 import subprocess
-import sys
 
 import yaml
 
@@ -112,100 +111,14 @@ class MyDumper(yaml.SafeDumper):
         return True
 
 
-def refresh_models():
-    print("Collecting available models ...")
-
-    import inspect
-    import pickle
-
-    from struphy.models import fluid, hybrid, kinetic, toy
-
-    list_fluid = []
-    fluid_string = ""
-    for name, obj in inspect.getmembers(fluid):
-        if inspect.isclass(obj) and obj.__module__ == fluid.__name__:
-            # if name not in {"StruphyModel", "Propagator"}:
-            list_fluid += [name]
-            fluid_string += '"' + name + '"\n'
-
-    list_kinetic = []
-    kinetic_string = ""
-    for name, obj in inspect.getmembers(kinetic):
-        if inspect.isclass(obj) and obj.__module__ == kinetic.__name__:
-            if name not in {"StruphyModel", "Propagator"}:
-                list_kinetic += [name]
-                kinetic_string += '"' + name + '"\n'
-
-    list_hybrid = []
-    hybrid_string = ""
-    for name, obj in inspect.getmembers(hybrid):
-        if inspect.isclass(obj) and obj.__module__ == hybrid.__name__:
-            if name not in {"StruphyModel", "Propagator"}:
-                list_hybrid += [name]
-                hybrid_string += '"' + name + '"\n'
-
-    list_toy = []
-    toy_string = ""
-    for name, obj in inspect.getmembers(toy):
-        if inspect.isclass(obj) and obj.__module__ == toy.__name__:
-            if name not in {"StruphyModel", "Propagator"}:
-                list_toy += [name]
-                toy_string += '"' + name + '"\n'
-
-    list_models = list_fluid + list_kinetic + list_hybrid + list_toy
-
-    with open(os.path.join(STRUPHY_LIBPATH, "models", "models_list"), "wb") as fp:
-        pickle.dump(list_models, fp)
-
-    # fluid message
-    fluid_message = "Fluid models:\n"
-    fluid_message += "-------------\n"
-    fluid_message += fluid_string
-
-    # kinetic message
-    kinetic_message = "Kinetic models:\n"
-    kinetic_message += "---------------\n"
-    kinetic_message += kinetic_string
-
-    # hybrid message
-    hybrid_message = "Hybrid models:\n"
-    hybrid_message += "--------------\n"
-    hybrid_message += hybrid_string
-
-    # toy message
-    toy_message = "Toy models:\n"
-    toy_message += "-----------\n"
-    toy_message += toy_string
-
-    # model message
-    model_message = "run one of the following models:\n"
-    model_message += "\n" + fluid_message
-    model_message += "\n" + kinetic_message
-    model_message += "\n" + hybrid_message
-    model_message += "\n" + toy_message
-
-    with open(os.path.join(STRUPHY_LIBPATH, "models", "models_message"), "wb") as fp:
-        pickle.dump(
-            [
-                model_message,
-                fluid_message,
-                kinetic_message,
-                hybrid_message,
-                toy_message,
-            ],
-            fp,
-        )
-
-    print("Done.")
-
-
 def subp_run(cmd, cwd="libpath", check=True):
     """Call subprocess.run and print run command."""
+    from struphy.utils.utils import STRUPHY_LIBPATH
 
     if cwd == "libpath":
-        cwd = struphy.__path__[0]
+        cwd = STRUPHY_LIBPATH
 
-    print(f"\nRunning the following command as a subprocess:\n{' '.join(cmd)}")
+    print(f"\nRunning the following command as a subprocess:\n{' '.join(cmd)}\nfrom {cwd}")
     subprocess.run(cmd, cwd=cwd, check=check)
 
 
