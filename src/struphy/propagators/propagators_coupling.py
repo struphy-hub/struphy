@@ -10,7 +10,7 @@ from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilVector
-from struphy.api.options import LiteralOptions
+from struphy.io.options import LiteralOptions
 from struphy.feec import preconditioner
 from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.io.setup import descend_options_dict

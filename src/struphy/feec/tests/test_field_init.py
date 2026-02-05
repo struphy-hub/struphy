@@ -12,7 +12,7 @@ def test_bckgr_init_const(Nel, p, spl_kind, spaces, vec_comps):
     import cunumpy as xp
 
     from feectools.ddm.mpi import mpi as MPI
-    from struphy.api.options import FieldsBackground
+    from struphy.io.options import FieldsBackground
     from struphy.feec.psydac_derham import Derham
 
     comm = MPI.COMM_WORLD
@@ -68,7 +68,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
     from matplotlib import pyplot as plt
 
     from feectools.ddm.mpi import mpi as MPI
-    from struphy.api.options import FieldsBackground
+    from struphy.io.options import FieldsBackground
     from struphy.feec.psydac_derham import Derham
     from struphy.fields_background import equils
     from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
@@ -1087,7 +1087,7 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
     from matplotlib import pyplot as plt
 
     from feectools.ddm.mpi import mpi as MPI
-    from struphy.api.options import FieldsBackground
+    from struphy.io.options import FieldsBackground
     from struphy.feec.psydac_derham import Derham
     from struphy.initial.perturbations import ModesCos, ModesSin
 

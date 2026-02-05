@@ -17,11 +17,11 @@ It is recommended to generate such a file and inspect it with an editor like VSc
 Basic options 
 -------------
 
-.. autoclass:: struphy.api.options.EnvironmentOptions
+.. autoclass:: struphy.io.options.EnvironmentOptions
 
-.. autoclass:: struphy.api.options.BaseUnits
+.. autoclass:: struphy.io.options.BaseUnits
 
-.. autoclass:: struphy.api.options.Time
+.. autoclass:: struphy.io.options.Time
 
 
 Simulation domains 
@@ -46,7 +46,7 @@ Grids
 Derham complex
 --------------
 
-.. autoclass:: struphy.api.options.DerhamOptions
+.. autoclass:: struphy.io.options.DerhamOptions
 
 
 Models 
@@ -112,7 +112,7 @@ Setting backgrounds
 
 .. automethod:: struphy.models.variables.SPHVariable.add_background
 
-.. autoclass:: struphy.api.options.FieldsBackground
+.. autoclass:: struphy.io.options.FieldsBackground
 
 
 Adding perturbations

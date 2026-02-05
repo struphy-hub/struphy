@@ -1,7 +1,7 @@
 import cunumpy as xp
 
 import struphy.pic.utilities_kernels as utils
-from struphy.api.options import LiteralOptions
+from struphy.io.options import LiteralOptions
 from struphy.utils.utils import check_option
 
 

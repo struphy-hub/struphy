@@ -18,7 +18,7 @@ from feectools.linalg.basic import ComposedLinearOperator, IdentityOperator, Zer
 from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilVector
-from struphy.api.options import LiteralOptions
+from struphy.io.options import LiteralOptions
 from struphy.examples.restelli2018 import callables
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import (

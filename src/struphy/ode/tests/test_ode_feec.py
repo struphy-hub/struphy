@@ -2,7 +2,7 @@ from typing import get_args
 
 import pytest
 
-from struphy.api.options import LiteralOptions
+from struphy.io.options import LiteralOptions
 
 
 @pytest.mark.parametrize(

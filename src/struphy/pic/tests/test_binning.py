@@ -39,7 +39,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     import matplotlib.pyplot as plt
 
     from feectools.ddm.mpi import mpi as MPI
-    from struphy.api.particles import (
+    from struphy.particles.parameters import (
         BoundaryParameters,
         LoadingParameters,
         WeightsParameters,
@@ -272,7 +272,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
     import matplotlib.pyplot as plt
 
     from feectools.ddm.mpi import mpi as MPI
-    from struphy.api.particles import (
+    from struphy.particles.parameters import (
         BoundaryParameters,
         LoadingParameters,
         WeightsParameters,
@@ -469,7 +469,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
 
     from feectools.ddm.mpi import MockComm
     from feectools.ddm.mpi import mpi as MPI
-    from struphy.api.particles import (
+    from struphy.particles.parameters import (
         BoundaryParameters,
         LoadingParameters,
         WeightsParameters,
@@ -766,7 +766,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
 
     from feectools.ddm.mpi import MockComm
     from feectools.ddm.mpi import mpi as MPI
-    from struphy.api.particles import (
+    from struphy.particles.parameters import (
         BoundaryParameters,
         LoadingParameters,
         WeightsParameters,
@@ -1019,7 +1019,7 @@ def test_binning_current_6D_full_f(mapping, show_plot=False):
     import matplotlib.pyplot as plt
 
     from feectools.ddm.mpi import mpi as MPI
-    from struphy.api.particles import (
+    from struphy.particles.parameters import (
         BoundaryParameters,
         LoadingParameters,
         WeightsParameters,
@@ -1203,7 +1203,7 @@ def test_binning_energy_tensor_6D_full_f(mapping, show_plot=False):
     import matplotlib.pyplot as plt
 
     from feectools.ddm.mpi import mpi as MPI
-    from struphy.api.particles import (
+    from struphy.particles.parameters import (
         BoundaryParameters,
         LoadingParameters,
         WeightsParameters,
@@ -1296,7 +1296,7 @@ def test_binning_heat_flux_6D_full_f(mapping, show_plot=False):
     import matplotlib.pyplot as plt
 
     from feectools.ddm.mpi import mpi as MPI
-    from struphy.api.particles import (
+    from struphy.particles.parameters import (
         BoundaryParameters,
         LoadingParameters,
         WeightsParameters,

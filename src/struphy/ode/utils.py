@@ -3,7 +3,7 @@ from typing import Literal, get_args
 
 import cunumpy as xp
 
-from struphy.api.options import LiteralOptions
+from struphy.io.options import LiteralOptions
 
 
 @dataclass

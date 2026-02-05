@@ -7,7 +7,7 @@ import cunumpy as xp
 import scipy
 import scipy.special
 
-from struphy.api.options import LiteralOptions
+from struphy.io.options import LiteralOptions
 from struphy.initial.base import Perturbation
 from struphy.utils.utils import check_option
 

@@ -16,7 +16,7 @@ from scope_profiler import ProfileManager
 
 from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
-from struphy.api.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time
+from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
 from struphy.fields_background.equils import HomogenSlab
 from struphy.geometry import domains

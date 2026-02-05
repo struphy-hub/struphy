@@ -11,7 +11,7 @@ from scipy.optimize import newton, root, root_scalar
 from scipy.sparse import csc_matrix
 from scipy.sparse.linalg import splu
 
-from struphy.api.options import LiteralOptions
+from struphy.io.options import LiteralOptions
 from struphy.bsplines import bsplines as bsp
 
 # if TYPE_CHECKING:

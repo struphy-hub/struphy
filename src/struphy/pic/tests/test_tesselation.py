@@ -5,7 +5,7 @@ import pytest
 from matplotlib import pyplot as plt
 
 from feectools.ddm.mpi import mpi as MPI
-from struphy.api.particles import BoundaryParameters, LoadingParameters, WeightsParameters
+from struphy.particles.parameters import BoundaryParameters, LoadingParameters, WeightsParameters
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.equils import ConstantVelocity
 from struphy.geometry import domains

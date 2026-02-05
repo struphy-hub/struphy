@@ -8,7 +8,7 @@ import cunumpy as xp
 
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilVector
-from struphy.api.options import check_option
+from struphy.io.options import check_option
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham

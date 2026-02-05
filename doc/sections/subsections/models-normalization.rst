@@ -17,7 +17,7 @@ expressed as :math:`a = 2 \cdot 1\, \textrm{meter}` or as
 of length was chosen to be 0.5 meter.
 
 The units :math:`\hat X` for a Struphy model
-can be influenced by the user through :class:`~struphy.api.options.BaseUnits` in the launch file,
+can be influenced by the user through :class:`~struphy.io.options.BaseUnits` in the launch file,
 where the user can set
 
 * the unit of **length** :math:`\hat x`, expressed in **Meter**,

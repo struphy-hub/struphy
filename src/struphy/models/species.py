@@ -4,7 +4,7 @@ from abc import ABCMeta, abstractmethod
 import cunumpy as xp
 
 from feectools.ddm.mpi import mpi as MPI
-from struphy.api.particles import (
+from struphy.particles.parameters import (
     BinningPlot,
     BoundaryParameters,
     KernelDensityPlot,

@@ -14,7 +14,7 @@ from scope_profiler import ProfileManager
 from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.stencil import StencilVector
-from struphy.api.options import DerhamOptions, LiteralOptions
+from struphy.io.options import DerhamOptions, LiteralOptions
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
 from struphy.fields_background.base import (
@@ -1324,7 +1324,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 print("exiting ...")
                 exit()
 
-        file.write("from struphy.api.options import EnvironmentOptions, BaseUnits, Time\n")
+        file.write("from struphy.io.options import EnvironmentOptions, BaseUnits, Time\n")
         file.write("from struphy.geometry import domains\n")
         file.write("from struphy.fields_background import equils\n")
 
@@ -1408,13 +1408,13 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                 exclude = f"# model.{sn}.{vn}.save_data = False\n"
 
         file.write("from struphy.topology import grids\n")
-        file.write("from struphy.api.options import DerhamOptions\n")
-        file.write("from struphy.api.options import FieldsBackground\n")
+        file.write("from struphy.io.options import DerhamOptions\n")
+        file.write("from struphy.io.options import FieldsBackground\n")
         file.write("from struphy.initial import perturbations\n")
 
         file.write("from struphy.kinetic_background import maxwellians\n")
         file.write(
-            "from struphy.api.particles import (LoadingParameters,\n\
+            "from struphy.particles.parameters import (LoadingParameters,\n\
                                    WeightsParameters,\n\
                                    BoundaryParameters,\n\
                                    BinningPlot,\n\

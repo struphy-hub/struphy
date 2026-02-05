@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import Callable
 
-from struphy.api.options import LiteralOptions
+from struphy.io.options import LiteralOptions
 from struphy.utils.utils import check_option
 
 

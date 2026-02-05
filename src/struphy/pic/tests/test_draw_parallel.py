@@ -38,7 +38,7 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     import cunumpy as xp
 
     from feectools.ddm.mpi import mpi as MPI
-    from struphy.api.particles import BoundaryParameters, LoadingParameters, WeightsParameters
+    from struphy.particles.parameters import BoundaryParameters, LoadingParameters, WeightsParameters
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry import domains
     from struphy.pic.particles import Particles6D

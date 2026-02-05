@@ -8,8 +8,8 @@ from matplotlib.ticker import FormatStrFormatter
 
 from feectools.ddm.mpi import mpi as MPI
 from struphy import main
-from struphy.api.options import BaseUnits, EnvironmentOptions, Time
-from struphy.api.particles import (
+from struphy.io.options import BaseUnits, EnvironmentOptions, Time
+from struphy.particles.parameters import (
     BinningPlot,
     BoundaryParameters,
     KernelDensityPlot,

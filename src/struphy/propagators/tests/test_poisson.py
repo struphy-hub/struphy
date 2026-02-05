@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import pytest
 
 from feectools.ddm.mpi import mpi as MPI
-from struphy.api.particles import (
+from struphy.particles.parameters import (
     BinningPlot,
     BoundaryParameters,
     LoadingParameters,

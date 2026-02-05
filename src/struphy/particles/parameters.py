@@ -1,6 +1,6 @@
 import cunumpy as xp
 
-from struphy.api.options import LiteralOptions
+from struphy.io.options import LiteralOptions
 from struphy.utils.utils import check_option
 
 

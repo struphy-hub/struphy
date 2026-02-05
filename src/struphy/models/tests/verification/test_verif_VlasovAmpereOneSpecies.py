@@ -7,8 +7,8 @@ from matplotlib import pyplot as plt
 
 from feectools.ddm.mpi import mpi as MPI
 from struphy import main
-from struphy.api.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time
-from struphy.api.particles import (
+from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time
+from struphy.particles.parameters import (
     BinningPlot,
     BoundaryParameters,
     LoadingParameters,

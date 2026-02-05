@@ -7,7 +7,7 @@ import h5py
 import yaml
 from tqdm import tqdm
 
-from struphy.api.options import BaseUnits, EnvironmentOptions, Time
+from struphy.io.options import BaseUnits, EnvironmentOptions, Time
 from struphy.feec.psydac_derham import SplineFunction
 from struphy.fields_background import equils
 from struphy.fields_background.base import FluidEquilibrium

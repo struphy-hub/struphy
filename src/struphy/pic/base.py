@@ -20,8 +20,8 @@ from sympy.ntheory import factorint
 
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
-from struphy.api.options import LiteralOptions
-from struphy.api.particles import (
+from struphy.io.options import LiteralOptions
+from struphy.particles.parameters import (
     BoundaryParameters,
     LoadingParameters,
     WeightsParameters,

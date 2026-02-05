@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from struphy.api.options import LiteralOptions
+from struphy.io.options import LiteralOptions
 
 
 @dataclass
