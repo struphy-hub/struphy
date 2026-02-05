@@ -1,4 +1,3 @@
-# TODO: This should be renamed to pic_utilities.py or something
 from struphy.pic.utilities import (
     BinningPlot,
     BoundaryParameters,
