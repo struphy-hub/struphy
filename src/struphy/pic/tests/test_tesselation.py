@@ -2,14 +2,14 @@ from time import time
 
 import cunumpy as xp
 import pytest
+from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 
-from feectools.ddm.mpi import mpi as MPI
-from struphy.particles.parameters import BoundaryParameters, LoadingParameters, WeightsParameters
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.equils import ConstantVelocity
 from struphy.geometry import domains
 from struphy.initial import perturbations
+from struphy.particles.parameters import BoundaryParameters, LoadingParameters, WeightsParameters
 from struphy.pic.particles import ParticlesSPH
 
 

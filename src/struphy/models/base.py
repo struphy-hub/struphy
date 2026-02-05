@@ -8,13 +8,12 @@ from textwrap import indent
 import cunumpy as xp
 import h5py
 import yaml
-from line_profiler import profile
-from scope_profiler import ProfileManager
-
 from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.stencil import StencilVector
-from struphy.io.options import DerhamOptions, LiteralOptions
+from line_profiler import profile
+from scope_profiler import ProfileManager
+
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
 from struphy.fields_background.base import (
@@ -29,6 +28,7 @@ from struphy.fields_background.projected_equils import (
     ProjectedMHDequilibrium,
 )
 from struphy.geometry.base import Domain
+from struphy.io.options import DerhamOptions, LiteralOptions
 from struphy.io.output_handling import DataContainer
 from struphy.io.setup import setup_derham
 from struphy.models.species import DiagnosticSpecies, FieldSpecies, FluidSpecies, ParticleSpecies, Species

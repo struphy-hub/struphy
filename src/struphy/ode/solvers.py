@@ -1,9 +1,9 @@
 from inspect import signature
 
 import cunumpy as xp
-
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilVector
+
 from struphy.ode.utils import ButcherTableau
 
 

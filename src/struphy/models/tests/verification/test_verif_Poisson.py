@@ -2,13 +2,13 @@ import os
 import shutil
 
 import cunumpy as xp
+from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 
-from feectools.ddm.mpi import mpi as MPI
 from struphy import main
-from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time
 from struphy.geometry import domains
 from struphy.initial import perturbations
+from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time
 from struphy.models import Poisson
 from struphy.topology import grids
 

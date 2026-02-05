@@ -5,14 +5,14 @@ from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING
 
 import cunumpy as xp
-
 from feectools.ddm.mpi import mpi as MPI
-from struphy.io.options import FieldsBackground, LiteralOptions
+
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.initial.perturbations import Perturbation
+from struphy.io.options import FieldsBackground, LiteralOptions
 from struphy.kinetic_background.base import KineticBackground
 from struphy.pic import particles
 from struphy.pic.base import Particles

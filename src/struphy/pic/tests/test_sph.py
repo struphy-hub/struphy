@@ -1,20 +1,20 @@
 import cunumpy as xp
 import pytest
-from matplotlib import pyplot as plt
-
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
+from matplotlib import pyplot as plt
+
+from struphy.fields_background.equils import ConstantVelocity
+from struphy.fields_background.generic import GenericCartesianFluidEquilibrium
+from struphy.geometry import domains
+from struphy.geometry.base import Domain
+from struphy.initial import perturbations
 from struphy.particles.parameters import (
     BinningPlot,
     BoundaryParameters,
     LoadingParameters,
     WeightsParameters,
 )
-from struphy.fields_background.equils import ConstantVelocity
-from struphy.fields_background.generic import GenericCartesianFluidEquilibrium
-from struphy.geometry import domains
-from struphy.geometry.base import Domain
-from struphy.initial import perturbations
 from struphy.pic.particles import ParticlesSPH
 
 

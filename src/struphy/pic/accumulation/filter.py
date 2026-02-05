@@ -4,8 +4,8 @@ import cunumpy as xp
 import numpy as np
 from scipy.fft import irfft, rfft
 
-from struphy.io.options import LiteralOptions
 from struphy.feec.psydac_derham import Derham
+from struphy.io.options import LiteralOptions
 from struphy.pic.accumulation.filter_kernels import apply_three_point_filter_3d
 
 

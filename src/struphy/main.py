@@ -10,17 +10,17 @@ from typing import Optional, TypedDict
 
 import cunumpy as xp
 import h5py
+from feectools.ddm.mpi import MockMPI
+from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
 from pyevtk.hl import gridToVTK
 from scope_profiler import ProfileManager
 
-from feectools.ddm.mpi import MockMPI
-from feectools.ddm.mpi import mpi as MPI
-from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
 from struphy.fields_background.equils import HomogenSlab
 from struphy.geometry import domains
 from struphy.geometry.base import Domain
+from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time
 from struphy.io.output_handling import DataContainer
 from struphy.io.setup import import_parameters_py, setup_folders
 from struphy.models.base import StruphyModel

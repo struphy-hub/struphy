@@ -15,10 +15,10 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     from time import time
 
     import cunumpy as xp
-
     from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.block import BlockVector
     from feectools.linalg.stencil import StencilVector
+
     from struphy.feec.basis_projection_ops import BasisProjectionOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.fields_background.equils import HomogenSlab
@@ -259,8 +259,8 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
 @pytest.mark.parametrize("mapping", [["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}]])
 def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     import cunumpy as xp
-
     from feectools.ddm.mpi import mpi as MPI
+
     from struphy.feec.basis_projection_ops import BasisProjectionOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays

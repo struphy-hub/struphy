@@ -7,18 +7,17 @@ from typing import Callable, Literal, get_args
 
 import cunumpy as xp
 import scipy as sc
-from line_profiler import profile
-from matplotlib import pyplot as plt
-from numpy import zeros
-
-import struphy.feec.utilities as util
 from feectools.api.essential_bc import apply_essential_bc_stencil
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import ComposedLinearOperator, IdentityOperator, ZeroOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilVector
-from struphy.io.options import LiteralOptions
+from line_profiler import profile
+from matplotlib import pyplot as plt
+from numpy import zeros
+
+import struphy.feec.utilities as util
 from struphy.examples.restelli2018 import callables
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import (
@@ -42,6 +41,7 @@ from struphy.feec.variational_utilities import (
 from struphy.fields_background.equils import set_defaults
 from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial import perturbations
+from struphy.io.options import LiteralOptions
 from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3D

@@ -8,15 +8,14 @@ import warnings
 from time import time
 
 import cunumpy as xp
+from feectools.ddm.mpi import MockMPI
+from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
 from scipy.integrate import odeint, quad
 from scipy.interpolate import RectBivariateSpline, UnivariateSpline
 from scipy.optimize import fsolve, minimize
 
 import struphy
-from feectools.ddm.mpi import MockMPI
-from feectools.ddm.mpi import mpi as MPI
-from struphy.io.options import BaseUnits
 from struphy.fields_background.base import (
     AxisymmMHDequilibrium,
     CartesianFluidEquilibrium,
@@ -33,6 +32,7 @@ from struphy.fields_background.base import (
     NumericalMHDequilibrium,
 )
 from struphy.fields_background.mhd_equil.eqdsk import readeqdsk
+from struphy.io.options import BaseUnits
 from struphy.physics.physics import Units
 from struphy.utils.utils import read_state, subp_run
 

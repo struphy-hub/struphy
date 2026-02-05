@@ -11,12 +11,12 @@ from scipy.optimize import newton, root, root_scalar
 from scipy.sparse import csc_matrix
 from scipy.sparse.linalg import splu
 
-from struphy.io.options import LiteralOptions
 from struphy.bsplines import bsplines as bsp
 
 # if TYPE_CHECKING:
 from struphy.geometry.base import Domain, PoloidalSplineTorus
 from struphy.geometry.utilities_kernels import weighted_arc_lengths_flux_surface
+from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.linalg_kron import kron_lusolve_2d
 
 

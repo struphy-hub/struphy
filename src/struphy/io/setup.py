@@ -6,10 +6,10 @@ import sys
 from types import ModuleType
 
 import cunumpy as xp
-
 from feectools.ddm.mpi import mpi as MPI
-from struphy.io.options import DerhamOptions
+
 from struphy.geometry.base import Domain
+from struphy.io.options import DerhamOptions
 from struphy.topology.grids import TensorProductGrid
 
 
