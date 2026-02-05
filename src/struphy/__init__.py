@@ -1,9 +1,8 @@
 from struphy.api.domains import domains
 from struphy.api.equils import equils
 from struphy.api.grids import grids
-from struphy.api.io_options import DerhamOptions, FieldsBackground
 from struphy.api.maxwellians import maxwellians
-from struphy.api.options import BaseUnits, EnvironmentOptions, Time, Units
+from struphy.api.options import BaseUnits, DerhamOptions, EnvironmentOptions, FieldsBackground, Time, Units
 from struphy.api.perturbations import perturbations
 from struphy.api.pic_utilities import (
     BinningPlot,
