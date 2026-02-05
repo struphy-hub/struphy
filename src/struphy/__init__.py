@@ -12,8 +12,6 @@ from struphy.api.particles import (
 )
 from struphy.api.perturbations import perturbations
 
-# from struphy.api import models # This is redundant
-
 __all__ = [
     "domains",
     "equils",
@@ -30,5 +28,4 @@ __all__ = [
     "KernelDensityPlot",
     "DerhamOptions",
     "FieldsBackground",
-    # "models", # Redundant since struphy.models already points to this module
 ]
