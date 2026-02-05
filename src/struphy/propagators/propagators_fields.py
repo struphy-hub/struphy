@@ -2298,8 +2298,10 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: rot_B(e1, e2, e3)[:, :, :, m, n]
-                        / abs(self.domain.jacobian_det(e1, e2, e3, squeeze_out=False)),
+                        lambda e1, e2, e3, m=m, n=n: (
+                            rot_B(e1, e2, e3)[:, :, :, m, n]
+                            / abs(self.domain.jacobian_det(e1, e2, e3, squeeze_out=False))
+                        ),
                     ]
 
         # update BasisProjectionOperator
@@ -8261,8 +8263,9 @@ class TwoFluidQuasiNeutralFull(Propagator):
                     fun += [[]]
                     for n in range(3):
                         fun[-1] += [
-                            lambda e1, e2, e3, m=m, n=n: self._basis_opsv0.G(e1, e2, e3)[:, :, :, m, n]
-                            / self._basis_opsv0.sqrt_g(e1, e2, e3),
+                            lambda e1, e2, e3, m=m, n=n: (
+                                self._basis_opsv0.G(e1, e2, e3)[:, :, :, m, n] / self._basis_opsv0.sqrt_g(e1, e2, e3)
+                            ),
                         ]
                 self._S21 = None
                 if self.derhamv0.with_local_projectors:
@@ -8374,8 +8377,9 @@ class TwoFluidQuasiNeutralFull(Propagator):
                     fun += [[]]
                     for n in range(3):
                         fun[-1] += [
-                            lambda e1, e2, e3, m=m, n=n: self.basis_ops.G(e1, e2, e3)[:, :, :, m, n]
-                            / self.basis_ops.sqrt_g(e1, e2, e3),
+                            lambda e1, e2, e3, m=m, n=n: (
+                                self.basis_ops.G(e1, e2, e3)[:, :, :, m, n] / self.basis_ops.sqrt_g(e1, e2, e3)
+                            ),
                         ]
                 self._S21 = None
                 if self.derham.with_local_projectors:

@@ -63,8 +63,8 @@ def test_poisson_1d(do_plot=False):
     # analytical solution
     Lx = r1 - l1
     rhs_exact = lambda e1, e2, e3, t: amp * xp.cos(l * 2 * xp.pi / Lx * e1) * xp.cos(omega * t)
-    phi_exact = (
-        lambda e1, e2, e3, t: amp / (l * 2 * xp.pi / Lx) ** 2 * xp.cos(l * 2 * xp.pi / Lx * e1) * xp.cos(omega * t)
+    phi_exact = lambda e1, e2, e3, t: (
+        amp / (l * 2 * xp.pi / Lx) ** 2 * xp.cos(l * 2 * xp.pi / Lx * e1) * xp.cos(omega * t)
     )
 
     # start run
