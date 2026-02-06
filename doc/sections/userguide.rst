@@ -92,15 +92,15 @@ Setting particle parameters
 
 .. automethod:: struphy.models.species.ParticlesSpecies.set_save_data
 
-.. autoclass:: struphy.pic.utilities.LoadingParameters
+.. autoclass:: struphy.particles.parameters.LoadingParameters
 
-.. autoclass:: struphy.pic.utilities.WeightsParameters
+.. autoclass:: struphy.particles.parameters.WeightsParameters
 
-.. autoclass:: struphy.pic.utilities.BoundaryParameters
+.. autoclass:: struphy.particles.parameters.BoundaryParameters
 
-.. autoclass:: struphy.pic.utilities.BinningPlot
+.. autoclass:: struphy.particles.parameters.BinningPlot
 
-.. autoclass:: struphy.pic.utilities.KernelDensityPlot
+.. autoclass:: struphy.particles.parameters.KernelDensityPlot
 
 
 Setting backgrounds

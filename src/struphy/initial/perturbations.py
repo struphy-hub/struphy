@@ -8,7 +8,8 @@ import scipy
 import scipy.special
 
 from struphy.initial.base import Perturbation
-from struphy.io.options import GivenInBasis, NoiseDirections, check_option
+from struphy.io.options import LiteralOptions
+from struphy.utils.utils import check_option
 
 
 @dataclass
@@ -27,16 +28,16 @@ class Noise(Perturbation):
         Seed for the random number generator.
     """
 
-    direction: NoiseDirections = "e3"
+    direction: LiteralOptions.NoiseDirections = "e3"
     amp: float = 0.0001
     seed: int = None
     comp: int = 0
-    given_in_basis: GivenInBasis = None
+    given_in_basis: LiteralOptions.GivenInBasis = None
 
     def __post_init__(
         self,
     ):
-        check_option(self.direction, NoiseDirections)
+        check_option(self.direction, LiteralOptions.NoiseDirections)
 
     def __call__(self):
         pass
@@ -111,7 +112,7 @@ class ModesSin(Perturbation):
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
-        given_in_basis: GivenInBasis = None,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
         if ls is not None:
@@ -247,7 +248,7 @@ class ModesCos(Perturbation):
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
-        given_in_basis: GivenInBasis = None,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
         if ls is not None:
@@ -448,7 +449,7 @@ class ModesCosCos(Perturbation):
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
-        given_in_basis: GivenInBasis = None,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
         if ls is not None:
@@ -553,7 +554,7 @@ class ModesSinSin(Perturbation):
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
-        given_in_basis: GivenInBasis = None,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
         if ls is not None:
@@ -658,7 +659,7 @@ class ModesSinCos(Perturbation):
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
-        given_in_basis: GivenInBasis = None,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
         # number of modes
@@ -765,7 +766,7 @@ class ModesCosSin(Perturbation):
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
-        given_in_basis: GivenInBasis = None,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
         # number of modes
@@ -902,7 +903,7 @@ class TorusModesSin(Perturbation):
         amps=(1e-4,),
         pfuns=("sin",),
         pfun_params=None,
-        given_in_basis: GivenInBasis = None,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
         if given_in_basis is not None:
@@ -1038,7 +1039,7 @@ class TorusModesCos(Perturbation):
         amps: tuple = (0.1,),
         pfuns: tuple = ("sin",),
         pfun_params=None,
-        given_in_basis: GivenInBasis = None,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
         if given_in_basis is not None:
@@ -1152,7 +1153,7 @@ class Shear_x(Perturbation):
         self,
         amp=1e-4,
         delta=1 / 15,
-        given_in_basis: GivenInBasis = None,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
         if given_in_basis is not None:
@@ -1199,7 +1200,7 @@ class Shear_y(Perturbation):
         self,
         amp=1e-4,
         delta=1 / 15,
-        given_in_basis: GivenInBasis = None,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
         if given_in_basis is not None:
@@ -1246,7 +1247,7 @@ class Shear_z(Perturbation):
         self,
         amp=1e-4,
         delta=1 / 15,
-        given_in_basis: GivenInBasis = None,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
         if given_in_basis is not None:
@@ -1293,7 +1294,7 @@ class Erf_z(Perturbation):
         self,
         amp=1e-4,
         delta=1 / 15,
-        given_in_basis: GivenInBasis = None,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
         if given_in_basis is not None:

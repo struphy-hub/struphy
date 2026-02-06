@@ -12,24 +12,26 @@ from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.initial.perturbations import Perturbation
-from struphy.io.options import (
-    FieldsBackground,
-    OptsFEECSpace,
-    OptsPICSpace,
-    check_option,
-)
+from struphy.io.options import FieldsBackground, LiteralOptions
 from struphy.kinetic_background.base import KineticBackground
 from struphy.pic import particles
 from struphy.pic.base import Particles
 from struphy.pic.particles import ParticlesSPH
 from struphy.utils.clone_config import CloneConfig
+from struphy.utils.utils import check_option
 
 if TYPE_CHECKING:
     from struphy.models.species import FieldSpecies, FluidSpecies, ParticleSpecies, Species
 
 
 class Variable(metaclass=ABCMeta):
-    """Single variable (unknown) of a Species."""
+    """Single variable of a Species object.
+
+    The solution of a model is a collection of Variables.
+    Multiple Variables can be combined within a Species.
+    For example, a Species 'Hydrogen' could be composed of the Variables density, velocity and temperature,
+    which satisfy a PDE within a model.
+    """
 
     @abstractmethod
     def allocate(self):
@@ -37,12 +39,16 @@ class Variable(metaclass=ABCMeta):
 
     @property
     def backgrounds(self):
+        """The static background. Multiple backgrounds can be defined in a list,
+        via the add_background method."""
         if not hasattr(self, "_backgrounds"):
             self._backgrounds = None
         return self._backgrounds
 
     @property
     def perturbations(self):
+        """The perturbations. Multiple perturbations can be defined in a list,
+        via the add_perturbation method defined in sub-classes."""
         if not hasattr(self, "_perturbations"):
             self._perturbations = None
         return self._perturbations
@@ -90,10 +96,14 @@ class Variable(metaclass=ABCMeta):
 
 
 class FEECVariable(Variable):
-    """Variable discretized with :ref:`geomFE`."""
+    """Basic finite element variable for grid-based methods.
 
-    def __init__(self, space: OptsFEECSpace = "H1"):
-        check_option(space, OptsFEECSpace)
+    Initial conditions for a FEECVariable consist of a background plus a perturbation, which are added up.
+    If neither a background nor a perturbation is present, the Variable is initialized as zero.
+    """
+
+    def __init__(self, space: LiteralOptions.OptsFEECSpace = "H1"):
+        check_option(space, LiteralOptions.OptsFEECSpace)
         self._space = space
 
     @property
@@ -147,10 +157,16 @@ class FEECVariable(Variable):
 
 
 class PICVariable(Variable):
-    """Variable discretized with :ref:`particle_discrete`."""
+    """Basic particle variable in PIC methods.
 
-    def __init__(self, space: OptsPICSpace = "Particles6D"):
-        check_option(space, OptsPICSpace)
+    A background is mandatory and can be used for noise reduction for instance.
+    The initial condition is a kinetic background with optional perturbations added to it.
+    If no inital condition is specified, the background is taken as inital condition.
+    If both a background and an initial condition are specified, they should be consistent
+    (i.e. the initial condition should be the background with perturbations on top)."""
+
+    def __init__(self, space: LiteralOptions.OptsPICSpace = "Particles6D"):
+        check_option(space, LiteralOptions.OptsPICSpace)
         self._space = space
 
     @property
@@ -169,7 +185,7 @@ class PICVariable(Variable):
 
     @property
     def n_as_volume_form(self) -> bool:
-        """Whether the number density n is given as a volume form or scalar function (=default)."""
+        """Whether the number density n is given as a volume form or a scalar function (=default)."""
         if not hasattr(self, "_n_as_volume_form"):
             self._n_as_volume_form = False
         return self._n_as_volume_form
@@ -179,6 +195,7 @@ class PICVariable(Variable):
         super().add_background(background, verbose=verbose)
 
     def add_initial_condition(self, init: KineticBackground, verbose=True):
+        """The initial condition must be consistent with the background."""
         self._initial_condition = init
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
             print(
@@ -282,7 +299,11 @@ class PICVariable(Variable):
 
 
 class SPHVariable(Variable):
-    """Variable discretized with :ref:`sph_method`."""
+    """Basic variable for SPH methods.
+
+    Initial conditions for a SPHVariable consist of a background plus a perturbation for density and velocity, which are added up.
+    If neither a background nor a perturbation is present, the Variable is initialized as zero.
+    """
 
     def __init__(self):
         self._space = "ParticlesSPH"

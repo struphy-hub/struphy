@@ -1,97 +1,107 @@
 import os
 from dataclasses import dataclass
-from typing import Literal, get_args
+from typing import Literal
 
-import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
+from struphy.utils.utils import check_option
 
-from struphy.physics.physics import ConstantsOfNature
 
-## Literal options
+@dataclass
+class LiteralOptions:
+    """
+    (String) options for parameters in launch files, including:
 
-# time
-SplitAlgos = Literal["LieTrotter", "Strang"]
+    * Time stepping
+    * Derham finite element spaces
+    * Background/equilibrium types
+    * Model types
+    * Initial conditions / perturbations
+    * Linear, nonlinear, explicit (Butcher) and saddle-point solvers
+    * Drawing of markers, type of PIC methods
+    * Noise filtering in PIC
+    * Smoothing kernels for SPH methods
+    * Particle binning in phase space
+    """
 
-# derham
-PolarRegularity = Literal[-1, 1]
-OptsFEECSpace = Literal["H1", "Hcurl", "Hdiv", "L2", "H1vec"]
-OptsVecSpace = Literal["Hcurl", "Hdiv", "H1vec"]
+    # time
+    SplitAlgos = Literal["LieTrotter", "Strang"]
 
-# fields background
-BackgroundTypes = Literal["LogicalConst", "FluidEquilibrium"]
+    # derham
+    PolarRegularity = Literal[-1, 1]
+    OptsFEECSpace = Literal["H1", "Hcurl", "Hdiv", "L2", "H1vec"]
+    OptsVecSpace = Literal["Hcurl", "Hdiv", "H1vec"]
 
-# models
-ModelTypes = Literal["Toy", "Kinetic", "Fluid", "Hybrid"]
+    # fields background
+    BackgroundTypes = Literal["LogicalConst", "FluidEquilibrium"]
 
-# perturbations
-NoiseDirections = Literal["e1", "e2", "e3", "e1e2", "e1e3", "e2e3", "e1e2e3"]
-GivenInBasis = Literal["0", "1", "2", "3", "v", "physical", "physical_at_eta", "norm", None]
+    # models
+    ModelTypes = Literal["Toy", "Kinetic", "Fluid", "Hybrid"]
 
-# solvers
-OptsSymmSolver = Literal["pcg", "cg"]
-OptsGenSolver = Literal["pbicgstab", "bicgstab", "GMRES"]
-OptsMassPrecond = Literal["MassMatrixPreconditioner", "MassMatrixDiagonalPreconditioner", None]
-OptsSaddlePointSolver = Literal["Uzawa", "GMRES"]
-OptsDirectSolver = Literal["SparseSolver", "ScipySparse", "InexactNPInverse", "DirectNPInverse"]
-OptsNonlinearSolver = Literal["Picard", "Newton"]
+    # perturbations
+    NoiseDirections = Literal["e1", "e2", "e3", "e1e2", "e1e3", "e2e3", "e1e2e3"]
+    GivenInBasis = Literal["0", "1", "2", "3", "v", "physical", "physical_at_eta", "norm", None]
 
-# markers
-OptsPICSpace = Literal["Particles6D", "DeltaFParticles6D", "Particles5D", "Particles3D"]
-OptsMarkerBC = Literal["periodic", "reflect"]
-OptsRecontructBC = Literal["periodic", "mirror", "fixed"]
-OptsLoading = Literal[
-    "pseudo_random",
-    "sobol_standard",
-    "sobol_antithetic",
-    "external",
-    "restart",
-    "tesselation",
-]
-OptsSpatialLoading = Literal["uniform", "disc"]
-OptsMPIsort = Literal["each", "last", None]
+    # solvers
+    OptsSymmSolver = Literal["pcg", "cg"]
+    OptsGenSolver = Literal["pbicgstab", "bicgstab", "GMRES"]
+    OptsMassPrecond = Literal["MassMatrixPreconditioner", "MassMatrixDiagonalPreconditioner", None]
+    OptsSaddlePointSolver = Literal["Uzawa", "GMRES"]
+    OptsDirectSolver = Literal["SparseSolver", "ScipySparse", "InexactNPInverse", "DirectNPInverse"]
+    OptsNonlinearSolver = Literal["Picard", "Newton"]
+    OptsButcher = Literal["rk4", "forward_euler", "heun2", "rk2", "heun3", "3/8 rule"]
 
-# filters
-OptsFilter = Literal["fourier_in_tor", "hybrid", "three_point", None]
+    # markers
+    OptsPICSpace = Literal["Particles6D", "DeltaFParticles6D", "Particles5D", "Particles3D"]
+    OptsMarkerBC = Literal["periodic", "reflect"]
+    OptsRecontructBC = Literal["periodic", "mirror", "fixed"]
+    OptsLoading = Literal[
+        "pseudo_random",
+        "sobol_standard",
+        "sobol_antithetic",
+        "external",
+        "restart",
+        "tesselation",
+    ]
+    OptsSpatialLoading = Literal["uniform", "disc"]
+    OptsMPIsort = Literal["each", "last", None]
 
-# sph
-OptsKernel = Literal[
-    "trigonometric_1d",
-    "gaussian_1d",
-    "linear_1d",
-    "trigonometric_2d",
-    "gaussian_2d",
-    "linear_2d",
-    "trigonometric_3d",
-    "gaussian_3d",
-    "linear_isotropic_3d",
-    "linear_3d",
-]
+    # filters
+    OptsFilter = Literal["fourier_in_tor", "hybrid", "three_point", None]
 
-# binning
+    # sph
+    OptsKernel = Literal[
+        "trigonometric_1d",
+        "gaussian_1d",
+        "linear_1d",
+        "trigonometric_2d",
+        "gaussian_2d",
+        "linear_2d",
+        "trigonometric_3d",
+        "gaussian_3d",
+        "linear_isotropic_3d",
+        "linear_3d",
+    ]
 
-# Create new Literal to determine type of binning output
-BinningQuantity = Literal[
-    "density",
-    "current_1",
-    "current_2",
-    "current_3",
-    "energy_tensor_11",
-    "energy_tensor_22",
-    "energy_tensor_33",
-    "energy_tensor_12",
-    "energy_tensor_13",
-    "energy_tensor_23",
-    "heat_flux_1",
-    "heat_flux_2",
-    "heat_flux_3",
-]
-
-## Option classes
+    # Create new Literal to determine type of binning output
+    BinningQuantity = Literal[
+        "density",
+        "current_1",
+        "current_2",
+        "current_3",
+        "energy_tensor_11",
+        "energy_tensor_22",
+        "energy_tensor_33",
+        "energy_tensor_12",
+        "energy_tensor_13",
+        "energy_tensor_23",
+        "heat_flux_1",
+        "heat_flux_2",
+        "heat_flux_3",
+    ]
 
 
 @dataclass
 class Time:
-    """Time stepping options.
+    """Set options for time stepping in parameter/launch files.
 
     Parameters
     ----------
@@ -101,22 +111,21 @@ class Time:
     Tend : float
         End time.
 
-    split_algo : SplitAlgos
+    split_algo : LiteralOptions.SplitAlgos
         Splitting algorithm (the order of the propagators is defined in the model).
     """
 
     dt: float = 0.01
     Tend: float = 0.03
-    split_algo: SplitAlgos = "LieTrotter"
+    split_algo: LiteralOptions.SplitAlgos = "LieTrotter"
 
     def __post_init__(self):
-        check_option(self.split_algo, SplitAlgos)
+        check_option(self.split_algo, LiteralOptions.SplitAlgos)
 
 
 @dataclass
 class BaseUnits:
-    """
-    Base units from which other units are derived. See :ref:`normalization`.
+    """Set base units in parameter/launch files from which other units are derived. See :ref:`normalization`.
 
     Parameters
     ----------
@@ -140,143 +149,9 @@ class BaseUnits:
     kBT: float = None
 
 
-class Units:
-    """
-    Colllects base units and derives other units from these. See :ref:`normalization`.
-    """
-
-    def __init__(self, base: BaseUnits = None):
-        if base is None:
-            base = BaseUnits()
-
-        self._x = base.x
-        self._B = base.B
-        self._n = base.n * 1e20
-        self._kBT = base.kBT
-
-    @property
-    def x(self):
-        return self._x
-
-    @property
-    def B(self):
-        return self._B
-
-    @property
-    def n(self):
-        """Unit of particle number density in 1/m^3."""
-        return self._n
-
-    @property
-    def kBT(self):
-        return self._kBT
-
-    @property
-    def v(self):
-        """Unit of velocity in m/s."""
-        if not hasattr(self, "_v"):
-            raise AttributeError("Must call Units.derive_units() to get full set of units.")
-        return self._v
-
-    @property
-    def t(self):
-        """Unit of time in s."""
-        if not hasattr(self, "_t"):
-            raise AttributeError("Must call Units.derive_units() to get full set of units.")
-        return self._t
-
-    @property
-    def p(self):
-        """Unit of pressure in Pa, equal to B^2/mu0 if velocity_scale='alfvén'."""
-        if not hasattr(self, "_p"):
-            raise AttributeError("Must call Units.derive_units() to get full set of units.")
-        return self._p
-
-    @property
-    def rho(self):
-        """Unit of mass density in kg/m^3."""
-        if not hasattr(self, "_rho"):
-            raise AttributeError("Must call Units.derive_units() to get full set of units.")
-        return self._rho
-
-    @property
-    def j(self):
-        """Unit of current density in A/m^2."""
-        if not hasattr(self, "_j"):
-            raise AttributeError("Must call Units.derive_units() to get full set of units.")
-        return self._j
-
-    def derive_units(self, velocity_scale: str = "light", A_bulk: int = None, Z_bulk: int = None, verbose=False):
-        """Derive the remaining units from the base units, velocity scale and bulk species' A and Z."""
-
-        con = ConstantsOfNature()
-
-        # velocity (m/s)
-        if velocity_scale is None:
-            self._v = 1.0
-
-        elif velocity_scale == "light":
-            self._v = con.c
-
-        elif velocity_scale == "alfvén":
-            assert A_bulk is not None, 'Need bulk species to choose velocity scale "alfvén".'
-            self._v = self.B / xp.sqrt(self.n * A_bulk * con.mH * con.mu0)
-
-        elif velocity_scale == "cyclotron":
-            assert Z_bulk is not None, 'Need bulk species to choose velocity scale "cyclotron".'
-            assert A_bulk is not None, 'Need bulk species to choose velocity scale "cyclotron".'
-            self._v = Z_bulk * con.e * self.B / (A_bulk * con.mH) * self.x
-
-        elif velocity_scale == "thermal":
-            assert A_bulk is not None, 'Need bulk species to choose velocity scale "thermal".'
-            assert self.kBT is not None
-            self._v = xp.sqrt(self.kBT * 1000 * con.e / (con.mH * A_bulk))
-
-        # time (s)
-        self._t = self.x / self.v
-
-        # return if no bulk is present
-        if A_bulk is None:
-            self._p = None
-            self._rho = None
-            self._j = None
-        else:
-            # pressure (Pa), equal to B^2/mu0 if velocity_scale='alfvén'
-            self._p = A_bulk * con.mH * self.n * self.v**2
-
-            # mass density (kg/m^3)
-            self._rho = A_bulk * con.mH * self.n
-
-            # current density (A/m^2)
-            self._j = con.e * self.n * self.v
-
-        # print to screen
-        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            units_used = (
-                " m",
-                " T",
-                " m⁻³",
-                "keV",
-                " m/s",
-                " s",
-                " bar",
-                " kg/m³",
-                " A/m²",
-            )
-            print("")
-            for (k, v), u in zip(self.__dict__.items(), units_used):
-                if v is None:
-                    print(f"Unit of {k[1:]} not specified.")
-                else:
-                    print(
-                        f"Unit of {k[1:]}:".ljust(25),
-                        "{:4.3e}".format(v) + u,
-                    )
-
-
 @dataclass
 class DerhamOptions:
-    """Options for the Derham spaces. See :ref:`geomFE`.
+    """Set options for the Derham spaces in parameter/launch files. See :ref:`geomFE`.
 
     Parameters
     ----------
@@ -307,16 +182,16 @@ class DerhamOptions:
     dirichlet_bc: tuple = ((False, False), (False, False), (False, False))
     nquads: tuple = None
     nq_pr: tuple = None
-    polar_ck: PolarRegularity = -1
+    polar_ck: LiteralOptions.PolarRegularity = -1
     local_projectors: bool = False
 
     def __post_init__(self):
-        check_option(self.polar_ck, PolarRegularity)
+        check_option(self.polar_ck, LiteralOptions.PolarRegularity)
 
 
 @dataclass
 class FieldsBackground:
-    """Options for backgrounds in configuration (=position) space.
+    """Set options for static fluid backgrounds/equilibria in parameter/launch files.
 
     Parameters
     ----------
@@ -331,17 +206,17 @@ class FieldsBackground:
         Name of the method in :class:`~struphy.fields_background.base.FluidEquilibrium` that should be the background.
     """
 
-    type: BackgroundTypes = "LogicalConst"
+    type: LiteralOptions.BackgroundTypes = "LogicalConst"
     values: tuple = (1.5, 0.7, 2.4)
     variable: str = None
 
     def __post_init__(self):
-        check_option(self.type, BackgroundTypes)
+        check_option(self.type, LiteralOptions.BackgroundTypes)
 
 
 @dataclass
 class EnvironmentOptions:
-    """Environment options for launching run on current architecture
+    """Set environment options for launching run on current architecture
     (these options do not influence the simulation result).
 
     Parameters
@@ -391,12 +266,3 @@ class EnvironmentOptions:
     def __repr__(self):
         for k, v in self.__dict__.items():
             print(f"{k}:".ljust(20), v)
-
-
-def check_option(opt, options):
-    """Check if opt is contained in options; if opt is a list, checks for each element."""
-    opts = get_args(options)
-    if not isinstance(opt, list):
-        opt = [opt]
-    for o in opt:
-        assert o in opts, f"Option '{o}' is not in {opts}."
