@@ -1,6 +1,6 @@
-"""This module contains all the models implemented in Struphy. 
-Each model is defined in its own submodule, and this __init__.py file 
-imports all the models and makes them available for use when 
+"""This module contains all the models implemented in Struphy.
+Each model is defined in its own submodule, and this __init__.py file
+imports all the models and makes them available for use when
 the struphy.models package is imported.
 """
 
