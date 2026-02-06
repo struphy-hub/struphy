@@ -13,6 +13,7 @@ from struphy.api.particles import (
     WeightsParameters,
 )
 from struphy.api.perturbations import perturbations
+from struphy.api.ode import ButcherTableau
 
 __all__ = [
     "domains",
@@ -32,4 +33,5 @@ __all__ = [
     "KernelDensityPlot",
     "DerhamOptions",
     "FieldsBackground",
+    "ButcherTableau",
 ]
