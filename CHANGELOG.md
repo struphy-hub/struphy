@@ -1,6 +1,33 @@
 # Changelog
 
 
+## Struphy 3.0.2 - 2026-02-06
+
+* [PyPI](https://pypi.org/project/struphy/3.0.2)
+* [Github pages](https://struphy-hub.github.io/struphy/index.html)
+* [Github release](https://github.com/struphy-hub/struphy/releases/tag/v3.0.2)
+* [Diff to previous release](https://github.com/struphy-hub/struphy/compare/v3.0.1...v3.0.2)
+
+### Headlines
+
+* Moved each model to its own file. Calling sub-processes must be avoided in the future because of incompatibility with MPI: https://github.com/struphy-hub/struphy/pull/152
+
+### User news
+
+None
+
+### Developer news
+
+* Use `pyccel 2.1`: https://github.com/struphy-hub/struphy/pull/153
+* Added three submodules: `struphy-parameter-files`, `struphy-tutorials` and`feectools`. The Struphy repo should be cloned with `git clone --recurse-submodules https://github.com/struphy-hub/struphy.git` to init and update the submodules. Also, run `git submodule update` regularly to get updates from the submodules. See https://github.com/struphy-hub/struphy/pull/154
+
+
+### Bug fixes
+
+* Fix setter in DESCequilibirum, update quickstart guide: https://github.com/struphy-hub/struphy/pull/132
+
+
+
 ## Struphy 3.0.1 - 2025-12-11
 
 * [PyPI](https://pypi.org/project/struphy/3.0.1)
