@@ -10,8 +10,8 @@ from struphy import (
     LoadingParameters,
     WeightsParameters,
     domains,
-    perturbations,
     equils,
+    perturbations,
 )
 from struphy.fields_background.equils import ConstantVelocity
 from struphy.geometry.base import Domain
