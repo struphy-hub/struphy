@@ -161,7 +161,7 @@ def test_evaluation_mappings(mapping):
 
     import cunumpy as xp
 
-    from struphy.geometry import domains
+    from struphy import domains
     from struphy.geometry.base import Domain
 
     # arrays:
@@ -321,7 +321,7 @@ def test_pullback():
 
     import cunumpy as xp
 
-    from struphy.geometry import domains
+    from struphy import domains
     from struphy.geometry.base import Domain
 
     # arrays:
@@ -481,7 +481,7 @@ def test_pushforward():
 
     import cunumpy as xp
 
-    from struphy.geometry import domains
+    from struphy import domains
     from struphy.geometry.base import Domain
 
     # arrays:
@@ -641,7 +641,7 @@ def test_transform():
 
     import cunumpy as xp
 
-    from struphy.geometry import domains
+    from struphy import domains
     from struphy.geometry.base import Domain
 
     # arrays:
@@ -821,7 +821,7 @@ def test_transform():
 #    """ Tests transformation of p-forms.
 #    """
 #
-#    from struphy.geometry import domains
+#    from struphy import domains
 #    import cunumpy as xp
 #
 #    # arrays:

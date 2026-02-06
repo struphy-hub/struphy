@@ -39,14 +39,14 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     import matplotlib.pyplot as plt
     from feectools.ddm.mpi import mpi as MPI
 
-    from struphy.geometry import domains
-    from struphy.initial import perturbations
-    from struphy.kinetic_background.maxwellians import Maxwellian3D
-    from struphy.particles.parameters import (
+    from struphy import (
         BoundaryParameters,
         LoadingParameters,
         WeightsParameters,
+        domains,
+        perturbations,
     )
+    from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import Particles6D
 
     # Set seed
@@ -272,14 +272,14 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
     import matplotlib.pyplot as plt
     from feectools.ddm.mpi import mpi as MPI
 
-    from struphy.geometry import domains
-    from struphy.initial import perturbations
-    from struphy.kinetic_background.maxwellians import Maxwellian3D
-    from struphy.particles.parameters import (
+    from struphy import (
         BoundaryParameters,
         LoadingParameters,
         WeightsParameters,
+        domains,
+        perturbations,
     )
+    from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import DeltaFParticles6D
 
     # Set seed
@@ -469,14 +469,14 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     from feectools.ddm.mpi import MockComm
     from feectools.ddm.mpi import mpi as MPI
 
-    from struphy.geometry import domains
-    from struphy.initial import perturbations
-    from struphy.kinetic_background.maxwellians import Maxwellian3D
-    from struphy.particles.parameters import (
+    from struphy import (
         BoundaryParameters,
         LoadingParameters,
         WeightsParameters,
+        domains,
+        perturbations,
     )
+    from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import Particles6D
 
     # Set seed
@@ -766,14 +766,14 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     from feectools.ddm.mpi import MockComm
     from feectools.ddm.mpi import mpi as MPI
 
-    from struphy.geometry import domains
-    from struphy.initial import perturbations
-    from struphy.kinetic_background.maxwellians import Maxwellian3D
-    from struphy.particles.parameters import (
+    from struphy import (
         BoundaryParameters,
         LoadingParameters,
         WeightsParameters,
+        domains,
+        perturbations,
     )
+    from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import DeltaFParticles6D
 
     # Set seed
@@ -1019,14 +1019,14 @@ def test_binning_current_6D_full_f(mapping, show_plot=False):
     import matplotlib.pyplot as plt
     from feectools.ddm.mpi import mpi as MPI
 
-    from struphy.geometry import domains
-    from struphy.initial import perturbations
-    from struphy.kinetic_background.maxwellians import Maxwellian3D
-    from struphy.particles.parameters import (
+    from struphy import (
         BoundaryParameters,
         LoadingParameters,
         WeightsParameters,
+        domains,
+        perturbations,
     )
+    from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import Particles6D
 
     # ==============================================================
@@ -1203,14 +1203,14 @@ def test_binning_energy_tensor_6D_full_f(mapping, show_plot=False):
     import matplotlib.pyplot as plt
     from feectools.ddm.mpi import mpi as MPI
 
-    from struphy.geometry import domains
-    from struphy.initial import perturbations
-    from struphy.kinetic_background.maxwellians import Maxwellian3D
-    from struphy.particles.parameters import (
+    from struphy import (
         BoundaryParameters,
         LoadingParameters,
         WeightsParameters,
+        domains,
+        perturbations,
     )
+    from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import Particles6D
 
     # ==============================================================
@@ -1296,14 +1296,14 @@ def test_binning_heat_flux_6D_full_f(mapping, show_plot=False):
     import matplotlib.pyplot as plt
     from feectools.ddm.mpi import mpi as MPI
 
-    from struphy.geometry import domains
-    from struphy.initial import perturbations
-    from struphy.kinetic_background.maxwellians import Maxwellian3D
-    from struphy.particles.parameters import (
+    from struphy import (
         BoundaryParameters,
         LoadingParameters,
         WeightsParameters,
+        domains,
+        perturbations,
     )
+    from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import Particles6D
 
     # ==============================================================

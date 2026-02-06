@@ -10,11 +10,11 @@ from feectools.ddm.mpi import mpi as MPI
 def test_eval_field(Nel, p, spl_kind):
     """Compares distributed array spline evaluation in Field object with legacy code."""
 
+    from struphy import perturbations
     from struphy.bsplines.evaluation_kernels_3d import evaluate_matrix
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays
     from struphy.geometry.base import Domain
-    from struphy.initial import perturbations
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

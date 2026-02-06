@@ -17,11 +17,11 @@ def test_mass_preconditioner(Nel, p, spl_kind, mapping):
     from feectools.linalg.block import BlockVector
     from feectools.linalg.stencil import StencilVector
 
+    from struphy import domains
     from struphy.feec.linear_operators import InverseLinearOperator
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.preconditioner import MassMatrixPreconditioner
     from struphy.feec.psydac_derham import Derham
-    from struphy.geometry import domains
 
     MPI_COMM = MPI.COMM_WORLD
 

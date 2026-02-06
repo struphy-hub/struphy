@@ -1324,9 +1324,9 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 print("exiting ...")
                 exit()
 
-        file.write("from struphy.io.options import EnvironmentOptions, BaseUnits, Time\n")
-        file.write("from struphy.geometry import domains\n")
-        file.write("from struphy.fields_background import equils\n")
+        file.write("from struphy import EnvironmentOptions, BaseUnits, Time\n")
+        file.write("from struphy import domains\n")
+        file.write("from struphy import equils\n")
 
         species_params = "\n# species parameters\n"
         particle_params = ""
@@ -1407,14 +1407,14 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                     init_pert_sph += f"model.{sn}.{vn}.add_perturbation(del_n=perturbation)\n"
                 exclude = f"# model.{sn}.{vn}.save_data = False\n"
 
-        file.write("from struphy.topology import grids\n")
-        file.write("from struphy.io.options import DerhamOptions\n")
-        file.write("from struphy.io.options import FieldsBackground\n")
-        file.write("from struphy.initial import perturbations\n")
+        file.write("from struphy import grids\n")
+        file.write("from struphy import DerhamOptions\n")
+        file.write("from struphy import FieldsBackground\n")
+        file.write("from struphy import perturbations\n")
 
-        file.write("from struphy.kinetic_background import maxwellians\n")
+        file.write("from struphy import maxwellians\n")
         file.write(
-            "from struphy.particles.parameters import (LoadingParameters,\n\
+            "from struphy import (LoadingParameters,\n\
                                    WeightsParameters,\n\
                                    BoundaryParameters,\n\
                                    BinningPlot,\n\
