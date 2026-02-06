@@ -1,4 +1,4 @@
-from struphy.pic.utilities import (
+from struphy.particles.parameters import (
     BinningPlot,
     BoundaryParameters,
     KernelDensityPlot,

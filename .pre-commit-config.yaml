@@ -11,6 +11,6 @@ repos:
         args: ["--unsafe"]
 
   - repo: https://github.com/kynan/nbstripout
-    rev: 0.8.1
+    rev: 0.9.0
     hooks:
       - id: nbstripout # remove jupyter notebook cell output

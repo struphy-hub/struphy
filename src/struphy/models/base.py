@@ -28,11 +28,12 @@ from struphy.fields_background.projected_equils import (
     ProjectedMHDequilibrium,
 )
 from struphy.geometry.base import Domain
-from struphy.io.options import DerhamOptions, ModelTypes, Units
+from struphy.io.options import DerhamOptions, LiteralOptions
 from struphy.io.output_handling import DataContainer
 from struphy.io.setup import setup_derham
 from struphy.models.species import DiagnosticSpecies, FieldSpecies, FluidSpecies, ParticleSpecies, Species
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
+from struphy.physics.physics import Units
 from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.topology.grids import TensorProductGrid
@@ -54,7 +55,7 @@ class StruphyModel(metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
-    def model_type(cls) -> ModelTypes:
+    def model_type(cls) -> LiteralOptions.ModelTypes:
         """Model type (Fluid, Kinetic, Hybrid, or Toy)"""
         pass
 
@@ -1422,8 +1423,8 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
         )
         file.write("from struphy import main\n")
 
-        file.write("\n# import model, set verbosity\n")
-        file.write(f"from {self.__module__} import {self.__class__.__name__}\n")
+        file.write("\n# import model\n")
+        file.write(f"from struphy.models import {self.__class__.__name__}\n")
 
         file.write("\n# environment options\n")
         file.write("env = EnvironmentOptions()\n")
