@@ -58,7 +58,7 @@ dev = [
     "pylint",
     "ssort",
     "add-trailing-comma",
-    "ruff>=0.9.1",
+    "ruff>=0.15.0",
     "pre-commit",
     "nbstripout",
     "tabulate",
