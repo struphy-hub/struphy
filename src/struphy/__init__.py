@@ -1,9 +1,5 @@
 from struphy.api.domains import domains
-from struphy.api.equils import (
-    GenericCartesianFluidEquilibrium,
-    GenericCartesianFluidEquilibriumWithB,
-    equils,
-)
+from struphy.api.equils import equils
 from struphy.api.grids import grids
 from struphy.api.maxwellians import maxwellians
 from struphy.api.ode import ButcherTableau
@@ -26,8 +22,6 @@ from struphy.api.perturbations import perturbations
 __all__ = [
     "domains",
     "equils",
-    "GenericCartesianFluidEquilibrium",
-    "GenericCartesianFluidEquilibriumWithB",
     "grids",
     "maxwellians",
     "EnvironmentOptions",
