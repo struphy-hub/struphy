@@ -2,7 +2,14 @@ from struphy.api.domains import domains
 from struphy.api.equils import equils
 from struphy.api.grids import grids
 from struphy.api.maxwellians import maxwellians
-from struphy.api.options import BaseUnits, DerhamOptions, EnvironmentOptions, FieldsBackground, Time
+from struphy.api.ode import ButcherTableau
+from struphy.api.options import (
+    BaseUnits,
+    DerhamOptions,
+    EnvironmentOptions,
+    FieldsBackground,
+    Time,
+)
 from struphy.api.particles import (
     BinningPlot,
     BoundaryParameters,
@@ -28,4 +35,5 @@ __all__ = [
     "KernelDensityPlot",
     "DerhamOptions",
     "FieldsBackground",
+    "ButcherTableau",
 ]

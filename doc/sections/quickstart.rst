@@ -57,7 +57,7 @@ as well as to, for instance::
 
     print(simdata.spline_values["em_fields"]["e_field_log"].keys())
     print(simdata.orbits["kinetic_ions"].shape)
-    print(simdata.f["kinetic_ions"]["e1"].keys())
+    print(simdata.f["kinetic_ions"]["e1_density"].keys())
 
 Under ``simdata.spline_values`` you find dictionaries holding splines values at the pre-defined ``simdata.grids_log``
 (or the physical grid); the keys are the time points of evaluation.

@@ -1,3 +1,9 @@
+"""This module contains all the models implemented in Struphy.
+Each model is defined in its own submodule, and this __init__.py file
+imports all the models and makes them available for use when
+the struphy.models package is imported.
+"""
+
 from struphy.models.cold_plasma import ColdPlasma
 from struphy.models.cold_plasma_vlasov import ColdPlasmaVlasov
 from struphy.models.deterministic_particle_diffusion import DeterministicParticleDiffusion

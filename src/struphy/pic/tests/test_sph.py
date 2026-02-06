@@ -4,9 +4,16 @@ from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 
-from struphy import BinningPlot, BoundaryParameters, LoadingParameters, WeightsParameters, domains, perturbations
+from struphy import (
+    BinningPlot,
+    BoundaryParameters,
+    LoadingParameters,
+    WeightsParameters,
+    domains,
+    equils,
+    perturbations,
+)
 from struphy.fields_background.equils import ConstantVelocity
-from struphy.fields_background.generic import GenericCartesianFluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.pic.particles import ParticlesSPH
 
@@ -961,7 +968,7 @@ def test_sph_velocity_evaluation(
         uz = 0.0 * x
         return (ux, uy, uz)
 
-    background = GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
+    background = equils.GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
     background.domain = domain
 
     boundary_params = BoundaryParameters(bc_sph=(bc_x, "periodic", "periodic"))
@@ -1150,7 +1157,7 @@ def test_sph_velocity_evaluation_2d(
         du3 = 0.0 * z
         return (du1, du2, du3)
 
-    background = GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
+    background = equils.GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
     background.domain = domain
 
     boundary_params = BoundaryParameters(bc_sph=(bc_x, bc_y, "periodic"))
