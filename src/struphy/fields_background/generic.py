@@ -28,7 +28,7 @@ class GenericCartesianFluidEquilibrium(CartesianFluidEquilibrium):
         Pressure field as a function of (x, y, z) coordinates.
     n_xyz : callable
         Number density field as a function of (x, y, z) coordinates.
-        
+
     Attributes
     ----------
     params : dict
@@ -88,7 +88,7 @@ class GenericCartesianFluidEquilibriumWithB(GenericCartesianFluidEquilibrium):
     gradB_xyz : callable
         Gradient of the magnetic field magnitude as a function of (x, y, z)
         coordinates.
-        
+
     Attributes
     ----------
     params : dict

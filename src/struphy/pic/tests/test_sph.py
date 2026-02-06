@@ -4,9 +4,16 @@ from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 
-from struphy import BinningPlot, BoundaryParameters, LoadingParameters, WeightsParameters, domains, perturbations
+from struphy import (
+    BinningPlot,
+    BoundaryParameters,
+    GenericCartesianFluidEquilibrium,
+    LoadingParameters,
+    WeightsParameters,
+    domains,
+    perturbations,
+)
 from struphy.fields_background.equils import ConstantVelocity
-from struphy import GenericCartesianFluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.pic.particles import ParticlesSPH
 
