@@ -7,17 +7,19 @@ from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
 
-from struphy import main
-from struphy.fields_background import equils
-from struphy.geometry import domains
-from struphy.initial import perturbations
-from struphy.io.options import BaseUnits, EnvironmentOptions, Time
-from struphy.pic.utilities import (
+from struphy import (
+    BaseUnits,
     BinningPlot,
     BoundaryParameters,
+    EnvironmentOptions,
     KernelDensityPlot,
     LoadingParameters,
+    Time,
     WeightsParameters,
+    domains,
+    equils,
+    main,
+    perturbations,
 )
 
 
