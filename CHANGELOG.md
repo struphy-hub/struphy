@@ -10,11 +10,13 @@
 
 ### Headlines
 
+* Added a public API. This allows imports like `from struphy import equils`: https://github.com/struphy-hub/struphy/pull/168
+* New default compile language is Fortran: https://github.com/struphy-hub/struphy/pull/158
 * Moved each model to its own file. Calling sub-processes must be avoided in the future because of incompatibility with MPI: https://github.com/struphy-hub/struphy/pull/152
 
 ### User news
 
-None
+* Added binning of higher order moments (current density, energy tensor) of f and delta f: https://github.com/struphy-hub/struphy/pull/162 
 
 ### Developer news
 
@@ -24,7 +26,7 @@ None
 
 ### Bug fixes
 
-* Fix setter in DESCequilibirum, update quickstart guide: https://github.com/struphy-hub/struphy/pull/132
+* Use `struphy.io.options.Units` in equils. This enables the use of GVEC, EQDSK and DESC in the new framework: https://github.com/struphy-hub/struphy/pull/158
 
 
 
