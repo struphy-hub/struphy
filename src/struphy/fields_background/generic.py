@@ -13,7 +13,27 @@ from struphy.fields_background.base import (
 
 
 class GenericCartesianFluidEquilibrium(CartesianFluidEquilibrium):
-    """Allows to pass callables at init."""
+    """Generic Cartesian fluid equilibrium with callable fields.
+
+    This class extends CartesianFluidEquilibrium to allow user-defined callable
+    functions for velocity, pressure, and number density fields. It provides a
+    flexible interface for specifying equilibrium quantities as functions of
+    spatial coordinates (x, y, z).
+
+    Methods
+    -------
+    u_xyz : callable
+        Velocity field as a function of (x, y, z) coordinates.
+    p_xyz : callable
+        Pressure field as a function of (x, y, z) coordinates.
+    n_xyz : callable
+        Number density field as a function of (x, y, z) coordinates.
+        
+    Attributes
+    ----------
+    params : dict
+        Dictionary of initialization parameters for reproducibility.
+    """
 
     def __init__(
         self,
@@ -54,7 +74,26 @@ class GenericCartesianFluidEquilibrium(CartesianFluidEquilibrium):
 
 
 class GenericCartesianFluidEquilibriumWithB(GenericCartesianFluidEquilibrium):
-    """Allows to pass callables at init."""
+    """Generic Cartesian fluid equilibrium with magnetic field and callable fields.
+
+    This class extends GenericCartesianFluidEquilibrium to include magnetic field
+    and its gradient. It allows user-defined callable functions for velocity,
+    pressure, number density, magnetic field, and magnetic field gradient as
+    functions of spatial coordinates (x, y, z).
+
+    Methods
+    -------
+    b_xyz : callable
+        Magnetic field as a function of (x, y, z) coordinates.
+    gradB_xyz : callable
+        Gradient of the magnetic field magnitude as a function of (x, y, z)
+        coordinates.
+        
+    Attributes
+    ----------
+    params : dict
+        Dictionary of initialization parameters for reproducibility.
+    """
 
     def __init__(
         self,
