@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 
 from struphy import BinningPlot, BoundaryParameters, LoadingParameters, WeightsParameters, domains, perturbations
 from struphy.fields_background.equils import ConstantVelocity
-from struphy.fields_background.generic import GenericCartesianFluidEquilibrium
+from struphy import GenericCartesianFluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.pic.particles import ParticlesSPH
 
