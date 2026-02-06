@@ -1,8 +1,10 @@
 from struphy.api.domains import domains
-from struphy.api.equils import equils
+from struphy.api.equils import (equils, 
+                                GenericCartesianFluidEquilibrium, 
+                                GenericCartesianFluidEquilibriumWithB,)
 from struphy.api.grids import grids
 from struphy.api.maxwellians import maxwellians
-from struphy.api.options import BaseUnits, DerhamOptions, EnvironmentOptions, FieldsBackground, Time
+from struphy.api.options import (BaseUnits, DerhamOptions, EnvironmentOptions, FieldsBackground, Time,)
 from struphy.api.particles import (
     BinningPlot,
     BoundaryParameters,
@@ -15,6 +17,8 @@ from struphy.api.perturbations import perturbations
 __all__ = [
     "domains",
     "equils",
+    "GenericCartesianFluidEquilibrium",
+    "GenericCartesianFluidEquilibriumWithB",
     "grids",
     "maxwellians",
     "EnvironmentOptions",
