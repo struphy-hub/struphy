@@ -1,11 +1,12 @@
 from struphy.api.domains import domains
 from struphy.api.equils import (
-    equils,
     GenericCartesianFluidEquilibrium,
     GenericCartesianFluidEquilibriumWithB,
+    equils,
 )
 from struphy.api.grids import grids
 from struphy.api.maxwellians import maxwellians
+from struphy.api.ode import ButcherTableau
 from struphy.api.options import (
     BaseUnits,
     DerhamOptions,
@@ -21,7 +22,6 @@ from struphy.api.particles import (
     WeightsParameters,
 )
 from struphy.api.perturbations import perturbations
-from struphy.api.ode import ButcherTableau
 
 __all__ = [
     "domains",
