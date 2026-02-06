@@ -1423,8 +1423,8 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
         )
         file.write("from struphy import main\n")
 
-        file.write("\n# import model, set verbosity\n")
-        file.write(f"from {self.__module__} import {self.__class__.__name__}\n")
+        file.write("\n# import model\n")
+        file.write(f"from struphy.models import {self.__class__.__name__}\n")
 
         file.write("\n# environment options\n")
         file.write("env = EnvironmentOptions()\n")
