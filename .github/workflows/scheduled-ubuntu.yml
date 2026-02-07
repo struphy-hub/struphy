@@ -7,8 +7,12 @@ on:
     - cron: "0 1 * * 3"
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ubuntu-install-test:
-    uses: ./.github/workflows/reusable-testing.yml
+    uses: ./.github/workflows/reusable-scheduled.yml
     with:
       os: ubuntu-latest

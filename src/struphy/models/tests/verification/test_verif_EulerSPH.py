@@ -7,20 +7,20 @@ from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
 
-from struphy import main
-from struphy.fields_background import equils
-from struphy.geometry import domains
-from struphy.initial import perturbations
-from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, FieldsBackground, Time
-from struphy.kinetic_background import maxwellians
-from struphy.pic.utilities import (
+from struphy import (
+    BaseUnits,
     BinningPlot,
     BoundaryParameters,
+    EnvironmentOptions,
     KernelDensityPlot,
     LoadingParameters,
+    Time,
     WeightsParameters,
+    domains,
+    equils,
+    main,
+    perturbations,
 )
-from struphy.topology import grids
 
 
 @pytest.mark.parametrize("nx", [12, 24])
@@ -30,7 +30,7 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
     A standing sound wave with c_s=1 traveserses the domain once.
     """
     # import model
-    from struphy.models.fluid import EulerSPH
+    from struphy.models import EulerSPH
 
     # environment options
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")

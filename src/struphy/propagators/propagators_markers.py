@@ -15,12 +15,7 @@ from numpy import array, polynomial, random
 from struphy.feec.mass import WeightedMassOperators
 from struphy.fields_background.base import MHDequilibrium
 from struphy.fields_background.equils import set_defaults
-from struphy.io.options import (
-    OptsKernel,
-    OptsMPIsort,
-    OptsVecSpace,
-    check_option,
-)
+from struphy.io.options import LiteralOptions
 from struphy.io.setup import descend_options_dict
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.ode.utils import ButcherTableau
@@ -33,6 +28,7 @@ from struphy.pic.pushing.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
+from struphy.utils.utils import check_option
 
 
 class PushEta(Propagator):
@@ -419,11 +415,11 @@ class PushEtaPC(Propagator):
         butcher: ButcherTableau = None
         use_perp_model: bool = True
         u_tilde: FEECVariable = None
-        u_space: OptsVecSpace = "Hdiv"
+        u_space: LiteralOptions.OptsVecSpace = "Hdiv"
 
         def __post_init__(self):
             # checks
-            check_option(self.u_space, OptsVecSpace)
+            check_option(self.u_space, LiteralOptions.OptsVecSpace)
             assert isinstance(self.u_tilde, FEECVariable)
 
             # defaults
@@ -564,13 +560,13 @@ class PushGuidingCenterBxEstar(Propagator):
         butcher: ButcherTableau = None
         maxiter: int = 20
         tol: float = 1e-7
-        mpi_sort: OptsMPIsort = "each"
+        mpi_sort: LiteralOptions.OptsMPIsort = "each"
         verbose: bool = False
 
         def __post_init__(self):
             # checks
             check_option(self.algo, self.OptsAlgo)
-            check_option(self.mpi_sort, OptsMPIsort)
+            check_option(self.mpi_sort, LiteralOptions.OptsMPIsort)
 
             # defaults
             if self.phi is None:
@@ -1005,13 +1001,13 @@ class PushGuidingCenterParallel(Propagator):
         butcher: ButcherTableau = None
         maxiter: int = 20
         tol: float = 1e-7
-        mpi_sort: OptsMPIsort = "each"
+        mpi_sort: LiteralOptions.OptsMPIsort = "each"
         verbose: bool = False
 
         def __post_init__(self):
             # checks
             check_option(self.algo, self.OptsAlgo)
-            check_option(self.mpi_sort, OptsMPIsort)
+            check_option(self.mpi_sort, LiteralOptions.OptsMPIsort)
 
             # defaults
             if self.phi is None:
@@ -1679,7 +1675,7 @@ class PushVinSPHpressure(Propagator):
         OptsAlgo = Literal["forward_euler"]
         OptsThermo = Literal["isothermal", "polytropic"]
         # propagator options
-        kernel_type: OptsKernel = "gaussian_2d"
+        kernel_type: LiteralOptions.OptsKernel = "gaussian_2d"
         kernel_width: tuple = None
         algo: OptsAlgo = "forward_euler"
         gravity: tuple = (0.0, 0.0, 0.0)
@@ -1687,7 +1683,7 @@ class PushVinSPHpressure(Propagator):
 
         def __post_init__(self):
             # checks
-            check_option(self.kernel_type, OptsKernel)
+            check_option(self.kernel_type, LiteralOptions.OptsKernel)
             check_option(self.algo, self.OptsAlgo)
             check_option(self.thermodynamics, self.OptsThermo)
 
@@ -1819,13 +1815,13 @@ class PushVinViscousPotential(Propagator):
         # specific literals
         OptsAlgo = Literal["forward_euler"]
         # propagator options
-        kernel_type: OptsKernel = "gaussian_2d"
+        kernel_type: LiteralOptions.OptsKernel = "gaussian_2d"
         kernel_width: tuple = None
         algo: OptsAlgo = "forward_euler"
 
         def __post_init__(self):
             # checks
-            check_option(self.kernel_type, OptsKernel)
+            check_option(self.kernel_type, LiteralOptions.OptsKernel)
             check_option(self.algo, self.OptsAlgo)
 
     @property

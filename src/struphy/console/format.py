@@ -73,6 +73,8 @@ generate_html_table_from_combined_data(combined_data, sort_descending=True)
 
 import ast
 import fileinput
+import importlib
+import inspect
 import json
 import os
 import re
@@ -86,6 +88,7 @@ from collections import defaultdict
 from tabulate import tabulate
 
 import struphy
+from struphy.models.base import StruphyModel
 
 LIBPATH = struphy.__path__[0]
 
@@ -1269,27 +1272,27 @@ def run_linters_on_files(linters, python_files, flags, verbose):
                     print(line, end="")
 
 
-def construct_models_init_file() -> str:
+def construct_models_init_file(models_dir: str = "src/struphy/models") -> str:
     """
-    Constructs the content for the __init__.py file for the models module.
-
-    Returns:
-        str: The content for the __init__.py file as a string.
+    Constructs __init__.py for all generated model files by reading actual class names.
+    Skips base.py and __init__.py.
     """
-    import struphy.models.fluid as fluid
-    import struphy.models.hybrid as hybrid
-    import struphy.models.kinetic as kinetic
-    import struphy.models.toy as toy
-    from struphy.models.base import StruphyModel
-
     models_init = ""
-
     model_names = []
-    for model_type in [toy, fluid, hybrid, kinetic]:
-        for _, cls in model_type.__dict__.items():
-            if isinstance(cls, type) and issubclass(cls, StruphyModel) and cls != StruphyModel:
-                model_names.append(cls.__name__)
-                models_init += f"from {model_type.__name__} import {cls.__name__}\n"
+
+    for file_name in sorted(os.listdir(models_dir)):
+        if file_name.endswith(".py") and file_name not in ["__init__.py", "base.py"]:
+            module_name = file_name[:-3]  # strip .py
+            module = importlib.import_module(f"struphy.models.{module_name}")
+
+            # Loop over all classes in the module
+            for _, cls in inspect.getmembers(module, inspect.isclass):
+                # Only subclasses of StruphyModel defined in this module
+                if issubclass(cls, StruphyModel) and cls.__module__ == module.__name__ and cls != StruphyModel:
+                    class_name = cls.__name__
+                    models_init += f"from struphy.models.{module_name} import {class_name}\n"
+                    model_names.append(class_name)
+
     models_init += "\n\n"
     models_init += f"__all__ = {model_names}\n"
     return models_init
@@ -1352,17 +1355,20 @@ def struphy_format(config, verbose, yes=False):
         input_type = "path"
 
     if input_type == "__init__.py":
-        print(f"Rewriting {PROPAGATORS_INIT_PATH}")
-        propagators_init = construct_propagators_init_file()
-        with open(PROPAGATORS_INIT_PATH, "w") as f:
-            f.write(propagators_init)
+        # print(f"Rewriting {PROPAGATORS_INIT_PATH}")
+        # propagators_init = construct_propagators_init_file()
+        # with open(PROPAGATORS_INIT_PATH, "w") as f:
+        #     f.write(propagators_init)
 
         print(f"Rewriting {MODELS_INIT_PATH}")
         models_init = construct_models_init_file()
         with open(MODELS_INIT_PATH, "w") as f:
             f.write(models_init)
 
-        python_files = [PROPAGATORS_INIT_PATH, MODELS_INIT_PATH]
+        python_files = [
+            # PROPAGATORS_INIT_PATH,
+            MODELS_INIT_PATH,
+        ]
         input_type = "path"
     else:
         python_files = get_python_files(input_type, path)

@@ -1,23 +1,19 @@
 import cunumpy as xp
-import pytest
 from matplotlib import pyplot as plt
 
-from struphy.fields_background.generic import (
-    GenericCartesianFluidEquilibrium,
-    GenericCartesianFluidEquilibriumWithB,
-)
+from struphy import equils
 
 
 def test_generic_equils(show=False):
     fun_vec = lambda x, y, z: (xp.cos(2 * xp.pi * x), xp.cos(2 * xp.pi * y), z)
     fun_n = lambda x, y, z: xp.exp(-((x - 1) ** 2) - (y) ** 2)
     fun_p = lambda x, y, z: x**2
-    gen_eq = GenericCartesianFluidEquilibrium(
+    gen_eq = equils.GenericCartesianFluidEquilibrium(
         u_xyz=fun_vec,
         p_xyz=fun_p,
         n_xyz=fun_n,
     )
-    gen_eq_B = GenericCartesianFluidEquilibriumWithB(
+    gen_eq_B = equils.GenericCartesianFluidEquilibriumWithB(
         u_xyz=fun_vec,
         p_xyz=fun_p,
         n_xyz=fun_n,

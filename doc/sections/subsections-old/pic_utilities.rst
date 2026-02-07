@@ -12,8 +12,3 @@ Utilities
     :members:
     :undoc-members:
     :show-inheritance:
-
-.. automodule:: struphy.pic.utilities
-    :members:
-    :undoc-members:
-    :show-inheritance:
