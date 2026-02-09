@@ -222,7 +222,7 @@ def run(
     model.allocate_feec(grid, derham_opts)
 
     # equation paramters
-    model.set_normalization_params(units=model.units, verbose=verbose)
+    model.setup_equation_params(units=model.units, verbose=verbose)
 
     # allocate variables
     model.allocate_variables(verbose=verbose)
