@@ -43,6 +43,8 @@ from struphy.topology.grids import TensorProductGrid
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml
 
+from struphy.simulation.sim import Simulation
+
 
 @profile
 def run(
@@ -70,33 +72,21 @@ def run(
         Absolute path to .py parameter file.
     """
 
-    ProfileManager.setup(
-        profiling_activated=env.profiling_activated,
-        time_trace=env.profiling_trace,
-        use_likwid=False,
-        file_path=os.path.join(
-            env.out_folders,
-            env.sim_folder,
-            "profiling_data.h5",
-        ),
+    sim = Simulation(
+        model=model,
+        params_path=params_path,
+        env=env,
+        base_units=base_units,
+        time_opts=time_opts,
+        domain=domain,
+        equil=equil,
+        grid=grid,
+        derham_opts=derham_opts,
+        verbose=verbose,
     )
 
-    if isinstance(MPI, MockMPI):
-        comm = None
-        rank = 0
-        size = 1
-        Barrier = lambda: None
-    else:
-        comm = MPI.COMM_WORLD
-        rank = comm.Get_rank()
-        size = comm.Get_size()
-        Barrier = comm.Barrier
-
-    if rank == 0:
-        print("")
-
     # synchronize MPI processes to set same start time of simulation for all processes
-    Barrier()
+    sim.Barrier()
     start_simulation = time.time()
 
     # check model
@@ -104,7 +94,7 @@ def run(
     model_name = model.__class__.__name__
     model.verbose = verbose
 
-    if rank == 0:
+    if sim.rank == 0:
         print(f"\n*** Starting run for model '{model_name}':")
 
     # meta-data
@@ -114,7 +104,7 @@ def run(
     save_step = env.save_step
     sort_step = env.sort_step
     num_clones = env.num_clones
-    use_mpi = (comm is not None,)
+    use_mpi = (sim.comm is not None,)
 
     meta = {}
     meta["platform"] = sysconfig.get_platform()
@@ -122,14 +112,14 @@ def run(
     meta["model name"] = model_name
     meta["parameter file"] = params_path
     meta["output folder"] = path_out
-    meta["MPI processes"] = size
+    meta["MPI processes"] = sim.size
     meta["use MPI.COMM_WORLD"] = use_mpi
     meta["number of domain clones"] = num_clones
     meta["restart"] = restart
     meta["max wall-clock [min]"] = max_runtime
     meta["save interval [steps]"] = save_step
 
-    if rank == 0:
+    if sim.rank == 0:
         print("\nMETADATA:")
         for k, v in meta.items():
             print(f"{k}:".ljust(25), v)
@@ -145,7 +135,7 @@ def run(
     units = Units(base_units)
 
     # save parameter file
-    if rank == 0:
+    if sim.rank == 0:
         # save python param file
         if params_path is not None:
             assert params_path[-3:] == ".py"
@@ -180,7 +170,7 @@ def run(
                 pickle.dump(model.__class__, f, pickle.HIGHEST_PROTOCOL)
 
     # config clones
-    if comm is None:
+    if sim.comm is None:
         clone_config = None
     else:
         if num_clones == 1:
@@ -190,13 +180,13 @@ def run(
             # MPI.COMM_WORLD     : comm
             # within a clone:    : sub_comm
             # between the clones : inter_comm
-            clone_config = CloneConfig(comm=comm, params=None, num_clones=num_clones)
+            clone_config = CloneConfig(comm=sim.comm, params=None, num_clones=num_clones)
             clone_config.print_clone_config()
             if model.particle_species:
                 clone_config.print_particle_config()
 
     model.clone_config = clone_config
-    Barrier()
+    sim.Barrier()
 
     ## configure model instance
 
@@ -234,16 +224,16 @@ def run(
     # plasma parameters
     model.compute_plasma_params(verbose=verbose)
 
-    if rank < 32:
-        if rank == 0:
+    if sim.rank < 32:
+        if sim.rank == 0:
             print("")
-        print(f"Rank {rank}: executing main.run() for model {model_name} ...")
+        print(f"Rank {sim.rank}: executing main.run() for model {model_name} ...")
 
-    if size > 32 and rank == 32:
+    if sim.size > 32 and sim.rank == 32:
         print(f"Ranks > 31: executing main.run() for model {model_name} ...")
 
     # store geometry vtk
-    if rank == 0:
+    if sim.rank == 0:
         grids_log = [
             xp.linspace(1e-6, 1.0, 32),
             xp.linspace(0.0, 1.0, 32),
@@ -268,7 +258,7 @@ def run(
 
     # data object for saving (will either create new hdf5 files if restart==False or open existing files if restart==True)
     # use MPI.COMM_WORLD as communicator when storing the outputs
-    data = DataContainer(path_out, comm=comm)
+    data = DataContainer(path_out, comm=sim.comm)
 
     # time quantities (current time value, value in seconds and index)
     time_state = {}
@@ -308,11 +298,11 @@ def run(
     model.add_time_state(time_state["value"])
 
     # add all variables to be saved to data object
-    save_keys_all, save_keys_end = model.initialize_data_output(data, size)
+    save_keys_all, save_keys_end = model.initialize_data_output(data, sim.size)
 
     # ======================== main time loop ======================
     model.update_scalar_quantities()
-    if rank == 0:
+    if sim.rank == 0:
         print("\nINITIAL SCALAR QUANTITIES:")
         model.print_scalar_quantities()
 
@@ -321,7 +311,7 @@ def run(
     # time loop
     run_time_now = 0.0
     while True:
-        Barrier()
+        sim.Barrier()
 
         # stop time loop?
         break_cond_1 = time_state["value"][0] >= Tend
@@ -331,7 +321,7 @@ def run(
             # save restart data (other data already saved below)
             data.save_data(keys=save_keys_end)
             end_simulation = time.time()
-            if rank == 0:
+            if sim.rank == 0:
                 print(f"\nTime steps done: {time_state['index'][0]}")
                 print(
                     "wall-clock time of simulation [sec]: ",
@@ -346,7 +336,7 @@ def run(
                 if isinstance(val, Particles):
                     val.do_sort()
             t1 = time.time()
-            if rank == 0 and verbose:
+            if sim.rank == 0 and verbose:
                 message = "Particles sorted | wall clock [s]: {0:8.4f} | sorting duration [s]: {1:8.4f}".format(
                     run_time_now * 60,
                     t1 - t0,
@@ -388,7 +378,7 @@ def run(
             data.save_data(keys=save_keys_all)
 
             # print current time and scalar quantities to screen
-            if rank == 0 and verbose:
+            if sim.rank == 0 and verbose:
                 step = str(time_state["index"][0]).zfill(len(total_steps))
 
                 message = "time step: " + step + "/" + str(total_steps)
@@ -409,9 +399,9 @@ def run(
     # ===================================================================
 
     meta["wall-clock time[min]"] = (end_simulation - start_simulation) / 60
-    Barrier()
+    sim.Barrier()
 
-    if rank == 0:
+    if sim.rank == 0:
         # save meta-data
         dict_to_yaml(meta, os.path.join(path_out, "meta.yml"))
         print("Struphy run finished.")
