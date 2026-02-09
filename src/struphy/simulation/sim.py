@@ -11,7 +11,7 @@ from struphy import (EnvironmentOptions,
 # core imports
 from struphy.models.base import StruphyModel
 from struphy.geometry.base import Domain
-from struphy.fields_background.base import FluidEquilibrium, NumericalMHDequilibrium
+from struphy.fields_background.base import FluidEquilibrium, NumericalMHDequilibrium, FluidEquilibriumWithB
 from struphy.io.setup import setup_folders
 from struphy.io.options import Units
 from struphy.utils.clone_config import CloneConfig
@@ -70,21 +70,21 @@ class Simulation:
 
         # mpi info
         if isinstance(MPI, MockMPI):
-            comm = None
-            rank = 0
-            size = 1
-            Barrier = lambda: None
+            self.comm = None
+            self.rank = 0
+            self.size = 1
+            self.Barrier = lambda: None
         else:
-            comm = MPI.COMM_WORLD
-            rank = comm.Get_rank()
-            size = comm.Get_size()
-            Barrier = comm.Barrier
+            self.comm = MPI.COMM_WORLD
+            self.rank = self.comm.Get_rank()
+            self.size = self.comm.Get_size()
+            self.Barrier = self.comm.Barrier
 
-        if rank == 0:
+        if self.rank == 0:
             print("")
 
         # synchronize MPI processes to set same start time of simulation for all processes
-        Barrier()
+        self.Barrier()
         start_simulation = time.time()
 
         # check model
@@ -92,7 +92,7 @@ class Simulation:
         model.verbose = verbose
         model_name = model.__class__.__name__
 
-        if rank == 0:
+        if self.rank == 0:
             print(f"\n*** Starting run for model '{model_name}':")
 
         # meta-data
@@ -102,7 +102,7 @@ class Simulation:
         save_step = env.save_step
         sort_step = env.sort_step
         num_clones = env.num_clones
-        use_mpi = (comm is not None,)
+        use_mpi = (self.comm is not None,)
 
         meta = {}
         meta["platform"] = sysconfig.get_platform()
@@ -110,14 +110,14 @@ class Simulation:
         meta["model name"] = model_name
         meta["parameter file"] = params_path
         meta["output folder"] = path_out
-        meta["MPI processes"] = size
+        meta["MPI processes"] = self.size
         meta["use MPI.COMM_WORLD"] = use_mpi
         meta["number of domain clones"] = num_clones
         meta["restart"] = restart
         meta["max wall-clock [min]"] = max_runtime
         meta["save interval [steps]"] = save_step
 
-        if rank == 0:
+        if self.rank == 0:
             print("\nMETADATA:")
             for k, v in meta.items():
                 print(f"{k}:".ljust(25), v)
@@ -130,7 +130,7 @@ class Simulation:
         )
 
         # save parameter file
-        if rank == 0:
+        if self.rank == 0:
             # save python param file
             if params_path is not None:
                 assert params_path[-3:] == ".py"
@@ -165,7 +165,7 @@ class Simulation:
                     pickle.dump(model.__class__, f, pickle.HIGHEST_PROTOCOL)
 
         # config clones
-        if comm is None:
+        if self.comm is None:
             clone_config = None
         else:
             if num_clones == 1:
@@ -175,13 +175,13 @@ class Simulation:
                 # MPI.COMM_WORLD     : comm
                 # within a clone:    : sub_comm
                 # between the clones : inter_comm
-                clone_config = CloneConfig(comm=comm, params=None, num_clones=num_clones)
+                clone_config = CloneConfig(comm=self.comm, params=None, num_clones=num_clones)
                 clone_config.print_clone_config()
                 if model.particle_species:
                     clone_config.print_particle_config()
 
         self.clone_config = clone_config
-        Barrier()
+        self.Barrier()
         
         # units and normalization parameters
         units = Units(base_units)
@@ -216,28 +216,28 @@ class Simulation:
 
     def store_geometry(self, verbose: bool = False):
         # store geometry vtk
-        if rank == 0:
+        if self.rank == 0:
             grids_log = [
                 xp.linspace(1e-6, 1.0, 32),
                 xp.linspace(0.0, 1.0, 32),
                 xp.linspace(0.0, 1.0, 32),
             ]
 
-            tmp = model.domain(*grids_log)
+            tmp = self.domain(*grids_log)
             grids_phy = [tmp[0], tmp[1], tmp[2]]
 
             pointData = {}
-            det_df = model.domain.jacobian_det(*grids_log)
+            det_df = self.domain.jacobian_det(*grids_log)
             pointData["det_df"] = det_df
 
-            if model.equil is not None:
-                p0 = model.equil.p0(*grids_log)
+            if self.equil is not None:
+                p0 = self.equil.p0(*grids_log)
                 pointData["p0"] = p0
-                if isinstance(model.equil, FluidEquilibriumWithB):
-                    absB0 = model.equil.absB0(*grids_log)
+                if isinstance(self.equil, FluidEquilibriumWithB):
+                    absB0 = self.equil.absB0(*grids_log)
                     pointData["absB0"] = absB0
 
-            gridToVTK(os.path.join(path_out, "geometry"), *grids_phy, pointData=pointData)
+            gridToVTK(os.path.join(self.env.path_out, "geometry"), *grids_phy, pointData=pointData)
 
     def compute_plasma_params(self, verbose=True):
         """

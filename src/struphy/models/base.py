@@ -88,7 +88,7 @@ class StruphyModel(metaclass=ABCMeta):
 
     ## setup methods
 
-    def set_normalization_params(self, units: Units, verbose=False):
+    def setup_equation_params(self, units: Units, verbose=False):
         """Set euqation parameters for each fluid and kinetic species."""
         for _, species in self.fluid_species.items():
             assert isinstance(species, FluidSpecies)
@@ -97,6 +97,44 @@ class StruphyModel(metaclass=ABCMeta):
         for _, species in self.particle_species.items():
             assert isinstance(species, ParticleSpecies)
             species.setup_equation_params(units=units, verbose=verbose)
+
+    def setup_domain_and_equil(self, domain: Domain, equil: FluidEquilibrium):
+        """If a numerical equilibirum is used, the domain is taken from this equilibirum."""
+        if equil is not None:
+            if isinstance(equil, NumericalMHDequilibrium):
+                self._domain = equil.domain
+            else:
+                self._domain = domain
+                equil.domain = domain
+
+            if hasattr(equil, "units"):
+                assert isinstance(equil.units, Units)
+                equil.units.derive_units(
+                    velocity_scale=self.velocity_scale,
+                    A_bulk=self.bulk_species.mass_number,
+                    Z_bulk=self.bulk_species.charge_number,
+                    verbose=self.verbose,
+                )
+
+        else:
+            self._domain = domain
+
+        self._equil = equil
+
+        if MPI.COMM_WORLD.Get_rank() == 0 and self.verbose:
+            print("\nDOMAIN:")
+            print("type:".ljust(25), self.domain.__class__.__name__)
+            for key, val in self.domain.params.items():
+                if key not in {"cx", "cy", "cz"}:
+                    print((key + ":").ljust(25), val)
+
+            print("\nFLUID BACKGROUND:")
+            if self.equil is not None:
+                print("type:".ljust(25), self.equil.__class__.__name__)
+                for key, val in self.equil.params.items():
+                    print((key + ":").ljust(25), val)
+            else:
+                print("None.")
 
     ## species
 
@@ -143,6 +181,67 @@ class StruphyModel(metaclass=ABCMeta):
         return self._species
 
     ## allocate methods
+
+    def allocate_feec(self, grid: TensorProductGrid, derham_opts: DerhamOptions):
+        # create discrete derham sequence
+        if self.clone_config is None:
+            derham_comm = MPI.COMM_WORLD
+        else:
+            derham_comm = self.clone_config.sub_comm
+
+        if grid is None or derham_opts is None:
+            if MPI.COMM_WORLD.Get_rank() == 0:
+                print(f"\n{grid =}, {derham_opts =}: no Derham object set up.")
+            self._derham = None
+        else:
+            self._derham = setup_derham(
+                grid,
+                derham_opts,
+                comm=derham_comm,
+                domain=self.domain,
+                verbose=self.verbose,
+            )
+
+        # create weighted mass and basis operators
+        if self.derham is None:
+            self._mass_ops = None
+            self._basis_ops = None
+        else:
+            self._mass_ops = WeightedMassOperators(
+                self.derham,
+                self.domain,
+                verbose=self.verbose,
+                eq_mhd=self.equil,
+            )
+
+            self._basis_ops = BasisProjectionOperators(
+                self.derham,
+                self.domain,
+                verbose=self.verbose,
+                eq_mhd=self.equil,
+            )
+
+        # create projected equilibrium
+        if self.derham is None:
+            self._projected_equil = None
+        else:
+            if isinstance(self.equil, MHDequilibrium):
+                self._projected_equil = ProjectedMHDequilibrium(
+                    self.equil,
+                    self.derham,
+                )
+            elif isinstance(self.equil, FluidEquilibriumWithB):
+                self._projected_equil = ProjectedFluidEquilibriumWithB(
+                    self.equil,
+                    self.derham,
+                )
+            elif isinstance(self.equil, FluidEquilibrium):
+                self._projected_equil = ProjectedFluidEquilibrium(
+                    self.equil,
+                    self.derham,
+                )
+            else:
+                self._projected_equil = None
 
     def allocate_propagators(self):
         # set propagators base class attributes (then available to all propagators)
@@ -1407,6 +1506,294 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         )
 
         return path
+
+    ###################
+    # Private methods :
+    ###################
+
+    def compute_plasma_params(self, verbose=True):
+        """
+        Compute and print volume averaged plasma parameters for each species of the model.
+
+        Global parameters:
+        - plasma volume
+        - transit length
+        - magnetic field
+
+        Species dependent parameters:
+        - mass
+        - charge
+        - density
+        - pressure
+        - thermal energy kBT
+        - Alfvén speed v_A
+        - thermal speed v_th
+        - thermal frequency Omega_th
+        - cyclotron frequency Omega_c
+        - plasma frequency Omega_p
+        - Alfvèn frequency Omega_A
+        - thermal Larmor radius rho_th
+        - MHD length scale v_a/Omega_c
+        - rho/L
+        - alpha = Omega_p/Omega_c
+        - epsilon = 1/(t*Omega_c)
+        """
+
+        # units affices for printing
+        units_affix = {}
+        units_affix["plasma volume"] = " m³"
+        units_affix["transit length"] = " m"
+        units_affix["magnetic field"] = " T"
+        units_affix["mass"] = " kg"
+        units_affix["charge"] = " C"
+        units_affix["density"] = " m⁻³"
+        units_affix["pressure"] = " bar"
+        units_affix["kBT"] = " keV"
+        units_affix["v_A"] = " m/s"
+        units_affix["v_th"] = " m/s"
+        units_affix["vth1"] = " m/s"
+        units_affix["vth2"] = " m/s"
+        units_affix["vth3"] = " m/s"
+        units_affix["Omega_th"] = " Mrad/s"
+        units_affix["Omega_c"] = " Mrad/s"
+        units_affix["Omega_p"] = " Mrad/s"
+        units_affix["Omega_A"] = " Mrad/s"
+        units_affix["rho_th"] = " m"
+        units_affix["v_A/Omega_c"] = " m"
+        units_affix["rho_th/L"] = ""
+        units_affix["alpha"] = ""
+        units_affix["epsilon"] = ""
+
+        h = 1 / 20
+        eta1 = xp.linspace(h / 2.0, 1.0 - h / 2.0, 20)
+        eta2 = xp.linspace(h / 2.0, 1.0 - h / 2.0, 20)
+        eta3 = xp.linspace(h / 2.0, 1.0 - h / 2.0, 20)
+
+        ##  global parameters
+
+        # plasma volume (hat x^3)
+        det_tmp = self.domain.jacobian_det(eta1, eta2, eta3)
+        vol1 = xp.mean(xp.abs(det_tmp))
+        # plasma volume (m⁻³)
+        plasma_volume = vol1 * self.units.x**3
+        # transit length (m)
+        transit_length = plasma_volume ** (1 / 3)
+        # magnetic field (T)
+        if isinstance(self.equil, FluidEquilibriumWithB):
+            B_tmp = self.equil.absB0(eta1, eta2, eta3)
+        else:
+            B_tmp = xp.zeros((eta1.size, eta2.size, eta3.size))
+        magnetic_field = xp.mean(B_tmp * xp.abs(det_tmp)) / vol1 * self.units.B
+        B_max = xp.max(B_tmp) * self.units.B
+        B_min = xp.min(B_tmp) * self.units.B
+
+        if magnetic_field < 1e-14:
+            magnetic_field = xp.nan
+            # print("\n+++++++ WARNING +++++++ magnetic field is zero - set to nan !!")
+
+        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
+            print("\nPLASMA PARAMETERS:")
+            print(
+                "Plasma volume:".ljust(25),
+                "{:4.3e}".format(plasma_volume) + units_affix["plasma volume"],
+            )
+            print(
+                "Transit length:".ljust(25),
+                "{:4.3e}".format(transit_length) + units_affix["transit length"],
+            )
+            print(
+                "Avg. magnetic field:".ljust(25),
+                "{:4.3e}".format(magnetic_field) + units_affix["magnetic field"],
+            )
+            print(
+                "Max magnetic field:".ljust(25),
+                "{:4.3e}".format(B_max) + units_affix["magnetic field"],
+            )
+            print(
+                "Min magnetic field:".ljust(25),
+                "{:4.3e}".format(B_min) + units_affix["magnetic field"],
+            )
+
+        # # species dependent parameters
+        # self._pparams = {}
+
+        # if len(self.fluid_species) > 0:
+        #     for species, val in self.fluid_species.items():
+        #         self._pparams[species] = {}
+        #         # type
+        #         self._pparams[species]["type"] = "fluid"
+        #         # mass (kg)
+        #         self._pparams[species]["mass"] = val["params"]["phys_params"]["A"] * m_p
+        #         # charge (C)
+        #         self._pparams[species]["charge"] = val["params"]["phys_params"]["Z"] * e
+        #         # density (m⁻³)
+        #         self._pparams[species]["density"] = (
+        #             xp.mean(
+        #                 self.equil.n0(
+        #                     eta1,
+        #                     eta2,
+        #                     eta3,
+        #                 )
+        #                 * xp.abs(det_tmp),
+        #             )
+        #             * self.units.x ** 3
+        #             / plasma_volume
+        #             * self.units.n
+        #         )
+        #         # pressure (bar)
+        #         self._pparams[species]["pressure"] = (
+        #             xp.mean(
+        #                 self.equil.p0(
+        #                     eta1,
+        #                     eta2,
+        #                     eta3,
+        #                 )
+        #                 * xp.abs(det_tmp),
+        #             )
+        #             * self.units.x ** 3
+        #             / plasma_volume
+        #             * self.units.p
+        #             * 1e-5
+        #         )
+        #         # thermal energy (keV)
+        #         self._pparams[species]["kBT"] = self._pparams[species]["pressure"] * 1e5 / self._pparams[species]["density"] / e * 1e-3
+
+        # if len(self.kinetic) > 0:
+        #     eta1mg, eta2mg, eta3mg = xp.meshgrid(
+        #         eta1,
+        #         eta2,
+        #         eta3,
+        #         indexing="ij",
+        #     )
+
+        #     for species, val in self.kinetic.items():
+        #         self._pparams[species] = {}
+        #         # type
+        #         self._pparams[species]["type"] = "kinetic"
+        #         # mass (kg)
+        #         self._pparams[species]["mass"] = val["params"]["phys_params"]["A"] * m_p
+        #         # charge (C)
+        #         self._pparams[species]["charge"] = val["params"]["phys_params"]["Z"] * e
+
+        #         # create temp kinetic object for (default) parameter extraction
+        #         tmp_bckgr = val["params"]["background"]
+
+        #         if val["space"] != "ParticlesSPH":
+        #             tmp = None
+        #             for fi, maxw_params in tmp_bckgr.items():
+        #                 if fi[-2] == "_":
+        #                     fi_type = fi[:-2]
+        #                 else:
+        #                     fi_type = fi
+
+        #                 if tmp is None:
+        #                     tmp = getattr(maxwellians, fi_type)(
+        #                         maxw_params=maxw_params,
+        #                         equil=self.equil,
+        #                     )
+        #                 else:
+        #                     tmp = tmp + getattr(maxwellians, fi_type)(
+        #                         maxw_params=maxw_params,
+        #                         equil=self.equil,
+        #                     )
+
+        #         if val["space"] != "ParticlesSPH" and tmp.coords == "constants_of_motion":
+        #             # call parameters
+        #             a1 = self.domain.params_map["a1"]
+        #             r = eta1mg * (1 - a1) + a1
+        #             psi = self.equil.psi_r(r)
+
+        #             # density (m⁻³)
+        #             self._pparams[species]["density"] = (
+        #                 xp.mean(tmp.n(psi) * xp.abs(det_tmp)) * self.units.x ** 3 / plasma_volume * self.units.n
+        #             )
+        #             # thermal speed (m/s)
+        #             self._pparams[species]["v_th"] = (
+        #                 xp.mean(tmp.vth(psi) * xp.abs(det_tmp)) * self.units.x ** 3 / plasma_volume * self.units.v
+        #             )
+        #             # thermal energy (keV)
+        #             self._pparams[species]["kBT"] = self._pparams[species]["mass"] * self._pparams[species]["v_th"] ** 2 / e * 1e-3
+        #             # pressure (bar)
+        #             self._pparams[species]["pressure"] = (
+        #                 self._pparams[species]["kBT"] * e * 1e3 * self._pparams[species]["density"] * 1e-5
+        #             )
+
+        #         else:
+        #             # density (m⁻³)
+        #             # self._pparams[species]['density'] = xp.mean(tmp.n(
+        #             #     eta1mg, eta2mg, eta3mg) * xp.abs(det_tmp)) * units['x']**3 / plasma_volume * units['n']
+        #             self._pparams[species]["density"] = 99.0
+        #             # thermal speeds (m/s)
+        #             vth = []
+        #             # vths = tmp.vth(eta1mg, eta2mg, eta3mg)
+        #             vths = [99.0]
+        #             for k in range(len(vths)):
+        #                 vth += [
+        #                     vths[k] * xp.abs(det_tmp) * self.units.x ** 3 / plasma_volume * self.units.v,
+        #                 ]
+        #             thermal_speed = 0.0
+        #             for dir in range(val["obj"].vdim):
+        #                 # self._pparams[species]['vth' + str(dir + 1)] = xp.mean(vth[dir])
+        #                 self._pparams[species]["vth" + str(dir + 1)] = 99.0
+        #                 thermal_speed += self._pparams[species]["vth" + str(dir + 1)]
+        #             # TODO: here it is assumed that background density parameter is called "n",
+        #             # and that background thermal speeds are called "vthn"; make this a convention?
+        #             # self._pparams[species]['v_th'] = thermal_speed / \
+        #             #     val['obj'].vdim
+        #             self._pparams[species]["v_th"] = 99.0
+        #             # thermal energy (keV)
+        #             # self._pparams[species]['kBT'] = self._pparams[species]['mass'] * \
+        #             #     self._pparams[species]['v_th']**2 / e * 1e-3
+        #             self._pparams[species]["kBT"] = 99.0
+        #             # pressure (bar)
+        #             # self._pparams[species]['pressure'] = self._pparams[species]['kBT'] * \
+        #             #     e * 1e3 * self._pparams[species]['density'] * 1e-5
+        #             self._pparams[species]["pressure"] = 99.0
+
+        # for species in self._pparams:
+        #     # alfvén speed (m/s)
+        #     self._pparams[species]["v_A"] = magnetic_field / xp.sqrt(
+        #         mu0 * self._pparams[species]["mass"] * self._pparams[species]["density"],
+        #     )
+        #     # thermal speed (m/s)
+        #     self._pparams[species]["v_th"] = xp.sqrt(
+        #         self._pparams[species]["kBT"] * 1e3 * e / self._pparams[species]["mass"],
+        #     )
+        #     # thermal frequency (Mrad/s)
+        #     self._pparams[species]["Omega_th"] = self._pparams[species]["v_th"] / transit_length * 1e-6
+        #     # cyclotron frequency (Mrad/s)
+        #     self._pparams[species]["Omega_c"] = self._pparams[species]["charge"] * magnetic_field / self._pparams[species]["mass"] * 1e-6
+        #     # plasma frequency (Mrad/s)
+        #     self._pparams[species]["Omega_p"] = (
+        #         xp.sqrt(
+        #             self._pparams[species]["density"] * (self._pparams[species]["charge"]) ** 2 / eps0 / self._pparams[species]["mass"],
+        #         )
+        #         * 1e-6
+        #     )
+        #     # alfvén frequency (Mrad/s)
+        #     self._pparams[species]["Omega_A"] = self._pparams[species]["v_A"] / transit_length * 1e-6
+        #     # Larmor radius (m)
+        #     self._pparams[species]["rho_th"] = self._pparams[species]["v_th"] / (self._pparams[species]["Omega_c"] * 1e6)
+        #     # MHD length scale (m)
+        #     self._pparams[species]["v_A/Omega_c"] = self._pparams[species]["v_A"] / (xp.abs(self._pparams[species]["Omega_c"]) * 1e6)
+        #     # dim-less ratios
+        #     self._pparams[species]["rho_th/L"] = self._pparams[species]["rho_th"] / transit_length
+
+        # if verbose and self.rank_world == 0:
+        #     print("\nSPECIES PARAMETERS:")
+        #     for species, ch in self._pparams.items():
+        #         print(f"\nname:".ljust(26), species)
+        #         print(f"type:".ljust(25), ch["type"])
+        #         ch.pop("type")
+        #         print(f"is bulk:".ljust(25), species == self.bulk_species())
+        #         for kinds, vals in ch.items():
+        #             print(
+        #                 kinds.ljust(25),
+        #                 "{:+4.3e}".format(
+        #                     vals,
+        #                 ),
+        #                 units_affix[kinds],
+        #             )
 
 
 class MyDumper(yaml.SafeDumper):
