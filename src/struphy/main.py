@@ -85,126 +85,6 @@ def run(
         verbose=verbose,
     )
 
-    # synchronize MPI processes to set same start time of simulation for all processes
-    sim.Barrier()
-    start_simulation = time.time()
-
-    # check model
-    assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
-    model_name = model.__class__.__name__
-    model.verbose = verbose
-
-    if sim.rank == 0:
-        print(f"\n*** Starting run for model '{model_name}':")
-
-    # meta-data
-    path_out = env.path_out
-    restart = env.restart
-    max_runtime = env.max_runtime
-    save_step = env.save_step
-    sort_step = env.sort_step
-    num_clones = env.num_clones
-    use_mpi = (sim.comm is not None,)
-
-    meta = {}
-    meta["platform"] = sysconfig.get_platform()
-    meta["python version"] = sysconfig.get_python_version()
-    meta["model name"] = model_name
-    meta["parameter file"] = params_path
-    meta["output folder"] = path_out
-    meta["MPI processes"] = sim.size
-    meta["use MPI.COMM_WORLD"] = use_mpi
-    meta["number of domain clones"] = num_clones
-    meta["restart"] = restart
-    meta["max wall-clock [min]"] = max_runtime
-    meta["save interval [steps]"] = save_step
-
-    if sim.rank == 0:
-        print("\nMETADATA:")
-        for k, v in meta.items():
-            print(f"{k}:".ljust(25), v)
-
-    # creating output folders
-    setup_folders(
-        path_out=path_out,
-        restart=restart,
-        verbose=verbose,
-    )
-
-    # add derived units
-    units = Units(base_units)
-
-    # save parameter file
-    if sim.rank == 0:
-        # save python param file
-        if params_path is not None:
-            assert params_path[-3:] == ".py"
-            shutil.copy2(
-                params_path,
-                os.path.join(path_out, "parameters.py"),
-            )
-        # pickle struphy objects
-        else:
-            with open(os.path.join(path_out, "env.bin"), "wb") as f:
-                pickle.dump(env, f, pickle.HIGHEST_PROTOCOL)
-            with open(os.path.join(path_out, "base_units.bin"), "wb") as f:
-                pickle.dump(base_units, f, pickle.HIGHEST_PROTOCOL)
-            with open(os.path.join(path_out, "time_opts.bin"), "wb") as f:
-                pickle.dump(time_opts, f, pickle.HIGHEST_PROTOCOL)
-            with open(os.path.join(path_out, "domain.bin"), "wb") as f:
-                # WORKAROUND: cannot pickle pyccelized classes at the moment
-                tmp_dct = {"name": domain.__class__.__name__, "params": domain.params}
-                pickle.dump(tmp_dct, f, pickle.HIGHEST_PROTOCOL)
-            with open(os.path.join(path_out, "equil.bin"), "wb") as f:
-                # WORKAROUND: cannot pickle pyccelized classes at the moment
-                if equil is not None:
-                    tmp_dct = {"name": equil.__class__.__name__, "params": equil.params}
-                else:
-                    tmp_dct = {}
-                pickle.dump(tmp_dct, f, pickle.HIGHEST_PROTOCOL)
-            with open(os.path.join(path_out, "grid.bin"), "wb") as f:
-                pickle.dump(grid, f, pickle.HIGHEST_PROTOCOL)
-            with open(os.path.join(path_out, "derham_opts.bin"), "wb") as f:
-                pickle.dump(derham_opts, f, pickle.HIGHEST_PROTOCOL)
-            with open(os.path.join(path_out, "model_class.bin"), "wb") as f:
-                pickle.dump(model.__class__, f, pickle.HIGHEST_PROTOCOL)
-
-    # config clones
-    if sim.comm is None:
-        clone_config = None
-    else:
-        if num_clones == 1:
-            clone_config = None
-        else:
-            # Setup domain cloning communicators
-            # MPI.COMM_WORLD     : comm
-            # within a clone:    : sub_comm
-            # between the clones : inter_comm
-            clone_config = CloneConfig(comm=sim.comm, params=None, num_clones=num_clones)
-            clone_config.print_clone_config()
-            if model.particle_species:
-                clone_config.print_particle_config()
-
-    model.clone_config = clone_config
-    sim.Barrier()
-
-    ## configure model instance
-
-    # units
-    model.units = units
-    if model.bulk_species is None:
-        A_bulk = None
-        Z_bulk = None
-    else:
-        A_bulk = model.bulk_species.mass_number
-        Z_bulk = model.bulk_species.charge_number
-    model.units.derive_units(
-        velocity_scale=model.velocity_scale,
-        A_bulk=A_bulk,
-        Z_bulk=Z_bulk,
-        verbose=verbose,
-    )
-
     # domain and fluid background
     model.setup_domain_and_equil(domain, equil)
 
@@ -212,7 +92,7 @@ def run(
     model.allocate_feec(grid, derham_opts)
 
     # equation paramters
-    model.setup_equation_params(units=model.units, verbose=verbose)
+    model.setup_equation_params(units=sim.units, verbose=verbose)
 
     # allocate variables
     model.allocate_variables(verbose=verbose)
@@ -222,15 +102,15 @@ def run(
     model.allocate_propagators()
 
     # plasma parameters
-    model.compute_plasma_params(verbose=verbose)
+    sim.compute_plasma_params(verbose=verbose)
 
     if sim.rank < 32:
         if sim.rank == 0:
             print("")
-        print(f"Rank {sim.rank}: executing main.run() for model {model_name} ...")
+        print(f"Rank {sim.rank}: executing main.run() for model {model} ...")
 
     if sim.size > 32 and sim.rank == 32:
-        print(f"Ranks > 31: executing main.run() for model {model_name} ...")
+        print(f"Ranks > 31: executing main.run() for model {model} ...")
 
     # store geometry vtk
     if sim.rank == 0:
@@ -254,11 +134,11 @@ def run(
                 absB0 = model.equil.absB0(*grids_log)
                 pointData["absB0"] = absB0
 
-        gridToVTK(os.path.join(path_out, "geometry"), *grids_phy, pointData=pointData)
+        gridToVTK(os.path.join(sim.env.path_out, "geometry"), *grids_phy, pointData=pointData)
 
     # data object for saving (will either create new hdf5 files if restart==False or open existing files if restart==True)
     # use MPI.COMM_WORLD as communicator when storing the outputs
-    data = DataContainer(path_out, comm=sim.comm)
+    data = DataContainer(sim.env.path_out, comm=sim.comm)
 
     # time quantities (current time value, value in seconds and index)
     time_state = {}
@@ -279,7 +159,7 @@ def run(
     split_algo = time_opts.split_algo
 
     # set initial conditions for all variables
-    if restart:
+    if sim.env.restart:
         model.initialize_from_restart(data)
 
         with h5py.File(data.file_path, "a") as file:
@@ -315,7 +195,7 @@ def run(
 
         # stop time loop?
         break_cond_1 = time_state["value"][0] >= Tend
-        break_cond_2 = run_time_now > max_runtime
+        break_cond_2 = run_time_now > sim.env.max_runtime
 
         if break_cond_1 or break_cond_2:
             # save restart data (other data already saved below)
@@ -325,12 +205,12 @@ def run(
                 print(f"\nTime steps done: {time_state['index'][0]}")
                 print(
                     "wall-clock time of simulation [sec]: ",
-                    end_simulation - start_simulation,
+                    end_simulation - sim.start_time,
                 )
                 print()
             break
 
-        if sort_step and time_state["index"][0] % sort_step == 0:
+        if sim.env.sort_step and time_state["index"][0] % sim.env.sort_step == 0:
             t0 = time.time()
             for key, val in model.pointer.items():
                 if isinstance(val, Particles):
@@ -346,7 +226,7 @@ def run(
 
         # update time and index (round time to 10 decimals for a clean time grid!)
         time_state["value"][0] = round(time_state["value"][0] + dt, 10)
-        time_state["value_sec"][0] = round(time_state["value_sec"][0] + dt * model.units.t, 10)
+        time_state["value_sec"][0] = round(time_state["value_sec"][0] + dt * sim.units.t, 10)
         time_state["index"][0] += 1
 
         # perform one time step dt
@@ -355,10 +235,10 @@ def run(
             model.integrate(dt, split_algo)
         t1 = time.time()
 
-        run_time_now = (time.time() - start_simulation) / 60
+        run_time_now = (time.time() - sim.start_time) / 60
 
         # update diagnostics data and save data
-        if time_state["index"][0] % save_step == 0:
+        if time_state["index"][0] % sim.env.save_step == 0:
             # compute scalars and kinetic data
             model.update_scalar_quantities()
             model.update_markers_to_be_saved()
@@ -385,7 +265,7 @@ def run(
                 message += " | " + "time: {0:10.5f}/{1:10.5f}".format(time_state["value"][0], Tend)
                 message += " | " + "phys. time [s]: {0:12.10f}/{1:12.10f}".format(
                     time_state["value_sec"][0],
-                    Tend * model.units.t,
+                    Tend * sim.units.t,
                 )
                 message += " | " + "wall clock [s]: {0:8.4f} | last step duration [s]: {1:8.4f}".format(
                     run_time_now * 60,
@@ -398,16 +278,16 @@ def run(
 
     # ===================================================================
 
-    meta["wall-clock time[min]"] = (end_simulation - start_simulation) / 60
+    sim.meta["wall-clock time[min]"] = (end_simulation - sim.start_time) / 60
     sim.Barrier()
 
     if sim.rank == 0:
         # save meta-data
-        dict_to_yaml(meta, os.path.join(path_out, "meta.yml"))
+        dict_to_yaml(sim.meta, os.path.join(sim.env.path_out, "meta.yml"))
         print("Struphy run finished.")
 
-    if clone_config is not None:
-        clone_config.free()
+    if sim.clone_config is not None:
+        sim.clone_config.free()
 
     ProfileManager.finalize()
 

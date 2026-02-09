@@ -27,6 +27,7 @@ import shutil
 import sysconfig
 import cunumpy as xp
 import h5py
+import glob
 from line_profiler import profile
 from pyevtk.hl import gridToVTK
 
@@ -83,124 +84,124 @@ class Simulation:
         if self.rank == 0:
             print("")
 
-        # # synchronize MPI processes to set same start time of simulation for all processes
-        # self.Barrier()
-        # start_simulation = time.time()
+        # synchronize MPI processes to set same start time of simulation for all processes
+        self.Barrier()
+        self.start_time = time.time()
 
-        # # check model
-        # assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
-        # model.verbose = verbose
-        # model_name = model.__class__.__name__
+        # check model
+        assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
+        model.verbose = verbose
+        model_name = model.__class__.__name__
 
-        # if self.rank == 0:
-        #     print(f"\n*** Starting run for model '{model_name}':")
+        if self.rank == 0:
+            print(f"\n*** Starting run for model '{model_name}':")
 
-        # # meta-data
-        # path_out = env.path_out
-        # restart = env.restart
-        # max_runtime = env.max_runtime
-        # save_step = env.save_step
-        # sort_step = env.sort_step
-        # num_clones = env.num_clones
-        # use_mpi = (self.comm is not None,)
+        # meta-data
+        path_out = env.path_out
+        restart = env.restart
+        max_runtime = env.max_runtime
+        save_step = env.save_step
+        sort_step = env.sort_step
+        num_clones = env.num_clones
+        use_mpi = (self.comm is not None,)
 
-        # meta = {}
-        # meta["platform"] = sysconfig.get_platform()
-        # meta["python version"] = sysconfig.get_python_version()
-        # meta["model name"] = model_name
-        # meta["parameter file"] = params_path
-        # meta["output folder"] = path_out
-        # meta["MPI processes"] = self.size
-        # meta["use MPI.COMM_WORLD"] = use_mpi
-        # meta["number of domain clones"] = num_clones
-        # meta["restart"] = restart
-        # meta["max wall-clock [min]"] = max_runtime
-        # meta["save interval [steps]"] = save_step
+        self.meta = {}
+        self.meta["platform"] = sysconfig.get_platform()
+        self.meta["python version"] = sysconfig.get_python_version()
+        self.meta["model name"] = model_name
+        self.meta["parameter file"] = params_path
+        self.meta["output folder"] = path_out
+        self.meta["MPI processes"] = self.size
+        self.meta["use MPI.COMM_WORLD"] = use_mpi
+        self.meta["number of domain clones"] = num_clones
+        self.meta["restart"] = restart
+        self.meta["max wall-clock [min]"] = max_runtime
+        self.meta["save interval [steps]"] = save_step
 
-        # if self.rank == 0:
-        #     print("\nMETADATA:")
-        #     for k, v in meta.items():
-        #         print(f"{k}:".ljust(25), v)
+        if self.rank == 0:
+            print("\nMETADATA:")
+            for k, v in self.meta.items():
+                print(f"{k}:".ljust(25), v)
 
-        # # creating output folders
-        # self._setup_folders(
-        #     path_out=path_out,
-        #     restart=restart,
-        #     verbose=verbose,
-        # )
+        # creating output folders
+        self._setup_folders(
+            path_out=path_out,
+            restart=restart,
+            verbose=verbose,
+        )
 
-        # # save parameter file
-        # if self.rank == 0:
-        #     # save python param file
-        #     if params_path is not None:
-        #         assert params_path[-3:] == ".py"
-        #         shutil.copy2(
-        #             params_path,
-        #             os.path.join(path_out, "parameters.py"),
-        #         )
-        #     # pickle struphy objects
-        #     else:
-        #         with open(os.path.join(path_out, "env.bin"), "wb") as f:
-        #             pickle.dump(env, f, pickle.HIGHEST_PROTOCOL)
-        #         with open(os.path.join(path_out, "base_units.bin"), "wb") as f:
-        #             pickle.dump(base_units, f, pickle.HIGHEST_PROTOCOL)
-        #         with open(os.path.join(path_out, "time_opts.bin"), "wb") as f:
-        #             pickle.dump(time_opts, f, pickle.HIGHEST_PROTOCOL)
-        #         with open(os.path.join(path_out, "domain.bin"), "wb") as f:
-        #             # WORKAROUND: cannot pickle pyccelized classes at the moment
-        #             tmp_dct = {"name": domain.__class__.__name__, "params": domain.params}
-        #             pickle.dump(tmp_dct, f, pickle.HIGHEST_PROTOCOL)
-        #         with open(os.path.join(path_out, "equil.bin"), "wb") as f:
-        #             # WORKAROUND: cannot pickle pyccelized classes at the moment
-        #             if equil is not None:
-        #                 tmp_dct = {"name": equil.__class__.__name__, "params": equil.params}
-        #             else:
-        #                 tmp_dct = {}
-        #             pickle.dump(tmp_dct, f, pickle.HIGHEST_PROTOCOL)
-        #         with open(os.path.join(path_out, "grid.bin"), "wb") as f:
-        #             pickle.dump(grid, f, pickle.HIGHEST_PROTOCOL)
-        #         with open(os.path.join(path_out, "derham_opts.bin"), "wb") as f:
-        #             pickle.dump(derham_opts, f, pickle.HIGHEST_PROTOCOL)
-        #         with open(os.path.join(path_out, "model_class.bin"), "wb") as f:
-        #             pickle.dump(model.__class__, f, pickle.HIGHEST_PROTOCOL)
+        # save parameter file
+        if self.rank == 0:
+            # save python param file
+            if params_path is not None:
+                assert params_path[-3:] == ".py"
+                shutil.copy2(
+                    params_path,
+                    os.path.join(path_out, "parameters.py"),
+                )
+            # pickle struphy objects
+            else:
+                with open(os.path.join(path_out, "env.bin"), "wb") as f:
+                    pickle.dump(env, f, pickle.HIGHEST_PROTOCOL)
+                with open(os.path.join(path_out, "base_units.bin"), "wb") as f:
+                    pickle.dump(base_units, f, pickle.HIGHEST_PROTOCOL)
+                with open(os.path.join(path_out, "time_opts.bin"), "wb") as f:
+                    pickle.dump(time_opts, f, pickle.HIGHEST_PROTOCOL)
+                with open(os.path.join(path_out, "domain.bin"), "wb") as f:
+                    # WORKAROUND: cannot pickle pyccelized classes at the moment
+                    tmp_dct = {"name": domain.__class__.__name__, "params": domain.params}
+                    pickle.dump(tmp_dct, f, pickle.HIGHEST_PROTOCOL)
+                with open(os.path.join(path_out, "equil.bin"), "wb") as f:
+                    # WORKAROUND: cannot pickle pyccelized classes at the moment
+                    if equil is not None:
+                        tmp_dct = {"name": equil.__class__.__name__, "params": equil.params}
+                    else:
+                        tmp_dct = {}
+                    pickle.dump(tmp_dct, f, pickle.HIGHEST_PROTOCOL)
+                with open(os.path.join(path_out, "grid.bin"), "wb") as f:
+                    pickle.dump(grid, f, pickle.HIGHEST_PROTOCOL)
+                with open(os.path.join(path_out, "derham_opts.bin"), "wb") as f:
+                    pickle.dump(derham_opts, f, pickle.HIGHEST_PROTOCOL)
+                with open(os.path.join(path_out, "model_class.bin"), "wb") as f:
+                    pickle.dump(model.__class__, f, pickle.HIGHEST_PROTOCOL)
 
-        # # config clones
-        # if self.comm is None:
-        #     clone_config = None
-        # else:
-        #     if num_clones == 1:
-        #         clone_config = None
-        #     else:
-        #         # Setup domain cloning communicators
-        #         # MPI.COMM_WORLD     : comm
-        #         # within a clone:    : sub_comm
-        #         # between the clones : inter_comm
-        #         clone_config = CloneConfig(comm=self.comm, params=None, num_clones=num_clones)
-        #         clone_config.print_clone_config()
-        #         if model.particle_species:
-        #             clone_config.print_particle_config()
+        # config clones
+        if self.comm is None:
+            clone_config = None
+        else:
+            if num_clones == 1:
+                clone_config = None
+            else:
+                # Setup domain cloning communicators
+                # MPI.COMM_WORLD     : comm
+                # within a clone:    : sub_comm
+                # between the clones : inter_comm
+                clone_config = CloneConfig(comm=self.comm, params=None, num_clones=num_clones)
+                clone_config.print_clone_config()
+                if model.particle_species:
+                    clone_config.print_particle_config()
 
-        # self.clone_config = clone_config
-        # self.Barrier()
+        self.clone_config = model.clone_config = clone_config
+        self.Barrier()
         
-        # # units and normalization parameters
-        # units = Units(base_units)
-        # self.units = units
-        # if model.bulk_species is None:
-        #     A_bulk = None
-        #     Z_bulk = None
-        # else:
-        #     A_bulk = model.bulk_species.mass_number
-        #     Z_bulk = model.bulk_species.charge_number
-        # self.units.derive_units(
-        #     velocity_scale=model.velocity_scale,
-        #     A_bulk=A_bulk,
-        #     Z_bulk=Z_bulk,
-        #     verbose=verbose,
-        # )
-        # model.set_normalization_params(units=self.units, verbose=verbose)
+        # units and normalization parameters
+        units = Units(base_units)
+        self.units = units
+        if model.bulk_species is None:
+            A_bulk = None
+            Z_bulk = None
+        else:
+            A_bulk = model.bulk_species.mass_number
+            Z_bulk = model.bulk_species.charge_number
+        self.units.derive_units(
+            velocity_scale=model.velocity_scale,
+            A_bulk=A_bulk,
+            Z_bulk=Z_bulk,
+            verbose=verbose,
+        )
+        model.setup_equation_params(units=self.units, verbose=verbose)
 
-        # # domain and fluid background
+        # domain and fluid background
         # self._setup_domain_and_equil(domain, equil, verbose=verbose)
 
     # def allocate(self, verbose: bool = False):
@@ -239,108 +240,108 @@ class Simulation:
 
     #         gridToVTK(os.path.join(self.env.path_out, "geometry"), *grids_phy, pointData=pointData)
 
-    # def compute_plasma_params(self, verbose=True):
-    #     """
-    #     Compute and print volume averaged plasma parameters for each species of the model.
+    def compute_plasma_params(self, verbose=True):
+        """
+        Compute and print volume averaged plasma parameters for each species of the model.
 
-    #     Global parameters:
-    #     - plasma volume
-    #     - transit length
-    #     - magnetic field
+        Global parameters:
+        - plasma volume
+        - transit length
+        - magnetic field
 
-    #     Species dependent parameters:
-    #     - mass
-    #     - charge
-    #     - density
-    #     - pressure
-    #     - thermal energy kBT
-    #     - Alfvén speed v_A
-    #     - thermal speed v_th
-    #     - thermal frequency Omega_th
-    #     - cyclotron frequency Omega_c
-    #     - plasma frequency Omega_p
-    #     - Alfvèn frequency Omega_A
-    #     - thermal Larmor radius rho_th
-    #     - MHD length scale v_a/Omega_c
-    #     - rho/L
-    #     - alpha = Omega_p/Omega_c
-    #     - epsilon = 1/(t*Omega_c)
-    #     """
+        Species dependent parameters:
+        - mass
+        - charge
+        - density
+        - pressure
+        - thermal energy kBT
+        - Alfvén speed v_A
+        - thermal speed v_th
+        - thermal frequency Omega_th
+        - cyclotron frequency Omega_c
+        - plasma frequency Omega_p
+        - Alfvèn frequency Omega_A
+        - thermal Larmor radius rho_th
+        - MHD length scale v_a/Omega_c
+        - rho/L
+        - alpha = Omega_p/Omega_c
+        - epsilon = 1/(t*Omega_c)
+        """
 
-    #     # units affices for printing
-    #     units_affix = {}
-    #     units_affix["plasma volume"] = " m³"
-    #     units_affix["transit length"] = " m"
-    #     units_affix["magnetic field"] = " T"
-    #     units_affix["mass"] = " kg"
-    #     units_affix["charge"] = " C"
-    #     units_affix["density"] = " m⁻³"
-    #     units_affix["pressure"] = " bar"
-    #     units_affix["kBT"] = " keV"
-    #     units_affix["v_A"] = " m/s"
-    #     units_affix["v_th"] = " m/s"
-    #     units_affix["vth1"] = " m/s"
-    #     units_affix["vth2"] = " m/s"
-    #     units_affix["vth3"] = " m/s"
-    #     units_affix["Omega_th"] = " Mrad/s"
-    #     units_affix["Omega_c"] = " Mrad/s"
-    #     units_affix["Omega_p"] = " Mrad/s"
-    #     units_affix["Omega_A"] = " Mrad/s"
-    #     units_affix["rho_th"] = " m"
-    #     units_affix["v_A/Omega_c"] = " m"
-    #     units_affix["rho_th/L"] = ""
-    #     units_affix["alpha"] = ""
-    #     units_affix["epsilon"] = ""
+        # units affices for printing
+        units_affix = {}
+        units_affix["plasma volume"] = " m³"
+        units_affix["transit length"] = " m"
+        units_affix["magnetic field"] = " T"
+        units_affix["mass"] = " kg"
+        units_affix["charge"] = " C"
+        units_affix["density"] = " m⁻³"
+        units_affix["pressure"] = " bar"
+        units_affix["kBT"] = " keV"
+        units_affix["v_A"] = " m/s"
+        units_affix["v_th"] = " m/s"
+        units_affix["vth1"] = " m/s"
+        units_affix["vth2"] = " m/s"
+        units_affix["vth3"] = " m/s"
+        units_affix["Omega_th"] = " Mrad/s"
+        units_affix["Omega_c"] = " Mrad/s"
+        units_affix["Omega_p"] = " Mrad/s"
+        units_affix["Omega_A"] = " Mrad/s"
+        units_affix["rho_th"] = " m"
+        units_affix["v_A/Omega_c"] = " m"
+        units_affix["rho_th/L"] = ""
+        units_affix["alpha"] = ""
+        units_affix["epsilon"] = ""
 
-    #     h = 1 / 20
-    #     eta1 = xp.linspace(h / 2.0, 1.0 - h / 2.0, 20)
-    #     eta2 = xp.linspace(h / 2.0, 1.0 - h / 2.0, 20)
-    #     eta3 = xp.linspace(h / 2.0, 1.0 - h / 2.0, 20)
+        h = 1 / 20
+        eta1 = xp.linspace(h / 2.0, 1.0 - h / 2.0, 20)
+        eta2 = xp.linspace(h / 2.0, 1.0 - h / 2.0, 20)
+        eta3 = xp.linspace(h / 2.0, 1.0 - h / 2.0, 20)
 
-    #     ##  global parameters
+        ##  global parameters
 
-    #     # plasma volume (hat x^3)
-    #     det_tmp = self.domain.jacobian_det(eta1, eta2, eta3)
-    #     vol1 = xp.mean(xp.abs(det_tmp))
-    #     # plasma volume (m⁻³)
-    #     plasma_volume = vol1 * self.units.x**3
-    #     # transit length (m)
-    #     transit_length = plasma_volume ** (1 / 3)
-    #     # magnetic field (T)
-    #     if isinstance(self.equil, FluidEquilibriumWithB):
-    #         B_tmp = self.equil.absB0(eta1, eta2, eta3)
-    #     else:
-    #         B_tmp = xp.zeros((eta1.size, eta2.size, eta3.size))
-    #     magnetic_field = xp.mean(B_tmp * xp.abs(det_tmp)) / vol1 * self.units.B
-    #     B_max = xp.max(B_tmp) * self.units.B
-    #     B_min = xp.min(B_tmp) * self.units.B
+        # plasma volume (hat x^3)
+        det_tmp = self.domain.jacobian_det(eta1, eta2, eta3)
+        vol1 = xp.mean(xp.abs(det_tmp))
+        # plasma volume (m⁻³)
+        plasma_volume = vol1 * self.units.x**3
+        # transit length (m)
+        transit_length = plasma_volume ** (1 / 3)
+        # magnetic field (T)
+        if isinstance(self.equil, FluidEquilibriumWithB):
+            B_tmp = self.equil.absB0(eta1, eta2, eta3)
+        else:
+            B_tmp = xp.zeros((eta1.size, eta2.size, eta3.size))
+        magnetic_field = xp.mean(B_tmp * xp.abs(det_tmp)) / vol1 * self.units.B
+        B_max = xp.max(B_tmp) * self.units.B
+        B_min = xp.min(B_tmp) * self.units.B
 
-    #     if magnetic_field < 1e-14:
-    #         magnetic_field = xp.nan
-    #         # print("\n+++++++ WARNING +++++++ magnetic field is zero - set to nan !!")
+        if magnetic_field < 1e-14:
+            magnetic_field = xp.nan
+            # print("\n+++++++ WARNING +++++++ magnetic field is zero - set to nan !!")
 
-    #     if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-    #         print("\nPLASMA PARAMETERS:")
-    #         print(
-    #             "Plasma volume:".ljust(25),
-    #             "{:4.3e}".format(plasma_volume) + units_affix["plasma volume"],
-    #         )
-    #         print(
-    #             "Transit length:".ljust(25),
-    #             "{:4.3e}".format(transit_length) + units_affix["transit length"],
-    #         )
-    #         print(
-    #             "Avg. magnetic field:".ljust(25),
-    #             "{:4.3e}".format(magnetic_field) + units_affix["magnetic field"],
-    #         )
-    #         print(
-    #             "Max magnetic field:".ljust(25),
-    #             "{:4.3e}".format(B_max) + units_affix["magnetic field"],
-    #         )
-    #         print(
-    #             "Min magnetic field:".ljust(25),
-    #             "{:4.3e}".format(B_min) + units_affix["magnetic field"],
-    #         )
+        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
+            print("\nPLASMA PARAMETERS:")
+            print(
+                "Plasma volume:".ljust(25),
+                "{:4.3e}".format(plasma_volume) + units_affix["plasma volume"],
+            )
+            print(
+                "Transit length:".ljust(25),
+                "{:4.3e}".format(transit_length) + units_affix["transit length"],
+            )
+            print(
+                "Avg. magnetic field:".ljust(25),
+                "{:4.3e}".format(magnetic_field) + units_affix["magnetic field"],
+            )
+            print(
+                "Max magnetic field:".ljust(25),
+                "{:4.3e}".format(B_max) + units_affix["magnetic field"],
+            )
+            print(
+                "Min magnetic field:".ljust(25),
+                "{:4.3e}".format(B_min) + units_affix["magnetic field"],
+            )
 
     # def run(self, verbose: bool = False):
     #     if rank < 32:
@@ -493,12 +494,12 @@ class Simulation:
 
     #     # ===================================================================
 
-    #     meta["wall-clock time[min]"] = (end_simulation - start_simulation) / 60
+    #     self.meta["wall-clock time[min]"] = (end_simulation - start_simulation) / 60
     #     Barrier()
 
     #     if rank == 0:
     #         # save meta-data
-    #         dict_to_yaml(meta, os.path.join(path_out, "meta.yml"))
+    #         dict_to_yaml(self.meta, os.path.join(path_out, "meta.yml"))
     #         print("Struphy run finished.")
 
     #     if clone_config is not None:
@@ -506,64 +507,65 @@ class Simulation:
 
     #     ProfileManager.finalize()
     
-    # def _setup_folders(
-    #     path_out: str,
-    #     restart: bool,
-    #     verbose: bool = False,
-    # ):
-    #     """
-    #     Setup output folders.
-    #     """
-    #     if MPI.COMM_WORLD.Get_rank() == 0:
-    #         if verbose:
-    #             print("\nPREPARATION AND CLEAN-UP:")
+    def _setup_folders(
+        self,
+        path_out: str,
+        restart: bool,
+        verbose: bool = False,
+    ):
+        """
+        Setup output folders.
+        """
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            if verbose:
+                print("\nPREPARATION AND CLEAN-UP:")
 
-    #         # create output folder if it does not exit
-    #         if not os.path.exists(path_out):
-    #             os.makedirs(path_out, exist_ok=True)
-    #             if verbose:
-    #                 print("Created folder " + path_out)
+            # create output folder if it does not exit
+            if not os.path.exists(path_out):
+                os.makedirs(path_out, exist_ok=True)
+                if verbose:
+                    print("Created folder " + path_out)
 
-    #         # create data folder in output folder if it does not exist
-    #         if not os.path.exists(os.path.join(path_out, "data/")):
-    #             os.mkdir(os.path.join(path_out, "data/"))
-    #             if verbose:
-    #                 print("Created folder " + os.path.join(path_out, "data/"))
-    #         else:
-    #             # remove post_processing folder
-    #             folder = os.path.join(path_out, "post_processing")
-    #             if os.path.exists(folder):
-    #                 shutil.rmtree(folder)
-    #                 if verbose:
-    #                     print("Removed existing folder " + folder)
+            # create data folder in output folder if it does not exist
+            if not os.path.exists(os.path.join(path_out, "data/")):
+                os.mkdir(os.path.join(path_out, "data/"))
+                if verbose:
+                    print("Created folder " + os.path.join(path_out, "data/"))
+            else:
+                # remove post_processing folder
+                folder = os.path.join(path_out, "post_processing")
+                if os.path.exists(folder):
+                    shutil.rmtree(folder)
+                    if verbose:
+                        print("Removed existing folder " + folder)
 
-    #             # remove meta file
-    #             file = os.path.join(path_out, "meta.txt")
-    #             if os.path.exists(file):
-    #                 os.remove(file)
-    #                 if verbose:
-    #                     print("Removed existing file " + file)
+                # remove meta file
+                file = os.path.join(path_out, "meta.txt")
+                if os.path.exists(file):
+                    os.remove(file)
+                    if verbose:
+                        print("Removed existing file " + file)
 
-    #             # remove profiling file
-    #             file = os.path.join(path_out, "profile_tmp")
-    #             if os.path.exists(file):
-    #                 os.remove(file)
-    #                 if verbose:
-    #                     print("Removed existing file " + file)
+                # remove profiling file
+                file = os.path.join(path_out, "profile_tmp")
+                if os.path.exists(file):
+                    os.remove(file)
+                    if verbose:
+                        print("Removed existing file " + file)
 
-    #             # remove .png files (if NOT a restart)
-    #             if not restart:
-    #                 files = glob.glob(os.path.join(path_out, "*.png"))
-    #                 for n, file in enumerate(files):
-    #                     os.remove(file)
-    #                     if verbose and n < 10:  # print only ten statements in case of many processes
-    #                         print("Removed existing file " + file)
+                # remove .png files (if NOT a restart)
+                if not restart:
+                    files = glob.glob(os.path.join(path_out, "*.png"))
+                    for n, file in enumerate(files):
+                        os.remove(file)
+                        if verbose and n < 10:  # print only ten statements in case of many processes
+                            print("Removed existing file " + file)
 
-    #                 files = glob.glob(os.path.join(path_out, "data", "*.hdf5"))
-    #                 for n, file in enumerate(files):
-    #                     os.remove(file)
-    #                     if verbose and n < 10:  # print only ten statements in case of many processes
-    #                         print("Removed existing file " + file)
+                    files = glob.glob(os.path.join(path_out, "data", "*.hdf5"))
+                    for n, file in enumerate(files):
+                        os.remove(file)
+                        if verbose and n < 10:  # print only ten statements in case of many processes
+                            print("Removed existing file " + file)
         
     # def _setup_domain_and_equil(self, domain: Domain, equil: FluidEquilibrium, verbose: bool=False):
     #     """If a numerical equilibirum is used, the domain is taken from this equilibirum."""
