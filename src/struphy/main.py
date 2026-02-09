@@ -351,7 +351,12 @@ def run(
     if rank == 0:
         print("[PROGRESS:0]")
     run_time_now = 0.0
+
     while True:
+        if rank == 0:
+            model.scalar_quantities_to_file(
+                time=time_state["value"][0], filepath=os.path.join(path_out, "scalar_quantities.txt")
+            )
         Barrier()
 
         # stop time loop?

@@ -828,6 +828,19 @@ class StruphyModel(metaclass=ABCMeta):
             sq_str += key + ": {:14.11f}".format(val[0]) + "   "
         print(sq_str)
 
+    def scalar_quantities_to_file(self, time: float, filepath: str):
+        if time == 0:
+            with open(filepath, "w") as f:
+                header = "time\t" + "\t".join(self._scalar_quantities.keys()) + "\n"
+                f.write(header)
+        with open(filepath, "a") as f:
+            line = (
+                f"{time:.12e}\t"
+                + "\t".join(f"{scalar_dict['value'][0]:.12e}" for scalar_dict in self._scalar_quantities.values())
+                + "\n"
+            )
+            f.write(line)
+
     # def initialize_from_params(self):
     #     """
     #     Set initial conditions for FE coefficients (electromagnetic and fluid)
