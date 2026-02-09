@@ -1363,7 +1363,7 @@ def test_sph_viscosity_evaluation_2d(
     
 
     # -----------------------------
-    # 1. Taylor-Green velocity field
+    # 1. velocity field
     # -----------------------------
     def u_xyz(x, y, z):
         """
@@ -1371,34 +1371,13 @@ def test_sph_viscosity_evaluation_2d(
         u = [sin(x)cos(y)cos(z), -cos(x)sin(y)cos(z), 0]
         """
         u_x = xp.sin(2*xp.pi*x) * xp.cos(2*xp.pi*y)
-        u_y = -xp.cos(2*xp.pi*x) * xp.sin(2*xp.pi*y)
+        u_y = xp.cos(2*xp.pi*x) * xp.cos(2*xp.pi*y)
         u_z = xp.zeros_like(x)
         
         return u_x,u_y,u_z
 
     # -----------------------------
-    # 2. Deviatoric stress tensor pi
-    # -----------------------------
-    def pi_tensor(x, y, z):
-        """
-        Compute the deviatoric viscous tensor pi for Taylor-Green vortex.
-        """
-        pi = xp.zeros((3, 3, *x.shape))  # shape (3,3,Nx,Ny,Nz)
-
-        # Diagonal
-        pi[0,0] = xp.cos(x)*xp.cos(y)
-        pi[1,1] = -xp.cos(x)*xp.cos(y)
-        pi[2,2] = 0
-
-        # Off-diagonal
-        pi[0,1] = pi[1,0] = 0
-        pi[0,2] = pi[2,0] = 0#-0.5 * xp.sin(x)*xp.cos(y)*xp.sin(z)
-        pi[1,2] = pi[2,1] = 0#0.5 * xp.cos(x)*xp.sin(y)*xp.sin(z)
-
-        return pi
-
-    # -----------------------------
-    # 3. Divergence of pi
+    # 2. Divergence of pi
     # -----------------------------
 
     def div_pi_analytic(x, y, z):
@@ -1407,8 +1386,8 @@ def test_sph_viscosity_evaluation_2d(
             div_x, div_y, div_z
         """
 
-        div_x = -4*xp.pi**2 * xp.sin(2*xp.pi*x) * xp.cos(2*xp.pi*y) 
-        div_y =  4*xp.pi**2 * xp.cos(2*xp.pi*x) * xp.sin(2*xp.pi*y)
+        div_x = -(28/3)*xp.pi**2 *xp.sin(2*xp.pi*x)*xp.cos(2*xp.pi*y) + (4*xp.pi**2/3)*xp.sin(2*xp.pi*x)*xp.sin(2*xp.pi*y)
+        div_y = -(28/3)*xp.pi**2*xp.cos(2*xp.pi*x)*xp.cos(2*xp.pi*y) - (4*xp.pi**2/3)*xp.cos(2*xp.pi*x)*xp.sin(2*xp.pi*y)
         div_z = xp.zeros_like(x)
 
         return div_x, div_y, div_z

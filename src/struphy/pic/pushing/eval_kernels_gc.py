@@ -1003,7 +1003,7 @@ def sph_viscosity_tensor(
                     h3,
                 )
 
-        mu = 0.5
+        mu = 1.0
         d_dev[:] = 0.5 * (grad_v_at_eta + grad_v_at_eta.T)
         # d_dev[:] = d_tensor
 
@@ -1013,7 +1013,7 @@ def sph_viscosity_tensor(
         d_dev[1, 1] -= mean_trace
         d_dev[2, 2] -= mean_trace
 
-        d_dev *= 2 * mu * weight / n_at_eta
+        d_dev *= 2 * mu * (weight / n_at_eta)**2
 
         for j in range(3):
             for k in range(3):
