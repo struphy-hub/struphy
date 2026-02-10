@@ -15,6 +15,7 @@ from struphy.propagators import (
     propagators_fields,
     propagators_markers,
 )
+from struphy.propagators.base import Propagator 
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -188,7 +189,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         return "alfvén"
 
     def allocate_helpers(self):
-        self._ones = self.projected_equil.p3.space.zeros()
+        self._ones = Propagator.projected_equil.p3.space.zeros()
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.0
         else:
@@ -199,7 +200,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._en_tot = xp.empty(1, dtype=float)
         self._n_lost_particles = xp.empty(1, dtype=float)
 
-        self._PB = getattr(self.basis_ops, "PB")
+        self._PB = getattr(Propagator.basis_ops, "PB")
         self._PBb = self._PB.codomain.zeros()
 
     def update_scalar_quantities(self):

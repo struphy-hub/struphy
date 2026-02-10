@@ -33,6 +33,7 @@ from struphy.models.species import DiagnosticSpecies, FieldSpecies, FluidSpecies
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.io.output_handling import DataContainer
 from struphy.pic.base import Particles
+from struphy.utils.utils import dict_to_yaml
 
 # third party imports
 from feectools.ddm.mpi import MockMPI
@@ -108,10 +109,10 @@ class Simulation:
         # check model
         assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
         model.verbose = verbose
-        model_name = model.__class__.__name__
+        self.model_name = model.__class__.__name__
 
         if self.rank == 0:
-            print(f"\n*** Starting run for model '{model_name}':")
+            print(f"\n*** Starting run for model '{self.model_name}':")
 
         # meta-data
         path_out = env.path_out
@@ -125,7 +126,7 @@ class Simulation:
         self.meta = {}
         self.meta["platform"] = sysconfig.get_platform()
         self.meta["python version"] = sysconfig.get_python_version()
-        self.meta["model name"] = model_name
+        self.meta["model name"] = self.model_name
         self.meta["parameter file"] = params_path
         self.meta["output folder"] = path_out
         self.meta["MPI processes"] = self.size
@@ -232,30 +233,30 @@ class Simulation:
         # pass info to propagators
         self._allocate_propagators()
 
-    # def store_geometry(self, verbose: bool = False):
-    #     # store geometry vtk
-    #     if self.rank == 0:
-    #         grids_log = [
-    #             xp.linspace(1e-6, 1.0, 32),
-    #             xp.linspace(0.0, 1.0, 32),
-    #             xp.linspace(0.0, 1.0, 32),
-    #         ]
+    def store_geometry(self, verbose: bool = False):
+        # store geometry vtk
+        if self.rank == 0:
+            grids_log = [
+                xp.linspace(1e-6, 1.0, 32),
+                xp.linspace(0.0, 1.0, 32),
+                xp.linspace(0.0, 1.0, 32),
+            ]
 
-    #         tmp = self.domain(*grids_log)
-    #         grids_phy = [tmp[0], tmp[1], tmp[2]]
+            tmp = self.domain(*grids_log)
+            grids_phy = [tmp[0], tmp[1], tmp[2]]
 
-    #         pointData = {}
-    #         det_df = self.domain.jacobian_det(*grids_log)
-    #         pointData["det_df"] = det_df
+            pointData = {}
+            det_df = self.domain.jacobian_det(*grids_log)
+            pointData["det_df"] = det_df
 
-    #         if self.equil is not None:
-    #             p0 = self.equil.p0(*grids_log)
-    #             pointData["p0"] = p0
-    #             if isinstance(self.equil, FluidEquilibriumWithB):
-    #                 absB0 = self.equil.absB0(*grids_log)
-    #                 pointData["absB0"] = absB0
+            if self.equil is not None:
+                p0 = self.equil.p0(*grids_log)
+                pointData["p0"] = p0
+                if isinstance(self.equil, FluidEquilibriumWithB):
+                    absB0 = self.equil.absB0(*grids_log)
+                    pointData["absB0"] = absB0
 
-    #         gridToVTK(os.path.join(self.env.path_out, "geometry"), *grids_phy, pointData=pointData)
+            gridToVTK(os.path.join(self.env.path_out, "geometry"), *grids_phy, pointData=pointData)
 
     def compute_plasma_params(self, verbose=True):
         """
@@ -465,169 +466,174 @@ class Simulation:
         for _, prop in self.propagators.__dict__.items():
             if isinstance(prop, Propagator):
                 prop.add_time_state(time_state)
-    # def run(self, verbose: bool = False):
-    #     if rank < 32:
-    #         if rank == 0:
-    #             print("")
-    #         print(f"Rank {rank}: executing main.run() for model {model_name} ...")
+    
+    def run(self, verbose: bool = False):
+        if self.rank < 32:
+            if self.rank == 0:
+                print("")
+            print(f"Rank {self.rank}: executing main.run() for model {self.model_name} ...")
 
-    #     if size > 32 and rank == 32:
-    #         print(f"Ranks > 31: executing main.run() for model {model_name} ...")
+        if self.size > 32 and self.rank == 32:
+            print(f"Ranks > 31: executing main.run() for model {self.model_name} ...")
 
-    #     # data object for saving (will either create new hdf5 files if restart==False or open existing files if restart==True)
-    #     # use MPI.COMM_WORLD as communicator when storing the outputs
-    #     data = DataContainer(path_out, comm=comm)
+        # data object for saving (will either create new hdf5 files if restart==False or open existing files if restart==True)
+        # use MPI.COMM_WORLD as communicator when storing the outputs
+        data = DataContainer(self.env.path_out, comm=self.comm)
 
-    #     # time quantities (current time value, value in seconds and index)
-    #     time_state = {}
-    #     time_state["value"] = xp.zeros(1, dtype=float)
-    #     time_state["value_sec"] = xp.zeros(1, dtype=float)
-    #     time_state["index"] = xp.zeros(1, dtype=int)
+        # time quantities (current time value, value in seconds and index)
+        time_state = {}
+        time_state["value"] = xp.zeros(1, dtype=float)
+        time_state["value_sec"] = xp.zeros(1, dtype=float)
+        time_state["index"] = xp.zeros(1, dtype=int)
 
-    #     # add time quantities to data object for saving
-    #     for key, val in time_state.items():
-    #         key_time = "time/" + key
-    #         key_time_restart = "restart/time/" + key
-    #         data.add_data({key_time: val})
-    #         data.add_data({key_time_restart: val})
+        # add time quantities to data object for saving
+        for key, val in time_state.items():
+            key_time = "time/" + key
+            key_time_restart = "restart/time/" + key
+            data.add_data({key_time: val})
+            data.add_data({key_time_restart: val})
 
-    #     # retrieve time parameters
-    #     dt = time_opts.dt
-    #     Tend = time_opts.Tend
-    #     split_algo = time_opts.split_algo
+        # retrieve time parameters
+        dt = self.time_opts.dt
+        Tend = self.time_opts.Tend
+        split_algo = self.time_opts.split_algo
 
-    #     # set initial conditions for all variables
-    #     if restart:
-    #         model.initialize_from_restart(data)
+        # set initial conditions for all variables
+        if self.env.restart:
+            self.model.initialize_from_restart(data)
 
-    #         with h5py.File(data.file_path, "a") as file:
-    #             time_state["value"][0] = file["restart/time/value"][-1]
-    #             time_state["value_sec"][0] = file["restart/time/value_sec"][-1]
-    #             time_state["index"][0] = file["restart/time/index"][-1]
+            with h5py.File(data.file_path, "a") as file:
+                time_state["value"][0] = file["restart/time/value"][-1]
+                time_state["value_sec"][0] = file["restart/time/value_sec"][-1]
+                time_state["index"][0] = file["restart/time/index"][-1]
 
-    #         total_steps = str(int(round((Tend - time_state["value"][0]) / dt)))
-    #     else:
-    #         total_steps = str(int(round(Tend / dt)))
+            total_steps = str(int(round((Tend - time_state["value"][0]) / dt)))
+        else:
+            total_steps = str(int(round(Tend / dt)))
 
-    #     # compute initial scalars and kinetic data, pass time state to all propagators
-    #     model.update_scalar_quantities()
-    #     model.update_markers_to_be_saved()
-    #     model.update_distr_functions()
-    #     model.add_time_state(time_state["value"])
+        # compute initial scalars and kinetic data, pass time state to all propagators
+        self.model.update_scalar_quantities()
+        self.model.update_markers_to_be_saved()
+        self.model.update_distr_functions()
+        self.model.add_time_state(time_state["value"])
 
-    #     # add all variables to be saved to data object
-    #     save_keys_all, save_keys_end = model.initialize_data_output(data, size)
+        # add all variables to be saved to data object
+        save_keys_all, save_keys_end = self.model.initialize_data_output(data, self.size)
 
-    #     # ======================== main time loop ======================
-    #     model.update_scalar_quantities()
-    #     if rank == 0:
-    #         print("\nINITIAL SCALAR QUANTITIES:")
-    #         model.print_scalar_quantities()
+        # ======================== main time loop ======================
+        self.model.update_scalar_quantities()
+        if self.rank == 0:
+            print("\nINITIAL SCALAR QUANTITIES:")
+            self.model.print_scalar_quantities()
 
-    #         print(f"\nSTART TIME STEPPING WITH '{split_algo}' SPLITTING:")
+            print(f"\nSTART TIME STEPPING WITH '{split_algo}' SPLITTING:")
 
-    #     # time loop
-    #     run_time_now = 0.0
-    #     while True:
-    #         Barrier()
+        # time loop
+        run_time_now = 0.0
+        while True:
+            self.Barrier()
 
-    #         # stop time loop?
-    #         break_cond_1 = time_state["value"][0] >= Tend
-    #         break_cond_2 = run_time_now > max_runtime
+            # stop time loop?
+            break_cond_1 = time_state["value"][0] >= Tend
+            break_cond_2 = run_time_now > self.env.max_runtime
 
-    #         if break_cond_1 or break_cond_2:
-    #             # save restart data (other data already saved below)
-    #             data.save_data(keys=save_keys_end)
-    #             end_simulation = time.time()
-    #             if rank == 0:
-    #                 print(f"\nTime steps done: {time_state['index'][0]}")
-    #                 print(
-    #                     "wall-clock time of simulation [sec]: ",
-    #                     end_simulation - start_simulation,
-    #                 )
-    #                 print()
-    #             break
+            if break_cond_1 or break_cond_2:
+                # save restart data (other data already saved below)
+                data.save_data(keys=save_keys_end)
+                end_time = time.time()
+                if self.rank == 0:
+                    print(f"\nTime steps done: {time_state['index'][0]}")
+                    print(
+                        "wall-clock time of simulation [sec]: ",
+                        end_time - self.start_time,
+                    )
+                    print()
+                break
 
-    #         if sort_step and time_state["index"][0] % sort_step == 0:
-    #             t0 = time.time()
-    #             for key, val in model.pointer.items():
-    #                 if isinstance(val, Particles):
-    #                     val.do_sort()
-    #             t1 = time.time()
-    #             if rank == 0 and verbose:
-    #                 message = "Particles sorted | wall clock [s]: {0:8.4f} | sorting duration [s]: {1:8.4f}".format(
-    #                     run_time_now * 60,
-    #                     t1 - t0,
-    #                 )
-    #                 print(message, end="\n")
-    #                 print()
+            if self.env.sort_step and time_state["index"][0] % self.env.sort_step == 0:
+                t0 = time.time()
+                for key, val in self.model.pointer.items():
+                    if isinstance(val, Particles):
+                        val.do_sort()
+                t1 = time.time()
+                if self.rank == 0 and verbose:
+                    message = "Particles sorted | wall clock [s]: {0:8.4f} | sorting duration [s]: {1:8.4f}".format(
+                        run_time_now * 60,
+                        t1 - t0,
+                    )
+                    print(message, end="\n")
+                    print()
 
-    #         # update time and index (round time to 10 decimals for a clean time grid!)
-    #         time_state["value"][0] = round(time_state["value"][0] + dt, 10)
-    #         time_state["value_sec"][0] = round(time_state["value_sec"][0] + dt * model.units.t, 10)
-    #         time_state["index"][0] += 1
+            # update time and index (round time to 10 decimals for a clean time grid!)
+            time_state["value"][0] = round(time_state["value"][0] + dt, 10)
+            time_state["value_sec"][0] = round(time_state["value_sec"][0] + dt * self.model.units.t, 10)
+            time_state["index"][0] += 1
 
-    #         # perform one time step dt
-    #         t0 = time.time()
-    #         with ProfileManager.profile_region("model.integrate"):
-    #             model.integrate(dt, split_algo)
-    #         t1 = time.time()
+            # perform one time step dt
+            t0 = time.time()
+            with ProfileManager.profile_region("model.integrate"):
+                self.model.integrate(dt, split_algo)
+            t1 = time.time()
 
-    #         run_time_now = (time.time() - start_simulation) / 60
+            run_time_now = (time.time() - self.start_time) / 60
 
-    #         # update diagnostics data and save data
-    #         if time_state["index"][0] % save_step == 0:
-    #             # compute scalars and kinetic data
-    #             model.update_scalar_quantities()
-    #             model.update_markers_to_be_saved()
-    #             model.update_distr_functions()
+            # update diagnostics data and save data
+            if time_state["index"][0] % self.env.save_step == 0:
+                # compute scalars and kinetic data
+                self.model.update_scalar_quantities()
+                self.model.update_markers_to_be_saved()
+                self.model.update_distr_functions()
 
-    #             # extract FEEC coefficients
-    #             feec_species = model.field_species | model.fluid_species | model.diagnostic_species
-    #             for species, val in feec_species.items():
-    #                 assert isinstance(val, Species)
-    #                 for variable, subval in val.variables.items():
-    #                     assert isinstance(subval, FEECVariable)
-    #                     spline = subval.spline
-    #                     # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
-    #                     spline.extract_coeffs(update_ghost_regions=False)
+                # extract FEEC coefficients
+                feec_species = self.model.field_species | self.model.fluid_species | self.model.diagnostic_species
+                for species, val in feec_species.items():
+                    assert isinstance(val, Species)
+                    for variable, subval in val.variables.items():
+                        assert isinstance(subval, FEECVariable)
+                        spline = subval.spline
+                        # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
+                        spline.extract_coeffs(update_ghost_regions=False)
 
-    #             # save data (everything but restart data)
-    #             data.save_data(keys=save_keys_all)
+                # save data (everything but restart data)
+                data.save_data(keys=save_keys_all)
 
-    #             # print current time and scalar quantities to screen
-    #             if rank == 0 and verbose:
-    #                 step = str(time_state["index"][0]).zfill(len(total_steps))
+                # print current time and scalar quantities to screen
+                if self.rank == 0 and verbose:
+                    step = str(time_state["index"][0]).zfill(len(total_steps))
 
-    #                 message = "time step: " + step + "/" + str(total_steps)
-    #                 message += " | " + "time: {0:10.5f}/{1:10.5f}".format(time_state["value"][0], Tend)
-    #                 message += " | " + "phys. time [s]: {0:12.10f}/{1:12.10f}".format(
-    #                     time_state["value_sec"][0],
-    #                     Tend * model.units.t,
-    #                 )
-    #                 message += " | " + "wall clock [s]: {0:8.4f} | last step duration [s]: {1:8.4f}".format(
-    #                     run_time_now * 60,
-    #                     t1 - t0,
-    #                 )
+                    message = "time step: " + step + "/" + str(total_steps)
+                    message += " | " + "time: {0:10.5f}/{1:10.5f}".format(time_state["value"][0], Tend)
+                    message += " | " + "phys. time [s]: {0:12.10f}/{1:12.10f}".format(
+                        time_state["value_sec"][0],
+                        Tend * self.model.units.t,
+                    )
+                    message += " | " + "wall clock [s]: {0:8.4f} | last step duration [s]: {1:8.4f}".format(
+                        run_time_now * 60,
+                        t1 - t0,
+                    )
 
-    #                 print(message, end="\n")
-    #                 model.print_scalar_quantities()
-    #                 print()
+                    print(message, end="\n")
+                    self.model.print_scalar_quantities()
+                    print()
 
-    #     # ===================================================================
+        # ===================================================================
 
-    #     self.meta["wall-clock time[min]"] = (end_simulation - start_simulation) / 60
-    #     Barrier()
+        self.meta["wall-clock time[min]"] = (end_time - self.start_time) / 60
+        self.Barrier()
 
-    #     if rank == 0:
-    #         # save meta-data
-    #         dict_to_yaml(self.meta, os.path.join(path_out, "meta.yml"))
-    #         print("Struphy run finished.")
+        if self.rank == 0:
+            # save meta-data
+            dict_to_yaml(self.meta, os.path.join(self.env.path_out, "meta.yml"))
+            print("Struphy run finished.")
 
-    #     if clone_config is not None:
-    #         clone_config.free()
+        if self.clone_config is not None:
+            self.clone_config.free()
 
-    #     ProfileManager.finalize()
+        ProfileManager.finalize()
+    
+    # ---------------   
+    # Private methods
+    # ---------------
     
     def _setup_folders(
         self,

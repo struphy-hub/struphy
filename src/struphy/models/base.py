@@ -244,7 +244,7 @@ class StruphyModel(metaclass=ABCMeta):
         self._units = new
 
     @property
-    def mass_ops(self):
+    def mass_ops(self) -> WeightedMassOperators:
         """WeighteMassOperators object, see :ref:`mass_ops`."""
         return self._mass_ops
 

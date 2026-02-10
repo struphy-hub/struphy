@@ -169,7 +169,7 @@ class Propagator(metaclass=ABCMeta):
         self._domain = domain
 
     @property
-    def mass_ops(self):
+    def mass_ops(self) -> WeightedMassOperators:
         """Weighted mass operators."""
         assert hasattr(self, "_mass_ops"), "Weighted mass operators not set. Please do obj.mass_ops = ..."
         assert isinstance(self._mass_ops, WeightedMassOperators)
@@ -177,7 +177,7 @@ class Propagator(metaclass=ABCMeta):
 
     @mass_ops.setter
     def mass_ops(self, mass_ops):
-        self._mass_ops = mass_ops
+        self._mass_ops: WeightedMassOperators = mass_ops
 
     @property
     def basis_ops(self):

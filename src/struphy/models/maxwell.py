@@ -6,6 +6,7 @@ from struphy.models.species import (
     FieldSpecies,
 )
 from struphy.models.variables import FEECVariable
+from struphy.propagators.base import Propagator
 from struphy.propagators import (
     propagators_fields,
 )
@@ -86,11 +87,11 @@ class Maxwell(StruphyModel):
         pass
 
     def update_scalar_quantities(self):
-        en_E = 0.5 * self.mass_ops.M1.dot_inner(
+        en_E = 0.5 * Propagator.mass_ops.M1.dot_inner(
             self.em_fields.e_field.spline.vector,
             self.em_fields.e_field.spline.vector,
         )
-        en_B = 0.5 * self.mass_ops.M2.dot_inner(
+        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(
             self.em_fields.b_field.spline.vector,
             self.em_fields.b_field.spline.vector,
         )

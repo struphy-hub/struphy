@@ -91,6 +91,7 @@ def run(
     # plasma parameters
     sim.compute_plasma_params(verbose=verbose)
 
+    sim.run(verbose=verbose)
     exit()
 
     if sim.rank < 32:
