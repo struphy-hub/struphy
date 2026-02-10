@@ -85,24 +85,13 @@ def run(
         verbose=verbose,
     )
 
-    # domain and fluid background
-    model.setup_domain_and_equil(domain, equil)
-
-    # feec
-    model.allocate_feec(grid, derham_opts)
-
     # equation paramters
-    model.setup_equation_params(units=sim.units, verbose=verbose)
-
-    # allocate variables
-    model.allocate_variables(verbose=verbose)
-    model.allocate_helpers()
-
-    # pass info to propagators
-    model.allocate_propagators()
+    sim.allocate(verbose=verbose)
 
     # plasma parameters
     sim.compute_plasma_params(verbose=verbose)
+
+    exit()
 
     if sim.rank < 32:
         if sim.rank == 0:

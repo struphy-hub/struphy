@@ -15,10 +15,29 @@ from struphy.fields_background.base import FluidEquilibrium, NumericalMHDequilib
 from struphy.io.setup import setup_folders
 from struphy.physics.physics import Units
 from struphy.utils.clone_config import CloneConfig
+from struphy.feec.basis_projection_ops import BasisProjectionOperators
+from struphy.feec.mass import WeightedMassOperators
+from struphy.fields_background.base import (
+    FluidEquilibrium,
+    FluidEquilibriumWithB,
+    MHDequilibrium,
+    NumericalMHDequilibrium,
+)
+from struphy.fields_background.projected_equils import (
+    ProjectedFluidEquilibrium,
+    ProjectedFluidEquilibriumWithB,
+    ProjectedMHDequilibrium,
+)
+from struphy.propagators.base import Propagator
+from struphy.models.species import DiagnosticSpecies, FieldSpecies, FluidSpecies, ParticleSpecies, Species
+from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
+from struphy.io.output_handling import DataContainer
+from struphy.pic.base import Particles
 
 # third party imports
 from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
+from feectools.linalg.stencil import StencilVector
 from scope_profiler import ProfileManager
 import os
 import time
@@ -51,8 +70,6 @@ class Simulation:
         self.env = env
         self.base_units = base_units
         self.time_opts = time_opts
-        self.domain = domain
-        self.equil = equil
         self.grid = grid
         self.derham_opts = derham_opts  
         self.verbose = verbose
@@ -202,18 +219,18 @@ class Simulation:
         model.setup_equation_params(units=self.units, verbose=verbose)
 
         # domain and fluid background
-        # self._setup_domain_and_equil(domain, equil, verbose=verbose)
+        self._setup_domain_and_equil(domain, equil, verbose=verbose)
 
-    # def allocate(self, verbose: bool = False):
-    #     # feec
-    #     self._allocate_feec(self.grid, self.derham_opts)
+    def allocate(self, verbose: bool = False):
+        # feec
+        self._allocate_feec(self.grid, self.derham_opts)
         
-    #     # allocate model variables
-    #     self.model.allocate_variables(verbose=verbose)
-    #     self.model.allocate_helpers()
+        # allocate model variables
+        self._allocate_variables(verbose=verbose)
+        self.model.allocate_helpers()
 
-    #     # pass info to propagators
-    #     self.model.allocate_propagators()
+        # pass info to propagators
+        self._allocate_propagators()
 
     # def store_geometry(self, verbose: bool = False):
     #     # store geometry vtk
@@ -343,6 +360,111 @@ class Simulation:
                 "{:4.3e}".format(B_min) + units_affix["magnetic field"],
             )
 
+    def update_scalar(self, name, value=None):
+        """Update a scalar during the simulation.
+
+        Parameters
+        ----------
+            name : str
+                Dictionary key of the scalar.
+
+            value : float, optional
+                Value to be saved. Required if there are no summands.
+        """
+
+        # Ensure the name is a string
+        assert isinstance(name, str)
+        
+        scalars = self.model.scalar_quantities
+
+        variable: PICVariable | SPHVariable = scalars[name]["variable"]
+        summands = scalars[name]["summands"]
+        compute = scalars[name]["compute"]
+
+        if compute == "from_particles":
+            compute_operations = [
+                "sum_within_clone",
+                "sum_between_clones",
+                "divide_n_mks",
+            ]
+        elif compute == "from_sph":
+            compute_operations = [
+                "sum_world",
+                "divide_n_mks",
+            ]
+        elif compute == "from_field":
+            compute_operations = []
+        else:
+            compute_operations = []
+
+        if summands is None:
+            # Ensure the value is a float if there are no summands
+            assert isinstance(value, float)
+
+            # Create a numpy array to hold the scalar value
+            value_array = xp.array([value], dtype=xp.float64)
+
+            # Perform MPI operations based on the compute flags
+            if "sum_world" in compute_operations and not isinstance(MPI, MockMPI):
+                MPI.COMM_WORLD.Allreduce(
+                    MPI.IN_PLACE,
+                    value_array,
+                    op=MPI.SUM,
+                )
+
+            if "sum_within_clone" in compute_operations and self.derham.comm is not None:
+                self.derham.comm.Allreduce(
+                    MPI.IN_PLACE,
+                    value_array,
+                    op=MPI.SUM,
+                )
+            if self.clone_config is None:
+                num_clones = 1
+            else:
+                num_clones = self.clone_config.num_clones
+
+            if "sum_between_clones" in compute_operations and num_clones > 1:
+                self.clone_config.inter_comm.Allreduce(
+                    MPI.IN_PLACE,
+                    value_array,
+                    op=MPI.SUM,
+                )
+
+            if "average_between_clones" in compute_operations and num_clones > 1:
+                self.clone_config.inter_comm.Allreduce(
+                    MPI.IN_PLACE,
+                    value_array,
+                    op=MPI.SUM,
+                )
+                value_array /= num_clones
+
+            if "divide_n_mks" in compute_operations:
+                # Initialize the total number of markers
+                n_mks_tot = xp.array([variable.particles.Np])
+                value_array /= n_mks_tot
+
+            # Update the scalar value
+            scalars[name]["value"][0] = value_array[0]
+
+        else:
+            # Sum the values of the summands
+            value = sum(scalars[summand]["value"][0] for summand in summands)
+            scalars[name]["value"][0] = value
+
+    def add_time_state(self, time_state):
+        """Add a pointer to the time variable of the dynamics ('t')
+        to the model and to all propagators of the model.
+
+        Parameters
+        ----------
+        time_state : ndarray
+            Of size 1, holds the current physical time 't'.
+        """
+        assert time_state.size == 1
+        self._time_state = time_state
+        for _, prop in self.propagators.__dict__.items():
+            if isinstance(prop, Propagator):
+                prop.add_time_state(time_state)
     # def run(self, verbose: bool = False):
     #     if rank < 32:
     #         if rank == 0:
@@ -567,102 +689,465 @@ class Simulation:
                         if verbose and n < 10:  # print only ten statements in case of many processes
                             print("Removed existing file " + file)
         
-    # def _setup_domain_and_equil(self, domain: Domain, equil: FluidEquilibrium, verbose: bool=False):
-    #     """If a numerical equilibirum is used, the domain is taken from this equilibirum."""
-    #     if equil is not None:
-    #         if isinstance(equil, NumericalMHDequilibrium):
-    #             self._domain = equil.domain
-    #         else:
-    #             self._domain = domain
-    #             equil.domain = domain
+    def _setup_domain_and_equil(self, domain: Domain, equil: FluidEquilibrium, verbose: bool=False):
+        """If a numerical equilibirum is used, the domain is taken from this equilibirum."""
+        if equil is not None:
+            if isinstance(equil, NumericalMHDequilibrium):
+                self._domain = equil.domain
+            else:
+                self._domain = domain
+                equil.domain = domain
 
-    #         if hasattr(equil, "units"):
-    #             assert isinstance(equil.units, Units)
-    #             equil.units.derive_units(
-    #                 velocity_scale=self.velocity_scale,
-    #                 A_bulk=self.bulk_species.mass_number,
-    #                 Z_bulk=self.bulk_species.charge_number,
-    #                 verbose=self.verbose,
-    #             )
+            if hasattr(equil, "units"):
+                assert isinstance(equil.units, Units)
+                equil.units.derive_units(
+                    velocity_scale=self.velocity_scale,
+                    A_bulk=self.bulk_species.mass_number,
+                    Z_bulk=self.bulk_species.charge_number,
+                    verbose=self.verbose,
+                )
 
-    #     else:
-    #         self._domain = domain
+        else:
+            self._domain = domain
 
-    #     self._equil = equil
+        self._equil = equil
 
-    #     if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-    #         print("\nDOMAIN:")
-    #         print("type:".ljust(25), self.domain.__class__.__name__)
-    #         for key, val in self.domain.params.items():
-    #             if key not in {"cx", "cy", "cz"}:
-    #                 print((key + ":").ljust(25), val)
+        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
+            print("\nDOMAIN:")
+            print("type:".ljust(25), self.domain.__class__.__name__)
+            for key, val in self.domain.params.items():
+                if key not in {"cx", "cy", "cz"}:
+                    print((key + ":").ljust(25), val)
 
-    #         print("\nFLUID BACKGROUND:")
-    #         if self.equil is not None:
-    #             print("type:".ljust(25), self.equil.__class__.__name__)
-    #             for key, val in self.equil.params.items():
-    #                 print((key + ":").ljust(25), val)
-    #         else:
-    #             print("None.")
-                
-    # def _allocate_feec(self, grid: TensorProductGrid, derham_opts: DerhamOptions):
-    #     # create discrete derham sequence
-    #     if self.clone_config is None:
-    #         derham_comm = MPI.COMM_WORLD
-    #     else:
-    #         derham_comm = self.clone_config.sub_comm
+            print("\nFLUID BACKGROUND:")
+            if self.equil is not None:
+                print("type:".ljust(25), self.equil.__class__.__name__)
+                for key, val in self.equil.params.items():
+                    print((key + ":").ljust(25), val)
+            else:
+                print("None.")
+    
+    def _setup_derham(
+        self,
+    grid: grids.TensorProductGrid,
+    options: DerhamOptions,
+    comm: MPI.Intracomm = None,
+    domain: Domain = None,
+    verbose=False,
+):
+        """
+        Creates the 3d derham sequence for given grid parameters.
 
-    #     if grid is None or derham_opts is None:
-    #         if MPI.COMM_WORLD.Get_rank() == 0:
-    #             print(f"\n{grid =}, {derham_opts =}: no Derham object set up.")
-    #         self._derham = None
-    #     else:
-    #         self._derham = setup_derham(
-    #             grid,
-    #             derham_opts,
-    #             comm=derham_comm,
-    #             domain=self.domain,
-    #             verbose=self.verbose,
-    #         )
+        Parameters
+        ----------
+        grid : TensorProductGrid
+            The FEEC grid.
 
-    #     # create weighted mass and basis operators
-    #     if self.derham is None:
-    #         self._mass_ops = None
-    #         self._basis_ops = None
-    #     else:
-    #         self._mass_ops = WeightedMassOperators(
-    #             self.derham,
-    #             self.domain,
-    #             verbose=self.verbose,
-    #             eq_mhd=self.equil,
-    #         )
+        comm: Intracomm
+            MPI communicator (sub_comm if clones are used).
 
-    #         self._basis_ops = BasisProjectionOperators(
-    #             self.derham,
-    #             self.domain,
-    #             verbose=self.verbose,
-    #             eq_mhd=self.equil,
-    #         )
+        domain : Domain, optional
+            The Struphy domain object for evaluating the mapping F : [0, 1]^3 --> R^3 and the corresponding metric coefficients.
 
-    #     # create projected equilibrium
-    #     if self.derham is None:
-    #         self._projected_equil = None
-    #     else:
-    #         if isinstance(self.equil, MHDequilibrium):
-    #             self._projected_equil = ProjectedMHDequilibrium(
-    #                 self.equil,
-    #                 self.derham,
-    #             )
-    #         elif isinstance(self.equil, FluidEquilibriumWithB):
-    #             self._projected_equil = ProjectedFluidEquilibriumWithB(
-    #                 self.equil,
-    #                 self.derham,
-    #             )
-    #         elif isinstance(self.equil, FluidEquilibrium):
-    #             self._projected_equil = ProjectedFluidEquilibrium(
-    #                 self.equil,
-    #                 self.derham,
-    #             )
-    #         else:
-    #             self._projected_equil = None
-                
+        verbose : bool
+            Show info on screen.
+
+        Returns
+        -------
+        derham : struphy.feec.psydac_derham.Derham
+            Discrete de Rham sequence on the logical unit cube.
+        """
+
+        from struphy.feec.psydac_derham import Derham
+
+        # number of grid cells
+        Nel = grid.Nel
+        # mpi
+        mpi_dims_mask = grid.mpi_dims_mask
+
+        # spline degrees
+        p = options.p
+        # spline types (clamped vs. periodic)
+        spl_kind = options.spl_kind
+        # boundary conditions (Homogeneous Dirichlet or None)
+        dirichlet_bc = options.dirichlet_bc
+        # Number of quadrature points per histopolation cell
+        nq_pr = options.nq_pr
+        # Number of quadrature points per grid cell for L^2
+        nquads = options.nquads
+        # C^k smoothness at eta_1=0 for polar domains
+        polar_ck = options.polar_ck
+        # local commuting projectors
+        local_projectors = options.local_projectors
+
+        derham = Derham(
+            Nel,
+            p,
+            spl_kind,
+            dirichlet_bc=dirichlet_bc,
+            nquads=nquads,
+            nq_pr=nq_pr,
+            comm=comm,
+            mpi_dims_mask=mpi_dims_mask,
+            with_projectors=True,
+            polar_ck=polar_ck,
+            domain=domain,
+            local_projectors=local_projectors,
+        )
+
+        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
+            print("\nDERHAM:")
+            print("number of elements:".ljust(25), Nel)
+            print("spline degrees:".ljust(25), p)
+            print("periodic bcs:".ljust(25), spl_kind)
+            print("hom. Dirichlet bc:".ljust(25), dirichlet_bc)
+            print("GL quad pts (L2):".ljust(25), nquads)
+            print("GL quad pts (hist):".ljust(25), nq_pr)
+            print(
+                "MPI proc. per dir.:".ljust(25),
+                derham.domain_decomposition.nprocs,
+            )
+            print("use polar splines:".ljust(25), derham.polar_ck == 1)
+            print("domain on process 0:".ljust(25), derham.domain_array[0])
+
+        return derham
+    
+    @profile            
+    def _allocate_feec(self, grid: grids.TensorProductGrid, derham_opts: DerhamOptions):
+        # create discrete derham sequence
+        if self.clone_config is None:
+            derham_comm = MPI.COMM_WORLD
+        else:
+            derham_comm = self.clone_config.sub_comm
+
+        if grid is None or derham_opts is None:
+            if MPI.COMM_WORLD.Get_rank() == 0:
+                print(f"\n{grid =}, {derham_opts =}: no Derham object set up.")
+            self._derham = None
+        else:
+            self._derham = self._setup_derham(
+                grid,
+                derham_opts,
+                comm=derham_comm,
+                domain=self.domain,
+                verbose=self.verbose,
+            )
+
+        # create weighted mass and basis operators
+        if self.derham is None:
+            self._mass_ops = None
+            self._basis_ops = None
+        else:
+            self._mass_ops = WeightedMassOperators(
+                self.derham,
+                self.domain,
+                verbose=self.verbose,
+                eq_mhd=self.equil,
+            )
+
+            self._basis_ops = BasisProjectionOperators(
+                self.derham,
+                self.domain,
+                verbose=self.verbose,
+                eq_mhd=self.equil,
+            )
+
+        # create projected equilibrium
+        if self.derham is None:
+            self._projected_equil = None
+        else:
+            if isinstance(self.equil, MHDequilibrium):
+                self._projected_equil = ProjectedMHDequilibrium(
+                    self.equil,
+                    self.derham,
+                )
+            elif isinstance(self.equil, FluidEquilibriumWithB):
+                self._projected_equil = ProjectedFluidEquilibriumWithB(
+                    self.equil,
+                    self.derham,
+                )
+            elif isinstance(self.equil, FluidEquilibrium):
+                self._projected_equil = ProjectedFluidEquilibrium(
+                    self.equil,
+                    self.derham,
+                )
+            else:
+                self._projected_equil = None
+    
+    @profile
+    def _allocate_variables(self, verbose: bool = False):
+        """
+        Allocate memory for model variables and set initial conditions.
+        """
+        # allocate memory for FE coeffs of electromagnetic fields/potentials
+        if self.model.field_species:
+            for species, spec in self.model.field_species.items():
+                assert isinstance(spec, FieldSpecies)
+                for k, v in spec.variables.items():
+                    assert isinstance(v, FEECVariable)
+                    v.allocate(
+                        derham=self.derham,
+                        domain=self.domain,
+                        equil=self.equil,
+                    )
+
+        # allocate memory for FE coeffs of fluid variables
+        if self.model.fluid_species:
+            for species, spec in self.model.fluid_species.items():
+                assert isinstance(spec, FluidSpecies)
+                for k, v in spec.variables.items():
+                    assert isinstance(v, FEECVariable)
+                    v.allocate(
+                        derham=self.derham,
+                        domain=self.domain,
+                        equil=self.equil,
+                    )
+
+        # allocate memory for marker arrays of kinetic variables
+        if self.model.particle_species:
+            for species, spec in self.model.particle_species.items():
+                assert isinstance(spec, ParticleSpecies)
+                for k, v in spec.variables.items():
+                    if isinstance(v, PICVariable):
+                        v.allocate(
+                            clone_config=self.clone_config,
+                            derham=self.derham,
+                            domain=self.domain,
+                            equil=self.equil,
+                            projected_equil=self.projected_equil,
+                            verbose=verbose,
+                        )
+                    if isinstance(v, SPHVariable):
+                        v.allocate(
+                            derham=self.derham,
+                            domain=self.domain,
+                            equil=self.equil,
+                            projected_equil=self.projected_equil,
+                            verbose=verbose,
+                        )
+
+        # allocate memory for FE coeffs of fluid variables
+        if self.model.diagnostic_species:
+            for species, spec in self.model.diagnostic_species.items():
+                assert isinstance(spec, DiagnosticSpecies)
+                for k, v in spec.variables.items():
+                    assert isinstance(v, FEECVariable)
+                    v.allocate(
+                        derham=self.derham,
+                        domain=self.domain,
+                        equil=self.equil,
+                    )
+
+        # TODO: allocate memory for FE coeffs of diagnostics
+        # if self.params.diagnostic_fields is not None:
+        #     for key, val in self.diagnostics.items():
+        #         if "params" in key:
+        #             continue
+        #         else:
+        #             val["obj"] = self.derham.create_spline_function(
+        #                 key,
+        #                 val["space"],
+        #                 bckgr_params=None,
+        #                 pert_params=None,
+        #             )
+
+        #             self._pointer[key] = val["obj"].vector
+    
+    @profile
+    def _allocate_propagators(self):
+        # set propagators base class attributes (then available to all propagators)
+        Propagator.derham = self.derham
+        Propagator.domain = self.domain
+        if self.derham is not None:
+            Propagator.mass_ops = self.mass_ops
+            Propagator.basis_ops = self.basis_ops
+            Propagator.projected_equil = self.projected_equil
+
+        assert len(self.model.prop_list) > 0, "No propagators in this model, check the model class."
+        for prop in self.model.prop_list:
+            assert isinstance(prop, Propagator)
+            prop.allocate()
+            if MPI.COMM_WORLD.Get_rank() == 0:
+                print(f"\nAllocated propagator '{prop.__class__.__name__}'.")
+    
+    @profile
+    def _initialize_data_output(self, data: DataContainer, size):
+        """
+        Create datasets in hdf5 files according to model unknowns and diagnostics data.
+
+        Parameters
+        ----------
+        data : struphy.io.output_handling.DataContainer
+            The data object that links to the hdf5 files.
+
+        size : int
+            Number of MPI processes of the model run.
+
+        Returns
+        -------
+        save_keys_all : list
+            Keys of datasets which are saved during the simulation.
+
+        save_keys_end : list
+            Keys of datasets which are saved at the end of a simulation to enable restarts.
+        """
+
+        # save scalar quantities in group 'scalar/'
+        for key, scalar in self.model.scalar_quantities.items():
+            val = scalar["value"]
+            key_scalar = "scalar/" + key
+            data.add_data({key_scalar: val})
+
+        with h5py.File(data.file_path, "a") as file:
+            # store grid_info only for runs with 512 ranks or smaller
+            if self.model.scalar_quantities and self.derham is not None:
+                if size <= 512:
+                    file["scalar"].attrs["grid_info"] = self.derham.domain_array
+                else:
+                    file["scalar"].attrs["grid_info"] = self.derham.domain_array[0]
+            else:
+                pass
+
+            # save feec data in group 'feec/'
+            feec_species = self.model.field_species | self.model.fluid_species | self.model.diagnostic_species
+            for species, val in feec_species.items():
+                assert isinstance(val, Species)
+
+                species_path = os.path.join("feec", species)
+                species_path_restart = os.path.join("restart", species)
+
+                for variable, subval in val.variables.items():
+                    assert isinstance(subval, FEECVariable)
+                    spline = subval.spline
+
+                    # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
+                    spline.extract_coeffs(update_ghost_regions=False)
+
+                    # save numpy array to be updated each time step.
+                    if subval.save_data:
+                        key_field = os.path.join(species_path, variable)
+
+                        if isinstance(spline.vector_stencil, StencilVector):
+                            data.add_data(
+                                {key_field: spline.vector_stencil._data},
+                            )
+
+                        else:
+                            for n in range(3):
+                                key_component = os.path.join(key_field, str(n + 1))
+                                data.add_data(
+                                    {key_component: spline.vector_stencil[n]._data},
+                                )
+
+                        # save field meta data
+                        file[key_field].attrs["space_id"] = spline.space_id
+                        file[key_field].attrs["starts"] = spline.starts
+                        file[key_field].attrs["ends"] = spline.ends
+                        file[key_field].attrs["pads"] = spline.pads
+
+                    # save numpy array to be updated only at the end of the simulation for restart.
+                    key_field_restart = os.path.join(species_path_restart, variable)
+
+                    if isinstance(spline.vector_stencil, StencilVector):
+                        data.add_data(
+                            {key_field_restart: spline.vector_stencil._data},
+                        )
+                    else:
+                        for n in range(3):
+                            key_component_restart = os.path.join(key_field_restart, str(n + 1))
+                            data.add_data(
+                                {key_component_restart: spline.vector_stencil[n]._data},
+                            )
+
+            # save kinetic data in group 'kinetic/'
+            for name, species in self.model.particle_species.items():
+                assert isinstance(species, ParticleSpecies)
+                assert len(species.variables) == 1, "More than 1 variable per kinetic species is not allowed."
+                for varname, var in species.variables.items():
+                    assert isinstance(var, PICVariable | SPHVariable)
+                    obj = var.particles
+                    assert isinstance(obj, Particles)
+
+                key_spec = os.path.join("kinetic", name)
+                key_spec_restart = os.path.join("restart", name)
+
+                # restart data
+                data.add_data({key_spec_restart: obj.markers})
+
+                # marker data
+                key_mks = os.path.join(key_spec, "markers")
+                data.add_data({key_mks: var.saved_markers})
+
+                # binning plot data
+                for bin_plot in species.binning_plots:
+                    # define slice name with binning quantity
+                    slice, output_quantity = bin_plot.slice, bin_plot.output_quantity
+                    slice = f"{slice}_{output_quantity}"
+
+                    key_f = os.path.join(key_spec, "f", slice)
+                    key_df = os.path.join(key_spec, "df", slice)
+
+                    data.add_data({key_f: bin_plot.f})
+                    data.add_data({key_df: bin_plot.df})
+
+                    for dim, be in enumerate(bin_plot.bin_edges):
+                        file[key_f].attrs["bin_centers" + "_" + str(dim + 1)] = be[:-1] + (be[1] - be[0]) / 2
+
+                for i, kd_plot in enumerate(species.kernel_density_plots):
+                    key_n = os.path.join(key_spec, "n_sph", f"view_{i}")
+
+                    data.add_data({key_n: kd_plot.n_sph})
+                    # save 1d point values, not meshgrids, because attrs size is limited
+                    eta1 = kd_plot.plot_pts[0][:, 0, 0]
+                    eta2 = kd_plot.plot_pts[1][0, :, 0]
+                    eta3 = kd_plot.plot_pts[2][0, 0, :]
+                    file[key_n].attrs["eta1"] = eta1
+                    file[key_n].attrs["eta2"] = eta2
+                    file[key_n].attrs["eta3"] = eta3
+
+                # TODO: maybe add other data
+                # else:
+                #     data.add_data({key_dat: val1})
+
+        # keys to be saved at each time step and only at end (restart)
+        save_keys_all = []
+        save_keys_end = []
+
+        for key in data.dset_dict:
+            if "restart" in key:
+                save_keys_end.append(key)
+            else:
+                save_keys_all.append(key)
+
+        return save_keys_all, save_keys_end
+    
+    @property
+    def domain(self):
+        """Domain object, see :ref:`avail_mappings`."""
+        return self._domain
+
+    @property
+    def equil(self):
+        """Fluid equilibrium object, see :ref:`fluid_equil`."""
+        return self._equil   
+           
+    @property
+    def derham(self):
+        """3d Derham sequence, see :ref:`derham`."""
+        return self._derham  
+    
+    @property
+    def mass_ops(self):
+        """WeighteMassOperators object, see :ref:`mass_ops`."""
+        return self._mass_ops
+
+    @property
+    def basis_ops(self):
+        """Basis projection operators."""
+        return self._basis_ops
+    
+    @property
+    def projected_equil(self):
+        """Fluid equilibrium projected on 3d Derham sequence with commuting projectors."""
+        return self._projected_equil
+    
