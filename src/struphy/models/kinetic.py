@@ -80,10 +80,14 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
         self,
         with_B0: bool = False,
         Nt_Psi=10,
+        nb_layers_Psi=8,
+        width_layers_Psi=10,
         layers_Psi=[10] * 8,
         epochs_Ad_Psi=300,
         epochs_NG_Psi=100,
         tol_Psi=[None, None],
+        flownet_type=PeriodicGSymplecticNet,
+        deg=2,
         Nt_f0=0,
         layers_f0=[20] * 3,
         epochs_Ad_f0=300,
@@ -130,6 +134,8 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
         self.n = 1
         self.Nt_train = Nt_Psi
         self.layer_Psi = layers_Psi
+        self.nb_layers_Psi = nb_layers_Psi
+        self.width_layers_Psi = width_layers_Psi
         self.epochs_Ad_Psi = epochs_Ad_Psi
         self.epochs_NG_Psi = epochs_NG_Psi
         self.tol_Psi = tol_Psi
@@ -157,6 +163,8 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
         self.time = 0
         self.mean_weight = []
         self.var_weight = []
+        self.flownet_type = flownet_type
+        self.deg = deg
 
     #  self.original_f0 = self.kinetic_ions.var.particles.f0
 
@@ -316,9 +324,10 @@ class VlasovAmpereOneSpecies_neural(StruphyModel):
             6,
             0,
             flow_type=NeuralFlow,
-            flownet_type=PeriodicGSymplecticNet,
-            nb_layers=8,
-            width=10,
+            flownet_type=self.flownet_type,
+            nb_layers=self.nb_layers_Psi,
+            width=self.width_layers_Psi,
+            deg=self.deg,
             rollout=1,
             apply_at_each_step=apply_at_each_step,
             activation_type="silu",
