@@ -361,97 +361,6 @@ class Simulation:
                 "{:4.3e}".format(B_min) + units_affix["magnetic field"],
             )
 
-    def update_scalar(self, name, value=None):
-        """Update a scalar during the simulation.
-
-        Parameters
-        ----------
-            name : str
-                Dictionary key of the scalar.
-
-            value : float, optional
-                Value to be saved. Required if there are no summands.
-        """
-
-        # Ensure the name is a string
-        assert isinstance(name, str)
-        
-        scalars = self.model.scalar_quantities
-
-        variable: PICVariable | SPHVariable = scalars[name]["variable"]
-        summands = scalars[name]["summands"]
-        compute = scalars[name]["compute"]
-
-        if compute == "from_particles":
-            compute_operations = [
-                "sum_within_clone",
-                "sum_between_clones",
-                "divide_n_mks",
-            ]
-        elif compute == "from_sph":
-            compute_operations = [
-                "sum_world",
-                "divide_n_mks",
-            ]
-        elif compute == "from_field":
-            compute_operations = []
-        else:
-            compute_operations = []
-
-        if summands is None:
-            # Ensure the value is a float if there are no summands
-            assert isinstance(value, float)
-
-            # Create a numpy array to hold the scalar value
-            value_array = xp.array([value], dtype=xp.float64)
-
-            # Perform MPI operations based on the compute flags
-            if "sum_world" in compute_operations and not isinstance(MPI, MockMPI):
-                MPI.COMM_WORLD.Allreduce(
-                    MPI.IN_PLACE,
-                    value_array,
-                    op=MPI.SUM,
-                )
-
-            if "sum_within_clone" in compute_operations and self.derham.comm is not None:
-                self.derham.comm.Allreduce(
-                    MPI.IN_PLACE,
-                    value_array,
-                    op=MPI.SUM,
-                )
-            if self.clone_config is None:
-                num_clones = 1
-            else:
-                num_clones = self.clone_config.num_clones
-
-            if "sum_between_clones" in compute_operations and num_clones > 1:
-                self.clone_config.inter_comm.Allreduce(
-                    MPI.IN_PLACE,
-                    value_array,
-                    op=MPI.SUM,
-                )
-
-            if "average_between_clones" in compute_operations and num_clones > 1:
-                self.clone_config.inter_comm.Allreduce(
-                    MPI.IN_PLACE,
-                    value_array,
-                    op=MPI.SUM,
-                )
-                value_array /= num_clones
-
-            if "divide_n_mks" in compute_operations:
-                # Initialize the total number of markers
-                n_mks_tot = xp.array([variable.particles.Np])
-                value_array /= n_mks_tot
-
-            # Update the scalar value
-            scalars[name]["value"][0] = value_array[0]
-
-        else:
-            # Sum the values of the summands
-            value = sum(scalars[summand]["value"][0] for summand in summands)
-            scalars[name]["value"][0] = value
-
     def add_time_state(self, time_state):
         """Add a pointer to the time variable of the dynamics ('t')
         to the model and to all propagators of the model.
@@ -518,7 +427,7 @@ class Simulation:
         self.model.add_time_state(time_state["value"])
 
         # add all variables to be saved to data object
-        save_keys_all, save_keys_end = self.model.initialize_data_output(data, self.size)
+        save_keys_all, save_keys_end = self._initialize_data_output(data, self.size)
 
         # ======================== main time loop ======================
         self.model.update_scalar_quantities()
@@ -566,7 +475,7 @@ class Simulation:
 
             # update time and index (round time to 10 decimals for a clean time grid!)
             time_state["value"][0] = round(time_state["value"][0] + dt, 10)
-            time_state["value_sec"][0] = round(time_state["value_sec"][0] + dt * self.model.units.t, 10)
+            time_state["value_sec"][0] = round(time_state["value_sec"][0] + dt * self.units.t, 10)
             time_state["index"][0] += 1
 
             # perform one time step dt
@@ -605,7 +514,7 @@ class Simulation:
                     message += " | " + "time: {0:10.5f}/{1:10.5f}".format(time_state["value"][0], Tend)
                     message += " | " + "phys. time [s]: {0:12.10f}/{1:12.10f}".format(
                         time_state["value_sec"][0],
-                        Tend * self.model.units.t,
+                        Tend * self.units.t,
                     )
                     message += " | " + "wall clock [s]: {0:8.4f} | last step duration [s]: {1:8.4f}".format(
                         run_time_now * 60,

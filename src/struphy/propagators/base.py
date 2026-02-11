@@ -144,7 +144,7 @@ class Propagator(metaclass=ABCMeta):
         return self._rank
 
     @property
-    def derham(self):
+    def derham(self) -> Derham:
         """Derham spaces and projectors."""
         assert hasattr(
             self,
@@ -155,10 +155,11 @@ class Propagator(metaclass=ABCMeta):
 
     @derham.setter
     def derham(self, derham):
+        assert isinstance(derham, Derham)
         self._derham = derham
 
     @property
-    def domain(self):
+    def domain(self) -> Domain:
         """Domain object that characterizes the mapping from the logical to the physical domain."""
         assert hasattr(self, "_domain"), "Domain for analytical MHD equilibrium not set. Please do obj.domain = ..."
         assert isinstance(self._domain, Domain)
@@ -166,6 +167,7 @@ class Propagator(metaclass=ABCMeta):
 
     @domain.setter
     def domain(self, domain):
+        assert isinstance(domain, Domain)
         self._domain = domain
 
     @property
@@ -177,10 +179,11 @@ class Propagator(metaclass=ABCMeta):
 
     @mass_ops.setter
     def mass_ops(self, mass_ops):
-        self._mass_ops: WeightedMassOperators = mass_ops
+        assert isinstance(mass_ops, WeightedMassOperators)
+        self._mass_ops = mass_ops
 
     @property
-    def basis_ops(self):
+    def basis_ops(self) -> BasisProjectionOperators:
         """Basis projection operators."""
         assert hasattr(self, "_basis_ops"), "Basis projection operators not set. Please do obj.basis_ops = ..."
         assert isinstance(self._basis_ops, BasisProjectionOperators)
@@ -188,6 +191,7 @@ class Propagator(metaclass=ABCMeta):
 
     @basis_ops.setter
     def basis_ops(self, basis_ops):
+        assert isinstance(basis_ops, BasisProjectionOperators)
         self._basis_ops = basis_ops
 
     @property
@@ -197,6 +201,7 @@ class Propagator(metaclass=ABCMeta):
             self,
             "_projected_equil",
         ), "Projected MHD equilibrium not set."
+        assert isinstance(self._projected_equil, ProjectedFluidEquilibriumWithB)
         return self._projected_equil
 
     @projected_equil.setter
