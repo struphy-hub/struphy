@@ -263,7 +263,7 @@ class StruphySimulation(Simulation):
 
             gridToVTK(os.path.join(self.env.path_out, "geometry"), *grids_phy, pointData=pointData)
     
-    def initialize_data(self, verbose: bool = False):
+    def initialize_data_storage(self, verbose: bool = False):
         # data object for saving (will either create new hdf5 files if restart==False or open existing files if restart==True)
         # use MPI.COMM_WORLD as communicator when storing the outputs
         self.data = DataContainer(self.env.path_out, comm=self.comm)
@@ -286,15 +286,15 @@ class StruphySimulation(Simulation):
         # equation paramters
         self.allocate(verbose=self.verbose)
 
+        # output
+        self.initialize_data_storage(verbose=self.verbose)
+        
         # peek view into geometry
         self.save_geometry_and_equil_vtk(verbose=self.verbose)
 
         # plasma parameters
         self.compute_plasma_params(verbose=self.verbose)
 
-        # outout
-        self.initialize_data(verbose=self.verbose)
-        
         # print info on mpi procs
         if self.rank < 32:
             if self.rank == 0:
@@ -311,7 +311,7 @@ class StruphySimulation(Simulation):
 
         # set initial conditions for all variables
         if self.env.restart:
-            self.model.initialize_from_restart(self.data)
+            self._initialize_from_restart(self.data)
 
             with h5py.File(self.data.file_path, "a") as file:
                 self.time_state["value"][0] = file["restart/time/value"][-1]
@@ -1059,6 +1059,44 @@ class StruphySimulation(Simulation):
         for _, prop in self.model.propagators.__dict__.items():
             if isinstance(prop, Propagator):
                 prop.add_time_state(time_state)
+    
+    def _initialize_from_restart(self, data: DataContainer):
+        """
+        Set initial conditions for FE coefficients (electromagnetic and fluid) and markers from restart group in hdf5 files.
+
+        Parameters
+        ----------
+        data : struphy.io.output_handling.DataContainer
+            The data object that links to the hdf5 files.
+        """
+        with h5py.File(data.file_path, "a") as file:
+            for species, val in self.model.species.items():
+                for variable, subval in val.variables.items():
+                    # initialize feec variables
+                    if isinstance(subval, FEECVariable):
+                        key_restart = os.path.join("restart", species, variable)
+                        subval.spline.initialize_coeffs_from_restart_file(
+                            file,
+                            key=key_restart,
+                        )
+
+                    # initialize pic variables
+                    elif isinstance(subval, PICVariable):
+                        key_restart = os.path.join("restart", species)
+                        subval.particles._markers[:, :] = file[key_restart][-1, :, :]
+
+                        if MPI.COMM_WORLD.Get_size() > 1:
+                            subval.particles.mpi_sort_markers(do_test=True)
+    
+    @property
+    def clone_config(self):
+        """Config in case domain clones are used."""
+        return self._clone_config
+
+    @clone_config.setter
+    def clone_config(self, new):
+        assert isinstance(new, CloneConfig) or new is None
+        self._clone_config = new
     
     @property
     def domain(self):

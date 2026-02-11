@@ -16,7 +16,7 @@ from struphy.io.options import BaseUnits, EnvironmentOptions, Time
 from struphy.io.setup import import_parameters_py
 from struphy.kinetic_background import maxwellians
 from struphy.kinetic_background.base import KineticBackground
-from struphy.models.base import StruphyModel, setup_derham
+from struphy.models.base import StruphyModel
 from struphy.models.species import ParticleSpecies
 from struphy.models.variables import PICVariable
 from struphy.topology.grids import TensorProductGrid

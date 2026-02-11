@@ -19,7 +19,7 @@ class Simulation(metaclass=ABCMeta):
         pass
     
     @abstractmethod
-    def initialize_data(self, verbose: bool = False):
+    def initialize_data_storage(self, verbose: bool = False):
         """Initialize the simulation data storage."""
         pass
 
