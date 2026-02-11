@@ -43,7 +43,7 @@ from struphy.topology.grids import TensorProductGrid
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml
 
-from struphy.simulation.sim import Simulation
+from struphy.simulation.sim import StruphySimulation
 
 
 @profile
@@ -72,7 +72,7 @@ def run(
         Absolute path to .py parameter file.
     """
 
-    sim = Simulation(
+    sim = StruphySimulation(
         model=model,
         params_path=params_path,
         env=env,
@@ -85,197 +85,7 @@ def run(
         verbose=verbose,
     )
 
-    # run simulation
     sim.run(verbose=verbose)
-    exit()
-
-    if sim.rank < 32:
-        if sim.rank == 0:
-            print("")
-        print(f"Rank {sim.rank}: executing main.run() for model {model} ...")
-
-    if sim.size > 32 and sim.rank == 32:
-        print(f"Ranks > 31: executing main.run() for model {model} ...")
-
-    # store geometry vtk
-    if sim.rank == 0:
-        grids_log = [
-            xp.linspace(1e-6, 1.0, 32),
-            xp.linspace(0.0, 1.0, 32),
-            xp.linspace(0.0, 1.0, 32),
-        ]
-
-        tmp = model.domain(*grids_log)
-        grids_phy = [tmp[0], tmp[1], tmp[2]]
-
-        pointData = {}
-        det_df = model.domain.jacobian_det(*grids_log)
-        pointData["det_df"] = det_df
-
-        if model.equil is not None:
-            p0 = model.equil.p0(*grids_log)
-            pointData["p0"] = p0
-            if isinstance(model.equil, FluidEquilibriumWithB):
-                absB0 = model.equil.absB0(*grids_log)
-                pointData["absB0"] = absB0
-
-        gridToVTK(os.path.join(sim.env.path_out, "geometry"), *grids_phy, pointData=pointData)
-
-    # data object for saving (will either create new hdf5 files if restart==False or open existing files if restart==True)
-    # use MPI.COMM_WORLD as communicator when storing the outputs
-    data = DataContainer(sim.env.path_out, comm=sim.comm)
-
-    # time quantities (current time value, value in seconds and index)
-    time_state = {}
-    time_state["value"] = xp.zeros(1, dtype=float)
-    time_state["value_sec"] = xp.zeros(1, dtype=float)
-    time_state["index"] = xp.zeros(1, dtype=int)
-
-    # add time quantities to data object for saving
-    for key, val in time_state.items():
-        key_time = "time/" + key
-        key_time_restart = "restart/time/" + key
-        data.add_data({key_time: val})
-        data.add_data({key_time_restart: val})
-
-    # retrieve time parameters
-    dt = time_opts.dt
-    Tend = time_opts.Tend
-    split_algo = time_opts.split_algo
-
-    # set initial conditions for all variables
-    if sim.env.restart:
-        model.initialize_from_restart(data)
-
-        with h5py.File(data.file_path, "a") as file:
-            time_state["value"][0] = file["restart/time/value"][-1]
-            time_state["value_sec"][0] = file["restart/time/value_sec"][-1]
-            time_state["index"][0] = file["restart/time/index"][-1]
-
-        total_steps = str(int(round((Tend - time_state["value"][0]) / dt)))
-    else:
-        total_steps = str(int(round(Tend / dt)))
-
-    # compute initial scalars and kinetic data, pass time state to all propagators
-    model.update_scalar_quantities()
-    model.update_markers_to_be_saved()
-    model.update_distr_functions()
-    model.add_time_state(time_state["value"])
-
-    # add all variables to be saved to data object
-    save_keys_all, save_keys_end = model.initialize_data_output(data, sim.size)
-
-    # ======================== main time loop ======================
-    model.update_scalar_quantities()
-    if sim.rank == 0:
-        print("\nINITIAL SCALAR QUANTITIES:")
-        model.print_scalar_quantities()
-
-        print(f"\nSTART TIME STEPPING WITH '{split_algo}' SPLITTING:")
-
-    # time loop
-    run_time_now = 0.0
-    while True:
-        sim.Barrier()
-
-        # stop time loop?
-        break_cond_1 = time_state["value"][0] >= Tend
-        break_cond_2 = run_time_now > sim.env.max_runtime
-
-        if break_cond_1 or break_cond_2:
-            # save restart data (other data already saved below)
-            data.save_data(keys=save_keys_end)
-            end_simulation = time.time()
-            if sim.rank == 0:
-                print(f"\nTime steps done: {time_state['index'][0]}")
-                print(
-                    "wall-clock time of simulation [sec]: ",
-                    end_simulation - sim.start_time,
-                )
-                print()
-            break
-
-        if sim.env.sort_step and time_state["index"][0] % sim.env.sort_step == 0:
-            t0 = time.time()
-            for key, val in model.pointer.items():
-                if isinstance(val, Particles):
-                    val.do_sort()
-            t1 = time.time()
-            if sim.rank == 0 and verbose:
-                message = "Particles sorted | wall clock [s]: {0:8.4f} | sorting duration [s]: {1:8.4f}".format(
-                    run_time_now * 60,
-                    t1 - t0,
-                )
-                print(message, end="\n")
-                print()
-
-        # update time and index (round time to 10 decimals for a clean time grid!)
-        time_state["value"][0] = round(time_state["value"][0] + dt, 10)
-        time_state["value_sec"][0] = round(time_state["value_sec"][0] + dt * sim.units.t, 10)
-        time_state["index"][0] += 1
-
-        # perform one time step dt
-        t0 = time.time()
-        with ProfileManager.profile_region("model.integrate"):
-            model.integrate(dt, split_algo)
-        t1 = time.time()
-
-        run_time_now = (time.time() - sim.start_time) / 60
-
-        # update diagnostics data and save data
-        if time_state["index"][0] % sim.env.save_step == 0:
-            # compute scalars and kinetic data
-            model.update_scalar_quantities()
-            model.update_markers_to_be_saved()
-            model.update_distr_functions()
-
-            # extract FEEC coefficients
-            feec_species = model.field_species | model.fluid_species | model.diagnostic_species
-            for species, val in feec_species.items():
-                assert isinstance(val, Species)
-                for variable, subval in val.variables.items():
-                    assert isinstance(subval, FEECVariable)
-                    spline = subval.spline
-                    # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
-                    spline.extract_coeffs(update_ghost_regions=False)
-
-            # save data (everything but restart data)
-            data.save_data(keys=save_keys_all)
-
-            # print current time and scalar quantities to screen
-            if sim.rank == 0 and verbose:
-                step = str(time_state["index"][0]).zfill(len(total_steps))
-
-                message = "time step: " + step + "/" + str(total_steps)
-                message += " | " + "time: {0:10.5f}/{1:10.5f}".format(time_state["value"][0], Tend)
-                message += " | " + "phys. time [s]: {0:12.10f}/{1:12.10f}".format(
-                    time_state["value_sec"][0],
-                    Tend * sim.units.t,
-                )
-                message += " | " + "wall clock [s]: {0:8.4f} | last step duration [s]: {1:8.4f}".format(
-                    run_time_now * 60,
-                    t1 - t0,
-                )
-
-                print(message, end="\n")
-                model.print_scalar_quantities()
-                print()
-
-    # ===================================================================
-
-    sim.meta["wall-clock time[min]"] = (end_simulation - sim.start_time) / 60
-    sim.Barrier()
-
-    if sim.rank == 0:
-        # save meta-data
-        dict_to_yaml(sim.meta, os.path.join(sim.env.path_out, "meta.yml"))
-        print("Struphy run finished.")
-
-    if sim.clone_config is not None:
-        sim.clone_config.free()
-
-    ProfileManager.finalize()
-
 
 def pproc(
     path: str,

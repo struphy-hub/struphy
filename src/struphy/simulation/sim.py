@@ -33,6 +33,7 @@ from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.io.output_handling import DataContainer
 from struphy.pic.base import Particles
 from struphy.utils.utils import dict_to_yaml
+from struphy.simulation.base import Simulation
 
 # third party imports
 from feectools.ddm.mpi import MockMPI
@@ -51,7 +52,12 @@ from line_profiler import profile
 from pyevtk.hl import gridToVTK
 
 
-class Simulation:
+class StruphySimulation(Simulation):
+    
+    # ----------------
+    # Abstract methods
+    # ----------------
+    
     def __init__(self, 
                 model: StruphyModel, 
                 params_path: str = None,
@@ -232,7 +238,7 @@ class Simulation:
         # pass info to propagators
         self._allocate_propagators()
 
-    def store_geometry(self, verbose: bool = False):
+    def save_geometry_and_equil_vtk(self, verbose: bool = False):
         # store geometry vtk
         if self.rank == 0:
             grids_log = [
@@ -256,109 +262,6 @@ class Simulation:
                     pointData["absB0"] = absB0
 
             gridToVTK(os.path.join(self.env.path_out, "geometry"), *grids_phy, pointData=pointData)
-
-    def compute_plasma_params(self, verbose=True):
-        """
-        Compute and print volume averaged plasma parameters for each species of the model.
-
-        Global parameters:
-        - plasma volume
-        - transit length
-        - magnetic field
-
-        Species dependent parameters:
-        - mass
-        - charge
-        - density
-        - pressure
-        - thermal energy kBT
-        - Alfvén speed v_A
-        - thermal speed v_th
-        - thermal frequency Omega_th
-        - cyclotron frequency Omega_c
-        - plasma frequency Omega_p
-        - Alfvèn frequency Omega_A
-        - thermal Larmor radius rho_th
-        - MHD length scale v_a/Omega_c
-        - rho/L
-        - alpha = Omega_p/Omega_c
-        - epsilon = 1/(t*Omega_c)
-        """
-
-        # units affices for printing
-        units_affix = {}
-        units_affix["plasma volume"] = " m³"
-        units_affix["transit length"] = " m"
-        units_affix["magnetic field"] = " T"
-        units_affix["mass"] = " kg"
-        units_affix["charge"] = " C"
-        units_affix["density"] = " m⁻³"
-        units_affix["pressure"] = " bar"
-        units_affix["kBT"] = " keV"
-        units_affix["v_A"] = " m/s"
-        units_affix["v_th"] = " m/s"
-        units_affix["vth1"] = " m/s"
-        units_affix["vth2"] = " m/s"
-        units_affix["vth3"] = " m/s"
-        units_affix["Omega_th"] = " Mrad/s"
-        units_affix["Omega_c"] = " Mrad/s"
-        units_affix["Omega_p"] = " Mrad/s"
-        units_affix["Omega_A"] = " Mrad/s"
-        units_affix["rho_th"] = " m"
-        units_affix["v_A/Omega_c"] = " m"
-        units_affix["rho_th/L"] = ""
-        units_affix["alpha"] = ""
-        units_affix["epsilon"] = ""
-
-        h = 1 / 20
-        eta1 = xp.linspace(h / 2.0, 1.0 - h / 2.0, 20)
-        eta2 = xp.linspace(h / 2.0, 1.0 - h / 2.0, 20)
-        eta3 = xp.linspace(h / 2.0, 1.0 - h / 2.0, 20)
-
-        ##  global parameters
-
-        # plasma volume (hat x^3)
-        det_tmp = self.domain.jacobian_det(eta1, eta2, eta3)
-        vol1 = xp.mean(xp.abs(det_tmp))
-        # plasma volume (m⁻³)
-        plasma_volume = vol1 * self.units.x**3
-        # transit length (m)
-        transit_length = plasma_volume ** (1 / 3)
-        # magnetic field (T)
-        if isinstance(self.equil, FluidEquilibriumWithB):
-            B_tmp = self.equil.absB0(eta1, eta2, eta3)
-        else:
-            B_tmp = xp.zeros((eta1.size, eta2.size, eta3.size))
-        magnetic_field = xp.mean(B_tmp * xp.abs(det_tmp)) / vol1 * self.units.B
-        B_max = xp.max(B_tmp) * self.units.B
-        B_min = xp.min(B_tmp) * self.units.B
-
-        if magnetic_field < 1e-14:
-            magnetic_field = xp.nan
-            # print("\n+++++++ WARNING +++++++ magnetic field is zero - set to nan !!")
-
-        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            print("\nPLASMA PARAMETERS:")
-            print(
-                "Plasma volume:".ljust(25),
-                "{:4.3e}".format(plasma_volume) + units_affix["plasma volume"],
-            )
-            print(
-                "Transit length:".ljust(25),
-                "{:4.3e}".format(transit_length) + units_affix["transit length"],
-            )
-            print(
-                "Avg. magnetic field:".ljust(25),
-                "{:4.3e}".format(magnetic_field) + units_affix["magnetic field"],
-            )
-            print(
-                "Max magnetic field:".ljust(25),
-                "{:4.3e}".format(B_max) + units_affix["magnetic field"],
-            )
-            print(
-                "Min magnetic field:".ljust(25),
-                "{:4.3e}".format(B_min) + units_affix["magnetic field"],
-            )
     
     def initialize_data(self, verbose: bool = False):
         # data object for saving (will either create new hdf5 files if restart==False or open existing files if restart==True)
@@ -384,7 +287,7 @@ class Simulation:
         self.allocate(verbose=self.verbose)
 
         # peek view into geometry
-        self.store_geometry(verbose=self.verbose)
+        self.save_geometry_and_equil_vtk(verbose=self.verbose)
 
         # plasma parameters
         self.compute_plasma_params(verbose=self.verbose)
@@ -538,6 +441,113 @@ class Simulation:
             self.clone_config.free()
 
         ProfileManager.finalize()
+    
+    # ---------------------
+    # Code specific methods
+    # ---------------------
+    
+    def compute_plasma_params(self, verbose=True):
+        """
+        Compute and print volume averaged plasma parameters for each species of the model.
+
+        Global parameters:
+        - plasma volume
+        - transit length
+        - magnetic field
+
+        Species dependent parameters:
+        - mass
+        - charge
+        - density
+        - pressure
+        - thermal energy kBT
+        - Alfvén speed v_A
+        - thermal speed v_th
+        - thermal frequency Omega_th
+        - cyclotron frequency Omega_c
+        - plasma frequency Omega_p
+        - Alfvèn frequency Omega_A
+        - thermal Larmor radius rho_th
+        - MHD length scale v_a/Omega_c
+        - rho/L
+        - alpha = Omega_p/Omega_c
+        - epsilon = 1/(t*Omega_c)
+        """
+
+        # units affices for printing
+        units_affix = {}
+        units_affix["plasma volume"] = " m³"
+        units_affix["transit length"] = " m"
+        units_affix["magnetic field"] = " T"
+        units_affix["mass"] = " kg"
+        units_affix["charge"] = " C"
+        units_affix["density"] = " m⁻³"
+        units_affix["pressure"] = " bar"
+        units_affix["kBT"] = " keV"
+        units_affix["v_A"] = " m/s"
+        units_affix["v_th"] = " m/s"
+        units_affix["vth1"] = " m/s"
+        units_affix["vth2"] = " m/s"
+        units_affix["vth3"] = " m/s"
+        units_affix["Omega_th"] = " Mrad/s"
+        units_affix["Omega_c"] = " Mrad/s"
+        units_affix["Omega_p"] = " Mrad/s"
+        units_affix["Omega_A"] = " Mrad/s"
+        units_affix["rho_th"] = " m"
+        units_affix["v_A/Omega_c"] = " m"
+        units_affix["rho_th/L"] = ""
+        units_affix["alpha"] = ""
+        units_affix["epsilon"] = ""
+
+        h = 1 / 20
+        eta1 = xp.linspace(h / 2.0, 1.0 - h / 2.0, 20)
+        eta2 = xp.linspace(h / 2.0, 1.0 - h / 2.0, 20)
+        eta3 = xp.linspace(h / 2.0, 1.0 - h / 2.0, 20)
+
+        ##  global parameters
+
+        # plasma volume (hat x^3)
+        det_tmp = self.domain.jacobian_det(eta1, eta2, eta3)
+        vol1 = xp.mean(xp.abs(det_tmp))
+        # plasma volume (m⁻³)
+        plasma_volume = vol1 * self.units.x**3
+        # transit length (m)
+        transit_length = plasma_volume ** (1 / 3)
+        # magnetic field (T)
+        if isinstance(self.equil, FluidEquilibriumWithB):
+            B_tmp = self.equil.absB0(eta1, eta2, eta3)
+        else:
+            B_tmp = xp.zeros((eta1.size, eta2.size, eta3.size))
+        magnetic_field = xp.mean(B_tmp * xp.abs(det_tmp)) / vol1 * self.units.B
+        B_max = xp.max(B_tmp) * self.units.B
+        B_min = xp.min(B_tmp) * self.units.B
+
+        if magnetic_field < 1e-14:
+            magnetic_field = xp.nan
+            # print("\n+++++++ WARNING +++++++ magnetic field is zero - set to nan !!")
+
+        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
+            print("\nPLASMA PARAMETERS:")
+            print(
+                "Plasma volume:".ljust(25),
+                "{:4.3e}".format(plasma_volume) + units_affix["plasma volume"],
+            )
+            print(
+                "Transit length:".ljust(25),
+                "{:4.3e}".format(transit_length) + units_affix["transit length"],
+            )
+            print(
+                "Avg. magnetic field:".ljust(25),
+                "{:4.3e}".format(magnetic_field) + units_affix["magnetic field"],
+            )
+            print(
+                "Max magnetic field:".ljust(25),
+                "{:4.3e}".format(B_max) + units_affix["magnetic field"],
+            )
+            print(
+                "Min magnetic field:".ljust(25),
+                "{:4.3e}".format(B_min) + units_affix["magnetic field"],
+            )
     
     # ---------------   
     # Private methods
