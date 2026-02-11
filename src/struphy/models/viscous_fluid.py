@@ -12,6 +12,7 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable
 from struphy.polar.basic import PolarVector
+from struphy.propagators.base import Propagator
 from struphy.propagators import (
     propagators_fields,
 )
@@ -120,9 +121,9 @@ class ViscousFluid(StruphyModel):
         f = xp.vectorize(f)
         self._integrator = projV3(f)
 
-        self._energy_evaluator = InternalEnergyEvaluator(self.derham, self.propagators.variat_ent.options.gamma)
+        self._energy_evaluator = InternalEnergyEvaluator(Propagator.derham, self.propagators.variat_ent.options.gamma)
 
-        self._ones = self.derham.Vh_pol["3"].zeros()
+        self._ones = Propagator.derham.Vh_pol["3"].zeros()
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.0
         else:
@@ -133,7 +134,7 @@ class ViscousFluid(StruphyModel):
         u = self.fluid.velocity.spline.vector
         s = self.fluid.entropy.spline.vector
 
-        en_U = 0.5 * self.mass_ops.WMM.massop.dot_inner(u, u)
+        en_U = 0.5 * Propagator.mass_ops.WMM.massop.dot_inner(u, u)
         self.update_scalar("en_U", en_U)
 
         en_thermo = self.update_thermo_energy()

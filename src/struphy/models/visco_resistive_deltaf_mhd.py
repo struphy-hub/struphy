@@ -11,6 +11,7 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable
 from struphy.polar.basic import PolarVector
+from struphy.propagators.base import Propagator
 from struphy.propagators import (
     propagators_fields,
 )
@@ -157,13 +158,13 @@ class ViscoResistiveDeltafMHD(StruphyModel):
         f = xp.vectorize(f)
         self._integrator = projV3(f)
 
-        self._ones = self.derham.Vh_pol["3"].zeros()
+        self._ones = Propagator.derham.Vh_pol["3"].zeros()
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.0
         else:
             self._ones[:] = 1.0
 
-        self._tmp_div_B = self.derham.Vh_pol["3"].zeros()
+        self._tmp_div_B = Propagator.derham.Vh_pol["3"].zeros()
 
     def update_scalar_quantities(self):
         rho = self.mhd.density.spline.vector
@@ -175,16 +176,16 @@ class ViscoResistiveDeltafMHD(StruphyModel):
 
         gamma = self.propagators.variat_pb.options.gamma
 
-        en_U = 0.5 * self.mass_ops.WMM.massop.dot_inner(u, u)
+        en_U = 0.5 * Propagator.mass_ops.WMM.massop.dot_inner(u, u)
         self.update_scalar("en_U", en_U)
 
-        en_mag1 = 0.5 * self.mass_ops.M2.dot_inner(b, b)
+        en_mag1 = 0.5 * Propagator.mass_ops.M2.dot_inner(b, b)
         self.update_scalar("en_mag_1", en_mag1)
 
-        en_mag2 = self.mass_ops.M2.dot_inner(bt2, self.projected_equil.b2)
+        en_mag2 = Propagator.mass_ops.M2.dot_inner(bt2, Propagator.projected_equil.b2)
         self.update_scalar("en_mag_2", en_mag2)
 
-        en_thermo = self.mass_ops.M3.dot_inner(pt3, self._integrator) / (gamma - 1.0)
+        en_thermo = Propagator.mass_ops.M3.dot_inner(pt3, self._integrator) / (gamma - 1.0)
         self.update_scalar("en_thermo", en_thermo)
 
         en_tot = en_U + en_thermo + en_mag1 + en_mag2
@@ -193,14 +194,14 @@ class ViscoResistiveDeltafMHD(StruphyModel):
         # dens_tot = self._ones.inner(rho)
         # self.update_scalar("dens_tot", dens_tot)
 
-        # div_B = self.derham.div.dot(b, out=self._tmp_div_B)
+        # div_B = Propagator.derham.div.dot(b, out=self._tmp_div_B)
         # L2_div_B = self._mass_ops.M3.dot_inner(div_B, div_B)
         # self.update_scalar("tot_div_B", L2_div_B)
 
-        en_thermo_l1 = self.mass_ops.M3.dot_inner(p, self._integrator) / (gamma - 1.0)
+        en_thermo_l1 = Propagator.mass_ops.M3.dot_inner(p, self._integrator) / (gamma - 1.0)
         self.update_scalar("en_thermo_l1", en_thermo_l1)
 
-        en_mag_l1 = self.mass_ops.M2.dot_inner(b, self.projected_equil.b2)
+        en_mag_l1 = Propagator.mass_ops.M2.dot_inner(b, Propagator.projected_equil.b2)
         self.update_scalar("en_mag_l1", en_mag_l1)
 
         en_tot_l1 = en_thermo_l1 + en_mag_l1

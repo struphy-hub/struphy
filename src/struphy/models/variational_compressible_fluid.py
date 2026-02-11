@@ -11,6 +11,7 @@ from struphy.models.species import (
     FluidSpecies,
 )
 from struphy.models.variables import FEECVariable
+from struphy.propagators.base import Propagator
 from struphy.propagators import (
     propagators_fields,
 )
@@ -110,13 +111,13 @@ class VariationalCompressibleFluid(StruphyModel):
         f = xp.vectorize(f)
         self._integrator = projV3(f)
 
-        self._energy_evaluator = InternalEnergyEvaluator(self.derham, self.propagators.variat_ent.options.gamma)
+        self._energy_evaluator = InternalEnergyEvaluator(Propagator.derham, self.propagators.variat_ent.options.gamma)
 
     def update_scalar_quantities(self):
         rho = self.fluid.density.spline.vector
         u = self.fluid.velocity.spline.vector
 
-        en_U = 0.5 * self.mass_ops.WMM.massop.dot_inner(u, u)
+        en_U = 0.5 * Propagator.mass_ops.WMM.massop.dot_inner(u, u)
         self.update_scalar("en_U", en_U)
 
         en_thermo = self.update_thermo_energy()

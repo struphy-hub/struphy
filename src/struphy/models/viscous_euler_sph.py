@@ -106,12 +106,6 @@ class ViscousEulerSPH(StruphyModel):
     def allocate_helpers(self):
         pass
 
-    # @staticmethod
-    # def diagnostics_dct():
-    #     dct = {}
-    #     dct["projected_density"] = "L2"
-    #     return dct
-
     def update_scalar_quantities(self):
         particles = self.euler_fluid.var.particles
         valid_markers = particles.markers_wo_holes_and_ghost

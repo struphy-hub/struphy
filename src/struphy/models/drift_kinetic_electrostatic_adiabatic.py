@@ -153,7 +153,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
         # get neutralizing background density
         if not particles.control_variate:
-            l2_proj = L2Projector("H1", self.mass_ops)
+            l2_proj = L2Projector("H1", Propagator.mass_ops)
             f0e = Z * particles.f0
             assert isinstance(f0e, KineticBackground)
             rho_eh = FEECVariable(space="H1")

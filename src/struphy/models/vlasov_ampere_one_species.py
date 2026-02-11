@@ -10,6 +10,7 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+from struphy.propagators.base import Propagator
 from struphy.propagators import (
     propagators_coupling,
     propagators_fields,
@@ -155,7 +156,51 @@ class VlasovAmpereOneSpecies(StruphyModel):
         return "light"
 
     def allocate_helpers(self):
+        """Solve initial Poisson equation.
+
+        :meta private:
+        """
         self._tmp = xp.empty(1, dtype=float)
+
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print("\nINITIAL POISSON SOLVE:")
+
+        # use control variate method
+        particles = self.kinetic_ions.var.particles
+        particles.update_weights()
+
+        # sanity check
+        # self.pointer['species1'].show_distribution_function(
+        #     [True] + [False]*5, [xp.linspace(0, 1, 32)])
+
+        # accumulate charge density
+        charge_accum = AccumulatorVector(
+            particles,
+            "H1",
+            Pyccelkernel(accum_kernels.charge_density_0form),
+            self.mass_ops,
+            Propagator.domain.args_domain,
+        )
+
+        # another sanity check: compute FE coeffs of density
+        # charge_accum.show_accumulated_spline_field(self.mass_ops)
+
+        alpha = self.kinetic_ions.equation_params.alpha
+        epsilon = self.kinetic_ions.equation_params.epsilon
+
+        self.initial_poisson.options.rho = charge_accum
+        self.initial_poisson.options.rho_coeffs = alpha**2 / epsilon
+        self.initial_poisson.allocate()
+
+        # Solve with dt=1. and compute electric field
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print("\nSolving initial Poisson problem...")
+        self.initial_poisson(1.0)
+
+        phi = self.initial_poisson.variables.phi.spline.vector
+        Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print("Done.")
 
     def update_scalar_quantities(self):
         # e*M1*e/2
@@ -180,55 +225,6 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
         # en_tot = en_w + en_e
         self.update_scalar("en_tot", en_E + self._tmp[0])
-
-    def allocate_propagators(self):
-        """Solve initial Poisson equation.
-
-        :meta private:
-        """
-
-        # initialize fields and particles
-        super().allocate_propagators()
-
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print("\nINITIAL POISSON SOLVE:")
-
-        # use control variate method
-        particles = self.kinetic_ions.var.particles
-        particles.update_weights()
-
-        # sanity check
-        # self.pointer['species1'].show_distribution_function(
-        #     [True] + [False]*5, [xp.linspace(0, 1, 32)])
-
-        # accumulate charge density
-        charge_accum = AccumulatorVector(
-            particles,
-            "H1",
-            Pyccelkernel(accum_kernels.charge_density_0form),
-            self.mass_ops,
-            self.domain.args_domain,
-        )
-
-        # another sanity check: compute FE coeffs of density
-        # charge_accum.show_accumulated_spline_field(self.mass_ops)
-
-        alpha = self.kinetic_ions.equation_params.alpha
-        epsilon = self.kinetic_ions.equation_params.epsilon
-
-        self.initial_poisson.options.rho = charge_accum
-        self.initial_poisson.options.rho_coeffs = alpha**2 / epsilon
-        self.initial_poisson.allocate()
-
-        # Solve with dt=1. and compute electric field
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print("\nSolving initial Poisson problem...")
-        self.initial_poisson(1.0)
-
-        phi = self.initial_poisson.variables.phi.spline.vector
-        self.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print("Done.")
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

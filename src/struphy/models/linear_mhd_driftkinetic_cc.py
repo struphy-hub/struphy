@@ -10,6 +10,7 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.polar.basic import PolarVector
+from struphy.propagators.base import Propagator
 from struphy.propagators import (
     propagators_coupling,
     propagators_fields,
@@ -209,11 +210,11 @@ class LinearMHDDriftkineticCC(StruphyModel):
         Ah = self.energetic_ions.var.species.mass_number
 
         # perturbed fields
-        en_U = 0.5 * self.mass_ops.M2n.dot_inner(
+        en_U = 0.5 * Propagator.mass_ops.M2n.dot_inner(
             self.mhd.velocity.spline.vector,
             self.mhd.velocity.spline.vector,
         )
-        en_B = 0.5 * self.mass_ops.M2.dot_inner(
+        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(
             self.em_fields.b_field.spline.vector,
             self.em_fields.b_field.spline.vector,
         )
@@ -253,8 +254,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
         # print number of lost particles
         n_lost_markers = xp.array(particles.n_lost_markers)
 
-        if self.derham.comm is not None:
-            self.derham.comm.Allreduce(
+        if Propagator.derham.comm is not None:
+            Propagator.derham.comm.Allreduce(
                 MPI.IN_PLACE,
                 n_lost_markers,
                 op=MPI.SUM,

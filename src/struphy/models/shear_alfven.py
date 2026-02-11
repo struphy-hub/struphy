@@ -7,6 +7,7 @@ from struphy.models.species import (
     FluidSpecies,
 )
 from struphy.models.variables import FEECVariable
+from struphy.propagators.base import Propagator
 from struphy.propagators import (
     propagators_fields,
 )
@@ -69,7 +70,7 @@ class ShearAlfven(StruphyModel):
 
     def allocate_helpers(self):
         # project background magnetic field (2-form) and pressure (3-form)
-        self._b_eq = self.derham.P["2"](
+        self._b_eq = Propagator.derham.P["2"](
             [
                 self.equil.b2_1,
                 self.equil.b2_2,
@@ -78,8 +79,8 @@ class ShearAlfven(StruphyModel):
         )
 
         # temporary vectors for scalar quantities
-        self._tmp_b1 = self.derham.Vh["2"].zeros()
-        self._tmp_b2 = self.derham.Vh["2"].zeros()
+        self._tmp_b1 = Propagator.derham.Vh["2"].zeros()
+        self._tmp_b2 = Propagator.derham.Vh["2"].zeros()
 
     def __init__(self):
         if rank == 0:
@@ -107,8 +108,8 @@ class ShearAlfven(StruphyModel):
 
     def update_scalar_quantities(self):
         # perturbed fields
-        en_U = 0.5 * self.mass_ops.M2n.dot_inner(self.mhd.velocity.spline.vector, self.mhd.velocity.spline.vector)
-        en_B = 0.5 * self.mass_ops.M2.dot_inner(
+        en_U = 0.5 * Propagator.mass_ops.M2n.dot_inner(self.mhd.velocity.spline.vector, self.mhd.velocity.spline.vector)
+        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(
             self.em_fields.b_field.spline.vector,
             self.em_fields.b_field.spline.vector,
         )
@@ -118,7 +119,7 @@ class ShearAlfven(StruphyModel):
         self.update_scalar("en_tot", en_U + en_B)
 
         # background fields
-        self.mass_ops.M2.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
+        Propagator.mass_ops.M2.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
         en_B0 = self._b_eq.inner(self._tmp_b1) / 2
         self.update_scalar("en_B_eq", en_B0)
 
@@ -126,7 +127,7 @@ class ShearAlfven(StruphyModel):
         self._b_eq.copy(out=self._tmp_b1)
         self._tmp_b1 += self.em_fields.b_field.spline.vector
 
-        self.mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
+        Propagator.mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
         en_Btot = self._tmp_b1.inner(self._tmp_b2) / 2
 
         self.update_scalar("en_B_tot", en_Btot)

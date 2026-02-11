@@ -6,6 +6,7 @@ from struphy.models.species import (
     FieldSpecies,
 )
 from struphy.models.variables import FEECVariable
+from struphy.propagators.base import Propagator
 from struphy.propagators import (
     propagators_fields,
 )
@@ -85,22 +86,12 @@ class Poisson(StruphyModel):
         return None
 
     def allocate_helpers(self):
-        pass
-
-    def update_scalar_quantities(self):
-        pass
-
-    def allocate_propagators(self):
         """Solve initial Poisson equation.
 
         :meta private:
         """
-
-        # initialize fields and particles
-        super().allocate_propagators()
-
         # # use setter to assign source
-        # self.propagators.poisson.rho = self.mass_ops.M0.dot(self.em_fields.source.spline.vector)
+        # self.propagators.poisson.rho = Propagator.mass_ops.M0.dot(self.em_fields.source.spline.vector)
 
         # Solve with dt=1. and compute electric field
         if MPI.COMM_WORLD.Get_rank() == 0:
@@ -110,6 +101,9 @@ class Poisson(StruphyModel):
 
         if MPI.COMM_WORLD.Get_rank() == 0:
             print("Done.")
+
+    def update_scalar_quantities(self):
+        pass
 
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

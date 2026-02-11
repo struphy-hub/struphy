@@ -180,7 +180,7 @@ class ColdPlasmaVlasov(StruphyModel):
         )
 
         # another sanity check: compute FE coeffs of density
-        # charge_accum.show_accumulated_spline_field(self.mass_ops)
+        # charge_accum.show_accumulated_spline_field(Propagator.mass_ops)
 
         alpha = self.hot_elec.equation_params.alpha
         epsilon = self.hot_elec.equation_params.epsilon

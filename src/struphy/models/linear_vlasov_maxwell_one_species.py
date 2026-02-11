@@ -7,6 +7,7 @@ from struphy.models.species import (
     ParticleSpecies,
 )
 from struphy.models.variables import FEECVariable, PICVariable
+from struphy.propagators.base import Propagator
 from struphy.propagators import (
     propagators_coupling,
     propagators_fields,
@@ -164,5 +165,5 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         # 0.5 * b^T * M_2 * b
         b = self.em_fields.b_field.spline.vector
 
-        en_B = 0.5 * self._mass_ops.M2.dot_inner(b, b)
+        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(b, b)
         self.update_scalar("en_tot", self.scalar_quantities["en_tot"]["value"][0] + en_B)

@@ -6,6 +6,7 @@ from struphy.models.species import (
     FluidSpecies,
 )
 from struphy.models.variables import FEECVariable
+from struphy.propagators.base import Propagator
 from struphy.propagators import (
     propagators_fields,
 )
@@ -96,10 +97,10 @@ class VariationalBarotropicFluid(StruphyModel):
         rho = self.fluid.density.spline.vector
         u = self.fluid.velocity.spline.vector
 
-        en_U = 0.5 * self.mass_ops.WMM.massop.dot_inner(u, u)
+        en_U = 0.5 * Propagator.mass_ops.WMM.massop.dot_inner(u, u)
         self.update_scalar("en_U", en_U)
 
-        en_thermo = 0.5 * self.mass_ops.M3.dot_inner(rho, rho)
+        en_thermo = 0.5 * Propagator.mass_ops.M3.dot_inner(rho, rho)
         self.update_scalar("en_thermo", en_thermo)
 
         en_tot = en_U + en_thermo

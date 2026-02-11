@@ -6,6 +6,7 @@ from struphy.models.species import (
     FluidSpecies,
 )
 from struphy.models.variables import FEECVariable
+from struphy.propagators.base import Propagator
 from struphy.propagators import (
     propagators_fields,
 )
@@ -90,7 +91,7 @@ class VariationalPressurelessFluid(StruphyModel):
 
     def update_scalar_quantities(self):
         u = self.fluid.velocity.spline.vector
-        en_U = 0.5 * self.mass_ops.WMM.massop.dot_inner(u, u)
+        en_U = 0.5 * Propagator.mass_ops.WMM.massop.dot_inner(u, u)
         self.update_scalar("en_U", en_U)
 
     # default parameters
