@@ -27,3 +27,8 @@ class Simulation(metaclass=ABCMeta):
     def run(self, verbose: bool = False):
         """Run the simulation."""
         pass
+    
+    @abstractmethod
+    def pproc(self, verbose: bool = False):
+        """Post-process the simulation results."""
+        pass
