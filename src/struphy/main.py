@@ -20,12 +20,13 @@ from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWit
 from struphy.fields_background.equils import HomogenSlab
 from struphy.geometry import domains
 from struphy.geometry.base import Domain
-from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time, Units
+from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time
 from struphy.io.output_handling import DataContainer
 from struphy.io.setup import import_parameters_py, setup_folders
 from struphy.models.base import StruphyModel
 from struphy.models.species import Species
 from struphy.models.variables import FEECVariable
+from struphy.physics.physics import Units
 from struphy.pic.base import Particles
 from struphy.post_processing.orbits import orbits_tools
 from struphy.post_processing.post_processing_tools import (
@@ -92,8 +93,7 @@ def run(
         Barrier = comm.Barrier
 
     if rank == 0:
-        print("")
-
+        print("[PROGRESS:0]")
     # synchronize MPI processes to set same start time of simulation for all processes
     Barrier()
     start_simulation = time.time()
@@ -127,7 +127,8 @@ def run(
     meta["restart"] = restart
     meta["max wall-clock [min]"] = max_runtime
     meta["save interval [steps]"] = save_step
-
+    if rank == 0:
+        print("[PROGRESS:5]")
     if rank == 0:
         print("\nMETADATA:")
         for k, v in meta.items():
@@ -139,7 +140,8 @@ def run(
         restart=restart,
         verbose=verbose,
     )
-
+    if rank == 0:
+        print("[PROGRESS:10]")
     # add derived units
     units = Units(base_units)
 
@@ -177,7 +179,8 @@ def run(
                 pickle.dump(derham_opts, f, pickle.HIGHEST_PROTOCOL)
             with open(os.path.join(path_out, "model_class.bin"), "wb") as f:
                 pickle.dump(model.__class__, f, pickle.HIGHEST_PROTOCOL)
-
+    if rank == 0:
+        print("[PROGRESS:15]")
     # config clones
     if comm is None:
         clone_config = None
@@ -199,6 +202,9 @@ def run(
 
     ## configure model instance
 
+    if rank == 0:
+        print("[PROGRESS:20]")
+
     # units
     model.units = units
     if model.bulk_species is None:
@@ -217,18 +223,33 @@ def run(
     # domain and fluid background
     model.setup_domain_and_equil(domain, equil)
 
+    if rank == 0:
+        print("[PROGRESS:30]")
+
     # feec
     model.allocate_feec(grid, derham_opts)
 
+    if rank == 0:
+        print("[PROGRESS:40]")
+
     # equation paramters
     model.setup_equation_params(units=model.units, verbose=verbose)
+
+    if rank == 0:
+        print("[PROGRESS:50]")
 
     # allocate variables
     model.allocate_variables(verbose=verbose)
     model.allocate_helpers()
 
+    if rank == 0:
+        print("[PROGRESS:60]")
+
     # pass info to propagators
     model.allocate_propagators()
+
+    if rank == 0:
+        print("[PROGRESS:70]")
 
     # plasma parameters
     model.compute_plasma_params(verbose=verbose)
@@ -265,6 +286,9 @@ def run(
 
         gridToVTK(os.path.join(path_out, "geometry"), *grids_phy, pointData=pointData)
 
+    if rank == 0:
+        print("[PROGRESS:80]")
+
     # data object for saving (will either create new hdf5 files if restart==False or open existing files if restart==True)
     # use MPI.COMM_WORLD as communicator when storing the outputs
     data = DataContainer(path_out, comm=comm)
@@ -296,15 +320,18 @@ def run(
             time_state["value_sec"][0] = file["restart/time/value_sec"][-1]
             time_state["index"][0] = file["restart/time/index"][-1]
 
-        total_steps = str(int(round((Tend - time_state["value"][0]) / dt)))
+        total_steps = int(round((Tend - time_state["value"][0]) / dt))
     else:
-        total_steps = str(int(round(Tend / dt)))
+        total_steps = int(round(Tend / dt))
 
     # compute initial scalars and kinetic data, pass time state to all propagators
     model.update_scalar_quantities()
     model.update_markers_to_be_saved()
     model.update_distr_functions()
     model.add_time_state(time_state["value"])
+
+    if rank == 0:
+        print("[PROGRESS:90]")
 
     # add all variables to be saved to data object
     save_keys_all, save_keys_end = model.initialize_data_output(data, size)
@@ -317,7 +344,12 @@ def run(
 
         print(f"\nSTART TIME STEPPING WITH '{split_algo}' SPLITTING:")
 
+        print("[PROGRESS:100]")
+        print("[STEP:1:done]")
+
     # time loop
+    if rank == 0:
+        print("[PROGRESS:0]")
     run_time_now = 0.0
     while True:
         Barrier()
@@ -388,23 +420,20 @@ def run(
 
             # print current time and scalar quantities to screen
             if rank == 0 and verbose:
-                step = str(time_state["index"][0]).zfill(len(total_steps))
+                step = int(time_state["index"][0])  # .zfill(len(str(total_steps)))
 
-                message = "time step: " + step + "/" + str(total_steps)
-                message += " | " + "time: {0:10.5f}/{1:10.5f}".format(time_state["value"][0], Tend)
-                message += " | " + "phys. time [s]: {0:12.10f}/{1:12.10f}".format(
-                    time_state["value_sec"][0],
-                    Tend * model.units.t,
-                )
-                message += " | " + "wall clock [s]: {0:8.4f} | last step duration [s]: {1:8.4f}".format(
-                    run_time_now * 60,
-                    t1 - t0,
-                )
+                print(f"[PROGRESS:{int(step / total_steps * 100)}]")
+                message = f"time step: {step} / {total_steps}"
+                message += f" | time: {time_state['value'][0]:10.5f}/{Tend:10.5f}"
+                message += f" | phys. time [s]: {time_state['value_sec'][0]:12.10f}/{Tend * model.units.t:12.10f}"
+                message += f" | wall clock [s]: {run_time_now * 60:8.4f} | last step duration [s]: {t1 - t0:8.4f}"
 
                 print(message, end="\n")
                 model.print_scalar_quantities()
                 print()
 
+    if rank == 0:
+        print("[STEP:2:done]")
     # ===================================================================
 
     meta["wall-clock time[min]"] = (end_simulation - start_simulation) / 60
@@ -419,6 +448,8 @@ def run(
         clone_config.free()
 
     ProfileManager.finalize()
+    if rank == 0:
+        print("[STEP:3:done]")
 
 
 def pproc(

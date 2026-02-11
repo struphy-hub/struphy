@@ -5,21 +5,8 @@ import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 
-from struphy import main
-from struphy.fields_background import equils
-from struphy.geometry import domains
-from struphy.initial import perturbations
-from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, FieldsBackground, Time
-from struphy.kinetic_background import maxwellians
-from struphy.models.toy import Poisson
-from struphy.pic.utilities import (
-    BinningPlot,
-    BoundaryParameters,
-    KernelDensityPlot,
-    LoadingParameters,
-    WeightsParameters,
-)
-from struphy.topology import grids
+from struphy import BaseUnits, DerhamOptions, EnvironmentOptions, Time, domains, grids, main, perturbations
+from struphy.models import Poisson
 
 
 def test_poisson_1d(do_plot=False):
@@ -72,8 +59,8 @@ def test_poisson_1d(do_plot=False):
     # analytical solution
     Lx = r1 - l1
     rhs_exact = lambda e1, e2, e3, t: amp * xp.cos(l * 2 * xp.pi / Lx * e1) * xp.cos(omega * t)
-    phi_exact = (
-        lambda e1, e2, e3, t: amp / (l * 2 * xp.pi / Lx) ** 2 * xp.cos(l * 2 * xp.pi / Lx * e1) * xp.cos(omega * t)
+    phi_exact = lambda e1, e2, e3, t: (
+        amp / (l * 2 * xp.pi / Lx) ** 2 * xp.cos(l * 2 * xp.pi / Lx * e1) * xp.cos(omega * t)
     )
 
     # start run
