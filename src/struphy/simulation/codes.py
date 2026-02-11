@@ -233,10 +233,12 @@ class StruphySimulation(Simulation):
         
         # allocate model variables
         self._allocate_variables(verbose=verbose)
-        self.model.allocate_helpers()
 
         # pass info to propagators
         self._allocate_propagators()
+        
+        # allocate helper fields and perform initial solves if needed
+        self.model.allocate_helpers()
 
     def save_geometry_and_equil_vtk(self, verbose: bool = False):
         # store geometry vtk

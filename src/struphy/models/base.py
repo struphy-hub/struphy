@@ -58,7 +58,7 @@ class StruphyModel(metaclass=ABCMeta):
 
     @abstractmethod
     def allocate_helpers(self):
-        """Allocate helper arrays that are needed during simulation."""
+        """Allocate helper arrays and perform initial solves if needed."""
 
     @abstractmethod
     def update_scalar_quantities(self):

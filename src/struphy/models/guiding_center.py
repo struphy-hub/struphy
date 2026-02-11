@@ -7,6 +7,7 @@ from struphy.models.species import (
     ParticleSpecies,
 )
 from struphy.models.variables import PICVariable
+from struphy.propagators.base import Propagator
 from struphy.propagators import (
     propagators_markers,
 )
@@ -123,7 +124,7 @@ class GuidingCenter(StruphyModel):
         self.update_scalar("en_tot", self._en_tot[0])
 
         self._n_lost_particles[0] = particles.n_lost_markers
-        self.derham.comm.Allreduce(
+        Propagator.derham.comm.Allreduce(
             MPI.IN_PLACE,
             self._n_lost_particles,
             op=MPI.SUM,

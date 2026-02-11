@@ -7,6 +7,7 @@ from struphy.models.species import (
     FluidSpecies,
 )
 from struphy.models.variables import FEECVariable
+from struphy.propagators.base import Propagator
 from struphy.propagators import (
     propagators_fields,
 )
@@ -118,9 +119,9 @@ class ColdPlasma(StruphyModel):
         b = self.em_fields.b_field.spline.vector
         j = self.electrons.current.spline.vector
 
-        en_E = 0.5 * self.mass_ops.M1.dot_inner(e, e)
-        en_B = 0.5 * self.mass_ops.M2.dot_inner(b, b)
-        en_J = 0.5 * self._alpha**2 * self.mass_ops.M1ninv.dot_inner(j, j)
+        en_E = 0.5 * Propagator.mass_ops.M1.dot_inner(e, e)
+        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(b, b)
+        en_J = 0.5 * self._alpha**2 * Propagator.mass_ops.M1ninv.dot_inner(j, j)
 
         self.update_scalar("electric energy", en_E)
         self.update_scalar("magnetic energy", en_B)

@@ -8,6 +8,7 @@ from struphy.models.species import (
     FluidSpecies,
 )
 from struphy.models.variables import FEECVariable
+from struphy.propagators.base import Propagator
 from struphy.propagators import (
     propagators_fields,
 )
@@ -97,24 +98,17 @@ class HasegawaWakatani(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
-    def allocate_helpers(self):
-        self._rho: StencilVector = self.derham.Vh["0"].zeros()
-        self.update_rho()
-
     def update_rho(self):
         omega = self.plasma.vorticity.spline.vector
-        self._rho = self.mass_ops.M0.dot(omega, out=self._rho)
+        self._rho = Propagator.mass_ops.M0.dot(omega, out=self._rho)
         self._rho.update_ghost_regions()
         return self._rho
-
-    def allocate_propagators(self):
+    
+    def allocate_helpers(self):
         """Solve initial Poisson equation.
 
         :meta private:
         """
-        # initialize fields and particles
-        super().allocate_propagators()
-
         if MPI.COMM_WORLD.Get_rank() == 0:
             print("\nINITIAL POISSON SOLVE:")
 
@@ -123,6 +117,9 @@ class HasegawaWakatani(StruphyModel):
 
         if MPI.COMM_WORLD.Get_rank() == 0:
             print("Done.")
+        
+        self._rho: StencilVector = Propagator.derham.Vh["0"].zeros()
+        self.update_rho()
 
     def update_scalar_quantities(self):
         pass
