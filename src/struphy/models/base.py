@@ -1,35 +1,20 @@
-import inspect
-import operator
 import os
 from abc import ABCMeta, abstractmethod
-from functools import reduce
 from textwrap import indent
 
 import cunumpy as xp
-import h5py
-import yaml
 from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
 from scope_profiler import ProfileManager
 
-from struphy.feec.mass import WeightedMassOperators
-from struphy.fields_background.base import (
-    FluidEquilibrium,
-    FluidEquilibriumWithB,
-    NumericalMHDequilibrium,
-)
-
-from struphy.geometry.base import Domain
 from struphy.io.options import LiteralOptions
-from struphy.io.output_handling import DataContainer
 from struphy.models.species import DiagnosticSpecies, FieldSpecies, FluidSpecies, ParticleSpecies, Species
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.physics.physics import Units
 from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.utils import dict_to_yaml
 
 
 class StruphyModel(metaclass=ABCMeta):
@@ -708,15 +693,3 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
     def verbose(self, new):
         assert isinstance(new, bool)
         self._verbose = new
-
-class MyDumper(yaml.SafeDumper):
-    # HACK: insert blank lines between top-level objects
-    # inspired by https://stackoverflow.com/a/44284819/3786245
-    def write_line_break(self, data=None):
-        super().write_line_break(data)
-
-        if len(self.indents) == 1:
-            super().write_line_break()
-
-    def ignore_aliases(self, data):
-        return True
