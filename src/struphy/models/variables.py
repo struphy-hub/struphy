@@ -267,12 +267,9 @@ class PICVariable(Variable):
         self.particles.draw_markers(sort=sort, verbose=verbose)
 
         # set zero velocity according to loading_params
-        zero_index = xp.nonzero(self._particles.loading_params.set_zero_velocity)[0].flatten()
+        zero_index = xp.nonzero(self.particles.loading_params.set_zero_velocity)[0].flatten()
 
-        if len(zero_index) > 0: # I add this if so that the velocity does not have to be copied if no zero-setting
-            v = self.particles.velocities.copy()
-            v[:, zero_index] = 0.0
-            self._particles.velocities = v #use setter of velocity
+        for comp in zero_index: self.particles.set_velocities_comp(velocity = 0.0, comp = comp)
 
         self.particles.initialize_weights()
 
