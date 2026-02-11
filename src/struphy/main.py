@@ -85,12 +85,7 @@ def run(
         verbose=verbose,
     )
 
-    # equation paramters
-    sim.allocate(verbose=verbose)
-
-    # plasma parameters
-    sim.compute_plasma_params(verbose=verbose)
-
+    # run simulation
     sim.run(verbose=verbose)
     exit()
 

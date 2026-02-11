@@ -11,8 +11,7 @@ from struphy import (EnvironmentOptions,
 # core imports
 from struphy.models.base import StruphyModel
 from struphy.geometry.base import Domain
-from struphy.fields_background.base import FluidEquilibrium, NumericalMHDequilibrium, FluidEquilibriumWithB
-from struphy.io.setup import setup_folders
+from struphy.fields_background.base import (FluidEquilibrium, NumericalMHDequilibrium, FluidEquilibriumWithB,)
 from struphy.physics.physics import Units
 from struphy.utils.clone_config import CloneConfig
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
@@ -29,7 +28,7 @@ from struphy.fields_background.projected_equils import (
     ProjectedMHDequilibrium,
 )
 from struphy.propagators.base import Propagator
-from struphy.models.species import DiagnosticSpecies, FieldSpecies, FluidSpecies, ParticleSpecies, Species
+from struphy.models.species import (DiagnosticSpecies, FieldSpecies, FluidSpecies, ParticleSpecies, Species,)
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.io.output_handling import DataContainer
 from struphy.pic.base import Particles
@@ -360,47 +359,47 @@ class Simulation:
                 "Min magnetic field:".ljust(25),
                 "{:4.3e}".format(B_min) + units_affix["magnetic field"],
             )
+    
+    def initialize_data(self, verbose: bool = False):
+        # data object for saving (will either create new hdf5 files if restart==False or open existing files if restart==True)
+        # use MPI.COMM_WORLD as communicator when storing the outputs
+        self.data = DataContainer(self.env.path_out, comm=self.comm)
 
-    def add_time_state(self, time_state):
-        """Add a pointer to the time variable of the dynamics ('t')
-        to the model and to all propagators of the model.
+        # time quantities (current time value, value in seconds and index)
+        self.time_state = {}
+        self.time_state["value"] = xp.zeros(1, dtype=float)
+        self.time_state["value_sec"] = xp.zeros(1, dtype=float)
+        self.time_state["index"] = xp.zeros(1, dtype=int)
 
-        Parameters
-        ----------
-        time_state : ndarray
-            Of size 1, holds the current physical time 't'.
-        """
-        assert time_state.size == 1
-        self._time_state = time_state
-        for _, prop in self.propagators.__dict__.items():
-            if isinstance(prop, Propagator):
-                prop.add_time_state(time_state)
+        # add time quantities to data object for saving
+        for key, val in self.time_state.items():
+            key_time = "time/" + key
+            key_time_restart = "restart/time/" + key
+            self.data.add_data({key_time: val})
+            self.data.add_data({key_time_restart: val})
     
     def run(self, verbose: bool = False):
+        
+        # equation paramters
+        self.allocate(verbose=self.verbose)
+
+        # peek view into geometry
+        self.store_geometry(verbose=self.verbose)
+
+        # plasma parameters
+        self.compute_plasma_params(verbose=self.verbose)
+
+        # outout
+        self.initialize_data(verbose=self.verbose)
+        
+        # print info on mpi procs
         if self.rank < 32:
             if self.rank == 0:
                 print("")
-            print(f"Rank {self.rank}: executing main.run() for model {self.model_name} ...")
+            print(f"Rank {self.rank}: executing run() for model {self.model_name} ...")
 
         if self.size > 32 and self.rank == 32:
-            print(f"Ranks > 31: executing main.run() for model {self.model_name} ...")
-
-        # data object for saving (will either create new hdf5 files if restart==False or open existing files if restart==True)
-        # use MPI.COMM_WORLD as communicator when storing the outputs
-        data = DataContainer(self.env.path_out, comm=self.comm)
-
-        # time quantities (current time value, value in seconds and index)
-        time_state = {}
-        time_state["value"] = xp.zeros(1, dtype=float)
-        time_state["value_sec"] = xp.zeros(1, dtype=float)
-        time_state["index"] = xp.zeros(1, dtype=int)
-
-        # add time quantities to data object for saving
-        for key, val in time_state.items():
-            key_time = "time/" + key
-            key_time_restart = "restart/time/" + key
-            data.add_data({key_time: val})
-            data.add_data({key_time_restart: val})
+            print(f"Ranks > 31: executing run() for model {self.model_name} ...")
 
         # retrieve time parameters
         dt = self.time_opts.dt
@@ -409,14 +408,14 @@ class Simulation:
 
         # set initial conditions for all variables
         if self.env.restart:
-            self.model.initialize_from_restart(data)
+            self.model.initialize_from_restart(self.data)
 
-            with h5py.File(data.file_path, "a") as file:
-                time_state["value"][0] = file["restart/time/value"][-1]
-                time_state["value_sec"][0] = file["restart/time/value_sec"][-1]
-                time_state["index"][0] = file["restart/time/index"][-1]
+            with h5py.File(self.data.file_path, "a") as file:
+                self.time_state["value"][0] = file["restart/time/value"][-1]
+                self.time_state["value_sec"][0] = file["restart/time/value_sec"][-1]
+                self.time_state["index"][0] = file["restart/time/index"][-1]
 
-            total_steps = str(int(round((Tend - time_state["value"][0]) / dt)))
+            total_steps = str(int(round((Tend - self.time_state["value"][0]) / dt)))
         else:
             total_steps = str(int(round(Tend / dt)))
 
@@ -424,10 +423,10 @@ class Simulation:
         self.model.update_scalar_quantities()
         self.model.update_markers_to_be_saved()
         self.model.update_distr_functions()
-        self.model.add_time_state(time_state["value"])
+        self._add_time_state(self.time_state["value"])
 
         # add all variables to be saved to data object
-        save_keys_all, save_keys_end = self._initialize_data_output(data, self.size)
+        save_keys_all, save_keys_end = self._initialize_hdf5_datasets(self.data, self.size)
 
         # ======================== main time loop ======================
         self.model.update_scalar_quantities()
@@ -443,15 +442,15 @@ class Simulation:
             self.Barrier()
 
             # stop time loop?
-            break_cond_1 = time_state["value"][0] >= Tend
+            break_cond_1 = self.time_state["value"][0] >= Tend
             break_cond_2 = run_time_now > self.env.max_runtime
 
             if break_cond_1 or break_cond_2:
                 # save restart data (other data already saved below)
-                data.save_data(keys=save_keys_end)
+                self.data.save_data(keys=save_keys_end)
                 end_time = time.time()
                 if self.rank == 0:
-                    print(f"\nTime steps done: {time_state['index'][0]}")
+                    print(f"\nTime steps done: {self.time_state['index'][0]}")
                     print(
                         "wall-clock time of simulation [sec]: ",
                         end_time - self.start_time,
@@ -459,7 +458,7 @@ class Simulation:
                     print()
                 break
 
-            if self.env.sort_step and time_state["index"][0] % self.env.sort_step == 0:
+            if self.env.sort_step and self.time_state["index"][0] % self.env.sort_step == 0:
                 t0 = time.time()
                 for key, val in self.model.pointer.items():
                     if isinstance(val, Particles):
@@ -474,9 +473,9 @@ class Simulation:
                     print()
 
             # update time and index (round time to 10 decimals for a clean time grid!)
-            time_state["value"][0] = round(time_state["value"][0] + dt, 10)
-            time_state["value_sec"][0] = round(time_state["value_sec"][0] + dt * self.units.t, 10)
-            time_state["index"][0] += 1
+            self.time_state["value"][0] = round(self.time_state["value"][0] + dt, 10)
+            self.time_state["value_sec"][0] = round(self.time_state["value_sec"][0] + dt * self.units.t, 10)
+            self.time_state["index"][0] += 1
 
             # perform one time step dt
             t0 = time.time()
@@ -487,7 +486,7 @@ class Simulation:
             run_time_now = (time.time() - self.start_time) / 60
 
             # update diagnostics data and save data
-            if time_state["index"][0] % self.env.save_step == 0:
+            if self.time_state["index"][0] % self.env.save_step == 0:
                 # compute scalars and kinetic data
                 self.model.update_scalar_quantities()
                 self.model.update_markers_to_be_saved()
@@ -504,16 +503,16 @@ class Simulation:
                         spline.extract_coeffs(update_ghost_regions=False)
 
                 # save data (everything but restart data)
-                data.save_data(keys=save_keys_all)
+                self.data.save_data(keys=save_keys_all)
 
                 # print current time and scalar quantities to screen
                 if self.rank == 0 and verbose:
-                    step = str(time_state["index"][0]).zfill(len(total_steps))
+                    step = str(self.time_state["index"][0]).zfill(len(total_steps))
 
                     message = "time step: " + step + "/" + str(total_steps)
-                    message += " | " + "time: {0:10.5f}/{1:10.5f}".format(time_state["value"][0], Tend)
+                    message += " | " + "time: {0:10.5f}/{1:10.5f}".format(self.time_state["value"][0], Tend)
                     message += " | " + "phys. time [s]: {0:12.10f}/{1:12.10f}".format(
-                        time_state["value_sec"][0],
+                        self.time_state["value_sec"][0],
                         Tend * self.units.t,
                     )
                     message += " | " + "wall clock [s]: {0:8.4f} | last step duration [s]: {1:8.4f}".format(
@@ -886,7 +885,7 @@ class Simulation:
                 print(f"\nAllocated propagator '{prop.__class__.__name__}'.")
     
     @profile
-    def _initialize_data_output(self, data: DataContainer, size):
+    def _initialize_hdf5_datasets(self, data: DataContainer, size):
         """
         Create datasets in hdf5 files according to model unknowns and diagnostics data.
 
@@ -1035,6 +1034,21 @@ class Simulation:
                 save_keys_all.append(key)
 
         return save_keys_all, save_keys_end
+    
+    def _add_time_state(self, time_state):
+        """Add a pointer to the time variable of the dynamics ('t')
+        to the model and to all propagators of the model.
+
+        Parameters
+        ----------
+        time_state : ndarray
+            Of size 1, holds the current physical time 't'.
+        """
+        assert time_state.size == 1
+        self._time_state = time_state
+        for _, prop in self.model.propagators.__dict__.items():
+            if isinstance(prop, Propagator):
+                prop.add_time_state(time_state)
     
     @property
     def domain(self):

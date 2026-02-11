@@ -519,21 +519,6 @@ class StruphyModel(metaclass=ABCMeta):
             "summands": summands,
         }
 
-    def add_time_state(self, time_state):
-        """Add a pointer to the time variable of the dynamics ('t')
-        to the model and to all propagators of the model.
-
-        Parameters
-        ----------
-        time_state : ndarray
-            Of size 1, holds the current physical time 't'.
-        """
-        assert time_state.size == 1
-        self._time_state = time_state
-        for _, prop in self.propagators.__dict__.items():
-            if isinstance(prop, Propagator):
-                prop.add_time_state(time_state)
-
     @profile
     def integrate(self, dt, split_algo="LieTrotter"):
         """
