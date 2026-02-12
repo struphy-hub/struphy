@@ -35,7 +35,7 @@ from struphy.topology.grids import TensorProductGrid
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml
 
-from struphy.simulation.codes import StruphySimulation
+from struphy.simulation.sim import StruphySimulation
 
 
 @profile

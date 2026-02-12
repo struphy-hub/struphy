@@ -8,7 +8,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy import EnvironmentOptions
 from struphy.io.setup import import_parameters_py
 from struphy.models.base import StruphyModel
-from struphy.simulation.codes import StruphySimulation
+from struphy.simulation.sim import StruphySimulation
 
 rank = MPI.COMM_WORLD.Get_rank()
 

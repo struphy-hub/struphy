@@ -24,7 +24,7 @@ from struphy.models.variables import PICVariable
 from struphy.topology.grids import TensorProductGrid
 
 if TYPE_CHECKING:
-    from struphy.simulation.codes import StruphySimulation
+    from struphy.simulation.sim import StruphySimulation
 
 
 class ParamsIn:
