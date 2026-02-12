@@ -39,6 +39,7 @@ from struphy.simulation.base import Simulation
 from struphy.feec.psydac_derham import SplineFunction
 from struphy.post_processing.orbits import orbits_tools
 from struphy.kinetic_background.base import KineticBackground
+from struphy.post_processing.post_processing_tools import SimData   
 
 # third party imports
 from feectools.ddm.mpi import MockMPI
@@ -271,6 +272,11 @@ class StruphySimulation(Simulation):
     def clone_config(self, new):
         assert isinstance(new, CloneConfig) or new is None
         self._clone_config = new
+
+    @property
+    def path_pproc(self):
+        """Path to post-processing folder."""
+        return os.path.join(self.env.path_out, "post_processing")
 
     # ----------------
     # Abstract methods
@@ -512,8 +518,8 @@ RESTARTing from:
         verbose: bool = False,):
         pproc(sim=self, step=step, celldivide=celldivide, physical=physical, guiding_center=guiding_center, classify=classify, create_vtk=create_vtk, time_trace=time_trace, verbose=verbose,)
 
-    def load_plotting_data(self, verbose: bool = False):
-        load_plotting_data(sim=self, verbose=verbose)
+    def load_plotting_data(self, verbose: bool = False) -> SimData:
+        return load_plotting_data(sim=self, verbose=verbose)
 
     # ---------------------
     # Code specific methods

@@ -186,7 +186,7 @@ def get_params_of_run(path: str) -> ParamsIn:
     )
 
 
-def pproc(sim: "StruphySimulation" = None,
+def pproc(sim: StruphySimulation = None,
         path_out: str = None,
         step: int = 1,
         celldivide: int = 1,
@@ -234,26 +234,26 @@ def pproc(sim: "StruphySimulation" = None,
         print(f"\n*** Start post-processing of {path_out}:")
 
     # create post-processing folder
-    sim._path_pproc = os.path.join(path_out, "post_processing")
+    path_pproc = os.path.join(path_out, "post_processing")
 
     try:
-        os.mkdir(sim.path_pproc)
+        os.mkdir(path_pproc)
     except:
-        shutil.rmtree(sim.path_pproc)
-        os.mkdir(sim.path_pproc)
+        shutil.rmtree(path_pproc)
+        os.mkdir(path_pproc)
 
     if time_trace:
         from struphy.post_processing.likwid.plot_time_traces import plot_gantt_chart_plotly, plot_time_vs_duration
 
         path_time_trace = os.path.join(path_out, "profiling_time_trace.pkl")
-        plot_time_vs_duration(path_time_trace, output_path=sim.path_pproc)
-        plot_gantt_chart_plotly(path_time_trace, output_path=sim.path_pproc)
+        plot_time_vs_duration(path_time_trace, output_path=path_pproc)
+        plot_gantt_chart_plotly(path_time_trace, output_path=path_pproc)
         return
 
     # check for fields and kinetic data in hdf5 file that need post processing
     with h5py.File(os.path.join(path_out, "data/", "data_proc0.hdf5"), "r") as file:
         # save time grid at which post-processing data is created
-        xp.save(os.path.join(sim.path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
+        xp.save(os.path.join(path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
 
         if "feec" in file.keys():
             exist_fields = True
@@ -288,7 +288,7 @@ def pproc(sim: "StruphySimulation" = None,
         sim.pproc_particles(step=step, guiding_center=guiding_center, classify=classify, verbose=verbose,)
         
 
-def load_plotting_data(sim: "StruphySimulation" = None, path_out: str = None, verbose: bool = False,) -> SimData:
+def load_plotting_data(sim: StruphySimulation = None, path_out: str = None, verbose: bool = False,) -> SimData:
     """Load data generated during post-processing."""
     if sim is None:
         assert path_out is not None, "If no sim object is provided, a path_out must be given to retrieve the parameters of the run to post-process."

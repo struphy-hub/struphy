@@ -7,9 +7,10 @@ from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 from scipy.special import jv, yn
 
-from struphy import BaseUnits, DerhamOptions, EnvironmentOptions, Time, domains, equils, grids, main, perturbations
+from struphy import (BaseUnits, DerhamOptions, EnvironmentOptions, Time, domains, equils, grids, main, perturbations, StruphySimulation,)
 from struphy.diagnostics.diagn_tools import power_spectrum_2d
 from struphy.models import Maxwell
+from struphy.post_processing.post_processing_tools import SimData
 
 
 @pytest.mark.parametrize("algo", ["implicit", "explicit"])
@@ -47,12 +48,9 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
     model.em_fields.e_field.add_perturbation(perturbations.Noise(amp=0.1, comp=0, seed=123))
     model.em_fields.e_field.add_perturbation(perturbations.Noise(amp=0.1, comp=1, seed=123))
 
-    # start run
-    verbose = True
-
-    main.run(
-        model,
-        params_path=None,
+    # instantiate Simulation and run
+    sim = StruphySimulation(
+        model=model,
         env=env,
         base_units=base_units,
         time_opts=time_opts,
@@ -60,16 +58,17 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
         equil=equil,
         grid=grid,
         derham_opts=derham_opts,
-        verbose=verbose,
-    )
+        verbose=True,)
+
+    sim.run(verbose=True)
 
     # post processing
     if MPI.COMM_WORLD.Get_rank() == 0:
-        main.pproc(env.path_out)
+        sim.pproc(verbose=True)
 
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
-        simdata = main.load_data(env.path_out)
+        simdata = sim.load_plotting_data(verbose=True)
 
         # fft
         E_of_t = simdata.spline_values["em_fields"]["e_field_log"]
@@ -268,5 +267,5 @@ def test_coaxial(do_plot: bool = False):
 
 
 if __name__ == "__main__":
-    # test_light_wave_1d(algo="explicit", do_plot=True)
-    test_coaxial(do_plot=True)
+    test_light_wave_1d(algo="explicit", do_plot=True)
+    # test_coaxial(do_plot=True)
