@@ -269,7 +269,8 @@ class PICVariable(Variable):
         # set zero velocity according to loading_params
         zero_index = xp.nonzero(self.particles.loading_params.set_zero_velocity)[0].flatten()
 
-        for comp in zero_index: self.particles.set_velocities_comp(velocity = 0.0, comp = comp)
+        for comp in zero_index:
+            self.particles.set_velocities_comp(velocity=0.0, comp=comp)
 
         self.particles.initialize_weights()
 

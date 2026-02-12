@@ -797,10 +797,10 @@ class Particles(metaclass=ABCMeta):
         assert isinstance(new, xp.ndarray)
         assert new.shape == (self.n_mks_loc, self.vdim), f"{self.n_mks_loc =} and {self.vdim =} but {new.shape =}"
         self._markers[self.valid_mks, self.index["vel"]] = new
-    
+
     def set_velocities_comp(self, velocity, comp):
         assert (0 <= comp) and (comp <= 3), "comp must be 0 <= comp <= 3"
-        new = xp.ones(shape = (self.velocities.shape[0], 1)) * velocity
+        new = xp.ones(shape=(self.velocities.shape[0], 1)) * velocity
         self._markers[self.valid_mks, slice(3 + comp, 3 + comp + 1)] = new
 
     @property

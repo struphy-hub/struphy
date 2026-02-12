@@ -33,7 +33,7 @@ class LoadingParameters:
 
     specific_markers : tuple[tuple]
         Each entry is a tuple of phase space coordinates (floats) of a specific marker to be initialized.
-    
+
     set_zero_velocity: tuple
         Initialize velocity of Maxwellain along selected axis to be zero.
 

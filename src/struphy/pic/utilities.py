@@ -2,6 +2,7 @@ import cunumpy as xp
 
 import struphy.pic.utilities_kernels as utils
 
+
 def get_kinetic_energy_particles(fe_coeffs, derham, domain, particles):
     """
     This function is for getting kinetic energy of the case when canonical momentum is used, rather than velocity
