@@ -109,6 +109,9 @@ class HasegawaWakatani(StruphyModel):
 
         :meta private:
         """
+        self._rho: StencilVector = Propagator.derham.Vh["0"].zeros()
+        self.update_rho()
+        
         if MPI.COMM_WORLD.Get_rank() == 0:
             print("\nINITIAL POISSON SOLVE:")
 
@@ -118,8 +121,6 @@ class HasegawaWakatani(StruphyModel):
         if MPI.COMM_WORLD.Get_rank() == 0:
             print("Done.")
         
-        self._rho: StencilVector = Propagator.derham.Vh["0"].zeros()
-        self.update_rho()
 
     def update_scalar_quantities(self):
         pass

@@ -144,7 +144,7 @@ class ViscoResistiveLinearMHD_with_q(StruphyModel):
         return "alfvén"
 
     def allocate_helpers(self):
-        projV3 = L2Projector("L2", self._mass_ops)
+        projV3 = L2Projector("L2", Propagator.mass_ops)
 
         def f(e1, e2, e3):
             return 1

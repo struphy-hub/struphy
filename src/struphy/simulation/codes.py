@@ -35,6 +35,8 @@ from struphy.pic.base import Particles
 from struphy.utils.utils import dict_to_yaml
 from struphy.simulation.base import Simulation
 from struphy.feec.psydac_derham import SplineFunction
+from struphy.post_processing.orbits import orbits_tools
+from struphy.kinetic_background.base import KineticBackground
 
 # third party imports
 from feectools.ddm.mpi import MockMPI
@@ -463,7 +465,7 @@ RESTARTing from:
         physical: bool = False,
         guiding_center: bool = False,
         classify: bool = False,
-        no_vtk: bool = False,
+        create_vtk: bool = True,
         time_trace: bool = False,
         verbose: bool = False,
     ):
@@ -486,8 +488,8 @@ RESTARTing from:
         classify : bool
             Classify guiding-center trajectories (passing, trapped or lost).
 
-        no_vtk : bool
-            whether vtk files creation should be skipped
+        create_vtk : bool
+            Whether vtk files should be created.
 
         time_trace : bool
             whether to plot the time trace of each measured region
@@ -497,7 +499,7 @@ RESTARTing from:
             print(f"\n*** Start post-processing of {self.env.path_out}:")
 
         # create post-processing folder
-        self.path_pproc = os.path.join(self.env.path_out, "post_processing")
+        self._path_pproc = os.path.join(self.env.path_out, "post_processing")
 
         try:
             os.mkdir(self.path_pproc)
@@ -524,34 +526,147 @@ RESTARTing from:
                 exist_fields = False
 
             if "kinetic" in file.keys():
-                exist_particles = {"markers": False, "f": False, "n_sph": False}
-                kinetic_species = []
-                kinetic_kinds = []
+                self.exist_particles = {"markers": False, "f": False, "n_sph": False}
+                self.kinetic_species = []
+                self.kinetic_kinds = []
                 for name in file["kinetic"].keys():
-                    kinetic_species += [name]
-                    kinetic_kinds += [next(iter(self.model.species[name].variables.values())).space]
+                    self.kinetic_species += [name]
+                    self.kinetic_kinds += [next(iter(self.model.species[name].variables.values())).space]
 
                     # check for saved markers
                     if "markers" in file["kinetic"][name]:
-                        exist_particles["markers"] = True
+                        self.exist_particles["markers"] = True
                     # check for saved distribution function
                     if "f" in file["kinetic"][name]:
-                        exist_particles["f"] = True
+                        self.exist_particles["f"] = True
                     # check for saved sph density
                     if "n_sph" in file["kinetic"][name]:
-                        exist_particles["n_sph"] = True
+                        self.exist_particles["n_sph"] = True
             else:
-                exist_particles = None
+                self.exist_particles = None
 
         # post-processing
         if exist_fields:
-            self.pproc_fields(step=step, celldivide=celldivide, physical=physical)      
-        if exist_particles is not None:
-            self.pproc_particles()
+            self.pproc_fields(step=step, celldivide=celldivide, physical=physical,
+                              create_vtk=create_vtk, verbose=verbose,)      
+        if self.exist_particles is not None:
+            self.pproc_particles(step=step, guiding_center=guiding_center, classify=classify, verbose=verbose,)
 
     # ---------------------
     # Code specific methods
     # ---------------------
+
+    def pproc_fields(self, 
+                     step: int = 1, 
+                     celldivide: int = 1, 
+                     physical: bool = False, 
+                     create_vtk: bool = True,
+                     verbose: bool = False,
+                     ):
+        fields, t_grid = self._create_femfields(step=step)
+        point_data, grids_log, grids_phy = self._eval_femfields(fields, celldivide=[celldivide] * 3)
+        if physical:
+            point_data_phy, _, _ = self._eval_femfields(
+                fields,
+                celldivide=[celldivide] * 3,
+                physical=True,
+            )
+
+        # directory for field data
+        path_fields = os.path.join(self.path_pproc, "fields_data")
+
+        try:
+            os.mkdir(path_fields)
+        except:
+            shutil.rmtree(path_fields)
+            os.mkdir(path_fields)
+
+        # save data dicts for each field
+        for species, vars in point_data.items():
+            for name, val in vars.items():
+                try:
+                    os.mkdir(os.path.join(path_fields, species))
+                except:
+                    pass
+
+                with open(os.path.join(path_fields, species, name + "_log.bin"), "wb") as handle:
+                    pickle.dump(val, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+                if physical:
+                    with open(os.path.join(path_fields, species, name + "_phy.bin"), "wb") as handle:
+                        pickle.dump(point_data_phy[species][name], handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        # save grids
+        with open(os.path.join(path_fields, "grids_log.bin"), "wb") as handle:
+            pickle.dump(grids_log, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        with open(os.path.join(path_fields, "grids_phy.bin"), "wb") as handle:
+            pickle.dump(grids_phy, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        # create vtk files
+        if create_vtk:
+            self._create_vtk(path_fields, t_grid, grids_phy, point_data)
+            if physical:
+                self._create_vtk(path_fields, t_grid, grids_phy, point_data_phy, physical=True)
+
+    def pproc_particles(self, 
+                        step: int = 1,
+                        guiding_center: bool = False,
+                        classify: bool = False,
+                        verbose: bool = False,):
+        # directory for kinetic data
+        path_kinetics = os.path.join(self.path_pproc, "kinetic_data")
+
+        try:
+            os.mkdir(path_kinetics)
+        except:
+            shutil.rmtree(path_kinetics)
+            os.mkdir(path_kinetics)
+
+        # kinetic post-processing for each species
+        for n, species in enumerate(self.kinetic_species):
+            # directory for each species
+            path_kinetics_species = os.path.join(path_kinetics, species)
+
+            try:
+                os.mkdir(path_kinetics_species)
+            except:
+                shutil.rmtree(path_kinetics_species)
+                os.mkdir(path_kinetics_species)
+
+            # markers
+            if self.exist_particles["markers"]:
+                self._post_process_markers(
+                    path_kinetics_species,
+                    step,
+                )
+
+                if guiding_center:
+                    assert self.kinetic_kinds[n] == "Particles6D"
+                    orbits_tools.post_process_orbit_guiding_center(self.env.path_out, path_kinetics_species, species)
+
+                if classify:
+                    orbits_tools.post_process_orbit_classification(path_kinetics_species, species)
+
+            # distribution function
+            if self.exist_particles["f"]:
+                if self.kinetic_kinds[n] == "DeltaFParticles6D":
+                    compute_bckgr = True
+                else:
+                    compute_bckgr = False
+
+                self._post_process_f(
+                    path_kinetics_species,
+                    step,
+                    compute_bckgr=compute_bckgr,
+                )
+
+            # sph density
+            if self.exist_particles["n_sph"]:
+                self._post_process_n_sph(
+                    path_kinetics_species,
+                    step,
+                )
 
     def compute_plasma_params(self, verbose=True):
         """
@@ -655,118 +770,6 @@ RESTARTing from:
                 "Min magnetic field:".ljust(25),
                 "{:4.3e}".format(B_min) + units_affix["magnetic field"],
             )
-
-    def pproc_fields(self, step: int = 1, celldivide: int = 1, physical: bool = False, no_vtk: bool = False, verbose: bool = False,):
-        fields, t_grid = self._create_femfields(step=step)
-        point_data, grids_log, grids_phy = self._eval_femfields(fields, celldivide=[celldivide] * 3)
-        if physical:
-            point_data_phy, _, _ = self._eval_femfields(
-                fields,
-                celldivide=[celldivide] * 3,
-                physical=True,
-            )
-
-        # directory for field data
-        path_fields = os.path.join(self.path_pproc, "fields_data")
-
-        try:
-            os.mkdir(path_fields)
-        except:
-            shutil.rmtree(path_fields)
-            os.mkdir(path_fields)
-
-        # save data dicts for each field
-        for species, vars in point_data.items():
-            for name, val in vars.items():
-                try:
-                    os.mkdir(os.path.join(path_fields, species))
-                except:
-                    pass
-
-                with open(os.path.join(path_fields, species, name + "_log.bin"), "wb") as handle:
-                    pickle.dump(val, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-                if physical:
-                    with open(os.path.join(path_fields, species, name + "_phy.bin"), "wb") as handle:
-                        pickle.dump(point_data_phy[species][name], handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-        # save grids
-        with open(os.path.join(path_fields, "grids_log.bin"), "wb") as handle:
-            pickle.dump(grids_log, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-        with open(os.path.join(path_fields, "grids_phy.bin"), "wb") as handle:
-            pickle.dump(grids_phy, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-        # create vtk files
-        if not no_vtk:
-            self._create_vtk(path_fields, t_grid, grids_phy, point_data)
-            if physical:
-                self._create_vtk(path_fields, t_grid, grids_phy, point_data_phy, physical=True)
-
-    def pproc_particles(self):
-        # directory for kinetic data
-        path_kinetics = os.path.join(path_pproc, "kinetic_data")
-
-        try:
-            os.mkdir(path_kinetics)
-        except:
-            shutil.rmtree(path_kinetics)
-            os.mkdir(path_kinetics)
-
-        # kinetic post-processing for each species
-        for n, species in enumerate(kinetic_species):
-            # directory for each species
-            path_kinetics_species = os.path.join(path_kinetics, species)
-
-            try:
-                os.mkdir(path_kinetics_species)
-            except:
-                shutil.rmtree(path_kinetics_species)
-                os.mkdir(path_kinetics_species)
-
-            # markers
-            if exist_particles["markers"]:
-                post_process_markers(
-                    self.env.path_out,
-                    path_kinetics_species,
-                    species,
-                    domain,
-                    kinetic_kinds[n],
-                    step,
-                )
-
-                if guiding_center:
-                    assert kinetic_kinds[n] == "Particles6D"
-                    orbits_tools.post_process_orbit_guiding_center(self.env.path_out, path_kinetics_species, species)
-
-                if classify:
-                    orbits_tools.post_process_orbit_classification(path_kinetics_species, species)
-
-            # distribution function
-            if exist_particles["f"]:
-                if kinetic_kinds[n] == "DeltaFParticles6D":
-                    compute_bckgr = True
-                else:
-                    compute_bckgr = False
-
-                post_process_f(
-                    self.env.path_out,
-                    params_in,
-                    path_kinetics_species,
-                    species,
-                    step,
-                    compute_bckgr=compute_bckgr,
-                )
-
-            # sph density
-            if exist_particles["n_sph"]:
-                post_process_n_sph(
-                    self.env.path_out,
-                    params_in,
-                    path_kinetics_species,
-                    species,
-                    step,
-                )
 
     # ---------------
     # Private methods
@@ -1606,10 +1609,8 @@ RESTARTing from:
                 )
 
     def _post_process_markers(
-        path_out: str,
-        species: str,
-        domain: Domain,
-        kind: str = "Particles6D",
+        self,
+        path_kinetic_species: str,
         step: int = 1,
     ):
         """Computes the Cartesian (x, y, z) coordinates of saved markers during a simulation
@@ -1654,42 +1655,36 @@ RESTARTing from:
 
         Parameters
         ----------
-        path_in : str
-            Absolute path of simulation output folder.
-
-        path_out : str
-            Absolute path of where to store the .txt files. Will be in path_out/orbits.
-
-        species : str
-            Name of the species for which the post processing should be performed.
-
-        domain : Domain
-            Domain object.
-
-        kind : str
-            Name of the kinetic kind (Particles6D, Particles5D or Particles3D).
+        path_kinetic_species : str
+            Path to kinetic data of considered species.
 
         step : int, optional
             Whether to do post-processing at every time step (step=1, default), every second time step (step=2), etc.
         """
-        # get # of MPI processes from meta.txt file
-        with open(os.path.join(path_in, "meta.yml"), "r") as f:
-            meta = yaml.load(f, Loader=yaml.FullLoader)
-        nproc = meta["MPI processes"]
-
+        
+        species = path_kinetic_species.split("/")[-1]
+        species_obj: ParticleSpecies = self.model.particle_species[species]
+        
         # open hdf5 files and get names and number of saved markers of kinetic species
-        with h5py.File(os.path.join(path_in, "data/data_proc0.hdf5"), "r") as file_0:
+        with h5py.File(os.path.join(self.env.path_out, "data/data_proc0.hdf5"), "r") as file_0:
             # get number of time steps and markers
             nt, n_markers, n_cols = file_0["kinetic/" + species + "/markers"].shape
+        
+        # get velocity dimension from one of the variables of the species
+        for varname, var in species_obj.variables.items():
+            assert isinstance(var, PICVariable | SPHVariable)
+            obj: Particles = var.particles
+            vdim = obj.vdim
+            break
 
         log_nt = int(xp.log10(int(((nt - 1) / step)))) + 1
 
         # directory for .txt files and marker index which will be saved
-        path_orbits = os.path.join(path_out, "orbits")
+        path_orbits = os.path.join(path_kinetic_species, "orbits")
 
-        if "5D" in kind:
+        if vdim == 2:
             save_index = list(range(0, 6)) + [10] + [-1]
-        elif "6D" in kind or "SPH" in kind:
+        elif vdim == 3:
             save_index = list(range(0, 7)) + [-1]
         else:
             save_index = list(range(0, 4)) + [-1]
@@ -1721,8 +1716,8 @@ RESTARTing from:
                 species + "_{0:0{1}d}.txt".format(n, log_nt),
             )
 
-            for i in range(int(nproc)):
-                with h5py.File(os.path.join(path_in, "data/", f"data_proc{i}.hdf5"), "r") as file:
+            for i in range(int(self.comm_size)):
+                with h5py.File(os.path.join(self.env.path_out, "data/", f"data_proc{i}.hdf5"), "r") as file:
                     markers = file["kinetic/" + species + "/markers"]
                     ids = markers[n * step, :, -1].astype("int")
                     ids = ids[ids != -1]  # exclude holes
@@ -1744,7 +1739,7 @@ RESTARTing from:
             assert xp.all(sorted(ids) == xp.arange(n_markers))
 
             # compute physical positions (x, y, z)
-            pos_phys = domain(xp.array(temp[~lost_particles_mask, :3]), change_out_order=True)
+            pos_phys = self.domain(xp.array(temp[~lost_particles_mask, :3]), change_out_order=True)
             temp[~lost_particles_mask, :3] = pos_phys
 
             # save numpy
@@ -1754,8 +1749,8 @@ RESTARTing from:
             xp.savetxt(file_txt, temp[:, (0, 1, 2, 3, -1)], fmt="%12.6f", delimiter=", ")
 
     def _post_process_f(
-        path_out,
-        species,
+        self,
+        path_kinetic_species,
         step=1,
         compute_bckgr=False,
     ):
@@ -1763,17 +1758,8 @@ RESTARTing from:
 
         Parameters
         ----------
-        path_in : str
-            Absolute path of simulation output folder.
-
-        params_in : ParamsIn
-            Simulation parameters.
-
-        path_out : str
-            Absolute path of where to store the .txt files. Will be in path_out/orbits.
-
-        species : str
-            Name of the species for which the post processing should be performed.
+        path_kinetic_species : str
+            Path to kinetic data of considered species.
 
         step : int, optional
             Whether to do post-processing at every time step (step=1, default), every second time step (step=2), etc.
@@ -1782,13 +1768,11 @@ RESTARTing from:
             Whether to compute the kinetic background values and add them to the binning data.
             This is used if non-standard weights are binned.
         """
-        # get # of MPI processes from meta file
-        with open(os.path.join(path_in, "meta.yml"), "r") as f:
-            meta = yaml.load(f, Loader=yaml.FullLoader)
-        nproc = meta["MPI processes"]
+        species = path_kinetic_species.split("/")[-1]
+        species_obj: ParticleSpecies = self.model.particle_species[species]
 
         # directory for .npy files
-        path_distr = os.path.join(path_out, "distribution_function")
+        path_distr = os.path.join(path_kinetic_species, "distribution_function")
 
         try:
             os.mkdir(path_distr)
@@ -1799,7 +1783,7 @@ RESTARTing from:
         print("Evaluation of distribution functions for " + str(species))
 
         # Create grids
-        with h5py.File(os.path.join(path_in, "data/data_proc0.hdf5"), "r") as file_0:
+        with h5py.File(os.path.join(self.env.path_out, "data/data_proc0.hdf5"), "r") as file_0:
             for slice_name in tqdm(file_0["kinetic/" + species + "/f"]):
                 # create a new folder for each slice
                 path_slice = os.path.join(path_distr, slice_name)
@@ -1827,8 +1811,8 @@ RESTARTing from:
                 # load full-f data
                 data = file_0["kinetic/" + species + "/f/" + slice_name][::step].copy()
                 data_df = file_0["kinetic/" + species + "/df/" + slice_name][::step].copy()
-                for rank in range(1, int(nproc)):
-                    with h5py.File(os.path.join(path_in, "data/", f"data_proc{rank}.hdf5"), "r") as file:
+                for rank in range(1, int(self.comm_size)):
+                    with h5py.File(os.path.join(self.env.path_out, "data/", f"data_proc{rank}.hdf5"), "r") as file:
                         data += file["kinetic/" + species + "/f/" + slice_name][::step]
                         data_df += file["kinetic/" + species + "/df/" + slice_name][::step]
 
@@ -1854,10 +1838,11 @@ RESTARTing from:
                     #         f_bckgr = f_bckgr + getattr(maxwellians, fi_type)(
                     #             maxw_params=maxw_params,
                     #         )
-
-                    spec: ParticleSpecies = getattr(params_in.model, species)
-                    var: PICVariable = spec.var
-                    f_bckgr: KineticBackground = var.backgrounds
+                    
+                    for _, var in species_obj.variables.items():
+                        assert isinstance(var, PICVariable | SPHVariable)
+                        f_bckgr: KineticBackground = var.backgrounds
+                        break
 
                     # load all grids of the variables of f
                     grid_tot = []
@@ -1916,36 +1901,24 @@ RESTARTing from:
                     )
 
     def _post_process_n_sph(
-        path_out,
-        species,
+        self,
+        path_kinetic_species,
         step=1,
     ):
         """Computes and saves the density n of saved sph data during a simulation.
 
         Parameters
         ----------
-        path_in : str
-            Absolute path of simulation output folder.
-
-        params_in : ParamsIn
-            Simulation parameters.
-
-        path_out : str
-            Absolute path of where to store the .txt files. Will be in path_out/orbits.
-
-        species : str
-            Name of the species for which the post processing should be performed.
+        path_kinetic_species : str
+            Path to kinetic data of considered species.
 
         step : int, optional
             Whether to do post-processing at every time step (step=1, default), every second time step (step=2), etc.
         """
-        # get model name and # of MPI processes from meta file
-        with open(os.path.join(path_in, "meta.yml"), "r") as f:
-            meta = yaml.load(f, Loader=yaml.FullLoader)
-        nproc = meta["MPI processes"]
+        species = path_kinetic_species.split("/")[-1]
 
         # directory for .npy files
-        path_n_sph = os.path.join(path_out, "n_sph")
+        path_n_sph = os.path.join(path_kinetic_species, "n_sph")
 
         try:
             os.mkdir(path_n_sph)
@@ -1955,7 +1928,7 @@ RESTARTing from:
 
         print("Evaluation of sph density for " + str(species))
 
-        with h5py.File(os.path.join(path_in, "data/data_proc0.hdf5"), "r") as file_0:
+        with h5py.File(os.path.join(self.env.path_out, "data/data_proc0.hdf5"), "r") as file_0:
             # Create grids
             for i, view in enumerate(file_0["kinetic/" + species + "/n_sph"]):
                 # create a new folder for each view
@@ -1982,8 +1955,8 @@ RESTARTing from:
 
                 # load n_sph data
                 data = file_0["kinetic/" + species + "/n_sph/" + view][::step].copy()
-                for rank in range(1, int(nproc)):
-                    with h5py.File(os.path.join(path_in, "data/", f"data_proc{rank}.hdf5"), "r") as file:
+                for rank in range(1, int(self.comm_size)):
+                    with h5py.File(os.path.join(self.env.path_out, "data/", f"data_proc{rank}.hdf5"), "r") as file:
                         data += file["kinetic/" + species + "/n_sph/" + view][::step]
 
                 # save distribution functions
@@ -2032,3 +2005,8 @@ RESTARTing from:
     def projected_equil(self):
         """Fluid equilibrium projected on 3d Derham sequence with commuting projectors."""
         return self._projected_equil
+
+    @property
+    def path_pproc(self):
+        """Path to post-processing folder."""
+        return self._path_pproc

@@ -178,12 +178,12 @@ class VlasovAmpereOneSpecies(StruphyModel):
             particles,
             "H1",
             Pyccelkernel(accum_kernels.charge_density_0form),
-            self.mass_ops,
+            Propagator.mass_ops,
             Propagator.domain.args_domain,
         )
 
         # another sanity check: compute FE coeffs of density
-        # charge_accum.show_accumulated_spline_field(self.mass_ops)
+        # charge_accum.show_accumulated_spline_field(Propagator.mass_ops)
 
         alpha = self.kinetic_ions.equation_params.alpha
         epsilon = self.kinetic_ions.equation_params.epsilon
@@ -205,7 +205,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
     def update_scalar_quantities(self):
         # e*M1*e/2
         e = self.em_fields.e_field.spline.vector
-        en_E = 0.5 * self.mass_ops.M1.dot_inner(e, e)
+        en_E = 0.5 * Propagator.mass_ops.M1.dot_inner(e, e)
         self.update_scalar("en_E", en_E)
 
         # alpha^2 / 2 / N * sum_p w_p v_p^2

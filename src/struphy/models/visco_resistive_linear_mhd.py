@@ -147,7 +147,7 @@ class ViscoResistiveLinearMHD(StruphyModel):
         return "alfvén"
 
     def allocate_helpers(self):
-        projV3 = L2Projector("L2", self._mass_ops)
+        projV3 = L2Projector("L2", Propagator.mass_ops)
 
         def f(e1, e2, e3):
             return 1
@@ -192,7 +192,7 @@ class ViscoResistiveLinearMHD(StruphyModel):
         # self.update_scalar("dens_tot", dens_tot)
 
         # div_B = Propagator.derham.div.dot(b, out=self._tmp_div_B)
-        # L2_div_B = self._mass_ops.M3.dot_inner(div_B, div_B)
+        # L2_div_B = Propagator.mass_ops.M3.dot_inner(div_B, div_B)
         # self.update_scalar("tot_div_B", L2_div_B)
 
         en_thermo_l1 = Propagator.mass_ops.M3.dot_inner(p, self._integrator) / (gamma - 1.0)

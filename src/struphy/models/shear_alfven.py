@@ -70,13 +70,7 @@ class ShearAlfven(StruphyModel):
 
     def allocate_helpers(self):
         # project background magnetic field (2-form) and pressure (3-form)
-        self._b_eq = Propagator.derham.P["2"](
-            [
-                self.equil.b2_1,
-                self.equil.b2_2,
-                self.equil.b2_3,
-            ],
-        )
+        self._b_eq = Propagator.projected_equil.b2
 
         # temporary vectors for scalar quantities
         self._tmp_b1 = Propagator.derham.Vh["2"].zeros()
