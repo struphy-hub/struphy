@@ -1383,11 +1383,11 @@ def test_sph_viscosity_evaluation_2d(
     def div_pi_analytic(x, y, z):
         """
         Returns:
-            div_x, div_y, div_z
+            div_Pi_x, div_Pi_y, div_Pi_z
         """
 
-        div_x = -(28/3)*xp.pi**2 *xp.sin(2*xp.pi*x)*xp.cos(2*xp.pi*y) + (4*xp.pi**2/3)*xp.sin(2*xp.pi*x)*xp.sin(2*xp.pi*y)
-        div_y = -(28/3)*xp.pi**2*xp.cos(2*xp.pi*x)*xp.cos(2*xp.pi*y) - (4*xp.pi**2/3)*xp.cos(2*xp.pi*x)*xp.sin(2*xp.pi*y)
+        div_x = (28/3)*xp.pi**2 *xp.sin(2*xp.pi*x)*xp.cos(2*xp.pi*y) - (4*xp.pi**2/3)*xp.sin(2*xp.pi*x)*xp.sin(2*xp.pi*y)
+        div_y = (28/3)*xp.pi**2*xp.cos(2*xp.pi*x)*xp.cos(2*xp.pi*y) + (4*xp.pi**2/3)*xp.cos(2*xp.pi*x)*xp.sin(2*xp.pi*y)
         div_z = xp.zeros_like(x)
 
         return div_x, div_y, div_z
