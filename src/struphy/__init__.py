@@ -18,6 +18,7 @@ from struphy.api.particles import (
     WeightsParameters,
 )
 from struphy.api.perturbations import perturbations
+from struphy.api.post_processing import pproc, load_plotting_data   
 
 __all__ = [
     "domains",
@@ -36,4 +37,6 @@ __all__ = [
     "DerhamOptions",
     "FieldsBackground",
     "ButcherTableau",
+    "pproc",
+    "load_plotting_data",
 ]

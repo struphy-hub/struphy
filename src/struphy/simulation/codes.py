@@ -6,6 +6,8 @@ from struphy import (EnvironmentOptions,
                      equils,
                      grids,
                      DerhamOptions,
+                     pproc,
+                     load_plotting_data,
                      )
 
 # core imports
@@ -37,7 +39,6 @@ from struphy.simulation.base import Simulation
 from struphy.feec.psydac_derham import SplineFunction
 from struphy.post_processing.orbits import orbits_tools
 from struphy.kinetic_background.base import KineticBackground
-from struphy.post_processing.post_processing_tools import pproc, load_plotting_data
 
 # third party imports
 from feectools.ddm.mpi import MockMPI
