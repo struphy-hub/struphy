@@ -796,7 +796,6 @@ class Particles(metaclass=ABCMeta):
     def velocities(self, new):
         assert isinstance(new, xp.ndarray)
         assert new.shape == (self.n_mks_loc, self.vdim), f"{self.n_mks_loc =} and {self.vdim =} but {new.shape =}"
-        print(self.index["vel"])
         self._markers[self.valid_mks, self.index["vel"]] = new
     
     def set_velocities_comp(self, velocity, comp):
