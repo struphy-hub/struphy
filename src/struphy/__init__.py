@@ -18,7 +18,7 @@ from struphy.api.particles import (
     WeightsParameters,
 )
 from struphy.api.perturbations import perturbations
-from struphy.api.post_processing import pproc, load_plotting_data   
+from struphy.api.post_processing import PostProcessor, PlottingData
 from struphy.api.simulation import StruphySimulation
 
 __all__ = [
@@ -38,7 +38,7 @@ __all__ = [
     "DerhamOptions",
     "FieldsBackground",
     "ButcherTableau",
-    "pproc",
-    "load_plotting_data",
+    "PostProcessor",
+    "PlottingData",
     "StruphySimulation",
 ]

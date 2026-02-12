@@ -10,7 +10,6 @@ from scipy.special import jv, yn
 from struphy import (BaseUnits, DerhamOptions, EnvironmentOptions, Time, domains, equils, grids, main, perturbations, StruphySimulation,)
 from struphy.diagnostics.diagn_tools import power_spectrum_2d
 from struphy.models import Maxwell
-from struphy.post_processing.post_processing_tools import SimData
 
 
 @pytest.mark.parametrize("algo", ["implicit", "explicit"])

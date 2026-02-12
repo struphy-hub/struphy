@@ -1,3 +1,3 @@
-from struphy.post_processing.post_processing_tools import pproc, load_plotting_data
+from struphy.post_processing.post_processing_tools import PostProcessor, PlottingData
 
-__all__ = ["pproc", "load_plotting_data",]
+__all__ = ["PostProcessor", "PlottingData"]

@@ -23,7 +23,7 @@ from struphy.geometry import domains
 from struphy.geometry.base import Domain
 from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time
 from struphy.io.output_handling import DataContainer
-from struphy.io.setup import import_parameters_py, setup_folders
+from struphy.io.setup import import_parameters_py
 from struphy.models.base import StruphyModel
 from struphy.models.species import Species
 from struphy.models.variables import FEECVariable
