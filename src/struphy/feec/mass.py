@@ -1354,13 +1354,15 @@ class WeightedMassOperatorsOldForTesting:
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: self.Ginv(e1, e2, e3)[:, :, :, m, n]
-                        * self.sqrt_g(
-                            e1,
-                            e2,
-                            e3,
-                        )
-                        * self.weights[self.selected_weight].n0(e1, e2, e3),
+                        lambda e1, e2, e3, m=m, n=n: (
+                            self.Ginv(e1, e2, e3)[:, :, :, m, n]
+                            * self.sqrt_g(
+                                e1,
+                                e2,
+                                e3,
+                            )
+                            * self.weights[self.selected_weight].n0(e1, e2, e3)
+                        ),
                     ]
 
             self._M1n = self._assemble_weighted_mass(
@@ -1390,13 +1392,15 @@ class WeightedMassOperatorsOldForTesting:
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: self.G(e1, e2, e3)[:, :, :, m, n]
-                        / self.sqrt_g(
-                            e1,
-                            e2,
-                            e3,
-                        )
-                        * self.weights[self.selected_weight].n0(e1, e2, e3),
+                        lambda e1, e2, e3, m=m, n=n: (
+                            self.G(e1, e2, e3)[:, :, :, m, n]
+                            / self.sqrt_g(
+                                e1,
+                                e2,
+                                e3,
+                            )
+                            * self.weights[self.selected_weight].n0(e1, e2, e3)
+                        ),
                     ]
 
             self._M2n = self._assemble_weighted_mass(
@@ -1426,13 +1430,15 @@ class WeightedMassOperatorsOldForTesting:
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: self.G(e1, e2, e3)[:, :, :, m, n]
-                        * self.sqrt_g(
-                            e1,
-                            e2,
-                            e3,
-                        )
-                        * self.weights[self.selected_weight].n0(e1, e2, e3),
+                        lambda e1, e2, e3, m=m, n=n: (
+                            self.G(e1, e2, e3)[:, :, :, m, n]
+                            * self.sqrt_g(
+                                e1,
+                                e2,
+                                e3,
+                            )
+                            * self.weights[self.selected_weight].n0(e1, e2, e3)
+                        ),
                     ]
 
             self._Mvn = self._assemble_weighted_mass(
@@ -1462,13 +1468,15 @@ class WeightedMassOperatorsOldForTesting:
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: self.Ginv(e1, e2, e3)[:, :, :, m, n]
-                        * self.sqrt_g(
-                            e1,
-                            e2,
-                            e3,
-                        )
-                        / self.weights[self.selected_weight].n0(e1, e2, e3),
+                        lambda e1, e2, e3, m=m, n=n: (
+                            self.Ginv(e1, e2, e3)[:, :, :, m, n]
+                            * self.sqrt_g(
+                                e1,
+                                e2,
+                                e3,
+                            )
+                            / self.weights[self.selected_weight].n0(e1, e2, e3)
+                        ),
                     ]
 
             self._M1ninv = self._assemble_weighted_mass(
@@ -1787,8 +1795,10 @@ class WeightedMassOperatorsOldForTesting:
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: rot_B(e1, e2, e3)[:, :, :, m, n]
-                        / (self.sqrt_g(e1, e2, e3) * self.weights[self.selected_weight].n0(e1, e2, e3)),
+                        lambda e1, e2, e3, m=m, n=n: (
+                            rot_B(e1, e2, e3)[:, :, :, m, n]
+                            / (self.sqrt_g(e1, e2, e3) * self.weights[self.selected_weight].n0(e1, e2, e3))
+                        ),
                     ]
 
             self._M2BN = self._assemble_weighted_mass(
@@ -1831,9 +1841,9 @@ class WeightedMassOperatorsOldForTesting:
                 for n in range(3):
                     fun[-1] += [
                         lambda e1, e2, e3, m=m, n=n: (
-                            self.Ginv(e1, e2, e3) @ rot_B(e1, e2, e3) @ self.Ginv(e1, e2, e3)
-                        )[:, :, :, m, n]
-                        * (self.sqrt_g(e1, e2, e3) / self.weights[self.selected_weight].n0(e1, e2, e3)),
+                            (self.Ginv(e1, e2, e3) @ rot_B(e1, e2, e3) @ self.Ginv(e1, e2, e3))[:, :, :, m, n]
+                            * (self.sqrt_g(e1, e2, e3) / self.weights[self.selected_weight].n0(e1, e2, e3))
+                        ),
                     ]
 
             self._M1Bninv = self._assemble_weighted_mass(
@@ -1864,17 +1874,19 @@ class WeightedMassOperatorsOldForTesting:
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: (self.DFinv(e1, e2, e3) @ self.D @ self.DFinv(e1, e2, e3))[
-                            :,
-                            :,
-                            :,
-                            m,
-                            n,
-                        ]
-                        * self.sqrt_g(
-                            e1,
-                            e2,
-                            e3,
+                        lambda e1, e2, e3, m=m, n=n: (
+                            (self.DFinv(e1, e2, e3) @ self.D @ self.DFinv(e1, e2, e3))[
+                                :,
+                                :,
+                                :,
+                                m,
+                                n,
+                            ]
+                            * self.sqrt_g(
+                                e1,
+                                e2,
+                                e3,
+                            )
                         ),
                     ]
 
@@ -1900,12 +1912,14 @@ class WeightedMassOperatorsOldForTesting:
         if not hasattr(self, "_M0ad"):
             fun = [
                 [
-                    lambda e1, e2, e3: self.weights[self.selected_weight].n0(
-                        e1,
-                        e2,
-                        e3,
-                    )
-                    * self.sqrt_g(e1, e2, e3),
+                    lambda e1, e2, e3: (
+                        self.weights[self.selected_weight].n0(
+                            e1,
+                            e2,
+                            e3,
+                        )
+                        * self.sqrt_g(e1, e2, e3)
+                    ),
                 ],
             ]
 
@@ -1938,15 +1952,17 @@ class WeightedMassOperatorsOldForTesting:
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: self.weights[self.selected_weight].n0(e1, e2, e3)
-                        / self.weights[self.selected_weight].absB0(
-                            e1,
-                            e2,
-                            e3,
-                        )
-                        ** 2
-                        * (self.D @ self.Ginv(e1, e2, e3) @ self.D)[:, :, :, m, n]
-                        * self.sqrt_g(e1, e2, e3),
+                        lambda e1, e2, e3, m=m, n=n: (
+                            self.weights[self.selected_weight].n0(e1, e2, e3)
+                            / self.weights[self.selected_weight].absB0(
+                                e1,
+                                e2,
+                                e3,
+                            )
+                            ** 2
+                            * (self.D @ self.Ginv(e1, e2, e3) @ self.D)[:, :, :, m, n]
+                            * self.sqrt_g(e1, e2, e3)
+                        ),
                     ]
 
             # fun = []

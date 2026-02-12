@@ -5,7 +5,7 @@ import numpy as np
 from scipy.fft import irfft, rfft
 
 from struphy.feec.psydac_derham import Derham
-from struphy.io.options import OptsFilter
+from struphy.io.options import LiteralOptions
 from struphy.pic.accumulation.filter_kernels import apply_three_point_filter_3d
 
 
@@ -13,7 +13,7 @@ from struphy.pic.accumulation.filter_kernels import apply_three_point_filter_3d
 class FilterParameters:
     """Parameters for the AccumFilter class"""
 
-    use_filter: OptsFilter | None = None
+    use_filter: LiteralOptions.OptsFilter | None = None
     modes: tuple[int, ...] = (1,)
     repeat: int = 1
     alpha: float = 0.5

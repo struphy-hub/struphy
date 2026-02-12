@@ -1,6 +1,36 @@
 # Changelog
 
 
+## Struphy 3.0.2 - 2026-02-06
+
+* [PyPI](https://pypi.org/project/struphy/3.0.2)
+* [Github pages](https://struphy-hub.github.io/struphy/index.html)
+* [Github release](https://github.com/struphy-hub/struphy/releases/tag/v3.0.2)
+* [Diff to previous release](https://github.com/struphy-hub/struphy/compare/v3.0.1...v3.0.2)
+
+### Headlines
+
+* Added a public API. This allows imports like `from struphy import equils`: https://github.com/struphy-hub/struphy/pull/168
+* New default compile language is Fortran: https://github.com/struphy-hub/struphy/pull/158
+* Moved each model to its own file. Calling sub-processes must be avoided in the future because of incompatibility with MPI: https://github.com/struphy-hub/struphy/pull/152
+
+### User news
+
+* Added binning of higher order moments (current density, energy tensor) of f and delta f: https://github.com/struphy-hub/struphy/pull/162 
+
+### Developer news
+
+* Use `pyccel 2.1`: https://github.com/struphy-hub/struphy/pull/153
+* Added three submodules: `struphy-parameter-files`, `struphy-tutorials` and`feectools`. The Struphy repo should be cloned with `git clone --recurse-submodules https://github.com/struphy-hub/struphy.git` to init and update the submodules. Also, run `git submodule update` regularly to get updates from the submodules. See https://github.com/struphy-hub/struphy/pull/154
+* Introduced class `options.LiteralOptions` for parsing literals. Moved `Units` to `physics.py`: https://github.com/struphy-hub/struphy/pull/167
+
+
+### Bug fixes
+
+* Use `struphy.io.options.Units` in equils. This enables the use of GVEC, EQDSK and DESC in the new framework: https://github.com/struphy-hub/struphy/pull/158
+
+
+
 ## Struphy 3.0.1 - 2025-12-11
 
 * [PyPI](https://pypi.org/project/struphy/3.0.1)

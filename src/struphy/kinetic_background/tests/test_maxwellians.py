@@ -96,7 +96,7 @@ def test_maxwellian_3d_perturbed(Nel, show_plot=False):
     import cunumpy as xp
     import matplotlib.pyplot as plt
 
-    from struphy.initial import perturbations
+    from struphy import perturbations
     from struphy.kinetic_background.maxwellians import Maxwellian3D
 
     e1 = xp.linspace(0.0, 1.0, Nel[0])
@@ -258,10 +258,8 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
     import cunumpy as xp
     import matplotlib.pyplot as plt
 
-    from struphy.fields_background import equils
+    from struphy import domains, equils, perturbations
     from struphy.fields_background.base import FluidEquilibrium
-    from struphy.geometry import domains
-    from struphy.initial import perturbations
     from struphy.initial.base import Perturbation
     from struphy.kinetic_background.maxwellians import Maxwellian3D
 
@@ -803,7 +801,7 @@ def test_maxwellian_2d_perturbed(Nel, show_plot=False):
     import cunumpy as xp
     import matplotlib.pyplot as plt
 
-    from struphy.initial import perturbations
+    from struphy import perturbations
     from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
 
     e1 = xp.linspace(0.0, 1.0, Nel[0])
@@ -1061,10 +1059,8 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
     import cunumpy as xp
     import matplotlib.pyplot as plt
 
-    from struphy.fields_background import equils
+    from struphy import domains, equils, perturbations
     from struphy.fields_background.base import FluidEquilibriumWithB
-    from struphy.geometry import domains
-    from struphy.initial import perturbations
     from struphy.initial.base import Perturbation
     from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
 
@@ -1500,9 +1496,7 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
     import cunumpy as xp
     import matplotlib.pyplot as plt
 
-    from struphy.fields_background import equils
-    from struphy.geometry import domains
-    from struphy.initial import perturbations
+    from struphy import domains, equils, perturbations
     from struphy.kinetic_background.maxwellians import CanonicalMaxwellian
 
     e1 = xp.linspace(0.0, 1.0, Nel[0])

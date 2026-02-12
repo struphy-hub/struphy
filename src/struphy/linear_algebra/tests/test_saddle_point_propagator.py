@@ -15,13 +15,12 @@ def test_propagator1D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
 
     from feectools.ddm.mpi import mpi as MPI
 
+    from struphy import domains, perturbations
     from struphy.feec.basis_projection_ops import BasisProjectionOperators
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays
     from struphy.fields_background.equils import HomogenSlab
-    from struphy.geometry import domains
-    from struphy.initial import perturbations
     from struphy.models.variables import FEECVariable
     from struphy.propagators.propagators_fields import TwoFluidQuasiNeutralFull
 
@@ -226,12 +225,12 @@ def test_propagator2D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
 
     from feectools.ddm.mpi import mpi as MPI
 
+    from struphy import domains
     from struphy.feec.basis_projection_ops import BasisProjectionOperators
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays
     from struphy.fields_background.equils import HomogenSlab
-    from struphy.geometry import domains
     from struphy.models.variables import FEECVariable
     from struphy.propagators.propagators_fields import TwoFluidQuasiNeutralFull
 

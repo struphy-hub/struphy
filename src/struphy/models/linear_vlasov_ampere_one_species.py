@@ -1,7 +1,7 @@
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.io.options import ModelTypes
+from struphy.io.options import LiteralOptions
 from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
@@ -89,7 +89,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
     """
 
     @classmethod
-    def model_type(cls) -> ModelTypes:
+    def model_type(cls) -> LiteralOptions.ModelTypes:
         return "Kinetic"
 
     ## species

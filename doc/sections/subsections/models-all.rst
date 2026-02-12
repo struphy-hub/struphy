@@ -1,11 +1,9 @@
-.. _kinetic_models:
+.. _all_models:
 
-Kinetic models
---------------
+Models
+------
 
-The bulk plasma is kinetic, out of thermal equilibirum; there can be fluid components too (not bulk).
-
-.. automodule:: struphy.models.kinetic
+.. automodule:: struphy.models
     :members:
     :undoc-members:
     :exclude-members: propagators, scalar_quantities, update_scalar_quantities, bulk_species, velocity_scale, species, options, propagators_dct

@@ -28,10 +28,15 @@ from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial.base import Perturbation
-from struphy.io.options import BinningQuantity, OptsLoading
+from struphy.io.options import LiteralOptions
 from struphy.io.output_handling import DataContainer
 from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
 from struphy.kinetic_background.base import KineticBackground, Maxwellian
+from struphy.particles.parameters import (
+    BoundaryParameters,
+    LoadingParameters,
+    WeightsParameters,
+)
 from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing import eval_kernels_gc
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
@@ -48,11 +53,6 @@ from struphy.pic.sph_eval_kernels import (
     distance,
     naive_evaluation_flat,
     naive_evaluation_meshgrid,
-)
-from struphy.pic.utilities import (
-    BoundaryParameters,
-    LoadingParameters,
-    WeightsParameters,
 )
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
@@ -115,7 +115,7 @@ class Particles(metaclass=ABCMeta):
             The first entry is a domain_array (see :attr:`~struphy.feec.psydac_derham.Derham.domain_array`) and
             the second entry is the number of MPI processes in each direction.
 
-        mpi_dims_mask: list | tuple of bool
+        mpi_dims_mask: tuple[bool]
                 True if the dimension is to be used in the domain decomposition (=default for each dimension).
                 If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
 
@@ -469,7 +469,7 @@ class Particles(metaclass=ABCMeta):
         return self._name
 
     @property
-    def loading(self) -> OptsLoading:
+    def loading(self) -> LiteralOptions.OptsLoading:
         """Type of particle loading."""
         return self._loading
 
@@ -1916,7 +1916,7 @@ class Particles(metaclass=ABCMeta):
         self,
         components: tuple[bool],
         bin_edges: tuple[xp.ndarray],
-        output_quantity: BinningQuantity = "density",
+        output_quantity: LiteralOptions.BinningQuantity = "density",
         divide_by_jac: bool = True,
     ):
         r"""Computes full-f and delta-f distribution functions via marker binning in logical space.

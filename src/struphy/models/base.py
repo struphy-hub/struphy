@@ -28,11 +28,12 @@ from struphy.fields_background.projected_equils import (
     ProjectedMHDequilibrium,
 )
 from struphy.geometry.base import Domain
-from struphy.io.options import DerhamOptions, ModelTypes, Units
+from struphy.io.options import DerhamOptions, LiteralOptions
 from struphy.io.output_handling import DataContainer
 from struphy.io.setup import setup_derham
 from struphy.models.species import DiagnosticSpecies, FieldSpecies, FluidSpecies, ParticleSpecies, Species
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
+from struphy.physics.physics import Units
 from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.topology.grids import TensorProductGrid
@@ -54,7 +55,7 @@ class StruphyModel(metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
-    def model_type(cls) -> ModelTypes:
+    def model_type(cls) -> LiteralOptions.ModelTypes:
         """Model type (Fluid, Kinetic, Hybrid, or Toy)"""
         pass
 
@@ -1323,9 +1324,9 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 print("exiting ...")
                 exit()
 
-        file.write("from struphy.io.options import EnvironmentOptions, BaseUnits, Time\n")
-        file.write("from struphy.geometry import domains\n")
-        file.write("from struphy.fields_background import equils\n")
+        file.write("from struphy import EnvironmentOptions, BaseUnits, Time\n")
+        file.write("from struphy import domains\n")
+        file.write("from struphy import equils\n")
 
         species_params = "\n# species parameters\n"
         particle_params = ""
@@ -1406,14 +1407,14 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                     init_pert_sph += f"model.{sn}.{vn}.add_perturbation(del_n=perturbation)\n"
                 exclude = f"# model.{sn}.{vn}.save_data = False\n"
 
-        file.write("from struphy.topology import grids\n")
-        file.write("from struphy.io.options import DerhamOptions\n")
-        file.write("from struphy.io.options import FieldsBackground\n")
-        file.write("from struphy.initial import perturbations\n")
+        file.write("from struphy import grids\n")
+        file.write("from struphy import DerhamOptions\n")
+        file.write("from struphy import FieldsBackground\n")
+        file.write("from struphy import perturbations\n")
 
-        file.write("from struphy.kinetic_background import maxwellians\n")
+        file.write("from struphy import maxwellians\n")
         file.write(
-            "from struphy.pic.utilities import (LoadingParameters,\n\
+            "from struphy import (LoadingParameters,\n\
                                    WeightsParameters,\n\
                                    BoundaryParameters,\n\
                                    BinningPlot,\n\
@@ -1422,8 +1423,8 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
         )
         file.write("from struphy import main\n")
 
-        file.write("\n# import model, set verbosity\n")
-        file.write(f"from {self.__module__} import {self.__class__.__name__}\n")
+        file.write("\n# import model\n")
+        file.write(f"from struphy.models import {self.__class__.__name__}\n")
 
         file.write("\n# environment options\n")
         file.write("env = EnvironmentOptions()\n")

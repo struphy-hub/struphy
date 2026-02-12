@@ -6,18 +6,21 @@ import h5py
 from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 
-from struphy import main
-from struphy.geometry import domains
-from struphy.initial import perturbations
-from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time
-from struphy.kinetic_background import maxwellians
-from struphy.pic.utilities import (
+from struphy import (
+    BaseUnits,
     BinningPlot,
     BoundaryParameters,
+    DerhamOptions,
+    EnvironmentOptions,
     LoadingParameters,
+    Time,
     WeightsParameters,
+    domains,
+    grids,
+    main,
+    maxwellians,
+    perturbations,
 )
-from struphy.topology import grids
 
 
 def test_weak_Landau(do_plot: bool = False):
