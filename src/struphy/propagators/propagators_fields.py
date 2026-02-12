@@ -144,7 +144,7 @@ class Maxwell(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         # obtain needed matrices
         M1 = self.mass_ops.M1
         M2 = self.mass_ops.M2
@@ -336,7 +336,7 @@ class OhmCold(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._info = self.options.solver_params.info
 
         self._alpha = self.variables.j.species.equation_params.alpha
@@ -465,7 +465,7 @@ class JxBCold(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._info = self.options.solver_params.info
 
         epsilon = self.variables.j.species.equation_params.epsilon
@@ -617,7 +617,7 @@ class ShearAlfven(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         u_space = self.options.u_space
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
@@ -818,7 +818,7 @@ class ShearAlfvenB1(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._info = self.options.solver_params.info
 
         # define inverse of M1
@@ -970,7 +970,7 @@ class Hall(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         if self.options.epsilon_from is None:
             epsilon = 1.0
         else:
@@ -1144,7 +1144,7 @@ class Magnetosonic(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         u_space = self.options.u_space
 
         self._info = self.options.solver_params.info
@@ -1367,7 +1367,7 @@ class MagnetosonicUniform(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._info = self.options.solver_params.info
         self._bc = self.derham.dirichlet_bc
 
@@ -1737,7 +1737,7 @@ class CurrentCoupling6DDensity(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._space_key_int = int(self.derham.space_to_form[self.options.u_space])
 
         particles = self.options.energetic_ions.particles
@@ -2021,7 +2021,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._u_form = self.derham.space_to_form[self.options.u_space]
 
         # call operatros
@@ -2388,7 +2388,7 @@ class CurrentCoupling5DDensity(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         if self.options.u_space == "H1vec":
             self._u_form_int = 0
         else:
@@ -2584,7 +2584,7 @@ class ImplicitDiffusion(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         # always stabilize
         if xp.abs(self.options.sigma_1) < 1e-14:
             self.options.sigma_1 = 1e-14
@@ -2933,7 +2933,7 @@ class VariationalMomentumAdvection(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._lin_solver = self.options.solver_params
         self._nonlin_solver = self.options.nonlin_solver
 
@@ -3226,7 +3226,7 @@ class VariationalDensityEvolve(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         if self.options.model == "full":
             assert self.options.s is not None
 
@@ -3759,7 +3759,7 @@ class VariationalEntropyEvolve(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         if self.options.model == "full":
             assert self.options.rho is not None
 
@@ -4163,7 +4163,7 @@ class VariationalMagFieldEvolve(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._model = self.options.model
         self._lin_solver = self.options.solver_params
         self._nonlin_solver = self.options.nonlin_solver
@@ -4564,7 +4564,7 @@ class VariationalPBEvolve(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._model = self.options.model
         self._lin_solver = self.options.solver_params
         self._nonlin_solver = self.options.nonlin_solver
@@ -5162,7 +5162,7 @@ class VariationalQBEvolve(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._model = self.options.model
         self._lin_solver = self.options.solver_params
         self._nonlin_solver = self.options.nonlin_solver
@@ -5758,7 +5758,7 @@ class VariationalViscosity(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._model = self.options.model
         self._gamma = self.options.gamma
         self._lin_solver = self.options.solver_params
@@ -6516,7 +6516,7 @@ class VariationalResistivity(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._model = self.options.model
         self._gamma = self.options.gamma
         self._eta = self.options.eta
@@ -7215,7 +7215,7 @@ class TimeDependentSource(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         if self.options.hfun == "cos":
 
             def hfun(t):
@@ -7546,7 +7546,7 @@ class HasegawaWakatani(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         # default phi
         if self.options.phi is None:
             self.options.phi = FEECVariable(space="H1")
@@ -7828,7 +7828,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._info = self.options.solver_params.info
         if self.derham.comm is not None:
             self._rank = self.derham.comm.Get_rank()

@@ -57,7 +57,7 @@ class StruphyModel(metaclass=ABCMeta):
         Must be one of "alfvén", "cyclotron", "light" or "thermal"."""
 
     @abstractmethod
-    def allocate_helpers(self):
+    def allocate_helpers(self, verbose: bool = False):
         """Allocate helper arrays and perform initial solves if needed."""
 
     @abstractmethod
@@ -680,16 +680,3 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
     # def time_state(self):
     #     """A pointer to the time variable of the dynamics ('t')."""
     #     return self._time_state
-
-    @property
-    def verbose(self):
-        """Bool: show model info on screen."""
-        try:
-            return self._verbose
-        except:
-            return False
-
-    @verbose.setter
-    def verbose(self, new):
-        assert isinstance(new, bool)
-        self._verbose = new

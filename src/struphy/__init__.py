@@ -19,6 +19,7 @@ from struphy.api.particles import (
 )
 from struphy.api.perturbations import perturbations
 from struphy.api.post_processing import pproc, load_plotting_data   
+from struphy.api.simulation import StruphySimulation
 
 __all__ = [
     "domains",
@@ -39,4 +40,5 @@ __all__ = [
     "ButcherTableau",
     "pproc",
     "load_plotting_data",
+    "StruphySimulation",
 ]

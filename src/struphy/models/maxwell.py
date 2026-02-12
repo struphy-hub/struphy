@@ -83,7 +83,7 @@ class Maxwell(StruphyModel):
     def velocity_scale(self):
         return "light"
 
-    def allocate_helpers(self):
+    def allocate_helpers(self, verbose: bool = False):
         pass
 
     def update_scalar_quantities(self):

@@ -90,7 +90,7 @@ class PushEta(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         # get kernel
         kernel = Pyccelkernel(pusher_kernels.push_eta_stage)
 
@@ -189,7 +189,7 @@ class PushVxB(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         # scaling factor
         self._epsilon = self.variables.ions.species.equation_params.epsilon
         assert self.derham is not None, f"{self.__class__.__name__} needs a Derham object."
@@ -322,7 +322,7 @@ class PushVinEfield(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         # scaling factor
         self._epsilon = self.variables.var.species.equation_params.epsilon
 
@@ -442,7 +442,7 @@ class PushEtaPC(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._u_tilde = self.options.u_tilde.spline.vector
 
         # get kernell:
@@ -591,7 +591,7 @@ class PushGuidingCenterBxEstar(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         # scaling factor
         self._epsilon = self.variables.ions.species.equation_params.epsilon
 
@@ -1032,7 +1032,7 @@ class PushGuidingCenterParallel(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         # scaling factor
         self._epsilon = self.variables.ions.species.equation_params.epsilon
 
@@ -1441,7 +1441,7 @@ class PushDeterministicDiffusion(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._bc_type = self.options.bc_type
         self._diffusion = self.options.diff_coeff
 
@@ -1574,7 +1574,7 @@ class PushRandomDiffusion(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._bc_type = self.options.bc_type
         self._diffusion = self.options.diff_coeff
 
@@ -1703,7 +1703,7 @@ class PushVinSPHpressure(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         # init kernel for evaluating density etc. before each time step.
         init_kernel = eval_kernels_gc.sph_pressure_coeffs
 
@@ -1840,7 +1840,7 @@ class PushVinViscousPotential(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):  # ersetzt init
+    def allocate(self, verbose: bool = False):  # ersetzt init
         particles = self.variables.fluid.particles
 
         # init kernel for evaluating density etc. before each time step.

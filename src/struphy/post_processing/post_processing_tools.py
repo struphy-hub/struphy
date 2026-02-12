@@ -288,7 +288,7 @@ def pproc(sim: "StruphySimulation" = None,
         sim.pproc_particles(step=step, guiding_center=guiding_center, classify=classify, verbose=verbose,)
         
 
-def load_plotting_data(sim: "StruphySimulation" = None, path_out: str = None,) -> SimData:
+def load_plotting_data(sim: "StruphySimulation" = None, path_out: str = None, verbose: bool = False,) -> SimData:
     """Load data generated during post-processing."""
     if sim is None:
         assert path_out is not None, "If no sim object is provided, a path_out must be given to retrieve the parameters of the run to post-process."

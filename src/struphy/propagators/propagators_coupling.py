@@ -136,7 +136,7 @@ class VlasovAmpere(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         # scaling factors
         alpha = self.variables.ions.species.equation_params.alpha
         epsilon = self.variables.ions.species.equation_params.epsilon
@@ -387,7 +387,7 @@ class EfieldWeights(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._alpha = self.options.alpha
         self._kappa = self.options.kappa
 
@@ -622,7 +622,7 @@ class PressureCoupling6D(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         if self.options.u_space == "H1vec":
             self._u_form_int = 0
         else:
@@ -943,7 +943,7 @@ class CurrentCoupling6DCurrent(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._space_key_int = int(self.derham.space_to_form[self.options.u_space])
 
         particles = self.variables.ions.particles
@@ -1273,7 +1273,7 @@ class CurrentCoupling5DCurlb(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         if self.options.u_space == "H1vec":
             self._u_form_int = 0
         else:
@@ -1546,7 +1546,7 @@ class CurrentCoupling5DGradB(Propagator):
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         if self.options.u_space == "H1vec":
             self._u_form_int = 0
         else:

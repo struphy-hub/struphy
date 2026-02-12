@@ -78,7 +78,7 @@ class Propagator(metaclass=ABCMeta):
         self._options = new
 
     @abstractmethod
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         """Allocate all data/objects of the instance."""
 
     @abstractmethod

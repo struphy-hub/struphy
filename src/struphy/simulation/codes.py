@@ -61,10 +61,6 @@ from pyevtk.hl import gridToVTK
 
 class StruphySimulation(Simulation):
 
-    # ----------------
-    # Abstract methods
-    # ----------------
-
     def __init__(self,
                  model: StruphyModel,
                  params_path: str = None,
@@ -85,7 +81,6 @@ class StruphySimulation(Simulation):
         self.time_opts = time_opts
         self.grid = grid
         self.derham_opts = derham_opts
-        self.verbose = verbose
 
         # setup profiling agent
         ProfileManager.setup(
@@ -120,7 +115,6 @@ class StruphySimulation(Simulation):
 
         # check model
         assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
-        model.verbose = verbose
         self.model_name = model.__class__.__name__
 
         if self.rank == 0:
@@ -234,18 +228,66 @@ class StruphySimulation(Simulation):
         # domain and fluid background
         self._setup_domain_and_equil(domain, equil, verbose=verbose)
 
+    # -----------------
+    # Common properties
+    # -----------------
+
+    @property
+    def domain(self):
+        """Domain object, see :ref:`avail_mappings`."""
+        return self._domain
+
+    @property
+    def equil(self):
+        """Fluid equilibrium object, see :ref:`fluid_equil`."""
+        return self._equil
+
+    @property
+    def derham(self):
+        """3d Derham sequence, see :ref:`derham`."""
+        return self._derham
+
+    @property
+    def mass_ops(self):
+        """WeighteMassOperators object, see :ref:`mass_ops`."""
+        return self._mass_ops
+
+    @property
+    def basis_ops(self):
+        """Basis projection operators."""
+        return self._basis_ops
+
+    @property
+    def projected_equil(self):
+        """Fluid equilibrium projected on 3d Derham sequence with commuting projectors."""
+        return self._projected_equil
+    
+    @property
+    def clone_config(self):
+        """Config in case domain clones are used."""
+        return self._clone_config
+
+    @clone_config.setter
+    def clone_config(self, new):
+        assert isinstance(new, CloneConfig) or new is None
+        self._clone_config = new
+
+    # ----------------
+    # Abstract methods
+    # ----------------
+
     def allocate(self, verbose: bool = False):
         # feec
-        self._allocate_feec(self.grid, self.derham_opts)
+        self._allocate_feec(self.grid, self.derham_opts, verbose=verbose)
 
         # allocate model variables
         self._allocate_variables(verbose=verbose)
 
         # pass info to propagators
-        self._allocate_propagators()
+        self._allocate_propagators(verbose=verbose)
 
         # allocate helper fields and perform initial solves if needed
-        self.model.allocate_helpers()
+        self.model.allocate_helpers(verbose=verbose)
 
     def save_geometry_and_equil_vtk(self, verbose: bool = False):
         # store geometry vtk
@@ -294,16 +336,16 @@ class StruphySimulation(Simulation):
 
         if not self.env.restart:
             # equation paramters
-            self.allocate(verbose=self.verbose)
+            self.allocate(verbose=verbose)
 
             # output
-            self.initialize_data_storage(verbose=self.verbose)
+            self.initialize_data_storage(verbose=verbose)
 
             # peek view into geometry
-            self.save_geometry_and_equil_vtk(verbose=self.verbose)
+            self.save_geometry_and_equil_vtk(verbose=verbose)
 
             # plasma parameters
-            self.compute_plasma_params(verbose=self.verbose)
+            self.compute_plasma_params(verbose=verbose)
 
         # print info on mpi procs
         if self.rank < 32:
@@ -471,7 +513,7 @@ RESTARTing from:
         pproc(sim=self, step=step, celldivide=celldivide, physical=physical, guiding_center=guiding_center, classify=classify, create_vtk=create_vtk, time_trace=time_trace, verbose=verbose,)
 
     def load_plotting_data(self, verbose: bool = False):
-        load_plotting_data(sim=self)
+        load_plotting_data(sim=self, verbose=verbose)
 
     # ---------------------
     # Code specific methods
@@ -589,7 +631,7 @@ RESTARTing from:
                     step,
                 )
 
-    def compute_plasma_params(self, verbose=True):
+    def compute_plasma_params(self, verbose: bool=True):
         """
         Compute and print volume averaged plasma parameters for each species of the model.
 
@@ -771,7 +813,7 @@ RESTARTing from:
                     velocity_scale=self.velocity_scale,
                     A_bulk=self.bulk_species.mass_number,
                     Z_bulk=self.bulk_species.charge_number,
-                    verbose=self.verbose,
+                    verbose=verbose,
                 )
 
         else:
@@ -880,7 +922,7 @@ RESTARTing from:
         return derham
 
     @profile
-    def _allocate_feec(self, grid: grids.TensorProductGrid, derham_opts: DerhamOptions):
+    def _allocate_feec(self, grid: grids.TensorProductGrid, derham_opts: DerhamOptions, verbose: bool = False):
         # create discrete derham sequence
         if self.clone_config is None:
             derham_comm = MPI.COMM_WORLD
@@ -897,7 +939,7 @@ RESTARTing from:
                 derham_opts,
                 comm=derham_comm,
                 domain=self.domain,
-                verbose=self.verbose,
+                verbose=verbose,
             )
 
         # create weighted mass and basis operators
@@ -908,14 +950,14 @@ RESTARTing from:
             self._mass_ops = WeightedMassOperators(
                 self.derham,
                 self.domain,
-                verbose=self.verbose,
+                verbose=verbose,
                 eq_mhd=self.equil,
             )
 
             self._basis_ops = BasisProjectionOperators(
                 self.derham,
                 self.domain,
-                verbose=self.verbose,
+                verbose=verbose,
                 eq_mhd=self.equil,
             )
 
@@ -1021,7 +1063,7 @@ RESTARTing from:
         #             self._pointer[key] = val["obj"].vector
 
     @profile
-    def _allocate_propagators(self):
+    def _allocate_propagators(self, verbose: bool = False):
         # set propagators base class attributes (then available to all propagators)
         Propagator.derham = self.derham
         Propagator.domain = self.domain
@@ -1033,12 +1075,12 @@ RESTARTing from:
         assert len(self.model.prop_list) > 0, "No propagators in this model, check the model class."
         for prop in self.model.prop_list:
             assert isinstance(prop, Propagator)
-            prop.allocate()
+            prop.allocate(verbose=verbose)
             if MPI.COMM_WORLD.Get_rank() == 0:
                 print(f"\nAllocated propagator '{prop.__class__.__name__}'.")
 
     @profile
-    def _initialize_hdf5_datasets(self, data: DataContainer, size):
+    def _initialize_hdf5_datasets(self, data: DataContainer, size, verbose: bool = False):
         """
         Create datasets in hdf5 files according to model unknowns and diagnostics data.
 
@@ -1203,7 +1245,7 @@ RESTARTing from:
             if isinstance(prop, Propagator):
                 prop.add_time_state(time_state)
 
-    def _initialize_from_restart(self, data: DataContainer):
+    def _initialize_from_restart(self, data: DataContainer, verbose: bool = False):
         """
         Set initial conditions for FE coefficients (electromagnetic and fluid) and markers from restart group in hdf5 files.
 
@@ -1231,7 +1273,7 @@ RESTARTing from:
                         if MPI.COMM_WORLD.Get_size() > 1:
                             subval.particles.mpi_sort_markers(do_test=True)
 
-    def _create_femfields(self, step: int = 1):
+    def _create_femfields(self, step: int = 1, verbose: bool = False):
         """Creates instances of :class:`~struphy.feec.psydac_derham.SplineFunction` from distributed Struphy data.
 
         Parameters
@@ -1339,6 +1381,7 @@ RESTARTing from:
         *,
         celldivide: list = [1, 1, 1],
         physical: bool = False,
+        verbose: bool = False,
     ):
         """Evaluate FEM fields obtained from :meth:`struphy.post_processing.post_processing_tools.create_femfields`.
 
@@ -1472,6 +1515,7 @@ RESTARTing from:
         point_data: dict,
         *,
         physical: bool = False,
+        verbose: bool = False,
     ):
         """Creates structured virtual toolkit files (.vts) for Paraview from evaluated field data.
 
@@ -1533,6 +1577,7 @@ RESTARTing from:
         self,
         path_kinetic_species: str,
         step: int = 1,
+        verbose: bool = False,
     ):
         """Computes the Cartesian (x, y, z) coordinates of saved markers during a simulation
         and writes them to a .npy files and to .txt files.
@@ -1674,6 +1719,7 @@ RESTARTing from:
         path_kinetic_species,
         step=1,
         compute_bckgr=False,
+        verbose: bool=False,
     ):
         """Computes and saves distribution functions of saved binning data during a simulation.
 
@@ -1825,6 +1871,7 @@ RESTARTing from:
         self,
         path_kinetic_species,
         step=1,
+        verbose: bool=False,
     ):
         """Computes and saves the density n of saved sph data during a simulation.
 
@@ -1882,52 +1929,3 @@ RESTARTing from:
 
                 # save distribution functions
                 xp.save(os.path.join(path_view, "n_sph.npy"), data)
-
-    # -----------------
-    # Common properties
-    # -----------------
-
-    @property
-    def clone_config(self):
-        """Config in case domain clones are used."""
-        return self._clone_config
-
-    @clone_config.setter
-    def clone_config(self, new):
-        assert isinstance(new, CloneConfig) or new is None
-        self._clone_config = new
-
-    @property
-    def domain(self):
-        """Domain object, see :ref:`avail_mappings`."""
-        return self._domain
-
-    @property
-    def equil(self):
-        """Fluid equilibrium object, see :ref:`fluid_equil`."""
-        return self._equil
-
-    @property
-    def derham(self):
-        """3d Derham sequence, see :ref:`derham`."""
-        return self._derham
-
-    @property
-    def mass_ops(self):
-        """WeighteMassOperators object, see :ref:`mass_ops`."""
-        return self._mass_ops
-
-    @property
-    def basis_ops(self):
-        """Basis projection operators."""
-        return self._basis_ops
-
-    @property
-    def projected_equil(self):
-        """Fluid equilibrium projected on 3d Derham sequence with commuting projectors."""
-        return self._projected_equil
-
-    @property
-    def path_pproc(self):
-        """Path to post-processing folder."""
-        return self._path_pproc

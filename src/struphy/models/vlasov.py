@@ -80,7 +80,7 @@ class Vlasov(StruphyModel):
     def velocity_scale(self):
         return "cyclotron"
 
-    def allocate_helpers(self):
+    def allocate_helpers(self, verbose: bool = False):
         self._tmp = xp.empty(1, dtype=float)
 
     def update_scalar_quantities(self):

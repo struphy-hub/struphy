@@ -68,7 +68,7 @@ class ShearAlfven(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
-    def allocate_helpers(self):
+    def allocate_helpers(self, verbose: bool = False):
         # project background magnetic field (2-form) and pressure (3-form)
         self._b_eq = Propagator.projected_equil.b2
 
