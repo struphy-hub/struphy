@@ -37,6 +37,7 @@ from struphy.simulation.base import Simulation
 from struphy.feec.psydac_derham import SplineFunction
 from struphy.post_processing.orbits import orbits_tools
 from struphy.kinetic_background.base import KineticBackground
+from struphy.post_processing.post_processing_tools import pproc, load_plotting_data
 
 # third party imports
 from feectools.ddm.mpi import MockMPI
@@ -458,99 +459,18 @@ RESTARTing from:
 
         ProfileManager.finalize()
 
-    def pproc(
-        self,
-        step: int = 1,
+    def pproc(self, step: int = 1,
         celldivide: int = 1,
         physical: bool = False,
         guiding_center: bool = False,
         classify: bool = False,
         create_vtk: bool = True,
         time_trace: bool = False,
-        verbose: bool = False,
-    ):
-        """Post-processing finished Struphy runs.
+        verbose: bool = False,):
+        pproc(sim=self, step=step, celldivide=celldivide, physical=physical, guiding_center=guiding_center, classify=classify, create_vtk=create_vtk, time_trace=time_trace, verbose=verbose,)
 
-        Parameters
-        ----------
-        step : int
-            Whether to do post-processing at every time step (step=1, default), every second time step (step=2), etc.
-
-        celldivide : int
-            Grid refinement in evaluation of FEM fields. E.g. celldivide=2 evaluates two points per grid cell.
-
-        physical : bool
-            Wether to do post-processing into push-forwarded physical (xyz) components of fields.
-
-        guiding_center : bool
-            Compute guiding-center coordinates (only from Particles6D).
-
-        classify : bool
-            Classify guiding-center trajectories (passing, trapped or lost).
-
-        create_vtk : bool
-            Whether vtk files should be created.
-
-        time_trace : bool
-            whether to plot the time trace of each measured region
-        """
-
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\n*** Start post-processing of {self.env.path_out}:")
-
-        # create post-processing folder
-        self._path_pproc = os.path.join(self.env.path_out, "post_processing")
-
-        try:
-            os.mkdir(self.path_pproc)
-        except:
-            shutil.rmtree(self.path_pproc)
-            os.mkdir(self.path_pproc)
-
-        if time_trace:
-            from struphy.post_processing.likwid.plot_time_traces import plot_gantt_chart_plotly, plot_time_vs_duration
-
-            path_time_trace = os.path.join(self.env.path_out, "profiling_time_trace.pkl")
-            plot_time_vs_duration(path_time_trace, output_path=self.path_pproc)
-            plot_gantt_chart_plotly(path_time_trace, output_path=self.path_pproc)
-            return
-
-        # check for fields and kinetic data in hdf5 file that need post processing
-        with h5py.File(os.path.join(self.env.path_out, "data/", "data_proc0.hdf5"), "r") as file:
-            # save time grid at which post-processing data is created
-            xp.save(os.path.join(self.path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
-
-            if "feec" in file.keys():
-                exist_fields = True
-            else:
-                exist_fields = False
-
-            if "kinetic" in file.keys():
-                self.exist_particles = {"markers": False, "f": False, "n_sph": False}
-                self.kinetic_species = []
-                self.kinetic_kinds = []
-                for name in file["kinetic"].keys():
-                    self.kinetic_species += [name]
-                    self.kinetic_kinds += [next(iter(self.model.species[name].variables.values())).space]
-
-                    # check for saved markers
-                    if "markers" in file["kinetic"][name]:
-                        self.exist_particles["markers"] = True
-                    # check for saved distribution function
-                    if "f" in file["kinetic"][name]:
-                        self.exist_particles["f"] = True
-                    # check for saved sph density
-                    if "n_sph" in file["kinetic"][name]:
-                        self.exist_particles["n_sph"] = True
-            else:
-                self.exist_particles = None
-
-        # post-processing
-        if exist_fields:
-            self.pproc_fields(step=step, celldivide=celldivide, physical=physical,
-                              create_vtk=create_vtk, verbose=verbose,)      
-        if self.exist_particles is not None:
-            self.pproc_particles(step=step, guiding_center=guiding_center, classify=classify, verbose=verbose,)
+    def load_plotting_data(self, verbose: bool = False):
+        load_plotting_data(sim=self)
 
     # ---------------------
     # Code specific methods

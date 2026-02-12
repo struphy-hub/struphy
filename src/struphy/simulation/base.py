@@ -32,3 +32,8 @@ class Simulation(metaclass=ABCMeta):
     def pproc(self, verbose: bool = False):
         """Post-process the simulation results."""
         pass
+    
+    @abstractmethod
+    def load_plotting_data(self, verbose: bool = False):
+        """Load post-processed data for visualization."""
+        pass

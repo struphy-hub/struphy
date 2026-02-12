@@ -5,9 +5,7 @@ from types import ModuleType
 
 from feectools.ddm.mpi import mpi as MPI
 
-import struphy.models as models
-import struphy.models.utils as models_utils
-from struphy import EnvironmentOptions, main
+from struphy import EnvironmentOptions
 from struphy.io.setup import import_parameters_py
 from struphy.models.base import StruphyModel
 from struphy.simulation.codes import StruphySimulation
@@ -79,8 +77,7 @@ def call_test(model: StruphyModel, test_profiling: bool = False, verbose: bool =
 
     MPI.COMM_WORLD.Barrier()
     if rank == 0:
-        path_out = os.path.join(test_folder, model_name)
         sim.pproc(verbose=verbose)
-        # main.load_data(path=path_out)
+        sim.load_plotting_data(verbose=verbose)
         shutil.rmtree(test_folder)
     MPI.COMM_WORLD.Barrier()
