@@ -1360,7 +1360,7 @@ def test_sph_viscosity_evaluation_2d(
         ppb = 50
         loading_params = LoadingParameters(ppb=ppb, seed=1607, loading="tesselation")
     else:
-        ppb = 400
+        ppb = 2000
         loading_params = LoadingParameters(ppb=ppb, seed=223)
 
     Lx = r1 - l1
@@ -1397,7 +1397,7 @@ def test_sph_viscosity_evaluation_2d(
 
         return div_x, div_y, div_z
 
-    background = GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
+    background = equils.GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
     background.domain = domain
 
     boundary_params = BoundaryParameters(bc_sph=(bc_x, bc_y, "periodic"))
@@ -1452,9 +1452,9 @@ def test_sph_viscosity_evaluation_2d(
         kernel_type=kernel,
         derivative=0,
         )
-
-    print(f"{density.shape = }")
-    print(f"{xp.min(density) = }, {xp.max(density) = }")
+    if rank == 0:
+        print(f"{density.shape = }")
+        print(f"{xp.min(density) = }, {xp.max(density) = }")
     plt.figure(figsize=(10, 5))
     plt.subplot(1, 2, 1)
     plt.pcolor(xx.squeeze(), yy.squeeze(), density.squeeze(), vmin=xp.min(density), vmax=xp.max(density))
@@ -1477,11 +1477,11 @@ def test_sph_viscosity_evaluation_2d(
         kernel_type=kernel,
         derivative=0,
         )
-
-    print(f"{vx.shape = }, {vy.shape = }")
-    print(f"{xp.min(vx) = }, {xp.max(vx) = }")
-    print(f"{xp.min(vy) = }, {xp.max(vy) = }")
-    
+    if rank == 0:
+        print(f"{vx.shape = }, {vy.shape = }")
+        print(f"{xp.min(vx) = }, {xp.max(vx) = }")
+        print(f"{xp.min(vy) = }, {xp.max(vy) = }")
+        
     plt.figure(figsize=(10, 8))
     
     plt.subplot(2, 2, 1)
@@ -1616,12 +1616,20 @@ def test_sph_viscosity_evaluation_2d(
         # plt.show()
         plt.savefig("viscosity_2d_all")
         # plt.show()
+        
+        if tesselation: 
+            assert err_div_x, err_div_y < 3.5e-2
+        else: 
+            assert err_div_x <  5.8e-01
+            assert err_div_y < 5.9e-01
+            
+            
 
 
 
 if __name__ == "__main__":
     test_sph_viscosity_evaluation_2d(
-        (12, 12, 1), "gaussian_2d", "periodic", "periodic", 101, tesselation=True, show_plot=True
+        (12, 12, 1), "gaussian_2d", "periodic", "periodic", 101, tesselation=False, show_plot=True
     )
     # test_sph_velocity_evaluation_2d(
     #     (12, 12, 1), "gaussian_2d", 1, "periodic", "periodic", 101, tesselation=False, show_plot=True
