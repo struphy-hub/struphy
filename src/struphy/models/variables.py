@@ -36,6 +36,9 @@ class Variable(metaclass=ABCMeta):
     @abstractmethod
     def allocate(self):
         """Alocate object and memory for variable."""
+        
+    def __repr__(self):
+        return self.__class__.__name__
 
     @property
     def backgrounds(self):

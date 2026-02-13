@@ -25,17 +25,13 @@ from struphy.models import Maxwell
 
 @pytest.mark.parametrize("algo", ["implicit", "explicit"])
 def test_light_wave_1d(algo: str, do_plot: bool = False):
-    # setup model
+    # choose model
     model = Maxwell()
-    sim = StruphySimulation(model=model)
     
     # set environment options
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "Maxwell")
-    sim.env = EnvironmentOptions(out_folders=out_folders, sim_folder="light_wave_1d")
-    
-    # units
-    base_units = BaseUnits()
+    env = EnvironmentOptions(out_folders=out_folders, sim_folder="light_wave_1d")
 
     # time stepping
     time_opts = Time(dt=0.05, Tend=50.0)
@@ -59,19 +55,19 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
     model.em_fields.e_field.add_perturbation(perturbations.Noise(amp=0.1, comp=0, seed=123))
     model.em_fields.e_field.add_perturbation(perturbations.Noise(amp=0.1, comp=1, seed=123))
 
-    # instantiate Simulation and run
+    # instance of simulation
     sim = StruphySimulation(
         model=model,
         env=env,
-        base_units=base_units,
         time_opts=time_opts,
         domain=domain,
         equil=equil,
         grid=grid,
         derham_opts=derham_opts,
-        verbose=True,
     )
 
+    # run
+    sim.show_parameters()
     sim.run(verbose=True)
 
     # post processing

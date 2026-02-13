@@ -67,6 +67,12 @@ class StruphyModel(metaclass=ABCMeta):
     # --------------
     # Common methods
     # --------------
+    def __repr__(self):
+        print(self.__class__.__name__)
+        for k, v in self.species.items():
+            print(f"    {k}:")
+            print(v)
+        return ""
 
     @classmethod
     def name(cls) -> str:

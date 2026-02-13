@@ -73,20 +73,20 @@ class StruphySimulation(Simulation):
         time_opts: Time = Time(),
         domain: Domain = domains.Cuboid(),
         equil: FluidEquilibrium = equils.HomogenSlab(),
-        grid: grids.TensorProductGrid = None,
-        derham_opts: DerhamOptions = None,
+        grid: grids.TensorProductGrid = grids.TensorProductGrid(),
+        derham_opts: DerhamOptions = DerhamOptions(),
         verbose: bool = False,
     ):
 
-        self.model = model
-        self.params_path = params_path
-        self.env = env
-        self.base_units = base_units
-        self.time_opts = time_opts
+        self._model = model
+        self._params_path = params_path
+        self._env = env
+        self._base_units = base_units
+        self._time_opts = time_opts
         self._setup_domain_and_equil(domain, equil, verbose=verbose)
-        self.grid = grid
-        self.derham_opts = derham_opts
-
+        self._grid = grid
+        self._derham_opts = derham_opts
+        
         # setup profiling agent
         ProfileManager.setup(
             profiling_activated=env.profiling_activated,
@@ -113,6 +113,8 @@ class StruphySimulation(Simulation):
 
         if self.rank == 0:
             print("")
+            if verbose:
+                self.show_parameters()
 
         # synchronize MPI processes to set same start time of simulation for all processes
         self.Barrier()
@@ -123,7 +125,7 @@ class StruphySimulation(Simulation):
         self.model_name = model.__class__.__name__
 
         if self.rank == 0:
-            print(f"\n*** Instantiating simulation for model '{self.model_name}':")
+            print(f"*** Instantiating simulation for model '{self.model_name}':")
 
         # meta-data
         path_out = env.path_out
@@ -234,153 +236,16 @@ class StruphySimulation(Simulation):
         self._post_processor = PostProcessor(sim=self)
         self._plotting_data = PlottingData(sim=self)
 
-    # ------------------------------------------------------
-    # Common properties with setters (from input parameters)
-    # ------------------------------------------------------
-    
-    @property
-    def model(self):
-        """StruphyModel object containing the PDE of the model."""
-        return self._model
-    
-    @model.setter
-    def model(self, new):
-        assert isinstance(new, StruphyModel)
-        self._model = new
-        
-    @property
-    def params_path(self):  
-        """Path to parameter file used for the run."""
-        return self._params_path
-    
-    @params_path.setter 
-    def params_path(self, new):
-        assert isinstance(new, str) or new is None
-        self._params_path = new
-
-    @property
-    def env(self):      
-        """EnvironmentOptions object containing options related to the environment of the run."""
-        return self._env
-    
-    @env.setter
-    def env(self, new):
-        assert isinstance(new, EnvironmentOptions)
-        self._env = new
-        
-    @property
-    def base_units(self):       
-        """BaseUnits object containing the four base units for the run."""
-        return self._base_units
-    
-    @base_units.setter
-    def base_units(self, new):
-        assert isinstance(new, BaseUnits)
-        self._base_units = new
-        
-    @property
-    def time_opts(self):
-        """Time object containing time stepping parameters."""
-        return self._time_opts
-    
-    @time_opts.setter
-    def time_opts(self, new):
-        assert isinstance(new, Time)
-        self._time_opts = new
-
-    @property
-    def domain(self):
-        """Domain object, see :ref:`avail_mappings`."""
-        return self._domain
-    
-    @domain.setter
-    def domain(self, new):
-        assert isinstance(new, Domain)
-        self._domain = new
-
-    @property
-    def equil(self):
-        """Fluid equilibrium object, see :ref:`fluid_equil`."""
-        return self._equil
-    
-    @equil.setter
-    def equil(self, new):
-        assert isinstance(new, FluidEquilibrium) or new is None
-        self._equil = new
-        
-    @property
-    def grid(self):
-        """Grid object, see :ref:`grids`."""
-        return self._grid
-    
-    @grid.setter
-    def grid(self, new):    
-        assert isinstance(new, grids.TensorProductGrid) or new is None
-        self._grid = new
-        
-    @property
-    def derham_opts(self):  
-        """DerhamOptions object containing options for the setup of the 3d Derham sequence."""
-        return self._derham_opts
-    
-    @derham_opts.setter
-    def derham_opts(self, new):
-        assert isinstance(new, DerhamOptions) or new is None
-        self._derham_opts = new
-
-    # -----------------------------------------------------------------
-    # Common properties (derived from the above properties, no setters)
-    # -----------------------------------------------------------------
-
-    @property
-    def derham(self):
-        """3d Derham sequence, see :ref:`derham`."""
-        return self._derham
-
-    @property
-    def mass_ops(self):
-        """WeighteMassOperators object, see :ref:`mass_ops`."""
-        return self._mass_ops
-
-    @property
-    def basis_ops(self):
-        """Basis projection operators."""
-        return self._basis_ops
-
-    @property
-    def projected_equil(self):
-        """Fluid equilibrium projected on 3d Derham sequence with commuting projectors."""
-        return self._projected_equil
-
-    @property
-    def post_processor(self):
-        """PostProcessor object for post-processing finished Struphy runs."""
-        return self._post_processor
-
-    @property
-    def plotting_data(self):
-        """PlottingData object for loading and storing data generated during post-processing."""
-        return self._plotting_data
-
-    @property
-    def clone_config(self):
-        """Config in case domain clones are used."""
-        return self._clone_config
-
-    @clone_config.setter
-    def clone_config(self, new):
-        assert isinstance(new, CloneConfig) or new is None
-        self._clone_config = new
-
     # ----------------
     # Abstract methods
     # ----------------
+    
     def show_parameters(self):
         if self.rank == 0:
             print("\nSIMULATION PARAMETERS:")
-            print("Model:")
+            print("\nModel:")
             print(self.model)
-            print("\nParmameter file path:")
+            print("Parameter file path:")
             print(self.params_path)
             print("\nEnvironment options:")
             print(self.env)
@@ -439,6 +304,7 @@ class StruphySimulation(Simulation):
     def initialize_data_storage(self, verbose: bool = False):
         # data object for saving (will either create new hdf5 files if restart==False or open existing files if restart==True)
         # use MPI.COMM_WORLD as communicator when storing the outputs
+        
         self.data = DataContainer(self.env.path_out, comm=self.comm)
 
         # time quantities (current time value, value in seconds and index)
@@ -827,9 +693,9 @@ RESTARTing from:
         """If a numerical equilibirum is used, the domain is taken from this equilibirum."""
         if equil is not None:
             if isinstance(equil, NumericalMHDequilibrium):
-                self.domain = equil.domain
+                self._domain = equil.domain
             else:
-                self.domain = domain
+                self._domain = domain
                 equil.domain = domain
 
             if hasattr(equil, "units"):
@@ -842,24 +708,24 @@ RESTARTing from:
                 )
 
         else:
-            self.domain = domain
+            self._domain = domain
 
-        self.equil = equil
+        self._equil = equil
 
-        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-            print("\nDOMAIN:")
-            print("type:".ljust(25), self.domain.__class__.__name__)
-            for key, val in self.domain.params.items():
-                if key not in {"cx", "cy", "cz"}:
-                    print((key + ":").ljust(25), val)
+        # if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
+        #     print("\nDOMAIN:")
+        #     print("type:".ljust(25), self.domain.__class__.__name__)
+        #     for key, val in self.domain.params.items():
+        #         if key not in {"cx", "cy", "cz"}:
+        #             print((key + ":").ljust(25), val)
 
-            print("\nFLUID BACKGROUND:")
-            if self.equil is not None:
-                print("type:".ljust(25), self.equil.__class__.__name__)
-                for key, val in self.equil.params.items():
-                    print((key + ":").ljust(25), val)
-            else:
-                print("None.")
+        #     print("\nFLUID BACKGROUND:")
+        #     if self.equil is not None:
+        #         print("type:".ljust(25), self.equil.__class__.__name__)
+        #         for key, val in self.equil.params.items():
+        #             print((key + ":").ljust(25), val)
+        #     else:
+        #         print("None.")
 
     @profile
     def _allocate_feec(self, grid: grids.TensorProductGrid, derham_opts: DerhamOptions, verbose: bool = False):
@@ -1212,3 +1078,96 @@ RESTARTing from:
 
                         if MPI.COMM_WORLD.Get_size() > 1:
                             subval.particles.mpi_sort_markers(do_test=True)
+
+    # ------------------------------------------------------
+    # Common properties with setters (from input parameters)
+    # ------------------------------------------------------
+    
+    @property
+    def model(self):
+        """StruphyModel object containing the PDE of the model."""
+        return self._model
+        
+    @property
+    def params_path(self):  
+        """Path to parameter file used for the run."""
+        return self._params_path
+
+    @property
+    def env(self):      
+        """EnvironmentOptions object containing options related to the environment of the run."""
+        return self._env
+        
+    @property
+    def base_units(self):       
+        """BaseUnits object containing the four base units for the run."""
+        return self._base_units
+        
+    @property
+    def time_opts(self):
+        """Time object containing time stepping parameters."""
+        return self._time_opts
+
+    @property
+    def domain(self):
+        """Domain object, see :ref:`avail_mappings`."""
+        return self._domain
+
+    @property
+    def equil(self):
+        """Fluid equilibrium object, see :ref:`fluid_equil`."""
+        return self._equil
+        
+    @property
+    def grid(self):
+        """Grid object, see :ref:`grids`."""
+        return self._grid
+        
+    @property
+    def derham_opts(self):  
+        """DerhamOptions object containing options for the setup of the 3d Derham sequence."""
+        return self._derham_opts
+
+    # -----------------------------------------------------------------
+    # Common properties (derived from the above properties, no setters)
+    # -----------------------------------------------------------------
+
+    @property
+    def derham(self):
+        """3d Derham sequence, see :ref:`derham`."""
+        return self._derham
+
+    @property
+    def mass_ops(self):
+        """WeighteMassOperators object, see :ref:`mass_ops`."""
+        return self._mass_ops
+
+    @property
+    def basis_ops(self):
+        """Basis projection operators."""
+        return self._basis_ops
+
+    @property
+    def projected_equil(self):
+        """Fluid equilibrium projected on 3d Derham sequence with commuting projectors."""
+        return self._projected_equil
+
+    @property
+    def post_processor(self):
+        """PostProcessor object for post-processing finished Struphy runs."""
+        return self._post_processor
+
+    @property
+    def plotting_data(self):
+        """PlottingData object for loading and storing data generated during post-processing."""
+        return self._plotting_data
+
+    @property
+    def clone_config(self):
+        """Config in case domain clones are used."""
+        return self._clone_config
+
+    @clone_config.setter
+    def clone_config(self, new):
+        assert isinstance(new, CloneConfig) or new is None
+        self._clone_config = new
