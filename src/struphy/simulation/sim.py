@@ -542,9 +542,11 @@ RESTARTing from:
             create_vtk=create_vtk,
             verbose=verbose,
         )
+        return self.post_processor
 
     def load_plotting_data(self, verbose: bool = False):
         self.plotting_data.load(verbose=verbose)
+        return self.plotting_data
 
     # ---------------------
     # Code specific methods

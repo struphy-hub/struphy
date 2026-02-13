@@ -79,15 +79,15 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
 
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
-        simdata = sim.load_plotting_data(verbose=True)
+        sim.load_plotting_data(verbose=True)
 
         # fft
-        E_of_t = simdata.spline_values["em_fields"]["e_field_log"]
+        E_of_t = sim.plotting_data.spline_values["em_fields"]["e_field_log"]
         _1, _2, _3, coeffs = power_spectrum_2d(
             E_of_t,
             "e_field_log",
-            grids=simdata.grids_log,
-            grids_mapped=simdata.grids_phy,
+            grids=sim.plotting_data.grids_log,
+            grids_mapped=sim.plotting_data.grids_phy,
             component=0,
             slice_at=[0, 0, None],
             do_plot=do_plot,
