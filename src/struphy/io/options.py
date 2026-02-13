@@ -154,8 +154,9 @@ class BaseUnits:
     kBT: float = None
 
     def __repr__(self):
-        for k, v in self.__dict__.items():
-            print(f"{k}:".ljust(20), v)
+        units = ["m", "T", "1e20/m^3", "keV"]
+        for (k, v), unit in zip(self.__dict__.items(), units):
+            print(f"{k}:".ljust(20), v, unit)
         return ""
 
 @dataclass

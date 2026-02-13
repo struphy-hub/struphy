@@ -1,15 +1,12 @@
-# api imports
+# third party imports
 import glob
 import os
 import pickle
 import shutil
 import sysconfig
 import time
-
 import cunumpy as xp
 import h5py
-
-# third party imports
 from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.stencil import StencilVector
@@ -17,6 +14,7 @@ from line_profiler import profile
 from pyevtk.hl import gridToVTK
 from scope_profiler import ProfileManager
 
+# api imports
 from struphy import (
     BaseUnits,
     DerhamOptions,
@@ -28,6 +26,8 @@ from struphy import (
     equils,
     grids,
 )
+
+# core imports
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
 from struphy.fields_background.base import (
@@ -45,7 +45,6 @@ from struphy.geometry.base import Domain
 from struphy.io.output_handling import DataContainer
 from struphy.io.setup import setup_derham
 
-# core imports
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     DiagnosticSpecies,
@@ -72,7 +71,7 @@ class StruphySimulation(Simulation):
         base_units: BaseUnits = BaseUnits(),
         time_opts: Time = Time(),
         domain: Domain = domains.Cuboid(),
-        equil: FluidEquilibrium = equils.HomogenSlab(),
+        equil: FluidEquilibrium = None,
         grid: grids.TensorProductGrid = grids.TensorProductGrid(),
         derham_opts: DerhamOptions = DerhamOptions(),
         verbose: bool = False,

@@ -5,18 +5,18 @@ import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 
-from struphy import BaseUnits, DerhamOptions, EnvironmentOptions, Time, domains, grids, main, perturbations
+from struphy import (BaseUnits, DerhamOptions, EnvironmentOptions, Time, domains, grids, main, perturbations, StruphySimulation,)
 from struphy.models import Poisson
 
 
 def test_poisson_1d(do_plot=False):
+    # light-weight model instance
+    model = Poisson()
+    
     # environment options
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "Poisson")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="time_source_1d")
-
-    # units
-    base_units = BaseUnits()
 
     # time stepping
     time_opts = Time(dt=0.1, Tend=2.0)
@@ -24,26 +24,16 @@ def test_poisson_1d(do_plot=False):
     # geometry
     l1 = -5.0
     r1 = 5.0
-    l2 = -5.0
-    r2 = 5.0
-    l3 = -6.0
-    r3 = 6.0
     domain = domains.Cuboid(
         l1=l1,
         r1=r1,
-    )  # l2=l2, r2=r2, l3=l3, r3=r3)
+    ) 
 
     # fluid equilibrium (can be used as part of initial conditions)
     equil = None
 
     # grid
     grid = grids.TensorProductGrid(Nel=(48, 1, 1))
-
-    # derham options
-    derham_opts = DerhamOptions()
-
-    # light-weight model instance
-    model = Poisson()
 
     # propagator options
     omega = 2 * xp.pi
@@ -63,36 +53,34 @@ def test_poisson_1d(do_plot=False):
         amp / (l * 2 * xp.pi / Lx) ** 2 * xp.cos(l * 2 * xp.pi / Lx * e1) * xp.cos(omega * t)
     )
 
-    # start run
-    verbose = True
-
-    main.run(
-        model,
-        params_path=None,
+    # instance of simulation
+    sim = StruphySimulation(
+        model=model,
         env=env,
-        base_units=base_units,
         time_opts=time_opts,
         domain=domain,
         equil=equil,
         grid=grid,
-        derham_opts=derham_opts,
-        verbose=verbose,
+        verbose=True,
     )
+
+    # run
+    sim.run(verbose=True)
 
     # post processing
     if MPI.COMM_WORLD.Get_rank() == 0:
-        main.pproc(env.path_out)
+        sim.pproc(verbose=True)
 
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
-        simdata = main.load_data(env.path_out)
+        sim.load_plotting_data(verbose=True)
 
-        phi = simdata.spline_values["em_fields"]["phi_log"]
-        source = simdata.spline_values["em_fields"]["source_log"]
-        x = simdata.grids_phy[0][:, 0, 0]
-        y = simdata.grids_phy[1][0, :, 0]
-        z = simdata.grids_phy[2][0, 0, :]
-        time = simdata.t_grid
+        phi = sim.plotting_data.spline_values["em_fields"]["phi_log"]
+        source = sim.plotting_data.spline_values["em_fields"]["source_log"]
+        x = sim.plotting_data.grids_phy[0][:, 0, 0]
+        y = sim.plotting_data.grids_phy[1][0, :, 0]
+        z = sim.plotting_data.grids_phy[2][0, 0, :]
+        time = sim.plotting_data.t_grid
 
         interval = 2
         c = 0
@@ -134,5 +122,4 @@ def test_poisson_1d(do_plot=False):
 
 
 if __name__ == "__main__":
-    # test_light_wave_1d(algo="explicit", do_plot=True)
     test_poisson_1d(do_plot=False)

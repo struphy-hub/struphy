@@ -20,7 +20,9 @@ from struphy import (
     equils,
     main,
     perturbations,
+    StruphySimulation,
 )
+from struphy.models import EulerSPH
 
 
 @pytest.mark.parametrize("nx", [12, 24])
@@ -29,9 +31,9 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
     """Verification test for SPH discretization of isthermal Euler equations.
     A standing sound wave with c_s=1 traveserses the domain once.
     """
-    # import model
-    from struphy.models import EulerSPH
-
+    # light-weight model instance
+    model = EulerSPH(with_B0=False)
+    
     # environment options
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "EulerSPH")
@@ -47,17 +49,11 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
     r1 = 2.5
     domain = domains.Cuboid(r1=r1)
 
-    # fluid equilibrium (can be used as part of initial conditions)
-    equil = None
-
     # grid
     grid = None
 
     # derham options
     derham_opts = None
-
-    # light-weight model instance
-    model = EulerSPH(with_B0=False)
 
     # species parameters
     model.euler_fluid.set_phys_params()
@@ -97,29 +93,30 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
     perturbation = perturbations.ModesSin(ls=(1,), amps=(1.0e-2,))
     model.euler_fluid.var.add_perturbation(del_n=perturbation)
 
-    # start run
-    main.run(
-        model,
-        params_path=None,
+    # instance of simulation
+    sim = StruphySimulation(
+        model=model,
         env=env,
         base_units=base_units,
         time_opts=time_opts,
         domain=domain,
-        equil=equil,
         grid=grid,
         derham_opts=derham_opts,
         verbose=True,
     )
+    
+    # run
+    sim.run(verbose=True)
 
     # post processing
     if MPI.COMM_WORLD.Get_rank() == 0:
-        main.pproc(env.path_out)
+        sim.pproc(verbose=True)
 
         # diagnostics
-        simdata = main.load_data(env.path_out)
+        sim.load_plotting_data(env.path_out)
 
-        ee1, ee2, ee3 = simdata.n_sph["euler_fluid"]["view_0"]["grid_n_sph"]
-        n_sph = simdata.n_sph["euler_fluid"]["view_0"]["n_sph"]
+        ee1, ee2, ee3 = sim.plotting_data.n_sph["euler_fluid"]["view_0"]["grid_n_sph"]
+        n_sph = sim.plotting_data.n_sph["euler_fluid"]["view_0"]["n_sph"]
 
         if do_plot:
             ppb = 8

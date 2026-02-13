@@ -33,12 +33,18 @@ class Variable(metaclass=ABCMeta):
     which satisfy a PDE within a model.
     """
 
+    @property
+    @abstractmethod
+    def space(self):
+        """The function space of the variable, e.g. 'H1' for finite element variables or 'Particles6D' for PIC variables."""
+        pass
+
     @abstractmethod
     def allocate(self):
         """Alocate object and memory for variable."""
         
     def __repr__(self):
-        return self.__class__.__name__
+        return f"{self.__class__.__name__} ({self.space})"
 
     @property
     def backgrounds(self):

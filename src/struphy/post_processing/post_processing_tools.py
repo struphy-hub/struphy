@@ -142,12 +142,15 @@ class PostProcessor:
 
         self.path_out = path_out
         self.path_pproc = os.path.join(path_out, "post_processing")
-        self.derham = setup_derham(
-            grid,
-            derham_opts,
-            comm=None,
-            domain=domain,
-        )
+        if grid is None or derham_opts is None:
+            self.derham = None
+        else:
+            self.derham = setup_derham(
+                grid,
+                derham_opts,
+                comm=None,
+                domain=domain,
+            )
         self.domain = domain
         self.model = model
         self.comm_size = comm_size
