@@ -27,7 +27,7 @@ from struphy.models import Maxwell
 def test_light_wave_1d(algo: str, do_plot: bool = False):
     # light-weight model instance
     model = Maxwell()
-    
+
     # set environment options
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "Maxwell")
@@ -149,7 +149,7 @@ def test_coaxial(do_plot: bool = False):
         derham_opts=derham_opts,
         verbose=True,
     )
-    
+
     # run
     sim.run(verbose=True)
 

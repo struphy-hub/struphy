@@ -5,7 +5,18 @@ import cunumpy as xp
 import pytest
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy import (BaseUnits, DerhamOptions, EnvironmentOptions, Time, domains, equils, grids, main, perturbations, StruphySimulation,)
+from struphy import (
+    BaseUnits,
+    DerhamOptions,
+    EnvironmentOptions,
+    StruphySimulation,
+    Time,
+    domains,
+    equils,
+    grids,
+    main,
+    perturbations,
+)
 from struphy.diagnostics.diagn_tools import power_spectrum_2d
 from struphy.models import LinearMHD
 
@@ -63,7 +74,7 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
         equil=equil,
         verbose=True,
     )
-    
+
     # run
     sim.run(verbose=True)
 

@@ -14,13 +14,13 @@ from struphy import (
     EnvironmentOptions,
     KernelDensityPlot,
     LoadingParameters,
+    StruphySimulation,
     Time,
     WeightsParameters,
     domains,
     equils,
     main,
     perturbations,
-    StruphySimulation,
 )
 from struphy.models import EulerSPH
 
@@ -33,7 +33,7 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
     """
     # light-weight model instance
     model = EulerSPH(with_B0=False)
-    
+
     # environment options
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "EulerSPH")
@@ -104,7 +104,7 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
         derham_opts=derham_opts,
         verbose=True,
     )
-    
+
     # run
     sim.run(verbose=True)
 

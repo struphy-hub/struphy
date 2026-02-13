@@ -13,6 +13,7 @@ from struphy import (
     DerhamOptions,
     EnvironmentOptions,
     LoadingParameters,
+    StruphySimulation,
     Time,
     WeightsParameters,
     domains,
@@ -20,7 +21,6 @@ from struphy import (
     main,
     maxwellians,
     perturbations,
-    StruphySimulation,
 )
 from struphy.models import VlasovAmpereOneSpecies
 
@@ -31,7 +31,7 @@ def test_weak_Landau(do_plot: bool = False):
     """
     # light-weight model instance
     model = VlasovAmpereOneSpecies(with_B0=False)
-    
+
     # environment options
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "VlasovAmpereOneSpecies")
@@ -94,7 +94,7 @@ def test_weak_Landau(do_plot: bool = False):
         derham_opts=derham_opts,
         verbose=True,
     )
-    
+
     # run
     sim.run(verbose=True)
 

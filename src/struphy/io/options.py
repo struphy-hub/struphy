@@ -121,7 +121,7 @@ class Time:
 
     def __post_init__(self):
         check_option(self.split_algo, LiteralOptions.SplitAlgos)
-        
+
     def __repr__(self):
         for k, v in self.__dict__.items():
             print(f"{k}:".ljust(20), v)
@@ -158,6 +158,7 @@ class BaseUnits:
         for (k, v), unit in zip(self.__dict__.items(), units):
             print(f"{k}:".ljust(20), v, unit)
         return ""
+
 
 @dataclass
 class DerhamOptions:
@@ -197,7 +198,7 @@ class DerhamOptions:
 
     def __post_init__(self):
         check_option(self.polar_ck, LiteralOptions.PolarRegularity)
-        
+
     def __repr__(self):
         for k, v in self.__dict__.items():
             print(f"{k}:".ljust(20), v)
@@ -227,7 +228,7 @@ class FieldsBackground:
 
     def __post_init__(self):
         check_option(self.type, LiteralOptions.BackgroundTypes)
-        
+
     def __repr__(self):
         for k, v in self.__dict__.items():
             print(f"{k}:".ljust(20), v)

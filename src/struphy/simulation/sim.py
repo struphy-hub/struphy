@@ -5,6 +5,7 @@ import pickle
 import shutil
 import sysconfig
 import time
+
 import cunumpy as xp
 import h5py
 from feectools.ddm.mpi import MockMPI
@@ -44,7 +45,6 @@ from struphy.fields_background.projected_equils import (
 from struphy.geometry.base import Domain
 from struphy.io.output_handling import DataContainer
 from struphy.io.setup import setup_derham
-
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     DiagnosticSpecies,
@@ -85,7 +85,7 @@ class StruphySimulation(Simulation):
         self._setup_domain_and_equil(domain, equil, verbose=verbose)
         self._grid = grid
         self._derham_opts = derham_opts
-        
+
         # setup profiling agent
         ProfileManager.setup(
             profiling_activated=env.profiling_activated,
@@ -238,7 +238,7 @@ class StruphySimulation(Simulation):
     # ----------------
     # Abstract methods
     # ----------------
-    
+
     def show_parameters(self):
         if self.rank == 0:
             print("\nSIMULATION PARAMETERS:")
@@ -303,7 +303,7 @@ class StruphySimulation(Simulation):
     def initialize_data_storage(self, verbose: bool = False):
         # data object for saving (will either create new hdf5 files if restart==False or open existing files if restart==True)
         # use MPI.COMM_WORLD as communicator when storing the outputs
-        
+
         self.data = DataContainer(self.env.path_out, comm=self.comm)
 
         # time quantities (current time value, value in seconds and index)
@@ -1081,27 +1081,27 @@ RESTARTing from:
     # ------------------------------------------------------
     # Common properties with setters (from input parameters)
     # ------------------------------------------------------
-    
+
     @property
     def model(self):
         """StruphyModel object containing the PDE of the model."""
         return self._model
-        
+
     @property
-    def params_path(self):  
+    def params_path(self):
         """Path to parameter file used for the run."""
         return self._params_path
 
     @property
-    def env(self):      
+    def env(self):
         """EnvironmentOptions object containing options related to the environment of the run."""
         return self._env
-        
+
     @property
-    def base_units(self):       
+    def base_units(self):
         """BaseUnits object containing the four base units for the run."""
         return self._base_units
-        
+
     @property
     def time_opts(self):
         """Time object containing time stepping parameters."""
@@ -1116,14 +1116,14 @@ RESTARTing from:
     def equil(self):
         """Fluid equilibrium object, see :ref:`fluid_equil`."""
         return self._equil
-        
+
     @property
     def grid(self):
         """Grid object, see :ref:`grids`."""
         return self._grid
-        
+
     @property
-    def derham_opts(self):  
+    def derham_opts(self):
         """DerhamOptions object containing options for the setup of the 3d Derham sequence."""
         return self._derham_opts
 

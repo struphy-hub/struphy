@@ -5,14 +5,24 @@ import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 
-from struphy import (BaseUnits, DerhamOptions, EnvironmentOptions, Time, domains, grids, main, perturbations, StruphySimulation,)
+from struphy import (
+    BaseUnits,
+    DerhamOptions,
+    EnvironmentOptions,
+    StruphySimulation,
+    Time,
+    domains,
+    grids,
+    main,
+    perturbations,
+)
 from struphy.models import Poisson
 
 
 def test_poisson_1d(do_plot=False):
     # light-weight model instance
     model = Poisson()
-    
+
     # environment options
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "Poisson")
@@ -27,7 +37,7 @@ def test_poisson_1d(do_plot=False):
     domain = domains.Cuboid(
         l1=l1,
         r1=r1,
-    ) 
+    )
 
     # fluid equilibrium (can be used as part of initial conditions)
     equil = None

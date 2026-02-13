@@ -64,11 +64,11 @@ def call_test(model: StruphyModel, test_profiling: bool = False, verbose: bool =
         derham_opts=derham_opts,
         verbose=verbose,
     )
-    
+
     sim.show_parameters()
 
     sim.run(verbose=verbose)
-    
+
     # test restart
     env.restart = True
     time_opts.Tend += time_opts.dt
