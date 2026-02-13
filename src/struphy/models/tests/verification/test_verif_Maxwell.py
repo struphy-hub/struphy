@@ -25,11 +25,15 @@ from struphy.models import Maxwell
 
 @pytest.mark.parametrize("algo", ["implicit", "explicit"])
 def test_light_wave_1d(algo: str, do_plot: bool = False):
-    # environment options
+    # setup model
+    model = Maxwell()
+    sim = StruphySimulation(model=model)
+    
+    # set environment options
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "Maxwell")
-    env = EnvironmentOptions(out_folders=out_folders, sim_folder="light_wave_1d")
-
+    sim.env = EnvironmentOptions(out_folders=out_folders, sim_folder="light_wave_1d")
+    
     # units
     base_units = BaseUnits()
 
@@ -47,9 +51,6 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
 
     # derham options
     derham_opts = DerhamOptions(p=(1, 1, 3))
-
-    # light-weight model instance
-    model = Maxwell()
 
     # propagator options
     model.propagators.maxwell.options = model.propagators.maxwell.Options(algo=algo)

@@ -49,6 +49,12 @@ class FluidEquilibrium(metaclass=ABCMeta):
     def domain(self, new_domain):
         assert isinstance(new_domain, Domain) or new_domain is None
         self._domain = new_domain
+        
+    def __repr__(self):
+        print(f"{self.__class__.__name__}")
+        for k, v in self.params.items():
+            print(f"{k}:".ljust(20), v)
+        return ""
 
     ###########################
     # Vector-valued callables #

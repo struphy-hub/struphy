@@ -16,8 +16,6 @@ rank = MPI.COMM_WORLD.Get_rank()
 # generic function for calling model tests
 def call_test(model: StruphyModel, test_profiling: bool = False, verbose: bool = True):
     model_name = model.name()
-    if rank == 0:
-        print(f"\n*** Testing '{model_name}':")
 
     # exceptions
     if model_name == "TwoFluidQuasiNeutralToy" and MPI.COMM_WORLD.Get_size() > 1:
@@ -66,12 +64,15 @@ def call_test(model: StruphyModel, test_profiling: bool = False, verbose: bool =
         derham_opts=derham_opts,
         verbose=verbose,
     )
+    
+    sim.show_parameters()
 
     sim.run(verbose=verbose)
-
+    
     # test restart
     env.restart = True
     time_opts.Tend += time_opts.dt
+    sim.show_parameters()
 
     sim.run(verbose=verbose)
 

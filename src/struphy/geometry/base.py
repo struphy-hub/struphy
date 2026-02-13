@@ -132,6 +132,12 @@ class Domain(metaclass=ABCMeta):
             self.cz.copy(),  # make sure we don't have stride = 0
         )
 
+    def __repr__(self):
+        print(f"{self.__class__.__name__}")
+        for k, v in self.params.items():
+            print(f"{k}:".ljust(20), v)
+        return ""
+
     @property
     def kind_map(self) -> int:
         """Integer defining the mapping:

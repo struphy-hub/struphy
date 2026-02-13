@@ -83,6 +83,7 @@ class StruphySimulation(Simulation):
         self.env = env
         self.base_units = base_units
         self.time_opts = time_opts
+        self._setup_domain_and_equil(domain, equil, verbose=verbose)
         self.grid = grid
         self.derham_opts = derham_opts
 
@@ -122,7 +123,7 @@ class StruphySimulation(Simulation):
         self.model_name = model.__class__.__name__
 
         if self.rank == 0:
-            print(f"\n*** Starting run for model '{self.model_name}':")
+            print(f"\n*** Instantiating simulation for model '{self.model_name}':")
 
         # meta-data
         path_out = env.path_out
@@ -229,26 +230,107 @@ class StruphySimulation(Simulation):
         )
         model.setup_equation_params(units=self.units, verbose=verbose)
 
-        # domain and fluid background
-        self._setup_domain_and_equil(domain, equil, verbose=verbose)
-
         # setup post processor and plotting
         self._post_processor = PostProcessor(sim=self)
         self._plotting_data = PlottingData(sim=self)
 
-    # -----------------
-    # Common properties
-    # -----------------
+    # ------------------------------------------------------
+    # Common properties with setters (from input parameters)
+    # ------------------------------------------------------
+    
+    @property
+    def model(self):
+        """StruphyModel object containing the PDE of the model."""
+        return self._model
+    
+    @model.setter
+    def model(self, new):
+        assert isinstance(new, StruphyModel)
+        self._model = new
+        
+    @property
+    def params_path(self):  
+        """Path to parameter file used for the run."""
+        return self._params_path
+    
+    @params_path.setter 
+    def params_path(self, new):
+        assert isinstance(new, str) or new is None
+        self._params_path = new
+
+    @property
+    def env(self):      
+        """EnvironmentOptions object containing options related to the environment of the run."""
+        return self._env
+    
+    @env.setter
+    def env(self, new):
+        assert isinstance(new, EnvironmentOptions)
+        self._env = new
+        
+    @property
+    def base_units(self):       
+        """BaseUnits object containing the four base units for the run."""
+        return self._base_units
+    
+    @base_units.setter
+    def base_units(self, new):
+        assert isinstance(new, BaseUnits)
+        self._base_units = new
+        
+    @property
+    def time_opts(self):
+        """Time object containing time stepping parameters."""
+        return self._time_opts
+    
+    @time_opts.setter
+    def time_opts(self, new):
+        assert isinstance(new, Time)
+        self._time_opts = new
 
     @property
     def domain(self):
         """Domain object, see :ref:`avail_mappings`."""
         return self._domain
+    
+    @domain.setter
+    def domain(self, new):
+        assert isinstance(new, Domain)
+        self._domain = new
 
     @property
     def equil(self):
         """Fluid equilibrium object, see :ref:`fluid_equil`."""
         return self._equil
+    
+    @equil.setter
+    def equil(self, new):
+        assert isinstance(new, FluidEquilibrium) or new is None
+        self._equil = new
+        
+    @property
+    def grid(self):
+        """Grid object, see :ref:`grids`."""
+        return self._grid
+    
+    @grid.setter
+    def grid(self, new):    
+        assert isinstance(new, grids.TensorProductGrid) or new is None
+        self._grid = new
+        
+    @property
+    def derham_opts(self):  
+        """DerhamOptions object containing options for the setup of the 3d Derham sequence."""
+        return self._derham_opts
+    
+    @derham_opts.setter
+    def derham_opts(self, new):
+        assert isinstance(new, DerhamOptions) or new is None
+        self._derham_opts = new
+
+    # -----------------------------------------------------------------
+    # Common properties (derived from the above properties, no setters)
+    # -----------------------------------------------------------------
 
     @property
     def derham(self):
@@ -293,6 +375,28 @@ class StruphySimulation(Simulation):
     # ----------------
     # Abstract methods
     # ----------------
+    def show_parameters(self):
+        if self.rank == 0:
+            print("\nSIMULATION PARAMETERS:")
+            print("Model:")
+            print(self.model)
+            print("\nParmameter file path:")
+            print(self.params_path)
+            print("\nEnvironment options:")
+            print(self.env)
+            print("Base units:")
+            print(self.base_units)
+            print("Time stepping options:")
+            print(self.time_opts)
+            print("Domain:")
+            print(self.domain)
+            print("Fluid equilibrium:")
+            print(self.equil)
+            print("Grid:")
+            print(self.grid)
+            print("Derham options:")
+            print(self.derham_opts)
+            print("")
 
     def allocate(self, verbose: bool = False):
         # feec
@@ -723,24 +827,24 @@ RESTARTing from:
         """If a numerical equilibirum is used, the domain is taken from this equilibirum."""
         if equil is not None:
             if isinstance(equil, NumericalMHDequilibrium):
-                self._domain = equil.domain
+                self.domain = equil.domain
             else:
-                self._domain = domain
+                self.domain = domain
                 equil.domain = domain
 
             if hasattr(equil, "units"):
                 assert isinstance(equil.units, Units)
                 equil.units.derive_units(
-                    velocity_scale=self.velocity_scale,
-                    A_bulk=self.bulk_species.mass_number,
-                    Z_bulk=self.bulk_species.charge_number,
+                    velocity_scale=self.model.velocity_scale,
+                    A_bulk=self.model.bulk_species.mass_number,
+                    Z_bulk=self.model.bulk_species.charge_number,
                     verbose=verbose,
                 )
 
         else:
-            self._domain = domain
+            self.domain = domain
 
-        self._equil = equil
+        self.equil = equil
 
         if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
             print("\nDOMAIN:")

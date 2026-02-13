@@ -19,3 +19,8 @@ class TensorProductGrid:
 
     Nel: tuple = (24, 10, 1)
     mpi_dims_mask: tuple = (True, True, True)
+    
+    def __repr__(self):
+        for k, v in self.__dict__.items():
+            print(f"{k}:".ljust(20), v)
+        return ""

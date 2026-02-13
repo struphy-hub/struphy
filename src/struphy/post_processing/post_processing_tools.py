@@ -119,9 +119,6 @@ class PostProcessor:
         path_out: str = None,
     ):
 
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\n*** Start post-processing of {path_out}:")
-
         # create post-processing folder
         if sim is None:
             assert path_out is not None, (
@@ -199,6 +196,9 @@ class PostProcessor:
         create_vtk : bool
             Whether vtk files should be created.
         """
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\n*** Start post-processing::")
+            print(f"Post-processing path: {self.path_out}")
 
         # check for fields and kinetic data in hdf5 file that need post processing
         with h5py.File(os.path.join(self.path_out, "data/", "data_proc0.hdf5"), "r") as file:
@@ -1049,8 +1049,6 @@ class PlottingData:
 
         self.path_pproc = os.path.join(path_out, "post_processing")
         assert os.path.exists(self.path_pproc), f"Path {self.path_pproc} does not exist, run 'pproc' first?"
-        print("\n*** Loading post-processed plotting data:")
-        print(f"{path_out =}")
 
         # dictionaries to hold data
         self._orbits = {}
@@ -1110,6 +1108,8 @@ class PlottingData:
 
     def load(self, verbose: bool = False):
         """Load data generated during post-processing."""
+        print("\n*** Loading post-processed plotting data:")
+        print(f"Data path: {self.path_pproc}")
 
         # load time grid
         self.t_grid = xp.load(os.path.join(self.path_pproc, "t_grid.npy"))
