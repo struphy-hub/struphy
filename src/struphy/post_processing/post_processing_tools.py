@@ -131,13 +131,16 @@ class PostProcessor:
             grid = params_in.grid
             derham_opts = params_in.derham_opts
             domain = params_in.domain
-            # with 
-            # comm_size = 
+            model = params_in.model
+            with open(os.path.join(path_out, "meta.yml"), "r") as f:
+                meta = yaml.load(f, Loader=yaml.FullLoader)
+            comm_size = meta["MPI processes"] 
         else:
             path_out = sim.env.path_out
             grid = sim.grid
             derham_opts = sim.derham_opts
             domain = sim.domain
+            model = sim.model
             comm_size = sim.comm_size
         
         self.path_out = path_out    
@@ -148,6 +151,8 @@ class PostProcessor:
                             comm=None,
                             domain=domain,
                         )
+        self.domain = domain
+        self.model = model
         self.comm_size = comm_size
 
         try:
@@ -207,8 +212,10 @@ class PostProcessor:
             if "kinetic" in file.keys():
                 self.exist_particles = {"markers": False, "f": False, "n_sph": False}
                 self.kinetic_species = []
+                self.kinetic_kinds = []
                 for name in file["kinetic"].keys():
                     self.kinetic_species += [name]
+                    self.kinetic_kinds += [next(iter(self.model.species[name].variables.values())).space]
 
                     # check for saved markers
                     if "markers" in file["kinetic"][name]:
@@ -236,6 +243,10 @@ class PostProcessor:
                         create_vtk: bool = True,
                         verbose: bool = False,
                         ):
+        if not self.exist_fields:
+            print("No feec fields found in hdf5 file, skipping post-processing of fields.")
+            return
+        
         fields, t_grid = self._create_femfields(step=step)
         point_data, grids_log, grids_phy = self._eval_femfields(fields, celldivide=[celldivide] * 3)
         if physical:
@@ -245,10 +256,6 @@ class PostProcessor:
                 physical=True,
             )
             
-        if not self.exist_fields:
-            print("No feec fields found in hdf5 file, skipping post-processing of fields.")
-            return
-
         # directory for field data
         path_fields = os.path.join(self.path_pproc, "fields_data")
 
@@ -497,7 +504,7 @@ class PostProcessor:
         assert isinstance(celldivide, list)
         assert len(celldivide) == 3
 
-        Nel = self.grid.Nel
+        Nel = self.derham.Nel
 
         grids_log = [xp.linspace(0.0, 1.0, Nel_i * n_i + 1) for Nel_i, n_i in zip(Nel, celldivide)]
         grids_phy = [
