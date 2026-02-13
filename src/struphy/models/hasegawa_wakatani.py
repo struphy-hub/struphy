@@ -8,10 +8,10 @@ from struphy.models.species import (
     FluidSpecies,
 )
 from struphy.models.variables import FEECVariable
-from struphy.propagators.base import Propagator
 from struphy.propagators import (
     propagators_fields,
 )
+from struphy.propagators.base import Propagator
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -103,7 +103,7 @@ class HasegawaWakatani(StruphyModel):
         self._rho = Propagator.mass_ops.M0.dot(omega, out=self._rho)
         self._rho.update_ghost_regions()
         return self._rho
-    
+
     def allocate_helpers(self, verbose: bool = False):
         """Solve initial Poisson equation.
 
@@ -111,7 +111,7 @@ class HasegawaWakatani(StruphyModel):
         """
         self._rho: StencilVector = Propagator.derham.Vh["0"].zeros()
         self.update_rho()
-        
+
         if MPI.COMM_WORLD.Get_rank() == 0:
             print("\nINITIAL POISSON SOLVE:")
 
@@ -120,7 +120,6 @@ class HasegawaWakatani(StruphyModel):
 
         if MPI.COMM_WORLD.Get_rank() == 0:
             print("Done.")
-        
 
     def update_scalar_quantities(self):
         pass

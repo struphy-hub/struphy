@@ -7,7 +7,18 @@ from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 from scipy.special import jv, yn
 
-from struphy import (BaseUnits, DerhamOptions, EnvironmentOptions, Time, domains, equils, grids, main, perturbations, StruphySimulation,)
+from struphy import (
+    BaseUnits,
+    DerhamOptions,
+    EnvironmentOptions,
+    StruphySimulation,
+    Time,
+    domains,
+    equils,
+    grids,
+    main,
+    perturbations,
+)
 from struphy.diagnostics.diagn_tools import power_spectrum_2d
 from struphy.models import Maxwell
 
@@ -57,7 +68,8 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
         equil=equil,
         grid=grid,
         derham_opts=derham_opts,
-        verbose=True,)
+        verbose=True,
+    )
 
     sim.run(verbose=True)
 

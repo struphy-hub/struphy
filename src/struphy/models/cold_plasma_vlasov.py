@@ -11,12 +11,12 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
-from struphy.propagators.base import Propagator
 from struphy.propagators import (
     propagators_coupling,
     propagators_fields,
     propagators_markers,
 )
+from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
 
 rank = MPI.COMM_WORLD.Get_rank()
@@ -222,7 +222,7 @@ class ColdPlasmaVlasov(StruphyModel):
 
         # en_tot = en_w + en_e
         self.update_scalar("en_tot", en_E + self._tmp[0])
-        
+
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
         params_path = super().generate_default_parameter_file(path=path, prompt=prompt)

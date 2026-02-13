@@ -67,11 +67,11 @@ class StruphyModel(metaclass=ABCMeta):
     # --------------
     # Common methods
     # --------------
-    
+
     @classmethod
     def name(cls) -> str:
         return cls.__name__
-    
+
     def add_scalar(self, name: str, variable: PICVariable | SPHVariable = None, compute=None, summands=None):
         """
         Add a scalar to be saved during the simulation.
@@ -103,7 +103,7 @@ class StruphyModel(metaclass=ABCMeta):
             "compute": compute,
             "summands": summands,
         }
- 
+
     def update_scalar(self, name, value=None):
         """Update a scalar during the simulation.
 
@@ -118,7 +118,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         # Ensure the name is a string
         assert isinstance(name, str)
-        
+
         scalars = self.scalar_quantities
 
         variable: PICVariable | SPHVariable = scalars[name]["variable"]
@@ -581,7 +581,7 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
 
         return path
 
-    # ------------- 
+    # -------------
     # Model species
     # -------------
 

@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractmethod
 
+
 class Simulation(metaclass=ABCMeta):
     """Abstract base class for simulations."""
 
@@ -7,7 +8,7 @@ class Simulation(metaclass=ABCMeta):
     def __init__(self, **kwargs):
         """Initialize the simulation."""
         pass
-    
+
     @abstractmethod
     def allocate(self, verbose: bool = False):
         """Allocate the simulation variables in memory."""
@@ -17,7 +18,7 @@ class Simulation(metaclass=ABCMeta):
     def save_geometry_and_equil_vtk(self, verbose: bool = False):
         """Save geometry and equilibrium in VTK format."""
         pass
-    
+
     @abstractmethod
     def initialize_data_storage(self, verbose: bool = False):
         """Initialize the simulation data storage."""
@@ -27,12 +28,12 @@ class Simulation(metaclass=ABCMeta):
     def run(self, verbose: bool = False):
         """Run the simulation."""
         pass
-    
+
     @abstractmethod
     def pproc(self, verbose: bool = False):
         """Post-process the simulation results."""
         pass
-    
+
     @abstractmethod
     def load_plotting_data(self, verbose: bool = False):
         """Load post-processed data for visualization."""

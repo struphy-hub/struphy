@@ -72,7 +72,7 @@ def call_test(model: StruphyModel, test_profiling: bool = False, verbose: bool =
     # test restart
     env.restart = True
     time_opts.Tend += time_opts.dt
-    
+
     sim.run(verbose=verbose)
 
     MPI.COMM_WORLD.Barrier()

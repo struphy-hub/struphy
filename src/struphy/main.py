@@ -7,7 +7,6 @@ import shutil
 import sysconfig
 import time
 from typing import Optional, TypedDict
-import pickle
 
 import cunumpy as xp
 import h5py
@@ -30,12 +29,11 @@ from struphy.models.variables import FEECVariable
 from struphy.physics.physics import Units
 from struphy.pic.base import Particles
 from struphy.post_processing.orbits import orbits_tools
+from struphy.simulation.sim import StruphySimulation
 from struphy.topology import grids
 from struphy.topology.grids import TensorProductGrid
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml
-
-from struphy.simulation.sim import StruphySimulation
 
 
 @profile
@@ -78,6 +76,7 @@ def run(
     )
 
     sim.run(verbose=verbose)
+
 
 class SimData:
     """Holds post-processed Struphy data as attributes.

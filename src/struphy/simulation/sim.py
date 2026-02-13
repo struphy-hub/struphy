@@ -1,21 +1,33 @@
 # api imports
-from struphy import (EnvironmentOptions,
-                     BaseUnits,
-                     Time,
-                     domains,
-                     equils,
-                     grids,
-                     DerhamOptions,
-                     PostProcessor,
-                     PlottingData,
-                     )
+import glob
+import os
+import pickle
+import shutil
+import sysconfig
+import time
 
-# core imports
-from struphy.models.base import StruphyModel
-from struphy.geometry.base import Domain
-from struphy.fields_background.base import (FluidEquilibrium, NumericalMHDequilibrium, FluidEquilibriumWithB,)
-from struphy.physics.physics import Units
-from struphy.utils.clone_config import CloneConfig
+import cunumpy as xp
+import h5py
+
+# third party imports
+from feectools.ddm.mpi import MockMPI
+from feectools.ddm.mpi import mpi as MPI
+from feectools.linalg.stencil import StencilVector
+from line_profiler import profile
+from pyevtk.hl import gridToVTK
+from scope_profiler import ProfileManager
+
+from struphy import (
+    BaseUnits,
+    DerhamOptions,
+    EnvironmentOptions,
+    PlottingData,
+    PostProcessor,
+    Time,
+    domains,
+    equils,
+    grids,
+)
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
 from struphy.fields_background.base import (
@@ -29,46 +41,42 @@ from struphy.fields_background.projected_equils import (
     ProjectedFluidEquilibriumWithB,
     ProjectedMHDequilibrium,
 )
-from struphy.propagators.base import Propagator
-from struphy.models.species import (DiagnosticSpecies, FieldSpecies, FluidSpecies, ParticleSpecies, Species,)
-from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
+from struphy.geometry.base import Domain
 from struphy.io.output_handling import DataContainer
-from struphy.pic.base import Particles
-from struphy.utils.utils import dict_to_yaml
-from struphy.simulation.base import Simulation
 from struphy.io.setup import setup_derham
 
-# third party imports
-from feectools.ddm.mpi import MockMPI
-from feectools.ddm.mpi import mpi as MPI
-from feectools.linalg.stencil import StencilVector
-from scope_profiler import ProfileManager
-import os
-import time
-import pickle
-import shutil
-import sysconfig
-import cunumpy as xp
-import h5py
-import glob
-from line_profiler import profile
-from pyevtk.hl import gridToVTK
+# core imports
+from struphy.models.base import StruphyModel
+from struphy.models.species import (
+    DiagnosticSpecies,
+    FieldSpecies,
+    FluidSpecies,
+    ParticleSpecies,
+    Species,
+)
+from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
+from struphy.physics.physics import Units
+from struphy.pic.base import Particles
+from struphy.propagators.base import Propagator
+from struphy.simulation.base import Simulation
+from struphy.utils.clone_config import CloneConfig
+from struphy.utils.utils import dict_to_yaml
 
 
 class StruphySimulation(Simulation):
-
-    def __init__(self,
-                 model: StruphyModel,
-                 params_path: str = None,
-                 env: EnvironmentOptions = EnvironmentOptions(),
-                 base_units: BaseUnits = BaseUnits(),
-                 time_opts: Time = Time(),
-                 domain: Domain = domains.Cuboid(),
-                 equil: FluidEquilibrium = equils.HomogenSlab(),
-                 grid: grids.TensorProductGrid = None,
-                 derham_opts: DerhamOptions = None,
-                 verbose: bool = False,
-                 ):
+    def __init__(
+        self,
+        model: StruphyModel,
+        params_path: str = None,
+        env: EnvironmentOptions = EnvironmentOptions(),
+        base_units: BaseUnits = BaseUnits(),
+        time_opts: Time = Time(),
+        domain: Domain = domains.Cuboid(),
+        equil: FluidEquilibrium = equils.HomogenSlab(),
+        grid: grids.TensorProductGrid = None,
+        derham_opts: DerhamOptions = None,
+        verbose: bool = False,
+    ):
 
         self.model = model
         self.params_path = params_path
@@ -223,7 +231,7 @@ class StruphySimulation(Simulation):
 
         # domain and fluid background
         self._setup_domain_and_equil(domain, equil, verbose=verbose)
-        
+
         # setup post processor and plotting
         self._post_processor = PostProcessor(sim=self)
         self._plotting_data = PlottingData(sim=self)
@@ -261,17 +269,17 @@ class StruphySimulation(Simulation):
     def projected_equil(self):
         """Fluid equilibrium projected on 3d Derham sequence with commuting projectors."""
         return self._projected_equil
-    
+
     @property
     def post_processor(self):
         """PostProcessor object for post-processing finished Struphy runs."""
         return self._post_processor
-    
+
     @property
     def plotting_data(self):
         """PlottingData object for loading and storing data generated during post-processing."""
         return self._plotting_data
-    
+
     @property
     def clone_config(self):
         """Config in case domain clones are used."""
@@ -281,7 +289,7 @@ class StruphySimulation(Simulation):
     def clone_config(self, new):
         assert isinstance(new, CloneConfig) or new is None
         self._clone_config = new
-    
+
     # ----------------
     # Abstract methods
     # ----------------
@@ -387,8 +395,7 @@ RESTARTing from:
 {self.time_state["value_sec"][0]=}
 {self.time_state["index"][0]=}
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-"""
-            )
+""")
         else:
             total_steps = str(int(round(Tend / dt)))
 
@@ -512,21 +519,29 @@ RESTARTing from:
 
         ProfileManager.finalize()
 
-    def pproc(self, step: int = 1,
+    def pproc(
+        self,
+        step: int = 1,
         celldivide: int = 1,
         physical: bool = False,
         guiding_center: bool = False,
         classify: bool = False,
         create_vtk: bool = True,
         time_trace: bool = False,
-        verbose: bool = False,):
+        verbose: bool = False,
+    ):
         if time_trace:
             self.post_processor.plot_time_traces(verbose=verbose)
-        
-        self.post_processor.pproc(step=step, 
-                                  celldivide=celldivide, 
-                                  physical=physical, 
-                                  guiding_center=guiding_center, classify=classify, create_vtk=create_vtk, verbose=verbose,)
+
+        self.post_processor.pproc(
+            step=step,
+            celldivide=celldivide,
+            physical=physical,
+            guiding_center=guiding_center,
+            classify=classify,
+            create_vtk=create_vtk,
+            verbose=verbose,
+        )
 
     def load_plotting_data(self, verbose: bool = False):
         self.plotting_data.load(verbose=verbose)
@@ -535,7 +550,7 @@ RESTARTing from:
     # Code specific methods
     # ---------------------
 
-    def compute_plasma_params(self, verbose: bool=True):
+    def compute_plasma_params(self, verbose: bool = True):
         """
         Compute and print volume averaged plasma parameters for each species of the model.
 

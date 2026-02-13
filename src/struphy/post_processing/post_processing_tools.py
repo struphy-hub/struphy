@@ -1,14 +1,14 @@
 import os
 import pickle
 import shutil
+from typing import TYPE_CHECKING
 
 import cunumpy as xp
 import h5py
 import yaml
-from tqdm import tqdm
-from feectools.ddm.mpi import mpi as MPI 
-from typing import TYPE_CHECKING
+from feectools.ddm.mpi import mpi as MPI
 from pyevtk.hl import gridToVTK
+from tqdm import tqdm
 
 from struphy.feec.psydac_derham import SplineFunction
 from struphy.fields_background import equils
@@ -16,19 +16,16 @@ from struphy.fields_background.base import FluidEquilibrium
 from struphy.geometry import domains
 from struphy.geometry.base import Domain
 from struphy.io.options import BaseUnits, EnvironmentOptions, Time
-from struphy.io.setup import import_parameters_py
+from struphy.io.setup import import_parameters_py, setup_derham
 from struphy.kinetic_background import maxwellians
 from struphy.kinetic_background.base import KineticBackground
 from struphy.models.base import StruphyModel
 from struphy.models.species import ParticleSpecies
 from struphy.models.variables import PICVariable, SPHVariable
-from struphy.topology.grids import TensorProductGrid
-from struphy.post_processing.likwid.plot_time_traces import plot_gantt_chart_plotly, plot_time_vs_duration
-from struphy.feec.psydac_derham import SplineFunction
-from struphy.post_processing.orbits import orbits_tools
-from struphy.kinetic_background.base import KineticBackground
 from struphy.pic.base import Particles
-from struphy.io.setup import setup_derham
+from struphy.post_processing.likwid.plot_time_traces import plot_gantt_chart_plotly, plot_time_vs_duration
+from struphy.post_processing.orbits import orbits_tools
+from struphy.topology.grids import TensorProductGrid
 
 if TYPE_CHECKING:
     from struphy.simulation.sim import StruphySimulation
@@ -36,7 +33,7 @@ if TYPE_CHECKING:
 
 class ParamsIn:
     """Holds the input parameters of a Struphy simulation as attributes.
-    
+
     Parameters
     ----------
     path : str
@@ -44,9 +41,9 @@ class ParamsIn:
     """
 
     def __init__(
-            self,
-            path: str,
-        ):
+        self,
+        path: str,
+    ):
         print(f"\nReading in paramters from {path} ... ")
 
         params_path = os.path.join(path, "parameters.py")
@@ -62,7 +59,7 @@ class ParamsIn:
             grid = params_in.grid
             derham_opts = params_in.derham_opts
             model = params_in.model
-            
+
         elif os.path.exists(bin_path):
             with open(os.path.join(path, "env.bin"), "rb") as f:
                 env = pickle.load(f)
@@ -93,7 +90,7 @@ class ParamsIn:
             raise FileNotFoundError(f"Neither of the paths {params_path} or {bin_path} exists.")
 
         print("done.")
-        
+
         self.env = env
         self.units = base_units
         self.time_opts = time_opts
@@ -107,26 +104,29 @@ class ParamsIn:
 class PostProcessor:
     """Post-processing finished Struphy runs, eithr from Simulation object or from output path.
 
-        Parameters
-        ----------
-        sim : StruphySimulation
-            StruphySimulation object of finished run.
-            
-        path_out: str
-            Path to Struphy output folder (in case no sim is given).
-        """
+    Parameters
+    ----------
+    sim : StruphySimulation
+        StruphySimulation object of finished run.
 
-    def __init__(self,
-                 sim: "StruphySimulation" = None,
-            path_out: str = None,
-        ):
-        
+    path_out: str
+        Path to Struphy output folder (in case no sim is given).
+    """
+
+    def __init__(
+        self,
+        sim: "StruphySimulation" = None,
+        path_out: str = None,
+    ):
+
         if MPI.COMM_WORLD.Get_rank() == 0:
             print(f"\n*** Start post-processing of {path_out}:")
-            
+
         # create post-processing folder
         if sim is None:
-            assert path_out is not None, "If no sim object is provided, a path_out must be given to retrieve the parameters of the run to post-process."
+            assert path_out is not None, (
+                "If no sim object is provided, a path_out must be given to retrieve the parameters of the run to post-process."
+            )
             params_in = ParamsIn(path=path_out)
             grid = params_in.grid
             derham_opts = params_in.derham_opts
@@ -134,7 +134,7 @@ class PostProcessor:
             model = params_in.model
             with open(os.path.join(path_out, "meta.yml"), "r") as f:
                 meta = yaml.load(f, Loader=yaml.FullLoader)
-            comm_size = meta["MPI processes"] 
+            comm_size = meta["MPI processes"]
         else:
             path_out = sim.env.path_out
             grid = sim.grid
@@ -142,15 +142,15 @@ class PostProcessor:
             domain = sim.domain
             model = sim.model
             comm_size = sim.comm_size
-        
-        self.path_out = path_out    
+
+        self.path_out = path_out
         self.path_pproc = os.path.join(path_out, "post_processing")
         self.derham = setup_derham(
-                            grid,
-                            derham_opts,
-                            comm=None,
-                            domain=domain,
-                        )
+            grid,
+            derham_opts,
+            comm=None,
+            domain=domain,
+        )
         self.domain = domain
         self.model = model
         self.comm_size = comm_size
@@ -167,15 +167,16 @@ class PostProcessor:
         plot_gantt_chart_plotly(path_time_trace, output_path=self.path_pproc)
         return
 
-    def pproc(self,
-              step: int = 1,
-              celldivide: int = 1,
-              physical: bool = False,
-              guiding_center: bool = False,
-              classify: bool = False,
-              create_vtk: bool = True,
-              verbose: bool = False,
-              ):
+    def pproc(
+        self,
+        step: int = 1,
+        celldivide: int = 1,
+        physical: bool = False,
+        guiding_center: bool = False,
+        classify: bool = False,
+        create_vtk: bool = True,
+        verbose: bool = False,
+    ):
         """Do post processing for folder path_out.
 
         Parameters
@@ -198,7 +199,7 @@ class PostProcessor:
         create_vtk : bool
             Whether vtk files should be created.
         """
-        
+
         # check for fields and kinetic data in hdf5 file that need post processing
         with h5py.File(os.path.join(self.path_out, "data/", "data_proc0.hdf5"), "r") as file:
             # save time grid at which post-processing data is created
@@ -228,25 +229,36 @@ class PostProcessor:
                         self.exist_particles["n_sph"] = True
             else:
                 self.exist_particles = None
-        
-        # feec variables
-        self.pproc_fields(step=step, celldivide=celldivide, physical=physical,
-                                create_vtk=create_vtk, verbose=verbose,)      
-        
-        # particle variables
-        self.pproc_particles(step=step, guiding_center=guiding_center, classify=classify, verbose=verbose,)
 
-    def pproc_fields(self, 
-                        step: int = 1, 
-                        celldivide: int = 1, 
-                        physical: bool = False, 
-                        create_vtk: bool = True,
-                        verbose: bool = False,
-                        ):
+        # feec variables
+        self.pproc_fields(
+            step=step,
+            celldivide=celldivide,
+            physical=physical,
+            create_vtk=create_vtk,
+            verbose=verbose,
+        )
+
+        # particle variables
+        self.pproc_particles(
+            step=step,
+            guiding_center=guiding_center,
+            classify=classify,
+            verbose=verbose,
+        )
+
+    def pproc_fields(
+        self,
+        step: int = 1,
+        celldivide: int = 1,
+        physical: bool = False,
+        create_vtk: bool = True,
+        verbose: bool = False,
+    ):
         if not self.exist_fields:
             print("No feec fields found in hdf5 file, skipping post-processing of fields.")
             return
-        
+
         fields, t_grid = self._create_femfields(step=step)
         point_data, grids_log, grids_phy = self._eval_femfields(fields, celldivide=[celldivide] * 3)
         if physical:
@@ -255,7 +267,7 @@ class PostProcessor:
                 celldivide=[celldivide] * 3,
                 physical=True,
             )
-            
+
         # directory for field data
         path_fields = os.path.join(self.path_pproc, "fields_data")
 
@@ -293,16 +305,18 @@ class PostProcessor:
             if physical:
                 self._create_vtk(path_fields, t_grid, grids_phy, point_data_phy, physical=True)
 
-    def pproc_particles(self, 
-                        step: int = 1,
-                        guiding_center: bool = False,
-                        classify: bool = False,
-                        verbose: bool = False,):
-        
+    def pproc_particles(
+        self,
+        step: int = 1,
+        guiding_center: bool = False,
+        classify: bool = False,
+        verbose: bool = False,
+    ):
+
         if self.exist_particles is None:
             print("No kinetic data found in hdf5 file, skipping post-processing of kinetic data.")
             return
-        
+
         # directory for kinetic data
         path_kinetics = os.path.join(self.path_pproc, "kinetic_data")
 
@@ -711,15 +725,15 @@ class PostProcessor:
         step : int, optional
             Whether to do post-processing at every time step (step=1, default), every second time step (step=2), etc.
         """
-        
+
         species = path_kinetic_species.split("/")[-1]
         species_obj: ParticleSpecies = self.model.particle_species[species]
-        
+
         # open hdf5 files and get names and number of saved markers of kinetic species
         with h5py.File(os.path.join(self.path_out, "data/data_proc0.hdf5"), "r") as file_0:
             # get number of time steps and markers
             nt, n_markers, n_cols = file_0["kinetic/" + species + "/markers"].shape
-        
+
         # get velocity dimension from one of the variables of the species
         for varname, var in species_obj.variables.items():
             assert isinstance(var, PICVariable | SPHVariable)
@@ -803,7 +817,7 @@ class PostProcessor:
         path_kinetic_species,
         step=1,
         compute_bckgr=False,
-        verbose: bool=False,
+        verbose: bool = False,
     ):
         """Computes and saves distribution functions of saved binning data during a simulation.
 
@@ -889,7 +903,7 @@ class PostProcessor:
                     #         f_bckgr = f_bckgr + getattr(maxwellians, fi_type)(
                     #             maxw_params=maxw_params,
                     #         )
-                    
+
                     for _, var in species_obj.variables.items():
                         assert isinstance(var, PICVariable | SPHVariable)
                         f_bckgr: KineticBackground = var.backgrounds
@@ -955,7 +969,7 @@ class PostProcessor:
         self,
         path_kinetic_species,
         step=1,
-        verbose: bool=False,
+        verbose: bool = False,
     ):
         """Computes and saves the density n of saved sph data during a simulation.
 
@@ -1025,9 +1039,11 @@ class PlottingData:
     """
 
     def __init__(self, sim: "StruphySimulation" = None, path_out: str = None):
-        
+
         if sim is None:
-            assert path_out is not None, "If no sim object is provided, a path_out must be given to retrieve the parameters of the run to post-process."
+            assert path_out is not None, (
+                "If no sim object is provided, a path_out must be given to retrieve the parameters of the run to post-process."
+            )
         else:
             path_out = sim.env.path_out
 
@@ -1035,7 +1051,7 @@ class PlottingData:
         assert os.path.exists(self.path_pproc), f"Path {self.path_pproc} does not exist, run 'pproc' first?"
         print("\n*** Loading post-processed plotting data:")
         print(f"{path_out =}")
-        
+
         # dictionaries to hold data
         self._orbits = {}
         self._f = {}
@@ -1091,7 +1107,7 @@ class PlottingData:
             for spec, orbs in self.orbits.items():
                 self._Nattr[spec] = orbs.shape[2]
         return self._Nattr
-    
+
     def load(self, verbose: bool = False):
         """Load data generated during post-processing."""
 
@@ -1220,4 +1236,3 @@ class PlottingData:
                 print(f"    {kk}")
                 for kkk, vvv in vv.items():
                     print(f"      {kkk}")
-

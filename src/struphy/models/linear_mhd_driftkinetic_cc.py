@@ -10,13 +10,12 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.polar.basic import PolarVector
-from struphy.propagators.base import Propagator
 from struphy.propagators import (
     propagators_coupling,
     propagators_fields,
     propagators_markers,
 )
-from struphy.propagators.base import Propagator 
+from struphy.propagators.base import Propagator
 
 rank = MPI.COMM_WORLD.Get_rank()
 
