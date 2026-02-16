@@ -200,7 +200,7 @@ class PostProcessor:
             Whether vtk files should be created.
         """
         if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\n*** Start post-processing::")
+            print("\n*** Start post-processing::")
             print(f"Post-processing path: {self.path_out}")
 
         # check for fields and kinetic data in hdf5 file that need post processing
