@@ -403,46 +403,48 @@ class StruphyModel(metaclass=ABCMeta):
             else:
                 print("exiting ...")
                 exit()
-
-        file.write("from struphy import EnvironmentOptions, BaseUnits, Time\n")
-        file.write("from struphy import domains\n")
-        file.write("from struphy import equils\n")
-
-        species_params = "\n# species parameters\n"
-        particle_params = ""
-        has_plasma = False
+                
+        # loop over species to create parameter snippets
+        species_params = ""
+        variables_params = ""
+        particle_params = """\n# -------------------
+# Particle parameters
+# -------------------\n"""
         has_feec = False
         has_pic = False
         has_sph = False
         for sn, species in self.species.items():
             assert isinstance(species, Species)
+            species_params += f"model.{sn}.set_phys_params()\n"
 
-            if isinstance(species, (FluidSpecies, ParticleSpecies)):
-                has_plasma = True
-                species_params += f"model.{sn}.set_phys_params()\n"
-                if isinstance(species, ParticleSpecies):
-                    particle_params += "\nloading_params = LoadingParameters()\n"
-                    particle_params += "weights_params = WeightsParameters()\n"
-                    particle_params += "boundary_params = BoundaryParameters()\n"
-                    particle_params += f"model.{sn}.set_markers(loading_params=loading_params,\n"
-                    txt = "weights_params=weights_params,\n"
-                    particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
-                    txt = "boundary_params=boundary_params,\n"
-                    particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
-                    txt = ")\n"
-                    particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
-                    particle_params += f"model.{sn}.set_sorting_boxes()\n"
-                    particle_params += f"model.{sn}.set_save_data()\n"
+            if isinstance(species, ParticleSpecies):
+                particle_params += "\nloading_params = LoadingParameters()\n"
+                particle_params += "weights_params = WeightsParameters()\n"
+                particle_params += "boundary_params = BoundaryParameters()\n"
+                particle_params += f"model.{sn}.set_markers(loading_params=loading_params,\n"
+                txt = "weights_params=weights_params,\n"
+                particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
+                txt = "boundary_params=boundary_params,\n"
+                particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
+                txt = ")\n"
+                particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
+                particle_params += f"model.{sn}.set_sorting_boxes()\n"
+                particle_params += f"model.{sn}.set_save_data()\n"
 
             for vn, var in species.variables.items():
+                
+                variables_params += f"model.{sn}.{vn}.save_data = True\n"
+                
                 if isinstance(var, FEECVariable):
                     has_feec = True
+                    init_bckgr_feec = "\n# Background for (some) FEEC variables\n"
+                    init_pert_feec = "\n# Perturbations for (some) FEEC variables\n"
                     if var.space in ("H1", "L2"):
-                        init_bckgr_feec = f"model.{sn}.{vn}.add_background(FieldsBackground())\n"
-                        init_pert_feec = f"model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos())\n"
+                        init_bckgr_feec += f"model.{sn}.{vn}.add_background(FieldsBackground())\n"
+                        init_pert_feec += f"model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos())\n"
                     else:
-                        init_bckgr_feec = f"model.{sn}.{vn}.add_background(FieldsBackground())\n"
-                        init_pert_feec = (
+                        init_bckgr_feec += f"model.{sn}.{vn}.add_background(FieldsBackground())\n"
+                        init_pert_feec += (
                             f"model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v', comp=0))\n\
 model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v', comp=1))\n\
 model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v', comp=2))\n"
@@ -450,18 +452,17 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
 
                 elif isinstance(var, PICVariable):
                     has_pic = True
-                    init_pert_pic = (
-                        "\n# if .add_initial_condition is not called, the background is the kinetic initial condition\n"
-                    )
+                    init_bckgr_pic = "\n# Background for (some) kinetic species\n"
+                    init_pert_pic = "\n# Perturbations for (some) kinetic species\n"
                     init_pert_pic += "perturbation = perturbations.TorusModesCos()\n"
                     if "6D" in var.space:
-                        init_bckgr_pic = "maxwellian_1 = maxwellians.Maxwellian3D(n=(1.0, None))\n"
+                        init_bckgr_pic += "maxwellian_1 = maxwellians.Maxwellian3D(n=(1.0, None))\n"
                         init_bckgr_pic += "maxwellian_2 = maxwellians.Maxwellian3D(n=(0.1, None))\n"
                         init_pert_pic += "maxwellian_1pt = maxwellians.Maxwellian3D(n=(1.0, perturbation))\n"
                         init_pert_pic += "init = maxwellian_1pt + maxwellian_2\n"
                         init_pert_pic += f"model.{sn}.{vn}.add_initial_condition(init)\n"
                     elif "5D" in var.space:
-                        init_bckgr_pic = "maxwellian_1 = maxwellians.GyroMaxwellian2D(n=(1.0, None), equil=equil)\n"
+                        init_bckgr_pic += "maxwellian_1 = maxwellians.GyroMaxwellian2D(n=(1.0, None), equil=equil)\n"
                         init_bckgr_pic += "maxwellian_2 = maxwellians.GyroMaxwellian2D(n=(0.1, None), equil=equil)\n"
                         init_pert_pic += (
                             "maxwellian_1pt = maxwellians.GyroMaxwellian2D(n=(1.0, perturbation), equil=equil)\n"
@@ -469,7 +470,7 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                         init_pert_pic += "init = maxwellian_1pt + maxwellian_2\n"
                         init_pert_pic += f"model.{sn}.{vn}.add_initial_condition(init)\n"
                     if "3D" in var.space:
-                        init_bckgr_pic = "maxwellian_1 = maxwellians.ColdPlasma(n=(1.0, None))\n"
+                        init_bckgr_pic += "maxwellian_1 = maxwellians.ColdPlasma(n=(1.0, None))\n"
                         init_bckgr_pic += "maxwellian_2 = maxwellians.ColdPlasma(n=(0.1, None))\n"
                         init_pert_pic += "maxwellian_1pt = maxwellians.ColdPlasma(n=(1.0, perturbation))\n"
                         init_pert_pic += "init = maxwellian_1pt + maxwellian_2\n"
@@ -477,48 +478,89 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                     init_bckgr_pic += "background = maxwellian_1 + maxwellian_2\n"
                     init_bckgr_pic += f"model.{sn}.{vn}.add_background(background)\n"
 
-                    exclude = "# model.....save_data = False\n"
-
                 elif isinstance(var, SPHVariable):
                     has_sph = True
-                    init_bckgr_sph = "background = equils.ConstantVelocity()\n"
+                    init_bckgr_sph = "\n# Background for (some) sph variables\n"
+                    init_pert_sph = "\n# Perturbations for (some) sph variables\n"
+                    init_bckgr_sph += "background = equils.ConstantVelocity()\n"
                     init_bckgr_sph += f"model.{sn}.{vn}.add_background(background)\n"
-                    init_pert_sph = "perturbation = perturbations.TorusModesCos()\n"
+                    init_pert_sph += "perturbation = perturbations.TorusModesCos()\n"
                     init_pert_sph += f"model.{sn}.{vn}.add_perturbation(del_n=perturbation)\n"
-                exclude = f"# model.{sn}.{vn}.save_data = False\n"
+           
+        file.write(f"""# -----------------------------
+# Description of the simulation
+# -----------------------------
+# Please fill in a verbal description of the simulation. 
+# It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
-        file.write("from struphy import grids\n")
-        file.write("from struphy import DerhamOptions\n")
-        file.write("from struphy import FieldsBackground\n")
-        file.write("from struphy import perturbations\n")
+description = f\"\"\"\nThis is the default simulation for the model {self.__class__.__name__}. 
+It is meant to be a template for users to set up their own simulations with this model. 
+It contains all the necessary components of a Struphy simulation, including the model, 
+the environment options, the time stepping options, the geometry, the equilibrium, 
+the grid, the Derham options, and the initial conditions. 
+Users can modify this file to set up their own simulations with different parameters and initial conditions.\n\"\"\"
+\nprint(f"\\nRunning {{__file__}}.")
+print(description)\n""")     
 
-        file.write("from struphy import maxwellians\n")
-        file.write(
-            "from struphy import (LoadingParameters,\n\
-                                   WeightsParameters,\n\
-                                   BoundaryParameters,\n\
-                                   BinningPlot,\n\
-                                   KernelDensityPlot,\n\
-                                   )\n",
-        )
-        file.write("from struphy import main\n")
+        file.write("""\n# ------------------
+# Import Struphy API
+# ------------------\n""")
 
-        file.write("\n# import model\n")
-        file.write(f"from struphy.models import {self.__class__.__name__}\n")
+        file.write("""\nfrom struphy import (
+    BaseUnits,
+    DerhamOptions,
+    EnvironmentOptions,
+    FieldsBackground,
+    StruphySimulation,
+    Time,
+    domains,
+    equils,
+    grids,
+    perturbations,
+)\n""")
 
-        file.write("\n# environment options\n")
+        if has_pic or has_sph:
+            file.write("""\n# For particles:\nfrom struphy import (
+    BinningPlot,
+    BoundaryParameters,
+    KernelDensityPlot,
+    LoadingParameters,
+    WeightsParameters,
+    maxwellians,
+)\n""")
+
+        file.write("""\n# ---------------------
+# Instance of the model
+# ---------------------\n""")
+        
+        file.write(f"\nfrom struphy.models import {self.__class__.__name__}\n")
+        file.write(f"model = {self.__class__.__name__}()\n")
+        
+        file.write("\n# List all species and set their physical properties (charge and mass number, etc.)\n")
+        file.write(species_params)
+        
+        file.write("\n# List all variables and decide whether to save their data\n")
+        file.write(variables_params)
+
+        file.write("""\n# --------------------------
+# Instance of the simulation
+# --------------------------\n""")
+        
+        # file.write("\nfrom struphy import StruphySimulation\n")
+        
+        file.write("\n# Environment options\n")
         file.write("env = EnvironmentOptions()\n")
 
-        file.write("\n# units\n")
+        file.write("\n# Units\n")
         file.write("base_units = BaseUnits()\n")
 
-        file.write("\n# time stepping\n")
+        file.write("\n# Time stepping\n")
         file.write("time_opts = Time()\n")
 
-        file.write("\n# geometry\n")
+        file.write("\n# Geometry\n")
         file.write("domain = domains.Cuboid()\n")
 
-        file.write("\n# fluid equilibrium (can be used as part of initial conditions)\n")
+        file.write("\n# Fluid equilibrium (can be used as part of initial conditions)\n")
         file.write("equil = equils.HomogenSlab()\n")
 
         # if has_feec:
@@ -528,26 +570,41 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
         #     grid = "grid = None\n"
         #     derham = "derham_opts = None\n"
 
-        file.write("\n# grid\n")
+        file.write("\n# Grid\n")
         file.write(grid)
 
-        file.write("\n# derham options\n")
+        file.write("\n# Derham options\n")
         file.write(derham)
-
-        file.write("\n# light-weight model instance\n")
-        file.write(f"model = {self.__class__.__name__}()\n")
-
-        if has_plasma:
-            file.write(species_params)
+        
+        file.write("\n# Simulation object\n")
+        file.write("""sim = StruphySimulation(
+    model=model,
+    env=env,
+    base_units=base_units,
+    time_opts=time_opts,
+    domain=domain,
+    equil=equil,
+    grid=grid,
+    derham_opts=derham_opts,
+)\n""")
 
         if has_pic or has_sph:
             file.write(particle_params)
 
-        file.write("\n# propagator options\n")
+        file.write("""\n# ------------------
+# Propagator options
+# ------------------\n\n""")
         for prop in self.propagators.__dict__:
             file.write(f"model.propagators.{prop}.options = model.propagators.{prop}.Options()\n")
 
-        file.write("\n# background, perturbations and initial conditions\n")
+        file.write("""\n# ------------------
+# Initial conditions
+# ------------------
+# Initial conditions are the sum of the background(s) and the perturbation(s).
+# For kinetic species the background is mandatory.
+# For kinetic species, if add_initial_condition() is not called, the background is taken as the kinetic initial condition.
+# For kinetic species the perturbations are added to the moments of the distribution function (defined as tuples).
+# If perturbations are not specified, they are assumed to be zero. \n""")
         if has_feec:
             file.write(init_bckgr_feec)
             file.write(init_pert_feec)
@@ -558,25 +615,8 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
             file.write(init_bckgr_sph)
             file.write(init_pert_sph)
 
-        file.write("\n# optional: exclude variables from saving\n")
-        file.write(exclude)
-
         file.write('\nif __name__ == "__main__":\n')
-        file.write("    # start run\n")
-        file.write("    verbose = True\n\n")
-        file.write(
-            "    main.run(model,\n\
-             params_path=__file__,\n\
-             env=env,\n\
-             base_units=base_units,\n\
-             time_opts=time_opts,\n\
-             domain=domain,\n\
-             equil=equil,\n\
-             grid=grid,\n\
-             derham_opts=derham_opts,\n\
-             verbose=verbose,\n\
-             )",
-        )
+        file.write("    sim.run(verbose=False)")
 
         file.close()
 
