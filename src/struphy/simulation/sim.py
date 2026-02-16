@@ -232,8 +232,9 @@ class StruphySimulation(Simulation):
         model.setup_equation_params(units=self.units, verbose=verbose)
 
         # setup post processor and plotting
-        self._post_processor = PostProcessor(sim=self)
-        self._plotting_data = PlottingData(sim=self)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            self._post_processor = PostProcessor(sim=self)
+            self._plotting_data = PlottingData(sim=self)
 
     # ----------------
     # Abstract methods
