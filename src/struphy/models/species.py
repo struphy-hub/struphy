@@ -60,7 +60,7 @@ class Species(metaclass=ABCMeta):
     ):
         """Set charge- and mass number of species in parameter/launch files.
         Optional: Set equation parameters (alpha, epsilon, kappa) to override units."""
-        
+
         self._charge_number = charge_number
         self._mass_number = mass_number
         self.alpha = alpha
@@ -141,7 +141,7 @@ class Species(metaclass=ABCMeta):
 
 class FieldSpecies(Species):
     """Species without mass and charge (so-called 'fields')."""
-    
+
     def set_species_properties(
         self,
         alpha: float = None,
@@ -149,7 +149,7 @@ class FieldSpecies(Species):
         kappa: float = None,
     ):
         """Set equation parameters (alpha, epsilon, kappa) to override units."""
-        
+
         self._charge_number = 0
         self._mass_number = 0
         self.alpha = alpha
