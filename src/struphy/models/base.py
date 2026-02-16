@@ -403,7 +403,7 @@ class StruphyModel(metaclass=ABCMeta):
             else:
                 print("exiting ...")
                 exit()
-                
+
         # loop over species to create parameter snippets
         species_params = ""
         variables_params = ""
@@ -432,9 +432,8 @@ class StruphyModel(metaclass=ABCMeta):
                 particle_params += f"model.{sn}.set_save_data()\n"
 
             for vn, var in species.variables.items():
-                
                 variables_params += f"model.{sn}.{vn}.save_data = True\n"
-                
+
                 if isinstance(var, FEECVariable):
                     has_feec = True
                     init_bckgr_feec = "\n# Background for (some) FEEC variables\n"
@@ -486,7 +485,7 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                     init_bckgr_sph += f"model.{sn}.{vn}.add_background(background)\n"
                     init_pert_sph += "perturbation = perturbations.TorusModesCos()\n"
                     init_pert_sph += f"model.{sn}.{vn}.add_perturbation(del_n=perturbation)\n"
-           
+
         file.write(f"""# -----------------------------
 # Description of the simulation
 # -----------------------------
@@ -500,7 +499,7 @@ the environment options, the time stepping options, the geometry, the equilibriu
 the grid, the Derham options, and the initial conditions. 
 Users can modify this file to set up their own simulations with different parameters and initial conditions.\n\"\"\"
 \nprint(f"\\nRunning {{__file__}}.")
-print(description)\n""")     
+print(description)\n""")
 
         file.write("""\n# ------------------
 # Import Struphy API
@@ -532,22 +531,22 @@ print(description)\n""")
         file.write("""\n# ---------------------
 # Instance of the model
 # ---------------------\n""")
-        
+
         file.write(f"\nfrom struphy.models import {self.__class__.__name__}\n")
         file.write(f"model = {self.__class__.__name__}()\n")
-        
+
         file.write("\n# List all species and set their physical properties (charge and mass number, etc.)\n")
         file.write(species_params)
-        
+
         file.write("\n# List all variables and decide whether to save their data\n")
         file.write(variables_params)
 
         file.write("""\n# --------------------------
 # Instance of the simulation
 # --------------------------\n""")
-        
+
         # file.write("\nfrom struphy import StruphySimulation\n")
-        
+
         file.write("\n# Environment options\n")
         file.write("env = EnvironmentOptions()\n")
 
@@ -575,7 +574,7 @@ print(description)\n""")
 
         file.write("\n# Derham options\n")
         file.write(derham)
-        
+
         file.write("\n# Simulation object\n")
         file.write("""sim = StruphySimulation(
     model=model,

@@ -18,7 +18,7 @@ from struphy.api.particles import (
     WeightsParameters,
 )
 from struphy.api.perturbations import perturbations
-from struphy.api.post_processing import PostProcessor, PlottingData
+from struphy.api.post_processing import PlottingData, PostProcessor
 from struphy.api.simulation import StruphySimulation
 
 __all__ = [
