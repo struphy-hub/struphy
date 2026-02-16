@@ -410,6 +410,7 @@ class StruphyModel(metaclass=ABCMeta):
         particle_params = """\n# -------------------
 # Particle parameters
 # -------------------\n"""
+        init_bckgr_pic = "\n# Background for kinetic species\n"
         has_feec = False
         has_pic = False
         has_sph = False
@@ -451,7 +452,6 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
 
                 elif isinstance(var, PICVariable):
                     has_pic = True
-                    init_bckgr_pic = "\n# Background for (some) kinetic species\n"
                     init_pert_pic = "\n# Perturbations for (some) kinetic species\n"
                     init_pert_pic += "perturbation = perturbations.TorusModesCos()\n"
                     if "6D" in var.space:
@@ -600,14 +600,15 @@ print(description)\n""")
 # Initial conditions
 # ------------------
 # Initial conditions are the sum of the background(s) and the perturbation(s).
-# For kinetic species the background is mandatory.
-# For kinetic species, if add_initial_condition() is not called, the background is taken as the kinetic initial condition.
-# For kinetic species the perturbations are added to the moments of the distribution function (defined as tuples).
-# If perturbations are not specified, they are assumed to be zero. \n""")
+# If backgrounds or perturbations are not specified, they are assumed to be zero.\n""")
         if has_feec:
             file.write(init_bckgr_feec)
             file.write(init_pert_feec)
         if has_pic:
+            file.write("""
+# For kinetic species the background is mandatory.
+# For kinetic species, if add_initial_condition() is not called, the background is taken as the kinetic initial condition.
+# For kinetic species the perturbations are added to the moments of the distribution function (defined as tuples).\n""")
             file.write(init_bckgr_pic)
             file.write(init_pert_pic)
         if has_sph:
