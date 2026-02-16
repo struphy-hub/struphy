@@ -415,7 +415,7 @@ class StruphyModel(metaclass=ABCMeta):
         has_sph = False
         for sn, species in self.species.items():
             assert isinstance(species, Species)
-            species_params += f"model.{sn}.set_phys_params()\n"
+            species_params += f"model.{sn}.set_species_properties()\n"
 
             if isinstance(species, ParticleSpecies):
                 particle_params += "\nloading_params = LoadingParameters()\n"

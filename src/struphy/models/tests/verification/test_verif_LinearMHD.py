@@ -52,7 +52,7 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
     derham_opts = DerhamOptions(p=(1, 1, 3))
 
     # species parameters
-    model.mhd.set_phys_params()
+    model.mhd.set_species_properties()
 
     # propagator options
     model.propagators.shear_alf.options = model.propagators.shear_alf.Options(algo=algo)

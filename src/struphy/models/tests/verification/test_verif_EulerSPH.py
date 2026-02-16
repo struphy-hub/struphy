@@ -56,7 +56,7 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
     derham_opts = None
 
     # species parameters
-    model.euler_fluid.set_phys_params()
+    model.euler_fluid.set_species_properties()
 
     loading_params = LoadingParameters(ppb=8, loading="tesselation")
     weights_params = WeightsParameters()

@@ -50,7 +50,7 @@ class Species(metaclass=ABCMeta):
         """Mass number in units of proton mass."""
         return self._mass_number
 
-    def set_phys_params(
+    def set_species_properties(
         self,
         charge_number: int = 1,
         mass_number: int = 1,
@@ -60,6 +60,7 @@ class Species(metaclass=ABCMeta):
     ):
         """Set charge- and mass number of species in parameter/launch files.
         Optional: Set equation parameters (alpha, epsilon, kappa) to override units."""
+        
         self._charge_number = charge_number
         self._mass_number = mass_number
         self.alpha = alpha
@@ -140,6 +141,20 @@ class Species(metaclass=ABCMeta):
 
 class FieldSpecies(Species):
     """Species without mass and charge (so-called 'fields')."""
+    
+    def set_species_properties(
+        self,
+        alpha: float = None,
+        epsilon: float = None,
+        kappa: float = None,
+    ):
+        """Set equation parameters (alpha, epsilon, kappa) to override units."""
+        
+        self._charge_number = 0
+        self._mass_number = 0
+        self.alpha = alpha
+        self.epsilon = epsilon
+        self.kappa = kappa
 
 
 class FluidSpecies(Species):

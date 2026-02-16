@@ -51,7 +51,7 @@ def test_weak_Landau(do_plot: bool = False):
     derham_opts = DerhamOptions(p=(3, 1, 1))
 
     # species parameters
-    model.kinetic_ions.set_phys_params(alpha=1.0, epsilon=-1.0)
+    model.kinetic_ions.set_species_properties(alpha=1.0, epsilon=-1.0)
 
     ppc = 1000
     loading_params = LoadingParameters(ppc=ppc, seed=1234)
