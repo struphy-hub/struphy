@@ -83,10 +83,6 @@ class PushEta(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -182,10 +178,6 @@ class PushVxB(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -315,10 +307,6 @@ class PushVinEfield(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -435,10 +423,6 @@ class PushEtaPC(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -584,10 +568,6 @@ class PushGuidingCenterBxEstar(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -1025,10 +1005,6 @@ class PushGuidingCenterParallel(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -1434,10 +1410,6 @@ class PushDeterministicDiffusion(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -1567,10 +1539,6 @@ class PushRandomDiffusion(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -1696,10 +1664,6 @@ class PushVinSPHpressure(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -1833,10 +1797,6 @@ class PushVinViscousPotential(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile

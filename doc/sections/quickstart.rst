@@ -45,10 +45,10 @@ The data can be accessed through the Struphy API. If ``ipython`` is installed, t
     
 and then::
 
-    from struphy.main import pproc, load_data
+    from struphy import PostProcessor, PlottingData
     import os
-    path = os.path.join(os.getcwd(), "sim_1")
-    pproc(path)
+    pproc = PostProcessor(path_out=os.path.join(os.getcwd(), "sim_1"))
+    
     simdata = load_data(path)
 
 The variable ``simdata`` is of type :class:`~struphy.main.SimData` and holds grid and orbit information.

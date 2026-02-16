@@ -137,10 +137,6 @@ class Maxwell(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -329,10 +325,6 @@ class OhmCold(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -458,10 +450,6 @@ class JxBCold(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -610,10 +598,6 @@ class ShearAlfven(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -811,10 +795,6 @@ class ShearAlfvenB1(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -963,10 +943,6 @@ class Hall(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -1137,10 +1113,6 @@ class Magnetosonic(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -1360,10 +1332,6 @@ class MagnetosonicUniform(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -1730,10 +1698,6 @@ class CurrentCoupling6DDensity(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -2014,10 +1978,6 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -2381,10 +2341,6 @@ class CurrentCoupling5DDensity(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -2577,10 +2533,6 @@ class ImplicitDiffusion(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -2842,11 +2794,6 @@ class Poisson(ImplicitDiffusion):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                if "sigma" not in k and k not in ("divide_by_dt", "diffusion_mat"):
-                    print(f"  {k}: {v}")
         self._options = new
 
 
@@ -2926,10 +2873,6 @@ class VariationalMomentumAdvection(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -3219,10 +3162,6 @@ class VariationalDensityEvolve(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -3752,10 +3691,6 @@ class VariationalEntropyEvolve(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -4156,10 +4091,6 @@ class VariationalMagFieldEvolve(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -4557,10 +4488,6 @@ class VariationalPBEvolve(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -5155,10 +5082,6 @@ class VariationalQBEvolve(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -5751,10 +5674,6 @@ class VariationalViscosity(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -6509,10 +6428,6 @@ class VariationalResistivity(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -7208,10 +7123,6 @@ class TimeDependentSource(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -7539,10 +7450,6 @@ class HasegawaWakatani(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -7821,10 +7728,6 @@ class TwoFluidQuasiNeutralFull(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile

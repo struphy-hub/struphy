@@ -70,7 +70,7 @@ class GuidingCenter(StruphyModel):
 
     def __init__(self):
         if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}' ***")
+            print(f"Creating light-weight instance of model {self.__class__.__name__} ...")
 
         # 1. instantiate all species
         self.kinetic_ions = self.KineticIons()
@@ -86,6 +86,9 @@ class GuidingCenter(StruphyModel):
         self.add_scalar("en_fv", compute="from_particles", variable=self.kinetic_ions.var)
         self.add_scalar("en_fB", compute="from_particles", variable=self.kinetic_ions.var)
         self.add_scalar("en_tot", compute="from_particles", variable=self.kinetic_ions.var)
+        
+        if rank == 0:
+            print("Done.")
 
     @property
     def bulk_species(self):

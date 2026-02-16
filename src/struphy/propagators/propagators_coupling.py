@@ -129,10 +129,6 @@ class VlasovAmpere(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -380,10 +376,6 @@ class EfieldWeights(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -615,10 +607,6 @@ class PressureCoupling6D(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -936,10 +924,6 @@ class CurrentCoupling6DCurrent(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -1266,10 +1250,6 @@ class CurrentCoupling5DCurlb(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -1539,10 +1519,6 @@ class CurrentCoupling5DGradB(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile

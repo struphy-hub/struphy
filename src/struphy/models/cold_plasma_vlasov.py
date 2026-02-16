@@ -107,7 +107,7 @@ class ColdPlasmaVlasov(StruphyModel):
 
     def __init__(self):
         if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
+            print(f"Creating light-weight instance of model '{self.__class__.__name__}' ...")
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -142,6 +142,9 @@ class ColdPlasmaVlasov(StruphyModel):
         # initial Poisson (not a propagator used in time stepping)
         self.initial_poisson = propagators_fields.Poisson()
         self.initial_poisson.variables.phi = self.em_fields.phi
+        
+        if rank == 0:
+            print("... Done.")
 
     @property
     def bulk_species(self):
@@ -197,7 +200,7 @@ class ColdPlasmaVlasov(StruphyModel):
         phi = self.initial_poisson.variables.phi.spline.vector
         Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
         if MPI.COMM_WORLD.Get_rank() == 0:
-            print("Done.")
+            print("... Done.")
 
     def update_scalar_quantities(self):
         # e*M1*e/2

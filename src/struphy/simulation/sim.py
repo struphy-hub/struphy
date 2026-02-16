@@ -124,7 +124,7 @@ class StruphySimulation(Simulation):
         self.model_name = model.__class__.__name__
 
         if self.rank == 0:
-            print(f"*** Instantiating simulation for model '{self.model_name}':")
+            print(f"Instance of simulation for model {self.model_name} ...")
 
         # meta-data
         path_out = env.path_out
@@ -235,6 +235,7 @@ class StruphySimulation(Simulation):
         if MPI.COMM_WORLD.Get_rank() == 0:
             self._post_processor = PostProcessor(sim=self)
             self._plotting_data = PlottingData(sim=self)
+            print("\n... Done.")
 
     # ----------------
     # Abstract methods
@@ -264,6 +265,10 @@ class StruphySimulation(Simulation):
             print("")
 
     def allocate(self, verbose: bool = False):
+        
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print("\nAllocating simulation data ...")
+        
         # feec
         self._allocate_feec(self.grid, self.derham_opts, verbose=verbose)
 
@@ -275,6 +280,9 @@ class StruphySimulation(Simulation):
 
         # allocate helper fields and perform initial solves if needed
         self.model.allocate_helpers(verbose=verbose)
+        
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print("... Done.")
 
     def save_geometry_and_equil_vtk(self, verbose: bool = False):
         # store geometry vtk
@@ -321,6 +329,26 @@ class StruphySimulation(Simulation):
             self.data.add_data({key_time_restart: val})
 
     def run(self, verbose: bool = False):
+        print(f"\nStarting simulation run for model {self.model_name} ...")
+
+        # Display propagator options and intial conditions:
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print("\nPROPAGATOR OPTIONS:")
+            for prop in self.model.prop_list:
+                assert isinstance(prop, Propagator)
+                prop.show_options()
+                    
+            print("\nINITIAL CONDITIONS:")
+            for species in self.model.species.values():
+                assert isinstance(species, Species)
+                for variable in species.variables.values():
+                    if isinstance(variable, FEECVariable):
+                        variable.show_backgrounds()
+                        variable.show_perturbations()
+                    elif isinstance(variable, PICVariable) or isinstance(variable, SPHVariable):
+                        variable.show_backgrounds()
+                        variable.show_perturbations()
+                        variable.show_initial_condition()
 
         if not self.env.restart:
             # equation paramters
@@ -756,15 +784,15 @@ RESTARTing from:
             self._mass_ops = WeightedMassOperators(
                 self.derham,
                 self.domain,
-                verbose=verbose,
                 eq_mhd=self.equil,
+                verbose=verbose
             )
 
             self._basis_ops = BasisProjectionOperators(
                 self.derham,
                 self.domain,
-                verbose=verbose,
                 eq_mhd=self.equil,
+                verbose=verbose,
             )
 
         # create projected equilibrium
@@ -775,16 +803,19 @@ RESTARTing from:
                 self._projected_equil = ProjectedMHDequilibrium(
                     self.equil,
                     self.derham,
+                    verbose=verbose,
                 )
             elif isinstance(self.equil, FluidEquilibriumWithB):
                 self._projected_equil = ProjectedFluidEquilibriumWithB(
                     self.equil,
                     self.derham,
+                    verbose=verbose,
                 )
             elif isinstance(self.equil, FluidEquilibrium):
                 self._projected_equil = ProjectedFluidEquilibrium(
                     self.equil,
                     self.derham,
+                    verbose=verbose,
                 )
             else:
                 self._projected_equil = None
@@ -804,6 +835,7 @@ RESTARTing from:
                         derham=self.derham,
                         domain=self.domain,
                         equil=self.equil,
+                        verbose=verbose,
                     )
 
         # allocate memory for FE coeffs of fluid variables
@@ -816,6 +848,7 @@ RESTARTing from:
                         derham=self.derham,
                         domain=self.domain,
                         equil=self.equil,
+                        verbose=verbose,
                     )
 
         # allocate memory for marker arrays of kinetic variables
@@ -851,6 +884,7 @@ RESTARTing from:
                         derham=self.derham,
                         domain=self.domain,
                         equil=self.equil,
+                        verbose=verbose,
                     )
 
         # TODO: allocate memory for FE coeffs of diagnostics
@@ -882,7 +916,7 @@ RESTARTing from:
         for prop in self.model.prop_list:
             assert isinstance(prop, Propagator)
             prop.allocate(verbose=verbose)
-            if MPI.COMM_WORLD.Get_rank() == 0:
+            if verbose and MPI.COMM_WORLD.Get_rank() == 0:
                 print(f"\nAllocated propagator '{prop.__class__.__name__}'.")
 
     @profile

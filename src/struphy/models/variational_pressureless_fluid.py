@@ -62,7 +62,7 @@ class VariationalPressurelessFluid(StruphyModel):
 
     def __init__(self):
         if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
+            print(f"Creating light-weight instance of model {self.__class__.__name__} ...")
 
         # 1. instantiate all species
         self.fluid = self.Fluid()

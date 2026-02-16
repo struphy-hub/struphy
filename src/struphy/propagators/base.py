@@ -71,10 +71,6 @@ class Propagator(metaclass=ABCMeta):
     @abstractmethod
     def options(self, new):
         assert isinstance(new, self.Options)
-        if True:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @abstractmethod
@@ -91,6 +87,12 @@ class Propagator(metaclass=ABCMeta):
         dt : float
             Time step size.
         """
+
+    def show_options(self):
+        """Print the options of the propagator."""
+        print(f"\nOptions for propagator '{self.__class__.__name__}':")
+        for k, v in self.options.__dict__.items():
+            print(f"    {k}:".ljust(20), v)
 
     def update_feec_variables(self, **new_coeffs):
         r"""Return max_diff = max(abs(new - old)) for each new_coeffs,

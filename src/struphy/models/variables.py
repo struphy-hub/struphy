@@ -95,13 +95,36 @@ class Variable(metaclass=ABCMeta):
             if not isinstance(self.backgrounds, list):
                 self._backgrounds = [self.backgrounds]
             self._backgrounds += [background]
-
-        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            print(
-                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added background '{background.__class__.__name__}' with:",
-            )
-            for k, v in background.__dict__.items():
-                print(f"  {k}: {v}")
+            
+    def show_backgrounds(self):
+        if self.backgrounds is not None:
+            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - backgrounds:")
+            if isinstance(self.backgrounds, list):
+                for background in self.backgrounds:
+                    print(f"  {background.__class__.__name__}:")
+                    for k, v in background.__dict__.items():
+                        print(f"    {k}: {v}")
+            else:
+                print(f"  {self.backgrounds.__class__.__name__}:")
+                for k, v in self.backgrounds.__dict__.items():
+                    print(f"    {k}: {v}")
+        else:
+            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no background.")
+            
+    def show_perturbations(self):
+        if self.perturbations is not None:
+            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - perturbations:")
+            if isinstance(self.perturbations, list):
+                for perturbation in self.perturbations:
+                    print(f"  {perturbation.__class__.__name__}:")
+                    for k, v in perturbation.__dict__.items():
+                        print(f"    {k}: {v}")
+            else:
+                print(f"  {self.perturbations.__class__.__name__}:")
+                for k, v in self.perturbations.__dict__.items():
+                    print(f"    {k}: {v}")
+        else:
+            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no perturbation.")
 
 
 class FEECVariable(Variable):
@@ -142,18 +165,12 @@ class FEECVariable(Variable):
                 self._perturbations = [self.perturbations]
             self._perturbations += [perturbation]
 
-        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            print(
-                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added perturbation '{perturbation.__class__.__name__}' with:",
-            )
-            for k, v in perturbation.__dict__.items():
-                print(f"  {k}: {v}")
-
     def allocate(
         self,
         derham: Derham,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
+        verbose: bool = False,
     ):
         self._spline = derham.create_spline_function(
             name=self.__name__,
@@ -162,6 +179,7 @@ class FEECVariable(Variable):
             perturbations=self.perturbations,
             domain=domain,
             equil=equil,
+            verbose=verbose,
         )
 
 
@@ -206,12 +224,15 @@ class PICVariable(Variable):
     def add_initial_condition(self, init: KineticBackground, verbose=True):
         """The initial condition must be consistent with the background."""
         self._initial_condition = init
-        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            print(
-                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added initial condition '{init.__class__.__name__}' with:",
-            )
-            for k, v in init.__dict__.items():
-                print(f"  {k}: {v}")
+
+    def show_initial_condition(self):
+        if self.initial_condition is not None:
+            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - initial condition:")
+            print(f"  {self.initial_condition.__class__.__name__}:")
+            for k, v in self.initial_condition.__dict__.items():
+                print(f"    {k}: {v}")
+        else:
+            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no initial condition.")
 
     @property
     def initial_condition(self) -> KineticBackground:
@@ -360,10 +381,15 @@ class SPHVariable(Variable):
         self._perturbations["u2"] = del_u2
         self._perturbations["u3"] = del_u3
 
-        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added perturbation:")
-            for k, v in self._perturbations.items():
-                print(f"  {k}: {v}")
+    def show_perturbations(self):
+        print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - perturbations:")
+        for key, perturbation in self.perturbations.items():
+            if perturbation is not None:
+                print(f"  {key}: {perturbation.__class__.__name__}")
+                for k, v in perturbation.__dict__.items():
+                    print(f"    {k}: {v}")
+            else:
+                print(f"  {key}: None")
 
     @property
     def perturbations(self) -> dict[str, Perturbation]:
