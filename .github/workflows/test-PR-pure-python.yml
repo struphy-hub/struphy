@@ -158,8 +158,8 @@ jobs:
         # init .testmondata with non-MPI call
         run: |
           source env/bin/activate
-          mpirun -n 1 pytest -m single --testmon-forceselect -s --with-mpi --model-name Maxwell $STRUPHY_PATH
-          mpirun -n 2 pytest -m single --testmon-forceselect -s --with-mpi --model-name Vlasov $STRUPHY_PATH
+          mpirun -n 1 pytest -m single --testmon-forceselect -xs --with-mpi --model-name Maxwell $STRUPHY_PATH
+          mpirun -n 2 pytest -m single --testmon-forceselect -xs --with-mpi --model-name Vlasov $STRUPHY_PATH
 
       - name: GuidingCenter test MPI
         shell: bash
@@ -167,7 +167,7 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python-mpi
         run: |
           source env/bin/activate
-          mpirun -n 2 pytest -m single --testmon-forceselect -s --with-mpi --model-name GuidingCenter $STRUPHY_PATH
+          mpirun -n 2 pytest -m single --testmon-forceselect -xs --with-mpi --model-name GuidingCenter $STRUPHY_PATH
 
       - name: VlasovAmpere test MPI
         shell: bash
@@ -175,7 +175,7 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python-mpi
         run: |
           source env/bin/activate
-          mpirun -n 2 pytest -m single --testmon-forceselect -s --with-mpi --model-name VlasovAmpereOneSpecies $STRUPHY_PATH 
+          mpirun -n 2 pytest -m single --testmon-forceselect -xs --with-mpi --model-name VlasovAmpereOneSpecies $STRUPHY_PATH 
 
       - name: EulerSPH test MPI
         shell: bash
@@ -183,4 +183,4 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python-mpi
         run: |
           source env/bin/activate
-          mpirun -n 2 pytest -m single --testmon-forceselect -s --with-mpi --model-name EulerSPH  $STRUPHY_PATH 
+          mpirun -n 2 pytest -m single --testmon-forceselect -xs --with-mpi --model-name EulerSPH  $STRUPHY_PATH 
