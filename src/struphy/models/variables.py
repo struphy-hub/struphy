@@ -95,7 +95,7 @@ class Variable(metaclass=ABCMeta):
             if not isinstance(self.backgrounds, list):
                 self._backgrounds = [self.backgrounds]
             self._backgrounds += [background]
-            
+
     def show_backgrounds(self):
         if self.backgrounds is not None:
             print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - backgrounds:")
@@ -110,7 +110,7 @@ class Variable(metaclass=ABCMeta):
                     print(f"    {k}: {v}")
         else:
             print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no background.")
-            
+
     def show_perturbations(self):
         if self.perturbations is not None:
             print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - perturbations:")
@@ -232,7 +232,9 @@ class PICVariable(Variable):
             for k, v in self.initial_condition.__dict__.items():
                 print(f"    {k}: {v}")
         else:
-            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no initial condition.")
+            print(
+                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no initial condition."
+            )
 
     @property
     def initial_condition(self) -> KineticBackground:

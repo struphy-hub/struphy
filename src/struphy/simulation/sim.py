@@ -265,10 +265,10 @@ class StruphySimulation(Simulation):
             print("")
 
     def allocate(self, verbose: bool = False):
-        
+
         if MPI.COMM_WORLD.Get_rank() == 0:
             print("\nAllocating simulation data ...")
-        
+
         # feec
         self._allocate_feec(self.grid, self.derham_opts, verbose=verbose)
 
@@ -280,7 +280,7 @@ class StruphySimulation(Simulation):
 
         # allocate helper fields and perform initial solves if needed
         self.model.allocate_helpers(verbose=verbose)
-        
+
         if MPI.COMM_WORLD.Get_rank() == 0:
             print("... Done.")
 
@@ -337,15 +337,15 @@ class StruphySimulation(Simulation):
             for prop in self.model.prop_list:
                 assert isinstance(prop, Propagator)
                 prop.show_options()
-                    
+
             print("\nINITIAL CONDITIONS:")
             for species in self.model.species.values():
                 assert isinstance(species, Species)
                 for variable in species.variables.values():
-                    if isinstance(variable, FEECVariable):
+                    if isinstance(variable, FEECVariable) or isinstance(variable, SPHVariable):
                         variable.show_backgrounds()
                         variable.show_perturbations()
-                    elif isinstance(variable, PICVariable) or isinstance(variable, SPHVariable):
+                    elif isinstance(variable, PICVariable):
                         variable.show_backgrounds()
                         variable.show_perturbations()
                         variable.show_initial_condition()
@@ -781,12 +781,7 @@ RESTARTing from:
             self._mass_ops = None
             self._basis_ops = None
         else:
-            self._mass_ops = WeightedMassOperators(
-                self.derham,
-                self.domain,
-                eq_mhd=self.equil,
-                verbose=verbose
-            )
+            self._mass_ops = WeightedMassOperators(self.derham, self.domain, eq_mhd=self.equil, verbose=verbose)
 
             self._basis_ops = BasisProjectionOperators(
                 self.derham,

@@ -86,7 +86,7 @@ class GuidingCenter(StruphyModel):
         self.add_scalar("en_fv", compute="from_particles", variable=self.kinetic_ions.var)
         self.add_scalar("en_fB", compute="from_particles", variable=self.kinetic_ions.var)
         self.add_scalar("en_tot", compute="from_particles", variable=self.kinetic_ions.var)
-        
+
         if rank == 0:
             print("Done.")
 

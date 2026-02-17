@@ -142,7 +142,7 @@ class ColdPlasmaVlasov(StruphyModel):
         # initial Poisson (not a propagator used in time stepping)
         self.initial_poisson = propagators_fields.Poisson()
         self.initial_poisson.variables.phi = self.em_fields.phi
-        
+
         if rank == 0:
             print("... Done.")
 

@@ -15,7 +15,7 @@ class ProjectedFluidEquilibrium:
     Return coefficients."""
 
     def __init__(self, equil: FluidEquilibrium, derham: Derham, verbose: bool = False):
-        
+
         self._equil = equil
         self._derham = derham
 
@@ -36,7 +36,7 @@ class ProjectedFluidEquilibrium:
         self._E2T = derham.extraction_ops["2"].transpose()
         self._E3T = derham.extraction_ops["3"].transpose()
         self._EvT = derham.extraction_ops["v"].transpose()
-        
+
         if verbose and derham.comm.Get_rank() == 0:
             print("... Done.")
 
