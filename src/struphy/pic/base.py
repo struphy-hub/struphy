@@ -1023,27 +1023,13 @@ class Particles(metaclass=ABCMeta):
         #                 self._f0 = self._f0 + bckgr
 
     def _set_background_coordinates(self):
-        if self.type != "sph" and self.f0.coords == "constants_of_motion":
-            if self.vdim == 3:
-                assert self.n_cols_diag >= 7, (
-                    f"In case of the distribution '{self.f0}' with Particles6D, minimum number of n_cols_diagnostics is 7!"
-                )
-                self._f_coords_index = self.index["com"]["6D"]
-                self._f_jacobian_coords_index = self.index["pos+energy"]["6D"]
-            elif self.vdim == 2:
-                assert self.n_cols_diag >= 3, (
-                    f"In case of the distribution '{self.f0}' with Particles5D, minimum number of n_cols_diagnostics is 3!"
-                )
-                self._f_coords_index = self.index["com"]["5D"]
-                self._f_jacobian_coords_index = self.index["pos+energy"]["5D"]
-        else:
-            if self.type == "sph":
-                self._f_coords_index = self.index["coords"]
-                self._f_jacobian_coords_index = self.index["coords"]
+        if self.type == "sph":
+            self._f_coords_index = self.index["coords"]
+            self._f_jacobian_coords_index = self.index["coords"]
 
-            else:
-                self._f_coords_index = self.index["coords"]
-                self._f_jacobian_coords_index = self.index["coords"]
+        else:
+            self._f_coords_index = self.index["coords"]
+            self._f_jacobian_coords_index = self.index["coords"]
 
     def _n_mks_load_and_Np_per_clone(self):
         """Return two arrays: 1) an array of sub_comm.size where the i-th entry corresponds to the number of markers drawn on process i,

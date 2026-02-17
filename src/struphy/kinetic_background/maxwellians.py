@@ -341,10 +341,12 @@ class CanonicalMaxwellian2D(CanonicalMaxwellian):
         vth: tuple[float | Callable, Perturbation] = (1.0, None),
         equil: FluidEquilibriumWithB = None,
         volume_form: bool = True,
+        epsilon: float = 1.,
     ):
         self._maxw_params = {}
         self._maxw_params["n"] = n
         self._maxw_params["vth"] = vth
+        self._epsilon = epsilon
 
         self.check_maxw_params()
 
@@ -394,14 +396,15 @@ class CanonicalMaxwellian2D(CanonicalMaxwellian):
             assert isinstance(v[0], (float, int, Callable))
             assert isinstance(v[1], Perturbation) or v[1] is None
 
-    def velocity_jacobian_det(self, eta1, eta2, eta3, energy):
+    def velocity_jacobian_det(self, eta1, eta2, eta3, vparallel, mu):
         r"""TODO"""
         # collect arguments
         assert isinstance(eta1, xp.ndarray)
         assert isinstance(eta2, xp.ndarray)
         assert isinstance(eta3, xp.ndarray)
-        assert isinstance(energy, xp.ndarray)
-        assert eta1.shape == eta2.shape == eta3.shape == energy.shape
+        assert isinstance(vparallel, xp.ndarray)
+        assert isinstance(mu, xp.ndarray)
+        assert eta1.shape == eta2.shape == eta3.shape == vparallel.shape == mu.shape
         assert eta1.ndim == 1, "Input arguments must be a marker array."
 
         etas = [
@@ -412,6 +415,8 @@ class CanonicalMaxwellian2D(CanonicalMaxwellian):
         ]
 
         absB0 = self.equil.absB0(*etas)
+
+        energy = self.eval_energy(eta1, eta2, eta3, vparallel, mu)
 
         return xp.sqrt(energy) * 2.0 * xp.sqrt(2.0) / absB0
 
@@ -430,7 +435,62 @@ class CanonicalMaxwellian2D(CanonicalMaxwellian):
         for kw, arg in kwargs:
             self._moment_factors[kw] = arg
 
-    def psic_to_rc(self, psic):
+    def eval_energy(self, eta1, eta2, eta3, vparallel, mu):
+        r"""Energy evaluated at given particle positions and velocities."""
+        # call domain and equilibrium information
+        if eta1.ndim == 1:
+            etas = [
+                xp.concatenate(
+                    (eta1[:, None], eta2[:, None], eta3[:, None]),
+                    axis=1,
+                ),
+            ]
+            absB0 = self.equil.absB0(*etas)
+        else:
+            absB0 = self.equil.absB0(eta1, eta2, eta3)
+
+        # calculate energy
+        energy = 1/2 * vparallel**2 + mu * absB0
+
+        return energy
+
+    def eval_psic(self, eta1, eta2, eta3, vparallel, mu):
+        r"""Shifted canonical toroidal momentum evaluated at given particle positions and velocities."""
+        # call domain and equilibrium information
+        a1 = self.equil.domain.params["a1"]
+        B0 = self.equil.params["B0"]
+        R0 = self.equil.params["R0"]
+        if eta1.ndim == 1:
+            etas = [
+                xp.concatenate(
+                    (eta1[:, None], eta2[:, None], eta3[:, None]),
+                    axis=1,
+                ),
+            ]
+            absB0 = self.equil.absB0(*etas)
+        else:
+            absB0 = self.equil.absB0(eta1, eta2, eta3)
+        psi = self.equil.psi_r(eta1 * (1-a1) + a1)
+
+        # calculate energy
+        energy = self.eval_energy(eta1, eta2, eta3, vparallel, mu)
+
+        # calculate psic
+        psic = psi - self._epsilon * B0 * R0 / absB0 * vparallel
+
+        positive_mask = (energy - mu * B0) > 0
+        correction = xp.zeros_like(psic)
+        correction[positive_mask] = (
+            self._epsilon
+            * xp.sign(vparallel[positive_mask])
+            * xp.sqrt(2 * (energy[positive_mask] - mu[positive_mask] * B0))
+            * R0
+        )
+        psic += correction
+
+        return psic
+
+    def eval_rc(self, eta1, eta2, eta3, vparallel, mu):
         r""" Square root of radially normalized canonical toroidal momentum.
 
         .. math::
@@ -444,17 +504,10 @@ class CanonicalMaxwellian2D(CanonicalMaxwellian):
             \end{aligned}
 
         where :math:`\psi_\text{axis}` and :math:`\psi_\text{edge}` are poloidal magnetic flux function at the center and edge of poloidal plane respectively.
-
-        Parameters
-        ----------
-        psic : numpy.arrays
-            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-
-        Returns
-        -------
-        A numpy.array of the evaluated :math:`r_c`.
-
         """
+        # calculate psic
+        psic = self.eval_psic(eta1, eta2, eta3, vparallel, mu)
+
         # calculate rc²
         rc_squared = (psic - self.equil.psi_range[0]) / (self.equil.psi_range[1] - self.equil.psi_range[0])
 
@@ -470,18 +523,18 @@ class CanonicalMaxwellian2D(CanonicalMaxwellian):
 
         return rc
 
-    def n(self, psic):
+    def n(self, eta1, eta2, eta3, vparallel, mu):
         """Zero-th moment (density)."""
-        out = self._evaluate_moment(psic, name="n")
+        out = self._evaluate_moment(eta1, eta2, eta3, vparallel, mu, name="n")
         return out * self.moment_factors["n"]
 
-    def u(self, psic):
+    def u(self, eta1, eta2, eta3, vparallel, mu):
         """Mean velocities."""
         pass
 
-    def vth(self, psic):
+    def vth(self, eta1, eta2, eta3, vparallel, mu):
         """Thermal velocities."""
-        out = self._evaluate_moment(psic, name="vth")
+        out = self._evaluate_moment(eta1, eta2, eta3, vparallel, mu, name="vth")
         return out * self.moment_factors["vth"]
 
     @property
