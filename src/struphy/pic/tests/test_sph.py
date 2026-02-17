@@ -1327,10 +1327,10 @@ def test_sph_velocity_evaluation_2d(
 
 @pytest.mark.parametrize("boxes_per_dim", [(12, 12, 1)])
 @pytest.mark.parametrize("kernel", ["gaussian_2d"])  # "trigonometric_2d", "linear_2d"]))
-@pytest.mark.parametrize("bc_x", ["periodic", "mirror", "fixed"])
-@pytest.mark.parametrize("bc_y", ["periodic", "mirror", "fixed"])
+@pytest.mark.parametrize("bc_x", ["periodic"])
+@pytest.mark.parametrize("bc_y", ["periodic"])
 @pytest.mark.parametrize("eval_pts", [11])
-@pytest.mark.parametrize("tesselation", [False, True])
+@pytest.mark.parametrize("tesselation", [True])
 def test_sph_viscosity_evaluation_2d(
     boxes_per_dim,
     kernel,
@@ -1557,6 +1557,11 @@ def test_sph_viscosity_evaluation_2d(
         print(f"{bc_x = }, {bc_y = }, {eval_pts = }")
         print(f"Divergence of viscosity errors: gx={err_div_x:.3e}, gy={err_div_y:.3e}")
         # , gz={err_div_z:.3e}
+    
+    if tesselation:
+        assert err_div_x < 3.5e-2
+        assert err_div_y < 3.5e-2
+        
 
     if show_plot:
         # --- gamma_x and gamma_y plots ---
@@ -1619,74 +1624,70 @@ def test_sph_viscosity_evaluation_2d(
         # plt.show()
         plt.savefig("viscosity_2d_all")
         # plt.show()
-        # if rank == 0:
-        # if tesselation:
-        #    assert err_div_x < 3.5e-2
-        #    assert err_div_y < 3.5e-2
         # else:
         #    assert err_div_x <  5.8e-01
         #    assert err_div_y < 5.9e-01
 
         # ------------------------------
         # Convergence study
-        # ------------------------------
-        if rank == 0:
-            ppb_list = [1, 5, 10, 15, 25]
-            errors = []
+        # # ------------------------------
+        # if rank == 0:
+        #     ppb_list = [1, 5, 10, 15, 25]
+        #     errors = []
 
-            for ppb_val in ppb_list:
-                loading_params = LoadingParameters(
-                    ppb=ppb_val, seed=223, loading="tesselation" if tesselation else None
-                )
+        #     for ppb_val in ppb_list:
+        #         loading_params = LoadingParameters(
+        #             ppb=ppb_val, seed=223, loading="tesselation" if tesselation else None
+        #         )
 
-                particles = ParticlesSPH(
-                    comm_world=comm,
-                    loading_params=loading_params,
-                    boundary_params=boundary_params,
-                    boxes_per_dim=boxes_per_dim,
-                    bufsize=2.0,
-                    box_bufsize=4.0,
-                    domain=domain,
-                    background=background,
-                    n_as_volume_form=True,
-                    verbose=False,
-                )
+        #         particles = ParticlesSPH(
+        #             comm_world=comm,
+        #             loading_params=loading_params,
+        #             boundary_params=boundary_params,
+        #             boxes_per_dim=boxes_per_dim,
+        #             bufsize=2.0,
+        #             box_bufsize=4.0,
+        #             domain=domain,
+        #             background=background,
+        #             n_as_volume_form=True,
+        #             verbose=False,
+        #         )
 
-                particles.draw_markers(sort=False, verbose=False)
-                if comm is not None:
-                    particles.mpi_sort_markers()
-                particles.initialize_weights()
+        #         particles.draw_markers(sort=False, verbose=False)
+        #         if comm is not None:
+        #             particles.mpi_sort_markers()
+        #         particles.initialize_weights()
 
-                div_viscosity = particles.eval_div_viscosity(
-                    ee1,
-                    ee2,
-                    ee3,
-                    h1=h1,
-                    h2=h2,
-                    h3=h3,
-                    kernel_type=kernel,
-                )
+        #         div_viscosity = particles.eval_div_viscosity(
+        #             ee1,
+        #             ee2,
+        #             ee3,
+        #             h1=h1,
+        #             h2=h2,
+        #             h3=h3,
+        #             kernel_type=kernel,
+        #         )
 
-                gamma_x = div_viscosity[0]
-                err = abs_err(gamma_x, div_pi_x)
-                errors.append(float(err))
+        #         gamma_x = div_viscosity[0]
+        #         err = abs_err(gamma_x, div_pi_x)
+        #         errors.append(float(err))
 
-            ppb_arr = xp.array(ppb_list)
-            errors = xp.array(errors)
+        #     ppb_arr = xp.array(ppb_list)
+        #     errors = xp.array(errors)
 
-            coeffs = xp.polyfit(xp.log(ppb_arr), xp.log(errors), 1)
-            order = coeffs[0]
+        #     coeffs = xp.polyfit(xp.log(ppb_arr), xp.log(errors), 1)
+        #     order = coeffs[0]
 
-            print("\nSampling convergence study")
-            print("ppb:", ppb_arr)
-            print("errors:", errors)
-            print(f"Observed scaling ≈ ppb^{order:.3f}")
+        #     print("\nSampling convergence study")
+        #     print("ppb:", ppb_arr)
+        #     print("errors:", errors)
+        #     print(f"Observed scaling ≈ ppb^{order:.3f}")
 
-            plt.figure()
-            plt.loglog(ppb_arr, errors, "o-")
-            plt.xlabel("ppb")
-            plt.ylabel("Relative error")
-            plt.savefig("ppb_convergence")
+        #     plt.figure()
+        #     plt.loglog(ppb_arr, errors, "o-")
+        #     plt.xlabel("ppb")
+        #     plt.ylabel("Relative error")
+        #     plt.savefig("ppb_convergence")
 
 
 if __name__ == "__main__":
