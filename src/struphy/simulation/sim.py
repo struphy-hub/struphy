@@ -659,6 +659,37 @@ RESTARTing from:
                 "{:4.3e}".format(B_min) + units_affix["magnetic field"],
             )
 
+    def spawn_sister(self, params_path: str = None,
+                     env: EnvironmentOptions = None,
+                     time_opts: Time = None,
+                     grid: grids.TensorProductGrid = None,
+                     derham_opts: DerhamOptions = None,
+                     ):
+        """Spawn a sister simulation with the same model, base_units, domain and equilibrium
+        but different parameters and options otherwise. 
+        This can be used to run multiple simulations with the same model
+        but different parameters in parallel on the same cluster."""
+        if env is None:
+            env = self.env
+        if time_opts is None:
+            time_opts = self.time_opts
+        if grid is None:
+            grid = self.grid
+        if derham_opts is None:
+            derham_opts = self.derham_opts
+        
+        sister = StruphySimulation(model=self.model,
+                                    params_path=params_path,
+                                    env=env,
+                                    base_units=self.base_units,
+                                    time_opts=time_opts,
+                                    domain=self.domain,
+                                    equil=self.equil,
+                                    grid=grid,
+                                    derham_opts=derham_opts,
+                                    verbose=False)
+        return sister
+
     # ---------------
     # Private methods
     # ---------------
@@ -720,7 +751,6 @@ RESTARTing from:
                 os.remove(file)
                 if verbose and n < 10:  # print only ten statements in case of many processes
                     print("Removed existing file " + file)
-
 
     def _setup_domain_and_equil(self, domain: Domain, equil: FluidEquilibrium, verbose: bool = False):
         """If a numerical equilibirum is used, the domain is taken from this equilibirum."""
