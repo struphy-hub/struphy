@@ -120,9 +120,6 @@ class PushEta(Propagator):
     
     @profile
     def __call__(self, dt):
-        v = self.variables.var.particles.velocities[:10]
-        print(v)
-        print("")
         self._pusher(dt)
 
         # update_weights
