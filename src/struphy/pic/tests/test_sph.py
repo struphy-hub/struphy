@@ -1557,11 +1557,10 @@ def test_sph_viscosity_evaluation_2d(
         print(f"{bc_x = }, {bc_y = }, {eval_pts = }")
         print(f"Divergence of viscosity errors: gx={err_div_x:.3e}, gy={err_div_y:.3e}")
         # , gz={err_div_z:.3e}
-    
+
     if tesselation:
         assert err_div_x < 3.5e-2
         assert err_div_y < 3.5e-2
-        
 
     if show_plot:
         # --- gamma_x and gamma_y plots ---
