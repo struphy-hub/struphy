@@ -3885,9 +3885,8 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             fast=fast,
         )
 
-        return v1, v2, v3    
-    
-    
+        return v1, v2, v3
+
     def eval_div_viscosity(
         self,
         eta1,
@@ -3899,10 +3898,9 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         kernel_type="gaussian_1d",
         fast=True,
     ) -> tuple:
-        
         first_free_idx = self.args_markers.first_free_idx
         self.put_particles_in_boxes()
-        
+
         # 1st kernel
         func = Pyccelkernel(eval_kernels_gc.sph_mean_velocity_coeffs)
         comps = xp.array((0, 1, 2))
@@ -3923,7 +3921,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             h2=h2,
             h3=h3,
         )
-        
+
         # 2nd kernel
         func = Pyccelkernel(eval_kernels_gc.sph_viscosity_tensor)
         comps = xp.arange(9)
@@ -3944,30 +3942,34 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             h2=h2,
             h3=h3,
         )
-        
+
         # grid evaluation
         gamma = []
         for j in range(3):
             gamma += [[]]
             for k in range(3):
-                gamma[-1] += [self.eval_sph(eta1,
-                                eta2,
-                                eta3,
-                                first_free_idx + 3*(j+1) + k,
-                                kernel_type=kernel_type,
-                                derivative=k + 1,
-                                h1=h1,
-                                h2=h2,
-                                h3=h3,
-                                fast=fast,)]
-        
+                gamma[-1] += [
+                    self.eval_sph(
+                        eta1,
+                        eta2,
+                        eta3,
+                        first_free_idx + 3 * (j + 1) + k,
+                        kernel_type=kernel_type,
+                        derivative=k + 1,
+                        h1=h1,
+                        h2=h2,
+                        h3=h3,
+                        fast=fast,
+                    )
+                ]
+
         gamma_x = gamma[0][0] + gamma[0][1] + gamma[0][2]
         gamma_y = gamma[1][0] + gamma[1][1] + gamma[1][2]
         gamma_z = gamma[2][0] + gamma[2][1] + gamma[2][2]
-         
+
         return gamma_x, gamma_y, gamma_z
-         
-        # grad_v_at_eta = xp.zeros((3, 3), dtype=float) #<-- this line is wrong. i need a nested list, as the 3x3 matrix contains in every entry a matrix evaluated on a meshgrid 
+
+        # grad_v_at_eta = xp.zeros((3, 3), dtype=float) #<-- this line is wrong. i need a nested list, as the 3x3 matrix contains in every entry a matrix evaluated on a meshgrid
         # grad_v_at_eta = []
         # for j in range(3):
         #     grad_v_at_eta.append([])
@@ -3990,9 +3992,8 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         # traceD = xp.trace(D)
         # Pi = D - (traceD / 3.0) * xp.eye(3)
 
-        # return Pi    
+        # return Pi
 
-    
     def eval_sph(
         self,
         eta1: xp.ndarray,

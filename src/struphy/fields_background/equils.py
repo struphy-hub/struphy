@@ -2945,7 +2945,7 @@ class ConstantVelocity(CartesianFluidEquilibrium):
             mask = y < -2.0
             out[mask] = self.params["n"]
             return out
-    
+
 
 class HomogenSlabITG(CartesianFluidEquilibriumWithB):
     r"""

@@ -87,13 +87,13 @@ class ViscousEulerSPH(StruphyModel):
         self.euler_fluid = self.EulerFluid()
 
         # 2. instantiate all propagators
-        self.propagators = self.Propagators(with_B0=with_B0, with_p = with_p, with_viscosity=with_viscosity)
+        self.propagators = self.Propagators(with_B0=with_B0, with_p=with_p, with_viscosity=with_viscosity)
 
         # 3. assign variables to propagators
         self.propagators.push_eta.variables.var = self.euler_fluid.var
         if with_B0:
             self.propagators.push_vxb.variables.ions = self.euler_fluid.var
-        if with_p: 
+        if with_p:
             self.propagators.push_sph_p.variables.fluid = self.euler_fluid.var
         if with_viscosity:
             self.propagators.push_viscous.variables.fluid = self.euler_fluid.var

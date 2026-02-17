@@ -1365,7 +1365,6 @@ def test_sph_viscosity_evaluation_2d(
 
     Lx = r1 - l1
     Ly = r2 - l2
-    
 
     # -----------------------------
     # 1. velocity field
@@ -1375,11 +1374,11 @@ def test_sph_viscosity_evaluation_2d(
         Compute the 3D Taylor-Green vortex velocity at points x, y, z.
         u = [sin(x)cos(y)cos(z), -cos(x)sin(y)cos(z), 0]
         """
-        u_x = xp.sin(2*xp.pi*x) * xp.cos(2*xp.pi*y)
-        u_y = xp.cos(2*xp.pi*x) * xp.cos(2*xp.pi*y)
+        u_x = xp.sin(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
+        u_y = xp.cos(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
         u_z = xp.zeros_like(x)
-        
-        return u_x,u_y,u_z
+
+        return u_x, u_y, u_z
 
     # -----------------------------
     # 2. Divergence of pi
@@ -1391,8 +1390,12 @@ def test_sph_viscosity_evaluation_2d(
             div_Pi_x, div_Pi_y, div_Pi_z
         """
 
-        div_x = (28/3)*xp.pi**2 *xp.sin(2*xp.pi*x)*xp.cos(2*xp.pi*y) - (4*xp.pi**2/3)*xp.sin(2*xp.pi*x)*xp.sin(2*xp.pi*y)
-        div_y = (28/3)*xp.pi**2*xp.cos(2*xp.pi*x)*xp.cos(2*xp.pi*y) + (4*xp.pi**2/3)*xp.cos(2*xp.pi*x)*xp.sin(2*xp.pi*y)
+        div_x = (28 / 3) * xp.pi**2 * xp.sin(2 * xp.pi * x) * xp.cos(2 * xp.pi * y) - (4 * xp.pi**2 / 3) * xp.sin(
+            2 * xp.pi * x
+        ) * xp.sin(2 * xp.pi * y)
+        div_y = (28 / 3) * xp.pi**2 * xp.cos(2 * xp.pi * x) * xp.cos(2 * xp.pi * y) + (4 * xp.pi**2 / 3) * xp.cos(
+            2 * xp.pi * x
+        ) * xp.sin(2 * xp.pi * y)
         div_z = xp.zeros_like(x)
 
         return div_x, div_y, div_z
@@ -1422,7 +1425,7 @@ def test_sph_viscosity_evaluation_2d(
     if comm is not None:
         particles.mpi_sort_markers()
     particles.initialize_weights()
-    
+
     # evaluation grids
     eta1 = xp.linspace(0, 1.0, eval_pts)
     eta2 = xp.linspace(0, 1.0, eval_pts)
@@ -1433,17 +1436,18 @@ def test_sph_viscosity_evaluation_2d(
     y = xp.linspace(l2, r2, eval_pts)
     z = xp.array([0.0])
     xx, yy, zz = xp.meshgrid(x, y, z, indexing="ij")
-    
+
     # exact values
     density_exact = background.n_xyz(xx, yy, zz)
-    vx_exact, vy_exact, _ = background.u_xyz(xx, yy, zz) 
+    vx_exact, vy_exact, _ = background.u_xyz(xx, yy, zz)
 
     # evaluate density
     h1 = 1 / boxes_per_dim[0]
     h2 = 1 / boxes_per_dim[1]
     h3 = 1 / boxes_per_dim[2]
-    
-    density = particles.eval_density(ee1,
+
+    density = particles.eval_density(
+        ee1,
         ee2,
         ee3,
         h1=h1,
@@ -1451,7 +1455,7 @@ def test_sph_viscosity_evaluation_2d(
         h3=h3,
         kernel_type=kernel,
         derivative=0,
-        )
+    )
     if rank == 0:
         print(f"{density.shape = }")
         print(f"{xp.min(density) = }, {xp.max(density) = }")
@@ -1466,9 +1470,10 @@ def test_sph_viscosity_evaluation_2d(
     plt.colorbar()
     plt.savefig("density")
     # plt.show()
-    
+
     # evaluate velocity
-    vx, vy, vz = particles.eval_velocity(ee1,
+    vx, vy, vz = particles.eval_velocity(
+        ee1,
         ee2,
         ee3,
         h1=h1,
@@ -1476,37 +1481,37 @@ def test_sph_viscosity_evaluation_2d(
         h3=h3,
         kernel_type=kernel,
         derivative=0,
-        )
+    )
     if rank == 0:
         print(f"{vx.shape = }, {vy.shape = }")
         print(f"{xp.min(vx) = }, {xp.max(vx) = }")
         print(f"{xp.min(vy) = }, {xp.max(vy) = }")
-        
+
     plt.figure(figsize=(10, 8))
-    
+
     plt.subplot(2, 2, 1)
     plt.pcolor(xx.squeeze(), yy.squeeze(), vx.squeeze(), vmin=xp.min(vx), vmax=xp.max(vx))
     plt.title("vx sph")
     plt.colorbar()
-    
+
     plt.subplot(2, 2, 3)
     plt.pcolor(xx.squeeze(), yy.squeeze(), vx_exact.squeeze(), vmin=xp.min(vx), vmax=xp.max(vx))
     plt.title("vx exact")
     plt.colorbar()
-    
+
     plt.subplot(2, 2, 2)
     plt.pcolor(xx.squeeze(), yy.squeeze(), vy.squeeze())
     plt.title("vy sph")
     plt.colorbar()
-    
+
     plt.subplot(2, 2, 4)
     plt.pcolor(xx.squeeze(), yy.squeeze(), vy_exact.squeeze(), vmin=xp.min(vy), vmax=xp.max(vy))
     plt.title("vy exact")
     plt.colorbar()
-    
+
     # plt.show()
     plt.savefig("velocity")
-    
+
     # evaluate div of viscosity tensor (numerically)
     div_viscosity = particles.eval_div_viscosity(
         ee1,
@@ -1520,18 +1525,17 @@ def test_sph_viscosity_evaluation_2d(
     gamma_x = div_viscosity[0]
     gamma_y = div_viscosity[1]
     gamma_z = div_viscosity[2]
-    
+
     div_pi_exact = div_pi_analytic(xx, yy, zz)
-    div_pi_x = div_pi_exact[0]  
-    div_pi_y = div_pi_exact[1]  
+    div_pi_x = div_pi_exact[0]
+    div_pi_y = div_pi_exact[1]
     div_pi_z = div_pi_exact[2]
-    
-    
+
     if comm is not None:
         all_div_x = xp.zeros_like(gamma_x)
         all_div_y = xp.zeros_like(gamma_y)
         all_div_z = xp.zeros_like(gamma_z)
-        
+
         comm.Allreduce(gamma_x, all_div_x, op=MPI.SUM)
         comm.Allreduce(gamma_y, all_div_y, op=MPI.SUM)
         comm.Allreduce(gamma_z, all_div_z, op=MPI.SUM)
@@ -1545,20 +1549,19 @@ def test_sph_viscosity_evaluation_2d(
     # compute errors
     err_div_x = abs_err(all_div_x, div_pi_x)
     err_div_y = abs_err(all_div_y, div_pi_y)
-    #err_div_z = abs_err(all_div_z, div_pi_z)
-    
-    
+    # err_div_z = abs_err(all_div_z, div_pi_z)
+
     if rank == 0:
         print(f"\n{boxes_per_dim = }")
         print(f"{kernel = }")
         print(f"{bc_x = }, {bc_y = }, {eval_pts = }")
         print(f"Divergence of viscosity errors: gx={err_div_x:.3e}, gy={err_div_y:.3e}")
-        #, gz={err_div_z:.3e}
+        # , gz={err_div_z:.3e}
 
     if show_plot:
         # --- gamma_x and gamma_y plots ---
         plt.figure(figsize=(18, 18))
-        
+
         # gamma_x plots
         plt.subplot(3, 3, 1)
         plt.pcolor(ee1.squeeze(), ee2.squeeze(), div_pi_x.squeeze())
@@ -1616,28 +1619,24 @@ def test_sph_viscosity_evaluation_2d(
         # plt.show()
         plt.savefig("viscosity_2d_all")
         # plt.show()
-        #if rank == 0:
-            #if tesselation: 
-            #    assert err_div_x < 3.5e-2
-            #    assert err_div_y < 3.5e-2
-        #else: 
+        # if rank == 0:
+        # if tesselation:
+        #    assert err_div_x < 3.5e-2
+        #    assert err_div_y < 3.5e-2
+        # else:
         #    assert err_div_x <  5.8e-01
         #    assert err_div_y < 5.9e-01
-            
-        #------------------------------
-        #Convergence study
-        #------------------------------
-        if rank == 0:
 
+        # ------------------------------
+        # Convergence study
+        # ------------------------------
+        if rank == 0:
             ppb_list = [1, 5, 10, 15, 25]
             errors = []
 
             for ppb_val in ppb_list:
-
                 loading_params = LoadingParameters(
-                    ppb=ppb_val,
-                    seed=223,
-                    loading="tesselation" if tesselation else None
+                    ppb=ppb_val, seed=223, loading="tesselation" if tesselation else None
                 )
 
                 particles = ParticlesSPH(
@@ -1659,8 +1658,12 @@ def test_sph_viscosity_evaluation_2d(
                 particles.initialize_weights()
 
                 div_viscosity = particles.eval_div_viscosity(
-                    ee1, ee2, ee3,
-                    h1=h1, h2=h2, h3=h3,
+                    ee1,
+                    ee2,
+                    ee3,
+                    h1=h1,
+                    h2=h2,
+                    h3=h3,
                     kernel_type=kernel,
                 )
 
@@ -1668,7 +1671,6 @@ def test_sph_viscosity_evaluation_2d(
                 err = abs_err(gamma_x, div_pi_x)
                 errors.append(float(err))
 
-            
             ppb_arr = xp.array(ppb_list)
             errors = xp.array(errors)
 
@@ -1685,12 +1687,6 @@ def test_sph_viscosity_evaluation_2d(
             plt.xlabel("ppb")
             plt.ylabel("Relative error")
             plt.savefig("ppb_convergence")
-
-
-
-                        
-            
-
 
 
 if __name__ == "__main__":

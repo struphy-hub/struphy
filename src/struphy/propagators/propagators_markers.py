@@ -117,7 +117,7 @@ class PushEta(Propagator):
             n_stages=butcher.n_stages,
             mpi_sort="each",
         )
-    
+
     @profile
     def __call__(self, dt):
         self._pusher(dt)
