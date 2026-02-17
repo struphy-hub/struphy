@@ -78,8 +78,7 @@ class ViscousFluid(StruphyModel):
     ## abstract methods
 
     def __init__(self, with_viscosity: bool = True):
-        if rank == 0:
-            print(f"Creating light-weight instance of model {self.__class__.__name__} ...")
+        
 
         # 1. instantiate all species
         self.fluid = self.Fluid()

@@ -119,8 +119,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
     ## abstract methods
 
     def __init__(self, with_B0: bool = True):
-        if rank == 0:
-            print(f"Creating light-weight instance of model {self.__class__.__name__} ...")
+        
 
         self.with_B0 = with_B0
 

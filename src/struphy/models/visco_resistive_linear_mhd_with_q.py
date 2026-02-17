@@ -100,8 +100,7 @@ class ViscoResistiveLinearMHD_with_q(StruphyModel):
         with_viscosity: bool = True,
         with_resistivity: bool = True,
     ):
-        if rank == 0:
-            print(f"Creating light-weight instance of model {self.__class__.__name__} ...")
+        
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()

@@ -140,8 +140,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 self.cc5d_curlb = propagators_coupling.CurrentCoupling5DCurlb()
 
     def __init__(self, turn_off: tuple[str, ...] = (None,)):
-        if rank == 0:
-            print(f"Creating light-weight instance of model {self.__class__.__name__} ...")
+        
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
