@@ -16,11 +16,39 @@ rank = MPI.COMM_WORLD.Get_rank()
 class Maxwell(StruphyModel):
     r"""Maxwell's equations in vacuum.
 
+    Pure electromagnetic field evolution without kinetic effects or particles.
+    Solves the coupled system of electric and magnetic field evolution in vacuum or homogeneous media.
+    Models electromagnetic wave propagation, field oscillations, and Poynting flux.
+
+    **Physics Description:**
+    This model tracks the evolution of electric (E) and magnetic (B) fields only.
+    No particle distribution functions. No plasma response or current from particles.
+    Fields evolve according to the fundamental Maxwell equations with no sources.
+    Useful for understanding pure electromagnetic wave dynamics and field behavior.
+
+    **Keywords:** electromagnetic radiation, light waves, EM waves, Faraday's law, Ampere's law,
+    electric field, magnetic field, wave equation, wave propagation, Maxwell equations, vacuum,
+    electromagnetic field solver, curl operator, Poynting vector, field dynamics, field evolution,
+    electromagnetic coupling, transverse waves, field oscillation
+
+    **Physics type:** Fluid (not kinetic)
+    **Particle dynamics:** None (not a kinetic model)
+    **Field coupling:** Self-consistent electromagnetic fields only (no particle feedback)
+    **Current source:** None (no plasma or particles)
+    **Collision effects:** None (vacuum)
+    **Temperature effects:** None (no particles or thermodynamics)
+
+    **Use for:**
+    - Electromagnetic wave propagation in free space
+    - Field dynamics in cavities or domains without plasma
+    - Testing electromagnetic field solvers
+    - Understanding pure wave behavior
+
     :ref:`normalization`:
 
     .. math::
 
-        \hat E = c \hat B\,.
+        \hat E = c \hat B\,.,
 
     :ref:`Equations <gempic>`:
 
@@ -33,6 +61,14 @@ class Maxwell(StruphyModel):
     :ref:`propagators` (called in sequence):
 
     1. :class:`~struphy.propagators.propagators_fields.Maxwell`
+    """
+
+    __exclusion__ = """
+    This model should NOT be used for:
+    - Kinetic plasma simulations
+    - Particle distribution function evolution
+    - Plasma response and coupling effects
+    - Beam dynamics studies
     """
 
     @classmethod

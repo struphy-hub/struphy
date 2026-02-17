@@ -23,6 +23,49 @@ rank = MPI.COMM_WORLD.Get_rank()
 class VlasovAmpereOneSpecies(StruphyModel):
     r"""Vlasov-Ampère equations for one species.
 
+    Kinetic plasma model with electrostatic and limited magnetic coupling via Ampère's law.
+    Particles described by distribution function f(x, v, t) coupled to electric field via Ampère's law.
+    Magnetic field held fixed (background) - only electric field generated self-consistently by particles.
+    Electrostatic-like model but retains full Ampère equation (not full Maxwell).
+    Ideal for studying electrostatic instabilities like two-stream instability with minimal magnetic effects.
+
+    **Physics Description:**
+    This model couples the Vlasov equation to Ampère's law for the electrostatic field generation.
+    Unlike VlasovMaxwell which evolves both E and B fields fully self-consistently, here only
+    the electric field E evolves self-consistently through Ampère's law from the particle current.
+    The magnetic field B0 is static/background. This simplification reduces computational cost while
+    capturing essential kinetic electrostatic physics. Perfect for two-stream, bump-on-tail, and
+    other electrostatic instabilities where magnetic dynamics are secondary.
+
+    **Keywords:** kinetic, Vlasov-Ampere, electrostatic, Ampere law, particle-field coupling,
+    two-stream instability, bump-on-tail, electrostatic plasma, Lorentz force, distribution function,
+    phase space, beam-plasma interaction, kinetic plasma waves, electrostatic perturbation,
+    plasma frequency, cyclotron frequency, kinetic instability, nonlinear saturation,
+    particle acceleration, wave-particle interaction, beam dynamics, cold plasma approximation,
+    reduced Maxwell equations, electrostatic approximation, Poisson-like, current-driven instability,
+    Landau damping, phase mixing, kinetic damping, resonant interactions
+
+    **Physics type:** Kinetic (particle-based) with electrostatic coupling
+    **Particle dynamics:** Full kinetic evolution - acceleration by E field, gyration in static B0
+    **Field coupling:** Self-consistent electrostatic fields via Ampère's law (not full Maxwell)
+    **Magnetic field:** Static background B0 only (not evolved)
+    **Current source:** YES - particle current drives Ampère's law
+    **Charge source:** Implicit (through Gauss law at initialization only)
+    **Collision effects:** None (collisionless kinetic model)
+    **Number of species:** One
+
+    **Use for:**
+    - Two-stream instability (beam-plasma)
+    - Bump-on-tail instability
+    - Weak Landau damping
+    - Strong Landau damping
+    - Electrostatic wave propagation
+    - Plasma oscillations and wave-particle interactions
+    - Lower computational cost than full Maxwell
+    - Kinetic effects in electrostatic regime
+    - Beam instabilities
+    - Reduced computational domain compared to full electromagnetic models
+
     :ref:`normalization`:
 
     .. math::
@@ -87,6 +130,13 @@ class VlasovAmpereOneSpecies(StruphyModel):
     1. :class:`~struphy.propagators.propagators_markers.PushEta`
     2. :class:`~struphy.propagators.propagators_coupling.VlasovAmpere`
     3. :class:`~struphy.propagators.propagators_markers.PushVxB`
+    """
+
+    __exclusion__ = """
+    This model should NOT be used for:
+    - Full Maxwell electromagnetic waves
+    - Magnetic wave propagation
+    - Weibel instability
     """
 
     @classmethod

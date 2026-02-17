@@ -17,11 +17,44 @@ rank = MPI.COMM_WORLD.Get_rank()
 class Vlasov(StruphyModel):
     r"""Vlasov equation in static background magnetic field.
 
+    Kinetic plasma description using particle distribution function in fixed external magnetic field.
+    Evolves the particle distribution function f(x, v, t) under Lorentz force from externally applied fields.
+    No self-consistent electromagnetic fields or particle feedback on fields.
+    Suitable for investigating kinetic dynamics in imposed magnetic field configurations.
+
+    **Physics Description:**
+    This model solves the collisionless Vlasov equation for individual particle species.
+    Particles move under the influence of a prescribed (static) background magnetic field B0.
+    The distribution function f describes the density of particles at position x with velocity v.
+    Useful for studying kinetic effects, gyro-motion, phase space dynamics, and particle trajectories
+    in externally controlled magnetic field environments without plasma self-interactions.
+
+    **Keywords:** kinetic, Vlasov equation, particle distribution, collisionless plasma, gyro-motion,
+    cyclotron motion, magnetic field, Lorentz force, phase space, distribution function, kinetic dynamics,
+    gyrokinetics, charged particle, background field, external field, drift motion, cyclotron radius,
+    Larmor radius, particle tracing, kinetic transport, phase space evolution, kinetic instability,
+    particle dynamics, magnetic confinement, drift orbits, gyroscale
+
+    **Physics type:** Kinetic (particle-based, not fluid)
+    **Particle dynamics:** Full kinetic evolution - gyro-motion, drifts, and advection in velocity space
+    **Field coupling:** None - uses imposed external magnetic field only (no self-consistency)
+    **Current source:** None (fields are given, not self-generated)
+    **Collision effects:** None (collisionless kinetic model)
+    **Temperature effects:** Implicit in initial distribution function (not enforced separately)
+
+    **Use for:**
+    - Kinetic dynamics in fixed magnetic field geometry
+    - Gyro-motion and cyclotron dynamics studies
+    - Particle distribution evolution in external fields
+    - Phase space advection and flow
+    - Kinetic effects without plasma feedback
+    - Testing particle propagators and methods
+
     :ref:`normalization`:
 
     .. math::
 
-        \hat v = \hat \Omega_\textnormal{c} \hat x\,.
+        \hat v = \hat \Omega_\textnormal{c} \hat x\,.,,
 
     :ref:`Equations <gempic>`:
 
@@ -33,6 +66,14 @@ class Vlasov(StruphyModel):
 
     1. :class:`~struphy.propagators.propagators_markers.PushVxB`
     2. :class:`~struphy.propagators.propagators_markers.PushEta`
+    """
+
+    __exclusion__ = """
+    This model should NOT be used for:
+    - Self-consistent electromagnetic coupling
+    - Plasma instabilities with particle feedback
+    - Two-stream instability
+    - Magnetic field evolution
     """
 
     @classmethod

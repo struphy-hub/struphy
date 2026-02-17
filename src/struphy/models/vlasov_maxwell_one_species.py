@@ -23,6 +23,48 @@ rank = MPI.COMM_WORLD.Get_rank()
 class VlasovMaxwellOneSpecies(StruphyModel):
     r"""Vlasov-Maxwell equations for one species.
 
+    Self-consistent kinetic plasma model coupling particle distribution function to electromagnetic fields.
+    Particles generate electric and magnetic fields through charge and current densities.
+    Fields in turn accelerate particles - complete feedback mechanism.
+    Models single particle species (e.g., electrons or ions) with self-consistent EM field evolution.
+    Includes background/equilibrium magnetic field and dynamic perturbations.
+
+    **Physics Description:**
+    This model couples the Vlasov equation (evolution of particle distribution f) to Maxwell equations
+    (evolution of electromagnetic fields E and B). The distribution function describes density of particles
+    at position x with velocity v. Particles create charge density ρ and current density J, which source
+    the fields via Maxwell equations. Fields exert Lorentz force on particles, closing the feedback loop.
+    Enables study of kinetic instabilities, plasma waves, wave-particle interactions, and nonlinear effects.
+    One species means electrons OR ions (single type), with implicit neutralizing background if needed.
+
+    **Keywords:** kinetic, Vlasov-Maxwell, self-consistent, electromagnetic, particle-field coupling,
+    Lorentz force, PIC method, charge density, current density, plasma waves, wave-particle interaction,
+    instability, kinetic plasma physics, nonlinear dynamics, electromagnetic plasma, energetic particles,
+    plasma oscillations, plasma frequency, cyclotron frequency, Landau damping, collisionless plasma,
+    kinetic effects, distribution function, phase space, E×B drift, parallel dynamics, perpendicular dynamics,
+    magnetic perturbation, electric perturbation, gyro-kinetics, electromagnetic instabilities,
+    kinetic Alfven, kinetic ion acoustic, beam-plasma, two-stream
+
+    **Physics type:** Kinetic (particle-based) with full electromagnetic coupling
+    **Particle dynamics:** Full kinetic evolution - acceleration by E field, gyration and drifts in B field
+    **Field coupling:** FULL self-consistent - particles create fields, fields accelerate particles
+    **Current source:** YES - particle current density drives Ampere's law
+    **Charge source:** YES - particle charge density drives Poisson/Gauss law
+    **Collision effects:** None (collisionless kinetic model)
+    **Number of species:** One (single particle type with specified charge and mass)
+
+    **Use for:**
+    - Plasma wave propagation and dispersion
+    - Wave-particle interactions and energy exchange
+    - Kinetic instabilities (two-stream, beam, Weibel, filamentation)
+    - Nonlinear plasma dynamics and saturation
+    - Self-consistent particle heating
+    - Fast electron or ion dynamics
+    - Relativistic or ultra-relativistic particle beams
+    - High-frequency plasma phenomena
+    - Ion-acoustic waves in kinetic regime
+    - Electrostatic and electromagnetic wave coupling
+
     :ref:`normalization`:
 
     .. math::
@@ -97,6 +139,13 @@ class VlasovMaxwellOneSpecies(StruphyModel):
     4. :class:`~struphy.propagators.propagators_coupling.VlasovAmpere`
 
     :ref:`Model info <add_model>`:
+    """
+
+    __exclusion__ = """
+    This model should NOT be used for:
+    - Static magnetic field only simulations
+    - Background field approximations
+    - External field scenarios
     """
 
     @classmethod

@@ -19,7 +19,45 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class ViscoResistiveLinearMHD_with_q(StruphyModel):
-    r"""Linear visco-resistive MHD equations, with the q variable (square root of the pressure), discretized with a variational method.
+    r"""Linear visco-resistive MHD equations with the q variable, discretized with a variational method.
+
+    Fluid magnetohydrodynamics (MHD) model describing plasma as a conducting fluid.
+    Evolution of density, velocity, pressure, and magnetic field with linear restoring forces.
+    Includes viscous and resistive dissipation. Uses q (square root of pressure) as the pressure variable.
+    Suitable for studying large-scale MHD waves, instabilities, and dynamics in collisional/resistive plasmas.
+
+    **Physics Description:**
+    This is a FLUID model, not kinetic. Uses moment equations (density, momentum, energy/pressure)
+    rather than distribution functions. Assumes local thermodynamic equilibrium with single temperature.
+    Linearization about an equilibrium allows study of perturbations around background states.
+    Magnetic Reynolds number effects and viscous dissipation are included. The use of q variable
+    (sqrt of pressure) provides better numerical properties. Suitable for MHD-scale dynamics where
+    kinetic effects are averaged out, but dissipation (viscosity, resistivity) matters.
+
+    **Keywords:** MHD, magnetohydrodynamics, fluid plasma, magnetic field, velocity field, pressure,
+    Alfven waves, MHD waves, magnetic reconnection, plasma instability, Rayleigh-Taylor,
+    Kelvin-Helmholtz, interchange, tearing mode, resistivity, viscosity, dissipation,
+    collisional plasma, conducting fluid, momentum equation, induction equation, energy equation,
+    density evolution, magnetic pressure, magnetic tension, Lorentz force, Ampere force,
+    fluid dynamics, large-scale dynamics, MHD turbulence, dynamo, equilibrium
+
+    **Physics type:** Fluid (not kinetic) - uses moment equations
+    **Particle dynamics:** None - uses bulk fluid variables (density, velocity, pressure)
+    **Field coupling:** Self-consistent MHD coupling of velocity and magnetic fields
+    **Dissipation:** Viscous momentum dissipation and resistive magnetic dissipation
+    **Collision effects:** Implicit in viscosity coefficient (collisional dissipation)
+    **Thermodynamics:** Single fluid temperature via equation of state
+    **Linearization:** About equilibrium - studies perturbations
+
+    **Use for:**
+    - Large-scale plasma waves and oscillations
+    - MHD instabilities (Rayleigh-Taylor, Kelvin-Helmholtz, tearing modes)
+    - Magnetic reconnection phenomena
+    - Turbulence in collisional/resistive regimes
+    - Plasma equilibrium and stability studies
+    - Fluid-scale dynamics in tokamaks and other confinement geometries
+    - Effect of viscosity and resistivity on wave damping
+    - Low-frequency MHD fluctuations
 
     :ref:`normalization`:
 
@@ -49,6 +87,16 @@ class ViscoResistiveLinearMHD_with_q(StruphyModel):
     4. :class:`~struphy.propagators.propagators_fields.VariationalResistivity`
 
     :ref:`Model info <add_model>`:
+    """
+
+    __exclusion__ = """
+    This model should NOT be used for:
+    - Kinetic plasma simulations
+    - Landau damping phenomena
+    - Phase mixing effects
+    - Distribution function evolution
+    - Particle acceleration
+    - Wave-particle interactions
     """
 
     @classmethod

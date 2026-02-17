@@ -52,6 +52,20 @@ class ViscoResistiveDeltafMHD_with_q(StruphyModel):
     :ref:`Model info <add_model>`:
     """
 
+    __exclusion__ = """
+    This model should NOT be used for:
+    - Nonlinear MHD phenomena
+    - Kinetic effects
+    - Weak Landau damping
+    - Strong Landau damping
+    - Two-stream instability
+    - Phase mixing effects
+    - Distribution function evolution
+    - Two-fluid effects
+    - Particle acceleration
+    - High-frequency plasma waves
+    """
+
     @classmethod
     def model_type(cls) -> LiteralOptions.ModelTypes:
         return "Fluid"
