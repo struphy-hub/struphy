@@ -27,6 +27,7 @@ from struphy import (
     equils,
     grids,
 )
+from struphy.models import Maxwell
 
 # core imports
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
@@ -65,7 +66,7 @@ from struphy.utils.utils import dict_to_yaml
 class StruphySimulation(Simulation):
     def __init__(
         self,
-        model: StruphyModel,
+        model: StruphyModel = Maxwell(),
         params_path: str = None,
         env: EnvironmentOptions = EnvironmentOptions(),
         base_units: BaseUnits = BaseUnits(),
@@ -668,7 +669,7 @@ RESTARTing from:
         """Spawn a sister simulation with the same model, base_units, domain and equilibrium
         but different parameters and options otherwise. 
         This can be used to run multiple simulations with the same model
-        but different parameters in parallel on the same cluster."""
+        but different discretization parameters or MPI configs."""
         if env is None:
             env = self.env
         if time_opts is None:
