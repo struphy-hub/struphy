@@ -578,6 +578,7 @@ print(description)\n""")
         file.write("\n# Simulation object\n")
         file.write("""sim = StruphySimulation(
     model=model,
+    params_path=__file__,
     env=env,
     base_units=base_units,
     time_opts=time_opts,

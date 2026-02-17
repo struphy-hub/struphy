@@ -89,7 +89,7 @@ class ParamsIn:
         else:
             raise FileNotFoundError(f"Neither of the paths {params_path} or {bin_path} exists.")
 
-        print("done.")
+        print("\n... Done.")
 
         self.env = env
         self.units = base_units

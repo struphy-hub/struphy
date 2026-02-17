@@ -139,7 +139,7 @@ class StruphySimulation(Simulation):
         self.meta["platform"] = sysconfig.get_platform()
         self.meta["python version"] = sysconfig.get_python_version()
         self.meta["model name"] = self.model_name
-        self.meta["parameter file"] = params_path
+        self.meta["parameter file"] = self.params_path
         self.meta["output folder"] = path_out
         self.meta["MPI processes"] = self.comm_size
         self.meta["use MPI.COMM_WORLD"] = use_mpi
@@ -163,12 +163,15 @@ class StruphySimulation(Simulation):
         # save parameter file
         if self.rank == 0:
             # save python param file
-            if params_path is not None:
-                assert params_path[-3:] == ".py"
-                shutil.copy2(
-                    params_path,
-                    os.path.join(path_out, "parameters.py"),
-                )
+            if self.params_path is not None:
+                assert self.params_path[-3:] == ".py"
+                try:
+                    shutil.copy2(
+                        self.params_path,
+                        os.path.join(path_out, "parameters.py"),
+                    )
+                except shutil.SameFileError:
+                    pass
             # pickle struphy objects
             else:
                 with open(os.path.join(path_out, "env.bin"), "wb") as f:
@@ -1119,7 +1122,7 @@ RESTARTing from:
 
     @property
     def params_path(self):
-        """Path to parameter file used for the run."""
+        """Path to parameter file used for the run. Can be None if Simulation is instantiated in a notebook environment (no parameter file in this case)."""
         return self._params_path
 
     @property
