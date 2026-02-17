@@ -26,6 +26,12 @@ class Particles6D(Particles):
     value position (eta)    velocities           weight   s0     w0    buffer
     ===== ============== ======================= ======= ====== ====== ==========
     """
+    
+    # Class properties
+    vdim = 3
+    type = "full_f"
+    default_background = maxwellians.Maxwellian3D()
+    default_n_cols = {"diagnostics": 0, "aux": 5}
 
     def __post_init__(self):
         if isinstance(self.background, maxwellians.CanonicalMaxwellian):
@@ -36,22 +42,6 @@ class Particles6D(Particles):
             self._b2_h = self.projected_equil.b2
             self._derham = self.projected_equil.derham
             self._epsilon = self.equation_params["epsilon"]
-
-    @property
-    def type(self):
-        return "full_f"
-
-    @property
-    def vdim(self):
-        return 3
-
-    @property
-    def default_background(self):
-        return maxwellians.Maxwellian3D()
-
-    @property
-    def default_n_cols(self):
-        return {"diagnostics": 0, "aux": 5}
 
     def svol(self, eta1, eta2, eta3, *v):
         """Sampling density function as volume form.
@@ -221,6 +211,9 @@ class DeltaFParticles6D(Particles6D):
     A class for kinetic species in full 6D phase space that solve for delta_f = f - f0.
     """
 
+    # Class properties
+    type = "delta_f"
+
     def __post_init__(self):
         self.weights_params.control_variate = False
 
@@ -272,6 +265,12 @@ class Particles5D(Particles):
         Parameters for markers, see :class:`~struphy.pic.base.Particles`.
     """
 
+    # Class properties
+    vdim = 2
+    type = "full_f"
+    default_background = maxwellians.GyroMaxwellian2D()
+    default_n_cols = {"diagnostics": 3, "aux": 12}
+
     def __post_init__(self):
         assert self.projected_equil is not None, "Particles5D needs a projected MHD equilibrium."
 
@@ -286,23 +285,6 @@ class Particles5D(Particles):
 
         self._tmp0 = self.derham.Vh["0"].zeros()
         self._tmp2 = self.derham.Vh["2"].zeros()
-
-    @property
-    def type(self):
-        return "full_f"
-
-    @property
-    def vdim(self):
-        """Dimension of the velocity space."""
-        return 2
-
-    @property
-    def default_background(self):
-        return maxwellians.GyroMaxwellian2D()
-
-    @property
-    def default_n_cols(self):
-        return {"diagnostics": 3, "aux": 12}
 
     @property
     def magn_bckgr(self):
@@ -573,25 +555,14 @@ class Particles3D(Particles):
         Parameters for markers, see :class:`~struphy.pic.base.Particles`.
     """
 
+    # Class properties
+    vdim = 0
+    type = "full_f"
+    default_background = maxwellians.ColdPlasma()
+    default_n_cols = {"diagnostics": 0, "aux": 5}
+
     def __post_init__(self):
         pass
-
-    @property
-    def type(self):
-        return "full_f"
-
-    @property
-    def vdim(self):
-        """Dimension of the velocity space."""
-        return 0
-
-    @property
-    def default_background(self):
-        return maxwellians.ColdPlasma()
-
-    @property
-    def default_n_cols(self):
-        return {"diagnostics": 0, "aux": 5}
 
     def svol(self, eta1, eta2, eta3):
         """Sampling density function as volume form.
@@ -677,26 +648,15 @@ class ParticlesSPH(Particles):
         Parameters for markers, see :class:`~struphy.pic.base.Particles`.
     """
 
+    # Class properties
+    vdim = 3
+    type = "sph"
+    default_background = equils.ConstantVelocity()
+    default_n_cols = {"diagnostics": 0, "aux": 24}
+
     def __post_init__(self):
         assert self.clone_config is None, "SPH can only be launched with --nclones 1"
         self.background.domain = self.domain
-
-    @property
-    def type(self):
-        return "sph"
-
-    @property
-    def vdim(self):
-        """Dimension of the velocity space."""
-        return 3
-
-    @property
-    def default_background(self):
-        return equils.ConstantVelocity()
-
-    @property
-    def default_n_cols(self):
-        return {"diagnostics": 0, "aux": 24}
 
     def svol(self, eta1, eta2, eta3, *v):
         """Sampling density function as volume form.

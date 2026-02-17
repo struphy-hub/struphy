@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING
+import inspect
 
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
@@ -144,6 +145,8 @@ class FEECVariable(Variable):
 
     @property
     def spline(self) -> SplineFunction:
+        if not hasattr(self, "_spline"):
+            raise ValueError("Warning: spline not allocated yet. Call allocate() first.")
         return self._spline
 
     @property
@@ -195,13 +198,22 @@ class PICVariable(Variable):
     def __init__(self, space: LiteralOptions.OptsPICSpace = "Particles6D"):
         check_option(space, LiteralOptions.OptsPICSpace)
         self._space = space
+        for name, cls in inspect.getmembers(particles):
+            if inspect.isclass(cls) and cls.__module__ == particles.__name__ and name == space:
+                self._particles_class = cls
 
     @property
     def space(self):
         return self._space
+    
+    @property
+    def particles_class(self) -> Particles:
+        return self._particles_class
 
     @property
     def particles(self) -> Particles:
+        if not hasattr(self, "_particles"):
+            raise ValueError("Warning: particles not allocated yet. Call allocate() first.")
         return self._particles
 
     @property
@@ -348,6 +360,8 @@ class SPHVariable(Variable):
 
     @property
     def particles(self) -> ParticlesSPH:
+        if not hasattr(self, "_particles"):
+            raise ValueError("Warning: particles not allocated yet. Call allocate() first.")
         return self._particles
 
     @property

@@ -167,7 +167,7 @@ class PostProcessor:
         plot_gantt_chart_plotly(path_time_trace, output_path=self.path_pproc)
         return
 
-    def pproc(
+    def process(
         self,
         step: int = 1,
         celldivide: int = 1,
@@ -177,7 +177,7 @@ class PostProcessor:
         create_vtk: bool = True,
         verbose: bool = False,
     ):
-        """Do post processing for folder path_out.
+        """Do post processing of data in self.path_out.
 
         Parameters
         ----------
@@ -234,7 +234,7 @@ class PostProcessor:
                 self.exist_particles = None
 
         # feec variables
-        self.pproc_fields(
+        self.process_fields(
             step=step,
             celldivide=celldivide,
             physical=physical,
@@ -243,14 +243,14 @@ class PostProcessor:
         )
 
         # particle variables
-        self.pproc_particles(
+        self.process_particles(
             step=step,
             guiding_center=guiding_center,
             classify=classify,
             verbose=verbose,
         )
 
-    def pproc_fields(
+    def process_fields(
         self,
         step: int = 1,
         celldivide: int = 1,
@@ -308,7 +308,7 @@ class PostProcessor:
             if physical:
                 self._create_vtk(path_fields, t_grid, grids_phy, point_data_phy, physical=True)
 
-    def pproc_particles(
+    def process_particles(
         self,
         step: int = 1,
         guiding_center: bool = False,
@@ -738,10 +738,10 @@ class PostProcessor:
             nt, n_markers, n_cols = file_0["kinetic/" + species + "/markers"].shape
 
         # get velocity dimension from one of the variables of the species
-        for varname, var in species_obj.variables.items():
+        for _, var in species_obj.variables.items():
             assert isinstance(var, PICVariable | SPHVariable)
-            obj: Particles = var.particles
-            vdim = obj.vdim
+            cls: Particles = var.particles_class
+            vdim = cls.vdim
             break
 
         log_nt = int(xp.log10(int(((nt - 1) / step)))) + 1
