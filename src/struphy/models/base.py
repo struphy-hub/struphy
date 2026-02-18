@@ -68,11 +68,11 @@ class StruphyModel(metaclass=ABCMeta):
     # Common methods
     # --------------
     def __repr__(self):
-        print(self.__class__.__name__)
+        out = f"{self.__class__.__name__}\n"
         for k, v in self.species.items():
-            print(f"    {k}:")
-            print(v)
-        return ""
+            out += f"    {k}:\n"
+            out += f"{v}"
+        return out
 
     @classmethod
     def name(cls) -> str:
@@ -209,7 +209,7 @@ class StruphyModel(metaclass=ABCMeta):
         for key, scalar_dict in self._scalar_quantities.items():
             val = scalar_dict["value"]
             assert not xp.isnan(val[0]), f"Scalar {key} is {val[0]}."
-            sq_str += key + ": {:14.11f}".format(val[0]) + "   "
+            sq_str += f"{key}:".ljust(25) + "{:3.1e}\n".format(val[0]).rjust(26)
         print(sq_str)
 
     def setup_equation_params(self, units: Units, verbose=False):

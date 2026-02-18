@@ -23,9 +23,11 @@ class Species(metaclass=ABCMeta):
         self.init_variables()
 
     def __repr__(self):
+        out = ""
         for k, v in self.variables.items():
-            print(f"        {k}:".ljust(20), v)
-        return ""
+            out += f"        {k}:".ljust(20)
+            out += f"{v}\n"
+        return out
 
     # set species attribute for each variable
     def init_variables(self):

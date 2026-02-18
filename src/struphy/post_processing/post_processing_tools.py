@@ -2,6 +2,7 @@ import os
 import pickle
 import shutil
 from typing import TYPE_CHECKING
+import inspect
 
 import cunumpy as xp
 import h5py
@@ -30,6 +31,70 @@ from struphy.topology.grids import TensorProductGrid
 if TYPE_CHECKING:
     from struphy.simulation.sim import StruphySimulation
 
+
+class SplineValues:
+    def __repr__(self):
+        out = ""
+        for name, species in inspect.getmembers(self):
+            if isinstance(species, SpecHolder):
+                out += f"    {name}\n"
+                out += f"{species}\n"
+        return out
+
+class Orbits:
+    def __repr__(self):
+        out = ""
+        for species, orbits in self.__dict__.items():
+            shp = orbits.shape
+            out += f"    {species}, shape = {shp}\n"
+            out += f"        Number of time points: {shp[0]}\n"
+            out += f"        Number of particles:   {shp[1]}\n"
+            out += f"        Number of attributes:  {shp[2]}\n"
+        return out
+
+class DistributionFunction:
+    def __repr__(self):
+        out = ""
+        for name, species in inspect.getmembers(self):
+            if isinstance(species, SpecHolder):
+                out += f"    {name}\n"
+                out += f"{species}\n"
+        return out
+
+class DensitySPH:
+    def __repr__(self):
+        out = ""
+        for name, species in inspect.getmembers(self):
+            if isinstance(species, SpecHolder):
+                out += f"    {name}\n"
+                out += f"{species}\n"
+        return out
+
+class SpecHolder:
+    def __repr__(self):
+        out = ""
+        for name, val in self.__dict__.items():
+            out += f"        {name}\n"
+        return out
+    
+class Slice:
+    pass
+    
+class DataDict:
+    def __init__(self, data: dict):
+        self.data = data
+        
+    def __repr__(self):
+        out = f"{type(self.data) = }\n"
+        out += f"{len(self.data) = }\n"
+        for key, d in self.data.items():
+            if isinstance(d, list):
+                shp = [comp.shape for comp in d]
+            else:
+                shp = d.shape
+            out += f"{key = }".ljust(25)
+            out += f"shape = {shp}\n"
+        return out
 
 class ParamsIn:
     """Holds the input parameters of a Struphy simulation as attributes.
@@ -99,7 +164,6 @@ class ParamsIn:
         self.grid = grid
         self.derham_opts = derham_opts
         self.model = model
-
 
 class PostProcessor:
     """Post-processing finished Struphy runs, eithr from Simulation object or from output path.
@@ -200,8 +264,7 @@ class PostProcessor:
             Whether vtk files should be created.
         """
         if MPI.COMM_WORLD.Get_rank() == 0:
-            print("\n*** Start post-processing::")
-            print(f"Post-processing path: {self.path_out}")
+            print(f"\nPost-processing path {self.path_out}")
 
         # check for fields and kinetic data in hdf5 file that need post processing
         with h5py.File(os.path.join(self.path_out, "data/", "data_proc0.hdf5"), "r") as file:
@@ -259,7 +322,7 @@ class PostProcessor:
         verbose: bool = False,
     ):
         if not self.exist_fields:
-            print("No feec fields found in hdf5 file, skipping post-processing of fields.")
+            print("\nNo feec fields found in hdf5 file, skipping post-processing of fields.")
             return
 
         fields, t_grid = self._create_femfields(step=step)
@@ -317,7 +380,7 @@ class PostProcessor:
     ):
 
         if self.exist_particles is None:
-            print("No kinetic data found in hdf5 file, skipping post-processing of kinetic data.")
+            print("\nNo kinetic data found in hdf5 file, skipping post-processing of kinetic data.")
             return
 
         # directory for kinetic data
@@ -1031,7 +1094,6 @@ class PostProcessor:
                 # save distribution functions
                 xp.save(os.path.join(path_view, "n_sph.npy"), data)
 
-
 class PlottingData:
     """Holds post-processed plotting data as attributes.
 
@@ -1054,31 +1116,31 @@ class PlottingData:
         assert os.path.exists(self.path_pproc), f"Path {self.path_pproc} does not exist, run 'pproc' first?"
 
         # dictionaries to hold data
-        self._orbits = {}
-        self._f = {}
-        self._spline_values = {}
-        self._n_sph = {}
+        self._orbits = Orbits()
+        self._f = DistributionFunction()
+        self._spline_values = SplineValues()
+        self._n_sph = DensitySPH()
         self.grids_log: list[xp.ndarray] = None
         self.grids_phy: list[xp.ndarray] = None
         self.t_grid: xp.ndarray = None
 
     @property
-    def orbits(self) -> dict[str, xp.ndarray]:
+    def orbits(self) -> Orbits:
         """Keys: species name. Values: 3d arrays indexed by (n, p, a), where 'n' is the time index, 'p' the particle index and 'a' the attribute index."""
         return self._orbits
 
     @property
-    def f(self) -> dict[str, dict[str, dict[str, xp.ndarray]]]:
+    def f(self) -> DistributionFunction:
         """Keys: species name. Values: dicts of slice names ('e1_v1' etc.) holding dicts of corresponding xp.arrays for plotting."""
         return self._f
 
     @property
-    def spline_values(self) -> dict[str, dict[str, xp.ndarray]]:
+    def spline_values(self) -> SplineValues:
         """Keys: species name. Values: dicts of variable names with values being 3d arrays on the grid."""
         return self._spline_values
 
     @property
-    def n_sph(self) -> dict[str, dict[str, dict[str, xp.ndarray]]]:
+    def n_sph(self) -> DensitySPH:
         """Keys: species name. Values: dicts of view names ('view_0' etc.) holding dicts of corresponding xp.arrays for plotting."""
         return self._n_sph
 
@@ -1111,7 +1173,7 @@ class PlottingData:
 
     def load(self, verbose: bool = False):
         """Load data generated during post-processing."""
-        print("\n*** Loading post-processed plotting data:")
+        print("\nLoading post-processed plotting data:")
         print(f"Data path: {self.path_pproc}")
 
         # load time grid
@@ -1132,7 +1194,8 @@ class PlottingData:
             # species folders
             species = next(os.walk(path_fields))[1]
             for spec in species:
-                self._spline_values[spec] = {}
+                spec_holder = SpecHolder()
+                setattr(self.spline_values, spec, spec_holder)
                 # self.arrays[spec] = {}
                 path_spec = os.path.join(path_fields, spec)
                 wlk = os.walk(path_spec)
@@ -1143,13 +1206,13 @@ class PlottingData:
                         var = file.split(".")[0]
                         with open(os.path.join(path_spec, file), "rb") as f:
                             # try:
-                            self._spline_values[spec][var] = pickle.load(f)
+                            data_dict = DataDict(pickle.load(f))
+                            setattr(spec_holder, var, data_dict)
                             # self.arrays[spec][var] = pickle.load(f)
 
         if os.path.exists(path_kinetic):
             # species folders
             species = next(os.walk(path_kinetic))[1]
-            print(f"{species =}")
             for spec in species:
                 path_spec = os.path.join(path_kinetic, spec)
                 wlk = os.walk(path_spec)
@@ -1168,16 +1231,19 @@ class PlottingData:
                                 step = int(file.split(".")[0].split("_")[-1])
                                 tmp = xp.load(os.path.join(path_dat, file))
                                 if n == 0:
-                                    self._orbits[spec] = xp.zeros((Nt, *tmp.shape), dtype=float)
-                                self._orbits[spec][step] = tmp
+                                    arr = xp.zeros((Nt, *tmp.shape), dtype=float)
+                                    setattr(self.orbits, spec, arr) 
+                                arr[step] = tmp
                                 n += 1
 
                     elif "distribution_function" in folder:
-                        self._f[spec] = {}
+                        spec_holder = SpecHolder()
+                        setattr(self.f, spec, spec_holder)
                         slices = next(sub_wlk)[1]
                         # print(f"{slices = }")
                         for sli in slices:
-                            self._f[spec][sli] = {}
+                            s = Slice()
+                            setattr(spec_holder, sli, s)
                             # print(f"{sli = }")
                             files = next(sub_wlk)[2]
                             # print(f"{files = }")
@@ -1185,14 +1251,16 @@ class PlottingData:
                                 name = file.split(".")[0]
                                 tmp = xp.load(os.path.join(path_dat, sli, file))
                                 # print(f"{name = }")
-                                self._f[spec][sli][name] = tmp
+                                setattr(s, name, tmp)
 
                     elif "n_sph" in folder:
-                        self._n_sph[spec] = {}
+                        spec_holder = SpecHolder()
+                        setattr(self.n_sph, spec, spec_holder)
                         slices = next(sub_wlk)[1]
                         # print(f"{slices = }")
                         for sli in slices:
-                            self._n_sph[spec][sli] = {}
+                            s = Slice()
+                            setattr(spec_holder, sli, s)
                             # print(f"{sli = }")
                             files = next(sub_wlk)[2]
                             # print(f"{files = }")
@@ -1200,7 +1268,7 @@ class PlottingData:
                                 name = file.split(".")[0]
                                 tmp = xp.load(os.path.join(path_dat, sli, file))
                                 # print(f"{name = }")
-                                self._n_sph[spec][sli][name] = tmp
+                                setattr(s, name, tmp)
 
                     else:
                         print(f"{folder =}")
@@ -1218,24 +1286,12 @@ class PlottingData:
             print(f"{self.grids_phy[1].shape =}")
             print(f"{self.grids_phy[2].shape =}")
         print("\nself.spline_values:")
-        for k, v in self.spline_values.items():
-            print(f"  {k}")
-            for kk, vv in v.items():
-                print(f"    {kk}")
-        print("\nself.orbits:")
-        for k, v in self.orbits.items():
-            print(f"  {k}")
-        print("\nself.f:")
-        for k, v in self.f.items():
-            print(f"  {k}")
-            for kk, vv in v.items():
-                print(f"    {kk}")
-                for kkk, vvv in vv.items():
-                    print(f"      {kkk}")
-        print("\nself.n_sph:")
-        for k, v in self.n_sph.items():
-            print(f"  {k}")
-            for kk, vv in v.items():
-                print(f"    {kk}")
-                for kkk, vvv in vv.items():
-                    print(f"      {kkk}")
+        print(self.spline_values)
+        print("self.orbits:")
+        print(self.orbits)
+        print("self.f:")
+        print(self.f)
+        print("self.n_sph:")
+        print(self.n_sph)
+
+

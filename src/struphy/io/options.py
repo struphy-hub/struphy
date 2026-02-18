@@ -188,7 +188,7 @@ class DerhamOptions:
         Whether to build the local commuting projectors based on quasi-inter-/histopolation.
     """
 
-    p: tuple = (1, 1, 1)
+    p: tuple = (3, 2, 1)
     spl_kind: tuple = (True, True, True)
     dirichlet_bc: tuple = ((False, False), (False, False), (False, False))
     nquads: tuple = None

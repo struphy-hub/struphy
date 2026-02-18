@@ -102,13 +102,9 @@ class Variable(metaclass=ABCMeta):
             print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - backgrounds:")
             if isinstance(self.backgrounds, list):
                 for background in self.backgrounds:
-                    print(f"  {background.__class__.__name__}:")
-                    for k, v in background.__dict__.items():
-                        print(f"    {k}: {v}")
+                    print(background)
             else:
-                print(f"  {self.backgrounds.__class__.__name__}:")
-                for k, v in self.backgrounds.__dict__.items():
-                    print(f"    {k}: {v}")
+                print(self.backgrounds)
         else:
             print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no background.")
 
@@ -117,13 +113,9 @@ class Variable(metaclass=ABCMeta):
             print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - perturbations:")
             if isinstance(self.perturbations, list):
                 for perturbation in self.perturbations:
-                    print(f"  {perturbation.__class__.__name__}:")
-                    for k, v in perturbation.__dict__.items():
-                        print(f"    {k}: {v}")
+                    print(perturbation)
             else:
-                print(f"  {self.perturbations.__class__.__name__}:")
-                for k, v in self.perturbations.__dict__.items():
-                    print(f"    {k}: {v}")
+                print(self.perturbations)
         else:
             print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no perturbation.")
 
@@ -240,9 +232,7 @@ class PICVariable(Variable):
     def show_initial_condition(self):
         if self.initial_condition is not None:
             print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - initial condition:")
-            print(f"  {self.initial_condition.__class__.__name__}:")
-            for k, v in self.initial_condition.__dict__.items():
-                print(f"    {k}: {v}")
+            print(self.initial_condition)
         else:
             print(
                 f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no initial condition."

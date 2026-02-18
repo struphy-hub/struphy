@@ -66,7 +66,7 @@ from struphy.utils.utils import dict_to_yaml
 class StruphySimulation(Simulation):
     def __init__(
         self,
-        model: StruphyModel = Maxwell(),
+        model: StruphyModel,
         params_path: str = None,
         env: EnvironmentOptions = EnvironmentOptions(),
         base_units: BaseUnits = BaseUnits(),
@@ -452,8 +452,8 @@ RESTARTing from:
                     print()
 
             # update time and index (round time to 10 decimals for a clean time grid!)
-            self.time_state["value"][0] = round(self.time_state["value"][0] + dt, 10)
-            self.time_state["value_sec"][0] = round(self.time_state["value_sec"][0] + dt * self.units.t, 10)
+            self.time_state["value"][0] = round(self.time_state["value"][0] + dt, 14)
+            self.time_state["value_sec"][0] = round(self.time_state["value_sec"][0] + dt * self.units.t, 14)
             self.time_state["index"][0] += 1
 
             # perform one time step dt
@@ -489,19 +489,16 @@ RESTARTing from:
                     step = str(self.time_state["index"][0]).zfill(len(total_steps))
 
                     message = "time step: " + step + "/" + str(total_steps)
-                    message += " | " + "time: {0:10.5f}/{1:10.5f}".format(self.time_state["value"][0], Tend)
-                    message += " | " + "phys. time [s]: {0:12.10f}/{1:12.10f}".format(
+                    message += "\n" + "normalized time:".ljust(25) + "{0:3.1e} / {1:3.1e}".format(self.time_state["value"][0], Tend).rjust(25)
+                    message += "\n" + "physical time [s]:".ljust(25) + "{0:3.1e} / {1:3.1e}".format(
                         self.time_state["value_sec"][0],
                         Tend * self.units.t,
-                    )
-                    message += " | " + "wall clock [s]: {0:8.4f} | last step duration [s]: {1:8.4f}".format(
-                        run_time_now * 60,
-                        t1 - t0,
-                    )
+                    ).rjust(25)
+                    message += "\n" + "wall clock time [s]:".ljust(25) + "{0:8.4f}".format(run_time_now * 60).rjust(25)
+                    message += "\n" + "last step duration [s]:".ljust(25) + "{0:8.4f}".format(t1 - t0).rjust(25)
 
-                    print(message, end="\n")
+                    print(message)
                     self.model.print_scalar_quantities()
-                    print()
 
         # ===================================================================
 
@@ -545,13 +542,20 @@ RESTARTing from:
             create_vtk=create_vtk,
             verbose=verbose,
         )
-        return self.post_processor
 
     def load_plotting_data(self, verbose: bool = False):
         if not hasattr(self, "_plotting_data") and self.rank == 0:
             self._plotting_data = PlottingData(sim=self)
         self.plotting_data.load(verbose=verbose)
-        return self.plotting_data
+        
+        # expose attributes
+        self.orbits = self.plotting_data.orbits
+        self.f = self.plotting_data.f
+        self.spline_values = self.plotting_data.spline_values
+        self.n_sph = self.plotting_data.n_sph
+        self.grids_log = self.plotting_data.grids_log
+        self.grids_phy = self.plotting_data.grids_phy
+        self.t_grid = self.plotting_data.t_grid
 
     # ---------------------
     # Code specific methods
@@ -1149,7 +1153,7 @@ RESTARTing from:
     # ------------------------------------------------------
 
     @property
-    def model(self):
+    def model(self) -> StruphyModel:
         """StruphyModel object containing the PDE of the model."""
         return self._model
 
