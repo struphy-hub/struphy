@@ -347,6 +347,10 @@ class SPHVariable(Variable):
     @property
     def space(self):
         return self._space
+    
+    @property
+    def particles_class(self) -> Particles:
+        return ParticlesSPH
 
     @property
     def particles(self) -> ParticlesSPH:
@@ -388,14 +392,17 @@ class SPHVariable(Variable):
         self._perturbations["u3"] = del_u3
 
     def show_perturbations(self):
-        print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - perturbations:")
-        for key, perturbation in self.perturbations.items():
-            if perturbation is not None:
-                print(f"  {key}: {perturbation.__class__.__name__}")
-                for k, v in perturbation.__dict__.items():
-                    print(f"    {k}: {v}")
-            else:
-                print(f"  {key}: None")
+        if self.perturbations is not None:
+            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - perturbations:")
+            for key, perturbation in self.perturbations.items():
+                if perturbation is not None:
+                    print(f"    {key}: {perturbation.__class__.__name__}")
+                    for k, v in perturbation.__dict__.items():
+                        print(f"        {k}: {v}")
+                else:
+                    print(f"    {key}: None")
+        else:
+            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no perturbation.")
 
     @property
     def perturbations(self) -> dict[str, Perturbation]:

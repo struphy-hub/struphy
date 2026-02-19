@@ -217,21 +217,8 @@ class StruphySimulation(Simulation):
         self.Barrier()
 
         # units and normalization parameters
-        units = Units(base_units)
-        self.units = units
-        if model.bulk_species is None:
-            A_bulk = None
-            Z_bulk = None
-        else:
-            A_bulk = model.bulk_species.mass_number
-            Z_bulk = model.bulk_species.charge_number
-        self.units.derive_units(
-            velocity_scale=model.velocity_scale,
-            A_bulk=A_bulk,
-            Z_bulk=Z_bulk,
-            verbose=verbose,
-        )
-        model.setup_equation_params(units=self.units, verbose=verbose)
+        self.units = Units(base_units)
+        self.normalize_model()
         
         if self.rank == 0:
             print("\n... Done.")
@@ -560,6 +547,23 @@ RESTARTing from:
     # ---------------------
     # Code specific methods
     # ---------------------
+    def normalize_model(self, verbose: bool = False):
+        """Compute derived units and normalization coefficients of equations.
+        Must be re-run when species properties have been changed. 
+        """
+        if self.model.bulk_species is None:
+            A_bulk = None
+            Z_bulk = None
+        else:
+            A_bulk = self.model.bulk_species.mass_number
+            Z_bulk = self.model.bulk_species.charge_number
+        self.units.derive_units(
+            velocity_scale=self.model.velocity_scale,
+            A_bulk=A_bulk,
+            Z_bulk=Z_bulk,
+            verbose=verbose,
+        )
+        self.model.setup_equation_params(units=self.units, verbose=verbose)
 
     def compute_plasma_params(self, verbose: bool = True):
         """
@@ -664,35 +668,49 @@ RESTARTing from:
                 "{:4.3e}".format(B_min) + units_affix["magnetic field"],
             )
 
-    def spawn_sister(self, params_path: str = None,
-                     env: EnvironmentOptions = None,
-                     time_opts: Time = None,
-                     grid: grids.TensorProductGrid = None,
-                     derham_opts: DerhamOptions = None,
+    def spawn_sister(self, 
+                     model: StruphyModel = None,
+                    params_path: str = None,
+                    env: EnvironmentOptions = None,
+                    base_units: BaseUnits = None,
+                    time_opts: Time = None,
+                    domain: Domain = None,
+                    equil: FluidEquilibrium = None,
+                    grid: grids.TensorProductGrid = None,
+                    derham_opts: DerhamOptions = None,
+                    verbose: bool = False,
                      ):
-        """Spawn a sister simulation with the same model, base_units, domain and equilibrium
-        but different parameters and options otherwise. 
-        This can be used to run multiple simulations with the same model
-        but different discretization parameters or MPI configs."""
+        """Spawn a sister simulation with parameters that default to the current instance. 
+        This can be used to quickly generate multiple similar simulations."""
+        if model is None:
+            model = self.model
+        if params_path is None:
+            params_path = self.params_path
         if env is None:
             env = self.env
+        if base_units is None:
+            base_units = self.base_units
         if time_opts is None:
             time_opts = self.time_opts
+        if domain is None:
+            domain = self.domain
+        if equil is None:
+            equil = self.equil
         if grid is None:
             grid = self.grid
         if derham_opts is None:
             derham_opts = self.derham_opts
         
-        sister = StruphySimulation(model=self.model,
+        sister = StruphySimulation(model=model,
                                     params_path=params_path,
                                     env=env,
-                                    base_units=self.base_units,
+                                    base_units=base_units,
                                     time_opts=time_opts,
-                                    domain=self.domain,
-                                    equil=self.equil,
+                                    domain=domain,
+                                    equil=equil,
                                     grid=grid,
                                     derham_opts=derham_opts,
-                                    verbose=False)
+                                    verbose=verbose)
         return sister
 
     # ---------------

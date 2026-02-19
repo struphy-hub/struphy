@@ -51,10 +51,11 @@ class FluidEquilibrium(metaclass=ABCMeta):
         self._domain = new_domain
 
     def __repr__(self):
-        print(f"{self.__class__.__name__}")
+        out = f"{self.__class__.__name__}"
         for k, v in self.params.items():
-            print(f"{k}:".ljust(20), v)
-        return ""
+            out += f"\n    {k}:".ljust(20)
+            out += f"{v}"
+        return out
 
     ###########################
     # Vector-valued callables #

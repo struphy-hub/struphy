@@ -38,7 +38,7 @@ class SplineValues:
         for name, species in inspect.getmembers(self):
             if isinstance(species, SpecHolder):
                 out += f"    {name}\n"
-                out += f"{species}\n"
+                out += f"{species}"
         return out
 
 class Orbits:
@@ -58,7 +58,7 @@ class DistributionFunction:
         for name, species in inspect.getmembers(self):
             if isinstance(species, SpecHolder):
                 out += f"    {name}\n"
-                out += f"{species}\n"
+                out += f"{species}"
         return out
 
 class DensitySPH:
@@ -67,7 +67,7 @@ class DensitySPH:
         for name, species in inspect.getmembers(self):
             if isinstance(species, SpecHolder):
                 out += f"    {name}\n"
-                out += f"{species}\n"
+                out += f"{species}"
         return out
 
 class SpecHolder:
@@ -1143,33 +1143,6 @@ class PlottingData:
     def n_sph(self) -> DensitySPH:
         """Keys: species name. Values: dicts of view names ('view_0' etc.) holding dicts of corresponding xp.arrays for plotting."""
         return self._n_sph
-
-    @property
-    def Nt(self) -> dict[str, int]:
-        """Number of available time points (snap shots) for each species."""
-        if not hasattr(self, "_Nt"):
-            self._Nt = {}
-            for spec, orbs in self.orbits.items():
-                self._Nt[spec] = orbs.shape[0]
-        return self._Nt
-
-    @property
-    def Np(self) -> dict[str, int]:
-        """Number of particle orbits for each species."""
-        if not hasattr(self, "_Np"):
-            self._Np = {}
-            for spec, orbs in self.orbits.items():
-                self._Np[spec] = orbs.shape[1]
-        return self._Np
-
-    @property
-    def Nattr(self) -> dict[str, int]:
-        """Number of particle attributes for each species."""
-        if not hasattr(self, "_Nattr"):
-            self._Nattr = {}
-            for spec, orbs in self.orbits.items():
-                self._Nattr[spec] = orbs.shape[2]
-        return self._Nattr
 
     def load(self, verbose: bool = False):
         """Load data generated during post-processing."""

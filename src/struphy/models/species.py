@@ -44,13 +44,38 @@ class Species(metaclass=ABCMeta):
 
     @property
     def charge_number(self) -> int:
-        """Charge number in units of elementary charge."""
+        """Charge number in units of elementary charge (default = 1)."""
+        if not hasattr(self, "_charge_number"):
+            self._charge_number = 1
         return self._charge_number
 
     @property
     def mass_number(self) -> int:
-        """Mass number in units of proton mass."""
+        """Mass number in units of proton mass (default = 1)."""
+        if not hasattr(self, "_mass_number"):
+            self._mass_number = 1
         return self._mass_number
+    
+    @property
+    def alpha(self) -> float:
+        """The ratio of plasma frequency to cyclotron frequency, Omega_p / Omega_c (default = None)."""
+        if not hasattr(self, "_alpha"):
+            self._alpha = None
+        return self._alpha
+    
+    @property
+    def epsilon(self) -> float:
+        """The normalized cyclotron period, 1/(Omega_c * time_unit), default = None."""
+        if not hasattr(self, "_epsilon"):
+            self._epsilon = None
+        return self._epsilon
+    
+    @property
+    def kappa(self) -> float:
+        """The normalized plasma frequency, Omega_p * time_unit (default = None)."""
+        if not hasattr(self, "_kappa"):
+            self._kappa = None
+        return self._kappa
 
     def set_species_properties(
         self,
@@ -65,9 +90,12 @@ class Species(metaclass=ABCMeta):
 
         self._charge_number = charge_number
         self._mass_number = mass_number
-        self.alpha = alpha
-        self.epsilon = epsilon
-        self.kappa = kappa
+        self._alpha = alpha
+        self._epsilon = epsilon
+        self._kappa = kappa
+        
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            warnings.warn("\nSpecies.set_species_properties() should be run before instantiating a simulation.\nRun Simulation.normalize_model() for existing simulation objects.")
 
     class EquationParameters:
         """Normalization parameters of one species, appearing in scaled equations."""
@@ -154,9 +182,9 @@ class FieldSpecies(Species):
 
         self._charge_number = 0
         self._mass_number = 0
-        self.alpha = alpha
-        self.epsilon = epsilon
-        self.kappa = kappa
+        self._alpha = alpha
+        self._epsilon = epsilon
+        self._kappa = kappa
 
 
 class FluidSpecies(Species):
