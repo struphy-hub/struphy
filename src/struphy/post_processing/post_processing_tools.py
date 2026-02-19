@@ -1,8 +1,8 @@
+import inspect
 import os
 import pickle
 import shutil
 from typing import TYPE_CHECKING
-import inspect
 
 import cunumpy as xp
 import h5py
@@ -41,6 +41,7 @@ class SplineValues:
                 out += f"{species}"
         return out
 
+
 class Orbits:
     def __repr__(self):
         out = ""
@@ -52,6 +53,7 @@ class Orbits:
             out += f"        Number of attributes:  {shp[2]}\n"
         return out
 
+
 class DistributionFunction:
     def __repr__(self):
         out = ""
@@ -60,6 +62,7 @@ class DistributionFunction:
                 out += f"    {name}\n"
                 out += f"{species}"
         return out
+
 
 class DensitySPH:
     def __repr__(self):
@@ -70,20 +73,23 @@ class DensitySPH:
                 out += f"{species}"
         return out
 
+
 class SpecHolder:
     def __repr__(self):
         out = ""
         for name, val in self.__dict__.items():
             out += f"        {name}\n"
         return out
-    
+
+
 class Slice:
     pass
-    
+
+
 class DataDict:
     def __init__(self, data: dict):
         self.data = data
-        
+
     def __repr__(self):
         out = f"{type(self.data) = }\n"
         out += f"{len(self.data) = }\n"
@@ -95,6 +101,7 @@ class DataDict:
             out += f"{key = }".ljust(25)
             out += f"shape = {shp}\n"
         return out
+
 
 class ParamsIn:
     """Holds the input parameters of a Struphy simulation as attributes.
@@ -164,6 +171,7 @@ class ParamsIn:
         self.grid = grid
         self.derham_opts = derham_opts
         self.model = model
+
 
 class PostProcessor:
     """Post-processing finished Struphy runs, eithr from Simulation object or from output path.
@@ -1094,6 +1102,7 @@ class PostProcessor:
                 # save distribution functions
                 xp.save(os.path.join(path_view, "n_sph.npy"), data)
 
+
 class PlottingData:
     """Holds post-processed plotting data as attributes.
 
@@ -1205,7 +1214,7 @@ class PlottingData:
                                 tmp = xp.load(os.path.join(path_dat, file))
                                 if n == 0:
                                     arr = xp.zeros((Nt, *tmp.shape), dtype=float)
-                                    setattr(self.orbits, spec, arr) 
+                                    setattr(self.orbits, spec, arr)
                                 arr[step] = tmp
                                 n += 1
 
@@ -1266,5 +1275,3 @@ class PlottingData:
         print(self.f)
         print("self.n_sph:")
         print(self.n_sph)
-
-

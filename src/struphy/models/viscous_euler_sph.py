@@ -74,7 +74,6 @@ class ViscousEulerSPH(StruphyModel):
     ## abstract methods
 
     def __init__(self, with_B0: bool = True):
-        
 
         self.with_B0 = with_B0
 

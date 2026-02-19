@@ -26,7 +26,7 @@ class Particles6D(Particles):
     value position (eta)    velocities           weight   s0     w0    buffer
     ===== ============== ======================= ======= ====== ====== ==========
     """
-    
+
     # Class properties
     vdim = 3
     type = "full_f"

@@ -15,7 +15,7 @@ class Perturbation(metaclass=ABCMeta):
     def prepare_eval_pts(self):
         # TODO: we could prepare the arguments via a method in this base class (flat_eval, sparse meshgrid, etc.).
         pass
-    
+
     def __repr__(self):
         print(f"    {self.__class__.__name__}:")
         for k, v in self.__dict__.items():

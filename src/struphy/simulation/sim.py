@@ -27,7 +27,6 @@ from struphy import (
     equils,
     grids,
 )
-from struphy.models import Maxwell
 
 # core imports
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
@@ -46,6 +45,7 @@ from struphy.fields_background.projected_equils import (
 from struphy.geometry.base import Domain
 from struphy.io.output_handling import DataContainer
 from struphy.io.setup import setup_derham
+from struphy.models import Maxwell
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     DiagnosticSpecies,
@@ -219,7 +219,7 @@ class StruphySimulation(Simulation):
         # units and normalization parameters
         self.units = Units(base_units)
         self.normalize_model()
-        
+
         if self.rank == 0:
             print("\n... Done.")
 
@@ -316,7 +316,7 @@ class StruphySimulation(Simulation):
 
     def run(self, verbose: bool = False):
         print(f"\nStarting simulation run for model {self.model_name} ...")
-        
+
         self._remove_existing_output_files(verbose=verbose)
 
         # Display propagator options and intial conditions:
@@ -476,11 +476,19 @@ RESTARTing from:
                     step = str(self.time_state["index"][0]).zfill(len(total_steps))
 
                     message = "time step: " + step + "/" + str(total_steps)
-                    message += "\n" + "normalized time:".ljust(25) + "{0:3.1e} / {1:3.1e}".format(self.time_state["value"][0], Tend).rjust(25)
-                    message += "\n" + "physical time [s]:".ljust(25) + "{0:3.1e} / {1:3.1e}".format(
-                        self.time_state["value_sec"][0],
-                        Tend * self.units.t,
-                    ).rjust(25)
+                    message += (
+                        "\n"
+                        + "normalized time:".ljust(25)
+                        + "{0:3.1e} / {1:3.1e}".format(self.time_state["value"][0], Tend).rjust(25)
+                    )
+                    message += (
+                        "\n"
+                        + "physical time [s]:".ljust(25)
+                        + "{0:3.1e} / {1:3.1e}".format(
+                            self.time_state["value_sec"][0],
+                            Tend * self.units.t,
+                        ).rjust(25)
+                    )
                     message += "\n" + "wall clock time [s]:".ljust(25) + "{0:8.4f}".format(run_time_now * 60).rjust(25)
                     message += "\n" + "last step duration [s]:".ljust(25) + "{0:8.4f}".format(t1 - t0).rjust(25)
 
@@ -516,7 +524,7 @@ RESTARTing from:
         # setup post processor and plotting
         if not hasattr(self, "_post_processor") and self.rank == 0:
             self._post_processor = PostProcessor(sim=self)
-        
+
         if time_trace:
             self.post_processor.plot_time_traces(verbose=verbose)
 
@@ -534,7 +542,7 @@ RESTARTing from:
         if not hasattr(self, "_plotting_data") and self.rank == 0:
             self._plotting_data = PlottingData(sim=self)
         self.plotting_data.load(verbose=verbose)
-        
+
         # expose attributes
         self.orbits = self.plotting_data.orbits
         self.f = self.plotting_data.f
@@ -549,7 +557,7 @@ RESTARTing from:
     # ---------------------
     def normalize_model(self, verbose: bool = False):
         """Compute derived units and normalization coefficients of equations.
-        Must be re-run when species properties have been changed. 
+        Must be re-run when species properties have been changed.
         """
         if self.model.bulk_species is None:
             A_bulk = None
@@ -668,19 +676,20 @@ RESTARTing from:
                 "{:4.3e}".format(B_min) + units_affix["magnetic field"],
             )
 
-    def spawn_sister(self, 
-                     model: StruphyModel = None,
-                    params_path: str = None,
-                    env: EnvironmentOptions = None,
-                    base_units: BaseUnits = None,
-                    time_opts: Time = None,
-                    domain: Domain = None,
-                    equil: FluidEquilibrium = None,
-                    grid: grids.TensorProductGrid = None,
-                    derham_opts: DerhamOptions = None,
-                    verbose: bool = False,
-                     ):
-        """Spawn a sister simulation with parameters that default to the current instance. 
+    def spawn_sister(
+        self,
+        model: StruphyModel = None,
+        params_path: str = None,
+        env: EnvironmentOptions = None,
+        base_units: BaseUnits = None,
+        time_opts: Time = None,
+        domain: Domain = None,
+        equil: FluidEquilibrium = None,
+        grid: grids.TensorProductGrid = None,
+        derham_opts: DerhamOptions = None,
+        verbose: bool = False,
+    ):
+        """Spawn a sister simulation with parameters that default to the current instance.
         This can be used to quickly generate multiple similar simulations."""
         if model is None:
             model = self.model
@@ -700,17 +709,19 @@ RESTARTing from:
             grid = self.grid
         if derham_opts is None:
             derham_opts = self.derham_opts
-        
-        sister = StruphySimulation(model=model,
-                                    params_path=params_path,
-                                    env=env,
-                                    base_units=base_units,
-                                    time_opts=time_opts,
-                                    domain=domain,
-                                    equil=equil,
-                                    grid=grid,
-                                    derham_opts=derham_opts,
-                                    verbose=verbose)
+
+        sister = StruphySimulation(
+            model=model,
+            params_path=params_path,
+            env=env,
+            base_units=base_units,
+            time_opts=time_opts,
+            domain=domain,
+            equil=equil,
+            grid=grid,
+            derham_opts=derham_opts,
+            verbose=verbose,
+        )
         return sister
 
     # ---------------
@@ -736,9 +747,9 @@ RESTARTing from:
                 os.mkdir(os.path.join(self.env.path_out, "data/"))
                 if verbose:
                     print("Created folder " + os.path.join(self.env.path_out, "data/"))
-                            
+
     def _remove_existing_output_files(self, verbose: bool = False):
-        """Removes post_processing/, meta.txt and profile_tmp. 
+        """Removes post_processing/, meta.txt and profile_tmp.
         If not restart, also removes existing hdf5 and png files in output folder."""
         # remove post_processing folder
         folder = os.path.join(self.env.path_out, "post_processing")
@@ -768,7 +779,7 @@ RESTARTing from:
                 os.remove(file)
                 if verbose and n < 10:  # print only ten statements in case of many processes
                     print("Removed existing file " + file)
-                    
+
             files = glob.glob(os.path.join(self.env.path_out, "*.png"))
             for n, file in enumerate(files):
                 os.remove(file)

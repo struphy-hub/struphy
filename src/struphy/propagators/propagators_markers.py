@@ -95,6 +95,7 @@ class PushEta(Propagator):
         # temp fix due to refactoring of ButcherTableau:
         try:
             import cunumpy as xp
+
             butcher._a = xp.diag(butcher.a, k=-1)
             butcher._a = xp.array(list(butcher.a) + [0.0])
         except ValueError:

@@ -196,10 +196,7 @@ class ModesSin(Perturbation):
                 amp
                 * pfun(z)
                 * xp.sin(
-                    l * 2.0 * xp.pi / self.Lx * x
-                    + m * 2.0 * xp.pi / self.Ly * y
-                    + n * 2.0 * xp.pi / self.Lz * z
-                    + t,
+                    l * 2.0 * xp.pi / self.Lx * x + m * 2.0 * xp.pi / self.Ly * y + n * 2.0 * xp.pi / self.Lz * z + t,
                 )
             )
 

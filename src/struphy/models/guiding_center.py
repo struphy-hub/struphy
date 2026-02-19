@@ -69,7 +69,6 @@ class GuidingCenter(StruphyModel):
     ## abstract methods
 
     def __init__(self):
-        
 
         # 1. instantiate all species
         self.kinetic_ions = self.KineticIons()

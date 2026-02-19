@@ -1,9 +1,9 @@
 # for type checking (cyclic imports)
 from __future__ import annotations
 
+import inspect
 from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING
-import inspect
 
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
@@ -197,7 +197,7 @@ class PICVariable(Variable):
     @property
     def space(self):
         return self._space
-    
+
     @property
     def particles_class(self) -> Particles:
         return self._particles_class
@@ -347,7 +347,7 @@ class SPHVariable(Variable):
     @property
     def space(self):
         return self._space
-    
+
     @property
     def particles_class(self) -> Particles:
         return ParticlesSPH

@@ -128,7 +128,6 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         with_B0: bool = True,
         with_E0: bool = True,
     ):
-        
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
