@@ -912,6 +912,7 @@ def sph_viscosity_tensor(
     periodic2: "bool",
     periodic3: "bool",
     kernel_type: "int",
+    mu: "float",
     h1: "float",
     h2: "float",
     h3: "float",
@@ -1003,7 +1004,7 @@ def sph_viscosity_tensor(
                     h3,
                 )
 
-        mu = 1.0
+        #mu = 1.0
         d_dev[:] = 0.5 * (grad_v_at_eta + grad_v_at_eta.T)
         # d_dev[:] = d_tensor
 

@@ -1818,11 +1818,17 @@ class PushVinViscousPotential(Propagator):
         kernel_type: LiteralOptions.OptsKernel = "gaussian_2d"
         kernel_width: tuple = None
         algo: OptsAlgo = "forward_euler"
+        mu: float = 1.0
 
         def __post_init__(self):
             # checks
             check_option(self.kernel_type, LiteralOptions.OptsKernel)
             check_option(self.algo, self.OptsAlgo)
+            #validate mu
+            if not isinstance(self.mu, (int,float)):
+                raise TypeError("Options.mu must be a number")
+            if self.mu < 0:
+                raise ValueError("Options.mu must be non-negative")
 
     @property
     def options(self) -> Options:
@@ -1876,6 +1882,7 @@ class PushVinViscousPotential(Propagator):
             holes,
             *periodic,
             kernel_nr,
+            self.options.mu, 
             *self.options.kernel_width,
         )
 
@@ -1915,6 +1922,7 @@ class PushVinViscousPotential(Propagator):
             holes,
             *periodic,
             kernel_nr,
+            self.options.mu,
             *self.options.kernel_width,
         )
 
