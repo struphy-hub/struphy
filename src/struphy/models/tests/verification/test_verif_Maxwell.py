@@ -75,12 +75,12 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
         sim.load_plotting_data(verbose=True)
 
         # fft
-        E_of_t = sim.plotting_data.spline_values["em_fields"]["e_field_log"]
+        E_of_t = sim.spline_values.em_fields.e_field_log
         _1, _2, _3, coeffs = power_spectrum_2d(
             E_of_t,
             "e_field_log",
-            grids=sim.plotting_data.grids_log,
-            grids_mapped=sim.plotting_data.grids_phy,
+            grids=sim.grids_log,
+            grids_mapped=sim.grids_phy,
             component=0,
             slice_at=[0, 0, None],
             do_plot=do_plot,
@@ -168,10 +168,10 @@ def test_coaxial(do_plot: bool = False):
         # load data
         sim.load_plotting_data(verbose=True)
 
-        t_grid = sim.plotting_data.t_grid
-        grids_phy = sim.plotting_data.grids_phy
-        e_field_phy = sim.plotting_data.spline_values["em_fields"]["e_field_phy"]
-        b_field_phy = sim.plotting_data.spline_values["em_fields"]["b_field_phy"]
+        t_grid = sim.t_grid
+        grids_phy = sim.grids_phy
+        e_field_phy = sim.spline_values.em_fields.e_field_phy
+        b_field_phy = sim.spline_values.em_fields.b_field_phy
 
         X = grids_phy[0][:, :, 0]
         Y = grids_phy[1][:, :, 0]

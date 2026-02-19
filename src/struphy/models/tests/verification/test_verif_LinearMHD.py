@@ -87,7 +87,7 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
         sim.load_plotting_data(verbose=True)
 
         # first fft
-        u_of_t = sim.plotting_data.spline_values["mhd"]["velocity_log"]
+        u_of_t = sim.spline_values.mhd.velocity_log
 
         Bsquare = B0x**2 + B0y**2 + B0z**2
         p0 = beta * Bsquare / 2
@@ -97,8 +97,8 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
         _1, _2, _3, coeffs = power_spectrum_2d(
             u_of_t,
             "velocity_log",
-            grids=sim.plotting_data.grids_log,
-            grids_mapped=sim.plotting_data.grids_phy,
+            grids=sim.grids_log,
+            grids_mapped=sim.grids_phy,
             component=0,
             slice_at=[0, 0, None],
             do_plot=do_plot,
@@ -117,13 +117,13 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
         assert xp.abs(coeffs[0][0] - v_alfven) < 0.07
 
         # second fft
-        p_of_t = sim.plotting_data.spline_values["mhd"]["pressure_log"]
+        p_of_t = sim.spline_values.mhd.pressure_log
 
         _1, _2, _3, coeffs = power_spectrum_2d(
             p_of_t,
             "pressure_log",
-            grids=sim.plotting_data.grids_log,
-            grids_mapped=sim.plotting_data.grids_phy,
+            grids=sim.grids_log,
+            grids_mapped=sim.grids_phy,
             component=0,
             slice_at=[0, 0, None],
             do_plot=do_plot,

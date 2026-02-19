@@ -115,8 +115,8 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
         # diagnostics
         sim.load_plotting_data(env.path_out)
 
-        ee1, ee2, ee3 = sim.plotting_data.n_sph["euler_fluid"]["view_0"]["grid_n_sph"]
-        n_sph = sim.plotting_data.n_sph["euler_fluid"]["view_0"]["n_sph"]
+        ee1, ee2, ee3 = sim.n_sph.euler_fluid.view_0.grid_n_sph
+        n_sph = sim.n_sph.euler_fluid.view_0.n_sph
 
         if do_plot:
             ppb = 8
