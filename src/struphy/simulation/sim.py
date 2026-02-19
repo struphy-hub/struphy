@@ -64,6 +64,48 @@ from struphy.utils.utils import dict_to_yaml
 
 
 class Simulation(SimulationBase):
+    """Top-level class to configure and run a Struphy simulation.
+
+    The `Simulation` class wraps model setup, MPI configuration, output
+    management, normalization (units), FEEC allocation and time stepping.
+    It initializes the model's variables and propagators, prepares runtime
+    metadata and output folders, and provides the main `run()` entry point
+    to execute the simulation.
+
+    Parameters
+    ----------
+    model : StruphyModel
+        Physics model that provides species, propagators and variables.
+    params_path : str, optional
+        Path to a Python parameter file to save alongside outputs.
+    env : EnvironmentOptions
+        Runtime and output environment options.
+    base_units : BaseUnits
+        Units used for normalization.
+    time_opts : Time
+        Time-stepping options (dt, Tend, split algorithm, ...).
+    domain : Domain
+        Computational domain description.
+    equil : FluidEquilibrium, optional
+        Initial fluid equilibrium (may be None).
+    grid : TensorProductGrid
+        Spatial grid used for FEEC variables.
+    derham_opts : DerhamOptions
+        Options for discrete differential operators.
+    verbose : bool, optional
+        If True, print additional setup information.
+
+    Attributes
+    ----------
+    meta : dict
+        Metadata about the run (platform, python version, model name, etc.).
+    units : Units
+        Unit/normalization helper created from `base_units`.
+    data : DataContainer
+        Output container used to store simulation data.
+    start_time : float
+        Wall-clock time when the simulation object was created.
+    """
     def __init__(
         self,
         model: StruphyModel,
@@ -228,6 +270,10 @@ class Simulation(SimulationBase):
     # ----------------
 
     def show_parameters(self):
+        """Print the current simulation configuration to stdout.
+
+        Only the MPI rank 0 prints to avoid clutter from multiple processes.
+        """
         if self.rank == 0:
             print("\nSIMULATION PARAMETERS:")
             print("\nModel:")
@@ -251,6 +297,12 @@ class Simulation(SimulationBase):
             print("")
 
     def allocate(self, verbose: bool = False):
+        """Allocate FEEC structures, model variables and propagators.
+
+        This prepares FEEC operators, allocates variable storage for all
+        species (fields, fluids, particles) and passes allocation info to
+        propagators. Prints progress on MPI rank 0.
+        """
 
         if MPI.COMM_WORLD.Get_rank() == 0:
             print("\nAllocating simulation data ...")
@@ -271,6 +323,11 @@ class Simulation(SimulationBase):
             print("... Done.")
 
     def save_geometry_and_equil_vtk(self, verbose: bool = False):
+        """Write a VTK file with geometry and (projected) equilibrium fields.
+
+        Only executed on MPI rank 0. Outputs basic diagnostic fields such as
+        jacobian determinant, pressure and |B| when available.
+        """
         # store geometry vtk
         if self.rank == 0:
             grids_log = [
@@ -296,6 +353,13 @@ class Simulation(SimulationBase):
             gridToVTK(os.path.join(self.env.path_out, "geometry"), *grids_phy, pointData=pointData)
 
     def initialize_data_storage(self, verbose: bool = False):
+        """Create the `DataContainer` and register time datasets.
+
+        Initializes `time_state` arrays (normalized and physical time and
+        index) and registers them with the output `DataContainer` so they
+        are saved during the run (and on restart).
+        """
+
         # data object for saving (will either create new hdf5 files if restart==False or open existing files if restart==True)
         # use MPI.COMM_WORLD as communicator when storing the outputs
 
@@ -315,6 +379,19 @@ class Simulation(SimulationBase):
             self.data.add_data({key_time_restart: val})
 
     def run(self, verbose: bool = False):
+        """Main entry point to execute the simulation time loop.
+
+        Responsibilities include allocation (when not restarting),
+        initialization of output storage, handling restarts, running the
+        main time-stepping loop, saving data at intervals, and finalizing
+        profiling and metadata. Prints progress on MPI rank 0.
+
+        Parameters
+        ----------
+        verbose : bool
+            If True, print additional runtime information.
+        """
+
         print(f"\nStarting simulation run for model {self.model_name} ...")
 
         self._remove_existing_output_files(verbose=verbose)
@@ -521,6 +598,12 @@ RESTARTing from:
         time_trace: bool = False,
         verbose: bool = False,
     ):
+        """Run post-processing on saved simulation data.
+
+        Uses `PostProcessor` to generate plots, process guiding-center or
+        physical field views, and optionally produce VTK outputs.
+        """
+
         # setup post processor and plotting
         if not hasattr(self, "_post_processor") and self.rank == 0:
             self._post_processor = PostProcessor(sim=self)
@@ -539,6 +622,13 @@ RESTARTing from:
         )
 
     def load_plotting_data(self, verbose: bool = False):
+        """Load plotting datasets produced by post-processing.
+
+        Creates a `PlottingData` instance on rank 0 (if needed), loads the
+        data and exposes convenient attributes such as `orbits`, `f`, and
+        grid information for downstream plotting or analysis.
+        """
+
         if not hasattr(self, "_plotting_data") and self.rank == 0:
             self._plotting_data = PlottingData(sim=self)
         self.plotting_data.load(verbose=verbose)
@@ -826,6 +916,14 @@ RESTARTing from:
 
     @profile
     def _allocate_feec(self, grid: grids.TensorProductGrid, derham_opts: DerhamOptions, verbose: bool = False):
+        """Create the discrete Derham sequence, mass/basis operators and projected equilibrium.
+
+        This sets up the 3D Derham object (unless grid or derham_opts are
+        None), creates weighted mass and basis projection operators, and
+        constructs a projected equilibrium appropriate for the chosen
+        equilibrium type.
+        """
+
         # create discrete derham sequence
         if self.clone_config is None:
             derham_comm = MPI.COMM_WORLD
@@ -968,6 +1066,14 @@ RESTARTing from:
 
     @profile
     def _allocate_propagators(self, verbose: bool = False):
+        """Allocate propagators and bind shared FEEC/domain operators.
+
+        Assigns `derham`, `domain`, `mass_ops`, `basis_ops` and
+        `projected_equil` on the `Propagator` base class so individual
+        propagator instances can access shared resources, then calls each
+        propagator's `allocate` method.
+        """
+
         # set propagators base class attributes (then available to all propagators)
         Propagator.derham = self.derham
         Propagator.domain = self.domain
