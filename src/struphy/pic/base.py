@@ -798,6 +798,12 @@ class Particles(metaclass=ABCMeta):
         assert new.shape == (self.n_mks_loc, self.vdim), f"{self.n_mks_loc =} and {self.vdim =} but {new.shape =}"
         self._markers[self.valid_mks, self.index["vel"]] = new
 
+    def set_velocities_comp(self, velocity, comp):
+        new = xp.ones(shape=(self.velocities.shape[0], 1)) * velocity
+
+        for c in comp:
+            self._markers[self.valid_mks, slice(3 + c, 3 + c + 1)] = new
+
     @property
     def phasespace_coords(self):
         """Array holding the marker positions and velocities in logical space. The i-th row holds the i-th marker info."""
