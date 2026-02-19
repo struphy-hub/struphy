@@ -87,7 +87,7 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
         sim.load_plotting_data(verbose=True)
 
         # first fft
-        u_of_t = sim.spline_values.mhd.velocity_log
+        u_of_t = sim.spline_values.mhd.velocity_log.data
 
         Bsquare = B0x**2 + B0y**2 + B0z**2
         p0 = beta * Bsquare / 2
@@ -117,7 +117,7 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
         assert xp.abs(coeffs[0][0] - v_alfven) < 0.07
 
         # second fft
-        p_of_t = sim.spline_values.mhd.pressure_log
+        p_of_t = sim.spline_values.mhd.pressure_log.data
 
         _1, _2, _3, coeffs = power_spectrum_2d(
             p_of_t,

@@ -85,8 +85,8 @@ def test_poisson_1d(do_plot=False):
     if MPI.COMM_WORLD.Get_rank() == 0:
         sim.load_plotting_data(verbose=True)
 
-        phi = sim.spline_values.em_fields.phi_log
-        source = sim.spline_values.em_fields.source_log
+        phi = sim.spline_values.em_fields.phi_log.data
+        source = sim.spline_values.em_fields.source_log.data
         x = sim.grids_phy[0][:, 0, 0]
         y = sim.grids_phy[1][0, :, 0]
         z = sim.grids_phy[2][0, 0, :]
