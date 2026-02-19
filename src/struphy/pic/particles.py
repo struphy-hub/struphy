@@ -217,10 +217,6 @@ class DeltaFParticles6D(Particles6D):
     def __post_init__(self):
         self.weights_params.control_variate = False
 
-    @property
-    def type(self):
-        return "delta_f"
-
     def _set_initial_condition(self):
         self.set_n_to_zero(self.initial_condition)
         super()._set_initial_condition()

@@ -9,7 +9,7 @@ from struphy import (
     BaseUnits,
     DerhamOptions,
     EnvironmentOptions,
-    StruphySimulation,
+    Simulation,
     Time,
     domains,
     equils,
@@ -64,7 +64,7 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
     model.mhd.velocity.add_perturbation(perturbations.Noise(amp=0.1, comp=2, seed=123))
 
     # instance of simulation
-    sim = StruphySimulation(
+    sim = Simulation(
         model=model,
         env=env,
         time_opts=time_opts,

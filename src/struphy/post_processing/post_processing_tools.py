@@ -29,7 +29,7 @@ from struphy.post_processing.orbits import orbits_tools
 from struphy.topology.grids import TensorProductGrid
 
 if TYPE_CHECKING:
-    from struphy.simulation.sim import StruphySimulation
+    from struphy.simulation.sim import Simulation
 
 
 class SplineValues:
@@ -178,8 +178,8 @@ class PostProcessor:
 
     Parameters
     ----------
-    sim : StruphySimulation
-        StruphySimulation object of finished run.
+    sim : Simulation
+        Simulation object of finished run.
 
     path_out: str
         Path to Struphy output folder (in case no sim is given).
@@ -187,7 +187,7 @@ class PostProcessor:
 
     def __init__(
         self,
-        sim: "StruphySimulation" = None,
+        sim: "Simulation" = None,
         path_out: str = None,
     ):
 
@@ -1112,7 +1112,7 @@ class PlottingData:
         Absolute path of simulation output folder to post-process.
     """
 
-    def __init__(self, sim: "StruphySimulation" = None, path_out: str = None):
+    def __init__(self, sim: "Simulation" = None, path_out: str = None):
 
         if sim is None:
             assert path_out is not None, (

@@ -1,3 +1,3 @@
-from struphy.simulation.sim import StruphySimulation
+from struphy.simulation.sim import Simulation
 
-all = ["StruphySimulation",]
+all = ["Simulation",]

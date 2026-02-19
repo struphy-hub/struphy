@@ -58,12 +58,12 @@ from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.physics.physics import Units
 from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
-from struphy.simulation.base import Simulation
+from struphy.simulation.base import SimulationBase
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml
 
 
-class StruphySimulation(Simulation):
+class Simulation(SimulationBase):
     def __init__(
         self,
         model: StruphyModel,
@@ -710,7 +710,7 @@ RESTARTing from:
         if derham_opts is None:
             derham_opts = self.derham_opts
 
-        sister = StruphySimulation(
+        sister = Simulation(
             model=model,
             params_path=params_path,
             env=env,

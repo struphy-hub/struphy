@@ -8,7 +8,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy import EnvironmentOptions
 from struphy.io.setup import import_parameters_py
 from struphy.models.base import StruphyModel
-from struphy.simulation.sim import StruphySimulation
+from struphy.simulation.sim import Simulation
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -52,7 +52,7 @@ def call_test(model: StruphyModel, test_profiling: bool = False, verbose: bool =
     model = params_in.model
 
     # test
-    sim = StruphySimulation(
+    sim = Simulation(
         model=model,
         params_path=path,
         env=env,

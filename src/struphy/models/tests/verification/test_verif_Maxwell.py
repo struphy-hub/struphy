@@ -11,7 +11,7 @@ from struphy import (
     BaseUnits,
     DerhamOptions,
     EnvironmentOptions,
-    StruphySimulation,
+    Simulation,
     Time,
     domains,
     equils,
@@ -53,7 +53,7 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
     model.em_fields.e_field.add_perturbation(perturbations.Noise(amp=0.1, comp=1, seed=123))
 
     # instance of simulation
-    sim = StruphySimulation(
+    sim = Simulation(
         model=model,
         env=env,
         time_opts=time_opts,
@@ -139,7 +139,7 @@ def test_coaxial(do_plot: bool = False):
     model.em_fields.b_field.add_perturbation(perturbations.CoaxialWaveguideMagnetic(m=m, a1=a1, a2=a2))
 
     # instance of simulation
-    sim = StruphySimulation(
+    sim = Simulation(
         model=model,
         env=env,
         time_opts=time_opts,

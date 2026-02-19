@@ -14,7 +14,7 @@ from struphy import (
     EnvironmentOptions,
     KernelDensityPlot,
     LoadingParameters,
-    StruphySimulation,
+    Simulation,
     Time,
     WeightsParameters,
     domains,
@@ -94,7 +94,7 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
     model.euler_fluid.var.add_perturbation(del_n=perturbation)
 
     # instance of simulation
-    sim = StruphySimulation(
+    sim = Simulation(
         model=model,
         env=env,
         base_units=base_units,

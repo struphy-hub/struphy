@@ -510,7 +510,7 @@ print(description)\n""")
     DerhamOptions,
     EnvironmentOptions,
     FieldsBackground,
-    StruphySimulation,
+    Simulation,
     Time,
     domains,
     equils,
@@ -545,8 +545,6 @@ print(description)\n""")
 # Instance of the simulation
 # --------------------------\n""")
 
-        # file.write("\nfrom struphy import StruphySimulation\n")
-
         file.write("\n# Environment options\n")
         file.write("env = EnvironmentOptions()\n")
 
@@ -576,7 +574,7 @@ print(description)\n""")
         file.write(derham)
 
         file.write("\n# Simulation object\n")
-        file.write("""sim = StruphySimulation(
+        file.write("""sim = Simulation(
     model=model,
     params_path=__file__,
     env=env,

@@ -9,7 +9,7 @@ from struphy import (
     BaseUnits,
     DerhamOptions,
     EnvironmentOptions,
-    StruphySimulation,
+    Simulation,
     Time,
     domains,
     grids,
@@ -64,7 +64,7 @@ def test_poisson_1d(do_plot=False):
     )
 
     # instance of simulation
-    sim = StruphySimulation(
+    sim = Simulation(
         model=model,
         env=env,
         time_opts=time_opts,

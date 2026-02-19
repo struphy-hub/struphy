@@ -29,7 +29,7 @@ from struphy.models.variables import FEECVariable
 from struphy.physics.physics import Units
 from struphy.pic.base import Particles
 from struphy.post_processing.orbits import orbits_tools
-from struphy.simulation.sim import StruphySimulation
+from struphy.simulation.sim import Simulation
 from struphy.topology import grids
 from struphy.topology.grids import TensorProductGrid
 from struphy.utils.clone_config import CloneConfig
@@ -62,7 +62,7 @@ def run(
         Absolute path to .py parameter file.
     """
 
-    sim = StruphySimulation(
+    sim = Simulation(
         model=model,
         params_path=params_path,
         env=env,

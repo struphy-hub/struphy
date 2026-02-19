@@ -13,7 +13,7 @@ from struphy import (
     DerhamOptions,
     EnvironmentOptions,
     LoadingParameters,
-    StruphySimulation,
+    Simulation,
     Time,
     WeightsParameters,
     domains,
@@ -85,7 +85,7 @@ def test_weak_Landau(do_plot: bool = False):
     model.kinetic_ions.var.add_initial_condition(init)
 
     # instance of simulation
-    sim = StruphySimulation(
+    sim = Simulation(
         model=model,
         env=env,
         time_opts=time_opts,

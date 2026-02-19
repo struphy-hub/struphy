@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 
 
-class Simulation(metaclass=ABCMeta):
+class SimulationBase(metaclass=ABCMeta):
     """Abstract base class for simulations."""
 
     @abstractmethod
