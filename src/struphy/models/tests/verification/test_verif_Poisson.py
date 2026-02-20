@@ -13,7 +13,6 @@ from struphy import (
     Time,
     domains,
     grids,
-    main,
     perturbations,
 )
 from struphy.models import Poisson

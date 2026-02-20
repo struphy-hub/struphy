@@ -67,7 +67,7 @@ class Simulation(SimulationBase):
     """Top-level class to configure and run a Struphy simulation.
 
     The `Simulation` class wraps model setup, MPI configuration, output
-    management, normalization (units), FEEC allocation and time stepping.
+    management, normalization (units), memory allocation and time stepping.
     It initializes the model's variables and propagators, prepares runtime
     metadata and output folders, and provides the main `run()` entry point
     to execute the simulation.

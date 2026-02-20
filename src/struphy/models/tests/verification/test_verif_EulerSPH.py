@@ -19,7 +19,6 @@ from struphy import (
     WeightsParameters,
     domains,
     equils,
-    main,
     perturbations,
 )
 from struphy.models import EulerSPH

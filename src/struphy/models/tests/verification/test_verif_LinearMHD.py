@@ -14,7 +14,6 @@ from struphy import (
     domains,
     equils,
     grids,
-    main,
     perturbations,
 )
 from struphy.diagnostics.diagn_tools import power_spectrum_2d

@@ -18,7 +18,6 @@ from struphy import (
     WeightsParameters,
     domains,
     grids,
-    main,
     maxwellians,
     perturbations,
 )
