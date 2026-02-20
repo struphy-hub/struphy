@@ -276,7 +276,7 @@ class Simulation(SimulationBase):
         Only the MPI rank 0 prints to avoid clutter from multiple processes.
         """
         if self.rank == 0:
-            print("\nSIMULATION PARAMETERS:")
+            print("SIMULATION PARAMETERS:")
             print("\nModel:")
             print(self.model)
             print("Parameter file path:")
@@ -393,7 +393,8 @@ class Simulation(SimulationBase):
             If True, print additional runtime information.
         """
 
-        print(f"\nStarting simulation run for model {self.model_name} ...")
+        if self.rank == 0:
+            print(f"\nStarting simulation run for model {self.model_name} ...")
 
         self._remove_existing_output_files(verbose=verbose)
 
@@ -553,16 +554,16 @@ RESTARTing from:
                 if self.rank == 0 and verbose:
                     step = str(self.time_state["index"][0]).zfill(len(total_steps))
 
-                    message = "time step: " + step + "/" + str(total_steps)
+                    message = "time step:".ljust(25) + f"{step}/{total_steps}".rjust(25)
                     message += (
                         "\n"
                         + "normalized time:".ljust(25)
-                        + "{0:3.1e} / {1:3.1e}".format(self.time_state["value"][0], Tend).rjust(25)
+                        + "{0:4.2e} / {1:4.2e}".format(self.time_state["value"][0], Tend).rjust(25)
                     )
                     message += (
                         "\n"
                         + "physical time [s]:".ljust(25)
-                        + "{0:3.1e} / {1:3.1e}".format(
+                        + "{0:4.2e} / {1:4.2e}".format(
                             self.time_state["value_sec"][0],
                             Tend * self.units.t,
                         ).rjust(25)
@@ -824,9 +825,6 @@ RESTARTing from:
         Setup output folders.
         """
         if MPI.COMM_WORLD.Get_rank() == 0:
-            if verbose:
-                print("\nPREPARATION AND CLEAN-UP:")
-
             # create output folder if it does not exit
             if not os.path.exists(self.env.path_out):
                 os.makedirs(self.env.path_out, exist_ok=True)
@@ -842,40 +840,41 @@ RESTARTing from:
     def _remove_existing_output_files(self, verbose: bool = False):
         """Removes post_processing/, meta.txt and profile_tmp.
         If not restart, also removes existing hdf5 and png files in output folder."""
-        # remove post_processing folder
-        folder = os.path.join(self.env.path_out, "post_processing")
-        if os.path.exists(folder):
-            shutil.rmtree(folder)
-            if verbose:
-                print("Removed existing folder " + folder)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            # remove post_processing folder
+            folder = os.path.join(self.env.path_out, "post_processing")
+            if os.path.exists(folder):
+                shutil.rmtree(folder)
+                if verbose:
+                    print("Removed existing folder " + folder)
 
-        # remove meta file
-        file = os.path.join(self.env.path_out, "meta.txt")
-        if os.path.exists(file):
-            os.remove(file)
-            if verbose:
-                print("Removed existing file " + file)
-
-        # remove profiling file
-        file = os.path.join(self.env.path_out, "profile_tmp")
-        if os.path.exists(file):
-            os.remove(file)
-            if verbose:
-                print("Removed existing file " + file)
-
-        # remove hdf5 and png files (if NOT a restart)
-        if not self.env.restart:
-            files = glob.glob(os.path.join(self.env.path_out, "data", "*.hdf5"))
-            for n, file in enumerate(files):
+            # remove meta file
+            file = os.path.join(self.env.path_out, "meta.txt")
+            if os.path.exists(file):
                 os.remove(file)
-                if verbose and n < 10:  # print only ten statements in case of many processes
+                if verbose:
                     print("Removed existing file " + file)
 
-            files = glob.glob(os.path.join(self.env.path_out, "*.png"))
-            for n, file in enumerate(files):
+            # remove profiling file
+            file = os.path.join(self.env.path_out, "profile_tmp")
+            if os.path.exists(file):
                 os.remove(file)
-                if verbose and n < 10:  # print only ten statements in case of many processes
+                if verbose:
                     print("Removed existing file " + file)
+
+            # remove hdf5 and png files (if NOT a restart)
+            if not self.env.restart:
+                files = glob.glob(os.path.join(self.env.path_out, "data", "*.hdf5"))
+                for n, file in enumerate(files):
+                    os.remove(file)
+                    if verbose and n < 10:  # print only ten statements in case of many processes
+                        print("Removed existing file " + file)
+
+                files = glob.glob(os.path.join(self.env.path_out, "*.png"))
+                for n, file in enumerate(files):
+                    os.remove(file)
+                    if verbose and n < 10:  # print only ten statements in case of many processes
+                        print("Removed existing file " + file)
 
     def _setup_domain_and_equil(self, domain: Domain, equil: FluidEquilibrium, verbose: bool = False):
         """If a numerical equilibirum is used, the domain is taken from this equilibirum."""

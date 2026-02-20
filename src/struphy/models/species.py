@@ -127,19 +127,39 @@ class Species(metaclass=ABCMeta):
         epsilon: float = None,
         kappa: float = None,
     ):
-        """Set charge- and mass number of species in parameter/launch files.
-        Optional: Set equation parameters (alpha, epsilon, kappa) to override units."""
+        """Set physical and equation parameters for a plasma species.
+
+        Sets the charge and mass numbers, and optionally overrides normalized equation parameters
+        (alpha, epsilon, kappa) that would otherwise be computed from physical units.
+
+        Parameters
+        ----------
+        charge_number : int, optional
+            Charge number in units of elementary charge (default = 1).
+        mass_number : int, optional
+            Mass number in units of proton mass (default = 1).
+        alpha : float, optional
+            Dimensionless parameter: plasma frequency / cyclotron frequency.
+            If None, computed from units and charge/mass numbers (default = None).
+        epsilon : float, optional
+            Normalized cyclotron period: 1 / (cyclotron frequency × time unit).
+            If None, computed from units and charge/mass numbers (default = None).
+        kappa : float, optional
+            Normalized plasma frequency: plasma frequency × time unit.
+            If None, computed from units and charge/mass numbers (default = None).
+
+        Notes
+        -----
+        This method should be called BEFORE instantiating a Simulation object.
+        For existing simulation objects, call Simulation.normalize_model() to apply changes.
+        A warning will be issued if this requirement is not followed."""
 
         self._charge_number = charge_number
         self._mass_number = mass_number
         self._alpha = alpha
         self._epsilon = epsilon
         self._kappa = kappa
-
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            warnings.warn(
-                "\nSpecies.set_species_properties() should be run before instantiating a simulation.\nRun Simulation.normalize_model() for existing simulation objects."
-            )
+        
 
     class EquationParameters:
         """Normalization parameters of one species, appearing in scaled equations."""
@@ -253,7 +273,7 @@ class FluidSpecies(Species):
     Examples
     --------
     >>> ions = FluidSpecies()
-    >>> ions.set_species_properties(charge_number=1, mass_number=1836)  # Protons
+    >>> ions.set_species_properties(charge_number=-1, mass_number=1/1836)  # electrons
     """
 
 

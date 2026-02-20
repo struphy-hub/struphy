@@ -288,7 +288,7 @@ class StruphyModel(metaclass=ABCMeta):
         for key, scalar_dict in self._scalar_quantities.items():
             val = scalar_dict["value"]
             assert not xp.isnan(val[0]), f"Scalar {key} is {val[0]}."
-            sq_str += f"{key}:".ljust(25) + "{:3.1e}\n".format(val[0]).rjust(26)
+            sq_str += f"{key}:".ljust(25) + "{:4.2e}\n".format(val[0]).rjust(26)
         print(sq_str)
 
     def setup_equation_params(self, units: Units, verbose=False):
@@ -576,9 +576,7 @@ It is meant to be a template for users to set up their own simulations with this
 It contains all the necessary components of a Struphy simulation, including the model, 
 the environment options, the time stepping options, the geometry, the equilibrium, 
 the grid, the Derham options, and the initial conditions. 
-Users can modify this file to set up their own simulations with different parameters and initial conditions.\n\"\"\"
-\nprint(f"\\nRunning {{__file__}}.")
-print(description)\n""")
+Users can modify this file to set up their own simulations with different parameters and initial conditions.\n\"\"\"\n""")
 
         file.write("""\n# ------------------
 # Import Struphy API
