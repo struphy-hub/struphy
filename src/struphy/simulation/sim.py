@@ -106,6 +106,7 @@ class Simulation(SimulationBase):
     start_time : float
         Wall-clock time when the simulation object was created.
     """
+
     def __init__(
         self,
         model: StruphyModel,
