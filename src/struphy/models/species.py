@@ -159,7 +159,6 @@ class Species(metaclass=ABCMeta):
         self._alpha = alpha
         self._epsilon = epsilon
         self._kappa = kappa
-        
 
     class EquationParameters:
         """Normalization parameters of one species, appearing in scaled equations."""

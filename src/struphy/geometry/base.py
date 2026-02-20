@@ -35,7 +35,7 @@ class Domain(metaclass=ABCMeta):
     unit cube to physical points :math:`\mathbf x \in \Omega`.
 
     The corresponding Jacobian matrix :math:`DF:\hat\Omega \to \mathbb R^{3\times 3}`,
-    volume element :math:`\sqrt g: \hat\Omega \to \mathbb R`, and metric tensor 
+    volume element :math:`\sqrt g: \hat\Omega \to \mathbb R`, and metric tensor
     :math:`G:\hat\Omega \to \mathbb R^{3\times 3}` are defined by
 
     .. math::

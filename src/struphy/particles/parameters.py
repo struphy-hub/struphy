@@ -46,7 +46,7 @@ class LoadingParameters:
 
     n_quad : int, default=1
         Number of quadrature points used for tesselation-based particle loading.
-        
+
     set_zero_velocity: tuple
         Initialize velocity of Maxwellain along selected axis to be zero.
 
