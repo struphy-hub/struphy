@@ -73,8 +73,6 @@ class EulerSPH(StruphyModel):
     ## abstract methods
 
     def __init__(self, with_B0: bool = True):
-        if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
 
         self.with_B0 = with_B0
 
@@ -101,7 +99,7 @@ class EulerSPH(StruphyModel):
     def velocity_scale(self):
         return "thermal"
 
-    def allocate_helpers(self):
+    def allocate_helpers(self, verbose: bool = False):
         pass
 
     # @staticmethod

@@ -14,6 +14,7 @@ from struphy.models.variables import FEECVariable
 from struphy.propagators import (
     propagators_fields,
 )
+from struphy.propagators.base import Propagator
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -72,8 +73,6 @@ class VariationalCompressibleFluid(StruphyModel):
     ## abstract methods
 
     def __init__(self):
-        if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
 
         # 1. instantiate all species
         self.fluid = self.Fluid()
@@ -101,8 +100,8 @@ class VariationalCompressibleFluid(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
-    def allocate_helpers(self):
-        projV3 = L2Projector("L2", self._mass_ops)
+    def allocate_helpers(self, verbose: bool = False):
+        projV3 = L2Projector("L2", Propagator.mass_ops)
 
         def f(e1, e2, e3):
             return 1
@@ -110,13 +109,13 @@ class VariationalCompressibleFluid(StruphyModel):
         f = xp.vectorize(f)
         self._integrator = projV3(f)
 
-        self._energy_evaluator = InternalEnergyEvaluator(self.derham, self.propagators.variat_ent.options.gamma)
+        self._energy_evaluator = InternalEnergyEvaluator(Propagator.derham, self.propagators.variat_ent.options.gamma)
 
     def update_scalar_quantities(self):
         rho = self.fluid.density.spline.vector
         u = self.fluid.velocity.spline.vector
 
-        en_U = 0.5 * self.mass_ops.WMM.massop.dot_inner(u, u)
+        en_U = 0.5 * Propagator.mass_ops.WMM.massop.dot_inner(u, u)
         self.update_scalar("en_U", en_U)
 
         en_thermo = self.update_thermo_energy()

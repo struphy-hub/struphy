@@ -163,25 +163,26 @@ class ModesSin(Perturbation):
         else:
             assert len(pfuns_params) == n_modes
 
-        self._pfuns = []
+        self.pfuns = []
         for pfun, params in zip(pfuns, pfuns_params):
             if pfun == "Id":
-                self._pfuns += [lambda eta3: 1.0]
+                self.pfuns += [lambda eta3: 1.0]
             elif pfun == "localize":
-                self._pfuns += [
+                self.pfuns += [
                     lambda eta3: xp.tanh((eta3 - 0.5) / params) / xp.cosh((eta3 - 0.5) / params),
                 ]
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
 
-        self._ls = ls
-        self._ms = ms
-        self._ns = ns
-        self._amps = amps
-        self._Lx = Lx
-        self._Ly = Ly
-        self._Lz = Lz
-        self._theta = theta
+        self.ls = tuple(ls)
+        self.ms = tuple(ms)
+        self.ns = tuple(ns)
+        self.amps = tuple(amps)
+        self.Lx = Lx
+        self.Ly = Ly
+        self.Lz = Lz
+        self.theta = tuple(theta)
+        self.pfuns = tuple(self.pfuns)
 
         # use the setters
         self.given_in_basis = given_in_basis
@@ -190,15 +191,12 @@ class ModesSin(Perturbation):
     def __call__(self, x, y, z):
         val = 0.0
 
-        for amp, l, m, n, t, pfun in zip(self._amps, self._ls, self._ms, self._ns, self._theta, self._pfuns):
+        for amp, l, m, n, t, pfun in zip(self.amps, self.ls, self.ms, self.ns, self.theta, self.pfuns):
             val += (
                 amp
                 * pfun(z)
                 * xp.sin(
-                    l * 2.0 * xp.pi / self._Lx * x
-                    + m * 2.0 * xp.pi / self._Ly * y
-                    + n * 2.0 * xp.pi / self._Lz * z
-                    + t,
+                    l * 2.0 * xp.pi / self.Lx * x + m * 2.0 * xp.pi / self.Ly * y + n * 2.0 * xp.pi / self.Lz * z + t,
                 )
             )
 
@@ -281,13 +279,13 @@ class ModesCos(Perturbation):
         else:
             assert len(amps) == n_modes
 
-        self._ls = ls
-        self._ms = ms
-        self._ns = ns
-        self._amps = amps
-        self._Lx = Lx
-        self._Ly = Ly
-        self._Lz = Lz
+        self.ls = tuple(ls)
+        self.ms = tuple(ms)
+        self.ns = tuple(ns)
+        self.amps = tuple(amps)
+        self.Lx = Lx
+        self.Ly = Ly
+        self.Lz = Lz
 
         # use the setters
         self.given_in_basis = given_in_basis
@@ -296,9 +294,9 @@ class ModesCos(Perturbation):
     def __call__(self, x, y, z):
         val = 0.0
 
-        for amp, l, m, n in zip(self._amps, self._ls, self._ms, self._ns):
+        for amp, l, m, n in zip(self.amps, self.ls, self.ms, self.ns):
             val += amp * xp.cos(
-                l * 2.0 * xp.pi / self._Lx * x + m * 2.0 * xp.pi / self._Ly * y + n * 2.0 * xp.pi / self._Lz * z,
+                l * 2.0 * xp.pi / self.Lx * x + m * 2.0 * xp.pi / self.Ly * y + n * 2.0 * xp.pi / self.Lz * z,
             )
         # print( "Cos max value", val.max())
         return val

@@ -97,8 +97,6 @@ class Vlasov(StruphyModel):
     ## abstract methods
 
     def __init__(self):
-        if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}' ***")
 
         # 1. instantiate all species
         self.kinetic_ions = self.KineticIons()
@@ -121,7 +119,7 @@ class Vlasov(StruphyModel):
     def velocity_scale(self):
         return "cyclotron"
 
-    def allocate_helpers(self):
+    def allocate_helpers(self, verbose: bool = False):
         self._tmp = xp.empty(1, dtype=float)
 
     def update_scalar_quantities(self):

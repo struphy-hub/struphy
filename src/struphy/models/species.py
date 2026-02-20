@@ -16,11 +16,60 @@ from struphy.physics.physics import ConstantsOfNature, Units
 
 
 class Species(metaclass=ABCMeta):
-    """Single species of a StruphyModel."""
+    """
+    Abstract base class representing a single plasma species in a StruphyModel.
+
+    This class manages variables, charge/mass properties, and equation parameters for a plasma species.
+    Concrete implementations include FieldSpecies, FluidSpecies, ParticleSpecies, and DiagnosticSpecies.
+
+    Attributes
+    ----------
+    variables : dict
+        Dictionary of Variable objects associated with this species, keyed by variable name.
+        Variables are automatically discovered during initialization.
+    charge_number : int
+        Charge number in units of elementary charge (default = 1).
+        For field species, this is set to 0.
+    mass_number : int
+        Mass number in units of proton mass (default = 1).
+        For field species, this is set to 0.
+    alpha : float, optional
+        Dimensionless parameter: plasma frequency / cyclotron frequency.
+        If None, computed from units and charge/mass numbers.
+    epsilon : float, optional
+        Normalized cyclotron period: 1 / (cyclotron frequency × time unit).
+        If None, computed from units and charge/mass numbers.
+    kappa : float, optional
+        Normalized plasma frequency: plasma frequency × time unit.
+        If None, computed from units and charge/mass numbers.
+    equation_params : EquationParameters
+        Object containing normalization parameters (alpha, epsilon, kappa) for scaled equations.
+
+    Methods
+    -------
+    init_variables()
+        Discover and cache Variable objects from instance attributes.
+    set_species_properties(charge_number, mass_number, alpha, epsilon, kappa)
+        Set physical and equation parameters in parameter files.
+    setup_equation_params(units, verbose)
+        Compute equation normalization parameters from physical units.
+
+    Notes
+    -----
+    All Species subclasses must implement __init__() and call init_variables() to properly
+    set up the variables dictionary.
+    """
 
     @abstractmethod
     def __init__(self):
         self.init_variables()
+
+    def __repr__(self):
+        out = ""
+        for k, v in self.variables.items():
+            out += f"        {k}:".ljust(20)
+            out += f"{v}\n"
+        return out
 
     # set species attribute for each variable
     def init_variables(self):
@@ -37,15 +86,40 @@ class Species(metaclass=ABCMeta):
 
     @property
     def charge_number(self) -> int:
-        """Charge number in units of elementary charge."""
+        """Charge number in units of elementary charge (default = 1)."""
+        if not hasattr(self, "_charge_number"):
+            self._charge_number = 1
         return self._charge_number
 
     @property
     def mass_number(self) -> int:
-        """Mass number in units of proton mass."""
+        """Mass number in units of proton mass (default = 1)."""
+        if not hasattr(self, "_mass_number"):
+            self._mass_number = 1
         return self._mass_number
 
-    def set_phys_params(
+    @property
+    def alpha(self) -> float:
+        """The ratio of plasma frequency to cyclotron frequency, Omega_p / Omega_c (default = None)."""
+        if not hasattr(self, "_alpha"):
+            self._alpha = None
+        return self._alpha
+
+    @property
+    def epsilon(self) -> float:
+        """The normalized cyclotron period, 1/(Omega_c * time_unit), default = None."""
+        if not hasattr(self, "_epsilon"):
+            self._epsilon = None
+        return self._epsilon
+
+    @property
+    def kappa(self) -> float:
+        """The normalized plasma frequency, Omega_p * time_unit (default = None)."""
+        if not hasattr(self, "_kappa"):
+            self._kappa = None
+        return self._kappa
+
+    def set_species_properties(
         self,
         charge_number: int = 1,
         mass_number: int = 1,
@@ -53,13 +127,38 @@ class Species(metaclass=ABCMeta):
         epsilon: float = None,
         kappa: float = None,
     ):
-        """Set charge- and mass number of species in parameter/launch files.
-        Optional: Set equation parameters (alpha, epsilon, kappa) to override units."""
+        """Set physical and equation parameters for a plasma species.
+
+        Sets the charge and mass numbers, and optionally overrides normalized equation parameters
+        (alpha, epsilon, kappa) that would otherwise be computed from physical units.
+
+        Parameters
+        ----------
+        charge_number : int, optional
+            Charge number in units of elementary charge (default = 1).
+        mass_number : int, optional
+            Mass number in units of proton mass (default = 1).
+        alpha : float, optional
+            Dimensionless parameter: plasma frequency / cyclotron frequency.
+            If None, computed from units and charge/mass numbers (default = None).
+        epsilon : float, optional
+            Normalized cyclotron period: 1 / (cyclotron frequency × time unit).
+            If None, computed from units and charge/mass numbers (default = None).
+        kappa : float, optional
+            Normalized plasma frequency: plasma frequency × time unit.
+            If None, computed from units and charge/mass numbers (default = None).
+
+        Notes
+        -----
+        This method should be called BEFORE instantiating a Simulation object.
+        For existing simulation objects, call Simulation.normalize_model() to apply changes.
+        A warning will be issued if this requirement is not followed."""
+
         self._charge_number = charge_number
         self._mass_number = mass_number
-        self.alpha = alpha
-        self.epsilon = epsilon
-        self.kappa = kappa
+        self._alpha = alpha
+        self._epsilon = epsilon
+        self._kappa = kappa
 
     class EquationParameters:
         """Normalization parameters of one species, appearing in scaled equations."""
@@ -134,15 +233,74 @@ class Species(metaclass=ABCMeta):
 
 
 class FieldSpecies(Species):
-    """Species without mass and charge (so-called 'fields')."""
+    """
+    Represents a field species with zero mass and charge.
+
+    Field species are used to represent electromagnetic or other non-particle fields in a plasma
+    model. They have no direct physical mass or charge properties (charge_number = 0, mass_number = 0),
+    but may have associated equation parameters for scaled formulations.
+
+    Examples
+    --------
+    >>> E_field = FieldSpecies()
+    >>> E_field.set_species_properties(alpha=0.5, epsilon=0.1, kappa=0.2)
+    """
+
+    def set_species_properties(
+        self,
+        alpha: float = None,
+        epsilon: float = None,
+        kappa: float = None,
+    ):
+        """Set equation parameters (alpha, epsilon, kappa) to override units."""
+
+        self._charge_number = 0
+        self._mass_number = 0
+        self._alpha = alpha
+        self._epsilon = epsilon
+        self._kappa = kappa
 
 
 class FluidSpecies(Species):
-    """Single fluid species in 3d configuration space."""
+    """
+    Represents a single fluid species evolving in 3D configuration space.
+
+    FluidSpecies describes macroscopic plasma dynamics using fluid or moment-based equations
+    (e.g., Euler equations, MHD equations). Each fluid species has a specific charge and mass number
+    and evolves according to fluid propagators.
+
+    Examples
+    --------
+    >>> ions = FluidSpecies()
+    >>> ions.set_species_properties(charge_number=-1, mass_number=1/1836)  # electrons
+    """
 
 
 class ParticleSpecies(Species):
-    """Single kinetic species in 3d + vdim phase space."""
+    """
+    Represents a single kinetic species in 3D configuration space plus velocity space.
+
+    ParticleSpecies describes plasma dynamics using kinetic theory via particles or markers
+    in 3D + vdim (where vdim is 2 or 3) phase space. This class manages particle initialization,
+    sorting, and diagnostic output.
+
+    Methods
+    -------
+    set_markers(loading_params, weights_params, boundary_params, bufsize)
+        Configure marker initialization and weight parameters.
+    set_sorting_boxes(do_sort, sorting_frequency, boxes_per_dim, box_bufsize, dims_mask)
+        Configure spatial sorting for memory efficiency and kernel evaluation.
+    set_save_data(n_markers, binning_plots, kernel_density_plots)
+        Configure diagnostic output for particles and distribution functions.
+
+    Examples
+    --------
+    >>> electrons = ParticleSpecies()
+    >>> electrons.set_species_properties(charge_number=-1, mass_number=1/1836)
+    >>> load_params = LoadingParameters(Np=100000)
+    >>> electrons.set_markers(loading_params=load_params)
+    >>> electrons.set_sorting_boxes(do_sort=True, sorting_frequency=10)
+    """
 
     def set_markers(
         self,
@@ -247,4 +405,20 @@ class ParticleSpecies(Species):
 
 
 class DiagnosticSpecies(Species):
-    """Diagnostic species (fields) without mass and charge."""
+    """
+    Represents a diagnostic species for output and analysis of non-physical quantities.
+
+    DiagnosticSpecies are used to track derived quantities and diagnostics that are not part
+    of the primary simulation fields. They have zero mass and charge and are typically computed
+    from other species data during simulation postprocessing or on-the-fly diagnostics.
+
+    Notes
+    -----
+    Diagnostic species do not directly participate in the dynamics equations but are updated
+    based on values from other species (field, fluid, or particle species).
+
+    Examples
+    --------
+    >>> vorticity = DiagnosticSpecies()  # For tracking curl of velocity field
+    >>> energy = DiagnosticSpecies()  # For tracking kinetic/thermal energy density
+    """

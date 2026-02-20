@@ -12,6 +12,7 @@ from struphy.polar.basic import PolarVector
 from struphy.propagators import (
     propagators_fields,
 )
+from struphy.propagators.base import Propagator
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -74,8 +75,6 @@ class LinearMHD(StruphyModel):
     ## abstract methods
 
     def __init__(self):
-        if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -109,23 +108,23 @@ class LinearMHD(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
-    def allocate_helpers(self):
-        self._ones = self.projected_equil.p3.space.zeros()
+    def allocate_helpers(self, verbose: bool = False):
+        self._ones = Propagator.projected_equil.p3.space.zeros()
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.0
         else:
             self._ones[:] = 1.0
 
-        self._tmp_b1: BlockVector = self.derham.Vh["2"].zeros()  # TODO: replace derham.Vh dict by class
-        self._tmp_b2: BlockVector = self.derham.Vh["2"].zeros()
+        self._tmp_b1: BlockVector = Propagator.derham.Vh["2"].zeros()  # TODO: replace derham.Vh dict by class
+        self._tmp_b2: BlockVector = Propagator.derham.Vh["2"].zeros()
 
     def update_scalar_quantities(self):
         # perturbed fields
-        en_U = 0.5 * self.mass_ops.M2n.dot_inner(
+        en_U = 0.5 * Propagator.mass_ops.M2n.dot_inner(
             self.mhd.velocity.spline.vector,
             self.mhd.velocity.spline.vector,
         )
-        en_B = 0.5 * self.mass_ops.M2.dot_inner(
+        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(
             self.em_fields.b_field.spline.vector,
             self.em_fields.b_field.spline.vector,
         )
@@ -137,19 +136,19 @@ class LinearMHD(StruphyModel):
         self.update_scalar("en_tot", en_U + en_B + en_p)
 
         # background fields
-        self.mass_ops.M2.dot(self.projected_equil.b2, apply_bc=False, out=self._tmp_b1)
+        Propagator.mass_ops.M2.dot(Propagator.projected_equil.b2, apply_bc=False, out=self._tmp_b1)
 
-        en_B0 = self.projected_equil.b2.inner(self._tmp_b1) / 2
-        en_p0 = self.projected_equil.p3.inner(self._ones) / (5 / 3 - 1)
+        en_B0 = Propagator.projected_equil.b2.inner(self._tmp_b1) / 2
+        en_p0 = Propagator.projected_equil.p3.inner(self._ones) / (5 / 3 - 1)
 
         self.update_scalar("en_B_eq", en_B0)
         self.update_scalar("en_p_eq", en_p0)
 
         # total magnetic field
-        self.projected_equil.b2.copy(out=self._tmp_b1)
+        Propagator.projected_equil.b2.copy(out=self._tmp_b1)
         self._tmp_b1 += self.em_fields.b_field.spline.vector
 
-        self.mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
+        Propagator.mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
 
         en_Btot = self._tmp_b1.inner(self._tmp_b2) / 2
 

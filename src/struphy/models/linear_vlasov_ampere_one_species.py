@@ -16,6 +16,7 @@ from struphy.propagators import (
     propagators_fields,
     propagators_markers,
 )
+from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
 
 rank = MPI.COMM_WORLD.Get_rank()
@@ -127,8 +128,6 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         with_B0: bool = True,
         with_E0: bool = True,
     ):
-        if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -163,15 +162,59 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
     def velocity_scale(self):
         return "light"
 
-    def allocate_helpers(self):
+    def allocate_helpers(self, verbose: bool = False):
+        """Solve initial Poisson equation.
+
+        :meta private:
+        """
         self._tmp = xp.empty(1, dtype=float)
+
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print("\nINITIAL POISSON SOLVE:")
+
+        # use control variate method
+        particles = self.kinetic_ions.var.particles
+        particles.update_weights()
+
+        # sanity check
+        # self.pointer['species1'].show_distribution_function(
+        #     [True] + [False]*5, [xp.linspace(0, 1, 32)])
+
+        # accumulate charge density
+        charge_accum = AccumulatorVector(
+            particles,
+            "H1",
+            Pyccelkernel(accum_kernels.charge_density_0form),
+            Propagator.mass_ops,
+            Propagator.domain.args_domain,
+        )
+
+        # another sanity check: compute FE coeffs of density
+        # charge_accum.show_accumulated_spline_field(Propagator.mass_ops)
+
+        alpha = self.kinetic_ions.equation_params.alpha
+        epsilon = self.kinetic_ions.equation_params.epsilon
+
+        self.initial_poisson.options.rho = charge_accum
+        self.initial_poisson.options.rho_coeffs = alpha**2 / epsilon
+        self.initial_poisson.allocate()
+
+        # Solve with dt=1. and compute electric field
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print("\nSolving initial Poisson problem...")
+        self.initial_poisson(1.0)
+
+        phi = self.initial_poisson.variables.phi.spline.vector
+        Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print("... Done.")
 
     def update_scalar_quantities(self):
         # e*M1*e/2
         e = self.em_fields.e_field.spline.vector
         particles = self.kinetic_ions.var.particles
 
-        en_E = 0.5 * self.mass_ops.M1.dot_inner(e, e)
+        en_E = 0.5 * Propagator.mass_ops.M1.dot_inner(e, e)
         self.update_scalar("en_E", en_E)
 
         # evaluate f0
@@ -205,55 +248,6 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
         self.update_scalar("en_w", self._tmp[0])
         self.update_scalar("en_tot", self._tmp[0] + en_E)
-
-    def allocate_propagators(self):
-        """Solve initial Poisson equation.
-
-        :meta private:
-        """
-
-        # initialize fields and particles
-        super().allocate_propagators()
-
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print("\nINITIAL POISSON SOLVE:")
-
-        # use control variate method
-        particles = self.kinetic_ions.var.particles
-        particles.update_weights()
-
-        # sanity check
-        # self.pointer['species1'].show_distribution_function(
-        #     [True] + [False]*5, [xp.linspace(0, 1, 32)])
-
-        # accumulate charge density
-        charge_accum = AccumulatorVector(
-            particles,
-            "H1",
-            Pyccelkernel(accum_kernels.charge_density_0form),
-            self.mass_ops,
-            self.domain.args_domain,
-        )
-
-        # another sanity check: compute FE coeffs of density
-        # charge_accum.show_accumulated_spline_field(self.mass_ops)
-
-        alpha = self.kinetic_ions.equation_params.alpha
-        epsilon = self.kinetic_ions.equation_params.epsilon
-
-        self.initial_poisson.options.rho = charge_accum
-        self.initial_poisson.options.rho_coeffs = alpha**2 / epsilon
-        self.initial_poisson.allocate()
-
-        # Solve with dt=1. and compute electric field
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print("\nSolving initial Poisson problem...")
-        self.initial_poisson(1.0)
-
-        phi = self.initial_poisson.variables.phi.spline.vector
-        self.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print("Done.")
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
