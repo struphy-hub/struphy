@@ -15,8 +15,15 @@ from struphy.linear_algebra import linalg_kron
 
 
 class Domain(metaclass=ABCMeta):
-    r"""Base class for mapped domains (single patch).
+    r"""
+    Abstract base class for parametric domains in plasma simulations (single patch).
 
+    The Domain class represents a computational domain through a parametric mapping from a logical unit cube
+    to a physical region. This supports both analytical mappings (cylindrical, toroidal, Shafranov) and
+    spline-based isogeometric analysis (IGA) mappings.
+
+    Mathematical Background
+    -----------------------
     The (physical) domain :math:`\Omega \subset \mathbb R^3` is an open subset of :math:`\mathbb R^3`,
     defined by a diffeomorphism
 
@@ -26,15 +33,84 @@ class Domain(metaclass=ABCMeta):
 
     mapping points :math:`\boldsymbol{\eta} \in (0, 1)^3 = \hat\Omega` of the (logical)
     unit cube to physical points :math:`\mathbf x \in \Omega`.
-    The corresponding Jacobain matrix :math:`DF:\hat\Omega \to \mathbb R^{3\times 3}`,
-    its volume element :math:`\sqrt g: \hat\Omega \to \mathbb R`
-    and the metric tensor :math:`G:\hat\Omega \to \mathbb R^{3\times 3}` are defined by
+
+    The corresponding Jacobian matrix :math:`DF:\hat\Omega \to \mathbb R^{3\times 3}`,
+    volume element :math:`\sqrt g: \hat\Omega \to \mathbb R`, and metric tensor 
+    :math:`G:\hat\Omega \to \mathbb R^{3\times 3}` are defined by
 
     .. math::
 
         DF_{i,j} = \frac{\partial F_i}{\partial \eta_j}\,,\qquad \sqrt g = |\textnormal{det}(DF)|\,,\qquad G = DF^\top DF\,.
 
     Only right-handed mappings (:math:`\textnormal{det}(DF) > 0`) are admitted.
+
+    Attributes
+    ----------
+    kind_map : int
+        Mapping type identifier:
+        - 0-9: Spline (IGA) mappings
+        - 10-19: Analytical mappings with cubic domain boundary
+        - 20-29: Cylinder and torus analytical mappings
+        - 30-39: Shafranov mappings (tokamak equilibrium)
+    params : dict
+        Mapping parameters as a dictionary for reference.
+    params_numpy : ndarray
+        Mapping parameters as a 1D numpy array for efficient computation.
+    pole : bool
+        Whether the mapping has one polar singularity point.
+    periodic_eta3 : bool
+        Whether the domain is periodic in the :math:`\eta_3` direction.
+    cx, cy, cz : ndarray
+        Control points for spline mapping components :math:`F_x`, :math:`F_y`, :math:`F_z` (3D arrays).
+    Nel : tuple[int]
+        Number of elements in each logical direction (for spline mappings).
+    p : tuple[int]
+        B-spline degree in each direction (for spline mappings).
+    spl_kind : tuple[bool]
+        Spline type in each direction: True for periodic, False for clamped (for spline mappings).
+    NbaseN : list[int]
+        Number of basis functions in each direction.
+    T : list[ndarray]
+        Knot vectors for each direction.
+    indN : list[ndarray]
+        Global indices of non-vanishing splines per element.
+
+    Methods
+    -------
+    __call__(*etas, change_out_order, squeeze_out, remove_outside, identity_map)
+        Evaluate the physical coordinates from logical coordinates using mapping F.
+    jacobian(*etas, transposed, change_out_order, squeeze_out, remove_outside)
+        Evaluate the Jacobian matrix DF at logical coordinates.
+    jacobian_det(*etas, squeeze_out, remove_outside)
+        Evaluate the Jacobian determinant (volume element) at logical coordinates.
+    jacobian_inv(*etas, transposed, change_out_order, squeeze_out, remove_outside)
+        Evaluate the inverse Jacobian matrix at logical coordinates.
+    metric_tensor(*etas, change_out_order, squeeze_out, remove_outside)
+        Evaluate the metric tensor G = DF^T * DF.
+    pull_back_0form(field, *etas, remove_outside)
+        Pull back scalar fields (0-forms) from physical to logical space.
+    push_forward_1form(field, *etas, remove_outside)
+        Push forward vector fields (1-forms) from logical to physical space.
+    transform(input_field, trans_type, *etas, remove_outside)
+        General transformation between different field representations.
+
+    Notes
+    -----
+    This is an abstract base class. Concrete implementations should be created in the
+    `struphy.geometry.domains` module and specify the mapping via the `kind_map` property
+    and mapping parameters.
+
+    The logical coordinates (eta1, eta2, eta3) must lie in (0, 1)^3. Points outside this
+    range are typically flagged with value -1 in outputs, or optionally removed.
+
+    Examples
+    --------
+    Concrete domain implementations can be created and used as follows:
+
+    >>> domain = Cuboid()  # Simple cubic domain
+    >>> x = domain(0.5, 0.5, 0.5)  # Evaluate mapping at logical coordinates
+    >>> J = domain.jacobian(0.5, 0.5, 0.5)  # Evaluate Jacobian matrix
+    >>> detJ = domain.jacobian_det(0.5, 0.5, 0.5)  # Volume element
     """
 
     def __init__(

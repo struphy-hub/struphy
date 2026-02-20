@@ -174,15 +174,33 @@ class ParamsIn:
 
 
 class PostProcessor:
-    """Post-processing finished Struphy runs, eithr from Simulation object or from output path.
+    """Post-process results from a finished Struphy simulation.
+
+    This class collects and processes output data produced by a completed Struphy run. It can be
+    constructed either from a finished :class:`Simulation` object or from a path to an output
+    directory produced by a previous run.
 
     Parameters
     ----------
-    sim : Simulation
-        Simulation object of finished run.
+    sim : Simulation, optional
+        Simulation object of a finished run. If provided, its metadata and output paths are used.
+    path_out : str, optional
+        Path to the Struphy output folder. Required if ``sim`` is not given.
 
-    path_out: str
-        Path to Struphy output folder (in case no sim is given).
+    Attributes
+    ----------
+    path_out : str
+        Path to simulation output folder.
+    path_pproc : str
+        Path to the post-processing directory inside ``path_out``.
+    derham : object or None
+        Helper returned by :func:`setup_derham` used to reconstruct FEEC spline fields.
+    domain : Domain
+        Computational domain used to map logical -> physical coordinates.
+    model : StruphyModel
+        Model instance describing species and variables.
+    comm_size : int
+        Number of MPI ranks used to produce the output.
     """
 
     def __init__(
@@ -249,27 +267,26 @@ class PostProcessor:
         create_vtk: bool = True,
         verbose: bool = False,
     ):
-        """Do post processing of data in self.path_out.
+        """Run post-processing for fields and particle data in ``self.path_out``.
 
         Parameters
         ----------
         step : int
-            Whether to do post-processing at every time step (step=1, default), every second time step (step=2), etc.
-
+            Interval of saved time steps to post-process (1 = every step, 2 = every second step, ...).
         celldivide : int
-            Grid refinement in evaluation of FEM fields. E.g. celldivide=2 evaluates two points per grid cell.
-
+            Grid refinement factor when evaluating FEM fields (e.g. ``celldivide=2`` evaluates two
+            points per cell in each logical direction).
         physical : bool
-            Wether to do post-processing into push-forwarded physical (xyz) components of fields.
-
+            If True, also compute push-forwarded physical (x,y,z) components of fields.
         guiding_center : bool
-            Compute guiding-center coordinates (only from Particles6D).
-
+            If True, compute guiding-center coordinates for particle orbits (requires
+            Particles6D marker data).
         classify : bool
-            Classify guiding-center trajectories (passing, trapped or lost).
-
+            If True, run orbit classification (passing, trapped, lost) after computing orbits.
         create_vtk : bool
-            Whether vtk files should be created.
+            If True, create VTK files for visualisation.
+        verbose : bool
+            Verbosity flag.
         """
         if MPI.COMM_WORLD.Get_rank() == 0:
             print(f"\nPost-processing path {self.path_out}")
@@ -446,20 +463,25 @@ class PostProcessor:
                 )
 
     def _create_femfields(self, step: int = 1, verbose: bool = False):
-        """Creates instances of :class:`~struphy.feec.psydac_derham.SplineFunction` from distributed Struphy data.
+        """Reconstruct FEEC spline field objects from HDF5 output files.
+
+        The method reads the distributed HDF5 files written by Struphy, builds one
+        :class:`SplineFunction` per saved variable and fills their DOF vectors from the
+        per-rank datasets.
 
         Parameters
         ----------
         step : int
-            Whether to create FEM fields at every time step (step=1, default), every second time step (step=2), etc.
+            Time-step stride when reading saved snapshots (default 1).
+        verbose : bool
+            Verbosity flag.
 
         Returns
         -------
         fields : dict
-            Nested dictionary holding :class:`~struphy.feec.psydac_derham.SplineFunction`: fields[t][name] contains the Field with the name "name" in the hdf5 file at time t.
-
+            Nested dictionary mapping time -> species -> variable -> ``SplineFunction``.
         t_grid : xp.ndarray
-            Time grid.
+            Array of times at which fields were reconstructed.
         """
         # get fields names, space IDs and time grid from 0-th rank hdf5 file
         with h5py.File(os.path.join(self.path_out, "data/", "data_proc0.hdf5"), "r") as file:
@@ -555,36 +577,27 @@ class PostProcessor:
         physical: bool = False,
         verbose: bool = False,
     ):
-        """Evaluate FEM fields obtained from :meth:`struphy.post_processing.post_processing_tools.create_femfields`.
+        """Evaluate spline fields on a regular logical grid and optionally push to physical coords.
 
         Parameters
         ----------
-        params_in : ParamsIn
-            Simulation parameters.
-
         fields : dict
-            Obtained from struphy.diagnostics.post_processing.create_femfields.
-
-        celldivide : list of ints
-            Grid refinement in each eta direction.
-
-        physical : bool
-            Wether to do post-processing into push-forwarded physical (xyz) components of fields.
+            Nested dictionary as returned by :meth:`_create_femfields` (time -> species -> var -> SplineFunction).
+        celldivide : list of int, optional
+            Refinement factor in each logical direction; length must be 3.
+        physical : bool, optional
+            If True, return mapped physical components (x,y,z) using the domain mapping.
+        verbose : bool, optional
+            Verbosity flag.
 
         Returns
         -------
         point_data : dict
-            Nested dictionary holding values of FemFields on the grid as list of 3d xp.arrays:
-            point_data[name][t] contains the values of the field with name "name" in fields[t].keys() at time t.
-
-            If physical is True, physical components of fields are saved.
-            Otherwise, logical components (differential n-forms) are saved.
-
-        grids_log : 3-list
-            1d logical grids in each eta-direction with Nel[i]*cell_divide[i] + 1 entries in each direction.
-
-        grids_phy : 3-list
-            Mapped (physical) grids obtained by domain(*grids_log).
+            Nested dictionary point_data[species][var][time] -> list of arrays (scalar or per-component).
+        grids_log : list
+            Logical 1D grids for each eta direction.
+        grids_phy : list
+            Physical coordinate arrays corresponding to the logical grids (domain(*grids_log)).
         """
 
         # create logical and physical grids
@@ -689,24 +702,22 @@ class PostProcessor:
         physical: bool = False,
         verbose: bool = False,
     ):
-        """Creates structured virtual toolkit files (.vts) for Paraview from evaluated field data.
+        """Write evaluated field arrays to VTK (.vts) files for visualization.
 
         Parameters
         ----------
         path : str
-            Absolute path of where to store the .vts files. Will then be in path/vtk/step_<step>.vts.
-
+            Directory where species subfolders and their `vtk` folders will be created.
         t_grid : xp.ndarray
-            Time grid.
-
-        grids_phy : 3-list
-            Mapped (physical) grids obtained from struphy.diagnostics.post_processing.eval_femfields.
-
+            Time grid corresponding to entries in ``point_data``.
+        grids_phy : list
+            Physical coordinate arrays returned by :meth:`_eval_femfields`.
         point_data : dict
-            Field data obtained from struphy.diagnostics.post_processing.eval_femfields.
-
-        physical : bool
-            Wether to create vtk for push-forwarded physical (xyz) components of fields.
+            Evaluated field values as returned by :meth:`_eval_femfields`.
+        physical : bool, optional
+            If True, writes files for push-forwarded physical components (folder suffix "_phy").
+        verbose : bool, optional
+            Verbosity flag.
         """
         for species, vars in point_data.items():
             species_path = os.path.join(path, species, "vtk" + physical * "_phy")
@@ -751,53 +762,22 @@ class PostProcessor:
         step: int = 1,
         verbose: bool = False,
     ):
-        """Computes the Cartesian (x, y, z) coordinates of saved markers during a simulation
-        and writes them to a .npy files and to .txt files.
-        Also saves the weights.
+        """Compute Cartesian marker positions and write them to .npy and .txt files.
 
-        * ``.npy`` files:
-
-        * Particles6D:
-
-            ===== ===== ============== ============= ======
-            index | 0 | | 1 | 2 | 3 |  | 4 | 5 | 6 | | 7 |
-            ===== ===== ============== ============= ======
-            value  ID   position (xyz)  velocities   weight
-            ===== ===== ============== ============= ======
-
-        * Particles5D:
-
-            ===== ===== ================ ========== ====== ====== ============
-            index | 0 | | 1 | 2 | | 3 |      4        5    | 6 |  7
-            ===== ===== ================ ========== ====== ====== ============
-            value  ID   guiding_center   v_parallel v_perp weight magn. moment
-            ===== ===== ================ ========== ====== ====== ============
-
-        * Particles3D:
-
-            ===== ===== ============== ======
-            index | 0 | | 1 | 2 | 3 |  | 4 |
-            ===== ===== ============== ======
-            value  ID   position (xyz) weight
-            ===== ===== ============== ======
-
-        * ``.txt`` files :
-
-        ===== ===== ============== ======
-        index | 0 | | 1 | 2 | 3 |  | 4 |
-        ===== ===== ============== ======
-        value  ID   position (xyz) weight
-        ===== ===== ============== ======
-
-        ``.txt`` files can be imported to e.g. Paraview, see `08 - Kinetic data <file:///home/spossann/git_repos/struphy/doc/_build/html/tutorials/tutorial_08_struphy_data_pproc.html#Kinetic-data>`_ for details.
+        For each saved time step this function collects marker datasets from all MPI ranks,
+        reconstructs full marker arrays (positions, velocities, weights, ids), maps logical
+        coordinates to physical coordinates via ``self.domain`` and writes per-step
+        ``.npy`` (binary) and ``.txt`` (ASCII) files suitable for quick inspection or
+        import into visualization tools.
 
         Parameters
         ----------
         path_kinetic_species : str
-            Path to kinetic data of considered species.
-
+            Path to the per-species kinetic output directory where results will be written.
         step : int, optional
-            Whether to do post-processing at every time step (step=1, default), every second time step (step=2), etc.
+            Time-step stride to process (default 1).
+        verbose : bool, optional
+            Verbosity flag.
         """
 
         species = path_kinetic_species.split("/")[-1]
@@ -893,19 +873,23 @@ class PostProcessor:
         compute_bckgr=False,
         verbose: bool = False,
     ):
-        """Computes and saves distribution functions of saved binning data during a simulation.
+        """Assemble and save distribution functions from per-rank binned data.
+
+        This reads the binned full-f and delta-f arrays produced by the simulation across
+        MPI ranks, sums them to global arrays, and stores the results under
+        ``<path_kinetic_species>/distribution_function/<slice>``. When ``compute_bckgr`` is
+        True, an analytic kinetic background is evaluated on the same grids and added.
 
         Parameters
         ----------
         path_kinetic_species : str
-            Path to kinetic data of considered species.
-
+            Path to the per-species kinetic output directory.
         step : int, optional
-            Whether to do post-processing at every time step (step=1, default), every second time step (step=2), etc.
-
-        compute_bckgr : bool
-            Whether to compute the kinetic background values and add them to the binning data.
-            This is used if non-standard weights are binned.
+            Time-step stride to process (default 1).
+        compute_bckgr : bool, optional
+            If True, compute and add background contribution to the saved binned data.
+        verbose : bool, optional
+            Verbosity flag.
         """
         species = path_kinetic_species.split("/")[-1]
         species_obj: ParticleSpecies = self.model.particle_species[species]
@@ -1045,15 +1029,16 @@ class PostProcessor:
         step=1,
         verbose: bool = False,
     ):
-        """Computes and saves the density n of saved sph data during a simulation.
+        """Compute and save SPH density fields from per-rank outputs.
 
         Parameters
         ----------
         path_kinetic_species : str
-            Path to kinetic data of considered species.
-
+            Path to the per-species kinetic output directory where results will be written.
         step : int, optional
-            Whether to do post-processing at every time step (step=1, default), every second time step (step=2), etc.
+            Time-step stride to process (default 1).
+        verbose : bool, optional
+            Verbosity flag.
         """
         species = path_kinetic_species.split("/")[-1]
 
@@ -1104,12 +1089,45 @@ class PostProcessor:
 
 
 class PlottingData:
-    """Holds post-processed plotting data as attributes.
+    """Container for loading and accessing post-processed Struphy simulation data.
+
+    This class provides convenient access to field data (spline values), particle orbits,
+    distribution functions, and SPH density fields that were generated by
+    :class:`PostProcessor`. Data is organized hierarchically by species and variable/view
+    and is exposed via read-only properties.
 
     Parameters
     ----------
-    path : str
-        Absolute path of simulation output folder to post-process.
+    sim : Simulation, optional
+        Simulation object of a completed run. If provided, its output path is used.
+    path_out : str, optional
+        Path to the Struphy output folder. Required if ``sim`` is not given.
+
+    Raises
+    ------
+    AssertionError
+        If neither ``sim`` nor ``path_out`` is provided, or if the post-processing
+        directory does not exist (call :meth:`PostProcessor.process` first).
+
+    Attributes
+    ----------
+    path_pproc : str
+        Path to the post-processing directory.
+    t_grid : xp.ndarray or None
+        Time grid (loaded after calling :meth:`load`).
+    grids_log : list of xp.ndarray or None
+        Logical coordinate grids (loaded after calling :meth:`load`).
+    grids_phy : list of xp.ndarray or None
+        Physical coordinate grids (loaded after calling :meth:`load`).
+
+    Examples
+    --------
+    >>> pdata = PlottingData(path_out=\"/path/to/sim/output\")
+    >>> pdata.load()
+    >>> # Access particle orbits for species 'electrons'
+    >>> orbits_e = pdata.orbits.electrons  # shape: (time, particles, attributes)
+    >>> # Access field values
+    >>> E_log = pdata.spline_values.electrons.E_log  # logical components
     """
 
     def __init__(self, sim: "Simulation" = None, path_out: str = None):
@@ -1135,26 +1153,76 @@ class PlottingData:
 
     @property
     def orbits(self) -> Orbits:
-        """Keys: species name. Values: 3d arrays indexed by (n, p, a), where 'n' is the time index, 'p' the particle index and 'a' the attribute index."""
+        """Particle orbit data by species.
+
+        Returns
+        -------
+        Orbits
+            Container where attributes are species names. Each species attribute holds
+            a 3D array indexed by (t, p, a): t = time step, p = particle index,
+            a = attribute index (id, position_xyz, velocities, weight, etc.).
+        """
         return self._orbits
 
     @property
     def f(self) -> DistributionFunction:
-        """Keys: species name. Values: dicts of slice names ('e1_v1' etc.) holding dicts of corresponding xp.arrays for plotting."""
+        """Distribution function data by species.
+
+        Returns
+        -------
+        DistributionFunction
+            Container where attributes are species names. Each species holds a dict-like
+            object mapping slice names (e.g., 'e1_v1', 'e2_v2') to slice containers,
+            which store arrays like 'f_binned', 'delta_f_binned' for plotting.
+        """
         return self._f
 
     @property
     def spline_values(self) -> SplineValues:
-        """Keys: species name. Values: dicts of variable names with values being 3d arrays on the grid."""
+        """Field (spline) values by species.
+
+        Returns
+        -------
+        SplineValues
+            Container where attributes are species names. Each species holds a dict-like
+            object mapping variable names (e.g., 'E_log', 'B_phy') to ``DataDict``
+            objects containing evaluated field arrays on the grid.
+        """
         return self._spline_values
 
     @property
     def n_sph(self) -> DensitySPH:
-        """Keys: species name. Values: dicts of view names ('view_0' etc.) holding dicts of corresponding xp.arrays for plotting."""
+        """SPH density fields by species.
+
+        Returns
+        -------
+        DensitySPH
+            Container where attributes are species names. Each species holds a dict-like
+            object mapping view names (e.g., 'view_0', 'view_1') to slice containers,
+            which store arrays like 'n_sph' and associated grids for plotting.
+        """
         return self._n_sph
 
     def load(self, verbose: bool = False):
-        """Load data generated during post-processing."""
+        """Load all post-processed data from disk into memory.
+
+        Reads binary pickle files (``.bin``) and NumPy archives (``.npy``) from the
+        post-processing directory. Populates ``self.t_grid``, ``self.grids_log``,
+        ``self.grids_phy``, and all species-dependent data properties (orbits, f,
+        spline_values, n_sph).
+
+        Parameters
+        ----------
+        verbose : bool, optional
+            If True, print diagnostic information during loading (default False).
+
+        Raises
+        ------
+        FileNotFoundError
+            If expected post-processing files are missing.
+        NotImplementedError
+            If an unexpected data folder structure is encountered.
+        """
         print("\nLoading post-processed plotting data:")
         print(f"Data path: {self.path_pproc}")
 

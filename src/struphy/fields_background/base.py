@@ -11,14 +11,60 @@ from struphy.geometry.base import Domain
 
 class FluidEquilibrium(metaclass=ABCMeta):
     """
-    Base class for callable fluid equilibria consisting of at least
-    u (velocity), p (pressure) and n (density).
+    Abstract base class for callable fluid equilibria on arbitrary domains.
 
-    Any child class must provide  the following callables:
+    This class provides a unified interface for representing fluid equilibrium states,
+    including velocity, pressure, and number density fields. It supports coordinate
+    transformations between logical (reference) and physical domains through the Domain
+    object, enabling computations on mapped domains.
 
-    * either ``u_xyz`` or override ``uv``
-    * either ``p_xyz`` or override ``p0``
-    * either ``n_xyz`` or override ``n0``
+    Attributes
+    ----------
+    params : dict
+        Dictionary of parameters passed to the class initialization. Automatically
+        strips 'self' and '__class__' entries.
+    domain : Domain
+        Domain object that characterizes the mapping from the logical cube [0, 1]^3
+        to the physical domain. Enables coordinate transformations and differential
+        form conversions (0-forms, 1-forms, 2-forms, 3-forms).
+
+    Implementation Requirements
+    ---------------------------
+    Child classes must provide at least one method from each of these pairs:
+
+    * Velocity: either ``u_xyz`` (Cartesian) or override ``uv`` (logical coordinates)
+    * Pressure: either ``p_xyz`` (Cartesian) or override ``p0`` (0-form on logical domain)
+    * Number Density: either ``n_xyz`` (Cartesian) or override ``n0`` (0-form on logical domain)
+
+    Derived Quantities
+    ------------------
+    The class automatically provides derived fields computed from the basic fields:
+
+    * Temperature: ``t0``, ``t3`` (from p/n)
+    * Thermal velocity: ``vth0``, ``vth3`` (from temperature)
+    * Entropy density: ``s0_monoatomic``, ``s3_monoatomic``, ``s0_diatomic``, ``s3_diatomic``
+
+    Differential Forms
+    -------------------
+    Vector fields (velocity) are available as:
+
+    * ``uv``: contravariant components on logical domain
+    * ``u1``: 1-form components
+    * ``u2``: 2-form components
+    * ``u_cart``: Cartesian components with physical coordinates
+
+    Scalar fields are available as 0-forms (point values) and 3-forms (densities):
+
+    * ``p0``, ``p3``: pressure
+    * ``n0``, ``n3``: number density
+    * ``t0``, ``t3``: temperature
+    * ``q0``, ``q3``: square root of pressure
+
+    Notes
+    -----
+    The class uses abstract methods to enforce implementation in child classes.
+    Subclasses should override coordinate-appropriate base methods (CartesianFluidEquilibrium
+    or LogicalFluidEquilibrium) to simplify implementation.
     """
 
     @property
@@ -263,7 +309,11 @@ class FluidEquilibrium(metaclass=ABCMeta):
 
 class CartesianFluidEquilibrium(FluidEquilibrium):
     r"""
-    The callables ``u_xyz``, ``p_xyz`` and ``n_xyz`` must be provided in Cartesian coordinates.
+    Specialization for equilibria defined in Cartesian coordinates.
+
+    Child classes must implement the abstract methods ``u_xyz``, ``p_xyz``, and ``n_xyz``,
+    which return velocity, pressure, and number density in Cartesian physical space (x, y, z).
+    The base class automatically handles coordinate transformations and differential form conversions.
     """
 
     @abstractmethod
@@ -289,7 +339,12 @@ class CartesianFluidEquilibrium(FluidEquilibrium):
 
 class LogicalFluidEquilibrium(FluidEquilibrium):
     r"""
-    The callables ``uv``, ``p0`` and ``n0`` must be provided on the logical cube [0, 1]^3.
+    Specialization for equilibria defined on the logical cube [0, 1]^3.
+
+    Child classes must implement the abstract methods ``uv``, ``p0``, and ``n0``,
+    which return contravariant velocity, 0-form pressure, and 0-form number density
+    on the logical reference domain. Useful for direct implementation when physical
+    coordinates are obtained via coordinate transformation through the domain mapping.
     """
 
     @abstractmethod
@@ -316,8 +371,11 @@ class LogicalFluidEquilibrium(FluidEquilibrium):
 
 class NumericalFluidEquilibrium(LogicalFluidEquilibrium):
     r"""
-    Must provide a (numerical) mapping from the logical cube [0, 1]^3 to the physical domain.
-    Overrides base class domain.
+    Specialization for equilibria with numerically computed domain mappings.
+
+    Child classes must provide a ``numerical_domain`` property that returns a Domain object
+    representing the mapping from the logical cube [0, 1]^3 to the physical domain.
+    This class overrides the domain property to use the numerically computed mapping.
     """
 
     @property
@@ -334,12 +392,11 @@ class NumericalFluidEquilibrium(LogicalFluidEquilibrium):
 
 class FluidEquilibriumWithB(FluidEquilibrium):
     """
-    :ref:`FluidEquilibrium` with B (magnetic field) in addition.
+    Extension of FluidEquilibrium with magnetic field and its gradient.
 
-    Any child class must provide the following callables:
-
-    * either ``b_xyz`` or override ``bv``
-    * either ``gradB_xyz`` or override ``gradB1``
+    Child classes must implement either Cartesian (``b_xyz``, ``gradB_xyz``) or
+    logical (``bv``, ``gradB1``) methods for magnetic field and its gradient.
+    Provides methods for 1-form and 2-form transformations of the magnetic field.
     """
 
     @FluidEquilibrium.domain.setter
@@ -631,7 +688,10 @@ class FluidEquilibriumWithB(FluidEquilibrium):
 
 class CartesianFluidEquilibriumWithB(CartesianFluidEquilibrium):
     r"""
-    The callables ``b_xyz`` and ``gradB_xyz`` must be provided in Cartesian coordinates.
+    Specialization for fluid equilibria with magnetic field in Cartesian coordinates.
+
+    Child classes must implement the abstract methods ``b_xyz`` and ``gradB_xyz``,
+    which return magnetic field and its gradient strength in Cartesian physical space.
     """
 
     @abstractmethod
@@ -652,7 +712,10 @@ class CartesianFluidEquilibriumWithB(CartesianFluidEquilibrium):
 
 class LogicalFluidEquilibriumWithB(LogicalFluidEquilibrium):
     r"""
-    The callable ``bv`` must be provided on the logical cube [0, 1]^3.
+    Specialization for fluid equilibria with magnetic field on the logical cube [0, 1]^3.
+
+    Child classes must implement the abstract methods ``bv`` (contravariant magnetic field)
+    and ``gradB1`` (1-form gradient of magnetic field strength) on the logical domain.
     """
 
     @abstractmethod
@@ -676,8 +739,10 @@ class LogicalFluidEquilibriumWithB(LogicalFluidEquilibrium):
 
 class NumericalFluidEquilibriumWithB(LogicalFluidEquilibriumWithB):
     r"""
-    Must provide a (numerical) mapping from the logical cube [0, 1]^3 to the physical domain.
-    Overrides base class domain.
+    Specialization for fluid equilibria with magnetic field and numerically computed domain mappings.
+
+    Child classes must provide a ``numerical_domain`` property that returns a Domain object.
+    This class overrides the domain property to use the numerically computed mapping.
     """
 
     @property
@@ -694,12 +759,12 @@ class NumericalFluidEquilibriumWithB(LogicalFluidEquilibriumWithB):
 
 class MHDequilibrium(FluidEquilibriumWithB):
     """
-    :ref:`FluidEquilibriumWithB` with j (current density) in addition.
-    The mean velocity is returned as j/n (overriding the base class).
+    Extension of FluidEquilibriumWithB with current density field.
 
-    Any child class must provide  the following callables:
-
-    * either ``j_xyz`` or override ``jv``
+    Child classes must implement either Cartesian (``j_xyz``) or logical (``jv``) methods
+    for current density. The velocity field is derived from current density as j/n,
+    overriding the base FluidEquilibrium. Provides methods for 1-form and 2-form
+    transformations of the current density.
     """
 
     @FluidEquilibriumWithB.domain.setter
@@ -1228,8 +1293,10 @@ class MHDequilibrium(FluidEquilibriumWithB):
 
 class CartesianMHDequilibrium(MHDequilibrium):
     r"""
-    The callables ``b_xyz``, ``j_xyz``, ``p_xyz``, ``n_xyz`` and ``gradB_xyz``
-    must be provided in Cartesian coordinates.
+    Specialization for MHD equilibria in Cartesian coordinates.
+
+    Child classes must implement the abstract methods ``b_xyz``, ``j_xyz``, ``p_xyz``,
+    ``n_xyz``, and ``gradB_xyz`` in Cartesian physical space.
     """
 
     @abstractmethod
@@ -1402,8 +1469,10 @@ class AxisymmMHDequilibrium(CartesianMHDequilibrium):
 
 class LogicalMHDequilibrium(MHDequilibrium):
     r"""
-    The callables ``bv``, ``jv``, ``p0``, ``n0`` and ``gradB1``
-    must be provided on the logical cube [0, 1]^3.
+    Specialization for MHD equilibria on the logical cube [0, 1]^3.
+
+    Child classes must implement the abstract methods ``bv``, ``jv``, ``p0``, ``n0``,
+    and ``gradB1`` on the logical reference domain.
     """
 
     @abstractmethod
@@ -1446,8 +1515,10 @@ class LogicalMHDequilibrium(MHDequilibrium):
 
 class NumericalMHDequilibrium(LogicalMHDequilibrium):
     r"""
-    Must provide a (numerical) mapping from the logical cube [0, 1]^3 to the physical domain.
-    Overrides base class domain.
+    Specialization for MHD equilibria with numerically computed domain mappings.
+
+    Child classes must provide a ``numerical_domain`` property that returns a Domain object.
+    This class overrides the domain property to use the numerically computed mapping.
     """
 
     @property
