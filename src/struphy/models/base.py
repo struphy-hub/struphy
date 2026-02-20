@@ -19,12 +19,91 @@ from struphy.utils.clone_config import CloneConfig
 
 class StruphyModel(metaclass=ABCMeta):
     """
-    Base class for all Struphy models.
+    Abstract base class for all Struphy models.
 
-    Note
-    ----
-    All Struphy models are subclasses of ``StruphyModel`` and should be added to ``struphy/models/``
-    in one of the modules ``fluid.py``, ``kinetic.py``, ``hybrid.py`` or ``toy.py``.
+    This class defines the interface for plasma simulation models in Struphy. Concrete implementations
+    must specify the model type (Fluid, Kinetic, Hybrid, or Toy), define propagators for time integration,
+    and configure species (field, fluid, particle, and diagnostic). The class provides core functionality
+    for managing species, scalar quantities, time integration, and particle diagnostics.
+
+    Attributes
+    ----------
+    species : dict
+        Dictionary of all species (field, fluid, and particle) in the model.
+    field_species : dict
+        Dictionary of field species in the model.
+    fluid_species : dict
+        Dictionary of fluid species in the model.
+    particle_species : dict
+        Dictionary of particle species in the model.
+    diagnostic_species : dict
+        Dictionary of diagnostic species in the model.
+    scalar_quantities : dict
+        Dictionary of scalar quantities to be tracked and saved during simulation.
+    prop_list : list
+        List of propagator objects controlling time integration.
+    clone_config : CloneConfig or None
+        Configuration for domain clones if used in parallelization.
+
+    Abstract Methods (must be implemented by subclasses)
+    ----------------------------------------------------
+    model_type : classmethod
+        Must return one of "Fluid", "Kinetic", "Hybrid", or "Toy".
+    bulk_species : property
+        Must specify the dominant plasma species.
+    velocity_scale : property
+        Must return velocity scale: "alfvén", "cyclotron", "light", or "thermal".
+    allocate_helpers : method
+        Must allocate helper arrays and perform initial solves.
+    update_scalar_quantities : method
+        Must define update rules for each scalar quantity.
+    Propagators : class
+        Must define the propagators used for time integration.
+    __init__ : method
+        Must perform a light-weight initialization of the model.
+
+    Notes
+    -----
+    All Struphy models must be subclasses of ``StruphyModel`` and should be added to ``struphy/models/``
+    in one of the modules: ``fluid.py``, ``kinetic.py``, ``hybrid.py``, or ``toy.py``.
+
+    Time integration is performed by calling the ``integrate()`` method with a time step and
+    splitting algorithm (Lie-Trotter or Strang). The model manages the execution of all propagators
+    in sequence to advance the simulation state.
+
+    Species management is handled automatically through property caching. Species attributes are
+    discovered at runtime and categorized by type.
+
+    Examples
+    --------
+    Subclasses should implement:
+
+    .. code-block:: python
+
+        class MyFluidModel(StruphyModel):
+            @classmethod
+            def model_type(cls):
+                return "Fluid"
+
+            @property
+            def bulk_species(self):
+                return self.electrons
+
+            @property
+            def velocity_scale(self):
+                return "thermal"
+
+            def allocate_helpers(self, verbose=False):
+                # Initialize helper arrays
+                pass
+
+            def update_scalar_quantities(self):
+                # Update tracked scalars
+                pass
+
+            class Propagators:
+                # Define propagators
+                pass
     """
 
     # ----------------
