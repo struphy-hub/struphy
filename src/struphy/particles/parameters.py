@@ -46,6 +46,9 @@ class LoadingParameters:
 
     n_quad : int, default=1
         Number of quadrature points used for tesselation-based particle loading.
+        
+    set_zero_velocity: tuple
+        Initialize velocity of Maxwellain along selected axis to be zero.
 
     dir_external : str, optional
         Absolute path to HDF5 file from which to load external marker data.
@@ -70,6 +73,7 @@ class LoadingParameters:
         moments: tuple = None,
         spatial: LiteralOptions.OptsSpatialLoading = "uniform",
         specific_markers: tuple[tuple] = None,
+        set_zero_velocity: tuple[bool] = (False, False, False),
         n_quad: int = 1,
         dir_exrernal: str = None,
         dir_particles: str = None,
@@ -84,6 +88,7 @@ class LoadingParameters:
         self.moments = moments
         self.spatial = spatial
         self.specific_markers = specific_markers
+        self.set_zero_velocity = set_zero_velocity
         self.n_quad = n_quad
         self.dir_external = dir_exrernal
         self.dir_particles = dir_particles
