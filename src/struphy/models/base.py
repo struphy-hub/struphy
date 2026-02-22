@@ -291,6 +291,19 @@ class StruphyModel(metaclass=ABCMeta):
             sq_str += f"{key}:".ljust(25) + "{:4.2e}\n".format(val[0]).rjust(26)
         print(sq_str)
 
+    def scalar_quantities_to_file(self, time: float, filepath: str):
+        if time == 0:
+            with open(filepath, "w") as f:
+                header = "time\t" + "\t".join(self._scalar_quantities.keys()) + "\n"
+                f.write(header)
+        with open(filepath, "a") as f:
+            line = (
+                f"{time:.12e}\t"
+                + "\t".join(f"{scalar_dict['value'][0]:.12e}" for scalar_dict in self._scalar_quantities.values())
+                + "\n"
+            )
+            f.write(line)
+
     def setup_equation_params(self, units: Units, verbose=False):
         """Set euqation parameters for each fluid and kinetic species."""
         for _, species in self.fluid_species.items():

@@ -484,6 +484,10 @@ RESTARTing from:
         # time loop
         run_time_now = 0.0
         while True:
+            print("Exporting scalar quantities to file ...")
+            self.model.scalar_quantities_to_file(
+                time=self.time_state["value"][0], filepath=os.path.join(self.env.path_out, "scalar_quantities.txt")
+            )
             self.Barrier()
 
             # stop time loop?
