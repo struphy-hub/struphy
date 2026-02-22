@@ -3969,31 +3969,6 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
         return gamma_x, gamma_y, gamma_z
 
-        # grad_v_at_eta = xp.zeros((3, 3), dtype=float) #<-- this line is wrong. i need a nested list, as the 3x3 matrix contains in every entry a matrix evaluated on a meshgrid
-        # grad_v_at_eta = []
-        # for j in range(3):
-        #     grad_v_at_eta.append([])
-        #     for k in range(3):
-        #         grad_v_at_eta[j].append( self.eval_sph(
-        #             eta1,
-        #             eta2,
-        #             eta3,
-        #             first_free_idx + j,
-        #             kernel_type=kernel_type,
-        #             derivative=derivative + k ,
-        #             h1=h1,
-        #             h2=h2,
-        #             h3=h3,
-        #             fast=fast,
-        #         )
-        #         )
-
-        # D = 0.5 * (grad_v_at_eta + grad_v_at_eta.T)
-        # traceD = xp.trace(D)
-        # Pi = D - (traceD / 3.0) * xp.eye(3)
-
-        # return Pi
-
     def eval_sph(
         self,
         eta1: xp.ndarray,
