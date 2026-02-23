@@ -40,16 +40,6 @@ New classes exposed: `Simulation`, `PostProcessor` and `PlottingData`.
 * Add `set_zero_velocity` argument into `LoadingParameters`, enforcing velocities of all particles along specified axis to always be zero: https://github.com/struphy-hub/struphy/pull/176 
 * New model `ViscousEulerSPH` replaces `EulerSPH`. The evaluation of the viscosity tensor has been implemented and tested for SPH methods. Unit tests for evaluation of the fluid velocity and its gradients (needed in the viscosity tensor) have been improved: https://github.com/struphy-hub/struphy/pull/160
 
-### Developer news
-
-* Use `pyccel 2.1`: https://github.com/struphy-hub/struphy/pull/153
-* Added three submodules: `struphy-parameter-files`, `struphy-tutorials` and`feectools`. The Struphy repo should be cloned with `git clone --recurse-submodules https://github.com/struphy-hub/struphy.git` to init and update the submodules. Also, run `git submodule update` regularly to get updates from the submodules. See https://github.com/struphy-hub/struphy/pull/154
-* Introduced class `options.LiteralOptions` for parsing literals. Moved `Units` to `physics.py`: https://github.com/struphy-hub/struphy/pull/167
-
-
-### Bug fixes
-
-* Use `struphy.io.options.Units` in equils. This enables the use of GVEC, EQDSK and DESC in the new framework: https://github.com/struphy-hub/struphy/pull/158
 
 
 ## Struphy 3.0.2 - 2026-02-06
