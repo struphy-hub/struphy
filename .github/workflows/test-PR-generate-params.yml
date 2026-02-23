@@ -1,4 +1,4 @@
-name: Build, install and generate params
+name: PR - build, install and generate params
 
 on:
   pull_request:
