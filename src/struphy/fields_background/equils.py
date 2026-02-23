@@ -2982,7 +2982,7 @@ class ConstantVelocity(CartesianFluidEquilibrium):
         elif self.params["density_profile"] == "gaussian_xy":
             return self.params["n"] * xp.exp(-(x**2 + y**2) / self.params["p0"])
         elif self.params["density_profile"] == "step_function_xy":
-            assert (isinstance, self.domain, domains.Cuboid)
+            assert isinstance(self.domain, domains.Cuboid)
             l1 = self.domain.params["l1"]
             r1 = self.domain.params["r1"]
             l2 = self.domain.params["l2"]
