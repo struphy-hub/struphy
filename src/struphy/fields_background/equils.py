@@ -35,6 +35,7 @@ from struphy.fields_background.mhd_equil.eqdsk import readeqdsk
 from struphy.io.options import BaseUnits
 from struphy.physics.physics import Units
 from struphy.utils.utils import read_state, subp_run
+from struphy import domains
 
 if isinstance(MPI, MockMPI):
     comm = None
@@ -2884,9 +2885,49 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
 
 class ConstantVelocity(CartesianFluidEquilibrium):
-    r"""Base class for a constant distribution function on the unit cube.
-    The Background does not depend on the velocity
+    r"""Constant-velocity background equilibrium.
 
+    Represents a simple fluid equilibrium with a spatially-constant bulk
+    velocity (``ux``, ``uy``, ``uz``) and configurable density/pressure
+    profiles. The class provides the following instance methods used by
+    the solver:
+
+    - ``u_xyz(x, y, z)``: return the ion bulk velocity components matching
+      the shape of the inputs ``x, y, z``. If ``velocity_step_function_in_y``
+      is set the x-velocity is applied only for ``y < velocity_step_function_in_y``.
+    - ``n_xyz(x, y, z)``: return the number-density according to
+      ``density_profile``. Supported profiles are:
+        - ``"constant"`` : returns ``n`` everywhere.
+        - ``"affine"`` : returns ``n + n1 * x``.
+        - ``"gaussian_xy"`` : returns ``n * exp(-(x**2 + y**2)/p0)``.
+        - ``"step_function_xy"`` : returns a step-like density using the
+          optional bounds ``upper_x``, ``lower_x``, ``upper_y``, and
+          ``lower_y`` (expects a ``Cuboid`` domain for meaningful bounds).
+    - ``p_xyz(x, y, z)``: return an isotropic pressure (constant ``p0``).
+
+    Parameters
+    ----------
+    ux, uy, uz : float
+        Bulk velocity components in x, y and z directions.
+    velocity_step_function_in_y : float or None
+        If provided, x-velocity is applied only for ``y < value``.
+    n : float
+        Base number density.
+    n1 : float
+        Linear coefficient used when ``density_profile == 'affine'``.
+    density_profile : str
+        One of ``'constant'``, ``'affine'``, ``'gaussian_xy'``,
+        or ``'step_function_xy'``.
+    upper_x, lower_x, upper_y, lower_y : float or None
+        Bounds used by the ``'step_function_xy'`` profile (optional).
+    p0 : float
+        Reference pressure (also used as the Gaussian width parameter).
+
+    Notes
+    -----
+    The input arrays ``x, y, z`` are treated elementwise and the returned
+    arrays match their shapes. Small numerical floors (e.g. ``1e-8``) may be
+    used internally to avoid exact zeros where necessary.
     """
 
     def __init__(
@@ -2894,11 +2935,14 @@ class ConstantVelocity(CartesianFluidEquilibrium):
         ux: float = 0.0,
         uy: float = 0.0,
         uz: float = 0.0,
+        velocity_step_function_in_y: float | None = None,
         n: float = 1.0,
         n1: float = 0.0,
         density_profile: str = "constant",
-        velocity_profile: str = "constant",
-        viscosity_profile: str = "tensor",
+        upper_x: float | None = None,
+        lower_x: float | None = None,
+        upper_y: float | None = None,
+        lower_y: float | None = None,
         p0: float = 1.0,
     ):
         # use params setter
@@ -2907,14 +2951,11 @@ class ConstantVelocity(CartesianFluidEquilibrium):
     # equilibrium ion velocity
     def u_xyz(self, x, y, z):
         """Ion velocity."""
-        if self.params["velocity_profile"] == "constant":
+        if self.params["velocity_step_function_at_y"] is None:
             ux = 0 * x + self.params["ux"]
-        elif self.params["velocity_profile"] == "step_function_velocity_y":
+        else:
             ux = 1e-8 + 0 * x
-            # mask_x = np.logical_and(x < .6, x > .4)
-            # mask_y = np.logical_and(y < .6, y > .4)
-            # mask = np.logical_and(mask_x, mask_y)
-            mask = y < 0.5
+            mask = y < self.params["velocity_step_function_in_y"]
             ux[mask] = self.params["ux"]
         uy = 0 * x + self.params["uy"]
         uz = 0 * x + self.params["uz"]
@@ -2937,13 +2978,41 @@ class ConstantVelocity(CartesianFluidEquilibrium):
             return self.params["n"] + self.params["n1"] * x
         elif self.params["density_profile"] == "gaussian_xy":
             return self.params["n"] * xp.exp(-(x**2 + y**2) / self.params["p0"])
-        elif self.params["density_profile"] == "step_function_y":
+        elif self.params["density_profile"] == "step_function_xy":
+            assert(isinstance, self.domain, domains.Cuboid)
+            l1 = self.domain.params["l1"]
+            r1 = self.domain.params["r1"]
+            l2 = self.domain.params["l2"]
+            r2 = self.domain.params["r2"]
+            
             out = 1e-8 + 0 * x
-            # mask_x = xp.logical_and(x < .6, x > .4)
-            # mask_y = xp.logical_and(y < .6, y > .4)
-            # mask = xp.logical_and(mask_x, mask_y)
-            mask = y < -2.0
+            
+            if self.params["upper_x"] is not None:
+                mask_x_upper = x < self.params["upper_x"]
+            else:
+                mask_x_upper = xp.ones_like(x, dtype=bool)
+                
+            if self.params["lower_x"] is not None:
+                mask_x_lower = x > self.params["lower_x"]
+            else:
+                mask_x_lower = xp.ones_like(x, dtype=bool)
+                
+            if self.params["upper_y"] is not None:
+                mask_y_upper = y < self.params["upper_y"]
+            else:
+                mask_y_upper = xp.ones_like(y, dtype=bool)
+                
+            if self.params["lower_y"] is not None:
+                mask_y_lower = y > self.params["lower_y"]
+            else:
+                mask_y_lower = xp.ones_like(y, dtype=bool)
+
+            mask_x = xp.logical_and(mask_x_upper, mask_x_lower)
+            mask_y = xp.logical_and(mask_y_upper, mask_y_lower)
+            mask = xp.logical_and(mask_x, mask_y)
+            
             out[mask] = self.params["n"]
+            
             return out
 
 
