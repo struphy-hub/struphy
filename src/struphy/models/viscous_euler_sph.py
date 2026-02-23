@@ -14,7 +14,7 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class ViscousEulerSPH(StruphyModel):
-    r"""Euler equations discretized with smoothed particle hydrodynamics (SPH).
+    r"""Euler equations with viscosity discretized with smoothed particle hydrodynamics (SPH).
 
     :ref:`normalization`:
 
@@ -29,25 +29,35 @@ class ViscousEulerSPH(StruphyModel):
         \begin{align}
         \partial_t \rho + \nabla \cdot (\rho \mathbf u) &= 0\,,
         \\[2mm]
-        \rho(\partial_t \mathbf u + \mathbf u \cdot \nabla \mathbf u) &= - \nabla \left(\rho^2 \frac{\partial \mathcal U(\rho, S)}{\partial \rho} \right)\,,
+        \rho(\partial_t \mathbf u + \mathbf u \cdot \nabla \mathbf u) &= - \nabla \left(\rho^2 \frac{\partial \mathcal U(\rho, S)}{\partial \rho} \right) - \nabla \cdot \boldsymbol{\pi}\,,
         \\[2mm]
         \partial_t S + \mathbf u \cdot \nabla S &= 0\,,
         \end{align}
 
-    where :math:`S` denotes the entropy per unit mass.
+    where :math:`S` denotes the entropy per unit mass and :math:`\boldsymbol{\pi}` is the viscous stress tensor.
+
+    The viscous stress tensor for a Newtonian fluid is given by:
+
+    .. math::
+
+        \boldsymbol{\sigma} = -\mu \left( \nabla \mathbf u + (\nabla \mathbf u)^T - \frac{2}{3}(\nabla \cdot \mathbf u)\mathbf{I} \right)\,,
+
+    where :math:`\mu` is the dynamic (shear) viscosity and :math:`\mathbf{I}` is the identity tensor.
+
     The internal energy per unit mass can be defined in two ways:
 
     .. math::
 
-        \mathrm{"isothermal:"}\qquad &\mathcal U(\rho, S) = \kappa(S) \log \rho\,.
+        \mathrm{isothermal:}\qquad &\mathcal U(\rho, S) = \kappa(S) \log \rho\,.
 
-        \mathrm{"polytropic:"}\qquad &\mathcal U(\rho, S) = \kappa(S) \frac{\rho^{\gamma - 1}}{\gamma - 1}\,.
+        \mathrm{polytropic:}\qquad &\mathcal U(\rho, S) = \kappa(S) \frac{\rho^{\gamma - 1}}{\gamma - 1}\,.
 
     :ref:`propagators` (called in sequence):
 
     1. :class:`~struphy.propagators.propagators_markers.PushEta`
     2. :class:`~struphy.propagators.propagators_markers.PushVxB`
     3. :class:`~struphy.propagators.propagators_markers.PushVinSPHpressure`
+    4. :class:`~struphy.propagators.propagators_markers.PushVinViscousPotential`
     """
 
     @classmethod
