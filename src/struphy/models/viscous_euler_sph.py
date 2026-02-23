@@ -117,14 +117,8 @@ class ViscousEulerSPH(StruphyModel):
     def velocity_scale(self):
         return "thermal"
 
-    def allocate_helpers(self):
+    def allocate_helpers(self, verbose: bool = False):
         pass
-
-    # @staticmethod
-    # def diagnostics_dct():
-    #     dct = {}
-    #     dct["projected_density"] = "L2"
-    #     return dct
 
     def update_scalar_quantities(self):
         particles = self.euler_fluid.var.particles

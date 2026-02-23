@@ -368,6 +368,13 @@ class Maxwellian(KineticBackground):
             assert isinstance(v[0], (float, int, Callable))
             assert isinstance(v[1], Perturbation) or v[1] is None
 
+    def __repr__(self):
+        out = f"    {self.__class__.__name__}:"
+        out += "\n        maxw_params: (background, perturbation)"
+        for k, v in self.maxw_params.items():
+            out += f"\n            {k}: {v}"
+        return out
+
     @classmethod
     def gaussian(self, v, u=0.0, vth=1.0, polar=False, volume_form=False):
         """1-dim. normal distribution, to which array-valued mean- and thermal velocities can be passed.

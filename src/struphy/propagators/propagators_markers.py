@@ -83,24 +83,23 @@ class PushEta(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         # get kernel
         kernel = Pyccelkernel(pusher_kernels.push_eta_stage)
 
         # define algorithm
         butcher = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
-        import cunumpy as xp
+        try:
+            import cunumpy as xp
 
-        butcher._a = xp.diag(butcher.a, k=-1)
-        butcher._a = xp.array(list(butcher.a) + [0.0])
+            butcher._a = xp.diag(butcher.a, k=-1)
+            butcher._a = xp.array(list(butcher.a) + [0.0])
+        except ValueError:
+            pass
 
         args_kernel = (
             butcher.a,
@@ -182,14 +181,10 @@ class PushVxB(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         # scaling factor
         self._epsilon = self.variables.ions.species.equation_params.epsilon
         assert self.derham is not None, f"{self.__class__.__name__} needs a Derham object."
@@ -315,14 +310,10 @@ class PushVinEfield(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         # scaling factor
         self._epsilon = self.variables.var.species.equation_params.epsilon
 
@@ -435,14 +426,10 @@ class PushEtaPC(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._u_tilde = self.options.u_tilde.spline.vector
 
         # get kernell:
@@ -584,14 +571,10 @@ class PushGuidingCenterBxEstar(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         # scaling factor
         self._epsilon = self.variables.ions.species.equation_params.epsilon
 
@@ -1025,14 +1008,10 @@ class PushGuidingCenterParallel(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         # scaling factor
         self._epsilon = self.variables.ions.species.equation_params.epsilon
 
@@ -1434,14 +1413,10 @@ class PushDeterministicDiffusion(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._bc_type = self.options.bc_type
         self._diffusion = self.options.diff_coeff
 
@@ -1567,14 +1542,10 @@ class PushRandomDiffusion(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._bc_type = self.options.bc_type
         self._diffusion = self.options.diff_coeff
 
@@ -1696,14 +1667,10 @@ class PushVinSPHpressure(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         # init kernel for evaluating density etc. before each time step.
         init_kernel = eval_kernels_gc.sph_pressure_coeffs
 
@@ -1839,14 +1806,10 @@ class PushVinViscousPotential(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):  # ersetzt init
+    def allocate(self, verbose: bool = False):  # ersetzt init
         particles = self.variables.fluid.particles
 
         # init kernel for evaluating density etc. before each time step.
