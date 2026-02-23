@@ -44,7 +44,6 @@ __all__ = [
     "ColdPlasmaVlasov",
     "DeterministicParticleDiffusion",
     "DriftKineticElectrostaticAdiabatic",
-    "EulerSPH",
     "GuidingCenter",
     "HasegawaWakatani",
     "LinearExtendedMHDuniform",

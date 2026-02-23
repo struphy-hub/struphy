@@ -34,7 +34,7 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
 
     # environment options
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
-    out_folders = os.path.join(test_folder, "EulerSPH")
+    out_folders = os.path.join(test_folder, "ViscousEulerSPH")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="soundwave_1d")
 
     # units
