@@ -1695,16 +1695,7 @@ def test_sph_viscosity_evaluation_2d(
         assert err_div_y < 3.5e-2
 
 
-if __name__ == "__main__":
-    test_sph_viscosity_evaluation_2d(
-        (12, 12, 1),
-        "gaussian_2d",
-        "periodic",
-        "periodic",
-        101,
-        tesselation=True,
-        show_plot=False,
-    )
+
     # test_sph_velocity_evaluation_2d(
     #     (12, 12, 1), "gaussian_2d", 1, "periodic", "periodic", 101, tesselation=False, show_plot=True
     # )
@@ -1764,3 +1755,180 @@ if __name__ == "__main__":
     # test_evaluation_SPH_Np_convergence_2d((32, 32, 1), "fixed", "periodic", tesselation=True, show_plot=True)
     # test_evaluation_SPH_Np_convergence_2d((32, 32, 1), "fixed", "fixed",   tesselation=True, show_plot=True)
     # test_evaluation_SPH_Np_convergence_2d((32, 32, 1), "mirror", "mirror",  tesselation=True, show_plot=True)
+
+
+@pytest.mark.parametrize("boxes_per_dim", [(12, 1, 1)])
+@pytest.mark.parametrize("kernel", ["gaussian_1d", "linear_1d"])
+@pytest.mark.parametrize("tesselation", [False, True])
+@pytest.mark.parametrize("direction", ["x", "y", "z"])  
+def test_sph_no_slip_boundary_1d(
+    boxes_per_dim,
+    kernel,
+    tesselation,
+    direction,
+    show_plot=False,
+):
+    
+    if isinstance(MPI.COMM_WORLD, MockComm):
+        comm = None
+        rank = 0
+    else:
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+
+ 
+    dom_type = "Cuboid"
+    dom_params = {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}
+    domain_class = getattr(domains, dom_type)
+    domain = domain_class(**dom_params)
+
+    if tesselation:
+        ppb = 20
+        loading_params = LoadingParameters(ppb=ppb, loading="tesselation")
+    else:
+        ppb = 2000
+        loading_params = LoadingParameters(ppb=ppb, seed=223)
+
+  
+    if direction == "x":
+        def u_xyz(x, y, z):
+            return (xp.ones_like(x), xp.zeros_like(x), xp.zeros_like(x))
+    elif direction == "y":
+        def u_xyz(x, y, z):
+            return (xp.zeros_like(x), xp.ones_like(x), xp.zeros_like(x))
+    else:  # direction == "z"
+        def u_xyz(x, y, z):
+            return (xp.zeros_like(x), xp.zeros_like(x), xp.ones_like(x))
+
+    background = equils.GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
+    background.domain = domain
+
+
+    boundary_params = BoundaryParameters(bc_sph=("noslip", "periodic", "periodic"))
+
+    particles = ParticlesSPH(
+        comm_world=comm,
+        loading_params=loading_params,
+        boundary_params=boundary_params,
+        boxes_per_dim=boxes_per_dim,
+        bufsize=1.0,
+        box_bufsize=2.0,
+        domain=domain,
+        background=background,
+        n_as_volume_form=True,
+        verbose=False,
+    )
+
+    particles.draw_markers(sort=False, verbose=False)
+    if comm is not None:
+        particles.mpi_sort_markers()
+    particles.initialize_weights()
+
+    # Evaluation points: walls (eta=0, eta=1) and a few interior points
+    #This yields the order: left wall (0.0), right wall (1.0), then interior points.So the right wall is at index 1, not at -1.
+    eta_walls = xp.array([0.0, 1.0])
+    eta_interior = xp.linspace(0.1, 0.9, 50)
+    eta1 = xp.concatenate([eta_walls, eta_interior])
+    eta2 = xp.array([0.5])
+    eta3 = xp.array([0.5])
+
+    ee1, ee2, ee3 = xp.meshgrid(eta1, eta2, eta3, indexing="ij")
+    
+
+    h1 = 1 / boxes_per_dim[0]
+    h2 = 1 / boxes_per_dim[1]
+    h3 = 1 / boxes_per_dim[2]
+
+    v1, v2, v3 = particles.eval_velocity(
+        ee1, ee2, ee3,
+        h1=h1, h2=h2, h3=h3,
+        kernel_type=kernel,
+        derivative=0,
+    )
+
+ 
+    if comm is not None:
+        all_v1 = xp.zeros_like(v1)
+        all_v2 = xp.zeros_like(v2)
+        all_v3 = xp.zeros_like(v3)
+        comm.Allreduce(v1, all_v1, op=MPI.SUM)
+        comm.Allreduce(v2, all_v2, op=MPI.SUM)
+        comm.Allreduce(v3, all_v3, op=MPI.SUM)
+    else:
+        all_v1, all_v2, all_v3 = v1, v2, v3
+
+    # Extract values at walls (first two points) and interior (remaining points)
+    # ee1 has shape (len(eta1), 1, 1) – we squeeze to 1D
+    v1_squeezed = all_v1.squeeze()
+    v2_squeezed = all_v2.squeeze()
+    v3_squeezed = all_v3.squeeze()
+
+
+    v_wall_left = (v1_squeezed[0], v2_squeezed[0], v3_squeezed[0])
+    v_wall_right = (v1_squeezed[1], v2_squeezed[1], v3_squeezed[1])
+
+    v_interior = (v1_squeezed[2:], v2_squeezed[2:], v3_squeezed[2:])
+
+    #gonna fix this later 
+    if tesselation:
+        tol_wall = 1e-5   
+        tol_interior = 5e-2
+    else:
+        tol_wall = 1e-3   
+        tol_interior = 1.5e-1
+
+    
+    for comp, name in zip([0, 1, 2], ["x", "y", "z"]):
+        val_left = [v_wall_left[0], v_wall_left[1], v_wall_left[2]][comp]
+        val_right = [v_wall_right[0], v_wall_right[1], v_wall_right[2]][comp]
+        assert xp.abs(val_left) < tol_wall, f"Left wall {name}-velocity not zero: {val_left}"
+        assert xp.abs(val_right) < tol_wall, f"Right wall {name}-velocity not zero: {val_right}"
+
+    # The component in the chosen direction should be ~1,
+    # the other two should be near zero.
+    if direction == "x":
+        interior_vals = v_interior[0]
+        other1 = v_interior[1]
+        other2 = v_interior[2]
+    elif direction == "y":
+        interior_vals = v_interior[1]
+        other1 = v_interior[0]
+        other2 = v_interior[2]
+    else:  
+        interior_vals = v_interior[2]
+        other1 = v_interior[0]
+        other2 = v_interior[1]
+
+    # The main component should be close to 1
+    rel_error = xp.max(xp.abs(interior_vals - 1.0)) / 1.0
+    assert rel_error < tol_interior, f"Interior {direction}-velocity error too large: {rel_error}"
+
+    # The other components should be near zero
+    assert xp.max(xp.abs(other1)) < tol_interior, f"Interior non‑dominant component too large: {xp.max(xp.abs(other1))}"
+    assert xp.max(xp.abs(other2)) < tol_interior, f"Interior non‑dominant component too large: {xp.max(xp.abs(other2))}"
+
+    if rank == 0 and show_plot:
+        
+        plt.figure(figsize=(8, 5))
+        plt.plot(eta1, v1_squeezed, 'o-', label='v_x')
+        plt.plot(eta1, v2_squeezed, 's-', label='v_y')
+        plt.plot(eta1, v3_squeezed, 'd-', label='v_z')
+        plt.axhline(0, color='k', linestyle='--', linewidth=0.5)
+        plt.axhline(1, color='gray', linestyle='--', linewidth=0.5)
+        plt.xlabel('eta1')
+        plt.ylabel('velocity')
+        plt.title(f'No-slip test ({direction}-direction, {kernel}, tesselation={tesselation})')
+        plt.legend()
+        plt.grid(True)
+        plt.show()
+        plt.savefig("bc_sph")
+        
+if __name__ == "__main__":
+    test_sph_no_slip_boundary_1d(
+        (4, 1, 1),
+        "gaussian_1d",
+        tesselation= True,
+        direction = "x",
+        show_plot=False,
+    )
+        
