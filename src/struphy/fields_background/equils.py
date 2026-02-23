@@ -6,6 +6,7 @@ import os
 import sys
 import warnings
 from time import time
+from typing import TYPE_CHECKING
 
 import cunumpy as xp
 from feectools.ddm.mpi import MockMPI
@@ -35,7 +36,9 @@ from struphy.fields_background.mhd_equil.eqdsk import readeqdsk
 from struphy.io.options import BaseUnits
 from struphy.physics.physics import Units
 from struphy.utils.utils import read_state, subp_run
-from struphy import domains
+
+if TYPE_CHECKING:
+    from struphy import domains
 
 if isinstance(MPI, MockMPI):
     comm = None
@@ -2951,7 +2954,7 @@ class ConstantVelocity(CartesianFluidEquilibrium):
     # equilibrium ion velocity
     def u_xyz(self, x, y, z):
         """Ion velocity."""
-        if self.params["velocity_step_function_at_y"] is None:
+        if self.params["velocity_step_function_in_y"] is None:
             ux = 0 * x + self.params["ux"]
         else:
             ux = 1e-8 + 0 * x

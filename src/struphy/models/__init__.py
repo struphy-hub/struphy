@@ -8,7 +8,6 @@ from struphy.models.cold_plasma import ColdPlasma
 from struphy.models.cold_plasma_vlasov import ColdPlasmaVlasov
 from struphy.models.deterministic_particle_diffusion import DeterministicParticleDiffusion
 from struphy.models.drift_kinetic_electrostatic_adiabatic import DriftKineticElectrostaticAdiabatic
-from struphy.models.euler_sph import EulerSPH
 from struphy.models.guiding_center import GuidingCenter
 from struphy.models.hasegawa_wakatani import HasegawaWakatani
 from struphy.models.linear_extended_mh_duniform import LinearExtendedMHDuniform
