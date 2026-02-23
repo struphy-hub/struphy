@@ -14,7 +14,7 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class ViscousEulerSPH(StruphyModel):
-    r"""Euler equations discretized with smoothed particle hydrodynamics (SPH).
+    r"""Euler equations with viscosity discretized with smoothed particle hydrodynamics (SPH).
 
     :ref:`normalization`:
 
@@ -29,25 +29,35 @@ class ViscousEulerSPH(StruphyModel):
         \begin{align}
         \partial_t \rho + \nabla \cdot (\rho \mathbf u) &= 0\,,
         \\[2mm]
-        \rho(\partial_t \mathbf u + \mathbf u \cdot \nabla \mathbf u) &= - \nabla \left(\rho^2 \frac{\partial \mathcal U(\rho, S)}{\partial \rho} \right)\,,
+        \rho(\partial_t \mathbf u + \mathbf u \cdot \nabla \mathbf u) &= - \nabla \left(\rho^2 \frac{\partial \mathcal U(\rho, S)}{\partial \rho} \right) - \nabla \cdot \boldsymbol{\pi}\,,
         \\[2mm]
         \partial_t S + \mathbf u \cdot \nabla S &= 0\,,
         \end{align}
 
-    where :math:`S` denotes the entropy per unit mass.
+    where :math:`S` denotes the entropy per unit mass and :math:`\boldsymbol{\pi}` is the viscous stress tensor.
+
+    The viscous stress tensor for a Newtonian fluid is given by:
+
+    .. math::
+
+        \boldsymbol{\sigma} = -\mu \left( \nabla \mathbf u + (\nabla \mathbf u)^T - \frac{2}{3}(\nabla \cdot \mathbf u)\mathbf{I} \right)\,,
+
+    where :math:`\mu` is the dynamic (shear) viscosity and :math:`\mathbf{I}` is the identity tensor.
+
     The internal energy per unit mass can be defined in two ways:
 
     .. math::
 
-        \mathrm{"isothermal:"}\qquad &\mathcal U(\rho, S) = \kappa(S) \log \rho\,.
+        \mathrm{isothermal:}\qquad &\mathcal U(\rho, S) = \kappa(S) \log \rho\,.
 
-        \mathrm{"polytropic:"}\qquad &\mathcal U(\rho, S) = \kappa(S) \frac{\rho^{\gamma - 1}}{\gamma - 1}\,.
+        \mathrm{polytropic:}\qquad &\mathcal U(\rho, S) = \kappa(S) \frac{\rho^{\gamma - 1}}{\gamma - 1}\,.
 
     :ref:`propagators` (called in sequence):
 
     1. :class:`~struphy.propagators.propagators_markers.PushEta`
     2. :class:`~struphy.propagators.propagators_markers.PushVxB`
     3. :class:`~struphy.propagators.propagators_markers.PushVinSPHpressure`
+    4. :class:`~struphy.propagators.propagators_markers.PushVinViscousPotential`
     """
 
     @classmethod
@@ -64,33 +74,37 @@ class ViscousEulerSPH(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self, with_B0: bool = True):
+        def __init__(self, with_B0: bool = True, with_p: bool = True, with_viscosity: bool = True):
             self.push_eta = propagators_markers.PushEta()
             if with_B0:
                 self.push_vxb = propagators_markers.PushVxB()
-            self.push_sph_p = propagators_markers.PushVinSPHpressure()
-            self.push_viscous = propagators_markers.PushVinViscousPotential()
+            if with_p:
+                self.push_sph_p = propagators_markers.PushVinSPHpressure()
+            if with_viscosity:
+                self.push_viscous = propagators_markers.PushVinViscousPotential()
 
     ## abstract methods
 
-    def __init__(self, with_B0: bool = True):
-        if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
+    def __init__(self, with_B0: bool = True, with_p: bool = True, with_viscosity: bool = True):
 
         self.with_B0 = with_B0
+        self.with_p = with_p
+        self.with_viscosity = with_viscosity
 
         # 1. instantiate all species
         self.euler_fluid = self.EulerFluid()
 
         # 2. instantiate all propagators
-        self.propagators = self.Propagators(with_B0=with_B0)
+        self.propagators = self.Propagators(with_B0=with_B0, with_p=with_p, with_viscosity=with_viscosity)
 
         # 3. assign variables to propagators
         self.propagators.push_eta.variables.var = self.euler_fluid.var
         if with_B0:
             self.propagators.push_vxb.variables.ions = self.euler_fluid.var
-        self.propagators.push_sph_p.variables.fluid = self.euler_fluid.var
-        self.propagators.push_viscous.variables.fluid = self.euler_fluid.var
+        if with_p:
+            self.propagators.push_sph_p.variables.fluid = self.euler_fluid.var
+        if with_viscosity:
+            self.propagators.push_viscous.variables.fluid = self.euler_fluid.var
 
         # define scalars for update_scalar_quantities
         self.add_scalar("en_kin", compute="from_sph", variable=self.euler_fluid.var)
