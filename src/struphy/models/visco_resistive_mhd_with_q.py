@@ -14,6 +14,7 @@ from struphy.polar.basic import PolarVector
 from struphy.propagators import (
     propagators_fields,
 )
+from struphy.propagators.base import Propagator
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -101,8 +102,6 @@ class ViscoResistiveMHD_with_q(StruphyModel):
         with_viscosity: bool = True,
         with_resistivity: bool = True,
     ):
-        if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -145,8 +144,8 @@ class ViscoResistiveMHD_with_q(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
-    def allocate_helpers(self):
-        projV3 = L2Projector("L2", self._mass_ops)
+    def allocate_helpers(self, verbose: bool = False):
+        projV3 = L2Projector("L2", Propagator.mass_ops)
 
         def f(e1, e2, e3):
             return 1
@@ -154,13 +153,13 @@ class ViscoResistiveMHD_with_q(StruphyModel):
         f = xp.vectorize(f)
         self._integrator = projV3(f)
 
-        self._ones = self.derham.Vh_pol["3"].zeros()
+        self._ones = Propagator.derham.Vh_pol["3"].zeros()
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.0
         else:
             self._ones[:] = 1.0
 
-        self._tmp_div_B = self.derham.Vh_pol["3"].zeros()
+        self._tmp_div_B = Propagator.derham.Vh_pol["3"].zeros()
 
     def update_scalar_quantities(self):
         rho = self.mhd.density.spline.vector
@@ -170,13 +169,13 @@ class ViscoResistiveMHD_with_q(StruphyModel):
 
         gamma = self.propagators.variat_qb.options.gamma
 
-        en_U = 0.5 * self.mass_ops.WMM.massop.dot_inner(u, u)
+        en_U = 0.5 * Propagator.mass_ops.WMM.massop.dot_inner(u, u)
         self.update_scalar("en_U", en_U)
 
-        en_mag = 0.5 * self.mass_ops.M2.dot_inner(b, b)
+        en_mag = 0.5 * Propagator.mass_ops.M2.dot_inner(b, b)
         self.update_scalar("en_mag", en_mag)
 
-        en_thermo = 1.0 / (gamma - 1.0) * self._mass_ops.M3.dot_inner(q, q)
+        en_thermo = 1.0 / (gamma - 1.0) * Propagator.mass_ops.M3.dot_inner(q, q)
         self.update_scalar("en_thermo", en_thermo)
 
         en_tot = en_U + en_thermo + en_mag
@@ -185,8 +184,8 @@ class ViscoResistiveMHD_with_q(StruphyModel):
         dens_tot = self._ones.inner(rho)
         self.update_scalar("dens_tot", dens_tot)
 
-        div_B = self.derham.div.dot(b, out=self._tmp_div_B)
-        L2_div_B = self._mass_ops.M3.dot_inner(div_B, div_B)
+        div_B = Propagator.derham.div.dot(b, out=self._tmp_div_B)
+        L2_div_B = Propagator.mass_ops.M3.dot_inner(div_B, div_B)
         self.update_scalar("tot_div_B", L2_div_B)
 
     # default parameters

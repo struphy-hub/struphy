@@ -15,6 +15,7 @@ from struphy.propagators import (
     propagators_fields,
     propagators_markers,
 )
+from struphy.propagators.base import Propagator
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -119,8 +120,6 @@ class LinearMHDVlasovPC(StruphyModel):
                 self.magnetosonic = propagators_fields.Magnetosonic()
 
     def __init__(self, turn_off: tuple[str, ...] = (None,)):
-        if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -169,8 +168,8 @@ class LinearMHDVlasovPC(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
-    def allocate_helpers(self):
-        self._ones = self.projected_equil.p3.space.zeros()
+    def allocate_helpers(self, verbose: bool = False):
+        self._ones = Propagator.projected_equil.p3.space.zeros()
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.0
         else:
@@ -185,11 +184,11 @@ class LinearMHDVlasovPC(StruphyModel):
         Ah = self.energetic_ions.var.species.mass_number
 
         # perturbed fields
-        en_U = 0.5 * self.mass_ops.M2n.dot_inner(
+        en_U = 0.5 * Propagator.mass_ops.M2n.dot_inner(
             self.mhd.velocity.spline.vector,
             self.mhd.velocity.spline.vector,
         )
-        en_B = 0.5 * self.mass_ops.M2.dot_inner(
+        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(
             self.em_fields.b_field.spline.vector,
             self.em_fields.b_field.spline.vector,
         )
@@ -219,8 +218,8 @@ class LinearMHDVlasovPC(StruphyModel):
         # print number of lost particles
         n_lost_markers = xp.array(particles.n_lost_markers)
 
-        if self.derham.comm is not None:
-            self.derham.comm.Allreduce(
+        if Propagator.derham.comm is not None:
+            Propagator.derham.comm.Allreduce(
                 MPI.IN_PLACE,
                 n_lost_markers,
                 op=MPI.SUM,

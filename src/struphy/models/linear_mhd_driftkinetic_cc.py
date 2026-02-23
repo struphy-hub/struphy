@@ -15,6 +15,7 @@ from struphy.propagators import (
     propagators_fields,
     propagators_markers,
 )
+from struphy.propagators.base import Propagator
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -139,8 +140,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 self.cc5d_curlb = propagators_coupling.CurrentCoupling5DCurlb()
 
     def __init__(self, turn_off: tuple[str, ...] = (None,)):
-        if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -187,8 +186,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
-    def allocate_helpers(self):
-        self._ones = self.projected_equil.p3.space.zeros()
+    def allocate_helpers(self, verbose: bool = False):
+        self._ones = Propagator.projected_equil.p3.space.zeros()
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.0
         else:
@@ -199,7 +198,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._en_tot = xp.empty(1, dtype=float)
         self._n_lost_particles = xp.empty(1, dtype=float)
 
-        self._PB = getattr(self.basis_ops, "PB")
+        self._PB = getattr(Propagator.basis_ops, "PB")
         self._PBb = self._PB.codomain.zeros()
 
     def update_scalar_quantities(self):
@@ -208,11 +207,11 @@ class LinearMHDDriftkineticCC(StruphyModel):
         Ah = self.energetic_ions.var.species.mass_number
 
         # perturbed fields
-        en_U = 0.5 * self.mass_ops.M2n.dot_inner(
+        en_U = 0.5 * Propagator.mass_ops.M2n.dot_inner(
             self.mhd.velocity.spline.vector,
             self.mhd.velocity.spline.vector,
         )
-        en_B = 0.5 * self.mass_ops.M2.dot_inner(
+        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(
             self.em_fields.b_field.spline.vector,
             self.em_fields.b_field.spline.vector,
         )
@@ -252,8 +251,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
         # print number of lost particles
         n_lost_markers = xp.array(particles.n_lost_markers)
 
-        if self.derham.comm is not None:
-            self.derham.comm.Allreduce(
+        if Propagator.derham.comm is not None:
+            Propagator.derham.comm.Allreduce(
                 MPI.IN_PLACE,
                 n_lost_markers,
                 op=MPI.SUM,

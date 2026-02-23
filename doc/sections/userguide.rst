@@ -68,7 +68,7 @@ Each Struphy model is a collection of species of one of the following types:
 
 .. autoclass:: struphy.models.species.ParticleSpecies
 
-.. automethod:: struphy.models.species.Species.set_phys_params
+.. automethod:: struphy.models.species.Species.set_species_properties
 
 
 Variable types
