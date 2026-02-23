@@ -5,52 +5,62 @@ from struphy.utils.utils import check_option
 
 
 class LoadingParameters:
-    """Options for particle loading in parameter/launch files.
+    """Configuration for particle (marker) loading strategies and data sources.
+
+    This class encapsulates all parameters needed to initialize particles in simulations,
+    including population size, spatial and velocity distributions, loading algorithms, and
+    restart/external data sources. Supports multiple loading strategies: Monte-Carlo based
+    distributions with customizable moments, regular grid tesselation, specific manually-defined
+    markers, and loading from restart or external HDF5 files.
 
     Parameters
     ----------
-    Np : int
-        Total number of particles to load.
+    Np : int, optional
+        Total number of particles to load into the simulation.
 
-    ppc : int
-        Particles to load per cell if a grid is defined. Cells are defined from ``domain_array``.
+    ppc : int, optional
+        Particles per cell to load if a grid is defined. Cell divisions follow ``domain_array``.
 
-    ppb : int
-        Particles to load per sorting box. Sorting boxes are defined from ``boxes_per_dim``.
+    ppb : int, default=10
+        Particles per sorting box. Sorting boxes are defined by ``boxes_per_dim``.
 
-    loading : LiteralOptions.OptsLoading
-        How to load markers: multiple options for Monte-Carlo, or "tesselation" for positioning them on a regular grid.
+    loading : LiteralOptions.OptsLoading, default="pseudo_random"
+        Loading algorithm strategy. Options include various Monte-Carlo methods or
+        'tesselation' for regular grid positioning.
 
-    seed : int
-        Seed for random generator. If None, no seed is taken.
+    seed : int, optional
+        Seed for the random number generator for reproducible results.
+        If None, no seed is applied.
 
-    moments : tuple
-        Mean velocities and temperatures for the Gaussian sampling distribution.
-        If None, these are auto-calculated form the given background.
+    moments : tuple, optional
+        Mean velocities and temperatures defining the Gaussian velocity distribution.
+        If None, automatically computed from the background distribution.
 
-    spatial : LiteralOptions.OptsSpatialLoading
-        Draw uniformly in eta, or draw uniformly on the "disc" image of (eta1, eta2).
+    spatial : LiteralOptions.OptsSpatialLoading, default="uniform"
+        Spatial sampling method: 'uniform' samples uniformly in (eta1, eta2) coordinates,
+        while 'disc' samples uniformly on the disc image of the coordinate space.
 
-    specific_markers : tuple[tuple]
-        Each entry is a tuple of phase space coordinates (floats) of a specific marker to be initialized.
+    specific_markers : tuple[tuple], optional
+        Manually-defined markers as tuples of phase space coordinates (floats).
+        Each tuple represents a single particle's initial state.
+
+    n_quad : int, default=1
+        Number of quadrature points used for tesselation-based particle loading.
 
     set_zero_velocity: tuple
         Initialize velocity of Maxwellain along selected axis to be zero.
 
-    n_quad : int
-        Number of quadrature points for tesselation.
+    dir_external : str, optional
+        Absolute path to HDF5 file from which to load external marker data.
 
-    dir_external : str
-        Load markers from external .hdf5 file (absolute path).
+    dir_particles_abs : str, optional
+        Absolute path to HDF5 file from which to load restart marker data.
 
-    dir_particles_abs : str
-        Load markers from restart .hdf5 file (absolute path).
+    dir_particles : str, optional
+        Relative path (relative to output folder) to HDF5 restart file for loading markers.
 
-    dir_particles : str
-        Load markers from restart .hdf5 file (relative path to output folder).
-
-    restart_key : str
-        Key in .hdf5 file's restart/ folder where marker array is stored.
+    restart_key : str, optional
+        HDF5 dataset key within the 'restart/' folder containing marker array data.
     """
 
     def __init__(
@@ -87,18 +97,23 @@ class LoadingParameters:
 
 
 class WeightsParameters:
-    """Options for particle weights in parameter/launch files.
+    """Configuration for particle weight handling and variance reduction.
+
+    Manages particle weighting strategies used in Monte-Carlo type simulations,
+    including control variate techniques for variance reduction and weight thresholding
+    to eliminate negligibly-weighted particles.
 
     Parameters
     ----------
-    control_variate : bool
-        Whether to use a control variate for noise reduction.
+    control_variate : bool, default=False
+        Whether to apply control variate variance reduction technique to particle weights.
 
-    reject_weights : bool
-        Whether to reject weights below threshold.
+    reject_weights : bool, default=False
+        Whether to filter out particles with weights below the specified threshold.
 
-    threshold : float
-        Threshold for rejecting weights.
+    threshold : float, default=0.0
+        Minimum weight threshold. Particles with weights below this value are rejected
+        when ``reject_weights`` is True.
     """
 
     def __init__(
@@ -113,19 +128,25 @@ class WeightsParameters:
 
 
 class BoundaryParameters:
-    """Options for particle boundary conditions and SPH-reconstruction boundary conditions in parameter/launch files.
+    """Configuration for boundary conditions applied to particles and kernel reconstructions.
+
+    Defines how particles behave at domain boundaries (particle boundary conditions) and
+    how smoothed particle hydrodynamics (SPH) kernel reconstructions are handled at domain
+    edges. Supports independent boundary conditions per spatial dimension.
 
     Parameters
     ----------
-    bc : tuple[LiteralOptions.OptsMarkerBC]
-        Boundary conditions for particle movement.
-        Either 'remove', 'reflect', 'periodic' or 'refill' in each direction.
+    bc : tuple[LiteralOptions.OptsMarkerBC], default=("periodic", "periodic", "periodic")
+        Particle boundary conditions for each spatial direction (3D). Options per direction:
+        'remove' (delete particles), 'reflect' (specular reflection), 'periodic' (wrap around),
+        or 'refill' (reload particles).
 
-    bc_refill : list
-        Either 'inner' or 'outer'.
+    bc_refill : list, optional
+        Refill strategy when 'refill' boundary condition is active. Either 'inner' or 'outer'.
 
-    bc_sph : tuple[LiteralOptions.OptsRecontructBC]
-        Boundary conditions for sph kernel reconstruction.
+    bc_sph : tuple[LiteralOptions.OptsRecontructBC], default=("periodic", "periodic", "periodic")
+        Boundary conditions for SPH kernel reconstruction in each spatial direction.
+        Typically matches or differs from ``bc`` depending on reconstruction needs.
     """
 
     def __init__(
@@ -140,25 +161,35 @@ class BoundaryParameters:
 
 
 class BinningPlot:
-    """Options for particle binning (plots) in parameter/launch files.
+    """Configuration for particle phase-space binning and histogram generation.
+
+    Produces binned distributions from particle data across specified phase-space coordinates.
+    Supports arbitrary combinations of spatial (eta) and velocity (v) coordinates with flexible
+    binning resolution and coordinate ranges. Automatically computes bin edges and allocates
+    storage for full and delta-f distributions.
 
     Parameters
     ----------
-    slice : str
-        Coordinate-slice in phase space to bin. A combination of "e1", "e2", "e3", "v1", etc., separated by an underscore "_".
-        For example, "e1" showas a 1D binning plot over eta1, whereas "e1_v1" shows a 2D binning plot over eta1 and v1.
+    slice : str, default="e1"
+        Phase-space coordinates to bin, specified as underscore-separated coordinate names
+        (e.g., 'e1', 'e1_e2', 'e1_v1'). Valid coordinates: 'e1', 'e2', 'e3' (spatial),
+        'v1', 'v2', 'v3' (velocity). Example: 'e1' produces 1D binning over eta1;
+        'e1_v1' produces 2D binning over eta1 and v1.
 
-    n_bins : int | tuple[int]
-        Number of bins for each coordinate.
+    n_bins : int | tuple[int], default=128
+        Number of bins per coordinate. If int, applies to all coordinates; if tuple,
+        specifies bins for each coordinate separately.
 
-    ranges : tuple[int] | tuple[tuple[int]] = (0.0, 1.0)
-        Binning range (as an interval in R) for each coordinate.
+    ranges : tuple[float] | tuple[tuple[float]], default=(0.0, 1.0)
+        Binning ranges as intervals [min, max] for each coordinate. If a single tuple,
+        applies to all coordinates; if nested tuples, specifies range for each coordinate.
 
-    divide_by_jac : bool
-        Whether to divide by the Jacobian determinant (volume-to-0-form).
+    divide_by_jac : bool, default=True
+        Whether to normalize distributions by the Jacobian determinant (volume-to-0-form
+        conversion). Set False to use unnormalized bin counts.
 
-    output_quantity : BinningOutput
-        String literal used to determine weights in binning and the type of output
+    output_quantity : LiteralOptions.BinningQuantity, default="density"
+        Quantity to compute in binning: determines weighting scheme and output format.
     """
 
     def __init__(
@@ -212,12 +243,23 @@ class BinningPlot:
 
 
 class KernelDensityPlot:
-    """Options for SPH density plots in parameter/launch files.
+    """Configuration for smoothed particle hydrodynamics (SPH) density reconstructions.
+
+    Evaluates particle density fields at structured grid points using SPH kernel
+    interpolation. Supports 1D, 2D, and 3D evaluations with independent resolution
+    control per dimension.
 
     Parameters
     ----------
-    pts_e1, pts_e2, pts_e3 : int
-        Number of evaluation points in each direction.
+    pts_e1 : int, default=16
+        Number of evaluation grid points in the first spatial direction (eta1).
+
+    pts_e2 : int, default=16
+        Number of evaluation grid points in the second spatial direction (eta2).
+
+    pts_e3 : int, default=1
+        Number of evaluation grid points in the third spatial direction (eta3).
+        Set to 1 for 2D density plots.
     """
 
     def __init__(

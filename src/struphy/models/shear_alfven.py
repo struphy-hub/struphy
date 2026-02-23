@@ -10,6 +10,7 @@ from struphy.models.variables import FEECVariable
 from struphy.propagators import (
     propagators_fields,
 )
+from struphy.propagators.base import Propagator
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -67,23 +68,15 @@ class ShearAlfven(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
-    def allocate_helpers(self):
+    def allocate_helpers(self, verbose: bool = False):
         # project background magnetic field (2-form) and pressure (3-form)
-        self._b_eq = self.derham.P["2"](
-            [
-                self.equil.b2_1,
-                self.equil.b2_2,
-                self.equil.b2_3,
-            ],
-        )
+        self._b_eq = Propagator.projected_equil.b2
 
         # temporary vectors for scalar quantities
-        self._tmp_b1 = self.derham.Vh["2"].zeros()
-        self._tmp_b2 = self.derham.Vh["2"].zeros()
+        self._tmp_b1 = Propagator.derham.Vh["2"].zeros()
+        self._tmp_b2 = Propagator.derham.Vh["2"].zeros()
 
     def __init__(self):
-        if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -107,8 +100,8 @@ class ShearAlfven(StruphyModel):
 
     def update_scalar_quantities(self):
         # perturbed fields
-        en_U = 0.5 * self.mass_ops.M2n.dot_inner(self.mhd.velocity.spline.vector, self.mhd.velocity.spline.vector)
-        en_B = 0.5 * self.mass_ops.M2.dot_inner(
+        en_U = 0.5 * Propagator.mass_ops.M2n.dot_inner(self.mhd.velocity.spline.vector, self.mhd.velocity.spline.vector)
+        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(
             self.em_fields.b_field.spline.vector,
             self.em_fields.b_field.spline.vector,
         )
@@ -118,7 +111,7 @@ class ShearAlfven(StruphyModel):
         self.update_scalar("en_tot", en_U + en_B)
 
         # background fields
-        self.mass_ops.M2.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
+        Propagator.mass_ops.M2.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
         en_B0 = self._b_eq.inner(self._tmp_b1) / 2
         self.update_scalar("en_B_eq", en_B0)
 
@@ -126,7 +119,7 @@ class ShearAlfven(StruphyModel):
         self._b_eq.copy(out=self._tmp_b1)
         self._tmp_b1 += self.em_fields.b_field.spline.vector
 
-        self.mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
+        Propagator.mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
         en_Btot = self._tmp_b1.inner(self._tmp_b2) / 2
 
         self.update_scalar("en_B_tot", en_Btot)

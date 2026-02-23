@@ -54,8 +54,6 @@ class PressureLessSPH(StruphyModel):
     ## abstract methods
 
     def __init__(self):
-        if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
 
         # 1. instantiate all species
         self.cold_fluid = self.ColdFluid()
@@ -84,7 +82,7 @@ class PressureLessSPH(StruphyModel):
     #     dct["projected_density"] = "L2"
     #     return dct
 
-    def allocate_helpers(self):
+    def allocate_helpers(self, verbose: bool = False):
         pass
 
     def update_scalar_quantities(self):

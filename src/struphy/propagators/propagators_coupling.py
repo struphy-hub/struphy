@@ -129,14 +129,10 @@ class VlasovAmpere(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         # scaling factors
         alpha = self.variables.ions.species.equation_params.alpha
         epsilon = self.variables.ions.species.equation_params.epsilon
@@ -380,14 +376,10 @@ class EfieldWeights(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._alpha = self.options.alpha
         self._kappa = self.options.kappa
 
@@ -615,14 +607,10 @@ class PressureCoupling6D(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         if self.options.u_space == "H1vec":
             self._u_form_int = 0
         else:
@@ -936,14 +924,10 @@ class CurrentCoupling6DCurrent(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._space_key_int = int(self.derham.space_to_form[self.options.u_space])
 
         particles = self.variables.ions.particles
@@ -1266,14 +1250,10 @@ class CurrentCoupling5DCurlb(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         if self.options.u_space == "H1vec":
             self._u_form_int = 0
         else:
@@ -1539,14 +1519,10 @@ class CurrentCoupling5DGradB(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         if self.options.u_space == "H1vec":
             self._u_form_int = 0
         else:

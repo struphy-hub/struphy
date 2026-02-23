@@ -111,13 +111,13 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                             continue
 
                         if "Modes" in key and fun_form == "physical":
-                            perturbation._Lx = Lx
-                            perturbation._Ly = Ly
-                            perturbation._Lz = Lz
+                            perturbation.Lx = Lx
+                            perturbation.Ly = Ly
+                            perturbation.Lz = Lz
                         else:
-                            perturbation._Lx = 1.0
-                            perturbation._Ly = 1.0
-                            perturbation._Lz = 1.0
+                            perturbation.Lx = 1.0
+                            perturbation.Ly = 1.0
+                            perturbation.Lz = 1.0
                         # use the setter
                         perturbation.given_in_basis = fun_form
 
@@ -207,13 +207,13 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                             continue
 
                         if "Modes" in key and fun_form == "physical":
-                            perturbation._Lx = Lx
-                            perturbation._Ly = Ly
-                            perturbation._Lz = Lz
+                            perturbation.Lx = Lx
+                            perturbation.Ly = Ly
+                            perturbation.Lz = Lz
                         else:
-                            perturbation._Lx = 1.0
-                            perturbation._Ly = 1.0
-                            perturbation._Lz = 1.0
+                            perturbation.Lx = 1.0
+                            perturbation.Ly = 1.0
+                            perturbation.Lz = 1.0
                         perturbation_0 = perturbation
                         perturbation_1 = deepcopy(perturbation)
                         perturbation_2 = deepcopy(perturbation)

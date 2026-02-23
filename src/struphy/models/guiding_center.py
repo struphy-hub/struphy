@@ -10,6 +10,7 @@ from struphy.models.variables import PICVariable
 from struphy.propagators import (
     propagators_markers,
 )
+from struphy.propagators.base import Propagator
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -68,8 +69,6 @@ class GuidingCenter(StruphyModel):
     ## abstract methods
 
     def __init__(self):
-        if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}' ***")
 
         # 1. instantiate all species
         self.kinetic_ions = self.KineticIons()
@@ -86,6 +85,9 @@ class GuidingCenter(StruphyModel):
         self.add_scalar("en_fB", compute="from_particles", variable=self.kinetic_ions.var)
         self.add_scalar("en_tot", compute="from_particles", variable=self.kinetic_ions.var)
 
+        if rank == 0:
+            print("Done.")
+
     @property
     def bulk_species(self):
         return self.kinetic_ions
@@ -94,7 +96,7 @@ class GuidingCenter(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
-    def allocate_helpers(self):
+    def allocate_helpers(self, verbose: bool = False):
         self._en_fv = xp.empty(1, dtype=float)
         self._en_fB = xp.empty(1, dtype=float)
         self._en_tot = xp.empty(1, dtype=float)
@@ -123,7 +125,7 @@ class GuidingCenter(StruphyModel):
         self.update_scalar("en_tot", self._en_tot[0])
 
         self._n_lost_particles[0] = particles.n_lost_markers
-        self.derham.comm.Allreduce(
+        Propagator.derham.comm.Allreduce(
             MPI.IN_PLACE,
             self._n_lost_particles,
             op=MPI.SUM,
