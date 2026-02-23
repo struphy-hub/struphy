@@ -1383,20 +1383,20 @@ def test_sph_viscosity_evaluation_2d(
     # -----------------------------
     # 2. Divergence of pi
     # -----------------------------
-    mu = 1.5
+    mu = 1e-3
     
-    def div_pi_analytic(x, y, z):
+    def div_pi_analytic(x, y, z, mu=None):
         """
         Returns:
             div_Pi_x, div_Pi_y, div_Pi_z
         """
 
-        div_x = mu * (28 / 3) * xp.pi**2 * xp.sin(2 * xp.pi * x) * xp.cos(2 * xp.pi * y) - (4 * xp.pi**2 / 3) * xp.sin(
+        div_x = mu *( (28 / 3) * xp.pi**2 * xp.sin(2 * xp.pi * x) * xp.cos(2 * xp.pi * y) - (4 * xp.pi**2 / 3) * xp.sin(
             2 * xp.pi * x
-        ) * xp.sin(2 * xp.pi * y)
-        div_y = mu * (28 / 3) * xp.pi**2 * xp.cos(2 * xp.pi * x) * xp.cos(2 * xp.pi * y) + (4 * xp.pi**2 / 3) * xp.cos(
+        ) * xp.sin(2 * xp.pi * y))
+        div_y = mu *( (28 / 3) * xp.pi**2 * xp.cos(2 * xp.pi * x) * xp.cos(2 * xp.pi * y) + (4 * xp.pi**2 / 3) * xp.cos(
             2 * xp.pi * x
-        ) * xp.sin(2 * xp.pi * y)
+        ) * xp.sin(2 * xp.pi * y))
         div_z = mu * xp.zeros_like(x)
 
         return div_x, div_y, div_z
@@ -1460,17 +1460,19 @@ def test_sph_viscosity_evaluation_2d(
     if rank == 0:
         print(f"{density.shape = }")
         print(f"{xp.min(density) = }, {xp.max(density) = }")
-    plt.figure(figsize=(10, 5))
-    plt.subplot(1, 2, 1)
-    plt.pcolor(xx.squeeze(), yy.squeeze(), density.squeeze(), vmin=xp.min(density), vmax=xp.max(density))
-    plt.title("density sph")
-    plt.colorbar()
-    plt.subplot(1, 2, 2)
-    plt.pcolor(xx.squeeze(), yy.squeeze(), density_exact.squeeze(), vmin=xp.min(density), vmax=xp.max(density))
-    plt.title("density exact")
-    plt.colorbar()
-    plt.savefig("density")
-    # plt.show()
+        
+    if show_plot:
+        plt.figure(figsize=(10, 5))
+        plt.subplot(1, 2, 1)
+        plt.pcolor(xx.squeeze(), yy.squeeze(), density.squeeze(), vmin=xp.min(density), vmax=xp.max(density))
+        plt.title("density sph")
+        plt.colorbar()
+        plt.subplot(1, 2, 2)
+        plt.pcolor(xx.squeeze(), yy.squeeze(), density_exact.squeeze(), vmin=xp.min(density), vmax=xp.max(density))
+        plt.title("density exact")
+        plt.colorbar()
+        # plt.savefig("density")
+        plt.show()
 
     # evaluate velocity
     vx, vy, vz = particles.eval_velocity(
@@ -1488,30 +1490,31 @@ def test_sph_viscosity_evaluation_2d(
         print(f"{xp.min(vx) = }, {xp.max(vx) = }")
         print(f"{xp.min(vy) = }, {xp.max(vy) = }")
 
-    plt.figure(figsize=(10, 8))
+    if show_plot:
+        plt.figure(figsize=(10, 8))
 
-    plt.subplot(2, 2, 1)
-    plt.pcolor(xx.squeeze(), yy.squeeze(), vx.squeeze(), vmin=xp.min(vx), vmax=xp.max(vx))
-    plt.title("vx sph")
-    plt.colorbar()
+        plt.subplot(2, 2, 1)
+        plt.pcolor(xx.squeeze(), yy.squeeze(), vx.squeeze(), vmin=xp.min(vx), vmax=xp.max(vx))
+        plt.title("vx sph")
+        plt.colorbar()
 
-    plt.subplot(2, 2, 3)
-    plt.pcolor(xx.squeeze(), yy.squeeze(), vx_exact.squeeze(), vmin=xp.min(vx), vmax=xp.max(vx))
-    plt.title("vx exact")
-    plt.colorbar()
+        plt.subplot(2, 2, 3)
+        plt.pcolor(xx.squeeze(), yy.squeeze(), vx_exact.squeeze(), vmin=xp.min(vx), vmax=xp.max(vx))
+        plt.title("vx exact")
+        plt.colorbar()
 
-    plt.subplot(2, 2, 2)
-    plt.pcolor(xx.squeeze(), yy.squeeze(), vy.squeeze())
-    plt.title("vy sph")
-    plt.colorbar()
+        plt.subplot(2, 2, 2)
+        plt.pcolor(xx.squeeze(), yy.squeeze(), vy.squeeze())
+        plt.title("vy sph")
+        plt.colorbar()
 
-    plt.subplot(2, 2, 4)
-    plt.pcolor(xx.squeeze(), yy.squeeze(), vy_exact.squeeze(), vmin=xp.min(vy), vmax=xp.max(vy))
-    plt.title("vy exact")
-    plt.colorbar()
+        plt.subplot(2, 2, 4)
+        plt.pcolor(xx.squeeze(), yy.squeeze(), vy_exact.squeeze(), vmin=xp.min(vy), vmax=xp.max(vy))
+        plt.title("vy exact")
+        plt.colorbar()
 
-    # plt.show()
-    plt.savefig("velocity")
+        plt.show()
+        # plt.savefig("velocity")
 
     # evaluate div of viscosity tensor (numerically)
     div_viscosity = particles.eval_div_viscosity(
@@ -1528,7 +1531,7 @@ def test_sph_viscosity_evaluation_2d(
     gamma_y = div_viscosity[1]
     gamma_z = div_viscosity[2]
 
-    div_pi_exact = div_pi_analytic(xx, yy, zz)
+    div_pi_exact = div_pi_analytic(xx, yy, zz, mu=mu)
     div_pi_x = div_pi_exact[0]
     div_pi_y = div_pi_exact[1]
     div_pi_z = div_pi_exact[2]
@@ -1560,10 +1563,6 @@ def test_sph_viscosity_evaluation_2d(
         print(f"Divergence of viscosity errors: gx={err_div_x:.3e}, gy={err_div_y:.3e}")
         # , gz={err_div_z:.3e}
 
-    if tesselation:
-        assert err_div_x < 3.5e-2
-        assert err_div_y < 3.5e-2
-
     if show_plot:
         # --- gamma_x and gamma_y plots ---
         plt.figure(figsize=(18, 18))
@@ -1579,7 +1578,7 @@ def test_sph_viscosity_evaluation_2d(
         plt.pcolor(ee1.squeeze(), ee2.squeeze(), all_div_x.squeeze())
         plt.title("SPH div_viscosity_x")
         plt.colorbar()
-        plt.savefig("SPH div_viscosity_x")
+        # plt.savefig("SPH div_viscosity_x")
         plt.subplot(3, 3, 7)
         plt.pcolor(ee1.squeeze(), ee2.squeeze(), (all_div_x - div_pi_x).squeeze())
         plt.title("Error div_viscosity_x")
@@ -1622,9 +1621,8 @@ def test_sph_viscosity_evaluation_2d(
 
         plt.tight_layout()
         # plt.savefig("div_viscosity_2d_all.png")
-        # plt.show()
-        plt.savefig("viscosity_2d_all")
-        # plt.show()
+        plt.show()
+        # plt.savefig("viscosity_2d_all")
         # else:
         #    assert err_div_x <  5.8e-01
         #    assert err_div_y < 5.9e-01
@@ -1690,10 +1688,15 @@ def test_sph_viscosity_evaluation_2d(
         #     plt.ylabel("Relative error")
         #     plt.savefig("ppb_convergence")
 
+    if tesselation:
+        assert err_div_x < 3.5e-2
+        assert err_div_y < 3.5e-2
+
 
 if __name__ == "__main__":
     test_sph_viscosity_evaluation_2d(
-        (12, 12, 1), "gaussian_2d", "periodic", "periodic", 101, tesselation=True, show_plot=True
+        (12, 12, 1), "gaussian_2d", "periodic", "periodic", 101, 
+        tesselation=True, show_plot=False,
     )
     # test_sph_velocity_evaluation_2d(
     #     (12, 12, 1), "gaussian_2d", 1, "periodic", "periodic", 101, tesselation=False, show_plot=True

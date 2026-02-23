@@ -941,8 +941,6 @@ def sph_viscosity_tensor(
     ``column_nr:column_nr+9`` in markers array for each particle (in row-major order).
     """
 
-    gamma = 5 / 3
-
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
