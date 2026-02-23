@@ -1853,10 +1853,8 @@ class PushVinViscousPotential(Propagator):
         init_kernel_1 = eval_kernels_gc.sph_mean_velocity_coeffs
         first_free_idx = particles.args_markers.first_free_idx
         comps = (0, 1, 2)
-        # init_kernel_2 = eval_kernels_gc.sph_grad_mean_velocity
-        # comps_tensor = (0, 1, 2, 3, 4, 5, 6, 7, 8)
 
-        init_kernel_4 = eval_kernels_gc.sph_viscosity_tensor
+        init_kernel_2 = eval_kernels_gc.sph_viscosity_tensor
         comps_tensor = (0, 1, 2, 3, 4, 5, 6, 7, 8)
 
         boxes = particles.sorting_boxes.boxes
@@ -1870,7 +1868,7 @@ class PushVinViscousPotential(Propagator):
         else:
             assert all([hi <= 1 / ni for hi, ni in zip(self.options.kernel_width, particles.boxes_per_dim)])
 
-        # for sph_mean_velocity_coeffs (NO mu)
+        # for sph_mean_velocity_coeffs
         args_init_mean = (
             boxes,
             neighbours,
@@ -1880,27 +1878,16 @@ class PushVinViscousPotential(Propagator):
             *self.options.kernel_width,
         )
 
-        # for sph_viscosity_tensor (WITH mu)
+        # for sph_viscosity_tensor
         args_init_visc = (
             boxes,
             neighbours,
             holes,
             *periodic,
             kernel_nr,
-            self.options.mu,
             *self.options.kernel_width,
+            self.options.mu,
         )
-        
-        # init kernel
-        # args_init = (
-        #     boxes,
-        #     neighbours,
-        #     holes,
-        #     *periodic,
-        #     kernel_nr,
-        #     self.options.mu, 
-        #     *self.options.kernel_width,
-        # )
 
         self.add_init_kernel(
             init_kernel_1,
@@ -1910,7 +1897,7 @@ class PushVinViscousPotential(Propagator):
         )
 
         self.add_init_kernel(
-            init_kernel_4,
+            init_kernel_2,
             first_free_idx + 3,
             comps_tensor,
             args_init_visc,
@@ -1924,7 +1911,6 @@ class PushVinViscousPotential(Propagator):
             holes,
             *periodic,
             kernel_nr,
-            self.options.mu,
             *self.options.kernel_width,
         )
 
