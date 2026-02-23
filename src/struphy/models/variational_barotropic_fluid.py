@@ -9,6 +9,7 @@ from struphy.models.variables import FEECVariable
 from struphy.propagators import (
     propagators_fields,
 )
+from struphy.propagators.base import Propagator
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -62,8 +63,6 @@ class VariationalBarotropicFluid(StruphyModel):
     ## abstract methods
 
     def __init__(self):
-        if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
 
         # 1. instantiate all species
         self.fluid = self.Fluid()
@@ -89,17 +88,17 @@ class VariationalBarotropicFluid(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
-    def allocate_helpers(self):
+    def allocate_helpers(self, verbose: bool = False):
         pass
 
     def update_scalar_quantities(self):
         rho = self.fluid.density.spline.vector
         u = self.fluid.velocity.spline.vector
 
-        en_U = 0.5 * self.mass_ops.WMM.massop.dot_inner(u, u)
+        en_U = 0.5 * Propagator.mass_ops.WMM.massop.dot_inner(u, u)
         self.update_scalar("en_U", en_U)
 
-        en_thermo = 0.5 * self.mass_ops.M3.dot_inner(rho, rho)
+        en_thermo = 0.5 * Propagator.mass_ops.M3.dot_inner(rho, rho)
         self.update_scalar("en_thermo", en_thermo)
 
         en_tot = en_U + en_thermo

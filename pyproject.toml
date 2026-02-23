@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "struphy"
-version = "3.0.2"
+version = "3.0.3"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
@@ -31,13 +31,14 @@ dependencies = [
     "h5py<=3.15.1",
     "matplotlib<=3.10.7",
     "pyyaml<=6.0.3",
-    "vtk<=9.5.2",
+    "vtk<=9.6.0",
     "tqdm<=4.67.3",
     "argcomplete<=3.6.3",
+    "plotly<=6.4.0",
     "pytest<=9.0.2",
     "pytest-mpi<=0.6",
     "pytest-testmon<=2.2.0",
-    "line_profiler<=5.0.0",
+    "line_profiler<=5.0.1",
     "scope-profiler<=0.1.7, >=0.1.7",
 ]
 
@@ -53,19 +54,18 @@ dev = [
     "struphy[mpi]",
     "notebook<=7.5.3",
     "autopep8<=2.3.2",
-    "isort<=7.0.0",
+    "isort<=8.0.0",
     "flake8<=7.3.0",
-    "pylint<=4.0.4",
+    "pylint<=4.0.5",
     "ssort<=0.16.0",
     "add-trailing-comma<=4.0.0",
-    "ruff<=0.15.0, >=0.15.0",
+    "ruff<=0.15.2, >=0.15.0",
     "pre-commit<=4.5.1",
-    "nbstripout<=0.9.0",
+    "nbstripout<=0.9.1",
     "tabulate<=0.9.0",
     "tomli-w<=1.2.0",
     "kaleido<=1.2.0",
-    "pandas<=3.0.0",
-    "plotly<=6.4.0",
+    "pandas<=3.0.1",
 ]
 mpi = [
     "mpi4py<=4.1.1",

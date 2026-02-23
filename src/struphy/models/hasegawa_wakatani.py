@@ -11,6 +11,7 @@ from struphy.models.variables import FEECVariable
 from struphy.propagators import (
     propagators_fields,
 )
+from struphy.propagators.base import Propagator
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -72,8 +73,6 @@ class HasegawaWakatani(StruphyModel):
     ## abstract methods
 
     def __init__(self):
-        if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -97,23 +96,19 @@ class HasegawaWakatani(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
-    def allocate_helpers(self):
-        self._rho: StencilVector = self.derham.Vh["0"].zeros()
-        self.update_rho()
-
     def update_rho(self):
         omega = self.plasma.vorticity.spline.vector
-        self._rho = self.mass_ops.M0.dot(omega, out=self._rho)
+        self._rho = Propagator.mass_ops.M0.dot(omega, out=self._rho)
         self._rho.update_ghost_regions()
         return self._rho
 
-    def allocate_propagators(self):
+    def allocate_helpers(self, verbose: bool = False):
         """Solve initial Poisson equation.
 
         :meta private:
         """
-        # initialize fields and particles
-        super().allocate_propagators()
+        self._rho: StencilVector = Propagator.derham.Vh["0"].zeros()
+        self.update_rho()
 
         if MPI.COMM_WORLD.Get_rank() == 0:
             print("\nINITIAL POISSON SOLVE:")

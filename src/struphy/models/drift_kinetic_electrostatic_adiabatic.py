@@ -16,6 +16,7 @@ from struphy.propagators import (
     propagators_fields,
     propagators_markers,
 )
+from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
 
 rank = MPI.COMM_WORLD.Get_rank()
@@ -97,8 +98,6 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
     ## abstract methods
 
     def __init__(self):
-        if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -125,20 +124,15 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
     def velocity_scale(self):
         return "thermal"
 
-    def allocate_helpers(self):
-        self._tmp3 = xp.empty(1, dtype=float)
-        self._e_field = self.derham.Vh["1"].zeros()
-
-        assert self.kinetic_ions.charge_number > 0, "Model written only for positive ions."
-
-    def allocate_propagators(self):
+    def allocate_helpers(self, verbose: bool = False):
         """Solve initial Poisson equation.
 
         :meta private:
         """
+        self._tmp3 = xp.empty(1, dtype=float)
+        self._e_field = Propagator.derham.Vh["1"].zeros()
 
-        # initialize fields and particles
-        super().allocate_propagators()
+        assert self.kinetic_ions.charge_number > 0, "Model written only for positive ions."
 
         # Poisson right-hand side
         particles = self.kinetic_ions.var.particles
@@ -149,19 +143,19 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
             particles,
             "H1",
             Pyccelkernel(accum_kernels_gc.gc_density_0form),
-            self.mass_ops,
-            self.domain.args_domain,
+            Propagator.mass_ops,
+            Propagator.domain.args_domain,
         )
 
         rho = charge_accum
 
         # get neutralizing background density
         if not particles.control_variate:
-            l2_proj = L2Projector("H1", self.mass_ops)
+            l2_proj = L2Projector("H1", Propagator.mass_ops)
             f0e = Z * particles.f0
             assert isinstance(f0e, KineticBackground)
             rho_eh = FEECVariable(space="H1")
-            rho_eh.allocate(derham=self.derham, domain=self.domain)
+            rho_eh.allocate(derham=Propagator.derham, domain=Propagator.domain)
             rho_eh.spline.vector = l2_proj.get_dofs(f0e.n)
             rho = [rho]
             rho += [rho_eh]
@@ -180,11 +174,11 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         epsilon = self.kinetic_ions.equation_params.epsilon
 
         # energy from polarization
-        e1 = self.derham.grad.dot(-phi, out=self._e_field)
-        en_phi1 = 0.5 * self.mass_ops.M1gyro.dot_inner(e1, e1)
+        e1 = Propagator.derham.grad.dot(-phi, out=self._e_field)
+        en_phi1 = 0.5 * Propagator.mass_ops.M1gyro.dot_inner(e1, e1)
 
         # energy from adiabatic electrons
-        en_phi = 0.5 / epsilon**2 * self.mass_ops.M0ad.dot_inner(phi, phi)
+        en_phi = 0.5 / epsilon**2 * Propagator.mass_ops.M0ad.dot_inner(phi, phi)
 
         # for Landau damping test
         # en_phi = 0.
