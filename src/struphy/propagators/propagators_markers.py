@@ -1785,11 +1785,17 @@ class PushVinViscousPotential(Propagator):
         kernel_type: LiteralOptions.OptsKernel = "gaussian_2d"
         kernel_width: tuple = None
         algo: OptsAlgo = "forward_euler"
+        mu: float = 1.0
 
         def __post_init__(self):
             # checks
             check_option(self.kernel_type, LiteralOptions.OptsKernel)
             check_option(self.algo, self.OptsAlgo)
+            # validate mu
+            if not isinstance(self.mu, (int, float)):
+                raise TypeError("Options.mu must be a number")
+            if self.mu < 0:
+                raise ValueError("Options.mu must be non-negative")
 
     @property
     def options(self) -> Options:
@@ -1811,14 +1817,8 @@ class PushVinViscousPotential(Propagator):
         first_free_idx = particles.args_markers.first_free_idx
         comps = (0, 1, 2)
 
-        init_kernel_2 = eval_kernels_gc.sph_mean_velocity
-        # first_free_idx = particles.args_markers.first_free_idx
-        # comps = (0, 1, 2)
-
-        init_kernel_3 = eval_kernels_gc.sph_grad_mean_velocity
+        init_kernel_2 = eval_kernels_gc.sph_viscosity_tensor
         comps_tensor = (0, 1, 2, 3, 4, 5, 6, 7, 8)
-
-        init_kernel_4 = eval_kernels_gc.sph_viscosity_tensor
 
         boxes = particles.sorting_boxes.boxes
         neighbours = particles.sorting_boxes.neighbours
@@ -1831,8 +1831,8 @@ class PushVinViscousPotential(Propagator):
         else:
             assert all([hi <= 1 / ni for hi, ni in zip(self.options.kernel_width, particles.boxes_per_dim)])
 
-        # init kernel
-        args_init = (
+        # for sph_mean_velocity_coeffs
+        args_init_mean = (
             boxes,
             neighbours,
             holes,
@@ -1841,32 +1841,29 @@ class PushVinViscousPotential(Propagator):
             *self.options.kernel_width,
         )
 
+        # for sph_viscosity_tensor
+        args_init_visc = (
+            boxes,
+            neighbours,
+            holes,
+            *periodic,
+            kernel_nr,
+            *self.options.kernel_width,
+            self.options.mu,
+        )
+
         self.add_init_kernel(
             init_kernel_1,
             first_free_idx,
             comps,
-            args_init,
+            args_init_mean,
         )
 
         self.add_init_kernel(
             init_kernel_2,
-            first_free_idx + 3,  # +3 so that the previous one is not overwritten
-            comps,
-            args_init,
-        )
-
-        self.add_init_kernel(
-            init_kernel_3,
-            first_free_idx + 6,  # +3 so that the previous one is not overwritten
+            first_free_idx + 3,
             comps_tensor,
-            args_init,
-        )
-
-        self.add_init_kernel(
-            init_kernel_4,
-            first_free_idx + 15,
-            comps_tensor,
-            args_init,
+            args_init_visc,
         )
 
         kernel = Pyccelkernel(pusher_kernels.push_v_viscosity)

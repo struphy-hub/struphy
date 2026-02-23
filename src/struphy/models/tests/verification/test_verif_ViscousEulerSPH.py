@@ -21,7 +21,7 @@ from struphy import (
     equils,
     perturbations,
 )
-from struphy.models import EulerSPH
+from struphy.models import ViscousEulerSPH
 
 
 @pytest.mark.parametrize("nx", [12, 24])
@@ -30,12 +30,10 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
     """Verification test for SPH discretization of isthermal Euler equations.
     A standing sound wave with c_s=1 traveserses the domain once.
     """
-    # light-weight model instance
-    model = EulerSPH(with_B0=False)
 
     # environment options
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
-    out_folders = os.path.join(test_folder, "EulerSPH")
+    out_folders = os.path.join(test_folder, "ViscousEulerSPH")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="soundwave_1d")
 
     # units
@@ -53,6 +51,9 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
 
     # derham options
     derham_opts = None
+
+    # light-weight model instance
+    model = ViscousEulerSPH(with_B0=False, with_viscosity=False)
 
     # species parameters
     model.euler_fluid.set_species_properties()
