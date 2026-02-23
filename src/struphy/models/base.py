@@ -15,7 +15,6 @@ from struphy.physics.physics import Units
 from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.utils import dict_to_yaml
 
 class StruphyModel(metaclass=ABCMeta):
     """
@@ -443,6 +442,7 @@ class StruphyModel(metaclass=ABCMeta):
                     )
                     kd_plot.n_sph[:] = n_sph
 
+<<<<<<< HEAD
     @classmethod
     def write_parameters_to_file(cls, parameters=None, file=None, save=True, prompt=True):
         import os
@@ -475,6 +475,8 @@ class StruphyModel(metaclass=ABCMeta):
             else:
                 pass
 
+=======
+>>>>>>> devel
     def generate_default_parameter_file(
         self,
         path: str = None,

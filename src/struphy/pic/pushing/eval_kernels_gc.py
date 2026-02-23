@@ -915,31 +915,31 @@ def sph_viscosity_tensor(
     h1: "float",
     h2: "float",
     h3: "float",
+    mu: "float",
 ):
-    r"""Evaluate the :math:`\boldsymbol \eta`-gradient of the Hamiltonian
+    r"""Evaluate the viscous stress tensor at each particle location using SPH.
+
+    Computes the deviatoric viscous stress tensor:
 
     .. math::
 
-        H(\mathbf Z_p) = H(\boldsymbol \eta_p, v_{\parallel,p}) = \varepsilon \frac{v_{\parallel,p}^2}{2}
-        + \varepsilon \mu |\hat \mathbf B| (\boldsymbol \eta_p) + \hat \phi(\boldsymbol \eta_p)\,,
+        \boldsymbol{\sigma}_{ij} = -2\mu \left(\dot{\gamma}_{ij} - \frac{1}{3}\delta_{ij}\dot{\gamma}_{kk}\right)\,,
 
-    that is
+    where :math:`\dot{\gamma}_{ij}` is the strain rate tensor computed from the velocity gradient
+    :math:`\dot{\gamma}_{ij} = \frac{1}{2}\left(\frac{\partial v_i}{\partial x_j} + \frac{\partial v_j}{\partial x_i}\right)`,
+    and :math:`\mu` is the dynamic viscosity coefficient. The deviatoric part (removal of trace)
+    ensures incompressibility in the momentum equation.
 
-    .. math::
+    The velocity gradient is evaluated at particle positions using SPH kernel interpolation.
+    The density factor :math:`(w/n)^2` accounts for the local particle number density :math:`n_{\eta}`,
+    where :math:`w` is the particle weight.
 
-        \hat \nabla H(\mathbf Z_p) = \varepsilon \mu \hat \nabla |\hat \mathbf B| (\boldsymbol \eta_p)
-        + \hat \nabla \hat \phi(\boldsymbol \eta_p)\,,
+    Parameters evaluated at location :math:`\boldsymbol{\eta}_p` using weighted SPH kernel interpolation
+    over neighboring particles in boxes.
 
-    where the evaluation point is the weighted average
-    :math:`Z_{p,i} = \alpha_i Z_{p,i}^{n+1,k} + (1 - \alpha_i) Z_{p,i}^n`,
-    for :math:`i=1,2,3,4`. Markers must be sorted according to the evaluation point
-    :math:`\boldsymbol \eta_p` beforehand.
-
-    The components specified in ``comps`` are save at ``column_nr:column_nr + len(comps)``
-    in markers array for each particle.
+    All 9 components of the symmetric stress tensor are saved at
+    ``column_nr:column_nr+9`` in markers array for each particle (in row-major order).
     """
-
-    gamma = 5 / 3
 
     # get marker arguments
     markers = args_markers.markers
@@ -952,6 +952,7 @@ def sph_viscosity_tensor(
     valid_mks = args_markers.valid_mks
 
     grad_v_at_eta = zeros((3, 3), dtype=float)
+    # d_tensor = zeros((3, 3), dtype=float)
     d_dev = zeros((3, 3), dtype=float)
     for ip in range(n_markers):
         # only do something if particle is a "true" particle
@@ -1002,13 +1003,16 @@ def sph_viscosity_tensor(
                     h3,
                 )
 
-        mu = 0.007
-        d = 0.5 * (grad_v_at_eta + grad_v_at_eta.T)
-        trace_d = d[0, 0] + d[1, 1] + d[2, 2]
-        d_dev[0, 0] = d[0, 0] - (trace_d / 3.0)
-        d_dev[1, 1] = d[1, 1] - (trace_d / 3.0)
-        d_dev[2, 2] = d[2, 2] - (trace_d / 3.0)
-        d_dev *= 2 * mu * weight / n_at_eta
+        d_dev[:] = 0.5 * (grad_v_at_eta + grad_v_at_eta.T)
+
+        mean_trace = (d_dev[0, 0] + d_dev[1, 1] + d_dev[2, 2]) / 3.0
+
+        d_dev[0, 0] -= mean_trace
+        d_dev[1, 1] -= mean_trace
+        d_dev[2, 2] -= mean_trace
+
+        d_dev *= -2 * mu * (weight / n_at_eta) ** 2
+
         for j in range(3):
             for k in range(3):
                 markers[ip, column_nr + 3 * j + k] = d_dev[j, k]

@@ -3741,33 +3741,41 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         derivative=0,
         fast=True,
     ):
-        """Density function as 0-form.
+        """Evaluate particle number density (0-form) using an SPH smoothing kernel.
 
         Parameters
         ----------
         eta1, eta2, eta3 : array_like
-            Logical evaluation points (flat or meshgrid evaluation).
+            Logical evaluation points. Inputs may be 1-D arrays (flat evaluation) or
+            broadcastable meshgrid arrays; the output will match the shape of `eta1`.
 
         h1, h2, h3 : float
-            Support radius of the smoothing kernel in each dimension.
+            Support radius of the smoothing kernel in each logical dimension.
 
-        kernel_type : str
-            Name of the smoothing kernel to be used.
+        kernel_type : str, optional
+            Name of the smoothing kernel (must be a key in `self.ker_dct()`).
 
-        derivative: int
-            0: no kernel derivative
-            1: first component of grad
-            2: second component of grad
-            3: third component of grad
+        derivative : int, optional
+            Selects whether to evaluate the kernel derivative along a coordinate
+            direction: 0 (default) returns the scalar density, 1/2/3 returns the
+            corresponding component of the density gradient with respect to
+            logical coordinates.
 
-        fast : bool
-            True: box-based evaluation, False: naive evaluation.
+        fast : bool, optional
+            If True, use the box-based neighbor search (faster for many particles);
+            if False, use the naive all-pairs evaluation (simpler, slower).
 
         Returns
         -------
-        out : array-like
-            Same size as eta1.
-        -------
+        out : xp.ndarray
+            Estimated number density (or requested derivative component) at the
+            provided evaluation points. The array uses the same shape as `eta1`
+            and is returned as a `cunumpy` (`xp`) array.
+
+        Notes
+        -----
+        This method is a thin wrapper around :meth:`eval_sph` and internally
+        evaluates the column given by `self.index['weights']` (particle weights).
         """
         return self.eval_sph(
             eta1,
@@ -3794,32 +3802,40 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         derivative=0,
         fast=True,
     ) -> tuple:
-        """Density function as 0-form.
+        """Estimate mean velocity components using SPH smoothing.
 
         Parameters
         ----------
         eta1, eta2, eta3 : array_like
-            Logical evaluation points (flat or meshgrid evaluation).
+            Logical evaluation points. May be 1-D arrays or broadcastable meshgrid
+            arrays; the returned component arrays match the shape of `eta1`.
 
         h1, h2, h3 : float
-            Support radius of the smoothing kernel in each dimension.
+            Support radius of the smoothing kernel in each logical dimension.
 
-        kernel_type : str
-            Name of the smoothing kernel to be used.
+        kernel_type : str, optional
+            Name of the smoothing kernel (must be a key in `self.ker_dct()`).
 
-        derivative: int
-            0: no kernel derivative
-            1: first component of grad
-            2: second component of grad
-            3: third component of grad
+        derivative : int, optional
+            If 0 (default) evaluate the mean velocity; if 1/2/3 return the
+            corresponding component of the spatial derivative of the velocity.
 
-        fast : bool
-            True: box-based evaluation, False: naive evaluation.
+        fast : bool, optional
+            If True use the box-based neighbor search (faster for many particles);
+            if False use the naive all-pairs evaluation.
 
         Returns
         -------
-        out : tuple[array-like]
-            Velocity components, same size as eta1.
+        (v1, v2, v3) : tuple of xp.ndarray
+            Three arrays containing the estimated velocity components at the
+            provided evaluation points. Each array has the same shape as `eta1`.
+
+        Notes
+        -----
+        This method first computes SPH coefficients by calling
+        `eval_kernels_gc.sph_mean_velocity_coeffs` (via a Pyccel kernel) to
+        assemble mean-velocity coefficients into the markers array, then calls
+        :meth:`eval_sph` for each velocity component.
         """
 
         first_free_idx = self.args_markers.first_free_idx
@@ -3893,6 +3909,125 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
         return v1, v2, v3
 
+    def eval_div_viscosity(
+        self,
+        eta1,
+        eta2,
+        eta3,
+        h1,
+        h2,
+        h3,
+        kernel_type="gaussian_1d",
+        mu: float = 1.0,
+        fast=True,
+    ) -> tuple:
+        """Compute divergence of the viscous stress (mu * viscosity tensor).
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points where the divergence is evaluated.
+
+        h1, h2, h3 : float
+            Support radius of the smoothing kernel in each logical dimension.
+
+        kernel_type : str, optional
+            Name of the smoothing kernel (must be a key in `self.ker_dct()`).
+
+        mu : float, optional
+            Dynamic viscosity coefficient used in the viscosity kernel.
+
+        fast : bool, optional
+            If True use the box-based neighbor search; if False use naive
+            evaluation.
+
+        Returns
+        -------
+        (gamma_x, gamma_y, gamma_z) : tuple of xp.ndarray
+            Components of the divergence of the viscous stress evaluated at the
+            provided points. Each array matches the shape of `eta1`.
+
+        Notes
+        -----
+        The routine populates intermediate marker columns using two Pyccel
+        kernels: `sph_mean_velocity_coeffs` (mean velocity) and
+        `sph_viscosity_tensor` (viscosity tensor components). It then evaluates
+        the necessary derivatives via :meth:`eval_sph` and sums contributions to
+        produce the three divergence components.
+        """
+
+        first_free_idx = self.args_markers.first_free_idx
+        self.put_particles_in_boxes()
+
+        # 1st kernel
+        func = Pyccelkernel(eval_kernels_gc.sph_mean_velocity_coeffs)
+        comps = xp.array((0, 1, 2))
+        func(
+            alpha=xp.array((0.0, 0.0, 0.0)),
+            column_nr=first_free_idx,
+            comps=comps,
+            args_markers=self.args_markers,
+            args_domain=self.domain.args_domain,
+            boxes=self.sorting_boxes.boxes,
+            neighbours=self.sorting_boxes.neighbours,
+            holes=self.holes,
+            periodic1=self.boundary_params.bc_sph[0] == "periodic",
+            periodic2=self.boundary_params.bc_sph[1] == "periodic",
+            periodic3=self.boundary_params.bc_sph[2] == "periodic",
+            kernel_type=self.ker_dct()[kernel_type],
+            h1=h1,
+            h2=h2,
+            h3=h3,
+        )
+
+        # 2nd kernel
+        func = Pyccelkernel(eval_kernels_gc.sph_viscosity_tensor)
+        comps = xp.arange(9)
+        func(
+            alpha=xp.array((0.0, 0.0, 0.0)),
+            column_nr=first_free_idx + 3,
+            comps=comps,
+            args_markers=self.args_markers,
+            args_domain=self.domain.args_domain,
+            boxes=self.sorting_boxes.boxes,
+            neighbours=self.sorting_boxes.neighbours,
+            holes=self.holes,
+            periodic1=self.boundary_params.bc_sph[0] == "periodic",
+            periodic2=self.boundary_params.bc_sph[1] == "periodic",
+            periodic3=self.boundary_params.bc_sph[2] == "periodic",
+            kernel_type=self.ker_dct()[kernel_type],
+            h1=h1,
+            h2=h2,
+            h3=h3,
+            mu=mu,
+        )
+
+        # grid evaluation
+        gamma = []
+        for j in range(3):
+            gamma += [[]]
+            for k in range(3):
+                gamma[-1] += [
+                    self.eval_sph(
+                        eta1,
+                        eta2,
+                        eta3,
+                        first_free_idx + 3 * (j + 1) + k,
+                        kernel_type=kernel_type,
+                        derivative=k + 1,
+                        h1=h1,
+                        h2=h2,
+                        h3=h3,
+                        fast=fast,
+                    )
+                ]
+
+        gamma_x = gamma[0][0] + gamma[0][1] + gamma[0][2]
+        gamma_y = gamma[1][0] + gamma[1][1] + gamma[1][2]
+        gamma_z = gamma[2][0] + gamma[2][1] + gamma[2][2]
+
+        return gamma_x, gamma_y, gamma_z
+
     def eval_sph(
         self,
         eta1: xp.ndarray,
@@ -3902,7 +4037,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         out: xp.ndarray = None,
         fast: bool = True,
         kernel_type: str = "gaussian_1d",
-        derivative: int = "0",
+        derivative: int = 0,
         h1: float = 0.1,
         h2: float = 0.1,
         h3: float = 0.1,
@@ -3923,7 +4058,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             Logical evaluation points.
 
         index : int
-            At which index of the markers array are located the the coefficients :math:`a_k`.
+            At which index of the markers array are located the coefficients :math:`\beta_k`.
 
         out : array_like
             Output will be store in this array. A new array is created if not provided.
