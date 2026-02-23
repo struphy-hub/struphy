@@ -1,4 +1,4 @@
-name: Qickstart - build, install, compile and run
+name: Build, install and generate params
 
 on:
   pull_request:
@@ -60,19 +60,12 @@ jobs:
         with:
           env-name: struphy_env
 
-      - name: Compile Struphy
-        run: |
-          source struphy_env/bin/activate
-          struphy compile
-
-      - name: Quick run (according to README)
+      - name: Generate params
         shell: bash
         run: |
           source struphy_env/bin/activate
           struphy params Maxwell -y
-          python3 params_Maxwell.py
-          pip install -U mpi4py
-          mpirun --oversubscribe -n 4 python params_Maxwell.py 
+          struphy params VlasovAmpereOneSpecies -y
 
 
       
