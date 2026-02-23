@@ -1,9 +1,9 @@
-name: Main branch - build, install and compile
+name: Qickstart - build, install, compile and run
 
 on:
   pull_request:
     branches:
-      - main
+      - devel
   workflow_dispatch:
 
 concurrency:
