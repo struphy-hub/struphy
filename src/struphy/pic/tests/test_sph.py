@@ -1520,6 +1520,7 @@ def test_sph_viscosity_evaluation_2d(
         h1=h1,
         h2=h2,
         h3=h3,
+        mu=mu,
         kernel_type=kernel,
     )
     gamma_x = div_viscosity[0]

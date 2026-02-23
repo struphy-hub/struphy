@@ -1870,29 +1870,50 @@ class PushVinViscousPotential(Propagator):
         else:
             assert all([hi <= 1 / ni for hi, ni in zip(self.options.kernel_width, particles.boxes_per_dim)])
 
-        # init kernel
-        args_init = (
+        # for sph_mean_velocity_coeffs (NO mu)
+        args_init_mean = (
             boxes,
             neighbours,
             holes,
             *periodic,
             kernel_nr,
-            self.options.mu, 
             *self.options.kernel_width,
         )
+
+        # for sph_viscosity_tensor (WITH mu)
+        args_init_visc = (
+            boxes,
+            neighbours,
+            holes,
+            *periodic,
+            kernel_nr,
+            self.options.mu,
+            *self.options.kernel_width,
+        )
+        
+        # init kernel
+        # args_init = (
+        #     boxes,
+        #     neighbours,
+        #     holes,
+        #     *periodic,
+        #     kernel_nr,
+        #     self.options.mu, 
+        #     *self.options.kernel_width,
+        # )
 
         self.add_init_kernel(
             init_kernel_1,
             first_free_idx,
             comps,
-            args_init,
+            args_init_mean,
         )
 
         self.add_init_kernel(
             init_kernel_4,
             first_free_idx + 3,
             comps_tensor,
-            args_init,
+            args_init_visc,
         )
 
         kernel = Pyccelkernel(pusher_kernels.push_v_viscosity)
