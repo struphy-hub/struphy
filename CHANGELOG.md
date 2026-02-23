@@ -4,13 +4,13 @@
 ## Struphy 3.0.3 - 2026-02-23
 
 * [PyPI](https://pypi.org/project/struphy/3.0.3)
-* [Github pages](https://struphy-hub.github.io/struphy/index.html)
-* [Github release](https://github.com/struphy-hub/struphy/releases/tag/v3.0.3)
+* [GitHub Pages](https://struphy-hub.github.io/struphy/index.html)
+* [GitHub release](https://github.com/struphy-hub/struphy/releases/tag/v3.0.3)
 * [Diff to previous release](https://github.com/struphy-hub/struphy/compare/v3.0.2...v3.0.3)
 
 ### Headlines
 
-1. New class `Simulation` inherits the generic `SimulationBase`, both are in the new folder `struphy/simulations/`. The most import methods are:
+1. New class `Simulation` inherits the generic `SimulationBase`, both are in the new folder `struphy/simulations/`. The most important methods are:
     * `Simulation.run()`
     * `Simulation.pproc()` 
     * `Simulation.load_plotting_data()`
@@ -25,7 +25,7 @@ The model is viewed as everything related to the PDE, i.e. its variables, initia
 
 Some important changes to the logic: The model does not have access to `derham`, `mass_ops` etc. anymore, these can be called from `Propagator` when needed. Solves that need to happen before the time stepping (like initial Poisson solves) are moved to `model.allocate_helpers()`.
 
-2. The default launch file has been improved. See Tutorial 2 or test with `struphy params MODEL`. The files in the submodule struphy-parametershave been adapted.
+2. The default launch file has been improved. See Tutorial 2 or test with `struphy params MODEL`. The files in the submodule `struphy-parameter-files` have been adapted.
 
 3. Several new classes have been introduced for post processing and plotting data, see `post_processing_tools.py`. The most important ones are `PostProcessor` and `PlottingData`. Dictionaries in the plotting data have been replaced by classes. Many classes now feature the `__repr__` dunder for customized printing.
 
