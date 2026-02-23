@@ -296,7 +296,7 @@ class Particles(metaclass=ABCMeta):
             bc_sph = [bci if bci == "periodic" else "mirror" for bci in self.bc]
 
         for bci in bc_sph:
-            assert bci in ("periodic", "mirror", "fixed")
+            assert bci in ("periodic", "mirror", "fixed", "noslip")
         self._bc_sph = bc_sph
 
         # particle type
@@ -2319,7 +2319,7 @@ class Particles(metaclass=ABCMeta):
 
         bc_sph : list
             Boundary condition for sph density evaluation.
-            Either 'periodic', 'mirror' or 'fixed' in each direction.
+            Either 'periodic', 'mirror', 'fixed' or 'noslip' in each direction.
 
         is_domain_boundary: dict
             Has two booleans for each direction; True when the boundary of the MPI process is a domain boundary.
@@ -2448,19 +2448,19 @@ class Particles(metaclass=ABCMeta):
             self._bc_sph_index_shifts["z_m"] = flatten_index(0, 0, self.nz, self.nx, self.ny, self.nz)
             self._bc_sph_index_shifts["z_p"] = flatten_index(0, 0, self.nz, self.nx, self.ny, self.nz)
 
-            if self.bc_sph[0] in ("mirror", "fixed"):
+            if self.bc_sph[0] in ("mirror", "fixed", "noslip"):
                 if self.is_domain_boundary["x_m"]:
                     self._bc_sph_index_shifts["x_m"] = flatten_index(-1, 0, 0, self.nx, self.ny, self.nz)
                 if self.is_domain_boundary["x_p"]:
                     self._bc_sph_index_shifts["x_p"] = flatten_index(-1, 0, 0, self.nx, self.ny, self.nz)
 
-            if self.bc_sph[1] in ("mirror", "fixed"):
+            if self.bc_sph[1] in ("mirror", "fixed", "noslip"):
                 if self.is_domain_boundary["y_m"]:
                     self._bc_sph_index_shifts["y_m"] = flatten_index(0, -1, 0, self.nx, self.ny, self.nz)
                 if self.is_domain_boundary["y_p"]:
                     self._bc_sph_index_shifts["y_p"] = flatten_index(0, -1, 0, self.nx, self.ny, self.nz)
 
-            if self.bc_sph[2] in ("mirror", "fixed"):
+            if self.bc_sph[2] in ("mirror", "fixed", "noslip"):
                 if self.is_domain_boundary["z_m"]:
                     self._bc_sph_index_shifts["z_m"] = flatten_index(0, 0, -1, self.nx, self.ny, self.nz)
                 if self.is_domain_boundary["z_p"]:
@@ -2782,21 +2782,21 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         self._markers_z_p[:, self._sorting_boxes.box_index] -= shifts["z_p"]
 
         # Mirror position for boundary condition
-        if self.bc_sph[0] in ("mirror", "fixed"):
+        if self.bc_sph[0] in ("mirror", "fixed", "noslip"):
             self._mirror_particles(
                 "_markers_x_m",
                 "_markers_x_p",
                 is_domain_boundary=self.sorting_boxes.is_domain_boundary,
             )
 
-        if self.bc_sph[1] in ("mirror", "fixed"):
+        if self.bc_sph[1] in ("mirror", "fixed", "noslip"):
             self._mirror_particles(
                 "_markers_y_m",
                 "_markers_y_p",
                 is_domain_boundary=self.sorting_boxes.is_domain_boundary,
             )
 
-        if self.bc_sph[2] in ("mirror", "fixed"):
+        if self.bc_sph[2] in ("mirror", "fixed", "noslip"):
             self._mirror_particles(
                 "_markers_z_m",
                 "_markers_z_p",
@@ -2824,7 +2824,7 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         self._markers_x_p_y_p[:, self._sorting_boxes.box_index] += -shifts["x_p"] - shifts["y_p"]
 
         # Mirror position for boundary condition
-        if self.bc_sph[0] in ("mirror", "fixed") or self.bc_sph[1] in ("mirror", "fixed"):
+        if self.bc_sph[0] in ("mirror", "fixed", "noslip") or self.bc_sph[1] in ("mirror", "fixed", "noslip"):
             self._mirror_particles(
                 "_markers_x_m_y_m",
                 "_markers_x_m_y_p",
@@ -2854,7 +2854,7 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         self._markers_x_p_z_p[:, self._sorting_boxes.box_index] += -shifts["x_p"] - shifts["z_p"]
 
         # Mirror position for boundary condition
-        if self.bc_sph[0] in ("mirror", "fixed") or self.bc_sph[2] in ("mirror", "fixed"):
+        if self.bc_sph[0] in ("mirror", "fixed", "noslip") or self.bc_sph[2] in ("mirror", "fixed", "noslip"):
             self._mirror_particles(
                 "_markers_x_m_z_m",
                 "_markers_x_m_z_p",
@@ -2884,7 +2884,7 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         self._markers_y_p_z_p[:, self._sorting_boxes.box_index] += -shifts["y_p"] - shifts["z_p"]
 
         # Mirror position for boundary condition
-        if self.bc_sph[1] in ("mirror", "fixed") or self.bc_sph[2] in ("mirror", "fixed"):
+        if self.bc_sph[1] in ("mirror", "fixed", "noslip") or self.bc_sph[2] in ("mirror", "fixed", "noslip"):
             self._mirror_particles(
                 "_markers_y_m_z_m",
                 "_markers_y_m_z_p",
@@ -2926,7 +2926,7 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         self._markers_x_p_y_p_z_p[:, self._sorting_boxes.box_index] += -shifts["x_p"] - shifts["y_p"] - shifts["z_p"]
 
         # Mirror position for boundary condition
-        if any([bci in ("mirror", "fixed") for bci in self.bc_sph]):
+        if any([bci in ("mirror", "fixed", "noslip") for bci in self.bc_sph]):
             self._mirror_particles(
                 "_markers_x_m_y_m_z_m",
                 "_markers_x_m_y_m_z_p",
@@ -2950,7 +2950,7 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                 continue
 
             # x-direction
-            if self.bc_sph[0] in ("mirror", "fixed"):
+            if self.bc_sph[0] in ("mirror", "fixed", "noslip"):
                 if "x_m" in arr_name and is_domain_boundary["x_m"]:
                     arr[:, 0] *= -1.0
                     if self.bc_sph[0] == "fixed" and arr_name not in self._fixed_markers_set:
@@ -2964,6 +2964,12 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                             remove_holes=False,
                         )
                         self._fixed_markers_set[arr_name] = True
+                    elif self.bc_sph[0] == "noslip":
+                        # invert the velocities to have zero velocity at the boundary
+                        arr[:, 3] *= -1.0
+                        arr[:, 4] *= -1.0
+                        arr[:, 5] *= -1.0
+                        
                 elif "x_p" in arr_name and is_domain_boundary["x_p"]:
                     arr[:, 0] = 2.0 - arr[:, 0]
                     if self.bc_sph[0] == "fixed" and arr_name not in self._fixed_markers_set:
@@ -2977,9 +2983,14 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                             remove_holes=False,
                         )
                         self._fixed_markers_set[arr_name] = True
+                    elif self.bc_sph[0] == "noslip":
+                        # invert the velocities to have zero velocity at the boundary
+                        arr[:, 3] *= -1.0
+                        arr[:, 4] *= -1.0
+                        arr[:, 5] *= -1.0
 
             # y-direction
-            if self.bc_sph[1] in ("mirror", "fixed"):
+            if self.bc_sph[1] in ("mirror", "fixed", "noslip"):
                 if "y_m" in arr_name and is_domain_boundary["y_m"]:
                     arr[:, 1] *= -1.0
                     if self.bc_sph[1] == "fixed" and arr_name not in self._fixed_markers_set:
@@ -2993,6 +3004,12 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                             remove_holes=False,
                         )
                         self._fixed_markers_set[arr_name] = True
+                    elif self.bc_sph[1] == "noslip":
+                        # invert the velocities to have zero velocity at the boundary
+                        arr[:, 3] *= -1.0
+                        arr[:, 4] *= -1.0
+                        arr[:, 5] *= -1.0
+                        
                 elif "y_p" in arr_name and is_domain_boundary["y_p"]:
                     arr[:, 1] = 2.0 - arr[:, 1]
                     if self.bc_sph[1] == "fixed" and arr_name not in self._fixed_markers_set:
@@ -3006,9 +3023,14 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                             remove_holes=False,
                         )
                         self._fixed_markers_set[arr_name] = True
+                    elif self.bc_sph[1] == "noslip":
+                        # invert the velocities to have zero velocity at the boundary
+                        arr[:, 3] *= -1.0
+                        arr[:, 4] *= -1.0
+                        arr[:, 5] *= -1.0
 
             # z-direction
-            if self.bc_sph[2] in ("mirror", "fixed"):
+            if self.bc_sph[2] in ("mirror", "fixed", "noslip"):
                 if "z_m" in arr_name and is_domain_boundary["z_m"]:
                     arr[:, 2] *= -1.0
                     if self.bc_sph[2] == "fixed" and arr_name not in self._fixed_markers_set:
@@ -3022,6 +3044,12 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                             remove_holes=False,
                         )
                         self._fixed_markers_set[arr_name] = True
+                    elif self.bc_sph[2] == "noslip":
+                        # invert the velocities to have zero velocity at the boundary
+                        arr[:, 3] *= -1.0
+                        arr[:, 4] *= -1.0
+                        arr[:, 5] *= -1.0
+                        
                 elif "z_p" in arr_name and is_domain_boundary["z_p"]:
                     arr[:, 2] = 2.0 - arr[:, 2]
                     if self.bc_sph[2] == "fixed" and arr_name not in self._fixed_markers_set:
@@ -3035,6 +3063,11 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                             remove_holes=False,
                         )
                         self._fixed_markers_set[arr_name] = True
+                    elif self.bc_sph[2] == "noslip":
+                        # invert the velocities to have zero velocity at the boundary
+                        arr[:, 3] *= -1.0
+                        arr[:, 4] *= -1.0
+                        arr[:, 5] *= -1.0
 
     def determine_markers_in_box(self, list_boxes):
         """Determine the markers that belong to a certain box (list of boxes) and put them in an array"""
