@@ -1824,8 +1824,8 @@ class PushVinViscousPotential(Propagator):
             # checks
             check_option(self.kernel_type, LiteralOptions.OptsKernel)
             check_option(self.algo, self.OptsAlgo)
-            #validate mu
-            if not isinstance(self.mu, (int,float)):
+            # validate mu
+            if not isinstance(self.mu, (int, float)):
                 raise TypeError("Options.mu must be a number")
             if self.mu < 0:
                 raise ValueError("Options.mu must be non-negative")

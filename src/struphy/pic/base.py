@@ -3993,7 +3993,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             h1=h1,
             h2=h2,
             h3=h3,
-            mu = mu,
+            mu=mu,
         )
 
         # grid evaluation

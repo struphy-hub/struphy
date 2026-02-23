@@ -1384,19 +1384,21 @@ def test_sph_viscosity_evaluation_2d(
     # 2. Divergence of pi
     # -----------------------------
     mu = 1e-3
-    
+
     def div_pi_analytic(x, y, z, mu=None):
         """
         Returns:
             div_Pi_x, div_Pi_y, div_Pi_z
         """
 
-        div_x = mu *( (28 / 3) * xp.pi**2 * xp.sin(2 * xp.pi * x) * xp.cos(2 * xp.pi * y) - (4 * xp.pi**2 / 3) * xp.sin(
-            2 * xp.pi * x
-        ) * xp.sin(2 * xp.pi * y))
-        div_y = mu *( (28 / 3) * xp.pi**2 * xp.cos(2 * xp.pi * x) * xp.cos(2 * xp.pi * y) + (4 * xp.pi**2 / 3) * xp.cos(
-            2 * xp.pi * x
-        ) * xp.sin(2 * xp.pi * y))
+        div_x = mu * (
+            (28 / 3) * xp.pi**2 * xp.sin(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
+            - (4 * xp.pi**2 / 3) * xp.sin(2 * xp.pi * x) * xp.sin(2 * xp.pi * y)
+        )
+        div_y = mu * (
+            (28 / 3) * xp.pi**2 * xp.cos(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
+            + (4 * xp.pi**2 / 3) * xp.cos(2 * xp.pi * x) * xp.sin(2 * xp.pi * y)
+        )
         div_z = mu * xp.zeros_like(x)
 
         return div_x, div_y, div_z
@@ -1460,7 +1462,7 @@ def test_sph_viscosity_evaluation_2d(
     if rank == 0:
         print(f"{density.shape = }")
         print(f"{xp.min(density) = }, {xp.max(density) = }")
-        
+
     if show_plot:
         plt.figure(figsize=(10, 5))
         plt.subplot(1, 2, 1)
@@ -1695,8 +1697,13 @@ def test_sph_viscosity_evaluation_2d(
 
 if __name__ == "__main__":
     test_sph_viscosity_evaluation_2d(
-        (12, 12, 1), "gaussian_2d", "periodic", "periodic", 101, 
-        tesselation=True, show_plot=False,
+        (12, 12, 1),
+        "gaussian_2d",
+        "periodic",
+        "periodic",
+        101,
+        tesselation=True,
+        show_plot=False,
     )
     # test_sph_velocity_evaluation_2d(
     #     (12, 12, 1), "gaussian_2d", 1, "periodic", "periodic", 101, tesselation=False, show_plot=True

@@ -2982,29 +2982,29 @@ class ConstantVelocity(CartesianFluidEquilibrium):
         elif self.params["density_profile"] == "gaussian_xy":
             return self.params["n"] * xp.exp(-(x**2 + y**2) / self.params["p0"])
         elif self.params["density_profile"] == "step_function_xy":
-            assert(isinstance, self.domain, domains.Cuboid)
+            assert (isinstance, self.domain, domains.Cuboid)
             l1 = self.domain.params["l1"]
             r1 = self.domain.params["r1"]
             l2 = self.domain.params["l2"]
             r2 = self.domain.params["r2"]
-            
+
             out = 1e-8 + 0 * x
-            
+
             if self.params["upper_x"] is not None:
                 mask_x_upper = x < self.params["upper_x"]
             else:
                 mask_x_upper = xp.ones_like(x, dtype=bool)
-                
+
             if self.params["lower_x"] is not None:
                 mask_x_lower = x > self.params["lower_x"]
             else:
                 mask_x_lower = xp.ones_like(x, dtype=bool)
-                
+
             if self.params["upper_y"] is not None:
                 mask_y_upper = y < self.params["upper_y"]
             else:
                 mask_y_upper = xp.ones_like(y, dtype=bool)
-                
+
             if self.params["lower_y"] is not None:
                 mask_y_lower = y > self.params["lower_y"]
             else:
@@ -3013,9 +3013,9 @@ class ConstantVelocity(CartesianFluidEquilibrium):
             mask_x = xp.logical_and(mask_x_upper, mask_x_lower)
             mask_y = xp.logical_and(mask_y_upper, mask_y_lower)
             mask = xp.logical_and(mask_x, mask_y)
-            
+
             out[mask] = self.params["n"]
-            
+
             return out
 
 
