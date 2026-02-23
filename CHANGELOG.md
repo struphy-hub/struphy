@@ -30,7 +30,7 @@ Some important changes to the logic: The model does not have access to `derham`,
 3. Several new classes have been introduced for post processing and plotting data, see `post_processing_tools.py`. The most important ones are `PostProcessor` and `PlottingData`. Dictionaries in the plotting data have been replaced by classes. Many classes now feature the `__repr__` dunder for customized printing.
 
 
-**API changes:**
+### API changes
 
 New classes exposed: `Simulation`, `PostProcessor` and `PlottingData`.
 
