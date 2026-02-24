@@ -288,9 +288,10 @@ class PostProcessor:
         verbose : bool
             Verbosity flag.
         """
-        if MPI.COMM_WORLD.Get_rank() == 0:
+        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
             print(f"\nPost-processing path {self.path_out}")
-
+        
+        self.print_progress(10)
         # check for fields and kinetic data in hdf5 file that need post processing
         with h5py.File(os.path.join(self.path_out, "data/", "data_proc0.hdf5"), "r") as file:
             # save time grid at which post-processing data is created
@@ -320,6 +321,8 @@ class PostProcessor:
                         self.exist_particles["n_sph"] = True
             else:
                 self.exist_particles = None
+        
+        self.print_progress(30)
 
         # feec variables
         self.process_fields(
@@ -330,6 +333,8 @@ class PostProcessor:
             verbose=verbose,
         )
 
+        self.print_progress(50)
+
         # particle variables
         self.process_particles(
             step=step,
@@ -337,6 +342,8 @@ class PostProcessor:
             classify=classify,
             verbose=verbose,
         )
+        
+        self.print_progress(80)
 
     def process_fields(
         self,
@@ -1087,6 +1094,9 @@ class PostProcessor:
                 # save distribution functions
                 xp.save(os.path.join(path_view, "n_sph.npy"), data)
 
+    def print_progress(self, progress: int) -> None:
+        # if self.env.gui and self.rank == 0:
+        print(f"[PROGRESS:{progress}]")
 
 class PlottingData:
     """Container for loading and accessing post-processed Struphy simulation data.

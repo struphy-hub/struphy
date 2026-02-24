@@ -647,12 +647,16 @@ RESTARTing from:
         physical field views, and optionally produce VTK outputs.
         """
 
+        self.print_progress(0)
+
         # setup post processor and plotting
         if not hasattr(self, "_post_processor") and self.rank == 0:
             self._post_processor = PostProcessor(sim=self)
 
         if time_trace:
             self.post_processor.plot_time_traces(verbose=verbose)
+
+        self.print_progress(10)
 
         self.post_processor.process(
             step=step,
@@ -663,6 +667,10 @@ RESTARTing from:
             create_vtk=create_vtk,
             verbose=verbose,
         )
+
+        self.print_progress(100)
+        if self.env.gui and self.rank == 0:
+            print("[STEP:3:done]")
 
     def load_plotting_data(self, verbose: bool = False):
         """Load plotting datasets produced by post-processing.
