@@ -499,10 +499,15 @@ RESTARTing from:
             print(f"\nSTART TIME STEPPING WITH '{split_algo}' SPLITTING:")
 
         self.print_progress(100)
-
+        if self.env.gui and self.rank == 0:
+            print("[STEP:1:done]")
+        self.print_progress(0)
         # time loop
         run_time_now = 0.0
+        total_steps_int = int(round((Tend - self.time_state["value"][0]) / dt))
         while True:
+            step = int(self.time_state["index"][0])
+            self.print_progress(int(step / total_steps_int * 100))
             # print("Exporting scalar quantities to file ...")
             self.model.scalar_quantities_to_file(
                 time=self.time_state["value"][0], filepath=os.path.join(self.env.path_out, "scalar_quantities.txt")
@@ -611,6 +616,9 @@ RESTARTing from:
             self.clone_config.free()
 
         ProfileManager.finalize()
+
+        if self.env.gui and self.rank == 0:
+            print("[STEP:2:done]")
 
     def pproc(
         self,
