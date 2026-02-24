@@ -107,6 +107,18 @@ class Simulation(SimulationBase):
         Wall-clock time when the simulation object was created.
     """
 
+    def __str__(self) -> str:
+        _str =  f"Simulation setup for model {self.model_name}:"
+        _str += self.meta_str
+        return _str
+    
+    @property
+    def meta_str(self):
+        _str = "\nMETADATA:"
+        for k, v in self.meta.items():
+            _str += f"\n{k}:".ljust(25) + str(v)
+        return _str
+
     def __init__(
         self,
         model: StruphyModel,
@@ -154,10 +166,8 @@ class Simulation(SimulationBase):
             self.comm_size = self.comm.Get_size()
             self.Barrier = self.comm.Barrier
 
-        if self.rank == 0:
-            print("")
-            if verbose:
-                self.show_parameters()
+        if self.rank == 0 and verbose:
+            self.show_parameters()
 
         # synchronize MPI processes to set same start time of simulation for all processes
         self.Barrier()
@@ -167,7 +177,7 @@ class Simulation(SimulationBase):
         assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
         self.model_name = model.__class__.__name__
 
-        if self.rank == 0:
+        if self.rank == 0 and verbose:
             print(f"Instance of simulation for model {self.model_name} ...")
 
         # meta-data
@@ -192,7 +202,7 @@ class Simulation(SimulationBase):
         self.meta["max wall-clock [min]"] = max_runtime
         self.meta["save interval [steps]"] = save_step
 
-        if self.rank == 0:
+        if self.rank == 0 and verbose:
             print("\nMETADATA:")
             for k, v in self.meta.items():
                 print(f"{k}:".ljust(25), v)
@@ -263,7 +273,7 @@ class Simulation(SimulationBase):
         self.units = Units(base_units)
         self.normalize_model()
 
-        if self.rank == 0:
+        if self.rank == 0 and verbose:
             print("\n... Done.")
 
     # ----------------
