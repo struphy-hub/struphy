@@ -396,7 +396,11 @@ class Simulation(SimulationBase):
         if self.rank == 0:
             print(f"\nStarting simulation run for model {self.model_name} ...")
 
+        self.print_progress(0)
+
         self._remove_existing_output_files(verbose=verbose)
+
+        self.print_progress(5)
 
         # Display propagator options and intial conditions:
         if MPI.COMM_WORLD.Get_rank() == 0:
@@ -416,19 +420,20 @@ class Simulation(SimulationBase):
                         variable.show_backgrounds()
                         variable.show_perturbations()
                         variable.show_initial_condition()
-
+        self.print_progress(10)
         if not self.env.restart:
             # equation paramters
             self.allocate(verbose=verbose)
-
+            self.print_progress(30)
             # output
             self.initialize_data_storage(verbose=verbose)
-
+            self.print_progress(40)
             # peek view into geometry
             self.save_geometry_and_equil_vtk(verbose=verbose)
-
+            self.print_progress(50)
             # plasma parameters
             self.compute_plasma_params(verbose=verbose)
+            self.print_progress(60)
 
         # print info on mpi procs
         if self.rank < 32:
@@ -443,6 +448,8 @@ class Simulation(SimulationBase):
         dt = self.time_opts.dt
         Tend = self.time_opts.Tend
         split_algo = self.time_opts.split_algo
+
+        self.print_progress(70)
 
         # set initial conditions for all variables
         if self.env.restart:
@@ -464,14 +471,24 @@ RESTARTing from:
         else:
             total_steps = str(int(round(Tend / dt)))
 
+        self.print_progress(80)
         # compute initial scalars and kinetic data, pass time state to all propagators
         self.model.update_scalar_quantities()
         self.model.update_markers_to_be_saved()
+        self.print_progress(85)
         self.model.update_distr_functions()
+
+        self.print_progress(90)
+
         self._add_time_state(self.time_state["value"])
+
+        if self.env.gui and self.rank == 0:
+            print("[PROGRESS:90]")
 
         # add all variables to be saved to data object
         save_keys_all, save_keys_end = self._initialize_hdf5_datasets(self.data, self.comm_size)
+
+        self.print_progress(95)
 
         # ======================== main time loop ======================
         self.model.update_scalar_quantities()
@@ -481,10 +498,12 @@ RESTARTing from:
 
             print(f"\nSTART TIME STEPPING WITH '{split_algo}' SPLITTING:")
 
+        self.print_progress(100)
+
         # time loop
         run_time_now = 0.0
         while True:
-            print("Exporting scalar quantities to file ...")
+            # print("Exporting scalar quantities to file ...")
             self.model.scalar_quantities_to_file(
                 time=self.time_state["value"][0], filepath=os.path.join(self.env.path_out, "scalar_quantities.txt")
             )
@@ -1286,6 +1305,10 @@ RESTARTing from:
 
                         if MPI.COMM_WORLD.Get_size() > 1:
                             subval.particles.mpi_sort_markers(do_test=True)
+
+    def print_progress(self, progress: int) -> None:
+        if self.env.gui and self.rank == 0:
+            print(f"[PROGRESS:{progress}]")
 
     # ------------------------------------------------------
     # Common properties with setters (from input parameters)
