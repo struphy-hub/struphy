@@ -35,7 +35,7 @@ from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial import perturbations, utilities
 from struphy.initial.base import Perturbation
 from struphy.initial.perturbations import Noise
-from struphy.io.options import FieldsBackground, GivenInBasis, NoiseDirections, OptsFEECSpace
+from struphy.io.options import FieldsBackground, LiteralOptions
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
@@ -884,13 +884,13 @@ class Derham:
     def create_spline_function(
         self,
         name: str,
-        space_id: OptsFEECSpace,
+        space_id: LiteralOptions.OptsFEECSpace,
         coeffs: StencilVector | BlockVector = None,
         backgrounds: FieldsBackground | list = None,
         perturbations: Perturbation | list = None,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         """Creat a callable spline function.
 
@@ -1442,7 +1442,7 @@ class SplineFunction:
         perturbations: Perturbation | list = None,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         self._name = name
         self._space_id = space_id
@@ -1494,7 +1494,7 @@ class SplineFunction:
             print(f"\nAllocated SplineFuntion '{self.name}' in space '{self.space_id}'.")
 
         if self.backgrounds is not None or self.perturbations is not None:
-            self.initialize_coeffs(domain=self.domain, equil=self.equil)
+            self.initialize_coeffs(domain=self.domain, equil=self.equil, verbose=verbose)
 
     @property
     def name(self):
@@ -1675,6 +1675,7 @@ class SplineFunction:
         perturbations: Perturbation | list = None,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
+        verbose: bool = False,
     ):
         """
         Set the initial conditions for self.vector.
@@ -1707,14 +1708,14 @@ class SplineFunction:
         # start from zero coeffs
         self._vector *= 0.0
 
-        if MPI.COMM_WORLD.Get_rank() == 0:
+        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
             print(f"Initializing {self.name} ...")
 
         # add backgrounds to initial vector
         if self.backgrounds is not None:
             for fb in self.backgrounds:
                 assert isinstance(fb, FieldsBackground)
-                if MPI.COMM_WORLD.Get_rank() == 0:
+                if verbose and MPI.COMM_WORLD.Get_rank() == 0:
                     print(f"Adding background {fb} ...")
 
                 # special case of const
@@ -1769,7 +1770,7 @@ class SplineFunction:
         # add perturbations to coefficient vector
         if self.perturbations is not None:
             for ptb in self.perturbations:
-                if MPI.COMM_WORLD.Get_rank() == 0:
+                if verbose and MPI.COMM_WORLD.Get_rank() == 0:
                     print(f"Adding perturbation {ptb} ...")
 
                 # special case of white noise in logical space for different components
@@ -2238,7 +2239,7 @@ class SplineFunction:
 
     def _add_noise(
         self,
-        direction: NoiseDirections = "e3",
+        direction: LiteralOptions.NoiseDirections = "e3",
         amp: float = 0.0001,
         seed: int = None,
         n: int = None,

@@ -58,7 +58,7 @@ There are four possibilities:
     \hat v = \sqrt{\frac{k_\textnormal{B} \hat T}{m_\textnormal{bulk}}}\,.
 
 Several additional units are derived internally from the above basic units, 
-in the class :class:`~struphy.io.options.Units`. In particular,
+in the class :class:`~struphy.physics.physics.Units`. In particular,
 
 * the **time** unit in **Seconds**:
 
@@ -92,7 +92,7 @@ We refer to :ref:`disc_example` for an example of how to derive a normalization 
 Units class
 -----------
 
-.. autoclass:: struphy.io.options.Units
+.. autoclass:: struphy.physics.physics.Units
     :members:
     :undoc-members:
 
@@ -116,7 +116,7 @@ featuring the plasma- and cyclotron frequency of species :math:`\textrm{s}`, res
 
 where :math:`Z_\textrm{s}` and :math:`A_\textrm{s}` stand for the species' charge and mass number, respectively.
 These equation parameters are defined in :class:`~struphy.models.species.Species.EquationParameters` and can be overridden
-in the launch file via :func:`~struphy.models.species.Species.set_phys_params`.
+in the launch file via :func:`~struphy.models.species.Species.set_species_properties`.
 
 .. autoclass:: struphy.models.species.Species.EquationParameters
     :members:

@@ -12,7 +12,7 @@ from line_profiler import profile
 
 from struphy.feec import preconditioner
 from struphy.feec.linear_operators import LinOpWithTransp
-from struphy.io.options import OptsGenSolver, OptsMassPrecond, OptsSymmSolver, OptsVecSpace, check_option
+from struphy.io.options import LiteralOptions
 from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import Maxwellian3D
@@ -30,6 +30,7 @@ from struphy.pic.pushing.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
+from struphy.utils.utils import check_option
 
 
 class VlasovAmpere(Propagator):
@@ -106,14 +107,14 @@ class VlasovAmpere(Propagator):
 
     @dataclass
     class Options:
-        solver: OptsSymmSolver = "pcg"
-        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
 
         def __post_init__(self):
             # checks
-            check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
             # defaults
             if self.solver_params is None:
@@ -128,14 +129,10 @@ class VlasovAmpere(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         # scaling factors
         alpha = self.variables.ions.species.equation_params.alpha
         epsilon = self.variables.ions.species.equation_params.epsilon
@@ -358,14 +355,14 @@ class EfieldWeights(Propagator):
     class Options:
         alpha: float = 1.0
         kappa: float = 1.0
-        solver: OptsSymmSolver = "pcg"
-        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
 
         def __post_init__(self):
             # checks
-            check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
@@ -379,14 +376,10 @@ class EfieldWeights(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._alpha = self.options.alpha
         self._kappa = self.options.kappa
 
@@ -583,18 +576,18 @@ class PressureCoupling6D(Propagator):
     class Options:
         # propagator options
         ep_scale: float = 1.0
-        u_space: OptsVecSpace = "Hdiv"
-        solver: OptsSymmSolver = "pcg"
-        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        u_space: LiteralOptions.OptsVecSpace = "Hdiv"
+        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         filter_params: FilterParameters = None
         use_perp_model: bool = True
 
         def __post_init__(self):
             # checks
-            check_option(self.u_space, OptsVecSpace)
-            check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.u_space, LiteralOptions.OptsVecSpace)
+            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
             assert isinstance(self.ep_scale, float)
             assert isinstance(self.use_perp_model, bool)
 
@@ -614,14 +607,10 @@ class PressureCoupling6D(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         if self.options.u_space == "H1vec":
             self._u_form_int = 0
         else:
@@ -908,18 +897,18 @@ class CurrentCoupling6DCurrent(Propagator):
     class Options:
         # propagator options
         b_tilde: FEECVariable = None
-        u_space: OptsVecSpace = "Hdiv"
-        solver: OptsSymmSolver = "pcg"
-        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        u_space: LiteralOptions.OptsVecSpace = "Hdiv"
+        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         filter_params: FilterParameters = None
         boundary_cut: tuple = (0.0, 0.0, 0.0)
 
         def __post_init__(self):
             # checks
-            check_option(self.u_space, OptsVecSpace)
-            check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.u_space, LiteralOptions.OptsVecSpace)
+            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
             assert self.b_tilde.space == "Hdiv"
 
             # defaults
@@ -935,14 +924,10 @@ class CurrentCoupling6DCurrent(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._space_key_int = int(self.derham.space_to_form[self.options.u_space])
 
         particles = self.variables.ions.particles
@@ -1235,17 +1220,17 @@ class CurrentCoupling5DCurlb(Propagator):
         # propagator options
         b_tilde: FEECVariable = None
         ep_scale: float = 1.0
-        u_space: OptsVecSpace = "Hdiv"
-        solver: OptsSymmSolver = "pcg"
-        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        u_space: LiteralOptions.OptsVecSpace = "Hdiv"
+        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         filter_params: FilterParameters = None
 
         def __post_init__(self):
             # checks
-            check_option(self.u_space, OptsVecSpace)
-            check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.u_space, LiteralOptions.OptsVecSpace)
+            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
             assert isinstance(self.b_tilde, FEECVariable)
             assert isinstance(self.ep_scale, float)
 
@@ -1265,14 +1250,10 @@ class CurrentCoupling5DCurlb(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         if self.options.u_space == "H1vec":
             self._u_form_int = 0
         else:
@@ -1500,9 +1481,9 @@ class CurrentCoupling5DGradB(Propagator):
         ep_scale: float = 1.0
         algo: OptsAlgo = "explicit"
         butcher: ButcherTableau = None
-        u_space: OptsVecSpace = "Hdiv"
-        solver: OptsSymmSolver = "pcg"
-        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        u_space: LiteralOptions.OptsVecSpace = "Hdiv"
+        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         filter_params: FilterParameters = None
         dg_solver_params: DiscreteGradientSolverParameters = None
@@ -1510,9 +1491,9 @@ class CurrentCoupling5DGradB(Propagator):
         def __post_init__(self):
             # checks
             check_option(self.algo, self.OptsAlgo)
-            check_option(self.u_space, OptsVecSpace)
-            check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond)
+            check_option(self.u_space, LiteralOptions.OptsVecSpace)
+            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
             assert isinstance(self.b_tilde, FEECVariable)
             assert isinstance(self.ep_scale, float)
 
@@ -1538,14 +1519,10 @@ class CurrentCoupling5DGradB(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         if self.options.u_space == "H1vec":
             self._u_form_int = 0
         else:

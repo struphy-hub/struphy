@@ -8,7 +8,8 @@ import scipy
 import scipy.special
 
 from struphy.initial.base import Perturbation
-from struphy.io.options import GivenInBasis, NoiseDirections, check_option
+from struphy.io.options import LiteralOptions
+from struphy.utils.utils import check_option
 
 
 @dataclass
@@ -27,16 +28,16 @@ class Noise(Perturbation):
         Seed for the random number generator.
     """
 
-    direction: NoiseDirections = "e3"
+    direction: LiteralOptions.NoiseDirections = "e3"
     amp: float = 0.0001
     seed: int = None
     comp: int = 0
-    given_in_basis: GivenInBasis = None
+    given_in_basis: LiteralOptions.GivenInBasis = None
 
     def __post_init__(
         self,
     ):
-        check_option(self.direction, NoiseDirections)
+        check_option(self.direction, LiteralOptions.NoiseDirections)
 
     def __call__(self):
         pass
@@ -111,7 +112,7 @@ class ModesSin(Perturbation):
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
-        given_in_basis: GivenInBasis = None,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
         if ls is not None:
@@ -162,25 +163,26 @@ class ModesSin(Perturbation):
         else:
             assert len(pfuns_params) == n_modes
 
-        self._pfuns = []
+        self.pfuns = []
         for pfun, params in zip(pfuns, pfuns_params):
             if pfun == "Id":
-                self._pfuns += [lambda eta3: 1.0]
+                self.pfuns += [lambda eta3: 1.0]
             elif pfun == "localize":
-                self._pfuns += [
+                self.pfuns += [
                     lambda eta3: xp.tanh((eta3 - 0.5) / params) / xp.cosh((eta3 - 0.5) / params),
                 ]
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
 
-        self._ls = ls
-        self._ms = ms
-        self._ns = ns
-        self._amps = amps
-        self._Lx = Lx
-        self._Ly = Ly
-        self._Lz = Lz
-        self._theta = theta
+        self.ls = tuple(ls)
+        self.ms = tuple(ms)
+        self.ns = tuple(ns)
+        self.amps = tuple(amps)
+        self.Lx = Lx
+        self.Ly = Ly
+        self.Lz = Lz
+        self.theta = tuple(theta)
+        self.pfuns = tuple(self.pfuns)
 
         # use the setters
         self.given_in_basis = given_in_basis
@@ -189,15 +191,12 @@ class ModesSin(Perturbation):
     def __call__(self, x, y, z):
         val = 0.0
 
-        for amp, l, m, n, t, pfun in zip(self._amps, self._ls, self._ms, self._ns, self._theta, self._pfuns):
+        for amp, l, m, n, t, pfun in zip(self.amps, self.ls, self.ms, self.ns, self.theta, self.pfuns):
             val += (
                 amp
                 * pfun(z)
                 * xp.sin(
-                    l * 2.0 * xp.pi / self._Lx * x
-                    + m * 2.0 * xp.pi / self._Ly * y
-                    + n * 2.0 * xp.pi / self._Lz * z
-                    + t,
+                    l * 2.0 * xp.pi / self.Lx * x + m * 2.0 * xp.pi / self.Ly * y + n * 2.0 * xp.pi / self.Lz * z + t,
                 )
             )
 
@@ -247,7 +246,7 @@ class ModesCos(Perturbation):
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
-        given_in_basis: GivenInBasis = None,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
         if ls is not None:
@@ -280,13 +279,13 @@ class ModesCos(Perturbation):
         else:
             assert len(amps) == n_modes
 
-        self._ls = ls
-        self._ms = ms
-        self._ns = ns
-        self._amps = amps
-        self._Lx = Lx
-        self._Ly = Ly
-        self._Lz = Lz
+        self.ls = tuple(ls)
+        self.ms = tuple(ms)
+        self.ns = tuple(ns)
+        self.amps = tuple(amps)
+        self.Lx = Lx
+        self.Ly = Ly
+        self.Lz = Lz
 
         # use the setters
         self.given_in_basis = given_in_basis
@@ -295,9 +294,9 @@ class ModesCos(Perturbation):
     def __call__(self, x, y, z):
         val = 0.0
 
-        for amp, l, m, n in zip(self._amps, self._ls, self._ms, self._ns):
+        for amp, l, m, n in zip(self.amps, self.ls, self.ms, self.ns):
             val += amp * xp.cos(
-                l * 2.0 * xp.pi / self._Lx * x + m * 2.0 * xp.pi / self._Ly * y + n * 2.0 * xp.pi / self._Lz * z,
+                l * 2.0 * xp.pi / self.Lx * x + m * 2.0 * xp.pi / self.Ly * y + n * 2.0 * xp.pi / self.Lz * z,
             )
         # print( "Cos max value", val.max())
         return val
@@ -448,7 +447,7 @@ class ModesCosCos(Perturbation):
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
-        given_in_basis: GivenInBasis = None,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
         if ls is not None:
@@ -553,7 +552,7 @@ class ModesSinSin(Perturbation):
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
-        given_in_basis: GivenInBasis = None,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
         if ls is not None:
@@ -658,7 +657,7 @@ class ModesSinCos(Perturbation):
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
-        given_in_basis: GivenInBasis = None,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
         # number of modes
@@ -765,7 +764,7 @@ class ModesCosSin(Perturbation):
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
-        given_in_basis: GivenInBasis = None,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
         # number of modes
@@ -902,7 +901,7 @@ class TorusModesSin(Perturbation):
         amps=(1e-4,),
         pfuns=("sin",),
         pfun_params=None,
-        given_in_basis: GivenInBasis = None,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
         if given_in_basis is not None:
@@ -950,15 +949,18 @@ class TorusModesSin(Perturbation):
                 self._pfuns += [lambda eta1: xp.sin(ls * xp.pi * eta1)]
             elif pfun == "exp":
                 self._pfuns += [
-                    lambda eta1: xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
-                    / xp.sqrt(2 * xp.pi * params[1] ** 2),
+                    lambda eta1: (
+                        xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2)) / xp.sqrt(2 * xp.pi * params[1] ** 2)
+                    ),
                 ]
             elif pfun == "d_exp":
                 self._pfuns += [
-                    lambda eta1: -(eta1 - params[0])
-                    / params[1] ** 2
-                    * xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
-                    / xp.sqrt(2 * xp.pi * params[1] ** 2),
+                    lambda eta1: (
+                        -(eta1 - params[0])
+                        / params[1] ** 2
+                        * xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
+                        / xp.sqrt(2 * xp.pi * params[1] ** 2)
+                    ),
                 ]
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
@@ -1035,7 +1037,7 @@ class TorusModesCos(Perturbation):
         amps: tuple = (0.1,),
         pfuns: tuple = ("sin",),
         pfun_params=None,
-        given_in_basis: GivenInBasis = None,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
         if given_in_basis is not None:
@@ -1085,15 +1087,18 @@ class TorusModesCos(Perturbation):
                 self._pfuns += [lambda eta1: xp.cos(xp.pi * eta1)]
             elif pfun == "exp":
                 self._pfuns += [
-                    lambda eta1: xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
-                    / xp.sqrt(2 * xp.pi * params[1] ** 2),
+                    lambda eta1: (
+                        xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2)) / xp.sqrt(2 * xp.pi * params[1] ** 2)
+                    ),
                 ]
             elif pfun == "d_exp":
                 self._pfuns += [
-                    lambda eta1: -(eta1 - params[0])
-                    / params[1] ** 2
-                    * xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
-                    / xp.sqrt(2 * xp.pi * params[1] ** 2),
+                    lambda eta1: (
+                        -(eta1 - params[0])
+                        / params[1] ** 2
+                        * xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
+                        / xp.sqrt(2 * xp.pi * params[1] ** 2)
+                    ),
                 ]
             else:
                 raise ValueError(
@@ -1146,7 +1151,7 @@ class Shear_x(Perturbation):
         self,
         amp=1e-4,
         delta=1 / 15,
-        given_in_basis: GivenInBasis = None,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
         if given_in_basis is not None:
@@ -1193,7 +1198,7 @@ class Shear_y(Perturbation):
         self,
         amp=1e-4,
         delta=1 / 15,
-        given_in_basis: GivenInBasis = None,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
         if given_in_basis is not None:
@@ -1240,7 +1245,7 @@ class Shear_z(Perturbation):
         self,
         amp=1e-4,
         delta=1 / 15,
-        given_in_basis: GivenInBasis = None,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
         if given_in_basis is not None:
@@ -1287,7 +1292,7 @@ class Erf_z(Perturbation):
         self,
         amp=1e-4,
         delta=1 / 15,
-        given_in_basis: GivenInBasis = None,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
         if given_in_basis is not None:

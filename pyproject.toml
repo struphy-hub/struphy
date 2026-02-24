@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "struphy"
-version = "3.0.1"
+version = "3.0.3"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
@@ -34,6 +34,7 @@ dependencies = [
     'vtk',
     'tqdm',
     'argcomplete',
+    'plotly',
     'pytest',
     'pytest-mpi',
     'pytest-testmon',
@@ -58,14 +59,13 @@ dev = [
     "pylint",
     "ssort",
     "add-trailing-comma",
-    "ruff>=0.9.1",
+    "ruff>=0.15.0",
     "pre-commit",
     "nbstripout",
     "tabulate",
     "tomli-w",
     "kaleido",
     "pandas",
-    "plotly",
 ]
 mpi = [
     'mpi4py',
@@ -171,7 +171,6 @@ ignore = [
 [tool.pytest.ini_options]
 markers = [
     "models",
-    "toy",
     "fluid",
     "kinetic",
     "hybrid",

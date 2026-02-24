@@ -1,4 +1,12 @@
-"Mapped domains (single patch)."
+"""Mapped domains (single patch).
+
+Module providing mapping classes for single-patch geometries used by Struphy.
+
+This module includes classes such as `Tokamak`, `GVECunit`, `DESCunit`,
+`IGAPolarCylinder`, `IGAPolarTorus`, and `Cuboid`. Mappings transform
+reference coordinates to Cartesian coordinates and integrate with spline-based
+grid constructions and field-line tracing.
+"""
 
 import copy
 

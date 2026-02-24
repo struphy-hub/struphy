@@ -15,12 +15,7 @@ from numpy import array, polynomial, random
 from struphy.feec.mass import WeightedMassOperators
 from struphy.fields_background.base import MHDequilibrium
 from struphy.fields_background.equils import set_defaults
-from struphy.io.options import (
-    OptsKernel,
-    OptsMPIsort,
-    OptsVecSpace,
-    check_option,
-)
+from struphy.io.options import LiteralOptions
 from struphy.io.setup import descend_options_dict
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.ode.utils import ButcherTableau
@@ -33,6 +28,7 @@ from struphy.pic.pushing.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
+from struphy.utils.utils import check_option
 
 
 class PushEta(Propagator):
@@ -87,24 +83,23 @@ class PushEta(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         # get kernel
         kernel = Pyccelkernel(pusher_kernels.push_eta_stage)
 
         # define algorithm
         butcher = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
-        import cunumpy as xp
+        try:
+            import cunumpy as xp
 
-        butcher._a = xp.diag(butcher.a, k=-1)
-        butcher._a = xp.array(list(butcher.a) + [0.0])
+            butcher._a = xp.diag(butcher.a, k=-1)
+            butcher._a = xp.array(list(butcher.a) + [0.0])
+        except ValueError:
+            pass
 
         args_kernel = (
             butcher.a,
@@ -186,14 +181,10 @@ class PushVxB(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         # scaling factor
         self._epsilon = self.variables.ions.species.equation_params.epsilon
         assert self.derham is not None, f"{self.__class__.__name__} needs a Derham object."
@@ -319,14 +310,10 @@ class PushVinEfield(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         # scaling factor
         self._epsilon = self.variables.var.species.equation_params.epsilon
 
@@ -419,11 +406,11 @@ class PushEtaPC(Propagator):
         butcher: ButcherTableau = None
         use_perp_model: bool = True
         u_tilde: FEECVariable = None
-        u_space: OptsVecSpace = "Hdiv"
+        u_space: LiteralOptions.OptsVecSpace = "Hdiv"
 
         def __post_init__(self):
             # checks
-            check_option(self.u_space, OptsVecSpace)
+            check_option(self.u_space, LiteralOptions.OptsVecSpace)
             assert isinstance(self.u_tilde, FEECVariable)
 
             # defaults
@@ -439,14 +426,10 @@ class PushEtaPC(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._u_tilde = self.options.u_tilde.spline.vector
 
         # get kernell:
@@ -564,13 +547,13 @@ class PushGuidingCenterBxEstar(Propagator):
         butcher: ButcherTableau = None
         maxiter: int = 20
         tol: float = 1e-7
-        mpi_sort: OptsMPIsort = "each"
+        mpi_sort: LiteralOptions.OptsMPIsort = "each"
         verbose: bool = False
 
         def __post_init__(self):
             # checks
             check_option(self.algo, self.OptsAlgo)
-            check_option(self.mpi_sort, OptsMPIsort)
+            check_option(self.mpi_sort, LiteralOptions.OptsMPIsort)
 
             # defaults
             if self.phi is None:
@@ -588,14 +571,10 @@ class PushGuidingCenterBxEstar(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         # scaling factor
         self._epsilon = self.variables.ions.species.equation_params.epsilon
 
@@ -1005,13 +984,13 @@ class PushGuidingCenterParallel(Propagator):
         butcher: ButcherTableau = None
         maxiter: int = 20
         tol: float = 1e-7
-        mpi_sort: OptsMPIsort = "each"
+        mpi_sort: LiteralOptions.OptsMPIsort = "each"
         verbose: bool = False
 
         def __post_init__(self):
             # checks
             check_option(self.algo, self.OptsAlgo)
-            check_option(self.mpi_sort, OptsMPIsort)
+            check_option(self.mpi_sort, LiteralOptions.OptsMPIsort)
 
             # defaults
             if self.phi is None:
@@ -1029,14 +1008,10 @@ class PushGuidingCenterParallel(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         # scaling factor
         self._epsilon = self.variables.ions.species.equation_params.epsilon
 
@@ -1438,14 +1413,10 @@ class PushDeterministicDiffusion(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._bc_type = self.options.bc_type
         self._diffusion = self.options.diff_coeff
 
@@ -1571,14 +1542,10 @@ class PushRandomDiffusion(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         self._bc_type = self.options.bc_type
         self._diffusion = self.options.diff_coeff
 
@@ -1679,7 +1646,7 @@ class PushVinSPHpressure(Propagator):
         OptsAlgo = Literal["forward_euler"]
         OptsThermo = Literal["isothermal", "polytropic"]
         # propagator options
-        kernel_type: OptsKernel = "gaussian_2d"
+        kernel_type: LiteralOptions.OptsKernel = "gaussian_2d"
         kernel_width: tuple = None
         algo: OptsAlgo = "forward_euler"
         gravity: tuple = (0.0, 0.0, 0.0)
@@ -1687,7 +1654,7 @@ class PushVinSPHpressure(Propagator):
 
         def __post_init__(self):
             # checks
-            check_option(self.kernel_type, OptsKernel)
+            check_option(self.kernel_type, LiteralOptions.OptsKernel)
             check_option(self.algo, self.OptsAlgo)
             check_option(self.thermodynamics, self.OptsThermo)
 
@@ -1700,14 +1667,10 @@ class PushVinSPHpressure(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):
+    def allocate(self, verbose: bool = False):
         # init kernel for evaluating density etc. before each time step.
         init_kernel = eval_kernels_gc.sph_pressure_coeffs
 
@@ -1819,14 +1782,20 @@ class PushVinViscousPotential(Propagator):
         # specific literals
         OptsAlgo = Literal["forward_euler"]
         # propagator options
-        kernel_type: OptsKernel = "gaussian_2d"
+        kernel_type: LiteralOptions.OptsKernel = "gaussian_2d"
         kernel_width: tuple = None
         algo: OptsAlgo = "forward_euler"
+        mu: float = 1.0
 
         def __post_init__(self):
             # checks
-            check_option(self.kernel_type, OptsKernel)
+            check_option(self.kernel_type, LiteralOptions.OptsKernel)
             check_option(self.algo, self.OptsAlgo)
+            # validate mu
+            if not isinstance(self.mu, (int, float)):
+                raise TypeError("Options.mu must be a number")
+            if self.mu < 0:
+                raise ValueError("Options.mu must be non-negative")
 
     @property
     def options(self) -> Options:
@@ -1837,14 +1806,10 @@ class PushVinViscousPotential(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
 
     @profile
-    def allocate(self):  # ersetzt init
+    def allocate(self, verbose: bool = False):  # ersetzt init
         particles = self.variables.fluid.particles
 
         # init kernel for evaluating density etc. before each time step.
@@ -1852,14 +1817,8 @@ class PushVinViscousPotential(Propagator):
         first_free_idx = particles.args_markers.first_free_idx
         comps = (0, 1, 2)
 
-        init_kernel_2 = eval_kernels_gc.sph_mean_velocity
-        # first_free_idx = particles.args_markers.first_free_idx
-        # comps = (0, 1, 2)
-
-        init_kernel_3 = eval_kernels_gc.sph_grad_mean_velocity
+        init_kernel_2 = eval_kernels_gc.sph_viscosity_tensor
         comps_tensor = (0, 1, 2, 3, 4, 5, 6, 7, 8)
-
-        init_kernel_4 = eval_kernels_gc.sph_viscosity_tensor
 
         boxes = particles.sorting_boxes.boxes
         neighbours = particles.sorting_boxes.neighbours
@@ -1872,8 +1831,8 @@ class PushVinViscousPotential(Propagator):
         else:
             assert all([hi <= 1 / ni for hi, ni in zip(self.options.kernel_width, particles.boxes_per_dim)])
 
-        # init kernel
-        args_init = (
+        # for sph_mean_velocity_coeffs
+        args_init_mean = (
             boxes,
             neighbours,
             holes,
@@ -1882,32 +1841,29 @@ class PushVinViscousPotential(Propagator):
             *self.options.kernel_width,
         )
 
+        # for sph_viscosity_tensor
+        args_init_visc = (
+            boxes,
+            neighbours,
+            holes,
+            *periodic,
+            kernel_nr,
+            *self.options.kernel_width,
+            self.options.mu,
+        )
+
         self.add_init_kernel(
             init_kernel_1,
             first_free_idx,
             comps,
-            args_init,
+            args_init_mean,
         )
 
         self.add_init_kernel(
             init_kernel_2,
-            first_free_idx + 3,  # +3 so that the previous one is not overwritten
-            comps,
-            args_init,
-        )
-
-        self.add_init_kernel(
-            init_kernel_3,
-            first_free_idx + 6,  # +3 so that the previous one is not overwritten
+            first_free_idx + 3,
             comps_tensor,
-            args_init,
-        )
-
-        self.add_init_kernel(
-            init_kernel_4,
-            first_free_idx + 15,
-            comps_tensor,
-            args_init,
+            args_init_visc,
         )
 
         kernel = Pyccelkernel(pusher_kernels.push_v_viscosity)

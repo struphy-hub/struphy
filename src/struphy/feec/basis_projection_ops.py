@@ -141,12 +141,14 @@ class BasisProjectionOperators:
         if not hasattr(self, "_K3"):
             fun = [
                 [
-                    lambda e1, e2, e3: self.weights["eq_mhd"].p3(
-                        e1,
-                        e2,
-                        e3,
-                    )
-                    / self.sqrt_g(e1, e2, e3),
+                    lambda e1, e2, e3: (
+                        self.weights["eq_mhd"].p3(
+                            e1,
+                            e2,
+                            e3,
+                        )
+                        / self.sqrt_g(e1, e2, e3)
+                    ),
                 ],
             ]
             self._K3 = self.create_basis_op(
@@ -199,8 +201,9 @@ class BasisProjectionOperators:
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: self.weights["eq_mhd"].n3(e1, e2, e3)
-                        * self.Ginv(e1, e2, e3)[:, :, :, m, n],
+                        lambda e1, e2, e3, m=m, n=n: (
+                            self.weights["eq_mhd"].n3(e1, e2, e3) * self.Ginv(e1, e2, e3)[:, :, :, m, n]
+                        ),
                     ]
 
             self._Q1 = self.create_basis_op(
@@ -227,14 +230,16 @@ class BasisProjectionOperators:
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: self.weights["eq_mhd"].n3(
-                            e1,
-                            e2,
-                            e3,
-                        )
-                        / self.sqrt_g(e1, e2, e3)
-                        if m == n
-                        else 0 * e1,
+                        lambda e1, e2, e3, m=m, n=n: (
+                            self.weights["eq_mhd"].n3(
+                                e1,
+                                e2,
+                                e3,
+                            )
+                            / self.sqrt_g(e1, e2, e3)
+                            if m == n
+                            else 0 * e1
+                        ),
                     ]
 
             self._Q2 = self.create_basis_op(
@@ -257,12 +262,14 @@ class BasisProjectionOperators:
         if not hasattr(self, "_Q3"):
             fun = [
                 [
-                    lambda e1, e2, e3: self.weights["eq_mhd"].n3(
-                        e1,
-                        e2,
-                        e3,
-                    )
-                    / self.sqrt_g(e1, e2, e3),
+                    lambda e1, e2, e3: (
+                        self.weights["eq_mhd"].n3(
+                            e1,
+                            e2,
+                            e3,
+                        )
+                        / self.sqrt_g(e1, e2, e3)
+                    ),
                 ],
             ]
             self._Q3 = self.create_basis_op(
@@ -435,8 +442,9 @@ class BasisProjectionOperators:
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: self.weights["eq_mhd"].p3(e1, e2, e3)
-                        * self.Ginv(e1, e2, e3)[:, :, :, m, n],
+                        lambda e1, e2, e3, m=m, n=n: (
+                            self.weights["eq_mhd"].p3(e1, e2, e3) * self.Ginv(e1, e2, e3)[:, :, :, m, n]
+                        ),
                     ]
 
             self._S1 = self.create_basis_op(
@@ -463,14 +471,16 @@ class BasisProjectionOperators:
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: self.weights["eq_mhd"].p3(
-                            e1,
-                            e2,
-                            e3,
-                        )
-                        / self.sqrt_g(e1, e2, e3)
-                        if m == n
-                        else 0 * e1,
+                        lambda e1, e2, e3, m=m, n=n: (
+                            self.weights["eq_mhd"].p3(
+                                e1,
+                                e2,
+                                e3,
+                            )
+                            / self.sqrt_g(e1, e2, e3)
+                            if m == n
+                            else 0 * e1
+                        ),
                     ]
 
             self._S2 = self.create_basis_op(
@@ -548,13 +558,15 @@ class BasisProjectionOperators:
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: self.weights["eq_mhd"].p0(
-                            e1,
-                            e2,
-                            e3,
-                        )
-                        * self.G(e1, e2, e3)[:, :, :, m, n]
-                        / self.sqrt_g(e1, e2, e3),
+                        lambda e1, e2, e3, m=m, n=n: (
+                            self.weights["eq_mhd"].p0(
+                                e1,
+                                e2,
+                                e3,
+                            )
+                            * self.G(e1, e2, e3)[:, :, :, m, n]
+                            / self.sqrt_g(e1, e2, e3)
+                        ),
                     ]
 
             self._S21p = self.create_basis_op(
@@ -709,14 +721,16 @@ class BasisProjectionOperators:
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: self.weights["eq_mhd"].n3(
-                            e1,
-                            e2,
-                            e3,
-                        )
-                        / self.sqrt_g(e1, e2, e3)
-                        if m == n
-                        else 0 * e1,
+                        lambda e1, e2, e3, m=m, n=n: (
+                            self.weights["eq_mhd"].n3(
+                                e1,
+                                e2,
+                                e3,
+                            )
+                            / self.sqrt_g(e1, e2, e3)
+                            if m == n
+                            else 0 * e1
+                        ),
                     ]
 
             self._W1 = self.create_basis_op(

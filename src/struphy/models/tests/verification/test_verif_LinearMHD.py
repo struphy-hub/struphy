@@ -5,30 +5,30 @@ import cunumpy as xp
 import pytest
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy import main
+from struphy import (
+    BaseUnits,
+    DerhamOptions,
+    EnvironmentOptions,
+    Simulation,
+    Time,
+    domains,
+    equils,
+    grids,
+    perturbations,
+)
 from struphy.diagnostics.diagn_tools import power_spectrum_2d
-from struphy.fields_background import equils
-from struphy.geometry import domains
-from struphy.initial import perturbations
-from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, FieldsBackground, Time
-from struphy.kinetic_background import maxwellians
-from struphy.topology import grids
+from struphy.models import LinearMHD
 
 
 @pytest.mark.parametrize("algo", ["implicit", "explicit"])
 def test_slab_waves_1d(algo: str, do_plot: bool = False):
-    # import model, set verbosity
-    from struphy.models.fluid import LinearMHD
-
-    verbose = True
+    # light-weight model instance
+    model = LinearMHD()
 
     # environment options
     test_folder = os.path.join(os.getcwd(), "verification_tests")
     out_folders = os.path.join(test_folder, "LinearMHD")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="slab_waves_1d")
-
-    # units
-    base_units = BaseUnits()
 
     # time stepping
     time_opts = Time(dt=0.15, Tend=180.0)
@@ -50,11 +50,8 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
     # derham options
     derham_opts = DerhamOptions(p=(1, 1, 3))
 
-    # light-weight model instance
-    model = LinearMHD()
-
     # species parameters
-    model.mhd.set_phys_params()
+    model.mhd.set_species_properties()
 
     # propagator options
     model.propagators.shear_alf.options = model.propagators.shear_alf.Options(algo=algo)
@@ -65,30 +62,31 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
     model.mhd.velocity.add_perturbation(perturbations.Noise(amp=0.1, comp=1, seed=123))
     model.mhd.velocity.add_perturbation(perturbations.Noise(amp=0.1, comp=2, seed=123))
 
-    # start run
-    main.run(
-        model,
-        params_path=None,
+    # instance of simulation
+    sim = Simulation(
+        model=model,
         env=env,
-        base_units=base_units,
         time_opts=time_opts,
         domain=domain,
-        equil=equil,
         grid=grid,
         derham_opts=derham_opts,
-        verbose=verbose,
+        equil=equil,
+        verbose=True,
     )
+
+    # run
+    sim.run(verbose=True)
 
     # post processing
     if MPI.COMM_WORLD.Get_rank() == 0:
-        main.pproc(env.path_out)
+        sim.pproc(verbose=True)
 
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
-        simdata = main.load_data(env.path_out)
+        sim.load_plotting_data(verbose=True)
 
         # first fft
-        u_of_t = simdata.spline_values["mhd"]["velocity_log"]
+        u_of_t = sim.spline_values.mhd.velocity_log.data
 
         Bsquare = B0x**2 + B0y**2 + B0z**2
         p0 = beta * Bsquare / 2
@@ -98,8 +96,8 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
         _1, _2, _3, coeffs = power_spectrum_2d(
             u_of_t,
             "velocity_log",
-            grids=simdata.grids_log,
-            grids_mapped=simdata.grids_phy,
+            grids=sim.grids_log,
+            grids_mapped=sim.grids_phy,
             component=0,
             slice_at=[0, 0, None],
             do_plot=do_plot,
@@ -118,13 +116,13 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
         assert xp.abs(coeffs[0][0] - v_alfven) < 0.07
 
         # second fft
-        p_of_t = simdata.spline_values["mhd"]["pressure_log"]
+        p_of_t = sim.spline_values.mhd.pressure_log.data
 
         _1, _2, _3, coeffs = power_spectrum_2d(
             p_of_t,
             "pressure_log",
-            grids=simdata.grids_log,
-            grids_mapped=simdata.grids_phy,
+            grids=sim.grids_log,
+            grids_mapped=sim.grids_phy,
             component=0,
             slice_at=[0, 0, None],
             do_plot=do_plot,

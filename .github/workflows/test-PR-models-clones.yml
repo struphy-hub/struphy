@@ -83,5 +83,6 @@ jobs:
         # init .testmondata with non-MPI call
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
-          struphy test Maxwell
-          struphy test verification --mpi 4 --nclones 2
+          cd /struphy_fortran_/src/struphy
+          mpirun -n 1 pytest -m single --testmon-forceselect -xs --with-mpi --model-name Maxwell
+          mpirun --oversubscribe -n 4 pytest -x --testmon --with-mpi --nclones 2 models/tests/verification/

@@ -16,72 +16,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-defaults:
-  run:
-    shell: bash
-
-permissions:
-  contents: read
-
 jobs:
-  unit-tests-in-container-with-struphy:
-    runs-on: ubuntu-latest
-
-    container:
-      image: ghcr.io/struphy-hub/struphy/ubuntu-with-struphy:latest
-      credentials:
-        username: spossann
-        password: ${{ secrets.GHCR_TOKEN }}
-
-    steps:
-      - name: Check for dockerenv file
-        run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
-
-      - name: Checkout repo
-        uses: actions/checkout@v4
-        with:
-          submodules: true  # This is crucial!
-          fetch-depth: 5
-
-      - name: Check .testmondata 1
-        run: |
-          ls .testmon* || echo "No .testmondata"
-
-      - name: Setup cache for testmon
-        uses: actions/cache@v4
-        with:
-          path: |
-            .testmondata-unit-mpi
-          key: testmon-unit-mpi-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
-          restore-keys: |
-            testmon-unit-mpi-${{ github.ref_name }}-${{ github.event.number }}-
-            testmon-unit-mpi-${{ github.ref_name }}
-            testmon-unit-mpi-devel
-            testmon-unit-mpi-
-
-      - name: Check .testmondata 2
-        run: |
-          ls .testmon* || echo "No .testmondata"
-
-      - name: Install Struphy in Container
-        uses: ./.github/actions/install/struphy_in_container
-      
-      - name: Reinstall feectools from submodule
-        uses: ./.github/actions/install/feectools-submodule
-        with:
-          env-name: /struphy_fortran_/env_fortran_
-
-      - name: Compile Struphy
-        run: |
-          source /struphy_fortran_/env_fortran_/bin/activate
-          struphy compile
-
-      - name: Run unit tests with MPI
-        shell: bash
-        env:
-          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit-mpi
-        # init .testmondata with non-MPI call
-        run: |
-          source /struphy_fortran_/env_fortran_/bin/activate
-          struphy test Maxwell
-          struphy test unit --mpi 2
+  unit-test-with-mpi:
+    uses: ./.github/workflows/reusable-unit-testing.yml
+    with:
+      os: ubuntu-latest
+      n-procs: 2
+    secrets:
+      ghcr-token: ${{ secrets.GHCR_TOKEN }}

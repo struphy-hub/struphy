@@ -3,69 +3,26 @@ import os
 import shutil
 from types import ModuleType
 
-import pytest
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy import main
-from struphy.io.options import EnvironmentOptions
+from struphy import EnvironmentOptions
 from struphy.io.setup import import_parameters_py
-from struphy.models import fluid, hybrid, kinetic, toy
 from struphy.models.base import StruphyModel
+from struphy.simulation.sim import Simulation
 
 rank = MPI.COMM_WORLD.Get_rank()
 
-# available models
-toy_models = []
-for name, obj in inspect.getmembers(toy):
-    if inspect.isclass(obj) and "models.toy" in obj.__module__:
-        toy_models += [name]
-if rank == 0:
-    print(f"\n{toy_models =}")
-
-fluid_models = []
-for name, obj in inspect.getmembers(fluid):
-    if inspect.isclass(obj) and "models.fluid" in obj.__module__:
-        fluid_models += [name]
-if rank == 0:
-    print(f"\n{fluid_models =}")
-
-kinetic_models = []
-for name, obj in inspect.getmembers(kinetic):
-    if inspect.isclass(obj) and "models.kinetic" in obj.__module__:
-        kinetic_models += [name]
-if rank == 0:
-    print(f"\n{kinetic_models =}")
-
-hybrid_models = []
-for name, obj in inspect.getmembers(hybrid):
-    if inspect.isclass(obj) and "models.hybrid" in obj.__module__:
-        hybrid_models += [name]
-if rank == 0:
-    print(f"\n{hybrid_models =}")
-
 
 # generic function for calling model tests
-def call_test(model_name: str, module: ModuleType = None, test_profiling: bool = False, verbose=True):
-    if rank == 0:
-        print(f"\n*** Testing '{model_name}':")
+def call_test(model: StruphyModel, test_profiling: bool = False, verbose: bool = True):
+    model_name = model.name()
 
     # exceptions
     if model_name == "TwoFluidQuasiNeutralToy" and MPI.COMM_WORLD.Get_size() > 1:
         print(f"WARNING: Model {model_name} cannot be tested for {MPI.COMM_WORLD.Get_size() =}")
         return
 
-    if module is None:
-        submods = [toy, fluid, kinetic, hybrid]
-        for submod in submods:
-            try:
-                model = getattr(submod, model_name)()
-            except AttributeError:
-                continue
-
-    else:
-        model = getattr(module, model_name)()
-
-    assert isinstance(model, StruphyModel)
+    assert isinstance(model, StruphyModel), f"{model} of {type(model) = } is not a StruphyModel"
 
     # generate paramater file for testing
     test_folder = os.path.join(os.getcwd(), "struphy_model_test")
@@ -95,8 +52,8 @@ def call_test(model_name: str, module: ModuleType = None, test_profiling: bool =
     model = params_in.model
 
     # test
-    main.run(
-        model,
+    sim = Simulation(
+        model=model,
         params_path=path,
         env=env,
         base_units=base_units,
@@ -108,36 +65,20 @@ def call_test(model_name: str, module: ModuleType = None, test_profiling: bool =
         verbose=verbose,
     )
 
-    # Restart and run one more timestep
-    params_in = import_parameters_py(path)
-    base_units = params_in.base_units
-    time_opts = params_in.time_opts
-    domain = params_in.domain
-    equil = params_in.equil
-    grid = params_in.grid
-    derham_opts = params_in.derham_opts
-    model = params_in.model
-    env.restart = True
-    time_opts.Tend += time_opts.dt
+    sim.show_parameters()
+
+    sim.run(verbose=verbose)
 
     # test restart
-    main.run(
-        model,
-        params_path=path,
-        env=env,
-        base_units=base_units,
-        time_opts=time_opts,
-        domain=domain,
-        equil=equil,
-        grid=grid,
-        derham_opts=derham_opts,
-        verbose=verbose,
-    )
+    env.restart = True
+    time_opts.Tend += time_opts.dt
+    sim.show_parameters()
+
+    sim.run(verbose=verbose)
 
     MPI.COMM_WORLD.Barrier()
     if rank == 0:
-        path_out = os.path.join(test_folder, model_name)
-        main.pproc(path=path_out)
-        main.load_data(path=path_out)
+        sim.pproc(verbose=verbose)
+        sim.load_plotting_data(verbose=verbose)
         shutil.rmtree(test_folder)
     MPI.COMM_WORLD.Barrier()

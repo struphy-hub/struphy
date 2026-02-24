@@ -1,6 +1,77 @@
 # Changelog
 
 
+## Struphy 3.0.3 - 2026-02-23
+
+* [PyPI](https://pypi.org/project/struphy/3.0.3)
+* [GitHub Pages](https://struphy-hub.github.io/struphy/index.html)
+* [GitHub release](https://github.com/struphy-hub/struphy/releases/tag/v3.0.3)
+* [Diff to previous release](https://github.com/struphy-hub/struphy/compare/v3.0.2...v3.0.3)
+
+### Headlines
+
+1. New class `Simulation` inherits the generic `SimulationBase`, both are in the new folder `struphy/simulations/`. The most important methods are:
+    * `Simulation.run()`
+    * `Simulation.pproc()` 
+    * `Simulation.load_plotting_data()`
+    * `Simulation.spawn_sister()` (my new favorite!)
+    
+These are tested in the new tutorials: https://github.com/struphy-hub/struphy-tutorials/tree/use-species-properties
+
+The file `main.py` has been deleted.
+
+The `Simulation` takes a model as input. Other API classes are passed as well (see tutorials). 
+The model is viewed as everything related to the PDE, i.e. its variables, initial conditions etc. The simulation deals with the rest (geometry, derham, environment etc.)
+
+Some important changes to the logic: The model does not have access to `derham`, `mass_ops` etc. anymore, these can be called from `Propagator` when needed. Solves that need to happen before the time stepping (like initial Poisson solves) are moved to `model.allocate_helpers()`.
+
+2. The default launch file has been improved. See Tutorial 2 or test with `struphy params MODEL`. The files in the submodule `struphy-parameter-files` have been adapted.
+
+3. Several new classes have been introduced for post processing and plotting data, see `post_processing_tools.py`. The most important ones are `PostProcessor` and `PlottingData`. Dictionaries in the plotting data have been replaced by classes. Many classes now feature the `__repr__` dunder for customized printing.
+
+
+### API changes
+
+New classes exposed: `Simulation`, `PostProcessor` and `PlottingData`.
+
+
+### User news
+
+* Add `set_zero_velocity` argument into `LoadingParameters`, enforcing velocities of all particles along specified axis to always be zero: https://github.com/struphy-hub/struphy/pull/176 
+* New model `ViscousEulerSPH` replaces `EulerSPH`. The evaluation of the viscosity tensor has been implemented and tested for SPH methods. Unit tests for evaluation of the fluid velocity and its gradients (needed in the viscosity tensor) have been improved: https://github.com/struphy-hub/struphy/pull/160
+
+
+
+## Struphy 3.0.2 - 2026-02-06
+
+* [PyPI](https://pypi.org/project/struphy/3.0.2)
+* [Github pages](https://struphy-hub.github.io/struphy/index.html)
+* [Github release](https://github.com/struphy-hub/struphy/releases/tag/v3.0.2)
+* [Diff to previous release](https://github.com/struphy-hub/struphy/compare/v3.0.1...v3.0.2)
+
+### Headlines
+
+* Added a public API. This allows imports like `from struphy import equils`: https://github.com/struphy-hub/struphy/pull/168
+* New default compile language is Fortran: https://github.com/struphy-hub/struphy/pull/158
+* Moved each model to its own file. Calling sub-processes must be avoided in the future because of incompatibility with MPI: https://github.com/struphy-hub/struphy/pull/152
+
+### User news
+
+* Added binning of higher order moments (current density, energy tensor) of f and delta f: https://github.com/struphy-hub/struphy/pull/162 
+
+### Developer news
+
+* Use `pyccel 2.1`: https://github.com/struphy-hub/struphy/pull/153
+* Added three submodules: `struphy-parameter-files`, `struphy-tutorials` and`feectools`. The Struphy repo should be cloned with `git clone --recurse-submodules https://github.com/struphy-hub/struphy.git` to init and update the submodules. Also, run `git submodule update` regularly to get updates from the submodules. See https://github.com/struphy-hub/struphy/pull/154
+* Introduced class `options.LiteralOptions` for parsing literals. Moved `Units` to `physics.py`: https://github.com/struphy-hub/struphy/pull/167
+
+
+### Bug fixes
+
+* Use `struphy.io.options.Units` in equils. This enables the use of GVEC, EQDSK and DESC in the new framework: https://github.com/struphy-hub/struphy/pull/158
+
+
+
 ## Struphy 3.0.1 - 2025-12-11
 
 * [PyPI](https://pypi.org/project/struphy/3.0.1)
