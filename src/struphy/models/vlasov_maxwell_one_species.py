@@ -164,9 +164,13 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         Record gauss law violation during simulaiton:
 
         .. math::
-            \text{error(t)} = \max(|\mathbf{G}^T\mathbf{M}^1\mathbf{e} -  \mathbf{f}^p|)
+            error(t) = \max(
+                |\mathbf{G}^T\mathbf{M}^1\mathbf{e} -  \mathbf{f}^p|
+                )
 
-        :params measure: if True, measure gauss error throughout the simulation
+        If control_variate = False, then the error should always be zero
+
+        :param measure: if True, measure gauss error throughout the simulation
         """
         if measure: 
             self.measure_gauss = True
@@ -238,13 +242,13 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             Propagator.mass_ops,
             Propagator.domain.args_domain,
         )
-        charge_accum0 = charge_accum0.to_array()
+        charge_accum0 = xp.array(charge_accum0.vectors[0].toarray())
 
         # non control variate method
         op = Propagator.derham.grad.T @ Propagator.mass_ops.M1
         charge_accum1 = op.dot(e)
-        charge_accum1 = charge_accum1.to_array()
-
+        charge_accum1 = charge_accum1.toarray()
+        
         residual = xp.max(xp.abs(charge_accum0 - charge_accum1))
         return residual
 
