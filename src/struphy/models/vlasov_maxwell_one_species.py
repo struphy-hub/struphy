@@ -156,6 +156,14 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         self.initial_poisson = propagators_fields.Poisson()
         self.initial_poisson.variables.phi = self.em_fields.phi
 
+        # property to measure violation of gauss law from control variate
+        self.measure_gauss = False
+    
+    def measure_gauss_error(self, measure: bool = False):
+        if not measure: return
+        self.measure_gauss = True
+        self.add_scalar("gauss_error")
+
     @property
     def bulk_species(self):
         return self.kinetic_ions
@@ -211,6 +219,27 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         if MPI.COMM_WORLD.Get_rank() == 0:
             print("... Done.")
 
+    def calculate_gauss_error(self, e):
+        # control variate method
+        particles = self.kinetic_ions.var.particles
+        particles.update_weights()
+        charge_accum0 = AccumulatorVector(
+            particles,
+            "H1",
+            Pyccelkernel(accum_kernels.charge_density_0form),
+            Propagator.mass_ops,
+            Propagator.domain.args_domain,
+        )
+        charge_accum0 = charge_accum0.to_array()
+
+        # non control variate method
+        op = Propagator.derham.grad.T @ Propagator.mass_ops.M1
+        charge_accum1 = op.dot(e)
+        charge_accum1 = charge_accum1.to_array()
+
+        residual = xp.max(xp.abs(charge_accum0 - charge_accum1))
+        return residual
+
     def update_scalar_quantities(self):
         # e*M1*e/2
         e = self.em_fields.e_field.spline.vector
@@ -240,6 +269,10 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # en_tot = en_w + en_e
         self.update_scalar("en_tot", en_E + self._tmp[0])
 
+        if self.measure_gauss:
+            res = self.calculate_gauss_error(e)
+            self.update_scalar("gauss_error", res)
+
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
         params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
@@ -256,6 +289,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
                 elif "set_save_data" in line:
                     new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
                     new_file += ["model.kinetic_ions.set_save_data(binning_plots=(binplot,))\n"]
+                    new_file += ["model.measure_gauss_error(measure=False)\n"]
                 else:
                     new_file += [line]
 
