@@ -160,9 +160,17 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         self.measure_gauss = False
     
     def measure_gauss_error(self, measure: bool = False):
-        if not measure: return
-        self.measure_gauss = True
-        self.add_scalar("gauss_error")
+        """
+        Record gauss law violation during simulaiton:
+
+        .. math::
+            \text{error(t)} = \max(|\mathbf{G}^T\mathbf{M}^1\mathbf{e} -  \mathbf{f}^p|)
+
+        :params measure: if True, measure gauss error throughout the simulation
+        """
+        if measure: 
+            self.measure_gauss = True
+            self.add_scalar("gauss_error")
 
     @property
     def bulk_species(self):
