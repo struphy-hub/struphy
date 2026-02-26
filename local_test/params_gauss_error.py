@@ -66,7 +66,7 @@ env = EnvironmentOptions(sim_folder="cvT")
 base_units = BaseUnits()
 
 # Time stepping
-time_opts = Time(Tend = 2)
+time_opts = Time(Tend = 0.01)
 
 # Geometry
 domain = domains.Cuboid()
@@ -148,4 +148,21 @@ init = maxwellian_1pt + maxwellian_2
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":
+    print("Executing simulation")
     sim.run(verbose=True)
+
+    # ------------------
+    # Sister simulation object with control_variate = False
+    # ------------------
+    weights_params = WeightsParameters(control_variate = False)
+    env = EnvironmentOptions(sim_folder="cvF")
+
+    sister_sim = sim.spawn_sister(env=env)
+
+    print("Executing sister simulation")
+    sister_sim.model.kinetic_ions.set_markers(
+        loading_params=loading_params,
+        weights_params=weights_params,
+        boundary_params=boundary_params,
+        )
+    sister_sim.run(verbose=True)
