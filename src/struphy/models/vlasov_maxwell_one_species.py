@@ -249,6 +249,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         charge_accum1 = op.dot(e)
         charge_accum1 = charge_accum1.toarray()
         
+        # take maximum from difference of two methods
         residual = xp.max(xp.abs(charge_accum0 - charge_accum1))
         return residual
 
@@ -301,7 +302,8 @@ class VlasovMaxwellOneSpecies(StruphyModel):
                 elif "set_save_data" in line:
                     new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
                     new_file += ["model.kinetic_ions.set_save_data(binning_plots=(binplot,))\n"]
-                    new_file += ["model.measure_gauss_error(measure=False)\n"]
+                elif "model.kinetic_ions.var.save_data = True" in line:
+                    new_file += ["model.measure_gauss_error(measure = False)\n"]
                 else:
                     new_file += [line]
 
