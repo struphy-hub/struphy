@@ -8,10 +8,10 @@ def test_psydac_derham(Nel, p, spl_kind):
     """Remark: p=even projectors yield slightly different results, pass with atol=1e-3."""
 
     import cunumpy as xp
+
     from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.block import BlockVector
     from feectools.linalg.stencil import StencilVector
-
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays
 

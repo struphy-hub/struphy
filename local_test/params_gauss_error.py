@@ -17,34 +17,31 @@ Users can modify this file to set up their own simulations with different parame
 # Import Struphy API
 # ------------------
 
+# For particles:
 from struphy import (
     BaseUnits,
+    BinningPlot,
+    BoundaryParameters,
     DerhamOptions,
     EnvironmentOptions,
     FieldsBackground,
+    KernelDensityPlot,
+    LoadingParameters,
     Simulation,
     Time,
+    WeightsParameters,
     domains,
     equils,
     grids,
+    maxwellians,
     perturbations,
 )
-
-# For particles:
-from struphy import (
-    BinningPlot,
-    BoundaryParameters,
-    KernelDensityPlot,
-    LoadingParameters,
-    WeightsParameters,
-    maxwellians,
-)
+from struphy.models import VlasovMaxwellOneSpecies
 
 # ---------------------
 # Instance of the model
 # ---------------------
 
-from struphy.models import VlasovMaxwellOneSpecies
 model = VlasovMaxwellOneSpecies()
 
 # List all species and set their physical properties (charge and mass number, etc.)

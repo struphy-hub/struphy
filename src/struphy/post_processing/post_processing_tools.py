@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING
 import cunumpy as xp
 import h5py
 import yaml
-from feectools.ddm.mpi import mpi as MPI
 from pyevtk.hl import gridToVTK
 from tqdm import tqdm
 
+from feectools.ddm.mpi import mpi as MPI
 from struphy.feec.psydac_derham import SplineFunction
 from struphy.fields_background import equils
 from struphy.fields_background.base import FluidEquilibrium

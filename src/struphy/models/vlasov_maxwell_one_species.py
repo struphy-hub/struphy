@@ -1,6 +1,6 @@
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 
+from feectools.ddm.mpi import mpi as MPI
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
@@ -158,7 +158,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
         # property to measure violation of gauss law from control variate
         self.measure_gauss = False
-    
+
     def measure_gauss_error(self, measure: bool = False):
         """
         Record gauss law violation during simulaiton:
@@ -172,7 +172,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
         :param measure: if True, measure gauss error throughout the simulation
         """
-        if measure: 
+        if measure:
             self.measure_gauss = True
             self.add_scalar("gauss_error")
 
@@ -248,7 +248,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         op = Propagator.derham.grad.T @ Propagator.mass_ops.M1
         charge_accum1 = op.dot(e)
         charge_accum1 = charge_accum1.toarray()
-        
+
         # take maximum from difference of two methods
         residual = xp.max(xp.abs(charge_accum0 - charge_accum1))
         return residual

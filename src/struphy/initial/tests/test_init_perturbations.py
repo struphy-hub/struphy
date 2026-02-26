@@ -21,9 +21,9 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
     """Test the initialization Field.initialize_coeffs with all "Modes" classes in perturbations.py."""
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
     from matplotlib import pyplot as plt
 
+    from feectools.ddm.mpi import mpi as MPI
     from struphy import domains, perturbations
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry.base import Domain

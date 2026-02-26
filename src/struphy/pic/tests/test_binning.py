@@ -37,8 +37,8 @@ def test_binning_6D_full_f(mapping, show_plot=False):
 
     import cunumpy as xp
     import matplotlib.pyplot as plt
-    from feectools.ddm.mpi import mpi as MPI
 
+    from feectools.ddm.mpi import mpi as MPI
     from struphy import (
         BoundaryParameters,
         LoadingParameters,
@@ -270,8 +270,8 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
 
     import cunumpy as xp
     import matplotlib.pyplot as plt
-    from feectools.ddm.mpi import mpi as MPI
 
+    from feectools.ddm.mpi import mpi as MPI
     from struphy import (
         BoundaryParameters,
         LoadingParameters,
@@ -466,9 +466,9 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
 
     import cunumpy as xp
     import matplotlib.pyplot as plt
+
     from feectools.ddm.mpi import MockComm
     from feectools.ddm.mpi import mpi as MPI
-
     from struphy import (
         BoundaryParameters,
         LoadingParameters,
@@ -763,9 +763,9 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
 
     import cunumpy as xp
     import matplotlib.pyplot as plt
+
     from feectools.ddm.mpi import MockComm
     from feectools.ddm.mpi import mpi as MPI
-
     from struphy import (
         BoundaryParameters,
         LoadingParameters,
@@ -1017,8 +1017,8 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
 def test_binning_current_6D_full_f(mapping, show_plot=False):
     import cunumpy as xp
     import matplotlib.pyplot as plt
-    from feectools.ddm.mpi import mpi as MPI
 
+    from feectools.ddm.mpi import mpi as MPI
     from struphy import (
         BoundaryParameters,
         LoadingParameters,
@@ -1201,8 +1201,8 @@ def test_binning_current_6D_full_f(mapping, show_plot=False):
 def test_binning_energy_tensor_6D_full_f(mapping, show_plot=False):
     import cunumpy as xp
     import matplotlib.pyplot as plt
-    from feectools.ddm.mpi import mpi as MPI
 
+    from feectools.ddm.mpi import mpi as MPI
     from struphy import (
         BoundaryParameters,
         LoadingParameters,
@@ -1294,8 +1294,8 @@ def test_binning_energy_tensor_6D_full_f(mapping, show_plot=False):
 def test_binning_heat_flux_6D_full_f(mapping, show_plot=False):
     import cunumpy as xp
     import matplotlib.pyplot as plt
-    from feectools.ddm.mpi import mpi as MPI
 
+    from feectools.ddm.mpi import mpi as MPI
     from struphy import (
         BoundaryParameters,
         LoadingParameters,

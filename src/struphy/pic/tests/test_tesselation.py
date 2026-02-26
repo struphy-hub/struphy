@@ -2,9 +2,9 @@ from time import time
 
 import cunumpy as xp
 import pytest
-from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 
+from feectools.ddm.mpi import mpi as MPI
 from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains, perturbations
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.equils import ConstantVelocity
