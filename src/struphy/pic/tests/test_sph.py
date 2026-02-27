@@ -1769,6 +1769,10 @@ def test_sph_no_slip_boundary_1d(
     show_plot=False,
 ):
     
+    import sys
+    import numpy
+    numpy.set_printoptions(threshold=sys.maxsize, linewidth=200, precision=3, suppress=True)
+    
     if isinstance(MPI.COMM_WORLD, MockComm):
         comm = None
         rank = 0
@@ -1783,16 +1787,15 @@ def test_sph_no_slip_boundary_1d(
     domain = domain_class(**dom_params)
 
     if tesselation:
-        ppb = 2000
+        ppb = 4
         loading_params = LoadingParameters(ppb=ppb, loading="tesselation")
     else:
-        ppb = 2000
+        ppb = 200
         loading_params = LoadingParameters(ppb=ppb, seed=223)
 
-  
     if direction == "x":
         def u_xyz(x, y, z):
-            return (xp.ones_like(x), xp.zeros_like(x), xp.zeros_like(x))
+            return (3.0 * xp.ones_like(x), xp.zeros_like(x), xp.zeros_like(x))
     elif direction == "y":
         def u_xyz(x, y, z):
             return (xp.zeros_like(x), xp.ones_like(x), xp.zeros_like(x))
@@ -1802,7 +1805,6 @@ def test_sph_no_slip_boundary_1d(
 
     background = equils.GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
     background.domain = domain
-
 
     boundary_params = BoundaryParameters(bc_sph=("noslip", "periodic", "periodic"))
 
@@ -1829,15 +1831,14 @@ def test_sph_no_slip_boundary_1d(
 
     # Evaluation points: walls (eta=0, eta=1) and a few interior points
     #This yields the order: left wall (0.0), right wall (1.0), then interior points.So the right wall is at index 1, not at -1.
-    eta_walls = xp.array([0.0, 1.0])
-    eta_interior = xp.linspace(0.001, 0.999, 100)
-    eta1 = xp.concatenate([eta_walls, eta_interior])
+    # eta_walls = xp.array([0.0, 1.0])
+    eta1 = xp.linspace(0.0, 1.0, 100)
+    # eta1 = xp.concatenate([eta_walls, eta_interior])
     eta2 = xp.array([0.5])
     eta3 = xp.array([0.5])
 
     ee1, ee2, ee3 = xp.meshgrid(eta1, eta2, eta3, indexing="ij")
     
-
     h1 = 1 / boxes_per_dim[0]
     h2 = 1 / boxes_per_dim[1]
     h3 = 1 / boxes_per_dim[2]
@@ -1847,7 +1848,6 @@ def test_sph_no_slip_boundary_1d(
         h1=h1, h2=h2, h3=h3,
         kernel_type=kernel,
         derivative=0,
-        fast=False,
     )
     
     # if rank == 0 and len(ghost_inds) > 0:
@@ -1870,20 +1870,40 @@ def test_sph_no_slip_boundary_1d(
     v2_squeezed = all_v2.squeeze()
     v3_squeezed = all_v3.squeeze()
 
-
     v_wall_left = (v1_squeezed[0], v2_squeezed[0], v3_squeezed[0])
     v_wall_right = (v1_squeezed[1], v2_squeezed[1], v3_squeezed[1])
 
     v_interior = (v1_squeezed[2:], v2_squeezed[2:], v3_squeezed[2:])
 
+    if rank == 0:
+        # print("\nVelocity at interior points:")
+        # for idx, eta in enumerate(eta1[2:]):
+        #     print(f"eta1 = {eta:.8f}, v_x = {v1_squeezed[2+idx]:.6f}, v_y = {v2_squeezed[2+idx]:.6f}, v_z = {v3_squeezed[2+idx]:.6f}")
     
+        print(f"\nLeft wall (eta1={eta1[0]}): v_x={v1_squeezed[0]:.6f}, v_y={v2_squeezed[0]:.6f}, v_z={v3_squeezed[0]:.6f}")
+        print(f"Right wall (eta1={eta1[1]}): v_x={v1_squeezed[1]:.6f}, v_y={v2_squeezed[1]:.6f}, v_z={v3_squeezed[1]:.6f}")
+        
+    if rank == 0 and show_plot:
+        plt.figure(figsize=(8, 5))
+        plt.plot(eta1, v1_squeezed, 'o-', label='v_x')
+        plt.plot(eta1, v2_squeezed, 's-', label='v_y')
+        plt.plot(eta1, v3_squeezed, 'd-', label='v_z')
+        plt.axhline(0, color='k', linestyle='--', linewidth=0.5)
+        plt.axhline(1, color='gray', linestyle='--', linewidth=0.5)
+        plt.xlabel('eta1')
+        plt.ylabel('velocity')
+        plt.title(f'No-slip test ({direction}-direction, {kernel}, tesselation={tesselation})')
+        plt.legend()
+        plt.grid(True)
+        plt.show()
+        # plt.savefig("bc_sph")
+
     if tesselation:
         tol_wall = 3e-3   
         tol_interior = 5e-2
     else:
         tol_wall = 3e-3   
         tol_interior = 1.5e-1
-
     
     for comp, name in zip([0, 1, 2], ["x", "y", "z"]):
         val_left = [v_wall_left[0], v_wall_left[1], v_wall_left[2]][comp]
@@ -1908,36 +1928,13 @@ def test_sph_no_slip_boundary_1d(
     rel_error = xp.max(xp.abs(interior_vals[7:-7] - 1.0)) / 1.0
     print(f"{rel_error=}")
     assert rel_error < tol_interior, f"Interior {direction}-velocity error too large: {rel_error}"
-
+        
     assert xp.max(xp.abs(other1)) < tol_interior, f"Interior non‑dominant component too large: {xp.max(xp.abs(other1))}"
     assert xp.max(xp.abs(other2)) < tol_interior, f"Interior non‑dominant component too large: {xp.max(xp.abs(other2))}"
-
-    if rank == 0:
-        print("\nVelocity at interior points:")
-        for idx, eta in enumerate(eta1[2:]):
-            print(f"eta1 = {eta:.8f}, v_x = {v1_squeezed[2+idx]:.6f}, v_y = {v2_squeezed[2+idx]:.6f}, v_z = {v3_squeezed[2+idx]:.6f}")
-    
-        print(f"\nLeft wall (eta1={eta1[0]}): v_x={v1_squeezed[0]:.6f}, v_y={v2_squeezed[0]:.6f}, v_z={v3_squeezed[0]:.6f}")
-        print(f"Right wall (eta1={eta1[1]}): v_x={v1_squeezed[1]:.6f}, v_y={v2_squeezed[1]:.6f}, v_z={v3_squeezed[1]:.6f}")
-    if rank == 0 and show_plot:
-        
-        plt.figure(figsize=(8, 5))
-        plt.plot(eta1, v1_squeezed, 'o-', label='v_x')
-        plt.plot(eta1, v2_squeezed, 's-', label='v_y')
-        plt.plot(eta1, v3_squeezed, 'd-', label='v_z')
-        plt.axhline(0, color='k', linestyle='--', linewidth=0.5)
-        plt.axhline(1, color='gray', linestyle='--', linewidth=0.5)
-        plt.xlabel('eta1')
-        plt.ylabel('velocity')
-        plt.title(f'No-slip test ({direction}-direction, {kernel}, tesselation={tesselation})')
-        plt.legend()
-        plt.grid(True)
-        plt.show()
-        plt.savefig("bc_sph")
         
 if __name__ == "__main__":
     test_sph_no_slip_boundary_1d(
-        (32, 1, 1),
+        (12, 1, 1),
         "gaussian_1d",
         tesselation= False,
         direction = "x",
