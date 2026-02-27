@@ -64,6 +64,29 @@ In case you face troubles with install/compile:
 2. visit [trouble shooting](https://struphy-hub.github.io/struphy/sections/install.html#trouble-shooting)
 
 
+## Docker
+
+If you want to get started right away without installing anything, you can use the [Docker image](https://hub.docker.com/r/spossann/struphy) - just pull and run:
+
+```
+docker pull spossann/struphy:main
+docker run -it --rm spossann/struphy:main
+ls struphy_*
+```
+This will show three available Struphy environments, which you can activate for example via
+
+```
+source struphy_fortran_/env_fortran_/bin/activate
+```
+
+There is also a [Docker image with just the prerequisites](https://hub.docker.com/r/spossann/ubuntu-for-struphy) (on Ubuntu), so you can install and compile Struphy on top of it yourself:
+
+```
+docker pull spossann/ubuntu-for-struphy:main
+docker run -it --rm spossann/ubuntu-for-struphy:main
+```
+
+
 ## Quick run
 
 As an example, let's say we want to solve Maxwell's equations. We can use the CLI and generate a default launch file via

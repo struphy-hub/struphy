@@ -25,7 +25,7 @@ classifiers = [
 dependencies = [
     'numpy',
     'cunumpy',
-    'pyccel>=2.1',
+    'pyccel>=2.2.0',
     'feectools',
     'scipy',
     'h5py',
