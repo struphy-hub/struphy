@@ -35,7 +35,7 @@ Particles in a Tokamak <br> (model "Vlasov")             |  Toroidal Alfvén eig
 ![](https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/gallery_step_1496.png) | ![](https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/gallery_struphy_heat.png)
 
 
-The code is freely available under an [MIT license](https://github.com/struphy-hub/struphy/blob/devel/LICENSE) - Copyright (c) 2019-2025, Struphy developers, Max Planck Institute for Plasma Physics.
+The code is freely available under an [MIT license](https://github.com/struphy-hub/struphy/blob/devel/LICENSE) - Copyright (c) 2019-2026, Struphy developers, Max Planck Institute for Plasma Physics.
 
 <h1 align="center">
 <img src="https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/MPI_PP_Logo_Vertical_E_green_rgb.png" width="200">
