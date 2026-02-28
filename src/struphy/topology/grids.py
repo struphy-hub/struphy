@@ -24,3 +24,17 @@ class TensorProductGrid:
         for k, v in self.__dict__.items():
             print(f"{k}:".ljust(20), v)
         return ""
+
+    def to_dict(self) -> dict:
+        dct = {
+            "Nel": self.Nel,
+            "mpi_dims_mask": self.mpi_dims_mask,
+        }
+        return dct
+    
+    @classmethod
+    def from_dict(cls, dct) -> "TensorProductGrid":
+        return cls(
+            Nel=dct["Nel"],
+            mpi_dims_mask=dct["mpi_dims_mask"],
+        )

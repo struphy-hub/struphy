@@ -306,6 +306,12 @@ class FluidEquilibrium(metaclass=ABCMeta):
     def u_cart_3(self, *etas, squeeze_out=False):
         return self.u_cart(*etas, squeeze_out=squeeze_out)[0][2]
 
+    def to_dict(self) -> dict:
+        return {"class": self.__class__.__name__, "params": self.params}
+
+    @classmethod
+    def from_dict(cls, dct):
+        return cls(**dct["params"])
 
 class CartesianFluidEquilibrium(FluidEquilibrium):
     r"""

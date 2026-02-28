@@ -1283,6 +1283,42 @@ RESTARTing from:
                         if MPI.COMM_WORLD.Get_size() > 1:
                             subval.particles.mpi_sort_markers(do_test=True)
 
+    def to_dict(self) -> dict:
+        """Serialize the simulation configuration to a dictionary."""
+        return {
+            "model": self.model.to_dict(),
+            "params_path": self.params_path,
+            "env": self.env.to_dict(),
+            "base_units": self.base_units.to_dict(),
+            "time_opts": self.time_opts.to_dict(),
+            "domain": self.domain.to_dict(),
+            "equil": self.equil.to_dict() if self.equil is not None else None,
+            "grid": self.grid.to_dict(),
+            "derham_opts": self.derham_opts.to_dict(),
+            "verbose": getattr(self, "verbose", False),
+        }
+
+    @classmethod
+    def from_dict(cls, dct) -> "Simulation":
+        """Deserialize a simulation configuration from a dictionary."""
+
+        return cls(
+            model=StruphyModel.from_dict(dct["model"]),
+            params_path=dct["params_path"],
+            env=EnvironmentOptions.from_dict(dct["env"]),
+            base_units=BaseUnits.from_dict(dct["base_units"]),
+            time_opts=Time.from_dict(dct["time_opts"]),
+            domain=domains.Cuboid.from_dict(dct["domain"]) if hasattr(domains.Cuboid, 'from_dict') else domains.Cuboid(),
+            equil=FluidEquilibrium.from_dict(dct["equil"]) if dct["equil"] is not None else None,
+            grid=grids.TensorProductGrid.from_dict(dct["grid"]) if hasattr(grids.TensorProductGrid, 'from_dict') else grids.TensorProductGrid(),
+            derham_opts=DerhamOptions.from_dict(dct["derham_opts"]),
+            verbose=dct.get("verbose", False),
+        )
+    
+    def __eq__(self, value: "Simulation") -> bool:
+        assert isinstance(value, Simulation), "Comparison only implemented between Simulation instances."
+        return self.to_dict() == value.to_dict()
+
     # ------------------------------------------------------
     # Common properties with setters (from input parameters)
     # ------------------------------------------------------

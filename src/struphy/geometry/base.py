@@ -1834,6 +1834,12 @@ class Domain(metaclass=ABCMeta):
         else:
             plt.show()
 
+    def to_dict(self) -> dict:
+        return {"class": self.__class__.__name__, "params": self.params}
+
+    @classmethod
+    def from_dict(cls, dct):
+        return cls(**dct["params"])
 
 class Spline(Domain):
     r"""3D IGA spline mapping.
