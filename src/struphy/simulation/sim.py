@@ -1308,13 +1308,9 @@ RESTARTing from:
             env=EnvironmentOptions.from_dict(dct["env"]),
             base_units=BaseUnits.from_dict(dct["base_units"]),
             time_opts=Time.from_dict(dct["time_opts"]),
-            domain=domains.Cuboid.from_dict(dct["domain"])
-            if hasattr(domains.Cuboid, "from_dict")
-            else domains.Cuboid(),
-            equil=FluidEquilibrium.from_dict(dct["equil"]) if dct["equil"] is not None else None,
-            grid=grids.TensorProductGrid.from_dict(dct["grid"])
-            if hasattr(grids.TensorProductGrid, "from_dict")
-            else grids.TensorProductGrid(),
+            domain=domains.Cuboid.from_dict(dct["domain"]),
+            equil=FluidEquilibrium.from_dict(dct["equil"]),
+            grid=grids.TensorProductGrid.from_dict(dct["grid"]),
             derham_opts=DerhamOptions.from_dict(dct["derham_opts"]),
             verbose=dct.get("verbose", False),
         )

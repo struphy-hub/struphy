@@ -306,12 +306,28 @@ class FluidEquilibrium(metaclass=ABCMeta):
     def u_cart_3(self, *etas, squeeze_out=False):
         return self.u_cart(*etas, squeeze_out=squeeze_out)[0][2]
 
+    @abstractmethod
     def to_dict(self) -> dict:
-        return {"class": self.__class__.__name__, "params": self.params}
+        pass
 
     @classmethod
-    def from_dict(cls, dct):
-        return cls(**dct["params"])
+    def from_dict(cls, dct: dict) -> "FluidEquilibrium":
+        print(dct)
+        equil = cls.get_equil_by_name(dct["type"])
+        return equil(**dct["params"])
+
+    @classmethod
+    def get_equil_by_name(cls, equil_name: str) -> type["FluidEquilibrium"]:
+        from struphy.fields_background import equils
+
+        try:
+            equil_class: FluidEquilibrium = getattr(equils, equil_name)
+            if not issubclass(equil_class, FluidEquilibrium):
+                raise TypeError(f"{equil_name} is not a FluidEquilibrium subclass.")
+            else:
+                return equil_class
+        except AttributeError:
+            raise ModuleNotFoundError(f"{equil_name} not found in equils.")
 
 
 class CartesianFluidEquilibrium(FluidEquilibrium):
