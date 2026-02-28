@@ -615,7 +615,7 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
 # Please fill in a verbal description of the simulation. 
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
-description = f\"\"\"\nThis is the default simulation for the model {self.__class__.__name__}. 
+description = \"\"\"\nThis is the default simulation for the model {self.__class__.__name__}. 
 It is meant to be a template for users to set up their own simulations with this model. 
 It contains all the necessary components of a Struphy simulation, including the model, 
 the environment options, the time stepping options, the geometry, the equilibrium, 
@@ -746,6 +746,25 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         )
 
         return path
+
+    def to_dict(self) -> dict:
+        """Serialize the model configuration to a dictionary."""
+        dct = {"model": self.__class__.__name__}
+        return dct
+
+    @classmethod
+    def from_dict(cls, dct) -> "StruphyModel":
+        """Deserialize a model configuration from a dictionary."""
+        model_name = dct["model"]
+        return cls.from_name(model_name)
+
+    @classmethod
+    def from_name(cls, name: str) -> "StruphyModel":
+        """Instantiate a model from its name."""
+        from struphy.models.utils import get_model_by_name
+
+        model_cls = get_model_by_name(name)
+        return model_cls()
 
     # -------------
     # Model species

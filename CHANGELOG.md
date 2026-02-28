@@ -1,6 +1,19 @@
 # Changelog
 
 
+## Struphy 3.0.4 - 2026-02-27
+
+* [PyPI](https://pypi.org/project/struphy/3.0.4)
+* [GitHub Pages](https://struphy-hub.github.io/struphy/index.html)
+* [GitHub release](https://github.com/struphy-hub/struphy/releases/tag/v3.0.4)
+* [Diff to previous release](https://github.com/struphy-hub/struphy/compare/v3.0.3...v3.0.4)
+
+### Bug fixes
+
+* New lower bound on pyccel is set to 2.2.0, due to this pyccel bug fix: https://github.com/pyccel/pyccel/pull/2567 
+
+
+
 ## Struphy 3.0.3 - 2026-02-23
 
 * [PyPI](https://pypi.org/project/struphy/3.0.3)
