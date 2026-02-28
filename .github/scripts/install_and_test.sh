@@ -65,7 +65,6 @@ echo "----------------------------------------"
 echo "Verifying Struphy installation"
 echo "----------------------------------------"
 struphy -h
-struphy --refresh-models
 echo
 
 # Test mpirun
