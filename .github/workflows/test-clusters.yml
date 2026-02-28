@@ -3,9 +3,9 @@ on:
   push:
     branches:
       - protected-install-on-clusters
-  schedule:
-    # run at 1 a.m. every night
-    - cron: "0 1 * * *"
+  # schedule:
+  #   # run at 1 a.m. every night
+  #   - cron: "0 1 * * *"
   workflow_dispatch:
 
 jobs:
