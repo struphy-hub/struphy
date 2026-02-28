@@ -5,6 +5,7 @@ from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
 
 
+# TODO: These utils should be classmethod of the model baseclass!
 def get_model_by_name(model_name: str) -> type[StruphyModel]:
     try:
         model_class: StruphyModel = getattr(models, model_name)
