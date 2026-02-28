@@ -17,56 +17,56 @@ rank = MPI.COMM_WORLD.Get_rank()
 class Maxwell(StruphyModel):
     """
     Maxwell's equations in vacuum for electromagnetic field evolution.
-    
+
     <p>This model simulates the propagation of electromagnetic waves in vacuum using Maxwell's equations
     without sources. It uses a finite element exterior calculus (FEEC) formulation with the electric field
     in H(curl) and the magnetic field in H(div) spaces.</p>
-    
+
     <h3>Governing Equations</h3>
-    
+
     <p>Faraday's law:</p>
     <p><code>∂𝐄/∂t - ∇×𝐁 = 0</code></p>
-    
+
     <p>Ampère's law (no current):</p>
     <p><code>∂𝐁/∂t + ∇×𝐄 = 0</code></p>
-    
+
     <h3>Normalization</h3>
-    
+
     <p>Fields are normalized such that:</p>
     <p><code>Ê = c B̂</code></p>
     <p>where <code>c</code> is the speed of light.</p>
-    
+
     <h3>Species</h3>
-    
+
     <ul>
         <li><code>em_fields.e_field</code> - Electric field (H(curl) space)</li>
         <li><code>em_fields.b_field</code> - Magnetic field (H(div) space)</li>
     </ul>
-    
+
     <h3>Propagators</h3>
-    
+
     <ul>
         <li><code>struphy.propagators.propagators_fields.Maxwell</code> - Time integration scheme</li>
     </ul>
-    
+
     <h3>Scalar Quantities</h3>
-    
+
     <p>The following quantities are tracked during simulation:</p>
     <ul>
         <li>Electric energy: <code>E<sub>E</sub> = ½ ∫ |𝐄|² dV</code></li>
         <li>Magnetic energy: <code>E<sub>B</sub> = ½ ∫ |𝐁|² dV</code></li>
         <li>Total energy: <code>E<sub>total</sub> = E<sub>E</sub> + E<sub>B</sub></code></li>
     </ul>
-    
+
     <h3>Model Properties</h3>
-    
+
     <ul>
         <li><strong>Model type:</strong> Toy</li>
         <li><strong>Velocity scale:</strong> Speed of light</li>
         <li><strong>Bulk species:</strong> None</li>
     </ul>
     """
-    
+
     __doc_rst__ = r"""
 Maxwell's equations in vacuum for electromagnetic field evolution.
 

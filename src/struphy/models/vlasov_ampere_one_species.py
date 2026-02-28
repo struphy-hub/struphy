@@ -24,98 +24,98 @@ rank = MPI.COMM_WORLD.Get_rank()
 class VlasovAmpereOneSpecies(StruphyModel):
     """
     Vlasov-Ampère system for a single kinetic species in an electric field.
-    
+
     <p>This model couples the Vlasov equation for the particle distribution function with Ampère's law
     for the electric field evolution. It includes the effect of a static background magnetic field <code>𝐁₀</code>
     and solves the initial Poisson equation to satisfy Gauss's law at t=0. The model uses a particle-in-cell (PIC)
     method with finite element exterior calculus (FEEC) for the electromagnetic fields.</p>
-    
+
     <h3>Governing Equations</h3>
-    
+
     <p><strong>Vlasov equation:</strong></p>
     <p><code>∂f/∂t + 𝐯·∇f + (1/ε)(𝐄 + 𝐯×𝐁₀)·∂f/∂𝐯 = 0</code></p>
-    
+
     <p><strong>Ampère's law:</strong></p>
     <p><code>-∂𝐄/∂t = (α²/ε) ∫ 𝐯 f d³𝐯</code></p>
-    
+
     <p><strong>Initial Poisson equation:</strong> At t=0, solve weakly for the electric potential φ:</p>
     <p><code>∫ ∇ψ·∇φ dx = (α²/ε) ∫∫ ψ(f - f₀) d³𝐯 dx</code></p>
     <p><code>𝐄(0) = -∇φ(0)</code></p>
-    
+
     <h3>Normalization</h3>
-    
+
     <p>The model uses the following normalizations:</p>
     <ul>
         <li>Velocity: <code>v̂ = c</code></li>
         <li>Electric field: <code>Ê = B̂ v̂</code></li>
         <li>Potential: <code>φ̂ = Ê x̂</code></li>
     </ul>
-    
+
     <p><strong>Dimensionless parameters:</strong></p>
     <ul>
         <li><code>α = Ω̂ₚ/Ω̂ₓ</code> (ratio of plasma to cyclotron frequency)</li>
         <li><code>ε = 1/(Ω̂ₓ t̂)</code> (inverse cyclotron period)</li>
     </ul>
-    
+
     <p>where <code>Ω̂ₚ = √(n̂(Ze)²/(ε₀Am_H))</code> and <code>Ω̂ₓ = (Ze)B̂/(Am_H)</code></p>
     <p>For electrons: <code>Z = -1</code>, <code>A = 1/1836</code></p>
-    
+
     <h3>Species</h3>
-    
+
     <ul>
         <li><code>em_fields.e_field</code> - Electric field (H(curl) space)</li>
         <li><code>em_fields.phi</code> - Electric potential (H¹ space)</li>
         <li><code>kinetic_ions.var</code> - Particle distribution function (6D phase space)</li>
     </ul>
-    
+
     <h3>Propagators</h3>
-    
+
     <p>Time integration is performed by the following propagators (in sequence):</p>
     <ol>
         <li><code>PushEta</code> - Push particles in configuration space</li>
         <li><code>PushVxB</code> - Push particles in velocity space (v × B₀ term)</li>
         <li><code>VlasovAmpere</code> - Couple Vlasov and Ampère equations</li>
     </ol>
-    
+
     <h3>Initial Condition</h3>
-    
+
     <p>The initial electric field is computed by solving the weak Poisson equation to ensure
     the charge density from the particle distribution satisfies Gauss's law. The background
     magnetic field <code>𝐁₀</code> must satisfy:</p>
     <p><code>∇×𝐁₀ = (α²/ε) ∫ 𝐯 f₀ d³𝐯</code></p>
-    
+
     <h3>Control Variate Method</h3>
-    
+
     <p>An optional control variate technique can be enabled to reduce numerical noise in
     Ampère's law by subtracting the equilibrium distribution <code>f₀</code>. When enabled,
     the weak form becomes:</p>
     <p><code>-∫ 𝐅·∂𝐄/∂t dx = (α²/ε) ∫∫ 𝐅·𝐯(f - f₀) d³𝐯 dx</code></p>
     <p>for all test functions <code>𝐅 ∈ H(curl)</code>.</p>
-    
+
     <h3>Scalar Quantities</h3>
-    
+
     <p>The following energies are tracked during simulation:</p>
     <ul>
         <li>Electric field energy: <code>E<sub>E</sub> = ½ ∫ |𝐄|² dV</code></li>
         <li>Kinetic energy: <code>E<sub>f</sub> = (α²/2N) Σ<sub>p</sub> w<sub>p</sub> |𝐯<sub>p</sub>|²</code></li>
         <li>Total energy: <code>E<sub>tot</sub> = E<sub>E</sub> + E<sub>f</sub></code></li>
     </ul>
-    
+
     <h3>Model Properties</h3>
-    
+
     <ul>
         <li><strong>Model type:</strong> Kinetic</li>
         <li><strong>Velocity scale:</strong> Speed of light</li>
         <li><strong>Bulk species:</strong> kinetic_ions</li>
     </ul>
-    
+
     <h3>Parameters</h3>
-    
+
     <ul>
         <li><code>with_B0</code> (bool) - Include background magnetic field effects (default: True)</li>
     </ul>
     """
-    
+
     __doc_rst__ = r"""
 Vlasov-Ampère system for a single kinetic species in an electric field.
 

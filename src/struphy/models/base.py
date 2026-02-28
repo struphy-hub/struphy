@@ -158,17 +158,17 @@ class StruphyModel(metaclass=ABCMeta):
     def info(cls, use_rst=False):
         """
         Render a class or docstring in a Jupyter notebook.
-        
+
         This function returns an IPython display object that will render
         the docstring with proper formatting in Jupyter notebooks.
-        
+
         Args:
             cls: Class or function whose docstring to display
             use_rst: If True and __doc_rst__ exists, use that instead of __doc__
-            
+
         Returns:
             IPython.display object for rendering in Jupyter
-            
+
         Examples:
             >>> from struphy.models.maxwell import Maxwell
             >>> Maxwell.equations()  # Shows HTML version
@@ -179,17 +179,17 @@ class StruphyModel(metaclass=ABCMeta):
         except ImportError:
             print("IPython not available. Install jupyter to use this feature.")
             return None
-        
+
         # Determine which docstring to use
-        if use_rst and hasattr(cls, '__doc_rst__'):
+        if use_rst and hasattr(cls, "__doc_rst__"):
             doc_text = cls.__doc_rst__
             # Convert RST to Markdown for better Jupyter rendering
             md_text = rst_to_markdown(doc_text)
             return Markdown(md_text)
-        elif hasattr(cls, '__doc__') and cls.__doc__:
+        elif hasattr(cls, "__doc__") and cls.__doc__:
             # Check if it's HTML (contains tags)
             doc_text = cls.__doc__
-            if '<' in doc_text and '>' in doc_text:
+            if "<" in doc_text and ">" in doc_text:
                 # It's HTML
                 return HTML(doc_text)
             else:

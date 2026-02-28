@@ -20,34 +20,34 @@ rank = MPI.COMM_WORLD.Get_rank()
 class LinearMHD(StruphyModel):
     """
     Linear ideal MHD with zero-flow equilibrium for magnetohydrodynamic wave propagation.
-    
+
     <p>This model simulates small-amplitude perturbations in a magnetized plasma with a static
     equilibrium magnetic field <code>𝐁₀</code> and zero background flow. The model solves the linearized
     ideal magnetohydrodynamic (MHD) equations, which couple fluid dynamics (density, velocity, pressure)
     with magnetic field evolution. The system supports both Alfvén waves (incompressible shear) and
     magnetosonic waves (compressible fast and slow modes).</p>
-    
+
     <h3>Governing Equations</h3>
-    
+
     <p><strong>Continuity (mass conservation):</strong></p>
     <p><code>∂ρ̃/∂t + ∇·(ρ₀ Ũ) = 0</code></p>
-    
+
     <p><strong>Momentum (Lorentz force):</strong></p>
     <p><code>ρ₀ ∂Ũ/∂t + ∇p̃ = (∇×B̃)×𝐁₀ + (∇×𝐁₀)×B̃</code></p>
-    
+
     <p><strong>Energy (adiabatic process):</strong></p>
     <p><code>∂p̃/∂t + ∇·(p₀ Ũ) + (2/3)p₀∇·Ũ = 0</code></p>
-    
+
     <p><strong>Induction (Faraday's law):</strong></p>
     <p><code>∂B̃/∂t - ∇×(Ũ×𝐁₀) = 0</code></p>
-    
+
     <h3>Normalization</h3>
-    
+
     <p>All velocities are normalized by the Alfvén velocity:</p>
     <p><code>Û = v̂ₐ = B̂₀/√(μ₀ρ₀)</code></p>
-    
+
     <h3>Perturbation Variables</h3>
-    
+
     <p>All quantities in the equations represent <strong>perturbations</strong> around equilibrium:</p>
     <ul>
         <li><code>ρ̃</code> - Density perturbation</li>
@@ -55,42 +55,42 @@ class LinearMHD(StruphyModel):
         <li><code>p̃</code> - Pressure perturbation</li>
         <li><code>B̃</code> - Magnetic field perturbation</li>
     </ul>
-    
+
     <p>Equilibrium quantities (with subscript 0) are stationary and satisfy:</p>
     <ul>
         <li><code>ρ₀</code> - Static background density</li>
         <li><code>p₀</code> - Static background pressure</li>
         <li><code>𝐁₀</code> - Static background magnetic field</li>
     </ul>
-    
+
     <h3>Species</h3>
-    
+
     <ul>
         <li><code>em_fields.b_field</code> - Magnetic field perturbation (H(div) space)</li>
         <li><code>mhd.density</code> - Density perturbation (L² space)</li>
         <li><code>mhd.velocity</code> - Velocity perturbation (H(div) space)</li>
         <li><code>mhd.pressure</code> - Pressure perturbation (L² space)</li>
     </ul>
-    
+
     <h3>Wave Modes</h3>
-    
+
     <p>The linear MHD system supports three wave types:</p>
     <ul>
         <li><strong>Alfvén waves:</strong> Incompressible shear waves propagating along <code>𝐁₀</code> with velocity <code>v_A</code></li>
         <li><strong>Fast magnetosonic wave:</strong> Compressible wave with phase velocity <code>v_fast > v_A</code></li>
         <li><strong>Slow magnetosonic wave:</strong> Compressible wave with phase velocity <code>v_slow < v_A</code></li>
     </ul>
-    
+
     <h3>Propagators</h3>
-    
+
     <p>Time integration is performed by the following propagators (in sequence):</p>
     <ol>
         <li><code>ShearAlfven</code> - Evolves Alfvén waves (velocity and magnetic field coupling)</li>
         <li><code>Magnetosonic</code> - Evolves compressible modes (density, velocity, pressure)</li>
     </ol>
-    
+
     <h3>Scalar Quantities</h3>
-    
+
     <p>The following energies are tracked during simulation:</p>
     <ul>
         <li>Kinetic energy (perturbation): <code>E_U = ½ ∫ ρ₀|Ũ|² dV</code></li>
@@ -101,18 +101,18 @@ class LinearMHD(StruphyModel):
         <li>Equilibrium internal energy: <code>E_p₀ = ∫ p₀/(γ-1) dV</code></li>
         <li>Total magnetic energy: <code>E_B_tot = ½ ∫ |𝐁₀ + B̃|²/μ₀ dV</code></li>
     </ul>
-    
+
     <h3>Model Properties</h3>
-    
+
     <ul>
         <li><strong>Model type:</strong> Fluid</li>
         <li><strong>Velocity scale:</strong> Alfvén velocity</li>
         <li><strong>Bulk species:</strong> mhd</li>
         <li><strong>Assumptions:</strong> Zero-flow equilibrium, linear perturbations, ideal MHD</li>
     </ul>
-    
+
     <h3>Key Assumptions</h3>
-    
+
     <ul>
         <li>Perturbations are small (linear theory valid)</li>
         <li>Equilibrium is static: <code>𝐔₀ = 0</code></li>
@@ -120,7 +120,7 @@ class LinearMHD(StruphyModel):
         <li>Adiabatic process: polytropic index γ = 5/3</li>
     </ul>
     """
-    
+
     __doc_rst__ = r"""
 Linear ideal MHD with zero-flow equilibrium for magnetohydrodynamic wave propagation.
 
