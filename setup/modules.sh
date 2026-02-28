@@ -26,10 +26,19 @@
 MACHINE="unknown"
 MODULES="unknown"
 
+
 # Detect system
 CLUSTER="${CLUSTER:-}"      # Provide default empty if unset
 HPC_SYSTEM="${HPC_SYSTEM:-}" # Provide default empty if unset
-COMPILER_FAMILY="${COMPILER_FAMILY:-gcc}" # Use gcc compiler by default
+
+# Allow COMPILER_FAMILY as an optional second argument
+if [[ -n "$2" ]]; then
+    COMPILER_FAMILY="$2"
+elif [[ -n "$COMPILER_FAMILY" ]]; then
+    COMPILER_FAMILY="$COMPILER_FAMILY"
+else
+    COMPILER_FAMILY="gcc"
+fi
 
 case "$CLUSTER" in
     TOK)
@@ -49,7 +58,6 @@ fi
 
 # Handle arguments
 ACTION="${1:-display}"  # Default to 'display' if no argument is given
-
 
 MODULE_FILE="setup/modules.${MACHINE}.sh"
 if [[ -f "$MODULE_FILE" ]]; then
