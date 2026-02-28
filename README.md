@@ -35,7 +35,7 @@ Particles in a Tokamak <br> (model "Vlasov")             |  Toroidal Alfvén eig
 ![](https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/gallery_step_1496.png) | ![](https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/gallery_struphy_heat.png)
 
 
-The code is freely available under an [MIT license](https://github.com/struphy-hub/struphy/blob/devel/LICENSE) - Copyright (c) 2019-2025, Struphy developers, Max Planck Institute for Plasma Physics.
+The code is freely available under an [MIT license](https://github.com/struphy-hub/struphy/blob/devel/LICENSE) - Copyright (c) 2019-2026, Struphy developers, Max Planck Institute for Plasma Physics.
 
 <h1 align="center">
 <img src="https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/MPI_PP_Logo_Vertical_E_green_rgb.png" width="200">
@@ -62,6 +62,29 @@ In case you face troubles with install/compile:
 
 1. check the [prerequisites](https://struphy-hub.github.io/struphy/sections/install.html#requirements)
 2. visit [trouble shooting](https://struphy-hub.github.io/struphy/sections/install.html#trouble-shooting)
+
+
+## Docker
+
+If you want to get started right away without installing anything, you can use the [Docker image](https://hub.docker.com/r/spossann/struphy) - just pull and run:
+
+```
+docker pull spossann/struphy:main
+docker run -it --rm spossann/struphy:main
+ls struphy_*
+```
+This will show three available Struphy environments, which you can activate for example via
+
+```
+source struphy_fortran_/env_fortran_/bin/activate
+```
+
+There is also a [Docker image with just the prerequisites](https://hub.docker.com/r/spossann/ubuntu-for-struphy) (on Ubuntu), so you can install and compile Struphy on top of it yourself:
+
+```
+docker pull spossann/ubuntu-for-struphy:main
+docker run -it --rm spossann/ubuntu-for-struphy:main
+```
 
 
 ## Quick run

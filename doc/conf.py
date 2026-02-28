@@ -20,7 +20,7 @@ import importlib.metadata
 __version__ = importlib.metadata.version("struphy")
 
 project = "struphy"
-copyright = "2019-2025 (c) Struphy dev team | Max Planck Institute for Plasma Physics"
+copyright = "2019-2026 (c) Struphy dev team | Max Planck Institute for Plasma Physics"
 author = "Struphy dev team | Max Planck Institute for Plasma Physics"
 version = __version__
 
