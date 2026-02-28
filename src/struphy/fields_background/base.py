@@ -311,8 +311,9 @@ class FluidEquilibrium(metaclass=ABCMeta):
         pass
 
     @classmethod
-    def from_dict(cls, dct: dict) -> "FluidEquilibrium":
-        print(dct)
+    def from_dict(cls, dct: dict | None) -> "FluidEquilibrium":
+        if dct is None:
+            return None
         equil = cls.get_equil_by_name(dct["type"])
         return equil(**dct["params"])
 
