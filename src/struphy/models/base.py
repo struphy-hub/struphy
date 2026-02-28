@@ -15,6 +15,7 @@ from struphy.physics.physics import Units
 from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.utils.clone_config import CloneConfig
+from struphy.utils.docstring_converter import rst_to_markdown
 
 
 class StruphyModel(metaclass=ABCMeta):
@@ -152,6 +153,50 @@ class StruphyModel(metaclass=ABCMeta):
             out += f"    {k}:\n"
             out += f"{v}"
         return out
+
+    @classmethod
+    def info(cls, use_rst=False):
+        """
+        Render a class or docstring in a Jupyter notebook.
+        
+        This function returns an IPython display object that will render
+        the docstring with proper formatting in Jupyter notebooks.
+        
+        Args:
+            cls: Class or function whose docstring to display
+            use_rst: If True and __doc_rst__ exists, use that instead of __doc__
+            
+        Returns:
+            IPython.display object for rendering in Jupyter
+            
+        Examples:
+            >>> from struphy.models.maxwell import Maxwell
+            >>> Maxwell.equations()  # Shows HTML version
+            >>> Maxwell.equations(use_rst=True)  # Shows RST as Markdown
+        """
+        try:
+            from IPython.display import HTML, Markdown
+        except ImportError:
+            print("IPython not available. Install jupyter to use this feature.")
+            return None
+        
+        # Determine which docstring to use
+        if use_rst and hasattr(cls, '__doc_rst__'):
+            doc_text = cls.__doc_rst__
+            # Convert RST to Markdown for better Jupyter rendering
+            md_text = rst_to_markdown(doc_text)
+            return Markdown(md_text)
+        elif hasattr(cls, '__doc__') and cls.__doc__:
+            # Check if it's HTML (contains tags)
+            doc_text = cls.__doc__
+            if '<' in doc_text and '>' in doc_text:
+                # It's HTML
+                return HTML(doc_text)
+            else:
+                # Plain text or RST, show as is
+                return Markdown(doc_text)
+        else:
+            return Markdown("*No docstring available*")
 
     @classmethod
     def name(cls) -> str:

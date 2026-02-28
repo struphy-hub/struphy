@@ -15,30 +15,134 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class Maxwell(StruphyModel):
-    r"""Maxwell's equations in vacuum.
-
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat E = c \hat B\,.
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        &\frac{\partial \mathbf E}{\partial t} - \nabla\times\mathbf B = 0\,,
-
-        &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.propagators_fields.Maxwell`
     """
+    Maxwell's equations in vacuum for electromagnetic field evolution.
+    
+    <p>This model simulates the propagation of electromagnetic waves in vacuum using Maxwell's equations
+    without sources. It uses a finite element exterior calculus (FEEC) formulation with the electric field
+    in H(curl) and the magnetic field in H(div) spaces.</p>
+    
+    <h3>Governing Equations</h3>
+    
+    <p>Faraday's law:</p>
+    <p><code>∂𝐄/∂t - ∇×𝐁 = 0</code></p>
+    
+    <p>Ampère's law (no current):</p>
+    <p><code>∂𝐁/∂t + ∇×𝐄 = 0</code></p>
+    
+    <h3>Normalization</h3>
+    
+    <p>Fields are normalized such that:</p>
+    <p><code>Ê = c B̂</code></p>
+    <p>where <code>c</code> is the speed of light.</p>
+    
+    <h3>Species</h3>
+    
+    <ul>
+        <li><code>em_fields.e_field</code> - Electric field (H(curl) space)</li>
+        <li><code>em_fields.b_field</code> - Magnetic field (H(div) space)</li>
+    </ul>
+    
+    <h3>Propagators</h3>
+    
+    <ul>
+        <li><code>struphy.propagators.propagators_fields.Maxwell</code> - Time integration scheme</li>
+    </ul>
+    
+    <h3>Scalar Quantities</h3>
+    
+    <p>The following quantities are tracked during simulation:</p>
+    <ul>
+        <li>Electric energy: <code>E<sub>E</sub> = ½ ∫ |𝐄|² dV</code></li>
+        <li>Magnetic energy: <code>E<sub>B</sub> = ½ ∫ |𝐁|² dV</code></li>
+        <li>Total energy: <code>E<sub>total</sub> = E<sub>E</sub> + E<sub>B</sub></code></li>
+    </ul>
+    
+    <h3>Model Properties</h3>
+    
+    <ul>
+        <li><strong>Model type:</strong> Toy</li>
+        <li><strong>Velocity scale:</strong> Speed of light</li>
+        <li><strong>Bulk species:</strong> None</li>
+    </ul>
+    """
+    
+    __doc_rst__ = r"""
+Maxwell's equations in vacuum for electromagnetic field evolution.
+
+This model simulates the propagation of electromagnetic waves in vacuum using Maxwell's equations
+without sources. It uses a finite element exterior calculus (FEEC) formulation with the electric field
+in H(curl) and the magnetic field in H(div) spaces.
+
+**Governing Equations**
+
+Faraday's law:
+
+.. math::
+
+    \frac{\partial \mathbf E}{\partial t} - \nabla\times\mathbf B = 0
+
+Ampère's law (no current):
+
+.. math::
+
+    \frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0
+
+**Normalization**
+
+Fields are normalized such that:
+
+.. math::
+
+    \hat E = c \hat B
+
+where :math:`c` is the speed of light.
+
+**Species**
+
+- ``em_fields.e_field`` - Electric field (H(curl) space)
+- ``em_fields.b_field`` - Magnetic field (H(div) space)
+
+**Propagators**
+
+1. :class:`~struphy.propagators.propagators_fields.Maxwell` - Time integration scheme
+
+**Scalar Quantities**
+
+The following quantities are tracked during simulation:
+
+- Electric energy: :math:`E_E = \frac{1}{2} \int |\mathbf E|^2 \, dV`
+- Magnetic energy: :math:`E_B = \frac{1}{2} \int |\mathbf B|^2 \, dV`
+- Total energy: :math:`E_{total} = E_E + E_B`
+
+**Model Properties**
+
+- **Model type:** Toy
+- **Velocity scale:** Speed of light
+- **Bulk species:** None
+
+**See Also**
+
+- :class:`~struphy.models.base.StruphyModel` - Base class for all Struphy models
+- :class:`~struphy.propagators.propagators_fields.Maxwell` - Maxwell propagator implementation
+
+**Examples**
+
+Create and initialize a Maxwell model:
+
+.. code-block:: python
+
+    from struphy.models.maxwell import Maxwell
+    
+    model = Maxwell()
+    # Fields are accessible via:
+    # model.em_fields.e_field
+    # model.em_fields.b_field
+"""
 
     @classmethod
     def model_type(cls) -> LiteralOptions.ModelTypes:
-        return "Fluid"
+        return "Toy"
 
     ## species
 
