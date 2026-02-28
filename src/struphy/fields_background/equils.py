@@ -599,12 +599,12 @@ class ShearFluid(CartesianMHDequilibrium):
 
     def to_dict(self) -> dict:
         return {
-            "type": "ShearedFluid",
+            "type": "ShearFluid",
             "params": self.params,
         }
 
     @classmethod
-    def from_dict(cls, dct: dict) -> "ShearedFluid":
+    def from_dict(cls, dct: dict) -> "ShearFluid":
         return cls(**dct["params"])
 
 
@@ -3107,16 +3107,6 @@ class ConstantVelocity(CartesianFluidEquilibrium):
             out[mask] = self.params["n"]
 
             return out
-
-    def to_dict(self) -> dict:
-        return {
-            "type": "ConstantVelocity",
-            "params": self.params,
-        }
-
-    @classmethod
-    def from_dict(cls, dct: dict) -> "ConstantVelocity":
-        return cls(**dct["params"])
 
     def to_dict(self) -> dict:
         return {
