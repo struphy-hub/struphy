@@ -94,3 +94,4 @@ src/struphy/io/inp/params_*
 # models list
 src/struphy/models/models_list
 src/struphy/models/models_message
+src/struphy/kernels.txt
