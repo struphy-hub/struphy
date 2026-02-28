@@ -1,3 +1,23 @@
+# ------------------------------------------------------------------------------
+# modules.sh
+#
+# Purpose:
+#   Detects the current HPC system and compiler family, then loads or displays
+#   the appropriate environment modules for building and running Struphy.
+#
+# Usage:
+#   ./modules.sh [load|display]
+#     load    - Loads the required modules for the detected system/compiler
+#     display - Prints the module load command for the detected system/compiler
+#
+# Environment variables:
+#   CLUSTER, HPC_SYSTEM, COMPILER_FAMILY
+#     Used to detect the machine and compiler type.
+#
+# Module files:
+#   setup/modules.<machine>.sh
+#     Should define MODULES_INTEL and MODULES_GCC for each supported system.
+# ------------------------------------------------------------------------------
 #!/bin/bash
 
 #set -euo pipefail
@@ -9,7 +29,7 @@ MODULES="unknown"
 # Detect system
 CLUSTER="${CLUSTER:-}"      # Provide default empty if unset
 HPC_SYSTEM="${HPC_SYSTEM:-}" # Provide default empty if unset
-COMPILER_FAMILY="${COMPILER_FAMILY:-gcc}" # Use intel compiler by default
+COMPILER_FAMILY="${COMPILER_FAMILY:-gcc}" # Use gcc compiler by default
 
 case "$CLUSTER" in
     TOK)
@@ -60,7 +80,7 @@ echo $ACTION
 case "$ACTION" in
     load)
         echo "Loading modules for $MACHINE, MODULES=$MODULES"
-        #module purge
+        module purge
         module load $MODULES
 	module list 
         ;;
