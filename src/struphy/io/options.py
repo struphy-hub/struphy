@@ -134,7 +134,7 @@ class Time:
         for k, v in self.__dict__.items():
             print(f"{k}:".ljust(20), v)
         return ""
-    
+
     def to_dict(self) -> dict:
         dct = {
             "dt": self.dt,
@@ -150,7 +150,6 @@ class Time:
             Tend=dct["Tend"],
             split_algo=dct["split_algo"],
         )
-    
 
 
 @dataclass
@@ -192,7 +191,7 @@ class BaseUnits:
             "kBT": self.kBT,
         }
         return dct
-    
+
     @classmethod
     def from_dict(cls, dct) -> "BaseUnits":
         return cls(
@@ -201,6 +200,7 @@ class BaseUnits:
             n=dct["n"],
             kBT=dct.get("kBT", None),
         )
+
 
 @dataclass
 class DerhamOptions:
@@ -257,7 +257,7 @@ class DerhamOptions:
             "local_projectors": self.local_projectors,
         }
         return dct
-    
+
     @classmethod
     def from_dict(cls, dct) -> "DerhamOptions":
         return cls(
@@ -316,6 +316,7 @@ class FieldsBackground:
             variable=dct["variable"],
         )
 
+
 @dataclass
 class EnvironmentOptions:
     """Set environment options for launching run on current architecture
@@ -369,7 +370,7 @@ class EnvironmentOptions:
         for k, v in self.__dict__.items():
             print(f"{k}:".ljust(20), v)
         return ""
-    
+
     def to_dict(self) -> dict:
         dct = {
             "out_folders": self.out_folders,

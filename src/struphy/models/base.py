@@ -16,6 +16,7 @@ from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.utils.clone_config import CloneConfig
 
+
 class StruphyModel(metaclass=ABCMeta):
     """
     Abstract base class for all Struphy models.
@@ -706,7 +707,7 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         """Serialize the model configuration to a dictionary."""
         dct = {"model": self.__class__.__name__}
         return dct
-    
+
     @classmethod
     def from_dict(cls, dct) -> "StruphyModel":
         """Deserialize a model configuration from a dictionary."""
@@ -717,6 +718,7 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
     def from_name(cls, name: str) -> "StruphyModel":
         """Instantiate a model from its name."""
         from struphy.models.utils import get_model_by_name
+
         model_cls = get_model_by_name(name)
         return model_cls()
 

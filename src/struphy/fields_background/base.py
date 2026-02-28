@@ -313,6 +313,7 @@ class FluidEquilibrium(metaclass=ABCMeta):
     def from_dict(cls, dct):
         return cls(**dct["params"])
 
+
 class CartesianFluidEquilibrium(FluidEquilibrium):
     r"""
     Specialization for equilibria defined in Cartesian coordinates.

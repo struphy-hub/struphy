@@ -31,7 +31,7 @@ class TensorProductGrid:
             "mpi_dims_mask": self.mpi_dims_mask,
         }
         return dct
-    
+
     @classmethod
     def from_dict(cls, dct) -> "TensorProductGrid":
         return cls(

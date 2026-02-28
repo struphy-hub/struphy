@@ -1841,6 +1841,7 @@ class Domain(metaclass=ABCMeta):
     def from_dict(cls, dct):
         return cls(**dct["params"])
 
+
 class Spline(Domain):
     r"""3D IGA spline mapping.
 
