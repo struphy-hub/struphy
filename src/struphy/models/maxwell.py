@@ -24,10 +24,10 @@ class Maxwell(StruphyModel):
 
     <h3>Governing Equations</h3>
 
-    <p>Faraday's law:</p>
+    <p>Ampère's law (no current):</p>
     <p><code>∂𝐄/∂t - ∇×𝐁 = 0</code></p>
 
-    <p>Ampère's law (no current):</p>
+    <p>Faraday's law:</p>
     <p><code>∂𝐁/∂t + ∇×𝐄 = 0</code></p>
 
     <h3>Normalization</h3>
@@ -76,13 +76,13 @@ in H(curl) and the magnetic field in H(div) spaces.
 
 **Governing Equations**
 
-Faraday's law:
+Ampère's law (no current):
 
 .. math::
 
     \frac{\partial \mathbf E}{\partial t} - \nabla\times\mathbf B = 0
 
-Ampère's law (no current):
+Faraday's law:
 
 .. math::
 
