@@ -6,13 +6,14 @@
 #   the appropriate environment modules for building and running Struphy.
 #
 # Usage:
-#   ./modules.sh [load|display]
+#   ./modules.sh [load|display] [compiler_family]
 #     load    - Loads the required modules for the detected system/compiler
 #     display - Prints the module load command for the detected system/compiler
+#     compiler_family (optional) - Specify compiler family (e.g. gcc, intel). Overrides environment variable COMPILER_FAMILY.
 #
 # Environment variables:
 #   CLUSTER, HPC_SYSTEM, COMPILER_FAMILY
-#     Used to detect the machine and compiler type.
+#     Used to detect the machine and compiler type. COMPILER_FAMILY is overridden by the second argument if provided.
 #
 # Module files:
 #   setup/modules.<machine>.sh
