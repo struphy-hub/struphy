@@ -18,10 +18,10 @@ jobs:
     uses: ./.github/workflows/reusable-clusters.yml
     with:
       runner_tags: '["self-hosted", "protected", "viper"]'
-  TOK:
-    uses: ./.github/workflows/reusable-clusters.yml
-    with:
-      runner_tags: '["self-hosted", "protected", "tok"]'
+  # TOK:
+  #   uses: ./.github/workflows/reusable-clusters.yml
+  #   with:
+  #     runner_tags: '["self-hosted", "protected", "tok"]'
   
   Pitagora:
     uses: ./.github/workflows/reusable-clusters.yml
