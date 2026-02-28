@@ -125,6 +125,16 @@ class NumEqTest(LogicalMHDequilibrium):
     def gradB1(self, *etas, squeeze_out=True):
         return self._equil.gradB1(*etas, squeeze_out=squeeze_out)
 
+    def to_dict(self) -> dict:
+        return {
+            "type": "LogicalMHDequilibrium",
+            "params": self.params,
+        }
+
+    @classmethod
+    def from_dict(cls, dct: dict) -> "LogicalMHDequilibrium":
+        return cls(**dct["params"])
+
 
 if __name__ == "__main__":
     test_transformations(["Colella", {"Lx": 1.0, "Ly": 2.0, "alpha": 0.5, "Lz": 3.0}], "HomogenSlab")
