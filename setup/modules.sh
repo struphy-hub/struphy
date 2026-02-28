@@ -33,7 +33,7 @@ CLUSTER="${CLUSTER:-}"      # Provide default empty if unset
 HPC_SYSTEM="${HPC_SYSTEM:-}" # Provide default empty if unset
 
 # Allow COMPILER_FAMILY as an optional second argument
-if [[ -n "$2" ]]; then
+if [[ -n "${2:-}" ]]; then
     COMPILER_FAMILY="$2"
 elif [[ -n "$COMPILER_FAMILY" ]]; then
     COMPILER_FAMILY="$COMPILER_FAMILY"
