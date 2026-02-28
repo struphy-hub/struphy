@@ -35,7 +35,7 @@ HPC_SYSTEM="${HPC_SYSTEM:-}" # Provide default empty if unset
 # Allow COMPILER_FAMILY as an optional second argument
 if [[ -n "${2:-}" ]]; then
     COMPILER_FAMILY="$2"
-elif [[ -n "$COMPILER_FAMILY" ]]; then
+elif [[ -n "${COMPILER_FAMILY:-}" ]]; then
     COMPILER_FAMILY="$COMPILER_FAMILY"
 else
     COMPILER_FAMILY="gcc"
