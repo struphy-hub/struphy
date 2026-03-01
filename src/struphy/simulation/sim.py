@@ -402,6 +402,7 @@ class Simulation(SimulationBase):
         nx: int = 32,
         ny: int = 32,
         nz: int = 32,
+        zoom_factor: int = 1.0,
         verbose: bool = False,
     ) -> pv.Plotter:
         """Visualize the geometry and (projected) equilibrium fields using PyVista."""
@@ -419,7 +420,7 @@ class Simulation(SimulationBase):
                 scalars_to_plot = scalar_names[:3] if len(scalar_names) >= 3 else scalar_names
 
             # Create a plotter with three subplots side by side
-            plotter = pv.Plotter(shape=(1, len(scalars_to_plot)), window_size=[len(scalars_to_plot) * 500, 500])
+            plotter = pv.Plotter(shape=(1, len(scalars_to_plot)), window_size=[len(scalars_to_plot) * 500, 250])
 
             for idx, scalar_name in enumerate(scalars_to_plot):
                 plotter.subplot(0, idx)
@@ -432,6 +433,7 @@ class Simulation(SimulationBase):
                 )
 
             plotter.view_isometric()
+            plotter.camera.zoom(zoom_factor)
             plotter.show()
             return plotter
         return None

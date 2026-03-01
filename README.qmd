@@ -117,7 +117,7 @@ sim = Simulation(
     equil=equil,
 )
 
-sim.show_domain(scalars="absB0")
+sim.show_domain(scalars="absB0", zoom_factor=2.0)
 ```
 
 ## Docker
