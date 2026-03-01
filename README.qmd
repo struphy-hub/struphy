@@ -1,6 +1,12 @@
 ---
-title: "STRUPHY"
-format: gfm # Github Flavored Markdown
+title: ""
+format:
+  gfm: # Github Flavored Markdown
+    output-file: README.md
+    keep-yaml: false
+    toc: false
+    wrap: none
+    cell-divs: false
 jupyter: python3
 ---
 
