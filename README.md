@@ -1,6 +1,6 @@
 ---
 jupyter: struphy
-title: Tikzpics
+title: STRUPHY
 toc-title: Table of contents
 ---
 
