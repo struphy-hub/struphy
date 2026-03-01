@@ -4,11 +4,9 @@ title: STRUPHY
 toc-title: Table of contents
 ---
 
-<h1 align="center">
+::: {align="center"}
 `<img src="https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/struphy_header_with_subs.png">`{=html}
-</h1>
-
-`<br>`{=html}
+:::
 
 [![Release](https://img.shields.io/github/v/release/struphy-hub/struphy?label=Release.png)](https://github.com/struphy-hub/struphy/releases)
 [![License](https://img.shields.io/badge/License-MIT-violet.png)](https://github.com/struphy-hub/struphy/blob/devel/LICENSE)
@@ -49,9 +47,9 @@ license](https://github.com/struphy-hub/struphy/blob/devel/LICENSE) -
 Copyright (c) 2019-2026, Struphy developers, Max Planck Institute for
 Plasma Physics.
 
-<h1 align="center">
+::: {align="center"}
 `<img src="https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/MPI_PP_Logo_Vertical_E_green_rgb.png" width="200">`{=html}
-</h1>
+:::
 
 ## Tutorials
 
