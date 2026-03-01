@@ -65,30 +65,6 @@ In case you face troubles with install/compile:
 1. check the [prerequisites](https://struphy-hub.github.io/struphy/sections/install.html#requirements)
 2. visit [trouble shooting](https://struphy-hub.github.io/struphy/sections/install.html#trouble-shooting)
 
-
-## Docker
-
-If you want to get started right away without installing anything, you can use the [Docker image](https://hub.docker.com/r/spossann/struphy) - just pull and run:
-
-```
-docker pull spossann/struphy:main
-docker run -it --rm spossann/struphy:main
-ls struphy_*
-```
-This will show three available Struphy environments, which you can activate for example via
-
-```
-source struphy_fortran_/env_fortran_/bin/activate
-```
-
-There is also a [Docker image with just the prerequisites](https://hub.docker.com/r/spossann/ubuntu-for-struphy) (on Ubuntu), so you can install and compile Struphy on top of it yourself:
-
-```
-docker pull spossann/ubuntu-for-struphy:main
-docker run -it --rm spossann/ubuntu-for-struphy:main
-```
-
-
 ## Quick run
 
 As an example, let's say we want to solve Maxwell's equations. We can use the CLI and generate a default launch file via
@@ -113,7 +89,7 @@ mpirun -n 4 python params_Maxwell.py
 
 You can also put the run command in a batch script.
 
-# Quickstart
+### Python API
 
 ```{python}
 #| echo: true
@@ -148,11 +124,39 @@ import pyvista as pv
 # Read the VTS file
 mesh = pv.read("sim_1/geometry.vts")
 
-# Create a plotter with custom settings
-plotter = pv.Plotter(window_size=[1000, 800])
-plotter.add_mesh(mesh, show_edges=True, cmap="viridis")
-plotter.camera_position = "xy"  # Set camera angle
+plotter = pv.Plotter(window_size=[1000, 700])
+
+plotter.add_mesh(
+    mesh,
+    scalars="absB0",
+    cmap="jet",
+    show_scalar_bar=False,
+)
+plotter.view_isometric()
+plotter.camera.zoom(2.0)
 plotter.show()
+```
+
+## Docker
+
+If you want to get started right away without installing anything, you can use the [Docker image](https://hub.docker.com/r/spossann/struphy) - just pull and run:
+
+```
+docker pull spossann/struphy:main
+docker run -it --rm spossann/struphy:main
+ls struphy_*
+```
+This will show three available Struphy environments, which you can activate for example via
+
+```
+source struphy_fortran_/env_fortran_/bin/activate
+```
+
+There is also a [Docker image with just the prerequisites](https://hub.docker.com/r/spossann/ubuntu-for-struphy) (on Ubuntu), so you can install and compile Struphy on top of it yourself:
+
+```
+docker pull spossann/ubuntu-for-struphy:main
+docker run -it --rm spossann/ubuntu-for-struphy:main
 ```
 
 ## Documentation
