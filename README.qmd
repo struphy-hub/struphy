@@ -1,9 +1,6 @@
 ---
 title: "STRUPHY"
 format: gfm # Github Flavored Markdown
-# format:
-#   html:
-#     code-fold: true
 jupyter: struphy
 ---
 
@@ -37,7 +34,7 @@ All models can be run on multiple cores through MPI (distributed memory) and Ope
 
 The code is freely available under an [MIT license](https://github.com/struphy-hub/struphy/blob/devel/LICENSE) - Copyright (c) 2019-2026, Struphy developers, Max Planck Institute for Plasma Physics.
 
-![Max Planck Institute Logo](https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/MPI_PP_Logo_Vertical_E_green_rgb.png)
+![Max Planck Institute Logo](https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/MPI_PP_Logo_Vertical_E_green_rgb_centered.png)
 
 ## Tutorials
 

@@ -47,7 +47,7 @@ Copyright (c) 2019-2026, Struphy developers, Max Planck Institute for
 Plasma Physics.
 
 ![Max Planck Institute
-Logo](https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/MPI_PP_Logo_Vertical_E_green_rgb.png)
+Logo](https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/MPI_PP_Logo_Vertical_E_green_rgb_centered.png)
 
 ## Tutorials
 
