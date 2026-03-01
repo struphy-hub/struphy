@@ -115,6 +115,7 @@ class ParamsIn:
     def __init__(
         self,
         path: str,
+        verbose: bool = False,
     ):
         print(f"\nReading in paramters from {path} ... ")
 
@@ -160,8 +161,9 @@ class ParamsIn:
 
         else:
             raise FileNotFoundError(f"Neither of the paths {params_path} or {bin_path} exists.")
-
-        print("\n... Done.")
+        
+        if verbose:
+            print("\n... Done.")
 
         self.env = env
         self.units = base_units

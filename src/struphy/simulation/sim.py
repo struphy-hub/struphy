@@ -8,6 +8,7 @@ import time
 
 import cunumpy as xp
 import h5py
+import pyvista as pv
 from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.stencil import StencilVector
@@ -167,7 +168,7 @@ class Simulation(SimulationBase):
         assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
         self.model_name = model.__class__.__name__
 
-        if self.rank == 0:
+        if self.rank == 0 and verbose:
             print(f"Instance of simulation for model {self.model_name} ...")
 
         # meta-data
@@ -192,7 +193,7 @@ class Simulation(SimulationBase):
         self.meta["max wall-clock [min]"] = max_runtime
         self.meta["save interval [steps]"] = save_step
 
-        if self.rank == 0:
+        if self.rank == 0 and verbose:
             print("\nMETADATA:")
             for k, v in self.meta.items():
                 print(f"{k}:".ljust(25), v)
@@ -263,7 +264,7 @@ class Simulation(SimulationBase):
         self.units = Units(base_units)
         self.normalize_model()
 
-        if self.rank == 0:
+        if self.rank == 0 and verbose:
             print("\n... Done.")
 
     # ----------------
@@ -320,7 +321,7 @@ class Simulation(SimulationBase):
         # allocate helper fields and perform initial solves if needed
         self.model.allocate_helpers(verbose=verbose)
 
-        if MPI.COMM_WORLD.Get_rank() == 0:
+        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
             print("... Done.")
 
     def save_geometry_and_equil_vtk(self, verbose: bool = False):
@@ -352,6 +353,65 @@ class Simulation(SimulationBase):
                     pointData["absB0"] = absB0
 
             gridToVTK(os.path.join(self.env.path_out, "geometry"), *grids_phy, pointData=pointData)
+
+    def create_geometry_mesh(self, verbose: bool = False):
+        """Create a PyVista mesh with geometry and (projected) equilibrium fields.
+
+        Returns a StructuredGrid mesh with basic diagnostic fields such as
+        jacobian determinant, pressure and |B| when available.
+
+        Returns
+        -------
+        pyvista.StructuredGrid
+            Mesh containing geometry and equilibrium field data.
+        """
+        grids_log = [
+            xp.linspace(1e-6, 1.0, 32),
+            xp.linspace(0.0, 1.0, 32),
+            xp.linspace(0.0, 1.0, 32),
+        ]
+
+        tmp = self.domain(*grids_log)
+        grids_phy = [tmp[0], tmp[1], tmp[2]]
+
+        # Create PyVista structured grid
+        mesh = pv.StructuredGrid(grids_phy[0], grids_phy[1], grids_phy[2])
+
+        # Add point data
+        det_df = self.domain.jacobian_det(*grids_log)
+        mesh["det_df"] = det_df.ravel(order='F')
+
+        if self.equil is not None:
+            p0 = self.equil.p0(*grids_log)
+            mesh["p0"] = p0.ravel(order='F')
+            if isinstance(self.equil, FluidEquilibriumWithB):
+                absB0 = self.equil.absB0(*grids_log)
+                mesh["absB0"] = absB0.ravel(order='F')
+
+        return mesh
+
+    def show_domain(self, window_size=[500, 350], verbose: bool = False) -> pv.Plotter:
+        """Visualize the geometry and (projected) equilibrium fields using PyVista.
+
+        Only executed on MPI rank 0. Displays basic diagnostic fields such as
+        jacobian determinant, pressure and |B| when available.
+        """
+        if self.rank == 0:
+            mesh = self.create_geometry_mesh(verbose=verbose)
+
+            pv.set_jupyter_backend('static')
+            plotter = pv.Plotter(window_size=window_size)
+
+            plotter.add_mesh(
+                mesh,
+                scalars="absB0",
+                cmap="jet",
+                show_scalar_bar=False,
+            )
+            plotter.view_isometric()
+            plotter.show()
+            return plotter
+        return None
 
     def initialize_data_storage(self, verbose: bool = False):
         """Create the `DataContainer` and register time datasets.
