@@ -101,7 +101,7 @@ You can also put the run command in a batch script.
 
 ### Python API
 
-::::: {.cell message="false" execution_count="1"}
+::: {.cell message="false" execution_count="1"}
 ``` {.python .cell-code}
 from struphy import (
     Simulation,
@@ -127,13 +127,8 @@ sim = Simulation(
 sim.show_domain(scalars="absB0")
 ```
 
-::: {.cell-output .cell-output-stdout}
-:::
-
-::: {.cell-output .cell-output-display}
 ![](README_files/figure-markdown/cell-2-output-2.png)
 :::
-:::::
 
 ## Docker
 
