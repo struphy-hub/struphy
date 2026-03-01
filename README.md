@@ -123,131 +123,94 @@ You can also put the run command in a batch script.
 
 # Quickstart
 
-::::: {.cell message="false" results="hide" execution_count="1"}
-::: {.cell-output .cell-output-stdout}
-    DESC import: 0.0017249584197998047 seconds
+::: {.cell execution_count="1"}
+``` {.python .cell-code}
+from struphy import (
+    FieldsBackground,
+    Simulation,
+    domains,
+    equils,
+    perturbations,
+)
+
+# For particles:
+from struphy import (
+    BinningPlot,
+    BoundaryParameters,
+    LoadingParameters,
+    WeightsParameters,
+    maxwellians,
+)
+
+from struphy.models import VlasovAmpereOneSpecies
+model = VlasovAmpereOneSpecies()
+
+domain = domains.DESCunit()
+equil = equils.DESCequilibrium(use_nfp=False)
+
+sim = Simulation(
+    model=model,
+    domain=domain,
+    equil=equil,
+)
+
+# -------------------
+# Particle parameters
+# -------------------
+
+loading_params = LoadingParameters()
+weights_params = WeightsParameters()
+boundary_params = BoundaryParameters()
+model.kinetic_ions.set_markers(loading_params=loading_params,
+                               weights_params=weights_params,
+                               boundary_params=boundary_params,
+                               )
+model.kinetic_ions.set_sorting_boxes()
+
+binplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))
+model.kinetic_ions.set_save_data(binning_plots=(binplot,))
+
+# ------------------
+# Propagator options
+# ------------------
+
+model.propagators.push_eta.options = model.propagators.push_eta.Options()
+if model.with_B0:
+    model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
+model.propagators.coupling_va.options = model.propagators.coupling_va.Options()
+model.initial_poisson.options = model.initial_poisson.Options()
+
+# ------------------
+# Initial conditions
+# ------------------
+# Initial conditions are the sum of the background(s) and the perturbation(s).
+# If backgrounds or perturbations are not specified, they are assumed to be zero.
+
+# Background for (some) FEEC variables
+model.em_fields.phi.add_background(FieldsBackground())
+
+# Perturbations for (some) FEEC variables
+model.em_fields.phi.add_perturbation(perturbations.TorusModesCos())
+
+# For kinetic species the background is mandatory.
+# For kinetic species, if add_initial_condition() is not called, the background is taken as the kinetic initial condition.
+# For kinetic species the perturbations are added to the moments of the distribution function (defined as tuples).
+
+# Background for kinetic species
+maxwellian_1 = maxwellians.Maxwellian3D(n=(1.0, None))
+maxwellian_2 = maxwellians.Maxwellian3D(n=(0.1, None))
+background = maxwellian_1 + maxwellian_2
+model.kinetic_ions.var.add_background(background)
+
+# Perturbations for (some) kinetic species
+perturbation = perturbations.TorusModesCos()
+maxwellian_1pt = maxwellians.Maxwellian3D(n=(1.0, perturbation))
+init = maxwellian_1pt + maxwellian_2
+model.kinetic_ions.var.add_initial_condition(init)
+
+sim.run()
+```
 :::
-
-::: {.cell-output .cell-output-stdout}
-    Eq. load: 6.687544822692871 seconds
-    desc_eval for X: 1.259964942932129 seconds
-    desc_eval for Y: 0.09400391578674316 seconds
-    desc_eval for Z: 0.20738792419433594 seconds
-    desc_eval for X: 0.055142879486083984 seconds
-    desc_eval for Y: 0.055921077728271484 seconds
-    desc_eval for Z: 0.05417895317077637 seconds
-    DESC import: 1.0013580322265625e-05 seconds
-    Eq. load: 0.15027689933776855 seconds
-    desc_eval for X: 0.6509182453155518 seconds
-    desc_eval for Y: 0.051338911056518555 seconds
-    desc_eval for Z: 0.1182248592376709 seconds
-
-    Instance of simulation for model VlasovAmpereOneSpecies ...
-
-    METADATA:
-    platform:                 macosx-10.13-universal2
-    python version:           3.13
-    model name:               VlasovAmpereOneSpecies
-    parameter file:           None
-    output folder:            /Users/max/git_repos/struphy/sim_1
-    MPI processes:            1
-    use MPI.COMM_WORLD:       (True,)
-    number of domain clones:  1
-    restart:                  False
-    max wall-clock [min]:     300
-    save interval [steps]:    1
-
-    ... Done.
-
-    Starting simulation run for model VlasovAmpereOneSpecies ...
-
-    PROPAGATOR OPTIONS:
-
-    Options for propagator 'PushEta':
-        butcher:         ButcherTableau(algo='rk4')
-
-    Options for propagator 'PushVxB':
-        algo:            analytic
-        b2_var:          None
-
-    Options for propagator 'VlasovAmpere':
-        solver:          pcg
-        precond:         MassMatrixPreconditioner
-        solver_params:   SolverParameters(tol=1e-08, maxiter=3000, info=False, verbose=False, recycle=True)
-
-    INITIAL CONDITIONS:
-
-    Variable 'e_field' of species 'EMFields' - no background.
-
-    Variable 'e_field' of species 'EMFields' - no perturbation.
-
-    Variable 'phi' of species 'EMFields' - backgrounds:
-    type:                LogicalConst
-    values:              (1.5, 0.7, 2.4)
-    variable:            None
-
-
-    Variable 'phi' of species 'EMFields' - perturbations:
-        TorusModesCos:
-            _ms: (2,)
-            _ns: (1,)
-            _amps: [0.1]
-            _pfuns: [<function TorusModesCos.__init__.<locals>.<lambda> at 0x108d64680>]
-            _given_in_basis: None
-            _comp: 0
-
-
-    Variable 'var' of species 'KineticIons' - backgrounds:
-    <struphy.kinetic_background.base.SumKineticBackground object at 0x122bc2270>
-
-    Variable 'var' of species 'KineticIons' - no perturbation.
-
-    Variable 'var' of species 'KineticIons' - initial condition:
-    <struphy.kinetic_background.base.SumKineticBackground object at 0x124d63ed0>
-
-    Allocating simulation data ...
-
-    WARNING: Class "BasisProjectionOperators" called with p=(1, 1, 1) (interpolation of piece-wise constants should be avoided).
-    desc_eval for B^rho: 0.19292831420898438 seconds
-    desc_eval for B^theta: 1.8721528053283691 seconds
-    desc_eval for B^zeta: 0.12094902992248535 seconds
-    desc_eval for B^rho: 0.10524106025695801 seconds
-    desc_eval for B^theta: 0.7007150650024414 seconds
-    desc_eval for B^zeta: 0.09964704513549805 seconds
-    desc_eval for B^rho: 0.06136608123779297 seconds
-    desc_eval for B^theta: 0.2345578670501709 seconds
-    desc_eval for B^zeta: 0.09924077987670898 seconds
-
-    INITIAL POISSON SOLVE:
-    Stabilizing Poisson solve with self.options.sigma_1 =1e-14
-
-    Solving initial Poisson problem...
-    ... Done.
-    ... Done.
-    desc_eval for p: 0.22676491737365723 seconds
-    desc_eval for B^rho: 0.003420114517211914 seconds
-    desc_eval for B^theta: 4.887885808944702 seconds
-    desc_eval for B^zeta: 2.6886818408966064 seconds
-    desc_eval for B^rho: 0.13336420059204102 seconds
-    desc_eval for B^theta: 2.042564868927002 seconds
-    desc_eval for B^zeta: 0.29633307456970215 seconds
-
-    Rank 0: executing run() for model VlasovAmpereOneSpecies ...
-
-    INITIAL SCALAR QUANTITIES:
-    en_E:                                     1.68e+02
-    en_f:                                    -1.41e+00
-    en_tot:                                  -1.87e+03
-
-
-    START TIME STEPPING WITH 'LieTrotter' SPLITTING:
-
-    Time steps done: 3
-    wall-clock time of simulation [sec]:  14.75064992904663
-
-    Struphy run finished.
-:::
-:::::
 
 Plot the geometry using PyVista:
 
