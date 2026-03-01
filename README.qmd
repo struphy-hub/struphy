@@ -115,6 +115,10 @@ You can also put the run command in a batch script.
 # Quickstart
 
 ```{python}
+#| echo: false
+#| results: hide
+#| warning: false
+#| message: false
 from struphy import (
     FieldsBackground,
     Simulation,
