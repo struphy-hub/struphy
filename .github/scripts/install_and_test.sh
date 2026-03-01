@@ -106,23 +106,23 @@ echo
 
 # Model tests
 echo "----------------------------------------"
-echo "Running Model tests (2 MPI processes)"
+echo "Running Model tests"
 echo "----------------------------------------"
-struphy test models --mpi 2
+struphy test models
 echo
 
 # Verification tests
 echo "----------------------------------------"
-echo "Running Verification tests (2 MPI processes)"
+echo "Running Verification tests"
 echo "----------------------------------------"
-struphy test verification --mpi 2
+struphy test verification
 echo
 
 # Unit tests
 # echo "----------------------------------------"
-# echo "Running Unit tests (2 MPI processes)"
+# echo "Running Unit tests"
 # echo "----------------------------------------"
-# struphy test unit --mpi 2
+# struphy test unit
 # echo
 
 # # Run tests based on type
