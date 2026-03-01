@@ -1,8 +1,9 @@
 ---
-title: "Tikzpics"
-format:
-  html:
-    code-fold: true
+title: "STRUPHY"
+format: gfm # Github Flavored Markdown
+# format:
+#   html:
+#     code-fold: true
 jupyter: struphy
 ---
 
