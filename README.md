@@ -101,7 +101,7 @@ You can also put the run command in a batch script.
 
 ### Python API
 
-::::: {.cell execution_count="1"}
+::::: {.cell message="false" execution_count="1"}
 ``` {.python .cell-code}
 from struphy import (
     Simulation,
@@ -112,11 +112,11 @@ from struphy.models import LinearMHD
 
 model = LinearMHD()
 
-# domain = domains.DESCunit()
-# equil = equils.DESCequilibrium(use_nfp=False)
+domain = domains.DESCunit()
+equil = equils.DESCequilibrium(use_nfp=False)
 
-domain = domains.Colella()
-equil = equils.HomogenSlab()
+# domain = domains.Tokamak()
+# equil = equils.HomogenSlab()
 
 sim = Simulation(
     model=model,
@@ -124,7 +124,7 @@ sim = Simulation(
     equil=equil,
 )
 
-sim.show_domain()
+sim.show_domain(scalars="absB0")
 ```
 
 ::: {.cell-output .cell-output-stdout}

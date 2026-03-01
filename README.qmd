@@ -93,6 +93,8 @@ You can also put the run command in a batch script.
 
 ```{python}
 #| echo: true
+#| warning: false
+#| message: false
 from struphy import (
     Simulation,
     domains,
@@ -102,11 +104,11 @@ from struphy.models import LinearMHD
 
 model = LinearMHD()
 
-# domain = domains.DESCunit()
-# equil = equils.DESCequilibrium(use_nfp=False)
+domain = domains.DESCunit()
+equil = equils.DESCequilibrium(use_nfp=False)
 
-domain = domains.Colella()
-equil = equils.HomogenSlab()
+# domain = domains.Tokamak()
+# equil = equils.HomogenSlab()
 
 sim = Simulation(
     model=model,
@@ -114,7 +116,7 @@ sim = Simulation(
     equil=equil,
 )
 
-sim.show_domain()
+sim.show_domain(scalars="absB0")
 ```
 
 ## Docker

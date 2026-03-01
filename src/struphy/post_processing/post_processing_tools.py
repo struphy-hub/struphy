@@ -161,7 +161,7 @@ class ParamsIn:
 
         else:
             raise FileNotFoundError(f"Neither of the paths {params_path} or {bin_path} exists.")
-        
+
         if verbose:
             print("\n... Done.")
 

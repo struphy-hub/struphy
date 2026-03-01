@@ -354,7 +354,13 @@ class Simulation(SimulationBase):
 
             gridToVTK(os.path.join(self.env.path_out, "geometry"), *grids_phy, pointData=pointData)
 
-    def create_geometry_mesh(self, verbose: bool = False):
+    def create_geometry_mesh(
+        self,
+        nx: int = 32,
+        ny: int = 32,
+        nz: int = 32,
+        verbose: bool = False,
+    ):
         """Create a PyVista mesh with geometry and (projected) equilibrium fields.
 
         Returns a StructuredGrid mesh with basic diagnostic fields such as
@@ -366,9 +372,9 @@ class Simulation(SimulationBase):
             Mesh containing geometry and equilibrium field data.
         """
         grids_log = [
-            xp.linspace(1e-6, 1.0, 32),
-            xp.linspace(0.0, 1.0, 32),
-            xp.linspace(0.0, 1.0, 32),
+            xp.linspace(1e-6, 1.0, nx),
+            xp.linspace(0.0, 1.0, ny),
+            xp.linspace(0.0, 1.0, nz),
         ]
 
         tmp = self.domain(*grids_log)
@@ -379,35 +385,52 @@ class Simulation(SimulationBase):
 
         # Add point data
         det_df = self.domain.jacobian_det(*grids_log)
-        mesh["det_df"] = det_df.ravel(order='F')
+        mesh["det_df"] = det_df.ravel(order="F")
 
         if self.equil is not None:
             p0 = self.equil.p0(*grids_log)
-            mesh["p0"] = p0.ravel(order='F')
+            mesh["p0"] = p0.ravel(order="F")
             if isinstance(self.equil, FluidEquilibriumWithB):
                 absB0 = self.equil.absB0(*grids_log)
-                mesh["absB0"] = absB0.ravel(order='F')
+                mesh["absB0"] = absB0.ravel(order="F")
 
         return mesh
 
-    def show_domain(self, window_size=[500, 350], verbose: bool = False) -> pv.Plotter:
-        """Visualize the geometry and (projected) equilibrium fields using PyVista.
-
-        Only executed on MPI rank 0. Displays basic diagnostic fields such as
-        jacobian determinant, pressure and |B| when available.
-        """
+    def show_domain(
+        self,
+        scalars: list | str | None = None,
+        nx: int = 32,
+        ny: int = 32,
+        nz: int = 32,
+        verbose: bool = False,
+    ) -> pv.Plotter:
+        """Visualize the geometry and (projected) equilibrium fields using PyVista."""
         if self.rank == 0:
-            mesh = self.create_geometry_mesh(verbose=verbose)
+            mesh = self.create_geometry_mesh(nx=nx, ny=ny, nz=nz, verbose=verbose)
 
-            pv.set_jupyter_backend('static')
-            plotter = pv.Plotter(window_size=window_size)
+            pv.set_jupyter_backend("static")
+            if scalars:
+                if isinstance(scalars, str):
+                    scalars_to_plot = [scalars]
+                else:
+                    scalars_to_plot = scalars
+            else:
+                scalar_names = mesh.array_names
+                scalars_to_plot = scalar_names[:3] if len(scalar_names) >= 3 else scalar_names
 
-            plotter.add_mesh(
-                mesh,
-                scalars="absB0",
-                cmap="jet",
-                show_scalar_bar=False,
-            )
+            # Create a plotter with three subplots side by side
+            plotter = pv.Plotter(shape=(1, len(scalars_to_plot)), window_size=[len(scalars_to_plot) * 500, 500])
+
+            for idx, scalar_name in enumerate(scalars_to_plot):
+                plotter.subplot(0, idx)
+                plotter.add_mesh(
+                    mesh,
+                    scalars=scalar_name,
+                    show_edges=False,
+                    cmap="jet",
+                    scalar_bar_args={"title": scalar_name},
+                )
+
             plotter.view_isometric()
             plotter.show()
             return plotter
