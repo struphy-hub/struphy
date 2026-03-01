@@ -126,24 +126,13 @@ You can also put the run command in a batch script.
 ::: {.cell execution_count="1"}
 ``` {.python .cell-code}
 from struphy import (
-    FieldsBackground,
     Simulation,
     domains,
     equils,
-    perturbations,
 )
+from struphy.models import LinearMHD
 
-# For particles:
-from struphy import (
-    BinningPlot,
-    BoundaryParameters,
-    LoadingParameters,
-    WeightsParameters,
-    maxwellians,
-)
-
-from struphy.models import VlasovAmpereOneSpecies
-model = VlasovAmpereOneSpecies()
+model = LinearMHD()
 
 domain = domains.DESCunit()
 equil = equils.DESCequilibrium(use_nfp=False)
@@ -153,60 +142,6 @@ sim = Simulation(
     domain=domain,
     equil=equil,
 )
-
-# -------------------
-# Particle parameters
-# -------------------
-
-loading_params = LoadingParameters()
-weights_params = WeightsParameters()
-boundary_params = BoundaryParameters()
-model.kinetic_ions.set_markers(loading_params=loading_params,
-                               weights_params=weights_params,
-                               boundary_params=boundary_params,
-                               )
-model.kinetic_ions.set_sorting_boxes()
-
-binplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))
-model.kinetic_ions.set_save_data(binning_plots=(binplot,))
-
-# ------------------
-# Propagator options
-# ------------------
-
-model.propagators.push_eta.options = model.propagators.push_eta.Options()
-if model.with_B0:
-    model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
-model.propagators.coupling_va.options = model.propagators.coupling_va.Options()
-model.initial_poisson.options = model.initial_poisson.Options()
-
-# ------------------
-# Initial conditions
-# ------------------
-# Initial conditions are the sum of the background(s) and the perturbation(s).
-# If backgrounds or perturbations are not specified, they are assumed to be zero.
-
-# Background for (some) FEEC variables
-model.em_fields.phi.add_background(FieldsBackground())
-
-# Perturbations for (some) FEEC variables
-model.em_fields.phi.add_perturbation(perturbations.TorusModesCos())
-
-# For kinetic species the background is mandatory.
-# For kinetic species, if add_initial_condition() is not called, the background is taken as the kinetic initial condition.
-# For kinetic species the perturbations are added to the moments of the distribution function (defined as tuples).
-
-# Background for kinetic species
-maxwellian_1 = maxwellians.Maxwellian3D(n=(1.0, None))
-maxwellian_2 = maxwellians.Maxwellian3D(n=(0.1, None))
-background = maxwellian_1 + maxwellian_2
-model.kinetic_ions.var.add_background(background)
-
-# Perturbations for (some) kinetic species
-perturbation = perturbations.TorusModesCos()
-maxwellian_1pt = maxwellians.Maxwellian3D(n=(1.0, perturbation))
-init = maxwellian_1pt + maxwellian_2
-model.kinetic_ions.var.add_initial_condition(init)
 
 sim.run()
 ```
@@ -266,15 +201,3 @@ in particular to visit:
     Models**](https://link.springer.com/chapter/10.1007/978-3-031-38299-4_28),
     International Conference on Geometric Science of Information 2023,
     263-271, Springer Nature Switzerland.
-
-# To be removed
-
-  -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-                                Particles in a Tokamak `<br>`{=html} (model "Vlasov")                                                 Toroidal Alfvén eigenmode `<br>`{=html} (model "LinearMHDDriftKineticCC")
-  ----------------------------------------------------------------------------------------------------------------- -------------------------------------------------------------------------------------------------------------
-   ![](https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/gallery_struphy_tracer6D.png)   ![](https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/gallery_frontpage_bk.png)
-
-                       **Strong Landau damping `<br>`{=html}(model "VlasovAmpereOneSpecies")**                                        **Anisotropic diffusion `<br>`{=html} (propagator "ImplicitDiffusion")**
-
-      ![](https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/gallery_step_1496.png)       ![](https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/gallery_struphy_heat.png)
-  -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
