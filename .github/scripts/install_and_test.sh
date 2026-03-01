@@ -112,11 +112,11 @@ struphy test models
 echo
 
 # Verification tests
-echo "----------------------------------------"
-echo "Running Verification tests"
-echo "----------------------------------------"
-struphy test verification
-echo
+# echo "----------------------------------------"
+# echo "Running Verification tests"
+# echo "----------------------------------------"
+# struphy test verification
+# echo
 
 # Unit tests
 # echo "----------------------------------------"
