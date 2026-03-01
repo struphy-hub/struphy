@@ -1,4 +1,3 @@
-# Docker
 
 
 ![STRUPHY Header](https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/struphy_header_with_subs.png)
