@@ -1,5 +1,5 @@
 ---
-jupyter: struphy
+jupyter: python3
 title: STRUPHY
 toc-title: Table of contents
 ---
