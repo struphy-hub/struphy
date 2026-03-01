@@ -18,7 +18,7 @@ defaults:
 
 jobs:
   test:
-    environment: protected
+    # environment: protected
     runs-on: ${{ fromJSON(inputs.runner_tags) }}
     strategy:
       fail-fast: false
