@@ -10,6 +10,9 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 
+import sys
+import os
+sys.path.insert(0, os.path.abspath('_ext'))
 
 with open("../src/struphy/console/main.py") as f:
     exec(f.read())
@@ -45,6 +48,7 @@ extensions = [
     "myst_parser",
     "sphinx_design",
     "sphinx_copybutton",
+    "rst_docstring",  # Custom extension to use __doc_rst__
 ]
 
 nbsphinx_execute = "auto"
