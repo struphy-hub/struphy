@@ -429,7 +429,13 @@ class Simulation(SimulationBase):
                     scalars=scalar_name,
                     show_edges=False,
                     cmap="jet",
-                    scalar_bar_args={"title": scalar_name},
+                    scalar_bar_args={
+                        "title": scalar_name,
+                        "vertical": True,
+                        "title_font_size": 12,
+                        "label_font_size": 10,
+                        "height": 0.8,
+                    },
                 )
 
             plotter.view_isometric()
