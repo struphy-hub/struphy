@@ -64,6 +64,38 @@ In case you face troubles with install/compile:
 1. check the [prerequisites](https://struphy-hub.github.io/struphy/sections/install.html#requirements)
 2. visit [trouble shooting](https://struphy-hub.github.io/struphy/sections/install.html#trouble-shooting)
 
+## Python API
+
+Try out the Python API in a Jupyter notebook or any Python environment. For example, you can create a simulation object and show the domain and equilibrium magnetic field of the linear MHD model via
+
+```{python}
+#| echo: true
+#| warning: false
+#| message: false
+#| results: hide
+from struphy import (
+    Simulation,
+    domains,
+    equils,
+)
+from struphy.models import LinearMHD
+
+model = LinearMHD()
+
+domain = domains.DESCunit()
+equil = equils.DESCequilibrium(use_nfp=False)
+
+sim = Simulation(
+    model=model,
+    domain=domain,
+    equil=equil,
+)
+
+sim.show_domain(scalars="absB0", zoom_factor=2.0)
+```
+
+This will show the domain and equilibrium magnetic field of the linear MHD model. You can find more examples in the [documentation](https://struphy-hub.github.io/struphy/index.html).
+
 ## Quick run
 
 As an example, let's say we want to solve Maxwell's equations. We can use the CLI and generate a default launch file via
@@ -87,39 +119,6 @@ mpirun -n 4 python params_Maxwell.py
 ```
 
 You can also put the run command in a batch script.
-
-### Python API
-
-```{python}
-#| echo: true
-#| warning: false
-#| message: false
-#| results: hide
-from struphy import (
-    Simulation,
-    domains,
-    equils,
-)
-from struphy.models import LinearMHD
-
-model = LinearMHD()
-
-domain = domains.DESCunit()
-equil = equils.DESCequilibrium(use_nfp=False)
-
-# domain = domains.Tokamak()
-# equil = equils.HomogenSlab()
-
-sim = Simulation(
-    model=model,
-    domain=domain,
-    equil=equil,
-)
-
-sim.show_domain(scalars="absB0", zoom_factor=2.0)
-```
-
-This will show the domain and equilibrium magnetic field of the linear MHD model. You can find more examples in the [documentation](https://struphy-hub.github.io/struphy/index.html).
 
 ## Docker
 
