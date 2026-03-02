@@ -15,6 +15,7 @@ from struphy.propagators import (
     propagators_fields,
     propagators_markers,
 )
+from struphy.propagators.base import Propagator
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -112,8 +113,6 @@ class LinearMHDVlasovCC(StruphyModel):
     ## abstract methods
 
     def __init__(self):
-        if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -155,8 +154,8 @@ class LinearMHDVlasovCC(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
-    def allocate_helpers(self):
-        self._ones = self.projected_equil.p3.space.zeros()
+    def allocate_helpers(self, verbose: bool = False):
+        self._ones = Propagator.projected_equil.p3.space.zeros()
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.0
         else:
@@ -167,7 +166,7 @@ class LinearMHDVlasovCC(StruphyModel):
 
         # add control variate to mass_ops object
         if self.energetic_ions.var.particles.control_variate:
-            self.mass_ops.weights["f0"] = self.energetic_ions.var.particles.f0
+            Propagator.mass_ops.weights["f0"] = self.energetic_ions.var.particles.f0
 
         self._Ah = self.energetic_ions.mass_number
         self._Ab = self.mhd.mass_number
@@ -179,8 +178,8 @@ class LinearMHDVlasovCC(StruphyModel):
         b = self.em_fields.b_field.spline.vector
         particles = self.energetic_ions.var.particles
 
-        en_U = 0.5 * self.mass_ops.M2n.dot_inner(u, u)
-        en_B = 0.5 * self.mass_ops.M2.dot_inner(b, b)
+        en_U = 0.5 * Propagator.mass_ops.M2n.dot_inner(u, u)
+        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(b, b)
         en_p = p.inner(self._ones) / (5 / 3 - 1)
 
         self.update_scalar("en_U", en_U)

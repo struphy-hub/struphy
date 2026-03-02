@@ -45,26 +45,31 @@ The data can be accessed through the Struphy API. If ``ipython`` is installed, t
     
 and then::
 
-    from struphy.main import pproc, load_data
+    from struphy import PostProcessor, PlottingData
     import os
-    path = os.path.join(os.getcwd(), "sim_1")
-    pproc(path)
-    simdata = load_data(path)
 
-The variable ``simdata`` is of type :class:`~struphy.main.SimData` and holds grid and orbit information.
+    path_out = os.path.join(os.getcwd(), "sim_1")
+
+    pp = PostProcessor(path_out=path_out)
+    pp.process(verbose=True)
+
+    pdata = PlottingData(path_out=path_out)
+    pdata.load(verbose=True)
+
+The object ``pdata`` holds grid and orbit information.
 You can deduce the kind of info held from the screen output. For instance, you have access several ``grids``
 as well as to, for instance::
 
-    print(simdata.spline_values["em_fields"]["e_field_log"].keys())
-    print(simdata.orbits["kinetic_ions"].shape)
-    print(simdata.f["kinetic_ions"]["e1_density"].keys())
+    print(pdata.spline_values["em_fields"]["e_field_log"].keys())
+    print(pdata.orbits["kinetic_ions"].shape)
+    print(pdata.f["kinetic_ions"]["e1_density"].keys())
 
-Under ``simdata.spline_values`` you find dictionaries holding splines values at the pre-defined ``simdata.grids_log``
+Under ``pdata.spline_values`` you find dictionaries holding splines values at the pre-defined ``pdata.grids_log``
 (or the physical grid); the keys are the time points of evaluation.
 
-Under ``simdata.orbits`` you find numpy arrays holding orbit data, indexed by ``[time, particle, attribute]``.
+Under ``pdata.orbits`` you find numpy arrays holding orbit data, indexed by ``[time, particle, attribute]``.
 
-Under ``simdata.f`` you find binning data, in this case a 1d binning plot in the first logical coordinate :math:`\eta_1`-direction
+Under ``pdata.f`` you find binning data, in this case a 1d binning plot in the first logical coordinate :math:`\eta_1`-direction
 (see :ref:`binning` for details).
  
 Parallel simulations can invoked from the same launch file for instance by::

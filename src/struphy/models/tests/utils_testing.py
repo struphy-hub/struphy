@@ -5,11 +5,10 @@ from types import ModuleType
 
 from feectools.ddm.mpi import mpi as MPI
 
-import struphy.models as models
-import struphy.models.utils as models_utils
-from struphy import EnvironmentOptions, main
+from struphy import EnvironmentOptions
 from struphy.io.setup import import_parameters_py
 from struphy.models.base import StruphyModel
+from struphy.simulation.sim import Simulation
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -17,8 +16,6 @@ rank = MPI.COMM_WORLD.Get_rank()
 # generic function for calling model tests
 def call_test(model: StruphyModel, test_profiling: bool = False, verbose: bool = True):
     model_name = model.name()
-    if rank == 0:
-        print(f"\n*** Testing '{model_name}':")
 
     # exceptions
     if model_name == "TwoFluidQuasiNeutralToy" and MPI.COMM_WORLD.Get_size() > 1:
@@ -55,8 +52,8 @@ def call_test(model: StruphyModel, test_profiling: bool = False, verbose: bool =
     model = params_in.model
 
     # test
-    main.run(
-        model,
+    sim = Simulation(
+        model=model,
         params_path=path,
         env=env,
         base_units=base_units,
@@ -68,36 +65,24 @@ def call_test(model: StruphyModel, test_profiling: bool = False, verbose: bool =
         verbose=verbose,
     )
 
-    # Restart and run one more timestep
-    params_in = import_parameters_py(path)
-    base_units = params_in.base_units
-    time_opts = params_in.time_opts
-    domain = params_in.domain
-    equil = params_in.equil
-    grid = params_in.grid
-    derham_opts = params_in.derham_opts
-    model = params_in.model
-    env.restart = True
-    time_opts.Tend += time_opts.dt
+    sim_dict = sim.to_dict()  # test the to_dict method
+    sim2 = Simulation.from_dict(sim_dict)  # test the from_dict method
+    assert sim == sim2, "Simulation to_dict and from_dict methods are not consistent"
+
+    sim.show_parameters()
+
+    sim.run(verbose=verbose)
 
     # test restart
-    main.run(
-        model,
-        params_path=path,
-        env=env,
-        base_units=base_units,
-        time_opts=time_opts,
-        domain=domain,
-        equil=equil,
-        grid=grid,
-        derham_opts=derham_opts,
-        verbose=verbose,
-    )
+    env.restart = True
+    time_opts.Tend += time_opts.dt
+    sim.show_parameters()
+
+    sim.run(verbose=verbose)
 
     MPI.COMM_WORLD.Barrier()
     if rank == 0:
-        path_out = os.path.join(test_folder, model_name)
-        main.pproc(path=path_out)
-        main.load_data(path=path_out)
+        sim.pproc(verbose=verbose)
+        sim.load_plotting_data(verbose=verbose)
         shutil.rmtree(test_folder)
     MPI.COMM_WORLD.Barrier()

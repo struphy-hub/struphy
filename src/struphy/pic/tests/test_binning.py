@@ -1375,41 +1375,41 @@ if __name__ == "__main__":
         rank = comm.Get_rank()
 
     if comm is None or size == 1:
-        # test_binning_6D_full_f(
-        #     mapping=[
-        #         "Cuboid",
-        #         # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
-        #         {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
-        #         # 'ShafranovDshapedCylinder',
-        #         # {'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07,
-        #         #     'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}
-        #     ],
-        #     show_plot=True,
-        # )
-        # test_binning_6D_delta_f(
-        #     mapping=[
-        #         "Cuboid",
-        #         # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
-        #         {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
-        #     ],
-        #     show_plot=True,
-        # )
-        # test_binning_current_6D_full_f(
-        #     mapping=[
-        #         "Cuboid",
-        #         # {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0},
-        #         {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
-        #     ],
-        #     show_plot=True,
-        # )
-        # test_binning_energy_tensor_6D_full_f(
-        #     mapping=[
-        #         "Cuboid",
-        #         # {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0},
-        #         {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
-        #     ],
-        #     show_plot=True,
-        # )
+        test_binning_6D_full_f(
+            mapping=[
+                "Cuboid",
+                # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
+                {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
+                # 'ShafranovDshapedCylinder',
+                # {'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07,
+                #     'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}
+            ],
+            show_plot=True,
+        )
+        test_binning_6D_delta_f(
+            mapping=[
+                "Cuboid",
+                # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
+                {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
+            ],
+            show_plot=True,
+        )
+        test_binning_current_6D_full_f(
+            mapping=[
+                "Cuboid",
+                # {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0},
+                {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
+            ],
+            show_plot=True,
+        )
+        test_binning_energy_tensor_6D_full_f(
+            mapping=[
+                "Cuboid",
+                # {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0},
+                {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
+            ],
+            show_plot=True,
+        )
         test_binning_heat_flux_6D_full_f(
             mapping=[
                 "Cuboid",

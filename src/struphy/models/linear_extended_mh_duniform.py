@@ -12,6 +12,7 @@ from struphy.polar.basic import PolarVector
 from struphy.propagators import (
     propagators_fields,
 )
+from struphy.propagators.base import Propagator
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -84,8 +85,6 @@ class LinearExtendedMHDuniform(StruphyModel):
     ## abstract methods
 
     def __init__(self):
-        if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -122,19 +121,19 @@ class LinearExtendedMHDuniform(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
-    def allocate_helpers(self):
-        self._b_eq = self.projected_equil.b1
-        self._a_eq = self.projected_equil.a1
-        self._p_eq = self.projected_equil.p3
+    def allocate_helpers(self, verbose: bool = False):
+        self._b_eq = Propagator.projected_equil.b1
+        self._a_eq = Propagator.projected_equil.a1
+        self._p_eq = Propagator.projected_equil.p3
 
-        self._ones = self.projected_equil.p3.space.zeros()
+        self._ones = Propagator.projected_equil.p3.space.zeros()
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.0
         else:
             self._ones[:] = 1.0
 
-        self._tmp_b1: BlockVector = self.derham.Vh["1"].zeros()  # TODO: replace derham.Vh dict by class
-        self._tmp_b2: BlockVector = self.derham.Vh["1"].zeros()
+        self._tmp_b1: BlockVector = Propagator.derham.Vh["1"].zeros()  # TODO: replace derham.Vh dict by class
+        self._tmp_b2: BlockVector = Propagator.derham.Vh["1"].zeros()
 
         # adjust coupling parameters
         epsilon = self.mhd.equation_params.epsilon
@@ -148,8 +147,8 @@ class LinearExtendedMHDuniform(StruphyModel):
         p = self.mhd.pressure.spline.vector
         b = self.em_fields.b_field.spline.vector
 
-        en_U = 0.5 * self.mass_ops.M2n.dot_inner(u, u)
-        b1 = self.mass_ops.M1.dot(b, out=self._tmp_b1)
+        en_U = 0.5 * Propagator.mass_ops.M2n.dot_inner(u, u)
+        b1 = Propagator.mass_ops.M1.dot(b, out=self._tmp_b1)
         en_B = 0.5 * b.inner(b1)
         helicity = 2.0 * self._a_eq.inner(b1)
         en_p_i = p.inner(self._ones) / (5.0 / 3.0 - 1.0)
@@ -161,7 +160,7 @@ class LinearExtendedMHDuniform(StruphyModel):
         self.update_scalar("en_tot", en_U + en_B + en_p_i)
 
         # background fields
-        b1 = self.mass_ops.M1.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
+        b1 = Propagator.mass_ops.M1.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
         en_B0 = self._b_eq.inner(b1) / 2.0
         en_p0 = self._p_eq.inner(self._ones) / (5.0 / 3.0 - 1.0)
 
@@ -172,7 +171,7 @@ class LinearExtendedMHDuniform(StruphyModel):
         b1 = self._b_eq.copy(out=self._tmp_b1)
         self._tmp_b1 += b
 
-        b2 = self.mass_ops.M1.dot(b1, apply_bc=False, out=self._tmp_b2)
+        b2 = Propagator.mass_ops.M1.dot(b1, apply_bc=False, out=self._tmp_b2)
         en_Btot = b1.inner(b2) / 2.0
 
         self.update_scalar("en_B_tot", en_Btot)

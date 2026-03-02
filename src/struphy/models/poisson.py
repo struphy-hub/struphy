@@ -9,6 +9,7 @@ from struphy.models.variables import FEECVariable
 from struphy.propagators import (
     propagators_fields,
 )
+from struphy.propagators.base import Propagator
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -63,8 +64,6 @@ class Poisson(StruphyModel):
     ## abstract methods
 
     def __init__(self):
-        if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -84,23 +83,13 @@ class Poisson(StruphyModel):
     def velocity_scale(self):
         return None
 
-    def allocate_helpers(self):
-        pass
-
-    def update_scalar_quantities(self):
-        pass
-
-    def allocate_propagators(self):
+    def allocate_helpers(self, verbose: bool = False):
         """Solve initial Poisson equation.
 
         :meta private:
         """
-
-        # initialize fields and particles
-        super().allocate_propagators()
-
         # # use setter to assign source
-        # self.propagators.poisson.rho = self.mass_ops.M0.dot(self.em_fields.source.spline.vector)
+        # self.propagators.poisson.rho = Propagator.mass_ops.M0.dot(self.em_fields.source.spline.vector)
 
         # Solve with dt=1. and compute electric field
         if MPI.COMM_WORLD.Get_rank() == 0:
@@ -108,8 +97,11 @@ class Poisson(StruphyModel):
 
         self.propagators.poisson(1.0)
 
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print("Done.")
+        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
+            print("... Done.")
+
+    def update_scalar_quantities(self):
+        pass
 
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

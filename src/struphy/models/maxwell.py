@@ -9,6 +9,7 @@ from struphy.models.variables import FEECVariable
 from struphy.propagators import (
     propagators_fields,
 )
+from struphy.propagators.base import Propagator
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -56,8 +57,6 @@ class Maxwell(StruphyModel):
     ## abstract methods
 
     def __init__(self):
-        if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -82,15 +81,15 @@ class Maxwell(StruphyModel):
     def velocity_scale(self):
         return "light"
 
-    def allocate_helpers(self):
+    def allocate_helpers(self, verbose: bool = False):
         pass
 
     def update_scalar_quantities(self):
-        en_E = 0.5 * self.mass_ops.M1.dot_inner(
+        en_E = 0.5 * Propagator.mass_ops.M1.dot_inner(
             self.em_fields.e_field.spline.vector,
             self.em_fields.e_field.spline.vector,
         )
-        en_B = 0.5 * self.mass_ops.M2.dot_inner(
+        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(
             self.em_fields.b_field.spline.vector,
             self.em_fields.b_field.spline.vector,
         )

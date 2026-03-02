@@ -13,30 +13,28 @@ from struphy import (
     DerhamOptions,
     EnvironmentOptions,
     LoadingParameters,
+    Simulation,
     Time,
     WeightsParameters,
     domains,
     grids,
-    main,
     maxwellians,
     perturbations,
 )
+from struphy.models import VlasovAmpereOneSpecies
 
 
 def test_weak_Landau(do_plot: bool = False):
     """Verification test for weak Landau damping.
     The computed damping rate is compared to the analytical rate.
     """
-    # import model
-    from struphy.models import VlasovAmpereOneSpecies
+    # light-weight model instance
+    model = VlasovAmpereOneSpecies(with_B0=False)
 
     # environment options
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "VlasovAmpereOneSpecies")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="weak_Landau")
-
-    # units
-    base_units = BaseUnits()
 
     # time stepping
     time_opts = Time(dt=0.05, Tend=15)
@@ -45,20 +43,14 @@ def test_weak_Landau(do_plot: bool = False):
     r1 = 12.56
     domain = domains.Cuboid(r1=r1)
 
-    # fluid equilibrium (can be used as part of initial conditions)
-    equil = None
-
     # grid
     grid = grids.TensorProductGrid(Nel=(32, 1, 1))
 
     # derham options
     derham_opts = DerhamOptions(p=(3, 1, 1))
 
-    # light-weight model instance
-    model = VlasovAmpereOneSpecies(with_B0=False)
-
     # species parameters
-    model.kinetic_ions.set_phys_params(alpha=1.0, epsilon=-1.0)
+    model.kinetic_ions.set_species_properties(alpha=1.0, epsilon=-1.0)
 
     ppc = 1000
     loading_params = LoadingParameters(ppc=ppc, seed=1234)
@@ -91,19 +83,19 @@ def test_weak_Landau(do_plot: bool = False):
     init = maxwellians.Maxwellian3D(n=(1.0, perturbation))
     model.kinetic_ions.var.add_initial_condition(init)
 
-    # start run
-    main.run(
-        model,
-        params_path=None,
+    # instance of simulation
+    sim = Simulation(
+        model=model,
         env=env,
-        base_units=base_units,
         time_opts=time_opts,
         domain=domain,
-        equil=equil,
         grid=grid,
         derham_opts=derham_opts,
-        verbose=False,
+        verbose=True,
     )
+
+    # run
+    sim.run(verbose=True)
 
     # post processing not needed for scalar data
 

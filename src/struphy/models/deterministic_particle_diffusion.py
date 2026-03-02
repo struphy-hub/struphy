@@ -59,8 +59,6 @@ class DeterministicParticleDiffusion(StruphyModel):
     ## abstract methods
 
     def __init__(self):
-        if rank == 0:
-            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
 
         # 1. instantiate all species
         self.hydrogen = self.Hydrogen()
@@ -84,7 +82,7 @@ class DeterministicParticleDiffusion(StruphyModel):
     def velocity_scale(self):
         return None
 
-    def allocate_helpers(self):
+    def allocate_helpers(self, verbose: bool = False):
         pass
 
     def update_scalar_quantities(self):

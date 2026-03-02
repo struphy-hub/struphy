@@ -23,66 +23,6 @@ def import_parameters_py(params_path: str) -> ModuleType:
     return params_in
 
 
-def setup_folders(
-    path_out: str,
-    restart: bool,
-    verbose: bool = False,
-):
-    """
-    Setup output folders.
-    """
-    if MPI.COMM_WORLD.Get_rank() == 0:
-        if verbose:
-            print("\nPREPARATION AND CLEAN-UP:")
-
-        # create output folder if it does not exit
-        if not os.path.exists(path_out):
-            os.makedirs(path_out, exist_ok=True)
-            if verbose:
-                print("Created folder " + path_out)
-
-        # create data folder in output folder if it does not exist
-        if not os.path.exists(os.path.join(path_out, "data/")):
-            os.mkdir(os.path.join(path_out, "data/"))
-            if verbose:
-                print("Created folder " + os.path.join(path_out, "data/"))
-        else:
-            # remove post_processing folder
-            folder = os.path.join(path_out, "post_processing")
-            if os.path.exists(folder):
-                shutil.rmtree(folder)
-                if verbose:
-                    print("Removed existing folder " + folder)
-
-            # remove meta file
-            file = os.path.join(path_out, "meta.txt")
-            if os.path.exists(file):
-                os.remove(file)
-                if verbose:
-                    print("Removed existing file " + file)
-
-            # remove profiling file
-            file = os.path.join(path_out, "profile_tmp")
-            if os.path.exists(file):
-                os.remove(file)
-                if verbose:
-                    print("Removed existing file " + file)
-
-            # remove .png files (if NOT a restart)
-            if not restart:
-                files = glob.glob(os.path.join(path_out, "*.png"))
-                for n, file in enumerate(files):
-                    os.remove(file)
-                    if verbose and n < 10:  # print only ten statements in case of many processes
-                        print("Removed existing file " + file)
-
-                files = glob.glob(os.path.join(path_out, "data", "*.hdf5"))
-                for n, file in enumerate(files):
-                    os.remove(file)
-                    if verbose and n < 10:  # print only ten statements in case of many processes
-                        print("Removed existing file " + file)
-
-
 def setup_derham(
     grid: TensorProductGrid,
     options: DerhamOptions,

@@ -182,6 +182,13 @@ def test_evaluation_mappings(mapping):
     print("domain's kind_map   :", domain.kind_map)
     print("domain's params :", domain.params)
 
+    # Test to-from-dict:
+    domain_dict = domain.to_dict()
+    print("\ndomain_dict:")
+    for k, v in domain_dict.items():
+        print(f"{k} = {v}")
+    domain_from_dict = domain.__class__.from_dict(domain_dict)
+
     # point-wise evaluation:
     print("pointwise evaluation, shape:", domain(0.5, 0.5, 0.5, squeeze_out=True).shape)
     assert domain(0.5, 0.5, 0.5, squeeze_out=True).shape == (3,)

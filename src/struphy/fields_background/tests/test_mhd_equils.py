@@ -174,6 +174,15 @@ def test_equils(equil_domain_pair):
 
         eq_mhd.domain = domain
 
+    # --------- to-from-dict ---------
+    eq_dict = eq_mhd.to_dict()
+    print("\neq_dict:")
+    for k, v in eq_dict.items():
+        print(f"{k} = {v}")
+    eq_mhd_from_dict = eq_mhd.__class__.from_dict(eq_dict)
+    print(f"{eq_mhd_from_dict = }")
+    assert eq_mhd_from_dict == eq_mhd
+
     # --------- point-wise evaluation ---------
     results = []
 

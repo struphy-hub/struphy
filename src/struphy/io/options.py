@@ -98,6 +98,14 @@ class LiteralOptions:
         "heat_flux_3",
     ]
 
+    def to_dict(self) -> dict:
+        dct = {k: v for k, v in self.__dict__.items()}
+        return dct
+
+    @classmethod
+    def from_dict(cls, dct) -> "LiteralOptions":
+        return cls(**dct)
+
 
 @dataclass
 class Time:
@@ -121,6 +129,27 @@ class Time:
 
     def __post_init__(self):
         check_option(self.split_algo, LiteralOptions.SplitAlgos)
+
+    def __repr__(self):
+        for k, v in self.__dict__.items():
+            print(f"{k}:".ljust(20), v)
+        return ""
+
+    def to_dict(self) -> dict:
+        dct = {
+            "dt": self.dt,
+            "Tend": self.Tend,
+            "split_algo": self.split_algo,
+        }
+        return dct
+
+    @classmethod
+    def from_dict(cls, dct) -> "Time":
+        return cls(
+            dt=dct["dt"],
+            Tend=dct["Tend"],
+            split_algo=dct["split_algo"],
+        )
 
 
 @dataclass
@@ -147,6 +176,30 @@ class BaseUnits:
     B: float = 1.0
     n: float = 1.0
     kBT: float = None
+
+    def __repr__(self):
+        units = ["m", "T", "1e20/m^3", "keV"]
+        for (k, v), unit in zip(self.__dict__.items(), units):
+            print(f"{k}:".ljust(20), v, unit)
+        return ""
+
+    def to_dict(self) -> dict:
+        dct = {
+            "x": self.x,
+            "B": self.B,
+            "n": self.n,
+            "kBT": self.kBT,
+        }
+        return dct
+
+    @classmethod
+    def from_dict(cls, dct) -> "BaseUnits":
+        return cls(
+            x=dct["x"],
+            B=dct["B"],
+            n=dct["n"],
+            kBT=dct.get("kBT", None),
+        )
 
 
 @dataclass
@@ -188,6 +241,35 @@ class DerhamOptions:
     def __post_init__(self):
         check_option(self.polar_ck, LiteralOptions.PolarRegularity)
 
+    def __repr__(self):
+        for k, v in self.__dict__.items():
+            print(f"{k}:".ljust(20), v)
+        return ""
+
+    def to_dict(self) -> dict:
+        dct = {
+            "p": self.p,
+            "spl_kind": self.spl_kind,
+            "dirichlet_bc": self.dirichlet_bc,
+            "nquads": self.nquads,
+            "nq_pr": self.nq_pr,
+            "polar_ck": self.polar_ck,
+            "local_projectors": self.local_projectors,
+        }
+        return dct
+
+    @classmethod
+    def from_dict(cls, dct) -> "DerhamOptions":
+        return cls(
+            p=dct["p"],
+            spl_kind=dct["spl_kind"],
+            dirichlet_bc=dct["dirichlet_bc"],
+            nquads=dct["nquads"],
+            nq_pr=dct["nq_pr"],
+            polar_ck=dct["polar_ck"],
+            local_projectors=dct["local_projectors"],
+        )
+
 
 @dataclass
 class FieldsBackground:
@@ -212,6 +294,27 @@ class FieldsBackground:
 
     def __post_init__(self):
         check_option(self.type, LiteralOptions.BackgroundTypes)
+
+    def __repr__(self):
+        for k, v in self.__dict__.items():
+            print(f"{k}:".ljust(20), v)
+        return ""
+
+    def to_dict(self) -> dict:
+        dct = {
+            "type": self.type,
+            "values": self.values,
+            "variable": self.variable,
+        }
+        return dct
+
+    @classmethod
+    def from_dict(cls, dct) -> "FieldsBackground":
+        return cls(
+            type=dct["type"],
+            values=dct["values"],
+            variable=dct["variable"],
+        )
 
 
 @dataclass
@@ -266,3 +369,32 @@ class EnvironmentOptions:
     def __repr__(self):
         for k, v in self.__dict__.items():
             print(f"{k}:".ljust(20), v)
+        return ""
+
+    def to_dict(self) -> dict:
+        dct = {
+            "out_folders": self.out_folders,
+            "sim_folder": self.sim_folder,
+            "restart": self.restart,
+            "max_runtime": self.max_runtime,
+            "save_step": self.save_step,
+            "sort_step": self.sort_step,
+            "num_clones": self.num_clones,
+            "profiling_activated": self.profiling_activated,
+            "profiling_trace": self.profiling_trace,
+        }
+        return dct
+
+    @classmethod
+    def from_dict(cls, dct) -> "EnvironmentOptions":
+        return cls(
+            out_folders=dct["out_folders"],
+            sim_folder=dct["sim_folder"],
+            restart=dct["restart"],
+            max_runtime=dct["max_runtime"],
+            save_step=dct["save_step"],
+            sort_step=dct["sort_step"],
+            num_clones=dct["num_clones"],
+            profiling_activated=dct["profiling_activated"],
+            profiling_trace=dct["profiling_trace"],
+        )
