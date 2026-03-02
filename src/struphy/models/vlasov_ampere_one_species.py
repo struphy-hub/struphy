@@ -205,7 +205,7 @@ Ampère's law:
 
     -\frac{\partial \mathbf{E}}{\partial t} = \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} f \, \mathrm{d}^3 \mathbf{v}
 
-**Initial Poisson equation:** At :math:`t=0`, solve weakly for the electric potential :math:`\phi`:
+Initial Poisson equation: At :math:`t=0`, solve weakly for the electric potential :math:`\phi`:
 
 .. math::
 
@@ -271,11 +271,9 @@ Find :math:`(\mathbf{E}, f) \in H(\mathrm{curl}) \times C^\infty` such that
 
 .. math::
 
-    -\int_\Omega \mathbf{F} \cdot \frac{\partial \mathbf{E}}{\partial t}\,\mathrm{d} \mathbf{x} &= 
-    \frac{\alpha^2}{\varepsilon} \int_\Omega \int_{\mathbb{R}^3} \mathbf{F} \cdot \mathbf{v} (f - f_0) \, \mathrm{d}^3 \mathbf{v}\,\mathrm{d} \mathbf{x} 
-    \qquad \forall \ \mathbf{F} \in H(\mathrm{curl})
+    &-\int_\Omega \mathbf{F} \cdot \frac{\partial \mathbf{E}}{\partial t}\,\mathrm{d} \mathbf{x} = \frac{\alpha^2}{\varepsilon} \int_\Omega \int_{\mathbb{R}^3} \mathbf{F} \cdot \mathbf{v} (f - f_0) \, \mathrm{d}^3 \mathbf{v}\,\mathrm{d} \mathbf{x} \qquad \forall \ \mathbf{F} \in H(\mathrm{curl})
     
-    \frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \frac{1}{\varepsilon} \left( \mathbf{E} + \mathbf{v} \times \mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} &= 0
+    &\frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \frac{1}{\varepsilon} \left( \mathbf{E} + \mathbf{v} \times \mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0
 
 **Scalar Quantities**
 

@@ -536,19 +536,43 @@ def rst_to_html(rst_text: str) -> str:
         is_multiline = any("&" in line or "\\\\" in line for line in cleaned_lines)
 
         if is_multiline:
-            # Preserve multiline structure
-            # Remove alignment markers (&) but keep line breaks
-            unicode_lines = []
+            # Preserve multiline structure and align on '&' (LaTeX align-style).
+            aligned_rows = []
             for line in cleaned_lines:
                 # Remove trailing \\
-                line = re.sub(r"\\\\\s*$", "", line)
-                # Remove alignment marker &
-                line = line.replace("&", "")
-                # Convert LaTeX to Unicode
-                unicode_line = latex_to_unicode(line.strip(), display_mode=True)
-                if unicode_line:
-                    unicode_lines.append(unicode_line)
-            unicode_math = "\n".join(unicode_lines)
+                line = re.sub(r"\\\\\s*$", "", line).strip()
+                if not line:
+                    continue
+
+                if "&" in line:
+                    lhs_raw, rhs_raw = line.split("&", 1)
+                    lhs = latex_to_unicode(lhs_raw.strip(), display_mode=True)
+                    rhs = latex_to_unicode(rhs_raw.strip(), display_mode=True)
+                    aligned_rows.append(
+                        "<tr>"
+                        '<td style="text-align:right;padding-right:0.35em;vertical-align:middle;white-space:nowrap;">'
+                        f"{lhs}"
+                        "</td>"
+                        '<td style="text-align:left;vertical-align:middle;white-space:nowrap;">'
+                        f"{rhs}"
+                        "</td>"
+                        "</tr>"
+                    )
+                else:
+                    expr = latex_to_unicode(line, display_mode=True)
+                    aligned_rows.append(
+                        "<tr>"
+                        '<td colspan="2" style="text-align:center;vertical-align:middle;white-space:nowrap;">'
+                        f"{expr}"
+                        "</td>"
+                        "</tr>"
+                    )
+
+            unicode_math = (
+                '<table style="margin:0 auto;border-collapse:collapse;">'
+                f"{''.join(aligned_rows)}"
+                "</table>"
+            )
         else:
             # Single line equation - join all lines
             latex_str = " ".join(cleaned_lines)
@@ -722,6 +746,16 @@ def rst_to_html(rst_text: str) -> str:
                     '<span style="display:block;text-align:center;font-size:1.18em;'
                     'line-height:1.6;margin:0.35em 0;">'
                     f"{display_math}"
+                    "</span>"
+                ),
+            )
+        elif unicode_math.lstrip().startswith("<table"):
+            html = html.replace(
+                f"<!--MATHBLOCK{i}-->",
+                (
+                    '<span style="display:block;text-align:center;font-size:1.18em;'
+                    'line-height:1.6;margin:0.35em 0;">'
+                    f"{unicode_math}"
                     "</span>"
                 ),
             )
