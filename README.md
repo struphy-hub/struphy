@@ -110,6 +110,10 @@ sim.show_domain(scalars="absB0", zoom_factor=2.0)
 
 ![](README_files/figure-commonmark/cell-2-output-2.png)
 
+This will show the domain and equilibrium magnetic field of the linear MHD model. You can find more examples in the [documentation](https://struphy-hub.github.io/struphy/index.html).
+
+## Docker
+
 If you want to get started right away without installing anything, you can use the [Docker image](https://hub.docker.com/r/spossann/struphy) - just pull and run:
 
     docker pull spossann/struphy:main
