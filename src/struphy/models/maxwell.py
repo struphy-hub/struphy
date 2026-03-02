@@ -10,35 +10,18 @@ from struphy.propagators import (
     propagators_fields,
 )
 from struphy.propagators.base import Propagator
+from struphy.utils.docstring_converter import auto_convert_docstring
 
 rank = MPI.COMM_WORLD.Get_rank()
 
 
+@auto_convert_docstring
 class Maxwell(StruphyModel):
-    r"""Maxwell's equations in vacuum.
-
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat E = c \hat B\,.
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        &\frac{\partial \mathbf E}{\partial t} - \nabla\times\mathbf B = 0\,,
-
-        &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.propagators_fields.Maxwell`
-    """
+    """Maxwell's equations in vacuum for electromagnetic field evolution."""
 
     @classmethod
     def model_type(cls) -> LiteralOptions.ModelTypes:
-        return "Fluid"
+        return "Toy"
 
     ## species
 
@@ -97,3 +80,76 @@ class Maxwell(StruphyModel):
         self.update_scalar("electric energy", en_E)
         self.update_scalar("magnetic energy", en_B)
         self.update_scalar("total energy", en_E + en_B)
+
+    __doc_rst__ = r"""
+Maxwell's equations in vacuum for electromagnetic field evolution.
+
+This model simulates the propagation of electromagnetic waves in vacuum using Maxwell's equations
+without sources. It uses a finite element exterior calculus (FEEC) formulation with the electric field
+in H(curl) and the magnetic field in H(div) spaces.
+
+**Governing Equations**
+
+Ampère's law (no current):
+
+.. math::
+
+    \frac{\partial \mathbf E}{\partial t} - \nabla\times\mathbf B = 0
+
+Faraday's law:
+
+.. math::
+
+    \frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0
+
+**Normalization**
+
+Fields are normalized such that:
+
+.. math::
+
+    \hat E = c \hat B
+
+where :math:`c` is the speed of light.
+
+**Species**
+
+- ``em_fields.e_field`` - Electric field (H(curl) space)
+- ``em_fields.b_field`` - Magnetic field (H(div) space)
+
+**Propagators**
+
+1. :class:`~struphy.propagators.propagators_fields.Maxwell` - Time integration scheme
+
+**Scalar Quantities**
+
+The following quantities are tracked during simulation:
+
+- Electric energy: :math:`E_E = \frac{1}{2} \int |\mathbf E|^2 \, dV`
+- Magnetic energy: :math:`E_B = \frac{1}{2} \int |\mathbf B|^2 \, dV`
+- Total energy: :math:`E_{total} = E_E + E_B`
+
+**Model Properties**
+
+- **Model type:** Toy
+- **Velocity scale:** Speed of light
+- **Bulk species:** None
+
+**See Also**
+
+- :class:`~struphy.models.base.StruphyModel` - Base class for all Struphy models
+- :class:`~struphy.propagators.propagators_fields.Maxwell` - Maxwell propagator implementation
+
+**Examples**
+
+Create and initialize a Maxwell model:
+
+.. code-block:: python
+
+    from struphy.models.maxwell import Maxwell
+    
+    model = Maxwell()
+    # Fields are accessible via:
+    # model.em_fields.e_field
+    # model.em_fields.b_field
+"""
