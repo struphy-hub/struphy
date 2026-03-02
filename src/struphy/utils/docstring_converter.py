@@ -126,6 +126,7 @@ def latex_to_unicode(latex_str: str) -> str:
     
     # Greek and special symbols
     symbols = {
+        r'\sum': '∑',
         r'\nabla': '∇',
         r'\times': '×',
         r'\partial': '∂',
@@ -207,7 +208,7 @@ def latex_to_unicode(latex_str: str) -> str:
     for latex, unicode_sym in symbols.items():
         result = result.replace(latex, unicode_sym)
     
-    # Subscripts
+    # Subscripts and Superscripts - handle with better heuristics
     subscripts = {
         '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
         '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉',
@@ -218,24 +219,6 @@ def latex_to_unicode(latex_str: str) -> str:
         'v': 'ᵥ', 'x': 'ₓ',
     }
     
-    # Convert _{...} subscripts
-    def replace_subscript(match):
-        content = match.group(1)
-        # Try to convert each character, fall back to original if not available
-        converted = ''.join(subscripts.get(c, c) for c in content)
-        # If nothing was converted
-        if converted == content:
-            if len(content) > 1:
-                return f'_({content})'
-            else:
-                # Single character that couldn't be converted - keep with underscore
-                return f'_{content}'
-        return converted
-    
-    result = re.sub(r'_\{([^}]+)\}', replace_subscript, result)
-    result = re.sub(r'_([A-Za-z0-9])', replace_subscript, result)
-    
-    # Superscripts
     superscripts = {
         '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
         '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
@@ -251,24 +234,59 @@ def latex_to_unicode(latex_str: str) -> str:
         'T': 'ᵀ', 'U': 'ᵁ', 'V': 'ⱽ', 'W': 'ᵂ',
     }
     
-    # Convert ^{...} superscripts
+    # Convert _{...} subscripts with smarter handling
+    def replace_subscript(match):
+        content = match.group(1).strip()
+        # Check if all characters can be converted to Unicode subscripts
+        converted = ''.join(subscripts.get(c, '') for c in content)
+        
+        if converted and len(converted) == len(content):
+            # All characters have Unicode subscript equivalents
+            return converted
+        elif len(content) == 1 and content in subscripts:
+            # Single character with Unicode equivalent
+            return subscripts[content]
+        elif len(content) <= 2 and all(c in subscripts for c in content):
+            # Short sequence of convertible characters
+            return ''.join(subscripts[c] for c in content)
+        else:
+            # Fallback for characters without Unicode subscript glyphs
+            # (e.g. uppercase letters like U in E_U)
+            return f'<sub>{content}</sub>'
+    
+    result = re.sub(r'_\{([^}]+)\}', replace_subscript, result)
+    # Handle multi-character unbraced subscripts before single-character ones
+    result = re.sub(r'_([A-Za-z0-9]+)(?![A-Za-z0-9])', replace_subscript, result)
+    result = re.sub(r'_([A-Za-z0-9])(?![A-Za-z0-9])', replace_subscript, result)
+    # Convert ^{...} superscripts with smarter handling
     def replace_superscript(match):
-        content = match.group(1)
-        # Try to convert each character, fall back to original if not available
-        converted = ''.join(superscripts.get(c, c) for c in content)
-        # If nothing was converted, use parentheses notation
-        if converted == content and len(content) > 1:
-            return f'^({content})'
-        return converted
+        content = match.group(1).strip()
+        # Check if all characters can be converted to Unicode superscripts
+        converted = ''.join(superscripts.get(c, '') for c in content)
+        
+        if converted and len(converted) == len(content):
+            # All characters have Unicode superscript equivalents
+            return converted
+        elif len(content) == 1 and content in superscripts:
+            # Single character with Unicode equivalent
+            return superscripts[content]
+        elif len(content) <= 2 and all(c in superscripts for c in content):
+            # Short sequence of convertible characters
+            return ''.join(superscripts[c] for c in content)
+        else:
+            # Fallback for characters without Unicode superscript glyphs
+            return f'<sup>{content}</sup>'
     
     result = re.sub(r'\^\{([^}]+)\}', replace_superscript, result)
-    result = re.sub(r'\^([A-Za-z0-9])', replace_superscript, result)
-    
+    # Handle multi-character unbraced superscripts before single-character ones
+    result = re.sub(r'\^([A-Za-z0-9]+)(?![A-Za-z0-9])', replace_superscript, result)
+    result = re.sub(r'\^([A-Za-z0-9])(?![A-Za-z0-9])', replace_superscript, result)
     # Remove remaining LaTeX commands
-    result = re.sub(r'\\,', ' ', result)  # thin space
-    result = re.sub(r'\\;', ' ', result)  # medium space
-    result = re.sub(r'\\quad', ' ', result)
-    result = re.sub(r'\\qquad', '  ', result)
+    # Preserve spacing intent using Unicode space characters (HTML-safe)
+    result = re.sub(r'\\,', chr(0x2009), result)               # thin space
+    result = re.sub(r'\\;', chr(0x2005), result)               # medium mathematical space
+    result = re.sub(r'\\quad', chr(0x2003), result)            # em space
+    result = re.sub(r'\\qquad', chr(0x2003) * 2, result)       # double em space
     result = re.sub(r'\\left\|', '|', result)
     result = re.sub(r'\\right\|', '|', result)
     result = re.sub(r'\\left', '', result)
