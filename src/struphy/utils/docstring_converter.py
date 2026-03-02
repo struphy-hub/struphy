@@ -3,7 +3,25 @@
 import re
 
 
-def latex_to_unicode(latex_str: str) -> str:
+def _format_fraction(numerator: str, denominator: str, display_mode: bool = False) -> str:
+    """Format a fraction without using plain '/' text."""
+    num = numerator.strip()
+    den = denominator.strip()
+    if display_mode:
+        # LaTeX-like stacked fraction for display equations.
+        return (
+            '<span style="display:inline-flex;flex-direction:column;align-items:center;'
+            'vertical-align:middle;line-height:1;margin:0 0.08em;">'
+            f'<span style="display:block;padding:0 0.18em;border-bottom:1px solid currentColor;">{num}</span>'
+            f'<span style="display:block;padding:0 0.18em;">{den}</span>'
+            "</span>"
+        )
+
+    # Inline: keep lightweight typography.
+    return f"<sup>{num}</sup>⁄<sub>{den}</sub>"
+
+
+def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
     """
     Convert LaTeX math expressions to Unicode symbols.
 
@@ -151,8 +169,12 @@ def latex_to_unicode(latex_str: str) -> str:
     result = re.sub(r"\\tilde\s+([A-Za-z])\b", replace_tilde, result)
 
     # Fractions - handle FIRST (before sqrt) to process fractions inside sqrt
-    # \frac{\partial ...}{\partial t} -> ∂.../∂t
-    result = re.sub(r"\\frac\{\\partial\s+([^}]+)\}\{\\partial\s+([^}]+)\}", r"∂\1/∂\2", result)
+    # \frac{\partial ...}{\partial t} -> typographic fraction
+    result = re.sub(
+        r"\\frac\{\\partial\s+([^}]+)\}\{\\partial\s+([^}]+)\}",
+        lambda m: _format_fraction(f"∂{m.group(1)}", f"∂{m.group(2)}", display_mode=display_mode),
+        result,
+    )
 
     # Common fractions
     common_fractions = {
@@ -172,13 +194,18 @@ def latex_to_unicode(latex_str: str) -> str:
         r"\frac{5}{8}": "⅝",
         r"\frac{7}{8}": "⅞",
     }
-    for frac, unicode_frac in common_fractions.items():
-        result = result.replace(frac, unicode_frac)
+    if not display_mode:
+        for frac, unicode_frac in common_fractions.items():
+            result = result.replace(frac, unicode_frac)
 
-    # Generic fraction \frac{a}{b} -> (a)/(b) for clarity
+    # Generic fraction \frac{a}{b} -> typographic fraction
     # Handle simple nested cases with multiple passes
     for _ in range(3):  # Multiple passes for nested fractions
-        result = re.sub(r"\\frac\{([^{}]+)\}\{([^{}]+)\}", r"(\1)/(\2)", result)
+        result = re.sub(
+            r"\\frac\{([^{}]+)\}\{([^{}]+)\}",
+            lambda m: _format_fraction(m.group(1), m.group(2), display_mode=display_mode),
+            result,
+        )
 
     # Square root (\sqrt) - handle AFTER initial fractions so fractions inside sqrt are processed first
     def replace_sqrt(match):
@@ -190,7 +217,11 @@ def latex_to_unicode(latex_str: str) -> str:
     # Process fractions AGAIN to catch fractions created by sqrt conversion
     # (e.g., \frac{a}{\sqrt{b}} becomes \frac{a}{√(b)} which can now be matched)
     for _ in range(3):  # Multiple passes for nested fractions
-        result = re.sub(r"\\frac\{([^{}]+)\}\{([^{}]+)\}", r"(\1)/(\2)", result)
+        result = re.sub(
+            r"\\frac\{([^{}]+)\}\{([^{}]+)\}",
+            lambda m: _format_fraction(m.group(1), m.group(2), display_mode=display_mode),
+            result,
+        )
 
     # Normalize subscript patterns: _\command{...} -> _{\command{...}}
     # Do this BEFORE symbol replacement so we can handle _\mathbb{R}, _\Omega, etc.
@@ -514,14 +545,14 @@ def rst_to_html(rst_text: str) -> str:
                 # Remove alignment marker &
                 line = line.replace("&", "")
                 # Convert LaTeX to Unicode
-                unicode_line = latex_to_unicode(line.strip())
+                unicode_line = latex_to_unicode(line.strip(), display_mode=True)
                 if unicode_line:
                     unicode_lines.append(unicode_line)
             unicode_math = "\n".join(unicode_lines)
         else:
             # Single line equation - join all lines
             latex_str = " ".join(cleaned_lines)
-            unicode_math = latex_to_unicode(latex_str)
+            unicode_math = latex_to_unicode(latex_str, display_mode=True)
 
         math_blocks.append(unicode_math)
         return f"<!--MATHBLOCK{len(math_blocks) - 1}-->"
@@ -681,15 +712,29 @@ def rst_to_html(rst_text: str) -> str:
     html = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", html)
     html = re.sub(r"\*([^*]+)\*", r"<em>\1</em>", html)
 
-    # Restore math blocks as inline code or pre blocks for multiline
+    # Restore math blocks as display equations.
     for i, unicode_math in enumerate(math_blocks):
         if "\n" in unicode_math:
-            # Multiline equation - use pre block for better formatting
-            math_escaped = unicode_math.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-            html = html.replace(f"<!--MATHBLOCK{i}-->", f"<pre><code>{math_escaped}</code></pre>")
+            display_math = "<br/>".join(line for line in unicode_math.split("\n") if line.strip())
+            html = html.replace(
+                f"<!--MATHBLOCK{i}-->",
+                (
+                    '<span style="display:block;text-align:center;font-size:1.18em;'
+                    'line-height:1.6;margin:0.35em 0;">'
+                    f"{display_math}"
+                    "</span>"
+                ),
+            )
         else:
-            # Single line - use inline code
-            html = html.replace(f"<!--MATHBLOCK{i}-->", f"<code>{unicode_math}</code>")
+            html = html.replace(
+                f"<!--MATHBLOCK{i}-->",
+                (
+                    '<span style="display:block;text-align:center;font-size:1.18em;'
+                    'line-height:1.6;margin:0.35em 0;">'
+                    f"{unicode_math}"
+                    "</span>"
+                ),
+            )
 
     # Restore inline math as code
     for i, unicode_math in enumerate(inline_math_items):
