@@ -67,7 +67,7 @@ sim = Simulation(
     equil=equil,
 )
 
-sim.show_domain(scalars="absB0", zoom_factor=2.0)
+sim.show_domain(scalars="absB0", nx=64, ny=64, nz=64, window_size = (850, 250), zoom_factor=2.0)
 ```
 
 ![](README_files/figure-commonmark/cell-2-output-1.png)

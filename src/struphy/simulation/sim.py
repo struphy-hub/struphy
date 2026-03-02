@@ -402,6 +402,7 @@ class Simulation(SimulationBase):
         nx: int = 32,
         ny: int = 32,
         nz: int = 32,
+        window_size: tuple | None = None,
         zoom_factor: int = 1.0,
         verbose: bool = False,
     ) -> pv.Plotter:
@@ -419,8 +420,11 @@ class Simulation(SimulationBase):
                 scalar_names = mesh.array_names
                 scalars_to_plot = scalar_names[:3] if len(scalar_names) >= 3 else scalar_names
 
+            if window_size is None:
+                window_size = (len(scalars_to_plot) * 500, 250)
+
             # Create a plotter with three subplots side by side
-            plotter = pv.Plotter(shape=(1, len(scalars_to_plot)), window_size=[len(scalars_to_plot) * 500, 250])
+            plotter = pv.Plotter(shape=(1, len(scalars_to_plot)), window_size=window_size)
 
             for idx, scalar_name in enumerate(scalars_to_plot):
                 plotter.subplot(0, idx)
