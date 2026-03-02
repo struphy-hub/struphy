@@ -16,7 +16,23 @@ def latex_to_unicode(latex_str: str) -> str:
     # Create a working copy
     result = latex_str
     
-    # Bold math symbols (\mathbf)
+    # FIRST: Handle nested tilde/hat with mathbf using HTML bold tags
+    # \tilde{\mathbf{U}} -> <b>Ũ</b> (use regular letter with combining mark + HTML bold)
+    # This renders better than mathematical bold + combining mark
+    tilde_char = '\u0303'  # combining tilde
+    hat_char = '\u0302'    # combining circumflex
+    
+    # Match \tilde{\mathbf{X}} or \hat{\mathbf{X}}
+    result = re.sub(r'\\tilde\s*\{\\mathbf\s*\{([A-Za-z])\}\}', 
+                   lambda m: f'<b>{m.group(1)}{tilde_char}</b>', result)
+    result = re.sub(r'\\tilde\s*\{\\mathbf\s+([A-Za-z])\}', 
+                   lambda m: f'<b>{m.group(1)}{tilde_char}</b>', result)
+    result = re.sub(r'\\hat\s*\{\\mathbf\s*\{([A-Za-z])\}\}', 
+                   lambda m: f'<b>{m.group(1)}{hat_char}</b>', result)
+    result = re.sub(r'\\hat\s*\{\\mathbf\s+([A-Za-z])\}', 
+                   lambda m: f'<b>{m.group(1)}{hat_char}</b>', result)
+    
+    # Bold math symbols (\mathbf) - for letters WITHOUT combining marks
     bold_letters = {
         # Uppercase
         'A': '𝐀', 'B': '𝐁', 'C': '𝐂', 'D': '𝐃', 'E': '𝐄', 'F': '𝐅',
@@ -33,7 +49,7 @@ def latex_to_unicode(latex_str: str) -> str:
     }
     
     for letter, bold in bold_letters.items():
-        # Match \mathbf E or \mathbf{E}
+        # Match \mathbf E or \mathbf{E} (without combining marks)
         result = re.sub(rf'\\mathbf\s*{re.escape(letter)}\b', bold, result)
         result = re.sub(rf'\\mathbf\s*\{{\s*{re.escape(letter)}\s*\}}', bold, result)
     
