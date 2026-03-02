@@ -568,11 +568,7 @@ def rst_to_html(rst_text: str) -> str:
                         "</tr>"
                     )
 
-            unicode_math = (
-                '<table style="margin:0 auto;border-collapse:collapse;">'
-                f"{''.join(aligned_rows)}"
-                "</table>"
-            )
+            unicode_math = f'<table style="margin:0 auto;border-collapse:collapse;">{"".join(aligned_rows)}</table>'
         else:
             # Single line equation - join all lines
             latex_str = " ".join(cleaned_lines)
