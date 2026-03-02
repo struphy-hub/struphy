@@ -35,6 +35,7 @@ dependencies = [
     'tqdm',
     'argcomplete',
     'plotly',
+    "pyvista",
     'pytest',
     'pytest-mpi',
     'pytest-testmon',
