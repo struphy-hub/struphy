@@ -1835,11 +1835,22 @@ class Domain(metaclass=ABCMeta):
             plt.show()
 
     def to_dict(self) -> dict:
-        return {"class": self.__class__.__name__, "params": self.params}
+        return {
+            "type": self.__class__.__name__,
+            "params": self.params,
+        }
 
     @classmethod
     def from_dict(cls, dct):
-        return cls(**dct["params"])
+        from struphy.geometry.utilities import get_domain_by_name
+
+        name = dct["type"]
+        domain_cls = get_domain_by_name(name)
+        return domain_cls(**dct["params"])
+
+    def __eq__(self, other: "Domain") -> bool:
+        assert isinstance(other, Domain), f"Cannot compare Domain with {type(other)}."
+        return self.to_dict() == other.to_dict()
 
 
 class Spline(Domain):
