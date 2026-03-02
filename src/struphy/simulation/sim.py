@@ -646,7 +646,7 @@ RESTARTing from:
                 self.data.save_data(keys=save_keys_all)
 
                 # print current time and scalar quantities to screen
-                if self.rank == 0:
+                if self.rank == 0 and verbose:
                     step = str(self.time_state["index"][0]).zfill(len(total_steps))
 
                     message = "time step:".ljust(25) + f"{step}/{total_steps}".rjust(25)
