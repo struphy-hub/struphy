@@ -94,7 +94,7 @@ You can also put the run command in a batch script.
 #| echo: true
 #| warning: false
 #| message: false
-#| output: asis
+#| results: hide
 from struphy import (
     Simulation,
     domains,

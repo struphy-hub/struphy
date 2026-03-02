@@ -90,6 +90,24 @@ sim = Simulation(
 sim.show_domain(scalars="absB0", zoom_factor=2.0)
 ```
 
+
+    Instance of simulation for model LinearMHD ...
+
+    METADATA:
+    platform:                 linux-x86_64
+    python version:           3.12
+    model name:               LinearMHD
+    parameter file:           None
+    output folder:            /home/maxlinadmin/git_repos/struphy/sim_1
+    MPI processes:            1
+    use MPI.COMM_WORLD:       (True,)
+    number of domain clones:  1
+    restart:                  False
+    max wall-clock [min]:     300
+    save interval [steps]:    1
+
+    ... Done.
+
 ![](README_files/figure-commonmark/cell-2-output-2.png)
 
 If you want to get started right away without installing anything, you can use the [Docker image](https://hub.docker.com/r/spossann/struphy) - just pull and run:

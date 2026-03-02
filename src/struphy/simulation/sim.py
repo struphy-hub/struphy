@@ -168,7 +168,7 @@ class Simulation(SimulationBase):
         assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
         self.model_name = model.__class__.__name__
 
-        if self.rank == 0 and verbose:
+        if self.rank == 0:
             print(f"Instance of simulation for model {self.model_name} ...")
 
         # meta-data
@@ -193,7 +193,7 @@ class Simulation(SimulationBase):
         self.meta["max wall-clock [min]"] = max_runtime
         self.meta["save interval [steps]"] = save_step
 
-        if self.rank == 0 and verbose:
+        if self.rank == 0:
             print("\nMETADATA:")
             for k, v in self.meta.items():
                 print(f"{k}:".ljust(25), v)
@@ -264,7 +264,7 @@ class Simulation(SimulationBase):
         self.units = Units(base_units)
         self.normalize_model()
 
-        if self.rank == 0 and verbose:
+        if self.rank == 0:
             print("\n... Done.")
 
     # ----------------
@@ -594,7 +594,7 @@ RESTARTing from:
                     if isinstance(val, Particles):
                         val.do_sort()
                 t1 = time.time()
-                if self.rank == 0 and verbose:
+                if self.rank == 0:
                     message = "Particles sorted | wall clock [s]: {0:8.4f} | sorting duration [s]: {1:8.4f}".format(
                         run_time_now * 60,
                         t1 - t0,
@@ -636,7 +636,7 @@ RESTARTing from:
                 self.data.save_data(keys=save_keys_all)
 
                 # print current time and scalar quantities to screen
-                if self.rank == 0 and verbose:
+                if self.rank == 0:
                     step = str(self.time_state["index"][0]).zfill(len(total_steps))
 
                     message = "time step:".ljust(25) + f"{step}/{total_steps}".rjust(25)
