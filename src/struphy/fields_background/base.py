@@ -332,6 +332,10 @@ class FluidEquilibrium(metaclass=ABCMeta):
         except AttributeError:
             raise ModuleNotFoundError(f"{equil_name} not found in equils.")
 
+    def __eq__(self, other: "FluidEquilibrium") -> bool:
+        assert isinstance(other, FluidEquilibrium), f"Cannot compare FluidEquilibrium with {type(other)}."
+        return self.to_dict() == other.to_dict()
+
 
 class CartesianFluidEquilibrium(FluidEquilibrium):
     r"""
