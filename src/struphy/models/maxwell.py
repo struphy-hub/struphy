@@ -10,99 +10,77 @@ from struphy.propagators import (
     propagators_fields,
 )
 from struphy.propagators.base import Propagator
+from struphy.utils.docstring_converter import auto_convert_docstring
 
 rank = MPI.COMM_WORLD.Get_rank()
 
 
+@auto_convert_docstring
 class Maxwell(StruphyModel):
-    """
-    <p>Maxwell's equations in vacuum for electromagnetic field evolution.</p>
+    """Maxwell's equations in vacuum for electromagnetic field evolution."""
 
-    <p>This model simulates the propagation of electromagnetic waves in vacuum using Maxwell's equations
-    without sources. It uses a finite element exterior calculus (FEEC) formulation with the electric field
-    in H(curl) and the magnetic field in H(div) spaces.
-    </p>
+    @classmethod
+    def model_type(cls) -> LiteralOptions.ModelTypes:
+        return "Toy"
 
+    ## species
 
-    <h3>Governing Equations</h3>
+    class EMFields(FieldSpecies):
+        def __init__(self):
+            self.e_field = FEECVariable(space="Hcurl")
+            self.b_field = FEECVariable(space="Hdiv")
+            self.init_variables()
 
-    <p>Ampère's law (no current):</p>
+    ## propagators
 
-    <p><code>∂𝐄/∂t - ∇×𝐁 = 0</code></p>
-    <p>Faraday's law:</p>
+    class Propagators:
+        def __init__(self):
+            self.maxwell = propagators_fields.Maxwell()
 
-    <p><code>∂𝐁/∂t + ∇×𝐄 = 0</code></p>
-    <p><strong>Normalization</strong></p>
+    ## abstract methods
 
-    <p>Fields are normalized such that:</p>
+    def __init__(self):
 
-    <p><code>Ê = c B̂</code></p>
-    <p>where <code>c</code> is the speed of light.</p>
+        # 1. instantiate all species
+        self.em_fields = self.EMFields()
 
+        # 2. instantiate all propagators
+        self.propagators = self.Propagators()
 
-    <h3>Species</h3>
+        # 3. assign variables to propagators
+        self.propagators.maxwell.variables.e = self.em_fields.e_field
+        self.propagators.maxwell.variables.b = self.em_fields.b_field
 
+        # define scalars for update_scalar_quantities
+        self.add_scalar("electric energy")
+        self.add_scalar("magnetic energy")
+        self.add_scalar("total energy")
 
-    <ul>
-        <li><code>em_fields.e_field</code> - Electric field (H(curl) space)</li>
-        <li><code>em_fields.b_field</code> - Magnetic field (H(div) space)</li>
-    </ul>
+    @property
+    def bulk_species(self):
+        return None
 
+    @property
+    def velocity_scale(self):
+        return "light"
 
-    <h3>Propagators</h3>
+    def allocate_helpers(self, verbose: bool = False):
+        pass
 
+    def update_scalar_quantities(self):
+        en_E = 0.5 * Propagator.mass_ops.M1.dot_inner(
+            self.em_fields.e_field.spline.vector,
+            self.em_fields.e_field.spline.vector,
+        )
+        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(
+            self.em_fields.b_field.spline.vector,
+            self.em_fields.b_field.spline.vector,
+        )
 
-    <ul>
-        <li><code>struphy.propagators.propagators_fields.Maxwell</code> - Time integration scheme</li>
-    </ul>
-
-
-    <h3>Scalar Quantities</h3>
-
-    <p>The following quantities are tracked during simulation:</p>
-
-
-    <ul>
-        <li>Electric energy: <code>E_E = ½ ∫ |𝐄|²   dV</code></li>
-        <li>Magnetic energy: <code>E_B = ½ ∫ |𝐁|²   dV</code></li>
-        <li>Total energy: <code>E_{total} = E_E + E_B</code></li>
-    </ul>
-
-
-    <h3>Model Properties</h3>
-
-
-    <ul>
-        <li><strong>Model type:</strong> Toy</li>
-        <li><strong>Velocity scale:</strong> Speed of light</li>
-        <li><strong>Bulk species:</strong> None</li>
-    </ul>
-
-
-    <h3>See Also</h3>
-
-
-    <ul>
-        <li><code>struphy.models.base.StruphyModel</code> - Base class for all Struphy models</li>
-        <li><code>struphy.propagators.propagators_fields.Maxwell</code> - Maxwell propagator implementation</li>
-    </ul>
-
-
-    <h3>Examples</h3>
-
-    <p>Create and initialize a Maxwell model:</p>
-
-    <p><pre><code></code></pre>
-        from struphy.models.maxwell import Maxwell
-    </p>
-
-    <p>    model = Maxwell()
-        # Fields are accessible via:
-        # model.em_fields.e_field
-        # model.em_fields.b_field
-    </p>
-    """
-
+        self.update_scalar("electric energy", en_E)
+        self.update_scalar("magnetic energy", en_B)
+        self.update_scalar("total energy", en_E + en_B)
+        
     __doc_rst__ = r"""
 Maxwell's equations in vacuum for electromagnetic field evolution.
 
@@ -175,65 +153,3 @@ Create and initialize a Maxwell model:
     # model.em_fields.e_field
     # model.em_fields.b_field
 """
-
-    @classmethod
-    def model_type(cls) -> LiteralOptions.ModelTypes:
-        return "Toy"
-
-    ## species
-
-    class EMFields(FieldSpecies):
-        def __init__(self):
-            self.e_field = FEECVariable(space="Hcurl")
-            self.b_field = FEECVariable(space="Hdiv")
-            self.init_variables()
-
-    ## propagators
-
-    class Propagators:
-        def __init__(self):
-            self.maxwell = propagators_fields.Maxwell()
-
-    ## abstract methods
-
-    def __init__(self):
-
-        # 1. instantiate all species
-        self.em_fields = self.EMFields()
-
-        # 2. instantiate all propagators
-        self.propagators = self.Propagators()
-
-        # 3. assign variables to propagators
-        self.propagators.maxwell.variables.e = self.em_fields.e_field
-        self.propagators.maxwell.variables.b = self.em_fields.b_field
-
-        # define scalars for update_scalar_quantities
-        self.add_scalar("electric energy")
-        self.add_scalar("magnetic energy")
-        self.add_scalar("total energy")
-
-    @property
-    def bulk_species(self):
-        return None
-
-    @property
-    def velocity_scale(self):
-        return "light"
-
-    def allocate_helpers(self, verbose: bool = False):
-        pass
-
-    def update_scalar_quantities(self):
-        en_E = 0.5 * Propagator.mass_ops.M1.dot_inner(
-            self.em_fields.e_field.spline.vector,
-            self.em_fields.e_field.spline.vector,
-        )
-        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(
-            self.em_fields.b_field.spline.vector,
-            self.em_fields.b_field.spline.vector,
-        )
-
-        self.update_scalar("electric energy", en_E)
-        self.update_scalar("magnetic energy", en_B)
-        self.update_scalar("total energy", en_E + en_B)

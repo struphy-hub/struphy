@@ -18,34 +18,111 @@ def latex_to_unicode(latex_str: str) -> str:
     
     # Bold math symbols (\mathbf)
     bold_letters = {
-        'E': '𝐄', 'B': '𝐁', 'A': '𝐀', 'C': '𝐂', 'D': '𝐃', 'F': '𝐅', 
+        # Uppercase
+        'A': '𝐀', 'B': '𝐁', 'C': '𝐂', 'D': '𝐃', 'E': '𝐄', 'F': '𝐅',
         'G': '𝐆', 'H': '𝐇', 'I': '𝐈', 'J': '𝐉', 'K': '𝐊', 'L': '𝐋',
         'M': '𝐌', 'N': '𝐍', 'O': '𝐎', 'P': '𝐏', 'Q': '𝐐', 'R': '𝐑',
         'S': '𝐒', 'T': '𝐓', 'U': '𝐔', 'V': '𝐕', 'W': '𝐖', 'X': '𝐗',
         'Y': '𝐘', 'Z': '𝐙',
+        # Lowercase
+        'a': '𝐚', 'b': '𝐛', 'c': '𝐜', 'd': '𝐝', 'e': '𝐞', 'f': '𝐟',
+        'g': '𝐠', 'h': '𝐡', 'i': '𝐢', 'j': '𝐣', 'k': '𝐤', 'l': '𝐥',
+        'm': '𝐦', 'n': '𝐧', 'o': '𝐨', 'p': '𝐩', 'q': '𝐪', 'r': '𝐫',
+        's': '𝐬', 't': '𝐭', 'u': '𝐮', 'v': '𝐯', 'w': '𝐰', 'x': '𝐱',
+        'y': '𝐲', 'z': '𝐳',
     }
     
     for letter, bold in bold_letters.items():
-        result = re.sub(rf'\\mathbf\s*{letter}\b', bold, result)
-        result = re.sub(rf'\\mathbf\s*\{{\s*{letter}\s*\}}', bold, result)
+        # Match \mathbf E or \mathbf{E}
+        result = re.sub(rf'\\mathbf\s*{re.escape(letter)}\b', bold, result)
+        result = re.sub(rf'\\mathbf\s*\{{\s*{re.escape(letter)}\s*\}}', bold, result)
+    
+    # Roman/upright math symbols (\mathrm)
+    # For \mathrm, we just remove the command and keep the letter
+    result = re.sub(r'\\mathrm\s*\{\s*([A-Za-z0-9]+)\s*\}', r'\1', result)
+    result = re.sub(r'\\mathrm\s+([A-Za-z0-9])\b', r'\1', result)
+    
+    # Blackboard bold (\mathbb) - common mathematical sets
+    mathbb_letters = {
+        'A': '𝔸', 'B': '𝔹', 'C': 'ℂ', 'D': '𝔻', 'E': '𝔼', 'F': '𝔽',
+        'G': '𝔾', 'H': 'ℍ', 'I': '𝕀', 'J': '𝕁', 'K': '𝕂', 'L': '𝕃',
+        'M': '𝕄', 'N': 'ℕ', 'O': '𝕆', 'P': 'ℙ', 'Q': 'ℚ', 'R': 'ℝ',
+        'S': '𝕊', 'T': '𝕋', 'U': '𝕌', 'V': '𝕍', 'W': '𝕎', 'X': '𝕏',
+        'Y': '𝕐', 'Z': 'ℤ',
+    }
+    
+    for letter, bb in mathbb_letters.items():
+        result = re.sub(rf'\\mathbb\s*{re.escape(letter)}\b', bb, result)
+        result = re.sub(rf'\\mathbb\s*\{{\s*{re.escape(letter)}\s*\}}', bb, result)
     
     # Hat symbols (\hat)
-    # Match \hat E or \hat{E}
+    # Match \hat E or \hat{E} or \hat{\mathbf{E}}
     def replace_hat(match):
-        letter = match.group(1).strip()
+        content = match.group(1).strip()
         # Combining character for circumflex
-        return letter + '\u0302'
+        return content + '\u0302'
     
-    result = re.sub(r'\\hat\s*\{([A-Za-z])\}', replace_hat, result)
+    result = re.sub(r'\\hat\s*\{([^}]+)\}', replace_hat, result)
     result = re.sub(r'\\hat\s+([A-Za-z])\b', replace_hat, result)
     
-    # Fractions - handle common patterns
+    # Tilde symbols (\tilde)
+    # Match \tilde E or \tilde{E} or \tilde{\mathbf{E}}
+    def replace_tilde(match):
+        content = match.group(1).strip()
+        # Combining character for tilde
+        return content + '\u0303'
+    
+    result = re.sub(r'\\tilde\s*\{([^}]+)\}', replace_tilde, result)
+    result = re.sub(r'\\tilde\s+([A-Za-z])\b', replace_tilde, result)
+    
+    # Fractions - handle FIRST (before sqrt) to process fractions inside sqrt
     # \frac{\partial ...}{\partial t} -> ∂.../∂t
     result = re.sub(r'\\frac\{\\partial\s+([^}]+)\}\{\\partial\s+([^}]+)\}', r'∂\1/∂\2', result)
-    # \frac{1}{2} -> ½
-    result = result.replace(r'\frac{1}{2}', '½')
-    # Generic fraction \frac{a}{b} -> a/b
-    result = re.sub(r'\\frac\{([^}]+)\}\{([^}]+)\}', r'\1/\2', result)
+    
+    # Common fractions
+    common_fractions = {
+        r'\frac{1}{2}': '½',
+        r'\frac{1}{3}': '⅓',
+        r'\frac{2}{3}': '⅔',
+        r'\frac{1}{4}': '¼',
+        r'\frac{3}{4}': '¾',
+        r'\frac{1}{5}': '⅕',
+        r'\frac{2}{5}': '⅖',
+        r'\frac{3}{5}': '⅗',
+        r'\frac{4}{5}': '⅘',
+        r'\frac{1}{6}': '⅙',
+        r'\frac{5}{6}': '⅚',
+        r'\frac{1}{8}': '⅛',
+        r'\frac{3}{8}': '⅜',
+        r'\frac{5}{8}': '⅝',
+        r'\frac{7}{8}': '⅞',
+    }
+    for frac, unicode_frac in common_fractions.items():
+        result = result.replace(frac, unicode_frac)
+    
+    # Generic fraction \frac{a}{b} -> (a)/(b) for clarity
+    # Handle simple nested cases with multiple passes
+    for _ in range(3):  # Multiple passes for nested fractions
+        result = re.sub(r'\\frac\{([^{}]+)\}\{([^{}]+)\}', r'(\1)/(\2)', result)
+    
+    # Square root (\sqrt) - handle AFTER initial fractions so fractions inside sqrt are processed first
+    def replace_sqrt(match):
+        content = match.group(1).strip()
+        return f'√({content})'
+    
+    result = re.sub(r'\\sqrt\s*\{([^}]+)\}', replace_sqrt, result)
+    
+    # Process fractions AGAIN to catch fractions created by sqrt conversion
+    # (e.g., \frac{a}{\sqrt{b}} becomes \frac{a}{√(b)} which can now be matched)
+    for _ in range(3):  # Multiple passes for nested fractions
+        result = re.sub(r'\\frac\{([^{}]+)\}\{([^{}]+)\}', r'(\1)/(\2)', result)
+    
+    # Normalize subscript patterns: _\command{...} -> _{\command{...}}
+    # Do this BEFORE symbol replacement so we can handle _\mathbb{R}, _\Omega, etc.
+    result = re.sub(r'_(\\[a-zA-Z]+\{[^}]+\})', r'_{\1}', result)
+    
+    # Normalize superscript patterns: ^\command{...} -> ^{\command{...}}
+    result = re.sub(r'\^(\\[a-zA-Z]+\{[^}]+\})', r'^{\1}', result)
     
     # Greek and special symbols
     symbols = {
@@ -64,40 +141,128 @@ def latex_to_unicode(latex_str: str) -> str:
         r'\equiv': '≡',
         r'\sim': '∼',
         r'\propto': '∝',
+        r'\top': 'ᵀ',  # transpose symbol
+        r'\in': '∈',
+        r'\notin': '∉',
+        r'\forall': '∀',
+        r'\exists': '∃',
+        # Greek letters
         r'\alpha': 'α',
         r'\beta': 'β',
         r'\gamma': 'γ',
         r'\delta': 'δ',
         r'\epsilon': 'ε',
+        r'\varepsilon': 'ε',
         r'\theta': 'θ',
+        r'\vartheta': 'ϑ',
         r'\lambda': 'λ',
         r'\mu': 'μ',
         r'\nu': 'ν',
         r'\pi': 'π',
+        r'\varpi': 'ϖ',
         r'\rho': 'ρ',
+        r'\varrho': 'ϱ',
         r'\sigma': 'σ',
+        r'\varsigma': 'ς',
         r'\tau': 'τ',
         r'\phi': 'φ',
+        r'\varphi': 'φ',
         r'\omega': 'ω',
+        r'\zeta': 'ζ',
+        r'\eta': 'η',
+        r'\iota': 'ι',
+        r'\kappa': 'κ',
+        r'\xi': 'ξ',
+        r'\omicron': 'ο',
+        r'\upsilon': 'υ',
+        r'\chi': 'χ',
+        r'\psi': 'ψ',
+        # Capital Greek letters
+        r'\Alpha': 'Α',
+        r'\Beta': 'Β',
+        r'\Gamma': 'Γ',
+        r'\Delta': 'Δ',
+        r'\Epsilon': 'Ε',
+        r'\Zeta': 'Ζ',
+        r'\Eta': 'Η',
+        r'\Theta': 'Θ',
+        r'\Iota': 'Ι',
+        r'\Kappa': 'Κ',
+        r'\Lambda': 'Λ',
+        r'\Mu': 'Μ',
+        r'\Nu': 'Ν',
+        r'\Xi': 'Ξ',
+        r'\Omicron': 'Ο',
+        r'\Pi': 'Π',
+        r'\Rho': 'Ρ',
+        r'\Sigma': 'Σ',
+        r'\Tau': 'Τ',
+        r'\Upsilon': 'Υ',
+        r'\Phi': 'Φ',
+        r'\Chi': 'Χ',
+        r'\Psi': 'Ψ',
+        r'\Omega': 'Ω',
     }
     
     for latex, unicode_sym in symbols.items():
         result = result.replace(latex, unicode_sym)
+    
+    # Subscripts
+    subscripts = {
+        '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
+        '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉',
+        '+': '₊', '-': '₋', '=': '₌', '(': '₍', ')': '₎',
+        'a': 'ₐ', 'e': 'ₑ', 'h': 'ₕ', 'i': 'ᵢ', 'j': 'ⱼ',
+        'k': 'ₖ', 'l': 'ₗ', 'm': 'ₘ', 'n': 'ₙ', 'o': 'ₒ',
+        'p': 'ₚ', 'r': 'ᵣ', 's': 'ₛ', 't': 'ₜ', 'u': 'ᵤ',
+        'v': 'ᵥ', 'x': 'ₓ',
+    }
+    
+    # Convert _{...} subscripts
+    def replace_subscript(match):
+        content = match.group(1)
+        # Try to convert each character, fall back to original if not available
+        converted = ''.join(subscripts.get(c, c) for c in content)
+        # If nothing was converted
+        if converted == content:
+            if len(content) > 1:
+                return f'_({content})'
+            else:
+                # Single character that couldn't be converted - keep with underscore
+                return f'_{content}'
+        return converted
+    
+    result = re.sub(r'_\{([^}]+)\}', replace_subscript, result)
+    result = re.sub(r'_([A-Za-z0-9])', replace_subscript, result)
     
     # Superscripts
     superscripts = {
         '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
         '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
         '+': '⁺', '-': '⁻', '=': '⁼', '(': '⁽', ')': '⁾',
+        'a': 'ᵃ', 'b': 'ᵇ', 'c': 'ᶜ', 'd': 'ᵈ', 'e': 'ᵉ',
+        'f': 'ᶠ', 'g': 'ᵍ', 'h': 'ʰ', 'i': 'ⁱ', 'j': 'ʲ',
+        'k': 'ᵏ', 'l': 'ˡ', 'm': 'ᵐ', 'n': 'ⁿ', 'o': 'ᵒ',
+        'p': 'ᵖ', 'r': 'ʳ', 's': 'ˢ', 't': 'ᵗ', 'u': 'ᵘ',
+        'v': 'ᵛ', 'w': 'ʷ', 'x': 'ˣ', 'y': 'ʸ', 'z': 'ᶻ',
+        'A': 'ᴬ', 'B': 'ᴮ', 'D': 'ᴰ', 'E': 'ᴱ', 'G': 'ᴳ',
+        'H': 'ᴴ', 'I': 'ᴵ', 'J': 'ᴶ', 'K': 'ᴷ', 'L': 'ᴸ',
+        'M': 'ᴹ', 'N': 'ᴺ', 'O': 'ᴼ', 'P': 'ᴾ', 'R': 'ᴿ',
+        'T': 'ᵀ', 'U': 'ᵁ', 'V': 'ⱽ', 'W': 'ᵂ',
     }
     
-    # Convert ^2, ^{2}, etc.
+    # Convert ^{...} superscripts
     def replace_superscript(match):
         content = match.group(1)
-        return ''.join(superscripts.get(c, c) for c in content)
+        # Try to convert each character, fall back to original if not available
+        converted = ''.join(superscripts.get(c, c) for c in content)
+        # If nothing was converted, use parentheses notation
+        if converted == content and len(content) > 1:
+            return f'^({content})'
+        return converted
     
     result = re.sub(r'\^\{([^}]+)\}', replace_superscript, result)
-    result = re.sub(r'\^(\d)', replace_superscript, result)
+    result = re.sub(r'\^([A-Za-z0-9])', replace_superscript, result)
     
     # Remove remaining LaTeX commands
     result = re.sub(r'\\,', ' ', result)  # thin space
@@ -108,6 +273,11 @@ def latex_to_unicode(latex_str: str) -> str:
     result = re.sub(r'\\right\|', '|', result)
     result = re.sub(r'\\left', '', result)
     result = re.sub(r'\\right', '', result)
+    
+    # Remove standalone backslashes (used for spacing in LaTeX)
+    # Match backslash followed by space or at end of word
+    result = re.sub(r'\\\s+', ' ', result)  # backslash followed by space(s)
+    result = re.sub(r'\\(?=[^\w\\])', ' ', result)  # backslash before non-word char
     
     return result.strip()
 
@@ -160,14 +330,34 @@ def rst_to_html(rst_text: str) -> str:
 
     def save_math_block(match):
         math_content = match.group(1)
-        # Clean up the math (remove leading spaces)
+        # Clean up the math but preserve line structure for multiline equations
         math_lines = math_content.strip().split("\n")
-        latex_str = " ".join(line.strip() for line in math_lines if line.strip())
-        # Convert LaTeX to Unicode
-        unicode_math = latex_to_unicode(latex_str)
+        # Remove leading indentation consistently
+        cleaned_lines = [line.strip() for line in math_lines if line.strip()]
+        
+        # Check if this is a multiline equation (contains & or \\)
+        is_multiline = any('&' in line or '\\\\' in line for line in cleaned_lines)
+        
+        if is_multiline:
+            # Preserve multiline structure
+            # Remove alignment markers (&) but keep line breaks
+            unicode_lines = []
+            for line in cleaned_lines:
+                # Remove trailing \\ 
+                line = re.sub(r'\\\\\s*$', '', line)
+                # Remove alignment marker &
+                line = line.replace('&', '')
+                # Convert LaTeX to Unicode
+                unicode_line = latex_to_unicode(line.strip())
+                if unicode_line:
+                    unicode_lines.append(unicode_line)
+            unicode_math = '\n'.join(unicode_lines)
+        else:
+            # Single line equation - join all lines
+            latex_str = " ".join(cleaned_lines)
+            unicode_math = latex_to_unicode(latex_str)
+        
         math_blocks.append(unicode_math)
-        # Check if there's a blank line after the math block in the original match
-        # If the match ends with newlines, preserve them
         return f"<!--MATHBLOCK{len(math_blocks) - 1}-->"
 
     def save_inline_math(match):
@@ -295,15 +485,16 @@ def rst_to_html(rst_text: str) -> str:
             if len(paragraph_lines) == 1:
                 result_lines.append(f"<p>{paragraph_lines[0]}</p>")
             else:
-                # Check if any line is a math placeholder - if so, wrap each group separately
-                has_math_placeholder = any("<!--MATHBLOCK" in l or "<!--INLINEMATH" in l for l in paragraph_lines)
+                # Check if any line is a math BLOCK placeholder (not inline)
+                # Inline math placeholders should be kept together with text
+                has_math_block = any("<!--MATHBLOCK" in l for l in paragraph_lines)
                 
-                if has_math_placeholder:
+                if has_math_block:
                     # Wrap each line in <p> tags separately
                     for para_line in paragraph_lines:
                         result_lines.append(f"<p>{para_line}</p>")
                 else:
-                    # Multi-line paragraph
+                    # Multi-line paragraph (keep together even if it has inline math)
                     result_lines.append(f"<p>{paragraph_lines[0]}")
                     for para_line in paragraph_lines[1:]:
                         result_lines.append(para_line)
@@ -324,9 +515,15 @@ def rst_to_html(rst_text: str) -> str:
     html = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", html)
     html = re.sub(r"\*([^*]+)\*", r"<em>\1</em>", html)
 
-    # Restore math blocks as inline code
+    # Restore math blocks as inline code or pre blocks for multiline
     for i, unicode_math in enumerate(math_blocks):
-        html = html.replace(f"<!--MATHBLOCK{i}-->", f"<code>{unicode_math}</code>")
+        if '\n' in unicode_math:
+            # Multiline equation - use pre block for better formatting
+            math_escaped = unicode_math.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            html = html.replace(f"<!--MATHBLOCK{i}-->", f"<pre><code>{math_escaped}</code></pre>")
+        else:
+            # Single line - use inline code
+            html = html.replace(f"<!--MATHBLOCK{i}-->", f"<code>{unicode_math}</code>")
     
     # Restore inline math as code
     for i, unicode_math in enumerate(inline_math_items):
