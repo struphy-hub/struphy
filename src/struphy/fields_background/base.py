@@ -306,9 +306,11 @@ class FluidEquilibrium(metaclass=ABCMeta):
     def u_cart_3(self, *etas, squeeze_out=False):
         return self.u_cart(*etas, squeeze_out=squeeze_out)[0][2]
 
-    @abstractmethod
     def to_dict(self) -> dict:
-        pass
+        return {
+            "type": self.__class__.__name__,
+            "params": self.params,
+        }
 
     @classmethod
     def from_dict(cls, dct: dict | None) -> "FluidEquilibrium":
@@ -329,6 +331,10 @@ class FluidEquilibrium(metaclass=ABCMeta):
                 return equil_class
         except AttributeError:
             raise ModuleNotFoundError(f"{equil_name} not found in equils.")
+
+    def __eq__(self, other: "FluidEquilibrium") -> bool:
+        assert isinstance(other, FluidEquilibrium), f"Cannot compare FluidEquilibrium with {type(other)}."
+        return self.to_dict() == other.to_dict()
 
 
 class CartesianFluidEquilibrium(FluidEquilibrium):

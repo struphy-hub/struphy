@@ -247,7 +247,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
         phi = self.initial_poisson.variables.phi.spline.vector
         Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
-        if MPI.COMM_WORLD.Get_rank() == 0:
+        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
             print("... Done.")
 
     def update_scalar_quantities(self):
