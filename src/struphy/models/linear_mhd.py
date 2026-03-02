@@ -13,39 +13,14 @@ from struphy.propagators import (
     propagators_fields,
 )
 from struphy.propagators.base import Propagator
+from struphy.utils.docstring_converter import auto_convert_docstring
 
 rank = MPI.COMM_WORLD.Get_rank()
 
 
+@auto_convert_docstring
 class LinearMHD(StruphyModel):
-    r"""Linear ideal MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).
-
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat U = \hat v_\textnormal{A} \,.
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        &\frac{\partial \tilde \rho}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,,
-        \\[2mm]
-        \rho_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p
-        = (\nabla \times \tilde{\mathbf{B}})\times \mathbf{B}_0 + (\nabla\times\mathbf{B}_0)\times \tilde{\mathbf{B}} \,,
-        \\[2mm]
-        &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}})
-        + \frac{2}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,,
-        \\[2mm]
-        &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
-        = 0\,.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.propagators_fields.ShearAlfven`
-    2. :class:`~struphy.propagators.propagators_fields.Magnetosonic`
-    """
+    """Linear ideal MHD with zero-flow equilibrium for magnetohydrodynamic wave propagation."""
 
     @classmethod
     def model_type(cls) -> LiteralOptions.ModelTypes:
@@ -170,3 +145,143 @@ class LinearMHD(StruphyModel):
         with open(params_path, "w") as f:
             for line in new_file:
                 f.write(line)
+
+    __doc_rst__ = r"""
+Linear ideal MHD with zero-flow equilibrium for magnetohydrodynamic wave propagation.
+
+This model simulates small-amplitude perturbations in a magnetized plasma with a static
+equilibrium magnetic field :math:`\mathbf{B}_0` and zero background flow. The model solves the linearized
+ideal magnetohydrodynamic (MHD) equations, which couple fluid dynamics (density, velocity, pressure)
+with magnetic field evolution. The system supports both Alfvén waves (incompressible shear) and
+magnetosonic waves (compressible fast and slow modes).
+
+**Governing Equations**
+
+Continuity (mass conservation):
+
+.. math::
+
+    \frac{\partial \tilde{\rho}}{\partial t} + \nabla \cdot (\rho_0 \tilde{\mathbf{U}}) = 0
+
+Momentum (Lorentz force):
+
+.. math::
+
+    \rho_0 \frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde{p} = 
+    (\nabla \times \tilde{\mathbf{B}}) \times \mathbf{B}_0 + (\nabla \times \mathbf{B}_0) \times \tilde{\mathbf{B}}
+
+Energy (adiabatic process):
+
+.. math::
+
+    \frac{\partial \tilde{p}}{\partial t} + \nabla \cdot (p_0 \tilde{\mathbf{U}}) + \frac{2}{3} p_0 \nabla \cdot \tilde{\mathbf{U}} = 0
+
+Induction (Faraday's law):
+
+.. math::
+
+    \frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla \times (\tilde{\mathbf{U}} \times \mathbf{B}_0) = 0
+
+**Normalization**
+
+All velocities are normalized by the Alfvén velocity:
+
+.. math::
+
+    \hat{U} = \hat{v}_\mathrm{A} = \frac{\hat{B}_0}{\sqrt{\mu_0 \rho_0}}
+
+**Perturbation Variables**
+
+All quantities in the equations represent perturbations around equilibrium:
+
+- :math:`\tilde{\rho}` - Density perturbation
+- :math:`\tilde{\mathbf{U}}` - Velocity perturbation
+- :math:`\tilde{p}` - Pressure perturbation
+- :math:`\tilde{\mathbf{B}}` - Magnetic field perturbation
+
+Equilibrium quantities (with subscript 0) are stationary:
+
+- :math:`\rho_0` - Static background density
+- :math:`p_0` - Static background pressure
+- :math:`\mathbf{B}_0` - Static background magnetic field
+
+**Species**
+
+- ``em_fields.b_field`` - Magnetic field perturbation (H(div) space)
+- ``mhd.density`` - Density perturbation (L² space)
+- ``mhd.velocity`` - Velocity perturbation (H(div) space)
+- ``mhd.pressure`` - Pressure perturbation (L² space)
+
+**Wave Modes**
+
+The linear MHD system supports three wave types:
+
+- **Alfvén waves:** Incompressible shear waves propagating along :math:`\mathbf{B}_0` with velocity :math:`v_A`
+- **Fast magnetosonic wave:** Compressible wave with phase velocity :math:`v_\mathrm{fast} > v_A`
+- **Slow magnetosonic wave:** Compressible wave with phase velocity :math:`v_\mathrm{slow} < v_A`
+
+**Propagators**
+
+Time integration is performed by the following propagators (in sequence):
+
+1. :class:`~struphy.propagators.propagators_fields.ShearAlfven` - Evolves Alfvén waves (velocity and magnetic field coupling)
+2. :class:`~struphy.propagators.propagators_fields.Magnetosonic` - Evolves compressible modes (density, velocity, pressure)
+
+**Scalar Quantities**
+
+The following energies are tracked during simulation:
+
+- Kinetic energy (perturbation): :math:`E_U = \frac{1}{2} \int \rho_0 |\tilde{\mathbf{U}}|^2 \, \mathrm{d}V`
+- Magnetic energy (perturbation): :math:`E_B = \frac{1}{2} \int \frac{|\tilde{\mathbf{B}}|^2}{\mu_0} \, \mathrm{d}V`
+- Internal energy (perturbation): :math:`E_p = \int \frac{\tilde{p}}{\gamma - 1} \, \mathrm{d}V` (:math:`\gamma = 5/3`)
+- Total perturbed energy: :math:`E_\mathrm{tot} = E_U + E_B + E_p`
+- Equilibrium magnetic energy: :math:`E_{B0} = \frac{1}{2} \int \frac{|\mathbf{B}_0|^2}{\mu_0} \, \mathrm{d}V`
+- Equilibrium internal energy: :math:`E_{p0} = \int \frac{p_0}{\gamma - 1} \, \mathrm{d}V`
+- Total magnetic energy: :math:`E_{B,\mathrm{tot}} = \frac{1}{2} \int \frac{|\mathbf{B}_0 + \tilde{\mathbf{B}}|^2}{\mu_0} \, \mathrm{d}V`
+
+**Model Properties**
+
+- **Model type:** Fluid
+- **Velocity scale:** Alfvén velocity
+- **Bulk species:** mhd
+- **Assumptions:** Zero-flow equilibrium, linear perturbations, ideal MHD
+
+**Key Assumptions**
+
+- Perturbations are small (linear theory valid)
+- Equilibrium is static: :math:`\mathbf{U}_0 = 0`
+- Ideal MHD: infinite conductivity, no dissipation
+- Adiabatic process: polytropic index :math:`\gamma = 5/3`
+
+**See Also**
+
+- :class:`~struphy.models.base.StruphyModel` - Base class for all Struphy models
+- :class:`~struphy.propagators.propagators_fields.ShearAlfven` - Alfvén wave propagator
+- :class:`~struphy.propagators.propagators_fields.Magnetosonic` - Magnetosonic wave propagator
+
+**References**
+
+- Boyd, T. J. M., & Sanderson, J. J. (2003). The physics of plasmas. Cambridge University Press.
+- Goedbloed, J. P., Keppens, R., & Poedts, S. (2019). Magnetohydrodynamics of laboratory and astrophysical plasmas. Cambridge University Press.
+
+**Examples**
+
+Create and initialize a linear MHD model:
+
+.. code-block:: python
+
+    from struphy.models.linear_mhd import LinearMHD
+    
+    model = LinearMHD()
+    
+    # Access fields
+    # model.em_fields.b_field     - Magnetic field perturbation
+    # model.mhd.density           - Density perturbation
+    # model.mhd.velocity          - Velocity perturbation
+    # model.mhd.pressure          - Pressure perturbation
+    
+    # Track energies during simulation
+    # model.scalar_quantities["en_U"]  - Kinetic energy
+    # model.scalar_quantities["en_B"]  - Magnetic energy
+    # model.scalar_quantities["en_p"]  - Internal energy
+"""

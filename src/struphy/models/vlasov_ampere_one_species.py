@@ -16,79 +16,15 @@ from struphy.propagators import (
     propagators_markers,
 )
 from struphy.propagators.base import Propagator
+from struphy.utils.docstring_converter import auto_convert_docstring
 from struphy.utils.pyccel import Pyccelkernel
 
 rank = MPI.COMM_WORLD.Get_rank()
 
 
+@auto_convert_docstring
 class VlasovAmpereOneSpecies(StruphyModel):
-    r"""Vlasov-Ampère equations for one species.
-
-    :ref:`normalization`:
-
-    .. math::
-
-        \begin{align}
-            \hat v  = c \,, \qquad \hat E = \hat B \hat v\,,\qquad  \hat \phi = \hat E \hat x \,.
-        \end{align}
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        &\frac{\partial f}{\partial t} + \mathbf{v} \cdot \, \nabla f + \frac{1}{\varepsilon} \left( \mathbf{E} + \mathbf{v} \times \mathbf{B}_0 \right)
-            \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,,
-        \\[2mm]
-        -&\frac{\partial \mathbf{E}}{\partial t} =
-        \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} f \, \text{d}^3 \mathbf{v}\,,
-
-    with the normalization parameter
-
-    .. math::
-
-        \alpha = \frac{\hat \Omega_\textnormal{p}}{\hat \Omega_\textnormal{c}}\,,\qquad \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t} \,,\qquad \textnormal{with} \qquad \hat\Omega_\textnormal{p} = \sqrt{\frac{\hat n (Ze)^2}{\epsilon_0 (A m_\textnormal{H})}} \,,\qquad \hat \Omega_{\textnormal{c}} = \frac{(Ze) \hat B}{(A m_\textnormal{H})}\,,
-
-    where :math:`Z=-1` and :math:`A=1/1836` for electrons.
-    At initial time the weak Poisson equation is solved once to weakly satisfy Gauss' law,
-
-    .. math::
-
-            \begin{align}
-            \int_\Omega \nabla \psi^\top \cdot \nabla \phi \,\textrm d \mathbf x &= \frac{\alpha^2}{\varepsilon}  \int_\Omega \int_{\mathbb{R}^3} \psi\, (f - f_0) \, \text{d}^3 \mathbf{v}\,\textrm d \mathbf x \qquad \forall \ \psi \in H^1\,,
-            \\[2mm]
-            \mathbf{E}(t=0) &= -\nabla \phi(t=0)\,.
-            \end{align}
-
-    Moreover, it is assumed that
-
-    .. math::
-
-        \nabla \times \mathbf B_0 = \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} f_0 \, \text{d}^3 \mathbf{v}\,,
-
-    where :math:`\mathbf B_0` is the static equilibirum magnetic field.
-
-    Notes
-    -----
-
-    * The :ref:`control_var` for Ampère's law is optional; in case it is enabled via the parameter file, the following system is solved:
-    Find :math:`(\mathbf E, f) \in H(\textnormal{curl}) \times C^\infty` such that
-
-    .. math::
-
-        \begin{align}
-            -\int_\Omega \mathbf F\, \cdot \, &\frac{\partial \mathbf{E}}{\partial t}\,\textrm d \mathbf x =
-            \frac{\alpha^2}{\varepsilon} \int_\Omega \int_{\mathbb{R}^3} \mathbf F \cdot \mathbf{v} (f - f_0) \, \text{d}^3 \mathbf{v}\,\textrm d \mathbf x \qquad \forall \ \mathbf F \in H(\textnormal{curl}) \,,
-            \\[2mm]
-            &\frac{\partial f}{\partial t} + \mathbf{v} \cdot \, \nabla f + \frac{1}{\varepsilon} \left( \mathbf{E} + \mathbf{v} \times \mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,.
-        \end{align}
-
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.propagators_markers.PushEta`
-    2. :class:`~struphy.propagators.propagators_coupling.VlasovAmpere`
-    3. :class:`~struphy.propagators.propagators_markers.PushVxB`
-    """
+    """Vlasov-Ampère system for a single kinetic species in an electric field."""
 
     @classmethod
     def model_type(cls) -> LiteralOptions.ModelTypes:
@@ -245,3 +181,139 @@ class VlasovAmpereOneSpecies(StruphyModel):
         with open(params_path, "w") as f:
             for line in new_file:
                 f.write(line)
+
+    __doc_rst__ = r"""
+Vlasov-Ampère system for a single kinetic species in an electric field.
+
+This model couples the Vlasov equation for the particle distribution function with Ampère's law 
+for the electric field evolution. It includes the effect of a static background magnetic field :math:`\mathbf{B}_0`
+and solves the initial Poisson equation to satisfy Gauss's law at :math:`t=0`. The model uses a particle-in-cell (PIC)
+method with finite element exterior calculus (FEEC) for the electromagnetic fields.
+
+**Governing Equations**
+
+Vlasov equation:
+
+.. math::
+
+    \frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \frac{1}{\varepsilon} \left( \mathbf{E} + \mathbf{v} \times \mathbf{B}_0 \right)
+    \cdot \frac{\partial f}{\partial \mathbf{v}} = 0
+
+Ampère's law:
+
+.. math::
+
+    -\frac{\partial \mathbf{E}}{\partial t} = \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} f \, \mathrm{d}^3 \mathbf{v}
+
+Initial Poisson equation: At :math:`t=0`, solve weakly for the electric potential :math:`\phi`:
+
+.. math::
+
+    \int_{\Omega} \nabla \psi^\top \cdot \nabla \phi \,\mathrm{d} \mathbf{x} &= \frac{\alpha^2}{\varepsilon}  \int_{\Omega} \int_{\mathbb{R}^3} \psi\, (f - f_0) \, \mathrm{d}^3 \mathbf{v}\,\mathrm{d} \mathbf{x} \qquad \forall \ \psi \in H^1
+    \\
+    \mathbf{E}(t=0) &= -\nabla \phi(t=0)
+
+**Normalization**
+
+The model uses the following normalizations:
+
+.. math::
+
+    \hat{v} = c, \qquad \hat{E} = \hat{B} \hat{v}, \qquad \hat{\phi} = \hat{E} \hat{x}
+
+**Dimensionless parameters:**
+
+.. math::
+
+    \alpha = \frac{\hat{\omega}_\mathrm{p}}{\hat{\omega}_\mathrm{c}}, \qquad 
+    \varepsilon = \frac{1}{\hat{\omega}_\mathrm{c} \hat{t}}
+
+where
+
+.. math::
+
+    \hat{\omega}_\mathrm{p} = \sqrt{\frac{\hat{n} (Ze)^2}{\epsilon_0 (A m_\mathrm{H})}}, \qquad
+    \hat{\omega}_\mathrm{c} = \frac{(Ze) \hat{B}}{(A m_\mathrm{H})}
+
+For electrons: :math:`Z = -1`, :math:`A = 1/1836`.
+
+**Species**
+
+- ``em_fields.e_field`` - Electric field (H(curl) space)
+- ``em_fields.phi`` - Electric potential (H¹ space)
+- ``kinetic_ions.var`` - Particle distribution function (6D phase space)
+
+**Propagators**
+
+Time integration is performed by the following propagators (in sequence):
+
+1. :class:`~struphy.propagators.propagators_markers.PushEta` - Push particles in configuration space
+2. :class:`~struphy.propagators.propagators_markers.PushVxB` - Push particles in velocity space (:math:`\mathbf{v} \times \mathbf{B}_0` term)
+3. :class:`~struphy.propagators.propagators_coupling.VlasovAmpere` - Couple Vlasov and Ampère equations
+
+**Initial Condition**
+
+The initial electric field is computed by solving the weak Poisson equation to ensure
+the charge density from the particle distribution satisfies Gauss's law. The background
+magnetic field :math:`\mathbf{B}_0` must satisfy:
+
+.. math::
+
+    \nabla \times \mathbf{B}_0 = \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} f_0 \, \mathrm{d}^3 \mathbf{v}
+
+**Control Variate Method**
+
+An optional control variate technique can be enabled to reduce numerical noise in
+Ampère's law by subtracting the equilibrium distribution :math:`f_0`. When enabled,
+the weak form becomes:
+
+Find :math:`(\mathbf{E}, f) \in H(\mathrm{curl}) \times C^\infty` such that
+
+.. math::
+
+    &-\int_{\Omega} \mathbf{F} \cdot \frac{\partial \mathbf{E}}{\partial t}\,\mathrm{d} \mathbf{x} = \frac{\alpha^2}{\varepsilon} \int_{\Omega} \int_{\mathbb{R}^3} \mathbf{F} \cdot \mathbf{v} (f - f_0) \, \mathrm{d}^3 \mathbf{v}\,\mathrm{d} \mathbf{x} \qquad \forall \ \mathbf{F} \in H(\mathrm{curl})
+    
+    &\frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \frac{1}{\varepsilon} \left( \mathbf{E} + \mathbf{v} \times \mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0
+
+**Scalar Quantities**
+
+The following energies are tracked during simulation:
+
+- Electric field energy: :math:`E_E = \frac{1}{2} \int |\mathbf{E}|^2 \, \mathrm{d}V`
+- Kinetic energy: :math:`E_f = \frac{\alpha^2}{2N} \sum_p w_p |\mathbf{v}_p|^2`
+- Total energy: :math:`E_\mathrm{tot} = E_E + E_f`
+
+**Model Properties**
+
+- **Model type:** Kinetic
+- **Velocity scale:** Speed of light
+- **Bulk species:** kinetic_ions
+
+**Parameters**
+
+- ``with_B0`` (bool) - Include background magnetic field effects (default: True)
+
+**See Also**
+
+- :class:`~struphy.models.base.StruphyModel` - Base class for all Struphy models
+- :class:`~struphy.propagators.propagators_coupling.VlasovAmpere` - Vlasov-Ampère coupling propagator
+- :class:`~struphy.propagators.propagators_markers.PushEta` - Configuration space particle pusher
+- :class:`~struphy.propagators.propagators_markers.PushVxB` - Velocity space particle pusher
+
+**Examples**
+
+Create and initialize a Vlasov-Ampère model:
+
+.. code-block:: python
+
+    from struphy.models.vlasov_ampere_one_species import VlasovAmpereOneSpecies
+    
+    # Create model with background magnetic field
+    model = VlasovAmpereOneSpecies(with_B0=True)
+    
+    # Access fields and particles
+    # model.em_fields.e_field  - Electric field
+    # model.kinetic_ions.var   - Particle distribution
+    
+    # After initialization, allocate_helpers() solves the initial Poisson equation
+"""
