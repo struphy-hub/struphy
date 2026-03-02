@@ -1434,13 +1434,10 @@ RESTARTing from:
                         if MPI.COMM_WORLD.Get_size() > 1:
                             subval.particles.mpi_sort_markers(do_test=True)
 
-<<<<<<< HEAD
     def print_progress(self, progress: int) -> None:
         if self.env.gui and self.rank == 0:
             print(f"[PROGRESS:{progress}]", flush=True)
 
-=======
->>>>>>> devel
     def to_dict(self) -> dict:
         """Serialize the simulation configuration to a dictionary."""
         return {
