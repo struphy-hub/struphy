@@ -209,8 +209,8 @@ Initial Poisson equation: At :math:`t=0`, solve weakly for the electric potentia
 
 .. math::
 
-    \int_\Omega \nabla \psi^\top \cdot \nabla \phi \,\mathrm{d} \mathbf{x} &= \frac{\alpha^2}{\varepsilon}  \int_\Omega \int_{\mathbb{R}^3} \psi\, (f - f_0) \, \mathrm{d}^3 \mathbf{v}\,\mathrm{d} \mathbf{x} \qquad \forall \ \psi \in H^1
-    
+    \int_{\Omega} \nabla \psi^\top \cdot \nabla \phi \,\mathrm{d} \mathbf{x} &= \frac{\alpha^2}{\varepsilon}  \int_{\Omega} \int_{\mathbb{R}^3} \psi\, (f - f_0) \, \mathrm{d}^3 \mathbf{v}\,\mathrm{d} \mathbf{x} \qquad \forall \ \psi \in H^1
+    \\
     \mathbf{E}(t=0) &= -\nabla \phi(t=0)
 
 **Normalization**
@@ -225,15 +225,15 @@ The model uses the following normalizations:
 
 .. math::
 
-    \alpha = \frac{\hat{\Omega}_\mathrm{p}}{\hat{\Omega}_\mathrm{c}}, \qquad 
-    \varepsilon = \frac{1}{\hat{\Omega}_\mathrm{c} \hat{t}}
+    \alpha = \frac{\hat{\omega}_\mathrm{p}}{\hat{\omega}_\mathrm{c}}, \qquad 
+    \varepsilon = \frac{1}{\hat{\omega}_\mathrm{c} \hat{t}}
 
 where
 
 .. math::
 
-    \hat{\Omega}_\mathrm{p} = \sqrt{\frac{\hat{n} (Ze)^2}{\epsilon_0 (A m_\mathrm{H})}}, \qquad
-    \hat{\Omega}_\mathrm{c} = \frac{(Ze) \hat{B}}{(A m_\mathrm{H})}
+    \hat{\omega}_\mathrm{p} = \sqrt{\frac{\hat{n} (Ze)^2}{\epsilon_0 (A m_\mathrm{H})}}, \qquad
+    \hat{\omega}_\mathrm{c} = \frac{(Ze) \hat{B}}{(A m_\mathrm{H})}
 
 For electrons: :math:`Z = -1`, :math:`A = 1/1836`.
 
@@ -271,7 +271,7 @@ Find :math:`(\mathbf{E}, f) \in H(\mathrm{curl}) \times C^\infty` such that
 
 .. math::
 
-    &-\int_\Omega \mathbf{F} \cdot \frac{\partial \mathbf{E}}{\partial t}\,\mathrm{d} \mathbf{x} = \frac{\alpha^2}{\varepsilon} \int_\Omega \int_{\mathbb{R}^3} \mathbf{F} \cdot \mathbf{v} (f - f_0) \, \mathrm{d}^3 \mathbf{v}\,\mathrm{d} \mathbf{x} \qquad \forall \ \mathbf{F} \in H(\mathrm{curl})
+    &-\int_{\Omega} \mathbf{F} \cdot \frac{\partial \mathbf{E}}{\partial t}\,\mathrm{d} \mathbf{x} = \frac{\alpha^2}{\varepsilon} \int_{\Omega} \int_{\mathbb{R}^3} \mathbf{F} \cdot \mathbf{v} (f - f_0) \, \mathrm{d}^3 \mathbf{v}\,\mathrm{d} \mathbf{x} \qquad \forall \ \mathbf{F} \in H(\mathrm{curl})
     
     &\frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \frac{1}{\varepsilon} \left( \mathbf{E} + \mathbf{v} \times \mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0
 
