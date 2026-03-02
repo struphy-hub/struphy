@@ -204,7 +204,7 @@ class Simulation(SimulationBase):
         )
 
         # save parameter file
-        if self.rank == 0 and verbose:
+        if self.rank == 0:
             # save python param file
             if self.params_path is not None:
                 assert self.params_path[-3:] == ".py"
