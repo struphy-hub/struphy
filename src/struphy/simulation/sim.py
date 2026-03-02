@@ -155,7 +155,7 @@ class Simulation(SimulationBase):
             self.comm_size = self.comm.Get_size()
             self.Barrier = self.comm.Barrier
 
-        if self.rank == 0:
+        if self.rank == 0 and verbose:
             print("")
             if verbose:
                 self.show_parameters()
@@ -168,7 +168,7 @@ class Simulation(SimulationBase):
         assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
         self.model_name = model.__class__.__name__
 
-        if self.rank == 0:
+        if self.rank == 0 and verbose:
             print(f"Instance of simulation for model {self.model_name} ...")
 
         # meta-data
@@ -193,7 +193,7 @@ class Simulation(SimulationBase):
         self.meta["max wall-clock [min]"] = max_runtime
         self.meta["save interval [steps]"] = save_step
 
-        if self.rank == 0:
+        if self.rank == 0 and verbose:
             print("\nMETADATA:")
             for k, v in self.meta.items():
                 print(f"{k}:".ljust(25), v)
@@ -204,7 +204,7 @@ class Simulation(SimulationBase):
         )
 
         # save parameter file
-        if self.rank == 0:
+        if self.rank == 0 and verbose:
             # save python param file
             if self.params_path is not None:
                 assert self.params_path[-3:] == ".py"
@@ -264,7 +264,7 @@ class Simulation(SimulationBase):
         self.units = Units(base_units)
         self.normalize_model()
 
-        if self.rank == 0:
+        if self.rank == 0 and verbose:
             print("\n... Done.")
 
     # ----------------

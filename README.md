@@ -44,6 +44,36 @@ In case you face troubles with install/compile:
 1.  check the [prerequisites](https://struphy-hub.github.io/struphy/sections/install.html#requirements)
 2.  visit [trouble shooting](https://struphy-hub.github.io/struphy/sections/install.html#trouble-shooting)
 
+## Python API
+
+Try out the Python API in a Jupyter notebook or any Python environment. For example, you can create a simulation object and show the domain and equilibrium magnetic field of the linear MHD model via
+
+``` python
+from struphy import (
+    Simulation,
+    domains,
+    equils,
+)
+from struphy.models import LinearMHD
+
+model = LinearMHD()
+
+domain = domains.DESCunit()
+equil = equils.DESCequilibrium(use_nfp=False)
+
+sim = Simulation(
+    model=model,
+    domain=domain,
+    equil=equil,
+)
+
+sim.show_domain(scalars="absB0", zoom_factor=2.0)
+```
+
+![](README_files/figure-commonmark/cell-2-output-1.png)
+
+This will show the domain and equilibrium magnetic field of the linear MHD model. You can find more examples in the [documentation](https://struphy-hub.github.io/struphy/index.html).
+
 ## Quick run
 
 As an example, let’s say we want to solve Maxwell’s equations. We can use the CLI and generate a default launch file via
@@ -62,55 +92,6 @@ Parallel simulations are run for example with
     mpirun -n 4 python params_Maxwell.py
 
 You can also put the run command in a batch script.
-
-### Python API
-
-``` python
-from struphy import (
-    Simulation,
-    domains,
-    equils,
-)
-from struphy.models import LinearMHD
-
-model = LinearMHD()
-
-domain = domains.DESCunit()
-equil = equils.DESCequilibrium(use_nfp=False)
-
-# domain = domains.Tokamak()
-# equil = equils.HomogenSlab()
-
-sim = Simulation(
-    model=model,
-    domain=domain,
-    equil=equil,
-)
-
-sim.show_domain(scalars="absB0", zoom_factor=2.0)
-```
-
-
-    Instance of simulation for model LinearMHD ...
-
-    METADATA:
-    platform:                 linux-x86_64
-    python version:           3.12
-    model name:               LinearMHD
-    parameter file:           None
-    output folder:            /home/maxlinadmin/git_repos/struphy/sim_1
-    MPI processes:            1
-    use MPI.COMM_WORLD:       (True,)
-    number of domain clones:  1
-    restart:                  False
-    max wall-clock [min]:     300
-    save interval [steps]:    1
-
-    ... Done.
-
-![](README_files/figure-commonmark/cell-2-output-2.png)
-
-This will show the domain and equilibrium magnetic field of the linear MHD model. You can find more examples in the [documentation](https://struphy-hub.github.io/struphy/index.html).
 
 ## Docker
 
