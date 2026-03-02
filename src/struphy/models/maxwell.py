@@ -80,7 +80,7 @@ class Maxwell(StruphyModel):
         self.update_scalar("electric energy", en_E)
         self.update_scalar("magnetic energy", en_B)
         self.update_scalar("total energy", en_E + en_B)
-        
+
     __doc_rst__ = r"""
 Maxwell's equations in vacuum for electromagnetic field evolution.
 

@@ -16,8 +16,8 @@ from struphy.propagators import (
     propagators_markers,
 )
 from struphy.propagators.base import Propagator
-from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.docstring_converter import auto_convert_docstring
+from struphy.utils.pyccel import Pyccelkernel
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -181,7 +181,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
         with open(params_path, "w") as f:
             for line in new_file:
                 f.write(line)
-                
+
     __doc_rst__ = r"""
 Vlasov-Ampère system for a single kinetic species in an electric field.
 

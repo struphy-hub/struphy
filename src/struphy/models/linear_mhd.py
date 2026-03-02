@@ -145,7 +145,7 @@ class LinearMHD(StruphyModel):
         with open(params_path, "w") as f:
             for line in new_file:
                 f.write(line)
-                
+
     __doc_rst__ = r"""
 Linear ideal MHD with zero-flow equilibrium for magnetohydrodynamic wave propagation.
 
