@@ -1410,7 +1410,7 @@ RESTARTing from:
             verbose=dct.get("verbose", False),
         )
 
-    def generate_script(self) -> str:
+    def generate_script(self, include_main_guard: bool = False) -> str:
         """Generate a Python script that can be used to reproduce the simulation."""
 
         script = f"""
@@ -1460,11 +1460,14 @@ from struphy.models import {self.model.__class__.__name__}
         if not self.derham_opts.is_default:
             sim_setup += f"derham_opts = {self.derham_opts.__repr_no_defaults__()}\n"
             sim_class_def += "derham_opts=derham_opts,"
+        if self.params_path is not None:
+            sim_class_def += f"params_path={repr(self.params_path)},\n"
+
         sim_class_def += ")\n"
 
         script += sim_setup + "\n" + sim_class_def
-
-        script += """
+        if include_main_guard:
+            script += """
 if __name__ == "__main__":
     sim.run()"""
 
