@@ -1451,7 +1451,8 @@ from struphy.models import {self.model.__class__.__name__}
         if not self.domain.is_default:
             sim_setup += f"domain = domains.{self.domain.__repr_no_defaults__()}\n"
             sim_class_def += "domain=domain,"
-        if self.equil is not None and not self.equil.is_default:
+        # This is a bit of a special case since the default is None,
+        if self.equil is not None:
             sim_setup += f"equil = equils.{self.equil.__repr_no_defaults__()}\n"
             sim_class_def += "equil=equil,"
         if not self.grid.is_default:

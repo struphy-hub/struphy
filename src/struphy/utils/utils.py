@@ -162,7 +162,7 @@ def all_class_params_are_default(cls_instance):
 
 
 def ruff_autofix_and_format(code: str) -> str:
-    with tempfile.NamedTemporaryFile(suffix=".py", mode="w+", delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(suffix=".py", mode="w+") as tmp:
         tmp.write(code)
         tmp.flush()
         # Run Ruff to autofix (remove unused imports)
