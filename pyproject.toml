@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "struphy"
-version = "3.0.3"
+version = "3.0.4"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
@@ -25,7 +25,7 @@ classifiers = [
 dependencies = [
     'numpy',
     'cunumpy',
-    'pyccel>=2.1',
+    'pyccel>=2.2.0',
     'feectools',
     'scipy',
     'h5py',
@@ -35,6 +35,7 @@ dependencies = [
     'tqdm',
     'argcomplete',
     'plotly',
+    "pyvista",
     'pytest',
     'pytest-mpi',
     'pytest-testmon',

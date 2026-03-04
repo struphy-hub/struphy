@@ -10,6 +10,9 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 
+import sys
+import os
+sys.path.insert(0, os.path.abspath('_ext'))
 
 with open("../src/struphy/console/main.py") as f:
     exec(f.read())
@@ -20,7 +23,7 @@ import importlib.metadata
 __version__ = importlib.metadata.version("struphy")
 
 project = "struphy"
-copyright = "2019-2025 (c) Struphy dev team | Max Planck Institute for Plasma Physics"
+copyright = "2019-2026 (c) Struphy dev team | Max Planck Institute for Plasma Physics"
 author = "Struphy dev team | Max Planck Institute for Plasma Physics"
 version = __version__
 
@@ -45,6 +48,7 @@ extensions = [
     "myst_parser",
     "sphinx_design",
     "sphinx_copybutton",
+    "rst_docstring",  # Custom extension to use __doc_rst__
 ]
 
 nbsphinx_execute = "auto"

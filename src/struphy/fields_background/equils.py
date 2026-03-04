@@ -2376,6 +2376,9 @@ class DESCequilibrium(NumericalMHDequilibrium):
         T_kelvin: float = 100000.0,
         base_units: BaseUnits = None,
     ):
+        # Can't use in args because of the copy below
+        verbose: bool = False
+
         # use params setter
         self.params = copy.deepcopy(locals())
 
@@ -2391,7 +2394,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         import desc
 
-        if rank == 0:
+        if rank == 0 and verbose:
             print(f"DESC import: {time() - t} seconds")
         from struphy.geometry.domains import DESCunit
 
@@ -2421,7 +2424,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
         else:
             self._eq = desc.io.load(eq_name)
 
-        if rank == 0:
+        if rank == 0 and verbose:
             print(f"Eq. load: {time() - t} seconds")
         self._rmin = self.params["rmin"]
         self._use_nfp = self.params["use_nfp"]
@@ -2882,7 +2885,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         # make c-contiguous
         out = xp.ascontiguousarray(out)
-        if rank == 0:
+        if rank == 0 and verbose:
             print(f"desc_eval for {var}: {time() - ttime} seconds")
         return out
 

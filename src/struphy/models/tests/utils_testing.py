@@ -64,6 +64,10 @@ def call_test(model: StruphyModel, test_profiling: bool = False, verbose: bool =
         verbose=verbose,
     )
 
+    sim_dict = sim.to_dict()  # test the to_dict method
+    sim2 = Simulation.from_dict(sim_dict)  # test the from_dict method
+    assert sim == sim2, "Simulation to_dict and from_dict methods are not consistent"
+
     sim.show_parameters()
 
     sim.run(verbose=verbose)
