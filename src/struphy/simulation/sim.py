@@ -1473,6 +1473,16 @@ if __name__ == "__main__":
 
         return ruff_autofix_and_format(script)
 
+    def save_script(
+        self,
+        file_path: str,
+        include_main_guard: bool = False,
+    ):
+        """Save the generated script to a file."""
+        script = self.generate_script(include_main_guard=include_main_guard)
+        with open(file_path, "w") as f:
+            f.write(script)
+
     def __eq__(self, value: "Simulation") -> bool:
         assert isinstance(value, Simulation), "Comparison only implemented between Simulation instances."
         return self.to_dict() == value.to_dict()
