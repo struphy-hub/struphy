@@ -209,7 +209,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
         if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
             print("... Done.")
-            
+
         # reset particle weights
         particles.weights = particles.weights_at_t0.copy()
 
@@ -237,7 +237,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
                 particles.markers_wo_holes[:, 6],
             )
         )
-        
+
         self.update_scalar("en_f", self._tmp[0])
 
         # en_tot = en_w + en_e
