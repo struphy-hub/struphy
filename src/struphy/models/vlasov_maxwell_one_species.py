@@ -303,7 +303,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
                     new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
                     new_file += ["model.kinetic_ions.set_save_data(binning_plots=(binplot,))\n"]
                 elif "model.kinetic_ions.var.save_data = True" in line:
-                    new_file += ["model.measure_gauss_error(measure = False)\n"]
+                    new_file += ["\nmodel.measure_gauss_error(measure = False)\n"]
                 else:
                     new_file += [line]
 
