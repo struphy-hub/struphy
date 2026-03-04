@@ -1,3 +1,4 @@
+import inspect
 import os
 import subprocess
 from typing import Literal, get_args
@@ -130,6 +131,29 @@ def subp_run(cmd, cwd="libpath", check=True):
 
     print(f"\nRunning the following command as a subprocess:\n{' '.join(cmd)}\nfrom {cwd}")
     subprocess.run(cmd, cwd=cwd, check=check)
+
+
+def __dataclass_repr_no_defaults__(obj):
+    out = f"{type(obj).__name__}("
+    for k, v in obj.__dict__.items():
+        if k not in obj.__dataclass_fields__:
+            continue
+        default_value = obj.__dataclass_fields__[k].default
+        if v != default_value:
+            out += f"{k}={repr(v)}, "
+    out = out.rstrip(", ") + ")"
+    return out
+
+
+def __class_with_params_repr_no_defaults__(cls_instance):
+    sig = inspect.signature(cls_instance.__class__.__init__)
+    defaults = {k: v.default for k, v in sig.parameters.items() if k != "self"}
+    out = f"{cls_instance.__class__.__name__}("
+    for k, v in cls_instance.params.items():
+        if k in defaults and v != defaults[k]:
+            out += f"{k}={v}, "
+    out += ")"
+    return out
 
 
 if __name__ == "__main__":

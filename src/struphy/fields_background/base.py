@@ -7,6 +7,7 @@ from matplotlib import pyplot as plt
 from pyevtk.hl import gridToVTK
 
 from struphy.geometry.base import Domain
+from struphy.utils.utils import __class_with_params_repr_no_defaults__, __dataclass_repr_no_defaults__
 
 
 class FluidEquilibrium(metaclass=ABCMeta):
@@ -96,12 +97,22 @@ class FluidEquilibrium(metaclass=ABCMeta):
         assert isinstance(new_domain, Domain) or new_domain is None
         self._domain = new_domain
 
-    def __repr__(self):
+    def __str__(self):
         out = f"{self.__class__.__name__}"
         for k, v in self.params.items():
             out += f"\n    {k}:".ljust(20)
             out += f"{v}"
         return out
+
+    def __repr__(self) -> str:
+        out = f"{self.__class__.__name__}("
+        for k, v in self.params.items():
+            out += f"{k}={v}, "
+        out += ")"
+        return out
+
+    def __repr_no_defaults__(self):
+        return __class_with_params_repr_no_defaults__(self)
 
     ###########################
     # Vector-valued callables #

@@ -147,7 +147,13 @@ class StruphyModel(metaclass=ABCMeta):
     # --------------
     # Common methods
     # --------------
-    def __repr__(self):
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
+    def __repr_no_defaults__(self) -> str:
+        return self.__repr__()
+
+    def __str__(self):
         out = f"{self.__class__.__name__}\n"
         for k, v in self.species.items():
             out += f"    {k}:\n"

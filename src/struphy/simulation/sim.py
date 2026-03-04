@@ -1410,6 +1410,53 @@ RESTARTing from:
             verbose=dct.get("verbose", False),
         )
 
+    def generate_script(self) -> str:
+        """Generate a Python script that can be used to reproduce the simulation."""
+        script = f"""
+from struphy import (
+    BaseUnits,
+    DerhamOptions,
+    EnvironmentOptions,
+    FieldsBackground,
+    Simulation,
+    Time,
+    domains,
+    equils,
+    grids,
+    perturbations,
+)
+
+# ---------------------
+# Instance of the model
+# ---------------------
+
+from struphy.models import {self.model.__class__.__name__}
+
+model = {self.model.__repr__()}
+env = {self.env.__repr_no_defaults__()}
+base_units = {self.base_units.__repr_no_defaults__()}
+time_opts = {self.time_opts.__repr_no_defaults__()}
+domain = domains.{self.domain.__repr_no_defaults__()}
+equil = equils.{self.equil.__repr_no_defaults__()}
+grid = grids.{self.grid.__repr_no_defaults__()}
+derham_opts = {self.derham_opts.__repr_no_defaults__()}
+
+
+sim = Simulation(
+    model=model,
+    params_path={repr(self.params_path)},
+    env=env,
+    base_units=base_units,
+    time_opts=time_opts,
+    domain=domain,
+    equil=equil,
+    grid=grid,
+    derham_opts=derham_opts,
+)
+sim.run()
+        """
+        return script
+
     def __eq__(self, value: "Simulation") -> bool:
         assert isinstance(value, Simulation), "Comparison only implemented between Simulation instances."
         return self.to_dict() == value.to_dict()

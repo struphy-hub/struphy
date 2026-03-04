@@ -1,6 +1,7 @@
 # coding: utf-8
 "Base classes for mapped domains (single patch)."
 
+import inspect
 from abc import ABCMeta, abstractmethod
 
 import cunumpy as xp
@@ -12,6 +13,7 @@ import struphy.bsplines.bsplines as bsp
 from struphy.geometry import evaluation_kernels, transform_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
+from struphy.utils.utils import __class_with_params_repr_no_defaults__
 
 
 class Domain(metaclass=ABCMeta):
@@ -209,6 +211,16 @@ class Domain(metaclass=ABCMeta):
         )
 
     def __repr__(self):
+        out = f"{self.__class__.__name__}("
+        for k, v in self.params.items():
+            out += f"{k}={v}, "
+        out += ")"
+        return out
+
+    def __repr_no_defaults__(self):
+        return __class_with_params_repr_no_defaults__(self)
+
+    def __str__(self):
         print(f"{self.__class__.__name__}")
         for k, v in self.params.items():
             print(f"{k}:".ljust(20), v)
