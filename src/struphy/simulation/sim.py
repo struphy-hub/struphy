@@ -1436,8 +1436,11 @@ model = {self.model.__repr__()}
 env = {self.env.__repr_no_defaults__()}
 base_units = {self.base_units.__repr_no_defaults__()}
 time_opts = {self.time_opts.__repr_no_defaults__()}
-domain = domains.{self.domain.__repr_no_defaults__()}
-equil = equils.{self.equil.__repr_no_defaults__()}
+domain = domains.{self.domain.__repr_no_defaults__()}"""
+        if self.equil is not None:
+            script += f"""
+equil = equils.{self.equil.__repr_no_defaults__()}"""
+        script += f"""
 grid = grids.{self.grid.__repr_no_defaults__()}
 derham_opts = {self.derham_opts.__repr_no_defaults__()}
 
@@ -1448,8 +1451,11 @@ sim = Simulation(
     env=env,
     base_units=base_units,
     time_opts=time_opts,
-    domain=domain,
-    equil=equil,
+    domain=domain,"""
+        if self.equil is not None:
+            script += """
+    equil=equil,"""
+        script += """
     grid=grid,
     derham_opts=derham_opts,
 )
