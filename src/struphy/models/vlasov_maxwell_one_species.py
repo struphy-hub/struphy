@@ -234,7 +234,10 @@ class VlasovMaxwellOneSpecies(StruphyModel):
     def calculate_gauss_error(self, e):
         # control variate method
         particles = self.kinetic_ions.var.particles
-        particles.update_weights()
+
+        if self.measure_gauss:
+            particles.update_weights()
+
         charge_accum0 = AccumulatorVector(
             particles,
             "H1",
