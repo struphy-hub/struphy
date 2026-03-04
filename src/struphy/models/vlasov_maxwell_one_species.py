@@ -174,7 +174,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         if MPI.COMM_WORLD.Get_rank() == 0:
             print("\nINITIAL POISSON SOLVE:")
 
-        # use control variate method
+        # use control variate method (reset weights after Poisson solve)
         particles = self.kinetic_ions.var.particles
         particles.update_weights()
 
