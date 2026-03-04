@@ -156,6 +156,10 @@ def __class_with_params_repr_no_defaults__(cls_instance):
     return out
 
 
+def all_class_params_are_default(cls_instance):
+    return cls_instance.__repr_no_defaults__() == cls_instance.__class__.__name__ + "()"
+
+
 if __name__ == "__main__":
     state = read_state()
     for k, val in state.items():

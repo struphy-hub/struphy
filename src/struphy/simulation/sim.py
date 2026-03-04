@@ -1412,6 +1412,7 @@ RESTARTing from:
 
     def generate_script(self) -> str:
         """Generate a Python script that can be used to reproduce the simulation."""
+
         script = f"""
 from struphy import (
     BaseUnits,
@@ -1432,35 +1433,40 @@ from struphy import (
 
 from struphy.models import {self.model.__class__.__name__}
 
-model = {self.model.__repr__()}
-env = {self.env.__repr_no_defaults__()}
-base_units = {self.base_units.__repr_no_defaults__()}
-time_opts = {self.time_opts.__repr_no_defaults__()}
-domain = domains.{self.domain.__repr_no_defaults__()}"""
-        if self.equil is not None:
-            script += f"""
-equil = equils.{self.equil.__repr_no_defaults__()}"""
-        script += f"""
-grid = grids.{self.grid.__repr_no_defaults__()}
-derham_opts = {self.derham_opts.__repr_no_defaults__()}
+"""
 
+        sim_setup = f"model = {self.model.__repr_no_defaults__()}\n"
+        sim_class_def = "sim = Simulation("
 
-sim = Simulation(
-    model=model,
-    params_path={repr(self.params_path)},
-    env=env,
-    base_units=base_units,
-    time_opts=time_opts,
-    domain=domain,"""
-        if self.equil is not None:
-            script += """
-    equil=equil,"""
+        if not self.env.is_default:
+            sim_setup += f"env = {self.env.__repr_no_defaults__()}\n"
+            sim_class_def += "env=env,"
+        if not self.base_units.is_default:
+            sim_setup += f"base_units = {self.base_units.__repr_no_defaults__()}\n"
+            sim_class_def += "base_units=base_units,"
+        if not self.time_opts.is_default:
+            sim_setup += f"time_opts = {self.time_opts.__repr_no_defaults__()}\n"
+            sim_class_def += "time_opts=time_opts,"
+        if not self.domain.is_default:
+            sim_setup += f"domain = domains.{self.domain.__repr_no_defaults__()}\n"
+            sim_class_def += "domain=domain,"
+        if self.equil is not None and not self.equil.is_default:
+            sim_setup += f"equil = equils.{self.equil.__repr_no_defaults__()}\n"
+            sim_class_def += "equil=equil,"
+        if not self.grid.is_default:
+            sim_setup += f"grid = grids.{self.grid.__repr_no_defaults__()}\n"
+            sim_class_def += "grid=grid,"
+        if not self.derham_opts.is_default:
+            sim_setup += f"derham_opts = {self.derham_opts.__repr_no_defaults__()}\n"
+            sim_class_def += "derham_opts=derham_opts,"
+        sim_class_def += ")\n"
+
+        script += sim_setup + "\n" + sim_class_def
+
         script += """
-    grid=grid,
-    derham_opts=derham_opts,
-)
-sim.run()
-        """
+if __name__ == "__main__":
+    sim.run()
+"""
         return script
 
     def __eq__(self, value: "Simulation") -> bool:

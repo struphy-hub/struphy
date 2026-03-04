@@ -2,7 +2,7 @@ import os
 from dataclasses import dataclass
 from typing import Literal
 
-from struphy.utils.utils import __dataclass_repr_no_defaults__, check_option
+from struphy.utils.utils import __dataclass_repr_no_defaults__, all_class_params_are_default, check_option
 
 
 @dataclass
@@ -138,6 +138,10 @@ class Time:
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
 
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
+
     def to_dict(self) -> dict:
         dct = {
             "dt": self.dt,
@@ -188,6 +192,10 @@ class BaseUnits:
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
 
     def to_dict(self) -> dict:
         dct = {
@@ -255,6 +263,10 @@ class DerhamOptions:
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
 
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
+
     def to_dict(self) -> dict:
         dct = {
             "p": self.p,
@@ -311,6 +323,10 @@ class FieldsBackground:
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
 
     def to_dict(self) -> dict:
         dct = {
@@ -385,6 +401,10 @@ class EnvironmentOptions:
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
 
     def to_dict(self) -> dict:
         dct = {

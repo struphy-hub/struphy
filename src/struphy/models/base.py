@@ -16,6 +16,7 @@ from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.docstring_converter import rst_to_markdown
+from struphy.utils.utils import all_class_params_are_default
 
 
 class StruphyModel(metaclass=ABCMeta):
@@ -152,6 +153,10 @@ class StruphyModel(metaclass=ABCMeta):
 
     def __repr_no_defaults__(self) -> str:
         return self.__repr__()
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
 
     def __str__(self):
         out = f"{self.__class__.__name__}\n"

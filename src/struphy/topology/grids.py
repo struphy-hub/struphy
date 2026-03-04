@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from struphy.utils.utils import __dataclass_repr_no_defaults__
+from struphy.utils.utils import __dataclass_repr_no_defaults__, all_class_params_are_default
 
 
 @dataclass
@@ -29,6 +29,10 @@ class TensorProductGrid:
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
 
     def to_dict(self) -> dict:
         dct = {

@@ -7,7 +7,11 @@ from matplotlib import pyplot as plt
 from pyevtk.hl import gridToVTK
 
 from struphy.geometry.base import Domain
-from struphy.utils.utils import __class_with_params_repr_no_defaults__, __dataclass_repr_no_defaults__
+from struphy.utils.utils import (
+    __class_with_params_repr_no_defaults__,
+    __dataclass_repr_no_defaults__,
+    all_class_params_are_default,
+)
 
 
 class FluidEquilibrium(metaclass=ABCMeta):
@@ -113,6 +117,10 @@ class FluidEquilibrium(metaclass=ABCMeta):
 
     def __repr_no_defaults__(self):
         return __class_with_params_repr_no_defaults__(self)
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
 
     ###########################
     # Vector-valued callables #

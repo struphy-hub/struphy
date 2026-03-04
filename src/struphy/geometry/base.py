@@ -13,7 +13,7 @@ import struphy.bsplines.bsplines as bsp
 from struphy.geometry import evaluation_kernels, transform_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
-from struphy.utils.utils import __class_with_params_repr_no_defaults__
+from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default
 
 
 class Domain(metaclass=ABCMeta):
@@ -219,6 +219,10 @@ class Domain(metaclass=ABCMeta):
 
     def __repr_no_defaults__(self):
         return __class_with_params_repr_no_defaults__(self)
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
 
     def __str__(self):
         print(f"{self.__class__.__name__}")
