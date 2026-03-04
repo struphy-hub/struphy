@@ -235,7 +235,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # control variate method
         particles = self.kinetic_ions.var.particles
 
-        if self.measure_gauss:
+        if self.kinetic_ions.control_variate:
             particles.update_weights()
 
         charge_accum0 = AccumulatorVector(
