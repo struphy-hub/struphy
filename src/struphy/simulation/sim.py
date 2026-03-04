@@ -61,7 +61,7 @@ from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.simulation.base import SimulationBase
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.utils import dict_to_yaml
+from struphy.utils.utils import dict_to_yaml, ruff_autofix_and_format
 
 
 class Simulation(SimulationBase):
@@ -1427,17 +1427,13 @@ from struphy import (
     perturbations,
 )
 
-# ---------------------
-# Instance of the model
-# ---------------------
-
 from struphy.models import {self.model.__class__.__name__}
 
 """
 
         sim_setup = ""
         sim_class_def = "sim = Simulation("
-        
+
         # Always include model
         sim_setup += f"model = {self.model.__repr_no_defaults__()}\n"
         sim_class_def += "model=model,"
@@ -1470,9 +1466,9 @@ from struphy.models import {self.model.__class__.__name__}
 
         script += """
 if __name__ == "__main__":
-    sim.run()
-"""
-        return script
+    sim.run()"""
+
+        return ruff_autofix_and_format(script)
 
     def __eq__(self, value: "Simulation") -> bool:
         assert isinstance(value, Simulation), "Comparison only implemented between Simulation instances."

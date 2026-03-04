@@ -1,6 +1,7 @@
 import inspect
 import os
 import subprocess
+import tempfile
 from typing import Literal, get_args
 
 import yaml
@@ -158,6 +159,29 @@ def __class_with_params_repr_no_defaults__(cls_instance):
 
 def all_class_params_are_default(cls_instance):
     return cls_instance.__repr_no_defaults__() == cls_instance.__class__.__name__ + "()"
+
+
+def ruff_autofix_and_format(code: str) -> str:
+    with tempfile.NamedTemporaryFile(suffix=".py", mode="w+", delete=False) as tmp:
+        tmp.write(code)
+        tmp.flush()
+        # Run Ruff to autofix (remove unused imports)
+        subprocess.run(
+            ["ruff", "check", "--select", "F401", "--fix", tmp.name],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        # Run Ruff formatter
+        subprocess.run(
+            ["ruff", "format", tmp.name],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        tmp.seek(0)
+        result = tmp.read()
+    return result
 
 
 if __name__ == "__main__":
