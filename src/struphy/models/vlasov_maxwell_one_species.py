@@ -179,8 +179,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         particles.update_weights()
 
         # sanity check
-        # self.pointer['species1'].show_distribution_function(
-        #     [True] + [False]*5, [xp.linspace(0, 1, 32)])
+        # particles.show_distribution_function([True] + [False]*5, [xp.linspace(0, 1, 32)])
 
         # accumulate charge density
         charge_accum = AccumulatorVector(
@@ -210,6 +209,9 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
         if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
             print("... Done.")
+            
+        # reset particle weights
+        particles.weights = particles.weights_at_t0.copy()
 
     def update_scalar_quantities(self):
         # e*M1*e/2
@@ -235,6 +237,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
                 particles.markers_wo_holes[:, 6],
             )
         )
+        
         self.update_scalar("en_f", self._tmp[0])
 
         # en_tot = en_w + en_e

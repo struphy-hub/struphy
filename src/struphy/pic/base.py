@@ -825,6 +825,11 @@ class Particles(metaclass=ABCMeta):
         assert isinstance(new, xp.ndarray)
         assert new.shape == (self.n_mks_loc,)
         self._markers[self.valid_mks, self.index["weights"]] = new
+        
+    @property
+    def weights_at_t0(self):
+        """Array holding the initial marker weights. The i-th row holds the i-th marker info."""
+        return self.markers[self.valid_mks, self.index["w0"]]
 
     @property
     def sampling_density(self):
