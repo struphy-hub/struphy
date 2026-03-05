@@ -7,6 +7,7 @@ from abc import ABCMeta, abstractmethod
 import cunumpy as xp
 import h5py
 import pyvista as pv
+import vtk
 from scipy.sparse import csc_matrix, kron
 from scipy.sparse.linalg import splu, spsolve
 
@@ -1504,6 +1505,31 @@ class Domain(metaclass=ABCMeta):
         plotter = pv.Plotter()
         plotter.add_mesh(mesh, show_edges=True)
         plotter.show()
+
+    def export_geometry(self, filename: str):
+        """Save the geometry to a VTK file.
+
+        Parameters
+        ----------
+        filename : str
+            The name of the file to save the geometry to. Supported formats include .vts, .vtk, .vtp
+        """
+        mesh = self.create_geometry_mesh()
+        if filename.endswith(".vts"):
+            mesh.save(filename, binary=True)
+        elif filename.endswith(".vtp"):
+            # Extract the external surface (Geometry Filter)
+            geom_filter = vtk.vtkGeometryFilter()
+            geom_filter.SetInputData(mesh)
+            geom_filter.Update()
+
+            # Write as PolyData (.vtp)
+            writer = vtk.vtkXMLPolyDataWriter()
+            writer.SetFileName(filename)
+            writer.SetInputData(geom_filter.GetOutput())
+            writer.Write()
+        else:
+            raise ValueError("Unsupported file format. Supported formats are .vts, .vtk, .vtp")
 
     def show(
         self,
