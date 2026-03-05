@@ -1,63 +1,22 @@
-
-import copy
-from copy import deepcopy
 from dataclasses import dataclass
-from typing import Callable, Literal, get_args, cast
+from typing import Callable, Literal, cast
 from warnings import warn
 
-import cunumpy as xp
-import scipy as sc
-from line_profiler import profile
-from matplotlib import pyplot as plt
-from numpy import zeros
-from psydac.api.essential_bc import apply_essential_bc_stencil
-from psydac.ddm.mpi import mpi as MPI
-from psydac.linalg.basic import ComposedLinearOperator, IdentityOperator, ZeroOperator, InverseLinearOperator
-from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
-from psydac.linalg.solvers import inverse
-from psydac.linalg.stencil import StencilVector
+from feectools.api.essential_bc import apply_essential_bc_stencil
+from feectools.ddm.mpi import mpi as MPI
+from feectools.linalg.basic import IdentityOperator, InverseLinearOperator
+from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
+from feectools.linalg.solvers import inverse
 
-import struphy.feec.utilities as util
-from struphy.examples.restelli2018 import callables
-from struphy.feec import preconditioner
-from struphy.feec.basis_projection_ops import (
-    BasisProjectionOperator, BasisProjectionOperatorLocal,
-    BasisProjectionOperators, CoordinateProjector,
-)
-from struphy.feec.linear_operators import BoundaryOperator
-from struphy.feec.mass import WeightedMassOperator, WeightedMassOperators
-from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner, MassMatrixPreconditioner
+from struphy.feec.basis_projection_ops import BasisProjectionOperators
+from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.projectors import L2Projector
-from struphy.feec.psydac_derham import Derham, SplineFunction
-from struphy.feec.variational_utilities import (
-    BracketOperator, Hdiv0_transport_operator, InternalEnergyEvaluator,
-    KineticEnergyEvaluator, Pressure_transport_operator,
-)
-from struphy.fields_background.equils import set_defaults
-from struphy.geometry.utilities import TransformedPformComponent
-from struphy.initial import perturbations
-from struphy.io.options import (
-    OptsDirectSolver, OptsGenSolver, OptsMassPrecond, OptsNonlinearSolver,
-    OptsSaddlePointSolver, OptsSymmSolver, OptsVecSpace, check_option,
-)
-from struphy.io.setup import descend_options_dict
-from struphy.kinetic_background.base import Maxwellian
-from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3D
-from struphy.linear_algebra.saddle_point import SaddlePointSolver
-from struphy.linear_algebra.schur_solver import SchurSolver, SchurSolverFull
-from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
-from struphy.models.species import Species
-from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
-from struphy.ode.solvers import ODEsolverFEEC
-from struphy.ode.utils import ButcherTableau, OptsButcher
-from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
-from struphy.pic.accumulation.filter import FilterParameters
-from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
-from struphy.pic.base import Particles
-from struphy.pic.particles import Particles5D, Particles6D
-from struphy.polar.basic import PolarVector
+from struphy.feec.psydac_derham import Derham
+from struphy.io.options import OptsGenSolver
+from struphy.linear_algebra.solver import SolverParameters
+from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
-from struphy.utils.pyccel import Pyccelkernel
+from struphy.utils.utils import check_option
 
 
 class TwoFluidQuasiNeutralFull(Propagator):
@@ -264,8 +223,9 @@ class TwoFluidQuasiNeutralFull(Propagator):
     ### Allocate
     # =========================================================================
 
-    def allocate(self):
+    def allocate(self, verbose=False):
 
+        self.verbose = verbose
         self._rank = self.derham.comm.Get_rank() if self.derham.comm is not None else 0
         self._dt   = None
 
@@ -295,6 +255,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
         # ---- unconstrained operators (for RHS assembly) ----------------------
 
+
         self._M2   = self.mass_ops.M2
         self._M2B  = - self.mass_ops.M2B
         self._div  = self.derham.div
@@ -303,9 +264,9 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
         self._lapl = (self._div.T @ self.mass_ops.M3 @ self._div
                     + self._S21.T @ self._curl.T @ self._M2 @ self._curl @ self._S21)
-
+        
         self._A11 = - self._M2B / self.options.eps_norm + self.options.nu   * self._lapl
-        self._A22 = (- self.options.stab_sigma * IdentityOperator(self._A11.domain)
+        self._A22 = (- self.options.stab_sigma * IdentityOperator(self.derham.Vh["2"])
                     + self._M2B / self.options.eps_norm + self.options.nu_e * self._lapl)
 
         # ---- constrained operators (for system matrix) -----------------------
@@ -319,16 +280,16 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
         self._lapl_v0 = (self._div_v0.T @ self._M3_v0 @ self._div_v0
                        + self._S21_v0.T @ self._curl_v0.T @ self._M2_v0 @ self._curl_v0 @ self._S21_v0)
-
+        
         self._A11_v0 = - self._M2B_v0 / self.options.eps_norm + self.options.nu   * self._lapl_v0
-        self._A22_v0 = (- self.options.stab_sigma * IdentityOperator(self._A11_v0.domain)
+        self._A22_v0 = (- self.options.stab_sigma * IdentityOperator(self._derham_v0.Vh["2"])
                        + self._M2B_v0 / self.options.eps_norm + self.options.nu_e * self._lapl_v0)
 
         # ---- block saddle-point system ----------------------------------------
 
-        self._block_domain_v0     = BlockVectorSpace(self._A11_v0.domain, self._A22_v0.domain)
+        self._block_domain_v0     = BlockVectorSpace(self._derham_v0.Vh["2"], self._derham_v0.Vh["2"])
         self._block_codomain_v0   = self._block_domain_v0
-        self._block_codomain_B_v0 = self._M3_v0.codomain
+        self._block_codomain_B_v0 = self._derham_v0.Vh["3"]
 
         self._B1_v0 = - self._M3_v0 @ self._div_v0
         self._B2_v0 =   self._M3_v0 @ self._div_v0

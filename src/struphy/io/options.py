@@ -3,10 +3,10 @@ import os
 from dataclasses import dataclass, fields
 from typing import Any, Callable, Literal
 
-import cunumpy as xp
-from psydac.ddm.mpi import mpi as MPI
+from struphy.utils.utils import check_option
 
-from struphy.physics.physics import ConstantsOfNature
+import cunumpy as xp
+from feectools.ddm.mpi import mpi as MPI
 
 ## Literal options
 
