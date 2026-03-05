@@ -35,7 +35,7 @@ from struphy.fields_background.base import (
 from struphy.fields_background.mhd_equil.eqdsk import readeqdsk
 from struphy.io.options import BaseUnits
 from struphy.physics.physics import Units
-from struphy.utils.utils import read_state, subp_run
+from struphy.utils.utils import all_class_params_are_default, read_state, subp_run
 
 if TYPE_CHECKING:
     from struphy import domains
