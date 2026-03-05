@@ -36,8 +36,8 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     """Asserts whether all particles are on the correct process after `particles.mpi_sort_markers()`."""
 
     import cunumpy as xp
-
     from feectools.ddm.mpi import mpi as MPI
+
     from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
     from struphy.feec.psydac_derham import Derham
     from struphy.pic.particles import Particles6D

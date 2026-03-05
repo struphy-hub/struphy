@@ -14,6 +14,7 @@ def test_propagator1D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
     """Test saddle-point-solver by propagator TwoFluidQuasiNeutralFull. Use manufactured solutions from perturbations to verify h- and p-convergence when model TwoFluidQuasiNeutralToy calculates solution with SaddlePointSolver."""
 
     from feectools.ddm.mpi import mpi as MPI
+
     from struphy import domains, perturbations
     from struphy.feec.basis_projection_ops import BasisProjectionOperators
     from struphy.feec.mass import WeightedMassOperators
@@ -223,6 +224,7 @@ def test_propagator2D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
     """Test saddle-point-solver by propagator TwoFluidQuasiNeutralFull. Use manufactured solutions from perturbations to verify h- and p-convergence when model TwoFluidQuasiNeutralToy calculates solution with SaddlePointSolver. Allow a certain error after one time step, save this solution and compare the follwing timesteps with this solution but with less tolerance. Shows that the solver can stay in a steady state solution."""
 
     from feectools.ddm.mpi import mpi as MPI
+
     from struphy import domains
     from struphy.feec.basis_projection_ops import BasisProjectionOperators
     from struphy.feec.mass import WeightedMassOperators

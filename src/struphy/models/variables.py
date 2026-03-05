@@ -6,8 +6,8 @@ from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING
 
 import cunumpy as xp
-
 from feectools.ddm.mpi import mpi as MPI
+
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium

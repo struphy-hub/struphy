@@ -1,10 +1,10 @@
 from copy import deepcopy
 
 import cunumpy as xp
-
 from feectools.linalg.basic import IdentityOperator, Vector
 from feectools.linalg.block import BlockVector
 from feectools.linalg.solvers import inverse
+
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import (
     BasisProjectionOperator,
