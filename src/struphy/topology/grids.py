@@ -2,6 +2,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from struphy.utils.utils import __dataclass_repr_no_defaults__, all_class_params_are_default
+
 
 @dataclass
 class TensorProductGrid:
@@ -20,10 +22,17 @@ class TensorProductGrid:
     Nel: tuple = (24, 10, 1)
     mpi_dims_mask: tuple = (True, True, True)
 
-    def __repr__(self):
+    def __str__(self):
         for k, v in self.__dict__.items():
             print(f"{k}:".ljust(20), v)
         return ""
+
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_no_defaults__(self)
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
 
     def to_dict(self) -> dict:
         dct = {
