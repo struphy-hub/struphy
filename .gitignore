@@ -1,3 +1,4 @@
+
 # Distribution / packaging
 .Python
 build/
@@ -94,3 +95,13 @@ src/struphy/io/inp/params_*
 # models list
 src/struphy/models/models_list
 src/struphy/models/models_message
+
+runs/
+bin/
+share/
+
+lib64
+pyvenv.cfg
+
+2D_Verification.py
+Restelli_Verification.py
