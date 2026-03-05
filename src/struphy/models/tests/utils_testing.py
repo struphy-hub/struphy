@@ -4,6 +4,7 @@ import shutil
 import tempfile
 from types import ModuleType
 
+import h5py
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import EnvironmentOptions
@@ -105,5 +106,18 @@ def call_test(model: StruphyModel, test_profiling: bool = False, verbose: bool =
     if rank == 0:
         sim.pproc(verbose=verbose)
         sim.load_plotting_data(verbose=verbose)
+
+        # test gauss violation
+        if hasattr(model, "measure_gauss"):
+            control_variate = params_in.weights_params.control_variate
+            if model.measure_gauss and not control_variate:
+                pa_data = os.path.join(env.path_out, "data")
+                with h5py.File(os.path.join(pa_data, "data_proc0.hdf5"), "r") as f:
+                    gauss_error = f["scalar"]["gauss_error"][()]
+
+                max_error = max(gauss_error)
+                assert max_error < 1e-15, "Too high value of gauss error for no control_variate"
+
         shutil.rmtree(test_folder)
+
     MPI.COMM_WORLD.Barrier()

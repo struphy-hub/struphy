@@ -91,3 +91,4 @@ if __name__ == "__main__":
     test_toy()
     test_fluid()
     test_single_model("Maxwell")
+    test_single_model("VlasovMaxwellOneSpecies")
