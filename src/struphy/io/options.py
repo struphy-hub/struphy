@@ -2,7 +2,7 @@ import os
 from dataclasses import dataclass
 from typing import Literal
 
-from struphy.utils.utils import check_option
+from struphy.utils.utils import __dataclass_repr_no_defaults__, all_class_params_are_default, check_option
 
 
 @dataclass
@@ -130,10 +130,17 @@ class Time:
     def __post_init__(self):
         check_option(self.split_algo, LiteralOptions.SplitAlgos)
 
-    def __repr__(self):
+    def __str__(self):
         for k, v in self.__dict__.items():
             print(f"{k}:".ljust(20), v)
         return ""
+
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_no_defaults__(self)
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
 
     def to_dict(self) -> dict:
         dct = {
@@ -177,11 +184,18 @@ class BaseUnits:
     n: float = 1.0
     kBT: float = None
 
-    def __repr__(self):
+    def __str__(self):
         units = ["m", "T", "1e20/m^3", "keV"]
         for (k, v), unit in zip(self.__dict__.items(), units):
             print(f"{k}:".ljust(20), v, unit)
         return ""
+
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_no_defaults__(self)
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
 
     def to_dict(self) -> dict:
         dct = {
@@ -241,10 +255,17 @@ class DerhamOptions:
     def __post_init__(self):
         check_option(self.polar_ck, LiteralOptions.PolarRegularity)
 
-    def __repr__(self):
+    def __str__(self):
         for k, v in self.__dict__.items():
             print(f"{k}:".ljust(20), v)
         return ""
+
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_no_defaults__(self)
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
 
     def to_dict(self) -> dict:
         dct = {
@@ -295,10 +316,17 @@ class FieldsBackground:
     def __post_init__(self):
         check_option(self.type, LiteralOptions.BackgroundTypes)
 
-    def __repr__(self):
+    def __str__(self):
         for k, v in self.__dict__.items():
             print(f"{k}:".ljust(20), v)
         return ""
+
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_no_defaults__(self)
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
 
     def to_dict(self) -> dict:
         dct = {
@@ -366,10 +394,17 @@ class EnvironmentOptions:
     def __post_init__(self):
         self.path_out: str = os.path.join(self.out_folders, self.sim_folder)
 
-    def __repr__(self):
+    def __str__(self):
         for k, v in self.__dict__.items():
             print(f"{k}:".ljust(20), v)
         return ""
+
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_no_defaults__(self)
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
 
     def to_dict(self) -> dict:
         dct = {

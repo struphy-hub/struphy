@@ -39,6 +39,7 @@ dependencies = [
     'pytest',
     'pytest-mpi',
     'pytest-testmon',
+    'ruff>=0.15.0',
     'line_profiler',
     'scope-profiler>=0.1.7',
 ]
@@ -60,7 +61,6 @@ dev = [
     "pylint",
     "ssort",
     "add-trailing-comma",
-    "ruff>=0.15.0",
     "pre-commit",
     "nbstripout",
     "tabulate",

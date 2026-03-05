@@ -1,6 +1,7 @@
 import inspect
 import os
 import shutil
+import tempfile
 from types import ModuleType
 
 from feectools.ddm.mpi import mpi as MPI
@@ -68,6 +69,26 @@ def call_test(model: StruphyModel, test_profiling: bool = False, verbose: bool =
     sim_dict = sim.to_dict()  # test the to_dict method
     sim2 = Simulation.from_dict(sim_dict)  # test the from_dict method
     assert sim == sim2, "Simulation to_dict and from_dict methods are not consistent"
+
+    # test the generate_script method
+    sim1_script = sim.generate_script()
+    sim2_script = sim2.generate_script()
+    assert sim1_script == sim2_script
+
+    # Save the generated script to a file and check that it can be imported and run
+    with tempfile.NamedTemporaryFile(suffix=".py", mode="w+") as tmp:
+        sim.save_script(tmp.name, include_main_guard=True)
+        tmp.seek(0)
+        spec = import_parameters_py(tmp.name)
+        assert isinstance(spec, ModuleType), "Generated script did not import as a module"
+        assert hasattr(spec, "sim"), "Generated script does not have a 'sim' object"
+        assert isinstance(spec.sim, Simulation), "'sim' object in generated script is not a Simulation instance"
+        assert sim.generate_script() == spec.sim.generate_script(), (
+            "Generated script does not match original simulation"
+        )
+        assert sim == spec.sim, "Simulation in generated script is not the same as the original simulation"
+
+        # Run the simulation from the generated script
 
     sim.show_parameters()
 
