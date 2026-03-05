@@ -24,7 +24,12 @@ def all_subclasses(cls):
     return subclasses
 
 
-class Domain(metaclass=ABCMeta):
+class DomainMeta(ABCMeta):
+    def __iter__(cls):
+        return iter(all_subclasses(cls))
+
+
+class Domain(metaclass=DomainMeta):
     r"""
     Abstract base class for parametric domains in plasma simulations (single patch).
 
@@ -1937,11 +1942,6 @@ class Domain(metaclass=ABCMeta):
         name = dct["type"]
         domain_cls = get_domain_by_name(name)
         return domain_cls(**dct["params"])
-
-    @classmethod
-    def __iter__(cls):
-        print(all_subclasses(cls))
-        return iter(all_subclasses(cls))
 
     def __eq__(self, other: "Domain") -> bool:
         assert isinstance(other, Domain), f"Cannot compare Domain with {type(other)}."
