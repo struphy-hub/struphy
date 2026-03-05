@@ -18,6 +18,12 @@ from struphy.linear_algebra import linalg_kron
 from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default
 
 
+def all_subclasses(cls):
+    subclasses = cls.__subclasses__()
+    subclasses = subclasses + [g for s in subclasses for g in all_subclasses(s)]
+    return subclasses
+
+
 class Domain(metaclass=ABCMeta):
     r"""
     Abstract base class for parametric domains in plasma simulations (single patch).
@@ -1932,6 +1938,11 @@ class Domain(metaclass=ABCMeta):
         domain_cls = get_domain_by_name(name)
         return domain_cls(**dct["params"])
 
+    @classmethod
+    def __iter__(cls):
+        print(all_subclasses(cls))
+        return iter(all_subclasses(cls))
+
     def __eq__(self, other: "Domain") -> bool:
         assert isinstance(other, Domain), f"Cannot compare Domain with {type(other)}."
         return self.to_dict() == other.to_dict()
@@ -1956,9 +1967,9 @@ class Spline(Domain):
         Nel: tuple[int] = (8, 24, 6),
         p: tuple[int] = (2, 3, 1),
         spl_kind: tuple[bool] = (False, True, True),
-        cx: xp.ndarray = None,
-        cy: xp.ndarray = None,
-        cz: xp.ndarray = None,
+        cx: xp.ndarray | None = None,
+        cy: xp.ndarray | None = None,
+        cz: xp.ndarray | None = None,
     ):
         self.kind_map = 0
 
@@ -1970,7 +1981,6 @@ class Spline(Domain):
             cx = mhd_equil.domain.cx
             cx = mhd_equil.domain.cy
             cx = mhd_equil.domain.cz
-
         # assign control points
         self._cx = cx
         self._cy = cy
