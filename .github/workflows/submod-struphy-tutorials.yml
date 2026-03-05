@@ -47,6 +47,8 @@ jobs:
       
       - name: Run workflow if submodule changed (all PR commits)
         if: env.SUBMOD_CHANGED == 'true'
+        env:
+          PYVISTA_OFF_SCREEN: "true"
         run: |
           echo "${{ env.SUBMOD_NAME }} has changed, running tests..."
           ls
