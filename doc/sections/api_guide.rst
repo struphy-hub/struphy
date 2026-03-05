@@ -1,4 +1,4 @@
-.. _userguide:
+.. _api_guide:
 
 API
 ===
