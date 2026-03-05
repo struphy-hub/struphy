@@ -371,13 +371,18 @@ class Simulation(SimulationBase):
         pyvista.StructuredGrid
             Mesh containing geometry and equilibrium field data.
         """
+        grids_log = [
+            xp.linspace(1e-6, 1.0, nx),
+            xp.linspace(0.0, 1.0, ny),
+            xp.linspace(0.0, 1.0, nz),
+        ]
 
-        mesh = self.domain.create_geometry_mesh(
-            nx=nx,
-            ny=ny,
-            nz=nz,
-            verbose=verbose,
-        )
+        tmp = self.domain(*grids_log)
+        grids_phy = [tmp[0], tmp[1], tmp[2]]
+
+        # Create PyVista structured grid
+        mesh = pv.StructuredGrid(grids_phy[0], grids_phy[1], grids_phy[2])
+
         # Add point data
         det_df = self.domain.jacobian_det(*grids_log)
         mesh["det_df"] = det_df.ravel(order="F")
