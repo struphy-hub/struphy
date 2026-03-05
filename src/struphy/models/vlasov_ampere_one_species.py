@@ -120,7 +120,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
         if MPI.COMM_WORLD.Get_rank() == 0:
             print("\nINITIAL POISSON SOLVE:")
 
-        # use control variate method
+        # use control variate method (reset weights after Poisson solve)
         particles = self.kinetic_ions.var.particles
         particles.update_weights()
 
@@ -156,6 +156,9 @@ class VlasovAmpereOneSpecies(StruphyModel):
         Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
         if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
             print("... Done.")
+
+        # reset particle weights
+        particles.weights = particles.weights_at_t0.copy()
 
     def update_scalar_quantities(self):
         # e*M1*e/2
