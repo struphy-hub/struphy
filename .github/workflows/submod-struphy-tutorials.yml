@@ -49,6 +49,7 @@ jobs:
         if: env.SUBMOD_CHANGED == 'true'
         env:
           PYVISTA_OFF_SCREEN: "true"
+          PYVISTA_JUPYTER_BACKEND: "static"
         run: |
           echo "${{ env.SUBMOD_NAME }} has changed, running tests..."
           ls
