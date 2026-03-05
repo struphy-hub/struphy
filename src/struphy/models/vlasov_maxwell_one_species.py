@@ -230,7 +230,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
             print("... Done.")
 
-	 # reset particle weights
+        # reset particle weights
         particles.weights = particles.weights_at_t0.copy()
 
     def calculate_gauss_error(self, e):
@@ -254,7 +254,6 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # take maximum from difference of two methods
         residual = xp.max(xp.abs(charge_accum0 - charge_accum1))
         return residual
-
 
     def update_scalar_quantities(self):
         # e*M1*e/2
