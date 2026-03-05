@@ -6,6 +6,7 @@ from abc import ABCMeta, abstractmethod
 
 import cunumpy as xp
 import h5py
+import pyvista as pv
 from scipy.sparse import csc_matrix, kron
 from scipy.sparse.linalg import splu, spsolve
 
@@ -1462,6 +1463,47 @@ class Domain(metaclass=ABCMeta):
         for k, v in self.params.items():
             params_numpy.append(v)
         return xp.array(params_numpy)
+
+    def create_geometry_mesh(
+        self,
+        nx: int = 32,
+        ny: int = 32,
+        nz: int = 32,
+        verbose: bool = False,
+    ):
+        """Create a PyVista mesh with geometry
+
+        Returns
+        -------
+        pyvista.StructuredGrid
+        """
+
+        grids_log = [
+            xp.linspace(1e-6, 1.0, nx),
+            xp.linspace(0.0, 1.0, ny),
+            xp.linspace(0.0, 1.0, nz),
+        ]
+
+        tmp = self(*grids_log)
+        grids_phy = [tmp[0], tmp[1], tmp[2]]
+
+        # Create PyVista structured grid
+        mesh = pv.StructuredGrid(grids_phy[0], grids_phy[1], grids_phy[2])
+
+        return mesh
+
+    def show_3d(
+        self,
+        nx: int = 32,
+        ny: int = 32,
+        nz: int = 32,
+        verbose: bool = False,
+    ):
+        """Show the 3D geometry using PyVista."""
+        mesh = self.create_geometry_mesh(nx, ny, nz, verbose)
+        plotter = pv.Plotter()
+        plotter.add_mesh(mesh, show_edges=True)
+        plotter.show()
 
     def show(
         self,
