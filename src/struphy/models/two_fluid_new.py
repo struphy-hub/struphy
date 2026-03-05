@@ -1,13 +1,15 @@
-import cunumpy as xp
-from psydac.ddm.mpi import mpi as MPI
+from feectools.ddm.mpi import mpi as MPI
 
-from struphy.feec.projectors import L2Projector
-from struphy.feec.variational_utilities import InternalEnergyEvaluator
+from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.species import FieldSpecies, FluidSpecies, ParticleSpecies
-from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
-from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
-from struphy.propagators import rework_propagator
+from struphy.models.species import (
+    FieldSpecies,
+    FluidSpecies,
+)
+from struphy.models.variables import FEECVariable
+from struphy.propagators import (
+    propagators_fields_two_fluid_new,
+)
 
 
 rank = MPI.COMM_WORLD.Get_rank()
@@ -50,6 +52,10 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
     in plasma physics, Journal of Computational Physics 2018.
     """
 
+    @classmethod
+    def model_type(cls) -> LiteralOptions.ModelTypes:
+        return "Fluid"
+
     ## species
 
     class EMfields(FieldSpecies):
@@ -71,7 +77,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.qn_full = rework_propagator.TwoFluidQuasiNeutralFull()
+            self.qn_full = propagators_fields_two_fluid_new.TwoFluidQuasiNeutralFull()
 
     ## abstract methods
 
@@ -102,7 +108,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
     def velocity_scale(self):
         return "thermal"
 
-    def allocate_helpers(self):
+    def allocate_helpers(self, verbose=False):
         pass
 
     def update_scalar_quantities(self):
