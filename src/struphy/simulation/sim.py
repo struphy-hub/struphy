@@ -61,7 +61,7 @@ from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.simulation.base import SimulationBase
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.utils import dict_to_yaml
+from struphy.utils.utils import dict_to_yaml, ruff_autofix_and_format
 
 
 class Simulation(SimulationBase):
@@ -204,7 +204,7 @@ class Simulation(SimulationBase):
         )
 
         # save parameter file
-        if self.rank == 0 and verbose:
+        if self.rank == 0:
             # save python param file
             if self.params_path is not None:
                 assert self.params_path[-3:] == ".py"
@@ -646,7 +646,7 @@ RESTARTing from:
                 self.data.save_data(keys=save_keys_all)
 
                 # print current time and scalar quantities to screen
-                if self.rank == 0:
+                if self.rank == 0 and verbose:
                     step = str(self.time_state["index"][0]).zfill(len(total_steps))
 
                     message = "time step:".ljust(25) + f"{step}/{total_steps}".rjust(25)
@@ -1409,6 +1409,80 @@ RESTARTing from:
             derham_opts=DerhamOptions.from_dict(dct["derham_opts"]),
             verbose=dct.get("verbose", False),
         )
+
+    def generate_script(self, include_main_guard: bool = False) -> str:
+        """Generate a Python script that can be used to reproduce the simulation."""
+
+        script = f"""
+from struphy import (
+    BaseUnits,
+    DerhamOptions,
+    EnvironmentOptions,
+    FieldsBackground,
+    Simulation,
+    Time,
+    domains,
+    equils,
+    grids,
+    perturbations,
+)
+
+from struphy.models import {self.model.__class__.__name__}
+
+"""
+
+        sim_setup = ""
+        sim_class_def = "sim = Simulation("
+
+        # Always include model
+        sim_setup += f"model = {self.model.__repr_no_defaults__()}\n"
+        sim_class_def += "model=model,"
+
+        # Only include parameters that are not default to avoid cluttering the script with unnecessary lines
+        if not self.env.is_default:
+            sim_setup += f"env = {self.env.__repr_no_defaults__()}\n"
+            sim_class_def += "env=env,"
+        if not self.base_units.is_default:
+            sim_setup += f"base_units = {self.base_units.__repr_no_defaults__()}\n"
+            sim_class_def += "base_units=base_units,"
+        if not self.time_opts.is_default:
+            sim_setup += f"time_opts = {self.time_opts.__repr_no_defaults__()}\n"
+            sim_class_def += "time_opts=time_opts,"
+        if not self.domain.is_default:
+            sim_setup += f"domain = domains.{self.domain.__repr_no_defaults__()}\n"
+            sim_class_def += "domain=domain,"
+        # This is a bit of a special case since the default is None,
+        if self.equil is not None:
+            sim_setup += f"equil = equils.{self.equil.__repr_no_defaults__()}\n"
+            sim_class_def += "equil=equil,"
+        if not self.grid.is_default:
+            sim_setup += f"grid = grids.{self.grid.__repr_no_defaults__()}\n"
+            sim_class_def += "grid=grid,"
+        if not self.derham_opts.is_default:
+            sim_setup += f"derham_opts = {self.derham_opts.__repr_no_defaults__()}\n"
+            sim_class_def += "derham_opts=derham_opts,"
+        if self.params_path is not None:
+            sim_class_def += f"params_path={repr(self.params_path)},\n"
+
+        sim_class_def += ")\n"
+
+        script += sim_setup + "\n" + sim_class_def
+        if include_main_guard:
+            script += """
+if __name__ == "__main__":
+    sim.run()"""
+
+        return ruff_autofix_and_format(script)
+
+    def save_script(
+        self,
+        file_path: str,
+        include_main_guard: bool = False,
+    ):
+        """Save the generated script to a file."""
+        script = self.generate_script(include_main_guard=include_main_guard)
+        with open(file_path, "w") as f:
+            f.write(script)
 
     def __eq__(self, value: "Simulation") -> bool:
         assert isinstance(value, Simulation), "Comparison only implemented between Simulation instances."

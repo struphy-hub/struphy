@@ -827,6 +827,11 @@ class Particles(metaclass=ABCMeta):
         self._markers[self.valid_mks, self.index["weights"]] = new
 
     @property
+    def weights_at_t0(self):
+        """Array holding the initial marker weights. The i-th row holds the i-th marker info."""
+        return self.markers[self.valid_mks, self.index["w0"]]
+
+    @property
     def sampling_density(self):
         """Array holding the current marker 0form sampling density s0. The i-th row holds the i-th marker info."""
         return self.markers[self.valid_mks, self.index["s0"]]

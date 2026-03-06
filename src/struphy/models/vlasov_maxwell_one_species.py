@@ -174,13 +174,12 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         if MPI.COMM_WORLD.Get_rank() == 0:
             print("\nINITIAL POISSON SOLVE:")
 
-        # use control variate method
+        # use control variate method (reset weights after Poisson solve)
         particles = self.kinetic_ions.var.particles
         particles.update_weights()
 
         # sanity check
-        # self.pointer['species1'].show_distribution_function(
-        #     [True] + [False]*5, [xp.linspace(0, 1, 32)])
+        # particles.show_distribution_function([True] + [False]*5, [xp.linspace(0, 1, 32)])
 
         # accumulate charge density
         charge_accum = AccumulatorVector(
@@ -211,6 +210,9 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
             print("... Done.")
 
+        # reset particle weights
+        particles.weights = particles.weights_at_t0.copy()
+
     def update_scalar_quantities(self):
         # e*M1*e/2
         e = self.em_fields.e_field.spline.vector
@@ -235,6 +237,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
                 particles.markers_wo_holes[:, 6],
             )
         )
+
         self.update_scalar("en_f", self._tmp[0])
 
         # en_tot = en_w + en_e
