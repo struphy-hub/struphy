@@ -184,6 +184,12 @@ def ruff_autofix_and_format(code: str) -> str:
     return result
 
 
+def all_subclasses(cls):
+    subclasses = cls.__subclasses__()
+    subclasses = subclasses + [g for s in subclasses for g in all_subclasses(s)]
+    return subclasses
+
+
 if __name__ == "__main__":
     state = read_state()
     for k, val in state.items():
