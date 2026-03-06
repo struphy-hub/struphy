@@ -40,6 +40,7 @@ dependencies = [
     'trame',
     'trame-vtk',
     'trame-vuetify',
+    'nest_asyncio2',
     'vtk',
     'pytest',
     'pytest-mpi',

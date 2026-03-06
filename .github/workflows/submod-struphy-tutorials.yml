@@ -35,7 +35,7 @@ jobs:
       
       - name: Install OSMesa/EGL
         if: env.SUBMOD_CHANGED == 'true'
-        run: sudo apt-get update && sudo apt-get install -y libosmesa6 libosmesa6-dev libegl1-mesa
+        run: sudo apt-get install -y libosmesa6 libosmesa6-dev libegl-mesa0
       
       - name: Install Struphy
         if: env.SUBMOD_CHANGED == 'true'
