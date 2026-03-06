@@ -163,16 +163,6 @@ class HomogenSlab(CartesianMHDequilibrium):
 
         return gradBx, gradBy, gradBz
 
-    def to_dict(self) -> dict:
-        return {
-            "type": "HomogenSlab",
-            "params": self.params,
-        }
-
-    @classmethod
-    def from_dict(cls, dct: dict) -> "HomogenSlab":
-        return cls(**dct["params"])
-
 
 class ShearedSlab(CartesianMHDequilibrium):
     r"""
@@ -396,16 +386,6 @@ class ShearedSlab(CartesianMHDequilibrium):
 
         return gradBx, gradBy, gradBz
 
-    def to_dict(self) -> dict:
-        return {
-            "type": "ShearedSlab",
-            "params": self.params,
-        }
-
-    @classmethod
-    def from_dict(cls, dct: dict) -> "ShearedSlab":
-        return cls(**dct["params"])
-
 
 class ShearFluid(CartesianMHDequilibrium):
     r"""
@@ -596,16 +576,6 @@ class ShearFluid(CartesianMHDequilibrium):
         gradBx = 0 * x
 
         return gradBx, gradBy, gradBz
-
-    def to_dict(self) -> dict:
-        return {
-            "type": "ShearFluid",
-            "params": self.params,
-        }
-
-    @classmethod
-    def from_dict(cls, dct: dict) -> "ShearFluid":
-        return cls(**dct["params"])
 
 
 class ScrewPinch(CartesianMHDequilibrium):
@@ -862,16 +832,6 @@ class ScrewPinch(CartesianMHDequilibrium):
         gradBz = 0 * x
 
         return gradBx, gradBy, gradBz
-
-    def to_dict(self) -> dict:
-        return {
-            "type": "ScrewPinch",
-            "params": self.params,
-        }
-
-    @classmethod
-    def from_dict(cls, dct: dict) -> "ScrewPinch":
-        return cls(**dct["params"])
 
 
 class AdhocTorus(AxisymmMHDequilibrium):
@@ -1379,16 +1339,6 @@ class AdhocTorus(AxisymmMHDequilibrium):
 
         return nn
 
-    def to_dict(self) -> dict:
-        return {
-            "type": "AdhocTorus",
-            "params": self.params,
-        }
-
-    @classmethod
-    def from_dict(cls, dct: dict) -> "AdhocTorus":
-        return cls(**dct["params"])
-
 
 class AdhocTorusQPsi(AxisymmMHDequilibrium):
     r"""
@@ -1751,16 +1701,6 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
 
         return self.n_psi(self.psi_r(r))
 
-    def to_dict(self) -> dict:
-        return {
-            "type": "AdhocTorusQPsi",
-            "params": self.params,
-        }
-
-    @classmethod
-    def from_dict(cls, dct: dict) -> "AdhocTorusQPsi":
-        return cls(**dct["params"])
-
 
 class EQDSKequilibrium(AxisymmMHDequilibrium):
     """
@@ -2099,16 +2039,6 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
 
         return out
 
-    def to_dict(self) -> dict:
-        return {
-            "type": "EQDSKequilibrium",
-            "params": self.params,
-        }
-
-    @classmethod
-    def from_dict(cls, dct: dict) -> "EQDSKequilibrium":
-        return cls(**dct["params"])
-
 
 class GVECequilibrium(NumericalMHDequilibrium):
     r"""
@@ -2406,16 +2336,6 @@ class GVECequilibrium(NumericalMHDequilibrium):
             ev = gvec.Evaluations(rho=rho, theta=theta, zeta=zeta, state=self.state)
 
         return ev, flat_eval
-
-    def to_dict(self) -> dict:
-        return {
-            "type": "GVECequilibrium",
-            "params": self.params,
-        }
-
-    @classmethod
-    def from_dict(cls, dct: dict) -> "GVECequilibrium":
-        return cls(**dct["params"])
 
 
 class DESCequilibrium(NumericalMHDequilibrium):
@@ -2969,16 +2889,6 @@ class DESCequilibrium(NumericalMHDequilibrium):
             print(f"desc_eval for {var}: {time() - ttime} seconds")
         return out
 
-    def to_dict(self) -> dict:
-        return {
-            "type": "DESCequilibrium",
-            "params": self.params,
-        }
-
-    @classmethod
-    def from_dict(cls, dct: dict) -> "DESCequilibrium":
-        return cls(**dct["params"])
-
 
 class ConstantVelocity(CartesianFluidEquilibrium):
     r"""Constant-velocity background equilibrium.
@@ -3111,16 +3021,6 @@ class ConstantVelocity(CartesianFluidEquilibrium):
 
             return out
 
-    def to_dict(self) -> dict:
-        return {
-            "type": "ConstantVelocity",
-            "params": self.params,
-        }
-
-    @classmethod
-    def from_dict(cls, dct: dict) -> "ConstantVelocity":
-        return cls(**dct["params"])
-
 
 class HomogenSlabITG(CartesianFluidEquilibriumWithB):
     r"""
@@ -3220,16 +3120,6 @@ class HomogenSlabITG(CartesianFluidEquilibriumWithB):
         gradBz = 0 * x
 
         return gradBx, gradBy, gradBz
-
-    def to_dict(self) -> dict:
-        return {
-            "type": "HomogenSlabITG",
-            "params": self.params,
-        }
-
-    @classmethod
-    def from_dict(cls, dct: dict) -> "HomogenSlabITG":
-        return cls(**dct["params"])
 
 
 class CircularTokamak(AxisymmMHDequilibrium):
@@ -3373,16 +3263,6 @@ class CircularTokamak(AxisymmMHDequilibrium):
         nn = 0.0 * x + 1.0
 
         return nn
-
-    def to_dict(self) -> dict:
-        return {
-            "type": "CircularTokamak",
-            "params": self.params,
-        }
-
-    @classmethod
-    def from_dict(cls, dct: dict) -> "CircularTokamak":
-        return cls(**dct["params"])
 
 
 def set_defaults(params_in, params_default):
@@ -3536,16 +3416,6 @@ class CurrentSheet(CartesianMHDequilibrium):
 
         return gradBx, gradBy, gradBz
 
-    def to_dict(self) -> dict:
-        return {
-            "type": "CurrentSheet",
-            "params": self.params,
-        }
-
-    @classmethod
-    def from_dict(cls, dct: dict) -> "CurrentSheet":
-        return cls(**dct["params"])
-
 
 class GenericCartesianFluidEquilibrium(CartesianFluidEquilibrium):
     """Generic Cartesian fluid equilibrium with callable fields.
@@ -3607,16 +3477,6 @@ class GenericCartesianFluidEquilibrium(CartesianFluidEquilibrium):
     def n_xyz(self, x, y, z):
         return self._n_xyz(x, y, z)
 
-    def to_dict(self) -> dict:
-        return {
-            "type": "GenericCartesianFluidEquilibrium",
-            "params": self.params,
-        }
-
-    @classmethod
-    def from_dict(cls, dct: dict) -> "GenericCartesianFluidEquilibrium":
-        return cls(**dct["params"])
-
 
 class GenericCartesianFluidEquilibriumWithB(GenericCartesianFluidEquilibrium):
     """Generic Cartesian fluid equilibrium with magnetic field and callable fields.
@@ -3671,13 +3531,3 @@ class GenericCartesianFluidEquilibriumWithB(GenericCartesianFluidEquilibrium):
 
     def gradB_xyz(self, x, y, z):
         return self._gradB_xyz(x, y, z)
-
-    def to_dict(self) -> dict:
-        return {
-            "type": "GenericCartesianFluidEquilibriumWithB",
-            "params": self.params,
-        }
-
-    @classmethod
-    def from_dict(cls, dct: dict) -> "GenericCartesianFluidEquilibriumWithB":
-        return cls(**dct["params"])
