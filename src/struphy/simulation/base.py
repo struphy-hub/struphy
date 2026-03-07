@@ -1,8 +1,6 @@
 import json
 from abc import ABCMeta, abstractmethod
 
-import yaml
-
 from struphy.utils.utils import dict_to_yaml
 
 
@@ -44,6 +42,11 @@ class SimulationBase(metaclass=ABCMeta):
         """Load post-processed data for visualization."""
         pass
 
+    @abstractmethod
+    def from_file(cls, file_path: str):
+        """Deserialize a simulation configuration from a file."""
+        pass
+
     def export(self, file_path: str):
         """Export a simulation configuration to a YAML or JSON file based on the file extension."""
         dct = self.to_dict()
@@ -54,32 +57,3 @@ class SimulationBase(metaclass=ABCMeta):
                 json.dump(dct, f, indent=4)
         else:
             raise ValueError("Unsupported file format. Use .yaml, .yml or .json.")
-
-    @classmethod
-    def from_file(cls, file_path: str) -> "Simulation":
-        """Deserialize a simulation configuration from a file based on the file extension."""
-        if file_path.endswith(".yaml") or file_path.endswith(".yml"):
-            with open(file_path, "r") as f:
-                dct = yaml.safe_load(f)
-        elif file_path.endswith(".json"):
-            with open(file_path, "r") as f:
-                dct = json.load(f)
-        else:
-            raise ValueError("Unsupported file format. Use .yaml, .yml or .json.")
-
-        # YAML and JSON do not have a native tuple type,
-        # so when you load them with PyYAML or json,
-        # sequences are always converted to lists
-        def convert_lists_to_tuples(obj):
-            if isinstance(obj, dict):
-                for k, v in obj.items():
-                    obj[k] = convert_lists_to_tuples(v)
-                return obj
-            elif isinstance(obj, list):
-                return tuple(convert_lists_to_tuples(i) for i in obj)
-            else:
-                return obj
-
-        # Convert lists to tuples for relevant keys
-        dct = convert_lists_to_tuples(dct)
-        return cls.from_dict(dct)
