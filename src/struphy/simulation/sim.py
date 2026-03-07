@@ -77,6 +77,10 @@ class Simulation(SimulationBase):
     ----------
     model : StruphyModel
         Physics model that provides species, propagators and variables.
+    name : str, optional
+        Name of the simulation.
+    description : str, optional
+        Description of the simulation.
     params_path : str, optional
         Path to a Python parameter file to save alongside outputs.
     env : EnvironmentOptions
@@ -111,6 +115,8 @@ class Simulation(SimulationBase):
     def __init__(
         self,
         model: StruphyModel,
+        name: str = "",
+        description: str = "",
         params_path: str = None,
         env: EnvironmentOptions = EnvironmentOptions(),
         base_units: BaseUnits = BaseUnits(),
@@ -122,6 +128,8 @@ class Simulation(SimulationBase):
         verbose: bool = False,
     ):
 
+        self._name = name
+        self._description = description
         self._model = model
         self._params_path = params_path
         self._env = env
@@ -1381,6 +1389,8 @@ RESTARTing from:
     def to_dict(self) -> dict:
         """Serialize the simulation configuration to a dictionary."""
         return {
+            "name": self.name,
+            "description": self.description,
             "model": self.model.to_dict(),
             "params_path": self.params_path,
             "env": self.env.to_dict(),
@@ -1398,6 +1408,8 @@ RESTARTing from:
         """Deserialize a simulation configuration from a dictionary."""
 
         return cls(
+            name=dct["name"],
+            description=dct["description"],
             model=StruphyModel.from_dict(dct["model"]),
             params_path=dct["params_path"],
             env=EnvironmentOptions.from_dict(dct["env"]),
@@ -1496,6 +1508,16 @@ if __name__ == "__main__":
     def model(self) -> StruphyModel:
         """StruphyModel object containing the PDE of the model."""
         return self._model
+
+    @property
+    def name(self) -> str:
+        """Name of the simulation."""
+        return self._name
+
+    @property
+    def description(self) -> str:
+        """Description of the simulation."""
+        return self._description
 
     @property
     def params_path(self):
