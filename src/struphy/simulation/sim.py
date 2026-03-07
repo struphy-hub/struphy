@@ -498,6 +498,10 @@ class Simulation(SimulationBase):
 
         if self.rank == 0:
             print(f"\nStarting simulation run for model {self.model_name} ...")
+            if self.name != "":
+                print(f"Simulation name: {self.name}")
+            if self.description != "":
+                print(f"Description: {self.description}")
 
         self._remove_existing_output_files(verbose=verbose)
 
