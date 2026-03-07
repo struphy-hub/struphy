@@ -1,6 +1,6 @@
 import json
 from abc import ABCMeta, abstractmethod
-
+from struphy.utils.utils import dict_to_yaml
 import yaml
 
 
