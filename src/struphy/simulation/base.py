@@ -43,6 +43,16 @@ class SimulationBase(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def to_dict(self) -> dict:
+        """Serialize the simulation configuration to a dictionary."""
+        pass
+
+    @abstractmethod
+    def from_dict(cls, dct: dict):
+        """Deserialize a simulation configuration from a dictionary."""
+        pass
+
+    @abstractmethod
     def from_file(cls, file_path: str):
         """Deserialize a simulation configuration from a file."""
         pass
