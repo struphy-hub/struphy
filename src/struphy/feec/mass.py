@@ -17,7 +17,7 @@ from struphy.feec.psydac_derham import Derham
 from struphy.feec.utilities import RotationMatrix
 from struphy.geometry.base import Domain
 from struphy.polar.linear_operators import PolarExtractionOperator
-from struphy.utils.pyccel import Pyccelkernel
+from struphy.utils.pyccel_utils import Pyccelkernel
 
 
 class WeightedMassOperators:

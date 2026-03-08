@@ -1,6 +1,6 @@
 import pytest
 
-from struphy.utils.pyccel import Pyccelkernel
+from struphy.utils.pyccel_utils import Pyccelkernel
 
 
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])

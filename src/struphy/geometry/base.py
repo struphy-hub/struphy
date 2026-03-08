@@ -6,8 +6,7 @@ from abc import ABCMeta, abstractmethod
 
 import cunumpy as xp
 import h5py
-import pyvista as pv
-import vtk
+from pyvista import Plotter, StructuredGrid
 from scipy.sparse import csc_matrix, kron
 from scipy.sparse.linalg import splu, spsolve
 
@@ -1500,7 +1499,7 @@ class Domain(metaclass=DomainMeta):
         grids_phy = [tmp[0], tmp[1], tmp[2]]
 
         # Create PyVista structured grid
-        mesh = pv.StructuredGrid(grids_phy[0], grids_phy[1], grids_phy[2])
+        mesh = StructuredGrid(grids_phy[0], grids_phy[1], grids_phy[2])
 
         return mesh
 
@@ -1513,7 +1512,7 @@ class Domain(metaclass=DomainMeta):
     ):
         """Show the 3D geometry using PyVista."""
         mesh = self.create_geometry_mesh(nx, ny, nz, verbose)
-        plotter = pv.Plotter()
+        plotter = Plotter()
         plotter.add_mesh(mesh, show_edges=True)
         plotter.show()
 
@@ -1525,17 +1524,18 @@ class Domain(metaclass=DomainMeta):
         filename : str
             The name of the file to save the geometry to. Supported formats include .vts, .vtk, .vtp
         """
+        from vtk import vtkGeometryFilter, vtkXMLPolyDataWriter
         mesh = self.create_geometry_mesh()
         if filename.endswith(".vts"):
             mesh.save(filename, binary=True)
         elif filename.endswith(".vtp"):
             # Extract the external surface (Geometry Filter)
-            geom_filter = vtk.vtkGeometryFilter()
+            geom_filter = vtkGeometryFilter()
             geom_filter.SetInputData(mesh)
             geom_filter.Update()
 
             # Write as PolyData (.vtp)
-            writer = vtk.vtkXMLPolyDataWriter()
+            writer = vtkXMLPolyDataWriter()
             writer.SetFileName(filename)
             writer.SetInputData(geom_filter.GetOutput())
             writer.Write()
