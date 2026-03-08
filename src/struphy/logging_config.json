@@ -3,7 +3,7 @@
   "disable_existing_loggers": false,
   "formatters": {
     "simple": {
-      "format": "%(levelname)s: %(message)s"
+      "format": "%(message)s"
     },
     "detailed": {
       "format": "[%(levelname)s|%(module)s|L%(lineno)d] %(asctime)s: %(message)s",
@@ -13,7 +13,7 @@
   "handlers": {
     "stderr": {
       "class": "logging.StreamHandler",
-      "level": "WARNING",
+      "level": "INFO",
       "formatter": "simple",
       "stream": "ext://sys.stderr"
     },
