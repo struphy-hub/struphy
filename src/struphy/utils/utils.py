@@ -3,6 +3,7 @@ import os
 import subprocess
 import tempfile
 from typing import Literal, get_args
+from feectools.ddm.mpi import mpi as MPI
 
 import yaml
 
@@ -13,8 +14,6 @@ import atexit
 import json
 import logging.config
 import pathlib
-
-logger = logging.getLogger("my_app")  # __name__ is a common choice
 
 # Get the path to the Struphy library
 STRUPHY_LIBPATH = struphy.__path__[0]
@@ -191,23 +190,51 @@ def ruff_autofix_and_format(code: str) -> str:
         result = tmp.read()
     return result
 
+class RankZeroFilter(logging.Filter):
+    def __init__(self, rank: int):
+        super().__init__()
+        self.rank = rank
+
+    def filter(self, record):
+        return self.rank == 0
+
 def setup_logging(logging_level: int = logging.INFO):
+    logger = logging.getLogger("struphy")
     config_file = pathlib.Path(STRUPHY_LIBPATH) / "logging_config.json"
     with open(config_file) as f_in:
         config = json.load(f_in)
-    
+
     config["handlers"]["file"]["level"] = logging_level
     config["handlers"]["stderr"]["level"] = logging_level
 
     logging.config.dictConfig(config)
-    queue_handler = logging.getHandlerByName("queue_handler")
+
+    # Add RankZeroFilter to all handlers
+    rank = MPI.COMM_WORLD.Get_rank()
+    rank_filter = RankZeroFilter(rank)
+
+    # Apply filter to struphy logger handlers
+    for handler in logger.handlers:
+        handler.addFilter(rank_filter)
+
+    # Apply filter to root logger handlers
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers:
+        handler.addFilter(rank_filter)
+
+    # Start queue handler listener if present
+    queue_handler = None
+    for handler in logger.handlers:
+        if hasattr(handler, "listener"):
+            queue_handler = handler
+            break
     if queue_handler is not None:
         queue_handler.listener.start()
         atexit.register(queue_handler.listener.stop)
 
 if __name__ == "__main__":
     setup_logging()
-    logging.basicConfig(level="INFO")
+    logger = logging.getLogger("struphy")
     logger.debug("debug message", extra={"x": "hello"})
     logger.info("info message")
     logger.warning("warning message")

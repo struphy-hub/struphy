@@ -67,7 +67,7 @@ from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml, ruff_autofix_and_format
 
 # Setup logging
-logger = logging.getLogger("my_app")
+logger = logging.getLogger("struphy")
 
 
 class Simulation(SimulationBase):
@@ -162,8 +162,8 @@ class Simulation(SimulationBase):
             self.comm_size = self.comm.Get_size()
             self.Barrier = self.comm.Barrier
 
-        if self.rank == 0 and verbose:
-            logger.info("")
+        if self.rank == 0:
+            logger.debug("")
             if verbose:
                 self.show_parameters()
 
@@ -175,8 +175,8 @@ class Simulation(SimulationBase):
         assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
         self.model_name = model.__class__.__name__
 
-        if self.rank == 0 and verbose:
-            logger.info(f"Instance of simulation for model {self.model_name} ...")
+        if self.rank == 0:
+            logger.debug(f"Instance of simulation for model {self.model_name} ...")
 
         # meta-data
         path_out = env.path_out
