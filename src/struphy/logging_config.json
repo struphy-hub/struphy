@@ -21,7 +21,7 @@
       "class": "logging.handlers.RotatingFileHandler",
       "level": "DEBUG",
       "formatter": "detailed",
-      "filename": "logs/my_app.log",
+      "filename": "/tmp/struphy_logs/struphy.log",
       "maxBytes": 10000,
       "backupCount": 3
     }
