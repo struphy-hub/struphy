@@ -191,10 +191,13 @@ def ruff_autofix_and_format(code: str) -> str:
         result = tmp.read()
     return result
 
-def setup_logging():
+def setup_logging(logging_level: int = logging.INFO):
     config_file = pathlib.Path(STRUPHY_LIBPATH) / "logging_config.json"
     with open(config_file) as f_in:
         config = json.load(f_in)
+    
+    config["handlers"]["file"]["level"] = logging_level
+    config["handlers"]["stderr"]["level"] = logging_level
 
     logging.config.dictConfig(config)
     queue_handler = logging.getHandlerByName("queue_handler")

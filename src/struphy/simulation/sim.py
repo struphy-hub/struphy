@@ -67,7 +67,6 @@ from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml, ruff_autofix_and_format
 
 # Setup logging
-setup_logging()
 logger = logging.getLogger("my_app")
 
 
@@ -129,7 +128,7 @@ class Simulation(SimulationBase):
         logging_level: int = logging.INFO,
         verbose: bool = False,
     ):
-        logging.basicConfig(level=logging_level)
+        setup_logging(logging_level=logging_level)
         self._model = model
         self._params_path = params_path
         self._env = env
@@ -651,7 +650,7 @@ RESTARTing from:
                 self.data.save_data(keys=save_keys_all)
 
                 # print current time and scalar quantities to screen
-                if self.rank == 0 and verbose:
+                if self.rank == 0:
                     step = str(self.time_state["index"][0]).zfill(len(total_steps))
 
                     message = "time step:".ljust(25) + f"{step}/{total_steps}".rjust(25)
