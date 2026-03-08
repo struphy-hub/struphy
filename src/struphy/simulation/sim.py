@@ -1,8 +1,6 @@
-import logging
-from struphy.utils.utils import setup_logging
-
 # third party imports
 import glob
+import logging
 import os
 import pickle
 import shutil
@@ -64,7 +62,7 @@ from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.simulation.base import SimulationBase
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.utils import dict_to_yaml, ruff_autofix_and_format
+from struphy.utils.utils import dict_to_yaml, ruff_autofix_and_format, setup_logging
 
 # Setup logging
 logger = logging.getLogger("struphy")
@@ -569,10 +567,10 @@ RESTARTing from:
 
         # ======================== main time loop ======================
         self.model.update_scalar_quantities()
-        
+
         logger.info("\nINITIAL SCALAR QUANTITIES:")
 
-        if self.rank == 0: # TODO: use logger
+        if self.rank == 0:  # TODO: use logger
             self.model.print_scalar_quantities()
 
         logger.info(f"\nSTART TIME STEPPING WITH '{split_algo}' SPLITTING:")
@@ -662,7 +660,7 @@ RESTARTing from:
                 message += "\n" + "last step duration [s]:".ljust(25) + "{0:8.4f}".format(t1 - t0).rjust(25)
 
                 logger.info(message)
-                if self.rank == 0: # TODO: Use logger
+                if self.rank == 0:  # TODO: Use logger
                     self.model.print_scalar_quantities()
 
         # ===================================================================

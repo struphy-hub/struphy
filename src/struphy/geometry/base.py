@@ -1525,6 +1525,7 @@ class Domain(metaclass=DomainMeta):
             The name of the file to save the geometry to. Supported formats include .vts, .vtk, .vtp
         """
         from vtk import vtkGeometryFilter, vtkXMLPolyDataWriter
+
         mesh = self.create_geometry_mesh()
         if filename.endswith(".vts"):
             mesh.save(filename, binary=True)

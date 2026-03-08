@@ -1,19 +1,17 @@
+import atexit
 import inspect
+import json
+import logging.config
 import os
+import pathlib
 import subprocess
 import tempfile
 from typing import Literal, get_args
-from feectools.ddm.mpi import mpi as MPI
 
 import yaml
-
+from feectools.ddm.mpi import mpi as MPI
 
 import struphy
-
-import atexit
-import json
-import logging.config
-import pathlib
 
 # Get the path to the Struphy library
 STRUPHY_LIBPATH = struphy.__path__[0]
@@ -190,6 +188,7 @@ def ruff_autofix_and_format(code: str) -> str:
         result = tmp.read()
     return result
 
+
 class RankZeroFilter(logging.Filter):
     def __init__(self, rank: int):
         super().__init__()
@@ -197,6 +196,7 @@ class RankZeroFilter(logging.Filter):
 
     def filter(self, record):
         return self.rank == 0
+
 
 def setup_logging(logging_level: int = logging.INFO):
     logger = logging.getLogger("struphy")
@@ -231,6 +231,7 @@ def setup_logging(logging_level: int = logging.INFO):
     if queue_handler is not None:
         queue_handler.listener.start()
         atexit.register(queue_handler.listener.stop)
+
 
 if __name__ == "__main__":
     setup_logging()
