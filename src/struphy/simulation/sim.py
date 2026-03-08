@@ -162,10 +162,7 @@ class Simulation(SimulationBase):
             self.comm_size = self.comm.Get_size()
             self.Barrier = self.comm.Barrier
 
-        if self.rank == 0:
-            logger.debug("")
-            if verbose:
-                self.show_parameters()
+        self.show_parameters()
 
         # synchronize MPI processes to set same start time of simulation for all processes
         self.Barrier()
@@ -175,8 +172,7 @@ class Simulation(SimulationBase):
         assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
         self.model_name = model.__class__.__name__
 
-        if self.rank == 0:
-            logger.debug(f"Instance of simulation for model {self.model_name} ...")
+        logger.debug(f"Instance of simulation for model {self.model_name} ...")
 
         # meta-data
         path_out = env.path_out
@@ -200,10 +196,10 @@ class Simulation(SimulationBase):
         self.meta["max wall-clock [min]"] = max_runtime
         self.meta["save interval [steps]"] = save_step
 
-        if self.rank == 0 and verbose:
-            logger.info("\nMETADATA:")
-            for k, v in self.meta.items():
-                logger.info(f"{k}:".ljust(25), v)
+        logger.debug("\nMETADATA:")
+        for k, v in self.meta.items():
+            msg = f"{k}:".ljust(25) + f"{v}".rjust(25)
+            logger.debug(msg)
 
         # creating output folders
         self._setup_folders(
@@ -271,8 +267,7 @@ class Simulation(SimulationBase):
         self.units = Units(base_units)
         self.normalize_model()
 
-        if self.rank == 0 and verbose:
-            logger.info("\n... Done.")
+        logger.debug("\n... Done.")
 
     # ----------------
     # Abstract methods
@@ -283,27 +278,26 @@ class Simulation(SimulationBase):
 
         Only the MPI rank 0 prints to avoid clutter from multiple processes.
         """
-        if self.rank == 0:
-            logger.info("SIMULATION PARAMETERS:")
-            logger.info("\nModel:")
-            logger.info(self.model)
-            logger.info("Parameter file path:")
-            logger.info(self.params_path)
-            logger.info("\nEnvironment options:")
-            logger.info(self.env)
-            logger.info("Base units:")
-            logger.info(self.base_units)
-            logger.info("Time stepping options:")
-            logger.info(self.time_opts)
-            logger.info("Domain:")
-            logger.info(self.domain)
-            logger.info("Fluid equilibrium:")
-            logger.info(self.equil)
-            logger.info("Grid:")
-            logger.info(self.grid)
-            logger.info("Derham options:")
-            logger.info(self.derham_opts)
-            logger.info("")
+        logger.debug("SIMULATION PARAMETERS:")
+        logger.debug("\nModel:")
+        logger.debug(self.model)
+        logger.debug("Parameter file path:")
+        logger.debug(self.params_path)
+        logger.debug("\nEnvironment options:")
+        logger.debug(self.env)
+        logger.debug("Base units:")
+        logger.debug(self.base_units)
+        logger.debug("Time stepping options:")
+        logger.debug(self.time_opts)
+        logger.debug("Domain:")
+        logger.debug(self.domain)
+        logger.debug("Fluid equilibrium:")
+        logger.debug(self.equil)
+        logger.debug("Grid:")
+        logger.debug(self.grid)
+        logger.debug("Derham options:")
+        logger.debug(self.derham_opts)
+        logger.debug("")
 
     def allocate(self, verbose: bool = False):
         """Allocate FEEC structures, model variables and propagators.
@@ -495,8 +489,7 @@ class Simulation(SimulationBase):
             If True, print additional runtime information.
         """
 
-        if self.rank == 0:
-            logger.info(f"\nStarting simulation run for model {self.model_name} ...")
+        logger.info(f"\nStarting simulation run for model {self.model_name} ...")
 
         self._remove_existing_output_files(verbose=verbose)
 
@@ -534,8 +527,7 @@ class Simulation(SimulationBase):
 
         # print info on mpi procs
         if self.rank < 32:
-            if self.rank == 0:
-                logger.info("")
+            logger.info("")
             logger.info(f"Rank {self.rank}: executing run() for model {self.model_name} ...")
 
         if self.comm_size > 32 and self.rank == 32:
@@ -577,11 +569,13 @@ RESTARTing from:
 
         # ======================== main time loop ======================
         self.model.update_scalar_quantities()
-        if self.rank == 0:
-            logger.info("\nINITIAL SCALAR QUANTITIES:")
+        
+        logger.info("\nINITIAL SCALAR QUANTITIES:")
+
+        if self.rank == 0: # TODO: use logger
             self.model.print_scalar_quantities()
 
-            logger.info(f"\nSTART TIME STEPPING WITH '{split_algo}' SPLITTING:")
+        logger.info(f"\nSTART TIME STEPPING WITH '{split_algo}' SPLITTING:")
 
         # time loop
         run_time_now = 0.0
@@ -596,10 +590,9 @@ RESTARTing from:
                 # save restart data (other data already saved below)
                 self.data.save_data(keys=save_keys_end)
                 end_time = time.time()
-                if self.rank == 0:
-                    logger.info(f"\nTime steps done: {self.time_state['index'][0]}")
-                    logger.info(f"wall-clock time of simulation [sec]: {end_time - self.start_time}")
-                    logger.info("")
+                logger.info(f"\nTime steps done: {self.time_state['index'][0]}")
+                logger.info(f"wall-clock time of simulation [sec]: {end_time - self.start_time}")
+                logger.info("")
                 break
 
             if self.env.sort_step and self.time_state["index"][0] % self.env.sort_step == 0:
@@ -608,13 +601,12 @@ RESTARTing from:
                     if isinstance(val, Particles):
                         val.do_sort()
                 t1 = time.time()
-                if self.rank == 0:
-                    message = "Particles sorted | wall clock [s]: {0:8.4f} | sorting duration [s]: {1:8.4f}".format(
-                        run_time_now * 60,
-                        t1 - t0,
-                    )
-                    logger.info(message, end="\n")
-                    logger.info()
+                message = "Particles sorted | wall clock [s]: {0:8.4f} | sorting duration [s]: {1:8.4f}".format(
+                    run_time_now * 60,
+                    t1 - t0,
+                )
+                logger.info(message, end="\n")
+                logger.info()
 
             # update time and index (round time to 10 decimals for a clean time grid!)
             self.time_state["value"][0] = round(self.time_state["value"][0] + dt, 14)
@@ -650,27 +642,27 @@ RESTARTing from:
                 self.data.save_data(keys=save_keys_all)
 
                 # print current time and scalar quantities to screen
-                if self.rank == 0:
-                    step = str(self.time_state["index"][0]).zfill(len(total_steps))
+                step = str(self.time_state["index"][0]).zfill(len(total_steps))
 
-                    message = "time step:".ljust(25) + f"{step}/{total_steps}".rjust(25)
-                    message += (
-                        "\n"
-                        + "normalized time:".ljust(25)
-                        + "{0:4.2e} / {1:4.2e}".format(self.time_state["value"][0], Tend).rjust(25)
-                    )
-                    message += (
-                        "\n"
-                        + "physical time [s]:".ljust(25)
-                        + "{0:4.2e} / {1:4.2e}".format(
-                            self.time_state["value_sec"][0],
-                            Tend * self.units.t,
-                        ).rjust(25)
-                    )
-                    message += "\n" + "wall clock time [s]:".ljust(25) + "{0:8.4f}".format(run_time_now * 60).rjust(25)
-                    message += "\n" + "last step duration [s]:".ljust(25) + "{0:8.4f}".format(t1 - t0).rjust(25)
+                message = "time step:".ljust(25) + f"{step}/{total_steps}".rjust(25)
+                message += (
+                    "\n"
+                    + "normalized time:".ljust(25)
+                    + "{0:4.2e} / {1:4.2e}".format(self.time_state["value"][0], Tend).rjust(25)
+                )
+                message += (
+                    "\n"
+                    + "physical time [s]:".ljust(25)
+                    + "{0:4.2e} / {1:4.2e}".format(
+                        self.time_state["value_sec"][0],
+                        Tend * self.units.t,
+                    ).rjust(25)
+                )
+                message += "\n" + "wall clock time [s]:".ljust(25) + "{0:8.4f}".format(run_time_now * 60).rjust(25)
+                message += "\n" + "last step duration [s]:".ljust(25) + "{0:8.4f}".format(t1 - t0).rjust(25)
 
-                    logger.info(message)
+                logger.info(message)
+                if self.rank == 0: # TODO: Use logger
                     self.model.print_scalar_quantities()
 
         # ===================================================================
@@ -681,7 +673,7 @@ RESTARTing from:
         if self.rank == 0:
             # save meta-data
             dict_to_yaml(self.meta, os.path.join(self.env.path_out, "meta.yml"))
-            logger.info("Struphy run finished.")
+        logger.info("Struphy run finished.")
 
         if self.clone_config is not None:
             self.clone_config.free()
