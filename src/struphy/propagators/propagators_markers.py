@@ -27,7 +27,7 @@ from struphy.pic.pushing import eval_kernels_gc, pusher_kernels, pusher_kernels_
 from struphy.pic.pushing.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
-from struphy.utils.pyccel_utils import Pyccelkernel
+from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
 
 

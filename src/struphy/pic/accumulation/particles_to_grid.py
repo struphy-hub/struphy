@@ -13,7 +13,7 @@ from struphy.feec.psydac_derham import Derham
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
 from struphy.pic.base import Particles
-from struphy.utils.pyccel_utils import Pyccelkernel
+from struphy.utils.pyccel import Pyccelkernel
 
 
 class Accumulator:

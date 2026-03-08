@@ -16,7 +16,7 @@ from struphy.propagators import (
     propagators_markers,
 )
 from struphy.propagators.base import Propagator
-from struphy.utils.pyccel_utils import Pyccelkernel
+from struphy.utils.pyccel import Pyccelkernel
 
 rank = MPI.COMM_WORLD.Get_rank()
 

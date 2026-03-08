@@ -17,7 +17,7 @@ from struphy.propagators import (
 )
 from struphy.propagators.base import Propagator
 from struphy.utils.docstring_converter import auto_convert_docstring
-from struphy.utils.pyccel_utils import Pyccelkernel
+from struphy.utils.pyccel import Pyccelkernel
 
 rank = MPI.COMM_WORLD.Get_rank()
 
