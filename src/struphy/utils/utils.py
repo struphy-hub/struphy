@@ -6,7 +6,15 @@ from typing import Literal, get_args
 
 import yaml
 
+
 import struphy
+
+import atexit
+import json
+import logging.config
+import pathlib
+
+logger = logging.getLogger("my_app")  # __name__ is a common choice
 
 # Get the path to the Struphy library
 STRUPHY_LIBPATH = struphy.__path__[0]
@@ -183,12 +191,26 @@ def ruff_autofix_and_format(code: str) -> str:
         result = tmp.read()
     return result
 
+def setup_logging():
+    config_file = pathlib.Path(STRUPHY_LIBPATH) / "logging_config.json"
+    with open(config_file) as f_in:
+        config = json.load(f_in)
+
+    logging.config.dictConfig(config)
+    queue_handler = logging.getHandlerByName("queue_handler")
+    if queue_handler is not None:
+        queue_handler.listener.start()
+        atexit.register(queue_handler.listener.stop)
 
 if __name__ == "__main__":
-    state = read_state()
-    for k, val in state.items():
-        print(k, val)
-    i_path, o_path, b_path = get_paths(state)
-    print(f"{i_path =}")
-    print(f"{o_path =}")
-    print(f"{b_path =}")
+    setup_logging()
+    logging.basicConfig(level="INFO")
+    logger.debug("debug message", extra={"x": "hello"})
+    logger.info("info message")
+    logger.warning("warning message")
+    logger.error("error message")
+    logger.critical("critical message")
+    try:
+        1 / 0
+    except ZeroDivisionError:
+        logger.exception("exception message")
