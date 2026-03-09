@@ -16,10 +16,15 @@ from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.docstring_converter import rst_to_markdown
-from struphy.utils.utils import all_class_params_are_default
+from struphy.utils.utils import all_class_params_are_default, all_subclasses
 
 
-class StruphyModel(metaclass=ABCMeta):
+class StruphyModelMeta(ABCMeta):
+    def __iter__(cls):
+        return iter(all_subclasses(cls))
+
+
+class StruphyModel(metaclass=StruphyModelMeta):
     """
     Abstract base class for all Struphy models.
 
