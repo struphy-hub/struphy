@@ -1,5 +1,6 @@
 # third party imports
 import glob
+import json
 import os
 import pickle
 import shutil
@@ -9,6 +10,7 @@ import time
 import cunumpy as xp
 import h5py
 import pyvista as pv
+import yaml
 from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.stencil import StencilVector
@@ -1409,6 +1411,35 @@ RESTARTing from:
             derham_opts=DerhamOptions.from_dict(dct["derham_opts"]),
             verbose=dct.get("verbose", False),
         )
+
+    @classmethod
+    def from_file(cls, file_path: str) -> "SimulationBase":
+        """Deserialize a simulation configuration from a file based on the file extension."""
+        if file_path.endswith(".yaml") or file_path.endswith(".yml"):
+            with open(file_path, "r") as f:
+                dct = yaml.safe_load(f)
+        elif file_path.endswith(".json"):
+            with open(file_path, "r") as f:
+                dct = json.load(f)
+        else:
+            raise ValueError("Unsupported file format. Use .yaml, .yml or .json.")
+
+        # YAML and JSON do not have a native tuple type,
+        # so when you load them with PyYAML or json,
+        # sequences are always converted to lists
+        def convert_lists_to_tuples(obj):
+            if isinstance(obj, dict):
+                for k, v in obj.items():
+                    obj[k] = convert_lists_to_tuples(v)
+                return obj
+            elif isinstance(obj, list):
+                return tuple(convert_lists_to_tuples(i) for i in obj)
+            else:
+                return obj
+
+        # Convert lists to tuples for relevant keys
+        dct = convert_lists_to_tuples(dct)
+        return cls.from_dict(dct)
 
     def generate_script(self, include_main_guard: bool = False) -> str:
         """Generate a Python script that can be used to reproduce the simulation."""
