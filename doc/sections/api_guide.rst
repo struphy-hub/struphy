@@ -15,64 +15,36 @@ It is recommended to generate such a file and inspect it with an editor like VSc
 Simulation class
 ----------------
 
-.. autoclass:: struphy.simulation.sim
-    :members:
+.. autoclass:: struphy.Simulation
     :show-inheritance:
 
 
-Environment
------------
+Simulation parameters
+^^^^^^^^^^^^^^^^^^^^^
 
-.. autoclass:: struphy.io.options.EnvironmentOptions
+For available models see :ref:`models`.
 
+For domains see :ref:`avail_mappings`.
 
-Units (Normalization)
----------------------
+For fluid backgrounds see :ref:`equils_avail`.
 
-.. autoclass:: struphy.io.options.BaseUnits
+.. autoclass:: struphy.EnvironmentOptions
 
+.. autoclass:: struphy.BaseUnits
 
-Time stepping
--------------
+.. autoclass:: struphy.Time
 
-.. autoclass:: struphy.io.options.Time
-
-
-Grids 
------
-
-.. autoclass:: struphy.topology.grids.TensorProductGrid
+.. autoclass:: struphy.grids.TensorProductGrid
     :show-inheritance:
 
+.. autoclass:: struphy.DerhamOptions
 
-Derham complex
---------------
-
-.. autoclass:: struphy.io.options.DerhamOptions
-
-
-Simulation domains 
-------------------
-
-See :ref:`avail_mappings`.
-
-
-Fluid backgrounds 
------------------
-
-See :ref:`equils_avail`.
-
-
-Models 
-------
-
-See :ref:`models`.
 
 
 .. _species:
 
 Species types
-^^^^^^^^^^^^^
+-------------
 
 Each Struphy model is a collection of species of one of the following types:
 
@@ -86,7 +58,7 @@ Each Struphy model is a collection of species of one of the following types:
 
 
 Variable types
-^^^^^^^^^^^^^^
+--------------
 
 Each species can contain multiple variables.
 
