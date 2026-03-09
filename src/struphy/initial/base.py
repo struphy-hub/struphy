@@ -24,7 +24,7 @@ class Perturbation(metaclass=ABCMeta):
         - 'v' : Vector field basis
         - 'physical' : Physical (mapped) domain coordinates
         - 'physical_at_eta' : Physical components evaluated in logical (eta) domain, u(F(eta))
-        - 'norm' : Normalized co-variant basis (delta_i / |delta_i|)
+        - 'norm' : Normalized co-variant basis (:math:`delta_i / |delta_i|`)
 
     comp : int
         Component index for vector-valued perturbations (0-2 for vector components,
