@@ -4,7 +4,6 @@ import shutil
 import tempfile
 from types import ModuleType
 
-import h5py
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import EnvironmentOptions
@@ -106,7 +105,5 @@ def call_test(model: StruphyModel, test_profiling: bool = False, verbose: bool =
     if rank == 0:
         sim.pproc(verbose=verbose)
         sim.load_plotting_data(verbose=verbose)
-
         shutil.rmtree(test_folder)
-
     MPI.COMM_WORLD.Barrier()
