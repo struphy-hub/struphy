@@ -90,6 +90,20 @@ def call_test(model: StruphyModel, test_profiling: bool = False, verbose: bool =
 
         # Run the simulation from the generated script
 
+    # Export to json and import again
+    with tempfile.NamedTemporaryFile(suffix=".json", mode="w+") as tmp:
+        sim.export(tmp.name)
+        tmp.seek(0)
+        sim_from_json = Simulation.from_file(tmp.name)
+        assert sim == sim_from_json, "Simulation JSON export/import is not consistent"
+
+    # Export to yaml and import again
+    with tempfile.NamedTemporaryFile(suffix=".yaml", mode="w+") as tmp:
+        sim.export(tmp.name)
+        tmp.seek(0)
+        sim_from_yaml = Simulation.from_file(tmp.name)
+        assert sim == sim_from_yaml, "Simulation YAML export/import is not consistent"
+
     sim.show_parameters()
 
     sim.run(verbose=verbose)
