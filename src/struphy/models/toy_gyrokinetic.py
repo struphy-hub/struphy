@@ -91,7 +91,6 @@ class ToyGyrokinetic(StruphyModel):
         def __init__(self):
             self.gc_poisson = propagators_fields.ImplicitDiffusion()
             self.push_gc_bxe = propagators_markers.PushGuidingCenterBxEstar()
-            self.push_gc_para = propagators_markers.PushGuidingCenterParallel()
 
     ## abstract methods
 
@@ -107,7 +106,6 @@ class ToyGyrokinetic(StruphyModel):
         # 3. assign variables to propagators
         self.propagators.gc_poisson.variables.phi = self.em_fields.phi
         self.propagators.push_gc_bxe.variables.ions = self.kinetic_ions.var
-        self.propagators.push_gc_para.variables.ions = self.kinetic_ions.var
 
         # define scalars for update_scalar_quantities
         self.add_scalar("en_phi")
@@ -208,10 +206,6 @@ class ToyGyrokinetic(StruphyModel):
                 elif "push_gc_bxe.Options" in line:
                     new_file += [
                         "model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(phi=model.em_fields.phi)\n",
-                    ]
-                elif "push_gc_para.Options" in line:
-                    new_file += [
-                        "model.propagators.push_gc_para.options = model.propagators.push_gc_para.Options(phi=model.em_fields.phi)\n",
                     ]
                 elif "set_save_data" in line:
                     new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
