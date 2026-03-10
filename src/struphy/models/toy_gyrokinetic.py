@@ -205,7 +205,7 @@ class ToyGyrokinetic(StruphyModel):
                     new_file += ["base_units = BaseUnits(kBT=1.0)\n"]
                 elif "push_gc_bxe.Options" in line:
                     new_file += [
-                        "model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(phi=model.em_fields.phi)\n",
+                        "model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(phi=model.em_fields.phi, b_tilde=None)\n",
                     ]
                 elif "set_save_data" in line:
                     new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
