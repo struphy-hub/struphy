@@ -972,3 +972,60 @@ class ShafranovDshapedCylinder(Domain):
         self.pole = True
 
         super().__init__()
+
+class MoebiusStrip(Domain):
+    r"""Thickened Moebius strip domain.
+    
+    A toroidal ribbon that performs a 180-degree twist over one revolution.
+    This serves as a test for non-standard periodicity and metric tensor shifts.
+
+    Parameters
+    ----------
+    R : float
+        Major radius of the loop (default: 3.0).
+    width : float
+        Width of the ribbon (default: 1.0).
+    thickness : float
+        Thickness of the ribbon (default: 0.1).
+    """
+
+    def __init__(
+        self,
+        R: float = 3.0,
+        width: float = 1.0,
+        thickness: float = 0.1,
+    ):
+        self.kind_map = 50  # Unique ID for the new domain
+
+        # use params setter
+        self.params = copy.deepcopy(locals())
+        self.params_numpy = self.get_params_numpy()
+
+        # Periodicity logic: 
+        # Technically, eta3 is periodic, but the boundary at eta3=1 
+        # maps to a flipped version of eta3=0.
+        self.periodic_eta3 = True
+        self.pole = False
+
+        super().__init__()
+
+    def map(self, eta1, eta2, eta3):
+        """Analytical mapping for MoebiusStrip"""
+        
+        # Center the coordinates for width and thickness
+        w_hat = self.params['width'] * (eta1 - 0.5)
+        t_hat = self.params['thickness'] * (eta2 - 0.5)
+        
+        # Half-twist angle
+        alpha = xp.pi * eta3
+        # Standard toroidal angle
+        phi = 2 * xp.pi * eta3
+
+        # Effective radius in the XY plane
+        r_eff = self.params['R'] + w_hat * xp.cos(alpha) - t_hat * xp.sin(alpha)
+
+        x = r_eff * xp.cos(phi)
+        y = r_eff * xp.sin(phi)
+        z = w_hat * xp.sin(alpha) + t_hat * xp.cos(alpha)
+
+        return x, y, z

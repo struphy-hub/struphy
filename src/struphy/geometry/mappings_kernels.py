@@ -1212,3 +1212,70 @@ def shafranov_dshaped_df(
     df_out[2, 0] = 0.0
     df_out[2, 1] = 0.0
     df_out[2, 2] = lz
+
+
+@pure
+def moebius_strip(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    r0: float,
+    width: float,
+    thickness: float,
+    f_out: "float[:]",
+):
+    """Point-wise evaluation of the thickened Moebius strip mapping."""
+
+    w_hat = width * (eta1 - 0.5)
+    t_hat = thickness * (eta2 - 0.5)
+
+    alpha = pi * eta3
+    phi = 2 * pi * eta3
+
+    r_eff = r0 + w_hat * cos(alpha) - t_hat * sin(alpha)
+
+    f_out[0] = r_eff * cos(phi)
+    f_out[1] = r_eff * sin(phi)
+    f_out[2] = w_hat * sin(alpha) + t_hat * cos(alpha)
+
+
+@pure
+def moebius_strip_df(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    r0: float,
+    width: float,
+    thickness: float,
+    df_out: "float[:,:]",
+):
+    """Jacobian matrix for :meth:`struphy.geometry.mappings_kernels.moebius_strip`."""
+
+    w_hat = width * (eta1 - 0.5)
+    t_hat = thickness * (eta2 - 0.5)
+
+    alpha = pi * eta3
+    phi = 2 * pi * eta3
+
+    sin_alpha = sin(alpha)
+    cos_alpha = cos(alpha)
+    sin_phi = sin(phi)
+    cos_phi = cos(phi)
+
+    r_eff = r0 + w_hat * cos_alpha - t_hat * sin_alpha
+
+    dr_deta1 = width * cos_alpha
+    dr_deta2 = -thickness * sin_alpha
+    dr_deta3 = -(w_hat * sin_alpha + t_hat * cos_alpha) * pi
+
+    df_out[0, 0] = dr_deta1 * cos_phi
+    df_out[0, 1] = dr_deta2 * cos_phi
+    df_out[0, 2] = dr_deta3 * cos_phi - 2 * pi * r_eff * sin_phi
+
+    df_out[1, 0] = dr_deta1 * sin_phi
+    df_out[1, 1] = dr_deta2 * sin_phi
+    df_out[1, 2] = dr_deta3 * sin_phi + 2 * pi * r_eff * cos_phi
+
+    df_out[2, 0] = width * sin_alpha
+    df_out[2, 1] = thickness * cos_alpha
+    df_out[2, 2] = (w_hat * cos_alpha - t_hat * sin_alpha) * pi

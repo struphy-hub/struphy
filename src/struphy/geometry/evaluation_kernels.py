@@ -177,6 +177,16 @@ def f(
             args.params[6],
             f_out,
         )
+    elif args.kind_map == 50:
+        mappings_kernels.moebius_strip(
+            eta1,
+            eta2,
+            eta3,
+            args.params[0],
+            args.params[1],
+            args.params[2],
+            f_out,
+        )
 
 
 def df(
@@ -333,6 +343,16 @@ def df(
             args.params[4],
             args.params[5],
             args.params[6],
+            df_out,
+        )
+    elif args.kind_map == 50:
+        mappings_kernels.moebius_strip_df(
+            eta1,
+            eta2,
+            eta3,
+            args.params[0],
+            args.params[1],
+            args.params[2],
             df_out,
         )
 
