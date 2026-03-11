@@ -1,4 +1,4 @@
-from numpy import arcsin, arctan, cos, pi, sin, sqrt, tan, zeros
+from numpy import arcsin, arctan, cos, exp, pi, sin, sqrt, tan, zeros
 from pyccel.decorators import pure, stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
@@ -961,6 +961,98 @@ def hollow_torus_df(
         df_out[2, 0] = da * sin(2 * pi * eta2 / pol_period)
         df_out[2, 1] = (a1 + eta1 * da) * cos(2 * pi * eta2 / pol_period) * 2 * pi / pol_period
         df_out[2, 2] = 0.0
+
+
+@pure
+def diagnostic_port_hole_torus(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    a1: float,
+    a2: float,
+    r0: float,
+    tor_period: float,
+    port_depth: float,
+    port_eta2_center: float,
+    port_eta3_center: float,
+    port_eta2_width: float,
+    port_eta3_width: float,
+    f_out: "float[:]",
+):
+    """Point-wise evaluation of a torus with a localized diagnostic port deformation."""
+
+    da = a2 - a1
+    theta = 2 * pi * eta2
+    phi = 2 * pi * eta3 / tor_period
+
+    sigma2_sq = port_eta2_width * port_eta2_width
+    sigma3_sq = port_eta3_width * port_eta3_width
+
+    bump_theta = exp((cos(2 * pi * (eta2 - port_eta2_center)) - 1.0) / sigma2_sq)
+    bump_phi = exp((cos(2 * pi * (eta3 - port_eta3_center)) - 1.0) / sigma3_sq)
+    bump = bump_theta * bump_phi
+
+    r_minor = a1 + da * eta1 + port_depth * eta1 * eta1 * bump
+    r_major = r0 + r_minor * cos(theta)
+
+    f_out[0] = r_major * cos(phi)
+    f_out[1] = -r_major * sin(phi)
+    f_out[2] = r_minor * sin(theta)
+
+
+@pure
+def diagnostic_port_hole_torus_df(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    a1: float,
+    a2: float,
+    r0: float,
+    tor_period: float,
+    port_depth: float,
+    port_eta2_center: float,
+    port_eta3_center: float,
+    port_eta2_width: float,
+    port_eta3_width: float,
+    df_out: "float[:,:]",
+):
+    """Jacobian matrix for :meth:`struphy.geometry.mappings_kernels.diagnostic_port_hole_torus`."""
+
+    da = a2 - a1
+    theta = 2 * pi * eta2
+    phi = 2 * pi * eta3 / tor_period
+
+    sigma2_sq = port_eta2_width * port_eta2_width
+    sigma3_sq = port_eta3_width * port_eta3_width
+
+    bump_theta = exp((cos(2 * pi * (eta2 - port_eta2_center)) - 1.0) / sigma2_sq)
+    bump_phi = exp((cos(2 * pi * (eta3 - port_eta3_center)) - 1.0) / sigma3_sq)
+    bump = bump_theta * bump_phi
+
+    dbump_deta2 = bump * (-2 * pi * sin(2 * pi * (eta2 - port_eta2_center)) / sigma2_sq)
+    dbump_deta3 = bump * (-2 * pi * sin(2 * pi * (eta3 - port_eta3_center)) / sigma3_sq)
+
+    r_minor = a1 + da * eta1 + port_depth * eta1 * eta1 * bump
+    dr_deta1 = da + 2 * port_depth * eta1 * bump
+    dr_deta2 = port_depth * eta1 * eta1 * dbump_deta2
+    dr_deta3 = port_depth * eta1 * eta1 * dbump_deta3
+
+    r_major = r0 + r_minor * cos(theta)
+    d_rmajor_deta1 = dr_deta1 * cos(theta)
+    d_rmajor_deta2 = dr_deta2 * cos(theta) - 2 * pi * r_minor * sin(theta)
+    d_rmajor_deta3 = dr_deta3 * cos(theta)
+
+    df_out[0, 0] = d_rmajor_deta1 * cos(phi)
+    df_out[0, 1] = d_rmajor_deta2 * cos(phi)
+    df_out[0, 2] = d_rmajor_deta3 * cos(phi) - 2 * pi / tor_period * r_major * sin(phi)
+
+    df_out[1, 0] = -d_rmajor_deta1 * sin(phi)
+    df_out[1, 1] = -d_rmajor_deta2 * sin(phi)
+    df_out[1, 2] = -d_rmajor_deta3 * sin(phi) - 2 * pi / tor_period * r_major * cos(phi)
+
+    df_out[2, 0] = dr_deta1 * sin(theta)
+    df_out[2, 1] = dr_deta2 * sin(theta) + 2 * pi * r_minor * cos(theta)
+    df_out[2, 2] = dr_deta3 * sin(theta)
 
 
 @pure

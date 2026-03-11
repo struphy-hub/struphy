@@ -1029,3 +1029,64 @@ class MoebiusStrip(Domain):
         z = w_hat * xp.sin(alpha) + t_hat * xp.cos(alpha)
 
         return x, y, z
+
+
+class DiagnosticPortHoleTorus(Domain):
+    r"""Torus with a localized diagnostic port deformation.
+
+    This mapping models a toroidal vessel with a smooth, localized outward bulge
+    attached to the torus tube. The bulge approximates the effect of a small
+    radial/poloidal cylindrical diagnostic port while remaining a single smooth
+    patch, making it suitable for studying perturbations near reactor openings.
+
+    Parameters
+    ----------
+    a1 : float
+        Inner minor radius of the torus tube (default: 0.1).
+    a2 : float
+        Outer minor radius of the torus tube (default: 1.0).
+    R0 : float
+        Major radius of the torus (default: 3.0).
+    tor_period : int
+        Toroidal periodicity built into the mapping: :math:`\phi=2\pi\,\eta_3/\mathrm{torperiod}` (default: 1).
+    port_depth : float
+        Maximum outward radial deformation of the localized port (default: 0.25).
+    port_eta2_center : float
+        Center of the port in logical poloidal coordinate :math:`\eta_2` (default: 0.0).
+    port_eta3_center : float
+        Center of the port in logical toroidal coordinate :math:`\eta_3` (default: 0.0).
+    port_eta2_width : float
+        Width parameter of the port in logical poloidal coordinate (default: 0.08).
+    port_eta3_width : float
+        Width parameter of the port in logical toroidal coordinate (default: 0.08).
+    """
+
+    def __init__(
+        self,
+        a1: float = 0.1,
+        a2: float = 1.0,
+        R0: float = 3.0,
+        tor_period: int = 1,
+        port_depth: float = 0.25,
+        port_eta2_center: float = 0.0,
+        port_eta3_center: float = 0.0,
+        port_eta2_width: float = 0.08,
+        port_eta3_width: float = 0.08,
+    ):
+        self.kind_map = 23
+
+        # use params setter
+        self.params = copy.deepcopy(locals())
+        self.params_numpy = self.get_params_numpy()
+
+        assert a2 <= R0, f"The minor radius must be smaller or equal than the major radius! {a2 =}, {R0 =}"
+        assert a2 + port_depth <= R0, (
+            f"The localized port deformation must keep the torus non-self-intersecting! {a2 =}, {port_depth =}, {R0 =}"
+        )
+        assert port_eta2_width > 0.0, f"Need positive port width in eta2, got {port_eta2_width =}"
+        assert port_eta3_width > 0.0, f"Need positive port width in eta3, got {port_eta3_width =}"
+
+        self.periodic_eta3 = True
+        self.pole = a1 == 0.0
+
+        super().__init__()

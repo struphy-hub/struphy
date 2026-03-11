@@ -141,6 +141,22 @@ def f(
             args.params[5],
             f_out,
         )
+    elif args.kind_map == 23:
+        mappings_kernels.diagnostic_port_hole_torus(
+            eta1,
+            eta2,
+            eta3,
+            args.params[0],
+            args.params[1],
+            args.params[2],
+            args.params[3],
+            args.params[4],
+            args.params[5],
+            args.params[6],
+            args.params[7],
+            args.params[8],
+            f_out,
+        )
     elif args.kind_map == 30:
         mappings_kernels.shafranov_shift(
             eta1,
@@ -307,6 +323,22 @@ def df(
             args.params[3],
             args.params[4],
             args.params[5],
+            df_out,
+        )
+    elif args.kind_map == 23:
+        mappings_kernels.diagnostic_port_hole_torus_df(
+            eta1,
+            eta2,
+            eta3,
+            args.params[0],
+            args.params[1],
+            args.params[2],
+            args.params[3],
+            args.params[4],
+            args.params[5],
+            args.params[6],
+            args.params[7],
+            args.params[8],
             df_out,
         )
     elif args.kind_map == 30:

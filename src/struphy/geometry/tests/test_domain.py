@@ -145,6 +145,7 @@ def test_prepare_arg():
         "Colella",
         "Orthogonal",
         "HollowTorus",
+        "DiagnosticPortHoleTorus",
         "PoweredEllipticCylinder",
         "ShafranovShiftCylinder",
         "ShafranovSqrtCylinder",
