@@ -251,7 +251,7 @@ class ModesCos(Perturbation):
         Lz=1.0,
         given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
-        perb_domain = None
+        perb_domain: tuple[tuple[float]] = (None, None, None)
     ):
         if ls is not None:
             n_modes = len(ls)
@@ -300,10 +300,10 @@ class ModesCos(Perturbation):
         val = 0.0
 
         # apply perturbation iff perb_domain not specified or (x,y,z) is within perb_domain
-        if (self.perb_domain is None) | (
-            ( (self.perb_domain[0][0] <= x) & (x <= self.perb_domain[0][1]) ) &
-            ( (self.perb_domain[1][0] <= y) & (y <= self.perb_domain[1][1]) ) &
-            ( (self.perb_domain[2][0] <= z) & (z <= self.perb_domain[2][1]) )
+        if (self.perb_domain == (None, None, None)) | (
+            ( (self.perb_domain[0][0] <= x) & (x <= self.perb_domain[0][1]) | self.perb_domain[0] is None) &
+            ( (self.perb_domain[1][0] <= y) & (y <= self.perb_domain[1][1]) | self.perb_domain[1] is None) &
+            ( (self.perb_domain[2][0] <= z) & (z <= self.perb_domain[2][1]) | self.perb_domain[2] is None)
         ):
             for amp, l, m, n in zip(self.amps, self.ls, self.ms, self.ns):
                 val += amp * xp.cos(
