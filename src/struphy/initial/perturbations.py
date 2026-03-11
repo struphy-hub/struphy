@@ -237,7 +237,8 @@ class ModesCos(Perturbation):
         Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
 
     perb_domain : tuple[tuple[float]]
-        Subdomain in which the pertrubation is applied to: ((x_min, x_max), (y_min, y_max), (z_min, z_max))
+        Subdomain in which the pertrubation is applied to: ((x_min, x_max), (y_min, y_max), (z_min, z_max)).
+        None means apply perturbation to all domain in that direction
     """
 
     def __init__(
@@ -300,11 +301,11 @@ class ModesCos(Perturbation):
         val = 0.0
 
         # apply perturbation iff perb_domain not specified or (x,y,z) is within perb_domain
-        if (self.perb_domain == (None, None, None)) | (
-            ( (self.perb_domain[0][0] <= x) & (x <= self.perb_domain[0][1]) | self.perb_domain[0] is None) &
-            ( (self.perb_domain[1][0] <= y) & (y <= self.perb_domain[1][1]) | self.perb_domain[1] is None) &
-            ( (self.perb_domain[2][0] <= z) & (z <= self.perb_domain[2][1]) | self.perb_domain[2] is None)
-        ):
+        x_inDomain = True if self.perb_domain[0] is None else ((self.perb_domain[0][0] <= x) & (x <= self.perb_domain[0][1]))
+        y_inDomain = True if self.perb_domain[1] is None else ((self.perb_domain[1][0] <= y) & (y <= self.perb_domain[1][1]))
+        z_inDomain = True if self.perb_domain[2] is None else ((self.perb_domain[2][0] <= z) & (z <= self.perb_domain[2][1]))
+
+        if self.perb_domain == (None, None, None) or (x_inDomain & y_inDomain & z_inDomain).all():
             for amp, l, m, n in zip(self.amps, self.ls, self.ms, self.ns):
                 val += amp * xp.cos(
                     l * 2.0 * xp.pi / self.Lx * x + m * 2.0 * xp.pi / self.Ly * y + n * 2.0 * xp.pi / self.Lz * z,
