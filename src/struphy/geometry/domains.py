@@ -963,6 +963,53 @@ class WarpedAccretionDisk(Domain):
         super().__init__()
 
 
+class Spheromak(Domain):
+    r"""Compact toroidal plasma proxy in a spherical-like shell.
+
+    This mapping provides a simple geometry for spheromak studies using nested
+    closed flux-surface-like shells with optional vertical elongation.
+
+    Coordinates
+    -----------
+    * :math:`\eta_1`: radial shell coordinate
+    * :math:`\eta_2`: poloidal angle coordinate
+    * :math:`\eta_3`: toroidal/azimuthal angle coordinate
+
+    Parameters
+    ----------
+    r0 : float
+        Inner radius.
+    a : float
+        Plasma minor-size scale (outer radius is r0 + a).
+    kappa : float
+        Vertical elongation factor.
+    tor_period : int
+        Azimuthal periodicity: :math:`\phi=2\pi\eta_3/\mathrm{tor\_period}`.
+    """
+
+    def __init__(
+        self,
+        r0: float = 0.0,
+        a: float = 1.0,
+        kappa: float = 1.0,
+        tor_period: int = 1,
+    ):
+        self.kind_map = 26
+
+        self.params = copy.deepcopy(locals())
+        self.params_numpy = self.get_params_numpy()
+
+        assert r0 >= 0.0, f"Need non-negative inner radius, got {r0 =}"
+        assert a > 0.0, f"Need positive minor size a, got {a =}"
+        assert kappa > 0.0, f"Need positive elongation kappa, got {kappa =}"
+        assert tor_period > 0, f"Need positive toroidal periodicity, got {tor_period =}"
+
+        self.periodic_eta3 = True
+        self.pole = r0 == 0.0
+
+        super().__init__()
+
+
 class ShafranovShiftCylinder(Domain):
     r""" Cylinder with quadratic Shafranov shift.
 

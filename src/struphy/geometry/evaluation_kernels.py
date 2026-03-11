@@ -198,6 +198,17 @@ def f(
             args.params[6],
             f_out,
         )
+    elif args.kind_map == 26:
+        mappings_kernels.spheromak(
+            eta1,
+            eta2,
+            eta3,
+            args.params[0],
+            args.params[1],
+            args.params[2],
+            args.params[3],
+            f_out,
+        )
     elif args.kind_map == 30:
         mappings_kernels.shafranov_shift(
             eta1,
@@ -421,6 +432,17 @@ def df(
             args.params[4],
             args.params[5],
             args.params[6],
+            df_out,
+        )
+    elif args.kind_map == 26:
+        mappings_kernels.spheromak_df(
+            eta1,
+            eta2,
+            eta3,
+            args.params[0],
+            args.params[1],
+            args.params[2],
+            args.params[3],
             df_out,
         )
     elif args.kind_map == 30:

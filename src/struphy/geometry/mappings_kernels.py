@@ -1203,6 +1203,69 @@ def warped_accretion_disk_df(
 
 
 @pure
+def spheromak(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    r0: float,
+    a: float,
+    kappa: float,
+    tor_period: float,
+    f_out: "float[:]",
+):
+    """Point-wise evaluation of a compact spherical-shell spheromak proxy."""
+
+    r = r0 + a * eta1
+    theta = pi * eta2
+    phi = 2 * pi * eta3 / tor_period
+
+    sin_theta = sin(theta)
+    cos_theta = cos(theta)
+
+    f_out[0] = r * sin_theta * cos(phi)
+    f_out[1] = r * sin_theta * sin(phi)
+    f_out[2] = kappa * r * cos_theta
+
+
+@pure
+def spheromak_df(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    r0: float,
+    a: float,
+    kappa: float,
+    tor_period: float,
+    df_out: "float[:,:]",
+):
+    """Jacobian matrix for :meth:`struphy.geometry.mappings_kernels.spheromak`."""
+
+    r = r0 + a * eta1
+    theta = pi * eta2
+    phi = 2 * pi * eta3 / tor_period
+
+    sin_theta = sin(theta)
+    cos_theta = cos(theta)
+    sin_phi = sin(phi)
+    cos_phi = cos(phi)
+
+    dtheta_deta2 = pi
+    dphi_deta3 = 2 * pi / tor_period
+
+    df_out[0, 0] = a * sin_theta * cos_phi
+    df_out[0, 1] = r * cos_theta * dtheta_deta2 * cos_phi
+    df_out[0, 2] = -r * sin_theta * sin_phi * dphi_deta3
+
+    df_out[1, 0] = a * sin_theta * sin_phi
+    df_out[1, 1] = r * cos_theta * dtheta_deta2 * sin_phi
+    df_out[1, 2] = r * sin_theta * cos_phi * dphi_deta3
+
+    df_out[2, 0] = kappa * a * cos_theta
+    df_out[2, 1] = -kappa * r * sin_theta * dtheta_deta2
+    df_out[2, 2] = 0.0
+
+
+@pure
 def diagnostic_port_hole_torus(
     eta1: float,
     eta2: float,
