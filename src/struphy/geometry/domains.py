@@ -844,6 +844,67 @@ class HollowTorus(Domain):
             return eta1, eta2, eta3
 
 
+class GeospaceFluxDomain(Domain):
+    r"""Global magnetospheric flux-surface inspired mapping.
+
+    This domain maps the logical unit cube onto an Earth-centered, solar-wind
+    distorted geometry with compressed dayside and elongated nightside tail.
+    It provides a single smooth coordinate mapping useful for idealized studies
+    of bow-shock/magnetosheath/magnetotail coupling and tail reconnection setup.
+
+    Coordinates
+    -----------
+    * :math:`\eta_1`: radial/normal-like coordinate from ionosphere to bow shock
+    * :math:`\eta_2`: dayside-to-nightside poloidal angle coordinate
+    * :math:`\eta_3`: clock angle around Earth-Sun axis
+
+    Parameters
+    ----------
+    r_iono : float
+        Inner reference radius (ionosphere-like boundary).
+    r_mp_dayside : float
+        Magnetopause radius on dayside.
+    r_mp_tail : float
+        Magnetopause radius in the nightside tail.
+    r_bs_dayside : float
+        Bow-shock radius on dayside.
+    r_bs_tail : float
+        Bow-shock radius in the nightside tail.
+    mp_eta1 : float
+        Logical location of magnetopause in :math:`\eta_1` (0 < mp_eta1 < 1).
+    sheet_flatten : float
+        Tail current-sheet flattening strength in [0, 1).
+    """
+
+    def __init__(
+        self,
+        r_iono: float = 1.0,
+        r_mp_dayside: float = 8.0,
+        r_mp_tail: float = 30.0,
+        r_bs_dayside: float = 12.0,
+        r_bs_tail: float = 45.0,
+        mp_eta1: float = 0.72,
+        sheet_flatten: float = 0.45,
+    ):
+        self.kind_map = 24
+
+        self.params = copy.deepcopy(locals())
+        self.params_numpy = self.get_params_numpy()
+
+        assert r_iono > 0.0, f"Need positive ionosphere radius, got {r_iono =}"
+        assert r_mp_dayside > r_iono, f"Need r_mp_dayside > r_iono, got {r_mp_dayside =}, {r_iono =}"
+        assert r_mp_tail > r_iono, f"Need r_mp_tail > r_iono, got {r_mp_tail =}, {r_iono =}"
+        assert r_bs_dayside > r_mp_dayside, f"Need r_bs_dayside > r_mp_dayside, got {r_bs_dayside =}, {r_mp_dayside =}"
+        assert r_bs_tail > r_mp_tail, f"Need r_bs_tail > r_mp_tail, got {r_bs_tail =}, {r_mp_tail =}"
+        assert 0.0 < mp_eta1 < 1.0, f"Need 0 < mp_eta1 < 1, got {mp_eta1 =}"
+        assert 0.0 <= sheet_flatten < 1.0, f"Need 0 <= sheet_flatten < 1, got {sheet_flatten =}"
+
+        self.periodic_eta3 = True
+        self.pole = False
+
+        super().__init__()
+
+
 class ShafranovShiftCylinder(Domain):
     r""" Cylinder with quadratic Shafranov shift.
 

@@ -1020,6 +1020,113 @@ def hollow_torus_df(
 
 
 @pure
+def geospace_flux_domain(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    r_iono: float,
+    r_mp_dayside: float,
+    r_mp_tail: float,
+    r_bs_dayside: float,
+    r_bs_tail: float,
+    mp_eta1: float,
+    sheet_flatten: float,
+    f_out: "float[:]",
+):
+    """Point-wise evaluation of the GeospaceFluxDomain mapping."""
+
+    theta = pi * eta2
+    phi = 2 * pi * eta3
+
+    tail = 0.5 * (1.0 - cos(theta))
+
+    r_mp = r_mp_dayside + (r_mp_tail - r_mp_dayside) * tail
+    r_bs = r_bs_dayside + (r_bs_tail - r_bs_dayside) * tail
+
+    if eta1 <= mp_eta1:
+        u = eta1 / mp_eta1
+        r = r_iono + (r_mp - r_iono) * u
+    else:
+        u = (eta1 - mp_eta1) / (1.0 - mp_eta1)
+        r = r_mp + (r_bs - r_mp) * u
+
+    scale_z = 1.0 - sheet_flatten * tail
+
+    x = r * cos(theta)
+    rho = r * sin(theta)
+
+    f_out[0] = x
+    f_out[1] = rho * cos(phi)
+    f_out[2] = rho * sin(phi) * scale_z
+
+
+@pure
+def geospace_flux_domain_df(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    r_iono: float,
+    r_mp_dayside: float,
+    r_mp_tail: float,
+    r_bs_dayside: float,
+    r_bs_tail: float,
+    mp_eta1: float,
+    sheet_flatten: float,
+    df_out: "float[:,:]",
+):
+    """Jacobian matrix for :meth:`struphy.geometry.mappings_kernels.geospace_flux_domain`."""
+
+    theta = pi * eta2
+    phi = 2 * pi * eta3
+
+    sin_theta = sin(theta)
+    cos_theta = cos(theta)
+    sin_phi = sin(phi)
+    cos_phi = cos(phi)
+
+    tail = 0.5 * (1.0 - cos_theta)
+    dtail_deta2 = 0.5 * pi * sin_theta
+
+    r_mp = r_mp_dayside + (r_mp_tail - r_mp_dayside) * tail
+    r_bs = r_bs_dayside + (r_bs_tail - r_bs_dayside) * tail
+    drmp_deta2 = (r_mp_tail - r_mp_dayside) * dtail_deta2
+    drbs_deta2 = (r_bs_tail - r_bs_dayside) * dtail_deta2
+
+    if eta1 <= mp_eta1:
+        u = eta1 / mp_eta1
+        r = r_iono + (r_mp - r_iono) * u
+        dr_deta1 = (r_mp - r_iono) / mp_eta1
+        dr_deta2 = drmp_deta2 * u
+    else:
+        u = (eta1 - mp_eta1) / (1.0 - mp_eta1)
+        r = r_mp + (r_bs - r_mp) * u
+        dr_deta1 = (r_bs - r_mp) / (1.0 - mp_eta1)
+        dr_deta2 = drmp_deta2 * (1.0 - u) + drbs_deta2 * u
+
+    scale_z = 1.0 - sheet_flatten * tail
+    dscale_deta2 = -sheet_flatten * dtail_deta2
+
+    # x = r*cos(theta)
+    df_out[0, 0] = dr_deta1 * cos_theta
+    df_out[0, 1] = dr_deta2 * cos_theta - r * sin_theta * pi
+    df_out[0, 2] = 0.0
+
+    # rho = r*sin(theta)
+    drho_deta1 = dr_deta1 * sin_theta
+    drho_deta2 = dr_deta2 * sin_theta + r * cos_theta * pi
+
+    # y = rho*cos(phi)
+    df_out[1, 0] = drho_deta1 * cos_phi
+    df_out[1, 1] = drho_deta2 * cos_phi
+    df_out[1, 2] = -rho * sin_phi * 2 * pi
+
+    # z = rho*sin(phi)*scale_z
+    df_out[2, 0] = drho_deta1 * sin_phi * scale_z
+    df_out[2, 1] = drho_deta2 * sin_phi * scale_z + rho * sin_phi * dscale_deta2
+    df_out[2, 2] = rho * cos_phi * 2 * pi * scale_z
+
+
+@pure
 def diagnostic_port_hole_torus(
     eta1: float,
     eta2: float,

@@ -147,6 +147,7 @@ def test_prepare_arg():
         "Orthogonal",
         "HollowTorus",
         "DiagnosticPortHoleTorus",
+        "GeospaceFluxDomain",
         "PoweredEllipticCylinder",
         "ShafranovShiftCylinder",
         "ShafranovSqrtCylinder",
