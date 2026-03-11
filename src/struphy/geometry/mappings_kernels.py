@@ -665,6 +665,62 @@ def colella_df(eta1: float, eta2: float, lx: float, ly: float, alpha: float, lz:
 
 
 @pure
+def magnetotail_slab(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    lx: float,
+    ly: float,
+    lz: float,
+    pinch: float,
+    pinch_width: float,
+    x_center: float,
+    f_out: "float[:]",
+):
+    """Point-wise evaluation of an elongated slab with a smooth central pinch."""
+
+    x = lx * (eta1 - 0.5)
+    x_shift = x - x_center
+    profile = 1.0 - pinch * exp(-(x_shift / pinch_width) ** 2)
+
+    f_out[0] = x
+    f_out[1] = ly * profile * (eta2 - 0.5)
+    f_out[2] = lz * (eta3 - 0.5)
+
+
+@pure
+def magnetotail_slab_df(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    lx: float,
+    ly: float,
+    lz: float,
+    pinch: float,
+    pinch_width: float,
+    x_center: float,
+    df_out: "float[:,:]",
+):
+    """Jacobian matrix for :meth:`struphy.geometry.mappings_kernels.magnetotail_slab`."""
+
+    x = lx * (eta1 - 0.5)
+    x_shift = x - x_center
+    gauss = exp(-(x_shift / pinch_width) ** 2)
+    profile = 1.0 - pinch * gauss
+    dprofile_dx = 2.0 * pinch * x_shift * gauss / (pinch_width * pinch_width)
+
+    df_out[0, 0] = lx
+    df_out[0, 1] = 0.0
+    df_out[0, 2] = 0.0
+    df_out[1, 0] = ly * (eta2 - 0.5) * dprofile_dx * lx
+    df_out[1, 1] = ly * profile
+    df_out[1, 2] = 0.0
+    df_out[2, 0] = 0.0
+    df_out[2, 1] = 0.0
+    df_out[2, 2] = lz
+
+
+@pure
 def hollow_cyl(eta1: float, eta2: float, eta3: float, a1: float, a2: float, lz: float, poc: float, f_out: "float[:]"):
     r"""Point-wise evaluation of
 

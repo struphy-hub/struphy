@@ -565,6 +565,56 @@ class Colella(Domain):
         super().__init__()
 
 
+class MagnetotailSlab(Domain):
+    r"""Elongated slab with a pinched center.
+
+    This mapping is intended as a simple geometry for studying reconnection in
+    the Earth's night-side magnetotail. The domain is a long slab in the
+    tail-aligned direction with a smooth reduction of the cross-tail width near
+    the center plane.
+
+    Parameters
+    ----------
+    Lx : float
+        Length in the tail-aligned direction (default: 12.0).
+    Ly : float
+        Full width of the slab in the cross-tail direction away from the pinch (default: 4.0).
+    Lz : float
+        Thickness in the normal direction (default: 2.0).
+    pinch : float
+        Relative pinch strength in [0, 1). Larger values give a narrower center (default: 0.6).
+    pinch_width : float
+        Characteristic width of the pinched region in physical x-units (default: 2.0).
+    x_center : float
+        Center position of the pinch in physical x-coordinate (default: 0.0).
+    """
+
+    def __init__(
+        self,
+        Lx: float = 12.0,
+        Ly: float = 4.0,
+        Lz: float = 2.0,
+        pinch: float = 0.6,
+        pinch_width: float = 2.0,
+        x_center: float = 0.0,
+    ):
+        self.kind_map = 13
+
+        self.params = copy.deepcopy(locals())
+        self.params_numpy = self.get_params_numpy()
+
+        assert Lx > 0.0, f"Need positive slab length, got {Lx =}"
+        assert Ly > 0.0, f"Need positive slab width, got {Ly =}"
+        assert Lz > 0.0, f"Need positive slab thickness, got {Lz =}"
+        assert 0.0 <= pinch < 1.0, f"Pinch strength must satisfy 0 <= pinch < 1, got {pinch =}"
+        assert pinch_width > 0.0, f"Need positive pinch width, got {pinch_width =}"
+
+        self.periodic_eta3 = False
+        self.pole = False
+
+        super().__init__()
+
+
 class HollowCylinder(Domain):
     r""" Cylinder with possible hole around the axis.
 

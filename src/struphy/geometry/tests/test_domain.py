@@ -141,6 +141,7 @@ def test_prepare_arg():
     "mapping",
     [
         "Cuboid",
+        "MagnetotailSlab",
         "HollowCylinder",
         "Colella",
         "Orthogonal",
