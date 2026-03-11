@@ -150,6 +150,7 @@ def test_prepare_arg():
         "GeospaceFluxDomain",
         "WarpedAccretionDisk",
         "Spheromak",
+        "HallEffectThrusterChannel",
         "PoweredEllipticCylinder",
         "ShafranovShiftCylinder",
         "ShafranovSqrtCylinder",

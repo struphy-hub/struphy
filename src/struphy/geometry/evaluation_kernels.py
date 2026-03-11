@@ -209,6 +209,18 @@ def f(
             args.params[3],
             f_out,
         )
+    elif args.kind_map == 27:
+        mappings_kernels.hall_effect_thruster_channel(
+            eta1,
+            eta2,
+            eta3,
+            args.params[0],
+            args.params[1],
+            args.params[2],
+            args.params[3],
+            args.params[4],
+            f_out,
+        )
     elif args.kind_map == 30:
         mappings_kernels.shafranov_shift(
             eta1,
@@ -445,6 +457,18 @@ def df(
             args.params[3],
             df_out,
         )
+    elif args.kind_map == 27:
+        mappings_kernels.hall_effect_thruster_channel_df(
+            eta1,
+            eta2,
+            eta3,
+            args.params[0],
+            args.params[1],
+            args.params[2],
+            args.params[3],
+            args.params[4],
+            df_out,
+        )
     elif args.kind_map == 30:
         mappings_kernels.shafranov_shift_df(
             eta1,
@@ -602,6 +626,11 @@ def df_inv(
             dfinv_out[1, 2] = 0.0
             dfinv_out[2, 0] = 0.0
             dfinv_out[2, 1] = 0.0
+        elif args.kind_map == 27:
+            dfinv_out[0, 2] = 0.0
+            dfinv_out[1, 2] = 0.0
+            dfinv_out[2, 0] = 0.0
+            dfinv_out[2, 1] = 0.0
         elif args.kind_map == 21:
             dfinv_out[0, 2] = 0.0
             dfinv_out[1, 2] = 0.0
@@ -702,6 +731,13 @@ def g(
             g_out[2, 0] = 0.0
             g_out[2, 1] = 0.0
         elif args.kind_map == 20:
+            g_out[0, 1] = 0.0
+            g_out[0, 2] = 0.0
+            g_out[1, 0] = 0.0
+            g_out[1, 2] = 0.0
+            g_out[2, 0] = 0.0
+            g_out[2, 1] = 0.0
+        elif args.kind_map == 27:
             g_out[0, 1] = 0.0
             g_out[0, 2] = 0.0
             g_out[1, 0] = 0.0
@@ -826,6 +862,13 @@ def g_inv(
             ginv_out[2, 0] = 0.0
             ginv_out[2, 1] = 0.0
         elif args.kind_map == 20:
+            ginv_out[0, 1] = 0.0
+            ginv_out[0, 2] = 0.0
+            ginv_out[1, 0] = 0.0
+            ginv_out[1, 2] = 0.0
+            ginv_out[2, 0] = 0.0
+            ginv_out[2, 1] = 0.0
+        elif args.kind_map == 27:
             ginv_out[0, 1] = 0.0
             ginv_out[0, 2] = 0.0
             ginv_out[1, 0] = 0.0

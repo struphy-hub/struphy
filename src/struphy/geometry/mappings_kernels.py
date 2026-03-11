@@ -1266,6 +1266,66 @@ def spheromak_df(
 
 
 @pure
+def hall_effect_thruster_channel(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    r_in: float,
+    r_out: float,
+    length: float,
+    pack_strength: float,
+    tor_period: float,
+    f_out: "float[:]",
+):
+    """Point-wise evaluation of a coaxial Hall thruster channel."""
+
+    dr = r_out - r_in
+    r = r_in + dr * eta1
+    phi = 2 * pi * eta2 / tor_period
+
+    # Axial clustering near eta3=0 and eta3=1 (anode and exit)
+    z = length * (eta3 - pack_strength * sin(2 * pi * eta3) / (2 * pi))
+
+    f_out[0] = r * cos(phi)
+    f_out[1] = r * sin(phi)
+    f_out[2] = z
+
+
+@pure
+def hall_effect_thruster_channel_df(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    r_in: float,
+    r_out: float,
+    length: float,
+    pack_strength: float,
+    tor_period: float,
+    df_out: "float[:,:]",
+):
+    """Jacobian matrix for :meth:`struphy.geometry.mappings_kernels.hall_effect_thruster_channel`."""
+
+    dr = r_out - r_in
+    r = r_in + dr * eta1
+    phi = 2 * pi * eta2 / tor_period
+
+    dphi_deta2 = 2 * pi / tor_period
+    dz_deta3 = length * (1.0 - pack_strength * cos(2 * pi * eta3))
+
+    df_out[0, 0] = dr * cos(phi)
+    df_out[0, 1] = -r * sin(phi) * dphi_deta2
+    df_out[0, 2] = 0.0
+
+    df_out[1, 0] = dr * sin(phi)
+    df_out[1, 1] = r * cos(phi) * dphi_deta2
+    df_out[1, 2] = 0.0
+
+    df_out[2, 0] = 0.0
+    df_out[2, 1] = 0.0
+    df_out[2, 2] = dz_deta3
+
+
+@pure
 def diagnostic_port_hole_torus(
     eta1: float,
     eta2: float,

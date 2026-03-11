@@ -1010,6 +1010,53 @@ class Spheromak(Domain):
         super().__init__()
 
 
+class HallEffectThrusterChannel(Domain):
+    r"""Coaxial annular Hall thruster channel with axial end packing.
+
+    The mapping models an annular channel where :math:`\eta_3` is the axial
+    coordinate (anode to exit), with increased point packing near both ends
+    controlled by a smooth high-frequency modulation.
+
+    Parameters
+    ----------
+    r_in : float
+        Inner channel radius.
+    r_out : float
+        Outer channel radius.
+    length : float
+        Axial channel length.
+    pack_strength : float
+        End-packing strength in [0, 1). Higher values cluster more points at
+        the anode and exit.
+    tor_period : int
+        Azimuthal periodicity: :math:`\phi=2\pi\eta_2/\mathrm{tor\_period}`.
+    """
+
+    def __init__(
+        self,
+        r_in: float = 1.0,
+        r_out: float = 2.0,
+        length: float = 5.0,
+        pack_strength: float = 0.7,
+        tor_period: int = 1,
+    ):
+        self.kind_map = 27
+
+        self.params = copy.deepcopy(locals())
+        self.params_numpy = self.get_params_numpy()
+
+        assert r_in > 0.0, f"Need positive inner radius, got {r_in =}"
+        assert r_out > r_in, f"Need r_out > r_in, got {r_out =}, {r_in =}"
+        assert length > 0.0, f"Need positive channel length, got {length =}"
+        assert 0.0 <= pack_strength < 1.0, f"Need 0 <= pack_strength < 1, got {pack_strength =}"
+        assert tor_period > 0, f"Need positive toroidal periodicity, got {tor_period =}"
+
+        self.periodic_eta3 = False
+        self.pole = False
+
+        super().__init__()
+
+
 class ShafranovShiftCylinder(Domain):
     r""" Cylinder with quadratic Shafranov shift.
 
