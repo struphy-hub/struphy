@@ -1127,6 +1127,82 @@ def geospace_flux_domain_df(
 
 
 @pure
+def warped_accretion_disk(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    r_in: float,
+    r_out: float,
+    thickness: float,
+    warp_amp: float,
+    warp_power: float,
+    node_angle: float,
+    tor_period: float,
+    f_out: "float[:]",
+):
+    """Point-wise evaluation of a warped accretion disk."""
+
+    dr = r_out - r_in
+    r = r_in + dr * eta1
+    s = (r - r_in) / dr
+    phi = 2 * pi * eta2 / tor_period
+    psi = phi - node_angle
+
+    z_local = thickness * (eta3 - 0.5)
+    w = warp_amp * r * (s**warp_power)
+
+    f_out[0] = r * cos(phi)
+    f_out[1] = r * sin(phi)
+    f_out[2] = z_local + w * sin(psi)
+
+
+@pure
+def warped_accretion_disk_df(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    r_in: float,
+    r_out: float,
+    thickness: float,
+    warp_amp: float,
+    warp_power: float,
+    node_angle: float,
+    tor_period: float,
+    df_out: "float[:,:]",
+):
+    """Jacobian matrix for :meth:`struphy.geometry.mappings_kernels.warped_accretion_disk`."""
+
+    dr = r_out - r_in
+    r = r_in + dr * eta1
+    s = (r - r_in) / dr
+    phi = 2 * pi * eta2 / tor_period
+    psi = phi - node_angle
+
+    dphi_deta2 = 2 * pi / tor_period
+
+    w = warp_amp * r * (s**warp_power)
+
+    if s == 0.0 and warp_power < 1.0:
+        dw_dr = 0.0
+    else:
+        dw_dr = warp_amp * (s**warp_power + r * warp_power * (s ** (warp_power - 1.0)) / dr)
+
+    dw_deta1 = dw_dr * dr
+
+    df_out[0, 0] = dr * cos(phi)
+    df_out[0, 1] = -r * sin(phi) * dphi_deta2
+    df_out[0, 2] = 0.0
+
+    df_out[1, 0] = dr * sin(phi)
+    df_out[1, 1] = r * cos(phi) * dphi_deta2
+    df_out[1, 2] = 0.0
+
+    df_out[2, 0] = dw_deta1 * sin(psi)
+    df_out[2, 1] = w * cos(psi) * dphi_deta2
+    df_out[2, 2] = thickness
+
+
+@pure
 def diagnostic_port_hole_torus(
     eta1: float,
     eta2: float,

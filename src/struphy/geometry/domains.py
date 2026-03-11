@@ -905,6 +905,64 @@ class GeospaceFluxDomain(Domain):
         super().__init__()
 
 
+class WarpedAccretionDisk(Domain):
+    r"""Warped accretion disk mapping.
+
+    This mapping describes a cylindrical disk with finite thickness and a smooth,
+    radius-dependent vertical warp of the disk midplane.
+
+    Coordinates
+    -----------
+    * :math:`\eta_1`: radial coordinate from inner to outer disk radius
+    * :math:`\eta_2`: azimuthal coordinate around the central object
+    * :math:`\eta_3`: vertical coordinate across disk thickness
+
+    Parameters
+    ----------
+    r_in : float
+        Inner disk radius.
+    r_out : float
+        Outer disk radius.
+    thickness : float
+        Half-thickness scaling in the vertical direction.
+    warp_amp : float
+        Warp amplitude factor.
+    warp_power : float
+        Power-law exponent for radial growth of the warp.
+    node_angle : float
+        Azimuthal node angle of the warp in radians.
+    tor_period : int
+        Azimuthal periodicity: :math:`\phi = 2\pi\eta_2/\mathrm{tor\_period}`.
+    """
+
+    def __init__(
+        self,
+        r_in: float = 2.0,
+        r_out: float = 12.0,
+        thickness: float = 0.3,
+        warp_amp: float = 0.15,
+        warp_power: float = 1.5,
+        node_angle: float = 0.0,
+        tor_period: int = 1,
+    ):
+        self.kind_map = 25
+
+        self.params = copy.deepcopy(locals())
+        self.params_numpy = self.get_params_numpy()
+
+        assert r_in > 0.0, f"Need positive inner radius, got {r_in =}"
+        assert r_out > r_in, f"Need r_out > r_in, got {r_out =}, {r_in =}"
+        assert thickness > 0.0, f"Need positive thickness, got {thickness =}"
+        assert warp_amp >= 0.0, f"Need non-negative warp amplitude, got {warp_amp =}"
+        assert warp_power >= 0.0, f"Need non-negative warp power, got {warp_power =}"
+        assert tor_period > 0, f"Need positive toroidal periodicity, got {tor_period =}"
+
+        self.periodic_eta3 = True
+        self.pole = False
+
+        super().__init__()
+
+
 class ShafranovShiftCylinder(Domain):
     r""" Cylinder with quadratic Shafranov shift.
 

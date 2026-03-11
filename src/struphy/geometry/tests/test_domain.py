@@ -148,6 +148,7 @@ def test_prepare_arg():
         "HollowTorus",
         "DiagnosticPortHoleTorus",
         "GeospaceFluxDomain",
+        "WarpedAccretionDisk",
         "PoweredEllipticCylinder",
         "ShafranovShiftCylinder",
         "ShafranovSqrtCylinder",
