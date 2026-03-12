@@ -165,10 +165,8 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
         .. math::
             error(t) = \max(
-                |\mathbf{G}^T\mathbf{M}^1\mathbf{e} -  \mathbf{f}^p|
+                |\mathbb{G}^T\mathbb{M}^1\mathbf{e} -  \mathbf{f}^p|
                 )
-
-        If control_variate = False, then the error should always be zero
 
         :param measure: if True, measure gauss error throughout the simulation
         """
