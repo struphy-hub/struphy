@@ -96,7 +96,6 @@ src/struphy/io/inp/params_*
 src/struphy/models/models_list
 src/struphy/models/models_message
 
-runs/
 bin/
 share/
 
