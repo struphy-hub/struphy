@@ -231,7 +231,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # reset particle weights
         particles.weights = particles.weights_at_t0.copy()
 
-    def calculate_gauss_error(self, e):
+    def calculate_gauss_error(self):
         # control variate method
         particles = self.kinetic_ions.var.particles
 
@@ -246,7 +246,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
         # non control variate method
         op = Propagator.derham.grad.T @ Propagator.mass_ops.M1
-        charge_accum1 = op.dot(e)
+        charge_accum1 = op.dot(eself.em_fields.e_field.spline.coeffs)
         charge_accum1 = charge_accum1.toarray()
 
         # take maximum from difference of two methods
@@ -284,7 +284,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         self.update_scalar("en_tot", en_E + self._tmp[0])
 
         if self.measure_gauss:
-            res = self.calculate_gauss_error(e)
+            res = self.calculate_gauss_error()
             self.update_scalar("gauss_error", res)
 
     ## default parameters
