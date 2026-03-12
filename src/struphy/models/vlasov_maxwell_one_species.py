@@ -159,6 +159,9 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # property to measure violation of gauss law from control variate
         self.measure_gauss = False
 
+        # create dummy variable to store initial charge accumulation
+        self._charge_accum0 = None
+
     def measure_gauss_error(self, measure: bool = False):
         """
         Record gauss law violation during simulaiton:
@@ -207,6 +210,8 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             Propagator.mass_ops,
             Propagator.domain.args_domain,
         )
+        # store initial charge accumulation
+        self._charge_accum0 = charge_accum
 
         # another sanity check: compute FE coeffs of density
         # charge_accum.show_accumulated_spline_field(Propagator.mass_ops)
@@ -235,14 +240,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # control variate method
         particles = self.kinetic_ions.var.particles
 
-        charge_accum0 = AccumulatorVector(
-            particles,
-            "H1",
-            Pyccelkernel(accum_kernels.charge_density_0form),
-            Propagator.mass_ops,
-            Propagator.domain.args_domain,
-        )
-        charge_accum0 = xp.array(charge_accum0.vectors[0].toarray())
+        charge_accum0 = self._charge_accum0()
 
         # non control variate method
         op = Propagator.derham.grad.T @ Propagator.mass_ops.M1
@@ -250,7 +248,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         charge_accum1 = charge_accum1.toarray()
 
         # take maximum from difference of two methods
-        residual = xp.max(xp.abs(charge_accum0 - charge_accum1))
+        residual = xp.max(xp.abs(charge_accum0.vector[0] - charge_accum1))
         return residual
 
     def update_scalar_quantities(self):
