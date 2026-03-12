@@ -240,23 +240,35 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # control variate method
         particles = self.kinetic_ions.var.particles
 
-        charge_accum0 = self._charge_accum0()
+        # TODO: calculate charge_accum0 during initialization
+        charge_accum0 = AccumulatorVector(
+            particles,
+            "H1",
+            Pyccelkernel(accum_kernels.charge_density_0form),
+            Propagator.mass_ops,
+            Propagator.domain.args_domain,
+        )
+        # self._charge_accum0 = charge_accum0
+        # charge_accum0 = self._charge_accum0()
         rhs = charge_accum0.vectors[0]
 
         # non control variate method
         op = Propagator.derham.grad.T @ Propagator.mass_ops.M1
 
-        e = self.em_fields.e_field.spline.coeffs
+        e = self.em_fields.e_field.spline.vector
         lhs = op.dot(e)
 
         # calculate local residual of local MPI rank
         loc_residual = xp.max(xp.abs(lhs.toarray() - rhs.toarray()))
 
         # return the maximum residual across all MPI rank
-        subcom_residual = particles._gather_scalar_in_subcomm_array(scalar=loc_residual)
-        intercom_residual = particles._gather_scalar_in_intercomm_array(sclar=loc_residual)
+        subcom_residual = xp.empty(shape=particles.mpi_size, dtype = float)
+        intercom_residual = xp.empty(shape=particles.num_clones, dtype = float)
 
-        return xp.max([subcom_residual, intercom_residual])
+        particles._gather_scalar_in_subcomm_array(scalar=loc_residual, out=subcom_residual)
+        particles._gather_scalar_in_intercomm_array(scalar=loc_residual, out=intercom_residual)
+
+        return xp.max([xp.max(subcom_residual), xp.max(intercom_residual)])
 
     def update_scalar_quantities(self):
         # e*M1*e/2
