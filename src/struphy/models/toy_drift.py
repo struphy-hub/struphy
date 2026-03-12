@@ -22,7 +22,7 @@ from struphy.utils.pyccel import Pyccelkernel
 rank = MPI.COMM_WORLD.Get_rank()
 
 
-class ToyGyrokinetic(StruphyModel):
+class ToyDrift(StruphyModel):
     r"""Drift-kinetic equation for one ion species in static background magnetic field.
 
     :ref:`normalization`:
