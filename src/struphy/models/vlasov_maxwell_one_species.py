@@ -239,18 +239,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
     def calculate_gauss_error(self):
         # control variate method
         particles = self.kinetic_ions.var.particles
-
-        # TODO: calculate charge_accum0 during initialization
-        charge_accum0 = AccumulatorVector(
-            particles,
-            "H1",
-            Pyccelkernel(accum_kernels.charge_density_0form),
-            Propagator.mass_ops,
-            Propagator.domain.args_domain,
-        )
-        # self._charge_accum0 = charge_accum0
-        # charge_accum0 = self._charge_accum0()
-        rhs = charge_accum0.vectors[0]
+        rhs = self._charge_accum0.vectors[0]
 
         # non control variate method
         op = Propagator.derham.grad.T @ Propagator.mass_ops.M1
