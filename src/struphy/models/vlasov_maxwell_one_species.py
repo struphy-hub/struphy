@@ -241,15 +241,22 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         particles = self.kinetic_ions.var.particles
 
         charge_accum0 = self._charge_accum0()
+        rhs = charge_accum0.vectors[0]
 
         # non control variate method
         op = Propagator.derham.grad.T @ Propagator.mass_ops.M1
-        charge_accum1 = op.dot(eself.em_fields.e_field.spline.coeffs)
-        charge_accum1 = charge_accum1.toarray()
 
-        # take maximum from difference of two methods
-        residual = xp.max(xp.abs(charge_accum0.vector[0] - charge_accum1))
-        return residual
+        e = self.em_fields.e_field.spline.coeffs
+        lhs = op.dot(e)
+
+        # calculate local residual of local MPI rank
+        loc_residual = xp.max(xp.abs(lhs.toarray() - rhs.toarray()))
+
+        # return the maximum residual across all MPI rank
+        subcom_residual = particles._gather_scalar_in_subcomm_array(scalar=loc_residual)
+        intercom_residual = particles._gather_scalar_in_intercomm_array(sclar=loc_residual)
+
+        return xp.max([subcom_residual, intercom_residual])
 
     def update_scalar_quantities(self):
         # e*M1*e/2
