@@ -178,6 +178,8 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         
         if self.measure_gauss_law:
             self.op = Propagator.derham.grad.T @ Propagator.mass_ops.M1
+            self.subcom_residual = xp.empty(shape=particles.mpi_size, dtype = float)
+            self.intercom_residual = xp.empty(shape=particles.num_clones, dtype = float)
 
         if MPI.COMM_WORLD.Get_rank() == 0:
             print("\nINITIAL POISSON SOLVE:")
@@ -242,13 +244,10 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # print(f"{loc_residual = }")
 
         # return the maximum residual across all MPI rank
-        subcom_residual = xp.empty(shape=particles.mpi_size, dtype = float)
-        intercom_residual = xp.empty(shape=particles.num_clones, dtype = float)
+        particles._gather_scalar_in_subcomm_array(scalar=loc_residual, out=self.subcom_residual)
+        particles._gather_scalar_in_intercomm_array(scalar=loc_residual, out=self.intercom_residual)
 
-        particles._gather_scalar_in_subcomm_array(scalar=loc_residual, out=subcom_residual)
-        particles._gather_scalar_in_intercomm_array(scalar=loc_residual, out=intercom_residual)
-
-        return xp.max([xp.max(subcom_residual), xp.max(intercom_residual)])
+        return xp.max([xp.max(self.subcom_residual), xp.max(self.intercom_residual)])
 
     def update_scalar_quantities(self):
         # e*M1*e/2
