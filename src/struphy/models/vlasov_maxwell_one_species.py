@@ -175,11 +175,11 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         :meta private:
         """
         self._tmp = xp.empty(1, dtype=float)
-        
+
         if self.measure_gauss_law:
             self.op = Propagator.derham.grad.T @ Propagator.mass_ops.M1
-            self.subcom_residual = xp.empty(shape=particles.mpi_size, dtype = float)
-            self.intercom_residual = xp.empty(shape=particles.num_clones, dtype = float)
+            self.subcom_residual = xp.empty(shape=particles.mpi_size, dtype=float)
+            self.intercom_residual = xp.empty(shape=particles.num_clones, dtype=float)
 
         if MPI.COMM_WORLD.Get_rank() == 0:
             print("\nINITIAL POISSON SOLVE:")
