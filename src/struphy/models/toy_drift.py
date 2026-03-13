@@ -145,20 +145,9 @@ class ToyDrift(StruphyModel):
 
         rho = charge_accum
 
-        # get neutralizing background density
-        if not particles.control_variate:
-            l2_proj = L2Projector("H1", Propagator.mass_ops)
-            f0e = Z * particles.f0
-            assert isinstance(f0e, KineticBackground)
-            rho_eh = FEECVariable(space="H1")
-            rho_eh.allocate(derham=Propagator.derham, domain=Propagator.domain)
-            rho_eh.spline.vector = l2_proj.get_dofs(f0e.n)
-            rho = [rho]
-            rho += [rho_eh]
-
-        self.propagators.gc_poisson.options.sigma_1 = 1.0 / epsilon**2 / Z
+        self.propagators.gc_poisson.options.sigma_1 = 1e-8
         self.propagators.gc_poisson.options.sigma_2 = 0.0
-        self.propagators.gc_poisson.options.sigma_3 = 1.0 / epsilon
+        self.propagators.gc_poisson.options.sigma_3 = 1.0 #/ epsilon
         self.propagators.gc_poisson.options.stab_mat = "M0ad"
         self.propagators.gc_poisson.options.diffusion_mat = "M1perp"
         self.propagators.gc_poisson.options.rho = rho
@@ -216,3 +205,8 @@ class ToyDrift(StruphyModel):
         with open(params_path, "w") as f:
             for line in new_file:
                 f.write(line)
+
+
+# sigma 2 => 0 #
+# divide_by dt = 0
+# sigma 1 = 10-8
