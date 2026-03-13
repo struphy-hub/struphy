@@ -176,6 +176,8 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         """
         self._tmp = xp.empty(1, dtype=float)
 
+        particles = self.kinetic_ions.var.particles
+
         if self.measure_gauss_law:
             self.op = Propagator.derham.grad.T @ Propagator.mass_ops.M1
             self.subcom_residual = xp.empty(shape=particles.mpi_size, dtype=float)
@@ -185,7 +187,6 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             print("\nINITIAL POISSON SOLVE:")
 
         # use control variate method (reset weights after Poisson solve)
-        particles = self.kinetic_ions.var.particles
         particles.update_weights()
 
         # sanity check
