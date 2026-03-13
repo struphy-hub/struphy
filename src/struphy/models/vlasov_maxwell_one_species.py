@@ -129,7 +129,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
     ## abstract methods
 
-    def __init__(self):
+    def __init__(self, measure_gauss_law: bool = False):
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -151,31 +151,15 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         self.add_scalar("en_B")
         self.add_scalar("en_f", compute="from_particles", variable=self.kinetic_ions.var)
         self.add_scalar("en_tot")
+        if measure_gauss_law:
+            self.add_scalar("gauss_error")
 
         # initial Poisson (not a propagator used in time stepping)
         self.initial_poisson = propagators_fields.Poisson()
         self.initial_poisson.variables.phi = self.em_fields.phi
 
         # property to measure violation of gauss law from control variate
-        self.measure_gauss = False
-
-        # create dummy variable to store initial charge accumulation
-        self._charge_accum0 = None
-
-    def measure_gauss_error(self, measure: bool = False):
-        """
-        Record gauss law violation during simulaiton:
-
-        .. math::
-            error(t) = \max(
-                |\mathbb{G}^T\mathbb{M}^1\mathbf{e} -  \mathbf{f}^p|
-                )
-
-        :param measure: if True, measure gauss error throughout the simulation
-        """
-        if measure:
-            self.measure_gauss = True
-            self.add_scalar("gauss_error")
+        self.measure_gauss_law = measure_gauss_law
 
     @property
     def bulk_species(self):
@@ -191,6 +175,9 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         :meta private:
         """
         self._tmp = xp.empty(1, dtype=float)
+        
+        if self.measure_gauss_law:
+            self.op = Propagator.derham.grad.T @ Propagator.mass_ops.M1
 
         if MPI.COMM_WORLD.Get_rank() == 0:
             print("\nINITIAL POISSON SOLVE:")
@@ -203,15 +190,13 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # particles.show_distribution_function([True] + [False]*5, [xp.linspace(0, 1, 32)])
 
         # accumulate charge density
-        charge_accum = AccumulatorVector(
+        self.charge_accum = AccumulatorVector(
             particles,
             "H1",
             Pyccelkernel(accum_kernels.charge_density_0form),
             Propagator.mass_ops,
             Propagator.domain.args_domain,
         )
-        # store initial charge accumulation
-        self._charge_accum0 = charge_accum
 
         # another sanity check: compute FE coeffs of density
         # charge_accum.show_accumulated_spline_field(Propagator.mass_ops)
@@ -219,7 +204,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         alpha = self.kinetic_ions.equation_params.alpha
         epsilon = self.kinetic_ions.equation_params.epsilon
 
-        self.initial_poisson.options.rho = charge_accum
+        self.initial_poisson.options.rho = self.charge_accum
         self.initial_poisson.options.rho_coeffs = alpha**2 / epsilon
         self.initial_poisson.allocate()
 
@@ -239,16 +224,22 @@ class VlasovMaxwellOneSpecies(StruphyModel):
     def calculate_gauss_error(self):
         # control variate method
         particles = self.kinetic_ions.var.particles
-        rhs = self._charge_accum0.vectors[0]
+        particles.update_weights()
+        self.charge_accum()
+        rhs = self.charge_accum.vectors[0]
+        # reset particle weights
+        particles.weights = particles.weights_at_t0.copy()
 
         # non control variate method
-        op = Propagator.derham.grad.T @ Propagator.mass_ops.M1
-
         e = self.em_fields.e_field.spline.vector
-        lhs = op.dot(e)
+        lhs = self.op.dot(e)
 
         # calculate local residual of local MPI rank
         loc_residual = xp.max(xp.abs(lhs.toarray() - rhs.toarray()))
+
+        # print(f"{MPI.COMM_WORLD.Get_rank() = }, {xp.max(xp.abs(lhs.toarray())) = }")
+        # print(f"{MPI.COMM_WORLD.Get_rank() = }, {xp.max(xp.abs(rhs.toarray())) = }")
+        # print(f"{loc_residual = }")
 
         # return the maximum residual across all MPI rank
         subcom_residual = xp.empty(shape=particles.mpi_size, dtype = float)
@@ -289,7 +280,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # en_tot = en_w + en_e
         self.update_scalar("en_tot", en_E + self._tmp[0])
 
-        if self.measure_gauss:
+        if self.measure_gauss_law:
             res = self.calculate_gauss_error()
             self.update_scalar("gauss_error", res)
 
@@ -309,8 +300,8 @@ class VlasovMaxwellOneSpecies(StruphyModel):
                 elif "set_save_data" in line:
                     new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
                     new_file += ["model.kinetic_ions.set_save_data(binning_plots=(binplot,))\n"]
-                elif "model.kinetic_ions.var.save_data = True" in line:
-                    new_file += ["\nmodel.measure_gauss_error(measure = True)\n"]
+                elif "VlasovMaxwellOneSpecies()" in line:
+                    new_file += ["\nmodel = VlasovMaxwellOneSpecies(measure_gauss_law=True)\n"]
                 else:
                     new_file += [line]
 
