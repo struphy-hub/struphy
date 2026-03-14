@@ -28,8 +28,6 @@ we detail the discretization of the Vlasov-Maxwell system implemented in Struphy
    subsections/numerics-sph
    subsections/numerics-time-discrete
    ../markdown/vlasov-maxwell
-   subsections/numerics-pic-classes
-   subsections/numerics-geomFE-classes
 
 
 
