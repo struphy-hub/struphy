@@ -10,8 +10,9 @@ class OptionsBase:
         return {field.name: getattr(self, field.name) for field in fields(type(self)) if field.init}
 
     @classmethod
-    def from_dict(cls, dct) -> "OptionsBase":
-        return cls(**dct)
+    def from_dict(cls, dct) -> "Any":
+        valid_fields = {field.name for field in fields(cls) if field.init}
+        return cls(**{key: value for key, value in dct.items() if key in valid_fields})
 
 
 @dataclass
@@ -107,17 +108,9 @@ class LiteralOptions:
         "heat_flux_3",
     ]
 
-    def to_dict(self) -> dict:
-        return {field.name: getattr(self, field.name) for field in fields(type(self)) if field.init}
-
-    @classmethod
-    def from_dict(cls, dct) -> "LiteralOptions":
-        valid_fields = {field.name for field in fields(cls) if field.init}
-        return cls(**{key: value for key, value in dct.items() if key in valid_fields})
-
 
 @dataclass
-class Time:
+class Time(OptionsBase):
     """Set options for time stepping in parameter/launch files.
 
     Parameters
@@ -151,17 +144,9 @@ class Time:
     def is_default(self):
         return all_class_params_are_default(self)
 
-    def to_dict(self) -> dict:
-        return {field.name: getattr(self, field.name) for field in fields(type(self)) if field.init}
-
-    @classmethod
-    def from_dict(cls, dct) -> "Time":
-        valid_fields = {field.name for field in fields(cls) if field.init}
-        return cls(**{key: value for key, value in dct.items() if key in valid_fields})
-
 
 @dataclass
-class BaseUnits:
+class BaseUnits(OptionsBase):
     """Set base units in parameter/launch files from which other units are derived. See :ref:`normalization`.
 
     Parameters
@@ -198,17 +183,9 @@ class BaseUnits:
     def is_default(self):
         return all_class_params_are_default(self)
 
-    def to_dict(self) -> dict:
-        return {field.name: getattr(self, field.name) for field in fields(type(self)) if field.init}
-
-    @classmethod
-    def from_dict(cls, dct) -> "BaseUnits":
-        valid_fields = {field.name for field in fields(cls) if field.init}
-        return cls(**{key: value for key, value in dct.items() if key in valid_fields})
-
 
 @dataclass
-class DerhamOptions:
+class DerhamOptions(OptionsBase):
     """Set options for the Derham spaces in parameter/launch files. See :ref:`geomFE`.
 
     Parameters
@@ -258,17 +235,9 @@ class DerhamOptions:
     def is_default(self):
         return all_class_params_are_default(self)
 
-    def to_dict(self) -> dict:
-        return {field.name: getattr(self, field.name) for field in fields(type(self)) if field.init}
-
-    @classmethod
-    def from_dict(cls, dct) -> "DerhamOptions":
-        valid_fields = {field.name for field in fields(cls) if field.init}
-        return cls(**{key: value for key, value in dct.items() if key in valid_fields})
-
 
 @dataclass
-class FieldsBackground:
+class FieldsBackground(OptionsBase):
     """Set options for static fluid backgrounds/equilibria in parameter/launch files.
 
     Parameters
@@ -303,17 +272,9 @@ class FieldsBackground:
     def is_default(self):
         return all_class_params_are_default(self)
 
-    def to_dict(self) -> dict:
-        return {field.name: getattr(self, field.name) for field in fields(type(self)) if field.init}
-
-    @classmethod
-    def from_dict(cls, dct) -> "FieldsBackground":
-        valid_fields = {field.name for field in fields(cls) if field.init}
-        return cls(**{key: value for key, value in dct.items() if key in valid_fields})
-
 
 @dataclass
-class EnvironmentOptions:
+class EnvironmentOptions(OptionsBase):
     """Set environment options for launching run on current architecture
     (these options do not influence the simulation result).
 
@@ -372,11 +333,3 @@ class EnvironmentOptions:
     @property
     def is_default(self):
         return all_class_params_are_default(self)
-
-    def to_dict(self) -> dict:
-        return {field.name: getattr(self, field.name) for field in fields(type(self)) if field.init}
-
-    @classmethod
-    def from_dict(cls, dct) -> "EnvironmentOptions":
-        valid_fields = {field.name for field in fields(cls) if field.init}
-        return cls(**{key: value for key, value in dct.items() if key in valid_fields})
