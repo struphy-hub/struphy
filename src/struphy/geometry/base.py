@@ -212,9 +212,9 @@ class Domain(metaclass=DomainMeta):
             self.indN[0],
             self.indN[1],
             self.indN[2],
-            self.cx.copy(),  # make sure we don't have stride = 0
-            self.cy.copy(),  # make sure we don't have stride = 0
-            self.cz.copy(),  # make sure we don't have stride = 0
+            xp.asarray(self.cx.copy(), dtype=float),  # make sure we don't have stride = 0
+            xp.asarray(self.cy.copy(), dtype=float),  # make sure we don't have stride = 0
+            xp.asarray(self.cz.copy(), dtype=float),  # make sure we don't have stride = 0
         )
 
     def __repr__(self):
@@ -280,7 +280,7 @@ class Domain(metaclass=DomainMeta):
     def params_numpy(self, new):
         assert isinstance(new, xp.ndarray)
         assert new.ndim == 1
-        self._params_numpy = new
+        self._params_numpy = xp.asarray(new, dtype=xp.float64)
 
     @property
     def pole(self) -> bool:
@@ -1468,7 +1468,7 @@ class Domain(metaclass=DomainMeta):
         params_numpy = []
         for k, v in self.params.items():
             params_numpy.append(v)
-        return xp.array(params_numpy)
+        return xp.asarray(params_numpy, dtype=xp.float64)
 
     def create_geometry_mesh(
         self,
@@ -2111,7 +2111,7 @@ class PoloidalSplineStraight(PoloidalSpline):
             cx[0] = 0.0
             cy[0] = 0.0
 
-        self.params_numpy = xp.array([Lz])
+        self.params_numpy = xp.array([Lz], dtype=xp.float64)
         self.periodic_eta3 = False
 
         # init base class
@@ -2161,7 +2161,7 @@ class PoloidalSplineTorus(PoloidalSpline):
     ):
         # use setters for mapping attributes
         self.kind_map = 2
-        self.params_numpy = xp.array([float(tor_period)])
+        self.params_numpy = xp.array([float(tor_period)], dtype=xp.float64)
         self.periodic_eta3 = True
 
         # get default control points
