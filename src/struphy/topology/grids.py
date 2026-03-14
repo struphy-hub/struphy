@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Tuple
+
 import numpy as np
 
 from struphy.utils.utils import __dataclass_repr_no_defaults__, all_class_params_are_default
