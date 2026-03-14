@@ -1,9 +1,17 @@
 import os
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
+from dataclasses import fields
 
 from struphy.utils.utils import __dataclass_repr_no_defaults__, all_class_params_are_default, check_option
 
+class OptionsBase:
+    def to_dict(self) -> dict:
+        return {field.name: getattr(self, field.name) for field in fields(type(self)) if field.init}
+
+    @classmethod
+    def from_dict(cls, dct) -> "OptionsBase":
+        return cls(**dct)
 
 @dataclass
 class LiteralOptions:
@@ -98,13 +106,20 @@ class LiteralOptions:
         "heat_flux_3",
     ]
 
+    # def to_dict(self) -> dict:
+    #     dct = {k: v for k, v in self.__dict__.items()}
+    #     return dct
+
+    # @classmethod
+    # def from_dict(cls, dct) -> "LiteralOptions":
+    #     return cls(**dct)
     def to_dict(self) -> dict:
-        dct = {k: v for k, v in self.__dict__.items()}
-        return dct
+        return {field.name: getattr(self, field.name) for field in fields(type(self)) if field.init}
 
     @classmethod
     def from_dict(cls, dct) -> "LiteralOptions":
-        return cls(**dct)
+        valid_fields = {field.name for field in fields(cls) if field.init}
+        return cls(**{key: value for key, value in dct.items() if key in valid_fields})
 
 
 @dataclass
@@ -142,21 +157,28 @@ class Time:
     def is_default(self):
         return all_class_params_are_default(self)
 
+    # def to_dict(self) -> dict:
+    #     dct = {
+    #         "dt": self.dt,
+    #         "Tend": self.Tend,
+    #         "split_algo": self.split_algo,
+    #     }
+    #     return dct
+
+    # @classmethod
+    # def from_dict(cls, dct) -> "Time":
+    #     return cls(
+    #         dt=dct["dt"],
+    #         Tend=dct["Tend"],
+    #         split_algo=dct["split_algo"],
+    #     )
     def to_dict(self) -> dict:
-        dct = {
-            "dt": self.dt,
-            "Tend": self.Tend,
-            "split_algo": self.split_algo,
-        }
-        return dct
+        return {field.name: getattr(self, field.name) for field in fields(type(self)) if field.init}
 
     @classmethod
     def from_dict(cls, dct) -> "Time":
-        return cls(
-            dt=dct["dt"],
-            Tend=dct["Tend"],
-            split_algo=dct["split_algo"],
-        )
+        valid_fields = {field.name for field in fields(cls) if field.init}
+        return cls(**{key: value for key, value in dct.items() if key in valid_fields})
 
 
 @dataclass
@@ -197,23 +219,30 @@ class BaseUnits:
     def is_default(self):
         return all_class_params_are_default(self)
 
+    # def to_dict(self) -> dict:
+    #     dct = {
+    #         "x": self.x,
+    #         "B": self.B,
+    #         "n": self.n,
+    #         "kBT": self.kBT,
+    #     }
+    #     return dct
+
+    # @classmethod
+    # def from_dict(cls, dct) -> "BaseUnits":
+    #     return cls(
+    #         x=dct["x"],
+    #         B=dct["B"],
+    #         n=dct["n"],
+    #         kBT=dct.get("kBT", None),
+    #     )
     def to_dict(self) -> dict:
-        dct = {
-            "x": self.x,
-            "B": self.B,
-            "n": self.n,
-            "kBT": self.kBT,
-        }
-        return dct
+        return {field.name: getattr(self, field.name) for field in fields(type(self)) if field.init}
 
     @classmethod
     def from_dict(cls, dct) -> "BaseUnits":
-        return cls(
-            x=dct["x"],
-            B=dct["B"],
-            n=dct["n"],
-            kBT=dct.get("kBT", None),
-        )
+        valid_fields = {field.name for field in fields(cls) if field.init}
+        return cls(**{key: value for key, value in dct.items() if key in valid_fields})
 
 
 @dataclass
@@ -267,29 +296,36 @@ class DerhamOptions:
     def is_default(self):
         return all_class_params_are_default(self)
 
+    # def to_dict(self) -> dict:
+    #     dct = {
+    #         "p": self.p,
+    #         "spl_kind": self.spl_kind,
+    #         "dirichlet_bc": self.dirichlet_bc,
+    #         "nquads": self.nquads,
+    #         "nq_pr": self.nq_pr,
+    #         "polar_ck": self.polar_ck,
+    #         "local_projectors": self.local_projectors,
+    #     }
+    #     return dct
+
+    # @classmethod
+    # def from_dict(cls, dct) -> "DerhamOptions":
+    #     return cls(
+    #         p=dct["p"],
+    #         spl_kind=dct["spl_kind"],
+    #         dirichlet_bc=dct["dirichlet_bc"],
+    #         nquads=dct["nquads"],
+    #         nq_pr=dct["nq_pr"],
+    #         polar_ck=dct["polar_ck"],
+    #         local_projectors=dct["local_projectors"],
+    #     )
     def to_dict(self) -> dict:
-        dct = {
-            "p": self.p,
-            "spl_kind": self.spl_kind,
-            "dirichlet_bc": self.dirichlet_bc,
-            "nquads": self.nquads,
-            "nq_pr": self.nq_pr,
-            "polar_ck": self.polar_ck,
-            "local_projectors": self.local_projectors,
-        }
-        return dct
+        return {field.name: getattr(self, field.name) for field in fields(type(self)) if field.init}
 
     @classmethod
     def from_dict(cls, dct) -> "DerhamOptions":
-        return cls(
-            p=dct["p"],
-            spl_kind=dct["spl_kind"],
-            dirichlet_bc=dct["dirichlet_bc"],
-            nquads=dct["nquads"],
-            nq_pr=dct["nq_pr"],
-            polar_ck=dct["polar_ck"],
-            local_projectors=dct["local_projectors"],
-        )
+        valid_fields = {field.name for field in fields(cls) if field.init}
+        return cls(**{key: value for key, value in dct.items() if key in valid_fields})
 
 
 @dataclass
@@ -328,21 +364,28 @@ class FieldsBackground:
     def is_default(self):
         return all_class_params_are_default(self)
 
+    # def to_dict(self) -> dict:
+    #     dct = {
+    #         "type": self.type,
+    #         "values": self.values,
+    #         "variable": self.variable,
+    #     }
+    #     return dct
+
+    # @classmethod
+    # def from_dict(cls, dct) -> "FieldsBackground":
+    #     return cls(
+    #         type=dct["type"],
+    #         values=dct["values"],
+    #         variable=dct["variable"],
+    #     )
     def to_dict(self) -> dict:
-        dct = {
-            "type": self.type,
-            "values": self.values,
-            "variable": self.variable,
-        }
-        return dct
+        return {field.name: getattr(self, field.name) for field in fields(type(self)) if field.init}
 
     @classmethod
     def from_dict(cls, dct) -> "FieldsBackground":
-        return cls(
-            type=dct["type"],
-            values=dct["values"],
-            variable=dct["variable"],
-        )
+        valid_fields = {field.name for field in fields(cls) if field.init}
+        return cls(**{key: value for key, value in dct.items() if key in valid_fields})
 
 
 @dataclass
@@ -406,30 +449,24 @@ class EnvironmentOptions:
     def is_default(self):
         return all_class_params_are_default(self)
 
+    # def to_dict(self) -> dict:
+    #     dct = {
+    #         "out_folders": self.out_folders,
+    #         "sim_folder": self.sim_folder,
+    #         "restart": self.restart,
+    #         "max_runtime": self.max_runtime,
+    #         "save_step": self.save_step,
+    #         "sort_step": self.sort_step,
+    #         "num_clones": self.num_clones,
+    #         "profiling_activated": self.profiling_activated,
+    #         "profiling_trace": self.profiling_trace,
+    #     }
+    #     return dct
+
     def to_dict(self) -> dict:
-        dct = {
-            "out_folders": self.out_folders,
-            "sim_folder": self.sim_folder,
-            "restart": self.restart,
-            "max_runtime": self.max_runtime,
-            "save_step": self.save_step,
-            "sort_step": self.sort_step,
-            "num_clones": self.num_clones,
-            "profiling_activated": self.profiling_activated,
-            "profiling_trace": self.profiling_trace,
-        }
-        return dct
+        return {field.name: getattr(self, field.name) for field in fields(type(self)) if field.init}
 
     @classmethod
     def from_dict(cls, dct) -> "EnvironmentOptions":
-        return cls(
-            out_folders=dct["out_folders"],
-            sim_folder=dct["sim_folder"],
-            restart=dct["restart"],
-            max_runtime=dct["max_runtime"],
-            save_step=dct["save_step"],
-            sort_step=dct["sort_step"],
-            num_clones=dct["num_clones"],
-            profiling_activated=dct["profiling_activated"],
-            profiling_trace=dct["profiling_trace"],
-        )
+        valid_fields = {field.name for field in fields(cls) if field.init}
+        return cls(**{key: value for key, value in dct.items() if key in valid_fields})
