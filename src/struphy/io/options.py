@@ -7,12 +7,12 @@ from struphy.utils.utils import __dataclass_repr_no_defaults__, all_class_params
 
 class OptionsBase:
     def to_dict(self) -> dict:
-        """Convert dataclass instance to dictionary, including only fields that are initialized (i.e., not default values)."""
+        """Convert dataclass instance to dictionary."""
         return {field.name: getattr(self, field.name) for field in fields(type(self)) if field.init}
 
     @classmethod
     def from_dict(cls, dct) -> "Any":
-        """Create dataclass instance from dictionary, including only fields that are initialized (i.e., not default values)."""
+        """Create dataclass instance from dictionary."""
         valid_fields = {field.name for field in fields(cls) if field.init}
         return cls(**{key: value for key, value in dct.items() if key in valid_fields})
 
