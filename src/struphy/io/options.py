@@ -13,8 +13,15 @@ class OptionsBase:
     @classmethod
     def from_dict(cls, dct) -> "Any":
         """Create dataclass instance from dictionary."""
+        def _lists_to_tuples(value):
+            if isinstance(value, list):
+                return tuple(_lists_to_tuples(item) for item in value)
+            if isinstance(value, dict):
+                return {key: _lists_to_tuples(item) for key, item in value.items()}
+            return value
+
         valid_fields = {field.name for field in fields(cls) if field.init}
-        return cls(**{key: value for key, value in dct.items() if key in valid_fields})
+        return cls(**{key: _lists_to_tuples(value) for key, value in dct.items() if key in valid_fields})
 
 
 @dataclass
