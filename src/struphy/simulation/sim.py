@@ -1457,7 +1457,11 @@ RESTARTing from:
         dct = convert_lists_to_tuples(dct)
         return cls.from_dict(dct)
 
-    def generate_script(self, include_main_guard: bool = False) -> str:
+    def generate_script(
+        self,
+        include_main_guard: bool = False,
+        include_defaults: bool = False,
+    ) -> str:
         """Generate a Python script that can be used to reproduce the simulation."""
 
         script = f"""
@@ -1486,26 +1490,26 @@ from struphy.models import {self.model.__class__.__name__}
         sim_class_def += "model=model,"
 
         # Only include parameters that are not default to avoid cluttering the script with unnecessary lines
-        if not self.env.is_default:
+        if not self.env.is_default or include_defaults:
             sim_setup += f"env = {self.env.__repr_no_defaults__()}\n"
             sim_class_def += "env=env,"
-        if not self.base_units.is_default:
+        if not self.base_units.is_default or include_defaults:
             sim_setup += f"base_units = {self.base_units.__repr_no_defaults__()}\n"
             sim_class_def += "base_units=base_units,"
-        if not self.time_opts.is_default:
+        if not self.time_opts.is_default or include_defaults:
             sim_setup += f"time_opts = {self.time_opts.__repr_no_defaults__()}\n"
             sim_class_def += "time_opts=time_opts,"
-        if not self.domain.is_default:
+        if not self.domain.is_default or include_defaults:
             sim_setup += f"domain = domains.{self.domain.__repr_no_defaults__()}\n"
             sim_class_def += "domain=domain,"
         # This is a bit of a special case since the default is None,
         if self.equil is not None:
             sim_setup += f"equil = equils.{self.equil.__repr_no_defaults__()}\n"
             sim_class_def += "equil=equil,"
-        if not self.grid.is_default:
+        if not self.grid.is_default or include_defaults:
             sim_setup += f"grid = grids.{self.grid.__repr_no_defaults__()}\n"
             sim_class_def += "grid=grid,"
-        if not self.derham_opts.is_default:
+        if not self.derham_opts.is_default or include_defaults:
             sim_setup += f"derham_opts = {self.derham_opts.__repr_no_defaults__()}\n"
             sim_class_def += "derham_opts=derham_opts,"
         if self.params_path is not None:
