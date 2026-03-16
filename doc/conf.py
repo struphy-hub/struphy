@@ -49,6 +49,7 @@ extensions = [
     "sphinx_design",
     "sphinx_copybutton",
     "rst_docstring",  # Custom extension to use __doc_rst__
+    "sphinx_collections",
 ]
 
 nbsphinx_execute = "auto"
@@ -59,6 +60,16 @@ napoleon_use_admonition_for_notes = True
 napoleon_use_admonition_for_references = True
 napoleon_use_ivar = True
 napoleon_attr_annotations = False
+
+# Set path to outside sources for sphinxcontrib-collections. 
+collections = {
+    'notebooks': {
+        'driver': 'copy_folder',
+        'source': '../tutorials/',
+        'target': 'tutorials/',
+        'ignore': ['*.py', '.sh'],
+    }
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]

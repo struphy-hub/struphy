@@ -80,5 +80,5 @@ jobs:
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           ls /struphy_fortran_
-          cd /struphy_fortran_/doc/tutorials
+          cd /struphy_fortran_/tutorials
           jupyter nbconvert --execute --to html tutorial_*.ipynb
