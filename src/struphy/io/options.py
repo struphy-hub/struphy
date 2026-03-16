@@ -291,6 +291,11 @@ class DerhamOptions:
     dirichlet_bc : tuple[tuple[bool]]
         Whether to apply homogeneous Dirichlet boundary conditions (at left or right boundary in each direction).
 
+    lifting : tuple[tuple[bool]]
+        Whether to build a constrained (v0) sub-complex with additional clamping on each face.
+        Used for inhomogeneous Dirichlet BCs: the v0 complex clamps faces where
+        lifting is True, and the propagator builds a lift in the unconstrained space.
+
     nquads : tuple[int]
         Number of Gauss-Legendre quadrature points in each direction (default = p, leads to exact integration of degree 2p-1 polynomials).
 
@@ -307,6 +312,7 @@ class DerhamOptions:
     p: tuple = (1, 1, 1)
     spl_kind: tuple = (True, True, True)
     dirichlet_bc: tuple = ((False, False), (False, False), (False, False))
+    lifting: tuple = ((False, False), (False, False), (False, False))
     nquads: tuple = None
     nq_pr: tuple = None
     polar_ck: LiteralOptions.PolarRegularity = -1
@@ -332,6 +338,7 @@ class DerhamOptions:
             "p": self.p,
             "spl_kind": self.spl_kind,
             "dirichlet_bc": self.dirichlet_bc,
+            "lifting": self.lifting,
             "nquads": self.nquads,
             "nq_pr": self.nq_pr,
             "polar_ck": self.polar_ck,
@@ -345,6 +352,7 @@ class DerhamOptions:
             p=dct["p"],
             spl_kind=dct["spl_kind"],
             dirichlet_bc=dct["dirichlet_bc"],
+            lifting=dct.get("lifting", ((False, False), (False, False), (False, False))),
             nquads=dct["nquads"],
             nq_pr=dct["nq_pr"],
             polar_ck=dct["polar_ck"],

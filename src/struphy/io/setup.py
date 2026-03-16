@@ -75,11 +75,14 @@ def setup_derham(
     # local commuting projectors
     local_projectors = options.local_projectors
 
+    lifting = options.lifting
+
     derham = Derham(
         Nel,
         p,
         spl_kind,
         dirichlet_bc=dirichlet_bc,
+        lifting=lifting,
         nquads=nquads,
         nq_pr=nq_pr,
         comm=comm,
@@ -89,6 +92,7 @@ def setup_derham(
         domain=domain,
         local_projectors=local_projectors,
     )
+
 
     if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
         print("\nDERHAM:")

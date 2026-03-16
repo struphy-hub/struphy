@@ -98,6 +98,7 @@ class Derham:
         spl_kind: list | tuple,
         *,
         dirichlet_bc: list | tuple = None,
+        lifting: list | tuple = None,
         nquads: list | tuple = None,
         nq_pr: list | tuple = None,
         comm=None,
@@ -124,6 +125,41 @@ class Derham:
             assert xp.all([bc == (False, False) for i, bc in enumerate(dirichlet_bc) if spl_kind[i]])
 
         self._dirichlet_bc = dirichlet_bc
+
+        # --- lifting: build constrained (v0) sub-complex ---
+        self._lifting = lifting
+        if lifting is not None:
+            assert len(lifting) == 3
+            # lifting only makes sense on non-periodic axes
+            for d in range(3):
+                if spl_kind[d]:
+                    assert lifting[d] == (False, False), \
+                        f"Axis {d} is periodic, lifting must be (False, False)"
+
+            # v0 dirichlet_bc = dirichlet_bc OR lifting
+            if dirichlet_bc is not None:
+                v0_dirichlet_bc = tuple(
+                    (d_l or l_l, d_r or l_r)
+                    for (d_l, d_r), (l_l, l_r) in zip(dirichlet_bc, lifting)
+                )
+            else:
+                v0_dirichlet_bc = lifting
+
+            self._derham_v0 = Derham(
+                Nel, p, spl_kind,
+                dirichlet_bc=v0_dirichlet_bc,
+                nquads=nquads,
+                nq_pr=nq_pr,
+                comm=comm,
+                mpi_dims_mask=mpi_dims_mask,
+                with_projectors=with_projectors,
+                polar_ck=polar_ck,
+                local_projectors=self.with_local_projectors,
+                domain=domain,
+            )
+        else:
+            self._derham_v0 = None
+
 
         # default p: exact integration of degree 2p+1 polynomials
         if nquads is None:
@@ -541,6 +577,10 @@ class Derham:
             self.Vh_fem["0"].knots[2],
             xp.array(self.Vh["0"].starts),
         )
+
+    @property
+    def derham_v0(self):
+        return self._derham_v0
 
     @property
     def Nel(self):
