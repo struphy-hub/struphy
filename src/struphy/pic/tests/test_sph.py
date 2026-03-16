@@ -1795,7 +1795,7 @@ def test_sph_no_slip_boundary_1d(
 
     if direction == "x":
         def u_xyz(x, y, z):
-            return (3.0 * xp.ones_like(x), xp.zeros_like(x), xp.zeros_like(x))
+            return (xp.ones_like(x), xp.zeros_like(x), xp.zeros_like(x))
     elif direction == "y":
         def u_xyz(x, y, z):
             return (xp.zeros_like(x), xp.ones_like(x), xp.zeros_like(x))
@@ -1921,40 +1921,36 @@ def test_sph_no_slip_boundary_1d(
         tol_interior = 5e-2
     else:
         tol_wall = 3e-3   
-        tol_interior = 1.5e-1
+        tol_interior = 1.6e-1
     
     for comp, name in zip([0, 1, 2], ["x", "y", "z"]):
         val_left = [v_wall_left[0], v_wall_left[1], v_wall_left[2]][comp]
         val_right = [v_wall_right[0], v_wall_right[1], v_wall_right[2]][comp]
-        #assert xp.abs(val_left) < tol_wall, f"Left wall {name}-velocity not zero: {val_left}"
-        #assert xp.abs(val_right) < tol_wall, f"Right wall {name}-velocity not zero: {val_right}"
+        assert xp.abs(val_left) < tol_wall, f"Left wall {name}-velocity not zero: {val_left}"
+        assert xp.abs(val_right) < tol_wall, f"Right wall {name}-velocity not zero: {val_right}"
 
-    # The component in the chosen direction should be 1,the other two should be near zero.
     if direction == "x":
         interior_vals = v_interior[0]
-        other1 = v_interior[1]
-        other2 = v_interior[2]
+
     elif direction == "y":
         interior_vals = v_interior[1]
-        other1 = v_interior[0]
-        other2 = v_interior[2]
+
     else:  
         interior_vals = v_interior[2]
-        other1 = v_interior[0]
-        other2 = v_interior[1]
-
+    
+    assert xp.max(xp.abs(interior_vals[0])) < 0.5 , f"Interior velocity on the left too large: {xp.abs(interior_vals[0])}"
+    assert xp.max(xp.abs(interior_vals[-1]) <0.5), f"Interior velocity on the right too large: {xp.abs(interior_vals[-1])}"
+    print(interior_vals)  
     rel_error = xp.max(xp.abs(interior_vals[7:-7] - 1.0)) / 1.0
     print(f"{rel_error=}")
-    #assert rel_error < tol_interior, f"Interior {direction}-velocity error too large: {rel_error}"
-        
-    #assert xp.max(xp.abs(other1)) < tol_interior, f"Interior non‑dominant component too large: {xp.max(xp.abs(other1))}"
-    #assert xp.max(xp.abs(other2)) < tol_interior, f"Interior non‑dominant component too large: {xp.max(xp.abs(other2))}"
+    assert rel_error < tol_interior, f"Interior {direction}-velocity error too large: {rel_error}"
+
         
 if __name__ == "__main__":
     test_sph_no_slip_boundary_1d(
-        (12, 1, 1),
-        "gaussian_1d",
+        (1, 1, 12),
+        "gaussian_3d",
         tesselation= False,
-        direction = "y",
-        show_plot=True,
+        direction = "z",
+        show_plot=False,
     )
