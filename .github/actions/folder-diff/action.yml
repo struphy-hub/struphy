@@ -1,0 +1,22 @@
+name: Get diff in folder to decide testing
+
+description: ""
+
+inputs:
+  folder-name:
+    description: ""
+    required: true
+    default: examples
+
+runs:
+  using: composite
+  steps:
+    - name: Check for changes in folder
+      shell: bash
+      run: |
+        git diff --name-only origin/devel HEAD 
+        if git diff --name-only origin/devel HEAD -- ${{ inputs.folder-name }} | grep -q .; then
+          echo "FOLDER_CHANGED=true" >> $GITHUB_ENV
+          echo "FOLDER_NAME=${{ inputs.folder-name }}" >> $GITHUB_ENV
+          exit 0
+        fi

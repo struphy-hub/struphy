@@ -34,34 +34,34 @@ jobs:
           submodules: true  # This is crucial!
           fetch-depth: 5
 
-      - name: Get submodule diff
-        uses: ./.github/actions/submodule-diff
+      - name: Get folder diff
+        uses: ./.github/actions/folder-diff
         with:
-          submod-name: doc/tutorials
+          folder-name: doc/tutorials
 
       - name: Install Struphy in Container
-        if: env.SUBMOD_CHANGED == 'true'  
+        if: env.FOLDER_CHANGED == 'true'  
         uses: ./.github/actions/install/struphy_in_container
 
       - name: Reinstall feectools from submodule    
-        if: env.SUBMOD_CHANGED == 'true'
+        if: env.FOLDER_CHANGED == 'true'
         uses: ./.github/actions/install/feectools-submodule
         with:
           env-name: /struphy_fortran_/env_fortran_
 
       - name: Compile Struphy
-        if: env.SUBMOD_CHANGED == 'true'
+        if: env.FOLDER_CHANGED == 'true'
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           struphy compile
       
       - name: Run workflow if submodule changed (all PR commits)
-        if: env.SUBMOD_CHANGED == 'true'
+        if: env.FOLDER_CHANGED == 'true'
         env:
           PYVISTA_OFF_SCREEN: "true"
           PYVISTA_JUPYTER_BACKEND: "static"
         run: |
-          echo "${{ env.SUBMOD_NAME }} has changed, running tests..."
+          echo "${{ env.FOLDER_NAME }} has changed, running tests..."
           ls
           source /struphy_fortran_/env_fortran_/bin/activate
           ls /struphy_fortran_
