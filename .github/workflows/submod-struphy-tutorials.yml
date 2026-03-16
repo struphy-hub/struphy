@@ -27,7 +27,7 @@ jobs:
       - name: Get submodule diff
         uses: ./.github/actions/submodule-diff
         with:
-          submod-name: struphy-tutorials
+          submod-name: doc/tutorials/tutorial_*
           
       - name: Install prerequisites (Ubuntu)
         if: env.SUBMOD_CHANGED == 'true'
@@ -57,5 +57,5 @@ jobs:
         run: |
           echo "${{ env.SUBMOD_NAME }} has changed, running tests..."
           ls
-          cd struphy-tutorials
+          cd doc/tutorials
           jupyter nbconvert --execute --to html tutorial_*.ipynb
