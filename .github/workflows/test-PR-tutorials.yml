@@ -73,11 +73,12 @@ jobs:
           source /struphy_fortran_/env_fortran_/bin/activate
           struphy compile
       
-      - name: Run workflow if submodule changed (all PR commits)
+      - name: Run tutorials
         env:
           PYVISTA_OFF_SCREEN: "true"
           PYVISTA_JUPYTER_BACKEND: "static"
         run: |
+          source /struphy_fortran_/env_fortran_/bin/activate
           ls /struphy_fortran_
           cd /struphy_fortran_/doc/tutorials
           jupyter nbconvert --execute --to html tutorial_*.ipynb
