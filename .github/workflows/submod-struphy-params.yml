@@ -1,4 +1,4 @@
-name: Submodule struphy-parameter-files
+name: PR - Regression tests
 
 on:
   pull_request:
@@ -58,41 +58,28 @@ jobs:
       - name: Install Struphy in Container 
         uses: ./.github/actions/install/struphy_in_container
 
-      - name: Get folder diff
-        uses: ./.github/actions/folder-diff
-        with:
-          folder-name: examples
-
       - name: Reinstall feectools from submodule    
-        if: env.FOLDER_CHANGED == 'true'
         uses: ./.github/actions/install/feectools-submodule
         with:
           env-name: /struphy_fortran_/env_fortran_
 
       - name: Compile Struphy
-        if: env.FOLDER_CHANGED == 'true'
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           struphy compile
           
       - name: Run regression tests (serial)
-        if: env.FOLDER_CHANGED == 'true'
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-regression
         run: |
-          echo "${{ env.FOLDER_NAME }} has changed, running test..."
-          ls
           source /struphy_fortran_/env_fortran_/bin/activate
           ls /struphy_fortran_
           pytest -m regression -xvs /struphy_fortran_/src/struphy
 
       - name: Run regression tests (parallel)
-        if: env.FOLDER_CHANGED == 'true'
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-regression-mpi
         run: |
-          echo "${{ env.FOLDER_NAME }} has changed, running test..."
-          ls
           source /struphy_fortran_/env_fortran_/bin/activate
           mpirun -n 1 pytest -m single --testmon-forceselect -xvs --with-mpi --model-name Maxwell /struphy_fortran_/src/struphy
           mpirun -n 2 pytest -m regression --testmon-forceselect -xvs --with-mpi /struphy_fortran_/src/struphy
