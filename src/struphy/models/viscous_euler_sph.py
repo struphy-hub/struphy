@@ -86,7 +86,6 @@ class ViscousEulerSPH(StruphyModel):
     ## abstract methods
 
     def __init__(self, with_B0: bool = True, with_p: bool = True, with_viscosity: bool = True):
-
         self.with_B0 = with_B0
         self.with_p = with_p
         self.with_viscosity = with_viscosity

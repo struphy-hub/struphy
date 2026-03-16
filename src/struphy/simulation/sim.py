@@ -120,7 +120,6 @@ class Simulation(SimulationBase):
         derham_opts: DerhamOptions = DerhamOptions(),
         verbose: bool = False,
     ):
-
         self._model = model
         self._params_path = params_path
         self._env = env

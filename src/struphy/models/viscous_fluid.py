@@ -78,7 +78,6 @@ class ViscousFluid(StruphyModel):
     ## abstract methods
 
     def __init__(self, with_viscosity: bool = True):
-
         # 1. instantiate all species
         self.fluid = self.Fluid()
 

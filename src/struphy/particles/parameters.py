@@ -147,7 +147,7 @@ class BoundaryParameters:
     bc_sph : tuple[LiteralOptions.OptsRecontructBC], default=("periodic", "periodic", "periodic")
         Boundary conditions for SPH kernel reconstruction in each spatial direction.
         Typically matches or differs from ``bc`` depending on reconstruction needs.
-        
+
     mean_velocity_index : int, optional
         If any boundary condition is 'noslip', this index specifies the position in the marker array
         where the mean velocity for the noslip condition is stored.
@@ -164,6 +164,7 @@ class BoundaryParameters:
         self.bc_refill = bc_refill
         self.bc_sph = bc_sph
         self.mean_velocity_index = mean_velocity_index
+
 
 class BinningPlot:
     """Configuration for particle phase-space binning and histogram generation.

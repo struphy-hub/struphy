@@ -208,7 +208,6 @@ class PostProcessor:
         sim: "Simulation" = None,
         path_out: str = None,
     ):
-
         # create post-processing folder
         if sim is None:
             assert path_out is not None, (
@@ -403,7 +402,6 @@ class PostProcessor:
         classify: bool = False,
         verbose: bool = False,
     ):
-
         if self.exist_particles is None:
             print("\nNo kinetic data found in hdf5 file, skipping post-processing of kinetic data.")
             return
@@ -1131,7 +1129,6 @@ class PlottingData:
     """
 
     def __init__(self, sim: "Simulation" = None, path_out: str = None):
-
         if sim is None:
             assert path_out is not None, (
                 "If no sim object is provided, a path_out must be given to retrieve the parameters of the run to post-process."

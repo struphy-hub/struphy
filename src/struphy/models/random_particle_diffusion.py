@@ -58,7 +58,6 @@ class RandomParticleDiffusion(StruphyModel):
     ## abstract methods
 
     def __init__(self):
-
         # 1. instantiate all species
         self.hydrogen = self.Hydrogen()
 
