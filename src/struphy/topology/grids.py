@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Tuple
 
 import numpy as np
 
@@ -11,16 +12,16 @@ class TensorProductGrid:
 
     Parameters
     ----------
-    Nel : tuple[int]
+    Nel : Tuple[int, int, int]
         Number of elements in each direction.
 
-    mpi_dims_mask: Tuple of bool
+    mpi_dims_mask: Tuple[bool, bool, bool]
         True if the dimension is to be used in the domain decomposition (=default for each dimension).
         If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
     """
 
-    Nel: tuple = (24, 10, 1)
-    mpi_dims_mask: tuple = (True, True, True)
+    Nel: Tuple[int, int, int] = (24, 10, 1)
+    mpi_dims_mask: Tuple[bool, bool, bool] = (True, True, True)
 
     def __str__(self):
         for k, v in self.__dict__.items():
@@ -44,6 +45,6 @@ class TensorProductGrid:
     @classmethod
     def from_dict(cls, dct) -> "TensorProductGrid":
         return cls(
-            Nel=dct["Nel"],
-            mpi_dims_mask=dct["mpi_dims_mask"],
+            Nel=tuple(dct["Nel"]),
+            mpi_dims_mask=tuple(dct["mpi_dims_mask"]),
         )
