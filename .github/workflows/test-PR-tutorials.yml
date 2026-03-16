@@ -1,4 +1,4 @@
-name: PR - Tutorial tests
+name: PR - tutorial tests in Container
 
 on:
   pull_request:
@@ -17,6 +17,13 @@ defaults:
 jobs:
   check-submodule-changes:
     runs-on: ubuntu-latest
+
+    container:
+      image: ghcr.io/struphy-hub/struphy/ubuntu-with-struphy:latest
+      credentials:
+        username: spossann
+        password: ${{ secrets.GHCR_TOKEN }}
+
     steps:
       - name: Check for dockerenv file
         run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)

@@ -1,4 +1,4 @@
-name: PR - Regression tests
+name: PR - regression tests in Container
 
 on:
   pull_request:
