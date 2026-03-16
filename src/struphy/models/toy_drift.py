@@ -147,7 +147,7 @@ class ToyDrift(StruphyModel):
 
         self.propagators.gc_poisson.options.sigma_1 = 1e-8
         self.propagators.gc_poisson.options.sigma_2 = 0.0
-        self.propagators.gc_poisson.options.sigma_3 = 1.0 #/ epsilon
+        self.propagators.gc_poisson.options.sigma_3 = 1.0
         self.propagators.gc_poisson.options.stab_mat = "M0ad"
         self.propagators.gc_poisson.options.diffusion_mat = "M1perp"
         self.propagators.gc_poisson.options.rho = rho
@@ -161,9 +161,6 @@ class ToyDrift(StruphyModel):
         # energy from polarization
         e1 = Propagator.derham.grad.dot(-phi, out=self._e_field)
         en_phi1 = 0.5 * Propagator.mass_ops.M1gyro.dot_inner(e1, e1)
-
-        # energy from adiabatic electrons
-        en_phi = 0.5 / epsilon**2 * Propagator.mass_ops.M0ad.dot_inner(phi, phi)
 
         # for Landau damping test
         # en_phi = 0.
@@ -180,9 +177,9 @@ class ToyDrift(StruphyModel):
             )
         )
 
-        self.update_scalar("en_phi", en_phi + en_phi1)
+        self.update_scalar("en_phi", en_phi1)
         self.update_scalar("en_particles", self._tmp3[0])
-        self.update_scalar("en_tot", en_phi + en_phi1 + self._tmp3[0])
+        self.update_scalar("en_tot", en_phi1 + self._tmp3[0])
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
@@ -205,8 +202,3 @@ class ToyDrift(StruphyModel):
         with open(params_path, "w") as f:
             for line in new_file:
                 f.write(line)
-
-
-# sigma 2 => 0 #
-# divide_by dt = 0
-# sigma 1 = 10-8
