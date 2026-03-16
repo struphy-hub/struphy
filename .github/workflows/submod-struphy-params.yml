@@ -45,42 +45,16 @@ jobs:
         with:
           language: c
           
-      - name: Run weak Landau damping
+      - name: Run regression tests (serial)
         if: env.SUBMOD_CHANGED == 'true'
         run: |
           echo "${{ env.SUBMOD_NAME }} has changed, running test..."
           ls
-          cd struphy-parameter-files/VlasovAmpereOneSpecies/weak_Landau_damping
-          ls
-          mpirun -n 2 python params_weak_Landau_damping.py
-          python pproc_weak_Landau_damping.py 
+          pytest src/struphy/models/tests/test_regression.py -xvs
 
-      - name: Run strong Landau damping
+      - name: Run regression tests (parallel)
         if: env.SUBMOD_CHANGED == 'true'
         run: |
           echo "${{ env.SUBMOD_NAME }} has changed, running test..."
           ls
-          cd struphy-parameter-files/VlasovAmpereOneSpecies/strong_Landau_damping
-          ls
-          mpirun -n 2 python params_strong_Landau_damping.py
-          python pproc_strong_Landau_damping.py
-
-      - name: Run two-stream instability
-        if: env.SUBMOD_CHANGED == 'true'
-        run: |
-          echo "${{ env.SUBMOD_NAME }} has changed, running test..."
-          ls
-          cd struphy-parameter-files/VlasovAmpereOneSpecies/two_stream
-          ls
-          mpirun -n 2 python params_two_stream.py
-          python pproc_two_stream.py
-
-      - name: Run bump-on-tail instability
-        if: env.SUBMOD_CHANGED == 'true'
-        run: |
-          echo "${{ env.SUBMOD_NAME }} has changed, running test..."
-          ls
-          cd struphy-parameter-files/VlasovAmpereOneSpecies/bump_on
-          ls
-          mpirun -n 2 python params_bump_on.py
-          python pproc_bump_on.py
+          mpirun -n 2 pytest --with-mpi src/struphy/models/tests/test_regression.py -xvs
