@@ -1264,6 +1264,37 @@ class Shear_z(Perturbation):
         return val
 
 
+class GaussianBlobEta1(Perturbation):
+    r"""Gaussian blob in eta1.
+
+    .. math::
+
+        u(\eta_1, \eta_2, \eta_3) = A \exp \left(- \frac{(\eta_1 - 0.5)^2}{2 \sigma^2} \right) \,.
+    """
+    def __init__(
+        self,
+        center: float = 0.5,
+        amp: float = 1e-1,
+        sigma: float = 0.1,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
+        comp: int = 0,
+    ):
+        if given_in_basis is not None:
+            assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
+
+        self._center = center
+        self._amp = amp
+        self._sigma = sigma
+
+        # use the setters
+        self.given_in_basis = given_in_basis
+        self.comp = comp
+
+    def __call__(self, e1, e2, e3):
+        val = self._amp * xp.exp(-(e1 - self._center)**2 / (2.0 * self._sigma**2))
+        return val
+
+
 class Erf_z(Perturbation):
     r"""Shear layer in eta3 (-1 in lower regions, 1 in upper regions).
 

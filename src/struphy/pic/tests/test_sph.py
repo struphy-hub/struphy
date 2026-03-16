@@ -1952,9 +1952,9 @@ def test_sph_no_slip_boundary_1d(
         
 if __name__ == "__main__":
     test_sph_no_slip_boundary_1d(
-        (12, 1, 1),
-        "gaussian_1d",
+        (1, 1, 12),
+        "gaussian_3d",
         tesselation= False,
-        direction = "y",
+        direction = "z",
         show_plot=True,
     )
