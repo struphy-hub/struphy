@@ -4,7 +4,7 @@
 # Please fill in a verbal description of the simulation. 
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
-description = f"""
+description = """
 Strong (nonlinear) Landau damping: A nonlinear test case for the VlasovAmpereOneSpecies model.
 This test involves a large amplitude electrostatic perturbation in a uniform, collisionless plasma.
 Unlike weak Landau damping, the nonlinear regime exhibits trapping of particles in the potential wells

@@ -4,7 +4,7 @@
 # Please fill in a verbal description of the simulation. 
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
-description = f"""
+description = """
 Nonlinear two-stream instability: A fundamental kinetic test case for the Vlasov-Ampère model.
 This test involves two counter-streaming particle populations with a small perturbation that triggers
 the two-stream instability. The instability leads to the formation of electron acoustic waves and 

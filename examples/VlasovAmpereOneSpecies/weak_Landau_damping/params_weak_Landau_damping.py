@@ -4,7 +4,7 @@
 # Please fill in a verbal description of the simulation. 
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
-description = f"""
+description = """
 Weak Landau damping: A linear test case for the VlasovAmpereOneSpecies model.
 This test involves a small amplitude electrostatic perturbation in a uniform, collisionless plasma.
 The perturbation is damped due to phase mixing effects (Landau damping) as particles interact with 

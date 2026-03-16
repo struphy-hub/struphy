@@ -4,7 +4,7 @@
 # Please fill in a verbal description of the simulation. 
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
-description = f"""
+description = """
 Weibel instability: A linear test case for the VlasovMaxwellOneSpecies model.
 This test considers a plasma with an anisotropic velocity distribution, where 
 temperature differs between directions. Small magnetic perturbations grow due to the anisotropy, 

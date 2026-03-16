@@ -4,7 +4,7 @@
 # Please fill in a verbal description of the simulation. 
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
-description = f"""
+description = """
 Nonlinear bump-on-tail instability: A kinetic plasma instability test case for the Vlasov-Ampère model.
 This test features a "bump" (localized excess) in the high-velocity tail of the electron velocity distribution.
 The bump-on-tail configuration is unstable to the generation of Langmuir waves, leading to energy transfer
