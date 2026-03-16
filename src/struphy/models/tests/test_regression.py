@@ -30,14 +30,14 @@ def test_examples(params_path: Path):
         Absolute path to a ``params_*.py`` file inside the examples directory,
         injected by the ``pytest.mark.parametrize`` decorator.
     """
-    rel = params_path.relative_to(EXAMPLES_DIR).with_suffix("")
+    rel = params_path.with_suffix("")
     example_name = rel.parts[-1]
 
     pproc_name = example_name.replace("params_", "pproc_")
-    pproc_path = params_path / f"{pproc_name}.py"
+    pproc_path = Path(*rel.parts[:-1]) / f"{pproc_name}.py"
 
     regress_name = example_name.replace("params_", "regress_")
-    regress_path = params_path / f"{regress_name}.py"
+    regress_path = Path(*rel.parts[:-1]) / f"{regress_name}.py"
 
     print("\nTesting example:", example_name)
     print(f"{params_path = }")
@@ -45,7 +45,7 @@ def test_examples(params_path: Path):
     print(f"{regress_path = }")
 
     params = import_parameters_py(str(params_path), name=example_name)
-    params.sim.run(verbose=False)
+    params.sim.run(verbose=True)
 
     MPI.COMM_WORLD.Barrier()
     if MPI.COMM_WORLD.Get_rank() == 0:
@@ -57,4 +57,4 @@ def test_examples(params_path: Path):
             regress_module = import_parameters_py(str(regress_path), name=regress_name)
             regress_module.main()
 
-    shutil.rmtree(params.sim.env.path_out)
+        shutil.rmtree(params.sim.env.path_out)
