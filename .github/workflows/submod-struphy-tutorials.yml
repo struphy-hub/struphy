@@ -18,6 +18,9 @@ jobs:
   check-submodule-changes:
     runs-on: ubuntu-latest
     steps:
+      - name: Check for dockerenv file
+        run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -27,27 +30,23 @@ jobs:
       - name: Get submodule diff
         uses: ./.github/actions/submodule-diff
         with:
-          submod-name: doc/tutorials/tutorial_*
-          
-      - name: Install prerequisites (Ubuntu)
+          submod-name: doc/tutorials
+
+      - name: Install Struphy in Container
+        if: env.SUBMOD_CHANGED == 'true'  
+        uses: ./.github/actions/install/struphy_in_container
+
+      - name: Reinstall feectools from submodule    
         if: env.SUBMOD_CHANGED == 'true'
-        uses: ./.github/actions/install/ubuntu-latest
-      
-      - name: Install OSMesa/EGL
-        if: env.SUBMOD_CHANGED == 'true'
-        run: sudo apt-get install -y libosmesa6 libosmesa6-dev libegl-mesa0
-      
-      - name: Install Struphy
-        if: env.SUBMOD_CHANGED == 'true'
-        uses: ./.github/actions/install/install-struphy
+        uses: ./.github/actions/install/feectools-submodule
         with:
-          optional-deps: 'dev,doc'
+          env-name: /struphy_fortran_/env_fortran_
 
       - name: Compile Struphy
         if: env.SUBMOD_CHANGED == 'true'
-        uses: ./.github/actions/compile
-        with:
-          language: c
+        run: |
+          source /struphy_fortran_/env_fortran_/bin/activate
+          struphy compile
       
       - name: Run workflow if submodule changed (all PR commits)
         if: env.SUBMOD_CHANGED == 'true'
@@ -57,5 +56,7 @@ jobs:
         run: |
           echo "${{ env.SUBMOD_NAME }} has changed, running tests..."
           ls
-          cd doc/tutorials
+          source /struphy_fortran_/env_fortran_/bin/activate
+          ls /struphy_fortran_
+          cd /struphy_fortran_/doc/tutorials
           jupyter nbconvert --execute --to html tutorial_*.ipynb

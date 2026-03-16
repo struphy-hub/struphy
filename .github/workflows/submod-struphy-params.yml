@@ -18,7 +18,10 @@ jobs:
   check-submodule-changes:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Check for dockerenv file
+        run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
+
+      - name: Checkout repo
         uses: actions/checkout@v4
         with:
           submodules: true  # This is crucial!
@@ -29,32 +32,64 @@ jobs:
         with:
           submod-name: examples
 
-      - name: Install prerequisites (Ubuntu)
+      - name: Check .testmondata 1
         if: env.SUBMOD_CHANGED == 'true'
-        uses: ./.github/actions/install/ubuntu-latest
-      
-      - name: Install Struphy
+        run: |
+          ls .testmon* || echo "No .testmondata"
+
+      - name: Setup cache for testmon
         if: env.SUBMOD_CHANGED == 'true'
-        uses: ./.github/actions/install/install-struphy
+        uses: actions/cache@v4
         with:
-          optional-deps: 'dev,doc'
+          path: |
+            .testmondata-regression
+            .testmondata-regression-mpi
+          key: testmon-regression-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
+          restore-keys: |
+            testmon-regression-${{ github.ref_name }}-${{ github.event.number }}-
+            testmon-regression-${{ github.ref_name }}
+            testmon-regression-devel
+            testmon-regression-
+
+      - name: Check .testmondata 2
+        if: env.SUBMOD_CHANGED == 'true'
+        run: |
+          ls .testmon* || echo "No .testmondata"
+
+      - name: Install Struphy in Container
+        if: env.SUBMOD_CHANGED == 'true'  
+        uses: ./.github/actions/install/struphy_in_container
+
+      - name: Reinstall feectools from submodule    
+        if: env.SUBMOD_CHANGED == 'true'
+        uses: ./.github/actions/install/feectools-submodule
+        with:
+          env-name: /struphy_fortran_/env_fortran_
 
       - name: Compile Struphy
         if: env.SUBMOD_CHANGED == 'true'
-        uses: ./.github/actions/compile
-        with:
-          language: c
+        run: |
+          source /struphy_fortran_/env_fortran_/bin/activate
+          struphy compile
           
       - name: Run regression tests (serial)
         if: env.SUBMOD_CHANGED == 'true'
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-regression
         run: |
           echo "${{ env.SUBMOD_NAME }} has changed, running test..."
           ls
-          pytest src/struphy/models/tests/test_regression.py -xvs
+          source /struphy_fortran_/env_fortran_/bin/activate
+          ls /struphy_fortran_
+          pytest -m regression -xvs /struphy_fortran_/src/struphy
 
       - name: Run regression tests (parallel)
         if: env.SUBMOD_CHANGED == 'true'
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-regression-mpi
         run: |
           echo "${{ env.SUBMOD_NAME }} has changed, running test..."
           ls
-          mpirun -n 2 pytest --with-mpi src/struphy/models/tests/test_regression.py -xvs
+          source /struphy_fortran_/env_fortran_/bin/activate
+          mpirun -n 1 pytest -m single --testmon-forceselect -xvs --with-mpi --model-name Maxwell /struphy_fortran_/src/struphy
+          mpirun -n 2 pytest -m regression --testmon-forceselect -xvs --with-mpi /struphy_fortran_/src/struphy
