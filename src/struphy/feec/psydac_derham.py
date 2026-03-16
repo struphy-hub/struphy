@@ -67,117 +67,115 @@ class DiscreteDerham:
 
     Parameters
     ----------
-    V0 : TensorFemSpace
-        First space of the de Rham sequence : H1 space
-    V1 : VectorFemSpace
-        Second space of the de Rham sequence : Hcurl space
-    V2 : VectorFemSpace
-        Third space of the de Rham sequence : Hdiv space
-    V3 : TensorFemSpace
-        Fourth space of the de Rham sequence : L2 space
+    Nel : list[int]
+        Number of elements in each direction.
 
-    Notes
-    -----
-    On construction, differential operators are created and attached to the
-    input spaces as convenience attributes:
+    p : list[int]
+        Spline degree in each direction.
 
-    - ``V0.grad`` and ``V0.diff``
-    - ``V1.curl`` and ``V1.diff``
-    - ``V2.div`` and ``V2.diff``
+    spl_kind : list[bool]
+        Kind of spline in each direction (True=periodic, False=clamped).
+
+    dirichlet_bc : list[list[bool]]
+        Whether to apply homogeneous Dirichlet boundary conditions (at left or right boundary in each direction).
+
+    nq_pr : list[int]
+        Number of Gauss-Legendre quadrature points in each direction for geometric projectors (default = p+1, leads to exact integration of degree 2p+1 polynomials).
+
+    nquads : list[int]
+        Number of Gauss-Legendre quadrature points in each direction (default = p, leads to exact integration of degree 2p-1 polynomials).
+
+    comm : mpi4py.MPI.Intracomm
+        MPI communicator (within a clone if domain cloning is used, otherwise MPI.COMM_WORLD)
+
+    mpi_dims_mask: list of bool
+        True if the dimension is to be used in the domain decomposition (=default for each dimension).
+        If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
+
+    with_projectors : bool
+        Whether to add global commuting projectors to the diagram.
+
+    polar_ck : int
+        Smoothness at a polar singularity at eta_1=0 (default -1 : standard tensor product splines, OR 1 : C1 polar splines)
+
+    local_projectors : bool
+        Whether to build the local commuting projectors based on quasi-inter-/histopolation.
+
+    domain : struphy.geometry.base.Domain
+        Mapping from logical unit cube to physical domain (only needed in case of polar splines polar_ck=1).
     """
 
-    def __init__(self, V0: TensorFemSpace, V1: VectorFemSpace, V2: VectorFemSpace, V3: TensorFemSpace):
-        spaces = (V0, V1, V2, V3)
-        assert all(isinstance(space, (TensorFemSpace, VectorFemSpace)) for space in spaces)
+    def __init__(
+        self,
+        Nel: list | tuple,
+        p: list | tuple,
+        spl_kind: list | tuple,
+        *,
+        dirichlet_bc: list | tuple = None,
+        lifting: list | tuple = None,
+        nquads: list | tuple = None,
+        nq_pr: list | tuple = None,
+        comm=None,
+        mpi_dims_mask: list = None,
+        with_projectors: bool = True,
+        polar_ck: int = -1,
+        local_projectors: bool = False,
+        domain: Domain = None,
+    ):
+        # number of elements, spline degrees and kind of splines in each direction (periodic vs. clamped)
+        assert len(Nel) == 3
+        assert len(p) == 3
+        assert len(spl_kind) == 3
 
-        self._V0 = V0
-        self._V1 = V1
-        self._V2 = V2
-        self._V3 = V3
-        self._spaces = spaces
-        self._dim = 3
+        self._Nel = Nel
+        self._p = p
+        self._spl_kind = spl_kind
+        self._with_local_projectors = local_projectors
 
-        D0 = Gradient3D(V0, V1)
-        D1 = Curl3D(V1, V2)
-        D2 = Divergence3D(V2, V3)
+        # boundary conditions at eta=0 and eta=1 in each direction (None for periodic, 'd' for homogeneous Dirichlet)
+        if dirichlet_bc is not None:
+            assert len(dirichlet_bc) == 3
+            # make sure that boundary conditions are compatible with spline space
+            assert xp.all([bc == (False, False) for i, bc in enumerate(dirichlet_bc) if spl_kind[i]])
 
-        V0.diff = V0.grad = D0
-        V1.diff = V1.curl = D1
-        V2.diff = V2.div = D2
+        self._dirichlet_bc = dirichlet_bc
 
-    # --------------------------------------------------------------------------
-    @property
-    def dim(self) -> int:
-        """Dimension of the physical and logical domains, which are assumed to be the same."""
-        return self._dim
+        # --- lifting: build constrained (v0) sub-complex ---
+        self._lifting = lifting
+        if lifting is not None:
+            assert len(lifting) == 3
+            # lifting only makes sense on non-periodic axes
+            for d in range(3):
+                if spl_kind[d]:
+                    assert lifting[d] == (False, False), \
+                        f"Axis {d} is periodic, lifting must be (False, False)"
 
-    @property
-    def V0(self) -> TensorFemSpace:
-        """First space of the de Rham sequence : H1 space"""
-        return self._V0
+            # v0 dirichlet_bc = dirichlet_bc OR lifting
+            if dirichlet_bc is not None:
+                v0_dirichlet_bc = tuple(
+                    (d_l or l_l, d_r or l_r)
+                    for (d_l, d_r), (l_l, l_r) in zip(dirichlet_bc, lifting)
+                )
+            else:
+                v0_dirichlet_bc = lifting
 
-    @property
-    def V1(self) -> VectorFemSpace:
-        """Second space of the de Rham sequence : Hcurl space"""
-        return self._V1
+            self._derham_v0 = Derham(
+                Nel, p, spl_kind,
+                dirichlet_bc=v0_dirichlet_bc,
+                nquads=nquads,
+                nq_pr=nq_pr,
+                comm=comm,
+                mpi_dims_mask=mpi_dims_mask,
+                with_projectors=with_projectors,
+                polar_ck=polar_ck,
+                local_projectors=self.with_local_projectors,
+                domain=domain,
+            )
+        else:
+            self._derham_v0 = None
 
-    @property
-    def V2(self) -> VectorFemSpace:
-        """Third space of the de Rham sequence : Hdiv space"""
-        return self._V2
 
-    @property
-    def V3(self) -> TensorFemSpace:
-        """Fourth space of the de Rham sequence : L2 space"""
-        return self._V3
-
-    @property
-    def spaces(self) -> tuple[TensorFemSpace | VectorFemSpace, ...]:
-        """Spaces of the proper de Rham sequence (excluding Hvec)."""
-        return self._spaces
-
-    @property
-    def derivatives_as_matrices(self):
-        """Differential operators of the De Rham sequence as LinearOperator objects."""
-        return tuple(V.diff.linop for V in self.spaces[:-1])
-
-    @property
-    def derivatives(self):
-        """Differential operators of the De Rham sequence as `DiffOperator` objects.
-
-        Those are objects with `domain` and `codomain` properties that are `FemSpace`,
-        they act on `FemField` (they take a `FemField` of their `domain` as input and return
-        a `FemField` of their `codomain`.
-        """
-        return tuple(V.diff for V in self.spaces[:-1])
-
-    # --------------------------------------------------------------------------
-    def projectors(self, *, kind="global", nquads=None) -> tuple[GlobalGeometricProjector, ...]:
-        """Projectors mapping callable functions of the physical coordinates to a
-        corresponding `FemField` object in the De Rham sequence.
-
-        Parameters
-        ----------
-        kind : str
-            Type of the projection : at the moment, only global is accepted and
-            returns geometric commuting projectors based on interpolation/histopolation
-            for the De Rham sequence (GlobalGeometricProjector objects).
-
-        nquads : list(int) | tuple(int)
-            Number of quadrature points along each direction, to be used in Gauss
-            quadrature rule for computing the (approximated) degrees of freedom.
-
-        Returns
-        -------
-        P0, ..., Pn : callables
-            Projectors that can be called on any callable function that maps
-            from the physical space to R (scalar case) or R^d (vector case) and
-            returns a FemField belonging to the i-th space of the De Rham sequence
-        """
-
-        if not (kind == "global"):
-            raise NotImplementedError("only global projectors are available")
-
+        # default p: exact integration of degree 2p+1 polynomials
         if nquads is None:
             nquads = [degree + 1 for degree in self.V0.degree]
         elif isinstance(nquads, int):
@@ -837,27 +835,17 @@ class Derham:
 
         # collect arguments for kernels
         self._args_derham = DerhamArguments(
-            xp.array(self.degree),
-            self.V0fem.knots[0],
-            self.V0fem.knots[1],
-            self.V0fem.knots[2],
-            xp.array(self.V0.starts),
+            xp.array(self.p),
+            self.Vh_fem["0"].knots[0],
+            self.Vh_fem["0"].knots[1],
+            self.Vh_fem["0"].knots[2],
+            xp.array(self.Vh["0"].starts),
         )
 
-        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-            logger.info("\nDERHAM:")
-            logger.info(f"{'number of elements:'.ljust(25)} {num_elements}")
-            logger.info(f"{'spline degrees:'.ljust(25)} {degree}")
-            logger.info(f"{'boundary conditions:'.ljust(25)} {bcs}")
-            logger.info(f"{'GL quad pts (L2):'.ljust(25)} {nquads}")
-            logger.info(f"{'GL quad pts (hist):'.ljust(25)} {nquads_proj}")
-            logger.info(f"{'MPI proc. per dir.:'.ljust(25)} {self.domain_decomposition.nprocs}")
-            logger.info(f"{'use polar splines:'.ljust(25)} {self.polar_splines}")
-            logger.info(f"{'domain on process 0:'.ljust(25)} {self.domain_array[0]}")
+    @property
+    def derham_v0(self):
+        return self._derham_v0
 
-    # -----------------------------
-    # Input arguments as properties
-    # -----------------------------
     @property
     def grid(self) -> TensorProductGrid:
         """The FEEC grid."""
