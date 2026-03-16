@@ -34,14 +34,13 @@ jobs:
           submodules: true  # This is crucial!
           fetch-depth: 5
 
+      - name: Install Struphy in Container
+        uses: ./.github/actions/install/struphy_in_container
+
       - name: Get folder diff
         uses: ./.github/actions/folder-diff
         with:
           folder-name: doc/tutorials
-
-      - name: Install Struphy in Container
-        if: env.FOLDER_CHANGED == 'true'  
-        uses: ./.github/actions/install/struphy_in_container
 
       - name: Reinstall feectools from submodule    
         if: env.FOLDER_CHANGED == 'true'

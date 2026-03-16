@@ -34,18 +34,11 @@ jobs:
           submodules: true  # This is crucial!
           fetch-depth: 5
 
-      - name: Get folder diff
-        uses: ./.github/actions/folder-diff
-        with:
-          folder-name: examples
-
       - name: Check .testmondata 1
-        if: env.FOLDER_CHANGED == 'true'
         run: |
           ls .testmon* || echo "No .testmondata"
 
       - name: Setup cache for testmon
-        if: env.FOLDER_CHANGED == 'true'
         uses: actions/cache@v4
         with:
           path: |
@@ -59,13 +52,16 @@ jobs:
             testmon-regression-
 
       - name: Check .testmondata 2
-        if: env.FOLDER_CHANGED == 'true'
         run: |
           ls .testmon* || echo "No .testmondata"
 
-      - name: Install Struphy in Container
-        if: env.FOLDER_CHANGED == 'true'  
+      - name: Install Struphy in Container 
         uses: ./.github/actions/install/struphy_in_container
+
+      - name: Get folder diff
+        uses: ./.github/actions/folder-diff
+        with:
+          folder-name: examples
 
       - name: Reinstall feectools from submodule    
         if: env.FOLDER_CHANGED == 'true'
