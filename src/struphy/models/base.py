@@ -16,10 +16,15 @@ from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.docstring_converter import rst_to_markdown
-from struphy.utils.utils import all_class_params_are_default
+from struphy.utils.utils import all_class_params_are_default, all_subclasses
 
 
-class StruphyModel(metaclass=ABCMeta):
+class StruphyModelMeta(ABCMeta):
+    def __iter__(cls):
+        return iter(all_subclasses(cls))
+
+
+class StruphyModel(metaclass=StruphyModelMeta):
     """
     Abstract base class for all Struphy models.
 
@@ -627,6 +632,7 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
 # Please fill in a verbal description of the simulation. 
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
+name = \"Default {self.__class__.__name__}\"
 description = \"\"\"\nThis is the default simulation for the model {self.__class__.__name__}. 
 It is meant to be a template for users to set up their own simulations with this model. 
 It contains all the necessary components of a Struphy simulation, including the model, 
@@ -709,6 +715,8 @@ Users can modify this file to set up their own simulations with different parame
         file.write("\n# Simulation object\n")
         file.write("""sim = Simulation(
     model=model,
+    name=name,
+    description=description,
     params_path=__file__,
     env=env,
     base_units=base_units,
