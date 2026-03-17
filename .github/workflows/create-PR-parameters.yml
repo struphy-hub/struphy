@@ -19,10 +19,9 @@ jobs:
         with:
           submodules: true  # This is crucial!
           fetch-depth: 5
-          path: struphy
 
       - name: Get submodule diff
-        uses: ./struphy/.github/actions/submodule-diff
+        uses: ./.github/actions/submodule-diff
         with:
           submod-name: examples/
 
@@ -41,7 +40,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git checkout -b from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
-            cp -r ../struphy/examples/. ./
+            cp -r ../examples/. ./
             git status
             git add .
             git commit -m "Changes to parameter files from struphy (on push to main)"
