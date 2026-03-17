@@ -21,7 +21,13 @@ jobs:
           fetch-depth: 5
           path: struphy
 
+      - name: Get submodule diff
+        uses: ./.github/actions/submodule-diff
+        with:
+          submod-name: examples/
+
       - name: Checkout code
+        if: env.SUBMOD_CHANGED == 'true'
         uses: actions/checkout@v4
         with:
           repository: struphy-hub/struphy-parameter-files
@@ -29,6 +35,7 @@ jobs:
           path: struphy-parameter-files
 
       - name: Copy examples and push new branch
+        if: env.SUBMOD_CHANGED == 'true'
         run: |
             cd struphy-parameter-files
             git config user.name "github-actions[bot]"
@@ -41,6 +48,7 @@ jobs:
             git push origin from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
 
       - name: Create pull request
+        if: env.SUBMOD_CHANGED == 'true'
         run: |
           gh pr create \
             --repo struphy-hub/struphy-parameter-files \
