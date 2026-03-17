@@ -1,8 +1,20 @@
 import os
-from dataclasses import dataclass
-from typing import Literal
+from dataclasses import dataclass, fields
+from typing import Any, Literal
 
-from struphy.utils.utils import check_option
+from struphy.utils.utils import __dataclass_repr_no_defaults__, all_class_params_are_default, check_option
+
+
+class OptionsBase:
+    def to_dict(self) -> dict:
+        """Convert dataclass instance to dictionary."""
+        return {field.name: getattr(self, field.name) for field in fields(type(self)) if field.init}
+
+    @classmethod
+    def from_dict(cls, dct) -> "Any":
+        """Create dataclass instance from dictionary."""
+        valid_fields = {field.name for field in fields(cls) if field.init}
+        return cls(**{key: value for key, value in dct.items() if key in valid_fields})
 
 
 @dataclass
@@ -100,7 +112,7 @@ class LiteralOptions:
 
 
 @dataclass
-class Time:
+class Time(OptionsBase):
     """Set options for time stepping in parameter/launch files.
 
     Parameters
@@ -122,14 +134,21 @@ class Time:
     def __post_init__(self):
         check_option(self.split_algo, LiteralOptions.SplitAlgos)
 
-    def __repr__(self):
+    def __str__(self):
         for k, v in self.__dict__.items():
             print(f"{k}:".ljust(20), v)
         return ""
 
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_no_defaults__(self)
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
+
 
 @dataclass
-class BaseUnits:
+class BaseUnits(OptionsBase):
     """Set base units in parameter/launch files from which other units are derived. See :ref:`normalization`.
 
     Parameters
@@ -153,15 +172,22 @@ class BaseUnits:
     n: float = 1.0
     kBT: float = None
 
-    def __repr__(self):
+    def __str__(self):
         units = ["m", "T", "1e20/m^3", "keV"]
         for (k, v), unit in zip(self.__dict__.items(), units):
             print(f"{k}:".ljust(20), v, unit)
         return ""
 
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_no_defaults__(self)
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
+
 
 @dataclass
-class DerhamOptions:
+class DerhamOptions(OptionsBase):
     """Set options for the Derham spaces in parameter/launch files. See :ref:`geomFE`.
 
     Parameters
@@ -199,14 +225,21 @@ class DerhamOptions:
     def __post_init__(self):
         check_option(self.polar_ck, LiteralOptions.PolarRegularity)
 
-    def __repr__(self):
+    def __str__(self):
         for k, v in self.__dict__.items():
             print(f"{k}:".ljust(20), v)
         return ""
 
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_no_defaults__(self)
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
+
 
 @dataclass
-class FieldsBackground:
+class FieldsBackground(OptionsBase):
     """Set options for static fluid backgrounds/equilibria in parameter/launch files.
 
     Parameters
@@ -229,14 +262,21 @@ class FieldsBackground:
     def __post_init__(self):
         check_option(self.type, LiteralOptions.BackgroundTypes)
 
-    def __repr__(self):
+    def __str__(self):
         for k, v in self.__dict__.items():
             print(f"{k}:".ljust(20), v)
         return ""
 
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_no_defaults__(self)
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
+
 
 @dataclass
-class EnvironmentOptions:
+class EnvironmentOptions(OptionsBase):
     """Set environment options for launching run on current architecture
     (these options do not influence the simulation result).
 
@@ -284,7 +324,14 @@ class EnvironmentOptions:
     def __post_init__(self):
         self.path_out: str = os.path.join(self.out_folders, self.sim_folder)
 
-    def __repr__(self):
+    def __str__(self):
         for k, v in self.__dict__.items():
             print(f"{k}:".ljust(20), v)
         return ""
+
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_no_defaults__(self)
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)

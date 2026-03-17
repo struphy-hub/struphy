@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 
 
 class SplineValues:
-    def __repr__(self):
+    def __str__(self):
         out = ""
         for name, species in inspect.getmembers(self):
             if isinstance(species, SpecHolder):
@@ -43,7 +43,7 @@ class SplineValues:
 
 
 class Orbits:
-    def __repr__(self):
+    def __str__(self):
         out = ""
         for species, orbits in self.__dict__.items():
             shp = orbits.shape
@@ -55,7 +55,7 @@ class Orbits:
 
 
 class DistributionFunction:
-    def __repr__(self):
+    def __str__(self):
         out = ""
         for name, species in inspect.getmembers(self):
             if isinstance(species, SpecHolder):
@@ -65,7 +65,7 @@ class DistributionFunction:
 
 
 class DensitySPH:
-    def __repr__(self):
+    def __str__(self):
         out = ""
         for name, species in inspect.getmembers(self):
             if isinstance(species, SpecHolder):
@@ -75,7 +75,7 @@ class DensitySPH:
 
 
 class SpecHolder:
-    def __repr__(self):
+    def __str__(self):
         out = ""
         for name, val in self.__dict__.items():
             out += f"        {name}\n"
@@ -90,7 +90,7 @@ class DataDict:
     def __init__(self, data: dict):
         self.data = data
 
-    def __repr__(self):
+    def __str__(self):
         out = f"{type(self.data) = }\n"
         out += f"{len(self.data) = }\n"
         for key, d in self.data.items():
@@ -115,6 +115,7 @@ class ParamsIn:
     def __init__(
         self,
         path: str,
+        verbose: bool = False,
     ):
         print(f"\nReading in paramters from {path} ... ")
 
@@ -161,7 +162,8 @@ class ParamsIn:
         else:
             raise FileNotFoundError(f"Neither of the paths {params_path} or {bin_path} exists.")
 
-        print("\n... Done.")
+        if verbose:
+            print("\n... Done.")
 
         self.env = env
         self.units = base_units

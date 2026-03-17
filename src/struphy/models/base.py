@@ -15,9 +15,16 @@ from struphy.physics.physics import Units
 from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.utils.clone_config import CloneConfig
+from struphy.utils.docstring_converter import rst_to_markdown
+from struphy.utils.utils import all_class_params_are_default, all_subclasses
 
 
-class StruphyModel(metaclass=ABCMeta):
+class StruphyModelMeta(ABCMeta):
+    def __iter__(cls):
+        return iter(all_subclasses(cls))
+
+
+class StruphyModel(metaclass=StruphyModelMeta):
     """
     Abstract base class for all Struphy models.
 
@@ -146,12 +153,66 @@ class StruphyModel(metaclass=ABCMeta):
     # --------------
     # Common methods
     # --------------
-    def __repr__(self):
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
+    def __repr_no_defaults__(self) -> str:
+        return self.__repr__()
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
+
+    def __str__(self):
         out = f"{self.__class__.__name__}\n"
         for k, v in self.species.items():
             out += f"    {k}:\n"
             out += f"{v}"
         return out
+
+    @classmethod
+    def info(cls, use_rst=False):
+        """
+        Render a class or docstring in a Jupyter notebook.
+
+        This function returns an IPython display object that will render
+        the docstring with proper formatting in Jupyter notebooks.
+
+        Args:
+            cls: Class or function whose docstring to display
+            use_rst: If True and __doc_rst__ exists, use that instead of __doc__
+
+        Returns:
+            IPython.display object for rendering in Jupyter
+
+        Examples:
+            >>> from struphy.models.maxwell import Maxwell
+            >>> Maxwell.equations()  # Shows HTML version
+            >>> Maxwell.equations(use_rst=True)  # Shows RST as Markdown
+        """
+        try:
+            from IPython.display import HTML, Markdown
+        except ImportError:
+            print("IPython not available. Install jupyter to use this feature.")
+            return None
+
+        # Determine which docstring to use
+        if use_rst and hasattr(cls, "__doc_rst__"):
+            doc_text = cls.__doc_rst__
+            # Convert RST to Markdown for better Jupyter rendering
+            md_text = rst_to_markdown(doc_text)
+            return Markdown(md_text)
+        elif hasattr(cls, "__doc__") and cls.__doc__:
+            # Check if it's HTML (contains tags)
+            doc_text = cls.__doc__
+            if "<" in doc_text and ">" in doc_text:
+                # It's HTML
+                return HTML(doc_text)
+            else:
+                # Plain text or RST, show as is
+                return Markdown(doc_text)
+        else:
+            return Markdown("*No docstring available*")
 
     @classmethod
     def name(cls) -> str:
@@ -571,7 +632,8 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
 # Please fill in a verbal description of the simulation. 
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
-description = f\"\"\"\nThis is the default simulation for the model {self.__class__.__name__}. 
+name = \"Default {self.__class__.__name__}\"
+description = \"\"\"\nThis is the default simulation for the model {self.__class__.__name__}. 
 It is meant to be a template for users to set up their own simulations with this model. 
 It contains all the necessary components of a Struphy simulation, including the model, 
 the environment options, the time stepping options, the geometry, the equilibrium, 
@@ -653,6 +715,8 @@ Users can modify this file to set up their own simulations with different parame
         file.write("\n# Simulation object\n")
         file.write("""sim = Simulation(
     model=model,
+    name=name,
+    description=description,
     params_path=__file__,
     env=env,
     base_units=base_units,
@@ -702,6 +766,25 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         )
 
         return path
+
+    def to_dict(self) -> dict:
+        """Serialize the model configuration to a dictionary."""
+        dct = {"model": self.__class__.__name__}
+        return dct
+
+    @classmethod
+    def from_dict(cls, dct) -> "StruphyModel":
+        """Deserialize a model configuration from a dictionary."""
+        model_name = dct["model"]
+        return cls.from_name(model_name)
+
+    @classmethod
+    def from_name(cls, name: str) -> "StruphyModel":
+        """Instantiate a model from its name."""
+        from struphy.models.utils import get_model_by_name
+
+        model_cls = get_model_by_name(name)
+        return model_cls()
 
     # -------------
     # Model species
