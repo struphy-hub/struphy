@@ -33,14 +33,15 @@ jobs:
             cd struphy-parameter-files
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git checkout -b from-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
+            git checkout -b from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
             cp -r ../struphy/examples/. ./
             git status
             git add .
             git commit -m "Changes to parameter files from struphy (on push to main)"
-            git push origin from-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
+            git push origin from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
 
   create-PR:
+    needs: clone-and-push
     runs-on: ubuntu-latest
 
     steps:
@@ -56,6 +57,6 @@ jobs:
           token: ${{ secrets.STRUPHY_HUB_ACCESS_TOKEN }}
           title: 'New parameter files from struphy'
           body: 'This is an auto-generated PR from a Struphy workflow (on push to main).'
-          branch: from-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
+          branch: from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
           base: 'main'
           draft: false
