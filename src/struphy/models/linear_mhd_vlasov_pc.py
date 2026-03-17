@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 

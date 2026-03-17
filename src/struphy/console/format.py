@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 """
 Struphy Linting and Formatting Tools
 

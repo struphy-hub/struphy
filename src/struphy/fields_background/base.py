@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 "Base classes for MHD equilibria."
 
 from abc import ABCMeta, abstractmethod

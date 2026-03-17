@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 """An executable for quick access to the diagnostic tools in diagn_tools.py"""
 
 #!/usr/bin/env python3

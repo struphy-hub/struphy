@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 from abc import ABCMeta, abstractmethod
 from typing import Callable
 

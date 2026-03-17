@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 import copy
 import os
 import warnings

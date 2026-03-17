@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 import cunumpy as xp
 from feectools.api.essential_bc import apply_essential_bc_stencil
 from feectools.fem.tensor import TensorFemSpace

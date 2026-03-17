@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 "Particle and FEEC variables are updated."
 
 from dataclasses import dataclass

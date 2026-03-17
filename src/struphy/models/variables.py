@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 # for type checking (cyclic imports)
 from __future__ import annotations
 

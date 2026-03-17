@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 import os
 from abc import ABCMeta, abstractmethod
 from textwrap import indent

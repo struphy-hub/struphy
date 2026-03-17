@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 "Accelerated particle pushing."
 
 import cunumpy as xp

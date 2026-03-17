@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 from copy import deepcopy
 
 import cunumpy as xp

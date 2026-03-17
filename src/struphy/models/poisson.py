@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.io.options import LiteralOptions

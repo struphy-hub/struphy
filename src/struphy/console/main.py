@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 #!/usr/bin/env python3
 # PYTHON_ARGCOMPLETE_OK
 import argparse

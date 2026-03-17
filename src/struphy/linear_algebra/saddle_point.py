@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 from typing import Union
 
 import cunumpy as xp

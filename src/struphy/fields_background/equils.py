@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 "Available fluid backgrounds:"
 
 import copy

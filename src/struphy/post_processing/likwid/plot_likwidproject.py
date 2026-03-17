@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 # Standard modules
 import argparse
 import glob

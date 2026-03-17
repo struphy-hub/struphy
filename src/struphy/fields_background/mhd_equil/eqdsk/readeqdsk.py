@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 #!/usr/bin/env python
 
 import re

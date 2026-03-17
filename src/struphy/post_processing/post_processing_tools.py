@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 import inspect
 import os
 import pickle

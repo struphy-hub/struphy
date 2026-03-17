@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 def get_dependencies(pymod_abs=None):
     """Compute all dependencies that contain the string "kernels" of a Struphy module.
 

@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 """
 Licensing:
   This code is distributed under the MIT license.

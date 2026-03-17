@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 def get_cprofile_data(path, print_callers=None):
     """Prepare Cprofile data and save to "profile_dict.sav".
 

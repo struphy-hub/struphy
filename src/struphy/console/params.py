@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 import sys
 
 import yaml

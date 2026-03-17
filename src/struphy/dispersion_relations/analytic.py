@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 "Analytic dispersion relations."
 
 import cunumpy as xp

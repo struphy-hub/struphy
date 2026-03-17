@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 # from __future__ import annotations
 "Domain-related utility functions."
 

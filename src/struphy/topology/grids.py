@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 from dataclasses import dataclass
 from typing import Tuple
 

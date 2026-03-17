@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 "Propagator base class."
 
 from abc import ABCMeta, abstractmethod

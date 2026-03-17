@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 import cunumpy as xp
 
 from struphy.feec.psydac_derham import Derham

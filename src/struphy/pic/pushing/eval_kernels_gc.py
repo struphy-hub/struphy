@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 "Initialization routines (initial guess, evaluations) for 5D gyro-center pusher kernels."
 
 from numpy import abs, empty, log, mod, shape, size, sqrt, zeros

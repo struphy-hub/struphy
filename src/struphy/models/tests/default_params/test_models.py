@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("struphy")
 import pytest
 
 import struphy.models.utils as models_utils
