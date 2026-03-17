@@ -504,38 +504,6 @@ class StruphyModel(metaclass=StruphyModelMeta):
                     )
                     kd_plot.n_sph[:] = n_sph
 
-    @classmethod
-    def write_parameters_to_file(cls, parameters=None, file=None, save=True, prompt=True):
-        import os
-
-        import struphy.utils.utils as utils
-
-        # Read struphy state file
-        state = utils.read_state()
-
-        i_path = state["i_path"]
-        assert os.path.exists(i_path), f"The path '{i_path}' does not exist. Set path with `struphy --set-i PATH`"
-
-        if file is None:
-            file = os.path.join(i_path, "params_" + cls.__name__ + ".yml")
-        else:
-            assert ".yml" in file or ".yaml" in file, "File must have a a .yml (.yaml) extension."
-            file = os.path.join(i_path, file)
-
-        if save:
-            if not prompt:
-                yn = "Y"
-            else:
-                yn = input(f"Writing to {file}, are you sure (Y/n)? ")
-
-            if yn in ("", "Y", "y", "yes", "Yes"):
-                dict_to_yaml(parameters, file)
-                print(
-                    f'Default parameter file for {cls.__name__} has been created; you can now launch with "struphy run {cls.__name__}".',
-                )
-            else:
-                pass
-
     def generate_default_parameter_file(
         self,
         path: str = None,
