@@ -1,5 +1,3 @@
-import logging
-logger = logging.getLogger("struphy")
 # for type checking (cyclic imports)
 from __future__ import annotations
 
@@ -22,6 +20,9 @@ from struphy.pic.base import Particles
 from struphy.pic.particles import ParticlesSPH
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import check_option
+
+import logging
+logger = logging.getLogger("struphy")
 
 if TYPE_CHECKING:
     from struphy.models.species import FieldSpecies, FluidSpecies, ParticleSpecies, Species

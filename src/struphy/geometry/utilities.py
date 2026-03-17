@@ -1,5 +1,3 @@
-import logging
-logger = logging.getLogger("struphy")
 # from __future__ import annotations
 "Domain-related utility functions."
 
@@ -21,6 +19,8 @@ from struphy.geometry.utilities_kernels import weighted_arc_lengths_flux_surface
 from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.linalg_kron import kron_lusolve_2d
 
+import logging
+logger = logging.getLogger("struphy")
 
 def get_domain_by_name(domain_name: str) -> type["Domain"]:
     from struphy.geometry import domains
