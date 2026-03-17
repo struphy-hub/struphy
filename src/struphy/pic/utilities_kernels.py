@@ -1,4 +1,5 @@
 import logging
+
 logger = logging.getLogger("struphy")
 from numpy import abs, empty, log, mod, pi, shape, sign, sqrt, zeros
 from pyccel.decorators import stack_array

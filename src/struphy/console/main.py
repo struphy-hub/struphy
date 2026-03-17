@@ -1,4 +1,5 @@
 import logging
+
 logger = logging.getLogger("struphy")
 #!/usr/bin/env python3
 # PYTHON_ARGCOMPLETE_OK
@@ -114,7 +115,9 @@ def struphy():
     for flag, message in model_flags:
         if flag:
             logger.info(message)
-            logger.info("For more info on Struphy models, visit https://struphy-hub.github.io/struphy/sections/models.html")
+            logger.info(
+                "For more info on Struphy models, visit https://struphy-hub.github.io/struphy/sections/models.html"
+            )
             sys.exit(0)
 
     # load sub-command function

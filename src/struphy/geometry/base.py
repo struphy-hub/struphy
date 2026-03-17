@@ -1,4 +1,5 @@
 import logging
+
 logger = logging.getLogger("struphy")
 # coding: utf-8
 "Base classes for mapped domains (single patch)."

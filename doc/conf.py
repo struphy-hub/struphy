@@ -12,7 +12,8 @@
 
 import sys
 import os
-sys.path.insert(0, os.path.abspath('_ext'))
+
+sys.path.insert(0, os.path.abspath("_ext"))
 
 with open("../src/struphy/console/main.py") as f:
     exec(f.read())

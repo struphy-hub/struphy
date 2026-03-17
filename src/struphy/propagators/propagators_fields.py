@@ -1,4 +1,5 @@
 import logging
+
 logger = logging.getLogger("struphy")
 "Only FEEC variables are updated."
 

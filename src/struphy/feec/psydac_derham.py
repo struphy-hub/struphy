@@ -1,4 +1,5 @@
 import logging
+
 logger = logging.getLogger("struphy")
 #!/usr/bin/env python3
 import importlib.metadata

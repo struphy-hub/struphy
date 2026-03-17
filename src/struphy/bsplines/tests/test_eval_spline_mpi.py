@@ -1,4 +1,5 @@
 import logging
+
 logger = logging.getLogger("struphy")
 from sys import int_info
 from time import sleep

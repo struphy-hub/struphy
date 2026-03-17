@@ -1,4 +1,5 @@
 import logging
+
 logger = logging.getLogger("struphy")
 import cunumpy as xp
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL

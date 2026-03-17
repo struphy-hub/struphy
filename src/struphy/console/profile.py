@@ -1,5 +1,8 @@
 import logging
+
 logger = logging.getLogger("struphy")
+
+
 def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
     """
     Profile finished Struphy runs.

@@ -1,4 +1,5 @@
 import logging
+
 logger = logging.getLogger("struphy")
 import os
 from dataclasses import dataclass, fields

@@ -1,4 +1,5 @@
 import logging
+
 logger = logging.getLogger("struphy")
 import cunumpy as xp
 import pytest
@@ -225,7 +226,9 @@ def test_equils(equil_domain_pair):
             assert_vector(results[i], kind, *pt)
 
     logger.info()
-    logger.info("   Evaluation type".ljust(30), "|   equilibrium".ljust(20), "|   domain".ljust(20), "|   status".ljust(20))
+    logger.info(
+        "   Evaluation type".ljust(30), "|   equilibrium".ljust(20), "|   domain".ljust(20), "|   status".ljust(20)
+    )
     logger.info("--------------------------------------------------------------------------------------")
 
     logger.info(

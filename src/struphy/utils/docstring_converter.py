@@ -1,4 +1,5 @@
 import logging
+
 logger = logging.getLogger("struphy")
 """Utility to convert RST docstrings to HTML for VS Code display."""
 

@@ -1,4 +1,5 @@
 import logging
+
 logger = logging.getLogger("struphy")
 # from tqdm import tqdm
 import cunumpy as xp

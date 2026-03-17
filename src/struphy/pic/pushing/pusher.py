@@ -1,4 +1,5 @@
 import logging
+
 logger = logging.getLogger("struphy")
 "Accelerated particle pushing."
 

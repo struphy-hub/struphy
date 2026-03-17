@@ -1,4 +1,5 @@
 import logging
+
 logger = logging.getLogger("struphy")
 from feectools.ddm.mpi import mpi as MPI
 

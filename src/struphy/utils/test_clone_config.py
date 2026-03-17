@@ -1,4 +1,5 @@
 import logging
+
 logger = logging.getLogger("struphy")
 import pytest
 from feectools.ddm.mpi import MockComm

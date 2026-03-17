@@ -1,4 +1,5 @@
 import logging
+
 logger = logging.getLogger("struphy")
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilVector

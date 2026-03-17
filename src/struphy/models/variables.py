@@ -22,6 +22,7 @@ from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import check_option
 
 import logging
+
 logger = logging.getLogger("struphy")
 
 if TYPE_CHECKING:
@@ -155,7 +156,9 @@ class Variable(metaclass=ABCMeta):
             else:
                 logger.info(self.perturbations)
         else:
-            logger.info(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no perturbation.")
+            logger.info(
+                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no perturbation."
+            )
 
 
 class FEECVariable(Variable):
@@ -359,7 +362,9 @@ class PICVariable(Variable):
 
     def show_initial_condition(self):
         if self.initial_condition is not None:
-            logger.info(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - initial condition:")
+            logger.info(
+                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - initial condition:"
+            )
             logger.info(self.initial_condition)
         else:
             logger.info(
@@ -588,7 +593,9 @@ class SPHVariable(Variable):
                 else:
                     logger.info(f"    {key}: None")
         else:
-            logger.info(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no perturbation.")
+            logger.info(
+                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no perturbation."
+            )
 
     @property
     def perturbations(self) -> dict[str, Perturbation]:
