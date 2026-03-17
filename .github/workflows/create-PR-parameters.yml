@@ -19,32 +19,28 @@ jobs:
         with:
           submodules: true  # This is crucial!
           fetch-depth: 5
+          path: struphy
 
-      - name: Clone struphy-parameter-files and push new branch
-        run: |
-            git clone --branch main https://github.com/struphy-hub/struphy-parameter-files.git
-            cd struphy-parameter-files
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git remote set-url origin https://x-access-token:${{ secrets.USE_IN_STRUPHY_WORKFLOW }}@github.com/struphy-hub/struphy-parameter-files.git
-            git checkout -b from-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
-            cp -r ../examples/ ./
-            git status
-            git add .
-            git commit -m "Add new parameter files"
-            git push origin from-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
-
-  create-pull-request:
-    runs-on: ubuntu-latest
-
-    steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           repository: struphy-hub/struphy-parameter-files
           token: ${{ secrets.USE_IN_STRUPHY_WORKFLOW }}
+          path: struphy-parameter-files
 
-      - name: Create Pull Request
+      - name: Copy examples and push new branch
+        run: |
+            cd struphy-parameter-files
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git checkout -b from-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
+            cp -r ../struphy/examples/. ./
+            git status
+            git add .
+            git commit -m "Changes to parameter files from struphy (on push to main)"
+            git push origin from-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
+
+      - name: Create pull request
         uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.USE_IN_STRUPHY_WORKFLOW }}
