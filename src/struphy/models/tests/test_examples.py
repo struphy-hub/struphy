@@ -13,16 +13,14 @@ PARAMS_MODULES = sorted(
 )
 
 
-@pytest.mark.regression
+@pytest.mark.examples
 @pytest.mark.parametrize("params_path", PARAMS_MODULES)
 def test_examples(params_path: Path):
     """Run a full simulation for each example parameter file found in the examples/ directory.
 
-    The test loads the parameter file, runs the simulation, and then optionally
-    executes post-processing and regression-check scripts if they exist alongside
-    the parameter file.  Companion scripts are discovered by replacing the
-    ``params_`` prefix with ``pproc_`` (post-processing) or ``regress_``
-    (regression checks).
+    The test loads the parameter file, runs the simulation, and then
+    executes post-processing Companion scripts are discovered by replacing the
+    ``params_`` prefix with ``pproc_`` (post-processing).
 
     Parameters
     ----------

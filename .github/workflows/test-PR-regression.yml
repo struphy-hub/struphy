@@ -1,4 +1,4 @@
-name: PR - regression tests in Container
+name: PR - examples tests in Container
 
 on:
   pull_request:
@@ -48,14 +48,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            .testmondata-regression
-            .testmondata-regression-mpi
-          key: testmon-regression-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
+            .testmondata-examples
+            .testmondata-examples-mpi
+          key: testmon-examples-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
           restore-keys: |
-            testmon-regression-${{ github.ref_name }}-${{ github.event.number }}-
-            testmon-regression-${{ github.ref_name }}
-            testmon-regression-devel
-            testmon-regression-
+            testmon-examples-${{ github.ref_name }}-${{ github.event.number }}-
+            testmon-examples-${{ github.ref_name }}
+            testmon-examples-devel
+            testmon-examples-
 
       - name: Check .testmondata 2
         run: |
@@ -74,18 +74,18 @@ jobs:
           source /struphy_fortran_/env_fortran_/bin/activate
           struphy compile
           
-      - name: Run regression tests (serial)
+      - name: Run examples tests (serial)
         env:
-          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-regression
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-examples
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           ls /struphy_fortran_
-          pytest -m regression -xvs /struphy_fortran_/src/struphy
+          pytest -m examples -xvs /struphy_fortran_/src/struphy
 
-      - name: Run regression tests (parallel)
+      - name: Run examples tests (parallel)
         env:
-          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-regression-mpi
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-examples-mpi
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           mpirun -n 1 pytest -m single --testmon-forceselect -xvs --with-mpi --model-name Maxwell /struphy_fortran_/src/struphy
-          mpirun -n 2 pytest -m regression --testmon-forceselect -xvs --with-mpi /struphy_fortran_/src/struphy
+          mpirun -n 2 pytest -m examples --testmon-forceselect -xvs --with-mpi /struphy_fortran_/src/struphy
