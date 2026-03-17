@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: struphy-hub/struphy-parameter-files
-          token: ${{ secrets.USE_IN_STRUPHY_WORKFLOW }}
+          token: ${{ secrets.STRUPHY_HUB_ACCESS_TOKEN }}
           path: struphy-parameter-files
 
       - name: Copy examples and push new branch
@@ -40,10 +40,20 @@ jobs:
             git commit -m "Changes to parameter files from struphy (on push to main)"
             git push origin from-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
 
+  create-PR:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          repository: struphy-hub/struphy-parameter-files
+          token: ${{ secrets.STRUPHY_HUB_ACCESS_TOKEN }}
+
       - name: Create pull request
         uses: peter-evans/create-pull-request@v8
         with:
-          token: ${{ secrets.USE_IN_STRUPHY_WORKFLOW }}
+          token: ${{ secrets.STRUPHY_HUB_ACCESS_TOKEN }}
           title: 'New parameter files from struphy'
           body: 'This is an auto-generated PR from a Struphy workflow (on push to main).'
           branch: from-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
