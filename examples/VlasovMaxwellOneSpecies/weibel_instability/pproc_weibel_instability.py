@@ -12,9 +12,9 @@ from struphy.physics.physics import Units
 
 def main():
     # post process raw data
-    sim_name = params.sim_folder
+    sim_name = params.env.sim_folder
     sim_path = os.path.join(os.getcwd(), sim_name)
-    save_path = os.path.join(os.getcwd(), "result", "noPerb", "controlVariate"+sim_name[-1])
+    # save_path = os.path.join(os.getcwd(), "result", "noPerb", "controlVariate"+sim_name[-1])
 
     pp = PostProcessor(path_out = sim_path)
     pp.process()
@@ -90,21 +90,28 @@ def main():
     # determine magnetic field growth rate
     exp_func = lambda x, m, b: 10**(m*x + b)
 
-    xi = xp.abs(pdata.t_grid - 100).argmin() + 1 # index of time 100 [a.lu.] (observed end of growth rate)
-    xf = xp.abs(pdata.t_grid - 200).argmin() + 1 # index of time 200 [a.lu.] (observed end of growth rate)
+    ti = pdata.t_grid[-1]//5
+    if ti == 0.0:
+        tf = pdata.t_grid[-1]
+    else:
+        tf = 2*ti
+    print(f"{ti = }, {tf = }")
 
-    params = xp.polyfit(pdata.t_grid[xi:xf], xp.log10(magnetic_energy[2][xi:xf]), deg = 1)
+    xi = xp.abs(pdata.t_grid - ti).argmin() + 1 # index of time 100 [a.lu.] (observed end of growth rate)
+    xf = xp.abs(pdata.t_grid - tf).argmin() + 1 # index of time 200 [a.lu.] (observed end of growth rate)
+
+    fitting = xp.polyfit(pdata.t_grid[xi:xf], xp.log10(magnetic_energy[2][xi:xf]), deg = 1)
     ax.plot(
         pdata.t_grid,
-        exp_func(pdata.t_grid, *params),
-        label="fitted growth rate\n" + fr"$10^{{{params[0]:.5f}x {params[1]:.0f}}}$",
+        exp_func(pdata.t_grid, *fitting),
+        label="fitted growth rate\n" + fr"$10^{{{fitting[0]:.5f}x {fitting[1]:.0f}}}$",
         color="cyan"
     )
 
     ax.plot(
         pdata.t_grid,
-        exp_func(pdata.t_grid, 0.02784, params[1]),
-        label="analytical growth rate\n" + fr"$10^{{0.02784x {params[1]:.0f}}}$",
+        exp_func(pdata.t_grid, 0.02784, fitting[1]),
+        label="analytical growth rate\n" + fr"$10^{{0.02784x {fitting[1]:.0f}}}$",
         color="cyan",
         ls="--",
         alpha=0.5
@@ -123,7 +130,8 @@ def main():
 
     fig.suptitle(f"VlasovMaxwellOneSpecies simulation:\n {control_variate=}, {ppc=}, {algo=}")
     plt.tight_layout()
-    plt.savefig(os.path.join(save_path,"E"))
+    # plt.savefig(os.path.join(save_path,"E"))
+    plt.show()
 
 
     # ------------------
@@ -159,7 +167,8 @@ def main():
                 fig.colorbar(pcm, ax = ax_maxwellian)
                 
         plt.tight_layout()
-        plt.savefig(os.path.join(save_path, f"{bin_name}_{bin}_phaseSpace"))
+        # plt.savefig(os.path.join(save_path, f"{bin_name}_{bin}_phaseSpace"))
+        plt.show()
         plt.close()
 
     plot_phaseSpace("f_binned", bin_name="e1_v1_density")
@@ -197,10 +206,11 @@ def main():
 
         fig.suptitle(f"EM-field at time step: {nearest_key:.2f}, {ppc=},{control_variate=}")
 
-        plt.savefig(os.path.join(save_path, "EM_state", f"{nearest_key:.2f}".replace(".", "_") + ".png"))
+        # plt.savefig(os.path.join(save_path, "EM_state", f"{nearest_key:.2f}".replace(".", "_") + ".png"))
+        plt.show()
         plt.close()
 
-    os.makedirs(os.path.join(save_path, "EM_state"), exist_ok=True)
+    # os.makedirs(os.path.join(save_path, "EM_state"), exist_ok=True)
     for t in xp.arange(0, Tend, 5):
         plot_EM_state(t)
 
@@ -209,8 +219,8 @@ def main():
     # Current density evolution
     # ------------------
 
-    current_density_path = os.path.join(save_path, "current_density")
-    os.makedirs(current_density_path,exist_ok=True)
+    # current_density_path = os.path.join(save_path, "current_density")
+    # os.makedirs(current_density_path,exist_ok=True)
 
     def current_1D(time:int):
         time_step = abs(pdata.t_grid - time).argmin()
@@ -233,10 +243,11 @@ def main():
         fig.suptitle(f"Current density at time {time:.2f}")
 
         plt.tight_layout()
-        plt.savefig(os.path.join(
-            current_density_path,
-            f"{time:.2f}".replace(".", "_") + ".png"
-        ))
+        # plt.savefig(os.path.join(
+        #     current_density_path,
+        #     f"{time:.2f}".replace(".", "_") + ".png"
+        # ))
+        plt.show()
         plt.close()
 
     for t in xp.arange(0, Tend, 5):
