@@ -58,5 +58,6 @@ jobs:
           title: 'New parameter files from struphy'
           body: 'This is an auto-generated PR from a Struphy workflow (on push to main).'
           branch: from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
+          branch-suffix: short-commit-hash
           base: 'main'
           draft: false
