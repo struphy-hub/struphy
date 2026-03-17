@@ -231,6 +231,8 @@ def setup_logging(logging_level: int = logging.INFO):
     if queue_handler is not None:
         queue_handler.listener.start()
         atexit.register(queue_handler.listener.stop)
+
+
 def all_subclasses(cls):
     subclasses = cls.__subclasses__()
     subclasses = subclasses + [g for s in subclasses for g in all_subclasses(s)]

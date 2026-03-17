@@ -1,7 +1,7 @@
 # third party imports
 import glob
-import logging
 import json
+import logging
 import os
 import pickle
 import shutil
@@ -1483,7 +1483,7 @@ from struphy.models import {self.model.__class__.__name__}
         if include_defaults:
             sim_setup += f"model = {self.model.__repr__()}\n"
             sim_class_def += "model=model,"
-            
+
             sim_setup += f"env = {self.env.__repr__()}\n"
             sim_class_def += "env=env,"
 
@@ -1507,7 +1507,7 @@ from struphy.models import {self.model.__class__.__name__}
 
             sim_setup += f"model = {self.model.__repr_no_defaults__()}\n"
             sim_class_def += "model=model,"
-            
+
             if not self.env.is_default:
                 sim_setup += f"env = {self.env.__repr_no_defaults__()}\n"
                 sim_class_def += "env=env,"
