@@ -146,7 +146,8 @@ class ToyDrift(StruphyModel):
         rho = charge_accum
 
         # sanity check: compute FE coeffs of density
-        rho.show_accumulated_spline_field(Propagator.mass_ops, eta_direction=(True,True,False))
+        # rho()
+        # rho.show_accumulated_spline_field(Propagator.mass_ops, eta_direction=(True,True,False))
 
         self.propagators.gc_poisson.options.sigma_1 = 1e-8
         self.propagators.gc_poisson.options.sigma_2 = 0.0
