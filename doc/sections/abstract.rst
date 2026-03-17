@@ -13,7 +13,7 @@ and** *usability* **(Python).**
 * `mpi4py <https://pypi.org/project/mpi4py/>`_ (parallelization)
 * `pyccel <https://github.com/pyccel/pyccel>`_ (compilation)
 
-Heavy compute kernels are transpiled using the Python accelerator `pyccel <https://github.com/pyccel/pyccel>`_.
+Heavy compute kernels are transpiled using the Python accelerator `<https://github.com/pyccel/pyccel>`_.
 You will thus enjoy the speed of Fortran or C while working in the familiar Python environment.
 
 **Flexibility** comes through the possibility of applying different :ref:`models` to a plasma physics problem.
@@ -28,7 +28,7 @@ provided by the Struphy classes. Check out :ref:`add_model` to learn more.
 
 At present, abstractions for the following numerical methods are available:
 
-* **Finite Element Exterior Calculus (FEEC)**, through ` <https://github.com/pyccel/psydac>`_
+* **Finite Element Exterior Calculus (FEEC)**, through `<https://github.com/pyccel/psydac>`_
 * **Particle-In-Cell (PIC)**
 * **Smoothed-Particle Hydrodynamics (SPH)**
 

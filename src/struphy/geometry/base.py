@@ -14,13 +14,7 @@ import struphy.bsplines.bsplines as bsp
 from struphy.geometry import evaluation_kernels, transform_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
-from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default
-
-
-def all_subclasses(cls):
-    subclasses = cls.__subclasses__()
-    subclasses = subclasses + [g for s in subclasses for g in all_subclasses(s)]
-    return subclasses
+from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default, all_subclasses
 
 
 class DomainMeta(ABCMeta):

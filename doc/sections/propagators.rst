@@ -14,7 +14,7 @@ of a model's variables by one time step, :math:`t \to t + \Delta t`.
     subsections/propagators-fields
     subsections/propagators-markers
     subsections/propagators-coupling
-    subsections/propagators-base_class
+    subsections/propagators-base
 
 
 

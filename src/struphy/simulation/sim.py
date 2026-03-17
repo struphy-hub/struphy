@@ -1,6 +1,7 @@
 # third party imports
 import glob
 import logging
+import json
 import os
 import pickle
 import shutil
@@ -10,6 +11,7 @@ import time
 import cunumpy as xp
 import h5py
 import pyvista as pv
+import yaml
 from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.stencil import StencilVector
@@ -81,6 +83,10 @@ class Simulation(SimulationBase):
     ----------
     model : StruphyModel
         Physics model that provides species, propagators and variables.
+    name : str, optional
+        Name of the simulation.
+    description : str, optional
+        Description of the simulation.
     params_path : str, optional
         Path to a Python parameter file to save alongside outputs.
     env : EnvironmentOptions
@@ -115,6 +121,8 @@ class Simulation(SimulationBase):
     def __init__(
         self,
         model: StruphyModel,
+        name: str = "",
+        description: str = "",
         params_path: str = None,
         env: EnvironmentOptions = EnvironmentOptions(),
         base_units: BaseUnits = BaseUnits(),
@@ -127,6 +135,9 @@ class Simulation(SimulationBase):
         verbose: bool = False,
     ):
         setup_logging(logging_level=logging_level)
+
+        self._name = name
+        self._description = description
         self._model = model
         self._params_path = params_path
         self._env = env
@@ -488,6 +499,10 @@ class Simulation(SimulationBase):
         """
 
         logger.info(f"\nStarting simulation run for model {self.model_name} ...")
+        if self.name != "":
+            logger.info(f"Simulation name: {self.name}")
+        if self.description != "":
+            logger.info(f"Description: {self.description}")
 
         self._remove_existing_output_files(verbose=verbose)
 
@@ -1375,6 +1390,8 @@ RESTARTing from:
     def to_dict(self) -> dict:
         """Serialize the simulation configuration to a dictionary."""
         return {
+            "name": self.name,
+            "description": self.description,
             "model": self.model.to_dict(),
             "params_path": self.params_path,
             "env": self.env.to_dict(),
@@ -1392,6 +1409,8 @@ RESTARTing from:
         """Deserialize a simulation configuration from a dictionary."""
 
         return cls(
+            name=dct["name"],
+            description=dct["description"],
             model=StruphyModel.from_dict(dct["model"]),
             params_path=dct["params_path"],
             env=EnvironmentOptions.from_dict(dct["env"]),
@@ -1404,7 +1423,40 @@ RESTARTing from:
             verbose=dct.get("verbose", False),
         )
 
-    def generate_script(self, include_main_guard: bool = False) -> str:
+    @classmethod
+    def from_file(cls, file_path: str) -> "SimulationBase":
+        """Deserialize a simulation configuration from a file based on the file extension."""
+        if file_path.endswith(".yaml") or file_path.endswith(".yml"):
+            with open(file_path, "r") as f:
+                dct = yaml.safe_load(f)
+        elif file_path.endswith(".json"):
+            with open(file_path, "r") as f:
+                dct = json.load(f)
+        else:
+            raise ValueError("Unsupported file format. Use .yaml, .yml or .json.")
+
+        # YAML and JSON do not have a native tuple type,
+        # so when you load them with PyYAML or json,
+        # sequences are always converted to lists
+        def convert_lists_to_tuples(obj):
+            if isinstance(obj, dict):
+                for k, v in obj.items():
+                    obj[k] = convert_lists_to_tuples(v)
+                return obj
+            elif isinstance(obj, list):
+                return tuple(convert_lists_to_tuples(i) for i in obj)
+            else:
+                return obj
+
+        # Convert lists to tuples for relevant keys
+        dct = convert_lists_to_tuples(dct)
+        return cls.from_dict(dct)
+
+    def generate_script(
+        self,
+        include_main_guard: bool = False,
+        include_defaults: bool = False,
+    ) -> str:
         """Generate a Python script that can be used to reproduce the simulation."""
 
         script = f"""
@@ -1428,33 +1480,60 @@ from struphy.models import {self.model.__class__.__name__}
         sim_setup = ""
         sim_class_def = "sim = Simulation("
 
-        # Always include model
-        sim_setup += f"model = {self.model.__repr_no_defaults__()}\n"
-        sim_class_def += "model=model,"
-
-        # Only include parameters that are not default to avoid cluttering the script with unnecessary lines
-        if not self.env.is_default:
-            sim_setup += f"env = {self.env.__repr_no_defaults__()}\n"
+        if include_defaults:
+            sim_setup += f"model = {self.model.__repr__()}\n"
+            sim_class_def += "model=model,"
+            
+            sim_setup += f"env = {self.env.__repr__()}\n"
             sim_class_def += "env=env,"
-        if not self.base_units.is_default:
-            sim_setup += f"base_units = {self.base_units.__repr_no_defaults__()}\n"
+
+            sim_setup += f"base_units = {self.base_units.__repr__()}\n"
             sim_class_def += "base_units=base_units,"
-        if not self.time_opts.is_default:
-            sim_setup += f"time_opts = {self.time_opts.__repr_no_defaults__()}\n"
+
+            sim_setup += f"time_opts = {self.time_opts.__repr__()}\n"
             sim_class_def += "time_opts=time_opts,"
-        if not self.domain.is_default:
-            sim_setup += f"domain = domains.{self.domain.__repr_no_defaults__()}\n"
+
+            sim_setup += f"domain = domains.{self.domain.__repr__()}\n"
             sim_class_def += "domain=domain,"
+
+            sim_setup += f"grid = grids.{self.grid.__repr__()}\n"
+            sim_class_def += "grid=grid,"
+
+            sim_setup += f"derham_opts = {self.derham_opts.__repr__()}\n"
+            sim_class_def += "derham_opts=derham_opts,"
+        else:
+            # Only include parameters that are not default to avoid
+            # cluttering the script with unnecessary lines
+
+            sim_setup += f"model = {self.model.__repr_no_defaults__()}\n"
+            sim_class_def += "model=model,"
+            
+            if not self.env.is_default:
+                sim_setup += f"env = {self.env.__repr_no_defaults__()}\n"
+                sim_class_def += "env=env,"
+            if not self.base_units.is_default:
+                sim_setup += f"base_units = {self.base_units.__repr_no_defaults__()}\n"
+                sim_class_def += "base_units=base_units,"
+            if not self.time_opts.is_default:
+                sim_setup += f"time_opts = {self.time_opts.__repr_no_defaults__()}\n"
+                sim_class_def += "time_opts=time_opts,"
+            if not self.domain.is_default:
+                sim_setup += f"domain = domains.{self.domain.__repr_no_defaults__()}\n"
+                sim_class_def += "domain=domain,"
+            if not self.grid.is_default:
+                sim_setup += f"grid = grids.{self.grid.__repr_no_defaults__()}\n"
+                sim_class_def += "grid=grid,"
+            if not self.derham_opts.is_default:
+                sim_setup += f"derham_opts = {self.derham_opts.__repr_no_defaults__()}\n"
+                sim_class_def += "derham_opts=derham_opts,"
+
         # This is a bit of a special case since the default is None,
         if self.equil is not None:
-            sim_setup += f"equil = equils.{self.equil.__repr_no_defaults__()}\n"
+            if include_defaults:
+                sim_setup += f"equil = equils.{self.equil.__repr__()}\n"
+            else:
+                sim_setup += f"equil = equils.{self.equil.__repr_no_defaults__()}\n"
             sim_class_def += "equil=equil,"
-        if not self.grid.is_default:
-            sim_setup += f"grid = grids.{self.grid.__repr_no_defaults__()}\n"
-            sim_class_def += "grid=grid,"
-        if not self.derham_opts.is_default:
-            sim_setup += f"derham_opts = {self.derham_opts.__repr_no_defaults__()}\n"
-            sim_class_def += "derham_opts=derham_opts,"
         if self.params_path is not None:
             sim_class_def += f"params_path={repr(self.params_path)},\n"
 
@@ -1490,6 +1569,16 @@ if __name__ == "__main__":
     def model(self) -> StruphyModel:
         """StruphyModel object containing the PDE of the model."""
         return self._model
+
+    @property
+    def name(self) -> str:
+        """Name of the simulation."""
+        return self._name
+
+    @property
+    def description(self) -> str:
+        """Description of the simulation."""
+        return self._description
 
     @property
     def params_path(self):
