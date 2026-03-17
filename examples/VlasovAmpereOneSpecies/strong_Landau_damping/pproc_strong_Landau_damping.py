@@ -1,4 +1,4 @@
-import params_strong_Landau_damping as damping_params
+import params_strong_Landau_damping as params
 
 import os
 import h5py
@@ -11,17 +11,17 @@ from struphy import PostProcessor, PlottingData
 def main():
     ### Electric field progression ###
     # get parameters
-    dt = damping_params.time_opts.dt
-    algo = damping_params.time_opts.split_algo
-    Nel = damping_params.grid.Nel
-    p = damping_params.derham_opts.p
+    dt = params.time_opts.dt
+    algo = params.time_opts.split_algo
+    Nel = params.grid.Nel
+    p = params.derham_opts.p
 
-    env = damping_params.env
-    ppc = damping_params.loading_params.ppc
+    env = params.env
+    ppc = params.loading_params.ppc
 
     # get units
-    units = Units(damping_params.base_units)
-    model = damping_params.model
+    units = Units(params.base_units)
+    model = params.model
     model.units = units
     A_bulk = model.bulk_species.mass_number
     Z_bulk = model.bulk_species._charge_number
@@ -53,11 +53,11 @@ def main():
     ### Binning distribution progression ###        
     # post process raw data
     path = os.path.join(os.getcwd(), "sim_data")
-    pp = PostProcessor(path_out=path)
+    pp = PostProcessor(sim=params.sim)
     pp.process()
 
     # get sim data
-    pdata = PlottingData(path_out=path)
+    pdata = PlottingData(sim=params.sim)
     pdata.load()
 
     # plot in e1-v1

@@ -16,11 +16,11 @@ def main():
     sim_path = os.path.join(os.getcwd(), sim_name)
     # save_path = os.path.join(os.getcwd(), "result", "noPerb", "controlVariate"+sim_name[-1])
 
-    pp = PostProcessor(path_out = sim_path)
+    pp = PostProcessor(sim=params.sim)
     pp.process()
 
     # get sim data
-    pdata = PlottingData(path_out=sim_path)
+    pdata = PlottingData(sim=params.sim)
     pdata.load()
 
     # get parameters
@@ -48,7 +48,6 @@ def main():
 
     control_variate = params.weights_params.control_variate
     split_algo = params.time_opts.split_algo
-
 
     # ------------------
     # progression of EM-field energy 
@@ -133,7 +132,6 @@ def main():
     # plt.savefig(os.path.join(save_path,"E"))
     plt.show()
 
-
     # ------------------
     # Binning distribution evolution 
     # ------------------
@@ -176,12 +174,11 @@ def main():
     plot_phaseSpace("f_binned",bin_name="v1_v2_density")
     plot_phaseSpace("delta_f_binned",bin_name="v1_v2_density")
 
-
     # ------------------
     # Plot EM-field of each time step 
     # ------------------
 
-    def plot_EM_state(time_step: int, n_dim = 3):    
+    def plot_EM_state(time_step: float, n_dim = 3):    
         nearest_key = pdata.t_grid[xp.abs(pdata.t_grid - time_step).argmin()]
         electric_field = pdata.spline_values.em_fields.e_field_log.data[nearest_key]
         magnetic_field = pdata.spline_values.em_fields.b_field_log.data[nearest_key]
@@ -211,9 +208,8 @@ def main():
         plt.close()
 
     # os.makedirs(os.path.join(save_path, "EM_state"), exist_ok=True)
-    for t in xp.arange(0, Tend, 5):
+    for t in xp.linspace(0, pdata.t_grid[-1], 2):
         plot_EM_state(t)
-
 
     # ------------------
     # Current density evolution
@@ -222,7 +218,7 @@ def main():
     # current_density_path = os.path.join(save_path, "current_density")
     # os.makedirs(current_density_path,exist_ok=True)
 
-    def current_1D(time:int):
+    def current_1D(time: float):
         time_step = abs(pdata.t_grid - time).argmin()
         fig, ax = plt.subplots(nrows = 3, ncols = 3, figsize = (9,9),sharey = True, sharex = True)
 
@@ -250,7 +246,7 @@ def main():
         plt.show()
         plt.close()
 
-    for t in xp.arange(0, Tend, 5):
+    for t in xp.linspace(0, pdata.t_grid[-1], 2):
         current_1D(t)
         
 if __name__ == "__main__":

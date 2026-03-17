@@ -39,7 +39,7 @@ def test_examples(params_path: Path):
     regress_name = example_name.replace("params_", "regress_")
     regress_path = Path(*rel.parts[:-1]) / f"{regress_name}.py"
 
-    print("\nTesting example:", example_name)
+    print(f"\n{MPI.COMM_WORLD.Get_rank()} Testing example:", example_name)
     print(f"{params_path = }")
     print(f"{pproc_path = }")
     print(f"{regress_path = }")
@@ -56,5 +56,6 @@ def test_examples(params_path: Path):
         if regress_path.exists():
             regress_module = import_parameters_py(str(regress_path), name=regress_name)
             regress_module.main()
-
+            
         shutil.rmtree(params.sim.env.path_out)
+    MPI.COMM_WORLD.Barrier()
