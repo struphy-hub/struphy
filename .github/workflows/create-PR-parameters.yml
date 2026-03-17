@@ -22,7 +22,7 @@ jobs:
           path: struphy
 
       - name: Get submodule diff
-        uses: ./.github/actions/submodule-diff
+        uses: ./struphy/.github/actions/submodule-diff
         with:
           submod-name: examples/
 
