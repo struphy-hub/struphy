@@ -35,7 +35,7 @@ jobs:
         run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
 
       - name: Install OSMesa/EGL
-        run: sudo apt-get install -y libosmesa6 libosmesa6-dev libegl-mesa0
+        run: apt install -y libosmesa6 libosmesa6-dev libegl-mesa0
 
       - name: Checkout code
         uses: actions/checkout@v4
