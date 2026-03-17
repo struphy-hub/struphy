@@ -1,0 +1,31 @@
+name: Create pull request into struphy-hub/struphy-parameter-files
+
+on:
+  pull_request:
+    branches:
+      - devel
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  create-pull-request:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          repository: struphy-hub/struphy-parameter-files
+          token: ${{ secrets.USE_IN_STRUPHY_WORKFLOW }}
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.USE_IN_STRUPHY_WORKFLOW }}
+          title: 'New parameter files from struphy'
+          body: 'This is an auto-generated PR from a Struphy workflow (on push to main).'
+          branch: from-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
+          base: 'main'
+          draft: false
