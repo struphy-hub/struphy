@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  clone-and-push:
+  clone-push-and-create-pr:
     runs-on: ubuntu-latest
 
     steps:
@@ -40,24 +40,14 @@ jobs:
             git commit -m "Changes to parameter files from struphy (on push to main)"
             git push origin from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
 
-  create-PR:
-    needs: clone-and-push
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          repository: struphy-hub/struphy-parameter-files
-          token: ${{ secrets.STRUPHY_HUB_ACCESS_TOKEN }}
-
       - name: Create pull request
-        uses: peter-evans/create-pull-request@v8
-        with:
-          token: ${{ secrets.STRUPHY_HUB_ACCESS_TOKEN }}
-          title: 'New parameter files from struphy'
-          body: 'This is an auto-generated PR from a Struphy workflow (on push to main).'
-          branch: from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
-          branch-suffix: short-commit-hash
-          base: 'main'
-          draft: false
+        run: |
+          gh pr create \
+            --repo struphy-hub/struphy-parameter-files \
+            --title "New parameter files from struphy" \
+            --body "This is an auto-generated PR from a Struphy workflow (on push to main)." \
+            --head from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }} \
+            --base main \
+            --draft false
+        env:
+          GH_TOKEN: ${{ secrets.STRUPHY_HUB_ACCESS_TOKEN }}
