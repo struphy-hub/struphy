@@ -47,7 +47,6 @@ jobs:
             --title "New parameter files from struphy" \
             --body "This is an auto-generated PR from a Struphy workflow (on push to main)." \
             --head from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }} \
-            --base main \
-            --draft false
+            --base main 
         env:
           GH_TOKEN: ${{ secrets.STRUPHY_HUB_ACCESS_TOKEN }}
