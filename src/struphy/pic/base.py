@@ -295,15 +295,16 @@ class Particles(metaclass=ABCMeta):
         if bc_sph is None:
             bc_sph = [bci if bci == "periodic" else "mirror" for bci in self.bc]
 
+        self._mean_velocity_index = None
         for bci in bc_sph:
             assert bci in ("periodic", "mirror", "fixed", "noslip")
             if bci == "noslip":
                 if boundary_params.mean_velocity_index is None:
-                    self.mean_velocity_index = (
+                    self._mean_velocity_index = (
                         self.first_free_idx
                     )  # index in marker array where mean velocity for noslip BC is stored
                 else:
-                    self.mean_velocity_index = boundary_params.mean_velocity_index
+                    self._mean_velocity_index = boundary_params.mean_velocity_index
         self._bc_sph = bc_sph
 
         # particle type
@@ -494,6 +495,11 @@ class Particles(metaclass=ABCMeta):
     def bc_sph(self):
         """List of boundary conditions for sph evaluation in each direction."""
         return self._bc_sph
+
+    @property
+    def mean_velocity_index(self):
+        """Index in marker array where mean velocity for noslip BC is stored."""
+        return self._mean_velocity_index
 
     @property
     def Np(self):
