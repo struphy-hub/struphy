@@ -10,12 +10,36 @@ on:
   workflow_dispatch:
 
 jobs:
+  clone-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: true  # This is crucial!
+          fetch-depth: 5
+
+      - name: Clone struphy-parameter-files and push new branch
+        run: |
+            git clone --branch main https://github.com/struphy-hub/struphy-parameter-files.git
+            cd struphy-parameter-files
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git remote set-url origin https://x-access-token:${{ secrets.USE_IN_STRUPHY_WORKFLOW }}@github.com/struphy-hub/struphy-parameter-files.git
+            git checkout -b from-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
+            cp -r ../examples/ ./
+            git status
+            git add .
+            git commit -m "Add new parameter files"
+            git push origin from-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
+
   create-pull-request:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
         with:
           repository: struphy-hub/struphy-parameter-files
           token: ${{ secrets.USE_IN_STRUPHY_WORKFLOW }}
