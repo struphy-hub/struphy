@@ -1,6 +1,9 @@
-name: Create pull request into struphy-hub/struphy-parameter-files
+name: Create pull request into struphy-hub/struphy-tutorials
 
 on:
+  pull_request:
+    branches:
+      - devel
   push:
     branches:
       - main
@@ -20,35 +23,35 @@ jobs:
       - name: Get submodule diff
         uses: ./.github/actions/submodule-diff
         with:
-          submod-name: examples/
+          submod-name: tutorials/
 
       - name: Checkout code
         if: env.SUBMOD_CHANGED == 'true'
         uses: actions/checkout@v4
         with:
-          repository: struphy-hub/struphy-parameter-files
+          repository: struphy-hub/struphy-tutorials
           token: ${{ secrets.STRUPHY_HUB_ACCESS_TOKEN }}
-          path: struphy-parameter-files
+          path: struphy-tutorials
 
-      - name: Copy examples and push new branch
+      - name: Copy tutorials and push new branch
         if: env.SUBMOD_CHANGED == 'true'
         run: |
-            cd struphy-parameter-files
+            cd struphy-tutorials
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git checkout -b from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
-            cp -r ../examples/. ./
+            cp -r ../tutorials/. ./
             git status
             git add .
-            git commit -m "Changes to parameter files from struphy (on push to main)"
+            git commit -m "Changes to tutorials from struphy (on push to main)"
             git push origin from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
 
       - name: Create pull request
         if: env.SUBMOD_CHANGED == 'true'
         run: |
           gh pr create \
-            --repo struphy-hub/struphy-parameter-files \
-            --title "New parameter files from struphy" \
+            --repo struphy-hub/struphy-tutorials \
+            --title "New tutorials from struphy" \
             --body "This is an auto-generated PR from a Struphy workflow (on push to main)." \
             --head from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }} \
             --base main 
