@@ -36,7 +36,7 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    print("")
+    logger.info("")
 
     # domain object
     domain_class = getattr(domains, mapping[0])
@@ -50,7 +50,7 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     domain_decomp = (domain_array, nprocs)
 
     if rank == 0:
-        print("Domain decomposition : \n", derham.domain_array)
+        logger.info("Domain decomposition : \n", derham.domain_array)
 
     # particle loading and sorting
     seed = 1234
@@ -136,7 +136,7 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    print("")
+    logger.info("")
 
     # domain object
     domain_class = getattr(domains, mapping[0])
@@ -150,7 +150,7 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     domain_decomp = (domain_array, nprocs)
 
     if rank == 0:
-        print("Domain decomposition : \n", derham.domain_array)
+        logger.info("Domain decomposition : \n", derham.domain_array)
 
     # particle loading and sorting
     seed = 1234
@@ -246,7 +246,7 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    print("")
+    logger.info("")
 
     # domain object
     domain_class = getattr(domains, mapping[0])
@@ -260,7 +260,7 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     domain_decomp = (domain_array, nprocs)
 
     if rank == 0:
-        print("Domain decomposition : \n", derham.domain_array)
+        logger.info("Domain decomposition : \n", derham.domain_array)
 
     # particle loading and sorting
     seed = 1234
@@ -356,7 +356,7 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    print("")
+    logger.info("")
 
     # domain object
     domain_class = getattr(domains, mapping[0])
@@ -370,7 +370,7 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     domain_decomp = (domain_array, nprocs)
 
     if rank == 0:
-        print("Domain decomposition : \n", derham.domain_array)
+        logger.info("Domain decomposition : \n", derham.domain_array)
 
     # particle loading and sorting
     seed = 1234
@@ -466,7 +466,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    print("")
+    logger.info("")
 
     # domain object
     domain_class = getattr(domains, mapping[0])
@@ -480,7 +480,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     domain_decomp = (domain_array, nprocs)
 
     if rank == 0:
-        print("Domain decomposition : \n", derham.domain_array)
+        logger.info("Domain decomposition : \n", derham.domain_array)
 
     # particle loading and sorting
     seed = 1234
@@ -587,7 +587,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
-    print("")
+    logger.info("")
 
     # domain object
     domain_class = getattr(domains, mapping[0])
@@ -601,7 +601,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     domain_decomp = (domain_array, nprocs)
 
     if rank == 0:
-        print("Domain decomposition : \n", derham.domain_array)
+        logger.info("Domain decomposition : \n", derham.domain_array)
 
     # particle loading and sorting
     seed = 1234

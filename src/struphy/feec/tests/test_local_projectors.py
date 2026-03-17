@@ -28,7 +28,7 @@ def test_local_projectors_compare_global(Nel, p, spl_kind):
     # create derham object
     derham = Derham(Nel, p, spl_kind, comm=comm, local_projectors=True)
     timef = time.time()
-    print("Time for building Derham = " + str(timef - timei))
+    logger.info("Time for building Derham = " + str(timef - timei))
 
     # constant function
     def f(e1, e2, e3):
@@ -95,7 +95,7 @@ def test_local_projectors_compare_global(Nel, p, spl_kind):
             errg[1] = xp.max(xp.abs(fieldg_vals[1] - field_vals[1]))
             errg[2] = xp.max(xp.abs(fieldg_vals[2] - field_vals[2]))
 
-        print(f"{sp_id =}, {xp.max(err) =}, {xp.max(errg) =},{exectime =}")
+        logger.info(f"{sp_id =}, {xp.max(err) =}, {xp.max(errg) =},{exectime =}")
         if sp_id in ("H1", "H1vec"):
             assert xp.max(err) < 0.011
             assert xp.max(errg) < 0.011
@@ -217,14 +217,14 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
             # for those cases is better to compute the convergance rate using only the information of Nel with smaller number
             if -m <= (pi + 1 - 0.1):
                 m = -xp.log2(errors[sp_id][1] / errors[sp_id][2])
-            print(f"{sp_id =}, fitted convergence rate = {-m}, degree = {pi}")
+            logger.info(f"{sp_id =}, fitted convergence rate = {-m}, degree = {pi}")
             assert -m > (pi + 1 - 0.1)
         else:
             # Sometimes for very large number of elements the convergance rate falls of a bit since the error is already so small floating point impressions become relevant
             # for those cases is better to compute the convergance rate using only the information of Nel with smaller number
             if -m <= (pi - 0.1):
                 m = -xp.log2(errors[sp_id][1] / errors[sp_id][2])
-            print(f"{sp_id =}, fitted convergence rate = {-m}, degree = {pi}")
+            logger.info(f"{sp_id =}, fitted convergence rate = {-m}, degree = {pi}")
             assert -m > (pi - 0.1)
 
         if do_plot:
@@ -274,7 +274,7 @@ def aux_test_replication_of_basis(Nel, plist, spl_kind):
                 span = find_span(T, p, eta)
                 inds = xp.arange(span - p, span + 1) % N
                 pos = xp.argwhere(inds == i)
-                # print(f'{pos = }')
+                # logger.info(f'{pos = }')
                 if pos.size > 0:
                     pos = pos[0, 0]
                     out[j] = basis_funs(T, p, eta, span, normalize=normalize)[pos]
@@ -297,9 +297,9 @@ def aux_test_replication_of_basis(Nel, plist, spl_kind):
             fun_h[k] = evaluation_kernel_1d(p, basis, ind1, lambdas)
 
         if xp.max(xp.abs(fun(etas, 0.0, 0.0) - fun_h)) >= 10.0**-10:
-            print(xp.max(xp.abs(fun(etas, 0.0, 0.0) - fun_h)))
+            logger.info(xp.max(xp.abs(fun(etas, 0.0, 0.0) - fun_h)))
         assert xp.max(xp.abs(fun(etas, 0.0, 0.0) - fun_h)) < 10.0**-10
-        # print(f'{j = }, max error: {xp.max(xp.abs(fun(etas,0.0,0.0) - fun_h))}')
+        # logger.info(f'{j = }, max error: {xp.max(xp.abs(fun(etas,0.0,0.0) - fun_h))}')
 
     # For D-splines
 
@@ -310,11 +310,11 @@ def aux_test_replication_of_basis(Nel, plist, spl_kind):
         for i, value in enumerate(val):
             if i != entry:
                 if abs(value) >= tol:
-                    print(value, i, entry)
+                    logger.info(value, i, entry)
                 assert abs(value) < tol
             else:
                 if abs(value - 1.0) >= tol:
-                    print(value, i, abs(value - 1.0))
+                    logger.info(value, i, abs(value - 1.0))
                 assert abs(value - 1.0) < tol
 
     sp_key = "3"
@@ -948,7 +948,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
 
     compare_arrays(matrix_new.dot(v), xp.matmul(matrix, varr), rank)
 
-    print("BasisProjectionOperatorLocal test passed.")
+    logger.info("BasisProjectionOperatorLocal test passed.")
 
 
 @pytest.mark.parametrize("Nel", [[40, 1, 1]])
@@ -1320,10 +1320,10 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
 
     if rank == 0:
         assert reducemeanlocal < 10.0 * reducemeanglobal or reducemeanlocal < 10.0**-5
-        print(f"{reducemeanlocal =}")
-        print(f"{reducemaxlocal =}")
-        print(f"{reducemeanglobal =}")
-        print(f"{reducemaxglobal =}")
+        logger.info(f"{reducemeanlocal =}")
+        logger.info(f"{reducemaxlocal =}")
+        logger.info(f"{reducemeanglobal =}")
+        logger.info(f"{reducemaxglobal =}")
 
     if do_plot:
         if out_sp_key == "0" or out_sp_key == "3":
@@ -1346,7 +1346,7 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
         if rank == 0:
             plt.show()
 
-    print("BasisProjectionOperatorLocal test passed.")
+    logger.info("BasisProjectionOperatorLocal test passed.")
 
 
 # Works only in one processor
@@ -1455,7 +1455,7 @@ def aux_test_spline_evaluation(Nel, plist, spl_kind):
                     maxerrorB = auxerror
                 inputB[col0, col1, col2] = 0.0
 
-    print(f"{maxerrorB =}")
+    logger.info(f"{maxerrorB =}")
     assert maxerrorB < 10.0**-13
 
     maxerrorD = 0.0
@@ -1483,9 +1483,9 @@ def aux_test_spline_evaluation(Nel, plist, spl_kind):
                     maxerrorD = auxerror
                 inputD[col0, col1, col2] = 0.0
 
-    print(f"{maxerrorD =}")
+    logger.info(f"{maxerrorD =}")
     assert maxerrorD < 10.0**-13
-    print("Test spline evaluation passed.")
+    logger.info("Test spline evaluation passed.")
 
 
 if __name__ == "__main__":

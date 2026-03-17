@@ -2534,10 +2534,10 @@ class WeightedMassOperator(LinOpWithTransp):
         if all(op is None for op in (self._W_extraction_op, self._V_extraction_op)):
             for bl in self._V_boundary_op.bc:
                 for bc in bl:
-                    assert not bc, print(".tosparse() only works without boundary conditions at the moment")
+                    assert not bc, logger.info(".tosparse() only works without boundary conditions at the moment")
             for bl in self._W_boundary_op.bc:
                 for bc in bl:
-                    assert not bc, print(".tosparse() only works without boundary conditions at the moment")
+                    assert not bc, logger.info(".tosparse() only works without boundary conditions at the moment")
 
             return self._mat.tosparse()
         elif all(isinstance(op, IdentityOperator) for op in (self._W_extraction_op, self._V_extraction_op)):
@@ -2550,10 +2550,10 @@ class WeightedMassOperator(LinOpWithTransp):
         if all(op is None for op in (self._W_extraction_op, self._V_extraction_op)):
             for bl in self._V_boundary_op.bc:
                 for bc in bl:
-                    assert not bc, print(".toarray() only works without boundary conditions at the moment")
+                    assert not bc, logger.info(".toarray() only works without boundary conditions at the moment")
             for bl in self._W_boundary_op.bc:
                 for bc in bl:
-                    assert not bc, print(".toarray() only works without boundary conditions at the moment")
+                    assert not bc, logger.info(".toarray() only works without boundary conditions at the moment")
 
             return self._mat.toarray()
         elif all(isinstance(op, IdentityOperator) for op in (self._W_extraction_op, self._V_extraction_op)):
@@ -2767,7 +2767,7 @@ class WeightedMassOperator(LinOpWithTransp):
                     rank = 0
 
             if rank == 0 and verbose:
-                print(
+                logger.info(
                     f'\nAssembling matrix of WeightedMassOperator "{self.name}" with V={self._domain_symbolic_name}, W={self._codomain_symbolic_name}.',
                 )
 
@@ -2908,7 +2908,7 @@ class WeightedMassOperator(LinOpWithTransp):
                             mat = self._mat[a, b]
 
                         if rank == 0 and verbose:
-                            print(f"Assemble block {a, b}")
+                            logger.info(f"Assemble block {a, b}")
 
                         self._assembly_kernel(
                             *codomain_spans,
@@ -2948,7 +2948,7 @@ class WeightedMassOperator(LinOpWithTransp):
                 self._mat[2, 1]._data[:] = -self._mat[1, 2].T._data
 
             if rank == 0 and verbose:
-                print("Done.")
+                logger.info("Done.")
 
     def copy(self, out=None):
         """Create a copy of self, that can potentially be stored in a given WeightedMassOperator.

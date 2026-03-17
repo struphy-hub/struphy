@@ -19,7 +19,7 @@ def get_dependencies(pymod_abs=None):
 
     if pymod_abs is None:
         # with open('cool.txt', 'w') as f:
-        #     print(f'{sys.argv = }', file=f)
+        #     logger.info(f'{sys.argv = }', file=f)
         assert len(sys.argv) > 1
         assert sys.argv[1][-3:] == ".so"
         pymod_abs = sys.argv[1]
@@ -35,15 +35,15 @@ def get_dependencies(pymod_abs=None):
 
     pymod_abs = pymod_abs.replace(so_suffix, ".py")
 
-    # print(f'{pymod_abs = }')
+    # logger.info(f'{pymod_abs = }')
     pymod_so = pymod_abs.replace(".py", so_suffix)
-    # print(f'{pymod_so = }')
+    # logger.info(f'{pymod_so = }')
 
     # temporaryily move .py file to _tmp.py for getting correct dependencies
     del_tmp = False
     if os.path.isfile(pymod_so):
         tmp = pymod_abs.replace(".py", "_tmp.py")
-        # print(f'{tmp = }')
+        # logger.info(f'{tmp = }')
         shutil.copyfile(pymod_abs, tmp)
         time.sleep(0.01)
         del_tmp = True
@@ -53,13 +53,13 @@ def get_dependencies(pymod_abs=None):
     # struphy modules
     splits = tmp.split("/")
 
-    # print(f'{splits = }')
+    # logger.info(f'{splits = }')
 
     booli = [i == "struphy" for i in splits]
     ids = [i for i, x in enumerate(booli) if x]
     stem = "/".join(splits[: ids[-1]]) + "/"
 
-    # print(f'{stem = }')
+    # logger.info(f'{stem = }')
 
     splits = splits[::-1]
     file = splits[0]
@@ -70,18 +70,18 @@ def get_dependencies(pymod_abs=None):
         if "struphy" in name:
             break
 
-    # print(f'{name = }')
+    # logger.info(f'{name = }')
 
     mod = importlib.import_module(name)
 
-    # print(f'{mod = }')
-    # print(f'{dir(mod) = }')
-    # print(f'{vars(mod) = }')
+    # logger.info(f'{mod = }')
+    # logger.info(f'{dir(mod) = }')
+    # logger.info(f'{vars(mod) = }')
 
     depends = []
     for k, v in vars(mod).items():
         if isinstance(v, types.ModuleType):
-            # print(f'{v = }')
+            # logger.info(f'{v = }')
             if "kernels" in v.__name__:
                 depends += [stem + v.__name__.replace(".", "/") + so_suffix]
 
@@ -93,4 +93,4 @@ def get_dependencies(pymod_abs=None):
 
 if __name__ == "__main__":
     deps = get_dependencies()
-    print(deps)
+    logger.info(deps)

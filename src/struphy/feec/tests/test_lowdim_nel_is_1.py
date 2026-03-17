@@ -18,9 +18,9 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
-    print("Nel=", Nel)
-    print("p=", p)
-    print("spl_kind=", spl_kind)
+    logger.info("Nel=", Nel)
+    logger.info("p=", p)
+    logger.info("spl_kind=", spl_kind)
 
     # Psydac discrete Derham sequence
     derham = Derham(Nel, p, spl_kind, comm=comm)
@@ -30,45 +30,45 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     ############################
     # Stencil vectors for Psydac:
     x0_PSY = StencilVector(derham.Vh["0"])
-    print(f"rank {rank} | 0-form StencilVector:")
-    print(f"rank {rank} | starts:", x0_PSY.starts)
-    print(f"rank {rank} | ends  :", x0_PSY.ends)
-    print(f"rank {rank} | pads  :", x0_PSY.pads)
-    print(f"rank {rank} | shape (=dim):", x0_PSY.shape)
-    print(f"rank {rank} | [:].shape (=shape):", x0_PSY[:].shape)
+    logger.info(f"rank {rank} | 0-form StencilVector:")
+    logger.info(f"rank {rank} | starts:", x0_PSY.starts)
+    logger.info(f"rank {rank} | ends  :", x0_PSY.ends)
+    logger.info(f"rank {rank} | pads  :", x0_PSY.pads)
+    logger.info(f"rank {rank} | shape (=dim):", x0_PSY.shape)
+    logger.info(f"rank {rank} | [:].shape (=shape):", x0_PSY[:].shape)
 
     x3_PSY = StencilVector(derham.Vh["3"])
-    print(f"rank {rank} | \n3-form StencilVector:")
-    print(f"rank {rank} | starts:", x3_PSY.starts)
-    print(f"rank {rank} | ends  :", x3_PSY.ends)
-    print(f"rank {rank} | pads  :", x3_PSY.pads)
-    print(f"rank {rank} | shape (=dim):", x3_PSY.shape)
-    print(f"rank {rank} | [:].shape (=shape):", x3_PSY[:].shape)
+    logger.info(f"rank {rank} | \n3-form StencilVector:")
+    logger.info(f"rank {rank} | starts:", x3_PSY.starts)
+    logger.info(f"rank {rank} | ends  :", x3_PSY.ends)
+    logger.info(f"rank {rank} | pads  :", x3_PSY.pads)
+    logger.info(f"rank {rank} | shape (=dim):", x3_PSY.shape)
+    logger.info(f"rank {rank} | [:].shape (=shape):", x3_PSY[:].shape)
 
     # Block of StencilVecttors
     x1_PSY = BlockVector(derham.Vh["1"])
-    print(f"rank {rank} | \n1-form StencilVector:")
-    print(f"rank {rank} | starts:", [component.starts for component in x1_PSY])
-    print(f"rank {rank} | ends  :", [component.ends for component in x1_PSY])
-    print(f"rank {rank} | pads  :", [component.pads for component in x1_PSY])
-    print(f"rank {rank} | shape (=dim):", [component.shape for component in x1_PSY])
-    print(f"rank {rank} | [:].shape (=shape):", [component[:].shape for component in x1_PSY])
+    logger.info(f"rank {rank} | \n1-form StencilVector:")
+    logger.info(f"rank {rank} | starts:", [component.starts for component in x1_PSY])
+    logger.info(f"rank {rank} | ends  :", [component.ends for component in x1_PSY])
+    logger.info(f"rank {rank} | pads  :", [component.pads for component in x1_PSY])
+    logger.info(f"rank {rank} | shape (=dim):", [component.shape for component in x1_PSY])
+    logger.info(f"rank {rank} | [:].shape (=shape):", [component[:].shape for component in x1_PSY])
 
     x2_PSY = BlockVector(derham.Vh["2"])
-    print(f"rank {rank} | \n2-form StencilVector:")
-    print(f"rank {rank} | starts:", [component.starts for component in x2_PSY])
-    print(f"rank {rank} | ends  :", [component.ends for component in x2_PSY])
-    print(f"rank {rank} | pads  :", [component.pads for component in x2_PSY])
-    print(f"rank {rank} | shape (=dim):", [component.shape for component in x2_PSY])
-    print(f"rank {rank} | [:].shape (=shape):", [component[:].shape for component in x2_PSY])
+    logger.info(f"rank {rank} | \n2-form StencilVector:")
+    logger.info(f"rank {rank} | starts:", [component.starts for component in x2_PSY])
+    logger.info(f"rank {rank} | ends  :", [component.ends for component in x2_PSY])
+    logger.info(f"rank {rank} | pads  :", [component.pads for component in x2_PSY])
+    logger.info(f"rank {rank} | shape (=dim):", [component.shape for component in x2_PSY])
+    logger.info(f"rank {rank} | [:].shape (=shape):", [component[:].shape for component in x2_PSY])
 
     xv_PSY = BlockVector(derham.Vh["v"])
-    print(f"rank {rank} | \nVector StencilVector:")
-    print(f"rank {rank} | starts:", [component.starts for component in xv_PSY])
-    print(f"rank {rank} | ends  :", [component.ends for component in xv_PSY])
-    print(f"rank {rank} | pads  :", [component.pads for component in xv_PSY])
-    print(f"rank {rank} | shape (=dim):", [component.shape for component in xv_PSY])
-    print(f"rank {rank} | [:].shape (=shape):", [component[:].shape for component in xv_PSY])
+    logger.info(f"rank {rank} | \nVector StencilVector:")
+    logger.info(f"rank {rank} | starts:", [component.starts for component in xv_PSY])
+    logger.info(f"rank {rank} | ends  :", [component.ends for component in xv_PSY])
+    logger.info(f"rank {rank} | pads  :", [component.pads for component in xv_PSY])
+    logger.info(f"rank {rank} | shape (=dim):", [component.shape for component in xv_PSY])
+    logger.info(f"rank {rank} | [:].shape (=shape):", [component[:].shape for component in xv_PSY])
 
     #################################
     ### TEST COMMUTING PROJECTORS ###
@@ -161,7 +161,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
 
     # a) projection error
     err_f0 = xp.max(xp.abs(f(e1, e2, e3) - field_f0_vals))
-    print(f"\n{err_f0 =}")
+    logger.info(f"\n{err_f0 =}")
     assert err_f0 < 1e-2
 
     # b) commuting property
@@ -174,7 +174,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     field_df0_vals = field_df0(e1, e2, e3, squeeze_out=True)
 
     err_df0 = [xp.max(xp.abs(exact(e1, e2, e3) - field_v)) for exact, field_v in zip(grad_f, field_df0_vals)]
-    print(f"{err_df0 =}")
+    logger.info(f"{err_df0 =}")
     assert xp.max(err_df0) < 0.64
 
     # d) plotting
@@ -203,7 +203,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
 
     # a) projection error
     err_f1 = [xp.max(xp.abs(exact(e1, e2, e3) - field_v)) for exact, field_v in zip([f, f, f], field_f1_vals)]
-    print(f"{err_f1 =}")
+    logger.info(f"{err_f1 =}")
     assert xp.max(err_f1) < 0.09
 
     # b) commuting property
@@ -216,7 +216,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     field_df1_vals = field_df1(e1, e2, e3, squeeze_out=True)
 
     err_df1 = [xp.max(xp.abs(exact(e1, e2, e3) - field_v)) for exact, field_v in zip(curl_f, field_df1_vals)]
-    print(f"{err_df1 =}")
+    logger.info(f"{err_df1 =}")
     assert xp.max(err_df1) < 0.64
 
     # d) plotting
@@ -250,7 +250,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
 
     # a) projection error
     err_f2 = [xp.max(xp.abs(exact(e1, e2, e3) - field_v)) for exact, field_v in zip([f, f, f], field_f2_vals)]
-    print(f"{err_f2 =}")
+    logger.info(f"{err_f2 =}")
     assert xp.max(err_f2) < 0.09
 
     # b) commuting property
@@ -263,7 +263,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     field_df2_vals = field_df2(e1, e2, e3, squeeze_out=True)
 
     err_df2 = xp.max(xp.abs(div_f(e1, e2, e3) - field_df2_vals))
-    print(f"{err_df2 =}")
+    logger.info(f"{err_df2 =}")
     assert xp.max(err_df2) < 0.64
 
     # d) plotting
@@ -292,7 +292,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
 
     # a) projection error
     err_f3 = xp.max(xp.abs(f(e1, e2, e3) - field_f3_vals))
-    print(f"{err_f3 =}")
+    logger.info(f"{err_f3 =}")
     assert err_f3 < 0.09
 
     # d) plotting

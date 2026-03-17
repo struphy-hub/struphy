@@ -230,7 +230,7 @@ class Particles(metaclass=ABCMeta):
         # total number of cells (equal to mpi_size if no grid)
         n_cells = xp.sum(xp.prod(self.domain_array[:, 2::3], axis=1, dtype=int)) * self.num_clones
         # if verbose:
-        #     print(f"\n{self.mpi_rank = }, {n_cells = }")
+        #     logger.info(f"\n{self.mpi_rank = }, {n_cells = }")
 
         # total number of boxes
         if self.boxes_per_dim is None:
@@ -245,7 +245,7 @@ class Particles(metaclass=ABCMeta):
             n_boxes = xp.prod(self.boxes_per_dim, dtype=int) * self.num_clones
 
         # if verbose:
-        #     print(f"\n{self.mpi_rank = }, {n_boxes = }")
+        #     logger.info(f"\n{self.mpi_rank = }, {n_boxes = }")
 
         # total number of markers (Np) and particles per cell (ppc)
         Np = self.loading_params.Np
@@ -319,7 +319,7 @@ class Particles(metaclass=ABCMeta):
         # background
         if background is None:
             self._background = self.default_background
-            print(f"Background set to default {self.background = }.")
+            logger.info(f"Background set to default {self.background = }.")
         else:
             self._background = background
 
@@ -1365,7 +1365,7 @@ class Particles(metaclass=ABCMeta):
         """
         if self.mpi_rank == 0:
             with h5py.File(self.loading_params.dir_external, "r") as file:
-                print(f"\nLoading markers from file: {file}")
+                logger.info(f"\nLoading markers from file: {file}")
 
                 self._markers[
                     : n_mks_load_cum_sum[0],
@@ -1533,19 +1533,19 @@ class Particles(metaclass=ABCMeta):
         )[self._mpi_rank]
 
         if self.mpi_rank == 0 and verbose:
-            print("\nMARKERS:")
-            print(("name:").ljust(25), self.name)
-            print(("Np:").ljust(25), self.Np)
-            print(("ppc:").ljust(25), self.ppc)
-            print(("ppb:").ljust(25), self.ppb)
-            print(("bc:").ljust(25), self.bc)
-            print(("bc_refill:").ljust(25), self.bc_refill)
-            print(("loading:").ljust(25), self.loading)
-            print(("type:").ljust(25), self.type)
-            print(("control_variate:").ljust(25), self.control_variate)
-            print(("domain_array[0]:").ljust(25), self.domain_array[0])
-            print(("boxes_per_dim:").ljust(25), self.boxes_per_dim)
-            print(("mpi_dims_mask:").ljust(25), self.mpi_dims_mask)
+            logger.info("\nMARKERS:")
+            logger.info(("name:").ljust(25), self.name)
+            logger.info(("Np:").ljust(25), self.Np)
+            logger.info(("ppc:").ljust(25), self.ppc)
+            logger.info(("ppb:").ljust(25), self.ppb)
+            logger.info(("bc:").ljust(25), self.bc)
+            logger.info(("bc_refill:").ljust(25), self.bc_refill)
+            logger.info(("loading:").ljust(25), self.loading)
+            logger.info(("type:").ljust(25), self.type)
+            logger.info(("control_variate:").ljust(25), self.control_variate)
+            logger.info(("domain_array[0]:").ljust(25), self.domain_array[0])
+            logger.info(("boxes_per_dim:").ljust(25), self.boxes_per_dim)
+            logger.info(("mpi_dims_mask:").ljust(25), self.mpi_dims_mask)
 
         if self.loading == "external":
             self._load_external()
@@ -1560,9 +1560,9 @@ class Particles(metaclass=ABCMeta):
             self.marker_ids = _first_marker_id + xp.arange(n_mks_load_loc, dtype=float)
         else:
             if self.mpi_rank == 0 and verbose:
-                print("\nLoading fresh markers:")
+                logger.info("\nLoading fresh markers:")
                 for key, val in self.loading_params.__dict__.items():
-                    print((key + " :").ljust(25), val)
+                    logger.info((key + " :").ljust(25), val)
 
             # 1. standard random number generator (pseudo-random)
             if self.loading == "pseudo_random":
@@ -1721,7 +1721,7 @@ class Particles(metaclass=ABCMeta):
 
         if self._initialized_sorting and sort:
             if self.mpi_rank == 0 and verbose:
-                print("Sorting the markers after initial draw")
+                logger.info("Sorting the markers after initial draw")
             if self.mpi_comm is not None:
                 self.mpi_sort_markers()
             self.do_sort()
@@ -1877,7 +1877,7 @@ class Particles(metaclass=ABCMeta):
             self._markers[reject] = -1.0
             self.update_holes()
             self.reset_marker_ids()
-            print(
+            logger.info(
                 f"\nWeights < {self.threshold} have been rejected, number of valid markers on process {self.mpi_rank} is {self.n_mks_loc}.",
             )
 
@@ -2495,7 +2495,7 @@ class Particles(metaclass=ABCMeta):
 
             # A particle on box i only sees particles in boxes that belong to neighbours[i]
             initialize_neighbours(self._neighbours, self.nx, self.ny, self.nz)
-            # print(f"{self._rank = }\n{self._neighbours = }")
+            # logger.info(f"{self._rank = }\n{self._neighbours = }")
 
             self._swap_line_1 = xp.zeros(self._markers_shape[1])
             self._swap_line_2 = xp.zeros(self._markers_shape[1])
@@ -2519,7 +2519,7 @@ class Particles(metaclass=ABCMeta):
                         self._bnd_boxes_x_p.append(flatten_index(self.nx, j, k, self.nx, self.ny, self.nz))
 
             if self._verbose:
-                print(f"eta1 boundary on {self._rank =}:\n{self._bnd_boxes_x_m =}\n{self._bnd_boxes_x_p =}")
+                logger.info(f"eta1 boundary on {self._rank =}:\n{self._bnd_boxes_x_m =}\n{self._bnd_boxes_x_p =}")
 
             # y boundary
             # negative direction
@@ -2534,7 +2534,7 @@ class Particles(metaclass=ABCMeta):
                         self._bnd_boxes_y_p.append(flatten_index(i, self.ny, k, self.nx, self.ny, self.nz))
 
             if self._verbose:
-                print(f"eta2 boundary on {self._rank =}:\n{self._bnd_boxes_y_m =}\n{self._bnd_boxes_y_p =}")
+                logger.info(f"eta2 boundary on {self._rank =}:\n{self._bnd_boxes_y_m =}\n{self._bnd_boxes_y_p =}")
 
             # z boundary
             # negative direction
@@ -2549,7 +2549,7 @@ class Particles(metaclass=ABCMeta):
                         self._bnd_boxes_z_p.append(flatten_index(i, j, self.nz, self.nx, self.ny, self.nz))
 
             if self._verbose:
-                print(f"eta3 boundary on {self._rank =}:\n{self._bnd_boxes_z_m =}\n{self._bnd_boxes_z_p =}")
+                logger.info(f"eta3 boundary on {self._rank =}:\n{self._bnd_boxes_z_m =}\n{self._bnd_boxes_z_p =}")
 
             # x-y edges
             self._bnd_boxes_x_m_y_m = []
@@ -2565,7 +2565,7 @@ class Particles(metaclass=ABCMeta):
                     self._bnd_boxes_x_p_y_p.append(flatten_index(self.nx, self.ny, k, self.nx, self.ny, self.nz))
 
             if self._verbose:
-                print(
+                logger.info(
                     (
                         f"eta1-eta2 edge on {self._rank =}:\n{self._bnd_boxes_x_m_y_m =}"
                         f"\n{self._bnd_boxes_x_m_y_p =}"
@@ -2588,7 +2588,7 @@ class Particles(metaclass=ABCMeta):
                     self._bnd_boxes_x_p_z_p.append(flatten_index(self.nx, j, self.nz, self.nx, self.ny, self.nz))
 
             if self._verbose:
-                print(
+                logger.info(
                     (
                         f"eta1-eta3 edge on {self._rank =}:\n{self._bnd_boxes_x_m_z_m =}"
                         f"\n{self._bnd_boxes_x_m_z_p =}"
@@ -2611,7 +2611,7 @@ class Particles(metaclass=ABCMeta):
                     self._bnd_boxes_y_p_z_p.append(flatten_index(i, self.ny, self.nz, self.nx, self.ny, self.nz))
 
             if self._verbose:
-                print(
+                logger.info(
                     (
                         f"eta2-eta3 edge on {self._rank =}:\n{self._bnd_boxes_y_m_z_m =}"
                         f"\n{self._bnd_boxes_y_m_z_p =}"
@@ -2641,7 +2641,7 @@ class Particles(metaclass=ABCMeta):
                 self._bnd_boxes_x_p_y_p_z_p = [flatten_index(self.nx, self.ny, self.nz, self.nx, self.ny, self.nz)]
 
             if self._verbose:
-                print(
+                logger.info(
                     (
                         f"corners on {self._rank =}:\n{self._bnd_boxes_x_m_y_m_z_m =}"
                         f"\n{self._bnd_boxes_x_m_y_m_z_p =}"
@@ -2689,10 +2689,10 @@ class Particles(metaclass=ABCMeta):
 
         # if self.verbose:
         #     valid_box_ids = xp.nonzero(self._sorting_boxes._boxes[:, 0] != -1)[0]
-        #     print(f"Boxes holding at least one particle: {valid_box_ids}")
+        #     logger.info(f"Boxes holding at least one particle: {valid_box_ids}")
         #     for i in valid_box_ids:
         #         n_mks_box = xp.count_nonzero(self._sorting_boxes._boxes[i] != -1)
-        #         print(f"Number of markers in box {i} is {n_mks_box}")
+        #         logger.info(f"Number of markers in box {i} is {n_mks_box}")
 
     def check_and_assign_particles_to_boxes(self):
         """Check whether the box array has enough columns (detect load imbalance wrt to sorting boxes),
@@ -2758,7 +2758,7 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         """
         shifts = self.sorting_boxes.bc_sph_index_shifts
         # if self.verbose:
-        #     print(f"{self.sorting_boxes.bc_sph_index_shifts = }")
+        #     logger.info(f"{self.sorting_boxes.bc_sph_index_shifts = }")
 
         ## Faces
 
@@ -3224,10 +3224,10 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
                 # _tmp = self.markers.copy()
                 # _n_rows_old = _tmp.shape[0]
-                # print(f"old: {self.markers.shape = }")
+                # logger.info(f"old: {self.markers.shape = }")
                 # self._bufsize *= 2.0
                 # self._allocate_marker_array()
-                # print(f"new: {self.markers.shape = }\n")
+                # logger.info(f"new: {self.markers.shape = }\n")
                 # self.markers[:] = -1.0
                 # self.markers[:_n_rows_old] = _tmp
                 # self.update_holes()
@@ -3243,7 +3243,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         #     n_valid = xp.count_nonzero(self.valid_mks)
         #     n_holes = xp.count_nonzero(self.holes)
         #     n_ghosts = xp.count_nonzero(self.ghost_particles)
-        #     print(f"before communicate_boxes: {self.mpi_rank = }, {n_valid = } {n_holes = }, {n_ghosts = }")
+        #     logger.info(f"before communicate_boxes: {self.mpi_rank = }, {n_valid = } {n_holes = }, {n_ghosts = }")
 
         self.prepare_ghost_particles()
         self.get_destinations_box()
@@ -3260,7 +3260,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         #     n_valid = xp.count_nonzero(self.valid_mks)
         #     n_holes = xp.count_nonzero(self.holes)
         #     n_ghosts = xp.count_nonzero(self.ghost_particles)
-        #     print(f"after communicate_boxes: {self.mpi_rank = }, {n_valid = }, {n_holes = }, {n_ghosts = }")
+        #     logger.info(f"after communicate_boxes: {self.mpi_rank = }, {n_valid = }, {n_holes = }, {n_ghosts = }")
 
     def sendrecv_all_to_all_boxes(self):
         """
@@ -3881,10 +3881,10 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             fast=fast,
         )
 
-        # print(f"{self.markers.shape = }")
-        # print(f"{first_free_idx = }")
-        # print(f"{self.markers[:, first_free_idx]}")
-        # print(f"{v1.squeeze() = }")
+        # logger.info(f"{self.markers.shape = }")
+        # logger.info(f"{first_free_idx = }")
+        # logger.info(f"{self.markers[:, first_free_idx]}")
+        # logger.info(f"{v1.squeeze() = }")
 
         v2 = self.eval_sph(
             eta1,
@@ -4473,9 +4473,9 @@ class Tesselation:
             for m in range(multiplicity):
                 factors_vec += [fac]
 
-        # print(f'{self.tiles_pb = }')
-        # print(f'{factors_vec = }')
-        # print(f'{self.dims_mask = }')
+        # logger.info(f'{self.tiles_pb = }')
+        # logger.info(f'{factors_vec = }')
+        # logger.info(f'{self.dims_mask = }')
 
         # tiles in one sorting box
         self._nt_per_dim = xp.array([1, 1, 1])
@@ -4484,7 +4484,7 @@ class Tesselation:
             _nt = self.nt_per_dim[self._dims_mask]
             d = _ids[xp.argmin(_nt)]
             self._nt_per_dim[d] *= fac
-            # print(f'{_nt = }, {d = }, {self.nt_per_dim = }')
+            # logger.info(f'{_nt = }, {d = }, {self.nt_per_dim = }')
 
         assert xp.prod(self.nt_per_dim) == self.tiles_pb
 
@@ -4561,7 +4561,7 @@ class Tesselation:
             Some callable function.
         """
         self._get_quad_pts(n_quad=n_quad)
-        # print(f'{self.tile_quad_pts = }')
+        # logger.info(f'{self.tile_quad_pts = }')
 
         single_box_out, out = self._tile_output_arrays()
 

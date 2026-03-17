@@ -52,7 +52,7 @@ def test_toarray_struphy(Nel, p, spl_kind, mapping):
     # ========= test toarray_struphy =================
     # Get the matrix form of the linear operators M0 to M3
     M0arr = M0.toarray_struphy()
-    print("M0 done.")
+    logger.info("M0 done.")
     M1arr = M1.toarray_struphy()
     M2arr = M2.toarray_struphy()
     M3arr = M3.toarray_struphy()
@@ -92,7 +92,7 @@ def test_toarray_struphy(Nel, p, spl_kind, mapping):
     compare_arrays(M2.dot(v2), xp.matmul(IM2, v2arr), rank)
     compare_arrays(M3.dot(v3), xp.matmul(IM3, v3arr), rank)
 
-    print("test_toarray_struphy passed!")
+    logger.info("test_toarray_struphy passed!")
 
     # assert xp.allclose(out1.toarray(), v1.toarray(), atol=1e-5)
 

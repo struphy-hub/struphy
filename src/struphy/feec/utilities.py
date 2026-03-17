@@ -283,7 +283,7 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
         raise AssertionError("Wrong input type.")
 
     if verbose:
-        print(
+        logger.info(
             f"Rank {rank}: Assertion for array comparison passed with atol={atol}.",
         )
 

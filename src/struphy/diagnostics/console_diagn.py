@@ -249,7 +249,7 @@ def main():
     if ("plot_distr" in actions) or ("2d_video" in actions) or ("2d_plots" in actions):
         # Do post-processing if it wasn't done before
         if not os.path.exists(os.path.join(path, "post_processing")):
-            print("This folder hasn't been post-processed yet. Starting post-processing..")
+            logger.info("This folder hasn't been post-processed yet. Starting post-processing..")
             subprocess.run(["struphy", "pproc", "-d", foldername])
 
         # iterate over species

@@ -8,7 +8,7 @@ class RatGUI(CoilMagneticField):
     """Interface to RatGUI."""
 
     def __init__(self, csv_path=None, Nel=[16, 16, 16], p=[3, 3, 3], domain=None, **params):
-        print("Hello.")
+        logger.info("Hello.")
         self._csv_path = csv_path
 
         # TODO: load csv data from absolute/relative path
@@ -36,14 +36,14 @@ class RatGUI(CoilMagneticField):
         self.rhs[1][:] = B_Z
         self.rhs[2][:] = B_phi
 
-        print(f"{self.rhs =}")
-        print(f"{derham.nbasis['v'] =}")
-        print(f"{self.rhs[0] =}")
-        print(f"{self.rhs[1] =}")
-        print(f"{self.rhs[2] =}")
-        print(f"{self.rhs[0][:].shape =}")
-        print(f"{self.rhs[1][:].shape =}")
-        print(f"{self.rhs[2][:].shape =}")
+        logger.info(f"{self.rhs =}")
+        logger.info(f"{derham.nbasis['v'] =}")
+        logger.info(f"{self.rhs[0] =}")
+        logger.info(f"{self.rhs[1] =}")
+        logger.info(f"{self.rhs[2] =}")
+        logger.info(f"{self.rhs[0][:].shape =}")
+        logger.info(f"{self.rhs[1][:].shape =}")
+        logger.info(f"{self.rhs[2][:].shape =}")
         # We need to choose Nel and p such that the csv_data fits into this vector.
         # For a periodic direction, the size of the vector is Nel, for non-periodic (spl_kind=False) the size is Nel + p.
 

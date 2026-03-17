@@ -9,7 +9,7 @@ import yaml
 def sort_by_num_threads(bm):
     sorted_arrays = {}
     for filename, data in bm.items():
-        # print(data)
+        # logger.info(data)
         num_threads = data["num_threads"]
         # del data['num_threads']
         for key, value in data.items():
@@ -100,14 +100,14 @@ def read_likwid_output(filename):
 def get_metric_value(df, metric="DP [MFLOP/s] STAT", column_name="Sum"):
     # Filter the DataFrame based on the specified metric
     filtered_df = df[df["Metric"] == metric]
-    # print(filtered_df)
+    # logger.info(filtered_df)
     # Check if the metric exists in the DataFrame
     if not filtered_df.empty:
         # Retrieve the 'Sum' value for the specified metric
         sum_value = filtered_df.iloc[0][column_name]
-        # print(f"Sum value for {metric}: {sum_value}")
+        # logger.info(f"Sum value for {metric}: {sum_value}")
     else:
-        print(f"Metric '{metric}' not found in the DataFrame.")
+        logger.info(f"Metric '{metric}' not found in the DataFrame.")
         sum_value = None
     return sum_value
 
@@ -191,34 +191,34 @@ def get_average_val(
     xvec = []
     yvec = []
     for filename in glob.glob(path):
-        # print(filename)
+        # logger.info(filename)
         tables = read_likwid_output(filename)
         table_dict[filename.split("/")[-1]] = tables
 
     for name, dfs in sorted(table_dict.items()):
-        # print(name, len(dfs))
+        # logger.info(name, len(dfs))
         if len(dfs) >= 3:
-            # print(dfs[-1])
+            # logger.info(dfs[-1])
             x = get_metric_value(dfs[-1], metric=metric1, column_name=column_name)
             y = get_metric_value(dfs[-1], metric=metric2, column_name=column_name) * 1e-3
-            # print(x, y)
+            # logger.info(x, y)
             label = name.replace("output_", "").replace(".txt", "")
-            # print(x, y)
+            # logger.info(x, y)
             if x * y == 0:
                 break
             xvec.append(x)
             yvec.append(y)
-    # print('xvec', xvec, 'yvec', yvec)
+    # logger.info('xvec', xvec, 'yvec', yvec)
     xvec = xp.array(xvec)
     yvec = xp.array(yvec)
-    # print('xvec', xvec, 'yvec', yvec)
+    # logger.info('xvec', xvec, 'yvec', yvec)
     return xp.average(xvec), xp.average(yvec), xp.std(xvec), xp.std(yvec)
 
 
 def get_maximum(path, df_index=-1, metric="DP [MFLOP/s] STAT", column_name="Sum"):
     val = 0
     for filepath in glob.glob(path):
-        # print(filepath)
+        # logger.info(filepath)
         val = max(
             val,
             get_likwid_value(filepath, df_index=-1, metric=metric, column_name="Sum"),
@@ -227,7 +227,7 @@ def get_maximum(path, df_index=-1, metric="DP [MFLOP/s] STAT", column_name="Sum"
 
 
 def get_roofline_point(path):
-    # print(path)
+    # logger.info(path)
     dp_MFLOPps = get_maximum(
         path,
         df_index=-1,
@@ -250,14 +250,14 @@ def get_roofline_point(path):
     filepath = glob.glob(path)[0]
     filepath_yaml = filepath.replace("struphy.out", "parameters.yml")
     filepath_yaml = "/".join(filepath.split("/")[:-1]) + "/parameters.yml"
-    # print(filepath)
-    # print(filepath_yaml)
+    # logger.info(filepath)
+    # logger.info(filepath_yaml)
     simulation_name = filepath.split("/")[-2]
     with open(filepath_yaml, "r") as stream:
         try:
             parameters = yaml.safe_load(stream)
         except yaml.YAMLError as exc:
-            print(exc)
+            logger.info(exc)
             return
     out_dict = {
         "simulation_name": simulation_name,
@@ -268,7 +268,7 @@ def get_roofline_point(path):
     for key, item in parameters["grid"].items():
         out_dict[key] = str(item)
     # description = str(out_dict)
-    # print(description)
+    # logger.info(description)
     desc = f"<b>{simulation_name}</b><br>"
     with open(filepath_yaml, "r") as f:
         desc += "<br>".join(f.readlines())

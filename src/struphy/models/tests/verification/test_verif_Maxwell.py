@@ -251,13 +251,13 @@ def test_coaxial(do_plot: bool = False):
         rel_err_Etheta = error_Etheta / xp.max(xp.abs(Etheta_exact))
         rel_err_Bz = error_Bz / xp.max(xp.abs(Bz_exact))
 
-        print("")
+        logger.info("")
         assert rel_err_Bz < 0.0021, f"Assertion for magnetic field Maxwell failed: {rel_err_Bz =}"
-        print(f"Assertion for magnetic field Maxwell passed ({rel_err_Bz =}).")
+        logger.info(f"Assertion for magnetic field Maxwell passed ({rel_err_Bz =}).")
         assert rel_err_Etheta < 0.0021, f"Assertion for electric (E_theta) field Maxwell failed: {rel_err_Etheta =}"
-        print(f"Assertion for electric field Maxwell passed ({rel_err_Etheta =}).")
+        logger.info(f"Assertion for electric field Maxwell passed ({rel_err_Etheta =}).")
         assert rel_err_Er < 0.0021, f"Assertion for electric (E_r) field Maxwell failed: {rel_err_Er =}"
-        print(f"Assertion for electric field Maxwell passed ({rel_err_Er =}).")
+        logger.info(f"Assertion for electric field Maxwell passed ({rel_err_Er =}).")
 
         shutil.rmtree(test_folder)
 

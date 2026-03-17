@@ -39,8 +39,8 @@ def test_draw(ppb, nx, ny, nz):
     )
     particles.draw_markers(sort=False)
 
-    # print(f'{particles.markers[:, :3] = }')
-    # print(f'{rank = }, {particles.positions = }')
+    # logger.info(f'{particles.markers[:, :3] = }')
+    # logger.info(f'{rank = }, {particles.positions = }')
 
     # test
     tiles_x = int(nx / particles.nprocs[0] * particles.tesselation.nt_per_dim[0])
@@ -63,7 +63,7 @@ def test_draw(ppb, nx, ny, nz):
     e2 = ee2.flatten()
     e3 = ee3.flatten()
 
-    # print(f'\n{rank = }, {e1 = }')
+    # logger.info(f'\n{rank = }, {e1 = }')
 
     assert xp.allclose(particles.positions[:, 0], e1)
     assert xp.allclose(particles.positions[:, 1], e2)
@@ -174,7 +174,7 @@ def test_cell_average(ppb, nx, ny, nz, n_quad, show_plot=False):
         plt.show()
 
     # test
-    print(f"\n{rank =}, {xp.max(xp.abs(particles.weights - particles.f_init(particles.positions))) =}")
+    logger.info(f"\n{rank =}, {xp.max(xp.abs(particles.weights - particles.f_init(particles.positions))) =}")
     assert xp.max(xp.abs(particles.weights - particles.f_init(particles.positions))) < 0.012
 
 

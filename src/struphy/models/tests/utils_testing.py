@@ -20,7 +20,7 @@ def call_test(model: StruphyModel, test_profiling: bool = False, verbose: bool =
 
     # exceptions
     if model_name == "TwoFluidQuasiNeutralToy" and MPI.COMM_WORLD.Get_size() > 1:
-        print(f"WARNING: Model {model_name} cannot be tested for {MPI.COMM_WORLD.Get_size() =}")
+        logger.info(f"WARNING: Model {model_name} cannot be tested for {MPI.COMM_WORLD.Get_size() =}")
         return
 
     assert isinstance(model, StruphyModel), f"{model} of {type(model) = } is not a StruphyModel"

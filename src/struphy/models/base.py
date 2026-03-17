@@ -193,7 +193,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
         try:
             from IPython.display import HTML, Markdown
         except ImportError:
-            print("IPython not available. Install jupyter to use this feature.")
+            logger.info("IPython not available. Install jupyter to use this feature.")
             return None
 
         # Determine which docstring to use
@@ -350,7 +350,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
             val = scalar_dict["value"]
             assert not xp.isnan(val[0]), f"Scalar {key} is {val[0]}."
             sq_str += f"{key}:".ljust(25) + "{:4.2e}\n".format(val[0]).rjust(26)
-        print(sq_str)
+        logger.info(sq_str)
 
     def setup_equation_params(self, units: Units, verbose=False):
         """Set euqation parameters for each fluid and kinetic species."""
@@ -529,7 +529,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
             if yn in ("", "Y", "y", "yes", "Yes"):
                 file = open(path, "w")
             else:
-                print("exiting ...")
+                logger.info("exiting ...")
                 exit()
         except FileNotFoundError:
             folder = os.path.join("/", *path.split("/")[:-1])
@@ -541,7 +541,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
                 os.makedirs(folder)
                 file = open(path, "x")
             else:
-                print("exiting ...")
+                logger.info("exiting ...")
                 exit()
 
         # loop over species to create parameter snippets
@@ -760,7 +760,7 @@ Users can modify this file to set up their own simulations with different parame
 
         file.close()
 
-        print(
+        logger.info(
             f"\nDefault parameter file for '{self.__class__.__name__}' has been created in the cwd ({path}).\n\
 You can now launch a simulation with 'python params_{self.__class__.__name__}.py'",
         )

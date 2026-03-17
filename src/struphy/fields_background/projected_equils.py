@@ -20,8 +20,8 @@ class ProjectedFluidEquilibrium:
         self._derham = derham
 
         if verbose and derham.comm.Get_rank() == 0:
-            print(f"Projecting equilibrium '{equil.__class__.__name__}' into Derham spaces ...")
-            print(f"{self.derham = }")
+            logger.info(f"Projecting equilibrium '{equil.__class__.__name__}' into Derham spaces ...")
+            logger.info(f"{self.derham = }")
 
         # commuting projectors
         self._P0 = derham.P["0"]
@@ -38,7 +38,7 @@ class ProjectedFluidEquilibrium:
         self._EvT = derham.extraction_ops["v"].transpose()
 
         if verbose and derham.comm.Get_rank() == 0:
-            print("... Done.")
+            logger.info("... Done.")
 
     @property
     def equil(self):

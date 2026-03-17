@@ -91,19 +91,19 @@ def setup_derham(
     )
 
     if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-        print("\nDERHAM:")
-        print("number of elements:".ljust(25), Nel)
-        print("spline degrees:".ljust(25), p)
-        print("periodic bcs:".ljust(25), spl_kind)
-        print("hom. Dirichlet bc:".ljust(25), dirichlet_bc)
-        print("GL quad pts (L2):".ljust(25), nquads)
-        print("GL quad pts (hist):".ljust(25), nq_pr)
-        print(
+        logger.info("\nDERHAM:")
+        logger.info("number of elements:".ljust(25), Nel)
+        logger.info("spline degrees:".ljust(25), p)
+        logger.info("periodic bcs:".ljust(25), spl_kind)
+        logger.info("hom. Dirichlet bc:".ljust(25), dirichlet_bc)
+        logger.info("GL quad pts (L2):".ljust(25), nquads)
+        logger.info("GL quad pts (hist):".ljust(25), nq_pr)
+        logger.info(
             "MPI proc. per dir.:".ljust(25),
             derham.domain_decomposition.nprocs,
         )
-        print("use polar splines:".ljust(25), derham.polar_ck == 1)
-        print("domain on process 0:".ljust(25), derham.domain_array[0])
+        logger.info("use polar splines:".ljust(25), derham.polar_ck == 1)
+        logger.info("domain on process 0:".ljust(25), derham.domain_array[0])
 
     return derham
 
@@ -173,35 +173,35 @@ def descend_options_dict(
             out = copy.deepcopy(d)
 
     if verbose:
-        print(f"{d =}")
-        print(f"{out =}")
-        print(f"{d_default =}")
-        print(f"{d_opts =}")
-        print(f"{keys =}")
-        print(f"{depth =}")
-        print(f"{pop_again =}")
+        logger.info(f"{d =}")
+        logger.info(f"{out =}")
+        logger.info(f"{d_default =}")
+        logger.info(f"{d_opts =}")
+        logger.info(f"{keys =}")
+        logger.info(f"{depth =}")
+        logger.info(f"{pop_again =}")
 
     if verbose:
-        print(f"{d =}")
-        print(f"{out =}")
-        print(f"{d_default =}")
-        print(f"{d_opts =}")
-        print(f"{keys =}")
-        print(f"{depth =}")
-        print(f"{pop_again =}")
+        logger.info(f"{d =}")
+        logger.info(f"{out =}")
+        logger.info(f"{d_default =}")
+        logger.info(f"{d_opts =}")
+        logger.info(f"{keys =}")
+        logger.info(f"{depth =}")
+        logger.info(f"{pop_again =}")
 
     count = 0
     for key, val in d.items():
         count += 1
 
         if verbose:
-            print(f"\n{keys =} | {key =}, {type(val) =}, {count =}\n")
+            logger.info(f"\n{keys =} | {key =}, {type(val) =}, {count =}\n")
 
         if isinstance(val, list):
             # create default parameter dict "out"
 
             if verbose:
-                print(f"{val =}")
+                logger.info(f"{val =}")
 
             if d_default is None:
                 if len(keys) == 0:
@@ -239,10 +239,10 @@ def descend_options_dict(
                 out += [out_sublist]
 
             if verbose:
-                print(f"{out =}")
+                logger.info(f"{out =}")
 
             if verbose:
-                print(f"{out =}")
+                logger.info(f"{out =}")
 
         # recurse if necessary
         elif isinstance(val, dict):

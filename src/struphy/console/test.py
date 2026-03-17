@@ -164,5 +164,5 @@ def struphy_test(
         if show_plots:
             cmd += ["--show-plots"]
 
-        # subp_run(["mpirun", "-n", str(mpi), sys.executable, "-c", "\"print('hello')\""], check=True)
+        # subp_run(["mpirun", "-n", str(mpi), sys.executable, "-c", "\"logger.info('hello')\""], check=True)
         subp_run(cmd, check=True)

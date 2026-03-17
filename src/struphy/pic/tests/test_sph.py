@@ -118,9 +118,9 @@ def test_sph_evaluation_1d(
     err_max_norm = xp.max(xp.abs(all_eval - exact_eval)) / xp.max(xp.abs(exact_eval))
 
     if rank == 0:
-        print(f"\n{boxes_per_dim =}")
-        print(f"{kernel =}, {derivative =}")
-        print(f"{bc_x =}, {eval_pts =}, {tesselation =}, {err_max_norm =}")
+        logger.info(f"\n{boxes_per_dim =}")
+        logger.info(f"{kernel =}, {derivative =}")
+        logger.info(f"{bc_x =}, {eval_pts =}, {tesselation =}, {err_max_norm =}")
         if show_plot:
             plt.figure(figsize=(12, 8))
             plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
@@ -242,9 +242,9 @@ def test_sph_evaluation_2d(
     err_max_norm = xp.max(xp.abs(all_eval - exact_eval)) / xp.max(xp.abs(exact_eval))
 
     if rank == 0:
-        print(f"\n{boxes_per_dim =}")
-        print(f"{kernel =}, {derivative =}")
-        print(f"{bc_x =}, {bc_y =}, {eval_pts =}, {tesselation =}, {err_max_norm =}")
+        logger.info(f"\n{boxes_per_dim =}")
+        logger.info(f"{kernel =}, {derivative =}")
+        logger.info(f"{bc_x =}, {bc_y =}, {eval_pts =}, {tesselation =}, {err_max_norm =}")
         if show_plot:
             plt.figure(figsize=(12, 24))
             plt.subplot(2, 1, 1)
@@ -361,28 +361,28 @@ def test_sph_evaluation_3d(
     err_max_norm = xp.max(xp.abs(all_eval - exact_eval))
 
     if rank == 0:
-        print(f"\n{boxes_per_dim =}")
-        print(f"{kernel =}, {derivative =}")
-        print(f"{bc_x =}, {bc_y =}, {bc_z =}, {eval_pts =}, {tesselation =}, {err_max_norm =}")
+        logger.info(f"\n{boxes_per_dim =}")
+        logger.info(f"{kernel =}, {derivative =}")
+        logger.info(f"{bc_x =}, {bc_y =}, {bc_z =}, {eval_pts =}, {tesselation =}, {err_max_norm =}")
         if show_plot:
-            print(f"\n{fun_exact(ee1, ee2, ee3)[5, 5, 5] =}")
-            print(f"{ee1[5, 5, 5] =}, {ee2[5, 5, 5] =}, {ee3[5, 5, 5] =}")
-            print(f"{all_eval[5, 5, 5] =}")
+            logger.info(f"\n{fun_exact(ee1, ee2, ee3)[5, 5, 5] =}")
+            logger.info(f"{ee1[5, 5, 5] =}, {ee2[5, 5, 5] =}, {ee3[5, 5, 5] =}")
+            logger.info(f"{all_eval[5, 5, 5] =}")
 
-            print(f"\n{ee1[4, 4, 4] =}, {ee2[4, 4, 4] =}, {ee3[4, 4, 4] =}")
-            print(f"{all_eval[4, 4, 4] =}")
+            logger.info(f"\n{ee1[4, 4, 4] =}, {ee2[4, 4, 4] =}, {ee3[4, 4, 4] =}")
+            logger.info(f"{all_eval[4, 4, 4] =}")
 
-            print(f"\n{ee1[3, 3, 3] =}, {ee2[3, 3, 3] =}, {ee3[3, 3, 3] =}")
-            print(f"{all_eval[3, 3, 3] =}")
+            logger.info(f"\n{ee1[3, 3, 3] =}, {ee2[3, 3, 3] =}, {ee3[3, 3, 3] =}")
+            logger.info(f"{all_eval[3, 3, 3] =}")
 
-            print(f"\n{ee1[2, 2, 2] =}, {ee2[2, 2, 2] =}, {ee3[2, 2, 2] =}")
-            print(f"{all_eval[2, 2, 2] =}")
+            logger.info(f"\n{ee1[2, 2, 2] =}, {ee2[2, 2, 2] =}, {ee3[2, 2, 2] =}")
+            logger.info(f"{all_eval[2, 2, 2] =}")
 
-            print(f"\n{ee1[1, 1, 1] =}, {ee2[1, 1, 1] =}, {ee3[1, 1, 1] =}")
-            print(f"{all_eval[1, 1, 1] =}")
+            logger.info(f"\n{ee1[1, 1, 1] =}, {ee2[1, 1, 1] =}, {ee3[1, 1, 1] =}")
+            logger.info(f"{all_eval[1, 1, 1] =}")
 
-            print(f"\n{ee1[0, 0, 0] =}, {ee2[0, 0, 0] =}, {ee3[0, 0, 0] =}")
-            print(f"{all_eval[0, 0, 0] =}")
+            logger.info(f"\n{ee1[0, 0, 0] =}, {ee2[0, 0, 0] =}, {ee3[0, 0, 0] =}")
+            logger.info(f"{all_eval[0, 0, 0] =}")
             # plt.figure(figsize=(12, 24))
             # plt.subplot(2, 1, 1)
             # plt.pcolor(ee1[0, :, :], ee2[0, :, :], fun_exact(ee1, ee2, ee3)[0, :, :])
@@ -490,7 +490,7 @@ def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, eval_pts, tessela
 
         diff = xp.max(xp.abs(all_eval - exact_eval)) / xp.max(xp.abs(exact_eval))
         err_vec += [diff]
-        print(f"{Np =}, {ppb =}, {diff =}")
+        logger.info(f"{Np =}, {ppb =}, {diff =}")
 
     if tesselation:
         fit = xp.polyfit(xp.log(ppbs), xp.log(err_vec), 1)
@@ -508,7 +508,7 @@ def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, eval_pts, tessela
         # plt.savefig(f"Convergence_SPH_{tesselation=}")
 
     if rank == 0:
-        print(f"\n{bc_x =}, {eval_pts =}, {tesselation =}, {fit[0] =}")
+        logger.info(f"\n{bc_x =}, {eval_pts =}, {tesselation =}, {fit[0] =}")
 
     if tesselation:
         assert fit[0] < 2e-3
@@ -607,7 +607,7 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselat
         # error in max-norm
         diff = xp.max(xp.abs(all_eval - exact_eval)) / xp.max(xp.abs(exact_eval))
 
-        print(f"{h1 =}, {diff =}")
+        logger.info(f"{h1 =}, {diff =}")
 
         if tesselation and h1 < 0.256:
             assert diff < 0.036
@@ -628,7 +628,7 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselat
         # plt.savefig("Convergence_SPH")
 
     if rank == 0:
-        print(f"\n{bc_x =}, {eval_pts =}, {tesselation =}, {fit[0] =}")
+        logger.info(f"\n{bc_x =}, {eval_pts =}, {tesselation =}, {fit[0] =}")
 
     if not tesselation:
         assert xp.abs(fit[0] + 0.5) < 0.1  # Monte Carlo rate
@@ -725,7 +725,7 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, te
             err_vec[-1] += [diff]
 
             if rank == 0:
-                print(f"{Np =}, {ppb =}, {diff =}")
+                logger.info(f"{Np =}, {ppb =}, {diff =}")
                 # if show_plot:
                 #     plt.figure()
                 #     plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
@@ -763,7 +763,7 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, te
         plt.show()
 
     if rank == 0:
-        print(f"\n{tesselation =}, {bc_x =}, {err_min =}")
+        logger.info(f"\n{tesselation =}, {bc_x =}, {err_min =}")
 
     if tesselation:
         if bc_x == "periodic":
@@ -860,7 +860,7 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
             verbose=False,
         )
         if rank == 0:
-            print(f"{particles.domain_array}")
+            logger.info(f"{particles.domain_array}")
 
         particles.draw_markers(sort=False, verbose=False)
         if comm is not None:
@@ -886,7 +886,7 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
             assert diff < 0.06
 
         if rank == 0:
-            print(f"{Np =}, {ppb =}, {diff =}")
+            logger.info(f"{Np =}, {ppb =}, {diff =}")
             if show_plot:
                 fig, ax = plt.subplots()
                 d = ax.pcolor(ee1.squeeze(), ee2.squeeze(), all_eval.squeeze(), label="eval_sph", vmin=1.0, vmax=2.0)
@@ -912,7 +912,7 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
         # plt.savefig(f"Convergence_SPH_{tesselation=}")
 
     if rank == 0:
-        print(f"\n{bc_x =}, {tesselation =}, {fit[0] =}")
+        logger.info(f"\n{bc_x =}, {tesselation =}, {fit[0] =}")
 
     if not tesselation:
         assert xp.abs(fit[0] + 0.5) < 0.1  # Monte Carlo rate
@@ -1046,10 +1046,10 @@ def test_sph_velocity_evaluation(
     err_uz = xp.max(xp.abs(all_velo3 - v3_e)) / xp.max(xp.abs(v3_e))
 
     if rank == 0:
-        print(f"\n{boxes_per_dim = }")
-        print(f"{kernel = }, {derivative = }")
-        print(f"{bc_x = }, {eval_pts = }, {tesselation = }")
-        print(f"Velocity errors: ux={err_ux:.3e}, uy={err_uy:.3e}, uz={err_uz:.3e}")
+        logger.info(f"\n{boxes_per_dim = }")
+        logger.info(f"{kernel = }, {derivative = }")
+        logger.info(f"{bc_x = }, {eval_pts = }, {tesselation = }")
+        logger.info(f"Velocity errors: ux={err_ux:.3e}, uy={err_uy:.3e}, uz={err_uz:.3e}")
 
         if show_plot:
             plt.figure(figsize=(12, 6))
@@ -1246,10 +1246,10 @@ def test_sph_velocity_evaluation_2d(
         err_uy = abs_err(all_velo2, v2_e)
 
     if rank == 0:
-        print(f"\n{boxes_per_dim = }")
-        print(f"{kernel = }, {derivative = }")
-        print(f"{bc_x = }, {bc_y = }, {eval_pts = }")
-        print(f"Velocity errors: ux={err_ux:.3e}, uy={err_uy:.3e}")
+        logger.info(f"\n{boxes_per_dim = }")
+        logger.info(f"{kernel = }, {derivative = }")
+        logger.info(f"{bc_x = }, {bc_y = }, {eval_pts = }")
+        logger.info(f"Velocity errors: ux={err_ux:.3e}, uy={err_uy:.3e}")
 
         if show_plot:
             plt.figure(figsize=(12, 24))
@@ -1460,8 +1460,8 @@ def test_sph_viscosity_evaluation_2d(
         derivative=0,
     )
     if rank == 0:
-        print(f"{density.shape = }")
-        print(f"{xp.min(density) = }, {xp.max(density) = }")
+        logger.info(f"{density.shape = }")
+        logger.info(f"{xp.min(density) = }, {xp.max(density) = }")
 
     if show_plot:
         plt.figure(figsize=(10, 5))
@@ -1488,9 +1488,9 @@ def test_sph_viscosity_evaluation_2d(
         derivative=0,
     )
     if rank == 0:
-        print(f"{vx.shape = }, {vy.shape = }")
-        print(f"{xp.min(vx) = }, {xp.max(vx) = }")
-        print(f"{xp.min(vy) = }, {xp.max(vy) = }")
+        logger.info(f"{vx.shape = }, {vy.shape = }")
+        logger.info(f"{xp.min(vx) = }, {xp.max(vx) = }")
+        logger.info(f"{xp.min(vy) = }, {xp.max(vy) = }")
 
     if show_plot:
         plt.figure(figsize=(10, 8))
@@ -1559,10 +1559,10 @@ def test_sph_viscosity_evaluation_2d(
     # err_div_z = abs_err(all_div_z, div_pi_z)
 
     if rank == 0:
-        print(f"\n{boxes_per_dim = }")
-        print(f"{kernel = }")
-        print(f"{bc_x = }, {bc_y = }, {eval_pts = }")
-        print(f"Divergence of viscosity errors: gx={err_div_x:.3e}, gy={err_div_y:.3e}")
+        logger.info(f"\n{boxes_per_dim = }")
+        logger.info(f"{kernel = }")
+        logger.info(f"{bc_x = }, {bc_y = }, {eval_pts = }")
+        logger.info(f"Divergence of viscosity errors: gx={err_div_x:.3e}, gy={err_div_y:.3e}")
         # , gz={err_div_z:.3e}
 
     if show_plot:
@@ -1679,10 +1679,10 @@ def test_sph_viscosity_evaluation_2d(
         #     coeffs = xp.polyfit(xp.log(ppb_arr), xp.log(errors), 1)
         #     order = coeffs[0]
 
-        #     print("\nSampling convergence study")
-        #     print("ppb:", ppb_arr)
-        #     print("errors:", errors)
-        #     print(f"Observed scaling ≈ ppb^{order:.3f}")
+        #     logger.info("\nSampling convergence study")
+        #     logger.info("ppb:", ppb_arr)
+        #     logger.info("errors:", errors)
+        #     logger.info(f"Observed scaling ≈ ppb^{order:.3f}")
 
         #     plt.figure()
         #     plt.loglog(ppb_arr, errors, "o-")
@@ -1755,7 +1755,7 @@ if __name__ == "__main__":
     # )
 
     # for nb in range(4, 25):
-    #     print(f"\n{nb = }")
+    #     logger.info(f"\n{nb = }")
     # test_evaluation_SPH_Np_convergence_1d((12,1,1), "fixed", eval_pts=16, tesselation=False, show_plot=True)
     # test_evaluation_SPH_h_convergence_1d((12,1,1), "periodic", eval_pts=16, tesselation=True, show_plot=True)
     # test_evaluation_mc_Np_and_h_convergence_1d((12,1,1),"mirror", eval_pts=16, tesselation = False,  show_plot=True)

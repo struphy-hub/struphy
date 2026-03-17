@@ -859,4 +859,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     model = get_model_by_name(args.model_name)
     auto_convert_docstring(model)
-    print(model.__doc__)
+    logger.info(model.__doc__)

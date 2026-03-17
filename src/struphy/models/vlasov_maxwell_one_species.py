@@ -184,7 +184,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             self.intercom_residual = xp.empty(shape=particles.num_clones, dtype=float)
 
         if MPI.COMM_WORLD.Get_rank() == 0:
-            print("\nINITIAL POISSON SOLVE:")
+            logger.info("\nINITIAL POISSON SOLVE:")
 
         # use control variate method (reset weights after Poisson solve)
         particles.update_weights()
@@ -213,13 +213,13 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
         # Solve with dt=1. and compute electric field
         if MPI.COMM_WORLD.Get_rank() == 0:
-            print("\nSolving initial Poisson problem...")
+            logger.info("\nSolving initial Poisson problem...")
         self.initial_poisson(1.0)
 
         phi = self.initial_poisson.variables.phi.spline.vector
         Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
         if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-            print("... Done.")
+            logger.info("... Done.")
 
         # reset particle weights
         particles.weights = particles.weights_at_t0.copy()
@@ -240,9 +240,9 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # calculate local residual of local MPI rank
         loc_residual = xp.max(xp.abs(lhs.toarray() - rhs.toarray()))
 
-        # print(f"{MPI.COMM_WORLD.Get_rank() = }, {xp.max(xp.abs(lhs.toarray())) = }")
-        # print(f"{MPI.COMM_WORLD.Get_rank() = }, {xp.max(xp.abs(rhs.toarray())) = }")
-        # print(f"{loc_residual = }")
+        # logger.info(f"{MPI.COMM_WORLD.Get_rank() = }, {xp.max(xp.abs(lhs.toarray())) = }")
+        # logger.info(f"{MPI.COMM_WORLD.Get_rank() = }, {xp.max(xp.abs(rhs.toarray())) = }")
+        # logger.info(f"{loc_residual = }")
 
         # return the maximum residual across all MPI rank
         particles._gather_scalar_in_subcomm_array(scalar=loc_residual, out=self.subcom_residual)

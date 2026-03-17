@@ -231,9 +231,9 @@ class Domain(metaclass=DomainMeta):
         return all_class_params_are_default(self)
 
     def __str__(self):
-        print(f"{self.__class__.__name__}")
+        logger.info(f"{self.__class__.__name__}")
         for k, v in self.params.items():
-            print(f"{k}:".ljust(20), v)
+            logger.info(f"{k}:".ljust(20), v)
         return ""
 
     @property
@@ -1391,9 +1391,9 @@ class Domain(metaclass=DomainMeta):
 
                 elif isinstance(component, xp.ndarray):
                     if flat_eval:
-                        assert component.ndim == 1, print(f"{component.ndim =}")
+                        assert component.ndim == 1, logger.info(f"{component.ndim =}")
                     else:
-                        assert component.ndim == 3, print(f"{component.ndim =}")
+                        assert component.ndim == 3, logger.info(f"{component.ndim =}")
 
                     a_out += [component]
 
@@ -2257,7 +2257,7 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
         return cx, cy, cz
 
     else:
-        print("wrong number of elements")
+        logger.info("wrong number of elements")
 
         return 0.0
 

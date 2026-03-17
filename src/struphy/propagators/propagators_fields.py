@@ -237,11 +237,11 @@ class Maxwell(Propagator):
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
             if self.options.algo == "implicit":
-                print("Status     for Maxwell:", info["success"])
-                print("Iterations for Maxwell:", info["niter"])
-                print("Maxdiff e for Maxwell:", diffs["e"])
-                print("Maxdiff b for Maxwell:", diffs["b"])
-                print()
+                logger.info("Status     for Maxwell:", info["success"])
+                logger.info("Iterations for Maxwell:", info["niter"])
+                logger.info("Maxdiff e for Maxwell:", diffs["e"])
+                logger.info("Maxdiff b for Maxwell:", diffs["b"])
+                logger.info()
 
 
 class OhmCold(Propagator):
@@ -385,11 +385,11 @@ class OhmCold(Propagator):
         diffs = self.update_feec_variables(e=en1, j=jn1)
 
         if self._info:
-            print("Status     for OhmCold:", info["success"])
-            print("Iterations for OhmCold:", info["niter"])
-            print("Maxdiff e1 for OhmCold:", diffs["e"])
-            print("Maxdiff j1 for OhmCold:", diffs["j"])
-            print()
+            logger.info("Status     for OhmCold:", info["success"])
+            logger.info("Iterations for OhmCold:", info["niter"])
+            logger.info("Maxdiff e1 for OhmCold:", diffs["e"])
+            logger.info("Maxdiff j1 for OhmCold:", diffs["j"])
+            logger.info()
 
 
 class JxBCold(Propagator):
@@ -505,10 +505,10 @@ class JxBCold(Propagator):
         max_dj = self.update_feec_variables(j=jn1)
 
         if self._info:
-            print("Status     for FluidCold:", info["success"])
-            print("Iterations for FluidCold:", info["niter"])
-            print("Maxdiff j1 for FluidCold:", max_dj)
-            print()
+            logger.info("Status     for FluidCold:", info["success"])
+            logger.info("Iterations for FluidCold:", info["niter"])
+            logger.info("Maxdiff j1 for FluidCold:", max_dj)
+            logger.info()
 
 
 class ShearAlfven(Propagator):
@@ -704,11 +704,11 @@ class ShearAlfven(Propagator):
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
             if self.options.algo == "implicit":
-                print("Status     for ShearAlfven:", info["success"])
-                print("Iterations for ShearAlfven:", info["niter"])
-                print("Maxdiff up for ShearAlfven:", diffs["u"])
-                print("Maxdiff b2 for ShearAlfven:", diffs["b"])
-                print()
+                logger.info("Status     for ShearAlfven:", info["success"])
+                logger.info("Iterations for ShearAlfven:", info["niter"])
+                logger.info("Maxdiff up for ShearAlfven:", diffs["u"])
+                logger.info("Maxdiff b2 for ShearAlfven:", diffs["b"])
+                logger.info()
 
 
 class ShearAlfvenB1(Propagator):
@@ -873,11 +873,11 @@ class ShearAlfvenB1(Propagator):
         max_diffs = self.update_feec_variables(u=un1, b=bn1)
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
-            print("Status     for ShearAlfvenB1:", info["success"])
-            print("Iterations for ShearAlfvenB1:", info["niter"])
-            print("Maxdiff up for ShearAlfvenB1:", max_diffs["u"])
-            print("Maxdiff b2 for ShearAlfvenB1:", max_diffs["b"])
-            print()
+            logger.info("Status     for ShearAlfvenB1:", info["success"])
+            logger.info("Iterations for ShearAlfvenB1:", info["niter"])
+            logger.info("Maxdiff up for ShearAlfvenB1:", max_diffs["u"])
+            logger.info("Maxdiff b2 for ShearAlfvenB1:", max_diffs["b"])
+            logger.info()
 
 
 class Hall(Propagator):
@@ -1005,10 +1005,10 @@ class Hall(Propagator):
         max_db = self.update_feec_variables(b=bn1)
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
-            print("Status     for Hall:", info["success"])
-            print("Iterations for Hall:", info["niter"])
-            print("Maxdiff b1 for Hall:", max_db["b"])
-            print()
+            logger.info("Status     for Hall:", info["success"])
+            logger.info("Iterations for Hall:", info["niter"])
+            logger.info("Maxdiff b1 for Hall:", max_db["b"])
+            logger.info()
 
 
 class Magnetosonic(Propagator):
@@ -1210,12 +1210,12 @@ class Magnetosonic(Propagator):
         diffs = self.update_feec_variables(n=nn1, u=un1, p=pn1)
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
-            print("Status     for Magnetosonic:", info["success"])
-            print("Iterations for Magnetosonic:", info["niter"])
-            print("Maxdiff n3 for Magnetosonic:", diffs["n"])
-            print("Maxdiff up for Magnetosonic:", diffs["u"])
-            print("Maxdiff p3 for Magnetosonic:", diffs["p"])
-            print()
+            logger.info("Status     for Magnetosonic:", info["success"])
+            logger.info("Iterations for Magnetosonic:", info["niter"])
+            logger.info("Maxdiff n3 for Magnetosonic:", diffs["n"])
+            logger.info("Maxdiff up for Magnetosonic:", diffs["u"])
+            logger.info("Maxdiff p3 for Magnetosonic:", diffs["p"])
+            logger.info()
 
 
 class MagnetosonicUniform(Propagator):
@@ -1408,12 +1408,12 @@ class MagnetosonicUniform(Propagator):
         diffs = self.update_feec_variables(n=nn1, u=un1, p=pn1)
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
-            print("Status     for Magnetosonic:", info["success"])
-            print("Iterations for Magnetosonic:", info["niter"])
-            print("Maxdiff n3 for Magnetosonic:", diffs["n"])
-            print("Maxdiff up for Magnetosonic:", diffs["u"])
-            print("Maxdiff p3 for Magnetosonic:", diffs["p"])
-            print()
+            logger.info("Status     for Magnetosonic:", info["success"])
+            logger.info("Iterations for Magnetosonic:", info["niter"])
+            logger.info("Maxdiff n3 for Magnetosonic:", diffs["n"])
+            logger.info("Maxdiff up for Magnetosonic:", diffs["u"])
+            logger.info("Maxdiff p3 for Magnetosonic:", diffs["p"])
+            logger.info()
 
 
 class FaradayExtended(Propagator):
@@ -1567,7 +1567,7 @@ class FaradayExtended(Propagator):
         self._rhs = self._M1.dot(self._a)
 
         for _ in range(10):
-            # print('+++++=====++++++', self._accum_density._operators[0].matrix._data)
+            # logger.info('+++++=====++++++', self._accum_density._operators[0].matrix._data)
             # set mid-value used in the fixed iteration
             curla_mid = (
                 self.derham.curl.dot(
@@ -1612,7 +1612,7 @@ class FaradayExtended(Propagator):
 
             # write new coeffs into Propagator.variables
             # max_da = self.feec_vars_update(a_new)
-            # print("++++====check_iteration_error=====+++++", max_da)
+            # logger.info("++++====check_iteration_error=====+++++", max_da)
             # we can modify the diff function in in_place_update to get another type errors
             # if max_da[0] < 10 ** (-6):
             #     break
@@ -1864,10 +1864,10 @@ class CurrentCoupling6DDensity(Propagator):
         max_du = self.update_feec_variables(u=un1)
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
-            print("Status     for CurrentCoupling6DDensity:", info["success"])
-            print("Iterations for CurrentCoupling6DDensity:", info["niter"])
-            print("Maxdiff up for CurrentCoupling6DDensity:", max_du)
-            print()
+            logger.info("Status     for CurrentCoupling6DDensity:", info["success"])
+            logger.info("Iterations for CurrentCoupling6DDensity:", info["niter"])
+            logger.info("Maxdiff up for CurrentCoupling6DDensity:", max_du)
+            logger.info()
 
 
 class ShearAlfvenCurrentCoupling5D(Propagator):
@@ -2120,11 +2120,11 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
             if self.options.algo == "implicit":
-                print("Status     for ShearAlfvenCurrentCoupling5D:", info["success"])
-                print("Iterations for ShearAlfvenCurrentCoupling5D:", info["niter"])
-                print("Maxdiff up for ShearAlfvenCurrentCoupling5D:", diffs["u"])
-                print("Maxdiff b2 for ShearAlfvenCurrentCoupling5D:", diffs["b"])
-                print()
+                logger.info("Status     for ShearAlfvenCurrentCoupling5D:", info["success"])
+                logger.info("Iterations for ShearAlfvenCurrentCoupling5D:", info["niter"])
+                logger.info("Maxdiff up for ShearAlfvenCurrentCoupling5D:", diffs["u"])
+                logger.info("Maxdiff b2 for ShearAlfvenCurrentCoupling5D:", diffs["b"])
+                logger.info()
 
     def _initialize_projection_operator_TB(self):
         r"""Initialize BasisProjectionOperator TB with the time-varying weight.
@@ -2439,10 +2439,10 @@ class CurrentCoupling5DDensity(Propagator):
         diffs = self.update_feec_variables(u=_u)
 
         if self.options.solver_params.info and MPI.COMM_WORLD.Get_rank() == 0:
-            print("Status     for CurrentCoupling5DDensity:", info["success"])
-            print("Iterations for CurrentCoupling5DDensity:", info["niter"])
-            print("Maxdiff up for CurrentCoupling5DDensity:", diffs["u"])
-            print()
+            logger.info("Status     for CurrentCoupling5DDensity:", info["success"])
+            logger.info("Iterations for CurrentCoupling5DDensity:", info["niter"])
+            logger.info("Maxdiff up for CurrentCoupling5DDensity:", diffs["u"])
+            logger.info()
 
 
 class ImplicitDiffusion(Propagator):
@@ -2541,7 +2541,7 @@ class ImplicitDiffusion(Propagator):
         if xp.abs(self.options.sigma_1) < 1e-14:
             self.options.sigma_1 = 1e-14
             if MPI.COMM_WORLD.Get_rank() == 0:
-                print(f"Stabilizing Poisson solve with {self.options.sigma_1 =}")
+                logger.info(f"Stabilizing Poisson solve with {self.options.sigma_1 =}")
 
         # model parameters
         self._sigma_1 = self.options.sigma_1
@@ -2704,7 +2704,7 @@ class ImplicitDiffusion(Propagator):
         info = self._solver._info
 
         if self._info:
-            print(info)
+            logger.info(info)
 
         self.update_feec_variables(phi=out)
 
@@ -2928,8 +2928,8 @@ class VariationalMomentumAdvection(Propagator):
         # Jacobian matrix for Newton solve
         self._dt2_brack._scalar = dt / 2
         if self._info:
-            print()
-            print("Newton iteration in VariationalMomentumAdvection")
+            logger.info()
+            logger.info("Newton iteration in VariationalMomentumAdvection")
 
         for it in range(self.options.nonlin_solver.maxiter):
             un12 = un.copy(out=self._tmp_un12)
@@ -2950,7 +2950,7 @@ class VariationalMomentumAdvection(Propagator):
             err = self._get_error_newton(diff)
 
             if self._info:
-                print("iteration : ", it, " error : ", err)
+                logger.info("iteration : ", it, " error : ", err)
             if err < tol**2 or xp.isnan(err):
                 break
 
@@ -2958,7 +2958,7 @@ class VariationalMomentumAdvection(Propagator):
             pc_diff = self._Mrho.inv.dot(diff, out=self._tmp__pc_diff)
             update = self.inv_derivative.dot(pc_diff, out=self._tmp_update)
             if self._info:
-                print(
+                logger.info(
                     "information on the linear solver : ",
                     self.inv_derivative._info,
                 )
@@ -2966,7 +2966,7 @@ class VariationalMomentumAdvection(Propagator):
             mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
 
         if it == self.options.nonlin_solver.maxiter - 1 or xp.isnan(err):
-            print(
+            logger.info(
                 f"!!!WARNING: Maximum iteration in VariationalMomentumAdvection reached - not converged \n {err =} \n {tol**2 =}",
             )
 
@@ -3012,7 +3012,7 @@ class VariationalMomentumAdvection(Propagator):
             un1 = self._Mrho.inv.dot(mn1, out=self._tmp_un1)
 
         if it == self.options.nonlin_solver.maxiter - 1 or xp.isnan(err):
-            print(
+            logger.info(
                 f"!!!WARNING: Maximum iteration in VariationalMomentumAdvection reached - not converged \n {err =} \n {tol**2 =}",
             )
 
@@ -3233,8 +3233,8 @@ class VariationalDensityEvolve(Propagator):
         """Solve the non linear system for updating the variables using Newton iteration method"""
 
         if self._info:
-            print()
-            print("Newton iteration in VariationalDensityEvolve")
+            logger.info()
+            logger.info("Newton iteration in VariationalDensityEvolve")
 
         # Initial variables
         rhon = self.variables.rho.spline.vector
@@ -3327,7 +3327,7 @@ class VariationalDensityEvolve(Propagator):
             err = self._get_error_newton(mn_diff, rhon_diff)
 
             if self._info:
-                print("iteration : ", it, " error : ", err)
+                logger.info("iteration : ", it, " error : ", err)
 
             if err < tol**2 or xp.isnan(err):
                 break
@@ -3341,7 +3341,7 @@ class VariationalDensityEvolve(Propagator):
 
             incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
             if self._info:
-                print(
+                logger.info(
                     "information on the linear solver : ",
                     self._inv_Jacobian._solver._info,
                 )
@@ -3360,7 +3360,7 @@ class VariationalDensityEvolve(Propagator):
             mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
 
         if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
-            print(
+            logger.info(
                 f"!!!Warning: Maximum iteration in VariationalDensityEvolve reached - not converged:\n {err =} \n {tol**2 =}",
             )
 
@@ -3743,8 +3743,8 @@ class VariationalEntropyEvolve(Propagator):
     def __call_newton(self, dt):
         """Solve the non linear system for updating the variables using Newton iteration method"""
         if self._info:
-            print()
-            print("Newton iteration in VariationalEntropyEvolve")
+            logger.info()
+            logger.info("Newton iteration in VariationalEntropyEvolve")
         sn = self.variables.s.spline.vector
         un = self.variables.u.spline.vector
 
@@ -3798,7 +3798,7 @@ class VariationalEntropyEvolve(Propagator):
             err = self._get_error_newton(mn_diff, sn_diff)
 
             if self._info:
-                print("iteration : ", it, " error : ", err)
+                logger.info("iteration : ", it, " error : ", err)
 
             if err < tol**2 or xp.isnan(err):
                 break
@@ -3812,7 +3812,7 @@ class VariationalEntropyEvolve(Propagator):
 
             incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
             if self._info:
-                print(
+                logger.info(
                     "information on the linear solver : ",
                     self._inv_Jacobian._solver._info,
                 )
@@ -3823,7 +3823,7 @@ class VariationalEntropyEvolve(Propagator):
             mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
 
         if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
-            print(
+            logger.info(
                 f"!!!Warning: Maximum iteration in VariationalEntropyEvolve reached - not converged:\n {err =} \n {tol**2 =}",
             )
         self._tmp_sn_diff = sn1 - sn
@@ -4139,8 +4139,8 @@ class VariationalMagFieldEvolve(Propagator):
     def __call_newton(self, dt):
         """Solve the non linear system for updating the variables using Newton iteration method"""
         if self._info:
-            print()
-            print("Newton iteration in VariationalMagFieldEvolve")
+            logger.info()
+            logger.info("Newton iteration in VariationalMagFieldEvolve")
         # Compute implicit approximation of s^{n+1}
         un = self.variables.u.spline.vector
         bn = self.variables.b.spline.vector
@@ -4218,7 +4218,7 @@ class VariationalMagFieldEvolve(Propagator):
             err = self._get_error_newton(mn_diff, bn_diff)
 
             if self._info:
-                print("iteration : ", it, " error : ", err)
+                logger.info("iteration : ", it, " error : ", err)
 
             if err < tol**2 or xp.isnan(err):
                 break
@@ -4232,7 +4232,7 @@ class VariationalMagFieldEvolve(Propagator):
 
             incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
             if self._info:
-                print(
+                logger.info(
                     "information on the linear solver : ",
                     self._inv_Jacobian._solver._info,
                 )
@@ -4243,7 +4243,7 @@ class VariationalMagFieldEvolve(Propagator):
             mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
 
         if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
-            print(
+            logger.info(
                 f"!!!Warning: Maximum iteration in VariationalMagFieldEvolve reached - not converged:\n {err =} \n {tol**2 =}",
             )
 
@@ -4573,8 +4573,8 @@ class VariationalPBEvolve(Propagator):
         """Solve the non linear system for updating the variables using Newton iteration method"""
         # In fact it is linear due to the explicit update, only one iteration will be done at each time step
         if self._info:
-            print()
-            print("Newton iteration in VariationalPBEvolve")
+            logger.info()
+            logger.info("Newton iteration in VariationalPBEvolve")
 
         un = self.variables.u.spline.vector
         pn = self.variables.p.spline.vector
@@ -4717,7 +4717,7 @@ class VariationalPBEvolve(Propagator):
             err = self._get_error(mn_diff, bn_diff)  # , pn_diff)
 
             if self._info:
-                print("iteration : ", it, " error : ", err)
+                logger.info("iteration : ", it, " error : ", err)
 
             if err < tol**2 or xp.isnan(err):
                 break
@@ -4731,7 +4731,7 @@ class VariationalPBEvolve(Propagator):
 
             incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
             if self._info:
-                print(
+                logger.info(
                     "information on the linear solver : ",
                     self._inv_Jacobian._solver._info,
                 )
@@ -4742,7 +4742,7 @@ class VariationalPBEvolve(Propagator):
             mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
 
         if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
-            print(
+            logger.info(
                 f"!!!Warning: Maximum iteration in VariationalPBEvolve reached - not converged:\n {err =} \n {tol**2 =}",
             )
 
@@ -4932,9 +4932,9 @@ class VariationalPBEvolve(Propagator):
         #     out=self._tmp_pn_weak_diff,
         # )
         # err_p = weak_pn_diff.dot(pn_diff)
-        # print("err_b :"+str(err_b))
-        # print("err_p :"+str(err_p))
-        # print("err_u :"+str(err_u))
+        # logger.info("err_b :"+str(err_b))
+        # logger.info("err_p :"+str(err_p))
+        # logger.info("err_u :"+str(err_u))
         return max(err_b, err_u)
         # return max(max(err_b, err_u),err_p)
 
@@ -5165,8 +5165,8 @@ class VariationalQBEvolve(Propagator):
         """Solve the non linear system for updating the variables using Newton iteration method"""
         # In fact it is linear due to the explicit update, only one iteration will be done at each time step
         if self._info:
-            print()
-            print("Newton iteration in VariationalQBEvolve")
+            logger.info()
+            logger.info("Newton iteration in VariationalQBEvolve")
 
         un = self.variables.u.spline.vector
         qn = self.variables.q.spline.vector
@@ -5302,7 +5302,7 @@ class VariationalQBEvolve(Propagator):
             err = self._get_error(mn_diff, bn_diff, qn_diff)
 
             if self._info:
-                print("iteration : ", it, " error : ", err)
+                logger.info("iteration : ", it, " error : ", err)
 
             if err < tol**2 or xp.isnan(err):
                 break
@@ -5317,7 +5317,7 @@ class VariationalQBEvolve(Propagator):
 
             incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
             if self._info:
-                print(
+                logger.info(
                     "information on the linear solver : ",
                     self._inv_Jacobian._solver._info,
                 )
@@ -5329,7 +5329,7 @@ class VariationalQBEvolve(Propagator):
             mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
 
         if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
-            print(
+            logger.info(
                 f"!!!Warning: Maximum iteration in VariationalPBEvolve reached - not converged:\n {err =} \n {tol**2 =}",
             )
 
@@ -5547,9 +5547,9 @@ class VariationalQBEvolve(Propagator):
             qn_diff,
             qn_diff,
         )
-        # print("err_b :"+str(err_b))
-        # print("err_p :"+str(err_p))
-        # print("err_u :"+str(err_u))
+        # logger.info("err_b :"+str(err_b))
+        # logger.info("err_p :"+str(err_p))
+        # logger.info("err_u :"+str(err_u))
         # return max(err_b, err_u)
         return max(max(err_b, err_u), err_q)
 
@@ -5747,8 +5747,8 @@ class VariationalViscosity(Propagator):
             return
 
         if self._info:
-            print()
-            print("Computing the dissipation in VariationalViscosity")
+            logger.info()
+            logger.info("Computing the dissipation in VariationalViscosity")
 
         # Update artificial viscosity weighted mass matrix
         total_viscosity = self._update_artificial_viscosity(un, dt)
@@ -5758,7 +5758,7 @@ class VariationalViscosity(Propagator):
         # self.evol_op._multiplicants[1]._addends[0]._scalar = - dt*self._mu/2.
         un1 = self.evol_op.dot(un, out=self._tmp_un1)
         if self._info:
-            print("information on the linear solver : ", self.inv_lop._info)
+            logger.info("information on the linear solver : ", self.inv_lop._info)
 
         if self._model == "linear_p" or (self._model == "linear_q" and self._nonlin_solver["fast"]):
             self.update_feec_variables(s=sn, u=un1)
@@ -5876,7 +5876,7 @@ class VariationalViscosity(Propagator):
             err = self._get_error_newton(self.tot_rhs)
 
             if self._info:
-                print("iteration : ", it, " error : ", err)
+                logger.info("iteration : ", it, " error : ", err)
 
             if (err < tol**2 and it > 0) or xp.isnan(err):
                 # force at least one iteration
@@ -5909,7 +5909,7 @@ class VariationalViscosity(Propagator):
             incr = self.inv_jac.dot(self.tot_rhs, out=self._tmp_sn_incr)
 
             if self._info:
-                print("information on the linear solver : ", self.inv_jac._info)
+                logger.info("information on the linear solver : ", self.inv_jac._info)
 
             if self._model in ["deltaf_q", "linear_q"]:
                 self._pt3 += incr
@@ -5917,7 +5917,7 @@ class VariationalViscosity(Propagator):
                 sn1 += incr
 
         if it == self._nonlin_solver["maxiter"] - 1 or xp.isnan(err):
-            print(
+            logger.info(
                 f"!!!Warning: Maximum iteration in VariationalViscosity reached - not converged:\n {err =} \n {tol**2 =}",
             )
 
@@ -6495,8 +6495,8 @@ class VariationalResistivity(Propagator):
             return
 
         if self._info:
-            print()
-            print("Computing the dissipation in VariationalResistivity")
+            logger.info()
+            logger.info("Computing the dissipation in VariationalResistivity")
 
         total_resistivity = self._update_artificial_resistivity(bn, dt)
 
@@ -6515,7 +6515,7 @@ class VariationalResistivity(Propagator):
         else:
             bn1 = self.evol_op.dot(bn, out=self._tmp_bn1)
         if self._info:
-            print("information on the linear solver : ", self.inv_lop._info)
+            logger.info("information on the linear solver : ", self.inv_lop._info)
 
         if self._model == "linear_p" or (self._model == "linear_q" and self._nonlin_solver["fast"]):
             self.update_feec_variables(s=sn, b=bn1)
@@ -6638,7 +6638,7 @@ class VariationalResistivity(Propagator):
             err = self._get_error_newton(self.tot_rhs)
 
             if self._info:
-                print("iteration : ", it, " error : ", err)
+                logger.info("iteration : ", it, " error : ", err)
 
             if (err < tol**2 and it > 0) or xp.isnan(err):
                 break
@@ -6669,7 +6669,7 @@ class VariationalResistivity(Propagator):
             incr = self.inv_jac.dot(self.tot_rhs, out=self._tmp_sn_incr)
 
             if self._info:
-                print("information on the linear solver : ", self.inv_jac._info)
+                logger.info("information on the linear solver : ", self.inv_jac._info)
 
             if self._model in ["deltaf_q", "linear_q"]:
                 self._pt3 += incr
@@ -6677,7 +6677,7 @@ class VariationalResistivity(Propagator):
                 sn1 += incr
 
         if it == self._nonlin_solver["maxiter"] - 1 or xp.isnan(err):
-            print(
+            logger.info(
                 f"!!!Warning: Maximum iteration in VariationalResistivity reached - not converged:\n {err =} \n {tol**2 =}",
             )
 
@@ -6757,7 +6757,7 @@ class VariationalResistivity(Propagator):
         #         err = self._get_error_newton(self.tot_rhs)
 
         #         if self._info:
-        #             print("iteration : ", it, " error : ", err)
+        #             logger.info("iteration : ", it, " error : ", err)
 
         #         if (err < tol**2 and it > 0) or xp.isnan(err):
         #             break
@@ -6765,7 +6765,7 @@ class VariationalResistivity(Propagator):
         #         incr = self.inv_jac.dot(self.tot_rhs, out=self._tmp_sn_incr)
 
         #         if self._info:
-        #             print("information on the linear solver : ", self.inv_jac._info)
+        #             logger.info("information on the linear solver : ", self.inv_jac._info)
 
         #         self._pt3 += incr
 
@@ -7325,7 +7325,7 @@ class AdiabaticPhi(Propagator):
         info = self._solver._info
 
         if self._lin_solver["info"]:
-            print(info)
+            logger.info(info)
 
         dphi = self.feec_vars_update(out)
 
@@ -7561,7 +7561,7 @@ class HasegawaWakatani(Propagator):
             name="dy_phi",
             assemble=True,
         )
-        # print(f"{self._BPO._dof_mat.blocks = }")
+        # logger.info(f"{self._BPO._dof_mat.blocks = }")
 
         # pre-allocated helper arrays
         n0 = self.variables.n.spline.vector
@@ -8195,7 +8195,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                                     self._Dnp = self._Dnp @ mult.toarray()
                                 else:
                                     self._Dnp = mult.toarray()
-                                # print(f"{type(mult.toarray())=}")   #with_pads = True
+                                # logger.info(f"{type(mult.toarray())=}")   #with_pads = True
                             elif isinstance(mult, BoundaryOperator):
                                 if hasattr(self, "_Dnp"):
                                     self._Dnp = self._Dnp @ mult.T.toarray_struphy()
@@ -8624,15 +8624,15 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 e = phi_temp.ends
                 phi_temp[s[0] : e[0] + 1, s[1] : e[1] + 1, s[2] : e[2] + 1] = phin.reshape(*dimphi)
             else:
-                print("TwoFluidQuasiNeutralFull is only running on one MPI.")
+                logger.info("TwoFluidQuasiNeutralFull is only running on one MPI.")
 
             # write new coeffs into self.feec_vars
             max_du, max_due, max_dphi = self.update_feec_variables(u=u_temp, ue=ue_temp, phi=phi_temp)
 
         if self._info and self._rank == 0:
-            print("Status     for TwoFluidQuasiNeutralFull:", info["success"])
-            print("Iterations for TwoFluidQuasiNeutralFull:", info["niter"])
-            print("Maxdiff u for TwoFluidQuasiNeutralFull:", max_du)
-            print("Maxdiff u_e for TwoFluidQuasiNeutralFull:", max_due)
-            print("Maxdiff phi for TwoFluidQuasiNeutralFull:", max_dphi)
-            print()
+            logger.info("Status     for TwoFluidQuasiNeutralFull:", info["success"])
+            logger.info("Iterations for TwoFluidQuasiNeutralFull:", info["niter"])
+            logger.info("Maxdiff u for TwoFluidQuasiNeutralFull:", max_du)
+            logger.info("Maxdiff u_e for TwoFluidQuasiNeutralFull:", max_due)
+            logger.info("Maxdiff phi for TwoFluidQuasiNeutralFull:", max_dphi)
+            logger.info()

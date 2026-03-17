@@ -25,7 +25,7 @@ class TensorProductGrid:
 
     def __str__(self):
         for k, v in self.__dict__.items():
-            print(f"{k}:".ljust(20), v)
+            logger.info(f"{k}:".ljust(20), v)
         return ""
 
     def __repr_no_defaults__(self):

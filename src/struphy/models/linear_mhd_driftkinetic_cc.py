@@ -266,7 +266,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
             )
 
         if rank == 0:
-            print(
+            logger.info(
                 "Lost particle ratio: ",
                 n_lost_markers / particles.Np * 100,
                 "% \n",

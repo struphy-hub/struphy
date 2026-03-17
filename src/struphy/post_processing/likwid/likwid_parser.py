@@ -150,13 +150,13 @@ def read_likwid_output(
 
                 if likwid_markers and "Region:" in line:
                     region = line[8:].strip()
-                    # print('region',region)
+                    # logger.info('region',region)
                 # elif "Group:" in line:
                 #     region = line[7:].strip()
-                #     print('region group',region)
+                #     logger.info('region group',region)
 
                 if len(tables) == 4:
-                    # print('TABLES = 4', region)
+                    # logger.info('TABLES = 4', region)
                     table_dict[region] = {
                         "dicts": {
                             "likwid_output": True,
@@ -316,7 +316,7 @@ class Project:
         """Read project folder to gather LIKWID output data."""
         for likwid_output_path in glob.glob(f"{self.path}/{self.likwid_out_naming}"):
             lw_output = read_likwid_output(likwid_output_path)
-            # print(lw_output)
+            # logger.info(lw_output)
             self.simulation_finished = lw_output["struphy_ended"]
             thread_list = None
             if self.nodelist:
@@ -370,7 +370,7 @@ class Project:
                 "mpi_procs",
             ]
         ]
-        # print(f"{likwid_groups = }")
+        # logger.info(f"{likwid_groups = }")
         # Convert '*' to a regex that matches any string, as users won't write '.*'
         groups_include = [pattern.replace("*", ".*") for pattern in groups_include]
         groups_skip = [pattern.replace("*", ".*") for pattern in groups_skip]
@@ -472,7 +472,7 @@ class Project:
             # if group == 'model.integrate':
             #     for key in likwid_output.keys():
             #         if group in key:
-            #             print('It actually exists!', key)
+            #             logger.info('It actually exists!', key)
 
         return i_max
 
@@ -572,7 +572,7 @@ class Project:
 def main():
     path = "./"
     project = Project("TestProject", path)
-    print(project)
+    logger.info(project)
 
 
 if __name__ == "__main__":

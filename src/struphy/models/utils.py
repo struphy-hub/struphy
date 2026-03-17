@@ -63,10 +63,10 @@ if __name__ == "__main__":
     kinetic_models = get_models(model_type="Kinetic")
     hybrid_models = get_models(model_type="Hybrid")
 
-    print(f"Fluid models: {[mod.__name__ for mod in fluid_models]}")
-    print(f"Kinetic_models: {[mod.__name__ for mod in kinetic_models]}")
-    print(f"Hybrid models: {[mod.__name__ for mod in hybrid_models]}")
+    logger.info(f"Fluid models: {[mod.__name__ for mod in fluid_models]}")
+    logger.info(f"Kinetic_models: {[mod.__name__ for mod in kinetic_models]}")
+    logger.info(f"Hybrid models: {[mod.__name__ for mod in hybrid_models]}")
 
     model_message = generate_models_message()
 
-    print(model_message)
+    logger.info(model_message)

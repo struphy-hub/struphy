@@ -52,7 +52,7 @@ def get_job_name(project, simulation_name_type):
     elif simulation_name_type == "node_configuration":
         job_name = project.get_node_configuration()
     else:
-        print("Incorrect simulation_name_type", simulation_name_type)
+        logger.info("Incorrect simulation_name_type", simulation_name_type)
         sys.exit(1)
     return job_name
 
@@ -71,7 +71,7 @@ def get_data(
             groups_include=groups_include,
             groups_skip=groups_skip,
         )
-        # print(f"{groups = }")
+        # logger.info(f"{groups = }")
         for group in groups:
             group_dict = {
                 "simulation_name": project.name,  #
@@ -169,7 +169,7 @@ def plot_roofline(
         groups_include=groups_include,
         groups_skip=groups_skip,
     )
-    print(data[0].keys())
+    logger.info(data[0].keys())
     for d in data:
         d["DP_GFLOPps"] = d["DP [MFLOP/s] STAT"] * 1e-3
         d["bandwidth_MBps"] = d["Memory bandwidth [MBytes/s] STAT"]
@@ -226,7 +226,7 @@ def plot_roofline(
     fig.write_html(file_path_html, include_mathjax="cdn")
     # mply.format_size(fig)  # ,width=2000,height=800)
     fig.write_image(file_path_pdf)
-    print(f"open {file_path_html}")
+    logger.info(f"open {file_path_html}")
 
 
 def plot_bars(
@@ -256,7 +256,7 @@ def plot_bars(
     )
 
     if all(d.get(metric) is None for d in data):
-        print("All values for the metric {metric} are None.")
+        logger.info("All values for the metric {metric} are None.")
         return
 
     data = sorted(data, key=lambda x: x["simulation_name"])
@@ -309,7 +309,7 @@ def plot_bars(
 
     fig.write_html(file_path_html, include_mathjax="cdn")
     fig.write_image(file_path_pdf)
-    print(f"open {file_path_html}")
+    logger.info(f"open {file_path_html}")
 
 
 def plot_speedup(
@@ -408,7 +408,7 @@ def plot_speedup(
 
     fig.write_html(file_path_html, include_mathjax="cdn")
     fig.write_image(file_path_pdf)
-    print(f"open {file_path_html}")
+    logger.info(f"open {file_path_html}")
 
 
 def plot_loadbalance(
@@ -484,7 +484,7 @@ def plot_loadbalance(
     fig.write_html(file_path_html, include_mathjax="cdn")
     fig.write_image(file_path_pdf)
 
-    print(f"open {file_path_html}")
+    logger.info(f"open {file_path_html}")
 
 
 def plot_pinning(
@@ -523,7 +523,7 @@ def plot_pinning(
             ),
         )
         for inode, node in enumerate(project.nodes):
-            # print(f"{node = }")
+            # logger.info(f"{node = }")
             socket0 = {int(s): 0 for s in hwd.node_dict[node_name]["socket0"].split(" ")}
             socket1 = {int(s): 0 for s in hwd.node_dict[node_name]["socket1"].split(" ")}
             sockets = {0: socket0, 1: socket1}
@@ -686,7 +686,7 @@ def plot_pinning(
 
         fig.write_html(file_path_html, include_mathjax="cdn")
         fig.write_image(file_path_pdf)
-        print(f"open {file_path_html}")
+        logger.info(f"open {file_path_html}")
 
 
 def plot_files(
@@ -804,12 +804,12 @@ def load_projects(data_paths, procs_per_clone="any"):
     projects = []
     for data_path in data_paths:
         for path in glob.glob(data_path):
-            print(f"Reading {path}")
+            logger.info(f"Reading {path}")
             if path[-1] == "/":
                 sim = path.split("/")[-2]
             else:
                 sim = path.split("/")[-1]
-            # print(f"{sim = } {path =}")
+            # logger.info(f"{sim = } {path =}")
             project = lp.Project(
                 name=lp.pad_numbers(sim),
                 path=path,
@@ -817,13 +817,13 @@ def load_projects(data_paths, procs_per_clone="any"):
                 read_project=True,
             )
             if (procs_per_clone != "any") and (procs_per_clone != project.procs_per_clone):
-                print(
+                logger.info(
                     f"Incorrect number of procs_per_clone: {project.procs_per_clone =} {procs_per_clone =}",
                 )
                 continue
             project.read_project()
             if not project.simulation_finished:
-                print("Project not finished")
+                logger.info("Project not finished")
                 continue
             projects.append(project)
     return projects
@@ -893,12 +893,12 @@ if __name__ == "__main__":
     # Pass the expanded directories to load_projects
     projects = load_projects(expanded_dirs)
     if len(projects) == 0:
-        print("projects not finished")
+        logger.info("projects not finished")
         sys.exit(1)
 
     procs_per_clone = "any"
 
-    print(f"# Plotting simulation: {args.title}")
+    logger.info(f"# Plotting simulation: {args.title}")
     plot_files(
         projects=projects,
         output_path=args.output,
@@ -907,4 +907,4 @@ if __name__ == "__main__":
         groups_include=args.groups,
         groups_skip=args.skip,
     )
-    print("done")
+    logger.info("done")

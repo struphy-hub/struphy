@@ -162,12 +162,12 @@ def test_desc_equil(do_plot=False):
 
     # comparisons
     vars += ["Bx", "By", "Bz"]
-    print(vars)
+    logger.info(vars)
 
     err_lim = 0.09
 
     for nfp in nfps:
-        print(f"\n{nfp =}")
+        logger.info(f"\n{nfp =}")
         for var in vars:
             if var in ("B_R", "B_phi", "B_Z", "J_R", "J_phi", "J_Z"):
                 continue
@@ -178,7 +178,7 @@ def test_desc_equil(do_plot=False):
                 err = xp.max(xp.abs(outs[nfp][var] - outs_struphy[nfp][var])) / max_norm
 
                 assert err < err_lim
-                print(
+                logger.info(
                     f"compare {var}: {err =}",
                 )
 

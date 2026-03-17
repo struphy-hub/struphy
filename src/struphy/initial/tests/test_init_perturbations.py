@@ -79,7 +79,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
 
     for key, val in inspect.getmembers(perturbations):
         if inspect.isclass(val) and val.__module__ == perturbations.__name__:
-            print(key, val)
+            logger.info(key, val)
 
             if key not in ("ModesCos", "ModesSin", "TorusModesCos", "TorusModesSin"):
                 continue
@@ -139,7 +139,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                             fun_vals_xyz = domain.push(perturbation, eee1, eee2, eee3, kind=fun_form)
 
                         error = xp.max(xp.abs(field_vals_xyz - fun_vals_xyz)) / xp.max(xp.abs(fun_vals_xyz))
-                        print(f"{rank=}, {key=}, {form=}, {fun_form=}, {error=}")
+                        logger.info(f"{rank=}, {key=}, {form=}, {fun_form=}, {error=}")
                         assert error < 0.02
 
                         if do_plot:
@@ -288,7 +288,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                         for fi, funi in zip(f_xyz, fun_xyz_vec):
                             error += xp.max(xp.abs(fi - funi)) / xp.max(xp.abs(funi))
                         error /= 3.0
-                        print(f"{rank=}, {key=}, {form=}, {fun_form=}, {error=}")
+                        logger.info(f"{rank=}, {key=}, {form=}, {fun_form=}, {error=}")
                         assert error < 0.02
 
                         if do_plot:

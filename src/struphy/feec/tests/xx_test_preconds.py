@@ -69,19 +69,19 @@ def test_mass_preconditioner(Nel, p, spl_kind, mapping):
 
         if domain.kind_map == 10 or domain.kind_map == 11:
             assert xp.allclose(M._mat.toarray(), M_p.matrix.toarray())
-            print(f'Matrix assertion for space {n} case "Cuboid/HollowCylinder" passed.')
+            logger.info(f'Matrix assertion for space {n} case "Cuboid/HollowCylinder" passed.')
 
         inv_A = InverseLinearOperator(M, pc=M_p, tol=1e-8, maxiter=5000)
         wn = inv_A.dot(vn)
 
         if domain.kind_map == 10 or domain.kind_map == 11:
             assert inv_A.info["niter"] == 2
-            print(f'Solver assertions for space {n} case "Cuboid/HollowCylinder" passed.')
+            logger.info(f'Solver assertions for space {n} case "Cuboid/HollowCylinder" passed.')
 
         inv_A_nopc = InverseLinearOperator(M, pc=None, tol=1e-8, maxiter=30000)
         wn_nopc = inv_A_nopc.dot(vn)
 
-        print(f"Inverse of M{n}: w/ pre {inv_A.info['niter']} and w/o pre {inv_A_nopc.info['niter']}")
+        logger.info(f"Inverse of M{n}: w/ pre {inv_A.info['niter']} and w/o pre {inv_A_nopc.info['niter']}")
 
         assert inv_A.info["success"]
         assert inv_A.info["niter"] < inv_A_nopc.info["niter"]

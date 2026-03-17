@@ -44,12 +44,12 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
     if all:
         list_of_funcs = None
     else:
-        print("\nKeyword search enabled with the following filter:")
-        print("-------------------------------------------------")
-        print(list_of_funcs)
+        logger.info("\nKeyword search enabled with the following filter:")
+        logger.info("-------------------------------------------------")
+        logger.info(list_of_funcs)
 
-    print("\nLoad profiling data:")
-    print("--------------------")
+    logger.info("\nLoad profiling data:")
+    logger.info("--------------------")
 
     # load data
     sim_names = []
@@ -57,7 +57,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
     nproc = []
     Nel = []
     for path in abs_paths:
-        print("")
+        logger.info("")
         get_cprofile_data(path, print_callers)
 
         sim_names += [path.split("/")[-1]]
@@ -98,7 +98,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
 
     # loop over keys (should be same in each dict)
     d_saved = {}
-    print(
+    logger.info(
         "simulation".ljust(20)
         + "#proc".ljust(7)
         + "pos".ljust(5)
@@ -108,7 +108,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
         + "percall".ljust(15)
         + "cumtime".ljust(15),
     )
-    print("-" * 154)
+    logger.info("-" * 154)
     for position, key in enumerate(dicts[0].keys()):
         if list_of_funcs is None:
             for dict, sim_name, n, dim in zip(dicts, sim_names, nproc, Nel):
@@ -119,8 +119,8 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
                     #     string += '\t\t'
                     # else:
                     #     string += '\t'
-                print(string)
-            print("")
+                logger.info(string)
+            logger.info("")
 
             if position == 50:
                 break
@@ -133,13 +133,13 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
                 for value in dict[key].values():
                     string += str(value).ljust(15)
                     # string += '\t\t'
-                print(string)
+                logger.info(string)
 
                 d_saved[key]["mpi_size"] += [n]
                 d_saved[key]["Nel"] += [dim]
                 d_saved[key]["time"] += [dict[key]["cumtime"]]
                 d_saved[key]["ncalls"] += [dict[key]["ncalls"]]
-            print("")
+            logger.info("")
 
             if position >= 200:
                 break

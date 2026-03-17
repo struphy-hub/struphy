@@ -206,7 +206,7 @@ class LinearMHDVlasovCC(StruphyModel):
         self.update_scalar("n_lost_particles", self._n_lost_particles[0])
 
         if rank == 0:
-            print(
+            logger.info(
                 "ratio of lost particles: ",
                 self._n_lost_particles[0] / particles.Np * 100,
                 "%",

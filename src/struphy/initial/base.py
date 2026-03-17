@@ -68,9 +68,9 @@ class Perturbation(metaclass=ABCMeta):
         pass
 
     def __repr__(self):
-        print(f"    {self.__class__.__name__}:")
+        logger.info(f"    {self.__class__.__name__}:")
         for k, v in self.__dict__.items():
-            print(f"        {k}: {v}")
+            logger.info(f"        {k}: {v}")
         return ""
 
     @property

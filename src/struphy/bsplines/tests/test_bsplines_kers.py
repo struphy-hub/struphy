@@ -46,7 +46,7 @@ def test_bsplines_span_and_basis(Nel, p, spl_kind):
         span3s += [bsp.find_span(tn3, derham.p[2], eta3)]
     t1 = time.time()
     if rank == 0:
-        print(f"struphy find_span  : {t1 - t0}")
+        logger.info(f"struphy find_span  : {t1 - t0}")
 
     # psydac find_span_p
     t0 = time.time()
@@ -57,7 +57,7 @@ def test_bsplines_span_and_basis(Nel, p, spl_kind):
         span3s_psy += [bsp_psy.find_span_p(tn3, derham.p[2], eta3)]
     t1 = time.time()
     if rank == 0:
-        print(f"psydac find_span_p : {t1 - t0}")
+        logger.info(f"psydac find_span_p : {t1 - t0}")
 
     assert xp.allclose(span1s, span1s_psy)
     assert xp.allclose(span2s, span2s_psy)
@@ -84,7 +84,7 @@ def test_bsplines_span_and_basis(Nel, p, spl_kind):
         val3s += [bn3]
     t1 = time.time()
     if rank == 0:
-        print(f"bsp.b_splines_slim        : {t1 - t0}")
+        logger.info(f"bsp.b_splines_slim        : {t1 - t0}")
 
     # psydac basis_funs_p
     val1s_psy, val2s_psy, val3s_psy = [], [], []
@@ -98,7 +98,7 @@ def test_bsplines_span_and_basis(Nel, p, spl_kind):
         val3s_psy += [bn3]
     t1 = time.time()
     if rank == 0:
-        print(f"bsp_psy.basis_funs_p for N: {t1 - t0}")
+        logger.info(f"bsp_psy.basis_funs_p for N: {t1 - t0}")
 
     # compare
     for val1, val1_psy in zip(val1s, val1s_psy):
@@ -126,7 +126,7 @@ def test_bsplines_span_and_basis(Nel, p, spl_kind):
         val3s_d += [bd3]
     t1 = time.time()
     if rank == 0:
-        print(f"bsp.b_d_splines_slim      : {t1 - t0}")
+        logger.info(f"bsp.b_d_splines_slim      : {t1 - t0}")
 
     # compare
     for val1, val1_psy in zip(val1s_n, val1s_psy):
@@ -156,7 +156,7 @@ def test_bsplines_span_and_basis(Nel, p, spl_kind):
         val3s += [bd3]
     t1 = time.time()
     if rank == 0:
-        print(f"bsp.d_splines_slim        : {t1 - t0}")
+        logger.info(f"bsp.d_splines_slim        : {t1 - t0}")
 
     # psydac basis_funs_p for D-splines
     val1s_psy, val2s_psy, val3s_psy = [], [], []
@@ -170,7 +170,7 @@ def test_bsplines_span_and_basis(Nel, p, spl_kind):
         val3s_psy += [bd3]
     t1 = time.time()
     if rank == 0:
-        print(f"bsp_psy.basis_funs_p for D: {t1 - t0}")
+        logger.info(f"bsp_psy.basis_funs_p for D: {t1 - t0}")
 
     # compare
     for val1, val1_psy in zip(val1s, val1s_psy):

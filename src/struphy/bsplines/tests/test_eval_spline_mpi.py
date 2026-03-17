@@ -44,9 +44,9 @@ def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
     for eta1, eta2, eta3 in zip(eta1s, eta2s, eta3s):
         comm.Barrier()
         sleep(0.02 * (rank + 1))
-        print(f"rank {rank} | eta1 = {eta1}")
-        print(f"rank {rank} | eta2 = {eta2}")
-        print(f"rank {rank} | eta3 = {eta3}\n")
+        logger.info(f"rank {rank} | eta1 = {eta1}")
+        logger.info(f"rank {rank} | eta2 = {eta2}")
+        logger.info(f"rank {rank} | eta3 = {eta3}\n")
         comm.Barrier()
 
         # spans (i.e. index for non-vanishing basis functions)
@@ -236,9 +236,9 @@ def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
     for eta1, eta2, eta3 in zip(eta1s, eta2s, eta3s):
         comm.Barrier()
         sleep(0.02 * (rank + 1))
-        print(f"rank {rank} | eta1 = {eta1}")
-        print(f"rank {rank} | eta2 = {eta2}")
-        print(f"rank {rank} | eta3 = {eta3}\n")
+        logger.info(f"rank {rank} | eta1 = {eta1}")
+        logger.info(f"rank {rank} | eta2 = {eta2}")
+        logger.info(f"rank {rank} | eta3 = {eta3}\n")
         comm.Barrier()
 
         # compare spline evaluation routines in V0
@@ -553,9 +553,9 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
 
     comm.Barrier()
     sleep(0.02 * (rank + 1))
-    print(f"rank {rank} | eta1 = {eta1s}")
-    print(f"rank {rank} | eta2 = {eta2s}")
-    print(f"rank {rank} | eta3 = {eta3s}\n")
+    logger.info(f"rank {rank} | eta1 = {eta1s}")
+    logger.info(f"rank {rank} | eta2 = {eta2s}")
+    logger.info(f"rank {rank} | eta3 = {eta3s}\n")
     comm.Barrier()
 
     # compare spline evaluation routines in V0
@@ -563,7 +563,7 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
     evaluate_tensor_product(tn1, tn2, tn3, *derham.p, *derham.indN, x0[0], eta1s, eta2s, eta3s, vals, 0)
     t1 = time.time()
     if rank == 0:
-        print("V0 evaluate_tensor_product:".ljust(40), t1 - t0)
+        logger.info("V0 evaluate_tensor_product:".ljust(40), t1 - t0)
 
     t0 = time.time()
     eval_spline_mpi_tensor_product(
@@ -581,7 +581,7 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
     )
     t1 = time.time()
     if rank == 0:
-        print("V0 eval_spline_mpi_tensor_product:".ljust(40), t1 - t0)
+        logger.info("V0 eval_spline_mpi_tensor_product:".ljust(40), t1 - t0)
 
     t0 = time.time()
     eval_spline_mpi_tensor_product_fast(
@@ -599,7 +599,7 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
     )
     t1 = time.time()
     if rank == 0:
-        print("v0 eval_spline_mpi_tensor_product_fast:".ljust(40), t1 - t0)
+        logger.info("v0 eval_spline_mpi_tensor_product_fast:".ljust(40), t1 - t0)
 
     assert xp.allclose(vals, vals_mpi)
     assert xp.allclose(vals, vals_mpi_fast)
@@ -623,7 +623,7 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
     )
     t1 = time.time()
     if rank == 0:
-        print("V3 evaluate_tensor_product:".ljust(40), t1 - t0)
+        logger.info("V3 evaluate_tensor_product:".ljust(40), t1 - t0)
 
     t0 = time.time()
     eval_spline_mpi_tensor_product(
@@ -641,7 +641,7 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
     )
     t1 = time.time()
     if rank == 0:
-        print("V3 eval_spline_mpi_tensor_product:".ljust(40), t1 - t0)
+        logger.info("V3 eval_spline_mpi_tensor_product:".ljust(40), t1 - t0)
 
     t0 = time.time()
     eval_spline_mpi_tensor_product_fast(
@@ -659,7 +659,7 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
     )
     t1 = time.time()
     if rank == 0:
-        print("v3 eval_spline_mpi_tensor_product_fast:".ljust(40), t1 - t0)
+        logger.info("v3 eval_spline_mpi_tensor_product_fast:".ljust(40), t1 - t0)
 
     assert xp.allclose(vals, vals_mpi)
     assert xp.allclose(vals, vals_mpi_fast)
@@ -718,9 +718,9 @@ def test_eval_tensor_product_grid(Nel, p, spl_kind, n_markers=10):
 
     comm.Barrier()
     sleep(0.02 * (rank + 1))
-    print(f"rank {rank} | {eta1s =}")
-    print(f"rank {rank} | {eta2s =}")
-    print(f"rank {rank} | {eta3s =}\n")
+    logger.info(f"rank {rank} | {eta1s =}")
+    logger.info(f"rank {rank} | {eta2s =}")
+    logger.info(f"rank {rank} | {eta3s =}\n")
     comm.Barrier()
 
     # compare spline evaluation routines
@@ -742,7 +742,7 @@ def test_eval_tensor_product_grid(Nel, p, spl_kind, n_markers=10):
     )
     t1 = time.time()
     if rank == 0:
-        print("V3 evaluate_tensor_product:".ljust(40), t1 - t0)
+        logger.info("V3 evaluate_tensor_product:".ljust(40), t1 - t0)
 
     t0 = time.time()
     eval_spline_mpi_tensor_product_fixed(
@@ -756,7 +756,7 @@ def test_eval_tensor_product_grid(Nel, p, spl_kind, n_markers=10):
     )
     t1 = time.time()
     if rank == 0:
-        print("v3 eval_spline_mpi_tensor_product_fixed:".ljust(40), t1 - t0)
+        logger.info("v3 eval_spline_mpi_tensor_product_fixed:".ljust(40), t1 - t0)
 
     assert xp.allclose(vals, vals_mpi_fixed)
 
@@ -769,7 +769,7 @@ def test_eval_tensor_product_grid(Nel, p, spl_kind, n_markers=10):
     field.eval_tp_fixed_loc(spans_f, bds_f, out=vals_mpi_fixed)
     t1 = time.time()
     if rank == 0:
-        print("v3 field.eval_tp_fixed:".ljust(40), t1 - t0)
+        logger.info("v3 field.eval_tp_fixed:".ljust(40), t1 - t0)
 
     assert xp.allclose(vals, vals_mpi_fixed)
 

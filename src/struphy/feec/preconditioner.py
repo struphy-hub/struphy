@@ -910,7 +910,7 @@ class FFTSolver(BandedSolver):
                 out[:] = solve_circulant(self._column, rhs.T).T
             except xp.linalg.LinAlgError:
                 eps = 1e-4
-                print(f"Stabilizing singular preconditioning FFTSolver with {eps =}:")
+                logger.info(f"Stabilizing singular preconditioning FFTSolver with {eps =}:")
                 self._column[0] *= 1.0 + eps
                 out[:] = solve_circulant(self._column, rhs.T).T
 

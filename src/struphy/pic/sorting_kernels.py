@@ -25,7 +25,7 @@ def flatten_index(
         n_glob = n3 + n2 * (nz + 2) + n1 * (nz + 2) * (ny + 2)
     else:
         n_glob = -99
-        print(algo, "is not implemented, n_glob set to -99 !!!")
+        logger.info(algo, "is not implemented, n_glob set to -99 !!!")
 
     return n_glob
 
@@ -60,7 +60,7 @@ def unflatten_index(
         n1 = -99
         n2 = -99
         n3 = -99
-        print(algo, "is not implemented, n1, n2 and n3 set to -99 !!!")
+        logger.info(algo, "is not implemented, n1, n2 and n3 set to -99 !!!")
 
     return n1, n2, n3
 

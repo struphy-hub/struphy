@@ -111,13 +111,13 @@ class HasegawaWakatani(StruphyModel):
         self.update_rho()
 
         if MPI.COMM_WORLD.Get_rank() == 0:
-            print("\nINITIAL POISSON SOLVE:")
+            logger.info("\nINITIAL POISSON SOLVE:")
 
         self.update_rho()
         self.propagators.poisson(1.0)
 
         if MPI.COMM_WORLD.Get_rank() == 0:
-            print("Done.")
+            logger.info("Done.")
 
     def update_scalar_quantities(self):
         pass

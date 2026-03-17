@@ -203,9 +203,9 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         RestDiv = xp.linalg.norm(TestDiv.toarray())
         RestA = xp.linalg.norm(TestA.toarray())
         RestAe = xp.linalg.norm(TestAe.toarray())
-        print(f"{RestA =}")
-        print(f"{RestAe =}")
-        print(f"{RestDiv =}")
+        logger.info(f"{RestA =}")
+        logger.info(f"{RestAe =}")
+        logger.info(f"{RestDiv =}")
     elif method_for_solving in ("SaddlePointSolverUzawaNumpy"):
         TestAnp = (
             F1np
@@ -221,9 +221,9 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         RestAenp = xp.linalg.norm(TestAenp)
         TestDivnp = -B1np.dot(x1np) + B2np.dot(x2np)
         RestDivnp = xp.linalg.norm(TestDivnp)
-        print(f"{RestAnp =}")
-        print(f"{RestAenp =}")
-        print(f"{RestDivnp =}")
+        logger.info(f"{RestAnp =}")
+        logger.info(f"{RestAenp =}")
+        logger.info(f"{RestDivnp =}")
 
         # Compare numpy to psydac
         c1 = C.dot(x1_rdm)
@@ -241,7 +241,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         TestA11dot = TestA11.dot(x1)
         compare_arrays(TestA11dot, TestA11composeddot, mpi_rank, atol=1e-5)
         # compare_arrays(TestA11dot, TestA11npdot, mpi_rank, atol=1e-5)
-        print("Comparison numpy to psydac succesfull.")
+        logger.info("Comparison numpy to psydac succesfull.")
 
     M2pre = MassMatrixPreconditioner(mass_mats.M2)
 
@@ -290,10 +290,10 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
 
     end_time = time.time()
 
-    print(f"{method_for_solving}{info}")
+    logger.info(f"{method_for_solving}{info}")
 
     elapsed_time = end_time - start_time
-    print(f"Method execution time: {elapsed_time:.6f} seconds")
+    logger.info(f"Method execution time: {elapsed_time:.6f} seconds")
 
     if isinstance(x_uzawa[0], xp.ndarray):
         # Output as xp.ndarray
@@ -311,18 +311,18 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         TestRest2val = xp.max(abs(TestRest2))
         Testoldy2 = F2np - A22np.dot(x_uzawa[1]) - B2np.T.dot(ynp)
         Testoldy2val = xp.max(abs(Testoldy2))
-        print(f"{TestRest1val =}")
-        print(f"{TestRest2val =}")
-        print(f"{Testoldy1val =}")
-        print(f"{Testoldy2val =}")
-        print(f"Residual x1 norm: {residualx_normx1}")
-        print(f"Residual x2 norm: {residualx_normx2}")
-        print(f"Residual y norm: {residualy_norm}")
+        logger.info(f"{TestRest1val =}")
+        logger.info(f"{TestRest2val =}")
+        logger.info(f"{Testoldy1val =}")
+        logger.info(f"{Testoldy2val =}")
+        logger.info(f"Residual x1 norm: {residualx_normx1}")
+        logger.info(f"Residual x2 norm: {residualx_normx2}")
+        logger.info(f"Residual y norm: {residualy_norm}")
 
         compare_arrays(y1_rdm, y_uzawa, mpi_rank, atol=1e-5)
         compare_arrays(x1, x_uzawa[0], mpi_rank, atol=1e-5)
         compare_arrays(x2, x_uzawa[1], mpi_rank, atol=1e-5)
-        print(f"{info =}")
+        logger.info(f"{info =}")
     elif isinstance(x_uzawa[0], BlockVector):
         # Output as Blockvector
         Rx1 = x1 - x_uzawa[0]
@@ -340,13 +340,13 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         TestRest2val = xp.max(abs(TestRest2.toarray()))
         Testoldy2 = F2 - A22.dot(x_uzawa[1]) - B2T.dot(y1_rdm)
         Testoldy2val = xp.max(abs(Testoldy2.toarray()))
-        # print(f"{TestRest1val =}")
-        # print(f"{TestRest2val =}")
-        # print(f"{Testoldy1val =}")
-        # print(f"{Testoldy2val =}")
-        print(f"Residual x1 norm: {residualx_normx1}")
-        print(f"Residual x2 norm: {residualx_normx2}")
-        print(f"Residual y norm: {residualy_norm}")
+        # logger.info(f"{TestRest1val =}")
+        # logger.info(f"{TestRest2val =}")
+        # logger.info(f"{Testoldy1val =}")
+        # logger.info(f"{Testoldy2val =}")
+        logger.info(f"Residual x1 norm: {residualx_normx1}")
+        logger.info(f"Residual x2 norm: {residualx_normx2}")
+        logger.info(f"Residual y norm: {residualy_norm}")
 
         compare_arrays(y1_rdm, y_uzawa.toarray(), mpi_rank, atol=1e-5)
         compare_arrays(x1, x_uzawa[0].toarray(), mpi_rank, atol=1e-5)

@@ -111,7 +111,7 @@ def test_tosparse_struphy(Nel, p, spl_kind, mapping):
     assert xp.allclose(v1_global, M1arrad.dot(v1arr))
     assert xp.allclose(v2_global, M2arrad.dot(v2arr))
 
-    print("test_tosparse_struphy passed!")
+    logger.info("test_tosparse_struphy passed!")
 
 
 if __name__ == "__main__":

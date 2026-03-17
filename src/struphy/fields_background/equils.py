@@ -1753,7 +1753,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         if file is None:
             file = "AUGNLED_g031213.00830.high"
             if rank == 0:
-                print(f"EQDSK: taking default file {file}.")
+                logger.info(f"EQDSK: taking default file {file}.")
 
         # units
         self._units = Units(base=base_units)
@@ -2116,10 +2116,10 @@ class GVECequilibrium(NumericalMHDequilibrium):
 
             with pytest.raises(SystemExit) as exc:
                 if rank == 0:
-                    print("Simulation aborted, gvec must be installed (pip install gvec)!")
+                    logger.info("Simulation aborted, gvec must be installed (pip install gvec)!")
                 sys.exit(1)
             if rank == 0:
-                print(f"{exc.value.code =}")
+                logger.info(f"{exc.value.code =}")
 
         import gvec
 
@@ -2388,14 +2388,14 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         if desc_spec is None:
             if rank == 0:
-                print("Simulation aborted, desc-opt must be installed!")
-                print("Install with:\npip install desc-opt")
+                logger.info("Simulation aborted, desc-opt must be installed!")
+                logger.info("Install with:\npip install desc-opt")
             sys.exit(1)
 
         import desc
 
         if rank == 0 and verbose:
-            print(f"DESC import: {time() - t} seconds")
+            logger.info(f"DESC import: {time() - t} seconds")
         from struphy.geometry.domains import DESCunit
 
         # units
@@ -2425,7 +2425,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
             self._eq = desc.io.load(eq_name)
 
         if rank == 0 and verbose:
-            print(f"Eq. load: {time() - t} seconds")
+            logger.info(f"Eq. load: {time() - t} seconds")
         self._rmin = self.params["rmin"]
         self._use_nfp = self.params["use_nfp"]
 
@@ -2495,13 +2495,13 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
             if cached:
                 out = self._cache["bv"]["outs"][i]
-                # print(f'Used cached bv at {i = }.')
+                # logger.info(f'Used cached bv at {i = }.')
             else:
                 out = self._eval_bv(*etas, squeeze_out=squeeze_out)
                 self._cache["bv"]["grids"] += [etas]
                 self._cache["bv"]["outs"] += [out]
         else:
-            # print('No bv grids yet.')
+            # logger.info('No bv grids yet.')
             out = self._eval_bv(*etas, squeeze_out=squeeze_out)
             self._cache["bv"]["grids"] += [etas]
             self._cache["bv"]["outs"] += [out]
@@ -2570,13 +2570,13 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
             if cached:
                 out = self._cache["jv"]["outs"][i]
-                # print(f'Used cached jv at {i = }.')
+                # logger.info(f'Used cached jv at {i = }.')
             else:
                 out = self._eval_jv(*etas, squeeze_out=squeeze_out)
                 self._cache["jv"]["grids"] += [etas]
                 self._cache["jv"]["outs"] += [out]
         else:
-            # print('No jv grids yet.')
+            # logger.info('No jv grids yet.')
             out = self._eval_jv(*etas, squeeze_out=squeeze_out)
             self._cache["jv"]["grids"] += [etas]
             self._cache["jv"]["outs"] += [out]
@@ -2703,7 +2703,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
                 self._cache["gradB1"]["grids"] += [etas]
                 self._cache["gradB1"]["outs"] += [out]
         else:
-            # print('No bv grids yet.')
+            # logger.info('No bv grids yet.')
             out = self._eval_gradB1(*etas, squeeze_out=squeeze_out)
             self._cache["gradB1"]["grids"] += [etas]
             self._cache["gradB1"]["outs"] += [out]
@@ -2865,28 +2865,28 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         if verbose and rank == 0:
             # import sys
-            print(f"\n{nfp =}")
-            print(f"{self.eq.axis =}")
-            print(f"{rho.size =}")
-            print(f"{theta.size =}")
-            print(f"{zeta.size =}")
-            print(f"{grid_3d.num_rho =}")
-            print(f"{grid_3d.num_theta =}")
-            print(f"{grid_3d.num_zeta =}")
-            # print(f'\n{grid_3d.nodes[:, 0] = }')
-            # print(f'\n{grid_3d.nodes[:, 1] = }')
-            # print(f'\n{grid_3d.nodes[:, 2] = }')
-            print(f"\n{rho =}")
-            print(f"{rho1 =}")
-            print(f"\n{theta =}")
-            print(f"{theta1 =}")
-            print(f"\n{zeta =}")
-            print(f"{zeta1 =}")
+            logger.info(f"\n{nfp =}")
+            logger.info(f"{self.eq.axis =}")
+            logger.info(f"{rho.size =}")
+            logger.info(f"{theta.size =}")
+            logger.info(f"{zeta.size =}")
+            logger.info(f"{grid_3d.num_rho =}")
+            logger.info(f"{grid_3d.num_theta =}")
+            logger.info(f"{grid_3d.num_zeta =}")
+            # logger.info(f'\n{grid_3d.nodes[:, 0] = }')
+            # logger.info(f'\n{grid_3d.nodes[:, 1] = }')
+            # logger.info(f'\n{grid_3d.nodes[:, 2] = }')
+            logger.info(f"\n{rho =}")
+            logger.info(f"{rho1 =}")
+            logger.info(f"\n{theta =}")
+            logger.info(f"{theta1 =}")
+            logger.info(f"\n{zeta =}")
+            logger.info(f"{zeta1 =}")
 
         # make c-contiguous
         out = xp.ascontiguousarray(out)
         if rank == 0 and verbose:
-            print(f"desc_eval for {var}: {time() - ttime} seconds")
+            logger.info(f"desc_eval for {var}: {time() - ttime} seconds")
         return out
 
 

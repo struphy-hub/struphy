@@ -119,10 +119,10 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
                     def rho1_xyz(x, y, z):
                         return xp.sin(2 * xp.pi / Ly * y) * (2 * xp.pi / Ly) ** 2
             else:
-                print("Direction should be either 0 or 1")
+                logger.info("Direction should be either 0 or 1")
 
             # create derham object
-            print(f"{dirichlet_bc =}")
+            logger.info(f"{dirichlet_bc =}")
             derham = Derham(Nel, p, spl_kind, dirichlet_bc=dirichlet_bc, comm=comm)
 
             # mass matrices
@@ -197,14 +197,14 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
                 plt.legend()
 
             error = xp.max(xp.abs(analytic_value1 - sol_val1))
-            print(f"{direction =}, {pi =}, {Neli =}, {error=}")
+            logger.info(f"{direction =}, {pi =}, {Neli =}, {error=}")
 
             errors.append(error)
             h = 1 / (Neli)
             h_vec.append(h)
 
         m, _ = xp.polyfit(xp.log(Nels), xp.log(errors), deg=1)
-        print(f"For {pi =}, solution converges in {direction=} with rate {-m =} ")
+        logger.info(f"For {pi =}, solution converges in {direction=} with rate {-m =} ")
         assert -m > (pi + 1 - 0.07)
 
         # Plot convergence in 1D
@@ -288,7 +288,7 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=Fa
         spl_kind = [False, True, True]
         dirichlet_bc = [(not kd,) * 2 for kd in spl_kind]
         dirichlet_bc = tuple(dirichlet_bc)
-        print(f"{dirichlet_bc =}")
+        logger.info(f"{dirichlet_bc =}")
 
         # manufactured solution in 2D
         def sol2_xyz(x, y, z):
@@ -419,10 +419,10 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=Fa
     error1 = xp.max(xp.abs(analytic_value1 - sol_val1))
     error2 = xp.max(xp.abs(analytic_value2 - sol_val2))
 
-    print(f"{p =}, {bc_type =}, {mapping =}")
-    print(f"{error1 =}")
-    print(f"{error2 =}")
-    print("")
+    logger.info(f"{p =}, {bc_type =}, {mapping =}")
+    logger.info(f"{error1 =}")
+    logger.info(f"{error2 =}")
+    logger.info("")
 
     if show_plot and rank == 0:
         plt.figure(figsize=(12, 8))
@@ -504,7 +504,7 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
     l2_proj = L2Projector("H1", mass_ops)
     rho_vec = l2_proj.get_dofs(rho, apply_bc=True)
 
-    print(f"{rho_vec[:].shape =}")
+    logger.info(f"{rho_vec[:].shape =}")
 
     # Create 3d Poisson solver
     solver_params = SolverParameters(
@@ -578,7 +578,7 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
     poisson_solver_3d(dt)
     t1 = time()
 
-    print(f"rank {rank}, 3d solve time = {t1 - t0}")
+    logger.info(f"rank {rank}, 3d solve time = {t1 - t0}")
 
     t0 = time()
     t_inner = 0.0
@@ -591,15 +591,15 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
         _phi_2p5d.spline.vector[s[0] : e[0] + 1, s[1] : e[1] + 1, n] = _tmp[s[0] : e[0] + 1, s[1] : e[1] + 1, 0]
     t1 = time()
 
-    print(f"rank {rank}, 2.5d pure solve time (without copy) = {t_inner}")
-    print(f"rank {rank}, 2.5d solve time = {t1 - t0}")
+    logger.info(f"rank {rank}, 2.5d pure solve time (without copy) = {t_inner}")
+    logger.info(f"rank {rank}, 2.5d solve time = {t1 - t0}")
 
     # push numerical solutions
     sol_val = domain.push(_phi.spline, e1, e2, e3, kind="0")
     sol_val_2p5d = domain.push(_phi_2p5d.spline, e1, e2, e3, kind="0")
     x, y, z = domain(e1, e2, e3)
 
-    print("max diff:", xp.max(xp.abs(sol_val - sol_val_2p5d)))
+    logger.info("max diff:", xp.max(xp.abs(sol_val - sol_val_2p5d)))
     assert xp.max(xp.abs(sol_val - sol_val_2p5d)) < 0.026
 
     if show_plot and rank == 0:

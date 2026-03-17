@@ -244,9 +244,9 @@ class VlasovAmpere(Propagator):
 
         # Print out max differences for weights and e-field
         if self._info:
-            print("Status      for VlasovMaxwell:", info["success"])
-            print("Iterations  for VlasovMaxwell:", info["niter"])
-            print("Maxdiff e1  for VlasovMaxwell:", max_de)
+            logger.info("Status      for VlasovMaxwell:", info["success"])
+            logger.info("Iterations  for VlasovMaxwell:", info["niter"])
+            logger.info("Maxdiff e1  for VlasovMaxwell:", max_de)
             particles = self.variables.ions.particles
             buffer_idx = particles.bufferindex
             max_diff = xp.max(
@@ -263,8 +263,8 @@ class VlasovAmpere(Propagator):
                     ),
                 ),
             )
-            print("Maxdiff |v| for VlasovMaxwell:", max_diff)
-            print()
+            logger.info("Maxdiff |v| for VlasovMaxwell:", max_diff)
+            logger.info()
 
 
 class EfieldWeights(Propagator):
@@ -509,16 +509,16 @@ class EfieldWeights(Propagator):
 
         # Print out max differences for weights and e-field
         if self._info:
-            print("Status          for StepEfieldWeights:", info["success"])
-            print("Iterations      for StepEfieldWeights:", info["niter"])
-            print("Maxdiff    e1   for StepEfieldWeights:", max_de)
+            logger.info("Status          for StepEfieldWeights:", info["success"])
+            logger.info("Iterations      for StepEfieldWeights:", info["niter"])
+            logger.info("Maxdiff    e1   for StepEfieldWeights:", max_de)
             max_diff = xp.max(
                 xp.abs(
                     self._old_weights[~particles.holes] - particles.markers[~particles.holes, 6],
                 ),
             )
-            print("Maxdiff weights for StepEfieldWeights:", max_diff)
-            print()
+            logger.info("Maxdiff weights for StepEfieldWeights:", max_diff)
+            logger.info()
 
 
 class PressureCoupling6D(Propagator):
@@ -757,10 +757,10 @@ class PressureCoupling6D(Propagator):
             self.variables.energetic_ions.particles.update_weights()
 
         if self.options.solver_params.info and MPI.COMM_WORLD.Get_rank() == 0:
-            print("Status     for StepPressurecoupling:", info["success"])
-            print("Iterations for StepPressurecoupling:", info["niter"])
-            print("Maxdiff u1 for StepPressurecoupling:", diffs["u"])
-            print()
+            logger.info("Status     for StepPressurecoupling:", info["success"])
+            logger.info("Iterations for StepPressurecoupling:", info["niter"])
+            logger.info("Maxdiff u1 for StepPressurecoupling:", diffs["u"])
+            logger.info()
 
     class GT_MAT_G(LinOpWithTransp):
         r"""
@@ -1145,10 +1145,10 @@ class CurrentCoupling6DCurrent(Propagator):
             particles.update_weights()
 
         if self._info and self._rank == 0:
-            print("Status     for CurrentCoupling6DCurrent:", info["success"])
-            print("Iterations for CurrentCoupling6DCurrent:", info["niter"])
-            print("Maxdiff up for CurrentCoupling6DCurrent:", max_du)
-            print()
+            logger.info("Status     for CurrentCoupling6DCurrent:", info["success"])
+            logger.info("Iterations for CurrentCoupling6DCurrent:", info["niter"])
+            logger.info("Maxdiff up for CurrentCoupling6DCurrent:", max_du)
+            logger.info()
 
 
 class CurrentCoupling5DCurlb(Propagator):
@@ -1399,10 +1399,10 @@ class CurrentCoupling5DCurlb(Propagator):
             self.variables.energetic_ions.particles.update_weights()
 
         if self.options.solver_params.info and MPI.COMM_WORLD.Get_rank() == 0:
-            print("Status     for CurrentCoupling5DCurlb:", info["success"])
-            print("Iterations for CurrentCoupling5DCurlb:", info["niter"])
-            print("Maxdiff up for CurrentCoupling5DCurlb:", diffs["u"])
-            print()
+            logger.info("Status     for CurrentCoupling5DCurlb:", info["success"])
+            logger.info("Iterations for CurrentCoupling5DCurlb:", info["niter"])
+            logger.info("Maxdiff up for CurrentCoupling5DCurlb:", diffs["u"])
+            logger.info()
 
 
 class CurrentCoupling5DGradB(Propagator):
@@ -1817,10 +1817,10 @@ class CurrentCoupling5DGradB(Propagator):
                 u_new += ku * dt * self.options.butcher.b[stage]
 
                 if self.options.solver_params.info and MPI.COMM_WORLD.Get_rank() == 0:
-                    print("Stage: ", stage)
-                    print("Status     for CurrentCoupling5DGradB:", info["success"])
-                    print("Iterations for CurrentCoupling5DGradB:", info["niter"])
-                    print()
+                    logger.info("Stage: ", stage)
+                    logger.info("Status     for CurrentCoupling5DGradB:", info["success"])
+                    logger.info("Iterations for CurrentCoupling5DGradB:", info["niter"])
+                    logger.info()
 
             # update u coefficients
             diffs = self.update_feec_variables(u=u_new)
@@ -1833,8 +1833,8 @@ class CurrentCoupling5DGradB(Propagator):
                 particles.update_weights()
 
             if self.options.solver_params.info and MPI.COMM_WORLD.Get_rank() == 0:
-                print("Maxdiff up for CurrentCoupling5DGradB:", diffs["u"])
-                print()
+                logger.info("Maxdiff up for CurrentCoupling5DGradB:", diffs["u"])
+                logger.info()
 
         else:
             # total number of markers
@@ -1933,7 +1933,7 @@ class CurrentCoupling5DGradB(Propagator):
                 iter_num += 1
 
                 if self.options.dg_solver_params.verbose and MPI.COMM_WORLD.Get_rank() == 0:
-                    print("# of iteration: ", iter_num)
+                    logger.info("# of iteration: ", iter_num)
 
                 # calculate discrete gradient
                 # save u^{n+1, k}
@@ -2116,8 +2116,8 @@ class CurrentCoupling5DGradB(Propagator):
                 # check convergence
                 if diff < self.options.dg_solver_params.tol:
                     if self.options.dg_solver_params.verbose and MPI.COMM_WORLD.Get_rank() == 0:
-                        print("converged diff: ", diff)
-                        print("converged e_diff: ", e_diff)
+                        logger.info("converged diff: ", diff)
+                        logger.info("converged e_diff: ", e_diff)
 
                     if particles.mpi_comm is not None:
                         particles.mpi_comm.Barrier()
@@ -2125,12 +2125,12 @@ class CurrentCoupling5DGradB(Propagator):
 
                 else:
                     if self.options.dg_solver_params.verbose and MPI.COMM_WORLD.Get_rank() == 0:
-                        print("not converged diff: ", diff)
-                        print("not converged e_diff: ", e_diff)
+                        logger.info("not converged diff: ", diff)
+                        logger.info("not converged e_diff: ", e_diff)
 
                 if iter_num == self.options.dg_solver_params.maxiter:
                     if self.options.dg_solver_params.info and MPI.COMM_WORLD.Get_rank() == 0:
-                        print(
+                        logger.info(
                             f"{iter_num =}, maxiter={self.options.dg_solver_params.maxiter} reached! diff: {diff}, e_diff: {e_diff}",
                         )
                     if particles.mpi_comm is not None:
@@ -2154,5 +2154,5 @@ class CurrentCoupling5DGradB(Propagator):
                 particles.update_weights()
 
             if self.options.dg_solver_params.info and MPI.COMM_WORLD.Get_rank() == 0:
-                print("Maxdiff up for CurrentCoupling5DGradB:", diffs["u"])
-                print()
+                logger.info("Maxdiff up for CurrentCoupling5DGradB:", diffs["u"])
+                logger.info()

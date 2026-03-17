@@ -14,12 +14,12 @@ def struphy_likwid_profile(dir, title, output, groups, skip, plots):
     # Pass the expanded directories to load_projects
     projects = load_projects(expanded_dirs)
     if len(projects) == 0:
-        print("projects not finished")
+        logger.info("projects not finished")
         sys.exit(1)
 
     procs_per_clone = "any"
 
-    print(f"# Plotting simulation: {title}")
+    logger.info(f"# Plotting simulation: {title}")
     plot_files(
         projects=projects,
         output_path=output,
@@ -28,4 +28,4 @@ def struphy_likwid_profile(dir, title, output, groups, skip, plots):
         groups_include=groups,
         groups_skip=skip,
     )
-    print("done")
+    logger.info("done")

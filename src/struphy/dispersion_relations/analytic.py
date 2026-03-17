@@ -299,7 +299,7 @@ class FluidSlabITG(DispersionRelations1D):
             * self.params["vstar"]
             / self.params["vi"]
         )
-        print(f"{ky_crit =}")
+        logger.info(f"{ky_crit =}")
         self._k_crit["analytic threshold"] = ky_crit
 
         # auxiliary functions
@@ -359,7 +359,7 @@ class ColdPlasma1D(DispersionRelations1D):
             theta = xp.pi / 2
         else:
             theta = xp.arctan(xp.sqrt(self.params["B0x"] ** 2 + self.params["B0y"] ** 2) / self.params["B0z"])
-        print(theta)
+        logger.info(theta)
         cos2 = xp.cos(theta) ** 2
 
         neq = self.params["n0"]

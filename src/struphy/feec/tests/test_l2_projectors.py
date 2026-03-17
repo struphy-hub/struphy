@@ -46,16 +46,16 @@ def test_l2_projectors_mappings(Nel, p, spl_kind, array_input, with_gvec=False, 
     ee1, ee2, ee3 = xp.meshgrid(e1, e2, e3, indexing="ij")
 
     for dom_type, dom_class in zip(dom_types, dom_classes):
-        print("#" * 80)
-        print(f"Testing {dom_class =}")
-        print("#" * 80)
+        logger.info("#" * 80)
+        logger.info(f"Testing {dom_class =}")
+        logger.info("#" * 80)
 
         if "GVEC" in dom_type and not with_gvec:
-            print(f"Attention: {with_gvec =}, GVEC not tested here !!")
+            logger.info(f"Attention: {with_gvec =}, GVEC not tested here !!")
             continue
 
         if "DESC" in dom_type and not with_desc:
-            print(f"Attention: {with_desc =}, DESC not tested here !!")
+            logger.info(f"Attention: {with_desc =}, DESC not tested here !!")
             continue
 
         domain = dom_class()
@@ -107,7 +107,7 @@ def test_l2_projectors_mappings(Nel, p, spl_kind, array_input, with_gvec=False, 
                 err = [xp.max(xp.abs(exact(ee1, ee2, ee3) - field_v)) for exact, field_v in zip(f_analytic, field_vals)]
                 f_plot = field_vals[0]
 
-            print(f"{sp_id =}, {xp.max(err) =}")
+            logger.info(f"{sp_id =}, {xp.max(err) =}")
             if sp_id in ("H1", "H1vec"):
                 assert xp.max(err) < 0.004
             else:
@@ -237,7 +237,7 @@ def test_l2_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
         line_for_rate_p0 = [Ne ** (-rate_p0) * errors[sp_id][0] / Nels[0] ** (-rate_p0) for Ne in Nels]
 
         m, _ = xp.polyfit(xp.log(Nels), xp.log(errors[sp_id]), deg=1)
-        print(f"{sp_id =}, fitted convergence rate = {-m}, degree = {pi}")
+        logger.info(f"{sp_id =}, fitted convergence rate = {-m}, degree = {pi}")
         if sp_id in ("H1", "H1vec"):
             assert -m > (pi + 1 - 0.05)
         else:

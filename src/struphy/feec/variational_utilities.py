@@ -825,7 +825,7 @@ class Pressure_transport_operator(LinOpWithTransp):
 
         self.Pip_div.update_weights(self._weights2)
 
-        # print(self.Pip_divT._dof_mat._data)
+        # logger.info(self.Pip_divT._dof_mat._data)
 
         pf0_values = self.field.eval_tp_fixed_loc(
             self.hist_grid_20_spans,

@@ -232,7 +232,7 @@ def field_line_tracing(
 
     # for all other parametrizations continue
     else:
-        print("Calculation of pre-mapping successful! Start angle parametrization " + xi_param + ".")
+        logger.info("Calculation of pre-mapping successful! Start angle parametrization " + xi_param + ".")
 
         # create temporary domain
         domain_eq_angle = PoloidalSplineTorus(Nel=Nel_pre, p=p_pre, cx=cR_equal_angle, cy=cZ_equal_angle)
