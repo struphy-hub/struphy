@@ -75,6 +75,7 @@ class LinearMHD(StruphyModel):
     ## abstract methods
 
     def __init__(self):
+
         # 1. instantiate all species
         self.em_fields = self.EMFields()
         self.mhd = self.MHD()

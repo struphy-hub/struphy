@@ -140,6 +140,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 self.cc5d_curlb = propagators_coupling.CurrentCoupling5DCurlb()
 
     def __init__(self, turn_off: tuple[str, ...] = (None,)):
+
         # 1. instantiate all species
         self.em_fields = self.EMFields()
         self.mhd = self.MHD()

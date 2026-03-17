@@ -102,6 +102,7 @@ class ViscoResistiveDeltafMHD_with_q(StruphyModel):
         with_viscosity: bool = True,
         with_resistivity: bool = True,
     ):
+
         # 1. instantiate all species
         self.em_fields = self.EMFields()
         self.mhd = self.MHD()

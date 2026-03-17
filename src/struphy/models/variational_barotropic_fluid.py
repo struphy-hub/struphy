@@ -63,6 +63,7 @@ class VariationalBarotropicFluid(StruphyModel):
     ## abstract methods
 
     def __init__(self):
+
         # 1. instantiate all species
         self.fluid = self.Fluid()
 

@@ -120,6 +120,7 @@ class LinearMHDVlasovPC(StruphyModel):
                 self.magnetosonic = propagators_fields.Magnetosonic()
 
     def __init__(self, turn_off: tuple[str, ...] = (None,)):
+
         # 1. instantiate all species
         self.em_fields = self.EMFields()
         self.mhd = self.MHD()

@@ -54,6 +54,7 @@ class PressureLessSPH(StruphyModel):
     ## abstract methods
 
     def __init__(self):
+
         # 1. instantiate all species
         self.cold_fluid = self.ColdFluid()
 

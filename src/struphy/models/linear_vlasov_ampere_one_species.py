@@ -128,6 +128,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         with_B0: bool = True,
         with_E0: bool = True,
     ):
+
         # 1. instantiate all species
         self.em_fields = self.EMFields()
         self.kinetic_ions = self.KineticIons()

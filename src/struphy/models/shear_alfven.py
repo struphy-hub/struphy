@@ -77,6 +77,7 @@ class ShearAlfven(StruphyModel):
         self._tmp_b2 = Propagator.derham.Vh["2"].zeros()
 
     def __init__(self):
+
         # 1. instantiate all species
         self.em_fields = self.EMFields()
         self.mhd = self.MHD()
