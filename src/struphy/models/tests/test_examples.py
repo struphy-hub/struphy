@@ -54,6 +54,6 @@ def test_examples(params_path: Path):
         if regress_path.exists():
             regress_module = import_parameters_py(str(regress_path), name=regress_name)
             regress_module.main()
-            
+
         shutil.rmtree(params.sim.env.path_out)
     MPI.COMM_WORLD.Barrier()

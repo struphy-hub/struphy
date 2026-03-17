@@ -496,7 +496,7 @@ class Simulation(SimulationBase):
         ----------
         one_time_step : bool
             If True, only perform one time step (useful for testing).
-        
+
         verbose : bool
             If True, print additional runtime information.
         """
