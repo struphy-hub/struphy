@@ -133,6 +133,7 @@ kinetic-diagnostics = "struphy.diagnostics.console_diagn:main"
 ]
 struphy = [
     "compile_struphy.mk",
+    "logging_config.json",
 ]
 
 [tool.autopep8]
