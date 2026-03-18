@@ -3,10 +3,10 @@ import pytest
 
 @pytest.mark.parametrize("Nel", [12])
 @pytest.mark.parametrize("p", [1, 2, 3])
-@pytest.mark.parametrize("spl_kind", [False, True])
+@pytest.mark.parametrize("bcs", [None, (("free", "free"), ("free", "free"), ("free", "free"))])
 @pytest.mark.parametrize("domain_ind", ["N", "D"])
 @pytest.mark.parametrize("codomain_ind", ["N", "D"])
-def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
+def test_1d(Nel, p, bcs, domain_ind, codomain_ind):
     """Compares the matrix transpose obtained from the Stencil .transpose method
     with
 
@@ -31,12 +31,12 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
         print("\nParameters:")
         print("Nel=", Nel)
         print("p=", p)
-        print("spl_kind=", spl_kind)
+        print("bcs=", bcs)
         print("domain_ind=", domain_ind)
         print("codomain_ind=", codomain_ind)
 
     # Psydac discrete Derham sequence
-    derham = Derham([Nel] * 3, [p] * 3, [spl_kind] * 3, comm=comm)
+    derham = Derham([Nel] * 3, [p] * 3, bcs=bcs, comm=comm)
     V0 = derham.Vh["0"]
 
     V0_fem = derham.Vh_fem["0"]
@@ -68,7 +68,7 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
         i_loc = i - s_out
         for d1 in range(2 * p_in + 1):
             m = i - p_in + d1  # global column index
-            if spl_kind:
+            if bcs is None:
                 mat._data[p_out + i_loc, d1] = 1.0 + d1
                 mat_pre._data[p_out + i_loc, d1] = 1.0 + d1
             else:
@@ -118,10 +118,10 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
 
 @pytest.mark.parametrize("Nel", [[12, 16, 20]])
 @pytest.mark.parametrize("p", [[1, 2, 3]])
-@pytest.mark.parametrize("spl_kind", [[True, False, False]])
+@pytest.mark.parametrize("bcs", [(None, ("free", "free"), ("free", "free"))])
 @pytest.mark.parametrize("domain_ind", ["NNN", "DNN", "NDN", "NND", "NDD", "DND", "DDN", "DDD"])
 @pytest.mark.parametrize("codomain_ind", ["NNN", "DNN", "NDN", "NND", "NDD", "DND", "DDN", "DDD"])
-def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
+def test_3d(Nel, p, bcs, domain_ind, codomain_ind):
     """Compares the matrix transpose obtained from the Stencil .transpose method
     with
 
@@ -146,12 +146,12 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
         print("\nParameters:")
         print("Nel=", Nel)
         print("p=", p)
-        print("spl_kind=", spl_kind)
+        print("bcs=", bcs)
         print("domain_ind=", domain_ind)
         print("codomain_ind=", codomain_ind)
 
     # Psydac discrete Derham sequence
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    derham = Derham(Nel, p, bcs=bcs, comm=comm)
 
     spaces_3d = {}
     spaces_3d["NNN"] = derham.Vh_fem["0"]

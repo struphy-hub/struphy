@@ -63,8 +63,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
 
         for n, Neli in enumerate(Nels):
             # boundary conditions (overwritten below)
-            spl_kind = [True, True, True]
-            dirichlet_bc = None
+            bcs = None
 
             # manufactured solution
             e1 = 0.0
@@ -76,7 +75,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
                 e1 = xp.linspace(0.0, 1.0, 50)
 
                 if bc_type == "neumann":
-                    spl_kind = [False, True, True]
+                    bcs = (("free", "free"), None, None)
 
                     def sol1_xyz(x, y, z):
                         return xp.cos(xp.pi / Lx * x)
@@ -85,9 +84,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
                         return xp.cos(xp.pi / Lx * x) * (xp.pi / Lx) ** 2
                 else:
                     if bc_type == "dirichlet":
-                        spl_kind = [False, True, True]
-                        dirichlet_bc = [(not kd,) * 2 for kd in spl_kind]
-                        dirichlet_bc = tuple(dirichlet_bc)
+                        bcs = (("hom_dirichlet", "hom_dirichlet"), None, None)
 
                     def sol1_xyz(x, y, z):
                         return xp.sin(2 * xp.pi / Lx * x)
@@ -101,7 +98,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
                 e2 = xp.linspace(0.0, 1.0, 50)
 
                 if bc_type == "neumann":
-                    spl_kind = [True, False, True]
+                    bcs = (None, ("free", "free"), None)
 
                     def sol1_xyz(x, y, z):
                         return xp.cos(xp.pi / Ly * y)
@@ -110,9 +107,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
                         return xp.cos(xp.pi / Ly * y) * (xp.pi / Ly) ** 2
                 else:
                     if bc_type == "dirichlet":
-                        spl_kind = [True, False, True]
-                        dirichlet_bc = [(not kd,) * 2 for kd in spl_kind]
-                        dirichlet_bc = tuple(dirichlet_bc)
+                        bcs = (None, ("hom_dirichlet", "hom_dirichlet"), None)
 
                     def sol1_xyz(x, y, z):
                         return xp.sin(2 * xp.pi / Ly * y)
@@ -123,8 +118,8 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
                 print("Direction should be either 0 or 1")
 
             # create derham object
-            print(f"{dirichlet_bc =}")
-            derham = Derham(Nel, p, spl_kind, dirichlet_bc=dirichlet_bc, comm=comm)
+            print(f"{bcs =}")
+            derham = Derham(Nel, p, bcs=bcs, comm=comm)
 
             # mass matrices
             mass_ops = WeightedMassOperators(derham, domain)
@@ -271,10 +266,8 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=Fa
         return xp.sin(2 * xp.pi / Lx * x) * (2 * xp.pi / Lx) ** 2
 
     # boundary conditions
-    dirichlet_bc = None
-
     if bc_type == "periodic":
-        spl_kind = [True] * 3
+        bcs = None
 
         # manufactured solution in 2D
         def sol2_xyz(x, y, z):
@@ -286,10 +279,8 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=Fa
             return ddx + ddy
 
     elif bc_type == "dirichlet":
-        spl_kind = [False, True, True]
-        dirichlet_bc = [(not kd,) * 2 for kd in spl_kind]
-        dirichlet_bc = tuple(dirichlet_bc)
-        print(f"{dirichlet_bc =}")
+        bcs = (("hom_dirichlet", "hom_dirichlet"), None, None)
+        print(f"{bcs =}")
 
         # manufactured solution in 2D
         def sol2_xyz(x, y, z):
@@ -301,7 +292,7 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=Fa
             return ddx + ddy
 
     elif bc_type == "neumann":
-        spl_kind = [False, True, True]
+        bcs = (("free", "free"), None, None)
 
         # manufactured solution in 2D
         def sol2_xyz(x, y, z):
@@ -320,7 +311,7 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=Fa
             return xp.cos(xp.pi / Lx * x) * (xp.pi / Lx) ** 2
 
     # create derham object
-    derham = Derham(Nel, p, spl_kind, dirichlet_bc=dirichlet_bc, comm=comm)
+    derham = Derham(Nel, p, bcs=bcs, comm=comm)
 
     # create weighted mass operators
     mass_ops = WeightedMassOperators(derham, domain)
@@ -478,8 +469,7 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
     domain: Domain = domain_class(**dom_params)
 
     # boundary conditions
-    spl_kind = [False, True, True]
-    dirichlet_bc = ((True, True), (False, False), (False, False))
+    bcs = (("hom_dirichlet", "hom_dirichlet"), None, None)
 
     # evaluation grid
     e1 = xp.linspace(0.0, 1.0, 50)
@@ -493,7 +483,7 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
         return dd1 + dd2
 
     # create 3d derham object
-    derham = Derham(Nel, p, spl_kind, dirichlet_bc=dirichlet_bc, comm=comm)
+    derham = Derham(Nel, p, bcs=bcs, comm=comm)
 
     mass_ops = WeightedMassOperators(derham, domain)
 
@@ -545,8 +535,7 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
     # create 2.5d deRham object
     Nel_new = [Nel[0], Nel[1], 1]
     p[2] = 1
-    spl_kind[2] = True
-    derham = Derham(Nel_new, p, spl_kind, dirichlet_bc=dirichlet_bc, comm=comm)
+    derham = Derham(Nel_new, p, bcs=bcs, comm=comm)
 
     mass_ops = WeightedMassOperators(derham, domain)
 

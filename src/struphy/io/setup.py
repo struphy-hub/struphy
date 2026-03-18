@@ -62,10 +62,12 @@ def setup_derham(
 
     # spline degrees
     p = options.p
-    # spline types (clamped vs. periodic)
-    spl_kind = options.spl_kind
-    # boundary conditions (Homogeneous Dirichlet or None)
-    dirichlet_bc = options.dirichlet_bc
+    # boundary conditions
+    bcs = options.bcs
+    # possible lifting of Dirichlet BCs
+    lifting_eta1 = options.lifting_eta1
+    lifting_eta2 = options.lifting_eta2
+    lifting_eta3 = options.lifting_eta3
     # Number of quadrature points per histopolation cell
     nq_pr = options.nq_pr
     # Number of quadrature points per grid cell for L^2
@@ -75,14 +77,13 @@ def setup_derham(
     # local commuting projectors
     local_projectors = options.local_projectors
 
-    lifting = options.lifting
-
     derham = Derham(
         Nel,
         p,
-        spl_kind,
-        dirichlet_bc=dirichlet_bc,
-        lifting=lifting,
+        bcs=bcs,
+        lifting_eta1=lifting_eta1,
+        lifting_eta2=lifting_eta2,
+        lifting_eta3=lifting_eta3,
         nquads=nquads,
         nq_pr=nq_pr,
         comm=comm,
@@ -98,8 +99,10 @@ def setup_derham(
         print("\nDERHAM:")
         print("number of elements:".ljust(25), Nel)
         print("spline degrees:".ljust(25), p)
-        print("periodic bcs:".ljust(25), spl_kind)
-        print("hom. Dirichlet bc:".ljust(25), dirichlet_bc)
+        print("boundary conditions:".ljust(25), bcs)
+        print("lifting eta_1:".ljust(25), lifting_eta1)
+        print("lifting eta_2:".ljust(25), lifting_eta2)
+        print("lifting eta_3:".ljust(25), lifting_eta3)
         print("GL quad pts (L2):".ljust(25), nquads)
         print("GL quad pts (hist):".ljust(25), nq_pr)
         print(

@@ -256,12 +256,11 @@ class Derham:
         
         # setting boundary conditions, default is periodic in all directions    
         self._spl_kind = [True] * 3
-        self._dirichlet_bc = None
+        self._dirichlet_bc = [[False, False], [False, False], [False, False]]
         self._dirichlet_bc_unlifted = None
         if bcs is not None:
             assert len(bcs) == 3, f"bcs must be a tuple of length 3, one for each spatial direction. Got {len(bcs)} entries."
-            self._dirichlet_bc = [[False, False], [False, False], [False, False]]
-            
+        
             if any([bc == "lifting" for bc in bcs if bc is not None]):
                 self._dirichlet_bc_unlifted = [[False, False], [False, False], [False, False]]
                 
@@ -283,9 +282,7 @@ class Derham:
            
         # make tuples             
         self._spl_kind = tuple(self._spl_kind)
-        
-        if self._dirichlet_bc is not None:
-            self._dirichlet_bc = tuple(tuple(b) for b in self._dirichlet_bc)
+        self._dirichlet_bc = tuple(tuple(b) for b in self._dirichlet_bc)
             
         if self._dirichlet_bc_unlifted is not None:
             self._dirichlet_bc_unlifted = tuple(tuple(b) for b in self._dirichlet_bc_unlifted)
@@ -632,7 +629,7 @@ class Derham:
             self._Vh_pol[sp_form] = pol_space
 
             # ------ Hom. Dirichlet boundary operators ------
-            if self.dirichlet_bc is None:
+            if all([dir_bc == (False, False) for dir_bc in self.dirichlet_bc]):
                 self._boundary_ops[sp_form] = IdentityOperator(pol_space)
             else:
                 self._boundary_ops[sp_form] = BoundaryOperator(

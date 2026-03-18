@@ -1,8 +1,13 @@
 import os
 from dataclasses import dataclass
-from typing import Literal
+from typing import Callable, Literal
 
-from struphy.utils.utils import check_option
+from struphy.utils.utils import (
+    check_option,
+    __class_with_params_repr_no_defaults__,
+    __dataclass_repr_no_defaults__,
+    all_class_params_are_default,
+)
 
 
 @dataclass
@@ -217,50 +222,71 @@ class BaseUnits:
         )
 
 
+NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
+
 @dataclass
 class DerhamOptions:
-    """Set options for the Derham spaces in parameter/launch files. See :ref:`geomFE`.
+    """Set options for the 3D discrete de Rham spaces in parameter/launch files.
+
+    This dataclass controls spline degrees, boundary conditions and quadrature
+    settings used to build the FEEC de Rham sequence. See :ref:`geomFE`.
 
     Parameters
     ----------
-    p : tuple[int]
-        Spline degree in each direction.
+    p : tuple[int, int, int]
+        Spline degree in each logical direction ``(eta_1, eta_2, eta_3)``.
 
-    spl_kind : tuple[bool]
-        Kind of spline in each direction (True=periodic, False=clamped).
+    bcs : tuple[None | tuple[NonTrivialBC, NonTrivialBC], None | tuple[NonTrivialBC, NonTrivialBC], None | tuple[NonTrivialBC, NonTrivialBC]] | None
+        Boundary condition selector for each direction.
+        Use ``None`` in a direction for periodic boundaries, or a tuple
+        ``(left, right)`` with entries in ``{"free", "hom_dirichlet",
+        "lifting"}`` for non-periodic boundaries. If ``bcs`` itself is
+        ``None``, all directions are periodic.
 
-    dirichlet_bc : tuple[tuple[bool]]
-        Whether to apply homogeneous Dirichlet boundary conditions (at left or right boundary in each direction).
+    lifting_eta1 : tuple[float | Callable | None, float | Callable | None] | None
+    lifting_eta2 : tuple[float | Callable | None, float | Callable | None] | None
+    lifting_eta3 : tuple[float | Callable | None, float | Callable | None] | None
+        Boundary lifting data on left/right faces in directions
+        ``eta_1``, ``eta_2`` and ``eta_3``. Values are required only on sides
+        where the corresponding entry in ``bcs`` is ``"lifting"``.
+        Each side can be given as a constant, a callable, or ``None`` when
+        unused.
 
-    lifting : tuple[tuple[bool]]
-        Whether to build a constrained (v0) sub-complex with additional clamping on each face.
-        Used for inhomogeneous Dirichlet BCs: the v0 complex clamps faces where
-        lifting is True, and the propagator builds a lift in the unconstrained space.
+    nquads : tuple[int, int, int] | None
+        Number of Gauss-Legendre quadrature points per direction for cell
+        integrals. If ``None``, backend defaults are used.
 
-    nquads : tuple[int]
-        Number of Gauss-Legendre quadrature points in each direction (default = p, leads to exact integration of degree 2p-1 polynomials).
-
-    nq_pr : tuple[int]
-        Number of Gauss-Legendre quadrature points in each direction for geometric projectors (default = p+1, leads to exact integration of degree 2p+1 polynomials).
+    nq_pr : tuple[int, int, int] | None
+        Number of Gauss-Legendre quadrature points per direction for geometric
+        projector/histopolation integrals. If ``None``, backend defaults are
+        used.
 
     polar_ck : PolarRegularity
-        Smoothness at a polar singularity at eta_1=0 (default -1 : standard tensor product splines, OR 1 : C1 polar splines)
+        Smoothness at a possible polar singularity at ``eta_1 = 0``.
+        ``-1`` gives standard tensor-product splines, ``1`` gives C1 polar
+        splines.
 
     local_projectors : bool
-        Whether to build the local commuting projectors based on quasi-inter-/histopolation.
+        Whether to build local commuting projectors based on
+        quasi-inter-/histopolation.
     """
 
     p: tuple = (1, 1, 1)
-    spl_kind: tuple = (True, True, True)
-    dirichlet_bc: tuple = ((False, False), (False, False), (False, False))
-    lifting: tuple = ((False, False), (False, False), (False, False))
-    nquads: tuple = None
-    nq_pr: tuple = None
+    bcs: tuple[None | tuple[NonTrivialBC, NonTrivialBC], None | tuple[NonTrivialBC, NonTrivialBC], None | tuple[NonTrivialBC, NonTrivialBC]] | None = None
+    lifting_eta1: tuple[float | Callable | None, float | Callable | None] | None = None
+    lifting_eta2: tuple[float | Callable | None, float | Callable | None] | None = None
+    lifting_eta3: tuple[float | Callable | None, float | Callable | None] | None = None
+    nquads: tuple[int, int, int] | None = None
+    nq_pr: tuple[int, int, int] | None = None
     polar_ck: LiteralOptions.PolarRegularity = -1
     local_projectors: bool = False
 
     def __post_init__(self):
         check_option(self.polar_ck, LiteralOptions.PolarRegularity)
+        if self.bcs is not None:
+            for bc in self.bcs:
+                if bc is not None:
+                    check_option(bc, LiteralOptions.OptsNonTrivialBoundaryCondition)
 
     def __str__(self):
         for k, v in self.__dict__.items():
@@ -277,9 +303,10 @@ class DerhamOptions:
     def to_dict(self) -> dict:
         dct = {
             "p": self.p,
-            "spl_kind": self.spl_kind,
-            "dirichlet_bc": self.dirichlet_bc,
-            "lifting": self.lifting,
+            "bcs": self.bcs,
+            "lifting_eta1": self.lifting_eta1,
+            "lifting_eta2": self.lifting_eta2,
+            "lifting_eta3": self.lifting_eta3,
             "nquads": self.nquads,
             "nq_pr": self.nq_pr,
             "polar_ck": self.polar_ck,
@@ -288,12 +315,13 @@ class DerhamOptions:
         return dct
 
     @classmethod
-    def from_dict(cls, dct) -> "DerhamOptions":
+    def from_dict(cls, dct: dict) -> "DerhamOptions":
         return cls(
             p=dct["p"],
-            spl_kind=dct["spl_kind"],
-            dirichlet_bc=dct["dirichlet_bc"],
-            lifting=dct.get("lifting", ((False, False), (False, False), (False, False))),
+            bcs=dct["bcs"],
+            lifting_eta1=dct.get("lifting_eta1", None),
+            lifting_eta2=dct.get("lifting_eta2", None),
+            lifting_eta3=dct.get("lifting_eta3", None),
             nquads=dct["nquads"],
             nq_pr=dct["nq_pr"],
             polar_ck=dct["polar_ck"],
@@ -346,7 +374,7 @@ class FieldsBackground:
         return dct
 
     @classmethod
-    def from_dict(cls, dct) -> "FieldsBackground":
+    def from_dict(cls, dct: dict) -> "FieldsBackground":
         return cls(
             type=dct["type"],
             values=dct["values"],
@@ -430,7 +458,7 @@ class EnvironmentOptions:
         return dct
 
     @classmethod
-    def from_dict(cls, dct) -> "EnvironmentOptions":
+    def from_dict(cls, dct: dict) -> "EnvironmentOptions":
         return cls(
             out_folders=dct["out_folders"],
             sim_folder=dct["sim_folder"],

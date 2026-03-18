@@ -3,12 +3,18 @@ import pytest
 
 @pytest.mark.parametrize("Nel", [[8, 9, 6]])
 @pytest.mark.parametrize("p", [[3, 2, 4]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
-def test_spaces(Nel, p, spl_kind):
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), None, None), 
+        (("free", "free"), None, ("free", "free")), 
+        ]
+    )
+def test_spaces(Nel, p, bcs):
     from struphy.feec.psydac_derham import Derham
     from struphy.polar.basic import PolarDerhamSpace, PolarVector
 
-    derham = Derham(Nel, p, spl_kind)
+    derham = Derham(Nel, p, bcs=bcs)
 
     print("polar V0:")
     V = PolarDerhamSpace(derham, "H1")
@@ -165,8 +171,14 @@ def test_spaces(Nel, p, spl_kind):
 
 @pytest.mark.parametrize("Nel", [[6, 9, 6]])
 @pytest.mark.parametrize("p", [[3, 2, 2]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
-def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), None, None), 
+        (("free", "free"), None, ("free", "free")), 
+        ]
+    )
+def test_extraction_ops_and_derivatives(Nel, p, bcs):
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
 
@@ -186,7 +198,7 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
     domain = IGAPolarCylinder(**params_map)
 
     # create de Rham sequence
-    derham = Derham(Nel, p, spl_kind, comm=comm, polar_ck=1, domain=domain, with_projectors=False)
+    derham = Derham(Nel, p, bcs=bcs, comm=comm, polar_ck=1, domain=domain, with_projectors=False)
 
     # create legacy FEM spaces
 
@@ -274,8 +286,14 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
 
 @pytest.mark.parametrize("Nel", [[6, 12, 7]])
 @pytest.mark.parametrize("p", [[4, 3, 2]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
-def test_projectors(Nel, p, spl_kind):
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), None, None), 
+        (("free", "free"), None, ("free", "free")), 
+        ]
+    )
+def test_projectors(Nel, p, bcs):
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
 
@@ -291,7 +309,7 @@ def test_projectors(Nel, p, spl_kind):
     domain = IGAPolarCylinder(**params_map)
 
     # create polar de Rham sequence
-    derham = Derham(Nel, p, spl_kind, comm=comm, nq_pr=[6, 6, 6], polar_ck=1, domain=domain)
+    derham = Derham(Nel, p, bcs=bcs, comm=comm, nq_pr=[6, 6, 6], polar_ck=1, domain=domain)
 
     if rank == 0:
         print()

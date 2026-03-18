@@ -6,9 +6,13 @@ from struphy.utils.pyccel import Pyccelkernel
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[2, 3, 4]])
 @pytest.mark.parametrize(
-    "spl_kind",
-    [[False, False, True], [False, True, True], [True, False, True], [True, True, True]],
-)
+    "bcs",[
+        (("free", "free"), ("free", "free"), None), 
+        (("free", "free"), None, None), 
+        (None, ("free", "free"), None),
+        None,
+        ]
+    )
 @pytest.mark.parametrize(
     "mapping",
     [
@@ -37,7 +41,7 @@ from struphy.utils.pyccel import Pyccelkernel
     ],
 )
 @pytest.mark.parametrize("num_clones", [1, 2])
-def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
+def test_accum_poisson(Nel, p, bcs, mapping, num_clones, Np=1000):
     r"""DRAFT: test the accumulation of the rhs (H1-space) in Poisson's equation .
 
     Tests:
@@ -84,7 +88,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
         derham = Derham(
             Nel,
             p,
-            spl_kind,
+            bcs=bcs,
             comm=None,
         )
     else:
@@ -96,7 +100,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
         derham = Derham(
             Nel,
             p,
-            spl_kind,
+            bcs=bcs,
             comm=clone_config.sub_comm,
         )
 

@@ -6,9 +6,13 @@ from struphy.utils.pyccel import Pyccelkernel
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
-    "spl_kind",
-    [[False, True, True], [True, False, True], [False, False, True], [True, True, True]],
-)
+    "bcs", [
+        (("free", "free"), None, None), 
+        (None, ("free", "free"), None),
+        (("free", "free"), ("free", "free"), None), 
+        None,
+        ]
+    )
 @pytest.mark.parametrize(
     "mapping",
     [
@@ -23,7 +27,7 @@ from struphy.utils.pyccel import Pyccelkernel
         ],
     ],
 )
-def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
+def test_push_vxb_analytic(Nel, p, bcs, mapping, show_plots=False):
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
 
@@ -43,7 +47,7 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     domain = domain_class(**mapping[1])
 
     # discrete Derham sequence (psydac)
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    derham = Derham(Nel, p, bcs=bcs, comm=comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs
@@ -106,9 +110,13 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
-    "spl_kind",
-    [[False, True, True], [True, False, True], [False, False, True], [True, True, True]],
-)
+    "bcs", [
+        (("free", "free"), None, None), 
+        (None, ("free", "free"), None),
+        (("free", "free"), ("free", "free"), None), 
+        None,
+        ]
+    )
 @pytest.mark.parametrize(
     "mapping",
     [
@@ -123,7 +131,7 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
         ],
     ],
 )
-def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
+def test_push_bxu_Hdiv(Nel, p, bcs, mapping, show_plots=False):
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
 
@@ -143,7 +151,7 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     domain = domain_class(**mapping[1])
 
     # discrete Derham sequence (psydac)
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    derham = Derham(Nel, p, bcs=bcs, comm=comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs
@@ -216,9 +224,14 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
-    "spl_kind",
-    [[False, True, True], [True, False, True], [False, False, True], [True, True, True]],
-)
+    "bcs",
+    [
+        (("free", "free"), None, None), 
+        (None, ("free", "free"), None),
+        (("free", "free"), ("free", "free"), None), 
+        None,
+        ]
+    )
 @pytest.mark.parametrize(
     "mapping",
     [
@@ -233,7 +246,7 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
         ],
     ],
 )
-def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
+def test_push_bxu_Hcurl(Nel, p, bcs, mapping, show_plots=False):
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
 
@@ -253,7 +266,7 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     domain = domain_class(**mapping[1])
 
     # discrete Derham sequence (psydac)
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    derham = Derham(Nel, p, bcs=bcs, comm=comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs
@@ -326,9 +339,14 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
-    "spl_kind",
-    [[False, True, True], [True, False, True], [False, False, True], [True, True, True]],
-)
+    "bcs",
+    [
+        (("free", "free"), None, None), 
+        (None, ("free", "free"), None),
+        (("free", "free"), ("free", "free"), None), 
+        None,
+        ]
+    )
 @pytest.mark.parametrize(
     "mapping",
     [
@@ -343,7 +361,7 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
         ],
     ],
 )
-def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
+def test_push_bxu_H1vec(Nel, p, bcs, mapping, show_plots=False):
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
 
@@ -363,7 +381,7 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     domain = domain_class(**mapping[1])
 
     # discrete Derham sequence (psydac)
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    derham = Derham(Nel, p, bcs=bcs, comm=comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs
@@ -436,9 +454,14 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
-    "spl_kind",
-    [[False, True, True], [True, False, True], [False, False, True], [True, True, True]],
-)
+    "bcs",
+    [
+        (("free", "free"), None, None), 
+        (None, ("free", "free"), None),
+        (("free", "free"), ("free", "free"), None), 
+        None,
+        ]
+    )
 @pytest.mark.parametrize(
     "mapping",
     [
@@ -453,7 +476,7 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
         ],
     ],
 )
-def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
+def test_push_bxu_Hdiv_pauli(Nel, p, bcs, mapping, show_plots=False):
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
 
@@ -473,7 +496,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     domain = domain_class(**mapping[1])
 
     # discrete Derham sequence (psydac)
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    derham = Derham(Nel, p, bcs=bcs, comm=comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs
@@ -555,9 +578,14 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
-    "spl_kind",
-    [[False, True, True], [True, False, True], [False, False, True], [True, True, True]],
-)
+    "bcs",
+    [
+        (("free", "free"), None, None), 
+        (None, ("free", "free"), None),
+        (("free", "free"), ("free", "free"), None), 
+        None,
+        ]
+    )
 @pytest.mark.parametrize(
     "mapping",
     [
@@ -572,7 +600,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
         ],
     ],
 )
-def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
+def test_push_eta_rk4(Nel, p, bcs, mapping, show_plots=False):
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
 
@@ -594,7 +622,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     domain = domain_class(**mapping[1])
 
     # discrete Derham sequence (psydac)
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    derham = Derham(Nel, p, bcs=bcs, comm=comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs
