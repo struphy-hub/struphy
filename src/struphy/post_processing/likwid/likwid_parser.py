@@ -1,11 +1,12 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 import glob
 import os
 import pickle
 import re
 
+logger = logging.getLogger("struphy")
 
 def pad_numbers(s, pad_length=5):
     # This function replaces all numbers in the input string with zero-padded numbers

@@ -1,7 +1,7 @@
 import logging
-
-logger = logging.getLogger("struphy")
 import pytest
+logger = logging.getLogger("struphy")
+
 
 
 def test_prepare_arg():

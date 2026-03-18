@@ -1,6 +1,5 @@
 import logging
 
-logger = logging.getLogger("struphy")
 import os
 import shutil
 
@@ -23,6 +22,8 @@ from struphy import (
 )
 from struphy.diagnostics.diagn_tools import power_spectrum_2d
 from struphy.models import Maxwell
+
+logger = logging.getLogger("struphy")
 
 
 @pytest.mark.parametrize("algo", ["implicit", "explicit"])

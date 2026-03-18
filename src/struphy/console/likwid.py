@@ -1,12 +1,13 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 import glob
 import os
 import sys
 
 from struphy.post_processing.likwid.plot_likwidproject import load_projects, plot_files
 
+logger = logging.getLogger("struphy")
 
 def struphy_likwid_profile(dir, title, output, groups, skip, plots):
     # Expand wildcard directories

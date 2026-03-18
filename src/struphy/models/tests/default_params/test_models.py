@@ -1,10 +1,11 @@
 import logging
 
-logger = logging.getLogger("struphy")
 import pytest
 
 import struphy.models.utils as models_utils
 from struphy.models.tests import utils_testing as ut
+
+logger = logging.getLogger("struphy")
 
 # specific tests
 

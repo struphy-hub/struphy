@@ -1,6 +1,4 @@
-import logging
 
-logger = logging.getLogger("struphy")
 #!/usr/bin/env python3
 # PYTHON_ARGCOMPLETE_OK
 import argparse
@@ -21,6 +19,10 @@ import yaml
 import struphy
 import struphy.models.utils as models_utils
 from struphy.utils import utils
+
+import logging
+
+logger = logging.getLogger("struphy")
 
 libpath = struphy.__path__[0]
 __version__ = importlib.metadata.version("struphy")

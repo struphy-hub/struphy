@@ -1,6 +1,5 @@
 import logging
 
-logger = logging.getLogger("struphy")
 import sys
 
 import yaml
@@ -9,6 +8,8 @@ from feectools.ddm.mpi import mpi as MPI
 import struphy.models as models
 from struphy.models.base import StruphyModel
 from struphy.models.utils import get_model_by_name
+
+logger = logging.getLogger("struphy")
 
 
 def struphy_params(model_name: str, yes: bool = False, check_file: bool = False):

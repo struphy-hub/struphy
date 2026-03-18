@@ -1,6 +1,3 @@
-import logging
-
-logger = logging.getLogger("struphy")
 """
 Struphy Linting and Formatting Tools
 
@@ -92,6 +89,10 @@ from tabulate import tabulate
 
 import struphy
 from struphy.models.base import StruphyModel
+
+import logging
+
+logger = logging.getLogger("struphy")
 
 LIBPATH = struphy.__path__[0]
 

@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.stencil import StencilVector
 
@@ -16,6 +16,7 @@ from struphy.propagators import (
 )
 from struphy.propagators.base import Propagator
 
+logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
 
 

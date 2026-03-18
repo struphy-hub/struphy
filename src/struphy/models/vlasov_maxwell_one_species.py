@@ -1,6 +1,5 @@
 import logging
 
-logger = logging.getLogger("struphy")
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
@@ -20,6 +19,8 @@ from struphy.propagators import (
 )
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
+
+logger = logging.getLogger("struphy")
 
 rank = MPI.COMM_WORLD.Get_rank()
 

@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 import os
 from abc import ABCMeta, abstractmethod
 from textwrap import indent
@@ -21,6 +21,7 @@ from struphy.utils.clone_config import CloneConfig
 from struphy.utils.docstring_converter import rst_to_markdown
 from struphy.utils.utils import all_class_params_are_default, all_subclasses
 
+logger = logging.getLogger("struphy")
 
 class StruphyModelMeta(ABCMeta):
     def __iter__(cls):

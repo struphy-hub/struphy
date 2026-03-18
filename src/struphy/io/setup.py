@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 import glob
 import importlib.util
 import os
@@ -15,6 +15,7 @@ from struphy.geometry.base import Domain
 from struphy.io.options import DerhamOptions
 from struphy.topology.grids import TensorProductGrid
 
+logger = logging.getLogger("struphy")
 
 def import_parameters_py(params_path: str) -> ModuleType:
     """Import a .py parameter file under the module name 'parameters' and return it."""

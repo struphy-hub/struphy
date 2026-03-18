@@ -1,6 +1,3 @@
-import logging
-
-logger = logging.getLogger("struphy")
 "Available fluid backgrounds:"
 
 import copy
@@ -40,8 +37,13 @@ from struphy.io.options import BaseUnits
 from struphy.physics.physics import Units
 from struphy.utils.utils import all_class_params_are_default, read_state, subp_run
 
+import logging
+
+
 if TYPE_CHECKING:
     from struphy import domains
+
+logger = logging.getLogger("struphy")
 
 if isinstance(MPI, MockMPI):
     comm = None

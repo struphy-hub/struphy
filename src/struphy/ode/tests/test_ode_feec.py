@@ -1,12 +1,13 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 from typing import get_args
 
 import pytest
 
 from struphy.io.options import LiteralOptions
 
+logger = logging.getLogger("struphy")
 
 @pytest.mark.parametrize(
     "spaces",

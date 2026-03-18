@@ -1,6 +1,3 @@
-import logging
-
-logger = logging.getLogger("struphy")
 """An executable for quick access to the diagnostic tools in diagn_tools.py"""
 
 #!/usr/bin/env python3
@@ -16,6 +13,9 @@ import struphy
 import struphy.utils.utils as utils
 from struphy.diagnostics.diagn_tools import plot_distr_fun, plot_scalars, plots_videos_2d
 
+import logging
+
+logger = logging.getLogger("struphy")
 
 def main():
     parser = argparse.ArgumentParser(

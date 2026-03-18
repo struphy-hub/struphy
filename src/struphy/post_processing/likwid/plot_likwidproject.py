@@ -1,7 +1,5 @@
 import logging
 
-logger = logging.getLogger("struphy")
-# Standard modules
 import argparse
 import glob
 import math
@@ -21,6 +19,7 @@ import struphy.post_processing.likwid.likwid_parser as lp
 import struphy.post_processing.likwid.maxplotlylib as mply
 import struphy.post_processing.likwid.roofline_plotter as rp
 
+logger = logging.getLogger("struphy")
 
 def clean_string(string_in):
     return re.sub(r"[^\w\s-]", "", string_in.replace(" ", "_"))

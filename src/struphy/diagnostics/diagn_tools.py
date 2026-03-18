@@ -1,6 +1,3 @@
-import logging
-
-logger = logging.getLogger("struphy")
 #!/usr/bin/env python3
 import os
 import shutil
@@ -15,6 +12,9 @@ from tqdm import tqdm
 
 from struphy.dispersion_relations import analytic
 
+import logging
+
+logger = logging.getLogger("struphy")
 
 def power_spectrum_2d(
     values: dict,

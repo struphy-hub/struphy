@@ -1,8 +1,9 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 import pytest
 
+logger = logging.getLogger("struphy")
 
 @pytest.mark.parametrize("Nel", [[64, 1, 1]])
 def test_maxwellian_3d_uniform(Nel, show_plot=False):

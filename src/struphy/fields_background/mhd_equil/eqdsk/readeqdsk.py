@@ -1,12 +1,4 @@
-import logging
-
-logger = logging.getLogger("struphy")
 #!/usr/bin/env python
-
-import re
-
-import numpy
-
 """
 @brief G-Eqdsk reader class
 @version $Id$
@@ -16,6 +8,13 @@ The official document describing g-eqdsk files:
 http://fusion.gat.com/conferences/snowmass/working/mfe/physics/p3/equilibria/g_eqdsk_s.pdf
 """
 
+import re
+
+import numpy
+
+import logging
+
+logger = logging.getLogger("struphy")
 
 class Geqdsk:
     def __init__(self):

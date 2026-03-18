@@ -1,11 +1,13 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 import importlib.util
 
 import cunumpy as xp
 import pytest
 from matplotlib import pyplot as plt
+
+logger = logging.getLogger("struphy")
 
 desc_spec = importlib.util.find_spec("desc")
 

@@ -1,6 +1,3 @@
-import logging
-
-logger = logging.getLogger("struphy")
 "Propagator base class."
 
 from abc import ABCMeta, abstractmethod
@@ -19,6 +16,9 @@ from struphy.geometry.base import Domain
 from struphy.io.options import check_option
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 
+import logging
+
+logger = logging.getLogger("struphy")
 
 class Propagator(metaclass=ABCMeta):
     """Base class for propagators used in StruphyModels.

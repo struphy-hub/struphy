@@ -1,12 +1,13 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 import time
 
 import cunumpy as xp
 import pytest
 from feectools.ddm.mpi import mpi as MPI
 
+logger = logging.getLogger("struphy")
 
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[1, 2, 1], [2, 1, 2], [3, 4, 3]])

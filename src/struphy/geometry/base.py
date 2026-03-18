@@ -1,6 +1,3 @@
-import logging
-
-logger = logging.getLogger("struphy")
 # coding: utf-8
 "Base classes for mapped domains (single patch)."
 
@@ -19,6 +16,9 @@ from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
 from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default, all_subclasses
 
+import logging
+
+logger = logging.getLogger("struphy")
 
 class DomainMeta(ABCMeta):
     def __iter__(cls):

@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 import pickle
 import sys
 
@@ -10,6 +10,7 @@ from matplotlib import pyplot as plt
 
 from struphy.post_processing.cprofile_analyser import get_cprofile_data, replace_keys
 
+logger = logging.getLogger("struphy")
 
 def main():
     """

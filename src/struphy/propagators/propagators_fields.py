@@ -1,6 +1,3 @@
-import logging
-
-logger = logging.getLogger("struphy")
 "Only FEEC variables are updated."
 
 import copy
@@ -65,6 +62,9 @@ from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
 
+import logging
+
+logger = logging.getLogger("struphy")
 
 class Maxwell(Propagator):
     r""":ref:`FEEC <gempic>` discretization of the following equations:

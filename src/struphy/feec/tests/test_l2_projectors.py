@@ -1,6 +1,4 @@
-import logging
 
-logger = logging.getLogger("struphy")
 import inspect
 
 import cunumpy as xp
@@ -13,6 +11,9 @@ from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.projectors import L2Projector
 from struphy.feec.psydac_derham import Derham
 
+import logging
+
+logger = logging.getLogger("struphy")
 
 @pytest.mark.parametrize("Nel", [[16, 32, 1]])
 @pytest.mark.parametrize("p", [[2, 1, 1], [3, 2, 1]])

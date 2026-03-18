@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 from time import time
 
 import cunumpy as xp
@@ -13,6 +13,7 @@ from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.equils import ConstantVelocity
 from struphy.pic.particles import ParticlesSPH
 
+logger = logging.getLogger("struphy")
 
 @pytest.mark.parametrize("ppb", [8, 12])
 @pytest.mark.parametrize("nx", [16, 10, 24])

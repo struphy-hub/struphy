@@ -1,6 +1,3 @@
-import logging
-
-logger = logging.getLogger("struphy")
 #!/usr/bin/env python3
 import importlib.metadata
 
@@ -44,6 +41,9 @@ from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
 
+import logging
+
+logger = logging.getLogger("struphy")
 
 class Derham:
     """

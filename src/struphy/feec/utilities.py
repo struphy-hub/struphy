@@ -1,6 +1,4 @@
-import logging
 
-logger = logging.getLogger("struphy")
 import cunumpy as xp
 from feectools.api.essential_bc import apply_essential_bc_stencil
 from feectools.fem.tensor import TensorFemSpace
@@ -13,6 +11,9 @@ import struphy.feec.utilities_kernels as kernels
 from struphy.feec import banded_to_stencil_kernels as bts
 from struphy.polar.basic import PolarVector
 
+import logging
+
+logger = logging.getLogger("struphy")
 
 class RotationMatrix:
     """For a given vector-valued function a(e1, e2, e3), creates the callable matrix R(e1, e2, e3)

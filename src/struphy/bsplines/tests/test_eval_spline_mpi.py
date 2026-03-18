@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 from sys import int_info
 from time import sleep
 
@@ -8,6 +8,7 @@ import cunumpy as xp
 import pytest
 from feectools.ddm.mpi import mpi as MPI
 
+logger = logging.getLogger("struphy")
 
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[1, 2, 3], [3, 1, 2]])

@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 import glob
 import pickle
 
@@ -8,6 +8,7 @@ import cunumpy as xp
 import pandas as pd
 import yaml
 
+logger = logging.getLogger("struphy")
 
 def sort_by_num_threads(bm):
     sorted_arrays = {}

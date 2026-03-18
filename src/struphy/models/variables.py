@@ -23,11 +23,10 @@ from struphy.utils.utils import check_option
 
 import logging
 
-logger = logging.getLogger("struphy")
-
 if TYPE_CHECKING:
     from struphy.models.species import FieldSpecies, FluidSpecies, ParticleSpecies, Species
 
+logger = logging.getLogger("struphy")
 
 class Variable(metaclass=ABCMeta):
     """

@@ -1,7 +1,8 @@
+"Base classes for MHD equilibria."
+
 import logging
 
-logger = logging.getLogger("struphy")
-"Base classes for MHD equilibria."
+
 
 from abc import ABCMeta, abstractmethod
 
@@ -16,6 +17,7 @@ from struphy.utils.utils import (
     all_class_params_are_default,
 )
 
+logger = logging.getLogger("struphy")
 
 class FluidEquilibrium(metaclass=ABCMeta):
     """

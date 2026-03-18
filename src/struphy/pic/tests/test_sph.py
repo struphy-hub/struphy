@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 import cunumpy as xp
 import pytest
 from feectools.ddm.mpi import MockComm
@@ -20,6 +20,7 @@ from struphy.fields_background.equils import ConstantVelocity
 from struphy.geometry.base import Domain
 from struphy.pic.particles import ParticlesSPH
 
+logger = logging.getLogger("struphy")
 
 @pytest.mark.parametrize("boxes_per_dim", [(24, 1, 1)])
 @pytest.mark.parametrize("kernel", ["trigonometric_1d", "gaussian_1d", "linear_1d"])

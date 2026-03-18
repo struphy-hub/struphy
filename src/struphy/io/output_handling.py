@@ -1,12 +1,13 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 import ctypes
 import os
 
 import cunumpy as xp
 import h5py
 
+logger = logging.getLogger("struphy")
 
 class DataContainer:
     """

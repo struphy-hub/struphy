@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 import os
 import shutil
 
@@ -12,6 +12,7 @@ from tqdm import tqdm
 from struphy.io.setup import import_parameters_py
 from struphy.post_processing.orbits.orbits_kernels import calculate_guiding_center_from_6d
 
+logger = logging.getLogger("struphy")
 
 def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
     """

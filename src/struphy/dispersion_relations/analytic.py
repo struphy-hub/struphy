@@ -1,6 +1,3 @@
-import logging
-
-logger = logging.getLogger("struphy")
 "Analytic dispersion relations."
 
 import cunumpy as xp
@@ -10,6 +7,10 @@ from scipy.optimize import fsolve
 from struphy.dispersion_relations.base import ContinuousSpectra1D, DispersionRelations1D
 from struphy.dispersion_relations.utilities import Zplasma
 from struphy.fields_background.equils import set_defaults
+
+import logging
+
+logger = logging.getLogger("struphy")
 
 
 class Maxwell1D(DispersionRelations1D):

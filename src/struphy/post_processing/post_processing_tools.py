@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 import inspect
 import os
 import pickle
@@ -34,6 +34,7 @@ from struphy.topology.grids import TensorProductGrid
 if TYPE_CHECKING:
     from struphy.simulation.sim import Simulation
 
+logger = logging.getLogger("struphy")
 
 class SplineValues:
     def __str__(self):

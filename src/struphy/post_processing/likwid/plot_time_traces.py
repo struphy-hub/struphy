@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 import os
 import pickle
 import re
@@ -14,6 +14,7 @@ from scope_profiler.h5reader import ProfilingH5Reader
 # pio.kaleido.scope.mathjax = None
 import struphy.post_processing.likwid.maxplotlylib as mply
 
+logger = logging.getLogger("struphy")
 
 def glob_to_regex(pat: str) -> str:
     # Escape all regex metachars, then convert \* → .* and \? → .

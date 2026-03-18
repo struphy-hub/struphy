@@ -1,6 +1,3 @@
-import logging
-
-logger = logging.getLogger("struphy")
 "Particle and FEEC variables are updated."
 
 from dataclasses import dataclass
@@ -35,6 +32,9 @@ from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
 
+import logging
+
+logger = logging.getLogger("struphy")
 
 class VlasovAmpere(Propagator):
     r""":ref:`FEEC <gempic>` discretization of the following equations: 

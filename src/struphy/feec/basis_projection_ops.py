@@ -1,6 +1,5 @@
-import logging
 
-logger = logging.getLogger("struphy")
+
 import cunumpy as xp
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.ddm.mpi import mpi as MPI
@@ -19,6 +18,10 @@ from struphy.feec.utilities import RotationMatrix
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.pyccel import Pyccelkernel
+
+import logging
+
+logger = logging.getLogger("struphy")
 
 
 class BasisProjectionOperators:

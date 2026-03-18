@@ -1,11 +1,12 @@
 import logging
 
-logger = logging.getLogger("struphy")
 import os
 from dataclasses import dataclass, fields
 from typing import Any, Literal
 
 from struphy.utils.utils import __dataclass_repr_no_defaults__, all_class_params_are_default, check_option
+
+logger = logging.getLogger("struphy")
 
 
 class OptionsBase:

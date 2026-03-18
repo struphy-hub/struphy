@@ -1,6 +1,4 @@
-import logging
 
-logger = logging.getLogger("struphy")
 import cunumpy as xp
 from feectools.api.essential_bc import apply_essential_bc_stencil
 from feectools.ddm.cart import CartDecomposition, DomainDecomposition
@@ -17,6 +15,10 @@ from scipy.linalg import solve_circulant
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.mass import WeightedMassOperator
 
+
+import logging
+
+logger = logging.getLogger("struphy")
 
 class MassMatrixPreconditioner(LinearOperator):
     """

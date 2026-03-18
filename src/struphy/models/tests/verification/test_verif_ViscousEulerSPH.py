@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 import os
 import shutil
 
@@ -25,7 +25,7 @@ from struphy import (
     perturbations,
 )
 from struphy.models import ViscousEulerSPH
-
+logger = logging.getLogger("struphy")
 
 @pytest.mark.parametrize("nx", [12, 24])
 @pytest.mark.parametrize("plot_pts", [11, 32])

@@ -1,6 +1,5 @@
 import logging
 
-logger = logging.getLogger("struphy")
 import cunumpy as xp
 import matplotlib.pyplot as plt
 import pytest
@@ -27,6 +26,8 @@ from struphy.pic.particles import Particles6D
 from struphy.propagators.base import Propagator
 from struphy.propagators.propagators_fields import ImplicitDiffusion, Poisson
 from struphy.utils.pyccel import Pyccelkernel
+
+logger = logging.getLogger("struphy")
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()

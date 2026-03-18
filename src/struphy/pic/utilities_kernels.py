@@ -1,6 +1,3 @@
-import logging
-
-logger = logging.getLogger("struphy")
 from numpy import abs, empty, log, mod, pi, shape, sign, sqrt, zeros
 from pyccel.decorators import stack_array
 
@@ -18,7 +15,6 @@ from struphy.bsplines.evaluation_kernels_3d import (
     get_spans,
 )
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
-
 
 def eval_magnetic_moment_5d(
     markers: "float[:,:]",
@@ -561,7 +557,7 @@ def eval_gradB_ediff(
 
         # b-field evaluation
         span1, span2, span3 = get_spans(eta_mid[0], eta_mid[1], eta_mid[2], args_derham)
-        # logger.info(span1, span2, span3)
+        # print(span1, span2, span3)
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(

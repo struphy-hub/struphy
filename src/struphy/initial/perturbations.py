@@ -1,6 +1,3 @@
-import logging
-
-logger = logging.getLogger("struphy")
 #!/usr/bin/env python3
 "Analytical perturbations."
 
@@ -14,6 +11,9 @@ from struphy.initial.base import Perturbation
 from struphy.io.options import LiteralOptions
 from struphy.utils.utils import check_option
 
+import logging
+
+logger = logging.getLogger("struphy")
 
 @dataclass
 class Noise(Perturbation):

@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 from dataclasses import dataclass
 
 import cunumpy as xp
@@ -8,6 +8,7 @@ from feectools.ddm.mpi import mpi as MPI
 
 from struphy.io.options import BaseUnits
 
+logger = logging.getLogger("struphy")
 
 @dataclass
 class ConstantsOfNature:

@@ -1,6 +1,5 @@
 import logging
 
-logger = logging.getLogger("struphy")
 import os
 import shutil
 
@@ -26,6 +25,7 @@ from struphy import (
 )
 from struphy.models import VlasovAmpereOneSpecies
 
+logger = logging.getLogger("struphy")
 
 def test_weak_Landau(do_plot: bool = False):
     """Verification test for weak Landau damping.

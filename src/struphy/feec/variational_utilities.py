@@ -1,6 +1,4 @@
-import logging
 
-logger = logging.getLogger("struphy")
 from copy import deepcopy
 
 import cunumpy as xp
@@ -17,6 +15,9 @@ from struphy.feec.basis_projection_ops import (
 from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.feec.psydac_derham import Derham
 
+import logging
+
+logger = logging.getLogger("struphy")
 
 class BracketOperator(LinOpWithTransp):
     r"""The linear map :math:`\mathbb R^{3N_0} \to \mathbb R^{3N_0}`,

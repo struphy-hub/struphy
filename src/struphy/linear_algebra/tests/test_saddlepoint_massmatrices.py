@@ -1,8 +1,9 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 import pytest
 
+logger = logging.getLogger("struphy")
 
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("method_for_solving", ["SaddlePointSolverUzawaNumpy", "SaddlePointSolverGMRES"])

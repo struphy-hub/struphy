@@ -1,8 +1,8 @@
 import logging
 
-logger = logging.getLogger("struphy")
-import pytest
 
+import pytest
+logger = logging.getLogger("struphy")
 
 @pytest.mark.parametrize("Nel", [[12, 5, 2], [8, 12, 4], [5, 4, 12]])
 @pytest.mark.parametrize("p", [[3, 2, 1]])

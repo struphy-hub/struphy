@@ -1,6 +1,4 @@
-import logging
 
-logger = logging.getLogger("struphy")
 import inspect
 import time
 
@@ -17,6 +15,9 @@ from struphy.feec.local_projectors_kernels import fill_matrix_column
 from struphy.feec.psydac_derham import Derham
 from struphy.feec.utilities_local_projectors import get_one_spline, get_span_and_basis, get_values_and_indices_splines
 
+import logging
+
+logger = logging.getLogger("struphy")
 
 @pytest.mark.parametrize("Nel", [[14, 16, 18]])
 @pytest.mark.parametrize("p", [[5, 4, 3]])

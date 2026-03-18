@@ -1,6 +1,3 @@
-import logging
-
-logger = logging.getLogger("struphy")
 "Accelerated particle pushing."
 
 import cunumpy as xp
@@ -12,6 +9,9 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Domain
 from struphy.pic.base import Particles
 from struphy.utils.pyccel import Pyccelkernel
 
+import logging
+
+logger = logging.getLogger("struphy")
 
 class Pusher:
     r"""

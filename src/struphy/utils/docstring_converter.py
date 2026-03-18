@@ -1,9 +1,9 @@
-import logging
-
-logger = logging.getLogger("struphy")
 """Utility to convert RST docstrings to HTML for VS Code display."""
 
 import re
+import logging
+
+logger = logging.getLogger("struphy")
 
 
 def _format_fraction(numerator: str, denominator: str, display_mode: bool = False) -> str:

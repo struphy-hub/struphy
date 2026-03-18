@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 import cunumpy as xp
 import matplotlib.pyplot as plt
 import pytest
@@ -15,6 +15,8 @@ from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.propagators.propagators_fields import ImplicitDiffusion
+
+logger = logging.getLogger("struphy")
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()

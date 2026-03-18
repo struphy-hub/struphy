@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 from time import time
 
 import cunumpy as xp
@@ -11,6 +11,7 @@ from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, do
 from struphy.feec.psydac_derham import Derham
 from struphy.pic.particles import Particles6D
 
+logger = logging.getLogger("struphy")
 
 @pytest.mark.parametrize("nx", [8, 70])
 @pytest.mark.parametrize("ny", [16, 80])

@@ -1,6 +1,4 @@
-import logging
 
-logger = logging.getLogger("struphy")
 import inspect
 from copy import deepcopy
 
@@ -22,6 +20,9 @@ from struphy.geometry.base import Domain
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.pyccel import Pyccelkernel
 
+import logging
+
+logger = logging.getLogger("struphy")
 
 class WeightedMassOperators:
     r"""

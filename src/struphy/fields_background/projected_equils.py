@@ -1,6 +1,4 @@
-import logging
 
-logger = logging.getLogger("struphy")
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilVector
 
@@ -11,6 +9,9 @@ from struphy.fields_background.base import (
     MHDequilibrium,
 )
 
+import logging
+
+logger = logging.getLogger("struphy")
 
 class ProjectedFluidEquilibrium:
     """Commuting projections of

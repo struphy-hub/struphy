@@ -1,11 +1,12 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 import cunumpy as xp
 import pytest
 
 from struphy import equils
 
+logger = logging.getLogger("struphy")
 
 @pytest.mark.parametrize(
     "equil_domain_pair",

@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.io.options import LiteralOptions
@@ -13,7 +13,7 @@ from struphy.propagators import (
     propagators_fields,
 )
 from struphy.propagators.base import Propagator
-
+logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
 
 

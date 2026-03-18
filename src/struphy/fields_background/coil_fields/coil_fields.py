@@ -1,11 +1,12 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 import cunumpy as xp
 
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.coil_fields.base import CoilMagneticField, load_csv_data
 
+logger = logging.getLogger("struphy")
 
 class RatGUI(CoilMagneticField):
     """Interface to RatGUI."""

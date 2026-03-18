@@ -1,12 +1,12 @@
 import logging
 
-logger = logging.getLogger("struphy")
 import inspect
 
 import struphy.models as models
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
 
+logger = logging.getLogger("struphy")
 
 # TODO: These utils should be classmethod of the model baseclass!
 def get_model_by_name(model_name: str) -> type[StruphyModel]:

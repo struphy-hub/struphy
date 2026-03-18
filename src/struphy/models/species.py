@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger("struphy")
+
 import warnings
 from abc import ABCMeta, abstractmethod
 
@@ -17,6 +17,7 @@ from struphy.particles.parameters import (
 )
 from struphy.physics.physics import ConstantsOfNature, Units
 
+logger = logging.getLogger("struphy")
 
 class Species(metaclass=ABCMeta):
     """
