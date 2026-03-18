@@ -672,7 +672,7 @@ class AccumulatorVector:
 
         # Two-dimensional case
         elif len(plt_axis) == 2:
-            Eta1, Eta2 = xp.meshgrid(eta, eta)
+            Eta1, Eta2 = xp.meshgrid(eta, eta, indexing="ij")
             pcm = plt.pcolor(Eta1, Eta2, field_value)
 
             plt.colorbar(pcm, label="field amplitude")
