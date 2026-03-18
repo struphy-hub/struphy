@@ -24,6 +24,8 @@ tutorials/sim*
 *STUBDIR*
 .VSCodeCounter/
 .pymon
+doc/_collections/
+doc/tutorials/
 
 # pyccel
 __gpyccel__/
@@ -85,6 +87,7 @@ logs
 .hostfile*
 .likwidscript*
 code_analysis_report.html
+params_*
 
 # I/O
 src/struphy/io/out/

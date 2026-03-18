@@ -1,0 +1,56 @@
+name: Create pull request into struphy-hub/struphy-tutorials
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  clone-push-and-create-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: true  # This is crucial!
+          fetch-depth: 5
+
+      - name: Get submodule diff
+        uses: ./.github/actions/submodule-diff
+        with:
+          submod-name: tutorials/
+
+      - name: Checkout code
+        if: env.SUBMOD_CHANGED == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: struphy-hub/struphy-tutorials
+          token: ${{ secrets.STRUPHY_HUB_ACCESS_TOKEN }}
+          path: struphy-tutorials
+
+      - name: Copy tutorials and push new branch
+        if: env.SUBMOD_CHANGED == 'true'
+        run: |
+            cd struphy-tutorials
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git checkout -b from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
+            cp -r ../tutorials/. ./
+            git status
+            git add .
+            git commit -m "Changes to tutorials from struphy (on push to main)"
+            git push origin from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
+
+      - name: Create pull request
+        if: env.SUBMOD_CHANGED == 'true'
+        run: |
+          gh pr create \
+            --repo struphy-hub/struphy-tutorials \
+            --title "New tutorials from struphy" \
+            --body "This is an auto-generated PR from a Struphy workflow (on push to main)." \
+            --head from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }} \
+            --base main 
+        env:
+          GH_TOKEN: ${{ secrets.STRUPHY_HUB_ACCESS_TOKEN }}
