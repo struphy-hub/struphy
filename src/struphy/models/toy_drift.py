@@ -173,9 +173,7 @@ class ToyDrift(StruphyModel):
         self._tmp3[0] = (
             1
             / particles.Np
-            * xp.sum(
-                particles.weights * particles.velocities[:, 0] ** 2 / 2.0 + particles.markers_wo_holes_and_ghost[:, 8],
-            )
+            * xp.sum(particles.weights * particles.velocities[:, 0] ** 2 / 2.0)
         )
 
         self.update_scalar("en_phi", en_phi1)
