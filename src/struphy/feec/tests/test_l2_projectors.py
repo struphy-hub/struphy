@@ -13,9 +13,9 @@ from struphy.feec.psydac_derham import Derham
 
 @pytest.mark.parametrize("Nel", [[16, 32, 1]])
 @pytest.mark.parametrize("p", [[2, 1, 1], [3, 2, 1]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True]])
+@pytest.mark.parametrize("bcs", [(("free", "free"), None, None)])
 @pytest.mark.parametrize("array_input", [False, True])
-def test_l2_projectors_mappings(Nel, p, spl_kind, array_input, with_gvec=False, with_desc=False, do_plot=False):
+def test_l2_projectors_mappings(Nel, p, bcs, array_input, with_gvec=False, with_desc=False, do_plot=False):
     """Tests the L2-projectors for all available mappings.
 
     Both callable and array inputs to the projectors are tested.
@@ -25,7 +25,7 @@ def test_l2_projectors_mappings(Nel, p, spl_kind, array_input, with_gvec=False, 
     rank = comm.Get_rank()
 
     # create derham object
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    derham = Derham(Nel, p, bcs=bcs, comm=comm)
 
     # constant function
     f = lambda e1, e2, e3: xp.sin(xp.pi * e1) * xp.cos(2 * xp.pi * e2)
@@ -122,8 +122,8 @@ def test_l2_projectors_mappings(Nel, p, spl_kind, array_input, with_gvec=False, 
 @pytest.mark.convergence
 @pytest.mark.parametrize("direction", [0, 1, 2])
 @pytest.mark.parametrize("pi", [1, 2])
-@pytest.mark.parametrize("spl_kindi", [True, False])
-def test_l2_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
+@pytest.mark.parametrize("bc_kind", [None, ("free", "free")])
+def test_l2_projectors_convergence(direction, pi, bc_kind, do_plot=False):
     """Tests the convergence rate of the L2 projectors along singleton dimensions, without mapping."""
     # get global communicator
     comm = MPI.COMM_WORLD
@@ -148,7 +148,7 @@ def test_l2_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
         if direction == 0:
             Nel = [Neli, 1, 1]
             p = [pi, 1, 1]
-            spl_kind = [spl_kindi, True, True]
+            bcs = (bc_kind, None, None)
             e1 = xp.linspace(0.0, 1.0, 100)
             e = e1
             c = 0
@@ -158,7 +158,7 @@ def test_l2_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
         elif direction == 1:
             Nel = [1, Neli, 1]
             p = [1, pi, 1]
-            spl_kind = [True, spl_kindi, True]
+            bcs = (None, bc_kind, None)
             e2 = xp.linspace(0.0, 1.0, 100)
             e = e2
             c = 1
@@ -168,7 +168,7 @@ def test_l2_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
         elif direction == 2:
             Nel = [1, 1, Neli]
             p = [1, 1, pi]
-            spl_kind = [True, True, spl_kindi]
+            bcs = (None, None, bc_kind)
             e3 = xp.linspace(0.0, 1.0, 100)
             e = e3
             c = 2
@@ -176,7 +176,7 @@ def test_l2_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
             def f(x, y, z):
                 return fun(z)
 
-        derham = Derham(Nel, p, spl_kind, comm=comm)
+        derham = Derham(Nel, p, bcs=bcs, comm=comm)
 
         # create domain object
         dom_type = "Cuboid"

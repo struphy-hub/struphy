@@ -3,13 +3,16 @@ import pytest
 
 @pytest.mark.parametrize("Nel", [[5, 6, 7]])
 @pytest.mark.parametrize("p", [[2, 2, 3]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True], [True, False, True]])
-@pytest.mark.parametrize(
-    "dirichlet_bc",
-    [None, [(False, True), (True, False), (False, False)], [(True, False), (False, True), (False, False)]],
-)
+@pytest.mark.parametrize("bcs", [
+    (("free", "free"), None, None), 
+    (("free", "hom_dirichlet"), None, None), 
+    (("hom_dirichlet", "free"), None, None), 
+    (None, ("free", "free"), None), 
+    (None, ("free", "hom_dirichlet"), None),
+    (None, ("hom_dirichlet", "free"), None),
+    ])
 @pytest.mark.parametrize("mapping", [["Colella", {"Lx": 1.0, "Ly": 6.0, "alpha": 0.1, "Lz": 10.0}]])
-def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
+def test_mass(Nel, p, bcs, mapping, show_plots=False):
     """Compare Struphy mass matrices to Struphy-legacy mass matrices."""
 
     import cunumpy as xp
@@ -95,19 +98,8 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
 
     eq_mhd.domain = domain
 
-    # make sure that boundary conditions are compatible with spline space
-    if dirichlet_bc is not None:
-        for i, knd in enumerate(spl_kind):
-            if knd:
-                dirichlet_bc[i] = (False, False)
-    else:
-        dirichlet_bc = [(False, False)] * 3
-
-    dirichlet_bc = tuple(dirichlet_bc)
-    print(f"{dirichlet_bc =}")
-
     # derham object
-    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, dirichlet_bc=dirichlet_bc)
+    derham = Derham(Nel, p, bcs=bcs, comm=mpi_comm)
 
     print(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
 
@@ -127,11 +119,12 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     # compare to old STRUPHY
     bc_old = [[None, None], [None, None], [None, None]]
     for i in range(3):
-        for j in range(2):
-            if dirichlet_bc[i][j]:
-                bc_old[i][j] = "d"
-            else:
-                bc_old[i][j] = "f"
+        if bcs[i] is not None:
+            for j in range(2):
+                if bcs[i][j] == "hom_dirichlet":
+                    bc_old[i][j] = "d"
+                else:
+                    bc_old[i][j] = "f"
 
     # create random input arrays
     x0_str, x0_psy = create_equal_random_arrays(fem_spaces[0], seed=1234, flattened=True)
@@ -141,7 +134,7 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     xv_str, xv_psy = create_equal_random_arrays(fem_spaces[4], seed=2038, flattened=True)
 
     # Test toarray and tosparse
-    all_false = all(not bc for bl in dirichlet_bc for bc in bl)
+    all_false = all(bc != "hom_dirichlet" for bl in bcs if bl is not None for bc in bl)
     if all_false:
         r2psy_compare = mass_mats.M2.dot(x2_psy)
 
@@ -299,13 +292,15 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
 
 @pytest.mark.parametrize("Nel", [[8, 12, 6]])
 @pytest.mark.parametrize("p", [[2, 2, 3]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
-@pytest.mark.parametrize(
-    "dirichlet_bc",
-    [None, [(False, True), (False, False), (False, True)], [(False, False), (False, False), (True, False)]],
-)
+@pytest.mark.parametrize("bcs", [
+    (("free", "free"), None, None), 
+    (("free", "hom_dirichlet"), None, None),
+    (("free", "free"), None, ("free", "free")), 
+    (("free", "hom_dirichlet"), None, ("free", "hom_dirichlet")), 
+    (("free", "free"), None, ("hom_dirichlet", "free")), 
+    ])
 @pytest.mark.parametrize("mapping", [["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}]])
-def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
+def test_mass_polar(Nel, p, bcs, mapping, show_plots=False):
     """Compare Struphy polar mass matrices to Struphy-legacy polar mass matrices."""
 
     import cunumpy as xp
@@ -358,23 +353,12 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
 
     eq_mhd.domain = domain
 
-    # make sure that boundary conditions are compatible with spline space
-    if dirichlet_bc is not None:
-        for i, knd in enumerate(spl_kind):
-            if knd:
-                dirichlet_bc[i] = (False, False)
-    else:
-        dirichlet_bc = [(False, False)] * 3
-
-    dirichlet_bc = tuple(dirichlet_bc)
-
     # derham object
     derham = Derham(
         Nel,
         p,
-        spl_kind,
+        bcs=bcs,
         comm=mpi_comm,
-        dirichlet_bc=dirichlet_bc,
         with_projectors=False,
         polar_ck=1,
         domain=domain,
@@ -388,11 +372,12 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     # compare to old STRUPHY
     bc_old = [[None, None], [None, None], [None, None]]
     for i in range(3):
-        for j in range(2):
-            if dirichlet_bc[i][j]:
-                bc_old[i][j] = "d"
-            else:
-                bc_old[i][j] = "f"
+        if bcs[i] is not None:
+            for j in range(2):
+                if bcs[i][j] == "hom_dirichlet":
+                    bc_old[i][j] = "d"
+                else:
+                    bc_old[i][j] = "f"
 
     # create random input arrays
     x0_str, x0_psy = create_equal_random_arrays(derham.Vh_fem["0"], seed=1234, flattened=True)
@@ -442,13 +427,15 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
 
 @pytest.mark.parametrize("Nel", [[8, 12, 6]])
 @pytest.mark.parametrize("p", [[2, 3, 2]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
-@pytest.mark.parametrize(
-    "dirichlet_bc",
-    [None, [(False, True), (False, False), (False, True)], [(False, False), (False, False), (True, False)]],
-)
+@pytest.mark.parametrize("bcs", [
+    (("free", "free"), None, None), 
+    (("free", "hom_dirichlet"), None, None),
+    (("free", "free"), None, ("free", "free")), 
+    (("free", "hom_dirichlet"), None, ("free", "hom_dirichlet")), 
+    (("free", "free"), None, ("hom_dirichlet", "free")), 
+    ])
 @pytest.mark.parametrize("mapping", [["HollowCylinder", {"a1": 0.1, "a2": 1.0, "Lz": 18.84955592153876}]])
-def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
+def test_mass_preconditioner(Nel, p, bcs, mapping, show_plots=False):
     """Compare mass matrix-vector products with Kronecker products of preconditioner,
     check PC * M = Id and test PCs in solve."""
 
@@ -539,18 +526,8 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
 
     eq_mhd.domain = domain
 
-    # make sure that boundary conditions are compatible with spline space
-    if dirichlet_bc is not None:
-        for i, knd in enumerate(spl_kind):
-            if knd:
-                dirichlet_bc[i] = (False, False)
-    else:
-        dirichlet_bc = [(False, False)] * 3
-
-    dirichlet_bc = tuple(dirichlet_bc)
-
     # derham object
-    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, dirichlet_bc=dirichlet_bc)
+    derham = Derham(Nel, p, bcs=bcs, comm=mpi_comm)
 
     fem_spaces = [derham.Vh_fem["0"], derham.Vh_fem["1"], derham.Vh_fem["2"], derham.Vh_fem["3"], derham.Vh_fem["v"]]
 
@@ -749,13 +726,15 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
 
 @pytest.mark.parametrize("Nel", [[8, 9, 6]])
 @pytest.mark.parametrize("p", [[2, 2, 3]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
-@pytest.mark.parametrize(
-    "dirichlet_bc",
-    [None, [(False, True), (False, False), (False, True)], [(False, False), (False, False), (True, False)]],
-)
+@pytest.mark.parametrize("bcs", [
+    (("free", "free"), None, None), 
+    (("free", "hom_dirichlet"), None, None),
+    (("free", "free"), None, ("free", "free")), 
+    (("free", "hom_dirichlet"), None, ("free", "hom_dirichlet")), 
+    (("free", "free"), None, ("hom_dirichlet", "free")), 
+    ])
 @pytest.mark.parametrize("mapping", [["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}]])
-def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
+def test_mass_preconditioner_polar(Nel, p, bcs, mapping, show_plots=False):
     """Compare polar mass matrix-vector products with Kronecker products of preconditioner,
     check PC * M = Id and test PCs in solve."""
 
@@ -813,23 +792,12 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
 
     eq_mhd.domain = domain
 
-    # make sure that boundary conditions are compatible with spline space
-    if dirichlet_bc is not None:
-        for i, knd in enumerate(spl_kind):
-            if knd:
-                dirichlet_bc[i] = (False, False)
-    else:
-        dirichlet_bc = [(False, False)] * 3
-
-    dirichlet_bc = tuple(dirichlet_bc)
-
     # derham object
     derham = Derham(
         Nel,
         p,
-        spl_kind,
+        bcs=bcs,
         comm=mpi_comm,
-        dirichlet_bc=dirichlet_bc,
         with_projectors=False,
         polar_ck=1,
         domain=domain,

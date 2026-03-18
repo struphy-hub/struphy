@@ -5,12 +5,11 @@ import pytest
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("Nel", [[16, 1, 1], [32, 1, 1]])
 @pytest.mark.parametrize("p", [[1, 1, 1], [2, 1, 1]])
-@pytest.mark.parametrize("spl_kind", [[True, True, True]])
-@pytest.mark.parametrize("dirichlet_bc", [((False, False), (False, False), (False, False))])
+@pytest.mark.parametrize("bcs", [None])
 @pytest.mark.parametrize("mapping", [["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}]])
 @pytest.mark.parametrize("epsilon", [0.000000001])
 @pytest.mark.parametrize("dt", [0.001])
-def test_propagator1D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
+def test_propagator1D(Nel, p, bcs, mapping, epsilon, dt):
     """Test saddle-point-solver by propagator TwoFluidQuasiNeutralFull. Use manufactured solutions from perturbations to verify h- and p-convergence when model TwoFluidQuasiNeutralToy calculates solution with SaddlePointSolver."""
 
     from feectools.ddm.mpi import mpi as MPI
@@ -40,9 +39,8 @@ def test_propagator1D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
     derham = Derham(
         Nel,
         p,
-        spl_kind,
+        bcs=bcs,
         comm=mpi_comm,
-        dirichlet_bc=dirichlet_bc,
         local_projectors=False,
         mpi_dims_mask=dims_mask,
         nquads=nq_el,
@@ -215,12 +213,11 @@ import pytest
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("Nel", [[16, 16, 1], [32, 32, 1]])
 @pytest.mark.parametrize("p", [[1, 1, 1], [2, 2, 1]])
-@pytest.mark.parametrize("spl_kind", [[True, True, True]])
-@pytest.mark.parametrize("dirichlet_bc", [((False, False), (False, False), (False, False))])
+@pytest.mark.parametrize("bcs", [None])
 @pytest.mark.parametrize("mapping", [["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}]])
 @pytest.mark.parametrize("epsilon", [0.001])
 @pytest.mark.parametrize("dt", [0.01])
-def test_propagator2D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
+def test_propagator2D(Nel, p, bcs, mapping, epsilon, dt):
     """Test saddle-point-solver by propagator TwoFluidQuasiNeutralFull. Use manufactured solutions from perturbations to verify h- and p-convergence when model TwoFluidQuasiNeutralToy calculates solution with SaddlePointSolver. Allow a certain error after one time step, save this solution and compare the follwing timesteps with this solution but with less tolerance. Shows that the solver can stay in a steady state solution."""
 
     from feectools.ddm.mpi import mpi as MPI
@@ -250,9 +247,8 @@ def test_propagator2D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
     derham = Derham(
         Nel,
         p,
-        spl_kind,
+        bcs=bcs,
         comm=mpi_comm,
-        dirichlet_bc=dirichlet_bc,
         local_projectors=False,
         mpi_dims_mask=dims_mask,
         nquads=nq_el,
@@ -408,8 +404,7 @@ if __name__ == "__main__":
     test_propagator1D(
         [16, 1, 1],
         [2, 2, 1],
-        [True, True, True],
-        [[False, False], [False, False], [False, False]],
+        None,
         ["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}],
         0.001,
         0.01,
@@ -417,8 +412,7 @@ if __name__ == "__main__":
     # test_propagator2D(
     #     [16, 16, 1],
     #     [1, 1, 1],
-    #     [True, True, True],
-    #     [[False, False], [False, False], [False, False]],
+    #     None,
     #     ["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}],
     #     0.001,
     #     0.01,
@@ -426,8 +420,7 @@ if __name__ == "__main__":
     # test_propagator2D(
     #     [16, 16, 1],
     #     [2, 2, 1],
-    #     [True, True, True],
-    #     [[False, False], [False, False], [False, False]],
+    #     None,
     #     ["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}],
     #     0.001,
     #     0.01,
@@ -435,8 +428,7 @@ if __name__ == "__main__":
     # test_propagator2D(
     #     [32, 32, 1],
     #     [2, 2, 1],
-    #     [True, True, True],
-    #     [[False, False], [False, False], [False, False]],
+    #     None,
     #     ["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}],
     #     0.001,
     #     0.01,
@@ -444,8 +436,7 @@ if __name__ == "__main__":
     # test_propagator2D(
     #     [32, 32, 1],
     #     [1, 1, 1],
-    #     [True, True, True],
-    #     [[False, False], [False, False], [False, False]],
+    #     None,
     #     ["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}],
     #     0.001,
     #     0.01,

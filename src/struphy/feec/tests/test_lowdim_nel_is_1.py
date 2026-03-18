@@ -3,8 +3,7 @@ import pytest
 
 @pytest.mark.parametrize("Nel", [[32, 1, 1], [1, 32, 1], [1, 1, 32], [31, 32, 1], [32, 1, 31], [1, 31, 32]])
 @pytest.mark.parametrize("p", [[1, 1, 1]])
-@pytest.mark.parametrize("spl_kind", [[True, True, True]])
-def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
+def test_lowdim_derham(Nel, p, do_plot=False):
     """Test Nel=1 in various directions."""
 
     import cunumpy as xp
@@ -20,10 +19,9 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
 
     print("Nel=", Nel)
     print("p=", p)
-    print("spl_kind=", spl_kind)
 
     # Psydac discrete Derham sequence
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    derham = Derham(Nel, p, comm=comm)
 
     ############################
     ### TEST STENCIL VECTORS ###

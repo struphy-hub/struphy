@@ -245,7 +245,10 @@ class Derham:
         
         self._Nel = tuple(Nel)
         self._p = tuple(p)
-        self._bcs = tuple(bcs)
+        if bcs is not None:
+            self._bcs = tuple(bcs)
+        else:
+            self._bcs = bcs
         self._lifting_eta1 = lifting_eta1
         self._lifting_eta2 = lifting_eta2
         self._lifting_eta3 = lifting_eta3

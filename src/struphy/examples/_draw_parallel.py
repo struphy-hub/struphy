@@ -17,7 +17,7 @@ def main():
     # parameters
     Nel = [8, 16, 4]
     p = [2, 2, 2]
-    spl_kind = [False, True, True]
+    bcs = (("free", "free"), None, None)
 
     loading_type = "pseudo_random"
     loading_params = {
@@ -32,7 +32,7 @@ def main():
     domain = domain_class(sfl=True)
 
     # create de rham object
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    derham = Derham(Nel, p, bcs=bcs, comm=comm)
 
     if rank == 0:
         print()

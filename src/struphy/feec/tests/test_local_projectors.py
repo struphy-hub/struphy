@@ -17,8 +17,12 @@ from struphy.feec.utilities_local_projectors import get_one_spline, get_span_and
 
 @pytest.mark.parametrize("Nel", [[14, 16, 18]])
 @pytest.mark.parametrize("p", [[5, 4, 3]])
-@pytest.mark.parametrize("spl_kind", [[True, False, False], [False, True, False], [False, False, True]])
-def test_local_projectors_compare_global(Nel, p, spl_kind):
+@pytest.mark.parametrize("bcs", [
+    (("free", "free"), ("free", "free"), None),
+    (("free", "free"), None, ("free", "free")),
+    (None, ("free", "free"), ("free", "free")),]
+)
+def test_local_projectors_compare_global(Nel, p, bcs):
     """Tests the Local-projectors, by comparing them to the analytical function as well as to the global projectors."""
     # get global communicator
     comm = MPI.COMM_WORLD
@@ -26,7 +30,7 @@ def test_local_projectors_compare_global(Nel, p, spl_kind):
 
     timei = time.time()
     # create derham object
-    derham = Derham(Nel, p, spl_kind, comm=comm, local_projectors=True)
+    derham = Derham(Nel, p, bcs=bcs, comm=comm, local_projectors=True)
     timef = time.time()
     print("Time for building Derham = " + str(timef - timei))
 
@@ -107,8 +111,8 @@ def test_local_projectors_compare_global(Nel, p, spl_kind):
 @pytest.mark.convergence
 @pytest.mark.parametrize("direction", [0, 1, 2])
 @pytest.mark.parametrize("pi", [3, 4])
-@pytest.mark.parametrize("spl_kindi", [True, False])
-def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
+@pytest.mark.parametrize("bc_kind", [None, ("free", "free")])
+def test_local_projectors_convergence(direction, pi, bc_kind, do_plot=False):
     """Tests the convergence rate of the Local projectors along singleton dimensions, without mapping."""
     # get global communicator
     comm = MPI.COMM_WORLD
@@ -136,7 +140,7 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
         if direction == 0:
             Nel = [Neli, 1, 1]
             p = [pi, 1, 1]
-            spl_kind = [spl_kindi, True, True]
+            bcs = (bc_kind, None, None)
             e1 = xp.linspace(0.0, 1.0, 100)
             e = e1
             c = 0
@@ -146,7 +150,7 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
         elif direction == 1:
             Nel = [1, Neli, 1]
             p = [1, pi, 1]
-            spl_kind = [True, spl_kindi, True]
+            bcs = (None, bc_kind, None)
             e2 = xp.linspace(0.0, 1.0, 100)
             e = e2
             c = 1
@@ -156,7 +160,7 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
         elif direction == 2:
             Nel = [1, 1, Neli]
             p = [1, 1, pi]
-            spl_kind = [True, True, spl_kindi]
+            bcs = (None, None, bc_kind)
             e3 = xp.linspace(0.0, 1.0, 100)
             e = e3
             c = 2
@@ -164,7 +168,7 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
             def f(x, y, z):
                 return fun(z)
 
-        derham = Derham(Nel, p, spl_kind, comm=comm, local_projectors=True)
+        derham = Derham(Nel, p, bcs=bcs, comm=comm, local_projectors=True)
 
         # loop over spaces
         for sp_id, sp_key in derham.space_to_form.items():
@@ -342,10 +346,10 @@ def aux_test_replication_of_basis(Nel, plist, spl_kind):
 
 @pytest.mark.parametrize("Nel", [[5, 4, 1]])
 @pytest.mark.parametrize("plist", [[3, 2, 1]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True]])
+@pytest.mark.parametrize("bcs", [(("free", "free"), None, None)])
 @pytest.mark.parametrize("out_sp_key", ["0", "1", "2", "3", "v"])
 @pytest.mark.parametrize("in_sp_key", ["0", "1", "2", "3", "v"])
-def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp_key):
+def test_basis_projection_operator_local(Nel, plist, bcs, out_sp_key, in_sp_key):
     import random
 
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
@@ -354,7 +358,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     world_size = comm.Get_size()
-    derham = Derham(Nel, plist, spl_kind, comm=comm, local_projectors=True)
+    derham = Derham(Nel, plist, bcs=bcs, comm=comm, local_projectors=True)
 
     # The first step to test our BasisProjectionOperatorLocal is to build the B and D spline functions in such a way that we can evaluate them in parallel.
     # We cannot us the fields of a derham space to do this since the evaluation of the splines in this way is a collective operation, and we want our functions
@@ -954,17 +958,17 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
 
 @pytest.mark.parametrize("Nel", [[40, 1, 1]])
 @pytest.mark.parametrize("plist", [[5, 1, 1]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True]])
+@pytest.mark.parametrize("bcs", [(("free", "free"), None, None)])
 @pytest.mark.parametrize("out_sp_key", ["0", "1", "2", "3", "v"])
 @pytest.mark.parametrize("in_sp_key", ["0", "1", "2", "3", "v"])
-def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, in_sp_key, do_plot=False):
+def test_basis_projection_operator_local_new(Nel, plist, bcs, out_sp_key, in_sp_key, do_plot=False):
     import random
 
     # get global communicator
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     world_size = comm.Get_size()
-    derham = Derham(Nel, plist, spl_kind, comm=comm, local_projectors=True)
+    derham = Derham(Nel, plist, bcs=bcs, comm=comm, local_projectors=True)
 
     # Building the B-splines
     # We will need the FEM spline space that contains D-splines in all three directions.

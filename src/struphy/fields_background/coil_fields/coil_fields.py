@@ -17,7 +17,7 @@ class RatGUI(CoilMagneticField):
         derham = Derham(
             Nel=Nel,
             p=p,
-            spl_kind=[False, False, True],
+            bcs=(("free", "free"), ("free", "free"), None),
         )  # Assuming (R=eta1, Z=eta2, phi=eta3) coordinates for csv data (periodic in eta3 only).
         self._interpolate = derham.P[
             "v"
