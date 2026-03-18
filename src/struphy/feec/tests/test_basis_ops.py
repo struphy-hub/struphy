@@ -3,16 +3,20 @@ import pytest
 
 @pytest.mark.parametrize("Nel", [[8, 12, 4]])
 @pytest.mark.parametrize("p", [[2, 3, 2]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True], [True, False, True]])
+@pytest.mark.parametrize("bcs", 
+                         [
+                             (("free", "free"), None, None),
+                             (None, ("free", "free"), None),
+                             ]
+                         )
 @pytest.mark.parametrize("mapping", [["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}]])
-def test_some_basis_ops(Nel, p, spl_kind, mapping):
+def test_some_basis_ops(Nel, p, bcs, mapping):
     """Tests the MHD specific projection operators PI_ijk(fun*Lambda_mno).
 
     Here, PI_ijk is the commuting projector of the output space (codomain),
     Lambda_mno are the basis functions of the input space (domain),
     and fun is an arbitrary (matrix-valued) function.
     """
-    from time import time
 
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
@@ -37,13 +41,13 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     n_quad_el = [5, 5, 5]
     n_quad_pr = [4, 4, 4]
 
-    DERHAM_PSY = Derham(Nel, p, spl_kind, nq_pr=n_quad_pr, nquads=n_quad_el, comm=MPI_COMM)
+    DERHAM_PSY = Derham(Nel, p, bcs=bcs, nq_pr=n_quad_pr, nquads=n_quad_el, comm=MPI_COMM)
 
     # grid parameters
     if mpi_rank == 0:
         print(f"Rank {mpi_rank} | Nel: {Nel}")
         print(f"Rank {mpi_rank} | p: {p}")
-        print(f"Rank {mpi_rank} | spl_kind: {spl_kind}")
+        print(f"Rank {mpi_rank} | bcs: {bcs}")
         print(f"Rank {mpi_rank} | ")
 
     # Mhd equilibirum (slab)
@@ -250,13 +254,17 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
 
 @pytest.mark.parametrize("Nel", [[6, 9, 7]])
 @pytest.mark.parametrize("p", [[2, 2, 3]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
-@pytest.mark.parametrize(
-    "dirichlet_bc",
-    [None, [(False, True), (False, False), (False, True)], [(False, False), (False, False), (True, False)]],
-)
+@pytest.mark.parametrize("bcs", 
+                         [
+                             (("free", "free"), None, None), 
+                             (("free", "hom_dirichlet"), None, None),
+                             (("free", "free"), None, ("free", "free")),
+                             (("free", "hom_dirichlet"), None, ("free", "hom_dirichlet")),
+                             (("free", "free"), None, ("hom_dirichlet", "free")),
+                         ]
+                         )
 @pytest.mark.parametrize("mapping", [["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}]])
-def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
+def test_basis_ops_polar(Nel, p, bcs, mapping, show_plots=False):
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
 
@@ -302,16 +310,6 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
 
     eq_mhd.domain = domain
 
-    # make sure that boundary conditions are compatible with spline space
-    if dirichlet_bc is not None:
-        for i, knd in enumerate(spl_kind):
-            if knd:
-                dirichlet_bc[i] = (False, False)
-    else:
-        dirichlet_bc = [(False, False)] * 3
-
-    dirichlet_bc = tuple(dirichlet_bc)
-
     # derham object
     nq_el = [p[0] + 1, p[1] + 1, p[2] + 1]
     nq_pr = p.copy()
@@ -319,11 +317,10 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     derham = Derham(
         Nel,
         p,
-        spl_kind,
+        bcs=bcs,
         nquads=p,
         nq_pr=nq_pr,
         comm=mpi_comm,
-        dirichlet_bc=dirichlet_bc,
         with_projectors=True,
         polar_ck=1,
         domain=domain,
@@ -541,17 +538,4 @@ def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
 
 
 if __name__ == "__main__":
-    # test_some_basis_ops(
-    #     Nel=[8, 8, 8],
-    #     p=[2, 2, 2],
-    #     spl_kind=[False, True, True],
-    #     mapping=["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}],
-    # )
-    test_basis_ops_polar(
-        [6, 9, 7],
-        [2, 2, 3],
-        [False, True, True],
-        None,
-        ["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}],
-        False,
-    )
+    pass
