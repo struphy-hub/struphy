@@ -17,10 +17,13 @@ from struphy.feec.utilities_local_projectors import get_one_spline, get_span_and
 
 @pytest.mark.parametrize("Nel", [[14, 16, 18]])
 @pytest.mark.parametrize("p", [[5, 4, 3]])
-@pytest.mark.parametrize("bcs", [
-    (("free", "free"), ("free", "free"), None),
-    (("free", "free"), None, ("free", "free")),
-    (None, ("free", "free"), ("free", "free")),]
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), ("free", "free"), None),
+        (("free", "free"), None, ("free", "free")),
+        (None, ("free", "free"), ("free", "free")),
+    ],
 )
 def test_local_projectors_compare_global(Nel, p, bcs):
     """Tests the Local-projectors, by comparing them to the analytical function as well as to the global projectors."""

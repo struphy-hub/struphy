@@ -6,13 +6,14 @@ from struphy.utils.pyccel import Pyccelkernel
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[2, 3, 4]])
 @pytest.mark.parametrize(
-    "bcs",[
-        (("free", "free"), ("free", "free"), None), 
-        (("free", "free"), None, None), 
+    "bcs",
+    [
+        (("free", "free"), ("free", "free"), None),
+        (("free", "free"), None, None),
         (None, ("free", "free"), None),
         None,
-        ]
-    )
+    ],
+)
 @pytest.mark.parametrize(
     "mapping",
     [

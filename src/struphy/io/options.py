@@ -1,12 +1,12 @@
 import os
 from dataclasses import dataclass, fields
-from typing import Any, Literal, Callable
+from typing import Any, Callable, Literal
 
 from struphy.utils.utils import (
-    check_option,
     __class_with_params_repr_no_defaults__,
     __dataclass_repr_no_defaults__,
     all_class_params_are_default,
+    check_option,
 )
 
 
@@ -194,6 +194,7 @@ class BaseUnits(OptionsBase):
 
 NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
 
+
 @dataclass
 class DerhamOptions:
     """Set options for the 3D discrete de Rham spaces in parameter/launch files.
@@ -242,7 +243,14 @@ class DerhamOptions:
     """
 
     p: tuple = (1, 1, 1)
-    bcs: tuple[None | tuple[NonTrivialBC, NonTrivialBC], None | tuple[NonTrivialBC, NonTrivialBC], None | tuple[NonTrivialBC, NonTrivialBC]] | None = None
+    bcs: (
+        tuple[
+            None | tuple[NonTrivialBC, NonTrivialBC],
+            None | tuple[NonTrivialBC, NonTrivialBC],
+            None | tuple[NonTrivialBC, NonTrivialBC],
+        ]
+        | None
+    ) = None
     lifting_eta1: tuple[float | Callable | None, float | Callable | None] | None = None
     lifting_eta2: tuple[float | Callable | None, float | Callable | None] | None = None
     lifting_eta3: tuple[float | Callable | None, float | Callable | None] | None = None

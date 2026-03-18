@@ -7,10 +7,13 @@ from feectools.ddm.mpi import mpi as MPI
 
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[1, 2, 1], [2, 1, 2], [3, 4, 3]])
-@pytest.mark.parametrize("bcs", [
-    (("free", "free"), ("free", "free"), None),
-    (("free", "free"), None, ("free", "free")),
-    (None, ("free", "free"), ("free", "free")),]
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), ("free", "free"), None),
+        (("free", "free"), None, ("free", "free")),
+        (None, ("free", "free"), ("free", "free")),
+    ],
 )
 def test_bsplines_span_and_basis(Nel, p, bcs):
     """

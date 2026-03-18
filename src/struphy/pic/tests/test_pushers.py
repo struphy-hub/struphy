@@ -6,13 +6,14 @@ from struphy.utils.pyccel import Pyccelkernel
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
-    "bcs", [
-        (("free", "free"), None, None), 
+    "bcs",
+    [
+        (("free", "free"), None, None),
         (None, ("free", "free"), None),
-        (("free", "free"), ("free", "free"), None), 
+        (("free", "free"), ("free", "free"), None),
         None,
-        ]
-    )
+    ],
+)
 @pytest.mark.parametrize(
     "mapping",
     [
@@ -110,13 +111,14 @@ def test_push_vxb_analytic(Nel, p, bcs, mapping, show_plots=False):
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
-    "bcs", [
-        (("free", "free"), None, None), 
+    "bcs",
+    [
+        (("free", "free"), None, None),
         (None, ("free", "free"), None),
-        (("free", "free"), ("free", "free"), None), 
+        (("free", "free"), ("free", "free"), None),
         None,
-        ]
-    )
+    ],
+)
 @pytest.mark.parametrize(
     "mapping",
     [
@@ -226,12 +228,12 @@ def test_push_bxu_Hdiv(Nel, p, bcs, mapping, show_plots=False):
 @pytest.mark.parametrize(
     "bcs",
     [
-        (("free", "free"), None, None), 
+        (("free", "free"), None, None),
         (None, ("free", "free"), None),
-        (("free", "free"), ("free", "free"), None), 
+        (("free", "free"), ("free", "free"), None),
         None,
-        ]
-    )
+    ],
+)
 @pytest.mark.parametrize(
     "mapping",
     [
@@ -341,12 +343,12 @@ def test_push_bxu_Hcurl(Nel, p, bcs, mapping, show_plots=False):
 @pytest.mark.parametrize(
     "bcs",
     [
-        (("free", "free"), None, None), 
+        (("free", "free"), None, None),
         (None, ("free", "free"), None),
-        (("free", "free"), ("free", "free"), None), 
+        (("free", "free"), ("free", "free"), None),
         None,
-        ]
-    )
+    ],
+)
 @pytest.mark.parametrize(
     "mapping",
     [
@@ -456,12 +458,12 @@ def test_push_bxu_H1vec(Nel, p, bcs, mapping, show_plots=False):
 @pytest.mark.parametrize(
     "bcs",
     [
-        (("free", "free"), None, None), 
+        (("free", "free"), None, None),
         (None, ("free", "free"), None),
-        (("free", "free"), ("free", "free"), None), 
+        (("free", "free"), ("free", "free"), None),
         None,
-        ]
-    )
+    ],
+)
 @pytest.mark.parametrize(
     "mapping",
     [
@@ -580,12 +582,12 @@ def test_push_bxu_Hdiv_pauli(Nel, p, bcs, mapping, show_plots=False):
 @pytest.mark.parametrize(
     "bcs",
     [
-        (("free", "free"), None, None), 
+        (("free", "free"), None, None),
         (None, ("free", "free"), None),
-        (("free", "free"), ("free", "free"), None), 
+        (("free", "free"), ("free", "free"), None),
         None,
-        ]
-    )
+    ],
+)
 @pytest.mark.parametrize(
     "mapping",
     [

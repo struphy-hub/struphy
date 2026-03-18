@@ -3,10 +3,13 @@ import pytest
 
 @pytest.mark.parametrize("Nel", [[12, 5, 2], [8, 12, 4], [5, 4, 12]])
 @pytest.mark.parametrize("p", [[3, 2, 1]])
-@pytest.mark.parametrize("bcs", [
-    (("free", "free"), None, None),
-    (None, ("free", "free"), ("free", "free")),
-])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (None, ("free", "free"), ("free", "free")),
+    ],
+)
 @pytest.mark.parametrize(
     "mapping",
     [["Cuboid", {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 100.0, "r3": 200.0}]],

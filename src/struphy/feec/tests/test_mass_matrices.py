@@ -3,14 +3,17 @@ import pytest
 
 @pytest.mark.parametrize("Nel", [[5, 6, 7]])
 @pytest.mark.parametrize("p", [[2, 2, 3]])
-@pytest.mark.parametrize("bcs", [
-    (("free", "free"), None, None), 
-    (("free", "hom_dirichlet"), None, None), 
-    (("hom_dirichlet", "free"), None, None), 
-    (None, ("free", "free"), None), 
-    (None, ("free", "hom_dirichlet"), None),
-    (None, ("hom_dirichlet", "free"), None),
-    ])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (("free", "hom_dirichlet"), None, None),
+        (("hom_dirichlet", "free"), None, None),
+        (None, ("free", "free"), None),
+        (None, ("free", "hom_dirichlet"), None),
+        (None, ("hom_dirichlet", "free"), None),
+    ],
+)
 @pytest.mark.parametrize("mapping", [["Colella", {"Lx": 1.0, "Ly": 6.0, "alpha": 0.1, "Lz": 10.0}]])
 def test_mass(Nel, p, bcs, mapping, show_plots=False):
     """Compare Struphy mass matrices to Struphy-legacy mass matrices."""
@@ -292,13 +295,16 @@ def test_mass(Nel, p, bcs, mapping, show_plots=False):
 
 @pytest.mark.parametrize("Nel", [[8, 12, 6]])
 @pytest.mark.parametrize("p", [[2, 2, 3]])
-@pytest.mark.parametrize("bcs", [
-    (("free", "free"), None, None), 
-    (("free", "hom_dirichlet"), None, None),
-    (("free", "free"), None, ("free", "free")), 
-    (("free", "hom_dirichlet"), None, ("free", "hom_dirichlet")), 
-    (("free", "free"), None, ("hom_dirichlet", "free")), 
-    ])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (("free", "hom_dirichlet"), None, None),
+        (("free", "free"), None, ("free", "free")),
+        (("free", "hom_dirichlet"), None, ("free", "hom_dirichlet")),
+        (("free", "free"), None, ("hom_dirichlet", "free")),
+    ],
+)
 @pytest.mark.parametrize("mapping", [["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}]])
 def test_mass_polar(Nel, p, bcs, mapping, show_plots=False):
     """Compare Struphy polar mass matrices to Struphy-legacy polar mass matrices."""
@@ -427,13 +433,16 @@ def test_mass_polar(Nel, p, bcs, mapping, show_plots=False):
 
 @pytest.mark.parametrize("Nel", [[8, 12, 6]])
 @pytest.mark.parametrize("p", [[2, 3, 2]])
-@pytest.mark.parametrize("bcs", [
-    (("free", "free"), None, None), 
-    (("free", "hom_dirichlet"), None, None),
-    (("free", "free"), None, ("free", "free")), 
-    (("free", "hom_dirichlet"), None, ("free", "hom_dirichlet")), 
-    (("free", "free"), None, ("hom_dirichlet", "free")), 
-    ])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (("free", "hom_dirichlet"), None, None),
+        (("free", "free"), None, ("free", "free")),
+        (("free", "hom_dirichlet"), None, ("free", "hom_dirichlet")),
+        (("free", "free"), None, ("hom_dirichlet", "free")),
+    ],
+)
 @pytest.mark.parametrize("mapping", [["HollowCylinder", {"a1": 0.1, "a2": 1.0, "Lz": 18.84955592153876}]])
 def test_mass_preconditioner(Nel, p, bcs, mapping, show_plots=False):
     """Compare mass matrix-vector products with Kronecker products of preconditioner,
@@ -726,13 +735,16 @@ def test_mass_preconditioner(Nel, p, bcs, mapping, show_plots=False):
 
 @pytest.mark.parametrize("Nel", [[8, 9, 6]])
 @pytest.mark.parametrize("p", [[2, 2, 3]])
-@pytest.mark.parametrize("bcs", [
-    (("free", "free"), None, None), 
-    (("free", "hom_dirichlet"), None, None),
-    (("free", "free"), None, ("free", "free")), 
-    (("free", "hom_dirichlet"), None, ("free", "hom_dirichlet")), 
-    (("free", "free"), None, ("hom_dirichlet", "free")), 
-    ])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (("free", "hom_dirichlet"), None, None),
+        (("free", "free"), None, ("free", "free")),
+        (("free", "hom_dirichlet"), None, ("free", "hom_dirichlet")),
+        (("free", "free"), None, ("hom_dirichlet", "free")),
+    ],
+)
 @pytest.mark.parametrize("mapping", [["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}]])
 def test_mass_preconditioner_polar(Nel, p, bcs, mapping, show_plots=False):
     """Compare polar mass matrix-vector products with Kronecker products of preconditioner,

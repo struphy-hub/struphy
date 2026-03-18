@@ -3,12 +3,13 @@ import pytest
 
 @pytest.mark.parametrize("Nel", [[8, 12, 4]])
 @pytest.mark.parametrize("p", [[2, 3, 2]])
-@pytest.mark.parametrize("bcs", 
-                         [
-                             (("free", "free"), None, None),
-                             (None, ("free", "free"), None),
-                             ]
-                         )
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (None, ("free", "free"), None),
+    ],
+)
 @pytest.mark.parametrize("mapping", [["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}]])
 def test_some_basis_ops(Nel, p, bcs, mapping):
     """Tests the MHD specific projection operators PI_ijk(fun*Lambda_mno).
@@ -254,15 +255,16 @@ def test_some_basis_ops(Nel, p, bcs, mapping):
 
 @pytest.mark.parametrize("Nel", [[6, 9, 7]])
 @pytest.mark.parametrize("p", [[2, 2, 3]])
-@pytest.mark.parametrize("bcs", 
-                         [
-                             (("free", "free"), None, None), 
-                             (("free", "hom_dirichlet"), None, None),
-                             (("free", "free"), None, ("free", "free")),
-                             (("free", "hom_dirichlet"), None, ("free", "hom_dirichlet")),
-                             (("free", "free"), None, ("hom_dirichlet", "free")),
-                         ]
-                         )
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (("free", "hom_dirichlet"), None, None),
+        (("free", "free"), None, ("free", "free")),
+        (("free", "hom_dirichlet"), None, ("free", "hom_dirichlet")),
+        (("free", "free"), None, ("hom_dirichlet", "free")),
+    ],
+)
 @pytest.mark.parametrize("mapping", [["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}]])
 def test_basis_ops_polar(Nel, p, bcs, mapping, show_plots=False):
     import cunumpy as xp

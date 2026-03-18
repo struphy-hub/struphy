@@ -94,7 +94,6 @@ def setup_derham(
         local_projectors=local_projectors,
     )
 
-
     if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
         print("\nDERHAM:")
         print("number of elements:".ljust(25), Nel)

@@ -8,10 +8,13 @@ from feectools.ddm.mpi import mpi as MPI
 
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[1, 2, 3], [3, 1, 2]])
-@pytest.mark.parametrize("bcs", [
-    (("free", "free"), ("free", "free"), None),
-    (("free", "free"), None, ("free", "free")),
-    (None, ("free", "free"), ("free", "free")),]
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), ("free", "free"), None),
+        (("free", "free"), None, ("free", "free")),
+        (None, ("free", "free"), ("free", "free")),
+    ],
 )
 def test_eval_kernels(Nel, p, bcs, n_markers=10):
     """Compares evaluation_kernel_3d with eval_spline_mpi_kernel."""
@@ -207,10 +210,13 @@ def test_eval_kernels(Nel, p, bcs, n_markers=10):
 
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[1, 2, 3], [3, 1, 2]])
-@pytest.mark.parametrize("bcs", [
-    (("free", "free"), ("free", "free"), None),
-    (("free", "free"), None, ("free", "free")),
-    (None, ("free", "free"), ("free", "free")),]
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), ("free", "free"), None),
+        (("free", "free"), None, ("free", "free")),
+        (None, ("free", "free"), ("free", "free")),
+    ],
 )
 def test_eval_pointwise(Nel, p, bcs, n_markers=10):
     """Compares evaluate_3d with eval_spline_mpi."""
@@ -515,10 +521,13 @@ def test_eval_pointwise(Nel, p, bcs, n_markers=10):
 
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[1, 2, 3], [3, 1, 2]])
-@pytest.mark.parametrize("bcs", [
-    (("free", "free"), ("free", "free"), None),
-    (("free", "free"), None, ("free", "free")),
-    (None, ("free", "free"), ("free", "free")),]
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), ("free", "free"), None),
+        (("free", "free"), None, ("free", "free")),
+        (None, ("free", "free"), ("free", "free")),
+    ],
 )
 def test_eval_tensor_product(Nel, p, bcs, n_markers=10):
     """Compares
@@ -679,10 +688,13 @@ def test_eval_tensor_product(Nel, p, bcs, n_markers=10):
 
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[1, 2, 1], [2, 1, 2], [3, 4, 3]])
-@pytest.mark.parametrize("bcs", [
-    (("free", "free"), ("free", "free"), None),
-    (("free", "free"), None, ("free", "free")),
-    (None, ("free", "free"), ("free", "free")),]
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), ("free", "free"), None),
+        (("free", "free"), None, ("free", "free")),
+        (None, ("free", "free"), ("free", "free")),
+    ],
 )
 def test_eval_tensor_product_grid(Nel, p, bcs, n_markers=10):
     """Compares

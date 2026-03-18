@@ -3,10 +3,12 @@ import pytest
 
 @pytest.mark.parametrize("Nel", [[8, 10, 12]])
 @pytest.mark.parametrize("p", [[1, 2, 3]])
-@pytest.mark.parametrize("bcs", [
-    (("free", "free"), ("free", "free"), None),
-    (None, None, ("free", "free")),
-    ]
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), ("free", "free"), None),
+        (None, None, ("free", "free")),
+    ],
 )
 @pytest.mark.parametrize("spaces", [["H1", "Hcurl", "Hdiv"], ["Hdiv", "L2"], ["H1vec"]])
 @pytest.mark.parametrize("vec_comps", [[True, True, False], [False, True, True]])
@@ -1310,10 +1312,12 @@ def test_sincos_init_const(Nel, p, show_plot=False):
 
 @pytest.mark.parametrize("Nel", [[8, 10, 12]])
 @pytest.mark.parametrize("p", [[1, 2, 3]])
-@pytest.mark.parametrize("bcs", [
-    (("free", "free"), None, None),
-    (None, ("free", "free"), None),
-    ]
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (None, ("free", "free"), None),
+    ],
 )
 @pytest.mark.parametrize("space", ["Hcurl", "Hdiv", "H1vec"])
 @pytest.mark.parametrize("direction", ["e1", "e2", "e3"])

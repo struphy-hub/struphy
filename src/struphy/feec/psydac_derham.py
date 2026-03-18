@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 from typing import Callable
-import cunumpy as xp
 
+import cunumpy as xp
 import feectools.core.bsplines as bsp
 from feectools.ddm.cart import DomainDecomposition
 from feectools.ddm.mpi import MockComm, MockMPI
@@ -166,8 +166,6 @@ class DiscreteDerham:
         return P0, P1, P2, P3
 
 
-
-
 class Derham:
     """
     The discrete Derham sequence on the logical unit cube (3d).
@@ -226,7 +224,12 @@ class Derham:
         Nel: tuple[int, int, int],
         p: tuple[int, int, int],
         *,
-        bcs: tuple[None | tuple[NonTrivialBC, NonTrivialBC], None | tuple[NonTrivialBC, NonTrivialBC], None | tuple[NonTrivialBC, NonTrivialBC]] | None = None,
+        bcs: tuple[
+            None | tuple[NonTrivialBC, NonTrivialBC],
+            None | tuple[NonTrivialBC, NonTrivialBC],
+            None | tuple[NonTrivialBC, NonTrivialBC],
+        ]
+        | None = None,
         lifting_eta1: tuple[float | Callable | None, float | Callable | None] | None = None,
         lifting_eta2: tuple[float | Callable | None, float | Callable | None] | None = None,
         lifting_eta3: tuple[float | Callable | None, float | Callable | None] | None = None,
@@ -242,7 +245,7 @@ class Derham:
         # number of elements and spline degrees in each direction
         assert len(Nel) == 3
         assert len(p) == 3
-        
+
         self._Nel = tuple(Nel)
         self._p = tuple(p)
         if bcs is not None:
@@ -253,37 +256,49 @@ class Derham:
         self._lifting_eta2 = lifting_eta2
         self._lifting_eta3 = lifting_eta3
         liftings = (lifting_eta1, lifting_eta2, lifting_eta3)
-        
-        # setting boundary conditions, default is periodic in all directions    
+
+        # setting boundary conditions, default is periodic in all directions
         self._spl_kind = [True] * 3
         self._dirichlet_bc = [[False, False], [False, False], [False, False]]
         self._dirichlet_bc_unlifted = None
         if bcs is not None:
-            assert len(bcs) == 3, f"bcs must be a tuple of length 3, one for each spatial direction. Got {len(bcs)} entries."
-        
+            assert len(bcs) == 3, (
+                f"bcs must be a tuple of length 3, one for each spatial direction. Got {len(bcs)} entries."
+            )
+
             if any([bc == "lifting" for bc in bcs if bc is not None]):
                 self._dirichlet_bc_unlifted = [[False, False], [False, False], [False, False]]
-                
+
             # check for non-periodic BCs:
             for d, (bc, lifting) in enumerate(zip(bcs, liftings)):
                 if bc is not None:
                     self._spl_kind[d] = False
-                    assert len(bc) == 2, f"Each entry of bcs must be a tuple of length 2, indicating the left and right boundary conditions. Got {len(bc)} entries for {bc}."
+                    assert len(bc) == 2, (
+                        f"Each entry of bcs must be a tuple of length 2, indicating the left and right boundary conditions. Got {len(bc)} entries for {bc}."
+                    )
                     if bc[0] == "hom_dirichlet" or bc[0] == "lifting":
                         self._dirichlet_bc[d] = (True, self._dirichlet_bc[d][1])
                         if bc[0] == "lifting":
-                            assert len(lifting) == 2, f"lifting_eta{d+1} must be a tuple of length 2, indicating the lifting at the left and right boundary."
-                            assert lifting[0] is not None, f"lifting_eta{d+1}[0] must be provided if lifting is used as a boundary condition in eta{d+1}."
+                            assert len(lifting) == 2, (
+                                f"lifting_eta{d + 1} must be a tuple of length 2, indicating the lifting at the left and right boundary."
+                            )
+                            assert lifting[0] is not None, (
+                                f"lifting_eta{d + 1}[0] must be provided if lifting is used as a boundary condition in eta{d + 1}."
+                            )
                     if bc[1] == "hom_dirichlet" or bc[1] == "lifting":
                         self._dirichlet_bc[d] = (self._dirichlet_bc[d][0], True)
                         if bc[1] == "lifting":
-                            assert len(lifting) == 2, f"lifting_eta{d+1} must be a tuple of length 2, indicating the lifting at the left and right boundary."
-                            assert lifting[1] is not None, f"lifting_eta{d+1}[1] must be provided if lifting is used as a boundary condition in eta{d+1}."
-           
-        # make tuples             
+                            assert len(lifting) == 2, (
+                                f"lifting_eta{d + 1} must be a tuple of length 2, indicating the lifting at the left and right boundary."
+                            )
+                            assert lifting[1] is not None, (
+                                f"lifting_eta{d + 1}[1] must be provided if lifting is used as a boundary condition in eta{d + 1}."
+                            )
+
+        # make tuples
         self._spl_kind = tuple(self._spl_kind)
         self._dirichlet_bc = tuple(tuple(b) for b in self._dirichlet_bc)
-            
+
         if self._dirichlet_bc_unlifted is not None:
             self._dirichlet_bc_unlifted = tuple(tuple(b) for b in self._dirichlet_bc_unlifted)
 
@@ -307,7 +322,7 @@ class Derham:
         # set polar splines (currently standard tensor-product (-1) and C^1 polar splines (+1) are supported)
         assert polar_ck in {-1, 1}
         self._polar_ck = polar_ck
-        
+
         # local projectors
         self._with_local_projectors = local_projectors
 
@@ -326,7 +341,7 @@ class Derham:
             mpi_dims_mask=mpi_dims_mask,
             use_feectools=use_feectools,
         )
-        
+
         # exterior derivatives
         self._grad, self._curl, self._div = derham.derivatives_as_matrices
 

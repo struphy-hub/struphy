@@ -74,12 +74,12 @@ def test_flattening_3(nx, ny, nz, algo):
 @pytest.mark.parametrize(
     "bcs",
     [
-        (("free", "free"), ("free", "free"), None), 
-        (("free", "free"), None, ("free", "free")), 
+        (("free", "free"), ("free", "free"), None),
+        (("free", "free"), None, ("free", "free")),
         (None, ("free", "free"), None),
-        (None, None, ("free", "free")), 
-        ]
-    )
+        (None, None, ("free", "free")),
+    ],
+)
 @pytest.mark.parametrize(
     "mapping",
     [

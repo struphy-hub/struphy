@@ -3,10 +3,13 @@ import pytest
 
 @pytest.mark.parametrize("Nel", [[8, 8, 12]])
 @pytest.mark.parametrize("p", [[1, 2, 3]])
-@pytest.mark.parametrize("bcs", [
-    (("free", "free"), ("free", "free"), None),
-    (("free", "free"), None, ("free", "free")),
-    (None, ("free", "free"), ("free", "free")),]
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), ("free", "free"), None),
+        (("free", "free"), None, ("free", "free")),
+        (None, ("free", "free"), ("free", "free")),
+    ],
 )
 def test_psydac_derham(Nel, p, bcs):
     """Remark: p=even projectors yield slightly different results, pass with atol=1e-3."""
@@ -28,7 +31,8 @@ def test_psydac_derham(Nel, p, bcs):
     # Psydac discrete Derham sequence
     derham = Derham(Nel, p, bcs=bcs, comm=comm)
 
-    #TODO: test different initializations of Derham
+    # TODO: test different initializations of Derham
+
 
 if __name__ == "__main__":
     test_psydac_derham([8, 8, 12], [1, 2, 3], (("free", "free"), ("free", "free"), None))

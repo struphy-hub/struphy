@@ -6,10 +6,10 @@ import pytest
 @pytest.mark.parametrize(
     "bcs",
     [
-        (("free", "free"), None, None), 
-        (("free", "free"), None, ("free", "free")), 
-        ]
-    )
+        (("free", "free"), None, None),
+        (("free", "free"), None, ("free", "free")),
+    ],
+)
 def test_spaces(Nel, p, bcs):
     from struphy.feec.psydac_derham import Derham
     from struphy.polar.basic import PolarDerhamSpace, PolarVector
@@ -174,10 +174,10 @@ def test_spaces(Nel, p, bcs):
 @pytest.mark.parametrize(
     "bcs",
     [
-        (("free", "free"), None, None), 
-        (("free", "free"), None, ("free", "free")), 
-        ]
-    )
+        (("free", "free"), None, None),
+        (("free", "free"), None, ("free", "free")),
+    ],
+)
 def test_extraction_ops_and_derivatives(Nel, p, bcs):
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
@@ -289,10 +289,10 @@ def test_extraction_ops_and_derivatives(Nel, p, bcs):
 @pytest.mark.parametrize(
     "bcs",
     [
-        (("free", "free"), None, None), 
-        (("free", "free"), None, ("free", "free")), 
-        ]
-    )
+        (("free", "free"), None, None),
+        (("free", "free"), None, ("free", "free")),
+    ],
+)
 def test_projectors(Nel, p, bcs):
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
