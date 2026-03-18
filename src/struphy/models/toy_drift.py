@@ -169,9 +169,6 @@ class ToyDrift(StruphyModel):
         # for Landau damping test
         # en_phi = 0.
 
-        # mu_p * |B0(eta_p)|
-        particles.save_magnetic_background_energy()
-
         # 1/N sum_p (w_p v_p^2/2 + mu_p |B0|_p)
         self._tmp3[0] = (
             1
