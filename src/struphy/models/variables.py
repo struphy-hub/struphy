@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("struphy")
 
+
 class Variable(metaclass=ABCMeta):
     """
     Abstract base class for a single variable of a Species object.

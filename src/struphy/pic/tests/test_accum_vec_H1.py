@@ -6,6 +6,7 @@ from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
 
+
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[2, 3, 4]])
 @pytest.mark.parametrize(

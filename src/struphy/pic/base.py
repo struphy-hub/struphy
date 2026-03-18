@@ -61,6 +61,7 @@ from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
 
+
 class Particles(metaclass=ABCMeta):
     """Base class for particle species."""
 

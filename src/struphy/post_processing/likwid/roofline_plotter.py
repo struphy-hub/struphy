@@ -8,6 +8,7 @@ import yaml
 
 logger = logging.getLogger("struphy")
 
+
 def sort_by_num_threads(bm):
     sorted_arrays = {}
     for filename, data in bm.items():

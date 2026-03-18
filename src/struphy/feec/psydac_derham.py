@@ -44,6 +44,7 @@ from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearO
 
 logger = logging.getLogger("struphy")
 
+
 class Derham:
     """
     The discrete Derham sequence on the logical unit cube (3d).

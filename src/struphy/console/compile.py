@@ -4,6 +4,7 @@ from struphy.utils.utils import STRUPHY_LIBPATH, subp_run
 
 logger = logging.getLogger("struphy")
 
+
 def struphy_compile(
     language,
     compiler,

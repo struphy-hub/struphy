@@ -7,6 +7,7 @@ from struphy.io.options import LiteralOptions
 
 logger = logging.getLogger("struphy")
 
+
 @pytest.mark.parametrize(
     "spaces",
     [

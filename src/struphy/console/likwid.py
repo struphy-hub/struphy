@@ -7,6 +7,7 @@ from struphy.post_processing.likwid.plot_likwidproject import load_projects, plo
 
 logger = logging.getLogger("struphy")
 
+
 def struphy_likwid_profile(dir, title, output, groups, skip, plots):
     # Expand wildcard directories
     expanded_dirs = []

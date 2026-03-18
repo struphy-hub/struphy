@@ -7,6 +7,7 @@ from struphy.models.base import StruphyModel
 
 logger = logging.getLogger("struphy")
 
+
 # TODO: These utils should be classmethod of the model baseclass!
 def get_model_by_name(model_name: str) -> type[StruphyModel]:
     try:

@@ -15,6 +15,7 @@ from struphy.dispersion_relations import analytic
 
 logger = logging.getLogger("struphy")
 
+
 def power_spectrum_2d(
     values: dict,
     name: str,

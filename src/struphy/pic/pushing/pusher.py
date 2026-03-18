@@ -13,6 +13,7 @@ from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
 
+
 class Pusher:
     r"""
     Class for solving particle ODEs

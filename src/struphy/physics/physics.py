@@ -8,6 +8,7 @@ from struphy.io.options import BaseUnits
 
 logger = logging.getLogger("struphy")
 
+
 @dataclass
 class ConstantsOfNature:
     e = 1.602176634e-19  # elementary charge (C)

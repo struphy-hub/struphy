@@ -7,6 +7,7 @@ from struphy import equils
 
 logger = logging.getLogger("struphy")
 
+
 @pytest.mark.parametrize(
     "equil_domain_pair",
     [

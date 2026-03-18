@@ -1,4 +1,3 @@
-
 import inspect
 import logging
 from copy import deepcopy
@@ -22,6 +21,7 @@ from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
+
 
 class WeightedMassOperators:
     r"""

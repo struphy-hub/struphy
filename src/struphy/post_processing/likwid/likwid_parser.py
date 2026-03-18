@@ -6,6 +6,7 @@ import re
 
 logger = logging.getLogger("struphy")
 
+
 def pad_numbers(s, pad_length=5):
     # This function replaces all numbers in the input string with zero-padded numbers
     return re.sub(r"\d+", lambda match: str(int(match.group(0))).zfill(pad_length), s)

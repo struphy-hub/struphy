@@ -14,6 +14,7 @@ from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
 
+
 @dataclass
 class Noise(Perturbation):
     """White noise for FEEC coefficients.

@@ -17,6 +17,7 @@ from struphy.physics.physics import ConstantsOfNature, Units
 
 logger = logging.getLogger("struphy")
 
+
 class Species(metaclass=ABCMeta):
     """
     Abstract base class representing a single plasma species in a StruphyModel.

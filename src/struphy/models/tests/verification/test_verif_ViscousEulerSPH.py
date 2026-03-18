@@ -26,6 +26,7 @@ from struphy.models import ViscousEulerSPH
 
 logger = logging.getLogger("struphy")
 
+
 @pytest.mark.parametrize("nx", [12, 24])
 @pytest.mark.parametrize("plot_pts", [11, 32])
 def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):

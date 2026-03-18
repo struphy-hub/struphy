@@ -4,6 +4,7 @@ import pytest
 
 logger = logging.getLogger("struphy")
 
+
 @pytest.mark.parametrize("Nel", [[64, 1, 1]])
 def test_maxwellian_3d_uniform(Nel, show_plot=False):
     """Tests the Maxwellian3D class as a uniform Maxwellian.

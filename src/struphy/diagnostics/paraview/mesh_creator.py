@@ -9,6 +9,7 @@ from vtkmodules.vtkCommonDataModel import vtkUnstructuredGrid
 
 logger = logging.getLogger("struphy")
 
+
 def make_ugrid_and_write_vtu(filename: str, writer, vtk_dir, gvec, s_range, u_range, v_range, periodic):
     """A helper function to orchestrate operations to run many test cases.
 

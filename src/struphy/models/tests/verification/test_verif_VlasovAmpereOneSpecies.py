@@ -26,6 +26,7 @@ from struphy.models import VlasovAmpereOneSpecies
 
 logger = logging.getLogger("struphy")
 
+
 def test_weak_Landau(do_plot: bool = False):
     """Verification test for weak Landau damping.
     The computed damping rate is compared to the analytical rate.

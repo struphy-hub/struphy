@@ -1,4 +1,3 @@
-
 import logging
 from copy import deepcopy
 
@@ -17,6 +16,7 @@ from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.feec.psydac_derham import Derham
 
 logger = logging.getLogger("struphy")
+
 
 class BracketOperator(LinOpWithTransp):
     r"""The linear map :math:`\mathbb R^{3N_0} \to \mathbb R^{3N_0}`,

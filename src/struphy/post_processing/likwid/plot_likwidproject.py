@@ -20,6 +20,7 @@ import struphy.post_processing.likwid.roofline_plotter as rp
 
 logger = logging.getLogger("struphy")
 
+
 def clean_string(string_in):
     return re.sub(r"[^\w\s-]", "", string_in.replace(" ", "_"))
 

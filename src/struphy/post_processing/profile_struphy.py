@@ -10,6 +10,7 @@ from struphy.post_processing.cprofile_analyser import get_cprofile_data, replace
 
 logger = logging.getLogger("struphy")
 
+
 def main():
     """
     TODO

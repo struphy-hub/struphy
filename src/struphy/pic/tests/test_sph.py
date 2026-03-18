@@ -21,6 +21,7 @@ from struphy.pic.particles import ParticlesSPH
 
 logger = logging.getLogger("struphy")
 
+
 @pytest.mark.parametrize("boxes_per_dim", [(24, 1, 1)])
 @pytest.mark.parametrize("kernel", ["trigonometric_1d", "gaussian_1d", "linear_1d"])
 @pytest.mark.parametrize("derivative", [0, 1])

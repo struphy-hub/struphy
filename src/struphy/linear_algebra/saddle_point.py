@@ -12,6 +12,7 @@ from struphy.linear_algebra.tests.test_saddlepoint_massmatrices import _plot_res
 
 logger = logging.getLogger("struphy")
 
+
 class SaddlePointSolver:
     r"""Solves for :math:`(x, y)` in the saddle point problem
 

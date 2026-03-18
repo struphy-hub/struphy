@@ -20,6 +20,7 @@ from struphy.models import Poisson
 
 logger = logging.getLogger("struphy")
 
+
 def test_poisson_1d(do_plot=False):
     # light-weight model instance
     model = Poisson()

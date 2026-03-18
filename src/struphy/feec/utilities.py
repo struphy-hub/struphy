@@ -1,4 +1,3 @@
-
 import logging
 
 import cunumpy as xp
@@ -14,6 +13,7 @@ from struphy.feec import banded_to_stencil_kernels as bts
 from struphy.polar.basic import PolarVector
 
 logger = logging.getLogger("struphy")
+
 
 class RotationMatrix:
     """For a given vector-valued function a(e1, e2, e3), creates the callable matrix R(e1, e2, e3)

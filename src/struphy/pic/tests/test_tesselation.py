@@ -13,6 +13,7 @@ from struphy.pic.particles import ParticlesSPH
 
 logger = logging.getLogger("struphy")
 
+
 @pytest.mark.parametrize("ppb", [8, 12])
 @pytest.mark.parametrize("nx", [16, 10, 24])
 @pytest.mark.parametrize("ny", [1, 16, 10])

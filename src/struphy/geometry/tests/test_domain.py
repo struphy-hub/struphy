@@ -5,7 +5,6 @@ import pytest
 logger = logging.getLogger("struphy")
 
 
-
 def test_prepare_arg():
     """Tests prepare_arg static method in domain base class."""
 

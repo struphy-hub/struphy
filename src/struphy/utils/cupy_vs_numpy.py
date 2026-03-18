@@ -5,6 +5,7 @@ import cunumpy as xp
 
 logger = logging.getLogger("struphy")
 
+
 def main(N=8192):
     logger.info(f"Creating {N}x{N} random matrices...")
 

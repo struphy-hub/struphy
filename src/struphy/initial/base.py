@@ -7,6 +7,7 @@ from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
 
+
 class Perturbation(metaclass=ABCMeta):
     """Abstract base class for perturbation functions used as initial conditions in simulations.
 

@@ -15,6 +15,7 @@ from struphy.topology.grids import TensorProductGrid
 
 logger = logging.getLogger("struphy")
 
+
 def import_parameters_py(params_path: str) -> ModuleType:
     """Import a .py parameter file under the module name 'parameters' and return it."""
     assert ".py" in params_path

@@ -16,6 +16,7 @@ from struphy.diagnostics.diagn_tools import plot_distr_fun, plot_scalars, plots_
 
 logger = logging.getLogger("struphy")
 
+
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter,

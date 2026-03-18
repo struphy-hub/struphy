@@ -8,6 +8,7 @@ from struphy.utils.utils import __dataclass_repr_no_defaults__, all_class_params
 
 logger = logging.getLogger("struphy")
 
+
 @dataclass
 class TensorProductGrid:
     """Grid as a tensor product of 1d grids.

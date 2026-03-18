@@ -5,7 +5,6 @@ import pytest
 logger = logging.getLogger("struphy")
 
 
-
 @pytest.mark.parametrize("Nel", [[8, 8, 12]])
 @pytest.mark.parametrize("p", [[1, 2, 3]])
 @pytest.mark.parametrize("spl_kind", [[False, False, True]])

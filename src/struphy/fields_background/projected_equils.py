@@ -1,4 +1,3 @@
-
 import logging
 
 from feectools.linalg.block import BlockVector
@@ -11,6 +10,7 @@ from struphy.fields_background.base import (
 )
 
 logger = logging.getLogger("struphy")
+
 
 class ProjectedFluidEquilibrium:
     """Commuting projections of

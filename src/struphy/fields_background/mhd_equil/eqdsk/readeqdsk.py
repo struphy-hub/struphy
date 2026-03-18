@@ -15,6 +15,7 @@ import numpy
 
 logger = logging.getLogger("struphy")
 
+
 class Geqdsk:
     def __init__(self):
         """

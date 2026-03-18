@@ -14,6 +14,7 @@ import struphy.post_processing.likwid.maxplotlylib as mply
 
 logger = logging.getLogger("struphy")
 
+
 def glob_to_regex(pat: str) -> str:
     # Escape all regex metachars, then convert \* → .* and \? → .
     esc = re.escape(pat)

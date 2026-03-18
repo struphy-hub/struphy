@@ -16,6 +16,7 @@ from struphy.utils.utils import (
 
 logger = logging.getLogger("struphy")
 
+
 class FluidEquilibrium(metaclass=ABCMeta):
     """
     Abstract base class for callable fluid equilibria on arbitrary domains.

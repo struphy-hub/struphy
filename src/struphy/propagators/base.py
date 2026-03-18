@@ -19,6 +19,7 @@ from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Var
 
 logger = logging.getLogger("struphy")
 
+
 class Propagator(metaclass=ABCMeta):
     """Base class for propagators used in StruphyModels.
 

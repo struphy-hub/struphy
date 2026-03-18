@@ -12,6 +12,7 @@ from struphy.post_processing.orbits.orbits_kernels import calculate_guiding_cent
 
 logger = logging.getLogger("struphy")
 
+
 def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
     """
     Computes the Cartesian guiding center from saved full-orbit marker orbits (Particles6D) and writes them to a .npy files and to .txt files.

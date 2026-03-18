@@ -19,6 +19,7 @@ from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_clas
 
 logger = logging.getLogger("struphy")
 
+
 class DomainMeta(ABCMeta):
     def __iter__(cls):
         return iter(all_subclasses(cls))

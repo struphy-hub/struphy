@@ -11,6 +11,7 @@ from struphy.pic.particles import Particles6D
 
 logger = logging.getLogger("struphy")
 
+
 @pytest.mark.parametrize("nx", [8, 70])
 @pytest.mark.parametrize("ny", [16, 80])
 @pytest.mark.parametrize("nz", [32, 90])

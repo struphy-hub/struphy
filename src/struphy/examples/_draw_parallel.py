@@ -9,6 +9,7 @@ from struphy.pic.particles import Particles6D
 
 logger = logging.getLogger("struphy")
 
+
 def main():
     """
     TODO

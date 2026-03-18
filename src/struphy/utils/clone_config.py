@@ -7,6 +7,7 @@ from feectools.ddm.mpi import mpi as MPI
 
 logger = logging.getLogger("struphy")
 
+
 class CloneConfig:
     """
     Manages the configuration for clone-based parallel processing using MPI.

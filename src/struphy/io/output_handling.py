@@ -7,6 +7,7 @@ import h5py
 
 logger = logging.getLogger("struphy")
 
+
 class DataContainer:
     """
     Creates/opens a hdf5 file for data ouput (each process locally).

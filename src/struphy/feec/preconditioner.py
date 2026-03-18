@@ -1,4 +1,3 @@
-
 import logging
 
 import cunumpy as xp
@@ -18,6 +17,7 @@ from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.mass import WeightedMassOperator
 
 logger = logging.getLogger("struphy")
+
 
 class MassMatrixPreconditioner(LinearOperator):
     """

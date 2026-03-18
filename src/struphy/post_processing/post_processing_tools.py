@@ -34,6 +34,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("struphy")
 
+
 class SplineValues:
     def __str__(self):
         out = ""
