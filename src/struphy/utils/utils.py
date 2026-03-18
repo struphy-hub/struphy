@@ -207,7 +207,7 @@ def setup_logging(logging_level: int = logging.INFO):
     with open(config_file) as f_in:
         config = json.load(f_in)
 
-    config["handlers"]["file"]["level"] = logging_level
+    # config["handlers"]["file"]["level"] = logging_level
     config["handlers"]["stderr"]["level"] = logging_level
 
     logging.config.dictConfig(config)

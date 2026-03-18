@@ -396,7 +396,7 @@ def check_trailing_commas(file_path, verbose=False):
         return True
 
 
-def parse_path(directory):
+def parse_path(directory, verbose: bool = False):
     """Traverse a directory to find Python files, excluding '__XYZ__.py'.
 
     Parameters
@@ -418,7 +418,6 @@ def parse_path(directory):
             if (filename.endswith(".py") or filename.endswith(".ipynb")) and not re.search(r"__\w+__", filename):
                 file_path = os.path.join(root, filename)
                 python_files.append(file_path)
-    # exit()
     return python_files
 
 
