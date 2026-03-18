@@ -45,7 +45,7 @@ class RatGUI(CoilMagneticField):
         print(f"{self.rhs[1][:].shape =}")
         print(f"{self.rhs[2][:].shape =}")
         # We need to choose Nel and p such that the csv_data fits into this vector.
-        # For a periodic direction, the size of the vector is Nel, for non-periodic (spl_kind=False) the size is Nel + p.
+        # For a periodic direction, the size of the vector is Nel, for non-periodic the size is Nel + p.
 
         # TODO: fill ratgui_csv_data into rhs vector
 

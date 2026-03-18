@@ -124,8 +124,7 @@ def test_coaxial(do_plot: bool = False):
     # derham options
     derham_opts = DerhamOptions(
         p=(3, 3, 1),
-        spl_kind=(False, True, True),
-        dirichlet_bc=((True, True), (False, False), (False, False)),
+        bcs=(("hom_dirichlet", "hom_dirichlet"), None, None),
     )
 
     # propagator options

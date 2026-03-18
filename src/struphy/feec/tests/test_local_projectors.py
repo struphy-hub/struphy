@@ -250,12 +250,12 @@ def test_local_projectors_convergence(direction, pi, bc_kind, do_plot=False):
 # Works only in one processor
 
 
-def aux_test_replication_of_basis(Nel, plist, spl_kind):
+def aux_test_replication_of_basis(Nel, plist, bcs):
     """Tests that the local projectors do not alter the basis functions."""
     # get global communicator
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    derham = Derham(Nel, plist, spl_kind, comm=comm, local_projectors=True)
+    derham = Derham(Nel, plist, comm=comm, local_projectors=True)
 
     # For B-splines
     sp_key = "0"
@@ -1355,11 +1355,11 @@ def test_basis_projection_operator_local_new(Nel, plist, bcs, out_sp_key, in_sp_
 
 
 # Works only in one processor
-def aux_test_spline_evaluation(Nel, plist, spl_kind):
+def aux_test_spline_evaluation(Nel, plist, bcs):
     # get global communicator
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    derham = Derham(Nel, plist, spl_kind, comm=comm, local_projectors=True)
+    derham = Derham(Nel, plist, comm=comm, local_projectors=True)
 
     # The first step to test our BasisProjectionOperatorLocal is to build the B and D spline functions in such a way that we can evaluate them in parallel.
     # We cannot us the fields of a derham space to do this since the evaluation of the splines in this way is a collective operation, and we want our functions
@@ -1496,16 +1496,5 @@ def aux_test_spline_evaluation(Nel, plist, spl_kind):
 if __name__ == "__main__":
     Nel = [14, 16, 18]
     p = [5, 4, 3]
-    spl_kind = [True, False, False]
-
-    # test_spline_evaluation(Nel, p, spl_kind)
-    test_local_projectors_compare_global(Nel, p, spl_kind)
-    # test_local_projectors_convergence(2, 3, False, do_plot=False)
-    # test_replication_of_basis(Nel, p, spl_kind)
-    #'0', 'H1'
-    #'1', 'Hcurl'
-    #'2', 'Hdiv'
-    #'3', 'L2'
-    #'v', 'H1vec'
-    # test_basis_projection_operator_local(Nel, p , spl_kind, '1', '2')
-    # test_basis_projection_operator_local_new([40, 1, 1], [5, 1, 1] , [False, True, True], 'v', 'v', do_plot=True)
+    bcs = (None, ("free", "free"), ("free", "free"))
+    test_local_projectors_compare_global(Nel, p, bcs)

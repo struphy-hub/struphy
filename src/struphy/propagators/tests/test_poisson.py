@@ -460,8 +460,6 @@ def test_poisson_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=False):
         return xp.sin(2 * xp.pi / Lx * x) * (2 * xp.pi / Lx) ** 2
 
     # boundary conditions
-    dirichlet_bc = None
-
     if bc_type == "periodic":
         bcs = None
 
