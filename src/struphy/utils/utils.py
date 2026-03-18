@@ -12,6 +12,9 @@ import yaml
 from feectools.ddm.mpi import mpi as MPI
 
 import struphy
+import logging
+
+logger = logging.getLogger("struphy")
 
 # Get the path to the Struphy library
 STRUPHY_LIBPATH = struphy.__path__[0]
