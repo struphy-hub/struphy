@@ -1,15 +1,13 @@
 import logging
-
-
 from typing import Union
 
 import cunumpy as xp
 import scipy as sc
+
 from feectools.linalg.basic import LinearOperator, Vector
 from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from feectools.linalg.direct_solvers import SparseSolver
 from feectools.linalg.solvers import inverse
-
 from struphy.linear_algebra.tests.test_saddlepoint_massmatrices import _plot_residual_norms
 
 logger = logging.getLogger("struphy")

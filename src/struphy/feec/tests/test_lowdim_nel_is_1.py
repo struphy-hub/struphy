@@ -2,7 +2,6 @@ import logging
 
 import pytest
 
-
 logger = logging.getLogger("struphy")
 
 @pytest.mark.parametrize("Nel", [[32, 1, 1], [1, 32, 1], [1, 1, 32], [31, 32, 1], [32, 1, 31], [1, 31, 32]])
@@ -12,11 +11,11 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     """Test Nel=1 in various directions."""
 
     import cunumpy as xp
+    from matplotlib import pyplot as plt
+
     from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.block import BlockVector
     from feectools.linalg.stencil import StencilVector
-    from matplotlib import pyplot as plt
-
     from struphy.feec.psydac_derham import Derham
 
     comm = MPI.COMM_WORLD

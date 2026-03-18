@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import inspect
+import logging
 from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 
+from feectools.ddm.mpi import mpi as MPI
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
@@ -20,8 +21,6 @@ from struphy.pic.base import Particles
 from struphy.pic.particles import ParticlesSPH
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import check_option
-
-import logging
 
 if TYPE_CHECKING:
     from struphy.models.species import FieldSpecies, FluidSpecies, ParticleSpecies, Species

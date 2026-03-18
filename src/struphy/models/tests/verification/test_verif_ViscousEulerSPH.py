@@ -1,15 +1,13 @@
 import logging
-
-
 import os
 import shutil
 
 import cunumpy as xp
 import pytest
-from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
 
+from feectools.ddm.mpi import mpi as MPI
 from struphy import (
     BaseUnits,
     BinningPlot,
@@ -25,6 +23,7 @@ from struphy import (
     perturbations,
 )
 from struphy.models import ViscousEulerSPH
+
 logger = logging.getLogger("struphy")
 
 @pytest.mark.parametrize("nx", [12, 24])

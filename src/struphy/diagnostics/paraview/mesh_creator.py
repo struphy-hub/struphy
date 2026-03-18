@@ -1,11 +1,11 @@
 # from tqdm import tqdm
+import logging
+
 import cunumpy as xp
 import vtkmodules.all as vtk
 from vtkmodules.util.numpy_support import numpy_to_vtk as np2vtk
 from vtkmodules.util.numpy_support import vtk_to_numpy as vtk2np
 from vtkmodules.vtkCommonDataModel import vtkUnstructuredGrid
-
-import logging
 
 logger = logging.getLogger("struphy")
 

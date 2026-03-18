@@ -1,12 +1,10 @@
 import logging
-
-
 import warnings
 from abc import ABCMeta, abstractmethod
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 
+from feectools.ddm.mpi import mpi as MPI
 from struphy.models.variables import Variable
 from struphy.particles.parameters import (
     BinningPlot,

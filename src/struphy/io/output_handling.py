@@ -1,7 +1,5 @@
-import logging
-
-
 import ctypes
+import logging
 import os
 
 import cunumpy as xp

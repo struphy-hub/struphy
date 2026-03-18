@@ -1,6 +1,5 @@
 import logging
 
-
 import cunumpy as xp
 import pytest
 

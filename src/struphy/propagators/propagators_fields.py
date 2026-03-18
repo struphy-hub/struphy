@@ -1,23 +1,24 @@
 "Only FEEC variables are updated."
 
 import copy
+import logging
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Callable, Literal, get_args
 
 import cunumpy as xp
 import scipy as sc
+from line_profiler import profile
+from matplotlib import pyplot as plt
+from numpy import zeros
+
+import struphy.feec.utilities as util
 from feectools.api.essential_bc import apply_essential_bc_stencil
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import ComposedLinearOperator, IdentityOperator, ZeroOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilVector
-from line_profiler import profile
-from matplotlib import pyplot as plt
-from numpy import zeros
-
-import struphy.feec.utilities as util
 from struphy.examples.restelli2018 import callables
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import (
@@ -61,8 +62,6 @@ from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
-
-import logging
 
 logger = logging.getLogger("struphy")
 

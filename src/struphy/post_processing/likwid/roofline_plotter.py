@@ -1,7 +1,5 @@
-import logging
-
-
 import glob
+import logging
 import pickle
 
 import cunumpy as xp

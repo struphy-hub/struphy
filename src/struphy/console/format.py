@@ -76,6 +76,7 @@ import fileinput
 import importlib
 import inspect
 import json
+import logging
 import os
 import re
 import shutil
@@ -89,8 +90,6 @@ from tabulate import tabulate
 
 import struphy
 from struphy.models.base import StruphyModel
-
-import logging
 
 logger = logging.getLogger("struphy")
 

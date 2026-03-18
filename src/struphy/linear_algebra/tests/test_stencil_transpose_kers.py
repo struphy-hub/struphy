@@ -1,6 +1,5 @@
 import logging
 
-
 import pytest
 
 logger = logging.getLogger("struphy")
@@ -18,10 +17,10 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     b) the result from Stencil .transpose with precompiled=True"""
 
     import cunumpy as xp
+
     from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
     from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.stencil import StencilMatrix
-
     from struphy.feec.psydac_derham import Derham
     from struphy.linear_algebra.stencil_transpose_kernels import transpose_1d_kernel
 
@@ -133,10 +132,10 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     b) the result from Stencil .transpose with precompiled=True"""
 
     import cunumpy as xp
+
     from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
     from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.stencil import StencilMatrix
-
     from struphy.feec.psydac_derham import Derham
     from struphy.linear_algebra.stencil_transpose_kernels import transpose_3d_kernel
 

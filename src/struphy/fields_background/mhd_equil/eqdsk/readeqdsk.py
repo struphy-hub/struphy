@@ -8,11 +8,10 @@ The official document describing g-eqdsk files:
 http://fusion.gat.com/conferences/snowmass/working/mfe/physics/p3/equilibria/g_eqdsk_s.pdf
 """
 
+import logging
 import re
 
 import numpy
-
-import logging
 
 logger = logging.getLogger("struphy")
 

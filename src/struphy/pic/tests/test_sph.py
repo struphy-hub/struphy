@@ -1,12 +1,11 @@
 import logging
 
-
 import cunumpy as xp
 import pytest
-from feectools.ddm.mpi import MockComm
-from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 
+from feectools.ddm.mpi import MockComm
+from feectools.ddm.mpi import mpi as MPI
 from struphy import (
     BinningPlot,
     BoundaryParameters,

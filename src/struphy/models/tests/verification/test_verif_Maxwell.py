@@ -1,14 +1,13 @@
 import logging
-
 import os
 import shutil
 
 import cunumpy as xp
 import pytest
-from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 from scipy.special import jv, yn
 
+from feectools.ddm.mpi import mpi as MPI
 from struphy import (
     BaseUnits,
     DerhamOptions,

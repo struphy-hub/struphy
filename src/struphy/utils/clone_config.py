@@ -1,7 +1,7 @@
 import logging
 
-
 import cunumpy as xp
+
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 

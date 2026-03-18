@@ -1,6 +1,4 @@
 import logging
-
-
 import time
 
 import cunumpy as xp

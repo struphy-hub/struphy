@@ -2,6 +2,7 @@
 
 #!/usr/bin/env python3
 import argparse
+import logging
 import os
 import subprocess
 
@@ -12,8 +13,6 @@ import yaml
 import struphy
 import struphy.utils.utils as utils
 from struphy.diagnostics.diagn_tools import plot_distr_fun, plot_scalars, plots_videos_2d
-
-import logging
 
 logger = logging.getLogger("struphy")
 

@@ -1,13 +1,14 @@
 "Propagator base class."
 
+import logging
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
+
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilVector
-
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
@@ -15,8 +16,6 @@ from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.io.options import check_option
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
-
-import logging
 
 logger = logging.getLogger("struphy")
 

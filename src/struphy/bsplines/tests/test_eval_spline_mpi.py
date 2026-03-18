@@ -1,11 +1,10 @@
 import logging
-
-
 from sys import int_info
 from time import sleep
 
 import cunumpy as xp
 import pytest
+
 from feectools.ddm.mpi import mpi as MPI
 
 logger = logging.getLogger("struphy")

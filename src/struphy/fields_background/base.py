@@ -1,9 +1,6 @@
 "Base classes for MHD equilibria."
 
 import logging
-
-
-
 from abc import ABCMeta, abstractmethod
 
 import cunumpy as xp

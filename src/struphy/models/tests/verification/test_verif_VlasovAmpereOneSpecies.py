@@ -1,13 +1,12 @@
 import logging
-
 import os
 import shutil
 
 import cunumpy as xp
 import h5py
-from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 
+from feectools.ddm.mpi import mpi as MPI
 from struphy import (
     BaseUnits,
     BinningPlot,

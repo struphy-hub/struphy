@@ -1,5 +1,7 @@
 "Analytic dispersion relations."
 
+import logging
+
 import cunumpy as xp
 from numpy.polynomial import Polynomial
 from scipy.optimize import fsolve
@@ -7,8 +9,6 @@ from scipy.optimize import fsolve
 from struphy.dispersion_relations.base import ContinuousSpectra1D, DispersionRelations1D
 from struphy.dispersion_relations.utilities import Zplasma
 from struphy.fields_background.equils import set_defaults
-
-import logging
 
 logger = logging.getLogger("struphy")
 

@@ -1,6 +1,5 @@
 import logging
 
-
 import cunumpy as xp
 
 from struphy.feec.psydac_derham import Derham

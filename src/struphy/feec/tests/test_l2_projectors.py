@@ -1,17 +1,16 @@
 
 import inspect
+import logging
 
 import cunumpy as xp
 import matplotlib.pyplot as plt
 import pytest
-from feectools.ddm.mpi import mpi as MPI
 
+from feectools.ddm.mpi import mpi as MPI
 from struphy import domains
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.projectors import L2Projector
 from struphy.feec.psydac_derham import Derham
-
-import logging
 
 logger = logging.getLogger("struphy")
 

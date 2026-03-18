@@ -1,6 +1,5 @@
 import logging
 
-
 import pytest
 
 logger = logging.getLogger("struphy")
@@ -17,10 +16,10 @@ logger = logging.getLogger("struphy")
 )
 def test_mass_preconditioner(Nel, p, spl_kind, mapping):
     import cunumpy as xp
+
     from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.block import BlockVector
     from feectools.linalg.stencil import StencilVector
-
     from struphy import domains
     from struphy.feec.linear_operators import InverseLinearOperator
     from struphy.feec.mass import WeightedMassOperators

@@ -1,7 +1,5 @@
-import logging
-
-
 import glob
+import logging
 import os
 import pickle
 import re

@@ -1,21 +1,20 @@
 
 import inspect
+import logging
 import time
 
 import cunumpy as xp
 import matplotlib.pyplot as plt
 import pytest
+
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
-
 from struphy.bsplines.bsplines import basis_funs, find_span
 from struphy.bsplines.evaluation_kernels_1d import evaluation_kernel_1d
 from struphy.feec.basis_projection_ops import BasisProjectionOperator, BasisProjectionOperatorLocal
 from struphy.feec.local_projectors_kernels import fill_matrix_column
 from struphy.feec.psydac_derham import Derham
 from struphy.feec.utilities_local_projectors import get_one_spline, get_span_and_basis, get_values_and_indices_splines
-
-import logging
 
 logger = logging.getLogger("struphy")
 

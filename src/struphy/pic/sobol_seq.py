@@ -17,10 +17,10 @@ Authors:
 
 from __future__ import division
 
+import logging
+
 import cunumpy as xp
 from scipy.stats import norm
-
-import logging
 
 logger = logging.getLogger("struphy")
 

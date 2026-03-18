@@ -2,6 +2,7 @@
 
 import copy
 import importlib.util
+import logging
 import os
 import sys
 import warnings
@@ -9,14 +10,14 @@ from time import time
 from typing import TYPE_CHECKING
 
 import cunumpy as xp
-from feectools.ddm.mpi import MockMPI
-from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
 from scipy.integrate import odeint, quad
 from scipy.interpolate import RectBivariateSpline, UnivariateSpline
 from scipy.optimize import fsolve, minimize
 
 import struphy
+from feectools.ddm.mpi import MockMPI
+from feectools.ddm.mpi import mpi as MPI
 from struphy.fields_background.base import (
     AxisymmMHDequilibrium,
     CartesianFluidEquilibrium,
@@ -36,9 +37,6 @@ from struphy.fields_background.mhd_equil.eqdsk import readeqdsk
 from struphy.io.options import BaseUnits
 from struphy.physics.physics import Units
 from struphy.utils.utils import all_class_params_are_default, read_state, subp_run
-
-import logging
-
 
 if TYPE_CHECKING:
     from struphy import domains

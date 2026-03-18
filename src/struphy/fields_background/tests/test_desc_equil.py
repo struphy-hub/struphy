@@ -1,7 +1,5 @@
-import logging
-
-
 import importlib.util
+import logging
 
 import cunumpy as xp
 import pytest

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import logging
 import os
 import shutil
 import subprocess
@@ -11,8 +12,6 @@ from scipy.signal import argrelextrema
 from tqdm import tqdm
 
 from struphy.dispersion_relations import analytic
-
-import logging
 
 logger = logging.getLogger("struphy")
 

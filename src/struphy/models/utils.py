@@ -1,6 +1,5 @@
-import logging
-
 import inspect
+import logging
 
 import struphy.models as models
 from struphy.io.options import LiteralOptions

@@ -5,6 +5,7 @@ import argparse
 import glob
 import importlib
 import importlib.metadata
+import logging
 import os
 import pickle
 import site
@@ -19,8 +20,6 @@ import yaml
 import struphy
 import struphy.models.utils as models_utils
 from struphy.utils import utils
-
-import logging
 
 logger = logging.getLogger("struphy")
 

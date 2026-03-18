@@ -1,6 +1,4 @@
 import logging
-
-
 from abc import ABCMeta, abstractmethod
 from typing import Callable
 

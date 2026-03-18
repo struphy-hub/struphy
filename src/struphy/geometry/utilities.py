@@ -1,6 +1,7 @@
 # from __future__ import annotations
 "Domain-related utility functions."
 
+import logging
 from typing import Callable
 
 import cunumpy as xp
@@ -18,8 +19,6 @@ from struphy.geometry.base import Domain, PoloidalSplineTorus
 from struphy.geometry.utilities_kernels import weighted_arc_lengths_flux_surface
 from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.linalg_kron import kron_lusolve_2d
-
-import logging
 
 logger = logging.getLogger("struphy")
 

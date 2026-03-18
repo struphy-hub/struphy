@@ -1,8 +1,8 @@
 import logging
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 
+from feectools.ddm.mpi import mpi as MPI
 from struphy.io.options import LiteralOptions
 from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.models.base import StruphyModel
@@ -20,6 +20,7 @@ from struphy.propagators import (
 )
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
+
 logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
 

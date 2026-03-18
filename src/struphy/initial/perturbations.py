@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 "Analytical perturbations."
 
+import logging
 from dataclasses import dataclass
 
 import cunumpy as xp
@@ -10,8 +11,6 @@ import scipy.special
 from struphy.initial.base import Perturbation
 from struphy.io.options import LiteralOptions
 from struphy.utils.utils import check_option
-
-import logging
 
 logger = logging.getLogger("struphy")
 

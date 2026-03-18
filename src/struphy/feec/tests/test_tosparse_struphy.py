@@ -1,9 +1,8 @@
 import logging
-
-
 import time
 
 import pytest
+
 logger = logging.getLogger("struphy")
 
 @pytest.mark.parametrize("Nel", [[12, 5, 2], [8, 12, 4], [5, 4, 12]])
@@ -19,9 +18,9 @@ def test_tosparse_struphy(Nel, p, spl_kind, mapping):
     """
 
     import cunumpy as xp
+
     from feectools.ddm.mpi import MockComm
     from feectools.ddm.mpi import mpi as MPI
-
     from struphy import domains
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham

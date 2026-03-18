@@ -1,11 +1,12 @@
 
+import logging
 from copy import deepcopy
 
 import cunumpy as xp
+
 from feectools.linalg.basic import IdentityOperator, Vector
 from feectools.linalg.block import BlockVector
 from feectools.linalg.solvers import inverse
-
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import (
     BasisProjectionOperator,
@@ -14,8 +15,6 @@ from struphy.feec.basis_projection_ops import (
 )
 from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.feec.psydac_derham import Derham
-
-import logging
 
 logger = logging.getLogger("struphy")
 

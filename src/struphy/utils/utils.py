@@ -1,6 +1,7 @@
 import atexit
 import inspect
 import json
+import logging
 import logging.config
 import os
 import pathlib
@@ -9,10 +10,9 @@ import tempfile
 from typing import Literal, get_args
 
 import yaml
-from feectools.ddm.mpi import mpi as MPI
 
 import struphy
-import logging
+from feectools.ddm.mpi import mpi as MPI
 
 logger = logging.getLogger("struphy")
 

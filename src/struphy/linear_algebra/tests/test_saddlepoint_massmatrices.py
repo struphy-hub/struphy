@@ -1,6 +1,5 @@
 import logging
 
-
 import pytest
 
 logger = logging.getLogger("struphy")
@@ -19,10 +18,10 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
 
     import cunumpy as xp
     import scipy as sc
+
     from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.basic import IdentityOperator
     from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
-
     from struphy import domains, perturbations
     from struphy.examples.restelli2018 import callables
     from struphy.feec.basis_projection_ops import BasisProjectionOperatorLocal, BasisProjectionOperators
