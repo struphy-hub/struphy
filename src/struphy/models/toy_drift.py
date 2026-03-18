@@ -89,7 +89,7 @@ class ToyDrift(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.gc_poisson = propagators_fields.ImplicitDiffusion()
+            self.gc_poisson = propagators_fields.Poisson()
             self.push_gc_bxe = propagators_markers.PushGuidingCenterBxEstar()
 
     ## abstract methods
@@ -149,12 +149,13 @@ class ToyDrift(StruphyModel):
         # rho()
         # rho.show_accumulated_spline_field(Propagator.mass_ops, eta_direction=(True,True,False))
 
-        self.propagators.gc_poisson.options.sigma_1 = 1e-8
-        self.propagators.gc_poisson.options.sigma_2 = 0.0
-        self.propagators.gc_poisson.options.sigma_3 = 1.0
+        alpha = self.kinetic_ions.equation_params.alpha
+        epsilon = self.kinetic_ions.equation_params.epsilon
+
+        self.propagators.gc_poisson.options.stab_eps = 0.0
         self.propagators.gc_poisson.options.stab_mat = "M0ad"
-        self.propagators.gc_poisson.options.diffusion_mat = "M1"
         self.propagators.gc_poisson.options.rho = rho
+        self.propagators.gc_poisson.options.rho_coeffs = alpha**2 / epsilon
         self.propagators.gc_poisson.allocate()
 
     def update_scalar_quantities(self):
