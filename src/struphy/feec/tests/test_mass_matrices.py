@@ -17,8 +17,8 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     """Compare Struphy mass matrices to Struphy-legacy mass matrices."""
 
     import cunumpy as xp
-
     from feectools.ddm.mpi import mpi as MPI
+
     from struphy import domains
     from struphy.feec.mass import WeightedMassOperators, WeightedMassOperatorsOldForTesting
     from struphy.feec.psydac_derham import Derham
@@ -313,8 +313,8 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     """Compare Struphy polar mass matrices to Struphy-legacy polar mass matrices."""
 
     import cunumpy as xp
-
     from feectools.ddm.mpi import mpi as MPI
+
     from struphy import domains
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
@@ -459,9 +459,9 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
     import time
 
     import cunumpy as xp
-
     from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.solvers import inverse
+
     from struphy import domains
     from struphy.feec.mass import WeightedMassOperators, WeightedMassOperatorsOldForTesting
     from struphy.feec.preconditioner import MassMatrixPreconditioner
@@ -766,9 +766,9 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
     import time
 
     import cunumpy as xp
-
     from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.solvers import inverse
+
     from struphy import domains
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.preconditioner import MassMatrixPreconditioner

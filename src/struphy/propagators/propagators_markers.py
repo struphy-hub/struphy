@@ -5,13 +5,13 @@ from dataclasses import dataclass
 from typing import Callable, Literal, get_args
 
 import cunumpy as xp
-from line_profiler import profile
-from numpy import array, polynomial, random
-
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import LinearOperator
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilVector
+from line_profiler import profile
+from numpy import array, polynomial, random
+
 from struphy.feec.mass import WeightedMassOperators
 from struphy.fields_background.base import MHDequilibrium
 from struphy.fields_background.equils import set_defaults

@@ -16,11 +16,11 @@ except ModuleNotFoundError:
 
 
 import cunumpy as xp
+from feectools.ddm.mpi import MockComm
+from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
 from sympy.ntheory import factorint
 
-from feectools.ddm.mpi import MockComm
-from feectools.ddm.mpi import mpi as MPI
 from struphy.bsplines.bsplines import quadrature_grid
 from struphy.fields_background import equils
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB, NumericalFluidEquilibrium

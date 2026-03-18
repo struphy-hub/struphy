@@ -19,7 +19,6 @@ import yaml
 import struphy
 import struphy.models.utils as models_utils
 from struphy.utils import utils
-
 from struphy.utils.utils import setup_logging
 
 logger = logging.getLogger("struphy")
@@ -37,7 +36,6 @@ def struphy():
     """Struphy main executable. Performs argument parsing and sub-command call."""
 
     setup_logging(logging_level=logging.INFO)
-
 
     # create argument parser
     epilog_message = 'Type "struphy COMMAND --help" for more information on a command.\n\n'

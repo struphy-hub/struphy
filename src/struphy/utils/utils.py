@@ -10,9 +10,9 @@ import tempfile
 from typing import Literal, get_args
 
 import yaml
+from feectools.ddm.mpi import mpi as MPI
 
 import struphy
-from feectools.ddm.mpi import mpi as MPI
 
 logger = logging.getLogger("struphy")
 

@@ -129,10 +129,10 @@ def test_set_zero_velocity_mpi(mapping, comp: int, show_plot=False):
     """
 
     import cunumpy as xp
-    from matplotlib import pyplot as plt
-
     from feectools.ddm.mpi import MockComm
     from feectools.ddm.mpi import mpi as MPI
+    from matplotlib import pyplot as plt
+
     from struphy import BoundaryParameters, LoadingParameters, domains
     from struphy.pic.particles import Particles6D
 

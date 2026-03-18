@@ -1,6 +1,7 @@
 import logging
 
 from feectools.ddm.mpi import mpi as MPI
+
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.species import (

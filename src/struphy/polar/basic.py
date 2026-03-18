@@ -1,5 +1,4 @@
 import cunumpy as xp
-
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import Vector, VectorSpace
 from feectools.linalg.block import BlockVector

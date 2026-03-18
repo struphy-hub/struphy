@@ -1,10 +1,6 @@
 import logging
 
 import cunumpy as xp
-from line_profiler import profile
-from scipy import sparse
-from scipy.linalg import solve_circulant
-
 from feectools.api.essential_bc import apply_essential_bc_stencil
 from feectools.ddm.cart import CartDecomposition, DomainDecomposition
 from feectools.fem.tensor import TensorFemSpace
@@ -13,6 +9,10 @@ from feectools.linalg.block import BlockLinearOperator
 from feectools.linalg.direct_solvers import BandedSolver, SparseSolver
 from feectools.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
 from feectools.linalg.stencil import StencilMatrix, StencilVectorSpace
+from line_profiler import profile
+from scipy import sparse
+from scipy.linalg import solve_circulant
+
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.mass import WeightedMassOperator
 

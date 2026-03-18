@@ -2,13 +2,13 @@ import itertools
 from abc import abstractmethod
 
 import cunumpy as xp
-from scipy import sparse
-
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import LinearOperator, Vector, VectorSpace
 from feectools.linalg.block import BlockVectorSpace
 from feectools.linalg.stencil import StencilVectorSpace
+from scipy import sparse
+
 from struphy.feec.utilities import apply_essential_bc_to_array
 from struphy.polar.basic import PolarDerhamSpace
 

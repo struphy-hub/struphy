@@ -1269,9 +1269,9 @@ def run_linters_on_files(linters, python_files, flags, verbose):
             # Loop over each line and replace '# $' with '#$' in place
             for line in fileinput.input(python_file, inplace=True):
                 if line.lstrip().startswith("# $"):
-                    logger.info(line.replace("# $", "#$"), end="")
+                    print(line.replace("# $", "#$"), end="")
                 else:
-                    logger.info(line, end="")
+                    print(line, end="")
 
 
 def construct_models_init_file(models_dir: str = "src/struphy/models") -> str:

@@ -1,7 +1,6 @@
 import logging
 
 import cunumpy as xp
-
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.ddm.mpi import mpi as MPI
 from feectools.fem.basic import FemSpace
@@ -9,6 +8,7 @@ from feectools.fem.tensor import TensorFemSpace
 from feectools.linalg.basic import IdentityOperator, LinearOperator, Vector
 from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from feectools.linalg.stencil import StencilMatrix, StencilVector, StencilVectorSpace
+
 from struphy.feec import basis_projection_kernels
 from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
 from struphy.feec.local_projectors_kernels import assemble_basis_projection_operator_local

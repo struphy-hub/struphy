@@ -6,6 +6,7 @@ import tempfile
 from types import ModuleType
 
 from feectools.ddm.mpi import mpi as MPI
+
 from struphy import EnvironmentOptions
 from struphy.io.setup import import_parameters_py
 from struphy.models.base import StruphyModel

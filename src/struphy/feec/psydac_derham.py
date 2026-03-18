@@ -3,7 +3,6 @@ import importlib.metadata
 import logging
 
 import cunumpy as xp
-
 import feectools.core.bsplines as bsp
 from feectools.ddm.cart import DomainDecomposition
 from feectools.ddm.mpi import MockComm, MockMPI
@@ -24,6 +23,7 @@ from feectools.fem.vector import VectorFemSpace
 from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockVector, BlockVectorSpace
 from feectools.linalg.stencil import StencilVector, StencilVectorSpace
+
 from struphy.bsplines import evaluation_kernels_3d as eval_3d
 from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
 from struphy.feec.linear_operators import BoundaryOperator
