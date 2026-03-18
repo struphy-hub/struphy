@@ -4,66 +4,6 @@ from typing import Literal
 
 from struphy.utils.utils import check_option
 
-import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
-
-## Literal options
-
-# time
-SplitAlgos = Literal["LieTrotter", "Strang"]
-
-# derham
-PolarRegularity = Literal[-1, 1]
-OptsFEECSpace = Literal["H1", "Hcurl", "Hdiv", "L2", "H1vec"]
-OptsVecSpace = Literal["Hcurl", "Hdiv", "H1vec"]
-
-# fields background
-BackgroundTypes = Literal["LogicalConst", "FluidEquilibrium"]
-
-# perturbations
-NoiseDirections = Literal["e1", "e2", "e3", "e1e2", "e1e3", "e2e3", "e1e2e3"]
-GivenInBasis = Literal["0", "1", "2", "3", "v", "physical", "physical_at_eta", "norm", None]
-
-# solvers
-OptsSymmSolver = Literal["pcg", "cg"]
-OptsGenSolver = Literal["pbicgstab", "bicgstab", "gmres"]
-OptsMassPrecond = Literal["MassMatrixPreconditioner", "MassMatrixDiagonalPreconditioner", None]
-OptsSaddlePointSolver = Literal["Uzawa", "GMRES"]  # todo
-OptsDirectSolver = Literal["SparseSolver", "ScipySparse", "InexactNPInverse", "DirectNPInverse"]
-OptsNonlinearSolver = Literal["Picard", "Newton"]
-
-# markers
-OptsPICSpace = Literal["Particles6D", "DeltaFParticles6D", "Particles5D", "Particles3D"]
-OptsMarkerBC = Literal["periodic", "reflect"]
-OptsRecontructBC = Literal["periodic", "mirror", "fixed"]
-OptsLoading = Literal[
-    "pseudo_random",
-    "sobol_standard",
-    "sobol_antithetic",
-    "external",
-    "restart",
-    "tesselation",
-]
-OptsSpatialLoading = Literal["uniform", "disc"]
-OptsMPIsort = Literal["each", "last", None]
-
-# filters
-OptsFilter = Literal["fourier_in_tor", "hybrid", "three_point", None]
-
-# sph
-OptsKernel = Literal[
-    "trigonometric_1d",
-    "gaussian_1d",
-    "linear_1d",
-    "trigonometric_2d",
-    "gaussian_2d",
-    "linear_2d",
-    "trigonometric_3d",
-    "gaussian_3d",
-    "linear_isotropic_3d",
-    "linear_3d",
-]
-
 
 @dataclass
 class LiteralOptions:
@@ -89,6 +29,7 @@ class LiteralOptions:
     PolarRegularity = Literal[-1, 1]
     OptsFEECSpace = Literal["H1", "Hcurl", "Hdiv", "L2", "H1vec"]
     OptsVecSpace = Literal["Hcurl", "Hdiv", "H1vec"]
+    OptsNonTrivialBoundaryCondition = Literal["free", "hom_dirichlet", "lifting"]
 
     # fields background
     BackgroundTypes = Literal["LogicalConst", "FluidEquilibrium"]
