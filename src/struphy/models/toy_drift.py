@@ -71,7 +71,7 @@ class ToyDrift(StruphyModel):
 
     @classmethod
     def model_type(cls) -> LiteralOptions.ModelTypes:
-        return "Kinetic"
+        return "Toy"
 
     ## species
 
