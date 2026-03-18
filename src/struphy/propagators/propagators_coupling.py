@@ -267,7 +267,7 @@ class VlasovAmpere(Propagator):
                 ),
             )
             logger.info("Maxdiff |v| for VlasovMaxwell:", max_diff)
-            logger.info()
+            logger.info("")
 
 
 class EfieldWeights(Propagator):
@@ -521,7 +521,7 @@ class EfieldWeights(Propagator):
                 ),
             )
             logger.info("Maxdiff weights for StepEfieldWeights:", max_diff)
-            logger.info()
+            logger.info("")
 
 
 class PressureCoupling6D(Propagator):
@@ -763,7 +763,7 @@ class PressureCoupling6D(Propagator):
             logger.info("Status     for StepPressurecoupling:", info["success"])
             logger.info("Iterations for StepPressurecoupling:", info["niter"])
             logger.info("Maxdiff u1 for StepPressurecoupling:", diffs["u"])
-            logger.info()
+            logger.info("")
 
     class GT_MAT_G(LinOpWithTransp):
         r"""
@@ -1151,7 +1151,7 @@ class CurrentCoupling6DCurrent(Propagator):
             logger.info("Status     for CurrentCoupling6DCurrent:", info["success"])
             logger.info("Iterations for CurrentCoupling6DCurrent:", info["niter"])
             logger.info("Maxdiff up for CurrentCoupling6DCurrent:", max_du)
-            logger.info()
+            logger.info("")
 
 
 class CurrentCoupling5DCurlb(Propagator):
@@ -1405,7 +1405,7 @@ class CurrentCoupling5DCurlb(Propagator):
             logger.info("Status     for CurrentCoupling5DCurlb:", info["success"])
             logger.info("Iterations for CurrentCoupling5DCurlb:", info["niter"])
             logger.info("Maxdiff up for CurrentCoupling5DCurlb:", diffs["u"])
-            logger.info()
+            logger.info("")
 
 
 class CurrentCoupling5DGradB(Propagator):
@@ -1823,7 +1823,7 @@ class CurrentCoupling5DGradB(Propagator):
                     logger.info("Stage: ", stage)
                     logger.info("Status     for CurrentCoupling5DGradB:", info["success"])
                     logger.info("Iterations for CurrentCoupling5DGradB:", info["niter"])
-                    logger.info()
+                    logger.info("")
 
             # update u coefficients
             diffs = self.update_feec_variables(u=u_new)
@@ -1837,7 +1837,7 @@ class CurrentCoupling5DGradB(Propagator):
 
             if self.options.solver_params.info and MPI.COMM_WORLD.Get_rank() == 0:
                 logger.info("Maxdiff up for CurrentCoupling5DGradB:", diffs["u"])
-                logger.info()
+                logger.info("")
 
         else:
             # total number of markers
@@ -2158,4 +2158,4 @@ class CurrentCoupling5DGradB(Propagator):
 
             if self.options.dg_solver_params.info and MPI.COMM_WORLD.Get_rank() == 0:
                 logger.info("Maxdiff up for CurrentCoupling5DGradB:", diffs["u"])
-                logger.info()
+                logger.info("")

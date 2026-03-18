@@ -30,7 +30,7 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     mpi_size = mpi_comm.Get_size()
 
     if mpi_rank == 0:
-        logger.info()
+        logger.info("")
 
     mpi_comm.Barrier()
 
@@ -327,7 +327,7 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     mpi_size = mpi_comm.Get_size()
 
     if mpi_rank == 0:
-        logger.info()
+        logger.info("")
 
     mpi_comm.Barrier()
 
@@ -474,7 +474,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
     mpi_size = mpi_comm.Get_size()
 
     if mpi_rank == 0:
-        logger.info()
+        logger.info("")
 
     mpi_comm.Barrier()
 
@@ -782,7 +782,7 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
     mpi_size = mpi_comm.Get_size()
 
     if mpi_rank == 0:
-        logger.info()
+        logger.info("")
 
     mpi_comm.Barrier()
 

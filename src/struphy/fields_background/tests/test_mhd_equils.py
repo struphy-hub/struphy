@@ -226,7 +226,7 @@ def test_equils(equil_domain_pair):
         else:
             assert_vector(results[i], kind, *pt)
 
-    logger.info()
+    logger.info("")
     logger.info(
         "   Evaluation type".ljust(30), "|   equilibrium".ljust(20), "|   domain".ljust(20), "|   status".ljust(20)
     )

@@ -39,7 +39,7 @@ def main():
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     if rank == 0:
-        logger.info()
+        logger.info("")
         logger.info("Domain decomposition according to : ")
         logger.info(derham.domain_array)
 

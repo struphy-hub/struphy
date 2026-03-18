@@ -40,7 +40,7 @@ def test_spaces(Nel, p, spl_kind):
     logger.info(a.toarray())
     logger.info(a.toarray_tp())
 
-    logger.info()
+    logger.info("")
 
     logger.info("polar V1:")
     V = PolarDerhamSpace(derham, "Hcurl")
@@ -72,7 +72,7 @@ def test_spaces(Nel, p, spl_kind):
     logger.info(a.toarray())
     logger.info(a.toarray_tp())
 
-    logger.info()
+    logger.info("")
 
     logger.info("polar V2:")
     V = PolarDerhamSpace(derham, "Hdiv")
@@ -104,7 +104,7 @@ def test_spaces(Nel, p, spl_kind):
     logger.info(a.toarray())
     logger.info(a.toarray_tp())
 
-    logger.info()
+    logger.info("")
 
     logger.info("polar V3:")
     V = PolarDerhamSpace(derham, "L2")
@@ -132,7 +132,7 @@ def test_spaces(Nel, p, spl_kind):
     logger.info(a.toarray())
     logger.info(a.toarray_tp())
 
-    logger.info()
+    logger.info("")
 
     logger.info("polar V0vec:")
     V = PolarDerhamSpace(derham, "H1vec")
@@ -164,7 +164,7 @@ def test_spaces(Nel, p, spl_kind):
     logger.info(a.toarray())
     logger.info(a.toarray_tp())
 
-    logger.info()
+    logger.info("")
 
 
 @pytest.mark.parametrize("Nel", [[6, 9, 6]])
@@ -195,9 +195,9 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
     # create legacy FEM spaces
 
     if rank == 0:
-        logger.info()
+        logger.info("")
         logger.info("Domain decomposition : \n", derham.domain_array)
-        logger.info()
+        logger.info("")
 
     comm.Barrier()
 
@@ -252,7 +252,7 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
 
     if rank == 0:
         logger.info("------------- Test passed ---------------------------")
-        logger.info()
+        logger.info("")
 
     # ==================== test discrete derivatives ======================
     if rank == 0:
@@ -298,9 +298,9 @@ def test_projectors(Nel, p, spl_kind):
     derham = Derham(Nel, p, spl_kind, comm=comm, nq_pr=[6, 6, 6], polar_ck=1, domain=domain)
 
     if rank == 0:
-        logger.info()
+        logger.info("")
         logger.info("Domain decomposition : \n", derham.domain_array)
-        logger.info()
+        logger.info("")
 
     comm.Barrier()
 
@@ -337,7 +337,7 @@ def test_projectors(Nel, p, spl_kind):
 
     if rank == 0:
         logger.info("Test passed for PI_0 polar projector")
-        logger.info()
+        logger.info("")
 
     comm.Barrier()
 
@@ -349,7 +349,7 @@ def test_projectors(Nel, p, spl_kind):
 
     if rank == 0:
         logger.info("Test passed for PI_1 polar projector")
-        logger.info()
+        logger.info("")
 
     comm.Barrier()
 
@@ -361,7 +361,7 @@ def test_projectors(Nel, p, spl_kind):
 
     if rank == 0:
         logger.info("Test passed for PI_2 polar projector")
-        logger.info()
+        logger.info("")
 
     comm.Barrier()
 
@@ -373,7 +373,7 @@ def test_projectors(Nel, p, spl_kind):
 
     if rank == 0:
         logger.info("Test passed for PI_3 polar projector")
-        logger.info()
+        logger.info("")
 
 
 if __name__ == "__main__":

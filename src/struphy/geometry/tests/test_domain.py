@@ -173,13 +173,13 @@ def test_evaluation_mappings(mapping):
     arr2 = xp.linspace(0.0, 1.0, 5)
     arr3 = xp.linspace(0.0, 1.0, 6)
     arrm = xp.random.rand(10, 8)
-    logger.info()
+    logger.info("")
     logger.info('Testing "evaluate"...')
     logger.info("array shapes:", arr1.shape, arr2.shape, arr3.shape, arrm.shape)
 
     domain_class = getattr(domains, mapping)
     domain = domain_class()
-    logger.info()
+    logger.info("")
     logger.info("Domain object set.")
 
     assert isinstance(domain, Domain)
@@ -339,7 +339,7 @@ def test_pullback():
     arr1 = xp.linspace(0.0, 1.0, 4)
     arr2 = xp.linspace(0.0, 1.0, 5)
     arr3 = xp.linspace(0.0, 1.0, 6)
-    logger.info()
+    logger.info("")
     logger.info('Testing "pull"...')
     logger.info("array shapes:", arr1.shape, arr2.shape, arr3.shape)
 
@@ -351,7 +351,7 @@ def test_pullback():
 
     domain_class = getattr(domains, "Colella")
     domain = domain_class()
-    logger.info()
+    logger.info("")
     logger.info("Domain object set.")
 
     assert isinstance(domain, Domain)
@@ -499,7 +499,7 @@ def test_pushforward():
     arr1 = xp.linspace(0.0, 1.0, 4)
     arr2 = xp.linspace(0.0, 1.0, 5)
     arr3 = xp.linspace(0.0, 1.0, 6)
-    logger.info()
+    logger.info("")
     logger.info('Testing "push"...')
     logger.info("array shapes:", arr1.shape, arr2.shape, arr3.shape)
 
@@ -511,7 +511,7 @@ def test_pushforward():
 
     domain_class = getattr(domains, "Colella")
     domain = domain_class()
-    logger.info()
+    logger.info("")
     logger.info("Domain object set.")
 
     assert isinstance(domain, Domain)
@@ -659,7 +659,7 @@ def test_transform():
     arr1 = xp.linspace(0.0, 1.0, 4)
     arr2 = xp.linspace(0.0, 1.0, 5)
     arr3 = xp.linspace(0.0, 1.0, 6)
-    logger.info()
+    logger.info("")
     logger.info('Testing "transform"...')
     logger.info("array shapes:", arr1.shape, arr2.shape, arr3.shape)
 
@@ -671,7 +671,7 @@ def test_transform():
 
     domain_class = getattr(domains, "Colella")
     domain = domain_class()
-    logger.info()
+    logger.info("")
     logger.info("Domain object set.")
 
     assert isinstance(domain, Domain)
@@ -839,7 +839,7 @@ def test_transform():
 #    arr1 = xp.linspace(0., 1., 4)
 #    arr2 = xp.linspace(0., 1., 5)
 #    arr3 = xp.linspace(0., 1., 6)
-#    logger.info()
+#    logger.info("")
 #    logger.info('Testing "transform"...')
 #    logger.info('array shapes:', arr1.shape, arr2.shape, arr3.shape)
 #
@@ -848,7 +848,7 @@ def test_transform():
 #
 #    domain_class = getattr(domains, 'Colella')
 #    domain = domain_class()
-#    logger.info()
+#    logger.info("")
 #    logger.info('Domain object set.')
 #
 #    logger.info('domain\'s kind_map   :', domain.kind_map)

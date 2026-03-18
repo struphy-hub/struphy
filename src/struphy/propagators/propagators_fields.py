@@ -244,7 +244,7 @@ class Maxwell(Propagator):
                 logger.info("Iterations for Maxwell:", info["niter"])
                 logger.info("Maxdiff e for Maxwell:", diffs["e"])
                 logger.info("Maxdiff b for Maxwell:", diffs["b"])
-                logger.info()
+                logger.info("")
 
 
 class OhmCold(Propagator):
@@ -392,7 +392,7 @@ class OhmCold(Propagator):
             logger.info("Iterations for OhmCold:", info["niter"])
             logger.info("Maxdiff e1 for OhmCold:", diffs["e"])
             logger.info("Maxdiff j1 for OhmCold:", diffs["j"])
-            logger.info()
+            logger.info("")
 
 
 class JxBCold(Propagator):
@@ -511,7 +511,7 @@ class JxBCold(Propagator):
             logger.info("Status     for FluidCold:", info["success"])
             logger.info("Iterations for FluidCold:", info["niter"])
             logger.info("Maxdiff j1 for FluidCold:", max_dj)
-            logger.info()
+            logger.info("")
 
 
 class ShearAlfven(Propagator):
@@ -711,7 +711,7 @@ class ShearAlfven(Propagator):
                 logger.info("Iterations for ShearAlfven:", info["niter"])
                 logger.info("Maxdiff up for ShearAlfven:", diffs["u"])
                 logger.info("Maxdiff b2 for ShearAlfven:", diffs["b"])
-                logger.info()
+                logger.info("")
 
 
 class ShearAlfvenB1(Propagator):
@@ -880,7 +880,7 @@ class ShearAlfvenB1(Propagator):
             logger.info("Iterations for ShearAlfvenB1:", info["niter"])
             logger.info("Maxdiff up for ShearAlfvenB1:", max_diffs["u"])
             logger.info("Maxdiff b2 for ShearAlfvenB1:", max_diffs["b"])
-            logger.info()
+            logger.info("")
 
 
 class Hall(Propagator):
@@ -1011,7 +1011,7 @@ class Hall(Propagator):
             logger.info("Status     for Hall:", info["success"])
             logger.info("Iterations for Hall:", info["niter"])
             logger.info("Maxdiff b1 for Hall:", max_db["b"])
-            logger.info()
+            logger.info("")
 
 
 class Magnetosonic(Propagator):
@@ -1218,7 +1218,7 @@ class Magnetosonic(Propagator):
             logger.info("Maxdiff n3 for Magnetosonic:", diffs["n"])
             logger.info("Maxdiff up for Magnetosonic:", diffs["u"])
             logger.info("Maxdiff p3 for Magnetosonic:", diffs["p"])
-            logger.info()
+            logger.info("")
 
 
 class MagnetosonicUniform(Propagator):
@@ -1416,7 +1416,7 @@ class MagnetosonicUniform(Propagator):
             logger.info("Maxdiff n3 for Magnetosonic:", diffs["n"])
             logger.info("Maxdiff up for Magnetosonic:", diffs["u"])
             logger.info("Maxdiff p3 for Magnetosonic:", diffs["p"])
-            logger.info()
+            logger.info("")
 
 
 class FaradayExtended(Propagator):
@@ -1870,7 +1870,7 @@ class CurrentCoupling6DDensity(Propagator):
             logger.info("Status     for CurrentCoupling6DDensity:", info["success"])
             logger.info("Iterations for CurrentCoupling6DDensity:", info["niter"])
             logger.info("Maxdiff up for CurrentCoupling6DDensity:", max_du)
-            logger.info()
+            logger.info("")
 
 
 class ShearAlfvenCurrentCoupling5D(Propagator):
@@ -2127,7 +2127,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
                 logger.info("Iterations for ShearAlfvenCurrentCoupling5D:", info["niter"])
                 logger.info("Maxdiff up for ShearAlfvenCurrentCoupling5D:", diffs["u"])
                 logger.info("Maxdiff b2 for ShearAlfvenCurrentCoupling5D:", diffs["b"])
-                logger.info()
+                logger.info("")
 
     def _initialize_projection_operator_TB(self):
         r"""Initialize BasisProjectionOperator TB with the time-varying weight.
@@ -2445,7 +2445,7 @@ class CurrentCoupling5DDensity(Propagator):
             logger.info("Status     for CurrentCoupling5DDensity:", info["success"])
             logger.info("Iterations for CurrentCoupling5DDensity:", info["niter"])
             logger.info("Maxdiff up for CurrentCoupling5DDensity:", diffs["u"])
-            logger.info()
+            logger.info("")
 
 
 class ImplicitDiffusion(Propagator):
@@ -2931,7 +2931,7 @@ class VariationalMomentumAdvection(Propagator):
         # Jacobian matrix for Newton solve
         self._dt2_brack._scalar = dt / 2
         if self._info:
-            logger.info()
+            logger.info("")
             logger.info("Newton iteration in VariationalMomentumAdvection")
 
         for it in range(self.options.nonlin_solver.maxiter):
@@ -3236,7 +3236,7 @@ class VariationalDensityEvolve(Propagator):
         """Solve the non linear system for updating the variables using Newton iteration method"""
 
         if self._info:
-            logger.info()
+            logger.info("")
             logger.info("Newton iteration in VariationalDensityEvolve")
 
         # Initial variables
@@ -3746,7 +3746,7 @@ class VariationalEntropyEvolve(Propagator):
     def __call_newton(self, dt):
         """Solve the non linear system for updating the variables using Newton iteration method"""
         if self._info:
-            logger.info()
+            logger.info("")
             logger.info("Newton iteration in VariationalEntropyEvolve")
         sn = self.variables.s.spline.vector
         un = self.variables.u.spline.vector
@@ -4142,7 +4142,7 @@ class VariationalMagFieldEvolve(Propagator):
     def __call_newton(self, dt):
         """Solve the non linear system for updating the variables using Newton iteration method"""
         if self._info:
-            logger.info()
+            logger.info("")
             logger.info("Newton iteration in VariationalMagFieldEvolve")
         # Compute implicit approximation of s^{n+1}
         un = self.variables.u.spline.vector
@@ -4576,7 +4576,7 @@ class VariationalPBEvolve(Propagator):
         """Solve the non linear system for updating the variables using Newton iteration method"""
         # In fact it is linear due to the explicit update, only one iteration will be done at each time step
         if self._info:
-            logger.info()
+            logger.info("")
             logger.info("Newton iteration in VariationalPBEvolve")
 
         un = self.variables.u.spline.vector
@@ -5168,7 +5168,7 @@ class VariationalQBEvolve(Propagator):
         """Solve the non linear system for updating the variables using Newton iteration method"""
         # In fact it is linear due to the explicit update, only one iteration will be done at each time step
         if self._info:
-            logger.info()
+            logger.info("")
             logger.info("Newton iteration in VariationalQBEvolve")
 
         un = self.variables.u.spline.vector
@@ -5750,7 +5750,7 @@ class VariationalViscosity(Propagator):
             return
 
         if self._info:
-            logger.info()
+            logger.info("")
             logger.info("Computing the dissipation in VariationalViscosity")
 
         # Update artificial viscosity weighted mass matrix
@@ -6498,7 +6498,7 @@ class VariationalResistivity(Propagator):
             return
 
         if self._info:
-            logger.info()
+            logger.info("")
             logger.info("Computing the dissipation in VariationalResistivity")
 
         total_resistivity = self._update_artificial_resistivity(bn, dt)
@@ -8638,4 +8638,4 @@ class TwoFluidQuasiNeutralFull(Propagator):
             logger.info("Maxdiff u for TwoFluidQuasiNeutralFull:", max_du)
             logger.info("Maxdiff u_e for TwoFluidQuasiNeutralFull:", max_due)
             logger.info("Maxdiff phi for TwoFluidQuasiNeutralFull:", max_dphi)
-            logger.info()
+            logger.info("")

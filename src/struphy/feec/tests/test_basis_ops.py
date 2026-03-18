@@ -335,7 +335,7 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     )
 
     if mpi_rank == 0:
-        logger.info()
+        logger.info("")
         logger.info(derham.domain_array)
 
     mhd_ops_psy = BasisProjectionOperators(derham, domain, eq_mhd=eq_mhd)

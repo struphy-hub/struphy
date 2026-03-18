@@ -619,7 +619,7 @@ RESTARTing from:
                     t1 - t0,
                 )
                 logger.info(message, end="\n")
-                logger.info()
+                logger.info("")
 
             # update time and index (round time to 10 decimals for a clean time grid!)
             self.time_state["value"][0] = round(self.time_state["value"][0] + dt, 14)

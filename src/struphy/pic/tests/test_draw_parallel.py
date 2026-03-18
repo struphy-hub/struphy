@@ -63,7 +63,7 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     domain_decomp = (domain_array, nprocs)
 
     if rank == 0:
-        logger.info()
+        logger.info("")
         logger.info("Domain decomposition according to : ")
         logger.info(derham.domain_array)
 
