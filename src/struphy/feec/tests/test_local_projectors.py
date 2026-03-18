@@ -104,6 +104,7 @@ def test_local_projectors_compare_global(Nel, p, spl_kind):
             assert xp.max(errg) < 0.1
 
 
+@pytest.mark.convergence
 @pytest.mark.parametrize("direction", [0, 1, 2])
 @pytest.mark.parametrize("pi", [3, 4])
 @pytest.mark.parametrize("spl_kindi", [True, False])

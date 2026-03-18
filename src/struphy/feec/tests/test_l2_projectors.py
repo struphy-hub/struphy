@@ -119,6 +119,7 @@ def test_l2_projectors_mappings(Nel, p, spl_kind, array_input, with_gvec=False, 
                 plt.show()
 
 
+@pytest.mark.convergence
 @pytest.mark.parametrize("direction", [0, 1, 2])
 @pytest.mark.parametrize("pi", [1, 2])
 @pytest.mark.parametrize("spl_kindi", [True, False])

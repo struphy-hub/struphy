@@ -173,8 +173,7 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
 
     MPI_COMM.Barrier()
 
-    # Compare to Struphy matrix-free operators
-    # See struphy.feec.projectors.pro_global.mhd_operators_MF.projectors_dot_x for the definition of these operators
+    # TODO: invent some tests, because there are no asserts a the moment.
 
     # operator K3 (V3 --> V3)
     if mpi_rank == 0:

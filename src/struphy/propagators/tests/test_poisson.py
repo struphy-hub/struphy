@@ -30,6 +30,7 @@ rank = comm.Get_rank()
 plt.rcParams.update({"font.size": 22})
 
 
+@pytest.mark.convergence
 @pytest.mark.parametrize("direction", [0, 1, 2])
 @pytest.mark.parametrize("bc_type", ["periodic", "dirichlet", "neumann"])
 @pytest.mark.parametrize(
