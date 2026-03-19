@@ -14,7 +14,7 @@ runs:
       run: |
         TESTMON_KEY="testmon-unit-mpi"
         RUN_MAXWELL="mpirun -n 1 pytest -m single --testmon-forceselect -v --with-mpi --model-name Maxwell"
-        PYTEST_CMD="mpirun -n ${{ inputs.n-procs }} pytest -m 'not convergence' -v --testmon --with-mpi"
+        PYTEST_CMD="mpirun -n ${{ inputs.n-procs }} pytest -v --testmon --with-mpi"
         echo "TESTMON_KEY=${TESTMON_KEY}" >> $GITHUB_ENV
         echo "RUN_MAXWELL=${RUN_MAXWELL}" >> $GITHUB_ENV
         echo "PYTEST_CMD=${PYTEST_CMD}" >> $GITHUB_ENV

@@ -7694,9 +7694,9 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
     @dataclass
     class Options:
-        nu: float | None = None
-        nu_e: float | None = None
-        eps_norm: float | None = None
+        nu: float = 1.0
+        nu_e: float = 1.0
+        eps_norm: float = 1e-3
 
         boundary_data_u: dict[tuple[int, int], Callable] | None = None
         boundary_data_ue: dict[tuple[int, int], Callable] | None = None
@@ -7710,12 +7710,6 @@ class TwoFluidQuasiNeutralFull(Propagator):
         solver_params: SolverParameters | None = None
 
         def __post_init__(self):
-
-            # --- required parameters ---
-            assert self.nu is not None, "nu must be specified"
-            assert self.nu_e is not None, "nu_e must be specified"
-            assert self.eps_norm is not None, "eps_norm must be specified"
-
             # --- physical parameter sanity checks ---
             if self.nu < 0:
                 raise ValueError(f"nu must be non-negative, got {self.nu}")
@@ -7765,7 +7759,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         """
         faces = []
         derham = self.derham
-        derham_v0 = derham.derham_v0
+        derham_v0 = derham
 
         if derham_v0 is None:
             return faces
@@ -7803,10 +7797,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._dt = None
 
         # ---- v0 de Rham complex (from derham.derham_v0) ----------------------
-
-        assert self.derham.derham_v0 is not None, "derham must be constructed with lifting to use this propagator"
-
-        self._derham_v0 = self.derham.derham_v0
+        self._derham_v0 = self.derham
 
         self._mass_ops_v0 = WeightedMassOperators(
             self._derham_v0,
