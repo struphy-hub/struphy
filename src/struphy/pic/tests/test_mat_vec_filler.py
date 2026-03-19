@@ -40,7 +40,7 @@ def test_particle_to_mat_kernels(Nel, p, bcs, n_markers=1):
 
     # DR attributes
     pn = xp.array(DR.p)
-    tn1, tn2, tn3 = DRV0fem.knots
+    tn1, tn2, tn3 = DR.V0fem.knots
 
     starts1 = {}
 
