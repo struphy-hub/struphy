@@ -48,10 +48,10 @@ NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
 
 
 class DiscreteDerham:
-    """Used internally by ``Derham`` (via ``Derham.init_derham``) to create the base FE spaces and derivative operators 
+    """Discrete 3D de Rham sequence built from four FE spaces.
+    
+    Used internally by ``Derham`` (via ``Derham.init_derham``) to create the base FE spaces and derivative operators 
     before boundary, polar, and projector augmentations are added.
-
-    Discrete 3D de Rham sequence built from four FE spaces.
 
     The sequence is represented as
 
@@ -819,6 +819,12 @@ class Derham:
         else:
             P0 = P1 = P2 = P3 = Pv = None
             
+        self._P0glob = P0
+        self._P1glob = P1
+        self._P2glob = P2
+        self._P3glob = P3
+        self._Pvglob = Pv
+            
         if self.with_local_projectors:
             self._P0 = self._P0loc = P0loc
             self._P1 = self._P1loc = P1loc
@@ -826,11 +832,11 @@ class Derham:
             self._P3 = self._P3loc = P3loc
             self._Pv = self._Pvloc = Pvloc
         else:
-            self._P0 = self._P0glob = P0
-            self._P1 = self._P1glob = P1
-            self._P2 = self._P2glob = P2
-            self._P3 = self._P3glob = P3
-            self._Pv = self._Pvglob = Pv
+            self._P0 = P0
+            self._P1 = P1
+            self._P2 = P2
+            self._P3 = P3
+            self._Pv = Pv
 
         # distribute info on domain decomposition
         self._domain_array = self._get_domain_array()
@@ -1123,37 +1129,37 @@ class Derham:
         return self._div
     
     @property
-    def P0(self):
+    def P0(self) -> CommutingProjector | CommutingProjectorLocal:
         """Commuting projector to 0-forms (interpolation).
         If self.with_local_projectors is True, the local projector is chosen."""
         return self._P0
     
     @property
-    def P1(self):
+    def P1(self) -> CommutingProjector | CommutingProjectorLocal:
         """Commuting projector to 1-forms (interpolation and histopolation).
         If self.with_local_projectors is True, the local projector is chosen."""
         return self._P1
     
     @property
-    def P2(self):
+    def P2(self) -> CommutingProjector | CommutingProjectorLocal:
         """Commuting projector to 2-forms (interpolation and histopolation).
         If self.with_local_projectors is True, the local projector is chosen."""
         return self._P2
     
     @property
-    def P3(self):
+    def P3(self) -> CommutingProjector | CommutingProjectorLocal:
         """Commuting projector to 3-forms (histopolation).
         If self.with_local_projectors is True, the local projector is chosen."""
         return self._P3
     
     @property
-    def Pv(self):
+    def Pv(self) -> CommutingProjector | CommutingProjectorLocal:
         """Commuting projector to H1^3 space (interpolation).
         If self.with_local_projectors is True, the local projector is chosen."""
         return self._Pv
     
     @property
-    def projectors(self):
+    def projectors(self) -> dict[str, CommutingProjector | CommutingProjectorLocal]:
         """Dictionary mapping form names to their corresponding projectors. The form names are "0", "1", "2", "3" for the proper de Rham sequence, and "v" for the H1^3 space."""
         return {
             "0": self.P0,
@@ -1726,7 +1732,7 @@ class Derham:
             
         return tuple(Vh_pol)
 
-    def _assemble_projectors(self, *projectors: GlobalGeometricProjector):
+    def _assemble_projectors(self, *projectors: GlobalGeometricProjector) -> tuple[CommutingProjector, ...]:
         tmp = []
         for (sp_id, sp_form), projector in zip(self.space_to_form.items(), projectors):
             tmp.append(CommutingProjector(
@@ -1737,7 +1743,7 @@ class Derham:
             ))
         return tuple(tmp)
     
-    def _assemble_local_projectors(self):
+    def _assemble_local_projectors(self) -> tuple[CommutingProjectorLocal, ...]:
         tmp = []
         for sp_id, sp_form in self.space_to_form.items():
             fem_space = self.fem_spaces[sp_form]

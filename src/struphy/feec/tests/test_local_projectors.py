@@ -1065,7 +1065,7 @@ def test_basis_projection_operator_local_new(Nel, plist, bcs, out_sp_key, in_sp_
     # We get the local projector
     P_Loc = derham.projectors[out_sp_key]
     # We get the global projector
-    P = derham.projectors[out_sp_key]
+    P = derham.projectors_global[out_sp_key]
 
     input = derham.coeff_spaces[in_sp_key].zeros()
     random.seed(42)
