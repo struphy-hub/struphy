@@ -71,37 +71,32 @@ class DiscreteDerham:
 
     # --------------------------------------------------------------------------
     @property
-    def dim(self):
+    def dim(self) -> int:
         """Dimension of the physical and logical domains, which are assumed to be the same."""
         return self._dim
 
     @property
-    def V0(self):
+    def V0(self) -> TensorFemSpace:
         """First space of the de Rham sequence : H1 space"""
         return self._spaces[0]
 
     @property
-    def V1(self):
-        """Second space of the de Rham sequence :
-        - 1d : L2 space
-        - 2d : either Hdiv or Hcurl space
-        - 3d : Hcurl space"""
+    def V1(self) -> VectorFemSpace:
+        """Second space of the de Rham sequence : Hcurl space"""
         return self._spaces[1]
 
     @property
-    def V2(self):
-        """Third space of the de Rham sequence :
-        - 2d : L2 space
-        - 3d : Hdiv space"""
+    def V2(self) -> VectorFemSpace:
+        """Third space of the de Rham sequence : Hdiv space"""
         return self._spaces[2]
 
     @property
-    def V3(self):
-        """Fourth space of the de Rham sequence : L2 space in 3d"""
+    def V3(self) -> TensorFemSpace:
+        """Fourth space of the de Rham sequence : L2 space"""
         return self._spaces[3]
 
     @property
-    def spaces(self):
+    def spaces(self) -> tuple[TensorFemSpace | VectorFemSpace, ...]:
         """Spaces of the proper de Rham sequence (excluding Hvec)."""
         return self._spaces
 
@@ -991,30 +986,30 @@ class Derham:
     # --------------------------
     def init_derham(
         self,
-        Nel: tuple | list,
-        p: tuple | list,
-        spl_kind: tuple | list,
+        Nel: tuple[int, int, int],
+        p: tuple[int, int, int],
+        spl_kind: tuple[bool, bool, bool],
         comm=None,
-        mpi_dims_mask: tuple | list = None,
+        mpi_dims_mask: tuple[bool, bool, bool] = None,
         use_feectools: bool = True,
     ) -> DiscreteDerham:
         """Return a discrete Derham complex. Allows for the use of tiny-feectools.
 
         Parameters
         ----------
-        Nel : list[int]
+        Nel : tuple[int, int, int]
             Number of elements in each direction.
 
-        p : list[int]
+        p : tuple[int, int, int]
             Spline degree in each direction.
 
-        spl_kind : list[bool]
+        spl_kind : tuple[bool, bool, bool]
             Kind of spline in each direction (True=periodic, False=clamped).
 
         comm : mpi4py.MPI.Intracomm
             MPI communicator (within a clone if domain cloning is used, otherwise MPI.COMM_WORLD)
 
-        mpi_dims_mask: list of bool
+        mpi_dims_mask: tuple[bool, bool, bool]
             True if the dimension is to be used in the domain decomposition (=default for each dimension).
             If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
 
@@ -1026,10 +1021,10 @@ class Derham:
             self._domain_decomposition = DomainDecomposition(Nel, spl_kind, comm=comm, mpi_dims_mask=mpi_dims_mask)
 
             _derham = self._discretize_derham(
-                Nel=Nel,
-                p=p,
-                spl_kind=spl_kind,
-                ddm=self.domain_decomposition,
+                Nel,
+                p,
+                spl_kind,
+                self.domain_decomposition,
             )
 
         else:
@@ -1155,10 +1150,10 @@ class Derham:
     # --------------------------
     def _discretize_derham(
         self,
-        Nel: tuple | list,
-        p: tuple | list,
-        spl_kind: tuple | list,
-        ddm: DomainDecomposition = None,
+        Nel: tuple[int, int, int],
+        p: tuple[int, int, int],
+        spl_kind: tuple[bool, bool, bool],
+        ddm: DomainDecomposition,
     ) -> DiscreteDerham:
         """Call routines copied and simplified from feectools.
 
@@ -1184,10 +1179,10 @@ class Derham:
             self._discretize_space(
                 V,
                 basis,
-                Nel=Nel,
-                degree=p,
-                spl_kind=spl_kind,
-                ddm=ddm,
+                Nel,
+                p,
+                spl_kind,
+                ddm,
             )
             for V, basis in zip(derham_spaces, bases)
         ]
@@ -1198,11 +1193,10 @@ class Derham:
         self,
         V: str,
         basis: str,
-        *,
-        Nel: tuple | list = None,
-        degree: tuple | list = None,
-        spl_kind: tuple | list = None,
-        ddm: DomainDecomposition = None,
+        Nel: tuple[int, int, int],
+        degree: tuple[int, int, int],
+        spl_kind: tuple[bool, bool, bool],
+        ddm: DomainDecomposition,
     ) -> TensorFemSpace | VectorFemSpace:
         """
         This function creates discrete Derham spaces over the 3D unit cube (copied partly from psydac).
@@ -1215,13 +1209,13 @@ class Derham:
         basis: str
             Either 'B' (B-splines) or 'M' (D-splines).
 
-        Nel : list[int]
+        Nel : tuple[int, int, int]
             Number of elements in each direction.
 
-        degree : list[int]
+        degree : tuple[int, int, int]
             Spline degree in each direction.
 
-        spl_kind : list[bool]
+        spl_kind : tuple[bool, bool, bool]
             Kind of spline in each direction (True=periodic, False=clamped).
 
         ddm : DomainDecomposition
