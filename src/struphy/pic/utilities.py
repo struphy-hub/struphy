@@ -1,7 +1,7 @@
 import cunumpy as xp
 
-from struphy.feec.utilities import get_quad_grids
 import struphy.pic.utilities_kernels as utils
+from struphy.feec.utilities import get_quad_grids
 
 
 def get_kinetic_energy_particles(fe_coeffs, derham, domain, particles):

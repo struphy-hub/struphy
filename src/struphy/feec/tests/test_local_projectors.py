@@ -871,7 +871,9 @@ def test_basis_projection_operator_local(Nel, plist, bcs, out_sp_key, in_sp_key)
             def f_analytic(e1, e2, e3):
                 return xp.sin(2.0 * xp.pi * e1) + xp.cos(4.0 * xp.pi * e2)
 
-            matrix_new = BasisProjectionOperatorLocal(P_Loc, derham.fem_spaces[in_sp_key], [[f_analytic]], transposed=False)
+            matrix_new = BasisProjectionOperatorLocal(
+                P_Loc, derham.fem_spaces[in_sp_key], [[f_analytic]], transposed=False
+            )
         else:
 
             def f_analytic(e1, e2, e3):
@@ -1105,7 +1107,9 @@ def test_basis_projection_operator_local_new(Nel, plist, bcs, out_sp_key, in_sp_
             def f_analytic(e1, e2, e3):
                 return xp.sin(2.0 * xp.pi * e1) + xp.sin(4.0 * xp.pi * e1)
 
-            matrix_new = BasisProjectionOperatorLocal(P_Loc, derham.fem_spaces[in_sp_key], [[f_analytic]], transposed=False)
+            matrix_new = BasisProjectionOperatorLocal(
+                P_Loc, derham.fem_spaces[in_sp_key], [[f_analytic]], transposed=False
+            )
             matrix_global = BasisProjectionOperator(P, derham.fem_spaces[in_sp_key], [[f_analytic]], transposed=False)
 
             analytic_vals = (

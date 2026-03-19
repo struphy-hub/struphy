@@ -12,11 +12,11 @@ from struphy.polar.basic import PolarVector
 
 
 def get_quad_grids(
-        space: TensorFemSpace | VectorFemSpace,
-        nquads: tuple[int, int, int],
-    ):
-        """Return the 1d quadrature grids in each direction as a tuple."""
-        return tuple({q: gag} for q, gag in zip(nquads, space.get_assembly_grids(*nquads)))
+    space: TensorFemSpace | VectorFemSpace,
+    nquads: tuple[int, int, int],
+):
+    """Return the 1d quadrature grids in each direction as a tuple."""
+    return tuple({q: gag} for q, gag in zip(nquads, space.get_assembly_grids(*nquads)))
 
 
 class RotationMatrix:

@@ -3194,8 +3194,7 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
 
         # knot span indices of elements of local domain
         self._codomain_spans = [
-            quad_grid[nquad].spans
-            for quad_grid, nquad in zip(get_quad_grids(self._W, nquads=self.nquads), self.nquads)
+            quad_grid[nquad].spans for quad_grid, nquad in zip(get_quad_grids(self._W, nquads=self.nquads), self.nquads)
         ]
 
         # global start spline index on process
@@ -3205,14 +3204,12 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
 
         # evaluated basis functions at quadrature points of codomain space
         self._codomain_basis = [
-            quad_grid[nquad].basis
-            for quad_grid, nquad in zip(get_quad_grids(self._W, nquads=self.nquads), self.nquads)
+            quad_grid[nquad].basis for quad_grid, nquad in zip(get_quad_grids(self._W, nquads=self.nquads), self.nquads)
         ]
 
         # knot span indices of elements of local domain
         self._domain_spans = [
-            quad_grid[nquad].spans
-            for quad_grid, nquad in zip(get_quad_grids(self._V, nquads=self.nquads), self.nquads)
+            quad_grid[nquad].spans for quad_grid, nquad in zip(get_quad_grids(self._V, nquads=self.nquads), self.nquads)
         ]
 
         # global start spline index on process
@@ -3223,8 +3220,7 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
 
         # evaluated basis functions at quadrature points of domain space
         self._domain_basis = [
-            quad_grid[nquad].basis
-            for quad_grid, nquad in zip(get_quad_grids(self._V, nquads=self.nquads), self.nquads)
+            quad_grid[nquad].basis for quad_grid, nquad in zip(get_quad_grids(self._V, nquads=self.nquads), self.nquads)
         ]
 
         # global quadrature points (flattened) and weights in format (local element, local weight)

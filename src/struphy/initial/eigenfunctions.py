@@ -126,9 +126,21 @@ class InitialMHDAxisymHdivEigFun:
 
         if derham.polar_ck == -1:
             n_v2_0 = [
-                [derham.V2splines.nbasis[0] - bc1_1 - bc1_2, derham.V2splines.nbasis[0] - bc1_1 - bc1_2, derham.V2splines.nbasis[0] - bc1_1 - bc1_2],
-                [derham.V2splines.nbasis[1] - bc2_1 - bc2_2, derham.V2splines.nbasis[1] - bc2_1 - bc2_2, derham.V2splines.nbasis[1] - bc2_1 - bc2_2],
-                [derham.V2splines.nbasis[2] - bc3_1 - bc3_2, derham.V2splines.nbasis[2] - bc3_1 - bc3_2, derham.V2splines.nbasis[2] - bc3_1 - bc3_2],
+                [
+                    derham.V2splines.nbasis[0] - bc1_1 - bc1_2,
+                    derham.V2splines.nbasis[0] - bc1_1 - bc1_2,
+                    derham.V2splines.nbasis[0] - bc1_1 - bc1_2,
+                ],
+                [
+                    derham.V2splines.nbasis[1] - bc2_1 - bc2_2,
+                    derham.V2splines.nbasis[1] - bc2_1 - bc2_2,
+                    derham.V2splines.nbasis[1] - bc2_1 - bc2_2,
+                ],
+                [
+                    derham.V2splines.nbasis[2] - bc3_1 - bc3_2,
+                    derham.V2splines.nbasis[2] - bc3_1 - bc3_2,
+                    derham.V2splines.nbasis[2] - bc3_1 - bc3_2,
+                ],
             ]
 
             eigvec_1_ten[bc1_1 : derham.V2splines.nbasis[0] - bc1_2, :, :] = eig_vec_1.reshape(n_v2_0[0])

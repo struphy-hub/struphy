@@ -243,13 +243,11 @@ class DerhamOptions:
     """
 
     p: tuple[int, int, int] = (1, 1, 1)
-    bcs: (
-        tuple[
-            None | tuple[NonTrivialBC, NonTrivialBC],
-            None | tuple[NonTrivialBC, NonTrivialBC],
-            None | tuple[NonTrivialBC, NonTrivialBC],
-        ]
-        ) = (None, None, None)
+    bcs: tuple[
+        None | tuple[NonTrivialBC, NonTrivialBC],
+        None | tuple[NonTrivialBC, NonTrivialBC],
+        None | tuple[NonTrivialBC, NonTrivialBC],
+    ] = (None, None, None)
     lifting_eta1: tuple[float | Callable | None, float | Callable | None] | None = None
     lifting_eta2: tuple[float | Callable | None, float | Callable | None] | None = None
     lifting_eta3: tuple[float | Callable | None, float | Callable | None] | None = None
@@ -262,7 +260,9 @@ class DerhamOptions:
         check_option(self.polar_ck, LiteralOptions.PolarRegularity)
         for bc in self.bcs:
             if bc is not None:
-                assert isinstance(bc, tuple) and len(bc) == 2, "Boundary conditions must be given as a tuple (left, right) for each direction."
+                assert isinstance(bc, tuple) and len(bc) == 2, (
+                    "Boundary conditions must be given as a tuple (left, right) for each direction."
+                )
                 check_option(bc[0], LiteralOptions.OptsNonTrivialBoundaryCondition)
                 check_option(bc[1], LiteralOptions.OptsNonTrivialBoundaryCondition)
 

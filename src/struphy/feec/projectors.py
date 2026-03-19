@@ -82,15 +82,15 @@ class TensorCommutingProjector:
         else:
             self._boundary_op = IdentityOperator(self.space.coeff_space)
         self._space = projector_tensor.space
-        
+
         # TODO: delete these:
         self._dofs_extraction_op = IdentityOperator(
-                self.space.coeff_space,
-            )
+            self.space.coeff_space,
+        )
         self._base_extraction_op = IdentityOperator(
-                self.space.coeff_space,
-            )
-        
+            self.space.coeff_space,
+        )
+
         # Kronecker matrices
         self._imat = projector_tensor.imat_kronecker
         self._imatT = self._imat.T
@@ -147,7 +147,7 @@ class TensorCommutingProjector:
     def base_extraction_op(self):
         """Basis functions extraction operator (tensor product basis functions --> polar basis functions)."""
         return self._base_extraction_op
-    
+
     @property
     def is_polar(self):
         """Whether the projector maps to polar splines (True) or pure tensor product splines."""
@@ -235,7 +235,7 @@ class TensorCommutingProjector:
                 x = self.pc0.solve(rhs, out=out)
             else:
                 x = self.pc.solve(rhs, out=out)
-                
+
         return x
 
     def get_dofs(self, fun, dofs=None, apply_bc=False):
@@ -262,7 +262,9 @@ class TensorCommutingProjector:
         if dofs is None:
             dofs = self.projector_tensor(fun, dofs_only=True)
         else:
-            dofs[:] = self.projector_tensor(fun, dofs_only=True) # needs to be revisited, there is always a copy made here.
+            dofs[:] = self.projector_tensor(
+                fun, dofs_only=True
+            )  # needs to be revisited, there is always a copy made here.
 
         # apply boundary operator
         if apply_bc:
@@ -691,7 +693,6 @@ class CommutingProjector:
             apply_bc=apply_bc,
             out=out,
         )
-
 
 
 class CommutingProjectorLocal:
