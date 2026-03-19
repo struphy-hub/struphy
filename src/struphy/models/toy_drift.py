@@ -132,7 +132,9 @@ class ToyDrift(StruphyModel):
 
         # Poisson right-hand side
         particles = self.kinetic_ions.var.particles
-        Z = self.kinetic_ions.charge_number
+        particles.weights = particles.weights_at_t0.copy()
+        
+        alpha = self.kinetic_ions.equation_params.alpha
         epsilon = self.kinetic_ions.equation_params.epsilon
 
         charge_accum = AccumulatorVector(
@@ -149,19 +151,18 @@ class ToyDrift(StruphyModel):
         # rho()
         # rho.show_accumulated_spline_field(Propagator.mass_ops, eta_direction=(True,True,False))
 
-        alpha = self.kinetic_ions.equation_params.alpha
-        epsilon = self.kinetic_ions.equation_params.epsilon
-
         self.propagators.gc_poisson.options.stab_eps = 0.0
         self.propagators.gc_poisson.options.stab_mat = "M0ad"
         self.propagators.gc_poisson.options.rho = rho
         self.propagators.gc_poisson.options.rho_coeffs = alpha**2 / epsilon
         self.propagators.gc_poisson.allocate()
 
+        if particles.control_variate:
+            particles.update_weights()
+
     def update_scalar_quantities(self):
         phi = self.em_fields.phi.spline.vector
         particles = self.kinetic_ions.var.particles
-        epsilon = self.kinetic_ions.equation_params.epsilon
 
         # energy from polarization
         e1 = Propagator.derham.grad.dot(-phi, out=self._e_field)
