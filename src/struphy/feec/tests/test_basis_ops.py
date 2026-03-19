@@ -42,7 +42,7 @@ def test_some_basis_ops(Nel, p, bcs, mapping):
     n_quad_el = [5, 5, 5]
     n_quad_pr = [4, 4, 4]
 
-    DERHAM_PSY = Derham(Nel, p, bcs=bcs, nq_pr=n_quad_pr, nquads=n_quad_el, comm=MPI_COMM)
+    DERHAM_PSY = Derham(Nel, p=p, bcs=bcs, nq_pr=n_quad_pr, nquads=n_quad_el, comm=MPI_COMM)
 
     # grid parameters
     if mpi_rank == 0:
@@ -318,7 +318,7 @@ def test_basis_ops_polar(Nel, p, bcs, mapping, show_plots=False):
 
     derham = Derham(
         Nel,
-        p,
+        p=p,
         bcs=bcs,
         nquads=p,
         nq_pr=nq_pr,

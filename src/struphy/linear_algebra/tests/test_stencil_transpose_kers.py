@@ -36,7 +36,7 @@ def test_1d(Nel, p, bcs, domain_ind, codomain_ind):
         print("codomain_ind=", codomain_ind)
 
     # Psydac discrete Derham sequence
-    derham = Derham([Nel] * 3, [p] * 3, bcs=bcs, comm=comm)
+    derham = Derham([Nel] * 3, p=[p] * 3, bcs=bcs, comm=comm)
     V0 = derham.Vh["0"]
 
     V0_fem = derham.Vh_fem["0"]
@@ -151,7 +151,7 @@ def test_3d(Nel, p, bcs, domain_ind, codomain_ind):
         print("codomain_ind=", codomain_ind)
 
     # Psydac discrete Derham sequence
-    derham = Derham(Nel, p, bcs=bcs, comm=comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     spaces_3d = {}
     spaces_3d["NNN"] = derham.Vh_fem["0"]

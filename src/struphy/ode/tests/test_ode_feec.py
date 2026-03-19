@@ -35,7 +35,7 @@ def test_exp_growth(spaces, algo, show_plots=False):
 
     Nel = [1, 8, 9]
     p = [1, 2, 3]
-    derham = Derham(Nel, p, comm=comm)
+    derham = Derham(Nel, p=p, comm=comm)
 
     c0 = 1.2
     omega = 2.3

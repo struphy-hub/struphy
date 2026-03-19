@@ -21,7 +21,7 @@ def test_lowdim_derham(Nel, p, do_plot=False):
     print("p=", p)
 
     # Psydac discrete Derham sequence
-    derham = Derham(Nel, p, comm=comm)
+    derham = Derham(Nel, p=p, comm=comm)
 
     ############################
     ### TEST STENCIL VECTORS ###

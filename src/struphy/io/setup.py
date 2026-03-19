@@ -79,7 +79,7 @@ def setup_derham(
 
     derham = Derham(
         Nel,
-        p,
+        p=p,
         bcs=bcs,
         lifting_eta1=lifting_eta1,
         lifting_eta2=lifting_eta2,

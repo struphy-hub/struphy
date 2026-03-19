@@ -102,7 +102,7 @@ def test_mass(Nel, p, bcs, mapping, show_plots=False):
     eq_mhd.domain = domain
 
     # derham object
-    derham = Derham(Nel, p, bcs=bcs, comm=mpi_comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=mpi_comm)
 
     print(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
 
@@ -362,7 +362,7 @@ def test_mass_polar(Nel, p, bcs, mapping, show_plots=False):
     # derham object
     derham = Derham(
         Nel,
-        p,
+        p=p,
         bcs=bcs,
         comm=mpi_comm,
         with_projectors=False,
@@ -536,7 +536,7 @@ def test_mass_preconditioner(Nel, p, bcs, mapping, show_plots=False):
     eq_mhd.domain = domain
 
     # derham object
-    derham = Derham(Nel, p, bcs=bcs, comm=mpi_comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=mpi_comm)
 
     fem_spaces = [derham.Vh_fem["0"], derham.Vh_fem["1"], derham.Vh_fem["2"], derham.Vh_fem["3"], derham.Vh_fem["v"]]
 
@@ -807,7 +807,7 @@ def test_mass_preconditioner_polar(Nel, p, bcs, mapping, show_plots=False):
     # derham object
     derham = Derham(
         Nel,
-        p,
+        p=p,
         bcs=bcs,
         comm=mpi_comm,
         with_projectors=False,

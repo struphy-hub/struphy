@@ -88,7 +88,7 @@ def test_accum_poisson(Nel, p, bcs, mapping, num_clones, Np=1000):
 
         derham = Derham(
             Nel,
-            p,
+            p=p,
             bcs=bcs,
             comm=None,
         )
@@ -100,7 +100,7 @@ def test_accum_poisson(Nel, p, bcs, mapping, num_clones, Np=1000):
 
         derham = Derham(
             Nel,
-            p,
+            p=p,
             bcs=bcs,
             comm=clone_config.sub_comm,
         )

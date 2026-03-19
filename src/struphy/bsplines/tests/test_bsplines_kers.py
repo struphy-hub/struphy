@@ -31,7 +31,7 @@ def test_bsplines_span_and_basis(Nel, p, bcs):
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
-    derham = Derham(Nel, p, bcs=bcs, comm=comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     # knot vectors
     tn1, tn2, tn3 = derham.Vh_fem["0"].knots

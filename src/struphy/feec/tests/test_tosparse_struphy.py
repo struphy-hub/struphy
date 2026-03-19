@@ -41,7 +41,7 @@ def test_tosparse_struphy(Nel, p, bcs, mapping):
     domain = domain_class(**dom_params)
 
     # create derham object
-    derham = Derham(Nel, p, bcs=bcs, comm=MPI.COMM_WORLD)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=MPI.COMM_WORLD)
 
     # assemble mass matrices in V0 and V1
     mass = WeightedMassOperators(derham, domain)

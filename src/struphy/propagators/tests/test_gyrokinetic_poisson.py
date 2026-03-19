@@ -119,7 +119,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
 
             # create derham object
             print(f"{bcs =}")
-            derham = Derham(Nel, p, bcs=bcs, comm=comm)
+            derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
             # mass matrices
             mass_ops = WeightedMassOperators(derham, domain)
@@ -311,7 +311,7 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=Fa
             return xp.cos(xp.pi / Lx * x) * (xp.pi / Lx) ** 2
 
     # create derham object
-    derham = Derham(Nel, p, bcs=bcs, comm=comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     # create weighted mass operators
     mass_ops = WeightedMassOperators(derham, domain)
@@ -483,7 +483,7 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
         return dd1 + dd2
 
     # create 3d derham object
-    derham = Derham(Nel, p, bcs=bcs, comm=comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     mass_ops = WeightedMassOperators(derham, domain)
 
@@ -535,7 +535,7 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
     # create 2.5d deRham object
     Nel_new = [Nel[0], Nel[1], 1]
     p[2] = 1
-    derham = Derham(Nel_new, p, bcs=bcs, comm=comm)
+    derham = Derham(Nel_new, p=p, bcs=bcs, comm=comm)
 
     mass_ops = WeightedMassOperators(derham, domain)
 

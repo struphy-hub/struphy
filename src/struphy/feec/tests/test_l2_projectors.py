@@ -25,7 +25,7 @@ def test_l2_projectors_mappings(Nel, p, bcs, array_input, with_gvec=False, with_
     rank = comm.Get_rank()
 
     # create derham object
-    derham = Derham(Nel, p, bcs=bcs, comm=comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     # constant function
     f = lambda e1, e2, e3: xp.sin(xp.pi * e1) * xp.cos(2 * xp.pi * e2)
@@ -176,7 +176,7 @@ def test_l2_projectors_convergence(direction, pi, bc_kind, do_plot=False):
             def f(x, y, z):
                 return fun(z)
 
-        derham = Derham(Nel, p, bcs=bcs, comm=comm)
+        derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
         # create domain object
         dom_type = "Cuboid"

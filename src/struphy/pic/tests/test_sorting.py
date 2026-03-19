@@ -109,7 +109,7 @@ def test_sorting(Nel, p, bcs, mapping, Np, verbose=False):
     domain = domain_class(**dom_params)
 
     # DeRham object
-    derham = Derham(Nel, p, bcs=bcs, comm=mpi_comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=mpi_comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs

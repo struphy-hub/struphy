@@ -33,7 +33,7 @@ def test_particle_to_mat_kernels(Nel, p, bcs, n_markers=1):
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
-    DR = Derham(Nel, p, bcs=bcs, comm=comm)
+    DR = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     if rank == 0:
         print(f"\nNel={Nel}, p={p}, bcs={bcs}\n")

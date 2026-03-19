@@ -39,7 +39,7 @@ def test_toarray_struphy(Nel, p, bcs, mapping):
     domain = domain_class(**dom_params)
 
     # create derham object
-    derham = Derham(Nel, p, bcs=bcs, comm=comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     # assemble mass matrices in V0 and V1
     mass = WeightedMassOperators(derham, domain)

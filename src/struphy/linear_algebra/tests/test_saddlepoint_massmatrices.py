@@ -35,11 +35,11 @@ def test_saddlepointsolver(method_for_solving, Nel, p, bcs, mapping, show_plots=
     mpi_comm.Barrier()
 
     # derham object
-    derham = Derham(Nel, p, bcs=bcs, comm=mpi_comm, local_projectors=False)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=mpi_comm, local_projectors=False)
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
     fem_spaces = [derham.Vh_fem["0"], derham.Vh_fem["1"], derham.Vh_fem["2"], derham.Vh_fem["3"], derham.Vh_fem["v"]]
-    derhamnumpy = Derham(Nel, p, bcs=bcs, domain=domain)
+    derhamnumpy = Derham(Nel, p=p, bcs=bcs, domain=domain)
 
     # Mhd equilibirum (slab)
     mhd_equil_params = {"B0x": 0.0, "B0y": 0.0, "B0z": 1.0, "beta": 2.0, "n0": 1.0}

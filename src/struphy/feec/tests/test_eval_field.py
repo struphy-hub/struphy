@@ -27,7 +27,7 @@ def test_eval_field(Nel, p, bcs):
     rank = comm.Get_rank()
 
     # derham object
-    derham = Derham(Nel, p, bcs=bcs, comm=comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     # fem field objects
     p0 = derham.create_spline_function("pressure", "H1")

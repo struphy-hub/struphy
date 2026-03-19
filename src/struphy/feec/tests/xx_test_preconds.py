@@ -34,7 +34,7 @@ def test_mass_preconditioner(Nel, p, bcs, mapping):
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(mapping[1])
 
-    derham = Derham(Nel, p, bcs=bcs, comm=MPI_COMM)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=MPI_COMM)
     derham_spaces = [derham.V0, derham.V1, derham.V2, derham.V3, derham.V0vec]
 
     # assemble mass matrices in V0, V1, V2 and V3

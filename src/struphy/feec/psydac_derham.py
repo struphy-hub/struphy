@@ -178,7 +178,7 @@ class Derham:
     p : list[int]
         Spline degree in each direction.
 
-    bcs: tuple[None | tuple[OptsBC, OptsBC], None | tuple[OptsBC, OptsBC], None | tuple[OptsBC, OptsBC]] | None = None
+    bcs: tuple[None | tuple[OptsBC, OptsBC], None | tuple[OptsBC, OptsBC], None | tuple[OptsBC, OptsBC]] = (None, None, None)
         Choice of spline boundary conditions at left and right boundary in each direction.
         If None, all directions are periodic (None in a single direction indicates periodic boundary conditions).
 
@@ -197,7 +197,7 @@ class Derham:
     comm : mpi4py.MPI.Intracomm
         MPI communicator (within a clone if domain cloning is used, otherwise MPI.COMM_WORLD)
 
-    mpi_dims_mask: list of bool
+    mpi_dims_mask: tuple[bool, bool, bool] | None
         True if the dimension is to be used in the domain decomposition (=default for each dimension).
         If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
 
@@ -217,80 +217,75 @@ class Derham:
     def __init__(
         self,
         Nel: tuple[int, int, int],
-        p: tuple[int, int, int],
         *,
+        p: tuple[int, int, int] = (1, 1, 1),
         bcs: tuple[
             None | tuple[NonTrivialBC, NonTrivialBC],
             None | tuple[NonTrivialBC, NonTrivialBC],
             None | tuple[NonTrivialBC, NonTrivialBC],
-        ]
-        | None = None,
-        lifting_eta1: tuple[float | Callable | None, float | Callable | None] | None = None,
-        lifting_eta2: tuple[float | Callable | None, float | Callable | None] | None = None,
-        lifting_eta3: tuple[float | Callable | None, float | Callable | None] | None = None,
+        ] = (None, None, None),
+        lifting_eta1: tuple[float | Callable | None, float | Callable | None] = (None, None),
+        lifting_eta2: tuple[float | Callable | None, float | Callable | None] = (None, None),
+        lifting_eta3: tuple[float | Callable | None, float | Callable | None] = (None, None),
         nquads: tuple[int, int, int] | None = None,
         nq_pr: tuple[int, int, int] | None = None,
         comm=None,
-        mpi_dims_mask: list = None,
+        mpi_dims_mask: tuple[bool, bool, bool] = (True, True, True),
         with_projectors: bool = True,
         polar_ck: int = -1,
         local_projectors: bool = False,
-        domain: Domain = None,
+        domain: Domain | None = None,
     ):
         # number of elements and spline degrees in each direction
         assert len(Nel) == 3
         assert len(p) == 3
-
         self._Nel = tuple(Nel)
         self._p = tuple(p)
-        if bcs is not None:
-            self._bcs = tuple(bcs)
-        else:
-            self._bcs = bcs
+        
+        # setting boundary conditions, default is periodic in all directions
+        self._bcs = tuple(bcs)
         self._lifting_eta1 = lifting_eta1
         self._lifting_eta2 = lifting_eta2
         self._lifting_eta3 = lifting_eta3
         liftings = (lifting_eta1, lifting_eta2, lifting_eta3)
 
-        # setting boundary conditions, default is periodic in all directions
         self._spl_kind = [True] * 3
         self._dirichlet_bc = [[False, False], [False, False], [False, False]]
         self._dirichlet_bc_unlifted = None
-        if bcs is not None:
-            assert len(bcs) == 3, (
-                f"bcs must be a tuple of length 3, one for each spatial direction. Got {len(bcs)} entries."
-            )
+        
+        assert len(bcs) == 3, (
+            f"bcs must be a tuple of length 3, one for each spatial direction. Got {len(bcs)} entries."
+        )
 
-            if any([bc == "lifting" for bc in bcs if bc is not None]):
-                self._dirichlet_bc_unlifted = [[False, False], [False, False], [False, False]]
+        if any([bc == "lifting" for bc in bcs if bc is not None]):
+            self._dirichlet_bc_unlifted = [[False, False], [False, False], [False, False]]
 
-            # check for non-periodic BCs:
-            for d, (bc, lifting) in enumerate(zip(bcs, liftings)):
-                if bc is not None:
-                    self._spl_kind[d] = False
-                    assert len(bc) == 2, (
-                        f"Each entry of bcs must be a tuple of length 2, indicating the left and right boundary conditions. Got {len(bc)} entries for {bc}."
-                    )
-                    if bc[0] == "hom_dirichlet" or bc[0] == "lifting":
-                        self._dirichlet_bc[d] = (True, self._dirichlet_bc[d][1])
-                        if bc[0] == "lifting":
-                            assert len(lifting) == 2, (
-                                f"lifting_eta{d + 1} must be a tuple of length 2, indicating the lifting at the left and right boundary."
-                            )
-                            assert lifting[0] is not None, (
-                                f"lifting_eta{d + 1}[0] must be provided if lifting is used as a boundary condition in eta{d + 1}."
-                            )
-                    if bc[1] == "hom_dirichlet" or bc[1] == "lifting":
-                        self._dirichlet_bc[d] = (self._dirichlet_bc[d][0], True)
-                        if bc[1] == "lifting":
-                            assert len(lifting) == 2, (
-                                f"lifting_eta{d + 1} must be a tuple of length 2, indicating the lifting at the left and right boundary."
-                            )
-                            assert lifting[1] is not None, (
-                                f"lifting_eta{d + 1}[1] must be provided if lifting is used as a boundary condition in eta{d + 1}."
-                            )
+        # check for non-periodic BCs:
+        for d, (bc, lifting) in enumerate(zip(bcs, liftings)):
+            if bc is not None:
+                self._spl_kind[d] = False
+                assert len(bc) == 2, (
+                    f"Each entry of bcs must be a tuple of length 2, indicating the left and right boundary conditions. Got {len(bc)} entries for {bc}."
+                )
+                if bc[0] == "hom_dirichlet" or bc[0] == "lifting":
+                    self._dirichlet_bc[d] = (True, self._dirichlet_bc[d][1])
+                    if bc[0] == "lifting":
+                        assert len(lifting) == 2, (
+                            f"lifting_eta{d + 1} must be a tuple of length 2, indicating the lifting at the left and right boundary."
+                        )
+                        assert lifting[0] is not None, (
+                            f"lifting_eta{d + 1}[0] must be provided if lifting is used as a boundary condition in eta{d + 1}."
+                        )
+                if bc[1] == "hom_dirichlet" or bc[1] == "lifting":
+                    self._dirichlet_bc[d] = (self._dirichlet_bc[d][0], True)
+                    if bc[1] == "lifting":
+                        assert len(lifting) == 2, (
+                            f"lifting_eta{d + 1} must be a tuple of length 2, indicating the lifting at the left and right boundary."
+                        )
+                        assert lifting[1] is not None, (
+                            f"lifting_eta{d + 1}[1] must be provided if lifting is used as a boundary condition in eta{d + 1}."
+                        )
 
-        # make tuples
         self._spl_kind = tuple(self._spl_kind)
         self._dirichlet_bc = tuple(tuple(b) for b in self._dirichlet_bc)
 
@@ -321,7 +316,11 @@ class Derham:
         # local projectors
         self._with_local_projectors = local_projectors
 
-        # derham sequence
+        # ---------------------------------------
+        # Setting up the discrete Derham sequence
+        # ---------------------------------------
+        
+        # use psydac or feectools fork
         try:
             import psydac
         except ModuleNotFoundError:
@@ -336,10 +335,48 @@ class Derham:
             mpi_dims_mask=mpi_dims_mask,
             use_feectools=use_feectools,
         )
+        
+        # H1^3 space for vector fields (not part of the proper de Rham sequence, but useful for the projectors and polar extraction operators)
+        h1vec_space = VectorFemSpace(
+                    derham.V0,
+                    derham.V0,
+                    derham.V0,
+                )
+        if use_feectools:
+            h1vec_space.symbolic_space = "H1vec"
+        
+        # FEM spaces
+        self._V0fem = derham.V0
+        self._V1fem = derham.V1
+        self._V2fem = derham.V2
+        self._V3fem = derham.V3
+        self._Vvfem = h1vec_space
+        
+        # Coefficient spaces
+        self._V0 = self._V0fem.coeff_space
+        self._V1 = self._V1fem.coeff_space
+        self._V2 = self._V2fem.coeff_space
+        self._V3 = self._V3fem.coeff_space
+        self._Vvec = self._Vvfem.coeff_space
 
         # exterior derivatives
         self._grad, self._curl, self._div = derham.derivatives_as_matrices
 
+        # commuting projectors
+        P0, P1, P2, P3 = derham.projectors(nquads=self.nq_pr)
+        if self.with_local_projectors:
+            P0loc, P1loc, P2loc, P3loc = self.assemble_local_projectors()
+            self._P0 = P0loc
+            self._P1 = P1loc
+            self._P2 = P2loc
+            self._P3 = P3loc
+        else:
+            self._P0 = P0
+            self._P1 = P1
+            self._P2 = P2
+            self._P3 = P3
+            self._Pv = GlobalGeometricProjectorH1vec(self.Vvfem)
+        
         # expose name-to-form dict
         self._space_to_form = {
             "H1": "0",
@@ -348,17 +385,6 @@ class Derham:
             "L2": "3",
             "H1vec": "v",
         }
-
-        _projectors = derham.projectors(nquads=self.nq_pr)
-
-        # Attributes for vector spaces, FE spline spaces and projectors
-        self._Vh = {}
-        self._Vh_fem = {}
-        # Global projectors
-        self._P = {}
-        # Local projectors
-        if local_projectors:
-            self._Ploc = {}
 
         # info for 1d spline spaces grids
         self._nbasis = {}
@@ -719,56 +745,129 @@ class Derham:
             xp.array(self.Vh["0"].starts),
         )
 
-    @property
-    def derham_v0(self):
-        return self._derham_v0
+    # ------
+    # Inputs
+    # ------
 
     @property
-    def Nel(self):
+    def Nel(self) -> tuple[int, int, int]:
         """List of number of elements (=cells) in each direction."""
         return self._Nel
 
     @property
-    def p(self):
+    def p(self) -> tuple[int, int, int]:
         """List of B-spline degrees in each direction."""
         return self._p
 
     @property
-    def spl_kind(self):
-        """List of spline type (periodic=True or clamped=False) in each direction."""
-        return self._spl_kind
+    def bcs(self) -> tuple[
+            None | tuple[NonTrivialBC, NonTrivialBC],
+            None | tuple[NonTrivialBC, NonTrivialBC],
+            None | tuple[NonTrivialBC, NonTrivialBC],
+        ]:
+        """Tuple of boundary conditions in each direction. 
+        Each entry is either None (periodic) or a tuple with two entries (left and right boundary), 
+        "hom_dirichlet" (homogeneous Dirichlet) or "lifting" (lifting-based BCs)."""
+        return self._bcs
 
     @property
-    def dirichlet_bc(self):
-        """None, or list of boundary conditions in each direction.
-        Each entry is a list with two entries (left and right boundary), "d" (hom. Dirichlet) or None (periodic).
-        """
-        return self._dirichlet_bc
+    def lifting_eta1(self) -> tuple[float | Callable | None, float | Callable | None]:
+        """The lifting parameters for the eta1 direction.
+        It is a tuple of two entries (left and right boundary), 
+        each entry can be a float (=const. boundary condition) or a callable as a function of (eta2, eta3).
+        This is only relevant if lifting-based BCs are used in the eta1 direction."""
+        return self._lifting_eta1
+    
+    @property
+    def lifting_eta2(self) -> tuple[float | Callable | None, float | Callable | None]:
+        """The lifting parameters for the eta2 direction.
+        It is a tuple of two entries (left and right boundary), 
+        each entry can be a float (=const. boundary condition) or a callable as a function of (eta1, eta3).
+        This is only relevant if lifting-based BCs are used in the eta2 direction."""
+        return self._lifting_eta2
 
     @property
-    def nquads(self):
+    def lifting_eta3(self) -> tuple[float | Callable | None, float | Callable | None]:
+        """The lifting parameters for the eta3 direction.
+        It is a tuple of two entries (left and right boundary), 
+        each entry can be a float (=const. boundary condition) or a callable as a function of (eta1, eta2).
+        This is only relevant if lifting-based BCs are used in the eta3 direction."""
+        return self._lifting_eta3
+
+    @property
+    def nquads(self) -> tuple[int, int, int]:
         """List of number of Gauss-Legendre quadrature points in each direction (default = p, leads to exact integration of degree 2p-1 polynomials)."""
         return self._nquads
 
     @property
-    def nq_pr(self):
+    def nq_pr(self) -> tuple[int, int, int]:
         """List of number of Gauss-Legendre quadrature points in histopolation (default = p + 1) in each direction."""
         return self._nq_pr
-
-    @property
-    def with_local_projectors(self):
-        """True if local projectors are to be used instead of the default global ones."""
-        return self._with_local_projectors
 
     @property
     def comm(self):
         """MPI communicator."""
         return self._comm
+    
+    @property
+    def mpi_dims_mask(self) -> tuple[bool, bool, bool]:
+        """List of bool indicating which dimensions are decomposed in the MPI domain decomposition."""
+        return self._mpi_dims_mask
+    
+    @property
+    def with_projectors(self) -> bool:
+        """True if global commuting projectors are to be assembled."""
+        return self._with_projectors
 
     @property
-    def polar_ck(self):
-        """C^k smoothness at eta_1=0."""
+    def polar_ck(self) -> int:
+        """C^k smoothness at eta_1=0. Is -1 for standard tensor product splines and 1 for C^1 polar splines."""
         return self._polar_ck
+    
+    @property
+    def with_local_projectors(self) -> bool:
+        """True if local projectors are to be used instead of the default global ones."""
+        return self._with_local_projectors
+
+    @property
+    def domain(self) -> Domain | None:
+        """Mapping from logical unit cube to physical domain (only needed in case of polar splines with polar_ck=1)."""
+        return self._domain
+    
+    # -------------------------------------
+    # Spline spaces and boundary conditions
+    # -------------------------------------
+    
+    @property
+    def spl_kind(self):
+        """List of bool indicating the kind of spline in each direction (True=periodic, False=clamped)."""
+        return self._spl_kind
+
+    @property
+    def dirichlet_bc(self):
+        """List of tuples indicating whether homogeneous Dirichlet boundary conditions are applied at left and right boundary in each direction."""
+        return self._dirichlet_bc
+    
+    # ------------------------------------
+    # Derham sequence spaces and operators
+    # ------------------------------------
+
+    @property
+    def grad(self):
+        """Discrete gradient H1 -> Hcurl."""
+        return self._grad
+
+    @property
+    def curl(self):
+        """Discrete curl Hcurl -> Hdiv."""
+        return self._curl
+
+    @property
+    def div(self):
+        """Discrete divergence Hdiv -> L2."""
+        return self._div
+
+
 
     @property
     def breaks(self):
@@ -858,16 +957,6 @@ class Derham:
         return self._space_to_form
 
     @property
-    def Vh(self):
-        """Dictionary containing finite-dimensional vector spaces (sub-spaces of continuous spaces, Stencil-/BlockVectorSpace)."""
-        return self._Vh
-
-    @property
-    def Vh_fem(self):
-        """Dictionary containing FEM spline spaces (TensorFem-/VectorFemSpace)."""
-        return self._Vh_fem
-
-    @property
     def nbasis(self):
         """Dictionary containing number of 1d basis functions for each component and spatial direction."""
         return self._nbasis
@@ -934,14 +1023,6 @@ class Derham:
         return self._boundary_ops
 
     @property
-    def P(self):
-        """Dictionary holding global commuting projectors."""
-        if self.with_local_projectors:
-            return self._Ploc
-        else:
-            return self._P
-
-    @property
     def Vh_pol(self):
         """Polar sub-spaces, either PolarDerhamSpace (with polar splines) or Stencil-/BlockVectorSpace (same as self.Vh)"""
         return self._Vh_pol
@@ -961,20 +1042,7 @@ class Derham:
         """Discrete divergence Vh2_pol (Hdiv) -> Vh3_pol (L2) w/o boundary operator."""
         return self._div_bcfree
 
-    @property
-    def grad(self):
-        """Discrete gradient Vh0_pol (H1) -> Vh1_pol (Hcurl)."""
-        return self._grad
-
-    @property
-    def curl(self):
-        """Discrete curl Vh1_pol (Hcurl) -> Vh2_pol (Hdiv)."""
-        return self._curl
-
-    @property
-    def div(self):
-        """Discrete divergence Vh2_pol (Hdiv) -> Vh3_pol (L2)."""
-        return self._div
+    
 
     @property
     def args_derham(self):

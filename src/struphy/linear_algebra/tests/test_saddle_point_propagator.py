@@ -38,7 +38,7 @@ def test_propagator1D(Nel, p, bcs, mapping, epsilon, dt):
     # derham object
     derham = Derham(
         Nel,
-        p,
+        p=p,
         bcs=bcs,
         comm=mpi_comm,
         local_projectors=False,
@@ -246,7 +246,7 @@ def test_propagator2D(Nel, p, bcs, mapping, epsilon, dt):
     # derham object
     derham = Derham(
         Nel,
-        p,
+        p=p,
         bcs=bcs,
         comm=mpi_comm,
         local_projectors=False,

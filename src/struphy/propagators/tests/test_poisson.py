@@ -157,7 +157,7 @@ def test_poisson_1d(
                 print("Direction should be either 0, 1 or 2")
 
             # create derham object
-            derham = Derham(Nel, p, bcs=bcs, comm=comm)
+            derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
             # mass matrices
             mass_ops = WeightedMassOperators(derham, domain)
@@ -291,7 +291,7 @@ def test_poisson_accum_1d(mapping, do_plot=False):
     # create derham object
     Nel = (16, 1, 1)
     p = (2, 1, 1)
-    derham = Derham(Nel, p, comm=comm)
+    derham = Derham(Nel, p=p, comm=comm)
 
     # mass matrices
     mass_ops = WeightedMassOperators(derham, domain)
@@ -505,7 +505,7 @@ def test_poisson_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=False):
             return xp.cos(xp.pi / Lx * x) * (xp.pi / Lx) ** 2
 
     # create derham object
-    derham = Derham(Nel, p, bcs=bcs, comm=comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     # create weighted mass operators
     mass_ops = WeightedMassOperators(derham, domain)

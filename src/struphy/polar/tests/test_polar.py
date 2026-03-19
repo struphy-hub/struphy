@@ -14,7 +14,7 @@ def test_spaces(Nel, p, bcs):
     from struphy.feec.psydac_derham import Derham
     from struphy.polar.basic import PolarDerhamSpace, PolarVector
 
-    derham = Derham(Nel, p, bcs=bcs)
+    derham = Derham(Nel, p=p, bcs=bcs)
 
     print("polar V0:")
     V = PolarDerhamSpace(derham, "H1")
@@ -198,7 +198,7 @@ def test_extraction_ops_and_derivatives(Nel, p, bcs):
     domain = IGAPolarCylinder(**params_map)
 
     # create de Rham sequence
-    derham = Derham(Nel, p, bcs=bcs, comm=comm, polar_ck=1, domain=domain, with_projectors=False)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm, polar_ck=1, domain=domain, with_projectors=False)
 
     # create legacy FEM spaces
 
@@ -309,7 +309,7 @@ def test_projectors(Nel, p, bcs):
     domain = IGAPolarCylinder(**params_map)
 
     # create polar de Rham sequence
-    derham = Derham(Nel, p, bcs=bcs, comm=comm, nq_pr=[6, 6, 6], polar_ck=1, domain=domain)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm, nq_pr=[6, 6, 6], polar_ck=1, domain=domain)
 
     if rank == 0:
         print()

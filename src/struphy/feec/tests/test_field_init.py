@@ -25,7 +25,7 @@ def test_bckgr_init_const(Nel, p, bcs, spaces, vec_comps):
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence and field of space
-    derham = Derham(Nel, p, bcs=bcs, comm=comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     # evaluation grids for comparisons
     e1 = xp.linspace(0.0, 1.0, Nel[0])
@@ -82,7 +82,7 @@ def test_bckgr_init_mhd(Nel, p, bcs, with_desc=False, with_gvec=False, show_plot
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence and field of space
-    derham = Derham(Nel, p, bcs=bcs, comm=comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     # background parameters
     bckgr_0 = FieldsBackground(type="FluidEquilibrium", variable="absB0")
@@ -1161,7 +1161,7 @@ def test_sincos_init_const(Nel, p, show_plot=False):
     }
 
     # Psydac discrete Derham sequence and fields
-    derham = Derham(Nel, p, comm=comm)
+    derham = Derham(Nel, p=p, comm=comm)
 
     field_0 = derham.create_spline_function("name_0", "H1", backgrounds=bckgr_0, perturbations=[f_sin_0, f_cos_0])
     field_1 = derham.create_spline_function(
@@ -1335,10 +1335,10 @@ def test_noise_init(Nel, p, bcs, space, direction):
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence and field of space
-    derham = Derham(Nel, p, bcs=bcs, comm=comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
     field = derham.create_spline_function("field", space)
 
-    derham_np = Derham(Nel, p, bcs=bcs, comm=None)
+    derham_np = Derham(Nel, p=p, bcs=bcs, comm=None)
     field_np = derham_np.create_spline_function("field", space)
 
     # initial conditions

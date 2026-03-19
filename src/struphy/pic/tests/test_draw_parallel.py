@@ -59,7 +59,7 @@ def test_draw(Nel, p, bcs, mapping, ppc=10):
     domain = domain_class(**mapping[1])
 
     # Psydac discrete Derham sequence
-    derham = Derham(Nel, p, bcs=bcs, comm=comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs

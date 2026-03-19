@@ -29,7 +29,7 @@ def test_eval_kernels(Nel, p, bcs, n_markers=10):
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
-    derham = Derham(Nel, p, bcs=bcs, comm=comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     # derham attributes
     tn1, tn2, tn3 = derham.Vh_fem["0"].knots
@@ -230,7 +230,7 @@ def test_eval_pointwise(Nel, p, bcs, n_markers=10):
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
-    derham = Derham(Nel, p, bcs=bcs, comm=comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     # derham attributes
     tn1, tn2, tn3 = derham.Vh_fem["0"].knots
@@ -553,7 +553,7 @@ def test_eval_tensor_product(Nel, p, bcs, n_markers=10):
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
-    derham = Derham(Nel, p, bcs=bcs, comm=comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     # derham attributes
     tn1, tn2, tn3 = derham.Vh_fem["0"].knots
@@ -716,7 +716,7 @@ def test_eval_tensor_product_grid(Nel, p, bcs, n_markers=10):
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
-    derham = Derham(Nel, p, bcs=bcs, comm=comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     # derham attributes
     tn1, tn2, tn3 = derham.Vh_fem["0"].knots

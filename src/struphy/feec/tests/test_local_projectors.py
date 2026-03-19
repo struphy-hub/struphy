@@ -33,7 +33,7 @@ def test_local_projectors_compare_global(Nel, p, bcs):
 
     timei = time.time()
     # create derham object
-    derham = Derham(Nel, p, bcs=bcs, comm=comm, local_projectors=True)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm, local_projectors=True)
     timef = time.time()
     print("Time for building Derham = " + str(timef - timei))
 
@@ -171,7 +171,7 @@ def test_local_projectors_convergence(direction, pi, bc_kind, do_plot=False):
             def f(x, y, z):
                 return fun(z)
 
-        derham = Derham(Nel, p, bcs=bcs, comm=comm, local_projectors=True)
+        derham = Derham(Nel, p=p, bcs=bcs, comm=comm, local_projectors=True)
 
         # loop over spaces
         for sp_id, sp_key in derham.space_to_form.items():
@@ -258,7 +258,7 @@ def aux_test_replication_of_basis(Nel, plist, bcs):
     # get global communicator
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    derham = Derham(Nel, plist, comm=comm, local_projectors=True)
+    derham = Derham(Nel, p=plist, comm=comm, local_projectors=True)
 
     # For B-splines
     sp_key = "0"
@@ -361,7 +361,7 @@ def test_basis_projection_operator_local(Nel, plist, bcs, out_sp_key, in_sp_key)
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     world_size = comm.Get_size()
-    derham = Derham(Nel, plist, bcs=bcs, comm=comm, local_projectors=True)
+    derham = Derham(Nel, p=plist, bcs=bcs, comm=comm, local_projectors=True)
 
     # The first step to test our BasisProjectionOperatorLocal is to build the B and D spline functions in such a way that we can evaluate them in parallel.
     # We cannot us the fields of a derham space to do this since the evaluation of the splines in this way is a collective operation, and we want our functions
@@ -971,7 +971,7 @@ def test_basis_projection_operator_local_new(Nel, plist, bcs, out_sp_key, in_sp_
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     world_size = comm.Get_size()
-    derham = Derham(Nel, plist, bcs=bcs, comm=comm, local_projectors=True)
+    derham = Derham(Nel, p=plist, bcs=bcs, comm=comm, local_projectors=True)
 
     # Building the B-splines
     # We will need the FEM spline space that contains D-splines in all three directions.
@@ -1362,7 +1362,7 @@ def aux_test_spline_evaluation(Nel, plist, bcs):
     # get global communicator
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    derham = Derham(Nel, plist, comm=comm, local_projectors=True)
+    derham = Derham(Nel, p=plist, comm=comm, local_projectors=True)
 
     # The first step to test our BasisProjectionOperatorLocal is to build the B and D spline functions in such a way that we can evaluate them in parallel.
     # We cannot us the fields of a derham space to do this since the evaluation of the splines in this way is a collective operation, and we want our functions

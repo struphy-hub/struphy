@@ -29,7 +29,7 @@ def test_psydac_derham(Nel, p, bcs):
     print("bcs=", bcs)
 
     # Psydac discrete Derham sequence
-    derham = Derham(Nel, p, bcs=bcs, comm=comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     # TODO: test different initializations of Derham
 

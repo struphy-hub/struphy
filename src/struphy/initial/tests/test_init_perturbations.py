@@ -39,7 +39,7 @@ def test_init_modes(Nel, p, bcs, mapping, combine_comps=None, do_plot=False):
     assert isinstance(domain, Domain)
 
     # Derham
-    derham = Derham(Nel, p, bcs=bcs, comm=comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     fields = {}
     for space, form in derham.space_to_form.items():

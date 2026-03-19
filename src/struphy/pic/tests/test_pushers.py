@@ -48,7 +48,7 @@ def test_push_vxb_analytic(Nel, p, bcs, mapping, show_plots=False):
     domain = domain_class(**mapping[1])
 
     # discrete Derham sequence (psydac)
-    derham = Derham(Nel, p, bcs=bcs, comm=comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs
@@ -153,7 +153,7 @@ def test_push_bxu_Hdiv(Nel, p, bcs, mapping, show_plots=False):
     domain = domain_class(**mapping[1])
 
     # discrete Derham sequence (psydac)
-    derham = Derham(Nel, p, bcs=bcs, comm=comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs
@@ -268,7 +268,7 @@ def test_push_bxu_Hcurl(Nel, p, bcs, mapping, show_plots=False):
     domain = domain_class(**mapping[1])
 
     # discrete Derham sequence (psydac)
-    derham = Derham(Nel, p, bcs=bcs, comm=comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs
@@ -383,7 +383,7 @@ def test_push_bxu_H1vec(Nel, p, bcs, mapping, show_plots=False):
     domain = domain_class(**mapping[1])
 
     # discrete Derham sequence (psydac)
-    derham = Derham(Nel, p, bcs=bcs, comm=comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs
@@ -498,7 +498,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, bcs, mapping, show_plots=False):
     domain = domain_class(**mapping[1])
 
     # discrete Derham sequence (psydac)
-    derham = Derham(Nel, p, bcs=bcs, comm=comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs
@@ -624,7 +624,7 @@ def test_push_eta_rk4(Nel, p, bcs, mapping, show_plots=False):
     domain = domain_class(**mapping[1])
 
     # discrete Derham sequence (psydac)
-    derham = Derham(Nel, p, bcs=bcs, comm=comm)
+    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs
