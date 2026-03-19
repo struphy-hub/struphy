@@ -38,7 +38,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, bcs, mapping, show_plots=
     derham = Derham(Nel, p=p, bcs=bcs, comm=mpi_comm, local_projectors=False)
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
-    fem_spaces = [derham.Vh_fem["0"], derham.Vh_fem["1"], derham.Vh_fem["2"], derham.Vh_fem["3"], derham.Vh_fem["v"]]
+    fem_spaces = [derham.V0fem, derham.V1fem, derham.V2fem, derham.V3fem, derham.Vvfem]
     derhamnumpy = Derham(Nel, p=p, bcs=bcs, domain=domain)
 
     # Mhd equilibirum (slab)

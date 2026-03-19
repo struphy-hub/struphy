@@ -910,8 +910,8 @@ class BasisProjectionOperators:
 
         if self.derham.with_local_projectors:
             out = BasisProjectionOperatorLocal(
-                self.derham.P[W_form],
-                self.derham.Vh_fem[V_form],
+                self.derham.projectors[W_form],
+                self.derham.fem_spaces[V_form],
                 fun,
                 self.derham.extraction_ops[V_form],
                 self.derham.boundary_ops[V_form],
@@ -921,8 +921,8 @@ class BasisProjectionOperators:
             )
         else:
             out = BasisProjectionOperator(
-                self.derham.P[W_form],
-                self.derham.Vh_fem[V_form],
+                self.derham.projectors[W_form],
+                self.derham.fem_spaces[V_form],
                 fun,
                 V_extraction_op=self.derham.extraction_ops[V_form],
                 V_boundary_op=self.derham.boundary_ops[V_form],

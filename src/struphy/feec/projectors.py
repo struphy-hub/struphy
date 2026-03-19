@@ -40,6 +40,267 @@ from struphy.polar.basic import PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 
 
+class TensorCommutingProjector:
+    r"""
+    A commuting projector of the 3d :class:`~struphy.feec.psydac_derham.Derham` diagram.
+
+    The general structure of the inter-/histopolation problem reads:
+    given a function :math:`f \in V^\alpha` in one of the (continuous) de Rham spaces :math:`\alpha \in \{0,1,2,3,v\}`,
+    find its projection :math:`f_h \in V_h^\alpha \subset V^\alpha` determined by
+    the spline coefficients :math:`\mathbf f \in \mathbb R^{N_\alpha}` such that
+
+    .. math::
+
+         \mathbb B \, \mathcal I\, \mathbb B^T \mathbf f = \mathbb B \, \mathbf d(f)\,,
+
+    where :math:`\mathbf d(f) \in \mathbb R^{N_\alpha}` are the degrees of freedom corresponding to :math:`f`,
+    and with the following linear operators:
+
+    * :math:`\mathbb B`: :class:`~struphy.feec.linear_operators.BoundaryOperator`,
+    * :math:`\mathcal I`: Kronecker product inter-/histopolation matrix, from :class:`~feectools.feec.global_geometric_projectors.GlobalGeometricProjector`
+
+    :math:`\mathbb B` is the identity in case of no boundary conditions,
+    which gives the pure tensor-product Psydac :class:`~feectools.feec.global_geometric_projectors.GlobalGeometricProjector`.
+
+    Parameters
+    ----------
+    projector_tensor : GlobalGeometricProjector
+        The pure tensor product projector..
+
+    boundary_op : BoundaryOperator
+        The boundary operator applying essential boundary conditions to a vector. If not given, is set to identity.
+    """
+
+    def __init__(
+        self,
+        projector_tensor: GlobalGeometricProjector,
+        boundary_op=None,
+    ):
+        self._projector_tensor = projector_tensor
+        if boundary_op is not None:
+            self._boundary_op = boundary_op
+        else:
+            self._boundary_op = IdentityOperator(self.space.coeff_space)
+        self._space = projector_tensor.space
+        
+        # TODO: delete these:
+        self._dofs_extraction_op = IdentityOperator(
+                self.space.coeff_space,
+            )
+        self._base_extraction_op = IdentityOperator(
+                self.space.coeff_space,
+            )
+        
+        # Kronecker matrices
+        self._imat = projector_tensor.imat_kronecker
+        self._imatT = self._imat.T
+
+        # build inter-/histopolation matrix I = ID * P * I * E^T * ID^T and I0 = B * P * I * E^T * B^T as ComposedLinearOperator
+        B = self.boundary_op
+        self._I = self._imat
+        self._I0 = B @ self.I @ B.T
+
+        # transposed
+        self._IT = self._imatT
+        self._I0T = B @ self._IT @ B.T
+
+        # preconditioner I^(-1) and B * I^(-1) * B^T for iterative polar projections
+        self._pc = ProjectorPreconditioner(
+            self,
+            transposed=False,
+            apply_bc=False,
+        )
+        self._pc0 = ProjectorPreconditioner(
+            self,
+            transposed=False,
+            apply_bc=True,
+        )
+
+        # transposed
+        self._pcT = ProjectorPreconditioner(
+            self,
+            transposed=True,
+            apply_bc=False,
+        )
+        self._pc0T = ProjectorPreconditioner(
+            self,
+            transposed=True,
+            apply_bc=True,
+        )
+
+    @property
+    def projector_tensor(self):
+        """Tensor product projector."""
+        return self._projector_tensor
+
+    @property
+    def space(self):
+        """Tensor product FEM space corresponding to projector."""
+        return self._space
+
+    @property
+    def dofs_extraction_op(self):
+        """Degrees of freedom extraction operator (tensor product DOFs --> polar DOFs)."""
+        return self._dofs_extraction_op
+
+    @property
+    def base_extraction_op(self):
+        """Basis functions extraction operator (tensor product basis functions --> polar basis functions)."""
+        return self._base_extraction_op
+    
+    @property
+    def is_polar(self):
+        """Whether the projector maps to polar splines (True) or pure tensor product splines."""
+        return False
+
+    @property
+    def boundary_op(self):
+        """Boundary operator setting essential boundary conditions to Stencil-/BlockVector."""
+        return self._boundary_op
+
+    @property
+    def I(self):
+        """Inter-/histopolation matrix ID * P * I * E^T * ID^T as ComposedLinearOperator (ID = IdentityOperator)."""
+        return self._I
+
+    @property
+    def I0(self):
+        """Inter-/histopolation matrix B * P * I * E^T * B^T as ComposedLinearOperator."""
+        return self._I0
+
+    @property
+    def IT(self):
+        """Transposed inter-/histopolation matrix ID * E * I^T * P^T * ID^T as ComposedLinearOperator (ID = IdentityOperator)."""
+        return self._IT
+
+    @property
+    def I0T(self):
+        """Transposed inter-/histopolation matrix B * E * I^T * P^T * B^T as ComposedLinearOperator."""
+        return self._I0T
+
+    @property
+    def pc(self):
+        """Preconditioner P * I^(-1) * E^T for iterative polar projections."""
+        return self._pc
+
+    @property
+    def pc0(self):
+        """Preconditioner B * P * I^(-1) * E^T * B^T for iterative polar projections."""
+        return self._pc0
+
+    @property
+    def pcT(self):
+        """Transposed preconditioner P * I^(-T) * E^T for iterative polar projections."""
+        return self._pcT
+
+    @property
+    def pc0T(self):
+        """Transposed preconditioner B * P * I^(-T) * E^T * B^T for iterative polar projections."""
+        return self._pc0T
+
+    def solve(self, rhs, transposed=False, apply_bc=False, out=None, x0=None):
+        """
+        Solves the linear system I * x = rhs, resp. I^T * x = rhs for x, where I is the composite inter-/histopolation matrix.
+
+        Parameters
+        ----------
+        rhs : feectools.linalg.basic.vector
+            The right-hand side of the linear system.
+
+        transposed : bool, optional
+            Whether to invert the transposed inter-/histopolation matrix.
+
+        apply_bc : bool, optional
+            Whether to apply essential boundary conditions to degrees of freedom and coefficients.
+
+        out : feectools.linalg.basic.vector, optional
+            If given, the result will be written into this vector in-place.
+
+        Returns
+        -------
+        x : feectools.linalg.basic.vector
+            Output vector (result of linear system).
+        """
+
+        assert isinstance(rhs, Vector)
+        assert rhs.space == self._I.domain
+
+        if transposed:
+            if apply_bc:
+                x = self.pc0T.solve(rhs, out=out)
+            else:
+                x = self.pcT.solve(rhs, out=out)
+        else:
+            if apply_bc:
+                x = self.pc0.solve(rhs, out=out)
+            else:
+                x = self.pc.solve(rhs, out=out)
+                
+        return x
+
+    def get_dofs(self, fun, dofs=None, apply_bc=False):
+        """
+        Computes the geometric degrees of freedom associated to given callable(s).
+
+        Parameters
+        ----------
+        fun : callable | list
+            The function for which the geometric degrees of freedom shall be computed. List of callables for vector-valued functions.
+
+        dofs : feectools.linalg.basic.vector, optional
+            If given, the dofs will be written into this vector in-place.
+
+        apply_bc : bool, optional
+            Whether to apply essential boundary conditions to degrees of freedom.
+
+        Returns
+        -------
+        dofs : feectools.linalg.basic.vector
+            The geometric degrees of freedom associated to given callable(s) "fun".
+        """
+        # get dofs on tensor-product grid + apply polar DOF extraction operator
+        if dofs is None:
+            dofs = self.projector_tensor(fun, dofs_only=True)
+        else:
+            dofs[:] = self.projector_tensor(fun, dofs_only=True) # needs to be revisited, there is always a copy made here.
+
+        # apply boundary operator
+        if apply_bc:
+            dofs = self.boundary_op.dot(dofs)
+
+        return dofs
+
+    def __call__(self, fun, out=None, dofs=None, apply_bc=False):
+        """
+        Applies projector to given callable(s).
+
+        Parameters
+        ----------
+        fun : callable | list
+            The function to be projected. List of three callables for vector-valued functions.
+
+        out : feectools.linalg.basic.vector, optional
+            If given, the result will be written into this vector in-place.
+
+        dofs : feectools.linalg.basic.vector, optional
+            If given, the dofs will be written into this vector in-place.
+
+        apply_bc : bool, optional
+            Whether to apply essential boundary conditions to degrees of freedom and coefficients.
+
+        Returns
+        -------
+        coeffs : feectools.linalg.basic.vector
+            The FEM spline coefficients after projection.
+        """
+        return self.solve(
+            self.get_dofs(fun, dofs=dofs, apply_bc=apply_bc),
+            transposed=False,
+            apply_bc=apply_bc,
+            out=out,
+        )
+
+
 class CommutingProjector:
     r"""
     A commuting projector of the 3d :class:`~struphy.feec.psydac_derham.Derham` diagram (can be polar).
@@ -430,6 +691,7 @@ class CommutingProjector:
             apply_bc=apply_bc,
             out=out,
         )
+
 
 
 class CommutingProjectorLocal:
@@ -1854,13 +2116,13 @@ class L2Projector:
         self._mass_ops = mass_ops
         self._params = params
         self._space_key = mass_ops.derham.space_to_form[self.space_id]
-        self._space = mass_ops.derham.Vh_fem[self.space_key]
+        self._space = mass_ops.derham.fem_spaces[self.space_key]
 
         # mass matrix
         self._Mmat = getattr(self.mass_ops, "M" + self.space_key)
 
         # quadrature grid
-        self._quad_grid_pts = self.mass_ops.derham.quad_grid_pts[self.space_key]
+        self._quad_grid_pts = self.mass_ops.derham.spline_attributes[self.space_key].quad_grid_pts
 
         if space_id in ("H1", "L2"):
             self._quad_grid_mesh = xp.meshgrid(
@@ -1894,18 +2156,18 @@ class L2Projector:
         # other quad grid info
         if isinstance(self.space, TensorFemSpace):
             self._tensor_fem_spaces = [self.space]
-            self._wts_l = [self.mass_ops.derham.quad_grid_wts[self.space_key]]
+            self._wts_l = [self.mass_ops.derham.spline_attributes[self.space_key].quad_grid_wts]
             self._spans_l = [
-                self.mass_ops.derham.quad_grid_spans[self.space_key],
+                self.mass_ops.derham.spline_attributes[self.space_key].quad_grid_spans,
             ]
             self._bases_l = [
-                self.mass_ops.derham.quad_grid_bases[self.space_key],
+                self.mass_ops.derham.spline_attributes[self.space_key].quad_grid_bases,
             ]
         else:
             self._tensor_fem_spaces = self.space.spaces
-            self._wts_l = self.mass_ops.derham.quad_grid_wts[self.space_key]
-            self._spans_l = self.mass_ops.derham.quad_grid_spans[self.space_key]
-            self._bases_l = self.mass_ops.derham.quad_grid_bases[self.space_key]
+            self._wts_l = self.mass_ops.derham.spline_attributes[self.space_key].quad_grid_wts
+            self._spans_l = self.mass_ops.derham.spline_attributes[self.space_key].quad_grid_spans
+            self._bases_l = self.mass_ops.derham.spline_attributes[self.space_key].quad_grid_bases
 
         # Preconditioner
         if self.params["type"][1] is None:
@@ -1941,7 +2203,7 @@ class L2Projector:
 
     @property
     def space(self):
-        """The Derham finite element space (from ``Derham.Vh_fem``)."""
+        """The Derham finite element space (from ``Derham.fem_spaces``)."""
         return self._space
 
     @property

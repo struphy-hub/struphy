@@ -1718,7 +1718,7 @@ class CurrentCoupling6DDensity(Propagator):
 
         #     # evaluate and save nh0/|det(DF)| (push-forward) at quadrature points for control variate
         #     quad_pts = [quad_grid[nquad].points.flatten()
-        #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
+        #                 for quad_grid, nquad in zip(self.derham.V0fem._quad_grids, self.derham.V0fem.nquads)]
 
         #     self._nh0_at_quad = self.domain.push(
         #         self._particles.f0.n, *quad_pts, kind='3', squeeze_out=False)
@@ -1817,7 +1817,7 @@ class CurrentCoupling6DDensity(Propagator):
         # if self._particles.control_variate:
 
         #     # evaluate magnetic field at quadrature points (in-place)
-        #     WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._b_full2,
+        #     WeightedMassOperator.eval_quad(self.derham.V2fem, self._b_full2,
         #                                    out=[self._b_quad1, self._b_quad2, self._b_quad3])
 
         #     self._mat12[:, :, :] = self._coupling_const * \
@@ -2137,8 +2137,8 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         """
 
         # Call the projector and the space
-        P1 = self.derham.P["1"]
-        Vh = self.derham.Vh_fem[self._u_form]
+        P1 = self.derhamP1
+        Vh = self.derham.fem_spaces[self._u_form]
 
         # Femfield for the field evaluation
         self._bf = self.derham.create_spline_function("bf", "Hdiv")
@@ -2657,7 +2657,7 @@ class ImplicitDiffusion(Propagator):
     @x0.setter
     def x0(self, value: StencilVector):
         """In-place setter for StencilVector/PolarVector. First guess of the iterative solver."""
-        assert value.space == self.derham.Vh["0"]
+        assert value.space == self.derham.V0
         assert value.space.symbolic_space == "H1", (
             f"Right-hand side must be in H1, but is in {value.space.symbolic_space}."
         )
@@ -3393,7 +3393,7 @@ class VariationalDensityEvolve(Propagator):
             recycle=True,
         )
 
-        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.quad_grid_pts["0"]]
+        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V0splines.quad_grid_pts]
 
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
             self.derham.prepare_eval_tp_fixed(
@@ -3409,8 +3409,8 @@ class VariationalDensityEvolve(Propagator):
         self._M_drho = self.mass_ops.create_weighted_mass("L2", "L2")
 
         Jacs = BlockVectorSpace(
-            self.derham.Vh_pol["v"],
-            self.derham.Vh_pol["3"],
+            self.derham.Vvpol,
+            self.derham.V3pol,
         )
 
         self._tmp_f = Jacs.zeros()
@@ -3419,7 +3419,7 @@ class VariationalDensityEvolve(Propagator):
         self._Jacobian = BlockLinearOperator(Jacs, Jacs)
 
         # local version to avoid creating new version of LinearOperator every time
-        self._I3 = IdentityOperator(self.derham.Vh_pol["3"])
+        self._I3 = IdentityOperator(self.derham.V3pol)
 
         self._dt_pc_divPirhoT = 2 * (self.divPirhoT)
         self._dt2_pc_divPirhoT = 2 * (self.divPirhoT)
@@ -3858,8 +3858,8 @@ class VariationalEntropyEvolve(Propagator):
         self._M_ds = self.mass_ops.create_weighted_mass("L2", "L2")
 
         Jacs = BlockVectorSpace(
-            self.derham.Vh_pol["v"],
-            self.derham.Vh_pol["3"],
+            self.derham.Vvpol,
+            self.derham.V3pol,
         )
 
         self._tmp_f = Jacs.zeros()
@@ -3867,7 +3867,7 @@ class VariationalEntropyEvolve(Propagator):
 
         self._Jacobian = BlockLinearOperator(Jacs, Jacs)
 
-        self._I3 = IdentityOperator(self.derham.Vh_pol["3"])
+        self._I3 = IdentityOperator(self.derham.V3pol)
 
         # local version to avoid creating new version of LinearOperator every time
         self._dt_pc_divPisT = 2 * (self.divPisT)
@@ -3901,7 +3901,7 @@ class VariationalEntropyEvolve(Propagator):
         # L2-projector for V3
         self._get_L2dofs_V3 = L2Projector("L2", self.mass_ops).get_dofs
 
-        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.quad_grid_pts["3"]]
+        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts]
 
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
             self.derham.prepare_eval_tp_fixed(
@@ -4272,8 +4272,8 @@ class VariationalMagFieldEvolve(Propagator):
         )
 
         Jacs = BlockVectorSpace(
-            self.derham.Vh_pol["v"],
-            self.derham.Vh_pol["2"],
+            self.derham.Vvpol,
+            self.derham.V2pol,
         )
 
         self._tmp_f = Jacs.zeros()
@@ -4281,7 +4281,7 @@ class VariationalMagFieldEvolve(Propagator):
 
         self._Jacobian = BlockLinearOperator(Jacs, Jacs)
 
-        self._I2 = IdentityOperator(self.derham.Vh_pol["2"])
+        self._I2 = IdentityOperator(self.derham.V2pol)
 
         if self._model == "linear":
             # initialize the jacobian differently if linear model
@@ -4781,7 +4781,7 @@ class VariationalPBEvolve(Propagator):
         self._transop_p = Pressure_transport_operator(self.derham, self.domain, self.basis_ops.Uv, self._gamma)
         self._transop_pT = self._transop_p.T
 
-        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.quad_grid_pts["3"]]
+        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts]
 
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
             self.derham.prepare_eval_tp_fixed(
@@ -4806,11 +4806,11 @@ class VariationalPBEvolve(Propagator):
             verbose=False,
         )
 
-        self._I2 = IdentityOperator(self.derham.Vh_pol["2"])
+        self._I2 = IdentityOperator(self.derham.V2pol)
 
         Jacs = BlockVectorSpace(
-            self.derham.Vh_pol["v"],
-            self.derham.Vh_pol["2"],
+            self.derham.Vvpol,
+            self.derham.V2pol,
         )
 
         self._tmp_f = Jacs.zeros()
@@ -5368,7 +5368,7 @@ class VariationalQBEvolve(Propagator):
         self._transop_q = Pressure_transport_operator(self.derham, self.domain, self.basis_ops.Uv, self._gamma / 2.0)
         self._transop_qT = self._transop_q.T
 
-        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.quad_grid_pts["3"]]
+        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts]
 
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
             self.derham.prepare_eval_tp_fixed(
@@ -5393,13 +5393,13 @@ class VariationalQBEvolve(Propagator):
             verbose=False,
         )
 
-        self._I2 = IdentityOperator(self.derham.Vh_pol["2"])
-        self._I3 = IdentityOperator(self.derham.Vh_pol["3"])
+        self._I2 = IdentityOperator(self.derham.V2pol)
+        self._I3 = IdentityOperator(self.derham.V3pol)
 
         Jacs = BlockVectorSpace(
-            self.derham.Vh_pol["v"],
-            self.derham.Vh_pol["2"],
-            self.derham.Vh_pol["3"],
+            self.derham.Vvpol,
+            self.derham.V2pol,
+            self.derham.V3pol,
         )
 
         self._tmp_f = Jacs.zeros()
@@ -5719,12 +5719,12 @@ class VariationalViscosity(Propagator):
         self._tmp_sn1 = s.space.zeros()
         self._tmp_sn_incr = s.space.zeros()
         self._tmp_sn_weak_diff = s.space.zeros()
-        self._tmp_gu0 = self.derham.Vh_pol["1"].zeros()
-        self._tmp_gu1 = self.derham.Vh_pol["1"].zeros()
-        self._tmp_gu2 = self.derham.Vh_pol["1"].zeros()
-        self._tmp_gu120 = self.derham.Vh_pol["1"].zeros()
-        self._tmp_gu121 = self.derham.Vh_pol["1"].zeros()
-        self._tmp_gu122 = self.derham.Vh_pol["1"].zeros()
+        self._tmp_gu0 = self.derham.V1pol.zeros()
+        self._tmp_gu1 = self.derham.V1pol.zeros()
+        self._tmp_gu2 = self.derham.V1pol.zeros()
+        self._tmp_gu120 = self.derham.V1pol.zeros()
+        self._tmp_gu121 = self.derham.V1pol.zeros()
+        self._tmp_gu122 = self.derham.V1pol.zeros()
         self._linear_form_tot_e = s.space.zeros()
         self._linear_form_en1 = s.space.zeros()
         self.tot_rhs = s.space.zeros()
@@ -5930,18 +5930,18 @@ class VariationalViscosity(Propagator):
         Xv = getattr(self.basis_ops, "Xv")
         Pcoord0 = CoordinateProjector(
             0,
-            self.derham.Vh_pol["v"],
-            self.derham.Vh_pol["0"],
+            self.derham.Vvpol,
+            self.derham.V0pol,
         )
         Pcoord1 = CoordinateProjector(
             1,
-            self.derham.Vh_pol["v"],
-            self.derham.Vh_pol["0"],
+            self.derham.Vvpol,
+            self.derham.V0pol,
         )
         Pcoord2 = CoordinateProjector(
             2,
-            self.derham.Vh_pol["v"],
-            self.derham.Vh_pol["0"],
+            self.derham.Vvpol,
+            self.derham.V0pol,
         )
 
         M1 = self.mass_ops.M1
@@ -6023,8 +6023,8 @@ class VariationalViscosity(Propagator):
         )
 
         self.evol_op = self.inv_lop @ self.r_op
-        # self.evol_op = IdentityOperator(self.derham.Vh_pol['v'])
-        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.quad_grid_pts["3"]]
+        # self.evol_op = IdentityOperator(self.derham.Vvpol)
+        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts]
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
             self.derham.prepare_eval_tp_fixed(
                 integration_grid,
@@ -6467,8 +6467,8 @@ class VariationalResistivity(Propagator):
         self._tmp_sn1 = s.space.zeros()
         self._tmp_sn_incr = s.space.zeros()
         self._tmp_sn_weak_diff = s.space.zeros()
-        self._tmp_cb12 = self.derham.Vh_pol["1"].zeros()
-        self._tmp_cb1 = self.derham.Vh_pol["1"].zeros()
+        self._tmp_cb12 = self.derham.V1pol.zeros()
+        self._tmp_cb1 = self.derham.V1pol.zeros()
         self._linear_form_tot_e = s.space.zeros()
         self._linear_form_en1 = s.space.zeros()
         self.tot_rhs = s.space.zeros()
@@ -6853,8 +6853,8 @@ class VariationalResistivity(Propagator):
         )
 
         self.evol_op = self.inv_lop @ self.r_op
-        # self.evol_op = IdentityOperator(self.derham.Vh_pol['v'])
-        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.quad_grid_pts["3"]]
+        # self.evol_op = IdentityOperator(self.derham.Vvpol)
+        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts]
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
             self.derham.prepare_eval_tp_fixed(
                 integration_grid,
@@ -7211,7 +7211,7 @@ class AdiabaticPhi(Propagator):
         x0: StencilVector = None,
         **params,
     ):
-        assert phi.space == self.derham.Vh["0"]
+        assert phi.space == self.derham.V0
 
         super().__init__(phi)
 
@@ -7290,7 +7290,7 @@ class AdiabaticPhi(Propagator):
             assert isinstance(value[1], Particles)
             self._rho = value
         else:
-            assert value.space == self.derham.Vh["0"]
+            assert value.space == self.derham.V0
             self._rho[:] = value[:]
 
     @property
@@ -7303,7 +7303,7 @@ class AdiabaticPhi(Propagator):
     @x0.setter
     def x0(self, value):
         """In-place setter for StencilVector/PolarVector. First guess of the iterative solver."""
-        assert value.space == self.derham.Vh["0"]
+        assert value.space == self.derham.V0
         assert value.space.symbolic_space == "H1", (
             f"Right-hand side must be in H1, but is in {value.space.symbolic_space}."
         )
@@ -7475,7 +7475,7 @@ class HasegawaWakatani(Propagator):
         self._nu = self.options.nu
 
         # get quadrature grid of V0
-        pts = [grid.flatten() for grid in self.derham.quad_grid_pts["0"]]
+        pts = [grid.flatten() for grid in self.derham.V0splines.quad_grid_pts]
         mesh_pts = xp.meshgrid(*pts, indexing="ij")
 
         # evaluate c(x, y) and metric coeff at local quadrature grid and multiply
@@ -7839,7 +7839,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
         self._A11 = -self._M2B / self.options.eps_norm + self.options.nu * self._lapl
         self._A22 = (
-            -self.options.stab_sigma * IdentityOperator(self.derham.Vh["2"])
+            -self.options.stab_sigma * IdentityOperator(self.derham.V2)
             + self._M2B / self.options.eps_norm
             + self.options.nu_e * self._lapl
         )
@@ -7860,16 +7860,16 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
         self._A11_v0 = -self._M2B_v0 / self.options.eps_norm + self.options.nu * self._lapl_v0
         self._A22_v0 = (
-            -self.options.stab_sigma * IdentityOperator(self._derham_v0.Vh["2"])
+            -self.options.stab_sigma * IdentityOperator(self._derham_v0.V2)
             + self._M2B_v0 / self.options.eps_norm
             + self.options.nu_e * self._lapl_v0
         )
 
         # ---- block saddle-point system ----------------------------------------
 
-        self._block_domain_v0 = BlockVectorSpace(self._derham_v0.Vh["2"], self._derham_v0.Vh["2"])
+        self._block_domain_v0 = BlockVectorSpace(self._derham_v0.V2, self._derham_v0.V2)
         self._block_codomain_v0 = self._block_domain_v0
-        self._block_codomain_B_v0 = self._derham_v0.Vh["3"]
+        self._block_codomain_B_v0 = self._derham_v0.V3
 
         self._B1_v0 = -self._M3_v0 @ self._div_v0
         self._B2_v0 = self._M3_v0 @ self._div_v0

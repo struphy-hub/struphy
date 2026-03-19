@@ -40,11 +40,11 @@ def test_particle_to_mat_kernels(Nel, p, bcs, n_markers=1):
 
     # DR attributes
     pn = xp.array(DR.p)
-    tn1, tn2, tn3 = DR.Vh_fem["0"].knots
+    tn1, tn2, tn3 = DRV0fem.knots
 
     starts1 = {}
 
-    starts1["v0"] = xp.array(DR.Vh["0"].starts)
+    starts1["v0"] = xp.array(DR.V0.starts)
 
     comm.Barrier()
     sleep(0.02 * (rank + 1))
@@ -65,11 +65,11 @@ def test_particle_to_mat_kernels(Nel, p, bcs, n_markers=1):
     mat = {}
     vec = {}
 
-    mat["v0"] = StencilMatrix(DR.Vh["0"], DR.Vh["0"], backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)._data
-    vec["v0"] = StencilVector(DR.Vh["0"])._data
+    mat["v0"] = StencilMatrix(DR.V0, DR.V0, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)._data
+    vec["v0"] = StencilVector(DR.V0)._data
 
-    mat["v3"] = StencilMatrix(DR.Vh["3"], DR.Vh["3"], backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)._data
-    vec["v3"] = StencilVector(DR.Vh["3"])._data
+    mat["v3"] = StencilMatrix(DR.V3, DR.V3, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)._data
+    vec["v3"] = StencilVector(DR.V3)._data
 
     mat["v1"] = []
     for i in range(3):
@@ -77,8 +77,8 @@ def test_particle_to_mat_kernels(Nel, p, bcs, n_markers=1):
         for j in range(3):
             mat["v1"][-1] += [
                 StencilMatrix(
-                    DR.Vh["1"].spaces[i],
-                    DR.Vh["1"].spaces[j],
+                    DR.V1.spaces[i],
+                    DR.V1.spaces[j],
                     backend=PSYDAC_BACKEND_GPYCCEL,
                     precompiled=True,
                 )._data,
@@ -86,7 +86,7 @@ def test_particle_to_mat_kernels(Nel, p, bcs, n_markers=1):
 
     vec["v1"] = []
     for i in range(3):
-        vec["v1"] += [StencilVector(DR.Vh["1"].spaces[i])._data]
+        vec["v1"] += [StencilVector(DR.V1.spaces[i])._data]
 
     mat["v2"] = []
     for i in range(3):
@@ -94,8 +94,8 @@ def test_particle_to_mat_kernels(Nel, p, bcs, n_markers=1):
         for j in range(3):
             mat["v2"][-1] += [
                 StencilMatrix(
-                    DR.Vh["2"].spaces[i],
-                    DR.Vh["2"].spaces[j],
+                    DR.V2.spaces[i],
+                    DR.V2.spaces[j],
                     backend=PSYDAC_BACKEND_GPYCCEL,
                     precompiled=True,
                 )._data,
@@ -103,7 +103,7 @@ def test_particle_to_mat_kernels(Nel, p, bcs, n_markers=1):
 
     vec["v2"] = []
     for i in range(3):
-        vec["v2"] += [StencilVector(DR.Vh["2"].spaces[i])._data]
+        vec["v2"] += [StencilVector(DR.V2.spaces[i])._data]
 
     # Some filling for testing
     fill_mat = xp.reshape(xp.arange(9, dtype=float), (3, 3)) + 1.0

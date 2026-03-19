@@ -19,12 +19,8 @@ class RatGUI(CoilMagneticField):
             p=p,
             bcs=(("free", "free"), ("free", "free"), None),
         )  # Assuming (R=eta1, Z=eta2, phi=eta3) coordinates for csv data (periodic in eta3 only).
-        self._interpolate = derham.P[
-            "v"
-        ].solve  # This is a method for spline interpolation of degree p on the grid Nel in eta-space.
-        self._rhs = derham.Vh[
-            "v"
-        ].zeros()  # This is the vector where we want to store the csv data. It holds all three B-components and will be passed to the interpolator.
+        self._interpolate = derham.Pv.solve  # This is a method for spline interpolation of degree p on the grid Nel in eta-space.
+        self._rhs = derham.Vv.zeros()  # This is the vector where we want to store the csv data. It holds all three B-components and will be passed to the interpolator.
 
         # Extract B_R, B_Z, B_phi from loaded data
         B_R = self._ratgui_csv_data["B_R"]
@@ -37,7 +33,7 @@ class RatGUI(CoilMagneticField):
         self.rhs[2][:] = B_phi
 
         print(f"{self.rhs =}")
-        print(f"{derham.nbasis['v'] =}")
+        print(f"{derham.Vvsplines.nbasis =}")
         print(f"{self.rhs[0] =}")
         print(f"{self.rhs[1] =}")
         print(f"{self.rhs[2] =}")

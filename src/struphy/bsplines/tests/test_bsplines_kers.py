@@ -34,8 +34,8 @@ def test_bsplines_span_and_basis(Nel, p, bcs):
     derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     # knot vectors
-    tn1, tn2, tn3 = derham.Vh_fem["0"].knots
-    td1, td2, td3 = derham.Vh_fem["3"].knots
+    tn1, tn2, tn3 = derham.V0fem.knots
+    td1, td2, td3 = derham.V3fem.knots
 
     # Random points in domain of process
     n_pts = 100

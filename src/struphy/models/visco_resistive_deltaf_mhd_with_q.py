@@ -153,13 +153,13 @@ class ViscoResistiveDeltafMHD_with_q(StruphyModel):
         f = xp.vectorize(f)
         self._integrator = projV3(f)
 
-        self._ones = Propagator.derham.Vh_pol["3"].zeros()
+        self._ones = Propagator.derham.V3pol.zeros()
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.0
         else:
             self._ones[:] = 1.0
 
-        self._tmp_div_B = Propagator.derham.Vh_pol["3"].zeros()
+        self._tmp_div_B = Propagator.derham.V3pol.zeros()
 
     def update_scalar_quantities(self):
         rho = self.mhd.density.spline.vector

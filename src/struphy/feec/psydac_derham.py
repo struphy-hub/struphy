@@ -9,6 +9,7 @@ from feectools.ddm.mpi import MockComm, MockMPI
 from feectools.ddm.mpi import mpi as MPI
 from feectools.feec.derivatives import Curl3D, Divergence3D, Gradient3D
 from feectools.feec.global_geometric_projectors import (
+    GlobalGeometricProjector,
     GlobalGeometricProjectorH1,
     GlobalGeometricProjectorH1vec,
     GlobalGeometricProjectorHcurl,
@@ -29,6 +30,7 @@ from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_produc
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.local_projectors_kernels import get_local_problem_size, select_quasi_points
 from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
+from struphy.feec.utilities import get_quad_grids
 from struphy.fields_background.base import FluidEquilibrium, MHDequilibrium
 from struphy.fields_background.equils import set_defaults
 from struphy.geometry.base import Domain
@@ -46,12 +48,33 @@ NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
 
 
 class DiscreteDerham:
-    """A discrete de Rham sequence in 3D.
+    """Used internally by ``Derham`` (via ``Derham.init_derham``) to create the base FE spaces and derivative operators 
+    before boundary, polar, and projector augmentations are added.
+
+    Discrete 3D de Rham sequence built from four FE spaces.
+
+    The sequence is represented as
+
+    ``V0 --grad--> V1 --curl--> V2 --div--> V3``
+
+    where ``V0`` is an ``H1``-conforming scalar space, ``V1`` an ``Hcurl``
+    vector space, ``V2`` an ``Hdiv`` vector space, and ``V3`` an ``L2``
+    scalar space.
 
     Parameters
     ----------
-    *spaces : list of TensorFemSpace | VectorFemSpace
-        The discrete spaces of the de Rham sequence.
+    *spaces : TensorFemSpace | VectorFemSpace
+        Exactly four discrete spaces, ordered as ``(V0, V1, V2, V3)``.
+        The expected pattern is scalar, vector, vector, scalar.
+
+    Notes
+    -----
+    On construction, differential operators are created and attached to the
+    input spaces as convenience attributes:
+
+    - ``spaces[0].grad`` and ``spaces[0].diff``
+    - ``spaces[1].curl`` and ``spaces[1].diff``
+    - ``spaces[2].div`` and ``spaces[2].diff``
     """
 
     def __init__(self, *spaces):
@@ -116,7 +139,7 @@ class DiscreteDerham:
         return tuple(V.diff for V in self.spaces[:-1])
 
     # --------------------------------------------------------------------------
-    def projectors(self, *, kind="global", nquads=None):
+    def projectors(self, *, kind="global", nquads=None) -> tuple[GlobalGeometricProjector, ...]:
         """Projectors mapping callable functions of the physical coordinates to a
         corresponding `FemField` object in the De Rham sequence.
 
@@ -161,57 +184,384 @@ class DiscreteDerham:
         return P0, P1, P2, P3
 
 
-class Derham:
-    """
-    The discrete Derham sequence on the logical unit cube (3d).
+class SplineAttributes1D:
+    """Container for 1D spline metadata extracted from a 3D FE space.
 
-    The tensor-product discrete deRham complex is loaded using the `Psydac API <https://github.com/pyccel/psydac>`_
-    and then augmented with polar sub-spaces (indicated by a bar) and boundary operators.
+    This helper precomputes and stores per-direction information needed by
+    projection operators, quadrature-based assembly, and spline evaluation
+    kernels. It supports both scalar (`TensorFemSpace`) and vector-valued
+    (`VectorFemSpace`) spaces.
+
+    Parameters
+    ----------
+    femspace : TensorFemSpace | VectorFemSpace
+        Finite-element space from which the 1D spline information is derived.
+
+    nquads : tuple[int, int, int]
+        Number of quadrature points in each logical direction
+        ``(eta_1, eta_2, eta_3)`` for numerical integration grids.
+
+    nq_pr : tuple[int, int, int]
+        Number of quadrature points in each logical direction used to build
+        projection point/weight sets.
+
+    polar_ck : int, default=-1
+        Polar spline regularity flag. ``-1`` selects standard tensor-product
+        splines, while ``1`` enables C1 polar behavior (including the optional
+        shift of points near ``eta_1 = 0`` where required).
+
+    local_projectors : bool, default=False
+        If ``True``, also computes quasi-interpolation point/weight grids used
+        by local commuting projectors.
+
+    Notes
+    -----
+    Data layout depends on the input space type:
+
+    - scalar space: each attribute is indexed by direction;
+    - vector space: each attribute is indexed by component, then direction.
+
+    The class stores:
+
+    - spline descriptors (number of basis functions, spline kind),
+    - projection grids (points, weights, sub-interval markers),
+    - optional local-projector grids,
+    - quadrature grids (points, weights, spans, basis values).
+    """
+
+    def __init__(
+        self,
+        femspace: TensorFemSpace | VectorFemSpace,
+        nquads: tuple[int, int, int],
+        nq_pr: tuple[int, int, int],
+        polar_ck: int = -1,
+        local_projectors: bool = False,
+    ):
+        # inputs
+        assert isinstance(femspace, (TensorFemSpace, VectorFemSpace))
+        self._femspace = femspace
+        self._nquads = nquads
+        self._nq_pr = nq_pr
+        self._local_projectors = local_projectors
+        self._polar_ck = polar_ck
+        
+        # grid attributes
+        self._nbasis = []
+        self._spline_types = []
+        self._spline_types_pyccel = []
+
+        self._proj_grid_pts = []
+        self._proj_grid_wts = []
+        self._proj_grid_subs = []
+
+        if local_projectors:
+            self._proj_loc_grid_pts = []
+            self._proj_loc_grid_wts = []
+        else:
+            self._proj_loc_grid_pts = None
+            self._proj_loc_grid_wts = None
+
+        self._quad_grid_pts = []
+        self._quad_grid_wts = []
+        self._quad_grid_spans = []
+        self._quad_grid_bases = []
+
+        if isinstance(femspace, VectorFemSpace):
+            # We iterate over each component of the vector
+            for comp_space in femspace.spaces:
+                assert isinstance(comp_space, TensorFemSpace)
+                
+                self._nbasis += [[]]
+                self._spline_types += [[]]
+                self._spline_types_pyccel += [[]]
+                self._proj_grid_pts += [[]]
+                self._proj_grid_wts += [[]]
+                if local_projectors:
+                    self._proj_loc_grid_pts += [[]]
+                    self._proj_loc_grid_wts += [[]]
+                self._proj_grid_subs += [[]]
+                self._quad_grid_pts += [[]]
+                self._quad_grid_wts += [[]]
+                self._quad_grid_spans += [[]]
+                self._quad_grid_bases += [[]]
+
+                # space iterates over each of the spatial coordinates.
+                for d, (space, s, e, quad_grid, nquad) in enumerate(
+                    zip(
+                        comp_space.spaces,
+                        comp_space.coeff_space.starts,
+                        comp_space.coeff_space.ends,
+                        get_quad_grids(comp_space, self.nquads),
+                        self.nquads,
+                    ),
+                ):
+                    assert isinstance(space, SplineSpace)
+                    fag = quad_grid[nquad]
+                    assert isinstance(fag, FemAssemblyGrid)
+
+                    self._nbasis[-1] += [space.nbasis]
+                    self._spline_types[-1] += [space.basis]
+                    self._spline_types_pyccel[-1] += [
+                        int(space.basis == "M"),
+                    ]
+
+                    if local_projectors:
+                        ptsloc, wtsloc = get_pts_and_wts_quasi(
+                            space,
+                            polar_shift=d == 0 and self.polar_ck == 1,
+                        )
+                        self._proj_loc_grid_pts[-1] += [ptsloc]
+                        self._proj_loc_grid_wts[-1] += [wtsloc]
+
+                    pts, wts, subs = get_pts_and_wts(
+                        space,
+                        s,
+                        e,
+                        n_quad=self.nq_pr[d],
+                        polar_shift=d == 0 and self.polar_ck == 1,
+                    )
+                    self._proj_grid_subs[-1] += [subs]
+
+                    self._proj_grid_pts[-1] += [pts]
+                    self._proj_grid_wts[-1] += [wts]
+                    self._quad_grid_pts[-1] += [fag.points]
+                    self._quad_grid_wts[-1] += [fag.weights]
+                    self._quad_grid_spans[-1] += [
+                        fag.spans,
+                    ]
+                    self._quad_grid_bases[-1] += [
+                        fag.basis,
+                    ]
+
+                self._spline_types_pyccel[-1] = xp.array(
+                    self._spline_types_pyccel[-1],
+                )
+                
+        # In this case we are working with a scalar valued space
+        elif isinstance(femspace, TensorFemSpace):
+            # nquads must be manually set (has been deprecated in psydac)
+            # femspace.nquads = self.nquads
+
+            # space iterates over each of the spatial coordinates.
+            for d, (space, s, e, quad_grid, nquad) in enumerate(
+                zip(
+                    femspace.spaces,
+                    femspace.coeff_space.starts,
+                    femspace.coeff_space.ends,
+                    get_quad_grids(femspace, self.nquads),
+                    self.nquads,
+                ),
+            ):
+                assert isinstance(space, SplineSpace)
+                fag = quad_grid[nquad]
+                assert isinstance(fag, FemAssemblyGrid)
+
+                self._nbasis += [space.nbasis]
+                self._spline_types += [space.basis]
+                self._spline_types_pyccel += [
+                    int(space.basis == "M"),
+                ]
+
+                if local_projectors:
+                    ptsloc, wtsloc = get_pts_and_wts_quasi(
+                        space,
+                        polar_shift=d == 0 and self.polar_ck == 1,
+                    )
+                    self._proj_loc_grid_pts += [ptsloc]
+                    self._proj_loc_grid_wts += [wtsloc]
+
+                pts, wts, subs = get_pts_and_wts(
+                    space,
+                    s,
+                    e,
+                    n_quad=self.nq_pr[d],
+                    polar_shift=d == 0 and self.polar_ck == 1,
+                )
+                self._proj_grid_subs += [subs]
+                self._proj_grid_pts += [pts]
+                self._proj_grid_wts += [wts]
+
+                self._quad_grid_pts += [fag.points]
+                self._quad_grid_wts += [fag.weights]
+                self._quad_grid_spans += [fag.spans]
+                self._quad_grid_bases += [fag.basis]
+
+            self._spline_types_pyccel = xp.array(
+                self._spline_types_pyccel,
+            )
+        else:
+            raise TypeError(f"{femspace =} is not a valid type.")
+          
+    # ---------------
+    # Input arguments
+    # ---------------
+    @property
+    def femspace(self) -> TensorFemSpace | VectorFemSpace:
+        """The 3d tensor product spline space (scalar or vector valued) from which the 1d spline space information is derived."""
+        return self._femspace
+    
+    @property
+    def nquads(self) -> tuple[int, int, int]:
+        """The number of quadrature points in each direction for numerical integration."""
+        return self._nquads
+    
+    @property
+    def nq_pr(self) -> tuple[int, int, int]:
+        """The number of quadrature points in each direction for the projection."""
+        return self._nq_pr
+    
+    @property
+    def polar_ck(self) -> int:
+        """The polar splines flag."""
+        return self._polar_ck
+
+    @property
+    def local_projectors(self) -> bool:
+        """Whether to use local projectors."""
+        return self._local_projectors
+    
+    # ----------------------------------
+    # Derived 1d spline space attributes
+    # ----------------------------------
+    @property
+    def nbasis(self) -> list[list[int]] | list[int]:
+        """List of number of basis functions in each direction for each component of the vector space (or just one list for scalar space)."""
+        return self._nbasis
+    
+    @property
+    def spline_types(self) -> list[list[str]] | list[str]:
+        """List of spline types in each direction ('B' or 'M') for each component of the vector space (or just one list for scalar space)."""
+        return self._spline_types
+    
+    @property
+    def spline_types_pyccel(self) -> list[xp.ndarray] | xp.ndarray:
+        """List of spline types in each direction as integers (0 for 'B', 1 for 'M') for each component of the vector space (or just one list for scalar space)."""
+        return self._spline_types_pyccel    
+    
+    @property
+    def proj_grid_pts(self) -> list[list[xp.ndarray]] | list[xp.ndarray]:
+        """List of projection grid points in each direction for each component of the vector space (or just one list for scalar space)."""
+        return self._proj_grid_pts
+    
+    @property
+    def proj_grid_wts(self) -> list[list[xp.ndarray]] | list[xp.ndarray]:
+        """List of projection grid weights in each direction for each component of the vector space (or just one list for scalar space)."""
+        return self._proj_grid_wts  
+    
+    @property
+    def proj_grid_subs(self) -> list[list[xp.ndarray]] | list[xp.ndarray]:
+        """List of projection grid sub-interval indices in each direction for each component of the vector space (or just one list for scalar space)."""
+        return self._proj_grid_subs
+    
+    @property
+    def proj_loc_grid_pts(self) -> list[list[xp.ndarray]] | list[xp.ndarray] | None:
+        """List of local projection grid points in each direction for each component of the vector space (or just one list for scalar space)."""
+        return self._proj_loc_grid_pts
+    
+    @property
+    def proj_loc_grid_wts(self) -> list[list[xp.ndarray]] | list[xp.ndarray] | None:
+        """List of local projection grid weights in each direction for each component of the vector space (or just one list for scalar space)."""
+        return self._proj_loc_grid_wts
+    
+    @property
+    def quad_grid_pts(self) -> list[list[xp.ndarray]] | list[xp.ndarray]:
+        """List of quadrature grid points in each direction for each component of the vector space (or just one list for scalar space)."""
+        return self._quad_grid_pts
+    
+    @property
+    def quad_grid_wts(self) -> list[list[xp.ndarray]] | list[xp.ndarray]:
+        """List of quadrature grid weights in each direction for each component of the vector space (or just one list for scalar space)."""
+        return self._quad_grid_wts
+    
+    @property
+    def quad_grid_spans(self) -> list[list[xp.ndarray]] | list[xp.ndarray]:
+        """List of quadrature grid basis function spans in each direction for each component of the vector space (or just one list for scalar space)."""
+        return self._quad_grid_spans
+    
+    @property
+    def quad_grid_bases(self) -> list[list[xp.ndarray]] | list[xp.ndarray]:
+        """List of quadrature grid basis function values in each direction for each component of the vector space (or just one list for scalar space)."""
+        return self._quad_grid_bases
+
+
+class Derham:
+    """High-level discrete de Rham complex on the 3D logical unit cube.
+
+    The class builds a tensor-product base complex through ``DiscreteDerham``
+    and augments it with optional boundary enforcement, optional C1 polar
+    extraction operators, and commuting projectors. It also stores convenient
+    metadata (1D spline attributes, decomposition helpers, index arrays) used
+    by initialization, evaluation, and kernel interfaces.
 
     .. image:: ../../pics/polar_derham.png
 
     Parameters
     ----------
-    Nel : list[int]
-        Number of elements in each direction.
+    Nel : tuple[int, int, int]
+        Number of elements in logical directions ``(eta_1, eta_2, eta_3)``.
 
-    p : list[int]
-        Spline degree in each direction.
+    p : tuple[int, int, int], default=(1, 1, 1)
+        B-spline degree in each logical direction.
 
-    bcs: tuple[None | tuple[OptsBC, OptsBC], None | tuple[OptsBC, OptsBC], None | tuple[OptsBC, OptsBC]] = (None, None, None)
-        Choice of spline boundary conditions at left and right boundary in each direction.
-        If None, all directions are periodic (None in a single direction indicates periodic boundary conditions).
+    bcs : tuple[
+        None | tuple[NonTrivialBC, NonTrivialBC],
+        None | tuple[NonTrivialBC, NonTrivialBC],
+        None | tuple[NonTrivialBC, NonTrivialBC],
+    ], default=(None, None, None)
+        Boundary conditions for each direction. ``None`` means periodic in that
+        direction; otherwise provide ``(left, right)`` with values such as
+        ``"free"``, ``"hom_dirichlet"`` or ``"lifting"``.
 
-    spl_kind : list[bool]
-        Kind of spline in each direction (True=periodic, False=clamped).
+    lifting_eta1 : tuple[float | Callable | None, float | Callable | None], default=(None, None)
+        Lifting data for left/right boundaries in ``eta_1``. Required on a side
+        if that side uses ``"lifting"`` in ``bcs``.
 
-    dirichlet_bc : list[list[bool]]
-        Whether to apply homogeneous Dirichlet boundary conditions (at left or right boundary in each direction).
+    lifting_eta2 : tuple[float | Callable | None, float | Callable | None], default=(None, None)
+        Lifting data for left/right boundaries in ``eta_2``. Required on a side
+        if that side uses ``"lifting"`` in ``bcs``.
 
-    nq_pr : list[int]
-        Number of Gauss-Legendre quadrature points in each direction for geometric projectors (default = p+1, leads to exact integration of degree 2p+1 polynomials).
+    lifting_eta3 : tuple[float | Callable | None, float | Callable | None], default=(None, None)
+        Lifting data for left/right boundaries in ``eta_3``. Required on a side
+        if that side uses ``"lifting"`` in ``bcs``.
 
-    nquads : list[int]
-        Number of Gauss-Legendre quadrature points in each direction (default = p, leads to exact integration of degree 2p-1 polynomials).
+    nquads : tuple[int, int, int] | None, default=None
+        Number of Gauss-Legendre quadrature points used for quadrature grids.
+        If ``None``, defaults to ``p + 1`` per direction.
 
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator (within a clone if domain cloning is used, otherwise MPI.COMM_WORLD)
+    nq_pr : tuple[int, int, int] | None, default=None
+        Number of quadrature points used to build projector point/weight sets.
+        If ``None``, defaults to ``p + 1`` per direction.
 
-    mpi_dims_mask: tuple[bool, bool, bool] | None
-        True if the dimension is to be used in the domain decomposition (=default for each dimension).
-        If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
+    comm : mpi4py.MPI.Intracomm | None, default=None
+        MPI communicator. If ``None``, computations run in serial mode.
 
-    with_projectors : bool
-        Whether to add global commuting projectors to the diagram.
+    mpi_dims_mask : tuple[bool, bool, bool], default=(True, True, True)
+        Mask controlling which logical directions participate in MPI domain
+        decomposition.
 
-    polar_ck : int
-        Smoothness at a polar singularity at eta_1=0 (default -1 : standard tensor product splines, OR 1 : C1 polar splines)
+    with_projectors : bool, default=True
+        If ``True``, assemble commuting projectors.
 
-    local_projectors : bool
-        Whether to build the local commuting projectors based on quasi-inter-/histopolation.
+    polar_ck : int, default=-1
+        Polar regularity flag. Allowed values are ``-1`` (standard tensor
+        product spaces) and ``1`` (C1 polar spaces/operators).
 
-    domain : struphy.geometry.base.Domain
-        Mapping from logical unit cube to physical domain (only needed in case of polar splines polar_ck=1).
+    local_projectors : bool, default=False
+        If ``True``, build local quasi-interpolation/histopolation projectors
+        and expose them as the active ``P0``/``P1``/``P2``/``P3``/``Pv``.
+
+    domain : Domain | None, default=None
+        Physical mapping from logical to physical coordinates. Required when
+        ``polar_ck == 1``.
+
+    Notes
+    -----
+    The underlying base sequence is
+
+    ``V0 --grad--> V1 --curl--> V2 --div--> V3``.
+
+    An auxiliary ``H1vec`` FEM space is also built for vector-field projection
+    and polar extraction machinery.
     """
 
     def __init__(
@@ -255,7 +605,7 @@ class Derham:
         
         assert len(bcs) == 3, (
             f"bcs must be a tuple of length 3, one for each spatial direction. Got {len(bcs)} entries."
-        )
+        )  
 
         if any([bc == "lifting" for bc in bcs if bc is not None]):
             self._dirichlet_bc_unlifted = [[False, False], [False, False], [False, False]]
@@ -306,15 +656,16 @@ class Derham:
             assert len(nq_pr) == 3
             self._nq_pr = tuple(nq_pr)
 
-        # MPI communicators
-        self._comm = comm
-
-        # set polar splines (currently standard tensor-product (-1) and C^1 polar splines (+1) are supported)
+        # smoothness at the polar singularity: default -1 for standard tensor product splines, or 1 for C1 polar splines
         assert polar_ck in {-1, 1}
         self._polar_ck = polar_ck
 
-        # local projectors
+        # Other inputs
+        self._comm = comm
+        self._mpi_dims_mask = mpi_dims_mask
+        self._with_projectors = with_projectors
         self._with_local_projectors = local_projectors
+        self._domain = domain
 
         # ---------------------------------------
         # Setting up the discrete Derham sequence
@@ -352,229 +703,17 @@ class Derham:
         self._V3fem = derham.V3
         self._Vvfem = h1vec_space
         
-        # Coefficient spaces
-        self._V0 = self._V0fem.coeff_space
-        self._V1 = self._V1fem.coeff_space
-        self._V2 = self._V2fem.coeff_space
-        self._V3 = self._V3fem.coeff_space
-        self._Vvec = self._Vvfem.coeff_space
-
-        # exterior derivatives
-        self._grad, self._curl, self._div = derham.derivatives_as_matrices
-
-        # commuting projectors
-        P0, P1, P2, P3 = derham.projectors(nquads=self.nq_pr)
-        if self.with_local_projectors:
-            P0loc, P1loc, P2loc, P3loc = self.assemble_local_projectors()
-            self._P0 = P0loc
-            self._P1 = P1loc
-            self._P2 = P2loc
-            self._P3 = P3loc
-        else:
-            self._P0 = P0
-            self._P1 = P1
-            self._P2 = P2
-            self._P3 = P3
-            self._Pv = GlobalGeometricProjectorH1vec(self.Vvfem)
+        # 1d spline spaces attributes for projector grids and polar extraction operators
+        self._V0splines = SplineAttributes1D(derham.V0, self.nquads, self.nq_pr, polar_ck=self.polar_ck, local_projectors=local_projectors)
+        self._V1splines = SplineAttributes1D(derham.V1, self.nquads, self.nq_pr, polar_ck=self.polar_ck, local_projectors=local_projectors)
+        self._V2splines = SplineAttributes1D(derham.V2, self.nquads, self.nq_pr, polar_ck=self.polar_ck, local_projectors=local_projectors)
+        self._V3splines = SplineAttributes1D(derham.V3, self.nquads, self.nq_pr, polar_ck=self.polar_ck, local_projectors=local_projectors)
+        self._Vvsplines = SplineAttributes1D(h1vec_space, self.nquads, self.nq_pr, polar_ck=self.polar_ck, local_projectors=local_projectors)
         
-        # expose name-to-form dict
-        self._space_to_form = {
-            "H1": "0",
-            "Hcurl": "1",
-            "Hdiv": "2",
-            "L2": "3",
-            "H1vec": "v",
-        }
+        # break points in the three spatial directions
+        self._breaks = [space.breaks for space in derham.V0.spaces]
 
-        # info for 1d spline spaces grids
-        self._nbasis = {}
-        self._spline_types = {}
-        self._spline_types_pyccel = {}
-
-        self._proj_grid_pts = {}
-        self._proj_grid_wts = {}
-        # We only need the subs for the global projector operators, not for the local projectors.
-        self._proj_grid_subs = {}
-
-        if local_projectors:
-            self._proj_loc_grid_pts = {}
-            self._proj_loc_grid_wts = {}
-
-        self._quad_grid_pts = {}
-        self._quad_grid_wts = {}
-        self._quad_grid_spans = {}
-        self._quad_grid_bases = {}
-
-        # i is an int that represents the id of the p-form space. For instance, for V_0, i = 0.
-        for i, sp_form in enumerate(self.space_to_form.values()):
-            # FEM space and projector
-            if sp_form == "v":
-                _h1vec_space = VectorFemSpace(
-                    derham.V0,
-                    derham.V0,
-                    derham.V0,
-                )
-                if use_feectools:
-                    _h1vec_space.symbolic_space = "H1vec"
-                self._Vh_fem[sp_form] = _h1vec_space
-                self._P[sp_form] = GlobalGeometricProjectorH1vec(self.Vh_fem[sp_form])
-            else:
-                self._Vh_fem[sp_form] = getattr(derham, "V" + str(i))
-                self._P[sp_form] = _projectors[i]
-
-            # Vector space
-            self._Vh[sp_form] = self.Vh_fem[sp_form].coeff_space
-
-            # grid attributes
-            self._nbasis[sp_form] = []
-            self._spline_types[sp_form] = []
-            self._spline_types_pyccel[sp_form] = []
-
-            self._proj_grid_pts[sp_form] = []
-            self._proj_grid_wts[sp_form] = []
-            self._proj_grid_subs[sp_form] = []
-
-            if local_projectors:
-                self._proj_loc_grid_pts[sp_form] = []
-                self._proj_loc_grid_wts[sp_form] = []
-
-            self._quad_grid_pts[sp_form] = []
-            self._quad_grid_wts[sp_form] = []
-            self._quad_grid_spans[sp_form] = []
-            self._quad_grid_bases[sp_form] = []
-
-            fem_space = self.Vh_fem[sp_form]
-            # Here we check if we are working with a vector valued space
-            if isinstance(fem_space, VectorFemSpace):
-                # We iterate over each component of the vector
-                for comp_space in fem_space.spaces:
-                    # nquads must be manually set (has been deprecated in psydac)
-                    # comp_space.nquads = self.nquads
-
-                    self._nbasis[sp_form] += [[]]
-                    self._spline_types[sp_form] += [[]]
-                    self._spline_types_pyccel[sp_form] += [[]]
-                    self._proj_grid_pts[sp_form] += [[]]
-                    self._proj_grid_wts[sp_form] += [[]]
-                    if local_projectors:
-                        self._proj_loc_grid_pts[sp_form] += [[]]
-                        self._proj_loc_grid_wts[sp_form] += [[]]
-                    self._proj_grid_subs[sp_form] += [[]]
-                    self._quad_grid_pts[sp_form] += [[]]
-                    self._quad_grid_wts[sp_form] += [[]]
-                    self._quad_grid_spans[sp_form] += [[]]
-                    self._quad_grid_bases[sp_form] += [[]]
-
-                    # space iterates over each of the spatial coordinates.
-                    for d, (space, s, e, quad_grid, nquad) in enumerate(
-                        zip(
-                            comp_space.spaces,
-                            comp_space.coeff_space.starts,
-                            comp_space.coeff_space.ends,
-                            self.get_quad_grids(comp_space),
-                            self.nquads,
-                        ),
-                    ):
-                        assert isinstance(space, SplineSpace)
-                        fag = quad_grid[nquad]
-                        assert isinstance(fag, FemAssemblyGrid)
-
-                        self._nbasis[sp_form][-1] += [space.nbasis]
-                        self._spline_types[sp_form][-1] += [space.basis]
-                        self._spline_types_pyccel[sp_form][-1] += [
-                            int(space.basis == "M"),
-                        ]
-
-                        if local_projectors:
-                            ptsloc, wtsloc = get_pts_and_wts_quasi(
-                                space,
-                                polar_shift=d == 0 and self.polar_ck == 1,
-                            )
-                            self._proj_loc_grid_pts[sp_form][-1] += [ptsloc]
-                            self._proj_loc_grid_wts[sp_form][-1] += [wtsloc]
-
-                        pts, wts, subs = get_pts_and_wts(
-                            space,
-                            s,
-                            e,
-                            n_quad=self.nq_pr[d],
-                            polar_shift=d == 0 and self.polar_ck == 1,
-                        )
-                        self._proj_grid_subs[sp_form][-1] += [subs]
-
-                        self._proj_grid_pts[sp_form][-1] += [pts]
-                        self._proj_grid_wts[sp_form][-1] += [wts]
-                        self._quad_grid_pts[sp_form][-1] += [fag.points]
-                        self._quad_grid_wts[sp_form][-1] += [fag.weights]
-                        self._quad_grid_spans[sp_form][-1] += [
-                            fag.spans,
-                        ]
-                        self._quad_grid_bases[sp_form][-1] += [
-                            fag.basis,
-                        ]
-
-                    self._spline_types_pyccel[sp_form][-1] = xp.array(
-                        self._spline_types_pyccel[sp_form][-1],
-                    )
-            # In this case we are working with a scalar valued space
-            elif isinstance(fem_space, TensorFemSpace):
-                # nquads must be manually set (has been deprecated in psydac)
-                # fem_space.nquads = self.nquads
-
-                # space iterates over each of the spatial coordinates.
-                for d, (space, s, e, quad_grid, nquad) in enumerate(
-                    zip(
-                        fem_space.spaces,
-                        fem_space.coeff_space.starts,
-                        fem_space.coeff_space.ends,
-                        self.get_quad_grids(fem_space),
-                        self.nquads,
-                    ),
-                ):
-                    assert isinstance(space, SplineSpace)
-                    fag = quad_grid[nquad]
-                    assert isinstance(fag, FemAssemblyGrid)
-
-                    self._nbasis[sp_form] += [space.nbasis]
-                    self._spline_types[sp_form] += [space.basis]
-                    self._spline_types_pyccel[sp_form] += [
-                        int(space.basis == "M"),
-                    ]
-
-                    if local_projectors:
-                        ptsloc, wtsloc = get_pts_and_wts_quasi(
-                            space,
-                            polar_shift=d == 0 and self.polar_ck == 1,
-                        )
-                        self._proj_loc_grid_pts[sp_form] += [ptsloc]
-                        self._proj_loc_grid_wts[sp_form] += [wtsloc]
-
-                    pts, wts, subs = get_pts_and_wts(
-                        space,
-                        s,
-                        e,
-                        n_quad=self.nq_pr[d],
-                        polar_shift=d == 0 and self.polar_ck == 1,
-                    )
-                    self._proj_grid_subs[sp_form] += [subs]
-                    self._proj_grid_pts[sp_form] += [pts]
-                    self._proj_grid_wts[sp_form] += [wts]
-
-                    self._quad_grid_pts[sp_form] += [fag.points]
-                    self._quad_grid_wts[sp_form] += [fag.weights]
-                    self._quad_grid_spans[sp_form] += [fag.spans]
-                    self._quad_grid_bases[sp_form] += [fag.basis]
-
-                self._spline_types_pyccel[sp_form] = xp.array(
-                    self._spline_types_pyccel[sp_form],
-                )
-            else:
-                raise TypeError(f"{fem_space =} is not a valid type.")
-
-        # break points
-        self._breaks = [space.breaks for space in derham.spaces[0].spaces]
-
-        # index arrays
+        # arrays for 1d spline indices of N-splines and D-splines
         self._indN = [
             (
                 xp.indices((space.ncells, space.degree + 1))[1]
@@ -583,7 +722,7 @@ class Derham:
                 )[:, None]
             )
             % space.nbasis
-            for space in self._Vh_fem["0"].spaces
+            for space in derham.V0.spaces
         ]
         self._indD = [
             (
@@ -593,8 +732,105 @@ class Derham:
                 )[:, None]
             )
             % space.nbasis
-            for space in self._Vh_fem["3"].spaces
+            for space in derham.V3.spaces
         ]
+        
+        # Coefficient spaces
+        self._V0 = self._V0fem.coeff_space
+        self._V1 = self._V1fem.coeff_space
+        self._V2 = self._V2fem.coeff_space
+        self._V3 = self._V3fem.coeff_space
+        self._Vv = self._Vvfem.coeff_space
+        
+        # polar spaces, these will be just the tensor prodict spaces if polar_ck=-1, and the polar subspaces if polar_ck=1, TODO: separate clearly tensor from polar
+        if self.polar_ck == -1:
+            self._ck_blocks = None
+        else:
+            assert self.domain is not None
+            self._ck_blocks = PolarExtractionBlocksC1(self.domain, self)
+        
+        V0pol, V1pol, V2pol, V3pol, Vvpol = self._assemble_polar_extraction_operators()
+    
+        self._V0pol = V0pol
+        self._V1pol = V1pol
+        self._V2pol = V2pol
+        self._V3pol = V3pol
+        self._Vvpol = Vvpol
+        
+        # Homogeneous Dirichlet boundary operators
+        self._boundary_ops = {}
+        for sp_id, sp_form in self.space_to_form.items():
+            space = self.polar_coeff_spaces[sp_form] # TODO: disentagle tensor from polar spaces
+            if all([dir_bc == (False, False) for dir_bc in self.dirichlet_bc]):
+                self._boundary_ops[sp_form] = IdentityOperator(space)
+            else:
+                self._boundary_ops[sp_form] = BoundaryOperator(
+                    space,
+                    sp_id,
+                    self.dirichlet_bc,
+                )
+
+        # exterior derivatives TODO: disentagle tensor from polar spaces
+        self._grad, self._curl, self._div = derham.derivatives_as_matrices
+        
+        if self.polar_ck == 1:
+            self._grad = PolarLinearOperator(
+                self.V0pol,
+                self.V1pol,
+                self._grad,
+                self.ck_blocks.grad_pol_to_ten,
+                self.ck_blocks.grad_pol_to_pol,
+                self.ck_blocks.grad_e3,
+            )
+            self._curl = PolarLinearOperator(
+                self.V1pol,
+                self.V2pol,
+                self._curl,
+                self.ck_blocks.curl_pol_to_ten,
+                self.ck_blocks.curl_pol_to_pol,
+                self.ck_blocks.curl_e3,
+            )
+            self._div = PolarLinearOperator(
+                self.V2pol,
+                self.V3pol,
+                self._div,
+                self.ck_blocks.div_pol_to_ten,
+                self.ck_blocks.div_pol_to_pol,
+                self.ck_blocks.div_e3,
+            )
+        
+        self._grad_bcfree = self._grad
+        self._curl_bcfree = self._curl
+        self._div_bcfree = self._div
+
+        self._grad = self._boundary_ops["1"] @ self._grad @ self._boundary_ops["0"].T
+        self._curl = self._boundary_ops["2"] @ self._curl @ self._boundary_ops["1"].T
+        self._div = self._boundary_ops["3"] @ self._div @ self._boundary_ops["2"].T
+        
+        # commuting projectors
+        if with_projectors:
+            P0, P1, P2, P3, Pv = self._assemble_projectors(*derham.projectors(nquads=self.nq_pr), 
+                                                           GlobalGeometricProjectorH1vec(self.Vvfem),
+                                                           )
+            if self.with_local_projectors:
+                P0loc, P1loc, P2loc, P3loc, Pvloc = self._assemble_local_projectors() 
+            else:
+                P0loc = P1loc = P2loc = P3loc = Pvloc = None
+        else:
+            P0 = P1 = P2 = P3 = Pv = None
+            
+        if self.with_local_projectors:
+            self._P0 = self._P0loc = P0loc
+            self._P1 = self._P1loc = P1loc
+            self._P2 = self._P2loc = P2loc
+            self._P3 = self._P3loc = P3loc
+            self._Pv = self._Pvloc = Pvloc
+        else:
+            self._P0 = self._P0glob = P0
+            self._P1 = self._P1glob = P1
+            self._P2 = self._P2glob = P2
+            self._P3 = self._P3glob = P3
+            self._Pv = self._Pvglob = Pv
 
         # distribute info on domain decomposition
         self._domain_array = self._get_domain_array()
@@ -606,149 +842,23 @@ class Derham:
         self._index_array = self._get_index_array(
             self.domain_decomposition,
         )
-        self._index_array_N = self._get_index_array(self._Vh["0"].cart)
-        self._index_array_D = self._get_index_array(self._Vh["3"].cart)
+        self._index_array_N = self._get_index_array(self.coeff_spaces["0"].cart)
+        self._index_array_D = self._get_index_array(self.coeff_spaces["3"].cart)
 
         self._neighbours = self._get_neighbours()
-
-        # ------ (Polar) deRham spaces and projectors ------
-        if self.polar_ck == -1:
-            ck_blocks = None
-        else:
-            assert domain is not None
-            ck_blocks = PolarExtractionBlocksC1(domain, self)
-
-        self._Vh_pol = {}
-        self._boundary_ops = {}
-        self._extraction_ops = {}
-        self._dofs_extraction_ops = {}
-
-        # If we are dealing with local projection operators we must compute the weight w^i_j for interpolation, and from them the weights
-        # wh^i_j for histopolation. They can be computed using the quasi-interpolation points for all spatial directions.
-        # Fortunately we already have access to them in the form of self._proj_loc_grid_pts[0].
-        if local_projectors:
-            # Allways call get_weights_local_projector with the grid points and discrete vector space of 0-forms
-            self._wij, self._whij = get_weights_local_projector(
-                self._proj_loc_grid_pts["0"],
-                self.Vh_fem["0"],
-            )
-
-        for i, (sp_id, sp_form) in enumerate(self.space_to_form.items()):
-            vec_space = self._Vh[sp_form]
-            # ------ Extraction operators ------
-            # tensor product case
-            if self.polar_ck == -1:
-                pol_space = self._Vh[sp_form]
-
-                self._extraction_ops[sp_form] = IdentityOperator(pol_space)
-                self._dofs_extraction_ops[sp_form] = IdentityOperator(
-                    pol_space,
-                )
-
-            # C^1 polar spline case
-            else:
-                pol_space = PolarDerhamSpace(self, sp_id)
-
-                self._extraction_ops[sp_form] = PolarExtractionOperator(
-                    vec_space,
-                    pol_space,
-                    ck_blocks.e_ten_to_pol[sp_form],
-                )
-
-                self._dofs_extraction_ops[sp_form] = PolarExtractionOperator(
-                    vec_space,
-                    pol_space,
-                    ck_blocks.p_ten_to_pol[sp_form],
-                    ck_blocks.p_ten_to_ten[sp_form],
-                )
-
-            self._Vh_pol[sp_form] = pol_space
-
-            # ------ Hom. Dirichlet boundary operators ------
-            if all([dir_bc == (False, False) for dir_bc in self.dirichlet_bc]):
-                self._boundary_ops[sp_form] = IdentityOperator(pol_space)
-            else:
-                self._boundary_ops[sp_form] = BoundaryOperator(
-                    pol_space,
-                    sp_id,
-                    self.dirichlet_bc,
-                )
-
-            # ------ Assemble projectors ------
-            if with_projectors:
-                if local_projectors:
-                    fem_space = self.Vh_fem[sp_form]
-                    # We also need the FEM spline space that contains B-splines in all three directions
-                    fem_space_B = self.Vh_fem["0"]
-                    # As well as the FEM spline space that contains D-splines in all three directions.
-                    fem_space_D = self.Vh_fem["3"]
-                    self._Ploc[sp_form] = CommutingProjectorLocal(
-                        sp_id,
-                        sp_form,
-                        fem_space,
-                        self._proj_loc_grid_pts[sp_form],
-                        self._proj_loc_grid_wts[sp_form],
-                        self._wij,
-                        self._whij,
-                        fem_space_B,
-                        fem_space_D,
-                    )
-                self._P[sp_form] = CommutingProjector(
-                    self._P[sp_form],
-                    self._dofs_extraction_ops[sp_form],
-                    self._extraction_ops[sp_form],
-                    self._boundary_ops[sp_form],
-                )
-
-        # set discrete derivatives with polar linear operators
-        if self.polar_ck == 1:
-            self._grad = PolarLinearOperator(
-                self._Vh_pol["0"],
-                self._Vh_pol["1"],
-                self._grad,
-                ck_blocks.grad_pol_to_ten,
-                ck_blocks.grad_pol_to_pol,
-                ck_blocks.grad_e3,
-            )
-            self._curl = PolarLinearOperator(
-                self._Vh_pol["1"],
-                self._Vh_pol["2"],
-                self._curl,
-                ck_blocks.curl_pol_to_ten,
-                ck_blocks.curl_pol_to_pol,
-                ck_blocks.curl_e3,
-            )
-            self._div = PolarLinearOperator(
-                self._Vh_pol["2"],
-                self._Vh_pol["3"],
-                self._div,
-                ck_blocks.div_pol_to_ten,
-                ck_blocks.div_pol_to_pol,
-                ck_blocks.div_e3,
-            )
-
-        # set discrete derivatives with and without boundary operators
-        self._grad_bcfree = self._grad
-        self._curl_bcfree = self._curl
-        self._div_bcfree = self._div
-
-        self._grad = self._boundary_ops["1"] @ self._grad @ self._boundary_ops["0"].T
-        self._curl = self._boundary_ops["2"] @ self._curl @ self._boundary_ops["1"].T
-        self._div = self._boundary_ops["3"] @ self._div @ self._boundary_ops["2"].T
 
         # collect arguments for kernels
         self._args_derham = DerhamArguments(
             xp.array(self.p),
-            self.Vh_fem["0"].knots[0],
-            self.Vh_fem["0"].knots[1],
-            self.Vh_fem["0"].knots[2],
-            xp.array(self.Vh["0"].starts),
+            self.V0fem.knots[0],
+            self.V0fem.knots[1],
+            self.V0fem.knots[2],
+            xp.array(self.V0.starts),
         )
 
-    # ------
-    # Inputs
-    # ------
-
+    # -----------------------------
+    # Input arguments as properties
+    # -----------------------------
     @property
     def Nel(self) -> tuple[int, int, int]:
         """List of number of elements (=cells) in each direction."""
@@ -834,23 +944,168 @@ class Derham:
         """Mapping from logical unit cube to physical domain (only needed in case of polar splines with polar_ck=1)."""
         return self._domain
     
-    # -------------------------------------
-    # Spline spaces and boundary conditions
-    # -------------------------------------
+    # -----------------------------------------
+    # Derham spaces and operators as properties
+    # -----------------------------------------
+    @property
+    def V0fem(self) -> TensorFemSpace:
+        """Psydac's finite element space for 0-forms (scalar H1)."""
+        return self._V0fem
     
     @property
-    def spl_kind(self):
-        """List of bool indicating the kind of spline in each direction (True=periodic, False=clamped)."""
-        return self._spl_kind
+    def V1fem(self) -> VectorFemSpace:
+        """Psydac's finite element space for 1-forms (vector Hcurl)."""
+        return self._V1fem
+    
+    @property
+    def V2fem(self) -> VectorFemSpace:
+        """Psydac's finite element space for 2-forms (vector Hdiv)."""
+        return self._V2fem
+    
+    @property
+    def V3fem(self) -> TensorFemSpace:
+        """Psydac's finite element space for 3-forms (scalar L2)."""
+        return self._V3fem
+    
+    @property
+    def Vvfem(self) -> VectorFemSpace:
+        """Psydac's finite element space for vector H1 fields (not part of the proper de Rham sequence, but useful for the projectors and polar extraction operators)."""
+        return self._Vvfem
+    
+    @property
+    def fem_spaces(self) -> dict[str, TensorFemSpace | VectorFemSpace]:
+        """Dictionary mapping form names to their corresponding finite element spaces."""
+        return {
+            "0": self.V0fem,
+            "1": self.V1fem,
+            "2": self.V2fem,
+            "3": self.V3fem,
+            "v": self.Vvfem,
+        }
+        
+    @property
+    def V0splines(self) -> SplineAttributes1D:
+        """1D spline attributes for the 0-form space (scalar H1)."""
+        return self._V0splines
+    
+    @property
+    def V1splines(self) -> SplineAttributes1D:
+        """1D spline attributes for the 1-form space (vector Hcurl)."""
+        return self._V1splines
+    
+    @property
+    def V2splines(self) -> SplineAttributes1D:
+        """1D spline attributes for the 2-form space (vector Hdiv)."""
+        return self._V2splines
+    
+    @property
+    def V3splines(self) -> SplineAttributes1D:
+        """1D spline attributes for the 3-form space (scalar L2)."""
+        return self._V3splines
+    
+    @property
+    def Vvsplines(self) -> SplineAttributes1D:
+        """1D spline attributes for the H1^3 space (not part of the proper de Rham sequence, but useful for the projectors and polar extraction operators)."""
+        return self._Vvsplines
 
     @property
-    def dirichlet_bc(self):
-        """List of tuples indicating whether homogeneous Dirichlet boundary conditions are applied at left and right boundary in each direction."""
-        return self._dirichlet_bc
+    def spline_attributes(self) -> dict[str, SplineAttributes1D]:
+        """Dictionary mapping form names to their corresponding 1D spline attributes."""
+        return {
+            "0": self.V0splines,
+            "1": self.V1splines,
+            "2": self.V2splines,
+            "3": self.V3splines,
+            "v": self.Vvsplines,
+        }
+
+    @property
+    def V0(self) -> StencilVectorSpace:
+        """Coefficient space for 0-forms (scalar H1)."""
+        return self._V0
     
-    # ------------------------------------
-    # Derham sequence spaces and operators
-    # ------------------------------------
+    @property
+    def V1(self) -> BlockVectorSpace:
+        """Coefficient space for 1-forms (vector Hcurl)."""
+        return self._V1
+    
+    @property
+    def V2(self) -> BlockVectorSpace:
+        """Coefficient space for 2-forms (vector Hdiv)."""
+        return self._V2
+    
+    @property
+    def V3(self) -> StencilVectorSpace:
+        """Coefficient space for 3-forms (scalar L2)."""
+        return self._V3
+    
+    @property
+    def Vv(self) -> BlockVectorSpace:
+        """Coefficient space for vector fields in H1^3 (not part of the proper de Rham sequence, but useful for the projectors and polar extraction operators)."""
+        return self._Vv
+    
+    @property
+    def coeff_spaces(self) -> dict[str, StencilVectorSpace | BlockVectorSpace]:
+        """Dictionary mapping form names to their corresponding coefficient spaces."""
+        return {
+            "0": self.V0,
+            "1": self.V1,
+            "2": self.V2,
+            "3": self.V3,
+            "v": self.Vv,
+        }
+        
+    @property
+    def V0pol(self) -> StencilVectorSpace | PolarDerhamSpace:
+        """Coefficient space for 0-forms (scalar H1) for polar splines."""
+        return self._V0pol
+    
+    @property
+    def V1pol(self) -> BlockVectorSpace | PolarDerhamSpace:
+        """Coefficient space for 1-forms (vector Hcurl) for polar splines."""
+        return self._V1pol
+    
+    @property
+    def V2pol(self) -> BlockVectorSpace | PolarDerhamSpace:
+        """Coefficient space for 2-forms (vector Hdiv) for polar splines."""
+        return self._V2pol
+    
+    @property
+    def V3pol(self) -> StencilVectorSpace | PolarDerhamSpace:
+        """Coefficient space for 3-forms (scalar L2) for polar splines."""
+        return self._V3pol
+    
+    @property
+    def Vvpol(self) -> BlockVectorSpace | PolarDerhamSpace:
+        """Coefficient space for vector fields in H1^3 for polar splines (not part of the proper de Rham sequence, but useful for the projectors and polar extraction operators)."""
+        return self._Vvpol
+    
+    @property
+    def polar_coeff_spaces(self) -> dict[str, StencilVectorSpace | BlockVectorSpace | PolarDerhamSpace]:
+        """Dictionary mapping form names to their corresponding coefficient spaces for polar splines."""
+        return {
+            "0": self.V0pol,
+            "1": self.V1pol,
+            "2": self.V2pol,
+            "3": self.V3pol,
+            "v": self.Vvpol,
+        }
+        
+    @property
+    def ck_blocks(self) -> PolarExtractionBlocksC1 | None:
+        """Polar extraction blocks for C1 polar splines. Is None if polar_ck=-1 (standard tensor product splines)."""
+        return self._ck_blocks  
+
+    @property
+    def space_to_form(self) -> dict[str, str]:
+        """Dictionary mapping space names to form names. The form names are "0", "1", "2", "3" for the proper de Rham sequence, and "v" for the H1^3 space."""
+        return {
+            "H1": "0",
+            "Hcurl": "1",
+            "Hdiv": "2",
+            "L2": "3",
+            "H1vec": "v",
+        }
 
     @property
     def grad(self):
@@ -866,8 +1121,132 @@ class Derham:
     def div(self):
         """Discrete divergence Hdiv -> L2."""
         return self._div
+    
+    @property
+    def P0(self):
+        """Commuting projector to 0-forms (interpolation).
+        If self.with_local_projectors is True, the local projector is chosen."""
+        return self._P0
+    
+    @property
+    def P1(self):
+        """Commuting projector to 1-forms (interpolation and histopolation).
+        If self.with_local_projectors is True, the local projector is chosen."""
+        return self._P1
+    
+    @property
+    def P2(self):
+        """Commuting projector to 2-forms (interpolation and histopolation).
+        If self.with_local_projectors is True, the local projector is chosen."""
+        return self._P2
+    
+    @property
+    def P3(self):
+        """Commuting projector to 3-forms (histopolation).
+        If self.with_local_projectors is True, the local projector is chosen."""
+        return self._P3
+    
+    @property
+    def Pv(self):
+        """Commuting projector to H1^3 space (interpolation).
+        If self.with_local_projectors is True, the local projector is chosen."""
+        return self._Pv
+    
+    @property
+    def projectors(self):
+        """Dictionary mapping form names to their corresponding projectors. The form names are "0", "1", "2", "3" for the proper de Rham sequence, and "v" for the H1^3 space."""
+        return {
+            "0": self.P0,
+            "1": self.P1,
+            "2": self.P2,
+            "3": self.P3,
+            "v": self.Pv,
+        }
+      
+    @property
+    def P0glob(self):
+        """Global version of the commuting projector to 0-forms (interpolation). Only available if self.with_local_projectors is True."""
+        return self._P0glob
 
+    @property
+    def P1glob(self):
+        """Global version of the commuting projector to 1-forms (interpolation and histopolation). Only available if self.with_local_projectors is True."""
+        return self._P1glob
 
+    @property
+    def P2glob(self):
+        """Global version of the commuting projector to 2-forms (interpolation and histopolation). Only available if self.with_local_projectors is True."""
+        return self._P2glob
+
+    @property
+    def P3glob(self):
+        """Global version of the commuting projector to 3-forms (histopolation). Only available if self.with_local_projectors is True."""
+        return self._P3glob
+
+    @property
+    def Pvglob(self):
+        """Global version of the commuting projector to H1^3 space (interpolation). Only available if self.with_local_projectors is True."""
+        return self._Pvglob
+
+    @property
+    def projectors_global(self):
+        """Dictionary mapping form names to their corresponding global projectors. The form names are "0", "1", "2", "3" for the proper de Rham sequence, and "v" for the H1^3 space. Only available if self.with_local_projectors is True."""
+        return {
+            "0": self.P0glob,
+            "1": self.P1glob,
+            "2": self.P2glob,
+            "3": self.P3glob,
+            "v": self.Pvglob,
+        }
+        
+    @property
+    def P0loc(self):
+        """Local version of the commuting projector to 0-forms (interpolation). Only available if self.with_local_projectors is True."""
+        return self._P0loc
+
+    @property
+    def P1loc(self):
+        """Local version of the commuting projector to 1-forms (interpolation and histopolation). Only available if self.with_local_projectors is True."""
+        return self._P1loc
+
+    @property
+    def P2loc(self):
+        """Local version of the commuting projector to 2-forms (interpolation and histopolation). Only available if self.with_local_projectors is True."""
+        return self._P2loc
+
+    @property
+    def P3loc(self):
+        """Local version of the commuting projector to 3-forms (histopolation). Only available if self.with_local_projectors is True."""
+        return self._P3loc
+
+    @property
+    def Pvloc(self):
+        """Local version of the commuting projector to H1^3 space (interpolation). Only available if self.with_local_projectors is True."""
+        return self._Pvloc
+    
+    @property
+    def projectors_local(self):
+        """Dictionary mapping form names to their corresponding local projectors. The form names are "0", "1", "2", "3" for the proper de Rham sequence, and "v" for the H1^3 space. Only available if self.with_local_projectors is True."""
+        return {
+            "0": self.P0loc,
+            "1": self.P1loc,
+            "2": self.P2loc,
+            "3": self.P3loc,
+            "v": self.Pvloc,
+        }   
+
+    # ---------------------------------------
+    # Spline space's attributes as properties
+    # ---------------------------------------
+    @property
+    def spl_kind(self) -> tuple[bool]:
+        """Tuple of bool indicating the kind of spline in each direction (True=periodic, False=clamped)."""
+        return self._spl_kind
+
+    @property
+    def dirichlet_bc(self) -> tuple[tuple[bool, bool]]:
+        """Tuple of tuples indicating whether homogeneous Dirichlet boundary conditions are applied at left and right boundary in each direction."""
+        return self._dirichlet_bc
 
     @property
     def breaks(self):
@@ -952,62 +1331,6 @@ class Derham:
         return self._neighbours
 
     @property
-    def space_to_form(self):
-        """Dictionary containing the names of the continuous spaces and corresponding discrete spaces."""
-        return self._space_to_form
-
-    @property
-    def nbasis(self):
-        """Dictionary containing number of 1d basis functions for each component and spatial direction."""
-        return self._nbasis
-
-    @property
-    def spline_types(self):
-        """Dictionary holding 1d spline types for each component and spatial direction, entries either 'B' or 'M'."""
-        return self._spline_types
-
-    @property
-    def spline_types_pyccel(self):
-        """Dictionary holding 1d spline types for each component and spatial direction, entries either 0 (='B') or 1 (='M')."""
-        return self._spline_types_pyccel
-
-    @property
-    def proj_grid_pts(self):
-        """Dictionary of quadrature points for histopolation (or Greville points for interpolation) in format (ii, iq) = (interval, quadrature point)."""
-        return self._proj_grid_pts
-
-    @property
-    def proj_grid_wts(self):
-        """Dictionary of quadrature weights for histopolation (or 1's for interpolation) in format (ii, iq) = (interval, quadrature point)."""
-        return self._proj_grid_wts
-
-    @property
-    def proj_grid_subs(self):
-        """Dictionary of histopolation subintervals (or 0's for interpolation) as 1d arrays.
-        A value of 1 indicates that the corresponding cell is the second subinterval of a split Greville cell (for histopolation with even degree)."""
-        return self._proj_grid_subs
-
-    @property
-    def quad_grid_pts(self):
-        """Dictionary of quadrature points for integration over grid cells in format (ni, nq) = (cell, quadrature point)."""
-        return self._quad_grid_pts
-
-    @property
-    def quad_grid_wts(self):
-        """Dictionary of quadrature weights for integration over grid cells in format (ni, nq) = (cell, quadrature point)."""
-        return self._quad_grid_wts
-
-    @property
-    def quad_grid_spans(self):
-        """Dictionary of knot span indices of grid cells."""
-        return self._quad_grid_spans
-
-    @property
-    def quad_grid_bases(self):
-        """Dictionary of basis functions evaluated at quadrature grids in format (ni, bl, 0, nq) = (cell, basis function, derivative=0, quadrature point)."""
-        return self._quad_grid_bases
-
-    @property
     def extraction_ops(self):
         """Dictionary holding basis extraction operators, either IdentityOperator or PolarExtractionOperator."""
         return self._extraction_ops
@@ -1023,11 +1346,6 @@ class Derham:
         return self._boundary_ops
 
     @property
-    def Vh_pol(self):
-        """Polar sub-spaces, either PolarDerhamSpace (with polar splines) or Stencil-/BlockVectorSpace (same as self.Vh)"""
-        return self._Vh_pol
-
-    @property
     def grad_bcfree(self):
         """Discrete gradient Vh0_pol (H1) -> Vh1_pol (Hcurl) w/o boundary operator."""
         return self._grad_bcfree
@@ -1041,8 +1359,6 @@ class Derham:
     def div_bcfree(self):
         """Discrete divergence Vh2_pol (Hdiv) -> Vh3_pol (L2) w/o boundary operator."""
         return self._div_bcfree
-
-    
 
     @property
     def args_derham(self):
@@ -1201,7 +1517,7 @@ class Derham:
         # spline degree and knot vectors must come from N-spline spaces (V0 space)
         spans, bns, bds = [], [], []
 
-        for etas, space_1d, end in zip(grids_1d, self.Vh_fem["0"].spaces, self.Vh["0"].ends):
+        for etas, space_1d, end in zip(grids_1d, self.V0fem.spaces, self.V0.ends):
             span, bn, bd = self._get_span_and_basis_for_eval_mpi(
                 etas,
                 space_1d,
@@ -1361,6 +1677,86 @@ class Derham:
             Wh.get_refined_space(key).symbolic_space = V
 
         return Wh
+
+    def _assemble_polar_extraction_operators(self) -> tuple[StencilVectorSpace | BlockVectorSpace | PolarDerhamSpace, ...]:
+        Vh_pol = []
+        self._extraction_ops = {}
+        self._dofs_extraction_ops = {}
+
+        # If we are dealing with local projection operators we must compute the weight w^i_j for interpolation, and from them the weights
+        # wh^i_j for histopolation. They can be computed using the quasi-interpolation points for all spatial directions.
+        # Fortunately we already have access to them in the form of self.V0splines.proj_loc_grid_pts[0].
+        if self.with_local_projectors:
+            # Allways call get_weights_local_projector with the grid points and discrete vector space of 0-forms
+            self._wij, self._whij = get_weights_local_projector(
+                self.V0splines.proj_loc_grid_pts,
+                self.V0fem,
+            )
+
+        for i, (sp_id, sp_form) in enumerate(self.space_to_form.items()):
+            vec_space = self.coeff_spaces[sp_form]
+            # ------ Extraction operators ------
+            # tensor product case
+            if self.polar_ck == -1:
+                pol_space = self.coeff_spaces[sp_form]
+
+                self._extraction_ops[sp_form] = IdentityOperator(pol_space)
+                self._dofs_extraction_ops[sp_form] = IdentityOperator(
+                    pol_space,
+                )
+
+            # C^1 polar spline case
+            else:
+                pol_space = PolarDerhamSpace(self, sp_id)
+
+                self._extraction_ops[sp_form] = PolarExtractionOperator(
+                    vec_space,
+                    pol_space,
+                    self.ck_blocks.e_ten_to_pol[sp_form],
+                )
+
+                self._dofs_extraction_ops[sp_form] = PolarExtractionOperator(
+                    vec_space,
+                    pol_space,
+                    self.ck_blocks.p_ten_to_pol[sp_form],
+                    self.ck_blocks.p_ten_to_ten[sp_form],
+                )
+
+            Vh_pol.append(pol_space)
+            
+        return tuple(Vh_pol)
+
+    def _assemble_projectors(self, *projectors: GlobalGeometricProjector):
+        tmp = []
+        for (sp_id, sp_form), projector in zip(self.space_to_form.items(), projectors):
+            tmp.append(CommutingProjector(
+                projector,
+                dofs_extraction_op=self._dofs_extraction_ops[sp_form],
+                base_extraction_op=self._extraction_ops[sp_form],
+                boundary_op=self.boundary_ops[sp_form],
+            ))
+        return tuple(tmp)
+    
+    def _assemble_local_projectors(self):
+        tmp = []
+        for sp_id, sp_form in self.space_to_form.items():
+            fem_space = self.fem_spaces[sp_form]
+            # We also need the FEM spline space that contains B-splines in all three directions
+            fem_space_B = self.V0fem
+            # As well as the FEM spline space that contains D-splines in all three directions.
+            fem_space_D = self.V3fem
+            tmp.append(CommutingProjectorLocal(
+                sp_id,
+                sp_form,
+                fem_space,
+                self.spline_attributes[sp_form].proj_loc_grid_pts,
+                self.spline_attributes[sp_form].proj_loc_grid_wts,
+                self._wij,
+                self._whij,
+                fem_space_B,
+                fem_space_D,
+            ))
+        return tuple(tmp)
 
     def _get_domain_array(self):
         """
@@ -1637,17 +2033,6 @@ class Derham:
 
         return spans, bns, bds
 
-    def get_quad_grids(
-        self,
-        space: TensorFemSpace | VectorFemSpace,
-        nquads: tuple | list = None,
-    ):
-        """Return the 1d quadrature grids in each direction as a tuple."""
-        assert self._nquads, "nquads has to be set with self._nquads = nquads"
-        if nquads is None:
-            nquads = self.nquads
-        return tuple({q: gag} for q, gag in zip(nquads, space.get_assembly_grids(*nquads)))
-
 
 class SplineFunction:
     """
@@ -1702,8 +2087,8 @@ class SplineFunction:
 
         # initialize field in memory (FEM space, vector and tensor product (stencil) vector)
         self._space_key = derham.space_to_form[space_id]
-        self._space = derham.Vh[self._space_key]
-        self._fem_space = derham.Vh_fem[self._space_key]
+        self._space = derham.coeff_spaces[self._space_key]
+        self._fem_space = derham.fem_spaces[self._space_key]
         assert isinstance(self.space, (StencilVectorSpace, BlockVectorSpace))
         assert isinstance(self.fem_space, (TensorFemSpace, VectorFemSpace))
 
@@ -1711,7 +2096,7 @@ class SplineFunction:
             assert coeffs.space == self.space
             self._vector = coeffs
         else:
-            self._vector = derham.Vh_pol[self.space_key].zeros()
+            self._vector = derham.polar_coeff_spaces[self.space_key].zeros()
 
         self._vector_stencil = self.space.zeros()
 
@@ -1729,8 +2114,6 @@ class SplineFunction:
             self._pads = [comp.pads for comp in self.space.spaces]
 
         # dimensions in each direction
-        # self._nbasis = derham.nbasis[self._space_key]
-
         if self._space_id in {"H1", "L2"}:
             self._nbasis = tuple(
                 [space.nbasis for space in self.fem_space.spaces],
@@ -2013,7 +2396,7 @@ class SplineFunction:
                         ]
 
                 # perform projection
-                self.vector += self.derham.P[self.space_key](fun)
+                self.vector += self.derham.projectors[self.space_key](fun)
 
         # add perturbations to coefficient vector
         if self.perturbations is not None:
@@ -2062,7 +2445,7 @@ class SplineFunction:
                             ]
 
                     # peform projection
-                    self.vector += self.derham.P[self.space_key](fun)
+                    self.vector += self.derham.projectors[self.space_key](fun)
 
                 # TODO: re-add Eigfun and InitFromOutput in new framework
 
@@ -2157,7 +2540,7 @@ class SplineFunction:
                 *spans,
                 *bases,
                 vec._data,
-                self.derham.spline_types_pyccel[self.space_key],
+                self.derham.spline_attributes[self.space_key].spline_types_pyccel,
                 xp.array(self.derham.p),
                 xp.array(self.starts),
                 out,
@@ -2186,7 +2569,7 @@ class SplineFunction:
                     *spans,
                     *bases[i],
                     vec[i]._data,
-                    self.derham.spline_types_pyccel[self.space_key][i],
+                    self.derham.spline_attributes[self.space_key].spline_types_pyccel[i],
                     xp.array(
                         self.derham.p,
                     ),
@@ -2234,7 +2617,7 @@ class SplineFunction:
         self.extract_coeffs(update_ghost_regions=True)
 
         # get knot vectors
-        T1, T2, T3 = self.derham.Vh_fem["0"].knots
+        T1, T2, T3 = self.derham.V0fem.knots
 
         # marker evaluation
         if len(etas) == 1:
@@ -2269,7 +2652,7 @@ class SplineFunction:
 
         # scalar-valued field
         if isinstance(self._vector_stencil, StencilVector):
-            kind = self.derham.spline_types_pyccel[self.space_key]
+            kind = self.derham.spline_attributes[self.space_key].spline_types_pyccel
 
             if is_sparse_meshgrid:
                 # eval_mpi needs flagged arrays E1, E2, E3 as input
@@ -2341,7 +2724,7 @@ class SplineFunction:
             out_is_None = out is None
             if out_is_None:
                 out = []
-            for n, kind in enumerate(self.derham.spline_types_pyccel[self.space_key]):
+            for n, kind in enumerate(self.derham.spline_attributes[self.space_key].spline_types_pyccel):
                 if is_sparse_meshgrid:
                     # eval_mpi needs flagged arrays E1, E2, E3 as input
                     eval_3d.eval_spline_mpi_sparse_meshgrid(
@@ -2974,10 +3357,8 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
 def get_pts_and_wts_quasi(
     space_1d: SplineSpace,
     *,
-    bulk_indices_i: tuple = None,
-    mu_nu_values: list = None,
     polar_shift: bool = False,
-):
+) -> tuple[xp.ndarray, xp.ndarray]:
     r"""Obtain local projection point sets and weights in one grid direction for the quasi-interpolation method.
     The quasi-interpolation points are :math:`\nu - \mu +p` equidistant points :math:`\{ x^i_j \}_{0 \leq j < \nu - \mu +p}` in the sub-interval :math:`Q = [\eta_\mu , \eta_\nu]` given by:
 

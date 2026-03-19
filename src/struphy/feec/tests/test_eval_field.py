@@ -92,9 +92,9 @@ def test_eval_field(Nel, p, bcs):
 
     # legacy evaluation
     evaluate_matrix(
-        derham.Vh_fem["0"].knots[0],
-        derham.Vh_fem["0"].knots[1],
-        derham.Vh_fem["0"].knots[2],
+        derham.V0fem.knots[0],
+        derham.V0fem.knots[1],
+        derham.V0fem.knots[2],
         p[0],
         p[1],
         p[2],
@@ -144,9 +144,9 @@ def test_eval_field(Nel, p, bcs):
 
     # legacy evaluation
     evaluate_matrix(
-        derham.Vh_fem["3"].knots[0],
-        derham.Vh_fem["0"].knots[1],
-        derham.Vh_fem["0"].knots[2],
+        derham.V3fem.knots[0],
+        derham.V0fem.knots[1],
+        derham.V0fem.knots[2],
         p[0] - 1,
         p[1],
         p[2],
@@ -174,9 +174,9 @@ def test_eval_field(Nel, p, bcs):
 
     # legacy evaluation
     evaluate_matrix(
-        derham.Vh_fem["0"].knots[0],
-        derham.Vh_fem["3"].knots[1],
-        derham.Vh_fem["0"].knots[2],
+        derham.V0fem.knots[0],
+        derham.V3fem.knots[1],
+        derham.V0fem.knots[2],
         p[0],
         p[1] - 1,
         p[2],
@@ -204,9 +204,9 @@ def test_eval_field(Nel, p, bcs):
 
     # legacy evaluation
     evaluate_matrix(
-        derham.Vh_fem["0"].knots[0],
-        derham.Vh_fem["0"].knots[1],
-        derham.Vh_fem["3"].knots[2],
+        derham.V0fem.knots[0],
+        derham.V0fem.knots[1],
+        derham.V3fem.knots[2],
         p[0],
         p[1],
         p[2] - 1,
@@ -264,9 +264,9 @@ def test_eval_field(Nel, p, bcs):
 
     # legacy evaluation
     evaluate_matrix(
-        derham.Vh_fem["0"].knots[0],
-        derham.Vh_fem["3"].knots[1],
-        derham.Vh_fem["3"].knots[2],
+        derham.V0fem.knots[0],
+        derham.V3fem.knots[1],
+        derham.V3fem.knots[2],
         p[0],
         p[1] - 1,
         p[2] - 1,
@@ -294,9 +294,9 @@ def test_eval_field(Nel, p, bcs):
 
     # legacy evaluation
     evaluate_matrix(
-        derham.Vh_fem["3"].knots[0],
-        derham.Vh_fem["0"].knots[1],
-        derham.Vh_fem["3"].knots[2],
+        derham.V3fem.knots[0],
+        derham.V0fem.knots[1],
+        derham.V3fem.knots[2],
         p[0] - 1,
         p[1],
         p[2] - 1,
@@ -324,9 +324,9 @@ def test_eval_field(Nel, p, bcs):
 
     # legacy evaluation
     evaluate_matrix(
-        derham.Vh_fem["3"].knots[0],
-        derham.Vh_fem["3"].knots[1],
-        derham.Vh_fem["0"].knots[2],
+        derham.V3fem.knots[0],
+        derham.V3fem.knots[1],
+        derham.V0fem.knots[2],
         p[0] - 1,
         p[1] - 1,
         p[2],
@@ -384,9 +384,9 @@ def test_eval_field(Nel, p, bcs):
 
     # legacy evaluation
     evaluate_matrix(
-        derham.Vh_fem["3"].knots[0],
-        derham.Vh_fem["3"].knots[1],
-        derham.Vh_fem["3"].knots[2],
+        derham.V3fem.knots[0],
+        derham.V3fem.knots[1],
+        derham.V3fem.knots[2],
         p[0] - 1,
         p[1] - 1,
         p[2] - 1,
@@ -436,9 +436,9 @@ def test_eval_field(Nel, p, bcs):
 
     # legacy evaluation
     evaluate_matrix(
-        derham.Vh_fem["0"].knots[0],
-        derham.Vh_fem["0"].knots[1],
-        derham.Vh_fem["0"].knots[2],
+        derham.V0fem.knots[0],
+        derham.V0fem.knots[1],
+        derham.V0fem.knots[2],
         p[0],
         p[1],
         p[2],
@@ -466,9 +466,9 @@ def test_eval_field(Nel, p, bcs):
 
     # legacy evaluation
     evaluate_matrix(
-        derham.Vh_fem["0"].knots[0],
-        derham.Vh_fem["0"].knots[1],
-        derham.Vh_fem["0"].knots[2],
+        derham.V0fem.knots[0],
+        derham.V0fem.knots[1],
+        derham.V0fem.knots[2],
         p[0],
         p[1],
         p[2],
@@ -496,9 +496,9 @@ def test_eval_field(Nel, p, bcs):
 
     # legacy evaluation
     evaluate_matrix(
-        derham.Vh_fem["0"].knots[0],
-        derham.Vh_fem["0"].knots[1],
-        derham.Vh_fem["0"].knots[2],
+        derham.V0fem.knots[0],
+        derham.V0fem.knots[1],
+        derham.V0fem.knots[2],
         p[0],
         p[1],
         p[2],

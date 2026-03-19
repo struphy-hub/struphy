@@ -18,7 +18,7 @@ def test_spaces(Nel, p, bcs):
 
     print("polar V0:")
     V = PolarDerhamSpace(derham, "H1")
-    print("dimensions (parent, polar):", derham.Vh_fem["0"].nbasis, V.dimension)
+    print("dimensions (parent, polar):", derham.V0fem.nbasis, V.dimension)
     print(V.dtype)
     print(V.zeros(), "\n")
     a = PolarVector(V)
@@ -46,7 +46,7 @@ def test_spaces(Nel, p, bcs):
 
     print("polar V1:")
     V = PolarDerhamSpace(derham, "Hcurl")
-    print("dimensions (parent, polar):", derham.Vh_fem["1"].nbasis, V.dimension)
+    print("dimensions (parent, polar):", derham.V1fem.nbasis, V.dimension)
     print(V.dtype)
     print(V.zeros(), "\n")
     a = PolarVector(V)
@@ -78,7 +78,7 @@ def test_spaces(Nel, p, bcs):
 
     print("polar V2:")
     V = PolarDerhamSpace(derham, "Hdiv")
-    print("dimensions (parent, polar):", derham.Vh_fem["2"], V.dimension)
+    print("dimensions (parent, polar):", derham.V2fem, V.dimension)
     print(V.dtype)
     print(V.zeros(), "\n")
     a = PolarVector(V)
@@ -110,7 +110,7 @@ def test_spaces(Nel, p, bcs):
 
     print("polar V3:")
     V = PolarDerhamSpace(derham, "L2")
-    print("dimensions (parent, polar):", derham.Vh_fem["3"], V.dimension)
+    print("dimensions (parent, polar):", derham.V3fem, V.dimension)
     print(V.dtype)
     print(V.zeros(), "\n")
     a = PolarVector(V)
@@ -138,7 +138,7 @@ def test_spaces(Nel, p, bcs):
 
     print("polar V0vec:")
     V = PolarDerhamSpace(derham, "H1vec")
-    print("dimensions (parent, polar):", derham.Vh_fem["v"].nbasis, V.dimension)
+    print("dimensions (parent, polar):", derham.Vvfem.nbasis, V.dimension)
     print(V.dtype)
     print(V.zeros(), "\n")
     a = PolarVector(V)
@@ -210,16 +210,16 @@ def test_extraction_ops_and_derivatives(Nel, p, bcs):
     comm.Barrier()
 
     # create polar FEM spaces
-    f0_pol = PolarVector(derham.Vh_pol["0"])
-    e1_pol = PolarVector(derham.Vh_pol["1"])
-    b2_pol = PolarVector(derham.Vh_pol["2"])
-    p3_pol = PolarVector(derham.Vh_pol["3"])
+    f0_pol = PolarVector(derham.V0pol)
+    e1_pol = PolarVector(derham.V1pol)
+    b2_pol = PolarVector(derham.V2pol)
+    p3_pol = PolarVector(derham.V3pol)
 
     # create pure tensor-product and polar vectors (legacy and distributed)
-    f0_tp_leg, f0_tp = create_equal_random_arrays(derham.Vh_fem["0"], flattened=True)
-    e1_tp_leg, e1_tp = create_equal_random_arrays(derham.Vh_fem["1"], flattened=True)
-    b2_tp_leg, b2_tp = create_equal_random_arrays(derham.Vh_fem["2"], flattened=True)
-    p3_tp_leg, p3_tp = create_equal_random_arrays(derham.Vh_fem["3"], flattened=True)
+    f0_tp_leg, f0_tp = create_equal_random_arrays(derham.V0fem, flattened=True)
+    e1_tp_leg, e1_tp = create_equal_random_arrays(derham.V1fem, flattened=True)
+    b2_tp_leg, b2_tp = create_equal_random_arrays(derham.V2fem, flattened=True)
+    p3_tp_leg, p3_tp = create_equal_random_arrays(derham.V3fem, flattened=True)
 
     f0_pol.tp = f0_tp
     e1_pol.tp = e1_tp
@@ -345,9 +345,9 @@ def test_projectors(Nel, p, bcs):
 
     # ============ project on V0 =========================
     if rank == 0:
-        r0_pol = derham.P["0"](fun0)
+        r0_pol = derhamP0(fun0)
     else:
-        r0_pol = derham.P["0"](fun0)
+        r0_pol = derhamP0(fun0)
 
     if rank == 0:
         print("Test passed for PI_0 polar projector")
@@ -357,9 +357,9 @@ def test_projectors(Nel, p, bcs):
 
     # ============ project on V1 =========================
     if rank == 0:
-        r1_pol = derham.P["1"](fun1)
+        r1_pol = derhamP1(fun1)
     else:
-        r1_pol = derham.P["1"](fun1)
+        r1_pol = derhamP1(fun1)
 
     if rank == 0:
         print("Test passed for PI_1 polar projector")
@@ -369,9 +369,9 @@ def test_projectors(Nel, p, bcs):
 
     # ============ project on V2 =========================
     if rank == 0:
-        r2_pol = derham.P["2"](fun2)
+        r2_pol = derhamP2(fun2)
     else:
-        r2_pol = derham.P["2"](fun2)
+        r2_pol = derhamP2(fun2)
 
     if rank == 0:
         print("Test passed for PI_2 polar projector")
@@ -381,9 +381,9 @@ def test_projectors(Nel, p, bcs):
 
     # ============ project on V3 =========================
     if rank == 0:
-        r3_pol = derham.P["3"](fun3)
+        r3_pol = derhamP3(fun3)
     else:
-        r3_pol = derham.P["3"](fun3)
+        r3_pol = derhamP3(fun3)
 
     if rank == 0:
         print("Test passed for PI_3 polar projector")

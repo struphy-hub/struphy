@@ -106,7 +106,7 @@ def test_mass(Nel, p, bcs, mapping, show_plots=False):
 
     print(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
 
-    fem_spaces = [derham.Vh_fem["0"], derham.Vh_fem["1"], derham.Vh_fem["2"], derham.Vh_fem["3"], derham.Vh_fem["v"]]
+    fem_spaces = [derham.V0fem, derham.V1fem, derham.V2fem, derham.V3fem, derham.Vvfem]
 
     # mass matrices object
     mass_matsold = WeightedMassOperatorsOldForTesting(derham, domain, eq_mhd=eq_mhd)
@@ -386,16 +386,16 @@ def test_mass_polar(Nel, p, bcs, mapping, show_plots=False):
                     bc_old[i][j] = "f"
 
     # create random input arrays
-    x0_str, x0_psy = create_equal_random_arrays(derham.Vh_fem["0"], seed=1234, flattened=True)
-    x1_str, x1_psy = create_equal_random_arrays(derham.Vh_fem["1"], seed=1568, flattened=True)
-    x2_str, x2_psy = create_equal_random_arrays(derham.Vh_fem["2"], seed=8945, flattened=True)
-    x3_str, x3_psy = create_equal_random_arrays(derham.Vh_fem["3"], seed=8196, flattened=True)
+    x0_str, x0_psy = create_equal_random_arrays(derham.V0fem, seed=1234, flattened=True)
+    x1_str, x1_psy = create_equal_random_arrays(derham.V1fem, seed=1568, flattened=True)
+    x2_str, x2_psy = create_equal_random_arrays(derham.V2fem, seed=8945, flattened=True)
+    x3_str, x3_psy = create_equal_random_arrays(derham.V3fem, seed=8196, flattened=True)
 
     # set polar vectors
-    x0_pol_psy = PolarVector(derham.Vh_pol["0"])
-    x1_pol_psy = PolarVector(derham.Vh_pol["1"])
-    x2_pol_psy = PolarVector(derham.Vh_pol["2"])
-    x3_pol_psy = PolarVector(derham.Vh_pol["3"])
+    x0_pol_psy = PolarVector(derham.V0pol)
+    x1_pol_psy = PolarVector(derham.V1pol)
+    x2_pol_psy = PolarVector(derham.V2pol)
+    x3_pol_psy = PolarVector(derham.V3pol)
 
     x0_pol_psy.tp = x0_psy
     x1_pol_psy.tp = x1_psy
@@ -538,7 +538,7 @@ def test_mass_preconditioner(Nel, p, bcs, mapping, show_plots=False):
     # derham object
     derham = Derham(Nel, p=p, bcs=bcs, comm=mpi_comm)
 
-    fem_spaces = [derham.Vh_fem["0"], derham.Vh_fem["1"], derham.Vh_fem["2"], derham.Vh_fem["3"], derham.Vh_fem["v"]]
+    fem_spaces = [derham.V0fem, derham.V1fem, derham.V2fem, derham.V3fem, derham.Vvfem]
 
     print(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
 
@@ -836,16 +836,16 @@ def test_mass_preconditioner_polar(Nel, p, bcs, mapping, show_plots=False):
         print("Done")
 
     # create random input arrays
-    x0 = create_equal_random_arrays(derham.Vh_fem["0"], seed=1234, flattened=True)[1]
-    x1 = create_equal_random_arrays(derham.Vh_fem["1"], seed=1568, flattened=True)[1]
-    x2 = create_equal_random_arrays(derham.Vh_fem["2"], seed=8945, flattened=True)[1]
-    x3 = create_equal_random_arrays(derham.Vh_fem["3"], seed=8196, flattened=True)[1]
+    x0 = create_equal_random_arrays(derham.V0fem, seed=1234, flattened=True)[1]
+    x1 = create_equal_random_arrays(derham.V1fem, seed=1568, flattened=True)[1]
+    x2 = create_equal_random_arrays(derham.V2fem, seed=8945, flattened=True)[1]
+    x3 = create_equal_random_arrays(derham.V3fem, seed=8196, flattened=True)[1]
 
     # set polar vectors
-    x0_pol = PolarVector(derham.Vh_pol["0"])
-    x1_pol = PolarVector(derham.Vh_pol["1"])
-    x2_pol = PolarVector(derham.Vh_pol["2"])
-    x3_pol = PolarVector(derham.Vh_pol["3"])
+    x0_pol = PolarVector(derham.V0pol)
+    x1_pol = PolarVector(derham.V1pol)
+    x2_pol = PolarVector(derham.V2pol)
+    x3_pol = PolarVector(derham.V3pol)
 
     x0_pol.tp = x0
     x1_pol.tp = x1

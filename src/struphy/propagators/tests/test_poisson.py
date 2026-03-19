@@ -174,7 +174,7 @@ def test_poisson_1d(
             if projected_rhs:
                 rho = FEECVariable(space="H1")
                 rho.allocate(derham=derham, domain=domain)
-                rho.spline.vector = derham.P["0"](rho_pulled)
+                rho.spline.vector = derhamP0(rho_pulled)
             else:
                 rho = rho_pulled
 
@@ -530,11 +530,11 @@ def test_poisson_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=False):
     if projected_rhs:
         rho1 = FEECVariable(space="H1")
         rho1.allocate(derham=derham, domain=domain)
-        rho1.spline.vector = derham.P["0"](rho1_pulled)
+        rho1.spline.vector = derhamP0(rho1_pulled)
 
         rho2 = FEECVariable(space="H1")
         rho2.allocate(derham=derham, domain=domain)
-        rho2.spline.vector = derham.P["0"](rho2_pulled)
+        rho2.spline.vector = derhamP0(rho2_pulled)
     else:
         rho1 = rho1_pulled
         rho2 = rho2_pulled

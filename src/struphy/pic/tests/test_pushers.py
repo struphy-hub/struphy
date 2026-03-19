@@ -78,13 +78,13 @@ def test_push_vxb_analytic(Nel, p, bcs, mapping, show_plots=False):
         particles.show_physical()
 
     _, b2_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem["2"],
+        derham.V2fem,
         seed=2345,
         flattened=True,
     )
 
     _, b2_psy = create_equal_random_arrays(
-        derham.Vh_fem["2"],
+        derham.V2fem,
         seed=3456,
         flattened=True,
     )
@@ -184,18 +184,18 @@ def test_push_bxu_Hdiv(Nel, p, bcs, mapping, show_plots=False):
 
     # create random FEM coefficients for magnetic field and velocity field
     _, b2_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem["2"],
+        derham.V2fem,
         seed=2345,
         flattened=True,
     )
 
     _, b2_psy = create_equal_random_arrays(
-        derham.Vh_fem["2"],
+        derham.V2fem,
         seed=3456,
         flattened=True,
     )
     _, u2_psy = create_equal_random_arrays(
-        derham.Vh_fem["2"],
+        derham.V2fem,
         seed=4567,
         flattened=True,
     )
@@ -299,18 +299,18 @@ def test_push_bxu_Hcurl(Nel, p, bcs, mapping, show_plots=False):
 
     # create random FEM coefficients for magnetic field
     _, b2_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem["2"],
+        derham.V2fem,
         seed=2345,
         flattened=True,
     )
 
     _, b2_psy = create_equal_random_arrays(
-        derham.Vh_fem["2"],
+        derham.V2fem,
         seed=3456,
         flattened=True,
     )
     _, u1_psy = create_equal_random_arrays(
-        derham.Vh_fem["1"],
+        derham.V1fem,
         seed=4567,
         flattened=True,
     )
@@ -414,18 +414,18 @@ def test_push_bxu_H1vec(Nel, p, bcs, mapping, show_plots=False):
 
     # create random FEM coefficients for magnetic field
     _, b2_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem["2"],
+        derham.V2fem,
         seed=2345,
         flattened=True,
     )
 
     _, b2_psy = create_equal_random_arrays(
-        derham.Vh_fem["2"],
+        derham.V2fem,
         seed=3456,
         flattened=True,
     )
     _, uv_psy = create_equal_random_arrays(
-        derham.Vh_fem["v"],
+        derham.Vvfem,
         seed=4567,
         flattened=True,
     )
@@ -529,23 +529,23 @@ def test_push_bxu_Hdiv_pauli(Nel, p, bcs, mapping, show_plots=False):
 
     # create random FEM coefficients for magnetic field
     _, b0_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem["0"],
+        derham.V0fem,
         seed=1234,
         flattened=True,
     )
     _, b2_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem["2"],
+        derham.V2fem,
         seed=2345,
         flattened=True,
     )
 
     _, b2_psy = create_equal_random_arrays(
-        derham.Vh_fem["2"],
+        derham.V2fem,
         seed=3456,
         flattened=True,
     )
     _, u2_psy = create_equal_random_arrays(
-        derham.Vh_fem["2"],
+        derham.V2fem,
         seed=4567,
         flattened=True,
     )

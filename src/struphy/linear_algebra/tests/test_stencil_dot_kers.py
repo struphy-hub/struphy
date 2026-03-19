@@ -37,10 +37,10 @@ def test_1d(Nel, p, bcs, domain_ind, codomain_ind):
 
     # Psydac discrete Derham sequence
     derham = Derham([Nel] * 3, p=[p] * 3, bcs=bcs, comm=comm)
-    V0 = derham.Vh["0"]
+    V0 = derham.V0
 
-    V0_fem = derham.Vh_fem["0"]
-    V3_fem = derham.Vh_fem["3"]
+    V0_fem = derham.V0fem
+    V3_fem = derham.V3fem
 
     # test 1d matvec
     spaces_1d = {}
@@ -160,14 +160,14 @@ def test_3d(Nel, p, bcs, domain_ind, codomain_ind):
     derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     spaces_3d = {}
-    spaces_3d["NNN"] = derham.Vh_fem["0"]
-    spaces_3d["DNN"] = derham.Vh_fem["1"].spaces[0]
-    spaces_3d["NDN"] = derham.Vh_fem["1"].spaces[1]
-    spaces_3d["NND"] = derham.Vh_fem["1"].spaces[2]
-    spaces_3d["NDD"] = derham.Vh_fem["2"].spaces[0]
-    spaces_3d["DND"] = derham.Vh_fem["2"].spaces[1]
-    spaces_3d["DDN"] = derham.Vh_fem["2"].spaces[2]
-    spaces_3d["DDD"] = derham.Vh_fem["3"]
+    spaces_3d["NNN"] = derham.V0fem
+    spaces_3d["DNN"] = derham.V1fem.spaces[0]
+    spaces_3d["NDN"] = derham.V1fem.spaces[1]
+    spaces_3d["NND"] = derham.V1fem.spaces[2]
+    spaces_3d["NDD"] = derham.V2fem.spaces[0]
+    spaces_3d["DND"] = derham.V2fem.spaces[1]
+    spaces_3d["DDN"] = derham.V2fem.spaces[2]
+    spaces_3d["DDD"] = derham.V3fem
 
     domain = spaces_3d[domain_ind]
     codomain = spaces_3d[codomain_ind]

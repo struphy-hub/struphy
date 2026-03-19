@@ -58,11 +58,11 @@ def test_some_basis_ops(Nel, p, bcs, mapping):
     EQ_MHD.domain = domain
 
     # Psydac spline spaces
-    V0 = DERHAM_PSY.Vh_fem["0"]
-    V1 = DERHAM_PSY.Vh_fem["1"]
-    V2 = DERHAM_PSY.Vh_fem["2"]
-    V3 = DERHAM_PSY.Vh_fem["3"]
-    V0vec = DERHAM_PSY.Vh_fem["v"]
+    V0 = DERHAM_PSY.V0fem
+    V1 = DERHAM_PSY.V1fem
+    V2 = DERHAM_PSY.V2fem
+    V3 = DERHAM_PSY.V3fem
+    V0vec = DERHAM_PSY.Vvfem
 
     if mpi_rank == 0:
         print(f"Rank {mpi_rank} | type(V0) {type(V0)}")
@@ -73,11 +73,11 @@ def test_some_basis_ops(Nel, p, bcs, mapping):
         print(f"Rank {mpi_rank} | ")
 
     # Psydac projectors
-    P0 = DERHAM_PSY.P["0"]
-    P1 = DERHAM_PSY.P["1"]
-    P2 = DERHAM_PSY.P["2"]
-    P3 = DERHAM_PSY.P["3"]
-    P0vec = DERHAM_PSY.P["v"]
+    P0 = DERHAM_PSY.P0
+    P1 = DERHAM_PSY.P1
+    P2 = DERHAM_PSY.P2
+    P3 = DERHAM_PSY.P3
+    P0vec = DERHAM_PSY.Pv
     if mpi_rank == 0:
         print(f"Rank {mpi_rank} | type(P0) {type(P0)}")
         print(f"Rank {mpi_rank} | type(P1) {type(P1)}")
@@ -335,16 +335,16 @@ def test_basis_ops_polar(Nel, p, bcs, mapping, show_plots=False):
     mhd_ops_psy = BasisProjectionOperators(derham, domain, eq_mhd=eq_mhd)
 
     # create random input arrays
-    x0_str, x0_psy = create_equal_random_arrays(derham.Vh_fem["0"], seed=1234, flattened=True)
-    x1_str, x1_psy = create_equal_random_arrays(derham.Vh_fem["1"], seed=1568, flattened=True)
-    x2_str, x2_psy = create_equal_random_arrays(derham.Vh_fem["2"], seed=8945, flattened=True)
-    x3_str, x3_psy = create_equal_random_arrays(derham.Vh_fem["3"], seed=8196, flattened=True)
+    x0_str, x0_psy = create_equal_random_arrays(derham.V0fem, seed=1234, flattened=True)
+    x1_str, x1_psy = create_equal_random_arrays(derham.V1fem, seed=1568, flattened=True)
+    x2_str, x2_psy = create_equal_random_arrays(derham.V2fem, seed=8945, flattened=True)
+    x3_str, x3_psy = create_equal_random_arrays(derham.V3fem, seed=8196, flattened=True)
 
     # set polar vectors
-    x0_pol_psy = PolarVector(derham.Vh_pol["0"])
-    x1_pol_psy = PolarVector(derham.Vh_pol["1"])
-    x2_pol_psy = PolarVector(derham.Vh_pol["2"])
-    x3_pol_psy = PolarVector(derham.Vh_pol["3"])
+    x0_pol_psy = PolarVector(derham.V0pol)
+    x1_pol_psy = PolarVector(derham.V1pol)
+    x2_pol_psy = PolarVector(derham.V2pol)
+    x3_pol_psy = PolarVector(derham.V3pol)
 
     x0_pol_psy.tp = x0_psy
     x1_pol_psy.tp = x1_psy

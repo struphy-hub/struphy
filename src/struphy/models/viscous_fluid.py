@@ -121,7 +121,7 @@ class ViscousFluid(StruphyModel):
 
         self._energy_evaluator = InternalEnergyEvaluator(Propagator.derham, self.propagators.variat_ent.options.gamma)
 
-        self._ones = Propagator.derham.Vh_pol["3"].zeros()
+        self._ones = Propagator.derham.V3pol.zeros()
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.0
         else:

@@ -130,7 +130,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         :meta private:
         """
         self._tmp3 = xp.empty(1, dtype=float)
-        self._e_field = Propagator.derham.Vh["1"].zeros()
+        self._e_field = Propagator.derham.V1.zeros()
 
         assert self.kinetic_ions.charge_number > 0, "Model written only for positive ions."
 

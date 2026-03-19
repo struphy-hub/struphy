@@ -52,10 +52,10 @@ def test_tosparse_struphy(Nel, p, bcs, mapping):
     M3 = mass.M3
 
     # random vectors
-    v0arr, v0 = create_equal_random_arrays(derham.Vh_fem["0"], seed=4568)
-    v1arr1, v1 = create_equal_random_arrays(derham.Vh_fem["1"], seed=4568)
-    v2arr1, v2 = create_equal_random_arrays(derham.Vh_fem["2"], seed=4568)
-    v3arr, v3 = create_equal_random_arrays(derham.Vh_fem["3"], seed=4568)
+    v0arr, v0 = create_equal_random_arrays(derham.V0fem, seed=4568)
+    v1arr1, v1 = create_equal_random_arrays(derham.V1fem, seed=4568)
+    v2arr1, v2 = create_equal_random_arrays(derham.V2fem, seed=4568)
+    v3arr, v3 = create_equal_random_arrays(derham.V3fem, seed=4568)
 
     v0arr = v0arr[0].flatten()
     v1arr = []

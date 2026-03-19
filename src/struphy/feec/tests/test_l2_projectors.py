@@ -67,7 +67,7 @@ def test_l2_projectors_mappings(Nel, p, bcs, array_input, with_gvec=False, with_
         for sp_id, sp_key in derham.space_to_form.items():
             P_L2 = L2Projector(sp_id, mass_ops)
 
-            out = derham.Vh[sp_key].zeros()
+            out = derham.coeff_spaces[sp_key].zeros()
 
             field = derham.create_spline_function("fh", sp_id)
 
@@ -78,7 +78,7 @@ def test_l2_projectors_mappings(Nel, p, bcs, array_input, with_gvec=False, with_
                 f_analytic = (f, f, f)
 
             if array_input:
-                pts_q = derham.quad_grid_pts[sp_key]
+                pts_q = derham.spline_attributes[sp_key].quad_grid_pts
                 if sp_id in ("H1", "L2"):
                     ee = xp.meshgrid(*[pt.flatten() for pt in pts_q], indexing="ij")
                     f_array = f(*ee)
@@ -191,7 +191,7 @@ def test_l2_projectors_convergence(direction, pi, bc_kind, do_plot=False):
         for sp_id, sp_key in derham.space_to_form.items():
             P_L2 = L2Projector(sp_id, mass_ops)
 
-            out = derham.Vh[sp_key].zeros()
+            out = derham.coeff_spaces[sp_key].zeros()
 
             field = derham.create_spline_function("fh", sp_id)
 

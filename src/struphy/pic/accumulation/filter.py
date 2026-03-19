@@ -94,15 +94,15 @@ class AccumFilter:
         - Otherwise: yields (axis, vec[axis], starts, ends) for axis=0,1,2.
         """
         if self.space_id in ("H1", "L2"):
-            starts = self.derham.Vh[self.form].starts
-            ends = self.derham.Vh[self.form].ends
+            starts = self.derham.coeff_spaces[self.form].starts
+            ends = self.derham.coeff_spaces[self.form].ends
 
             yield 0, vec, starts, ends
 
         else:
             for axis in range(3):
-                starts = self.derham.Vh[self.form][axis].starts
-                ends = self.derham.Vh[self.form][axis].ends
+                starts = self.derham.coeff_spaces[self.form][axis].starts
+                ends = self.derham.coeff_spaces[self.form][axis].ends
 
                 yield axis, vec[axis], starts, ends
 

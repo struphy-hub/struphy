@@ -90,8 +90,8 @@ class LinearMHD(StruphyModel):
         else:
             self._ones[:] = 1.0
 
-        self._tmp_b1: BlockVector = Propagator.derham.Vh["2"].zeros()  # TODO: replace derham.Vh dict by class
-        self._tmp_b2: BlockVector = Propagator.derham.Vh["2"].zeros()
+        self._tmp_b1: BlockVector = Propagator.derham.V2.zeros()  
+        self._tmp_b2: BlockVector = Propagator.derham.V2.zeros()
 
     def update_scalar_quantities(self):
         # perturbed fields

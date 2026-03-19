@@ -32,15 +32,15 @@ def test_eval_kernels(Nel, p, bcs, n_markers=10):
     derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     # derham attributes
-    tn1, tn2, tn3 = derham.Vh_fem["0"].knots
+    tn1, tn2, tn3 = derham.V0fem.knots
     indN = derham.indN
     indD = derham.indD
 
     # Random spline coeffs_loc
-    x0, x0_psy = cera(derham.Vh_fem["0"])
-    x1, x1_psy = cera(derham.Vh_fem["1"])
-    x2, x2_psy = cera(derham.Vh_fem["2"])
-    x3, x3_psy = cera(derham.Vh_fem["3"])
+    x0, x0_psy = cera(derham.V0fem)
+    x1, x1_psy = cera(derham.V1fem)
+    x2, x2_psy = cera(derham.V2fem)
+    x3, x3_psy = cera(derham.V3fem)
 
     # Random points in domain of process
     dom = derham.domain_array[rank]
@@ -233,13 +233,13 @@ def test_eval_pointwise(Nel, p, bcs, n_markers=10):
     derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     # derham attributes
-    tn1, tn2, tn3 = derham.Vh_fem["0"].knots
+    tn1, tn2, tn3 = derham.V0fem.knots
 
     # Random spline coeffs_loc
-    x0, x0_psy = cera(derham.Vh_fem["0"])
-    x1, x1_psy = cera(derham.Vh_fem["1"])
-    x2, x2_psy = cera(derham.Vh_fem["2"])
-    x3, x3_psy = cera(derham.Vh_fem["3"])
+    x0, x0_psy = cera(derham.V0fem)
+    x1, x1_psy = cera(derham.V1fem)
+    x2, x2_psy = cera(derham.V2fem)
+    x3, x3_psy = cera(derham.V3fem)
 
     # Random points in domain of process
     dom = derham.domain_array[rank]
@@ -263,7 +263,7 @@ def test_eval_pointwise(Nel, p, bcs, n_markers=10):
             eta2,
             eta3,
             x0_psy._data,
-            derham.spline_types_pyccel["0"],
+            derham.V0splines.spline_types_pyccel,
             xp.array(derham.p),
             tn1,
             tn2,
@@ -299,7 +299,7 @@ def test_eval_pointwise(Nel, p, bcs, n_markers=10):
             eta2,
             eta3,
             x1_psy[0]._data,
-            derham.spline_types_pyccel["1"][0],
+            derham.V1splines.spline_types_pyccel[0],
             xp.array(derham.p),
             tn1,
             tn2,
@@ -334,7 +334,7 @@ def test_eval_pointwise(Nel, p, bcs, n_markers=10):
             eta2,
             eta3,
             x1_psy[1]._data,
-            derham.spline_types_pyccel["1"][1],
+            derham.V1splines.spline_types_pyccel[1],
             xp.array(derham.p),
             tn1,
             tn2,
@@ -369,7 +369,7 @@ def test_eval_pointwise(Nel, p, bcs, n_markers=10):
             eta2,
             eta3,
             x1_psy[2]._data,
-            derham.spline_types_pyccel["1"][2],
+            derham.V1splines.spline_types_pyccel[2],
             xp.array(derham.p),
             tn1,
             tn2,
@@ -405,7 +405,7 @@ def test_eval_pointwise(Nel, p, bcs, n_markers=10):
             eta2,
             eta3,
             x2_psy[0]._data,
-            derham.spline_types_pyccel["2"][0],
+            derham.V2splines.spline_types_pyccel[0],
             xp.array(derham.p),
             tn1,
             tn2,
@@ -440,7 +440,7 @@ def test_eval_pointwise(Nel, p, bcs, n_markers=10):
             eta2,
             eta3,
             x2_psy[1]._data,
-            derham.spline_types_pyccel["2"][1],
+            derham.V2splines.spline_types_pyccel[1],
             xp.array(derham.p),
             tn1,
             tn2,
@@ -475,7 +475,7 @@ def test_eval_pointwise(Nel, p, bcs, n_markers=10):
             eta2,
             eta3,
             x2_psy[2]._data,
-            derham.spline_types_pyccel["2"][2],
+            derham.V2splines.spline_types_pyccel[2],
             xp.array(derham.p),
             tn1,
             tn2,
@@ -508,7 +508,7 @@ def test_eval_pointwise(Nel, p, bcs, n_markers=10):
             eta2,
             eta3,
             x3_psy._data,
-            derham.spline_types_pyccel["3"],
+            derham.V3splines.spline_types_pyccel,
             xp.array(derham.p),
             tn1,
             tn2,
@@ -556,11 +556,11 @@ def test_eval_tensor_product(Nel, p, bcs, n_markers=10):
     derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     # derham attributes
-    tn1, tn2, tn3 = derham.Vh_fem["0"].knots
+    tn1, tn2, tn3 = derham.V0fem.knots
 
     # Random spline coeffs_loc
-    x0, x0_psy = cera(derham.Vh_fem["0"])
-    x3, x3_psy = cera(derham.Vh_fem["3"])
+    x0, x0_psy = cera(derham.V0fem)
+    x3, x3_psy = cera(derham.V3fem)
 
     # Random points in domain of process
     dom = derham.domain_array[rank]
@@ -592,7 +592,7 @@ def test_eval_tensor_product(Nel, p, bcs, n_markers=10):
         eta2s,
         eta3s,
         x0_psy._data,
-        derham.spline_types_pyccel["0"],
+        derham.V0splines.spline_types_pyccel,
         xp.array(derham.p),
         tn1,
         tn2,
@@ -610,7 +610,7 @@ def test_eval_tensor_product(Nel, p, bcs, n_markers=10):
         eta2s,
         eta3s,
         x0_psy._data,
-        derham.spline_types_pyccel["0"],
+        derham.V0splines.spline_types_pyccel,
         xp.array(derham.p),
         tn1,
         tn2,
@@ -652,7 +652,7 @@ def test_eval_tensor_product(Nel, p, bcs, n_markers=10):
         eta2s,
         eta3s,
         x3_psy._data,
-        derham.spline_types_pyccel["3"],
+        derham.V3splines.spline_types_pyccel,
         xp.array(derham.p),
         tn1,
         tn2,
@@ -670,7 +670,7 @@ def test_eval_tensor_product(Nel, p, bcs, n_markers=10):
         eta2s,
         eta3s,
         x3_psy._data,
-        derham.spline_types_pyccel["3"],
+        derham.V3splines.spline_types_pyccel,
         xp.array(derham.p),
         tn1,
         tn2,
@@ -719,19 +719,19 @@ def test_eval_tensor_product_grid(Nel, p, bcs, n_markers=10):
     derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
 
     # derham attributes
-    tn1, tn2, tn3 = derham.Vh_fem["0"].knots
+    tn1, tn2, tn3 = derham.V0fem.knots
 
     # Random spline coeffs_loc
-    x0, x0_psy = cera(derham.Vh_fem["0"])
-    x3, x3_psy = cera(derham.Vh_fem["3"])
+    x0, x0_psy = cera(derham.V0fem)
+    x3, x3_psy = cera(derham.V3fem)
 
     # Histopolation grids
-    spaces = derham.Vh_fem["3"].spaces
+    spaces = derham.V3fem.spaces
     ptsG, wtsG, spans, bases, subs = prepare_projection_of_basis(
         spaces,
         spaces,
-        derham.Vh["3"].starts,
-        derham.Vh["3"].ends,
+        derham.V3.starts,
+        derham.V3.ends,
     )
     eta1s = ptsG[0].flatten()
     eta2s = ptsG[1].flatten()
@@ -777,7 +777,7 @@ def test_eval_tensor_product_grid(Nel, p, bcs, n_markers=10):
         *spans_f,
         *bds_f,
         x3_psy._data,
-        derham.spline_types_pyccel["3"],
+        derham.V3splines.spline_types_pyccel,
         xp.array(derham.p),
         xp.array(x0_psy.starts),
         vals_mpi_fixed,

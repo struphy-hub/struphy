@@ -31,10 +31,10 @@ class PolarDerhamSpace(VectorSpace):
         self._space_id = space_id
 
         # dimensions of 1d spaces
-        self._n = [space.nbasis for space in derham.Vh_fem["0"].spaces]
-        self._d = [space.nbasis for space in derham.Vh_fem["3"].spaces]
+        self._n = [space.nbasis for space in derham.V0fem.spaces]
+        self._d = [space.nbasis for space in derham.V3fem.spaces]
 
-        self._parent_space = derham.Vh[derham.space_to_form[space_id]]
+        self._parent_space = derham.coeff_spaces[derham.space_to_form[space_id]]
         self._parallel = self._parent_space.parallel
 
         self._starts = self.parent_space.starts
@@ -47,7 +47,7 @@ class PolarDerhamSpace(VectorSpace):
             self._dimension = ((self.n[0] - self.n_rings[0]) * self.n[1] + self.n_polar[0]) * self.n[2]
             self._n2 = (self.n[1],)
             self._n3 = (self.n[2],)
-            self._type_of_basis_3 = (derham.spline_types["0"][2],)
+            self._type_of_basis_3 = (derham.V0splines.spline_types[2],)
         elif space_id == "Hcurl":
             self._n_polar = (0, 2, 3)
             self._n_rings = (1, 2, 2)
@@ -58,9 +58,9 @@ class PolarDerhamSpace(VectorSpace):
             self._n2 = (self.n[1], self.d[1], self.n[1])
             self._n3 = (self.n[2], self.n[2], self.d[2])
             self._type_of_basis_3 = (
-                derham.spline_types["1"][0][2],
-                derham.spline_types["1"][1][2],
-                derham.spline_types["1"][2][2],
+                derham.V1splines.spline_types[0][2],
+                derham.V1splines.spline_types[1][2],
+                derham.V1splines.spline_types[2][2],
             )
         elif space_id == "Hdiv":
             self._n_polar = (2, 0, 0)
@@ -72,9 +72,9 @@ class PolarDerhamSpace(VectorSpace):
             self._n2 = (self.d[1], self.n[1], self.d[1])
             self._n3 = (self.d[2], self.d[2], self.n[2])
             self._type_of_basis_3 = (
-                derham.spline_types["2"][0][2],
-                derham.spline_types["2"][1][2],
-                derham.spline_types["2"][2][2],
+                derham.V2splines.spline_types[0][2],
+                derham.V2splines.spline_types[1][2],
+                derham.V2splines.spline_types[2][2],
             )
         elif space_id == "L2":
             self._n_polar = (0,)
@@ -82,7 +82,7 @@ class PolarDerhamSpace(VectorSpace):
             self._dimension = ((self.d[0] - self.n_rings[0]) * self.d[1] + self.n_polar[0]) * self.d[2]
             self._n2 = (self.d[1],)
             self._n3 = (self.d[2],)
-            self._type_of_basis_3 = (derham.spline_types["3"][2],)
+            self._type_of_basis_3 = (derham.V3splines.spline_types[2],)
         elif space_id == "H1vec":
             self._n_polar = (3, 3, 3)
             self._n_rings = (2, 2, 2)
@@ -90,9 +90,9 @@ class PolarDerhamSpace(VectorSpace):
             self._n2 = (self.n[1], self.n[1], self.n[1])
             self._n3 = (self.n[2], self.n[2], self.n[2])
             self._type_of_basis_3 = (
-                derham.spline_types["v"][0][2],
-                derham.spline_types["v"][1][2],
-                derham.spline_types["v"][2][2],
+                derham.Vvsplines.spline_types[0][2],
+                derham.Vvsplines.spline_types[1][2],
+                derham.Vvsplines.spline_types[2][2],
             )
         else:
             raise ValueError("Space not supported.")

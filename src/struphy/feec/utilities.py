@@ -11,6 +11,14 @@ from struphy.feec import banded_to_stencil_kernels as bts
 from struphy.polar.basic import PolarVector
 
 
+def get_quad_grids(
+        space: TensorFemSpace | VectorFemSpace,
+        nquads: tuple[int, int, int],
+    ):
+        """Return the 1d quadrature grids in each direction as a tuple."""
+        return tuple({q: gag} for q, gag in zip(nquads, space.get_assembly_grids(*nquads)))
+
+
 class RotationMatrix:
     """For a given vector-valued function a(e1, e2, e3), creates the callable matrix R(e1, e2, e3)
     that represents the local rotation Rv = a x v at (e1, e2, e3) for any vector v in R^3.
@@ -460,26 +468,26 @@ def create_weight_weightedmatrix_hybrid(b, weight_pre, derham, accum_density, do
     nqs = [
         quad_grid[nquad].num_quad_pts
         for quad_grid, nquad in zip(
-            derham.get_quad_grids(derham.Vh_fem["0"]),
+            get_quad_grids(derham.V0fem),
             derham.nquads,
         )
     ]
 
-    for aa, wspace in enumerate(derham.Vh_fem["2"].spaces):
+    for aa, wspace in enumerate(derham.V2fem.spaces):
         # knot span indices of elements of local domain
-        spans_out = [quad_grid[nquad].spans for quad_grid, nquad in zip(derham.get_quad_grids(wspace), derham.nquads)]
+        spans_out = [quad_grid[nquad].spans for quad_grid, nquad in zip(get_quad_grids(wspace), derham.nquads)]
         # global start spline index on process
         starts_out = [int(start) for start in wspace.coeff_space.starts]
 
         # Iniitialize hybrid linear operators
         # global quadrature points (flattened) and weights in format (local element, local weight)
-        pts = [quad_grid[nquad].points for quad_grid, nquad in zip(derham.get_quad_grids(wspace), derham.nquads)]
-        wts = [quad_grid[nquad].weights for quad_grid, nquad in zip(derham.get_quad_grids(wspace), derham.nquads)]
+        pts = [quad_grid[nquad].points for quad_grid, nquad in zip(get_quad_grids(wspace), derham.nquads)]
+        wts = [quad_grid[nquad].weights for quad_grid, nquad in zip(get_quad_grids(wspace), derham.nquads)]
 
         p = wspace.degree
 
         # evaluated basis functions at quadrature points of the space
-        basis_o = [quad_grid[nquad].basis for quad_grid, nquad in zip(derham.get_quad_grids(wspace), derham.nquads)]
+        basis_o = [quad_grid[nquad].basis for quad_grid, nquad in zip(get_quad_grids(wspace), derham.nquads)]
 
         pads_out = wspace.coeff_space.pads
 

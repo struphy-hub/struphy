@@ -43,7 +43,7 @@ def test_exp_growth(spaces, algo, show_plots=False):
 
     vector_field = {}
     for i, space in enumerate(spaces):
-        var = derham.Vh[space].zeros()
+        var = derham.coeff_spaces[space].zeros()
         if isinstance(var, StencilVector):
             var[:] = c0
         elif isinstance(var, BlockVector):

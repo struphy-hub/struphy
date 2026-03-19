@@ -27,7 +27,7 @@ def test_lowdim_derham(Nel, p, do_plot=False):
     ### TEST STENCIL VECTORS ###
     ############################
     # Stencil vectors for Psydac:
-    x0_PSY = StencilVector(derham.Vh["0"])
+    x0_PSY = StencilVector(derham.V0)
     print(f"rank {rank} | 0-form StencilVector:")
     print(f"rank {rank} | starts:", x0_PSY.starts)
     print(f"rank {rank} | ends  :", x0_PSY.ends)
@@ -35,7 +35,7 @@ def test_lowdim_derham(Nel, p, do_plot=False):
     print(f"rank {rank} | shape (=dim):", x0_PSY.shape)
     print(f"rank {rank} | [:].shape (=shape):", x0_PSY[:].shape)
 
-    x3_PSY = StencilVector(derham.Vh["3"])
+    x3_PSY = StencilVector(derham.V3)
     print(f"rank {rank} | \n3-form StencilVector:")
     print(f"rank {rank} | starts:", x3_PSY.starts)
     print(f"rank {rank} | ends  :", x3_PSY.ends)
@@ -44,7 +44,7 @@ def test_lowdim_derham(Nel, p, do_plot=False):
     print(f"rank {rank} | [:].shape (=shape):", x3_PSY[:].shape)
 
     # Block of StencilVecttors
-    x1_PSY = BlockVector(derham.Vh["1"])
+    x1_PSY = BlockVector(derham.V1)
     print(f"rank {rank} | \n1-form StencilVector:")
     print(f"rank {rank} | starts:", [component.starts for component in x1_PSY])
     print(f"rank {rank} | ends  :", [component.ends for component in x1_PSY])
@@ -52,7 +52,7 @@ def test_lowdim_derham(Nel, p, do_plot=False):
     print(f"rank {rank} | shape (=dim):", [component.shape for component in x1_PSY])
     print(f"rank {rank} | [:].shape (=shape):", [component[:].shape for component in x1_PSY])
 
-    x2_PSY = BlockVector(derham.Vh["2"])
+    x2_PSY = BlockVector(derham.V2)
     print(f"rank {rank} | \n2-form StencilVector:")
     print(f"rank {rank} | starts:", [component.starts for component in x2_PSY])
     print(f"rank {rank} | ends  :", [component.ends for component in x2_PSY])
@@ -60,7 +60,7 @@ def test_lowdim_derham(Nel, p, do_plot=False):
     print(f"rank {rank} | shape (=dim):", [component.shape for component in x2_PSY])
     print(f"rank {rank} | [:].shape (=shape):", [component[:].shape for component in x2_PSY])
 
-    xv_PSY = BlockVector(derham.Vh["v"])
+    xv_PSY = BlockVector(derham.Vv)
     print(f"rank {rank} | \nVector StencilVector:")
     print(f"rank {rank} | starts:", [component.starts for component in xv_PSY])
     print(f"rank {rank} | ends  :", [component.ends for component in xv_PSY])
@@ -144,14 +144,14 @@ def test_lowdim_derham(Nel, p, do_plot=False):
 
     grad_f = (dfx, dfy, dfz)
     curl_f = (curl_f_1, curl_f_2, curl_f_3)
-    proj_of_grad_f = derham.P["1"](grad_f)
-    proj_of_curl_fff = derham.P["2"](curl_f)
-    proj_of_div_fff = derham.P["3"](div_f)
+    proj_of_grad_f = derhamP1(grad_f)
+    proj_of_curl_fff = derhamP2(curl_f)
+    proj_of_div_fff = derhamP3(div_f)
 
     ##########
     # 0-form #
     ##########
-    f0_h = derham.P["0"](f)
+    f0_h = derhamP0(f)
 
     field_f0 = derham.create_spline_function("f0", "H1")
     field_f0.vector = f0_h
@@ -193,7 +193,7 @@ def test_lowdim_derham(Nel, p, do_plot=False):
     ##########
     # 1-form #
     ##########
-    f1_h = derham.P["1"]((f, f, f))
+    f1_h = derhamP1((f, f, f))
 
     field_f1 = derham.create_spline_function("f1", "Hcurl")
     field_f1.vector = f1_h
@@ -240,7 +240,7 @@ def test_lowdim_derham(Nel, p, do_plot=False):
     ##########
     # 2-form #
     ##########
-    f2_h = derham.P["2"]((f, f, f))
+    f2_h = derhamP2((f, f, f))
 
     field_f2 = derham.create_spline_function("f2", "Hdiv")
     field_f2.vector = f2_h
@@ -282,7 +282,7 @@ def test_lowdim_derham(Nel, p, do_plot=False):
     ##########
     # 3-form #
     ##########
-    f3_h = derham.P["3"](f)
+    f3_h = derhamP3(f)
 
     field_f3 = derham.create_spline_function("f3", "L2")
     field_f3.vector = f3_h

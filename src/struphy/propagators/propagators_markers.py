@@ -192,19 +192,19 @@ class PushVxB(Propagator):
         # TODO: treat PolarVector as well, but polar splines are being reworked at the moment
         if self.projected_equil is not None:
             self._b2 = self.projected_equil.b2
-            assert self._b2.space == self.derham.Vh["2"]
+            assert self._b2.space == self.derham.V2
         else:
-            self._b2 = self.derham.Vh["2"].zeros()
+            self._b2 = self.derham.V2.zeros()
 
         if self.options.b2_var is None:
             self._b2_var = None
         else:
-            assert self.options.b2_var.spline.vector.space == self.derham.Vh["2"]
+            assert self.options.b2_var.spline.vector.space == self.derham.V2
             self._b2_var = self.options.b2_var.spline.vector
 
         # allocate dummy vectors to avoid temporary array allocations
-        self._tmp = self.derham.Vh["2"].zeros()
-        self._b_full = self.derham.Vh["2"].zeros()
+        self._tmp = self.derham.V2.zeros()
+        self._b_full = self.derham.V2.zeros()
 
         # define pusher kernel
         if self.options.algo == "analytic":
@@ -321,13 +321,13 @@ class PushVinEfield(Propagator):
 
         if self.options.e_field is not None:
             if isinstance(self.options.e_field, tuple[Callable]):
-                self._e_field = self.derham.P["1"](self.options.e_field)
+                self._e_field = self.derhamP1(self.options.e_field)
             else:
                 self._e_field = self.options.e_field.spline.vector
 
         if self.options.phi is not None:
             if isinstance(self.options.phi, Callable):
-                _phi = self.derham.P["0"](self.options.phi)
+                _phi = self.derhamP0(self.options.phi)
             else:
                 _phi = self.options.phi.spline.vector
             self._e_field = self.derham.grad.dot(_phi)
@@ -586,8 +586,8 @@ class PushGuidingCenterBxEstar(Propagator):
 
         # magnetic perturbation
         if self.options.b_tilde is not None:
-            self._B_dot_b = self.derham.Vh["0"].zeros()
-            self._grad_b_full = self.derham.Vh["1"].zeros()
+            self._B_dot_b = self.derham.V0.zeros()
+            self._grad_b_full = self.derham.V1.zeros()
 
             self._PB = getattr(self.basis_ops, "PB")
 
@@ -607,7 +607,7 @@ class PushGuidingCenterBxEstar(Propagator):
         self.options.phi.allocate(self.derham, self.domain)
         self._phi = self.options.phi.spline.vector
         self._evaluate_e_field = self.options.evaluate_e_field
-        self._e_field = self.derham.Vh["1"].zeros()
+        self._e_field = self.derham.V1.zeros()
 
         # choose method
         particles = self.variables.ions.particles
@@ -1024,8 +1024,8 @@ class PushGuidingCenterParallel(Propagator):
 
         # magnetic perturbation
         if self.options.b_tilde is not None:
-            self._B_dot_b = self.derham.Vh["0"].zeros()
-            self._grad_b_full = self.derham.Vh["1"].zeros()
+            self._B_dot_b = self.derham.V0.zeros()
+            self._grad_b_full = self.derham.V1.zeros()
 
             self._PB = getattr(self.basis_ops, "PB")
 
@@ -1045,7 +1045,7 @@ class PushGuidingCenterParallel(Propagator):
         self.options.phi.allocate(self.derham, domain=self.domain)
         self._phi = self.options.phi.spline.vector
         self._evaluate_e_field = self.options.evaluate_e_field
-        self._e_field = self.derham.Vh["1"].zeros()
+        self._e_field = self.derham.V1.zeros()
 
         # choose method
         particles = self.variables.ions.particles
@@ -1420,7 +1420,7 @@ class PushDeterministicDiffusion(Propagator):
         self._bc_type = self.options.bc_type
         self._diffusion = self.options.diff_coeff
 
-        self._tmp = self.derham.Vh["1"].zeros()
+        self._tmp = self.derham.V1.zeros()
 
         # choose algorithm
         self._butcher = self.options.butcher
@@ -1579,7 +1579,7 @@ class PushRandomDiffusion(Propagator):
             mpi_sort="each",
         )
 
-        # self._tmp = self.derham.Vh['1'].zeros()
+        # self._tmp = self.derham.V1.zeros()
         self._mean = [0, 0, 0]
         self._cov = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
 
