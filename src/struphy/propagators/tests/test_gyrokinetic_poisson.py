@@ -63,7 +63,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
 
         for n, Neli in enumerate(Nels):
             # boundary conditions (overwritten below)
-            bcs = None
+            bcs = (None, None, None)
 
             # manufactured solution
             e1 = 0.0
@@ -267,7 +267,7 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=Fa
 
     # boundary conditions
     if bc_type == "periodic":
-        bcs = None
+        bcs = (None, None, None)
 
         # manufactured solution in 2D
         def sol2_xyz(x, y, z):
@@ -280,7 +280,6 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=Fa
 
     elif bc_type == "dirichlet":
         bcs = (("hom_dirichlet", "hom_dirichlet"), None, None)
-        print(f"{bcs =}")
 
         # manufactured solution in 2D
         def sol2_xyz(x, y, z):

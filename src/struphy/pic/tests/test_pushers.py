@@ -11,7 +11,7 @@ from struphy.utils.pyccel import Pyccelkernel
         (("free", "free"), None, None),
         (None, ("free", "free"), None),
         (("free", "free"), ("free", "free"), None),
-        None,
+        (None, None, None),
     ],
 )
 @pytest.mark.parametrize(
@@ -116,7 +116,7 @@ def test_push_vxb_analytic(Nel, p, bcs, mapping, show_plots=False):
         (("free", "free"), None, None),
         (None, ("free", "free"), None),
         (("free", "free"), ("free", "free"), None),
-        None,
+        (None, None, None),
     ],
 )
 @pytest.mark.parametrize(
@@ -231,7 +231,7 @@ def test_push_bxu_Hdiv(Nel, p, bcs, mapping, show_plots=False):
         (("free", "free"), None, None),
         (None, ("free", "free"), None),
         (("free", "free"), ("free", "free"), None),
-        None,
+        (None, None, None),
     ],
 )
 @pytest.mark.parametrize(
@@ -346,7 +346,7 @@ def test_push_bxu_Hcurl(Nel, p, bcs, mapping, show_plots=False):
         (("free", "free"), None, None),
         (None, ("free", "free"), None),
         (("free", "free"), ("free", "free"), None),
-        None,
+        (None, None, None),
     ],
 )
 @pytest.mark.parametrize(
@@ -461,7 +461,7 @@ def test_push_bxu_H1vec(Nel, p, bcs, mapping, show_plots=False):
         (("free", "free"), None, None),
         (None, ("free", "free"), None),
         (("free", "free"), ("free", "free"), None),
-        None,
+        (None, None, None),
     ],
 )
 @pytest.mark.parametrize(
@@ -585,7 +585,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, bcs, mapping, show_plots=False):
         (("free", "free"), None, None),
         (None, ("free", "free"), None),
         (("free", "free"), ("free", "free"), None),
-        None,
+        (None, None, None),
     ],
 )
 @pytest.mark.parametrize(

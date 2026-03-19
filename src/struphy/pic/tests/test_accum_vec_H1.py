@@ -11,7 +11,7 @@ from struphy.utils.pyccel import Pyccelkernel
         (("free", "free"), ("free", "free"), None),
         (("free", "free"), None, None),
         (None, ("free", "free"), None),
-        None,
+        (None, None, None),
     ],
 )
 @pytest.mark.parametrize(

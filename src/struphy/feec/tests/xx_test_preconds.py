@@ -6,7 +6,7 @@ import pytest
 @pytest.mark.parametrize(
     "bcs",
     [
-        None,
+        (None, None, None),
         (("free", "free"), ("free", "free"), ("free", "free")),
     ],
 )
