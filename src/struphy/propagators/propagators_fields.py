@@ -2137,7 +2137,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         """
 
         # Call the projector and the space
-        P1 = self.derhamP1
+        P1 = self.derham.P1
         Vh = self.derham.fem_spaces[self._u_form]
 
         # Femfield for the field evaluation

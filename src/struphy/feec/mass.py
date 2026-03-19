@@ -444,7 +444,7 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, "_M2B_div0"):
-            a_eq = self.derhamP1(
+            a_eq = self.derham.P1(
                 [
                     self.weights[self.selected_weight].a1_1,
                     self.weights[self.selected_weight].a1_2,
@@ -550,7 +550,7 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, "_M2Bn"):
-            a_eq = self.derhamP1(
+            a_eq = self.derham.P1(
                 [
                     self.weights[self.selected_weight].a1_1,
                     self.weights[self.selected_weight].a1_2,
@@ -1633,7 +1633,7 @@ class WeightedMassOperatorsOldForTesting:
         """
 
         if not hasattr(self, "_M2B_div0"):
-            a_eq = self.derhamP1(
+            a_eq = self.derham.P1(
                 [
                     self.weights[self.selected_weight].a1_1,
                     self.weights[self.selected_weight].a1_2,
@@ -1747,7 +1747,7 @@ class WeightedMassOperatorsOldForTesting:
         """
 
         if not hasattr(self, "_M2BN"):  # typo M2BN instead of M2Bn??
-            a_eq = self.derhamP1(
+            a_eq = self.derham.P1(
                 [
                     self.weights[self.selected_weight].a1_1,
                     self.weights[self.selected_weight].a1_2,

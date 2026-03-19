@@ -321,13 +321,13 @@ class PushVinEfield(Propagator):
 
         if self.options.e_field is not None:
             if isinstance(self.options.e_field, tuple[Callable]):
-                self._e_field = self.derhamP1(self.options.e_field)
+                self._e_field = self.derham.P1(self.options.e_field)
             else:
                 self._e_field = self.options.e_field.spline.vector
 
         if self.options.phi is not None:
             if isinstance(self.options.phi, Callable):
-                _phi = self.derhamP0(self.options.phi)
+                _phi = self.derham.P0(self.options.phi)
             else:
                 _phi = self.options.phi.spline.vector
             self._e_field = self.derham.grad.dot(_phi)

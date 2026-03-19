@@ -331,7 +331,7 @@ class L2_transport_operator(LinOpWithTransp):
         else:
             self._domain = self._derham.Vvpol
             self._codomain = self._derham.V3pol
-        P2 = self._derhamP2
+        P2 = self._derham.P2
         Xh = self._derham.Vvfem
         self._dtype = Xh.coeff_space.dtype
         self.field = self._derham.create_spline_function("rhof", "L2")
@@ -486,7 +486,7 @@ class Hdiv0_transport_operator(LinOpWithTransp):
         else:
             self._domain = self._derham.Vvpol
             self._codomain = self._derham.V2pol
-        P1 = self._derhamP1
+        P1 = self._derham.P1
         Xh = self._derham.Vvfem
         self._dtype = Xh.coeff_space.dtype
         self.field = self._derham.create_spline_function("Bf", "Hdiv")
@@ -683,8 +683,8 @@ class Pressure_transport_operator(LinOpWithTransp):
         else:
             self._domain = self._derham.Vvpol
             self._codomain = self._derham.V3pol
-        P2 = self._derhamP2
-        P3 = self._derhamP3
+        P2 = self._derham.P2
+        P3 = self._derham.P3
         Xh = self._derham.Vvfem
         V3h = self._derham.V3fem
         self._dtype = Xh.coeff_space.dtype

@@ -345,9 +345,9 @@ def test_projectors(Nel, p, bcs):
 
     # ============ project on V0 =========================
     if rank == 0:
-        r0_pol = derhamP0(fun0)
+        r0_pol = derham.P0(fun0)
     else:
-        r0_pol = derhamP0(fun0)
+        r0_pol = derham.P0(fun0)
 
     if rank == 0:
         print("Test passed for PI_0 polar projector")
@@ -357,9 +357,9 @@ def test_projectors(Nel, p, bcs):
 
     # ============ project on V1 =========================
     if rank == 0:
-        r1_pol = derhamP1(fun1)
+        r1_pol = derham.P1(fun1)
     else:
-        r1_pol = derhamP1(fun1)
+        r1_pol = derham.P1(fun1)
 
     if rank == 0:
         print("Test passed for PI_1 polar projector")
@@ -369,9 +369,9 @@ def test_projectors(Nel, p, bcs):
 
     # ============ project on V2 =========================
     if rank == 0:
-        r2_pol = derhamP2(fun2)
+        r2_pol = derham.P2(fun2)
     else:
-        r2_pol = derhamP2(fun2)
+        r2_pol = derham.P2(fun2)
 
     if rank == 0:
         print("Test passed for PI_2 polar projector")
@@ -381,9 +381,9 @@ def test_projectors(Nel, p, bcs):
 
     # ============ project on V3 =========================
     if rank == 0:
-        r3_pol = derhamP3(fun3)
+        r3_pol = derham.P3(fun3)
     else:
-        r3_pol = derhamP3(fun3)
+        r3_pol = derham.P3(fun3)
 
     if rank == 0:
         print("Test passed for PI_3 polar projector")

@@ -24,11 +24,11 @@ class ProjectedFluidEquilibrium:
             print(f"{self.derham = }")
 
         # commuting projectors
-        self._P0 = derhamP0
-        self._P1 = derhamP1
-        self._P2 = derhamP2
-        self._P3 = derhamP3
-        self._Pv = derhamPv
+        self._P0 = derham.P0
+        self._P1 = derham.P1
+        self._P2 = derham.P2
+        self._P3 = derham.P3
+        self._Pv = derham.Pv
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
         self._E0T = derham.extraction_ops["0"].transpose()
