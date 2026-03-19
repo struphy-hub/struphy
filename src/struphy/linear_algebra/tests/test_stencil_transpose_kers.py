@@ -3,7 +3,7 @@ import pytest
 
 @pytest.mark.parametrize("Nel", [12])
 @pytest.mark.parametrize("p", [1, 2, 3])
-@pytest.mark.parametrize("bcs", [None, (("free", "free"), ("free", "free"), ("free", "free"))])
+@pytest.mark.parametrize("bcs", [(None, None, None), (("free", "free"), ("free", "free"), ("free", "free"))])
 @pytest.mark.parametrize("domain_ind", ["N", "D"])
 @pytest.mark.parametrize("codomain_ind", ["N", "D"])
 def test_1d(Nel, p, bcs, domain_ind, codomain_ind):

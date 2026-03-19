@@ -5,7 +5,7 @@ import pytest
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("Nel", [[16, 1, 1], [32, 1, 1]])
 @pytest.mark.parametrize("p", [[1, 1, 1], [2, 1, 1]])
-@pytest.mark.parametrize("bcs", [None])
+@pytest.mark.parametrize("bcs", [(None, None, None)])
 @pytest.mark.parametrize("mapping", [["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}]])
 @pytest.mark.parametrize("epsilon", [0.000000001])
 @pytest.mark.parametrize("dt", [0.001])
@@ -213,7 +213,7 @@ import pytest
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("Nel", [[16, 16, 1], [32, 32, 1]])
 @pytest.mark.parametrize("p", [[1, 1, 1], [2, 2, 1]])
-@pytest.mark.parametrize("bcs", [None])
+@pytest.mark.parametrize("bcs", [(None, None, None)])
 @pytest.mark.parametrize("mapping", [["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}]])
 @pytest.mark.parametrize("epsilon", [0.001])
 @pytest.mark.parametrize("dt", [0.01])
