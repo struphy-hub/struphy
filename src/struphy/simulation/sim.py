@@ -496,7 +496,7 @@ class Simulation(SimulationBase):
             self.data.add_data({key_time: val})
             self.data.add_data({key_time_restart: val})
 
-    def run(self, verbose: bool = False):
+    def run(self, one_time_step: bool = False, verbose: bool = False):
         """Main entry point to execute the simulation time loop.
 
         Responsibilities include allocation (when not restarting),
@@ -506,6 +506,9 @@ class Simulation(SimulationBase):
 
         Parameters
         ----------
+        one_time_step : bool
+            If True, only perform one time step (useful for testing).
+
         verbose : bool
             If True, print additional runtime information.
         """
@@ -567,7 +570,10 @@ class Simulation(SimulationBase):
 
         # retrieve time parameters
         dt = self.time_opts.dt
-        Tend = self.time_opts.Tend
+        if one_time_step:
+            Tend = dt
+        else:
+            Tend = self.time_opts.Tend
         split_algo = self.time_opts.split_algo
 
         self.print_progress(70)
