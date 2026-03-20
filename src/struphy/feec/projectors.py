@@ -664,7 +664,7 @@ class CommutingProjector:
 
         return dofs
 
-    def __call__(self, fun, out=None, dofs=None, apply_bc=False):
+    def __call__(self, fun, out=None, dofs=None, apply_bc=True):
         """
         Applies projector to given callable(s).
 
