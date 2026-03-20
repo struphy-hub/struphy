@@ -1,10 +1,13 @@
 # coding: utf-8
 "Base classes for mapped domains (single patch)."
 
+import inspect
 from abc import ABCMeta, abstractmethod
 
 import cunumpy as xp
 import h5py
+import pyvista as pv
+import vtk
 from scipy.sparse import csc_matrix, kron
 from scipy.sparse.linalg import splu, spsolve
 
@@ -12,9 +15,15 @@ import struphy.bsplines.bsplines as bsp
 from struphy.geometry import evaluation_kernels, transform_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
+from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default, all_subclasses
 
 
-class Domain(metaclass=ABCMeta):
+class DomainMeta(ABCMeta):
+    def __iter__(cls):
+        return iter(all_subclasses(cls))
+
+
+class Domain(metaclass=DomainMeta):
     r"""
     Abstract base class for parametric domains in plasma simulations (single patch).
 
@@ -209,6 +218,20 @@ class Domain(metaclass=ABCMeta):
         )
 
     def __repr__(self):
+        out = f"{self.__class__.__name__}("
+        for k, v in self.params.items():
+            out += f"{k}={v}, "
+        out += ")"
+        return out
+
+    def __repr_no_defaults__(self):
+        return __class_with_params_repr_no_defaults__(self)
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
+
+    def __str__(self):
         print(f"{self.__class__.__name__}")
         for k, v in self.params.items():
             print(f"{k}:".ljust(20), v)
@@ -1447,6 +1470,72 @@ class Domain(metaclass=ABCMeta):
             params_numpy.append(v)
         return xp.array(params_numpy)
 
+    def create_geometry_mesh(
+        self,
+        nx: int = 32,
+        ny: int = 32,
+        nz: int = 32,
+        verbose: bool = False,
+    ):
+        """Create a PyVista mesh with geometry
+
+        Returns
+        -------
+        pyvista.StructuredGrid
+        """
+
+        grids_log = [
+            xp.linspace(1e-6, 1.0, nx),
+            xp.linspace(0.0, 1.0, ny),
+            xp.linspace(0.0, 1.0, nz),
+        ]
+
+        tmp = self(*grids_log)
+        grids_phy = [tmp[0], tmp[1], tmp[2]]
+
+        # Create PyVista structured grid
+        mesh = pv.StructuredGrid(grids_phy[0], grids_phy[1], grids_phy[2])
+
+        return mesh
+
+    def show_3d(
+        self,
+        nx: int = 32,
+        ny: int = 32,
+        nz: int = 32,
+        verbose: bool = False,
+    ):
+        """Show the 3D geometry using PyVista."""
+        mesh = self.create_geometry_mesh(nx, ny, nz, verbose)
+        plotter = pv.Plotter()
+        plotter.add_mesh(mesh, show_edges=True)
+        plotter.show()
+
+    def export_geometry(self, filename: str):
+        """Save the geometry to a VTK file.
+
+        Parameters
+        ----------
+        filename : str
+            The name of the file to save the geometry to. Supported formats include .vts, .vtk, .vtp
+        """
+        mesh = self.create_geometry_mesh()
+        if filename.endswith(".vts"):
+            mesh.save(filename, binary=True)
+        elif filename.endswith(".vtp"):
+            # Extract the external surface (Geometry Filter)
+            geom_filter = vtk.vtkGeometryFilter()
+            geom_filter.SetInputData(mesh)
+            geom_filter.Update()
+
+            # Write as PolyData (.vtp)
+            writer = vtk.vtkXMLPolyDataWriter()
+            writer.SetFileName(filename)
+            writer.SetInputData(geom_filter.GetOutput())
+            writer.Write()
+        else:
+            raise ValueError("Unsupported file format. Supported formats are .vts, .vtk, .vtp")
+
     def show(
         self,
         logical=False,
@@ -1834,6 +1923,24 @@ class Domain(metaclass=ABCMeta):
         else:
             plt.show()
 
+    def to_dict(self) -> dict:
+        return {
+            "type": self.__class__.__name__,
+            "params": self.params,
+        }
+
+    @classmethod
+    def from_dict(cls, dct):
+        from struphy.geometry.utilities import get_domain_by_name
+
+        name = dct["type"]
+        domain_cls = get_domain_by_name(name)
+        return domain_cls(**dct["params"])
+
+    def __eq__(self, other: "Domain") -> bool:
+        assert isinstance(other, Domain), f"Cannot compare Domain with {type(other)}."
+        return self.to_dict() == other.to_dict()
+
 
 class Spline(Domain):
     r"""3D IGA spline mapping.
@@ -1854,9 +1961,9 @@ class Spline(Domain):
         Nel: tuple[int] = (8, 24, 6),
         p: tuple[int] = (2, 3, 1),
         spl_kind: tuple[bool] = (False, True, True),
-        cx: xp.ndarray = None,
-        cy: xp.ndarray = None,
-        cz: xp.ndarray = None,
+        cx: xp.ndarray | None = None,
+        cy: xp.ndarray | None = None,
+        cz: xp.ndarray | None = None,
     ):
         self.kind_map = 0
 
@@ -1868,7 +1975,6 @@ class Spline(Domain):
             cx = mhd_equil.domain.cx
             cx = mhd_equil.domain.cy
             cx = mhd_equil.domain.cz
-
         # assign control points
         self._cx = cx
         self._cy = cy

@@ -1,4 +1,4 @@
-.. _equilibria:
+.. _fluid_equils:
 
 Fluid equilibrium
 =================

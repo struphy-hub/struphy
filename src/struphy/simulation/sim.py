@@ -1,5 +1,6 @@
 # third party imports
 import glob
+import json
 import os
 import pickle
 import shutil
@@ -8,6 +9,8 @@ import time
 
 import cunumpy as xp
 import h5py
+import pyvista as pv
+import yaml
 from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.stencil import StencilVector
@@ -60,7 +63,7 @@ from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.simulation.base import SimulationBase
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.utils import dict_to_yaml
+from struphy.utils.utils import dict_to_yaml, ruff_autofix_and_format
 
 
 class Simulation(SimulationBase):
@@ -76,6 +79,10 @@ class Simulation(SimulationBase):
     ----------
     model : StruphyModel
         Physics model that provides species, propagators and variables.
+    name : str, optional
+        Name of the simulation.
+    description : str, optional
+        Description of the simulation.
     params_path : str, optional
         Path to a Python parameter file to save alongside outputs.
     env : EnvironmentOptions
@@ -110,6 +117,8 @@ class Simulation(SimulationBase):
     def __init__(
         self,
         model: StruphyModel,
+        name: str = "",
+        description: str = "",
         params_path: str = None,
         env: EnvironmentOptions = EnvironmentOptions(),
         base_units: BaseUnits = BaseUnits(),
@@ -121,6 +130,8 @@ class Simulation(SimulationBase):
         verbose: bool = False,
     ):
 
+        self._name = name
+        self._description = description
         self._model = model
         self._params_path = params_path
         self._env = env
@@ -154,7 +165,7 @@ class Simulation(SimulationBase):
             self.comm_size = self.comm.Get_size()
             self.Barrier = self.comm.Barrier
 
-        if self.rank == 0:
+        if self.rank == 0 and verbose:
             print("")
             if verbose:
                 self.show_parameters()
@@ -167,7 +178,7 @@ class Simulation(SimulationBase):
         assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
         self.model_name = model.__class__.__name__
 
-        if self.rank == 0:
+        if self.rank == 0 and verbose:
             print(f"Instance of simulation for model {self.model_name} ...")
 
         # meta-data
@@ -192,7 +203,7 @@ class Simulation(SimulationBase):
         self.meta["max wall-clock [min]"] = max_runtime
         self.meta["save interval [steps]"] = save_step
 
-        if self.rank == 0:
+        if self.rank == 0 and verbose:
             print("\nMETADATA:")
             for k, v in self.meta.items():
                 print(f"{k}:".ljust(25), v)
@@ -263,7 +274,7 @@ class Simulation(SimulationBase):
         self.units = Units(base_units)
         self.normalize_model()
 
-        if self.rank == 0:
+        if self.rank == 0 and verbose:
             print("\n... Done.")
 
     # ----------------
@@ -320,7 +331,7 @@ class Simulation(SimulationBase):
         # allocate helper fields and perform initial solves if needed
         self.model.allocate_helpers(verbose=verbose)
 
-        if MPI.COMM_WORLD.Get_rank() == 0:
+        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
             print("... Done.")
 
     def save_geometry_and_equil_vtk(self, verbose: bool = False):
@@ -353,6 +364,100 @@ class Simulation(SimulationBase):
 
             gridToVTK(os.path.join(self.env.path_out, "geometry"), *grids_phy, pointData=pointData)
 
+    def create_geometry_mesh(
+        self,
+        nx: int = 32,
+        ny: int = 32,
+        nz: int = 32,
+        verbose: bool = False,
+    ):
+        """Create a PyVista mesh with geometry and (projected) equilibrium fields.
+
+        Returns a StructuredGrid mesh with basic diagnostic fields such as
+        jacobian determinant, pressure and |B| when available.
+
+        Returns
+        -------
+        pyvista.StructuredGrid
+            Mesh containing geometry and equilibrium field data.
+        """
+        grids_log = [
+            xp.linspace(1e-6, 1.0, nx),
+            xp.linspace(0.0, 1.0, ny),
+            xp.linspace(0.0, 1.0, nz),
+        ]
+
+        tmp = self.domain(*grids_log)
+        grids_phy = [tmp[0], tmp[1], tmp[2]]
+
+        # Create PyVista structured grid
+        mesh = pv.StructuredGrid(grids_phy[0], grids_phy[1], grids_phy[2])
+
+        # Add point data
+        det_df = self.domain.jacobian_det(*grids_log)
+        mesh["det_df"] = det_df.ravel(order="F")
+
+        if self.equil is not None:
+            p0 = self.equil.p0(*grids_log)
+            mesh["p0"] = p0.ravel(order="F")
+            if isinstance(self.equil, FluidEquilibriumWithB):
+                absB0 = self.equil.absB0(*grids_log)
+                mesh["absB0"] = absB0.ravel(order="F")
+
+        return mesh
+
+    def show_domain(
+        self,
+        scalars: list | str | None = None,
+        nx: int = 32,
+        ny: int = 32,
+        nz: int = 32,
+        window_size: tuple | None = None,
+        zoom_factor: int = 1.0,
+        verbose: bool = False,
+    ) -> pv.Plotter:
+        """Visualize the geometry and (projected) equilibrium fields using PyVista."""
+        if self.rank == 0:
+            mesh = self.create_geometry_mesh(nx=nx, ny=ny, nz=nz, verbose=verbose)
+
+            pv.set_jupyter_backend("static")
+            if scalars:
+                if isinstance(scalars, str):
+                    scalars_to_plot = [scalars]
+                else:
+                    scalars_to_plot = scalars
+            else:
+                scalar_names = mesh.array_names
+                scalars_to_plot = scalar_names[:3] if len(scalar_names) >= 3 else scalar_names
+
+            if window_size is None:
+                window_size = (len(scalars_to_plot) * 500, 250)
+
+            # Create a plotter with three subplots side by side
+            plotter = pv.Plotter(shape=(1, len(scalars_to_plot)), window_size=window_size)
+
+            for idx, scalar_name in enumerate(scalars_to_plot):
+                plotter.subplot(0, idx)
+                plotter.add_mesh(
+                    mesh,
+                    scalars=scalar_name,
+                    show_edges=False,
+                    cmap="jet",
+                    scalar_bar_args={
+                        "title": scalar_name,
+                        "vertical": True,
+                        "title_font_size": 12,
+                        "label_font_size": 10,
+                        "height": 0.8,
+                    },
+                )
+
+            plotter.view_isometric()
+            plotter.camera.zoom(zoom_factor)
+            plotter.show()
+            return plotter
+        return None
+
     def initialize_data_storage(self, verbose: bool = False):
         """Create the `DataContainer` and register time datasets.
 
@@ -379,7 +484,7 @@ class Simulation(SimulationBase):
             self.data.add_data({key_time: val})
             self.data.add_data({key_time_restart: val})
 
-    def run(self, verbose: bool = False):
+    def run(self, one_time_step: bool = False, verbose: bool = False):
         """Main entry point to execute the simulation time loop.
 
         Responsibilities include allocation (when not restarting),
@@ -389,12 +494,19 @@ class Simulation(SimulationBase):
 
         Parameters
         ----------
+        one_time_step : bool
+            If True, only perform one time step (useful for testing).
+
         verbose : bool
             If True, print additional runtime information.
         """
 
         if self.rank == 0:
             print(f"\nStarting simulation run for model {self.model_name} ...")
+            if self.name != "":
+                print(f"Simulation name: {self.name}")
+            if self.description != "":
+                print(f"Description: {self.description}")
 
         self._remove_existing_output_files(verbose=verbose)
 
@@ -441,7 +553,10 @@ class Simulation(SimulationBase):
 
         # retrieve time parameters
         dt = self.time_opts.dt
-        Tend = self.time_opts.Tend
+        if one_time_step:
+            Tend = dt
+        else:
+            Tend = self.time_opts.Tend
         split_algo = self.time_opts.split_algo
 
         # set initial conditions for all variables
@@ -509,7 +624,7 @@ RESTARTing from:
                     if isinstance(val, Particles):
                         val.do_sort()
                 t1 = time.time()
-                if self.rank == 0 and verbose:
+                if self.rank == 0:
                     message = "Particles sorted | wall clock [s]: {0:8.4f} | sorting duration [s]: {1:8.4f}".format(
                         run_time_now * 60,
                         t1 - t0,
@@ -1283,6 +1398,180 @@ RESTARTing from:
                         if MPI.COMM_WORLD.Get_size() > 1:
                             subval.particles.mpi_sort_markers(do_test=True)
 
+    def to_dict(self) -> dict:
+        """Serialize the simulation configuration to a dictionary."""
+        return {
+            "name": self.name,
+            "description": self.description,
+            "model": self.model.to_dict(),
+            "params_path": self.params_path,
+            "env": self.env.to_dict(),
+            "base_units": self.base_units.to_dict(),
+            "time_opts": self.time_opts.to_dict(),
+            "domain": self.domain.to_dict(),
+            "equil": self.equil.to_dict() if self.equil is not None else None,
+            "grid": self.grid.to_dict(),
+            "derham_opts": self.derham_opts.to_dict(),
+            "verbose": getattr(self, "verbose", False),
+        }
+
+    @classmethod
+    def from_dict(cls, dct) -> "Simulation":
+        """Deserialize a simulation configuration from a dictionary."""
+
+        return cls(
+            name=dct["name"],
+            description=dct["description"],
+            model=StruphyModel.from_dict(dct["model"]),
+            params_path=dct["params_path"],
+            env=EnvironmentOptions.from_dict(dct["env"]),
+            base_units=BaseUnits.from_dict(dct["base_units"]),
+            time_opts=Time.from_dict(dct["time_opts"]),
+            domain=domains.Cuboid.from_dict(dct["domain"]),
+            equil=FluidEquilibrium.from_dict(dct["equil"]),
+            grid=grids.TensorProductGrid.from_dict(dct["grid"]),
+            derham_opts=DerhamOptions.from_dict(dct["derham_opts"]),
+            verbose=dct.get("verbose", False),
+        )
+
+    @classmethod
+    def from_file(cls, file_path: str) -> "SimulationBase":
+        """Deserialize a simulation configuration from a file based on the file extension."""
+        if file_path.endswith(".yaml") or file_path.endswith(".yml"):
+            with open(file_path, "r") as f:
+                dct = yaml.safe_load(f)
+        elif file_path.endswith(".json"):
+            with open(file_path, "r") as f:
+                dct = json.load(f)
+        else:
+            raise ValueError("Unsupported file format. Use .yaml, .yml or .json.")
+
+        # YAML and JSON do not have a native tuple type,
+        # so when you load them with PyYAML or json,
+        # sequences are always converted to lists
+        def convert_lists_to_tuples(obj):
+            if isinstance(obj, dict):
+                for k, v in obj.items():
+                    obj[k] = convert_lists_to_tuples(v)
+                return obj
+            elif isinstance(obj, list):
+                return tuple(convert_lists_to_tuples(i) for i in obj)
+            else:
+                return obj
+
+        # Convert lists to tuples for relevant keys
+        dct = convert_lists_to_tuples(dct)
+        return cls.from_dict(dct)
+
+    def generate_script(
+        self,
+        include_main_guard: bool = False,
+        include_defaults: bool = False,
+    ) -> str:
+        """Generate a Python script that can be used to reproduce the simulation."""
+
+        script = f"""
+from struphy import (
+    BaseUnits,
+    DerhamOptions,
+    EnvironmentOptions,
+    FieldsBackground,
+    Simulation,
+    Time,
+    domains,
+    equils,
+    grids,
+    perturbations,
+)
+
+from struphy.models import {self.model.__class__.__name__}
+
+"""
+
+        sim_setup = ""
+        sim_class_def = "sim = Simulation("
+
+        if include_defaults:
+            sim_setup += f"model = {self.model.__repr__()}\n"
+            sim_class_def += "model=model,"
+            
+            sim_setup += f"env = {self.env.__repr__()}\n"
+            sim_class_def += "env=env,"
+
+            sim_setup += f"base_units = {self.base_units.__repr__()}\n"
+            sim_class_def += "base_units=base_units,"
+
+            sim_setup += f"time_opts = {self.time_opts.__repr__()}\n"
+            sim_class_def += "time_opts=time_opts,"
+
+            sim_setup += f"domain = domains.{self.domain.__repr__()}\n"
+            sim_class_def += "domain=domain,"
+
+            sim_setup += f"grid = grids.{self.grid.__repr__()}\n"
+            sim_class_def += "grid=grid,"
+
+            sim_setup += f"derham_opts = {self.derham_opts.__repr__()}\n"
+            sim_class_def += "derham_opts=derham_opts,"
+        else:
+            # Only include parameters that are not default to avoid
+            # cluttering the script with unnecessary lines
+
+            sim_setup += f"model = {self.model.__repr_no_defaults__()}\n"
+            sim_class_def += "model=model,"
+            
+            if not self.env.is_default:
+                sim_setup += f"env = {self.env.__repr_no_defaults__()}\n"
+                sim_class_def += "env=env,"
+            if not self.base_units.is_default:
+                sim_setup += f"base_units = {self.base_units.__repr_no_defaults__()}\n"
+                sim_class_def += "base_units=base_units,"
+            if not self.time_opts.is_default:
+                sim_setup += f"time_opts = {self.time_opts.__repr_no_defaults__()}\n"
+                sim_class_def += "time_opts=time_opts,"
+            if not self.domain.is_default:
+                sim_setup += f"domain = domains.{self.domain.__repr_no_defaults__()}\n"
+                sim_class_def += "domain=domain,"
+            if not self.grid.is_default:
+                sim_setup += f"grid = grids.{self.grid.__repr_no_defaults__()}\n"
+                sim_class_def += "grid=grid,"
+            if not self.derham_opts.is_default:
+                sim_setup += f"derham_opts = {self.derham_opts.__repr_no_defaults__()}\n"
+                sim_class_def += "derham_opts=derham_opts,"
+
+        # This is a bit of a special case since the default is None,
+        if self.equil is not None:
+            if include_defaults:
+                sim_setup += f"equil = equils.{self.equil.__repr__()}\n"
+            else:
+                sim_setup += f"equil = equils.{self.equil.__repr_no_defaults__()}\n"
+            sim_class_def += "equil=equil,"
+        if self.params_path is not None:
+            sim_class_def += f"params_path={repr(self.params_path)},\n"
+
+        sim_class_def += ")\n"
+
+        script += sim_setup + "\n" + sim_class_def
+        if include_main_guard:
+            script += """
+if __name__ == "__main__":
+    sim.run()"""
+
+        return ruff_autofix_and_format(script)
+
+    def save_script(
+        self,
+        file_path: str,
+        include_main_guard: bool = False,
+    ):
+        """Save the generated script to a file."""
+        script = self.generate_script(include_main_guard=include_main_guard)
+        with open(file_path, "w") as f:
+            f.write(script)
+
+    def __eq__(self, value: "Simulation") -> bool:
+        assert isinstance(value, Simulation), "Comparison only implemented between Simulation instances."
+        return self.to_dict() == value.to_dict()
+
     # ------------------------------------------------------
     # Common properties with setters (from input parameters)
     # ------------------------------------------------------
@@ -1291,6 +1580,16 @@ RESTARTing from:
     def model(self) -> StruphyModel:
         """StruphyModel object containing the PDE of the model."""
         return self._model
+
+    @property
+    def name(self) -> str:
+        """Name of the simulation."""
+        return self._name
+
+    @property
+    def description(self) -> str:
+        """Description of the simulation."""
+        return self._description
 
     @property
     def params_path(self):

@@ -10,6 +10,9 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 
+import sys
+import os
+sys.path.insert(0, os.path.abspath('_ext'))
 
 with open("../src/struphy/console/main.py") as f:
     exec(f.read())
@@ -45,15 +48,28 @@ extensions = [
     "myst_parser",
     "sphinx_design",
     "sphinx_copybutton",
+    "rst_docstring",  # Custom extension to use __doc_rst__
+    "sphinx_collections",
 ]
 
 nbsphinx_execute = "auto"
+# nbsphinx_kernel_name = 'local-env' # This is just for Stefan's local machine, where the system kernel does not work.
 
 napoleon_use_admonition_for_examples = True
 napoleon_use_admonition_for_notes = True
 napoleon_use_admonition_for_references = True
 napoleon_use_ivar = True
 napoleon_attr_annotations = False
+
+# Set path to outside sources for sphinxcontrib-collections. 
+collections = {
+    'notebooks': {
+        'driver': 'copy_folder',
+        'source': '../tutorials/',
+        'target': 'tutorials/',
+        'ignore': ['*.py', '.sh'],
+    }
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
