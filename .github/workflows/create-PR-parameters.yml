@@ -22,6 +22,16 @@ jobs:
         with:
           submod-name: examples/
 
+      - name: Read Struphy version from pyproject
+        if: env.SUBMOD_CHANGED == 'true'
+        run: |
+          STRUPHY_VERSION=$(grep -m1 '^version = ' pyproject.toml | sed -E 's/version = "([^"]+)"/\1/')
+          if [ -z "$STRUPHY_VERSION" ]; then
+            echo "Failed to parse version from pyproject.toml" >&2
+            exit 1
+          fi
+          echo "STRUPHY_VERSION=$STRUPHY_VERSION" >> "$GITHUB_ENV"
+
       - name: Checkout code
         if: env.SUBMOD_CHANGED == 'true'
         uses: actions/checkout@v4
@@ -48,7 +58,7 @@ jobs:
         run: |
           gh pr create \
             --repo struphy-hub/struphy-parameter-files \
-            --title "New parameter files from struphy" \
+            --title "New parameter files from struphy v${STRUPHY_VERSION}" \
             --body "This is an auto-generated PR from a Struphy workflow (on push to main)." \
             --head from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }} \
             --base main 
