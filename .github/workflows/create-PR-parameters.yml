@@ -17,13 +17,10 @@ jobs:
           submodules: true  # This is crucial!
           fetch-depth: 5
 
-      - name: Get submodule diff
-        uses: ./.github/actions/submodule-diff
-        with:
-          submod-name: examples/
+      - name: Read Struphy version from pyproject
+        uses: ./.github/actions/struphy-version
 
       - name: Checkout code
-        if: env.SUBMOD_CHANGED == 'true'
         uses: actions/checkout@v4
         with:
           repository: struphy-hub/struphy-parameter-files
@@ -31,7 +28,6 @@ jobs:
           path: struphy-parameter-files
 
       - name: Copy examples and push new branch
-        if: env.SUBMOD_CHANGED == 'true'
         run: |
             cd struphy-parameter-files
             git config user.name "github-actions[bot]"
@@ -43,12 +39,22 @@ jobs:
             git commit -m "Changes to parameter files from struphy (on push to main)"
             git push origin from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
 
+      - name: Create version tag in struphy-parameter-files
+        run: |
+            cd struphy-parameter-files
+            TAG_NAME="v${STRUPHY_VERSION}"
+            if git ls-remote --exit-code --tags origin "refs/tags/${TAG_NAME}" > /dev/null; then
+              echo "Tag ${TAG_NAME} already exists in origin. Skipping tag creation."
+            else
+              git tag -a "${TAG_NAME}" -m "Parameter files for Struphy v${STRUPHY_VERSION}"
+              git push origin "${TAG_NAME}"
+            fi
+
       - name: Create pull request
-        if: env.SUBMOD_CHANGED == 'true'
         run: |
           gh pr create \
             --repo struphy-hub/struphy-parameter-files \
-            --title "New parameter files from struphy" \
+            --title "New parameter files from struphy v${STRUPHY_VERSION}" \
             --body "This is an auto-generated PR from a Struphy workflow (on push to main)." \
             --head from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }} \
             --base main 
