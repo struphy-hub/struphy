@@ -23,14 +23,8 @@ jobs:
           submod-name: examples/
 
       - name: Read Struphy version from pyproject
+        uses: ./.github/actions/struhy-version
         if: env.SUBMOD_CHANGED == 'true'
-        run: |
-          STRUPHY_VERSION=$(grep -m1 '^version = ' pyproject.toml | sed -E 's/version = "([^"]+)"/\1/')
-          if [ -z "$STRUPHY_VERSION" ]; then
-            echo "Failed to parse version from pyproject.toml" >&2
-            exit 1
-          fi
-          echo "STRUPHY_VERSION=$STRUPHY_VERSION" >> "$GITHUB_ENV"
 
       - name: Checkout code
         if: env.SUBMOD_CHANGED == 'true'
