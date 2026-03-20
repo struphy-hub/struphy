@@ -48,6 +48,7 @@ dependencies = [
     'ruff>=0.15.0',
     'line_profiler',
     'scope-profiler>=0.1.7',
+    'jax-finufft<=1.2.0',
 ]
 
 [project.license]
@@ -79,21 +80,22 @@ mpi = [
 ]
 doc = [
     "struphy[phys]",
-    "jupyter<=1.1.1",
-    "nbconvert<=6.5.4",
-    "ipykernel<=7.2.0",
-    "sphinx<=9.1.0",
-    "sphinx-design<=0.7.0",
-    "lxml_html_clean<=0.4.4",
-    "sphinxcontrib-napoleon<=0.7",
-    "sphinx-copybutton<=0.5.2",
-    "pydata-sphinx-theme<=0.16.1",
-    "nbsphinx<=0.9.8",
-    "m2r2<=0.3.4",
-    "myst-parser<=5.0.0",
-    "mistune<=0.8.4",
-    "docutils<=0.22.4",
-    "ipyparallel<=9.0.2",
+    "jupyter",
+    "nbconvert",
+    "ipykernel",
+    "sphinx",
+    "sphinx-design",
+    "lxml_html_clean",
+    "sphinxcontrib-napoleon",
+    "sphinx-copybutton",
+    "sphinx-collections",
+    "pydata-sphinx-theme",
+    "nbsphinx",
+    "m2r2",
+    "myst-parser",
+    "mistune",
+    "docutils",
+    "ipyparallel",
 ]
 likwid = [
     "struphy[dev]",
