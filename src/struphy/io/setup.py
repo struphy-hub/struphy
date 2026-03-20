@@ -13,12 +13,17 @@ from struphy.io.options import DerhamOptions
 from struphy.topology.grids import TensorProductGrid
 
 
-def import_parameters_py(params_path: str) -> ModuleType:
-    """Import a .py parameter file under the module name 'parameters' and return it."""
+def import_parameters_py(params_path: str, name: str = "parameters") -> ModuleType:
+    """Import a .py parameter file under the given module name and return it.
+
+    The parameter file at ``params_path`` is loaded as a module using the
+    provided ``name``, which is also used as the key in ``sys.modules``.
+    By default, the module is registered under the name ``"parameters"``.
+    """
     assert ".py" in params_path
-    spec = importlib.util.spec_from_file_location("parameters", params_path)
+    spec = importlib.util.spec_from_file_location(name, params_path)
     params_in = importlib.util.module_from_spec(spec)
-    sys.modules["parameters"] = params_in
+    sys.modules[name] = params_in
     spec.loader.exec_module(params_in)
     return params_in
 
