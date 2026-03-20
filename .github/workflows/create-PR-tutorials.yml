@@ -1,9 +1,6 @@
 name: Create pull request into struphy-hub/struphy-tutorials
 
 on:
-  pull_request:
-    branches:
-      - devel
   push:
     branches:
       - main

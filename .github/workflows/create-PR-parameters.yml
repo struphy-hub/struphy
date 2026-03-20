@@ -1,9 +1,6 @@
 name: Create pull request into struphy-hub/struphy-parameter-files
 
 on:
-  pull_request:
-    branches:
-      - devel
   push:
     branches:
       - main
