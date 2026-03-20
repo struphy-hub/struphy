@@ -1,5 +1,5 @@
-import os
 import logging
+import os
 import sys
 from unittest import mock
 from unittest.mock import patch
@@ -127,11 +127,7 @@ def test_main_options(args_expected, capsys, caplog):
     assert captured.out != "" or captured.err != "" or log_output != ""
 
     for expected in args_expected[1]:
-        assert (
-            expected in captured.out
-            or expected in captured.err
-            or expected in log_output
-        )
+        assert expected in captured.out or expected in captured.err or expected in log_output
 
 
 @pytest.mark.mpi_skip
