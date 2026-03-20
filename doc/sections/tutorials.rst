@@ -4,7 +4,7 @@ Tutorials
 =========
 
 All notebooks are available at https://github.com/struphy-hub/struphy-tutorials (with a link to a predefined environment on binder) 
-or within the Struphy source under ``doc/tutorials/``. 
+or within the Struphy source under ``tutorials/`` (and in the built documentation under ``_collections/tutorials/``). 
 They can be run with Jupyter notebooks or Jupyter lab. 
 It is recommended to use the same Python environment as for Struphy, e.g., by installing the Jupyter packages in the same environment.
 
