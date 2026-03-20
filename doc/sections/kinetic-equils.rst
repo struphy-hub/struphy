@@ -1,4 +1,4 @@
-.. _equilibria:
+.. _kinetic_equils:
 
 Kinetic Equilibrium
 ===================

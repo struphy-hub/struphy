@@ -502,12 +502,6 @@ def cuboid(
 
         F_z &= l_3 + (r_3 - l_3)\,\eta_3\,.
 
-    Note
-    ----
-    Example with paramters :math:`l_1=0\,,r_1=1\,,l_2=0\,,r_2=1\,,l_3=0` and :math:`r_3=1`:
-
-        .. image:: ../pics/mappings/cuboid.png
-
     Parameters
     ----------
     eta1, eta2, eta3 : float
@@ -556,12 +550,6 @@ def orthogonal(eta1: float, eta2: float, eta3: float, lx: float, ly: float, alph
         F_y &= L_y\,\left[\,\eta_2 + \\alpha\sin(2\pi\,\eta_2)\,\\right]\,,
 
         F_z &= L_z\,\eta_3\,.
-
-    Note
-    ----
-    Example with paramters :math:`L_x=1\,,L_y=1\,,\\alpha=0.1` and :math:`L_z=1`:
-
-        .. image:: ../pics/mappings/orthogonal.png
 
     Parameters
     ----------
@@ -616,12 +604,6 @@ def colella(eta1: float, eta2: float, eta3: float, lx: float, ly: float, alpha: 
         F_y &= L_y\,\left[\,\eta_2 + \\alpha\sin(2\pi\,\eta_2)\sin(2\pi\,\eta_1)\,\\right]\,,
 
         F_z &= L_z\,\eta_3\,.
-
-    Note
-    ----
-    Example with paramters :math:`L_x=1\,,L_y=1\,,\\alpha=0.1` and :math:`L_z=1`:
-
-        .. image:: ../pics/mappings/colella.png
 
     Parameters
     ----------
@@ -732,12 +714,6 @@ def hollow_cyl(eta1: float, eta2: float, eta3: float, a1: float, a2: float, lz: 
 
         F_z &= L_z\,\eta_3\,.
 
-    Note
-    ----
-        Example with paramters :math:`a_1=0.2\,,a_2=1` and :math:`L_z=3`:
-
-        .. image:: ../pics/mappings/hollow_cylinder.png
-
     Parameters
     ----------
     eta1, eta2, eta3 : float
@@ -803,12 +779,6 @@ def powered_ellipse(
         F_y &= r_y\,\eta_1^s\sin(2\pi\,\eta_2)\,,
 
         F_z &= L_z\,\eta_3\,.
-
-    Note
-    ----
-        Example with paramters :math:`r_x=1\,,r_y=2,s=0.5` and :math:`L_z=1`:
-
-        .. image:: ../pics/mappings/ellipse.png
 
     Parameters
     ----------
@@ -880,12 +850,6 @@ def hollow_torus(
         F_y &= \lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\cos(\theta(\eta_1,\eta_2))+R_0\\rbrace\sin(2\pi\,\eta_3) \,,
 
         F_z &= \,\,\,\left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\sin(\theta(\eta_1,\eta_2)) \,,
-
-    Note
-    ----
-        Example with paramters :math:`a_1=0.2\,,a_2=1` and :math:`R_0=3`:
-
-        .. image:: ../pics/mappings/hollow_torus.png
 
     Parameters
     ----------
@@ -1439,12 +1403,6 @@ def shafranov_shift(
 
         F_z &= L_z\,\eta_3\,.
 
-    Note
-    ----
-    Example with paramters :math:`r_x=1\,,r_y=1\,,L_z=1` and :math:`\Delta=0.2`:
-
-        .. image:: ../pics/mappings/shafranov_shift.png
-
     Parameters
     ----------
     eta1, eta2, eta3 : float
@@ -1513,10 +1471,6 @@ def shafranov_sqrt(
         F_y &= r_y\,\eta_1\sin(2\pi\,\eta_2)\,,
 
         F_z &= L_z\,\eta_3\,.
-
-    Note
-    ----
-    No example plot yet.
 
     Parameters
     ----------
@@ -1589,12 +1543,6 @@ def shafranov_dshaped(
         y &= R_0\left[    (1 - \eta_1^2)\Delta_y + \eta_1\epsilon\kappa\sin(2\pi\,\eta_2)\\right]\,,
 
         z &= L_z\,\eta_3\,.
-
-    Note
-    ----
-    Example with paramters :math:`R_0=3\,,L_z=1\,,\Delta_x=0.1\,,\Delta_y=0\,,\delta=0.2\,,\epsilon=1/3` and :math:`\kappa=1.5`:
-
-        .. image:: ../pics/mappings/shafranov_dshaped.png
 
     Parameters
     ----------
