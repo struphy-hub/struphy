@@ -1,0 +1,91 @@
+name: PR - examples tests in Container
+
+on:
+  pull_request:
+    branches:
+      - devel
+  push:
+    branches:
+      - devel
+  schedule:
+    # run at 1 a.m. on Sunday
+    - cron: "0 1 * * 0"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  check-submodule-changes:
+    runs-on: ubuntu-latest
+
+    container:
+      image: ghcr.io/struphy-hub/struphy/ubuntu-with-struphy:latest
+      credentials:
+        username: spossann
+        password: ${{ secrets.GHCR_TOKEN }}
+
+    steps:
+      - name: Check for dockerenv file
+        run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
+
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: true  # This is crucial!
+          fetch-depth: 5
+
+      - name: Check .testmondata 1
+        run: |
+          ls .testmon* || echo "No .testmondata"
+
+      - name: Setup cache for testmon
+        uses: actions/cache@v4
+        with:
+          path: |
+            .testmondata-examples
+            .testmondata-examples-mpi
+          key: testmon-examples-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
+          restore-keys: |
+            testmon-examples-${{ github.ref_name }}-${{ github.event.number }}-
+            testmon-examples-${{ github.ref_name }}
+            testmon-examples-devel
+            testmon-examples-
+
+      - name: Check .testmondata 2
+        run: |
+          ls .testmon* || echo "No .testmondata"
+
+      - name: Install Struphy in Container 
+        uses: ./.github/actions/install/struphy_in_container
+
+      - name: Reinstall feectools from submodule    
+        uses: ./.github/actions/install/feectools-submodule
+        with:
+          env-name: /struphy_fortran_/env_fortran_
+
+      - name: Compile Struphy
+        run: |
+          source /struphy_fortran_/env_fortran_/bin/activate
+          struphy compile
+          
+      - name: Run examples tests (serial)
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-examples
+        run: |
+          source /struphy_fortran_/env_fortran_/bin/activate
+          ls /struphy_fortran_
+          pytest -m examples -xvs /struphy_fortran_/src/struphy
+
+      - name: Run examples tests (parallel)
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-examples-mpi
+        run: |
+          source /struphy_fortran_/env_fortran_/bin/activate
+          mpirun -n 1 pytest -m single --testmon-forceselect -xvs --with-mpi --model-name Maxwell /struphy_fortran_/src/struphy
+          mpirun -n 2 pytest -m examples --testmon-forceselect -xvs --with-mpi /struphy_fortran_/src/struphy

@@ -484,7 +484,7 @@ class Simulation(SimulationBase):
             self.data.add_data({key_time: val})
             self.data.add_data({key_time_restart: val})
 
-    def run(self, verbose: bool = False):
+    def run(self, one_time_step: bool = False, verbose: bool = False):
         """Main entry point to execute the simulation time loop.
 
         Responsibilities include allocation (when not restarting),
@@ -494,6 +494,9 @@ class Simulation(SimulationBase):
 
         Parameters
         ----------
+        one_time_step : bool
+            If True, only perform one time step (useful for testing).
+
         verbose : bool
             If True, print additional runtime information.
         """
@@ -550,7 +553,10 @@ class Simulation(SimulationBase):
 
         # retrieve time parameters
         dt = self.time_opts.dt
-        Tend = self.time_opts.Tend
+        if one_time_step:
+            Tend = dt
+        else:
+            Tend = self.time_opts.Tend
         split_algo = self.time_opts.split_algo
 
         # set initial conditions for all variables
@@ -1457,7 +1463,11 @@ RESTARTing from:
         dct = convert_lists_to_tuples(dct)
         return cls.from_dict(dct)
 
-    def generate_script(self, include_main_guard: bool = False) -> str:
+    def generate_script(
+        self,
+        include_main_guard: bool = False,
+        include_defaults: bool = False,
+    ) -> str:
         """Generate a Python script that can be used to reproduce the simulation."""
 
         script = f"""
@@ -1481,33 +1491,60 @@ from struphy.models import {self.model.__class__.__name__}
         sim_setup = ""
         sim_class_def = "sim = Simulation("
 
-        # Always include model
-        sim_setup += f"model = {self.model.__repr_no_defaults__()}\n"
-        sim_class_def += "model=model,"
-
-        # Only include parameters that are not default to avoid cluttering the script with unnecessary lines
-        if not self.env.is_default:
-            sim_setup += f"env = {self.env.__repr_no_defaults__()}\n"
+        if include_defaults:
+            sim_setup += f"model = {self.model.__repr__()}\n"
+            sim_class_def += "model=model,"
+            
+            sim_setup += f"env = {self.env.__repr__()}\n"
             sim_class_def += "env=env,"
-        if not self.base_units.is_default:
-            sim_setup += f"base_units = {self.base_units.__repr_no_defaults__()}\n"
+
+            sim_setup += f"base_units = {self.base_units.__repr__()}\n"
             sim_class_def += "base_units=base_units,"
-        if not self.time_opts.is_default:
-            sim_setup += f"time_opts = {self.time_opts.__repr_no_defaults__()}\n"
+
+            sim_setup += f"time_opts = {self.time_opts.__repr__()}\n"
             sim_class_def += "time_opts=time_opts,"
-        if not self.domain.is_default:
-            sim_setup += f"domain = domains.{self.domain.__repr_no_defaults__()}\n"
+
+            sim_setup += f"domain = domains.{self.domain.__repr__()}\n"
             sim_class_def += "domain=domain,"
+
+            sim_setup += f"grid = grids.{self.grid.__repr__()}\n"
+            sim_class_def += "grid=grid,"
+
+            sim_setup += f"derham_opts = {self.derham_opts.__repr__()}\n"
+            sim_class_def += "derham_opts=derham_opts,"
+        else:
+            # Only include parameters that are not default to avoid
+            # cluttering the script with unnecessary lines
+
+            sim_setup += f"model = {self.model.__repr_no_defaults__()}\n"
+            sim_class_def += "model=model,"
+            
+            if not self.env.is_default:
+                sim_setup += f"env = {self.env.__repr_no_defaults__()}\n"
+                sim_class_def += "env=env,"
+            if not self.base_units.is_default:
+                sim_setup += f"base_units = {self.base_units.__repr_no_defaults__()}\n"
+                sim_class_def += "base_units=base_units,"
+            if not self.time_opts.is_default:
+                sim_setup += f"time_opts = {self.time_opts.__repr_no_defaults__()}\n"
+                sim_class_def += "time_opts=time_opts,"
+            if not self.domain.is_default:
+                sim_setup += f"domain = domains.{self.domain.__repr_no_defaults__()}\n"
+                sim_class_def += "domain=domain,"
+            if not self.grid.is_default:
+                sim_setup += f"grid = grids.{self.grid.__repr_no_defaults__()}\n"
+                sim_class_def += "grid=grid,"
+            if not self.derham_opts.is_default:
+                sim_setup += f"derham_opts = {self.derham_opts.__repr_no_defaults__()}\n"
+                sim_class_def += "derham_opts=derham_opts,"
+
         # This is a bit of a special case since the default is None,
         if self.equil is not None:
-            sim_setup += f"equil = equils.{self.equil.__repr_no_defaults__()}\n"
+            if include_defaults:
+                sim_setup += f"equil = equils.{self.equil.__repr__()}\n"
+            else:
+                sim_setup += f"equil = equils.{self.equil.__repr_no_defaults__()}\n"
             sim_class_def += "equil=equil,"
-        if not self.grid.is_default:
-            sim_setup += f"grid = grids.{self.grid.__repr_no_defaults__()}\n"
-            sim_class_def += "grid=grid,"
-        if not self.derham_opts.is_default:
-            sim_setup += f"derham_opts = {self.derham_opts.__repr_no_defaults__()}\n"
-            sim_class_def += "derham_opts=derham_opts,"
         if self.params_path is not None:
             sim_class_def += f"params_path={repr(self.params_path)},\n"
 
