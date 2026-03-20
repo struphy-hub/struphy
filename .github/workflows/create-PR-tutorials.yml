@@ -1,6 +1,9 @@
 name: Create pull request into struphy-hub/struphy-tutorials
 
 on:
+  pull_request:
+    branches:
+      - devel
   push:
     branches:
       - main
@@ -17,13 +20,10 @@ jobs:
           submodules: true  # This is crucial!
           fetch-depth: 5
 
-      - name: Get submodule diff
-        uses: ./.github/actions/submodule-diff
-        with:
-          submod-name: tutorials/
+      - name: Read Struphy version from pyproject
+        uses: ./.github/actions/struphy-version
 
       - name: Checkout code
-        if: env.SUBMOD_CHANGED == 'true'
         uses: actions/checkout@v4
         with:
           repository: struphy-hub/struphy-tutorials
@@ -31,24 +31,36 @@ jobs:
           path: struphy-tutorials
 
       - name: Copy tutorials and push new branch
-        if: env.SUBMOD_CHANGED == 'true'
         run: |
             cd struphy-tutorials
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git checkout -b from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
+            ls -a
+            rm ./tutorial*
+            ls -a
             cp -r ../tutorials/. ./
             git status
             git add .
             git commit -m "Changes to tutorials from struphy (on push to main)"
             git push origin from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
 
+      - name: Create version tag in struphy-tutorials
+        run: |
+            cd struphy-tutorials
+            TAG_NAME="v${STRUPHY_VERSION}"
+            if git ls-remote --exit-code --tags origin "refs/tags/${TAG_NAME}" > /dev/null; then
+              echo "Tag ${TAG_NAME} already exists in origin. Skipping tag creation."
+            else
+              git tag -a "${TAG_NAME}" -m "Tutorials for Struphy v${STRUPHY_VERSION}"
+              git push origin "${TAG_NAME}"
+            fi
+
       - name: Create pull request
-        if: env.SUBMOD_CHANGED == 'true'
         run: |
           gh pr create \
             --repo struphy-hub/struphy-tutorials \
-            --title "New tutorials from struphy" \
+            --title "New tutorials from struphy v${STRUPHY_VERSION}" \
             --body "This is an auto-generated PR from a Struphy workflow (on push to main)." \
             --head from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }} \
             --base main 
