@@ -95,7 +95,7 @@ class Propagator(metaclass=ABCMeta):
         """Print the options of the propagator."""
         logger.info(f"\nOptions for propagator '{self.__class__.__name__}':")
         for k, v in self.options.__dict__.items():
-            logger.info(f"    {k}:".ljust(20), v)
+            logger.info(f"    {k + ':':<20}{v}")
 
     def update_feec_variables(self, **new_coeffs):
         r"""Return max_diff = max(abs(new - old)) for each new_coeffs,
