@@ -276,7 +276,7 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     mpi_rank = mpi_comm.Get_rank()
     mpi_size = mpi_comm.Get_size()
 
-    logger.info("number of processes : ", mpi_size)
+    logger.info(f"number of processes : {mpi_size}")
 
     # mapping
     domain_class = getattr(domains, mapping[0])
