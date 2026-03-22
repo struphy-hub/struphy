@@ -311,7 +311,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
 
     if do_plot:
         plt.show()
-
+    plt.close("all")
 
 if __name__ == "__main__":
     test_lowdim_derham([32, 1, 1], [1, 1, 1], [True, True, True], do_plot=False)
