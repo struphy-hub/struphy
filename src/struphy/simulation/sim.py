@@ -591,8 +591,7 @@ RESTARTing from:
 
         logger.info("\nINITIAL SCALAR QUANTITIES:")
 
-        if self.rank == 0:  # TODO: use logger
-            self.model.print_scalar_quantities()
+        self.model.print_scalar_quantities()
 
         logger.info(f"\nSTART TIME STEPPING WITH '{split_algo}' SPLITTING:")
 

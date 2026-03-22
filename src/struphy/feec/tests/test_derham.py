@@ -22,9 +22,9 @@ def test_psydac_derham(Nel, p, spl_kind):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
-    logger.info("Nel=", Nel)
-    logger.info("p=", p)
-    logger.info("spl_kind=", spl_kind)
+    logger.info(f"{Nel = }")
+    logger.info(f"{p = }")
+    logger.info(f"{spl_kind = }")
 
     # Psydac discrete Derham sequence
     derham = Derham(Nel, p, spl_kind, comm=comm)

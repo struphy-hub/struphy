@@ -33,11 +33,11 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
 
     if rank == 0:
         logger.info("\nParameters:")
-        logger.info("Nel=", Nel)
-        logger.info("p=", p)
-        logger.info("spl_kind=", spl_kind)
-        logger.info("domain_ind=", domain_ind)
-        logger.info("codomain_ind=", codomain_ind)
+        logger.info(f"{Nel = }")
+        logger.info(f"{p = }")
+        logger.info(f"{spl_kind = }")
+        logger.info(f"{domain_ind = }")
+        logger.info(f"{codomain_ind = }")
 
     # Psydac discrete Derham sequence
     derham = Derham([Nel] * 3, [p] * 3, [spl_kind] * 3, comm=comm)
@@ -148,11 +148,11 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
 
     if rank == 0:
         logger.info("\nParameters:")
-        logger.info("Nel=", Nel)
-        logger.info("p=", p)
-        logger.info("spl_kind=", spl_kind)
-        logger.info("domain_ind=", domain_ind)
-        logger.info("codomain_ind=", codomain_ind)
+        logger.info(f"{Nel = }")
+        logger.info(f"{p = }")
+        logger.info(f"{spl_kind = }")
+        logger.info(f"{domain_ind = }")
+        logger.info(f"{codomain_ind = }")
 
     # Psydac discrete Derham sequence
     derham = Derham(Nel, p, spl_kind, comm=comm)
