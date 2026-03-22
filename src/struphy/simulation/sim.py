@@ -681,8 +681,7 @@ RESTARTing from:
                 message += "\n" + "last step duration [s]:".ljust(25) + "{0:8.4f}".format(t1 - t0).rjust(25)
 
                 logger.info(message)
-                if self.rank == 0:  # TODO: Use logger
-                    self.model.print_scalar_quantities()
+                self.model.print_scalar_quantities()
 
         # ===================================================================
 
