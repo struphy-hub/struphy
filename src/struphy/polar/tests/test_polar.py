@@ -16,9 +16,9 @@ def test_spaces(Nel, p, spl_kind):
 
     logger.info("polar V0:")
     V = PolarDerhamSpace(derham, "H1")
-    logger.info("dimensions (parent, polar):", derham.Vh_fem["0"].nbasis, V.dimension)
+    logger.info(f"dimensions (parent, polar): {derham.Vh_fem['0'].nbasis} {V.dimension}")
     logger.info(V.dtype)
-    logger.info(V.zeros(), "\n")
+    logger.info(f"{V.zeros()}\n")
     a = PolarVector(V)
     a.pol[0][:] = 1.0
     a.tp[:] = 1.0
@@ -44,9 +44,9 @@ def test_spaces(Nel, p, spl_kind):
 
     logger.info("polar V1:")
     V = PolarDerhamSpace(derham, "Hcurl")
-    logger.info("dimensions (parent, polar):", derham.Vh_fem["1"].nbasis, V.dimension)
+    logger.info(f"dimensions (parent, polar): {derham.Vh_fem['1'].nbasis} {V.dimension}")
     logger.info(V.dtype)
-    logger.info(V.zeros(), "\n")
+    logger.info(f"{V.zeros()}\n")
     a = PolarVector(V)
     a.pol[0][:] = 1.0
     a.pol[1][:] = 2.0
@@ -76,9 +76,9 @@ def test_spaces(Nel, p, spl_kind):
 
     logger.info("polar V2:")
     V = PolarDerhamSpace(derham, "Hdiv")
-    logger.info("dimensions (parent, polar):", derham.Vh_fem["2"], V.dimension)
+    logger.info(f"dimensions (parent, polar): {derham.Vh_fem['2']} {V.dimension}")
     logger.info(V.dtype)
-    logger.info(V.zeros(), "\n")
+    logger.info(f"{V.zeros()}\n")
     a = PolarVector(V)
     a.pol[0][:] = 1.0
     a.pol[1][:] = 2.0
@@ -108,9 +108,9 @@ def test_spaces(Nel, p, spl_kind):
 
     logger.info("polar V3:")
     V = PolarDerhamSpace(derham, "L2")
-    logger.info("dimensions (parent, polar):", derham.Vh_fem["3"], V.dimension)
+    logger.info(f"dimensions (parent, polar): {derham.Vh_fem['3']} {V.dimension}")
     logger.info(V.dtype)
-    logger.info(V.zeros(), "\n")
+    logger.info(f"{V.zeros()}\n")
     a = PolarVector(V)
     a.pol[0][:] = 1.0
     a.tp[:] = 1.0
@@ -136,9 +136,9 @@ def test_spaces(Nel, p, spl_kind):
 
     logger.info("polar V0vec:")
     V = PolarDerhamSpace(derham, "H1vec")
-    logger.info("dimensions (parent, polar):", derham.Vh_fem["v"].nbasis, V.dimension)
+    logger.info(f"dimensions (parent, polar): {derham.Vh_fem['v'].nbasis} {V.dimension}")
     logger.info(V.dtype)
-    logger.info(V.zeros(), "\n")
+    logger.info(f"{V.zeros()}\n")
     a = PolarVector(V)
     a.pol[0][:] = 1.0
     a.pol[1][:] = 2.0
@@ -196,7 +196,7 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
 
     if rank == 0:
         logger.info("")
-        logger.info("Domain decomposition : \n", derham.domain_array)
+        logger.info(f"Domain decomposition : \n{derham.domain_array}")
         logger.info("")
 
     comm.Barrier()
@@ -299,7 +299,7 @@ def test_projectors(Nel, p, spl_kind):
 
     if rank == 0:
         logger.info("")
-        logger.info("Domain decomposition : \n", derham.domain_array)
+        logger.info(f"Domain decomposition : \n{derham.domain_array}")
         logger.info("")
 
     comm.Barrier()

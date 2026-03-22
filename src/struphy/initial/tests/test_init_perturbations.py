@@ -82,7 +82,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
 
     for key, val in inspect.getmembers(perturbations):
         if inspect.isclass(val) and val.__module__ == perturbations.__name__:
-            logger.info(key, val)
+            logger.info(f"{key} {val}")
 
             if key not in ("ModesCos", "ModesSin", "TorusModesCos", "TorusModesSin"):
                 continue

@@ -904,7 +904,7 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
     if mpi_rank == 0:
         logger.info("Invert M0 with preconditioner")
         r0 = M0inv.dot(derham.boundary_ops["0"].dot(x0_pol))
-        logger.info("Number of iterations : ", M0inv._info["niter"])
+        logger.info(f"Number of iterations : {M0inv._info['niter']}")
     else:
         r0 = M0inv.dot(derham.boundary_ops["0"].dot(x0_pol))
 
@@ -914,7 +914,7 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
     if mpi_rank == 0:
         logger.info("Invert M0 without preconditioner")
         r0 = M0inv_nopc.dot(derham.boundary_ops["0"].dot(x0_pol))
-        logger.info("Number of iterations : ", M0inv_nopc._info["niter"])
+        logger.info(f"Number of iterations : {M0inv_nopc._info['niter']}")
     else:
         r0 = M0inv_nopc.dot(derham.boundary_ops["0"].dot(x0_pol))
 
@@ -926,7 +926,7 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
     if mpi_rank == 0:
         logger.info("Invert M1 with preconditioner")
         r1 = M1inv.dot(derham.boundary_ops["1"].dot(x1_pol))
-        logger.info("Number of iterations : ", M1inv._info["niter"])
+        logger.info(f"Number of iterations : {M1inv._info['niter']}")
     else:
         r1 = M1inv.dot(derham.boundary_ops["1"].dot(x1_pol))
 
@@ -936,7 +936,7 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
     if mpi_rank == 0:
         logger.info("Invert M1 without preconditioner")
         r1 = M1inv_nopc.dot(derham.boundary_ops["1"].dot(x1_pol))
-        logger.info("Number of iterations : ", M1inv_nopc._info["niter"])
+        logger.info(f"Number of iterations : {M1inv_nopc._info['niter']}")
     else:
         r1 = M1inv_nopc.dot(derham.boundary_ops["1"].dot(x1_pol))
 
@@ -948,7 +948,7 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
     if mpi_rank == 0:
         logger.info("Invert M2 with preconditioner")
         r2 = M2inv.dot(derham.boundary_ops["2"].dot(x2_pol))
-        logger.info("Number of iterations : ", M2inv._info["niter"])
+        logger.info(f"Number of iterations : {M2inv._info['niter']}")
     else:
         r2 = M2inv.dot(derham.boundary_ops["2"].dot(x2_pol))
 
@@ -958,7 +958,7 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
     if mpi_rank == 0:
         logger.info("Invert M2 without preconditioner")
         r2 = M2inv_nopc.dot(derham.boundary_ops["2"].dot(x2_pol))
-        logger.info("Number of iterations : ", M2inv_nopc._info["niter"])
+        logger.info(f"Number of iterations : {M2inv_nopc._info['niter']}")
     else:
         r2 = M2inv_nopc.dot(derham.boundary_ops["2"].dot(x2_pol))
 
@@ -970,7 +970,7 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
     if mpi_rank == 0:
         logger.info("Invert M3 with preconditioner")
         r3 = M3inv.dot(derham.boundary_ops["3"].dot(x3_pol))
-        logger.info("Number of iterations : ", M3inv._info["niter"])
+        logger.info(f"Number of iterations : {M3inv._info['niter']}")
     else:
         r3 = M3inv.dot(derham.boundary_ops["3"].dot(x3_pol))
 
@@ -980,7 +980,7 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
     if mpi_rank == 0:
         logger.info("Invert M3 without preconditioner")
         r3 = M3inv_nopc.dot(derham.boundary_ops["3"].dot(x3_pol))
-        logger.info("Number of iterations : ", M3inv_nopc._info["niter"])
+        logger.info(f"Number of iterations : {M3inv_nopc._info['niter']}")
     else:
         r3 = M3inv_nopc.dot(derham.boundary_ops["3"].dot(x3_pol))
 
@@ -992,7 +992,7 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
     if mpi_rank == 0:
         logger.info("Invert M1n with preconditioner")
         r1 = M1ninv.dot(derham.boundary_ops["1"].dot(x1_pol))
-        logger.info("Number of iterations : ", M1ninv._info["niter"])
+        logger.info(f"Number of iterations : {M1ninv._info['niter']}")
     else:
         r1 = M1ninv.dot(derham.boundary_ops["1"].dot(x1_pol))
 
@@ -1002,7 +1002,7 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
     if mpi_rank == 0:
         logger.info("Invert M1n without preconditioner")
         r1 = M1ninv_nopc.dot(derham.boundary_ops["1"].dot(x1_pol))
-        logger.info("Number of iterations : ", M1ninv_nopc._info["niter"])
+        logger.info(f"Number of iterations : {M1ninv_nopc._info['niter']}")
     else:
         r1 = M1ninv_nopc.dot(derham.boundary_ops["1"].dot(x1_pol))
 
@@ -1014,7 +1014,7 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
     if mpi_rank == 0:
         logger.info("Invert M2n with preconditioner")
         r2 = M2ninv.dot(derham.boundary_ops["2"].dot(x2_pol))
-        logger.info("Number of iterations : ", M2ninv._info["niter"])
+        logger.info(f"Number of iterations : {M2ninv._info['niter']}")
     else:
         r2 = M2ninv.dot(derham.boundary_ops["2"].dot(x2_pol))
 
@@ -1024,7 +1024,7 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
     if mpi_rank == 0:
         logger.info("Invert M2n without preconditioner")
         r2 = M2ninv_nopc.dot(derham.boundary_ops["2"].dot(x2_pol))
-        logger.info("Number of iterations : ", M2ninv_nopc._info["niter"])
+        logger.info(f"Number of iterations : {M2ninv_nopc._info['niter']}")
     else:
         r2 = M2ninv_nopc.dot(derham.boundary_ops["2"].dot(x2_pol))
 

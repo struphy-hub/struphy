@@ -91,22 +91,22 @@ def compare_cprofile_data(path, list_of_funcs=None):
 
     if list_of_funcs is None:
         logger.info("-" * 76)
-        logger.info("function name".ljust(60), "cumulative time")
+        logger.info(f"{'function name':<60}cumulative time")
         logger.info("-" * 76)
     else:
         logger.info("-" * 76)
-        logger.info("function name, keywords: {}".format(list_of_funcs).ljust(60), "cumulative time")
+        logger.info(f"{f'function name, keywords: {list_of_funcs}':<60}cumulative time")
         logger.info("-" * 76)
 
     counter = 0
     for k, v in data_cprofile.items():
         counter += 1
         if list_of_funcs is None:
-            logger.info(k.ljust(60), v["cumtime"])
+            logger.info(f"{k:<60}{v['cumtime']}")
             if counter > 49:
                 break
         elif any(func in k for func in list_of_funcs) and "dependencies_" not in k:
-            logger.info(k.ljust(60), v["cumtime"])
+            logger.info(f"{k:<60}{v['cumtime']}")
 
 
 def replace_keys(d):

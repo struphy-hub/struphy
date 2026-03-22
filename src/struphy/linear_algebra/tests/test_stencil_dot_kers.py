@@ -87,14 +87,14 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
 
     if rank == 0:
         logger.info(f"spl_kind={spl_kind}")
-        logger.info("\nx=", x._data)
+        logger.info(f"\nx= {x._data}")
         logger.info("update ghost regions:")
 
     # very important: update vectors after changing _data !!
     x.update_ghost_regions()
 
     if rank == 0:
-        logger.info("x=", x._data)
+        logger.info(f"x= {x._data}")
 
     # stencil .dot
     out = mat.dot(x)
@@ -107,20 +107,20 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     out_pre = mat_pre.dot(x)
 
     if rank == 0:
-        logger.info("domain degree:  ", domain.degree)
-        logger.info("codomain degree:", codomain.degree)
-        logger.info(f"rank {rank} | domain.starts = ", mat.domain.starts)
-        logger.info(f"rank {rank} | domain.ends = ", mat.domain.ends)
-        logger.info(f"rank {rank} | domain.pads = ", mat.domain.pads)
-        logger.info(f"rank {rank} | codomain.starts = ", mat.codomain.starts)
-        logger.info(f"rank {rank} | codomain.ends = ", mat.codomain.ends)
-        logger.info(f"rank {rank} | codomain.pads = ", mat.codomain.pads)
-        logger.info(f"rank {rank} | add = ", add)
-        logger.info("\nmat=", mat._data)
-        logger.info("\nmat.toarray=\n", mat.toarray())
-        logger.info("\nout=    ", out._data)
-        logger.info("\nout_ker=", out_ker._data)
-        logger.info("\nout_pre=", out_pre._data)
+        logger.info(f"domain degree:   {domain.degree}")
+        logger.info(f"codomain degree: {codomain.degree}")
+        logger.info(f"rank {rank} | domain.starts = {mat.domain.starts}")
+        logger.info(f"rank {rank} | domain.ends = {mat.domain.ends}")
+        logger.info(f"rank {rank} | domain.pads = {mat.domain.pads}")
+        logger.info(f"rank {rank} | codomain.starts = {mat.codomain.starts}")
+        logger.info(f"rank {rank} | codomain.ends = {mat.codomain.ends}")
+        logger.info(f"rank {rank} | codomain.pads = {mat.codomain.pads}")
+        logger.info(f"rank {rank} | add = {add}")
+        logger.info(f"\nmat= {mat._data}")
+        logger.info(f"\nmat.toarray=\n{mat.toarray()}")
+        logger.info(f"\nout=     {out._data}")
+        logger.info(f"\nout_ker= {out_ker._data}")
+        logger.info(f"\nout_pre= {out_pre._data}")
 
     assert xp.allclose(out_ker._data, out._data)
     assert xp.allclose(out_pre._data, out._data)
@@ -237,25 +237,25 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     out_pre = mat_pre.dot(x)
 
     if rank == 0:
-        logger.info("domain degree:  ", domain.degree)
-        logger.info("codomain degree:", codomain.degree)
-        logger.info(f"rank {rank} | domain.starts = ", s_in)
-        logger.info(f"rank {rank} | domain.ends = ", e_in)
-        logger.info(f"rank {rank} | domain.pads = ", p_in)
-        logger.info(f"rank {rank} | codomain.starts = ", s_out)
-        logger.info(f"rank {rank} | codomain.ends = ", e_out)
-        logger.info(f"rank {rank} | codomain.pads = ", p_out)
-        logger.info(f"rank {rank} | add = ", add)
-        logger.info("\nmat=", mat._data[:, p_out[1], p_out[2], :, 0, 0])
-        logger.info("\nout[0]=    ", out._data[:, p_out[1], p_out[2]])
-        logger.info("\nout_ker[0]=", out_ker._data[:, p_out[1], p_out[2]])
-        logger.info("\nout_pre[0]=", out_pre._data[:, p_out[1], p_out[2]])
-        logger.info("\nout[1]=    ", out._data[p_out[0], :, p_out[2]])
-        logger.info("\nout_ker[1]=", out_ker._data[p_out[0], :, p_out[2]])
-        logger.info("\nout_pre[1]=", out_pre._data[p_out[0], :, p_out[2]])
-        logger.info("\nout[2]=    ", out._data[p_out[0], p_out[1], :])
-        logger.info("\nout_ker[2]=", out_ker._data[p_out[0], p_out[1], :])
-        logger.info("\nout_pre[2]=", out_pre._data[p_out[0], p_out[1], :])
+        logger.info(f"domain degree:   {domain.degree}")
+        logger.info(f"codomain degree: {codomain.degree}")
+        logger.info(f"rank {rank} | domain.starts = {s_in}")
+        logger.info(f"rank {rank} | domain.ends = {e_in}")
+        logger.info(f"rank {rank} | domain.pads = {p_in}")
+        logger.info(f"rank {rank} | codomain.starts = {s_out}")
+        logger.info(f"rank {rank} | codomain.ends = {e_out}")
+        logger.info(f"rank {rank} | codomain.pads = {p_out}")
+        logger.info(f"rank {rank} | add = {add}")
+        logger.info(f"\nmat= {mat._data[:, p_out[1], p_out[2], :, 0, 0]}")
+        logger.info(f"\nout[0]=     {out._data[:, p_out[1], p_out[2]]}")
+        logger.info(f"\nout_ker[0]= {out_ker._data[:, p_out[1], p_out[2]]}")
+        logger.info(f"\nout_pre[0]= {out_pre._data[:, p_out[1], p_out[2]]}")
+        logger.info(f"\nout[1]=     {out._data[p_out[0], :, p_out[2]]}")
+        logger.info(f"\nout_ker[1]= {out_ker._data[p_out[0], :, p_out[2]]}")
+        logger.info(f"\nout_pre[1]= {out_pre._data[p_out[0], :, p_out[2]]}")
+        logger.info(f"\nout[2]=     {out._data[p_out[0], p_out[1], :]}")
+        logger.info(f"\nout_ker[2]= {out_ker._data[p_out[0], p_out[1], :]}")
+        logger.info(f"\nout_pre[2]= {out_pre._data[p_out[0], p_out[1], :]}")
 
     assert xp.allclose(
         out_ker[s_out[0] : e_out[0] + 1, s_out[1] : e_out[1] + 1, s_out[2] : e_out[2] + 1],

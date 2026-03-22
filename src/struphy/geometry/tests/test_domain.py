@@ -175,7 +175,7 @@ def test_evaluation_mappings(mapping):
     arrm = xp.random.rand(10, 8)
     logger.info("")
     logger.info('Testing "evaluate"...')
-    logger.info("array shapes:", arr1.shape, arr2.shape, arr3.shape, arrm.shape)
+    logger.info(f"array shapes: {arr1.shape} {arr2.shape} {arr3.shape} {arrm.shape}")
 
     domain_class = getattr(domains, mapping)
     domain = domain_class()
@@ -183,8 +183,8 @@ def test_evaluation_mappings(mapping):
     logger.info("Domain object set.")
 
     assert isinstance(domain, Domain)
-    logger.info("domain's kind_map   :", domain.kind_map)
-    logger.info("domain's params :", domain.params)
+    logger.info(f"domain's kind_map   : {domain.kind_map}")
+    logger.info(f"domain's params : {domain.params}")
 
     # Test to-from-dict:
     domain_dict = domain.to_dict()
@@ -194,7 +194,7 @@ def test_evaluation_mappings(mapping):
     domain_from_dict = domain.__class__.from_dict(domain_dict)
 
     # point-wise evaluation:
-    logger.info("pointwise evaluation, shape:", domain(0.5, 0.5, 0.5, squeeze_out=True).shape)
+    logger.info(f"pointwise evaluation, shape: {domain(0.5, 0.5, 0.5, squeeze_out=True).shape}")
     assert domain(0.5, 0.5, 0.5, squeeze_out=True).shape == (3,)
     assert domain.jacobian(0.5, 0.5, 0.5, squeeze_out=True).shape == (3, 3)
     assert isinstance(domain.jacobian_det(0.5, 0.5, 0.5, squeeze_out=True), float)
@@ -203,7 +203,7 @@ def test_evaluation_mappings(mapping):
     assert domain.metric_inv(0.5, 0.5, 0.5, squeeze_out=True).shape == (3, 3)
 
     # markers evaluation:
-    logger.info("markers evaluation, shape:", domain(arrm).shape)
+    logger.info(f"markers evaluation, shape: {domain(arrm).shape}")
     assert domain(arrm).shape == (3, arrm.shape[0])
     assert domain.jacobian(arrm).shape == (3, 3, arrm.shape[0])
     assert domain.jacobian_det(arrm).shape == (arrm.shape[0],)
@@ -212,7 +212,7 @@ def test_evaluation_mappings(mapping):
     assert domain.metric_inv(arrm).shape == (3, 3, arrm.shape[0])
 
     # eta1-array evaluation:
-    logger.info("eta1 array evaluation, shape:", domain(arr1, 0.5, 0.5, squeeze_out=True).shape)
+    logger.info(f"eta1 array evaluation, shape: {domain(arr1, 0.5, 0.5, squeeze_out=True).shape}")
     assert domain(arr1, 0.5, 0.5, squeeze_out=True).shape == (3,) + arr1.shape
     assert domain.jacobian(arr1, 0.5, 0.5, squeeze_out=True).shape == (3, 3) + arr1.shape
     assert domain.jacobian_inv(arr1, 0.5, 0.5, squeeze_out=True).shape == (3, 3) + arr1.shape
@@ -221,7 +221,7 @@ def test_evaluation_mappings(mapping):
     assert domain.metric_inv(arr1, 0.5, 0.5, squeeze_out=True).shape == (3, 3) + arr1.shape
 
     # eta2-array evaluation:
-    logger.info("eta2 array evaluation, shape:", domain(0.5, arr2, 0.5, squeeze_out=True).shape)
+    logger.info(f"eta2 array evaluation, shape: {domain(0.5, arr2, 0.5, squeeze_out=True).shape}")
     assert domain(0.5, arr2, 0.5, squeeze_out=True).shape == (3,) + arr2.shape
     assert domain.jacobian(0.5, arr2, 0.5, squeeze_out=True).shape == (3, 3) + arr2.shape
     assert domain.jacobian_inv(0.5, arr2, 0.5, squeeze_out=True).shape == (3, 3) + arr2.shape
@@ -230,7 +230,7 @@ def test_evaluation_mappings(mapping):
     assert domain.metric_inv(0.5, arr2, 0.5, squeeze_out=True).shape == (3, 3) + arr2.shape
 
     # eta3-array evaluation:
-    logger.info("eta3 array evaluation, shape:", domain(0.5, 0.5, arr3).shape)
+    logger.info(f"eta3 array evaluation, shape: {domain(0.5, 0.5, arr3).shape}")
     assert domain(0.5, 0.5, arr3, squeeze_out=True).shape == (3,) + arr3.shape
     assert domain.jacobian(0.5, 0.5, arr3, squeeze_out=True).shape == (3, 3) + arr3.shape
     assert domain.jacobian_inv(0.5, 0.5, arr3, squeeze_out=True).shape == (3, 3) + arr3.shape
@@ -239,7 +239,7 @@ def test_evaluation_mappings(mapping):
     assert domain.metric_inv(0.5, 0.5, arr3, squeeze_out=True).shape == (3, 3) + arr3.shape
 
     # eta1-eta2-array evaluation:
-    logger.info("eta1-eta2 array evaluation, shape:", domain(arr1, arr2, 0.5, squeeze_out=True))
+    logger.info(f"eta1-eta2 array evaluation, shape: {domain(arr1, arr2, 0.5, squeeze_out=True)}")
     assert domain(arr1, arr2, 0.5, squeeze_out=True).shape == (3,) + arr1.shape + arr2.shape
     assert domain.jacobian(arr1, arr2, 0.5, squeeze_out=True).shape == (3, 3) + arr1.shape + arr2.shape
     assert domain.jacobian_inv(arr1, arr2, 0.5, squeeze_out=True).shape == (3, 3) + arr1.shape + arr2.shape
@@ -248,7 +248,7 @@ def test_evaluation_mappings(mapping):
     assert domain.metric_inv(arr1, arr2, 0.5, squeeze_out=True).shape == (3, 3) + arr1.shape + arr2.shape
 
     # eta1-eta3-array evaluation:
-    logger.info("eta1-eta3 array evaluation, shape:", domain(arr1, 0.5, arr3, squeeze_out=True))
+    logger.info(f"eta1-eta3 array evaluation, shape: {domain(arr1, 0.5, arr3, squeeze_out=True)}")
     assert domain(arr1, 0.5, arr3, squeeze_out=True).shape == (3,) + arr1.shape + arr3.shape
     assert domain.jacobian(arr1, 0.5, arr3, squeeze_out=True).shape == (3, 3) + arr1.shape + arr3.shape
     assert domain.jacobian_inv(arr1, 0.5, arr3, squeeze_out=True).shape == (3, 3) + arr1.shape + arr3.shape
@@ -257,7 +257,7 @@ def test_evaluation_mappings(mapping):
     assert domain.metric_inv(arr1, 0.5, arr3, squeeze_out=True).shape == (3, 3) + arr1.shape + arr3.shape
 
     # eta2-eta3-array evaluation:
-    logger.info("eta2-eta3 array evaluation, shape:", domain(0.5, arr2, arr3, squeeze_out=True))
+    logger.info(f"eta2-eta3 array evaluation, shape: {domain(0.5, arr2, arr3, squeeze_out=True)}")
     assert domain(0.5, arr2, arr3, squeeze_out=True).shape == (3,) + arr2.shape + arr3.shape
     assert domain.jacobian(0.5, arr2, arr3, squeeze_out=True).shape == (3, 3) + arr2.shape + arr3.shape
     assert domain.jacobian_inv(0.5, arr2, arr3, squeeze_out=True).shape == (3, 3) + arr2.shape + arr3.shape
@@ -266,7 +266,7 @@ def test_evaluation_mappings(mapping):
     assert domain.metric_inv(0.5, arr2, arr3, squeeze_out=True).shape == (3, 3) + arr2.shape + arr3.shape
 
     # eta1-eta2-eta3 array evaluation:
-    logger.info("eta1-eta2-eta3-array evaluation, shape:", domain(arr1, arr2, arr3))
+    logger.info(f"eta1-eta2-eta3-array evaluation, shape: {domain(arr1, arr2, arr3)}")
     assert domain(arr1, arr2, arr3).shape == (3,) + arr1.shape + arr2.shape + arr3.shape
     assert domain.jacobian(arr1, arr2, arr3).shape == (3, 3) + arr1.shape + arr2.shape + arr3.shape
     assert domain.jacobian_inv(arr1, arr2, arr3).shape == (3, 3) + arr1.shape + arr2.shape + arr3.shape
@@ -280,7 +280,7 @@ def test_evaluation_mappings(mapping):
     mat23_y, mat23_z = xp.meshgrid(arr2, arr3, indexing="ij")
 
     # eta1-eta2 matrix evaluation:
-    logger.info("eta1-eta2 matrix evaluation, shape:", domain(mat12_x, mat12_y, 0.5, squeeze_out=True).shape)
+    logger.info(f"eta1-eta2 matrix evaluation, shape: {domain(mat12_x, mat12_y, 0.5, squeeze_out=True).shape}")
     assert domain(mat12_x, mat12_y, 0.5, squeeze_out=True).shape == (3,) + mat12_x.shape
     assert domain.jacobian(mat12_x, mat12_y, 0.5, squeeze_out=True).shape == (3, 3) + mat12_x.shape
     assert domain.jacobian_inv(mat12_x, mat12_y, 0.5, squeeze_out=True).shape == (3, 3) + mat12_x.shape
@@ -289,7 +289,7 @@ def test_evaluation_mappings(mapping):
     assert domain.metric_inv(mat12_x, mat12_y, 0.5, squeeze_out=True).shape == (3, 3) + mat12_x.shape
 
     # eta1-eta3 matrix evaluation:
-    logger.info("eta1-eta3 matrix evaluation, shape:", domain(mat13_x, 0.5, mat13_z, squeeze_out=True).shape)
+    logger.info(f"eta1-eta3 matrix evaluation, shape: {domain(mat13_x, 0.5, mat13_z, squeeze_out=True).shape}")
     assert domain(mat13_x, 0.5, mat13_z, squeeze_out=True).shape == (3,) + mat13_x.shape
     assert domain.jacobian(mat13_x, 0.5, mat13_z, squeeze_out=True).shape == (3, 3) + mat13_x.shape
     assert domain.jacobian_inv(mat13_x, 0.5, mat13_z, squeeze_out=True).shape == (3, 3) + mat13_x.shape
@@ -298,7 +298,7 @@ def test_evaluation_mappings(mapping):
     assert domain.metric_inv(mat13_x, 0.5, mat13_z, squeeze_out=True).shape == (3, 3) + mat13_x.shape
 
     # eta2-eta3 matrix evaluation:
-    logger.info("eta2-eta3 matrix evaluation, shape:", domain(0.5, mat23_y, mat23_z, squeeze_out=True).shape)
+    logger.info(f"eta2-eta3 matrix evaluation, shape: {domain(0.5, mat23_y, mat23_z, squeeze_out=True).shape}")
     assert domain(0.5, mat23_y, mat23_z, squeeze_out=True).shape == (3,) + mat23_y.shape
     assert domain.jacobian(0.5, mat23_y, mat23_z, squeeze_out=True).shape == (3, 3) + mat23_y.shape
     assert domain.jacobian_inv(0.5, mat23_y, mat23_z, squeeze_out=True).shape == (3, 3) + mat23_y.shape
@@ -308,7 +308,7 @@ def test_evaluation_mappings(mapping):
 
     # matrix evaluations for sparse meshgrid
     mat_x, mat_y, mat_z = xp.meshgrid(arr1, arr2, arr3, indexing="ij", sparse=True)
-    logger.info("sparse meshgrid matrix evaluation, shape:", domain(mat_x, mat_y, mat_z).shape)
+    logger.info(f"sparse meshgrid matrix evaluation, shape: {domain(mat_x, mat_y, mat_z).shape}")
     assert domain(mat_x, mat_y, mat_z).shape == (3,) + (mat_x.shape[0], mat_y.shape[1], mat_z.shape[2])
     assert domain.jacobian(mat_x, mat_y, mat_z).shape == (3, 3) + (mat_x.shape[0], mat_y.shape[1], mat_z.shape[2])
     assert domain.jacobian_inv(mat_x, mat_y, mat_z).shape == (3, 3) + (mat_x.shape[0], mat_y.shape[1], mat_z.shape[2])
@@ -318,7 +318,7 @@ def test_evaluation_mappings(mapping):
 
     # matrix evaluations
     mat_x, mat_y, mat_z = xp.meshgrid(arr1, arr2, arr3, indexing="ij")
-    logger.info("matrix evaluation, shape:", domain(mat_x, mat_y, mat_z).shape)
+    logger.info(f"matrix evaluation, shape: {domain(mat_x, mat_y, mat_z).shape}")
     assert domain(mat_x, mat_y, mat_z).shape == (3,) + mat_x.shape
     assert domain.jacobian(mat_x, mat_y, mat_z).shape == (3, 3) + mat_x.shape
     assert domain.jacobian_inv(mat_x, mat_y, mat_z).shape == (3, 3) + mat_x.shape
@@ -341,7 +341,7 @@ def test_pullback():
     arr3 = xp.linspace(0.0, 1.0, 6)
     logger.info("")
     logger.info('Testing "pull"...')
-    logger.info("array shapes:", arr1.shape, arr2.shape, arr3.shape)
+    logger.info(f"array shapes: {arr1.shape} {arr2.shape} {arr3.shape}")
 
     markers = xp.random.rand(13, 6)
 
@@ -355,11 +355,11 @@ def test_pullback():
     logger.info("Domain object set.")
 
     assert isinstance(domain, Domain)
-    logger.info("domain's kind_map   :", domain.kind_map)
-    logger.info("domain's params :", domain.params)
+    logger.info(f"domain's kind_map   : {domain.kind_map}")
+    logger.info(f"domain's params : {domain.params}")
 
     for p_str in domain.dict_transformations["pull"]:
-        logger.info("component:", p_str)
+        logger.info(f"component: {p_str}")
 
         if p_str == "0" or p_str == "3":
             fun_form = fun
@@ -501,7 +501,7 @@ def test_pushforward():
     arr3 = xp.linspace(0.0, 1.0, 6)
     logger.info("")
     logger.info('Testing "push"...')
-    logger.info("array shapes:", arr1.shape, arr2.shape, arr3.shape)
+    logger.info(f"array shapes: {arr1.shape} {arr2.shape} {arr3.shape}")
 
     markers = xp.random.rand(13, 6)
 
@@ -515,11 +515,11 @@ def test_pushforward():
     logger.info("Domain object set.")
 
     assert isinstance(domain, Domain)
-    logger.info("domain's kind_map   :", domain.kind_map)
-    logger.info("domain's params :", domain.params)
+    logger.info(f"domain's kind_map   : {domain.kind_map}")
+    logger.info(f"domain's params : {domain.params}")
 
     for p_str in domain.dict_transformations["push"]:
-        logger.info("component:", p_str)
+        logger.info(f"component: {p_str}")
 
         if p_str == "0" or p_str == "3":
             fun_form = fun
@@ -661,7 +661,7 @@ def test_transform():
     arr3 = xp.linspace(0.0, 1.0, 6)
     logger.info("")
     logger.info('Testing "transform"...')
-    logger.info("array shapes:", arr1.shape, arr2.shape, arr3.shape)
+    logger.info(f"array shapes: {arr1.shape} {arr2.shape} {arr3.shape}")
 
     markers = xp.random.rand(13, 6)
 
@@ -675,11 +675,11 @@ def test_transform():
     logger.info("Domain object set.")
 
     assert isinstance(domain, Domain)
-    logger.info("domain's kind_map   :", domain.kind_map)
-    logger.info("domain's params :", domain.params)
+    logger.info(f"domain's kind_map   : {domain.kind_map}")
+    logger.info(f"domain's params : {domain.params}")
 
     for p_str in domain.dict_transformations["tran"]:
-        logger.info("component:", p_str)
+        logger.info(f"component: {p_str}")
 
         if p_str == "0_to_3" or p_str == "3_to_0":
             fun_form = fun

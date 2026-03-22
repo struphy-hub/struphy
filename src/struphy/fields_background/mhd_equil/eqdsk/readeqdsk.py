@@ -214,7 +214,7 @@ def main():
         vs = options.vars.split(",")
 
     for v in vs:
-        logger.info("%s: %s" % (v, str(geq.get(v))))
+        logger.info(f"{v}: {geq.get(v)}")
 
     if options.plot:
         from matplotlib import pylab

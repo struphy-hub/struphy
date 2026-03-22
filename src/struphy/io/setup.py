@@ -100,18 +100,15 @@ def setup_derham(
 
     if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
         logger.info("\nDERHAM:")
-        logger.info("number of elements:".ljust(25), Nel)
-        logger.info("spline degrees:".ljust(25), p)
-        logger.info("periodic bcs:".ljust(25), spl_kind)
-        logger.info("hom. Dirichlet bc:".ljust(25), dirichlet_bc)
-        logger.info("GL quad pts (L2):".ljust(25), nquads)
-        logger.info("GL quad pts (hist):".ljust(25), nq_pr)
-        logger.info(
-            "MPI proc. per dir.:".ljust(25),
-            derham.domain_decomposition.nprocs,
-        )
-        logger.info("use polar splines:".ljust(25), derham.polar_ck == 1)
-        logger.info("domain on process 0:".ljust(25), derham.domain_array[0])
+        logger.info(f"{'number of elements:':<25}{Nel}")
+        logger.info(f"{'spline degrees:':<25}{p}")
+        logger.info(f"{'periodic bcs:':<25}{spl_kind}")
+        logger.info(f"{'hom. Dirichlet bc:':<25}{dirichlet_bc}")
+        logger.info(f"{'GL quad pts (L2):':<25}{nquads}")
+        logger.info(f"{'GL quad pts (hist):':<25}{nq_pr}")
+        logger.info(f"{'MPI proc. per dir.:':<25}{derham.domain_decomposition.nprocs}")
+        logger.info(f"{'use polar splines:':<25}{derham.polar_ck == 1}")
+        logger.info(f"{'domain on process 0:':<25}{derham.domain_array[0]}")
 
     return derham
 

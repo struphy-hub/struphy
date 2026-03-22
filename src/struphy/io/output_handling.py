@@ -152,7 +152,7 @@ class DataContainer:
         for key in self._dset_dict:
             with h5py.File(self.file_path, "a") as file:
                 logger.info(f"\nData set name: {key}")
-                logger.info("Shape:", file[key].shape)
+                logger.info(f"Shape: {file[key].shape}")
                 logger.info("Attributes:")
                 for attr, val in file[key].attrs.items():
-                    logger.info(attr, val)
+                    logger.info(f"{attr} {val}")

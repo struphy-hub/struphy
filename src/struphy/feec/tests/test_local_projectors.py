@@ -313,11 +313,11 @@ def aux_test_replication_of_basis(Nel, plist, spl_kind):
         for i, value in enumerate(val):
             if i != entry:
                 if abs(value) >= tol:
-                    logger.info(value, i, entry)
+                    logger.info(f"{value} {i} {entry}")
                 assert abs(value) < tol
             else:
                 if abs(value - 1.0) >= tol:
-                    logger.info(value, i, abs(value - 1.0))
+                    logger.info(f"{value} {i} {abs(value - 1.0)}")
                 assert abs(value - 1.0) < tol
 
     sp_key = "3"

@@ -497,7 +497,7 @@ class PostProcessor:
                 logger.info(f"{species}:")
                 for var, ddset in dset.items():
                     space_ids[species][var] = ddset.attrs["space_id"]
-                    logger.info(f"  {var}:", ddset)
+                    logger.info(f"  {var}: {ddset}")
 
             t_grid = file["time/value"][::step].copy()
 

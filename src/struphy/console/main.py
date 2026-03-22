@@ -711,7 +711,7 @@ def is_installed_editable(package_name):
             return True
 
     except subprocess.CalledProcessError as e:
-        logger.info("Error while checking pip show:", e)
+        logger.info(f"Error while checking pip show: {e}")
         return False
 
     for path in site.getsitepackages():

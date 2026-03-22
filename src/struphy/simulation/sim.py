@@ -623,7 +623,7 @@ RESTARTing from:
                     run_time_now * 60,
                     t1 - t0,
                 )
-                logger.info(message, end="\n")
+                logger.info(message)
                 logger.info("")
 
             # update time and index (round time to 10 decimals for a clean time grid!)

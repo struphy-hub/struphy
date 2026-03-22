@@ -240,10 +240,10 @@ class Maxwell(Propagator):
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
             if self.options.algo == "implicit":
-                logger.info("Status     for Maxwell:", info["success"])
-                logger.info("Iterations for Maxwell:", info["niter"])
-                logger.info("Maxdiff e for Maxwell:", diffs["e"])
-                logger.info("Maxdiff b for Maxwell:", diffs["b"])
+                logger.info(f"Status     for Maxwell: {info['success']}")
+                logger.info(f"Iterations for Maxwell: {info['niter']}")
+                logger.info(f"Maxdiff e for Maxwell: {diffs['e']}")
+                logger.info(f"Maxdiff b for Maxwell: {diffs['b']}")
                 logger.info("")
 
 
@@ -388,10 +388,10 @@ class OhmCold(Propagator):
         diffs = self.update_feec_variables(e=en1, j=jn1)
 
         if self._info:
-            logger.info("Status     for OhmCold:", info["success"])
-            logger.info("Iterations for OhmCold:", info["niter"])
-            logger.info("Maxdiff e1 for OhmCold:", diffs["e"])
-            logger.info("Maxdiff j1 for OhmCold:", diffs["j"])
+            logger.info(f"Status     for OhmCold: {info['success']}")
+            logger.info(f"Iterations for OhmCold: {info['niter']}")
+            logger.info(f"Maxdiff e1 for OhmCold: {diffs['e']}")
+            logger.info(f"Maxdiff j1 for OhmCold: {diffs['j']}")
             logger.info("")
 
 
@@ -508,9 +508,9 @@ class JxBCold(Propagator):
         max_dj = self.update_feec_variables(j=jn1)
 
         if self._info:
-            logger.info("Status     for FluidCold:", info["success"])
-            logger.info("Iterations for FluidCold:", info["niter"])
-            logger.info("Maxdiff j1 for FluidCold:", max_dj)
+            logger.info(f"Status     for FluidCold: {info['success']}")
+            logger.info(f"Iterations for FluidCold: {info['niter']}")
+            logger.info(f"Maxdiff j1 for FluidCold: {max_dj}")
             logger.info("")
 
 
@@ -707,10 +707,10 @@ class ShearAlfven(Propagator):
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
             if self.options.algo == "implicit":
-                logger.info("Status     for ShearAlfven:", info["success"])
-                logger.info("Iterations for ShearAlfven:", info["niter"])
-                logger.info("Maxdiff up for ShearAlfven:", diffs["u"])
-                logger.info("Maxdiff b2 for ShearAlfven:", diffs["b"])
+                logger.info(f"Status     for ShearAlfven: {info['success']}")
+                logger.info(f"Iterations for ShearAlfven: {info['niter']}")
+                logger.info(f"Maxdiff up for ShearAlfven: {diffs['u']}")
+                logger.info(f"Maxdiff b2 for ShearAlfven: {diffs['b']}")
                 logger.info("")
 
 
@@ -876,10 +876,10 @@ class ShearAlfvenB1(Propagator):
         max_diffs = self.update_feec_variables(u=un1, b=bn1)
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("Status     for ShearAlfvenB1:", info["success"])
-            logger.info("Iterations for ShearAlfvenB1:", info["niter"])
-            logger.info("Maxdiff up for ShearAlfvenB1:", max_diffs["u"])
-            logger.info("Maxdiff b2 for ShearAlfvenB1:", max_diffs["b"])
+            logger.info(f"Status     for ShearAlfvenB1: {info['success']}")
+            logger.info(f"Iterations for ShearAlfvenB1: {info['niter']}")
+            logger.info(f"Maxdiff up for ShearAlfvenB1: {max_diffs['u']}")
+            logger.info(f"Maxdiff b2 for ShearAlfvenB1: {max_diffs['b']}")
             logger.info("")
 
 
@@ -1008,9 +1008,9 @@ class Hall(Propagator):
         max_db = self.update_feec_variables(b=bn1)
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("Status     for Hall:", info["success"])
-            logger.info("Iterations for Hall:", info["niter"])
-            logger.info("Maxdiff b1 for Hall:", max_db["b"])
+            logger.info(f"Status     for Hall: {info['success']}")
+            logger.info(f"Iterations for Hall: {info['niter']}")
+            logger.info(f"Maxdiff b1 for Hall: {max_db['b']}")
             logger.info("")
 
 
@@ -1213,11 +1213,11 @@ class Magnetosonic(Propagator):
         diffs = self.update_feec_variables(n=nn1, u=un1, p=pn1)
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("Status     for Magnetosonic:", info["success"])
-            logger.info("Iterations for Magnetosonic:", info["niter"])
-            logger.info("Maxdiff n3 for Magnetosonic:", diffs["n"])
-            logger.info("Maxdiff up for Magnetosonic:", diffs["u"])
-            logger.info("Maxdiff p3 for Magnetosonic:", diffs["p"])
+            logger.info(f"Status     for Magnetosonic: {info['success']}")
+            logger.info(f"Iterations for Magnetosonic: {info['niter']}")
+            logger.info(f"Maxdiff n3 for Magnetosonic: {diffs['n']}")
+            logger.info(f"Maxdiff up for Magnetosonic: {diffs['u']}")
+            logger.info(f"Maxdiff p3 for Magnetosonic: {diffs['p']}")
             logger.info("")
 
 
@@ -1411,11 +1411,11 @@ class MagnetosonicUniform(Propagator):
         diffs = self.update_feec_variables(n=nn1, u=un1, p=pn1)
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("Status     for Magnetosonic:", info["success"])
-            logger.info("Iterations for Magnetosonic:", info["niter"])
-            logger.info("Maxdiff n3 for Magnetosonic:", diffs["n"])
-            logger.info("Maxdiff up for Magnetosonic:", diffs["u"])
-            logger.info("Maxdiff p3 for Magnetosonic:", diffs["p"])
+            logger.info(f"Status     for Magnetosonic: {info['success']}")
+            logger.info(f"Iterations for Magnetosonic: {info['niter']}")
+            logger.info(f"Maxdiff n3 for Magnetosonic: {diffs['n']}")
+            logger.info(f"Maxdiff up for Magnetosonic: {diffs['u']}")
+            logger.info(f"Maxdiff p3 for Magnetosonic: {diffs['p']}")
             logger.info("")
 
 
@@ -1867,9 +1867,9 @@ class CurrentCoupling6DDensity(Propagator):
         max_du = self.update_feec_variables(u=un1)
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("Status     for CurrentCoupling6DDensity:", info["success"])
-            logger.info("Iterations for CurrentCoupling6DDensity:", info["niter"])
-            logger.info("Maxdiff up for CurrentCoupling6DDensity:", max_du)
+            logger.info(f"Status     for CurrentCoupling6DDensity: {info['success']}")
+            logger.info(f"Iterations for CurrentCoupling6DDensity: {info['niter']}")
+            logger.info(f"Maxdiff up for CurrentCoupling6DDensity: {max_du}")
             logger.info("")
 
 
@@ -2123,10 +2123,10 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
             if self.options.algo == "implicit":
-                logger.info("Status     for ShearAlfvenCurrentCoupling5D:", info["success"])
-                logger.info("Iterations for ShearAlfvenCurrentCoupling5D:", info["niter"])
-                logger.info("Maxdiff up for ShearAlfvenCurrentCoupling5D:", diffs["u"])
-                logger.info("Maxdiff b2 for ShearAlfvenCurrentCoupling5D:", diffs["b"])
+                logger.info(f"Status     for ShearAlfvenCurrentCoupling5D: {info['success']}")
+                logger.info(f"Iterations for ShearAlfvenCurrentCoupling5D: {info['niter']}")
+                logger.info(f"Maxdiff up for ShearAlfvenCurrentCoupling5D: {diffs['u']}")
+                logger.info(f"Maxdiff b2 for ShearAlfvenCurrentCoupling5D: {diffs['b']}")
                 logger.info("")
 
     def _initialize_projection_operator_TB(self):
@@ -2442,9 +2442,9 @@ class CurrentCoupling5DDensity(Propagator):
         diffs = self.update_feec_variables(u=_u)
 
         if self.options.solver_params.info and MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("Status     for CurrentCoupling5DDensity:", info["success"])
-            logger.info("Iterations for CurrentCoupling5DDensity:", info["niter"])
-            logger.info("Maxdiff up for CurrentCoupling5DDensity:", diffs["u"])
+            logger.info(f"Status     for CurrentCoupling5DDensity: {info['success']}")
+            logger.info(f"Iterations for CurrentCoupling5DDensity: {info['niter']}")
+            logger.info(f"Maxdiff up for CurrentCoupling5DDensity: {diffs['u']}")
             logger.info("")
 
 
@@ -2953,7 +2953,7 @@ class VariationalMomentumAdvection(Propagator):
             err = self._get_error_newton(diff)
 
             if self._info:
-                logger.info("iteration : ", it, " error : ", err)
+                logger.info(f"iteration : {it} error : {err}")
             if err < tol**2 or xp.isnan(err):
                 break
 
@@ -3330,7 +3330,7 @@ class VariationalDensityEvolve(Propagator):
             err = self._get_error_newton(mn_diff, rhon_diff)
 
             if self._info:
-                logger.info("iteration : ", it, " error : ", err)
+                logger.info(f"iteration : {it} error : {err}")
 
             if err < tol**2 or xp.isnan(err):
                 break
@@ -3801,7 +3801,7 @@ class VariationalEntropyEvolve(Propagator):
             err = self._get_error_newton(mn_diff, sn_diff)
 
             if self._info:
-                logger.info("iteration : ", it, " error : ", err)
+                logger.info(f"iteration : {it} error : {err}")
 
             if err < tol**2 or xp.isnan(err):
                 break
@@ -4221,7 +4221,7 @@ class VariationalMagFieldEvolve(Propagator):
             err = self._get_error_newton(mn_diff, bn_diff)
 
             if self._info:
-                logger.info("iteration : ", it, " error : ", err)
+                logger.info(f"iteration : {it} error : {err}")
 
             if err < tol**2 or xp.isnan(err):
                 break
@@ -4720,7 +4720,7 @@ class VariationalPBEvolve(Propagator):
             err = self._get_error(mn_diff, bn_diff)  # , pn_diff)
 
             if self._info:
-                logger.info("iteration : ", it, " error : ", err)
+                logger.info(f"iteration : {it} error : {err}")
 
             if err < tol**2 or xp.isnan(err):
                 break
@@ -5305,7 +5305,7 @@ class VariationalQBEvolve(Propagator):
             err = self._get_error(mn_diff, bn_diff, qn_diff)
 
             if self._info:
-                logger.info("iteration : ", it, " error : ", err)
+                logger.info(f"iteration : {it} error : {err}")
 
             if err < tol**2 or xp.isnan(err):
                 break
@@ -5761,7 +5761,7 @@ class VariationalViscosity(Propagator):
         # self.evol_op._multiplicants[1]._addends[0]._scalar = - dt*self._mu/2.
         un1 = self.evol_op.dot(un, out=self._tmp_un1)
         if self._info:
-            logger.info("information on the linear solver : ", self.inv_lop._info)
+            logger.info(f"information on the linear solver : {self.inv_lop._info}")
 
         if self._model == "linear_p" or (self._model == "linear_q" and self._nonlin_solver["fast"]):
             self.update_feec_variables(s=sn, u=un1)
@@ -5879,7 +5879,7 @@ class VariationalViscosity(Propagator):
             err = self._get_error_newton(self.tot_rhs)
 
             if self._info:
-                logger.info("iteration : ", it, " error : ", err)
+                logger.info(f"iteration : {it} error : {err}")
 
             if (err < tol**2 and it > 0) or xp.isnan(err):
                 # force at least one iteration
@@ -5912,7 +5912,7 @@ class VariationalViscosity(Propagator):
             incr = self.inv_jac.dot(self.tot_rhs, out=self._tmp_sn_incr)
 
             if self._info:
-                logger.info("information on the linear solver : ", self.inv_jac._info)
+                logger.info(f"information on the linear solver : {self.inv_jac._info}")
 
             if self._model in ["deltaf_q", "linear_q"]:
                 self._pt3 += incr
@@ -6518,7 +6518,7 @@ class VariationalResistivity(Propagator):
         else:
             bn1 = self.evol_op.dot(bn, out=self._tmp_bn1)
         if self._info:
-            logger.info("information on the linear solver : ", self.inv_lop._info)
+            logger.info(f"information on the linear solver : {self.inv_lop._info}")
 
         if self._model == "linear_p" or (self._model == "linear_q" and self._nonlin_solver["fast"]):
             self.update_feec_variables(s=sn, b=bn1)
@@ -6641,7 +6641,7 @@ class VariationalResistivity(Propagator):
             err = self._get_error_newton(self.tot_rhs)
 
             if self._info:
-                logger.info("iteration : ", it, " error : ", err)
+                logger.info(f"iteration : {it} error : {err}")
 
             if (err < tol**2 and it > 0) or xp.isnan(err):
                 break
@@ -6672,7 +6672,7 @@ class VariationalResistivity(Propagator):
             incr = self.inv_jac.dot(self.tot_rhs, out=self._tmp_sn_incr)
 
             if self._info:
-                logger.info("information on the linear solver : ", self.inv_jac._info)
+                logger.info(f"information on the linear solver : {self.inv_jac._info}")
 
             if self._model in ["deltaf_q", "linear_q"]:
                 self._pt3 += incr
@@ -8633,9 +8633,9 @@ class TwoFluidQuasiNeutralFull(Propagator):
             max_du, max_due, max_dphi = self.update_feec_variables(u=u_temp, ue=ue_temp, phi=phi_temp)
 
         if self._info and self._rank == 0:
-            logger.info("Status     for TwoFluidQuasiNeutralFull:", info["success"])
-            logger.info("Iterations for TwoFluidQuasiNeutralFull:", info["niter"])
-            logger.info("Maxdiff u for TwoFluidQuasiNeutralFull:", max_du)
-            logger.info("Maxdiff u_e for TwoFluidQuasiNeutralFull:", max_due)
-            logger.info("Maxdiff phi for TwoFluidQuasiNeutralFull:", max_dphi)
+            logger.info(f"Status     for TwoFluidQuasiNeutralFull: {info['success']}")
+            logger.info(f"Iterations for TwoFluidQuasiNeutralFull: {info['niter']}")
+            logger.info(f"Maxdiff u for TwoFluidQuasiNeutralFull: {max_du}")
+            logger.info(f"Maxdiff u_e for TwoFluidQuasiNeutralFull: {max_due}")
+            logger.info(f"Maxdiff phi for TwoFluidQuasiNeutralFull: {max_dphi}")
             logger.info("")

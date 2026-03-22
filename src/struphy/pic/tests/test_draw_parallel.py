@@ -88,17 +88,11 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     particles.initialize_weights()
     _w0 = particles.weights
     logger.info("Test weights:")
-    logger.info(f"rank {rank}:", _w0.shape, xp.min(_w0), xp.max(_w0))
+    logger.info(f"rank {rank}: {_w0.shape} {xp.min(_w0)} {xp.max(_w0)}")
 
     comm.Barrier()
     logger.info("Number of particles w/wo holes on each process before sorting : ")
-    logger.info(
-        "Rank",
-        rank,
-        ":",
-        particles.n_mks_loc,
-        particles.markers.shape[0],
-    )
+    logger.info(f"Rank {rank} : {particles.n_mks_loc} {particles.markers.shape[0]}")
 
     # sort particles according to domain decomposition
     comm.Barrier()
@@ -106,7 +100,7 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
 
     comm.Barrier()
     logger.info("Number of particles w/wo holes on each process after sorting : ")
-    logger.info("Rank", rank, ":", particles.n_mks_loc, particles.markers.shape[0])
+    logger.info(f"Rank {rank} : {particles.n_mks_loc} {particles.markers.shape[0]}")
 
     # are all markers in the correct domain?
     conds = xp.logical_and(

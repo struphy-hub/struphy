@@ -109,7 +109,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     domain_decomp = (domain_array, nprocs)
 
     if mpi_rank == 0:
-        logger.info("Domain decomposition according to", derham.domain_array)
+        logger.info(f"Domain decomposition according to {derham.domain_array}")
 
     # load distributed markers first and use Send/Receive to make global marker copies for the legacy routines
     loading_params = LoadingParameters(
@@ -136,7 +136,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     _w0 = particles.weights
 
     logger.info("Test weights:")
-    logger.info(f"rank {mpi_rank}:", _w0.shape, xp.min(_w0), xp.max(_w0))
+    logger.info(f"rank {mpi_rank}: {_w0.shape} {xp.min(_w0)} {xp.max(_w0)}")
 
     _sqrtg = domain.jacobian_det(0.5, 0.5, 0.5)
 

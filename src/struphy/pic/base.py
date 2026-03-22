@@ -1537,18 +1537,18 @@ class Particles(metaclass=ABCMeta):
 
         if self.mpi_rank == 0 and verbose:
             logger.info("\nMARKERS:")
-            logger.info(("name:").ljust(25), self.name)
-            logger.info(("Np:").ljust(25), self.Np)
-            logger.info(("ppc:").ljust(25), self.ppc)
-            logger.info(("ppb:").ljust(25), self.ppb)
-            logger.info(("bc:").ljust(25), self.bc)
-            logger.info(("bc_refill:").ljust(25), self.bc_refill)
-            logger.info(("loading:").ljust(25), self.loading)
-            logger.info(("type:").ljust(25), self.type)
-            logger.info(("control_variate:").ljust(25), self.control_variate)
-            logger.info(("domain_array[0]:").ljust(25), self.domain_array[0])
-            logger.info(("boxes_per_dim:").ljust(25), self.boxes_per_dim)
-            logger.info(("mpi_dims_mask:").ljust(25), self.mpi_dims_mask)
+            logger.info(f"{'name:':<25}{self.name}")
+            logger.info(f"{'Np:':<25}{self.Np}")
+            logger.info(f"{'ppc:':<25}{self.ppc}")
+            logger.info(f"{'ppb:':<25}{self.ppb}")
+            logger.info(f"{'bc:':<25}{self.bc}")
+            logger.info(f"{'bc_refill:':<25}{self.bc_refill}")
+            logger.info(f"{'loading:':<25}{self.loading}")
+            logger.info(f"{'type:':<25}{self.type}")
+            logger.info(f"{'control_variate:':<25}{self.control_variate}")
+            logger.info(f"{'domain_array[0]:':<25}{self.domain_array[0]}")
+            logger.info(f"{'boxes_per_dim:':<25}{self.boxes_per_dim}")
+            logger.info(f"{'mpi_dims_mask:':<25}{self.mpi_dims_mask}")
 
         if self.loading == "external":
             self._load_external()
@@ -1565,7 +1565,7 @@ class Particles(metaclass=ABCMeta):
             if self.mpi_rank == 0 and verbose:
                 logger.info("\nLoading fresh markers:")
                 for key, val in self.loading_params.__dict__.items():
-                    logger.info((key + " :").ljust(25), val)
+                    logger.info(f"{key + ' :':<25}{val}")
 
             # 1. standard random number generator (pseudo-random)
             if self.loading == "pseudo_random":

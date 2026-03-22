@@ -603,7 +603,7 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
     sol_val_2p5d = domain.push(_phi_2p5d.spline, e1, e2, e3, kind="0")
     x, y, z = domain(e1, e2, e3)
 
-    logger.info("max diff:", xp.max(xp.abs(sol_val - sol_val_2p5d)))
+    logger.info(f"max diff: {xp.max(xp.abs(sol_val - sol_val_2p5d))}")
     assert xp.max(xp.abs(sol_val - sol_val_2p5d)) < 0.026
 
     if show_plot and rank == 0:

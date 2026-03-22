@@ -1083,12 +1083,12 @@ class MHDequilibrium(FluidEquilibriumWithB):
         # show params
         logger.info("\nEquilibrium parameters:")
         for key, val in self.params.items():
-            logger.info(key, ": ", val)
+            logger.info(f"{key}: {val}")
 
         logger.info("\nMapping parameters:")
         for key, val in self.domain.params.items():
             if key not in {"cx", "cy", "cz"}:
-                logger.info(key, ": ", val)
+                logger.info(f"{key}: {val}")
 
         # poloidal plane grid
         fig = plt.figure(figsize=(13, xp.ceil(n_planes / 2) * 6.5))

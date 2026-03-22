@@ -154,8 +154,8 @@ def check_ssort(file_path, verbose=False):
         stderr=subprocess.PIPE,
     )
     if verbose:
-        logger.info("stdout:", result.stdout.decode("utf-8"))
-        logger.info("stderr:", result.stderr.decode("utf-8"))
+        logger.info(f"stdout: {result.stdout.decode('utf-8')}")
+        logger.info(f"stderr: {result.stderr.decode('utf-8')}")
     return result.returncode == 0
 
 
@@ -189,8 +189,8 @@ def check_ruff(file_path, verbose=False):
             stderr=subprocess.PIPE,
         )
         if verbose:
-            logger.info("stdout:", result.stdout.decode("utf-8"))
-            logger.info("stderr:", result.stderr.decode("utf-8"))
+            logger.info(f"stdout: {result.stdout.decode('utf-8')}")
+            logger.info(f"stderr: {result.stderr.decode('utf-8')}")
 
         if result.returncode == 0:
             returncodes.append(0)
@@ -232,8 +232,8 @@ def check_isort(file_path, verbose=False):
         stderr=subprocess.PIPE,
     )
     if verbose:
-        logger.info("stdout:", result.stdout.decode("utf-8"))
-        logger.info("stderr:", result.stderr.decode("utf-8"))
+        logger.info(f"stdout: {result.stdout.decode('utf-8')}")
+        logger.info(f"stderr: {result.stderr.decode('utf-8')}")
     return result.returncode == 0
 
 
@@ -262,8 +262,8 @@ def check_autopep8(file_path, verbose=False):
     )
     # If there's any output, autopep8 suggests changes, so it doesn't pass
     if verbose:
-        logger.info("stdout:", result.stdout.decode("utf-8"))
-        logger.info("stderr:", result.stderr.decode("utf-8"))
+        logger.info(f"stdout: {result.stdout.decode('utf-8')}")
+        logger.info(f"stderr: {result.stderr.decode('utf-8')}")
     return result.stdout == b""
 
 
@@ -291,8 +291,8 @@ def check_flake8(file_path, verbose=False):
         stderr=subprocess.PIPE,
     )
     if verbose:
-        logger.info("stdout:", result.stdout.decode("utf-8"))
-        logger.info("stderr:", result.stderr.decode("utf-8"))
+        logger.info(f"stdout: {result.stdout.decode('utf-8')}")
+        logger.info(f"stderr: {result.stderr.decode('utf-8')}")
     return result.returncode == 0
 
 

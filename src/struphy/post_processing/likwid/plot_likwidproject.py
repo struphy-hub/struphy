@@ -54,7 +54,7 @@ def get_job_name(project, simulation_name_type):
     elif simulation_name_type == "node_configuration":
         job_name = project.get_node_configuration()
     else:
-        logger.info("Incorrect simulation_name_type", simulation_name_type)
+        logger.info(f"Incorrect simulation_name_type {simulation_name_type}")
         sys.exit(1)
     return job_name
 

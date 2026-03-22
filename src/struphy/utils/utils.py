@@ -83,7 +83,7 @@ def print_all_attr(obj):
                 v = f"{type(getattr(obj, k))} of shape {v.shape}"
             if "proj_" in k or "quad_grid_" in k:
                 v = "(arrays not displayed)"
-            logger.info(k.ljust(26), v)
+            logger.info(f"{k:<26}{v}")
 
 
 def dict_to_yaml(dictionary: dict, output: str):

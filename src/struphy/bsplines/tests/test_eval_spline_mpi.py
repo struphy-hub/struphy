@@ -566,7 +566,7 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
     evaluate_tensor_product(tn1, tn2, tn3, *derham.p, *derham.indN, x0[0], eta1s, eta2s, eta3s, vals, 0)
     t1 = time.time()
     if rank == 0:
-        logger.info("V0 evaluate_tensor_product:".ljust(40), t1 - t0)
+        logger.info(f"{'V0 evaluate_tensor_product:':<40}{t1 - t0}")
 
     t0 = time.time()
     eval_spline_mpi_tensor_product(
@@ -584,7 +584,7 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
     )
     t1 = time.time()
     if rank == 0:
-        logger.info("V0 eval_spline_mpi_tensor_product:".ljust(40), t1 - t0)
+        logger.info(f"{'V0 eval_spline_mpi_tensor_product:':<40}{t1 - t0}")
 
     t0 = time.time()
     eval_spline_mpi_tensor_product_fast(
@@ -602,7 +602,7 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
     )
     t1 = time.time()
     if rank == 0:
-        logger.info("v0 eval_spline_mpi_tensor_product_fast:".ljust(40), t1 - t0)
+        logger.info(f"{'v0 eval_spline_mpi_tensor_product_fast:':<40}{t1 - t0}")
 
     assert xp.allclose(vals, vals_mpi)
     assert xp.allclose(vals, vals_mpi_fast)
@@ -626,7 +626,7 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
     )
     t1 = time.time()
     if rank == 0:
-        logger.info("V3 evaluate_tensor_product:".ljust(40), t1 - t0)
+        logger.info(f"{'V3 evaluate_tensor_product:':<40}{t1 - t0}")
 
     t0 = time.time()
     eval_spline_mpi_tensor_product(
@@ -644,7 +644,7 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
     )
     t1 = time.time()
     if rank == 0:
-        logger.info("V3 eval_spline_mpi_tensor_product:".ljust(40), t1 - t0)
+        logger.info(f"{'V3 eval_spline_mpi_tensor_product:':<40}{t1 - t0}")
 
     t0 = time.time()
     eval_spline_mpi_tensor_product_fast(
@@ -662,7 +662,7 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
     )
     t1 = time.time()
     if rank == 0:
-        logger.info("v3 eval_spline_mpi_tensor_product_fast:".ljust(40), t1 - t0)
+        logger.info(f"{'v3 eval_spline_mpi_tensor_product_fast:':<40}{t1 - t0}")
 
     assert xp.allclose(vals, vals_mpi)
     assert xp.allclose(vals, vals_mpi_fast)
@@ -745,7 +745,7 @@ def test_eval_tensor_product_grid(Nel, p, spl_kind, n_markers=10):
     )
     t1 = time.time()
     if rank == 0:
-        logger.info("V3 evaluate_tensor_product:".ljust(40), t1 - t0)
+        logger.info(f"{'V3 evaluate_tensor_product:':<40}{t1 - t0}")
 
     t0 = time.time()
     eval_spline_mpi_tensor_product_fixed(
@@ -759,7 +759,7 @@ def test_eval_tensor_product_grid(Nel, p, spl_kind, n_markers=10):
     )
     t1 = time.time()
     if rank == 0:
-        logger.info("v3 eval_spline_mpi_tensor_product_fixed:".ljust(40), t1 - t0)
+        logger.info(f"{'v3 eval_spline_mpi_tensor_product_fixed:':<40}{t1 - t0}")
 
     assert xp.allclose(vals, vals_mpi_fixed)
 
@@ -772,7 +772,7 @@ def test_eval_tensor_product_grid(Nel, p, spl_kind, n_markers=10):
     field.eval_tp_fixed_loc(spans_f, bds_f, out=vals_mpi_fixed)
     t1 = time.time()
     if rank == 0:
-        logger.info("v3 field.eval_tp_fixed:".ljust(40), t1 - t0)
+        logger.info(f"{'v3 field.eval_tp_fixed:':<40}{t1 - t0}")
 
     assert xp.allclose(vals, vals_mpi_fixed)
 

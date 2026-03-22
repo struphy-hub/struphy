@@ -37,7 +37,7 @@ def make_ugrid_and_write_vtu(filename: str, writer, vtk_dir, gvec, s_range, u_ra
 
     # Generate one set of data, then write them in ParaView files as using different graphics primitives.
     num_pts = s_range.shape[0] * u_range.shape[0] * v_range.shape[0]
-    logger.info("Number of points: {}".format(num_pts), flush=True)
+    logger.info(f"Number of points: {num_pts}")
     point_data = {}
     cell_data = {}
     vtk_points, suv_points, xyz_points, point_indices = gen_vtk_points(
@@ -48,7 +48,7 @@ def make_ugrid_and_write_vtu(filename: str, writer, vtk_dir, gvec, s_range, u_ra
         point_data,
         cell_data,
     )
-    logger.info("vtk_points.GetNumberOfPoints()", vtk_points.GetNumberOfPoints(), flush=True)
+    logger.info(f"vtk_points.GetNumberOfPoints() {vtk_points.GetNumberOfPoints()}")
 
     ugrid = setup_ugrid(vtk_points, num_pts)
     connect_cell(s_range, u_range, v_range, point_indices, ugrid, point_data, cell_data, periodic)
