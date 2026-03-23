@@ -1,4 +1,4 @@
-.. _tutorials:
+.. _dev_tutorials:
 
 Developer Tutorials
 ===================
