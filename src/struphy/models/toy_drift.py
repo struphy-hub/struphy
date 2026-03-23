@@ -133,7 +133,7 @@ class ToyDrift(StruphyModel):
         # Poisson right-hand side
         particles = self.kinetic_ions.var.particles
         particles.weights = particles.weights_at_t0.copy()
-        
+
         alpha = self.kinetic_ions.equation_params.alpha
         epsilon = self.kinetic_ions.equation_params.epsilon
 
@@ -172,11 +172,7 @@ class ToyDrift(StruphyModel):
         # en_phi = 0.
 
         # 1/N sum_p (w_p v_p^2/2 + mu_p |B0|_p)
-        self._tmp3[0] = (
-            1
-            / particles.Np
-            * xp.sum(particles.weights * particles.velocities[:, 0] ** 2 / 2.0)
-        )
+        self._tmp3[0] = 1 / particles.Np * xp.sum(particles.weights * particles.velocities[:, 0] ** 2 / 2.0)
 
         self.update_scalar("en_phi", en_phi1)
         self.update_scalar("en_particles", self._tmp3[0])

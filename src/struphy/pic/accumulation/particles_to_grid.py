@@ -631,7 +631,7 @@ class AccumulatorVector:
 
         The FE coefficients :math:`\mathbf a` determine a FE :class:`~struphy.feec.psydac_derham.SplineFunction`.
 
-        :param eta_direction: axes of eta to show accumulation (eta1, eta2, eta3). 
+        :param eta_direction: axes of eta to show accumulation (eta1, eta2, eta3).
         """
         assert sum(eta_direction) < 3, "Current implementation is only possible with 1 and 2D visualization"
 
@@ -679,8 +679,7 @@ class AccumulatorVector:
             plt.xlabel(rf"$\eta_{plt_axis[0] + 1}$")
             plt.ylabel(rf"$\eta_{plt_axis[1] + 1}$")
 
-            
         plt.title(
-                f'Spline field accumulated with the kernel "{self.kernel}"',
-            )
+            f'Spline field accumulated with the kernel "{self.kernel}"',
+        )
         plt.show()

@@ -252,7 +252,7 @@ class ModesCos(Perturbation):
         Lz=1.0,
         given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
-        perb_domain: tuple[tuple[float]] = (None, None, None)
+        perb_domain: tuple[tuple[float]] = (None, None, None),
     ):
         if ls is not None:
             n_modes = len(ls)
@@ -301,17 +301,14 @@ class ModesCos(Perturbation):
         val = xp.zeros_like(x)
 
         # find mask of particles within the sub domain
-        mask = xp.ones_like(x, dtype=bool)
-
-        coor = (x,y,z)
-        for i in range(len(self.perb_domain)):
-            if self.perb_domain[i] is None: continue
-            mask &= ((self.perb_domain[i][0] <= coor[i]) & (coor[i] <= self.perb_domain[i][1]))
+        mask = super._mask_subdomain(x, y, z, perb_domain=self.perb_domain)
 
         # apply perturbation iff perb_domain not specified or (x,y,z) is within perb_domain
         for amp, l, m, n in zip(self.amps, self.ls, self.ms, self.ns):
             val[mask] += amp * xp.cos(
-                l * 2.0 * xp.pi / self.Lx * x[mask] + m * 2.0 * xp.pi / self.Ly * y[mask] + n * 2.0 * xp.pi / self.Lz * z[mask],
+                l * 2.0 * xp.pi / self.Lx * x[mask]
+                + m * 2.0 * xp.pi / self.Ly * y[mask]
+                + n * 2.0 * xp.pi / self.Lz * z[mask],
             )
         # print( "Cos max value", val.max())
         return val
