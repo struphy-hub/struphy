@@ -301,7 +301,7 @@ class ModesCos(Perturbation):
         val = xp.zeros_like(x)
 
         # find mask of particles within the sub domain
-        mask = super._mask_subdomain(x, y, z, perb_domain=self.perb_domain)
+        mask = super()._mask_subdomain(x, y, z, perb_domain=self.perb_domain)
 
         # apply perturbation iff perb_domain not specified or (x,y,z) is within perb_domain
         for amp, l, m, n in zip(self.amps, self.ls, self.ms, self.ns):

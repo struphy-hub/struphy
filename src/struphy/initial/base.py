@@ -1,6 +1,8 @@
 from abc import ABCMeta, abstractmethod
 from typing import Callable
 
+import cunumpy as xp
+
 from struphy.io.options import LiteralOptions
 from struphy.utils.utils import check_option
 
@@ -104,21 +106,21 @@ class Perturbation(metaclass=ABCMeta):
         assert new in (0, 1, 2)
         self._comp = new
 
-    def _mask_subdomain(*etas, perb_domain: tuple[tuple[float] | None, ...] = (None, None, None)):
+    def _mask_subdomain(self, *etas, perb_domain: tuple[tuple[float] | None, ...] = (None, None, None)):
         """
         Create mask of particles within perturbation subdomain.
 
         :param eta: location of each partiles in space
         :param perb_domain : tuple[tuple[float]]
-            Subdomain in logical space in which the pertrubation is applied to: ((x_min, x_max), (y_min, y_max), (z_min, z_max)).
+            Subdomain in logical space in which the pertrubation is applied to: ((eta1_min, eta1_max), (eta2_min, eta2_max), (eta3_min, eta3_max)).
             None means apply perturbation to all domain in that direction
         """
 
         mask = xp.ones_like(etas[0], dtype=bool)
 
-        for i in range(len(self.perb_domain)):
-            if self.perb_domain[i] is None:
+        for i in range(len(perb_domain)):
+            if perb_domain[i] is None:
                 continue
-            mask &= (self.perb_domain[i][0] <= etas[i]) & (etas[i] <= self.perb_domain[i][1])
+            mask &= (perb_domain[i][0] <= etas[i]) & (etas[i] <= perb_domain[i][1])
 
         return mask
