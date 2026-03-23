@@ -1031,6 +1031,12 @@ RESTARTing from:
         constructs a projected equilibrium appropriate for the chosen
         equilibrium type.
         """
+        # check for polar singularity
+        if self.domain.pole:
+            assert derham_opts.polar_ck == 1, """Polar singularity detected in domain but derham_opts.polar_ck != 1. 
+            You have two options:
+            a) set derham_opts.polar_ck = 1 to use polar splines 
+            b) modify your domain definition to cut a hole around the singularity."""
 
         # create discrete derham sequence
         if self.clone_config is None:
