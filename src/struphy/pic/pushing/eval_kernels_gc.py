@@ -652,7 +652,7 @@ def sph_mean_velocity_coeffs(
     for ip in range(n_markers):
         # only do something if particle is a "true" particle
         if not valid_mks[ip]:
-           continue
+            continue
 
         # also evaluate and save for ghost particles, only skip holes (!)
         # if holes[ip]:

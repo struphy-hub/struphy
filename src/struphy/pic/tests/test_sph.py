@@ -1763,6 +1763,7 @@ def test_sph_no_slip_boundary_1d(
     show_plot=False,
 ):
     import sys
+
     import numpy
 
     numpy.set_printoptions(threshold=sys.maxsize, linewidth=200, precision=3, suppress=True)
@@ -1787,12 +1788,15 @@ def test_sph_no_slip_boundary_1d(
         loading_params = LoadingParameters(ppb=ppb, seed=223)
 
     if direction == "x":
+
         def u_xyz(x, y, z):
             return (xp.ones_like(x), xp.zeros_like(x), xp.zeros_like(x))
     elif direction == "y":
+
         def u_xyz(x, y, z):
             return (xp.zeros_like(x), xp.ones_like(x), xp.zeros_like(x))
     else:
+
         def u_xyz(x, y, z):
             return (xp.zeros_like(x), xp.zeros_like(x), xp.ones_like(x))
 
@@ -1960,4 +1964,6 @@ if __name__ == "__main__":
     #     direction="x",
     #     show_plot=True,
     # )
-    test_sph_velocity_evaluation_2d((12, 12, 1), "gaussian_2d", 1, "periodic", "periodic", 11, tesselation=False, show_plot=True)
+    test_sph_velocity_evaluation_2d(
+        (12, 12, 1), "gaussian_2d", 1, "periodic", "periodic", 11, tesselation=False, show_plot=True
+    )
