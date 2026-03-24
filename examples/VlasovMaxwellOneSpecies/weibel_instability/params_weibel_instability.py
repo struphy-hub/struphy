@@ -46,7 +46,7 @@ from struphy import (
 # ---------------------
 
 from struphy.models import VlasovMaxwellOneSpecies
-model = VlasovMaxwellOneSpecies()
+model = VlasovMaxwellOneSpecies(measure_gauss_law=True)
 
 # ---------------------
 # Parameters setup
