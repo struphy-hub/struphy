@@ -149,7 +149,10 @@ plt.close()
 # Make video
 # ------------------
 
-def mk_video(bin_name, quantity, img_dir):
+def extract_images(bin_name, quantity, img_dir):
+    """
+    Extract images from each time step to be combined to video
+    """
     from tqdm import tqdm
     # Save individual images
 
@@ -191,21 +194,6 @@ def mk_video(bin_name, quantity, img_dir):
             dpi=100,              
             format="jpg",
         )
-
         plt.close(fig)
 
-    # Combine images to video
-    from moviepy import ImageSequenceClip
-
-    image_files = [
-        os.path.join(img_dir, img)
-        for img in os.listdir(img_dir)
-        if img.endswith((".jpg", ".png"))
-    ]
-
-    image_files.sort() 
-
-    clip = ImageSequenceClip(image_files, fps=60)
-    clip.write_videofile(os.path.join(img_dir, "output.mp4"))
-
-mk_video("e1_e2_density", "f_binned", os.path.join(save_path, "video"))
+extract_images("e1_e2_density", "f_binned", os.path.join(save_path, "video"))
