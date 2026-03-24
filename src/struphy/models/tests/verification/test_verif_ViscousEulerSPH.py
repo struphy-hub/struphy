@@ -1,5 +1,6 @@
 import os
 import shutil
+import h5py
 
 import cunumpy as xp
 import pytest
@@ -177,7 +178,7 @@ def test_viscosity_1d(nx: int, plot_pts: int, do_plot: bool = False):
     base_units = BaseUnits(kBT=1.0)
 
     # time stepping
-    time_opts = Time(dt=0.01, Tend=0.1, split_algo="LieTrotter")
+    time_opts = Time(dt=0.01, Tend=1.0, split_algo="LieTrotter")
 
     # geometry
     r1 = 1.0
@@ -197,7 +198,7 @@ def test_viscosity_1d(nx: int, plot_pts: int, do_plot: bool = False):
 
     loading_params = LoadingParameters(ppb=100, loading="tesselation")
     weights_params = WeightsParameters()
-    boundary_params = BoundaryParameters()
+    boundary_params = BoundaryParameters(bc_sph=("periodic", "periodic", "periodic"))
     model.euler_fluid.set_markers(
         loading_params=loading_params,
         weights_params=weights_params,
@@ -221,12 +222,13 @@ def test_viscosity_1d(nx: int, plot_pts: int, do_plot: bool = False):
     butcher = ButcherTableau(algo="forward_euler")
     # model.propagators.push_eta.options = model.propagators.push_eta.Options(butcher=butcher)
     if model.with_viscosity:
-        model.propagators.push_viscous.options = model.propagators.push_viscous.Options(kernel_type="gaussian_1d", mu=0.001)
+        model.propagators.push_viscous.options = model.propagators.push_viscous.Options(kernel_type="gaussian_1d", mu=0.1)
 
     # background, perturbations and initial conditions
     background = equils.ConstantVelocity()
     model.euler_fluid.var.add_background(background)
-    perturbation = perturbations.GaussianBlobEta1(center=0.5, amp=1.0, sigma=0.1)
+    # perturbation = perturbations.GaussianBlobEta1(center=0.5, amp=1.0, sigma=0.1)
+    perturbation = perturbations.ModesSin(ls=(1,), amps=(1.0,))
     model.euler_fluid.var.add_perturbation(del_u1=perturbation)
 
     # instance of simulation
@@ -243,6 +245,20 @@ def test_viscosity_1d(nx: int, plot_pts: int, do_plot: bool = False):
 
     # run
     sim.run(verbose=True)
+    
+    # get scalar data
+    if MPI.COMM_WORLD.Get_rank() == 0:
+        pa_data = os.path.join(env.path_out, "data")
+        with h5py.File(os.path.join(pa_data, "data_proc0.hdf5"), "r") as f:
+            time = f["time"]["value"][()]
+            en_kin = f["scalar"]["en_kin"][()]
+
+        # plot
+        if do_plot:
+            plt.figure(figsize=(18, 12))
+            plt.plot(time, en_kin, label="numerical")
+            plt.legend()
+            plt.show()
     
     # post processing
     if MPI.COMM_WORLD.Get_rank() == 0:
@@ -261,15 +277,19 @@ def test_viscosity_1d(nx: int, plot_pts: int, do_plot: bool = False):
             plt.subplot(1, 4, 1)
             plt.plot(grid_e1, f_binned[0, :], label=f"time {sim.t_grid[0]}")
             plt.title(f"time {sim.t_grid[0]}")
+            plt.ylim([-1, 1])
             plt.subplot(1, 4, 2)
             plt.plot(grid_e1, f_binned[shp//3, :], label=f"time {sim.t_grid[shp//3]}")
             plt.title(f"time {sim.t_grid[shp//3]}")
+            plt.ylim([-1, 1])
             plt.subplot(1, 4, 3)
             plt.plot(grid_e1, f_binned[2*shp//3, :], label=f"time {sim.t_grid[2*shp//3]}")
-            plt.title(f"time {sim.t_grid[2*shp//3]}")           
+            plt.title(f"time {sim.t_grid[2*shp//3]}")  
+            plt.ylim([-1, 1])         
             plt.subplot(1, 4, 4)
             plt.plot(grid_e1, f_binned[-1, :], label=f"time {sim.t_grid[-1]}")
             plt.title(f"time {sim.t_grid[-1]}")
+            plt.ylim([-1, 1])
             plt.show()
 
 

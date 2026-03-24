@@ -3127,6 +3127,7 @@ def push_v_viscosity(
         # n_at_eta = markers[ip, first_free_idx]
         loc_box = int(markers[ip, n_cols - 2])
 
+        f_visc[:] = 0.0
         for j in range(3):  # row of viscosity tensor
             for k in range(3):  # column = derivative direction
                 coeff_idx = first_free_idx + 3 * (j + 1) + k
