@@ -264,28 +264,6 @@ class DerhamOptions:
     def is_default(self):
         return all_class_params_are_default(self)
 
-    def to_dict(self) -> dict:
-        dct = {
-            "p": self.p,
-            "bcs": self.bcs,
-            "nquads": self.nquads,
-            "nq_pr": self.nq_pr,
-            "polar_ck": self.polar_ck,
-            "local_projectors": self.local_projectors,
-        }
-        return dct
-
-    @classmethod
-    def from_dict(cls, dct: dict) -> "DerhamOptions":
-        return cls(
-            p=dct["p"],
-            bcs=dct["bcs"],
-            nquads=dct["nquads"],
-            nq_pr=dct["nq_pr"],
-            polar_ck=dct["polar_ck"],
-            local_projectors=dct["local_projectors"],
-        )
-
 
 @dataclass
 class FieldsBackground(OptionsBase):
@@ -322,22 +300,6 @@ class FieldsBackground(OptionsBase):
     @property
     def is_default(self):
         return all_class_params_are_default(self)
-
-    def to_dict(self) -> dict:
-        dct = {
-            "type": self.type,
-            "values": self.values,
-            "variable": self.variable,
-        }
-        return dct
-
-    @classmethod
-    def from_dict(cls, dct: dict) -> "FieldsBackground":
-        return cls(
-            type=dct["type"],
-            values=dct["values"],
-            variable=dct["variable"],
-        )
 
 
 @dataclass
@@ -400,31 +362,3 @@ class EnvironmentOptions(OptionsBase):
     @property
     def is_default(self):
         return all_class_params_are_default(self)
-
-    def to_dict(self) -> dict:
-        dct = {
-            "out_folders": self.out_folders,
-            "sim_folder": self.sim_folder,
-            "restart": self.restart,
-            "max_runtime": self.max_runtime,
-            "save_step": self.save_step,
-            "sort_step": self.sort_step,
-            "num_clones": self.num_clones,
-            "profiling_activated": self.profiling_activated,
-            "profiling_trace": self.profiling_trace,
-        }
-        return dct
-
-    @classmethod
-    def from_dict(cls, dct: dict) -> "EnvironmentOptions":
-        return cls(
-            out_folders=dct["out_folders"],
-            sim_folder=dct["sim_folder"],
-            restart=dct["restart"],
-            max_runtime=dct["max_runtime"],
-            save_step=dct["save_step"],
-            sort_step=dct["sort_step"],
-            num_clones=dct["num_clones"],
-            profiling_activated=dct["profiling_activated"],
-            profiling_trace=dct["profiling_trace"],
-        )
