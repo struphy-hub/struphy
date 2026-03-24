@@ -40,26 +40,6 @@ import pytest
             id="mixed-hom-dirichlet-eta13",
         ),
         pytest.param(
-            {
-                "p": (1, 2, 3),
-                "bcs": (None, ("free", "lifting"), ("lifting", "free")),
-                "lifting_eta2": (None, 2.0),
-                "lifting_eta3": (1.5, None),
-            },
-            {
-                "p": (1, 2, 3),
-                "bcs": (None, ("free", "lifting"), ("lifting", "free")),
-                "nquads": (2, 3, 4),
-                "nq_pr": (2, 3, 4),
-                "mpi_dims_mask": (True, True, True),
-                "with_projectors": True,
-                "with_local_projectors": False,
-                "spl_kind": (True, False, False),
-                "dirichlet_bc": ((False, False), (False, True), (True, False)),
-            },
-            id="mixed-lifting-eta23",
-        ),
-        pytest.param(
             {},
             {
                 "p": (1, 1, 1),
@@ -114,25 +94,6 @@ import pytest
                 "dirichlet_bc": ((False, False), (False, False), (True, False)),
             },
             id="with-local-projectors",
-        ),
-        pytest.param(
-            {
-                "p": (1, 2, 3),
-                "bcs": (("lifting", "hom_dirichlet"), None, None),
-                "lifting_eta1": (1.0, None),
-            },
-            {
-                "p": (1, 2, 3),
-                "bcs": (("lifting", "hom_dirichlet"), None, None),
-                "nquads": (2, 3, 4),
-                "nq_pr": (2, 3, 4),
-                "mpi_dims_mask": (True, True, True),
-                "with_projectors": True,
-                "with_local_projectors": False,
-                "spl_kind": (False, True, True),
-                "dirichlet_bc": ((True, True), (False, False), (False, False)),
-            },
-            id="lifting-hom-dirichlet-eta1",
         ),
     ],
 )

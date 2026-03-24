@@ -69,10 +69,6 @@ def setup_derham(
     p = options.p
     # boundary conditions
     bcs = options.bcs
-    # possible lifting of Dirichlet BCs
-    lifting_eta1 = options.lifting_eta1
-    lifting_eta2 = options.lifting_eta2
-    lifting_eta3 = options.lifting_eta3
     # Number of quadrature points per histopolation cell
     nq_pr = options.nq_pr
     # Number of quadrature points per grid cell for L^2
@@ -86,9 +82,6 @@ def setup_derham(
         Nel,
         p=p,
         bcs=bcs,
-        lifting_eta1=lifting_eta1,
-        lifting_eta2=lifting_eta2,
-        lifting_eta3=lifting_eta3,
         nquads=nquads,
         nq_pr=nq_pr,
         comm=comm,
@@ -104,9 +97,6 @@ def setup_derham(
         print("number of elements:".ljust(25), Nel)
         print("spline degrees:".ljust(25), p)
         print("boundary conditions:".ljust(25), bcs)
-        print("lifting eta_1:".ljust(25), lifting_eta1)
-        print("lifting eta_2:".ljust(25), lifting_eta2)
-        print("lifting eta_3:".ljust(25), lifting_eta3)
         print("GL quad pts (L2):".ljust(25), nquads)
         print("GL quad pts (hist):".ljust(25), nq_pr)
         print(

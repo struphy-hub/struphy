@@ -510,19 +510,7 @@ class Derham:
     ], default=(None, None, None)
         Boundary conditions for each direction. ``None`` means periodic in that
         direction; otherwise provide ``(left, right)`` with values such as
-        ``"free"``, ``"hom_dirichlet"`` or ``"lifting"``.
-
-    lifting_eta1 : tuple[float | Callable | None, float | Callable | None], default=(None, None)
-        Lifting data for left/right boundaries in ``eta_1``. Required on a side
-        if that side uses ``"lifting"`` in ``bcs``.
-
-    lifting_eta2 : tuple[float | Callable | None, float | Callable | None], default=(None, None)
-        Lifting data for left/right boundaries in ``eta_2``. Required on a side
-        if that side uses ``"lifting"`` in ``bcs``.
-
-    lifting_eta3 : tuple[float | Callable | None, float | Callable | None], default=(None, None)
-        Lifting data for left/right boundaries in ``eta_3``. Required on a side
-        if that side uses ``"lifting"`` in ``bcs``.
+        ``"free"`` or ``"hom_dirichlet"``.
 
     nquads : tuple[int, int, int] | None, default=None
         Number of Gauss-Legendre quadrature points used for quadrature grids.
@@ -574,9 +562,6 @@ class Derham:
             None | tuple[NonTrivialBC, NonTrivialBC],
             None | tuple[NonTrivialBC, NonTrivialBC],
         ] = (None, None, None),
-        lifting_eta1: tuple[float | Callable | None, float | Callable | None] = (None, None),
-        lifting_eta2: tuple[float | Callable | None, float | Callable | None] = (None, None),
-        lifting_eta3: tuple[float | Callable | None, float | Callable | None] = (None, None),
         nquads: tuple[int, int, int] | None = None,
         nq_pr: tuple[int, int, int] | None = None,
         comm=None,
@@ -594,53 +579,28 @@ class Derham:
 
         # setting boundary conditions, default is periodic in all directions
         self._bcs = tuple(bcs)
-        self._lifting_eta1 = lifting_eta1
-        self._lifting_eta2 = lifting_eta2
-        self._lifting_eta3 = lifting_eta3
-        liftings = (lifting_eta1, lifting_eta2, lifting_eta3)
 
         self._spl_kind = [True] * 3
         self._dirichlet_bc = [[False, False], [False, False], [False, False]]
-        self._dirichlet_bc_unlifted = None
 
         assert len(bcs) == 3, (
             f"bcs must be a tuple of length 3, one for each spatial direction. Got {len(bcs)} entries."
         )
 
-        if any([bc == "lifting" for bc in bcs if bc is not None]):
-            self._dirichlet_bc_unlifted = [[False, False], [False, False], [False, False]]
-
         # check for non-periodic BCs:
-        for d, (bc, lifting) in enumerate(zip(bcs, liftings)):
+        for d, bc in enumerate(bcs):
             if bc is not None:
                 self._spl_kind[d] = False
                 assert len(bc) == 2, (
                     f"Each entry of bcs must be a tuple of length 2, indicating the left and right boundary conditions. Got {len(bc)} entries for {bc}."
                 )
-                if bc[0] == "hom_dirichlet" or bc[0] == "lifting":
-                    self._dirichlet_bc[d] = (True, self._dirichlet_bc[d][1])
-                    if bc[0] == "lifting":
-                        assert len(lifting) == 2, (
-                            f"lifting_eta{d + 1} must be a tuple of length 2, indicating the lifting at the left and right boundary."
-                        )
-                        assert lifting[0] is not None, (
-                            f"lifting_eta{d + 1}[0] must be provided if lifting is used as a boundary condition in eta{d + 1}."
-                        )
-                if bc[1] == "hom_dirichlet" or bc[1] == "lifting":
-                    self._dirichlet_bc[d] = (self._dirichlet_bc[d][0], True)
-                    if bc[1] == "lifting":
-                        assert len(lifting) == 2, (
-                            f"lifting_eta{d + 1} must be a tuple of length 2, indicating the lifting at the left and right boundary."
-                        )
-                        assert lifting[1] is not None, (
-                            f"lifting_eta{d + 1}[1] must be provided if lifting is used as a boundary condition in eta{d + 1}."
-                        )
+                if bc[0] == "hom_dirichlet":
+                    self._dirichlet_bc[d][0] = True
+                if bc[1] == "hom_dirichlet":
+                    self._dirichlet_bc[d][1] = True
 
         self._spl_kind = tuple(self._spl_kind)
         self._dirichlet_bc = tuple(tuple(b) for b in self._dirichlet_bc)
-
-        if self._dirichlet_bc_unlifted is not None:
-            self._dirichlet_bc_unlifted = tuple(tuple(b) for b in self._dirichlet_bc_unlifted)
 
         # quadrature points: default p + 1 for exact integration of degree 2p+1 polynomials
         if nquads is None:
@@ -896,32 +856,8 @@ class Derham:
     ]:
         """Tuple of boundary conditions in each direction.
         Each entry is either None (periodic) or a tuple with two entries (left and right boundary),
-        "hom_dirichlet" (homogeneous Dirichlet) or "lifting" (lifting-based BCs)."""
+        "hom_dirichlet" (homogeneous Dirichlet) or "free" (clamped splines)."""
         return self._bcs
-
-    @property
-    def lifting_eta1(self) -> tuple[float | Callable | None, float | Callable | None]:
-        """The lifting parameters for the eta1 direction.
-        It is a tuple of two entries (left and right boundary),
-        each entry can be a float (=const. boundary condition) or a callable as a function of (eta2, eta3).
-        This is only relevant if lifting-based BCs are used in the eta1 direction."""
-        return self._lifting_eta1
-
-    @property
-    def lifting_eta2(self) -> tuple[float | Callable | None, float | Callable | None]:
-        """The lifting parameters for the eta2 direction.
-        It is a tuple of two entries (left and right boundary),
-        each entry can be a float (=const. boundary condition) or a callable as a function of (eta1, eta3).
-        This is only relevant if lifting-based BCs are used in the eta2 direction."""
-        return self._lifting_eta2
-
-    @property
-    def lifting_eta3(self) -> tuple[float | Callable | None, float | Callable | None]:
-        """The lifting parameters for the eta3 direction.
-        It is a tuple of two entries (left and right boundary),
-        each entry can be a float (=const. boundary condition) or a callable as a function of (eta1, eta2).
-        This is only relevant if lifting-based BCs are used in the eta3 direction."""
-        return self._lifting_eta3
 
     @property
     def nquads(self) -> tuple[int, int, int]:

@@ -46,7 +46,7 @@ class LiteralOptions:
     PolarRegularity = Literal[-1, 1]
     OptsFEECSpace = Literal["H1", "Hcurl", "Hdiv", "L2", "H1vec"]
     OptsVecSpace = Literal["Hcurl", "Hdiv", "H1vec"]
-    OptsNonTrivialBoundaryCondition = Literal["free", "hom_dirichlet", "lifting"]
+    OptsNonTrivialBoundaryCondition = Literal["free", "hom_dirichlet"]
 
     # fields background
     BackgroundTypes = Literal["LogicalConst", "FluidEquilibrium"]
@@ -207,21 +207,10 @@ class DerhamOptions:
     p : tuple[int, int, int]
         Spline degree in each logical direction ``(eta_1, eta_2, eta_3)``.
 
-    bcs : tuple[None | tuple[NonTrivialBC, NonTrivialBC], None | tuple[NonTrivialBC, NonTrivialBC], None | tuple[NonTrivialBC, NonTrivialBC]] | None
+    bcs : tuple[None | tuple[NonTrivialBC, NonTrivialBC], None | tuple[NonTrivialBC, NonTrivialBC], None | tuple[NonTrivialBC, NonTrivialBC]]
         Boundary condition selector for each direction.
         Use ``None`` in a direction for periodic boundaries, or a tuple
-        ``(left, right)`` with entries in ``{"free", "hom_dirichlet",
-        "lifting"}`` for non-periodic boundaries. If ``bcs`` itself is
-        ``None``, all directions are periodic.
-
-    lifting_eta1 : tuple[float | Callable | None, float | Callable | None] | None
-    lifting_eta2 : tuple[float | Callable | None, float | Callable | None] | None
-    lifting_eta3 : tuple[float | Callable | None, float | Callable | None] | None
-        Boundary lifting data on left/right faces in directions
-        ``eta_1``, ``eta_2`` and ``eta_3``. Values are required only on sides
-        where the corresponding entry in ``bcs`` is ``"lifting"``.
-        Each side can be given as a constant, a callable, or ``None`` when
-        unused.
+        ``(left, right)`` with entries in ``{"free", "hom_dirichlet"}`` for non-periodic boundaries. 
 
     nquads : tuple[int, int, int] | None
         Number of Gauss-Legendre quadrature points per direction for cell
@@ -248,9 +237,6 @@ class DerhamOptions:
         None | tuple[NonTrivialBC, NonTrivialBC],
         None | tuple[NonTrivialBC, NonTrivialBC],
     ] = (None, None, None)
-    lifting_eta1: tuple[float | Callable | None, float | Callable | None] | None = None
-    lifting_eta2: tuple[float | Callable | None, float | Callable | None] | None = None
-    lifting_eta3: tuple[float | Callable | None, float | Callable | None] | None = None
     nquads: tuple[int, int, int] | None = None
     nq_pr: tuple[int, int, int] | None = None
     polar_ck: LiteralOptions.PolarRegularity = -1
@@ -282,9 +268,6 @@ class DerhamOptions:
         dct = {
             "p": self.p,
             "bcs": self.bcs,
-            "lifting_eta1": self.lifting_eta1,
-            "lifting_eta2": self.lifting_eta2,
-            "lifting_eta3": self.lifting_eta3,
             "nquads": self.nquads,
             "nq_pr": self.nq_pr,
             "polar_ck": self.polar_ck,
@@ -297,9 +280,6 @@ class DerhamOptions:
         return cls(
             p=dct["p"],
             bcs=dct["bcs"],
-            lifting_eta1=dct.get("lifting_eta1", None),
-            lifting_eta2=dct.get("lifting_eta2", None),
-            lifting_eta3=dct.get("lifting_eta3", None),
             nquads=dct["nquads"],
             nq_pr=dct["nq_pr"],
             polar_ck=dct["polar_ck"],
