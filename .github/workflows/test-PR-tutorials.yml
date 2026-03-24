@@ -34,8 +34,8 @@ jobs:
       - name: Check for dockerenv file
         run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
 
-      # - name: Install OSMesa/EGL
-      #   run: apt install -y libosmesa6 libosmesa6-dev libegl-mesa0
+      - name: Install OSMesa/EGL
+        run: apt install -y libosmesa6 libosmesa6-dev libegl-mesa0
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -85,7 +85,4 @@ jobs:
           ls /struphy_fortran_
           cd /struphy_fortran_/tutorials
           ls
-          export PYVISTA_OFF_SCREEN=true
-          export DISPLAY=
-          export LIBGL_ALWAYS_SOFTWARE=1
           jupyter nbconvert --execute --to html tutorial_*.ipynb
