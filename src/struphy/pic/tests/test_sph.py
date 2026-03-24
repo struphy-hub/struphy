@@ -1286,7 +1286,7 @@ def test_sph_velocity_evaluation_2d(
             plt.colorbar()
 
             plt.tight_layout()
-            plt.savefig("image_test_2d.png")
+            # plt.savefig("image_test_2d.png")
             plt.show()
 
             plt.figure(figsize=(8, 8))
@@ -1304,7 +1304,7 @@ def test_sph_velocity_evaluation_2d(
             plt.ylabel("y")
             plt.axis("equal")
             plt.tight_layout()
-            plt.savefig("image_test_2d_quiver.png")
+            # plt.savefig("image_test_2d_quiver.png")
             plt.show()
 
     # tolerances: conservative values aligned with your 2D density thresholds
@@ -1763,7 +1763,6 @@ def test_sph_no_slip_boundary_1d(
     show_plot=False,
 ):
     import sys
-
     import numpy
 
     numpy.set_printoptions(threshold=sys.maxsize, linewidth=200, precision=3, suppress=True)
@@ -1788,15 +1787,12 @@ def test_sph_no_slip_boundary_1d(
         loading_params = LoadingParameters(ppb=ppb, seed=223)
 
     if direction == "x":
-
         def u_xyz(x, y, z):
             return (xp.ones_like(x), xp.zeros_like(x), xp.zeros_like(x))
     elif direction == "y":
-
         def u_xyz(x, y, z):
             return (xp.zeros_like(x), xp.ones_like(x), xp.zeros_like(x))
     else:
-
         def u_xyz(x, y, z):
             return (xp.zeros_like(x), xp.zeros_like(x), xp.ones_like(x))
 
@@ -1926,7 +1922,7 @@ def test_sph_no_slip_boundary_1d(
         plt.legend()
         plt.grid(True)
         plt.show()
-        plt.savefig("bc_sph")
+        # plt.savefig("bc_sph")
 
     if tesselation:
         tol_wall = 3e-3
@@ -1959,8 +1955,9 @@ def test_sph_no_slip_boundary_1d(
 
 
 if __name__ == "__main__":
-    test_sph_no_slip_boundary_1d(
-        tesselation=False,
-        direction="x",
-        show_plot=False,
-    )
+    # test_sph_no_slip_boundary_1d(
+    #     tesselation=False,
+    #     direction="x",
+    #     show_plot=True,
+    # )
+    test_sph_velocity_evaluation_2d((12, 12, 1), "gaussian_2d", 1, "periodic", "periodic", 11, tesselation=False, show_plot=True)
