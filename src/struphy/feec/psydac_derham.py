@@ -63,34 +63,39 @@ class DiscreteDerham:
 
     Parameters
     ----------
-    *spaces : TensorFemSpace | VectorFemSpace
-        Exactly four discrete spaces, ordered as ``(V0, V1, V2, V3)``.
-        The expected pattern is scalar, vector, vector, scalar.
+    V0 : TensorFemSpace
+        First space of the de Rham sequence : H1 space
+    V1 : VectorFemSpace
+        Second space of the de Rham sequence : Hcurl space
+    V2 : VectorFemSpace
+        Third space of the de Rham sequence : Hdiv space
+    V3 : TensorFemSpace
+        Fourth space of the de Rham sequence : L2 space
 
     Notes
     -----
     On construction, differential operators are created and attached to the
     input spaces as convenience attributes:
 
-    - ``spaces[0].grad`` and ``spaces[0].diff``
-    - ``spaces[1].curl`` and ``spaces[1].diff``
-    - ``spaces[2].div`` and ``spaces[2].diff``
+    - ``V0.grad`` and ``V0.diff``
+    - ``V1.curl`` and ``V1.diff``
+    - ``V2.div`` and ``V2.diff``
     """
 
-    def __init__(self, *spaces):
-        assert len(spaces) == 4
+    def __init__(self, V0: TensorFemSpace, V1: VectorFemSpace, V2: VectorFemSpace, V3: TensorFemSpace):
+        spaces = (V0, V1, V2, V3)
         assert all(isinstance(space, (TensorFemSpace, VectorFemSpace)) for space in spaces)
 
         self._spaces = spaces
         self._dim = 3
 
-        D0 = Gradient3D(spaces[0], spaces[1])
-        D1 = Curl3D(spaces[1], spaces[2])
-        D2 = Divergence3D(spaces[2], spaces[3])
+        D0 = Gradient3D(V0, V1)
+        D1 = Curl3D(V1, V2)
+        D2 = Divergence3D(V2, V3)
 
-        spaces[0].diff = spaces[0].grad = D0
-        spaces[1].diff = spaces[1].curl = D1
-        spaces[2].diff = spaces[2].div = D2
+        V0.diff = V0.grad = D0
+        V1.diff = V1.curl = D1
+        V2.diff = V2.div = D2
 
     # --------------------------------------------------------------------------
     @property
@@ -101,22 +106,22 @@ class DiscreteDerham:
     @property
     def V0(self) -> TensorFemSpace:
         """First space of the de Rham sequence : H1 space"""
-        return self._spaces[0]
+        return self._V0
 
     @property
     def V1(self) -> VectorFemSpace:
         """Second space of the de Rham sequence : Hcurl space"""
-        return self._spaces[1]
+        return self._V1
 
     @property
     def V2(self) -> VectorFemSpace:
         """Third space of the de Rham sequence : Hdiv space"""
-        return self._spaces[2]
+        return self._V2
 
     @property
     def V3(self) -> TensorFemSpace:
         """Fourth space of the de Rham sequence : L2 space"""
-        return self._spaces[3]
+        return self._V3
 
     @property
     def spaces(self) -> tuple[TensorFemSpace | VectorFemSpace, ...]:
