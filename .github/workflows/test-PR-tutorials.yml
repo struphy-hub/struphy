@@ -84,4 +84,8 @@ jobs:
           source /struphy_fortran_/env_fortran_/bin/activate
           ls /struphy_fortran_
           cd /struphy_fortran_/tutorials
+          ls
+          export PYVISTA_OFF_SCREEN=true
+          export DISPLAY=
+          export LIBGL_ALWAYS_SOFTWARE=1
           jupyter nbconvert --execute --to html tutorial_*.ipynb
