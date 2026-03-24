@@ -1286,7 +1286,7 @@ def test_sph_velocity_evaluation_2d(
             plt.colorbar()
 
             plt.tight_layout()
-            plt.savefig("image_test_2d.png")
+            # plt.savefig("image_test_2d.png")
             plt.show()
 
             plt.figure(figsize=(8, 8))
@@ -1304,7 +1304,7 @@ def test_sph_velocity_evaluation_2d(
             plt.ylabel("y")
             plt.axis("equal")
             plt.tight_layout()
-            plt.savefig("image_test_2d_quiver.png")
+            # plt.savefig("image_test_2d_quiver.png")
             plt.show()
 
     # tolerances: conservative values aligned with your 2D density thresholds
@@ -1694,8 +1694,6 @@ def test_sph_viscosity_evaluation_2d(
         assert err_div_x < 3.5e-2
         assert err_div_y < 3.5e-2
 
-
-
     # test_sph_velocity_evaluation_2d(
     #     (12, 12, 1), "gaussian_2d", 1, "periodic", "periodic", 101, tesselation=False, show_plot=True
     # )
@@ -1757,22 +1755,19 @@ def test_sph_viscosity_evaluation_2d(
     # test_evaluation_SPH_Np_convergence_2d((32, 32, 1), "mirror", "mirror",  tesselation=True, show_plot=True)
 
 
-@pytest.mark.parametrize("boxes_per_dim", [(12, 1, 1)])
-@pytest.mark.parametrize("kernel", ["gaussian_1d", "linear_1d"])
 @pytest.mark.parametrize("tesselation", [False, True])
-@pytest.mark.parametrize("direction", ["x", "y", "z"])  
+@pytest.mark.parametrize("direction", ["x", "y", "z"])
 def test_sph_no_slip_boundary_1d(
-    boxes_per_dim,
-    kernel,
     tesselation,
     direction,
     show_plot=False,
 ):
-    
     import sys
+
     import numpy
+
     numpy.set_printoptions(threshold=sys.maxsize, linewidth=200, precision=3, suppress=True)
-    
+
     if isinstance(MPI.COMM_WORLD, MockComm):
         comm = None
         rank = 0
@@ -1780,7 +1775,6 @@ def test_sph_no_slip_boundary_1d(
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
 
- 
     dom_type = "Cuboid"
     dom_params = {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}
     domain_class = getattr(domains, dom_type)
@@ -1794,24 +1788,32 @@ def test_sph_no_slip_boundary_1d(
         loading_params = LoadingParameters(ppb=ppb, seed=223)
 
     if direction == "x":
+
         def u_xyz(x, y, z):
-            return (3.0 * xp.ones_like(x), xp.zeros_like(x), xp.zeros_like(x))
+            return (xp.ones_like(x), xp.zeros_like(x), xp.zeros_like(x))
     elif direction == "y":
+
         def u_xyz(x, y, z):
             return (xp.zeros_like(x), xp.ones_like(x), xp.zeros_like(x))
-    else:  
+    else:
+
         def u_xyz(x, y, z):
             return (xp.zeros_like(x), xp.zeros_like(x), xp.ones_like(x))
 
     background = equils.GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
     background.domain = domain
     if direction == "x":
+        kernel = "gaussian_1d"
+        boxes_per_dim = (12, 1, 1)
         boundary_params = BoundaryParameters(bc_sph=("noslip", "periodic", "periodic"))
     elif direction == "y":
+        kernel = "gaussian_2d"
+        boxes_per_dim = (1, 12, 1)
         boundary_params = BoundaryParameters(bc_sph=("periodic", "noslip", "periodic"))
     else:
+        kernel = "gaussian_3d"
+        boxes_per_dim = (1, 1, 12)
         boundary_params = BoundaryParameters(bc_sph=("periodic", "periodic", "noslip"))
-        
 
     particles = ParticlesSPH(
         comm_world=comm,
@@ -1848,22 +1850,26 @@ def test_sph_no_slip_boundary_1d(
         eta3 = xp.linspace(0.0, 1.0, 100)
 
     ee1, ee2, ee3 = xp.meshgrid(eta1, eta2, eta3, indexing="ij")
-    
+
     h1 = 1 / boxes_per_dim[0]
     h2 = 1 / boxes_per_dim[1]
     h3 = 1 / boxes_per_dim[2]
 
     v1, v2, v3 = particles.eval_velocity(
-        ee1, ee2, ee3,
-        h1=h1, h2=h2, h3=h3,
+        ee1,
+        ee2,
+        ee3,
+        h1=h1,
+        h2=h2,
+        h3=h3,
         kernel_type=kernel,
         derivative=0,
     )
-    
+
     # if rank == 0 and len(ghost_inds) > 0:
     #     print("Ghost coefficients after eval:", particles.markers[ghost_inds[:10], particles.first_free_idx])
     #     print("Ghost positions after eval:", particles.markers[ghost_inds[:10], 0])
-  
+
     if comm is not None:
         all_v1 = xp.zeros_like(v1)
         all_v2 = xp.zeros_like(v2)
@@ -1886,70 +1892,72 @@ def test_sph_no_slip_boundary_1d(
     if rank == 0:
         print("\nVelocity at interior points:")
         for idx, eta in enumerate(eta1[2:]):
-            print(f"eta1 = {eta:.8f}, v_x = {v1_squeezed[2+idx]:.6f}, v_y = {v2_squeezed[2+idx]:.6f}, v_z = {v3_squeezed[2+idx]:.6f}")
-    
-            print(f"\nLeft wall (eta1={eta1[0]}): v_x={v1_squeezed[0]:.6f}, v_y={v2_squeezed[0]:.6f}, v_z={v3_squeezed[0]:.6f}")
-            print(f"Right wall (eta1={eta1[-1]}): v_x={v1_squeezed[-1]:.6f}, v_y={v2_squeezed[-1]:.6f}, v_z={v3_squeezed[-1]:.6f}")
-        
+            print(
+                f"eta1 = {eta:.8f}, v_x = {v1_squeezed[2 + idx]:.6f}, v_y = {v2_squeezed[2 + idx]:.6f}, v_z = {v3_squeezed[2 + idx]:.6f}"
+            )
+
+            print(
+                f"\nLeft wall (eta1={eta1[0]}): v_x={v1_squeezed[0]:.6f}, v_y={v2_squeezed[0]:.6f}, v_z={v3_squeezed[0]:.6f}"
+            )
+            print(
+                f"Right wall (eta1={eta1[-1]}): v_x={v1_squeezed[-1]:.6f}, v_y={v2_squeezed[-1]:.6f}, v_z={v3_squeezed[-1]:.6f}"
+            )
+
     if rank == 0 and show_plot:
         if direction == "x":
             x_plot = eta1.squeeze()
-            xlabel = r'$\eta_1$'
+            xlabel = r"$\eta_1$"
         elif direction == "y":
             x_plot = eta2.squeeze()
-            xlabel = r'$\eta_2$'
+            xlabel = r"$\eta_2$"
         else:  # direction == "z"
             x_plot = eta3.squeeze()
-            xlabel = r'$\eta_3$'
+            xlabel = r"$\eta_3$"
 
         plt.figure(figsize=(8, 5))
-        plt.plot(x_plot, v1_squeezed, 'o-', label='$v_x$')
-        plt.plot(x_plot, v2_squeezed, 's-', label='$v_y$')
-        plt.plot(x_plot, v3_squeezed, 'd-', label='$v_z$')
-        plt.axhline(0, color='k', linestyle='--', linewidth=0.5)
-        plt.axhline(1, color='gray', linestyle='--', linewidth=0.5)
+        plt.plot(x_plot, v1_squeezed, "o-", label="$v_x$")
+        plt.plot(x_plot, v2_squeezed, "s-", label="$v_y$")
+        plt.plot(x_plot, v3_squeezed, "d-", label="$v_z$")
+        plt.axhline(0, color="k", linestyle="--", linewidth=0.5)
+        plt.axhline(1, color="gray", linestyle="--", linewidth=0.5)
         plt.xlabel(xlabel)
-        plt.ylabel('velocity')
-        plt.title(f'No-slip test ({direction}-direction, {kernel}, tesselation={tesselation})')
+        plt.ylabel("velocity")
+        plt.title(f"No-slip test ({direction}-direction, {kernel}, tesselation={tesselation})")
         plt.legend()
         plt.grid(True)
         plt.show()
-        plt.savefig("bc_sph")
+        # plt.savefig("bc_sph")
 
     if tesselation:
-        tol_wall = 3e-3   
+        tol_wall = 3e-3
         tol_interior = 5e-2
     else:
-        tol_wall = 3e-3   
-        tol_interior = 1.5e-1
-    
+        tol_wall = 3e-3
+        tol_interior = 1.6e-1
+
     for comp, name in zip([0, 1, 2], ["x", "y", "z"]):
         val_left = [v_wall_left[0], v_wall_left[1], v_wall_left[2]][comp]
         val_right = [v_wall_right[0], v_wall_right[1], v_wall_right[2]][comp]
-        #assert xp.abs(val_left) < tol_wall, f"Left wall {name}-velocity not zero: {val_left}"
-        #assert xp.abs(val_right) < tol_wall, f"Right wall {name}-velocity not zero: {val_right}"
+        assert xp.abs(val_left) < tol_wall, f"Left wall {name}-velocity not zero: {val_left}"
+        assert xp.abs(val_right) < tol_wall, f"Right wall {name}-velocity not zero: {val_right}"
 
-    # The component in the chosen direction should be 1,the other two should be near zero.
     if direction == "x":
         interior_vals = v_interior[0]
-        other1 = v_interior[1]
-        other2 = v_interior[2]
+
     elif direction == "y":
         interior_vals = v_interior[1]
-        other1 = v_interior[0]
-        other2 = v_interior[2]
-    else:  
-        interior_vals = v_interior[2]
-        other1 = v_interior[0]
-        other2 = v_interior[1]
 
+    else:
+        interior_vals = v_interior[2]
+
+    assert xp.abs(interior_vals[0]) < 0.5, f"Interior velocity on the left too large: {xp.abs(interior_vals[0])}"
+    assert xp.abs(interior_vals[-1]) < 0.5, f"Interior velocity on the right too large: {xp.abs(interior_vals[-1])}"
+    print(interior_vals)
     rel_error = xp.max(xp.abs(interior_vals[7:-7] - 1.0)) / 1.0
     print(f"{rel_error=}")
-    #assert rel_error < tol_interior, f"Interior {direction}-velocity error too large: {rel_error}"
-        
-    #assert xp.max(xp.abs(other1)) < tol_interior, f"Interior non‑dominant component too large: {xp.max(xp.abs(other1))}"
-    #assert xp.max(xp.abs(other2)) < tol_interior, f"Interior non‑dominant component too large: {xp.max(xp.abs(other2))}"
-        
+    assert rel_error < tol_interior, f"Interior {direction}-velocity error too large: {rel_error}"
+
+
 if __name__ == "__main__":
     test_sph_no_slip_boundary_1d(
         (1, 1, 12),

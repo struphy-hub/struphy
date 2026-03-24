@@ -266,7 +266,6 @@ encapsulated from your host machine.
 The container is launched from an `image <https://docs.docker.com/get-started/overview/#docker-objects>`_ 
 which you can download and run immediately, irrespective of your architecture and OS.
 
-`Struphy's Github package registry <https://github.com/orgs/struphy-hub/packages>`_
 
 .. _user_install:
 
@@ -295,13 +294,13 @@ To use Struphy via docker, perform the following steps:
 
         It is recommended to read the `Windows permission requirements <https://docs.docker.com/desktop/windows/permission-requirements/>`_
 
-2. Pull one of the availabale images listed above (< 1 GB in size), for instance::
+2. Pull one of the availabale images, for instance::
 
-    docker pull ghcr.io/struphy-hub/struphy/ubuntu-with-reqs:latest
+    docker pull spossann/ubuntu-for-struphy:main
 
 3. Run the container::
 
-    docker run -it ghcr.io/struphy-hub/struphy/ubuntu-with-reqs:latest
+    docker run -it --rm spossann/ubuntu-for-struphy:main
 
 The option ``-i`` stands for interactive while ``-t`` gives you a terminal.
 

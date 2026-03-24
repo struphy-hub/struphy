@@ -97,7 +97,7 @@ class Poisson(StruphyModel):
 
         self.propagators.poisson(1.0)
 
-        if MPI.COMM_WORLD.Get_rank() == 0:
+        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
             print("... Done.")
 
     def update_scalar_quantities(self):

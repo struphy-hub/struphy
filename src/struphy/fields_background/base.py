@@ -7,6 +7,11 @@ from matplotlib import pyplot as plt
 from pyevtk.hl import gridToVTK
 
 from struphy.geometry.base import Domain
+from struphy.utils.utils import (
+    __class_with_params_repr_no_defaults__,
+    __dataclass_repr_no_defaults__,
+    all_class_params_are_default,
+)
 
 
 class FluidEquilibrium(metaclass=ABCMeta):
@@ -96,12 +101,26 @@ class FluidEquilibrium(metaclass=ABCMeta):
         assert isinstance(new_domain, Domain) or new_domain is None
         self._domain = new_domain
 
-    def __repr__(self):
+    def __str__(self):
         out = f"{self.__class__.__name__}"
         for k, v in self.params.items():
             out += f"\n    {k}:".ljust(20)
             out += f"{v}"
         return out
+
+    def __repr__(self) -> str:
+        out = f"{self.__class__.__name__}("
+        for k, v in self.params.items():
+            out += f"{k}={v}, "
+        out += ")"
+        return out
+
+    def __repr_no_defaults__(self):
+        return __class_with_params_repr_no_defaults__(self)
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
 
     ###########################
     # Vector-valued callables #
@@ -305,6 +324,36 @@ class FluidEquilibrium(metaclass=ABCMeta):
 
     def u_cart_3(self, *etas, squeeze_out=False):
         return self.u_cart(*etas, squeeze_out=squeeze_out)[0][2]
+
+    def to_dict(self) -> dict:
+        return {
+            "type": self.__class__.__name__,
+            "params": self.params,
+        }
+
+    @classmethod
+    def from_dict(cls, dct: dict | None) -> "FluidEquilibrium":
+        if dct is None:
+            return None
+        equil = cls.get_equil_by_name(dct["type"])
+        return equil(**dct["params"])
+
+    @classmethod
+    def get_equil_by_name(cls, equil_name: str) -> type["FluidEquilibrium"]:
+        from struphy.fields_background import equils
+
+        try:
+            equil_class: FluidEquilibrium = getattr(equils, equil_name)
+            if not issubclass(equil_class, FluidEquilibrium):
+                raise TypeError(f"{equil_name} is not a FluidEquilibrium subclass.")
+            else:
+                return equil_class
+        except AttributeError:
+            raise ModuleNotFoundError(f"{equil_name} not found in equils.")
+
+    def __eq__(self, other: "FluidEquilibrium") -> bool:
+        assert isinstance(other, FluidEquilibrium), f"Cannot compare FluidEquilibrium with {type(other)}."
+        return self.to_dict() == other.to_dict()
 
 
 class CartesianFluidEquilibrium(FluidEquilibrium):
