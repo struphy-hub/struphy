@@ -16,11 +16,11 @@ def main():
     sim_path = os.path.join(os.getcwd(), sim_name)
     # save_path = os.path.join(os.getcwd(), "result", "noPerb", "controlVariate"+sim_name[-1])
 
-    pp = PostProcessor(sim=params.sim)
+    pp = PostProcessor(path_out=sim_path)
     pp.process()
 
     # get sim data
-    pdata = PlottingData(sim=params.sim)
+    pdata = PlottingData(path_out=sim_path)
     pdata.load()
 
     # get parameters
@@ -31,7 +31,7 @@ def main():
     p = params.derham_opts.p
 
     env = params.env
-    ppc = params.loading_params.Np // 32 # 32 grid points
+    ppc = params.loading_params.ppc # 32 grid points
 
     #get units
     units = Units(params.base_units)
@@ -241,8 +241,8 @@ def main():
     # Current density evolution
     # ------------------
 
-    # current_density_path = os.path.join(save_path, "current_density")
-    # os.makedirs(current_density_path,exist_ok=True)
+    current_density_path = os.path.join(save_path, "current_density")
+    os.makedirs(current_density_path,exist_ok=True)
 
     def current_1D(time: float):
         time_step = abs(pdata.t_grid - time).argmin()
