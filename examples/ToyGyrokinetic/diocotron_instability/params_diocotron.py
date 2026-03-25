@@ -73,7 +73,7 @@ env = EnvironmentOptions(sim_folder="simdata")
 base_units = BaseUnits(kBT=1.0)
 
 # Time stepping
-time_opts = Time(dt=0.05, Tend=60.0, split_algo="LieTrotter")
+time_opts = Time(dt=0.05, Tend=20.0, split_algo="LieTrotter")
 
 # Geometry
 domain = domains.HollowCylinder(a1=1.0, a2=10.0, Lz=10.0)
@@ -158,7 +158,7 @@ def n_init(etas,r_minus=r_minus,r_plus=r_plus):
     return 1.0 * ( (r_minus <= radial) & (radial < r_plus) )
 
 # Background for kinetic species
-background = maxwellians.GyroMaxwellian2D(n=(n_init, None), equil=equil)
+background = maxwellians.GyroMaxwellian2D(n=(0.0, None), equil=equil)
 model.kinetic_ions.var.add_background(background)
 
 
@@ -166,7 +166,9 @@ eta_minus = (r_minus - domain.params["a1"])/(domain.params["a2"] - domain.params
 eta_plus = (r_plus - domain.params["a1"])/(domain.params["a2"] - domain.params["a1"])
 
 # Perturbations for (some) kinetic species
-perturbation = perturbations.ModesCos(amps=(1e-6,), ms=(ms,), perb_domain=((eta_minus,eta_plus), None, None))
+
+# for linear case amps = (1e-6,)
+perturbation = perturbations.ModesCos(amps=(0.5,), ms=(ms,), perb_domain=((eta_minus,eta_plus), None, None))
 init = maxwellians.GyroMaxwellian2D(n=(n_init, perturbation), equil=equil)
 model.kinetic_ions.var.add_initial_condition(init)
 

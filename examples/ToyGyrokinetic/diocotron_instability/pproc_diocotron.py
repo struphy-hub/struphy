@@ -44,7 +44,7 @@ def main():
     exp_func = lambda x,m,b: 10**(m*x+b)
 
     # time interval to determine growth rate
-    ti = pdata.t_grid[-1]//4
+    ti = pdata.t_grid[-1]//4 
     if ti == 0.0:
         tf = pdata.t_grid[-1]
     else:
