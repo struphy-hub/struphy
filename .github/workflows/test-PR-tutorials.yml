@@ -85,4 +85,5 @@ jobs:
           ls /struphy_fortran_
           cd /struphy_fortran_/tutorials
           ls
+          cat tutorial_06_mapped_domains.ipynb
           jupyter nbconvert --execute --to html tutorial_*.ipynb
