@@ -67,4 +67,4 @@ jobs:
           ls
           cat tutorial_06_mapped_domains.ipynb | grep show_3d
           jupyter nbconvert --show-config
-          jupyter nbconvert --execute --debug --to html tutorial_06_mapped_domains.ipynb
+          jupyter nbconvert --execute --debug --embed-images --to html tutorial_06_mapped_domains.ipynb
