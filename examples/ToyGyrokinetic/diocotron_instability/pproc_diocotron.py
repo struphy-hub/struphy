@@ -27,7 +27,7 @@ def main():
     # Check simulation domain
     # ------------------
 
-    domain.show(save_dir=os.path.join(save_path,"domain.png"))
+    domain.show()
 
 
     # ------------------
@@ -35,7 +35,7 @@ def main():
     # ------------------
 
     # get scalar data (post processing not needed for scalar data)
-    pa_data = os.path.join(env.path_out, "data")
+    pa_data = os.path.join(sim_path, "data")
     with h5py.File(os.path.join(pa_data, "data_proc0.hdf5"), "r") as f:
         time = f["time"]["value"][()]
         en_phi = f["scalar"]["en_phi"][()]
@@ -44,7 +44,7 @@ def main():
     exp_func = lambda x,m,b: 10**(m*x+b)
 
     # time interval to determine growth rate
-    ti = pdata.t_grid[-1]//5
+    ti = pdata.t_grid[-1]//4
     if ti == 0.0:
         tf = pdata.t_grid[-1]
     else:
@@ -76,6 +76,7 @@ def main():
     ax.set_ylabel("Energy [a.u.]")
 
     plt.tight_layout()
+    # plt.show()
     plt.savefig(os.path.join(save_path, "growth_rate.png"))
     plt.close()
 
@@ -113,6 +114,7 @@ def main():
                 
         fig.suptitle(quantity)
         plt.tight_layout()
+        # plt.show()
         plt.savefig(os.path.join(save_path, f"{bin_name}_{quantity}_phaseSpace"))
         plt.close()
 
@@ -150,6 +152,7 @@ def main():
             fig.colorbar(pcm, ax=ax_maxwellian)
 
     plt.tight_layout()
+    # plt.show()
     plt.savefig(os.path.join(save_path, "potentialEvolution"))
     plt.close()
 
