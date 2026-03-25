@@ -76,9 +76,9 @@ def main():
     ax.set_ylabel("Energy [a.u.]")
 
     plt.tight_layout()
-    # plt.show()
-    plt.savefig(os.path.join(save_path, "growth_rate.png"))
-    plt.close()
+    plt.show()
+    # plt.savefig(os.path.join(save_path, "growth_rate.png"))
+    # plt.close()
 
 
     # ------------------
@@ -114,9 +114,9 @@ def main():
                 
         fig.suptitle(quantity)
         plt.tight_layout()
-        # plt.show()
-        plt.savefig(os.path.join(save_path, f"{bin_name}_{quantity}_phaseSpace"))
-        plt.close()
+        plt.show()
+        # plt.savefig(os.path.join(save_path, f"{bin_name}_{quantity}_phaseSpace"))
+        # plt.close()
 
     # e1_e2_density binplot in physical coordinate
     e1_bin = pdata.f.kinetic_ions.e1_e2_density.grid_e1
@@ -152,9 +152,9 @@ def main():
             fig.colorbar(pcm, ax=ax_maxwellian)
 
     plt.tight_layout()
-    # plt.show()
-    plt.savefig(os.path.join(save_path, "potentialEvolution"))
-    plt.close()
+    plt.show()
+    # plt.savefig(os.path.join(save_path, "potentialEvolution"))
+    # plt.close()
 
 
     # ------------------
@@ -208,7 +208,7 @@ def main():
             )
             plt.close(fig)
 
-    extract_images("e1_e2_density", "f_binned", os.path.join(save_path, "video"))
+    # extract_images("e1_e2_density", "f_binned", os.path.join(save_path, "video"))
 
 if __name__ == "__main__":
     main()
