@@ -65,6 +65,5 @@ jobs:
           ls /struphy_fortran_
           cd /struphy_fortran_/tutorials
           ls
-          cat tutorial_06_mapped_domains.ipynb | grep show_3d
           jupyter nbconvert --show-config
-          jupyter nbconvert --execute --debug --embed-images --to html tutorial_06_mapped_domains.ipynb
+          jupyter nbconvert --execute --debug --embed-images --to html tutorial_*.ipynb
