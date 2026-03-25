@@ -241,8 +241,8 @@ def main():
     # Current density evolution
     # ------------------
 
-    current_density_path = os.path.join(save_path, "current_density")
-    os.makedirs(current_density_path,exist_ok=True)
+    # current_density_path = os.path.join(save_path, "current_density")
+    # os.makedirs(current_density_path,exist_ok=True)
 
     def current_1D(time: float):
         time_step = abs(pdata.t_grid - time).argmin()
@@ -270,7 +270,7 @@ def main():
         #     f"{time:.2f}".replace(".", "_") + ".png"
         # ))
         plt.show()
-        plt.close()
+        # plt.close()
 
     for t in xp.linspace(0, pdata.t_grid[-1], 2):
         current_1D(t)
