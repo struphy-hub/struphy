@@ -1360,7 +1360,7 @@ class Particles(metaclass=ABCMeta):
                         out = xp.squeeze(out)
 
                 return out
-            
+
             def _u_init(*etas, flat_eval=False):
                 if len(etas) == 1:
                     out = self.f0.uv(etas[0])

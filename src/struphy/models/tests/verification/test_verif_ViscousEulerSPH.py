@@ -1,8 +1,8 @@
 import os
 import shutil
-import h5py
 
 import cunumpy as xp
+import h5py
 import pytest
 from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
@@ -222,7 +222,9 @@ def test_viscosity_1d(nx: int, plot_pts: int, do_plot: bool = False):
     butcher = ButcherTableau(algo="forward_euler")
     # model.propagators.push_eta.options = model.propagators.push_eta.Options(butcher=butcher)
     if model.with_viscosity:
-        model.propagators.push_viscous.options = model.propagators.push_viscous.Options(kernel_type="gaussian_1d", mu=0.1)
+        model.propagators.push_viscous.options = model.propagators.push_viscous.Options(
+            kernel_type="gaussian_1d", mu=0.1
+        )
 
     # background, perturbations and initial conditions
     background = equils.ConstantVelocity()
@@ -245,7 +247,7 @@ def test_viscosity_1d(nx: int, plot_pts: int, do_plot: bool = False):
 
     # run
     sim.run(verbose=True)
-    
+
     # get scalar data
     if MPI.COMM_WORLD.Get_rank() == 0:
         pa_data = os.path.join(env.path_out, "data")
@@ -259,7 +261,7 @@ def test_viscosity_1d(nx: int, plot_pts: int, do_plot: bool = False):
             plt.plot(time, en_kin, label="numerical")
             plt.legend()
             plt.show()
-    
+
     # post processing
     if MPI.COMM_WORLD.Get_rank() == 0:
         sim.pproc(verbose=True)
@@ -279,13 +281,13 @@ def test_viscosity_1d(nx: int, plot_pts: int, do_plot: bool = False):
             plt.title(f"time {sim.t_grid[0]}")
             plt.ylim([-1, 1])
             plt.subplot(1, 4, 2)
-            plt.plot(grid_e1, f_binned[shp//3, :], label=f"time {sim.t_grid[shp//3]}")
-            plt.title(f"time {sim.t_grid[shp//3]}")
+            plt.plot(grid_e1, f_binned[shp // 3, :], label=f"time {sim.t_grid[shp // 3]}")
+            plt.title(f"time {sim.t_grid[shp // 3]}")
             plt.ylim([-1, 1])
             plt.subplot(1, 4, 3)
-            plt.plot(grid_e1, f_binned[2*shp//3, :], label=f"time {sim.t_grid[2*shp//3]}")
-            plt.title(f"time {sim.t_grid[2*shp//3]}")  
-            plt.ylim([-1, 1])         
+            plt.plot(grid_e1, f_binned[2 * shp // 3, :], label=f"time {sim.t_grid[2 * shp // 3]}")
+            plt.title(f"time {sim.t_grid[2 * shp // 3]}")
+            plt.ylim([-1, 1])
             plt.subplot(1, 4, 4)
             plt.plot(grid_e1, f_binned[-1, :], label=f"time {sim.t_grid[-1]}")
             plt.title(f"time {sim.t_grid[-1]}")

@@ -1962,7 +1962,7 @@ if __name__ == "__main__":
     test_sph_no_slip_boundary_1d(
         (1, 1, 12),
         "gaussian_3d",
-        tesselation= False,
-        direction = "z",
+        tesselation=False,
+        direction="z",
         show_plot=True,
     )

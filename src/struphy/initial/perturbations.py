@@ -1271,6 +1271,7 @@ class GaussianBlobEta1(Perturbation):
 
         u(\eta_1, \eta_2, \eta_3) = A \exp \left(- \frac{(\eta_1 - 0.5)^2}{2 \sigma^2} \right) \,.
     """
+
     def __init__(
         self,
         center: float = 0.5,
@@ -1291,7 +1292,7 @@ class GaussianBlobEta1(Perturbation):
         self.comp = comp
 
     def __call__(self, e1, e2, e3):
-        val = self._amp * xp.exp(-(e1 - self._center)**2 / (2.0 * self._sigma**2))
+        val = self._amp * xp.exp(-((e1 - self._center) ** 2) / (2.0 * self._sigma**2))
         return val
 
 
