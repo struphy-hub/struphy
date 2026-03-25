@@ -1828,7 +1828,7 @@ def test_sph_no_slip_boundary_1d(
         verbose=False,
     )
 
-    particles.draw_markers(sort=True, verbose=False)
+    particles.draw_markers(sort=False, verbose=False)
     if rank == 0:
         ghost_inds = xp.where(particles.ghost_particles)[0]
         print(f"After do_sort: {len(ghost_inds)} ghosts")
