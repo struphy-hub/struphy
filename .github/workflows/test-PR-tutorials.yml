@@ -37,11 +37,11 @@ jobs:
       # - name: Install OSMesa/EGL
       #   run: apt install -y libosmesa6 libosmesa6-dev libegl-mesa0
 
-      # - name: Checkout code
-      #   uses: actions/checkout@v4
-      #   with:
-      #     submodules: true  # This is crucial!
-      #     fetch-depth: 5
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true  # This is crucial!
+          fetch-depth: 5
           
       # - name: Check .testmondata 1
       #   run: |
@@ -86,4 +86,5 @@ jobs:
           cd /struphy_fortran_/tutorials
           ls
           cat tutorial_06_mapped_domains.ipynb | grep show_3d
-          jupyter nbconvert --execute --to html tutorial_06_mapped_domains.ipynb
+          jupyter nbconvert --show-config
+          jupyter nbconvert --execute --debug --clear-output --to html tutorial_06_mapped_domains.ipynb
