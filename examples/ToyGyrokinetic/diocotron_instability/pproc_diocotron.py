@@ -44,9 +44,15 @@ def main():
     exp_func = lambda x,m,b: 10**(m*x+b)
 
     # time interval to determine growth rate
-    ti, tf = 26, 51
-    xi = xp.abs(time - ti).argmin() + 1
-    xf = xp.abs(time - tf).argmin() + 1
+    ti = pdata.t_grid[-1]//5
+    if ti == 0.0:
+        tf = pdata.t_grid[-1]
+    else:
+        tf = 2*ti
+    print(f"{ti = }, {tf = }")
+
+    xi = xp.abs(pdata.t_grid - ti).argmin() + 1 # index of time 100 [a.lu.] (observed end of growth rate)
+    xf = xp.abs(pdata.t_grid - tf).argmin() + 1 # index of time 200 [a.lu.] (observed end of growth rate)
 
     fitting = xp.polyfit(time[xi:xf], xp.log10(en_phi[xi:xf]), deg=1)
 
