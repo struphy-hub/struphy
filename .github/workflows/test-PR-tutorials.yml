@@ -37,31 +37,31 @@ jobs:
       # - name: Install OSMesa/EGL
       #   run: apt install -y libosmesa6 libosmesa6-dev libegl-mesa0
 
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          submodules: true  # This is crucial!
-          fetch-depth: 5
+      # - name: Checkout code
+      #   uses: actions/checkout@v4
+      #   with:
+      #     submodules: true  # This is crucial!
+      #     fetch-depth: 5
           
-      - name: Check .testmondata 1
-        run: |
-          ls .testmon* || echo "No .testmondata"
+      # - name: Check .testmondata 1
+      #   run: |
+      #     ls .testmon* || echo "No .testmondata"
 
-      - name: Setup cache for testmon
-        uses: actions/cache@v4
-        with:
-          path: |
-            .testmondata-tutorials
-          key: testmon-tutorials-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
-          restore-keys: |
-            testmon-tutorials-${{ github.ref_name }}-${{ github.event.number }}-
-            testmon-tutorials-${{ github.ref_name }}
-            testmon-tutorials-devel
-            testmon-tutorials-
+      # - name: Setup cache for testmon
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: |
+      #       .testmondata-tutorials
+      #     key: testmon-tutorials-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
+      #     restore-keys: |
+      #       testmon-tutorials-${{ github.ref_name }}-${{ github.event.number }}-
+      #       testmon-tutorials-${{ github.ref_name }}
+      #       testmon-tutorials-devel
+      #       testmon-tutorials-
 
-      - name: Check .testmondata 2
-        run: |
-          ls .testmon* || echo "No .testmondata"
+      # - name: Check .testmondata 2
+      #   run: |
+      #     ls .testmon* || echo "No .testmondata"
 
       - name: Install Struphy in Container 
         uses: ./.github/actions/install/struphy_in_container
@@ -85,5 +85,5 @@ jobs:
           ls /struphy_fortran_
           cd /struphy_fortran_/tutorials
           ls
-          cat tutorial_06_mapped_domains.ipynb
+          cat tutorial_06_mapped_domains.ipynb | grep show_3d
           jupyter nbconvert --execute --to html tutorial_06_mapped_domains.ipynb
