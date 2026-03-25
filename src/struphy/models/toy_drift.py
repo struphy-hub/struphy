@@ -166,7 +166,7 @@ class ToyDrift(StruphyModel):
 
         # energy from polarization
         e1 = Propagator.derham.grad.dot(-phi, out=self._e_field)
-        en_phi1 = 0.5 * Propagator.mass_ops.M1gyro.dot_inner(e1, e1)
+        en_phi1 = 0.5 * Propagator.mass_ops.M1.dot_inner(e1, e1)
 
         # for Landau damping test
         # en_phi = 0.

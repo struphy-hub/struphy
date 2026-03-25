@@ -20,8 +20,8 @@ def main():
     pdata.load()
 
     # path to save plots
-    save_path = os.path.join(os.getcwd(), "images", "sim")
-    os.makedirs(save_path, exist_ok=True)
+    # save_path = os.path.join(os.getcwd(), "images", "sim")
+    # os.makedirs(save_path, exist_ok=True)
 
     # ------------------
     # Check simulation domain
