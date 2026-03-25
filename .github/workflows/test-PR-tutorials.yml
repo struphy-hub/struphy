@@ -34,8 +34,8 @@ jobs:
       - name: Check for dockerenv file
         run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
 
-      - name: Install OSMesa/EGL
-        run: apt install -y libosmesa6 libosmesa6-dev libegl-mesa0
+      # - name: Install OSMesa/EGL
+      #   run: apt install -y libosmesa6 libosmesa6-dev libegl-mesa0
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -77,13 +77,13 @@ jobs:
           struphy compile
       
       - name: Run tutorials
-        env:
-          PYVISTA_OFF_SCREEN: "true"
-          PYVISTA_JUPYTER_BACKEND: "static"
+        # env:
+        #   PYVISTA_OFF_SCREEN: "true"
+        #   PYVISTA_JUPYTER_BACKEND: "static"
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           ls /struphy_fortran_
           cd /struphy_fortran_/tutorials
           ls
           cat tutorial_06_mapped_domains.ipynb
-          jupyter nbconvert --execute --to html tutorial_*.ipynb
+          jupyter nbconvert --execute --to html tutorial_06_mapped_domains.ipynb
