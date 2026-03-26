@@ -18,6 +18,7 @@ runs:
     - name: Compile kernels
       shell: bash
       run: |
+        struphy compile -d -y
         struphy compile -y --language ${{ inputs.language }} || (
           echo "Initial compile failed. Removing compiled kernels and trying again..." &&
           struphy compile -d -y &&
