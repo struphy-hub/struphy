@@ -538,6 +538,12 @@ class Derham:
         verbose=False,
     ):
         
+        # inputs
+        self._grid = grid
+        self._options = options
+        self._comm = comm
+        self._domain = domain
+        
         # number of grid cells
         num_elements = grid.num_elements
         # mpi coeff decomposition
@@ -603,13 +609,11 @@ class Derham:
         # smoothness at the polar singularity: default False for standard tensor product splines, or True for C1 polar splines
         self._polar_splines = polar_splines
 
-        # Other inputs
-        self._comm = comm
+        # Other derived properties
         self._mpi_dims_mask = mpi_dims_mask
         with_projectors = True  # projectors are always built in the current implementation, but this flag can be used to skip their construction if not needed
         self._with_projectors = with_projectors
         self._with_local_projectors = local_projectors
-        self._domain = domain
 
         # ---------------------------------------
         # Setting up the discrete Derham sequence
@@ -835,6 +839,29 @@ class Derham:
     # Input arguments as properties
     # -----------------------------
     @property
+    def grid(self) -> TensorProductGrid:
+        """The FEEC grid."""
+        return self._grid
+    
+    @property
+    def options(self) -> DerhamOptions:
+        """The DerhamOptions object containing the input options for the Derham sequence construction."""
+        return self._options
+    
+    @property
+    def comm(self):
+        """MPI communicator."""
+        return self._comm
+
+    @property
+    def domain(self) -> Domain | None:
+        """Mapping from logical unit cube to physical domain (only needed in case of polar splines with polar_splines is True)."""
+        return self._domain
+    
+    # ------------------
+    # Derived properties
+    # ------------------
+    @property
     def num_elements(self) -> tuple[int, int, int]:
         """List of number of elements (=cells) in each direction."""
         return self._num_elements
@@ -866,12 +893,7 @@ class Derham:
     def nquads_proj(self) -> tuple[int, int, int]:
         """List of number of Gauss-Legendre quadrature points in histopolation (default = degree + 1) in each direction."""
         return self._nq_pr
-
-    @property
-    def comm(self):
-        """MPI communicator."""
-        return self._comm
-
+    
     @property
     def mpi_dims_mask(self) -> tuple[bool, bool, bool]:
         """List of bool indicating which dimensions are decomposed in the MPI domain decomposition."""
@@ -891,11 +913,6 @@ class Derham:
     def with_local_projectors(self) -> bool:
         """True if local projectors are to be used instead of the default global ones."""
         return self._with_local_projectors
-
-    @property
-    def domain(self) -> Domain | None:
-        """Mapping from logical unit cube to physical domain (only needed in case of polar splines with polar_splines is True)."""
-        return self._domain
 
     # -----------------------------------------
     # Derham spaces and operators as properties
