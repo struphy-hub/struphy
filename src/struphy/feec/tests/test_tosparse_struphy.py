@@ -29,8 +29,8 @@ def test_tosparse_struphy(num_elements, degree, bcs, mapping):
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
-    from struphy.topology.grids import TensorProductGrid
     from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

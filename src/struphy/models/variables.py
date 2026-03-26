@@ -170,7 +170,7 @@ class FEECVariable(Variable):
         Determines the continuity and smoothness properties of the discretization.
     lifting_bcs : bool
         Whether to apply lifting of boundary conditions. If False (default), no lifting is applied.
-        If True, the variable is decomposed as u = u_hom + u_lift, where u_hom satisfies homogeneous boundary conditions 
+        If True, the variable is decomposed as u = u_hom + u_lift, where u_hom satisfies homogeneous boundary conditions
         and u_lift:= u - u_hom is a lifting function that enforces the inhomogeneous boundary conditions.
         This implies the allocation of linear forms involving u_lift.
 
@@ -229,7 +229,7 @@ class FEECVariable(Variable):
         if not hasattr(self, "_spline"):
             raise ValueError("Warning: spline not allocated yet. Call allocate() first.")
         return self._spline
-    
+
     @property
     def spline_lift(self) -> SplineFunction | None:
         """The lifting function for the case of lifting of boundary conditions. Only allocated if lifting_bcs=True."""
@@ -272,20 +272,22 @@ class FEECVariable(Variable):
             equil=equil,
             verbose=verbose,
         )
-        
+
         self._spline_lift = None
-        
+
         if self.lifting_bcs:
             check_bcs = False
             for bc in derham.bcs:
                 if "hom_dirichlet" in bc:
                     check_bcs = True
                     break
-            assert check_bcs, f"Lifting of boundary conditions can only be applied if at least one homogenous Dirichlet boundary condition is present in the Derham object, but here {derham.bcs = }"
+            assert check_bcs, (
+                f"Lifting of boundary conditions can only be applied if at least one homogenous Dirichlet boundary condition is present in the Derham object, but here {derham.bcs = }"
+            )
 
             # create another Derham object with the same options but with homogenous Dirichlet BCs replaced by free BCs, to be used for the lifting function
             dct = derham.to_dict()
-            bcs_lift = list(dct['options']['bcs'])
+            bcs_lift = list(dct["options"]["bcs"])
             for i, bc in enumerate(bcs_lift):
                 if bc is not None:
                     bcn = list(bc)  # convert tuple to list to allow modification
@@ -295,23 +297,21 @@ class FEECVariable(Variable):
                         bcn[1] = "free"
                     bcn = tuple(bcn)  # convert back to tuple
                     bcs_lift[i] = bcn
-            dct['options']['bcs'] = tuple(bcs_lift)  # convert list back to tuple
-            
+            dct["options"]["bcs"] = tuple(bcs_lift)  # convert list back to tuple
+
             derham_lift = Derham.from_dict(dct)
             print(f"{derham.bcs = }")
             print(f"{derham_lift.bcs = }")
-            
+
             self._spline_lift = derham_lift.create_spline_function(
-            name=self.__name__ + "_lift" if self.__name__ is not None else None,
-            space_id=self.space,
-            backgrounds=self.backgrounds,
-            perturbations=self.perturbations,
-            domain=domain,
-            equil=equil,
-            verbose=verbose,
-        )
-        
-        
+                name=self.__name__ + "_lift" if self.__name__ is not None else None,
+                space_id=self.space,
+                backgrounds=self.backgrounds,
+                perturbations=self.perturbations,
+                domain=domain,
+                equil=equil,
+                verbose=verbose,
+            )
 
 
 class PICVariable(Variable):

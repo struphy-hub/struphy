@@ -235,7 +235,9 @@ def field_line_tracing(
         print("Calculation of pre-mapping successful! Start angle parametrization " + xi_param + ".")
 
         # create temporary domain
-        domain_eq_angle = PoloidalSplineTorus(num_elements=num_elements_pre, degree=p_pre, cx=cR_equal_angle, cy=cZ_equal_angle)
+        domain_eq_angle = PoloidalSplineTorus(
+            num_elements=num_elements_pre, degree=p_pre, cx=cR_equal_angle, cy=cZ_equal_angle
+        )
 
         # create new interpolation data
         ns, nx = num_elements

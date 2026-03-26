@@ -436,10 +436,14 @@ def spline_2d_torus_df(
     tmp1 = ind1[span1 - int(degree[0]), :]
     tmp2 = ind2[span2 - int(degree[1]), :]
 
-    df_out[0, 0] = evaluation_kernels_2d.evaluation_kernel_2d(int(degree[0]), int(degree[1]), der1, b2, tmp1, tmp2, cx) * cos(
+    df_out[0, 0] = evaluation_kernels_2d.evaluation_kernel_2d(
+        int(degree[0]), int(degree[1]), der1, b2, tmp1, tmp2, cx
+    ) * cos(
         2 * pi * eta3 / tor_period,
     )
-    df_out[0, 1] = evaluation_kernels_2d.evaluation_kernel_2d(int(degree[0]), int(degree[1]), b1, der2, tmp1, tmp2, cx) * cos(
+    df_out[0, 1] = evaluation_kernels_2d.evaluation_kernel_2d(
+        int(degree[0]), int(degree[1]), b1, der2, tmp1, tmp2, cx
+    ) * cos(
         2 * pi * eta3 / tor_period,
     )
     df_out[0, 2] = (

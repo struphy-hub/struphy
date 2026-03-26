@@ -13,8 +13,8 @@ def test_lowdim_derham(num_elements, degree, do_plot=False):
     from matplotlib import pyplot as plt
 
     from struphy.feec.psydac_derham import Derham
-    from struphy.topology.grids import TensorProductGrid
     from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

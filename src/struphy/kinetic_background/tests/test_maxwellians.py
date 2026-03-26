@@ -446,12 +446,22 @@ def test_maxwellian_3d_mhd(num_elements, with_desc, show_plot=False):
                     plt.subplot(2, 5, 2 + i)
                     if "Slab" in key or "Pinch" in key:
                         plt.contourf(x[:, 0, :], z[:, 0, :], u[:, 0, :], levels=levels)
-                        plt.contourf(x[:, num_elements[1] // 2, :], z[:, num_elements[1] // 2, :], u[:, num_elements[1] // 2, :], levels=levels)
+                        plt.contourf(
+                            x[:, num_elements[1] // 2, :],
+                            z[:, num_elements[1] // 2, :],
+                            u[:, num_elements[1] // 2, :],
+                            levels=levels,
+                        )
                         plt.xlabel("x")
                         plt.ylabel("z")
                     else:
                         plt.contourf(x[:, 0, :], y[:, 0, :], u[:, 0, :], levels=levels)
-                        plt.contourf(x[:, num_elements[1] // 2, :], y[:, num_elements[1] // 2, :], u[:, num_elements[1] // 2, :], levels=levels)
+                        plt.contourf(
+                            x[:, num_elements[1] // 2, :],
+                            y[:, num_elements[1] // 2, :],
+                            u[:, num_elements[1] // 2, :],
+                            levels=levels,
+                        )
                         plt.xlabel("x")
                         plt.ylabel("y")
                     plt.axis("equal")
@@ -1240,12 +1250,22 @@ def test_maxwellian_2d_mhd(num_elements, with_desc, show_plot=False):
                     plt.subplot(2, 4, 2 + i)
                     if "Slab" in key or "Pinch" in key:
                         plt.contourf(x[:, 0, :], z[:, 0, :], u[:, 0, :], levels=levels)
-                        plt.contourf(x[:, num_elements[1] // 2, :], z[:, num_elements[1] // 2, :], u[:, num_elements[1] // 2, :], levels=levels)
+                        plt.contourf(
+                            x[:, num_elements[1] // 2, :],
+                            z[:, num_elements[1] // 2, :],
+                            u[:, num_elements[1] // 2, :],
+                            levels=levels,
+                        )
                         plt.xlabel("x")
                         plt.ylabel("z")
                     else:
                         plt.contourf(x[:, 0, :], y[:, 0, :], u[:, 0, :], levels=levels)
-                        plt.contourf(x[:, num_elements[1] // 2, :], y[:, num_elements[1] // 2, :], u[:, num_elements[1] // 2, :], levels=levels)
+                        plt.contourf(
+                            x[:, num_elements[1] // 2, :],
+                            y[:, num_elements[1] // 2, :],
+                            u[:, num_elements[1] // 2, :],
+                            levels=levels,
+                        )
                         plt.xlabel("x")
                         plt.ylabel("y")
                     plt.axis("equal")

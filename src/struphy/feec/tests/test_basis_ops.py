@@ -279,8 +279,8 @@ def test_basis_ops_polar(num_elements, degree, bcs, mapping, show_plots=False):
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
     from struphy.fields_background.equils import ScrewPinch
-    from struphy.polar.basic import PolarVector
     from struphy.io.options import DerhamOptions
+    from struphy.polar.basic import PolarVector
     from struphy.topology.grids import TensorProductGrid
 
     mpi_comm = MPI.COMM_WORLD
@@ -291,7 +291,9 @@ def test_basis_ops_polar(num_elements, degree, bcs, mapping, show_plots=False):
 
     # mapping
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class(**{"num_elements": num_elements[:2], "degree": degree[:2], "a": mapping[1]["a"], "Lz": mapping[1]["Lz"]})
+    domain = domain_class(
+        **{"num_elements": num_elements[:2], "degree": degree[:2], "a": mapping[1]["a"], "Lz": mapping[1]["Lz"]}
+    )
 
     if show_plots:
         import matplotlib.pyplot as plt
@@ -323,7 +325,13 @@ def test_basis_ops_polar(num_elements, degree, bcs, mapping, show_plots=False):
     nquads_proj = degree.copy()
 
     grid = TensorProductGrid(num_elements=num_elements)
-    derham_opts = DerhamOptions(degree=degree, bcs=bcs, nquads=degree, nquads_proj=nquads_proj, polar_splines=True,)
+    derham_opts = DerhamOptions(
+        degree=degree,
+        bcs=bcs,
+        nquads=degree,
+        nquads_proj=nquads_proj,
+        polar_splines=True,
+    )
     derham = Derham(
         grid,
         derham_opts,

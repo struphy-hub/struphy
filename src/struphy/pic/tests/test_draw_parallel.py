@@ -47,9 +47,9 @@ def test_draw(num_elements, degree, bcs, mapping, ppc=10):
 
     from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
     from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
     from struphy.pic.particles import Particles6D
     from struphy.topology.grids import TensorProductGrid
-    from struphy.io.options import DerhamOptions
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

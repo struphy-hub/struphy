@@ -27,9 +27,9 @@ def test_saddlepointsolver(method_for_solving, num_elements, degree, bcs, mappin
     from struphy.feec.psydac_derham import Derham, TransformedPformComponent
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
     from struphy.fields_background.equils import CircularTokamak, HomogenSlab
+    from struphy.io.options import DerhamOptions
     from struphy.linear_algebra.saddle_point import SaddlePointSolver
     from struphy.topology.grids import TensorProductGrid
-    from struphy.io.options import DerhamOptions
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -40,7 +40,7 @@ def test_saddlepointsolver(method_for_solving, num_elements, degree, bcs, mappin
     grid = TensorProductGrid(num_elements=num_elements)
     derham_opts = DerhamOptions(degree=degree, bcs=bcs)
     derham = Derham(grid, derham_opts, comm=mpi_comm)
-    
+
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
     fem_spaces = [derham.V0fem, derham.V1fem, derham.V2fem, derham.V3fem, derham.Vvfem]

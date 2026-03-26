@@ -2,8 +2,8 @@ import cunumpy as xp
 
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.coil_fields.base import CoilMagneticField, load_csv_data
-from struphy.topology.grids import TensorProductGrid
 from struphy.io.options import DerhamOptions
+from struphy.topology.grids import TensorProductGrid
 
 
 class RatGUI(CoilMagneticField):
@@ -18,8 +18,10 @@ class RatGUI(CoilMagneticField):
 
         grid = TensorProductGrid(num_elements=num_elements)
         derham_opts = DerhamOptions(degree=degree, bcs=(("free", "free"), ("free", "free"), None))
-        derham = Derham(grid=grid, options=derham_opts)  # Assuming (R=eta1, Z=eta2, phi=eta3) coordinates for csv data (periodic in eta3 only).
-        
+        derham = Derham(
+            grid=grid, options=derham_opts
+        )  # Assuming (R=eta1, Z=eta2, phi=eta3) coordinates for csv data (periodic in eta3 only).
+
         self._interpolate = (
             derham.Pv.solve
         )  # This is a method for spline interpolation of degree degree on the grid num_elements in eta-space.

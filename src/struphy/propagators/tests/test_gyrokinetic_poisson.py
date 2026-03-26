@@ -8,12 +8,12 @@ from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.projectors import L2Projector
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry.base import Domain
+from struphy.io.options import DerhamOptions
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.propagators.propagators_fields import ImplicitDiffusion
 from struphy.topology.grids import TensorProductGrid
-from struphy.io.options import DerhamOptions
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -216,7 +216,10 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
             plt.plot(h_vec, errors, "o", label=f"degree={degree[direction]}")
             plt.plot(
                 h_vec,
-                [h ** (degree[direction] + 1) / h_vec[direction] ** (degree[direction] + 1) * errors[direction] for h in h_vec],
+                [
+                    h ** (degree[direction] + 1) / h_vec[direction] ** (degree[direction] + 1) * errors[direction]
+                    for h in h_vec
+                ],
                 "k--",
                 label="correct rate degree+1",
             )
@@ -542,7 +545,7 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
     # create 2.5d deRham object
     num_elements_new = [num_elements[0], num_elements[1], 1]
     degree[2] = 1
-    
+
     grid = TensorProductGrid(num_elements=num_elements_new)
     derham_opts = DerhamOptions(degree=degree, bcs=bcs)
     derham = Derham(grid, derham_opts, comm=comm)

@@ -27,10 +27,10 @@ def test_exp_growth(spaces, algo, show_plots=False):
     from matplotlib import pyplot as plt
 
     from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
     from struphy.ode.solvers import ODEsolverFEEC
     from struphy.ode.utils import ButcherTableau
     from struphy.topology.grids import TensorProductGrid
-    from struphy.io.options import DerhamOptions
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

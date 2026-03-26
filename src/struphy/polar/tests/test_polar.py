@@ -12,10 +12,10 @@ import pytest
 )
 def test_spaces(num_elements, degree, bcs):
     from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
     from struphy.polar.basic import PolarDerhamSpace, PolarVector
     from struphy.topology.grids import TensorProductGrid
-    from struphy.io.options import DerhamOptions
-    
+
     grid = TensorProductGrid(num_elements=num_elements)
     derham_opts = DerhamOptions(degree=degree, bcs=bcs)
     derham = Derham(grid, derham_opts)
@@ -189,11 +189,11 @@ def test_extraction_ops_and_derivatives(num_elements, degree, bcs):
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
     from struphy.geometry.domains import IGAPolarCylinder
+    from struphy.io.options import DerhamOptions
     from struphy.polar.basic import PolarDerhamSpace, PolarVector
     from struphy.polar.extraction_operators import PolarExtractionBlocksC1
     from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
     from struphy.topology.grids import TensorProductGrid
-    from struphy.io.options import DerhamOptions
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -307,8 +307,8 @@ def test_projectors(num_elements, degree, bcs):
 
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry.domains import IGAPolarCylinder
-    from struphy.topology.grids import TensorProductGrid
     from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

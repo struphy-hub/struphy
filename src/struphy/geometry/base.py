@@ -139,7 +139,9 @@ class Domain(metaclass=DomainMeta):
         self._degree = degree
         self._spl_kind = spl_kind
 
-        self._NbaseN = [num_elements + degree - kind * degree for num_elements, degree, kind in zip(num_elements, degree, spl_kind)]
+        self._NbaseN = [
+            num_elements + degree - kind * degree for num_elements, degree, kind in zip(num_elements, degree, spl_kind)
+        ]
 
         el_b = [xp.linspace(0.0, 1.0, num_elements + 1) for num_elements in num_elements]
 
@@ -2210,7 +2212,9 @@ def interp_mapping(num_elements, degree, spl_kind, X, Y, Z=None):
     """
 
     # number of basis functions
-    NbaseN = [num_elements + degree - kind * degree for num_elements, degree, kind in zip(num_elements, degree, spl_kind)]
+    NbaseN = [
+        num_elements + degree - kind * degree for num_elements, degree, kind in zip(num_elements, degree, spl_kind)
+    ]
 
     # element boundaries
     el_b = [xp.linspace(0.0, 1.0, num_elements + 1) for num_elements in num_elements]
@@ -2222,7 +2226,10 @@ def interp_mapping(num_elements, degree, spl_kind, X, Y, Z=None):
     I_pts = [bsp.greville(T, degree, kind) for T, degree, kind in zip(T, degree, spl_kind)]
 
     # 1D interpolation matrices
-    I_mat = [csc_matrix(bsp.collocation_matrix(T, degree, I_pts, kind)) for T, degree, I_pts, kind in zip(T, degree, I_pts, spl_kind)]
+    I_mat = [
+        csc_matrix(bsp.collocation_matrix(T, degree, I_pts, kind))
+        for T, degree, I_pts, kind in zip(T, degree, I_pts, spl_kind)
+    ]
 
     # 2D interpolation
     if len(num_elements) == 2:

@@ -26,8 +26,8 @@ def test_mass(num_elements, degree, bcs, mapping, show_plots=False):
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import RotationMatrix, compare_arrays, create_equal_random_arrays
     from struphy.fields_background.equils import ScrewPinch, ShearedSlab
-    from struphy.topology.grids import TensorProductGrid
     from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -321,9 +321,9 @@ def test_mass_polar(num_elements, degree, bcs, mapping, show_plots=False):
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.fields_background.equils import ScrewPinch
+    from struphy.io.options import DerhamOptions
     from struphy.polar.basic import PolarVector
     from struphy.topology.grids import TensorProductGrid
-    from struphy.io.options import DerhamOptions
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -338,7 +338,9 @@ def test_mass_polar(num_elements, degree, bcs, mapping, show_plots=False):
 
     # mapping
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class(**{"num_elements": num_elements[:2], "degree": degree[:2], "a": mapping[1]["a"], "Lz": mapping[1]["Lz"]})
+    domain = domain_class(
+        **{"num_elements": num_elements[:2], "degree": degree[:2], "a": mapping[1]["a"], "Lz": mapping[1]["Lz"]}
+    )
 
     if show_plots:
         import matplotlib.pyplot as plt
@@ -465,8 +467,8 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.fields_background.equils import ScrewPinch, ShearedSlab
-    from struphy.topology.grids import TensorProductGrid
     from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -771,9 +773,9 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.fields_background.equils import ScrewPinch
+    from struphy.io.options import DerhamOptions
     from struphy.polar.basic import PolarVector
     from struphy.topology.grids import TensorProductGrid
-    from struphy.io.options import DerhamOptions
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -788,7 +790,9 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
 
     # mapping
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class(**{"num_elements": num_elements[:2], "degree": degree[:2], "a": mapping[1]["a"], "Lz": mapping[1]["Lz"]})
+    domain = domain_class(
+        **{"num_elements": num_elements[:2], "degree": degree[:2], "a": mapping[1]["a"], "Lz": mapping[1]["Lz"]}
+    )
 
     if show_plots:
         import matplotlib.pyplot as plt

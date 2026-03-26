@@ -27,9 +27,9 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
 
     from struphy.bsplines import bsplines_kernels as bsp
     from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
     from struphy.pic.accumulation import particle_to_mat_kernels as ptomat
     from struphy.topology.grids import TensorProductGrid
-    from struphy.io.options import DerhamOptions
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

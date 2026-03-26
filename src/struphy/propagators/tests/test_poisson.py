@@ -15,6 +15,7 @@ from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.projectors import L2Projector
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry.base import Domain
+from struphy.io.options import DerhamOptions
 from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
@@ -23,9 +24,8 @@ from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.pic.particles import Particles6D
 from struphy.propagators.base import Propagator
 from struphy.propagators.propagators_fields import ImplicitDiffusion, Poisson
-from struphy.utils.pyccel import Pyccelkernel
 from struphy.topology.grids import TensorProductGrid
-from struphy.io.options import DerhamOptions
+from struphy.utils.pyccel import Pyccelkernel
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -256,7 +256,10 @@ def test_poisson_1d(
             plt.plot(h_vec, errors, "o", label=f"degree={degree[direction]}")
             plt.plot(
                 h_vec,
-                [h ** (degree[direction] + 1) / h_vec[direction] ** (degree[direction] + 1) * errors[direction] for h in h_vec],
+                [
+                    h ** (degree[direction] + 1) / h_vec[direction] ** (degree[direction] + 1) * errors[direction]
+                    for h in h_vec
+                ],
                 "k--",
                 label="correct rate degree+1",
             )
@@ -295,7 +298,7 @@ def test_poisson_accum_1d(mapping, do_plot=False):
     # create derham object
     num_elements = (16, 1, 1)
     degree = (2, 1, 1)
-    
+
     grid = TensorProductGrid(num_elements=num_elements)
     derham_opts = DerhamOptions(degree=degree)
     derham = Derham(grid, derham_opts, comm=comm)

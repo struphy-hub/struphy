@@ -157,7 +157,9 @@ def main():
                 plt.xlabel("mpi_size")
                 plt.ylabel("time [s]")
                 plt.title(
-                    "Weak scaling for cells/mpi_size=" + str(xp.prod(val["num_elements"][0]) / val["mpi_size"][0]) + "=const.",
+                    "Weak scaling for cells/mpi_size="
+                    + str(xp.prod(val["num_elements"][0]) / val["mpi_size"][0])
+                    + "=const.",
                 )
                 plt.legend(loc="upper left")
                 # plt.loglog(val['mpi_size'], val['time'][0]*xp.ones_like(val['time']), 'k--', alpha=0.3)

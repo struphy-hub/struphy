@@ -19,9 +19,9 @@ def test_1d(num_elements, degree, bcs, domain_ind, codomain_ind):
     from feectools.linalg.stencil import StencilMatrix, StencilVector
 
     from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
     from struphy.linear_algebra.stencil_dot_kernels import matvec_1d_kernel
     from struphy.topology.grids import TensorProductGrid
-    from struphy.io.options import DerhamOptions
 
     # only for M1 Mac users
     PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
@@ -144,9 +144,9 @@ def test_3d(num_elements, degree, bcs, domain_ind, codomain_ind):
     from feectools.linalg.stencil import StencilMatrix, StencilVector
 
     from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
     from struphy.linear_algebra.stencil_dot_kernels import matvec_3d_kernel
     from struphy.topology.grids import TensorProductGrid
-    from struphy.io.options import DerhamOptions
 
     # only for M1 Mac users
     PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"

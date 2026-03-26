@@ -1050,7 +1050,13 @@ RESTARTing from:
                 print(f"\n{grid=}, {derham_opts=}: no Derham object set up.")
             self._derham = None
         else:
-            self._derham = Derham(grid, derham_opts, comm=derham_comm, domain=self.domain, verbose=verbose,)
+            self._derham = Derham(
+                grid,
+                derham_opts,
+                comm=derham_comm,
+                domain=self.domain,
+                verbose=verbose,
+            )
 
         # create weighted mass and basis operators
         if self.derham is None:

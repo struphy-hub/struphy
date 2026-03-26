@@ -28,8 +28,8 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping):
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.preconditioner import MassMatrixPreconditioner
     from struphy.feec.psydac_derham import Derham
-    from struphy.topology.grids import TensorProductGrid
     from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     MPI_COMM = MPI.COMM_WORLD
 

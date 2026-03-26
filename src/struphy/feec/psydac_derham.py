@@ -38,7 +38,7 @@ from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial import perturbations, utilities
 from struphy.initial.base import Perturbation
 from struphy.initial.perturbations import Noise
-from struphy.io.options import FieldsBackground, LiteralOptions, DerhamOptions
+from struphy.io.options import DerhamOptions, FieldsBackground, LiteralOptions
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
@@ -537,13 +537,13 @@ class Derham:
         domain: Domain = None,
         verbose=False,
     ):
-        
+
         # inputs
         self._grid = grid
         self._options = options
         self._comm = comm
         self._domain = domain
-        
+
         # number of grid cells
         num_elements = grid.num_elements
         # mpi coeff decomposition
@@ -653,19 +653,39 @@ class Derham:
 
         # 1d spline spaces attributes for projector grids and polar extraction operators
         self._V0splines = SplineAttributes1D(
-            derham.V0, self.nquads, self.nquads_proj, polar_splines=self.polar_splines, local_projectors=local_projectors
+            derham.V0,
+            self.nquads,
+            self.nquads_proj,
+            polar_splines=self.polar_splines,
+            local_projectors=local_projectors,
         )
         self._V1splines = SplineAttributes1D(
-            derham.V1, self.nquads, self.nquads_proj, polar_splines=self.polar_splines, local_projectors=local_projectors
+            derham.V1,
+            self.nquads,
+            self.nquads_proj,
+            polar_splines=self.polar_splines,
+            local_projectors=local_projectors,
         )
         self._V2splines = SplineAttributes1D(
-            derham.V2, self.nquads, self.nquads_proj, polar_splines=self.polar_splines, local_projectors=local_projectors
+            derham.V2,
+            self.nquads,
+            self.nquads_proj,
+            polar_splines=self.polar_splines,
+            local_projectors=local_projectors,
         )
         self._V3splines = SplineAttributes1D(
-            derham.V3, self.nquads, self.nquads_proj, polar_splines=self.polar_splines, local_projectors=local_projectors
+            derham.V3,
+            self.nquads,
+            self.nquads_proj,
+            polar_splines=self.polar_splines,
+            local_projectors=local_projectors,
         )
         self._Vvsplines = SplineAttributes1D(
-            h1vec_space, self.nquads, self.nquads_proj, polar_splines=self.polar_splines, local_projectors=local_projectors
+            h1vec_space,
+            self.nquads,
+            self.nquads_proj,
+            polar_splines=self.polar_splines,
+            local_projectors=local_projectors,
         )
 
         # break points in the three spatial directions
@@ -820,7 +840,7 @@ class Derham:
             self.V0fem.knots[2],
             xp.array(self.V0.starts),
         )
-        
+
         if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
             print("\nDERHAM:")
             print("number of elements:".ljust(25), num_elements)
@@ -842,12 +862,12 @@ class Derham:
     def grid(self) -> TensorProductGrid:
         """The FEEC grid."""
         return self._grid
-    
+
     @property
     def options(self) -> DerhamOptions:
         """The DerhamOptions object containing the input options for the Derham sequence construction."""
         return self._options
-    
+
     @property
     def comm(self):
         """MPI communicator."""
@@ -857,7 +877,7 @@ class Derham:
     def domain(self) -> Domain | None:
         """Mapping from logical unit cube to physical domain (only needed in case of polar splines with polar_splines is True)."""
         return self._domain
-    
+
     # ------------------
     # Derived properties
     # ------------------
@@ -893,7 +913,7 @@ class Derham:
     def nquads_proj(self) -> tuple[int, int, int]:
         """List of number of Gauss-Legendre quadrature points in histopolation (default = degree + 1) in each direction."""
         return self._nq_pr
-    
+
     @property
     def mpi_dims_mask(self) -> tuple[bool, bool, bool]:
         """List of bool indicating which dimensions are decomposed in the MPI domain decomposition."""
@@ -1348,7 +1368,7 @@ class Derham:
             "comm": None,
             "domain": self.domain.to_dict() if self.domain is not None else None,
         }
-        
+
     @classmethod
     def from_dict(cls, dct) -> "Derham":
         """Deserialize a Derham configuration from a dictionary.
@@ -1361,7 +1381,7 @@ class Derham:
             comm=None,
             domain=Domain.from_dict(dct["domain"]) if dct["domain"] is not None else None,
         )
-    
+
     def init_derham(
         self,
         num_elements: tuple[int, int, int],
@@ -1396,7 +1416,9 @@ class Derham:
         """
 
         if use_feectools:
-            self._domain_decomposition = DomainDecomposition(num_elements, spl_kind, comm=comm, mpi_dims_mask=mpi_dims_mask)
+            self._domain_decomposition = DomainDecomposition(
+                num_elements, spl_kind, comm=comm, mpi_dims_mask=mpi_dims_mask
+            )
 
             _derham = self._discretize_derham(
                 num_elements,

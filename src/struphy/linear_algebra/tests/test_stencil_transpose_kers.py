@@ -19,8 +19,8 @@ def test_1d(num_elements, degree, bcs, domain_ind, codomain_ind):
     from feectools.linalg.stencil import StencilMatrix
 
     from struphy.feec.psydac_derham import Derham
-    from struphy.linear_algebra.stencil_transpose_kernels import transpose_1d_kernel
     from struphy.io.options import DerhamOptions
+    from struphy.linear_algebra.stencil_transpose_kernels import transpose_1d_kernel
     from struphy.topology.grids import TensorProductGrid
 
     # only for M1 Mac users
@@ -138,8 +138,8 @@ def test_3d(num_elements, degree, bcs, domain_ind, codomain_ind):
     from feectools.linalg.stencil import StencilMatrix
 
     from struphy.feec.psydac_derham import Derham
-    from struphy.linear_algebra.stencil_transpose_kernels import transpose_3d_kernel
     from struphy.io.options import DerhamOptions
+    from struphy.linear_algebra.stencil_transpose_kernels import transpose_3d_kernel
     from struphy.topology.grids import TensorProductGrid
 
     # only for M1 Mac users

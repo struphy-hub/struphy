@@ -61,12 +61,12 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=1000):
     from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
     from struphy.pic.accumulation import accum_kernels
     from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
     from struphy.pic.particles import Particles6D
-    from struphy.utils.clone_config import CloneConfig
     from struphy.topology.grids import TensorProductGrid
-    from struphy.io.options import DerhamOptions
+    from struphy.utils.clone_config import CloneConfig
 
     if isinstance(MPI.COMM_WORLD, MockComm):
         mpi_comm = None
@@ -86,10 +86,10 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=1000):
         "grid": {"num_elements": num_elements},
         "kinetic": {"test_particles": {"markers": {"Np": Np, "ppc": Np / xp.prod(num_elements)}}},
     }
-    
+
     grid = TensorProductGrid(num_elements=num_elements)
     derham_opts = DerhamOptions(degree=degree, bcs=bcs)
-    
+
     if mpi_comm is None:
         clone_config = None
 

@@ -264,7 +264,7 @@ def aux_test_replication_of_basis(num_elements, plist, bcs):
     # get global communicator
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    
+
     grid = TensorProductGrid(num_elements=num_elements)
     derham_opts = DerhamOptions(degree=plist, bcs=bcs, local_projectors=True)
     derham = Derham(grid, derham_opts, comm=comm)
@@ -370,7 +370,7 @@ def test_basis_projection_operator_local(num_elements, plist, bcs, out_sp_key, i
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     world_size = comm.Get_size()
-    
+
     grid = TensorProductGrid(num_elements=num_elements)
     derham_opts = DerhamOptions(degree=plist, bcs=bcs, local_projectors=True)
     derham = Derham(grid, derham_opts, comm=comm)
@@ -985,7 +985,7 @@ def test_basis_projection_operator_local_new(num_elements, plist, bcs, out_sp_ke
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     world_size = comm.Get_size()
-    
+
     grid = TensorProductGrid(num_elements=num_elements)
     derham_opts = DerhamOptions(degree=plist, bcs=bcs, local_projectors=True)
     derham = Derham(grid, derham_opts, comm=comm)
@@ -1381,7 +1381,7 @@ def aux_test_spline_evaluation(num_elements, plist, bcs):
     # get global communicator
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    
+
     grid = TensorProductGrid(num_elements=num_elements)
     derham_opts = DerhamOptions(degree=plist, bcs=bcs, local_projectors=True)
     derham = Derham(grid, derham_opts, comm=comm)

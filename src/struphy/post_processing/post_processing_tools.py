@@ -11,7 +11,7 @@ from feectools.ddm.mpi import mpi as MPI
 from pyevtk.hl import gridToVTK
 from tqdm import tqdm
 
-from struphy.feec.psydac_derham import SplineFunction, Derham
+from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.fields_background import equils
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.geometry import domains
@@ -609,7 +609,9 @@ class PostProcessor:
 
         num_elements = self.derham.num_elements
 
-        grids_log = [xp.linspace(0.0, 1.0, num_elements_i * n_i + 1) for num_elements_i, n_i in zip(num_elements, celldivide)]
+        grids_log = [
+            xp.linspace(0.0, 1.0, num_elements_i * n_i + 1) for num_elements_i, n_i in zip(num_elements, celldivide)
+        ]
         grids_phy = [
             self.domain(*grids_log)[0],
             self.domain(*grids_log)[1],

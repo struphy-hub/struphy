@@ -28,9 +28,9 @@ def test_init_modes(num_elements, degree, bcs, mapping, combine_comps=None, do_p
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry.base import Domain
     from struphy.initial.base import Perturbation
+    from struphy.io.options import DerhamOptions
     from struphy.models.variables import FEECVariable
     from struphy.topology.grids import TensorProductGrid
-    from struphy.io.options import DerhamOptions
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

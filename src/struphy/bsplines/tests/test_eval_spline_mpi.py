@@ -97,7 +97,9 @@ def test_eval_kernels(num_elements, degree, bcs, n_markers=10):
         assert xp.allclose(val, val_mpi)
 
         # compare spline evaluation routines in V1
-        val = eval3d(derham.degree[0] - 1, derham.degree[1], derham.degree[2], bd1, bn2, bn3, ind_d1, ind_n2, ind_n3, x1[0])
+        val = eval3d(
+            derham.degree[0] - 1, derham.degree[1], derham.degree[2], bd1, bn2, bn3, ind_d1, ind_n2, ind_n3, x1[0]
+        )
         val_mpi = eval3d_mpi(
             derham.degree[0] - 1,
             derham.degree[1],
@@ -113,7 +115,9 @@ def test_eval_kernels(num_elements, degree, bcs, n_markers=10):
         )
         assert xp.allclose(val, val_mpi)
 
-        val = eval3d(derham.degree[0], derham.degree[1] - 1, derham.degree[2], bn1, bd2, bn3, ind_n1, ind_d2, ind_n3, x1[1])
+        val = eval3d(
+            derham.degree[0], derham.degree[1] - 1, derham.degree[2], bn1, bd2, bn3, ind_n1, ind_d2, ind_n3, x1[1]
+        )
         val_mpi = eval3d_mpi(
             derham.degree[0],
             derham.degree[1] - 1,
@@ -129,7 +133,9 @@ def test_eval_kernels(num_elements, degree, bcs, n_markers=10):
         )
         assert xp.allclose(val, val_mpi)
 
-        val = eval3d(derham.degree[0], derham.degree[1], derham.degree[2] - 1, bn1, bn2, bd3, ind_n1, ind_n2, ind_d3, x1[2])
+        val = eval3d(
+            derham.degree[0], derham.degree[1], derham.degree[2] - 1, bn1, bn2, bd3, ind_n1, ind_n2, ind_d3, x1[2]
+        )
         val_mpi = eval3d_mpi(
             derham.degree[0],
             derham.degree[1],
@@ -146,7 +152,9 @@ def test_eval_kernels(num_elements, degree, bcs, n_markers=10):
         assert xp.allclose(val, val_mpi)
 
         # compare spline evaluation routines in V2
-        val = eval3d(derham.degree[0], derham.degree[1] - 1, derham.degree[2] - 1, bn1, bd2, bd3, ind_n1, ind_d2, ind_d3, x2[0])
+        val = eval3d(
+            derham.degree[0], derham.degree[1] - 1, derham.degree[2] - 1, bn1, bd2, bd3, ind_n1, ind_d2, ind_d3, x2[0]
+        )
         val_mpi = eval3d_mpi(
             derham.degree[0],
             derham.degree[1] - 1,
@@ -162,7 +170,9 @@ def test_eval_kernels(num_elements, degree, bcs, n_markers=10):
         )
         assert xp.allclose(val, val_mpi)
 
-        val = eval3d(derham.degree[0] - 1, derham.degree[1], derham.degree[2] - 1, bd1, bn2, bd3, ind_d1, ind_n2, ind_d3, x2[1])
+        val = eval3d(
+            derham.degree[0] - 1, derham.degree[1], derham.degree[2] - 1, bd1, bn2, bd3, ind_d1, ind_n2, ind_d3, x2[1]
+        )
         val_mpi = eval3d_mpi(
             derham.degree[0] - 1,
             derham.degree[1],
@@ -178,7 +188,9 @@ def test_eval_kernels(num_elements, degree, bcs, n_markers=10):
         )
         assert xp.allclose(val, val_mpi)
 
-        val = eval3d(derham.degree[0] - 1, derham.degree[1] - 1, derham.degree[2], bd1, bd2, bn3, ind_d1, ind_d2, ind_n3, x2[2])
+        val = eval3d(
+            derham.degree[0] - 1, derham.degree[1] - 1, derham.degree[2], bd1, bd2, bn3, ind_d1, ind_d2, ind_n3, x2[2]
+        )
         val_mpi = eval3d_mpi(
             derham.degree[0] - 1,
             derham.degree[1] - 1,
@@ -195,7 +207,18 @@ def test_eval_kernels(num_elements, degree, bcs, n_markers=10):
         assert xp.allclose(val, val_mpi)
 
         # compare spline evaluation routines in V3
-        val = eval3d(derham.degree[0] - 1, derham.degree[1] - 1, derham.degree[2] - 1, bd1, bd2, bd3, ind_d1, ind_d2, ind_d3, x3[0])
+        val = eval3d(
+            derham.degree[0] - 1,
+            derham.degree[1] - 1,
+            derham.degree[2] - 1,
+            bd1,
+            bd2,
+            bd3,
+            ind_d1,
+            ind_d2,
+            ind_d3,
+            x3[0],
+        )
         val_mpi = eval3d_mpi(
             derham.degree[0] - 1,
             derham.degree[1] - 1,

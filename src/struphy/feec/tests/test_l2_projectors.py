@@ -13,12 +13,13 @@ from struphy.io.options import DerhamOptions
 from struphy.topology.grids import TensorProductGrid
 
 
-
 @pytest.mark.parametrize("num_elements", [[16, 32, 1]])
 @pytest.mark.parametrize("degree", [[2, 1, 1], [3, 2, 1]])
 @pytest.mark.parametrize("bcs", [(("free", "free"), None, None)])
 @pytest.mark.parametrize("array_input", [False, True])
-def test_l2_projectors_mappings(num_elements, degree, bcs, array_input, with_gvec=False, with_desc=False, do_plot=False):
+def test_l2_projectors_mappings(
+    num_elements, degree, bcs, array_input, with_gvec=False, with_desc=False, do_plot=False
+):
     """Tests the L2-projectors for all available mappings.
 
     Both callable and array inputs to the projectors are tested.
