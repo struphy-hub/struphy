@@ -69,7 +69,7 @@ def test_flattening_3(nx, ny, nz, algo):
                 assert n3n == n3
 
 
-@pytest.mark.parametrize("Nel", [[8, 9, 10]])
+@pytest.mark.parametrize("num_elements", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[2, 3, 4]])
 @pytest.mark.parametrize(
     "bcs",
@@ -97,7 +97,7 @@ def test_flattening_3(nx, ny, nz, algo):
     ],
 )
 @pytest.mark.parametrize("Np", [10000])
-def test_sorting(Nel, p, bcs, mapping, Np, verbose=False):
+def test_sorting(num_elements, p, bcs, mapping, Np, verbose=False):
     mpi_comm = MPI.COMM_WORLD
     # assert mpi_comm.size >= 2
     rank = mpi_comm.Get_rank()
@@ -109,7 +109,7 @@ def test_sorting(Nel, p, bcs, mapping, Np, verbose=False):
     domain = domain_class(**dom_params)
 
     # DeRham object
-    derham = Derham(Nel, p=p, bcs=bcs, comm=mpi_comm)
+    derham = Derham(num_elements, p=p, bcs=bcs, comm=mpi_comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs

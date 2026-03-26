@@ -1,7 +1,7 @@
 import pytest
 
 
-@pytest.mark.parametrize("Nel", [[8, 9, 10]])
+@pytest.mark.parametrize("num_elements", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[1, 2, 3]])
 @pytest.mark.parametrize(
     "bcs",
@@ -39,7 +39,7 @@ import pytest
         ],
     ],
 )
-def test_draw(Nel, p, bcs, mapping, ppc=10):
+def test_draw(num_elements, p, bcs, mapping, ppc=10):
     """Asserts whether all particles are on the correct process after `particles.mpi_sort_markers()`."""
 
     import cunumpy as xp
@@ -59,7 +59,7 @@ def test_draw(Nel, p, bcs, mapping, ppc=10):
     domain = domain_class(**mapping[1])
 
     # Psydac discrete Derham sequence
-    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
+    derham = Derham(num_elements, p=p, bcs=bcs, comm=comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs

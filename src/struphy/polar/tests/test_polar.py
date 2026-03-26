@@ -1,7 +1,7 @@
 import pytest
 
 
-@pytest.mark.parametrize("Nel", [[8, 9, 6]])
+@pytest.mark.parametrize("num_elements", [[8, 9, 6]])
 @pytest.mark.parametrize("p", [[3, 2, 4]])
 @pytest.mark.parametrize(
     "bcs",
@@ -10,11 +10,11 @@ import pytest
         (("free", "free"), None, ("free", "free")),
     ],
 )
-def test_spaces(Nel, p, bcs):
+def test_spaces(num_elements, p, bcs):
     from struphy.feec.psydac_derham import Derham
     from struphy.polar.basic import PolarDerhamSpace, PolarVector
 
-    derham = Derham(Nel, p=p, bcs=bcs)
+    derham = Derham(num_elements, p=p, bcs=bcs)
 
     print("polar V0:")
     V = PolarDerhamSpace(derham, "H1")
@@ -169,7 +169,7 @@ def test_spaces(Nel, p, bcs):
     print()
 
 
-@pytest.mark.parametrize("Nel", [[6, 9, 6]])
+@pytest.mark.parametrize("num_elements", [[6, 9, 6]])
 @pytest.mark.parametrize("p", [[3, 2, 2]])
 @pytest.mark.parametrize(
     "bcs",
@@ -178,7 +178,7 @@ def test_spaces(Nel, p, bcs):
         (("free", "free"), None, ("free", "free")),
     ],
 )
-def test_extraction_ops_and_derivatives(Nel, p, bcs):
+def test_extraction_ops_and_derivatives(num_elements, p, bcs):
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
 
@@ -194,11 +194,11 @@ def test_extraction_ops_and_derivatives(Nel, p, bcs):
     size = comm.Get_size()
 
     # create control points
-    params_map = {"Nel": Nel[:2], "p": p[:2], "Lz": 3.0, "a": 1.0}
+    params_map = {"num_elements": num_elements[:2], "p": p[:2], "Lz": 3.0, "a": 1.0}
     domain = IGAPolarCylinder(**params_map)
 
     # create de Rham sequence
-    derham = Derham(Nel, p=p, bcs=bcs, comm=comm, polar_ck=1, domain=domain, with_projectors=False)
+    derham = Derham(num_elements, p=p, bcs=bcs, comm=comm, polar_ck=1, domain=domain, with_projectors=False)
 
     # create legacy FEM spaces
 
@@ -284,7 +284,7 @@ def test_extraction_ops_and_derivatives(Nel, p, bcs):
         print("------------- Test passed ---------------------------")
 
 
-@pytest.mark.parametrize("Nel", [[6, 12, 7]])
+@pytest.mark.parametrize("num_elements", [[6, 12, 7]])
 @pytest.mark.parametrize("p", [[4, 3, 2]])
 @pytest.mark.parametrize(
     "bcs",
@@ -293,7 +293,7 @@ def test_extraction_ops_and_derivatives(Nel, p, bcs):
         (("free", "free"), None, ("free", "free")),
     ],
 )
-def test_projectors(Nel, p, bcs):
+def test_projectors(num_elements, p, bcs):
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
 
@@ -305,11 +305,11 @@ def test_projectors(Nel, p, bcs):
     size = comm.Get_size()
 
     # create control points
-    params_map = {"Nel": Nel[:2], "p": p[:2], "Lz": 3.0, "a": 1.0}
+    params_map = {"num_elements": num_elements[:2], "p": p[:2], "Lz": 3.0, "a": 1.0}
     domain = IGAPolarCylinder(**params_map)
 
     # create polar de Rham sequence
-    derham = Derham(Nel, p=p, bcs=bcs, comm=comm, nq_pr=[6, 6, 6], polar_ck=1, domain=domain)
+    derham = Derham(num_elements, p=p, bcs=bcs, comm=comm, nq_pr=[6, 6, 6], polar_ck=1, domain=domain)
 
     if rank == 0:
         print()

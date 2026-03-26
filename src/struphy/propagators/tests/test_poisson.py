@@ -86,7 +86,7 @@ def test_poisson_1d(
             e2 = 0.0
             e3 = 0.0
             if direction == 0:
-                Nel = [Neli, 1, 1]
+                num_elements = [Neli, 1, 1]
                 p = [pi, 1, 1]
                 e1 = xp.linspace(0.0, 1.0, 50)
 
@@ -109,7 +109,7 @@ def test_poisson_1d(
                         return xp.sin(2 * xp.pi / Lx * x) * (2 * xp.pi / Lx) ** 2
 
             elif direction == 1:
-                Nel = [1, Neli, 1]
+                num_elements = [1, Neli, 1]
                 p = [1, pi, 1]
                 e2 = xp.linspace(0.0, 1.0, 50)
 
@@ -132,7 +132,7 @@ def test_poisson_1d(
                         return xp.sin(2 * xp.pi / Ly * y) * (2 * xp.pi / Ly) ** 2
 
             elif direction == 2:
-                Nel = [1, 1, Neli]
+                num_elements = [1, 1, Neli]
                 p = [1, 1, pi]
                 e3 = xp.linspace(0.0, 1.0, 50)
 
@@ -157,7 +157,7 @@ def test_poisson_1d(
                 print("Direction should be either 0, 1 or 2")
 
             # create derham object
-            derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
+            derham = Derham(num_elements, p=p, bcs=bcs, comm=comm)
 
             # mass matrices
             mass_ops = WeightedMassOperators(derham, domain)
@@ -229,7 +229,7 @@ def test_poisson_1d(
                     plt.plot(z[0, 0, :], sol_val1[0, 0, :], "ob", label="numerical")
                     plt.plot(z[0, 0, :], analytic_value1[0, 0, :], "r--", label="exact")
                     plt.xlabel("z")
-                plt.title(f"{Nel =}")
+                plt.title(f"{num_elements =}")
                 plt.legend()
 
             error = xp.max(xp.abs(analytic_value1 - sol_val1))
@@ -289,9 +289,9 @@ def test_poisson_accum_1d(mapping, do_plot=False):
         Lx = dom_params["Lx"]
 
     # create derham object
-    Nel = (16, 1, 1)
+    num_elements = (16, 1, 1)
     p = (2, 1, 1)
-    derham = Derham(Nel, p=p, comm=comm)
+    derham = Derham(num_elements, p=p, comm=comm)
 
     # mass matrices
     mass_ops = WeightedMassOperators(derham, domain)
@@ -422,7 +422,7 @@ def test_poisson_accum_1d(mapping, do_plot=False):
 
 
 @pytest.mark.mpi(min_size=2)
-@pytest.mark.parametrize("Nel", [[64, 64, 1]])
+@pytest.mark.parametrize("num_elements", [[64, 64, 1]])
 @pytest.mark.parametrize("p", [[1, 1, 1], [2, 2, 1]])
 @pytest.mark.parametrize("bc_type", ["periodic", "dirichlet", "neumann"])
 @pytest.mark.parametrize(
@@ -433,7 +433,7 @@ def test_poisson_accum_1d(mapping, do_plot=False):
     ],
 )
 @pytest.mark.parametrize("projected_rhs", [False, True])
-def test_poisson_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=False):
+def test_poisson_2d(num_elements, p, bc_type, mapping, projected_rhs, show_plot=False):
     """
     Test the Poisson solver by means of manufactured solutions in 2D .
     """
@@ -504,7 +504,7 @@ def test_poisson_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=False):
             return xp.cos(xp.pi / Lx * x) * (xp.pi / Lx) ** 2
 
     # create derham object
-    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
+    derham = Derham(num_elements, p=p, bcs=bcs, comm=comm)
 
     # create weighted mass operators
     mass_ops = WeightedMassOperators(derham, domain)
@@ -657,12 +657,12 @@ if __name__ == "__main__":
     # mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 3.}]
     # test_poisson_1d(direction, bc_type, mapping, projected_rhs=True, show_plot=True)
 
-    # Nel = [64, 64, 1]
+    # num_elements = [64, 64, 1]
     # p = [2, 2, 1]
     # bc_type = 'neumann'
     # # mapping = ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 3.}]
     # # mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
     # mapping = ['Colella', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
-    # test_poisson_2d(Nel, p, bc_type, mapping, projected_rhs=True, show_plot=True)
+    # test_poisson_2d(num_elements, p, bc_type, mapping, projected_rhs=True, show_plot=True)
 
     test_poisson_accum_1d(mapping, do_plot=True)

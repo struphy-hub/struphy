@@ -3,7 +3,7 @@ import pytest
 from struphy.utils.pyccel import Pyccelkernel
 
 
-@pytest.mark.parametrize("Nel", [[8, 9, 10]])
+@pytest.mark.parametrize("num_elements", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[2, 3, 4]])
 @pytest.mark.parametrize(
     "bcs",
@@ -42,7 +42,7 @@ from struphy.utils.pyccel import Pyccelkernel
     ],
 )
 @pytest.mark.parametrize("num_clones", [1, 2])
-def test_accum_poisson(Nel, p, bcs, mapping, num_clones, Np=1000):
+def test_accum_poisson(num_elements, p, bcs, mapping, num_clones, Np=1000):
     r"""DRAFT: test the accumulation of the rhs (H1-space) in Poisson's equation .
 
     Tests:
@@ -80,14 +80,14 @@ def test_accum_poisson(Nel, p, bcs, mapping, num_clones, Np=1000):
     domain = domain_class(**dom_params)
 
     params = {
-        "grid": {"Nel": Nel},
-        "kinetic": {"test_particles": {"markers": {"Np": Np, "ppc": Np / xp.prod(Nel)}}},
+        "grid": {"num_elements": num_elements},
+        "kinetic": {"test_particles": {"markers": {"Np": Np, "ppc": Np / xp.prod(num_elements)}}},
     }
     if mpi_comm is None:
         clone_config = None
 
         derham = Derham(
-            Nel,
+            num_elements,
             p=p,
             bcs=bcs,
             comm=None,
@@ -99,7 +99,7 @@ def test_accum_poisson(Nel, p, bcs, mapping, num_clones, Np=1000):
             return
 
         derham = Derham(
-            Nel,
+            num_elements,
             p=p,
             bcs=bcs,
             comm=clone_config.sub_comm,

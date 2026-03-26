@@ -3,7 +3,7 @@ import time
 import pytest
 
 
-@pytest.mark.parametrize("Nel", [[12, 5, 2], [8, 12, 4], [5, 4, 12]])
+@pytest.mark.parametrize("num_elements", [[12, 5, 2], [8, 12, 4], [5, 4, 12]])
 @pytest.mark.parametrize("p", [[3, 2, 1]])
 @pytest.mark.parametrize(
     "bcs",
@@ -16,7 +16,7 @@ import pytest
     "mapping",
     [["Cuboid", {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 100.0, "r3": 200.0}]],
 )
-def test_tosparse_struphy(Nel, p, bcs, mapping):
+def test_tosparse_struphy(num_elements, p, bcs, mapping):
     """
     TODO
     """
@@ -41,7 +41,7 @@ def test_tosparse_struphy(Nel, p, bcs, mapping):
     domain = domain_class(**dom_params)
 
     # create derham object
-    derham = Derham(Nel, p=p, bcs=bcs, comm=MPI.COMM_WORLD)
+    derham = Derham(num_elements, p=p, bcs=bcs, comm=MPI.COMM_WORLD)
 
     # assemble mass matrices in V0 and V1
     mass = WeightedMassOperators(derham, domain)

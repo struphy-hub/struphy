@@ -61,7 +61,7 @@ def setup_derham(
     from struphy.feec.psydac_derham import Derham
 
     # number of grid cells
-    Nel = grid.Nel
+    num_elements = grid.num_elements
     # mpi
     mpi_dims_mask = grid.mpi_dims_mask
 
@@ -79,7 +79,7 @@ def setup_derham(
     local_projectors = options.local_projectors
 
     derham = Derham(
-        Nel,
+        num_elements,
         p=p,
         bcs=bcs,
         nquads=nquads,
@@ -94,7 +94,7 @@ def setup_derham(
 
     if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
         print("\nDERHAM:")
-        print("number of elements:".ljust(25), Nel)
+        print("number of elements:".ljust(25), num_elements)
         print("spline degrees:".ljust(25), p)
         print("boundary conditions:".ljust(25), bcs)
         print("GL quad pts (L2):".ljust(25), nquads)

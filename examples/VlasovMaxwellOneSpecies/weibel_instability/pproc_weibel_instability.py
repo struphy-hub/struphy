@@ -27,7 +27,7 @@ def main():
     dt = params.time_opts.dt
     Tend = params.time_opts.Tend
     algo = params.time_opts.split_algo
-    Nel = params.grid.Nel
+    num_elements = params.grid.num_elements
     p = params.derham_opts.p
 
     env = params.env

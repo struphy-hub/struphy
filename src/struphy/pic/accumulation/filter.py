@@ -128,7 +128,7 @@ class AccumFilter:
                     comp._data,
                     axis,
                     self.form_int,
-                    xp.array(self.derham.Nel),
+                    xp.array(self.derham.num_elements),
                     xp.array(self.derham.spl_kind),
                     xp.array(self.derham.p),
                     xp.array(starts),
@@ -150,20 +150,20 @@ class AccumFilter:
             Mode numbers which are not filtered out.
         """
 
-        tor_Nel = self.derham.Nel[2]
+        tor_num_elements = self.derham.num_elements[2]
         modes = xp.asarray(modes, dtype=int)
 
-        assert tor_Nel >= 2 * int(xp.max(modes)), "Nel[2] must be at least 2*max(modes)"
+        assert tor_num_elements >= 2 * int(xp.max(modes)), "num_elements[2] must be at least 2*max(modes)"
         assert self.derham.domain_decomposition.nprocs[2] == 1, "No domain decomposition along toroidal direction"
 
         pn = xp.asarray(self.derham.p, dtype=int)
         ir = xp.empty(3, dtype=int)
 
         # rfft output length
-        if (tor_Nel % 2) == 0:
-            vec_temp = xp.zeros(int(tor_Nel / 2) + 1, dtype=complex)
+        if (tor_num_elements % 2) == 0:
+            vec_temp = xp.zeros(int(tor_num_elements / 2) + 1, dtype=complex)
         else:
-            vec_temp = xp.zeros(int((tor_Nel - 1) / 2) + 1, dtype=complex)
+            vec_temp = xp.zeros(int((tor_num_elements - 1) / 2) + 1, dtype=complex)
 
         for axis, comp, starts, ends in self._yield_dir_components(vec):
             for i in range(3):
@@ -181,6 +181,6 @@ class AccumFilter:
                     vec_temp[modes] = line[modes]  # keep selected modes only
 
                     # inverse FFT back to real space, write in-place
-                    comp._data[ii, jj, pn[2] : pn[2] + ir[2]] = irfft(vec_temp, n=tor_Nel)
+                    comp._data[ii, jj, pn[2] : pn[2] + ir[2]] = irfft(vec_temp, n=tor_num_elements)
 
         vec.update_ghost_regions()

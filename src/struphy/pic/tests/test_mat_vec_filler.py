@@ -2,7 +2,7 @@ import cunumpy as xp
 import pytest
 
 
-@pytest.mark.parametrize("Nel", [[8, 9, 10]])
+@pytest.mark.parametrize("num_elements", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[1, 2, 3]])
 @pytest.mark.parametrize(
     "bcs",
@@ -12,7 +12,7 @@ import pytest
         (None, ("free", "free"), ("free", "free")),
     ],
 )
-def test_particle_to_mat_kernels(Nel, p, bcs, n_markers=1):
+def test_particle_to_mat_kernels(num_elements, p, bcs, n_markers=1):
     """This test assumes a single particle and verifies
         a) if the correct indices are non-zero in _data
         b) if there are no NaNs
@@ -33,10 +33,10 @@ def test_particle_to_mat_kernels(Nel, p, bcs, n_markers=1):
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
-    DR = Derham(Nel, p=p, bcs=bcs, comm=comm)
+    DR = Derham(num_elements, p=p, bcs=bcs, comm=comm)
 
     if rank == 0:
-        print(f"\nNel={Nel}, p={p}, bcs={bcs}\n")
+        print(f"\nnum_elements={num_elements}, p={p}, bcs={bcs}\n")
 
     # DR attributes
     pn = xp.array(DR.p)

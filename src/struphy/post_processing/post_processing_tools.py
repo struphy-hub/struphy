@@ -607,9 +607,9 @@ class PostProcessor:
         assert isinstance(celldivide, list)
         assert len(celldivide) == 3
 
-        Nel = self.derham.Nel
+        num_elements = self.derham.num_elements
 
-        grids_log = [xp.linspace(0.0, 1.0, Nel_i * n_i + 1) for Nel_i, n_i in zip(Nel, celldivide)]
+        grids_log = [xp.linspace(0.0, 1.0, num_elements_i * n_i + 1) for num_elements_i, n_i in zip(num_elements, celldivide)]
         grids_phy = [
             self.domain(*grids_log)[0],
             self.domain(*grids_log)[1],

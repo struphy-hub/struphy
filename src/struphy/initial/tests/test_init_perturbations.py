@@ -5,7 +5,7 @@ import pytest
 
 
 # @pytest.mark.parametrize('combine_comps', [('f0', 'f1'), ('f0', 'f3'), ('f1', 'f2'), ('fvec', 'f3'), ('f1', 'fvec', 'f0')])
-@pytest.mark.parametrize("Nel", [[16, 16, 16]])
+@pytest.mark.parametrize("num_elements", [[16, 16, 16]])
 @pytest.mark.parametrize("p", [[2, 3, 4]])
 @pytest.mark.parametrize("bcs", [(("free", "free"), None, None)])
 @pytest.mark.parametrize(
@@ -17,7 +17,7 @@ import pytest
         ["HollowTorus", {"tor_period": 1}],
     ],
 )
-def test_init_modes(Nel, p, bcs, mapping, combine_comps=None, do_plot=False):
+def test_init_modes(num_elements, p, bcs, mapping, combine_comps=None, do_plot=False):
     """Test the initialization Field.initialize_coeffs with all "Modes" classes in perturbations.py."""
 
     import cunumpy as xp
@@ -39,7 +39,7 @@ def test_init_modes(Nel, p, bcs, mapping, combine_comps=None, do_plot=False):
     assert isinstance(domain, Domain)
 
     # Derham
-    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
+    derham = Derham(num_elements, p=p, bcs=bcs, comm=comm)
 
     fields = {}
     for space, form in derham.space_to_form.items():

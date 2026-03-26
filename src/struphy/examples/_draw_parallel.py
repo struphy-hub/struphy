@@ -15,7 +15,7 @@ def main():
     rank = comm.Get_rank()
 
     # parameters
-    Nel = [8, 16, 4]
+    num_elements = [8, 16, 4]
     p = [2, 2, 2]
     bcs = (("free", "free"), None, None)
 
@@ -32,7 +32,7 @@ def main():
     domain = domain_class(sfl=True)
 
     # create de rham object
-    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
+    derham = Derham(num_elements, p=p, bcs=bcs, comm=comm)
 
     if rank == 0:
         print()

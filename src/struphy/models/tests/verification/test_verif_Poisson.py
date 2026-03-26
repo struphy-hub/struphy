@@ -42,7 +42,7 @@ def test_poisson_1d(do_plot=False):
     equil = None
 
     # grid
-    grid = grids.TensorProductGrid(Nel=(48, 1, 1))
+    grid = grids.TensorProductGrid(num_elements=(48, 1, 1))
 
     # propagator options
     omega = 2 * xp.pi

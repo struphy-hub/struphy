@@ -45,7 +45,7 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
     equil = equils.HomogenSlab(B0x=B0x, B0y=B0y, B0z=B0z, beta=beta, n0=n0)
 
     # grid
-    grid = grids.TensorProductGrid(Nel=(1, 1, 64))
+    grid = grids.TensorProductGrid(num_elements=(1, 1, 64))
 
     # derham options
     derham_opts = DerhamOptions(p=(1, 1, 3))

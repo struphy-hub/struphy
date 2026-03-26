@@ -70,7 +70,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
             e2 = 0.0
             e3 = 0.0
             if direction == 0:
-                Nel = [Neli, 1, 1]
+                num_elements = [Neli, 1, 1]
                 p = [pi, 1, 1]
                 e1 = xp.linspace(0.0, 1.0, 50)
 
@@ -93,7 +93,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
                         return xp.sin(2 * xp.pi / Lx * x) * (2 * xp.pi / Lx) ** 2
 
             elif direction == 1:
-                Nel = [1, Neli, 1]
+                num_elements = [1, Neli, 1]
                 p = [1, pi, 1]
                 e2 = xp.linspace(0.0, 1.0, 50)
 
@@ -119,7 +119,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
 
             # create derham object
             print(f"{bcs =}")
-            derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
+            derham = Derham(num_elements, p=p, bcs=bcs, comm=comm)
 
             # mass matrices
             mass_ops = WeightedMassOperators(derham, domain)
@@ -189,7 +189,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
                     plt.plot(y[0, :, 0], sol_val1[0, :, 0], "ob", label="numerical")
                     plt.plot(y[0, :, 0], analytic_value1[0, :, 0], "r--", label="exact")
                     plt.xlabel("y")
-                plt.title(f"{Nel =}")
+                plt.title(f"{num_elements =}")
                 plt.legend()
 
             error = xp.max(xp.abs(analytic_value1 - sol_val1))
@@ -227,7 +227,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
         plt.show()
 
 
-@pytest.mark.parametrize("Nel", [[64, 64, 1]])
+@pytest.mark.parametrize("num_elements", [[64, 64, 1]])
 @pytest.mark.parametrize("p", [[1, 1, 1], [2, 2, 1]])
 @pytest.mark.parametrize("bc_type", ["periodic", "dirichlet", "neumann"])
 @pytest.mark.parametrize(
@@ -238,7 +238,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
     ],
 )
 @pytest.mark.parametrize("projected_rhs", [False, True])
-def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=False):
+def test_poisson_M1perp_2d(num_elements, p, bc_type, mapping, projected_rhs, show_plot=False):
     """
     Test the Poisson solver with M1perp diffusion matrix
     by means of manufactured solutions in 2D .
@@ -310,7 +310,7 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=Fa
             return xp.cos(xp.pi / Lx * x) * (xp.pi / Lx) ** 2
 
     # create derham object
-    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
+    derham = Derham(num_elements, p=p, bcs=bcs, comm=comm)
 
     # create weighted mass operators
     mass_ops = WeightedMassOperators(derham, domain)
@@ -442,7 +442,7 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=Fa
 
 
 @pytest.mark.skip(reason="Not clear if the 2.5d strategy is sound.")
-@pytest.mark.parametrize("Nel", [[32, 32, 16]])
+@pytest.mark.parametrize("num_elements", [[32, 32, 16]])
 @pytest.mark.parametrize("p", [[1, 1, 1], [2, 2, 1]])
 @pytest.mark.parametrize(
     "mapping",
@@ -451,7 +451,7 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=Fa
         ["Colella", {"Lx": 1.0, "Ly": 1.0, "alpha": 0.1, "Lz": 1.0}],
     ],
 )
-def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
+def test_poisson_M1perp_3d_compare_2p5d(num_elements, p, mapping, show_plot=False):
     """
     Test the Poisson solver with M1perp diffusion matrix
     by comparing 3d simulation to a loop over 2d simulations.
@@ -482,7 +482,7 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
         return dd1 + dd2
 
     # create 3d derham object
-    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
+    derham = Derham(num_elements, p=p, bcs=bcs, comm=comm)
 
     mass_ops = WeightedMassOperators(derham, domain)
 
@@ -532,9 +532,9 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
     e = _phi.spline.ends
 
     # create 2.5d deRham object
-    Nel_new = [Nel[0], Nel[1], 1]
+    num_elements_new = [num_elements[0], num_elements[1], 1]
     p[2] = 1
-    derham = Derham(Nel_new, p=p, bcs=bcs, comm=comm)
+    derham = Derham(num_elements_new, p=p, bcs=bcs, comm=comm)
 
     mass_ops = WeightedMassOperators(derham, domain)
 
@@ -631,14 +631,14 @@ if __name__ == "__main__":
     mapping = ["Orthogonal", {"Lx": 4.0, "Ly": 2.0, "alpha": 0.1, "Lz": 3.0}]
     test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=True)
 
-    # Nel = [64, 64, 1]
+    # num_elements = [64, 64, 1]
     # p = [2, 2, 1]
     # bc_type = 'neumann'
     # #mapping = ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 3.}]
     # mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
-    # test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=True)
+    # test_poisson_M1perp_2d(num_elements, p, bc_type, mapping, show_plot=True)
 
-    # Nel = [64, 64, 16]
+    # num_elements = [64, 64, 16]
     # p = [2, 2, 1]
     # mapping = ["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}]
-    # test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=True)
+    # test_poisson_M1perp_3d_compare_2p5d(num_elements, p, mapping, show_plot=True)

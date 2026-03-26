@@ -1501,15 +1501,15 @@ class FaradayExtended(Propagator):
         ]
 
         # Initialize Accumulator object for getting density from particles
-        self._pts_x = 1.0 / (2.0 * self.derham.Nel[0]) * xp.polynomial.legendre.leggauss(
+        self._pts_x = 1.0 / (2.0 * self.derham.num_elements[0]) * xp.polynomial.legendre.leggauss(
             self._nqs[0],
-        )[0] + 1.0 / (2.0 * self.derham.Nel[0])
-        self._pts_y = 1.0 / (2.0 * self.derham.Nel[1]) * xp.polynomial.legendre.leggauss(
+        )[0] + 1.0 / (2.0 * self.derham.num_elements[0])
+        self._pts_y = 1.0 / (2.0 * self.derham.num_elements[1]) * xp.polynomial.legendre.leggauss(
             self._nqs[1],
-        )[0] + 1.0 / (2.0 * self.derham.Nel[1])
-        self._pts_z = 1.0 / (2.0 * self.derham.Nel[2]) * xp.polynomial.legendre.leggauss(
+        )[0] + 1.0 / (2.0 * self.derham.num_elements[1])
+        self._pts_z = 1.0 / (2.0 * self.derham.num_elements[2]) * xp.polynomial.legendre.leggauss(
             self._nqs[2],
-        )[0] + 1.0 / (2.0 * self.derham.Nel[2])
+        )[0] + 1.0 / (2.0 * self.derham.num_elements[2])
 
         self._p_shape = params["shape_degree"]
         self._p_size = params["shape_size"]
@@ -1547,7 +1547,7 @@ class FaradayExtended(Propagator):
 
         self._accum_density.accumulate(
             self._particles,
-            xp.array(self.derham.Nel),
+            xp.array(self.derham.num_elements),
             xp.array(self._nqs),
             xp.array(
                 self._pts_x,

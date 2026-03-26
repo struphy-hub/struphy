@@ -2,7 +2,7 @@ import pytest
 
 
 # Test matrix for several valid initialization modes of Derham.
-@pytest.mark.parametrize("Nel", [(4, 4, 6)])
+@pytest.mark.parametrize("num_elements", [(4, 4, 6)])
 @pytest.mark.parametrize(
     "init_kwargs, expected",
     [
@@ -97,7 +97,7 @@ import pytest
         ),
     ],
 )
-def test_psydac_derham(Nel, init_kwargs, expected):
+def test_psydac_derham(num_elements, init_kwargs, expected):
     """Test Derham initialization across multiple valid constructor configurations."""
 
     from feectools.ddm.mpi import mpi as MPI
@@ -107,9 +107,9 @@ def test_psydac_derham(Nel, init_kwargs, expected):
     from struphy.feec.psydac_derham import Derham
 
     comm = MPI.COMM_WORLD
-    derham = Derham(Nel, comm=comm, **init_kwargs)
+    derham = Derham(num_elements, comm=comm, **init_kwargs)
 
-    assert derham.Nel == tuple(Nel)
+    assert derham.num_elements == tuple(num_elements)
     assert derham.p == expected["p"]
     assert derham.bcs == expected["bcs"]
     assert derham.nquads == expected["nquads"]

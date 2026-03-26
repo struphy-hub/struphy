@@ -1,10 +1,10 @@
 import pytest
 
 
-@pytest.mark.parametrize("Nel", [[32, 1, 1], [1, 32, 1], [1, 1, 32], [31, 32, 1], [32, 1, 31], [1, 31, 32]])
+@pytest.mark.parametrize("num_elements", [[32, 1, 1], [1, 32, 1], [1, 1, 32], [31, 32, 1], [32, 1, 31], [1, 31, 32]])
 @pytest.mark.parametrize("p", [[1, 1, 1]])
-def test_lowdim_derham(Nel, p, do_plot=False):
-    """Test Nel=1 in various directions."""
+def test_lowdim_derham(num_elements, p, do_plot=False):
+    """Test num_elements=1 in various directions."""
 
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
@@ -17,11 +17,11 @@ def test_lowdim_derham(Nel, p, do_plot=False):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
-    print("Nel=", Nel)
+    print("num_elements=", num_elements)
     print("p=", p)
 
     # Psydac discrete Derham sequence
-    derham = Derham(Nel, p=p, comm=comm)
+    derham = Derham(num_elements, p=p, comm=comm)
 
     ############################
     ### TEST STENCIL VECTORS ###
@@ -81,7 +81,7 @@ def test_lowdim_derham(Nel, p, do_plot=False):
     e1 = 0.0
     e2 = 0.0
     e3 = 0.0
-    if Nel[0] > 1:
+    if num_elements[0] > 1:
         e1 = xp.linspace(0.0, 1.0, 100)
         e = e1
         c = 0
@@ -97,7 +97,7 @@ def test_lowdim_derham(Nel, p, do_plot=False):
 
         def dfz(x, y, z):
             return xp.zeros_like(x)
-    elif Nel[1] > 1:
+    elif num_elements[1] > 1:
         e2 = xp.linspace(0.0, 1.0, 100)
         e = e2
         c = 1
@@ -113,7 +113,7 @@ def test_lowdim_derham(Nel, p, do_plot=False):
 
         def dfz(x, y, z):
             return xp.zeros_like(y)
-    elif Nel[2] > 1:
+    elif num_elements[2] > 1:
         e3 = xp.linspace(0.0, 1.0, 100)
         e = e3
         c = 2

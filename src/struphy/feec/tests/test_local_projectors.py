@@ -15,7 +15,7 @@ from struphy.feec.psydac_derham import Derham
 from struphy.feec.utilities_local_projectors import get_one_spline, get_span_and_basis, get_values_and_indices_splines
 
 
-@pytest.mark.parametrize("Nel", [[14, 16, 18]])
+@pytest.mark.parametrize("num_elements", [[14, 16, 18]])
 @pytest.mark.parametrize("p", [[5, 4, 3]])
 @pytest.mark.parametrize(
     "bcs",
@@ -25,7 +25,7 @@ from struphy.feec.utilities_local_projectors import get_one_spline, get_span_and
         (None, ("free", "free"), ("free", "free")),
     ],
 )
-def test_local_projectors_compare_global(Nel, p, bcs):
+def test_local_projectors_compare_global(num_elements, p, bcs):
     """Tests the Local-projectors, by comparing them to the analytical function as well as to the global projectors."""
     # get global communicator
     comm = MPI.COMM_WORLD
@@ -33,7 +33,7 @@ def test_local_projectors_compare_global(Nel, p, bcs):
 
     timei = time.time()
     # create derham object
-    derham = Derham(Nel, p=p, bcs=bcs, comm=comm, local_projectors=True)
+    derham = Derham(num_elements, p=p, bcs=bcs, comm=comm, local_projectors=True)
     timef = time.time()
     print("Time for building Derham = " + str(timef - timei))
 
@@ -141,7 +141,7 @@ def test_local_projectors_convergence(direction, pi, bc_kind, do_plot=False):
         e2 = 0.0
         e3 = 0.0
         if direction == 0:
-            Nel = [Neli, 1, 1]
+            num_elements = [Neli, 1, 1]
             p = [pi, 1, 1]
             bcs = (bc_kind, None, None)
             e1 = xp.linspace(0.0, 1.0, 100)
@@ -151,7 +151,7 @@ def test_local_projectors_convergence(direction, pi, bc_kind, do_plot=False):
             def f(x, y, z):
                 return fun(x)
         elif direction == 1:
-            Nel = [1, Neli, 1]
+            num_elements = [1, Neli, 1]
             p = [1, pi, 1]
             bcs = (None, bc_kind, None)
             e2 = xp.linspace(0.0, 1.0, 100)
@@ -161,7 +161,7 @@ def test_local_projectors_convergence(direction, pi, bc_kind, do_plot=False):
             def f(x, y, z):
                 return fun(y)
         elif direction == 2:
-            Nel = [1, 1, Neli]
+            num_elements = [1, 1, Neli]
             p = [1, 1, pi]
             bcs = (None, None, bc_kind)
             e3 = xp.linspace(0.0, 1.0, 100)
@@ -171,7 +171,7 @@ def test_local_projectors_convergence(direction, pi, bc_kind, do_plot=False):
             def f(x, y, z):
                 return fun(z)
 
-        derham = Derham(Nel, p=p, bcs=bcs, comm=comm, local_projectors=True)
+        derham = Derham(num_elements, p=p, bcs=bcs, comm=comm, local_projectors=True)
 
         # loop over spaces
         for sp_id, sp_key in derham.space_to_form.items():
@@ -207,7 +207,7 @@ def test_local_projectors_convergence(direction, pi, bc_kind, do_plot=False):
                 plt.plot(e, f(e1, e2, e3), "o")
                 plt.plot(e, f_plot)
                 plt.xlabel(f"eta{c}")
-                plt.title(f"Nel[{c}] = {Nel[c]}")
+                plt.title(f"num_elements[{c}] = {num_elements[c]}")
 
             del P_Loc, out, field, vec, veco, field_vals
 
@@ -222,14 +222,14 @@ def test_local_projectors_convergence(direction, pi, bc_kind, do_plot=False):
 
         if sp_id in ("H1", "H1vec"):
             # Sometimes for very large number of elements the convergance rate falls of a bit since the error is already so small floating point impressions become relevant
-            # for those cases is better to compute the convergance rate using only the information of Nel with smaller number
+            # for those cases is better to compute the convergance rate using only the information of num_elements with smaller number
             if -m <= (pi + 1 - 0.1):
                 m = -xp.log2(errors[sp_id][1] / errors[sp_id][2])
             print(f"{sp_id =}, fitted convergence rate = {-m}, degree = {pi}")
             assert -m > (pi + 1 - 0.1)
         else:
             # Sometimes for very large number of elements the convergance rate falls of a bit since the error is already so small floating point impressions become relevant
-            # for those cases is better to compute the convergance rate using only the information of Nel with smaller number
+            # for those cases is better to compute the convergance rate using only the information of num_elements with smaller number
             if -m <= (pi - 0.1):
                 m = -xp.log2(errors[sp_id][1] / errors[sp_id][2])
             print(f"{sp_id =}, fitted convergence rate = {-m}, degree = {pi}")
@@ -241,10 +241,10 @@ def test_local_projectors_convergence(direction, pi, bc_kind, do_plot=False):
             plt.loglog(Nels, errors[sp_id])
             plt.loglog(Nels, line_for_rate_p1, "k--")
             plt.loglog(Nels, line_for_rate_p0, "k--")
-            plt.text(Nels[-2], line_for_rate_p1[-2], f"1/Nel^{rate_p1}")
-            plt.text(Nels[-2], line_for_rate_p0[-2], f"1/Nel^{rate_p0}")
+            plt.text(Nels[-2], line_for_rate_p1[-2], f"1/num_elements^{rate_p1}")
+            plt.text(Nels[-2], line_for_rate_p0[-2], f"1/num_elements^{rate_p0}")
             plt.title(f"{sp_id =}, degree = {pi}")
-            plt.xlabel("Nel")
+            plt.xlabel("num_elements")
 
     if do_plot and rank == 0:
         plt.show()
@@ -253,12 +253,12 @@ def test_local_projectors_convergence(direction, pi, bc_kind, do_plot=False):
 # Works only in one processor
 
 
-def aux_test_replication_of_basis(Nel, plist, bcs):
+def aux_test_replication_of_basis(num_elements, plist, bcs):
     """Tests that the local projectors do not alter the basis functions."""
     # get global communicator
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    derham = Derham(Nel, p=plist, comm=comm, local_projectors=True)
+    derham = Derham(num_elements, p=plist, comm=comm, local_projectors=True)
 
     # For B-splines
     sp_key = "0"
@@ -347,12 +347,12 @@ def aux_test_replication_of_basis(Nel, plist, bcs):
                 counter += 1
 
 
-@pytest.mark.parametrize("Nel", [[5, 4, 1]])
+@pytest.mark.parametrize("num_elements", [[5, 4, 1]])
 @pytest.mark.parametrize("plist", [[3, 2, 1]])
 @pytest.mark.parametrize("bcs", [(("free", "free"), None, None)])
 @pytest.mark.parametrize("out_sp_key", ["0", "1", "2", "3", "v"])
 @pytest.mark.parametrize("in_sp_key", ["0", "1", "2", "3", "v"])
-def test_basis_projection_operator_local(Nel, plist, bcs, out_sp_key, in_sp_key):
+def test_basis_projection_operator_local(num_elements, plist, bcs, out_sp_key, in_sp_key):
     import random
 
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
@@ -361,7 +361,7 @@ def test_basis_projection_operator_local(Nel, plist, bcs, out_sp_key, in_sp_key)
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     world_size = comm.Get_size()
-    derham = Derham(Nel, p=plist, bcs=bcs, comm=comm, local_projectors=True)
+    derham = Derham(num_elements, p=plist, bcs=bcs, comm=comm, local_projectors=True)
 
     # The first step to test our BasisProjectionOperatorLocal is to build the B and D spline functions in such a way that we can evaluate them in parallel.
     # We cannot us the fields of a derham space to do this since the evaluation of the splines in this way is a collective operation, and we want our functions
@@ -961,19 +961,19 @@ def test_basis_projection_operator_local(Nel, plist, bcs, out_sp_key, in_sp_key)
     print("BasisProjectionOperatorLocal test passed.")
 
 
-@pytest.mark.parametrize("Nel", [[40, 1, 1]])
+@pytest.mark.parametrize("num_elements", [[40, 1, 1]])
 @pytest.mark.parametrize("plist", [[5, 1, 1]])
 @pytest.mark.parametrize("bcs", [(("free", "free"), None, None)])
 @pytest.mark.parametrize("out_sp_key", ["0", "1", "2", "3", "v"])
 @pytest.mark.parametrize("in_sp_key", ["0", "1", "2", "3", "v"])
-def test_basis_projection_operator_local_new(Nel, plist, bcs, out_sp_key, in_sp_key, do_plot=False):
+def test_basis_projection_operator_local_new(num_elements, plist, bcs, out_sp_key, in_sp_key, do_plot=False):
     import random
 
     # get global communicator
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     world_size = comm.Get_size()
-    derham = Derham(Nel, p=plist, bcs=bcs, comm=comm, local_projectors=True)
+    derham = Derham(num_elements, p=plist, bcs=bcs, comm=comm, local_projectors=True)
 
     # Building the B-splines
     # We will need the FEM spline space that contains D-splines in all three directions.
@@ -1362,11 +1362,11 @@ def test_basis_projection_operator_local_new(Nel, plist, bcs, out_sp_key, in_sp_
 
 
 # Works only in one processor
-def aux_test_spline_evaluation(Nel, plist, bcs):
+def aux_test_spline_evaluation(num_elements, plist, bcs):
     # get global communicator
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    derham = Derham(Nel, p=plist, comm=comm, local_projectors=True)
+    derham = Derham(num_elements, p=plist, comm=comm, local_projectors=True)
 
     # The first step to test our BasisProjectionOperatorLocal is to build the B and D spline functions in such a way that we can evaluate them in parallel.
     # We cannot us the fields of a derham space to do this since the evaluation of the splines in this way is a collective operation, and we want our functions
@@ -1501,7 +1501,7 @@ def aux_test_spline_evaluation(Nel, plist, bcs):
 
 
 if __name__ == "__main__":
-    Nel = [14, 16, 18]
+    num_elements = [14, 16, 18]
     p = [5, 4, 3]
     bcs = (None, ("free", "free"), ("free", "free"))
-    test_local_projectors_compare_global(Nel, p, bcs)
+    test_local_projectors_compare_global(num_elements, p, bcs)

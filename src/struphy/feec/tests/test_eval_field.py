@@ -4,7 +4,7 @@ from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 
 
-@pytest.mark.parametrize("Nel", [[8, 9, 10]])
+@pytest.mark.parametrize("num_elements", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[3, 2, 4]])
 @pytest.mark.parametrize(
     "bcs",
@@ -14,7 +14,7 @@ from feectools.ddm.mpi import mpi as MPI
         (None, ("free", "free"), ("free", "free")),
     ],
 )
-def test_eval_field(Nel, p, bcs):
+def test_eval_field(num_elements, p, bcs):
     """Compares distributed array spline evaluation in Field object with legacy code."""
 
     from struphy import perturbations
@@ -27,7 +27,7 @@ def test_eval_field(Nel, p, bcs):
     rank = comm.Get_rank()
 
     # derham object
-    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
+    derham = Derham(num_elements, p=p, bcs=bcs, comm=comm)
 
     # fem field objects
     p0 = derham.create_spline_function("pressure", "H1")

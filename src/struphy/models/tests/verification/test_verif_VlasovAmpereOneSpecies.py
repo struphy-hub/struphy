@@ -44,7 +44,7 @@ def test_weak_Landau(do_plot: bool = False):
     domain = domains.Cuboid(r1=r1)
 
     # grid
-    grid = grids.TensorProductGrid(Nel=(32, 1, 1))
+    grid = grids.TensorProductGrid(num_elements=(32, 1, 1))
 
     # derham options
     derham_opts = DerhamOptions(p=(3, 1, 1))
@@ -113,7 +113,7 @@ def test_weak_Landau(do_plot: bool = False):
     # get parameters
     dt = time_opts.dt
     algo = time_opts.split_algo
-    Nel = grid.Nel
+    num_elements = grid.num_elements
     p = derham_opts.p
 
     # get scalar data
@@ -137,7 +137,7 @@ def test_weak_Landau(do_plot: bool = False):
             plt.plot(time, logE, label="numerical")
             plt.plot(time, xp.log10(E_exact(time)), label="exact")
             plt.legend()
-            plt.title(f"{dt=}, {algo=}, {Nel=}, {p=}, {ppc=}")
+            plt.title(f"{dt=}, {algo=}, {num_elements=}, {p=}, {ppc=}")
             plt.xlabel("time [m/c]")
             plt.plot(t_maxima[:5], maxima[:5], "r")
             plt.plot(t_maxima[:5], maxima[:5], "or", markersize=10)

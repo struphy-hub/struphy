@@ -86,6 +86,10 @@ class DiscreteDerham:
         spaces = (V0, V1, V2, V3)
         assert all(isinstance(space, (TensorFemSpace, VectorFemSpace)) for space in spaces)
 
+        self._V0 = V0
+        self._V1 = V1
+        self._V2 = V2
+        self._V3 = V3
         self._spaces = spaces
         self._dim = 3
 
@@ -502,7 +506,7 @@ class Derham:
 
     Parameters
     ----------
-    Nel : tuple[int, int, int]
+    num_elements : tuple[int, int, int]
         Number of elements in logical directions ``(eta_1, eta_2, eta_3)``.
 
     p : tuple[int, int, int], default=(1, 1, 1)
@@ -559,7 +563,7 @@ class Derham:
 
     def __init__(
         self,
-        Nel: tuple[int, int, int],
+        num_elements: tuple[int, int, int],
         *,
         p: tuple[int, int, int] = (1, 1, 1),
         bcs: tuple[
@@ -577,9 +581,9 @@ class Derham:
         domain: Domain | None = None,
     ):
         # number of elements and spline degrees in each direction
-        assert len(Nel) == 3
+        assert len(num_elements) == 3
         assert len(p) == 3
-        self._Nel = tuple(Nel)
+        self._num_elements = tuple(num_elements)
         self._p = tuple(p)
 
         # setting boundary conditions, default is periodic in all directions
@@ -644,7 +648,7 @@ class Derham:
         use_feectools = True
 
         derham = self.init_derham(
-            Nel,
+            num_elements,
             self.p,
             self.spl_kind,
             comm=self.comm,
@@ -842,9 +846,9 @@ class Derham:
     # Input arguments as properties
     # -----------------------------
     @property
-    def Nel(self) -> tuple[int, int, int]:
+    def num_elements(self) -> tuple[int, int, int]:
         """List of number of elements (=cells) in each direction."""
-        return self._Nel
+        return self._num_elements
 
     @property
     def p(self) -> tuple[int, int, int]:
@@ -1330,7 +1334,7 @@ class Derham:
     # --------------------------
     def init_derham(
         self,
-        Nel: tuple[int, int, int],
+        num_elements: tuple[int, int, int],
         p: tuple[int, int, int],
         spl_kind: tuple[bool, bool, bool],
         comm=None,
@@ -1341,7 +1345,7 @@ class Derham:
 
         Parameters
         ----------
-        Nel : tuple[int, int, int]
+        num_elements : tuple[int, int, int]
             Number of elements in each direction.
 
         p : tuple[int, int, int]
@@ -1362,10 +1366,10 @@ class Derham:
         """
 
         if use_feectools:
-            self._domain_decomposition = DomainDecomposition(Nel, spl_kind, comm=comm, mpi_dims_mask=mpi_dims_mask)
+            self._domain_decomposition = DomainDecomposition(num_elements, spl_kind, comm=comm, mpi_dims_mask=mpi_dims_mask)
 
             _derham = self._discretize_derham(
-                Nel,
+                num_elements,
                 p,
                 spl_kind,
                 self.domain_decomposition,
@@ -1391,7 +1395,7 @@ class Derham:
             # discrete logical domain : the parallelism is initiated here.
             self._domain_log_h = discretize(
                 self._domain_log,
-                ncells=Nel,
+                ncells=num_elements,
                 comm=comm,
                 periodic=spl_kind,
                 mpi_dims_mask=mpi_dims_mask,
@@ -1494,7 +1498,7 @@ class Derham:
     # --------------------------
     def _discretize_derham(
         self,
-        Nel: tuple[int, int, int],
+        num_elements: tuple[int, int, int],
         p: tuple[int, int, int],
         spl_kind: tuple[bool, bool, bool],
         ddm: DomainDecomposition,
@@ -1503,7 +1507,7 @@ class Derham:
 
         Parameters
         ----------
-        Nel : list[int]
+        num_elements : list[int]
             Number of elements in each direction.
 
         p : list[int]
@@ -1523,7 +1527,7 @@ class Derham:
             self._discretize_space(
                 V,
                 basis,
-                Nel,
+                num_elements,
                 p,
                 spl_kind,
                 ddm,
@@ -1537,7 +1541,7 @@ class Derham:
         self,
         V: str,
         basis: str,
-        Nel: tuple[int, int, int],
+        num_elements: tuple[int, int, int],
         degree: tuple[int, int, int],
         spl_kind: tuple[bool, bool, bool],
         ddm: DomainDecomposition,
@@ -1553,7 +1557,7 @@ class Derham:
         basis: str
             Either 'B' (B-splines) or 'M' (D-splines).
 
-        Nel : tuple[int, int, int]
+        num_elements : tuple[int, int, int]
             Number of elements in each direction.
 
         degree : tuple[int, int, int]
@@ -1585,7 +1589,7 @@ class Derham:
             The discrete FEM space.
         """
 
-        ncells = Nel
+        ncells = num_elements
         periodic = spl_kind
         degree_i = degree
         multiplicity_i = (1, 1, 1)
@@ -3385,7 +3389,7 @@ def get_pts_and_wts_quasi(
 
         # histopolation
         elif space_1d.basis == "M":
-            # The computation of histopolation points breaks in case we have Nel=1 and periodic boundary conditions since we end up with only one x_grid point.
+            # The computation of histopolation points breaks in case we have num_elements=1 and periodic boundary conditions since we end up with only one x_grid point.
             # We need to build the histopolation points by hand in this scenario.
             if p == 0 and h == 1.0:
                 x_grid = xp.array([0.0, 0.5, 1.0])
@@ -3626,7 +3630,7 @@ def get_weights_local_projector(pts, fem_space):
 
             # We need to consider the case in which our minicollocation matrix ends up being just one number
             if xp.shape(minicol)[0] == 1:
-                # There seems to be a bug with the bsp.collocation_matrix function for the case Nel = 1, p = 1 and periodic, when evaluating the only B-spline at 0 the answer should be 1 not 0.
+                # There seems to be a bug with the bsp.collocation_matrix function for the case num_elements = 1, p = 1 and periodic, when evaluating the only B-spline at 0 the answer should be 1 not 0.
                 if p == 1 and Nbasis == 1:
                     minicol[0] = 1.0
                 invmini = 1.0 / minicol[0]

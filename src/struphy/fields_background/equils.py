@@ -2070,7 +2070,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
         Whether the field periods of the stellarator should be used in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake) (default: True).
     rmin : float
         Between [0, 1), radius (in logical space) of the domian hole around the magnetic axis (default: rmin=0.01).
-    Nel : tuple[int]
+    num_elements : tuple[int]
         Number of cells in each direction used for interpolation of the mapping (default: (16, 16, 16)).
     p : tuple[int]
         Spline degree in each direction used for interpolation of the mapping (default: (3, 3, 3)).
@@ -2098,7 +2098,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
         use_boozer: bool = False,
         use_nfp: bool = True,
         rmin: float = 0.01,
-        Nel: tuple[int] = (16, 16, 16),
+        num_elements: tuple[int] = (16, 16, 16),
         p: tuple[int] = (3, 3, 3),
         density_profile: str = "pressure",
         p0: float = 0.1,
@@ -2354,7 +2354,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
         Whether the field periods of the stellarator should be used in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake) (default: True).
     rmin : float
         Between [0, 1), radius (in logical space) of the domian hole around the magnetic axis (default: rmin=0.01).
-    Nel : tuple[int]
+    num_elements : tuple[int]
         Number of cells in each direction used for interpolation of the mapping (default: (16, 16, 16)).
     p : tuple[int]
         Spline degree in each direction used for interpolation of the mapping (default: (3, 3, 3)).
@@ -2371,7 +2371,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
         use_pest: bool = False,
         use_nfp: bool = True,
         rmin: float = 0.01,
-        Nel: tuple[int] = (16, 16, 50),
+        num_elements: tuple[int] = (16, 16, 50),
         p: tuple[int] = (3, 3, 3),
         T_kelvin: float = 100000.0,
         base_units: BaseUnits = None,

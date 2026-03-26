@@ -1,7 +1,7 @@
 import pytest
 
 
-@pytest.mark.parametrize("Nel", [[8, 12, 4]])
+@pytest.mark.parametrize("num_elements", [[8, 12, 4]])
 @pytest.mark.parametrize("p", [[2, 3, 2]])
 @pytest.mark.parametrize(
     "bcs",
@@ -11,7 +11,7 @@ import pytest
     ],
 )
 @pytest.mark.parametrize("mapping", [["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}]])
-def test_some_basis_ops(Nel, p, bcs, mapping):
+def test_some_basis_ops(num_elements, p, bcs, mapping):
     """Tests the MHD specific projection operators PI_ijk(fun*Lambda_mno).
 
     Here, PI_ijk is the commuting projector of the output space (codomain),
@@ -42,11 +42,11 @@ def test_some_basis_ops(Nel, p, bcs, mapping):
     n_quad_el = [5, 5, 5]
     n_quad_pr = [4, 4, 4]
 
-    DERHAM_PSY = Derham(Nel, p=p, bcs=bcs, nq_pr=n_quad_pr, nquads=n_quad_el, comm=MPI_COMM)
+    DERHAM_PSY = Derham(num_elements, p=p, bcs=bcs, nq_pr=n_quad_pr, nquads=n_quad_el, comm=MPI_COMM)
 
     # grid parameters
     if mpi_rank == 0:
-        print(f"Rank {mpi_rank} | Nel: {Nel}")
+        print(f"Rank {mpi_rank} | num_elements: {num_elements}")
         print(f"Rank {mpi_rank} | p: {p}")
         print(f"Rank {mpi_rank} | bcs: {bcs}")
         print(f"Rank {mpi_rank} | ")
@@ -253,7 +253,7 @@ def test_some_basis_ops(Nel, p, bcs, mapping):
     res_PSY = X1T.dot(x0vec_st)
 
 
-@pytest.mark.parametrize("Nel", [[6, 9, 7]])
+@pytest.mark.parametrize("num_elements", [[6, 9, 7]])
 @pytest.mark.parametrize("p", [[2, 2, 3]])
 @pytest.mark.parametrize(
     "bcs",
@@ -266,7 +266,7 @@ def test_some_basis_ops(Nel, p, bcs, mapping):
     ],
 )
 @pytest.mark.parametrize("mapping", [["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}]])
-def test_basis_ops_polar(Nel, p, bcs, mapping, show_plots=False):
+def test_basis_ops_polar(num_elements, p, bcs, mapping, show_plots=False):
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
 
@@ -285,12 +285,12 @@ def test_basis_ops_polar(Nel, p, bcs, mapping, show_plots=False):
 
     # mapping
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class(**{"Nel": Nel[:2], "p": p[:2], "a": mapping[1]["a"], "Lz": mapping[1]["Lz"]})
+    domain = domain_class(**{"num_elements": num_elements[:2], "p": p[:2], "a": mapping[1]["a"], "Lz": mapping[1]["Lz"]})
 
     if show_plots:
         import matplotlib.pyplot as plt
 
-        domain.show(grid_info=Nel)
+        domain.show(grid_info=num_elements)
 
     # load MHD equilibrium
     eq_mhd = ScrewPinch(
@@ -317,7 +317,7 @@ def test_basis_ops_polar(Nel, p, bcs, mapping, show_plots=False):
     nq_pr = p.copy()
 
     derham = Derham(
-        Nel,
+        num_elements,
         p=p,
         bcs=bcs,
         nquads=p,
@@ -521,7 +521,7 @@ def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
     if MPI_COMM is not None:
         MPI_COMM.Barrier()
 
-    # Compare results. (Works only for Nel=[N, N, N] so far! TODO: Find this bug!)
+    # Compare results. (Works only for num_elements=[N, N, N] so far! TODO: Find this bug!)
     assert xp.allclose(
         res_PSY[
             res_PSY.starts[0] : res_PSY.ends[0] + 1,

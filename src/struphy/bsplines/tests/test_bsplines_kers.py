@@ -5,7 +5,7 @@ import pytest
 from feectools.ddm.mpi import mpi as MPI
 
 
-@pytest.mark.parametrize("Nel", [[8, 9, 10]])
+@pytest.mark.parametrize("num_elements", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[1, 2, 1], [2, 1, 2], [3, 4, 3]])
 @pytest.mark.parametrize(
     "bcs",
@@ -15,7 +15,7 @@ from feectools.ddm.mpi import mpi as MPI
         (None, ("free", "free"), ("free", "free")),
     ],
 )
-def test_bsplines_span_and_basis(Nel, p, bcs):
+def test_bsplines_span_and_basis(num_elements, p, bcs):
     """
     Compare Struphy and Psydac bsplines kernels for knot spans and basis values computation.
     Print timings.
@@ -31,7 +31,7 @@ def test_bsplines_span_and_basis(Nel, p, bcs):
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
-    derham = Derham(Nel, p=p, bcs=bcs, comm=comm)
+    derham = Derham(num_elements, p=p, bcs=bcs, comm=comm)
 
     # knot vectors
     tn1, tn2, tn3 = derham.V0fem.knots
