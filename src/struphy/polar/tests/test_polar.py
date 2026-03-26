@@ -13,8 +13,12 @@ import pytest
 def test_spaces(num_elements, degree, bcs):
     from struphy.feec.psydac_derham import Derham
     from struphy.polar.basic import PolarDerhamSpace, PolarVector
-
-    derham = Derham(num_elements, degree=degree, bcs=bcs)
+    from struphy.topology.grids import TensorProductGrid
+    from struphy.io.options import DerhamOptions
+    
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts)
 
     print("polar V0:")
     V = PolarDerhamSpace(derham, "H1")
@@ -188,6 +192,8 @@ def test_extraction_ops_and_derivatives(num_elements, degree, bcs):
     from struphy.polar.basic import PolarDerhamSpace, PolarVector
     from struphy.polar.extraction_operators import PolarExtractionBlocksC1
     from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
+    from struphy.topology.grids import TensorProductGrid
+    from struphy.io.options import DerhamOptions
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -198,7 +204,9 @@ def test_extraction_ops_and_derivatives(num_elements, degree, bcs):
     domain = IGAPolarCylinder(**params_map)
 
     # create de Rham sequence
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm, polar_splines=True, domain=domain, with_projectors=False,)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs, polar_splines=True)
+    derham = Derham(grid, derham_opts, comm=comm, domain=domain)
 
     # create legacy FEM spaces
 
@@ -299,6 +307,8 @@ def test_projectors(num_elements, degree, bcs):
 
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry.domains import IGAPolarCylinder
+    from struphy.topology.grids import TensorProductGrid
+    from struphy.io.options import DerhamOptions
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -309,7 +319,9 @@ def test_projectors(num_elements, degree, bcs):
     domain = IGAPolarCylinder(**params_map)
 
     # create polar de Rham sequence
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm, nquads_proj=[6, 6, 6], polar_splines=True, domain=domain,)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs, nquads_proj=[6, 6, 6], polar_splines=True)
+    derham = Derham(grid, derham_opts, comm=comm, domain=domain)
 
     if rank == 0:
         print()

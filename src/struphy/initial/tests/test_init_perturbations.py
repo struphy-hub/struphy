@@ -29,6 +29,8 @@ def test_init_modes(num_elements, degree, bcs, mapping, combine_comps=None, do_p
     from struphy.geometry.base import Domain
     from struphy.initial.base import Perturbation
     from struphy.models.variables import FEECVariable
+    from struphy.topology.grids import TensorProductGrid
+    from struphy.io.options import DerhamOptions
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -39,7 +41,9 @@ def test_init_modes(num_elements, degree, bcs, mapping, combine_comps=None, do_p
     assert isinstance(domain, Domain)
 
     # Derham
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid=grid, options=derham_opts, comm=comm)
 
     fields = {}
     for space, form in derham.space_to_form.items():

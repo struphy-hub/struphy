@@ -48,6 +48,8 @@ def test_draw(num_elements, degree, bcs, mapping, ppc=10):
     from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
     from struphy.feec.psydac_derham import Derham
     from struphy.pic.particles import Particles6D
+    from struphy.topology.grids import TensorProductGrid
+    from struphy.io.options import DerhamOptions
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -59,7 +61,9 @@ def test_draw(num_elements, degree, bcs, mapping, ppc=10):
     domain = domain_class(**mapping[1])
 
     # Psydac discrete Derham sequence
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs

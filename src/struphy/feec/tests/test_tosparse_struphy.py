@@ -29,6 +29,8 @@ def test_tosparse_struphy(num_elements, degree, bcs, mapping):
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.topology.grids import TensorProductGrid
+    from struphy.io.options import DerhamOptions
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -41,6 +43,8 @@ def test_tosparse_struphy(num_elements, degree, bcs, mapping):
     domain = domain_class(**dom_params)
 
     # create derham object
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
     derham = Derham(num_elements, degree=degree, bcs=bcs, comm=MPI.COMM_WORLD)
 
     # assemble mass matrices in V0 and V1

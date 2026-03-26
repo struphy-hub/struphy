@@ -26,6 +26,8 @@ def test_toarray_struphy(num_elements, degree, bcs, mapping):
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
+    from struphy.topology.grids import TensorProductGrid
+    from struphy.io.options import DerhamOptions
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -39,7 +41,9 @@ def test_toarray_struphy(num_elements, degree, bcs, mapping):
     domain = domain_class(**dom_params)
 
     # create derham object
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # assemble mass matrices in V0 and V1
     mass = WeightedMassOperators(derham, domain)

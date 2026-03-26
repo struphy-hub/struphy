@@ -7,6 +7,8 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
 from struphy.feec.psydac_derham import Derham
 from struphy.pic.particles import Particles6D
+from struphy.topology.grids import TensorProductGrid
+from struphy.io.options import DerhamOptions
 
 
 @pytest.mark.parametrize("nx", [8, 70])
@@ -109,7 +111,10 @@ def test_sorting(num_elements, degree, bcs, mapping, Np, verbose=False):
     domain = domain_class(**dom_params)
 
     # DeRham object
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=mpi_comm)
+    
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=mpi_comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs

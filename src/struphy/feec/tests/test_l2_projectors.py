@@ -9,6 +9,9 @@ from struphy import domains
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.projectors import L2Projector
 from struphy.feec.psydac_derham import Derham
+from struphy.io.options import DerhamOptions
+from struphy.topology.grids import TensorProductGrid
+
 
 
 @pytest.mark.parametrize("num_elements", [[16, 32, 1]])
@@ -25,7 +28,9 @@ def test_l2_projectors_mappings(num_elements, degree, bcs, array_input, with_gve
     rank = comm.Get_rank()
 
     # create derham object
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # constant function
     f = lambda e1, e2, e3: xp.sin(xp.pi * e1) * xp.cos(2 * xp.pi * e2)
@@ -176,7 +181,9 @@ def test_l2_projectors_convergence(direction, pi, bc_kind, do_plot=False):
             def f(x, y, z):
                 return fun(z)
 
-        derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
+        grid = TensorProductGrid(num_elements=num_elements)
+        derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+        derham = Derham(grid, derham_opts, comm=comm)
 
         # create domain object
         dom_type = "Cuboid"

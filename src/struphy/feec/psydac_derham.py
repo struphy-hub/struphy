@@ -38,11 +38,12 @@ from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial import perturbations, utilities
 from struphy.initial.base import Perturbation
 from struphy.initial.perturbations import Noise
-from struphy.io.options import FieldsBackground, LiteralOptions
+from struphy.io.options import FieldsBackground, LiteralOptions, DerhamOptions
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
+from struphy.topology.grids import TensorProductGrid
 
 NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
 
@@ -506,50 +507,17 @@ class Derham:
 
     Parameters
     ----------
-    num_elements : tuple[int, int, int]
-        Number of elements in logical directions ``(eta_1, eta_2, eta_3)``.
+    grid : TensorProductGrid
+        The FEEC grid.
 
-    degree : tuple[int, int, int], default=(1, 1, 1)
-        B-spline degree in each logical direction.
+    comm: Intracomm
+        MPI communicator (sub_comm if clones are used).
 
-    bcs : tuple[
-        None | tuple[NonTrivialBC, NonTrivialBC],
-        None | tuple[NonTrivialBC, NonTrivialBC],
-        None | tuple[NonTrivialBC, NonTrivialBC],
-    ], default=(None, None, None)
-        Boundary conditions for each direction. ``None`` means periodic in that
-        direction; otherwise provide ``(left, right)`` with values such as
-        ``"free"`` or ``"hom_dirichlet"``.
+    domain : Domain, optional
+        The Struphy domain object for evaluating the mapping F : [0, 1]^3 --> R^3 and the corresponding metric coefficients.
 
-    nquads : tuple[int, int, int] | None, default=None
-        Number of Gauss-Legendre quadrature points used for quadrature grids.
-        If ``None``, defaults to ``degree + 1`` per direction.
-
-    nquads_proj : tuple[int, int, int] | None, default=None
-        Number of quadrature points used to build projector point/weight sets.
-        If ``None``, defaults to ``degree + 1`` per direction.
-
-    comm : mpi4py.MPI.Intracomm | None, default=None
-        MPI communicator. If ``None``, computations run in serial mode.
-
-    mpi_dims_mask : tuple[bool, bool, bool], default=(True, True, True)
-        Mask controlling which logical directions participate in MPI domain
-        decomposition.
-
-    with_projectors : bool, default=True
-        If ``True``, assemble commuting projectors.
-
-    polar_splines : bool, default=False
-        Polar regularity flag. Allowed values are ``False`` (standard tensor
-        product spaces) and ``True`` (C1 polar spline spaces/operators).
-
-    local_projectors : bool, default=False
-        If ``True``, build local quasi-interpolation/histopolation projectors
-        and expose them as the active ``P0``/``P1``/``P2``/``P3``/``Pv``.
-
-    domain : Domain | None, default=None
-        Physical mapping from logical to physical coordinates. Required when
-        ``polar_splines is True``.
+    verbose : bool
+        Show info on screen.
 
     Notes
     -----
@@ -563,23 +531,30 @@ class Derham:
 
     def __init__(
         self,
-        num_elements: tuple[int, int, int],
-        *,
-        degree: tuple[int, int, int] = (1, 1, 1),
-        bcs: tuple[
-            None | tuple[NonTrivialBC, NonTrivialBC],
-            None | tuple[NonTrivialBC, NonTrivialBC],
-            None | tuple[NonTrivialBC, NonTrivialBC],
-        ] = (None, None, None),
-        nquads: tuple[int, int, int] | None = None,
-        nquads_proj: tuple[int, int, int] | None = None,
-        comm=None,
-        mpi_dims_mask: tuple[bool, bool, bool] = (True, True, True),
-        with_projectors: bool = True,
-        polar_splines: bool = False,
-        local_projectors: bool = False,
-        domain: Domain | None = None,
+        grid: TensorProductGrid,
+        options: DerhamOptions,
+        comm: MPI.Intracomm = None,
+        domain: Domain = None,
+        verbose=False,
     ):
+        
+        # number of grid cells
+        num_elements = grid.num_elements
+        # mpi coeff decomposition
+        mpi_dims_mask = grid.mpi_dims_mask
+        # spline degrees
+        degree = options.degree
+        # boundary conditions
+        bcs = options.bcs
+        # Number of quadrature points per histopolation cell
+        nquads_proj = options.nquads_proj
+        # Number of quadrature points per grid cell for L^2
+        nquads = options.nquads
+        # C^k smoothness at eta_1=0 for polar domains
+        polar_splines = options.polar_splines
+        # local commuting projectors
+        local_projectors = options.local_projectors
+
         # number of elements and spline degrees in each direction
         assert len(num_elements) == 3
         assert len(degree) == 3
@@ -631,6 +606,7 @@ class Derham:
         # Other inputs
         self._comm = comm
         self._mpi_dims_mask = mpi_dims_mask
+        with_projectors = True  # projectors are always built in the current implementation, but this flag can be used to skip their construction if not needed
         self._with_projectors = with_projectors
         self._with_local_projectors = local_projectors
         self._domain = domain
@@ -840,6 +816,20 @@ class Derham:
             self.V0fem.knots[2],
             xp.array(self.V0.starts),
         )
+        
+        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
+            print("\nDERHAM:")
+            print("number of elements:".ljust(25), num_elements)
+            print("spline degrees:".ljust(25), degree)
+            print("boundary conditions:".ljust(25), bcs)
+            print("GL quad pts (L2):".ljust(25), nquads)
+            print("GL quad pts (hist):".ljust(25), nquads_proj)
+            print(
+                "MPI proc. per dir.:".ljust(25),
+                self.domain_decomposition.nprocs,
+            )
+            print("use polar splines:".ljust(25), self.polar_splines)
+            print("domain on process 0:".ljust(25), self.domain_array[0])
 
     # -----------------------------
     # Input arguments as properties

@@ -20,6 +20,8 @@ def test_1d(num_elements, degree, bcs, domain_ind, codomain_ind):
 
     from struphy.feec.psydac_derham import Derham
     from struphy.linear_algebra.stencil_dot_kernels import matvec_1d_kernel
+    from struphy.topology.grids import TensorProductGrid
+    from struphy.io.options import DerhamOptions
 
     # only for M1 Mac users
     PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
@@ -36,7 +38,9 @@ def test_1d(num_elements, degree, bcs, domain_ind, codomain_ind):
         print("codomain_ind=", codomain_ind)
 
     # Psydac discrete Derham sequence
-    derham = Derham([num_elements] * 3, degree=[degree] * 3, bcs=bcs, comm=comm)
+    grid = TensorProductGrid(num_elements=[num_elements] * 3)
+    derham_opts = DerhamOptions(degree=[degree] * 3, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
     V0 = derham.V0
 
     V0_fem = derham.V0fem
@@ -141,6 +145,8 @@ def test_3d(num_elements, degree, bcs, domain_ind, codomain_ind):
 
     from struphy.feec.psydac_derham import Derham
     from struphy.linear_algebra.stencil_dot_kernels import matvec_3d_kernel
+    from struphy.topology.grids import TensorProductGrid
+    from struphy.io.options import DerhamOptions
 
     # only for M1 Mac users
     PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
@@ -157,7 +163,9 @@ def test_3d(num_elements, degree, bcs, domain_ind, codomain_ind):
         print("codomain_ind=", codomain_ind)
 
     # Psydac discrete Derham sequence
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     spaces_3d = {}
     spaces_3d["NNN"] = derham.V0fem

@@ -13,6 +13,8 @@ def test_lowdim_derham(num_elements, degree, do_plot=False):
     from matplotlib import pyplot as plt
 
     from struphy.feec.psydac_derham import Derham
+    from struphy.topology.grids import TensorProductGrid
+    from struphy.io.options import DerhamOptions
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -21,7 +23,9 @@ def test_lowdim_derham(num_elements, degree, do_plot=False):
     print("degree=", degree)
 
     # Psydac discrete Derham sequence
-    derham = Derham(num_elements, degree=degree, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     ############################
     ### TEST STENCIL VECTORS ###

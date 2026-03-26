@@ -12,6 +12,8 @@ from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.propagators.propagators_fields import ImplicitDiffusion
+from struphy.topology.grids import TensorProductGrid
+from struphy.io.options import DerhamOptions
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -119,7 +121,9 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
 
             # create derham object
             print(f"{bcs =}")
-            derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
+            grid = TensorProductGrid(num_elements=num_elements)
+            derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+            derham = Derham(grid, derham_opts, comm=comm)
 
             # mass matrices
             mass_ops = WeightedMassOperators(derham, domain)
@@ -310,7 +314,9 @@ def test_poisson_M1perp_2d(num_elements, degree, bc_type, mapping, projected_rhs
             return xp.cos(xp.pi / Lx * x) * (xp.pi / Lx) ** 2
 
     # create derham object
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # create weighted mass operators
     mass_ops = WeightedMassOperators(derham, domain)
@@ -482,7 +488,9 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
         return dd1 + dd2
 
     # create 3d derham object
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     mass_ops = WeightedMassOperators(derham, domain)
 
@@ -534,7 +542,10 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
     # create 2.5d deRham object
     num_elements_new = [num_elements[0], num_elements[1], 1]
     degree[2] = 1
-    derham = Derham(num_elements_new, degree=degree, bcs=bcs, comm=comm)
+    
+    grid = TensorProductGrid(num_elements=num_elements_new)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     mass_ops = WeightedMassOperators(derham, domain)
 

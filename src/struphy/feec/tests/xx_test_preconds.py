@@ -28,13 +28,17 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping):
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.preconditioner import MassMatrixPreconditioner
     from struphy.feec.psydac_derham import Derham
+    from struphy.topology.grids import TensorProductGrid
+    from struphy.io.options import DerhamOptions
 
     MPI_COMM = MPI.COMM_WORLD
 
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(mapping[1])
 
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=MPI_COMM)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=MPI_COMM)
     derham_spaces = [derham.V0, derham.V1, derham.V2, derham.V3, derham.V0vec]
 
     # assemble mass matrices in V0, V1, V2 and V3

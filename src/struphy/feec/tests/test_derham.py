@@ -61,7 +61,6 @@ import pytest
                 "nquads": (4, 5, 6),
                 "nquads_proj": (5, 6, 7),
                 "mpi_dims_mask": (True, False, True),
-                "with_projectors": False,
             },
             {
                 "degree": (1, 2, 3),
@@ -69,7 +68,7 @@ import pytest
                 "nquads": (4, 5, 6),
                 "nquads_proj": (5, 6, 7),
                 "mpi_dims_mask": (True, False, True),
-                "with_projectors": False,
+                "with_projectors": True,
                 "with_local_projectors": False,
                 "spl_kind": (False, True, False),
                 "dirichlet_bc": ((False, True), (False, False), (True, False)),
@@ -105,9 +104,13 @@ def test_psydac_derham(num_elements, init_kwargs, expected):
     from feectools.linalg.stencil import StencilVector
 
     from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
-    derham = Derham(num_elements, comm=comm, **init_kwargs)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(**init_kwargs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     assert derham.num_elements == tuple(num_elements)
     assert derham.degree == expected["degree"]

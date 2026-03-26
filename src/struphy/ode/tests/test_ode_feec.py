@@ -29,13 +29,17 @@ def test_exp_growth(spaces, algo, show_plots=False):
     from struphy.feec.psydac_derham import Derham
     from struphy.ode.solvers import ODEsolverFEEC
     from struphy.ode.utils import ButcherTableau
+    from struphy.topology.grids import TensorProductGrid
+    from struphy.io.options import DerhamOptions
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
     num_elements = [1, 8, 9]
     degree = [1, 2, 3]
-    derham = Derham(num_elements, degree=degree, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     c0 = 1.2
     omega = 2.3

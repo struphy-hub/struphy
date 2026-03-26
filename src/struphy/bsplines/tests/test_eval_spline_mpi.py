@@ -24,12 +24,16 @@ def test_eval_kernels(num_elements, degree, bcs, n_markers=10):
     from struphy.bsplines.evaluation_kernels_3d import evaluation_kernel_3d as eval3d
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays as cera
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # derham attributes
     tn1, tn2, tn3 = derham.V0fem.knots
@@ -225,12 +229,16 @@ def test_eval_pointwise(num_elements, degree, bcs, n_markers=10):
     from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi, evaluate_3d
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays as cera
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # derham attributes
     tn1, tn2, tn3 = derham.V0fem.knots
@@ -548,12 +556,16 @@ def test_eval_tensor_product(num_elements, degree, bcs, n_markers=10):
     )
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays as cera
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # derham attributes
     tn1, tn2, tn3 = derham.V0fem.knots
@@ -711,12 +723,16 @@ def test_eval_tensor_product_grid(num_elements, degree, bcs, n_markers=10):
     from struphy.feec.basis_projection_ops import prepare_projection_of_basis
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays as cera
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # derham attributes
     tn1, tn2, tn3 = derham.V0fem.knots

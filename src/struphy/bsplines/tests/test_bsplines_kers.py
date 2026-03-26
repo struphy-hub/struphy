@@ -26,12 +26,16 @@ def test_bsplines_span_and_basis(num_elements, degree, bcs):
     import struphy.bsplines.bsplines_kernels as bsp
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays as cera
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # knot vectors
     tn1, tn2, tn3 = derham.V0fem.knots

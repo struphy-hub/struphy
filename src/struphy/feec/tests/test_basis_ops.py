@@ -28,6 +28,8 @@ def test_some_basis_ops(num_elements, degree, bcs, mapping):
     from struphy.feec.basis_projection_ops import BasisProjectionOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.fields_background.equils import HomogenSlab
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     # mpi communicator
     MPI_COMM = MPI.COMM_WORLD
@@ -42,7 +44,9 @@ def test_some_basis_ops(num_elements, degree, bcs, mapping):
     n_quad_el = [5, 5, 5]
     n_quad_pr = [4, 4, 4]
 
-    DERHAM_PSY = Derham(num_elements, degree=degree, bcs=bcs, nquads_proj=n_quad_pr, nquads=n_quad_el, comm=MPI_COMM)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs, nquads=n_quad_el, nquads_proj=n_quad_pr)
+    DERHAM_PSY = Derham(grid, derham_opts, comm=MPI_COMM)
 
     # grid parameters
     if mpi_rank == 0:
@@ -276,6 +280,8 @@ def test_basis_ops_polar(num_elements, degree, bcs, mapping, show_plots=False):
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
     from struphy.fields_background.equils import ScrewPinch
     from struphy.polar.basic import PolarVector
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -316,15 +322,12 @@ def test_basis_ops_polar(num_elements, degree, bcs, mapping, show_plots=False):
     nq_el = [degree[0] + 1, degree[1] + 1, degree[2] + 1]
     nquads_proj = degree.copy()
 
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs, nquads=degree, nquads_proj=nquads_proj, polar_splines=True,)
     derham = Derham(
-        num_elements,
-        degree=degree,
-        bcs=bcs,
-        nquads=degree,
-        nquads_proj=nquads_proj,
+        grid,
+        derham_opts,
         comm=mpi_comm,
-        with_projectors=True,
-        polar_splines=True,
         domain=domain,
     )
 

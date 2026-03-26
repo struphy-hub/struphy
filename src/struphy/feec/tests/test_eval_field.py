@@ -22,12 +22,16 @@ def test_eval_field(num_elements, degree, bcs):
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays
     from struphy.geometry.base import Domain
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
     # derham object
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # fem field objects
     p0 = derham.create_spline_function("pressure", "H1")

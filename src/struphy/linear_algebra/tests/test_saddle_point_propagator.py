@@ -22,6 +22,8 @@ def test_propagator1D(num_elements, degree, bcs, mapping, epsilon, dt):
     from struphy.fields_background.equils import HomogenSlab
     from struphy.models.variables import FEECVariable
     from struphy.propagators.propagators_fields import TwoFluidQuasiNeutralFull
+    from struphy.topology.grids import TensorProductGrid
+    from struphy.io.options import DerhamOptions
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -35,17 +37,14 @@ def test_propagator1D(num_elements, degree, bcs, mapping, epsilon, dt):
 
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
+    
     # derham object
+    grid = TensorProductGrid(num_elements=num_elements, mpi_dims_mask=dims_mask)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs, nquads=nq_el, nquads_proj=nquads_proj, polar_splines=polar_splines)
     derham = Derham(
-        num_elements,
-        degree=degree,
-        bcs=bcs,
+        grid,
+        derham_opts,
         comm=mpi_comm,
-        local_projectors=False,
-        mpi_dims_mask=dims_mask,
-        nquads=nq_el,
-        nquads_proj=nquads_proj,
-        polar_splines=polar_splines,
         domain=domain,
     )
     # Mhd equilibirum (slab)
@@ -243,17 +242,16 @@ def test_propagator2D(num_elements, degree, bcs, mapping, epsilon, dt):
 
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
+    
     # derham object
+    from struphy.topology.grids import TensorProductGrid
+    from struphy.io.options import DerhamOptions
+    grid = TensorProductGrid(num_elements=num_elements, mpi_dims_mask=dims_mask)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs, nquads=nq_el, nquads_proj=nquads_proj, polar_splines=polar_splines)
     derham = Derham(
-        num_elements,
-        degree=degree,
-        bcs=bcs,
+        grid,
+        derham_opts,
         comm=mpi_comm,
-        local_projectors=False,
-        mpi_dims_mask=dims_mask,
-        nquads=nq_el,
-        nquads_proj=nquads_proj,
-        polar_splines=polar_splines,
         domain=domain,
     )
     # Mhd equilibirum (slab)

@@ -26,6 +26,8 @@ def test_mass(num_elements, degree, bcs, mapping, show_plots=False):
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import RotationMatrix, compare_arrays, create_equal_random_arrays
     from struphy.fields_background.equils import ScrewPinch, ShearedSlab
+    from struphy.topology.grids import TensorProductGrid
+    from struphy.io.options import DerhamOptions
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -102,7 +104,9 @@ def test_mass(num_elements, degree, bcs, mapping, show_plots=False):
     eq_mhd.domain = domain
 
     # derham object
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=mpi_comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=mpi_comm)
 
     print(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
 
@@ -318,6 +322,8 @@ def test_mass_polar(num_elements, degree, bcs, mapping, show_plots=False):
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.fields_background.equils import ScrewPinch
     from struphy.polar.basic import PolarVector
+    from struphy.topology.grids import TensorProductGrid
+    from struphy.io.options import DerhamOptions
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -360,13 +366,12 @@ def test_mass_polar(num_elements, degree, bcs, mapping, show_plots=False):
     eq_mhd.domain = domain
 
     # derham object
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs, polar_splines=True)
     derham = Derham(
-        num_elements,
-        degree=degree,
-        bcs=bcs,
+        grid,
+        derham_opts,
         comm=mpi_comm,
-        with_projectors=False,
-        polar_splines=True,
         domain=domain,
     )
 
@@ -460,6 +465,8 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.fields_background.equils import ScrewPinch, ShearedSlab
+    from struphy.topology.grids import TensorProductGrid
+    from struphy.io.options import DerhamOptions
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -536,7 +543,9 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
     eq_mhd.domain = domain
 
     # derham object
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=mpi_comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=mpi_comm)
 
     fem_spaces = [derham.V0fem, derham.V1fem, derham.V2fem, derham.V3fem, derham.Vvfem]
 
@@ -763,6 +772,8 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.fields_background.equils import ScrewPinch
     from struphy.polar.basic import PolarVector
+    from struphy.topology.grids import TensorProductGrid
+    from struphy.io.options import DerhamOptions
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -805,13 +816,12 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
     eq_mhd.domain = domain
 
     # derham object
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs, polar_splines=True)
     derham = Derham(
-        num_elements,
-        degree=degree,
-        bcs=bcs,
+        grid,
+        derham_opts,
         comm=mpi_comm,
-        with_projectors=False,
-        polar_splines=True,
         domain=domain,
     )
 

@@ -24,6 +24,8 @@ from struphy.pic.particles import Particles6D
 from struphy.propagators.base import Propagator
 from struphy.propagators.propagators_fields import ImplicitDiffusion, Poisson
 from struphy.utils.pyccel import Pyccelkernel
+from struphy.topology.grids import TensorProductGrid
+from struphy.io.options import DerhamOptions
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -157,7 +159,9 @@ def test_poisson_1d(
                 print("Direction should be either 0, 1 or 2")
 
             # create derham object
-            derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
+            grid = TensorProductGrid(num_elements=num_elements)
+            derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+            derham = Derham(grid, derham_opts, comm=comm)
 
             # mass matrices
             mass_ops = WeightedMassOperators(derham, domain)
@@ -291,7 +295,10 @@ def test_poisson_accum_1d(mapping, do_plot=False):
     # create derham object
     num_elements = (16, 1, 1)
     degree = (2, 1, 1)
-    derham = Derham(num_elements, degree=degree, comm=comm)
+    
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # mass matrices
     mass_ops = WeightedMassOperators(derham, domain)
@@ -504,7 +511,9 @@ def test_poisson_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_
             return xp.cos(xp.pi / Lx * x) * (xp.pi / Lx) ** 2
 
     # create derham object
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # create weighted mass operators
     mass_ops = WeightedMassOperators(derham, domain)

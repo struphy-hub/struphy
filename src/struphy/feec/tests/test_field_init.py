@@ -20,12 +20,16 @@ def test_bckgr_init_const(num_elements, degree, bcs, spaces, vec_comps):
 
     from struphy import FieldsBackground
     from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence and field of space
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # evaluation grids for comparisons
     e1 = xp.linspace(0.0, 1.0, num_elements[0])
@@ -77,12 +81,16 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
     from struphy import FieldsBackground, domains, equils
     from struphy.feec.psydac_derham import Derham
     from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence and field of space
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # background parameters
     bckgr_0 = FieldsBackground(type="FluidEquilibrium", variable="absB0")
@@ -1093,6 +1101,8 @@ def test_sincos_init_const(num_elements, degree, show_plot=False):
     from struphy import FieldsBackground
     from struphy.feec.psydac_derham import Derham
     from struphy.initial.perturbations import ModesCos, ModesSin
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -1161,7 +1171,9 @@ def test_sincos_init_const(num_elements, degree, show_plot=False):
     }
 
     # Psydac discrete Derham sequence and fields
-    derham = Derham(num_elements, degree=degree, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     field_0 = derham.create_spline_function("name_0", "H1", backgrounds=bckgr_0, perturbations=[f_sin_0, f_cos_0])
     field_1 = derham.create_spline_function(
@@ -1330,15 +1342,19 @@ def test_noise_init(num_elements, degree, bcs, space, direction):
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays
     from struphy.initial.perturbations import Noise
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence and field of space
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
     field = derham.create_spline_function("field", space)
 
-    derham_np = Derham(num_elements, degree=degree, bcs=bcs, comm=None)
+    derham_np = Derham(grid, derham_opts, comm=None)
     field_np = derham_np.create_spline_function("field", space)
 
     # initial conditions

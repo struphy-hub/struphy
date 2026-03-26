@@ -13,6 +13,8 @@ from struphy.feec.basis_projection_ops import BasisProjectionOperator, BasisProj
 from struphy.feec.local_projectors_kernels import fill_matrix_column
 from struphy.feec.psydac_derham import Derham
 from struphy.feec.utilities_local_projectors import get_one_spline, get_span_and_basis, get_values_and_indices_splines
+from struphy.io.options import DerhamOptions
+from struphy.topology.grids import TensorProductGrid
 
 
 @pytest.mark.parametrize("num_elements", [[14, 16, 18]])
@@ -33,7 +35,9 @@ def test_local_projectors_compare_global(num_elements, degree, bcs):
 
     timei = time.time()
     # create derham object
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm, local_projectors=True)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs, local_projectors=True)
+    derham = Derham(grid, derham_opts, comm=comm)
     timef = time.time()
     print("Time for building Derham = " + str(timef - timei))
 
@@ -171,7 +175,9 @@ def test_local_projectors_convergence(direction, pi, bc_kind, do_plot=False):
             def f(x, y, z):
                 return fun(z)
 
-        derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm, local_projectors=True)
+        grid = TensorProductGrid(num_elements=num_elements)
+        derham_opts = DerhamOptions(degree=degree, bcs=bcs, local_projectors=True)
+        derham = Derham(grid, derham_opts, comm=comm)
 
         # loop over spaces
         for sp_id, sp_key in derham.space_to_form.items():
@@ -258,7 +264,10 @@ def aux_test_replication_of_basis(num_elements, plist, bcs):
     # get global communicator
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    derham = Derham(num_elements, degree=plist, comm=comm, local_projectors=True)
+    
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=plist, bcs=bcs, local_projectors=True)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # For B-splines
     sp_key = "0"
@@ -361,7 +370,10 @@ def test_basis_projection_operator_local(num_elements, plist, bcs, out_sp_key, i
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     world_size = comm.Get_size()
-    derham = Derham(num_elements, degree=plist, bcs=bcs, comm=comm, local_projectors=True)
+    
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=plist, bcs=bcs, local_projectors=True)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # The first step to test our BasisProjectionOperatorLocal is to build the B and D spline functions in such a way that we can evaluate them in parallel.
     # We cannot us the fields of a derham space to do this since the evaluation of the splines in this way is a collective operation, and we want our functions
@@ -973,7 +985,10 @@ def test_basis_projection_operator_local_new(num_elements, plist, bcs, out_sp_ke
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     world_size = comm.Get_size()
-    derham = Derham(num_elements, degree=plist, bcs=bcs, comm=comm, local_projectors=True)
+    
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=plist, bcs=bcs, local_projectors=True)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # Building the B-splines
     # We will need the FEM spline space that contains D-splines in all three directions.
@@ -1366,7 +1381,10 @@ def aux_test_spline_evaluation(num_elements, plist, bcs):
     # get global communicator
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    derham = Derham(num_elements, degree=plist, comm=comm, local_projectors=True)
+    
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=plist, bcs=bcs, local_projectors=True)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # The first step to test our BasisProjectionOperatorLocal is to build the B and D spline functions in such a way that we can evaluate them in parallel.
     # We cannot us the fields of a derham space to do this since the evaluation of the splines in this way is a collective operation, and we want our functions

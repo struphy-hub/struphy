@@ -28,6 +28,8 @@ def test_saddlepointsolver(method_for_solving, num_elements, degree, bcs, mappin
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
     from struphy.fields_background.equils import CircularTokamak, HomogenSlab
     from struphy.linear_algebra.saddle_point import SaddlePointSolver
+    from struphy.topology.grids import TensorProductGrid
+    from struphy.io.options import DerhamOptions
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -35,11 +37,14 @@ def test_saddlepointsolver(method_for_solving, num_elements, degree, bcs, mappin
     mpi_comm.Barrier()
 
     # derham object
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=mpi_comm, local_projectors=False)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=mpi_comm)
+    
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
     fem_spaces = [derham.V0fem, derham.V1fem, derham.V2fem, derham.V3fem, derham.Vvfem]
-    derhamnumpy = Derham(num_elements, degree=degree, bcs=bcs, domain=domain)
+    derhamnumpy = Derham(grid, derham_opts, domain=domain)
 
     # Mhd equilibirum (slab)
     mhd_equil_params = {"B0x": 0.0, "B0y": 0.0, "B0z": 1.0, "beta": 2.0, "n0": 1.0}

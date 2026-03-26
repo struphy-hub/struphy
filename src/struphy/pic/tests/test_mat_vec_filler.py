@@ -28,12 +28,16 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
     from struphy.bsplines import bsplines_kernels as bsp
     from struphy.feec.psydac_derham import Derham
     from struphy.pic.accumulation import particle_to_mat_kernels as ptomat
+    from struphy.topology.grids import TensorProductGrid
+    from struphy.io.options import DerhamOptions
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
-    DR = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    DR = Derham(grid, derham_opts, comm=comm)
 
     if rank == 0:
         print(f"\nnum_elements={num_elements}, degree={degree}, bcs={bcs}\n")
