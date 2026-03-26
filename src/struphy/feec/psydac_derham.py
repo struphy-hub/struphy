@@ -210,13 +210,13 @@ class SplineAttributes1D:
         Number of quadrature points in each logical direction
         ``(eta_1, eta_2, eta_3)`` for numerical integration grids.
 
-    nq_pr : tuple[int, int, int]
+    nquads_proj : tuple[int, int, int]
         Number of quadrature points in each logical direction used to build
         projection point/weight sets.
 
-    polar_ck : int, default=-1
-        Polar spline regularity flag. ``-1`` selects standard tensor-product
-        splines, while ``1`` enables C1 polar behavior (including the optional
+    polar_splines : bool, default=False
+        Polar spline regularity flag. ``False`` selects standard tensor-product
+        splines, while ``True`` enables C1 polar splines (including the optional
         shift of points near ``eta_1 = 0`` where required).
 
     local_projectors : bool, default=False
@@ -242,17 +242,17 @@ class SplineAttributes1D:
         self,
         femspace: TensorFemSpace | VectorFemSpace,
         nquads: tuple[int, int, int],
-        nq_pr: tuple[int, int, int],
-        polar_ck: int = -1,
+        nquads_proj: tuple[int, int, int],
+        polar_splines: bool = False,
         local_projectors: bool = False,
     ):
         # inputs
         assert isinstance(femspace, (TensorFemSpace, VectorFemSpace))
         self._femspace = femspace
         self._nquads = nquads
-        self._nq_pr = nq_pr
+        self._nq_pr = nquads_proj
         self._local_projectors = local_projectors
-        self._polar_ck = polar_ck
+        self._polar_splines = polar_splines
 
         # grid attributes
         self._nbasis = []
@@ -317,7 +317,7 @@ class SplineAttributes1D:
                     if local_projectors:
                         ptsloc, wtsloc = get_pts_and_wts_quasi(
                             space,
-                            polar_shift=d == 0 and self.polar_ck == 1,
+                            polar_shift=d == 0 and self.polar_splines,
                         )
                         self._proj_loc_grid_pts[-1] += [ptsloc]
                         self._proj_loc_grid_wts[-1] += [wtsloc]
@@ -326,8 +326,8 @@ class SplineAttributes1D:
                         space,
                         s,
                         e,
-                        n_quad=self.nq_pr[d],
-                        polar_shift=d == 0 and self.polar_ck == 1,
+                        n_quad=self.nquads_proj[d],
+                        polar_shift=d == 0 and self.polar_splines,
                     )
                     self._proj_grid_subs[-1] += [subs]
 
@@ -374,7 +374,7 @@ class SplineAttributes1D:
                 if local_projectors:
                     ptsloc, wtsloc = get_pts_and_wts_quasi(
                         space,
-                        polar_shift=d == 0 and self.polar_ck == 1,
+                        polar_shift=d == 0 and self.polar_splines,
                     )
                     self._proj_loc_grid_pts += [ptsloc]
                     self._proj_loc_grid_wts += [wtsloc]
@@ -383,8 +383,8 @@ class SplineAttributes1D:
                     space,
                     s,
                     e,
-                    n_quad=self.nq_pr[d],
-                    polar_shift=d == 0 and self.polar_ck == 1,
+                    n_quad=self.nquads_proj[d],
+                    polar_shift=d == 0 and self.polar_splines,
                 )
                 self._proj_grid_subs += [subs]
                 self._proj_grid_pts += [pts]
@@ -415,14 +415,14 @@ class SplineAttributes1D:
         return self._nquads
 
     @property
-    def nq_pr(self) -> tuple[int, int, int]:
+    def nquads_proj(self) -> tuple[int, int, int]:
         """The number of quadrature points in each direction for the projection."""
         return self._nq_pr
 
     @property
-    def polar_ck(self) -> int:
+    def polar_splines(self) -> bool:
         """The polar splines flag."""
-        return self._polar_ck
+        return self._polar_splines
 
     @property
     def local_projectors(self) -> bool:
@@ -525,7 +525,7 @@ class Derham:
         Number of Gauss-Legendre quadrature points used for quadrature grids.
         If ``None``, defaults to ``degree + 1`` per direction.
 
-    nq_pr : tuple[int, int, int] | None, default=None
+    nquads_proj : tuple[int, int, int] | None, default=None
         Number of quadrature points used to build projector point/weight sets.
         If ``None``, defaults to ``degree + 1`` per direction.
 
@@ -539,9 +539,9 @@ class Derham:
     with_projectors : bool, default=True
         If ``True``, assemble commuting projectors.
 
-    polar_ck : int, default=-1
-        Polar regularity flag. Allowed values are ``-1`` (standard tensor
-        product spaces) and ``1`` (C1 polar spaces/operators).
+    polar_splines : bool, default=False
+        Polar regularity flag. Allowed values are ``False`` (standard tensor
+        product spaces) and ``True`` (C1 polar spline spaces/operators).
 
     local_projectors : bool, default=False
         If ``True``, build local quasi-interpolation/histopolation projectors
@@ -549,7 +549,7 @@ class Derham:
 
     domain : Domain | None, default=None
         Physical mapping from logical to physical coordinates. Required when
-        ``polar_ck == 1``.
+        ``polar_splines is True``.
 
     Notes
     -----
@@ -572,11 +572,11 @@ class Derham:
             None | tuple[NonTrivialBC, NonTrivialBC],
         ] = (None, None, None),
         nquads: tuple[int, int, int] | None = None,
-        nq_pr: tuple[int, int, int] | None = None,
+        nquads_proj: tuple[int, int, int] | None = None,
         comm=None,
         mpi_dims_mask: tuple[bool, bool, bool] = (True, True, True),
         with_projectors: bool = True,
-        polar_ck: int = -1,
+        polar_splines: bool = False,
         local_projectors: bool = False,
         domain: Domain | None = None,
     ):
@@ -619,15 +619,14 @@ class Derham:
             self._nquads = tuple(nquads)
 
         # histopololation points: default degree + 1 : exact integration of degree 2p+1 polynomials
-        if nq_pr is None:
+        if nquads_proj is None:
             self._nq_pr = tuple([pi + 1 for pi in degree])
         else:
-            assert len(nq_pr) == 3
-            self._nq_pr = tuple(nq_pr)
+            assert len(nquads_proj) == 3
+            self._nq_pr = tuple(nquads_proj)
 
-        # smoothness at the polar singularity: default -1 for standard tensor product splines, or 1 for C1 polar splines
-        assert polar_ck in {-1, 1}
-        self._polar_ck = polar_ck
+        # smoothness at the polar singularity: default False for standard tensor product splines, or True for C1 polar splines
+        self._polar_splines = polar_splines
 
         # Other inputs
         self._comm = comm
@@ -674,19 +673,19 @@ class Derham:
 
         # 1d spline spaces attributes for projector grids and polar extraction operators
         self._V0splines = SplineAttributes1D(
-            derham.V0, self.nquads, self.nq_pr, polar_ck=self.polar_ck, local_projectors=local_projectors
+            derham.V0, self.nquads, self.nquads_proj, polar_splines=self.polar_splines, local_projectors=local_projectors
         )
         self._V1splines = SplineAttributes1D(
-            derham.V1, self.nquads, self.nq_pr, polar_ck=self.polar_ck, local_projectors=local_projectors
+            derham.V1, self.nquads, self.nquads_proj, polar_splines=self.polar_splines, local_projectors=local_projectors
         )
         self._V2splines = SplineAttributes1D(
-            derham.V2, self.nquads, self.nq_pr, polar_ck=self.polar_ck, local_projectors=local_projectors
+            derham.V2, self.nquads, self.nquads_proj, polar_splines=self.polar_splines, local_projectors=local_projectors
         )
         self._V3splines = SplineAttributes1D(
-            derham.V3, self.nquads, self.nq_pr, polar_ck=self.polar_ck, local_projectors=local_projectors
+            derham.V3, self.nquads, self.nquads_proj, polar_splines=self.polar_splines, local_projectors=local_projectors
         )
         self._Vvsplines = SplineAttributes1D(
-            h1vec_space, self.nquads, self.nq_pr, polar_ck=self.polar_ck, local_projectors=local_projectors
+            h1vec_space, self.nquads, self.nquads_proj, polar_splines=self.polar_splines, local_projectors=local_projectors
         )
 
         # break points in the three spatial directions
@@ -721,8 +720,8 @@ class Derham:
         self._V3 = self._V3fem.coeff_space
         self._Vv = self._Vvfem.coeff_space
 
-        # polar spaces, these will be just the tensor prodict spaces if polar_ck=-1, and the polar subspaces if polar_ck=1, TODO: separate clearly tensor from polar
-        if self.polar_ck == -1:
+        # polar spaces, these will be just the tensor prodict spaces if polar_splines=False, and the polar subspaces if polar_splines=True, TODO: separate clearly tensor from polar
+        if not self.polar_splines:
             self._ck_blocks = None
         else:
             assert self.domain is not None
@@ -752,7 +751,7 @@ class Derham:
         # exterior derivatives TODO: disentagle tensor from polar spaces
         self._grad, self._curl, self._div = derham.derivatives_as_matrices
 
-        if self.polar_ck == 1:
+        if self.polar_splines:
             self._grad = PolarLinearOperator(
                 self.V0pol,
                 self.V1pol,
@@ -789,7 +788,7 @@ class Derham:
         # commuting projectors
         if with_projectors:
             P0, P1, P2, P3, Pv = self._assemble_projectors(
-                *derham.projectors(nquads=self.nq_pr),
+                *derham.projectors(nquads=self.nquads_proj),
                 GlobalGeometricProjectorH1vec(self.Vvfem),
             )
             if self.with_local_projectors:
@@ -874,7 +873,7 @@ class Derham:
         return self._nquads
 
     @property
-    def nq_pr(self) -> tuple[int, int, int]:
+    def nquads_proj(self) -> tuple[int, int, int]:
         """List of number of Gauss-Legendre quadrature points in histopolation (default = degree + 1) in each direction."""
         return self._nq_pr
 
@@ -894,9 +893,9 @@ class Derham:
         return self._with_projectors
 
     @property
-    def polar_ck(self) -> int:
-        """C^k smoothness at eta_1=0. Is -1 for standard tensor product splines and 1 for C^1 polar splines."""
-        return self._polar_ck
+    def polar_splines(self) -> bool:
+        """C^k smoothness at eta_1=0. Is False for standard tensor product splines and True for C^1 polar splines."""
+        return self._polar_splines
 
     @property
     def with_local_projectors(self) -> bool:
@@ -905,7 +904,7 @@ class Derham:
 
     @property
     def domain(self) -> Domain | None:
-        """Mapping from logical unit cube to physical domain (only needed in case of polar splines with polar_ck=1)."""
+        """Mapping from logical unit cube to physical domain (only needed in case of polar splines with polar_splines is True)."""
         return self._domain
 
     # -----------------------------------------
@@ -1057,7 +1056,7 @@ class Derham:
 
     @property
     def ck_blocks(self) -> PolarExtractionBlocksC1 | None:
-        """Polar extraction blocks for C1 polar splines. Is None if polar_ck=-1 (standard tensor product splines)."""
+        """Polar extraction blocks for C1 polar splines. Is None if polar_splines is False (standard tensor product splines)."""
         return self._ck_blocks
 
     @property
@@ -1663,7 +1662,7 @@ class Derham:
             vec_space = self.coeff_spaces[sp_form]
             # ------ Extraction operators ------
             # tensor product case
-            if self.polar_ck == -1:
+            if not self.polar_splines:
                 pol_space = self.coeff_spaces[sp_form]
 
                 self._extraction_ops[sp_form] = IdentityOperator(pol_space)

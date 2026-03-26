@@ -88,7 +88,7 @@ class InitialMHDAxisymHdivEigFun:
         domain_log_h = discretize(domain_log, ncells=[derham.num_elements[2]], periodic=[True])
         derham_1d = discretize(derham_sym, domain_log_h, degree=[derham.degree[2]], nquads=[derham.nquads[2]])
 
-        p0, p1 = derham_1d.projectors(nquads=[derham.nq_pr[2]])
+        p0, p1 = derham_1d.projectors(nquads=[derham.nquads_proj[2]])
 
         n_tor = int(os.path.split(spec_path)[-1][-6:-4])
 
@@ -124,7 +124,7 @@ class InitialMHDAxisymHdivEigFun:
         bc3_1 = derham.dirichlet_bc[2][0]
         bc3_2 = derham.dirichlet_bc[2][1]
 
-        if derham.polar_ck == -1:
+        if not derham.polar_splines:
             n_v2_0 = [
                 [
                     derham.V2splines.nbasis[0] - bc1_1 - bc1_2,

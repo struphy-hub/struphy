@@ -15,7 +15,7 @@ import pytest
                 "degree": (1, 2, 3),
                 "bcs": (("hom_dirichlet", "free"), ("free", "hom_dirichlet"), None),
                 "nquads": (2, 3, 4),
-                "nq_pr": (2, 3, 4),
+                "nquads_proj": (2, 3, 4),
                 "mpi_dims_mask": (True, True, True),
                 "with_projectors": True,
                 "with_local_projectors": False,
@@ -30,7 +30,7 @@ import pytest
                 "degree": (1, 2, 3),
                 "bcs": (("free", "free"), None, ("hom_dirichlet", "hom_dirichlet")),
                 "nquads": (2, 3, 4),
-                "nq_pr": (2, 3, 4),
+                "nquads_proj": (2, 3, 4),
                 "mpi_dims_mask": (True, True, True),
                 "with_projectors": True,
                 "with_local_projectors": False,
@@ -45,7 +45,7 @@ import pytest
                 "degree": (1, 1, 1),
                 "bcs": (None, None, None),
                 "nquads": (2, 2, 2),
-                "nq_pr": (2, 2, 2),
+                "nquads_proj": (2, 2, 2),
                 "mpi_dims_mask": (True, True, True),
                 "with_projectors": True,
                 "with_local_projectors": False,
@@ -59,7 +59,7 @@ import pytest
                 "degree": (1, 2, 3),
                 "bcs": (("free", "hom_dirichlet"), None, ("hom_dirichlet", "free")),
                 "nquads": (4, 5, 6),
-                "nq_pr": (5, 6, 7),
+                "nquads_proj": (5, 6, 7),
                 "mpi_dims_mask": (True, False, True),
                 "with_projectors": False,
             },
@@ -67,7 +67,7 @@ import pytest
                 "degree": (1, 2, 3),
                 "bcs": (("free", "hom_dirichlet"), None, ("hom_dirichlet", "free")),
                 "nquads": (4, 5, 6),
-                "nq_pr": (5, 6, 7),
+                "nquads_proj": (5, 6, 7),
                 "mpi_dims_mask": (True, False, True),
                 "with_projectors": False,
                 "with_local_projectors": False,
@@ -86,7 +86,7 @@ import pytest
                 "degree": (1, 2, 3),
                 "bcs": (None, None, ("hom_dirichlet", "free")),
                 "nquads": (2, 3, 4),
-                "nq_pr": (2, 3, 4),
+                "nquads_proj": (2, 3, 4),
                 "mpi_dims_mask": (True, True, True),
                 "with_projectors": True,
                 "with_local_projectors": True,
@@ -113,7 +113,7 @@ def test_psydac_derham(num_elements, init_kwargs, expected):
     assert derham.degree == expected["degree"]
     assert derham.bcs == expected["bcs"]
     assert derham.nquads == expected["nquads"]
-    assert derham.nq_pr == expected["nq_pr"]
+    assert derham.nquads_proj == expected["nquads_proj"]
     assert derham.mpi_dims_mask == expected["mpi_dims_mask"]
     assert derham.with_projectors is expected["with_projectors"]
     assert derham.with_local_projectors is expected["with_local_projectors"]

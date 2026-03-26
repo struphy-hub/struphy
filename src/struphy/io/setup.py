@@ -70,11 +70,11 @@ def setup_derham(
     # boundary conditions
     bcs = options.bcs
     # Number of quadrature points per histopolation cell
-    nq_pr = options.nq_pr
+    nquads_proj = options.nquads_proj
     # Number of quadrature points per grid cell for L^2
     nquads = options.nquads
     # C^k smoothness at eta_1=0 for polar domains
-    polar_ck = options.polar_ck
+    polar_splines = options.polar_splines
     # local commuting projectors
     local_projectors = options.local_projectors
 
@@ -83,11 +83,11 @@ def setup_derham(
         degree=degree,
         bcs=bcs,
         nquads=nquads,
-        nq_pr=nq_pr,
+        nquads_proj=nquads_proj,
         comm=comm,
         mpi_dims_mask=mpi_dims_mask,
         with_projectors=True,
-        polar_ck=polar_ck,
+        polar_splines=polar_splines,
         domain=domain,
         local_projectors=local_projectors,
     )
@@ -98,12 +98,12 @@ def setup_derham(
         print("spline degrees:".ljust(25), degree)
         print("boundary conditions:".ljust(25), bcs)
         print("GL quad pts (L2):".ljust(25), nquads)
-        print("GL quad pts (hist):".ljust(25), nq_pr)
+        print("GL quad pts (hist):".ljust(25), nquads_proj)
         print(
             "MPI proc. per dir.:".ljust(25),
             derham.domain_decomposition.nprocs,
         )
-        print("use polar splines:".ljust(25), derham.polar_ck == 1)
+        print("use polar splines:".ljust(25), derham.polar_splines)
         print("domain on process 0:".ljust(25), derham.domain_array[0])
 
     return derham

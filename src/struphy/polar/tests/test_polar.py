@@ -198,7 +198,7 @@ def test_extraction_ops_and_derivatives(num_elements, degree, bcs):
     domain = IGAPolarCylinder(**params_map)
 
     # create de Rham sequence
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm, polar_ck=1, domain=domain, with_projectors=False)
+    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm, polar_splines=True, domain=domain, with_projectors=False,)
 
     # create legacy FEM spaces
 
@@ -309,7 +309,7 @@ def test_projectors(num_elements, degree, bcs):
     domain = IGAPolarCylinder(**params_map)
 
     # create polar de Rham sequence
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm, nq_pr=[6, 6, 6], polar_ck=1, domain=domain)
+    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm, nquads_proj=[6, 6, 6], polar_splines=True, domain=domain,)
 
     if rank == 0:
         print()

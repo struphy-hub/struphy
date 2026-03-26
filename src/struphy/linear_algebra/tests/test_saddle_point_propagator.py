@@ -30,8 +30,8 @@ def test_propagator1D(num_elements, degree, bcs, mapping, epsilon, dt):
 
     dims_mask = [True, False, False]
     nq_el = [2, 2, 1]
-    nq_pr = [2, 2, 1]
-    polar_ck = -1
+    nquads_proj = [2, 2, 1]
+    polar_splines = False
 
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
@@ -44,8 +44,8 @@ def test_propagator1D(num_elements, degree, bcs, mapping, epsilon, dt):
         local_projectors=False,
         mpi_dims_mask=dims_mask,
         nquads=nq_el,
-        nq_pr=nq_pr,
-        polar_ck=polar_ck,
+        nquads_proj=nquads_proj,
+        polar_splines=polar_splines,
         domain=domain,
     )
     # Mhd equilibirum (slab)
@@ -238,8 +238,8 @@ def test_propagator2D(num_elements, degree, bcs, mapping, epsilon, dt):
 
     dims_mask = [True, False, False]
     nq_el = [2, 2, 1]
-    nq_pr = [2, 2, 1]
-    polar_ck = -1
+    nquads_proj = [2, 2, 1]
+    polar_splines = False
 
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
@@ -252,8 +252,8 @@ def test_propagator2D(num_elements, degree, bcs, mapping, epsilon, dt):
         local_projectors=False,
         mpi_dims_mask=dims_mask,
         nquads=nq_el,
-        nq_pr=nq_pr,
-        polar_ck=polar_ck,
+        nquads_proj=nquads_proj,
+        polar_splines=polar_splines,
         domain=domain,
     )
     # Mhd equilibirum (slab)

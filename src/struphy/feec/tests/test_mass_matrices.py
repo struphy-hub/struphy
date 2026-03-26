@@ -366,7 +366,7 @@ def test_mass_polar(num_elements, degree, bcs, mapping, show_plots=False):
         bcs=bcs,
         comm=mpi_comm,
         with_projectors=False,
-        polar_ck=1,
+        polar_splines=True,
         domain=domain,
     )
 
@@ -811,7 +811,7 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
         bcs=bcs,
         comm=mpi_comm,
         with_projectors=False,
-        polar_ck=1,
+        polar_splines=True,
         domain=domain,
     )
 

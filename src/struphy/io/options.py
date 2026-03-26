@@ -43,7 +43,6 @@ class LiteralOptions:
     SplitAlgos = Literal["LieTrotter", "Strang"]
 
     # derham
-    PolarRegularity = Literal[-1, 1]
     OptsFEECSpace = Literal["H1", "Hcurl", "Hdiv", "L2", "H1vec"]
     OptsVecSpace = Literal["Hcurl", "Hdiv", "H1vec"]
     OptsNonTrivialBoundaryCondition = Literal["free", "hom_dirichlet"]
@@ -216,14 +215,14 @@ class DerhamOptions(OptionsBase):
         Number of Gauss-Legendre quadrature points per direction for cell
         integrals. If ``None``, backend defaults are used.
 
-    nq_pr : tuple[int, int, int] | None
+    nquads_proj : tuple[int, int, int] | None
         Number of Gauss-Legendre quadrature points per direction for geometric
         projector/histopolation integrals. If ``None``, backend defaults are
         used.
 
-    polar_ck : PolarRegularity
+    polar_splines : bool
         Smoothness at a possible polar singularity at ``eta_1 = 0``.
-        ``-1`` gives standard tensor-product splines, ``1`` gives C1 polar
+        ``False`` gives standard tensor-product splines, ``True`` gives C1 polar
         splines.
 
     local_projectors : bool
@@ -238,12 +237,11 @@ class DerhamOptions(OptionsBase):
         None | tuple[NonTrivialBC, NonTrivialBC],
     ] = (None, None, None)
     nquads: tuple[int, int, int] | None = None
-    nq_pr: tuple[int, int, int] | None = None
-    polar_ck: LiteralOptions.PolarRegularity = -1
+    nquads_proj: tuple[int, int, int] | None = None
+    polar_splines: bool = False
     local_projectors: bool = False
 
     def __post_init__(self):
-        check_option(self.polar_ck, LiteralOptions.PolarRegularity)
         for bc in self.bcs:
             if bc is not None:
                 assert isinstance(bc, tuple) and len(bc) == 2, (
