@@ -45,7 +45,7 @@ def test_tosparse_struphy(num_elements, degree, bcs, mapping):
     # create derham object
     grid = TensorProductGrid(num_elements=num_elements)
     derham_opts = DerhamOptions(degree=degree, bcs=bcs)
-    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=MPI.COMM_WORLD)
+    derham = Derham(grid, derham_opts, comm=MPI.COMM_WORLD)
 
     # assemble mass matrices in V0 and V1
     mass = WeightedMassOperators(derham, domain)
