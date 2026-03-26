@@ -88,7 +88,7 @@ domain = domains.Cuboid(r1 = 2*xp.pi/k)
 equil = None
 
 # Grid
-grid = grids.TensorProductGrid(Nel = (32,1,1))
+grid = grids.TensorProductGrid(num_elements = (32,1,1))
 
 # Derham options
 derham_opts = DerhamOptions(p = (3,1,1))
