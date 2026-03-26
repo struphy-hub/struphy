@@ -1714,11 +1714,11 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         Path to eqdsk file (default: "AUGNLED_g031213.00830.high").
     data_type : int
         0: there is no space between data, 1: there is space between data (default: 0).
-    p_for_psi : tuple[int]
+    degree_for_psi : tuple[int]
         Spline degrees in (R, Z) directions used for interpolation of psi data (default: [3, 3]).
     psi_resolution : tuple[float]
         Resolution of psi data in (R, Z) directions in %, e.g. [50., 50.] uses every second psi data point (default: [25., 6.25]).
-    p_for_flux : int
+    degree_for_flux : int
         Spline degree in psi direction used for interpolation of 1d functions that depend on psi: f=f(psi) (default: 3).
     flux_resolution : float
         Resolution of 1d f=f(psi) data in %, e.g. 25. uses every forth data point (default: 50.).
@@ -1737,9 +1737,9 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         rel_path: bool = True,
         file: str = None,
         data_type: int = 0,
-        p_for_psi: tuple = (3, 3),
+        degree_for_psi: tuple = (3, 3),
         psi_resolution: tuple = (25.0, 6.25),
-        p_for_flux: int = 3,
+        degree_for_flux: int = 3,
         flux_resolution: float = 50.0,
         n1: float = 2.0,
         n2: float = 1.0,
@@ -1828,8 +1828,8 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
             R[:: smooth_steps[0]],
             Z[:: smooth_steps[1]],
             psi[:: smooth_steps[0], :: smooth_steps[1]],
-            kx=self.params["p_for_psi"][0],
-            ky=self.params["p_for_psi"][1],
+            kx=self.params["degree_for_psi"][0],
+            ky=self.params["degree_for_psi"][1],
             s=0.0,
         )
 
@@ -1854,21 +1854,21 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         self._g_i = UnivariateSpline(
             flux_grid[::smooth_step],
             g_profile[::smooth_step],
-            k=self.params["p_for_flux"],
+            k=self.params["degree_for_flux"],
             s=0.0,
             ext=3,
         )
         self._p_i = UnivariateSpline(
             flux_grid[::smooth_step],
             p_profile[::smooth_step],
-            k=self.params["p_for_flux"],
+            k=self.params["degree_for_flux"],
             s=0.0,
             ext=3,
         )
         self._q_i = UnivariateSpline(
             flux_grid[::smooth_step],
             q_profile[::smooth_step],
-            k=self.params["p_for_flux"],
+            k=self.params["degree_for_flux"],
             s=0.0,
             ext=3,
         )
@@ -2072,7 +2072,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
         Between [0, 1), radius (in logical space) of the domian hole around the magnetic axis (default: rmin=0.01).
     num_elements : tuple[int]
         Number of cells in each direction used for interpolation of the mapping (default: (16, 16, 16)).
-    p : tuple[int]
+    degree : tuple[int]
         Spline degree in each direction used for interpolation of the mapping (default: (3, 3, 3)).
     density_profile : str
         'parabolic' for a parabolic density profile, 'linear' for a linear density profile or 'pressure' for a density profile proportional to pressure
@@ -2099,7 +2099,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
         use_nfp: bool = True,
         rmin: float = 0.01,
         num_elements: tuple[int] = (16, 16, 16),
-        p: tuple[int] = (3, 3, 3),
+        degree: tuple[int] = (3, 3, 3),
         density_profile: str = "pressure",
         p0: float = 0.1,
         n0: float = 0.2,
@@ -2356,7 +2356,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
         Between [0, 1), radius (in logical space) of the domian hole around the magnetic axis (default: rmin=0.01).
     num_elements : tuple[int]
         Number of cells in each direction used for interpolation of the mapping (default: (16, 16, 16)).
-    p : tuple[int]
+    degree : tuple[int]
         Spline degree in each direction used for interpolation of the mapping (default: (3, 3, 3)).
     T_kelvin : float
         maximum of temperature in Kelvin (default: 100000).
@@ -2372,7 +2372,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
         use_nfp: bool = True,
         rmin: float = 0.01,
         num_elements: tuple[int] = (16, 16, 50),
-        p: tuple[int] = (3, 3, 3),
+        degree: tuple[int] = (3, 3, 3),
         T_kelvin: float = 100000.0,
         base_units: BaseUnits = None,
     ):

@@ -78,7 +78,7 @@ equil = None
 grid = grids.TensorProductGrid(num_elements=(32, 1, 1))
 
 # Derham options
-derham_opts = DerhamOptions(p=(3, 1, 1))
+derham_opts = DerhamOptions(degree=(3, 1, 1))
 
 # Simulation object
 sim = Simulation(

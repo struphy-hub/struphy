@@ -57,3 +57,8 @@ def test_examples(params_path: Path):
 
         shutil.rmtree(params.sim.env.path_out)
     MPI.COMM_WORLD.Barrier()
+    
+    
+if __name__ == "__main__":
+    print(f"{PARAMS_MODULES = }")
+    test_examples(params_path=PARAMS_MODULES[4])
