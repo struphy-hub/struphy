@@ -24,7 +24,7 @@ def get_kinetic_energy_particles(fe_coeffs, derham, domain, particles):
     utils.canonical_kinetic_particles(
         res,
         particles.markers,
-        xp.array(derham.p),
+        xp.array(derham.degree),
         derham.V0fem.knots[0],
         derham.V0fem.knots[1],
         derham.V0fem.knots[2],

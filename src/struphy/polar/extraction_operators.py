@@ -164,7 +164,7 @@ class PolarExtractionBlocksC1:
         p0_blocks_ten_to_pol = xp.zeros((self.n_polar[0][0], self.n_rings[0][0] * self.n1), dtype=float)
 
         # !! NOTE: for odd spline degrees and periodic splines the first Greville point sometimes does NOT start at zero!!
-        if domain.p[1] % 2 != 0 and not (abs(derham.V0fem.spaces[1].interpolation_grid[0]) < 1e-14):
+        if domain.degree[1] % 2 != 0 and not (abs(derham.V0fem.spaces[1].interpolation_grid[0]) < 1e-14):
             p0_blocks_ten_to_pol[0, self.n1 + 3 * self.n1 // 3 - 1] = 1.0
             p0_blocks_ten_to_pol[1, self.n1 + 1 * self.n1 // 3 - 1] = 1.0
             p0_blocks_ten_to_pol[2, self.n1 + 2 * self.n1 // 3 - 1] = 1.0
@@ -209,7 +209,7 @@ class PolarExtractionBlocksC1:
         p1_11_blocks_ten_to_ten = xp.zeros((self.n1, self.n1), dtype=float)
 
         # !! NOTE: for odd spline degrees and periodic splines the first Greville point sometimes does NOT start at zero!!
-        if domain.p[1] % 2 != 0 and not (abs(derham.V0fem.spaces[1].interpolation_grid[0]) < 1e-14):
+        if domain.degree[1] % 2 != 0 and not (abs(derham.V0fem.spaces[1].interpolation_grid[0]) < 1e-14):
             p1_11_blocks_ten_to_ten[:, 3 * self.n1 // 3 - 1] = -xp.roll(self.xi_1[0], -1)
             p1_11_blocks_ten_to_ten[:, 1 * self.n1 // 3 - 1] = -xp.roll(self.xi_1[1], -1)
             p1_11_blocks_ten_to_ten[:, 2 * self.n1 // 3 - 1] = -xp.roll(self.xi_1[2], -1)

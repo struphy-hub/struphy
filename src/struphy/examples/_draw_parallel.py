@@ -16,7 +16,7 @@ def main():
 
     # parameters
     num_elements = [8, 16, 4]
-    p = [2, 2, 2]
+    degree = [2, 2, 2]
     bcs = (("free", "free"), None, None)
 
     loading_type = "pseudo_random"
@@ -32,7 +32,7 @@ def main():
     domain = domain_class(sfl=True)
 
     # create de rham object
-    derham = Derham(num_elements, p=p, bcs=bcs, comm=comm)
+    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
 
     if rank == 0:
         print()

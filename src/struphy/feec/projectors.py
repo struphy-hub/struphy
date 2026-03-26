@@ -909,9 +909,9 @@ class CommutingProjectorLocal:
         self._B_nbasis = xp.array([space.nbasis for space in Bspaces_1d[0]])
 
         # Degree of the B-spline space, not to be confused with the degrees given by fem_space.spaces.degree since depending on the situation it will give the D-spline degree instead
-        self._p = xp.zeros(3, dtype=int)
+        self._degree = xp.zeros(3, dtype=int)
         for i, space in enumerate(fem_space_B.spaces):
-            self._p[i] = space.degree
+            self._degree[i] = space.degree
 
         # FE space of three forms. That means that we have D-splines in all three spatial directions.
         Dspaces_1d = [fem_space_D.spaces]
@@ -1029,12 +1029,12 @@ class CommutingProjectorLocal:
                 self._IoH = xp.array([True, True, True], dtype=bool)
                 self._geo_weights = [self._whij[0], self._whij[1], self._whij[2]]
 
-            lenj1, lenj2, lenj3 = get_local_problem_size(self._periodic, self._p, self._IoH)
+            lenj1, lenj2, lenj3 = get_local_problem_size(self._periodic, self._degree, self._IoH)
 
             lenj = [lenj1, lenj2, lenj3]
 
             self._shift = xp.array([0, 0, 0], dtype=int)
-            compute_shifts(self._IoH, self._p, self._B_nbasis, self._shift)
+            compute_shifts(self._IoH, self._degree, self._B_nbasis, self._shift)
 
             split_points(
                 IoH_for_indices,
@@ -1043,7 +1043,7 @@ class CommutingProjectorLocal:
                 self._pts,
                 self._starts,
                 self._ends,
-                self._p,
+                self._degree,
                 self._B_nbasis,
                 self._periodic,
                 self._wij,
@@ -1074,7 +1074,7 @@ class CommutingProjectorLocal:
                 self._pds,
                 self._B_nbasis,
                 self._periodic,
-                self._p,
+                self._degree,
                 self._geo_weights[0],
                 self._geo_weights[1],
                 self._geo_weights[2],
@@ -1103,7 +1103,7 @@ class CommutingProjectorLocal:
             get_non_zero_B_spline_indices(
                 self._periodic,
                 IoH_for_indices,
-                self._p,
+                self._degree,
                 self._B_nbasis,
                 self._starts,
                 self._ends,
@@ -1117,7 +1117,7 @@ class CommutingProjectorLocal:
             get_non_zero_D_spline_indices(
                 self._periodic,
                 IoH_for_indices,
-                self._p,
+                self._degree,
                 D_nbasis,
                 self._starts,
                 self._ends,
@@ -1167,7 +1167,7 @@ class CommutingProjectorLocal:
                 self._Basis_functions_indices_D,
                 self._starts,
                 self._ends,
-                self._p,
+                self._degree,
                 self._B_nbasis,
                 D_nbasis,
                 self._periodic,
@@ -1182,7 +1182,7 @@ class CommutingProjectorLocal:
                         self._Basis_functions_indices_B,
                         self._Basis_functions_indices_D,
                         self._localpts,
-                        self._p,
+                        self._degree,
                         [self._values_B_or_D_splines_0, self._values_B_or_D_splines_1, self._values_B_or_D_splines_2],
                         [
                             self._translation_indices_B_or_D_splines_0,
@@ -1251,11 +1251,11 @@ class CommutingProjectorLocal:
                 ]
 
             for h in range(self._nsp):
-                lenj1, lenj2, lenj3 = get_local_problem_size(self._periodic[0], self._p, self._IoH[h])
+                lenj1, lenj2, lenj3 = get_local_problem_size(self._periodic[0], self._degree, self._IoH[h])
 
                 lenj = [lenj1, lenj2, lenj3]
 
-                compute_shifts(self._IoH[h], self._p, self._B_nbasis, self._shift[h])
+                compute_shifts(self._IoH[h], self._degree, self._B_nbasis, self._shift[h])
 
                 split_points(
                     IoH_for_indices[h],
@@ -1264,7 +1264,7 @@ class CommutingProjectorLocal:
                     self._pts[h],
                     self._starts[h],
                     self._ends[h],
-                    self._p,
+                    self._degree,
                     self._B_nbasis,
                     self._periodic[0],
                     self._wij,
@@ -1298,7 +1298,7 @@ class CommutingProjectorLocal:
                         self._pds[h],
                         self._B_nbasis,
                         self._periodic[0],
-                        self._p,
+                        self._degree,
                         self._geo_weights[h][0],
                         self._geo_weights[h][1],
                         self._geo_weights[h][2],
@@ -1327,7 +1327,7 @@ class CommutingProjectorLocal:
                 get_non_zero_B_spline_indices(
                     self._periodic[h],
                     IoH_for_indices[h],
-                    self._p,
+                    self._degree,
                     self._B_nbasis,
                     self._starts[h],
                     self._ends[h],
@@ -1343,7 +1343,7 @@ class CommutingProjectorLocal:
                 get_non_zero_D_spline_indices(
                     self._periodic[h],
                     IoH_for_indices[h],
-                    self._p,
+                    self._degree,
                     D_nbasis,
                     self._starts[h],
                     self._ends[h],
@@ -1418,7 +1418,7 @@ class CommutingProjectorLocal:
                     self._Basis_functions_indices_D,
                     self._starts[h],
                     self._ends[h],
-                    self._p,
+                    self._degree,
                     self._B_nbasis,
                     D_nbasis,
                     self._periodic[h],
@@ -1468,7 +1468,7 @@ class CommutingProjectorLocal:
                         self._Basis_functions_indices_block_B[h],
                         self._Basis_functions_indices_block_D[h],
                         self._localpts[h],
-                        self._p,
+                        self._degree,
                         [
                             self._values_block_B_or_D_splines[0][h],
                             self._values_block_B_or_D_splines[1][h],

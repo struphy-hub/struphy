@@ -16,7 +16,7 @@ from struphy.feec.utilities_local_projectors import get_one_spline, get_span_and
 
 
 @pytest.mark.parametrize("num_elements", [[14, 16, 18]])
-@pytest.mark.parametrize("p", [[5, 4, 3]])
+@pytest.mark.parametrize("degree", [[5, 4, 3]])
 @pytest.mark.parametrize(
     "bcs",
     [
@@ -25,7 +25,7 @@ from struphy.feec.utilities_local_projectors import get_one_spline, get_span_and
         (None, ("free", "free"), ("free", "free")),
     ],
 )
-def test_local_projectors_compare_global(num_elements, p, bcs):
+def test_local_projectors_compare_global(num_elements, degree, bcs):
     """Tests the Local-projectors, by comparing them to the analytical function as well as to the global projectors."""
     # get global communicator
     comm = MPI.COMM_WORLD
@@ -33,7 +33,7 @@ def test_local_projectors_compare_global(num_elements, p, bcs):
 
     timei = time.time()
     # create derham object
-    derham = Derham(num_elements, p=p, bcs=bcs, comm=comm, local_projectors=True)
+    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm, local_projectors=True)
     timef = time.time()
     print("Time for building Derham = " + str(timef - timei))
 
@@ -142,7 +142,7 @@ def test_local_projectors_convergence(direction, pi, bc_kind, do_plot=False):
         e3 = 0.0
         if direction == 0:
             num_elements = [Neli, 1, 1]
-            p = [pi, 1, 1]
+            degree = [pi, 1, 1]
             bcs = (bc_kind, None, None)
             e1 = xp.linspace(0.0, 1.0, 100)
             e = e1
@@ -152,7 +152,7 @@ def test_local_projectors_convergence(direction, pi, bc_kind, do_plot=False):
                 return fun(x)
         elif direction == 1:
             num_elements = [1, Neli, 1]
-            p = [1, pi, 1]
+            degree = [1, pi, 1]
             bcs = (None, bc_kind, None)
             e2 = xp.linspace(0.0, 1.0, 100)
             e = e2
@@ -162,7 +162,7 @@ def test_local_projectors_convergence(direction, pi, bc_kind, do_plot=False):
                 return fun(y)
         elif direction == 2:
             num_elements = [1, 1, Neli]
-            p = [1, 1, pi]
+            degree = [1, 1, pi]
             bcs = (None, None, bc_kind)
             e3 = xp.linspace(0.0, 1.0, 100)
             e = e3
@@ -171,7 +171,7 @@ def test_local_projectors_convergence(direction, pi, bc_kind, do_plot=False):
             def f(x, y, z):
                 return fun(z)
 
-        derham = Derham(num_elements, p=p, bcs=bcs, comm=comm, local_projectors=True)
+        derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm, local_projectors=True)
 
         # loop over spaces
         for sp_id, sp_key in derham.space_to_form.items():
@@ -258,7 +258,7 @@ def aux_test_replication_of_basis(num_elements, plist, bcs):
     # get global communicator
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    derham = Derham(num_elements, p=plist, comm=comm, local_projectors=True)
+    derham = Derham(num_elements, degree=plist, comm=comm, local_projectors=True)
 
     # For B-splines
     sp_key = "0"
@@ -267,7 +267,7 @@ def aux_test_replication_of_basis(num_elements, plist, bcs):
     space = spaces[0]
     N = space.nbasis
     ncells = space.ncells
-    p = space.degree
+    degree = space.degree
     T = space.knots
     periodic = space.periodic
     basis = space.basis
@@ -279,13 +279,13 @@ def aux_test_replication_of_basis(num_elements, plist, bcs):
                 etas = xp.array([etas])
             out = xp.zeros_like(etas)
             for j, eta in enumerate(etas):
-                span = find_span(T, p, eta)
-                inds = xp.arange(span - p, span + 1) % N
+                span = find_span(T, degree, eta)
+                inds = xp.arange(span - degree, span + 1) % N
                 pos = xp.argwhere(inds == i)
                 # print(f'{pos = }')
                 if pos.size > 0:
                     pos = pos[0, 0]
-                    out[j] = basis_funs(T, p, eta, span, normalize=normalize)[pos]
+                    out[j] = basis_funs(T, degree, eta, span, normalize=normalize)[pos]
                 else:
                     out[j] = 0.0
             return out
@@ -299,10 +299,10 @@ def aux_test_replication_of_basis(num_elements, plist, bcs):
         etas = xp.linspace(0.0, 1.0, 100)
         fun_h = xp.zeros(100)
         for k, eta in enumerate(etas):
-            span = find_span(T, p, eta)
-            ind1 = xp.arange(span - p, span + 1) % N
-            basis = basis_funs(T, p, eta, span, normalize=normalize)
-            fun_h[k] = evaluation_kernel_1d(p, basis, ind1, lambdas)
+            span = find_span(T, degree, eta)
+            ind1 = xp.arange(span - degree, span + 1) % N
+            basis = basis_funs(T, degree, eta, span, normalize=normalize)
+            fun_h[k] = evaluation_kernel_1d(degree, basis, ind1, lambdas)
 
         if xp.max(xp.abs(fun(etas, 0.0, 0.0) - fun_h)) >= 10.0**-10:
             print(xp.max(xp.abs(fun(etas, 0.0, 0.0) - fun_h)))
@@ -361,7 +361,7 @@ def test_basis_projection_operator_local(num_elements, plist, bcs, out_sp_key, i
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     world_size = comm.Get_size()
-    derham = Derham(num_elements, p=plist, bcs=bcs, comm=comm, local_projectors=True)
+    derham = Derham(num_elements, degree=plist, bcs=bcs, comm=comm, local_projectors=True)
 
     # The first step to test our BasisProjectionOperatorLocal is to build the B and D spline functions in such a way that we can evaluate them in parallel.
     # We cannot us the fields of a derham space to do this since the evaluation of the splines in this way is a collective operation, and we want our functions
@@ -973,7 +973,7 @@ def test_basis_projection_operator_local_new(num_elements, plist, bcs, out_sp_ke
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     world_size = comm.Get_size()
-    derham = Derham(num_elements, p=plist, bcs=bcs, comm=comm, local_projectors=True)
+    derham = Derham(num_elements, degree=plist, bcs=bcs, comm=comm, local_projectors=True)
 
     # Building the B-splines
     # We will need the FEM spline space that contains D-splines in all three directions.
@@ -1366,7 +1366,7 @@ def aux_test_spline_evaluation(num_elements, plist, bcs):
     # get global communicator
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    derham = Derham(num_elements, p=plist, comm=comm, local_projectors=True)
+    derham = Derham(num_elements, degree=plist, comm=comm, local_projectors=True)
 
     # The first step to test our BasisProjectionOperatorLocal is to build the B and D spline functions in such a way that we can evaluate them in parallel.
     # We cannot us the fields of a derham space to do this since the evaluation of the splines in this way is a collective operation, and we want our functions
@@ -1502,6 +1502,6 @@ def aux_test_spline_evaluation(num_elements, plist, bcs):
 
 if __name__ == "__main__":
     num_elements = [14, 16, 18]
-    p = [5, 4, 3]
+    degree = [5, 4, 3]
     bcs = (None, ("free", "free"), ("free", "free"))
-    test_local_projectors_compare_global(num_elements, p, bcs)
+    test_local_projectors_compare_global(num_elements, degree, bcs)

@@ -87,7 +87,7 @@ def test_poisson_1d(
             e3 = 0.0
             if direction == 0:
                 num_elements = [Neli, 1, 1]
-                p = [pi, 1, 1]
+                degree = [pi, 1, 1]
                 e1 = xp.linspace(0.0, 1.0, 50)
 
                 if bc_type == "neumann":
@@ -110,7 +110,7 @@ def test_poisson_1d(
 
             elif direction == 1:
                 num_elements = [1, Neli, 1]
-                p = [1, pi, 1]
+                degree = [1, pi, 1]
                 e2 = xp.linspace(0.0, 1.0, 50)
 
                 if bc_type == "neumann":
@@ -133,7 +133,7 @@ def test_poisson_1d(
 
             elif direction == 2:
                 num_elements = [1, 1, Neli]
-                p = [1, 1, pi]
+                degree = [1, 1, pi]
                 e3 = xp.linspace(0.0, 1.0, 50)
 
                 if bc_type == "neumann":
@@ -157,7 +157,7 @@ def test_poisson_1d(
                 print("Direction should be either 0, 1 or 2")
 
             # create derham object
-            derham = Derham(num_elements, p=p, bcs=bcs, comm=comm)
+            derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
 
             # mass matrices
             mass_ops = WeightedMassOperators(derham, domain)
@@ -249,12 +249,12 @@ def test_poisson_1d(
                 f"Convergence for degree {pi =}, {direction + 1 =}, {bc_type =}, {mapping[0] =}",
                 figsize=(12, 8),
             )
-            plt.plot(h_vec, errors, "o", label=f"p={p[direction]}")
+            plt.plot(h_vec, errors, "o", label=f"degree={degree[direction]}")
             plt.plot(
                 h_vec,
-                [h ** (p[direction] + 1) / h_vec[direction] ** (p[direction] + 1) * errors[direction] for h in h_vec],
+                [h ** (degree[direction] + 1) / h_vec[direction] ** (degree[direction] + 1) * errors[direction] for h in h_vec],
                 "k--",
-                label="correct rate p+1",
+                label="correct rate degree+1",
             )
             plt.yscale("log")
             plt.xscale("log")
@@ -290,8 +290,8 @@ def test_poisson_accum_1d(mapping, do_plot=False):
 
     # create derham object
     num_elements = (16, 1, 1)
-    p = (2, 1, 1)
-    derham = Derham(num_elements, p=p, comm=comm)
+    degree = (2, 1, 1)
+    derham = Derham(num_elements, degree=degree, comm=comm)
 
     # mass matrices
     mass_ops = WeightedMassOperators(derham, domain)
@@ -423,7 +423,7 @@ def test_poisson_accum_1d(mapping, do_plot=False):
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("num_elements", [[64, 64, 1]])
-@pytest.mark.parametrize("p", [[1, 1, 1], [2, 2, 1]])
+@pytest.mark.parametrize("degree", [[1, 1, 1], [2, 2, 1]])
 @pytest.mark.parametrize("bc_type", ["periodic", "dirichlet", "neumann"])
 @pytest.mark.parametrize(
     "mapping",
@@ -433,7 +433,7 @@ def test_poisson_accum_1d(mapping, do_plot=False):
     ],
 )
 @pytest.mark.parametrize("projected_rhs", [False, True])
-def test_poisson_2d(num_elements, p, bc_type, mapping, projected_rhs, show_plot=False):
+def test_poisson_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_plot=False):
     """
     Test the Poisson solver by means of manufactured solutions in 2D .
     """
@@ -504,7 +504,7 @@ def test_poisson_2d(num_elements, p, bc_type, mapping, projected_rhs, show_plot=
             return xp.cos(xp.pi / Lx * x) * (xp.pi / Lx) ** 2
 
     # create derham object
-    derham = Derham(num_elements, p=p, bcs=bcs, comm=comm)
+    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
 
     # create weighted mass operators
     mass_ops = WeightedMassOperators(derham, domain)
@@ -616,7 +616,7 @@ def test_poisson_2d(num_elements, p, bc_type, mapping, projected_rhs, show_plot=
     error1 = xp.max(xp.abs(analytic_value1 - sol_val1))
     error2 = xp.max(xp.abs(analytic_value2 - sol_val2))
 
-    print(f"{p =}, {bc_type =}, {mapping =}")
+    print(f"{degree =}, {bc_type =}, {mapping =}")
     print(f"{error1 =}")
     print(f"{error2 =}")
     print("")
@@ -643,7 +643,7 @@ def test_poisson_2d(num_elements, p, bc_type, mapping, projected_rhs, show_plot=
 
         plt.show()
 
-    if p[0] == 1 and bc_type == "neumann" and mapping[0] == "Colella":
+    if degree[0] == 1 and bc_type == "neumann" and mapping[0] == "Colella":
         pass
     else:
         assert error1 < 0.0053
@@ -658,11 +658,11 @@ if __name__ == "__main__":
     # test_poisson_1d(direction, bc_type, mapping, projected_rhs=True, show_plot=True)
 
     # num_elements = [64, 64, 1]
-    # p = [2, 2, 1]
+    # degree = [2, 2, 1]
     # bc_type = 'neumann'
     # # mapping = ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 3.}]
     # # mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
     # mapping = ['Colella', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
-    # test_poisson_2d(num_elements, p, bc_type, mapping, projected_rhs=True, show_plot=True)
+    # test_poisson_2d(num_elements, degree, bc_type, mapping, projected_rhs=True, show_plot=True)
 
     test_poisson_accum_1d(mapping, do_plot=True)

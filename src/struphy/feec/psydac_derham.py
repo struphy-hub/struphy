@@ -175,7 +175,7 @@ class DiscreteDerham:
             raise NotImplementedError("only global projectors are available")
 
         if nquads is None:
-            nquads = [p + 1 for p in self.V0.degree]
+            nquads = [degree + 1 for degree in self.V0.degree]
         elif isinstance(nquads, int):
             nquads = [nquads] * self.dim
         else:
@@ -509,7 +509,7 @@ class Derham:
     num_elements : tuple[int, int, int]
         Number of elements in logical directions ``(eta_1, eta_2, eta_3)``.
 
-    p : tuple[int, int, int], default=(1, 1, 1)
+    degree : tuple[int, int, int], default=(1, 1, 1)
         B-spline degree in each logical direction.
 
     bcs : tuple[
@@ -523,11 +523,11 @@ class Derham:
 
     nquads : tuple[int, int, int] | None, default=None
         Number of Gauss-Legendre quadrature points used for quadrature grids.
-        If ``None``, defaults to ``p + 1`` per direction.
+        If ``None``, defaults to ``degree + 1`` per direction.
 
     nq_pr : tuple[int, int, int] | None, default=None
         Number of quadrature points used to build projector point/weight sets.
-        If ``None``, defaults to ``p + 1`` per direction.
+        If ``None``, defaults to ``degree + 1`` per direction.
 
     comm : mpi4py.MPI.Intracomm | None, default=None
         MPI communicator. If ``None``, computations run in serial mode.
@@ -565,7 +565,7 @@ class Derham:
         self,
         num_elements: tuple[int, int, int],
         *,
-        p: tuple[int, int, int] = (1, 1, 1),
+        degree: tuple[int, int, int] = (1, 1, 1),
         bcs: tuple[
             None | tuple[NonTrivialBC, NonTrivialBC],
             None | tuple[NonTrivialBC, NonTrivialBC],
@@ -582,9 +582,9 @@ class Derham:
     ):
         # number of elements and spline degrees in each direction
         assert len(num_elements) == 3
-        assert len(p) == 3
+        assert len(degree) == 3
         self._num_elements = tuple(num_elements)
-        self._p = tuple(p)
+        self._degree = tuple(degree)
 
         # setting boundary conditions, default is periodic in all directions
         self._bcs = tuple(bcs)
@@ -611,16 +611,16 @@ class Derham:
         self._spl_kind = tuple(self._spl_kind)
         self._dirichlet_bc = tuple(tuple(b) for b in self._dirichlet_bc)
 
-        # quadrature points: default p + 1 for exact integration of degree 2p+1 polynomials
+        # quadrature points: default degree + 1 for exact integration of degree 2p+1 polynomials
         if nquads is None:
-            self._nquads = tuple([pi + 1 for pi in p])
+            self._nquads = tuple([pi + 1 for pi in degree])
         else:
             assert len(nquads) == 3
             self._nquads = tuple(nquads)
 
-        # histopololation points: default p + 1 : exact integration of degree 2p+1 polynomials
+        # histopololation points: default degree + 1 : exact integration of degree 2p+1 polynomials
         if nq_pr is None:
-            self._nq_pr = tuple([pi + 1 for pi in p])
+            self._nq_pr = tuple([pi + 1 for pi in degree])
         else:
             assert len(nq_pr) == 3
             self._nq_pr = tuple(nq_pr)
@@ -649,7 +649,7 @@ class Derham:
 
         derham = self.init_derham(
             num_elements,
-            self.p,
+            self.degree,
             self.spl_kind,
             comm=self.comm,
             mpi_dims_mask=mpi_dims_mask,
@@ -835,7 +835,7 @@ class Derham:
 
         # collect arguments for kernels
         self._args_derham = DerhamArguments(
-            xp.array(self.p),
+            xp.array(self.degree),
             self.V0fem.knots[0],
             self.V0fem.knots[1],
             self.V0fem.knots[2],
@@ -851,9 +851,9 @@ class Derham:
         return self._num_elements
 
     @property
-    def p(self) -> tuple[int, int, int]:
+    def degree(self) -> tuple[int, int, int]:
         """List of B-spline degrees in each direction."""
-        return self._p
+        return self._degree
 
     @property
     def bcs(
@@ -870,12 +870,12 @@ class Derham:
 
     @property
     def nquads(self) -> tuple[int, int, int]:
-        """List of number of Gauss-Legendre quadrature points in each direction (default = p, leads to exact integration of degree 2p-1 polynomials)."""
+        """List of number of Gauss-Legendre quadrature points in each direction (default = degree, leads to exact integration of degree 2p-1 polynomials)."""
         return self._nquads
 
     @property
     def nq_pr(self) -> tuple[int, int, int]:
-        """List of number of Gauss-Legendre quadrature points in histopolation (default = p + 1) in each direction."""
+        """List of number of Gauss-Legendre quadrature points in histopolation (default = degree + 1) in each direction."""
         return self._nq_pr
 
     @property
@@ -1335,7 +1335,7 @@ class Derham:
     def init_derham(
         self,
         num_elements: tuple[int, int, int],
-        p: tuple[int, int, int],
+        degree: tuple[int, int, int],
         spl_kind: tuple[bool, bool, bool],
         comm=None,
         mpi_dims_mask: tuple[bool, bool, bool] = None,
@@ -1348,7 +1348,7 @@ class Derham:
         num_elements : tuple[int, int, int]
             Number of elements in each direction.
 
-        p : tuple[int, int, int]
+        degree : tuple[int, int, int]
             Spline degree in each direction.
 
         spl_kind : tuple[bool, bool, bool]
@@ -1370,7 +1370,7 @@ class Derham:
 
             _derham = self._discretize_derham(
                 num_elements,
-                p,
+                degree,
                 spl_kind,
                 self.domain_decomposition,
             )
@@ -1405,7 +1405,7 @@ class Derham:
             _derham = discretize(
                 self._derham_symb,
                 self._domain_log_h,
-                degree=p,
+                degree=degree,
             )  # , nquads=self.nquads) # nquads can no longer be passed to a call to discretize on a FemSpace #403
 
         return _derham
@@ -1472,10 +1472,10 @@ class Derham:
             Knot span indices in each direction in format (n, nq).
 
         bns : 3-tuple of 3d float arrays
-            Values of p + 1 non-zero B-Splines at quadrature points in format (n, nq, basis).
+            Values of degree + 1 non-zero B-Splines at quadrature points in format (n, nq, basis).
 
         bds : 3-tuple of 3d float arrays
-            Values of p non-zero D-Splines at quadrature points in format (n, nq, basis).
+            Values of degree non-zero D-Splines at quadrature points in format (n, nq, basis).
         """
 
         # spline degree and knot vectors must come from N-spline spaces (V0 space)
@@ -1499,7 +1499,7 @@ class Derham:
     def _discretize_derham(
         self,
         num_elements: tuple[int, int, int],
-        p: tuple[int, int, int],
+        degree: tuple[int, int, int],
         spl_kind: tuple[bool, bool, bool],
         ddm: DomainDecomposition,
     ) -> DiscreteDerham:
@@ -1510,7 +1510,7 @@ class Derham:
         num_elements : list[int]
             Number of elements in each direction.
 
-        p : list[int]
+        degree : list[int]
             Spline degree in each direction.
 
         spl_kind : list[bool]
@@ -1528,7 +1528,7 @@ class Derham:
                 V,
                 basis,
                 num_elements,
-                p,
+                degree,
                 spl_kind,
                 ddm,
             )
@@ -1607,8 +1607,8 @@ class Derham:
 
         # Create 1D finite element spaces and precompute quadrature data
         spaces_1d = [
-            SplineSpace(p, multiplicity=m, grid=grid, periodic=P)
-            for p, m, grid, P in zip(degree_i, multiplicity_i, grids, periodic)
+            SplineSpace(degree, multiplicity=m, grid=grid, periodic=P)
+            for degree, m, grid, P in zip(degree_i, multiplicity_i, grids, periodic)
         ]
 
         carts = create_cart([ddm], [spaces_1d])
@@ -2511,7 +2511,7 @@ class SplineFunction:
                 *bases,
                 vec._data,
                 self.derham.spline_attributes[self.space_key].spline_types_pyccel,
-                xp.array(self.derham.p),
+                xp.array(self.derham.degree),
                 xp.array(self.starts),
                 out,
             )
@@ -2541,7 +2541,7 @@ class SplineFunction:
                     vec[i]._data,
                     self.derham.spline_attributes[self.space_key].spline_types_pyccel[i],
                     xp.array(
-                        self.derham.p,
+                        self.derham.degree,
                     ),
                     xp.array(
                         self.starts[i],
@@ -2632,7 +2632,7 @@ class SplineFunction:
                     E3,
                     self._vector_stencil._data,
                     kind,
-                    xp.array(self.derham.p),
+                    xp.array(self.derham.degree),
                     T1,
                     T2,
                     T3,
@@ -2645,7 +2645,7 @@ class SplineFunction:
                     markers,
                     self._vector_stencil._data,
                     kind,
-                    xp.array(self.derham.p),
+                    xp.array(self.derham.degree),
                     T1,
                     T2,
                     T3,
@@ -2660,7 +2660,7 @@ class SplineFunction:
                     E3,
                     self._vector_stencil._data,
                     kind,
-                    xp.array(self.derham.p),
+                    xp.array(self.derham.degree),
                     T1,
                     T2,
                     T3,
@@ -2703,7 +2703,7 @@ class SplineFunction:
                         E3,
                         self._vector_stencil[n]._data,
                         kind,
-                        xp.array(self.derham.p),
+                        xp.array(self.derham.degree),
                         T1,
                         T2,
                         T3,
@@ -2716,7 +2716,7 @@ class SplineFunction:
                         markers,
                         self._vector_stencil[n]._data,
                         kind,
-                        xp.array(self.derham.p),
+                        xp.array(self.derham.degree),
                         T1,
                         T2,
                         T3,
@@ -2731,7 +2731,7 @@ class SplineFunction:
                         E3,
                         self._vector_stencil[n]._data,
                         kind,
-                        xp.array(self.derham.p),
+                        xp.array(self.derham.degree),
                         T1,
                         T2,
                         T3,
@@ -3238,7 +3238,7 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
 
     n_quad : int
         Number of quadrature points for Gauss-Legendre histopolation.
-        If None, is set to p + 1 where p is the space_1d degree (products of basis functions are integrated exactly).
+        If None, is set to degree + 1 where degree is the space_1d degree (products of basis functions are integrated exactly).
 
     polar_shift : bool
         Whether to shift the first interpolation point away from 0.0 by 1e-5 (needed only in eta_1 and for polar domains).
@@ -3366,7 +3366,7 @@ def get_pts_and_wts_quasi(
         Quadrature weights (or 1's for interpolation) in format (ii, iq) = (interval, quadrature point)."""
 
     # spline space info
-    p = space_1d.degree
+    degree = space_1d.degree
     h = space_1d.breaks[1]
     N = len(space_1d.breaks) - 1  # number of cells
     knots = space_1d.knots
@@ -3375,10 +3375,10 @@ def get_pts_and_wts_quasi(
     if space_1d.periodic:
         # interpolation
         if space_1d.basis == "B":
-            if p == 1 and h != 1.0:
-                x_grid = xp.linspace(-(p - 1) * h, 1.0 - h + (h / 2.0), (N + p - 1) * 2)
+            if degree == 1 and h != 1.0:
+                x_grid = xp.linspace(-(degree - 1) * h, 1.0 - h + (h / 2.0), (N + degree - 1) * 2)
             else:
-                x_grid = xp.linspace(-(p - 1) * h, 1.0 - h, (N + p - 1) * 2 - 1)
+                x_grid = xp.linspace(-(degree - 1) * h, 1.0 - h, (N + degree - 1) * 2 - 1)
 
             pts = x_grid[:, None] % 1.0
             wts = xp.ones(pts.shape, dtype=float)
@@ -3391,14 +3391,14 @@ def get_pts_and_wts_quasi(
         elif space_1d.basis == "M":
             # The computation of histopolation points breaks in case we have num_elements=1 and periodic boundary conditions since we end up with only one x_grid point.
             # We need to build the histopolation points by hand in this scenario.
-            if p == 0 and h == 1.0:
+            if degree == 0 and h == 1.0:
                 x_grid = xp.array([0.0, 0.5, 1.0])
-            elif p == 0 and h != 1.0:
-                x_grid = xp.linspace(-p * h, 1.0 - h + (h / 2.0), (N + p) * 2)
+            elif degree == 0 and h != 1.0:
+                x_grid = xp.linspace(-degree * h, 1.0 - h + (h / 2.0), (N + degree) * 2)
             else:
-                x_grid = xp.linspace(-p * h, 1.0 - h, (N + p) * 2 - 1)
+                x_grid = xp.linspace(-degree * h, 1.0 - h, (N + degree) * 2 - 1)
 
-            n_quad = p + 1
+            n_quad = degree + 1
             # Gauss - Legendre quadrature points and weights
             # products of basis functions are integrated exactly
             pts_loc, wts_loc = xp.polynomial.legendre.leggauss(n_quad)
@@ -3408,32 +3408,32 @@ def get_pts_and_wts_quasi(
     else:
         # interpolation
         if space_1d.basis == "B":
-            if p <= 2:
-                raise Exception("The local projector with clamped boundary conditions only support p > 2.")
+            if degree <= 2:
+                raise Exception("The local projector with clamped boundary conditions only support degree > 2.")
 
             # Number of B-splines
-            N_b = N + p
+            N_b = N + degree
 
             # Filling the quasi-interpolation points for i=0 and i=1 (since they are equal)
-            x_grid = xp.linspace(0.0, knots[p + 1], p + 1)
-            x_aux = xp.linspace(0.0, knots[p + 1], p + 1)
+            x_grid = xp.linspace(0.0, knots[degree + 1], degree + 1)
+            x_aux = xp.linspace(0.0, knots[degree + 1], degree + 1)
             x_grid = xp.append(x_grid, x_aux)
-            # Now we append those for 1<i<p-1
-            for i in range(2, p - 1):
-                x_aux = xp.linspace(knots[p], knots[p + i], p + i)
+            # Now we append those for 1<i<degree-1
+            for i in range(2, degree - 1):
+                x_aux = xp.linspace(knots[degree], knots[degree + i], degree + i)
                 x_grid = xp.append(x_grid, x_aux)
 
-            # Now we append the points for p-1<= i <= N_b-p
+            # Now we append the points for degree-1<= i <= N_b-degree
             x_aux = xp.linspace(0.0, 1.0, 2 * N + 1)
             x_grid = xp.append(x_grid, x_aux)
 
-            # Now the points for N_b-p < i < N_b-1
-            for i in range(N_b - p + 1, N_b - 1):
-                x_aux = xp.linspace(knots[i + 1], knots[N_b], N_b + p - i - 1)
+            # Now the points for N_b-degree < i < N_b-1
+            for i in range(N_b - degree + 1, N_b - 1):
+                x_aux = xp.linspace(knots[i + 1], knots[N_b], N_b + degree - i - 1)
                 x_grid = xp.append(x_grid, x_aux)
             # Finally we add the pointset for i = N_b-1, which is the same as the one for i = N_b-2
             i = N_b - 2
-            x_aux = xp.linspace(knots[i + 1], knots[N_b], N_b + p - i - 1)
+            x_aux = xp.linspace(knots[i + 1], knots[N_b], N_b + degree - i - 1)
             x_grid = xp.append(x_grid, x_aux)
 
             if polar_shift:
@@ -3447,42 +3447,42 @@ def get_pts_and_wts_quasi(
         # histopolation
         elif space_1d.basis == "M":
             # B-spline degree
-            p += 1
-            if p <= 2:
-                raise Exception("The local projector with clamped boundary conditions only support p > 2.")
+            degree += 1
+            if degree <= 2:
+                raise Exception("The local projector with clamped boundary conditions only support degree > 2.")
 
             # Number of B-splines
-            N_b = N + p
+            N_b = N + degree
 
             # IMPORTANT: The way in which the knots are defined is such that for D-splines they have one
             # less padding on the left and one less padding on the right compare to the knots for B-splines.
             # Thus, we must substract 1 to all the indices of the knots here to refere to the same point.
 
             # Filling the quasi-interpolation points for i=0 and i=1 (since they are equal)
-            x_grid = xp.linspace(0.0, knots[p], p + 1)
-            x_aux = xp.linspace(0.0, knots[p], p + 1)
+            x_grid = xp.linspace(0.0, knots[degree], degree + 1)
+            x_aux = xp.linspace(0.0, knots[degree], degree + 1)
             x_grid = xp.append(x_grid, x_aux)
-            # Now we append those for 1<i<p-1
-            for i in range(2, p - 1):
-                x_aux = xp.linspace(knots[p - 1], knots[p + i - 1], p + i)
+            # Now we append those for 1<i<degree-1
+            for i in range(2, degree - 1):
+                x_aux = xp.linspace(knots[degree - 1], knots[degree + i - 1], degree + i)
                 x_grid = xp.append(x_grid, x_aux)
 
-            # Now we append the points for p-1<= i <= N_b-p
+            # Now we append the points for degree-1<= i <= N_b-degree
             x_aux = xp.linspace(0.0, 1.0, 2 * N + 1)
             x_grid = xp.append(x_grid, x_aux)
 
-            # Now the points for N_b-p < i < N_b-1
-            for i in range(N_b - p + 1, N_b - 1):
-                x_aux = xp.linspace(knots[i], knots[N_b - 1], N_b + p - i - 1)
+            # Now the points for N_b-degree < i < N_b-1
+            for i in range(N_b - degree + 1, N_b - 1):
+                x_aux = xp.linspace(knots[i], knots[N_b - 1], N_b + degree - i - 1)
                 x_grid = xp.append(x_grid, x_aux)
             # Finally we add the pointset for i = N_b-1, which is the same as the one for i = N_b-2
             i = N_b - 2
-            x_aux = xp.linspace(knots[i], knots[N_b - 1], N_b + p - i - 1)
+            x_aux = xp.linspace(knots[i], knots[N_b - 1], N_b + degree - i - 1)
             x_grid = xp.append(x_grid, x_aux)
 
             # Gauss - Legendre quadrature points and weights
             # products of basis functions are integrated exactly
-            n_quad = p
+            n_quad = degree
             pts_loc, wts_loc = xp.polynomial.legendre.leggauss(n_quad)
 
             x, wts = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
@@ -3492,7 +3492,7 @@ def get_pts_and_wts_quasi(
 
 
 def get_span_and_basis(pts, space):
-    """Compute the knot span index and the values of p + 1 basis function at each point in pts.
+    """Compute the knot span index and the values of degree + 1 basis function at each point in pts.
 
     Parameters
     ----------
@@ -3513,19 +3513,19 @@ def get_span_and_basis(pts, space):
 
     # Extract knot vectors, degree and kind of basis
     T = space.knots
-    p = space.degree
+    degree = space.degree
 
     span = xp.zeros(pts.shape, dtype=int)
-    basis = xp.zeros((*pts.shape, p + 1), dtype=float)
+    basis = xp.zeros((*pts.shape, degree + 1), dtype=float)
 
     for n in range(pts.shape[0]):
         for nq in range(pts.shape[1]):
             # avoid 1. --> 0. for clamped interpolation
             x = pts[n, nq] % (1.0 + 1e-14)
-            span_tmp = bsp.find_span(T, p, x)
+            span_tmp = bsp.find_span(T, degree, x)
             basis[n, nq, :] = bsp.basis_funs_all_ders(
                 T,
-                p,
+                degree,
                 x,
                 span_tmp,
                 0,
@@ -3602,10 +3602,10 @@ def get_weights_local_projector(pts, fem_space):
     for d, space in enumerate(fem_space.spaces):
         # Extract knot vectors, degree and kind of basis
         T = space.knots
-        p = space.degree
+        degree = space.degree
         periodic = space.periodic
         x = pts[d].flatten()
-        colmatrix = bsp.collocation_matrix(T, p, periodic, "B", x)
+        colmatrix = bsp.collocation_matrix(T, degree, periodic, "B", x)
 
         # Number of B-splines
         Nbasis = colmatrix.shape[1]
@@ -3616,13 +3616,13 @@ def get_weights_local_projector(pts, fem_space):
         if periodic:
             i = 0
             # We get the indices that tell us which entries of x to get
-            xstart, xend = select_quasi_points(int(i), int(p), int(Nbasis), bool(periodic))
+            xstart, xend = select_quasi_points(int(i), int(degree), int(Nbasis), bool(periodic))
             # Now we get the indices that tell us which basis functions to consider
-            bstart, bend = select_basis_local(i, p, Nbasis, periodic)
+            bstart, bend = select_basis_local(i, degree, Nbasis, periodic)
             # We can finally build the minicollocation matrix necessary to obtain the weights wij
             counter = 1
             minicol = colmatrix[xstart:xend, bstart]
-            while counter < 2 * p - 1:
+            while counter < 2 * degree - 1:
                 minicol = xp.column_stack(
                     (minicol, colmatrix[xstart:xend, (bstart + counter) % Nbasis]),
                 )
@@ -3630,8 +3630,8 @@ def get_weights_local_projector(pts, fem_space):
 
             # We need to consider the case in which our minicollocation matrix ends up being just one number
             if xp.shape(minicol)[0] == 1:
-                # There seems to be a bug with the bsp.collocation_matrix function for the case num_elements = 1, p = 1 and periodic, when evaluating the only B-spline at 0 the answer should be 1 not 0.
-                if p == 1 and Nbasis == 1:
+                # There seems to be a bug with the bsp.collocation_matrix function for the case num_elements = 1, degree = 1 and periodic, when evaluating the only B-spline at 0 the answer should be 1 not 0.
+                if degree == 1 and Nbasis == 1:
                     minicol[0] = 1.0
                 invmini = 1.0 / minicol[0]
                 for i in range(Nbasis):
@@ -3639,13 +3639,13 @@ def get_weights_local_projector(pts, fem_space):
             else:
                 invmini = xp.linalg.inv(minicol)
                 for i in range(Nbasis):
-                    wijaux.append(invmini[p - 1, :])
+                    wijaux.append(invmini[degree - 1, :])
         else:
             for i in range(Nbasis):
                 # We get the indices that tell us which entries of x to get
-                xstart, xend = select_quasi_points(int(i), int(p), int(Nbasis), bool(periodic))
+                xstart, xend = select_quasi_points(int(i), int(degree), int(Nbasis), bool(periodic))
                 # Now we get the indices that tell us which basis functions to consider
-                bstart, bend = select_basis_local(i, p, Nbasis, periodic)
+                bstart, bend = select_basis_local(i, degree, Nbasis, periodic)
                 # We can finally build the minicollocation matrix necessary to obtain the weights wij
                 minicol = colmatrix[xstart:xend, bstart:bend]
                 # Now we get its inverse
@@ -3654,12 +3654,12 @@ def get_weights_local_projector(pts, fem_space):
                 # Now we need to extract the row of invmini that corresponds to the ith histopolation coefficient.
                 if i == 0:
                     relevant_row = 0
-                elif i < (p - 1):
+                elif i < (degree - 1):
                     relevant_row = i
                 elif i < (Nbasis - 1):
-                    relevant_row = p - 1
+                    relevant_row = degree - 1
                 elif i == (Nbasis - 1):
-                    relevant_row = p
+                    relevant_row = degree
 
                 # At this point auxiliar contains the geometric weights (wi0, wi1, ...)
                 auxiliar = invmini[relevant_row, :].tolist()
@@ -3674,19 +3674,19 @@ def get_weights_local_projector(pts, fem_space):
         wij.append(xp.array(wijaux))
 
         # Now that we know the wij we must use them to compute the whij
-        # We begin by adressing the special case p=1 and periodic
+        # We begin by adressing the special case degree=1 and periodic
         # This is a special case since some of the integrals in the definition of the histopolation operator vanish.
         if periodic:
             # Number of D-splines
             nD = Nbasis
-            if p == 1:
+            if degree == 1:
                 for i in range(nD):
                     whijaux.append(xp.array([wijaux[i][0], wijaux[i][0]]))
             else:
                 whats = [wijaux[0][0], wijaux[0][0] + wijaux[0][1]]
-                for j in range(2, 2 * p - 1):
+                for j in range(2, 2 * degree - 1):
                     whats.append(wijaux[0][j - 1] + wijaux[0][j])
-                whats.append(wijaux[0][2 * p - 2])
+                whats.append(wijaux[0][2 * degree - 2])
                 for i in range(nD):
                     whijaux.append(xp.array(whats))
 
@@ -3698,7 +3698,7 @@ def get_weights_local_projector(pts, fem_space):
 
                 if i == 0 or i == (Nbasis - 2):
                     for j in range(maxjwhij[d]):
-                        if j <= p - 1:
+                        if j <= degree - 1:
                             sumval = 0.0
                             for q in range(j + 1):
                                 sumval += wijaux[i][q] - wijaux[i + 1][q]
@@ -3706,30 +3706,30 @@ def get_weights_local_projector(pts, fem_space):
                         else:
                             whats.append(0.0)
 
-                elif 0 < i and i < (p - 1):
+                elif 0 < i and i < (degree - 1):
                     for j in range(maxjwhij[d]):
-                        if j <= (p + i - 2):
+                        if j <= (degree + i - 2):
                             sumval = 0.0
-                            for q in range(j + 1, p + i):
+                            for q in range(j + 1, degree + i):
                                 sumval += wijaux[i][q]
                             whats.append(-1.0 * sumval)
-                        elif j == (p + i - 1):
+                        elif j == (degree + i - 1):
                             whats.append(0.0)
-                        elif (p + i) <= j and j <= (2 * p + 2 * i - 1):
+                        elif (degree + i) <= j and j <= (2 * degree + 2 * i - 1):
                             sumval = 0.0
-                            for q in range(j - p - i + 1, p + i + 1):
+                            for q in range(j - degree - i + 1, degree + i + 1):
                                 sumval += wijaux[i + 1][q]
                             whats.append(sumval)
                         else:
                             whats.append(0.0)
 
-                elif (p - 1) <= i and i < (Nbasis - p):
+                elif (degree - 1) <= i and i < (Nbasis - degree):
                     for j in range(maxjwhij[d]):
                         if j == 0:
                             whats.append(wijaux[i][0])
                         elif j == 1:
                             whats.append(wijaux[i][0] + wijaux[i][1])
-                        elif 2 <= j and j <= (2 * p - 2):
+                        elif 2 <= j and j <= (2 * degree - 2):
                             sumval = 0.0
                             for q in range(j - 1):
                                 sumval += wijaux[i][q] - wijaux[i + 1][q]
@@ -3737,29 +3737,29 @@ def get_weights_local_projector(pts, fem_space):
                             sumval += wijaux[i][j]
                             whats.append(sumval)
 
-                        elif j == (2 * p - 1):
+                        elif j == (2 * degree - 1):
                             sumval = 0.0
-                            for q in range(2 * p - 2):
+                            for q in range(2 * degree - 2):
                                 sumval += wijaux[i][q] - wijaux[i + 1][q]
-                            sumval += wijaux[i][2 * p - 2]
+                            sumval += wijaux[i][2 * degree - 2]
                             whats.append(sumval)
                         else:
                             whats.append(0.0)
 
-                elif (Nbasis - p) <= i and i < (Nbasis - 2):
+                elif (Nbasis - degree) <= i and i < (Nbasis - 2):
                     for j in range(maxjwhij[d]):
-                        if j <= (Nbasis + p - i - 3):
+                        if j <= (Nbasis + degree - i - 3):
                             sumval = 0.0
                             for q in range(j + 1):
                                 sumval += wijaux[i][q]
                             whats.append(sumval)
 
-                        elif j == (Nbasis + p - i - 2):
+                        elif j == (Nbasis + degree - i - 2):
                             whats.append(0.0)
 
-                        elif (Nbasis + p - i - 1) <= j and j <= (2 * Nbasis + 2 * p - 2 * i - 5):
+                        elif (Nbasis + degree - i - 1) <= j and j <= (2 * Nbasis + 2 * degree - 2 * i - 5):
                             sumval = 0.0
-                            for q in range(j - Nbasis - p + i + 2):
+                            for q in range(j - Nbasis - degree + i + 2):
                                 sumval += wijaux[i + 1][q]
                             whats.append(-1.0 * sumval)
 
@@ -3774,7 +3774,7 @@ def get_weights_local_projector(pts, fem_space):
 
 
 # We need a function that tell us which of the basis functions to take for the computation of the wij, for any i
-def select_basis_local(i, p, Nbasis, periodic):
+def select_basis_local(i, degree, Nbasis, periodic):
     """Determines the start and end indices of the basis functions that must be taken from the collocation matrix to compute the geometric weights wij, for any given i.
 
     Parameters
@@ -3782,7 +3782,7 @@ def select_basis_local(i, p, Nbasis, periodic):
     i : int
         Index of the wij weights that must be computed.
 
-    p : int
+    degree : int
         B-spline degree.
 
     Nbasis: int
@@ -3800,22 +3800,22 @@ def select_basis_local(i, p, Nbasis, periodic):
         End index of the B-splines that must be consider in the collocation matrix to obtain the wij weights. Exclusive index
     """
     if periodic:
-        start = (i + 1 - p) % Nbasis
-        end = (i + p) % Nbasis
+        start = (i + 1 - degree) % Nbasis
+        end = (i + degree) % Nbasis
     else:
         if i == 0:
             start = 0
-            end = p + 1
-        elif i < (p - 1):
+            end = degree + 1
+        elif i < (degree - 1):
             start = 0
-            end = p + i
-        elif i <= (Nbasis - p):
-            start = i + 1 - p
-            end = i + p
+            end = degree + i
+        elif i <= (Nbasis - degree):
+            start = i + 1 - degree
+            end = i + degree
         elif i < (Nbasis - 1):
-            start = i + 1 - p
+            start = i + 1 - degree
             end = Nbasis
         elif i == (Nbasis - 1):
-            start = Nbasis - 1 - p
+            start = Nbasis - 1 - degree
             end = Nbasis
     return start, end

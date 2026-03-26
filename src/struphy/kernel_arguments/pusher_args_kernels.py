@@ -118,14 +118,14 @@ class DomainArguments:
     params : array[float]
         Mapping parameters of :class:`~struphy.geometry.base.Domain`.
 
-    p : array[int]
+    degree : array[int]
         Spline degrees of :class:`~struphy.geometry.base.Domain`.
 
     t1, t2, t3 : array[float]
         Knot sequences of :class:`~struphy.geometry.base.Domain`.
 
     ind1, ind2, ind3 : array[float]
-        Indices of non-vanishing splines in format (number of mapping grid cells, p + 1) of :class:`~struphy.geometry.base.Domain`.
+        Indices of non-vanishing splines in format (number of mapping grid cells, degree + 1) of :class:`~struphy.geometry.base.Domain`.
 
     cx, cy, cz : array[float]
         Spline coefficients (control points) of :class:`~struphy.geometry.base.Domain`.
@@ -135,7 +135,7 @@ class DomainArguments:
         self,
         kind_map: int,
         params: "float[:]",
-        p: "int[:]",
+        degree: "int[:]",
         t1: "float[:]",
         t2: "float[:]",
         t3: "float[:]",
@@ -148,7 +148,7 @@ class DomainArguments:
     ):
         self.kind_map = kind_map
         self.params = params
-        self.p = p
+        self.degree = degree
         self.t1 = t1
         self.t2 = t2
         self.t3 = t3

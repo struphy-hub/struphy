@@ -2,7 +2,7 @@ import pytest
 
 
 @pytest.mark.parametrize("num_elements", [[8, 10, 12]])
-@pytest.mark.parametrize("p", [[1, 2, 3]])
+@pytest.mark.parametrize("degree", [[1, 2, 3]])
 @pytest.mark.parametrize(
     "bcs",
     [
@@ -12,7 +12,7 @@ import pytest
 )
 @pytest.mark.parametrize("spaces", [["H1", "Hcurl", "Hdiv"], ["Hdiv", "L2"], ["H1vec"]])
 @pytest.mark.parametrize("vec_comps", [[True, True, False], [False, True, True]])
-def test_bckgr_init_const(num_elements, p, bcs, spaces, vec_comps):
+def test_bckgr_init_const(num_elements, degree, bcs, spaces, vec_comps):
     """Test field background initialization of "LogicalConst" with multiple fields in params."""
 
     import cunumpy as xp
@@ -25,7 +25,7 @@ def test_bckgr_init_const(num_elements, p, bcs, spaces, vec_comps):
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence and field of space
-    derham = Derham(num_elements, p=p, bcs=bcs, comm=comm)
+    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
 
     # evaluation grids for comparisons
     e1 = xp.linspace(0.0, 1.0, num_elements[0])
@@ -63,9 +63,9 @@ def test_bckgr_init_const(num_elements, p, bcs, spaces, vec_comps):
 
 
 @pytest.mark.parametrize("num_elements", [[18, 24, 12]])
-@pytest.mark.parametrize("p", [[1, 2, 1]])
+@pytest.mark.parametrize("degree", [[1, 2, 1]])
 @pytest.mark.parametrize("bcs", [(("free", "free"), None, None)])
-def test_bckgr_init_mhd(num_elements, p, bcs, with_desc=False, with_gvec=False, show_plot=False):
+def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=False, show_plot=False):
     """Test field background initialization of "MHD" with multiple fields in params."""
 
     import inspect
@@ -82,7 +82,7 @@ def test_bckgr_init_mhd(num_elements, p, bcs, with_desc=False, with_gvec=False, 
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence and field of space
-    derham = Derham(num_elements, p=p, bcs=bcs, comm=comm)
+    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
 
     # background parameters
     bckgr_0 = FieldsBackground(type="FluidEquilibrium", variable="absB0")
@@ -1082,8 +1082,8 @@ def test_bckgr_init_mhd(num_elements, p, bcs, with_desc=False, with_gvec=False, 
 
 
 @pytest.mark.parametrize("num_elements", [[1, 32, 32]])
-@pytest.mark.parametrize("p", [[1, 3, 3]])
-def test_sincos_init_const(num_elements, p, show_plot=False):
+@pytest.mark.parametrize("degree", [[1, 3, 3]])
+def test_sincos_init_const(num_elements, degree, show_plot=False):
     """Test field perturbation with ModesSin + ModesCos on top of of "LogicalConst" with multiple fields in params."""
 
     import cunumpy as xp
@@ -1161,7 +1161,7 @@ def test_sincos_init_const(num_elements, p, show_plot=False):
     }
 
     # Psydac discrete Derham sequence and fields
-    derham = Derham(num_elements, p=p, comm=comm)
+    derham = Derham(num_elements, degree=degree, comm=comm)
 
     field_0 = derham.create_spline_function("name_0", "H1", backgrounds=bckgr_0, perturbations=[f_sin_0, f_cos_0])
     field_1 = derham.create_spline_function(
@@ -1311,7 +1311,7 @@ def test_sincos_init_const(num_elements, p, show_plot=False):
 
 
 @pytest.mark.parametrize("num_elements", [[8, 10, 12]])
-@pytest.mark.parametrize("p", [[1, 2, 3]])
+@pytest.mark.parametrize("degree", [[1, 2, 3]])
 @pytest.mark.parametrize(
     "bcs",
     [
@@ -1321,7 +1321,7 @@ def test_sincos_init_const(num_elements, p, show_plot=False):
 )
 @pytest.mark.parametrize("space", ["Hcurl", "Hdiv", "H1vec"])
 @pytest.mark.parametrize("direction", ["e1", "e2", "e3"])
-def test_noise_init(num_elements, p, bcs, space, direction):
+def test_noise_init(num_elements, degree, bcs, space, direction):
     """Only tests 1d noise ('e1', 'e2', 'e3') !!"""
 
     import cunumpy as xp
@@ -1335,10 +1335,10 @@ def test_noise_init(num_elements, p, bcs, space, direction):
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence and field of space
-    derham = Derham(num_elements, p=p, bcs=bcs, comm=comm)
+    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
     field = derham.create_spline_function("field", space)
 
-    derham_np = Derham(num_elements, p=p, bcs=bcs, comm=None)
+    derham_np = Derham(num_elements, degree=degree, bcs=bcs, comm=None)
     field_np = derham_np.create_spline_function("field", space)
 
     # initial conditions

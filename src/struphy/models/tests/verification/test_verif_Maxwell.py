@@ -42,7 +42,7 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
     grid = grids.TensorProductGrid(num_elements=(1, 1, 128))
 
     # derham options
-    derham_opts = DerhamOptions(p=(1, 1, 3))
+    derham_opts = DerhamOptions(degree=(1, 1, 3))
 
     # propagator options
     model.propagators.maxwell.options = model.propagators.maxwell.Options(algo=algo)
@@ -123,7 +123,7 @@ def test_coaxial(do_plot: bool = False):
 
     # derham options
     derham_opts = DerhamOptions(
-        p=(3, 3, 1),
+        degree=(3, 3, 1),
         bcs=(("hom_dirichlet", "hom_dirichlet"), None, None),
     )
 

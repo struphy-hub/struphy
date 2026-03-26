@@ -130,7 +130,7 @@ class AccumFilter:
                     self.form_int,
                     xp.array(self.derham.num_elements),
                     xp.array(self.derham.spl_kind),
-                    xp.array(self.derham.p),
+                    xp.array(self.derham.degree),
                     xp.array(starts),
                     xp.array(ends),
                     alpha=alpha,
@@ -156,7 +156,7 @@ class AccumFilter:
         assert tor_num_elements >= 2 * int(xp.max(modes)), "num_elements[2] must be at least 2*max(modes)"
         assert self.derham.domain_decomposition.nprocs[2] == 1, "No domain decomposition along toroidal direction"
 
-        pn = xp.asarray(self.derham.p, dtype=int)
+        pn = xp.asarray(self.derham.degree, dtype=int)
         ir = xp.empty(3, dtype=int)
 
         # rfft output length

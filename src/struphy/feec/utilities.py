@@ -214,15 +214,15 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
     elif isinstance(arr_psy, StencilMatrix):
         s = arr_psy.codomain.starts
         e = arr_psy.codomain.ends
-        p = arr_psy.pads
+        degree = arr_psy.pads
         tmp_arr = arr[s[0] : e[0] + 1, s[1] : e[1] + 1, s[2] : e[2] + 1, :, :, :]
         tmp1 = arr_psy[
             s[0] : e[0] + 1,
             s[1] : e[1] + 1,
             s[2] : e[2] + 1,
-            -p[0] : p[0] + 1,
-            -p[1] : p[1] + 1,
-            -p[2] : p[2] + 1,
+            -degree[0] : degree[0] + 1,
+            -degree[1] : degree[1] + 1,
+            -degree[2] : degree[2] + 1,
         ]
 
         if tmp_arr.shape == tmp1.shape:
@@ -233,9 +233,9 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
                     e[0] + 1 - s[0],
                     e[1] + 1 - s[1],
                     e[2] + 1 - s[2],
-                    2 * p[0] + 1,
-                    2 * p[1] + 1,
-                    2 * p[2] + 1,
+                    2 * degree[0] + 1,
+                    2 * degree[1] + 1,
+                    2 * degree[2] + 1,
                 ),
                 dtype=float,
             )
@@ -251,7 +251,7 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
 
                 s = mat_psy.codomain.starts
                 e = mat_psy.codomain.ends
-                p = mat_psy.pads
+                degree = mat_psy.pads
                 tmp_mat = mat[
                     s[0] : e[0] + 1,
                     s[1] : e[1] + 1,
@@ -264,9 +264,9 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
                     s[0] : e[0] + 1,
                     s[1] : e[1] + 1,
                     s[2] : e[2] + 1,
-                    -p[0] : p[0] + 1,
-                    -p[1] : p[1] + 1,
-                    -p[2] : p[2] + 1,
+                    -degree[0] : degree[0] + 1,
+                    -degree[1] : degree[1] + 1,
+                    -degree[2] : degree[2] + 1,
                 ]
 
                 if tmp_mat.shape == tmp1.shape:
@@ -277,9 +277,9 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
                             e[0] + 1 - s[0],
                             e[1] + 1 - s[1],
                             e[2] + 1 - s[2],
-                            2 * p[0] + 1,
-                            2 * p[1] + 1,
-                            2 * p[2] + 1,
+                            2 * degree[0] + 1,
+                            2 * degree[1] + 1,
+                            2 * degree[2] + 1,
                         ),
                         dtype=float,
                     )
@@ -484,7 +484,7 @@ def create_weight_weightedmatrix_hybrid(b, weight_pre, derham, accum_density, do
         pts = [quad_grid[nquad].points for quad_grid, nquad in zip(get_quad_grids(wspace), derham.nquads)]
         wts = [quad_grid[nquad].weights for quad_grid, nquad in zip(get_quad_grids(wspace), derham.nquads)]
 
-        p = wspace.degree
+        degree = wspace.degree
 
         # evaluated basis functions at quadrature points of the space
         basis_o = [quad_grid[nquad].basis for quad_grid, nquad in zip(get_quad_grids(wspace), derham.nquads)]
@@ -494,9 +494,9 @@ def create_weight_weightedmatrix_hybrid(b, weight_pre, derham, accum_density, do
         kernels.hybrid_curlA(
             *starts_out,
             *spans_out,
-            p[0],
-            p[1],
-            p[2],
+            degree[0],
+            degree[1],
+            degree[2],
             nqs[0],
             nqs[1],
             nqs[2],

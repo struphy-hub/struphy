@@ -86,7 +86,7 @@ class InitialMHDAxisymHdivEigFun:
         derham_sym = Derham(domain_log)
 
         domain_log_h = discretize(domain_log, ncells=[derham.num_elements[2]], periodic=[True])
-        derham_1d = discretize(derham_sym, domain_log_h, degree=[derham.p[2]], nquads=[derham.nquads[2]])
+        derham_1d = discretize(derham_sym, domain_log_h, degree=[derham.degree[2]], nquads=[derham.nquads[2]])
 
         p0, p1 = derham_1d.projectors(nquads=[derham.nq_pr[2]])
 

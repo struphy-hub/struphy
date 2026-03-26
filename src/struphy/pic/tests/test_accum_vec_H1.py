@@ -4,7 +4,7 @@ from struphy.utils.pyccel import Pyccelkernel
 
 
 @pytest.mark.parametrize("num_elements", [[8, 9, 10]])
-@pytest.mark.parametrize("p", [[2, 3, 4]])
+@pytest.mark.parametrize("degree", [[2, 3, 4]])
 @pytest.mark.parametrize(
     "bcs",
     [
@@ -42,7 +42,7 @@ from struphy.utils.pyccel import Pyccelkernel
     ],
 )
 @pytest.mark.parametrize("num_clones", [1, 2])
-def test_accum_poisson(num_elements, p, bcs, mapping, num_clones, Np=1000):
+def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=1000):
     r"""DRAFT: test the accumulation of the rhs (H1-space) in Poisson's equation .
 
     Tests:
@@ -88,7 +88,7 @@ def test_accum_poisson(num_elements, p, bcs, mapping, num_clones, Np=1000):
 
         derham = Derham(
             num_elements,
-            p=p,
+            degree=degree,
             bcs=bcs,
             comm=None,
         )
@@ -100,7 +100,7 @@ def test_accum_poisson(num_elements, p, bcs, mapping, num_clones, Np=1000):
 
         derham = Derham(
             num_elements,
-            p=p,
+            degree=degree,
             bcs=bcs,
             comm=clone_config.sub_comm,
         )

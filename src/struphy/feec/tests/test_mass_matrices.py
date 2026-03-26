@@ -2,7 +2,7 @@ import pytest
 
 
 @pytest.mark.parametrize("num_elements", [[5, 6, 7]])
-@pytest.mark.parametrize("p", [[2, 2, 3]])
+@pytest.mark.parametrize("degree", [[2, 2, 3]])
 @pytest.mark.parametrize(
     "bcs",
     [
@@ -15,7 +15,7 @@ import pytest
     ],
 )
 @pytest.mark.parametrize("mapping", [["Colella", {"Lx": 1.0, "Ly": 6.0, "alpha": 0.1, "Lz": 10.0}]])
-def test_mass(num_elements, p, bcs, mapping, show_plots=False):
+def test_mass(num_elements, degree, bcs, mapping, show_plots=False):
     """Compare Struphy mass matrices to Struphy-legacy mass matrices."""
 
     import cunumpy as xp
@@ -102,7 +102,7 @@ def test_mass(num_elements, p, bcs, mapping, show_plots=False):
     eq_mhd.domain = domain
 
     # derham object
-    derham = Derham(num_elements, p=p, bcs=bcs, comm=mpi_comm)
+    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=mpi_comm)
 
     print(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
 
@@ -294,7 +294,7 @@ def test_mass(num_elements, p, bcs, mapping, show_plots=False):
 
 
 @pytest.mark.parametrize("num_elements", [[8, 12, 6]])
-@pytest.mark.parametrize("p", [[2, 2, 3]])
+@pytest.mark.parametrize("degree", [[2, 2, 3]])
 @pytest.mark.parametrize(
     "bcs",
     [
@@ -306,7 +306,7 @@ def test_mass(num_elements, p, bcs, mapping, show_plots=False):
     ],
 )
 @pytest.mark.parametrize("mapping", [["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}]])
-def test_mass_polar(num_elements, p, bcs, mapping, show_plots=False):
+def test_mass_polar(num_elements, degree, bcs, mapping, show_plots=False):
     """Compare Struphy polar mass matrices to Struphy-legacy polar mass matrices."""
 
     import cunumpy as xp
@@ -332,7 +332,7 @@ def test_mass_polar(num_elements, p, bcs, mapping, show_plots=False):
 
     # mapping
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class(**{"num_elements": num_elements[:2], "p": p[:2], "a": mapping[1]["a"], "Lz": mapping[1]["Lz"]})
+    domain = domain_class(**{"num_elements": num_elements[:2], "degree": degree[:2], "a": mapping[1]["a"], "Lz": mapping[1]["Lz"]})
 
     if show_plots:
         import matplotlib.pyplot as plt
@@ -362,7 +362,7 @@ def test_mass_polar(num_elements, p, bcs, mapping, show_plots=False):
     # derham object
     derham = Derham(
         num_elements,
-        p=p,
+        degree=degree,
         bcs=bcs,
         comm=mpi_comm,
         with_projectors=False,
@@ -432,7 +432,7 @@ def test_mass_polar(num_elements, p, bcs, mapping, show_plots=False):
 
 
 @pytest.mark.parametrize("num_elements", [[8, 12, 6]])
-@pytest.mark.parametrize("p", [[2, 3, 2]])
+@pytest.mark.parametrize("degree", [[2, 3, 2]])
 @pytest.mark.parametrize(
     "bcs",
     [
@@ -444,7 +444,7 @@ def test_mass_polar(num_elements, p, bcs, mapping, show_plots=False):
     ],
 )
 @pytest.mark.parametrize("mapping", [["HollowCylinder", {"a1": 0.1, "a2": 1.0, "Lz": 18.84955592153876}]])
-def test_mass_preconditioner(num_elements, p, bcs, mapping, show_plots=False):
+def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=False):
     """Compare mass matrix-vector products with Kronecker products of preconditioner,
     check PC * M = Id and test PCs in solve."""
 
@@ -536,7 +536,7 @@ def test_mass_preconditioner(num_elements, p, bcs, mapping, show_plots=False):
     eq_mhd.domain = domain
 
     # derham object
-    derham = Derham(num_elements, p=p, bcs=bcs, comm=mpi_comm)
+    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=mpi_comm)
 
     fem_spaces = [derham.V0fem, derham.V1fem, derham.V2fem, derham.V3fem, derham.Vvfem]
 
@@ -734,7 +734,7 @@ def test_mass_preconditioner(num_elements, p, bcs, mapping, show_plots=False):
 
 
 @pytest.mark.parametrize("num_elements", [[8, 9, 6]])
-@pytest.mark.parametrize("p", [[2, 2, 3]])
+@pytest.mark.parametrize("degree", [[2, 2, 3]])
 @pytest.mark.parametrize(
     "bcs",
     [
@@ -746,7 +746,7 @@ def test_mass_preconditioner(num_elements, p, bcs, mapping, show_plots=False):
     ],
 )
 @pytest.mark.parametrize("mapping", [["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}]])
-def test_mass_preconditioner_polar(num_elements, p, bcs, mapping, show_plots=False):
+def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plots=False):
     """Compare polar mass matrix-vector products with Kronecker products of preconditioner,
     check PC * M = Id and test PCs in solve."""
 
@@ -777,7 +777,7 @@ def test_mass_preconditioner_polar(num_elements, p, bcs, mapping, show_plots=Fal
 
     # mapping
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class(**{"num_elements": num_elements[:2], "p": p[:2], "a": mapping[1]["a"], "Lz": mapping[1]["Lz"]})
+    domain = domain_class(**{"num_elements": num_elements[:2], "degree": degree[:2], "a": mapping[1]["a"], "Lz": mapping[1]["Lz"]})
 
     if show_plots:
         import matplotlib.pyplot as plt
@@ -807,7 +807,7 @@ def test_mass_preconditioner_polar(num_elements, p, bcs, mapping, show_plots=Fal
     # derham object
     derham = Derham(
         num_elements,
-        p=p,
+        degree=degree,
         bcs=bcs,
         comm=mpi_comm,
         with_projectors=False,

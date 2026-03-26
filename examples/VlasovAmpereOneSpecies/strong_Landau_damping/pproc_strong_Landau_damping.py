@@ -14,7 +14,7 @@ def main():
     dt = params.time_opts.dt
     algo = params.time_opts.split_algo
     num_elements = params.grid.num_elements
-    p = params.derham_opts.p
+    degree = params.derham_opts.degree
 
     env = params.env
     ppc = params.loading_params.ppc
@@ -44,7 +44,7 @@ def main():
         plt.plot(time, E, label="numerical")
         plt.yscale("log")
         plt.legend()
-        plt.title(f"{dt=}, {algo=}, {num_elements=}, {p=}, {ppc=}")
+        plt.title(f"{dt=}, {algo=}, {num_elements=}, {degree=}, {ppc=}")
         plt.xlabel("time [s]")
         plt.ylabel("electric energy $E^2/2$ [a.u.]")
 

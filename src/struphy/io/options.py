@@ -204,7 +204,7 @@ class DerhamOptions(OptionsBase):
 
     Parameters
     ----------
-    p : tuple[int, int, int]
+    degree : tuple[int, int, int]
         Spline degree in each logical direction ``(eta_1, eta_2, eta_3)``.
 
     bcs : tuple[None | tuple[NonTrivialBC, NonTrivialBC], None | tuple[NonTrivialBC, NonTrivialBC], None | tuple[NonTrivialBC, NonTrivialBC]]
@@ -231,7 +231,7 @@ class DerhamOptions(OptionsBase):
         quasi-inter-/histopolation.
     """
 
-    p: tuple[int, int, int] = (1, 1, 1)
+    degree: tuple[int, int, int] = (1, 1, 1)
     bcs: tuple[
         None | tuple[NonTrivialBC, NonTrivialBC],
         None | tuple[NonTrivialBC, NonTrivialBC],

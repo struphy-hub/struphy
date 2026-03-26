@@ -7,7 +7,7 @@ from struphy.fields_background.coil_fields.base import CoilMagneticField, load_c
 class RatGUI(CoilMagneticField):
     """Interface to RatGUI."""
 
-    def __init__(self, csv_path=None, num_elements=[16, 16, 16], p=[3, 3, 3], domain=None, **params):
+    def __init__(self, csv_path=None, num_elements=[16, 16, 16], degree=[3, 3, 3], domain=None, **params):
         print("Hello.")
         self._csv_path = csv_path
 
@@ -16,12 +16,12 @@ class RatGUI(CoilMagneticField):
 
         derham = Derham(
             num_elements=num_elements,
-            p=p,
+            degree=degree,
             bcs=(("free", "free"), ("free", "free"), None),
         )  # Assuming (R=eta1, Z=eta2, phi=eta3) coordinates for csv data (periodic in eta3 only).
         self._interpolate = (
             derham.Pv.solve
-        )  # This is a method for spline interpolation of degree p on the grid num_elements in eta-space.
+        )  # This is a method for spline interpolation of degree degree on the grid num_elements in eta-space.
         self._rhs = derham.Vv.zeros()  # This is the vector where we want to store the csv data. It holds all three B-components and will be passed to the interpolator.
 
         # Extract B_R, B_Z, B_phi from loaded data
@@ -42,8 +42,8 @@ class RatGUI(CoilMagneticField):
         print(f"{self.rhs[0][:].shape =}")
         print(f"{self.rhs[1][:].shape =}")
         print(f"{self.rhs[2][:].shape =}")
-        # We need to choose num_elements and p such that the csv_data fits into this vector.
-        # For a periodic direction, the size of the vector is num_elements, for non-periodic the size is num_elements + p.
+        # We need to choose num_elements and degree such that the csv_data fits into this vector.
+        # For a periodic direction, the size of the vector is num_elements, for non-periodic the size is num_elements + degree.
 
         # TODO: fill ratgui_csv_data into rhs vector
 

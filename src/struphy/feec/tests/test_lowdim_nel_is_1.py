@@ -2,8 +2,8 @@ import pytest
 
 
 @pytest.mark.parametrize("num_elements", [[32, 1, 1], [1, 32, 1], [1, 1, 32], [31, 32, 1], [32, 1, 31], [1, 31, 32]])
-@pytest.mark.parametrize("p", [[1, 1, 1]])
-def test_lowdim_derham(num_elements, p, do_plot=False):
+@pytest.mark.parametrize("degree", [[1, 1, 1]])
+def test_lowdim_derham(num_elements, degree, do_plot=False):
     """Test num_elements=1 in various directions."""
 
     import cunumpy as xp
@@ -18,10 +18,10 @@ def test_lowdim_derham(num_elements, p, do_plot=False):
     rank = comm.Get_rank()
 
     print("num_elements=", num_elements)
-    print("p=", p)
+    print("degree=", degree)
 
     # Psydac discrete Derham sequence
-    derham = Derham(num_elements, p=p, comm=comm)
+    derham = Derham(num_elements, degree=degree, comm=comm)
 
     ############################
     ### TEST STENCIL VECTORS ###

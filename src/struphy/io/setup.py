@@ -66,7 +66,7 @@ def setup_derham(
     mpi_dims_mask = grid.mpi_dims_mask
 
     # spline degrees
-    p = options.p
+    degree = options.degree
     # boundary conditions
     bcs = options.bcs
     # Number of quadrature points per histopolation cell
@@ -80,7 +80,7 @@ def setup_derham(
 
     derham = Derham(
         num_elements,
-        p=p,
+        degree=degree,
         bcs=bcs,
         nquads=nquads,
         nq_pr=nq_pr,
@@ -95,7 +95,7 @@ def setup_derham(
     if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
         print("\nDERHAM:")
         print("number of elements:".ljust(25), num_elements)
-        print("spline degrees:".ljust(25), p)
+        print("spline degrees:".ljust(25), degree)
         print("boundary conditions:".ljust(25), bcs)
         print("GL quad pts (L2):".ljust(25), nquads)
         print("GL quad pts (hist):".ljust(25), nq_pr)

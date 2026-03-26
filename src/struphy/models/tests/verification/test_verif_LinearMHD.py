@@ -48,7 +48,7 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
     grid = grids.TensorProductGrid(num_elements=(1, 1, 64))
 
     # derham options
-    derham_opts = DerhamOptions(p=(1, 1, 3))
+    derham_opts = DerhamOptions(degree=(1, 1, 3))
 
     # species parameters
     model.mhd.set_species_properties()

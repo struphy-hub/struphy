@@ -2,7 +2,7 @@ import pytest
 
 
 @pytest.mark.parametrize("num_elements", [[8, 12, 4]])
-@pytest.mark.parametrize("p", [[2, 3, 2]])
+@pytest.mark.parametrize("degree", [[2, 3, 2]])
 @pytest.mark.parametrize(
     "bcs",
     [
@@ -11,7 +11,7 @@ import pytest
     ],
 )
 @pytest.mark.parametrize("mapping", [["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}]])
-def test_some_basis_ops(num_elements, p, bcs, mapping):
+def test_some_basis_ops(num_elements, degree, bcs, mapping):
     """Tests the MHD specific projection operators PI_ijk(fun*Lambda_mno).
 
     Here, PI_ijk is the commuting projector of the output space (codomain),
@@ -42,12 +42,12 @@ def test_some_basis_ops(num_elements, p, bcs, mapping):
     n_quad_el = [5, 5, 5]
     n_quad_pr = [4, 4, 4]
 
-    DERHAM_PSY = Derham(num_elements, p=p, bcs=bcs, nq_pr=n_quad_pr, nquads=n_quad_el, comm=MPI_COMM)
+    DERHAM_PSY = Derham(num_elements, degree=degree, bcs=bcs, nq_pr=n_quad_pr, nquads=n_quad_el, comm=MPI_COMM)
 
     # grid parameters
     if mpi_rank == 0:
         print(f"Rank {mpi_rank} | num_elements: {num_elements}")
-        print(f"Rank {mpi_rank} | p: {p}")
+        print(f"Rank {mpi_rank} | degree: {degree}")
         print(f"Rank {mpi_rank} | bcs: {bcs}")
         print(f"Rank {mpi_rank} | ")
 
@@ -254,7 +254,7 @@ def test_some_basis_ops(num_elements, p, bcs, mapping):
 
 
 @pytest.mark.parametrize("num_elements", [[6, 9, 7]])
-@pytest.mark.parametrize("p", [[2, 2, 3]])
+@pytest.mark.parametrize("degree", [[2, 2, 3]])
 @pytest.mark.parametrize(
     "bcs",
     [
@@ -266,7 +266,7 @@ def test_some_basis_ops(num_elements, p, bcs, mapping):
     ],
 )
 @pytest.mark.parametrize("mapping", [["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}]])
-def test_basis_ops_polar(num_elements, p, bcs, mapping, show_plots=False):
+def test_basis_ops_polar(num_elements, degree, bcs, mapping, show_plots=False):
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
 
@@ -285,7 +285,7 @@ def test_basis_ops_polar(num_elements, p, bcs, mapping, show_plots=False):
 
     # mapping
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class(**{"num_elements": num_elements[:2], "p": p[:2], "a": mapping[1]["a"], "Lz": mapping[1]["Lz"]})
+    domain = domain_class(**{"num_elements": num_elements[:2], "degree": degree[:2], "a": mapping[1]["a"], "Lz": mapping[1]["Lz"]})
 
     if show_plots:
         import matplotlib.pyplot as plt
@@ -313,14 +313,14 @@ def test_basis_ops_polar(num_elements, p, bcs, mapping, show_plots=False):
     eq_mhd.domain = domain
 
     # derham object
-    nq_el = [p[0] + 1, p[1] + 1, p[2] + 1]
-    nq_pr = p.copy()
+    nq_el = [degree[0] + 1, degree[1] + 1, degree[2] + 1]
+    nq_pr = degree.copy()
 
     derham = Derham(
         num_elements,
-        p=p,
+        degree=degree,
         bcs=bcs,
-        nquads=p,
+        nquads=degree,
         nq_pr=nq_pr,
         comm=mpi_comm,
         with_projectors=True,

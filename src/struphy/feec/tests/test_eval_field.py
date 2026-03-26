@@ -5,7 +5,7 @@ from feectools.ddm.mpi import mpi as MPI
 
 
 @pytest.mark.parametrize("num_elements", [[8, 9, 10]])
-@pytest.mark.parametrize("p", [[3, 2, 4]])
+@pytest.mark.parametrize("degree", [[3, 2, 4]])
 @pytest.mark.parametrize(
     "bcs",
     [
@@ -14,7 +14,7 @@ from feectools.ddm.mpi import mpi as MPI
         (None, ("free", "free"), ("free", "free")),
     ],
 )
-def test_eval_field(num_elements, p, bcs):
+def test_eval_field(num_elements, degree, bcs):
     """Compares distributed array spline evaluation in Field object with legacy code."""
 
     from struphy import perturbations
@@ -27,7 +27,7 @@ def test_eval_field(num_elements, p, bcs):
     rank = comm.Get_rank()
 
     # derham object
-    derham = Derham(num_elements, p=p, bcs=bcs, comm=comm)
+    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
 
     # fem field objects
     p0 = derham.create_spline_function("pressure", "H1")
@@ -95,9 +95,9 @@ def test_eval_field(num_elements, p, bcs):
         derham.V0fem.knots[0],
         derham.V0fem.knots[1],
         derham.V0fem.knots[2],
-        p[0],
-        p[1],
-        p[2],
+        degree[0],
+        degree[1],
+        degree[2],
         derham.indN[0],
         derham.indN[1],
         derham.indN[2],
@@ -147,9 +147,9 @@ def test_eval_field(num_elements, p, bcs):
         derham.V3fem.knots[0],
         derham.V0fem.knots[1],
         derham.V0fem.knots[2],
-        p[0] - 1,
-        p[1],
-        p[2],
+        degree[0] - 1,
+        degree[1],
+        degree[2],
         derham.indD[0],
         derham.indN[1],
         derham.indN[2],
@@ -177,9 +177,9 @@ def test_eval_field(num_elements, p, bcs):
         derham.V0fem.knots[0],
         derham.V3fem.knots[1],
         derham.V0fem.knots[2],
-        p[0],
-        p[1] - 1,
-        p[2],
+        degree[0],
+        degree[1] - 1,
+        degree[2],
         derham.indN[0],
         derham.indD[1],
         derham.indN[2],
@@ -207,9 +207,9 @@ def test_eval_field(num_elements, p, bcs):
         derham.V0fem.knots[0],
         derham.V0fem.knots[1],
         derham.V3fem.knots[2],
-        p[0],
-        p[1],
-        p[2] - 1,
+        degree[0],
+        degree[1],
+        degree[2] - 1,
         derham.indN[0],
         derham.indN[1],
         derham.indD[2],
@@ -267,9 +267,9 @@ def test_eval_field(num_elements, p, bcs):
         derham.V0fem.knots[0],
         derham.V3fem.knots[1],
         derham.V3fem.knots[2],
-        p[0],
-        p[1] - 1,
-        p[2] - 1,
+        degree[0],
+        degree[1] - 1,
+        degree[2] - 1,
         derham.indN[0],
         derham.indD[1],
         derham.indD[2],
@@ -297,9 +297,9 @@ def test_eval_field(num_elements, p, bcs):
         derham.V3fem.knots[0],
         derham.V0fem.knots[1],
         derham.V3fem.knots[2],
-        p[0] - 1,
-        p[1],
-        p[2] - 1,
+        degree[0] - 1,
+        degree[1],
+        degree[2] - 1,
         derham.indD[0],
         derham.indN[1],
         derham.indD[2],
@@ -327,9 +327,9 @@ def test_eval_field(num_elements, p, bcs):
         derham.V3fem.knots[0],
         derham.V3fem.knots[1],
         derham.V0fem.knots[2],
-        p[0] - 1,
-        p[1] - 1,
-        p[2],
+        degree[0] - 1,
+        degree[1] - 1,
+        degree[2],
         derham.indD[0],
         derham.indD[1],
         derham.indN[2],
@@ -387,9 +387,9 @@ def test_eval_field(num_elements, p, bcs):
         derham.V3fem.knots[0],
         derham.V3fem.knots[1],
         derham.V3fem.knots[2],
-        p[0] - 1,
-        p[1] - 1,
-        p[2] - 1,
+        degree[0] - 1,
+        degree[1] - 1,
+        degree[2] - 1,
         derham.indD[0],
         derham.indD[1],
         derham.indD[2],
@@ -439,9 +439,9 @@ def test_eval_field(num_elements, p, bcs):
         derham.V0fem.knots[0],
         derham.V0fem.knots[1],
         derham.V0fem.knots[2],
-        p[0],
-        p[1],
-        p[2],
+        degree[0],
+        degree[1],
+        degree[2],
         derham.indN[0],
         derham.indN[1],
         derham.indN[2],
@@ -469,9 +469,9 @@ def test_eval_field(num_elements, p, bcs):
         derham.V0fem.knots[0],
         derham.V0fem.knots[1],
         derham.V0fem.knots[2],
-        p[0],
-        p[1],
-        p[2],
+        degree[0],
+        degree[1],
+        degree[2],
         derham.indN[0],
         derham.indN[1],
         derham.indN[2],
@@ -499,9 +499,9 @@ def test_eval_field(num_elements, p, bcs):
         derham.V0fem.knots[0],
         derham.V0fem.knots[1],
         derham.V0fem.knots[2],
-        p[0],
-        p[1],
-        p[2],
+        degree[0],
+        degree[1],
+        degree[2],
         derham.indN[0],
         derham.indN[1],
         derham.indN[2],

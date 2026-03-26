@@ -47,7 +47,7 @@ def test_weak_Landau(do_plot: bool = False):
     grid = grids.TensorProductGrid(num_elements=(32, 1, 1))
 
     # derham options
-    derham_opts = DerhamOptions(p=(3, 1, 1))
+    derham_opts = DerhamOptions(degree=(3, 1, 1))
 
     # species parameters
     model.kinetic_ions.set_species_properties(alpha=1.0, epsilon=-1.0)
@@ -114,7 +114,7 @@ def test_weak_Landau(do_plot: bool = False):
     dt = time_opts.dt
     algo = time_opts.split_algo
     num_elements = grid.num_elements
-    p = derham_opts.p
+    degree = derham_opts.degree
 
     # get scalar data
     if MPI.COMM_WORLD.Get_rank() == 0:
@@ -137,7 +137,7 @@ def test_weak_Landau(do_plot: bool = False):
             plt.plot(time, logE, label="numerical")
             plt.plot(time, xp.log10(E_exact(time)), label="exact")
             plt.legend()
-            plt.title(f"{dt=}, {algo=}, {num_elements=}, {p=}, {ppc=}")
+            plt.title(f"{dt=}, {algo=}, {num_elements=}, {degree=}, {ppc=}")
             plt.xlabel("time [m/c]")
             plt.plot(t_maxima[:5], maxima[:5], "r")
             plt.plot(t_maxima[:5], maxima[:5], "or", markersize=10)

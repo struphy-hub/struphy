@@ -28,7 +28,7 @@ def main():
     Tend = params.time_opts.Tend
     algo = params.time_opts.split_algo
     num_elements = params.grid.num_elements
-    p = params.derham_opts.p
+    degree = params.derham_opts.degree
 
     env = params.env
     ppc = params.loading_params.Np // 32 # 32 grid points

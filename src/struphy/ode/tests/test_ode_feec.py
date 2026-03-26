@@ -34,8 +34,8 @@ def test_exp_growth(spaces, algo, show_plots=False):
     rank = comm.Get_rank()
 
     num_elements = [1, 8, 9]
-    p = [1, 2, 3]
-    derham = Derham(num_elements, p=p, comm=comm)
+    degree = [1, 2, 3]
+    derham = Derham(num_elements, degree=degree, comm=comm)
 
     c0 = 1.2
     omega = 2.3

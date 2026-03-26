@@ -2,11 +2,11 @@ import pytest
 
 
 @pytest.mark.parametrize("num_elements", [12])
-@pytest.mark.parametrize("p", [1, 2, 3])
+@pytest.mark.parametrize("degree", [1, 2, 3])
 @pytest.mark.parametrize("bcs", [(None, None, None), (("free", "free"), ("free", "free"), ("free", "free"))])
 @pytest.mark.parametrize("domain_ind", ["N", "D"])
 @pytest.mark.parametrize("codomain_ind", ["N", "D"])
-def test_1d(num_elements, p, bcs, domain_ind, codomain_ind):
+def test_1d(num_elements, degree, bcs, domain_ind, codomain_ind):
     """Compares the matrix-vector product obtained from the Stencil .dot method
     with
 
@@ -30,13 +30,13 @@ def test_1d(num_elements, p, bcs, domain_ind, codomain_ind):
     if rank == 0:
         print("\nParameters:")
         print("num_elements=", num_elements)
-        print("p=", p)
+        print("degree=", degree)
         print("bcs=", bcs)
         print("domain_ind=", domain_ind)
         print("codomain_ind=", codomain_ind)
 
     # Psydac discrete Derham sequence
-    derham = Derham([num_elements] * 3, p=[p] * 3, bcs=bcs, comm=comm)
+    derham = Derham([num_elements] * 3, degree=[degree] * 3, bcs=bcs, comm=comm)
     V0 = derham.V0
 
     V0_fem = derham.V0fem
@@ -123,11 +123,11 @@ def test_1d(num_elements, p, bcs, domain_ind, codomain_ind):
 
 
 @pytest.mark.parametrize("num_elements", [[12, 16, 20]])
-@pytest.mark.parametrize("p", [[1, 2, 3]])
+@pytest.mark.parametrize("degree", [[1, 2, 3]])
 @pytest.mark.parametrize("bcs", [(None, ("free", "free"), ("free", "free"))])
 @pytest.mark.parametrize("domain_ind", ["NNN", "DNN", "NDN", "NND", "NDD", "DND", "DDN", "DDD"])
 @pytest.mark.parametrize("codomain_ind", ["NNN", "DNN", "NDN", "NND", "NDD", "DND", "DDN", "DDD"])
-def test_3d(num_elements, p, bcs, domain_ind, codomain_ind):
+def test_3d(num_elements, degree, bcs, domain_ind, codomain_ind):
     """Compares the matrix-vector product obtained from the Stencil .dot method
     with
 
@@ -151,13 +151,13 @@ def test_3d(num_elements, p, bcs, domain_ind, codomain_ind):
     if rank == 0:
         print("\nParameters:")
         print("num_elements=", num_elements)
-        print("p=", p)
+        print("degree=", degree)
         print("bcs=", bcs)
         print("domain_ind=", domain_ind)
         print("codomain_ind=", codomain_ind)
 
     # Psydac discrete Derham sequence
-    derham = Derham(num_elements, p=p, bcs=bcs, comm=comm)
+    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
 
     spaces_3d = {}
     spaces_3d["NNN"] = derham.V0fem
@@ -186,7 +186,7 @@ def test_3d(num_elements, p, bcs, domain_ind, codomain_ind):
 
     # random matrix
     xp.random.seed(123)
-    tmp1 = xp.random.rand(*codomain.coeff_space.npts, *[2 * q + 1 for q in p])
+    tmp1 = xp.random.rand(*codomain.coeff_space.npts, *[2 * q + 1 for q in degree])
     mat[
         s_out[0] : e_out[0] + 1,
         s_out[1] : e_out[1] + 1,

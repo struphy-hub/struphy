@@ -8,11 +8,11 @@ import pytest
     [
         pytest.param(
             {
-                "p": (1, 2, 3),
+                "degree": (1, 2, 3),
                 "bcs": (("hom_dirichlet", "free"), ("free", "hom_dirichlet"), None),
             },
             {
-                "p": (1, 2, 3),
+                "degree": (1, 2, 3),
                 "bcs": (("hom_dirichlet", "free"), ("free", "hom_dirichlet"), None),
                 "nquads": (2, 3, 4),
                 "nq_pr": (2, 3, 4),
@@ -25,9 +25,9 @@ import pytest
             id="mixed-hom-dirichlet-eta12",
         ),
         pytest.param(
-            {"p": (1, 2, 3), "bcs": (("free", "free"), None, ("hom_dirichlet", "hom_dirichlet"))},
+            {"degree": (1, 2, 3), "bcs": (("free", "free"), None, ("hom_dirichlet", "hom_dirichlet"))},
             {
-                "p": (1, 2, 3),
+                "degree": (1, 2, 3),
                 "bcs": (("free", "free"), None, ("hom_dirichlet", "hom_dirichlet")),
                 "nquads": (2, 3, 4),
                 "nq_pr": (2, 3, 4),
@@ -42,7 +42,7 @@ import pytest
         pytest.param(
             {},
             {
-                "p": (1, 1, 1),
+                "degree": (1, 1, 1),
                 "bcs": (None, None, None),
                 "nquads": (2, 2, 2),
                 "nq_pr": (2, 2, 2),
@@ -56,7 +56,7 @@ import pytest
         ),
         pytest.param(
             {
-                "p": (1, 2, 3),
+                "degree": (1, 2, 3),
                 "bcs": (("free", "hom_dirichlet"), None, ("hom_dirichlet", "free")),
                 "nquads": (4, 5, 6),
                 "nq_pr": (5, 6, 7),
@@ -64,7 +64,7 @@ import pytest
                 "with_projectors": False,
             },
             {
-                "p": (1, 2, 3),
+                "degree": (1, 2, 3),
                 "bcs": (("free", "hom_dirichlet"), None, ("hom_dirichlet", "free")),
                 "nquads": (4, 5, 6),
                 "nq_pr": (5, 6, 7),
@@ -78,12 +78,12 @@ import pytest
         ),
         pytest.param(
             {
-                "p": (1, 2, 3),
+                "degree": (1, 2, 3),
                 "bcs": (None, None, ("hom_dirichlet", "free")),
                 "local_projectors": True,
             },
             {
-                "p": (1, 2, 3),
+                "degree": (1, 2, 3),
                 "bcs": (None, None, ("hom_dirichlet", "free")),
                 "nquads": (2, 3, 4),
                 "nq_pr": (2, 3, 4),
@@ -110,7 +110,7 @@ def test_psydac_derham(num_elements, init_kwargs, expected):
     derham = Derham(num_elements, comm=comm, **init_kwargs)
 
     assert derham.num_elements == tuple(num_elements)
-    assert derham.p == expected["p"]
+    assert derham.degree == expected["degree"]
     assert derham.bcs == expected["bcs"]
     assert derham.nquads == expected["nquads"]
     assert derham.nq_pr == expected["nq_pr"]

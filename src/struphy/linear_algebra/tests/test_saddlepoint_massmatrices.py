@@ -4,10 +4,10 @@ import pytest
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("method_for_solving", ["SaddlePointSolverUzawaNumpy", "SaddlePointSolverGMRES"])
 @pytest.mark.parametrize("num_elements", [[12, 8, 1]])
-@pytest.mark.parametrize("p", [[3, 3, 1]])
+@pytest.mark.parametrize("degree", [[3, 3, 1]])
 @pytest.mark.parametrize("bcs", [(("free", "free"), None, None)])
 @pytest.mark.parametrize("mapping", [["Cuboid", {"l1": 0.0, "r1": 2.0, "l2": 0.0, "r2": 3.0, "l3": 0.0, "r3": 6.0}]])
-def test_saddlepointsolver(method_for_solving, num_elements, p, bcs, mapping, show_plots=False):
+def test_saddlepointsolver(method_for_solving, num_elements, degree, bcs, mapping, show_plots=False):
     """Test saddle-point-solver with manufactured solutions."""
 
     import time
@@ -35,11 +35,11 @@ def test_saddlepointsolver(method_for_solving, num_elements, p, bcs, mapping, sh
     mpi_comm.Barrier()
 
     # derham object
-    derham = Derham(num_elements, p=p, bcs=bcs, comm=mpi_comm, local_projectors=False)
+    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=mpi_comm, local_projectors=False)
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
     fem_spaces = [derham.V0fem, derham.V1fem, derham.V2fem, derham.V3fem, derham.Vvfem]
-    derhamnumpy = Derham(num_elements, p=p, bcs=bcs, domain=domain)
+    derhamnumpy = Derham(num_elements, degree=degree, bcs=bcs, domain=domain)
 
     # Mhd equilibirum (slab)
     mhd_equil_params = {"B0x": 0.0, "B0y": 0.0, "B0z": 1.0, "beta": 2.0, "n0": 1.0}

@@ -4,13 +4,13 @@ import pytest
 @pytest.mark.skip
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("num_elements", [[16, 1, 1], [32, 1, 1]])
-@pytest.mark.parametrize("p", [[1, 1, 1], [2, 1, 1]])
+@pytest.mark.parametrize("degree", [[1, 1, 1], [2, 1, 1]])
 @pytest.mark.parametrize("bcs", [(None, None, None)])
 @pytest.mark.parametrize("mapping", [["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}]])
 @pytest.mark.parametrize("epsilon", [0.000000001])
 @pytest.mark.parametrize("dt", [0.001])
-def test_propagator1D(num_elements, p, bcs, mapping, epsilon, dt):
-    """Test saddle-point-solver by propagator TwoFluidQuasiNeutralFull. Use manufactured solutions from perturbations to verify h- and p-convergence when model TwoFluidQuasiNeutralToy calculates solution with SaddlePointSolver."""
+def test_propagator1D(num_elements, degree, bcs, mapping, epsilon, dt):
+    """Test saddle-point-solver by propagator TwoFluidQuasiNeutralFull. Use manufactured solutions from perturbations to verify h- and degree-convergence when model TwoFluidQuasiNeutralToy calculates solution with SaddlePointSolver."""
 
     from feectools.ddm.mpi import mpi as MPI
 
@@ -38,7 +38,7 @@ def test_propagator1D(num_elements, p, bcs, mapping, epsilon, dt):
     # derham object
     derham = Derham(
         num_elements,
-        p=p,
+        degree=degree,
         bcs=bcs,
         comm=mpi_comm,
         local_projectors=False,
@@ -140,7 +140,7 @@ def test_propagator1D(num_elements, p, bcs, mapping, epsilon, dt):
         B0=1.0,
     )
 
-    # Only one step in time to compare different num_elements and p at dt
+    # Only one step in time to compare different num_elements and degree at dt
     Tend = dt
     time = 0.0
     while time < Tend:
@@ -148,20 +148,20 @@ def test_propagator1D(num_elements, p, bcs, mapping, epsilon, dt):
         prop(dt)
         time += dt
     if num_elements[0] == 16:
-        if p[0] == 1:
+        if degree[0] == 1:
             compare_arrays(uinitial.vector, uvec_initial.toarray(), mpi_rank, atol=1e-2)
             compare_arrays(u_evec.vector, u_evec_initial.toarray(), mpi_rank, atol=1e-2)
             compare_arrays(potentialvec.vector, potentialvec_initial.toarray(), mpi_rank, atol=1e-2)
-        elif p[0] == 2:
+        elif degree[0] == 2:
             compare_arrays(uinitial.vector, uvec_initial.toarray(), mpi_rank, atol=1e-4)
             compare_arrays(u_evec.vector, u_evec_initial.toarray(), mpi_rank, atol=1e-4)
             compare_arrays(potentialvec.vector, potentialvec_initial.toarray(), mpi_rank, atol=1e-4)
     elif num_elements[0] == 32:
-        if p[0] == 1:
+        if degree[0] == 1:
             compare_arrays(uinitial.vector, uvec_initial.toarray(), mpi_rank, atol=1e-2)
             compare_arrays(u_evec.vector, u_evec_initial.toarray(), mpi_rank, atol=1e-2)
             compare_arrays(potentialvec.vector, potentialvec_initial.toarray(), mpi_rank, atol=1e-3)
-        elif p[0] == 2:
+        elif degree[0] == 2:
             compare_arrays(uinitial.vector, uvec_initial.toarray(), mpi_rank, atol=1e-5)
             compare_arrays(u_evec.vector, u_evec_initial.toarray(), mpi_rank, atol=1e-7)
             compare_arrays(potentialvec.vector, potentialvec_initial.toarray(), mpi_rank, atol=1e-6)
@@ -212,13 +212,13 @@ import pytest
 @pytest.mark.skip
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("num_elements", [[16, 16, 1], [32, 32, 1]])
-@pytest.mark.parametrize("p", [[1, 1, 1], [2, 2, 1]])
+@pytest.mark.parametrize("degree", [[1, 1, 1], [2, 2, 1]])
 @pytest.mark.parametrize("bcs", [(None, None, None)])
 @pytest.mark.parametrize("mapping", [["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}]])
 @pytest.mark.parametrize("epsilon", [0.001])
 @pytest.mark.parametrize("dt", [0.01])
-def test_propagator2D(num_elements, p, bcs, mapping, epsilon, dt):
-    """Test saddle-point-solver by propagator TwoFluidQuasiNeutralFull. Use manufactured solutions from perturbations to verify h- and p-convergence when model TwoFluidQuasiNeutralToy calculates solution with SaddlePointSolver. Allow a certain error after one time step, save this solution and compare the follwing timesteps with this solution but with less tolerance. Shows that the solver can stay in a steady state solution."""
+def test_propagator2D(num_elements, degree, bcs, mapping, epsilon, dt):
+    """Test saddle-point-solver by propagator TwoFluidQuasiNeutralFull. Use manufactured solutions from perturbations to verify h- and degree-convergence when model TwoFluidQuasiNeutralToy calculates solution with SaddlePointSolver. Allow a certain error after one time step, save this solution and compare the follwing timesteps with this solution but with less tolerance. Shows that the solver can stay in a steady state solution."""
 
     from feectools.ddm.mpi import mpi as MPI
 
@@ -246,7 +246,7 @@ def test_propagator2D(num_elements, p, bcs, mapping, epsilon, dt):
     # derham object
     derham = Derham(
         num_elements,
-        p=p,
+        degree=degree,
         bcs=bcs,
         comm=mpi_comm,
         local_projectors=False,
@@ -351,20 +351,20 @@ def test_propagator2D(num_elements, p, bcs, mapping, epsilon, dt):
     time += dt
     # Compare to initial condition, which is also the solution
     if num_elements[0] == 16:
-        if p[0] == 1:
+        if degree[0] == 1:
             compare_arrays(uvec.vector, uvec_initial, mpi_rank, atol=1e-2)
             compare_arrays(u_evec.vector, ue_vec_initial, mpi_rank, atol=1e-1)
             compare_arrays(potentialvec.vector, potentialvec_initial, mpi_rank, atol=1e-1)
-        elif p[0] == 2:
+        elif degree[0] == 2:
             compare_arrays(uvec.vector, uvec_initial, mpi_rank, atol=1e-3)
             compare_arrays(u_evec.vector, ue_vec_initial, mpi_rank, atol=1e-2)
             compare_arrays(potentialvec.vector, potentialvec_initial, mpi_rank, atol=1e-4)
     elif num_elements[0] == 32:
-        if p[0] == 1:
+        if degree[0] == 1:
             compare_arrays(uvec.vector, uvec_initial, mpi_rank, atol=1e-2)
             compare_arrays(u_evec.vector, ue_vec_initial, mpi_rank, atol=1e-2)
             compare_arrays(potentialvec.vector, potentialvec_initial, mpi_rank, atol=1e-2)
-        elif p[0] == 2:
+        elif degree[0] == 2:
             compare_arrays(uvec.vector, uvec_initial, mpi_rank, atol=1e-3)
             compare_arrays(u_evec.vector, ue_vec_initial, mpi_rank, atol=1e-3)
             compare_arrays(potentialvec.vector, potentialvec_initial, mpi_rank, atol=1e-5)
@@ -381,20 +381,20 @@ def test_propagator2D(num_elements, p, bcs, mapping, epsilon, dt):
 
         # Compare to solution after one step in time, but with less tolerance
         if num_elements[0] == 16:
-            if p[0] == 1:
+            if degree[0] == 1:
                 compare_arrays(uvec.vector, uvec_1step, mpi_rank, atol=1e-3)
                 compare_arrays(u_evec.vector, ue_vec_1step, mpi_rank, atol=1e-3)
                 compare_arrays(potentialvec.vector, potentialvec_1step, mpi_rank, atol=1e-3)
-            elif p[0] == 2:
+            elif degree[0] == 2:
                 compare_arrays(uvec.vector, uvec_1step, mpi_rank, atol=1e-4)
                 compare_arrays(u_evec.vector, ue_vec_1step, mpi_rank, atol=1e-6)
                 compare_arrays(potentialvec.vector, potentialvec_1step, mpi_rank, atol=1e-6)
         elif num_elements[0] == 32:
-            if p[0] == 1:
+            if degree[0] == 1:
                 compare_arrays(uvec.vector, uvec_1step, mpi_rank, atol=1e-3)
                 compare_arrays(u_evec.vector, ue_vec_1step, mpi_rank, atol=1e-3)
                 compare_arrays(potentialvec.vector, potentialvec_1step, mpi_rank, atol=1e-4)
-            elif p[0] == 2:
+            elif degree[0] == 2:
                 compare_arrays(uvec.vector, uvec_1step, mpi_rank, atol=1e-4)
                 compare_arrays(u_evec.vector, ue_vec_1step, mpi_rank, atol=1e-7)
                 compare_arrays(potentialvec.vector, potentialvec_1step, mpi_rank, atol=1e-7)

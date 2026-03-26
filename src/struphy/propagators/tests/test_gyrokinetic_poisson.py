@@ -71,7 +71,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
             e3 = 0.0
             if direction == 0:
                 num_elements = [Neli, 1, 1]
-                p = [pi, 1, 1]
+                degree = [pi, 1, 1]
                 e1 = xp.linspace(0.0, 1.0, 50)
 
                 if bc_type == "neumann":
@@ -94,7 +94,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
 
             elif direction == 1:
                 num_elements = [1, Neli, 1]
-                p = [1, pi, 1]
+                degree = [1, pi, 1]
                 e2 = xp.linspace(0.0, 1.0, 50)
 
                 if bc_type == "neumann":
@@ -119,7 +119,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
 
             # create derham object
             print(f"{bcs =}")
-            derham = Derham(num_elements, p=p, bcs=bcs, comm=comm)
+            derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
 
             # mass matrices
             mass_ops = WeightedMassOperators(derham, domain)
@@ -209,12 +209,12 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
                 f"Convergence for degree {pi =}, {direction + 1 =}, {bc_type =}, {mapping[0] =}",
                 figsize=(12, 8),
             )
-            plt.plot(h_vec, errors, "o", label=f"p={p[direction]}")
+            plt.plot(h_vec, errors, "o", label=f"degree={degree[direction]}")
             plt.plot(
                 h_vec,
-                [h ** (p[direction] + 1) / h_vec[direction] ** (p[direction] + 1) * errors[direction] for h in h_vec],
+                [h ** (degree[direction] + 1) / h_vec[direction] ** (degree[direction] + 1) * errors[direction] for h in h_vec],
                 "k--",
-                label="correct rate p+1",
+                label="correct rate degree+1",
             )
             plt.yscale("log")
             plt.xscale("log")
@@ -228,7 +228,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
 
 
 @pytest.mark.parametrize("num_elements", [[64, 64, 1]])
-@pytest.mark.parametrize("p", [[1, 1, 1], [2, 2, 1]])
+@pytest.mark.parametrize("degree", [[1, 1, 1], [2, 2, 1]])
 @pytest.mark.parametrize("bc_type", ["periodic", "dirichlet", "neumann"])
 @pytest.mark.parametrize(
     "mapping",
@@ -238,7 +238,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
     ],
 )
 @pytest.mark.parametrize("projected_rhs", [False, True])
-def test_poisson_M1perp_2d(num_elements, p, bc_type, mapping, projected_rhs, show_plot=False):
+def test_poisson_M1perp_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_plot=False):
     """
     Test the Poisson solver with M1perp diffusion matrix
     by means of manufactured solutions in 2D .
@@ -310,7 +310,7 @@ def test_poisson_M1perp_2d(num_elements, p, bc_type, mapping, projected_rhs, sho
             return xp.cos(xp.pi / Lx * x) * (xp.pi / Lx) ** 2
 
     # create derham object
-    derham = Derham(num_elements, p=p, bcs=bcs, comm=comm)
+    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
 
     # create weighted mass operators
     mass_ops = WeightedMassOperators(derham, domain)
@@ -410,7 +410,7 @@ def test_poisson_M1perp_2d(num_elements, p, bc_type, mapping, projected_rhs, sho
     error1 = xp.max(xp.abs(analytic_value1 - sol_val1))
     error2 = xp.max(xp.abs(analytic_value2 - sol_val2))
 
-    print(f"{p =}, {bc_type =}, {mapping =}")
+    print(f"{degree =}, {bc_type =}, {mapping =}")
     print(f"{error1 =}")
     print(f"{error2 =}")
     print("")
@@ -443,7 +443,7 @@ def test_poisson_M1perp_2d(num_elements, p, bc_type, mapping, projected_rhs, sho
 
 @pytest.mark.skip(reason="Not clear if the 2.5d strategy is sound.")
 @pytest.mark.parametrize("num_elements", [[32, 32, 16]])
-@pytest.mark.parametrize("p", [[1, 1, 1], [2, 2, 1]])
+@pytest.mark.parametrize("degree", [[1, 1, 1], [2, 2, 1]])
 @pytest.mark.parametrize(
     "mapping",
     [
@@ -451,7 +451,7 @@ def test_poisson_M1perp_2d(num_elements, p, bc_type, mapping, projected_rhs, sho
         ["Colella", {"Lx": 1.0, "Ly": 1.0, "alpha": 0.1, "Lz": 1.0}],
     ],
 )
-def test_poisson_M1perp_3d_compare_2p5d(num_elements, p, mapping, show_plot=False):
+def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot=False):
     """
     Test the Poisson solver with M1perp diffusion matrix
     by comparing 3d simulation to a loop over 2d simulations.
@@ -482,7 +482,7 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, p, mapping, show_plot=Fals
         return dd1 + dd2
 
     # create 3d derham object
-    derham = Derham(num_elements, p=p, bcs=bcs, comm=comm)
+    derham = Derham(num_elements, degree=degree, bcs=bcs, comm=comm)
 
     mass_ops = WeightedMassOperators(derham, domain)
 
@@ -533,8 +533,8 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, p, mapping, show_plot=Fals
 
     # create 2.5d deRham object
     num_elements_new = [num_elements[0], num_elements[1], 1]
-    p[2] = 1
-    derham = Derham(num_elements_new, p=p, bcs=bcs, comm=comm)
+    degree[2] = 1
+    derham = Derham(num_elements_new, degree=degree, bcs=bcs, comm=comm)
 
     mass_ops = WeightedMassOperators(derham, domain)
 
@@ -632,13 +632,13 @@ if __name__ == "__main__":
     test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=True)
 
     # num_elements = [64, 64, 1]
-    # p = [2, 2, 1]
+    # degree = [2, 2, 1]
     # bc_type = 'neumann'
     # #mapping = ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 3.}]
     # mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
-    # test_poisson_M1perp_2d(num_elements, p, bc_type, mapping, show_plot=True)
+    # test_poisson_M1perp_2d(num_elements, degree, bc_type, mapping, show_plot=True)
 
     # num_elements = [64, 64, 16]
-    # p = [2, 2, 1]
+    # degree = [2, 2, 1]
     # mapping = ["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}]
-    # test_poisson_M1perp_3d_compare_2p5d(num_elements, p, mapping, show_plot=True)
+    # test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot=True)
