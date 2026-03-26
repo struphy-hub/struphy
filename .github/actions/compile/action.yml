@@ -4,8 +4,11 @@ description:
 
 inputs:
   language:
-    required: true
+    required: false
     default: fortran
+  env-name:
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -18,9 +21,12 @@ runs:
     - name: Compile kernels
       shell: bash
       run: |
+        if [ -n "${{ inputs.env-name }}" ] ; then
+          echo "Using env: ${{ inputs.env-name }}"
+          python3 -m venv ${{ inputs.env-name }}
+          source ${{ inputs.env-name }}/bin/activate
+        else
+          echo "No env specified, installing outside of any env"
+        fi
         struphy compile -d -y
-        struphy compile -y --language ${{ inputs.language }} || (
-          echo "Initial compile failed. Removing compiled kernels and trying again..." &&
-          struphy compile -d -y &&
-          struphy compile -y --language ${{ inputs.language }}
-        )
+        struphy compile -y --language ${{ inputs.language }}
