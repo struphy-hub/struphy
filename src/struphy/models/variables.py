@@ -163,6 +163,17 @@ class FEECVariable(Variable):
     methods. It supports arbitrary FEEC spaces (H1, Hdiv, Hcurl, L2) and is used for electromagnetic
     fields, fluid moments, or other spatially distributed quantities.
 
+    Parameters
+    ----------
+    space : str
+        The FEEC function space. Options: 'H1', 'HDiv', 'HCurl', 'L2'.
+        Determines the continuity and smoothness properties of the discretization.
+    lifting_bcs : bool
+        Whether to apply lifting of boundary conditions. If False (default), no lifting is applied.
+        If True, the variable is decomposed as u = u_hom + u_lift, where u_hom satisfies homogeneous boundary conditions 
+        and u_lift:= u - u_hom is a lifting function that enforces the inhomogeneous boundary conditions.
+        This implies the allocation of linear forms involving u_lift.
+
     Attributes
     ----------
     space : str
@@ -200,13 +211,18 @@ class FEECVariable(Variable):
     >>> E_field.add_background(FieldsBackground(type='uniform', magnitude=1.0))
     """
 
-    def __init__(self, space: LiteralOptions.OptsFEECSpace = "H1"):
+    def __init__(self, space: LiteralOptions.OptsFEECSpace = "H1", lifting_bcs: bool = False):
         check_option(space, LiteralOptions.OptsFEECSpace)
         self._space = space
+        self._lifting_bcs = lifting_bcs
 
     @property
-    def space(self):
+    def space(self) -> str:
         return self._space
+
+    @property
+    def lifting_bcs(self) -> bool:
+        return self._lifting_bcs
 
     @property
     def spline(self) -> SplineFunction:
