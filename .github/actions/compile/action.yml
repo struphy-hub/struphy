@@ -13,11 +13,6 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Checkout pyccel version
-      shell: bash
-      run: |
-        pyccel --version
-
     - name: Compile kernels
       shell: bash
       run: |
@@ -28,5 +23,6 @@ runs:
         else
           echo "No env specified, installing outside of any env"
         fi
+        pyccel --version
         struphy compile -d -y
         struphy compile -y --language ${{ inputs.language }}
