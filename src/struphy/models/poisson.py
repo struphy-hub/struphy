@@ -66,6 +66,8 @@ class Poisson(StruphyModel):
 
     def __init__(self, with_t_dep_source=False):
 
+        self.with_t_dep_source = with_t_dep_source
+
         # 1. instantiate all species
         self.em_fields = self.EMFields()
 
