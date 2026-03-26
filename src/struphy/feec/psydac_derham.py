@@ -1338,6 +1338,30 @@ class Derham:
     # --------------------------
     #      methods:
     # --------------------------
+    def to_dict(self) -> dict:
+        """Serialize the Derham configuration to a dictionary.
+        The MPI communicator is not serialized and set to None.
+        """
+        return {
+            "grid": self.grid.to_dict(),
+            "options": self.options.to_dict(),
+            "comm": None,
+            "domain": self.domain.to_dict() if self.domain is not None else None,
+        }
+        
+    @classmethod
+    def from_dict(cls, dct) -> "Derham":
+        """Deserialize a Derham configuration from a dictionary.
+        The MPI communicator is set to None.
+        """
+
+        return cls(
+            grid=TensorProductGrid.from_dict(dct["grid"]),
+            options=DerhamOptions.from_dict(dct["options"]),
+            comm=None,
+            domain=Domain.from_dict(dct["domain"]) if dct["domain"] is not None else None,
+        )
+    
     def init_derham(
         self,
         num_elements: tuple[int, int, int],
