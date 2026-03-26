@@ -196,7 +196,7 @@ NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
 
 
 @dataclass
-class DerhamOptions:
+class DerhamOptions(OptionsBase):
     """Set options for the 3D discrete de Rham spaces in parameter/launch files.
 
     This dataclass controls spline degrees, boundary conditions and quadrature
