@@ -146,6 +146,10 @@ def test_psydac_derham(num_elements, init_kwargs, expected):
         assert derham.P2 is derham.P2loc
         assert derham.P3 is derham.P3loc
         assert derham.Pv is derham.Pvloc
+        
+    # serialization
+    derham2 = Derham.from_dict(derham.to_dict(), comm=comm)
+    assert derham.to_dict() == derham2.to_dict()
 
 
 if __name__ == "__main__":
