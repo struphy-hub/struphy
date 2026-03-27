@@ -45,7 +45,7 @@ class LiteralOptions:
     # derham
     OptsFEECSpace = Literal["H1", "Hcurl", "Hdiv", "L2", "H1vec"]
     OptsVecSpace = Literal["Hcurl", "Hdiv", "H1vec"]
-    OptsNonTrivialBoundaryCondition = Literal["free", "hom_dirichlet"]
+    OptsNonTrivialBoundaryCondition = Literal["free", "dirichlet"]
 
     # fields background
     BackgroundTypes = Literal["LogicalConst", "FluidEquilibrium"]
@@ -209,7 +209,7 @@ class DerhamOptions(OptionsBase):
     bcs : tuple[None | tuple[NonTrivialBC, NonTrivialBC], None | tuple[NonTrivialBC, NonTrivialBC], None | tuple[NonTrivialBC, NonTrivialBC]]
         Boundary condition selector for each direction.
         Use ``None`` in a direction for periodic boundaries, or a tuple
-        ``(left, right)`` with entries in ``{"free", "hom_dirichlet"}`` for non-periodic boundaries.
+        ``(left, right)`` with entries in ``{"free", "dirichlet"}`` for non-periodic boundaries.
 
     nquads : tuple[int, int, int] | None
         Number of Gauss-Legendre quadrature points per direction for cell

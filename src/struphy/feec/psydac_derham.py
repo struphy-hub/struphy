@@ -584,9 +584,9 @@ class Derham:
                 assert len(bc) == 2, (
                     f"Each entry of bcs must be a tuple of length 2, indicating the left and right boundary conditions. Got {len(bc)} entries for {bc}."
                 )
-                if bc[0] == "hom_dirichlet":
+                if bc[0] == "dirichlet":
                     self._dirichlet_bc[d][0] = True
-                if bc[1] == "hom_dirichlet":
+                if bc[1] == "dirichlet":
                     self._dirichlet_bc[d][1] = True
 
         self._spl_kind = tuple(self._spl_kind)
@@ -901,7 +901,7 @@ class Derham:
     ]:
         """Tuple of boundary conditions in each direction.
         Each entry is either None (periodic) or a tuple with two entries (left and right boundary),
-        "hom_dirichlet" (homogeneous Dirichlet) or "free" (clamped splines)."""
+        "dirichlet" or "free" (clamped splines)."""
         return self._bcs
 
     @property

@@ -263,10 +263,10 @@ def test_some_basis_ops(num_elements, degree, bcs, mapping):
     "bcs",
     [
         (("free", "free"), None, None),
-        (("free", "hom_dirichlet"), None, None),
+        (("free", "dirichlet"), None, None),
         (("free", "free"), None, ("free", "free")),
-        (("free", "hom_dirichlet"), None, ("free", "hom_dirichlet")),
-        (("free", "free"), None, ("hom_dirichlet", "free")),
+        (("free", "dirichlet"), None, ("free", "dirichlet")),
+        (("free", "free"), None, ("dirichlet", "free")),
     ],
 )
 @pytest.mark.parametrize("mapping", [["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}]])

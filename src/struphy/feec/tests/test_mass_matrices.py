@@ -7,11 +7,11 @@ import pytest
     "bcs",
     [
         (("free", "free"), None, None),
-        (("free", "hom_dirichlet"), None, None),
-        (("hom_dirichlet", "free"), None, None),
+        (("free", "dirichlet"), None, None),
+        (("dirichlet", "free"), None, None),
         (None, ("free", "free"), None),
-        (None, ("free", "hom_dirichlet"), None),
-        (None, ("hom_dirichlet", "free"), None),
+        (None, ("free", "dirichlet"), None),
+        (None, ("dirichlet", "free"), None),
     ],
 )
 @pytest.mark.parametrize("mapping", [["Colella", {"Lx": 1.0, "Ly": 6.0, "alpha": 0.1, "Lz": 10.0}]])
@@ -128,7 +128,7 @@ def test_mass(num_elements, degree, bcs, mapping, show_plots=False):
     for i in range(3):
         if bcs[i] is not None:
             for j in range(2):
-                if bcs[i][j] == "hom_dirichlet":
+                if bcs[i][j] == "dirichlet":
                     bc_old[i][j] = "d"
                 else:
                     bc_old[i][j] = "f"
@@ -141,7 +141,7 @@ def test_mass(num_elements, degree, bcs, mapping, show_plots=False):
     xv_str, xv_psy = create_equal_random_arrays(fem_spaces[4], seed=2038, flattened=True)
 
     # Test toarray and tosparse
-    all_false = all(bc != "hom_dirichlet" for bl in bcs if bl is not None for bc in bl)
+    all_false = all(bc != "dirichlet" for bl in bcs if bl is not None for bc in bl)
     if all_false:
         r2psy_compare = mass_mats.M2.dot(x2_psy)
 
@@ -303,10 +303,10 @@ def test_mass(num_elements, degree, bcs, mapping, show_plots=False):
     "bcs",
     [
         (("free", "free"), None, None),
-        (("free", "hom_dirichlet"), None, None),
+        (("free", "dirichlet"), None, None),
         (("free", "free"), None, ("free", "free")),
-        (("free", "hom_dirichlet"), None, ("free", "hom_dirichlet")),
-        (("free", "free"), None, ("hom_dirichlet", "free")),
+        (("free", "dirichlet"), None, ("free", "dirichlet")),
+        (("free", "free"), None, ("dirichlet", "free")),
     ],
 )
 @pytest.mark.parametrize("mapping", [["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}]])
@@ -387,7 +387,7 @@ def test_mass_polar(num_elements, degree, bcs, mapping, show_plots=False):
     for i in range(3):
         if bcs[i] is not None:
             for j in range(2):
-                if bcs[i][j] == "hom_dirichlet":
+                if bcs[i][j] == "dirichlet":
                     bc_old[i][j] = "d"
                 else:
                     bc_old[i][j] = "f"
@@ -444,10 +444,10 @@ def test_mass_polar(num_elements, degree, bcs, mapping, show_plots=False):
     "bcs",
     [
         (("free", "free"), None, None),
-        (("free", "hom_dirichlet"), None, None),
+        (("free", "dirichlet"), None, None),
         (("free", "free"), None, ("free", "free")),
-        (("free", "hom_dirichlet"), None, ("free", "hom_dirichlet")),
-        (("free", "free"), None, ("hom_dirichlet", "free")),
+        (("free", "dirichlet"), None, ("free", "dirichlet")),
+        (("free", "free"), None, ("dirichlet", "free")),
     ],
 )
 @pytest.mark.parametrize("mapping", [["HollowCylinder", {"a1": 0.1, "a2": 1.0, "Lz": 18.84955592153876}]])
@@ -750,10 +750,10 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
     "bcs",
     [
         (("free", "free"), None, None),
-        (("free", "hom_dirichlet"), None, None),
+        (("free", "dirichlet"), None, None),
         (("free", "free"), None, ("free", "free")),
-        (("free", "hom_dirichlet"), None, ("free", "hom_dirichlet")),
-        (("free", "free"), None, ("hom_dirichlet", "free")),
+        (("free", "dirichlet"), None, ("free", "dirichlet")),
+        (("free", "free"), None, ("dirichlet", "free")),
     ],
 )
 @pytest.mark.parametrize("mapping", [["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}]])

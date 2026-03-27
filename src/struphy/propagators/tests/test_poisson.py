@@ -102,7 +102,7 @@ def test_poisson_1d(
                         return xp.cos(xp.pi / Lx * x) * (xp.pi / Lx) ** 2
                 else:
                     if bc_type == "dirichlet":
-                        bcs = (("hom_dirichlet", "hom_dirichlet"), None, None)
+                        bcs = (("dirichlet", "dirichlet"), None, None)
 
                     def sol1_xyz(x, y, z):
                         return xp.sin(2 * xp.pi / Lx * x)
@@ -125,7 +125,7 @@ def test_poisson_1d(
                         return xp.cos(xp.pi / Ly * y) * (xp.pi / Ly) ** 2
                 else:
                     if bc_type == "dirichlet":
-                        bcs = (None, ("hom_dirichlet", "hom_dirichlet"), None)
+                        bcs = (None, ("dirichlet", "dirichlet"), None)
 
                     def sol1_xyz(x, y, z):
                         return xp.sin(2 * xp.pi / Ly * y)
@@ -148,7 +148,7 @@ def test_poisson_1d(
                         return xp.cos(xp.pi / Lz * z) * (xp.pi / Lz) ** 2
                 else:
                     if bc_type == "dirichlet":
-                        bcs = (None, None, ("hom_dirichlet", "hom_dirichlet"))
+                        bcs = (None, None, ("dirichlet", "dirichlet"))
 
                     def sol1_xyz(x, y, z):
                         return xp.sin(2 * xp.pi / Lz * z)
@@ -483,7 +483,7 @@ def test_poisson_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_
             return ddx + ddy
 
     elif bc_type == "dirichlet":
-        bcs = (("hom_dirichlet", "hom_dirichlet"), None, None)
+        bcs = (("dirichlet", "dirichlet"), None, None)
 
         # manufactured solution in 2D
         def sol2_xyz(x, y, z):

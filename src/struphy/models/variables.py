@@ -278,7 +278,7 @@ class FEECVariable(Variable):
         if self.lifting_bcs:
             check_bcs = False
             for bc in derham.bcs:
-                if "hom_dirichlet" in bc:
+                if "dirichlet" in bc:
                     check_bcs = True
                     break
             assert check_bcs, (
@@ -291,9 +291,9 @@ class FEECVariable(Variable):
             for i, bc in enumerate(bcs_lift):
                 if bc is not None:
                     bcn = list(bc)  # convert tuple to list to allow modification
-                    if bcn[0] == "hom_dirichlet":
+                    if bcn[0] == "dirichlet":
                         bcn[0] = "free"
-                    if bcn[1] == "hom_dirichlet":
+                    if bcn[1] == "dirichlet":
                         bcn[1] = "free"
                     bcn = tuple(bcn)  # convert back to tuple
                     bcs_lift[i] = bcn

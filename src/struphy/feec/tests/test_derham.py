@@ -9,11 +9,11 @@ import pytest
         pytest.param(
             {
                 "degree": (1, 2, 3),
-                "bcs": (("hom_dirichlet", "free"), ("free", "hom_dirichlet"), None),
+                "bcs": (("dirichlet", "free"), ("free", "dirichlet"), None),
             },
             {
                 "degree": (1, 2, 3),
-                "bcs": (("hom_dirichlet", "free"), ("free", "hom_dirichlet"), None),
+                "bcs": (("dirichlet", "free"), ("free", "dirichlet"), None),
                 "nquads": (2, 3, 4),
                 "nquads_proj": (2, 3, 4),
                 "mpi_dims_mask": (True, True, True),
@@ -25,10 +25,10 @@ import pytest
             id="mixed-hom-dirichlet-eta12",
         ),
         pytest.param(
-            {"degree": (1, 2, 3), "bcs": (("free", "free"), None, ("hom_dirichlet", "hom_dirichlet"))},
+            {"degree": (1, 2, 3), "bcs": (("free", "free"), None, ("dirichlet", "dirichlet"))},
             {
                 "degree": (1, 2, 3),
-                "bcs": (("free", "free"), None, ("hom_dirichlet", "hom_dirichlet")),
+                "bcs": (("free", "free"), None, ("dirichlet", "dirichlet")),
                 "nquads": (2, 3, 4),
                 "nquads_proj": (2, 3, 4),
                 "mpi_dims_mask": (True, True, True),
@@ -57,13 +57,13 @@ import pytest
         pytest.param(
             {
                 "degree": (1, 2, 3),
-                "bcs": (("free", "hom_dirichlet"), None, ("hom_dirichlet", "free")),
+                "bcs": (("free", "dirichlet"), None, ("dirichlet", "free")),
                 "nquads": (4, 5, 6),
                 "nquads_proj": (5, 6, 7),
             },
             {
                 "degree": (1, 2, 3),
-                "bcs": (("free", "hom_dirichlet"), None, ("hom_dirichlet", "free")),
+                "bcs": (("free", "dirichlet"), None, ("dirichlet", "free")),
                 "nquads": (4, 5, 6),
                 "nquads_proj": (5, 6, 7),
                 "mpi_dims_mask": (True, True, True),
@@ -77,12 +77,12 @@ import pytest
         pytest.param(
             {
                 "degree": (1, 2, 3),
-                "bcs": (None, None, ("hom_dirichlet", "free")),
+                "bcs": (None, None, ("dirichlet", "free")),
                 "local_projectors": True,
             },
             {
                 "degree": (1, 2, 3),
-                "bcs": (None, None, ("hom_dirichlet", "free")),
+                "bcs": (None, None, ("dirichlet", "free")),
                 "nquads": (2, 3, 4),
                 "nquads_proj": (2, 3, 4),
                 "mpi_dims_mask": (True, True, True),

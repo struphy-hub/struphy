@@ -86,7 +86,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
                         return xp.cos(xp.pi / Lx * x) * (xp.pi / Lx) ** 2
                 else:
                     if bc_type == "dirichlet":
-                        bcs = (("hom_dirichlet", "hom_dirichlet"), None, None)
+                        bcs = (("dirichlet", "dirichlet"), None, None)
 
                     def sol1_xyz(x, y, z):
                         return xp.sin(2 * xp.pi / Lx * x)
@@ -109,7 +109,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
                         return xp.cos(xp.pi / Ly * y) * (xp.pi / Ly) ** 2
                 else:
                     if bc_type == "dirichlet":
-                        bcs = (None, ("hom_dirichlet", "hom_dirichlet"), None)
+                        bcs = (None, ("dirichlet", "dirichlet"), None)
 
                     def sol1_xyz(x, y, z):
                         return xp.sin(2 * xp.pi / Ly * y)
@@ -286,7 +286,7 @@ def test_poisson_M1perp_2d(num_elements, degree, bc_type, mapping, projected_rhs
             return ddx + ddy
 
     elif bc_type == "dirichlet":
-        bcs = (("hom_dirichlet", "hom_dirichlet"), None, None)
+        bcs = (("dirichlet", "dirichlet"), None, None)
 
         # manufactured solution in 2D
         def sol2_xyz(x, y, z):
@@ -477,7 +477,7 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
     domain: Domain = domain_class(**dom_params)
 
     # boundary conditions
-    bcs = (("hom_dirichlet", "hom_dirichlet"), None, None)
+    bcs = (("dirichlet", "dirichlet"), None, None)
 
     # evaluation grid
     e1 = xp.linspace(0.0, 1.0, 50)
