@@ -1,4 +1,4 @@
-from params_diocotron import *
+import params_diocotron as params
 from struphy import PlottingData, PostProcessor
 
 import os
@@ -13,10 +13,10 @@ import h5py
 def main():
     sim_path = os.path.join(os.getcwd(), "simdata")
 
-    pp = PostProcessor(path_out=sim_path)
+    pp = PostProcessor(sim=params.sim)
     pp.process(physical=True)
 
-    pdata = PlottingData(path_out=sim_path)
+    pdata = PlottingData(sim=params.sim)
     pdata.load()
 
     # path to save plots
@@ -27,8 +27,7 @@ def main():
     # Check simulation domain
     # ------------------
 
-    domain.show()
-
+    params.domain.show()
 
     # ------------------
     # Determine electrical potentail growth rate
@@ -71,7 +70,7 @@ def main():
     ax.set_yscale('log')
     ax.legend()
 
-    ax.set_title(f"{time_opts.dt=}, {time_opts.split_algo=}, {grid.Nel=}, {derham_opts.p=}, {loading_params.ppc=}")
+    ax.set_title(f"{params.time_opts.dt=}, {params.time_opts.split_algo=}, {params.grid.Nel=}, {params.derham_opts.p=}, {params.loading_params.ppc=}")
     ax.set_xlabel("time")
     ax.set_ylabel("Energy [a.u.]")
 
@@ -122,7 +121,7 @@ def main():
     e1_bin = pdata.f.kinetic_ions.e1_e2_density.grid_e1
     e2_bin = pdata.f.kinetic_ions.e1_e2_density.grid_e2
 
-    phy_bin = domain(e1_bin, e2_bin, 0, squeeze_out=True) # convert eta to physical coordinate
+    phy_bin = params.domain(e1_bin, e2_bin, 0, squeeze_out=True) # convert eta to physical coordinate
     plot_phaseSpace(bin_name="e1_e2_density", quantity="f_binned", xs=phy_bin[0], ys=phy_bin[1], in_physical=True)
     plot_phaseSpace(bin_name="e1_e2_density", quantity="delta_f_binned", xs=phy_bin[0], ys=phy_bin[1], in_physical=True)
 
@@ -173,7 +172,7 @@ def main():
         e1_bin = pdata.f.kinetic_ions.e1_e2_density.grid_e1
         e2_bin = pdata.f.kinetic_ions.e1_e2_density.grid_e2
 
-        phy_bin = domain(e1_bin, e2_bin, 0, squeeze_out=True)
+        phy_bin = params.domain(e1_bin, e2_bin, 0, squeeze_out=True)
         Xs, Ys = phy_bin[0], phy_bin[1]
 
         import warnings
