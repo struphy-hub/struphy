@@ -621,8 +621,8 @@ class AccumulatorVector:
         # L2 projector for dofs
         self._get_L2dofs = L2Projector(self.space_id, mass_ops).get_dofs
 
-    def show_accumulated_spline_field(self, mass_ops, eta_direction=0):
-        r"""1D plot of the spline field corresponding to the accumulated vector.
+    def show_accumulated_spline_field(self, mass_ops, eta_direction=(True, False, False)):
+        r"""1 or 2D plot of the spline field corresponding to the accumulated vector.
         The latter can be viewed as the rhs of an L2-projection:
 
         .. math::
@@ -630,7 +630,11 @@ class AccumulatorVector:
             \mathbb M \mathbf a = \sum_p \boldsymbol \Lambda(\boldsymbol \eta_p) * B_p\,.
 
         The FE coefficients :math:`\mathbf a` determine a FE :class:`~struphy.feec.psydac_derham.SplineFunction`.
+
+        :param eta_direction: axes of eta to show accumulation (eta1, eta2, eta3).
         """
+        assert sum(eta_direction) < 3, "Current implementation is only possible with 1 and 2D visualization"
+
         from matplotlib import pyplot as plt
 
         from struphy.feec.projectors import L2Projector
@@ -644,18 +648,38 @@ class AccumulatorVector:
         field.vector = a
 
         # plot field
-        eta = xp.linspace(0, 1, 100)
-        if eta_direction == 0:
-            args = (eta, 0.5, 0.5)
-        elif eta_direction == 1:
-            args = (0.5, eta, 0.5)
-        else:
-            args = (0.5, 0.5, eta)
 
-        plt.plot(eta, field(*args, squeeze_out=True))
+        # initialize axis and slicing
+        eta = xp.linspace(0, 1, 100)
+        args = [0.5, 0.5, 0.5]
+
+        # fill slices to plot with eta
+        plt_axis = xp.flatnonzero(eta_direction)
+
+        for idx in plt_axis:
+            args[idx] = eta
+        args = tuple(args)
+
+        # field value at specified axes
+        field_value = field(*args, squeeze_out=True)
+
+        # One-dimensional case
+        if len(plt_axis) == 1:
+            plt.plot(eta, field_value)
+
+            plt.xlabel(rf"$\eta_{plt_axis[0] + 1}$")
+            plt.ylabel("field amplitude")
+
+        # Two-dimensional case
+        elif len(plt_axis) == 2:
+            Eta1, Eta2 = xp.meshgrid(eta, eta, indexing="ij")
+            pcm = plt.pcolor(Eta1, Eta2, field_value)
+
+            plt.colorbar(pcm, label="field amplitude")
+            plt.xlabel(rf"$\eta_{plt_axis[0] + 1}$")
+            plt.ylabel(rf"$\eta_{plt_axis[1] + 1}$")
+
         plt.title(
             f'Spline field accumulated with the kernel "{self.kernel}"',
         )
-        plt.xlabel(rf"$\eta_{eta_direction + 1}$")
-        plt.ylabel("field amplitude")
         plt.show()

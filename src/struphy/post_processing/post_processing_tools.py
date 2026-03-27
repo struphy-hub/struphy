@@ -221,16 +221,16 @@ class PostProcessor:
             derham_opts = params_in.derham_opts
             domain = params_in.domain
             model = params_in.model
-            with open(os.path.join(path_out, "meta.yml"), "r") as f:
-                meta = yaml.load(f, Loader=yaml.FullLoader)
-            comm_size = meta["MPI processes"]
         else:
             path_out = sim.env.path_out
             grid = sim.grid
             derham_opts = sim.derham_opts
             domain = sim.domain
             model = sim.model
-            comm_size = sim.comm_size
+
+        with open(os.path.join(path_out, "meta.yml"), "r") as f:
+            meta = yaml.load(f, Loader=yaml.FullLoader)
+        comm_size = meta["MPI processes"]
 
         self.path_out = path_out
         self.path_pproc = os.path.join(path_out, "post_processing")

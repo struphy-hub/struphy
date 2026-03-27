@@ -15,7 +15,6 @@ class ProjectedFluidEquilibrium:
     Return coefficients."""
 
     def __init__(self, equil: FluidEquilibrium, derham: Derham, verbose: bool = False):
-
         self._equil = equil
         self._derham = derham
 

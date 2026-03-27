@@ -46,7 +46,7 @@ from struphy import (
 # ---------------------
 
 from struphy.models import VlasovMaxwellOneSpecies
-model = VlasovMaxwellOneSpecies()
+model = VlasovMaxwellOneSpecies(measure_gauss_law=True)
 
 # ---------------------
 # Parameters setup
@@ -79,7 +79,7 @@ env = EnvironmentOptions(sim_folder="sim_data")
 base_units = BaseUnits()
 
 # Time stepping
-time_opts = Time(dt = 0.05, Tend = 500, split_algo = "LieTrotter")
+time_opts = Time(dt = 0.05, Tend = 400, split_algo = "LieTrotter")
 
 # Geometry
 domain = domains.Cuboid(r1 = 2*xp.pi/k)
