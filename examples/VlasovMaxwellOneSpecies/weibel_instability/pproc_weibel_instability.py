@@ -16,11 +16,12 @@ def main():
     sim_path = os.path.join(os.getcwd(), sim_name)
     # save_path = os.path.join(os.getcwd(), "result", "noPerb", "controlVariate"+sim_name[-1])
 
-    pp = PostProcessor(path_out=sim_path)
+    # pp = PostProcessor(path_out=sim_path)
+    pp = PostProcessor(sim=params.sim)
     pp.process()
 
     # get sim data
-    pdata = PlottingData(path_out=sim_path)
+    pdata = PlottingData(sim=params.sim)
     pdata.load()
 
     # get parameters
@@ -49,7 +50,6 @@ def main():
     control_variate = params.weights_params.control_variate
     split_algo = params.time_opts.split_algo
 
-
     # ------------------
     # Gauss law violation
     # ------------------
@@ -73,7 +73,6 @@ def main():
         plt.tight_layout()
         # plt.savefig(os.path.join(save_path,"gauss_law"))
         plt.show()
-
 
     # ------------------
     # progression of EM-field energy 
