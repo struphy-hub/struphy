@@ -227,7 +227,7 @@ class PostProcessor:
             derham_opts = sim.derham_opts
             domain = sim.domain
             model = sim.model
-            
+
         with open(os.path.join(path_out, "meta.yml"), "r") as f:
             meta = yaml.load(f, Loader=yaml.FullLoader)
         comm_size = meta["MPI processes"]
