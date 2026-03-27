@@ -781,9 +781,9 @@ class Derham:
         self._curl_bcfree = self._curl
         self._div_bcfree = self._div
 
-        self._grad = self._boundary_ops["1"] @ self._grad @ self._boundary_ops["0"].T
-        self._curl = self._boundary_ops["2"] @ self._curl @ self._boundary_ops["1"].T
-        self._div = self._boundary_ops["3"] @ self._div @ self._boundary_ops["2"].T
+        self._grad = self.boundary_ops["1"] @ self._grad @ self.boundary_ops["0"].T
+        self._curl = self.boundary_ops["2"] @ self._curl @ self.boundary_ops["1"].T
+        self._div = self.boundary_ops["3"] @ self._div @ self.boundary_ops["2"].T
 
         # commuting projectors
         if with_projectors:
@@ -2814,7 +2814,20 @@ class SplineFunction:
                     out[-1] = out[-1].item()
 
         return out
-
+        
+    def copy(self):
+        """Returns a shallow copy of the SplineFunction instance, but with a new coeffs vector."""
+        return SplineFunction(
+            name=self.name,
+            space_id=self.space_id,
+            derham=self.derham,
+            coeffs=None,
+            backgrounds=self.backgrounds,
+            perturbations=self.perturbations,
+            domain=self.domain,
+            equil=self.equil,
+        )
+        
     #######################
     ### Private methods ###
     #######################
