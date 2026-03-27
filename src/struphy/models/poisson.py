@@ -88,23 +88,21 @@ class Poisson(StruphyModel):
         return None
 
     def allocate_helpers(self, verbose: bool = False):
-        pass
+        """Solve initial Poisson equation.
 
-    #     """Solve initial Poisson equation.
+        :meta private:
+        """
+        # # use setter to assign source
+        # self.propagators.poisson.rho = Propagator.mass_ops.M0.dot(self.em_fields.source.spline.vector)
 
-    #     :meta private:
-    #     """
-    #     # # use setter to assign source
-    #     # self.propagators.poisson.rho = Propagator.mass_ops.M0.dot(self.em_fields.source.spline.vector)
+        # Solve with dt=1. and compute electric field
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print("\nSolving initial Poisson problem...")
 
-    #     # Solve with dt=1. and compute electric field
-    #     if MPI.COMM_WORLD.Get_rank() == 0:
-    #         print("\nSolving initial Poisson problem...")
+        self.propagators.poisson(1.0)
 
-    #     self.propagators.poisson(1.0)
-
-    #     if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-    #         print("... Done.")
+        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
+            print("... Done.")
 
     def update_scalar_quantities(self):
         pass
