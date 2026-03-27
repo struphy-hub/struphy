@@ -66,4 +66,4 @@ jobs:
           cd /struphy_fortran_/tutorials
           ls
           jupyter nbconvert --show-config
-          jupyter nbconvert --execute --debug --embed-images --to html tutorial_*.ipynb
+          jupyter nbconvert --execute --embed-images --to html tutorial_*.ipynb
