@@ -224,7 +224,7 @@ class FEECVariable(Variable):
         if not hasattr(self, "_lifting_function"):
             self._lifting_function = None
         return self._lifting_function
-    
+
     @lifting_function.setter
     def lifting_function(self, new: Perturbation | None):
         self._lifting_function = new
@@ -241,21 +241,21 @@ class FEECVariable(Variable):
         if not hasattr(self, "_spline_lift"):
             self._spline_lift = None
         return self._spline_lift
-    
+
     @property
     def spline_0(self) -> SplineFunction | None:
         """The spline function with zero boundary conditions, used for the lifting of boundary conditions. Only allocated if lifting_function is not None."""
         if not hasattr(self, "_spline_0"):
             self._spline_0 = None
         return self._spline_0
-    
+
     @property
     def boundary_spline(self) -> SplineFunction | None:
         """The spline function representing the boundary conditions, used for the lifting of boundary conditions. Only allocated if lifting_function is not None."""
         if not hasattr(self, "_boundary_spline"):
             self._boundary_spline = None
         return self._boundary_spline
-    
+
     @property
     def boundary_op(self) -> BoundaryOperator | None:
         """The boundary operator, used for the lifting of boundary conditions. Only allocated if lifting_function is not None."""
@@ -308,9 +308,8 @@ class FEECVariable(Variable):
 
         self._derham_lift = None
         self._spline_lift = None
-        
+
         if self.lifting_function is not None:
-            
             check_bcs = False
             for bc in derham.bcs:
                 if "dirichlet" in bc:
@@ -347,8 +346,11 @@ class FEECVariable(Variable):
 
             # project lifting function to spline space
             ptb = self.lifting_function
-            
-            if self.space in {"H1", "L2"}: #TODO: this is a copy-paste from SplineFunction.initialize_coeffs(), to be unified
+
+            if self.space in {
+                "H1",
+                "L2",
+            }:  # TODO: this is a copy-paste from SplineFunction.initialize_coeffs(), to be unified
                 if ptb.given_in_basis is None:
                     ptb.given_in_basis = "0"
 
@@ -379,26 +381,26 @@ class FEECVariable(Variable):
 
             # peform projection
             self.spline_lift.vector += self.derham_lift.projectors[derham.space_to_form[self.space]](fun)
-            
+
             # other helper objects for the lifting of boundary conditions
             self._spline_0 = self.spline_lift.copy()
             self.spline_0.vector[:] = self.spline_lift.vector[:]
             self._boundary_spline = self.spline_lift.copy()
             self._boundary_op = BoundaryOperator(self.spline_lift.space, self.space, derham.dirichlet_bc)
-            
+
             self.compute_boundary_spline()
-            
+
     def compute_boundary_spline(self, spline_lift: SplineFunction | None = None):
-        """Compute boundary_spline = spline_lift - spline_0. If spline_lift is None, uses self.spline_lift from the initial condition. 
+        """Compute boundary_spline = spline_lift - spline_0. If spline_lift is None, uses self.spline_lift from the initial condition.
         This method can be used to update the boundary spline during the simulation if the lifting function changes in time."""
         # update spline_0
         if spline_lift is None:
             spline_lift = self.spline_lift
         self.boundary_op.dot(spline_lift.vector, out=self.spline_0.vector)
-        
+
         # set new boundary spline
         diff_vec = spline_lift.vector - self.spline_0.vector
-        self.boundary_spline.vector[:] = diff_vec[:] 
+        self.boundary_spline.vector[:] = diff_vec[:]
 
 
 class PICVariable(Variable):

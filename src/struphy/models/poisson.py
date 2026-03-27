@@ -89,6 +89,7 @@ class Poisson(StruphyModel):
 
     def allocate_helpers(self, verbose: bool = False):
         pass
+
     #     """Solve initial Poisson equation.
 
     #     :meta private:

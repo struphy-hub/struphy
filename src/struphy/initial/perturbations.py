@@ -69,7 +69,7 @@ class GenericPerturbation(Perturbation):
         # use the setters
         self.given_in_basis = given_in_basis
         self.comp = comp
-        
+
     def __call__(self, x, y, z):
         return self.fun(x, y, z)
 

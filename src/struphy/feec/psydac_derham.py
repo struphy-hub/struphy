@@ -2814,7 +2814,7 @@ class SplineFunction:
                     out[-1] = out[-1].item()
 
         return out
-        
+
     def copy(self):
         """Returns a shallow copy of the SplineFunction instance, but with a new coeffs vector."""
         return SplineFunction(
@@ -2827,7 +2827,7 @@ class SplineFunction:
             domain=self.domain,
             equil=self.equil,
         )
-        
+
     #######################
     ### Private methods ###
     #######################
