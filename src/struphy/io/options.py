@@ -64,7 +64,7 @@ class LiteralOptions:
     # markers
     OptsPICSpace = Literal["Particles6D", "DeltaFParticles6D", "Particles5D", "Particles3D"]
     OptsMarkerBC = Literal["periodic", "reflect"]
-    OptsRecontructBC = Literal["periodic", "mirror", "fixed"]
+    OptsRecontructBC = Literal["periodic", "mirror", "fixed", "noslip"]
     OptsLoading = Literal[
         "pseudo_random",
         "sobol_standard",
