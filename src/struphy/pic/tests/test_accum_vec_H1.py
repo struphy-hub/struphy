@@ -1,6 +1,5 @@
 import pytest
 
-from struphy.io.options import DerhamOptions
 from struphy.utils.pyccel import Pyccelkernel
 
 
