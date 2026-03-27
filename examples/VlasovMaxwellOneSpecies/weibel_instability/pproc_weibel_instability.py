@@ -16,6 +16,7 @@ def main():
     sim_path = os.path.join(os.getcwd(), sim_name)
     # save_path = os.path.join(os.getcwd(), "result", "noPerb", "controlVariate"+sim_name[-1])
 
+    # pp = PostProcessor(path_out=sim_path)
     pp = PostProcessor(sim=params.sim)
     pp.process()
 
@@ -31,7 +32,7 @@ def main():
     p = params.derham_opts.p
 
     env = params.env
-    ppc = params.loading_params.Np // 32 # 32 grid points
+    ppc = params.loading_params.ppc # 32 grid points
 
     #get units
     units = Units(params.base_units)
@@ -48,6 +49,30 @@ def main():
 
     control_variate = params.weights_params.control_variate
     split_algo = params.time_opts.split_algo
+
+    # ------------------
+    # Gauss law violation
+    # ------------------
+    if model.measure_gauss_law:
+        pa_data = os.path.join(env.path_out, "data")
+        with h5py.File(os.path.join(pa_data, "data_proc0.hdf5"), "r") as f:
+            time = f["time"]["value"][()]
+            gauss_error = f["scalar"]["gauss_error"][()]
+
+        fig, ax = plt.subplots(1, figsize = (10,6))
+        ax.plot(time, gauss_error)
+
+        ax.set_xlim(0, Tend)
+        ax.set_yscale("log")
+
+        ax.set_xlabel("time")
+        ax.set_ylabel("gauss error")
+        ax.set_title("Gauss law violation as function of time")
+
+        ax.grid()
+        plt.tight_layout()
+        # plt.savefig(os.path.join(save_path,"gauss_law"))
+        plt.show()
 
     # ------------------
     # progression of EM-field energy 
@@ -244,7 +269,7 @@ def main():
         #     f"{time:.2f}".replace(".", "_") + ".png"
         # ))
         plt.show()
-        plt.close()
+        # plt.close()
 
     for t in xp.linspace(0, pdata.t_grid[-1], 2):
         current_1D(t)
