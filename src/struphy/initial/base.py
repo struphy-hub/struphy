@@ -124,3 +124,34 @@ class Perturbation(metaclass=ABCMeta):
             mask &= (perb_domain[i][0] <= etas[i]) & (etas[i] <= perb_domain[i][1])
 
         return mask
+
+
+class GenericPerturbation(Perturbation):
+    """Generic perturbation defined by a user-provided function.
+
+    Parameters
+    ----------
+    fun: callable
+        A function of three variables (x, y, z) defining the perturbation in physical space.
+
+    given_in_basis: str
+        In which basis the perturbation is represented (see base class).
+
+    comp: int
+        Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
+    """
+
+    def __init__(
+        self,
+        fun: callable,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
+        comp: int = 0,
+    ):
+        self.fun = fun
+
+        # use the setters
+        self.given_in_basis = given_in_basis
+        self.comp = comp
+
+    def __call__(self, x, y, z):
+        return self.fun(x, y, z)
