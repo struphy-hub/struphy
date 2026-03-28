@@ -3,12 +3,11 @@ import pytest
 
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("method_for_solving", ["SaddlePointSolverUzawaNumpy", "SaddlePointSolverGMRES"])
-@pytest.mark.parametrize("Nel", [[12, 8, 1]])
-@pytest.mark.parametrize("p", [[3, 3, 1]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True]])
-@pytest.mark.parametrize("dirichlet_bc", [((False, False), (False, False), (False, False))])
+@pytest.mark.parametrize("num_elements", [[12, 8, 1]])
+@pytest.mark.parametrize("degree", [[3, 3, 1]])
+@pytest.mark.parametrize("bcs", [(("free", "free"), None, None)])
 @pytest.mark.parametrize("mapping", [["Cuboid", {"l1": 0.0, "r1": 2.0, "l2": 0.0, "r2": 3.0, "l3": 0.0, "r3": 6.0}]])
-def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
+def test_saddlepointsolver(method_for_solving, num_elements, degree, bcs, mapping, show_plots=False):
     """Test saddle-point-solver with manufactured solutions."""
 
     import time
@@ -28,7 +27,9 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     from struphy.feec.psydac_derham import Derham, TransformedPformComponent
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
     from struphy.fields_background.equils import CircularTokamak, HomogenSlab
+    from struphy.io.options import DerhamOptions
     from struphy.linear_algebra.saddle_point import SaddlePointSolver
+    from struphy.topology.grids import TensorProductGrid
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -36,11 +37,14 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     mpi_comm.Barrier()
 
     # derham object
-    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, dirichlet_bc=dirichlet_bc, local_projectors=False)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=mpi_comm)
+
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
-    fem_spaces = [derham.Vh_fem["0"], derham.Vh_fem["1"], derham.Vh_fem["2"], derham.Vh_fem["3"], derham.Vh_fem["v"]]
-    derhamnumpy = Derham(Nel, p, spl_kind, domain=domain)
+    fem_spaces = [derham.V0fem, derham.V1fem, derham.V2fem, derham.V3fem, derham.Vvfem]
+    derhamnumpy = Derham(grid, derham_opts, domain=domain)
 
     # Mhd equilibirum (slab)
     mhd_equil_params = {"B0x": 0.0, "B0y": 0.0, "B0z": 1.0, "beta": 2.0, "n0": 1.0}

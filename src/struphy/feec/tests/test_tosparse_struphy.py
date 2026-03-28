@@ -3,14 +3,20 @@ import time
 import pytest
 
 
-@pytest.mark.parametrize("Nel", [[12, 5, 2], [8, 12, 4], [5, 4, 12]])
-@pytest.mark.parametrize("p", [[3, 2, 1]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True], [True, False, False]])
+@pytest.mark.parametrize("num_elements", [[12, 5, 2], [8, 12, 4], [5, 4, 12]])
+@pytest.mark.parametrize("degree", [[3, 2, 1]])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (None, ("free", "free"), ("free", "free")),
+    ],
+)
 @pytest.mark.parametrize(
     "mapping",
     [["Cuboid", {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 100.0, "r3": 200.0}]],
 )
-def test_tosparse_struphy(Nel, p, spl_kind, mapping):
+def test_tosparse_struphy(num_elements, degree, bcs, mapping):
     """
     TODO
     """
@@ -23,6 +29,8 @@ def test_tosparse_struphy(Nel, p, spl_kind, mapping):
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -35,7 +43,9 @@ def test_tosparse_struphy(Nel, p, spl_kind, mapping):
     domain = domain_class(**dom_params)
 
     # create derham object
-    derham = Derham(Nel, p, spl_kind, comm=MPI.COMM_WORLD)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=MPI.COMM_WORLD)
 
     # assemble mass matrices in V0 and V1
     mass = WeightedMassOperators(derham, domain)
@@ -46,10 +56,10 @@ def test_tosparse_struphy(Nel, p, spl_kind, mapping):
     M3 = mass.M3
 
     # random vectors
-    v0arr, v0 = create_equal_random_arrays(derham.Vh_fem["0"], seed=4568)
-    v1arr1, v1 = create_equal_random_arrays(derham.Vh_fem["1"], seed=4568)
-    v2arr1, v2 = create_equal_random_arrays(derham.Vh_fem["2"], seed=4568)
-    v3arr, v3 = create_equal_random_arrays(derham.Vh_fem["3"], seed=4568)
+    v0arr, v0 = create_equal_random_arrays(derham.V0fem, seed=4568)
+    v1arr1, v1 = create_equal_random_arrays(derham.V1fem, seed=4568)
+    v2arr1, v2 = create_equal_random_arrays(derham.V2fem, seed=4568)
+    v3arr, v3 = create_equal_random_arrays(derham.V3fem, seed=4568)
 
     v0arr = v0arr[0].flatten()
     v1arr = []

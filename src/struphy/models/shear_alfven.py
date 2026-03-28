@@ -73,8 +73,8 @@ class ShearAlfven(StruphyModel):
         self._b_eq = Propagator.projected_equil.b2
 
         # temporary vectors for scalar quantities
-        self._tmp_b1 = Propagator.derham.Vh["2"].zeros()
-        self._tmp_b2 = Propagator.derham.Vh["2"].zeros()
+        self._tmp_b1 = Propagator.derham.V2.zeros()
+        self._tmp_b2 = Propagator.derham.V2.zeros()
 
     def __init__(self):
 

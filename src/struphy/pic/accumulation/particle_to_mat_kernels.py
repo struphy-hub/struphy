@@ -12647,7 +12647,7 @@ def m_v_fill_v1_pressure(
 
 
 def hybrid_density(
-    Nel: "int[:]",
+    num_elements: "int[:]",
     args_derham: "DerhamArguments",
     cell_left: "int[:]",
     cell_number: "int[:]",
@@ -12676,7 +12676,7 @@ def hybrid_density(
     grids_shapez: "float[:]",
 ):
     filler_kernels.hy_density(
-        Nel,
+        num_elements,
         args_derham.pn,
         cell_left,
         cell_number,

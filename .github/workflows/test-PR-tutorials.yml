@@ -52,9 +52,9 @@ jobs:
           env-name: /struphy_fortran_/env_fortran_
 
       - name: Compile Struphy
-        run: |
-          source /struphy_fortran_/env_fortran_/bin/activate
-          struphy compile
+        uses: ./.github/actions/compile
+        with:
+          env-name: /struphy_fortran_/env_fortran_
       
       - name: Run tutorials
         env:
@@ -66,4 +66,4 @@ jobs:
           cd /struphy_fortran_/tutorials
           ls
           jupyter nbconvert --show-config
-          jupyter nbconvert --execute --debug --embed-images --to html tutorial_*.ipynb
+          jupyter nbconvert --execute --embed-images --to html tutorial_*.ipynb

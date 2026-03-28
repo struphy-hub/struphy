@@ -121,7 +121,7 @@ class CloneConfig:
         if "Np" in markers:
             return markers["Np"]
         elif "ppc" in markers:
-            n_cells = xp.prod(self.params["grid"]["Nel"], dtype=int)
+            n_cells = xp.prod(self.params["grid"]["num_elements"], dtype=int)
             return int(markers["ppc"] * n_cells)
         elif "ppb" in markers:
             n_boxes = xp.prod(species["boxes_per_dim"], dtype=int) * self.num_clones
@@ -209,7 +209,7 @@ class CloneConfig:
                     row = f"{i_clone:6} "
                     # Np = self.params["kinetic"][species_name]["markers"]["Np"]
                     Np = self.get_Np_global(species_name)
-                    n_cells_clone = xp.prod(self.params["grid"]["Nel"])
+                    n_cells_clone = xp.prod(self.params["grid"]["num_elements"])
 
                     Np_clone = self.get_Np_clone(Np, clone_id=i_clone)
                     ppc_clone = Np_clone / n_cells_clone

@@ -27,16 +27,19 @@ def test_exp_growth(spaces, algo, show_plots=False):
     from matplotlib import pyplot as plt
 
     from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
     from struphy.ode.solvers import ODEsolverFEEC
     from struphy.ode.utils import ButcherTableau
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
-    Nel = [1, 8, 9]
-    p = [1, 2, 3]
-    spl_kind = [True] * 3
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    num_elements = [1, 8, 9]
+    degree = [1, 2, 3]
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     c0 = 1.2
     omega = 2.3
@@ -44,7 +47,7 @@ def test_exp_growth(spaces, algo, show_plots=False):
 
     vector_field = {}
     for i, space in enumerate(spaces):
-        var = derham.Vh[space].zeros()
+        var = derham.coeff_spaces[space].zeros()
         if isinstance(var, StencilVector):
             var[:] = c0
         elif isinstance(var, BlockVector):

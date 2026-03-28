@@ -1,15 +1,21 @@
 import pytest
 
 
-@pytest.mark.parametrize("Nel", [[5, 6, 7]])
-@pytest.mark.parametrize("p", [[2, 2, 3]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True], [True, False, True]])
+@pytest.mark.parametrize("num_elements", [[5, 6, 7]])
+@pytest.mark.parametrize("degree", [[2, 2, 3]])
 @pytest.mark.parametrize(
-    "dirichlet_bc",
-    [None, [(False, True), (True, False), (False, False)], [(True, False), (False, True), (False, False)]],
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (("free", "dirichlet"), None, None),
+        (("dirichlet", "free"), None, None),
+        (None, ("free", "free"), None),
+        (None, ("free", "dirichlet"), None),
+        (None, ("dirichlet", "free"), None),
+    ],
 )
 @pytest.mark.parametrize("mapping", [["Colella", {"Lx": 1.0, "Ly": 6.0, "alpha": 0.1, "Lz": 10.0}]])
-def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
+def test_mass(num_elements, degree, bcs, mapping, show_plots=False):
     """Compare Struphy mass matrices to Struphy-legacy mass matrices."""
 
     import cunumpy as xp
@@ -20,6 +26,8 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import RotationMatrix, compare_arrays, create_equal_random_arrays
     from struphy.fields_background.equils import ScrewPinch, ShearedSlab
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -95,23 +103,14 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
 
     eq_mhd.domain = domain
 
-    # make sure that boundary conditions are compatible with spline space
-    if dirichlet_bc is not None:
-        for i, knd in enumerate(spl_kind):
-            if knd:
-                dirichlet_bc[i] = (False, False)
-    else:
-        dirichlet_bc = [(False, False)] * 3
-
-    dirichlet_bc = tuple(dirichlet_bc)
-    print(f"{dirichlet_bc =}")
-
     # derham object
-    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, dirichlet_bc=dirichlet_bc)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=mpi_comm)
 
     print(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
 
-    fem_spaces = [derham.Vh_fem["0"], derham.Vh_fem["1"], derham.Vh_fem["2"], derham.Vh_fem["3"], derham.Vh_fem["v"]]
+    fem_spaces = [derham.V0fem, derham.V1fem, derham.V2fem, derham.V3fem, derham.Vvfem]
 
     # mass matrices object
     mass_matsold = WeightedMassOperatorsOldForTesting(derham, domain, eq_mhd=eq_mhd)
@@ -127,11 +126,12 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     # compare to old STRUPHY
     bc_old = [[None, None], [None, None], [None, None]]
     for i in range(3):
-        for j in range(2):
-            if dirichlet_bc[i][j]:
-                bc_old[i][j] = "d"
-            else:
-                bc_old[i][j] = "f"
+        if bcs[i] is not None:
+            for j in range(2):
+                if bcs[i][j] == "dirichlet":
+                    bc_old[i][j] = "d"
+                else:
+                    bc_old[i][j] = "f"
 
     # create random input arrays
     x0_str, x0_psy = create_equal_random_arrays(fem_spaces[0], seed=1234, flattened=True)
@@ -141,7 +141,7 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     xv_str, xv_psy = create_equal_random_arrays(fem_spaces[4], seed=2038, flattened=True)
 
     # Test toarray and tosparse
-    all_false = all(not bc for bl in dirichlet_bc for bc in bl)
+    all_false = all(bc != "dirichlet" for bl in bcs if bl is not None for bc in bl)
     if all_false:
         r2psy_compare = mass_mats.M2.dot(x2_psy)
 
@@ -297,15 +297,20 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     print(f"Rank {mpi_rank} | All tests passed!")
 
 
-@pytest.mark.parametrize("Nel", [[8, 12, 6]])
-@pytest.mark.parametrize("p", [[2, 2, 3]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
+@pytest.mark.parametrize("num_elements", [[8, 12, 6]])
+@pytest.mark.parametrize("degree", [[2, 2, 3]])
 @pytest.mark.parametrize(
-    "dirichlet_bc",
-    [None, [(False, True), (False, False), (False, True)], [(False, False), (False, False), (True, False)]],
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (("free", "dirichlet"), None, None),
+        (("free", "free"), None, ("free", "free")),
+        (("free", "dirichlet"), None, ("free", "dirichlet")),
+        (("free", "free"), None, ("dirichlet", "free")),
+    ],
 )
 @pytest.mark.parametrize("mapping", [["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}]])
-def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
+def test_mass_polar(num_elements, degree, bcs, mapping, show_plots=False):
     """Compare Struphy polar mass matrices to Struphy-legacy polar mass matrices."""
 
     import cunumpy as xp
@@ -316,7 +321,9 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.fields_background.equils import ScrewPinch
+    from struphy.io.options import DerhamOptions
     from struphy.polar.basic import PolarVector
+    from struphy.topology.grids import TensorProductGrid
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -331,12 +338,14 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
 
     # mapping
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class(**{"Nel": Nel[:2], "p": p[:2], "a": mapping[1]["a"], "Lz": mapping[1]["Lz"]})
+    domain = domain_class(
+        **{"num_elements": num_elements[:2], "degree": degree[:2], "a": mapping[1]["a"], "Lz": mapping[1]["Lz"]}
+    )
 
     if show_plots:
         import matplotlib.pyplot as plt
 
-        domain.show(grid_info=Nel)
+        domain.show(grid_info=num_elements)
 
     # load MHD equilibrium
     eq_mhd = ScrewPinch(
@@ -358,25 +367,13 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
 
     eq_mhd.domain = domain
 
-    # make sure that boundary conditions are compatible with spline space
-    if dirichlet_bc is not None:
-        for i, knd in enumerate(spl_kind):
-            if knd:
-                dirichlet_bc[i] = (False, False)
-    else:
-        dirichlet_bc = [(False, False)] * 3
-
-    dirichlet_bc = tuple(dirichlet_bc)
-
     # derham object
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs, polar_splines=True)
     derham = Derham(
-        Nel,
-        p,
-        spl_kind,
+        grid,
+        derham_opts,
         comm=mpi_comm,
-        dirichlet_bc=dirichlet_bc,
-        with_projectors=False,
-        polar_ck=1,
         domain=domain,
     )
 
@@ -388,23 +385,24 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     # compare to old STRUPHY
     bc_old = [[None, None], [None, None], [None, None]]
     for i in range(3):
-        for j in range(2):
-            if dirichlet_bc[i][j]:
-                bc_old[i][j] = "d"
-            else:
-                bc_old[i][j] = "f"
+        if bcs[i] is not None:
+            for j in range(2):
+                if bcs[i][j] == "dirichlet":
+                    bc_old[i][j] = "d"
+                else:
+                    bc_old[i][j] = "f"
 
     # create random input arrays
-    x0_str, x0_psy = create_equal_random_arrays(derham.Vh_fem["0"], seed=1234, flattened=True)
-    x1_str, x1_psy = create_equal_random_arrays(derham.Vh_fem["1"], seed=1568, flattened=True)
-    x2_str, x2_psy = create_equal_random_arrays(derham.Vh_fem["2"], seed=8945, flattened=True)
-    x3_str, x3_psy = create_equal_random_arrays(derham.Vh_fem["3"], seed=8196, flattened=True)
+    x0_str, x0_psy = create_equal_random_arrays(derham.V0fem, seed=1234, flattened=True)
+    x1_str, x1_psy = create_equal_random_arrays(derham.V1fem, seed=1568, flattened=True)
+    x2_str, x2_psy = create_equal_random_arrays(derham.V2fem, seed=8945, flattened=True)
+    x3_str, x3_psy = create_equal_random_arrays(derham.V3fem, seed=8196, flattened=True)
 
     # set polar vectors
-    x0_pol_psy = PolarVector(derham.Vh_pol["0"])
-    x1_pol_psy = PolarVector(derham.Vh_pol["1"])
-    x2_pol_psy = PolarVector(derham.Vh_pol["2"])
-    x3_pol_psy = PolarVector(derham.Vh_pol["3"])
+    x0_pol_psy = PolarVector(derham.V0pol)
+    x1_pol_psy = PolarVector(derham.V1pol)
+    x2_pol_psy = PolarVector(derham.V2pol)
+    x3_pol_psy = PolarVector(derham.V3pol)
 
     x0_pol_psy.tp = x0_psy
     x1_pol_psy.tp = x1_psy
@@ -440,15 +438,20 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     print(f"Rank {mpi_rank} | All tests passed!")
 
 
-@pytest.mark.parametrize("Nel", [[8, 12, 6]])
-@pytest.mark.parametrize("p", [[2, 3, 2]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
+@pytest.mark.parametrize("num_elements", [[8, 12, 6]])
+@pytest.mark.parametrize("degree", [[2, 3, 2]])
 @pytest.mark.parametrize(
-    "dirichlet_bc",
-    [None, [(False, True), (False, False), (False, True)], [(False, False), (False, False), (True, False)]],
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (("free", "dirichlet"), None, None),
+        (("free", "free"), None, ("free", "free")),
+        (("free", "dirichlet"), None, ("free", "dirichlet")),
+        (("free", "free"), None, ("dirichlet", "free")),
+    ],
 )
 @pytest.mark.parametrize("mapping", [["HollowCylinder", {"a1": 0.1, "a2": 1.0, "Lz": 18.84955592153876}]])
-def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
+def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=False):
     """Compare mass matrix-vector products with Kronecker products of preconditioner,
     check PC * M = Id and test PCs in solve."""
 
@@ -464,6 +467,8 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.fields_background.equils import ScrewPinch, ShearedSlab
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -539,20 +544,12 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
 
     eq_mhd.domain = domain
 
-    # make sure that boundary conditions are compatible with spline space
-    if dirichlet_bc is not None:
-        for i, knd in enumerate(spl_kind):
-            if knd:
-                dirichlet_bc[i] = (False, False)
-    else:
-        dirichlet_bc = [(False, False)] * 3
-
-    dirichlet_bc = tuple(dirichlet_bc)
-
     # derham object
-    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, dirichlet_bc=dirichlet_bc)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=mpi_comm)
 
-    fem_spaces = [derham.Vh_fem["0"], derham.Vh_fem["1"], derham.Vh_fem["2"], derham.Vh_fem["3"], derham.Vh_fem["v"]]
+    fem_spaces = [derham.V0fem, derham.V1fem, derham.V2fem, derham.V3fem, derham.Vvfem]
 
     print(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
 
@@ -747,15 +744,20 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
     print(f"Rank {mpi_rank} | All tests passed!")
 
 
-@pytest.mark.parametrize("Nel", [[8, 9, 6]])
-@pytest.mark.parametrize("p", [[2, 2, 3]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
+@pytest.mark.parametrize("num_elements", [[8, 9, 6]])
+@pytest.mark.parametrize("degree", [[2, 2, 3]])
 @pytest.mark.parametrize(
-    "dirichlet_bc",
-    [None, [(False, True), (False, False), (False, True)], [(False, False), (False, False), (True, False)]],
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (("free", "dirichlet"), None, None),
+        (("free", "free"), None, ("free", "free")),
+        (("free", "dirichlet"), None, ("free", "dirichlet")),
+        (("free", "free"), None, ("dirichlet", "free")),
+    ],
 )
 @pytest.mark.parametrize("mapping", [["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}]])
-def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
+def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plots=False):
     """Compare polar mass matrix-vector products with Kronecker products of preconditioner,
     check PC * M = Id and test PCs in solve."""
 
@@ -771,7 +773,9 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.fields_background.equils import ScrewPinch
+    from struphy.io.options import DerhamOptions
     from struphy.polar.basic import PolarVector
+    from struphy.topology.grids import TensorProductGrid
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -786,7 +790,9 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
 
     # mapping
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class(**{"Nel": Nel[:2], "p": p[:2], "a": mapping[1]["a"], "Lz": mapping[1]["Lz"]})
+    domain = domain_class(
+        **{"num_elements": num_elements[:2], "degree": degree[:2], "a": mapping[1]["a"], "Lz": mapping[1]["Lz"]}
+    )
 
     if show_plots:
         import matplotlib.pyplot as plt
@@ -813,25 +819,13 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
 
     eq_mhd.domain = domain
 
-    # make sure that boundary conditions are compatible with spline space
-    if dirichlet_bc is not None:
-        for i, knd in enumerate(spl_kind):
-            if knd:
-                dirichlet_bc[i] = (False, False)
-    else:
-        dirichlet_bc = [(False, False)] * 3
-
-    dirichlet_bc = tuple(dirichlet_bc)
-
     # derham object
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs, polar_splines=True)
     derham = Derham(
-        Nel,
-        p,
-        spl_kind,
+        grid,
+        derham_opts,
         comm=mpi_comm,
-        dirichlet_bc=dirichlet_bc,
-        with_projectors=False,
-        polar_ck=1,
         domain=domain,
     )
 
@@ -856,16 +850,16 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
         print("Done")
 
     # create random input arrays
-    x0 = create_equal_random_arrays(derham.Vh_fem["0"], seed=1234, flattened=True)[1]
-    x1 = create_equal_random_arrays(derham.Vh_fem["1"], seed=1568, flattened=True)[1]
-    x2 = create_equal_random_arrays(derham.Vh_fem["2"], seed=8945, flattened=True)[1]
-    x3 = create_equal_random_arrays(derham.Vh_fem["3"], seed=8196, flattened=True)[1]
+    x0 = create_equal_random_arrays(derham.V0fem, seed=1234, flattened=True)[1]
+    x1 = create_equal_random_arrays(derham.V1fem, seed=1568, flattened=True)[1]
+    x2 = create_equal_random_arrays(derham.V2fem, seed=8945, flattened=True)[1]
+    x3 = create_equal_random_arrays(derham.V3fem, seed=8196, flattened=True)[1]
 
     # set polar vectors
-    x0_pol = PolarVector(derham.Vh_pol["0"])
-    x1_pol = PolarVector(derham.Vh_pol["1"])
-    x2_pol = PolarVector(derham.Vh_pol["2"])
-    x3_pol = PolarVector(derham.Vh_pol["3"])
+    x0_pol = PolarVector(derham.V0pol)
+    x1_pol = PolarVector(derham.V1pol)
+    x2_pol = PolarVector(derham.V2pol)
+    x3_pol = PolarVector(derham.V3pol)
 
     x0_pol.tp = x0
     x1_pol.tp = x1
