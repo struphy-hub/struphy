@@ -44,7 +44,7 @@ def power_spectrum_2d(
         Name of the FemField.
 
     grids : 3-tuple
-        1d logical grids in each eta-direction with Nel[i]*npts_per_cell[i] + 1 entries in each direction.
+        1d logical grids in each eta-direction with num_elements[i]*npts_per_cell[i] + 1 entries in each direction.
 
     grids_mapped : 3-tuple
         Mapped grids obtained by domain(). If None, the fft is performed on the logical grids.

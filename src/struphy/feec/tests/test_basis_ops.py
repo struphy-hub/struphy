@@ -1,18 +1,23 @@
 import pytest
 
 
-@pytest.mark.parametrize("Nel", [[8, 12, 4]])
-@pytest.mark.parametrize("p", [[2, 3, 2]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True], [True, False, True]])
+@pytest.mark.parametrize("num_elements", [[8, 12, 4]])
+@pytest.mark.parametrize("degree", [[2, 3, 2]])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (None, ("free", "free"), None),
+    ],
+)
 @pytest.mark.parametrize("mapping", [["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}]])
-def test_some_basis_ops(Nel, p, spl_kind, mapping):
+def test_some_basis_ops(num_elements, degree, bcs, mapping):
     """Tests the MHD specific projection operators PI_ijk(fun*Lambda_mno).
 
     Here, PI_ijk is the commuting projector of the output space (codomain),
     Lambda_mno are the basis functions of the input space (domain),
     and fun is an arbitrary (matrix-valued) function.
     """
-    from time import time
 
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
@@ -23,6 +28,8 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     from struphy.feec.basis_projection_ops import BasisProjectionOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.fields_background.equils import HomogenSlab
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     # mpi communicator
     MPI_COMM = MPI.COMM_WORLD
@@ -37,13 +44,15 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     n_quad_el = [5, 5, 5]
     n_quad_pr = [4, 4, 4]
 
-    DERHAM_PSY = Derham(Nel, p, spl_kind, nq_pr=n_quad_pr, nquads=n_quad_el, comm=MPI_COMM)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs, nquads=n_quad_el, nquads_proj=n_quad_pr)
+    DERHAM_PSY = Derham(grid, derham_opts, comm=MPI_COMM)
 
     # grid parameters
     if mpi_rank == 0:
-        print(f"Rank {mpi_rank} | Nel: {Nel}")
-        print(f"Rank {mpi_rank} | p: {p}")
-        print(f"Rank {mpi_rank} | spl_kind: {spl_kind}")
+        print(f"Rank {mpi_rank} | num_elements: {num_elements}")
+        print(f"Rank {mpi_rank} | degree: {degree}")
+        print(f"Rank {mpi_rank} | bcs: {bcs}")
         print(f"Rank {mpi_rank} | ")
 
     # Mhd equilibirum (slab)
@@ -53,11 +62,11 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     EQ_MHD.domain = domain
 
     # Psydac spline spaces
-    V0 = DERHAM_PSY.Vh_fem["0"]
-    V1 = DERHAM_PSY.Vh_fem["1"]
-    V2 = DERHAM_PSY.Vh_fem["2"]
-    V3 = DERHAM_PSY.Vh_fem["3"]
-    V0vec = DERHAM_PSY.Vh_fem["v"]
+    V0 = DERHAM_PSY.V0fem
+    V1 = DERHAM_PSY.V1fem
+    V2 = DERHAM_PSY.V2fem
+    V3 = DERHAM_PSY.V3fem
+    V0vec = DERHAM_PSY.Vvfem
 
     if mpi_rank == 0:
         print(f"Rank {mpi_rank} | type(V0) {type(V0)}")
@@ -68,11 +77,11 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
         print(f"Rank {mpi_rank} | ")
 
     # Psydac projectors
-    P0 = DERHAM_PSY.P["0"]
-    P1 = DERHAM_PSY.P["1"]
-    P2 = DERHAM_PSY.P["2"]
-    P3 = DERHAM_PSY.P["3"]
-    P0vec = DERHAM_PSY.P["v"]
+    P0 = DERHAM_PSY.P0
+    P1 = DERHAM_PSY.P1
+    P2 = DERHAM_PSY.P2
+    P3 = DERHAM_PSY.P3
+    P0vec = DERHAM_PSY.Pv
     if mpi_rank == 0:
         print(f"Rank {mpi_rank} | type(P0) {type(P0)}")
         print(f"Rank {mpi_rank} | type(P1) {type(P1)}")
@@ -173,8 +182,7 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
 
     MPI_COMM.Barrier()
 
-    # Compare to Struphy matrix-free operators
-    # See struphy.feec.projectors.pro_global.mhd_operators_MF.projectors_dot_x for the definition of these operators
+    # TODO: invent some tests, because there are no asserts a the moment.
 
     # operator K3 (V3 --> V3)
     if mpi_rank == 0:
@@ -249,15 +257,20 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     res_PSY = X1T.dot(x0vec_st)
 
 
-@pytest.mark.parametrize("Nel", [[6, 9, 7]])
-@pytest.mark.parametrize("p", [[2, 2, 3]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
+@pytest.mark.parametrize("num_elements", [[6, 9, 7]])
+@pytest.mark.parametrize("degree", [[2, 2, 3]])
 @pytest.mark.parametrize(
-    "dirichlet_bc",
-    [None, [(False, True), (False, False), (False, True)], [(False, False), (False, False), (True, False)]],
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (("free", "dirichlet"), None, None),
+        (("free", "free"), None, ("free", "free")),
+        (("free", "dirichlet"), None, ("free", "dirichlet")),
+        (("free", "free"), None, ("dirichlet", "free")),
+    ],
 )
 @pytest.mark.parametrize("mapping", [["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}]])
-def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
+def test_basis_ops_polar(num_elements, degree, bcs, mapping, show_plots=False):
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
 
@@ -266,7 +279,9 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
     from struphy.fields_background.equils import ScrewPinch
+    from struphy.io.options import DerhamOptions
     from struphy.polar.basic import PolarVector
+    from struphy.topology.grids import TensorProductGrid
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -276,12 +291,14 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
 
     # mapping
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class(**{"Nel": Nel[:2], "p": p[:2], "a": mapping[1]["a"], "Lz": mapping[1]["Lz"]})
+    domain = domain_class(
+        **{"num_elements": num_elements[:2], "degree": degree[:2], "a": mapping[1]["a"], "Lz": mapping[1]["Lz"]}
+    )
 
     if show_plots:
         import matplotlib.pyplot as plt
 
-        domain.show(grid_info=Nel)
+        domain.show(grid_info=num_elements)
 
     # load MHD equilibrium
     eq_mhd = ScrewPinch(
@@ -303,30 +320,22 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
 
     eq_mhd.domain = domain
 
-    # make sure that boundary conditions are compatible with spline space
-    if dirichlet_bc is not None:
-        for i, knd in enumerate(spl_kind):
-            if knd:
-                dirichlet_bc[i] = (False, False)
-    else:
-        dirichlet_bc = [(False, False)] * 3
-
-    dirichlet_bc = tuple(dirichlet_bc)
-
     # derham object
-    nq_el = [p[0] + 1, p[1] + 1, p[2] + 1]
-    nq_pr = p.copy()
+    nq_el = [degree[0] + 1, degree[1] + 1, degree[2] + 1]
+    nquads_proj = degree.copy()
 
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(
+        degree=degree,
+        bcs=bcs,
+        nquads=degree,
+        nquads_proj=nquads_proj,
+        polar_splines=True,
+    )
     derham = Derham(
-        Nel,
-        p,
-        spl_kind,
-        nquads=p,
-        nq_pr=nq_pr,
+        grid,
+        derham_opts,
         comm=mpi_comm,
-        dirichlet_bc=dirichlet_bc,
-        with_projectors=True,
-        polar_ck=1,
         domain=domain,
     )
 
@@ -337,16 +346,16 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     mhd_ops_psy = BasisProjectionOperators(derham, domain, eq_mhd=eq_mhd)
 
     # create random input arrays
-    x0_str, x0_psy = create_equal_random_arrays(derham.Vh_fem["0"], seed=1234, flattened=True)
-    x1_str, x1_psy = create_equal_random_arrays(derham.Vh_fem["1"], seed=1568, flattened=True)
-    x2_str, x2_psy = create_equal_random_arrays(derham.Vh_fem["2"], seed=8945, flattened=True)
-    x3_str, x3_psy = create_equal_random_arrays(derham.Vh_fem["3"], seed=8196, flattened=True)
+    x0_str, x0_psy = create_equal_random_arrays(derham.V0fem, seed=1234, flattened=True)
+    x1_str, x1_psy = create_equal_random_arrays(derham.V1fem, seed=1568, flattened=True)
+    x2_str, x2_psy = create_equal_random_arrays(derham.V2fem, seed=8945, flattened=True)
+    x3_str, x3_psy = create_equal_random_arrays(derham.V3fem, seed=8196, flattened=True)
 
     # set polar vectors
-    x0_pol_psy = PolarVector(derham.Vh_pol["0"])
-    x1_pol_psy = PolarVector(derham.Vh_pol["1"])
-    x2_pol_psy = PolarVector(derham.Vh_pol["2"])
-    x3_pol_psy = PolarVector(derham.Vh_pol["3"])
+    x0_pol_psy = PolarVector(derham.V0pol)
+    x1_pol_psy = PolarVector(derham.V1pol)
+    x2_pol_psy = PolarVector(derham.V2pol)
+    x3_pol_psy = PolarVector(derham.V3pol)
 
     x0_pol_psy.tp = x0_psy
     x1_pol_psy.tp = x1_psy
@@ -523,7 +532,7 @@ def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
     if MPI_COMM is not None:
         MPI_COMM.Barrier()
 
-    # Compare results. (Works only for Nel=[N, N, N] so far! TODO: Find this bug!)
+    # Compare results. (Works only for num_elements=[N, N, N] so far! TODO: Find this bug!)
     assert xp.allclose(
         res_PSY[
             res_PSY.starts[0] : res_PSY.ends[0] + 1,
@@ -542,17 +551,4 @@ def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
 
 
 if __name__ == "__main__":
-    # test_some_basis_ops(
-    #     Nel=[8, 8, 8],
-    #     p=[2, 2, 2],
-    #     spl_kind=[False, True, True],
-    #     mapping=["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}],
-    # )
-    test_basis_ops_polar(
-        [6, 9, 7],
-        [2, 2, 3],
-        [False, True, True],
-        None,
-        ["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}],
-        False,
-    )
+    pass

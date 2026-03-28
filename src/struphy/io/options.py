@@ -1,8 +1,13 @@
 import os
 from dataclasses import dataclass, fields
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
-from struphy.utils.utils import __dataclass_repr_no_defaults__, all_class_params_are_default, check_option
+from struphy.utils.utils import (
+    __class_with_params_repr_no_defaults__,
+    __dataclass_repr_no_defaults__,
+    all_class_params_are_default,
+    check_option,
+)
 
 
 class OptionsBase:
@@ -38,9 +43,9 @@ class LiteralOptions:
     SplitAlgos = Literal["LieTrotter", "Strang"]
 
     # derham
-    PolarRegularity = Literal[-1, 1]
     OptsFEECSpace = Literal["H1", "Hcurl", "Hdiv", "L2", "H1vec"]
     OptsVecSpace = Literal["Hcurl", "Hdiv", "H1vec"]
+    OptsNonTrivialBoundaryCondition = Literal["free", "dirichlet"]
 
     # fields background
     BackgroundTypes = Literal["LogicalConst", "FluidEquilibrium"]
@@ -54,9 +59,9 @@ class LiteralOptions:
 
     # solvers
     OptsSymmSolver = Literal["pcg", "cg"]
-    OptsGenSolver = Literal["pbicgstab", "bicgstab", "GMRES"]
+    OptsGenSolver = Literal["pbicgstab", "bicgstab", "gmres"]
     OptsMassPrecond = Literal["MassMatrixPreconditioner", "MassMatrixDiagonalPreconditioner", None]
-    OptsSaddlePointSolver = Literal["Uzawa", "GMRES"]
+    OptsSaddlePointSolver = Literal["uzawa"]
     OptsDirectSolver = Literal["SparseSolver", "ScipySparse", "InexactNPInverse", "DirectNPInverse"]
     OptsNonlinearSolver = Literal["Picard", "Newton"]
     OptsButcher = Literal["rk4", "forward_euler", "heun2", "rk2", "heun3", "3/8 rule"]
@@ -186,44 +191,64 @@ class BaseUnits(OptionsBase):
         return all_class_params_are_default(self)
 
 
+NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
+
+
 @dataclass
 class DerhamOptions(OptionsBase):
-    """Set options for the Derham spaces in parameter/launch files. See :ref:`geomFE`.
+    """Set options for the 3D discrete de Rham spaces in parameter/launch files.
+
+    This dataclass controls spline degrees, boundary conditions and quadrature
+    settings used to build the FEEC de Rham sequence. See :ref:`geomFE`.
 
     Parameters
     ----------
-    p : tuple[int]
-        Spline degree in each direction.
+    degree : tuple[int, int, int]
+        Spline degree in each logical direction ``(eta_1, eta_2, eta_3)``.
 
-    spl_kind : tuple[bool]
-        Kind of spline in each direction (True=periodic, False=clamped).
+    bcs : tuple[None | tuple[NonTrivialBC, NonTrivialBC], None | tuple[NonTrivialBC, NonTrivialBC], None | tuple[NonTrivialBC, NonTrivialBC]]
+        Boundary condition selector for each direction.
+        Use ``None`` in a direction for periodic boundaries, or a tuple
+        ``(left, right)`` with entries in ``{"free", "dirichlet"}`` for non-periodic boundaries.
 
-    dirichlet_bc : tuple[tuple[bool]]
-        Whether to apply homogeneous Dirichlet boundary conditions (at left or right boundary in each direction).
+    nquads : tuple[int, int, int] | None
+        Number of Gauss-Legendre quadrature points per direction for cell
+        integrals. If ``None``, backend defaults are used.
 
-    nquads : tuple[int]
-        Number of Gauss-Legendre quadrature points in each direction (default = p, leads to exact integration of degree 2p-1 polynomials).
+    nquads_proj : tuple[int, int, int] | None
+        Number of Gauss-Legendre quadrature points per direction for geometric
+        projector/histopolation integrals. If ``None``, backend defaults are
+        used.
 
-    nq_pr : tuple[int]
-        Number of Gauss-Legendre quadrature points in each direction for geometric projectors (default = p+1, leads to exact integration of degree 2p+1 polynomials).
-
-    polar_ck : PolarRegularity
-        Smoothness at a polar singularity at eta_1=0 (default -1 : standard tensor product splines, OR 1 : C1 polar splines)
+    polar_splines : bool
+        Smoothness at a possible polar singularity at ``eta_1 = 0``.
+        ``False`` gives standard tensor-product splines, ``True`` gives C1 polar
+        splines.
 
     local_projectors : bool
-        Whether to build the local commuting projectors based on quasi-inter-/histopolation.
+        Whether to build local commuting projectors based on
+        quasi-inter-/histopolation.
     """
 
-    p: tuple = (1, 1, 1)
-    spl_kind: tuple = (True, True, True)
-    dirichlet_bc: tuple = ((False, False), (False, False), (False, False))
-    nquads: tuple = None
-    nq_pr: tuple = None
-    polar_ck: LiteralOptions.PolarRegularity = -1
+    degree: tuple[int, int, int] = (1, 1, 1)
+    bcs: tuple[
+        None | tuple[NonTrivialBC, NonTrivialBC],
+        None | tuple[NonTrivialBC, NonTrivialBC],
+        None | tuple[NonTrivialBC, NonTrivialBC],
+    ] = (None, None, None)
+    nquads: tuple[int, int, int] | None = None
+    nquads_proj: tuple[int, int, int] | None = None
+    polar_splines: bool = False
     local_projectors: bool = False
 
     def __post_init__(self):
-        check_option(self.polar_ck, LiteralOptions.PolarRegularity)
+        for bc in self.bcs:
+            if bc is not None:
+                assert isinstance(bc, tuple) and len(bc) == 2, (
+                    "Boundary conditions must be given as a tuple (left, right) for each direction."
+                )
+                check_option(bc[0], LiteralOptions.OptsNonTrivialBoundaryCondition)
+                check_option(bc[1], LiteralOptions.OptsNonTrivialBoundaryCondition)
 
     def __str__(self):
         for k, v in self.__dict__.items():

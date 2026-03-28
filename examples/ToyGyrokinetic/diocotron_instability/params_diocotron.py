@@ -82,19 +82,13 @@ domain = domains.HollowCylinder(a1=1.0, a2=10.0, Lz=10.0)
 equil = equils.HomogenSlab()
 
 # Grid
-grid = grids.TensorProductGrid(Nel=(32,64,1), mpi_dims_mask=(False,True,False))
+grid = grids.TensorProductGrid(num_elements=(32,64,1), mpi_dims_mask=(False,True,False))
 
 # Derham options
 derham_opts = DerhamOptions(
-    p=(3,3,1), 
-
-    # impose dirichlet boundary conditions at r_min and r_max
-    spl_kind=(False,True,True), 
-    dirichlet_bc=(
-        (True, True),
-        (False, False),
-        (False, False),
-    ))
+    degree=(3,3,1), 
+    bcs=(("dirichlet", "dirichlet"), None, None),
+    )
 
 # Simulation object
 sim = Simulation(

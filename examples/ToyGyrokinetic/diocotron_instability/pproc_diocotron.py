@@ -70,7 +70,7 @@ def main():
     ax.set_yscale('log')
     ax.legend()
 
-    ax.set_title(f"{params.time_opts.dt=}, {params.time_opts.split_algo=}, {params.grid.Nel=}, {params.derham_opts.p=}, {params.loading_params.ppc=}")
+    ax.set_title(f"{params.time_opts.dt=}, {params.time_opts.split_algo=}, {params.grid.num_elements=}, {params.derham_opts.degree=}, {params.loading_params.ppc=}")
     ax.set_xlabel("time")
     ax.set_ylabel("Energy [a.u.]")
 

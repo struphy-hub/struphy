@@ -39,11 +39,11 @@ def field_line_tracing(
     psi_axis_Z,
     psi0,
     psi1,
-    Nel,
-    p,
+    num_elements,
+    degree,
     psi_power=1,
     xi_param="equal_angle",
-    Nel_pre=(64, 256),
+    num_elements_pre=(64, 256),
     p_pre=(3, 3),
     r0=0.3,
 ):
@@ -69,7 +69,7 @@ def field_line_tracing(
 
     All :math:`\xi`-parametrizations other than ``equal_angle`` involve a two step procedure:
 
-        1. First, a flux-aligned mapping with parameters ``Nel_pre``, ``p_pre`` is constructed with ``xi=equal angle``.
+        1. First, a flux-aligned mapping with parameters ``num_elements_pre``, ``p_pre`` is constructed with ``xi=equal angle``.
         2. Second, a mapping with lower resolution is constructed with the desired :math:`\xi`-parametrization.
 
     The field-line tracing algorithm for the ``equal_angle``-parametrization is as follows:
@@ -119,10 +119,10 @@ def field_line_tracing(
     psi1 : float
         Value of the outermost flux surface of the mapping.
 
-    Nel : list[int]
+    num_elements : list[int]
         Number of elements to be used for spline inerpolation.
 
-    p : list[int]
+    degree : list[int]
         Spline degrees for spline interpolation.
 
     psi_power : int, optional
@@ -131,7 +131,7 @@ def field_line_tracing(
     xi_param : str
         Which angular (xi) parametrization.
 
-    Nel_pre : tuple | list, optional
+    num_elements_pre : tuple | list, optional
         Number of elements to be used for the pre-mapping.
 
     p_pre : tuple | list, optional
@@ -151,10 +151,10 @@ def field_line_tracing(
 
     # for equal_angle one mapping is enough
     if xi_param == "equal_angle":
-        ns, nx = Nel
-        ps, px = p
+        ns, nx = num_elements
+        ps, px = degree
     else:
-        ns, nx = Nel_pre
+        ns, nx = num_elements_pre
         ps, px = p_pre
 
     # spline knots
@@ -165,7 +165,7 @@ def field_line_tracing(
     s_gr = bsp.greville(Ts, ps, False)
     x_gr = bsp.greville(Tx, px, True)
 
-    if p[1] % 2 == 1:
+    if degree[1] % 2 == 1:
         assert x_gr[0] == 0.0
 
     # collocation matrices
@@ -235,11 +235,13 @@ def field_line_tracing(
         print("Calculation of pre-mapping successful! Start angle parametrization " + xi_param + ".")
 
         # create temporary domain
-        domain_eq_angle = PoloidalSplineTorus(Nel=Nel_pre, p=p_pre, cx=cR_equal_angle, cy=cZ_equal_angle)
+        domain_eq_angle = PoloidalSplineTorus(
+            num_elements=num_elements_pre, degree=p_pre, cx=cR_equal_angle, cy=cZ_equal_angle
+        )
 
         # create new interpolation data
-        ns, nx = Nel
-        ps, px = p
+        ns, nx = num_elements
+        ps, px = degree
 
         # spline knots
         Ts = bsp.make_knots(xp.linspace(0.0, 1.0, ns + 1), ps, False)
@@ -249,7 +251,7 @@ def field_line_tracing(
         s_gr = bsp.greville(Ts, ps, False)
         x_gr = bsp.greville(Tx, px, True)
 
-        if p[1] % 2 == 1:
+        if degree[1] % 2 == 1:
             assert x_gr[0] == 0.0
 
         # collocation matrices

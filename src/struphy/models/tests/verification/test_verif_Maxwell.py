@@ -39,10 +39,10 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
     domain = domains.Cuboid(r3=20.0)
 
     # grid
-    grid = grids.TensorProductGrid(Nel=(1, 1, 128))
+    grid = grids.TensorProductGrid(num_elements=(1, 1, 128))
 
     # derham options
-    derham_opts = DerhamOptions(p=(1, 1, 3))
+    derham_opts = DerhamOptions(degree=(1, 1, 3))
 
     # propagator options
     model.propagators.maxwell.options = model.propagators.maxwell.Options(algo=algo)
@@ -119,13 +119,12 @@ def test_coaxial(do_plot: bool = False):
     equil = equils.HomogenSlab()
 
     # grid
-    grid = grids.TensorProductGrid(Nel=(32, 64, 1))
+    grid = grids.TensorProductGrid(num_elements=(32, 64, 1))
 
     # derham options
     derham_opts = DerhamOptions(
-        p=(3, 3, 1),
-        spl_kind=(False, True, True),
-        dirichlet_bc=((True, True), (False, False), (False, False)),
+        degree=(3, 3, 1),
+        bcs=(("dirichlet", "dirichlet"), None, None),
     )
 
     # propagator options
@@ -161,7 +160,7 @@ def test_coaxial(do_plot: bool = False):
         # get parameters
         dt = time_opts.dt
         split_algo = time_opts.split_algo
-        Nel = grid.Nel
+        num_elements = grid.num_elements
         modes = m
 
         # load data
@@ -232,7 +231,7 @@ def test_coaxial(do_plot: bool = False):
             fig.colorbar(plot_exac, ax=[ax1, ax2], orientation="vertical", shrink=0.9)
             ax1.set_xlabel("Exact")
             ax2.set_xlabel("Numerical")
-            fig.suptitle(f"Exact and Simulated $E_\\theta$ Field {dt=}, {split_algo=}, {Nel=}", fontsize=14)
+            fig.suptitle(f"Exact and Simulated $E_\\theta$ Field {dt=}, {split_algo=}, {num_elements=}", fontsize=14)
             plt.show()
 
         # assert

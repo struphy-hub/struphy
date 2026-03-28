@@ -28,8 +28,8 @@ def main():
     dt = params.time_opts.dt
     Tend = params.time_opts.Tend
     algo = params.time_opts.split_algo
-    Nel = params.grid.Nel
-    p = params.derham_opts.p
+    num_elements = params.grid.num_elements
+    degree = params.derham_opts.degree
 
     env = params.env
     ppc = params.loading_params.ppc # 32 grid points

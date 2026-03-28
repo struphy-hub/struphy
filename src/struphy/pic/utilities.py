@@ -1,6 +1,7 @@
 import cunumpy as xp
 
 import struphy.pic.utilities_kernels as utils
+from struphy.feec.utilities import get_quad_grids
 
 
 def get_kinetic_energy_particles(fe_coeffs, derham, domain, particles):
@@ -23,10 +24,10 @@ def get_kinetic_energy_particles(fe_coeffs, derham, domain, particles):
     utils.canonical_kinetic_particles(
         res,
         particles.markers,
-        xp.array(derham.p),
-        derham.Vh_fem["0"].knots[0],
-        derham.Vh_fem["0"].knots[1],
-        derham.Vh_fem["0"].knots[2],
+        xp.array(derham.degree),
+        derham.V0fem.knots[0],
+        derham.V0fem.knots[1],
+        derham.V0fem.knots[2],
         xp.array(
             derham.V0.coeff_space.starts,
         ),
@@ -56,21 +57,21 @@ def get_electron_thermal_energy(density_0_form, derham, domain, nel1, nel2, nel3
     utils.thermal_energy(
         res,
         density_0_form._operators[0].matrix._data,
-        derham.Vh_fem["0"].coeff_space.pads[0],
-        derham.Vh_fem["0"].coeff_space.pads[1],
-        derham.Vh_fem["0"].coeff_space.pads[2],
+        derham.V0fem.coeff_space.pads[0],
+        derham.V0fem.coeff_space.pads[1],
+        derham.V0fem.coeff_space.pads[2],
         nel1,
         nel2,
         nel3,
         nqs1,
         nqs2,
         nqs3,
-        derham.get_quad_grids(derham.Vh_fem["0"])[0].weights,
-        derham.get_quad_grids(derham.Vh_fem["0"])[1].weights,
-        derham.get_quad_grids(derham.Vh_fem["0"])[2].weights,
-        derham.get_quad_grids(derham.Vh_fem["0"])[0].points,
-        derham.get_quad_grids(derham.Vh_fem["0"])[1].points,
-        derham.get_quad_grids(derham.Vh_fem["0"])[2].points,
+        get_quad_grids(derham.V0fem)[0].weights,
+        get_quad_grids(derham.V0fem)[1].weights,
+        get_quad_grids(derham.V0fem)[2].weights,
+        get_quad_grids(derham.V0fem)[0].points,
+        get_quad_grids(derham.V0fem)[1].points,
+        get_quad_grids(derham.V0fem)[2].points,
         *domain.args_map,
     )
 

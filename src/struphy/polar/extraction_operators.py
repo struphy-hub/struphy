@@ -52,16 +52,16 @@ class PolarExtractionBlocksC1:
 
         self._n0 = cx.shape[0]
         self._n1 = cx.shape[1]
-        self._n2 = derham.nbasis["0"][2]
+        self._n2 = derham.V0splines.nbasis[2]
 
         assert derham.spl_kind[1], "Use of poalr splines requires periodic splines in eta2."
-        assert self.n1 == derham.Nel[1], (
-            f"Polar splines: number of control points {self.n1} in eta2 direction is not consistent with the grid (with {derham.Nel[1]})."
+        assert self.n1 == derham.num_elements[1], (
+            f"Polar splines: number of control points {self.n1} in eta2 direction is not consistent with the grid (with {derham.num_elements[1]})."
         )
 
         self._d0 = self.n0 - 1
         self._d1 = self.n1 - 0
-        self._d2 = derham.nbasis["3"][2]
+        self._d2 = derham.V3splines.nbasis[2]
 
         self._n_rings = [(2,), (1, 2), (2, 1), (1,)]
         self._n_polar = [(3,), (0, 2), (2, 0), (0,)]
@@ -164,7 +164,7 @@ class PolarExtractionBlocksC1:
         p0_blocks_ten_to_pol = xp.zeros((self.n_polar[0][0], self.n_rings[0][0] * self.n1), dtype=float)
 
         # !! NOTE: for odd spline degrees and periodic splines the first Greville point sometimes does NOT start at zero!!
-        if domain.p[1] % 2 != 0 and not (abs(derham.Vh_fem["0"].spaces[1].interpolation_grid[0]) < 1e-14):
+        if domain.degree[1] % 2 != 0 and not (abs(derham.V0fem.spaces[1].interpolation_grid[0]) < 1e-14):
             p0_blocks_ten_to_pol[0, self.n1 + 3 * self.n1 // 3 - 1] = 1.0
             p0_blocks_ten_to_pol[1, self.n1 + 1 * self.n1 // 3 - 1] = 1.0
             p0_blocks_ten_to_pol[2, self.n1 + 2 * self.n1 // 3 - 1] = 1.0
@@ -187,7 +187,7 @@ class PolarExtractionBlocksC1:
         p1_22_blocks_ten_to_pol = xp.zeros((self.n_polar[1][1], self.n_rings[1][1] * self.d1), dtype=float)
 
         # !! NOTE: PSYDAC's first integration interval sometimes start at < 0 !!
-        if derham.Vh_fem["3"].spaces[1].histopolation_grid[0] < -1e-14:
+        if derham.V3fem.spaces[1].histopolation_grid[0] < -1e-14:
             p1_22_blocks_ten_to_pol[0, (self.d1 + 0 * self.d1 // 3 + 1) : (self.d1 + 1 * self.d1 // 3 + 1)] = 1.0
             p1_22_blocks_ten_to_pol[1, (self.d1 + 0 * self.d1 // 3 + 1) : (self.d1 + 1 * self.d1 // 3 + 1)] = 1.0
             p1_22_blocks_ten_to_pol[1, (self.d1 + 1 * self.d1 // 3 + 1) : (self.d1 + 2 * self.d1 // 3 + 1)] = 1.0
@@ -209,7 +209,7 @@ class PolarExtractionBlocksC1:
         p1_11_blocks_ten_to_ten = xp.zeros((self.n1, self.n1), dtype=float)
 
         # !! NOTE: for odd spline degrees and periodic splines the first Greville point sometimes does NOT start at zero!!
-        if domain.p[1] % 2 != 0 and not (abs(derham.Vh_fem["0"].spaces[1].interpolation_grid[0]) < 1e-14):
+        if domain.degree[1] % 2 != 0 and not (abs(derham.V0fem.spaces[1].interpolation_grid[0]) < 1e-14):
             p1_11_blocks_ten_to_ten[:, 3 * self.n1 // 3 - 1] = -xp.roll(self.xi_1[0], -1)
             p1_11_blocks_ten_to_ten[:, 1 * self.n1 // 3 - 1] = -xp.roll(self.xi_1[1], -1)
             p1_11_blocks_ten_to_ten[:, 2 * self.n1 // 3 - 1] = -xp.roll(self.xi_1[2], -1)
@@ -251,7 +251,7 @@ class PolarExtractionBlocksC1:
         a1 = xp.diff(self.xi_1[2], append=self.xi_1[2, 0])
 
         # !! NOTE: PSYDAC's first integration interval sometimes start at < 0 !!
-        if derham.Vh_fem["3"].spaces[1].histopolation_grid[0] < -1e-14:
+        if derham.V3fem.spaces[1].histopolation_grid[0] < -1e-14:
             p3_blocks_ten_to_ten[:, (0 * self.n1 // 3 + 1) : (1 * self.n1 // 3 + 1)] = (
                 -xp.roll(a0, +1)[:, None] - xp.roll(a1, +1)[:, None]
             )
