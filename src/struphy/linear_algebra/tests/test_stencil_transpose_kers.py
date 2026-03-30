@@ -35,11 +35,11 @@ def test_1d(num_elements, degree, bcs, domain_ind, codomain_ind):
 
     if rank == 0:
         logger.info("\nParameters:")
-        logger.info("num_elements=", num_elements)
-        logger.info("degree=", degree)
-        logger.info("bcs=", bcs)
-        logger.info("domain_ind=", domain_ind)
-        logger.info("codomain_ind=", codomain_ind)
+        logger.info(f"num_elements={num_elements}")
+        logger.info(f"degree={degree}")
+        logger.info(f"bcs={bcs}")
+        logger.info(f"domain_ind={domain_ind}")
+        logger.info(f"codomain_ind={codomain_ind}")
 
     # Psydac discrete Derham sequence
     grid = TensorProductGrid(num_elements=[num_elements] * 3)
@@ -154,11 +154,11 @@ def test_3d(num_elements, degree, bcs, domain_ind, codomain_ind):
 
     if rank == 0:
         logger.info("\nParameters:")
-        logger.info("num_elements=", num_elements)
-        logger.info("degree=", degree)
-        logger.info("bcs=", bcs)
-        logger.info("domain_ind=", domain_ind)
-        logger.info("codomain_ind=", codomain_ind)
+        logger.info(f"num_elements={num_elements}")
+        logger.info(f"degree={degree}")
+        logger.info(f"bcs={bcs}")
+        logger.info(f"domain_ind={domain_ind}")
+        logger.info(f"codomain_ind={codomain_ind}")
 
     # Psydac discrete Derham sequence
     grid = TensorProductGrid(num_elements=num_elements)

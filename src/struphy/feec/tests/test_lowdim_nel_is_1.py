@@ -23,8 +23,8 @@ def test_lowdim_derham(num_elements, degree, do_plot=False):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
-    logger.info("num_elements=", num_elements)
-    logger.info("degree=", degree)
+    logger.info(f"num_elements={num_elements}")
+    logger.info(f"degree={degree}")
 
     # Psydac discrete Derham sequence
     grid = TensorProductGrid(num_elements=num_elements)
@@ -37,19 +37,19 @@ def test_lowdim_derham(num_elements, degree, do_plot=False):
     # Stencil vectors for Psydac:
     x0_PSY = StencilVector(derham.V0)
     logger.info(f"rank {rank} | 0-form StencilVector:")
-    logger.info(f"rank {rank} | starts:", x0_PSY.starts)
-    logger.info(f"rank {rank} | ends  :", x0_PSY.ends)
-    logger.info(f"rank {rank} | pads  :", x0_PSY.pads)
-    logger.info(f"rank {rank} | shape (=dim):", x0_PSY.shape)
-    logger.info(f"rank {rank} | [:].shape (=shape):", x0_PSY[:].shape)
+    logger.info(f"rank {rank} | starts: {x0_PSY.starts}")
+    logger.info(f"rank {rank} | ends  : {x0_PSY.ends}")
+    logger.info(f"rank {rank} | pads  : {x0_PSY.pads}")
+    logger.info(f"rank {rank} | shape (=dim): {x0_PSY.shape}")
+    logger.info(f"rank {rank} | [:].shape (=shape): {x0_PSY[:].shape}")
 
     x3_PSY = StencilVector(derham.V3)
     logger.info(f"rank {rank} | \n3-form StencilVector:")
-    logger.info(f"rank {rank} | starts:", x3_PSY.starts)
-    logger.info(f"rank {rank} | ends  :", x3_PSY.ends)
-    logger.info(f"rank {rank} | pads  :", x3_PSY.pads)
-    logger.info(f"rank {rank} | shape (=dim):", x3_PSY.shape)
-    logger.info(f"rank {rank} | [:].shape (=shape):", x3_PSY[:].shape)
+    logger.info(f"rank {rank} | starts: {x3_PSY.starts}")
+    logger.info(f"rank {rank} | ends  : {x3_PSY.ends}")
+    logger.info(f"rank {rank} | pads  : {x3_PSY.pads}")
+    logger.info(f"rank {rank} | shape (=dim): {x3_PSY.shape}")
+    logger.info(f"rank {rank} | [:].shape (=shape): {x3_PSY[:].shape}")
 
     # Block of StencilVecttors
     x1_PSY = BlockVector(derham.V1)
