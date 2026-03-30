@@ -212,7 +212,7 @@ class Species(metaclass=ABCMeta):
             if verbose and MPI.COMM_WORLD.Get_rank() == 0:
                 logger.info(f"\nSet normalization parameters for species {species.__class__.__name__}:")
                 for key, val in self.__dict__.items():
-                    logger.info((key + ":").ljust(25), "{:4.3e}".format(val))
+                    logger.info(f"{(key + ':').ljust(25)} {val:4.3e}")
 
     @property
     def equation_params(self) -> EquationParameters:

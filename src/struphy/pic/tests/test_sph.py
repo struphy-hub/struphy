@@ -1837,7 +1837,7 @@ def test_sph_no_slip_boundary_1d(
         ghost_inds = xp.where(particles.ghost_particles)[0]
         logger.info(f"After do_sort: {len(ghost_inds)} ghosts")
         if len(ghost_inds) > 0:
-            logger.info("First 10 ghost eta1:", particles.markers[ghost_inds[:10], 0])
+            logger.info(f"First 10 ghost eta1: {particles.markers[ghost_inds[:10], 0]}")
     particles.initialize_weights()
 
     if direction == "x":
