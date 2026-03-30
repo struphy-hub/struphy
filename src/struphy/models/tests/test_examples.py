@@ -40,7 +40,7 @@ def test_examples(params_path: Path):
     regress_name = example_name.replace("params_", "regress_")
     regress_path = Path(*rel.parts[:-1]) / f"{regress_name}.py"
 
-    logger.info(f"\n{MPI.COMM_WORLD.Get_rank()} Testing example:", example_name)
+    logger.info(f"\n{MPI.COMM_WORLD.Get_rank()} Testing example: {example_name}")
     logger.info(f"{params_path = }")
     logger.info(f"{pproc_path = }")
     logger.info(f"{regress_path = }")
