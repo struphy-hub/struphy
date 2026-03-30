@@ -315,6 +315,7 @@ def test_lowdim_derham(num_elements, degree, do_plot=False):
         plt.show()
     plt.close("all")
 
+
 if __name__ == "__main__":
     test_lowdim_derham([32, 1, 1], [1, 1, 1], [True, True, True], do_plot=False)
     test_lowdim_derham([1, 32, 1], [1, 1, 1], [True, True, True], do_plot=False)

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import logging
 from typing import Callable
 
 import cunumpy as xp
