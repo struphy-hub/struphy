@@ -5,9 +5,16 @@ import pytest
 logger = logging.getLogger("struphy")
 
 
-@pytest.mark.parametrize("Nel", [[8, 9, 10]])
-@pytest.mark.parametrize("p", [[1, 2, 3]])
-@pytest.mark.parametrize("spl_kind", [[False, False, True], [False, True, False], [True, False, False]])
+@pytest.mark.parametrize("num_elements", [[8, 9, 10]])
+@pytest.mark.parametrize("degree", [[1, 2, 3]])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), ("free", "free"), None),
+        (("free", "free"), None, ("free", "free")),
+        (None, ("free", "free"), ("free", "free")),
+    ],
+)
 @pytest.mark.parametrize(
     "mapping",
     [
@@ -36,7 +43,7 @@ logger = logging.getLogger("struphy")
         ],
     ],
 )
-def test_draw(Nel, p, spl_kind, mapping, ppc=10):
+def test_draw(num_elements, degree, bcs, mapping, ppc=10):
     """Asserts whether all particles are on the correct process after `particles.mpi_sort_markers()`."""
 
     import cunumpy as xp
@@ -44,7 +51,9 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
 
     from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
     from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
     from struphy.pic.particles import Particles6D
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -56,7 +65,9 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     domain = domain_class(**mapping[1])
 
     # Psydac discrete Derham sequence
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs

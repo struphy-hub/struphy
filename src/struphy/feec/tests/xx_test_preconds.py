@@ -5,9 +5,15 @@ import pytest
 logger = logging.getLogger("struphy")
 
 
-@pytest.mark.parametrize("Nel", [[8, 12, 4]])
-@pytest.mark.parametrize("p", [[2, 3, 1]])
-@pytest.mark.parametrize("spl_kind", [[True, True, True], [False, False, False]])
+@pytest.mark.parametrize("num_elements", [[8, 12, 4]])
+@pytest.mark.parametrize("degree", [[2, 3, 1]])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (None, None, None),
+        (("free", "free"), ("free", "free"), ("free", "free")),
+    ],
+)
 @pytest.mark.parametrize(
     "mapping",
     [
@@ -15,7 +21,7 @@ logger = logging.getLogger("struphy")
         ["HollowCylinder", {"a1": 0.1, "a2": 2.0, "R0": 0.0, "Lz": 3.0}],
     ],
 )
-def test_mass_preconditioner(Nel, p, spl_kind, mapping):
+def test_mass_preconditioner(num_elements, degree, bcs, mapping):
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.block import BlockVector
@@ -26,13 +32,17 @@ def test_mass_preconditioner(Nel, p, spl_kind, mapping):
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.preconditioner import MassMatrixPreconditioner
     from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     MPI_COMM = MPI.COMM_WORLD
 
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(mapping[1])
 
-    derham = Derham(Nel, p, spl_kind, comm=MPI_COMM)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=MPI_COMM)
     derham_spaces = [derham.V0, derham.V1, derham.V2, derham.V3, derham.V0vec]
 
     # assemble mass matrices in V0, V1, V2 and V3

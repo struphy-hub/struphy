@@ -73,9 +73,9 @@ class Domain(metaclass=DomainMeta):
         Whether the domain is periodic in the :math:`\eta_3` direction.
     cx, cy, cz : ndarray
         Control points for spline mapping components :math:`F_x`, :math:`F_y`, :math:`F_z` (3D arrays).
-    Nel : tuple[int]
+    num_elements : tuple[int]
         Number of elements in each logical direction (for spline mappings).
-    p : tuple[int]
+    degree : tuple[int]
         B-spline degree in each direction (for spline mappings).
     spl_kind : tuple[bool]
         Spline type in each direction: True for periodic, False for clamped (for spline mappings).
@@ -126,36 +126,38 @@ class Domain(metaclass=DomainMeta):
 
     def __init__(
         self,
-        Nel: tuple[int] = None,
-        p: tuple[int] = None,
+        num_elements: tuple[int] = None,
+        degree: tuple[int] = None,
         spl_kind: tuple[bool] = None,
     ):
-        if Nel is None or p is None or spl_kind is None:
-            assert self.kind_map >= 10, "Spline mappings must define Nel, p and spl_kind."
-            Nel = (1, 1, 1)
-            p = (1, 1, 1)
+        if num_elements is None or degree is None or spl_kind is None:
+            assert self.kind_map >= 10, "Spline mappings must define num_elements, degree and spl_kind."
+            num_elements = (1, 1, 1)
+            degree = (1, 1, 1)
             spl_kind = (True, True, True)
 
         # create IGA attributes
-        self._Nel = Nel
-        self._p = p
+        self._num_elements = num_elements
+        self._degree = degree
         self._spl_kind = spl_kind
 
-        self._NbaseN = [Nel + p - kind * p for Nel, p, kind in zip(Nel, p, spl_kind)]
+        self._NbaseN = [
+            num_elements + degree - kind * degree for num_elements, degree, kind in zip(num_elements, degree, spl_kind)
+        ]
 
-        el_b = [xp.linspace(0.0, 1.0, Nel + 1) for Nel in Nel]
+        el_b = [xp.linspace(0.0, 1.0, num_elements + 1) for num_elements in num_elements]
 
-        self._T = [bsp.make_knots(el_b, p, kind) for el_b, p, kind in zip(el_b, p, spl_kind)]
+        self._T = [bsp.make_knots(el_b, degree, kind) for el_b, degree, kind in zip(el_b, degree, spl_kind)]
 
         self._indN = [
-            (xp.indices((Nel, p + 1))[1] + xp.arange(Nel)[:, None]) % NbaseN
-            for Nel, p, NbaseN in zip(Nel, p, self._NbaseN)
+            (xp.indices((num_elements, degree + 1))[1] + xp.arange(num_elements)[:, None]) % NbaseN
+            for num_elements, degree, NbaseN in zip(num_elements, degree, self._NbaseN)
         ]
 
         # extend to 3d for 2d IGA mappings
         if 0 < self.kind_map < 10:
-            self._Nel = (*self._Nel, 0)
-            self._p = (*self._p, 0)
+            self._num_elements = (*self._num_elements, 0)
+            self._degree = (*self._degree, 0)
             self._NbaseN = self._NbaseN + [0]
 
             self._T = self._T + [xp.zeros((1,), dtype=float)]
@@ -207,7 +209,7 @@ class Domain(metaclass=DomainMeta):
         self._args_domain = DomainArguments(
             self.kind_map,
             self.params_numpy,
-            xp.array(self.p),
+            xp.array(self.degree),
             self.T[0],
             self.T[1],
             self.T[2],
@@ -324,14 +326,14 @@ class Domain(metaclass=DomainMeta):
         return self._cz
 
     @property
-    def Nel(self):
+    def num_elements(self):
         """List of number of elements in each direction."""
-        return self._Nel
+        return self._num_elements
 
     @property
-    def p(self):
+    def degree(self):
         """List of spline degrees in each direction."""
-        return self._p
+        return self._degree
 
     @property
     def spl_kind(self):
@@ -1962,8 +1964,8 @@ class Spline(Domain):
 
     def __init__(
         self,
-        Nel: tuple[int] = (8, 24, 6),
-        p: tuple[int] = (2, 3, 1),
+        num_elements: tuple[int] = (8, 24, 6),
+        degree: tuple[int] = (2, 3, 1),
         spl_kind: tuple[bool] = (False, True, True),
         cx: xp.ndarray | None = None,
         cy: xp.ndarray | None = None,
@@ -1990,7 +1992,7 @@ class Spline(Domain):
         assert self.cz.ndim == 3
 
         # make sure that control points are compatible with given spline data
-        expected_shape = tuple([Nel[n] + (not spl_kind[n]) * p[n] for n in range(3)])
+        expected_shape = tuple([num_elements[n] + (not spl_kind[n]) * degree[n] for n in range(3)])
 
         assert self.cx.shape == expected_shape
         assert self.cy.shape == expected_shape
@@ -2005,7 +2007,7 @@ class Spline(Domain):
         self.periodic_eta3 = spl_kind[-1]
 
         # base class
-        super().__init__(Nel=Nel, p=p, spl_kind=spl_kind)
+        super().__init__(num_elements=num_elements, degree=degree, spl_kind=spl_kind)
 
 
 class PoloidalSpline(Domain):
@@ -2025,8 +2027,8 @@ class PoloidalSpline(Domain):
 
     def __init__(
         self,
-        Nel: tuple[int] = (8, 24),
-        p: tuple[int] = (2, 3),
+        num_elements: tuple[int] = (8, 24),
+        degree: tuple[int] = (2, 3),
         spl_kind: tuple[bool] = (False, True),
         cx: xp.ndarray = None,
         cy: xp.ndarray = None,
@@ -2040,7 +2042,7 @@ class PoloidalSpline(Domain):
             def Y(eta1, eta2):
                 return eta1 * xp.sin(2 * xp.pi * eta2)
 
-            cx, cy = interp_mapping(Nel, p, spl_kind, X, Y)
+            cx, cy = interp_mapping(num_elements, degree, spl_kind, X, Y)
 
             # make sure that control points at pole are all the same (eta1=0 there)
             cx[0] = 3.0
@@ -2055,7 +2057,7 @@ class PoloidalSpline(Domain):
         assert self.cy.ndim == 2
 
         # make sure that control points are compatible with given spline data
-        expected_shape = tuple([Nel[n] + (not spl_kind[n]) * p[n] for n in range(2)])
+        expected_shape = tuple([num_elements[n] + (not spl_kind[n]) * degree[n] for n in range(2)])
 
         assert self.cx.shape == expected_shape
         assert self.cy.shape == expected_shape
@@ -2072,7 +2074,7 @@ class PoloidalSpline(Domain):
         self._cz = xp.zeros((1, 1, 1), dtype=float)
 
         # init base class
-        super().__init__(Nel=Nel, p=p, spl_kind=spl_kind)
+        super().__init__(num_elements=num_elements, degree=degree, spl_kind=spl_kind)
 
 
 class PoloidalSplineStraight(PoloidalSpline):
@@ -2091,8 +2093,8 @@ class PoloidalSplineStraight(PoloidalSpline):
 
     def __init__(
         self,
-        Nel: tuple[int] = (8, 24),
-        p: tuple[int] = (2, 3),
+        num_elements: tuple[int] = (8, 24),
+        degree: tuple[int] = (2, 3),
         spl_kind: tuple[bool] = (False, True),
         cx: xp.ndarray = None,
         cy: xp.ndarray = None,
@@ -2109,7 +2111,7 @@ class PoloidalSplineStraight(PoloidalSpline):
             def Y(eta1, eta2):
                 return eta1 * xp.sin(2 * xp.pi * eta2)
 
-            cx, cy = interp_mapping(Nel, p, spl_kind, X, Y)
+            cx, cy = interp_mapping(num_elements, degree, spl_kind, X, Y)
 
             # make sure that control points at pole are all 0 (eta1=0 there)
             cx[0] = 0.0
@@ -2119,7 +2121,7 @@ class PoloidalSplineStraight(PoloidalSpline):
         self.periodic_eta3 = False
 
         # init base class
-        super().__init__(Nel=Nel, p=p, spl_kind=spl_kind, cx=cx, cy=cy)
+        super().__init__(num_elements=num_elements, degree=degree, spl_kind=spl_kind, cx=cx, cy=cy)
 
 
 class PoloidalSplineTorus(PoloidalSpline):
@@ -2137,10 +2139,10 @@ class PoloidalSplineTorus(PoloidalSpline):
 
     Parameters
     ----------
-    Nel : tuple[int]
+    num_elements : tuple[int]
         Number of elements in each poloidal direction.
 
-    p : tuple[int]
+    degree : tuple[int]
         Spline degree in each poloidal direction.
 
     spl_kind : tuple[bool]
@@ -2156,8 +2158,8 @@ class PoloidalSplineTorus(PoloidalSpline):
 
     def __init__(
         self,
-        Nel: tuple[int] = (8, 24),
-        p: tuple[int] = (2, 3),
+        num_elements: tuple[int] = (8, 24),
+        degree: tuple[int] = (2, 3),
         spl_kind: tuple[bool] = (False, True),
         cx: xp.ndarray = None,
         cy: xp.ndarray = None,
@@ -2177,7 +2179,7 @@ class PoloidalSplineTorus(PoloidalSpline):
             def Y(eta1, eta2):
                 return eta1 * xp.sin(2 * xp.pi * eta2)
 
-            cx, cy = interp_mapping(Nel, p, spl_kind, X, Y)
+            cx, cy = interp_mapping(num_elements, degree, spl_kind, X, Y)
 
             # make sure that control points at pole are all 0 (eta1=0 there)
             cx[0] = 3.0
@@ -2185,20 +2187,20 @@ class PoloidalSplineTorus(PoloidalSpline):
 
         # init base class
         super().__init__(
-            Nel=Nel,
-            p=p,
+            num_elements=num_elements,
+            degree=degree,
             spl_kind=spl_kind,
             cx=cx,
             cy=cy,
         )
 
 
-def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
+def interp_mapping(num_elements, degree, spl_kind, X, Y, Z=None):
     r"""Interpolates the mapping :math:`F: (0, 1)^3 \to \mathbb R^3` on the given spline space.
 
     Parameters
     -----------
-    Nel, p, spl_kind : array-like
+    num_elements, degree, spl_kind : array-like
         Defining the spline space.
 
     X, Y : callable
@@ -2214,22 +2216,27 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
     """
 
     # number of basis functions
-    NbaseN = [Nel + p - kind * p for Nel, p, kind in zip(Nel, p, spl_kind)]
+    NbaseN = [
+        num_elements + degree - kind * degree for num_elements, degree, kind in zip(num_elements, degree, spl_kind)
+    ]
 
     # element boundaries
-    el_b = [xp.linspace(0.0, 1.0, Nel + 1) for Nel in Nel]
+    el_b = [xp.linspace(0.0, 1.0, num_elements + 1) for num_elements in num_elements]
 
     # spline knot vectors
-    T = [bsp.make_knots(el_b, p, kind) for el_b, p, kind in zip(el_b, p, spl_kind)]
+    T = [bsp.make_knots(el_b, degree, kind) for el_b, degree, kind in zip(el_b, degree, spl_kind)]
 
     # greville points
-    I_pts = [bsp.greville(T, p, kind) for T, p, kind in zip(T, p, spl_kind)]
+    I_pts = [bsp.greville(T, degree, kind) for T, degree, kind in zip(T, degree, spl_kind)]
 
     # 1D interpolation matrices
-    I_mat = [csc_matrix(bsp.collocation_matrix(T, p, I_pts, kind)) for T, p, I_pts, kind in zip(T, p, I_pts, spl_kind)]
+    I_mat = [
+        csc_matrix(bsp.collocation_matrix(T, degree, I_pts, kind))
+        for T, degree, I_pts, kind in zip(T, degree, I_pts, spl_kind)
+    ]
 
     # 2D interpolation
-    if len(Nel) == 2:
+    if len(num_elements) == 2:
         I = kron(I_mat[0], I_mat[1], format="csc")
 
         I_pts = xp.meshgrid(I_pts[0], I_pts[1], indexing="ij")
@@ -2246,7 +2253,7 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
         return cx, cy
 
     # 3D interpolation
-    elif len(Nel) == 3:
+    elif len(num_elements) == 3:
         I_LU = [splu(mat) for mat in I_mat]
 
         x_size = X(I_pts[0], I_pts[1], I_pts[2])
@@ -2265,7 +2272,7 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
         return 0.0
 
 
-def spline_interpolation_nd(p: list, spl_kind: list, grids_1d: list, values: xp.ndarray):
+def spline_interpolation_nd(degree: list, spl_kind: list, grids_1d: list, values: xp.ndarray):
     """n-dimensional tensor-product spline interpolation with discrete input.
 
     The interpolation points are passed as a list of 1d arrays, each array with increasing entries g[0]=0 < g[1] < ...
@@ -2273,7 +2280,7 @@ def spline_interpolation_nd(p: list, spl_kind: list, grids_1d: list, values: xp.
 
     Parameters
     -----------
-    p : list[int]
+    degree : list[int]
         Spline degree.
 
     grids_1d : list[array]
@@ -2301,7 +2308,7 @@ def spline_interpolation_nd(p: list, spl_kind: list, grids_1d: list, values: xp.
     indN = []
     I_mat = []
     I_LU = []
-    for sh, x_grid, p_i, kind_i in zip(values.shape, grids_1d, p, spl_kind):
+    for sh, x_grid, p_i, kind_i in zip(values.shape, grids_1d, degree, spl_kind):
         assert isinstance(x_grid, xp.ndarray)
         assert sh == x_grid.size
         assert (
@@ -2329,7 +2336,7 @@ def spline_interpolation_nd(p: list, spl_kind: list, grids_1d: list, values: xp.
                 )
                 < 1e-14
             ), "Interpolation points must include x=1 for clamped interpolation."
-            # dimension of the 1d spline spaces: dim = breaks.size - 1 + p = x_grid.size
+            # dimension of the 1d spline spaces: dim = breaks.size - 1 + degree = x_grid.size
             if p_i == 1:
                 breaks = x_grid
             elif p_i % 2 == 0:
@@ -2359,11 +2366,11 @@ def spline_interpolation_nd(p: list, spl_kind: list, grids_1d: list, values: xp.
         assert I.shape[0] == I.shape[1]
 
     # solve system
-    if len(p) == 1:
+    if len(degree) == 1:
         return I_LU[0].solve(values), T, indN
-    if len(p) == 2:
+    if len(degree) == 2:
         return linalg_kron.kron_lusolve_2d(I_LU, values), T, indN
-    elif len(p) == 3:
+    elif len(degree) == 3:
         return linalg_kron.kron_lusolve_3d(I_LU, values), T, indN
     else:
         raise AssertionError("Only dimensions < 4 are supported.")

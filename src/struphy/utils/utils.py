@@ -109,9 +109,11 @@ def kernels_to_txt(kernels: list, output: str):
     # logger.info(f"kernels written to {output}.")
 
 
-def check_option(opt, options):
+def check_option(opt, *options):
     """Check if opt is contained in options; if opt is a list, checks for each element."""
-    opts = get_args(options)
+    opts = []
+    for o in options:
+        opts.extend(get_args(o))
     if not isinstance(opt, list):
         opt = [opt]
     for o in opt:

@@ -46,7 +46,7 @@ from struphy import (
 # ---------------------
 
 from struphy.models import VlasovMaxwellOneSpecies
-model = VlasovMaxwellOneSpecies()
+model = VlasovMaxwellOneSpecies(measure_gauss_law=True)
 
 # ---------------------
 # Parameters setup
@@ -79,7 +79,7 @@ env = EnvironmentOptions(sim_folder="sim_data")
 base_units = BaseUnits()
 
 # Time stepping
-time_opts = Time(dt = 0.05, Tend = 500, split_algo = "LieTrotter")
+time_opts = Time(dt = 0.05, Tend = 400, split_algo = "LieTrotter")
 
 # Geometry
 domain = domains.Cuboid(r1 = 2*xp.pi/k)
@@ -88,10 +88,10 @@ domain = domains.Cuboid(r1 = 2*xp.pi/k)
 equil = None
 
 # Grid
-grid = grids.TensorProductGrid(Nel = (32,1,1))
+grid = grids.TensorProductGrid(num_elements = (32,1,1))
 
 # Derham options
-derham_opts = DerhamOptions(p = (3,1,1))
+derham_opts = DerhamOptions(degree = (3,1,1))
 
 # Siumlation object
 sim = Simulation(

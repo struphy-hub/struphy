@@ -76,10 +76,10 @@ domain = domains.Cuboid(r1 = 62.83)
 equil = None
 
 # Grid
-grid = grids.TensorProductGrid(Nel=(32, 1, 1))
+grid = grids.TensorProductGrid(num_elements=(32, 1, 1))
 
 # Derham options
-derham_opts = DerhamOptions(p=(3, 1, 1))
+derham_opts = DerhamOptions(degree=(3, 1, 1))
 
 # Simulation object
 sim = Simulation(

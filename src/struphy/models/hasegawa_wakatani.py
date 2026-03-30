@@ -110,7 +110,7 @@ class HasegawaWakatani(StruphyModel):
 
         :meta private:
         """
-        self._rho: StencilVector = Propagator.derham.Vh["0"].zeros()
+        self._rho: StencilVector = Propagator.derham.V0.zeros()
         self.update_rho()
 
         if MPI.COMM_WORLD.Get_rank() == 0:

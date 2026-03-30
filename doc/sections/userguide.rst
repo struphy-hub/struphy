@@ -39,8 +39,8 @@ Define another simulation with different parameters::
     from struphy import Time, grids, DerhamOptions
 
     time_opts = Time(dt=0.1, Tend=0.3)
-    grid = grids.TensorProductGrid(Nel=(32, 1, 1))
-    derham_opts = DerhamOptions(p=(3, 1, 1))
+    grid = grids.TensorProductGrid(num_elements=(32, 1, 1))
+    derham_opts = DerhamOptions(degree=(3, 1, 1))
 
     sim2 = Simulation(model=model,
                       time_opts=time_opts,
@@ -152,8 +152,8 @@ We then set the basic options for this test::
     time_opts = Time(dt = 0.1, Tend = 50.0, split_algo = "LieTrotter")
     domain = domains.Cuboid(r1 = 31.42)
     equil = None
-    grid = grids.TensorProductGrid(Nel=(32, 1, 1))
-    derham_opts = DerhamOptions(p=(3, 1, 1))
+    grid = grids.TensorProductGrid(num_elements=(32, 1, 1))
+    derham_opts = DerhamOptions(degree=(3, 1, 1))
 
 Next, instantiate the simulation with the above parameters::
 

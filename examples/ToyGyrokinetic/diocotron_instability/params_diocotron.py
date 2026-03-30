@@ -4,12 +4,18 @@
 # Please fill in a verbal description of the simulation. 
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
+name = "Diocotron instability"
 description = """
-Weak Landau damping: A linear test case for the VlasovAmpereOneSpecies model.
-This test involves a small amplitude electrostatic perturbation in a uniform, collisionless plasma.
-The perturbation is damped due to phase mixing effects (Landau damping) as particles interact with 
-the self-consistent electric field. This benchmark validates the numerical discretization of the 
-Vlasov-Ampère system and the accuracy of particle-in-cell methods.
+The Diocotron instability is a shear-driven instability that occurs in non-neutral plasmas confined by a magnetic field. 
+It typically appears when there is velocity shear in the E×B drift of a plasma column.
+
+The parameter of this simulation file is based on a paper called:
+
+'A new fully two-dimensional conservative semi-Lagrangian
+method: applications on polar grids, from diocotron instability
+to ITG turbulence'
+
+DOI: 10.1140/epjd/e2014-50180-9
 """
 
 # ------------------
@@ -39,19 +45,20 @@ from struphy import (
     maxwellians,
 )
 
+import cunumpy as xp
+
 # ---------------------
 # Instance of the model
 # ---------------------
 
-from struphy.models import VlasovAmpereOneSpecies
-model = VlasovAmpereOneSpecies(with_B0 = False)
+from struphy.models import ToyDrift
+model = ToyDrift()
 
 # List all species and set their physical properties (charge and mass number, etc.)
 model.em_fields.set_species_properties()
-model.kinetic_ions.set_species_properties(alpha=1.0, epsilon=-1.0)
+model.kinetic_ions.set_species_properties(alpha=1.0, epsilon=1.0)
 
 # List all variables and decide whether to save their data
-model.em_fields.e_field.save_data = True
 model.em_fields.phi.save_data = True
 model.kinetic_ions.var.save_data = True
 
@@ -60,29 +67,34 @@ model.kinetic_ions.var.save_data = True
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(sim_folder="sim_data")
+env = EnvironmentOptions(sim_folder="simdata")
 
 # Units
-base_units = BaseUnits()
+base_units = BaseUnits(kBT=1.0)
 
 # Time stepping
-time_opts = Time(dt = 0.05, Tend = 20.0, split_algo = "LieTrotter")
+time_opts = Time(dt=0.05, Tend=20.0, split_algo="LieTrotter")
 
 # Geometry
-domain = domains.Cuboid(r1 = 12.56) # r1 -> pi * 4 -> k = 0.5
+domain = domains.HollowCylinder(a1=1.0, a2=10.0, Lz=10.0)
 
 # Fluid equilibrium (can be used as part of initial conditions)
-equil = None
+equil = equils.HomogenSlab()
 
 # Grid
-grid = grids.TensorProductGrid(num_elements=(32, 1, 1))
+grid = grids.TensorProductGrid(num_elements=(32,64,1), mpi_dims_mask=(False,True,False))
 
 # Derham options
-derham_opts = DerhamOptions(degree=(3, 1, 1))
+derham_opts = DerhamOptions(
+    degree=(3,3,1), 
+    bcs=(("dirichlet", "dirichlet"), None, None),
+    )
 
 # Simulation object
 sim = Simulation(
     model=model,
+    name=name,
+    description=description,
     params_path=__file__,
     env=env,
     base_units=base_units,
@@ -97,29 +109,26 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-loading_params = LoadingParameters(ppc = 1000)
-weights_params = WeightsParameters(control_variate= True)
+loading_params = LoadingParameters(ppc = 500, seed=1234)
+weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters()
 model.kinetic_ions.set_markers(loading_params=loading_params,
                                weights_params=weights_params,
                                boundary_params=boundary_params,
-                               bufsize = 0.4,
+                               bufsize=2.0,
                                )
-model.kinetic_ions.set_sorting_boxes(boxes_per_dim=(16, 1, 1), do_sort=True)
+model.kinetic_ions.set_sorting_boxes(boxes_per_dim=(16,16,1), do_sort=True)
 
-binplot = BinningPlot(slice='e1_v1', n_bins= (128, 128), ranges= ((0.,1.), (-5.,5.)))
-model.kinetic_ions.set_save_data(binning_plots=(binplot,))
+# density binning
+eta_bin = BinningPlot(slice='e1_e2', n_bins= (128,128), ranges= ((0.0, 1.0), (0.0,1.0)))
+model.kinetic_ions.set_save_data(binning_plots=(eta_bin, ))
 
 # ------------------
 # Propagator options
 # ------------------
 
-model.propagators.push_eta.options = model.propagators.push_eta.Options() 
-if model.with_B0:
-    model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
-
-model.propagators.coupling_va.options = model.propagators.coupling_va.Options()
-model.initial_poisson.options = model.initial_poisson.Options(stab_mat="M0")
+model.propagators.gc_poisson.options = model.propagators.gc_poisson.Options()
+model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(phi=model.em_fields.phi, evaluate_e_field=True)
 
 # ------------------
 # Initial conditions
@@ -131,14 +140,31 @@ model.initial_poisson.options = model.initial_poisson.Options(stab_mat="M0")
 # For kinetic species, if add_initial_condition() is not called, the background is taken as the kinetic initial condition.
 # For kinetic species the perturbations are added to the moments of the distribution function (defined as tuples).
 
+# piecewise function for initial condition of density
+r_minus, r_plus = 4.0, 5.0
+ms = 4
+def n_init(etas,r_minus=r_minus,r_plus=r_plus):
+
+    # transform logical coordinate to polar
+    a1, a2 = domain.params["a1"], domain.params["a2"]
+    radial = (a1 + (a2 - a1) * etas[:,0])
+
+    return 1.0 * ( (r_minus <= radial) & (radial < r_plus) )
+
 # Background for kinetic species
-background = maxwellians.Maxwellian3D(n=(1.0, None))
+background = maxwellians.GyroMaxwellian2D(n=(0.0, None), equil=equil)
 model.kinetic_ions.var.add_background(background)
 
+
+eta_minus = (r_minus - domain.params["a1"])/(domain.params["a2"] - domain.params["a1"])
+eta_plus = (r_plus - domain.params["a1"])/(domain.params["a2"] - domain.params["a1"])
+
 # Perturbations for (some) kinetic species
-perturbation = perturbations.ModesCos(amps = (0.001,), ls = (1,))
-init = maxwellians.Maxwellian3D(n = (1.0,perturbation))
+
+# for linear case amps = (1e-6,)
+perturbation = perturbations.ModesCos(amps=(0.5,), ms=(ms,), perb_domain=((eta_minus,eta_plus), None, None))
+init = maxwellians.GyroMaxwellian2D(n=(n_init, perturbation), equil=equil)
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":
-    sim.run(verbose=False)
+    sim.run(verbose=True)

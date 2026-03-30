@@ -7,11 +7,16 @@ from struphy.utils.pyccel import Pyccelkernel
 logger = logging.getLogger("struphy")
 
 
-@pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
-@pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
+@pytest.mark.parametrize("num_elements", [[8, 9, 5], [7, 8, 9]])
+@pytest.mark.parametrize("degree", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
-    "spl_kind",
-    [[False, True, True], [True, False, True], [False, False, True], [True, True, True]],
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (None, ("free", "free"), None),
+        (("free", "free"), ("free", "free"), None),
+        (None, None, None),
+    ],
 )
 @pytest.mark.parametrize(
     "mapping",
@@ -27,16 +32,18 @@ logger = logging.getLogger("struphy")
         ],
     ],
 )
-def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
+def test_push_vxb_analytic(num_elements, degree, bcs, mapping, show_plots=False):
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
 
     from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.io.options import DerhamOptions
     from struphy.pic.particles import Particles6D
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -47,7 +54,9 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     domain = domain_class(**mapping[1])
 
     # discrete Derham sequence (psydac)
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs
@@ -77,13 +86,13 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
         particles.show_physical()
 
     _, b2_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem["2"],
+        derham.V2fem,
         seed=2345,
         flattened=True,
     )
 
     _, b2_psy = create_equal_random_arrays(
-        derham.Vh_fem["2"],
+        derham.V2fem,
         seed=3456,
         flattened=True,
     )
@@ -107,11 +116,16 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     pusher_psy(dt)
 
 
-@pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
-@pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
+@pytest.mark.parametrize("num_elements", [[8, 9, 5], [7, 8, 9]])
+@pytest.mark.parametrize("degree", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
-    "spl_kind",
-    [[False, True, True], [True, False, True], [False, False, True], [True, True, True]],
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (None, ("free", "free"), None),
+        (("free", "free"), ("free", "free"), None),
+        (None, None, None),
+    ],
 )
 @pytest.mark.parametrize(
     "mapping",
@@ -127,16 +141,18 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
         ],
     ],
 )
-def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
+def test_push_bxu_Hdiv(num_elements, degree, bcs, mapping, show_plots=False):
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
 
     from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.io.options import DerhamOptions
     from struphy.pic.particles import Particles6D
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -147,7 +163,9 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     domain = domain_class(**mapping[1])
 
     # discrete Derham sequence (psydac)
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs
@@ -178,18 +196,18 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
 
     # create random FEM coefficients for magnetic field and velocity field
     _, b2_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem["2"],
+        derham.V2fem,
         seed=2345,
         flattened=True,
     )
 
     _, b2_psy = create_equal_random_arrays(
-        derham.Vh_fem["2"],
+        derham.V2fem,
         seed=3456,
         flattened=True,
     )
     _, u2_psy = create_equal_random_arrays(
-        derham.Vh_fem["2"],
+        derham.V2fem,
         seed=4567,
         flattened=True,
     )
@@ -217,11 +235,16 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     pusher_psy(dt)
 
 
-@pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
-@pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
+@pytest.mark.parametrize("num_elements", [[8, 9, 5], [7, 8, 9]])
+@pytest.mark.parametrize("degree", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
-    "spl_kind",
-    [[False, True, True], [True, False, True], [False, False, True], [True, True, True]],
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (None, ("free", "free"), None),
+        (("free", "free"), ("free", "free"), None),
+        (None, None, None),
+    ],
 )
 @pytest.mark.parametrize(
     "mapping",
@@ -237,16 +260,18 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
         ],
     ],
 )
-def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
+def test_push_bxu_Hcurl(num_elements, degree, bcs, mapping, show_plots=False):
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
 
     from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.io.options import DerhamOptions
     from struphy.pic.particles import Particles6D
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -257,7 +282,9 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     domain = domain_class(**mapping[1])
 
     # discrete Derham sequence (psydac)
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs
@@ -288,18 +315,18 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
 
     # create random FEM coefficients for magnetic field
     _, b2_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem["2"],
+        derham.V2fem,
         seed=2345,
         flattened=True,
     )
 
     _, b2_psy = create_equal_random_arrays(
-        derham.Vh_fem["2"],
+        derham.V2fem,
         seed=3456,
         flattened=True,
     )
     _, u1_psy = create_equal_random_arrays(
-        derham.Vh_fem["1"],
+        derham.V1fem,
         seed=4567,
         flattened=True,
     )
@@ -327,11 +354,16 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     pusher_psy(dt)
 
 
-@pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
-@pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
+@pytest.mark.parametrize("num_elements", [[8, 9, 5], [7, 8, 9]])
+@pytest.mark.parametrize("degree", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
-    "spl_kind",
-    [[False, True, True], [True, False, True], [False, False, True], [True, True, True]],
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (None, ("free", "free"), None),
+        (("free", "free"), ("free", "free"), None),
+        (None, None, None),
+    ],
 )
 @pytest.mark.parametrize(
     "mapping",
@@ -347,16 +379,18 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
         ],
     ],
 )
-def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
+def test_push_bxu_H1vec(num_elements, degree, bcs, mapping, show_plots=False):
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
 
     from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.io.options import DerhamOptions
     from struphy.pic.particles import Particles6D
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -367,7 +401,9 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     domain = domain_class(**mapping[1])
 
     # discrete Derham sequence (psydac)
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs
@@ -398,18 +434,18 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
 
     # create random FEM coefficients for magnetic field
     _, b2_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem["2"],
+        derham.V2fem,
         seed=2345,
         flattened=True,
     )
 
     _, b2_psy = create_equal_random_arrays(
-        derham.Vh_fem["2"],
+        derham.V2fem,
         seed=3456,
         flattened=True,
     )
     _, uv_psy = create_equal_random_arrays(
-        derham.Vh_fem["v"],
+        derham.Vvfem,
         seed=4567,
         flattened=True,
     )
@@ -437,11 +473,16 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     pusher_psy(dt)
 
 
-@pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
-@pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
+@pytest.mark.parametrize("num_elements", [[8, 9, 5], [7, 8, 9]])
+@pytest.mark.parametrize("degree", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
-    "spl_kind",
-    [[False, True, True], [True, False, True], [False, False, True], [True, True, True]],
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (None, ("free", "free"), None),
+        (("free", "free"), ("free", "free"), None),
+        (None, None, None),
+    ],
 )
 @pytest.mark.parametrize(
     "mapping",
@@ -457,16 +498,18 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
         ],
     ],
 )
-def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
+def test_push_bxu_Hdiv_pauli(num_elements, degree, bcs, mapping, show_plots=False):
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
 
     from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.io.options import DerhamOptions
     from struphy.pic.particles import Particles6D
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -477,7 +520,9 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     domain = domain_class(**mapping[1])
 
     # discrete Derham sequence (psydac)
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs
@@ -508,23 +553,23 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
 
     # create random FEM coefficients for magnetic field
     _, b0_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem["0"],
+        derham.V0fem,
         seed=1234,
         flattened=True,
     )
     _, b2_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem["2"],
+        derham.V2fem,
         seed=2345,
         flattened=True,
     )
 
     _, b2_psy = create_equal_random_arrays(
-        derham.Vh_fem["2"],
+        derham.V2fem,
         seed=3456,
         flattened=True,
     )
     _, u2_psy = create_equal_random_arrays(
-        derham.Vh_fem["2"],
+        derham.V2fem,
         seed=4567,
         flattened=True,
     )
@@ -536,7 +581,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
         Pyccelkernel(pusher_kernels.push_bxu_Hdiv_pauli),
         (
             derham.args_derham,
-            *derham.p,
+            *derham.degree,
             b2_eq_psy[0]._data + b2_psy[0]._data,
             b2_eq_psy[1]._data + b2_psy[1]._data,
             b2_eq_psy[2]._data + b2_psy[2]._data,
@@ -556,11 +601,16 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     pusher_psy(dt)
 
 
-@pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
-@pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
+@pytest.mark.parametrize("num_elements", [[8, 9, 5], [7, 8, 9]])
+@pytest.mark.parametrize("degree", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
-    "spl_kind",
-    [[False, True, True], [True, False, True], [False, False, True], [True, True, True]],
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (None, ("free", "free"), None),
+        (("free", "free"), ("free", "free"), None),
+        (None, None, None),
+    ],
 )
 @pytest.mark.parametrize(
     "mapping",
@@ -576,17 +626,19 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
         ],
     ],
 )
-def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
+def test_push_eta_rk4(num_elements, degree, bcs, mapping, show_plots=False):
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
 
     from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.io.options import DerhamOptions
     from struphy.ode.utils import ButcherTableau
     from struphy.pic.particles import Particles6D
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -598,7 +650,9 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     domain = domain_class(**mapping[1])
 
     # discrete Derham sequence (psydac)
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs

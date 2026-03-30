@@ -5,12 +5,12 @@ import pytest
 logger = logging.getLogger("struphy")
 
 
-@pytest.mark.parametrize("Nel", [12])
-@pytest.mark.parametrize("p", [1, 2, 3])
-@pytest.mark.parametrize("spl_kind", [False, True])
+@pytest.mark.parametrize("num_elements", [12])
+@pytest.mark.parametrize("degree", [1, 2, 3])
+@pytest.mark.parametrize("bcs", [(None, None, None), (("free", "free"), ("free", "free"), ("free", "free"))])
 @pytest.mark.parametrize("domain_ind", ["N", "D"])
 @pytest.mark.parametrize("codomain_ind", ["N", "D"])
-def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
+def test_1d(num_elements, degree, bcs, domain_ind, codomain_ind):
     """Compares the matrix transpose obtained from the Stencil .transpose method
     with
 
@@ -23,7 +23,9 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     from feectools.linalg.stencil import StencilMatrix
 
     from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
     from struphy.linear_algebra.stencil_transpose_kernels import transpose_1d_kernel
+    from struphy.topology.grids import TensorProductGrid
 
     # only for M1 Mac users
     PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
@@ -32,19 +34,21 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     rank = comm.Get_rank()
 
     if rank == 0:
-        logger.info("\nParameters:")
-        logger.info(f"{Nel = }")
-        logger.info(f"{p = }")
-        logger.info(f"{spl_kind = }")
-        logger.info(f"{domain_ind = }")
-        logger.info(f"{codomain_ind = }")
+        print("\nParameters:")
+        print("num_elements=", num_elements)
+        print("degree=", degree)
+        print("bcs=", bcs)
+        print("domain_ind=", domain_ind)
+        print("codomain_ind=", codomain_ind)
 
     # Psydac discrete Derham sequence
-    derham = Derham([Nel] * 3, [p] * 3, [spl_kind] * 3, comm=comm)
-    V0 = derham.Vh["0"]
+    grid = TensorProductGrid(num_elements=[num_elements] * 3)
+    derham_opts = DerhamOptions(degree=[degree] * 3, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
+    V0 = derham.V0
 
-    V0_fem = derham.Vh_fem["0"]
-    V3_fem = derham.Vh_fem["3"]
+    V0_fem = derham.V0fem
+    V3_fem = derham.V3fem
 
     # test 1d matvec
     spaces_1d = {}
@@ -72,7 +76,7 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
         i_loc = i - s_out
         for d1 in range(2 * p_in + 1):
             m = i - p_in + d1  # global column index
-            if spl_kind:
+            if bcs is None:
                 mat._data[p_out + i_loc, d1] = 1.0 + d1
                 mat_pre._data[p_out + i_loc, d1] = 1.0 + d1
             else:
@@ -120,12 +124,12 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     assert xp.allclose(matT_pre[s_in : e_in + 1, :], matT[s_in : e_in + 1, :])
 
 
-@pytest.mark.parametrize("Nel", [[12, 16, 20]])
-@pytest.mark.parametrize("p", [[1, 2, 3]])
-@pytest.mark.parametrize("spl_kind", [[True, False, False]])
+@pytest.mark.parametrize("num_elements", [[12, 16, 20]])
+@pytest.mark.parametrize("degree", [[1, 2, 3]])
+@pytest.mark.parametrize("bcs", [(None, ("free", "free"), ("free", "free"))])
 @pytest.mark.parametrize("domain_ind", ["NNN", "DNN", "NDN", "NND", "NDD", "DND", "DDN", "DDD"])
 @pytest.mark.parametrize("codomain_ind", ["NNN", "DNN", "NDN", "NND", "NDD", "DND", "DDN", "DDD"])
-def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
+def test_3d(num_elements, degree, bcs, domain_ind, codomain_ind):
     """Compares the matrix transpose obtained from the Stencil .transpose method
     with
 
@@ -138,7 +142,9 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     from feectools.linalg.stencil import StencilMatrix
 
     from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
     from struphy.linear_algebra.stencil_transpose_kernels import transpose_3d_kernel
+    from struphy.topology.grids import TensorProductGrid
 
     # only for M1 Mac users
     PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
@@ -147,25 +153,27 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     rank = comm.Get_rank()
 
     if rank == 0:
-        logger.info("\nParameters:")
-        logger.info(f"{Nel = }")
-        logger.info(f"{p = }")
-        logger.info(f"{spl_kind = }")
-        logger.info(f"{domain_ind = }")
-        logger.info(f"{codomain_ind = }")
+        print("\nParameters:")
+        print("num_elements=", num_elements)
+        print("degree=", degree)
+        print("bcs=", bcs)
+        print("domain_ind=", domain_ind)
+        print("codomain_ind=", codomain_ind)
 
     # Psydac discrete Derham sequence
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     spaces_3d = {}
-    spaces_3d["NNN"] = derham.Vh_fem["0"]
-    spaces_3d["DNN"] = derham.Vh_fem["1"].spaces[0]
-    spaces_3d["NDN"] = derham.Vh_fem["1"].spaces[1]
-    spaces_3d["NND"] = derham.Vh_fem["1"].spaces[2]
-    spaces_3d["NDD"] = derham.Vh_fem["2"].spaces[0]
-    spaces_3d["DND"] = derham.Vh_fem["2"].spaces[1]
-    spaces_3d["DDN"] = derham.Vh_fem["2"].spaces[2]
-    spaces_3d["DDD"] = derham.Vh_fem["3"]
+    spaces_3d["NNN"] = derham.V0fem
+    spaces_3d["DNN"] = derham.V1fem.spaces[0]
+    spaces_3d["NDN"] = derham.V1fem.spaces[1]
+    spaces_3d["NND"] = derham.V1fem.spaces[2]
+    spaces_3d["NDD"] = derham.V2fem.spaces[0]
+    spaces_3d["DND"] = derham.V2fem.spaces[1]
+    spaces_3d["DDN"] = derham.V2fem.spaces[2]
+    spaces_3d["DDD"] = derham.V3fem
 
     domain = spaces_3d[domain_ind]
     codomain = spaces_3d[codomain_ind]
@@ -183,7 +191,7 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
 
     # random matrix
     xp.random.seed(123)
-    tmp1 = xp.random.rand(*codomain.coeff_space.npts, *[2 * q + 1 for q in p])
+    tmp1 = xp.random.rand(*codomain.coeff_space.npts, *[2 * q + 1 for q in degree])
     mat[
         s_out[0] : e_out[0] + 1,
         s_out[1] : e_out[1] + 1,

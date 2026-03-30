@@ -279,8 +279,8 @@ class Particles5D(Particles):
         self._unit_b1_h = self.projected_equil.unit_b1
         self._derham = self.projected_equil.derham
 
-        self._tmp0 = self.derham.Vh["0"].zeros()
-        self._tmp2 = self.derham.Vh["2"].zeros()
+        self._tmp0 = self.derham.V0.zeros()
+        self._tmp2 = self.derham.V2.zeros()
 
     @property
     def magn_bckgr(self):

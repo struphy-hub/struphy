@@ -132,8 +132,8 @@ class LinearExtendedMHDuniform(StruphyModel):
         else:
             self._ones[:] = 1.0
 
-        self._tmp_b1: BlockVector = Propagator.derham.Vh["1"].zeros()  # TODO: replace derham.Vh dict by class
-        self._tmp_b2: BlockVector = Propagator.derham.Vh["1"].zeros()
+        self._tmp_b1: BlockVector = Propagator.derham.V1.zeros()
+        self._tmp_b2: BlockVector = Propagator.derham.V1.zeros()
 
         # adjust coupling parameters
         epsilon = self.mhd.equation_params.epsilon

@@ -23,7 +23,7 @@ logger = logging.getLogger("struphy")
 
 def test_poisson_1d(do_plot=False):
     # light-weight model instance
-    model = Poisson()
+    model = Poisson(with_t_dep_source=True)
 
     # environment options
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
@@ -45,11 +45,12 @@ def test_poisson_1d(do_plot=False):
     equil = None
 
     # grid
-    grid = grids.TensorProductGrid(Nel=(48, 1, 1))
+    grid = grids.TensorProductGrid(num_elements=(48, 1, 1))
 
     # propagator options
     omega = 2 * xp.pi
-    model.propagators.source.options = model.propagators.source.Options(omega=omega)
+    if model.with_t_dep_source:
+        model.propagators.source.options = model.propagators.source.Options(omega=omega)
     model.propagators.poisson.options = model.propagators.poisson.Options(rho=model.em_fields.source)
 
     # background, perturbations and initial conditions

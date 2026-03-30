@@ -238,6 +238,10 @@ class ModesCos(Perturbation):
 
     comp : int
         Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
+
+    perb_domain : tuple[tuple[float]]
+        Subdomain in which the pertrubation is applied to: ((x_min, x_max), (y_min, y_max), (z_min, z_max)).
+        None means apply perturbation to all domain in that direction
     """
 
     def __init__(
@@ -251,6 +255,7 @@ class ModesCos(Perturbation):
         Lz=1.0,
         given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
+        perb_domain: tuple[tuple[float]] = (None, None, None),
     ):
         if ls is not None:
             n_modes = len(ls)
@@ -293,13 +298,20 @@ class ModesCos(Perturbation):
         # use the setters
         self.given_in_basis = given_in_basis
         self.comp = comp
+        self.perb_domain = perb_domain
 
     def __call__(self, x, y, z):
-        val = 0.0
+        val = xp.zeros_like(x)
 
+        # find mask of particles within the sub domain
+        mask = super()._mask_subdomain(x, y, z, perb_domain=self.perb_domain)
+
+        # apply perturbation iff perb_domain not specified or (x,y,z) is within perb_domain
         for amp, l, m, n in zip(self.amps, self.ls, self.ms, self.ns):
-            val += amp * xp.cos(
-                l * 2.0 * xp.pi / self.Lx * x + m * 2.0 * xp.pi / self.Ly * y + n * 2.0 * xp.pi / self.Lz * z,
+            val[mask] += amp * xp.cos(
+                l * 2.0 * xp.pi / self.Lx * x[mask]
+                + m * 2.0 * xp.pi / self.Ly * y[mask]
+                + n * 2.0 * xp.pi / self.Lz * z[mask],
             )
         # logger.info( "Cos max value", val.max())
         return val

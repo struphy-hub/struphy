@@ -70,10 +70,10 @@ class BracketOperator(LinOpWithTransp):
         derham: Derham,
         u: BlockVector,
     ):
-        Xh = derham.Vh_fem["v"]
-        V1h = derham.Vh_fem["1"]
-        self._domain = derham.Vh_pol["v"]
-        self._codomain = derham.Vh_pol["v"]
+        Xh = derham.Vvfem
+        V1h = derham.V1fem
+        self._domain = derham.Vvpol
+        self._codomain = derham.Vvpol
         self._dtype = Xh.coeff_space.dtype
         self._u = u
 
@@ -83,18 +83,18 @@ class BracketOperator(LinOpWithTransp):
         self.gv2f = derham.create_spline_function("gu2f", "Hcurl")  # grad(u[1])
         self.gv3f = derham.create_spline_function("gu3f", "Hcurl")  # grad(u[2])
 
-        self.gp1v = derham.Vh_pol["1"].zeros()
-        self.gp2v = derham.Vh_pol["1"].zeros()
-        self.gp3v = derham.Vh_pol["1"].zeros()
+        self.gp1v = derham.V1pol.zeros()
+        self.gp2v = derham.V1pol.zeros()
+        self.gp3v = derham.V1pol.zeros()
 
-        P0 = derham.P["0"]
+        P0 = derham.P0
         # Initialize the CoordinateProjectors
         # self.Pcoord1 = CoordinateProjector(0, Xh, V0h)
         # self.Pcoord2 = CoordinateProjector(1, Xh, V0h)
         # self.Pcoord3 = CoordinateProjector(2, Xh, V0h)
-        self.Pcoord1 = CoordinateProjector(0, derham.Vh_pol["v"], derham.Vh_pol["0"]) @ derham.boundary_ops["v"]
-        self.Pcoord2 = CoordinateProjector(1, derham.Vh_pol["v"], derham.Vh_pol["0"]) @ derham.boundary_ops["v"]
-        self.Pcoord3 = CoordinateProjector(2, derham.Vh_pol["v"], derham.Vh_pol["0"]) @ derham.boundary_ops["v"]
+        self.Pcoord1 = CoordinateProjector(0, derham.Vvpol, derham.V0pol) @ derham.boundary_ops["v"]
+        self.Pcoord2 = CoordinateProjector(1, derham.Vvpol, derham.V0pol) @ derham.boundary_ops["v"]
+        self.Pcoord3 = CoordinateProjector(2, derham.Vvpol, derham.V0pol) @ derham.boundary_ops["v"]
 
         # Initialize the BasisProjectionOperators
         if derham._with_local_projectors:
@@ -104,8 +104,8 @@ class BracketOperator(LinOpWithTransp):
                 [[None, None, None]],
                 transposed=True,
                 V_extraction_op=derham.extraction_ops["1"],
-                V_boundary_op=IdentityOperator(derham.Vh_pol["1"]),
-                P_boundary_op=IdentityOperator(derham.Vh_pol["0"]),
+                V_boundary_op=IdentityOperator(derham.V1pol),
+                P_boundary_op=IdentityOperator(derham.V0pol),
             )
 
             self.PigvT_1 = BasisProjectionOperatorLocal(
@@ -115,7 +115,7 @@ class BracketOperator(LinOpWithTransp):
                 transposed=True,
                 V_extraction_op=derham.extraction_ops["v"],
                 V_boundary_op=derham.boundary_ops["v"],
-                P_boundary_op=IdentityOperator(derham.Vh_pol["0"]),
+                P_boundary_op=IdentityOperator(derham.V0pol),
             )
 
             self.PigvT_2 = BasisProjectionOperatorLocal(
@@ -125,7 +125,7 @@ class BracketOperator(LinOpWithTransp):
                 transposed=True,
                 V_extraction_op=derham.extraction_ops["v"],
                 V_boundary_op=derham.boundary_ops["v"],
-                P_boundary_op=IdentityOperator(derham.Vh_pol["0"]),
+                P_boundary_op=IdentityOperator(derham.V0pol),
             )
 
             self.PigvT_3 = BasisProjectionOperatorLocal(
@@ -135,7 +135,7 @@ class BracketOperator(LinOpWithTransp):
                 transposed=True,
                 V_extraction_op=derham.extraction_ops["v"],
                 V_boundary_op=derham.boundary_ops["v"],
-                P_boundary_op=IdentityOperator(derham.Vh_pol["0"]),
+                P_boundary_op=IdentityOperator(derham.V0pol),
             )
         else:
             self.PiuT = BasisProjectionOperator(
@@ -145,8 +145,8 @@ class BracketOperator(LinOpWithTransp):
                 transposed=True,
                 use_cache=True,
                 V_extraction_op=derham.extraction_ops["1"],
-                V_boundary_op=IdentityOperator(derham.Vh_pol["1"]),
-                P_boundary_op=IdentityOperator(derham.Vh_pol["0"]),
+                V_boundary_op=IdentityOperator(derham.V1pol),
+                P_boundary_op=IdentityOperator(derham.V0pol),
             )
 
             self.PigvT_1 = BasisProjectionOperator(
@@ -157,7 +157,7 @@ class BracketOperator(LinOpWithTransp):
                 use_cache=True,
                 V_extraction_op=derham.extraction_ops["v"],
                 V_boundary_op=derham.boundary_ops["v"],
-                P_boundary_op=IdentityOperator(derham.Vh_pol["0"]),
+                P_boundary_op=IdentityOperator(derham.V0pol),
             )
             self.PigvT_2 = BasisProjectionOperator(
                 P0,
@@ -167,7 +167,7 @@ class BracketOperator(LinOpWithTransp):
                 use_cache=True,
                 V_extraction_op=derham.extraction_ops["v"],
                 V_boundary_op=derham.boundary_ops["v"],
-                P_boundary_op=IdentityOperator(derham.Vh_pol["0"]),
+                P_boundary_op=IdentityOperator(derham.V0pol),
             )
             self.PigvT_3 = BasisProjectionOperator(
                 P0,
@@ -177,11 +177,11 @@ class BracketOperator(LinOpWithTransp):
                 use_cache=True,
                 V_extraction_op=derham.extraction_ops["v"],
                 V_boundary_op=derham.boundary_ops["v"],
-                P_boundary_op=IdentityOperator(derham.Vh_pol["0"]),
+                P_boundary_op=IdentityOperator(derham.V0pol),
             )
 
         # Store the interpolation grid for later use in _update_all_weights
-        interpolation_grid = [pts.flatten() for pts in derham.proj_grid_pts["0"]]
+        interpolation_grid = [pts.flatten() for pts in derham.V0splines.proj_grid_pts]
 
         self.interpolation_grid_spans, self.interpolation_grid_bn, self.interpolation_grid_bd = (
             derham.prepare_eval_tp_fixed(interpolation_grid)
@@ -329,13 +329,13 @@ class L2_transport_operator(LinOpWithTransp):
             weights = [[None] * 3] * 3
         self._weights = weights
         if self._transposed:
-            self._codomain = self._derham.Vh_pol["v"]
-            self._domain = self._derham.Vh_pol["3"]
+            self._codomain = self._derham.Vvpol
+            self._domain = self._derham.V3pol
         else:
-            self._domain = self._derham.Vh_pol["v"]
-            self._codomain = self._derham.Vh_pol["3"]
-        P2 = self._derham.P["2"]
-        Xh = self._derham.Vh_fem["v"]
+            self._domain = self._derham.Vvpol
+            self._codomain = self._derham.V3pol
+        P2 = self._derham.P2
+        Xh = self._derham.Vvfem
         self._dtype = Xh.coeff_space.dtype
         self.field = self._derham.create_spline_function("rhof", "L2")
 
@@ -348,7 +348,7 @@ class L2_transport_operator(LinOpWithTransp):
                 transposed=transposed,
                 V_extraction_op=self._derham.extraction_ops["v"],
                 V_boundary_op=self._derham.boundary_ops["v"],
-                P_boundary_op=IdentityOperator(self._derham.Vh_pol["2"]),
+                P_boundary_op=IdentityOperator(self._derham.V2pol),
             )
 
         else:
@@ -360,7 +360,7 @@ class L2_transport_operator(LinOpWithTransp):
                 use_cache=True,
                 V_extraction_op=self._derham.extraction_ops["v"],
                 V_boundary_op=self._derham.boundary_ops["v"],
-                P_boundary_op=IdentityOperator(self._derham.Vh_pol["2"]),
+                P_boundary_op=IdentityOperator(self._derham.V2pol),
             )
 
         # divergence
@@ -372,7 +372,7 @@ class L2_transport_operator(LinOpWithTransp):
         else:
             self._op = self.div @ self.Proj
 
-        hist_grid = self._derham.proj_grid_pts["2"]
+        hist_grid = self._derham.V2splines.proj_grid_pts
 
         hist_grid_0 = [pts.flatten() for pts in hist_grid[0]]
         hist_grid_1 = [pts.flatten() for pts in hist_grid[1]]
@@ -484,13 +484,13 @@ class Hdiv0_transport_operator(LinOpWithTransp):
             weights = [[None] * 3] * 3
         self._weights = weights
         if self._transposed:
-            self._codomain = self._derham.Vh_pol["v"]
-            self._domain = self._derham.Vh_pol["2"]
+            self._codomain = self._derham.Vvpol
+            self._domain = self._derham.V2pol
         else:
-            self._domain = self._derham.Vh_pol["v"]
-            self._codomain = self._derham.Vh_pol["2"]
-        P1 = self._derham.P["1"]
-        Xh = self._derham.Vh_fem["v"]
+            self._domain = self._derham.Vvpol
+            self._codomain = self._derham.V2pol
+        P1 = self._derham.P1
+        Xh = self._derham.Vvfem
         self._dtype = Xh.coeff_space.dtype
         self.field = self._derham.create_spline_function("Bf", "Hdiv")
 
@@ -503,7 +503,7 @@ class Hdiv0_transport_operator(LinOpWithTransp):
                 transposed=transposed,
                 V_extraction_op=self._derham.extraction_ops["v"],
                 V_boundary_op=self._derham.boundary_ops["v"],
-                P_boundary_op=IdentityOperator(self._derham.Vh_pol["1"]),
+                P_boundary_op=IdentityOperator(self._derham.V1pol),
             )
 
         else:
@@ -515,7 +515,7 @@ class Hdiv0_transport_operator(LinOpWithTransp):
                 use_cache=True,
                 V_extraction_op=self._derham.extraction_ops["v"],
                 V_boundary_op=self._derham.boundary_ops["v"],
-                P_boundary_op=IdentityOperator(self._derham.Vh_pol["1"]),
+                P_boundary_op=IdentityOperator(self._derham.V1pol),
             )
 
         # gradient of the component of the vector field
@@ -527,7 +527,7 @@ class Hdiv0_transport_operator(LinOpWithTransp):
         else:
             self._op = self.curl @ self.Proj
 
-        hist_grid = self._derham.proj_grid_pts["1"]
+        hist_grid = self._derham.V1splines.proj_grid_pts
 
         hist_grid_0 = [pts.flatten() for pts in hist_grid[0]]
         hist_grid_1 = [pts.flatten() for pts in hist_grid[1]]
@@ -681,15 +681,15 @@ class Pressure_transport_operator(LinOpWithTransp):
             weights2 = [[lambda eta1, eta2, eta3: 0 * eta1]]
         self._weights2 = weights2
         if self._transposed:
-            self._codomain = self._derham.Vh_pol["v"]
-            self._domain = self._derham.Vh_pol["3"]
+            self._codomain = self._derham.Vvpol
+            self._domain = self._derham.V3pol
         else:
-            self._domain = self._derham.Vh_pol["v"]
-            self._codomain = self._derham.Vh_pol["3"]
-        P2 = self._derham.P["2"]
-        P3 = self._derham.P["3"]
-        Xh = self._derham.Vh_fem["v"]
-        V3h = self._derham.Vh_fem["3"]
+            self._domain = self._derham.Vvpol
+            self._codomain = self._derham.V3pol
+        P2 = self._derham.P2
+        P3 = self._derham.P3
+        Xh = self._derham.Vvfem
+        V3h = self._derham.V3fem
         self._dtype = Xh.coeff_space.dtype
         self.field = self._derham.create_spline_function("pf", "L2")
 
@@ -701,7 +701,7 @@ class Pressure_transport_operator(LinOpWithTransp):
             use_cache=True,
             V_extraction_op=self._derham.extraction_ops["v"],
             V_boundary_op=self._derham.boundary_ops["v"],
-            P_boundary_op=IdentityOperator(self._derham.Vh_pol["2"]),
+            P_boundary_op=IdentityOperator(self._derham.V2pol),
         )
 
         self.Pip_div = BasisProjectionOperator(
@@ -712,7 +712,7 @@ class Pressure_transport_operator(LinOpWithTransp):
             use_cache=True,
             V_extraction_op=self._derham.extraction_ops["3"],
             V_boundary_op=self._derham.boundary_ops["3"],
-            P_boundary_op=IdentityOperator(self._derham.Vh_pol["3"]),
+            P_boundary_op=IdentityOperator(self._derham.V3pol),
         )
 
         # BC?
@@ -728,7 +728,7 @@ class Pressure_transport_operator(LinOpWithTransp):
         else:
             self._op = div @ self.Pip + self.Pip_div @ self.div
 
-        int_grid = [pts.flatten() for pts in self._derham.proj_grid_pts["3"]]
+        int_grid = [pts.flatten() for pts in self._derham.V3splines.proj_grid_pts]
 
         self.int_grid_spans, self.int_grid_bn, self.int_grid_bd = self._derham.prepare_eval_tp_fixed(
             int_grid,
@@ -743,7 +743,7 @@ class Pressure_transport_operator(LinOpWithTransp):
 
         # gradient of the component of the vector field
 
-        hist_grid_P2 = self._derham.proj_grid_pts["2"]
+        hist_grid_P2 = self._derham.V2splines.proj_grid_pts
 
         hist_grid_20 = [pts.flatten() for pts in hist_grid_P2[0]]
         hist_grid_21 = [pts.flatten() for pts in hist_grid_P2[1]]
@@ -873,7 +873,7 @@ class InternalEnergyEvaluator:
     def __init__(self, derham, gamma):
         self._derham = derham
         self._gamma = gamma
-        integration_grid = [grid_1d.flatten() for grid_1d in self._derham.quad_grid_pts["0"]]
+        integration_grid = [grid_1d.flatten() for grid_1d in self._derham.V0splines.quad_grid_pts]
 
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
             self._derham.prepare_eval_tp_fixed(
@@ -1332,7 +1332,7 @@ class H1vecMassMatrix_density:
         self._massop = mass_ops.create_weighted_mass("H1vec", "H1vec")
         self.field = derham.create_spline_function("field", "L2")
 
-        integration_grid = [grid_1d.flatten() for grid_1d in derham.quad_grid_pts["0"]]
+        integration_grid = [grid_1d.flatten() for grid_1d in derham.V0splines.quad_grid_pts]
 
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = derham.prepare_eval_tp_fixed(
             integration_grid,
@@ -1441,7 +1441,7 @@ class KineticEnergyEvaluator:
     """
 
     def __init__(self, derham, domain, mass_ops):
-        integration_grid = [grid_1d.flatten() for grid_1d in derham.quad_grid_pts["0"]]
+        integration_grid = [grid_1d.flatten() for grid_1d in derham.V0splines.quad_grid_pts]
 
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = derham.prepare_eval_tp_fixed(
             integration_grid,

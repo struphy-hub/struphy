@@ -22,9 +22,8 @@ from struphy.utils.pyccel import Pyccelkernel
 rank = MPI.COMM_WORLD.Get_rank()
 
 
-class DriftKineticElectrostaticAdiabatic(StruphyModel):
-    r"""Drift-kinetic equation for one ion species in static background magnetic field,
-    coupled to quasi-neutrality equation with adiabatic electrons.
+class ToyDrift(StruphyModel):
+    r"""Drift-kinetic equation for one ion species in static background magnetic field.
 
     :ref:`normalization`:
 
@@ -36,14 +35,14 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
     .. math::
 
-        &\frac{\partial f}{\partial t} + \left[ v_\parallel \frac{\mathbf{B}^*}{B^*_\parallel} + \frac{\mathbf{E}^* \times \mathbf{b}_0}{B^*_\parallel}\right] \cdot \frac{\partial f}{\partial \mathbf{X}} + \left[\frac{1}{\varepsilon} \frac{\mathbf{B}^*}{B^*_\parallel} \cdot \mathbf{E}^*\right] \cdot \frac{\partial f}{\partial v_\parallel} = 0\,.
+        &\frac{\partial f}{\partial t} + \frac{\mathbf{E} \times \mathbf{b}_0}{B^*_\parallel} \cdot \frac{\partial f}{\partial \mathbf{X}} = 0\,.
         \\[2mm]
         - &\nabla_\perp \cdot \left( \frac{n_0}{|B_0|^2} \nabla_\perp \phi \right) + \frac{1}{\varepsilon} n_0 \left(1 + \frac{1}{Z \varepsilon} \frac{1}{T_{0}} \phi \right) = \frac 1 \varepsilon \int f B^*_\parallel \,\textnormal d v_\parallel \textnormal d \mu \,.
 
     where :math:`f(\mathbf{X}, v_\parallel, \mu, t)` is the guiding center distribution and
 
     .. math::
-        \mathbf{E}^* = - \nabla \phi - \varepsilon \mu \nabla |B_0| \,,  \qquad \mathbf{B}^* = \mathbf{B}_0 + \varepsilon v_\parallel \nabla \times \mathbf{b}_0 \,,\qquad B^*_\parallel = \mathbf B^* \cdot \mathbf b_0  \,,
+        \mathbf{E} = - \nabla \phi \,,  \qquad \mathbf{B}^* = \mathbf{B}_0 + \varepsilon v_\parallel \nabla \times \mathbf{b}_0 \,,\qquad B^*_\parallel = \mathbf B^* \cdot \mathbf b_0  \,,
 
     and with the normalization parameters
 
@@ -66,14 +65,13 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
     1. :class:`~struphy.propagators.propagators_fields.ImplicitDiffusion`
     2. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterBxEstar`
-    3. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterParallel`
 
     :ref:`Model info <add_model>`:
     """
 
     @classmethod
     def model_type(cls) -> LiteralOptions.ModelTypes:
-        return "Kinetic"
+        return "Toy"
 
     ## species
 
@@ -91,9 +89,8 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.gc_poisson = propagators_fields.ImplicitDiffusion()
+            self.gc_poisson = propagators_fields.Poisson()
             self.push_gc_bxe = propagators_markers.PushGuidingCenterBxEstar()
-            self.push_gc_para = propagators_markers.PushGuidingCenterParallel()
 
     ## abstract methods
 
@@ -109,7 +106,6 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         # 3. assign variables to propagators
         self.propagators.gc_poisson.variables.phi = self.em_fields.phi
         self.propagators.push_gc_bxe.variables.ions = self.kinetic_ions.var
-        self.propagators.push_gc_para.variables.ions = self.kinetic_ions.var
 
         # define scalars for update_scalar_quantities
         self.add_scalar("en_phi")
@@ -136,7 +132,9 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
         # Poisson right-hand side
         particles = self.kinetic_ions.var.particles
-        Z = self.kinetic_ions.charge_number
+        particles.weights = particles.weights_at_t0.copy()
+
+        alpha = self.kinetic_ions.equation_params.alpha
         epsilon = self.kinetic_ions.equation_params.epsilon
 
         charge_accum = AccumulatorVector(
@@ -149,55 +147,36 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
         rho = charge_accum
 
-        # get neutralizing background density
-        if not particles.control_variate:
-            l2_proj = L2Projector("H1", Propagator.mass_ops)
-            f0e = Z * particles.f0
-            assert isinstance(f0e, KineticBackground)
-            rho_eh = FEECVariable(space="H1")
-            rho_eh.allocate(derham=Propagator.derham, domain=Propagator.domain)
-            rho_eh.spline.vector = l2_proj.get_dofs(f0e.n)
-            rho = [rho]
-            rho += [rho_eh]
+        # sanity check: compute FE coeffs of density
+        # rho()
+        # rho.show_accumulated_spline_field(Propagator.mass_ops, eta_direction=(True,True,False))
 
-        self.propagators.gc_poisson.options.sigma_1 = 1.0 / epsilon**2 / Z
-        self.propagators.gc_poisson.options.sigma_2 = 0.0
-        self.propagators.gc_poisson.options.sigma_3 = 1.0 / epsilon
+        self.propagators.gc_poisson.options.stab_eps = 0.0
         self.propagators.gc_poisson.options.stab_mat = "M0ad"
-        self.propagators.gc_poisson.options.diffusion_mat = "M1perp"
         self.propagators.gc_poisson.options.rho = rho
+        self.propagators.gc_poisson.options.rho_coeffs = alpha**2 / epsilon
         self.propagators.gc_poisson.allocate()
+
+        if particles.control_variate:
+            particles.update_weights()
 
     def update_scalar_quantities(self):
         phi = self.em_fields.phi.spline.vector
         particles = self.kinetic_ions.var.particles
-        epsilon = self.kinetic_ions.equation_params.epsilon
 
         # energy from polarization
         e1 = Propagator.derham.grad.dot(-phi, out=self._e_field)
-        en_phi1 = 0.5 * Propagator.mass_ops.M1gyro.dot_inner(e1, e1)
-
-        # energy from adiabatic electrons
-        en_phi = 0.5 / epsilon**2 * Propagator.mass_ops.M0ad.dot_inner(phi, phi)
+        en_phi1 = 0.5 * Propagator.mass_ops.M1.dot_inner(e1, e1)
 
         # for Landau damping test
         # en_phi = 0.
 
-        # mu_p * |B0(eta_p)|
-        particles.save_magnetic_background_energy()
-
         # 1/N sum_p (w_p v_p^2/2 + mu_p |B0|_p)
-        self._tmp3[0] = (
-            1
-            / particles.Np
-            * xp.sum(
-                particles.weights * particles.velocities[:, 0] ** 2 / 2.0 + particles.markers_wo_holes_and_ghost[:, 8],
-            )
-        )
+        self._tmp3[0] = 1 / particles.Np * xp.sum(particles.weights * particles.velocities[:, 0] ** 2 / 2.0)
 
-        self.update_scalar("en_phi", en_phi + en_phi1)
+        self.update_scalar("en_phi", en_phi1)
         self.update_scalar("en_particles", self._tmp3[0])
-        self.update_scalar("en_tot", en_phi + en_phi1 + self._tmp3[0])
+        self.update_scalar("en_tot", en_phi1 + self._tmp3[0])
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
@@ -210,10 +189,6 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
                 elif "push_gc_bxe.Options" in line:
                     new_file += [
                         "model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(phi=model.em_fields.phi)\n",
-                    ]
-                elif "push_gc_para.Options" in line:
-                    new_file += [
-                        "model.propagators.push_gc_para.options = model.propagators.push_gc_para.Options(phi=model.em_fields.phi)\n",
                     ]
                 elif "set_save_data" in line:
                     new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]

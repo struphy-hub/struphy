@@ -7,7 +7,9 @@ from feectools.ddm.mpi import mpi as MPI
 
 from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
 from struphy.feec.psydac_derham import Derham
+from struphy.io.options import DerhamOptions
 from struphy.pic.particles import Particles6D
+from struphy.topology.grids import TensorProductGrid
 
 logger = logging.getLogger("struphy")
 
@@ -72,11 +74,16 @@ def test_flattening_3(nx, ny, nz, algo):
                 assert n3n == n3
 
 
-@pytest.mark.parametrize("Nel", [[8, 9, 10]])
-@pytest.mark.parametrize("p", [[2, 3, 4]])
+@pytest.mark.parametrize("num_elements", [[8, 9, 10]])
+@pytest.mark.parametrize("degree", [[2, 3, 4]])
 @pytest.mark.parametrize(
-    "spl_kind",
-    [[False, False, True], [False, True, False], [True, False, True], [True, True, False]],
+    "bcs",
+    [
+        (("free", "free"), ("free", "free"), None),
+        (("free", "free"), None, ("free", "free")),
+        (None, ("free", "free"), None),
+        (None, None, ("free", "free")),
+    ],
 )
 @pytest.mark.parametrize(
     "mapping",
@@ -95,7 +102,7 @@ def test_flattening_3(nx, ny, nz, algo):
     ],
 )
 @pytest.mark.parametrize("Np", [10000])
-def test_sorting(Nel, p, spl_kind, mapping, Np, verbose=False):
+def test_sorting(num_elements, degree, bcs, mapping, Np, verbose=False):
     mpi_comm = MPI.COMM_WORLD
     # assert mpi_comm.size >= 2
     rank = mpi_comm.Get_rank()
@@ -107,7 +114,10 @@ def test_sorting(Nel, p, spl_kind, mapping, Np, verbose=False):
     domain = domain_class(**dom_params)
 
     # DeRham object
-    derham = Derham(Nel, p, spl_kind, comm=mpi_comm)
+
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=mpi_comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs

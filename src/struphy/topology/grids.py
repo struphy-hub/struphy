@@ -15,7 +15,7 @@ class TensorProductGrid:
 
     Parameters
     ----------
-    Nel : Tuple[int, int, int]
+    num_elements : Tuple[int, int, int]
         Number of elements in each direction.
 
     mpi_dims_mask: Tuple[bool, bool, bool]
@@ -23,7 +23,7 @@ class TensorProductGrid:
         If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
     """
 
-    Nel: Tuple[int, int, int] = (24, 10, 1)
+    num_elements: Tuple[int, int, int] = (24, 10, 1)
     mpi_dims_mask: Tuple[bool, bool, bool] = (True, True, True)
 
     def __str__(self):
@@ -40,7 +40,7 @@ class TensorProductGrid:
 
     def to_dict(self) -> dict:
         dct = {
-            "Nel": self.Nel,
+            "num_elements": self.num_elements,
             "mpi_dims_mask": self.mpi_dims_mask,
         }
         return dct
@@ -48,6 +48,6 @@ class TensorProductGrid:
     @classmethod
     def from_dict(cls, dct) -> "TensorProductGrid":
         return cls(
-            Nel=tuple(dct["Nel"]),
+            num_elements=tuple(dct["num_elements"]),
             mpi_dims_mask=tuple(dct["mpi_dims_mask"]),
         )

@@ -6,10 +6,17 @@ import pytest
 logger = logging.getLogger("struphy")
 
 
-@pytest.mark.parametrize("Nel", [[8, 9, 10]])
-@pytest.mark.parametrize("p", [[1, 2, 3]])
-@pytest.mark.parametrize("spl_kind", [[False, False, True], [False, True, False], [True, False, False]])
-def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
+@pytest.mark.parametrize("num_elements", [[8, 9, 10]])
+@pytest.mark.parametrize("degree", [[1, 2, 3]])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), ("free", "free"), None),
+        (("free", "free"), None, ("free", "free")),
+        (None, ("free", "free"), ("free", "free")),
+    ],
+)
+def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
     """This test assumes a single particle and verifies
         a) if the correct indices are non-zero in _data
         b) if there are no NaNs
@@ -24,24 +31,28 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
 
     from struphy.bsplines import bsplines_kernels as bsp
     from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
     from struphy.pic.accumulation import particle_to_mat_kernels as ptomat
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
-    DR = Derham(Nel, p, spl_kind, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    DR = Derham(grid, derham_opts, comm=comm)
 
     if rank == 0:
-        logger.info(f"\nNel={Nel}, p={p}, spl_kind={spl_kind}\n")
+        print(f"\nnum_elements={num_elements}, degree={degree}, bcs={bcs}\n")
 
     # DR attributes
-    pn = xp.array(DR.p)
-    tn1, tn2, tn3 = DR.Vh_fem["0"].knots
+    pn = xp.array(DR.degree)
+    tn1, tn2, tn3 = DR.V0fem.knots
 
     starts1 = {}
 
-    starts1["v0"] = xp.array(DR.Vh["0"].starts)
+    starts1["v0"] = xp.array(DR.V0.starts)
 
     comm.Barrier()
     sleep(0.02 * (rank + 1))
@@ -62,11 +73,11 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
     mat = {}
     vec = {}
 
-    mat["v0"] = StencilMatrix(DR.Vh["0"], DR.Vh["0"], backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)._data
-    vec["v0"] = StencilVector(DR.Vh["0"])._data
+    mat["v0"] = StencilMatrix(DR.V0, DR.V0, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)._data
+    vec["v0"] = StencilVector(DR.V0)._data
 
-    mat["v3"] = StencilMatrix(DR.Vh["3"], DR.Vh["3"], backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)._data
-    vec["v3"] = StencilVector(DR.Vh["3"])._data
+    mat["v3"] = StencilMatrix(DR.V3, DR.V3, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)._data
+    vec["v3"] = StencilVector(DR.V3)._data
 
     mat["v1"] = []
     for i in range(3):
@@ -74,8 +85,8 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
         for j in range(3):
             mat["v1"][-1] += [
                 StencilMatrix(
-                    DR.Vh["1"].spaces[i],
-                    DR.Vh["1"].spaces[j],
+                    DR.V1.spaces[i],
+                    DR.V1.spaces[j],
                     backend=PSYDAC_BACKEND_GPYCCEL,
                     precompiled=True,
                 )._data,
@@ -83,7 +94,7 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
 
     vec["v1"] = []
     for i in range(3):
-        vec["v1"] += [StencilVector(DR.Vh["1"].spaces[i])._data]
+        vec["v1"] += [StencilVector(DR.V1.spaces[i])._data]
 
     mat["v2"] = []
     for i in range(3):
@@ -91,8 +102,8 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
         for j in range(3):
             mat["v2"][-1] += [
                 StencilMatrix(
-                    DR.Vh["2"].spaces[i],
-                    DR.Vh["2"].spaces[j],
+                    DR.V2.spaces[i],
+                    DR.V2.spaces[j],
                     backend=PSYDAC_BACKEND_GPYCCEL,
                     precompiled=True,
                 )._data,
@@ -100,7 +111,7 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
 
     vec["v2"] = []
     for i in range(3):
-        vec["v2"] += [StencilVector(DR.Vh["2"].spaces[i])._data]
+        vec["v2"] += [StencilVector(DR.V2.spaces[i])._data]
 
     # Some filling for testing
     fill_mat = xp.reshape(xp.arange(9, dtype=float), (3, 3)) + 1.0
@@ -121,23 +132,23 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
         comm.Barrier()
 
         # spans (i.e. index for non-vanishing basis functions)
-        # TODO: understand "Argument must be native int" when passing "pn[0]" here instead of "DR.p[0]"
-        span1 = bsp.find_span(tn1, DR.p[0], eta1)
-        span2 = bsp.find_span(tn2, DR.p[1], eta2)
-        span3 = bsp.find_span(tn3, DR.p[2], eta3)
+        # TODO: understand "Argument must be native int" when passing "pn[0]" here instead of "DR.degree[0]"
+        span1 = bsp.find_span(tn1, DR.degree[0], eta1)
+        span2 = bsp.find_span(tn2, DR.degree[1], eta2)
+        span3 = bsp.find_span(tn3, DR.degree[2], eta3)
 
         # non-zero spline values at eta
-        bn1 = xp.empty(DR.p[0] + 1, dtype=float)
-        bn2 = xp.empty(DR.p[1] + 1, dtype=float)
-        bn3 = xp.empty(DR.p[2] + 1, dtype=float)
+        bn1 = xp.empty(DR.degree[0] + 1, dtype=float)
+        bn2 = xp.empty(DR.degree[1] + 1, dtype=float)
+        bn3 = xp.empty(DR.degree[2] + 1, dtype=float)
 
-        bd1 = xp.empty(DR.p[0], dtype=float)
-        bd2 = xp.empty(DR.p[1], dtype=float)
-        bd3 = xp.empty(DR.p[2], dtype=float)
+        bd1 = xp.empty(DR.degree[0], dtype=float)
+        bd2 = xp.empty(DR.degree[1], dtype=float)
+        bd3 = xp.empty(DR.degree[2], dtype=float)
 
-        bsp.b_d_splines_slim(tn1, DR.p[0], eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, DR.p[1], eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, DR.p[2], eta3, span3, bn3, bd3)
+        bsp.b_d_splines_slim(tn1, DR.degree[0], eta1, span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, DR.degree[1], eta2, span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, DR.degree[2], eta3, span3, bn3, bd3)
 
         # element index of the particle in each direction
         ie1 = span1 - pn[0]
@@ -338,7 +349,7 @@ def assert_mat(mat, rows, cols, row_str, col_str, rank, verbose=False):
             6d array, the _data attribute of a StencilMatrix.
 
         rows : list[dict]
-            3-list, each dict has the two keys "N" and "D", holding a set of row indices of p + 1 resp. p non-zero splines.
+            3-list, each dict has the two keys "N" and "D", holding a set of row indices of degree + 1 resp. degree non-zero splines.
 
         cols : list[dict]
             3-list, each dict has four keys "NN", "ND", "DN" or "DD", holding the column indices of non-zero _data entries
@@ -392,7 +403,7 @@ def assert_vec(vec, rows, row_str, rank, verbose=False):
             3d array, the _data attribute of a StencilVector.
 
         rows : list[dict]
-            3-list, each dict has the two keys "N" and "D", holding a set of row indices of p + 1 resp. p non-zero splines.
+            3-list, each dict has the two keys "N" and "D", holding a set of row indices of degree + 1 resp. degree non-zero splines.
 
         row_str : str
             String of length 3 specifying the codomain of mat, e.g. "DNN" for the first component of V1.

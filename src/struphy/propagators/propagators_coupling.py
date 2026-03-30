@@ -162,9 +162,9 @@ class VlasovAmpere(Propagator):
         )
 
         # Create buffers to store temporarily e and its sum with old e
-        self._e_tmp = self.derham.Vh["1"].zeros()
-        self._e_scale = self.derham.Vh["1"].zeros()
-        self._e_sum = self.derham.Vh["1"].zeros()
+        self._e_tmp = self.derham.V1.zeros()
+        self._e_scale = self.derham.V1.zeros()
+        self._e_sum = self.derham.V1.zeros()
 
         # ================================
         # ========= Schur Solver =========
@@ -701,7 +701,7 @@ class PressureCoupling6D(Propagator):
             [self._ACC.operators[2], self._ACC.operators[4], self._ACC.operators[5]],
         ]
 
-        self._GT_VEC = BlockVector(self.derham.Vh["v"])
+        self._GT_VEC = BlockVector(self.derham.Vv)
 
         _BC = -1 / 4 * self._XT @ self.GT_MAT_G(self.derham, self._MAT) @ self._X
 
@@ -784,12 +784,12 @@ class PressureCoupling6D(Propagator):
             self._grad = derham.grad
             self._gradT = derham.grad.transpose()
 
-            self._domain = derham.Vh["v"]
-            self._codomain = derham.Vh["v"]
+            self._domain = derham.Vv
+            self._codomain = derham.Vv
             self._MAT = MAT
 
-            self._vector = BlockVector(derham.Vh["v"])
-            self._temp = BlockVector(derham.Vh["1"])
+            self._vector = BlockVector(derham.Vv)
+            self._temp = BlockVector(derham.V1)
 
         @property
         def domain(self):
@@ -801,7 +801,7 @@ class PressureCoupling6D(Propagator):
 
         @property
         def dtype(self):
-            return self._derham.Vh["v"].dtype
+            return self._derham.Vv.dtype
 
         @property
         def tosparse(self):
@@ -977,7 +977,7 @@ class CurrentCoupling6DCurrent(Propagator):
         # evaluate and save nh0 (0-form) * uh0 (2-form if H1vec or vector if Hdiv) at quadrature points for control variate
         # quad_pts = [
         #     quad_grid[nquad].points.flatten()
-        #     for quad_grid, nquad in zip(self.derham.get_quad_grids(self.derham.Vh_fem['0']), self.derham.nquads)
+        #     for quad_grid, nquad in zip(self.derham.get_quad_grids(self.derham.V0fem), self.derham.nquads)
         # ]
 
         #     uh0_cart = self.particles[0].f0.u
@@ -1089,7 +1089,7 @@ class CurrentCoupling6DCurrent(Propagator):
         # if self.particles[0].control_variate:
 
         #     # evaluate magnetic field at quadrature points (in-place)
-        #     WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._b_full2,
+        #     WeightedMassOperator.eval_quad(self.derham.V2fem, self._b_full2,
         #                                    out=[self._b_quad1, self._b_quad2, self._b_quad3])
 
         #     self._vec1[:, :, :] = self._coupling_vec * \

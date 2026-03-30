@@ -12,13 +12,13 @@ from feectools.ddm.mpi import mpi as MPI
 from pyevtk.hl import gridToVTK
 from tqdm import tqdm
 
-from struphy.feec.psydac_derham import SplineFunction
+from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.fields_background import equils
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.geometry import domains
 from struphy.geometry.base import Domain
 from struphy.io.options import BaseUnits, EnvironmentOptions, Time
-from struphy.io.setup import import_parameters_py, setup_derham
+from struphy.io.setup import import_parameters_py
 from struphy.kinetic_background import maxwellians
 from struphy.kinetic_background.base import KineticBackground
 from struphy.models.base import StruphyModel
@@ -199,7 +199,7 @@ class PostProcessor:
     path_pproc : str
         Path to the post-processing directory inside ``path_out``.
     derham : object or None
-        Helper returned by :func:`setup_derham` used to reconstruct FEEC spline fields.
+        Helper used to reconstruct FEEC spline fields.
     domain : Domain
         Computational domain used to map logical -> physical coordinates.
     model : StruphyModel
@@ -224,23 +224,23 @@ class PostProcessor:
             derham_opts = params_in.derham_opts
             domain = params_in.domain
             model = params_in.model
-            with open(os.path.join(path_out, "meta.yml"), "r") as f:
-                meta = yaml.load(f, Loader=yaml.FullLoader)
-            comm_size = meta["MPI processes"]
         else:
             path_out = sim.env.path_out
             grid = sim.grid
             derham_opts = sim.derham_opts
             domain = sim.domain
             model = sim.model
-            comm_size = sim.comm_size
+
+        with open(os.path.join(path_out, "meta.yml"), "r") as f:
+            meta = yaml.load(f, Loader=yaml.FullLoader)
+        comm_size = meta["MPI processes"]
 
         self.path_out = path_out
         self.path_pproc = os.path.join(path_out, "post_processing")
         if grid is None or derham_opts is None:
             self.derham = None
         else:
-            self.derham = setup_derham(
+            self.derham = Derham(
                 grid,
                 derham_opts,
                 comm=None,
@@ -610,9 +610,11 @@ class PostProcessor:
         assert isinstance(celldivide, list)
         assert len(celldivide) == 3
 
-        Nel = self.derham.Nel
+        num_elements = self.derham.num_elements
 
-        grids_log = [xp.linspace(0.0, 1.0, Nel_i * n_i + 1) for Nel_i, n_i in zip(Nel, celldivide)]
+        grids_log = [
+            xp.linspace(0.0, 1.0, num_elements_i * n_i + 1) for num_elements_i, n_i in zip(num_elements, celldivide)
+        ]
         grids_phy = [
             self.domain(*grids_log)[0],
             self.domain(*grids_log)[1],

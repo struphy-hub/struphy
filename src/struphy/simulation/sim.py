@@ -35,6 +35,7 @@ from struphy import (
 # core imports
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
+from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.base import (
     FluidEquilibrium,
     FluidEquilibriumWithB,
@@ -48,7 +49,6 @@ from struphy.fields_background.projected_equils import (
 )
 from struphy.geometry.base import Domain
 from struphy.io.output_handling import DataContainer
-from struphy.io.setup import setup_derham
 from struphy.models import Maxwell
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
@@ -1049,7 +1049,7 @@ RESTARTing from:
                 logger.info(f"\n{grid=}, {derham_opts=}: no Derham object set up.")
             self._derham = None
         else:
-            self._derham = setup_derham(
+            self._derham = Derham(
                 grid,
                 derham_opts,
                 comm=derham_comm,

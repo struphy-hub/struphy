@@ -60,22 +60,26 @@ class Poisson(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self):
-            self.source = propagators_fields.TimeDependentSource()
+        def __init__(self, with_t_dep_source=False):
+            if with_t_dep_source:
+                self.source = propagators_fields.TimeDependentSource()
             self.poisson = propagators_fields.Poisson()
 
     ## abstract methods
 
-    def __init__(self):
+    def __init__(self, with_t_dep_source=False):
+
+        self.with_t_dep_source = with_t_dep_source
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
 
         # 2. instantiate all propagators
-        self.propagators = self.Propagators()
+        self.propagators = self.Propagators(with_t_dep_source=with_t_dep_source)
 
         # 3. assign variables to propagators
-        self.propagators.source.variables.source = self.em_fields.source
+        if with_t_dep_source:
+            self.propagators.source.variables.source = self.em_fields.source
         self.propagators.poisson.variables.phi = self.em_fields.phi
 
     @property

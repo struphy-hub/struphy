@@ -15,6 +15,14 @@ from struphy.polar.basic import PolarVector
 logger = logging.getLogger("struphy")
 
 
+def get_quad_grids(
+    space: TensorFemSpace | VectorFemSpace,
+    nquads: tuple[int, int, int],
+):
+    """Return the 1d quadrature grids in each direction as a tuple."""
+    return tuple({q: gag} for q, gag in zip(nquads, space.get_assembly_grids(*nquads)))
+
+
 class RotationMatrix:
     """For a given vector-valued function a(e1, e2, e3), creates the callable matrix R(e1, e2, e3)
     that represents the local rotation Rv = a x v at (e1, e2, e3) for any vector v in R^3.
@@ -210,15 +218,15 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
     elif isinstance(arr_psy, StencilMatrix):
         s = arr_psy.codomain.starts
         e = arr_psy.codomain.ends
-        p = arr_psy.pads
+        degree = arr_psy.pads
         tmp_arr = arr[s[0] : e[0] + 1, s[1] : e[1] + 1, s[2] : e[2] + 1, :, :, :]
         tmp1 = arr_psy[
             s[0] : e[0] + 1,
             s[1] : e[1] + 1,
             s[2] : e[2] + 1,
-            -p[0] : p[0] + 1,
-            -p[1] : p[1] + 1,
-            -p[2] : p[2] + 1,
+            -degree[0] : degree[0] + 1,
+            -degree[1] : degree[1] + 1,
+            -degree[2] : degree[2] + 1,
         ]
 
         if tmp_arr.shape == tmp1.shape:
@@ -229,9 +237,9 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
                     e[0] + 1 - s[0],
                     e[1] + 1 - s[1],
                     e[2] + 1 - s[2],
-                    2 * p[0] + 1,
-                    2 * p[1] + 1,
-                    2 * p[2] + 1,
+                    2 * degree[0] + 1,
+                    2 * degree[1] + 1,
+                    2 * degree[2] + 1,
                 ),
                 dtype=float,
             )
@@ -247,7 +255,7 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
 
                 s = mat_psy.codomain.starts
                 e = mat_psy.codomain.ends
-                p = mat_psy.pads
+                degree = mat_psy.pads
                 tmp_mat = mat[
                     s[0] : e[0] + 1,
                     s[1] : e[1] + 1,
@@ -260,9 +268,9 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
                     s[0] : e[0] + 1,
                     s[1] : e[1] + 1,
                     s[2] : e[2] + 1,
-                    -p[0] : p[0] + 1,
-                    -p[1] : p[1] + 1,
-                    -p[2] : p[2] + 1,
+                    -degree[0] : degree[0] + 1,
+                    -degree[1] : degree[1] + 1,
+                    -degree[2] : degree[2] + 1,
                 ]
 
                 if tmp_mat.shape == tmp1.shape:
@@ -273,9 +281,9 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
                             e[0] + 1 - s[0],
                             e[1] + 1 - s[1],
                             e[2] + 1 - s[2],
-                            2 * p[0] + 1,
-                            2 * p[1] + 1,
-                            2 * p[2] + 1,
+                            2 * degree[0] + 1,
+                            2 * degree[1] + 1,
+                            2 * degree[2] + 1,
                         ),
                         dtype=float,
                     )
@@ -464,35 +472,35 @@ def create_weight_weightedmatrix_hybrid(b, weight_pre, derham, accum_density, do
     nqs = [
         quad_grid[nquad].num_quad_pts
         for quad_grid, nquad in zip(
-            derham.get_quad_grids(derham.Vh_fem["0"]),
+            get_quad_grids(derham.V0fem),
             derham.nquads,
         )
     ]
 
-    for aa, wspace in enumerate(derham.Vh_fem["2"].spaces):
+    for aa, wspace in enumerate(derham.V2fem.spaces):
         # knot span indices of elements of local domain
-        spans_out = [quad_grid[nquad].spans for quad_grid, nquad in zip(derham.get_quad_grids(wspace), derham.nquads)]
+        spans_out = [quad_grid[nquad].spans for quad_grid, nquad in zip(get_quad_grids(wspace), derham.nquads)]
         # global start spline index on process
         starts_out = [int(start) for start in wspace.coeff_space.starts]
 
         # Iniitialize hybrid linear operators
         # global quadrature points (flattened) and weights in format (local element, local weight)
-        pts = [quad_grid[nquad].points for quad_grid, nquad in zip(derham.get_quad_grids(wspace), derham.nquads)]
-        wts = [quad_grid[nquad].weights for quad_grid, nquad in zip(derham.get_quad_grids(wspace), derham.nquads)]
+        pts = [quad_grid[nquad].points for quad_grid, nquad in zip(get_quad_grids(wspace), derham.nquads)]
+        wts = [quad_grid[nquad].weights for quad_grid, nquad in zip(get_quad_grids(wspace), derham.nquads)]
 
-        p = wspace.degree
+        degree = wspace.degree
 
         # evaluated basis functions at quadrature points of the space
-        basis_o = [quad_grid[nquad].basis for quad_grid, nquad in zip(derham.get_quad_grids(wspace), derham.nquads)]
+        basis_o = [quad_grid[nquad].basis for quad_grid, nquad in zip(get_quad_grids(wspace), derham.nquads)]
 
         pads_out = wspace.coeff_space.pads
 
         kernels.hybrid_curlA(
             *starts_out,
             *spans_out,
-            p[0],
-            p[1],
-            p[2],
+            degree[0],
+            degree[1],
+            degree[2],
             nqs[0],
             nqs[1],
             nqs[2],

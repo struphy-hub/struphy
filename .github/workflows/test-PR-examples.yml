@@ -70,9 +70,9 @@ jobs:
           env-name: /struphy_fortran_/env_fortran_
 
       - name: Compile Struphy
-        run: |
-          source /struphy_fortran_/env_fortran_/bin/activate
-          struphy compile
+        uses: ./.github/actions/compile
+        with:
+          env-name: /struphy_fortran_/env_fortran_
           
       - name: Run examples tests (serial)
         env:

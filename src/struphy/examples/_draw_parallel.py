@@ -5,7 +5,9 @@ from feectools.ddm.mpi import mpi as MPI
 
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry import domains
+from struphy.io.options import DerhamOptions
 from struphy.pic.particles import Particles6D
+from struphy.topology.grids import TensorProductGrid
 
 logger = logging.getLogger("struphy")
 
@@ -19,9 +21,9 @@ def main():
     rank = comm.Get_rank()
 
     # parameters
-    Nel = [8, 16, 4]
-    p = [2, 2, 2]
-    spl_kind = [False, True, True]
+    num_elements = [8, 16, 4]
+    degree = [2, 2, 2]
+    bcs = (("free", "free"), None, None)
 
     loading_type = "pseudo_random"
     loading_params = {
@@ -36,7 +38,10 @@ def main():
     domain = domain_class(sfl=True)
 
     # create de rham object
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     if rank == 0:
         logger.info("")

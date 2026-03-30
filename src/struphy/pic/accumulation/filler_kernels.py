@@ -624,7 +624,7 @@ def fill_mat_vec_pressure(
 
 @pure
 def hy_density(
-    Nel: "int[:]",
+    num_elements: "int[:]",
     pn: "int[:]",
     cell_left: "int[:]",
     cell_number: "int[:]",
@@ -665,13 +665,13 @@ def hy_density(
 
                 for jl1 in range(quad[0]):
                     # quad_pts_x contains the quadrature points in x direction.
-                    temp1[0] = (cell_left[0] + il1) / Nel[0] + quad_pts_x[jl1]
+                    temp1[0] = (cell_left[0] + il1) / num_elements[0] + quad_pts_x[jl1]
                     temp4[0] = abs(temp1[0] - eta1) - compact[0] / 2.0  # if > 0, result is 0
                     for jl2 in range(quad[1]):
-                        temp1[1] = (cell_left[1] + il2) / Nel[1] + quad_pts_y[jl2]
+                        temp1[1] = (cell_left[1] + il2) / num_elements[1] + quad_pts_y[jl2]
                         temp4[1] = abs(temp1[1] - eta2) - compact[1] / 2.0  # if > 0, result is 0
                         for jl3 in range(quad[2]):
-                            temp1[2] = (cell_left[2] + il3) / Nel[2] + quad_pts_z[jl3]
+                            temp1[2] = (cell_left[2] + il3) / num_elements[2] + quad_pts_z[jl3]
                             temp4[2] = abs(temp1[2] - eta3) - compact[2] / 2.0  # if > 0, result is 0
 
                             if temp4[0] < 0.0 and temp4[1] < 0.0 and temp4[2] < 0.0:

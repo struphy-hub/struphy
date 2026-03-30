@@ -51,7 +51,7 @@ def main():
     sim_names = []
     dicts_pre = []
     nproc = []
-    Nel = []
+    num_elements = []
     for path in sys.argv[4:]:
         logger.info("")
         get_cprofile_data(path)
@@ -69,7 +69,7 @@ def main():
         with open(path + "parameters.yml", "r") as f:
             params = yaml.load(f, Loader=yaml.FullLoader)
 
-        Nel += [params["grid"]["Nel"]]
+        num_elements += [params["grid"]["num_elements"]]
 
     # Nicer key names for output:
     dicts = []
@@ -101,7 +101,7 @@ def main():
     logger.info("-" * 154)
     for position, key in enumerate(dicts[0].keys()):
         if list_of_funcs is None:
-            for dict, sim_name, n, dim in zip(dicts, sim_names, nproc, Nel):
+            for dict, sim_name, n, dim in zip(dicts, sim_names, nproc, num_elements):
                 string = f"{sim_name}".ljust(20) + f"{n}".ljust(7) + f"{position:2d}".ljust(5) + str(key.ljust(70))
                 for value in dict[key].values():
                     string += str(value).ljust(15)
@@ -117,9 +117,9 @@ def main():
                 sys.exit(1)
 
         elif any(func in key for func in list_of_funcs) and "dependencies_" not in key and "_dot" not in key:
-            d_saved[key] = {"mpi_size": [], "Nel": [], "time": []}
+            d_saved[key] = {"mpi_size": [], "num_elements": [], "time": []}
 
-            for dict, sim_name, n, dim in zip(dicts, sim_names, nproc, Nel):
+            for dict, sim_name, n, dim in zip(dicts, sim_names, nproc, num_elements):
                 string = f"{sim_name}".ljust(20) + f"{n}".ljust(7) + f"{position:2d}".ljust(5) + str(key.ljust(70))
                 for value in dict[key].values():
                     string += str(value).ljust(15)
@@ -127,7 +127,7 @@ def main():
                 logger.info(string)
 
                 d_saved[key]["mpi_size"] += [n]
-                d_saved[key]["Nel"] += [dim]
+                d_saved[key]["num_elements"] += [dim]
                 d_saved[key]["time"] += [dict[key]]
             logger.info("")
 
@@ -147,11 +147,11 @@ def main():
             # logger.info(key, val)
 
             # strong scaling plot
-            if all([Nel == val["Nel"][0] for Nel in val["Nel"]]):
+            if all([num_elements == val["num_elements"][0] for num_elements in val["num_elements"]]):
                 plt.loglog(val["mpi_size"], val["time"], label=key)
                 plt.xlabel("mpi_size")
                 plt.ylabel("time [s]")
-                plt.title("Strong scaling for Nel=" + str(val["Nel"][0]) + " cells")
+                plt.title("Strong scaling for num_elements=" + str(val["num_elements"][0]) + " cells")
                 plt.legend(loc="lower left")
                 plt.loglog(val["mpi_size"], val["time"][0] / 2 ** xp.arange(len(val["time"])), "k--", alpha=0.3)
             # weak scaling plot
@@ -160,7 +160,9 @@ def main():
                 plt.xlabel("mpi_size")
                 plt.ylabel("time [s]")
                 plt.title(
-                    "Weak scaling for cells/mpi_size=" + str(xp.prod(val["Nel"][0]) / val["mpi_size"][0]) + "=const.",
+                    "Weak scaling for cells/mpi_size="
+                    + str(xp.prod(val["num_elements"][0]) / val["mpi_size"][0])
+                    + "=const.",
                 )
                 plt.legend(loc="upper left")
                 # plt.loglog(val['mpi_size'], val['time'][0]*xp.ones_like(val['time']), 'k--', alpha=0.3)
