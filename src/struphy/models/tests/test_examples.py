@@ -6,6 +6,9 @@ from feectools.ddm.mpi import mpi as MPI
 
 from struphy.io.setup import import_parameters_py
 
+import logging
+logger = logging.getLogger("struphy")
+
 EXAMPLES_DIR = Path(__file__).resolve().parents[4] / "examples"
 
 PARAMS_MODULES = sorted(
