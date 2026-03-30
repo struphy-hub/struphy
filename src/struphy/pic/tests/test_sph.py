@@ -1835,9 +1835,9 @@ def test_sph_no_slip_boundary_1d(
     particles.draw_markers(sort=False, verbose=False)
     if rank == 0:
         ghost_inds = xp.where(particles.ghost_particles)[0]
-        print(f"After do_sort: {len(ghost_inds)} ghosts")
+        logger.info(f"After do_sort: {len(ghost_inds)} ghosts")
         if len(ghost_inds) > 0:
-            print("First 10 ghost eta1:", particles.markers[ghost_inds[:10], 0])
+            logger.info("First 10 ghost eta1:", particles.markers[ghost_inds[:10], 0])
     particles.initialize_weights()
 
     if direction == "x":
@@ -1871,8 +1871,8 @@ def test_sph_no_slip_boundary_1d(
     )
 
     # if rank == 0 and len(ghost_inds) > 0:
-    #     print("Ghost coefficients after eval:", particles.markers[ghost_inds[:10], particles.first_free_idx])
-    #     print("Ghost positions after eval:", particles.markers[ghost_inds[:10], 0])
+    #     logger.info("Ghost coefficients after eval:", particles.markers[ghost_inds[:10], particles.first_free_idx])
+    #     logger.info("Ghost positions after eval:", particles.markers[ghost_inds[:10], 0])
 
     if comm is not None:
         all_v1 = xp.zeros_like(v1)
@@ -1894,16 +1894,16 @@ def test_sph_no_slip_boundary_1d(
     v_interior = (v1_squeezed[1:-1], v2_squeezed[1:-1], v3_squeezed[1:-1])
 
     if rank == 0:
-        print("\nVelocity at interior points:")
+        logger.info("\nVelocity at interior points:")
         for idx, eta in enumerate(eta1[2:]):
-            print(
+            logger.info(
                 f"eta1 = {eta:.8f}, v_x = {v1_squeezed[2 + idx]:.6f}, v_y = {v2_squeezed[2 + idx]:.6f}, v_z = {v3_squeezed[2 + idx]:.6f}"
             )
 
-            print(
+            logger.info(
                 f"\nLeft wall (eta1={eta1[0]}): v_x={v1_squeezed[0]:.6f}, v_y={v2_squeezed[0]:.6f}, v_z={v3_squeezed[0]:.6f}"
             )
-            print(
+            logger.info(
                 f"Right wall (eta1={eta1[-1]}): v_x={v1_squeezed[-1]:.6f}, v_y={v2_squeezed[-1]:.6f}, v_z={v3_squeezed[-1]:.6f}"
             )
 
@@ -1956,9 +1956,9 @@ def test_sph_no_slip_boundary_1d(
 
     assert xp.abs(interior_vals[0]) < 0.5, f"Interior velocity on the left too large: {xp.abs(interior_vals[0])}"
     assert xp.abs(interior_vals[-1]) < 0.5, f"Interior velocity on the right too large: {xp.abs(interior_vals[-1])}"
-    print(interior_vals)
+    logger.info(interior_vals)
     rel_error = xp.max(xp.abs(interior_vals[7:-7] - 1.0)) / 1.0
-    print(f"{rel_error=}")
+    logger.info(f"{rel_error=}")
     assert rel_error < tol_interior, f"Interior {direction}-velocity error too large: {rel_error}"
 
 

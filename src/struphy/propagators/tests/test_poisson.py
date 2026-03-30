@@ -632,10 +632,10 @@ def test_poisson_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_
     error1 = xp.max(xp.abs(analytic_value1 - sol_val1))
     error2 = xp.max(xp.abs(analytic_value2 - sol_val2))
 
-    print(f"{degree =}, {bc_type =}, {mapping =}")
-    print(f"{error1 =}")
-    print(f"{error2 =}")
-    print("")
+    logger.info(f"{degree =}, {bc_type =}, {mapping =}")
+    logger.info(f"{error1 =}")
+    logger.info(f"{error2 =}")
+    logger.info("")
 
     if show_plot and rank == 0:
         plt.figure(figsize=(12, 8))

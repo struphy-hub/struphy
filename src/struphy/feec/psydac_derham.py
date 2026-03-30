@@ -844,18 +844,18 @@ class Derham:
         )
 
         if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-            print("\nDERHAM:")
-            print("number of elements:".ljust(25), num_elements)
-            print("spline degrees:".ljust(25), degree)
-            print("boundary conditions:".ljust(25), bcs)
-            print("GL quad pts (L2):".ljust(25), nquads)
-            print("GL quad pts (hist):".ljust(25), nquads_proj)
-            print(
+            logger.info("\nDERHAM:")
+            logger.info("number of elements:".ljust(25), num_elements)
+            logger.info("spline degrees:".ljust(25), degree)
+            logger.info("boundary conditions:".ljust(25), bcs)
+            logger.info("GL quad pts (L2):".ljust(25), nquads)
+            logger.info("GL quad pts (hist):".ljust(25), nquads_proj)
+            logger.info(
                 "MPI proc. per dir.:".ljust(25),
                 self.domain_decomposition.nprocs,
             )
-            print("use polar splines:".ljust(25), self.polar_splines)
-            print("domain on process 0:".ljust(25), self.domain_array[0])
+            logger.info("use polar splines:".ljust(25), self.polar_splines)
+            logger.info("domain on process 0:".ljust(25), self.domain_array[0])
 
     # -----------------------------
     # Input arguments as properties

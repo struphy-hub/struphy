@@ -26,9 +26,9 @@ def test_spaces(num_elements, degree, bcs):
 
     logger.info("polar V0:")
     V = PolarDerhamSpace(derham, "H1")
-    print("dimensions (parent, polar):", derham.V0fem.nbasis, V.dimension)
-    print(V.dtype)
-    print(V.zeros(), "\n")
+    logger.info("dimensions (parent, polar):", derham.V0fem.nbasis, V.dimension)
+    logger.info(V.dtype)
+    logger.info(V.zeros(), "\n")
     a = PolarVector(V)
     a.pol[0][:] = 1.0
     a.tp[:] = 1.0
@@ -54,9 +54,9 @@ def test_spaces(num_elements, degree, bcs):
 
     logger.info("polar V1:")
     V = PolarDerhamSpace(derham, "Hcurl")
-    print("dimensions (parent, polar):", derham.V1fem.nbasis, V.dimension)
-    print(V.dtype)
-    print(V.zeros(), "\n")
+    logger.info("dimensions (parent, polar):", derham.V1fem.nbasis, V.dimension)
+    logger.info(V.dtype)
+    logger.info(V.zeros(), "\n")
     a = PolarVector(V)
     a.pol[0][:] = 1.0
     a.pol[1][:] = 2.0
@@ -86,9 +86,9 @@ def test_spaces(num_elements, degree, bcs):
 
     logger.info("polar V2:")
     V = PolarDerhamSpace(derham, "Hdiv")
-    print("dimensions (parent, polar):", derham.V2fem, V.dimension)
-    print(V.dtype)
-    print(V.zeros(), "\n")
+    logger.info("dimensions (parent, polar):", derham.V2fem, V.dimension)
+    logger.info(V.dtype)
+    logger.info(V.zeros(), "\n")
     a = PolarVector(V)
     a.pol[0][:] = 1.0
     a.pol[1][:] = 2.0
@@ -118,9 +118,9 @@ def test_spaces(num_elements, degree, bcs):
 
     logger.info("polar V3:")
     V = PolarDerhamSpace(derham, "L2")
-    print("dimensions (parent, polar):", derham.V3fem, V.dimension)
-    print(V.dtype)
-    print(V.zeros(), "\n")
+    logger.info("dimensions (parent, polar):", derham.V3fem, V.dimension)
+    logger.info(V.dtype)
+    logger.info(V.zeros(), "\n")
     a = PolarVector(V)
     a.pol[0][:] = 1.0
     a.tp[:] = 1.0
@@ -146,9 +146,9 @@ def test_spaces(num_elements, degree, bcs):
 
     logger.info("polar V0vec:")
     V = PolarDerhamSpace(derham, "H1vec")
-    print("dimensions (parent, polar):", derham.Vvfem.nbasis, V.dimension)
-    print(V.dtype)
-    print(V.zeros(), "\n")
+    logger.info("dimensions (parent, polar):", derham.Vvfem.nbasis, V.dimension)
+    logger.info(V.dtype)
+    logger.info(V.zeros(), "\n")
     a = PolarVector(V)
     a.pol[0][:] = 1.0
     a.pol[1][:] = 2.0

@@ -44,7 +44,7 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
     DR = Derham(grid, derham_opts, comm=comm)
 
     if rank == 0:
-        print(f"\nnum_elements={num_elements}, degree={degree}, bcs={bcs}\n")
+        logger.info(f"\nnum_elements={num_elements}, degree={degree}, bcs={bcs}\n")
 
     # DR attributes
     pn = xp.array(DR.degree)

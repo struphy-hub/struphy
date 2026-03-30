@@ -124,7 +124,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
                 logger.info("Direction should be either 0 or 1")
 
             # create derham object
-            print(f"{bcs =}")
+            logger.info(f"{bcs =}")
             grid = TensorProductGrid(num_elements=num_elements)
             derham_opts = DerhamOptions(degree=degree, bcs=bcs)
             derham = Derham(grid, derham_opts, comm=comm)
@@ -423,10 +423,10 @@ def test_poisson_M1perp_2d(num_elements, degree, bc_type, mapping, projected_rhs
     error1 = xp.max(xp.abs(analytic_value1 - sol_val1))
     error2 = xp.max(xp.abs(analytic_value2 - sol_val2))
 
-    print(f"{degree =}, {bc_type =}, {mapping =}")
-    print(f"{error1 =}")
-    print(f"{error2 =}")
-    print("")
+    logger.info(f"{degree =}, {bc_type =}, {mapping =}")
+    logger.info(f"{error1 =}")
+    logger.info(f"{error2 =}")
+    logger.info("")
 
     if show_plot and rank == 0:
         plt.figure(figsize=(12, 8))

@@ -351,7 +351,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
         sq_str = ""
         for key, scalar_dict in self._scalar_quantities.items():
             val = scalar_dict["value"]
-            print(f"{key}: {val[0]}")  # TODO: use logger --- IGNORE ---
+            logger.info(f"{key}: {val[0]}")  # TODO: use logger --- IGNORE ---
             assert not xp.isnan(val[0]), f"Scalar {key} is {val[0]}."
             sq_str += f"{key}:".ljust(25) + "{:4.2e}\n".format(val[0]).rjust(26)
         logger.info(sq_str)

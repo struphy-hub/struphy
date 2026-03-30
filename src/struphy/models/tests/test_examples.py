@@ -37,10 +37,10 @@ def test_examples(params_path: Path):
     regress_name = example_name.replace("params_", "regress_")
     regress_path = Path(*rel.parts[:-1]) / f"{regress_name}.py"
 
-    print(f"\n{MPI.COMM_WORLD.Get_rank()} Testing example:", example_name)
-    print(f"{params_path = }")
-    print(f"{pproc_path = }")
-    print(f"{regress_path = }")
+    logger.info(f"\n{MPI.COMM_WORLD.Get_rank()} Testing example:", example_name)
+    logger.info(f"{params_path = }")
+    logger.info(f"{pproc_path = }")
+    logger.info(f"{regress_path = }")
 
     params = import_parameters_py(str(params_path), name=example_name)
     params.sim.run(one_time_step=True, verbose=True)
@@ -60,5 +60,5 @@ def test_examples(params_path: Path):
 
 
 if __name__ == "__main__":
-    print(f"{PARAMS_MODULES = }")
+    logger.info(f"{PARAMS_MODULES = }")
     test_examples(params_path=PARAMS_MODULES[4])

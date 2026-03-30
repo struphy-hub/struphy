@@ -7745,9 +7745,9 @@ class TwoFluidQuasiNeutralFull(Propagator):
     def options(self, new):
         assert isinstance(new, self.Options)
         if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            logger.info(f"\nNew options for propagator '{self.__class__.__name__}':")
             for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
+                logger.info(f"  {k}: {v}")
         self._options = new
 
     # =========================================================================
@@ -8037,7 +8037,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         max_diffs = self.update_feec_variables(u=self._u.vector, ue=self._ue.vector, phi=self._phi.vector)
 
         if self.options.solver_params.info and self._rank == 0:
-            print(f"Status: {info['success']}, Iterations: {info['niter']}")
-            print(f"Max diffs: {max_diffs}")
-            print(f"Status: {info['success']}, Iterations: {info['niter']}")
-            print(f"Max diffs: {max_diffs}")
+            logger.info(f"Status: {info['success']}, Iterations: {info['niter']}")
+            logger.info(f"Max diffs: {max_diffs}")
+            logger.info(f"Status: {info['success']}, Iterations: {info['niter']}")
+            logger.info(f"Max diffs: {max_diffs}")

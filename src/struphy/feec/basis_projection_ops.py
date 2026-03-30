@@ -59,7 +59,7 @@ class BasisProjectionOperators:
             [degree == 1 and num_elements > 1 for degree, num_elements in zip(derham.degree, derham.num_elements)]
         ):
             if MPI.COMM_WORLD.Get_rank() == 0:
-                print(
+                logger.info(
                     f'\nWARNING: Class "BasisProjectionOperators" called with degree={derham.degree} (interpolation of piece-wise constants should be avoided).',
                 )
 

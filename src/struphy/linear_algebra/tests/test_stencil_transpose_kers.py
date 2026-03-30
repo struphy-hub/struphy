@@ -34,12 +34,12 @@ def test_1d(num_elements, degree, bcs, domain_ind, codomain_ind):
     rank = comm.Get_rank()
 
     if rank == 0:
-        print("\nParameters:")
-        print("num_elements=", num_elements)
-        print("degree=", degree)
-        print("bcs=", bcs)
-        print("domain_ind=", domain_ind)
-        print("codomain_ind=", codomain_ind)
+        logger.info("\nParameters:")
+        logger.info("num_elements=", num_elements)
+        logger.info("degree=", degree)
+        logger.info("bcs=", bcs)
+        logger.info("domain_ind=", domain_ind)
+        logger.info("codomain_ind=", codomain_ind)
 
     # Psydac discrete Derham sequence
     grid = TensorProductGrid(num_elements=[num_elements] * 3)
@@ -153,12 +153,12 @@ def test_3d(num_elements, degree, bcs, domain_ind, codomain_ind):
     rank = comm.Get_rank()
 
     if rank == 0:
-        print("\nParameters:")
-        print("num_elements=", num_elements)
-        print("degree=", degree)
-        print("bcs=", bcs)
-        print("domain_ind=", domain_ind)
-        print("codomain_ind=", codomain_ind)
+        logger.info("\nParameters:")
+        logger.info("num_elements=", num_elements)
+        logger.info("degree=", degree)
+        logger.info("bcs=", bcs)
+        logger.info("domain_ind=", domain_ind)
+        logger.info("codomain_ind=", codomain_ind)
 
     # Psydac discrete Derham sequence
     grid = TensorProductGrid(num_elements=num_elements)

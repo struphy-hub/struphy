@@ -54,10 +54,10 @@ def test_some_basis_ops(num_elements, degree, bcs, mapping):
 
     # grid parameters
     if mpi_rank == 0:
-        print(f"Rank {mpi_rank} | num_elements: {num_elements}")
-        print(f"Rank {mpi_rank} | degree: {degree}")
-        print(f"Rank {mpi_rank} | bcs: {bcs}")
-        print(f"Rank {mpi_rank} | ")
+        logger.info(f"Rank {mpi_rank} | num_elements: {num_elements}")
+        logger.info(f"Rank {mpi_rank} | degree: {degree}")
+        logger.info(f"Rank {mpi_rank} | bcs: {bcs}")
+        logger.info(f"Rank {mpi_rank} | ")
 
     # Mhd equilibirum (slab)
     mhd_equil_params = {"B0x": 0.0, "B0y": 0.0, "B0z": 1.0, "beta": 2.0, "n0": 1.0}
