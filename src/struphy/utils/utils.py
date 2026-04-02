@@ -194,50 +194,6 @@ def ruff_autofix_and_format(code: str) -> str:
     return result
 
 
-class RankZeroFilter(logging.Filter):
-    def __init__(self, rank: int):
-        super().__init__()
-        self.rank = rank
-
-    def filter(self, record):
-        return self.rank == 0
-
-
-def setup_logging(logging_level: int = logging.INFO):
-    logger = logging.getLogger("struphy")
-    config_file = pathlib.Path(STRUPHY_LIBPATH) / "logging_config.json"
-    with open(config_file) as f_in:
-        config = json.load(f_in)
-
-    # config["handlers"]["file"]["level"] = logging_level
-    config["handlers"]["stderr"]["level"] = logging_level
-
-    logging.config.dictConfig(config)
-
-    # Add RankZeroFilter to all handlers
-    rank = MPI.COMM_WORLD.Get_rank()
-    rank_filter = RankZeroFilter(rank)
-
-    # Apply filter to struphy logger handlers
-    for handler in logger.handlers:
-        handler.addFilter(rank_filter)
-
-    # Apply filter to root logger handlers
-    root_logger = logging.getLogger()
-    for handler in root_logger.handlers:
-        handler.addFilter(rank_filter)
-
-    # Start queue handler listener if present
-    queue_handler = None
-    for handler in logger.handlers:
-        if hasattr(handler, "listener"):
-            queue_handler = handler
-            break
-    if queue_handler is not None:
-        queue_handler.listener.start()
-        atexit.register(queue_handler.listener.stop)
-
-
 def all_subclasses(cls):
     subclasses = cls.__subclasses__()
     subclasses = subclasses + [g for s in subclasses for g in all_subclasses(s)]
@@ -245,7 +201,8 @@ def all_subclasses(cls):
 
 
 if __name__ == "__main__":
-    setup_logging()
+    # from struphy import setup_logging
+    # setup_logging()
     logger = logging.getLogger("struphy")
     logger.debug("debug message", extra={"x": "hello"})
     logger.info("info message")
@@ -256,3 +213,8 @@ if __name__ == "__main__":
         1 / 0
     except ZeroDivisionError:
         logger.exception("exception message")
+        
+    logger.setLevel(logging.DEBUG) 
+        
+    logger.debug("\ndebug message", extra={"x": "hello"})
+    logger.info("info message")
