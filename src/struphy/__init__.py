@@ -53,7 +53,8 @@ config = {
 }
 
 def set_logging_level(level: int = logging.INFO):
-    logger = logging.getLogger("struphy")  # root logger (as used in your config)
+    """Set logging level for struphy logger and its handlers."""
+    logger = logging.getLogger("struphy") 
     logger.setLevel(level)
     for handler in logger.handlers:
         handler.setLevel(level)
@@ -63,6 +64,7 @@ def set_logging_level(level: int = logging.INFO):
         logger.debug(f"{type(h).__name__}: handler level: {h.level}")
 
 def setup_logging(logging_level: int = logging.WARNING):
+    """Setup logging configuration for struphy."""
     logger = logging.getLogger("struphy")
     
     logging.config.dictConfig(config)

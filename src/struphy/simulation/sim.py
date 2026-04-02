@@ -30,6 +30,7 @@ from struphy import (
     domains,
     equils,
     grids,
+    set_logging_level,
 )
 
 # core imports
@@ -65,8 +66,6 @@ from struphy.propagators.base import Propagator
 from struphy.simulation.base import SimulationBase
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml, ruff_autofix_and_format
-from struphy import setup_logging
-
 
 logger = logging.getLogger("struphy")
 
@@ -136,7 +135,7 @@ class Simulation(SimulationBase):
         verbose: bool = False,
     ):
         if logging_level is not None:
-            setup_logging(logging_level=logging_level)
+            set_logging_level(logging_level)
 
         self._name = name
         self._description = description

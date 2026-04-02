@@ -201,10 +201,8 @@ def all_subclasses(cls):
 
 
 if __name__ == "__main__":
-    # from struphy import setup_logging
-    # setup_logging()
     from struphy import set_logging_level
-    
+
     logger = logging.getLogger("struphy")
     logger.debug("debug message", extra={"x": "hello"})
     logger.info("info message")
@@ -215,8 +213,8 @@ if __name__ == "__main__":
         1 / 0
     except ZeroDivisionError:
         logger.exception("exception message")
-        
+
     set_logging_level(logging.DEBUG)
-        
+
     logger.debug("\ndebug message", extra={"x": "hello"})
     logger.info("info message")
