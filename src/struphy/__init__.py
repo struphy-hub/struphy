@@ -28,13 +28,13 @@ config = {
   "handlers": {
     "stderr": {
       "class": "logging.StreamHandler",
-      "level": "INFO",
+      "level": "WARNING",
       "formatter": "simple",
       "stream": "ext://sys.stderr"
     },
     "file": {
       "class": "logging.handlers.RotatingFileHandler",
-      "level": "DEBUG",
+      "level": "WARNING",
       "formatter": "detailed",
       "filename": "/tmp/struphy.log",
       "maxBytes": 10000,
@@ -42,8 +42,8 @@ config = {
     }
   },
   "loggers": {
-    "root": {
-      "level": "DEBUG",
+    "struphy": {
+      "level": "WARNING",
       "handlers": [
         "stderr",
         "file"
@@ -52,13 +52,22 @@ config = {
   }
 }
 
-def setup_logging(logging_level: int = logging.INFO):
+def set_logging_level(level: int = logging.INFO):
+    logger = logging.getLogger("struphy")  # root logger (as used in your config)
+    logger.setLevel(level)
+    for handler in logger.handlers:
+        handler.setLevel(level)
+        
+    logger.debug(f"\nNew logger level: {logger.level}, effective: {logger.getEffectiveLevel()}, propagate: {logger.propagate}")
+    for h in logger.handlers:
+        logger.debug(f"{type(h).__name__}: handler level: {h.level}")
+
+def setup_logging(logging_level: int = logging.WARNING):
     logger = logging.getLogger("struphy")
-
-    # config["handlers"]["file"]["level"] = logging_level
-    config["handlers"]["stderr"]["level"] = logging_level
-
+    
     logging.config.dictConfig(config)
+    
+    set_logging_level(logging_level)
 
     # Add RankZeroFilter to all handlers
     rank = MPI.COMM_WORLD.Get_rank()
