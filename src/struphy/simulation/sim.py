@@ -502,7 +502,7 @@ class Simulation(SimulationBase):
             If True, print additional runtime information.
         """
 
-        logger.info(f"\nStarting simulation run for model {self.model_name} ...")
+        logger.warning(f"\nStarting simulation run for model {self.model_name} ...")
         if self.name != "":
             logger.info(f"Simulation name: {self.name}")
         if self.description != "":
@@ -691,7 +691,7 @@ RESTARTing from:
         if self.rank == 0:
             # save meta-data
             dict_to_yaml(self.meta, os.path.join(self.env.path_out, "meta.yml"))
-        logger.info("Struphy run finished.")
+        logger.warning("Struphy run finished.")
 
         if self.clone_config is not None:
             self.clone_config.free()
