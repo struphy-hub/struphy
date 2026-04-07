@@ -15,7 +15,7 @@ from struphy.physics.physics import Units
 from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.docstring_converter import rst_to_markdown
+from struphy.utils.docstring_converter import rst_to_markdown, rst_to_html
 from struphy.utils.utils import all_class_params_are_default, all_subclasses
 
 
@@ -116,13 +116,6 @@ class StruphyModel(metaclass=StruphyModelMeta):
     # ----------------
     # Abstract methods
     # ----------------
-
-    @classmethod
-    @abstractmethod
-    def model_type(cls) -> LiteralOptions.ModelTypes:
-        """Model type (Fluid, Kinetic, Hybrid, or Toy)"""
-        pass
-
     @abstractmethod
     class Propagators:
         pass
@@ -149,6 +142,48 @@ class StruphyModel(metaclass=StruphyModelMeta):
     @abstractmethod
     def update_scalar_quantities(self):
         """Specify an update rule for each item in ``scalar_quantities`` using :meth:`update_scalar`."""
+
+    @classmethod
+    @abstractmethod
+    def model_type(cls) -> LiteralOptions.ModelTypes:
+        """Model type (Fluid, Kinetic, Hybrid, or Toy)"""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def long_description(cls) -> str:
+        """Long description of the model, used in documentation."""
+        pass
+    
+    @classmethod
+    @abstractmethod
+    def equations(cls) -> str:
+        """Equations solved by the model (rst formatted), used in documentation."""
+        pass
+    
+    @classmethod
+    @abstractmethod
+    def normalization(cls) -> str:
+        """Normalization of the model (rst formatted), used in documentation."""
+        pass
+    
+    @classmethod
+    @abstractmethod
+    def examples(cls) -> str:
+        """Examples of the model instantiation, used in documentation."""
+        pass
+    
+    @classmethod
+    @abstractmethod
+    def use_cases(cls) -> str:
+        """Use cases for the model, used in documentation."""
+        pass
+    
+    @classmethod
+    @abstractmethod
+    def cannot_be_used_for(cls) -> str:
+        """Scenarios for which the model is not suitable, used in documentation."""
+        pass
 
     # --------------
     # Common methods
@@ -217,6 +252,11 @@ class StruphyModel(metaclass=StruphyModelMeta):
     @classmethod
     def name(cls) -> str:
         return cls.__name__
+
+    @classmethod
+    def short_description(cls) -> str:
+        assert cls.__doc__, "Docstring is required for every model."
+        return cls.__doc__
 
     def add_scalar(self, name: str, variable: PICVariable | SPHVariable = None, compute=None, summands=None):
         """
@@ -885,3 +925,20 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
     # def time_state(self):
     #     """A pointer to the time variable of the dynamics ('t')."""
     #     return self._time_state
+
+
+class Documentation:
+    def __init__(self, 
+                cls: StruphyModel,
+                ):
+        self.short_description = self.Content(short_description)
+        self.equations = self.Content(equations)
+        self.normalization = self.Content(normalization)
+        self.scalar_quantities = cls.update_scalar_quantities.__doc__
+        self.model_properties = f"- **Model type:** {cls.model_type()}\n- **Velocity scale:** {cls.velocity_scale}\n- **Bulk species:** {cls.bulk_species}"
+        
+    class Content:
+        def __init__(self, rst, md=None, html=None):
+            self.rst = rst
+            self.md = md or rst_to_markdown(rst)
+            self.html = html or rst_to_html(rst)

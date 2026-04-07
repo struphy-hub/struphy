@@ -1,7 +1,7 @@
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.io.options import LiteralOptions
-from struphy.models.base import StruphyModel
+from struphy.models.base import StruphyModel, Documentation
 from struphy.models.species import (
     FieldSpecies,
 )
@@ -18,10 +18,6 @@ rank = MPI.COMM_WORLD.Get_rank()
 @auto_convert_docstring
 class Maxwell(StruphyModel):
     """Maxwell's equations in vacuum for electromagnetic field evolution."""
-
-    @classmethod
-    def model_type(cls) -> LiteralOptions.ModelTypes:
-        return "Toy"
 
     ## species
 
@@ -55,6 +51,9 @@ class Maxwell(StruphyModel):
         self.add_scalar("electric energy")
         self.add_scalar("magnetic energy")
         self.add_scalar("total energy")
+        
+        # docstrings
+        self.doc = self.create_doc()
 
     @property
     def bulk_species(self):
@@ -80,6 +79,79 @@ class Maxwell(StruphyModel):
         self.update_scalar("electric energy", en_E)
         self.update_scalar("magnetic energy", en_B)
         self.update_scalar("total energy", en_E + en_B)
+        
+    ## abstract methods for documentation
+    
+    @classmethod
+    def model_type(cls) -> LiteralOptions.ModelTypes:
+        return "Toy"
+    
+    @classmethod
+    def long_description(cls) -> str:
+        """This model simulates the propagation of electromagnetic waves in vacuum 
+        using Maxwell's equations without sources. 
+        It uses a finite element exterior calculus (FEEC) formulation 
+        with the electric field in H(curl) and the magnetic field in H(div) spaces."""
+        return cls.long_description.__doc__
+    
+    @classmethod
+    def equations(cls) -> str:
+        r"""Ampère's law (no current):
+
+.. math::
+
+    \frac{\partial \mathbf E}{\partial t} - \nabla\times\mathbf B = 0
+
+Faraday's law:
+
+.. math::
+
+    \frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0"""
+        return cls.equations.__doc__
+    
+    @classmethod
+    def normalization(cls) -> str:
+        r"""Fields are normalized such that:
+
+.. math::
+
+    \hat E = c \hat B
+
+where :math:`c` is the speed of light."""
+        return cls.normalization.__doc__
+
+    @classmethod
+    def examples(cls) -> str:
+        r"""Create and initialize a Maxwell model:
+
+.. code-block:: python
+
+    from struphy.models import Maxwell
+    
+    model = Maxwell()
+    # Fields are accessible via:
+    # model.em_fields.e_field
+    # model.em_fields.b_field
+"""
+        return cls.examples.__doc__    
+    
+    @classmethod
+    def use_cases(cls):
+        """Propagation of electromagnetic waves in vacuum."""
+        return cls.use_cases.__doc__
+    
+    @classmethod
+    def cannot_be_used_for(cls):
+        """Plasma dynamics, plasma-field interactions, or any scenario involving charged particles. 
+        This model does not include any particle species or coupling to matter."""
+        return cls.cannot_be_used_for.__doc__
+    
+    @classmethod
+    def create_doc(cls) -> Documentation:
+        
+        doc = Documentation(cls)
+        
+        return doc
 
     __doc_rst__ = r"""
 Maxwell's equations in vacuum for electromagnetic field evolution.
@@ -141,15 +213,5 @@ The following quantities are tracked during simulation:
 - :class:`~struphy.propagators.propagators_fields.Maxwell` - Maxwell propagator implementation
 
 **Examples**
-
-Create and initialize a Maxwell model:
-
-.. code-block:: python
-
-    from struphy.models.maxwell import Maxwell
-    
-    model = Maxwell()
-    # Fields are accessible via:
-    # model.em_fields.e_field
-    # model.em_fields.b_field
 """
+
