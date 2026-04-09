@@ -29,7 +29,7 @@ def test_weak_Landau(do_plot: bool = False):
     The computed damping rate is compared to the analytical rate.
     """
     # light-weight model instance
-    model = VlasovAmpereOneSpecies(with_B0=False)
+    model = VlasovAmpereOneSpecies(ion_alpha=1.0, ion_epsilon=-1.0, with_B0=False)
 
     # environment options
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
@@ -49,9 +49,7 @@ def test_weak_Landau(do_plot: bool = False):
     # derham options
     derham_opts = DerhamOptions(degree=(3, 1, 1))
 
-    # species parameters
-    model.kinetic_ions.set_species_properties(alpha=1.0, epsilon=-1.0)
-
+    # markers
     ppc = 1000
     loading_params = LoadingParameters(ppc=ppc, seed=1234)
     weights_params = WeightsParameters(control_variate=True)

@@ -45,11 +45,12 @@ from struphy import (
 # ---------------------
 
 from struphy.models import VlasovAmpereOneSpecies
-model = VlasovAmpereOneSpecies(with_B0=False)
 
-# List all species and set their physical properties (charge and mass number, etc.)
-model.em_fields.set_species_properties()
-model.kinetic_ions.set_species_properties(alpha=1.0, epsilon=-1.0)
+# Units
+base_units = BaseUnits()
+
+# Model instance
+model = VlasovAmpereOneSpecies(ion_alpha=1.0, ion_epsilon=-1.0, with_B0=False)
 
 # List all variables and decide whether to save their data
 model.em_fields.e_field.save_data = True
@@ -62,9 +63,6 @@ model.kinetic_ions.var.save_data = True
 
 # Environment options
 env = EnvironmentOptions(sim_folder="sim_data")
-
-# Units
-base_units = BaseUnits()
 
 # Time stepping
 time_opts = Time(dt = 0.05, Tend = 75.0, split_algo = "LieTrotter")
