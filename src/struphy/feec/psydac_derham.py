@@ -46,7 +46,13 @@ from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearO
 from struphy.topology.grids import TensorProductGrid
 
 NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
-
+space_to_form = {
+            "H1": "0",
+            "Hcurl": "1",
+            "Hdiv": "2",
+            "L2": "3",
+            "H1vec": "v",
+        }
 
 class DiscreteDerham:
     """Discrete 3D de Rham sequence built from four FE spaces.
@@ -192,7 +198,6 @@ class DiscreteDerham:
         P3 = GlobalGeometricProjectorL2(self.V3, nquads)
 
         return P0, P1, P2, P3
-
 
 class SplineAttributes1D:
     """Container for 1D spline metadata extracted from a 3D FE space.
@@ -492,7 +497,6 @@ class SplineAttributes1D:
     def quad_grid_bases(self) -> list[list[xp.ndarray]] | list[xp.ndarray]:
         """List of quadrature grid basis function values in each direction for each component of the vector space (or just one list for scalar space)."""
         return self._quad_grid_bases
-
 
 class Derham:
     """High-level discrete de Rham complex on the 3D logical unit cube.
@@ -869,7 +873,7 @@ class Derham:
         return self._options
 
     @property
-    def comm(self):
+    def comm(self) -> MPI.Intracomm | None:
         """MPI communicator."""
         return self._comm
 
