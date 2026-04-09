@@ -9,7 +9,6 @@ from struphy.models.species import (
     ParticleSpecies,
 )
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.physics.physics import Units
 from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.propagators import (
@@ -112,7 +111,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
             kappa=ion_kappa,
         )
 
-        # 2. derive units (must be done after instantiating species to compute equation parameters if not set by user)
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
