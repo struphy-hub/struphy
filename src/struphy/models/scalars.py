@@ -123,11 +123,6 @@ class PICScalar(Scalar):
     def __init__(self, pic_variable: PICVariable, normalization: float=1.0,):
         assert isinstance(pic_variable, PICVariable), "variable must be an instance of PICVariable"
         super().__init__(pic_variable)
-        
-        self.velocities = pic_variable.particles.velocities # TODO: velocities need to redefined for Particles5d? Put magnetic moment as COM.
-        self.weights = pic_variable.particles.weights
-        self.Np = pic_variable.particles.Np
-        self.clone_config = pic_variable.particles.clone_config
         self.normalization = normalization
 
     def _local_update(self):
@@ -145,6 +140,9 @@ class PICScalar(Scalar):
             )
             
         # sum between clones
+        if not hasattr(self, "clone_config"):
+            self.clone_config = self.variables[0].particles.clone_config
+        
         if self.clone_config is not None:
             self.clone_config.inter_comm.Allreduce(
                 MPI.IN_PLACE,
@@ -163,6 +161,11 @@ class KineticEnergyPIC(PICScalar):
     and :math:`w_i` and :math:`v_i` are the weight and velocity of particle :math:`i`, respectively.
     """
     def _local_update(self):
+        if not hasattr(self, "velocities"):
+            self.velocities = self.variables[0].particles.velocities # TODO: velocities need to redefined for Particles5d? Put magnetic moment as COM.
+            self.weights = self.variables[0].particles.weights
+            self.Np = self.variables[0].particles.Np
+        
         energy = self.normalization * 0.5 / self.Np * xp.sum(self.weights * xp.sum(self.velocities**2, axis=1))
         self.local_value[0] = energy
 

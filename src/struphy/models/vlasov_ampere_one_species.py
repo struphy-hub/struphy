@@ -1,8 +1,8 @@
-import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import KineticEnergyPIC, QuadraticEnergyFEEC, Scalars
 from struphy.models.species import (
     FieldSpecies,
     ParticleSpecies,
@@ -72,10 +72,16 @@ class VlasovAmpereOneSpecies(StruphyModel):
         self.propagators.coupling_va.variables.e = self.em_fields.e_field
         self.propagators.coupling_va.variables.ions = self.kinetic_ions.var
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_E")
-        self.add_scalar("en_f", compute="from_particles", variable=self.kinetic_ions.var)
-        self.add_scalar("en_tot")
+        # define scalars to be tracked during simulation
+        electric_energy = QuadraticEnergyFEEC(self.em_fields.e_field)
+        kinetic_energy = KineticEnergyPIC(self.kinetic_ions.var)
+        total_energy = electric_energy + kinetic_energy
+
+        self.scalars = Scalars(
+            electric_energy=electric_energy,
+            kinetic_energy=kinetic_energy,
+            total_energy=total_energy,
+        )
 
         # initial Poisson (not a propagator used in time stepping)
         self.initial_poisson = propagators_fields.Poisson()
@@ -94,8 +100,6 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
         :meta private:
         """
-        self._tmp = xp.empty(1, dtype=float)
-
         if MPI.COMM_WORLD.Get_rank() == 0:
             print("\nINITIAL POISSON SOLVE:")
 
@@ -122,6 +126,9 @@ class VlasovAmpereOneSpecies(StruphyModel):
         alpha = self.kinetic_ions.equation_params.alpha
         epsilon = self.kinetic_ions.equation_params.epsilon
 
+        # Kinetic energy is alpha^2/(2 Np) * sum_p w_p |v_p|^2.
+        self.scalars.dct["kinetic_energy"].normalization = alpha**2 #TODO: it would be nice to have alpha (and other eq. params) before runtime
+
         self.initial_poisson.options.rho = charge_accum
         self.initial_poisson.options.rho_coeffs = alpha**2 / epsilon
         self.initial_poisson.allocate()
@@ -138,30 +145,6 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
         # reset particle weights
         particles.weights = particles.weights_at_t0.copy()
-
-    def update_scalar_quantities(self):
-        # e*M1*e/2
-        e = self.em_fields.e_field.spline.vector
-        en_E = 0.5 * Propagator.mass_ops.M1.dot_inner(e, e)
-        self.update_scalar("en_E", en_E)
-
-        # alpha^2 / 2 / N * sum_p w_p v_p^2
-        particles = self.kinetic_ions.var.particles
-        alpha = self.kinetic_ions.equation_params.alpha
-        self._tmp[0] = (
-            alpha**2
-            / (2 * particles.Np)
-            * xp.dot(
-                particles.markers_wo_holes[:, 3] ** 2
-                + particles.markers_wo_holes[:, 4] ** 2
-                + particles.markers_wo_holes[:, 5] ** 2,
-                particles.markers_wo_holes[:, 6],
-            )
-        )
-        self.update_scalar("en_f", self._tmp[0])
-
-        # en_tot = en_w + en_e
-        self.update_scalar("en_tot", en_E + self._tmp[0])
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
