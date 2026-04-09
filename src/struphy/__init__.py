@@ -1,8 +1,10 @@
 # Logging parameters and filters
+import atexit
 import logging
 import logging.config
-import atexit
+
 from feectools.ddm.mpi import mpi as MPI
+
 
 class RankZeroFilter(logging.Filter):
     def __init__(self, rank: int):
@@ -12,63 +14,58 @@ class RankZeroFilter(logging.Filter):
     def filter(self, record):
         return self.rank == 0
 
+
 # logger configuration
 config = {
-  "version": 1,
-  "disable_existing_loggers": False,
-  "formatters": {
-    "simple": {
-      "format": "%(message)s"
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "simple": {"format": "%(message)s"},
+        "detailed": {
+            "format": "[%(levelname)s|%(module)s|L%(lineno)d] %(asctime)s: %(message)s",
+            "datefmt": "%Y-%m-%dT%H:%M:%S%z",
+        },
     },
-    "detailed": {
-      "format": "[%(levelname)s|%(module)s|L%(lineno)d] %(asctime)s: %(message)s",
-      "datefmt": "%Y-%m-%dT%H:%M:%S%z"
-    }
-  },
-  "handlers": {
-    "stderr": {
-      "class": "logging.StreamHandler",
-      "level": "WARNING",
-      "formatter": "simple",
-      "stream": "ext://sys.stderr"
+    "handlers": {
+        "stderr": {
+            "class": "logging.StreamHandler",
+            "level": "WARNING",
+            "formatter": "simple",
+            "stream": "ext://sys.stderr",
+        },
+        "file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "level": "WARNING",
+            "formatter": "detailed",
+            "filename": "/tmp/struphy.log",
+            "maxBytes": 10000,
+            "backupCount": 3,
+        },
     },
-    "file": {
-      "class": "logging.handlers.RotatingFileHandler",
-      "level": "WARNING",
-      "formatter": "detailed",
-      "filename": "/tmp/struphy.log",
-      "maxBytes": 10000,
-      "backupCount": 3
-    }
-  },
-  "loggers": {
-    "struphy": {
-      "level": "WARNING",
-      "handlers": [
-        "stderr",
-        "file"
-      ]
-    }
-  }
+    "loggers": {"struphy": {"level": "WARNING", "handlers": ["stderr", "file"]}},
 }
+
 
 def set_logging_level(level: int = logging.INFO):
     """Set logging level for struphy logger and its handlers."""
-    logger = logging.getLogger("struphy") 
+    logger = logging.getLogger("struphy")
     logger.setLevel(level)
     for handler in logger.handlers:
         handler.setLevel(level)
-        
-    logger.debug(f"\nNew logger level: {logger.level}, effective: {logger.getEffectiveLevel()}, propagate: {logger.propagate}")
+
+    logger.debug(
+        f"\nNew logger level: {logger.level}, effective: {logger.getEffectiveLevel()}, propagate: {logger.propagate}"
+    )
     for h in logger.handlers:
         logger.debug(f"{type(h).__name__}: handler level: {h.level}")
+
 
 def setup_logging(logging_level: int = logging.WARNING):
     """Setup logging configuration for struphy."""
     logger = logging.getLogger("struphy")
-    
+
     logging.config.dictConfig(config)
-    
+
     set_logging_level(logging_level)
 
     # Add RankZeroFilter to all handlers
@@ -93,6 +90,7 @@ def setup_logging(logging_level: int = logging.WARNING):
     if queue_handler is not None:
         queue_handler.listener.start()
         atexit.register(queue_handler.listener.stop)
+
 
 # Default logging setup
 logger = logging.getLogger("struphy")
