@@ -8,6 +8,7 @@ from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
 from scope_profiler import ProfileManager
 
+from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.species import DiagnosticSpecies, FieldSpecies, FluidSpecies, ParticleSpecies, Species
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
@@ -129,7 +130,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
 
     @abstractmethod
     def __init__(self):
-        """Light-weight init of model."""
+        pass
 
     @property
     @abstractmethod
@@ -352,15 +353,31 @@ class StruphyModel(metaclass=StruphyModelMeta):
             sq_str += f"{key}:".ljust(25) + "{:4.2e}\n".format(val[0]).rjust(26)
         print(sq_str)
 
-    def setup_equation_params(self, units: Units, verbose=False):
-        """Set euqation parameters for each fluid and kinetic species."""
+    def setup_equation_params(self, base_units: BaseUnits, verbose=False):
+        """Compute units and set equation parameters for each fluid and kinetic species."""
+        self.units = Units(base_units)
+
+        if self.bulk_species is None:
+            A_bulk = None
+            Z_bulk = None
+        else:
+            A_bulk = self.bulk_species.mass_number
+            Z_bulk = self.bulk_species.charge_number
+
+        self.units.derive_units(
+            velocity_scale=self.velocity_scale,
+            A_bulk=A_bulk,
+            Z_bulk=Z_bulk,
+            verbose=verbose,
+        )
+
         for _, species in self.fluid_species.items():
             assert isinstance(species, FluidSpecies)
-            species.setup_equation_params(units=units, verbose=verbose)
+            species.setup_equation_params(units=self.units, verbose=verbose)
 
         for _, species in self.particle_species.items():
             assert isinstance(species, ParticleSpecies)
-            species.setup_equation_params(units=units, verbose=verbose)
+            species.setup_equation_params(units=self.units, verbose=verbose)
 
     @profile
     def integrate(self, dt, split_algo="LieTrotter"):
@@ -545,7 +562,6 @@ class StruphyModel(metaclass=StruphyModelMeta):
                 exit()
 
         # loop over species to create parameter snippets
-        species_params = ""
         variables_params = ""
         particle_params = """\n# -------------------
 # Particle parameters
@@ -556,7 +572,6 @@ class StruphyModel(metaclass=StruphyModelMeta):
         has_sph = False
         for sn, species in self.species.items():
             assert isinstance(species, Species)
-            species_params += f"model.{sn}.set_species_properties()\n"
 
             if isinstance(species, ParticleSpecies):
                 particle_params += "\nloading_params = LoadingParameters()\n"
@@ -672,10 +687,12 @@ Users can modify this file to set up their own simulations with different parame
 # ---------------------\n""")
 
         file.write(f"\nfrom struphy.models import {self.__class__.__name__}\n")
-        file.write(f"model = {self.__class__.__name__}()\n")
 
-        file.write("\n# List all species and set their physical properties (charge and mass number, etc.)\n")
-        file.write(species_params)
+        file.write("\n# Units\n")
+        file.write("base_units = BaseUnits()\n")
+
+        file.write("\n# Model instance\n")
+        file.write(f"model = {self.__class__.__name__}(base_units=base_units)\n")
 
         file.write("\n# List all variables and decide whether to save their data\n")
         file.write(variables_params)
@@ -686,9 +703,6 @@ Users can modify this file to set up their own simulations with different parame
 
         file.write("\n# Environment options\n")
         file.write("env = EnvironmentOptions()\n")
-
-        file.write("\n# Units\n")
-        file.write("base_units = BaseUnits()\n")
 
         file.write("\n# Time stepping\n")
         file.write("time_opts = Time()\n")
@@ -852,6 +866,16 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         if not hasattr(self, "_prop_list"):
             self._prop_list = list(self.propagators.__dict__.values())
         return self._prop_list
+
+    @property
+    def units(self) -> Units:
+        """Units of the model."""
+        return self._units
+
+    @units.setter
+    def units(self, new_units):
+        assert isinstance(new_units, Units)
+        self._units = new_units
 
     # @property
     # def prop_fields(self):

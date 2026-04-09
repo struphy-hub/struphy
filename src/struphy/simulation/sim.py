@@ -270,10 +270,6 @@ class Simulation(SimulationBase):
         self.clone_config = model.clone_config = clone_config
         self.Barrier()
 
-        # units and normalization parameters
-        self.units = Units(base_units)
-        self.normalize_model()
-
         if self.rank == 0 and verbose:
             print("\n... Done.")
 
@@ -634,7 +630,7 @@ RESTARTing from:
 
             # update time and index (round time to 10 decimals for a clean time grid!)
             self.time_state["value"][0] = round(self.time_state["value"][0] + dt, 14)
-            self.time_state["value_sec"][0] = round(self.time_state["value_sec"][0] + dt * self.units.t, 14)
+            self.time_state["value_sec"][0] = round(self.time_state["value_sec"][0] + dt * self.model.units.t, 14)
             self.time_state["index"][0] += 1
 
             # perform one time step dt
@@ -680,7 +676,7 @@ RESTARTing from:
                         + "physical time [s]:".ljust(25)
                         + "{0:4.2e} / {1:4.2e}".format(
                             self.time_state["value_sec"][0],
-                            Tend * self.units.t,
+                            Tend * self.model.units.t,
                         ).rjust(25)
                     )
                     message += "\n" + "wall clock time [s]:".ljust(25) + "{0:8.4f}".format(run_time_now * 60).rjust(25)
@@ -762,24 +758,6 @@ RESTARTing from:
     # ---------------------
     # Code specific methods
     # ---------------------
-    def normalize_model(self, verbose: bool = False):
-        """Compute derived units and normalization coefficients of equations.
-        Must be re-run when species properties have been changed.
-        """
-        if self.model.bulk_species is None:
-            A_bulk = None
-            Z_bulk = None
-        else:
-            A_bulk = self.model.bulk_species.mass_number
-            Z_bulk = self.model.bulk_species.charge_number
-        self.units.derive_units(
-            velocity_scale=self.model.velocity_scale,
-            A_bulk=A_bulk,
-            Z_bulk=Z_bulk,
-            verbose=verbose,
-        )
-        self.model.setup_equation_params(units=self.units, verbose=verbose)
-
     def compute_plasma_params(self, verbose: bool = True):
         """
         Compute and print volume averaged plasma parameters for each species of the model.
@@ -844,7 +822,7 @@ RESTARTing from:
         det_tmp = self.domain.jacobian_det(eta1, eta2, eta3)
         vol1 = xp.mean(xp.abs(det_tmp))
         # plasma volume (m⁻³)
-        plasma_volume = vol1 * self.units.x**3
+        plasma_volume = vol1 * self.model.units.x**3
         # transit length (m)
         transit_length = plasma_volume ** (1 / 3)
         # magnetic field (T)
@@ -852,9 +830,9 @@ RESTARTing from:
             B_tmp = self.equil.absB0(eta1, eta2, eta3)
         else:
             B_tmp = xp.zeros((eta1.size, eta2.size, eta3.size))
-        magnetic_field = xp.mean(B_tmp * xp.abs(det_tmp)) / vol1 * self.units.B
-        B_max = xp.max(B_tmp) * self.units.B
-        B_min = xp.min(B_tmp) * self.units.B
+        magnetic_field = xp.mean(B_tmp * xp.abs(det_tmp)) / vol1 * self.model.units.B
+        B_max = xp.max(B_tmp) * self.model.units.B
+        B_min = xp.min(B_tmp) * self.model.units.B
 
         if magnetic_field < 1e-14:
             magnetic_field = xp.nan

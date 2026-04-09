@@ -71,14 +71,49 @@ class Species(metaclass=ABCMeta):
             out += f"{v}\n"
         return out
 
-    # set species attribute for each variable
-    def init_variables(self):
+    def init_variables(
+        self,
+        charge_number: int = 1,
+        mass_number: int = 1,
+        alpha: float = None,
+        epsilon: float = None,
+        kappa: float = None,
+    ):
+        """Create variables dict and set physical and equation parameters for a plasma species.
+
+        Sets the charge and mass numbers, and optionally overrides normalized equation parameters
+        (alpha, epsilon, kappa) that would otherwise be computed from physical units.
+
+        Parameters
+        ----------
+        charge_number : int, optional
+            Charge number in units of elementary charge (default = 1).
+        mass_number : int, optional
+            Mass number in units of proton mass (default = 1).
+        alpha : float, optional
+            Dimensionless parameter: plasma frequency / cyclotron frequency.
+            If None, computed from units and charge/mass numbers (default = None).
+        epsilon : float, optional
+            Normalized cyclotron period: 1 / (cyclotron frequency × time unit).
+            If None, computed from units and charge/mass numbers (default = None).
+        kappa : float, optional
+            Normalized plasma frequency: plasma frequency × time unit.
+            If None, computed from units and charge/mass numbers (default = None)."""
+
+        # create variables dict
         self._variables = {}
         for k, v in self.__dict__.items():
             if isinstance(v, Variable):
                 v._name = k
                 v._species = self
                 self._variables[k] = v
+
+        # set species properties
+        self._charge_number = charge_number
+        self._mass_number = mass_number
+        self._alpha = alpha
+        self._epsilon = epsilon
+        self._kappa = kappa
 
     @property
     def variables(self) -> dict:
@@ -118,47 +153,6 @@ class Species(metaclass=ABCMeta):
         if not hasattr(self, "_kappa"):
             self._kappa = None
         return self._kappa
-
-    def set_species_properties(
-        self,
-        charge_number: int = 1,
-        mass_number: int = 1,
-        alpha: float = None,
-        epsilon: float = None,
-        kappa: float = None,
-    ):
-        """Set physical and equation parameters for a plasma species.
-
-        Sets the charge and mass numbers, and optionally overrides normalized equation parameters
-        (alpha, epsilon, kappa) that would otherwise be computed from physical units.
-
-        Parameters
-        ----------
-        charge_number : int, optional
-            Charge number in units of elementary charge (default = 1).
-        mass_number : int, optional
-            Mass number in units of proton mass (default = 1).
-        alpha : float, optional
-            Dimensionless parameter: plasma frequency / cyclotron frequency.
-            If None, computed from units and charge/mass numbers (default = None).
-        epsilon : float, optional
-            Normalized cyclotron period: 1 / (cyclotron frequency × time unit).
-            If None, computed from units and charge/mass numbers (default = None).
-        kappa : float, optional
-            Normalized plasma frequency: plasma frequency × time unit.
-            If None, computed from units and charge/mass numbers (default = None).
-
-        Notes
-        -----
-        This method should be called BEFORE instantiating a Simulation object.
-        For existing simulation objects, call Simulation.normalize_model() to apply changes.
-        A warning will be issued if this requirement is not followed."""
-
-        self._charge_number = charge_number
-        self._mass_number = mass_number
-        self._alpha = alpha
-        self._epsilon = epsilon
-        self._kappa = kappa
 
     class EquationParameters:
         """Normalization parameters of one species, appearing in scaled equations."""
@@ -246,19 +240,10 @@ class FieldSpecies(Species):
     >>> E_field.set_species_properties(alpha=0.5, epsilon=0.1, kappa=0.2)
     """
 
-    def set_species_properties(
-        self,
-        alpha: float = None,
-        epsilon: float = None,
-        kappa: float = None,
-    ):
-        """Set equation parameters (alpha, epsilon, kappa) to override units."""
-
-        self._charge_number = 0
-        self._mass_number = 0
-        self._alpha = alpha
-        self._epsilon = epsilon
-        self._kappa = kappa
+    def init_variables(self):
+        """Create variables dict.
+        For field species, set charge and mass numbers to zero by default."""
+        super().init_variables(charge_number=0, mass_number=0)
 
 
 class FluidSpecies(Species):
