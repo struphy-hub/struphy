@@ -1,4 +1,8 @@
+import logging
+
 import pytest
+
+logger = logging.getLogger("struphy")
 
 
 @pytest.mark.parametrize("num_elements", [[8, 9, 10]])
@@ -70,9 +74,9 @@ def test_draw(num_elements, degree, bcs, mapping, ppc=10):
     domain_decomp = (domain_array, nprocs)
 
     if rank == 0:
-        print()
-        print("Domain decomposition according to : ")
-        print(derham.domain_array)
+        logger.info("")
+        logger.info("Domain decomposition according to : ")
+        logger.info(derham.domain_array)
 
     # create particles
     loading_params = LoadingParameters(
@@ -94,26 +98,20 @@ def test_draw(num_elements, degree, bcs, mapping, ppc=10):
     # test weights
     particles.initialize_weights()
     _w0 = particles.weights
-    print("Test weights:")
-    print(f"rank {rank}:", _w0.shape, xp.min(_w0), xp.max(_w0))
+    logger.info("Test weights:")
+    logger.info(f"rank {rank}: {_w0.shape} {xp.min(_w0)} {xp.max(_w0)}")
 
     comm.Barrier()
-    print("Number of particles w/wo holes on each process before sorting : ")
-    print(
-        "Rank",
-        rank,
-        ":",
-        particles.n_mks_loc,
-        particles.markers.shape[0],
-    )
+    logger.info("Number of particles w/wo holes on each process before sorting : ")
+    logger.info(f"Rank {rank} : {particles.n_mks_loc} {particles.markers.shape[0]}")
 
     # sort particles according to domain decomposition
     comm.Barrier()
     particles.mpi_sort_markers(do_test=True)
 
     comm.Barrier()
-    print("Number of particles w/wo holes on each process after sorting : ")
-    print("Rank", rank, ":", particles.n_mks_loc, particles.markers.shape[0])
+    logger.info("Number of particles w/wo holes on each process after sorting : ")
+    logger.info(f"Rank {rank} : {particles.n_mks_loc} {particles.markers.shape[0]}")
 
     # are all markers in the correct domain?
     conds = xp.logical_and(

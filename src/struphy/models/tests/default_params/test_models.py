@@ -1,7 +1,11 @@
+import logging
+
 import pytest
 
 import struphy.models.utils as models_utils
 from struphy.models.tests import utils_testing as ut
+
+logger = logging.getLogger("struphy")
 
 # specific tests
 
@@ -78,7 +82,7 @@ def test_single_model(
     nclones: int = 1,
     show_plots: bool = False,
 ):
-    print(f"{model_name = }")
+    logger.info(f"{model_name = }")
     model = models_utils.get_model_by_name(model_name=model_name)
     ut.call_test(
         model=model(),

@@ -1,6 +1,7 @@
 # from __future__ import annotations
 "Domain-related utility functions."
 
+import logging
 from typing import Callable
 
 import cunumpy as xp
@@ -18,6 +19,8 @@ from struphy.geometry.base import Domain, PoloidalSplineTorus
 from struphy.geometry.utilities_kernels import weighted_arc_lengths_flux_surface
 from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.linalg_kron import kron_lusolve_2d
+
+logger = logging.getLogger("struphy")
 
 
 def get_domain_by_name(domain_name: str) -> type["Domain"]:
@@ -232,7 +235,7 @@ def field_line_tracing(
 
     # for all other parametrizations continue
     else:
-        print("Calculation of pre-mapping successful! Start angle parametrization " + xi_param + ".")
+        logger.info("Calculation of pre-mapping successful! Start angle parametrization " + xi_param + ".")
 
         # create temporary domain
         domain_eq_angle = PoloidalSplineTorus(

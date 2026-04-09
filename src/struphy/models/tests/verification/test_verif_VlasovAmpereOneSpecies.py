@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 
@@ -22,6 +23,8 @@ from struphy import (
     perturbations,
 )
 from struphy.models import VlasovAmpereOneSpecies
+
+logger = logging.getLogger("struphy")
 
 
 def test_weak_Landau(do_plot: bool = False):
@@ -152,7 +155,7 @@ def test_weak_Landau(do_plot: bool = False):
         # assert
         rel_error = xp.abs(gamma_num - gamma) / xp.abs(gamma)
         assert rel_error < 0.22, f"Assertion for weak Landau damping failed: {gamma_num =} vs. {gamma =}."
-        print(f"Assertion for weak Landau damping passed ({rel_error =}).")
+        logger.info(f"Assertion for weak Landau damping passed ({rel_error =}).")
 
         shutil.rmtree(test_folder)
 

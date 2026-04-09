@@ -1,3 +1,4 @@
+import logging
 from time import time
 
 import cunumpy as xp
@@ -9,6 +10,8 @@ from struphy.feec.psydac_derham import Derham
 from struphy.io.options import DerhamOptions
 from struphy.pic.particles import Particles6D
 from struphy.topology.grids import TensorProductGrid
+
+logger = logging.getLogger("struphy")
 
 
 @pytest.mark.parametrize("nx", [8, 70])
@@ -138,7 +141,7 @@ def test_sorting(num_elements, degree, bcs, mapping, Np, verbose=False):
     time_end = time()
     time_sorting = time_end - time_start
 
-    print("Rank : {0} | Sorting time : {1:8.6f}".format(rank, time_sorting))
+    logger.info("Rank : {0} | Sorting time : {1:8.6f}".format(rank, time_sorting))
 
     box_markers = particles.markers[:, -2]
     assert all(box_markers[i] <= box_markers[i + 1] for i in range(len(box_markers) - 1))

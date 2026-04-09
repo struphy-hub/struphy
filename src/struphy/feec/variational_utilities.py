@@ -1,3 +1,4 @@
+import logging
 from copy import deepcopy
 
 import cunumpy as xp
@@ -13,6 +14,8 @@ from struphy.feec.basis_projection_ops import (
 )
 from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.feec.psydac_derham import Derham
+
+logger = logging.getLogger("struphy")
 
 
 class BracketOperator(LinOpWithTransp):
@@ -825,7 +828,7 @@ class Pressure_transport_operator(LinOpWithTransp):
 
         self.Pip_div.update_weights(self._weights2)
 
-        # print(self.Pip_divT._dof_mat._data)
+        # logger.info(self.Pip_divT._dof_mat._data)
 
         pf0_values = self.field.eval_tp_fixed_loc(
             self.hist_grid_20_spans,
