@@ -1,5 +1,9 @@
+import logging
+
 import cunumpy as xp
 import pytest
+
+logger = logging.getLogger("struphy")
 
 
 @pytest.mark.parametrize("num_elements", [[8, 9, 10]])
@@ -40,7 +44,7 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
     DR = Derham(grid, derham_opts, comm=comm)
 
     if rank == 0:
-        print(f"\nnum_elements={num_elements}, degree={degree}, bcs={bcs}\n")
+        logger.info(f"\nnum_elements={num_elements}, degree={degree}, bcs={bcs}\n")
 
     # DR attributes
     pn = xp.array(DR.degree)
@@ -52,7 +56,7 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
 
     comm.Barrier()
     sleep(0.02 * (rank + 1))
-    print(f"rank {rank} | starts1['v0']: {starts1['v0']}")
+    logger.info(f"rank {rank} | starts1['v0']: {starts1['v0']}")
     comm.Barrier()
 
     # basis identifiers
@@ -122,9 +126,9 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
     for eta1, eta2, eta3 in zip(eta1s, eta2s, eta3s):
         comm.Barrier()
         sleep(0.02 * (rank + 1))
-        print(f"rank {rank} | eta1 = {eta1}")
-        print(f"rank {rank} | eta2 = {eta2}")
-        print(f"rank {rank} | eta3 = {eta3}\n")
+        logger.info(f"rank {rank} | eta1 = {eta1}")
+        logger.info(f"rank {rank} | eta2 = {eta2}")
+        logger.info(f"rank {rank} | eta3 = {eta3}\n")
         comm.Barrier()
 
         # spans (i.e. index for non-vanishing basis functions)
@@ -172,9 +176,9 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
 
         comm.Barrier()
         sleep(0.02 * (rank + 1))
-        print(f"rank {rank} | particles rows[0]['N']: {rows[0]['N']}, rows[0]['D'] {rows[0]['D']}")
-        print(f"rank {rank} | particles rows[1]['N']: {rows[1]['N']}, rows[1]['D'] {rows[1]['D']}")
-        print(f"rank {rank} | particles rows[2]['N']: {rows[2]['N']}, rows[2]['D'] {rows[2]['D']}")
+        logger.info(f"rank {rank} | particles rows[0]['N']: {rows[0]['N']}, rows[0]['D'] {rows[0]['D']}")
+        logger.info(f"rank {rank} | particles rows[1]['N']: {rows[1]['N']}, rows[1]['D'] {rows[1]['D']}")
+        logger.info(f"rank {rank} | particles rows[2]['N']: {rows[2]['N']}, rows[2]['D'] {rows[2]['D']}")
         comm.Barrier()
 
         # local column indices in _data of non-vanishing B- and D-splines, as sets for comparison
@@ -224,7 +228,7 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
 
                     # test with basis evaluation (_b)
                     if rank == 0:
-                        print(f"\nTesting {name_b} ...")
+                        logger.info(f"\nTesting {name_b} ...")
 
                     fun_b(DR.args_derham, eta1, eta2, eta3, *args)
 
@@ -247,7 +251,7 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
 
                     # test without basis evaluation
                     if rank == 0:
-                        print(f"\nTesting {name} ...")
+                        logger.info(f"\nTesting {name} ...")
 
                     fun(DR.args_derham, span1, span2, span3, *args)
 
@@ -272,14 +276,14 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
 
         # testing salar spaces
         if rank == 0:
-            print("\nTesting mat_fill_b_v0 ...")
+            logger.info("\nTesting mat_fill_b_v0 ...")
         ptomat.mat_fill_b_v0(DR.args_derham, eta1, eta2, eta3, mat["v0"], fill_mat[0, 0])
         assert_mat(mat["v0"], rows, cols, basis["v0"], basis["v0"], rank)  # assertion test of mat
         count += 1
         comm.Barrier()
 
         if rank == 0:
-            print("\nTesting m_v_fill_b_v0 ...")
+            logger.info("\nTesting m_v_fill_b_v0 ...")
         ptomat.m_v_fill_b_v0(DR.args_derham, eta1, eta2, eta3, mat["v0"], fill_mat[0, 0], vec["v0"], fill_vec[0])
         assert_mat(mat["v0"], rows, cols, basis["v0"], basis["v0"], rank)  # assertion test of mat
         assert_vec(vec["v0"], rows, basis["v0"], rank)  # assertion test of vec
@@ -287,14 +291,14 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
         comm.Barrier()
 
         if rank == 0:
-            print("\nTesting mat_fill_b_v3 ...")
+            logger.info("\nTesting mat_fill_b_v3 ...")
         ptomat.mat_fill_b_v3(DR.args_derham, eta1, eta2, eta3, mat["v3"], fill_mat[0, 0])
         assert_mat(mat["v3"], rows, cols, basis["v3"], basis["v3"], rank)  # assertion test of mat
         count += 1
         comm.Barrier()
 
         if rank == 0:
-            print("\nTesting m_v_fill_b_v3 ...")
+            logger.info("\nTesting m_v_fill_b_v3 ...")
         ptomat.m_v_fill_b_v3(DR.args_derham, eta1, eta2, eta3, mat["v3"], fill_mat[0, 0], vec["v3"], fill_vec[0])
         assert_mat(mat["v3"], rows, cols, basis["v3"], basis["v3"], rank)  # assertion test of mat
         assert_vec(vec["v3"], rows, basis["v3"], rank)  # assertion test of vec
@@ -302,14 +306,14 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
         comm.Barrier()
 
         if rank == 0:
-            print("\nTesting mat_fill_v0 ...")
+            logger.info("\nTesting mat_fill_v0 ...")
         ptomat.mat_fill_v0(DR.args_derham, span1, span2, span3, mat["v0"], fill_mat[0, 0])
         assert_mat(mat["v0"], rows, cols, basis["v0"], basis["v0"], rank)  # assertion test of mat
         count += 1
         comm.Barrier()
 
         if rank == 0:
-            print("\nTesting m_v_fill_v0 ...")
+            logger.info("\nTesting m_v_fill_v0 ...")
         ptomat.m_v_fill_v0(DR.args_derham, span1, span2, span3, mat["v0"], fill_mat[0, 0], vec["v0"], fill_vec[0])
         assert_mat(mat["v0"], rows, cols, basis["v0"], basis["v0"], rank)  # assertion test of mat
         assert_vec(vec["v0"], rows, basis["v0"], rank)  # assertion test of vec
@@ -317,14 +321,14 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
         comm.Barrier()
 
         if rank == 0:
-            print("\nTesting mat_fill_v3 ...")
+            logger.info("\nTesting mat_fill_v3 ...")
         ptomat.mat_fill_v3(DR.args_derham, span1, span2, span3, mat["v3"], fill_mat[0, 0])
         assert_mat(mat["v3"], rows, cols, basis["v3"], basis["v3"], rank)  # assertion test of mat
         count += 1
         comm.Barrier()
 
         if rank == 0:
-            print("\nTesting m_v_fill_v3 ...")
+            logger.info("\nTesting m_v_fill_v3 ...")
         ptomat.m_v_fill_v3(DR.args_derham, span1, span2, span3, mat["v3"], fill_mat[0, 0], vec["v3"], fill_vec[0])
         assert_mat(mat["v3"], rows, cols, basis["v3"], basis["v3"], rank)  # assertion test of mat
         assert_vec(vec["v3"], rows, basis["v3"], rank)  # assertion test of vec
@@ -332,7 +336,7 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
         comm.Barrier()
 
         if rank == 0:
-            print(f"\n{count}/40 particle_to_mat_kernels routines tested.")
+            logger.info(f"\n{count}/40 particle_to_mat_kernels routines tested.")
 
 
 def assert_mat(mat, rows, cols, row_str, col_str, rank, verbose=False):
@@ -370,13 +374,13 @@ def assert_mat(mat, rows, cols, row_str, col_str, rank, verbose=False):
     atol = 1e-14
 
     if verbose:
-        print(f"\n({row_str}) ({col_str})")
-        print(f"rank {rank} | ind_row1: {set(xp.where(mat > atol)[0])}")
-        print(f"rank {rank} | ind_row2: {set(xp.where(mat > atol)[1])}")
-        print(f"rank {rank} | ind_row3: {set(xp.where(mat > atol)[2])}")
-        print(f"rank {rank} | ind_col1: {set(xp.where(mat > atol)[3])}")
-        print(f"rank {rank} | ind_col2: {set(xp.where(mat > atol)[4])}")
-        print(f"rank {rank} | ind_col3: {set(xp.where(mat > atol)[5])}")
+        logger.info(f"\n({row_str}) ({col_str})")
+        logger.info(f"rank {rank} | ind_row1: {set(xp.where(mat > atol)[0])}")
+        logger.info(f"rank {rank} | ind_row2: {set(xp.where(mat > atol)[1])}")
+        logger.info(f"rank {rank} | ind_row3: {set(xp.where(mat > atol)[2])}")
+        logger.info(f"rank {rank} | ind_col1: {set(xp.where(mat > atol)[3])}")
+        logger.info(f"rank {rank} | ind_col2: {set(xp.where(mat > atol)[4])}")
+        logger.info(f"rank {rank} | ind_col3: {set(xp.where(mat > atol)[5])}")
 
     # check if correct indices are non-zero
     for n, (r, c) in enumerate(zip(row_str, col_str)):
@@ -386,7 +390,7 @@ def assert_mat(mat, rows, cols, row_str, col_str, rank, verbose=False):
     # Set matrix back to zero
     mat[:, :] = 0.0
 
-    print(f"rank {rank} | Matrix index assertion passed for ({row_str}) ({col_str}).")
+    logger.info(f"rank {rank} | Matrix index assertion passed for ({row_str}) ({col_str}).")
 
 
 def assert_vec(vec, rows, row_str, rank, verbose=False):
@@ -417,10 +421,10 @@ def assert_vec(vec, rows, row_str, rank, verbose=False):
     atol = 1e-14
 
     if verbose:
-        print(f"\n({row_str})")
-        print(f"rank {rank} | ind_row1: {set(xp.where(vec > atol)[0])}")
-        print(f"rank {rank} | ind_row2: {set(xp.where(vec > atol)[1])}")
-        print(f"rank {rank} | ind_row3: {set(xp.where(vec > atol)[2])}")
+        logger.info(f"\n({row_str})")
+        logger.info(f"rank {rank} | ind_row1: {set(xp.where(vec > atol)[0])}")
+        logger.info(f"rank {rank} | ind_row2: {set(xp.where(vec > atol)[1])}")
+        logger.info(f"rank {rank} | ind_row3: {set(xp.where(vec > atol)[2])}")
 
     # check if correct indices are non-zero
     for n, r in enumerate(row_str):
@@ -429,7 +433,7 @@ def assert_vec(vec, rows, row_str, rank, verbose=False):
     # Set vector back to zero
     vec[:] = 0.0
 
-    print(f"rank {rank} | Vector index assertion passed for ({row_str}).")
+    logger.info(f"rank {rank} | Vector index assertion passed for ({row_str}).")
 
 
 if __name__ == "__main__":

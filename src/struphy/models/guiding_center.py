@@ -1,3 +1,5 @@
+import logging
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
@@ -12,6 +14,7 @@ from struphy.propagators import (
 )
 from struphy.propagators.base import Propagator
 
+logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
 
 
@@ -86,7 +89,7 @@ class GuidingCenter(StruphyModel):
         self.add_scalar("en_tot", compute="from_particles", variable=self.kinetic_ions.var)
 
         if rank == 0:
-            print("Done.")
+            logger.info("Done.")
 
     @property
     def bulk_species(self):

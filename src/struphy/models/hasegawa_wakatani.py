@@ -1,3 +1,5 @@
+import logging
+
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.stencil import StencilVector
 
@@ -13,6 +15,7 @@ from struphy.propagators import (
 )
 from struphy.propagators.base import Propagator
 
+logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
 
 
@@ -111,13 +114,13 @@ class HasegawaWakatani(StruphyModel):
         self.update_rho()
 
         if MPI.COMM_WORLD.Get_rank() == 0:
-            print("\nINITIAL POISSON SOLVE:")
+            logger.info("\nINITIAL POISSON SOLVE:")
 
         self.update_rho()
         self.propagators.poisson(1.0)
 
         if MPI.COMM_WORLD.Get_rank() == 0:
-            print("Done.")
+            logger.info("Done.")
 
     def update_scalar_quantities(self):
         pass

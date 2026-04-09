@@ -1,3 +1,4 @@
+import logging
 import warnings
 from abc import ABCMeta, abstractmethod
 
@@ -13,6 +14,8 @@ from struphy.particles.parameters import (
     WeightsParameters,
 )
 from struphy.physics.physics import ConstantsOfNature, Units
+
+logger = logging.getLogger("struphy")
 
 
 class Species(metaclass=ABCMeta):
@@ -207,9 +210,9 @@ class Species(metaclass=ABCMeta):
                     warnings.warn(f"Override equation parameter {self.kappa =}")
 
             if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-                print(f"\nSet normalization parameters for species {species.__class__.__name__}:")
+                logger.info(f"\nSet normalization parameters for species {species.__class__.__name__}:")
                 for key, val in self.__dict__.items():
-                    print((key + ":").ljust(25), "{:4.3e}".format(val))
+                    logger.info(f"{(key + ':').ljust(25)} {val:4.3e}")
 
     @property
     def equation_params(self) -> EquationParameters:

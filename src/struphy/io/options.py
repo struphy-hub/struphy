@@ -1,3 +1,4 @@
+import logging
 import os
 from dataclasses import dataclass, fields
 from typing import Any, Callable, Literal
@@ -8,6 +9,8 @@ from struphy.utils.utils import (
     all_class_params_are_default,
     check_option,
 )
+
+logger = logging.getLogger("struphy")
 
 
 class OptionsBase:
@@ -141,7 +144,7 @@ class Time(OptionsBase):
 
     def __str__(self):
         for k, v in self.__dict__.items():
-            print(f"{k}:".ljust(20), v)
+            logger.info(f"{k + ':':<20}{v}")
         return ""
 
     def __repr_no_defaults__(self):
@@ -180,7 +183,7 @@ class BaseUnits(OptionsBase):
     def __str__(self):
         units = ["m", "T", "1e20/m^3", "keV"]
         for (k, v), unit in zip(self.__dict__.items(), units):
-            print(f"{k}:".ljust(20), v, unit)
+            logger.info(f"{k + ':':<20}{v} {unit}")
         return ""
 
     def __repr_no_defaults__(self):
@@ -252,7 +255,7 @@ class DerhamOptions(OptionsBase):
 
     def __str__(self):
         for k, v in self.__dict__.items():
-            print(f"{k}:".ljust(20), v)
+            logger.info(f"{k + ':':<20}{v}")
         return ""
 
     def __repr_no_defaults__(self):
@@ -289,7 +292,7 @@ class FieldsBackground(OptionsBase):
 
     def __str__(self):
         for k, v in self.__dict__.items():
-            print(f"{k}:".ljust(20), v)
+            logger.info(f"{k + ':':<20}{v}")
         return ""
 
     def __repr_no_defaults__(self):
@@ -351,7 +354,7 @@ class EnvironmentOptions(OptionsBase):
 
     def __str__(self):
         for k, v in self.__dict__.items():
-            print(f"{k}:".ljust(20), v)
+            logger.info(f"{k + ':':<20}{v}")
         return ""
 
     def __repr_no_defaults__(self):

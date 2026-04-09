@@ -1,6 +1,10 @@
+import logging
+
 import pytest
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
+
+logger = logging.getLogger("struphy")
 
 
 @pytest.mark.parametrize("num_elements", [[8, 9, 5], [7, 8, 9]])
@@ -37,7 +41,7 @@ def test_clone_config(num_elements, Np, num_clones):
     # Print outputs
     pconf.print_clone_config()
     pconf.print_particle_config()
-    print(f"{pconf.get_Np_clone(Np) =}")
+    logger.info(f"{pconf.get_Np_clone(Np) =}")
 
 
 if __name__ == "__main__":

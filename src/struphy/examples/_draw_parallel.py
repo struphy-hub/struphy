@@ -1,3 +1,5 @@
+import logging
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
@@ -6,6 +8,8 @@ from struphy.geometry import domains
 from struphy.io.options import DerhamOptions
 from struphy.pic.particles import Particles6D
 from struphy.topology.grids import TensorProductGrid
+
+logger = logging.getLogger("struphy")
 
 
 def main():
@@ -40,9 +44,9 @@ def main():
     derham = Derham(grid, derham_opts, comm=comm)
 
     if rank == 0:
-        print()
-        print("Domain decomposition according to : ")
-        print(derham.domain_array)
+        logger.info("")
+        logger.info("Domain decomposition according to : ")
+        logger.info(derham.domain_array)
 
     # create particles
     particles = Particles6D(
@@ -52,8 +56,8 @@ def main():
     )
 
     comm.Barrier()
-    print("Number of particles w/wo holes on each process before sorting : ")
-    print("Rank", rank, ":", particles.n_mks_loc, particles.markers.shape[0])
+    logger.info("Number of particles w/wo holes on each process before sorting : ")
+    logger.info(f"Rank {rank} : {particles.n_mks_loc} {particles.markers.shape[0]}")
 
     domain.show(
         grid_info=derham.domain_array,
@@ -65,8 +69,8 @@ def main():
     particles.mpi_sort_markers()
 
     comm.Barrier()
-    print("Number of particles w/wo holes on each process after sorting : ")
-    print("Rank", rank, ":", particles.n_mks_loc, particles.markers.shape[0])
+    logger.info("Number of particles w/wo holes on each process after sorting : ")
+    logger.info(f"Rank {rank} : {particles.n_mks_loc} {particles.markers.shape[0]}")
 
     domain.show(
         grid_info=derham.domain_array,
@@ -84,7 +88,7 @@ def main():
 
     error_mks = particles.markers[xp.logical_and(~stay, ~holes)]
 
-    print(
+    logger.info(
         f"rank {rank} | markers not on correct process: {xp.nonzero(xp.logical_and(~stay, ~holes))} \
             \n corresponding positions:\n {error_mks[:, :3]}",
     )

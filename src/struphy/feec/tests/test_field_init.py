@@ -1,4 +1,8 @@
+import logging
+
 import pytest
+
+logger = logging.getLogger("struphy")
 
 
 @pytest.mark.parametrize("num_elements", [[8, 10, 12]])
@@ -49,20 +53,20 @@ def test_bckgr_init_const(num_elements, degree, bcs, spaces, vec_comps):
         if space in ("H1", "L2"):
             background = FieldsBackground(type="LogicalConst", values=(val,))
             field.initialize_coeffs(backgrounds=background)
-            print(
+            logger.info(
                 f"\n{rank =}, {space =}, after init:\n {xp.max(xp.abs(field(*meshgrids) - val)) =}",
             )
-            # print(f'{field(*meshgrids) = }')
+            # logger.info(f'{field(*meshgrids) = }')
             assert xp.allclose(field(*meshgrids), val)
         else:
             background = FieldsBackground(type="LogicalConst", values=(val, None, val))
             field.initialize_coeffs(backgrounds=background)
             for j, val in enumerate(background.values):
                 if val is not None:
-                    print(
+                    logger.info(
                         f"\n{rank =}, {space =}, after init:\n {j =}, {xp.max(xp.abs(field(*meshgrids)[j] - val)) =}",
                     )
-                    # print(f'{field(*meshgrids)[i] = }')
+                    # logger.info(f'{field(*meshgrids)[i] = }')
                     assert xp.allclose(field(*meshgrids)[j], val)
 
 
@@ -108,20 +112,20 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
     # test
     for key, val in inspect.getmembers(equils):
         if inspect.isclass(val) and val.__module__ == equils.__name__:
-            print(f"{key =}")
+            logger.info(f"{key =}")
             if "DESC" in key and not with_desc:
-                print(f"Attention: {with_desc =}, DESC not tested here !!")
+                logger.info(f"Attention: {with_desc =}, DESC not tested here !!")
                 continue
 
             if "GVEC" in key and not with_gvec:
-                print(f"Attention: {with_gvec =}, GVEC not tested here !!")
+                logger.info(f"Attention: {with_gvec =}, GVEC not tested here !!")
                 continue
 
             mhd_equil = val()
             if not isinstance(mhd_equil, FluidEquilibriumWithB):
                 continue
 
-            print(f"{mhd_equil.params =}")
+            logger.info(f"{mhd_equil.params =}")
 
             if "AdhocTorus" in key:
                 mhd_equil.domain = domains.HollowTorus(
@@ -163,7 +167,7 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
                 try:
                     mhd_equil.domain = domains.Cuboid()
                 except:
-                    print(f"Not setting domain for {key}.")
+                    logger.info(f"Not setting domain for {key}.")
 
             field_0 = derham.create_spline_function(
                 "name_0",
@@ -197,7 +201,7 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
             )
 
             # scalar spaces
-            print(
+            logger.info(
                 f"{xp.max(xp.abs(field_3(*meshgrids) - mhd_equil.p3(*meshgrids))) / xp.max(xp.abs(mhd_equil.p3(*meshgrids)))}",
             )
             assert (
@@ -209,7 +213,7 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
             )
 
             if isinstance(mhd_equil, FluidEquilibriumWithB):
-                print(
+                logger.info(
                     f"{xp.max(xp.abs(field_0(*meshgrids) - mhd_equil.absB0(*meshgrids))) / xp.max(xp.abs(mhd_equil.absB0(*meshgrids)))}",
                 )
                 assert (
@@ -219,7 +223,7 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
                     / xp.max(xp.abs(mhd_equil.absB0(*meshgrids)))
                     < 0.057
                 )
-            print("Scalar asserts passed.")
+            logger.info("Scalar asserts passed.")
 
             # vector-valued spaces
             ref = mhd_equil.u1(*meshgrids)
@@ -227,7 +231,7 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
                 denom = 1.0
             else:
                 denom = xp.max(xp.abs(ref[0]))
-            print(
+            logger.info(
                 f"{xp.max(xp.abs(field_1(*meshgrids)[0] - ref[0])) / denom =}",
             )
             assert xp.max(xp.abs(field_1(*meshgrids)[0] - ref[0])) / denom < 0.28
@@ -235,7 +239,7 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
                 denom = 1.0
             else:
                 denom = xp.max(xp.abs(ref[1]))
-            print(
+            logger.info(
                 f"{xp.max(xp.abs(field_1(*meshgrids)[1] - ref[1])) / denom =}",
             )
             assert xp.max(xp.abs(field_1(*meshgrids)[1] - ref[1])) / denom < 0.33
@@ -243,7 +247,7 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
                 denom = 1.0
             else:
                 denom = xp.max(xp.abs(ref[2]))
-            print(
+            logger.info(
                 f"{xp.max(xp.abs(field_1(*meshgrids)[2] - ref[2])) / denom =}",
             )
             assert (
@@ -255,14 +259,14 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
                 / denom
                 < 0.1
             )
-            print("u1 asserts passed.")
+            logger.info("u1 asserts passed.")
 
             ref = mhd_equil.u2(*meshgrids)
             if xp.max(xp.abs(ref[0])) < 1e-11:
                 denom = 1.0
             else:
                 denom = xp.max(xp.abs(ref[0]))
-            print(
+            logger.info(
                 f"{xp.max(xp.abs(field_2(*meshgrids)[0] - ref[0])) / denom =}",
             )
             assert xp.max(xp.abs(field_2(*meshgrids)[0] - ref[0])) / denom < 0.86
@@ -270,7 +274,7 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
                 denom = 1.0
             else:
                 denom = xp.max(xp.abs(ref[1]))
-            print(
+            logger.info(
                 f"{xp.max(xp.abs(field_2(*meshgrids)[1] - ref[1])) / denom =}",
             )
             assert (
@@ -286,18 +290,18 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
                 denom = 1.0
             else:
                 denom = xp.max(xp.abs(ref[2]))
-            print(
+            logger.info(
                 f"{xp.max(xp.abs(field_2(*meshgrids)[2] - ref[2])) / denom =}",
             )
             assert xp.max(xp.abs(field_2(*meshgrids)[2] - ref[2])) / denom < 0.21
-            print("u2 asserts passed.")
+            logger.info("u2 asserts passed.")
 
             ref = mhd_equil.uv(*meshgrids)
             if xp.max(xp.abs(ref[0])) < 1e-11:
                 denom = 1.0
             else:
                 denom = xp.max(xp.abs(ref[0]))
-            print(
+            logger.info(
                 f"{xp.max(xp.abs(field_4(*meshgrids)[0] - ref[0])) / denom =}",
             )
             assert xp.max(xp.abs(field_4(*meshgrids)[0] - ref[0])) / denom < 0.6
@@ -305,7 +309,7 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
                 denom = 1.0
             else:
                 denom = xp.max(xp.abs(ref[1]))
-            print(
+            logger.info(
                 f"{xp.max(xp.abs(field_4(*meshgrids)[1] - ref[1])) / denom =}",
             )
             assert (
@@ -321,7 +325,7 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
                 denom = 1.0
             else:
                 denom = xp.max(xp.abs(ref[2]))
-            print(
+            logger.info(
                 f"{xp.max(xp.abs(field_4(*meshgrids)[2] - ref[2])) / denom =}",
             )
             assert (
@@ -333,7 +337,7 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
                 / denom
                 < 0.04
             )
-            print("uv asserts passed.")
+            logger.info("uv asserts passed.")
 
             # plotting fields with equilibrium
             if show_plot and rank == 0:
@@ -1207,13 +1211,13 @@ def test_sincos_init_const(num_elements, degree, show_plot=False):
     f1_h = field_1(*meshgrids)
     f2_h = field_2(*meshgrids)
 
-    print(f"{xp.max(xp.abs(fun_0 - f0_h)) =}")
-    print(f"{xp.max(xp.abs(fun_1[0] - f1_h[0])) =}")
-    print(f"{xp.max(xp.abs(fun_1[1] - f1_h[1])) =}")
-    print(f"{xp.max(xp.abs(fun_1[2] - f1_h[2])) =}")
-    print(f"{xp.max(xp.abs(fun_2[0] - f2_h[0])) =}")
-    print(f"{xp.max(xp.abs(fun_2[1] - f2_h[1])) =}")
-    print(f"{xp.max(xp.abs(fun_2[2] - f2_h[2])) =}")
+    logger.info(f"{xp.max(xp.abs(fun_0 - f0_h)) =}")
+    logger.info(f"{xp.max(xp.abs(fun_1[0] - f1_h[0])) =}")
+    logger.info(f"{xp.max(xp.abs(fun_1[1] - f1_h[1])) =}")
+    logger.info(f"{xp.max(xp.abs(fun_1[2] - f1_h[2])) =}")
+    logger.info(f"{xp.max(xp.abs(fun_2[0] - f2_h[0])) =}")
+    logger.info(f"{xp.max(xp.abs(fun_2[1] - f2_h[1])) =}")
+    logger.info(f"{xp.max(xp.abs(fun_2[2] - f2_h[2])) =}")
 
     assert xp.max(xp.abs(fun_0 - f0_h)) < 3e-5
     assert xp.max(xp.abs(fun_1[0] - f1_h[0])) < 3e-5
@@ -1363,11 +1367,11 @@ def test_noise_init(num_elements, degree, bcs, space, direction):
     field.initialize_coeffs(perturbations=pert)
     field_np.initialize_coeffs(perturbations=pert)
 
-    # print('#'*80)
-    # print(f'npts={field.vector[0].space.npts}, npts_np={field_np.vector[0].space.npts}')
-    # print(f'rank={rank}: nprocs={derham.domain_array[rank]}')
-    # print(f'rank={rank}, field={field.vector[0].toarray_local().shape}, field_np={field_np.vector[0].toarray_local().shape}')
-    # print(f'rank={rank}: \ncomp{0}={field.vector[0].toarray_local()}, \ncomp{0}_np={field_np.vector[0].toarray_local()}')
+    # logger.info('#'*80)
+    # logger.info(f'npts={field.vector[0].space.npts}, npts_np={field_np.vector[0].space.npts}')
+    # logger.info(f'rank={rank}: nprocs={derham.domain_array[rank]}')
+    # logger.info(f'rank={rank}, field={field.vector[0].toarray_local().shape}, field_np={field_np.vector[0].toarray_local().shape}')
+    # logger.info(f'rank={rank}: \ncomp{0}={field.vector[0].toarray_local()}, \ncomp{0}_np={field_np.vector[0].toarray_local()}')
 
     compare_arrays(
         field.vector,

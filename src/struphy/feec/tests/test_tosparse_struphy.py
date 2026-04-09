@@ -1,6 +1,9 @@
+import logging
 import time
 
 import pytest
+
+logger = logging.getLogger("struphy")
 
 
 @pytest.mark.parametrize("num_elements", [[12, 5, 2], [8, 12, 4], [5, 4, 12]])
@@ -121,7 +124,7 @@ def test_tosparse_struphy(num_elements, degree, bcs, mapping):
     assert xp.allclose(v1_global, M1arrad.dot(v1arr))
     assert xp.allclose(v2_global, M2arrad.dot(v2arr))
 
-    print("test_tosparse_struphy passed!")
+    logger.info("test_tosparse_struphy passed!")
 
 
 if __name__ == "__main__":

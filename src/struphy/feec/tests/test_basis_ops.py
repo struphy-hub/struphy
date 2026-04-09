@@ -1,4 +1,8 @@
+import logging
+
 import pytest
+
+logger = logging.getLogger("struphy")
 
 
 @pytest.mark.parametrize("num_elements", [[8, 12, 4]])
@@ -50,10 +54,10 @@ def test_some_basis_ops(num_elements, degree, bcs, mapping):
 
     # grid parameters
     if mpi_rank == 0:
-        print(f"Rank {mpi_rank} | num_elements: {num_elements}")
-        print(f"Rank {mpi_rank} | degree: {degree}")
-        print(f"Rank {mpi_rank} | bcs: {bcs}")
-        print(f"Rank {mpi_rank} | ")
+        logger.info(f"Rank {mpi_rank} | num_elements: {num_elements}")
+        logger.info(f"Rank {mpi_rank} | degree: {degree}")
+        logger.info(f"Rank {mpi_rank} | bcs: {bcs}")
+        logger.info(f"Rank {mpi_rank} | ")
 
     # Mhd equilibirum (slab)
     mhd_equil_params = {"B0x": 0.0, "B0y": 0.0, "B0z": 1.0, "beta": 2.0, "n0": 1.0}
@@ -69,12 +73,12 @@ def test_some_basis_ops(num_elements, degree, bcs, mapping):
     V0vec = DERHAM_PSY.Vvfem
 
     if mpi_rank == 0:
-        print(f"Rank {mpi_rank} | type(V0) {type(V0)}")
-        print(f"Rank {mpi_rank} | type(V1) {type(V1)}")
-        print(f"Rank {mpi_rank} | type(V2) {type(V2)}")
-        print(f"Rank {mpi_rank} | type(V3) {type(V3)}")
-        print(f"Rank {mpi_rank} | type(V0vec) {type(V0vec)}")
-        print(f"Rank {mpi_rank} | ")
+        logger.info(f"Rank {mpi_rank} | type(V0) {type(V0)}")
+        logger.info(f"Rank {mpi_rank} | type(V1) {type(V1)}")
+        logger.info(f"Rank {mpi_rank} | type(V2) {type(V2)}")
+        logger.info(f"Rank {mpi_rank} | type(V3) {type(V3)}")
+        logger.info(f"Rank {mpi_rank} | type(V0vec) {type(V0vec)}")
+        logger.info(f"Rank {mpi_rank} | ")
 
     # Psydac projectors
     P0 = DERHAM_PSY.P0
@@ -83,12 +87,12 @@ def test_some_basis_ops(num_elements, degree, bcs, mapping):
     P3 = DERHAM_PSY.P3
     P0vec = DERHAM_PSY.Pv
     if mpi_rank == 0:
-        print(f"Rank {mpi_rank} | type(P0) {type(P0)}")
-        print(f"Rank {mpi_rank} | type(P1) {type(P1)}")
-        print(f"Rank {mpi_rank} | type(P2) {type(P2)}")
-        print(f"Rank {mpi_rank} | type(P3) {type(P3)}")
-        print(f"Rank {mpi_rank} | type(P0vec) {type(P0vec)}")
-        print(f"Rank {mpi_rank} | ")
+        logger.info(f"Rank {mpi_rank} | type(P0) {type(P0)}")
+        logger.info(f"Rank {mpi_rank} | type(P1) {type(P1)}")
+        logger.info(f"Rank {mpi_rank} | type(P2) {type(P2)}")
+        logger.info(f"Rank {mpi_rank} | type(P3) {type(P3)}")
+        logger.info(f"Rank {mpi_rank} | type(P0vec) {type(P0vec)}")
+        logger.info(f"Rank {mpi_rank} | ")
 
     # Psydac MHD operators
     OPS_PSY = BasisProjectionOperators(DERHAM_PSY, domain, eq_mhd=EQ_MHD)
@@ -112,11 +116,11 @@ def test_some_basis_ops(num_elements, degree, bcs, mapping):
 
     MPI_COMM.Barrier()
 
-    print(f"rank: {mpi_rank} | x3_starts[0]: {x3_st.starts[0]}, x3_ends[0]: {x3_st.ends[0]}")
+    logger.info(f"rank: {mpi_rank} | x3_starts[0]: {x3_st.starts[0]}, x3_ends[0]: {x3_st.ends[0]}")
     MPI_COMM.Barrier()
-    print(f"rank: {mpi_rank} | x3_starts[1]: {x3_st.starts[1]}, x3_ends[1]: {x3_st.ends[1]}")
+    logger.info(f"rank: {mpi_rank} | x3_starts[1]: {x3_st.starts[1]}, x3_ends[1]: {x3_st.ends[1]}")
     MPI_COMM.Barrier()
-    print(f"rank: {mpi_rank} | x3_starts[2]: {x3_st.starts[2]}, x3_ends[2]: {x3_st.ends[2]}")
+    logger.info(f"rank: {mpi_rank} | x3_starts[2]: {x3_st.starts[2]}, x3_ends[2]: {x3_st.ends[2]}")
     MPI_COMM.Barrier()
 
     # Use .copy() in case input will be overwritten (is not the case I guess)
@@ -186,7 +190,7 @@ def test_some_basis_ops(num_elements, degree, bcs, mapping):
 
     # operator K3 (V3 --> V3)
     if mpi_rank == 0:
-        print("\nK3 (V3 --> V3, Identity operator in this case):")
+        logger.info("\nK3 (V3 --> V3, Identity operator in this case):")
 
     res_PSY = OPS_PSY.K3.dot(x3_st)
 
@@ -197,7 +201,7 @@ def test_some_basis_ops(num_elements, degree, bcs, mapping):
 
     # operator K0 (V0 --> V0)
     if mpi_rank == 0:
-        print("\nK0 (V0 --> V0, Identity operator in this case):")
+        logger.info("\nK0 (V0 --> V0, Identity operator in this case):")
 
     res_PSY = OPS_PSY.K0.dot(x0_st)
 
@@ -208,7 +212,7 @@ def test_some_basis_ops(num_elements, degree, bcs, mapping):
 
     # operator Q1 (V1 --> V2)
     if mpi_rank == 0:
-        print("\nQ1 (V1 --> V2):")
+        logger.info("\nQ1 (V1 --> V2):")
 
     res_PSY = OPS_PSY.Q1.dot(x1_st)
 
@@ -221,7 +225,7 @@ def test_some_basis_ops(num_elements, degree, bcs, mapping):
 
     # operator W1 (V1 --> V1)
     if mpi_rank == 0:
-        print("\nW1 (V1 --> V1, Identity operator in this case):")
+        logger.info("\nW1 (V1 --> V1, Identity operator in this case):")
 
     res_PSY = OPS_PSY.W1.dot(x1_st)
 
@@ -234,7 +238,7 @@ def test_some_basis_ops(num_elements, degree, bcs, mapping):
 
     # operator Q2 (V2 --> V2)
     if mpi_rank == 0:
-        print("\nQ2 (V2 --> V2, Identity operator in this case):")
+        logger.info("\nQ2 (V2 --> V2, Identity operator in this case):")
 
     res_PSY = OPS_PSY.Q2.dot(x2_st)
 
@@ -247,7 +251,7 @@ def test_some_basis_ops(num_elements, degree, bcs, mapping):
 
     # operator X1 (V1 --> V0 x V0 x V0)
     if mpi_rank == 0:
-        print("\nX1 (V1 --> V0 x V0 x V0):")
+        logger.info("\nX1 (V1 --> V0 x V0 x V0):")
 
     res_PSY = OPS_PSY.X1.dot(x1_st)
 
@@ -287,7 +291,7 @@ def test_basis_ops_polar(num_elements, degree, bcs, mapping, show_plots=False):
     mpi_rank = mpi_comm.Get_rank()
     mpi_size = mpi_comm.Get_size()
 
-    print("number of processes : ", mpi_size)
+    logger.info(f"number of processes : {mpi_size}")
 
     # mapping
     domain_class = getattr(domains, mapping[0])
@@ -340,8 +344,8 @@ def test_basis_ops_polar(num_elements, degree, bcs, mapping, show_plots=False):
     )
 
     if mpi_rank == 0:
-        print()
-        print(derham.domain_array)
+        logger.info("")
+        logger.info(derham.domain_array)
 
     mhd_ops_psy = BasisProjectionOperators(derham, domain, eq_mhd=eq_mhd)
 
@@ -376,7 +380,7 @@ def test_basis_ops_polar(num_elements, degree, bcs, mapping, show_plots=False):
     mpi_comm.Barrier()
 
     if mpi_rank == 0:
-        print("\nOperator K (V3 --> V3):")
+        logger.info("\nOperator K (V3 --> V3):")
 
     if mpi_rank == 0:
         r_psy = mhd_ops_psy.K3.dot(x3_pol_psy, tol=1e-10, verbose=True)
@@ -394,7 +398,7 @@ def test_basis_ops_polar(num_elements, degree, bcs, mapping, show_plots=False):
     mpi_comm.Barrier()
 
     if mpi_rank == 0:
-        print("\nOperator Q2 (V2 --> V2):")
+        logger.info("\nOperator Q2 (V2 --> V2):")
 
     if mpi_rank == 0:
         r_psy = mhd_ops_psy.Q2.dot(x2_pol_psy, tol=1e-10, verbose=True)
@@ -412,7 +416,7 @@ def test_basis_ops_polar(num_elements, degree, bcs, mapping, show_plots=False):
     mpi_comm.Barrier()
 
     if mpi_rank == 0:
-        print("\nOperator T2 (V2 --> V1):")
+        logger.info("\nOperator T2 (V2 --> V1):")
 
     if mpi_rank == 0:
         r_psy = mhd_ops_psy.T2.dot(x2_pol_psy, tol=1e-10, verbose=True)
@@ -430,7 +434,7 @@ def test_basis_ops_polar(num_elements, degree, bcs, mapping, show_plots=False):
     mpi_comm.Barrier()
 
     if mpi_rank == 0:
-        print("\nOperator S2 (V2 --> V2):")
+        logger.info("\nOperator S2 (V2 --> V2):")
 
     if mpi_rank == 0:
         r_psy = mhd_ops_psy.S2.dot(x2_pol_psy, tol=1e-10, verbose=True)
@@ -456,20 +460,20 @@ def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
         if MPI_COMM is not None:
             MPI_COMM.Barrier()
 
-        # print(f'Rank {mpi_rank} | ')
-        # print(f'Rank {mpi_rank} | res_PSY.shape   : {res_PSY.shape}')
-        # print(f'Rank {mpi_rank} | res_PSY[:].shape: {res_PSY[:].shape}')
-        # print(f'Rank {mpi_rank} | res_STR.shape   : {res_STR.shape}')
+        # logger.info(f'Rank {mpi_rank} | ')
+        # logger.info(f'Rank {mpi_rank} | res_PSY.shape   : {res_PSY.shape}')
+        # logger.info(f'Rank {mpi_rank} | res_PSY[:].shape: {res_PSY[:].shape}')
+        # logger.info(f'Rank {mpi_rank} | res_STR.shape   : {res_STR.shape}')
 
-        # print(f'Rank {mpi_rank} | res_PSY starts & ends:')
-        # print([
+        # logger.info(f'Rank {mpi_rank} | res_PSY starts & ends:')
+        # logger.info([
         #     res_PSY.starts[0], res_PSY.ends[0] + 1,
         #     res_PSY.starts[1], res_PSY.ends[1] + 1,
         #     res_PSY.starts[2], res_PSY.ends[2] + 1,
         # ])
 
-        # print(f'Rank {mpi_rank} | res_PSY starts & ends:')
-        # print([
+        # logger.info(f'Rank {mpi_rank} | res_PSY starts & ends:')
+        # logger.info([
         #     res_PSY.starts[0], res_PSY.ends[0] + 1,
         #     res_PSY.starts[1], res_PSY.ends[1] + 1,
         #     res_PSY.starts[2], res_PSY.ends[2] + 1,
@@ -477,41 +481,41 @@ def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
 
         # if MPI_COMM is not None: MPI_COMM.Barrier()
 
-        # print(f'Rank {mpi_rank} | res_PSY (local slice at starts[0]):')
-        # print(res_PSY[
+        # logger.info(f'Rank {mpi_rank} | res_PSY (local slice at starts[0]):')
+        # logger.info(res_PSY[
         #     res_PSY.starts[0],
         #     res_PSY.starts[1] : res_PSY.ends[1] + 1,
         #     res_PSY.starts[2] : res_PSY.ends[2] + 1,
         # ])
 
-        # print(f'Rank {mpi_rank} | res_STR (local slice at starts[0]):')
-        # print(res_STR[
+        # logger.info(f'Rank {mpi_rank} | res_STR (local slice at starts[0]):')
+        # logger.info(res_STR[
         #     res_PSY.starts[0],
         #     res_PSY.starts[1] : res_PSY.ends[1] + 1,
         #     res_PSY.starts[2] : res_PSY.ends[2] + 1,
         # ])
-        # print(f'Rank {mpi_rank} | ')
+        # logger.info(f'Rank {mpi_rank} | ')
 
         # for n in range(res_PSY.ends[0] + 1):
 
-        #     print(f'Rank {mpi_rank} | dof_PSY (local slice at starts[0] + {n}):')
-        #     print(dof_PSY[
+        #     logger.info(f'Rank {mpi_rank} | dof_PSY (local slice at starts[0] + {n}):')
+        #     logger.info(dof_PSY[
         #         res_PSY.starts[0] + n,
         #         res_PSY.starts[1] : res_PSY.ends[1] + 1,
         #         res_PSY.starts[2] : res_PSY.ends[2] + 1,
         #     ])
 
-        #     print(f'Rank {mpi_rank} | dof_STR (local slice at starts[0] + {n}):')
-        #     print(dof_STR[
+        #     logger.info(f'Rank {mpi_rank} | dof_STR (local slice at starts[0] + {n}):')
+        #     logger.info(dof_STR[
         #         res_PSY.starts[0] + n,
         #         res_PSY.starts[1] : res_PSY.ends[1] + 1,
         #         res_PSY.starts[2] : res_PSY.ends[2] + 1,
         #     ])
-        #     print(f'Rank {mpi_rank} | ')
+        #     logger.info(f'Rank {mpi_rank} | ')
 
         # if MPI_COMM is not None: MPI_COMM.Barrier()
 
-        print(
+        logger.info(
             f"Rank {mpi_rank} | Maximum absolute diference (result):\n",
             xp.max(
                 xp.abs(
