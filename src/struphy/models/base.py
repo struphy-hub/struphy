@@ -228,7 +228,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
 
     def print_scalar_quantities(self):
         """
-        Check if scalar_quantities are not "nan" and print to screen.
+        Check if scalars are not "nan" and print to screen.
         """
         sq_str = ""
         for key, scalar in self.scalars.dct.items():
@@ -759,12 +759,12 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
     #     Keys must be the same as in :attr:`~propagators_cls`, values are dictionaries holding the keyword arguments."""
     #     return self._kwargs
 
-    @property
-    def scalar_quantities(self):
-        """A dictionary of scalar quantities to be saved during the simulation."""
-        if not hasattr(self, "_scalar_quantities"):
-            self._scalar_quantities = {}
-        return self._scalar_quantities
+    # @property
+    # def scalar_quantities(self):
+    #     """A dictionary of scalar quantities to be saved during the simulation."""
+    #     if not hasattr(self, "_scalar_quantities"):
+    #         self._scalar_quantities = {}
+    #     return self._scalar_quantities
 
     # @property
     # def time_state(self):
