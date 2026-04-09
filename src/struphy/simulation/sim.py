@@ -30,6 +30,7 @@ from struphy import (
     domains,
     equils,
     grids,
+    set_logging_level,
 )
 
 # core imports
@@ -64,9 +65,8 @@ from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.simulation.base import SimulationBase
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.utils import dict_to_yaml, ruff_autofix_and_format, setup_logging
+from struphy.utils.utils import dict_to_yaml, ruff_autofix_and_format
 
-# Setup logging
 logger = logging.getLogger("struphy")
 
 
@@ -131,10 +131,11 @@ class Simulation(SimulationBase):
         equil: FluidEquilibrium = None,
         grid: grids.TensorProductGrid = grids.TensorProductGrid(),
         derham_opts: DerhamOptions = DerhamOptions(),
-        logging_level: int = logging.INFO,
+        logging_level: int | None = None,
         verbose: bool = False,
     ):
-        setup_logging(logging_level=logging_level)
+        if logging_level is not None:
+            set_logging_level(logging_level)
 
         self._name = name
         self._description = description
@@ -501,7 +502,7 @@ class Simulation(SimulationBase):
             If True, print additional runtime information.
         """
 
-        logger.info(f"\nStarting simulation run for model {self.model_name} ...")
+        logger.warning(f"\nStarting simulation run for model {self.model_name} ...")
         if self.name != "":
             logger.info(f"Simulation name: {self.name}")
         if self.description != "":
@@ -690,7 +691,7 @@ RESTARTing from:
         if self.rank == 0:
             # save meta-data
             dict_to_yaml(self.meta, os.path.join(self.env.path_out, "meta.yml"))
-        logger.info("Struphy run finished.")
+        logger.warning("Struphy run finished.")
 
         if self.clone_config is not None:
             self.clone_config.free()
