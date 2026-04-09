@@ -351,7 +351,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
         sq_str = ""
         for key, scalar_dict in self._scalar_quantities.items():
             val = scalar_dict["value"]
-            logger.info(f"{key}: {val[0]}")  # TODO: use logger --- IGNORE ---
+            # logger.info(f"{key}: {val[0]}")  # TODO: use logger --- IGNORE ---
             assert not xp.isnan(val[0]), f"Scalar {key} is {val[0]}."
             sq_str += f"{key}:".ljust(25) + "{:4.2e}\n".format(val[0]).rjust(26)
         logger.info(sq_str)
@@ -643,6 +643,11 @@ It contains all the necessary components of a Struphy simulation, including the 
 the environment options, the time stepping options, the geometry, the equilibrium, 
 the grid, the Derham options, and the initial conditions. 
 Users can modify this file to set up their own simulations with different parameters and initial conditions.\n\"\"\"\n""")
+
+        file.write("""
+import logging
+from struphy import set_logging_level
+set_logging_level(logging.WARNING)\n""")
 
         file.write("""\n# ------------------
 # Import Struphy API

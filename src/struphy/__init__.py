@@ -46,8 +46,16 @@ config = {
 }
 
 
-def set_logging_level(level: int = logging.INFO):
-    """Set logging level for struphy logger and its handlers."""
+def set_logging_level(level: int = logging.WARNING):
+    """Set logging level for struphy logger and its handlers.
+    
+    Useful levels are:
+    * logging.DEBUG: for detailed debugging information.
+    * logging.INFO: for general informational messages about the simulation setup and progress, plus key events.
+    * logging.WARNING: for warnings about potential issues that do not stop the simulation.
+    * logging.ERROR: for errors that occur during the simulation, which may affect results but do not necessarily stop the simulation.
+    * logging.CRITICAL: for critical errors that likely cause the simulation to stop or produce invalid results.
+    """
     logger = logging.getLogger("struphy")
     logger.setLevel(level)
     for handler in logger.handlers:
