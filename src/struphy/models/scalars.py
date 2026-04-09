@@ -6,6 +6,7 @@ from struphy.propagators.base import Propagator
 from struphy.feec.mass import WeightedMassOperator
 from struphy.feec.psydac_derham import space_to_form
 from typing import Union
+from struphy.utils.docstring_converter import auto_convert_docstring
 
 
 class Scalar(metaclass=ABCMeta):
@@ -78,16 +79,9 @@ class Scalars:
         for scalar in self.dct.values():
             scalar.uptodate = False
 
+@auto_convert_docstring
 class QuadraticEnergyFEEC(Scalar):
-    r"""Scalar representing a quadratic energy computed from a FEEC variable.
-    
-    For example, for a vector-valued variable :math:`\mathbf{u}` the computed energy is
-    
-    :math:
-    
-        \mathcal E = \frac{\alpha}{2} \int_\Omega \mathbf{u}^\top A \mathbf u  \, d \mathbf x\,,
-        
-    where :math:`\alpha` is a normalization constant and :math:`A` is a symmetric positive definite matrix (the identity by default)."""
+    """Scalar representing a quadratic energy computed from a FEEC variable."""
 
     def __init__(self, feec_variable: FEECVariable, bilinear_form_name: str=None, normalization: float=1.0,):
         assert isinstance(feec_variable, FEECVariable), "variable must be an instance of FEECVariable"
@@ -113,6 +107,14 @@ class QuadraticEnergyFEEC(Scalar):
     def _mpi_sum(self):
         """Communication has been handled by psydac's .dot_inner, so no additional MPI operations are needed."""
         self.value[0] = self.local_value[0]
+        
+    __doc_rst__ = r"""For example, for a vector-valued variable :math:`\mathbf{u}` the computed energy is
+
+.. math::
+
+    \mathcal E = \alpha \frac{1}{2} \int_{\Omega} \mathbf{u}^\top A \mathbf u  \, d \mathbf x\,,
+    
+where :math:`\alpha` is a normalization constant and :math:`A` is a symmetric positive definite matrix (the identity by default)."""
     
 class PICScalar(Scalar):
     """Base class for scalar quantities computed from PIC variables.
