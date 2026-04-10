@@ -46,7 +46,15 @@ from struphy import (
 # ---------------------
 
 from struphy.models import VlasovMaxwellOneSpecies
-model = VlasovMaxwellOneSpecies(measure_gauss_law=True)
+
+# Units
+base_units = BaseUnits()
+
+# Model instance
+model = VlasovMaxwellOneSpecies(base_units=base_units,
+                                alpha=1.0, 
+                                epsilon=-1.0,
+                                measure_gauss_law=True)
 
 # ---------------------
 # Parameters setup
@@ -59,10 +67,6 @@ B_pert_amp = -1e-4
 vth1_background_val = 0.02/xp.sqrt(2)
 vth2_background_val = vth1_background_val * xp.sqrt(12)
 
-# List all species and set their physical properties (charge and mass number, etc.)
-model.em_fields.set_species_properties()
-model.kinetic_ions.set_species_properties(alpha=1.0, epsilon=-1.0)
-
 # List all variables and decide whether to save their data
 model.em_fields.e_field.save_data = True
 model.em_fields.phi.save_data = True
@@ -74,9 +78,6 @@ model.kinetic_ions.var.save_data = True
 
 # Environment options
 env = EnvironmentOptions(sim_folder="sim_data")
-
-# Units
-base_units = BaseUnits()
 
 # Time stepping
 time_opts = Time(dt = 0.05, Tend = 400, split_algo = "LieTrotter")
