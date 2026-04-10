@@ -1,5 +1,6 @@
 "Base classes for MHD equilibria."
 
+import logging
 from abc import ABCMeta, abstractmethod
 
 import cunumpy as xp
@@ -12,6 +13,8 @@ from struphy.utils.utils import (
     __dataclass_repr_no_defaults__,
     all_class_params_are_default,
 )
+
+logger = logging.getLogger("struphy")
 
 
 class FluidEquilibrium(metaclass=ABCMeta):
@@ -1052,19 +1055,19 @@ class MHDequilibrium(FluidEquilibriumWithB):
             jump = 0
 
         x, y, z = self.domain(e1, e2, e3)
-        print("Evaluation of mapping done.")
+        logger.info("Evaluation of mapping done.")
         det_df = self.domain.jacobian_det(e1, e2, e3)
         p = self.p0(e1, e2, e3)
-        print("Computation of pressure done.")
+        logger.info("Computation of pressure done.")
 
         # ori 240624
         n_dens = self.n0(e1, e2, e3)
-        print("Computation of density done.")
+        logger.info("Computation of density done.")
 
         absB = self.absB0(e1, e2, e3)
-        print("Computation of abs(B) done.")
+        logger.info("Computation of abs(B) done.")
         j_cart, xyz = self.j_cart(e1, e2, e3)
-        print("Computation of current density done.")
+        logger.info("Computation of current density done.")
         absJ = xp.sqrt(j_cart[0] ** 2 + j_cart[1] ** 2 + j_cart[2] ** 2)
 
         _path = struphy.__path__[0] + "/fields_background/mhd_equil/gvec/output/"
@@ -1075,17 +1078,17 @@ class MHDequilibrium(FluidEquilibriumWithB):
             z,
             pointData={"det_df": det_df, "pressure": p, "absB": absB},
         )
-        print("Generation of vtk files done.")
+        logger.info("Generation of vtk files done.")
 
         # show params
-        print("\nEquilibrium parameters:")
+        logger.info("\nEquilibrium parameters:")
         for key, val in self.params.items():
-            print(key, ": ", val)
+            logger.info(f"{key}: {val}")
 
-        print("\nMapping parameters:")
+        logger.info("\nMapping parameters:")
         for key, val in self.domain.params.items():
             if key not in {"cx", "cy", "cz"}:
-                print(key, ": ", val)
+                logger.info(f"{key}: {val}")
 
         # poloidal plane grid
         fig = plt.figure(figsize=(13, xp.ceil(n_planes / 2) * 6.5))

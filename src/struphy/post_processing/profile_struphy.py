@@ -1,3 +1,4 @@
+import logging
 import pickle
 import sys
 
@@ -7,12 +8,14 @@ from matplotlib import pyplot as plt
 
 from struphy.post_processing.cprofile_analyser import get_cprofile_data, replace_keys
 
+logger = logging.getLogger("struphy")
+
 
 def main():
     """
     TODO
     """
-    print(sys.argv)
+    logger.info(sys.argv)
 
     # check --all option
     if sys.argv[1] == "true":
@@ -31,12 +34,12 @@ def main():
             "block",
             "integrate_in_time",
         ]
-        print("\nKeyword search enabled with keywords:")
-        print("-------------------------------------")
-        print(list_of_funcs)
+        logger.info("\nKeyword search enabled with keywords:")
+        logger.info("-------------------------------------")
+        logger.info(list_of_funcs)
 
-    print("\nLoad profiling data:")
-    print("--------------------")
+    logger.info("\nLoad profiling data:")
+    logger.info("--------------------")
 
     # replace propagator keys or not
     do_replace_keys = sys.argv[2] == "true"
@@ -50,7 +53,7 @@ def main():
     nproc = []
     num_elements = []
     for path in sys.argv[4:]:
-        print("")
+        logger.info("")
         get_cprofile_data(path)
 
         sim_names += [path.split("/")[-2]]
@@ -85,7 +88,7 @@ def main():
 
     # loop over keys (should be same in each dict)
     d_saved = {}
-    print(
+    logger.info(
         "simulation".ljust(20)
         + "#proc".ljust(7)
         + "pos".ljust(5)
@@ -95,7 +98,7 @@ def main():
         + "percall".ljust(15)
         + "cumtime".ljust(15),
     )
-    print("-" * 154)
+    logger.info("-" * 154)
     for position, key in enumerate(dicts[0].keys()):
         if list_of_funcs is None:
             for dict, sim_name, n, dim in zip(dicts, sim_names, nproc, num_elements):
@@ -106,8 +109,8 @@ def main():
                     #     string += '\t\t'
                     # else:
                     #     string += '\t'
-                print(string)
-            print("")
+                logger.info(string)
+            logger.info("")
 
             # TODO: Write an explanation of what this means
             if position == 50:
@@ -121,12 +124,12 @@ def main():
                 for value in dict[key].values():
                     string += str(value).ljust(15)
                     # string += '\t\t'
-                print(string)
+                logger.info(string)
 
                 d_saved[key]["mpi_size"] += [n]
                 d_saved[key]["num_elements"] += [dim]
                 d_saved[key]["time"] += [dict[key]]
-            print("")
+            logger.info("")
 
             # TODO: Write an explanation of what this means
             if position >= 200:
@@ -141,7 +144,7 @@ def main():
     fig = plt.figure(figsize=(10, 10))
     for n, (key, val) in enumerate(d_saved.items()):
         if n < n_lines and "__init__" not in key and "mass" not in key and "set_backend" not in key:
-            # print(key, val)
+            # logger.info(key, val)
 
             # strong scaling plot
             if all([num_elements == val["num_elements"][0] for num_elements in val["num_elements"]]):

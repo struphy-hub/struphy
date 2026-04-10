@@ -1,3 +1,5 @@
+import logging
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
@@ -19,6 +21,7 @@ from struphy.propagators import (
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
 
+logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
 
 
@@ -170,7 +173,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         self._tmp = xp.empty(1, dtype=float)
 
         if MPI.COMM_WORLD.Get_rank() == 0:
-            print("\nINITIAL POISSON SOLVE:")
+            logger.info("\nINITIAL POISSON SOLVE:")
 
         # use control variate method
         particles = self.kinetic_ions.var.particles
@@ -201,13 +204,13 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
         # Solve with dt=1. and compute electric field
         if MPI.COMM_WORLD.Get_rank() == 0:
-            print("\nSolving initial Poisson problem...")
+            logger.info("\nSolving initial Poisson problem...")
         self.initial_poisson(1.0)
 
         phi = self.initial_poisson.variables.phi.spline.vector
         Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
         if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-            print("... Done.")
+            logger.info("... Done.")
 
     def update_scalar_quantities(self):
         # e*M1*e/2

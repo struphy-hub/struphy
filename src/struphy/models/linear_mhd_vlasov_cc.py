@@ -1,3 +1,5 @@
+import logging
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
@@ -17,6 +19,7 @@ from struphy.propagators import (
 )
 from struphy.propagators.base import Propagator
 
+logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
 
 
@@ -206,7 +209,7 @@ class LinearMHDVlasovCC(StruphyModel):
         self.update_scalar("n_lost_particles", self._n_lost_particles[0])
 
         if rank == 0:
-            print(
+            logger.info(
                 "ratio of lost particles: ",
                 self._n_lost_particles[0] / particles.Np * 100,
                 "%",

@@ -1,6 +1,10 @@
+import logging
+
 import pytest
 
 from struphy.utils.pyccel import Pyccelkernel
+
+logger = logging.getLogger("struphy")
 
 
 @pytest.mark.parametrize("num_elements", [[8, 9, 5], [7, 8, 9]])
@@ -43,7 +47,7 @@ def test_push_vxb_analytic(num_elements, degree, bcs, mapping, show_plots=False)
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    print("")
+    logger.info("")
 
     # domain object
     domain_class = getattr(domains, mapping[0])
@@ -59,7 +63,7 @@ def test_push_vxb_analytic(num_elements, degree, bcs, mapping, show_plots=False)
     domain_decomp = (domain_array, nprocs)
 
     if rank == 0:
-        print("Domain decomposition : \n", derham.domain_array)
+        logger.info(f"Domain decomposition : \n{derham.domain_array}")
 
     # particle loading and sorting
     seed = 1234
@@ -152,7 +156,7 @@ def test_push_bxu_Hdiv(num_elements, degree, bcs, mapping, show_plots=False):
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    print("")
+    logger.info("")
 
     # domain object
     domain_class = getattr(domains, mapping[0])
@@ -168,7 +172,7 @@ def test_push_bxu_Hdiv(num_elements, degree, bcs, mapping, show_plots=False):
     domain_decomp = (domain_array, nprocs)
 
     if rank == 0:
-        print("Domain decomposition : \n", derham.domain_array)
+        logger.info(f"Domain decomposition : \n{derham.domain_array}")
 
     # particle loading and sorting
     seed = 1234
@@ -271,7 +275,7 @@ def test_push_bxu_Hcurl(num_elements, degree, bcs, mapping, show_plots=False):
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    print("")
+    logger.info("")
 
     # domain object
     domain_class = getattr(domains, mapping[0])
@@ -287,7 +291,7 @@ def test_push_bxu_Hcurl(num_elements, degree, bcs, mapping, show_plots=False):
     domain_decomp = (domain_array, nprocs)
 
     if rank == 0:
-        print("Domain decomposition : \n", derham.domain_array)
+        logger.info(f"Domain decomposition : \n{derham.domain_array}")
 
     # particle loading and sorting
     seed = 1234
@@ -390,7 +394,7 @@ def test_push_bxu_H1vec(num_elements, degree, bcs, mapping, show_plots=False):
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    print("")
+    logger.info("")
 
     # domain object
     domain_class = getattr(domains, mapping[0])
@@ -406,7 +410,7 @@ def test_push_bxu_H1vec(num_elements, degree, bcs, mapping, show_plots=False):
     domain_decomp = (domain_array, nprocs)
 
     if rank == 0:
-        print("Domain decomposition : \n", derham.domain_array)
+        logger.info(f"Domain decomposition : \n{derham.domain_array}")
 
     # particle loading and sorting
     seed = 1234
@@ -509,7 +513,7 @@ def test_push_bxu_Hdiv_pauli(num_elements, degree, bcs, mapping, show_plots=Fals
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    print("")
+    logger.info("")
 
     # domain object
     domain_class = getattr(domains, mapping[0])
@@ -525,7 +529,7 @@ def test_push_bxu_Hdiv_pauli(num_elements, degree, bcs, mapping, show_plots=Fals
     domain_decomp = (domain_array, nprocs)
 
     if rank == 0:
-        print("Domain decomposition : \n", derham.domain_array)
+        logger.info(f"Domain decomposition : \n{derham.domain_array}")
 
     # particle loading and sorting
     seed = 1234
@@ -639,7 +643,7 @@ def test_push_eta_rk4(num_elements, degree, bcs, mapping, show_plots=False):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
-    print("")
+    logger.info("")
 
     # domain object
     domain_class = getattr(domains, mapping[0])
@@ -655,7 +659,7 @@ def test_push_eta_rk4(num_elements, degree, bcs, mapping, show_plots=False):
     domain_decomp = (domain_array, nprocs)
 
     if rank == 0:
-        print("Domain decomposition : \n", derham.domain_array)
+        logger.info(f"Domain decomposition : \n{derham.domain_array}")
 
     # particle loading and sorting
     seed = 1234

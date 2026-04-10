@@ -1,9 +1,12 @@
+import logging
 from dataclasses import dataclass
 from typing import Tuple
 
 import numpy as np
 
 from struphy.utils.utils import __dataclass_repr_no_defaults__, all_class_params_are_default
+
+logger = logging.getLogger("struphy")
 
 
 @dataclass
@@ -25,7 +28,7 @@ class TensorProductGrid:
 
     def __str__(self):
         for k, v in self.__dict__.items():
-            print(f"{k}:".ljust(20), v)
+            logger.info(f"{k + ':':<20}{v}")
         return ""
 
     def __repr_no_defaults__(self):

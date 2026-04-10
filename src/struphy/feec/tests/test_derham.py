@@ -1,4 +1,8 @@
+import logging
+
 import pytest
+
+logger = logging.getLogger("struphy")
 
 
 # Test matrix for several valid initialization modes of Derham.

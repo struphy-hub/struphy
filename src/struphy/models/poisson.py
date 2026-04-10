@@ -1,3 +1,5 @@
+import logging
+
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.io.options import LiteralOptions
@@ -11,6 +13,7 @@ from struphy.propagators import (
 )
 from struphy.propagators.base import Propagator
 
+logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
 
 
@@ -97,12 +100,12 @@ class Poisson(StruphyModel):
 
         # Solve with dt=1. and compute electric field
         if MPI.COMM_WORLD.Get_rank() == 0:
-            print("\nSolving initial Poisson problem...")
+            logger.info("\nSolving initial Poisson problem...")
 
         self.propagators.poisson(1.0)
 
         if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-            print("... Done.")
+            logger.info("... Done.")
 
     def update_scalar_quantities(self):
         pass

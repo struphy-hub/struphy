@@ -1,3 +1,4 @@
+import logging
 import os
 from abc import ABCMeta, abstractmethod
 from textwrap import indent
@@ -18,6 +19,8 @@ from struphy.propagators.base import Propagator
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.docstring_converter import rst_to_markdown
 from struphy.utils.utils import all_class_params_are_default, all_subclasses
+
+logger = logging.getLogger("struphy")
 
 
 class StruphyModelMeta(ABCMeta):
@@ -194,7 +197,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
         try:
             from IPython.display import HTML, Markdown
         except ImportError:
-            print("IPython not available. Install jupyter to use this feature.")
+            logger.info("IPython not available. Install jupyter to use this feature.")
             return None
 
         # Determine which docstring to use
@@ -349,9 +352,10 @@ class StruphyModel(metaclass=StruphyModelMeta):
         sq_str = ""
         for key, scalar_dict in self._scalar_quantities.items():
             val = scalar_dict["value"]
+            # logger.info(f"{key}: {val[0]}")  # TODO: use logger --- IGNORE ---
             assert not xp.isnan(val[0]), f"Scalar {key} is {val[0]}."
             sq_str += f"{key}:".ljust(25) + "{:4.2e}\n".format(val[0]).rjust(26)
-        print(sq_str)
+        logger.info(sq_str)
 
     def setup_equation_params(self, base_units: BaseUnits, verbose=False):
         """Compute units and set equation parameters for each fluid and kinetic species."""
@@ -546,7 +550,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
             if yn in ("", "Y", "y", "yes", "Yes"):
                 file = open(path, "w")
             else:
-                print("exiting ...")
+                logger.info("exiting ...")
                 exit()
         except FileNotFoundError:
             folder = os.path.join("/", *path.split("/")[:-1])
@@ -558,7 +562,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
                 os.makedirs(folder)
                 file = open(path, "x")
             else:
-                print("exiting ...")
+                logger.info("exiting ...")
                 exit()
 
         # loop over species to create parameter snippets
@@ -654,6 +658,11 @@ It contains all the necessary components of a Struphy simulation, including the 
 the environment options, the time stepping options, the geometry, the equilibrium, 
 the grid, the Derham options, and the initial conditions. 
 Users can modify this file to set up their own simulations with different parameters and initial conditions.\n\"\"\"\n""")
+
+        file.write("""
+import logging
+from struphy import set_logging_level
+set_logging_level(logging.WARNING)\n""")
 
         file.write("""\n# ------------------
 # Import Struphy API
@@ -774,7 +783,7 @@ Users can modify this file to set up their own simulations with different parame
 
         file.close()
 
-        print(
+        logger.info(
             f"\nDefault parameter file for '{self.__class__.__name__}' has been created in the cwd ({path}).\n\
 You can now launch a simulation with 'python params_{self.__class__.__name__}.py'",
         )

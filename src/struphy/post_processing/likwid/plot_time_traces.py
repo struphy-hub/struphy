@@ -1,3 +1,4 @@
+import logging
 import os
 import pickle
 import re
@@ -10,6 +11,8 @@ from scope_profiler.h5reader import ProfilingH5Reader
 
 # pio.kaleido.scope.mathjax = None
 import struphy.post_processing.likwid.maxplotlylib as mply
+
+logger = logging.getLogger("struphy")
 
 
 def glob_to_regex(pat: str) -> str:
@@ -99,7 +102,7 @@ def plot_time_vs_duration(
     os.makedirs(output_path, exist_ok=True)
     figure_path = os.path.join(output_path, "time_vs_duration.pdf")
     plt.savefig(figure_path)
-    print(f"Saved time trace to: {figure_path}")
+    logger.info(f"Saved time trace to: {figure_path}")
 
 
 def plot_avg_duration_bar_chart(
@@ -132,7 +135,7 @@ def plot_avg_duration_bar_chart(
             region_durations.setdefault(region_name, []).extend(durations)
 
     if len(region_durations) == 0:
-        print("No regions matched the filter.")
+        logger.info("No regions matched the filter.")
         return
 
     # Compute statistics per region
@@ -162,7 +165,7 @@ def plot_avg_duration_bar_chart(
     os.makedirs(output_path, exist_ok=True)
     figure_path = os.path.join(output_path, "avg_duration_per_region.pdf")
     plt.savefig(figure_path)
-    print(f"Saved average duration bar chart to: {figure_path}")
+    logger.info(f"Saved average duration bar chart to: {figure_path}")
 
 
 def plot_gantt_chart_plotly(
@@ -198,7 +201,7 @@ def plot_gantt_chart_plotly(
     region_names = sorted(region_start_times, key=region_start_times.get)
 
     if len(region_names) == 0:
-        print("No regions found.")
+        logger.info("No regions found.")
         return
 
     # ---- Determine number of ranks ----
@@ -240,7 +243,7 @@ def plot_gantt_chart_plotly(
                 )
 
     if len(bars) == 0:
-        print("No regions matched the filter.")
+        logger.info("No regions matched the filter.")
         return
 
     # ---- Create Plotly figure ----
@@ -307,7 +310,7 @@ def plot_gantt_chart_plotly(
     if show:
         fig.show()
 
-    print(f"Saved interactive gantt chart to: {out_html}")
+    logger.info(f"Saved interactive gantt chart to: {out_html}")
 
 
 if __name__ == "__main__":
