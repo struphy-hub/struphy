@@ -52,8 +52,6 @@ class Species(metaclass=ABCMeta):
     -------
     init_variables()
         Discover and cache Variable objects from instance attributes.
-    set_species_properties(charge_number, mass_number, alpha, epsilon, kappa)
-        Set physical and equation parameters in parameter files.
     setup_equation_params(units, verbose)
         Compute equation normalization parameters from physical units.
 
@@ -236,11 +234,6 @@ class FieldSpecies(Species):
     Field species are used to represent electromagnetic or other non-particle fields in a plasma
     model. They have no direct physical mass or charge properties (charge_number = 0, mass_number = 0),
     but may have associated equation parameters for scaled formulations.
-
-    Examples
-    --------
-    >>> E_field = FieldSpecies()
-    >>> E_field.set_species_properties(alpha=0.5, epsilon=0.1, kappa=0.2)
     """
 
     def init_variables(self):
@@ -259,8 +252,7 @@ class FluidSpecies(Species):
 
     Examples
     --------
-    >>> ions = FluidSpecies()
-    >>> ions.set_species_properties(charge_number=-1, mass_number=1/1836)  # electrons
+    >>> electrons = MyFluidSpecies(charge_number=-1, mass_number=1/1836)  # for electrons
     """
 
 
@@ -283,8 +275,7 @@ class ParticleSpecies(Species):
 
     Examples
     --------
-    >>> electrons = ParticleSpecies()
-    >>> electrons.set_species_properties(charge_number=-1, mass_number=1/1836)
+    >>> electrons = MyParticleSpecies(charge_number=-1, mass_number=1/1836)
     >>> load_params = LoadingParameters(Np=100000)
     >>> electrons.set_markers(loading_params=load_params)
     >>> electrons.set_sorting_boxes(do_sort=True, sorting_frequency=10)

@@ -55,9 +55,6 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
     # light-weight model instance
     model = ViscousEulerSPH(with_B0=False, with_viscosity=False)
 
-    # species parameters
-    model.euler_fluid.set_species_properties()
-
     loading_params = LoadingParameters(ppb=8, loading="tesselation")
     weights_params = WeightsParameters()
     boundary_params = BoundaryParameters()

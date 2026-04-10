@@ -135,8 +135,7 @@ This is the setup for running the two-stream instability with the Vlasov-Maxwell
 Start by choosing a good model for this test, and set the species properties for your test::
 
     from struphy.models import VlasovAmpereOneSpecies
-    model = VlasovAmpereOneSpecies(with_B0 = False)
-    model.kinetic_ions.set_species_properties(alpha=1.0, epsilon=-1.0)
+    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0 = False)
 
 We then set the basic options for this test::
 
