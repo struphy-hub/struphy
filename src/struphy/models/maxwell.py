@@ -7,7 +7,7 @@ from struphy.models.species import (
     FieldSpecies,
 )
 from struphy.models.variables import FEECVariable
-from struphy.models.scalars import QuadraticEnergyFEEC, Scalars
+from struphy.models.scalars import BilinearEnergyFEEC, Scalars
 from struphy.propagators import (
     propagators_fields,
 )
@@ -63,8 +63,8 @@ class Maxwell(StruphyModel):
         self.propagators.maxwell.variables.b = self.em_fields.b_field
 
         # define scalars to be tracked during simulation
-        electric_energy = QuadraticEnergyFEEC(self.em_fields.e_field)
-        magnetic_energy = QuadraticEnergyFEEC(self.em_fields.b_field)
+        electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
+        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
         total_energy = electric_energy + magnetic_energy
         
         self.scalars = Scalars(electric_energy=electric_energy,

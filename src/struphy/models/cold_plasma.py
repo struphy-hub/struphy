@@ -2,7 +2,7 @@ from feectools.ddm.mpi import mpi as MPI
 
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import QuadraticEnergyFEEC, Scalars
+from struphy.models.scalars import BilinearEnergyFEEC, Scalars
 from struphy.models.species import (
     FieldSpecies,
     FluidSpecies,
@@ -121,9 +121,9 @@ class ColdPlasma(StruphyModel):
 
         self.propagators.jxb.variables.j = self.electrons.current
 
-        electric_energy = QuadraticEnergyFEEC(self.em_fields.e_field)
-        magnetic_energy = QuadraticEnergyFEEC(self.em_fields.b_field)
-        kinetic_energy = QuadraticEnergyFEEC(
+        electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
+        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
+        kinetic_energy = BilinearEnergyFEEC(
             self.electrons.current,
             bilinear_form_name="M1ninv",
             normalization=self.electrons.equation_params.alpha**2,

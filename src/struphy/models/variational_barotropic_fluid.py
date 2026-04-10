@@ -2,7 +2,7 @@ from feectools.ddm.mpi import mpi as MPI
 
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import QuadraticEnergyFEEC, Scalars
+from struphy.models.scalars import BilinearEnergyFEEC, Scalars
 from struphy.models.species import (
     FluidSpecies,
 )
@@ -78,8 +78,8 @@ class VariationalBarotropicFluid(StruphyModel):
         self.propagators.variat_dens.variables.u = self.fluid.velocity
         self.propagators.variat_mom.variables.u = self.fluid.velocity
 
-        kinetic_energy = QuadraticEnergyFEEC(self.fluid.velocity, bilinear_form_name="WMM")
-        thermo_energy = QuadraticEnergyFEEC(self.fluid.density)
+        kinetic_energy = BilinearEnergyFEEC(self.fluid.velocity, bilinear_form_name="WMM")
+        thermo_energy = BilinearEnergyFEEC(self.fluid.density)
         total_energy = kinetic_energy + thermo_energy
 
         self.scalars = Scalars(

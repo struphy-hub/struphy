@@ -7,6 +7,7 @@ from struphy.feec.mass import WeightedMassOperator
 from struphy.feec.psydac_derham import space_to_form
 from typing import Union
 from struphy.utils.docstring_converter import auto_convert_docstring
+from struphy.feec.polar import PolarVector
 
 
 class Scalar(metaclass=ABCMeta):
@@ -80,41 +81,93 @@ class Scalars:
             scalar.uptodate = False
 
 @auto_convert_docstring
-class QuadraticEnergyFEEC(Scalar):
-    """Scalar representing a quadratic energy computed from a FEEC variable."""
+class BilinearEnergyFEEC(Scalar):
+    """Scalar from a bilinear FEEC form evaluated on one or two FEEC variables."""
 
-    def __init__(self, feec_variable: FEECVariable, bilinear_form_name: str=None, normalization: float=1.0,):
-        assert isinstance(feec_variable, FEECVariable), "variable must be an instance of FEECVariable"
+    def __init__(
+        self,
+        left_variable: FEECVariable,
+        right_variable: FEECVariable | str | None = None,
+        bilinear_form_name: str | None = None,
+        normalization: float = 1.0,
+    ):
+        assert isinstance(left_variable, FEECVariable), "left_variable must be an instance of FEECVariable"
+        if right_variable is None:
+            right_variable = left_variable
+        assert isinstance(right_variable, (FEECVariable, str)), "right_variable must be an instance of FEECVariable or a string"
+
         if bilinear_form_name is None:
-            form = space_to_form[feec_variable.space]
+            assert left_variable.space == right_variable.space, "If bilinear_form_name is not provided, left and right variables must be in the same space to infer the bilinear form."
+            form = space_to_form[left_variable.space]
             bilinear_form_name = f"M{form}"
-        
-        super().__init__(feec_variable)
-        
+
+        super().__init__(left_variable, right_variable)
         self.bilinear_form_name = bilinear_form_name
         self.normalization = normalization
 
     def _local_update(self):
-        if not hasattr(self, "vec"):
-            self.vec = self.variables[0].spline.vector
-            self.vec_space = self.vec.space
+        if not hasattr(self, "left_vec"):
+            self.left_vec = self.variables[0].spline.vector
+            if isinstance(self.variables[1], str):
+                self.right_vec = getattr(Propagator.projected_equil, self.variables[1])
+            else:
+                self.right_vec = self.variables[1].spline.vector
+            self.vec_space = self.left_vec.space
         if not hasattr(self, "bilinear_form"):
             self.bilinear_form: WeightedMassOperator = getattr(Propagator.mass_ops, self.bilinear_form_name)
-            assert self.bilinear_form.domain == self.vec_space, "bilinear_form domain must match variable space"
-        energy = self.normalization * 0.5 * self.bilinear_form.dot_inner(self.vec, self.vec)
-        self.local_value[0] = energy
-        
+            assert self.bilinear_form.codomain == self.vec_space, "bilinear_form codomain must match variable space"
+
+        value = self.normalization * self.bilinear_form.dot_inner(self.right_vec, self.left_vec)
+        self.local_value[0] = value
+
     def _mpi_sum(self):
         """Communication has been handled by psydac's .dot_inner, so no additional MPI operations are needed."""
         self.value[0] = self.local_value[0]
         
-    __doc_rst__ = r"""For example, for a vector-valued variable :math:`\mathbf{u}` the computed energy is
+    __doc_rst__ = r"""For example, for a vector-valued variable :math:`\mathbf{u}` the computed energy when right_variable is None reads
 
 .. math::
 
     \mathcal E = \alpha \frac{1}{2} \int_{\Omega} \mathbf{u}^\top A \mathbf u  \, d \mathbf x\,,
     
 where :math:`\alpha` is a normalization constant and :math:`A` is a symmetric positive definite matrix (the identity by default)."""
+
+
+class VolumeFormEnergyFEEC(Scalar):
+    """Scalar from a volume form integrated over the domain."""
+
+    def __init__(
+        self,
+        feec_variable: FEECVariable,
+        normalization: float = 1.0,
+    ):
+        assert isinstance(feec_variable, FEECVariable), "variable must be an instance of FEECVariable"
+        super().__init__(feec_variable)
+        self.normalization = normalization
+
+    def _local_update(self):
+        if not hasattr(self, "vec"):
+            self.vec = self.variables[0].spline.vector
+            if isinstance(self.vec, PolarVector):
+                self.ones = Propagator.derham.V3pol.zeros()
+                self.ones.tp[:] = 1.0
+            else:
+                self.ones = Propagator.derham.V3.zeros()
+                self.ones[:] = 1.0
+                
+        self.local_value[0] = self.normalization * self.vec.inner(self.ones)
+
+    def _mpi_sum(self):
+        """Communication has been handled by psydac's .dot_inner, so no additional MPI operations are needed."""
+        self.value[0] = self.local_value[0]
+        
+    __doc_rst__ = r"""For example, for a volume form :math:`p` the computed energy reads
+
+.. math::
+
+    \mathcal E = \alpha \int_{\Omega} p  \, d \mathbf x\,,
+    
+where :math:`\alpha` is a normalization constant."""
     
 class PICScalar(Scalar):
     """Base class for scalar quantities computed from PIC variables.
