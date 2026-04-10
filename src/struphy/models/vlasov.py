@@ -86,6 +86,7 @@ class Vlasov(StruphyModel):
         self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
         self.propagators.push_eta.variables.var = self.kinetic_ions.var
 
+        # 5. define scalars to be tracked during simulation
         kinetic_energy = KineticEnergyPIC(self.kinetic_ions.var)
         self.scalars = Scalars(kinetic_energy=kinetic_energy)
 

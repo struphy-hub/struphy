@@ -174,7 +174,8 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         if with_B0:
             self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
 
-        electric_energy = BilinearEnergyFEEC(self.em_fields.e_field, bilinear_form_name="M1", normalization=0.5)
+        # 5. define scalars to be tracked during simulation
+        electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
         particle_energy = FunctionScalarPIC(
             self._compute_en_w,
             self.kinetic_ions.var,

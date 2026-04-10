@@ -195,7 +195,7 @@ class BilinearEnergyFEEC(Scalar):
             self.bilinear_form: WeightedMassOperator = getattr(Propagator.mass_ops, self.bilinear_form_name)
             assert self.bilinear_form.codomain == self.vec_space, "bilinear_form codomain must match variable space"
 
-        value = self.normalization * self.bilinear_form.dot_inner(self.right_vec, self.left_vec)
+        value = self.normalization * 0.5 * self.bilinear_form.dot_inner(self.right_vec, self.left_vec)
         self.local_value[0] = value
 
     def _mpi_sum(self):

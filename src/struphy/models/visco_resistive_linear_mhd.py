@@ -131,12 +131,13 @@ class ViscoResistiveLinearMHD(StruphyModel):
             self.propagators.variat_resist.variables.s = self.mhd.pressure
             self.propagators.variat_resist.variables.b = self.em_fields.b_field
 
-        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="WMM", normalization=0.5)
-        magnetic_energy_1 = BilinearEnergyFEEC(self.em_fields.b_field, bilinear_form_name="M2", normalization=0.5)
-        magnetic_energy_2 = BilinearEnergyFEEC(self.diagnostics.bt2, right_variable="b2", bilinear_form_name="M2")
+        # 5. define scalars to be tracked during simulation
+        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="WMM")
+        magnetic_energy_1 = BilinearEnergyFEEC(self.em_fields.b_field)
+        magnetic_energy_2 = BilinearEnergyFEEC(self.diagnostics.bt2, right_variable="b2")
         thermo_energy = FunctionScalarFEEC(self._compute_en_thermo)
         thermo_energy_l1 = FunctionScalarFEEC(self._compute_en_thermo_l1)
-        magnetic_energy_l1 = BilinearEnergyFEEC(self.em_fields.b_field, right_variable="b2", bilinear_form_name="M2")
+        magnetic_energy_l1 = BilinearEnergyFEEC(self.em_fields.b_field, right_variable="b2")
         self.scalars = Scalars(
             en_U=kinetic_energy,
             en_thermo=thermo_energy,

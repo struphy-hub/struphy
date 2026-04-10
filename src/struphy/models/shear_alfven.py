@@ -93,8 +93,9 @@ class ShearAlfven(StruphyModel):
         self.propagators.shear_alf.variables.u = self.mhd.velocity
         self.propagators.shear_alf.variables.b = self.em_fields.b_field
 
-        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="M2n", normalization=0.5)
-        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field, bilinear_form_name="M2", normalization=0.5)
+        # 5. define scalars to be tracked during simulation
+        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="M2n")
+        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
         background_magnetic = FunctionScalarFEEC(self._compute_en_B_eq)
         total_magnetic = FunctionScalarFEEC(self._compute_en_B_tot)
         self.scalars = Scalars(

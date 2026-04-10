@@ -173,9 +173,10 @@ class LinearMHDVlasovPC(StruphyModel):
         if "PushVxB" not in turn_off:
             self.propagators.push_vxb.variables.ions = self.energetic_ions.var
 
-        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="M2n", normalization=0.5)
+        # 5. define scalars to be tracked during simulation
+        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="M2n")
         pressure_energy = VolumeFormEnergyFEEC(self.mhd.pressure, normalization=1.0 / (5 / 3 - 1))
-        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field, bilinear_form_name="M2", normalization=0.5)
+        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
         Ab = self.mhd.mass_number
         Ah = self.energetic_ions.var.species.mass_number
         particle_energy = KineticEnergyPIC(self.energetic_ions.var, normalization=Ah / Ab)

@@ -62,7 +62,7 @@ class Maxwell(StruphyModel):
         self.propagators.maxwell.variables.e = self.em_fields.e_field
         self.propagators.maxwell.variables.b = self.em_fields.b_field
 
-        # define scalars to be tracked during simulation
+        # 5. define scalars to be tracked during simulation
         electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
         magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
         total_energy = electric_energy + magnetic_energy

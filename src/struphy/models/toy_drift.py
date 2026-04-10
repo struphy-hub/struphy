@@ -131,6 +131,7 @@ class ToyDrift(StruphyModel):
         self.propagators.gc_poisson.variables.phi = self.em_fields.phi
         self.propagators.push_gc_bxe.variables.ions = self.kinetic_ions.var
 
+        # 5. define scalars to be tracked during simulation
         field_energy = FunctionScalarFEEC(self._compute_en_phi)
         particle_energy = KineticEnergyPIC(self.kinetic_ions.var)
         self.scalars = Scalars(

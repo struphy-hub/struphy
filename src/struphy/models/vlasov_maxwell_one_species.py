@@ -179,11 +179,12 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         self.propagators.coupling_va.variables.e = self.em_fields.e_field
         self.propagators.coupling_va.variables.ions = self.kinetic_ions.var
 
-        electric_energy = BilinearEnergyFEEC(self.em_fields.e_field, bilinear_form_name="M1", normalization=0.5)
-        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field, bilinear_form_name="M2", normalization=0.5)
+        # 5. define scalars to be tracked during simulation
+        electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
+        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
         particle_energy = KineticEnergyPIC(
             self.kinetic_ions.var,
-            normalization=0.5 * self.kinetic_ions.equation_params.alpha**2,
+            normalization=self.kinetic_ions.equation_params.alpha**2,
         )
         scalars_dict = {
             "en_E": electric_energy,

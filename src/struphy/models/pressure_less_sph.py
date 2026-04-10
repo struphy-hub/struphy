@@ -88,6 +88,7 @@ class PressureLessSPH(StruphyModel):
         self.propagators.push_eta.variables.var = self.cold_fluid.var
         self.propagators.push_v.variables.var = self.cold_fluid.var
 
+        # 5. define scalars to be tracked during simulation
         self.scalars = Scalars(
             en_kin=KineticEnergySPH(self.cold_fluid.var),
         )

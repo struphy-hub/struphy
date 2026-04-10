@@ -118,6 +118,7 @@ class ViscousEulerSPH(StruphyModel):
         if with_viscosity:
             self.propagators.push_viscous.variables.fluid = self.euler_fluid.var
 
+        # 5. define scalars to be tracked during simulation
         self.scalars = Scalars(
             en_kin=KineticEnergySPH(self.euler_fluid.var),
         )

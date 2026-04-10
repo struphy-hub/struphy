@@ -78,6 +78,7 @@ class VariationalBarotropicFluid(StruphyModel):
         self.propagators.variat_dens.variables.u = self.fluid.velocity
         self.propagators.variat_mom.variables.u = self.fluid.velocity
 
+        # 5. define scalars to be tracked during simulation
         kinetic_energy = BilinearEnergyFEEC(self.fluid.velocity, bilinear_form_name="WMM")
         thermo_energy = BilinearEnergyFEEC(self.fluid.density)
         total_energy = kinetic_energy + thermo_energy

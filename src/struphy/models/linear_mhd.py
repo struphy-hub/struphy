@@ -85,9 +85,10 @@ class LinearMHD(StruphyModel):
         self.propagators.mag_sonic.variables.u = self.mhd.velocity
         self.propagators.mag_sonic.variables.p = self.mhd.pressure
 
-        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="M2n", normalization=0.5)
+        # 5. define scalars to be tracked during simulation
+        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="M2n")
         pressure_energy = VolumeFormEnergyFEEC(self.mhd.pressure, normalization=1.0 / (5 / 3 - 1))
-        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field, bilinear_form_name="M2", normalization=0.5)
+        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
         background_pressure = FunctionScalarFEEC(self._compute_en_p_eq)
         background_magnetic = FunctionScalarFEEC(self._compute_en_B_eq)
         total_magnetic = FunctionScalarFEEC(self._compute_en_B_tot)
