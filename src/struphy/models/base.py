@@ -359,6 +359,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
 
     def setup_equation_params(self, base_units: BaseUnits, verbose=False):
         """Compute units and set equation parameters for each fluid and kinetic species."""
+        self.base_units = base_units
         self.units = Units(base_units)
 
         if self.bulk_species is None:
@@ -875,6 +876,16 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         if not hasattr(self, "_prop_list"):
             self._prop_list = list(self.propagators.__dict__.values())
         return self._prop_list
+
+    @property
+    def base_units(self) -> BaseUnits:
+        """Base units of the model."""
+        return self._base_units
+
+    @base_units.setter
+    def base_units(self, new_units):
+        assert isinstance(new_units, BaseUnits)
+        self._base_units = new_units
 
     @property
     def units(self) -> Units:
