@@ -4,6 +4,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy.feec.projectors import L2Projector
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalar, Scalars, VolumeFormEnergyFEEC
 from struphy.models.species import (
     DiagnosticSpecies,
     FieldSpecies,
@@ -133,13 +134,19 @@ class ViscoResistiveMHD_with_q(StruphyModel):
             self.propagators.variat_resist.variables.s = self.mhd.sqrt_p
             self.propagators.variat_resist.variables.b = self.em_fields.b_field
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_U")
-        self.add_scalar("en_thermo")
-        self.add_scalar("en_mag")
-        self.add_scalar("en_tot")
-        self.add_scalar("dens_tot")
-        self.add_scalar("tot_div_B")
+        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="WMM", normalization=0.5)
+        thermo_energy = FunctionScalar(self._compute_en_thermo)
+        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field, bilinear_form_name="M2", normalization=0.5)
+        density_total = VolumeFormEnergyFEEC(self.mhd.density)
+        div_b_total = FunctionScalar(self._compute_tot_div_B)
+        self.scalars = Scalars(
+            en_U=kinetic_energy,
+            en_thermo=thermo_energy,
+            en_mag=magnetic_energy,
+            en_tot=kinetic_energy + thermo_energy + magnetic_energy,
+            dens_tot=density_total,
+            tot_div_B=div_b_total,
+        )
 
     @property
     def bulk_species(self):
@@ -166,32 +173,15 @@ class ViscoResistiveMHD_with_q(StruphyModel):
 
         self._tmp_div_B = Propagator.derham.V3pol.zeros()
 
-    def update_scalar_quantities(self):
-        rho = self.mhd.density.spline.vector
-        u = self.mhd.velocity.spline.vector
+    def _compute_en_thermo(self):
         q = self.mhd.sqrt_p.spline.vector
-        b = self.em_fields.b_field.spline.vector
-
         gamma = self.propagators.variat_qb.options.gamma
+        return 1.0 / (gamma - 1.0) * Propagator.mass_ops.M3.dot_inner(q, q)
 
-        en_U = 0.5 * Propagator.mass_ops.WMM.massop.dot_inner(u, u)
-        self.update_scalar("en_U", en_U)
-
-        en_mag = 0.5 * Propagator.mass_ops.M2.dot_inner(b, b)
-        self.update_scalar("en_mag", en_mag)
-
-        en_thermo = 1.0 / (gamma - 1.0) * Propagator.mass_ops.M3.dot_inner(q, q)
-        self.update_scalar("en_thermo", en_thermo)
-
-        en_tot = en_U + en_thermo + en_mag
-        self.update_scalar("en_tot", en_tot)
-
-        dens_tot = self._ones.inner(rho)
-        self.update_scalar("dens_tot", dens_tot)
-
+    def _compute_tot_div_B(self):
+        b = self.em_fields.b_field.spline.vector
         div_B = Propagator.derham.div.dot(b, out=self._tmp_div_B)
-        L2_div_B = Propagator.mass_ops.M3.dot_inner(div_B, div_B)
-        self.update_scalar("tot_div_B", L2_div_B)
+        return Propagator.mass_ops.M3.dot_inner(div_B, div_B)
 
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

@@ -45,7 +45,6 @@ class Scalar(metaclass=ABCMeta):
     def __add__(self, other):
         return SumOfScalars(self, other)
 
-
 class SumOfScalars(Scalar):
     """Scalar representing the sum of other scalars. An update of this scalar will also update all its summands."""
     def __init__(self, *scalars):
@@ -134,7 +133,6 @@ class BilinearEnergyFEEC(Scalar):
     
 where :math:`\alpha` is a normalization constant and :math:`A` is a symmetric positive definite matrix (the identity by default)."""
 
-
 class VolumeFormEnergyFEEC(Scalar):
     """Scalar from a volume form integrated over the domain."""
 
@@ -205,7 +203,6 @@ class PICScalar(Scalar):
                 op=MPI.SUM,
             )
 
-
 class FunctionScalar(PICScalar):
     """Scalar defined by a callable.
 
@@ -249,6 +246,46 @@ class KineticEnergyPIC(PICScalar):
     def _local_update(self):
         if not hasattr(self, "velocities"):
             self.velocities = self.variables[0].particles.velocities # TODO: velocities need to redefined for Particles5d? Put magnetic moment as COM.
+            self.weights = self.variables[0].particles.weights
+            self.Np = self.variables[0].particles.Np
+        
+        energy = self.normalization * 0.5 / self.Np * xp.sum(self.weights * xp.sum(self.velocities**2, axis=1))
+        self.local_value[0] = energy
+
+class SPHScalar(Scalar):
+    """Base class for scalar quantities computed from SPH variables.
+    Handles MPI communication within and between clones, but requires subclasses to implement the local update of self.local_value[0]."""
+    
+    def __init__(self, sph_variable: SPHVariable, normalization: float=1.0,):
+        assert isinstance(sph_variable, SPHVariable), "variable must be an instance of SPHVariable"
+        super().__init__(sph_variable)
+        self.normalization = normalization
+
+    def _local_update(self):
+        raise NotImplementedError("Subclasses of SPHScalar must implement _local_update to compute self.local_value[0].")
+        
+    def _mpi_sum(self):
+        self.value[0] = self.local_value[0]
+        
+        MPI.COMM_WORLD.Allreduce(
+                    MPI.IN_PLACE,
+                    self.value,
+                    op=MPI.SUM,
+                )
+
+class KineticEnergySPH(SPHScalar):
+    r"""Scalar representing the kinetic energy computed from a SPH variable, according to
+    
+    :math:
+    
+        \mathcal E = \frac{\alpha}{2 N_p} \sum_{i=0}^{N_p-1} w_i v_i^2\,,
+        
+    where :math:`\alpha` is a normalization constant, :math:`N_p` is the total number of particles, 
+    and :math:`w_i` and :math:`v_i` are the weight and velocity of particle :math:`i`, respectively.
+    """
+    def _local_update(self):
+        if not hasattr(self, "velocities"):
+            self.velocities = self.variables[0].particles.velocities 
             self.weights = self.variables[0].particles.weights
             self.Np = self.variables[0].particles.Np
         

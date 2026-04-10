@@ -2,6 +2,7 @@ from feectools.ddm.mpi import mpi as MPI
 
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import KineticEnergySPH, Scalars
 from struphy.models.species import (
     ParticleSpecies,
 )
@@ -87,8 +88,9 @@ class PressureLessSPH(StruphyModel):
         self.propagators.push_eta.variables.var = self.cold_fluid.var
         self.propagators.push_v.variables.var = self.cold_fluid.var
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_kin", compute="from_particles", variable=self.cold_fluid.var)
+        self.scalars = Scalars(
+            en_kin=KineticEnergySPH(self.cold_fluid.var),
+        )
 
     @property
     def bulk_species(self):
@@ -106,15 +108,6 @@ class PressureLessSPH(StruphyModel):
 
     def allocate_helpers(self, verbose: bool = False):
         pass
-
-    def update_scalar_quantities(self):
-        particles = self.cold_fluid.var.particles
-        valid_parts = particles.markers_wo_holes_and_ghost
-        en_kin = valid_parts[:, 6].dot(valid_parts[:, 3] ** 2 + valid_parts[:, 4] ** 2 + valid_parts[:, 5] ** 2) / (
-            2.0 * particles.Np
-        )
-
-        self.update_scalar("en_kin", en_kin)
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
