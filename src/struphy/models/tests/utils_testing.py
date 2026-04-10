@@ -47,7 +47,6 @@ def call_test(model: StruphyModel, test_profiling: bool = False, verbose: bool =
 
     # read parameters
     params_in = import_parameters_py(path)
-    base_units = params_in.base_units
     time_opts = params_in.time_opts
     domain = params_in.domain
     equil = params_in.equil
@@ -60,7 +59,6 @@ def call_test(model: StruphyModel, test_profiling: bool = False, verbose: bool =
         model=model,
         params_path=path,
         env=env,
-        base_units=base_units,
         time_opts=time_opts,
         domain=domain,
         equil=equil,

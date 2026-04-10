@@ -91,8 +91,6 @@ class Simulation(SimulationBase):
         Path to a Python parameter file to save alongside outputs.
     env : EnvironmentOptions
         Runtime and output environment options.
-    base_units : BaseUnits
-        Units used for normalization.
     time_opts : Time
         Time-stepping options (dt, Tend, split algorithm, ...).
     domain : Domain
@@ -105,17 +103,6 @@ class Simulation(SimulationBase):
         Options for discrete differential operators.
     verbose : bool, optional
         If True, print additional setup information.
-
-    Attributes
-    ----------
-    meta : dict
-        Metadata about the run (platform, python version, model name, etc.).
-    units : Units
-        Unit/normalization helper created from `base_units`.
-    data : DataContainer
-        Output container used to store simulation data.
-    start_time : float
-        Wall-clock time when the simulation object was created.
     """
 
     def __init__(
@@ -125,7 +112,6 @@ class Simulation(SimulationBase):
         description: str = "",
         params_path: str = None,
         env: EnvironmentOptions = EnvironmentOptions(),
-        base_units: BaseUnits = BaseUnits(),
         time_opts: Time = Time(),
         domain: Domain = domains.Cuboid(),
         equil: FluidEquilibrium = None,
@@ -142,7 +128,6 @@ class Simulation(SimulationBase):
         self._model = model
         self._params_path = params_path
         self._env = env
-        self._base_units = base_units
         self._time_opts = time_opts
         self._setup_domain_and_equil(domain, equil, verbose=verbose)
         self._grid = grid
@@ -232,8 +217,6 @@ class Simulation(SimulationBase):
             else:
                 with open(os.path.join(path_out, "env.bin"), "wb") as f:
                     pickle.dump(env, f, pickle.HIGHEST_PROTOCOL)
-                with open(os.path.join(path_out, "base_units.bin"), "wb") as f:
-                    pickle.dump(base_units, f, pickle.HIGHEST_PROTOCOL)
                 with open(os.path.join(path_out, "time_opts.bin"), "wb") as f:
                     pickle.dump(time_opts, f, pickle.HIGHEST_PROTOCOL)
                 with open(os.path.join(path_out, "domain.bin"), "wb") as f:
@@ -291,8 +274,6 @@ class Simulation(SimulationBase):
         logger.debug(self.params_path)
         logger.debug("\nEnvironment options:")
         logger.debug(self.env)
-        logger.debug("Base units:")
-        logger.debug(self.base_units)
         logger.debug("Time stepping options:")
         logger.debug(self.time_opts)
         logger.debug("Domain:")
@@ -860,7 +841,6 @@ RESTARTing from:
         model: StruphyModel = None,
         params_path: str = None,
         env: EnvironmentOptions = None,
-        base_units: BaseUnits = None,
         time_opts: Time = None,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
@@ -876,8 +856,6 @@ RESTARTing from:
             params_path = self.params_path
         if env is None:
             env = self.env
-        if base_units is None:
-            base_units = self.base_units
         if time_opts is None:
             time_opts = self.time_opts
         if domain is None:
@@ -893,7 +871,6 @@ RESTARTing from:
             model=model,
             params_path=params_path,
             env=env,
-            base_units=base_units,
             time_opts=time_opts,
             domain=domain,
             equil=equil,
@@ -1384,7 +1361,6 @@ RESTARTing from:
             "model": self.model.to_dict(),
             "params_path": self.params_path,
             "env": self.env.to_dict(),
-            "base_units": self.base_units.to_dict(),
             "time_opts": self.time_opts.to_dict(),
             "domain": self.domain.to_dict(),
             "equil": self.equil.to_dict() if self.equil is not None else None,
@@ -1403,7 +1379,6 @@ RESTARTing from:
             model=StruphyModel.from_dict(dct["model"]),
             params_path=dct["params_path"],
             env=EnvironmentOptions.from_dict(dct["env"]),
-            base_units=BaseUnits.from_dict(dct["base_units"]),
             time_opts=Time.from_dict(dct["time_opts"]),
             domain=domains.Cuboid.from_dict(dct["domain"]),
             equil=FluidEquilibrium.from_dict(dct["equil"]),
@@ -1476,9 +1451,6 @@ from struphy.models import {self.model.__class__.__name__}
             sim_setup += f"env = {self.env.__repr__()}\n"
             sim_class_def += "env=env,"
 
-            sim_setup += f"base_units = {self.base_units.__repr__()}\n"
-            sim_class_def += "base_units=base_units,"
-
             sim_setup += f"time_opts = {self.time_opts.__repr__()}\n"
             sim_class_def += "time_opts=time_opts,"
 
@@ -1500,9 +1472,6 @@ from struphy.models import {self.model.__class__.__name__}
             if not self.env.is_default:
                 sim_setup += f"env = {self.env.__repr_no_defaults__()}\n"
                 sim_class_def += "env=env,"
-            if not self.base_units.is_default:
-                sim_setup += f"base_units = {self.base_units.__repr_no_defaults__()}\n"
-                sim_class_def += "base_units=base_units,"
             if not self.time_opts.is_default:
                 sim_setup += f"time_opts = {self.time_opts.__repr_no_defaults__()}\n"
                 sim_class_def += "time_opts=time_opts,"
@@ -1578,11 +1547,6 @@ if __name__ == "__main__":
     def env(self):
         """EnvironmentOptions object containing options related to the environment of the run."""
         return self._env
-
-    @property
-    def base_units(self):
-        """BaseUnits object containing the four base units for the run."""
-        return self._base_units
 
     @property
     def time_opts(self):

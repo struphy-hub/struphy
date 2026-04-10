@@ -141,14 +141,12 @@ Start by choosing a good model for this test, and set the species properties for
 We then set the basic options for this test::
 
     from struphy import (
-        BaseUnits,
         DerhamOptions,
         Time,
         domains,
         grids,
         )
 
-    base_units = BaseUnits()
     time_opts = Time(dt = 0.1, Tend = 50.0, split_algo = "LieTrotter")
     domain = domains.Cuboid(r1 = 31.42)
     equil = None
@@ -162,7 +160,6 @@ Next, instantiate the simulation with the above parameters::
     sim = Simulation(
         model=model,
         params_path=__file__,
-        base_units=base_units,
         time_opts=time_opts,
         domain=domain,
         equil=equil,

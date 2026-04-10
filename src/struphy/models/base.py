@@ -743,7 +743,6 @@ set_logging_level(logging.WARNING)\n""")
     description=description,
     params_path=__file__,
     env=env,
-    base_units=base_units,
     time_opts=time_opts,
     domain=domain,
     equil=equil,
