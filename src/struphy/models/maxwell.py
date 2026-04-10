@@ -3,11 +3,11 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import BilinearEnergyFEEC, Scalars
 from struphy.models.species import (
     FieldSpecies,
 )
 from struphy.models.variables import FEECVariable
-from struphy.models.scalars import BilinearEnergyFEEC, Scalars
 from struphy.propagators import (
     propagators_fields,
 )
@@ -43,7 +43,7 @@ class Maxwell(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.maxwell = propagators_fields.Maxwell()    
+            self.maxwell = propagators_fields.Maxwell()
 
     ## abstract methods
 
@@ -66,10 +66,12 @@ class Maxwell(StruphyModel):
         electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
         magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
         total_energy = electric_energy + magnetic_energy
-        
-        self.scalars = Scalars(electric_energy=electric_energy,
-                               magnetic_energy=magnetic_energy, 
-                               total_energy=total_energy,)
+
+        self.scalars = Scalars(
+            electric_energy=electric_energy,
+            magnetic_energy=magnetic_energy,
+            total_energy=total_energy,
+        )
 
     @property
     def bulk_species(self):

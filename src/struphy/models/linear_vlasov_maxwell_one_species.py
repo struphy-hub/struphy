@@ -14,6 +14,7 @@ from struphy.propagators import (
     propagators_fields,
     propagators_markers,
 )
+
 rank = MPI.COMM_WORLD.Get_rank()
 
 
@@ -187,4 +188,3 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         # initial Poisson (not a propagator used in time stepping)
         self.initial_poisson = propagators_fields.Poisson()
         self.initial_poisson.variables.phi = self.em_fields.phi
-

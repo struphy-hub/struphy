@@ -1,19 +1,20 @@
 from abc import ABCMeta, abstractmethod
-from typing import Callable
-from struphy.models.variables import Variable, FEECVariable, PICVariable, SPHVariable
+from typing import Callable, Union
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
-from struphy.propagators.base import Propagator
+
 from struphy.feec.mass import WeightedMassOperator
 from struphy.feec.psydac_derham import space_to_form
-from typing import Union
-from struphy.utils.docstring_converter import auto_convert_docstring
+from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.polar.basic import PolarVector
+from struphy.propagators.base import Propagator
+from struphy.utils.docstring_converter import auto_convert_docstring
 
 
 class Scalar(metaclass=ABCMeta):
     """Abstract base class for scalar quantities in MPI parallel simulations.
-    
+
     Parameters
     ----------
     variables : Variable or Scalar
@@ -29,12 +30,12 @@ class Scalar(metaclass=ABCMeta):
     def _local_update(self):
         """Update self.local_value[0] on the current process."""
         pass
-    
+
     @abstractmethod
     def _mpi_sum(self):
         """Sum the local values over MPI processes."""
         pass
-    
+
     def update(self):
         """Update the scalar quantity by performing local update and then summing over MPI processes."""
         if not self.uptodate:
@@ -45,41 +46,46 @@ class Scalar(metaclass=ABCMeta):
     def __add__(self, other):
         return SumOfScalars(self, other)
 
+
 class SumOfScalars(Scalar):
     """Scalar representing the sum of other scalars. An update of this scalar will also update all its summands."""
+
     def __init__(self, *scalars):
         for scalar in scalars:
             assert isinstance(scalar, Scalar)
         super().__init__(*scalars)
-    
+
     def _local_update(self):
         "Local updates for each summands are performed in _mpi_sum via .update()."
         pass
-        
+
     def _mpi_sum(self):
         for scalar in self.variables:
             scalar.update()
         energy = sum(scalar.value[0] for scalar in self.variables)
         self.value[0] = energy
-        
+
+
 class Scalars:
-    """Container for multiple Scalar objects. 
+    """Container for multiple Scalar objects.
     Calling .update() on this container will update all contained scalars."""
+
     def __init__(self, **scalars: dict[str, Scalar]):
         for name, scalar in scalars.items():
             assert isinstance(scalar, Scalar)
         self._dct = scalars
-        
+
     @property
     def dct(self) -> dict[str, Scalar]:
         return self._dct
-        
+
     def update(self):
         for scalar in self.dct.values():
             scalar.update()
-        # reset status to False for next update 
+        # reset status to False for next update
         for scalar in self.dct.values():
             scalar.uptodate = False
+
 
 @auto_convert_docstring
 class BilinearEnergyFEEC(Scalar):
@@ -95,10 +101,14 @@ class BilinearEnergyFEEC(Scalar):
         assert isinstance(left_variable, FEECVariable), "left_variable must be an instance of FEECVariable"
         if right_variable is None:
             right_variable = left_variable
-        assert isinstance(right_variable, (FEECVariable, str)), "right_variable must be an instance of FEECVariable or a string"
+        assert isinstance(right_variable, (FEECVariable, str)), (
+            "right_variable must be an instance of FEECVariable or a string"
+        )
 
         if bilinear_form_name is None:
-            assert left_variable.space == right_variable.space, "If bilinear_form_name is not provided, left and right variables must be in the same space to infer the bilinear form."
+            assert left_variable.space == right_variable.space, (
+                "If bilinear_form_name is not provided, left and right variables must be in the same space to infer the bilinear form."
+            )
             form = space_to_form[left_variable.space]
             bilinear_form_name = f"M{form}"
 
@@ -124,7 +134,7 @@ class BilinearEnergyFEEC(Scalar):
     def _mpi_sum(self):
         """Communication has been handled by psydac's .dot_inner, so no additional MPI operations are needed."""
         self.value[0] = self.local_value[0]
-        
+
     __doc_rst__ = r"""For example, for a vector-valued variable :math:`\mathbf{u}` the computed energy when right_variable is None reads
 
 .. math::
@@ -132,6 +142,7 @@ class BilinearEnergyFEEC(Scalar):
     \mathcal E = \alpha \frac{1}{2} \int_{\Omega} \mathbf{u}^\top A \mathbf u  \, d \mathbf x\,,
     
 where :math:`\alpha` is a normalization constant and :math:`A` is a symmetric positive definite matrix (the identity by default)."""
+
 
 class VolumeFormEnergyFEEC(Scalar):
     """Scalar from a volume form integrated over the domain."""
@@ -154,13 +165,13 @@ class VolumeFormEnergyFEEC(Scalar):
             else:
                 self.ones = Propagator.derham.V3.zeros()
                 self.ones[:] = 1.0
-                
+
         self.local_value[0] = self.normalization * self.vec.inner(self.ones)
 
     def _mpi_sum(self):
         """Communication has been handled by psydac's .dot_inner, so no additional MPI operations are needed."""
         self.value[0] = self.local_value[0]
-        
+
     __doc_rst__ = r"""For example, for a volume form :math:`p` the computed energy reads
 
 .. math::
@@ -168,22 +179,29 @@ class VolumeFormEnergyFEEC(Scalar):
     \mathcal E = \alpha \int_{\Omega} p  \, d \mathbf x\,,
     
 where :math:`\alpha` is a normalization constant."""
-    
+
+
 class PICScalar(Scalar):
     """Base class for scalar quantities computed from PIC variables.
     Handles MPI communication within and between clones, but requires subclasses to implement the local update of self.local_value[0]."""
-    
-    def __init__(self, pic_variable: PICVariable, normalization: float=1.0,):
+
+    def __init__(
+        self,
+        pic_variable: PICVariable,
+        normalization: float = 1.0,
+    ):
         assert isinstance(pic_variable, PICVariable), "variable must be an instance of PICVariable"
         super().__init__(pic_variable)
         self.normalization = normalization
 
     def _local_update(self):
-        raise NotImplementedError("Subclasses of PICScalar must implement _local_update to compute self.local_value[0].")
-        
+        raise NotImplementedError(
+            "Subclasses of PICScalar must implement _local_update to compute self.local_value[0]."
+        )
+
     def _mpi_sum(self):
         self.value[0] = self.local_value[0]
-        
+
         # sum within clone
         if Propagator.derham.comm is not None:
             Propagator.derham.comm.Allreduce(
@@ -191,17 +209,18 @@ class PICScalar(Scalar):
                 self.value,
                 op=MPI.SUM,
             )
-            
+
         # sum between clones
         if not hasattr(self, "clone_config"):
             self.clone_config = self.variables[0].particles.clone_config
-        
+
         if self.clone_config is not None:
             self.clone_config.inter_comm.Allreduce(
                 MPI.IN_PLACE,
                 self.value,
                 op=MPI.SUM,
             )
+
 
 class FunctionScalar(PICScalar):
     """Scalar defined by a callable.
@@ -232,63 +251,76 @@ class FunctionScalar(PICScalar):
             PICScalar._mpi_sum(self)
         else:
             self.value[0] = self.local_value[0]
-    
+
+
 class KineticEnergyPIC(PICScalar):
     r"""Scalar representing the kinetic energy computed from a PIC variable, according to
-    
+
     :math:
-    
+
         \mathcal E = \frac{\alpha}{2 N_p} \sum_{i=0}^{N_p-1} w_i v_i^2\,,
-        
-    where :math:`\alpha` is a normalization constant, :math:`N_p` is the total number of particles, 
+
+    where :math:`\alpha` is a normalization constant, :math:`N_p` is the total number of particles,
     and :math:`w_i` and :math:`v_i` are the weight and velocity of particle :math:`i`, respectively.
     """
+
     def _local_update(self):
         if not hasattr(self, "velocities"):
-            self.velocities = self.variables[0].particles.velocities # TODO: velocities need to redefined for Particles5d? Put magnetic moment as COM.
+            self.velocities = self.variables[
+                0
+            ].particles.velocities  # TODO: velocities need to redefined for Particles5d? Put magnetic moment as COM.
             self.weights = self.variables[0].particles.weights
             self.Np = self.variables[0].particles.Np
-        
+
         energy = self.normalization * 0.5 / self.Np * xp.sum(self.weights * xp.sum(self.velocities**2, axis=1))
         self.local_value[0] = energy
+
 
 class SPHScalar(Scalar):
     """Base class for scalar quantities computed from SPH variables.
     Handles MPI communication within and between clones, but requires subclasses to implement the local update of self.local_value[0]."""
-    
-    def __init__(self, sph_variable: SPHVariable, normalization: float=1.0,):
+
+    def __init__(
+        self,
+        sph_variable: SPHVariable,
+        normalization: float = 1.0,
+    ):
         assert isinstance(sph_variable, SPHVariable), "variable must be an instance of SPHVariable"
         super().__init__(sph_variable)
         self.normalization = normalization
 
     def _local_update(self):
-        raise NotImplementedError("Subclasses of SPHScalar must implement _local_update to compute self.local_value[0].")
-        
+        raise NotImplementedError(
+            "Subclasses of SPHScalar must implement _local_update to compute self.local_value[0]."
+        )
+
     def _mpi_sum(self):
         self.value[0] = self.local_value[0]
-        
+
         MPI.COMM_WORLD.Allreduce(
-                    MPI.IN_PLACE,
-                    self.value,
-                    op=MPI.SUM,
-                )
+            MPI.IN_PLACE,
+            self.value,
+            op=MPI.SUM,
+        )
+
 
 class KineticEnergySPH(SPHScalar):
     r"""Scalar representing the kinetic energy computed from a SPH variable, according to
-    
+
     :math:
-    
+
         \mathcal E = \frac{\alpha}{2 N_p} \sum_{i=0}^{N_p-1} w_i v_i^2\,,
-        
-    where :math:`\alpha` is a normalization constant, :math:`N_p` is the total number of particles, 
+
+    where :math:`\alpha` is a normalization constant, :math:`N_p` is the total number of particles,
     and :math:`w_i` and :math:`v_i` are the weight and velocity of particle :math:`i`, respectively.
     """
+
     def _local_update(self):
         if not hasattr(self, "velocities"):
-            self.velocities = self.variables[0].particles.velocities 
+            self.velocities = self.variables[0].particles.velocities
             self.weights = self.variables[0].particles.weights
             self.Np = self.variables[0].particles.Np
-        
+
         energy = self.normalization * 0.5 / self.Np * xp.sum(self.weights * xp.sum(self.velocities**2, axis=1))
         self.local_value[0] = energy
 

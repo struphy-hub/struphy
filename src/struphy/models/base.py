@@ -217,15 +217,15 @@ class StruphyModel(metaclass=StruphyModelMeta):
     def scalars(self) -> Scalars | None:
         """Scalars to be updated and saved during the simulation."""
         return getattr(self, "_scalars", None)
-    
-    @scalars.setter 
+
+    @scalars.setter
     def scalars(self, value: Scalars):
         assert isinstance(value, Scalars)
         self._scalars = value
 
     @profile
     def update_scalar_quantities(self):
-        """Update scalar quantities by calling their .update() method. 
+        """Update scalar quantities by calling their .update() method.
         This should be called at the end of each time step in the simulation loop."""
         if self.scalars is not None:
             self.scalars.update()

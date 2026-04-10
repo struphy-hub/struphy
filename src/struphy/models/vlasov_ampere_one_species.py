@@ -6,7 +6,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import KineticEnergyPIC, BilinearEnergyFEEC, Scalars
+from struphy.models.scalars import BilinearEnergyFEEC, KineticEnergyPIC, Scalars
 from struphy.models.species import (
     FieldSpecies,
     ParticleSpecies,
@@ -179,7 +179,9 @@ class VlasovAmpereOneSpecies(StruphyModel):
         epsilon = self.kinetic_ions.equation_params.epsilon
 
         # Kinetic energy is alpha^2/(2 Np) * sum_p w_p |v_p|^2.
-        self.scalars.dct["kinetic_energy"].normalization = alpha**2 #TODO: it would be nice to have alpha (and other eq. params) before runtime
+        self.scalars.dct["kinetic_energy"].normalization = (
+            alpha**2
+        )  # TODO: it would be nice to have alpha (and other eq. params) before runtime
 
         self.initial_poisson.options.rho = charge_accum
         self.initial_poisson.options.rho_coeffs = alpha**2 / epsilon
