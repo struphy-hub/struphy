@@ -3,6 +3,7 @@ import logging
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
@@ -87,14 +88,23 @@ class ColdPlasmaVlasov(StruphyModel):
             self.init_variables()
 
     class ThermalElectrons(FluidSpecies):
-        def __init__(self):
+        def __init__(self, charge_number: int, mass_number: float, alpha: float, epsilon: float,):
             self.current = FEECVariable(space="Hcurl")
-            self.init_variables()
+            self.init_variables(charge_number=charge_number, mass_number=mass_number, alpha=alpha, epsilon=epsilon,)
 
     class HotElectrons(ParticleSpecies):
-        def __init__(self):
+        def __init__(
+            self,
+            charge_number: int,
+            mass_number: float,
+            epsilon: float,
+        ):
             self.var = PICVariable(space="Particles6D")
-            self.init_variables()
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                epsilon=epsilon,
+            )
 
     ## propagators
 
@@ -109,17 +119,37 @@ class ColdPlasmaVlasov(StruphyModel):
 
     ## abstract methods
 
-    def __init__(self):
+    def __init__(
+        self,
+        base_units: BaseUnits = BaseUnits(),
+        thermal_charge_number: int = -1,
+        thermal_mass_number: float = 1/1836,
+        hot_charge_number: int = -1,
+        hot_mass_number: float = 1/1836,
+        thermal_alpha: float = None,
+        thermal_epsilon: float = None,
+        hot_epsilon: float = None,
+    ):
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
-        self.thermal_elec = self.ThermalElectrons()
-        self.hot_elec = self.HotElectrons()
+        self.thermal_elec = self.ThermalElectrons(thermal_charge_number,
+                                                  thermal_mass_number,
+                                                  thermal_alpha,
+                                                  thermal_epsilon,)
+        self.hot_elec = self.HotElectrons(
+            hot_charge_number,
+            hot_mass_number,
+            hot_epsilon,
+        )
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators()
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.maxwell.variables.e = self.em_fields.e_field
         self.propagators.maxwell.variables.b = self.em_fields.b_field
 
