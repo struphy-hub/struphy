@@ -1,12 +1,11 @@
 import logging
 
-import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarPIC, LostMarkersPIC, Scalars, VolumeFormEnergyFEEC
+from struphy.models.scalars import BilinearEnergyFEEC, KineticEnergyPIC, LostMarkersPIC, Scalars, VolumeFormEnergyFEEC
 from struphy.models.species import (
     FieldSpecies,
     FluidSpecies,
@@ -177,7 +176,9 @@ class LinearMHDVlasovPC(StruphyModel):
         kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="M2n", normalization=0.5)
         pressure_energy = VolumeFormEnergyFEEC(self.mhd.pressure, normalization=1.0 / (5 / 3 - 1))
         magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field, bilinear_form_name="M2", normalization=0.5)
-        particle_energy = FunctionScalarPIC(self._compute_en_f, self.energetic_ions.var)
+        Ab = self.mhd.mass_number
+        Ah = self.energetic_ions.var.species.mass_number
+        particle_energy = KineticEnergyPIC(self.energetic_ions.var, normalization=Ah / Ab)
         self.scalars = Scalars(
             en_U=kinetic_energy,
             en_p=pressure_energy,
@@ -201,21 +202,6 @@ class LinearMHDVlasovPC(StruphyModel):
             self._ones.tp[:] = 1.0
         else:
             self._ones[:] = 1.0
-
-    def _compute_en_f(self):
-        Ab = self.mhd.mass_number
-        Ah = self.energetic_ions.var.species.mass_number
-        particles = self.energetic_ions.var.particles
-        return (
-            particles.markers[~particles.holes, 6].dot(
-                particles.markers[~particles.holes, 3] ** 2
-                + particles.markers[~particles.holes, 4] ** 2
-                + particles.markers[~particles.holes, 5] ** 2,
-            )
-            / 2.0
-            * Ah
-            / Ab
-        )
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

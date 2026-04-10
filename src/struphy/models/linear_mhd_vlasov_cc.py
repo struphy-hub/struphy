@@ -6,7 +6,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarPIC, LostMarkersPIC, Scalars, VolumeFormEnergyFEEC
+from struphy.models.scalars import BilinearEnergyFEEC, KineticEnergyPIC, LostMarkersPIC, Scalars, VolumeFormEnergyFEEC
 from struphy.models.species import (
     FieldSpecies,
     FluidSpecies,
@@ -166,10 +166,13 @@ class LinearMHDVlasovCC(StruphyModel):
         self.propagators.mag_sonic.variables.u = self.mhd.velocity
         self.propagators.mag_sonic.variables.p = self.mhd.pressure
 
+        # 5. define scalars to be tracked during simulation
         kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="M2n", normalization=0.5)
         pressure_energy = VolumeFormEnergyFEEC(self.mhd.pressure, normalization=1.0 / (5 / 3 - 1))
         magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field, bilinear_form_name="M2", normalization=0.5)
-        particle_energy = FunctionScalarPIC(self._compute_en_f, self.energetic_ions.var)
+        Ab = self.mhd.mass_number
+        Ah = self.energetic_ions.var.species.mass_number
+        particle_energy = KineticEnergyPIC(self.energetic_ions.var, normalization=Ah / Ab)
         lost_particles = LostMarkersPIC(self.energetic_ions.var)
         self.scalars = Scalars(
             en_U=kinetic_energy,
@@ -203,19 +206,6 @@ class LinearMHDVlasovCC(StruphyModel):
 
         self._Ah = self.energetic_ions.mass_number
         self._Ab = self.mhd.mass_number
-
-    def _compute_en_f(self):
-        particles = self.energetic_ions.var.particles
-        return (
-            self._Ah
-            / self._Ab
-            * particles.markers_wo_holes[:, 6].dot(
-                particles.markers_wo_holes[:, 3] ** 2
-                + particles.markers_wo_holes[:, 4] ** 2
-                + particles.markers_wo_holes[:, 5] ** 2,
-            )
-            / (2)
-        )
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

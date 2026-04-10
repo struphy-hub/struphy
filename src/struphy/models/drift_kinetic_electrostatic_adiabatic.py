@@ -6,7 +6,7 @@ from struphy.feec.projectors import L2Projector
 from struphy.io.options import LiteralOptions
 from struphy.kinetic_background.base import KineticBackground
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import FunctionScalarFEEC, FunctionScalarPIC, Scalars
+from struphy.models.scalars import FunctionScalarFEEC, FunctionScalarPIC, KineticEnergyPIC, Scalars
 from struphy.models.species import (
     FieldSpecies,
     ParticleSpecies,
@@ -137,7 +137,9 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
         # 5. define scalars to be tracked during simulation
         field_energy = FunctionScalarFEEC(self._compute_en_phi)
-        particle_energy = FunctionScalarPIC(self._compute_en_particles, self.kinetic_ions.var)
+        particle_kinetic = KineticEnergyPIC(self.kinetic_ions.var)
+        particle_magnetic = FunctionScalarPIC(self._compute_en_particle_magnetic, self.kinetic_ions.var)
+        particle_energy = particle_kinetic + particle_magnetic
         self.scalars = Scalars(
             en_phi=field_energy,
             en_particles=particle_energy,
@@ -205,16 +207,10 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         en_phi = 0.5 / epsilon**2 * Propagator.mass_ops.M0ad.dot_inner(phi, phi)
         return en_phi + en_phi1
 
-    def _compute_en_particles(self):
+    def _compute_en_particle_magnetic(self):
         particles = self.kinetic_ions.var.particles
         particles.save_magnetic_background_energy()
-        return (
-            1
-            / particles.Np
-            * xp.sum(
-                particles.weights * particles.velocities[:, 0] ** 2 / 2.0 + particles.markers_wo_holes_and_ghost[:, 8],
-            )
-        )
+        return 1 / particles.Np * xp.sum(particles.markers_wo_holes_and_ghost[:, 8])
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

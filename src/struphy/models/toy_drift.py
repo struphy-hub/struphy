@@ -6,7 +6,7 @@ from struphy.feec.projectors import L2Projector
 from struphy.io.options import LiteralOptions
 from struphy.kinetic_background.base import KineticBackground
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import FunctionScalarFEEC, FunctionScalarPIC, Scalars
+from struphy.models.scalars import FunctionScalarFEEC, KineticEnergyPIC, Scalars
 from struphy.models.species import (
     FieldSpecies,
     ParticleSpecies,
@@ -132,7 +132,7 @@ class ToyDrift(StruphyModel):
         self.propagators.push_gc_bxe.variables.ions = self.kinetic_ions.var
 
         field_energy = FunctionScalarFEEC(self._compute_en_phi)
-        particle_energy = FunctionScalarPIC(self._compute_en_particles, self.kinetic_ions.var)
+        particle_energy = KineticEnergyPIC(self.kinetic_ions.var)
         self.scalars = Scalars(
             en_phi=field_energy,
             en_particles=particle_energy,
@@ -191,10 +191,6 @@ class ToyDrift(StruphyModel):
         phi = self.em_fields.phi.spline.vector
         e1 = Propagator.derham.grad.dot(-phi, out=self._e_field)
         return 0.5 * Propagator.mass_ops.M1.dot_inner(e1, e1)
-
-    def _compute_en_particles(self):
-        particles = self.kinetic_ions.var.particles
-        return 1 / particles.Np * xp.sum(particles.weights * particles.velocities[:, 0] ** 2 / 2.0)
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
