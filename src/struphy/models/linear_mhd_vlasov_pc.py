@@ -6,6 +6,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalar, Scalars, VolumeFormEnergyFEEC
 from struphy.models.species import (
     FieldSpecies,
     FluidSpecies,
@@ -173,19 +174,16 @@ class LinearMHDVlasovPC(StruphyModel):
         if "PushVxB" not in turn_off:
             self.propagators.push_vxb.variables.ions = self.energetic_ions.var
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_U")
-        self.add_scalar("en_p")
-        self.add_scalar("en_B")
-        self.add_scalar("en_f", compute="from_particles", variable=self.energetic_ions.var)
-        self.add_scalar(
-            "en_tot",
-            summands=[
-                "en_U",
-                "en_p",
-                "en_B",
-                "en_f",
-            ],
+        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="M2n", normalization=0.5)
+        pressure_energy = VolumeFormEnergyFEEC(self.mhd.pressure, normalization=1.0 / (5 / 3 - 1))
+        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field, bilinear_form_name="M2", normalization=0.5)
+        particle_energy = FunctionScalar(self._compute_en_f, self.energetic_ions.var)
+        self.scalars = Scalars(
+            en_U=kinetic_energy,
+            en_p=pressure_energy,
+            en_B=magnetic_energy,
+            en_f=particle_energy,
+            en_tot=kinetic_energy + pressure_energy + magnetic_energy + particle_energy,
         )
 
     @property
@@ -203,33 +201,13 @@ class LinearMHDVlasovPC(StruphyModel):
         else:
             self._ones[:] = 1.0
 
-        self._en_f = xp.empty(1, dtype=float)
         self._n_lost_particles = xp.empty(1, dtype=float)
 
-    def update_scalar_quantities(self):
-        # scaling factor
+    def _compute_en_f(self):
         Ab = self.mhd.mass_number
         Ah = self.energetic_ions.var.species.mass_number
-
-        # perturbed fields
-        en_U = 0.5 * Propagator.mass_ops.M2n.dot_inner(
-            self.mhd.velocity.spline.vector,
-            self.mhd.velocity.spline.vector,
-        )
-        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(
-            self.em_fields.b_field.spline.vector,
-            self.em_fields.b_field.spline.vector,
-        )
-        en_p = self.mhd.pressure.spline.vector.inner(self._ones) / (5 / 3 - 1)
-
-        self.update_scalar("en_U", en_U)
-        self.update_scalar("en_B", en_B)
-        self.update_scalar("en_p", en_p)
-
-        # particles' energy
         particles = self.energetic_ions.var.particles
-
-        self._en_f[0] = (
+        return (
             particles.markers[~particles.holes, 6].dot(
                 particles.markers[~particles.holes, 3] ** 2
                 + particles.markers[~particles.holes, 4] ** 2
@@ -240,10 +218,9 @@ class LinearMHDVlasovPC(StruphyModel):
             / Ab
         )
 
-        self.update_scalar("en_f", self._en_f[0])
-        self.update_scalar("en_tot")
-
-        # print number of lost particles
+    def update_scalar_quantities(self):
+        self.scalars.update()
+        particles = self.energetic_ions.var.particles
         n_lost_markers = xp.array(particles.n_lost_markers)
 
         if Propagator.derham.comm is not None:

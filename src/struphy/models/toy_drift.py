@@ -6,6 +6,7 @@ from struphy.feec.projectors import L2Projector
 from struphy.io.options import LiteralOptions
 from struphy.kinetic_background.base import KineticBackground
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import FunctionScalar, Scalars
 from struphy.models.species import (
     FieldSpecies,
     ParticleSpecies,
@@ -130,10 +131,13 @@ class ToyDrift(StruphyModel):
         self.propagators.gc_poisson.variables.phi = self.em_fields.phi
         self.propagators.push_gc_bxe.variables.ions = self.kinetic_ions.var
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_phi")
-        self.add_scalar("en_particles", compute="from_particles", variable=self.kinetic_ions.var)
-        self.add_scalar("en_tot")
+        field_energy = FunctionScalar(self._compute_en_phi)
+        particle_energy = FunctionScalar(self._compute_en_particles, self.kinetic_ions.var)
+        self.scalars = Scalars(
+            en_phi=field_energy,
+            en_particles=particle_energy,
+            en_tot=field_energy + particle_energy,
+        )
 
     @property
     def bulk_species(self):
@@ -183,23 +187,14 @@ class ToyDrift(StruphyModel):
         if particles.control_variate:
             particles.update_weights()
 
-    def update_scalar_quantities(self):
+    def _compute_en_phi(self):
         phi = self.em_fields.phi.spline.vector
-        particles = self.kinetic_ions.var.particles
-
-        # energy from polarization
         e1 = Propagator.derham.grad.dot(-phi, out=self._e_field)
-        en_phi1 = 0.5 * Propagator.mass_ops.M1.dot_inner(e1, e1)
+        return 0.5 * Propagator.mass_ops.M1.dot_inner(e1, e1)
 
-        # for Landau damping test
-        # en_phi = 0.
-
-        # 1/N sum_p (w_p v_p^2/2 + mu_p |B0|_p)
-        self._tmp3[0] = 1 / particles.Np * xp.sum(particles.weights * particles.velocities[:, 0] ** 2 / 2.0)
-
-        self.update_scalar("en_phi", en_phi1)
-        self.update_scalar("en_particles", self._tmp3[0])
-        self.update_scalar("en_tot", en_phi1 + self._tmp3[0])
+    def _compute_en_particles(self):
+        particles = self.kinetic_ions.var.particles
+        return 1 / particles.Np * xp.sum(particles.weights * particles.velocities[:, 0] ** 2 / 2.0)
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

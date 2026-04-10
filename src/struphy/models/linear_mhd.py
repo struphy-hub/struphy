@@ -3,6 +3,7 @@ from feectools.linalg.block import BlockVector
 
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalar, Scalars, VolumeFormEnergyFEEC
 from struphy.models.species import (
     FieldSpecies,
     FluidSpecies,
@@ -84,14 +85,21 @@ class LinearMHD(StruphyModel):
         self.propagators.mag_sonic.variables.u = self.mhd.velocity
         self.propagators.mag_sonic.variables.p = self.mhd.pressure
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_U")
-        self.add_scalar("en_p")
-        self.add_scalar("en_B")
-        self.add_scalar("en_p_eq")
-        self.add_scalar("en_B_eq")
-        self.add_scalar("en_B_tot")
-        self.add_scalar("en_tot")
+        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="M2n", normalization=0.5)
+        pressure_energy = VolumeFormEnergyFEEC(self.mhd.pressure, normalization=1.0 / (5 / 3 - 1))
+        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field, bilinear_form_name="M2", normalization=0.5)
+        background_pressure = FunctionScalar(self._compute_en_p_eq)
+        background_magnetic = FunctionScalar(self._compute_en_B_eq)
+        total_magnetic = FunctionScalar(self._compute_en_B_tot)
+        self.scalars = Scalars(
+            en_U=kinetic_energy,
+            en_p=pressure_energy,
+            en_B=magnetic_energy,
+            en_p_eq=background_pressure,
+            en_B_eq=background_magnetic,
+            en_B_tot=total_magnetic,
+            en_tot=kinetic_energy + pressure_energy + magnetic_energy,
+        )
 
     @property
     def bulk_species(self):
@@ -111,41 +119,19 @@ class LinearMHD(StruphyModel):
         self._tmp_b1: BlockVector = Propagator.derham.V2.zeros()
         self._tmp_b2: BlockVector = Propagator.derham.V2.zeros()
 
-    def update_scalar_quantities(self):
-        # perturbed fields
-        en_U = 0.5 * Propagator.mass_ops.M2n.dot_inner(
-            self.mhd.velocity.spline.vector,
-            self.mhd.velocity.spline.vector,
-        )
-        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(
-            self.em_fields.b_field.spline.vector,
-            self.em_fields.b_field.spline.vector,
-        )
-        en_p = self.mhd.pressure.spline.vector.inner(self._ones) / (5 / 3 - 1)
-
-        self.update_scalar("en_U", en_U)
-        self.update_scalar("en_B", en_B)
-        self.update_scalar("en_p", en_p)
-        self.update_scalar("en_tot", en_U + en_B + en_p)
-
-        # background fields
+    def _compute_en_B_eq(self):
         Propagator.mass_ops.M2.dot(Propagator.projected_equil.b2, apply_bc=False, out=self._tmp_b1)
+        return Propagator.projected_equil.b2.inner(self._tmp_b1) / 2
 
-        en_B0 = Propagator.projected_equil.b2.inner(self._tmp_b1) / 2
-        en_p0 = Propagator.projected_equil.p3.inner(self._ones) / (5 / 3 - 1)
+    def _compute_en_p_eq(self):
+        return Propagator.projected_equil.p3.inner(self._ones) / (5 / 3 - 1)
 
-        self.update_scalar("en_B_eq", en_B0)
-        self.update_scalar("en_p_eq", en_p0)
-
-        # total magnetic field
+    def _compute_en_B_tot(self):
         Propagator.projected_equil.b2.copy(out=self._tmp_b1)
         self._tmp_b1 += self.em_fields.b_field.spline.vector
 
         Propagator.mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
-
-        en_Btot = self._tmp_b1.inner(self._tmp_b2) / 2
-
-        self.update_scalar("en_B_tot", en_Btot)
+        return self._tmp_b1.inner(self._tmp_b2) / 2
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

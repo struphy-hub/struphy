@@ -6,6 +6,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalar, Scalars, VolumeFormEnergyFEEC
 from struphy.models.species import (
     FieldSpecies,
     FluidSpecies,
@@ -198,13 +199,19 @@ class LinearMHDDriftkineticCC(StruphyModel):
         if "PushGuidingCenterParallel" not in turn_off:
             self.propagators.push_parallel.variables.ions = self.energetic_ions.var
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_U")
-        self.add_scalar("en_p")
-        self.add_scalar("en_B")
-        self.add_scalar("en_fv", compute="from_particles", variable=self.energetic_ions.var)
-        self.add_scalar("en_fB", compute="from_particles", variable=self.energetic_ions.var)
-        self.add_scalar("en_tot", summands=["en_U", "en_p", "en_B", "en_fv", "en_fB"])
+        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="M2n", normalization=0.5)
+        pressure_energy = VolumeFormEnergyFEEC(self.mhd.pressure, normalization=1.0 / (5 / 3 - 1))
+        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field, bilinear_form_name="M2", normalization=0.5)
+        particle_parallel = FunctionScalar(self._compute_en_fv, self.energetic_ions.var)
+        particle_magnetic = FunctionScalar(self._compute_en_fB, self.energetic_ions.var)
+        self.scalars = Scalars(
+            en_U=kinetic_energy,
+            en_p=pressure_energy,
+            en_B=magnetic_energy,
+            en_fv=particle_parallel,
+            en_fB=particle_magnetic,
+            en_tot=kinetic_energy + pressure_energy + magnetic_energy + particle_parallel + particle_magnetic,
+        )
 
     @property
     def bulk_species(self):
@@ -229,30 +236,11 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._PB = getattr(Propagator.basis_ops, "PB")
         self._PBb = self._PB.codomain.zeros()
 
-    def update_scalar_quantities(self):
-        # scaling factor
+    def _compute_en_fv(self):
         Ab = self.mhd.mass_number
         Ah = self.energetic_ions.var.species.mass_number
-
-        # perturbed fields
-        en_U = 0.5 * Propagator.mass_ops.M2n.dot_inner(
-            self.mhd.velocity.spline.vector,
-            self.mhd.velocity.spline.vector,
-        )
-        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(
-            self.em_fields.b_field.spline.vector,
-            self.em_fields.b_field.spline.vector,
-        )
-        en_p = self.mhd.pressure.spline.vector.inner(self._ones) / (5 / 3 - 1)
-
-        self.update_scalar("en_U", en_U)
-        self.update_scalar("en_B", en_B)
-        self.update_scalar("en_p", en_p)
-
-        # particles' energy
         particles = self.energetic_ions.var.particles
-
-        self._en_fv[0] = (
+        return (
             particles.markers[~particles.holes, 5].dot(
                 particles.markers[~particles.holes, 3] ** 2,
             )
@@ -261,10 +249,14 @@ class LinearMHDDriftkineticCC(StruphyModel):
             / Ab
         )
 
+    def _compute_en_fB(self):
+        Ab = self.mhd.mass_number
+        Ah = self.energetic_ions.var.species.mass_number
+        particles = self.energetic_ions.var.particles
         self._PBb = self._PB.dot(self.em_fields.b_field.spline.vector)
         particles.save_magnetic_energy(self._PBb)
 
-        self._en_fB[0] = (
+        return (
             particles.markers[~particles.holes, 5].dot(
                 particles.markers[~particles.holes, 8],
             )
@@ -272,11 +264,9 @@ class LinearMHDDriftkineticCC(StruphyModel):
             / Ab
         )
 
-        self.update_scalar("en_fv", self._en_fv[0])
-        self.update_scalar("en_fB", self._en_fB[0])
-        self.update_scalar("en_tot")
-
-        # print number of lost particles
+    def update_scalar_quantities(self):
+        self.scalars.update()
+        particles = self.energetic_ions.var.particles
         n_lost_markers = xp.array(particles.n_lost_markers)
 
         if Propagator.derham.comm is not None:
