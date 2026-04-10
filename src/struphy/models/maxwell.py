@@ -1,5 +1,6 @@
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
@@ -17,7 +18,13 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 @auto_convert_docstring
 class Maxwell(StruphyModel):
-    """Maxwell's equations in vacuum for electromagnetic field evolution."""
+    """Maxwell's equations in vacuum for electromagnetic field evolution.
+
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    """
 
     @classmethod
     def model_type(cls) -> LiteralOptions.ModelTypes:
@@ -39,15 +46,18 @@ class Maxwell(StruphyModel):
 
     ## abstract methods
 
-    def __init__(self):
+    def __init__(self, base_units: BaseUnits = BaseUnits()):
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators()
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.maxwell.variables.e = self.em_fields.e_field
         self.propagators.maxwell.variables.b = self.em_fields.b_field
 
