@@ -64,14 +64,32 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
             self.init_variables()
 
     class Ions(FluidSpecies):
-        def __init__(self, charge_number: int = 1, mass_number: float = 1.0, epsilon: float = None,):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+            epsilon: float = None,
+        ):
             self.u = FEECVariable(space="Hdiv")
-            self.init_variables(charge_number=charge_number, mass_number=mass_number, epsilon=epsilon,)
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                epsilon=epsilon,
+            )
 
     class Electrons(FluidSpecies):
-        def __init__(self, charge_number: int = 1, mass_number: float = 1.0, epsilon: float = None,):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+            epsilon: float = None,
+        ):
             self.u = FEECVariable(space="Hdiv")
-            self.init_variables(charge_number=charge_number, mass_number=mass_number, epsilon=epsilon,)
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                epsilon=epsilon,
+            )
 
     ## propagators
 

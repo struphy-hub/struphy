@@ -19,7 +19,7 @@ rank = MPI.COMM_WORLD.Get_rank()
 @auto_convert_docstring
 class Maxwell(StruphyModel):
     """Maxwell's equations in vacuum for electromagnetic field evolution.
-    
+
     Parameters
     ----------
     base_units: BaseUnits

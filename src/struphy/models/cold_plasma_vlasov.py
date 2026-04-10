@@ -88,9 +88,20 @@ class ColdPlasmaVlasov(StruphyModel):
             self.init_variables()
 
     class ThermalElectrons(FluidSpecies):
-        def __init__(self, charge_number: int, mass_number: float, alpha: float, epsilon: float,):
+        def __init__(
+            self,
+            charge_number: int,
+            mass_number: float,
+            alpha: float,
+            epsilon: float,
+        ):
             self.current = FEECVariable(space="Hcurl")
-            self.init_variables(charge_number=charge_number, mass_number=mass_number, alpha=alpha, epsilon=epsilon,)
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                alpha=alpha,
+                epsilon=epsilon,
+            )
 
     class HotElectrons(ParticleSpecies):
         def __init__(
@@ -123,9 +134,9 @@ class ColdPlasmaVlasov(StruphyModel):
         self,
         base_units: BaseUnits = BaseUnits(),
         thermal_charge_number: int = -1,
-        thermal_mass_number: float = 1/1836,
+        thermal_mass_number: float = 1 / 1836,
         hot_charge_number: int = -1,
-        hot_mass_number: float = 1/1836,
+        hot_mass_number: float = 1 / 1836,
         thermal_alpha: float = None,
         thermal_epsilon: float = None,
         hot_epsilon: float = None,
@@ -133,10 +144,12 @@ class ColdPlasmaVlasov(StruphyModel):
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
-        self.thermal_elec = self.ThermalElectrons(thermal_charge_number,
-                                                  thermal_mass_number,
-                                                  thermal_alpha,
-                                                  thermal_epsilon,)
+        self.thermal_elec = self.ThermalElectrons(
+            thermal_charge_number,
+            thermal_mass_number,
+            thermal_alpha,
+            thermal_epsilon,
+        )
         self.hot_elec = self.HotElectrons(
             hot_charge_number,
             hot_mass_number,

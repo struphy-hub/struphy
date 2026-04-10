@@ -77,7 +77,11 @@ class LinearExtendedMHDuniform(StruphyModel):
             self.density = FEECVariable(space="L2")
             self.velocity = FEECVariable(space="Hdiv")
             self.pressure = FEECVariable(space="L2")
-            self.init_variables(charge_number=charge_number, mass_number=mass_number, epsilon=epsilon,)
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                epsilon=epsilon,
+            )
 
     ## propagators
 
@@ -99,7 +103,11 @@ class LinearExtendedMHDuniform(StruphyModel):
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
-        self.mhd = self.MHD(charge_number=charge_number, mass_number=mass_number, epsilon=epsilon,)
+        self.mhd = self.MHD(
+            charge_number=charge_number,
+            mass_number=mass_number,
+            epsilon=epsilon,
+        )
 
         # 2. derive units (must be done after instantiating species to access charge and mass numbers)
         self.setup_equation_params(base_units=base_units)

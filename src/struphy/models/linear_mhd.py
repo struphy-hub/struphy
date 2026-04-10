@@ -21,7 +21,7 @@ rank = MPI.COMM_WORLD.Get_rank()
 @auto_convert_docstring
 class LinearMHD(StruphyModel):
     """Linear ideal MHD with zero-flow equilibrium for magnetohydrodynamic wave propagation.
-    
+
     Parameters
     ----------
     base_units: BaseUnits
@@ -42,7 +42,10 @@ class LinearMHD(StruphyModel):
             self.init_variables()
 
     class MHD(FluidSpecies):
-        def __init__(self, mass_number: float = 1.0,):
+        def __init__(
+            self,
+            mass_number: float = 1.0,
+        ):
             self.density = FEECVariable(space="L2")
             self.velocity = FEECVariable(space="Hdiv")
             self.pressure = FEECVariable(space="L2")
@@ -57,9 +60,11 @@ class LinearMHD(StruphyModel):
 
     ## abstract methods
 
-    def __init__(self, 
-                base_units: BaseUnits = BaseUnits(),
-                mass_number: float = 1.0,):
+    def __init__(
+        self,
+        base_units: BaseUnits = BaseUnits(),
+        mass_number: float = 1.0,
+    ):
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()

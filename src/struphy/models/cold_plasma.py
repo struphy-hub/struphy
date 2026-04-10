@@ -92,7 +92,7 @@ class ColdPlasma(StruphyModel):
         self,
         base_units: BaseUnits = BaseUnits(),
         charge_number: int = -1,
-        mass_number: float = 1/1836,
+        mass_number: float = 1 / 1836,
         alpha: float = None,
         epsilon: float = None,
     ):

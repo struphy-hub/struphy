@@ -16,10 +16,10 @@ from struphy import (
     equils,
     grids,
     perturbations,
+    set_logging_level,
 )
 from struphy.diagnostics.diagn_tools import power_spectrum_2d
 from struphy.models import LinearMHD
-from struphy import set_logging_level
 
 set_logging_level()
 logger = logging.getLogger("struphy")
