@@ -87,7 +87,7 @@ class ViscousEulerSPH(StruphyModel):
 
     def __init__(
         self,
-        base_units: BaseUnits = BaseUnits(),
+        base_units: BaseUnits = BaseUnits(kBT=1.0),
         charge_number: int = 1,
         mass_number: float = 1.0,
         with_B0: bool = True,

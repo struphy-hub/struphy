@@ -83,7 +83,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
 
     def __init__(
         self,
-        base_units: BaseUnits = BaseUnits(),
+        base_units: BaseUnits = BaseUnits(kBT=1.0),
         ion_charge_number: int = 1,
         ion_mass_number: float = 1.0,
         ion_epsilon: float = None,
