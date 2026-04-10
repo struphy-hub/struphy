@@ -2,6 +2,7 @@ from feectools.ddm.mpi import mpi as MPI
 
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import QuadraticEnergyFEEC, Scalars
 from struphy.models.species import (
     FluidSpecies,
 )
@@ -9,7 +10,6 @@ from struphy.models.variables import FEECVariable
 from struphy.propagators import (
     propagators_fields,
 )
-from struphy.propagators.base import Propagator
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -78,10 +78,15 @@ class VariationalBarotropicFluid(StruphyModel):
         self.propagators.variat_dens.variables.u = self.fluid.velocity
         self.propagators.variat_mom.variables.u = self.fluid.velocity
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_U")
-        self.add_scalar("en_thermo")
-        self.add_scalar("en_tot")
+        kinetic_energy = QuadraticEnergyFEEC(self.fluid.velocity, bilinear_form_name="WMM")
+        thermo_energy = QuadraticEnergyFEEC(self.fluid.density)
+        total_energy = kinetic_energy + thermo_energy
+
+        self.scalars = Scalars(
+            kinetic_energy=kinetic_energy,
+            thermo_energy=thermo_energy,
+            total_energy=total_energy,
+        )
 
     @property
     def bulk_species(self):
@@ -93,19 +98,6 @@ class VariationalBarotropicFluid(StruphyModel):
 
     def allocate_helpers(self, verbose: bool = False):
         pass
-
-    def update_scalar_quantities(self):
-        rho = self.fluid.density.spline.vector
-        u = self.fluid.velocity.spline.vector
-
-        en_U = 0.5 * Propagator.mass_ops.WMM.massop.dot_inner(u, u)
-        self.update_scalar("en_U", en_U)
-
-        en_thermo = 0.5 * Propagator.mass_ops.M3.dot_inner(rho, rho)
-        self.update_scalar("en_thermo", en_thermo)
-
-        en_tot = en_U + en_thermo
-        self.update_scalar("en_tot", en_tot)
 
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

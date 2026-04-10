@@ -2,6 +2,7 @@ from feectools.ddm.mpi import mpi as MPI
 
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import QuadraticEnergyFEEC, Scalars
 from struphy.models.species import (
     FieldSpecies,
     FluidSpecies,
@@ -10,7 +11,6 @@ from struphy.models.variables import FEECVariable
 from struphy.propagators import (
     propagators_fields,
 )
-from struphy.propagators.base import Propagator
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -121,11 +121,21 @@ class ColdPlasma(StruphyModel):
 
         self.propagators.jxb.variables.j = self.electrons.current
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("electric energy")
-        self.add_scalar("magnetic energy")
-        self.add_scalar("kinetic energy")
-        self.add_scalar("total energy")
+        electric_energy = QuadraticEnergyFEEC(self.em_fields.e_field)
+        magnetic_energy = QuadraticEnergyFEEC(self.em_fields.b_field)
+        kinetic_energy = QuadraticEnergyFEEC(
+            self.electrons.current,
+            bilinear_form_name="M1ninv",
+            normalization=self.electrons.equation_params.alpha**2,
+        )
+        total_energy = electric_energy + magnetic_energy + kinetic_energy
+
+        self.scalars = Scalars(
+            electric_energy=electric_energy,
+            magnetic_energy=magnetic_energy,
+            kinetic_energy=kinetic_energy,
+            total_energy=total_energy,
+        )
 
     @property
     def bulk_species(self):
@@ -136,18 +146,4 @@ class ColdPlasma(StruphyModel):
         return "light"
 
     def allocate_helpers(self, verbose: bool = False):
-        self._alpha = self.electrons.equation_params.alpha
-
-    def update_scalar_quantities(self):
-        e = self.em_fields.e_field.spline.vector
-        b = self.em_fields.b_field.spline.vector
-        j = self.electrons.current.spline.vector
-
-        en_E = 0.5 * Propagator.mass_ops.M1.dot_inner(e, e)
-        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(b, b)
-        en_J = 0.5 * self._alpha**2 * Propagator.mass_ops.M1ninv.dot_inner(j, j)
-
-        self.update_scalar("electric energy", en_E)
-        self.update_scalar("magnetic energy", en_B)
-        self.update_scalar("kinetic energy", en_J)
-        self.update_scalar("total energy", en_E + en_B + en_J)
+        pass

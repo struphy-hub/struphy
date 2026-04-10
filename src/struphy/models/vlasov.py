@@ -1,9 +1,9 @@
-import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import KineticEnergyPIC, Scalars
 from struphy.models.species import (
     ParticleSpecies,
 )
@@ -86,8 +86,8 @@ class Vlasov(StruphyModel):
         self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
         self.propagators.push_eta.variables.var = self.kinetic_ions.var
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_f", compute="from_particles", variable=self.kinetic_ions.var)
+        kinetic_energy = KineticEnergyPIC(self.kinetic_ions.var)
+        self.scalars = Scalars(kinetic_energy=kinetic_energy)
 
     @property
     def bulk_species(self):
@@ -98,14 +98,4 @@ class Vlasov(StruphyModel):
         return "cyclotron"
 
     def allocate_helpers(self, verbose: bool = False):
-        self._tmp = xp.empty(1, dtype=float)
-
-    def update_scalar_quantities(self):
-        particles = self.kinetic_ions.var.particles
-        self._tmp[0] = particles.markers_wo_holes[:, 6].dot(
-            particles.markers_wo_holes[:, 3] ** 2
-            + particles.markers_wo_holes[:, 4] ** 2
-            + particles.markers_wo_holes[:, 5] ** 2,
-        ) / (2 * particles.Np)
-
-        self.update_scalar("en_f", self._tmp[0])
+        pass
