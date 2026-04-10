@@ -128,7 +128,6 @@ class ParamsIn:
         if os.path.exists(params_path):
             params_in = import_parameters_py(params_path)
             env = params_in.env
-            base_units = params_in.base_units
             time_opts = params_in.time_opts
             domain = params_in.domain
             equil = params_in.equil
@@ -139,8 +138,6 @@ class ParamsIn:
         elif os.path.exists(bin_path):
             with open(os.path.join(path, "env.bin"), "rb") as f:
                 env = pickle.load(f)
-            with open(os.path.join(path, "base_units.bin"), "rb") as f:
-                base_units = pickle.load(f)
             with open(os.path.join(path, "time_opts.bin"), "rb") as f:
                 time_opts = pickle.load(f)
             with open(os.path.join(path, "domain.bin"), "rb") as f:
@@ -169,7 +166,6 @@ class ParamsIn:
             logger.info("\n... Done.")
 
         self.env = env
-        self.units = base_units
         self.time_opts = time_opts
         self.domain = domain
         self.equil = equil
