@@ -1,6 +1,9 @@
 """Utility to convert RST docstrings to HTML for VS Code display."""
 
+import logging
 import re
+
+logger = logging.getLogger("struphy")
 
 
 def _format_fraction(numerator: str, denominator: str, display_mode: bool = False) -> str:
@@ -893,4 +896,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     model = get_model_by_name(args.model_name)
     auto_convert_docstring(model)
-    print(model.__doc__)
+    logger.info(model.__doc__)

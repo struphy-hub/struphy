@@ -1,3 +1,5 @@
+import logging
+
 import cunumpy as xp
 from feectools.api.essential_bc import apply_essential_bc_stencil
 from feectools.fem.tensor import TensorFemSpace
@@ -9,6 +11,8 @@ from feectools.linalg.stencil import StencilMatrix, StencilVector
 import struphy.feec.utilities_kernels as kernels
 from struphy.feec import banded_to_stencil_kernels as bts
 from struphy.polar.basic import PolarVector
+
+logger = logging.getLogger("struphy")
 
 
 def get_quad_grids(
@@ -291,7 +295,7 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
         raise AssertionError("Wrong input type.")
 
     if verbose:
-        print(
+        logger.info(
             f"Rank {rank}: Assertion for array comparison passed with atol={atol}.",
         )
 

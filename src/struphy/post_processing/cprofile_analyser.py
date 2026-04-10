@@ -1,3 +1,8 @@
+import logging
+
+logger = logging.getLogger("struphy")
+
+
 def get_cprofile_data(path, print_callers=None):
     """Prepare Cprofile data and save to "profile_dict.sav".
 
@@ -19,8 +24,8 @@ def get_cprofile_data(path, print_callers=None):
     p.strip_dirs().sort_stats(SortKey.CUMULATIVE).print_stats(0)
 
     if print_callers is not None:
-        print("Print callers:")
-        print("--------------")
+        logger.info("Print callers:")
+        logger.info("--------------")
         p.strip_dirs().sort_stats(SortKey.CUMULATIVE).print_callers(print_callers)
 
     stdout = open(os.path.join(path, "profile_out.txt"), "w+")
@@ -31,21 +36,21 @@ def get_cprofile_data(path, print_callers=None):
     data_cprofile = dict()
     with open(os.path.join(path, "profile_out.txt")) as f:
         lines = f.readlines()
-        # print(len(lines))
+        # logger.info(len(lines))
         search = False
         for n, line in enumerate(lines):
             if search:
                 li = line.split()
-                # print(li)
-                # print(len(name_li), len(li))
+                # logger.info(li)
+                # logger.info(len(name_li), len(li))
                 if len(li) == 0:
                     search = False
                     continue
-                # print(name_li[0], li[0])
-                # print(name_li[1], li[1])
-                # print(name_li[2], li[2])
-                # print(name_li[3], li[3])
-                # print(name_li[4], li[4])
+                # logger.info(name_li[0], li[0])
+                # logger.info(name_li[1], li[1])
+                # logger.info(name_li[2], li[2])
+                # logger.info(name_li[3], li[3])
+                # logger.info(name_li[4], li[4])
                 data_cprofile[li[-1]] = {
                     name_li[0]: li[0],
                     name_li[1]: li[1],
@@ -56,9 +61,9 @@ def get_cprofile_data(path, print_callers=None):
                 # time.sleep(1)
 
             if "filename:lineno" in line:
-                # print(n, repr(line))
+                # logger.info(n, repr(line))
                 name_li = line.split()
-                # print(name_li)
+                # logger.info(name_li)
                 search = True
 
     with open(os.path.join(path, "profile_dict.sav"), "w+b") as f:
@@ -85,23 +90,23 @@ def compare_cprofile_data(path, list_of_funcs=None):
         data_cprofile = pickle.load(f)
 
     if list_of_funcs is None:
-        print("-" * 76)
-        print("function name".ljust(60), "cumulative time")
-        print("-" * 76)
+        logger.info("-" * 76)
+        logger.info(f"{'function name':<60}cumulative time")
+        logger.info("-" * 76)
     else:
-        print("-" * 76)
-        print("function name, keywords: {}".format(list_of_funcs).ljust(60), "cumulative time")
-        print("-" * 76)
+        logger.info("-" * 76)
+        logger.info(f"{f'function name, keywords: {list_of_funcs}':<60}cumulative time")
+        logger.info("-" * 76)
 
     counter = 0
     for k, v in data_cprofile.items():
         counter += 1
         if list_of_funcs is None:
-            print(k.ljust(60), v["cumtime"])
+            logger.info(f"{k:<60}{v['cumtime']}")
             if counter > 49:
                 break
         elif any(func in k for func in list_of_funcs) and "dependencies_" not in k:
-            print(k.ljust(60), v["cumtime"])
+            logger.info(f"{k:<60}{v['cumtime']}")
 
 
 def replace_keys(d):
@@ -138,14 +143,14 @@ def replace_keys(d):
             l_nr = int(key[p1 + 1 : p2])
             new_routine = key[p2:]
 
-            # print(key, p1, f_name, l_nr, new_routine)
+            # logger.info(key, p1, f_name, l_nr, new_routine)
 
             found = False
             for root, dirs, files in os.walk(struphy_path):
                 for name in files:
                     if name == f_name:
                         f_path = os.path.abspath(os.path.join(root, name))
-                        # print(f_path)
+                        # logger.info(f_path)
 
                         li = []
                         with open(f_path, "r") as fp:
@@ -155,8 +160,8 @@ def replace_keys(d):
                                 if n == l_nr - 1 and len(li) > 0:
                                     new_key = li[-1] + new_routine
                                     found = True
-                                    # print(new_key)
-                                    # print('xxx')
+                                    # logger.info(new_key)
+                                    # logger.info('xxx')
                                     break
 
             if not found:
@@ -164,7 +169,7 @@ def replace_keys(d):
                     for name in files:
                         if name == f_name:
                             f_path = os.path.abspath(os.path.join(root, name))
-                            # print(f_path)
+                            # logger.info(f_path)
 
                             li = []
                             with open(f_path, "r") as fp:
@@ -174,8 +179,8 @@ def replace_keys(d):
                                     if n == l_nr - 1 and len(li) > 0:
                                         new_key = li[-1] + new_routine
                                         found = True
-                                        # print(new_key)
-                                        # print('xxx')
+                                        # logger.info(new_key)
+                                        # logger.info('xxx')
                                         break
 
             if found:

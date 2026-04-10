@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 
@@ -16,6 +17,8 @@ from struphy import (
     perturbations,
 )
 from struphy.models import Poisson
+
+logger = logging.getLogger("struphy")
 
 
 def test_poisson_1d(do_plot=False):
@@ -125,7 +128,7 @@ def test_poisson_1d(do_plot=False):
                     break
 
         plt.show()
-        print(f"{err =}")
+        logger.info(f"{err =}")
         assert err < 0.0057
 
         shutil.rmtree(test_folder)

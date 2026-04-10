@@ -1,3 +1,5 @@
+import logging
+
 import cunumpy as xp
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.ddm.mpi import mpi as MPI
@@ -16,6 +18,8 @@ from struphy.feec.utilities import RotationMatrix
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.pyccel import Pyccelkernel
+
+logger = logging.getLogger("struphy")
 
 
 class BasisProjectionOperators:
@@ -55,7 +59,7 @@ class BasisProjectionOperators:
             [degree == 1 and num_elements > 1 for degree, num_elements in zip(derham.degree, derham.num_elements)]
         ):
             if MPI.COMM_WORLD.Get_rank() == 0:
-                print(
+                logger.info(
                     f'\nWARNING: Class "BasisProjectionOperators" called with degree={derham.degree} (interpolation of piece-wise constants should be avoided).',
                 )
 
@@ -934,11 +938,11 @@ class BasisProjectionOperators:
 
         if assemble:
             if MPI.COMM_WORLD.Get_rank() == 0 and self.verbose:
-                print(f'\nAssembling BasisProjectionOperator "{name}" with V={V_id}, W={W_id}.')
+                logger.info(f'\nAssembling BasisProjectionOperator "{name}" with V={V_id}, W={W_id}.')
             out.assemble(verbose=self.verbose)
 
         if MPI.COMM_WORLD.Get_rank() == 0 and self.verbose:
-            print("Done.")
+            logger.info("Done.")
 
         return out
 
@@ -2063,7 +2067,7 @@ class BasisProjectionOperator(LinOpWithTransp):
                     )
 
                     if rank == 0 and verbose:
-                        print(f"Assemble block {i, j}")
+                        logger.info(f"Assemble block {i, j}")
                     kernel(
                         dofs_mat._data,
                         _starts_in,
@@ -2159,18 +2163,18 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, pol
         spans += [s_i]
         bases += [b_i]
 
-    # print("#################################################")
-    # print("#################################################")
-    # print("W1d[0]:")
-    # print(W1d[0])
-    # print("W1d[1]:")
-    # print(W1d[1])
-    # print("W1d[2]:")
-    # print(W1d[2])
-    # print("pts :")
-    # print(pts)
-    # print("#################################################")
-    # print("#################################################")
+    # logger.info("#################################################")
+    # logger.info("#################################################")
+    # logger.info("W1d[0]:")
+    # logger.info(W1d[0])
+    # logger.info("W1d[1]:")
+    # logger.info(W1d[1])
+    # logger.info("W1d[2]:")
+    # logger.info(W1d[2])
+    # logger.info("pts :")
+    # logger.info(pts)
+    # logger.info("#################################################")
+    # logger.info("#################################################")
 
     return tuple(pts), tuple(wts), tuple(spans), tuple(bases), tuple(subs)
 

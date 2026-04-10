@@ -1,5 +1,9 @@
+import logging
+
+import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.scalars import KineticEnergyPIC, QuadraticEnergyFEEC, Scalars
@@ -19,18 +23,38 @@ from struphy.propagators.base import Propagator
 from struphy.utils.docstring_converter import auto_convert_docstring
 from struphy.utils.pyccel import Pyccelkernel
 
+logger = logging.getLogger("struphy")
+
 rank = MPI.COMM_WORLD.Get_rank()
 
 
 @auto_convert_docstring
 class VlasovAmpereOneSpecies(StruphyModel):
-    """Vlasov-Ampère system for a single kinetic species in an electric field."""
+    """Vlasov-Ampère system for a single kinetic species in an electric field.
+
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    charge_number: int
+        Charge number (in units of the positive elementary charge) of the ion species (default: 1)
+    mass_number: float
+        Mass number (in units or Proton mass) of the ion species (default: 1.0)
+    alpha : float, optional
+        Dimensionless parameter: plasma frequency / cyclotron frequency.
+        If None, computed from units and charge/mass numbers.
+    epsilon : float, optional
+        Normalized cyclotron period: 1 / (cyclotron frequency × time unit).
+        If None, computed from units and charge/mass numbers.
+    with_B0: bool
+        Whether to include the effect of a background magnetic field B0 (default: True)
+    """
 
     @classmethod
     def model_type(cls) -> LiteralOptions.ModelTypes:
         return "Kinetic"
 
-    ## species
+    # species
 
     class EMFields(FieldSpecies):
         def __init__(self):
@@ -39,11 +63,22 @@ class VlasovAmpereOneSpecies(StruphyModel):
             self.init_variables()
 
     class KineticIons(ParticleSpecies):
-        def __init__(self):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+            alpha: float = None,
+            epsilon: float = None,
+        ):
             self.var = PICVariable(space="Particles6D")
-            self.init_variables()
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                alpha=alpha,
+                epsilon=epsilon,
+            )
 
-    ## propagators
+    # propagators
 
     class Propagators:
         def __init__(self, with_B0: bool = True):
@@ -52,20 +87,37 @@ class VlasovAmpereOneSpecies(StruphyModel):
                 self.push_vxb = propagators_markers.PushVxB()
             self.coupling_va = propagators_coupling.VlasovAmpere()
 
-    ## abstract methods
+    # abstract methods
 
-    def __init__(self, with_B0: bool = True):
+    def __init__(
+        self,
+        base_units: BaseUnits = BaseUnits(),
+        charge_number: int = 1,
+        mass_number: float = 1.0,
+        alpha: float = None,
+        epsilon: float = None,
+        with_B0: bool = True,
+    ):
 
         self.with_B0 = with_B0
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
-        self.kinetic_ions = self.KineticIons()
 
-        # 2. instantiate all propagators
+        self.kinetic_ions = self.KineticIons(
+            charge_number,
+            mass_number,
+            alpha,
+            epsilon,
+        )
+
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators(with_B0=with_B0)
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.push_eta.variables.var = self.kinetic_ions.var
         if with_B0:
             self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
@@ -101,7 +153,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
         :meta private:
         """
         if MPI.COMM_WORLD.Get_rank() == 0:
-            print("\nINITIAL POISSON SOLVE:")
+            logger.info("\nINITIAL POISSON SOLVE:")
 
         # use control variate method (reset weights after Poisson solve)
         particles = self.kinetic_ions.var.particles
@@ -135,13 +187,13 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
         # Solve with dt=1. and compute electric field
         if MPI.COMM_WORLD.Get_rank() == 0:
-            print("\nSolving initial Poisson problem...")
+            logger.info("\nSolving initial Poisson problem...")
         self.initial_poisson(1.0)
 
         phi = self.initial_poisson.variables.phi.spline.vector
         Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
         if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-            print("... Done.")
+            logger.info("... Done.")
 
         # reset particle weights
         particles.weights = particles.weights_at_t0.copy()

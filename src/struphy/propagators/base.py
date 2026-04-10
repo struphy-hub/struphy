@@ -1,5 +1,6 @@
 "Propagator base class."
 
+import logging
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import Literal
@@ -15,6 +16,8 @@ from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.utils.utils import check_option
+
+logger = logging.getLogger("struphy")
 
 
 class Propagator(metaclass=ABCMeta):
@@ -90,9 +93,9 @@ class Propagator(metaclass=ABCMeta):
 
     def show_options(self):
         """Print the options of the propagator."""
-        print(f"\nOptions for propagator '{self.__class__.__name__}':")
+        logger.info(f"\nOptions for propagator '{self.__class__.__name__}':")
         for k, v in self.options.__dict__.items():
-            print(f"    {k}:".ljust(20), v)
+            logger.info(f"    {k + ':':<20}{v}")
 
     def update_feec_variables(self, **new_coeffs):
         r"""Return max_diff = max(abs(new - old)) for each new_coeffs,
