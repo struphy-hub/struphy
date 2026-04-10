@@ -141,4 +141,3 @@ class GuidingCenter(StruphyModel):
             / particles.Np
         )
         return energy
-

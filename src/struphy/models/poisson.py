@@ -84,7 +84,7 @@ class Poisson(StruphyModel):
         if with_t_dep_source:
             self.propagators.source.variables.source = self.em_fields.source
         self.propagators.poisson.variables.phi = self.em_fields.phi
-        
+
         # 5. define scalars to be tracked during simulation
 
     @property

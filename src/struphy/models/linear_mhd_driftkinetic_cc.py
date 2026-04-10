@@ -6,7 +6,14 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarPIC, KineticEnergyPIC, LostMarkersPIC, Scalars, VolumeFormEnergyFEEC
+from struphy.models.scalars import (
+    BilinearEnergyFEEC,
+    FunctionScalarPIC,
+    KineticEnergyPIC,
+    LostMarkersPIC,
+    Scalars,
+    VolumeFormEnergyFEEC,
+)
 from struphy.models.species import (
     FieldSpecies,
     FluidSpecies,

@@ -11,7 +11,6 @@ from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.utils.docstring_converter import auto_convert_docstring
 
-
 _DUMMY_VARIABLE = object()
 
 
@@ -49,6 +48,7 @@ class Scalar(metaclass=ABCMeta):
     def __add__(self, other):
         return SumOfScalars(self, other)
 
+
 class SumOfScalars(Scalar):
     """Scalar representing the sum of other scalars. An update of this scalar will also update all its summands."""
 
@@ -66,6 +66,7 @@ class SumOfScalars(Scalar):
             scalar.update()
         energy = sum(scalar.value[0] for scalar in self.variables)
         self.value[0] = energy
+
 
 class PICScalar(Scalar):
     """Base class for scalar quantities computed from PIC variables.
@@ -107,6 +108,7 @@ class PICScalar(Scalar):
                 op=MPI.SUM,
             )
 
+
 class SPHScalar(Scalar):
     """Base class for scalar quantities computed from SPH variables.
     Handles MPI communication within and between clones, but requires subclasses to implement the local update of self.local_value[0]."""
@@ -134,6 +136,7 @@ class SPHScalar(Scalar):
             op=MPI.SUM,
         )
 
+
 class Scalars:
     """Container for multiple Scalar objects.
     Calling .update() on this container will update all contained scalars."""
@@ -153,6 +156,7 @@ class Scalars:
         # reset status to False for next update
         for scalar in self.dct.values():
             scalar.uptodate = False
+
 
 @auto_convert_docstring
 class BilinearEnergyFEEC(Scalar):
@@ -210,6 +214,7 @@ class BilinearEnergyFEEC(Scalar):
     
 where :math:`\alpha` is a normalization constant and :math:`A` is a symmetric positive definite matrix (the identity by default)."""
 
+
 class VolumeFormEnergyFEEC(Scalar):
     """Scalar from a volume form integrated over the domain."""
 
@@ -246,9 +251,9 @@ class VolumeFormEnergyFEEC(Scalar):
     
 where :math:`\alpha` is a normalization constant."""
 
+
 class FunctionScalarFEEC(Scalar):
-    """Scalar defined by a callable working on a FEEC variable.
-    """
+    """Scalar defined by a callable working on a FEEC variable."""
 
     def __init__(
         self,
@@ -263,6 +268,7 @@ class FunctionScalarFEEC(Scalar):
     def _mpi_sum(self):
         """Communication has been handled by psydac, so no additional MPI operations are needed."""
         self.value[0] = self.local_value[0]
+
 
 class KineticEnergyPIC(PICScalar):
     r"""Scalar representing the kinetic energy computed from a PIC variable, according to
@@ -286,6 +292,7 @@ class KineticEnergyPIC(PICScalar):
         energy = self.normalization * 0.5 / self.Np * xp.sum(self.weights * xp.sum(self.velocities**2, axis=1))
         self.local_value[0] = energy
 
+
 class LostMarkersPIC(PICScalar):
     r"""Scalar representing the number of lost markers, computed from a PIC variable."""
 
@@ -293,9 +300,9 @@ class LostMarkersPIC(PICScalar):
         particles = self.variables[0].particles
         self.local_value[0] = particles.n_lost_markers
 
+
 class FunctionScalarPIC(PICScalar):
-    """Scalar defined by a callable working on a Particle variable.
-    """
+    """Scalar defined by a callable working on a Particle variable."""
 
     def __init__(
         self,
@@ -307,6 +314,7 @@ class FunctionScalarPIC(PICScalar):
 
     def _local_update(self):
         self.local_value[0] = float(self.function())
+
 
 class KineticEnergySPH(SPHScalar):
     r"""Scalar representing the kinetic energy computed from a SPH variable, according to
@@ -419,9 +427,9 @@ class KineticEnergySPH(SPHScalar):
     #         value = sum(scalars[summand]["value"][0] for summand in summands)
     #         scalars[name]["value"][0] = value
 
+
 class FunctionScalarSPH(SPHScalar):
-    """Scalar defined by a callable working on a SPH variable.
-    """
+    """Scalar defined by a callable working on a SPH variable."""
 
     def __init__(
         self,
