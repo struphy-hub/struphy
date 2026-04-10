@@ -1,6 +1,6 @@
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.io.options import LiteralOptions
+from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     FluidSpecies,
@@ -48,10 +48,10 @@ class VariationalBarotropicFluid(StruphyModel):
     ## species
 
     class Fluid(FluidSpecies):
-        def __init__(self):
+        def __init__(self, mass_number: float = 1.0):
             self.density = FEECVariable(space="L2")
             self.velocity = FEECVariable(space="H1vec")
-            self.init_variables()
+            self.init_variables(mass_number=mass_number)
 
     ## propagators
 
@@ -62,15 +62,18 @@ class VariationalBarotropicFluid(StruphyModel):
 
     ## abstract methods
 
-    def __init__(self):
+    def __init__(self, base_units: BaseUnits = BaseUnits(), mass_number: float = 1.0):
 
         # 1. instantiate all species
-        self.fluid = self.Fluid()
+        self.fluid = self.Fluid(mass_number=mass_number)
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators()
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.variat_dens.variables.rho = self.fluid.density
         self.propagators.variat_dens.variables.u = self.fluid.velocity
         self.propagators.variat_mom.variables.u = self.fluid.velocity

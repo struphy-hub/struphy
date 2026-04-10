@@ -3,7 +3,7 @@ import logging
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.stencil import StencilVector
 
-from struphy.io.options import LiteralOptions
+from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     FieldSpecies,
@@ -61,10 +61,10 @@ class HasegawaWakatani(StruphyModel):
             self.init_variables()
 
     class Plasma(FluidSpecies):
-        def __init__(self):
+        def __init__(self, mass_number: float = 1.0):
             self.density = FEECVariable(space="H1")
             self.vorticity = FEECVariable(space="H1")
-            self.init_variables()
+            self.init_variables(mass_number=mass_number)
 
     ## propagators
 
@@ -75,16 +75,19 @@ class HasegawaWakatani(StruphyModel):
 
     ## abstract methods
 
-    def __init__(self):
+    def __init__(self, base_units: BaseUnits = BaseUnits(), mass_number: float = 1.0):
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
-        self.plasma = self.Plasma()
+        self.plasma = self.Plasma(mass_number=mass_number)
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators()
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.poisson.variables.phi = self.em_fields.phi
         self.propagators.hw.variables.n = self.plasma.density
         self.propagators.hw.variables.omega = self.plasma.vorticity
