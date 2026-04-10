@@ -19,7 +19,9 @@ from struphy import (
 )
 from struphy.diagnostics.diagn_tools import power_spectrum_2d
 from struphy.models import LinearMHD
+from struphy import set_logging_level
 
+set_logging_level()
 logger = logging.getLogger("struphy")
 
 
@@ -52,9 +54,6 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
 
     # derham options
     derham_opts = DerhamOptions(degree=(1, 1, 3))
-
-    # species parameters
-    model.mhd.set_species_properties()
 
     # propagator options
     model.propagators.shear_alf.options = model.propagators.shear_alf.Options(algo=algo)

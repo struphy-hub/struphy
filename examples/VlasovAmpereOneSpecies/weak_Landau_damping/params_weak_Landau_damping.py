@@ -49,7 +49,7 @@ from struphy.models import VlasovAmpereOneSpecies
 base_units = BaseUnits()
 
 # Model instance
-model = VlasovAmpereOneSpecies(ion_alpha=1.0, ion_epsilon=-1.0, with_B0 = False)
+model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0 = False)
 
 # List all variables and decide whether to save their data
 model.em_fields.e_field.save_data = True

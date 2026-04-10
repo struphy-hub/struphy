@@ -1,7 +1,7 @@
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector
 
-from struphy.io.options import LiteralOptions
+from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     FieldSpecies,
@@ -20,7 +20,15 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 @auto_convert_docstring
 class LinearMHD(StruphyModel):
-    """Linear ideal MHD with zero-flow equilibrium for magnetohydrodynamic wave propagation."""
+    """Linear ideal MHD with zero-flow equilibrium for magnetohydrodynamic wave propagation.
+    
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    mass_number: float
+        Mass number (in units of Proton mass) of the ion species (default: 1.0)
+    """
 
     @classmethod
     def model_type(cls) -> LiteralOptions.ModelTypes:
@@ -34,11 +42,11 @@ class LinearMHD(StruphyModel):
             self.init_variables()
 
     class MHD(FluidSpecies):
-        def __init__(self):
+        def __init__(self, mass_number: float = 1.0,):
             self.density = FEECVariable(space="L2")
             self.velocity = FEECVariable(space="Hdiv")
             self.pressure = FEECVariable(space="L2")
-            self.init_variables()
+            self.init_variables(mass_number=mass_number)
 
     ## propagators
 
@@ -49,16 +57,21 @@ class LinearMHD(StruphyModel):
 
     ## abstract methods
 
-    def __init__(self):
+    def __init__(self, 
+                base_units: BaseUnits = BaseUnits(),
+                mass_number: float = 1.0,):
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
-        self.mhd = self.MHD()
+        self.mhd = self.MHD(mass_number)
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators()
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.shear_alf.variables.u = self.mhd.velocity
         self.propagators.shear_alf.variables.b = self.em_fields.b_field
 

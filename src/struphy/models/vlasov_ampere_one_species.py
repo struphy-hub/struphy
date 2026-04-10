@@ -33,18 +33,17 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
     Parameters
     ----------
-    ion_mass_number: float
-        Mass number (in units or Proton mass) of the ion species (default: 1.0)
-    ion_charge_number: int
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    charge_number: int
         Charge number (in units of the positive elementary charge) of the ion species (default: 1)
-    ion_alpha : float, optional
+    mass_number: float
+        Mass number (in units or Proton mass) of the ion species (default: 1.0)
+    alpha : float, optional
         Dimensionless parameter: plasma frequency / cyclotron frequency.
         If None, computed from units and charge/mass numbers.
-    ion_epsilon : float, optional
+    epsilon : float, optional
         Normalized cyclotron period: 1 / (cyclotron frequency × time unit).
-        If None, computed from units and charge/mass numbers.
-    ion_kappa : float, optional
-        Normalized plasma frequency: plasma frequency × time unit.
         If None, computed from units and charge/mass numbers.
     with_B0: bool
         Whether to include the effect of a background magnetic field B0 (default: True)
@@ -65,19 +64,17 @@ class VlasovAmpereOneSpecies(StruphyModel):
     class KineticIons(ParticleSpecies):
         def __init__(
             self,
-            mass_number: float = 1.0,
             charge_number: int = 1,
+            mass_number: float = 1.0,
             alpha: float = None,
             epsilon: float = None,
-            kappa: float = None,
         ):
             self.var = PICVariable(space="Particles6D")
             self.init_variables(
-                mass_number=mass_number,
                 charge_number=charge_number,
+                mass_number=mass_number,
                 alpha=alpha,
                 epsilon=epsilon,
-                kappa=kappa,
             )
 
     # propagators
@@ -94,11 +91,10 @@ class VlasovAmpereOneSpecies(StruphyModel):
     def __init__(
         self,
         base_units: BaseUnits = BaseUnits(),
-        ion_mass_number: float = 1.0,
-        ion_charge_number: int = 1,
-        ion_alpha: float = None,
-        ion_epsilon: float = None,
-        ion_kappa: float = None,
+        charge_number: int = 1,
+        mass_number: float = 1.0,
+        alpha: float = None,
+        epsilon: float = None,
         with_B0: bool = True,
     ):
 
@@ -108,11 +104,10 @@ class VlasovAmpereOneSpecies(StruphyModel):
         self.em_fields = self.EMFields()
 
         self.kinetic_ions = self.KineticIons(
-            mass_number=ion_mass_number,
-            charge_number=ion_charge_number,
-            alpha=ion_alpha,
-            epsilon=ion_epsilon,
-            kappa=ion_kappa,
+            charge_number,
+            mass_number,
+            alpha,
+            epsilon,
         )
 
         # 2. derive units (must be done after instantiating species to access charge and mass numbers)

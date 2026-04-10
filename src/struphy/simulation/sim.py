@@ -670,7 +670,7 @@ RESTARTing from:
                     + "physical time [s]:".ljust(25)
                     + "{0:4.2e} / {1:4.2e}".format(
                         self.time_state["value_sec"][0],
-                        Tend * self.units.t,
+                        Tend * self.model.units.t,
                     ).rjust(25)
                 )
                 message += "\n" + "wall clock time [s]:".ljust(25) + "{0:8.4f}".format(run_time_now * 60).rjust(25)
