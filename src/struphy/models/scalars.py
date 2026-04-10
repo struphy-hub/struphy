@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+from typing import Callable
 from struphy.models.variables import Variable, FEECVariable, PICVariable, SPHVariable
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
@@ -7,7 +8,7 @@ from struphy.feec.mass import WeightedMassOperator
 from struphy.feec.psydac_derham import space_to_form
 from typing import Union
 from struphy.utils.docstring_converter import auto_convert_docstring
-from struphy.feec.polar import PolarVector
+from struphy.polar.basic import PolarVector
 
 
 class Scalar(metaclass=ABCMeta):
@@ -43,6 +44,7 @@ class Scalar(metaclass=ABCMeta):
 
     def __add__(self, other):
         return SumOfScalars(self, other)
+
 
 class SumOfScalars(Scalar):
     """Scalar representing the sum of other scalars. An update of this scalar will also update all its summands."""
@@ -202,6 +204,37 @@ class PICScalar(Scalar):
                 self.value,
                 op=MPI.SUM,
             )
+
+
+class FunctionScalar(PICScalar):
+    """Scalar defined by a callable.
+
+    If a PIC variable is passed as first variable, MPI communication follows
+    :class:`PICScalar`; otherwise the scalar is kept local.
+    """
+
+    def __init__(
+        self,
+        function: Callable[[], float],
+        *variables: Variable,
+    ):
+        self.function = function
+
+        if len(variables) > 0 and isinstance(variables[0], PICVariable):
+            super().__init__(variables[0])
+            if len(variables) > 1:
+                self.variables = variables
+        else:
+            Scalar.__init__(self, *variables)
+
+    def _local_update(self):
+        self.local_value[0] = float(self.function())
+
+    def _mpi_sum(self):
+        if len(self.variables) > 0 and isinstance(self.variables[0], PICVariable):
+            PICScalar._mpi_sum(self)
+        else:
+            self.value[0] = self.local_value[0]
     
 class KineticEnergyPIC(PICScalar):
     r"""Scalar representing the kinetic energy computed from a PIC variable, according to
