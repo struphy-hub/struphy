@@ -116,7 +116,7 @@ featuring the plasma- and cyclotron frequency of species :math:`\textrm{s}`, res
 
 where :math:`Z_\textrm{s}` and :math:`A_\textrm{s}` stand for the species' charge and mass number, respectively.
 These equation parameters are defined in :class:`~struphy.models.species.Species.EquationParameters` and can be overridden
-in the launch file via :func:`~struphy.models.species.Species.set_species_properties`.
+in the model constructor.
 
 .. autoclass:: struphy.models.species.Species.EquationParameters
     :members:

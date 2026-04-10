@@ -3,6 +3,7 @@ import logging
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.models.base import StruphyModel
@@ -105,9 +106,20 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             self.init_variables()
 
     class KineticIons(ParticleSpecies):
-        def __init__(self):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+            alpha: float = None,
+            epsilon: float = None,
+        ):
             self.var = PICVariable(space="DeltaFParticles6D")
-            self.init_variables()
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                alpha=alpha,
+                epsilon=epsilon,
+            )
 
     ## propagators
 
@@ -128,18 +140,31 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
     def __init__(
         self,
+        base_units: BaseUnits = BaseUnits(),
+        charge_number: int = 1,
+        mass_number: float = 1.0,
+        alpha: float = None,
+        epsilon: float = None,
         with_B0: bool = True,
         with_E0: bool = True,
     ):
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
-        self.kinetic_ions = self.KineticIons()
+        self.kinetic_ions = self.KineticIons(
+            charge_number,
+            mass_number,
+            alpha,
+            epsilon,
+        )
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators(with_B0=with_B0, with_E0=with_E0)
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.push_eta.variables.var = self.kinetic_ions.var
         if with_E0:
             self.propagators.push_vinE.variables.var = self.kinetic_ions.var

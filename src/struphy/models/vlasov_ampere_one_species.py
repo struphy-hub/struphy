@@ -3,6 +3,7 @@ import logging
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
@@ -28,13 +29,31 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 @auto_convert_docstring
 class VlasovAmpereOneSpecies(StruphyModel):
-    """Vlasov-Ampère system for a single kinetic species in an electric field."""
+    """Vlasov-Ampère system for a single kinetic species in an electric field.
+
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    charge_number: int
+        Charge number (in units of the positive elementary charge) of the ion species (default: 1)
+    mass_number: float
+        Mass number (in units or Proton mass) of the ion species (default: 1.0)
+    alpha : float, optional
+        Dimensionless parameter: plasma frequency / cyclotron frequency.
+        If None, computed from units and charge/mass numbers.
+    epsilon : float, optional
+        Normalized cyclotron period: 1 / (cyclotron frequency × time unit).
+        If None, computed from units and charge/mass numbers.
+    with_B0: bool
+        Whether to include the effect of a background magnetic field B0 (default: True)
+    """
 
     @classmethod
     def model_type(cls) -> LiteralOptions.ModelTypes:
         return "Kinetic"
 
-    ## species
+    # species
 
     class EMFields(FieldSpecies):
         def __init__(self):
@@ -43,11 +62,22 @@ class VlasovAmpereOneSpecies(StruphyModel):
             self.init_variables()
 
     class KineticIons(ParticleSpecies):
-        def __init__(self):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+            alpha: float = None,
+            epsilon: float = None,
+        ):
             self.var = PICVariable(space="Particles6D")
-            self.init_variables()
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                alpha=alpha,
+                epsilon=epsilon,
+            )
 
-    ## propagators
+    # propagators
 
     class Propagators:
         def __init__(self, with_B0: bool = True):
@@ -56,20 +86,37 @@ class VlasovAmpereOneSpecies(StruphyModel):
                 self.push_vxb = propagators_markers.PushVxB()
             self.coupling_va = propagators_coupling.VlasovAmpere()
 
-    ## abstract methods
+    # abstract methods
 
-    def __init__(self, with_B0: bool = True):
+    def __init__(
+        self,
+        base_units: BaseUnits = BaseUnits(),
+        charge_number: int = 1,
+        mass_number: float = 1.0,
+        alpha: float = None,
+        epsilon: float = None,
+        with_B0: bool = True,
+    ):
 
         self.with_B0 = with_B0
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
-        self.kinetic_ions = self.KineticIons()
 
-        # 2. instantiate all propagators
+        self.kinetic_ions = self.KineticIons(
+            charge_number,
+            mass_number,
+            alpha,
+            epsilon,
+        )
+
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators(with_B0=with_B0)
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.push_eta.variables.var = self.kinetic_ions.var
         if with_B0:
             self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
@@ -167,7 +214,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
         # en_tot = en_w + en_e
         self.update_scalar("en_tot", en_E + self._tmp[0])
 
-    ## default parameters
+    # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
         params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
         new_file = []

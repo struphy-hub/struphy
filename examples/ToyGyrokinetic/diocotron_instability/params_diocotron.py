@@ -52,11 +52,7 @@ import cunumpy as xp
 # ---------------------
 
 from struphy.models import ToyDrift
-model = ToyDrift()
-
-# List all species and set their physical properties (charge and mass number, etc.)
-model.em_fields.set_species_properties()
-model.kinetic_ions.set_species_properties(alpha=1.0, epsilon=1.0)
+model = ToyDrift(epsilon=1.0)
 
 # List all variables and decide whether to save their data
 model.em_fields.phi.save_data = True
@@ -68,9 +64,6 @@ model.kinetic_ions.var.save_data = True
 
 # Environment options
 env = EnvironmentOptions(sim_folder="simdata")
-
-# Units
-base_units = BaseUnits(kBT=1.0)
 
 # Time stepping
 time_opts = Time(dt=0.05, Tend=20.0, split_algo="LieTrotter")
@@ -97,7 +90,6 @@ sim = Simulation(
     description=description,
     params_path=__file__,
     env=env,
-    base_units=base_units,
     time_opts=time_opts,
     domain=domain,
     equil=equil,

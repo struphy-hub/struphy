@@ -3,6 +3,7 @@ import logging
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
@@ -91,16 +92,25 @@ class LinearMHDVlasovCC(StruphyModel):
             self.init_variables()
 
     class MHD(FluidSpecies):
-        def __init__(self):
+        def __init__(self, mass_number: float = 1.0):
             self.density = FEECVariable(space="L2")
             self.velocity = FEECVariable(space="Hdiv")
             self.pressure = FEECVariable(space="L2")
-            self.init_variables()
+            self.init_variables(mass_number=mass_number)
 
     class EnergeticIons(ParticleSpecies):
-        def __init__(self):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+            epsilon: float = None,
+        ):
             self.var = PICVariable(space="Particles6D")
-            self.init_variables()
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                epsilon=epsilon,
+            )
 
     ## propagators
 
@@ -115,17 +125,31 @@ class LinearMHDVlasovCC(StruphyModel):
 
     ## abstract methods
 
-    def __init__(self):
+    def __init__(
+        self,
+        base_units: BaseUnits = BaseUnits(),
+        mhd_mass_number: float = 1.0,
+        hot_charge_number: int = 1,
+        hot_mass_number: float = 1.0,
+        hot_epsilon: float = None,
+    ):
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
-        self.mhd = self.MHD()
-        self.energetic_ions = self.EnergeticIons()
+        self.mhd = self.MHD(mhd_mass_number)
+        self.energetic_ions = self.EnergeticIons(
+            hot_charge_number,
+            hot_mass_number,
+            hot_epsilon,
+        )
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators()
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.couple_dens.variables.u = self.mhd.velocity
 
         self.propagators.shear_alf.variables.u = self.mhd.velocity

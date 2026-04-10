@@ -52,8 +52,6 @@ class Species(metaclass=ABCMeta):
     -------
     init_variables()
         Discover and cache Variable objects from instance attributes.
-    set_species_properties(charge_number, mass_number, alpha, epsilon, kappa)
-        Set physical and equation parameters in parameter files.
     setup_equation_params(units, verbose)
         Compute equation normalization parameters from physical units.
 
@@ -74,14 +72,49 @@ class Species(metaclass=ABCMeta):
             out += f"{v}\n"
         return out
 
-    # set species attribute for each variable
-    def init_variables(self):
+    def init_variables(
+        self,
+        charge_number: int = 1,
+        mass_number: int = 1,
+        alpha: float = None,
+        epsilon: float = None,
+        kappa: float = None,
+    ):
+        """Create variables dict and set physical and equation parameters for a plasma species.
+
+        Sets the charge and mass numbers, and optionally overrides normalized equation parameters
+        (alpha, epsilon, kappa) that would otherwise be computed from physical units.
+
+        Parameters
+        ----------
+        charge_number : int, optional
+            Charge number in units of elementary charge (default = 1).
+        mass_number : int, optional
+            Mass number in units of proton mass (default = 1).
+        alpha : float, optional
+            Dimensionless parameter: plasma frequency / cyclotron frequency.
+            If None, computed from units and charge/mass numbers (default = None).
+        epsilon : float, optional
+            Normalized cyclotron period: 1 / (cyclotron frequency × time unit).
+            If None, computed from units and charge/mass numbers (default = None).
+        kappa : float, optional
+            Normalized plasma frequency: plasma frequency × time unit.
+            If None, computed from units and charge/mass numbers (default = None)."""
+
+        # create variables dict
         self._variables = {}
         for k, v in self.__dict__.items():
             if isinstance(v, Variable):
                 v._name = k
                 v._species = self
                 self._variables[k] = v
+
+        # set species properties
+        self._charge_number = charge_number
+        self._mass_number = mass_number
+        self._alpha = alpha
+        self._epsilon = epsilon
+        self._kappa = kappa
 
     @property
     def variables(self) -> dict:
@@ -121,47 +154,6 @@ class Species(metaclass=ABCMeta):
         if not hasattr(self, "_kappa"):
             self._kappa = None
         return self._kappa
-
-    def set_species_properties(
-        self,
-        charge_number: int = 1,
-        mass_number: int = 1,
-        alpha: float = None,
-        epsilon: float = None,
-        kappa: float = None,
-    ):
-        """Set physical and equation parameters for a plasma species.
-
-        Sets the charge and mass numbers, and optionally overrides normalized equation parameters
-        (alpha, epsilon, kappa) that would otherwise be computed from physical units.
-
-        Parameters
-        ----------
-        charge_number : int, optional
-            Charge number in units of elementary charge (default = 1).
-        mass_number : int, optional
-            Mass number in units of proton mass (default = 1).
-        alpha : float, optional
-            Dimensionless parameter: plasma frequency / cyclotron frequency.
-            If None, computed from units and charge/mass numbers (default = None).
-        epsilon : float, optional
-            Normalized cyclotron period: 1 / (cyclotron frequency × time unit).
-            If None, computed from units and charge/mass numbers (default = None).
-        kappa : float, optional
-            Normalized plasma frequency: plasma frequency × time unit.
-            If None, computed from units and charge/mass numbers (default = None).
-
-        Notes
-        -----
-        This method should be called BEFORE instantiating a Simulation object.
-        For existing simulation objects, call Simulation.normalize_model() to apply changes.
-        A warning will be issued if this requirement is not followed."""
-
-        self._charge_number = charge_number
-        self._mass_number = mass_number
-        self._alpha = alpha
-        self._epsilon = epsilon
-        self._kappa = kappa
 
     class EquationParameters:
         """Normalization parameters of one species, appearing in scaled equations."""
@@ -242,26 +234,12 @@ class FieldSpecies(Species):
     Field species are used to represent electromagnetic or other non-particle fields in a plasma
     model. They have no direct physical mass or charge properties (charge_number = 0, mass_number = 0),
     but may have associated equation parameters for scaled formulations.
-
-    Examples
-    --------
-    >>> E_field = FieldSpecies()
-    >>> E_field.set_species_properties(alpha=0.5, epsilon=0.1, kappa=0.2)
     """
 
-    def set_species_properties(
-        self,
-        alpha: float = None,
-        epsilon: float = None,
-        kappa: float = None,
-    ):
-        """Set equation parameters (alpha, epsilon, kappa) to override units."""
-
-        self._charge_number = 0
-        self._mass_number = 0
-        self._alpha = alpha
-        self._epsilon = epsilon
-        self._kappa = kappa
+    def init_variables(self):
+        """Create variables dict.
+        For field species, set charge and mass numbers to zero by default."""
+        super().init_variables(charge_number=0, mass_number=0)
 
 
 class FluidSpecies(Species):
@@ -274,8 +252,7 @@ class FluidSpecies(Species):
 
     Examples
     --------
-    >>> ions = FluidSpecies()
-    >>> ions.set_species_properties(charge_number=-1, mass_number=1/1836)  # electrons
+    >>> electrons = MyFluidSpecies(charge_number=-1, mass_number=1/1836)  # for electrons
     """
 
 
@@ -298,8 +275,7 @@ class ParticleSpecies(Species):
 
     Examples
     --------
-    >>> electrons = ParticleSpecies()
-    >>> electrons.set_species_properties(charge_number=-1, mass_number=1/1836)
+    >>> electrons = MyParticleSpecies(charge_number=-1, mass_number=1/1836)
     >>> load_params = LoadingParameters(Np=100000)
     >>> electrons.set_markers(loading_params=load_params)
     >>> electrons.set_sorting_boxes(do_sort=True, sorting_frequency=10)

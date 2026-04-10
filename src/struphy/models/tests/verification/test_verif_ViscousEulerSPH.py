@@ -39,9 +39,6 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
     out_folders = os.path.join(test_folder, "ViscousEulerSPH")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="soundwave_1d")
 
-    # units
-    base_units = BaseUnits(kBT=1.0)
-
     # time stepping
     time_opts = Time(dt=0.03125, Tend=2.5, split_algo="Strang")
 
@@ -57,9 +54,6 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
 
     # light-weight model instance
     model = ViscousEulerSPH(with_B0=False, with_viscosity=False)
-
-    # species parameters
-    model.euler_fluid.set_species_properties()
 
     loading_params = LoadingParameters(ppb=8, loading="tesselation")
     weights_params = WeightsParameters()
@@ -100,7 +94,6 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
     sim = Simulation(
         model=model,
         env=env,
-        base_units=base_units,
         time_opts=time_opts,
         domain=domain,
         grid=grid,
