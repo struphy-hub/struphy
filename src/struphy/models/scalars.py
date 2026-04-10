@@ -111,7 +111,7 @@ class PICScalar(Scalar):
 
 class SPHScalar(Scalar):
     """Base class for scalar quantities computed from SPH variables.
-    Handles MPI communication within and between clones, but requires subclasses to implement the local update of self.local_value[0]."""
+    Handles MPI communication, but requires subclasses to implement the local update of self.local_value[0]."""
 
     def __init__(
         self,
@@ -253,7 +253,7 @@ where :math:`\alpha` is a normalization constant."""
 
 
 class FunctionScalarFEEC(Scalar):
-    """Scalar defined by a callable working on a FEEC variable."""
+    """Scalar defined by a callable working on FEEC variables."""
 
     def __init__(
         self,
@@ -335,98 +335,6 @@ class KineticEnergySPH(SPHScalar):
 
         energy = self.normalization * 0.5 / self.Np * xp.sum(self.weights * xp.sum(self.velocities**2, axis=1))
         self.local_value[0] = energy
-
-    # def update_scalar(self, name, value=None):
-    #     """Update a scalar during the simulation.
-
-    #     Parameters
-    #     ----------
-    #         name : str
-    #             Dictionary key of the scalar.
-
-    #         value : float, optional
-    #             Value to be saved. Required if there are no summands.
-    #     """
-
-    #     # Ensure the name is a string
-    #     assert isinstance(name, str)
-
-    #     scalars = self.scalar_quantities
-
-    #     variable: PICVariable | SPHVariable = scalars[name]["variable"]
-    #     summands = scalars[name]["summands"]
-    #     compute = scalars[name]["compute"]
-
-    #     if compute == "from_particles":
-    #         compute_operations = [
-    #             "sum_within_clone",
-    #             "sum_between_clones",
-    #             "divide_n_mks",
-    #         ]
-    #     elif compute == "from_sph":
-    #         compute_operations = [
-    #             "sum_world",
-    #             "divide_n_mks",
-    #         ]
-    #     elif compute == "from_field":
-    #         compute_operations = []
-    #     else:
-    #         compute_operations = []
-
-    #     if summands is None:
-    #         # Ensure the value is a float if there are no summands
-    #         assert isinstance(value, float)
-
-    #         # Create a numpy array to hold the scalar value
-    #         value_array = xp.array([value], dtype=xp.float64)
-
-    #         # Perform MPI operations based on the compute flags
-    #         if "sum_world" in compute_operations and not isinstance(MPI, MockMPI):
-    #             MPI.COMM_WORLD.Allreduce(
-    #                 MPI.IN_PLACE,
-    #                 value_array,
-    #                 op=MPI.SUM,
-    #             )
-
-    #         if "sum_within_clone" in compute_operations and Propagator.derham.comm is not None:
-    #             Propagator.derham.comm.Allreduce(
-    #                 MPI.IN_PLACE,
-    #                 value_array,
-    #                 op=MPI.SUM,
-    #             )
-    #         if self.clone_config is None:
-    #             num_clones = 1
-    #         else:
-    #             num_clones = self.clone_config.num_clones
-
-    #         if "sum_between_clones" in compute_operations and num_clones > 1:
-    #             self.clone_config.inter_comm.Allreduce(
-    #                 MPI.IN_PLACE,
-    #                 value_array,
-    #                 op=MPI.SUM,
-    #             )
-
-    #         if "average_between_clones" in compute_operations and num_clones > 1:
-    #             self.clone_config.inter_comm.Allreduce(
-    #                 MPI.IN_PLACE,
-    #                 value_array,
-    #                 op=MPI.SUM,
-    #             )
-    #             value_array /= num_clones
-
-    #         if "divide_n_mks" in compute_operations:
-    #             # Initialize the total number of markers
-    #             n_mks_tot = xp.array([variable.particles.Np])
-    #             value_array /= n_mks_tot
-
-    #         # Update the scalar value
-    #         scalars[name]["value"][0] = value_array[0]
-
-    #     else:
-    #         # Sum the values of the summands
-    #         value = sum(scalars[summand]["value"][0] for summand in summands)
-    #         scalars[name]["value"][0] = value
-
 
 class FunctionScalarSPH(SPHScalar):
     """Scalar defined by a callable working on a SPH variable."""

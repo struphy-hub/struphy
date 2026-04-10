@@ -876,7 +876,7 @@ class Derham:
         return self._options
 
     @property
-    def comm(self) -> MPI.Intracomm | None:
+    def comm(self):
         """MPI communicator."""
         return self._comm
 
