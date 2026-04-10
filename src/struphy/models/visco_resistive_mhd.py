@@ -7,7 +7,7 @@ from struphy.feec.variational_utilities import (
 )
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalar, Scalars, VolumeFormEnergyFEEC
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, Scalars, VolumeFormEnergyFEEC
 from struphy.models.species import (
     FieldSpecies,
     FluidSpecies,
@@ -133,7 +133,7 @@ class ViscoResistiveMHD(StruphyModel):
 
         kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="WMM", normalization=0.5)
         magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field, bilinear_form_name="M2", normalization=0.5)
-        thermo_energy = FunctionScalar(self.update_thermo_energy)
+        thermo_energy = FunctionScalarFEEC(self.update_thermo_energy)
         total_energy = kinetic_energy + magnetic_energy + thermo_energy
         self.scalars = Scalars(
             en_U=kinetic_energy,
@@ -142,7 +142,7 @@ class ViscoResistiveMHD(StruphyModel):
             en_tot=total_energy,
             dens_tot=VolumeFormEnergyFEEC(self.mhd.density),
             entr_tot=VolumeFormEnergyFEEC(self.mhd.entropy),
-            tot_div_B=FunctionScalar(self._compute_tot_div_B),
+            tot_div_B=FunctionScalarFEEC(self._compute_tot_div_B),
         )
 
     @property

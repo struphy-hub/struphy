@@ -2,7 +2,7 @@ from feectools.ddm.mpi import mpi as MPI
 
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalar, Scalars
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, Scalars
 from struphy.models.species import (
     FieldSpecies,
     FluidSpecies,
@@ -95,8 +95,8 @@ class ShearAlfven(StruphyModel):
 
         kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="M2n", normalization=0.5)
         magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field, bilinear_form_name="M2", normalization=0.5)
-        background_magnetic = FunctionScalar(self._compute_en_B_eq)
-        total_magnetic = FunctionScalar(self._compute_en_B_tot)
+        background_magnetic = FunctionScalarFEEC(self._compute_en_B_eq)
+        total_magnetic = FunctionScalarFEEC(self._compute_en_B_tot)
         self.scalars = Scalars(
             en_tot=kinetic_energy + magnetic_energy,
             en_U=kinetic_energy,

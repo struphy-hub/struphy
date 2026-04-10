@@ -6,7 +6,7 @@ from struphy.feec.projectors import L2Projector
 from struphy.io.options import LiteralOptions
 from struphy.kinetic_background.base import KineticBackground
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import FunctionScalar, Scalars
+from struphy.models.scalars import FunctionScalarFEEC, FunctionScalarPIC, Scalars
 from struphy.models.species import (
     FieldSpecies,
     ParticleSpecies,
@@ -131,8 +131,8 @@ class ToyDrift(StruphyModel):
         self.propagators.gc_poisson.variables.phi = self.em_fields.phi
         self.propagators.push_gc_bxe.variables.ions = self.kinetic_ions.var
 
-        field_energy = FunctionScalar(self._compute_en_phi)
-        particle_energy = FunctionScalar(self._compute_en_particles, self.kinetic_ions.var)
+        field_energy = FunctionScalarFEEC(self._compute_en_phi)
+        particle_energy = FunctionScalarPIC(self._compute_en_particles, self.kinetic_ions.var)
         self.scalars = Scalars(
             en_phi=field_energy,
             en_particles=particle_energy,

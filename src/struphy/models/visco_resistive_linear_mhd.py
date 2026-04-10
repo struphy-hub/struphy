@@ -4,7 +4,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy.feec.projectors import L2Projector
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalar, Scalars
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, Scalars
 from struphy.models.species import (
     DiagnosticSpecies,
     FieldSpecies,
@@ -134,8 +134,8 @@ class ViscoResistiveLinearMHD(StruphyModel):
         kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="WMM", normalization=0.5)
         magnetic_energy_1 = BilinearEnergyFEEC(self.em_fields.b_field, bilinear_form_name="M2", normalization=0.5)
         magnetic_energy_2 = BilinearEnergyFEEC(self.diagnostics.bt2, right_variable="b2", bilinear_form_name="M2")
-        thermo_energy = FunctionScalar(self._compute_en_thermo)
-        thermo_energy_l1 = FunctionScalar(self._compute_en_thermo_l1)
+        thermo_energy = FunctionScalarFEEC(self._compute_en_thermo)
+        thermo_energy_l1 = FunctionScalarFEEC(self._compute_en_thermo_l1)
         magnetic_energy_l1 = BilinearEnergyFEEC(self.em_fields.b_field, right_variable="b2", bilinear_form_name="M2")
         self.scalars = Scalars(
             en_U=kinetic_energy,

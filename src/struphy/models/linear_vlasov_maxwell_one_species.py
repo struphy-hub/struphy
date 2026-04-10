@@ -3,7 +3,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.linear_vlasov_ampere_one_species import LinearVlasovAmpereOneSpecies
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalar, Scalars
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarPIC, Scalars
 from struphy.models.species import (
     FieldSpecies,
     ParticleSpecies,
@@ -174,7 +174,7 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
 
         electric_energy = BilinearEnergyFEEC(self.em_fields.e_field, bilinear_form_name="M1", normalization=0.5)
         magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field, bilinear_form_name="M2", normalization=0.5)
-        particle_energy = FunctionScalar(
+        particle_energy = FunctionScalarPIC(
             self._compute_en_w,
             self.kinetic_ions.var,
         )

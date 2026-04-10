@@ -3,7 +3,7 @@ from feectools.linalg.block import BlockVector
 
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalar, Scalars, VolumeFormEnergyFEEC
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, Scalars, VolumeFormEnergyFEEC
 from struphy.models.species import (
     FieldSpecies,
     FluidSpecies,
@@ -88,9 +88,9 @@ class LinearMHD(StruphyModel):
         kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="M2n", normalization=0.5)
         pressure_energy = VolumeFormEnergyFEEC(self.mhd.pressure, normalization=1.0 / (5 / 3 - 1))
         magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field, bilinear_form_name="M2", normalization=0.5)
-        background_pressure = FunctionScalar(self._compute_en_p_eq)
-        background_magnetic = FunctionScalar(self._compute_en_B_eq)
-        total_magnetic = FunctionScalar(self._compute_en_B_tot)
+        background_pressure = FunctionScalarFEEC(self._compute_en_p_eq)
+        background_magnetic = FunctionScalarFEEC(self._compute_en_B_eq)
+        total_magnetic = FunctionScalarFEEC(self._compute_en_B_tot)
         self.scalars = Scalars(
             en_U=kinetic_energy,
             en_p=pressure_energy,

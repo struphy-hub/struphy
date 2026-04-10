@@ -6,7 +6,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalar, Scalars, VolumeFormEnergyFEEC
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarPIC, Scalars, VolumeFormEnergyFEEC, KineticEnergyPIC
 from struphy.models.species import (
     FieldSpecies,
     FluidSpecies,
@@ -199,11 +199,14 @@ class LinearMHDDriftkineticCC(StruphyModel):
         if "PushGuidingCenterParallel" not in turn_off:
             self.propagators.push_parallel.variables.ions = self.energetic_ions.var
 
+        # 5. define scalars to be tracked during simulation
         kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="M2n", normalization=0.5)
         pressure_energy = VolumeFormEnergyFEEC(self.mhd.pressure, normalization=1.0 / (5 / 3 - 1))
         magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field, bilinear_form_name="M2", normalization=0.5)
-        particle_parallel = FunctionScalar(self._compute_en_fv, self.energetic_ions.var)
-        particle_magnetic = FunctionScalar(self._compute_en_fB, self.energetic_ions.var)
+        Ab = self.mhd.mass_number
+        Ah = self.energetic_ions.var.species.mass_number
+        particle_parallel = KineticEnergyPIC(self.energetic_ions.var, normalization=Ah / Ab)
+        particle_magnetic = FunctionScalarPIC(self._compute_en_fB, self.energetic_ions.var)
         self.scalars = Scalars(
             en_U=kinetic_energy,
             en_p=pressure_energy,
@@ -235,19 +238,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         self._PB = getattr(Propagator.basis_ops, "PB")
         self._PBb = self._PB.codomain.zeros()
-
-    def _compute_en_fv(self):
-        Ab = self.mhd.mass_number
-        Ah = self.energetic_ions.var.species.mass_number
-        particles = self.energetic_ions.var.particles
-        return (
-            particles.markers[~particles.holes, 5].dot(
-                particles.markers[~particles.holes, 3] ** 2,
-            )
-            / (2.0)
-            * Ah
-            / Ab
-        )
 
     def _compute_en_fB(self):
         Ab = self.mhd.mass_number

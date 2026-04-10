@@ -177,6 +177,7 @@ class ColdPlasmaVlasov(StruphyModel):
         self.propagators.coupling_va.variables.e = self.em_fields.e_field
         self.propagators.coupling_va.variables.ions = self.hot_elec.var
 
+        # 5. define scalars to be tracked during simulation
         electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
         magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
         current_energy = BilinearEnergyFEEC(

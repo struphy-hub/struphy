@@ -121,6 +121,7 @@ class ColdPlasma(StruphyModel):
 
         self.propagators.jxb.variables.j = self.electrons.current
 
+        # 5. define scalars to be tracked during simulation
         electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
         magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
         kinetic_energy = BilinearEnergyFEEC(

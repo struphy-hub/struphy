@@ -6,7 +6,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import FunctionScalar, Scalars
+from struphy.models.scalars import FunctionScalarPIC, Scalars, KineticEnergyPIC
 from struphy.models.species import (
     ParticleSpecies,
 )
@@ -107,8 +107,9 @@ class GuidingCenter(StruphyModel):
         self.propagators.push_bxe.variables.ions = self.kinetic_ions.var
         self.propagators.push_parallel.variables.ions = self.kinetic_ions.var
 
-        kinetic_energy = FunctionScalar(self._compute_en_fv, self.kinetic_ions.var)
-        magnetic_energy = FunctionScalar(self._compute_en_fB, self.kinetic_ions.var)
+        # 5. define scalars to be tracked during simulation
+        kinetic_energy = KineticEnergyPIC(self.kinetic_ions.var)
+        magnetic_energy = FunctionScalarPIC(self._compute_en_fB, self.kinetic_ions.var)
         self.scalars = Scalars(
             en_fv=kinetic_energy,
             en_fB=magnetic_energy,
@@ -129,22 +130,16 @@ class GuidingCenter(StruphyModel):
     def allocate_helpers(self, verbose: bool = False):
         self._n_lost_particles = xp.empty(1, dtype=float)
 
-    def _compute_en_fv(self):
-        particles = self.kinetic_ions.var.particles
-        return particles.markers[~particles.holes, 5].dot(
-            particles.markers[~particles.holes, 3] ** 2,
-        ) / (2.0 * particles.Np)
-
     def _compute_en_fB(self):
         particles = self.kinetic_ions.var.particles
         particles.save_magnetic_background_energy()
-        total_energy = (
+        energy = (
             particles.markers[~particles.holes, 5].dot(
                 particles.markers[~particles.holes, 8],
             )
             / particles.Np
         )
-        return total_energy - self._compute_en_fv()
+        return energy
 
     def update_scalar_quantities(self):
         self.scalars.update()

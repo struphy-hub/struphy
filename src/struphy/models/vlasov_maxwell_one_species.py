@@ -6,7 +6,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalar, KineticEnergyPIC, Scalars
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, FunctionScalarPIC, KineticEnergyPIC, Scalars
 from struphy.models.species import (
     FieldSpecies,
     ParticleSpecies,
@@ -192,7 +192,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             "en_tot": electric_energy + magnetic_energy + particle_energy,
         }
         if measure_gauss_law:
-            scalars_dict["gauss_error"] = FunctionScalar(self.calculate_gauss_error)
+            scalars_dict["gauss_error"] = FunctionScalarPIC(self.calculate_gauss_error, self.kinetic_ions.var)
         self.scalars = Scalars(**scalars_dict)
 
         # initial Poisson (not a propagator used in time stepping)

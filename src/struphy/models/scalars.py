@@ -12,6 +12,9 @@ from struphy.propagators.base import Propagator
 from struphy.utils.docstring_converter import auto_convert_docstring
 
 
+_DUMMY_VARIABLE = object()
+
+
 class Scalar(metaclass=ABCMeta):
     """Abstract base class for scalar quantities in MPI parallel simulations.
 
@@ -180,6 +183,23 @@ class VolumeFormEnergyFEEC(Scalar):
     
 where :math:`\alpha` is a normalization constant."""
 
+class FunctionScalarFEEC(Scalar):
+    """Scalar defined by a callable working on a FEEC variable.
+    """
+
+    def __init__(
+        self,
+        function: Callable[[], float],
+    ):
+        self.function = function
+        Scalar.__init__(self, _DUMMY_VARIABLE)
+
+    def _local_update(self):
+        self.local_value[0] = float(self.function())
+
+    def _mpi_sum(self):
+        """Communication has been handled by psydac, so no additional MPI operations are needed."""
+        self.value[0] = self.local_value[0]
 
 class PICScalar(Scalar):
     """Base class for scalar quantities computed from PIC variables.
@@ -221,37 +241,20 @@ class PICScalar(Scalar):
                 op=MPI.SUM,
             )
 
-
-class FunctionScalar(PICScalar):
-    """Scalar defined by a callable.
-
-    If a PIC variable is passed as first variable, MPI communication follows
-    :class:`PICScalar`; otherwise the scalar is kept local.
+class FunctionScalarPIC(PICScalar):
+    """Scalar defined by a callable working on a Particle variable.
     """
 
     def __init__(
         self,
         function: Callable[[], float],
-        *variables: Variable,
+        pic_variable: PICVariable,
     ):
         self.function = function
-
-        if len(variables) > 0 and isinstance(variables[0], PICVariable):
-            super().__init__(variables[0])
-            if len(variables) > 1:
-                self.variables = variables
-        else:
-            Scalar.__init__(self, *variables)
+        super().__init__(pic_variable)
 
     def _local_update(self):
         self.local_value[0] = float(self.function())
-
-    def _mpi_sum(self):
-        if len(self.variables) > 0 and isinstance(self.variables[0], PICVariable):
-            PICScalar._mpi_sum(self)
-        else:
-            self.value[0] = self.local_value[0]
-
 
 class KineticEnergyPIC(PICScalar):
     r"""Scalar representing the kinetic energy computed from a PIC variable, according to
@@ -303,6 +306,20 @@ class SPHScalar(Scalar):
             op=MPI.SUM,
         )
 
+class FunctionScalarSPH(SPHScalar):
+    """Scalar defined by a callable working on a SPH variable.
+    """
+
+    def __init__(
+        self,
+        function: Callable[[], float],
+        sph_variable: SPHVariable,
+    ):
+        self.function = function
+        super().__init__(sph_variable)
+
+    def _local_update(self):
+        self.local_value[0] = float(self.function())
 
 class KineticEnergySPH(SPHScalar):
     r"""Scalar representing the kinetic energy computed from a SPH variable, according to

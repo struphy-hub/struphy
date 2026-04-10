@@ -7,7 +7,7 @@ from struphy.feec.variational_utilities import (
 )
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalar, Scalars, VolumeFormEnergyFEEC
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, Scalars, VolumeFormEnergyFEEC
 from struphy.models.species import (
     FluidSpecies,
 )
@@ -105,7 +105,7 @@ class ViscousFluid(StruphyModel):
             self.propagators.variat_viscous.variables.u = self.fluid.velocity
 
         kinetic_energy = BilinearEnergyFEEC(self.fluid.velocity, bilinear_form_name="WMM", normalization=0.5)
-        thermo_energy = FunctionScalar(self.update_thermo_energy)
+        thermo_energy = FunctionScalarFEEC(self.update_thermo_energy)
         total_energy = kinetic_energy + thermo_energy
         self.scalars = Scalars(
             en_U=kinetic_energy,

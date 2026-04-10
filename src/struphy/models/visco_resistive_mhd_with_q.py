@@ -4,7 +4,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy.feec.projectors import L2Projector
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalar, Scalars, VolumeFormEnergyFEEC
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, Scalars, VolumeFormEnergyFEEC
 from struphy.models.species import (
     DiagnosticSpecies,
     FieldSpecies,
@@ -135,10 +135,10 @@ class ViscoResistiveMHD_with_q(StruphyModel):
             self.propagators.variat_resist.variables.b = self.em_fields.b_field
 
         kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="WMM", normalization=0.5)
-        thermo_energy = FunctionScalar(self._compute_en_thermo)
+        thermo_energy = FunctionScalarFEEC(self._compute_en_thermo)
         magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field, bilinear_form_name="M2", normalization=0.5)
         density_total = VolumeFormEnergyFEEC(self.mhd.density)
-        div_b_total = FunctionScalar(self._compute_tot_div_B)
+        div_b_total = FunctionScalarFEEC(self._compute_tot_div_B)
         self.scalars = Scalars(
             en_U=kinetic_energy,
             en_thermo=thermo_energy,

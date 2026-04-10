@@ -6,7 +6,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalar, Scalars, VolumeFormEnergyFEEC
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarPIC, Scalars, VolumeFormEnergyFEEC
 from struphy.models.species import (
     FieldSpecies,
     FluidSpecies,
@@ -169,8 +169,8 @@ class LinearMHDVlasovCC(StruphyModel):
         kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="M2n", normalization=0.5)
         pressure_energy = VolumeFormEnergyFEEC(self.mhd.pressure, normalization=1.0 / (5 / 3 - 1))
         magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field, bilinear_form_name="M2", normalization=0.5)
-        particle_energy = FunctionScalar(self._compute_en_f, self.energetic_ions.var)
-        lost_particles = FunctionScalar(self._compute_n_lost_particles, self.energetic_ions.var)
+        particle_energy = FunctionScalarPIC(self._compute_en_f, self.energetic_ions.var)
+        lost_particles = FunctionScalarPIC(self._compute_n_lost_particles, self.energetic_ions.var)
         self.scalars = Scalars(
             en_U=kinetic_energy,
             en_p=pressure_energy,

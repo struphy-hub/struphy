@@ -92,7 +92,7 @@ class HasegawaWakatani(StruphyModel):
         self.propagators.hw.variables.n = self.plasma.density
         self.propagators.hw.variables.omega = self.plasma.vorticity
 
-        # define scalars for update_scalar_quantities
+        # 5. define scalars to be tracked during simulation
 
     @property
     def bulk_species(self):
