@@ -6,7 +6,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarPIC, Scalars, VolumeFormEnergyFEEC
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarPIC, LostMarkersPIC, Scalars, VolumeFormEnergyFEEC
 from struphy.models.species import (
     FieldSpecies,
     FluidSpecies,
@@ -170,7 +170,7 @@ class LinearMHDVlasovCC(StruphyModel):
         pressure_energy = VolumeFormEnergyFEEC(self.mhd.pressure, normalization=1.0 / (5 / 3 - 1))
         magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field, bilinear_form_name="M2", normalization=0.5)
         particle_energy = FunctionScalarPIC(self._compute_en_f, self.energetic_ions.var)
-        lost_particles = FunctionScalarPIC(self._compute_n_lost_particles, self.energetic_ions.var)
+        lost_particles = LostMarkersPIC(self.energetic_ions.var)
         self.scalars = Scalars(
             en_U=kinetic_energy,
             en_p=pressure_energy,
@@ -196,7 +196,6 @@ class LinearMHDVlasovCC(StruphyModel):
             self._ones[:] = 1.0
 
         self._tmp = xp.empty(1, dtype=float)
-        self._n_lost_particles = xp.empty(1, dtype=float)
 
         # add control variate to mass_ops object
         if self.energetic_ions.var.particles.control_variate:
@@ -217,21 +216,6 @@ class LinearMHDVlasovCC(StruphyModel):
             )
             / (2)
         )
-
-    def _compute_n_lost_particles(self):
-        particles = self.energetic_ions.var.particles
-        return particles.n_lost_markers
-
-    def update_scalar_quantities(self):
-        self.scalars.update()
-        particles = self.energetic_ions.var.particles
-        self._n_lost_particles[0] = self.scalars.dct["n_lost_particles"].value[0]
-        if rank == 0:
-            logger.info(
-                "ratio of lost particles: ",
-                self._n_lost_particles[0] / particles.Np * 100,
-                "%",
-            )
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

@@ -110,9 +110,6 @@ class Poisson(StruphyModel):
         if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
             logger.info("... Done.")
 
-    def update_scalar_quantities(self):
-        pass
-
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
         params_path = super().generate_default_parameter_file(path=path, prompt=prompt)

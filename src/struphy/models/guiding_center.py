@@ -6,7 +6,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import FunctionScalarPIC, Scalars, KineticEnergyPIC
+from struphy.models.scalars import FunctionScalarPIC, KineticEnergyPIC, LostMarkersPIC, Scalars
 from struphy.models.species import (
     ParticleSpecies,
 )
@@ -114,6 +114,7 @@ class GuidingCenter(StruphyModel):
             en_fv=kinetic_energy,
             en_fB=magnetic_energy,
             en_tot=kinetic_energy + magnetic_energy,
+            n_lost_particles=LostMarkersPIC(self.kinetic_ions.var),
         )
 
         if rank == 0:
@@ -128,7 +129,7 @@ class GuidingCenter(StruphyModel):
         return "alfvén"
 
     def allocate_helpers(self, verbose: bool = False):
-        self._n_lost_particles = xp.empty(1, dtype=float)
+        pass
 
     def _compute_en_fB(self):
         particles = self.kinetic_ions.var.particles
@@ -141,12 +142,3 @@ class GuidingCenter(StruphyModel):
         )
         return energy
 
-    def update_scalar_quantities(self):
-        self.scalars.update()
-        particles = self.kinetic_ions.var.particles
-        self._n_lost_particles[0] = particles.n_lost_markers
-        Propagator.derham.comm.Allreduce(
-            MPI.IN_PLACE,
-            self._n_lost_particles,
-            op=MPI.SUM,
-        )

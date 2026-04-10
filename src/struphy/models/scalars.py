@@ -49,7 +49,6 @@ class Scalar(metaclass=ABCMeta):
     def __add__(self, other):
         return SumOfScalars(self, other)
 
-
 class SumOfScalars(Scalar):
     """Scalar representing the sum of other scalars. An update of this scalar will also update all its summands."""
 
@@ -68,6 +67,72 @@ class SumOfScalars(Scalar):
         energy = sum(scalar.value[0] for scalar in self.variables)
         self.value[0] = energy
 
+class PICScalar(Scalar):
+    """Base class for scalar quantities computed from PIC variables.
+    Handles MPI communication within and between clones, but requires subclasses to implement the local update of self.local_value[0]."""
+
+    def __init__(
+        self,
+        pic_variable: PICVariable,
+        normalization: float = 1.0,
+    ):
+        assert isinstance(pic_variable, PICVariable), "variable must be an instance of PICVariable"
+        super().__init__(pic_variable)
+        self.normalization = normalization
+
+    def _local_update(self):
+        raise NotImplementedError(
+            "Subclasses of PICScalar must implement _local_update to compute self.local_value[0]."
+        )
+
+    def _mpi_sum(self):
+        self.value[0] = self.local_value[0]
+
+        # sum within clone
+        if Propagator.derham.comm is not None:
+            Propagator.derham.comm.Allreduce(
+                MPI.IN_PLACE,
+                self.value,
+                op=MPI.SUM,
+            )
+
+        # sum between clones
+        if not hasattr(self, "clone_config"):
+            self.clone_config = self.variables[0].particles.clone_config
+
+        if self.clone_config is not None:
+            self.clone_config.inter_comm.Allreduce(
+                MPI.IN_PLACE,
+                self.value,
+                op=MPI.SUM,
+            )
+
+class SPHScalar(Scalar):
+    """Base class for scalar quantities computed from SPH variables.
+    Handles MPI communication within and between clones, but requires subclasses to implement the local update of self.local_value[0]."""
+
+    def __init__(
+        self,
+        sph_variable: SPHVariable,
+        normalization: float = 1.0,
+    ):
+        assert isinstance(sph_variable, SPHVariable), "variable must be an instance of SPHVariable"
+        super().__init__(sph_variable)
+        self.normalization = normalization
+
+    def _local_update(self):
+        raise NotImplementedError(
+            "Subclasses of SPHScalar must implement _local_update to compute self.local_value[0]."
+        )
+
+    def _mpi_sum(self):
+        self.value[0] = self.local_value[0]
+
+        MPI.COMM_WORLD.Allreduce(
+            MPI.IN_PLACE,
+            self.value,
+            op=MPI.SUM,
+        )
 
 class Scalars:
     """Container for multiple Scalar objects.
@@ -88,7 +153,6 @@ class Scalars:
         # reset status to False for next update
         for scalar in self.dct.values():
             scalar.uptodate = False
-
 
 @auto_convert_docstring
 class BilinearEnergyFEEC(Scalar):
@@ -146,7 +210,6 @@ class BilinearEnergyFEEC(Scalar):
     
 where :math:`\alpha` is a normalization constant and :math:`A` is a symmetric positive definite matrix (the identity by default)."""
 
-
 class VolumeFormEnergyFEEC(Scalar):
     """Scalar from a volume form integrated over the domain."""
 
@@ -201,61 +264,6 @@ class FunctionScalarFEEC(Scalar):
         """Communication has been handled by psydac, so no additional MPI operations are needed."""
         self.value[0] = self.local_value[0]
 
-class PICScalar(Scalar):
-    """Base class for scalar quantities computed from PIC variables.
-    Handles MPI communication within and between clones, but requires subclasses to implement the local update of self.local_value[0]."""
-
-    def __init__(
-        self,
-        pic_variable: PICVariable,
-        normalization: float = 1.0,
-    ):
-        assert isinstance(pic_variable, PICVariable), "variable must be an instance of PICVariable"
-        super().__init__(pic_variable)
-        self.normalization = normalization
-
-    def _local_update(self):
-        raise NotImplementedError(
-            "Subclasses of PICScalar must implement _local_update to compute self.local_value[0]."
-        )
-
-    def _mpi_sum(self):
-        self.value[0] = self.local_value[0]
-
-        # sum within clone
-        if Propagator.derham.comm is not None:
-            Propagator.derham.comm.Allreduce(
-                MPI.IN_PLACE,
-                self.value,
-                op=MPI.SUM,
-            )
-
-        # sum between clones
-        if not hasattr(self, "clone_config"):
-            self.clone_config = self.variables[0].particles.clone_config
-
-        if self.clone_config is not None:
-            self.clone_config.inter_comm.Allreduce(
-                MPI.IN_PLACE,
-                self.value,
-                op=MPI.SUM,
-            )
-
-class FunctionScalarPIC(PICScalar):
-    """Scalar defined by a callable working on a Particle variable.
-    """
-
-    def __init__(
-        self,
-        function: Callable[[], float],
-        pic_variable: PICVariable,
-    ):
-        self.function = function
-        super().__init__(pic_variable)
-
-    def _local_update(self):
-        self.local_value[0] = float(self.function())
-
 class KineticEnergyPIC(PICScalar):
     r"""Scalar representing the kinetic energy computed from a PIC variable, according to
 
@@ -278,45 +286,24 @@ class KineticEnergyPIC(PICScalar):
         energy = self.normalization * 0.5 / self.Np * xp.sum(self.weights * xp.sum(self.velocities**2, axis=1))
         self.local_value[0] = energy
 
-
-class SPHScalar(Scalar):
-    """Base class for scalar quantities computed from SPH variables.
-    Handles MPI communication within and between clones, but requires subclasses to implement the local update of self.local_value[0]."""
-
-    def __init__(
-        self,
-        sph_variable: SPHVariable,
-        normalization: float = 1.0,
-    ):
-        assert isinstance(sph_variable, SPHVariable), "variable must be an instance of SPHVariable"
-        super().__init__(sph_variable)
-        self.normalization = normalization
+class LostMarkersPIC(PICScalar):
+    r"""Scalar representing the number of lost markers, computed from a PIC variable."""
 
     def _local_update(self):
-        raise NotImplementedError(
-            "Subclasses of SPHScalar must implement _local_update to compute self.local_value[0]."
-        )
+        particles = self.variables[0].particles
+        self.local_value[0] = particles.n_lost_markers
 
-    def _mpi_sum(self):
-        self.value[0] = self.local_value[0]
-
-        MPI.COMM_WORLD.Allreduce(
-            MPI.IN_PLACE,
-            self.value,
-            op=MPI.SUM,
-        )
-
-class FunctionScalarSPH(SPHScalar):
-    """Scalar defined by a callable working on a SPH variable.
+class FunctionScalarPIC(PICScalar):
+    """Scalar defined by a callable working on a Particle variable.
     """
 
     def __init__(
         self,
         function: Callable[[], float],
-        sph_variable: SPHVariable,
+        pic_variable: PICVariable,
     ):
         self.function = function
-        super().__init__(sph_variable)
+        super().__init__(pic_variable)
 
     def _local_update(self):
         self.local_value[0] = float(self.function())
@@ -431,3 +418,18 @@ class KineticEnergySPH(SPHScalar):
     #         # Sum the values of the summands
     #         value = sum(scalars[summand]["value"][0] for summand in summands)
     #         scalars[name]["value"][0] = value
+
+class FunctionScalarSPH(SPHScalar):
+    """Scalar defined by a callable working on a SPH variable.
+    """
+
+    def __init__(
+        self,
+        function: Callable[[], float],
+        sph_variable: SPHVariable,
+    ):
+        self.function = function
+        super().__init__(sph_variable)
+
+    def _local_update(self):
+        self.local_value[0] = float(self.function())

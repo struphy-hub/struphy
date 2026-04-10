@@ -124,7 +124,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
         self.propagators.coupling_va.variables.e = self.em_fields.e_field
         self.propagators.coupling_va.variables.ions = self.kinetic_ions.var
 
-        # define scalars to be tracked during simulation
+        # 5. define scalars to be tracked during simulation
         electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
         kinetic_energy = KineticEnergyPIC(self.kinetic_ions.var)
         total_energy = electric_energy + kinetic_energy

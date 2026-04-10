@@ -6,7 +6,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarPIC, Scalars, VolumeFormEnergyFEEC, KineticEnergyPIC
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarPIC, KineticEnergyPIC, LostMarkersPIC, Scalars, VolumeFormEnergyFEEC
 from struphy.models.species import (
     FieldSpecies,
     FluidSpecies,
@@ -214,6 +214,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
             en_fv=particle_parallel,
             en_fB=particle_magnetic,
             en_tot=kinetic_energy + pressure_energy + magnetic_energy + particle_parallel + particle_magnetic,
+            n_lost_particles=LostMarkersPIC(self.energetic_ions.var),
         )
 
     @property
@@ -234,7 +235,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._en_fv = xp.empty(1, dtype=float)
         self._en_fB = xp.empty(1, dtype=float)
         self._en_tot = xp.empty(1, dtype=float)
-        self._n_lost_particles = xp.empty(1, dtype=float)
 
         self._PB = getattr(Propagator.basis_ops, "PB")
         self._PBb = self._PB.codomain.zeros()
@@ -253,32 +253,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
             * Ah
             / Ab
         )
-
-    def update_scalar_quantities(self):
-        self.scalars.update()
-        particles = self.energetic_ions.var.particles
-        n_lost_markers = xp.array(particles.n_lost_markers)
-
-        if Propagator.derham.comm is not None:
-            Propagator.derham.comm.Allreduce(
-                MPI.IN_PLACE,
-                n_lost_markers,
-                op=MPI.SUM,
-            )
-
-        if self.clone_config is not None:
-            self.clone_config.inter_comm.Allreduce(
-                MPI.IN_PLACE,
-                n_lost_markers,
-                op=MPI.SUM,
-            )
-
-        if rank == 0:
-            logger.info(
-                "Lost particle ratio: ",
-                n_lost_markers / particles.Np * 100,
-                "% \n",
-            )
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

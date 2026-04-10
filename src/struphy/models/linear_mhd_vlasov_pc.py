@@ -6,7 +6,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarPIC, Scalars, VolumeFormEnergyFEEC
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarPIC, LostMarkersPIC, Scalars, VolumeFormEnergyFEEC
 from struphy.models.species import (
     FieldSpecies,
     FluidSpecies,
@@ -184,6 +184,7 @@ class LinearMHDVlasovPC(StruphyModel):
             en_B=magnetic_energy,
             en_f=particle_energy,
             en_tot=kinetic_energy + pressure_energy + magnetic_energy + particle_energy,
+            n_lost_particles=LostMarkersPIC(self.energetic_ions.var),
         )
 
     @property
@@ -201,8 +202,6 @@ class LinearMHDVlasovPC(StruphyModel):
         else:
             self._ones[:] = 1.0
 
-        self._n_lost_particles = xp.empty(1, dtype=float)
-
     def _compute_en_f(self):
         Ab = self.mhd.mass_number
         Ah = self.energetic_ions.var.species.mass_number
@@ -217,32 +216,6 @@ class LinearMHDVlasovPC(StruphyModel):
             * Ah
             / Ab
         )
-
-    def update_scalar_quantities(self):
-        self.scalars.update()
-        particles = self.energetic_ions.var.particles
-        n_lost_markers = xp.array(particles.n_lost_markers)
-
-        if Propagator.derham.comm is not None:
-            Propagator.derham.comm.Allreduce(
-                MPI.IN_PLACE,
-                n_lost_markers,
-                op=MPI.SUM,
-            )
-
-        if self.clone_config is not None:
-            self.clone_config.inter_comm.Allreduce(
-                MPI.IN_PLACE,
-                n_lost_markers,
-                op=MPI.SUM,
-            )
-
-        if rank == 0:
-            logger.info(
-                "Lost particle ratio: ",
-                n_lost_markers / particles.Np * 100,
-                "% \n",
-            )
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
