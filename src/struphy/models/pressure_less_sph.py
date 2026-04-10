@@ -40,9 +40,18 @@ class PressureLessSPH(StruphyModel):
     ## species
 
     class ColdFluid(ParticleSpecies):
-        def __init__(self, charge_number: int = 1, mass_number: float = 1.0, epsilon: float = None,):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+            epsilon: float = None,
+        ):
             self.var = SPHVariable()
-            self.init_variables(charge_number=charge_number, mass_number=mass_number, epsilon=epsilon,)
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                epsilon=epsilon,
+            )
 
     ## propagators
 
@@ -62,7 +71,11 @@ class PressureLessSPH(StruphyModel):
     ):
 
         # 1. instantiate all species
-        self.cold_fluid = self.ColdFluid(charge_number=charge_number, mass_number=mass_number, epsilon=epsilon,)
+        self.cold_fluid = self.ColdFluid(
+            charge_number=charge_number,
+            mass_number=mass_number,
+            epsilon=epsilon,
+        )
 
         # 2. derive units (must be done after instantiating species to access charge and mass numbers)
         self.setup_equation_params(base_units=base_units)
