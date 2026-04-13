@@ -216,7 +216,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
     @property
     def scalars(self) -> Scalars | None:
         """Scalars to be updated and saved during the simulation."""
-        return getattr(self, "_scalars", None)
+        return getattr(self, "_scalars", Scalars())
 
     @scalars.setter
     def scalars(self, value: Scalars):

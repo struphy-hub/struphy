@@ -144,7 +144,10 @@ class Scalars:
     def __init__(self, **scalars: dict[str, Scalar]):
         for name, scalar in scalars.items():
             assert isinstance(scalar, Scalar)
-        self._dct = scalars
+        if scalars:
+            self._dct = scalars
+        else:
+            self._dct = {}
 
     @property
     def dct(self) -> dict[str, Scalar]:
