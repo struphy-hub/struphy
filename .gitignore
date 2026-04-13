@@ -104,3 +104,4 @@ share/
 
 lib64
 pyvenv.cfg
+*profile_output*.txt
