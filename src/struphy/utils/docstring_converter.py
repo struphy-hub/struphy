@@ -112,10 +112,16 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
         result = re.sub(rf"\\mathbf\s*{re.escape(letter)}\b", bold, result)
         result = re.sub(rf"\\mathbf\s*\{{\s*{re.escape(letter)}\s*\}}", bold, result)
 
-    # Roman/upright math symbols (\mathrm)
-    # For \mathrm, we just remove the command and keep the letter
-    result = re.sub(r"\\mathrm\s*\{\s*([A-Za-z0-9]+)\s*\}", r"\1", result)
-    result = re.sub(r"\\mathrm\s+([A-Za-z0-9])\b", r"\1", result)
+    # Bold symbols (\boldsymbol) - wrap content in <b> tags; handles both
+    # \boldsymbol{\eta} and \boldsymbol{η} (already-converted Greek letters)
+    result = re.sub(r"\\boldsymbol\s*\{([^}]+)\}", lambda m: f"<b>{m.group(1).strip()}</b>", result)
+    result = re.sub(r"\\boldsymbol\s+(\S+)", lambda m: f"<b>{m.group(1)}</b>", result)
+
+    # Roman/upright math symbols (\mathrm, \textrm, \textnormal, \text, \textit)
+    # Strip the command and keep the content
+    for _text_cmd in (r"\\mathrm", r"\\textrm", r"\\textnormal", r"\\text", r"\\textit"):
+        result = re.sub(rf"{_text_cmd}\s*\{{\s*([^}}]+?)\s*\}}", r"\1", result)
+        result = re.sub(rf"{_text_cmd}\s+([A-Za-z0-9])\b", r"\1", result)
 
     # Blackboard bold (\mathbb) - common mathematical sets
     mathbb_letters = {
@@ -171,6 +177,21 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
     result = re.sub(r"\\tilde\s*\{([^}]+)\}", replace_tilde, result)
     result = re.sub(r"\\tilde\s+([A-Za-z])\b", replace_tilde, result)
 
+    # Vector symbols (\vec)
+    # Render with explicit arrow-above HTML to avoid font-dependent issues
+    # with combining Unicode marks.
+    def replace_vec(match):
+        content = match.group(1).strip()
+        return (
+            '<span style="position:relative;display:inline-block;padding-top:0.0em;">'
+            f"{content}"
+            '<span style="position:absolute;left:0;right:0;top:-0.55em;line-height:1;text-align:center;font-size:0.75em;">→</span>'
+            "</span>"
+        )
+
+    result = re.sub(r"\\vec\s*\{([^}]+)\}", replace_vec, result)
+    result = re.sub(r"\\vec\s+([A-Za-z])\b", replace_vec, result)
+
     # Fractions - handle FIRST (before sqrt) to process fractions inside sqrt
     # \frac{\partial ...}{\partial t} -> typographic fraction
     result = re.sub(
@@ -213,6 +234,9 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
     # Square root (\sqrt) - handle AFTER initial fractions so fractions inside sqrt are processed first
     def replace_sqrt(match):
         content = match.group(1).strip()
+        # No parentheses needed for a single character/symbol
+        if len(content) == 1:
+            return f"√{content}"
         return f"√({content})"
 
     result = re.sub(r"\\sqrt\s*\{([^}]+)\}", replace_sqrt, result)
@@ -833,19 +857,86 @@ def rst_to_markdown(rst_text: str) -> str:
     return md
 
 
-def auto_convert_docstring(cls):
+def auto_convert_docstring(obj):
     """
-    Decorator/hook to automatically convert __doc_rst__ to __doc__ (HTML).
+    Decorator/hook to automatically convert RST docstrings to HTML.
 
-    If a class has a __doc_rst__ attribute, this converts it to HTML
-    and sets it as the class docstring for VS Code display.
+    - For classes: converts ``__doc_rst__`` to HTML and sets it as ``__doc__``.
+    - For properties: converts the getter's RST docstring to HTML, sets it as
+      the property docstring, and wraps ``fget`` so the returned value also
+      carries the HTML docstring (making ``instance.prop.__doc__`` work in
+      notebooks).
+    - For plain functions: converts the RST ``__doc__`` to HTML in-place.
     """
-    if hasattr(cls, "__doc_rst__") and cls.__doc_rst__:
-        # Convert RST to HTML
-        html_doc = rst_to_html(cls.__doc_rst__)
-        # Set as the main docstring
-        cls.__doc__ = html_doc
-    return cls
+    if isinstance(obj, property):
+        doc = obj.fget.__doc__ if obj.fget else None
+        if doc:
+            html_doc = rst_to_html(doc)
+            original_fget = obj.fget
+
+            def wrapped_fget(self_inner):
+                result = original_fget(self_inner)
+                try:
+                    result.__doc__ = html_doc
+                except (AttributeError, TypeError):
+                    pass
+                return result
+
+            wrapped_fget.__doc__ = html_doc
+            wrapped_fget.__name__ = original_fget.__name__
+            wrapped_fget.__qualname__ = original_fget.__qualname__
+            return property(wrapped_fget, obj.fset, obj.fdel, html_doc)
+        return obj
+    elif callable(obj) and not isinstance(obj, type):
+        if obj.__doc__:
+            obj.__doc__ = rst_to_html(obj.__doc__)
+        return obj
+    else:
+        # Class behaviour: use __doc_rst__ if present, otherwise convert __doc__
+        if hasattr(obj, "__doc_rst__") and obj.__doc_rst__:
+            obj.__doc__ = rst_to_html(obj.__doc_rst__)
+        elif obj.__doc__:
+            obj.__doc__ = rst_to_html(obj.__doc__)
+        return obj
+    
+    
+def info(obj, use_rst: bool = True):
+    """
+    Render the docstring of an object in a Jupyter notebook.
+
+    This function returns an IPython display object that will render
+    the docstring with proper formatting in Jupyter notebooks.
+
+    Args:
+        obj: Object/class whose docstring to display
+        use_rst: If True and __doc_rst__ exists, use that instead of __doc__
+
+    Returns:
+        IPython.display object for rendering in Jupyter"""
+        
+    try:
+        from IPython.display import HTML, Markdown
+    except ImportError:
+        logger.info("IPython not available. Install jupyter to use this feature.")
+        return None
+
+    # Determine which docstring to use
+    if use_rst and hasattr(obj, "__doc_rst__"):
+        doc_text = obj.__doc_rst__
+        # Convert RST to Markdown for better Jupyter rendering
+        md_text = rst_to_markdown(doc_text)
+        return Markdown(md_text)
+    elif hasattr(obj, "__doc__") and obj.__doc__:
+        # Check if it's HTML (contains tags)
+        doc_text = obj.__doc__
+        if "<" in doc_text and ">" in doc_text:
+            # It's HTML
+            return HTML(doc_text)
+        else:
+            # Plain text or RST, show as is
+            return Markdown(doc_text)
+    else:
+        return Markdown("*No docstring available*")
 
 
 if __name__ == "__main__":

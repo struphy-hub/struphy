@@ -19,6 +19,7 @@ from struphy.feec.utilities import RotationMatrix, get_quad_grids
 from struphy.geometry.base import Domain
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.pyccel import Pyccelkernel
+from struphy.utils.docstring_converter import auto_convert_docstring, rst_to_markdown, info
 
 logger = logging.getLogger("struphy")
 
@@ -109,14 +110,15 @@ class WeightedMassOperators:
     # Mass matrices related to L2-scalar products in all 3d derham spaces #
     #######################################################################
 
+    @auto_convert_docstring
     @property
     def M0(self):
         r"""
-        Mass matrix
+        Standard mass matrix for 0-forms (H1 space):
 
         .. math::
 
-            \mathbb M^0_{ijk, mno} = \int \Lambda^0_{ijk}\,  \Lambda^0_{mno} \sqrt g\,  \textnormal d \boldsymbol\eta.
+            \mathbb M^0_{ijk, mno} = \int \Lambda^0_{ijk}  \Lambda^0_{mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
         """
         if not hasattr(self, "_M0"):
             self._M0 = self.create_weighted_mass(
@@ -128,14 +130,15 @@ class WeightedMassOperators:
             )
         return self._M0
 
+    @auto_convert_docstring
     @property
     def M1(self):
         r"""
-        Mass matrix
+        Standard mass matrix for 1-forms (Hcurl space) as 3x3 block matrix indexed by :math:`(\mu, \nu)`:
 
         .. math::
 
-            \mathbb M^1_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk}\, G^{-1}\, \vec{\Lambda}^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta.
+            \mathbb M^1_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk}\, G^{-1} \vec{\Lambda}^1_{\nu, mno} \sqrt{g}  \textnormal{d}\boldsymbol{\eta}.
         """
 
         if not hasattr(self, "_M1"):
@@ -3141,6 +3144,8 @@ class WeightedMassOperator(LinOpWithTransp):
         else:
             return out
 
+    def info(self, use_rst=False):
+        return info(self, use_rst=use_rst)
 
 class StencilMatrixFreeMassOperator(LinOpWithTransp):
     r"""Class implementing matrix-free weighted mass operators between StencilVectorSpaces.
