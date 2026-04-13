@@ -24,7 +24,7 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class ToyDrift(StruphyModel):
-    r"""Drift-kinetic equation for one ion species in static background magnetic field.
+    r"""Drift-kinetic equation for one ion species in static and homogeneous background magnetic field.
 
     :ref:`normalization`:
 
@@ -36,14 +36,14 @@ class ToyDrift(StruphyModel):
 
     .. math::
 
-        &\frac{\partial f}{\partial t} + \frac{\mathbf{E} \times \mathbf{b}_0}{B^*_\parallel} \cdot \frac{\partial f}{\partial \mathbf{X}} = 0\,.
+        &\frac{\partial f}{\partial t} + \frac{\mathbf{E} \times \mathbf{b}_0}{B_0} \cdot \frac{\partial f}{\partial \mathbf{X}} = 0\,.
         \\[2mm]
-        - &\nabla_\perp \cdot \left( \frac{n_0}{|B_0|^2} \nabla_\perp \phi \right) + \frac{1}{\varepsilon} n_0 \left(1 + \frac{1}{Z \varepsilon} \frac{1}{T_{0}} \phi \right) = \frac 1 \varepsilon \int f B^*_\parallel \,\textnormal d v_\parallel \textnormal d \mu \,.
+        - &\nabla_\perp \cdot \left( \frac{n_0}{|B_0|^2} \nabla_\perp \phi \right) = \frac 1 \varepsilon \int f B_0 \,\textnormal d v_\parallel \textnormal d \mu \,.
 
     where :math:`f(\mathbf{X}, v_\parallel, \mu, t)` is the guiding center distribution and
 
     .. math::
-        \mathbf{E} = - \nabla \phi \,,  \qquad \mathbf{B}^* = \mathbf{B}_0 + \varepsilon v_\parallel \nabla \times \mathbf{b}_0 \,,\qquad B^*_\parallel = \mathbf B^* \cdot \mathbf b_0  \,,
+        \mathbf{E} = - \nabla \phi \,
 
     and with the normalization parameters
 
