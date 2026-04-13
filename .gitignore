@@ -73,7 +73,6 @@ __epyccel__/
 *.h5py
 *.vts
 *acquisition.lock
-*.json
 .testmondata*
 .output*
 

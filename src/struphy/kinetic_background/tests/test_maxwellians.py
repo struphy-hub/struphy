@@ -1,4 +1,8 @@
+import logging
+
 import pytest
+
+logger = logging.getLogger("struphy")
 
 
 @pytest.mark.parametrize("num_elements", [[64, 1, 1]])
@@ -285,20 +289,20 @@ def test_maxwellian_3d_mhd(num_elements, with_desc, show_plot=False):
 
     for key, val in inspect.getmembers(equils):
         if inspect.isclass(val) and val.__module__ == equils.__name__:
-            print(f"{key =}")
+            logger.info(f"{key =}")
 
             if "DESCequilibrium" in key and not with_desc:
-                print(f"Attention: {with_desc =}, DESC not tested here !!")
+                logger.info(f"Attention: {with_desc =}, DESC not tested here !!")
                 continue
 
             if "GVECequilibrium" in key:
-                print("Attention: GVEC not tested here !!")
-                # print("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
+                logger.info("Attention: GVEC not tested here !!")
+                # logger.info("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
                 continue
 
             mhd_equil = val()
             assert isinstance(mhd_equil, FluidEquilibrium)
-            print(f"{mhd_equil.params =}")
+            logger.info(f"{mhd_equil.params =}")
             if "AdhocTorus" in key:
                 mhd_equil.domain = domains.HollowTorus(
                     a1=1e-3,
@@ -339,7 +343,7 @@ def test_maxwellian_3d_mhd(num_elements, with_desc, show_plot=False):
                 try:
                     mhd_equil.domain = domains.Cuboid()
                 except:
-                    print(f"Not setting domain for {key}.")
+                    logger.info(f"Not setting domain for {key}.")
 
             maxwellian = Maxwellian3D(
                 n=(mhd_equil.n0, None),
@@ -375,8 +379,8 @@ def test_maxwellian_3d_mhd(num_elements, with_desc, show_plot=False):
 
             # test flat evaluation
             if "GVECequilibrium" in key:
-                print("Attention: GVEC not tested here !!")
-                # print("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
+                logger.info("Attention: GVEC not tested here !!")
+                # logger.info("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
                 continue
                 pass
             else:
@@ -533,7 +537,7 @@ def test_maxwellian_3d_mhd(num_elements, with_desc, show_plot=False):
                     if inspect.isclass(val_2) and val_2.__module__ == perturbations.__name__:
                         pert = val_2()
                         assert isinstance(pert, Perturbation)
-                        print(f"{pert =}")
+                        logger.info(f"{pert =}")
                         if isinstance(pert, perturbations.Noise):
                             continue
 
@@ -1094,22 +1098,22 @@ def test_maxwellian_2d_mhd(num_elements, with_desc, show_plot=False):
 
     for key, val in inspect.getmembers(equils):
         if inspect.isclass(val) and val.__module__ == equils.__name__:
-            print(f"{key =}")
+            logger.info(f"{key =}")
 
             if "DESCequilibrium" in key and not with_desc:
-                print(f"Attention: {with_desc =}, DESC not tested here !!")
+                logger.info(f"Attention: {with_desc =}, DESC not tested here !!")
                 continue
 
             if "GVECequilibrium" in key:
-                print("Attention: GVEC not tested here !!")
-                # print("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
+                logger.info("Attention: GVEC not tested here !!")
+                # logger.info("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
                 continue
 
             mhd_equil = val()
             if not isinstance(mhd_equil, FluidEquilibriumWithB):
                 continue
 
-            print(f"{mhd_equil.params =}")
+            logger.info(f"{mhd_equil.params =}")
             if "AdhocTorus" in key:
                 mhd_equil.domain = domains.HollowTorus(
                     a1=1e-3,
@@ -1150,7 +1154,7 @@ def test_maxwellian_2d_mhd(num_elements, with_desc, show_plot=False):
                 try:
                     mhd_equil.domain = domains.Cuboid()
                 except:
-                    print(f"Not setting domain for {key}.")
+                    logger.info(f"Not setting domain for {key}.")
 
             maxwellian = GyroMaxwellian2D(
                 n=(mhd_equil.n0, None),
@@ -1176,8 +1180,8 @@ def test_maxwellian_2d_mhd(num_elements, with_desc, show_plot=False):
 
             # test flat evaluation
             if "GVECequilibrium" in key:
-                print("Attention: GVEC not tested here !!")
-                # print("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
+                logger.info("Attention: GVEC not tested here !!")
+                # logger.info("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
                 continue
                 pass
             else:
@@ -1334,7 +1338,7 @@ def test_maxwellian_2d_mhd(num_elements, with_desc, show_plot=False):
                 for key_2, val_2 in inspect.getmembers(perturbations):
                     if inspect.isclass(val_2) and val_2.__module__ == perturbations.__name__:
                         pert = val_2()
-                        print(f"{pert =}")
+                        logger.info(f"{pert =}")
                         assert isinstance(pert, Perturbation)
 
                         if isinstance(pert, perturbations.Noise):

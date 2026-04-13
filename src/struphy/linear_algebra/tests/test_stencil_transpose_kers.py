@@ -1,4 +1,8 @@
+import logging
+
 import pytest
+
+logger = logging.getLogger("struphy")
 
 
 @pytest.mark.parametrize("num_elements", [12])
@@ -30,12 +34,12 @@ def test_1d(num_elements, degree, bcs, domain_ind, codomain_ind):
     rank = comm.Get_rank()
 
     if rank == 0:
-        print("\nParameters:")
-        print("num_elements=", num_elements)
-        print("degree=", degree)
-        print("bcs=", bcs)
-        print("domain_ind=", domain_ind)
-        print("codomain_ind=", codomain_ind)
+        logger.info("\nParameters:")
+        logger.info(f"num_elements={num_elements}")
+        logger.info(f"degree={degree}")
+        logger.info(f"bcs={bcs}")
+        logger.info(f"domain_ind={domain_ind}")
+        logger.info(f"codomain_ind={codomain_ind}")
 
     # Psydac discrete Derham sequence
     grid = TensorProductGrid(num_elements=[num_elements] * 3)
@@ -98,23 +102,23 @@ def test_1d(num_elements, degree, bcs, domain_ind, codomain_ind):
     matT_pre.update_ghost_regions()
 
     if rank == 0:
-        print("domain degree:  ", domain.degree)
-        print("codomain degree:", codomain.degree)
-        print(f"rank {rank} | domain.starts = ", mat.domain.starts)
-        print(f"rank {rank} | domain.ends = ", mat.domain.ends)
-        print(f"rank {rank} | domain.pads = ", mat.domain.pads)
-        print(f"rank {rank} | codomain.starts = ", mat.codomain.starts)
-        print(f"rank {rank} | codomain.ends = ", mat.codomain.ends)
-        print(f"rank {rank} | codomain.pads = ", mat.codomain.pads)
-        # print(f'rank {rank} | add = ', add)
-        print("\nmat=", mat._data)
-        print("\nmat.toarray=\n", mat.toarray())
-        print("\nmatT=", matT._data)
-        print("\nmatT.toarray=\n", matT.toarray())
-        print("\nmatT_ker=", matT_ker._data)
-        print("\nmatT_ker.toarray=\n", matT_ker.toarray())
-        print("\nmatT_pre=", matT_pre._data)
-        print("\nmatT_pre.toarray=\n", matT_pre.toarray())
+        logger.info(f"domain degree:   {domain.degree}")
+        logger.info(f"codomain degree: {codomain.degree}")
+        logger.info(f"rank {rank} | domain.starts = {mat.domain.starts}")
+        logger.info(f"rank {rank} | domain.ends = {mat.domain.ends}")
+        logger.info(f"rank {rank} | domain.pads = {mat.domain.pads}")
+        logger.info(f"rank {rank} | codomain.starts = {mat.codomain.starts}")
+        logger.info(f"rank {rank} | codomain.ends = {mat.codomain.ends}")
+        logger.info(f"rank {rank} | codomain.pads = {mat.codomain.pads}")
+        # logger.info(f'rank {rank} | add = {add}')
+        logger.info(f"\nmat= {mat._data}")
+        logger.info(f"\nmat.toarray=\n{mat.toarray()}")
+        logger.info(f"\nmatT= {matT._data}")
+        logger.info(f"\nmatT.toarray=\n{matT.toarray()}")
+        logger.info(f"\nmatT_ker= {matT_ker._data}")
+        logger.info(f"\nmatT_ker.toarray=\n{matT_ker.toarray()}")
+        logger.info(f"\nmatT_pre= {matT_pre._data}")
+        logger.info(f"\nmatT_pre.toarray=\n{matT_pre.toarray()}")
 
     assert xp.allclose(matT_ker[s_in : e_in + 1, :], matT[s_in : e_in + 1, :])
     assert xp.allclose(matT_pre[s_in : e_in + 1, :], matT[s_in : e_in + 1, :])
@@ -149,12 +153,12 @@ def test_3d(num_elements, degree, bcs, domain_ind, codomain_ind):
     rank = comm.Get_rank()
 
     if rank == 0:
-        print("\nParameters:")
-        print("num_elements=", num_elements)
-        print("degree=", degree)
-        print("bcs=", bcs)
-        print("domain_ind=", domain_ind)
-        print("codomain_ind=", codomain_ind)
+        logger.info("\nParameters:")
+        logger.info(f"num_elements={num_elements}")
+        logger.info(f"degree={degree}")
+        logger.info(f"bcs={bcs}")
+        logger.info(f"domain_ind={domain_ind}")
+        logger.info(f"codomain_ind={codomain_ind}")
 
     # Psydac discrete Derham sequence
     grid = TensorProductGrid(num_elements=num_elements)
@@ -223,27 +227,27 @@ def test_3d(num_elements, degree, bcs, domain_ind, codomain_ind):
     matT_pre = mat_pre.transpose()
 
     if rank == 0:
-        print("domain degree:  ", domain.degree)
-        print("codomain degree:", codomain.degree)
-        print(f"rank {rank} | domain.starts = ", s_in)
-        print(f"rank {rank} | domain.ends = ", e_in)
-        print(f"rank {rank} | domain.pads = ", p_in)
-        print(f"rank {rank} | codomain.starts = ", s_out)
-        print(f"rank {rank} | codomain.ends = ", e_out)
-        print(f"rank {rank} | codomain.pads = ", p_out)
-        print(f"rank {rank} | add = ", add)
-        print("\nmat=", mat._data[:, p_out[1], p_out[2], :, 0, 0])
-        print("\nmatT[0]=    ", matT._data[:, p_in[1], p_in[2], :, 0, 0])
-        print("\nmatT_ker[0]=", matT_ker._data[:, p_in[1], p_in[2], :, 0, 0])
-        print("\nmatT_pre[0]=", matT_pre._data[:, p_in[1], p_in[2], :, 0, 0])
+        logger.info(f"domain degree:   {domain.degree}")
+        logger.info(f"codomain degree: {codomain.degree}")
+        logger.info(f"rank {rank} | domain.starts = {s_in}")
+        logger.info(f"rank {rank} | domain.ends = {e_in}")
+        logger.info(f"rank {rank} | domain.pads = {p_in}")
+        logger.info(f"rank {rank} | codomain.starts = {s_out}")
+        logger.info(f"rank {rank} | codomain.ends = {e_out}")
+        logger.info(f"rank {rank} | codomain.pads = {p_out}")
+        logger.info(f"rank {rank} | add = {add}")
+        logger.info(f"\nmat= {mat._data[:, p_out[1], p_out[2], :, 0, 0]}")
+        logger.info(f"\nmatT[0]=     {matT._data[:, p_in[1], p_in[2], :, 0, 0]}")
+        logger.info(f"\nmatT_ker[0]= {matT_ker._data[:, p_in[1], p_in[2], :, 0, 0]}")
+        logger.info(f"\nmatT_pre[0]= {matT_pre._data[:, p_in[1], p_in[2], :, 0, 0]}")
 
-        print("\nmatT[1]=    ", matT._data[p_in[0], :, p_in[2], 1, :, 1])
-        print("\nmatT_ker[1]=", matT_ker._data[p_in[0], :, p_in[2], 1, :, 1])
-        print("\nmatT_pre[1]=", matT_pre._data[p_in[0], :, p_in[2], 1, :, 1])
+        logger.info(f"\nmatT[1]=     {matT._data[p_in[0], :, p_in[2], 1, :, 1]}")
+        logger.info(f"\nmatT_ker[1]= {matT_ker._data[p_in[0], :, p_in[2], 1, :, 1]}")
+        logger.info(f"\nmatT_pre[1]= {matT_pre._data[p_in[0], :, p_in[2], 1, :, 1]}")
 
-        print("\nmatT[2]=    ", matT._data[p_in[0], p_in[1], :, 1, 1, :])
-        print("\nmatT_ker[2]=", matT_ker._data[p_in[0], p_in[1], :, 1, 1, :])
-        print("\nmatT_pre[2]=", matT_pre._data[p_in[0], p_in[1], :, 1, 1, :])
+        logger.info(f"\nmatT[2]=     {matT._data[p_in[0], p_in[1], :, 1, 1, :]}")
+        logger.info(f"\nmatT_ker[2]= {matT_ker._data[p_in[0], p_in[1], :, 1, 1, :]}")
+        logger.info(f"\nmatT_pre[2]= {matT_pre._data[p_in[0], p_in[1], :, 1, 1, :]}")
 
     assert xp.allclose(
         matT_ker[s_in[0] : e_in[0] + 1, s_in[1] : e_in[1] + 1, s_in[2] : e_in[2] + 1],

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 "Analytical perturbations."
 
+import logging
 from dataclasses import dataclass
 
 import cunumpy as xp
@@ -10,6 +11,8 @@ import scipy.special
 from struphy.initial.base import Perturbation
 from struphy.io.options import LiteralOptions
 from struphy.utils.utils import check_option
+
+logger = logging.getLogger("struphy")
 
 
 @dataclass
@@ -310,7 +313,7 @@ class ModesCos(Perturbation):
                 + m * 2.0 * xp.pi / self.Ly * y[mask]
                 + n * 2.0 * xp.pi / self.Lz * z[mask],
             )
-        # print( "Cos max value", val.max())
+        # logger.info( "Cos max value", val.max())
         return val
 
 

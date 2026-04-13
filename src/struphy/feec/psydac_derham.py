@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import logging
 from typing import Callable
 
 import cunumpy as xp
@@ -46,6 +47,8 @@ from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearO
 from struphy.topology.grids import TensorProductGrid
 
 NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
+
+logger = logging.getLogger("struphy")
 
 
 class DiscreteDerham:
@@ -842,18 +845,15 @@ class Derham:
         )
 
         if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-            print("\nDERHAM:")
-            print("number of elements:".ljust(25), num_elements)
-            print("spline degrees:".ljust(25), degree)
-            print("boundary conditions:".ljust(25), bcs)
-            print("GL quad pts (L2):".ljust(25), nquads)
-            print("GL quad pts (hist):".ljust(25), nquads_proj)
-            print(
-                "MPI proc. per dir.:".ljust(25),
-                self.domain_decomposition.nprocs,
-            )
-            print("use polar splines:".ljust(25), self.polar_splines)
-            print("domain on process 0:".ljust(25), self.domain_array[0])
+            logger.info("\nDERHAM:")
+            logger.info(f"{'number of elements:'.ljust(25)} {num_elements}")
+            logger.info(f"{'spline degrees:'.ljust(25)} {degree}")
+            logger.info(f"{'boundary conditions:'.ljust(25)} {bcs}")
+            logger.info(f"{'GL quad pts (L2):'.ljust(25)} {nquads}")
+            logger.info(f"{'GL quad pts (hist):'.ljust(25)} {nquads_proj}")
+            logger.info(f"{'MPI proc. per dir.:'.ljust(25)} {self.domain_decomposition.nprocs}")
+            logger.info(f"{'use polar splines:'.ljust(25)} {self.polar_splines}")
+            logger.info(f"{'domain on process 0:'.ljust(25)} {self.domain_array[0]}")
 
     # -----------------------------
     # Input arguments as properties
@@ -2143,7 +2143,7 @@ class SplineFunction:
             self._nbasis = [tuple([space.nbasis for space in vec_space.spaces]) for vec_space in self.fem_space.spaces]
 
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nAllocated SplineFuntion '{self.name}' in space '{self.space_id}'.")
+            logger.info(f"\nAllocated SplineFuntion '{self.name}' in space '{self.space_id}'.")
 
         if self.backgrounds is not None or self.perturbations is not None:
             self.initialize_coeffs(domain=self.domain, equil=self.equil, verbose=verbose)
@@ -2336,19 +2336,19 @@ class SplineFunction:
         # set background paramters
         if backgrounds is not None:
             # if self.backgrounds is not None:
-            #     print(f"Attention: overwriting backgrounds for {self.name}")
+            #     logger.info(f"Attention: overwriting backgrounds for {self.name}")
             self._backgrounds = backgrounds
 
         # set perturbation paramters
         if perturbations is not None:
             # if self.perturbations is not None:
-            #     print(f"Attention: overwriting perturbation parameters for {self.name}")
+            #     logger.info(f"Attention: overwriting perturbation parameters for {self.name}")
             self._perturbations = perturbations
 
         # set domain
         if domain is not None:
             # if self.domain is not None:
-            #     print(f"Attention: overwriting domain for {self.name}")
+            #     logger.info(f"Attention: overwriting domain for {self.name}")
             self._domain = domain
 
         if isinstance(self.backgrounds, FieldsBackground):
@@ -2361,14 +2361,14 @@ class SplineFunction:
         self._vector *= 0.0
 
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"Initializing {self.name} ...")
+            logger.info(f"Initializing {self.name} ...")
 
         # add backgrounds to initial vector
         if self.backgrounds is not None:
             for fb in self.backgrounds:
                 assert isinstance(fb, FieldsBackground)
                 if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-                    print(f"Adding background {fb} ...")
+                    logger.info(f"Adding background {fb} ...")
 
                 # special case of const
                 if fb.type == "LogicalConst":
@@ -2423,7 +2423,7 @@ class SplineFunction:
         if self.perturbations is not None:
             for ptb in self.perturbations:
                 if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-                    print(f"Adding perturbation {ptb} ...")
+                    logger.info(f"Adding perturbation {ptb} ...")
 
                 # special case of white noise in logical space for different components
                 if isinstance(ptb, Noise):
@@ -2472,7 +2472,7 @@ class SplineFunction:
 
                 # loading of MHD eigenfunction (legacy code, might not be up to date)
                 # elif "EigFun" in _type:
-                #     print("Warning: Eigfun is not regularly tested ...")
+                #     logger.info("Warning: Eigfun is not regularly tested ...")
                 #     from struphy.initial import eigenfunctions
 
                 #     # select class

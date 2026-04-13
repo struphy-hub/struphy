@@ -1,7 +1,10 @@
+import logging
 import os
 
 import struphy
 from struphy.utils.utils import subp_run
+
+logger = logging.getLogger("struphy")
 
 LIBPATH = struphy.__path__[0]
 
@@ -164,5 +167,5 @@ def struphy_test(
         if show_plots:
             cmd += ["--show-plots"]
 
-        # subp_run(["mpirun", "-n", str(mpi), sys.executable, "-c", "\"print('hello')\""], check=True)
+        # subp_run(["mpirun", "-n", str(mpi), sys.executable, "-c", "\"logger.info('hello')\""], check=True)
         subp_run(cmd, check=True)

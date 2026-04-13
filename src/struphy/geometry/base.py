@@ -2,12 +2,12 @@
 "Base classes for mapped domains (single patch)."
 
 import inspect
+import logging
 from abc import ABCMeta, abstractmethod
 
 import cunumpy as xp
 import h5py
-import pyvista as pv
-import vtk
+from pyvista import Plotter, StructuredGrid
 from scipy.sparse import csc_matrix, kron
 from scipy.sparse.linalg import splu, spsolve
 
@@ -16,6 +16,8 @@ from struphy.geometry import evaluation_kernels, transform_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
 from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default, all_subclasses
+
+logger = logging.getLogger("struphy")
 
 
 class DomainMeta(ABCMeta):
@@ -234,9 +236,9 @@ class Domain(metaclass=DomainMeta):
         return all_class_params_are_default(self)
 
     def __str__(self):
-        print(f"{self.__class__.__name__}")
+        logger.info(f"{self.__class__.__name__}")
         for k, v in self.params.items():
-            print(f"{k}:".ljust(20), v)
+            logger.info(f"{k + ':':<20}{v}")
         return ""
 
     @property
@@ -1394,9 +1396,9 @@ class Domain(metaclass=DomainMeta):
 
                 elif isinstance(component, xp.ndarray):
                     if flat_eval:
-                        assert component.ndim == 1, print(f"{component.ndim =}")
+                        assert component.ndim == 1, logger.info(f"{component.ndim =}")
                     else:
-                        assert component.ndim == 3, print(f"{component.ndim =}")
+                        assert component.ndim == 3, logger.info(f"{component.ndim =}")
 
                     a_out += [component]
 
@@ -1496,7 +1498,7 @@ class Domain(metaclass=DomainMeta):
         grids_phy = [tmp[0], tmp[1], tmp[2]]
 
         # Create PyVista structured grid
-        mesh = pv.StructuredGrid(grids_phy[0], grids_phy[1], grids_phy[2])
+        mesh = StructuredGrid(grids_phy[0], grids_phy[1], grids_phy[2])
 
         return mesh
 
@@ -1509,7 +1511,7 @@ class Domain(metaclass=DomainMeta):
     ):
         """Show the 3D geometry using PyVista."""
         mesh = self.create_geometry_mesh(nx, ny, nz, verbose)
-        plotter = pv.Plotter()
+        plotter = Plotter()
         plotter.add_mesh(mesh, show_edges=True)
         plotter.show()
 
@@ -1521,17 +1523,19 @@ class Domain(metaclass=DomainMeta):
         filename : str
             The name of the file to save the geometry to. Supported formats include .vts, .vtk, .vtp
         """
+        from vtk import vtkGeometryFilter, vtkXMLPolyDataWriter
+
         mesh = self.create_geometry_mesh()
         if filename.endswith(".vts"):
             mesh.save(filename, binary=True)
         elif filename.endswith(".vtp"):
             # Extract the external surface (Geometry Filter)
-            geom_filter = vtk.vtkGeometryFilter()
+            geom_filter = vtkGeometryFilter()
             geom_filter.SetInputData(mesh)
             geom_filter.Update()
 
             # Write as PolyData (.vtp)
-            writer = vtk.vtkXMLPolyDataWriter()
+            writer = vtkXMLPolyDataWriter()
             writer.SetFileName(filename)
             writer.SetInputData(geom_filter.GetOutput())
             writer.Write()
@@ -2263,7 +2267,7 @@ def interp_mapping(num_elements, degree, spl_kind, X, Y, Z=None):
         return cx, cy, cz
 
     else:
-        print("wrong number of elements")
+        logger.info("wrong number of elements")
 
         return 0.0
 
