@@ -237,6 +237,41 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
         result = re.sub(rf"\\mathbb\s*{re.escape(letter)}\b", bb, result)
         result = re.sub(rf"\\mathbb\s*\{{\s*{re.escape(letter)}\s*\}}", bb, result)
 
+    # Calligraphic symbols (\mathcal) - common uppercase script letters.
+    # Use Unicode script characters where available.
+    mathcal_letters = {
+        "A": "𝒜",
+        "B": "ℬ",
+        "C": "𝒞",
+        "D": "𝒟",
+        "E": "ℰ",
+        "F": "ℱ",
+        "G": "𝒢",
+        "H": "ℋ",
+        "I": "ℐ",
+        "J": "𝒥",
+        "K": "𝒦",
+        "L": "ℒ",
+        "M": "ℳ",
+        "N": "𝒩",
+        "O": "𝒪",
+        "P": "𝒫",
+        "Q": "𝒬",
+        "R": "ℛ",
+        "S": "𝒮",
+        "T": "𝒯",
+        "U": "𝒰",
+        "V": "𝒱",
+        "W": "𝒲",
+        "X": "𝒳",
+        "Y": "𝒴",
+        "Z": "𝒵",
+    }
+
+    for letter, cal in mathcal_letters.items():
+        result = re.sub(rf"\\mathcal\s*{re.escape(letter)}\b", cal, result)
+        result = re.sub(rf"\\mathcal\s*\{{\s*{re.escape(letter)}\s*\}}", cal, result)
+
     # Hat symbols (\hat)
     # Match \hat E or \hat{E} or \hat{\mathbf{E}}
     def replace_hat(match):
