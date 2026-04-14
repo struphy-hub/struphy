@@ -49,10 +49,12 @@ def main():
     else:
         tf = 2*ti
     print(f"{ti = }, {tf = }")
+    ti, tf = 2.5, 5.1
 
     xi = xp.abs(pdata.t_grid - ti).argmin() + 1 # index of time 100 [a.lu.] (observed end of growth rate)
     xf = xp.abs(pdata.t_grid - tf).argmin() + 1 # index of time 200 [a.lu.] (observed end of growth rate)
-
+    phi_init=phi[1]
+    en_phi = en_phi - phi_init
     fitting = xp.polyfit(time[xi:xf], xp.log10(en_phi[xi:xf]), deg=1)
 
     fig, ax = plt.subplots(1, figsize = (18, 12))
@@ -79,6 +81,7 @@ def main():
     # plt.savefig(os.path.join(save_path, "growth_rate.png"))
     # plt.close()
 
+    en_phi = en_phi + phi_init
 
     # ------------------
     # Show evolution of mass density distribution
