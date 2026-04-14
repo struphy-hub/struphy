@@ -24,6 +24,86 @@ def _format_fraction(numerator: str, denominator: str, display_mode: bool = Fals
     return f"<sup>{num}</sup>⁄<sub>{den}</sub>"
 
 
+def _extract_braced_group(text: str, start: int):
+    """Return the content of a balanced braced group and the next index."""
+    if start >= len(text) or text[start] != "{":
+        return None, start
+
+    depth = 0
+    content_start = start + 1
+    i = start
+
+    while i < len(text):
+        ch = text[i]
+        if ch == "{" and (i == 0 or text[i - 1] != "\\"):
+            depth += 1
+            if depth == 1:
+                content_start = i + 1
+        elif ch == "}" and (i == 0 or text[i - 1] != "\\"):
+            depth -= 1
+            if depth == 0:
+                return text[content_start:i], i + 1
+        i += 1
+
+    return None, start
+
+
+def _replace_latex_fractions(text: str, display_mode: bool = False, max_passes: int = 6) -> str:
+    """Replace \\frac{...}{...} using balanced-brace parsing."""
+    result = text
+
+    for _ in range(max_passes):
+        i = 0
+        out = []
+        changed = False
+
+        while i < len(result):
+            frac_start = result.find(r"\frac", i)
+            if frac_start == -1:
+                out.append(result[i:])
+                break
+
+            out.append(result[i:frac_start])
+            cursor = frac_start + len(r"\frac")
+
+            while cursor < len(result) and result[cursor].isspace():
+                cursor += 1
+
+            numerator, cursor = _extract_braced_group(result, cursor)
+            if numerator is None:
+                out.append(result[frac_start:frac_start + len(r"\frac")])
+                i = frac_start + len(r"\frac")
+                continue
+
+            while cursor < len(result) and result[cursor].isspace():
+                cursor += 1
+
+            denominator, cursor = _extract_braced_group(result, cursor)
+            if denominator is None:
+                out.append(result[frac_start:frac_start + len(r"\frac")])
+                i = frac_start + len(r"\frac")
+                continue
+
+            num = numerator.strip()
+            den = denominator.strip()
+
+            partial_num = re.fullmatch(r"\\partial\s+(.+)", num)
+            partial_den = re.fullmatch(r"\\partial\s+(.+)", den)
+            if partial_num and partial_den:
+                num = f"∂{partial_num.group(1).strip()}"
+                den = f"∂{partial_den.group(1).strip()}"
+
+            out.append(_format_fraction(num, den, display_mode=display_mode))
+            i = cursor
+            changed = True
+
+        result = "".join(out)
+        if not changed:
+            break
+
+    return result
+
+
 def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
     """
     Convert LaTeX math expressions to Unicode symbols.
@@ -192,13 +272,9 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
     result = re.sub(r"\\vec\s*\{([^}]+)\}", replace_vec, result)
     result = re.sub(r"\\vec\s+([A-Za-z])\b", replace_vec, result)
 
-    # Fractions - handle FIRST (before sqrt) to process fractions inside sqrt
-    # \frac{\partial ...}{\partial t} -> typographic fraction
-    result = re.sub(
-        r"\\frac\{\\partial\s+([^}]+)\}\{\\partial\s+([^}]+)\}",
-        lambda m: _format_fraction(f"∂{m.group(1)}", f"∂{m.group(2)}", display_mode=display_mode),
-        result,
-    )
+    # Fractions - handle FIRST (before sqrt) to process fractions inside sqrt.
+    # Use balanced-brace parsing so nested groups are handled correctly.
+    result = _replace_latex_fractions(result, display_mode=display_mode)
 
     # Common fractions
     common_fractions = {
@@ -222,15 +298,6 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
         for frac, unicode_frac in common_fractions.items():
             result = result.replace(frac, unicode_frac)
 
-    # Generic fraction \frac{a}{b} -> typographic fraction
-    # Handle simple nested cases with multiple passes
-    for _ in range(3):  # Multiple passes for nested fractions
-        result = re.sub(
-            r"\\frac\{([^{}]+)\}\{([^{}]+)\}",
-            lambda m: _format_fraction(m.group(1), m.group(2), display_mode=display_mode),
-            result,
-        )
-
     # Square root (\sqrt) - handle AFTER initial fractions so fractions inside sqrt are processed first
     def replace_sqrt(match):
         content = match.group(1).strip()
@@ -241,14 +308,8 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
 
     result = re.sub(r"\\sqrt\s*\{([^}]+)\}", replace_sqrt, result)
 
-    # Process fractions AGAIN to catch fractions created by sqrt conversion
-    # (e.g., \frac{a}{\sqrt{b}} becomes \frac{a}{√(b)} which can now be matched)
-    for _ in range(3):  # Multiple passes for nested fractions
-        result = re.sub(
-            r"\\frac\{([^{}]+)\}\{([^{}]+)\}",
-            lambda m: _format_fraction(m.group(1), m.group(2), display_mode=display_mode),
-            result,
-        )
+    # Process fractions again to catch any \frac introduced after sqrt conversion.
+    result = _replace_latex_fractions(result, display_mode=display_mode)
 
     # Normalize subscript patterns: _\command{...} -> _{\command{...}}
     # Do this BEFORE symbol replacement so we can handle _\mathbb{R}, _\Omega, etc.
@@ -915,7 +976,7 @@ def info(obj, use_rst: bool = True):
         IPython.display object for rendering in Jupyter"""
         
     try:
-        from IPython.display import HTML, Markdown
+        from IPython.display import HTML, Markdown, display
     except ImportError:
         logger.info("IPython not available. Install jupyter to use this feature.")
         return None
@@ -925,18 +986,18 @@ def info(obj, use_rst: bool = True):
         doc_text = obj.__doc_rst__
         # Convert RST to Markdown for better Jupyter rendering
         md_text = rst_to_markdown(doc_text)
-        return Markdown(md_text)
+        return display(Markdown(md_text))
     elif hasattr(obj, "__doc__") and obj.__doc__:
         # Check if it's HTML (contains tags)
         doc_text = obj.__doc__
         if "<" in doc_text and ">" in doc_text:
             # It's HTML
-            return HTML(doc_text)
+            return display(HTML(doc_text))
         else:
             # Plain text or RST, show as is
-            return Markdown(doc_text)
+            return display(Markdown(doc_text))
     else:
-        return Markdown("*No docstring available*")
+        return display(Markdown("*No docstring available*"))
 
 
 if __name__ == "__main__":

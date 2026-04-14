@@ -18,94 +18,44 @@ logger = logging.getLogger("struphy")
         (None, ("dirichlet", "free"), None),
     ],
 )
-@pytest.mark.parametrize("mapping", [["Colella", {"Lx": 1.0, "Ly": 6.0, "alpha": 0.1, "Lz": 10.0}]])
-def test_mass(num_elements, degree, bcs, mapping, show_plots=False):
+@pytest.mark.parametrize("map_and_equil", [["Cuboid", "HomogenSlab"],
+                                           ["Colella", "HomogenSlab"],
+                                           ["HollowCylinder", "ScewPinch"],
+                                           ["HollowTorus", "AdhocTorus"]])
+def test_mass(num_elements, degree, bcs, map_and_equil, show_plots=False):
     """Compare Struphy mass matrices to Struphy-legacy mass matrices."""
 
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
 
-    from struphy import domains
+    from struphy import domains, equils
+    from struphy.geometry.base import Domain
+    from struphy.fields_background.base import MHDequilibrium
     from struphy.feec.mass import WeightedMassOperators, WeightedMassOperatorsOldForTesting
     from struphy.feec.psydac_derham import Derham
-    from struphy.feec.utilities import RotationMatrix, compare_arrays, create_equal_random_arrays
-    from struphy.fields_background.equils import ScrewPinch, ShearedSlab
+    from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
     from struphy.io.options import DerhamOptions
     from struphy.topology.grids import TensorProductGrid
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
     mpi_size = mpi_comm.Get_size()
-
-    if mpi_rank == 0:
-        logger.info("")
-
     mpi_comm.Barrier()
 
     logger.info(f"Rank {mpi_rank} | Start test_mass with " + str(mpi_size) + " MPI processes!")
 
     # mapping
-    domain_class = getattr(domains, mapping[0])
-    domain = domain_class(**mapping[1])
+    domain_class = getattr(domains, map_and_equil[0])
+    domain: Domain = domain_class()
+    
+    # equilibrium
+    equil_class = getattr(equils, map_and_equil[1])
+    equil: MHDequilibrium = equil_class()
+    equil.domain = domain
 
     if show_plots:
-        import matplotlib.pyplot as plt
-
         domain.show()
-
-    # load MHD equilibrium
-    if mapping[0] == "Cuboid":
-        eq_mhd = ShearedSlab(
-            **{
-                "a": (mapping[1]["r1"] - mapping[1]["l1"]),
-                "R0": (mapping[1]["r3"] - mapping[1]["l3"]) / (2 * xp.pi),
-                "B0": 1.0,
-                "q0": 1.05,
-                "q1": 1.8,
-                "n1": 3.0,
-                "n2": 4.0,
-                "na": 0.0,
-                "beta": 0.1,
-            },
-        )
-
-    elif mapping[0] == "Colella":
-        eq_mhd = ShearedSlab(
-            **{
-                "a": mapping[1]["Lx"],
-                "R0": mapping[1]["Lz"] / (2 * xp.pi),
-                "B0": 1.0,
-                "q0": 1.05,
-                "q1": 1.8,
-                "n1": 3.0,
-                "n2": 4.0,
-                "na": 0.0,
-                "beta": 0.1,
-            },
-        )
-
-        if show_plots:
-            eq_mhd.plot_profiles()
-
-    elif mapping[0] == "HollowCylinder":
-        eq_mhd = ScrewPinch(
-            **{
-                "a": mapping[1]["a2"],
-                "R0": 3.0,
-                "B0": 1.0,
-                "q0": 1.05,
-                "q1": 1.8,
-                "n1": 3.0,
-                "n2": 4.0,
-                "na": 0.0,
-                "beta": 0.1,
-            },
-        )
-
-        if show_plots:
-            eq_mhd.plot_profiles()
-
-    eq_mhd.domain = domain
+        equil.show()
 
     # derham object
     grid = TensorProductGrid(num_elements=num_elements)
@@ -117,32 +67,15 @@ def test_mass(num_elements, degree, bcs, mapping, show_plots=False):
     fem_spaces = [derham.V0fem, derham.V1fem, derham.V2fem, derham.V3fem, derham.Vvfem]
 
     # mass matrices object
-    mass_matsold = WeightedMassOperatorsOldForTesting(derham, domain, eq_mhd=eq_mhd)
-    mass_matsold_free = WeightedMassOperatorsOldForTesting(derham, domain, eq_mhd=eq_mhd, matrix_free=True)
-    mass_mats = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd)
-    mass_mats_free = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd, matrix_free=True)
-
-    # test calling the diagonal method
-    aaa = mass_mats.M0.matrix.diagonal()
-    bbb = mass_mats.M1.matrix.diagonal()
-    logger.info(f"{aaa =}, {bbb[0, 0] =}, {bbb[0, 1] =}")
-
-    # compare to old STRUPHY
-    bc_old = [[None, None], [None, None], [None, None]]
-    for i in range(3):
-        if bcs[i] is not None:
-            for j in range(2):
-                if bcs[i][j] == "dirichlet":
-                    bc_old[i][j] = "d"
-                else:
-                    bc_old[i][j] = "f"
+    mass_ops = WeightedMassOperators(derham, domain, eq_mhd=equil)
+    mass_ops_free = WeightedMassOperators(derham, domain, eq_mhd=equil, matrix_free=True)
 
     # create random input arrays
-    x0_str, x0_psy = create_equal_random_arrays(fem_spaces[0], seed=1234, flattened=True)
-    x1_str, x1_psy = create_equal_random_arrays(fem_spaces[1], seed=1568, flattened=True)
-    x2_str, x2_psy = create_equal_random_arrays(fem_spaces[2], seed=8945, flattened=True)
-    x3_str, x3_psy = create_equal_random_arrays(fem_spaces[3], seed=8196, flattened=True)
-    xv_str, xv_psy = create_equal_random_arrays(fem_spaces[4], seed=2038, flattened=True)
+    x0_np, x0_psy = create_equal_random_arrays(fem_spaces[0], seed=1234, flattened=True)
+    x1_np, x1_psy = create_equal_random_arrays(fem_spaces[1], seed=1568, flattened=True)
+    x2_np, x2_psy = create_equal_random_arrays(fem_spaces[2], seed=8945, flattened=True)
+    x3_np, x3_psy = create_equal_random_arrays(fem_spaces[3], seed=8196, flattened=True)
+    xv_np, xv_psy = create_equal_random_arrays(fem_spaces[4], seed=2038, flattened=True)
 
     # Test toarray and tosparse
     all_false = all(bc != "dirichlet" for bl in bcs if bl is not None for bc in bl)
