@@ -22,6 +22,11 @@ DOI: 10.1140/epjd/e2014-50180-9
 # Import Struphy API
 # ------------------
 
+
+import logging
+from struphy import set_logging_level
+set_logging_level(logging.INFO)
+
 from struphy import (
     BaseUnits,
     DerhamOptions,
@@ -52,7 +57,14 @@ import cunumpy as xp
 # ---------------------
 
 from struphy.models import ToyDrift
-model = ToyDrift(epsilon=1.0)
+
+
+base_units = BaseUnits(kBT=0.1)
+model = ToyDrift(
+    epsilon=1.0,
+    alpha=1.0,
+    base_units=base_units,
+    )
 
 # List all variables and decide whether to save their data
 model.em_fields.phi.save_data = True
@@ -82,6 +94,7 @@ derham_opts = DerhamOptions(
     degree=(3,3,1), 
     bcs=(("dirichlet", "dirichlet"), None, None),
     )
+
 
 # Simulation object
 sim = Simulation(
@@ -120,7 +133,7 @@ model.kinetic_ions.set_save_data(binning_plots=(eta_bin, ))
 # ------------------
 
 model.propagators.gc_poisson.options = model.propagators.gc_poisson.Options()
-model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(phi=model.em_fields.phi, evaluate_e_field=True)
+model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(algo="explicit",phi=model.em_fields.phi, evaluate_e_field=True)
 
 # ------------------
 # Initial conditions
