@@ -816,23 +816,23 @@ RESTARTing from:
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
             logger.info("\nPLASMA PARAMETERS:")
             logger.info(
-                "Plasma volume:".ljust(25),
+                "Plasma volume:".ljust(25) +
                 "{:4.3e}".format(plasma_volume) + units_affix["plasma volume"],
             )
             logger.info(
-                "Transit length:".ljust(25),
+                "Transit length:".ljust(25) +
                 "{:4.3e}".format(transit_length) + units_affix["transit length"],
             )
             logger.info(
-                "Avg. magnetic field:".ljust(25),
+                "Avg. magnetic field:".ljust(25) +
                 "{:4.3e}".format(magnetic_field) + units_affix["magnetic field"],
             )
             logger.info(
-                "Max magnetic field:".ljust(25),
+                "Max magnetic field:".ljust(25) +
                 "{:4.3e}".format(B_max) + units_affix["magnetic field"],
             )
             logger.info(
-                "Min magnetic field:".ljust(25),
+                "Min magnetic field:".ljust(25) +
                 "{:4.3e}".format(B_min) + units_affix["magnetic field"],
             )
 
