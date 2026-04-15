@@ -11,7 +11,8 @@ import h5py
 # Post process simulation data
 # ------------------
 def main():
-    sim_path = os.path.join(os.getcwd(), "simdata")
+    sim_name = "simdata"
+    sim_path = os.path.join(os.getcwd(), sim_name)
 
     pp = PostProcessor(sim=params.sim)
     pp.process(physical=True)
@@ -211,6 +212,23 @@ def main():
             plt.close(fig)
 
     # extract_images("e1_e2_density", "f_binned", os.path.join(save_path, "video"))
+    save_video_pngs = False
+    if save_video_pngs:
+        if os.path.exists("video_"+sim_name):
+            os.remove("video_"+sim_name)
+        os.mkdir("video_"+sim_name)
+        # create .png for video
+        jump = 1
+        fig = plt.figure(figsize=(8, 8))
+        for n in range(ntime):
+            if n % jump == 0:
+                color_mapped = pdata.f.kinetic_ions.e1_e2_density.f_binned[n].T
+                plt.pcolor(phy_bin[0], phy_bin[1], pdata.f.kinetic_ions.e1_e2_density.f_binned[n])
+                
+                plt.xlabel("x position")
+                plt.ylabel("y position")
+                plt.title(f"t = {pdata.t_grid[n]:4.2e}")
+                plt.savefig(f"video_"+sim_name+"/fig_{n:04.0f}.png", transparent=False, bbox_inches='tight', pad_inches=0)
 
 if __name__ == "__main__":
     main()
