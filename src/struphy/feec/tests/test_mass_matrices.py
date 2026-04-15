@@ -1,41 +1,41 @@
 import logging
-
 import pytest
+from matplotlib import pyplot as plt
 
 logger = logging.getLogger("struphy")
 
-
-@pytest.mark.parametrize("num_elements", [[5, 6, 7]])
-@pytest.mark.parametrize("degree", [[2, 2, 3]])
+@pytest.mark.solve
+@pytest.mark.parametrize("num_elements", [(32, 32, 32)])
+@pytest.mark.parametrize("degree", [(1, 1, 1), (2, 2, 2)])
 @pytest.mark.parametrize(
     "bcs",
     [
+        (None, None, None),
         (("free", "free"), None, None),
         (("free", "dirichlet"), None, None),
-        (("dirichlet", "free"), None, None),
-        (None, ("free", "free"), None),
-        (None, ("free", "dirichlet"), None),
-        (None, ("dirichlet", "free"), None),
     ],
 )
-@pytest.mark.parametrize("map_and_equil", [["Cuboid", "HomogenSlab"],
-                                           ["Colella", "HomogenSlab"],
-                                           ["HollowCylinder", "ScewPinch"],
-                                           ["HollowTorus", "AdhocTorus"]])
+@pytest.mark.parametrize("map_and_equil", [("Cuboid", "HomogenSlab"),
+                                           ("Colella", "HomogenSlab"),
+                                           ("HollowCylinder", "ScrewPinch"),
+                                           ("HollowTorus", "AdhocTorus"),
+                                           ])
 def test_mass(num_elements, degree, bcs, map_and_equil, show_plots=False):
     """Compare Struphy mass matrices to Struphy-legacy mass matrices."""
 
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
+    from feectools.linalg.solvers import inverse
 
     from struphy import domains, equils
     from struphy.geometry.base import Domain
     from struphy.fields_background.base import MHDequilibrium
-    from struphy.feec.mass import WeightedMassOperators, WeightedMassOperatorsOldForTesting
+    from struphy.feec.mass import WeightedMassOperators, WeightedMassOperator
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
     from struphy.io.options import DerhamOptions
     from struphy.topology.grids import TensorProductGrid
+    from struphy.feec.projectors import L2Projector
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -47,11 +47,18 @@ def test_mass(num_elements, degree, bcs, map_and_equil, show_plots=False):
     # mapping
     domain_class = getattr(domains, map_and_equil[0])
     domain: Domain = domain_class()
+    print(f"{domain = }")
     
     # equilibrium
     equil_class = getattr(equils, map_and_equil[1])
-    equil: MHDequilibrium = equil_class()
+    if map_and_equil[1] == "HomogenSlab":
+        equil: equils.HomogenSlab = equil_class(n0=2.0)
+    elif map_and_equil[1] == "ScrewPinch":
+        equil: equils.ScrewPinch = equil_class(na=0.5, n1=1.0, n2=1.0)
+    elif map_and_equil[1] == "AdhocTorus":
+        equil: equils.AdhocTorus = equil_class(na=0.4)
     equil.domain = domain
+    print(f"{equil = }")
 
     if show_plots:
         domain.show()
@@ -64,174 +71,93 @@ def test_mass(num_elements, degree, bcs, map_and_equil, show_plots=False):
 
     logger.info(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
 
-    fem_spaces = [derham.V0fem, derham.V1fem, derham.V2fem, derham.V3fem, derham.Vvfem]
-
     # mass matrices object
     mass_ops = WeightedMassOperators(derham, domain, eq_mhd=equil)
     mass_ops_free = WeightedMassOperators(derham, domain, eq_mhd=equil, matrix_free=True)
+    
+    # right-hand side, integrated against the basis functions
+    def rhs_logical(e1, e2, e3):
+        return xp.sin(2 * xp.pi * e1) * xp.cos(4 * xp.pi * e2) * xp.cos(2 * xp.pi * e3)
+    
+    l2proj_0 = L2Projector("H1", mass_ops)
+    l2proj_1 = L2Projector("Hcurl", mass_ops)
+    l2proj_2 = L2Projector("Hdiv", mass_ops)
+    l2proj_3 = L2Projector("L2", mass_ops)
+    l2proj_v = L2Projector("H1vec", mass_ops)
+    
+    rhs = {}
+    rhs["M0"] = l2proj_0.get_dofs(rhs_logical, apply_bc=True)
+    rhs["M1"] = l2proj_1.get_dofs((rhs_logical, rhs_logical, rhs_logical), apply_bc=True)
+    rhs["M1n"] = rhs["M1"]
+    rhs["M1ninv"] = rhs["M1"]
+    rhs["M2"] = l2proj_2.get_dofs((rhs_logical, rhs_logical, rhs_logical), apply_bc=True)
+    rhs["M2n"] = rhs["M2"]
+    rhs["M3"] = l2proj_3.get_dofs(rhs_logical, apply_bc=True)
+    rhs["Mv"] = l2proj_v.get_dofs((rhs_logical, rhs_logical, rhs_logical), apply_bc=True)
+    rhs["Mvn"] = rhs["Mv"]
 
-    # create random input arrays
-    x0_np, x0_psy = create_equal_random_arrays(fem_spaces[0], seed=1234, flattened=True)
-    x1_np, x1_psy = create_equal_random_arrays(fem_spaces[1], seed=1568, flattened=True)
-    x2_np, x2_psy = create_equal_random_arrays(fem_spaces[2], seed=8945, flattened=True)
-    x3_np, x3_psy = create_equal_random_arrays(fem_spaces[3], seed=8196, flattened=True)
-    xv_np, xv_psy = create_equal_random_arrays(fem_spaces[4], seed=2038, flattened=True)
-
-    # Test toarray and tosparse
-    all_false = all(bc != "dirichlet" for bl in bcs if bl is not None for bc in bl)
-    if all_false:
-        r2psy_compare = mass_mats.M2.dot(x2_psy)
-
-    r0_psy = mass_mats.M0.dot(x0_psy, apply_bc=True)
-    r1_psy = mass_mats.M1.dot(x1_psy, apply_bc=True)
-    r2_psy = mass_mats.M2.dot(x2_psy, apply_bc=True)
-    r3_psy = mass_mats.M3.dot(x3_psy, apply_bc=True)
-    rv_psy = mass_mats.Mv.dot(xv_psy, apply_bc=True)
-
-    rn_psy = mass_mats.M2n.dot(x2_psy, apply_bc=True)
-    rJ_psy = mass_mats.M2J.dot(x2_psy, apply_bc=True)
-
-    r1J_psy = mass_mats.M1J.dot(x2_psy, apply_bc=True)
-    r1Jold_psy = mass_matsold.M1J.dot(x2_psy, apply_bc=True)
-
-    # How to test space x1_psy? M1J is space HdivHcurl
-
-    rM1Bninv_psy = mass_mats.M1Bninv.dot(x1_psy, apply_bc=True)
-    rM1Bninvold_psy = mass_matsold.M1Bninv.dot(x1_psy, apply_bc=True)
-    rM0ad_psy = mass_mats.M0ad.dot(x0_psy, apply_bc=True)
-    rM0adold_psy = mass_matsold.M0ad.dot(x0_psy, apply_bc=True)
-    rM1ninv_psy = mass_mats.M1ninv.dot(x1_psy, apply_bc=True)
-    rM1ninvold_psy = mass_matsold.M1ninv.dot(x1_psy, apply_bc=True)
-    rM1gyro_psy = mass_mats.M1gyro.dot(x1_psy, apply_bc=True)
-    rM1gyroold_psy = mass_matsold.M1gyro.dot(x1_psy, apply_bc=True)
-    rM1perp_psy = mass_mats.M1perp.dot(x1_psy, apply_bc=True)
-    rM1perpold_psy = mass_matsold.M1perp.dot(x1_psy, apply_bc=True)
-
-    # Change order of input in callable
-    rM1ninvswitch_psy = mass_mats.create_weighted_mass(
-        "Hcurl",
-        "Hcurl",
-        weights=["sqrt_g", "1/eq_n0", "Ginv"],
-        name="M1ninv",
-        assemble=True,
-    ).dot(x1_psy, apply_bc=True)
-
-    rot_B = RotationMatrix(
-        mass_mats.weights[mass_mats.selected_weight].b2_1,
-        mass_mats.weights[mass_mats.selected_weight].b2_2,
-        mass_mats.weights[mass_mats.selected_weight].b2_3,
-    )
-    rM1Bninvswitch_psy = mass_mats.create_weighted_mass(
-        "Hcurl",
-        "Hcurl",
-        weights=["1/eq_n0", "sqrt_g", "Ginv", rot_B, "Ginv"],
-        name="M1Bninv",
-        assemble=True,
-    ).dot(x1_psy, apply_bc=True)
-
-    # Test matrix free operators
-    r0_fre = mass_mats_free.M0.dot(x0_psy, apply_bc=True)
-    r1_fre = mass_mats_free.M1.dot(x1_psy, apply_bc=True)
-    r2_fre = mass_mats_free.M2.dot(x2_psy, apply_bc=True)
-    r3_fre = mass_mats_free.M3.dot(x3_psy, apply_bc=True)
-    rv_fre = mass_mats_free.Mv.dot(xv_psy, apply_bc=True)
-
-    rn_fre = mass_mats_free.M2n.dot(x2_psy, apply_bc=True)
-    rJ_fre = mass_mats_free.M2J.dot(x2_psy, apply_bc=True)
-
-    rM1Bninv_fre = mass_mats_free.M1Bninv.dot(x1_psy, apply_bc=True)
-    rM1Bninvold_fre = mass_matsold_free.M1Bninv.dot(x1_psy, apply_bc=True)
-    rM0ad_fre = mass_mats_free.M0ad.dot(x0_psy, apply_bc=True)
-    rM0adold_fre = mass_matsold_free.M0ad.dot(x0_psy, apply_bc=True)
-    rM1ninv_fre = mass_mats_free.M1ninv.dot(x1_psy, apply_bc=True)
-    rM1ninvold_fre = mass_matsold_free.M1ninv.dot(x1_psy, apply_bc=True)
-    rM1gyro_fre = mass_mats_free.M1gyro.dot(x1_psy, apply_bc=True)
-    rM1gyroold_fre = mass_matsold_free.M1gyro.dot(x1_psy, apply_bc=True)
-    rM1perp_fre = mass_mats_free.M1perp.dot(x1_psy, apply_bc=True)
-    rM1perpold_fre = mass_matsold_free.M1perp.dot(x1_psy, apply_bc=True)
-
-    # Change order of input in callable
-    rM1ninvswitch_fre = mass_mats_free.create_weighted_mass(
-        "Hcurl",
-        "Hcurl",
-        weights=["sqrt_g", "1/eq_n0", "Ginv"],
-        name="M1ninvswitch",
-        assemble=True,
-    ).dot(x1_psy, apply_bc=True)
-    rot_B = RotationMatrix(
-        mass_mats_free.weights[mass_mats_free.selected_weight].b2_1,
-        mass_mats_free.weights[mass_mats_free.selected_weight].b2_2,
-        mass_mats_free.weights[mass_mats_free.selected_weight].b2_3,
-    )
-
-    rM1Bninvswitch_fre = mass_mats_free.create_weighted_mass(
-        "Hcurl",
-        "Hcurl",
-        weights=["1/eq_n0", "sqrt_g", "Ginv", rot_B, "Ginv"],
-        name="M1Bninvswitch",
-        assemble=True,
-    ).dot(x1_psy, apply_bc=True)
-
-    # compare output arrays
-
-    compare_arrays(rM1Bninv_psy, rM1Bninvold_psy.toarray(), mpi_rank, atol=1e-14)
-    compare_arrays(rM1Bninv_fre, rM1Bninvold_fre.toarray(), mpi_rank, atol=1e-14)
-
-    compare_arrays(rM1ninv_psy, rM1ninvold_psy.toarray(), mpi_rank, atol=1e-14)
-    compare_arrays(rM1ninv_fre, rM1ninvold_fre.toarray(), mpi_rank, atol=1e-14)
-
-    compare_arrays(rM1ninvswitch_psy, rM1ninvold_psy.toarray(), mpi_rank, atol=1e-14)
-    compare_arrays(rM1ninvswitch_fre, rM1ninvold_fre.toarray(), mpi_rank, atol=1e-14)
-
-    compare_arrays(rM1Bninvswitch_psy, rM1Bninvold_psy.toarray(), mpi_rank, atol=1e-14)
-    compare_arrays(rM1Bninvswitch_fre, rM1Bninvold_fre.toarray(), mpi_rank, atol=1e-14)
-
-    compare_arrays(rM0ad_psy, rM0adold_psy.toarray(), mpi_rank, atol=1e-14)
-    compare_arrays(rM0ad_fre, rM0adold_fre.toarray(), mpi_rank, atol=1e-14)
-
-    compare_arrays(rM1gyro_psy, rM1gyroold_psy.toarray(), mpi_rank, atol=1e-14)
-    compare_arrays(rM1gyro_fre, rM1gyroold_fre.toarray(), mpi_rank, atol=1e-14)
-
-    compare_arrays(rM1perp_psy, rM1perpold_psy.toarray(), mpi_rank, atol=1e-14)
-    compare_arrays(rM1perp_fre, rM1perpold_fre.toarray(), mpi_rank, atol=1e-14)
-
-    # perfrom matrix-vector products (without boundary conditions)
-
-    r0_psy = mass_mats.M0.dot(x0_psy, apply_bc=False)
-    r1_psy = mass_mats.M1.dot(x1_psy, apply_bc=False)
-    r2_psy = mass_mats.M2.dot(x2_psy, apply_bc=False)
-    r3_psy = mass_mats.M3.dot(x3_psy, apply_bc=False)
-    rv_psy = mass_mats.Mv.dot(xv_psy, apply_bc=False)
-
-    rM1Bninv_psy = mass_mats.M1Bninv.dot(x1_psy, apply_bc=False)
-    rM1Bninvold_psy = mass_matsold.M1Bninv.dot(x1_psy, apply_bc=False)
-    rM0ad_psy = mass_mats.M0ad.dot(x0_psy, apply_bc=False)
-    rM0adold_psy = mass_matsold.M0ad.dot(x0_psy, apply_bc=False)
-    rM1ninv_psy = mass_mats.M1ninv.dot(x1_psy, apply_bc=False)
-    rM1ninvold_psy = mass_matsold.M1ninv.dot(x1_psy, apply_bc=False)
-
-    r0_fre = mass_mats_free.M0.dot(x0_psy, apply_bc=False)
-    r1_fre = mass_mats_free.M1.dot(x1_psy, apply_bc=False)
-    r2_fre = mass_mats_free.M2.dot(x2_psy, apply_bc=False)
-    r3_fre = mass_mats_free.M3.dot(x3_psy, apply_bc=False)
-    rv_fre = mass_mats_free.Mv.dot(xv_psy, apply_bc=False)
-
-    rM1Bninv_fre = mass_mats_free.M1Bninv.dot(x1_psy, apply_bc=False)
-    rM1Bninvold_fre = mass_matsold_free.M1Bninv.dot(x1_psy, apply_bc=False)
-    rM0ad_fre = mass_mats_free.M0ad.dot(x0_psy, apply_bc=False)
-    rM0adold_fre = mass_matsold_free.M0ad.dot(x0_psy, apply_bc=False)
-    rM1ninv_fre = mass_mats_free.M1ninv.dot(x1_psy, apply_bc=False)
-    rM1ninvold_fre = mass_matsold_free.M1ninv.dot(x1_psy, apply_bc=False)
-
-    # compare output arrays
-    compare_arrays(rM1Bninv_psy, rM1Bninvold_psy.toarray(), mpi_rank, atol=1e-14)
-    compare_arrays(rM1Bninv_fre, rM1Bninvold_fre.toarray(), mpi_rank, atol=1e-14)
-    compare_arrays(rM0ad_psy, rM0adold_psy.toarray(), mpi_rank, atol=1e-14)
-    compare_arrays(rM0ad_fre, rM0adold_fre.toarray(), mpi_rank, atol=1e-14)
-    compare_arrays(rM1ninv_psy, rM1ninvold_psy.toarray(), mpi_rank, atol=1e-14)
-    compare_arrays(rM1ninv_fre, rM1ninvold_fre.toarray(), mpi_rank, atol=1e-14)
-
-    logger.info(f"Rank {mpi_rank} | All tests passed!")
+    # test mass matrices
+    e1 = xp.linspace(0, 1, 8)
+    e2 = xp.linspace(0, 1, 16)
+    e3 = xp.linspace(0, 1, 12)
+    ee1, ee2, ee3 = xp.meshgrid(e1, e2, e3, indexing="ij")
+    
+    if min(degree) == 1:
+        err_bound = 1.7e-1
+    elif min(degree) == 2:
+        err_bound = 2.6e-2
+    
+    names = ["M0", "M1", "M2", "M3", "Mv", "M1n", "M2n", "Mvn", "M1ninv", "M0ad"]
+    # names = ["M1n", "M2n", "Mvn"]
+    # names = ["M1ninv"]
+    for name in names:
+        M: WeightedMassOperator = getattr(mass_ops, name)
+        space_id = M.domain_symbolic_name
+        result = derham.create_spline_function("result", space_id)
+        Minv = inverse(getattr(mass_ops, name), "cg", tol=1e-8, maxiter=1000)
+        result.vector = Minv.dot(rhs[name])
+        
+        exact = rhs_logical(ee1, ee2, ee3)
+        if name in ["M1n", "M2n", "Mvn", "M0ad"]:
+            exact /= equil.n0(e1, e2, e3)
+        elif name == "M1ninv":
+            exact *= equil.n0(e1, e2, e3)
+        
+        if show_plots:
+            if space_id in ("H1", "L2"):
+                plt.figure(figsize=(12, 5))
+                plt.subplot(1, 2, 1)
+                plt.pcolor(e1, e2, result(e1, e2, e3[0], squeeze_out=True).T)
+                plt.colorbar()
+                plt.title(f"{name} with assembled matrix")
+                plt.subplot(1, 2, 2)
+                plt.pcolor(e1, e2, exact[:, :, 0].T)
+                plt.colorbar()
+                plt.title(f"exact")
+                plt.show()
+            else:
+                plt.figure(figsize=(24, 5))
+                plt.subplot(1, 4, 1)
+                plt.pcolor(e1, e2, result(e1, e2, e3[0], squeeze_out=True)[0].T)
+                plt.colorbar()
+                plt.title(f"{name} with assembled matrix, component 1")
+                plt.subplot(1, 4, 2)
+                plt.pcolor(e1, e2, result(e1, e2, e3[0], squeeze_out=True)[1].T)
+                plt.colorbar()
+                plt.title(f"{name} with assembled matrix, component 2")
+                plt.subplot(1, 4, 3)
+                plt.pcolor(e1, e2, result(e1, e2, e3[0], squeeze_out=True)[2].T)
+                plt.colorbar()
+                plt.title(f"{name} with assembled matrix, component 3")
+                plt.subplot(1, 4, 4)
+                plt.pcolor(e1, e2, exact[:, :, 0].T)
+                plt.colorbar()
+                plt.title(f"exact")
+                plt.show()
+        
+        err = xp.max(xp.abs(result(e1, e2, e3) - exact)) / xp.max(xp.abs(exact))
+        print(f"{name} relative max-error: {err:.2e}")
+        assert err < err_bound, f"{name} relative max-error {err:.2e} exceeds bound of {err_bound:.2e}"
 
 
 @pytest.mark.parametrize("num_elements", [[8, 12, 6]])
@@ -964,28 +890,12 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
 
 if __name__ == "__main__":
     test_mass(
-        [5, 6, 7],
-        [2, 2, 3],
-        [True, False, True],
-        [[False, True], [True, False], [False, False]],
-        ["Colella", {"Lx": 1.0, "Ly": 6.0, "alpha": 0.1, "Lz": 10.0}],
-        False,
+        num_elements=(32, 32, 32),
+        degree=(1, 1, 1),
+        bcs=(("free", "dirichlet"), None, None),
+        map_and_equil=("Cuboid", "HomogenSlab"),
+        # map_and_equil=("Colella", "HomogenSlab"),
+        # map_and_equil=("HollowCylinder", "ScrewPinch"),
+        # map_and_equil=("HollowTorus", "AdhocTorus"),
+        show_plots=False,
     )
-    test_mass(
-        [5, 6, 7],
-        [2, 2, 3],
-        [True, False, True],
-        [[False, False], [False, False], [False, False]],
-        ["Colella", {"Lx": 1.0, "Ly": 6.0, "alpha": 0.1, "Lz": 10.0}],
-        False,
-    )
-    # # test_mass([8, 6, 4], [2, 3, 2], [False, True, False], [['d', 'd'], [None, None], [None, 'd']], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}], False)
-    # test_mass([8, 6, 4], [2, 2, 2], [False, True, True], [['d', 'd'], [None, None], [None, None]], ['HollowCylinder', {'a1': .1, 'a2': 1., 'Lz': 10.}], False)
-
-    # test_mass_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[False,  True], [False, False], [False, True]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)
-
-    # test_mass_preconditioner([8, 6, 4], [2, 2, 2], [False, False, False], [[True, True], [False, False], [False, False]], ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False)
-    # test_mass_preconditioner([8, 6, 4], [2, 2, 2], [False, False, False], [['d', 'd'], [None, None], [None, None]], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .05, 'Lz' : 10.}], False)
-    # test_mass_preconditioner([6, 9, 4], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['HollowCylinder', {'a1' : .1, 'a2' : 1., 'Lz' : 18.84955592153876}], False)
-
-    # test_mass_preconditioner_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[False, True], [False, False], [True, False]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)

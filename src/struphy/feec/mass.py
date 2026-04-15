@@ -20,6 +20,7 @@ from struphy.geometry.base import Domain
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.docstring_converter import auto_convert_docstring, rst_to_markdown, info
+from struphy.io.options import LiteralOptions
 
 logger = logging.getLogger("struphy")
 
@@ -464,13 +465,13 @@ class WeightedMassOperators:
 
         .. math::
 
-            \mathbb M^{2,B}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk} \mathcal{R}(J) \vec{\Lambda}^2_{\nu,mno} \frac{1}{\sqrt{g}} \textnormal{d}\boldsymbol{\eta}.
+            \mathbb M^{2,B}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk} \mathcal{R}(B) \vec{\Lambda}^2_{\nu,mno} \frac{1}{\sqrt{g}} \textnormal{d}\boldsymbol{\eta}.
 
         with the rotation matrix
 
         .. math::
 
-            \mathcal{R}(J)_{\alpha,\nu} := \epsilon_{\alpha\beta\nu} B^2_{\textnormal{eq},\beta},\qquad s.t. \qquad \mathcal{R}(J) \vec{v} = \vec{B}^2_{\textnormal{eq}} \times \vec{v},
+            \mathcal{R}(B)_{\alpha,\nu} := \epsilon_{\alpha\beta\nu} B^2_{\textnormal{eq},\beta},\qquad s.t. \qquad \mathcal{R}(B) \vec{v} = \vec{B}^2_{\textnormal{eq}} \times \vec{v},
 
         where :math:`\epsilon_{\alpha \beta \nu}` stands for the Levi-Civita tensor and :math:`B^2_{\textnormal{eq}, \beta}` is the :math:`\beta`-component of the MHD equilibrium magnetic field (2-form).
         """
@@ -536,13 +537,13 @@ class WeightedMassOperators:
 
         .. math::
 
-            \mathbb M^{2,B}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk} \mathcal{R}(J) \vec{\Lambda}^2_{\nu,mno} \frac{1}{\sqrt{g}} \textnormal{d}\boldsymbol{\eta}.
+            \mathbb M^{2,B}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk} \mathcal{R}(B) \vec{\Lambda}^2_{\nu,mno} \frac{1}{\sqrt{g}} \textnormal{d}\boldsymbol{\eta}.
 
         with the rotation matrix
 
         .. math::
 
-            \mathcal{R}(J)_{\alpha,\nu} := \epsilon_{\alpha\beta\nu} B^2_{\textnormal{eq},\beta},\qquad s.t. \qquad \mathcal{R}(J) \vec{v} = \vec{B}^2_{\textnormal{eq}} \times \vec{v},
+            \mathcal{R}(B)_{\alpha,\nu} := \epsilon_{\alpha\beta\nu} B^2_{\textnormal{eq},\beta},\qquad s.t. \qquad \mathcal{R}(B) \vec{v} = \vec{B}^2_{\textnormal{eq}} \times \vec{v},
 
         where :math:`\epsilon_{\alpha \beta \nu}` stands for the Levi-Civita tensor and :math:`B^2_{\textnormal{eq}, \beta}` is the :math:`\beta`-component of the MHD equilibrium magnetic field (2-form).
         """
@@ -572,13 +573,13 @@ class WeightedMassOperators:
 
         .. math::
 
-            \mathbb M^{2,BN}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk} \mathcal{R}(J) \vec{\Lambda}^2_{\nu,mno} \frac{1}{n^0_{\textnormal{eq}}(\boldsymbol{\eta})} \frac{1}{\sqrt{g}} \textnormal{d}\boldsymbol{\eta}.
+            \mathbb M^{2,BN}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk} \mathcal{R}(B) \vec{\Lambda}^2_{\nu,mno} \frac{1}{n^0_{\textnormal{eq}}(\boldsymbol{\eta})} \frac{1}{\sqrt{g}} \textnormal{d}\boldsymbol{\eta}.
 
         with the rotation matrix
 
         .. math::
 
-            \mathcal{R}(J)_{\alpha,\nu} := \epsilon_{\alpha\beta\nu} B^2_{\textnormal{eq},\beta},\qquad s.t. \qquad \mathcal{R}(J) \vec{v} = \vec{B}^2_{\textnormal{eq}} \times \vec{v},
+            \mathcal{R}(B)_{\alpha,\nu} := \epsilon_{\alpha\beta\nu} B^2_{\textnormal{eq},\beta},\qquad s.t. \qquad \mathcal{R}(B) \vec{v} = \vec{B}^2_{\textnormal{eq}} \times \vec{v},
 
         where :math:`\epsilon_{\alpha \beta \nu}` stands for the Levi-Civita tensor and :math:`B^2_{\textnormal{eq}, \beta}` is the :math:`\beta`-component of the MHD equilibrium magnetic field (2-form).
         """
@@ -648,13 +649,13 @@ class WeightedMassOperators:
 
         .. math::
 
-            \mathbb M^{1,B\frac{1}{n}}_{(\mu,ijk), (\nu,mno)} = \int \frac{1}{n^0_{\textnormal{eq}}(\boldsymbol{\eta})} \vec{\Lambda}^1_{\mu,ijk} G^{-1} \mathcal{R}(J)_{\alpha,\gamma} G^{-1}_{\gamma,\nu} \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
+            \mathbb M^{1,B\frac{1}{n}}_{(\mu,ijk), (\nu,mno)} = \int \frac{1}{n^0_{\textnormal{eq}}(\boldsymbol{\eta})} \vec{\Lambda}^1_{\mu,ijk} G^{-1} \mathcal{R}(B)_{\alpha,\gamma} G^{-1}_{\gamma,\nu} \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
 
         with the rotation matrix
 
         .. math::
 
-            \mathcal{R}(J)_{\alpha,\nu} := \epsilon_{\alpha\beta\nu} B^2_{\textnormal{eq},\beta},\qquad s.t. \qquad \mathcal{R}(J) \vec{v} = \vec{B}^2_{\textnormal{eq}} \times \vec{v},
+            \mathcal{R}(B)_{\alpha,\nu} := \epsilon_{\alpha\beta\nu} B^2_{\textnormal{eq},\beta},\qquad s.t. \qquad \mathcal{R}(B) \vec{v} = \vec{B}^2_{\textnormal{eq}} \times \vec{v},
 
         where :math:`\epsilon_{\alpha \beta \nu}` stands for the Levi-Civita tensor and :math:`B^2_{\textnormal{eq}, \beta}` is the :math:`\beta`-component of the MHD equilibrium magnetic field (2-form).
         """
@@ -691,7 +692,6 @@ class WeightedMassOperators:
         .. math::
 
             \mathbb M^{1,\perp}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk} DF^{-1} \begin{pmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 0 \end{pmatrix} DF^{-\top} \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
-
         """
         if not hasattr(self, "_M1perp"):
             D = [[1, 0, 0], [0, 1, 0], [0, 0, 0]]
@@ -719,7 +719,9 @@ class WeightedMassOperators:
 
         .. math::
 
-            \mathbb M^0_{ijk,mno} = \int \Lambda^0_{ijk} \Lambda^0_{mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
+            \mathbb M^0_{ijk, mno} = \int n^0_{\textnormal{eq}}(\boldsymbol{\eta}) \Lambda^0_{ijk} \Lambda^0_{mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
+
+        where :math:`n^0_{\textnormal{eq}}(\boldsymbol{\eta})` is an MHD equilibrium density (0-form).
         """
 
         if not hasattr(self, "_M0ad"):
@@ -741,7 +743,7 @@ class WeightedMassOperators:
 
         .. math::
 
-            \mathbb M^{1,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol{\eta}) \Lambda^1_{\mu,ijk} G^{-1}_{\mu,\nu} \Lambda^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
+            \mathbb M^{1,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol{\eta}) \Lambda^1_{\mu,ijk} G^{-1}_{\mu,\nu} \Lambda^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta},
 
         where :math:`n^0_{\textnormal{eq}}(\boldsymbol{\eta})` is an MHD equilibrium density (0-form).
         """
@@ -827,7 +829,6 @@ class WeightedMassOperators:
         Returns
         -------
         out : A WeightedMassOperator object.
-
         """
 
         self._transposed = transposed
@@ -855,11 +856,11 @@ class WeightedMassOperators:
             """Inverse Jacobian callable transposed."""
             return self.domain.jacobian_inv(e1, e2, e3, change_out_order=True, transposed=True)
 
-        if isinstance(weights, (str, type(None))):  # Case 2 and Case 3
+        if isinstance(weights, (str, type(None))):  # Case 1 and Case 2
             fun = weights
         elif isinstance(weights, list) and all(isinstance(i, list) for i in weights):  # Case 4 (2D list)
             fun = weights
-        else:  # Case 1 (1D list)
+        else:  # Case 3 (1D list)
             weights_rank2 = []
             weights_rank0 = []
             operations = []
@@ -1620,8 +1621,16 @@ class WeightedMassOperator(LinOpWithTransp):
         return self._domain
 
     @property
+    def domain_symbolic_name(self) -> LiteralOptions.OptsFEECSpace:
+        return self._domain_symbolic_name
+    
+    @property
     def codomain(self):
         return self._codomain
+    
+    @property
+    def codomain_symbolic_name(self) -> LiteralOptions.OptsFEECSpace:
+        return self._codomain_symbolic_name
 
     @property
     def name(self):

@@ -18,6 +18,7 @@ from struphy.feec.utilities import RotationMatrix
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.pyccel import Pyccelkernel
+from struphy.utils.docstring_converter import auto_convert_docstring
 
 logger = logging.getLogger("struphy")
 
@@ -1596,6 +1597,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
         return self._mat
 
 
+@auto_convert_docstring
 class BasisProjectionOperator(LinOpWithTransp):
     r"""
     Class for assembling basis projection operators in 3d.
@@ -1604,7 +1606,7 @@ class BasisProjectionOperator(LinOpWithTransp):
 
     .. math::
 
-        \mathcal P_{(\mu, ijk),(\nu, mno)} = \hat \Pi^\beta_{\mu, ijk} \left( A_{\mu,\nu}\,\Lambda^\alpha_{\nu, mno} \right)\,,
+        \mathcal{P}_{(\mu, ijk),(\nu, mno)} = \hat{\Pi}^\beta_{\mu, ijk} \left( A_{\mu,\nu}\,\Lambda^{\alpha}_{\nu, mno} \right)\,,
 
     where the weight fuction :math:`A` is a tensor of rank 0, 1 or 2, depending on domain and co-domain of the operator, and
     :math:`\Lambda^\alpha_{\nu, mno}` is the B-spline basis function with tensor-product index :math:`mno` of the
