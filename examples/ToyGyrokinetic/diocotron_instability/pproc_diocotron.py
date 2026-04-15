@@ -50,7 +50,7 @@ def main():
     else:
         tf = 2*ti
     print(f"{ti = }, {tf = }")
-    ti, tf = 2.5, 5.1
+    #ti, tf = 2.5, 5.1
 
     xi = xp.abs(pdata.t_grid - ti).argmin() + 1 # index of time 100 [a.lu.] (observed end of growth rate)
     xf = xp.abs(pdata.t_grid - tf).argmin() + 1 # index of time 200 [a.lu.] (observed end of growth rate)
@@ -212,11 +212,10 @@ def main():
             plt.close(fig)
 
     # extract_images("e1_e2_density", "f_binned", os.path.join(save_path, "video"))
-    save_video_pngs = False
+    save_video_pngs = True
     if save_video_pngs:
-        if os.path.exists("video_"+sim_name):
-            os.remove("video_"+sim_name)
-        os.mkdir("video_"+sim_name)
+        if not os.path.exists(sim_path+"/video"):
+            os.mkdir(sim_path+"/video")
         # create .png for video
         jump = 1
         fig = plt.figure(figsize=(8, 8))
@@ -228,7 +227,7 @@ def main():
                 plt.xlabel("x position")
                 plt.ylabel("y position")
                 plt.title(f"t = {pdata.t_grid[n]:4.2e}")
-                plt.savefig(f"video_"+sim_name+"/fig_{n:04.0f}.png", transparent=False, bbox_inches='tight', pad_inches=0)
+                plt.savefig(sim_path+"/video"+f"/fig_{n:04.0f}.png", transparent=False, bbox_inches='tight', pad_inches=0)
 
 if __name__ == "__main__":
     main()

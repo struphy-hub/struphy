@@ -68,7 +68,7 @@ model = ToyDrift(
 
 # List all variables and decide whether to save their data
 model.em_fields.phi.save_data = True
-model.kinetic_ions.var.save_data = False
+model.kinetic_ions.var.save_data = True
 
 # --------------------------
 # Instance of the simulation
@@ -123,7 +123,7 @@ model.kinetic_ions.set_markers(loading_params=loading_params,
                                boundary_params=boundary_params,
                                bufsize=2.0,
                                )
-model.kinetic_ions.set_sorting_boxes(boxes_per_dim=(16,16,1), do_sort=True)
+model.kinetic_ions.set_sorting_boxes(boxes_per_dim=(24,24,1), do_sort=True)
 
 # density binning
 eta_bin = BinningPlot(slice='e1_e2', n_bins= (128,128), ranges= ((0.0, 1.0), (0.0,1.0)))
