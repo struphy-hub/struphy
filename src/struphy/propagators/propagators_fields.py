@@ -2226,9 +2226,9 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         def bf3(x, y, z):
             return self._bf(x, y, z, local=True)[2]
 
-        from struphy.feec.utilities import RotationMatrix
+        from struphy.feec.utilities import LocalRotationMatrix
 
-        rot_B = RotationMatrix(bf1, bf2, bf3)
+        rot_B = LocalRotationMatrix(bf1, bf2, bf3)
 
         fun = []
 

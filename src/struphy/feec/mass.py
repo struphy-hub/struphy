@@ -15,7 +15,7 @@ from feectools.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, Stenc
 from struphy.feec import mass_kernels
 from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
 from struphy.feec.psydac_derham import Derham
-from struphy.feec.utilities import RotationMatrix, get_quad_grids
+from struphy.feec.utilities import LocalRotationMatrix, get_quad_grids
 from struphy.geometry.base import Domain
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.pyccel import Pyccelkernel
@@ -369,7 +369,7 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, "_M1J"):
-            rot_J = RotationMatrix(
+            rot_J = LocalRotationMatrix(
                 self.weights[self.selected_weight].j2_1,
                 self.weights[self.selected_weight].j2_2,
                 self.weights[self.selected_weight].j2_3,
@@ -405,7 +405,7 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, "_M2J"):
-            rot_J = RotationMatrix(
+            rot_J = LocalRotationMatrix(
                 self.weights[self.selected_weight].j2_1,
                 self.weights[self.selected_weight].j2_2,
                 self.weights[self.selected_weight].j2_3,
@@ -441,7 +441,7 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, "_MvJ"):
-            rot_J = RotationMatrix(
+            rot_J = LocalRotationMatrix(
                 self.weights[self.selected_weight].j2_1,
                 self.weights[self.selected_weight].j2_2,
                 self.weights[self.selected_weight].j2_3,
@@ -513,7 +513,7 @@ class WeightedMassOperators:
                     local=True,
                 )[2]
 
-            rot_B = RotationMatrix(
+            rot_B = LocalRotationMatrix(
                 b02funx,
                 b02funy,
                 b02funz,
@@ -549,7 +549,7 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, "_M2B"):
-            rot_B = RotationMatrix(
+            rot_B = LocalRotationMatrix(
                 self.weights[self.selected_weight].b2_1,
                 self.weights[self.selected_weight].b2_2,
                 self.weights[self.selected_weight].b2_3,
@@ -621,7 +621,7 @@ class WeightedMassOperators:
                     local=True,
                 )[2]
 
-            rot_B = RotationMatrix(
+            rot_B = LocalRotationMatrix(
                 b02funx,
                 b02funy,
                 b02funz,
@@ -661,7 +661,7 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, "_M1Bninv"):
-            rot_B = RotationMatrix(
+            rot_B = LocalRotationMatrix(
                 self.weights[self.selected_weight].b2_1,
                 self.weights[self.selected_weight].b2_2,
                 self.weights[self.selected_weight].b2_3,
@@ -1024,7 +1024,7 @@ class WeightedMassOperators:
         """Determine the rank of the range of the callable func.
         func must be defined on the unit cube."""
         if callable(func):
-            if isinstance(func, RotationMatrix):
+            if isinstance(func, LocalRotationMatrix):
                 out = len(func._cross_mask) - 1
             else:
                 dummy_eta = (0.0, 0.0, 0.0)

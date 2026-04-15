@@ -14,7 +14,7 @@ from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
 from struphy.feec.local_projectors_kernels import assemble_basis_projection_operator_local
 from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
 from struphy.feec.psydac_derham import get_pts_and_wts, get_span_and_basis
-from struphy.feec.utilities import RotationMatrix
+from struphy.feec.utilities import LocalRotationMatrix
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.pyccel import Pyccelkernel
@@ -305,7 +305,7 @@ class BasisProjectionOperators:
         where :math:`\epsilon_{\mu \alpha \nu}` stands for the Levi-Civita tensor and :math:`B^2_{\textnormal{eq}, \alpha}` is the :math:`\alpha`-component of the MHD equilibrium magnetic field (2-form).
         """
         if not hasattr(self, "_Tv"):
-            rot_B = RotationMatrix(
+            rot_B = LocalRotationMatrix(
                 self.weights["eq_mhd"].b2_1,
                 self.weights["eq_mhd"].b2_2,
                 self.weights["eq_mhd"].b2_3,
@@ -346,7 +346,7 @@ class BasisProjectionOperators:
 
         """
         if not hasattr(self, "_T1"):
-            rot_B = RotationMatrix(
+            rot_B = LocalRotationMatrix(
                 self.weights["eq_mhd"].b2_1,
                 self.weights["eq_mhd"].b2_2,
                 self.weights["eq_mhd"].b2_3,
@@ -386,7 +386,7 @@ class BasisProjectionOperators:
         where :math:`\epsilon_{\mu \alpha \nu}` stands for the Levi-Civita tensor and :math:`B^2_{\textnormal{eq}, \alpha}` is the :math:`\alpha`-component of the MHD equilibrium magnetic field (2-form).
         """
         if not hasattr(self, "_T2"):
-            rot_B = RotationMatrix(
+            rot_B = LocalRotationMatrix(
                 self.weights["eq_mhd"].b2_1,
                 self.weights["eq_mhd"].b2_2,
                 self.weights["eq_mhd"].b2_3,
@@ -767,7 +767,7 @@ class BasisProjectionOperators:
         """
 
         if not hasattr(self, "_R1"):
-            rot_J = RotationMatrix(
+            rot_J = LocalRotationMatrix(
                 self.weights["eq_mhd"].j2_1,
                 self.weights["eq_mhd"].j2_2,
                 self.weights["eq_mhd"].j2_3,
@@ -807,7 +807,7 @@ class BasisProjectionOperators:
         where :math:`\epsilon_{\mu \alpha \beta}` stands for the Levi-Civita tensor and :math:`J^2_{\textnormal{eq}, \alpha}` is the :math:`\alpha`-component of the MHD equilibrium current density (2-form).
         """
         if not hasattr(self, "_R2"):
-            rot_J = RotationMatrix(
+            rot_J = LocalRotationMatrix(
                 self.weights["eq_mhd"].j2_1,
                 self.weights["eq_mhd"].j2_2,
                 self.weights["eq_mhd"].j2_3,
