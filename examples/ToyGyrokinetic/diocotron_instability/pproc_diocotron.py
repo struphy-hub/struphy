@@ -1,4 +1,4 @@
-import params_diocotron as params
+import importlib.util
 from struphy import PlottingData, PostProcessor
 
 import os
@@ -13,6 +13,10 @@ import h5py
 def main():
     sim_name = "simdata"
     sim_path = os.path.join(os.getcwd(), sim_name)
+
+    spec = importlib.util.spec_from_file_location("params", os.path.join(sim_path, "parameters.py"))
+    params = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(params)
 
     pp = PostProcessor(sim=params.sim)
     pp.process(physical=True)
@@ -50,7 +54,7 @@ def main():
     else:
         tf = 2*ti
     print(f"{ti = }, {tf = }")
-    #ti, tf = 2.5, 5.1
+    ti, tf = 2.5, 5.1
 
     xi = xp.abs(pdata.t_grid - ti).argmin() + 1 # index of time 100 [a.lu.] (observed end of growth rate)
     xf = xp.abs(pdata.t_grid - tf).argmin() + 1 # index of time 200 [a.lu.] (observed end of growth rate)
@@ -212,7 +216,7 @@ def main():
             plt.close(fig)
 
     # extract_images("e1_e2_density", "f_binned", os.path.join(save_path, "video"))
-    save_video_pngs = True
+    save_video_pngs = False
     if save_video_pngs:
         if not os.path.exists(sim_path+"/video"):
             os.mkdir(sim_path+"/video")
