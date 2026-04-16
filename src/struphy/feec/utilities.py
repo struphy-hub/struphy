@@ -95,7 +95,6 @@ class LocalVector:
         # numpy operates on the last two indices with @
         return xp.transpose(tmp, axes=(1, 2, 3, 0))
 
-
 def create_equal_random_arrays(V, seed=123, flattened=False):
     """Creates two equal random arrays, where one array is a numpy array and the other one a distributed psydac array.
 

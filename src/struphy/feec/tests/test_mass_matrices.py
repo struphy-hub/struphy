@@ -1,10 +1,13 @@
 import logging
 import pytest
 from matplotlib import pyplot as plt
+from struphy import set_logging_level
 
 logger = logging.getLogger("struphy")
+set_logging_level(logging.INFO)
 
 @pytest.mark.solve
+@pytest.mark.parametrize("matrix_free", [False])
 @pytest.mark.parametrize("num_elements", [(32, 32, 32)])
 @pytest.mark.parametrize("degree", [(1, 1, 1), (2, 2, 2)])
 @pytest.mark.parametrize(
@@ -20,7 +23,7 @@ logger = logging.getLogger("struphy")
                                            ("HollowCylinder", "ScrewPinch"),
                                            ("HollowTorus", "AdhocTorus"),
                                            ])
-def test_mass(num_elements, degree, bcs, map_and_equil, show_plots=False):
+def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free=False, show_plots=False):
     """Compare Struphy mass matrices to Struphy-legacy mass matrices."""
 
     import cunumpy as xp
@@ -29,38 +32,42 @@ def test_mass(num_elements, degree, bcs, map_and_equil, show_plots=False):
 
     from struphy import domains, equils
     from struphy.geometry.base import Domain
-    from struphy.fields_background.base import MHDequilibrium
+    from struphy.geometry.domains import Colella, Cuboid, HollowCylinder, HollowTorus
     from struphy.feec.mass import WeightedMassOperators, WeightedMassOperator
     from struphy.feec.psydac_derham import Derham
-    from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
     from struphy.io.options import DerhamOptions
     from struphy.topology.grids import TensorProductGrid
     from struphy.feec.projectors import L2Projector
+    from struphy.feec.utilities import LocalRotationMatrix
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
     mpi_size = mpi_comm.Get_size()
     mpi_comm.Barrier()
 
-    logger.info(f"Rank {mpi_rank} | Start test_mass with " + str(mpi_size) + " MPI processes!")
+    logger.debug(f"Rank {mpi_rank} | Start test_mass with " + str(mpi_size) + " MPI processes!")
 
     # mapping
     domain_class = getattr(domains, map_and_equil[0])
-    domain: Domain = domain_class()
-    print(f"{domain = }")
+    if map_and_equil[0] == "HollowCylinder":
+        R0 = 3.0
+        domain: HollowCylinder = domain_class(a1=0.3, Lz=2*xp.pi*R0)
+    else:
+        domain: Domain = domain_class()
+    logger.debug(f"{domain = }")
     
     # equilibrium
     equil_class = getattr(equils, map_and_equil[1])
     if map_and_equil[1] == "HomogenSlab":
         equil: equils.HomogenSlab = equil_class(n0=2.0)
     elif map_and_equil[1] == "ScrewPinch":
-        equil: equils.ScrewPinch = equil_class(na=0.5, n1=1.0, n2=1.0)
+        equil: equils.ScrewPinch = equil_class(na=0.5, n1=1.0, n2=1.0, R0=R0)
     elif map_and_equil[1] == "AdhocTorus":
         equil: equils.AdhocTorus = equil_class(na=0.4)
     equil.domain = domain
-    print(f"{equil = }")
+    logger.debug(f"{equil = }")
 
-    if show_plots:
+    if show_plots and False:
         domain.show()
         equil.show()
 
@@ -69,15 +76,20 @@ def test_mass(num_elements, degree, bcs, map_and_equil, show_plots=False):
     derham_opts = DerhamOptions(degree=degree, bcs=bcs)
     derham = Derham(grid, derham_opts, comm=mpi_comm)
 
-    logger.info(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
+    logger.debug(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
 
     # mass matrices object
-    mass_ops = WeightedMassOperators(derham, domain, eq_mhd=equil)
-    mass_ops_free = WeightedMassOperators(derham, domain, eq_mhd=equil, matrix_free=True)
+    mass_ops = WeightedMassOperators(derham, domain, eq_mhd=equil, matrix_free=matrix_free)
     
     # right-hand side, integrated against the basis functions
-    def rhs_logical(e1, e2, e3):
+    def rhs_0(e1, e2, e3):
         return xp.sin(2 * xp.pi * e1) * xp.cos(4 * xp.pi * e2) * xp.cos(2 * xp.pi * e3)
+    
+    def rhs_1(e1, e2, e3):
+        return xp.sin(2 * xp.pi * e1) * xp.cos(2 * xp.pi * e2) * xp.cos(2 * xp.pi * e3)
+    
+    def rhs_2(e1, e2, e3):
+        return xp.zeros_like(e1)
     
     l2proj_0 = L2Projector("H1", mass_ops)
     l2proj_1 = L2Projector("Hcurl", mass_ops)
@@ -86,14 +98,15 @@ def test_mass(num_elements, degree, bcs, map_and_equil, show_plots=False):
     l2proj_v = L2Projector("H1vec", mass_ops)
     
     rhs = {}
-    rhs["M0"] = l2proj_0.get_dofs(rhs_logical, apply_bc=True)
-    rhs["M1"] = l2proj_1.get_dofs((rhs_logical, rhs_logical, rhs_logical), apply_bc=True)
+    rhs["M0"] = l2proj_0.get_dofs(rhs_0, apply_bc=True)
+    rhs["M1"] = l2proj_1.get_dofs((rhs_0, rhs_1, rhs_2), apply_bc=True)
     rhs["M1n"] = rhs["M1"]
     rhs["M1ninv"] = rhs["M1"]
-    rhs["M2"] = l2proj_2.get_dofs((rhs_logical, rhs_logical, rhs_logical), apply_bc=True)
+    rhs["M2"] = l2proj_2.get_dofs((rhs_0, rhs_1, rhs_2), apply_bc=True)
     rhs["M2n"] = rhs["M2"]
-    rhs["M3"] = l2proj_3.get_dofs(rhs_logical, apply_bc=True)
-    rhs["Mv"] = l2proj_v.get_dofs((rhs_logical, rhs_logical, rhs_logical), apply_bc=True)
+    rhs["M2B"] = rhs["M2"]
+    rhs["M3"] = l2proj_3.get_dofs(rhs_0, apply_bc=True)
+    rhs["Mv"] = l2proj_v.get_dofs((rhs_0, rhs_1, rhs_2), apply_bc=True)
     rhs["Mvn"] = rhs["Mv"]
 
     # test mass matrices
@@ -107,21 +120,58 @@ def test_mass(num_elements, degree, bcs, map_and_equil, show_plots=False):
     elif min(degree) == 2:
         err_bound = 2.6e-2
     
-    names = ["M0", "M1", "M2", "M3", "Mv", "M1n", "M2n", "Mvn", "M1ninv", "M0ad"]
-    # names = ["M1n", "M2n", "Mvn"]
-    # names = ["M1ninv"]
+    # names = ["M0", "M1", "M2", "M3", "Mv", "M1n", "M2n", "Mvn", "M1ninv", "M0ad"]
+    # names = ["M1n"]
+    names = ["M2B"]
     for name in names:
+        
         M: WeightedMassOperator = getattr(mass_ops, name)
         space_id = M.domain_symbolic_name
-        result = derham.create_spline_function("result", space_id)
-        Minv = inverse(getattr(mass_ops, name), "cg", tol=1e-8, maxiter=1000)
-        result.vector = Minv.dot(rhs[name])
         
-        exact = rhs_logical(ee1, ee2, ee3)
+        if space_id in ("H1", "L2"):
+            exact = rhs_0(ee1, ee2, ee3)
+        else:
+            exact = xp.array([rhs_0(ee1, ee2, ee3), rhs_1(ee1, ee2, ee3), rhs_2(ee1, ee2, ee3)])
+            
+        eps = 0.0
+        solver = "cg"
         if name in ["M1n", "M2n", "Mvn", "M0ad"]:
             exact /= equil.n0(e1, e2, e3)
         elif name == "M1ninv":
             exact *= equil.n0(e1, e2, e3)
+        elif name == "M2B":
+            rot_b = LocalRotationMatrix(equil.b2_1, equil.b2_2, equil.b2_3)(ee1, ee2, ee3)
+            logger.debug(f"{rot_b.shape = }")
+            
+            G = domain.metric(ee1, ee2, ee3, change_out_order=True)
+            logger.debug(f"{G.shape = }")
+            
+            # numpy operates on the last two indices with @
+            tmp = xp.transpose(exact, axes=(1, 2, 3, 0))
+            logger.debug(f"{tmp.shape = }")
+            vec = xp.matvec(G, tmp)
+            
+            absB2 = equil.b2_1(ee1, ee2, ee3)**2 + equil.b2_2(ee1, ee2, ee3)**2 + equil.b2_3(ee1, ee2, ee3)**2
+            logger.debug(f"{xp.min(xp.abs(absB2)) = }")
+            exact = - xp.transpose(xp.matvec(rot_b, vec), axes=(3, 0, 1, 2)) / absB2
+            logger.debug(f"{exact.shape = }")
+
+            eps = 1e-3
+            solver = "gmres"
+            stab = getattr(mass_ops, "M" + derham.space_to_form[space_id])
+            M += eps * stab
+            
+        result = derham.create_spline_function("result", space_id)
+        Minv = inverse(M, solver, tol=1e-7, maxiter=1000, verbose=True)
+        result.vector = Minv.dot(rhs[name])
+        
+        result_values = xp.array(result(e1, e2, e3))
+        logger.debug(f"{result_values.shape = }")
+        
+        tmp = xp.matvec(rot_b, xp.transpose(result_values, axes=(1, 2, 3, 0)))
+        tmp2 = -xp.matvec(rot_b, tmp) 
+        result_values_perp = xp.transpose(tmp2, axes=(3, 0, 1, 2)) / absB2
+        logger.debug(f"{result_values_perp.shape = }")
         
         if show_plots:
             if space_id in ("H1", "L2"):
@@ -136,26 +186,34 @@ def test_mass(num_elements, degree, bcs, map_and_equil, show_plots=False):
                 plt.title(f"exact")
                 plt.show()
             else:
-                plt.figure(figsize=(24, 5))
-                plt.subplot(1, 4, 1)
-                plt.pcolor(e1, e2, result(e1, e2, e3[0], squeeze_out=True)[0].T)
+                plt.figure(figsize=(24, 10))
+                plt.subplot(2, 3, 1)
+                plt.pcolor(e1, e2, result_values_perp[0, :, :, 0].T)
                 plt.colorbar()
                 plt.title(f"{name} with assembled matrix, component 1")
-                plt.subplot(1, 4, 2)
-                plt.pcolor(e1, e2, result(e1, e2, e3[0], squeeze_out=True)[1].T)
+                plt.subplot(2, 3, 2)
+                plt.pcolor(e1, e2, result_values_perp[1, :, :, 0].T)
                 plt.colorbar()
                 plt.title(f"{name} with assembled matrix, component 2")
-                plt.subplot(1, 4, 3)
-                plt.pcolor(e1, e2, result(e1, e2, e3[0], squeeze_out=True)[2].T)
+                plt.subplot(2, 3, 3)
+                plt.pcolor(e1, e2, result_values[2, :, :, 0].T)
                 plt.colorbar()
                 plt.title(f"{name} with assembled matrix, component 3")
-                plt.subplot(1, 4, 4)
-                plt.pcolor(e1, e2, exact[:, :, 0].T)
+                plt.subplot(2, 3, 4)
+                plt.pcolor(e1, e2, exact[0, :, :, 0].T)
                 plt.colorbar()
-                plt.title(f"exact")
+                plt.title(f"exact, component 1")
+                plt.subplot(2, 3, 5)
+                plt.pcolor(e1, e2, exact[1, :, :, 0].T)
+                plt.colorbar()
+                plt.title(f"exact, component 2")
+                plt.subplot(2, 3, 6)
+                plt.pcolor(e1, e2, exact[2, :, :, 0].T)
+                plt.colorbar()
+                plt.title(f"exact, component 3")
                 plt.show()
-        
-        err = xp.max(xp.abs(result(e1, e2, e3) - exact)) / xp.max(xp.abs(exact))
+    
+        err = xp.max(xp.abs(result_values_perp - exact)) / xp.max(xp.abs(exact))
         print(f"{name} relative max-error: {err:.2e}")
         assert err < err_bound, f"{name} relative max-error {err:.2e} exceeds bound of {err_bound:.2e}"
 
@@ -892,10 +950,11 @@ if __name__ == "__main__":
     test_mass(
         num_elements=(32, 32, 32),
         degree=(1, 1, 1),
-        bcs=(("free", "dirichlet"), None, None),
-        map_and_equil=("Cuboid", "HomogenSlab"),
-        # map_and_equil=("Colella", "HomogenSlab"),
+        bcs=(("dirichlet", "dirichlet"), None, None),
+        # map_and_equil=("Cuboid", "HomogenSlab"),
+        map_and_equil=("Colella", "HomogenSlab"),
         # map_and_equil=("HollowCylinder", "ScrewPinch"),
         # map_and_equil=("HollowTorus", "AdhocTorus"),
-        show_plots=False,
+        matrix_free=False,
+        show_plots=True,
     )

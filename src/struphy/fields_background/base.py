@@ -656,6 +656,15 @@ class FluidEquilibriumWithB(FluidEquilibrium):
     def bv_3(self, *etas, squeeze_out=False):
         return self.bv(*etas, squeeze_out=squeeze_out)[2]
 
+    def b_cart_1(self, *etas, squeeze_out=False):
+        return self.b_cart(*etas, squeeze_out=squeeze_out)[0][0]
+
+    def b_cart_2(self, *etas, squeeze_out=False):
+        return self.b_cart(*etas, squeeze_out=squeeze_out)[0][1]
+
+    def b_cart_3(self, *etas, squeeze_out=False):
+        return self.b_cart(*etas, squeeze_out=squeeze_out)[0][2]
+
     def unit_b1_1(self, *etas, squeeze_out=False):
         return self.unit_b1(*etas, squeeze_out=squeeze_out)[0]
 
@@ -737,8 +746,17 @@ class FluidEquilibriumWithB(FluidEquilibrium):
     def av_3(self, *etas, squeeze_out=False):
         return self.av(*etas, squeeze_out=squeeze_out)[2]
 
+    ###########
+    # Methods #
+    ###########
+    
+    def parallel_component(self, *etas, squeeze_out=False):
+        raise NotImplementedError()
+    
+    def perpendicular_component(self, *etas, squeeze_out=False):
+        raise NotImplementedError()
 
-class CartesianFluidEquilibriumWithB(CartesianFluidEquilibrium):
+class CartesianFluidEquilibriumWithB(CartesianFluidEquilibrium, FluidEquilibriumWithB):
     r"""
     Specialization for fluid equilibria with magnetic field in Cartesian coordinates.
 
@@ -762,7 +780,7 @@ class CartesianFluidEquilibriumWithB(CartesianFluidEquilibrium):
         super(CartesianFluidEquilibriumWithB, type(self)).domain.fset(self, new_domain)
 
 
-class LogicalFluidEquilibriumWithB(LogicalFluidEquilibrium):
+class LogicalFluidEquilibriumWithB(LogicalFluidEquilibrium, FluidEquilibriumWithB):
     r"""
     Specialization for fluid equilibria with magnetic field on the logical cube [0, 1]^3.
 
@@ -951,6 +969,11 @@ class MHDequilibrium(FluidEquilibriumWithB):
     # Scalar-valued callables #
     ###########################
 
+    def absJ0(self, *etas, squeeze_out=False):
+        """0-form absolute value of current on logical cube [0, 1]^3."""
+        j, xyz = self.j_cart(*etas, squeeze_out=squeeze_out)
+        return xp.sqrt(j[0] ** 2 + j[1] ** 2 + j[2] ** 2)
+
     def curl_unit_b_dot_b0(self, *etas, squeeze_out=False):
         r"""0-form of :math:`(\nabla \times \mathbf b_0) \times \mathbf b_0` evaluated on logical cube [0, 1]^3."""
         curl_b, xyz = self.curl_unit_b_cart(*etas, squeeze_out=squeeze_out)
@@ -988,6 +1011,15 @@ class MHDequilibrium(FluidEquilibriumWithB):
 
     def jv_3(self, *etas, squeeze_out=False):
         return self.jv(*etas, squeeze_out=squeeze_out)[2]
+
+    def j_cart_1(self, *etas, squeeze_out=False):
+        return self.j_cart(*etas, squeeze_out=squeeze_out)[0][0]
+
+    def j_cart_2(self, *etas, squeeze_out=False):
+        return self.j_cart(*etas, squeeze_out=squeeze_out)[0][1]
+
+    def j_cart_3(self, *etas, squeeze_out=False):
+        return self.j_cart(*etas, squeeze_out=squeeze_out)[0][2]
 
     def curl_unit_b1_1(self, *etas, squeeze_out=False):
         return self.curl_unit_b1(*etas, squeeze_out=squeeze_out)[0]
