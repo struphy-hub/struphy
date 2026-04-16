@@ -239,6 +239,28 @@ class WeightedMassOperators:
     ######################################
     @auto_convert_docstring
     @property
+    def M2stab_for_rot(self):
+        r"""
+        Stabilization matrix for the rot-problem u2 + B2 x u2 = G*f2 as 3x3 block matrix indexed by :math:`(\mu, \nu)`:
+
+        .. math::
+
+            \mathbb M^2_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk} \vec{\Lambda}^2_{\nu, mno} \frac{1}{\sqrt{g}} \textnormal{d}\boldsymbol{\eta}.
+        """
+
+        if not hasattr(self, "_M2stab_for_rot"):
+            self._M2stab_for_rot = self.create_weighted_mass(
+                "Hdiv",
+                "Hdiv",
+                weights=["Identity", "1/sqrt_g"],
+                name="M2stab_for_rot",
+                assemble=True,
+            )
+
+        return self._M2stab_for_rot
+    
+    @auto_convert_docstring
+    @property
     def M1n(self):
         r"""
         Mass matrix
@@ -855,6 +877,22 @@ class WeightedMassOperators:
         def DFinvT(e1, e2, e3):
             """Inverse Jacobian callable transposed."""
             return self.domain.jacobian_inv(e1, e2, e3, change_out_order=True, transposed=True)
+        
+        def Identity(e1, e2, e3):
+            """Identity callable."""
+            E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
+                e1,
+                e2,
+                e3,
+                flat_eval=False,
+            )
+
+            # to keep C-ordering the (3, 3)-part is in the last indices
+            out = xp.zeros((3, 3, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+            out[0, 0] = 1.0
+            out[1, 1] = 1.0
+            out[2, 2] = 1.0
+            return xp.transpose(out, axes=(2, 3, 4, 0, 1))
 
         if isinstance(weights, (str, type(None))):  # Case 1 and Case 2
             fun = weights
@@ -900,6 +938,8 @@ class WeightedMassOperators:
                             f_call = DFinvT
                         elif f == "sqrt_g":
                             f_call = sqrt_g
+                        elif f == "Identity":
+                            f_call = Identity
                         else:
                             raise NotImplementedError(
                                 f"The option {f} is not available.",
@@ -930,6 +970,8 @@ class WeightedMassOperators:
                         operations += ["*"]
 
             assert len(operations) == len(weights_rank0)
+            logger.debug(f"{weights_rank0 = } and {operations = } in the weighted mass matrix {name}.")
+            logger.debug(f"{weights_rank2 = }.")
 
             if weights_rank2:
                 # Matrix list non-empty
@@ -966,10 +1008,11 @@ class WeightedMassOperators:
                             ]
                 # Scalar operations second
                 if weights_rank0:
-                    # fun has been generated before, now operation with scalars secondd
+                    # fun has been generated before, now operation with scalars second
                     for f2, op in zip(weights_rank0, operations):
                         for m, row in enumerate(fun):
                             for n, f in enumerate(row):
+                                # overwrite fun[m][n] with the new operation
                                 fun[m][n] = lambda e1, e2, e3, f=f, op=op, f2=f2, m=m, n=n: self._operate(
                                     f,
                                     f2,
