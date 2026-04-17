@@ -756,6 +756,7 @@ class FluidEquilibriumWithB(FluidEquilibrium):
     def perpendicular_component(self, *etas, squeeze_out=False):
         raise NotImplementedError()
 
+
 class CartesianFluidEquilibriumWithB(CartesianFluidEquilibrium, FluidEquilibriumWithB):
     r"""
     Specialization for fluid equilibria with magnetic field in Cartesian coordinates.
