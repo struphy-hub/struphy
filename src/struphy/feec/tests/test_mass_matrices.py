@@ -545,7 +545,7 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
     from feectools.linalg.solvers import inverse
 
     from struphy import domains
-    from struphy.feec.mass import WeightedMassOperators, WeightedMassOperatorsOldForTesting
+    from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.preconditioner import MassMatrixPreconditioner
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
@@ -638,7 +638,6 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
 
     # exact mass matrices
     mass_mats = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd)
-    mass_matsold = WeightedMassOperatorsOldForTesting(derham, domain, eq_mhd=eq_mhd)
 
     # assemble preconditioners
     if mpi_rank == 0:
@@ -655,7 +654,6 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
     Mvnpre = MassMatrixPreconditioner(mass_mats.Mvn)
 
     M1Bninvpre = MassMatrixPreconditioner(mass_mats.M1Bninv)
-    M1Bninvoldpre = MassMatrixPreconditioner(mass_matsold.M1Bninv)
 
     if mpi_rank == 0:
         logger.info("Done")
@@ -685,7 +683,6 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
         rvn = mass_mats.Mvn.dot(xv)
 
         r1Bninv = mass_mats.M1Bninv.dot(x1)
-        r1Bninvold = mass_matsold.M1Bninv.dot(x1)
 
         if mpi_rank == 0:
             logger.info("Done")
@@ -704,7 +701,6 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
         rvn_pre = Mvnpre.matrix.dot(xv)
 
         r1Bninv_pre = M1Bninvpre.matrix.dot(x1)
-        r1Bninvold_pre = M1Bninvoldpre.matrix.dot(x1)
 
         if mpi_rank == 0:
             logger.info("Done")
@@ -721,8 +717,6 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
         assert xp.allclose(rvn.toarray(), rvn_pre.toarray())
 
         assert xp.allclose(r1Bninv.toarray(), r1Bninv_pre.toarray())
-        assert xp.allclose(r1Bninv.toarray(), r1Bninvold_pre.toarray())
-        assert xp.allclose(r1Bninvold.toarray(), r1Bninv_pre.toarray())
 
     # test if preconditioner satisfies PC * M = Identity
     if mapping[0] == "Cuboid" or mapping[0] == "HollowCylinder":
