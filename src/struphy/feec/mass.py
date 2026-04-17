@@ -798,6 +798,17 @@ class WeightedMassOperators:
         if not hasattr(self, "_WMM"):
             self._WMM = self.H1vecMassMatrix_density(self.derham, self, self.domain)
         return self._WMM
+    
+    @property
+    def WMMnew(self):
+        if not hasattr(self, "_WMM"):
+            self._WMM = self.create_weighted_mass(
+                "H1vec",
+                "H1vec",
+                weights=["G"],
+                assemble=True,
+            )
+        return self._WMM
 
     #######################################
     # Wrapper around WeightedMassOperator #
@@ -1143,6 +1154,8 @@ class WeightedMassOperators:
             metric = domain.metric(*integration_grid)
             self._mass_metric_term = deepcopy(metric)
             self._full_term_mass = deepcopy(metric)
+
+            self.domain.symbolic_name = self.massop.domain.symbolic_name
 
         @property
         def massop(
@@ -1879,7 +1892,7 @@ class WeightedMassOperator(LinOpWithTransp):
             Weight function(s) (callables or xp.ndarrays) in a 2d list of shape corresponding to
             number of components of domain/codomain.
             If ``weights=None``, the weight is taken from the given weights in the
-            instanziation of the object, else it will be overriden.
+            instantiation of the object, else it will be overriden.
 
         clear : bool
             Whether to first set all data to zero before assembly. If False,
