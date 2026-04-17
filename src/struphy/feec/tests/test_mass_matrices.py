@@ -6,7 +6,6 @@ from struphy import set_logging_level
 logger = logging.getLogger("struphy")
 # set_logging_level(logging.INFO)
 
-@pytest.mark.solve
 @pytest.mark.parametrize("matrix_free", [False])
 @pytest.mark.parametrize("num_elements", [(32, 32, 32)])
 @pytest.mark.parametrize("degree", [(1, 1, 1), (2, 2, 2)])
@@ -38,6 +37,7 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
     from feectools.linalg.solvers import inverse
 
     from struphy import domains, equils
+    from struphy.fields_background.projected_equils import ProjectedMHDequilibrium 
     from struphy.geometry.base import Domain
     from struphy.geometry.domains import HollowCylinder
     from struphy.feec.mass import WeightedMassOperators, WeightedMassOperator
@@ -72,6 +72,7 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
         equil: equils.AdhocTorus = equil_class(na=0.4)
     equil.domain = domain
     logger.debug(f"{equil = }")
+    
 
     if show_plots and False:
         equil.show()
@@ -82,6 +83,9 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
     derham = Derham(grid, derham_opts, comm=mpi_comm)
 
     logger.debug(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
+    
+    # projected equilibrium for mass matrices with spline weights
+    projected_equil = ProjectedMHDequilibrium(equil, derham)
 
     # mass matrices object
     mass_ops = WeightedMassOperators(derham, domain, eq_mhd=equil, matrix_free=matrix_free)
@@ -114,6 +118,7 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
     rhs["M3"] = l2proj_3.get_dofs(rhs_0, apply_bc=True)
     rhs["Mv"] = l2proj_v.get_dofs((rhs_0, rhs_1, rhs_2), apply_bc=True)
     rhs["Mvn"] = rhs["Mv"]
+    rhs["WMM"] = rhs["Mv"]
 
     # test mass matrices
     e1 = xp.linspace(0, 1, 8)
@@ -126,10 +131,16 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
     elif min(degree) == 2:
         err_bound = 2.6e-2
     
-    names = ["M0", "M1", "M2", "M3", "Mv", "M1n", "M2n", "Mvn", "M1ninv", "M0ad"]
+    # names = ["M0", "M1", "M2", "M3", "Mv", "M1n", "M2n", "Mvn", "M1ninv", "M0ad"]
+    names = ["WMM"]
     for name in names:
         
-        M: WeightedMassOperator = getattr(mass_ops, name)
+        if name == "WMM":
+            intermediate = mass_ops.WMM
+            intermediate.update_weight(projected_equil.n3)
+            M: WeightedMassOperator = mass_ops.WMM.massop
+        else:
+            M: WeightedMassOperator = getattr(mass_ops, name)
         space_id = M.domain_symbolic_name
         
         if space_id in ("H1", "L2"):
@@ -138,7 +149,7 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
             exact = xp.array([rhs_0(ee1, ee2, ee3), rhs_1(ee1, ee2, ee3), rhs_2(ee1, ee2, ee3)])
             
         solver = "cg"
-        if name in ["M1n", "M2n", "Mvn", "M0ad"]:
+        if name in ["M1n", "M2n", "Mvn", "M0ad", "WMM"]:
             # solve n0 * u = f, where n0 is the equilibrium density
             exact /= equil.n0(e1, e2, e3)
         elif name == "M1ninv":
@@ -197,7 +208,6 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
         assert err < err_bound, f"{name} relative max-error {err:.2e} exceeds bound of {err_bound:.2e}"
 
 
-@pytest.mark.solve_rot
 @pytest.mark.parametrize("matrix_free", [False])
 @pytest.mark.parametrize("eps", [1.0])
 @pytest.mark.parametrize("num_elements", [(32, 32, 32)])
@@ -1103,16 +1113,28 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
 
 
 if __name__ == "__main__":
-    test_rotation(
+    test_mass(
         num_elements=(32, 32, 32),
         degree=(1, 1, 1),
         bcs=(("dirichlet", "dirichlet"), None, None),
         # bcs=(None, None, None),
-        # map_and_equil=("Cuboid", "HomogenSlab"),
+        map_and_equil=("Cuboid", "HomogenSlab"),
         # map_and_equil=("Colella", "HomogenSlab"),
         # map_and_equil=("HollowCylinder", "ScrewPinch"),
-        map_and_equil=("HollowTorus", "AdhocTorus"),
-        eps=1.0,
+        # map_and_equil=("HollowTorus", "AdhocTorus"),
         matrix_free=False,
         show_plots=True,
     )
+    # test_rotation(
+    #     num_elements=(32, 32, 32),
+    #     degree=(1, 1, 1),
+    #     bcs=(("dirichlet", "dirichlet"), None, None),
+    #     # bcs=(None, None, None),
+    #     # map_and_equil=("Cuboid", "HomogenSlab"),
+    #     # map_and_equil=("Colella", "HomogenSlab"),
+    #     # map_and_equil=("HollowCylinder", "ScrewPinch"),
+    #     map_and_equil=("HollowTorus", "AdhocTorus"),
+    #     eps=1.0,
+    #     matrix_free=False,
+    #     show_plots=True,
+    # )
