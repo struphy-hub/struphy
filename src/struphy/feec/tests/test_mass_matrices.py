@@ -131,8 +131,7 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
     elif min(degree) == 2:
         err_bound = 2.6e-2
     
-    # names = ["M0", "M1", "M2", "M3", "Mv", "M1n", "M2n", "Mvn", "M1ninv", "M0ad"]
-    names = ["WMM"]
+    names = ["M0", "M1", "M2", "M3", "Mv", "M1n", "M2n", "Mvn", "M1ninv", "M0ad", "WMM"]
     for name in names:
         
         if name == "WMM":

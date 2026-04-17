@@ -141,7 +141,7 @@ class MassMatrixPreconditioner(LinearOperator):
                     weights_info=fun,
                     nquads=qu_order_1d,
                 )
-                M.assemble(verbose=False)
+                M.assemble()
                 M = M.matrix
 
                 # apply boundary conditions
@@ -509,7 +509,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
                     weights_info=fun,
                     nquads=qu_order_1d,
                 )
-                M.assemble(verbose=False)
+                M.assemble()
                 M = M.matrix
 
                 # apply boundary conditions
@@ -685,7 +685,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
             self._femspace,
             weights_info=fun,
         )
-        log_M.assemble(verbose=False)
+        log_M.assemble()
         self._logM_srqt_diag = log_M.matrix.diagonal(sqrt=True)
         self._M_invsrqt_diag = self._mass_operator.matrix.diagonal(inverse=True, sqrt=True)
 

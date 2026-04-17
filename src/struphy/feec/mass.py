@@ -19,8 +19,9 @@ from struphy.feec.utilities import LocalRotationMatrix, get_quad_grids
 from struphy.geometry.base import Domain
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.pyccel import Pyccelkernel
-from struphy.utils.docstring_converter import auto_convert_docstring, rst_to_markdown, info
+from struphy.utils.docstring_converter import auto_convert_docstring, info
 from struphy.io.options import LiteralOptions
+from struphy.fields_background.base import MHDequilibrium
 
 logger = logging.getLogger("struphy")
 
@@ -37,65 +38,47 @@ class WeightedMassOperators:
     domain : :ref:`avail_mappings`
         Mapping from logical unit cube to physical domain and corresponding metric coefficients.
 
-    **weights : dict
-        Objects to access callables that can serve as weight functions.
+    eq_mhd : MHDequilibrium
+        MHD equilibrium object.
 
     matrix_free : bool
         If set to true will not compute the matrix associated with the operator but directly compute the product when called.
-
-    Notes
-    -----
-    Possible choices for key-value pairs in **weights** are, at the moment:
-
-    - ``eq_mhd``: :class:`~struphy.fields_background.base.MHDequilibrium`
     """
 
     def __init__(
         self,
         derham: Derham,
         domain: Domain,
+        eq_mhd: MHDequilibrium,
         matrix_free: bool = False,
-        **weights,
     ):
         self._derham = derham
         self._domain = domain
-        self._weights = weights
         self._matrix_free = matrix_free
-
-        if "eq_mhd" in weights:
-            self._selected_weight = "eq_mhd"  # default is to use mhd_equil for weights
-        elif len(weights) > 0:
-            self._selected_weight = list(weights.keys())[0]
-        else:
-            self._selected_weight = None
+        self._eq_mhd = eq_mhd
 
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
 
     @property
-    def derham(self):
+    def derham(self) -> Derham:
         """Discrete de Rham sequence on the logical unit cube."""
         return self._derham
 
     @property
-    def domain(self):
+    def domain(self) -> Domain:
         """Mapping from the logical unit cube to the physical domain with corresponding metric coefficients."""
         return self._domain
 
     @property
-    def weights(self):
-        """Dictionary of objects that provide access to callables that can serve as weight functions."""
-        return self._weights
-
+    def eq_mhd(self) -> MHDequilibrium:
+        """MHD equilibrium object."""
+        return self._eq_mhd
+    
     @property
-    def selected_weight(self):
-        """String identifying one key of "weigths". This key is used when selecting weight functions."""
-        return self._selected_weight
-
-    @selected_weight.setter
-    def selected_weight(self, new):
-        assert new in self.weights
-        self._selected_weight = new
+    def matrix_free(self) -> bool:
+        """If set to true will not compute the matrix associated with the operator but directly compute the dot product when called."""
+        return self._matrix_free
         
     def info(self):
         print("The mass matrices of the Derham complex are:")     
@@ -382,9 +365,9 @@ class WeightedMassOperators:
 
         if not hasattr(self, "_M1J"):
             rot_J = LocalRotationMatrix(
-                self.weights[self.selected_weight].j2_1,
-                self.weights[self.selected_weight].j2_2,
-                self.weights[self.selected_weight].j2_3,
+                self.eq_mhd.j2_1,
+                self.eq_mhd.j2_2,
+                self.eq_mhd.j2_3,
             )
 
             self._M1J = self.create_weighted_mass(
@@ -418,9 +401,9 @@ class WeightedMassOperators:
 
         if not hasattr(self, "_M2J"):
             rot_J = LocalRotationMatrix(
-                self.weights[self.selected_weight].j2_1,
-                self.weights[self.selected_weight].j2_2,
-                self.weights[self.selected_weight].j2_3,
+                self.eq_mhd.j2_1,
+                self.eq_mhd.j2_2,
+                self.eq_mhd.j2_3,
             )
 
             self._M2J = self.create_weighted_mass(
@@ -454,9 +437,9 @@ class WeightedMassOperators:
 
         if not hasattr(self, "_MvJ"):
             rot_J = LocalRotationMatrix(
-                self.weights[self.selected_weight].j2_1,
-                self.weights[self.selected_weight].j2_2,
-                self.weights[self.selected_weight].j2_3,
+                self.eq_mhd.j2_1,
+                self.eq_mhd.j2_2,
+                self.eq_mhd.j2_3,
             )
 
             self._MvJ = self.create_weighted_mass(
@@ -491,9 +474,9 @@ class WeightedMassOperators:
         if not hasattr(self, "_M2B_div0"):
             a_eq = self.derham.P1(
                 [
-                    self.weights[self.selected_weight].a1_1,
-                    self.weights[self.selected_weight].a1_2,
-                    self.weights[self.selected_weight].a1_3,
+                    self.eq_mhd.a1_1,
+                    self.eq_mhd.a1_2,
+                    self.eq_mhd.a1_3,
                 ],
             )
 
@@ -562,9 +545,9 @@ class WeightedMassOperators:
 
         if not hasattr(self, "_M2B"):
             rot_B = LocalRotationMatrix(
-                self.weights[self.selected_weight].b2_1,
-                self.weights[self.selected_weight].b2_2,
-                self.weights[self.selected_weight].b2_3,
+                self.eq_mhd.b2_1,
+                self.eq_mhd.b2_2,
+                self.eq_mhd.b2_3,
             )
 
             self._M2B = self.create_weighted_mass(
@@ -599,9 +582,9 @@ class WeightedMassOperators:
         if not hasattr(self, "_M2Bn"):
             a_eq = self.derham.P1(
                 [
-                    self.weights[self.selected_weight].a1_1,
-                    self.weights[self.selected_weight].a1_2,
-                    self.weights[self.selected_weight].a1_3,
+                    self.eq_mhd.a1_1,
+                    self.eq_mhd.a1_2,
+                    self.eq_mhd.a1_3,
                 ],
             )
 
@@ -674,9 +657,9 @@ class WeightedMassOperators:
 
         if not hasattr(self, "_M1Bninv"):
             rot_B = LocalRotationMatrix(
-                self.weights[self.selected_weight].b2_1,
-                self.weights[self.selected_weight].b2_2,
-                self.weights[self.selected_weight].b2_3,
+                self.eq_mhd.b2_1,
+                self.eq_mhd.b2_2,
+                self.eq_mhd.b2_3,
             )
 
             self._M1Bninv = self.create_weighted_mass(
@@ -911,7 +894,7 @@ class WeightedMassOperators:
                     if "eq_" in f:
                         f_components = f.split("q_")
                         f_call = getattr(
-                            self.weights[self.selected_weight],
+                            self.eq_mhd,
                             f_components[-1],
                         )
                     elif "/" in f:
@@ -1149,7 +1132,7 @@ class WeightedMassOperators:
             self._mass_metric_term = deepcopy(metric)
             self._full_term_mass = deepcopy(metric)
 
-            self.domain.symbolic_name = self.massop.domain.symbolic_name
+            self.domain_symbolic_name = self.massop.domain_symbolic_name
 
         @property
         def massop(

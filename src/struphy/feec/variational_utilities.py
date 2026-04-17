@@ -1387,7 +1387,6 @@ class H1vecMassMatrix_density:
                 ],
                 [self._full_term_mass[2, 0], self._full_term_mass[2, 1], self._full_term_mass[2, 2]],
             ],
-            verbose=False,
         )
 
         if hasattr(self, "_inv") and self._pc is not None:
@@ -1542,7 +1541,6 @@ class KineticEnergyEvaluator:
 
         self._M_un.assemble(
             [[self._Guf_values[0], self._Guf_values[1], self._Guf_values[2]]],
-            verbose=False,
         )
 
     def assemble_M_un1(self, un1):
@@ -1568,5 +1566,4 @@ class KineticEnergyEvaluator:
 
         self._M_un1.assemble(
             [[self._Guf_values[0]], [self._Guf_values[1]], [self._Guf_values[2]]],
-            verbose=False,
         )

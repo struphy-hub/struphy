@@ -3567,10 +3567,10 @@ class VariationalDensityEvolve(Propagator):
             self._energy_evaluator.evaluate_discrete_d2e_drho2_grid(rhon, rhon1, sn, out=self._tmp_int_grid)
             self._tmp_int_grid *= self._proj_drho_metric_term
 
-            self._M_drho.assemble([[self._tmp_int_grid]], verbose=False)
+            self._M_drho.assemble([[self._tmp_int_grid]])
 
         else:
-            self._M_drho.assemble([[0.0 * self._tmp_int_grid]], verbose=False)
+            self._M_drho.assemble([[0.0 * self._tmp_int_grid]])
 
         # This way we can update only the scalar multiplying the operator and avoid creating multiple operators
         self._dt_pc_divPirhoT._scalar = dt
@@ -3980,7 +3980,7 @@ class VariationalEntropyEvolve(Propagator):
             self._energy_evaluator.evaluate_discrete_d2e_ds2_grid(rhon, sn, sn1, out=self._tmp_int_grid)
             self._tmp_int_grid *= self._proj_ds_metric_term
 
-            self._M_ds.assemble([[self._tmp_int_grid]], verbose=False)
+            self._M_ds.assemble([[self._tmp_int_grid]])
 
         # This way we can update only the scalar multiplying the operator and avoid creating multiple operators
         self._dt_pc_divPisT._scalar = dt
@@ -5894,7 +5894,7 @@ class VariationalViscosity(Propagator):
                 )
                 deds *= self._mass_metric_term
 
-                self.M_de_ds.assemble([[deds]], verbose=False)
+                self.M_de_ds.assemble([[deds]])
                 self.pc_jac.update_mass_operator(self.M_de_ds)
 
             elif self._model in ["full_q", "linear_q", "deltaf_q"]:
@@ -5907,7 +5907,7 @@ class VariationalViscosity(Propagator):
                 deds *= 2 / (self._gamma - 1.0)
                 deds *= self._mass_metric_term
 
-                self.M_de_ds.assemble([[deds]], verbose=False)
+                self.M_de_ds.assemble([[deds]])
                 self.pc_jac.update_mass_operator(self.M_de_ds)
 
             incr = self.inv_jac.dot(self.tot_rhs, out=self._tmp_sn_incr)
@@ -6121,7 +6121,7 @@ class VariationalViscosity(Propagator):
             deds += 1 / (self._gamma - 1.0)
             deds *= self._mass_metric_term
 
-            self.M_de_ds.assemble([[deds]], verbose=False)
+            self.M_de_ds.assemble([[deds]])
             self.pc_jac.update_mass_operator(self.M_de_ds)
 
         elif self._model in ["full_q", "linear_q", "deltaf_q"]:
@@ -6229,7 +6229,6 @@ class VariationalViscosity(Propagator):
                     gu_sq_v * self._mass_M1_metric[2, 2],
                 ],
             ],
-            verbose=False,
         )
 
         # gu_sq_v *= 2.
@@ -6655,7 +6654,7 @@ class VariationalResistivity(Propagator):
                 )
                 deds *= self._mass_metric_term
 
-                self.M_de_ds.assemble([[deds]], verbose=False)
+                self.M_de_ds.assemble([[deds]])
                 self.pc_jac.update_mass_operator(self.M_de_ds)
 
             elif self._model in ["full_q", "linear_q", "deltaf_q"]:
@@ -6667,7 +6666,7 @@ class VariationalResistivity(Propagator):
                 deds *= 2 / (self._gamma - 1.0)
                 deds *= self._mass_metric_term
 
-                self.M_de_ds.assemble([[deds]], verbose=False)
+                self.M_de_ds.assemble([[deds]])
                 self.pc_jac.update_mass_operator(self.M_de_ds)
 
             incr = self.inv_jac.dot(self.tot_rhs, out=self._tmp_sn_incr)
@@ -6932,7 +6931,7 @@ class VariationalResistivity(Propagator):
             deds += 1 / (self._gamma - 1.0)
             deds *= self._mass_metric_term
 
-            self.M_de_ds.assemble([[deds]], verbose=False)
+            self.M_de_ds.assemble([[deds]])
             self.pc_jac.update_mass_operator(self.M_de_ds)
 
         elif self._model in ["full_q", "linear_q", "deltaf_q"]:
@@ -7013,7 +7012,6 @@ class VariationalResistivity(Propagator):
                         cb_sq_v * self._sq_term_metric[2, 2],
                     ],
                 ],
-                verbose=False,
             )
 
             cb_sq_v += dt * self._eta
@@ -7626,7 +7624,6 @@ class HasegawaWakatani(Propagator):
 
         self._M1hw.assemble(
             weights=self._M1hw_weights,
-            verbose=False,
         )
 
         # solve with RK
