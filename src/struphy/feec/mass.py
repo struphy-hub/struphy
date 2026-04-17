@@ -38,7 +38,7 @@ class WeightedMassOperators:
     domain : :ref:`avail_mappings`
         Mapping from logical unit cube to physical domain and corresponding metric coefficients.
 
-    eq_mhd : MHDequilibrium
+    eq_mhd : MHDequilibrium | None
         MHD equilibrium object.
 
     matrix_free : bool
@@ -49,7 +49,7 @@ class WeightedMassOperators:
         self,
         derham: Derham,
         domain: Domain,
-        eq_mhd: MHDequilibrium,
+        eq_mhd: MHDequilibrium | None = None,
         matrix_free: bool = False,
     ):
         self._derham = derham
@@ -71,7 +71,7 @@ class WeightedMassOperators:
         return self._domain
 
     @property
-    def eq_mhd(self) -> MHDequilibrium:
+    def eq_mhd(self) -> MHDequilibrium | None:
         """MHD equilibrium object."""
         return self._eq_mhd
     
@@ -364,6 +364,7 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, "_M1J"):
+            assert self.eq_mhd is not None, "M1J requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
             rot_J = LocalRotationMatrix(
                 self.eq_mhd.j2_1,
                 self.eq_mhd.j2_2,
@@ -400,6 +401,7 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, "_M2J"):
+            assert self.eq_mhd is not None, "M2J requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
             rot_J = LocalRotationMatrix(
                 self.eq_mhd.j2_1,
                 self.eq_mhd.j2_2,
@@ -436,6 +438,7 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, "_MvJ"):
+            assert self.eq_mhd is not None, "MvJ requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
             rot_J = LocalRotationMatrix(
                 self.eq_mhd.j2_1,
                 self.eq_mhd.j2_2,
@@ -472,6 +475,7 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, "_M2B_div0"):
+            assert self.eq_mhd is not None, "M2B_div0 requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
             a_eq = self.derham.P1(
                 [
                     self.eq_mhd.a1_1,
@@ -544,6 +548,7 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, "_M2B"):
+            assert self.eq_mhd is not None, "M2B requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
             rot_B = LocalRotationMatrix(
                 self.eq_mhd.b2_1,
                 self.eq_mhd.b2_2,
@@ -580,6 +585,7 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, "_M2Bn"):
+            assert self.eq_mhd is not None, "M2Bn requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
             a_eq = self.derham.P1(
                 [
                     self.eq_mhd.a1_1,
@@ -656,6 +662,7 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, "_M1Bninv"):
+            assert self.eq_mhd is not None, "M1Bninv requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
             rot_B = LocalRotationMatrix(
                 self.eq_mhd.b2_1,
                 self.eq_mhd.b2_2,
