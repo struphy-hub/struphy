@@ -7802,7 +7802,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._mass_ops_v0 = WeightedMassOperators(
             self._derham_v0,
             self.domain,
-            eq_mhd=self.mass_ops.weights["eq_mhd"],
+            eq_mhd=self.mass_ops.eq_mhd,
         )
         self._basis_ops_v0 = BasisProjectionOperators(
             self._derham_v0,
