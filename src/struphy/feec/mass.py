@@ -41,10 +41,7 @@ class WeightedMassOperators:
         Objects to access callables that can serve as weight functions.
 
     matrix_free : bool
-        If set to true will not compute the matrix associated with the operator but directly compute the product when called
-
-    verbose : bool
-        Show info on screen.
+        If set to true will not compute the matrix associated with the operator but directly compute the product when called.
 
     Notes
     -----
@@ -58,14 +55,12 @@ class WeightedMassOperators:
         derham: Derham,
         domain: Domain,
         matrix_free: bool = False,
-        verbose: bool = True,
         **weights,
     ):
         self._derham = derham
         self._domain = domain
         self._weights = weights
         self._matrix_free = matrix_free
-        self._verbose = verbose
 
         if "eq_mhd" in weights:
             self._selected_weight = "eq_mhd"  # default is to use mhd_equil for weights
@@ -91,11 +86,6 @@ class WeightedMassOperators:
     def weights(self):
         """Dictionary of objects that provide access to callables that can serve as weight functions."""
         return self._weights
-
-    @property
-    def verbose(self):
-        """Bool: show info on screen."""
-        return self._verbose
 
     @property
     def selected_weight(self):
@@ -805,7 +795,7 @@ class WeightedMassOperators:
             self._WMM = self.create_weighted_mass(
                 "H1vec",
                 "H1vec",
-                weights=["G"],
+                weights=["G", "L2"],
                 assemble=True,
             )
         return self._WMM
@@ -951,6 +941,10 @@ class WeightedMassOperators:
                             f_call = sqrt_g
                         elif f == "Identity":
                             f_call = Identity
+                        elif f == "H1":
+                            f_call = self.derham.create_spline_function("field", "H1")
+                        elif f == "L2":
+                            f_call = self.derham.create_spline_function("field", "L2")
                         else:
                             raise NotImplementedError(
                                 f"The option {f} is not available.",
@@ -1070,7 +1064,7 @@ class WeightedMassOperators:
         )
 
         if self._assemble:
-            out.assemble(verbose=self.verbose)
+            out.assemble()
 
         return out
 
@@ -1199,13 +1193,12 @@ class WeightedMassOperators:
                     ],
                     [self._full_term_mass[2, 0], self._full_term_mass[2, 1], self._full_term_mass[2, 2]],
                 ],
-                verbose=False,
             )
 
             if hasattr(self, "_inv") and self.inv._options["pc"] is not None:
                 self.inv._options["pc"].update_mass_operator(self.massop)
 
-        def _create_inv(self, type="pcg", tol=1e-16, maxiter=500, verbose=False):
+        def _create_inv(self, type="pcg", tol=1e-16, maxiter=500):
             """Inverse the  weighted mass matrix, preconditioner must be set outside
             via self._inv._options['pc'] = ..."""
             self._inv = inverse(
@@ -1214,7 +1207,6 @@ class WeightedMassOperators:
                 pc=None,
                 tol=tol,
                 maxiter=maxiter,
-                verbose=verbose,
                 recycle=True,
             )
 
@@ -1855,7 +1847,7 @@ class WeightedMassOperator(LinOpWithTransp):
                 matrix_free=self._matrix_free,
             )
 
-            M.assemble(verbose=False)
+            M.assemble()
 
         else:
             M = WeightedMassOperator(
@@ -1872,11 +1864,11 @@ class WeightedMassOperator(LinOpWithTransp):
                 matrix_free=self._matrix_free,
             )
 
-            M.assemble(weights=weights, verbose=False)
+            M.assemble(weights=weights)
 
         return M
 
-    def assemble(self, weights=None, clear=True, verbose=True):
+    def assemble(self, weights=None, clear=True):
         r"""
         Assembles the weighted mass matrix, i.e. computes the integrals
 
@@ -1897,9 +1889,6 @@ class WeightedMassOperator(LinOpWithTransp):
         clear : bool
             Whether to first set all data to zero before assembly. If False,
             the new contributions are added to existing ones.
-
-        verbose : bool
-            Whether to do some printing.
         """
 
         if self._matrix_free:
@@ -1941,10 +1930,9 @@ class WeightedMassOperator(LinOpWithTransp):
                 else:
                     rank = 0
 
-            if rank == 0 and verbose:
-                logger.info(
-                    f'\nAssembling matrix of WeightedMassOperator "{self.name}" with V={self._domain_symbolic_name}, W={self._codomain_symbolic_name}.',
-                )
+            logger.info(
+                f'\nAssembling matrix of WeightedMassOperator "{self.name}" with V={self._domain_symbolic_name}, W={self._codomain_symbolic_name}.',
+            )
 
             # collect domain/codomain TensorFemSpaces for each component in tuple
             if self._transposed:
@@ -2082,8 +2070,7 @@ class WeightedMassOperator(LinOpWithTransp):
                             )
                             mat = self._mat[a, b]
 
-                        if rank == 0 and verbose:
-                            logger.info(f"Assemble block {a, b}")
+                        logger.info(f"Assemble block {a, b}")
 
                         self._assembly_kernel(
                             *codomain_spans,
@@ -2122,8 +2109,7 @@ class WeightedMassOperator(LinOpWithTransp):
                 self._mat[2, 0]._data[:] = -self._mat[0, 2].T._data
                 self._mat[2, 1]._data[:] = -self._mat[1, 2].T._data
 
-            if rank == 0 and verbose:
-                logger.info("Done.")
+            logger.info("Done.")
 
     def copy(self, out=None):
         """Create a copy of self, that can potentially be stored in a given WeightedMassOperator.
