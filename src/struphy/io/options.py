@@ -159,6 +159,17 @@ class LiteralOptions:
         "heat_flux_3",
     ]
 
+class OptionsBase:
+    def to_dict(self) -> dict:
+        """Convert dataclass instance to dictionary."""
+        return {field.name: getattr(self, field.name) for field in fields(type(self)) if field.init}
+
+    @classmethod
+    def from_dict(cls, dct) -> "Any":
+        """Create dataclass instance from dictionary."""
+        valid_fields = {field.name for field in fields(cls) if field.init}
+        return cls(**{key: value for key, value in dct.items() if key in valid_fields})
+
 
 @dataclass
 class Time(OptionsBase):
@@ -255,13 +266,9 @@ class DerhamOptions(OptionsBase):
         Use ``None`` in a direction for periodic boundaries, or a tuple
         ``(left, right)`` with entries in ``{"free", "dirichlet"}`` for non-periodic boundaries.
 
-    lifting : tuple[tuple[bool]]
-        Whether to build a constrained (v0) sub-complex with additional clamping on each face.
-        Used for inhomogeneous Dirichlet BCs: the v0 complex clamps faces where
-        lifting is True, and the propagator builds a lift in the unconstrained space.
-
-    nquads : tuple[int]
-        Number of Gauss-Legendre quadrature points in each direction (default = p, leads to exact integration of degree 2p-1 polynomials).
+    nquads : tuple[int, int, int] | None
+        Number of Gauss-Legendre quadrature points per direction for cell
+        integrals. If ``None``, backend defaults are used.
 
     nquads_proj : tuple[int, int, int] | None
         Number of Gauss-Legendre quadrature points per direction for geometric
@@ -278,13 +285,15 @@ class DerhamOptions(OptionsBase):
         quasi-inter-/histopolation.
     """
 
-    p: tuple = (1, 1, 1)
-    spl_kind: tuple = (True, True, True)
-    dirichlet_bc: tuple = ((False, False), (False, False), (False, False))
-    lifting: tuple = ((False, False), (False, False), (False, False))
-    nquads: tuple = None
-    nq_pr: tuple = None
-    polar_ck: LiteralOptions.PolarRegularity = -1
+    degree: tuple[int, int, int] = (1, 1, 1)
+    bcs: tuple[
+        None | tuple[NonTrivialBC, NonTrivialBC],
+        None | tuple[NonTrivialBC, NonTrivialBC],
+        None | tuple[NonTrivialBC, NonTrivialBC],
+    ] = (None, None, None)
+    nquads: tuple[int, int, int] | None = None
+    nquads_proj: tuple[int, int, int] | None = None
+    polar_splines: bool = False
     local_projectors: bool = False
 
     def __post_init__(self):
@@ -307,33 +316,7 @@ class DerhamOptions(OptionsBase):
     @property
     def is_default(self):
         return all_class_params_are_default(self)
-
-    def to_dict(self) -> dict:
-        dct = {
-            "p": self.p,
-            "spl_kind": self.spl_kind,
-            "dirichlet_bc": self.dirichlet_bc,
-            "lifting": self.lifting,
-            "nquads": self.nquads,
-            "nq_pr": self.nq_pr,
-            "polar_ck": self.polar_ck,
-            "local_projectors": self.local_projectors,
-        }
-        return dct
-
-    @classmethod
-    def from_dict(cls, dct) -> "DerhamOptions":
-        return cls(
-            p=dct["p"],
-            spl_kind=dct["spl_kind"],
-            dirichlet_bc=dct["dirichlet_bc"],
-            lifting=dct.get("lifting", ((False, False), (False, False), (False, False))),
-            nquads=dct["nquads"],
-            nq_pr=dct["nq_pr"],
-            polar_ck=dct["polar_ck"],
-            local_projectors=dct["local_projectors"],
-        )
-
+    
 
 @dataclass
 class FieldsBackground(OptionsBase):

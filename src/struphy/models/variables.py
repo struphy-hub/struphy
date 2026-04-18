@@ -389,9 +389,10 @@ class FEECVariable(Variable):
 
             # other helper objects for the lifting of boundary conditions
             self._spline_0 = self.spline_lift.copy()
-            self.spline_0.vector[:] = self.spline_lift.vector[:]
+            self.spline_lift.vector.copy(out=self.spline_0.vector)
             self._boundary_spline = self.spline_lift.copy()
-            self._boundary_op = BoundaryOperator(self.spline_lift.space, self.space, derham.dirichlet_bc)
+            
+            self._boundary_op = BoundaryOperator(self.spline_lift.space, self.space, derham.dirichlet_bc)  # TODO different domain and codomain
 
             self.compute_boundary_spline()
 
@@ -405,7 +406,7 @@ class FEECVariable(Variable):
 
         # set new boundary spline
         diff_vec = spline_lift.vector - self.spline_0.vector
-        self.boundary_spline.vector[:] = diff_vec[:]
+        diff_vec.copy(out=self.boundary_spline.vector)
 
 
 class PICVariable(Variable):
