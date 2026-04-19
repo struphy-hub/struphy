@@ -7716,21 +7716,22 @@ class TwoFluidQuasiNeutralFull(Propagator):
             # --- required parameters ---
             assert self.nu       is not None, "nu must be specified"
             assert self.nu_e     is not None, "nu_e must be specified"
-            assert self.eps_norm is not None, "eps_norm must be specified"
-
-            # --- physical parameter sanity checks ---
-            if self.nu < 0:
-                raise ValueError(f"nu must be non-negative, got {self.nu}")
-            if self.nu_e < 0:
-                raise ValueError(f"nu_e must be non-negative, got {self.nu_e}")
-            if self.eps_norm <= 0:  # TODO get base epsilon from ion species if undefined
-                raise ValueError(f"eps_norm must be positive, got {self.eps_norm}")
 
             # --- warn if no source terms ---
             if self.source_u is None:
                 warn("No source_u specified — defaulting to zero.")
             if self.source_ue is None:
                 warn("No source_ue specified — defaulting to zero.")
+            if self.eps_norm is None:
+                warn("No eps_norm specified — will default to ion cyclotron parameter epsilon in allocate.")
+
+            # --- physical parameter sanity checks ---
+            if self.nu < 0:
+                raise ValueError(f"nu must be non-negative, got {self.nu}")
+            if self.nu_e < 0:
+                raise ValueError(f"nu_e must be non-negative, got {self.nu_e}")
+            if self.eps_norm is not None and self.eps_norm <= 0:
+                raise ValueError(f"eps_norm must be positive, got {self.eps_norm}")
 
             # --- defaults ---
             if self.stab_sigma is None:
@@ -7743,7 +7744,8 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
     @property
     def options(self) -> Options:
-        assert hasattr(self, "_options"), "Options not set."
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
         return self._options
 
     @options.setter
@@ -7764,6 +7766,9 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self.verbose = verbose
         self._rank = self.derham.comm.Get_rank() if self.derham.comm is not None else 0
         self._dt   = None
+
+        if self.options.eps_norm is None:
+            self._options.eps_norm = self.variables.u.species.equation_params.epsilon
 
         # ---- lifting (derham_lift is unconstrained, self.derham is constrained) ---
         self._has_lifting_u  = self.variables.u.derham_lift  is not None
