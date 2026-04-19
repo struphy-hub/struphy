@@ -7827,7 +7827,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._lapl_ue = (self._div_ue.T @ self._mass_ops_lift_ue.M3 @ self._div_ue
                        + self._S21_ue.T @ self._curl_ue.T @ self._M2_ue @ self._curl_ue @ self._S21_ue)
 
-        self._A22 = (- self.options.stab_sigma * IdentityOperator(self._derham_lift_ue.coeff_spaces["2"])
+        self._A22 = (self.options.stab_sigma * IdentityOperator(self._derham_lift_ue.coeff_spaces["2"])
                    + self._M2B_ue / self.options.eps_norm + self.options.nu_e * self._lapl_ue)
 
         # ---- constrained operators (for system matrix, built from self.derham) ---
@@ -7842,8 +7842,8 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._lapl_v0 = (self._div_v0.T @ self._M3_v0 @ self._div_v0
                        + self._S21_v0.T @ self._curl_v0.T @ self._M2_v0 @ self._curl_v0 @ self._S21_v0)
 
-        self._A11_v0 = - self._M2B_v0 / self.options.eps_norm + self.options.nu   * self._lapl_v0
-        self._A22_v0 = (- self.options.stab_sigma * IdentityOperator(self.derham.coeff_spaces["2"])
+        self._A11_v0 = - self._M2B_v0 / self.options.eps_norm + self.options.nu * self._lapl_v0
+        self._A22_v0 = (self.options.stab_sigma * IdentityOperator(self.derham.coeff_spaces["2"])
                        + self._M2B_v0 / self.options.eps_norm + self.options.nu_e * self._lapl_v0)
 
         # ---- block saddle-point system ----------------------------------------
@@ -7944,7 +7944,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
     ### Time step
     # =========================================================================
 
-    def __call__(self, dt):
+    def __call__(self, dt):  # TODO this is still a complete mess, clean up after 2D lifting also works
 
         # --- copy current state (full solution = u_0 + u') ---
         self._u.vector  = self.variables.u.spline.vector
@@ -7993,13 +7993,13 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._rhs_full_u.vector  = rhs_u_full
         self._rhs_full_ue.vector = rhs_ue_full
 
-        self._rhs_vec_u.vector  = self.derham.boundary_ops["2"].dot(self._rhs_full_u.vector)
+        self._rhs_vec_u.vector  = self.derham.boundary_ops["2"].dot(self._rhs_full_u.vector)  # TODO implement or change boundary operator to also change the space
         self._rhs_vec_ue.vector = self.derham.boundary_ops["2"].dot(self._rhs_full_ue.vector)
 
         tmp1 = self.derham.create_spline_function("tmp1", space_id="L2")
         tmp2 = self.derham.create_spline_function("tmp2", space_id="L2")
 
-        tmp1.vector = self._div_u.dot(self._boundary_spline_u)
+        tmp1.vector = self._div_u.dot(self._boundary_spline_u)  # TODO implement identity operator between L^2 of different de rham spaces
         tmp2.vector = self._div_ue.dot(self._boundary_spline_ue)
 
         phi_rhs = (self.mass_ops.M3.dot(tmp1.vector)
@@ -8019,7 +8019,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._phi.vector = _sol[1]
 
         if self._has_lifting_u:
-            self._u.vector  = self._u.vector  + self._boundary_spline_u_v0.vector
+            self._u.vector  = self._u.vector  + self._boundary_spline_u_v0.vector  # TODO store an additional field in feecvariable that has the complete solution
         if self._has_lifting_ue:
             self._ue.vector = self._ue.vector + self._boundary_spline_ue_v0.vector
 
