@@ -260,6 +260,13 @@ class FEECVariable(Variable):
         if not hasattr(self, "_boundary_spline"):
             self._boundary_spline = None
         return self._boundary_spline
+    
+    @property
+    def spline_full(self) -> SplineFunction | None:
+        """Full solution spline (lifting + zero-BC part) in the unconstrained space. Only allocated if lifting_function is not None."""
+        if not hasattr(self, "_spline_full"):
+            self._spline_full = None
+        return self._spline_full
 
     @property
     def boundary_op(self) -> BoundaryOperator | None:
@@ -267,6 +274,14 @@ class FEECVariable(Variable):
         if not hasattr(self, "_boundary_op"):
             self._boundary_op = None
         return self._boundary_op
+    
+    @property
+    def boundary_op_lift(self) -> BoundaryOperator | None:
+        """Boundary operator mapping from the unconstrained (lifted) space to the constrained space.
+        Only allocated if lifting_function is not None."""
+        if not hasattr(self, "_boundary_op_lift"):
+            self._boundary_op_lift = None
+        return self._boundary_op_lift
 
     @property
     def derham_lift(self) -> Derham | None:
@@ -362,6 +377,15 @@ class FEECVariable(Variable):
                 verbose=verbose,
             )
 
+            # spline function for unconstrained solution
+            self._spline_full = self.derham_lift.create_spline_function(
+                name=self.__name__ + "_full" if self.__name__ is not None else None,
+                space_id=self.space,
+                domain=domain,
+                equil=equil,
+                verbose=verbose,
+            )
+
             # project each perturbation and accumulate into spline_lift
             if self.space in {"H1", "L2"}:
                 ptb = lifting_list[0]
@@ -403,6 +427,8 @@ class FEECVariable(Variable):
             self._boundary_spline = self.spline_lift.copy()
 
             self._boundary_op = BoundaryOperator(self.spline_lift.space, self.space, derham.dirichlet_bc)
+
+            self._boundary_op_lift = BoundaryOperator(self.spline_lift.space, self.space, derham.dirichlet_bc, codomain=self._spline.space)
 
             self.compute_boundary_spline()
 
