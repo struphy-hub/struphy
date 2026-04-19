@@ -3,7 +3,7 @@ import os
 from dataclasses import dataclass, fields
 from typing import Any, Callable, Literal
 
-from struphy.utils.utils import check_option
+from struphy.utils.utils import __dataclass_repr_no_defaults__, all_class_params_are_default, check_option
 
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI

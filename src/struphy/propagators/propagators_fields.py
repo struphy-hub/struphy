@@ -3,7 +3,7 @@
 import copy
 import logging
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, Literal, get_args
 from warnings import warn
 from warnings import warn
@@ -7699,23 +7699,18 @@ class TwoFluidQuasiNeutralFull(Propagator):
     @dataclass
     class Options():
 
-        nu: float | None = None
-        nu_e: float | None = None
+        nu: float
+        nu_e: float
         eps_norm: float | None = None
 
         source_u:  Callable | None = None
         source_ue: Callable | None = None
 
-        stab_sigma: float | None = None
-
+        stab_sigma: float = 0.0
         solver: LiteralOptions.OptsGenSolver = "gmres"
-        solver_params: SolverParameters | None = None
+        solver_params: SolverParameters = field(default_factory=SolverParameters)
 
         def __post_init__(self):
-
-            # --- required parameters ---
-            assert self.nu       is not None, "nu must be specified"
-            assert self.nu_e     is not None, "nu_e must be specified"
 
             # --- warn if no source terms ---
             if self.source_u is None:
@@ -7733,14 +7728,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             if self.eps_norm is not None and self.eps_norm <= 0:
                 raise ValueError(f"eps_norm must be positive, got {self.eps_norm}")
 
-            # --- defaults ---
-            if self.stab_sigma is None:
-                warn("stab_sigma not specified, defaulting to 0.0")
-                self.stab_sigma = 0.0
-
             check_option(self.solver, LiteralOptions.OptsGenSolver, LiteralOptions.OptsSaddlePointSolver)
-            if self.solver_params is None:
-                self.solver_params = SolverParameters()
 
     @property
     def options(self) -> Options:
