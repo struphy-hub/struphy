@@ -16,7 +16,7 @@ logger = logging.getLogger("struphy")
 
 
 def get_quad_grids(
-    space: TensorFemSpace | VectorFemSpace,
+    space: TensorFemSpace,
     nquads: tuple[int, int, int],
 ):
     """Return the 1d quadrature grids in each direction as a tuple."""

@@ -22,8 +22,10 @@ from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.docstring_converter import auto_convert_docstring, info
 from struphy.io.options import LiteralOptions
 from struphy.fields_background.base import MHDequilibrium
+from struphy import set_logging_level
 
 logger = logging.getLogger("struphy")
+set_logging_level(logging.WARNING)
 
 
 class WeightedMassOperators:
@@ -1277,6 +1279,19 @@ class WeightedMassOperator(LinOpWithTransp):
         matrix_free: bool = False,
         nquads: tuple | list = None,
     ):
+        logger.debug(f"{derham = }")
+        logger.debug(f"{V = }")
+        logger.debug(f"{W = }")  
+        logger.debug(f"{name = }")
+        logger.debug(f"{V_extraction_op = }")
+        logger.debug(f"{W_extraction_op = }")
+        logger.debug(f"{V_boundary_op = }")
+        logger.debug(f"{W_boundary_op = }")
+        logger.debug(f"{weights_info = }")
+        logger.debug(f"{transposed = }")
+        logger.debug(f"{matrix_free = }")
+        logger.debug(f"{nquads = }")
+
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
 
@@ -1322,31 +1337,10 @@ class WeightedMassOperator(LinOpWithTransp):
         self._dtype = V.coeff_space.dtype
 
         # set domain and codomain symbolic names
-        if hasattr(V.symbolic_space, "name"):
-            V_name = V.symbolic_space.name
-        elif isinstance(V.symbolic_space, str):
-            V_name = V.symbolic_space
-        else:
-            if V.ldim == 3 or V.ldim == 2:
-                V_name = "H1vec"
-            elif V.ldim == 1:
-                if V.spaces[0].basis == "B":
-                    V_name = "H1"
-                else:
-                    V_name = "L2"
-
-        if hasattr(W.symbolic_space, "name"):
-            W_name = W.symbolic_space.name
-        elif isinstance(W.symbolic_space, str):
-            W_name = W.symbolic_space
-        else:
-            if W.ldim == 3 or W.ldim == 2:
-                W_name = "H1vec"
-            elif W.ldim == 1:
-                if W.spaces[0].basis == "B":
-                    W_name = "H1"
-                else:
-                    W_name = "L2"
+        logger.debug(f"{V.symbolic_space = }")
+        logger.debug(f"{W.symbolic_space = }")
+        V_name = V.symbolic_space
+        W_name = W.symbolic_space
 
         if transposed:
             self._domain_femspace = W
@@ -1362,15 +1356,9 @@ class WeightedMassOperator(LinOpWithTransp):
             self._codomain_symbolic_name = W_name
 
         # Are both space scalar spaces : useful to know if _dof_mat will be Stencil or Block Matrix
-        self._is_scalar = True
-        if not isinstance(V, TensorFemSpace):
-            self._is_scalar = False
-            self._mpi_comm = V.coeff_space.spaces[0].cart.comm
-        else:
-            self._mpi_comm = V.coeff_space.cart.comm
-
-        if not isinstance(W, TensorFemSpace):
-            self._is_scalar = False
+        self._is_scalar = False
+        if isinstance(V, TensorFemSpace) and isinstance(W, TensorFemSpace):
+            self._is_scalar = True
 
         # ====== initialize Stencil-/BlockLinearOperator ====
 
@@ -1500,6 +1488,20 @@ class WeightedMassOperator(LinOpWithTransp):
             for a, wspace in enumerate(Wspaces):
                 blocks += [[]]
                 self._weights += [[]]
+                
+                # quadrature points
+                if W_name in ("Hcurl", "Hdiv", "H1vec"):
+                    pts = [points.flatten() for points in derham.spline_attributes[W_name].quad_grid_pts[a]]
+                elif W_name in ("H1", "L2"):
+                    pts = [points.flatten() for points in derham.spline_attributes[W_name].quad_grid_pts]
+                else: # fallback to general case (e.g. for non-standard spaces)
+                    pts = [
+                                quad_grid[nquad].points.flatten()
+                                for quad_grid, nquad in zip(
+                                    get_quad_grids(wspace, nquads=self.nquads),
+                                    self.nquads,
+                                )
+                            ]
 
                 # loop over domain spaces (columns)
                 for b, vspace in enumerate(Vspaces):
@@ -1526,14 +1528,6 @@ class WeightedMassOperator(LinOpWithTransp):
                             self._weights[-1] += [None]
 
                         else:
-                            pts = [
-                                quad_grid[nquad].points.flatten()
-                                for quad_grid, nquad in zip(
-                                    get_quad_grids(wspace, nquads=self.nquads),
-                                    self.nquads,
-                                )
-                            ]
-
                             if callable(weights_info[a][b]):
                                 PTS = xp.meshgrid(*pts, indexing="ij")
                                 mat_w = weights_info[a][b](*PTS).copy()
@@ -1905,18 +1899,6 @@ class WeightedMassOperator(LinOpWithTransp):
                             if block is not None:
                                 block._data[:] = 0.0
 
-            # identify rank for printing
-            if self._domain_symbolic_name in {"H1", "L2", None}:
-                if self._V.coeff_space.cart.comm is not None:
-                    rank = self._V.coeff_space.cart.comm.Get_rank()
-                else:
-                    rank = 0
-            else:
-                if self._V.coeff_space[0].cart.comm is not None:
-                    rank = self._V.coeff_space[0].cart.comm.Get_rank()
-                else:
-                    rank = 0
-
             logger.info(
                 f'\nAssembling matrix of WeightedMassOperator "{self.name}" with V={self._domain_symbolic_name}, W={self._codomain_symbolic_name}.',
             )
@@ -2017,8 +1999,8 @@ class WeightedMassOperator(LinOpWithTransp):
                     not_weight_zero = xp.array(
                         int(loc_weight is not None and xp.any(xp.abs(mat_w) > 1e-14)),
                     )
-                    if self._mpi_comm is not None:
-                        self._mpi_comm.Allreduce(
+                    if self.derham.comm is not None:
+                        self.derham.comm.Allreduce(
                             MPI.IN_PLACE,
                             not_weight_zero,
                             op=MPI.LOR,

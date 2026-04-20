@@ -95,7 +95,7 @@ class DiscreteDerham:
         assert all(isinstance(space, (TensorFemSpace, VectorFemSpace)) for space in spaces)
         # H1^3 space for vector fields (not part of the proper de Rham sequence, but useful for the projectors and polar extraction operators)
         Vv = VectorFemSpace(V0, V0, V0)
-        Vv.symbolic_space = self.H1vecSymb()
+        Vv.symbolic_space = "H1vec"
 
         self._V0 = V0
         self._V1 = V1
@@ -112,10 +112,6 @@ class DiscreteDerham:
         V0.diff = V0.grad = D0
         V1.diff = V1.curl = D1
         V2.diff = V2.div = D2
-        
-    @dataclass
-    class H1vecSymb:
-        name = "H1vec"
 
     # --------------------------------------------------------------------------
     @property
@@ -156,7 +152,7 @@ class DiscreteDerham:
     @property
     def derivatives_as_matrices(self):
         """Differential operators of the De Rham sequence as LinearOperator objects."""
-        return tuple(V.diff.linop for V in self.spaces[:-1])
+        return tuple(V.diff.linop for V in self.spaces[:-2])
 
     @property
     def derivatives(self):

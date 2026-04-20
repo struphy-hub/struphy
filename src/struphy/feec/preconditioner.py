@@ -132,7 +132,10 @@ class MassMatrixPreconditioner(LinearOperator):
                     [femspace_1d.periodic],
                 )
                 femspace_1d_tensor = TensorFemSpace(domain_decompos_1d, femspace_1d)
-                # femspace_1d_tensor.nquads = [qu_order_1d] # TODO: This should not be here!
+                if femspace_1d.basis == "B":
+                    femspace_1d_tensor.symbolic_space = "H1_1d"
+                else:
+                    femspace_1d_tensor.symbolic_space = "L2_1d"
 
                 M = WeightedMassOperator(
                     mass_operator.derham,
