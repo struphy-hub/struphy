@@ -362,9 +362,30 @@ class SplineAttributes1D:
                     fag.basis,
                 ]
 
+            self._nbasis[-1] = tuple(self.nbasis[-1])
+            self._spline_types[-1] = tuple(self.spline_types[-1])
+            self._proj_grid_subs[-1] = tuple(self.proj_grid_subs[-1])
+            self._proj_grid_pts[-1] = tuple(self.proj_grid_pts[-1])
+            self._proj_grid_wts[-1] = tuple(self.proj_grid_wts[-1])
+            self._quad_grid_pts[-1] = tuple(self.quad_grid_pts[-1])
+            self._quad_grid_wts[-1] = tuple(self.quad_grid_wts[-1])
+            self._quad_grid_spans[-1] = tuple(self.quad_grid_spans[-1])
+            self._quad_grid_bases[-1] = tuple(self.quad_grid_bases[-1])
+
             self._spline_types_pyccel[-1] = xp.array(
                 self._spline_types_pyccel[-1],
             )
+            
+        self._nbasis = tuple(self.nbasis)
+        self._spline_types = tuple(self.spline_types)
+        self._spline_types_pyccel = tuple(self.spline_types_pyccel)
+        self._proj_grid_subs = tuple(self.proj_grid_subs)
+        self._proj_grid_pts = tuple(self.proj_grid_pts)
+        self._proj_grid_wts = tuple(self.proj_grid_wts)
+        self._quad_grid_pts = tuple(self.quad_grid_pts)
+        self._quad_grid_wts = tuple(self.quad_grid_wts)
+        self._quad_grid_spans = tuple(self.quad_grid_spans)
+        self._quad_grid_bases = tuple(self.quad_grid_bases)
 
     # ---------------
     # Input arguments
@@ -403,63 +424,63 @@ class SplineAttributes1D:
         return self._tensor_spaces
     
     @property
-    def nbasis(self) -> list[list[int]]:
-        """List of number of basis functions in each direction for each component of the vector space."""
+    def nbasis(self) -> tuple[tuple[int]]:
+        """Tuple of number of basis functions in each direction for each component of the vector space."""
         return self._nbasis
 
     @property
-    def spline_types(self) -> list[list[str]]:
-        """List of spline types in each direction ('B' or 'M') for each component of the vector space."""
+    def spline_types(self) -> tuple[tuple[str]]:
+        """Tuple of spline types in each direction ('B' or 'M') for each component of the vector space."""
         return self._spline_types
 
     @property
-    def spline_types_pyccel(self) -> list[xp.ndarray]:
-        """List of spline types in each direction as integers (0 for 'B', 1 for 'M') for each component of the vector space."""
+    def spline_types_pyccel(self) -> tuple[xp.ndarray]:
+        """Tuple of spline types in each direction as integers (0 for 'B', 1 for 'M') for each component of the vector space."""
         return self._spline_types_pyccel
 
     @property
-    def proj_grid_pts(self) -> list[list[xp.ndarray]]:
-        """List of projection grid points in each direction for each component of the vector space."""
+    def proj_grid_pts(self) -> tuple[tuple[xp.ndarray]]:
+        """Tuple of projection grid points in each direction for each component of the vector space."""
         return self._proj_grid_pts
 
     @property
-    def proj_grid_wts(self) -> list[list[xp.ndarray]]:
-        """List of projection grid weights in each direction for each component of the vector space."""
+    def proj_grid_wts(self) -> tuple[tuple[xp.ndarray]]:
+        """Tuple of projection grid weights in each direction for each component of the vector space."""
         return self._proj_grid_wts
 
     @property
-    def proj_grid_subs(self) -> list[list[xp.ndarray]]:
-        """List of projection grid sub-interval indices in each direction for each component of the vector space."""
+    def proj_grid_subs(self) -> tuple[tuple[xp.ndarray]]:
+        """Tuple of projection grid sub-interval indices in each direction for each component of the vector space."""
         return self._proj_grid_subs
 
     @property
-    def proj_loc_grid_pts(self) -> list[list[xp.ndarray]] | None:
-        """List of local projection grid points in each direction for each component of the vector space."""
+    def proj_loc_grid_pts(self) -> tuple[tuple[xp.ndarray]] | None:
+        """Tuple of local projection grid points in each direction for each component of the vector space."""
         return self._proj_loc_grid_pts
 
     @property
-    def proj_loc_grid_wts(self) -> list[list[xp.ndarray]] | None:
-        """List of local projection grid weights in each direction for each component of the vector space."""
+    def proj_loc_grid_wts(self) -> tuple[tuple[xp.ndarray]] | None:
+        """Tuple of local projection grid weights in each direction for each component of the vector space."""
         return self._proj_loc_grid_wts
 
     @property
-    def quad_grid_pts(self) -> list[list[xp.ndarray]]:
-        """List of quadrature grid points in each direction for each component of the vector space."""
+    def quad_grid_pts(self) -> tuple[tuple[xp.ndarray]]:
+        """Tuple of quadrature grid points in each direction for each component of the vector space."""
         return self._quad_grid_pts
 
     @property
-    def quad_grid_wts(self) -> list[list[xp.ndarray]]:
-        """List of quadrature grid weights in each direction for each component of the vector space."""
+    def quad_grid_wts(self) -> tuple[tuple[xp.ndarray]]:
+        """Tuple of quadrature grid weights in each direction for each component of the vector space."""
         return self._quad_grid_wts
 
     @property
-    def quad_grid_spans(self) -> list[list[xp.ndarray]]:
-        """List of quadrature grid basis function spans in each direction for each component of the vector space."""
+    def quad_grid_spans(self) -> tuple[tuple[xp.ndarray]]:
+        """Tuple of quadrature grid basis function spans in each direction for each component of the vector space."""
         return self._quad_grid_spans
 
     @property
-    def quad_grid_bases(self) -> list[list[xp.ndarray]]:
-        """List of quadrature grid basis function values in each direction for each component of the vector space."""
+    def quad_grid_bases(self) -> tuple[tuple[xp.ndarray]]:
+        """Tuple of quadrature grid basis function values in each direction for each component of the vector space."""
         return self._quad_grid_bases
 
 

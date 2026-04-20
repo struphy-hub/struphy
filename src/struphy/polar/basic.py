@@ -35,8 +35,8 @@ class PolarDerhamSpace(VectorSpace):
         self._space_id = space_id
 
         # dimensions of 1d spaces
-        self._n = derham.spline_attributes["H1"].nbasis
-        self._d = derham.spline_attributes["L2"].nbasis
+        self._n = derham.spline_attributes["H1"].nbasis[0]
+        self._d = derham.spline_attributes["L2"].nbasis[0]
 
         self._parent_space = derham.coeff_spaces[derham.space_to_form[space_id]]
         self._parallel = self._parent_space.parallel
