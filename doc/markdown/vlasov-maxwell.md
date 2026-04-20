@@ -345,7 +345,7 @@ $$
  \boldsymbol \rho_\textrm{i0} := \frac{\alpha^2}{\varepsilon}\int \hat \rho_\textrm{i0}\,\mathbf \Lambda^0 \sqrt g\,\textrm d \boldsymbol \eta = \left(\frac{\alpha^2}{\varepsilon} \rho_\textrm{i0}\,, \, \boldsymbol\Lambda^0\right)_{L^2} \qquad \in \mathbb R^{N_0}\,,
 $$
 
-coming from the static ion charge density $\rho_\textrm{i0}$. This term can be viewed as the right-hand side of an [L2Projection](https://struphy-hub.github.io/struphy/sections/subsections-old/feec_projectors.html#struphy.feec.projectors.L2Projector) into $V_h^0$ and computed with the method [L2Projector.get_dofs](https://struphy-hub.github.io/struphy/sections/subsections-old/feec_projectors.html#struphy.feec.projectors.L2Projector.get_dofs). 
+coming from the static ion charge density $\rho_\textrm{i0}$. This term can be viewed as the right-hand side of an [L2Projection](https://struphy-hub.github.io/struphy/sections/subsections-old/feec_projectors.html#struphy.feec.mass.L2Projector) into $V_h^0$ and computed with the method [L2Projector.get_dofs](https://struphy-hub.github.io/struphy/sections/subsections-old/feec_projectors.html#struphy.feec.mass.L2Projector.get_dofs). 
 
 Finally, let us consider the **particle-to-grid coupling terms**. In the Poisson equation we have the coupling term
 

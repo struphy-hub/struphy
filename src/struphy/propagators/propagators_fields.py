@@ -31,7 +31,7 @@ from struphy.feec.basis_projection_ops import (
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.mass import WeightedMassOperator, WeightedMassOperators
 from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner, MassMatrixPreconditioner
-from struphy.feec.projectors import L2Projector
+from struphy.feec.mass import L2Projector
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.feec.variational_utilities import (
     BracketOperator,
@@ -3375,7 +3375,7 @@ class VariationalDensityEvolve(Propagator):
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and `CoordinateProjector` needed to compute the bracket term"""
 
-        from struphy.feec.projectors import L2Projector
+        from struphy.feec.mass import L2Projector
         from struphy.feec.variational_utilities import L2_transport_operator
 
         # Initialize the transport operator and transposed
@@ -3396,7 +3396,7 @@ class VariationalDensityEvolve(Propagator):
             recycle=True,
         )
 
-        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V0splines.quad_grid_pts]
+        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V0splines.quad_grid_pts[0]]
 
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
             self.derham.prepare_eval_tp_fixed(
@@ -3837,7 +3837,7 @@ class VariationalEntropyEvolve(Propagator):
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and `CoordinateProjector` needed to compute the bracket term"""
 
-        from struphy.feec.projectors import L2Projector
+        from struphy.feec.mass import L2Projector
         from struphy.feec.variational_utilities import L2_transport_operator
 
         # Initialize the transport operator and transposed
@@ -3904,7 +3904,7 @@ class VariationalEntropyEvolve(Propagator):
         # L2-projector for V3
         self._get_L2dofs_V3 = L2Projector("L2", self.mass_ops).get_dofs
 
-        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts]
+        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts[0]]
 
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
             self.derham.prepare_eval_tp_fixed(
@@ -4784,7 +4784,7 @@ class VariationalPBEvolve(Propagator):
         self._transop_p = Pressure_transport_operator(self.derham, self.domain, self.basis_ops.Uv, self._gamma)
         self._transop_pT = self._transop_p.T
 
-        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts]
+        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts[0]]
 
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
             self.derham.prepare_eval_tp_fixed(
@@ -5371,7 +5371,7 @@ class VariationalQBEvolve(Propagator):
         self._transop_q = Pressure_transport_operator(self.derham, self.domain, self.basis_ops.Uv, self._gamma / 2.0)
         self._transop_qT = self._transop_q.T
 
-        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts]
+        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts[0]]
 
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
             self.derham.prepare_eval_tp_fixed(
@@ -6027,7 +6027,7 @@ class VariationalViscosity(Propagator):
 
         self.evol_op = self.inv_lop @ self.r_op
         # self.evol_op = IdentityOperator(self.derham.Vvpol)
-        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts]
+        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts[0]]
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
             self.derham.prepare_eval_tp_fixed(
                 integration_grid,
@@ -6856,7 +6856,7 @@ class VariationalResistivity(Propagator):
 
         self.evol_op = self.inv_lop @ self.r_op
         # self.evol_op = IdentityOperator(self.derham.Vvpol)
-        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts]
+        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts[0]]
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
             self.derham.prepare_eval_tp_fixed(
                 integration_grid,
@@ -7476,7 +7476,7 @@ class HasegawaWakatani(Propagator):
         self._nu = self.options.nu
 
         # get quadrature grid of V0
-        pts = [grid.flatten() for grid in self.derham.V0splines.quad_grid_pts]
+        pts = [grid.flatten() for grid in self.derham.V0splines.quad_grid_pts[0]]
         mesh_pts = xp.meshgrid(*pts, indexing="ij")
 
         # evaluate c(x, y) and metric coeff at local quadrature grid and multiply

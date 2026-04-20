@@ -7,8 +7,7 @@ import pytest
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import domains
-from struphy.feec.mass import WeightedMassOperators
-from struphy.feec.projectors import L2Projector
+from struphy.feec.mass import WeightedMassOperators, L2Projector
 from struphy.feec.psydac_derham import Derham
 from struphy.io.options import DerhamOptions
 from struphy.topology.grids import TensorProductGrid
@@ -89,7 +88,7 @@ def test_l2_projectors_mappings(
             if array_input:
                 pts_q = derham.spline_attributes[sp_key].quad_grid_pts
                 if sp_id in ("H1", "L2"):
-                    ee = xp.meshgrid(*[pt.flatten() for pt in pts_q], indexing="ij")
+                    ee = xp.meshgrid(*[pt.flatten() for pt in pts_q[0]], indexing="ij")
                     f_array = f(*ee)
                 else:
                     f_array = []

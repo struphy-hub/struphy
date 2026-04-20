@@ -181,7 +181,7 @@ class BracketOperator(LinOpWithTransp):
             )
 
         # Store the interpolation grid for later use in _update_all_weights
-        interpolation_grid = [pts.flatten() for pts in derham.V0splines.proj_grid_pts]
+        interpolation_grid = [pts.flatten() for pts in derham.V0splines.proj_grid_pts[0]]
 
         self.interpolation_grid_spans, self.interpolation_grid_bn, self.interpolation_grid_bd = (
             derham.prepare_eval_tp_fixed(interpolation_grid)
@@ -728,7 +728,7 @@ class Pressure_transport_operator(LinOpWithTransp):
         else:
             self._op = div @ self.Pip + self.Pip_div @ self.div
 
-        int_grid = [pts.flatten() for pts in self._derham.V3splines.proj_grid_pts]
+        int_grid = [pts.flatten() for pts in self._derham.V3splines.proj_grid_pts[0]]
 
         self.int_grid_spans, self.int_grid_bn, self.int_grid_bd = self._derham.prepare_eval_tp_fixed(
             int_grid,
@@ -873,7 +873,7 @@ class InternalEnergyEvaluator:
     def __init__(self, derham, gamma):
         self._derham = derham
         self._gamma = gamma
-        integration_grid = [grid_1d.flatten() for grid_1d in self._derham.V0splines.quad_grid_pts]
+        integration_grid = [grid_1d.flatten() for grid_1d in self._derham.V0splines.quad_grid_pts[0]]
 
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
             self._derham.prepare_eval_tp_fixed(
@@ -1332,7 +1332,7 @@ class H1vecMassMatrix_density:
         self._massop = mass_ops.create_weighted_mass("H1vec", "H1vec")
         self.field = derham.create_spline_function("field", "L2")
 
-        integration_grid = [grid_1d.flatten() for grid_1d in derham.V0splines.quad_grid_pts]
+        integration_grid = [grid_1d.flatten() for grid_1d in derham.V0splines.quad_grid_pts[0]]
 
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = derham.prepare_eval_tp_fixed(
             integration_grid,
@@ -1440,7 +1440,7 @@ class KineticEnergyEvaluator:
     """
 
     def __init__(self, derham, domain, mass_ops):
-        integration_grid = [grid_1d.flatten() for grid_1d in derham.V0splines.quad_grid_pts]
+        integration_grid = [grid_1d.flatten() for grid_1d in derham.V0splines.quad_grid_pts[0]]
 
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = derham.prepare_eval_tp_fixed(
             integration_grid,

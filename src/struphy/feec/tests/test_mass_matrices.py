@@ -20,7 +20,7 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
     the test:
 
     1. Projects known trigonometric right-hand-side functions onto the
-       corresponding finite-element space using :class:`~struphy.feec.projectors.L2Projector`.
+       corresponding finite-element space using :class:`~struphy.feec.mass.L2Projector`.
     2. Solves the linear system ``M * u = rhs`` with a CG solver.
     3. Evaluates the recovered field ``u`` on a uniform test grid and compares
        it point-wise to the exact function.
@@ -38,11 +38,10 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
     from struphy.fields_background.projected_equils import ProjectedMHDequilibrium 
     from struphy.geometry.base import Domain
     from struphy.geometry.domains import HollowCylinder
-    from struphy.feec.mass import WeightedMassOperators, WeightedMassOperator
+    from struphy.feec.mass import WeightedMassOperators, WeightedMassOperator, L2Projector
     from struphy.feec.psydac_derham import Derham
     from struphy.io.options import DerhamOptions
     from struphy.topology.grids import TensorProductGrid
-    from struphy.feec.projectors import L2Projector
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -240,11 +239,10 @@ def test_rotation(num_elements, degree, bcs, map_and_equil, eps, matrix_free, sh
     from struphy import domains, equils
     from struphy.geometry.base import Domain
     from struphy.geometry.domains import Cuboid, HollowCylinder
-    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.mass import WeightedMassOperators, L2Projector
     from struphy.feec.psydac_derham import Derham
     from struphy.io.options import DerhamOptions
     from struphy.topology.grids import TensorProductGrid
-    from struphy.feec.projectors import L2Projector
     from struphy.feec.utilities import LocalRotationMatrix
 
     mpi_comm = MPI.COMM_WORLD

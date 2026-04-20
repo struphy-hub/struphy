@@ -293,11 +293,11 @@ class SplineAttributes1D:
         self._quad_grid_bases = []
 
         if isinstance(femspace, TensorFemSpace):
-            tensor_spaces = (femspace,)
+            self._tensor_spaces = (femspace,)
         else:
-            tensor_spaces = femspace.spaces
-            
-        for comp_space in tensor_spaces:
+            self._tensor_spaces = femspace.spaces
+
+        for comp_space in self._tensor_spaces:
             assert isinstance(comp_space, TensorFemSpace)
 
             self._nbasis += [[]]
@@ -398,63 +398,68 @@ class SplineAttributes1D:
     # Derived 1d spline space attributes
     # ----------------------------------
     @property
-    def nbasis(self) -> list[list[int]] | list[int]:
-        """List of number of basis functions in each direction for each component of the vector space (or just one list for scalar space)."""
+    def tensor_spaces(self) -> tuple[TensorFemSpace, ...]:
+        """The underlying tensor product spaces (one per component for vector-valued spaces)."""
+        return self._tensor_spaces
+    
+    @property
+    def nbasis(self) -> list[list[int]]:
+        """List of number of basis functions in each direction for each component of the vector space."""
         return self._nbasis
 
     @property
-    def spline_types(self) -> list[list[str]] | list[str]:
-        """List of spline types in each direction ('B' or 'M') for each component of the vector space (or just one list for scalar space)."""
+    def spline_types(self) -> list[list[str]]:
+        """List of spline types in each direction ('B' or 'M') for each component of the vector space."""
         return self._spline_types
 
     @property
-    def spline_types_pyccel(self) -> list[xp.ndarray] | xp.ndarray:
-        """List of spline types in each direction as integers (0 for 'B', 1 for 'M') for each component of the vector space (or just one list for scalar space)."""
+    def spline_types_pyccel(self) -> list[xp.ndarray]:
+        """List of spline types in each direction as integers (0 for 'B', 1 for 'M') for each component of the vector space."""
         return self._spline_types_pyccel
 
     @property
-    def proj_grid_pts(self) -> list[list[xp.ndarray]] | list[xp.ndarray]:
-        """List of projection grid points in each direction for each component of the vector space (or just one list for scalar space)."""
+    def proj_grid_pts(self) -> list[list[xp.ndarray]]:
+        """List of projection grid points in each direction for each component of the vector space."""
         return self._proj_grid_pts
 
     @property
-    def proj_grid_wts(self) -> list[list[xp.ndarray]] | list[xp.ndarray]:
-        """List of projection grid weights in each direction for each component of the vector space (or just one list for scalar space)."""
+    def proj_grid_wts(self) -> list[list[xp.ndarray]]:
+        """List of projection grid weights in each direction for each component of the vector space."""
         return self._proj_grid_wts
 
     @property
-    def proj_grid_subs(self) -> list[list[xp.ndarray]] | list[xp.ndarray]:
-        """List of projection grid sub-interval indices in each direction for each component of the vector space (or just one list for scalar space)."""
+    def proj_grid_subs(self) -> list[list[xp.ndarray]]:
+        """List of projection grid sub-interval indices in each direction for each component of the vector space."""
         return self._proj_grid_subs
 
     @property
-    def proj_loc_grid_pts(self) -> list[list[xp.ndarray]] | list[xp.ndarray] | None:
-        """List of local projection grid points in each direction for each component of the vector space (or just one list for scalar space)."""
+    def proj_loc_grid_pts(self) -> list[list[xp.ndarray]] | None:
+        """List of local projection grid points in each direction for each component of the vector space."""
         return self._proj_loc_grid_pts
 
     @property
-    def proj_loc_grid_wts(self) -> list[list[xp.ndarray]] | list[xp.ndarray] | None:
-        """List of local projection grid weights in each direction for each component of the vector space (or just one list for scalar space)."""
+    def proj_loc_grid_wts(self) -> list[list[xp.ndarray]] | None:
+        """List of local projection grid weights in each direction for each component of the vector space."""
         return self._proj_loc_grid_wts
 
     @property
-    def quad_grid_pts(self) -> list[list[xp.ndarray]] | list[xp.ndarray]:
-        """List of quadrature grid points in each direction for each component of the vector space (or just one list for scalar space)."""
+    def quad_grid_pts(self) -> list[list[xp.ndarray]]:
+        """List of quadrature grid points in each direction for each component of the vector space."""
         return self._quad_grid_pts
 
     @property
-    def quad_grid_wts(self) -> list[list[xp.ndarray]] | list[xp.ndarray]:
-        """List of quadrature grid weights in each direction for each component of the vector space (or just one list for scalar space)."""
+    def quad_grid_wts(self) -> list[list[xp.ndarray]]:
+        """List of quadrature grid weights in each direction for each component of the vector space."""
         return self._quad_grid_wts
 
     @property
-    def quad_grid_spans(self) -> list[list[xp.ndarray]] | list[xp.ndarray]:
-        """List of quadrature grid basis function spans in each direction for each component of the vector space (or just one list for scalar space)."""
+    def quad_grid_spans(self) -> list[list[xp.ndarray]]:
+        """List of quadrature grid basis function spans in each direction for each component of the vector space."""
         return self._quad_grid_spans
 
     @property
-    def quad_grid_bases(self) -> list[list[xp.ndarray]] | list[xp.ndarray]:
-        """List of quadrature grid basis function values in each direction for each component of the vector space (or just one list for scalar space)."""
+    def quad_grid_bases(self) -> list[list[xp.ndarray]]:
+        """List of quadrature grid basis function values in each direction for each component of the vector space."""
         return self._quad_grid_bases
 
 
