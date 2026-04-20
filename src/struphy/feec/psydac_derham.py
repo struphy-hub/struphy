@@ -2,6 +2,7 @@
 
 import logging
 from typing import Callable
+from dataclasses import dataclass
 
 import cunumpy as xp
 import feectools.core.bsplines as bsp
@@ -49,7 +50,7 @@ from struphy.topology.grids import TensorProductGrid
 NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
 
 logger = logging.getLogger("struphy")
-
+    
 
 class DiscreteDerham:
     """Discrete 3D de Rham sequence built from four FE spaces.
@@ -64,6 +65,9 @@ class DiscreteDerham:
     where ``V0`` is an ``H1``-conforming scalar space, ``V1`` an ``Hcurl``
     vector space, ``V2`` an ``Hdiv`` vector space, and ``V3`` an ``L2``
     scalar space.
+    
+    The auxiliary space (H^1)^3 for vector fields is also built for projection and polar extraction purposes, 
+    but it is not part of the proper de Rham sequence.
 
     Parameters
     ----------
@@ -87,16 +91,20 @@ class DiscreteDerham:
     """
 
     def __init__(self, V0: TensorFemSpace, V1: VectorFemSpace, V2: VectorFemSpace, V3: TensorFemSpace):
-        spaces = (V0, V1, V2, V3)
+        spaces = [V0, V1, V2, V3]
         assert all(isinstance(space, (TensorFemSpace, VectorFemSpace)) for space in spaces)
+        # H1^3 space for vector fields (not part of the proper de Rham sequence, but useful for the projectors and polar extraction operators)
+        Vv = VectorFemSpace(V0, V0, V0)
+        Vv.symbolic_space = self.H1vecSymb()
 
         self._V0 = V0
         self._V1 = V1
         self._V2 = V2
         self._V3 = V3
-        self._spaces = spaces
+        self._Vv = Vv
+        self._spaces = tuple(spaces + [Vv])
         self._dim = 3
-
+        
         D0 = Gradient3D(V0, V1)
         D1 = Curl3D(V1, V2)
         D2 = Divergence3D(V2, V3)
@@ -104,6 +112,10 @@ class DiscreteDerham:
         V0.diff = V0.grad = D0
         V1.diff = V1.curl = D1
         V2.diff = V2.div = D2
+        
+    @dataclass
+    class H1vecSymb:
+        name = "H1vec"
 
     # --------------------------------------------------------------------------
     @property
@@ -130,6 +142,11 @@ class DiscreteDerham:
     def V3(self) -> TensorFemSpace:
         """Fourth space of the de Rham sequence : L2 space"""
         return self._V3
+    
+    @property
+    def Vv(self) -> VectorFemSpace:
+        """Auxiliary H1^3 space for vector fields, used for projection and polar extraction purposes."""
+        return self._Vv
 
     @property
     def spaces(self) -> tuple[TensorFemSpace | VectorFemSpace, ...]:
@@ -638,21 +655,12 @@ class Derham:
             use_feectools=use_feectools,
         )
 
-        # H1^3 space for vector fields (not part of the proper de Rham sequence, but useful for the projectors and polar extraction operators)
-        h1vec_space = VectorFemSpace(
-            derham.V0,
-            derham.V0,
-            derham.V0,
-        )
-        if use_feectools:
-            h1vec_space.symbolic_space = "H1vec"
-
         # FEM spaces
         self._V0fem = derham.V0
         self._V1fem = derham.V1
         self._V2fem = derham.V2
         self._V3fem = derham.V3
-        self._Vvfem = h1vec_space
+        self._Vvfem = derham.Vv
 
         # 1d spline spaces attributes for projector grids and polar extraction operators
         self._V0splines = SplineAttributes1D(
@@ -684,7 +692,7 @@ class Derham:
             local_projectors=local_projectors,
         )
         self._Vvsplines = SplineAttributes1D(
-            h1vec_space,
+            derham.Vv,
             self.nquads,
             self.nquads_proj,
             polar_splines=self.polar_splines,
