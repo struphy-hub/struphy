@@ -840,14 +840,14 @@ class CommutingProjectorLocal:
     fem_space : FemSpace
         FEEC space into which the functions shall be projected.
 
-    pts : list of xp.array
-        3-list (or nested 3-list[3-list] for BlockVectors) of 2D arrays with the quasi-interpolation points 
+    pts : Tuple of xp.array
+        Tuple (or nested tuple for BlockVectors) of 2D arrays with the quasi-interpolation points 
         (or Gauss-Legendre quadrature points for histopolation). 
         In format [spatial direction](B-spline index, point) for StencilVector spaces 
         or [vector component][spatial direction](B-spline index, point) for BlockVector spaces.
 
-    wts : list of xp.array
-        3D (4D for BlockVectors) list of 2D array with the Gauss-Legendre quadrature weights 
+    wts : Tuple of xp.array
+        3D (4D for BlockVectors) tuple of 2D array with the Gauss-Legendre quadrature weights 
         (full of ones for interpolation). 
         In format [spatial direction](B-spline index, point) for StencilVector spaces 
         or [vector component][spatial direction](B-spline index, point) for BlockVector spaces.
@@ -874,8 +874,8 @@ class CommutingProjectorLocal:
         space_id: str,
         space_key: str,
         fem_space: FemSpace,
-        pts: list,
-        wts: list,
+        pts: tuple,
+        wts: tuple,
         wij: list,
         whij: list,
         fem_space_B: TensorFemSpace,
@@ -1037,7 +1037,7 @@ class CommutingProjectorLocal:
                 IoH_for_indices,
                 lenj,
                 self._shift,
-                self._pts,
+                self._pts[0],
                 self._starts,
                 self._ends,
                 self._degree,
@@ -1075,9 +1075,9 @@ class CommutingProjectorLocal:
                 self._geo_weights[0],
                 self._geo_weights[1],
                 self._geo_weights[2],
-                self._wts[0],
-                self._wts[1],
-                self._wts[2],
+                self._wts[0][0],
+                self._wts[0][1],
+                self._wts[0][2],
                 self._inv_index_translation[0],
                 self._inv_index_translation[1],
                 self._inv_index_translation[2],
@@ -1511,12 +1511,12 @@ class CommutingProjectorLocal:
 
     @property
     def pts(self):
-        """3D (4D for BlockVectors) list of 2D array with the quasi-interpolation points (or Gauss-Legendre quadrature points for histopolation). In format (ns, nb, np) = (spatial direction, B-spline index, point) for StencilVector spaces or (nv,ns, nb, np) = (vector entry,spatial direction, B-spline index, point) for BlockVector spaces."""
+        """3D (4D for BlockVectors) tuple of 2D array with the quasi-interpolation points (or Gauss-Legendre quadrature points for histopolation). In format (ns, nb, np) = (spatial direction, B-spline index, point) for StencilVector spaces or (nv,ns, nb, np) = (vector entry,spatial direction, B-spline index, point) for BlockVector spaces."""
         return self._pts
 
     @property
     def wts(self):
-        """3D (4D for BlockVectors) list of 2D array with the Gauss-Legendre quadrature points (full of ones for interpolation). In format (ns, nb, np) = (spatial direction, B-spline index, point) for StencilVector spaces or (nv,ns, nb, np) = (vector entry,spatial direction, B-spline index, point) for BlockVector spaces."""
+        """3D (4D for BlockVectors) tuple of 2D array with the Gauss-Legendre quadrature points (full of ones for interpolation). In format (ns, nb, np) = (spatial direction, B-spline index, point) for StencilVector spaces or (nv,ns, nb, np) = (vector entry,spatial direction, B-spline index, point) for BlockVector spaces."""
         return self._wts
 
     @property

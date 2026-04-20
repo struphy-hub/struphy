@@ -1721,7 +1721,7 @@ class Derham:
         if self.with_local_projectors:
             # Allways call get_weights_local_projector with the grid points and discrete vector space of 0-forms
             self._wij, self._whij = get_weights_local_projector(
-                self.V0splines.proj_loc_grid_pts,
+                self.V0splines.proj_loc_grid_pts[0],
                 self.V0fem,
             )
 
