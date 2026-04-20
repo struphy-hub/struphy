@@ -13,12 +13,13 @@ from struphy.feec import basis_projection_kernels
 from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
 from struphy.feec.local_projectors_kernels import assemble_basis_projection_operator_local
 from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
-from struphy.feec.psydac_derham import get_pts_and_wts, get_span_and_basis
+from struphy.feec.psydac_derham import get_pts_and_wts, get_span_and_basis, Derham
 from struphy.feec.utilities import LocalRotationMatrix
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.docstring_converter import auto_convert_docstring
+from struphy.geometry.base import Domain
 
 logger = logging.getLogger("struphy")
 
@@ -65,12 +66,12 @@ class BasisProjectionOperators:
                 )
 
     @property
-    def derham(self):
+    def derham(self) -> Derham:
         """Discrete de Rham sequence on the logical unit cube."""
         return self._derham
 
     @property
-    def domain(self):
+    def domain(self) -> Domain:
         """Mapping from the logical unit cube to the physical domain with corresponding metric coefficients."""
         return self._domain
 
@@ -80,7 +81,7 @@ class BasisProjectionOperators:
         return self._weights
 
     @property
-    def rank(self):
+    def rank(self) -> int:
         """MPI rank, is 0 if no communicator."""
         return self._rank
 
@@ -912,27 +913,24 @@ class BasisProjectionOperators:
             else:
                 assert len(row) == 3
 
-        V_form = self.derham.space_to_form[V_id]
-        W_form = self.derham.space_to_form[W_id]
-
         if self.derham.with_local_projectors:
             out = BasisProjectionOperatorLocal(
-                self.derham.projectors[W_form],
-                self.derham.fem_spaces[V_form],
+                self.derham.projectors[W_id],
+                self.derham.fem_spaces[V_id],
                 fun,
-                self.derham.extraction_ops[V_form],
-                self.derham.boundary_ops[V_form],
-                self.derham.extraction_ops[W_form],
-                self.derham.boundary_ops[W_form],
+                self.derham.extraction_ops[V_id],
+                self.derham.boundary_ops[V_id],
+                self.derham.extraction_ops[W_id],
+                self.derham.boundary_ops[W_id],
                 transposed=False,
             )
         else:
             out = BasisProjectionOperator(
-                self.derham.projectors[W_form],
-                self.derham.fem_spaces[V_form],
+                self.derham.projectors[W_id],
+                self.derham.fem_spaces[V_id],
                 fun,
-                V_extraction_op=self.derham.extraction_ops[V_form],
-                V_boundary_op=self.derham.boundary_ops[V_form],
+                V_extraction_op=self.derham.extraction_ops[V_id],
+                V_boundary_op=self.derham.boundary_ops[V_id],
                 transposed=False,
                 polar_shift=self.domain.pole,
             )

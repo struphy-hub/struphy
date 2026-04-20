@@ -750,6 +750,8 @@ class Derham:
                     sp_id,
                     self.dirichlet_bc,
                 )
+            # We also store the boundary operator with the space id, for easier access
+            self._boundary_ops[sp_id] = self._boundary_ops[sp_form]
 
         # exterior derivatives TODO: disentagle tensor from polar spaces
         self._grad, self._curl, self._div = derham.derivatives_as_matrices
@@ -971,6 +973,11 @@ class Derham:
             "2": self.V2fem,
             "3": self.V3fem,
             "v": self.Vvfem,
+            "H1": self.V0fem,
+            "Hcurl": self.V1fem,
+            "Hdiv": self.V2fem,
+            "L2": self.V3fem,
+            "H1vec": self.Vvfem,
         }
 
     @property
@@ -1007,6 +1014,11 @@ class Derham:
             "2": self.V2splines,
             "3": self.V3splines,
             "v": self.Vvsplines,
+            "H1": self.V0splines,
+            "Hcurl": self.V1splines,
+            "Hdiv": self.V2splines,
+            "L2": self.V3splines,
+            "H1vec": self.Vvsplines,
         }
 
     @property
@@ -1043,6 +1055,11 @@ class Derham:
             "2": self.V2,
             "3": self.V3,
             "v": self.Vv,
+            "H1": self.V0,
+            "Hcurl": self.V1,
+            "Hdiv": self.V2,
+            "L2": self.V3,
+            "H1vec": self.Vv,
         }
 
     @property
@@ -1079,6 +1096,11 @@ class Derham:
             "2": self.V2pol,
             "3": self.V3pol,
             "v": self.Vvpol,
+            "H1": self.V0pol,
+            "Hcurl": self.V1pol,
+            "Hdiv": self.V2pol,
+            "L2": self.V3pol,
+            "H1vec": self.Vvpol,
         }
 
     @property
@@ -1151,6 +1173,11 @@ class Derham:
             "2": self.P2,
             "3": self.P3,
             "v": self.Pv,
+            "H1": self.P0,
+            "Hcurl": self.P1,
+            "Hdiv": self.P2,
+            "L2": self.P3,
+            "H1vec": self.Pv,
         }
 
     @property
@@ -1187,6 +1214,11 @@ class Derham:
             "2": self.P2glob,
             "3": self.P3glob,
             "v": self.Pvglob,
+            "H1": self.P0glob,
+            "Hcurl": self.P1glob,
+            "Hdiv": self.P2glob,
+            "L2": self.P3glob,
+            "H1vec": self.Pvglob,
         }
 
     @property
@@ -1223,6 +1255,11 @@ class Derham:
             "2": self.P2loc,
             "3": self.P3loc,
             "v": self.Pvloc,
+            "H1": self.P0loc,
+            "Hcurl": self.P1loc,
+            "Hdiv": self.P2loc,
+            "L2": self.P3loc,
+            "H1vec": self.Pvloc,
         }
 
     # ---------------------------------------
@@ -1710,6 +1747,8 @@ class Derham:
                 self.V0fem,
             )
 
+
+
         for i, (sp_id, sp_form) in enumerate(self.space_to_form.items()):
             vec_space = self.coeff_spaces[sp_form]
             # ------ Extraction operators ------
@@ -1739,6 +1778,9 @@ class Derham:
                     self.ck_blocks.p_ten_to_ten[sp_form],
                 )
 
+            # We also store the operators under the key of the space id, for easier access
+            self._extraction_ops[sp_id] = self._extraction_ops[sp_form]
+            self._dofs_extraction_ops[sp_id] = self._dofs_extraction_ops[sp_form]
             Vh_pol.append(pol_space)
 
         return tuple(Vh_pol)

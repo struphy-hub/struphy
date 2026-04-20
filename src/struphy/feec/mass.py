@@ -1036,9 +1036,6 @@ class WeightedMassOperators:
                         ],
                     ]
 
-        V_id = self.derham.space_to_form[V_id]
-        W_id = self.derham.space_to_form[W_id]
-
         out = WeightedMassOperator(
             self.derham,
             self.derham.fem_spaces[V_id],
