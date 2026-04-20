@@ -90,7 +90,7 @@ def test_eval_field(num_elements, degree, bcs):
     # V0 #
     ######
     # create legacy arrays with same coeffs
-    coeffs_loc = xp.reshape(p0.vector.toarray(), p0.nbasis)
+    coeffs_loc = xp.reshape(p0.vector.toarray(), p0.nbasis[0])
     if isinstance(comm, MockComm):
         coeffs = coeffs_loc
     else:
@@ -382,7 +382,7 @@ def test_eval_field(num_elements, degree, bcs):
     # V3 #
     ######
     # create legacy arrays with same coeffs
-    coeffs_loc = xp.reshape(n3.vector.toarray(), n3.nbasis)
+    coeffs_loc = xp.reshape(n3.vector.toarray(), n3.nbasis[0])
     if isinstance(comm, MockComm):
         coeffs = coeffs_loc
     else:

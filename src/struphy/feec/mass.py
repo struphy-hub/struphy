@@ -22,10 +22,8 @@ from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.docstring_converter import auto_convert_docstring, info
 from struphy.io.options import LiteralOptions
 from struphy.fields_background.base import MHDequilibrium
-from struphy import set_logging_level
 
 logger = logging.getLogger("struphy")
-set_logging_level(logging.WARNING)
 
 
 class WeightedMassOperators:
@@ -848,6 +846,11 @@ class WeightedMassOperators:
 
         self._transposed = transposed
         self._assemble = assemble
+        
+        self._quad_grid_pts = self.derham.spline_attributes[W_id].quad_grid_pts
+        self._quad_grid_wts = self.derham.spline_attributes[W_id].quad_grid_wts
+        self._quad_grid_spans = self.derham.spline_attributes[W_id].quad_grid_spans
+        self._quad_grid_bases = self.derham.spline_attributes[W_id].quad_grid_bases
 
         # Wrapper functions for evaluating metric coefficients in right order (3x3 entries are last two axes!!)
         def G(e1, e2, e3):
@@ -902,19 +905,10 @@ class WeightedMassOperators:
                     # Input in weights are string
                     if "eq_" in f:
                         f_components = f.split("q_")
-                        f_call = getattr(
-                            self.eq_mhd,
-                            f_components[-1],
-                        )
+                        f_call = getattr(self.eq_mhd, f_components[-1])
                     elif "/" in f:
                         f_components = f.split("/")
-                        if f_components[-1] == "G":
-                            f_call = G
-                        elif f_components[-1] == "Ginv":
-                            f_call = Ginv
-                        elif f_components[-1] == "DFinv":
-                            f_call = DFinv
-                        elif f_components[-1] == "sqrt_g":
+                        if f_components[-1] == "sqrt_g":
                             f_call = sqrt_g
                         else:
                             raise NotImplementedError(

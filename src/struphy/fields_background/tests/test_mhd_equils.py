@@ -4,10 +4,8 @@ import cunumpy as xp
 import pytest
 
 from struphy import equils
-from struphy import set_logging_level
 
 logger = logging.getLogger("struphy")
-set_logging_level(logging.WARNING)
 
 
 @pytest.mark.parametrize(

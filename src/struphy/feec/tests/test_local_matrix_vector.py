@@ -1,11 +1,9 @@
 import logging
 import pytest
 import cunumpy as xp
-from struphy import set_logging_level
 import logging
 
 logger = logging.getLogger("struphy")
-set_logging_level(logging.INFO)
 
 
 def test_local_matrix_vector():

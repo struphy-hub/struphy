@@ -292,89 +292,35 @@ class SplineAttributes1D:
         self._quad_grid_spans = []
         self._quad_grid_bases = []
 
-        if isinstance(femspace, VectorFemSpace):
-            # We iterate over each component of the vector
-            for comp_space in femspace.spaces:
-                assert isinstance(comp_space, TensorFemSpace)
+        if isinstance(femspace, TensorFemSpace):
+            tensor_spaces = (femspace,)
+        else:
+            tensor_spaces = femspace.spaces
+            
+        for comp_space in tensor_spaces:
+            assert isinstance(comp_space, TensorFemSpace)
 
-                self._nbasis += [[]]
-                self._spline_types += [[]]
-                self._spline_types_pyccel += [[]]
-                self._proj_grid_pts += [[]]
-                self._proj_grid_wts += [[]]
-                if local_projectors:
-                    self._proj_loc_grid_pts += [[]]
-                    self._proj_loc_grid_wts += [[]]
-                self._proj_grid_subs += [[]]
-                self._quad_grid_pts += [[]]
-                self._quad_grid_wts += [[]]
-                self._quad_grid_spans += [[]]
-                self._quad_grid_bases += [[]]
-
-                # space iterates over each of the spatial coordinates.
-                for d, (space, s, e, quad_grid, nquad) in enumerate(
-                    zip(
-                        comp_space.spaces,
-                        comp_space.coeff_space.starts,
-                        comp_space.coeff_space.ends,
-                        get_quad_grids(comp_space, self.nquads),
-                        self.nquads,
-                    ),
-                ):
-                    assert isinstance(space, SplineSpace)
-                    fag = quad_grid[nquad]
-                    assert isinstance(fag, FemAssemblyGrid)
-
-                    self._nbasis[-1] += [space.nbasis]
-                    self._spline_types[-1] += [space.basis]
-                    self._spline_types_pyccel[-1] += [
-                        int(space.basis == "M"),
-                    ]
-
-                    if local_projectors:
-                        ptsloc, wtsloc = get_pts_and_wts_quasi(
-                            space,
-                            polar_shift=d == 0 and self.polar_splines,
-                        )
-                        self._proj_loc_grid_pts[-1] += [ptsloc]
-                        self._proj_loc_grid_wts[-1] += [wtsloc]
-
-                    pts, wts, subs = get_pts_and_wts(
-                        space,
-                        s,
-                        e,
-                        n_quad=self.nquads_proj[d],
-                        polar_shift=d == 0 and self.polar_splines,
-                    )
-                    self._proj_grid_subs[-1] += [subs]
-
-                    self._proj_grid_pts[-1] += [pts]
-                    self._proj_grid_wts[-1] += [wts]
-                    self._quad_grid_pts[-1] += [fag.points]
-                    self._quad_grid_wts[-1] += [fag.weights]
-                    self._quad_grid_spans[-1] += [
-                        fag.spans,
-                    ]
-                    self._quad_grid_bases[-1] += [
-                        fag.basis,
-                    ]
-
-                self._spline_types_pyccel[-1] = xp.array(
-                    self._spline_types_pyccel[-1],
-                )
-
-        # In this case we are working with a scalar valued space
-        elif isinstance(femspace, TensorFemSpace):
-            # nquads must be manually set (has been deprecated in psydac)
-            # femspace.nquads = self.nquads
+            self._nbasis += [[]]
+            self._spline_types += [[]]
+            self._spline_types_pyccel += [[]]
+            self._proj_grid_pts += [[]]
+            self._proj_grid_wts += [[]]
+            if local_projectors:
+                self._proj_loc_grid_pts += [[]]
+                self._proj_loc_grid_wts += [[]]
+            self._proj_grid_subs += [[]]
+            self._quad_grid_pts += [[]]
+            self._quad_grid_wts += [[]]
+            self._quad_grid_spans += [[]]
+            self._quad_grid_bases += [[]]
 
             # space iterates over each of the spatial coordinates.
             for d, (space, s, e, quad_grid, nquad) in enumerate(
                 zip(
-                    femspace.spaces,
-                    femspace.coeff_space.starts,
-                    femspace.coeff_space.ends,
-                    get_quad_grids(femspace, self.nquads),
+                    comp_space.spaces,
+                    comp_space.coeff_space.starts,
+                    comp_space.coeff_space.ends,
+                    get_quad_grids(comp_space, self.nquads),
                     self.nquads,
                 ),
             ):
@@ -382,9 +328,9 @@ class SplineAttributes1D:
                 fag = quad_grid[nquad]
                 assert isinstance(fag, FemAssemblyGrid)
 
-                self._nbasis += [space.nbasis]
-                self._spline_types += [space.basis]
-                self._spline_types_pyccel += [
+                self._nbasis[-1] += [space.nbasis]
+                self._spline_types[-1] += [space.basis]
+                self._spline_types_pyccel[-1] += [
                     int(space.basis == "M"),
                 ]
 
@@ -393,8 +339,8 @@ class SplineAttributes1D:
                         space,
                         polar_shift=d == 0 and self.polar_splines,
                     )
-                    self._proj_loc_grid_pts += [ptsloc]
-                    self._proj_loc_grid_wts += [wtsloc]
+                    self._proj_loc_grid_pts[-1] += [ptsloc]
+                    self._proj_loc_grid_wts[-1] += [wtsloc]
 
                 pts, wts, subs = get_pts_and_wts(
                     space,
@@ -403,20 +349,22 @@ class SplineAttributes1D:
                     n_quad=self.nquads_proj[d],
                     polar_shift=d == 0 and self.polar_splines,
                 )
-                self._proj_grid_subs += [subs]
-                self._proj_grid_pts += [pts]
-                self._proj_grid_wts += [wts]
+                self._proj_grid_subs[-1] += [subs]
 
-                self._quad_grid_pts += [fag.points]
-                self._quad_grid_wts += [fag.weights]
-                self._quad_grid_spans += [fag.spans]
-                self._quad_grid_bases += [fag.basis]
+                self._proj_grid_pts[-1] += [pts]
+                self._proj_grid_wts[-1] += [wts]
+                self._quad_grid_pts[-1] += [fag.points]
+                self._quad_grid_wts[-1] += [fag.weights]
+                self._quad_grid_spans[-1] += [
+                    fag.spans,
+                ]
+                self._quad_grid_bases[-1] += [
+                    fag.basis,
+                ]
 
-            self._spline_types_pyccel = xp.array(
-                self._spline_types_pyccel,
+            self._spline_types_pyccel[-1] = xp.array(
+                self._spline_types_pyccel[-1],
             )
-        else:
-            raise TypeError(f"{femspace =} is not a valid type.")
 
     # ---------------
     # Input arguments
@@ -2181,15 +2129,9 @@ class SplineFunction:
             self._pads = [comp.pads for comp in self.space.spaces]
 
         # dimensions in each direction
-        if self._space_id in {"H1", "L2"}:
-            self._nbasis = tuple(
-                [space.nbasis for space in self.fem_space.spaces],
-            )
-        else:
-            self._nbasis = [tuple([space.nbasis for space in vec_space.spaces]) for vec_space in self.fem_space.spaces]
+        self._nbasis = derham.spline_attributes[space_id].nbasis
 
-        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info(f"\nAllocated SplineFuntion '{self.name}' in space '{self.space_id}'.")
+        logger.info(f"\nAllocated SplineFuntion '{self.name}' in space '{self.space_id}'.")
 
         if self.backgrounds is not None or self.perturbations is not None:
             self.initialize_coeffs(domain=self.domain, equil=self.equil, verbose=verbose)
@@ -2607,7 +2549,7 @@ class SplineFunction:
                 *spans,
                 *bases,
                 vec._data,
-                self.derham.spline_attributes[self.space_key].spline_types_pyccel,
+                self.derham.spline_attributes[self.space_key].spline_types_pyccel[0],
                 xp.array(self.derham.degree),
                 xp.array(self.starts),
                 out,
@@ -2719,7 +2661,8 @@ class SplineFunction:
 
         # scalar-valued field
         if isinstance(self._vector_stencil, StencilVector):
-            kind = self.derham.spline_attributes[self.space_key].spline_types_pyccel
+            kind = self.derham.spline_attributes[self.space_key].spline_types_pyccel[0]
+            logger.debug(f"{self.space_id = }, {kind = }")
 
             if is_sparse_meshgrid:
                 # eval_mpi needs flagged arrays E1, E2, E3 as input
@@ -2792,6 +2735,7 @@ class SplineFunction:
             if out_is_None:
                 out = []
             for n, kind in enumerate(self.derham.spline_attributes[self.space_key].spline_types_pyccel):
+                logger.debug(f"{self.space_id = }, {kind = }")
                 if is_sparse_meshgrid:
                     # eval_mpi needs flagged arrays E1, E2, E3 as input
                     eval_3d.eval_spline_mpi_sparse_meshgrid(
