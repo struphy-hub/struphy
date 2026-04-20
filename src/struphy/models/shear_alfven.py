@@ -1,6 +1,6 @@
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.io.options import LiteralOptions
+from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     FieldSpecies,
@@ -52,9 +52,9 @@ class ShearAlfven(StruphyModel):
             self.init_variables()
 
     class MHD(FluidSpecies):
-        def __init__(self):
+        def __init__(self, mass_number: float = 1.0):
             self.velocity = FEECVariable(space="Hdiv")
-            self.init_variables()
+            self.init_variables(mass_number=mass_number)
 
     class Propagators:
         def __init__(self) -> None:
@@ -73,19 +73,22 @@ class ShearAlfven(StruphyModel):
         self._b_eq = Propagator.projected_equil.b2
 
         # temporary vectors for scalar quantities
-        self._tmp_b1 = Propagator.derham.Vh["2"].zeros()
-        self._tmp_b2 = Propagator.derham.Vh["2"].zeros()
+        self._tmp_b1 = Propagator.derham.V2.zeros()
+        self._tmp_b2 = Propagator.derham.V2.zeros()
 
-    def __init__(self):
+    def __init__(self, base_units: BaseUnits = BaseUnits(), mass_number: float = 1.0):
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
-        self.mhd = self.MHD()
+        self.mhd = self.MHD(mass_number=mass_number)
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators()
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.shear_alf.variables.u = self.mhd.velocity
         self.propagators.shear_alf.variables.b = self.em_fields.b_field
 

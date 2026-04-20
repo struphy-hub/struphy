@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 
@@ -23,6 +24,8 @@ from struphy import (
 )
 from struphy.models import ViscousEulerSPH
 
+logger = logging.getLogger("struphy")
+
 
 @pytest.mark.parametrize("nx", [12, 24])
 @pytest.mark.parametrize("plot_pts", [11, 32])
@@ -35,9 +38,6 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "ViscousEulerSPH")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="soundwave_1d")
-
-    # units
-    base_units = BaseUnits(kBT=1.0)
 
     # time stepping
     time_opts = Time(dt=0.03125, Tend=2.5, split_algo="Strang")
@@ -54,9 +54,6 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
 
     # light-weight model instance
     model = ViscousEulerSPH(with_B0=False, with_viscosity=False)
-
-    # species parameters
-    model.euler_fluid.set_species_properties()
 
     loading_params = LoadingParameters(ppb=8, loading="tesselation")
     weights_params = WeightsParameters()
@@ -97,7 +94,6 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
     sim = Simulation(
         model=model,
         env=env,
-        base_units=base_units,
         time_opts=time_opts,
         domain=domain,
         grid=grid,
@@ -130,7 +126,7 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
             plot_ct = 0
             for i in range(0, Nt + 1):
                 if i % interval == 0:
-                    print(f"{i =}")
+                    logger.info(f"{i =}")
                     plot_ct += 1
                     ax = plt.gca()
 
@@ -154,9 +150,9 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
             plt.show()
 
         error = xp.max(xp.abs(n_sph[0] - n_sph[-1]))
-        print(f"SPH sound wave {error =}.")
+        logger.info(f"SPH sound wave {error =}.")
         assert error < 6e-4
-        print("Assertion passed.")
+        logger.info("Assertion passed.")
 
         shutil.rmtree(test_folder)
 

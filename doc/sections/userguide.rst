@@ -39,8 +39,8 @@ Define another simulation with different parameters::
     from struphy import Time, grids, DerhamOptions
 
     time_opts = Time(dt=0.1, Tend=0.3)
-    grid = grids.TensorProductGrid(Nel=(32, 1, 1))
-    derham_opts = DerhamOptions(p=(3, 1, 1))
+    grid = grids.TensorProductGrid(num_elements=(32, 1, 1))
+    derham_opts = DerhamOptions(degree=(3, 1, 1))
 
     sim2 = Simulation(model=model,
                       time_opts=time_opts,
@@ -135,25 +135,22 @@ This is the setup for running the two-stream instability with the Vlasov-Maxwell
 Start by choosing a good model for this test, and set the species properties for your test::
 
     from struphy.models import VlasovAmpereOneSpecies
-    model = VlasovAmpereOneSpecies(with_B0 = False)
-    model.kinetic_ions.set_species_properties(alpha=1.0, epsilon=-1.0)
+    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0 = False)
 
 We then set the basic options for this test::
 
     from struphy import (
-        BaseUnits,
         DerhamOptions,
         Time,
         domains,
         grids,
         )
 
-    base_units = BaseUnits()
     time_opts = Time(dt = 0.1, Tend = 50.0, split_algo = "LieTrotter")
     domain = domains.Cuboid(r1 = 31.42)
     equil = None
-    grid = grids.TensorProductGrid(Nel=(32, 1, 1))
-    derham_opts = DerhamOptions(p=(3, 1, 1))
+    grid = grids.TensorProductGrid(num_elements=(32, 1, 1))
+    derham_opts = DerhamOptions(degree=(3, 1, 1))
 
 Next, instantiate the simulation with the above parameters::
 
@@ -162,7 +159,6 @@ Next, instantiate the simulation with the above parameters::
     sim = Simulation(
         model=model,
         params_path=__file__,
-        base_units=base_units,
         time_opts=time_opts,
         domain=domain,
         equil=equil,

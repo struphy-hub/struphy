@@ -1,3 +1,8 @@
+import logging
+
+logger = logging.getLogger("struphy")
+
+
 def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
     """
     Profile finished Struphy runs.
@@ -44,20 +49,20 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
     if all:
         list_of_funcs = None
     else:
-        print("\nKeyword search enabled with the following filter:")
-        print("-------------------------------------------------")
-        print(list_of_funcs)
+        logger.info("\nKeyword search enabled with the following filter:")
+        logger.info("-------------------------------------------------")
+        logger.info(list_of_funcs)
 
-    print("\nLoad profiling data:")
-    print("--------------------")
+    logger.info("\nLoad profiling data:")
+    logger.info("--------------------")
 
     # load data
     sim_names = []
     dicts_pre = []
     nproc = []
-    Nel = []
+    num_elements = []
     for path in abs_paths:
-        print("")
+        logger.info("")
         get_cprofile_data(path, print_callers)
 
         sim_names += [path.split("/")[-1]]
@@ -74,9 +79,9 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
             params = yaml.load(f, Loader=yaml.FullLoader)
 
         if "grid" in params:
-            Nel += [params["grid"]["Nel"]]
+            num_elements += [params["grid"]["num_elements"]]
         else:
-            Nel += [0]
+            num_elements += [0]
 
     # Nicer key names for output:
     dicts = []
@@ -98,7 +103,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
 
     # loop over keys (should be same in each dict)
     d_saved = {}
-    print(
+    logger.info(
         "simulation".ljust(20)
         + "#proc".ljust(7)
         + "pos".ljust(5)
@@ -108,10 +113,10 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
         + "percall".ljust(15)
         + "cumtime".ljust(15),
     )
-    print("-" * 154)
+    logger.info("-" * 154)
     for position, key in enumerate(dicts[0].keys()):
         if list_of_funcs is None:
-            for dict, sim_name, n, dim in zip(dicts, sim_names, nproc, Nel):
+            for dict, sim_name, n, dim in zip(dicts, sim_names, nproc, num_elements):
                 string = f"{sim_name}".ljust(20) + f"{n}".ljust(7) + f"{position:2d}".ljust(5) + str(key.ljust(70))
                 for value in dict[key].values():
                     string += str(value).ljust(15)
@@ -119,27 +124,27 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
                     #     string += '\t\t'
                     # else:
                     #     string += '\t'
-                print(string)
-            print("")
+                logger.info(string)
+            logger.info("")
 
             if position == 50:
                 break
 
         elif any(func in key for func in list_of_funcs) and "dependencies_" not in key and "_dot" not in key:
-            d_saved[key] = {"mpi_size": [], "Nel": [], "time": [], "ncalls": []}
+            d_saved[key] = {"mpi_size": [], "num_elements": [], "time": [], "ncalls": []}
 
-            for dict, sim_name, n, dim in zip(dicts, sim_names, nproc, Nel):
+            for dict, sim_name, n, dim in zip(dicts, sim_names, nproc, num_elements):
                 string = f"{sim_name}".ljust(20) + f"{n}".ljust(7) + f"{position:2d}".ljust(5) + str(key.ljust(70))
                 for value in dict[key].values():
                     string += str(value).ljust(15)
                     # string += '\t\t'
-                print(string)
+                logger.info(string)
 
                 d_saved[key]["mpi_size"] += [n]
-                d_saved[key]["Nel"] += [dim]
+                d_saved[key]["num_elements"] += [dim]
                 d_saved[key]["time"] += [dict[key]["cumtime"]]
                 d_saved[key]["ncalls"] += [dict[key]["ncalls"]]
-            print("")
+            logger.info("")
 
             if position >= 200:
                 break
@@ -167,7 +172,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
                 ratio.append(str(int(float(t) / runtime * 100)) + "%")
 
             # strong scaling plot
-            if xp.all([Nel == val["Nel"][0] for Nel in val["Nel"]]):
+            if xp.all([num_elements == val["num_elements"][0] for num_elements in val["num_elements"]]):
                 # ideal scaling
                 if n == 0:
                     ax.loglog(val["mpi_size"], 1 / 2 ** xp.arange(len(val["time"])), "k--", alpha=0.3, label="ideal")
@@ -196,7 +201,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
                 # plt.loglog(val['mpi_size'], val['time'], label=key)
                 ax.set_xlabel("MPI #", fontsize=13)
                 ax.set_ylabel("Relative time [Total time with MPI #" + str(val["mpi_size"][0]) + "]", fontsize=13)
-                ax.set(title="Strong scaling for Nel=" + str(val["Nel"][0]) + " cells")
+                ax.set(title="Strong scaling for num_elements=" + str(val["num_elements"][0]) + " cells")
                 ax.legend(loc="lower left")
 
             # weak scaling plot
@@ -206,7 +211,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
                 ax.set_ylabel("time [s]")
                 ax.set(
                     title="Weak scaling for cells/mpi_size="
-                    + str(xp.prod(val["Nel"][0]) / val["mpi_size"][0])
+                    + str(xp.prod(val["num_elements"][0]) / val["mpi_size"][0])
                     + "=const.",
                 )
                 ax.legend(loc="upper left")

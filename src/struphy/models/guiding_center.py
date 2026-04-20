@@ -1,6 +1,9 @@
+import logging
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
@@ -12,6 +15,7 @@ from struphy.propagators import (
 )
 from struphy.propagators.base import Propagator
 
+logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
 
 
@@ -55,9 +59,18 @@ class GuidingCenter(StruphyModel):
     ## species
 
     class KineticIons(ParticleSpecies):
-        def __init__(self):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+            epsilon: float = None,
+        ):
             self.var = PICVariable(space="Particles5D")
-            self.init_variables()
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                epsilon=epsilon,
+            )
 
     ## propagators
 
@@ -68,15 +81,28 @@ class GuidingCenter(StruphyModel):
 
     ## abstract methods
 
-    def __init__(self):
+    def __init__(
+        self,
+        base_units: BaseUnits = BaseUnits(),
+        charge_number: int = 1,
+        mass_number: float = 1.0,
+        epsilon: float = None,
+    ):
 
         # 1. instantiate all species
-        self.kinetic_ions = self.KineticIons()
+        self.kinetic_ions = self.KineticIons(
+            charge_number,
+            mass_number,
+            epsilon,
+        )
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators()
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.push_bxe.variables.ions = self.kinetic_ions.var
         self.propagators.push_parallel.variables.ions = self.kinetic_ions.var
 
@@ -86,7 +112,7 @@ class GuidingCenter(StruphyModel):
         self.add_scalar("en_tot", compute="from_particles", variable=self.kinetic_ions.var)
 
         if rank == 0:
-            print("Done.")
+            logger.info("Done.")
 
     @property
     def bulk_species(self):

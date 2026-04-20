@@ -1,4 +1,5 @@
 import inspect
+import logging
 from copy import deepcopy
 
 import cunumpy as xp
@@ -14,10 +15,12 @@ from feectools.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, Stenc
 from struphy.feec import mass_kernels
 from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
 from struphy.feec.psydac_derham import Derham
-from struphy.feec.utilities import RotationMatrix
+from struphy.feec.utilities import RotationMatrix, get_quad_grids
 from struphy.geometry.base import Domain
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.pyccel import Pyccelkernel
+
+logger = logging.getLogger("struphy")
 
 
 class WeightedMassOperators:
@@ -444,7 +447,7 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, "_M2B_div0"):
-            a_eq = self.derham.P["1"](
+            a_eq = self.derham.P1(
                 [
                     self.weights[self.selected_weight].a1_1,
                     self.weights[self.selected_weight].a1_2,
@@ -550,7 +553,7 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, "_M2Bn"):
-            a_eq = self.derham.P["1"](
+            a_eq = self.derham.P1(
                 [
                     self.weights[self.selected_weight].a1_1,
                     self.weights[self.selected_weight].a1_2,
@@ -964,8 +967,8 @@ class WeightedMassOperators:
 
         out = WeightedMassOperator(
             self.derham,
-            self.derham.Vh_fem[V_id],
-            self.derham.Vh_fem[W_id],
+            self.derham.fem_spaces[V_id],
+            self.derham.fem_spaces[W_id],
             name=name,
             V_extraction_op=self.derham.extraction_ops[V_id],
             W_extraction_op=self.derham.extraction_ops[W_id],
@@ -1047,7 +1050,7 @@ class WeightedMassOperators:
             self._massop = mass_ops.create_weighted_mass("H1vec", "H1vec")
             self.field = derham.create_spline_function("field", "L2")
 
-            integration_grid = [grid_1d.flatten() for grid_1d in derham.quad_grid_pts["0"]]
+            integration_grid = [grid_1d.flatten() for grid_1d in derham.V0splines.quad_grid_pts]
 
             self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
                 derham.prepare_eval_tp_fixed(
@@ -1633,7 +1636,7 @@ class WeightedMassOperatorsOldForTesting:
         """
 
         if not hasattr(self, "_M2B_div0"):
-            a_eq = self.derham.P["1"](
+            a_eq = self.derham.P1(
                 [
                     self.weights[self.selected_weight].a1_1,
                     self.weights[self.selected_weight].a1_2,
@@ -1747,7 +1750,7 @@ class WeightedMassOperatorsOldForTesting:
         """
 
         if not hasattr(self, "_M2BN"):  # typo M2BN instead of M2Bn??
-            a_eq = self.derham.P["1"](
+            a_eq = self.derham.P1(
                 [
                     self.weights[self.selected_weight].a1_1,
                     self.weights[self.selected_weight].a1_2,
@@ -2035,8 +2038,8 @@ class WeightedMassOperatorsOldForTesting:
 
         out = WeightedMassOperator(
             self.derham,
-            self.derham.Vh_fem[V_id],
-            self.derham.Vh_fem[W_id],
+            self.derham.fem_spaces[V_id],
+            self.derham.fem_spaces[W_id],
             V_extraction_op=self.derham.extraction_ops[V_id],
             W_extraction_op=self.derham.extraction_ops[W_id],
             V_boundary_op=self.derham.boundary_ops[V_id],
@@ -2383,7 +2386,7 @@ class WeightedMassOperator(LinOpWithTransp):
                             pts = [
                                 quad_grid[nquad].points.flatten()
                                 for quad_grid, nquad in zip(
-                                    self.derham.get_quad_grids(wspace, nquads=self.nquads),
+                                    get_quad_grids(wspace, nquads=self.nquads),
                                     self.nquads,
                                 )
                             ]
@@ -2534,10 +2537,10 @@ class WeightedMassOperator(LinOpWithTransp):
         if all(op is None for op in (self._W_extraction_op, self._V_extraction_op)):
             for bl in self._V_boundary_op.bc:
                 for bc in bl:
-                    assert not bc, print(".tosparse() only works without boundary conditions at the moment")
+                    assert not bc, logger.info(".tosparse() only works without boundary conditions at the moment")
             for bl in self._W_boundary_op.bc:
                 for bc in bl:
-                    assert not bc, print(".tosparse() only works without boundary conditions at the moment")
+                    assert not bc, logger.info(".tosparse() only works without boundary conditions at the moment")
 
             return self._mat.tosparse()
         elif all(isinstance(op, IdentityOperator) for op in (self._W_extraction_op, self._V_extraction_op)):
@@ -2550,10 +2553,10 @@ class WeightedMassOperator(LinOpWithTransp):
         if all(op is None for op in (self._W_extraction_op, self._V_extraction_op)):
             for bl in self._V_boundary_op.bc:
                 for bc in bl:
-                    assert not bc, print(".toarray() only works without boundary conditions at the moment")
+                    assert not bc, logger.info(".toarray() only works without boundary conditions at the moment")
             for bl in self._W_boundary_op.bc:
                 for bc in bl:
-                    assert not bc, print(".toarray() only works without boundary conditions at the moment")
+                    assert not bc, logger.info(".toarray() only works without boundary conditions at the moment")
 
             return self._mat.toarray()
         elif all(isinstance(op, IdentityOperator) for op in (self._W_extraction_op, self._V_extraction_op)):
@@ -2767,7 +2770,7 @@ class WeightedMassOperator(LinOpWithTransp):
                     rank = 0
 
             if rank == 0 and verbose:
-                print(
+                logger.info(
                     f'\nAssembling matrix of WeightedMassOperator "{self.name}" with V={self._domain_symbolic_name}, W={self._codomain_symbolic_name}.',
                 )
 
@@ -2804,7 +2807,7 @@ class WeightedMassOperator(LinOpWithTransp):
                 codomain_spans = [
                     quad_grid[nquad].spans
                     for quad_grid, nquad in zip(
-                        self.derham.get_quad_grids(codomain_space, nquads=self.nquads),
+                        get_quad_grids(codomain_space, nquads=self.nquads),
                         self.nquads,
                     )
                 ]
@@ -2818,14 +2821,14 @@ class WeightedMassOperator(LinOpWithTransp):
                 pts = [
                     quad_grid[nquad].points.flatten()
                     for quad_grid, nquad in zip(
-                        self.derham.get_quad_grids(codomain_space, nquads=self.nquads),
+                        get_quad_grids(codomain_space, nquads=self.nquads),
                         self.nquads,
                     )
                 ]
                 wts = [
                     quad_grid[nquad].weights
                     for quad_grid, nquad in zip(
-                        self.derham.get_quad_grids(codomain_space, nquads=self.nquads),
+                        get_quad_grids(codomain_space, nquads=self.nquads),
                         self.nquads,
                     )
                 ]
@@ -2834,7 +2837,7 @@ class WeightedMassOperator(LinOpWithTransp):
                 codomain_basis = [
                     quad_grid[nquad].basis
                     for quad_grid, nquad in zip(
-                        self.derham.get_quad_grids(codomain_space, nquads=self.nquads),
+                        get_quad_grids(codomain_space, nquads=self.nquads),
                         self.nquads,
                     )
                 ]
@@ -2878,7 +2881,7 @@ class WeightedMassOperator(LinOpWithTransp):
                     domain_basis = [
                         quad_grid[nquad].basis
                         for quad_grid, nquad in zip(
-                            self.derham.get_quad_grids(domain_space, nquads=self.nquads),
+                            get_quad_grids(domain_space, nquads=self.nquads),
                             self.nquads,
                         )
                     ]
@@ -2908,7 +2911,7 @@ class WeightedMassOperator(LinOpWithTransp):
                             mat = self._mat[a, b]
 
                         if rank == 0 and verbose:
-                            print(f"Assemble block {a, b}")
+                            logger.info(f"Assemble block {a, b}")
 
                         self._assembly_kernel(
                             *codomain_spans,
@@ -2948,7 +2951,7 @@ class WeightedMassOperator(LinOpWithTransp):
                 self._mat[2, 1]._data[:] = -self._mat[1, 2].T._data
 
             if rank == 0 and verbose:
-                print("Done.")
+                logger.info("Done.")
 
     def copy(self, out=None):
         """Create a copy of self, that can potentially be stored in a given WeightedMassOperator.
@@ -3052,7 +3055,7 @@ class WeightedMassOperator(LinOpWithTransp):
                     xp.zeros(
                         [
                             q_grid[nquad].points.size
-                            for q_grid, nquad in zip(self.derham.get_quad_grids(W, nquads=self.nquads), self.nquads)
+                            for q_grid, nquad in zip(get_quad_grids(W, nquads=self.nquads), self.nquads)
                         ],
                         dtype=float,
                     ),
@@ -3064,7 +3067,7 @@ class WeightedMassOperator(LinOpWithTransp):
                             [
                                 q_grid[nquad].points.size
                                 for q_grid, nquad in zip(
-                                    self.derham.get_quad_grids(space, nquads=self.nquads),
+                                    get_quad_grids(space, nquads=self.nquads),
                                     self.nquads,
                                 )
                             ],
@@ -3087,7 +3090,7 @@ class WeightedMassOperator(LinOpWithTransp):
             # knot span indices of elements of local domain
             spans = [
                 quad_grid[nquad].spans
-                for quad_grid, nquad in zip(self.derham.get_quad_grids(wspace, nquads=self.nquads), self.nquads)
+                for quad_grid, nquad in zip(get_quad_grids(wspace, nquads=self.nquads), self.nquads)
             ]
 
             # global start spline index on process
@@ -3099,17 +3102,17 @@ class WeightedMassOperator(LinOpWithTransp):
             # global quadrature points (flattened) and weights in format (local element, local weight)
             pts = [
                 quad_grid[nquad].points.flatten()
-                for quad_grid, nquad in zip(self.derham.get_quad_grids(wspace, nquads=self.nquads), self.nquads)
+                for quad_grid, nquad in zip(get_quad_grids(wspace, nquads=self.nquads), self.nquads)
             ]
             wts = [
                 quad_grid[nquad].weights
-                for quad_grid, nquad in zip(self.derham.get_quad_grids(wspace, nquads=self.nquads), self.nquads)
+                for quad_grid, nquad in zip(get_quad_grids(wspace, nquads=self.nquads), self.nquads)
             ]
 
             # evaluated basis functions at quadrature points of codomain space
             basis = [
                 quad_grid[nquad].basis
-                for quad_grid, nquad in zip(self.derham.get_quad_grids(wspace, nquads=self.nquads), self.nquads)
+                for quad_grid, nquad in zip(get_quad_grids(wspace, nquads=self.nquads), self.nquads)
             ]
 
             if isinstance(coeffs, StencilVector):
@@ -3194,8 +3197,7 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
 
         # knot span indices of elements of local domain
         self._codomain_spans = [
-            quad_grid[nquad].spans
-            for quad_grid, nquad in zip(self.derham.get_quad_grids(self._W, nquads=self.nquads), self.nquads)
+            quad_grid[nquad].spans for quad_grid, nquad in zip(get_quad_grids(self._W, nquads=self.nquads), self.nquads)
         ]
 
         # global start spline index on process
@@ -3205,14 +3207,12 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
 
         # evaluated basis functions at quadrature points of codomain space
         self._codomain_basis = [
-            quad_grid[nquad].basis
-            for quad_grid, nquad in zip(self.derham.get_quad_grids(self._W, nquads=self.nquads), self.nquads)
+            quad_grid[nquad].basis for quad_grid, nquad in zip(get_quad_grids(self._W, nquads=self.nquads), self.nquads)
         ]
 
         # knot span indices of elements of local domain
         self._domain_spans = [
-            quad_grid[nquad].spans
-            for quad_grid, nquad in zip(self.derham.get_quad_grids(self._V, nquads=self.nquads), self.nquads)
+            quad_grid[nquad].spans for quad_grid, nquad in zip(get_quad_grids(self._V, nquads=self.nquads), self.nquads)
         ]
 
         # global start spline index on process
@@ -3223,19 +3223,18 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
 
         # evaluated basis functions at quadrature points of domain space
         self._domain_basis = [
-            quad_grid[nquad].basis
-            for quad_grid, nquad in zip(self.derham.get_quad_grids(self._V, nquads=self.nquads), self.nquads)
+            quad_grid[nquad].basis for quad_grid, nquad in zip(get_quad_grids(self._V, nquads=self.nquads), self.nquads)
         ]
 
         # global quadrature points (flattened) and weights in format (local element, local weight)
         self._pts = [
             quad_grid[nquad].points.flatten()
-            for quad_grid, nquad in zip(self.derham.get_quad_grids(self._W, nquads=self.nquads), self.nquads)
+            for quad_grid, nquad in zip(get_quad_grids(self._W, nquads=self.nquads), self.nquads)
         ]
         self._wts = [
             quad_grid[nquad].weights
             for quad_grid, nquad in zip(
-                self.derham.get_quad_grids(self._W, nquads=self.nquads),
+                get_quad_grids(self._W, nquads=self.nquads),
                 self.nquads,
             )
         ]

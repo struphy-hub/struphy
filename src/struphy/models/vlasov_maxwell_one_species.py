@@ -1,6 +1,9 @@
+import logging
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
@@ -17,6 +20,8 @@ from struphy.propagators import (
 )
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
+
+logger = logging.getLogger("struphy")
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -114,9 +119,20 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             self.init_variables()
 
     class KineticIons(ParticleSpecies):
-        def __init__(self):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+            alpha: float = None,
+            epsilon: float = None,
+        ):
             self.var = PICVariable(space="Particles6D")
-            self.init_variables()
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                alpha=alpha,
+                epsilon=epsilon,
+            )
 
     ## propagators
 
@@ -129,16 +145,32 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
     ## abstract methods
 
-    def __init__(self, measure_gauss_law: bool = False):
+    def __init__(
+        self,
+        base_units: BaseUnits = BaseUnits(),
+        charge_number: int = 1,
+        mass_number: float = 1.0,
+        alpha: float = None,
+        epsilon: float = None,
+        measure_gauss_law: bool = False,
+    ):
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
-        self.kinetic_ions = self.KineticIons()
+        self.kinetic_ions = self.KineticIons(
+            charge_number,
+            mass_number,
+            alpha,
+            epsilon,
+        )
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators()
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.maxwell.variables.e = self.em_fields.e_field
         self.propagators.maxwell.variables.b = self.em_fields.b_field
         self.propagators.push_eta.variables.var = self.kinetic_ions.var
@@ -184,7 +216,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             self.intercom_residual = xp.empty(shape=particles.num_clones, dtype=float)
 
         if MPI.COMM_WORLD.Get_rank() == 0:
-            print("\nINITIAL POISSON SOLVE:")
+            logger.info("\nINITIAL POISSON SOLVE:")
 
         # use control variate method (reset weights after Poisson solve)
         particles.update_weights()
@@ -213,13 +245,13 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
         # Solve with dt=1. and compute electric field
         if MPI.COMM_WORLD.Get_rank() == 0:
-            print("\nSolving initial Poisson problem...")
+            logger.info("\nSolving initial Poisson problem...")
         self.initial_poisson(1.0)
 
         phi = self.initial_poisson.variables.phi.spline.vector
         Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
         if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-            print("... Done.")
+            logger.info("... Done.")
 
         # reset particle weights
         particles.weights = particles.weights_at_t0.copy()
@@ -240,9 +272,9 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # calculate local residual of local MPI rank
         loc_residual = xp.max(xp.abs(lhs.toarray() - rhs.toarray()))
 
-        # print(f"{MPI.COMM_WORLD.Get_rank() = }, {xp.max(xp.abs(lhs.toarray())) = }")
-        # print(f"{MPI.COMM_WORLD.Get_rank() = }, {xp.max(xp.abs(rhs.toarray())) = }")
-        # print(f"{loc_residual = }")
+        # logger.info(f"{MPI.COMM_WORLD.Get_rank() = }, {xp.max(xp.abs(lhs.toarray())) = }")
+        # logger.info(f"{MPI.COMM_WORLD.Get_rank() = }, {xp.max(xp.abs(rhs.toarray())) = }")
+        # logger.info(f"{loc_residual = }")
 
         # return the maximum residual across all MPI rank
         particles._gather_scalar_in_subcomm_array(scalar=loc_residual, out=self.subcom_residual)

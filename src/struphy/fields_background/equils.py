@@ -2,6 +2,7 @@
 
 import copy
 import importlib.util
+import logging
 import os
 import sys
 import warnings
@@ -39,6 +40,8 @@ from struphy.utils.utils import all_class_params_are_default, read_state, subp_r
 
 if TYPE_CHECKING:
     from struphy import domains
+
+logger = logging.getLogger("struphy")
 
 if isinstance(MPI, MockMPI):
     comm = None
@@ -1714,11 +1717,11 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         Path to eqdsk file (default: "AUGNLED_g031213.00830.high").
     data_type : int
         0: there is no space between data, 1: there is space between data (default: 0).
-    p_for_psi : tuple[int]
+    degree_for_psi : tuple[int]
         Spline degrees in (R, Z) directions used for interpolation of psi data (default: [3, 3]).
     psi_resolution : tuple[float]
         Resolution of psi data in (R, Z) directions in %, e.g. [50., 50.] uses every second psi data point (default: [25., 6.25]).
-    p_for_flux : int
+    degree_for_flux : int
         Spline degree in psi direction used for interpolation of 1d functions that depend on psi: f=f(psi) (default: 3).
     flux_resolution : float
         Resolution of 1d f=f(psi) data in %, e.g. 25. uses every forth data point (default: 50.).
@@ -1737,9 +1740,9 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         rel_path: bool = True,
         file: str = None,
         data_type: int = 0,
-        p_for_psi: tuple = (3, 3),
+        degree_for_psi: tuple = (3, 3),
         psi_resolution: tuple = (25.0, 6.25),
-        p_for_flux: int = 3,
+        degree_for_flux: int = 3,
         flux_resolution: float = 50.0,
         n1: float = 2.0,
         n2: float = 1.0,
@@ -1753,7 +1756,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         if file is None:
             file = "AUGNLED_g031213.00830.high"
             if rank == 0:
-                print(f"EQDSK: taking default file {file}.")
+                logger.info(f"EQDSK: taking default file {file}.")
 
         # units
         self._units = Units(base=base_units)
@@ -1828,8 +1831,8 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
             R[:: smooth_steps[0]],
             Z[:: smooth_steps[1]],
             psi[:: smooth_steps[0], :: smooth_steps[1]],
-            kx=self.params["p_for_psi"][0],
-            ky=self.params["p_for_psi"][1],
+            kx=self.params["degree_for_psi"][0],
+            ky=self.params["degree_for_psi"][1],
             s=0.0,
         )
 
@@ -1854,21 +1857,21 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         self._g_i = UnivariateSpline(
             flux_grid[::smooth_step],
             g_profile[::smooth_step],
-            k=self.params["p_for_flux"],
+            k=self.params["degree_for_flux"],
             s=0.0,
             ext=3,
         )
         self._p_i = UnivariateSpline(
             flux_grid[::smooth_step],
             p_profile[::smooth_step],
-            k=self.params["p_for_flux"],
+            k=self.params["degree_for_flux"],
             s=0.0,
             ext=3,
         )
         self._q_i = UnivariateSpline(
             flux_grid[::smooth_step],
             q_profile[::smooth_step],
-            k=self.params["p_for_flux"],
+            k=self.params["degree_for_flux"],
             s=0.0,
             ext=3,
         )
@@ -2070,9 +2073,9 @@ class GVECequilibrium(NumericalMHDequilibrium):
         Whether the field periods of the stellarator should be used in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake) (default: True).
     rmin : float
         Between [0, 1), radius (in logical space) of the domian hole around the magnetic axis (default: rmin=0.01).
-    Nel : tuple[int]
+    num_elements : tuple[int]
         Number of cells in each direction used for interpolation of the mapping (default: (16, 16, 16)).
-    p : tuple[int]
+    degree : tuple[int]
         Spline degree in each direction used for interpolation of the mapping (default: (3, 3, 3)).
     density_profile : str
         'parabolic' for a parabolic density profile, 'linear' for a linear density profile or 'pressure' for a density profile proportional to pressure
@@ -2098,8 +2101,8 @@ class GVECequilibrium(NumericalMHDequilibrium):
         use_boozer: bool = False,
         use_nfp: bool = True,
         rmin: float = 0.01,
-        Nel: tuple[int] = (16, 16, 16),
-        p: tuple[int] = (3, 3, 3),
+        num_elements: tuple[int] = (16, 16, 16),
+        degree: tuple[int] = (3, 3, 3),
         density_profile: str = "pressure",
         p0: float = 0.1,
         n0: float = 0.2,
@@ -2116,10 +2119,10 @@ class GVECequilibrium(NumericalMHDequilibrium):
 
             with pytest.raises(SystemExit) as exc:
                 if rank == 0:
-                    print("Simulation aborted, gvec must be installed (pip install gvec)!")
+                    logger.info("Simulation aborted, gvec must be installed (pip install gvec)!")
                 sys.exit(1)
             if rank == 0:
-                print(f"{exc.value.code =}")
+                logger.info(f"{exc.value.code =}")
 
         import gvec
 
@@ -2354,9 +2357,9 @@ class DESCequilibrium(NumericalMHDequilibrium):
         Whether the field periods of the stellarator should be used in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake) (default: True).
     rmin : float
         Between [0, 1), radius (in logical space) of the domian hole around the magnetic axis (default: rmin=0.01).
-    Nel : tuple[int]
+    num_elements : tuple[int]
         Number of cells in each direction used for interpolation of the mapping (default: (16, 16, 16)).
-    p : tuple[int]
+    degree : tuple[int]
         Spline degree in each direction used for interpolation of the mapping (default: (3, 3, 3)).
     T_kelvin : float
         maximum of temperature in Kelvin (default: 100000).
@@ -2371,8 +2374,8 @@ class DESCequilibrium(NumericalMHDequilibrium):
         use_pest: bool = False,
         use_nfp: bool = True,
         rmin: float = 0.01,
-        Nel: tuple[int] = (16, 16, 50),
-        p: tuple[int] = (3, 3, 3),
+        num_elements: tuple[int] = (16, 16, 50),
+        degree: tuple[int] = (3, 3, 3),
         T_kelvin: float = 100000.0,
         base_units: BaseUnits = None,
     ):
@@ -2388,14 +2391,14 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         if desc_spec is None:
             if rank == 0:
-                print("Simulation aborted, desc-opt must be installed!")
-                print("Install with:\npip install desc-opt")
+                logger.info("Simulation aborted, desc-opt must be installed!")
+                logger.info("Install with:\npip install desc-opt")
             sys.exit(1)
 
         import desc
 
         if rank == 0 and verbose:
-            print(f"DESC import: {time() - t} seconds")
+            logger.info(f"DESC import: {time() - t} seconds")
         from struphy.geometry.domains import DESCunit
 
         # units
@@ -2425,7 +2428,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
             self._eq = desc.io.load(eq_name)
 
         if rank == 0 and verbose:
-            print(f"Eq. load: {time() - t} seconds")
+            logger.info(f"Eq. load: {time() - t} seconds")
         self._rmin = self.params["rmin"]
         self._use_nfp = self.params["use_nfp"]
 
@@ -2495,13 +2498,13 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
             if cached:
                 out = self._cache["bv"]["outs"][i]
-                # print(f'Used cached bv at {i = }.')
+                # logger.info(f'Used cached bv at {i = }.')
             else:
                 out = self._eval_bv(*etas, squeeze_out=squeeze_out)
                 self._cache["bv"]["grids"] += [etas]
                 self._cache["bv"]["outs"] += [out]
         else:
-            # print('No bv grids yet.')
+            # logger.info('No bv grids yet.')
             out = self._eval_bv(*etas, squeeze_out=squeeze_out)
             self._cache["bv"]["grids"] += [etas]
             self._cache["bv"]["outs"] += [out]
@@ -2570,13 +2573,13 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
             if cached:
                 out = self._cache["jv"]["outs"][i]
-                # print(f'Used cached jv at {i = }.')
+                # logger.info(f'Used cached jv at {i = }.')
             else:
                 out = self._eval_jv(*etas, squeeze_out=squeeze_out)
                 self._cache["jv"]["grids"] += [etas]
                 self._cache["jv"]["outs"] += [out]
         else:
-            # print('No jv grids yet.')
+            # logger.info('No jv grids yet.')
             out = self._eval_jv(*etas, squeeze_out=squeeze_out)
             self._cache["jv"]["grids"] += [etas]
             self._cache["jv"]["outs"] += [out]
@@ -2703,7 +2706,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
                 self._cache["gradB1"]["grids"] += [etas]
                 self._cache["gradB1"]["outs"] += [out]
         else:
-            # print('No bv grids yet.')
+            # logger.info('No bv grids yet.')
             out = self._eval_gradB1(*etas, squeeze_out=squeeze_out)
             self._cache["gradB1"]["grids"] += [etas]
             self._cache["gradB1"]["outs"] += [out]
@@ -2865,28 +2868,28 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         if verbose and rank == 0:
             # import sys
-            print(f"\n{nfp =}")
-            print(f"{self.eq.axis =}")
-            print(f"{rho.size =}")
-            print(f"{theta.size =}")
-            print(f"{zeta.size =}")
-            print(f"{grid_3d.num_rho =}")
-            print(f"{grid_3d.num_theta =}")
-            print(f"{grid_3d.num_zeta =}")
-            # print(f'\n{grid_3d.nodes[:, 0] = }')
-            # print(f'\n{grid_3d.nodes[:, 1] = }')
-            # print(f'\n{grid_3d.nodes[:, 2] = }')
-            print(f"\n{rho =}")
-            print(f"{rho1 =}")
-            print(f"\n{theta =}")
-            print(f"{theta1 =}")
-            print(f"\n{zeta =}")
-            print(f"{zeta1 =}")
+            logger.info(f"\n{nfp =}")
+            logger.info(f"{self.eq.axis =}")
+            logger.info(f"{rho.size =}")
+            logger.info(f"{theta.size =}")
+            logger.info(f"{zeta.size =}")
+            logger.info(f"{grid_3d.num_rho =}")
+            logger.info(f"{grid_3d.num_theta =}")
+            logger.info(f"{grid_3d.num_zeta =}")
+            # logger.info(f'\n{grid_3d.nodes[:, 0] = }')
+            # logger.info(f'\n{grid_3d.nodes[:, 1] = }')
+            # logger.info(f'\n{grid_3d.nodes[:, 2] = }')
+            logger.info(f"\n{rho =}")
+            logger.info(f"{rho1 =}")
+            logger.info(f"\n{theta =}")
+            logger.info(f"{theta1 =}")
+            logger.info(f"\n{zeta =}")
+            logger.info(f"{zeta1 =}")
 
         # make c-contiguous
         out = xp.ascontiguousarray(out)
         if rank == 0 and verbose:
-            print(f"desc_eval for {var}: {time() - ttime} seconds")
+            logger.info(f"desc_eval for {var}: {time() - ttime} seconds")
         return out
 
 

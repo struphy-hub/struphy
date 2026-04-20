@@ -654,6 +654,10 @@ def sph_mean_velocity_coeffs(
         if not valid_mks[ip]:
             continue
 
+        # also evaluate and save for ghost particles, only skip holes (!)
+        # if holes[ip]:
+        #     continue
+
         eta1 = markers[ip, 0]
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
@@ -683,7 +687,7 @@ def sph_mean_velocity_coeffs(
         markers[ip, column_nr + 1] = weight / n_at_eta * velocities[1]
         markers[ip, column_nr + 2] = weight / n_at_eta * velocities[2]
 
-        # print(f"{ip = }, {weight = }, {n_at_eta = }, {velocities[0] = }")
+        # logger.info(f"{ip = }, {weight = }, {n_at_eta = }, {velocities[0] = }")
 
 
 @stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")

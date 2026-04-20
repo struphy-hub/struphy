@@ -1,3 +1,4 @@
+import logging
 from sys import int_info
 from time import sleep
 
@@ -5,11 +6,20 @@ import cunumpy as xp
 import pytest
 from feectools.ddm.mpi import mpi as MPI
 
+logger = logging.getLogger("struphy")
 
-@pytest.mark.parametrize("Nel", [[8, 9, 10]])
-@pytest.mark.parametrize("p", [[1, 2, 3], [3, 1, 2]])
-@pytest.mark.parametrize("spl_kind", [[False, False, True], [False, True, False], [True, False, False]])
-def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
+
+@pytest.mark.parametrize("num_elements", [[8, 9, 10]])
+@pytest.mark.parametrize("degree", [[1, 2, 3], [3, 1, 2]])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), ("free", "free"), None),
+        (("free", "free"), None, ("free", "free")),
+        (None, ("free", "free"), ("free", "free")),
+    ],
+)
+def test_eval_kernels(num_elements, degree, bcs, n_markers=10):
     """Compares evaluation_kernel_3d with eval_spline_mpi_kernel."""
 
     from struphy.bsplines import bsplines_kernels as bsp
@@ -17,23 +27,27 @@ def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
     from struphy.bsplines.evaluation_kernels_3d import evaluation_kernel_3d as eval3d
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays as cera
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # derham attributes
-    tn1, tn2, tn3 = derham.Vh_fem["0"].knots
+    tn1, tn2, tn3 = derham.V0fem.knots
     indN = derham.indN
     indD = derham.indD
 
     # Random spline coeffs_loc
-    x0, x0_psy = cera(derham.Vh_fem["0"])
-    x1, x1_psy = cera(derham.Vh_fem["1"])
-    x2, x2_psy = cera(derham.Vh_fem["2"])
-    x3, x3_psy = cera(derham.Vh_fem["3"])
+    x0, x0_psy = cera(derham.V0fem)
+    x1, x1_psy = cera(derham.V1fem)
+    x2, x2_psy = cera(derham.V2fem)
+    x3, x3_psy = cera(derham.V3fem)
 
     # Random points in domain of process
     dom = derham.domain_array[rank]
@@ -44,33 +58,33 @@ def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
     for eta1, eta2, eta3 in zip(eta1s, eta2s, eta3s):
         comm.Barrier()
         sleep(0.02 * (rank + 1))
-        print(f"rank {rank} | eta1 = {eta1}")
-        print(f"rank {rank} | eta2 = {eta2}")
-        print(f"rank {rank} | eta3 = {eta3}\n")
+        logger.info(f"rank {rank} | eta1 = {eta1}")
+        logger.info(f"rank {rank} | eta2 = {eta2}")
+        logger.info(f"rank {rank} | eta3 = {eta3}\n")
         comm.Barrier()
 
         # spans (i.e. index for non-vanishing basis functions)
-        span1 = bsp.find_span(tn1, derham.p[0], eta1)
-        span2 = bsp.find_span(tn2, derham.p[1], eta2)
-        span3 = bsp.find_span(tn3, derham.p[2], eta3)
+        span1 = bsp.find_span(tn1, derham.degree[0], eta1)
+        span2 = bsp.find_span(tn2, derham.degree[1], eta2)
+        span3 = bsp.find_span(tn3, derham.degree[2], eta3)
 
         # non-zero spline values at eta
-        bn1 = xp.empty(derham.p[0] + 1, dtype=float)
-        bn2 = xp.empty(derham.p[1] + 1, dtype=float)
-        bn3 = xp.empty(derham.p[2] + 1, dtype=float)
+        bn1 = xp.empty(derham.degree[0] + 1, dtype=float)
+        bn2 = xp.empty(derham.degree[1] + 1, dtype=float)
+        bn3 = xp.empty(derham.degree[2] + 1, dtype=float)
 
-        bd1 = xp.empty(derham.p[0], dtype=float)
-        bd2 = xp.empty(derham.p[1], dtype=float)
-        bd3 = xp.empty(derham.p[2], dtype=float)
+        bd1 = xp.empty(derham.degree[0], dtype=float)
+        bd2 = xp.empty(derham.degree[1], dtype=float)
+        bd3 = xp.empty(derham.degree[2], dtype=float)
 
-        bsp.b_d_splines_slim(tn1, derham.p[0], eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, derham.p[1], eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, derham.p[2], eta3, span3, bn3, bd3)
+        bsp.b_d_splines_slim(tn1, derham.degree[0], eta1, span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, derham.degree[1], eta2, span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, derham.degree[2], eta3, span3, bn3, bd3)
 
         # Non-vanishing B- and D-spline indices at eta (needed for the non-mpi routines)
-        ie1 = span1 - derham.p[0]
-        ie2 = span2 - derham.p[1]
-        ie3 = span3 - derham.p[2]
+        ie1 = span1 - derham.degree[0]
+        ie2 = span2 - derham.degree[1]
+        ie3 = span3 - derham.degree[2]
 
         ind_n1 = indN[0][ie1]
         ind_n2 = indN[1][ie2]
@@ -81,16 +95,18 @@ def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
         ind_d3 = indD[2][ie3]
 
         # compare spline evaluation routines in V0
-        val = eval3d(*derham.p, bn1, bn2, bn3, ind_n1, ind_n2, ind_n3, x0[0])
-        val_mpi = eval3d_mpi(*derham.p, bn1, bn2, bn3, span1, span2, span3, x0_psy._data, xp.array(x0_psy.starts))
+        val = eval3d(*derham.degree, bn1, bn2, bn3, ind_n1, ind_n2, ind_n3, x0[0])
+        val_mpi = eval3d_mpi(*derham.degree, bn1, bn2, bn3, span1, span2, span3, x0_psy._data, xp.array(x0_psy.starts))
         assert xp.allclose(val, val_mpi)
 
         # compare spline evaluation routines in V1
-        val = eval3d(derham.p[0] - 1, derham.p[1], derham.p[2], bd1, bn2, bn3, ind_d1, ind_n2, ind_n3, x1[0])
+        val = eval3d(
+            derham.degree[0] - 1, derham.degree[1], derham.degree[2], bd1, bn2, bn3, ind_d1, ind_n2, ind_n3, x1[0]
+        )
         val_mpi = eval3d_mpi(
-            derham.p[0] - 1,
-            derham.p[1],
-            derham.p[2],
+            derham.degree[0] - 1,
+            derham.degree[1],
+            derham.degree[2],
             bd1,
             bn2,
             bn3,
@@ -102,11 +118,13 @@ def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
         )
         assert xp.allclose(val, val_mpi)
 
-        val = eval3d(derham.p[0], derham.p[1] - 1, derham.p[2], bn1, bd2, bn3, ind_n1, ind_d2, ind_n3, x1[1])
+        val = eval3d(
+            derham.degree[0], derham.degree[1] - 1, derham.degree[2], bn1, bd2, bn3, ind_n1, ind_d2, ind_n3, x1[1]
+        )
         val_mpi = eval3d_mpi(
-            derham.p[0],
-            derham.p[1] - 1,
-            derham.p[2],
+            derham.degree[0],
+            derham.degree[1] - 1,
+            derham.degree[2],
             bn1,
             bd2,
             bn3,
@@ -118,11 +136,13 @@ def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
         )
         assert xp.allclose(val, val_mpi)
 
-        val = eval3d(derham.p[0], derham.p[1], derham.p[2] - 1, bn1, bn2, bd3, ind_n1, ind_n2, ind_d3, x1[2])
+        val = eval3d(
+            derham.degree[0], derham.degree[1], derham.degree[2] - 1, bn1, bn2, bd3, ind_n1, ind_n2, ind_d3, x1[2]
+        )
         val_mpi = eval3d_mpi(
-            derham.p[0],
-            derham.p[1],
-            derham.p[2] - 1,
+            derham.degree[0],
+            derham.degree[1],
+            derham.degree[2] - 1,
             bn1,
             bn2,
             bd3,
@@ -135,11 +155,13 @@ def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
         assert xp.allclose(val, val_mpi)
 
         # compare spline evaluation routines in V2
-        val = eval3d(derham.p[0], derham.p[1] - 1, derham.p[2] - 1, bn1, bd2, bd3, ind_n1, ind_d2, ind_d3, x2[0])
+        val = eval3d(
+            derham.degree[0], derham.degree[1] - 1, derham.degree[2] - 1, bn1, bd2, bd3, ind_n1, ind_d2, ind_d3, x2[0]
+        )
         val_mpi = eval3d_mpi(
-            derham.p[0],
-            derham.p[1] - 1,
-            derham.p[2] - 1,
+            derham.degree[0],
+            derham.degree[1] - 1,
+            derham.degree[2] - 1,
             bn1,
             bd2,
             bd3,
@@ -151,11 +173,13 @@ def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
         )
         assert xp.allclose(val, val_mpi)
 
-        val = eval3d(derham.p[0] - 1, derham.p[1], derham.p[2] - 1, bd1, bn2, bd3, ind_d1, ind_n2, ind_d3, x2[1])
+        val = eval3d(
+            derham.degree[0] - 1, derham.degree[1], derham.degree[2] - 1, bd1, bn2, bd3, ind_d1, ind_n2, ind_d3, x2[1]
+        )
         val_mpi = eval3d_mpi(
-            derham.p[0] - 1,
-            derham.p[1],
-            derham.p[2] - 1,
+            derham.degree[0] - 1,
+            derham.degree[1],
+            derham.degree[2] - 1,
             bd1,
             bn2,
             bd3,
@@ -167,11 +191,13 @@ def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
         )
         assert xp.allclose(val, val_mpi)
 
-        val = eval3d(derham.p[0] - 1, derham.p[1] - 1, derham.p[2], bd1, bd2, bn3, ind_d1, ind_d2, ind_n3, x2[2])
+        val = eval3d(
+            derham.degree[0] - 1, derham.degree[1] - 1, derham.degree[2], bd1, bd2, bn3, ind_d1, ind_d2, ind_n3, x2[2]
+        )
         val_mpi = eval3d_mpi(
-            derham.p[0] - 1,
-            derham.p[1] - 1,
-            derham.p[2],
+            derham.degree[0] - 1,
+            derham.degree[1] - 1,
+            derham.degree[2],
             bd1,
             bd2,
             bn3,
@@ -184,11 +210,22 @@ def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
         assert xp.allclose(val, val_mpi)
 
         # compare spline evaluation routines in V3
-        val = eval3d(derham.p[0] - 1, derham.p[1] - 1, derham.p[2] - 1, bd1, bd2, bd3, ind_d1, ind_d2, ind_d3, x3[0])
+        val = eval3d(
+            derham.degree[0] - 1,
+            derham.degree[1] - 1,
+            derham.degree[2] - 1,
+            bd1,
+            bd2,
+            bd3,
+            ind_d1,
+            ind_d2,
+            ind_d3,
+            x3[0],
+        )
         val_mpi = eval3d_mpi(
-            derham.p[0] - 1,
-            derham.p[1] - 1,
-            derham.p[2] - 1,
+            derham.degree[0] - 1,
+            derham.degree[1] - 1,
+            derham.degree[2] - 1,
             bd1,
             bd2,
             bd3,
@@ -201,31 +238,42 @@ def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
         assert xp.allclose(val, val_mpi)
 
 
-@pytest.mark.parametrize("Nel", [[8, 9, 10]])
-@pytest.mark.parametrize("p", [[1, 2, 3], [3, 1, 2]])
-@pytest.mark.parametrize("spl_kind", [[False, False, True], [False, True, False], [True, False, False]])
-def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
+@pytest.mark.parametrize("num_elements", [[8, 9, 10]])
+@pytest.mark.parametrize("degree", [[1, 2, 3], [3, 1, 2]])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), ("free", "free"), None),
+        (("free", "free"), None, ("free", "free")),
+        (None, ("free", "free"), ("free", "free")),
+    ],
+)
+def test_eval_pointwise(num_elements, degree, bcs, n_markers=10):
     """Compares evaluate_3d with eval_spline_mpi."""
 
     from struphy.bsplines import bsplines_kernels as bsp
     from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi, evaluate_3d
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays as cera
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # derham attributes
-    tn1, tn2, tn3 = derham.Vh_fem["0"].knots
+    tn1, tn2, tn3 = derham.V0fem.knots
 
     # Random spline coeffs_loc
-    x0, x0_psy = cera(derham.Vh_fem["0"])
-    x1, x1_psy = cera(derham.Vh_fem["1"])
-    x2, x2_psy = cera(derham.Vh_fem["2"])
-    x3, x3_psy = cera(derham.Vh_fem["3"])
+    x0, x0_psy = cera(derham.V0fem)
+    x1, x1_psy = cera(derham.V1fem)
+    x2, x2_psy = cera(derham.V2fem)
+    x3, x3_psy = cera(derham.V3fem)
 
     # Random points in domain of process
     dom = derham.domain_array[rank]
@@ -236,21 +284,21 @@ def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
     for eta1, eta2, eta3 in zip(eta1s, eta2s, eta3s):
         comm.Barrier()
         sleep(0.02 * (rank + 1))
-        print(f"rank {rank} | eta1 = {eta1}")
-        print(f"rank {rank} | eta2 = {eta2}")
-        print(f"rank {rank} | eta3 = {eta3}\n")
+        logger.info(f"rank {rank} | eta1 = {eta1}")
+        logger.info(f"rank {rank} | eta2 = {eta2}")
+        logger.info(f"rank {rank} | eta3 = {eta3}\n")
         comm.Barrier()
 
         # compare spline evaluation routines in V0
-        val = evaluate_3d(1, 1, 1, tn1, tn2, tn3, *derham.p, *derham.indN, x0[0], eta1, eta2, eta3)
+        val = evaluate_3d(1, 1, 1, tn1, tn2, tn3, *derham.degree, *derham.indN, x0[0], eta1, eta2, eta3)
 
         val_mpi = eval_spline_mpi(
             eta1,
             eta2,
             eta3,
             x0_psy._data,
-            derham.spline_types_pyccel["0"],
-            xp.array(derham.p),
+            derham.V0splines.spline_types_pyccel,
+            xp.array(derham.degree),
             tn1,
             tn2,
             tn3,
@@ -268,9 +316,9 @@ def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
             tn1[1:-1],
             tn2,
             tn3,
-            derham.p[0] - 1,
-            derham.p[1],
-            derham.p[2],
+            derham.degree[0] - 1,
+            derham.degree[1],
+            derham.degree[2],
             derham.indD[0],
             derham.indN[1],
             derham.indN[2],
@@ -285,8 +333,8 @@ def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
             eta2,
             eta3,
             x1_psy[0]._data,
-            derham.spline_types_pyccel["1"][0],
-            xp.array(derham.p),
+            derham.V1splines.spline_types_pyccel[0],
+            xp.array(derham.degree),
             tn1,
             tn2,
             tn3,
@@ -303,9 +351,9 @@ def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
             tn1,
             tn2[1:-1],
             tn3,
-            derham.p[0],
-            derham.p[1] - 1,
-            derham.p[2],
+            derham.degree[0],
+            derham.degree[1] - 1,
+            derham.degree[2],
             derham.indN[0],
             derham.indD[1],
             derham.indN[2],
@@ -320,8 +368,8 @@ def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
             eta2,
             eta3,
             x1_psy[1]._data,
-            derham.spline_types_pyccel["1"][1],
-            xp.array(derham.p),
+            derham.V1splines.spline_types_pyccel[1],
+            xp.array(derham.degree),
             tn1,
             tn2,
             tn3,
@@ -338,9 +386,9 @@ def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
             tn1,
             tn2,
             tn3[1:-1],
-            derham.p[0],
-            derham.p[1],
-            derham.p[2] - 1,
+            derham.degree[0],
+            derham.degree[1],
+            derham.degree[2] - 1,
             derham.indN[0],
             derham.indN[1],
             derham.indD[2],
@@ -355,8 +403,8 @@ def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
             eta2,
             eta3,
             x1_psy[2]._data,
-            derham.spline_types_pyccel["1"][2],
-            xp.array(derham.p),
+            derham.V1splines.spline_types_pyccel[2],
+            xp.array(derham.degree),
             tn1,
             tn2,
             tn3,
@@ -374,9 +422,9 @@ def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
             tn1,
             tn2[1:-1],
             tn3[1:-1],
-            derham.p[0],
-            derham.p[1] - 1,
-            derham.p[2] - 1,
+            derham.degree[0],
+            derham.degree[1] - 1,
+            derham.degree[2] - 1,
             derham.indN[0],
             derham.indD[1],
             derham.indD[2],
@@ -391,8 +439,8 @@ def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
             eta2,
             eta3,
             x2_psy[0]._data,
-            derham.spline_types_pyccel["2"][0],
-            xp.array(derham.p),
+            derham.V2splines.spline_types_pyccel[0],
+            xp.array(derham.degree),
             tn1,
             tn2,
             tn3,
@@ -409,9 +457,9 @@ def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
             tn1[1:-1],
             tn2,
             tn3[1:-1],
-            derham.p[0] - 1,
-            derham.p[1],
-            derham.p[2] - 1,
+            derham.degree[0] - 1,
+            derham.degree[1],
+            derham.degree[2] - 1,
             derham.indD[0],
             derham.indN[1],
             derham.indD[2],
@@ -426,8 +474,8 @@ def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
             eta2,
             eta3,
             x2_psy[1]._data,
-            derham.spline_types_pyccel["2"][1],
-            xp.array(derham.p),
+            derham.V2splines.spline_types_pyccel[1],
+            xp.array(derham.degree),
             tn1,
             tn2,
             tn3,
@@ -444,9 +492,9 @@ def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
             tn1[1:-1],
             tn2[1:-1],
             tn3,
-            derham.p[0] - 1,
-            derham.p[1] - 1,
-            derham.p[2],
+            derham.degree[0] - 1,
+            derham.degree[1] - 1,
+            derham.degree[2],
             derham.indD[0],
             derham.indD[1],
             derham.indN[2],
@@ -461,8 +509,8 @@ def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
             eta2,
             eta3,
             x2_psy[2]._data,
-            derham.spline_types_pyccel["2"][2],
-            xp.array(derham.p),
+            derham.V2splines.spline_types_pyccel[2],
+            xp.array(derham.degree),
             tn1,
             tn2,
             tn3,
@@ -479,9 +527,9 @@ def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
             tn1[1:-1],
             tn2[1:-1],
             tn3[1:-1],
-            derham.p[0] - 1,
-            derham.p[1] - 1,
-            derham.p[2] - 1,
+            derham.degree[0] - 1,
+            derham.degree[1] - 1,
+            derham.degree[2] - 1,
             *derham.indD,
             x3[0],
             eta1,
@@ -494,8 +542,8 @@ def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
             eta2,
             eta3,
             x3_psy._data,
-            derham.spline_types_pyccel["3"],
-            xp.array(derham.p),
+            derham.V3splines.spline_types_pyccel,
+            xp.array(derham.degree),
             tn1,
             tn2,
             tn3,
@@ -505,10 +553,17 @@ def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
         assert xp.allclose(val, val_mpi)
 
 
-@pytest.mark.parametrize("Nel", [[8, 9, 10]])
-@pytest.mark.parametrize("p", [[1, 2, 3], [3, 1, 2]])
-@pytest.mark.parametrize("spl_kind", [[False, False, True], [False, True, False], [True, False, False]])
-def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
+@pytest.mark.parametrize("num_elements", [[8, 9, 10]])
+@pytest.mark.parametrize("degree", [[1, 2, 3], [3, 1, 2]])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), ("free", "free"), None),
+        (("free", "free"), None, ("free", "free")),
+        (None, ("free", "free"), ("free", "free")),
+    ],
+)
+def test_eval_tensor_product(num_elements, degree, bcs, n_markers=10):
     """Compares
 
     evaluate_tensor_product
@@ -527,19 +582,23 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
     )
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays as cera
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # derham attributes
-    tn1, tn2, tn3 = derham.Vh_fem["0"].knots
+    tn1, tn2, tn3 = derham.V0fem.knots
 
     # Random spline coeffs_loc
-    x0, x0_psy = cera(derham.Vh_fem["0"])
-    x3, x3_psy = cera(derham.Vh_fem["3"])
+    x0, x0_psy = cera(derham.V0fem)
+    x3, x3_psy = cera(derham.V3fem)
 
     # Random points in domain of process
     dom = derham.domain_array[rank]
@@ -553,17 +612,17 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
 
     comm.Barrier()
     sleep(0.02 * (rank + 1))
-    print(f"rank {rank} | eta1 = {eta1s}")
-    print(f"rank {rank} | eta2 = {eta2s}")
-    print(f"rank {rank} | eta3 = {eta3s}\n")
+    logger.info(f"rank {rank} | eta1 = {eta1s}")
+    logger.info(f"rank {rank} | eta2 = {eta2s}")
+    logger.info(f"rank {rank} | eta3 = {eta3s}\n")
     comm.Barrier()
 
     # compare spline evaluation routines in V0
     t0 = time.time()
-    evaluate_tensor_product(tn1, tn2, tn3, *derham.p, *derham.indN, x0[0], eta1s, eta2s, eta3s, vals, 0)
+    evaluate_tensor_product(tn1, tn2, tn3, *derham.degree, *derham.indN, x0[0], eta1s, eta2s, eta3s, vals, 0)
     t1 = time.time()
     if rank == 0:
-        print("V0 evaluate_tensor_product:".ljust(40), t1 - t0)
+        logger.info(f"{'V0 evaluate_tensor_product:':<40}{t1 - t0}")
 
     t0 = time.time()
     eval_spline_mpi_tensor_product(
@@ -571,8 +630,8 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
         eta2s,
         eta3s,
         x0_psy._data,
-        derham.spline_types_pyccel["0"],
-        xp.array(derham.p),
+        derham.V0splines.spline_types_pyccel,
+        xp.array(derham.degree),
         tn1,
         tn2,
         tn3,
@@ -581,7 +640,7 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
     )
     t1 = time.time()
     if rank == 0:
-        print("V0 eval_spline_mpi_tensor_product:".ljust(40), t1 - t0)
+        logger.info(f"{'V0 eval_spline_mpi_tensor_product:':<40}{t1 - t0}")
 
     t0 = time.time()
     eval_spline_mpi_tensor_product_fast(
@@ -589,8 +648,8 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
         eta2s,
         eta3s,
         x0_psy._data,
-        derham.spline_types_pyccel["0"],
-        xp.array(derham.p),
+        derham.V0splines.spline_types_pyccel,
+        xp.array(derham.degree),
         tn1,
         tn2,
         tn3,
@@ -599,7 +658,7 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
     )
     t1 = time.time()
     if rank == 0:
-        print("v0 eval_spline_mpi_tensor_product_fast:".ljust(40), t1 - t0)
+        logger.info(f"{'v0 eval_spline_mpi_tensor_product_fast:':<40}{t1 - t0}")
 
     assert xp.allclose(vals, vals_mpi)
     assert xp.allclose(vals, vals_mpi_fast)
@@ -610,9 +669,9 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
         tn1[1:-1],
         tn2[1:-1],
         tn3[1:-1],
-        derham.p[0] - 1,
-        derham.p[1] - 1,
-        derham.p[2] - 1,
+        derham.degree[0] - 1,
+        derham.degree[1] - 1,
+        derham.degree[2] - 1,
         *derham.indD,
         x3[0],
         eta1s,
@@ -623,7 +682,7 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
     )
     t1 = time.time()
     if rank == 0:
-        print("V3 evaluate_tensor_product:".ljust(40), t1 - t0)
+        logger.info(f"{'V3 evaluate_tensor_product:':<40}{t1 - t0}")
 
     t0 = time.time()
     eval_spline_mpi_tensor_product(
@@ -631,8 +690,8 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
         eta2s,
         eta3s,
         x3_psy._data,
-        derham.spline_types_pyccel["3"],
-        xp.array(derham.p),
+        derham.V3splines.spline_types_pyccel,
+        xp.array(derham.degree),
         tn1,
         tn2,
         tn3,
@@ -641,7 +700,7 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
     )
     t1 = time.time()
     if rank == 0:
-        print("V3 eval_spline_mpi_tensor_product:".ljust(40), t1 - t0)
+        logger.info(f"{'V3 eval_spline_mpi_tensor_product:':<40}{t1 - t0}")
 
     t0 = time.time()
     eval_spline_mpi_tensor_product_fast(
@@ -649,8 +708,8 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
         eta2s,
         eta3s,
         x3_psy._data,
-        derham.spline_types_pyccel["3"],
-        xp.array(derham.p),
+        derham.V3splines.spline_types_pyccel,
+        xp.array(derham.degree),
         tn1,
         tn2,
         tn3,
@@ -659,16 +718,23 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
     )
     t1 = time.time()
     if rank == 0:
-        print("v3 eval_spline_mpi_tensor_product_fast:".ljust(40), t1 - t0)
+        logger.info(f"{'v3 eval_spline_mpi_tensor_product_fast:':<40}{t1 - t0}")
 
     assert xp.allclose(vals, vals_mpi)
     assert xp.allclose(vals, vals_mpi_fast)
 
 
-@pytest.mark.parametrize("Nel", [[8, 9, 10]])
-@pytest.mark.parametrize("p", [[1, 2, 1], [2, 1, 2], [3, 4, 3]])
-@pytest.mark.parametrize("spl_kind", [[False, False, True], [False, True, False], [True, False, False]])
-def test_eval_tensor_product_grid(Nel, p, spl_kind, n_markers=10):
+@pytest.mark.parametrize("num_elements", [[8, 9, 10]])
+@pytest.mark.parametrize("degree", [[1, 2, 1], [2, 1, 2], [3, 4, 3]])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), ("free", "free"), None),
+        (("free", "free"), None, ("free", "free")),
+        (None, ("free", "free"), ("free", "free")),
+    ],
+)
+def test_eval_tensor_product_grid(num_elements, degree, bcs, n_markers=10):
     """Compares
 
     evaluate_tensor_product
@@ -683,27 +749,31 @@ def test_eval_tensor_product_grid(Nel, p, spl_kind, n_markers=10):
     from struphy.feec.basis_projection_ops import prepare_projection_of_basis
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays as cera
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # derham attributes
-    tn1, tn2, tn3 = derham.Vh_fem["0"].knots
+    tn1, tn2, tn3 = derham.V0fem.knots
 
     # Random spline coeffs_loc
-    x0, x0_psy = cera(derham.Vh_fem["0"])
-    x3, x3_psy = cera(derham.Vh_fem["3"])
+    x0, x0_psy = cera(derham.V0fem)
+    x3, x3_psy = cera(derham.V3fem)
 
     # Histopolation grids
-    spaces = derham.Vh_fem["3"].spaces
+    spaces = derham.V3fem.spaces
     ptsG, wtsG, spans, bases, subs = prepare_projection_of_basis(
         spaces,
         spaces,
-        derham.Vh["3"].starts,
-        derham.Vh["3"].ends,
+        derham.V3.starts,
+        derham.V3.ends,
     )
     eta1s = ptsG[0].flatten()
     eta2s = ptsG[1].flatten()
@@ -718,9 +788,9 @@ def test_eval_tensor_product_grid(Nel, p, spl_kind, n_markers=10):
 
     comm.Barrier()
     sleep(0.02 * (rank + 1))
-    print(f"rank {rank} | {eta1s =}")
-    print(f"rank {rank} | {eta2s =}")
-    print(f"rank {rank} | {eta3s =}\n")
+    logger.info(f"rank {rank} | {eta1s =}")
+    logger.info(f"rank {rank} | {eta2s =}")
+    logger.info(f"rank {rank} | {eta3s =}\n")
     comm.Barrier()
 
     # compare spline evaluation routines
@@ -729,9 +799,9 @@ def test_eval_tensor_product_grid(Nel, p, spl_kind, n_markers=10):
         tn1[1:-1],
         tn2[1:-1],
         tn3[1:-1],
-        derham.p[0] - 1,
-        derham.p[1] - 1,
-        derham.p[2] - 1,
+        derham.degree[0] - 1,
+        derham.degree[1] - 1,
+        derham.degree[2] - 1,
         *derham.indD,
         x3[0],
         eta1s,
@@ -742,21 +812,21 @@ def test_eval_tensor_product_grid(Nel, p, spl_kind, n_markers=10):
     )
     t1 = time.time()
     if rank == 0:
-        print("V3 evaluate_tensor_product:".ljust(40), t1 - t0)
+        logger.info(f"{'V3 evaluate_tensor_product:':<40}{t1 - t0}")
 
     t0 = time.time()
     eval_spline_mpi_tensor_product_fixed(
         *spans_f,
         *bds_f,
         x3_psy._data,
-        derham.spline_types_pyccel["3"],
-        xp.array(derham.p),
+        derham.V3splines.spline_types_pyccel,
+        xp.array(derham.degree),
         xp.array(x0_psy.starts),
         vals_mpi_fixed,
     )
     t1 = time.time()
     if rank == 0:
-        print("v3 eval_spline_mpi_tensor_product_fixed:".ljust(40), t1 - t0)
+        logger.info(f"{'v3 eval_spline_mpi_tensor_product_fixed:':<40}{t1 - t0}")
 
     assert xp.allclose(vals, vals_mpi_fixed)
 
@@ -769,7 +839,7 @@ def test_eval_tensor_product_grid(Nel, p, spl_kind, n_markers=10):
     field.eval_tp_fixed_loc(spans_f, bds_f, out=vals_mpi_fixed)
     t1 = time.time()
     if rank == 0:
-        print("v3 field.eval_tp_fixed:".ljust(40), t1 - t0)
+        logger.info(f"{'v3 field.eval_tp_fixed:':<40}{t1 - t0}")
 
     assert xp.allclose(vals, vals_mpi_fixed)
 

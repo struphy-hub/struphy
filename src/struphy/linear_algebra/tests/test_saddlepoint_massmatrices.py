@@ -1,14 +1,17 @@
+import logging
+
 import pytest
+
+logger = logging.getLogger("struphy")
 
 
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("method_for_solving", ["SaddlePointSolverUzawaNumpy", "SaddlePointSolverGMRES"])
-@pytest.mark.parametrize("Nel", [[12, 8, 1]])
-@pytest.mark.parametrize("p", [[3, 3, 1]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True]])
-@pytest.mark.parametrize("dirichlet_bc", [((False, False), (False, False), (False, False))])
+@pytest.mark.parametrize("num_elements", [[12, 8, 1]])
+@pytest.mark.parametrize("degree", [[3, 3, 1]])
+@pytest.mark.parametrize("bcs", [(("free", "free"), None, None)])
 @pytest.mark.parametrize("mapping", [["Cuboid", {"l1": 0.0, "r1": 2.0, "l2": 0.0, "r2": 3.0, "l3": 0.0, "r3": 6.0}]])
-def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
+def test_saddlepointsolver(method_for_solving, num_elements, degree, bcs, mapping, show_plots=False):
     """Test saddle-point-solver with manufactured solutions."""
 
     import time
@@ -28,7 +31,9 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     from struphy.feec.psydac_derham import Derham, TransformedPformComponent
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
     from struphy.fields_background.equils import CircularTokamak, HomogenSlab
+    from struphy.io.options import DerhamOptions
     from struphy.linear_algebra.saddle_point import SaddlePointSolver
+    from struphy.topology.grids import TensorProductGrid
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -36,11 +41,14 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     mpi_comm.Barrier()
 
     # derham object
-    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, dirichlet_bc=dirichlet_bc, local_projectors=False)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=mpi_comm)
+
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
-    fem_spaces = [derham.Vh_fem["0"], derham.Vh_fem["1"], derham.Vh_fem["2"], derham.Vh_fem["3"], derham.Vh_fem["v"]]
-    derhamnumpy = Derham(Nel, p, spl_kind, domain=domain)
+    fem_spaces = [derham.V0fem, derham.V1fem, derham.V2fem, derham.V3fem, derham.Vvfem]
+    derhamnumpy = Derham(grid, derham_opts, domain=domain)
 
     # Mhd equilibirum (slab)
     mhd_equil_params = {"B0x": 0.0, "B0y": 0.0, "B0z": 1.0, "beta": 2.0, "n0": 1.0}
@@ -203,9 +211,9 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         RestDiv = xp.linalg.norm(TestDiv.toarray())
         RestA = xp.linalg.norm(TestA.toarray())
         RestAe = xp.linalg.norm(TestAe.toarray())
-        print(f"{RestA =}")
-        print(f"{RestAe =}")
-        print(f"{RestDiv =}")
+        logger.info(f"{RestA =}")
+        logger.info(f"{RestAe =}")
+        logger.info(f"{RestDiv =}")
     elif method_for_solving in ("SaddlePointSolverUzawaNumpy"):
         TestAnp = (
             F1np
@@ -221,9 +229,9 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         RestAenp = xp.linalg.norm(TestAenp)
         TestDivnp = -B1np.dot(x1np) + B2np.dot(x2np)
         RestDivnp = xp.linalg.norm(TestDivnp)
-        print(f"{RestAnp =}")
-        print(f"{RestAenp =}")
-        print(f"{RestDivnp =}")
+        logger.info(f"{RestAnp =}")
+        logger.info(f"{RestAenp =}")
+        logger.info(f"{RestDivnp =}")
 
         # Compare numpy to psydac
         c1 = C.dot(x1_rdm)
@@ -241,7 +249,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         TestA11dot = TestA11.dot(x1)
         compare_arrays(TestA11dot, TestA11composeddot, mpi_rank, atol=1e-5)
         # compare_arrays(TestA11dot, TestA11npdot, mpi_rank, atol=1e-5)
-        print("Comparison numpy to psydac succesfull.")
+        logger.info("Comparison numpy to psydac succesfull.")
 
     M2pre = MassMatrixPreconditioner(mass_mats.M2)
 
@@ -290,10 +298,10 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
 
     end_time = time.time()
 
-    print(f"{method_for_solving}{info}")
+    logger.info(f"{method_for_solving}{info}")
 
     elapsed_time = end_time - start_time
-    print(f"Method execution time: {elapsed_time:.6f} seconds")
+    logger.info(f"Method execution time: {elapsed_time:.6f} seconds")
 
     if isinstance(x_uzawa[0], xp.ndarray):
         # Output as xp.ndarray
@@ -311,18 +319,18 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         TestRest2val = xp.max(abs(TestRest2))
         Testoldy2 = F2np - A22np.dot(x_uzawa[1]) - B2np.T.dot(ynp)
         Testoldy2val = xp.max(abs(Testoldy2))
-        print(f"{TestRest1val =}")
-        print(f"{TestRest2val =}")
-        print(f"{Testoldy1val =}")
-        print(f"{Testoldy2val =}")
-        print(f"Residual x1 norm: {residualx_normx1}")
-        print(f"Residual x2 norm: {residualx_normx2}")
-        print(f"Residual y norm: {residualy_norm}")
+        logger.info(f"{TestRest1val =}")
+        logger.info(f"{TestRest2val =}")
+        logger.info(f"{Testoldy1val =}")
+        logger.info(f"{Testoldy2val =}")
+        logger.info(f"Residual x1 norm: {residualx_normx1}")
+        logger.info(f"Residual x2 norm: {residualx_normx2}")
+        logger.info(f"Residual y norm: {residualy_norm}")
 
         compare_arrays(y1_rdm, y_uzawa, mpi_rank, atol=1e-5)
         compare_arrays(x1, x_uzawa[0], mpi_rank, atol=1e-5)
         compare_arrays(x2, x_uzawa[1], mpi_rank, atol=1e-5)
-        print(f"{info =}")
+        logger.info(f"{info =}")
     elif isinstance(x_uzawa[0], BlockVector):
         # Output as Blockvector
         Rx1 = x1 - x_uzawa[0]
@@ -340,13 +348,13 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         TestRest2val = xp.max(abs(TestRest2.toarray()))
         Testoldy2 = F2 - A22.dot(x_uzawa[1]) - B2T.dot(y1_rdm)
         Testoldy2val = xp.max(abs(Testoldy2.toarray()))
-        # print(f"{TestRest1val =}")
-        # print(f"{TestRest2val =}")
-        # print(f"{Testoldy1val =}")
-        # print(f"{Testoldy2val =}")
-        print(f"Residual x1 norm: {residualx_normx1}")
-        print(f"Residual x2 norm: {residualx_normx2}")
-        print(f"Residual y norm: {residualy_norm}")
+        # logger.info(f"{TestRest1val =}")
+        # logger.info(f"{TestRest2val =}")
+        # logger.info(f"{Testoldy1val =}")
+        # logger.info(f"{Testoldy2val =}")
+        logger.info(f"Residual x1 norm: {residualx_normx1}")
+        logger.info(f"Residual x2 norm: {residualx_normx2}")
+        logger.info(f"Residual y norm: {residualy_norm}")
 
         compare_arrays(y1_rdm, y_uzawa.toarray(), mpi_rank, atol=1e-5)
         compare_arrays(x1, x_uzawa[0].toarray(), mpi_rank, atol=1e-5)

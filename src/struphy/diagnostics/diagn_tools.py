@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import logging
 import os
 import shutil
 import subprocess
@@ -11,6 +12,8 @@ from scipy.signal import argrelextrema
 from tqdm import tqdm
 
 from struphy.dispersion_relations import analytic
+
+logger = logging.getLogger("struphy")
 
 
 def power_spectrum_2d(
@@ -44,7 +47,7 @@ def power_spectrum_2d(
         Name of the FemField.
 
     grids : 3-tuple
-        1d logical grids in each eta-direction with Nel[i]*npts_per_cell[i] + 1 entries in each direction.
+        1d logical grids in each eta-direction with num_elements[i]*npts_per_cell[i] + 1 entries in each direction.
 
     grids_mapped : 3-tuple
         Mapped grids obtained by domain(). If None, the fft is performed on the logical grids.
@@ -170,8 +173,8 @@ def power_spectrum_2d(
             if not intersec:
                 continue
             intersec.sort()
-            # print(f"{intersec = }")
-            # print(f"{[omega[intersec[n]] for n in range(fit_branches)]}")
+            # logger.info(f"{intersec = }")
+            # logger.info(f"{[omega[intersec[n]] for n in range(fit_branches)]}")
             assert len(intersec) == fit_branches, (
                 f"Number of found branches {len(intersec)} is not {fit_branches =}! \
                 Try to lower 'noise_level' or increase 'extr_order'."
@@ -184,7 +187,7 @@ def power_spectrum_2d(
         coeffs = []
         for m, om in omega_fit.items():
             coeffs += [xp.polyfit(k_fit, om, deg=fit_degree[n])]
-        print(f"\nFitted {coeffs =}")
+        logger.info(f"\nFitted {coeffs =}")
 
     if do_plot:
         _, ax = plt.subplots(1, 1, figsize=(10, 10))
@@ -543,7 +546,7 @@ def plot_distr_fun(
                 plt.xlabel(directions[k])
                 plt.ylabel(r"$\delta f$")
                 plt.title(f"time step n={time_idx}")
-                print(f"Created plot for delta_f in {directions[k]}")
+                logger.info(f"Created plot for delta_f in {directions[k]}")
 
                 if save_plot:
                     assert savepath is not None, "When wanting to save the plot a path has to be given!"
@@ -563,7 +566,7 @@ def plot_distr_fun(
                 plt.xlabel(directions[k])
                 plt.ylabel(r"$f$")
                 plt.title(f"time step n={time_idx}")
-                print(f"Created plot for f in {directions[k]}")
+                logger.info(f"Created plot for f in {directions[k]}")
 
                 if save_plot:
                     assert savepath is not None, "When wanting to save the plot a path has to be given!"
@@ -806,7 +809,7 @@ def video_2d(slc, diagn_path, images_path):
         (width, height),
     )
 
-    print("Creating video now")
+    logger.info("Creating video now")
     for image in tqdm(images):
         video.write(cv2.imread(os.path.join(images_path, image)))
 

@@ -1,4 +1,5 @@
 import inspect
+import logging
 import os
 import pickle
 import shutil
@@ -11,13 +12,13 @@ from feectools.ddm.mpi import mpi as MPI
 from pyevtk.hl import gridToVTK
 from tqdm import tqdm
 
-from struphy.feec.psydac_derham import SplineFunction
+from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.fields_background import equils
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.geometry import domains
 from struphy.geometry.base import Domain
 from struphy.io.options import BaseUnits, EnvironmentOptions, Time
-from struphy.io.setup import import_parameters_py, setup_derham
+from struphy.io.setup import import_parameters_py
 from struphy.kinetic_background import maxwellians
 from struphy.kinetic_background.base import KineticBackground
 from struphy.models.base import StruphyModel
@@ -30,6 +31,8 @@ from struphy.topology.grids import TensorProductGrid
 
 if TYPE_CHECKING:
     from struphy.simulation.sim import Simulation
+
+logger = logging.getLogger("struphy")
 
 
 class SplineValues:
@@ -117,7 +120,7 @@ class ParamsIn:
         path: str,
         verbose: bool = False,
     ):
-        print(f"\nReading in paramters from {path} ... ")
+        logger.info(f"\nReading in paramters from {path} ... ")
 
         params_path = os.path.join(path, "parameters.py")
         bin_path = os.path.join(path, "env.bin")
@@ -125,7 +128,6 @@ class ParamsIn:
         if os.path.exists(params_path):
             params_in = import_parameters_py(params_path)
             env = params_in.env
-            base_units = params_in.base_units
             time_opts = params_in.time_opts
             domain = params_in.domain
             equil = params_in.equil
@@ -136,8 +138,6 @@ class ParamsIn:
         elif os.path.exists(bin_path):
             with open(os.path.join(path, "env.bin"), "rb") as f:
                 env = pickle.load(f)
-            with open(os.path.join(path, "base_units.bin"), "rb") as f:
-                base_units = pickle.load(f)
             with open(os.path.join(path, "time_opts.bin"), "rb") as f:
                 time_opts = pickle.load(f)
             with open(os.path.join(path, "domain.bin"), "rb") as f:
@@ -163,10 +163,9 @@ class ParamsIn:
             raise FileNotFoundError(f"Neither of the paths {params_path} or {bin_path} exists.")
 
         if verbose:
-            print("\n... Done.")
+            logger.info("\n... Done.")
 
         self.env = env
-        self.units = base_units
         self.time_opts = time_opts
         self.domain = domain
         self.equil = equil
@@ -196,7 +195,7 @@ class PostProcessor:
     path_pproc : str
         Path to the post-processing directory inside ``path_out``.
     derham : object or None
-        Helper returned by :func:`setup_derham` used to reconstruct FEEC spline fields.
+        Helper used to reconstruct FEEC spline fields.
     domain : Domain
         Computational domain used to map logical -> physical coordinates.
     model : StruphyModel
@@ -221,23 +220,23 @@ class PostProcessor:
             derham_opts = params_in.derham_opts
             domain = params_in.domain
             model = params_in.model
-            with open(os.path.join(path_out, "meta.yml"), "r") as f:
-                meta = yaml.load(f, Loader=yaml.FullLoader)
-            comm_size = meta["MPI processes"]
         else:
             path_out = sim.env.path_out
             grid = sim.grid
             derham_opts = sim.derham_opts
             domain = sim.domain
             model = sim.model
-            comm_size = sim.comm_size
+
+        with open(os.path.join(path_out, "meta.yml"), "r") as f:
+            meta = yaml.load(f, Loader=yaml.FullLoader)
+        comm_size = meta["MPI processes"]
 
         self.path_out = path_out
         self.path_pproc = os.path.join(path_out, "post_processing")
         if grid is None or derham_opts is None:
             self.derham = None
         else:
-            self.derham = setup_derham(
+            self.derham = Derham(
                 grid,
                 derham_opts,
                 comm=None,
@@ -291,7 +290,7 @@ class PostProcessor:
             Verbosity flag.
         """
         if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nPost-processing path {self.path_out}")
+            logger.info(f"\nPost-processing path {self.path_out}")
 
         # check for fields and kinetic data in hdf5 file that need post processing
         with h5py.File(os.path.join(self.path_out, "data/", "data_proc0.hdf5"), "r") as file:
@@ -349,7 +348,7 @@ class PostProcessor:
         verbose: bool = False,
     ):
         if not self.exist_fields:
-            print("\nNo feec fields found in hdf5 file, skipping post-processing of fields.")
+            logger.info("\nNo feec fields found in hdf5 file, skipping post-processing of fields.")
             return
 
         fields, t_grid = self._create_femfields(step=step)
@@ -407,7 +406,7 @@ class PostProcessor:
     ):
 
         if self.exist_particles is None:
-            print("\nNo kinetic data found in hdf5 file, skipping post-processing of kinetic data.")
+            logger.info("\nNo kinetic data found in hdf5 file, skipping post-processing of kinetic data.")
             return
 
         # directory for kinetic data
@@ -488,13 +487,13 @@ class PostProcessor:
         # get fields names, space IDs and time grid from 0-th rank hdf5 file
         with h5py.File(os.path.join(self.path_out, "data/", "data_proc0.hdf5"), "r") as file:
             space_ids = {}
-            print("\nReading hdf5 data of following species:")
+            logger.info("\nReading hdf5 data of following species:")
             for species, dset in file["feec"].items():
                 space_ids[species] = {}
-                print(f"{species}:")
+                logger.info(f"{species}:")
                 for var, ddset in dset.items():
                     space_ids[species][var] = ddset.attrs["space_id"]
-                    print(f"  {var}:", ddset)
+                    logger.info(f"  {var}: {ddset}")
 
             t_grid = file["time/value"][::step].copy()
 
@@ -512,7 +511,7 @@ class PostProcessor:
                     )
 
         # get hdf5 data
-        print("")
+        logger.info("")
         for rank in range(int(self.comm_size)):
             # open hdf5 file
             with h5py.File(os.path.join(self.path_out, "data/", f"data_proc{rank}.hdf5"), "r") as file:
@@ -567,7 +566,7 @@ class PostProcessor:
                                 # update after each data addition, can be made more efficient
                                 fields[t][species][var].vector.update_ghost_regions()
 
-        print("Creation of Struphy Fields done.")
+        logger.info("Creation of Struphy Fields done.")
 
         return fields, t_grid
 
@@ -607,9 +606,11 @@ class PostProcessor:
         assert isinstance(celldivide, list)
         assert len(celldivide) == 3
 
-        Nel = self.derham.Nel
+        num_elements = self.derham.num_elements
 
-        grids_log = [xp.linspace(0.0, 1.0, Nel_i * n_i + 1) for Nel_i, n_i in zip(Nel, celldivide)]
+        grids_log = [
+            xp.linspace(0.0, 1.0, num_elements_i * n_i + 1) for num_elements_i, n_i in zip(num_elements, celldivide)
+        ]
         grids_phy = [
             self.domain(*grids_log)[0],
             self.domain(*grids_log)[1],
@@ -623,7 +624,7 @@ class PostProcessor:
             for name, field in vars.items():
                 point_data[species][name] = {}
 
-        print("\nEvaluating fields ...")
+        logger.info("\nEvaluating fields ...")
         for t in tqdm(fields):
             for species, vars in fields[t].items():
                 for name, field in vars.items():
@@ -733,7 +734,7 @@ class PostProcessor:
         nt = len(t_grid) - 1
         log_nt = int(xp.log10(nt)) + 1
 
-        print(f"\nCreating vtk in {path} ...")
+        logger.info(f"\nCreating vtk in {path} ...")
         for n, t in enumerate(tqdm(t_grid)):
             point_data_n = {}
 
@@ -819,7 +820,7 @@ class PostProcessor:
         temp = xp.empty((n_markers, len(save_index)), order="C")
         lost_particles_mask = xp.empty(n_markers, dtype=bool)
 
-        print(f"Evaluation of {n_markers} marker orbits for {species}")
+        logger.info(f"Evaluation of {n_markers} marker orbits for {species}")
 
         # loop over time grid
         for n in tqdm(range(int((nt - 1) / step) + 1)):
@@ -905,7 +906,7 @@ class PostProcessor:
             shutil.rmtree(path_distr)
             os.mkdir(path_distr)
 
-        print("Evaluation of distribution functions for " + str(species))
+        logger.info("Evaluation of distribution functions for " + str(species))
 
         # Create grids
         with h5py.File(os.path.join(self.path_out, "data/data_proc0.hdf5"), "r") as file_0:
@@ -1053,7 +1054,7 @@ class PostProcessor:
             shutil.rmtree(path_n_sph)
             os.mkdir(path_n_sph)
 
-        print("Evaluation of sph density for " + str(species))
+        logger.info("Evaluation of sph density for " + str(species))
 
         with h5py.File(os.path.join(self.path_out, "data/data_proc0.hdf5"), "r") as file_0:
             # Create grids
@@ -1225,8 +1226,8 @@ class PlottingData:
         NotImplementedError
             If an unexpected data folder structure is encountered.
         """
-        print("\nLoading post-processed plotting data:")
-        print(f"Data path: {self.path_pproc}")
+        logger.info("\nLoading post-processed plotting data:")
+        logger.info(f"Data path: {self.path_pproc}")
 
         # load time grid
         self.t_grid = xp.load(os.path.join(self.path_pproc, "t_grid.npy"))
@@ -1252,7 +1253,7 @@ class PlottingData:
                 path_spec = os.path.join(path_fields, spec)
                 wlk = os.walk(path_spec)
                 files = next(wlk)[2]
-                print(f"\nFiles in {path_spec}: {files}")
+                logger.info(f"\nFiles in {path_spec}: {files}")
                 for file in files:
                     if ".bin" in file:
                         var = file.split(".")[0]
@@ -1278,7 +1279,7 @@ class PlottingData:
                         Nt = len(files) // 2
                         n = 0
                         for file in files:
-                            # print(f"{file = }")
+                            # logger.info(f"{file = }")
                             if ".npy" in file:
                                 step = int(file.split(".")[0].split("_")[-1])
                                 tmp = xp.load(os.path.join(path_dat, file))
@@ -1292,56 +1293,56 @@ class PlottingData:
                         spec_holder = SpecHolder()
                         setattr(self.f, spec, spec_holder)
                         slices = next(sub_wlk)[1]
-                        # print(f"{slices = }")
+                        # logger.info(f"{slices = }")
                         for sli in slices:
                             s = Slice()
                             setattr(spec_holder, sli, s)
-                            # print(f"{sli = }")
+                            # logger.info(f"{sli = }")
                             files = next(sub_wlk)[2]
-                            # print(f"{files = }")
+                            # logger.info(f"{files = }")
                             for file in files:
                                 name = file.split(".")[0]
                                 tmp = xp.load(os.path.join(path_dat, sli, file))
-                                # print(f"{name = }")
+                                # logger.info(f"{name = }")
                                 setattr(s, name, tmp)
 
                     elif "n_sph" in folder:
                         spec_holder = SpecHolder()
                         setattr(self.n_sph, spec, spec_holder)
                         slices = next(sub_wlk)[1]
-                        # print(f"{slices = }")
+                        # logger.info(f"{slices = }")
                         for sli in slices:
                             s = Slice()
                             setattr(spec_holder, sli, s)
-                            # print(f"{sli = }")
+                            # logger.info(f"{sli = }")
                             files = next(sub_wlk)[2]
-                            # print(f"{files = }")
+                            # logger.info(f"{files = }")
                             for file in files:
                                 name = file.split(".")[0]
                                 tmp = xp.load(os.path.join(path_dat, sli, file))
-                                # print(f"{name = }")
+                                # logger.info(f"{name = }")
                                 setattr(s, name, tmp)
 
                     else:
-                        print(f"{folder =}")
+                        logger.info(f"{folder =}")
                         raise NotImplementedError
 
-        print("\nThe following data has been loaded:")
-        print("\ngrids:")
-        print(f"{self.t_grid.shape =}")
+        logger.info("\nThe following data has been loaded:")
+        logger.info("\ngrids:")
+        logger.info(f"{self.t_grid.shape =}")
         if self.grids_log is not None:
-            print(f"{self.grids_log[0].shape =}")
-            print(f"{self.grids_log[1].shape =}")
-            print(f"{self.grids_log[2].shape =}")
+            logger.info(f"{self.grids_log[0].shape =}")
+            logger.info(f"{self.grids_log[1].shape =}")
+            logger.info(f"{self.grids_log[2].shape =}")
         if self.grids_phy is not None:
-            print(f"{self.grids_phy[0].shape =}")
-            print(f"{self.grids_phy[1].shape =}")
-            print(f"{self.grids_phy[2].shape =}")
-        print("\nself.spline_values:")
-        print(self.spline_values)
-        print("self.orbits:")
-        print(self.orbits)
-        print("self.f:")
-        print(self.f)
-        print("self.n_sph:")
-        print(self.n_sph)
+            logger.info(f"{self.grids_phy[0].shape =}")
+            logger.info(f"{self.grids_phy[1].shape =}")
+            logger.info(f"{self.grids_phy[2].shape =}")
+        logger.info("\nself.spline_values:")
+        logger.info(self.spline_values)
+        logger.info("self.orbits:")
+        logger.info(self.orbits)
+        logger.info("self.f:")
+        logger.info(self.f)
+        logger.info("self.n_sph:")
+        logger.info(self.n_sph)

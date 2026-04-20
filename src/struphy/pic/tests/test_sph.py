@@ -1,3 +1,5 @@
+import logging
+
 import cunumpy as xp
 import pytest
 from feectools.ddm.mpi import MockComm
@@ -16,6 +18,8 @@ from struphy import (
 from struphy.fields_background.equils import ConstantVelocity
 from struphy.geometry.base import Domain
 from struphy.pic.particles import ParticlesSPH
+
+logger = logging.getLogger("struphy")
 
 
 @pytest.mark.parametrize("boxes_per_dim", [(24, 1, 1)])
@@ -118,9 +122,9 @@ def test_sph_evaluation_1d(
     err_max_norm = xp.max(xp.abs(all_eval - exact_eval)) / xp.max(xp.abs(exact_eval))
 
     if rank == 0:
-        print(f"\n{boxes_per_dim =}")
-        print(f"{kernel =}, {derivative =}")
-        print(f"{bc_x =}, {eval_pts =}, {tesselation =}, {err_max_norm =}")
+        logger.info(f"\n{boxes_per_dim =}")
+        logger.info(f"{kernel =}, {derivative =}")
+        logger.info(f"{bc_x =}, {eval_pts =}, {tesselation =}, {err_max_norm =}")
         if show_plot:
             plt.figure(figsize=(12, 8))
             plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
@@ -242,9 +246,9 @@ def test_sph_evaluation_2d(
     err_max_norm = xp.max(xp.abs(all_eval - exact_eval)) / xp.max(xp.abs(exact_eval))
 
     if rank == 0:
-        print(f"\n{boxes_per_dim =}")
-        print(f"{kernel =}, {derivative =}")
-        print(f"{bc_x =}, {bc_y =}, {eval_pts =}, {tesselation =}, {err_max_norm =}")
+        logger.info(f"\n{boxes_per_dim =}")
+        logger.info(f"{kernel =}, {derivative =}")
+        logger.info(f"{bc_x =}, {bc_y =}, {eval_pts =}, {tesselation =}, {err_max_norm =}")
         if show_plot:
             plt.figure(figsize=(12, 24))
             plt.subplot(2, 1, 1)
@@ -361,28 +365,28 @@ def test_sph_evaluation_3d(
     err_max_norm = xp.max(xp.abs(all_eval - exact_eval))
 
     if rank == 0:
-        print(f"\n{boxes_per_dim =}")
-        print(f"{kernel =}, {derivative =}")
-        print(f"{bc_x =}, {bc_y =}, {bc_z =}, {eval_pts =}, {tesselation =}, {err_max_norm =}")
+        logger.info(f"\n{boxes_per_dim =}")
+        logger.info(f"{kernel =}, {derivative =}")
+        logger.info(f"{bc_x =}, {bc_y =}, {bc_z =}, {eval_pts =}, {tesselation =}, {err_max_norm =}")
         if show_plot:
-            print(f"\n{fun_exact(ee1, ee2, ee3)[5, 5, 5] =}")
-            print(f"{ee1[5, 5, 5] =}, {ee2[5, 5, 5] =}, {ee3[5, 5, 5] =}")
-            print(f"{all_eval[5, 5, 5] =}")
+            logger.info(f"\n{fun_exact(ee1, ee2, ee3)[5, 5, 5] =}")
+            logger.info(f"{ee1[5, 5, 5] =}, {ee2[5, 5, 5] =}, {ee3[5, 5, 5] =}")
+            logger.info(f"{all_eval[5, 5, 5] =}")
 
-            print(f"\n{ee1[4, 4, 4] =}, {ee2[4, 4, 4] =}, {ee3[4, 4, 4] =}")
-            print(f"{all_eval[4, 4, 4] =}")
+            logger.info(f"\n{ee1[4, 4, 4] =}, {ee2[4, 4, 4] =}, {ee3[4, 4, 4] =}")
+            logger.info(f"{all_eval[4, 4, 4] =}")
 
-            print(f"\n{ee1[3, 3, 3] =}, {ee2[3, 3, 3] =}, {ee3[3, 3, 3] =}")
-            print(f"{all_eval[3, 3, 3] =}")
+            logger.info(f"\n{ee1[3, 3, 3] =}, {ee2[3, 3, 3] =}, {ee3[3, 3, 3] =}")
+            logger.info(f"{all_eval[3, 3, 3] =}")
 
-            print(f"\n{ee1[2, 2, 2] =}, {ee2[2, 2, 2] =}, {ee3[2, 2, 2] =}")
-            print(f"{all_eval[2, 2, 2] =}")
+            logger.info(f"\n{ee1[2, 2, 2] =}, {ee2[2, 2, 2] =}, {ee3[2, 2, 2] =}")
+            logger.info(f"{all_eval[2, 2, 2] =}")
 
-            print(f"\n{ee1[1, 1, 1] =}, {ee2[1, 1, 1] =}, {ee3[1, 1, 1] =}")
-            print(f"{all_eval[1, 1, 1] =}")
+            logger.info(f"\n{ee1[1, 1, 1] =}, {ee2[1, 1, 1] =}, {ee3[1, 1, 1] =}")
+            logger.info(f"{all_eval[1, 1, 1] =}")
 
-            print(f"\n{ee1[0, 0, 0] =}, {ee2[0, 0, 0] =}, {ee3[0, 0, 0] =}")
-            print(f"{all_eval[0, 0, 0] =}")
+            logger.info(f"\n{ee1[0, 0, 0] =}, {ee2[0, 0, 0] =}, {ee3[0, 0, 0] =}")
+            logger.info(f"{all_eval[0, 0, 0] =}")
             # plt.figure(figsize=(12, 24))
             # plt.subplot(2, 1, 1)
             # plt.pcolor(ee1[0, :, :], ee2[0, :, :], fun_exact(ee1, ee2, ee3)[0, :, :])
@@ -490,7 +494,7 @@ def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, eval_pts, tessela
 
         diff = xp.max(xp.abs(all_eval - exact_eval)) / xp.max(xp.abs(exact_eval))
         err_vec += [diff]
-        print(f"{Np =}, {ppb =}, {diff =}")
+        logger.info(f"{Np =}, {ppb =}, {diff =}")
 
     if tesselation:
         fit = xp.polyfit(xp.log(ppbs), xp.log(err_vec), 1)
@@ -508,7 +512,7 @@ def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, eval_pts, tessela
         # plt.savefig(f"Convergence_SPH_{tesselation=}")
 
     if rank == 0:
-        print(f"\n{bc_x =}, {eval_pts =}, {tesselation =}, {fit[0] =}")
+        logger.info(f"\n{bc_x =}, {eval_pts =}, {tesselation =}, {fit[0] =}")
 
     if tesselation:
         assert fit[0] < 2e-3
@@ -607,7 +611,7 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselat
         # error in max-norm
         diff = xp.max(xp.abs(all_eval - exact_eval)) / xp.max(xp.abs(exact_eval))
 
-        print(f"{h1 =}, {diff =}")
+        logger.info(f"{h1 =}, {diff =}")
 
         if tesselation and h1 < 0.256:
             assert diff < 0.036
@@ -628,7 +632,7 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselat
         # plt.savefig("Convergence_SPH")
 
     if rank == 0:
-        print(f"\n{bc_x =}, {eval_pts =}, {tesselation =}, {fit[0] =}")
+        logger.info(f"\n{bc_x =}, {eval_pts =}, {tesselation =}, {fit[0] =}")
 
     if not tesselation:
         assert xp.abs(fit[0] + 0.5) < 0.1  # Monte Carlo rate
@@ -725,7 +729,7 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, te
             err_vec[-1] += [diff]
 
             if rank == 0:
-                print(f"{Np =}, {ppb =}, {diff =}")
+                logger.info(f"{Np =}, {ppb =}, {diff =}")
                 # if show_plot:
                 #     plt.figure()
                 #     plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
@@ -763,7 +767,7 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, te
         plt.show()
 
     if rank == 0:
-        print(f"\n{tesselation =}, {bc_x =}, {err_min =}")
+        logger.info(f"\n{tesselation =}, {bc_x =}, {err_min =}")
 
     if tesselation:
         if bc_x == "periodic":
@@ -860,7 +864,7 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
             verbose=False,
         )
         if rank == 0:
-            print(f"{particles.domain_array}")
+            logger.info(f"{particles.domain_array}")
 
         particles.draw_markers(sort=False, verbose=False)
         if comm is not None:
@@ -886,7 +890,7 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
             assert diff < 0.06
 
         if rank == 0:
-            print(f"{Np =}, {ppb =}, {diff =}")
+            logger.info(f"{Np =}, {ppb =}, {diff =}")
             if show_plot:
                 fig, ax = plt.subplots()
                 d = ax.pcolor(ee1.squeeze(), ee2.squeeze(), all_eval.squeeze(), label="eval_sph", vmin=1.0, vmax=2.0)
@@ -912,7 +916,7 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
         # plt.savefig(f"Convergence_SPH_{tesselation=}")
 
     if rank == 0:
-        print(f"\n{bc_x =}, {tesselation =}, {fit[0] =}")
+        logger.info(f"\n{bc_x =}, {tesselation =}, {fit[0] =}")
 
     if not tesselation:
         assert xp.abs(fit[0] + 0.5) < 0.1  # Monte Carlo rate
@@ -1046,10 +1050,10 @@ def test_sph_velocity_evaluation(
     err_uz = xp.max(xp.abs(all_velo3 - v3_e)) / xp.max(xp.abs(v3_e))
 
     if rank == 0:
-        print(f"\n{boxes_per_dim = }")
-        print(f"{kernel = }, {derivative = }")
-        print(f"{bc_x = }, {eval_pts = }, {tesselation = }")
-        print(f"Velocity errors: ux={err_ux:.3e}, uy={err_uy:.3e}, uz={err_uz:.3e}")
+        logger.info(f"\n{boxes_per_dim = }")
+        logger.info(f"{kernel = }, {derivative = }")
+        logger.info(f"{bc_x = }, {eval_pts = }, {tesselation = }")
+        logger.info(f"Velocity errors: ux={err_ux:.3e}, uy={err_uy:.3e}, uz={err_uz:.3e}")
 
         if show_plot:
             plt.figure(figsize=(12, 6))
@@ -1246,10 +1250,10 @@ def test_sph_velocity_evaluation_2d(
         err_uy = abs_err(all_velo2, v2_e)
 
     if rank == 0:
-        print(f"\n{boxes_per_dim = }")
-        print(f"{kernel = }, {derivative = }")
-        print(f"{bc_x = }, {bc_y = }, {eval_pts = }")
-        print(f"Velocity errors: ux={err_ux:.3e}, uy={err_uy:.3e}")
+        logger.info(f"\n{boxes_per_dim = }")
+        logger.info(f"{kernel = }, {derivative = }")
+        logger.info(f"{bc_x = }, {bc_y = }, {eval_pts = }")
+        logger.info(f"Velocity errors: ux={err_ux:.3e}, uy={err_uy:.3e}")
 
         if show_plot:
             plt.figure(figsize=(12, 24))
@@ -1286,7 +1290,7 @@ def test_sph_velocity_evaluation_2d(
             plt.colorbar()
 
             plt.tight_layout()
-            plt.savefig("image_test_2d.png")
+            # plt.savefig("image_test_2d.png")
             plt.show()
 
             plt.figure(figsize=(8, 8))
@@ -1304,7 +1308,7 @@ def test_sph_velocity_evaluation_2d(
             plt.ylabel("y")
             plt.axis("equal")
             plt.tight_layout()
-            plt.savefig("image_test_2d_quiver.png")
+            # plt.savefig("image_test_2d_quiver.png")
             plt.show()
 
     # tolerances: conservative values aligned with your 2D density thresholds
@@ -1460,8 +1464,8 @@ def test_sph_viscosity_evaluation_2d(
         derivative=0,
     )
     if rank == 0:
-        print(f"{density.shape = }")
-        print(f"{xp.min(density) = }, {xp.max(density) = }")
+        logger.info(f"{density.shape = }")
+        logger.info(f"{xp.min(density) = }, {xp.max(density) = }")
 
     if show_plot:
         plt.figure(figsize=(10, 5))
@@ -1488,9 +1492,9 @@ def test_sph_viscosity_evaluation_2d(
         derivative=0,
     )
     if rank == 0:
-        print(f"{vx.shape = }, {vy.shape = }")
-        print(f"{xp.min(vx) = }, {xp.max(vx) = }")
-        print(f"{xp.min(vy) = }, {xp.max(vy) = }")
+        logger.info(f"{vx.shape = }, {vy.shape = }")
+        logger.info(f"{xp.min(vx) = }, {xp.max(vx) = }")
+        logger.info(f"{xp.min(vy) = }, {xp.max(vy) = }")
 
     if show_plot:
         plt.figure(figsize=(10, 8))
@@ -1559,10 +1563,10 @@ def test_sph_viscosity_evaluation_2d(
     # err_div_z = abs_err(all_div_z, div_pi_z)
 
     if rank == 0:
-        print(f"\n{boxes_per_dim = }")
-        print(f"{kernel = }")
-        print(f"{bc_x = }, {bc_y = }, {eval_pts = }")
-        print(f"Divergence of viscosity errors: gx={err_div_x:.3e}, gy={err_div_y:.3e}")
+        logger.info(f"\n{boxes_per_dim = }")
+        logger.info(f"{kernel = }")
+        logger.info(f"{bc_x = }, {bc_y = }, {eval_pts = }")
+        logger.info(f"Divergence of viscosity errors: gx={err_div_x:.3e}, gy={err_div_y:.3e}")
         # , gz={err_div_z:.3e}
 
     if show_plot:
@@ -1679,10 +1683,10 @@ def test_sph_viscosity_evaluation_2d(
         #     coeffs = xp.polyfit(xp.log(ppb_arr), xp.log(errors), 1)
         #     order = coeffs[0]
 
-        #     print("\nSampling convergence study")
-        #     print("ppb:", ppb_arr)
-        #     print("errors:", errors)
-        #     print(f"Observed scaling ≈ ppb^{order:.3f}")
+        #     logger.info("\nSampling convergence study")
+        #     logger.info("ppb:", ppb_arr)
+        #     logger.info("errors:", errors)
+        #     logger.info(f"Observed scaling ≈ ppb^{order:.3f}")
 
         #     plt.figure()
         #     plt.loglog(ppb_arr, errors, "o-")
@@ -1694,17 +1698,6 @@ def test_sph_viscosity_evaluation_2d(
         assert err_div_x < 3.5e-2
         assert err_div_y < 3.5e-2
 
-
-if __name__ == "__main__":
-    test_sph_viscosity_evaluation_2d(
-        (12, 12, 1),
-        "gaussian_2d",
-        "periodic",
-        "periodic",
-        101,
-        tesselation=True,
-        show_plot=False,
-    )
     # test_sph_velocity_evaluation_2d(
     #     (12, 12, 1), "gaussian_2d", 1, "periodic", "periodic", 101, tesselation=False, show_plot=True
     # )
@@ -1755,7 +1748,7 @@ if __name__ == "__main__":
     # )
 
     # for nb in range(4, 25):
-    #     print(f"\n{nb = }")
+    #     logger.info(f"\n{nb = }")
     # test_evaluation_SPH_Np_convergence_1d((12,1,1), "fixed", eval_pts=16, tesselation=False, show_plot=True)
     # test_evaluation_SPH_h_convergence_1d((12,1,1), "periodic", eval_pts=16, tesselation=True, show_plot=True)
     # test_evaluation_mc_Np_and_h_convergence_1d((12,1,1),"mirror", eval_pts=16, tesselation = False,  show_plot=True)
@@ -1764,3 +1757,217 @@ if __name__ == "__main__":
     # test_evaluation_SPH_Np_convergence_2d((32, 32, 1), "fixed", "periodic", tesselation=True, show_plot=True)
     # test_evaluation_SPH_Np_convergence_2d((32, 32, 1), "fixed", "fixed",   tesselation=True, show_plot=True)
     # test_evaluation_SPH_Np_convergence_2d((32, 32, 1), "mirror", "mirror",  tesselation=True, show_plot=True)
+
+
+@pytest.mark.parametrize("tesselation", [False, True])
+@pytest.mark.parametrize("direction", ["x", "y", "z"])
+def test_sph_no_slip_boundary_1d(
+    tesselation,
+    direction,
+    show_plot=False,
+):
+    import sys
+
+    import numpy
+
+    numpy.set_printoptions(threshold=sys.maxsize, linewidth=200, precision=3, suppress=True)
+
+    if isinstance(MPI.COMM_WORLD, MockComm):
+        comm = None
+        rank = 0
+    else:
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+
+    dom_type = "Cuboid"
+    dom_params = {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}
+    domain_class = getattr(domains, dom_type)
+    domain = domain_class(**dom_params)
+
+    if tesselation:
+        ppb = 4
+        loading_params = LoadingParameters(ppb=ppb, loading="tesselation")
+    else:
+        ppb = 200
+        loading_params = LoadingParameters(ppb=ppb, seed=223)
+
+    if direction == "x":
+
+        def u_xyz(x, y, z):
+            return (xp.ones_like(x), xp.zeros_like(x), xp.zeros_like(x))
+    elif direction == "y":
+
+        def u_xyz(x, y, z):
+            return (xp.zeros_like(x), xp.ones_like(x), xp.zeros_like(x))
+    else:
+
+        def u_xyz(x, y, z):
+            return (xp.zeros_like(x), xp.zeros_like(x), xp.ones_like(x))
+
+    background = equils.GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
+    background.domain = domain
+    if direction == "x":
+        kernel = "gaussian_1d"
+        boxes_per_dim = (12, 1, 1)
+        boundary_params = BoundaryParameters(bc_sph=("noslip", "periodic", "periodic"))
+    elif direction == "y":
+        kernel = "gaussian_2d"
+        boxes_per_dim = (1, 12, 1)
+        boundary_params = BoundaryParameters(bc_sph=("periodic", "noslip", "periodic"))
+    else:
+        kernel = "gaussian_3d"
+        boxes_per_dim = (1, 1, 12)
+        boundary_params = BoundaryParameters(bc_sph=("periodic", "periodic", "noslip"))
+
+    particles = ParticlesSPH(
+        comm_world=comm,
+        loading_params=loading_params,
+        boundary_params=boundary_params,
+        boxes_per_dim=boxes_per_dim,
+        bufsize=1.0,
+        box_bufsize=2.0,
+        domain=domain,
+        background=background,
+        n_as_volume_form=True,
+        verbose=False,
+    )
+
+    particles.draw_markers(sort=False, verbose=False)
+    if rank == 0:
+        ghost_inds = xp.where(particles.ghost_particles)[0]
+        logger.info(f"After do_sort: {len(ghost_inds)} ghosts")
+        if len(ghost_inds) > 0:
+            logger.info(f"First 10 ghost eta1: {particles.markers[ghost_inds[:10], 0]}")
+    particles.initialize_weights()
+
+    if direction == "x":
+        eta1 = xp.linspace(0.0, 1.0, 100)
+        eta2 = xp.array([0.5])
+        eta3 = xp.array([0.5])
+    elif direction == "y":
+        eta1 = xp.array([0.5])
+        eta2 = xp.linspace(0.0, 1.0, 100)
+        eta3 = xp.array([0.5])
+    else:
+        eta1 = xp.array([0.5])
+        eta2 = xp.array([0.5])
+        eta3 = xp.linspace(0.0, 1.0, 100)
+
+    ee1, ee2, ee3 = xp.meshgrid(eta1, eta2, eta3, indexing="ij")
+
+    h1 = 1 / boxes_per_dim[0]
+    h2 = 1 / boxes_per_dim[1]
+    h3 = 1 / boxes_per_dim[2]
+
+    v1, v2, v3 = particles.eval_velocity(
+        ee1,
+        ee2,
+        ee3,
+        h1=h1,
+        h2=h2,
+        h3=h3,
+        kernel_type=kernel,
+        derivative=0,
+    )
+
+    # if rank == 0 and len(ghost_inds) > 0:
+    #     logger.info("Ghost coefficients after eval:", particles.markers[ghost_inds[:10], particles.first_free_idx])
+    #     logger.info("Ghost positions after eval:", particles.markers[ghost_inds[:10], 0])
+
+    if comm is not None:
+        all_v1 = xp.zeros_like(v1)
+        all_v2 = xp.zeros_like(v2)
+        all_v3 = xp.zeros_like(v3)
+        comm.Allreduce(v1, all_v1, op=MPI.SUM)
+        comm.Allreduce(v2, all_v2, op=MPI.SUM)
+        comm.Allreduce(v3, all_v3, op=MPI.SUM)
+    else:
+        all_v1, all_v2, all_v3 = v1, v2, v3
+
+    v1_squeezed = all_v1.squeeze()
+    v2_squeezed = all_v2.squeeze()
+    v3_squeezed = all_v3.squeeze()
+
+    v_wall_left = (v1_squeezed[0], v2_squeezed[0], v3_squeezed[0])
+    v_wall_right = (v1_squeezed[-1], v2_squeezed[-1], v3_squeezed[-1])
+
+    v_interior = (v1_squeezed[1:-1], v2_squeezed[1:-1], v3_squeezed[1:-1])
+
+    if rank == 0:
+        logger.info("\nVelocity at interior points:")
+        for idx, eta in enumerate(eta1[2:]):
+            logger.info(
+                f"eta1 = {eta:.8f}, v_x = {v1_squeezed[2 + idx]:.6f}, v_y = {v2_squeezed[2 + idx]:.6f}, v_z = {v3_squeezed[2 + idx]:.6f}"
+            )
+
+            logger.info(
+                f"\nLeft wall (eta1={eta1[0]}): v_x={v1_squeezed[0]:.6f}, v_y={v2_squeezed[0]:.6f}, v_z={v3_squeezed[0]:.6f}"
+            )
+            logger.info(
+                f"Right wall (eta1={eta1[-1]}): v_x={v1_squeezed[-1]:.6f}, v_y={v2_squeezed[-1]:.6f}, v_z={v3_squeezed[-1]:.6f}"
+            )
+
+    if rank == 0 and show_plot:
+        if direction == "x":
+            x_plot = eta1.squeeze()
+            xlabel = r"$\eta_1$"
+        elif direction == "y":
+            x_plot = eta2.squeeze()
+            xlabel = r"$\eta_2$"
+        else:  # direction == "z"
+            x_plot = eta3.squeeze()
+            xlabel = r"$\eta_3$"
+
+        plt.figure(figsize=(8, 5))
+        plt.plot(x_plot, v1_squeezed, "o-", label="$v_x$")
+        plt.plot(x_plot, v2_squeezed, "s-", label="$v_y$")
+        plt.plot(x_plot, v3_squeezed, "d-", label="$v_z$")
+        plt.axhline(0, color="k", linestyle="--", linewidth=0.5)
+        plt.axhline(1, color="gray", linestyle="--", linewidth=0.5)
+        plt.xlabel(xlabel)
+        plt.ylabel("velocity")
+        plt.title(f"No-slip test ({direction}-direction, {kernel}, tesselation={tesselation})")
+        plt.legend()
+        plt.grid(True)
+        plt.show()
+        # plt.savefig("bc_sph")
+
+    if tesselation:
+        tol_wall = 3e-3
+        tol_interior = 5e-2
+    else:
+        tol_wall = 3e-3
+        tol_interior = 1.6e-1
+
+    for comp, name in zip([0, 1, 2], ["x", "y", "z"]):
+        val_left = [v_wall_left[0], v_wall_left[1], v_wall_left[2]][comp]
+        val_right = [v_wall_right[0], v_wall_right[1], v_wall_right[2]][comp]
+        assert xp.abs(val_left) < tol_wall, f"Left wall {name}-velocity not zero: {val_left}"
+        assert xp.abs(val_right) < tol_wall, f"Right wall {name}-velocity not zero: {val_right}"
+
+    if direction == "x":
+        interior_vals = v_interior[0]
+
+    elif direction == "y":
+        interior_vals = v_interior[1]
+
+    else:
+        interior_vals = v_interior[2]
+
+    assert xp.abs(interior_vals[0]) < 0.5, f"Interior velocity on the left too large: {xp.abs(interior_vals[0])}"
+    assert xp.abs(interior_vals[-1]) < 0.5, f"Interior velocity on the right too large: {xp.abs(interior_vals[-1])}"
+    logger.info(interior_vals)
+    rel_error = xp.max(xp.abs(interior_vals[7:-7] - 1.0)) / 1.0
+    logger.info(f"{rel_error=}")
+    assert rel_error < tol_interior, f"Interior {direction}-velocity error too large: {rel_error}"
+
+
+if __name__ == "__main__":
+    # test_sph_no_slip_boundary_1d(
+    #     tesselation=False,
+    #     direction="x",
+    #     show_plot=True,
+    # )
+    test_sph_velocity_evaluation_2d(
+        (12, 12, 1), "gaussian_2d", 1, "periodic", "periodic", 11, tesselation=False, show_plot=True
+    )

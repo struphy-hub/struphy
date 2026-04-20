@@ -1,6 +1,7 @@
 # third party imports
 import glob
 import json
+import logging
 import os
 import pickle
 import shutil
@@ -29,11 +30,13 @@ from struphy import (
     domains,
     equils,
     grids,
+    set_logging_level,
 )
 
 # core imports
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
+from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.base import (
     FluidEquilibrium,
     FluidEquilibriumWithB,
@@ -47,7 +50,6 @@ from struphy.fields_background.projected_equils import (
 )
 from struphy.geometry.base import Domain
 from struphy.io.output_handling import DataContainer
-from struphy.io.setup import setup_derham
 from struphy.models import Maxwell
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
@@ -64,6 +66,8 @@ from struphy.propagators.base import Propagator
 from struphy.simulation.base import SimulationBase
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml, ruff_autofix_and_format
+
+logger = logging.getLogger("struphy")
 
 
 class Simulation(SimulationBase):
@@ -87,8 +91,6 @@ class Simulation(SimulationBase):
         Path to a Python parameter file to save alongside outputs.
     env : EnvironmentOptions
         Runtime and output environment options.
-    base_units : BaseUnits
-        Units used for normalization.
     time_opts : Time
         Time-stepping options (dt, Tend, split algorithm, ...).
     domain : Domain
@@ -101,17 +103,6 @@ class Simulation(SimulationBase):
         Options for discrete differential operators.
     verbose : bool, optional
         If True, print additional setup information.
-
-    Attributes
-    ----------
-    meta : dict
-        Metadata about the run (platform, python version, model name, etc.).
-    units : Units
-        Unit/normalization helper created from `base_units`.
-    data : DataContainer
-        Output container used to store simulation data.
-    start_time : float
-        Wall-clock time when the simulation object was created.
     """
 
     def __init__(
@@ -121,21 +112,22 @@ class Simulation(SimulationBase):
         description: str = "",
         params_path: str = None,
         env: EnvironmentOptions = EnvironmentOptions(),
-        base_units: BaseUnits = BaseUnits(),
         time_opts: Time = Time(),
         domain: Domain = domains.Cuboid(),
         equil: FluidEquilibrium = None,
         grid: grids.TensorProductGrid = grids.TensorProductGrid(),
         derham_opts: DerhamOptions = DerhamOptions(),
+        logging_level: int | None = None,
         verbose: bool = False,
     ):
+        if logging_level is not None:
+            set_logging_level(logging_level)
 
         self._name = name
         self._description = description
         self._model = model
         self._params_path = params_path
         self._env = env
-        self._base_units = base_units
         self._time_opts = time_opts
         self._setup_domain_and_equil(domain, equil, verbose=verbose)
         self._grid = grid
@@ -165,10 +157,7 @@ class Simulation(SimulationBase):
             self.comm_size = self.comm.Get_size()
             self.Barrier = self.comm.Barrier
 
-        if self.rank == 0 and verbose:
-            print("")
-            if verbose:
-                self.show_parameters()
+        self.show_parameters()
 
         # synchronize MPI processes to set same start time of simulation for all processes
         self.Barrier()
@@ -178,8 +167,7 @@ class Simulation(SimulationBase):
         assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
         self.model_name = model.__class__.__name__
 
-        if self.rank == 0 and verbose:
-            print(f"Instance of simulation for model {self.model_name} ...")
+        logger.debug(f"Instance of simulation for model {self.model_name} ...")
 
         # meta-data
         path_out = env.path_out
@@ -203,10 +191,10 @@ class Simulation(SimulationBase):
         self.meta["max wall-clock [min]"] = max_runtime
         self.meta["save interval [steps]"] = save_step
 
-        if self.rank == 0 and verbose:
-            print("\nMETADATA:")
-            for k, v in self.meta.items():
-                print(f"{k}:".ljust(25), v)
+        logger.debug("\nMETADATA:")
+        for k, v in self.meta.items():
+            msg = f"{k}:".ljust(25) + f"{v}".rjust(25)
+            logger.debug(msg)
 
         # creating output folders
         self._setup_folders(
@@ -229,8 +217,6 @@ class Simulation(SimulationBase):
             else:
                 with open(os.path.join(path_out, "env.bin"), "wb") as f:
                     pickle.dump(env, f, pickle.HIGHEST_PROTOCOL)
-                with open(os.path.join(path_out, "base_units.bin"), "wb") as f:
-                    pickle.dump(base_units, f, pickle.HIGHEST_PROTOCOL)
                 with open(os.path.join(path_out, "time_opts.bin"), "wb") as f:
                     pickle.dump(time_opts, f, pickle.HIGHEST_PROTOCOL)
                 with open(os.path.join(path_out, "domain.bin"), "wb") as f:
@@ -270,12 +256,7 @@ class Simulation(SimulationBase):
         self.clone_config = model.clone_config = clone_config
         self.Barrier()
 
-        # units and normalization parameters
-        self.units = Units(base_units)
-        self.normalize_model()
-
-        if self.rank == 0 and verbose:
-            print("\n... Done.")
+        logger.debug("\n... Done.")
 
     # ----------------
     # Abstract methods
@@ -286,27 +267,24 @@ class Simulation(SimulationBase):
 
         Only the MPI rank 0 prints to avoid clutter from multiple processes.
         """
-        if self.rank == 0:
-            print("SIMULATION PARAMETERS:")
-            print("\nModel:")
-            print(self.model)
-            print("Parameter file path:")
-            print(self.params_path)
-            print("\nEnvironment options:")
-            print(self.env)
-            print("Base units:")
-            print(self.base_units)
-            print("Time stepping options:")
-            print(self.time_opts)
-            print("Domain:")
-            print(self.domain)
-            print("Fluid equilibrium:")
-            print(self.equil)
-            print("Grid:")
-            print(self.grid)
-            print("Derham options:")
-            print(self.derham_opts)
-            print("")
+        logger.debug("SIMULATION PARAMETERS:")
+        logger.debug("\nModel:")
+        logger.debug(self.model)
+        logger.debug("Parameter file path:")
+        logger.debug(self.params_path)
+        logger.debug("\nEnvironment options:")
+        logger.debug(self.env)
+        logger.debug("Time stepping options:")
+        logger.debug(self.time_opts)
+        logger.debug("Domain:")
+        logger.debug(self.domain)
+        logger.debug("Fluid equilibrium:")
+        logger.debug(self.equil)
+        logger.debug("Grid:")
+        logger.debug(self.grid)
+        logger.debug("Derham options:")
+        logger.debug(self.derham_opts)
+        logger.debug("")
 
     def allocate(self, verbose: bool = False):
         """Allocate FEEC structures, model variables and propagators.
@@ -317,7 +295,7 @@ class Simulation(SimulationBase):
         """
 
         if MPI.COMM_WORLD.Get_rank() == 0:
-            print("\nAllocating simulation data ...")
+            logger.info("\nAllocating simulation data ...")
 
         # feec
         self._allocate_feec(self.grid, self.derham_opts, verbose=verbose)
@@ -332,7 +310,7 @@ class Simulation(SimulationBase):
         self.model.allocate_helpers(verbose=verbose)
 
         if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-            print("... Done.")
+            logger.info("... Done.")
 
     def save_geometry_and_equil_vtk(self, verbose: bool = False):
         """Write a VTK file with geometry and (projected) equilibrium fields.
@@ -484,7 +462,7 @@ class Simulation(SimulationBase):
             self.data.add_data({key_time: val})
             self.data.add_data({key_time_restart: val})
 
-    def run(self, verbose: bool = False):
+    def run(self, one_time_step: bool = False, verbose: bool = False):
         """Main entry point to execute the simulation time loop.
 
         Responsibilities include allocation (when not restarting),
@@ -494,27 +472,29 @@ class Simulation(SimulationBase):
 
         Parameters
         ----------
+        one_time_step : bool
+            If True, only perform one time step (useful for testing).
+
         verbose : bool
             If True, print additional runtime information.
         """
 
-        if self.rank == 0:
-            print(f"\nStarting simulation run for model {self.model_name} ...")
-            if self.name != "":
-                print(f"Simulation name: {self.name}")
-            if self.description != "":
-                print(f"Description: {self.description}")
+        logger.warning(f"\nStarting simulation run for model {self.model_name} ...")
+        if self.name != "":
+            logger.info(f"Simulation name: {self.name}")
+        if self.description != "":
+            logger.info(f"Description: {self.description}")
 
         self._remove_existing_output_files(verbose=verbose)
 
         # Display propagator options and intial conditions:
         if MPI.COMM_WORLD.Get_rank() == 0:
-            print("\nPROPAGATOR OPTIONS:")
+            logger.info("\nPROPAGATOR OPTIONS:")
             for prop in self.model.prop_list:
                 assert isinstance(prop, Propagator)
                 prop.show_options()
 
-            print("\nINITIAL CONDITIONS:")
+            logger.info("\nINITIAL CONDITIONS:")
             for species in self.model.species.values():
                 assert isinstance(species, Species)
                 for variable in species.variables.values():
@@ -541,16 +521,18 @@ class Simulation(SimulationBase):
 
         # print info on mpi procs
         if self.rank < 32:
-            if self.rank == 0:
-                print("")
-            print(f"Rank {self.rank}: executing run() for model {self.model_name} ...")
+            logger.info("")
+            logger.info(f"Rank {self.rank}: executing run() for model {self.model_name} ...")
 
         if self.comm_size > 32 and self.rank == 32:
-            print(f"Ranks > 31: executing run() for model {self.model_name} ...")
+            logger.info(f"Ranks > 31: executing run() for model {self.model_name} ...")
 
         # retrieve time parameters
         dt = self.time_opts.dt
-        Tend = self.time_opts.Tend
+        if one_time_step:
+            Tend = dt
+        else:
+            Tend = self.time_opts.Tend
         split_algo = self.time_opts.split_algo
 
         # set initial conditions for all variables
@@ -563,7 +545,7 @@ class Simulation(SimulationBase):
                 self.time_state["index"][0] = file["restart/time/index"][-1]
 
             total_steps = str(int(round((Tend - self.time_state["value"][0]) / dt)))
-            print(f"""\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            logger.info(f"""\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 RESTARTing from:
 {self.time_state["value"][0]=}
 {self.time_state["value_sec"][0]=}
@@ -584,11 +566,12 @@ RESTARTing from:
 
         # ======================== main time loop ======================
         self.model.update_scalar_quantities()
-        if self.rank == 0:
-            print("\nINITIAL SCALAR QUANTITIES:")
-            self.model.print_scalar_quantities()
 
-            print(f"\nSTART TIME STEPPING WITH '{split_algo}' SPLITTING:")
+        logger.info("\nINITIAL SCALAR QUANTITIES:")
+
+        self.model.print_scalar_quantities()
+
+        logger.info(f"\nSTART TIME STEPPING WITH '{split_algo}' SPLITTING:")
 
         # time loop
         run_time_now = 0.0
@@ -603,13 +586,9 @@ RESTARTing from:
                 # save restart data (other data already saved below)
                 self.data.save_data(keys=save_keys_end)
                 end_time = time.time()
-                if self.rank == 0:
-                    print(f"\nTime steps done: {self.time_state['index'][0]}")
-                    print(
-                        "wall-clock time of simulation [sec]: ",
-                        end_time - self.start_time,
-                    )
-                    print()
+                logger.info(f"\nTime steps done: {self.time_state['index'][0]}")
+                logger.info(f"wall-clock time of simulation [sec]: {end_time - self.start_time}")
+                logger.info("")
                 break
 
             if self.env.sort_step and self.time_state["index"][0] % self.env.sort_step == 0:
@@ -618,17 +597,16 @@ RESTARTing from:
                     if isinstance(val, Particles):
                         val.do_sort()
                 t1 = time.time()
-                if self.rank == 0:
-                    message = "Particles sorted | wall clock [s]: {0:8.4f} | sorting duration [s]: {1:8.4f}".format(
-                        run_time_now * 60,
-                        t1 - t0,
-                    )
-                    print(message, end="\n")
-                    print()
+                message = "Particles sorted | wall clock [s]: {0:8.4f} | sorting duration [s]: {1:8.4f}".format(
+                    run_time_now * 60,
+                    t1 - t0,
+                )
+                logger.info(message)
+                logger.info("")
 
             # update time and index (round time to 10 decimals for a clean time grid!)
             self.time_state["value"][0] = round(self.time_state["value"][0] + dt, 14)
-            self.time_state["value_sec"][0] = round(self.time_state["value_sec"][0] + dt * self.units.t, 14)
+            self.time_state["value_sec"][0] = round(self.time_state["value_sec"][0] + dt * self.model.units.t, 14)
             self.time_state["index"][0] += 1
 
             # perform one time step dt
@@ -660,28 +638,27 @@ RESTARTing from:
                 self.data.save_data(keys=save_keys_all)
 
                 # print current time and scalar quantities to screen
-                if self.rank == 0 and verbose:
-                    step = str(self.time_state["index"][0]).zfill(len(total_steps))
+                step = str(self.time_state["index"][0]).zfill(len(total_steps))
 
-                    message = "time step:".ljust(25) + f"{step}/{total_steps}".rjust(25)
-                    message += (
-                        "\n"
-                        + "normalized time:".ljust(25)
-                        + "{0:4.2e} / {1:4.2e}".format(self.time_state["value"][0], Tend).rjust(25)
-                    )
-                    message += (
-                        "\n"
-                        + "physical time [s]:".ljust(25)
-                        + "{0:4.2e} / {1:4.2e}".format(
-                            self.time_state["value_sec"][0],
-                            Tend * self.units.t,
-                        ).rjust(25)
-                    )
-                    message += "\n" + "wall clock time [s]:".ljust(25) + "{0:8.4f}".format(run_time_now * 60).rjust(25)
-                    message += "\n" + "last step duration [s]:".ljust(25) + "{0:8.4f}".format(t1 - t0).rjust(25)
+                message = "time step:".ljust(25) + f"{step}/{total_steps}".rjust(25)
+                message += (
+                    "\n"
+                    + "normalized time:".ljust(25)
+                    + "{0:4.2e} / {1:4.2e}".format(self.time_state["value"][0], Tend).rjust(25)
+                )
+                message += (
+                    "\n"
+                    + "physical time [s]:".ljust(25)
+                    + "{0:4.2e} / {1:4.2e}".format(
+                        self.time_state["value_sec"][0],
+                        Tend * self.model.units.t,
+                    ).rjust(25)
+                )
+                message += "\n" + "wall clock time [s]:".ljust(25) + "{0:8.4f}".format(run_time_now * 60).rjust(25)
+                message += "\n" + "last step duration [s]:".ljust(25) + "{0:8.4f}".format(t1 - t0).rjust(25)
 
-                    print(message)
-                    self.model.print_scalar_quantities()
+                logger.info(message)
+                self.model.print_scalar_quantities()
 
         # ===================================================================
 
@@ -691,7 +668,7 @@ RESTARTing from:
         if self.rank == 0:
             # save meta-data
             dict_to_yaml(self.meta, os.path.join(self.env.path_out, "meta.yml"))
-            print("Struphy run finished.")
+        logger.warning("Struphy run finished.")
 
         if self.clone_config is not None:
             self.clone_config.free()
@@ -756,24 +733,6 @@ RESTARTing from:
     # ---------------------
     # Code specific methods
     # ---------------------
-    def normalize_model(self, verbose: bool = False):
-        """Compute derived units and normalization coefficients of equations.
-        Must be re-run when species properties have been changed.
-        """
-        if self.model.bulk_species is None:
-            A_bulk = None
-            Z_bulk = None
-        else:
-            A_bulk = self.model.bulk_species.mass_number
-            Z_bulk = self.model.bulk_species.charge_number
-        self.units.derive_units(
-            velocity_scale=self.model.velocity_scale,
-            A_bulk=A_bulk,
-            Z_bulk=Z_bulk,
-            verbose=verbose,
-        )
-        self.model.setup_equation_params(units=self.units, verbose=verbose)
-
     def compute_plasma_params(self, verbose: bool = True):
         """
         Compute and print volume averaged plasma parameters for each species of the model.
@@ -838,7 +797,7 @@ RESTARTing from:
         det_tmp = self.domain.jacobian_det(eta1, eta2, eta3)
         vol1 = xp.mean(xp.abs(det_tmp))
         # plasma volume (m⁻³)
-        plasma_volume = vol1 * self.units.x**3
+        plasma_volume = vol1 * self.model.units.x**3
         # transit length (m)
         transit_length = plasma_volume ** (1 / 3)
         # magnetic field (T)
@@ -846,33 +805,33 @@ RESTARTing from:
             B_tmp = self.equil.absB0(eta1, eta2, eta3)
         else:
             B_tmp = xp.zeros((eta1.size, eta2.size, eta3.size))
-        magnetic_field = xp.mean(B_tmp * xp.abs(det_tmp)) / vol1 * self.units.B
-        B_max = xp.max(B_tmp) * self.units.B
-        B_min = xp.min(B_tmp) * self.units.B
+        magnetic_field = xp.mean(B_tmp * xp.abs(det_tmp)) / vol1 * self.model.units.B
+        B_max = xp.max(B_tmp) * self.model.units.B
+        B_min = xp.min(B_tmp) * self.model.units.B
 
         if magnetic_field < 1e-14:
             magnetic_field = xp.nan
-            # print("\n+++++++ WARNING +++++++ magnetic field is zero - set to nan !!")
+            # logger.info("\n+++++++ WARNING +++++++ magnetic field is zero - set to nan !!")
 
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            print("\nPLASMA PARAMETERS:")
-            print(
+            logger.info("\nPLASMA PARAMETERS:")
+            logger.info(
                 "Plasma volume:".ljust(25),
                 "{:4.3e}".format(plasma_volume) + units_affix["plasma volume"],
             )
-            print(
+            logger.info(
                 "Transit length:".ljust(25),
                 "{:4.3e}".format(transit_length) + units_affix["transit length"],
             )
-            print(
+            logger.info(
                 "Avg. magnetic field:".ljust(25),
                 "{:4.3e}".format(magnetic_field) + units_affix["magnetic field"],
             )
-            print(
+            logger.info(
                 "Max magnetic field:".ljust(25),
                 "{:4.3e}".format(B_max) + units_affix["magnetic field"],
             )
-            print(
+            logger.info(
                 "Min magnetic field:".ljust(25),
                 "{:4.3e}".format(B_min) + units_affix["magnetic field"],
             )
@@ -882,7 +841,6 @@ RESTARTing from:
         model: StruphyModel = None,
         params_path: str = None,
         env: EnvironmentOptions = None,
-        base_units: BaseUnits = None,
         time_opts: Time = None,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
@@ -898,8 +856,6 @@ RESTARTing from:
             params_path = self.params_path
         if env is None:
             env = self.env
-        if base_units is None:
-            base_units = self.base_units
         if time_opts is None:
             time_opts = self.time_opts
         if domain is None:
@@ -915,7 +871,6 @@ RESTARTing from:
             model=model,
             params_path=params_path,
             env=env,
-            base_units=base_units,
             time_opts=time_opts,
             domain=domain,
             equil=equil,
@@ -938,13 +893,13 @@ RESTARTing from:
             if not os.path.exists(self.env.path_out):
                 os.makedirs(self.env.path_out, exist_ok=True)
                 if verbose:
-                    print("Created folder " + self.env.path_out)
+                    logger.info("Created folder " + self.env.path_out)
 
             # create data folder in output folder if it does not exist
             if not os.path.exists(os.path.join(self.env.path_out, "data/")):
                 os.mkdir(os.path.join(self.env.path_out, "data/"))
                 if verbose:
-                    print("Created folder " + os.path.join(self.env.path_out, "data/"))
+                    logger.info("Created folder " + os.path.join(self.env.path_out, "data/"))
 
     def _remove_existing_output_files(self, verbose: bool = False):
         """Removes post_processing/, meta.txt and profile_tmp.
@@ -955,21 +910,21 @@ RESTARTing from:
             if os.path.exists(folder):
                 shutil.rmtree(folder)
                 if verbose:
-                    print("Removed existing folder " + folder)
+                    logger.info("Removed existing folder " + folder)
 
             # remove meta file
             file = os.path.join(self.env.path_out, "meta.txt")
             if os.path.exists(file):
                 os.remove(file)
                 if verbose:
-                    print("Removed existing file " + file)
+                    logger.info("Removed existing file " + file)
 
             # remove profiling file
             file = os.path.join(self.env.path_out, "profile_tmp")
             if os.path.exists(file):
                 os.remove(file)
                 if verbose:
-                    print("Removed existing file " + file)
+                    logger.info("Removed existing file " + file)
 
             # remove hdf5 and png files (if NOT a restart)
             if not self.env.restart:
@@ -977,13 +932,13 @@ RESTARTing from:
                 for n, file in enumerate(files):
                     os.remove(file)
                     if verbose and n < 10:  # print only ten statements in case of many processes
-                        print("Removed existing file " + file)
+                        logger.info("Removed existing file " + file)
 
                 files = glob.glob(os.path.join(self.env.path_out, "*.png"))
                 for n, file in enumerate(files):
                     os.remove(file)
                     if verbose and n < 10:  # print only ten statements in case of many processes
-                        print("Removed existing file " + file)
+                        logger.info("Removed existing file " + file)
 
     def _setup_domain_and_equil(self, domain: Domain, equil: FluidEquilibrium, verbose: bool = False):
         """If a numerical equilibirum is used, the domain is taken from this equilibirum."""
@@ -1009,19 +964,19 @@ RESTARTing from:
         self._equil = equil
 
         # if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-        #     print("\nDOMAIN:")
-        #     print("type:".ljust(25), self.domain.__class__.__name__)
+        #     logger.info("\nDOMAIN:")
+        #     logger.info("type:".ljust(25), self.domain.__class__.__name__)
         #     for key, val in self.domain.params.items():
         #         if key not in {"cx", "cy", "cz"}:
-        #             print((key + ":").ljust(25), val)
+        #             logger.info((key + ":").ljust(25), val)
 
-        #     print("\nFLUID BACKGROUND:")
+        #     logger.info("\nFLUID BACKGROUND:")
         #     if self.equil is not None:
-        #         print("type:".ljust(25), self.equil.__class__.__name__)
+        #         logger.info("type:".ljust(25), self.equil.__class__.__name__)
         #         for key, val in self.equil.params.items():
-        #             print((key + ":").ljust(25), val)
+        #             logger.info((key + ":").ljust(25), val)
         #     else:
-        #         print("None.")
+        #         logger.info("None.")
 
     @profile
     def _allocate_feec(self, grid: grids.TensorProductGrid, derham_opts: DerhamOptions, verbose: bool = False):
@@ -1032,6 +987,12 @@ RESTARTing from:
         constructs a projected equilibrium appropriate for the chosen
         equilibrium type.
         """
+        # check for polar singularity
+        if self.domain.pole:
+            assert derham_opts.polar_ck == 1, """Polar singularity detected in domain but derham_opts.polar_ck != 1. 
+            You have two options:
+            a) set derham_opts.polar_ck = 1 to use polar splines 
+            b) modify your domain definition to cut a hole around the singularity."""
 
         # create discrete derham sequence
         if self.clone_config is None:
@@ -1041,10 +1002,10 @@ RESTARTing from:
 
         if grid is None or derham_opts is None:
             if MPI.COMM_WORLD.Get_rank() == 0:
-                print(f"\n{grid=}, {derham_opts=}: no Derham object set up.")
+                logger.info(f"\n{grid=}, {derham_opts=}: no Derham object set up.")
             self._derham = None
         else:
-            self._derham = setup_derham(
+            self._derham = Derham(
                 grid,
                 derham_opts,
                 comm=derham_comm,
@@ -1196,7 +1157,7 @@ RESTARTing from:
             assert isinstance(prop, Propagator)
             prop.allocate(verbose=verbose)
             if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-                print(f"\nAllocated propagator '{prop.__class__.__name__}'.")
+                logger.info(f"\nAllocated propagator '{prop.__class__.__name__}'.")
 
     @profile
     def _initialize_hdf5_datasets(self, data: DataContainer, size, verbose: bool = False):
@@ -1400,7 +1361,6 @@ RESTARTing from:
             "model": self.model.to_dict(),
             "params_path": self.params_path,
             "env": self.env.to_dict(),
-            "base_units": self.base_units.to_dict(),
             "time_opts": self.time_opts.to_dict(),
             "domain": self.domain.to_dict(),
             "equil": self.equil.to_dict() if self.equil is not None else None,
@@ -1419,7 +1379,6 @@ RESTARTing from:
             model=StruphyModel.from_dict(dct["model"]),
             params_path=dct["params_path"],
             env=EnvironmentOptions.from_dict(dct["env"]),
-            base_units=BaseUnits.from_dict(dct["base_units"]),
             time_opts=Time.from_dict(dct["time_opts"]),
             domain=domains.Cuboid.from_dict(dct["domain"]),
             equil=FluidEquilibrium.from_dict(dct["equil"]),
@@ -1457,7 +1416,11 @@ RESTARTing from:
         dct = convert_lists_to_tuples(dct)
         return cls.from_dict(dct)
 
-    def generate_script(self, include_main_guard: bool = False) -> str:
+    def generate_script(
+        self,
+        include_main_guard: bool = False,
+        include_defaults: bool = False,
+    ) -> str:
         """Generate a Python script that can be used to reproduce the simulation."""
 
         script = f"""
@@ -1481,33 +1444,54 @@ from struphy.models import {self.model.__class__.__name__}
         sim_setup = ""
         sim_class_def = "sim = Simulation("
 
-        # Always include model
-        sim_setup += f"model = {self.model.__repr_no_defaults__()}\n"
-        sim_class_def += "model=model,"
+        if include_defaults:
+            sim_setup += f"model = {self.model.__repr__()}\n"
+            sim_class_def += "model=model,"
 
-        # Only include parameters that are not default to avoid cluttering the script with unnecessary lines
-        if not self.env.is_default:
-            sim_setup += f"env = {self.env.__repr_no_defaults__()}\n"
+            sim_setup += f"env = {self.env.__repr__()}\n"
             sim_class_def += "env=env,"
-        if not self.base_units.is_default:
-            sim_setup += f"base_units = {self.base_units.__repr_no_defaults__()}\n"
-            sim_class_def += "base_units=base_units,"
-        if not self.time_opts.is_default:
-            sim_setup += f"time_opts = {self.time_opts.__repr_no_defaults__()}\n"
+
+            sim_setup += f"time_opts = {self.time_opts.__repr__()}\n"
             sim_class_def += "time_opts=time_opts,"
-        if not self.domain.is_default:
-            sim_setup += f"domain = domains.{self.domain.__repr_no_defaults__()}\n"
+
+            sim_setup += f"domain = domains.{self.domain.__repr__()}\n"
             sim_class_def += "domain=domain,"
+
+            sim_setup += f"grid = grids.{self.grid.__repr__()}\n"
+            sim_class_def += "grid=grid,"
+
+            sim_setup += f"derham_opts = {self.derham_opts.__repr__()}\n"
+            sim_class_def += "derham_opts=derham_opts,"
+        else:
+            # Only include parameters that are not default to avoid
+            # cluttering the script with unnecessary lines
+
+            sim_setup += f"model = {self.model.__repr_no_defaults__()}\n"
+            sim_class_def += "model=model,"
+
+            if not self.env.is_default:
+                sim_setup += f"env = {self.env.__repr_no_defaults__()}\n"
+                sim_class_def += "env=env,"
+            if not self.time_opts.is_default:
+                sim_setup += f"time_opts = {self.time_opts.__repr_no_defaults__()}\n"
+                sim_class_def += "time_opts=time_opts,"
+            if not self.domain.is_default:
+                sim_setup += f"domain = domains.{self.domain.__repr_no_defaults__()}\n"
+                sim_class_def += "domain=domain,"
+            if not self.grid.is_default:
+                sim_setup += f"grid = grids.{self.grid.__repr_no_defaults__()}\n"
+                sim_class_def += "grid=grid,"
+            if not self.derham_opts.is_default:
+                sim_setup += f"derham_opts = {self.derham_opts.__repr_no_defaults__()}\n"
+                sim_class_def += "derham_opts=derham_opts,"
+
         # This is a bit of a special case since the default is None,
         if self.equil is not None:
-            sim_setup += f"equil = equils.{self.equil.__repr_no_defaults__()}\n"
+            if include_defaults:
+                sim_setup += f"equil = equils.{self.equil.__repr__()}\n"
+            else:
+                sim_setup += f"equil = equils.{self.equil.__repr_no_defaults__()}\n"
             sim_class_def += "equil=equil,"
-        if not self.grid.is_default:
-            sim_setup += f"grid = grids.{self.grid.__repr_no_defaults__()}\n"
-            sim_class_def += "grid=grid,"
-        if not self.derham_opts.is_default:
-            sim_setup += f"derham_opts = {self.derham_opts.__repr_no_defaults__()}\n"
-            sim_class_def += "derham_opts=derham_opts,"
         if self.params_path is not None:
             sim_class_def += f"params_path={repr(self.params_path)},\n"
 
@@ -1563,11 +1547,6 @@ if __name__ == "__main__":
     def env(self):
         """EnvironmentOptions object containing options related to the environment of the run."""
         return self._env
-
-    @property
-    def base_units(self):
-        """BaseUnits object containing the four base units for the run."""
-        return self._base_units
 
     @property
     def time_opts(self):

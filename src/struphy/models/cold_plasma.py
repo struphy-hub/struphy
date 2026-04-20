@@ -1,6 +1,6 @@
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.io.options import LiteralOptions
+from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     FieldSpecies,
@@ -63,9 +63,20 @@ class ColdPlasma(StruphyModel):
             self.init_variables()
 
     class Electrons(FluidSpecies):
-        def __init__(self):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+            alpha: float = None,
+            epsilon: float = None,
+        ):
             self.current = FEECVariable(space="Hcurl")
-            self.init_variables()
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                alpha=alpha,
+                epsilon=epsilon,
+            )
 
     ## propagators
 
@@ -77,16 +88,31 @@ class ColdPlasma(StruphyModel):
 
     ## abstract methods
 
-    def __init__(self):
+    def __init__(
+        self,
+        base_units: BaseUnits = BaseUnits(),
+        charge_number: int = -1,
+        mass_number: float = 1 / 1836,
+        alpha: float = None,
+        epsilon: float = None,
+    ):
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
-        self.electrons = self.Electrons()
+        self.electrons = self.Electrons(
+            charge_number=charge_number,
+            mass_number=mass_number,
+            alpha=alpha,
+            epsilon=epsilon,
+        )
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators()
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.maxwell.variables.e = self.em_fields.e_field
         self.propagators.maxwell.variables.b = self.em_fields.b_field
 
