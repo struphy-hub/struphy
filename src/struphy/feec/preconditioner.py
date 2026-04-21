@@ -105,29 +105,24 @@ class MassMatrixPreconditioner(LinearOperator):
                                 ).squeeze(),
                             )
                     elif isinstance(loc_weights, xp.ndarray):
-                        s = loc_weights.shape
-                        logger.debug(f"{loc_weights.shape = } for component {c} and direction {d}.")
-                        # gather weights on process for correct construction of 1d mass matrix (weights need to be local to process for correct KroneckerStencilMatrix construction)
-                        npts = 0
-                        logger.debug(f"{mass_operator.derham.domain_array = } for component {c} and direction {d}.")
-                        for proc, nq in zip(mass_operator.derham.domain_array, mass_operator.derham.nquads):
-                            npts += int(proc[3*d + 2] * nq)
-                        logger.debug(f"{npts = } for component {c} and direction {d} after gathering on all processes.")
-                        fun = xp.zeros(npts, dtype=float)
-                        if d == 0:
-                            local_fun = loc_weights[:, s[1] // 2, s[2] // 2]
-                        elif d == 1:
-                            local_fun = loc_weights[s[0] // 2, :, s[2] // 2]
-                        elif d == 2:
-                            local_fun = loc_weights[s[0] // 2, s[1] // 2, :]
+                        # s = loc_weights.shape
+                        # logger.debug(f"{loc_weights.shape = } for component {c} and direction {d}.")
+                        # if d == 0:
+                        #     local_fun = loc_weights[:, s[1] // 2, s[2] // 2]
+                        # elif d == 1:
+                        #     local_fun = loc_weights[s[0] // 2, :, s[2] // 2]
+                        # elif d == 2:
+                        #     local_fun = loc_weights[s[0] // 2, s[1] // 2, :]
                         # MPI/DLPack interoperability requires contiguous buffers.
                         # Slices like loc_weights[:, j, k] can be strided views.
-                        local_fun = xp.ascontiguousarray(local_fun)
-                        if not isinstance(mass_operator.derham.comm, (MockComm, type(None))):
-                            mass_operator.derham.comm.Allgather(local_fun, fun)
-                        else:
-                            fun[:] = local_fun
-                        logger.debug(f"{fun.shape = } for component {c} and direction {d} after gathering on all processes.")
+                        # local_fun = xp.ascontiguousarray(local_fun)
+                        # logger.debug(f"{local_fun.size = } for component {c} and direction {d} before gathering on all processes.")
+                        # if local_fun.size < npts:
+                        #     mass_operator.derham.comm.Allgather(local_fun, fun)
+                        # else:
+                        #     fun[:] = local_fun
+                        # logger.debug(f"{fun.shape = } for component {c} and direction {d} after gathering on all processes.")
+                        fun = lambda e: xp.ones(e.size, dtype=float) * xp.mean(loc_weights)
                     elif loc_weights is None:
                         fun = lambda e: xp.ones(e.size, dtype=float)
                     else:

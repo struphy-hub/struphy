@@ -2,7 +2,7 @@ import pytest
 from struphy import set_logging_level
 import logging
 
-set_logging_level(logging.DEBUG)
+set_logging_level(logging.WARNING)
 
 
 def pytest_unconfigure(config):

@@ -1240,7 +1240,7 @@ class WeightedMassOperator(LinOpWithTransp):
         logger.debug(f"{W_extraction_op = }")
         logger.debug(f"{V_boundary_op = }")
         logger.debug(f"{W_boundary_op = }")
-        logger.debug(f"{weights_info = }")
+        logger.debug(f"{type(weights_info) = }")
         logger.debug(f"{transposed = }")
         logger.debug(f"{matrix_free = }")
         logger.debug(f"{nquads = }")
