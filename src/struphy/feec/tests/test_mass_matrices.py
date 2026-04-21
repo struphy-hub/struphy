@@ -135,7 +135,7 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
             intermediate = mass_ops.WMM
             intermediate.update_weight(projected_equil.n3)
             M: WeightedMassOperator = mass_ops.WMM.massop
-            Mnew: WeightedMassOperator = mass_ops.WMMnew
+            # Mnew: WeightedMassOperator = mass_ops.WMMnew
         else:
             M: WeightedMassOperator = getattr(mass_ops, name)
         space_id = M.domain_symbolic_name

@@ -113,7 +113,10 @@ class MassMatrixPreconditioner(LinearOperator):
                             local_fun = loc_weights[s[0] // 2, :, s[2] // 2]
                         elif d == 2:
                             local_fun = loc_weights[s[0] // 2, s[1] // 2, :]
-                        fun = xp.concatenate(mass_operator.derham.comm.allgather(local_fun))
+                        if mass_operator.derham.comm is not None:
+                            fun = xp.concatenate(mass_operator.derham.comm.allgather(local_fun))
+                        else:
+                            fun = local_fun
                         logger.debug(f"{fun.shape = } for component {c} and direction {d} after gathering on all processes.")
                     elif loc_weights is None:
                         fun = lambda e: xp.ones(e.size, dtype=float)
