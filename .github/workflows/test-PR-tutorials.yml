@@ -42,26 +42,6 @@ jobs:
         with:
           submodules: true  # This is crucial!
           fetch-depth: 5
-          
-      - name: Check .testmondata 1
-        run: |
-          ls .testmon* || echo "No .testmondata"
-
-      - name: Setup cache for testmon
-        uses: actions/cache@v4
-        with:
-          path: |
-            .testmondata-tutorials
-          key: testmon-tutorials-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
-          restore-keys: |
-            testmon-tutorials-${{ github.ref_name }}-${{ github.event.number }}-
-            testmon-tutorials-${{ github.ref_name }}
-            testmon-tutorials-devel
-            testmon-tutorials-
-
-      - name: Check .testmondata 2
-        run: |
-          ls .testmon* || echo "No .testmondata"
 
       - name: Install Struphy in Container 
         uses: ./.github/actions/install/struphy_in_container
@@ -72,9 +52,9 @@ jobs:
           env-name: /struphy_fortran_/env_fortran_
 
       - name: Compile Struphy
-        run: |
-          source /struphy_fortran_/env_fortran_/bin/activate
-          struphy compile
+        uses: ./.github/actions/compile
+        with:
+          env-name: /struphy_fortran_/env_fortran_
       
       - name: Run tutorials
         env:
@@ -84,4 +64,6 @@ jobs:
           source /struphy_fortran_/env_fortran_/bin/activate
           ls /struphy_fortran_
           cd /struphy_fortran_/tutorials
-          jupyter nbconvert --execute --to html tutorial_*.ipynb
+          ls
+          jupyter nbconvert --show-config
+          jupyter nbconvert --execute --embed-images --to html tutorial_*.ipynb

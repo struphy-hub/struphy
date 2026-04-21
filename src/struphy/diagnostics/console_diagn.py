@@ -2,6 +2,7 @@
 
 #!/usr/bin/env python3
 import argparse
+import logging
 import os
 import subprocess
 
@@ -12,6 +13,8 @@ import yaml
 import struphy
 import struphy.utils.utils as utils
 from struphy.diagnostics.diagn_tools import plot_distr_fun, plot_scalars, plots_videos_2d
+
+logger = logging.getLogger("struphy")
 
 
 def main():
@@ -249,7 +252,7 @@ def main():
     if ("plot_distr" in actions) or ("2d_video" in actions) or ("2d_plots" in actions):
         # Do post-processing if it wasn't done before
         if not os.path.exists(os.path.join(path, "post_processing")):
-            print("This folder hasn't been post-processed yet. Starting post-processing..")
+            logger.info("This folder hasn't been post-processed yet. Starting post-processing..")
             subprocess.run(["struphy", "pproc", "-d", foldername])
 
         # iterate over species

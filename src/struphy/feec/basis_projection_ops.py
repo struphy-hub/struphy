@@ -1,3 +1,5 @@
+import logging
+
 import cunumpy as xp
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.ddm.mpi import mpi as MPI
@@ -16,6 +18,8 @@ from struphy.feec.utilities import RotationMatrix
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.pyccel import Pyccelkernel
+
+logger = logging.getLogger("struphy")
 
 
 class BasisProjectionOperators:
@@ -51,10 +55,12 @@ class BasisProjectionOperators:
 
         self._rank = derham.comm.Get_rank() if derham.comm is not None else 0
 
-        if xp.any([p == 1 and Nel > 1 for p, Nel in zip(derham.p, derham.Nel)]):
+        if xp.any(
+            [degree == 1 and num_elements > 1 for degree, num_elements in zip(derham.degree, derham.num_elements)]
+        ):
             if MPI.COMM_WORLD.Get_rank() == 0:
-                print(
-                    f'\nWARNING: Class "BasisProjectionOperators" called with p={derham.p} (interpolation of piece-wise constants should be avoided).',
+                logger.info(
+                    f'\nWARNING: Class "BasisProjectionOperators" called with degree={derham.degree} (interpolation of piece-wise constants should be avoided).',
                 )
 
     @property
@@ -910,8 +916,8 @@ class BasisProjectionOperators:
 
         if self.derham.with_local_projectors:
             out = BasisProjectionOperatorLocal(
-                self.derham.P[W_form],
-                self.derham.Vh_fem[V_form],
+                self.derham.projectors[W_form],
+                self.derham.fem_spaces[V_form],
                 fun,
                 self.derham.extraction_ops[V_form],
                 self.derham.boundary_ops[V_form],
@@ -921,8 +927,8 @@ class BasisProjectionOperators:
             )
         else:
             out = BasisProjectionOperator(
-                self.derham.P[W_form],
-                self.derham.Vh_fem[V_form],
+                self.derham.projectors[W_form],
+                self.derham.fem_spaces[V_form],
                 fun,
                 V_extraction_op=self.derham.extraction_ops[V_form],
                 V_boundary_op=self.derham.boundary_ops[V_form],
@@ -932,11 +938,11 @@ class BasisProjectionOperators:
 
         if assemble:
             if MPI.COMM_WORLD.Get_rank() == 0 and self.verbose:
-                print(f'\nAssembling BasisProjectionOperator "{name}" with V={V_id}, W={W_id}.')
+                logger.info(f'\nAssembling BasisProjectionOperator "{name}" with V={V_id}, W={W_id}.')
             out.assemble(verbose=self.verbose)
 
         if MPI.COMM_WORLD.Get_rank() == 0 and self.verbose:
-            print("Done.")
+            logger.info("Done.")
 
         return out
 
@@ -1097,7 +1103,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
         self._ends = self._P._ends
         self._pds = self._P._pds
         # Degree of the B-splines
-        self._p = self._P._p
+        self._degree = self._P._degree
 
         # ============= create and assemble the Basis Projection Operator matrix =======
         if self._is_scalar:
@@ -1296,7 +1302,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
                             self._ends,
                             self._pds,
                             self._periodic,
-                            self._p,
+                            self._degree,
                             xp.array([col0, col1, col2]),
                             self._VNbasis,
                             self._mat._data,
@@ -1371,7 +1377,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
                                 self._ends,
                                 self._pds,
                                 self._periodic,
-                                self._p,
+                                self._degree,
                                 xp.array(
                                     [
                                         col0,
@@ -1451,7 +1457,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
                                 self._ends[h],
                                 self._pds[h],
                                 self._periodic,
-                                self._p,
+                                self._degree,
                                 xp.array(
                                     [
                                         col0,
@@ -1552,7 +1558,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
                                     self._ends[h],
                                     self._pds[h],
                                     self._periodic,
-                                    self._p,
+                                    self._degree,
                                     xp.array(
                                         [
                                             col0,
@@ -2061,7 +2067,7 @@ class BasisProjectionOperator(LinOpWithTransp):
                     )
 
                     if rank == 0 and verbose:
-                        print(f"Assemble block {i, j}")
+                        logger.info(f"Assemble block {i, j}")
                     kernel(
                         dofs_mat._data,
                         _starts_in,
@@ -2125,7 +2131,7 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, pol
         Knot span indices in each direction in format (n, nq).
 
     bases : 3-tuple of 3d float arrays
-        Values of p + 1 non-zero eta basis functions at quadrature points in format (n, nq, basis).
+        Values of degree + 1 non-zero eta basis functions at quadrature points in format (n, nq, basis).
 
     subs : 3-tuple of 1f int arrays
         Sub-interval indices (either 0 or 1). This index is 1 if an element has to be split for exact integration (even spline degree).
@@ -2157,18 +2163,18 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, pol
         spans += [s_i]
         bases += [b_i]
 
-    # print("#################################################")
-    # print("#################################################")
-    # print("W1d[0]:")
-    # print(W1d[0])
-    # print("W1d[1]:")
-    # print(W1d[1])
-    # print("W1d[2]:")
-    # print(W1d[2])
-    # print("pts :")
-    # print(pts)
-    # print("#################################################")
-    # print("#################################################")
+    # logger.info("#################################################")
+    # logger.info("#################################################")
+    # logger.info("W1d[0]:")
+    # logger.info(W1d[0])
+    # logger.info("W1d[1]:")
+    # logger.info(W1d[1])
+    # logger.info("W1d[2]:")
+    # logger.info(W1d[2])
+    # logger.info("pts :")
+    # logger.info(pts)
+    # logger.info("#################################################")
+    # logger.info("#################################################")
 
     return tuple(pts), tuple(wts), tuple(spans), tuple(bases), tuple(subs)
 

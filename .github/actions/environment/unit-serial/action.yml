@@ -10,7 +10,7 @@ runs:
       run: |
         TESTMON_KEY="testmon-unit"
         UNINSTALL_MPI="pip uninstall -y mpi4py"
-        PYTEST_CMD="pytest -x --testmon"
+        PYTEST_CMD="pytest -v --testmon"
         echo "TESTMON_KEY=${TESTMON_KEY}" >> $GITHUB_ENV
         echo "UNINSTALL_MPI=${UNINSTALL_MPI}" >> $GITHUB_ENV
         echo "PYTEST_CMD=${PYTEST_CMD}" >> $GITHUB_ENV

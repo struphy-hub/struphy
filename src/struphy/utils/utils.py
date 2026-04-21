@@ -1,12 +1,20 @@
+import atexit
 import inspect
+import json
+import logging
+import logging.config
 import os
+import pathlib
 import subprocess
 import tempfile
 from typing import Literal, get_args
 
 import yaml
+from feectools.ddm.mpi import mpi as MPI
 
 import struphy
+
+logger = logging.getLogger("struphy")
 
 # Get the path to the Struphy library
 STRUPHY_LIBPATH = struphy.__path__[0]
@@ -29,10 +37,10 @@ def read_state(libpath=STRUPHY_LIBPATH):
         with open(state_file, "r") as f:
             state = yaml.load(f, Loader=yaml.FullLoader)
     except FileNotFoundError as e:
-        print(f"The state file '{state_file}' was not found. Creating a new one.")
+        logger.info(f"The state file '{state_file}' was not found. Creating a new one.")
         state = {}
     except yaml.YAMLError as e:
-        print(f"Error {e}: parsing the YAML file")
+        logger.info(f"Error {e}: parsing the YAML file")
         state = {}
 
     return state
@@ -75,7 +83,7 @@ def print_all_attr(obj):
                 v = f"{type(getattr(obj, k))} of shape {v.shape}"
             if "proj_" in k or "quad_grid_" in k:
                 v = "(arrays not displayed)"
-            print(k.ljust(26), v)
+            logger.info(f"{k:<26}{v}")
 
 
 def dict_to_yaml(dictionary: dict, output: str):
@@ -90,7 +98,7 @@ def dict_to_yaml(dictionary: dict, output: str):
             indent=4,
             line_break="\n",
         )
-    # print(f"dict written to {output}.")
+    # logger.info(f"dict written to {output}.")
 
 
 def kernels_to_txt(kernels: list, output: str):
@@ -98,12 +106,14 @@ def kernels_to_txt(kernels: list, output: str):
     with open(output, "w") as file:
         for ker in kernels:
             file.write(f"{ker}\n")
-    # print(f"kernels written to {output}.")
+    # logger.info(f"kernels written to {output}.")
 
 
-def check_option(opt, options):
+def check_option(opt, *options):
     """Check if opt is contained in options; if opt is a list, checks for each element."""
-    opts = get_args(options)
+    opts = []
+    for o in options:
+        opts.extend(get_args(o))
     if not isinstance(opt, list):
         opt = [opt]
     for o in opt:
@@ -130,7 +140,7 @@ def subp_run(cmd, cwd="libpath", check=True):
     if cwd == "libpath":
         cwd = STRUPHY_LIBPATH
 
-    print(f"\nRunning the following command as a subprocess:\n{' '.join(cmd)}\nfrom {cwd}")
+    logger.info(f"\nRunning the following command as a subprocess:\n{' '.join(cmd)}\nfrom {cwd}")
     subprocess.run(cmd, cwd=cwd, check=check)
 
 
@@ -191,10 +201,20 @@ def all_subclasses(cls):
 
 
 if __name__ == "__main__":
-    state = read_state()
-    for k, val in state.items():
-        print(k, val)
-    i_path, o_path, b_path = get_paths(state)
-    print(f"{i_path =}")
-    print(f"{o_path =}")
-    print(f"{b_path =}")
+    from struphy import set_logging_level
+
+    logger = logging.getLogger("struphy")
+    logger.debug("debug message", extra={"x": "hello"})
+    logger.info("info message")
+    logger.warning("warning message")
+    logger.error("error message")
+    logger.critical("critical message")
+    try:
+        1 / 0
+    except ZeroDivisionError:
+        logger.exception("exception message")
+
+    set_logging_level(logging.DEBUG)
+
+    logger.debug("\ndebug message", extra={"x": "hello"})
+    logger.info("info message")

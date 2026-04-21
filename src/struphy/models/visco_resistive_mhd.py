@@ -5,7 +5,7 @@ from struphy.feec.projectors import L2Projector
 from struphy.feec.variational_utilities import (
     InternalEnergyEvaluator,
 )
-from struphy.io.options import LiteralOptions
+from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     FieldSpecies,
@@ -51,11 +51,11 @@ class ViscoResistiveMHD(StruphyModel):
             self.init_variables()
 
     class MHD(FluidSpecies):
-        def __init__(self):
+        def __init__(self, mass_number: float = 1.0):
             self.density = FEECVariable(space="L2")
             self.velocity = FEECVariable(space="H1vec")
             self.entropy = FEECVariable(space="L2")
-            self.init_variables()
+            self.init_variables(mass_number=mass_number)
 
     ## propagators
 
@@ -78,21 +78,26 @@ class ViscoResistiveMHD(StruphyModel):
 
     def __init__(
         self,
+        base_units: BaseUnits = BaseUnits(),
+        mass_number: float = 1.0,
         with_viscosity: bool = True,
         with_resistivity: bool = True,
     ):
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
-        self.mhd = self.MHD()
+        self.mhd = self.MHD(mass_number=mass_number)
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators(
             with_viscosity=with_viscosity,
             with_resistivity=with_resistivity,
         )
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.variat_dens.variables.rho = self.mhd.density
         self.propagators.variat_dens.variables.u = self.mhd.velocity
         self.propagators.variat_mom.variables.u = self.mhd.velocity
@@ -135,13 +140,13 @@ class ViscoResistiveMHD(StruphyModel):
 
         self._energy_evaluator = InternalEnergyEvaluator(Propagator.derham, self.propagators.variat_ent.options.gamma)
 
-        self._ones = Propagator.derham.Vh_pol["3"].zeros()
+        self._ones = Propagator.derham.V3pol.zeros()
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.0
         else:
             self._ones[:] = 1.0
 
-        self._tmp_div_B = Propagator.derham.Vh_pol["3"].zeros()
+        self._tmp_div_B = Propagator.derham.V3pol.zeros()
 
     def update_scalar_quantities(self):
         rho = self.mhd.density.spline.vector

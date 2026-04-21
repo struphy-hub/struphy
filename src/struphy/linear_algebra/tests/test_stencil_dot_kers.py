@@ -1,12 +1,16 @@
+import logging
+
 import pytest
 
+logger = logging.getLogger("struphy")
 
-@pytest.mark.parametrize("Nel", [12])
-@pytest.mark.parametrize("p", [1, 2, 3])
-@pytest.mark.parametrize("spl_kind", [False, True])
+
+@pytest.mark.parametrize("num_elements", [12])
+@pytest.mark.parametrize("degree", [1, 2, 3])
+@pytest.mark.parametrize("bcs", [(None, None, None), (("free", "free"), ("free", "free"), ("free", "free"))])
 @pytest.mark.parametrize("domain_ind", ["N", "D"])
 @pytest.mark.parametrize("codomain_ind", ["N", "D"])
-def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
+def test_1d(num_elements, degree, bcs, domain_ind, codomain_ind):
     """Compares the matrix-vector product obtained from the Stencil .dot method
     with
 
@@ -19,7 +23,9 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     from feectools.linalg.stencil import StencilMatrix, StencilVector
 
     from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
     from struphy.linear_algebra.stencil_dot_kernels import matvec_1d_kernel
+    from struphy.topology.grids import TensorProductGrid
 
     # only for M1 Mac users
     PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
@@ -28,19 +34,21 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     rank = comm.Get_rank()
 
     if rank == 0:
-        print("\nParameters:")
-        print("Nel=", Nel)
-        print("p=", p)
-        print("spl_kind=", spl_kind)
-        print("domain_ind=", domain_ind)
-        print("codomain_ind=", codomain_ind)
+        logger.info("\nParameters:")
+        logger.info(f"num_elements={num_elements}")
+        logger.info(f"degree={degree}")
+        logger.info(f"bcs={bcs}")
+        logger.info(f"domain_ind={domain_ind}")
+        logger.info(f"codomain_ind={codomain_ind}")
 
     # Psydac discrete Derham sequence
-    derham = Derham([Nel] * 3, [p] * 3, [spl_kind] * 3, comm=comm)
-    V0 = derham.Vh["0"]
+    grid = TensorProductGrid(num_elements=[num_elements] * 3)
+    derham_opts = DerhamOptions(degree=[degree] * 3, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
+    V0 = derham.V0
 
-    V0_fem = derham.Vh_fem["0"]
-    V3_fem = derham.Vh_fem["3"]
+    V0_fem = derham.V0fem
+    V3_fem = derham.V3fem
 
     # test 1d matvec
     spaces_1d = {}
@@ -69,7 +77,7 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
         i_loc = i - s_out
         for d1 in range(2 * p_in + 1):
             m = i - p_in + d1  # global column index
-            if spl_kind:
+            if bcs is None:
                 mat._data[p_out + i_loc, d1] = m - i
                 mat_pre._data[p_out + i_loc, d1] = m - i
             else:
@@ -82,15 +90,15 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     x[s_in : e_in + 1] = xp.random.rand(domain.coeff_space.npts[0])
 
     if rank == 0:
-        print(f"spl_kind={spl_kind}")
-        print("\nx=", x._data)
-        print("update ghost regions:")
+        logger.info(f"{bcs = }")
+        logger.info(f"\nx={x._data}")
+        logger.info("update ghost regions:")
 
     # very important: update vectors after changing _data !!
     x.update_ghost_regions()
 
     if rank == 0:
-        print("x=", x._data)
+        logger.info(f"x= {x._data}")
 
     # stencil .dot
     out = mat.dot(x)
@@ -103,31 +111,31 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     out_pre = mat_pre.dot(x)
 
     if rank == 0:
-        print("domain degree:  ", domain.degree)
-        print("codomain degree:", codomain.degree)
-        print(f"rank {rank} | domain.starts = ", mat.domain.starts)
-        print(f"rank {rank} | domain.ends = ", mat.domain.ends)
-        print(f"rank {rank} | domain.pads = ", mat.domain.pads)
-        print(f"rank {rank} | codomain.starts = ", mat.codomain.starts)
-        print(f"rank {rank} | codomain.ends = ", mat.codomain.ends)
-        print(f"rank {rank} | codomain.pads = ", mat.codomain.pads)
-        print(f"rank {rank} | add = ", add)
-        print("\nmat=", mat._data)
-        print("\nmat.toarray=\n", mat.toarray())
-        print("\nout=    ", out._data)
-        print("\nout_ker=", out_ker._data)
-        print("\nout_pre=", out_pre._data)
+        logger.info(f"domain degree:   {domain.degree}")
+        logger.info(f"codomain degree: {codomain.degree}")
+        logger.info(f"rank {rank} | domain.starts = {mat.domain.starts}")
+        logger.info(f"rank {rank} | domain.ends = {mat.domain.ends}")
+        logger.info(f"rank {rank} | domain.pads = {mat.domain.pads}")
+        logger.info(f"rank {rank} | codomain.starts = {mat.codomain.starts}")
+        logger.info(f"rank {rank} | codomain.ends = {mat.codomain.ends}")
+        logger.info(f"rank {rank} | codomain.pads = {mat.codomain.pads}")
+        logger.info(f"rank {rank} | add = {add}")
+        logger.info(f"\nmat= {mat._data}")
+        logger.info(f"\nmat.toarray=\n{mat.toarray()}")
+        logger.info(f"\nout=     {out._data}")
+        logger.info(f"\nout_ker= {out_ker._data}")
+        logger.info(f"\nout_pre= {out_pre._data}")
 
     assert xp.allclose(out_ker._data, out._data)
     assert xp.allclose(out_pre._data, out._data)
 
 
-@pytest.mark.parametrize("Nel", [[12, 16, 20]])
-@pytest.mark.parametrize("p", [[1, 2, 3]])
-@pytest.mark.parametrize("spl_kind", [[True, False, False]])
+@pytest.mark.parametrize("num_elements", [[12, 16, 20]])
+@pytest.mark.parametrize("degree", [[1, 2, 3]])
+@pytest.mark.parametrize("bcs", [(None, ("free", "free"), ("free", "free"))])
 @pytest.mark.parametrize("domain_ind", ["NNN", "DNN", "NDN", "NND", "NDD", "DND", "DDN", "DDD"])
 @pytest.mark.parametrize("codomain_ind", ["NNN", "DNN", "NDN", "NND", "NDD", "DND", "DDN", "DDD"])
-def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
+def test_3d(num_elements, degree, bcs, domain_ind, codomain_ind):
     """Compares the matrix-vector product obtained from the Stencil .dot method
     with
 
@@ -140,7 +148,9 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     from feectools.linalg.stencil import StencilMatrix, StencilVector
 
     from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
     from struphy.linear_algebra.stencil_dot_kernels import matvec_3d_kernel
+    from struphy.topology.grids import TensorProductGrid
 
     # only for M1 Mac users
     PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
@@ -149,25 +159,27 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     rank = comm.Get_rank()
 
     if rank == 0:
-        print("\nParameters:")
-        print("Nel=", Nel)
-        print("p=", p)
-        print("spl_kind=", spl_kind)
-        print("domain_ind=", domain_ind)
-        print("codomain_ind=", codomain_ind)
+        logger.info("\nParameters:")
+        logger.info(f"num_elements={num_elements}")
+        logger.info(f"degree={degree}")
+        logger.info(f"bcs={bcs}")
+        logger.info(f"domain_ind={domain_ind}")
+        logger.info(f"codomain_ind={codomain_ind}")
 
     # Psydac discrete Derham sequence
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     spaces_3d = {}
-    spaces_3d["NNN"] = derham.Vh_fem["0"]
-    spaces_3d["DNN"] = derham.Vh_fem["1"].spaces[0]
-    spaces_3d["NDN"] = derham.Vh_fem["1"].spaces[1]
-    spaces_3d["NND"] = derham.Vh_fem["1"].spaces[2]
-    spaces_3d["NDD"] = derham.Vh_fem["2"].spaces[0]
-    spaces_3d["DND"] = derham.Vh_fem["2"].spaces[1]
-    spaces_3d["DDN"] = derham.Vh_fem["2"].spaces[2]
-    spaces_3d["DDD"] = derham.Vh_fem["3"]
+    spaces_3d["NNN"] = derham.V0fem
+    spaces_3d["DNN"] = derham.V1fem.spaces[0]
+    spaces_3d["NDN"] = derham.V1fem.spaces[1]
+    spaces_3d["NND"] = derham.V1fem.spaces[2]
+    spaces_3d["NDD"] = derham.V2fem.spaces[0]
+    spaces_3d["DND"] = derham.V2fem.spaces[1]
+    spaces_3d["DDN"] = derham.V2fem.spaces[2]
+    spaces_3d["DDD"] = derham.V3fem
 
     domain = spaces_3d[domain_ind]
     codomain = spaces_3d[codomain_ind]
@@ -186,7 +198,7 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
 
     # random matrix
     xp.random.seed(123)
-    tmp1 = xp.random.rand(*codomain.coeff_space.npts, *[2 * q + 1 for q in p])
+    tmp1 = xp.random.rand(*codomain.coeff_space.npts, *[2 * q + 1 for q in degree])
     mat[
         s_out[0] : e_out[0] + 1,
         s_out[1] : e_out[1] + 1,
@@ -233,25 +245,25 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     out_pre = mat_pre.dot(x)
 
     if rank == 0:
-        print("domain degree:  ", domain.degree)
-        print("codomain degree:", codomain.degree)
-        print(f"rank {rank} | domain.starts = ", s_in)
-        print(f"rank {rank} | domain.ends = ", e_in)
-        print(f"rank {rank} | domain.pads = ", p_in)
-        print(f"rank {rank} | codomain.starts = ", s_out)
-        print(f"rank {rank} | codomain.ends = ", e_out)
-        print(f"rank {rank} | codomain.pads = ", p_out)
-        print(f"rank {rank} | add = ", add)
-        print("\nmat=", mat._data[:, p_out[1], p_out[2], :, 0, 0])
-        print("\nout[0]=    ", out._data[:, p_out[1], p_out[2]])
-        print("\nout_ker[0]=", out_ker._data[:, p_out[1], p_out[2]])
-        print("\nout_pre[0]=", out_pre._data[:, p_out[1], p_out[2]])
-        print("\nout[1]=    ", out._data[p_out[0], :, p_out[2]])
-        print("\nout_ker[1]=", out_ker._data[p_out[0], :, p_out[2]])
-        print("\nout_pre[1]=", out_pre._data[p_out[0], :, p_out[2]])
-        print("\nout[2]=    ", out._data[p_out[0], p_out[1], :])
-        print("\nout_ker[2]=", out_ker._data[p_out[0], p_out[1], :])
-        print("\nout_pre[2]=", out_pre._data[p_out[0], p_out[1], :])
+        logger.info(f"domain degree:   {domain.degree}")
+        logger.info(f"codomain degree: {codomain.degree}")
+        logger.info(f"rank {rank} | domain.starts = {s_in}")
+        logger.info(f"rank {rank} | domain.ends = {e_in}")
+        logger.info(f"rank {rank} | domain.pads = {p_in}")
+        logger.info(f"rank {rank} | codomain.starts = {s_out}")
+        logger.info(f"rank {rank} | codomain.ends = {e_out}")
+        logger.info(f"rank {rank} | codomain.pads = {p_out}")
+        logger.info(f"rank {rank} | add = {add}")
+        logger.info(f"\nmat= {mat._data[:, p_out[1], p_out[2], :, 0, 0]}")
+        logger.info(f"\nout[0]=     {out._data[:, p_out[1], p_out[2]]}")
+        logger.info(f"\nout_ker[0]= {out_ker._data[:, p_out[1], p_out[2]]}")
+        logger.info(f"\nout_pre[0]= {out_pre._data[:, p_out[1], p_out[2]]}")
+        logger.info(f"\nout[1]=     {out._data[p_out[0], :, p_out[2]]}")
+        logger.info(f"\nout_ker[1]= {out_ker._data[p_out[0], :, p_out[2]]}")
+        logger.info(f"\nout_pre[1]= {out_pre._data[p_out[0], :, p_out[2]]}")
+        logger.info(f"\nout[2]=     {out._data[p_out[0], p_out[1], :]}")
+        logger.info(f"\nout_ker[2]= {out_ker._data[p_out[0], p_out[1], :]}")
+        logger.info(f"\nout_pre[2]= {out_pre._data[p_out[0], p_out[1], :]}")
 
     assert xp.allclose(
         out_ker[s_out[0] : e_out[0] + 1, s_out[1] : e_out[1] + 1, s_out[2] : e_out[2] + 1],

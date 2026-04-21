@@ -1,3 +1,4 @@
+
 # Distribution / packaging
 .Python
 build/
@@ -72,7 +73,6 @@ __epyccel__/
 *.h5py
 *.vts
 *acquisition.lock
-*.json
 .testmondata*
 .output*
 
@@ -98,3 +98,9 @@ src/struphy/io/inp/params_*
 src/struphy/models/models_list
 src/struphy/models/models_message
 src/struphy/kernels.txt
+
+bin/
+share/
+
+lib64
+pyvenv.cfg

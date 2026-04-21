@@ -2,16 +2,19 @@
 from __future__ import annotations
 
 import inspect
+import logging
 from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING
 
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
+from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial.perturbations import Perturbation
 from struphy.io.options import FieldsBackground, LiteralOptions
 from struphy.kinetic_background.base import KineticBackground
@@ -23,6 +26,8 @@ from struphy.utils.utils import check_option
 
 if TYPE_CHECKING:
     from struphy.models.species import FieldSpecies, FluidSpecies, ParticleSpecies, Species
+
+logger = logging.getLogger("struphy")
 
 
 class Variable(metaclass=ABCMeta):
@@ -134,25 +139,27 @@ class Variable(metaclass=ABCMeta):
 
     def show_backgrounds(self):
         if self.backgrounds is not None:
-            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - backgrounds:")
+            logger.info(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - backgrounds:")
             if isinstance(self.backgrounds, list):
                 for background in self.backgrounds:
-                    print(background)
+                    logger.info(background)
             else:
-                print(self.backgrounds)
+                logger.info(self.backgrounds)
         else:
-            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no background.")
+            logger.info(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no background.")
 
     def show_perturbations(self):
         if self.perturbations is not None:
-            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - perturbations:")
+            logger.info(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - perturbations:")
             if isinstance(self.perturbations, list):
                 for perturbation in self.perturbations:
-                    print(perturbation)
+                    logger.info(perturbation)
             else:
-                print(self.perturbations)
+                logger.info(self.perturbations)
         else:
-            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no perturbation.")
+            logger.info(
+                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no perturbation."
+            )
 
 
 class FEECVariable(Variable):
@@ -162,6 +169,12 @@ class FEECVariable(Variable):
     FEECVariable represents field quantities discretized on a computational grid using finite element
     methods. It supports arbitrary FEEC spaces (H1, Hdiv, Hcurl, L2) and is used for electromagnetic
     fields, fluid moments, or other spatially distributed quantities.
+
+    Parameters
+    ----------
+    space : str
+        The FEEC function space. Options: 'H1', 'HDiv', 'HCurl', 'L2'.
+        Determines the continuity and smoothness properties of the discretization.
 
     Attributes
     ----------
@@ -205,14 +218,62 @@ class FEECVariable(Variable):
         self._space = space
 
     @property
-    def space(self):
+    def space(self) -> str:
         return self._space
+
+    @property
+    def lifting_function(self) -> Perturbation | None:
+        """The lifting function for the case of lifting of boundary conditions.
+        Its values at the boundary determine the inhomogeneous boundary conditions.
+        If None, no lifting is applied."""
+        if not hasattr(self, "_lifting_function"):
+            self._lifting_function = None
+        return self._lifting_function
+
+    @lifting_function.setter
+    def lifting_function(self, new: Perturbation | None):
+        self._lifting_function = new
 
     @property
     def spline(self) -> SplineFunction:
         if not hasattr(self, "_spline"):
             raise ValueError("Warning: spline not allocated yet. Call allocate() first.")
         return self._spline
+
+    @property
+    def spline_lift(self) -> SplineFunction | None:
+        """The lifting function for the case of lifting of boundary conditions. Only allocated if lifting_function is not None."""
+        if not hasattr(self, "_spline_lift"):
+            self._spline_lift = None
+        return self._spline_lift
+
+    @property
+    def spline_0(self) -> SplineFunction | None:
+        """The spline function with zero boundary conditions, used for the lifting of boundary conditions. Only allocated if lifting_function is not None."""
+        if not hasattr(self, "_spline_0"):
+            self._spline_0 = None
+        return self._spline_0
+
+    @property
+    def boundary_spline(self) -> SplineFunction | None:
+        """The spline function representing the boundary conditions, used for the lifting of boundary conditions. Only allocated if lifting_function is not None."""
+        if not hasattr(self, "_boundary_spline"):
+            self._boundary_spline = None
+        return self._boundary_spline
+
+    @property
+    def boundary_op(self) -> BoundaryOperator | None:
+        """The boundary operator, used for the lifting of boundary conditions. Only allocated if lifting_function is not None."""
+        if not hasattr(self, "_boundary_op"):
+            self._boundary_op = None
+        return self._boundary_op
+
+    @property
+    def derham_lift(self) -> Derham | None:
+        """The Derham object for the lifting function. Only allocated if lifting_function is not None."""
+        if not hasattr(self, "_derham_lift"):
+            self._derham_lift = None
+        return self._derham_lift
 
     @property
     def species(self) -> FieldSpecies | FluidSpecies:
@@ -249,6 +310,102 @@ class FEECVariable(Variable):
             equil=equil,
             verbose=verbose,
         )
+
+        self._derham_lift = None
+        self._spline_lift = None
+
+        if self.lifting_function is not None:
+            check_bcs = False
+            for bc in derham.bcs:
+                if "dirichlet" in bc:
+                    check_bcs = True
+                    break
+            assert check_bcs, (
+                f"Lifting of boundary conditions can only be applied if at least one homogenous Dirichlet boundary condition is present in the Derham object, but here {derham.bcs = }"
+            )
+
+            # create another Derham object with the same options but with homogenous Dirichlet BCs replaced by free BCs, to be used for the lifting function
+            dct = derham.to_dict()
+            bcs_lift = list(dct["options"]["bcs"])
+            for i, bc in enumerate(bcs_lift):
+                if bc is not None:
+                    bcn = list(bc)  # convert tuple to list to allow modification
+                    if bcn[0] == "dirichlet":
+                        bcn[0] = "free"
+                    if bcn[1] == "dirichlet":
+                        bcn[1] = "free"
+                    bcn = tuple(bcn)  # convert back to tuple
+                    bcs_lift[i] = bcn
+            dct["options"]["bcs"] = tuple(bcs_lift)  # convert list back to tuple
+
+            self._derham_lift = Derham.from_dict(dct, comm=derham.comm)
+
+            # spline function for the lifting function
+            self._spline_lift = self.derham_lift.create_spline_function(
+                name=self.__name__ + "_lift" if self.__name__ is not None else None,
+                space_id=self.space,
+                domain=domain,
+                equil=equil,
+                verbose=verbose,
+            )
+
+            # project lifting function to spline space
+            ptb = self.lifting_function
+
+            if self.space in {
+                "H1",
+                "L2",
+            }:  # TODO: this is a copy-paste from SplineFunction.initialize_coeffs(), to be unified
+                if ptb.given_in_basis is None:
+                    ptb.given_in_basis = "0"
+
+                fun = TransformedPformComponent(
+                    ptb,
+                    ptb.given_in_basis,
+                    derham.space_to_form[self.space],
+                    domain=domain,
+                )
+            elif self.space in {"Hcurl", "Hdiv", "H1vec"}:
+                fun_vec = [None] * 3
+                fun_vec[ptb.comp] = ptb
+
+                if ptb.given_in_basis is None:
+                    ptb.given_in_basis = "v"
+                # pullback callable for each component
+                fun = []
+                for comp in range(3):
+                    fun += [
+                        TransformedPformComponent(
+                            fun_vec,
+                            ptb.given_in_basis,
+                            derham.space_to_form[self.space],
+                            comp=comp,
+                            domain=domain,
+                        ),
+                    ]
+
+            # peform projection
+            self.spline_lift.vector += self.derham_lift.projectors[derham.space_to_form[self.space]](fun)
+
+            # other helper objects for the lifting of boundary conditions
+            self._spline_0 = self.spline_lift.copy()
+            self.spline_0.vector[:] = self.spline_lift.vector[:]
+            self._boundary_spline = self.spline_lift.copy()
+            self._boundary_op = BoundaryOperator(self.spline_lift.space, self.space, derham.dirichlet_bc)
+
+            self.compute_boundary_spline()
+
+    def compute_boundary_spline(self, spline_lift: SplineFunction | None = None):
+        """Compute boundary_spline = spline_lift - spline_0. If spline_lift is None, uses self.spline_lift from the initial condition.
+        This method can be used to update the boundary spline during the simulation if the lifting function changes in time."""
+        # update spline_0
+        if spline_lift is None:
+            spline_lift = self.spline_lift
+        self.boundary_op.dot(spline_lift.vector, out=self.spline_0.vector)
+
+        # set new boundary spline
+        diff_vec = spline_lift.vector - self.spline_0.vector
+        self.boundary_spline.vector[:] = diff_vec[:]
 
 
 class PICVariable(Variable):
@@ -356,10 +513,12 @@ class PICVariable(Variable):
 
     def show_initial_condition(self):
         if self.initial_condition is not None:
-            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - initial condition:")
-            print(self.initial_condition)
+            logger.info(
+                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - initial condition:"
+            )
+            logger.info(self.initial_condition)
         else:
-            print(
+            logger.info(
                 f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no initial condition."
             )
 
@@ -576,16 +735,18 @@ class SPHVariable(Variable):
 
     def show_perturbations(self):
         if self.perturbations is not None:
-            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - perturbations:")
+            logger.info(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - perturbations:")
             for key, perturbation in self.perturbations.items():
                 if perturbation is not None:
-                    print(f"    {key}: {perturbation.__class__.__name__}")
+                    logger.info(f"    {key}: {perturbation.__class__.__name__}")
                     for k, v in perturbation.__dict__.items():
-                        print(f"        {k}: {v}")
+                        logger.info(f"        {k}: {v}")
                 else:
-                    print(f"    {key}: None")
+                    logger.info(f"    {key}: None")
         else:
-            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no perturbation.")
+            logger.info(
+                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no perturbation."
+            )
 
     @property
     def perturbations(self) -> dict[str, Perturbation]:

@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 
@@ -23,13 +24,15 @@ from struphy import (
 )
 from struphy.models import VlasovAmpereOneSpecies
 
+logger = logging.getLogger("struphy")
+
 
 def test_weak_Landau(do_plot: bool = False):
     """Verification test for weak Landau damping.
     The computed damping rate is compared to the analytical rate.
     """
     # light-weight model instance
-    model = VlasovAmpereOneSpecies(with_B0=False)
+    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False)
 
     # environment options
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
@@ -44,14 +47,12 @@ def test_weak_Landau(do_plot: bool = False):
     domain = domains.Cuboid(r1=r1)
 
     # grid
-    grid = grids.TensorProductGrid(Nel=(32, 1, 1))
+    grid = grids.TensorProductGrid(num_elements=(32, 1, 1))
 
     # derham options
-    derham_opts = DerhamOptions(p=(3, 1, 1))
+    derham_opts = DerhamOptions(degree=(3, 1, 1))
 
-    # species parameters
-    model.kinetic_ions.set_species_properties(alpha=1.0, epsilon=-1.0)
-
+    # markers
     ppc = 1000
     loading_params = LoadingParameters(ppc=ppc, seed=1234)
     weights_params = WeightsParameters(control_variate=True)
@@ -113,8 +114,8 @@ def test_weak_Landau(do_plot: bool = False):
     # get parameters
     dt = time_opts.dt
     algo = time_opts.split_algo
-    Nel = grid.Nel
-    p = derham_opts.p
+    num_elements = grid.num_elements
+    degree = derham_opts.degree
 
     # get scalar data
     if MPI.COMM_WORLD.Get_rank() == 0:
@@ -137,7 +138,7 @@ def test_weak_Landau(do_plot: bool = False):
             plt.plot(time, logE, label="numerical")
             plt.plot(time, xp.log10(E_exact(time)), label="exact")
             plt.legend()
-            plt.title(f"{dt=}, {algo=}, {Nel=}, {p=}, {ppc=}")
+            plt.title(f"{dt=}, {algo=}, {num_elements=}, {degree=}, {ppc=}")
             plt.xlabel("time [m/c]")
             plt.plot(t_maxima[:5], maxima[:5], "r")
             plt.plot(t_maxima[:5], maxima[:5], "or", markersize=10)
@@ -152,7 +153,7 @@ def test_weak_Landau(do_plot: bool = False):
         # assert
         rel_error = xp.abs(gamma_num - gamma) / xp.abs(gamma)
         assert rel_error < 0.22, f"Assertion for weak Landau damping failed: {gamma_num =} vs. {gamma =}."
-        print(f"Assertion for weak Landau damping passed ({rel_error =}).")
+        logger.info(f"Assertion for weak Landau damping passed ({rel_error =}).")
 
         shutil.rmtree(test_folder)
 

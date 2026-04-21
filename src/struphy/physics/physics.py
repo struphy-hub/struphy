@@ -1,9 +1,12 @@
+import logging
 from dataclasses import dataclass
 
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.io.options import BaseUnits
+
+logger = logging.getLogger("struphy")
 
 
 @dataclass
@@ -139,12 +142,12 @@ class Units:
                 " kg/m³",
                 " A/m²",
             )
-            print("")
+            logger.info("")
             for (k, v), u in zip(self.__dict__.items(), units_used):
                 if v is None:
-                    print(f"Unit of {k[1:]} not specified.")
+                    logger.info(f"Unit of {k[1:]} not specified.")
                 else:
-                    print(
+                    logger.info(
                         f"Unit of {k[1:]}:".ljust(25),
                         "{:4.3e}".format(v) + u,
                     )

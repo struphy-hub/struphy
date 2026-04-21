@@ -1,3 +1,5 @@
+import logging
+
 import cunumpy as xp
 from feectools.api.essential_bc import apply_essential_bc_stencil
 from feectools.ddm.cart import CartDecomposition, DomainDecomposition
@@ -13,6 +15,8 @@ from scipy.linalg import solve_circulant
 
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.mass import WeightedMassOperator
+
+logger = logging.getLogger("struphy")
 
 
 class MassMatrixPreconditioner(LinearOperator):
@@ -910,7 +914,7 @@ class FFTSolver(BandedSolver):
                 out[:] = solve_circulant(self._column, rhs.T).T
             except xp.linalg.LinAlgError:
                 eps = 1e-4
-                print(f"Stabilizing singular preconditioning FFTSolver with {eps =}:")
+                logger.info(f"Stabilizing singular preconditioning FFTSolver with {eps =}:")
                 self._column[0] *= 1.0 + eps
                 out[:] = solve_circulant(self._column, rhs.T).T
 

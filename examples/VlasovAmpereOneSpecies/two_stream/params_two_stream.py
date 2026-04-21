@@ -45,11 +45,12 @@ from struphy import (
 # ---------------------
 
 from struphy.models import VlasovAmpereOneSpecies
-model = VlasovAmpereOneSpecies(with_B0 = False)
 
-# List all species and set their physical properties (charge and mass number, etc.)
-model.em_fields.set_species_properties()
-model.kinetic_ions.set_species_properties(alpha=1.0, epsilon=-1.0)
+# Units
+base_units = BaseUnits()
+
+# Model instance
+model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0 = False)
 
 # List all variables and decide whether to save their data
 model.em_fields.e_field.save_data = True
@@ -63,9 +64,6 @@ model.kinetic_ions.var.save_data = True
 # Environment options
 env = EnvironmentOptions(sim_folder="sim_data")
 
-# Units
-base_units = BaseUnits()
-
 # Time stepping
 time_opts = Time(dt = 0.1, Tend = 50.0, split_algo = "LieTrotter")
 
@@ -76,17 +74,16 @@ domain = domains.Cuboid(r1 = 31.42)
 equil = None
 
 # Grid
-grid = grids.TensorProductGrid(Nel=(32, 1, 1))
+grid = grids.TensorProductGrid(num_elements=(32, 1, 1))
 
 # Derham options
-derham_opts = DerhamOptions(p=(3, 1, 1))
+derham_opts = DerhamOptions(degree=(3, 1, 1))
 
 # Simulation object
 sim = Simulation(
     model=model,
     params_path=__file__,
     env=env,
-    base_units=base_units,
     time_opts=time_opts,
     domain=domain,
     equil=equil,
