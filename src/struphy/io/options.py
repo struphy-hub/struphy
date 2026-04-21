@@ -52,6 +52,7 @@ class LiteralOptions:
 
     # fields background
     BackgroundTypes = Literal["LogicalConst", "FluidEquilibrium"]
+    DimensionToPlot = Literal["e1", "e2", "e3", "v1", "v2", "v3"]
 
     # models
     ModelTypes = Literal["Toy", "Kinetic", "Fluid", "Hybrid"]

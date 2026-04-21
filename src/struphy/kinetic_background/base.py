@@ -7,6 +7,10 @@ import cunumpy as xp
 
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.initial.base import Perturbation
+from struphy.geometry.base import Domain
+from struphy.io.options import LiteralOptions
+
+import matplotlib.pyplot as plt
 
 
 class KineticBackground(metaclass=ABCMeta):
@@ -108,6 +112,52 @@ class KineticBackground(metaclass=ABCMeta):
             The evaluated background.
         """
         pass
+
+    def plot_background(
+            self,
+            dim_1: LiteralOptions.DimensionToPlot = "e1",
+            dim_2: LiteralOptions.DimensionToPlot | None = None,
+            domain: Domain | None = None,
+            resol: int = 50,
+            in_physical: bool = False,
+            integrate: bool = True,
+            integrate_resol: int = 10,
+    ):
+        if dim_2==None:
+            if dim_1=="e1":axe_to_plot=0
+            elif dim_1=="e2":axe_to_plot=1
+            elif dim_1=="e3":axe_to_plot=2
+            elif dim_1=="v1":axe_to_plot=3
+            elif dim_1=="v2":axe_to_plot=4
+            elif dim_1=="v3":axe_to_plot=5
+            else:AssertionError("Dimension argument must match an exiting dimension")
+            integrate_linspace = xp.linspace(0.0, 1.0, integrate_resol)
+            plot_linspace = xp.linspace(0.0, 1.0, resol)
+            print(self.vdim)
+            if self.vdim==1:
+                pre_etas = xp.meshgrid(plot_linspace, integrate_linspace, integrate_linspace, integrate_linspace)
+            if self.vdim==2:
+                pre_etas = xp.meshgrid(plot_linspace, integrate_linspace, integrate_linspace, integrate_linspace, integrate_linspace)
+            if self.vdim==3:
+                pre_etas = xp.meshgrid(plot_linspace, integrate_linspace, integrate_linspace, integrate_linspace, integrate_linspace, integrate_linspace)
+            etas = list(pre_etas)
+            etas[0] = pre_etas[axe_to_plot]
+            etas[axe_to_plot] = pre_etas[0]
+            perm = [i for i in range(3+self.vdim)]
+            perm[0] = axe_to_plot
+            perm[axe_to_plot] = 0
+            for eta in etas:xp.transpose(eta, perm)
+            total_density = self(etas)
+            axes_to_integrate = [i for i in range(3+self.vdim)]
+            axes_to_integrate.remove(axe_to_plot)
+            total_density = xp.sum(total_density, axes_to_integrate)
+            fig, ax = plt.subplots(1,1)
+            ax.plot(plot_linspace, total_density)
+            ax.set_xlabel(dim_1)
+            ax.set_ylabel("density")
+            ax.set_title("background profile")
+            fig.show()
+
 
     def __add__(self, other_f0):
         return SumKineticBackground(self, other_f0)
