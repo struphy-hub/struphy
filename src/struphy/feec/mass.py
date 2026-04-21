@@ -4,7 +4,7 @@ from copy import deepcopy
 
 import cunumpy as xp
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
-from feectools.ddm.mpi import mpi as MPI, rank
+from feectools.ddm.mpi import mpi as MPI
 from feectools.fem.tensor import TensorFemSpace
 from feectools.fem.vector import VectorFemSpace
 from feectools.linalg.basic import IdentityOperator, LinearOperator, Vector
