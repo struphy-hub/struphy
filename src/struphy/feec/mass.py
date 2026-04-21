@@ -852,10 +852,10 @@ class WeightedMassOperators:
         quad_grid_wts = self.derham.spline_attributes[W_id].quad_grid_wts
         quad_grid_spans = self.derham.spline_attributes[W_id].quad_grid_spans
         quad_grid_bases = self.derham.spline_attributes[W_id].quad_grid_bases
-        logger.debug(f"{quad_grid_pts = }")
-        logger.debug(f"{quad_grid_wts = }")
-        logger.debug(f"{quad_grid_spans = }")
-        logger.debug(f"{quad_grid_bases = }\nfor the weighted mass matrix {name}.")
+        logger.debug(f"{len(quad_grid_pts) = }")
+        logger.debug(f"{len(quad_grid_wts) = }")
+        logger.debug(f"{len(quad_grid_spans) = }")
+        logger.debug(f"{len(quad_grid_bases) = }\nfor the weighted mass matrix {name}.")
 
         weights_values = []
         integration_grids = []
@@ -1216,7 +1216,7 @@ class WeightedMassOperator(LinOpWithTransp):
         logger.debug(f"{W_extraction_op = }")
         logger.debug(f"{V_boundary_op = }")
         logger.debug(f"{W_boundary_op = }")
-        # logger.debug(f"{weights_info = }")
+        logger.debug(f"{weights_info = }")
         logger.debug(f"{transposed = }")
         logger.debug(f"{matrix_free = }")
         logger.debug(f"{nquads = }")
@@ -1429,6 +1429,7 @@ class WeightedMassOperator(LinOpWithTransp):
                                     self.nquads,
                                 )
                             ]
+                    logger.debug(f"Using fallback for quadrature points with shapes {[pt.shape for pt in pts]} for the weighted mass matrix {name}.")
 
                 # loop over domain spaces (columns)
                 for b, vspace in enumerate(Vspaces):
@@ -1461,6 +1462,7 @@ class WeightedMassOperator(LinOpWithTransp):
                             elif isinstance(weights_info[a][b], xp.ndarray):
                                 mat_w = weights_info[a][b]
 
+                            logger.debug(f"{mat_w.shape = } and {[pt.size for pt in pts] = }.")
                             assert mat_w.shape == tuple(
                                 [pt.size for pt in pts],
                             )

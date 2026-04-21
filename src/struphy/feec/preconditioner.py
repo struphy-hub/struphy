@@ -93,7 +93,6 @@ class MassMatrixPreconditioner(LinearOperator):
                     # pts = [0.5] * (n_dims - 1)
                     loc_weights = mass_operator.weights[c][c]
                     if callable(loc_weights):
-
                         def fun(e):
                             # make input in meshgrid format to be able to use it with general functions
                             s = e.shape[0]
@@ -106,12 +105,16 @@ class MassMatrixPreconditioner(LinearOperator):
                             )
                     elif isinstance(loc_weights, xp.ndarray):
                         s = loc_weights.shape
+                        logger.debug(f"{loc_weights.shape = } for component {c} and direction {d}.")
+                        # gather weights on process for correct construction of 1d mass matrix (weights need to be local to process for correct KroneckerStencilMatrix construction)
                         if d == 0:
-                            fun = loc_weights[:, s[1] // 2, s[2] // 2]
+                            local_fun = loc_weights[:, s[1] // 2, s[2] // 2]
                         elif d == 1:
-                            fun = loc_weights[s[0] // 2, :, s[2] // 2]
+                            local_fun = loc_weights[s[0] // 2, :, s[2] // 2]
                         elif d == 2:
-                            fun = loc_weights[s[0] // 2, s[1] // 2, :]
+                            local_fun = loc_weights[s[0] // 2, s[1] // 2, :]
+                        fun = xp.concatenate(mass_operator.derham.comm.allgather(local_fun))
+                        logger.debug(f"{fun.shape = } for component {c} and direction {d} after gathering on all processes.")
                     elif loc_weights is None:
                         fun = lambda e: xp.ones(e.size, dtype=float)
                     else:
@@ -122,7 +125,7 @@ class MassMatrixPreconditioner(LinearOperator):
                 else:
                     fun = [[lambda e: xp.ones(e.size, dtype=float)]]
 
-                # get 1D FEM space (serial, not distributed) and quadrature order
+                # construct 1D FEM space (serial, not distributed) and quadrature order
                 femspace_1d = femspaces[c].spaces[d]
                 qu_order_1d = [mass_operator.derham.nquads[d]]
 
