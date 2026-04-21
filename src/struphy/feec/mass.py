@@ -785,14 +785,14 @@ class WeightedMassOperators:
     
     @property
     def WMMnew(self):
-        if not hasattr(self, "_WMM"):
+        if not hasattr(self, "_WMMnew"):
             self._WMM = self.create_weighted_mass(
                 "H1vec",
                 "H1vec",
                 weights=["G", "L2"],
                 assemble=True,
             )
-        return self._WMM
+        return self._WMMnew
 
     #######################################
     # Wrapper around WeightedMassOperator #
@@ -913,9 +913,9 @@ class WeightedMassOperators:
                                 out[2, 2] = 1.0
                                 return xp.transpose(out, axes=(2, 3, 4, 0, 1))
                         elif f == "H1":
-                            f_call = self.derham.create_spline_function("field", "H1")
+                            f_call = self.derham.create_spline_function(f"field{n}", "H1")
                         elif f == "L2":
-                            f_call = self.derham.create_spline_function("field", "L2")
+                            f_call = self.derham.create_spline_function(f"field{n}", "L2")
                         else:
                             raise NotImplementedError(
                                 f"The option {f} is not available.",
