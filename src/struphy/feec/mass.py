@@ -117,7 +117,7 @@ class WeightedMassOperators:
             self._M0 = self.create_weighted_mass(
                 "H1",
                 "H1",
-                weights=["sqrt_g"],
+                weights=("sqrt_g",),
                 name="M0",
                 assemble=True,
             )
@@ -138,7 +138,7 @@ class WeightedMassOperators:
             self._M1 = self.create_weighted_mass(
                 "Hcurl",
                 "Hcurl",
-                weights=["Ginv", "sqrt_g"],
+                weights=("Ginv", "sqrt_g"),
                 name="M1",
                 assemble=True,
             )
@@ -160,7 +160,7 @@ class WeightedMassOperators:
             self._M2 = self.create_weighted_mass(
                 "Hdiv",
                 "Hdiv",
-                weights=["G", "1/sqrt_g"],
+                weights=("G", "1/sqrt_g"),
                 name="M2",
                 assemble=True,
             )
@@ -182,7 +182,7 @@ class WeightedMassOperators:
             self._M3 = self.create_weighted_mass(
                 "L2",
                 "L2",
-                weights=["1/sqrt_g"],
+                weights=("1/sqrt_g",),
                 name="M3",
                 assemble=True,
             )
@@ -204,7 +204,7 @@ class WeightedMassOperators:
             self._Mv = self.create_weighted_mass(
                 "H1vec",
                 "H1vec",
-                weights=["G", "sqrt_g"],
+                weights=("G", "sqrt_g"),
                 name="Mv",
                 assemble=True,
             )
@@ -229,7 +229,7 @@ class WeightedMassOperators:
             self._M2stab_for_rot = self.create_weighted_mass(
                 "Hdiv",
                 "Hdiv",
-                weights=["Identity", "1/sqrt_g"],
+                weights=("Identity", "1/sqrt_g"),
                 name="M2stab_for_rot",
                 assemble=True,
             )
@@ -253,11 +253,11 @@ class WeightedMassOperators:
             self._M1n = self.create_weighted_mass(
                 "Hcurl",
                 "Hcurl",
-                weights=[
+                weights=(
                     "Ginv",
                     "sqrt_g",
                     "eq_n0",
-                ],
+                ),
                 name="M1n",
                 assemble=True,
             )
@@ -281,11 +281,11 @@ class WeightedMassOperators:
             self._M2n = self.create_weighted_mass(
                 "Hdiv",
                 "Hdiv",
-                weights=[
+                weights=(
                     "G",
                     "1/sqrt_g",
                     "eq_n0",
-                ],
+                ),
                 name="M2n",
                 assemble=True,
             )
@@ -309,11 +309,11 @@ class WeightedMassOperators:
             self._Mvn = self.create_weighted_mass(
                 "H1vec",
                 "H1vec",
-                weights=[
+                weights=(
                     "G",
                     "sqrt_g",
                     "eq_n0",
-                ],
+                ),
                 name="Mvn",
                 assemble=True,
             )
@@ -337,11 +337,11 @@ class WeightedMassOperators:
             self._M1ninv = self.create_weighted_mass(
                 "Hcurl",
                 "Hcurl",
-                weights=[
+                weights=(
                     "Ginv",
                     "sqrt_g",
                     "1/eq_n0",
-                ],
+                ),
                 name="M1ninv",
                 assemble=True,
             )
@@ -378,7 +378,7 @@ class WeightedMassOperators:
             self._M1J = self.create_weighted_mass(
                 "Hdiv",
                 "Hcurl",
-                weights=["Ginv", rot_J],
+                weights=("Ginv", rot_J),
                 name="M1J",
                 assemble=True,
             )
@@ -415,7 +415,7 @@ class WeightedMassOperators:
             self._M2J = self.create_weighted_mass(
                 "Hdiv",
                 "Hdiv",
-                weights=[rot_J, "1/sqrt_g"],
+                weights=(rot_J, "1/sqrt_g"),
                 name="M2J",
                 assemble=True,
             )
@@ -452,7 +452,7 @@ class WeightedMassOperators:
             self._MvJ = self.create_weighted_mass(
                 "Hdiv",
                 "H1vec",
-                weights=[rot_J],
+                weights=(rot_J,),
                 name="MvJ",
                 assemble=True,
             )
@@ -525,7 +525,7 @@ class WeightedMassOperators:
             self._M2B_div0 = self.create_weighted_mass(
                 "Hdiv",
                 "Hdiv",
-                weights=[rot_B, "1/sqrt_g"],
+                weights=(rot_B, "1/sqrt_g"),
                 name="M2B_div0",
                 assemble=True,
             )
@@ -562,7 +562,7 @@ class WeightedMassOperators:
             self._M2B = self.create_weighted_mass(
                 "Hdiv",
                 "Hdiv",
-                weights=[rot_B, "1/sqrt_g"],
+                weights=(rot_B, "1/sqrt_g"),
                 name="M2B",
                 assemble=True,
             )
@@ -635,11 +635,11 @@ class WeightedMassOperators:
             self._M2Bn = self.create_weighted_mass(
                 "Hdiv",
                 "Hdiv",
-                weights=[
+                weights=(
                     rot_B,
                     "1/sqrt_g",
                     "eq_n0",
-                ],
+                ),
                 name="M2Bn",
                 assemble=True,
             )
@@ -676,13 +676,13 @@ class WeightedMassOperators:
             self._M1Bninv = self.create_weighted_mass(
                 "Hcurl",
                 "Hcurl",
-                weights=[
+                weights=(
                     "Ginv",
                     rot_B,
                     "Ginv",
                     "sqrt_g",
                     "1/eq_n0",
-                ],
+                ),
                 name="M1Bninv",
                 assemble=True,
             )
@@ -705,12 +705,12 @@ class WeightedMassOperators:
             self._M1perp = self.create_weighted_mass(
                 "Hcurl",
                 "Hcurl",
-                weights=[
+                weights=(
                     "DFinv",
                     D,
                     "DFinv",
                     "sqrt_g",
-                ],
+                ),
                 name="M1perp",
                 assemble=True,
             )
@@ -734,7 +734,7 @@ class WeightedMassOperators:
             self._M0ad = self.create_weighted_mass(
                 "H1",
                 "H1",
-                weights=["eq_n0", "sqrt_g"],
+                weights=("eq_n0", "sqrt_g"),
                 name="M0ad",
                 assemble=True,
             )
@@ -760,7 +760,7 @@ class WeightedMassOperators:
             self._M1gyro = self.create_weighted_mass(
                 "Hcurl",
                 "Hcurl",
-                weights=[
+                weights=(
                     "eq_n0",
                     "1/eq_absB0",
                     "1/eq_absB0",
@@ -768,7 +768,7 @@ class WeightedMassOperators:
                     "Ginv",
                     D,
                     "sqrt_g",
-                ],
+                ),
                 name="M1gyro",
                 assemble=True,
             )
@@ -789,7 +789,7 @@ class WeightedMassOperators:
             self._WMM = self.create_weighted_mass(
                 "H1vec",
                 "H1vec",
-                weights=["G", "L2"],
+                weights=("G", "L2"),
                 assemble=True,
             )
         return self._WMMnew
@@ -833,7 +833,7 @@ class WeightedMassOperators:
 
             1. ``str``  : for square block matrices (V=W), a symmetry can be set in order to accelerate the assembly process. Possible strings are ``symm`` (symmetric), ``asym`` (anti-symmetric) and ``diag`` (diagonal).
             2. ``None`` : all blocks are allocated, disregarding zero-blocks or any symmetry.
-            3. ``1D list`` : 1d list consisting of either a) strings or b) matrices (3x3 callables or 3x3 list) and can be mixed. Predefined names are ``G``, ``Ginv``, ``DFinv``, ``sqrt_g``. Access them using strings in the 1d list: ``weights=['<name>']``. Possible choices for key-value pairs in **weights** are, at the moment: ``eq_mhd``: :class:`~struphy.fields_background.base.MHDequilibrium`. To access them, use for ``<name>`` the string ``eq_<method name>``, where ``<method name>`` can be found in the just mentioned base classes for MHD equilibria. By default, all scalars are multiplied. For division of scalars use ``1/<name>``.
+            3. ``1D tuple`` : 1d tuple consisting of either a) strings or b) matrices (3x3 callables or 3x3 list) and can be mixed. Predefined names are ``G``, ``Ginv``, ``DFinv``, ``sqrt_g``. Access them using strings in the 1d tuple: ``weights=(' <name> ')``. Possible choices for key-value pairs in **weights** are, at the moment: ``eq_mhd``: :class:`~struphy.fields_background.base.MHDequilibrium`. To access them, use for ``<name>`` the string ``eq_<method name>``, where ``<method name>`` can be found in the just mentioned base classes for MHD equilibria. By default, all scalars are multiplied. For division of scalars use ``1/<name>``.
             4. ``2D list`` : 2d list with the same number of rows/columns as the number of components of the domain/codomain spaces. The entries can be either a) callables or b) xp.ndarrays representing the weights at the quadrature points. If an entry is zero or ``None``, the corresponding block is set to ``None`` to accelerate the dot product.
 
         assemble: bool
@@ -875,7 +875,7 @@ class WeightedMassOperators:
                 raise ValueError(f"Unknown space identifier {V_id} for the domain of the weighted mass matrix {name}.")
         logger.debug(f"Initialized {weights_values = } for the weighted mass matrix {name}.")
 
-        if isinstance(weights, list):  # Case 3 (1D list)
+        if isinstance(weights, tuple):  # Case 3 (1D tuple)
             for n, f in enumerate(weights):
                 if isinstance(f, str):
                     # determine the callable
@@ -885,6 +885,8 @@ class WeightedMassOperators:
                             f_call = lambda e1, e2, e3: 1.0 / abs(self.domain.jacobian_det(e1, e2, e3))
                         elif f_components[-1] == "eq_n0":
                             f_call = lambda e1, e2, e3: 1.0 / self.eq_mhd.n0(e1, e2, e3)
+                        elif f_components[-1] == "eq_absB0":
+                            f_call = lambda e1, e2, e3: 1.0 / self.eq_mhd.absB0(e1, e2, e3)
                         else:
                             raise NotImplementedError(
                                 f"The option {f} is not available for division ('/') yet.",
@@ -922,8 +924,9 @@ class WeightedMassOperators:
                             )
 
                 elif isinstance(f, list):
-                    assert len(f) == 3 
+                    assert len(f) == 3
                     for fi in f:
+                        assert isinstance(fi, list)
                         assert len(fi) == 3
                     def f_call(e1, e2, e3):
                         """Nested list callable."""
@@ -932,6 +935,7 @@ class WeightedMassOperators:
                             for n in range(3):
                                 out[m, n] = f[m][n]
                         return xp.transpose(out, axes=(2, 3, 4, 0, 1))
+                    listinput = True
                 else:
                     assert callable(f)
                     # Input is a a matrix or a Rotation matrix etc.

@@ -6803,7 +6803,7 @@ class VariationalResistivity(Propagator):
         self.M_de_ds = self.mass_ops.create_weighted_mass("L2", "L2")
 
         D = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
-        self.M1_cb = self.mass_ops.create_weighted_mass("Hcurl", "Hcurl", weights=[D, "sqrt_g"])
+        self.M1_cb = self.mass_ops.create_weighted_mass("Hcurl", "Hcurl", weights=(D, "sqrt_g"))
 
         if self.options.precond is None:
             self.pc = None
