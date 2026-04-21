@@ -12,6 +12,7 @@ from feectools.linalg.stencil import StencilMatrix, StencilVectorSpace
 from line_profiler import profile
 from scipy import sparse
 from scipy.linalg import solve_circulant
+from feectools.ddm.mpi import MockComm
 
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.mass import WeightedMassOperator
@@ -107,16 +108,25 @@ class MassMatrixPreconditioner(LinearOperator):
                         s = loc_weights.shape
                         logger.debug(f"{loc_weights.shape = } for component {c} and direction {d}.")
                         # gather weights on process for correct construction of 1d mass matrix (weights need to be local to process for correct KroneckerStencilMatrix construction)
+                        npts = 0
+                        logger.debug(f"{mass_operator.derham.domain_array = } for component {c} and direction {d}.")
+                        for proc, nq in zip(mass_operator.derham.domain_array, mass_operator.derham.nquads):
+                            npts += int(proc[3*d + 2] * nq)
+                        logger.debug(f"{npts = } for component {c} and direction {d} after gathering on all processes.")
+                        fun = xp.zeros(npts, dtype=float)
                         if d == 0:
                             local_fun = loc_weights[:, s[1] // 2, s[2] // 2]
                         elif d == 1:
                             local_fun = loc_weights[s[0] // 2, :, s[2] // 2]
                         elif d == 2:
                             local_fun = loc_weights[s[0] // 2, s[1] // 2, :]
-                        if mass_operator.derham.comm is not None:
-                            fun = xp.concatenate(mass_operator.derham.comm.allgather(local_fun))
+                        # MPI/DLPack interoperability requires contiguous buffers.
+                        # Slices like loc_weights[:, j, k] can be strided views.
+                        local_fun = xp.ascontiguousarray(local_fun)
+                        if not isinstance(mass_operator.derham.comm, (MockComm, type(None))):
+                            mass_operator.derham.comm.Allgather(local_fun, fun)
                         else:
-                            fun = local_fun
+                            fun[:] = local_fun
                         logger.debug(f"{fun.shape = } for component {c} and direction {d} after gathering on all processes.")
                     elif loc_weights is None:
                         fun = lambda e: xp.ones(e.size, dtype=float)

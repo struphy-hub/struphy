@@ -803,7 +803,7 @@ class WeightedMassOperators:
         W_id: str,
         *,
         name: str = None,
-        weights: list | str | None = None,
+        weights: tuple | list | str | None = None,
         assemble: bool = False,
         transposed: bool = False,
     ):
@@ -827,14 +827,34 @@ class WeightedMassOperators:
         name: str
             Name of the operator.
 
-        weights : None | str | list
+        weights : None | str | tuple | list
             Information about the weights/block structure of the operator.
             Four cases are possible:
 
-            1. ``str``  : for square block matrices (V=W), a symmetry can be set in order to accelerate the assembly process. Possible strings are ``symm`` (symmetric), ``asym`` (anti-symmetric) and ``diag`` (diagonal).
-            2. ``None`` : all blocks are allocated, disregarding zero-blocks or any symmetry.
-            3. ``1D tuple`` : 1d tuple consisting of either a) strings or b) matrices (3x3 callables or 3x3 list) and can be mixed. Predefined names are ``G``, ``Ginv``, ``DFinv``, ``sqrt_g``. Access them using strings in the 1d tuple: ``weights=(' <name> ')``. Possible choices for key-value pairs in **weights** are, at the moment: ``eq_mhd``: :class:`~struphy.fields_background.base.MHDequilibrium`. To access them, use for ``<name>`` the string ``eq_<method name>``, where ``<method name>`` can be found in the just mentioned base classes for MHD equilibria. By default, all scalars are multiplied. For division of scalars use ``1/<name>``.
-            4. ``2D list`` : 2d list with the same number of rows/columns as the number of components of the domain/codomain spaces. The entries can be either a) callables or b) xp.ndarrays representing the weights at the quadrature points. If an entry is zero or ``None``, the corresponding block is set to ``None`` to accelerate the dot product.
+            1. ``None`` : all blocks are allocated, disregarding zero-blocks or any symmetry.
+            2. ``str``  : for square block matrices (V=W), a symmetry can be set in order to accelerate the assembly process. 
+                Possible strings are ``symm`` (symmetric), ``asym`` (anti-symmetric) and ``diag`` (diagonal).
+            3. ``1D tuple`` : most common and recommended input format.
+                Entries are processed from left to right and multiplied together.
+
+                Supported tuple entries are:
+
+                - Strings (predefined names):
+                    ``'G'``, ``'Ginv'``, ``'DFinv'``, ``'DFinvT'``, ``'sqrt_g'``, ``'Identity'``, ``'H1'``, ``'L2'``.
+                - Strings from equilibrium methods:
+                    ``'eq_<method_name>'`` for methods of :class:`~struphy.fields_background.base.MHDequilibrium`.
+                - Reciprocal strings:
+                    ``'1/sqrt_g'``, ``'1/eq_n0'``, ``'1/eq_absB0'``.
+                - Nested ``3x3`` Python lists (constant matrix entries).
+                - Callables (including objects such as local rotation matrices) returning
+                    either scalar values or ``3x3`` matrix values at quadrature points.
+                - :class:`~struphy.feec.psydac_derham.SplineFunction` instances.
+
+                Example:
+                ``weights=('Ginv', 'sqrt_g')``
+            4. ``2D list`` : 2d list with the same number of rows/columns as the number of components of the domain/codomain spaces. 
+                The entries can be either a) callables or b) xp.ndarrays representing the weights at the quadrature points. 
+                If an entry is zero or ``None``, the corresponding block is set to ``None`` to accelerate the dot product.
 
         assemble: bool
             Whether to assemble the weighted mass matrix, i.e. computes the integrals with
