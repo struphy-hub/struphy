@@ -202,7 +202,8 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
         err = xp.max(xp.abs(result_values - exact)) / xp.max(xp.abs(exact))
         print(f"{name} relative max-error: {err:.2e}")
         assert err < err_bound, f"{name} relative max-error {err:.2e} exceeds bound of {err_bound:.2e}"
-
+        logger.info(f"Test passed for {name}")
+        
 
 @pytest.mark.parametrize("matrix_free", [False])
 @pytest.mark.parametrize("eps", [1.0])

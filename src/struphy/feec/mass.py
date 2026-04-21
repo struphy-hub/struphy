@@ -4,7 +4,7 @@ from copy import deepcopy
 
 import cunumpy as xp
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
-from feectools.ddm.mpi import mpi as MPI
+from feectools.ddm.mpi import mpi as MPI, rank
 from feectools.fem.tensor import TensorFemSpace
 from feectools.fem.vector import VectorFemSpace
 from feectools.linalg.basic import IdentityOperator, LinearOperator, Vector
@@ -25,6 +25,7 @@ from struphy.fields_background.base import MHDequilibrium
 from struphy.feec import mass_kernels
 from struphy.polar.basic import PolarVector
 from struphy.fields_background.equils import set_defaults
+from struphy.feec.psydac_derham import SplineFunction
 
 logger = logging.getLogger("struphy")
 
@@ -80,7 +81,7 @@ class WeightedMassOperators:
     
     @property
     def matrix_free(self) -> bool:
-        """If set to true will not compute the matrix associated with the operator but directly compute the dot product when called."""
+        """If set to true will not compute the matrix associated with the operators but directly compute the dot product when called."""
         return self._matrix_free
         
     def info(self):
@@ -802,7 +803,7 @@ class WeightedMassOperators:
         W_id: str,
         *,
         name: str = None,
-        weights: list | str = None,
+        weights: list | str | None = None,
         assemble: bool = False,
         transposed: bool = False,
     ):
@@ -846,90 +847,71 @@ class WeightedMassOperators:
         -------
         out : A WeightedMassOperator object.
         """
-
-        self._transposed = transposed
-        self._assemble = assemble
         
-        self._quad_grid_pts = self.derham.spline_attributes[W_id].quad_grid_pts
-        self._quad_grid_wts = self.derham.spline_attributes[W_id].quad_grid_wts
-        self._quad_grid_spans = self.derham.spline_attributes[W_id].quad_grid_spans
-        self._quad_grid_bases = self.derham.spline_attributes[W_id].quad_grid_bases
+        quad_grid_pts = self.derham.spline_attributes[W_id].quad_grid_pts
+        quad_grid_wts = self.derham.spline_attributes[W_id].quad_grid_wts
+        quad_grid_spans = self.derham.spline_attributes[W_id].quad_grid_spans
+        quad_grid_bases = self.derham.spline_attributes[W_id].quad_grid_bases
+        logger.debug(f"{quad_grid_pts = }")
+        logger.debug(f"{quad_grid_wts = }")
+        logger.debug(f"{quad_grid_spans = }")
+        logger.debug(f"{quad_grid_bases = }\nfor the weighted mass matrix {name}.")
 
-        # Wrapper functions for evaluating metric coefficients in right order (3x3 entries are last two axes!!)
-        def G(e1, e2, e3):
-            """Metric tensor callable."""
-            return self.domain.metric(e1, e2, e3, change_out_order=True)
+        weights_values = []
+        integration_grids = []
+        # loop over components of W_id (rows, equal to the number of entries in quad_grid_pts)
+        for component in quad_grid_pts:
+            grids_1d = [pts.flatten() for pts in component]
+            grid_sizes = tuple([len(grid_1d) for grid_1d in grids_1d])
+            logger.debug(f"Initializing {grid_sizes = } for the weighted mass matrix {name}.")
+            integration_grids += [grids_1d]
+            
+            # loop over components of V_id (columns)
+            if V_id in ("H1", "L2"):
+                weights_values += [[None]]
+            elif V_id in ("Hcurl", "Hdiv", "H1vec"):
+                weights_values += [[None, None, None]]
+            else:
+                raise ValueError(f"Unknown space identifier {V_id} for the domain of the weighted mass matrix {name}.")
+        logger.debug(f"Initialized {weights_values = } for the weighted mass matrix {name}.")
 
-        def Ginv(e1, e2, e3):
-            """Inverse metric tensor callable."""
-            return self.domain.metric_inv(e1, e2, e3, change_out_order=True)
-
-        def sqrt_g(e1, e2, e3):
-            """Jacobian determinant callable."""
-
-            return abs(self.domain.jacobian_det(e1, e2, e3))
-
-        def DFinv(e1, e2, e3):
-            """Inverse Jacobian callable."""
-            return self.domain.jacobian_inv(e1, e2, e3, change_out_order=True)
-
-        def DFinvT(e1, e2, e3):
-            """Inverse Jacobian callable transposed."""
-            return self.domain.jacobian_inv(e1, e2, e3, change_out_order=True, transposed=True)
-        
-        def Identity(e1, e2, e3):
-            """Identity callable."""
-            E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
-                e1,
-                e2,
-                e3,
-                flat_eval=False,
-            )
-
-            # to keep C-ordering the (3, 3)-part is in the last indices
-            out = xp.zeros((3, 3, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
-            out[0, 0] = 1.0
-            out[1, 1] = 1.0
-            out[2, 2] = 1.0
-            return xp.transpose(out, axes=(2, 3, 4, 0, 1))
-
-        if isinstance(weights, (str, type(None))):  # Case 1 and Case 2
-            fun = weights
-        elif isinstance(weights, list) and all(isinstance(i, list) for i in weights):  # Case 4 (2D list)
-            fun = weights
-        else:  # Case 3 (1D list)
-            weights_rank2 = []
-            weights_rank0 = []
-            operations = []
-            listinput = False
-
+        if isinstance(weights, list):  # Case 3 (1D list)
             for n, f in enumerate(weights):
                 if isinstance(f, str):
-                    # Input in weights are string
-                    if "eq_" in f:
-                        f_components = f.split("q_")
-                        f_call = getattr(self.eq_mhd, f_components[-1])
-                    elif "/" in f:
+                    # determine the callable
+                    if "/" in f:
                         f_components = f.split("/")
                         if f_components[-1] == "sqrt_g":
-                            f_call = sqrt_g
+                            f_call = lambda e1, e2, e3: 1.0 / abs(self.domain.jacobian_det(e1, e2, e3))
+                        elif f_components[-1] == "eq_n0":
+                            f_call = lambda e1, e2, e3: 1.0 / self.eq_mhd.n0(e1, e2, e3)
                         else:
                             raise NotImplementedError(
-                                f"The option {f} is not available.",
+                                f"The option {f} is not available for division ('/') yet.",
                             )
+                    elif "eq_" in f:
+                        f_components = f.split("q_")
+                        f_call = getattr(self.eq_mhd, f_components[-1])
                     else:
                         if f == "G":
-                            f_call = G
+                            f_call = lambda e1, e2, e3: self.domain.metric(e1, e2, e3, change_out_order=True)
                         elif f == "Ginv":
-                            f_call = Ginv
+                            f_call = lambda e1, e2, e3: self.domain.metric_inv(e1, e2, e3, change_out_order=True)
                         elif f == "DFinv":
-                            f_call = DFinv
+                            f_call = lambda e1, e2, e3: self.domain.jacobian_inv(e1, e2, e3, change_out_order=True)
                         elif f == "DFinvT":
-                            f_call = DFinvT
+                            f_call = lambda e1, e2, e3: self.domain.jacobian_inv(e1, e2, e3, change_out_order=True, transposed=True)
                         elif f == "sqrt_g":
-                            f_call = sqrt_g
+                            f_call = lambda e1, e2, e3: abs(self.domain.jacobian_det(e1, e2, e3))
                         elif f == "Identity":
-                            f_call = Identity
+                            def f_call(e1, e2, e3):
+                                """Identity callable."""
+                                # to keep C-ordering the (3, 3)-part is in the last indices
+                                out = xp.zeros((3, 3, e1.shape[0], e2.shape[1], e3.shape[2]), dtype=float)
+                                out[0, 0] = 1.0
+                                out[1, 1] = 1.0
+                                out[2, 2] = 1.0
+                                return xp.transpose(out, axes=(2, 3, 4, 0, 1))
                         elif f == "H1":
                             f_call = self.derham.create_spline_function("field", "H1")
                         elif f == "L2":
@@ -940,100 +922,49 @@ class WeightedMassOperators:
                             )
 
                 elif isinstance(f, list):
-                    assert len(f) == 3 or len(f) == 1
-                    if len(f) == 3:
-                        for fi in f:
-                            assert len(fi) == 3
-                    f_call = f
-                    listinput = True
+                    assert len(f) == 3 
+                    for fi in f:
+                        assert len(fi) == 3
+                    def f_call(e1, e2, e3):
+                        """Nested list callable."""
+                        out = xp.zeros((3, 3, e1.shape[0], e2.shape[1], e3.shape[2]), dtype=float)
+                        for m in range(3):
+                            for n in range(3):
+                                out[m, n] = f[m][n]
+                        return xp.transpose(out, axes=(2, 3, 4, 0, 1))
                 else:
                     assert callable(f)
                     # Input is a a matrix or a Rotation matrix etc.
                     f_call = f
 
-                rank = self._get_range_rank(f_call)
-
-                if rank == 2:
-                    weights_rank2.append(f_call)
-
-                elif rank == 0:
-                    weights_rank0.append(f_call)
-                    if "/" in weights[n]:
-                        operations += ["/"]
-                    else:
-                        operations += ["*"]
-
-            assert len(operations) == len(weights_rank0)
-            logger.debug(f"{weights_rank0 = } and {operations = } in the weighted mass matrix {name}.")
-            logger.debug(f"{weights_rank2 = }.")
-
-            if weights_rank2:
-                # Matrix list non-empty
-                assert V_id in ("Hcurl", "Hdiv", "H1vec")
-                assert W_id in ("Hcurl", "Hdiv", "H1vec")
-            else:
-                # Matrix list empty
-                assert V_id in ("H1", "L2")
-                assert W_id in ("H1", "L2")
-
-            # Matrix operations first
-            if weights_rank2:
-                # if matrix exits
-                fun = []
-                if listinput and len(weights_rank2) == 1:
-                    for m in range(3):
-                        fun += [[]]
-                        for n in range(3):
-                            fun[-1] += [
-                                lambda e1, e2, e3, m=m, n=n: self._matrix_operate(e1, e2, e3, *weights_rank2)[m][n],
-                            ]
+                # evaluate at quadrature points
+                if isinstance(f_call, SplineFunction):
+                    assert isinstance(f_call, SplineFunction)
+                    vals = f_call.eval_tp_fixed_loc(quad_grid_spans, quad_grid_bases)
+                    logger.debug(f"Evaluated spline function with shape {vals.shape = }")
                 else:
-                    for m in range(3):
-                        fun += [[]]
-                        for n in range(3):
-                            fun[-1] += [
-                                lambda e1, e2, e3, m=m, n=n: self._matrix_operate(e1, e2, e3, *weights_rank2)[
-                                    :,
-                                    :,
-                                    :,
-                                    m,
-                                    n,
-                                ],
-                            ]
-                # Scalar operations second
-                if weights_rank0:
-                    # fun has been generated before, now operation with scalars second
-                    for f2, op in zip(weights_rank0, operations):
-                        for m, row in enumerate(fun):
-                            for n, f in enumerate(row):
-                                # overwrite fun[m][n] with the new operation
-                                fun[m][n] = lambda e1, e2, e3, f=f, op=op, f2=f2, m=m, n=n: self._operate(
-                                    f,
-                                    f2,
-                                    op,
-                                    e1,
-                                    e2,
-                                    e3,
+                    # loop over rows of W_id (components of the codomain)
+                    for m, grids_1d in enumerate(integration_grids):
+                        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(*grids_1d)
+                        tmp = f_call(E1, E2, E3)
+                        logger.debug(f"Evaluated callable with shape {tmp.shape = }")
+                        for n in range(len(weights_values[m])):
+                            if tmp.shape[-2:] == (3, 3):
+                                if weights_values[m][n] is None:
+                                    weights_values[m][n] = tmp[:, :, :, m, n]
+                                else:
+                                    weights_values[m][n] *= tmp[:, :, :, m, n]
+                            elif tmp.ndim == 3:
+                                if weights_values[m][n] is None:
+                                    weights_values[m][n] = tmp
+                                else:
+                                    weights_values[m][n] *= tmp
+                            else:
+                                raise ValueError(
+                                    f"Callable {f_call} has wrong output shape {tmp.shape} for the weighted mass matrix {name}.",
                                 )
-
-            # only rank 0 weights were given
-            elif weights_rank0:
-                # fun hast not been generated before
-                if operations[0] == "*":
-                    fun = [[lambda e1, e2, e3: weights_rank0[0](e1, e2, e3)]]
-                elif operations[0] == "/":
-                    fun = [
-                        [
-                            lambda e1, e2, e3: 1.0 / weights_rank0[0](e1, e2, e3),
-                        ],
-                    ]
-
-                for f2, op in zip(weights_rank0[1:], operations[1:]):
-                    fun = [
-                        [
-                            lambda e1, e2, e3, f=fun[0][0], op=op, f2=f2: self._operate(f, f2, op, e1, e2, e3),
-                        ],
-                    ]
+        else:
+            weights_values = weights
 
         out = WeightedMassOperator(
             self.derham,
@@ -1044,12 +975,12 @@ class WeightedMassOperators:
             W_extraction_op=self.derham.extraction_ops[W_id],
             V_boundary_op=self.derham.boundary_ops[V_id],
             W_boundary_op=self.derham.boundary_ops[W_id],
-            weights_info=fun,
-            transposed=self._transposed,
-            matrix_free=self._matrix_free,
+            weights_info=weights_values,
+            transposed=transposed,
+            matrix_free=self.matrix_free,
         )
 
-        if self._assemble:
+        if assemble:
             out.assemble()
 
         return out
@@ -1285,7 +1216,7 @@ class WeightedMassOperator(LinOpWithTransp):
         logger.debug(f"{W_extraction_op = }")
         logger.debug(f"{V_boundary_op = }")
         logger.debug(f"{W_boundary_op = }")
-        logger.debug(f"{weights_info = }")
+        # logger.debug(f"{weights_info = }")
         logger.debug(f"{transposed = }")
         logger.debug(f"{matrix_free = }")
         logger.debug(f"{nquads = }")
@@ -2610,7 +2541,7 @@ class L2Projector:
                 *[pt.flatten() for pt in self.quad_grid_pts[0]],
                 indexing="ij",
             )
-            self._geom_weights = self.Mmat.weights[0][0](*self.quad_grid_mesh)
+            self._geom_weights = self.Mmat.weights[0][0]#(*self.quad_grid_mesh)
         else:
             self._quad_grid_mesh = []
             self._tmp = []  # tmp for matrix-vector product of geom_weights with fun
@@ -2630,7 +2561,7 @@ class L2Projector:
                 # loop over columns (differnt geometric coeffs)
                 for weight in row_weights:
                     if weight is not None:
-                        self._geom_weights[-1] += [weight(*mesh)]
+                        self._geom_weights[-1] += [weight]#(*mesh)]
                     else:
                         self._geom_weights[-1] += [xp.zeros_like(mesh[0])]
 
