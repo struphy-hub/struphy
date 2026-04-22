@@ -13,13 +13,13 @@ from struphy.feec import basis_projection_kernels
 from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
 from struphy.feec.local_projectors_kernels import assemble_basis_projection_operator_local
 from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
-from struphy.feec.psydac_derham import get_pts_and_wts, get_span_and_basis, Derham
+from struphy.feec.psydac_derham import Derham, get_pts_and_wts, get_span_and_basis
 from struphy.feec.utilities import LocalRotationMatrix
+from struphy.geometry.base import Domain
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
-from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.docstring_converter import auto_convert_docstring
-from struphy.geometry.base import Domain
+from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
 

@@ -3,6 +3,8 @@ import logging
 import cunumpy as xp
 from feectools.api.essential_bc import apply_essential_bc_stencil
 from feectools.ddm.cart import CartDecomposition, DomainDecomposition
+from feectools.ddm.mpi import MockComm
+from feectools.ddm.mpi import mpi as MPI
 from feectools.fem.tensor import TensorFemSpace
 from feectools.linalg.basic import ComposedLinearOperator, LinearOperator, Vector
 from feectools.linalg.block import BlockLinearOperator
@@ -12,8 +14,6 @@ from feectools.linalg.stencil import StencilMatrix, StencilVectorSpace
 from line_profiler import profile
 from scipy import sparse
 from scipy.linalg import solve_circulant
-from feectools.ddm.mpi import MockComm
-from feectools.ddm.mpi import mpi as MPI
 
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.mass import WeightedMassOperator
@@ -93,8 +93,8 @@ class MassMatrixPreconditioner(LinearOperator):
             left = 0.0
             right = 1.0
             for i, arr in enumerate(dom_arr):
-                left_i = arr[3*dim_reduce]
-                right_i = arr[3*dim_reduce + 1]
+                left_i = arr[3 * dim_reduce]
+                right_i = arr[3 * dim_reduce + 1]
                 if left_i != left or right_i != right:
                     selected_ranks.append(i)
                     left = left_i
@@ -118,6 +118,7 @@ class MassMatrixPreconditioner(LinearOperator):
                     # pts = [0.5] * (n_dims - 1)
                     loc_weights = mass_operator.weights[c][c]
                     if callable(loc_weights):
+
                         def fun(e):
                             # make input in meshgrid format to be able to use it with general functions
                             s = e.shape[0]
@@ -140,14 +141,18 @@ class MassMatrixPreconditioner(LinearOperator):
                         elif d == 2:
                             local_fun = loc_weights[s[0] // 2, s[1] // 2, :]
                         local_fun = xp.ascontiguousarray(local_fun)
-                        logger.debug(f"{fun.size = } for component {c} and direction {d} before gathering on all processes.")
+                        logger.debug(
+                            f"{fun.size = } for component {c} and direction {d} before gathering on all processes."
+                        )
                         if local_fun.size < npts:
                             if subcomm != MPI.COMM_NULL:
                                 subcomm.Allgather(local_fun, fun)
                             comm.Bcast(fun, root=selected_ranks[0])
                         else:
                             fun[:] = local_fun
-                        logger.debug(f"{fun.shape = } for component {c} and direction {d} after gathering on all processes.")
+                        logger.debug(
+                            f"{fun.shape = } for component {c} and direction {d} after gathering on all processes."
+                        )
                     elif loc_weights is None:
                         fun = lambda e: xp.ones(e.size, dtype=float)
                     else:
@@ -162,10 +167,10 @@ class MassMatrixPreconditioner(LinearOperator):
                 if femspaces[c].spaces[d].basis == "B":
                     femspace_1d_tensor = mass_operator.derham.H1_1d_serial[d]
                 else:
-                    femspace_1d_tensor = mass_operator.derham.L2_1d_serial[d]  
-                    
+                    femspace_1d_tensor = mass_operator.derham.L2_1d_serial[d]
+
                 domain_decompos_1d = femspace_1d_tensor.domain_decomposition
-                qu_order_1d = (mass_operator.derham.nquads[d],) 
+                qu_order_1d = (mass_operator.derham.nquads[d],)
 
                 M = WeightedMassOperator(
                     mass_operator.derham,
@@ -527,8 +532,8 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
                 if femspaces[c].spaces[d].basis == "B":
                     femspace_1d_tensor = mass_operator.derham.H1_1d_serial[d]
                 else:
-                    femspace_1d_tensor = mass_operator.derham.L2_1d_serial[d]  
-                    
+                    femspace_1d_tensor = mass_operator.derham.L2_1d_serial[d]
+
                 domain_decompos_1d = femspace_1d_tensor.domain_decomposition
                 qu_order_1d = (mass_operator.derham.nquads[d],)
 

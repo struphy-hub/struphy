@@ -1,10 +1,11 @@
+from typing import TYPE_CHECKING
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import Vector, VectorSpace
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilVector
 
-from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from struphy.feec.psydac_derham import Derham
 

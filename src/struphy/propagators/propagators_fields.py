@@ -29,9 +29,8 @@ from struphy.feec.basis_projection_ops import (
     CoordinateProjector,
 )
 from struphy.feec.linear_operators import BoundaryOperator
-from struphy.feec.mass import WeightedMassOperator, WeightedMassOperators
+from struphy.feec.mass import L2Projector, WeightedMassOperator, WeightedMassOperators
 from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner, MassMatrixPreconditioner
-from struphy.feec.mass import L2Projector
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.feec.variational_utilities import (
     BracketOperator,

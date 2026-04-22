@@ -296,7 +296,7 @@ def test_eval_pointwise(num_elements, degree, bcs, n_markers=10):
         logger.debug(f"{derham.V1splines.spline_types_pyccel[0] = }")
         logger.debug(f"{derham.V2splines.spline_types_pyccel[0] = }")
         logger.debug(f"{derham.V3splines.spline_types_pyccel[0] = }")
-        logger.debug(f"{derham.Vvsplines.spline_types_pyccel[0] = }") 
+        logger.debug(f"{derham.Vvsplines.spline_types_pyccel[0] = }")
 
         val_mpi = eval_spline_mpi(
             eta1,

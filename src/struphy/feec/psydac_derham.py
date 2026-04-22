@@ -47,7 +47,7 @@ from struphy.topology.grids import TensorProductGrid
 NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
 
 logger = logging.getLogger("struphy")
-    
+
 
 class DiscreteDerham:
     """Discrete 3D de Rham sequence built from four FE spaces.
@@ -62,8 +62,8 @@ class DiscreteDerham:
     where ``V0`` is an ``H1``-conforming scalar space, ``V1`` an ``Hcurl``
     vector space, ``V2`` an ``Hdiv`` vector space, and ``V3`` an ``L2``
     scalar space.
-    
-    The auxiliary space (H^1)^3 for vector fields is also built for projection and polar extraction purposes, 
+
+    The auxiliary space (H^1)^3 for vector fields is also built for projection and polar extraction purposes,
     but it is not part of the proper de Rham sequence.
 
     Moreover, the 1D FEM spaces (serial, not distributed) in each direction are built from the corresponding 3D spaces,
@@ -104,7 +104,7 @@ class DiscreteDerham:
         self._Vv = Vv
         self._spaces = tuple(spaces + [Vv])
         self._dim = 3
-        
+
         D0 = Gradient3D(V0, V1)
         D1 = Curl3D(V1, V2)
         D2 = Divergence3D(V2, V3)
@@ -112,7 +112,7 @@ class DiscreteDerham:
         V0.diff = V0.grad = D0
         V1.diff = V1.curl = D1
         V2.diff = V2.div = D2
-        
+
         # construct 1D FEM spaces H1 and L2 (serial, not distributed) in each direction, for building Kronecker matrices
         self._H1_1d_serial = []
         self._L2_1d_serial = []
@@ -132,9 +132,9 @@ class DiscreteDerham:
             H1_space_tensor = TensorFemSpace(H1_domain_decomp, H1_space)
             L2_space_tensor = TensorFemSpace(L2_domain_decomp, L2_space)
 
-            H1_space_tensor.symbolic_space = f"H1_1d_eta{d+1}"
-            L2_space_tensor.symbolic_space = f"L2_1d_eta{d+1}"
-            
+            H1_space_tensor.symbolic_space = f"H1_1d_eta{d + 1}"
+            L2_space_tensor.symbolic_space = f"L2_1d_eta{d + 1}"
+
             self._H1_1d_serial.append(H1_space_tensor)
             self._L2_1d_serial.append(L2_space_tensor)
 
@@ -163,7 +163,7 @@ class DiscreteDerham:
     def V3(self) -> TensorFemSpace:
         """Fourth space of the de Rham sequence : L2 space"""
         return self._V3
-    
+
     @property
     def Vv(self) -> VectorFemSpace:
         """Auxiliary H1^3 space for vector fields, used for projection and polar extraction purposes."""
@@ -188,7 +188,7 @@ class DiscreteDerham:
         a `FemField` of their `codomain`.
         """
         return tuple(V.diff for V in self.spaces[:-1])
-    
+
     @property
     def H1_1d_serial(self) -> tuple[TensorFemSpace, TensorFemSpace, TensorFemSpace]:
         """The 1D H1 spaces in each direction (no domain decomposition), built from the corresponding 3D spaces."""
@@ -410,7 +410,7 @@ class SplineAttributes1D:
             self._spline_types_pyccel[-1] = xp.array(
                 self._spline_types_pyccel[-1],
             )
-            
+
         self._nbasis = tuple(self.nbasis)
         self._spline_types = tuple(self.spline_types)
         self._spline_types_pyccel = tuple(self.spline_types_pyccel)
@@ -457,7 +457,7 @@ class SplineAttributes1D:
     def tensor_spaces(self) -> tuple[TensorFemSpace, ...]:
         """The underlying tensor product spaces (one per component for vector-valued spaces)."""
         return self._tensor_spaces
-    
+
     @property
     def nbasis(self) -> tuple[tuple[int]]:
         """Tuple of number of basis functions in each direction for each component of the vector space."""
@@ -705,7 +705,7 @@ class Derham:
             polar_splines=self.polar_splines,
             local_projectors=local_projectors,
         )
-        
+
         self._H1_1d_serial_splines = []
         self._L2_1d_serial_splines = []
         for n, (H1_space, L2_space) in enumerate(zip(self.H1_1d_serial, self.L2_1d_serial)):
@@ -1002,12 +1002,12 @@ class Derham:
     def Vvfem(self) -> VectorFemSpace:
         """Psydac's finite element space for vector H1 fields (not part of the proper de Rham sequence, but useful for the projectors and polar extraction operators)."""
         return self._Vvfem
-    
+
     @property
     def H1_1d_serial(self) -> tuple[SplineSpace, SplineSpace, SplineSpace]:
         """Tuple of 1D H1 spline spaces in each direction (no domain decomposition)."""
         return self._H1_1d_serial
-    
+
     @property
     def L2_1d_serial(self) -> tuple[SplineSpace, SplineSpace, SplineSpace]:
         """Tuple of 1D L2 spline spaces in each direction (no domain decomposition)."""
@@ -1055,7 +1055,7 @@ class Derham:
     def Vvsplines(self) -> SplineAttributes1D:
         """1D spline attributes for the H1^3 space (not part of the proper de Rham sequence, but useful for the projectors and polar extraction operators)."""
         return self._Vvsplines
-    
+
     @property
     def H1_1d_serial_splines(self) -> tuple[SplineAttributes1D]:
         """Tuple of 1D spline attributes for the H1_1d_serial spaces in each direction."""
@@ -1813,8 +1813,6 @@ class Derham:
                 self.V0splines.proj_loc_grid_pts[0],
                 self.V0fem,
             )
-
-
 
         for i, (sp_id, sp_form) in enumerate(self.space_to_form.items()):
             vec_space = self.coeff_spaces[sp_form]

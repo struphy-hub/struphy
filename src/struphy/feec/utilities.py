@@ -24,11 +24,11 @@ def get_quad_grids(
 
 
 class LocalRotationMatrix:
-    """For a given triple of callables representing the components of a vector-valued function a(e1, e2, e3), 
+    """For a given triple of callables representing the components of a vector-valued function a(e1, e2, e3),
     represents the local rotation matrix R defined by Rv = a x v at (e1, e2, e3) for any vector v in R^3.
 
     LocalRotationMatrix(e1, e2, e3) returns a five-dimensional array, with the 3x3 matrix in the last two indices.
-    
+
     This can then be used with the following numpy functions:
     * matvec for matrix-vector multiplication in the last indices
     * @ for matrix-matrix multiplication in the last two indices
@@ -66,12 +66,12 @@ class LocalRotationMatrix:
 
         # numpy operates on the last two indices with @
         return xp.transpose(tmp, axes=(2, 3, 4, 0, 1))
-    
-    
+
+
 class LocalVector:
     """For a given triple of callables representing the components of a vector-valued function a(e1, e2, e3),
     represents the local vector a at (e1, e2, e3) as a 4D numpy array, with the three components in the last index.
-    
+
     The local scalar product can thus be comuted using numpy's vecdot function, operating on the last index.
 
     Parameters
@@ -88,12 +88,11 @@ class LocalVector:
 
     def __call__(self, e1, e2, e3):
         # array from list gives 3x3 array is in the first two indices
-        tmp = xp.array(
-            [self._funs[n](e1, e2, e3) for n in range(3)]
-        )
+        tmp = xp.array([self._funs[n](e1, e2, e3) for n in range(3)])
 
         # numpy operates on the last two indices with @
         return xp.transpose(tmp, axes=(1, 2, 3, 0))
+
 
 def create_equal_random_arrays(V, seed=123, flattened=False):
     """Creates two equal random arrays, where one array is a numpy array and the other one a distributed psydac array.

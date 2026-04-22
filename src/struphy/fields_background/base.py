@@ -749,10 +749,10 @@ class FluidEquilibriumWithB(FluidEquilibrium):
     ###########
     # Methods #
     ###########
-    
+
     def parallel_component(self, *etas, squeeze_out=False):
         raise NotImplementedError()
-    
+
     def perpendicular_component(self, *etas, squeeze_out=False):
         raise NotImplementedError()
 

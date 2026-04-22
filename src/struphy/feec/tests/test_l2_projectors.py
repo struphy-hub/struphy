@@ -7,7 +7,7 @@ import pytest
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import domains
-from struphy.feec.mass import WeightedMassOperators, L2Projector
+from struphy.feec.mass import L2Projector, WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.io.options import DerhamOptions
 from struphy.topology.grids import TensorProductGrid
@@ -128,14 +128,14 @@ def test_l2_projectors_mappings(
                 plt.ylabel("e2")
                 plt.colorbar()
                 plt.show()
-                
+
             if sp_id in ("H1", "H1vec"):
                 assert xp.max(err) < 0.004
             else:
                 assert xp.max(err) < 0.12
 
             logger.info(f"Finished testing {sp_id =} for {dom_type =}")
-                
+
         logger.info(f"Finished testing {dom_type =}")
 
 
@@ -283,8 +283,9 @@ def test_l2_projectors_convergence(direction, pi, bc_kind, do_plot=False):
 
 if __name__ == "__main__":
     from struphy import set_logging_level
+
     set_logging_level(logging.DEBUG)
-    
+
     num_elements = [16, 32, 1]
     degree = [2, 1, 1]
     bcs = (("free", "free"), None, None)

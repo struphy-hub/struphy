@@ -1,18 +1,24 @@
 import logging
+
 import pytest
 from matplotlib import pyplot as plt
 
 logger = logging.getLogger("struphy")
 
+
 @pytest.mark.parametrize("matrix_free", [False])
 @pytest.mark.parametrize("num_elements", [(32, 32, 32)])
 @pytest.mark.parametrize("degree", [(1, 1, 1), (2, 2, 2)])
-@pytest.mark.parametrize("bcs",[(("free", "dirichlet"), None, None)])
-@pytest.mark.parametrize("map_and_equil", [("Cuboid", "HomogenSlab"),
-                                           ("Colella", "HomogenSlab"),
-                                           ("HollowCylinder", "ScrewPinch"),
-                                           ("HollowTorus", "AdhocTorus"),
-                                           ])
+@pytest.mark.parametrize("bcs", [(("free", "dirichlet"), None, None)])
+@pytest.mark.parametrize(
+    "map_and_equil",
+    [
+        ("Cuboid", "HomogenSlab"),
+        ("Colella", "HomogenSlab"),
+        ("HollowCylinder", "ScrewPinch"),
+        ("HollowTorus", "AdhocTorus"),
+    ],
+)
 def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=False):
     """Test weighted mass matrices by recovering projected functions from the DeRham complex.
 
@@ -35,11 +41,11 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
     from feectools.linalg.solvers import inverse
 
     from struphy import domains, equils
-    from struphy.fields_background.projected_equils import ProjectedMHDequilibrium 
+    from struphy.feec.mass import L2Projector, WeightedMassOperator, WeightedMassOperators
+    from struphy.feec.psydac_derham import Derham
+    from struphy.fields_background.projected_equils import ProjectedMHDequilibrium
     from struphy.geometry.base import Domain
     from struphy.geometry.domains import HollowCylinder
-    from struphy.feec.mass import WeightedMassOperators, WeightedMassOperator, L2Projector
-    from struphy.feec.psydac_derham import Derham
     from struphy.io.options import DerhamOptions
     from struphy.topology.grids import TensorProductGrid
 
@@ -54,11 +60,11 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
     domain_class = getattr(domains, map_and_equil[0])
     if map_and_equil[0] == "HollowCylinder":
         R0 = 3.0
-        domain: HollowCylinder = domain_class(a1=0.3, Lz=2*xp.pi*R0)
+        domain: HollowCylinder = domain_class(a1=0.3, Lz=2 * xp.pi * R0)
     else:
         domain: Domain = domain_class()
     logger.debug(f"{domain = }")
-    
+
     # equilibrium
     equil_class = getattr(equils, map_and_equil[1])
     if map_and_equil[1] == "HomogenSlab":
@@ -69,7 +75,6 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
         equil: equils.AdhocTorus = equil_class(na=0.4)
     equil.domain = domain
     logger.debug(f"{equil = }")
-    
 
     if show_plots and False:
         equil.show()
@@ -80,29 +85,29 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
     derham = Derham(grid, derham_opts, comm=mpi_comm)
 
     logger.debug(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
-    
+
     # projected equilibrium for mass matrices with spline weights
     projected_equil = ProjectedMHDequilibrium(equil, derham)
 
     # mass matrices object
     mass_ops = WeightedMassOperators(derham, domain, eq_mhd=equil, matrix_free=matrix_free)
-    
+
     # right-hand side, integrated against the basis functions
     def rhs_0(e1, e2, e3):
         return xp.sin(2 * xp.pi * e1) * xp.cos(4 * xp.pi * e2) * xp.cos(2 * xp.pi * e3)
-    
+
     def rhs_1(e1, e2, e3):
         return xp.sin(2 * xp.pi * e1) * xp.cos(2 * xp.pi * e2) * xp.cos(2 * xp.pi * e3)
-    
+
     def rhs_2(e1, e2, e3):
         return xp.zeros_like(e1)
-    
+
     l2proj_0 = L2Projector("H1", mass_ops)
     l2proj_1 = L2Projector("Hcurl", mass_ops)
     l2proj_2 = L2Projector("Hdiv", mass_ops)
     l2proj_3 = L2Projector("L2", mass_ops)
     l2proj_v = L2Projector("H1vec", mass_ops)
-    
+
     rhs = {}
     rhs["M0"] = l2proj_0.get_dofs(rhs_0, apply_bc=True)
     rhs["M0ad"] = rhs["M0"]
@@ -123,15 +128,14 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
     e2 = xp.linspace(0, 1, 16)
     e3 = xp.linspace(0, 1, 12)
     ee1, ee2, ee3 = xp.meshgrid(e1, e2, e3, indexing="ij")
-    
+
     if min(degree) == 1:
         err_bound = 2.0e-1
     elif min(degree) == 2:
         err_bound = 2.6e-2
-    
+
     names = ["M0", "M1", "M2", "M3", "Mv", "M1n", "M2n", "Mvn", "M1ninv", "M0ad", "WMM", "WMMnew"]
     for name in names:
-        
         if name == "WMM":
             intermediate = mass_ops.WMM
             intermediate.update_weight(projected_equil.n3)
@@ -144,12 +148,12 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
         else:
             M: WeightedMassOperator = getattr(mass_ops, name)
         space_id = M.domain_symbolic_name
-        
+
         if space_id in ("H1", "L2"):
             exact = rhs_0(ee1, ee2, ee3)
         else:
             exact = xp.array([rhs_0(ee1, ee2, ee3), rhs_1(ee1, ee2, ee3), rhs_2(ee1, ee2, ee3)])
-            
+
         solver = "cg"
         if name in ["M1n", "M2n", "Mvn", "M0ad", "WMM", "WMMnew"]:
             # solve n0 * u = f, where n0 is the equilibrium density
@@ -157,14 +161,14 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
         elif name == "M1ninv":
             # solve u1 / n0 = f1, where n0 is the equilibrium density
             exact *= equil.n0(e1, e2, e3)
-            
+
         result = derham.create_spline_function("result", space_id)
         Minv = inverse(M, solver, tol=1e-8, maxiter=1000, verbose=False)
         result.vector = Minv.dot(rhs[name])
-        
+
         result_values = xp.array(result(e1, e2, e3))
         logger.debug(f"{result_values.shape = }")
-        
+
         if show_plots:
             if space_id in ("H1", "L2"):
                 plt.figure(figsize=(12, 5))
@@ -204,23 +208,27 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
                 plt.colorbar()
                 plt.title(f"exact, component 3")
                 plt.show()
-    
+
         err = xp.max(xp.abs(result_values - exact)) / xp.max(xp.abs(exact))
         print(f"{name} relative max-error: {err:.2e}")
         assert err < err_bound, f"{name} relative max-error {err:.2e} exceeds bound of {err_bound:.2e}"
         logger.info(f"Test passed for {name}")
-        
+
 
 @pytest.mark.parametrize("matrix_free", [False])
 @pytest.mark.parametrize("eps", [1.0])
 @pytest.mark.parametrize("num_elements", [(32, 32, 32)])
 @pytest.mark.parametrize("degree", [(1, 1, 1), (2, 2, 2)])
-@pytest.mark.parametrize("bcs",[(("free", "dirichlet"), None, None)])
-@pytest.mark.parametrize("map_and_equil", [("Cuboid", "HomogenSlab"),
-                                           ("Colella", "HomogenSlab"),
-                                           ("HollowCylinder", "ScrewPinch"),
-                                           ("HollowTorus", "AdhocTorus"),
-                                           ])
+@pytest.mark.parametrize("bcs", [(("free", "dirichlet"), None, None)])
+@pytest.mark.parametrize(
+    "map_and_equil",
+    [
+        ("Cuboid", "HomogenSlab"),
+        ("Colella", "HomogenSlab"),
+        ("HollowCylinder", "ScrewPinch"),
+        ("HollowTorus", "AdhocTorus"),
+    ],
+)
 def test_rotation(num_elements, degree, bcs, map_and_equil, eps, matrix_free, show_plots=False):
     """Test the rotation-stabilized ``M2B`` mass operator on the Hdiv space.
 
@@ -244,13 +252,13 @@ def test_rotation(num_elements, degree, bcs, map_and_equil, eps, matrix_free, sh
     from feectools.linalg.solvers import inverse
 
     from struphy import domains, equils
+    from struphy.feec.mass import L2Projector, WeightedMassOperators
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import LocalRotationMatrix
     from struphy.geometry.base import Domain
     from struphy.geometry.domains import Cuboid, HollowCylinder
-    from struphy.feec.mass import WeightedMassOperators, L2Projector
-    from struphy.feec.psydac_derham import Derham
     from struphy.io.options import DerhamOptions
     from struphy.topology.grids import TensorProductGrid
-    from struphy.feec.utilities import LocalRotationMatrix
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -265,11 +273,11 @@ def test_rotation(num_elements, degree, bcs, map_and_equil, eps, matrix_free, sh
         domain: Cuboid = domain_class(l1=0.0, r1=10.0, l2=0.0, r2=3.0, l3=0.0, r3=4.0)
     elif map_and_equil[0] == "HollowCylinder":
         R0 = 3.0
-        domain: HollowCylinder = domain_class(a1=0.3, Lz=2*xp.pi*R0)
+        domain: HollowCylinder = domain_class(a1=0.3, Lz=2 * xp.pi * R0)
     else:
         domain: Domain = domain_class()
     logger.debug(f"{domain = }")
-    
+
     # equilibrium
     equil_class = getattr(equils, map_and_equil[1])
     if map_and_equil[1] == "HomogenSlab":
@@ -293,17 +301,17 @@ def test_rotation(num_elements, degree, bcs, map_and_equil, eps, matrix_free, sh
 
     # mass matrices object
     mass_ops = WeightedMassOperators(derham, domain, eq_mhd=equil, matrix_free=matrix_free)
-    
+
     # right-hand side, integrated against the basis functions
     def rhs_0(e1, e2, e3):
         return xp.sin(2 * xp.pi * e1) * xp.cos(4 * xp.pi * e2) * xp.cos(2 * xp.pi * e3)
-    
+
     def rhs_1(e1, e2, e3):
         return xp.sin(2 * xp.pi * e1) * xp.cos(2 * xp.pi * e2) * xp.cos(2 * xp.pi * e3)
-    
+
     def rhs_2(e1, e2, e3):
         return xp.zeros_like(e1)
-    
+
     l2proj_2 = L2Projector("Hdiv", mass_ops)
     rhs = l2proj_2.get_dofs((rhs_0, rhs_1, rhs_2), apply_bc=True)
 
@@ -312,53 +320,53 @@ def test_rotation(num_elements, degree, bcs, map_and_equil, eps, matrix_free, sh
     e2 = xp.linspace(0, 1, 16)
     e3 = xp.linspace(0, 1, 12)
     ee1, ee2, ee3 = xp.meshgrid(e1, e2, e3, indexing="ij")
-    
+
     if min(degree) == 1:
         err_bound = 1e-1
     elif min(degree) == 2:
         err_bound = 1e-2
-    
+
     # exact solution to the rotation problem u2 + B2 x u2 = G*f2, where G is the metric tensor and B2 is the magnetic field as a 2-form
     rot_B = LocalRotationMatrix(equil.b2_1, equil.b2_2, equil.b2_3)(ee1, ee2, ee3)
     logger.debug(f"{rot_B.shape = }")
-    
+
     G = domain.metric(ee1, ee2, ee3, change_out_order=True)
     logger.debug(f"{G.shape = }")
-    
+
     # numpy operates on the last two indices with @
     rhs_mat = xp.array([rhs_0(ee1, ee2, ee3), rhs_1(ee1, ee2, ee3), rhs_2(ee1, ee2, ee3)])
     tmp = xp.transpose(rhs_mat, axes=(1, 2, 3, 0))
     logger.debug(f"{tmp.shape = }")
     f = xp.matvec(G, tmp)
-    
-    absB2 = equil.b2_1(ee1, ee2, ee3)**2 + equil.b2_2(ee1, ee2, ee3)**2 + equil.b2_3(ee1, ee2, ee3)**2
+
+    absB2 = equil.b2_1(ee1, ee2, ee3) ** 2 + equil.b2_2(ee1, ee2, ee3) ** 2 + equil.b2_3(ee1, ee2, ee3) ** 2
     logger.debug(f"{xp.min(xp.abs(absB2)) = }")
-    f_rot_B = - xp.transpose(xp.matvec(rot_B, f), axes=(3, 0, 1, 2))
-    tmp = - xp.matvec(rot_B, xp.matvec(rot_B, f))
+    f_rot_B = -xp.transpose(xp.matvec(rot_B, f), axes=(3, 0, 1, 2))
+    tmp = -xp.matvec(rot_B, xp.matvec(rot_B, f))
     f_perp = xp.transpose(tmp, axes=(3, 0, 1, 2)) / absB2
-    
+
     exact = (f_rot_B + eps * f_perp) / (eps**2 + absB2)
     logger.debug(f"{exact.shape = }")
 
     # numerical solution (weak form)
     solver = "gmres"
     stab = mass_ops.M2stab_for_rot
-    
-    M = mass_ops.M2B    
+
+    M = mass_ops.M2B
     M += eps * stab
-        
+
     result = derham.create_spline_function("result", "Hdiv")
     Minv = inverse(M, solver, tol=1e-7, maxiter=1000, verbose=False)
     result.vector = Minv.dot(rhs)
-    
+
     result_values = xp.array(result(e1, e2, e3))
     logger.debug(f"{result_values.shape = }")
-    
+
     tmp = xp.matvec(rot_B, xp.transpose(result_values, axes=(1, 2, 3, 0)))
-    tmp2 = -xp.matvec(rot_B, tmp) 
+    tmp2 = -xp.matvec(rot_B, tmp)
     result_values_perp = xp.transpose(tmp2, axes=(3, 0, 1, 2)) / absB2
     logger.debug(f"{result_values_perp.shape = }")
-    
+
     if show_plots:
         plt.figure(figsize=(24, 10))
         plt.subplot(2, 3, 1)

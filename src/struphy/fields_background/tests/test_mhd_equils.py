@@ -275,9 +275,7 @@ def test_equils(equil_domain_pair):
         else:
             assert_vector(results[i], kind, markers)
 
-    logger.info(
-        "   markers".ljust(30) + "|   " + equil_domain_pair[0] + "|   " + equil_domain_pair[2] + "|   passed"
-    )
+    logger.info("   markers".ljust(30) + "|   " + equil_domain_pair[0] + "|   " + equil_domain_pair[2] + "|   passed")
 
     # --------- eta1 evaluation ---------
     results = []
@@ -590,7 +588,12 @@ def test_equils(equil_domain_pair):
             assert_vector(results[i], kind, e1, e2, e3)
 
     logger.info(
-        "   eta1-eta2-eta3-array".ljust(30) + "|   " + equil_domain_pair[0] + "|   " + equil_domain_pair[2] + "|   passed"
+        "   eta1-eta2-eta3-array".ljust(30)
+        + "|   "
+        + equil_domain_pair[0]
+        + "|   "
+        + equil_domain_pair[2]
+        + "|   passed"
     )
 
     # --------- 12 matrix evaluation ---------
@@ -634,9 +637,7 @@ def test_equils(equil_domain_pair):
         else:
             assert_vector(results[i], kind, mat_12_1, mat_12_2, e3_pt)
 
-    logger.info(
-        "   12-matrix".ljust(30) + "|   " + equil_domain_pair[0] + "|   " + equil_domain_pair[2] + "|   passed"
-    )
+    logger.info("   12-matrix".ljust(30) + "|   " + equil_domain_pair[0] + "|   " + equil_domain_pair[2] + "|   passed")
 
     # --------- 13 matrix evaluation ---------
     results = []
@@ -679,9 +680,7 @@ def test_equils(equil_domain_pair):
         else:
             assert_vector(results[i], kind, mat_13_1, e2_pt, mat_13_3)
 
-    logger.info(
-        "   13-matrix".ljust(30) + "|   " + equil_domain_pair[0] + "|   " + equil_domain_pair[2] + "|   passed"
-    )
+    logger.info("   13-matrix".ljust(30) + "|   " + equil_domain_pair[0] + "|   " + equil_domain_pair[2] + "|   passed")
 
     # --------- 23 matrix evaluation ---------
     results = []
@@ -724,9 +723,7 @@ def test_equils(equil_domain_pair):
         else:
             assert_vector(results[i], kind, e1_pt, mat_23_2, mat_23_3)
 
-    logger.info(
-        "   23-matrix".ljust(30) + "|   " + equil_domain_pair[0] + "|   " + equil_domain_pair[2] + "|   passed"
-    )
+    logger.info("   23-matrix".ljust(30) + "|   " + equil_domain_pair[0] + "|   " + equil_domain_pair[2] + "|   passed")
 
     # --------- 123 matrix evaluation ---------
     results = []
@@ -811,7 +808,12 @@ def test_equils(equil_domain_pair):
             assert_vector(results[i], kind, mat_123_1_sp, mat_123_2_sp, mat_123_3_sp)
 
     logger.info(
-        "   123-matrix (sparse)".ljust(30) + "|   " + equil_domain_pair[0] + "|   " + equil_domain_pair[2] + "|   passed"
+        "   123-matrix (sparse)".ljust(30)
+        + "|   "
+        + equil_domain_pair[0]
+        + "|   "
+        + equil_domain_pair[2]
+        + "|   passed"
     )
 
 

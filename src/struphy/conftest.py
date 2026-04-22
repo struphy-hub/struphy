@@ -1,6 +1,8 @@
-import pytest
-from struphy import set_logging_level
 import logging
+
+import pytest
+
+from struphy import set_logging_level
 
 
 def set_logging_level_pytest(config):

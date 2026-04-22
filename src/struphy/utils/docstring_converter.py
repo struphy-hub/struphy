@@ -71,7 +71,7 @@ def _replace_latex_fractions(text: str, display_mode: bool = False, max_passes: 
 
             numerator, cursor = _extract_braced_group(result, cursor)
             if numerator is None:
-                out.append(result[frac_start:frac_start + len(r"\frac")])
+                out.append(result[frac_start : frac_start + len(r"\frac")])
                 i = frac_start + len(r"\frac")
                 continue
 
@@ -80,7 +80,7 @@ def _replace_latex_fractions(text: str, display_mode: bool = False, max_passes: 
 
             denominator, cursor = _extract_braced_group(result, cursor)
             if denominator is None:
-                out.append(result[frac_start:frac_start + len(r"\frac")])
+                out.append(result[frac_start : frac_start + len(r"\frac")])
                 i = frac_start + len(r"\frac")
                 continue
 
@@ -994,8 +994,8 @@ def auto_convert_docstring(obj):
         elif obj.__doc__:
             obj.__doc__ = rst_to_html(obj.__doc__)
         return obj
-    
-    
+
+
 def info(obj, use_rst: bool = True):
     """
     Render the docstring of an object in a Jupyter notebook.
@@ -1009,7 +1009,7 @@ def info(obj, use_rst: bool = True):
 
     Returns:
         IPython.display object for rendering in Jupyter"""
-        
+
     try:
         from IPython.display import HTML, Markdown, display
     except ImportError:

@@ -14,18 +14,16 @@ from feectools.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, Stenc
 
 from struphy.feec import mass_kernels
 from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
-from struphy.feec.psydac_derham import Derham
+from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.feec.utilities import LocalRotationMatrix, get_quad_grids
-from struphy.geometry.base import Domain
-from struphy.polar.linear_operators import PolarExtractionOperator
-from struphy.utils.pyccel import Pyccelkernel
-from struphy.utils.docstring_converter import auto_convert_docstring, info
-from struphy.io.options import LiteralOptions
 from struphy.fields_background.base import MHDequilibrium
-from struphy.feec import mass_kernels
-from struphy.polar.basic import PolarVector
 from struphy.fields_background.equils import set_defaults
-from struphy.feec.psydac_derham import SplineFunction
+from struphy.geometry.base import Domain
+from struphy.io.options import LiteralOptions
+from struphy.polar.basic import PolarVector
+from struphy.polar.linear_operators import PolarExtractionOperator
+from struphy.utils.docstring_converter import auto_convert_docstring, info
+from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
 
@@ -78,14 +76,14 @@ class WeightedMassOperators:
     def eq_mhd(self) -> MHDequilibrium | None:
         """MHD equilibrium object."""
         return self._eq_mhd
-    
+
     @property
     def matrix_free(self) -> bool:
         """If set to true will not compute the matrix associated with the operators but directly compute the dot product when called."""
         return self._matrix_free
-        
+
     def info(self):
-        print("The mass matrices of the Derham complex are:")     
+        print("The mass matrices of the Derham complex are:")
         self.M0.info()
         self.M1.info()
         self.M2.info()
@@ -235,7 +233,7 @@ class WeightedMassOperators:
             )
 
         return self._M2stab_for_rot
-    
+
     @auto_convert_docstring
     @property
     def M1n(self):
@@ -368,7 +366,9 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, "_M1J"):
-            assert self.eq_mhd is not None, "M1J requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
+            assert self.eq_mhd is not None, (
+                "M1J requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
+            )
             rot_J = LocalRotationMatrix(
                 self.eq_mhd.j2_1,
                 self.eq_mhd.j2_2,
@@ -405,7 +405,9 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, "_M2J"):
-            assert self.eq_mhd is not None, "M2J requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
+            assert self.eq_mhd is not None, (
+                "M2J requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
+            )
             rot_J = LocalRotationMatrix(
                 self.eq_mhd.j2_1,
                 self.eq_mhd.j2_2,
@@ -442,7 +444,9 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, "_MvJ"):
-            assert self.eq_mhd is not None, "MvJ requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
+            assert self.eq_mhd is not None, (
+                "MvJ requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
+            )
             rot_J = LocalRotationMatrix(
                 self.eq_mhd.j2_1,
                 self.eq_mhd.j2_2,
@@ -479,7 +483,9 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, "_M2B_div0"):
-            assert self.eq_mhd is not None, "M2B_div0 requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
+            assert self.eq_mhd is not None, (
+                "M2B_div0 requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
+            )
             a_eq = self.derham.P1(
                 [
                     self.eq_mhd.a1_1,
@@ -552,7 +558,9 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, "_M2B"):
-            assert self.eq_mhd is not None, "M2B requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
+            assert self.eq_mhd is not None, (
+                "M2B requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
+            )
             rot_B = LocalRotationMatrix(
                 self.eq_mhd.b2_1,
                 self.eq_mhd.b2_2,
@@ -589,7 +597,9 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, "_M2Bn"):
-            assert self.eq_mhd is not None, "M2Bn requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
+            assert self.eq_mhd is not None, (
+                "M2Bn requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
+            )
             a_eq = self.derham.P1(
                 [
                     self.eq_mhd.a1_1,
@@ -666,7 +676,9 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, "_M1Bninv"):
-            assert self.eq_mhd is not None, "M1Bninv requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
+            assert self.eq_mhd is not None, (
+                "M1Bninv requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
+            )
             rot_B = LocalRotationMatrix(
                 self.eq_mhd.b2_1,
                 self.eq_mhd.b2_2,
@@ -782,7 +794,7 @@ class WeightedMassOperators:
         if not hasattr(self, "_WMM"):
             self._WMM = self.H1vecMassMatrix_density(self.derham, self, self.domain)
         return self._WMM
-    
+
     @property
     def WMMnew(self):
         if not hasattr(self, "_WMMnew"):
@@ -791,7 +803,7 @@ class WeightedMassOperators:
                 "H1vec",
                 "H1vec",
                 weights=("G", spline),
-                name = "WMMnew",
+                name="WMMnew",
                 assemble=False,
             )
         return self._WMMnew
@@ -834,7 +846,7 @@ class WeightedMassOperators:
             Four cases are possible:
 
                 1. ``None`` : all blocks are allocated, disregarding zero-blocks or any symmetry.
-                2. ``str``  : for square block matrices (V=W), a symmetry can be set in order to accelerate the assembly process. 
+                2. ``str``  : for square block matrices (V=W), a symmetry can be set in order to accelerate the assembly process.
                     Possible strings are ``symm`` (symmetric), ``asym`` (anti-symmetric) and ``diag`` (diagonal).
                 3. ``1D tuple`` : most common and recommended input format.
                     Entries are processed from left to right and multiplied together.
@@ -854,8 +866,8 @@ class WeightedMassOperators:
 
                     Example:
                     ``weights=('Ginv', 'sqrt_g')``
-                4. ``2D list`` : 2d list with the same number of rows/columns as the number of components of the domain/codomain spaces. 
-                    The entries can be either a) callables or b) xp.ndarrays representing the weights at the quadrature points. 
+                4. ``2D list`` : 2d list with the same number of rows/columns as the number of components of the domain/codomain spaces.
+                    The entries can be either a) callables or b) xp.ndarrays representing the weights at the quadrature points.
                     If an entry is zero or ``None``, the corresponding block is set to ``None`` to accelerate the dot product.
 
         assemble: bool
@@ -869,8 +881,10 @@ class WeightedMassOperators:
         -------
         out : A WeightedMassOperator object.
         """
-        
-        assert W_id in self.derham.spline_attributes, f"Spline attributes for the codomain space {W_id} not found in the Derham object !!"
+
+        assert W_id in self.derham.spline_attributes, (
+            f"Spline attributes for the codomain space {W_id} not found in the Derham object !!"
+        )
         quad_grid_pts = self.derham.spline_attributes[W_id].quad_grid_pts
         quad_grid_wts = self.derham.spline_attributes[W_id].quad_grid_wts
         quad_grid_spans = self.derham.spline_attributes[W_id].quad_grid_spans
@@ -888,7 +902,7 @@ class WeightedMassOperators:
             grid_sizes = tuple([len(grid_1d) for grid_1d in grids_1d])
             logger.debug(f"Initializing {grid_sizes = } for the weighted mass matrix {name}.")
             integration_grids += [grids_1d]
-            
+
             # loop over components of V_id (columns)
             if V_id in ("H1", "L2"):
                 weights_values += [[None]]
@@ -926,10 +940,13 @@ class WeightedMassOperators:
                         elif f == "DFinv":
                             f_call = lambda e1, e2, e3: self.domain.jacobian_inv(e1, e2, e3, change_out_order=True)
                         elif f == "DFinvT":
-                            f_call = lambda e1, e2, e3: self.domain.jacobian_inv(e1, e2, e3, change_out_order=True, transposed=True)
+                            f_call = lambda e1, e2, e3: self.domain.jacobian_inv(
+                                e1, e2, e3, change_out_order=True, transposed=True
+                            )
                         elif f == "sqrt_g":
                             f_call = lambda e1, e2, e3: abs(self.domain.jacobian_det(e1, e2, e3))
                         elif f == "Identity":
+
                             def f_call(e1, e2, e3):
                                 """Identity callable."""
                                 # to keep C-ordering the (3, 3)-part is in the last indices
@@ -947,6 +964,7 @@ class WeightedMassOperators:
                     for fi in f:
                         assert isinstance(fi, list)
                         assert len(fi) == 3
+
                     def f_call(e1, e2, e3):
                         """Nested list callable."""
                         out = xp.zeros((3, 3, e1.shape[0], e2.shape[1], e3.shape[2]), dtype=float)
@@ -1157,7 +1175,7 @@ class WeightedMassOperator(LinOpWithTransp):
         3. ``list`` : 2d list with the same number of rows/columns as the number of components of the domain/codomain spaces. The entries can be either a) callables or b) xp.ndarrays representing the weights at the quadrature points. If an entry is zero or ``None``, the corresponding block is set to ``None`` to accelerate the dot product.
 
     spline_functions : dict[str, SplineFunction]
-        Dictionary of spline functions that are used as weights in the operator. 
+        Dictionary of spline functions that are used as weights in the operator.
         The keys must be the names of the spline functions and the values the SplineFunction objects.
 
     transposed : bool
@@ -1185,7 +1203,7 @@ class WeightedMassOperator(LinOpWithTransp):
     ):
         logger.debug(f"{derham = }")
         logger.debug(f"{V = }")
-        logger.debug(f"{W = }")  
+        logger.debug(f"{W = }")
         logger.debug(f"{name = }")
         logger.debug(f"{V_extraction_op = }")
         logger.debug(f"{W_extraction_op = }")
@@ -1206,7 +1224,7 @@ class WeightedMassOperator(LinOpWithTransp):
         self._V = V
         self._W = W
         self._name = name
-        
+
         # spline functions that are used as weights in the operator, to be evaluated at quadrature points
         self._spline_functions = spline_functions if spline_functions is not None else {}
 
@@ -1249,9 +1267,13 @@ class WeightedMassOperator(LinOpWithTransp):
         logger.debug(f"{W.symbolic_space = }")
         V_name = V.symbolic_space
         W_name = W.symbolic_space
-        
-        assert V_name in derham.spline_attributes, f"Spline attributes for the domain space {V_name} not found in the Derham object !!"
-        assert W_name in derham.spline_attributes, f"Spline attributes for the codomain space {W_name} not found in the Derham object !!"
+
+        assert V_name in derham.spline_attributes, (
+            f"Spline attributes for the domain space {V_name} not found in the Derham object !!"
+        )
+        assert W_name in derham.spline_attributes, (
+            f"Spline attributes for the codomain space {W_name} not found in the Derham object !!"
+        )
 
         if transposed:
             self._domain_femspace = W
@@ -1399,7 +1421,7 @@ class WeightedMassOperator(LinOpWithTransp):
             for a, wspace in enumerate(Wspaces):
                 blocks += [[]]
                 self._weights += [[]]
-                
+
                 # quadrature points
                 pts = [points.flatten() for points in derham.spline_attributes[W_name].quad_grid_pts[a]]
 
@@ -1409,7 +1431,9 @@ class WeightedMassOperator(LinOpWithTransp):
                 self.spans = {}
                 self.bases = {}
                 for name, spline in self.spline_functions.items():
-                    assert isinstance(spline, SplineFunction), f"The entry {name} in spline_functions must be a SplineFunction object."
+                    assert isinstance(spline, SplineFunction), (
+                        f"The entry {name} in spline_functions must be a SplineFunction object."
+                    )
                     self.spline_values[name] = xp.zeros(grid_shape, dtype=float)
                     self.spans[name], bns, bds = derham.prepare_eval_tp_fixed(pts)
                     if spline.space_id == "H1":
@@ -1571,11 +1595,11 @@ class WeightedMassOperator(LinOpWithTransp):
     @property
     def domain_symbolic_name(self) -> LiteralOptions.OptsFEECSpace:
         return self._domain_symbolic_name
-    
+
     @property
     def codomain(self):
         return self._codomain
-    
+
     @property
     def codomain_symbolic_name(self) -> LiteralOptions.OptsFEECSpace:
         return self._codomain_symbolic_name
@@ -1867,7 +1891,7 @@ class WeightedMassOperator(LinOpWithTransp):
 
                 # pads (ghost regions)
                 codomain_pads = codomain_space.coeff_space.pads
-                
+
                 # quadrature points
                 pts = [points.flatten() for points in spline_attr[W_name].quad_grid_pts[a]]
 
@@ -1903,14 +1927,18 @@ class WeightedMassOperator(LinOpWithTransp):
                         assert mat_w.shape == tuple([pt.size for pt in pts])
                         # evalute splines and multiply
                         for name, spline in self.spline_functions.items():
-                            logger.debug(f"Maximum coefficient if spline {name}: {xp.max(xp.abs(spline.vector.toarray()))}")
+                            logger.debug(
+                                f"Maximum coefficient if spline {name}: {xp.max(xp.abs(spline.vector.toarray()))}"
+                            )
                             values = spline.eval_tp_fixed_loc(
-                                        self.spans[name],
-                                        self.bases[name],
-                                        out=self.spline_values[name],
-                                    )
+                                self.spans[name],
+                                self.bases[name],
+                                out=self.spline_values[name],
+                            )
                             if xp.all(xp.abs(values) < 1e-14):
-                                logger.warning(f"The spline weight {name} is close to zero at all quadrature points in the assembly of the weighted mass matrix {self.name}. Weights are not multiplied.")
+                                logger.warning(
+                                    f"The spline weight {name} is close to zero at all quadrature points in the assembly of the weighted mass matrix {self.name}. Weights are not multiplied."
+                                )
                                 continue
                             mat_w *= values
                     else:
@@ -2529,7 +2557,7 @@ class L2Projector:
                 *[pt.flatten() for pt in self.quad_grid_pts[0]],
                 indexing="ij",
             )
-            self._geom_weights = self.Mmat.weights[0][0]#(*self.quad_grid_mesh)
+            self._geom_weights = self.Mmat.weights[0][0]  # (*self.quad_grid_mesh)
         else:
             self._quad_grid_mesh = []
             self._tmp = []  # tmp for matrix-vector product of geom_weights with fun
@@ -2549,7 +2577,7 @@ class L2Projector:
                 # loop over columns (differnt geometric coeffs)
                 for weight in row_weights:
                     if weight is not None:
-                        self._geom_weights[-1] += [weight]#(*mesh)]
+                        self._geom_weights[-1] += [weight]  # (*mesh)]
                     else:
                         self._geom_weights[-1] += [xp.zeros_like(mesh[0])]
 
@@ -2823,4 +2851,3 @@ class L2Projector:
             The FEM spline coefficients after projection.
         """
         return self.solve(self.get_dofs(fun, dofs=dofs, apply_bc=apply_bc), out=out)
-
