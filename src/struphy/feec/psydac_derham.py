@@ -114,8 +114,8 @@ class DiscreteDerham:
         V2.diff = V2.div = D2
         
         # construct 1D FEM spaces H1 and L2 (serial, not distributed) in each direction, for building Kronecker matrices
-        self.H1_1d_serial = []
-        self.L2_1d_serial = []
+        self._H1_1d_serial = []
+        self._L2_1d_serial = []
         for d in range(3):
             H1_space = V0.spaces[d]
             L2_space = V3.spaces[d]
@@ -135,8 +135,8 @@ class DiscreteDerham:
             H1_space_tensor.symbolic_space = f"H1_1d_eta{d+1}"
             L2_space_tensor.symbolic_space = f"L2_1d_eta{d+1}"
             
-            self.H1_1d_serial.append(H1_space_tensor)
-            self.L2_1d_serial.append(L2_space_tensor)
+            self._H1_1d_serial.append(H1_space_tensor)
+            self._L2_1d_serial.append(L2_space_tensor)
 
     # --------------------------------------------------------------------------
     @property
@@ -712,8 +712,8 @@ class Derham:
             self._H1_1d_serial_splines += [
                 SplineAttributes1D(
                     H1_space,
-                    self.nquads[n],
-                    self.nquads_proj[n],
+                    (self.nquads[n],),
+                    (self.nquads_proj[n],),
                     polar_splines=False,  # the 1d spaces are not polar, even if the 3d space is
                     local_projectors=False,
                 )
@@ -721,8 +721,8 @@ class Derham:
             self._L2_1d_serial_splines += [
                 SplineAttributes1D(
                     L2_space,
-                    self.nquads[n],
-                    self.nquads_proj[n],
+                    (self.nquads[n],),
+                    (self.nquads_proj[n],),
                     polar_splines=False,  # the 1d spaces are not polar, even if the 3d space is
                     local_projectors=False,
                 )

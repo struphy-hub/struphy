@@ -169,9 +169,9 @@ class MassMatrixPreconditioner(LinearOperator):
                 )
                 femspace_1d_tensor = TensorFemSpace(domain_decompos_1d, femspace_1d)
                 if femspace_1d.basis == "B":
-                    femspace_1d_tensor.symbolic_space = "H1_1d"
+                    femspace_1d_tensor.symbolic_space = f"H1_1d_eta{d+1}"
                 else:
-                    femspace_1d_tensor.symbolic_space = "L2_1d"
+                    femspace_1d_tensor.symbolic_space = f"L2_1d_eta{d+1}"
 
                 M = WeightedMassOperator(
                     mass_operator.derham,

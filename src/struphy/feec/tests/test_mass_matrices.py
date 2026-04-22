@@ -116,6 +116,7 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
     rhs["Mv"] = l2proj_v.get_dofs((rhs_0, rhs_1, rhs_2), apply_bc=True)
     rhs["Mvn"] = rhs["Mv"]
     rhs["WMM"] = rhs["Mv"]
+    rhs["WMMnew"] = rhs["Mv"]
 
     # test mass matrices
     e1 = xp.linspace(0, 1, 8)
@@ -128,17 +129,18 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
     elif min(degree) == 2:
         err_bound = 2.6e-2
     
-    names = ["WMM"]
+    names = ["M0", "M1", "M2", "M3", "Mv", "M1n", "M2n", "Mvn", "M1ninv", "M0ad", "WMM", "WMMnew"]
     for name in names:
         
         if name == "WMM":
             intermediate = mass_ops.WMM
             intermediate.update_weight(projected_equil.n3)
             M: WeightedMassOperator = mass_ops.WMM.massop
-            Mnew: WeightedMassOperator = mass_ops.WMMnew
-            logger.debug(f"{Mnew.spline_functions = }")
-            Mnew.spline_functions["l2_field"].vector = projected_equil.n3
-            assert M.toarray() == Mnew.toarray(), f"The assembled matrix of WMM does not match the assembled matrix of WMMnew with the projected equilibrium density as spline weight."
+        elif name == "WMMnew":
+            M: WeightedMassOperator = mass_ops.WMMnew
+            logger.debug(f"{M.spline_functions = }")
+            M.spline_functions["l2_field"].vector = projected_equil.n3
+            M.assemble()
         else:
             M: WeightedMassOperator = getattr(mass_ops, name)
         space_id = M.domain_symbolic_name
@@ -149,7 +151,7 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
             exact = xp.array([rhs_0(ee1, ee2, ee3), rhs_1(ee1, ee2, ee3), rhs_2(ee1, ee2, ee3)])
             
         solver = "cg"
-        if name in ["M1n", "M2n", "Mvn", "M0ad", "WMM"]:
+        if name in ["M1n", "M2n", "Mvn", "M0ad", "WMM", "WMMnew"]:
             # solve n0 * u = f, where n0 is the equilibrium density
             exact /= equil.n0(e1, e2, e3)
         elif name == "M1ninv":

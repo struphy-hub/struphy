@@ -791,7 +791,8 @@ class WeightedMassOperators:
                 "H1vec",
                 "H1vec",
                 weights=("G", spline),
-                assemble=True,
+                name = "WMMnew",
+                assemble=False,
             )
         return self._WMMnew
 
@@ -869,6 +870,7 @@ class WeightedMassOperators:
         out : A WeightedMassOperator object.
         """
         
+        assert W_id in self.derham.spline_attributes, f"Spline attributes for the codomain space {W_id} not found in the Derham object !!"
         quad_grid_pts = self.derham.spline_attributes[W_id].quad_grid_pts
         quad_grid_wts = self.derham.spline_attributes[W_id].quad_grid_wts
         quad_grid_spans = self.derham.spline_attributes[W_id].quad_grid_spans
@@ -1247,6 +1249,9 @@ class WeightedMassOperator(LinOpWithTransp):
         logger.debug(f"{W.symbolic_space = }")
         V_name = V.symbolic_space
         W_name = W.symbolic_space
+        
+        assert V_name in derham.spline_attributes, f"Spline attributes for the domain space {V_name} not found in the Derham object !!"
+        assert W_name in derham.spline_attributes, f"Spline attributes for the codomain space {W_name} not found in the Derham object !!"
 
         if transposed:
             self._domain_femspace = W
@@ -1396,17 +1401,7 @@ class WeightedMassOperator(LinOpWithTransp):
                 self._weights += [[]]
                 
                 # quadrature points
-                if W_name in ("H1", "Hcurl", "Hdiv", "L2", "H1vec"):
-                    pts = [points.flatten() for points in derham.spline_attributes[W_name].quad_grid_pts[a]]
-                else: # fallback to general case (e.g. for non-standard spaces)
-                    pts = [
-                                quad_grid[nquad].points.flatten()
-                                for quad_grid, nquad in zip(
-                                    get_quad_grids(wspace, nquads=self.nquads),
-                                    self.nquads,
-                                )
-                            ]
-                    logger.debug(f"Using fallback for quadrature points with shapes {[pt.shape for pt in pts]} for the weighted mass matrix {name}.")
+                pts = [points.flatten() for points in derham.spline_attributes[W_name].quad_grid_pts[a]]
 
                 # spline functions as weights: prepare for assembly on quad grid
                 grid_shape = tuple([len(pt) for pt in pts])
@@ -1874,18 +1869,8 @@ class WeightedMassOperator(LinOpWithTransp):
                 codomain_pads = codomain_space.coeff_space.pads
                 
                 # quadrature points
-                if W_name in ("H1", "Hcurl", "Hdiv", "L2", "H1vec"):
-                    pts = [points.flatten() for points in spline_attr[W_name].quad_grid_pts[a]]
-                else: # fallback to general case (e.g. for non-standard spaces)
-                    pts = [
-                                quad_grid[nquad].points.flatten()
-                                for quad_grid, nquad in zip(
-                                    get_quad_grids(codomain_space, nquads=self.nquads),
-                                    self.nquads,
-                                )
-                            ]
-                    logger.debug(f"Using fallback for quadrature points with shapes {[pt.shape for pt in pts]} for the weighted mass matrix {name}.")
-                
+                pts = [points.flatten() for points in spline_attr[W_name].quad_grid_pts[a]]
+
                 # global quadrature weights in format (local element, local weight)
                 wts = spline_attr[W_name].quad_grid_wts[a]
 
@@ -1918,14 +1903,19 @@ class WeightedMassOperator(LinOpWithTransp):
                         assert mat_w.shape == tuple([pt.size for pt in pts])
                         # evalute splines and multiply
                         for name, spline in self.spline_functions.items():
+                            logger.debug(f"Maximum coefficient if spline {name}: {xp.max(xp.abs(spline.vector.toarray()))}")
                             values = spline.eval_tp_fixed_loc(
                                         self.spans[name],
                                         self.bases[name],
                                         out=self.spline_values[name],
                                     )
                             if xp.all(xp.abs(values) < 1e-14):
-                                logger.warning(f"The spline weight {name} is close to zero at all quadrature points in the assembly of the weighted mass matrix {self.name}.")
+                                logger.warning(f"The spline weight {name} is close to zero at all quadrature points in the assembly of the weighted mass matrix {self.name}. Weights are not multiplied.")
+                                continue
                             mat_w *= values
+                    else:
+                        logger.debug(f"No weight for block {a, b}, setting mat_w to None.")
+                        mat_w = None
 
                     not_weight_zero = xp.array(
                         int(loc_weight is not None and xp.any(xp.abs(mat_w) > 1e-14)),
