@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 
 import logging
-from typing import Callable
-from dataclasses import dataclass
 
 import cunumpy as xp
 import feectools.core.bsplines as bsp
 from feectools.ddm.cart import DomainDecomposition
-from feectools.ddm.mpi import MockComm, MockMPI
+from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 from feectools.feec.derivatives import Curl3D, Divergence3D, Gradient3D
 from feectools.feec.global_geometric_projectors import (
@@ -34,10 +32,9 @@ from struphy.feec.local_projectors_kernels import get_local_problem_size, select
 from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
 from struphy.feec.utilities import get_quad_grids
 from struphy.fields_background.base import FluidEquilibrium, MHDequilibrium
-from struphy.fields_background.equils import set_defaults
 from struphy.geometry.base import Domain
 from struphy.geometry.utilities import TransformedPformComponent
-from struphy.initial import perturbations, utilities
+from struphy.initial import perturbations
 from struphy.initial.base import Perturbation
 from struphy.initial.perturbations import Noise
 from struphy.io.options import DerhamOptions, FieldsBackground, LiteralOptions
@@ -68,6 +65,9 @@ class DiscreteDerham:
     
     The auxiliary space (H^1)^3 for vector fields is also built for projection and polar extraction purposes, 
     but it is not part of the proper de Rham sequence.
+
+    Moreover, the 1D FEM spaces (serial, not distributed) in each direction are built from the corresponding 3D spaces,
+    and stored as attributes for building Kronecker matrices.
 
     Parameters
     ----------

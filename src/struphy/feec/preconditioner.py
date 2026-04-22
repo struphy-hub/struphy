@@ -158,20 +158,14 @@ class MassMatrixPreconditioner(LinearOperator):
                 else:
                     fun = [[lambda e: xp.ones(e.size, dtype=float)]]
 
-                # construct 1D FEM space (serial, not distributed) and quadrature order
-                femspace_1d = femspaces[c].spaces[d]
-                qu_order_1d = [mass_operator.derham.nquads[d]]
-
-                # assemble 1d weighted mass matrix
-                domain_decompos_1d = DomainDecomposition(
-                    [femspace_1d.ncells],
-                    [femspace_1d.periodic],
-                )
-                femspace_1d_tensor = TensorFemSpace(domain_decompos_1d, femspace_1d)
-                if femspace_1d.basis == "B":
-                    femspace_1d_tensor.symbolic_space = f"H1_1d_eta{d+1}"
+                # get 1D FEM space (serial, not distributed) and quadrature order
+                if femspaces[c].spaces[d].basis == "B":
+                    femspace_1d_tensor = mass_operator.derham.H1_1d_serial[d]
                 else:
-                    femspace_1d_tensor.symbolic_space = f"L2_1d_eta{d+1}"
+                    femspace_1d_tensor = mass_operator.derham.L2_1d_serial[d]  
+                    
+                domain_decompos_1d = femspace_1d_tensor.domain_decomposition
+                qu_order_1d = (mass_operator.derham.nquads[d],) 
 
                 M = WeightedMassOperator(
                     mass_operator.derham,
@@ -186,7 +180,7 @@ class MassMatrixPreconditioner(LinearOperator):
                 # apply boundary conditions
                 if apply_bc:
                     if mass_operator._domain_symbolic_name not in ("H1H1H1", "H1vec"):
-                        if femspace_1d.basis == "B":
+                        if femspaces[c].spaces[d].basis == "B":
                             if bc[d][0]:
                                 apply_essential_bc_stencil(
                                     M,
@@ -530,16 +524,13 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
                 fun = [[lambda e: xp.ones(e.size, dtype=float)]]
 
                 # get 1D FEM space (serial, not distributed) and quadrature order
-                femspace_1d = femspaces[c].spaces[d]
-                qu_order_1d = [self._mass_operator.derham.nquads[d]]
-                # assemble 1d weighted mass matrix
-                domain_decompos_1d = DomainDecomposition(
-                    [femspace_1d.ncells],
-                    [femspace_1d.periodic],
-                )
-                femspace_1d_tensor = TensorFemSpace(domain_decompos_1d, femspace_1d)
-                # femspace_1d_tensor.nquads = [qu_order_1d]
-                # femspace_1d_tensor.nquads = self._mass_operator.derham.nquads
+                if femspaces[c].spaces[d].basis == "B":
+                    femspace_1d_tensor = mass_operator.derham.H1_1d_serial[d]
+                else:
+                    femspace_1d_tensor = mass_operator.derham.L2_1d_serial[d]  
+                    
+                domain_decompos_1d = femspace_1d_tensor.domain_decomposition
+                qu_order_1d = (mass_operator.derham.nquads[d],)
 
                 M = WeightedMassOperator(
                     self._mass_operator.derham,
@@ -554,7 +545,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
                 # apply boundary conditions
                 if apply_bc:
                     if mass_operator._domain_symbolic_name not in ("H1H1H1", "H1vec"):
-                        if femspace_1d.basis == "B":
+                        if femspaces[c].spaces[d].basis == "B":
                             if bc[d][0]:
                                 apply_essential_bc_stencil(
                                     M,

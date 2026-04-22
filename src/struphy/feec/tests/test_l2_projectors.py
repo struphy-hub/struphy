@@ -130,14 +130,7 @@ def test_l2_projectors_mappings(
                 plt.show()
                 
             if sp_id in ("H1", "H1vec"):
-                if dom_type in ("ShafranovDshapedCylinder", "ShafranovSqrtCylinder", "Tokamak"):
-                    if sp_id == "H1vec":
-                        logger.info(f"Attention: {sp_id =}, convergence might be suboptimal due to singular O-point in {dom_type} !!")
-                        assert xp.max(err) < 0.052
-                    else:
-                        assert xp.max(err) < 0.004
-                else:
-                    assert xp.max(err) < 0.004
+                assert xp.max(err) < 0.004
             else:
                 assert xp.max(err) < 0.12
 
