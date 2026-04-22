@@ -980,32 +980,26 @@ class WeightedMassOperators:
                     # Input is a a matrix or a Rotation matrix etc.
                     f_call = f
 
-                # evaluate at quadrature points
-                if isinstance(f_call, SplineFunction):
-                    assert isinstance(f_call, SplineFunction)
-                    vals = f_call.eval_tp_fixed_loc(quad_grid_spans, quad_grid_bases)
-                    logger.debug(f"Evaluated spline function with shape {vals.shape = }")
-                else:
-                    # loop over rows of W_id (components of the codomain)
-                    for m, grids_1d in enumerate(integration_grids):
-                        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(*grids_1d)
-                        tmp = f_call(E1, E2, E3)
-                        logger.debug(f"Evaluated callable with shape {tmp.shape = }")
-                        for n in range(len(weights_values[m])):
-                            if tmp.shape[-2:] == (3, 3):
-                                if weights_values[m][n] is None:
-                                    weights_values[m][n] = tmp[:, :, :, m, n]
-                                else:
-                                    weights_values[m][n] *= tmp[:, :, :, m, n]
-                            elif tmp.ndim == 3:
-                                if weights_values[m][n] is None:
-                                    weights_values[m][n] = tmp
-                                else:
-                                    weights_values[m][n] *= tmp
+                # evaluate at quadrature points, loop over rows of W_id (components of the codomain)
+                for m, grids_1d in enumerate(integration_grids):
+                    E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(*grids_1d)
+                    tmp = f_call(E1, E2, E3)
+                    logger.debug(f"Evaluated callable with shape {tmp.shape = }")
+                    for n in range(len(weights_values[m])):
+                        if tmp.shape[-2:] == (3, 3):
+                            if weights_values[m][n] is None:
+                                weights_values[m][n] = tmp[:, :, :, m, n]
                             else:
-                                raise ValueError(
-                                    f"Callable {f_call} has wrong output shape {tmp.shape} for the weighted mass matrix {name}.",
-                                )
+                                weights_values[m][n] *= tmp[:, :, :, m, n]
+                        elif tmp.ndim == 3:
+                            if weights_values[m][n] is None:
+                                weights_values[m][n] = tmp
+                            else:
+                                weights_values[m][n] *= tmp
+                        else:
+                            raise ValueError(
+                                f"Callable {f_call} has wrong output shape {tmp.shape} for the weighted mass matrix {name}.",
+                            )
         else:
             weights_values = weights
 
