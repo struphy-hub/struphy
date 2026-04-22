@@ -55,7 +55,7 @@ def test_l2_projectors_mappings(
 
     for dom_type, dom_class in zip(dom_types, dom_classes):
         logger.info("#" * 80)
-        logger.info(f"Testing {dom_class =}")
+        logger.info(f"Testing {dom_type =}")
         logger.info("#" * 80)
 
         if "GVEC" in dom_type and not with_gvec:
@@ -115,16 +115,32 @@ def test_l2_projectors_mappings(
                 err = [xp.max(xp.abs(exact(ee1, ee2, ee3) - field_v)) for exact, field_v in zip(f_analytic, field_vals)]
                 f_plot = field_vals[0]
 
-            logger.info(f"{sp_id =}, {xp.max(err) =}")
-            if sp_id in ("H1", "H1vec"):
-                assert xp.max(err) < 0.004
-            else:
-                assert xp.max(err) < 0.12
-
+            logger.debug(f"{err = }")
+            logger.info(f"{dom_type}, {sp_id =}, {xp.max(err) =}")
+            
             if do_plot and rank == 0:
                 plt.figure(f"{dom_type}, {sp_id}")
                 plt.contourf(e1, e2, xp.squeeze(f_plot[:, :, 0].T))
+                plt.xlabel("e1")
+                plt.ylabel("e2")
+                plt.colorbar()
                 plt.show()
+                
+            if sp_id in ("H1", "H1vec"):
+                if dom_type in ("ShafranovDshapedCylinder", "ShafranovSqrtCylinder", "Tokamak"):
+                    if sp_id == "H1vec":
+                        logger.info(f"Attention: {sp_id =}, convergence might be suboptimal due to singular O-point in {dom_type} !!")
+                        assert xp.max(err) < 0.052
+                    else:
+                        assert xp.max(err) < 0.004
+                else:
+                    assert xp.max(err) < 0.004
+            else:
+                assert xp.max(err) < 0.12
+
+            logger.info(f"Finished testing {sp_id =} for {dom_type =}")
+                
+        logger.info(f"Finished testing {dom_type =}")
 
 
 @pytest.mark.convergence
@@ -270,10 +286,13 @@ def test_l2_projectors_convergence(direction, pi, bc_kind, do_plot=False):
 
 
 if __name__ == "__main__":
+    from struphy import set_logging_level
+    set_logging_level(logging.DEBUG)
+    
     num_elements = [16, 32, 1]
     degree = [2, 1, 1]
     bcs = (("free", "free"), None, None)
-    array_input = True
+    array_input = False
     test_l2_projectors_mappings(num_elements, degree, bcs, array_input, do_plot=False, with_desc=False)
-    test_l2_projectors_convergence(0, 1, True, do_plot=False)
+    # test_l2_projectors_convergence(0, 1, True, do_plot=False)
     # test_l2_projectors_convergence(1, 1, False, do_plot=True)

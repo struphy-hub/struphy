@@ -107,6 +107,8 @@ class MassMatrixPreconditioner(LinearOperator):
                     elif isinstance(loc_weights, xp.ndarray):
                         # s = loc_weights.shape
                         # logger.debug(f"{loc_weights.shape = } for component {c} and direction {d}.")
+                        # npts = derham.num_elements[d] * derham.nquads[d]
+                        # fun = xp.zeros(npts, dtype=float)
                         # if d == 0:
                         #     local_fun = loc_weights[:, s[1] // 2, s[2] // 2]
                         # elif d == 1:
