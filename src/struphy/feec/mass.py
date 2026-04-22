@@ -840,7 +840,7 @@ class WeightedMassOperators:
                     Supported tuple entries are:
 
                     - Strings (predefined names):
-                        ``'G'``, ``'Ginv'``, ``'DFinv'``, ``'DFinvT'``, ``'sqrt_g'``, ``'Identity'``, ``'H1'``, ``'L2'``.
+                        ``'G'``, ``'Ginv'``, ``'DFinv'``, ``'DFinvT'``, ``'sqrt_g'``, ``'Identity'``.
                     - Strings from equilibrium methods:
                         ``'eq_<method_name>'`` for methods of :class:`~struphy.fields_background.base.MHDequilibrium`.
                     - Reciprocal strings:
@@ -895,6 +895,7 @@ class WeightedMassOperators:
                 raise ValueError(f"Unknown space identifier {V_id} for the domain of the weighted mass matrix {name}.")
         logger.debug(f"Initialized {weights_values = } for the weighted mass matrix {name}.")
 
+        spline_functions = {}
         if isinstance(weights, tuple):  # Case 3 (1D tuple)
             for n, f in enumerate(weights):
                 if isinstance(f, str):
@@ -934,15 +935,10 @@ class WeightedMassOperators:
                                 out[1, 1] = 1.0
                                 out[2, 2] = 1.0
                                 return xp.transpose(out, axes=(2, 3, 4, 0, 1))
-                        elif f == "H1":
-                            f_call = self.derham.create_spline_function(f"field{n}", "H1")
-                        elif f == "L2":
-                            f_call = self.derham.create_spline_function(f"field{n}", "L2")
                         else:
                             raise NotImplementedError(
                                 f"The option {f} is not available.",
                             )
-
                 elif isinstance(f, list):
                     assert len(f) == 3
                     for fi in f:
@@ -955,7 +951,9 @@ class WeightedMassOperators:
                             for n in range(3):
                                 out[m, n] = f[m][n]
                         return xp.transpose(out, axes=(2, 3, 4, 0, 1))
-                    listinput = True
+                elif isinstance(f, SplineFunction):
+                    spline_functions[f.name] = f
+                    continue
                 else:
                     assert callable(f)
                     # Input is a a matrix or a Rotation matrix etc.
@@ -1000,68 +998,13 @@ class WeightedMassOperators:
             V_boundary_op=self.derham.boundary_ops[V_id],
             W_boundary_op=self.derham.boundary_ops[W_id],
             weights_info=weights_values,
+            spline_functions=spline_functions,
             transposed=transposed,
             matrix_free=self.matrix_free,
         )
 
         if assemble:
             out.assemble()
-
-        return out
-
-    def _get_range_rank(self, func):
-        """Determine the rank of the range of the callable func.
-        func must be defined on the unit cube."""
-        if callable(func):
-            if isinstance(func, LocalRotationMatrix):
-                out = len(func._cross_mask) - 1
-            else:
-                dummy_eta = (0.0, 0.0, 0.0)
-                val = func(*dummy_eta)
-                assert isinstance(val, xp.ndarray)
-                out = len(val.shape) - 3
-        else:
-            if isinstance(func, list):
-                if isinstance(func[0], xp.ndarray):
-                    out = 2
-                else:
-                    out = len(func) - 1
-            else:
-                assert isinstance(func, float) or isinstance(func, int)
-                out = 0
-        return out
-
-    def _matrix_operate(self, e1, e2, e3, *ops):
-        """Composed evaluation of arbitrary number of rank2 operators (nested list or callable)."""
-        if isinstance(ops[0], list):
-            out = ops[0]
-        else:
-            out = ops[0](e1, e2, e3)  # is 5 array
-        for op in ops[1:]:
-            if isinstance(op, list):
-                if len(op) == 1:
-                    out = out @ op[0]
-                else:
-                    out = out @ op
-            else:
-                out = out @ op(e1, e2, e3)
-        return out
-
-    def _operate(self, f1, f2, op, e1, e2, e3):
-        assert callable(f1)
-        assert callable(f2)
-        assert op in ("*", "/", "+", "-", "@")
-
-        if op == "*":
-            out = f1(e1, e2, e3) * f2(e1, e2, e3)
-        elif op == "/":
-            out = f1(e1, e2, e3) / f2(e1, e2, e3)
-        elif op == "+":
-            out = f1(e1, e2, e3) + f2(e1, e2, e3)
-        elif op == "-":
-            out = f1(e1, e2, e3) - f2(e1, e2, e3)
-        elif op == "@":
-            out = (f1(e1, e2, e3) @ f2(e1, e2, e3))[:, :, :]
 
         return out
 
@@ -1210,6 +1153,10 @@ class WeightedMassOperator(LinOpWithTransp):
         2. ``str``  : for square block matrices (V=W), a symmetry can be set in order to accelerate the assembly process. Possible strings are ``symm`` (symmetric), ``asym`` (anti-symmetric) and ``diag`` (diagonal).
         3. ``list`` : 2d list with the same number of rows/columns as the number of components of the domain/codomain spaces. The entries can be either a) callables or b) xp.ndarrays representing the weights at the quadrature points. If an entry is zero or ``None``, the corresponding block is set to ``None`` to accelerate the dot product.
 
+    spline_functions : dict[str, SplineFunction]
+        Dictionary of spline functions that are used as weights in the operator. 
+        The keys must be the names of the spline functions and the values the SplineFunction objects.
+
     transposed : bool
         Whether to assemble the transposed operator.
 
@@ -1228,6 +1175,7 @@ class WeightedMassOperator(LinOpWithTransp):
         V_boundary_op: BoundaryOperator | IdentityOperator = None,
         W_boundary_op: BoundaryOperator | IdentityOperator = None,
         weights_info: str | list = None,
+        spline_functions: dict[str, SplineFunction] | None = None,
         transposed: bool = False,
         matrix_free: bool = False,
         nquads: tuple | list = None,
@@ -1241,6 +1189,7 @@ class WeightedMassOperator(LinOpWithTransp):
         logger.debug(f"{V_boundary_op = }")
         logger.debug(f"{W_boundary_op = }")
         logger.debug(f"{type(weights_info) = }")
+        logger.debug(f"{spline_functions = }")
         logger.debug(f"{transposed = }")
         logger.debug(f"{matrix_free = }")
         logger.debug(f"{nquads = }")
@@ -1254,6 +1203,9 @@ class WeightedMassOperator(LinOpWithTransp):
         self._V = V
         self._W = W
         self._name = name
+        
+        # spline functions that are used as weights in the operator, to be evaluated at quadrature points
+        self._spline_functions = spline_functions if spline_functions is not None else {}
 
         # set basis extraction operators
         if V_extraction_op is not None:
@@ -1455,6 +1407,24 @@ class WeightedMassOperator(LinOpWithTransp):
                             ]
                     logger.debug(f"Using fallback for quadrature points with shapes {[pt.shape for pt in pts]} for the weighted mass matrix {name}.")
 
+                # spline functions as weights: prepare for assembly on quad grid
+                grid_shape = tuple([len(pt) for pt in pts])
+                self.spline_values = {}
+                self.spans = {}
+                self.bases = {}
+                for name, spline in spline_functions.items():
+                    assert isinstance(spline, SplineFunction), f"The entry {name} in spline_functions must be a SplineFunction object."
+                    self.spline_values[name] = xp.zeros(grid_shape, dtype=float)
+                    self.spans[name], bns, bds = derham.prepare_eval_tp_fixed(pts)
+                    if spline.space_id == "H1":
+                        self.bases[name] = bns
+                    elif spline.space_id == "L2":
+                        self.bases[name] = bds
+                    else:
+                        raise NotImplementedError(
+                            f"Spline functions in spline_functions must be defined on H1 or L2 spaces, but {spline.space_id} was given for the spline function {name}.",
+                        )
+
                 # loop over domain spaces (columns)
                 for b, vspace in enumerate(Vspaces):
                     # set zero default weights if weights is None
@@ -1625,6 +1595,10 @@ class WeightedMassOperator(LinOpWithTransp):
     @property
     def codomain_femspace(self):
         return self._codomain_femspace
+
+    @property
+    def spline_functions(self):
+        return self._spline_functions
 
     @property
     def dtype(self):
@@ -1883,46 +1857,39 @@ class WeightedMassOperator(LinOpWithTransp):
                 assert isinstance(weights, list)
                 self._weights = weights
 
+            V_name = self.domain_symbolic_name
+            W_name = self.codomain_symbolic_name
+            spline_attr = self.derham.spline_attributes
+
             # loop over codomain spaces (rows)
             for a, codomain_space in enumerate(codomain_spaces):
                 # knot span indices of elements of local domain
-                codomain_spans = [
-                    quad_grid[nquad].spans
-                    for quad_grid, nquad in zip(
-                        get_quad_grids(codomain_space, nquads=self.nquads),
-                        self.nquads,
-                    )
-                ]
+                codomain_spans = spline_attr[W_name].spans[a]
 
                 # global start spline index on process
                 codomain_starts = [int(start) for start in codomain_space.coeff_space.starts]
 
                 # pads (ghost regions)
                 codomain_pads = codomain_space.coeff_space.pads
-                # global quadrature points (flattened) and weights in format (local element, local weight)
-                pts = [
-                    quad_grid[nquad].points.flatten()
-                    for quad_grid, nquad in zip(
-                        get_quad_grids(codomain_space, nquads=self.nquads),
-                        self.nquads,
-                    )
-                ]
-                wts = [
-                    quad_grid[nquad].weights
-                    for quad_grid, nquad in zip(
-                        get_quad_grids(codomain_space, nquads=self.nquads),
-                        self.nquads,
-                    )
-                ]
+                
+                # quadrature points
+                if W_name in ("H1", "Hcurl", "Hdiv", "L2", "H1vec"):
+                    pts = [points.flatten() for points in spline_attr[W_name].quad_grid_pts[a]]
+                else: # fallback to general case (e.g. for non-standard spaces)
+                    pts = [
+                                quad_grid[nquad].points.flatten()
+                                for quad_grid, nquad in zip(
+                                    get_quad_grids(codomain_space, nquads=self.nquads),
+                                    self.nquads,
+                                )
+                            ]
+                    logger.debug(f"Using fallback for quadrature points with shapes {[pt.shape for pt in pts]} for the weighted mass matrix {name}.")
+                
+                # global quadrature weights in format (local element, local weight)
+                wts = spline_attr[W_name].quad_grid_wts[a]
 
                 # evaluated basis functions at quadrature points of codomain space
-                codomain_basis = [
-                    quad_grid[nquad].basis
-                    for quad_grid, nquad in zip(
-                        get_quad_grids(codomain_space, nquads=self.nquads),
-                        self.nquads,
-                    )
-                ]
+                codomain_basis = spline_attr[W_name].quad_grid_basis[a]
 
                 # loop over domain spaces (columns)
                 for b, domain_space in enumerate(domain_spaces):
@@ -1948,6 +1915,16 @@ class WeightedMassOperator(LinOpWithTransp):
 
                     if loc_weight is not None:
                         assert mat_w.shape == tuple([pt.size for pt in pts])
+                        # evalute splines and multiply
+                        for name, spline in self.spline_functions.items():
+                            values = spline.eval_tp_fixed_loc(
+                                        self.spans[name],
+                                        self.bases[name],
+                                        out=self.spline_values[name],
+                                    )
+                            if xp.all(xp.abs(values) < 1e-14):
+                                logger.warning(f"The spline weight {name} is close to zero at all quadrature points in the assembly of the weighted mass matrix {self.name}.")
+                            mat_w *= values
 
                     not_weight_zero = xp.array(
                         int(loc_weight is not None and xp.any(xp.abs(mat_w) > 1e-14)),
@@ -1960,13 +1937,7 @@ class WeightedMassOperator(LinOpWithTransp):
                         )
 
                     # evaluated basis functions at quadrature points of domain space
-                    domain_basis = [
-                        quad_grid[nquad].basis
-                        for quad_grid, nquad in zip(
-                            get_quad_grids(domain_space, nquads=self.nquads),
-                            self.nquads,
-                        )
-                    ]
+                    domain_basis = spline_attr[V_name].quad_grid_basis[b]
 
                     # assemble matrix (if mat_w is not zero) by calling the appropriate kernel (1d, 2d or 3d)
                     if not_weight_zero or self._is_scalar:
