@@ -113,16 +113,49 @@ class KineticBackground(metaclass=ABCMeta):
         """
         pass
 
-    def plot_background(
+    def plot_density_profile(
             self,
             dim_1: LiteralOptions.DimensionToPlot = "e1",
             dim_2: LiteralOptions.DimensionToPlot | None = None,
-            domain: Domain | None = None,
-            resol: int = 50,
-            in_physical: bool = False,
-            integrate: bool = True,
+            v_lim: float = 5.0,
+            resol: int = 100,
             integrate_resol: int = 10,
+            logical_coord: tuple[float] = (0.5, 0.5, 0.5),
+            in_physical: bool = False,
+            domain: Domain | None = None,
+            proj_axis: tuple[float,] = (0,1),
     ):
+        """
+        Plots the density profile of an initial condition (or a background) from the phase space distribution. The projection can either be 1D or 2D, in the logical space or in cartesian.
+
+        Parameters
+        ----------
+        dim_1, dim_2 : LiteralOptions = ["e1","e2","e3","v1","v2","v3"]
+            The axes used in the projection, they refere to logical space axes. If dim_2 is not defined the projection is 1D, it is 2D if dim_2 is attributed.
+        
+        v_lim : float = 5.0
+            Limit value of the velocity axes.
+        
+        resol : int = 100
+            Resolution along each axes
+        
+        integrate_resol : int = 10
+            Resolution along not used velocity axes. The density is reduced (with a maximum function) over these axes before being plotted. High values (>50) may require much memory.
+        
+        logical_coord : tuple[float] = (0.5, 0.5, 0.5)
+            Refere to the default coordinate (in logical space) attributed to each axe which is not used in the projection.
+        
+        in_physical : bool = False
+            Specify if the result is plotted in logical coordinates or in cartesian coordinates, has a effect in 2D plotting. If True, you must specify a domain.
+        
+        domain : Domain | None = None
+            Domain used to plot the density if in_physical=True.
+        
+        proj_axis : tuple[float] = (0,1)
+            Axes of the cartesian coordinates used to plot the density: 0->x, 1->y, 2->z.
+            I you do not see the density profile in 2D, you may change these axes.
+        """
+        assert 0<=proj_axis[0]<proj_axis[1]<3
         if dim_2==None:
             if dim_1=="e1":axe_to_plot=0
             elif dim_1=="e2":axe_to_plot=1
@@ -130,33 +163,88 @@ class KineticBackground(metaclass=ABCMeta):
             elif dim_1=="v1":axe_to_plot=3
             elif dim_1=="v2":axe_to_plot=4
             elif dim_1=="v3":axe_to_plot=5
-            else:AssertionError("Dimension argument must match an exiting dimension")
-            integrate_linspace = xp.linspace(0.0, 1.0, integrate_resol)
-            plot_linspace = xp.linspace(0.0, 1.0, resol)
-            print(self.vdim)
-            if self.vdim==1:
-                pre_etas = xp.meshgrid(plot_linspace, integrate_linspace, integrate_linspace, integrate_linspace)
-            if self.vdim==2:
-                pre_etas = xp.meshgrid(plot_linspace, integrate_linspace, integrate_linspace, integrate_linspace, integrate_linspace)
-            if self.vdim==3:
-                pre_etas = xp.meshgrid(plot_linspace, integrate_linspace, integrate_linspace, integrate_linspace, integrate_linspace, integrate_linspace)
-            etas = list(pre_etas)
-            etas[0] = pre_etas[axe_to_plot]
-            etas[axe_to_plot] = pre_etas[0]
-            perm = [i for i in range(3+self.vdim)]
-            perm[0] = axe_to_plot
-            perm[axe_to_plot] = 0
-            for eta in etas:xp.transpose(eta, perm)
-            total_density = self(etas)
+            else:AssertionError("dim_1argument must match an exiting dimension")
+            if axe_to_plot-3>self.vdim:AssertionError("Coordinate "+dim_1+" does not exist with this background")
+            linspace_space = xp.array([0.0])
+            integrate_linspace_vel = xp.linspace(0.0, v_lim, integrate_resol)
+            if axe_to_plot<3:
+                plot_linspace = xp.linspace(0.0, 1.0, resol)
+            else:
+                plot_linspace = xp.linspace(0.0, v_lim, resol)
+            tabs = [linspace_space for _ in range(3)]+self.vdim*[integrate_linspace_vel]
+            for i in range(3):
+                tabs[i][0] = logical_coord[i]
+            tabs[axe_to_plot] = plot_linspace
+            etas = xp.meshgrid(*tabs, indexing='ij')
+            total_density = self(*etas)
             axes_to_integrate = [i for i in range(3+self.vdim)]
             axes_to_integrate.remove(axe_to_plot)
-            total_density = xp.sum(total_density, axes_to_integrate)
+            total_density = xp.max(total_density, tuple(axes_to_integrate))
             fig, ax = plt.subplots(1,1)
             ax.plot(plot_linspace, total_density)
             ax.set_xlabel(dim_1)
             ax.set_ylabel("density")
             ax.set_title("background profile")
-            fig.show()
+            plt.show(block=True)
+        else:
+            if dim_1=="e1":axe_to_plot1=0
+            elif dim_1=="e2":axe_to_plot1=1
+            elif dim_1=="e3":axe_to_plot1=2
+            elif dim_1=="v1":axe_to_plot1=3
+            elif dim_1=="v2":axe_to_plot1=4
+            elif dim_1=="v3":axe_to_plot1=5
+            else:AssertionError("dim_1 argument must match an exiting dimension")
+            if dim_2=="e1":axe_to_plot2=0
+            elif dim_2=="e2":axe_to_plot2=1
+            elif dim_2=="e3":axe_to_plot2=2
+            elif dim_2=="v1":axe_to_plot2=3
+            elif dim_2=="v2":axe_to_plot2=4
+            elif dim_2=="v3":axe_to_plot2=5
+            else:AssertionError("dim_2 argument must match an exiting dimension")
+            if axe_to_plot2==axe_to_plot1:AssertionError("You must specify different dimensions for dim_1 and dim_2")
+            integrate_linspace_vel = xp.linspace(0.0, v_lim, integrate_resol)
+            tabs = [xp.array([logical_coord[i]]) for i in range(3)]+self.vdim*[integrate_linspace_vel]
+            if axe_to_plot1<3:
+                plot_linspace1 = xp.linspace(0.0, 1.0, resol)
+            else:
+                plot_linspace1 = xp.linspace(0.0, v_lim, resol)
+            if axe_to_plot2<3:
+                plot_linspace2 = xp.linspace(0.0, 1.0, resol)
+            else:
+                plot_linspace2 = xp.linspace(0.0, v_lim, resol)
+            tabs[axe_to_plot1] = plot_linspace1
+            tabs[axe_to_plot2] = plot_linspace2
+            etas = xp.meshgrid(*tabs, indexing='ij')
+            if in_physical:
+                physical_coords = domain(*tabs[:3])
+                physical_coords = list(physical_coords)
+                for i in range(3):
+                    physical_coords[i] = physical_coords[i][tuple([...]+self.vdim*[None])]
+                    physical_coords[i] = xp.broadcast_to(physical_coords[i], etas[0].shape)
+                for i in range(self.vdim):physical_coords.append(etas[i+3])
+                total_density = self(*etas) #domain.push((lambda x, y, z:self(x,y,z,*etas[3:])), *tabs[:3], kind='v')
+            else:
+                physical_coords = etas
+                total_density = self(*etas)
+            axes_to_integrate = [i for i in range(3+self.vdim)]
+            axes_to_integrate.remove(axe_to_plot1)
+            axes_to_integrate.remove(axe_to_plot2)
+            total_density = xp.max(total_density, tuple(axes_to_integrate))
+            fig, ax = plt.subplots()
+            id_dim = [0]*len(etas)
+            id_dim[axe_to_plot1] = slice(None)
+            id_dim[axe_to_plot2] = slice(None)
+            X = physical_coords[proj_axis[0]][tuple(id_dim)]
+            Y = physical_coords[proj_axis[1]][tuple(id_dim)]
+            #print(X)
+            #print(Y)
+            #print(total_density)
+            for_color=ax.pcolor(X, Y, total_density)
+            ax.set_xlabel(dim_1)
+            ax.set_ylabel(dim_2)
+            ax.set_title(f"Density in ({dim_1}, {dim_2}) space")
+            fig.colorbar(for_color)
+            plt.show(block=True)
 
 
     def __add__(self, other_f0):
