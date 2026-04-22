@@ -13,6 +13,7 @@ from line_profiler import profile
 from scipy import sparse
 from scipy.linalg import solve_circulant
 from feectools.ddm.mpi import MockComm
+from feectools.ddm.mpi import mpi as MPI
 
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.mass import WeightedMassOperator
@@ -81,6 +82,29 @@ class MassMatrixPreconditioner(LinearOperator):
             apply_bc = False
             bc = None
 
+        # define subcomm to gather 1d weight info along dim_reduce
+        derham = mass_operator.derham
+        logger.debug(f"{derham.num_elements = }, {derham.bcs = }, {derham.degree = }")
+        comm = derham.comm
+        rank = comm.Get_rank()
+        if not isinstance(comm, (MockComm, type(None))):
+            dom_arr = derham.domain_array
+            selected_ranks = []
+            left = 0.0
+            right = 1.0
+            for i, arr in enumerate(dom_arr):
+                left_i = arr[3*dim_reduce]
+                right_i = arr[3*dim_reduce + 1]
+                if left_i != left or right_i != right:
+                    selected_ranks.append(i)
+                    left = left_i
+                    right = right_i
+
+            logger.debug(f"Selected ranks for gathering 1d weight info in dimension {dim_reduce}: {selected_ranks}")
+            logger.debug(f"{dom_arr = }")
+            color = 0 if rank in selected_ranks else MPI.UNDEFINED
+            subcomm = comm.Split(color=color, key=rank)
+
         # loop over components
         for c in range(n_comps):
             # 1d mass matrices and solvers
@@ -105,26 +129,25 @@ class MassMatrixPreconditioner(LinearOperator):
                                 ).squeeze(),
                             )
                     elif isinstance(loc_weights, xp.ndarray):
-                        # s = loc_weights.shape
-                        # logger.debug(f"{loc_weights.shape = } for component {c} and direction {d}.")
-                        # npts = derham.num_elements[d] * derham.nquads[d]
-                        # fun = xp.zeros(npts, dtype=float)
-                        # if d == 0:
-                        #     local_fun = loc_weights[:, s[1] // 2, s[2] // 2]
-                        # elif d == 1:
-                        #     local_fun = loc_weights[s[0] // 2, :, s[2] // 2]
-                        # elif d == 2:
-                        #     local_fun = loc_weights[s[0] // 2, s[1] // 2, :]
-                        # MPI/DLPack interoperability requires contiguous buffers.
-                        # Slices like loc_weights[:, j, k] can be strided views.
-                        # local_fun = xp.ascontiguousarray(local_fun)
-                        # logger.debug(f"{local_fun.size = } for component {c} and direction {d} before gathering on all processes.")
-                        # if local_fun.size < npts:
-                        #     mass_operator.derham.comm.Allgather(local_fun, fun)
-                        # else:
-                        #     fun[:] = local_fun
-                        # logger.debug(f"{fun.shape = } for component {c} and direction {d} after gathering on all processes.")
-                        fun = lambda e: xp.ones(e.size, dtype=float) * xp.mean(loc_weights)
+                        s = loc_weights.shape
+                        logger.debug(f"{loc_weights.shape = } for component {c} and direction {d}.")
+                        npts = derham.num_elements[d] * derham.nquads[d]
+                        fun = xp.zeros(npts, dtype=float)
+                        if d == 0:
+                            local_fun = loc_weights[:, s[1] // 2, s[2] // 2]
+                        elif d == 1:
+                            local_fun = loc_weights[s[0] // 2, :, s[2] // 2]
+                        elif d == 2:
+                            local_fun = loc_weights[s[0] // 2, s[1] // 2, :]
+                        local_fun = xp.ascontiguousarray(local_fun)
+                        logger.debug(f"{fun.size = } for component {c} and direction {d} before gathering on all processes.")
+                        if local_fun.size < npts:
+                            if subcomm != MPI.COMM_NULL:
+                                subcomm.Allgather(local_fun, fun)
+                            comm.Bcast(fun, root=selected_ranks[0])
+                        else:
+                            fun[:] = local_fun
+                        logger.debug(f"{fun.shape = } for component {c} and direction {d} after gathering on all processes.")
                     elif loc_weights is None:
                         fun = lambda e: xp.ones(e.size, dtype=float)
                     else:

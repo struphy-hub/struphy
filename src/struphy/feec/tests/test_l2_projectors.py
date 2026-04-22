@@ -115,9 +115,12 @@ def test_l2_projectors_mappings(
                 err = [xp.max(xp.abs(exact(ee1, ee2, ee3) - field_v)) for exact, field_v in zip(f_analytic, field_vals)]
                 f_plot = field_vals[0]
 
-            logger.debug(f"{err = }")
-            logger.info(f"{dom_type}, {sp_id =}, {xp.max(err) =}")
-            
+            logger.info(f"{sp_id =}, {xp.max(err) =}")
+            if sp_id in ("H1", "H1vec"):
+                assert xp.max(err) < 0.004
+            else:
+                assert xp.max(err) < 0.12
+
             if do_plot and rank == 0:
                 plt.figure(f"{dom_type}, {sp_id}")
                 plt.contourf(e1, e2, xp.squeeze(f_plot[:, :, 0].T))
