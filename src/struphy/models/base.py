@@ -376,6 +376,14 @@ class StruphyModel(metaclass=StruphyModelMeta):
             verbose=verbose,
         )
 
+        for _, species in self.fluid_species.items():
+            assert isinstance(species, FluidSpecies)
+            species.setup_equation_params(units=self.units, verbose=verbose)
+
+        for _, species in self.particle_species.items():
+            assert isinstance(species, ParticleSpecies)
+            species.setup_equation_params(units=self.units, verbose=verbose)
+
     def scalar_quantities_to_file(self, time: float, filepath: str):
         if time == 0:
             with open(filepath, "w") as f:
@@ -388,16 +396,6 @@ class StruphyModel(metaclass=StruphyModelMeta):
                 + "\n"
             )
             f.write(line)
-
-    def setup_equation_params(self, units: Units, verbose=False):
-        """Set euqation parameters for each fluid and kinetic species."""
-        for _, species in self.fluid_species.items():
-            assert isinstance(species, FluidSpecies)
-            species.setup_equation_params(units=self.units, verbose=verbose)
-
-        for _, species in self.particle_species.items():
-            assert isinstance(species, ParticleSpecies)
-            species.setup_equation_params(units=self.units, verbose=verbose)
 
     @profile
     def integrate(self, dt, split_algo="LieTrotter"):
