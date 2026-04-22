@@ -786,10 +786,11 @@ class WeightedMassOperators:
     @property
     def WMMnew(self):
         if not hasattr(self, "_WMMnew"):
-            self._WMM = self.create_weighted_mass(
+            spline = self.derham.create_spline_function("l2_field", "L2")
+            self._WMMnew = self.create_weighted_mass(
                 "H1vec",
                 "H1vec",
-                weights=("G", "L2"),
+                weights=("G", spline),
                 assemble=True,
             )
         return self._WMMnew
@@ -1412,7 +1413,7 @@ class WeightedMassOperator(LinOpWithTransp):
                 self.spline_values = {}
                 self.spans = {}
                 self.bases = {}
-                for name, spline in spline_functions.items():
+                for name, spline in self.spline_functions.items():
                     assert isinstance(spline, SplineFunction), f"The entry {name} in spline_functions must be a SplineFunction object."
                     self.spline_values[name] = xp.zeros(grid_shape, dtype=float)
                     self.spans[name], bns, bds = derham.prepare_eval_tp_fixed(pts)
@@ -1864,7 +1865,7 @@ class WeightedMassOperator(LinOpWithTransp):
             # loop over codomain spaces (rows)
             for a, codomain_space in enumerate(codomain_spaces):
                 # knot span indices of elements of local domain
-                codomain_spans = spline_attr[W_name].spans[a]
+                codomain_spans = spline_attr[W_name].quad_grid_spans[a]
 
                 # global start spline index on process
                 codomain_starts = [int(start) for start in codomain_space.coeff_space.starts]
@@ -1889,7 +1890,7 @@ class WeightedMassOperator(LinOpWithTransp):
                 wts = spline_attr[W_name].quad_grid_wts[a]
 
                 # evaluated basis functions at quadrature points of codomain space
-                codomain_basis = spline_attr[W_name].quad_grid_basis[a]
+                codomain_basis = spline_attr[W_name].quad_grid_bases[a]
 
                 # loop over domain spaces (columns)
                 for b, domain_space in enumerate(domain_spaces):
@@ -1937,7 +1938,7 @@ class WeightedMassOperator(LinOpWithTransp):
                         )
 
                     # evaluated basis functions at quadrature points of domain space
-                    domain_basis = spline_attr[V_name].quad_grid_basis[b]
+                    domain_basis = spline_attr[V_name].quad_grid_bases[b]
 
                     # assemble matrix (if mat_w is not zero) by calling the appropriate kernel (1d, 2d or 3d)
                     if not_weight_zero or self._is_scalar:

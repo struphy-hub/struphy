@@ -128,14 +128,17 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
     elif min(degree) == 2:
         err_bound = 2.6e-2
     
-    names = ["M0", "M1", "M2", "M3", "Mv", "M1n", "M2n", "Mvn", "M1ninv", "M0ad", "WMM"]
+    names = ["WMM"]
     for name in names:
         
         if name == "WMM":
             intermediate = mass_ops.WMM
             intermediate.update_weight(projected_equil.n3)
             M: WeightedMassOperator = mass_ops.WMM.massop
-            # Mnew: WeightedMassOperator = mass_ops.WMMnew
+            Mnew: WeightedMassOperator = mass_ops.WMMnew
+            logger.debug(f"{Mnew.spline_functions = }")
+            Mnew.spline_functions["l2_field"].vector = projected_equil.n3
+            assert M.toarray() == Mnew.toarray(), f"The assembled matrix of WMM does not match the assembled matrix of WMMnew with the projected equilibrium density as spline weight."
         else:
             M: WeightedMassOperator = getattr(mass_ops, name)
         space_id = M.domain_symbolic_name

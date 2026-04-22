@@ -112,6 +112,31 @@ class DiscreteDerham:
         V0.diff = V0.grad = D0
         V1.diff = V1.curl = D1
         V2.diff = V2.div = D2
+        
+        # construct 1D FEM spaces H1 and L2 (serial, not distributed) in each direction, for building Kronecker matrices
+        self.H1_1d_serial = []
+        self.L2_1d_serial = []
+        for d in range(3):
+            H1_space = V0.spaces[d]
+            L2_space = V3.spaces[d]
+
+            # domain decomposition without MPI communicator (serial case) for building the 1D spaces
+            H1_domain_decomp = DomainDecomposition(
+                [H1_space.ncells],
+                [H1_space.periodic],
+            )
+            L2_domain_decomp = DomainDecomposition(
+                [L2_space.ncells],
+                [L2_space.periodic],
+            )
+            H1_space_tensor = TensorFemSpace(H1_domain_decomp, H1_space)
+            L2_space_tensor = TensorFemSpace(L2_domain_decomp, L2_space)
+
+            H1_space_tensor.symbolic_space = f"H1_1d_eta{d+1}"
+            L2_space_tensor.symbolic_space = f"L2_1d_eta{d+1}"
+            
+            self.H1_1d_serial.append(H1_space_tensor)
+            self.L2_1d_serial.append(L2_space_tensor)
 
     # --------------------------------------------------------------------------
     @property
@@ -163,6 +188,16 @@ class DiscreteDerham:
         a `FemField` of their `codomain`.
         """
         return tuple(V.diff for V in self.spaces[:-1])
+    
+    @property
+    def H1_1d_serial(self) -> tuple[TensorFemSpace, TensorFemSpace, TensorFemSpace]:
+        """The 1D H1 spaces in each direction (no domain decomposition), built from the corresponding 3D spaces."""
+        return tuple(self._H1_1d_serial)
+
+    @property
+    def L2_1d_serial(self) -> tuple[TensorFemSpace, TensorFemSpace, TensorFemSpace]:
+        """The 1D L2 spaces in each direction (no domain decomposition), built from the corresponding 3D spaces."""
+        return tuple(self._L2_1d_serial)
 
     # --------------------------------------------------------------------------
     def projectors(self, *, kind="global", nquads=None) -> tuple[GlobalGeometricProjector, ...]:
@@ -631,6 +666,8 @@ class Derham:
         self._V2fem = derham.V2
         self._V3fem = derham.V3
         self._Vvfem = derham.Vv
+        self._H1_1d_serial = derham.H1_1d_serial
+        self._L2_1d_serial = derham.L2_1d_serial
 
         # 1d spline spaces attributes for projector grids and polar extraction operators
         self._V0splines = SplineAttributes1D(
@@ -668,6 +705,30 @@ class Derham:
             polar_splines=self.polar_splines,
             local_projectors=local_projectors,
         )
+        
+        self._H1_1d_serial_splines = []
+        self._L2_1d_serial_splines = []
+        for n, (H1_space, L2_space) in enumerate(zip(self.H1_1d_serial, self.L2_1d_serial)):
+            self._H1_1d_serial_splines += [
+                SplineAttributes1D(
+                    H1_space,
+                    self.nquads[n],
+                    self.nquads_proj[n],
+                    polar_splines=False,  # the 1d spaces are not polar, even if the 3d space is
+                    local_projectors=False,
+                )
+            ]
+            self._L2_1d_serial_splines += [
+                SplineAttributes1D(
+                    L2_space,
+                    self.nquads[n],
+                    self.nquads_proj[n],
+                    polar_splines=False,  # the 1d spaces are not polar, even if the 3d space is
+                    local_projectors=False,
+                )
+            ]
+        self._H1_1d_serial_splines = tuple(self._H1_1d_serial_splines)
+        self._L2_1d_serial_splines = tuple(self._L2_1d_serial_splines)
 
         # break points in the three spatial directions
         self._breaks = [space.breaks for space in derham.V0.spaces]
@@ -941,6 +1002,16 @@ class Derham:
     def Vvfem(self) -> VectorFemSpace:
         """Psydac's finite element space for vector H1 fields (not part of the proper de Rham sequence, but useful for the projectors and polar extraction operators)."""
         return self._Vvfem
+    
+    @property
+    def H1_1d_serial(self) -> tuple[SplineSpace, SplineSpace, SplineSpace]:
+        """Tuple of 1D H1 spline spaces in each direction (no domain decomposition)."""
+        return self._H1_1d_serial
+    
+    @property
+    def L2_1d_serial(self) -> tuple[SplineSpace, SplineSpace, SplineSpace]:
+        """Tuple of 1D L2 spline spaces in each direction (no domain decomposition)."""
+        return self._L2_1d_serial
 
     @property
     def fem_spaces(self) -> dict[str, TensorFemSpace | VectorFemSpace]:
@@ -956,6 +1027,8 @@ class Derham:
             "Hdiv": self.V2fem,
             "L2": self.V3fem,
             "H1vec": self.Vvfem,
+            "H1_1d_serial": self.H1_1d_serial,
+            "L2_1d_serial": self.L2_1d_serial,
         }
 
     @property
@@ -982,6 +1055,16 @@ class Derham:
     def Vvsplines(self) -> SplineAttributes1D:
         """1D spline attributes for the H1^3 space (not part of the proper de Rham sequence, but useful for the projectors and polar extraction operators)."""
         return self._Vvsplines
+    
+    @property
+    def H1_1d_serial_splines(self) -> tuple[SplineAttributes1D]:
+        """Tuple of 1D spline attributes for the H1_1d_serial spaces in each direction."""
+        return self._H1_1d_serial_splines
+
+    @property
+    def L2_1d_serial_splines(self) -> tuple[SplineAttributes1D]:
+        """Tuple of 1D spline attributes for the L2_1d_serial spaces in each direction."""
+        return self._L2_1d_serial_splines
 
     @property
     def spline_attributes(self) -> dict[str, SplineAttributes1D]:
@@ -997,6 +1080,12 @@ class Derham:
             "Hdiv": self.V2splines,
             "L2": self.V3splines,
             "H1vec": self.Vvsplines,
+            "H1_1d_eta1": self.H1_1d_serial_splines[0],
+            "L2_1d_eta1": self.L2_1d_serial_splines[0],
+            "H1_1d_eta2": self.H1_1d_serial_splines[1],
+            "L2_1d_eta2": self.L2_1d_serial_splines[1],
+            "H1_1d_eta3": self.H1_1d_serial_splines[2],
+            "L2_1d_eta3": self.L2_1d_serial_splines[2],
         }
 
     @property
