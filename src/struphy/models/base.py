@@ -17,8 +17,9 @@ from struphy.physics.physics import Units
 from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.docstring_converter import info, rst_to_markdown, rst_to_html
+from struphy.utils.docstring_converter import info, rst_to_markdown, rst_to_html, auto_convert_docstring
 from struphy.utils.utils import all_class_params_are_default, all_subclasses
+from IPython.display import HTML, Markdown, display
 
 logger = logging.getLogger("struphy")
 
@@ -153,48 +154,6 @@ class StruphyModel(metaclass=StruphyModelMeta):
         """Model type (Fluid, Kinetic, Hybrid, or Toy)"""
         pass
 
-    @classmethod
-    @abstractmethod
-    def long_description(cls) -> str:
-        """Long description of the model, used in documentation."""
-        pass
-    
-    @classmethod
-    @abstractmethod
-    def equations(cls) -> str:
-        """Equations solved by the model (rst formatted), used in documentation."""
-        pass
-    
-    @classmethod
-    @abstractmethod
-    def scalar_quantities(cls) -> str:
-        """Scalar quantities tracked by the model (rst formatted), used in documentation."""
-        pass
-    
-    @classmethod
-    @abstractmethod
-    def normalization(cls) -> str:
-        """Normalization of the model (rst formatted), used in documentation."""
-        pass
-    
-    @classmethod
-    @abstractmethod
-    def examples(cls) -> str:
-        """Examples of the model instantiation, used in documentation."""
-        pass
-    
-    @classmethod
-    @abstractmethod
-    def use_cases(cls) -> str:
-        """Use cases for the model, used in documentation."""
-        pass
-    
-    @classmethod
-    @abstractmethod
-    def cannot_be_used_for(cls) -> str:
-        """Scenarios for which the model is not suitable, used in documentation."""
-        pass
-
     # --------------
     # Common methods
     # --------------
@@ -216,17 +175,69 @@ class StruphyModel(metaclass=StruphyModelMeta):
         return out
 
     @classmethod
-    def info(cls, use_rst=False):
-        return info(cls, use_rst=use_rst)
+    def info(cls):
+        doc = "**"
+        doc += cls.__doc__
+        doc += "**"
+        doc += rf"""To see detailed information on the model, run the following methods:
+        
+.. code-block:: python
+
+    {cls.name()}.long_description()
+    {cls.name()}.pde()
+    {cls.name()}.scalars()
+    {cls.name()}.normalization()
+    {cls.name()}.examples()
+    {cls.name()}.use_cases()
+    {cls.name()}.cannot_be_used_for()
+"""
+        return display(HTML(rst_to_html(doc)))
+
+    @classmethod
+    def long_description(cls):
+        doc = "**Long description:**\n"
+        doc += cls.doc_long_description.__doc__ if cls.doc_long_description else """Long description not available for this model."""   
+        return display(HTML(rst_to_html(doc)))
+    
+    @classmethod
+    def pde(cls):
+        doc = "**Model PDE:**\n"
+        doc += cls.doc_pde.__doc__ if cls.doc_pde else """PDE description not available for this model."""
+        return display(HTML(rst_to_html(doc)))
+    
+    @classmethod
+    def scalars(cls):
+        doc = "**Scalar quantities:**\n"
+        doc += cls.doc_scalar_quantities.__doc__ if cls.doc_scalar_quantities else """Description of scalar quantities not available for this model."""
+        return display(HTML(rst_to_html(doc)))
+    
+    @classmethod
+    def normalization(cls):
+        doc = "**Normalization:**\n"
+        doc += cls.doc_normalization.__doc__ if cls.doc_normalization else """Description of normalization not available for this model."""
+        return display(HTML(rst_to_html(doc)))
+    
+    @classmethod
+    def examples(cls):
+        doc = "**Examples:**\n"
+        doc += cls.doc_examples.__doc__ if cls.doc_examples else """Examples not available for this model."""
+        return display(HTML(rst_to_html(doc)))
+    
+    @classmethod
+    def use_cases(cls):
+        doc = "**Use cases:**\n"
+        doc += cls.doc_use_cases.__doc__ if cls.doc_use_cases else """Description of use cases not available for this model."""
+        return display(HTML(rst_to_html(doc)))
+    
+    @classmethod
+    def cannot_be_used_for(cls):
+        doc = "**Cannot be used for:**\n"
+        doc += cls.doc_cannot_be_used_for.__doc__ if cls.doc_cannot_be_used_for else """Information on scenarios for which the model is not suitable is not available."""
+        return display(HTML(rst_to_html(doc)))
 
     @classmethod
     def name(cls) -> str:
         return cls.__name__
-
-    @classmethod
-    def short_description(cls) -> str:
-        assert cls.__doc__, "Docstring is required for every model."
-        return cls.__doc__
 
     @classmethod
     def create_doc(cls) -> "Documentation":
@@ -945,16 +956,16 @@ class Documentation:
     def __init__(self, 
                 cls: StruphyModel,
                 ):
-        self.short_description = self.Content(cls.short_description)
-        self.long_description = self.Content(cls.long_description)
-        self.equations = self.Content(cls.equations)
-        self.scalar_quantities = cls.Content(cls.scalar_quantities)
+        self.description = self.Content(cls.__doc__ if cls.__doc__ else "Description not available for this model.")
+        self.long_description = self.Content(cls.doc_long_description.__doc__ if cls.doc_long_description else "Long description not available for this model.")
+        self.pde = self.Content(cls.doc_pde.__doc__ if cls.doc_pde else "PDE description not available for this model.")
+        self.scalar_quantities = self.Content(cls.doc_scalar_quantities.__doc__ if cls.doc_scalar_quantities else "Description of scalar quantities not available for this model.")
+        self.normalization = self.Content(cls.doc_normalization.__doc__ if cls.doc_normalization else "Description of normalization not available for this model.")
+        self.examples = self.Content(cls.doc_examples.__doc__ if cls.doc_examples else "Examples not available for this model.")
+        self.use_cases = self.Content(cls.doc_use_cases.__doc__ if cls.doc_use_cases else "Use cases not available for this model.")
+        self.cannot_be_used_for = self.Content(cls.doc_cannot_be_used_for.__doc__ if cls.doc_cannot_be_used_for else "Information on scenarios for which the model is not suitable is not available.")
         self.model_properties = f"- **Model type:** {cls.model_type()}\n- **Velocity scale:** {cls.velocity_scale}\n- **Bulk species:** {cls.bulk_species}"
-        self.normalization = self.Content(cls.normalization)
-        self.examples = self.Content(cls.examples)
-        self.use_cases = self.Content(cls.use_cases)
-        self.cannot_be_used_for = self.Content(cls.cannot_be_used_for)
-        
+
     class Content:
         def __init__(self, rst, md=None, html=None):
             self.rst = rst
