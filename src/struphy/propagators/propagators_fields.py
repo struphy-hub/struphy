@@ -520,7 +520,7 @@ class JxBCold(Propagator):
 
 
 class ShearAlfven(Propagator):
-    r""":ref:`FEEC <gempic>` discretization of the following equations:
+    r"""FEEC discretization of the following equations:
     find :math:`\mathbf U \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}` and  :math:`\mathbf B \in H(\textnormal{div})` such that
 
     .. math::
@@ -531,7 +531,7 @@ class ShearAlfven(Propagator):
         &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
         = 0\,.
 
-    :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`:
+    Time discretization: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`:
 
     .. math::
 
@@ -540,7 +540,7 @@ class ShearAlfven(Propagator):
         \begin{bmatrix} {\mathbb M^\rho_\alpha}(\mathbf u^{n+1} + \mathbf u^n) \\ \mathbb M_2(\mathbf b^{n+1} + \mathbf b^n) \end{bmatrix} ,
 
     where :math:`\alpha \in \{1, 2, v\}` and :math:`\mathbb M^\rho_\alpha` is a weighted mass matrix in :math:`\alpha`-space, the weight being :math:`\rho_0`,
-    the MHD equilibirum density. The solution of the above system is based on the :ref:`Schur complement <schur_solver>`.
+    the MHD equilibirum density. The solution of the above system is based on the Schur complement.
     """
 
     class Variables:
@@ -1020,11 +1020,11 @@ class Hall(Propagator):
 
 
 class Magnetosonic(Propagator):
-    r"""
-    :ref:`FEEC <gempic>` discretization of the following equations:
+    r"""FEEC discretization of the following equations:
     find :math:`\tilde \rho \in L^2, \tilde{\mathbf U} \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}, \tilde p \in L^2` such that
 
     .. math::
+
         &\frac{\partial \tilde \rho}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,,
 
         \int \rho_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V\,\textrm d \mathbf x  - \int \tilde p\, \nabla \cdot \mathbf V \,\textrm d \mathbf x
@@ -1034,7 +1034,7 @@ class Magnetosonic(Propagator):
         &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}})
         + \frac{2}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,.
 
-    :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`:
+    Time discretization: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`:
 
     .. math::
 

@@ -642,7 +642,7 @@ def rst_to_html(rst_text: str) -> str:
         return f"<!--CODEBLOCK{len(code_blocks) - 1}-->"
 
     # Match .. code-block:: python (or any language) followed by optional blank line and indented content
-    html = re.sub(r"\.\. code-block::[^\n]*\n(?:\n)?((?:[ \t]+.*\n)*)", save_code_block, html)
+    html = re.sub(r"\.\. code-block::[^\n]*\n(?:\n)?((?:(?:[ \t]+[^\n]*|[ \t]*)\n)*)", save_code_block, html)
 
     # Extract and convert math blocks
     math_blocks = []

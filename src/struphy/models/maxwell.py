@@ -20,6 +20,11 @@ rank = MPI.COMM_WORLD.Get_rank()
 @auto_convert_docstring
 class Maxwell(StruphyModel):
     """Maxwell's equations in vacuum for electromagnetic field evolution.
+    
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
     """
 
     ## species
@@ -139,8 +144,8 @@ where :math:`c` is the speed of light."""
     
     model = Maxwell()
     # Fields are accessible via:
-    # model.em_fields.e_field
-    # model.em_fields.b_field
+    model.em_fields.e_field
+    model.em_fields.b_field
 """  
     
     @classmethod
