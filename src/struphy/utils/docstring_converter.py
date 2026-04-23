@@ -655,9 +655,11 @@ def rst_to_html(rst_text: str) -> str:
         # Remove leading indentation consistently
         cleaned_lines = [line.strip() for line in math_lines if line.strip()]
 
-        # Treat each non-empty line as a separate display row. Alignment markers
-        # and explicit LaTeX line breaks are still handled when present.
-        is_multiline = len(cleaned_lines) > 1 or any("&" in line or "\\\\" in line for line in cleaned_lines)
+        # Treat each non-empty line as a separate display row. Align only on
+        # '&=' anchors (align-environment style) so matrix '&' separators do
+        # not trigger equation-column splitting.
+        has_equals_align = any(re.search(r"&\s*=", line) for line in cleaned_lines)
+        is_multiline = len(cleaned_lines) > 1 or has_equals_align or any("\\\\" in line for line in cleaned_lines)
 
         if is_multiline:
             # Preserve multiline structure and align on '&' (LaTeX align-style).
@@ -668,10 +670,10 @@ def rst_to_html(rst_text: str) -> str:
                 if not line:
                     continue
 
-                if "&" in line:
-                    lhs_raw, rhs_raw = line.split("&", 1)
+                if re.search(r"&\s*=", line):
+                    lhs_raw, rhs_raw = re.split(r"&\s*=", line, maxsplit=1)
                     lhs = latex_to_unicode(lhs_raw.strip(), display_mode=True)
-                    rhs = latex_to_unicode(rhs_raw.strip(), display_mode=True)
+                    rhs = latex_to_unicode("=" + rhs_raw.strip(), display_mode=True)
                     aligned_rows.append(
                         "<tr>"
                         '<td style="text-align:right;padding-right:0.35em;vertical-align:middle;white-space:nowrap;">'
