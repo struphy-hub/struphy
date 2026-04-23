@@ -2,7 +2,7 @@ import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import BaseUnits
-from struphy.feec.projectors import L2Projector
+from struphy.feec.mass import L2Projector
 from struphy.io.options import LiteralOptions
 from struphy.kinetic_background.base import KineticBackground
 from struphy.models.base import StruphyModel
