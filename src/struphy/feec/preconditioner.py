@@ -86,8 +86,8 @@ class MassMatrixPreconditioner(LinearOperator):
         derham = mass_operator.derham
         logger.debug(f"{derham.num_elements = }, {derham.bcs = }, {derham.degree = }")
         comm = derham.comm
-        rank = comm.Get_rank()
         if not isinstance(comm, (MockComm, type(None))):
+            rank = comm.Get_rank()
             dom_arr = derham.domain_array
             selected_ranks = []
             left = 0.0
@@ -144,7 +144,9 @@ class MassMatrixPreconditioner(LinearOperator):
                         logger.debug(
                             f"{fun.size = } for component {c} and direction {d} before gathering on all processes."
                         )
-                        if local_fun.size < npts:
+                        if (
+                            local_fun.size < npts
+                        ):  # this branch is only entered if comm exists (and thus subcomm has been initialized)
                             if subcomm != MPI.COMM_NULL:
                                 subcomm.Allgather(local_fun, fun)
                             comm.Bcast(fun, root=selected_ranks[0])

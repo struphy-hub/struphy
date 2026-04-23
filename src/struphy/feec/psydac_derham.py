@@ -187,7 +187,7 @@ class DiscreteDerham:
         they act on `FemField` (they take a `FemField` of their `domain` as input and return
         a `FemField` of their `codomain`.
         """
-        return tuple(V.diff for V in self.spaces[:-1])
+        return tuple(V.diff for V in self.spaces[:-2])
 
     @property
     def H1_1d_serial(self) -> tuple[TensorFemSpace, TensorFemSpace, TensorFemSpace]:

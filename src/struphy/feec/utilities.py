@@ -72,7 +72,7 @@ class LocalVector:
     """For a given triple of callables representing the components of a vector-valued function a(e1, e2, e3),
     represents the local vector a at (e1, e2, e3) as a 4D numpy array, with the three components in the last index.
 
-    The local scalar product can thus be comuted using numpy's vecdot function, operating on the last index.
+    The local scalar product can thus be computed using numpy's vecdot function, operating on the last index.
 
     Parameters
     ----------
