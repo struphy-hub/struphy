@@ -7,6 +7,7 @@ from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarPIC, Scalars
 from struphy.models.species import (
     FieldSpecies,
     ParticleSpecies,
@@ -173,10 +174,17 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         if with_B0:
             self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_E")
-        self.add_scalar("en_w", compute="from_particles", variable=self.kinetic_ions.var)
-        self.add_scalar("en_tot")
+        # 5. define scalars to be tracked during simulation
+        electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
+        particle_energy = FunctionScalarPIC(
+            self._compute_en_w,
+            self.kinetic_ions.var,
+        )
+        self.scalars = Scalars(
+            en_E=electric_energy,
+            en_w=particle_energy,
+            en_tot=electric_energy + particle_energy,
+        )
 
         # initial Poisson (not a propagator used in time stepping)
         self.initial_poisson = propagators_fields.Poisson()
@@ -237,13 +245,8 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
             logger.info("... Done.")
 
-    def update_scalar_quantities(self):
-        # e*M1*e/2
-        e = self.em_fields.e_field.spline.vector
+    def _compute_en_w(self):
         particles = self.kinetic_ions.var.particles
-
-        en_E = 0.5 * Propagator.mass_ops.M1.dot_inner(e, e)
-        self.update_scalar("en_E", en_E)
 
         # evaluate f0
         if not hasattr(self, "_f0"):
@@ -273,9 +276,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
                 particles.sampling_density / self._f0_values[particles.valid_mks],  # s_{0,p} / f_{0,p}
             )
         )
-
-        self.update_scalar("en_w", self._tmp[0])
-        self.update_scalar("en_tot", self._tmp[0] + en_E)
+        return self._tmp[0]
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
