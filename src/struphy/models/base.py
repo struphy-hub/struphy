@@ -116,6 +116,13 @@ class StruphyModel(metaclass=StruphyModelMeta):
     # ----------------
     # Abstract methods
     # ----------------
+
+    @classmethod
+    @abstractmethod
+    def model_type(cls) -> LiteralOptions.ModelTypes:
+        """Model type (Fluid, Kinetic, Hybrid, or Toy)"""
+        pass
+
     @abstractmethod
     class Propagators:
         pass
