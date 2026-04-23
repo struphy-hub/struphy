@@ -2844,9 +2844,8 @@ class VariationalMomentumAdvection(Propagator):
             assert new.space == "H1vec"
             self._u = new
 
-    def __init__(self, rho: FEECVariable):
+    def __init__(self):
         self.variables = self.Variables()
-        self.rho = rho
 
     @dataclass
     class Options:
@@ -3678,9 +3677,8 @@ class VariationalEntropyEvolve(Propagator):
             assert new.space == "H1vec"
             self._u = new
 
-    def __init__(self, rho: FEECVariable):
+    def __init__(self):
         self.variables = self.Variables()
-        self.rho = rho
 
     @dataclass
     class Options:

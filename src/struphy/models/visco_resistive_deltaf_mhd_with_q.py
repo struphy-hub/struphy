@@ -85,12 +85,11 @@ class ViscoResistiveDeltafMHD_with_q(StruphyModel):
     class Propagators:
         def __init__(
             self,
-            rho: FEECVariable,
             with_viscosity: bool = True,
             with_resistivity: bool = True,
         ):
             self.variat_dens = propagators_fields.VariationalDensityEvolve()
-            self.variat_mom = propagators_fields.VariationalMomentumAdvection(rho=rho)
+            self.variat_mom = propagators_fields.VariationalMomentumAdvection()
             self.variat_qb = propagators_fields.VariationalQBEvolve()
             if with_viscosity:
                 self.variat_viscous = propagators_fields.VariationalViscosity()
@@ -117,7 +116,6 @@ class ViscoResistiveDeltafMHD_with_q(StruphyModel):
 
         # 3. instantiate all propagators
         self.propagators = self.Propagators(
-            rho=self.mhd.density,
             with_viscosity=with_viscosity,
             with_resistivity=with_resistivity,
         )
