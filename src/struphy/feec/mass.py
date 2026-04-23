@@ -1922,7 +1922,7 @@ class WeightedMassOperator(LinOpWithTransp):
                         # evalute splines and multiply
                         for name, spline in self.spline_functions.items():
                             logger.debug(
-                                f"Maximum coefficient if spline {name}: {xp.max(xp.abs(spline.vector.toarray()))}"
+                                f"Maximum coefficient of spline {name}: {xp.max(xp.abs(spline.vector.toarray()))}"
                             )
                             values = spline.eval_tp_fixed_loc(
                                 self.spans[name],
