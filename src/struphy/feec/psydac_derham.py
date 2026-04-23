@@ -45,6 +45,13 @@ from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearO
 from struphy.topology.grids import TensorProductGrid
 
 NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
+space_to_form = {
+    "H1": "0",
+    "Hcurl": "1",
+    "Hdiv": "2",
+    "L2": "3",
+    "H1vec": "v",
+}
 
 logger = logging.getLogger("struphy")
 

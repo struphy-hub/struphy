@@ -159,7 +159,7 @@ class Propagator(metaclass=ABCMeta):
         return self._derham
 
     @derham.setter
-    def derham(self, derham):
+    def derham(self, derham: Derham):
         assert isinstance(derham, Derham)
         self._derham = derham
 
@@ -171,7 +171,7 @@ class Propagator(metaclass=ABCMeta):
         return self._domain
 
     @domain.setter
-    def domain(self, domain):
+    def domain(self, domain: Domain):
         assert isinstance(domain, Domain)
         self._domain = domain
 
@@ -183,7 +183,7 @@ class Propagator(metaclass=ABCMeta):
         return self._mass_ops
 
     @mass_ops.setter
-    def mass_ops(self, mass_ops):
+    def mass_ops(self, mass_ops: WeightedMassOperators):
         assert isinstance(mass_ops, WeightedMassOperators)
         self._mass_ops = mass_ops
 
@@ -195,7 +195,7 @@ class Propagator(metaclass=ABCMeta):
         return self._basis_ops
 
     @basis_ops.setter
-    def basis_ops(self, basis_ops):
+    def basis_ops(self, basis_ops: BasisProjectionOperators):
         assert isinstance(basis_ops, BasisProjectionOperators)
         self._basis_ops = basis_ops
 
@@ -210,7 +210,7 @@ class Propagator(metaclass=ABCMeta):
         return self._projected_equil
 
     @projected_equil.setter
-    def projected_equil(self, new):
+    def projected_equil(self, new: ProjectedFluidEquilibriumWithB):
         assert isinstance(new, ProjectedFluidEquilibriumWithB)
         self._projected_equil = new
 
