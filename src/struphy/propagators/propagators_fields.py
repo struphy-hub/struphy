@@ -29,9 +29,8 @@ from struphy.feec.basis_projection_ops import (
     CoordinateProjector,
 )
 from struphy.feec.linear_operators import BoundaryOperator
-from struphy.feec.mass import WeightedMassOperator, WeightedMassOperators
+from struphy.feec.mass import L2Projector, WeightedMassOperator, WeightedMassOperators
 from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner, MassMatrixPreconditioner
-from struphy.feec.projectors import L2Projector
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.feec.variational_utilities import (
     BracketOperator,
@@ -2226,9 +2225,9 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         def bf3(x, y, z):
             return self._bf(x, y, z, local=True)[2]
 
-        from struphy.feec.utilities import RotationMatrix
+        from struphy.feec.utilities import LocalRotationMatrix
 
-        rot_B = RotationMatrix(bf1, bf2, bf3)
+        rot_B = LocalRotationMatrix(bf1, bf2, bf3)
 
         fun = []
 
@@ -3375,7 +3374,7 @@ class VariationalDensityEvolve(Propagator):
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and `CoordinateProjector` needed to compute the bracket term"""
 
-        from struphy.feec.projectors import L2Projector
+        from struphy.feec.mass import L2Projector
         from struphy.feec.variational_utilities import L2_transport_operator
 
         # Initialize the transport operator and transposed
@@ -3396,7 +3395,7 @@ class VariationalDensityEvolve(Propagator):
             recycle=True,
         )
 
-        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V0splines.quad_grid_pts]
+        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V0splines.quad_grid_pts[0]]
 
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
             self.derham.prepare_eval_tp_fixed(
@@ -3567,10 +3566,10 @@ class VariationalDensityEvolve(Propagator):
             self._energy_evaluator.evaluate_discrete_d2e_drho2_grid(rhon, rhon1, sn, out=self._tmp_int_grid)
             self._tmp_int_grid *= self._proj_drho_metric_term
 
-            self._M_drho.assemble([[self._tmp_int_grid]], verbose=False)
+            self._M_drho.assemble([[self._tmp_int_grid]])
 
         else:
-            self._M_drho.assemble([[0.0 * self._tmp_int_grid]], verbose=False)
+            self._M_drho.assemble([[0.0 * self._tmp_int_grid]])
 
         # This way we can update only the scalar multiplying the operator and avoid creating multiple operators
         self._dt_pc_divPirhoT._scalar = dt
@@ -3837,7 +3836,7 @@ class VariationalEntropyEvolve(Propagator):
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and `CoordinateProjector` needed to compute the bracket term"""
 
-        from struphy.feec.projectors import L2Projector
+        from struphy.feec.mass import L2Projector
         from struphy.feec.variational_utilities import L2_transport_operator
 
         # Initialize the transport operator and transposed
@@ -3904,7 +3903,7 @@ class VariationalEntropyEvolve(Propagator):
         # L2-projector for V3
         self._get_L2dofs_V3 = L2Projector("L2", self.mass_ops).get_dofs
 
-        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts]
+        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts[0]]
 
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
             self.derham.prepare_eval_tp_fixed(
@@ -3980,7 +3979,7 @@ class VariationalEntropyEvolve(Propagator):
             self._energy_evaluator.evaluate_discrete_d2e_ds2_grid(rhon, sn, sn1, out=self._tmp_int_grid)
             self._tmp_int_grid *= self._proj_ds_metric_term
 
-            self._M_ds.assemble([[self._tmp_int_grid]], verbose=False)
+            self._M_ds.assemble([[self._tmp_int_grid]])
 
         # This way we can update only the scalar multiplying the operator and avoid creating multiple operators
         self._dt_pc_divPisT._scalar = dt
@@ -4784,7 +4783,7 @@ class VariationalPBEvolve(Propagator):
         self._transop_p = Pressure_transport_operator(self.derham, self.domain, self.basis_ops.Uv, self._gamma)
         self._transop_pT = self._transop_p.T
 
-        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts]
+        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts[0]]
 
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
             self.derham.prepare_eval_tp_fixed(
@@ -5371,7 +5370,7 @@ class VariationalQBEvolve(Propagator):
         self._transop_q = Pressure_transport_operator(self.derham, self.domain, self.basis_ops.Uv, self._gamma / 2.0)
         self._transop_qT = self._transop_q.T
 
-        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts]
+        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts[0]]
 
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
             self.derham.prepare_eval_tp_fixed(
@@ -5894,7 +5893,7 @@ class VariationalViscosity(Propagator):
                 )
                 deds *= self._mass_metric_term
 
-                self.M_de_ds.assemble([[deds]], verbose=False)
+                self.M_de_ds.assemble([[deds]])
                 self.pc_jac.update_mass_operator(self.M_de_ds)
 
             elif self._model in ["full_q", "linear_q", "deltaf_q"]:
@@ -5907,7 +5906,7 @@ class VariationalViscosity(Propagator):
                 deds *= 2 / (self._gamma - 1.0)
                 deds *= self._mass_metric_term
 
-                self.M_de_ds.assemble([[deds]], verbose=False)
+                self.M_de_ds.assemble([[deds]])
                 self.pc_jac.update_mass_operator(self.M_de_ds)
 
             incr = self.inv_jac.dot(self.tot_rhs, out=self._tmp_sn_incr)
@@ -6027,7 +6026,7 @@ class VariationalViscosity(Propagator):
 
         self.evol_op = self.inv_lop @ self.r_op
         # self.evol_op = IdentityOperator(self.derham.Vvpol)
-        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts]
+        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts[0]]
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
             self.derham.prepare_eval_tp_fixed(
                 integration_grid,
@@ -6121,7 +6120,7 @@ class VariationalViscosity(Propagator):
             deds += 1 / (self._gamma - 1.0)
             deds *= self._mass_metric_term
 
-            self.M_de_ds.assemble([[deds]], verbose=False)
+            self.M_de_ds.assemble([[deds]])
             self.pc_jac.update_mass_operator(self.M_de_ds)
 
         elif self._model in ["full_q", "linear_q", "deltaf_q"]:
@@ -6229,7 +6228,6 @@ class VariationalViscosity(Propagator):
                     gu_sq_v * self._mass_M1_metric[2, 2],
                 ],
             ],
-            verbose=False,
         )
 
         # gu_sq_v *= 2.
@@ -6655,7 +6653,7 @@ class VariationalResistivity(Propagator):
                 )
                 deds *= self._mass_metric_term
 
-                self.M_de_ds.assemble([[deds]], verbose=False)
+                self.M_de_ds.assemble([[deds]])
                 self.pc_jac.update_mass_operator(self.M_de_ds)
 
             elif self._model in ["full_q", "linear_q", "deltaf_q"]:
@@ -6667,7 +6665,7 @@ class VariationalResistivity(Propagator):
                 deds *= 2 / (self._gamma - 1.0)
                 deds *= self._mass_metric_term
 
-                self.M_de_ds.assemble([[deds]], verbose=False)
+                self.M_de_ds.assemble([[deds]])
                 self.pc_jac.update_mass_operator(self.M_de_ds)
 
             incr = self.inv_jac.dot(self.tot_rhs, out=self._tmp_sn_incr)
@@ -6804,7 +6802,7 @@ class VariationalResistivity(Propagator):
         self.M_de_ds = self.mass_ops.create_weighted_mass("L2", "L2")
 
         D = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
-        self.M1_cb = self.mass_ops.create_weighted_mass("Hcurl", "Hcurl", weights=[D, "sqrt_g"])
+        self.M1_cb = self.mass_ops.create_weighted_mass("Hcurl", "Hcurl", weights=(D, "sqrt_g"))
 
         if self.options.precond is None:
             self.pc = None
@@ -6857,7 +6855,7 @@ class VariationalResistivity(Propagator):
 
         self.evol_op = self.inv_lop @ self.r_op
         # self.evol_op = IdentityOperator(self.derham.Vvpol)
-        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts]
+        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts[0]]
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
             self.derham.prepare_eval_tp_fixed(
                 integration_grid,
@@ -6932,7 +6930,7 @@ class VariationalResistivity(Propagator):
             deds += 1 / (self._gamma - 1.0)
             deds *= self._mass_metric_term
 
-            self.M_de_ds.assemble([[deds]], verbose=False)
+            self.M_de_ds.assemble([[deds]])
             self.pc_jac.update_mass_operator(self.M_de_ds)
 
         elif self._model in ["full_q", "linear_q", "deltaf_q"]:
@@ -7013,7 +7011,6 @@ class VariationalResistivity(Propagator):
                         cb_sq_v * self._sq_term_metric[2, 2],
                     ],
                 ],
-                verbose=False,
             )
 
             cb_sq_v += dt * self._eta
@@ -7478,7 +7475,7 @@ class HasegawaWakatani(Propagator):
         self._nu = self.options.nu
 
         # get quadrature grid of V0
-        pts = [grid.flatten() for grid in self.derham.V0splines.quad_grid_pts]
+        pts = [grid.flatten() for grid in self.derham.V0splines.quad_grid_pts[0]]
         mesh_pts = xp.meshgrid(*pts, indexing="ij")
 
         # evaluate c(x, y) and metric coeff at local quadrature grid and multiply
@@ -7626,7 +7623,6 @@ class HasegawaWakatani(Propagator):
 
         self._M1hw.assemble(
             weights=self._M1hw_weights,
-            verbose=False,
         )
 
         # solve with RK
@@ -7805,8 +7801,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._mass_ops_v0 = WeightedMassOperators(
             self._derham_v0,
             self.domain,
-            verbose=self.options.solver_params.verbose,
-            eq_mhd=self.mass_ops.weights["eq_mhd"],
+            eq_mhd=self.mass_ops.eq_mhd,
         )
         self._basis_ops_v0 = BasisProjectionOperators(
             self._derham_v0,
