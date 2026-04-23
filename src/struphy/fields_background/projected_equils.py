@@ -1,3 +1,5 @@
+import logging
+
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilVector
 
@@ -7,6 +9,8 @@ from struphy.fields_background.base import (
     FluidEquilibriumWithB,
     MHDequilibrium,
 )
+
+logger = logging.getLogger("struphy")
 
 
 class ProjectedFluidEquilibrium:
@@ -19,8 +23,8 @@ class ProjectedFluidEquilibrium:
         self._derham = derham
 
         if verbose and derham.comm.Get_rank() == 0:
-            print(f"Projecting equilibrium '{equil.__class__.__name__}' into Derham spaces ...")
-            print(f"{self.derham = }")
+            logger.info(f"Projecting equilibrium '{equil.__class__.__name__}' into Derham spaces ...")
+            logger.info(f"{self.derham = }")
 
         # commuting projectors
         self._P0 = derham.P0
@@ -37,7 +41,7 @@ class ProjectedFluidEquilibrium:
         self._EvT = derham.extraction_ops["v"].transpose()
 
         if verbose and derham.comm.Get_rank() == 0:
-            print("... Done.")
+            logger.info("... Done.")
 
     @property
     def equil(self):

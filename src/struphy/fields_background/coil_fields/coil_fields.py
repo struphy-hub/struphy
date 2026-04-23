@@ -1,3 +1,5 @@
+import logging
+
 import cunumpy as xp
 
 from struphy.feec.psydac_derham import Derham
@@ -5,12 +7,14 @@ from struphy.fields_background.coil_fields.base import CoilMagneticField, load_c
 from struphy.io.options import DerhamOptions
 from struphy.topology.grids import TensorProductGrid
 
+logger = logging.getLogger("struphy")
+
 
 class RatGUI(CoilMagneticField):
     """Interface to RatGUI."""
 
     def __init__(self, csv_path=None, num_elements=[16, 16, 16], degree=[3, 3, 3], domain=None, **params):
-        print("Hello.")
+        logger.info("Hello.")
         self._csv_path = csv_path
 
         # TODO: load csv data from absolute/relative path
@@ -37,14 +41,14 @@ class RatGUI(CoilMagneticField):
         self.rhs[1][:] = B_Z
         self.rhs[2][:] = B_phi
 
-        print(f"{self.rhs =}")
-        print(f"{derham.Vvsplines.nbasis =}")
-        print(f"{self.rhs[0] =}")
-        print(f"{self.rhs[1] =}")
-        print(f"{self.rhs[2] =}")
-        print(f"{self.rhs[0][:].shape =}")
-        print(f"{self.rhs[1][:].shape =}")
-        print(f"{self.rhs[2][:].shape =}")
+        logger.info(f"{self.rhs =}")
+        logger.info(f"{derham.Vvsplines.nbasis =}")
+        logger.info(f"{self.rhs[0] =}")
+        logger.info(f"{self.rhs[1] =}")
+        logger.info(f"{self.rhs[2] =}")
+        logger.info(f"{self.rhs[0][:].shape =}")
+        logger.info(f"{self.rhs[1][:].shape =}")
+        logger.info(f"{self.rhs[2][:].shape =}")
         # We need to choose num_elements and degree such that the csv_data fits into this vector.
         # For a periodic direction, the size of the vector is num_elements, for non-periodic the size is num_elements + degree.
 

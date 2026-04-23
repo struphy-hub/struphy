@@ -1,3 +1,4 @@
+import logging
 import os
 from abc import ABCMeta, abstractmethod
 from textwrap import indent
@@ -8,6 +9,7 @@ from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
 from scope_profiler import ProfileManager
 
+from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.species import DiagnosticSpecies, FieldSpecies, FluidSpecies, ParticleSpecies, Species
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
@@ -15,8 +17,10 @@ from struphy.physics.physics import Units
 from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.docstring_converter import rst_to_markdown, rst_to_html
+from struphy.utils.docstring_converter import info, rst_to_markdown, rst_to_html
 from struphy.utils.utils import all_class_params_are_default, all_subclasses
+
+logger = logging.getLogger("struphy")
 
 
 class StruphyModelMeta(ABCMeta):
@@ -122,7 +126,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
 
     @abstractmethod
     def __init__(self):
-        """Light-weight init of model."""
+        pass
 
     @property
     @abstractmethod
@@ -213,47 +217,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
 
     @classmethod
     def info(cls, use_rst=False):
-        """
-        Render a class or docstring in a Jupyter notebook.
-
-        This function returns an IPython display object that will render
-        the docstring with proper formatting in Jupyter notebooks.
-
-        Args:
-            cls: Class or function whose docstring to display
-            use_rst: If True and __doc_rst__ exists, use that instead of __doc__
-
-        Returns:
-            IPython.display object for rendering in Jupyter
-
-        Examples:
-            >>> from struphy.models.maxwell import Maxwell
-            >>> Maxwell.equations()  # Shows HTML version
-            >>> Maxwell.equations(use_rst=True)  # Shows RST as Markdown
-        """
-        try:
-            from IPython.display import HTML, Markdown
-        except ImportError:
-            print("IPython not available. Install jupyter to use this feature.")
-            return None
-
-        # Determine which docstring to use
-        if use_rst and hasattr(cls, "__doc_rst__"):
-            doc_text = cls.__doc_rst__
-            # Convert RST to Markdown for better Jupyter rendering
-            md_text = rst_to_markdown(doc_text)
-            return Markdown(md_text)
-        elif hasattr(cls, "__doc__") and cls.__doc__:
-            # Check if it's HTML (contains tags)
-            doc_text = cls.__doc__
-            if "<" in doc_text and ">" in doc_text:
-                # It's HTML
-                return HTML(doc_text)
-            else:
-                # Plain text or RST, show as is
-                return Markdown(doc_text)
-        else:
-            return Markdown("*No docstring available*")
+        return info(cls, use_rst=use_rst)
 
     @classmethod
     def name(cls) -> str:
@@ -399,19 +363,37 @@ class StruphyModel(metaclass=StruphyModelMeta):
         sq_str = ""
         for key, scalar_dict in self._scalar_quantities.items():
             val = scalar_dict["value"]
+            # logger.info(f"{key}: {val[0]}")  # TODO: use logger --- IGNORE ---
             assert not xp.isnan(val[0]), f"Scalar {key} is {val[0]}."
             sq_str += f"{key}:".ljust(25) + "{:4.2e}\n".format(val[0]).rjust(26)
-        print(sq_str)
+        logger.info(sq_str)
 
-    def setup_equation_params(self, units: Units, verbose=False):
-        """Set euqation parameters for each fluid and kinetic species."""
+    def setup_equation_params(self, base_units: BaseUnits, verbose=False):
+        """Compute units and set equation parameters for each fluid and kinetic species."""
+        self.base_units = base_units
+        self.units = Units(base_units)
+
+        if self.bulk_species is None:
+            A_bulk = None
+            Z_bulk = None
+        else:
+            A_bulk = self.bulk_species.mass_number
+            Z_bulk = self.bulk_species.charge_number
+
+        self.units.derive_units(
+            velocity_scale=self.velocity_scale,
+            A_bulk=A_bulk,
+            Z_bulk=Z_bulk,
+            verbose=verbose,
+        )
+
         for _, species in self.fluid_species.items():
             assert isinstance(species, FluidSpecies)
-            species.setup_equation_params(units=units, verbose=verbose)
+            species.setup_equation_params(units=self.units, verbose=verbose)
 
         for _, species in self.particle_species.items():
             assert isinstance(species, ParticleSpecies)
-            species.setup_equation_params(units=units, verbose=verbose)
+            species.setup_equation_params(units=self.units, verbose=verbose)
 
     @profile
     def integrate(self, dt, split_algo="LieTrotter"):
@@ -580,7 +562,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
             if yn in ("", "Y", "y", "yes", "Yes"):
                 file = open(path, "w")
             else:
-                print("exiting ...")
+                logger.info("exiting ...")
                 exit()
         except FileNotFoundError:
             folder = os.path.join("/", *path.split("/")[:-1])
@@ -592,11 +574,10 @@ class StruphyModel(metaclass=StruphyModelMeta):
                 os.makedirs(folder)
                 file = open(path, "x")
             else:
-                print("exiting ...")
+                logger.info("exiting ...")
                 exit()
 
         # loop over species to create parameter snippets
-        species_params = ""
         variables_params = ""
         particle_params = """\n# -------------------
 # Particle parameters
@@ -607,7 +588,6 @@ class StruphyModel(metaclass=StruphyModelMeta):
         has_sph = False
         for sn, species in self.species.items():
             assert isinstance(species, Species)
-            species_params += f"model.{sn}.set_species_properties()\n"
 
             if isinstance(species, ParticleSpecies):
                 particle_params += "\nloading_params = LoadingParameters()\n"
@@ -691,6 +671,11 @@ the environment options, the time stepping options, the geometry, the equilibriu
 the grid, the Derham options, and the initial conditions. 
 Users can modify this file to set up their own simulations with different parameters and initial conditions.\n\"\"\"\n""")
 
+        file.write("""
+import logging
+from struphy import set_logging_level
+set_logging_level(logging.WARNING)\n""")
+
         file.write("""\n# ------------------
 # Import Struphy API
 # ------------------\n""")
@@ -723,10 +708,12 @@ Users can modify this file to set up their own simulations with different parame
 # ---------------------\n""")
 
         file.write(f"\nfrom struphy.models import {self.__class__.__name__}\n")
-        file.write(f"model = {self.__class__.__name__}()\n")
 
-        file.write("\n# List all species and set their physical properties (charge and mass number, etc.)\n")
-        file.write(species_params)
+        file.write("\n# Units\n")
+        file.write("base_units = BaseUnits()\n")
+
+        file.write("\n# Model instance\n")
+        file.write(f"model = {self.__class__.__name__}(base_units=base_units)\n")
 
         file.write("\n# List all variables and decide whether to save their data\n")
         file.write(variables_params)
@@ -737,9 +724,6 @@ Users can modify this file to set up their own simulations with different parame
 
         file.write("\n# Environment options\n")
         file.write("env = EnvironmentOptions()\n")
-
-        file.write("\n# Units\n")
-        file.write("base_units = BaseUnits()\n")
 
         file.write("\n# Time stepping\n")
         file.write("time_opts = Time()\n")
@@ -770,7 +754,6 @@ Users can modify this file to set up their own simulations with different parame
     description=description,
     params_path=__file__,
     env=env,
-    base_units=base_units,
     time_opts=time_opts,
     domain=domain,
     equil=equil,
@@ -811,7 +794,7 @@ Users can modify this file to set up their own simulations with different parame
 
         file.close()
 
-        print(
+        logger.info(
             f"\nDefault parameter file for '{self.__class__.__name__}' has been created in the cwd ({path}).\n\
 You can now launch a simulation with 'python params_{self.__class__.__name__}.py'",
         )
@@ -903,6 +886,26 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         if not hasattr(self, "_prop_list"):
             self._prop_list = list(self.propagators.__dict__.values())
         return self._prop_list
+
+    @property
+    def base_units(self) -> BaseUnits:
+        """Base units of the model."""
+        return self._base_units
+
+    @base_units.setter
+    def base_units(self, new_units):
+        assert isinstance(new_units, BaseUnits)
+        self._base_units = new_units
+
+    @property
+    def units(self) -> Units:
+        """Units of the model."""
+        return self._units
+
+    @units.setter
+    def units(self, new_units):
+        assert isinstance(new_units, Units)
+        self._units = new_units
 
     # @property
     # def prop_fields(self):

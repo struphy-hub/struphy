@@ -52,7 +52,7 @@ class PolarExtractionBlocksC1:
 
         self._n0 = cx.shape[0]
         self._n1 = cx.shape[1]
-        self._n2 = derham.V0splines.nbasis[2]
+        self._n2 = derham.V0splines.nbasis[0][2]
 
         assert derham.spl_kind[1], "Use of poalr splines requires periodic splines in eta2."
         assert self.n1 == derham.num_elements[1], (
@@ -61,7 +61,7 @@ class PolarExtractionBlocksC1:
 
         self._d0 = self.n0 - 1
         self._d1 = self.n1 - 0
-        self._d2 = derham.V3splines.nbasis[2]
+        self._d2 = derham.V3splines.nbasis[0][2]
 
         self._n_rings = [(2,), (1, 2), (2, 1), (1,)]
         self._n_polar = [(3,), (0, 2), (2, 0), (0,)]

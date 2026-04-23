@@ -558,7 +558,7 @@ def eval_gradB_ediff(
 
         # b-field evaluation
         span1, span2, span3 = get_spans(eta_mid[0], eta_mid[1], eta_mid[2], args_derham)
-        # print(span1, span2, span3)
+        # logger.info(span1, span2, span3)
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(

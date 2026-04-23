@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 
@@ -23,13 +24,15 @@ from struphy import (
 )
 from struphy.models import VlasovAmpereOneSpecies
 
+logger = logging.getLogger("struphy")
+
 
 def test_weak_Landau(do_plot: bool = False):
     """Verification test for weak Landau damping.
     The computed damping rate is compared to the analytical rate.
     """
     # light-weight model instance
-    model = VlasovAmpereOneSpecies(with_B0=False)
+    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False)
 
     # environment options
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
@@ -49,9 +52,7 @@ def test_weak_Landau(do_plot: bool = False):
     # derham options
     derham_opts = DerhamOptions(degree=(3, 1, 1))
 
-    # species parameters
-    model.kinetic_ions.set_species_properties(alpha=1.0, epsilon=-1.0)
-
+    # markers
     ppc = 1000
     loading_params = LoadingParameters(ppc=ppc, seed=1234)
     weights_params = WeightsParameters(control_variate=True)
@@ -152,7 +153,7 @@ def test_weak_Landau(do_plot: bool = False):
         # assert
         rel_error = xp.abs(gamma_num - gamma) / xp.abs(gamma)
         assert rel_error < 0.22, f"Assertion for weak Landau damping failed: {gamma_num =} vs. {gamma =}."
-        print(f"Assertion for weak Landau damping passed ({rel_error =}).")
+        logger.info(f"Assertion for weak Landau damping passed ({rel_error =}).")
 
         shutil.rmtree(test_folder)
 

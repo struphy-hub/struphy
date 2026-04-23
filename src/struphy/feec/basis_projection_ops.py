@@ -1,3 +1,5 @@
+import logging
+
 import cunumpy as xp
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.ddm.mpi import mpi as MPI
@@ -11,11 +13,15 @@ from struphy.feec import basis_projection_kernels
 from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
 from struphy.feec.local_projectors_kernels import assemble_basis_projection_operator_local
 from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
-from struphy.feec.psydac_derham import get_pts_and_wts, get_span_and_basis
-from struphy.feec.utilities import RotationMatrix
+from struphy.feec.psydac_derham import Derham, get_pts_and_wts, get_span_and_basis
+from struphy.feec.utilities import LocalRotationMatrix
+from struphy.geometry.base import Domain
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
+from struphy.utils.docstring_converter import auto_convert_docstring
 from struphy.utils.pyccel import Pyccelkernel
+
+logger = logging.getLogger("struphy")
 
 
 class BasisProjectionOperators:
@@ -55,17 +61,17 @@ class BasisProjectionOperators:
             [degree == 1 and num_elements > 1 for degree, num_elements in zip(derham.degree, derham.num_elements)]
         ):
             if MPI.COMM_WORLD.Get_rank() == 0:
-                print(
+                logger.info(
                     f'\nWARNING: Class "BasisProjectionOperators" called with degree={derham.degree} (interpolation of piece-wise constants should be avoided).',
                 )
 
     @property
-    def derham(self):
+    def derham(self) -> Derham:
         """Discrete de Rham sequence on the logical unit cube."""
         return self._derham
 
     @property
-    def domain(self):
+    def domain(self) -> Domain:
         """Mapping from the logical unit cube to the physical domain with corresponding metric coefficients."""
         return self._domain
 
@@ -75,7 +81,7 @@ class BasisProjectionOperators:
         return self._weights
 
     @property
-    def rank(self):
+    def rank(self) -> int:
         """MPI rank, is 0 if no communicator."""
         return self._rank
 
@@ -300,7 +306,7 @@ class BasisProjectionOperators:
         where :math:`\epsilon_{\mu \alpha \nu}` stands for the Levi-Civita tensor and :math:`B^2_{\textnormal{eq}, \alpha}` is the :math:`\alpha`-component of the MHD equilibrium magnetic field (2-form).
         """
         if not hasattr(self, "_Tv"):
-            rot_B = RotationMatrix(
+            rot_B = LocalRotationMatrix(
                 self.weights["eq_mhd"].b2_1,
                 self.weights["eq_mhd"].b2_2,
                 self.weights["eq_mhd"].b2_3,
@@ -341,7 +347,7 @@ class BasisProjectionOperators:
 
         """
         if not hasattr(self, "_T1"):
-            rot_B = RotationMatrix(
+            rot_B = LocalRotationMatrix(
                 self.weights["eq_mhd"].b2_1,
                 self.weights["eq_mhd"].b2_2,
                 self.weights["eq_mhd"].b2_3,
@@ -381,7 +387,7 @@ class BasisProjectionOperators:
         where :math:`\epsilon_{\mu \alpha \nu}` stands for the Levi-Civita tensor and :math:`B^2_{\textnormal{eq}, \alpha}` is the :math:`\alpha`-component of the MHD equilibrium magnetic field (2-form).
         """
         if not hasattr(self, "_T2"):
-            rot_B = RotationMatrix(
+            rot_B = LocalRotationMatrix(
                 self.weights["eq_mhd"].b2_1,
                 self.weights["eq_mhd"].b2_2,
                 self.weights["eq_mhd"].b2_3,
@@ -762,7 +768,7 @@ class BasisProjectionOperators:
         """
 
         if not hasattr(self, "_R1"):
-            rot_J = RotationMatrix(
+            rot_J = LocalRotationMatrix(
                 self.weights["eq_mhd"].j2_1,
                 self.weights["eq_mhd"].j2_2,
                 self.weights["eq_mhd"].j2_3,
@@ -802,7 +808,7 @@ class BasisProjectionOperators:
         where :math:`\epsilon_{\mu \alpha \beta}` stands for the Levi-Civita tensor and :math:`J^2_{\textnormal{eq}, \alpha}` is the :math:`\alpha`-component of the MHD equilibrium current density (2-form).
         """
         if not hasattr(self, "_R2"):
-            rot_J = RotationMatrix(
+            rot_J = LocalRotationMatrix(
                 self.weights["eq_mhd"].j2_1,
                 self.weights["eq_mhd"].j2_2,
                 self.weights["eq_mhd"].j2_3,
@@ -907,38 +913,35 @@ class BasisProjectionOperators:
             else:
                 assert len(row) == 3
 
-        V_form = self.derham.space_to_form[V_id]
-        W_form = self.derham.space_to_form[W_id]
-
         if self.derham.with_local_projectors:
             out = BasisProjectionOperatorLocal(
-                self.derham.projectors[W_form],
-                self.derham.fem_spaces[V_form],
+                self.derham.projectors[W_id],
+                self.derham.fem_spaces[V_id],
                 fun,
-                self.derham.extraction_ops[V_form],
-                self.derham.boundary_ops[V_form],
-                self.derham.extraction_ops[W_form],
-                self.derham.boundary_ops[W_form],
+                self.derham.extraction_ops[V_id],
+                self.derham.boundary_ops[V_id],
+                self.derham.extraction_ops[W_id],
+                self.derham.boundary_ops[W_id],
                 transposed=False,
             )
         else:
             out = BasisProjectionOperator(
-                self.derham.projectors[W_form],
-                self.derham.fem_spaces[V_form],
+                self.derham.projectors[W_id],
+                self.derham.fem_spaces[V_id],
                 fun,
-                V_extraction_op=self.derham.extraction_ops[V_form],
-                V_boundary_op=self.derham.boundary_ops[V_form],
+                V_extraction_op=self.derham.extraction_ops[V_id],
+                V_boundary_op=self.derham.boundary_ops[V_id],
                 transposed=False,
                 polar_shift=self.domain.pole,
             )
 
         if assemble:
             if MPI.COMM_WORLD.Get_rank() == 0 and self.verbose:
-                print(f'\nAssembling BasisProjectionOperator "{name}" with V={V_id}, W={W_id}.')
+                logger.info(f'\nAssembling BasisProjectionOperator "{name}" with V={V_id}, W={W_id}.')
             out.assemble(verbose=self.verbose)
 
         if MPI.COMM_WORLD.Get_rank() == 0 and self.verbose:
-            print("Done.")
+            logger.info("Done.")
 
         return out
 
@@ -1592,6 +1595,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
         return self._mat
 
 
+@auto_convert_docstring
 class BasisProjectionOperator(LinOpWithTransp):
     r"""
     Class for assembling basis projection operators in 3d.
@@ -1600,7 +1604,7 @@ class BasisProjectionOperator(LinOpWithTransp):
 
     .. math::
 
-        \mathcal P_{(\mu, ijk),(\nu, mno)} = \hat \Pi^\beta_{\mu, ijk} \left( A_{\mu,\nu}\,\Lambda^\alpha_{\nu, mno} \right)\,,
+        \mathcal{P}_{(\mu, ijk),(\nu, mno)} = \hat{\Pi}^\beta_{\mu, ijk} \left( A_{\mu,\nu}\,\Lambda^{\alpha}_{\nu, mno} \right)\,,
 
     where the weight fuction :math:`A` is a tensor of rank 0, 1 or 2, depending on domain and co-domain of the operator, and
     :math:`\Lambda^\alpha_{\nu, mno}` is the B-spline basis function with tensor-product index :math:`mno` of the
@@ -2063,7 +2067,7 @@ class BasisProjectionOperator(LinOpWithTransp):
                     )
 
                     if rank == 0 and verbose:
-                        print(f"Assemble block {i, j}")
+                        logger.info(f"Assemble block {i, j}")
                     kernel(
                         dofs_mat._data,
                         _starts_in,
@@ -2159,18 +2163,18 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, pol
         spans += [s_i]
         bases += [b_i]
 
-    # print("#################################################")
-    # print("#################################################")
-    # print("W1d[0]:")
-    # print(W1d[0])
-    # print("W1d[1]:")
-    # print(W1d[1])
-    # print("W1d[2]:")
-    # print(W1d[2])
-    # print("pts :")
-    # print(pts)
-    # print("#################################################")
-    # print("#################################################")
+    # logger.info("#################################################")
+    # logger.info("#################################################")
+    # logger.info("W1d[0]:")
+    # logger.info(W1d[0])
+    # logger.info("W1d[1]:")
+    # logger.info(W1d[1])
+    # logger.info("W1d[2]:")
+    # logger.info(W1d[2])
+    # logger.info("pts :")
+    # logger.info(pts)
+    # logger.info("#################################################")
+    # logger.info("#################################################")
 
     return tuple(pts), tuple(wts), tuple(spans), tuple(bases), tuple(subs)
 

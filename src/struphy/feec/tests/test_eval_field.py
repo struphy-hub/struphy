@@ -1,7 +1,11 @@
+import logging
+
 import cunumpy as xp
 import pytest
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
+
+logger = logging.getLogger("struphy")
 
 
 @pytest.mark.parametrize("num_elements", [[8, 9, 10]])
@@ -86,7 +90,7 @@ def test_eval_field(num_elements, degree, bcs):
     # V0 #
     ######
     # create legacy arrays with same coeffs
-    coeffs_loc = xp.reshape(p0.vector.toarray(), p0.nbasis)
+    coeffs_loc = xp.reshape(p0.vector.toarray(), p0.nbasis[0])
     if isinstance(comm, MockComm):
         coeffs = coeffs_loc
     else:
@@ -378,7 +382,7 @@ def test_eval_field(num_elements, degree, bcs):
     # V3 #
     ######
     # create legacy arrays with same coeffs
-    coeffs_loc = xp.reshape(n3.vector.toarray(), n3.nbasis)
+    coeffs_loc = xp.reshape(n3.vector.toarray(), n3.nbasis[0])
     if isinstance(comm, MockComm):
         coeffs = coeffs_loc
     else:
@@ -546,7 +550,7 @@ def test_eval_field(num_elements, degree, bcs):
         [xp.allclose(m_vals_3_i, m_vals_ref_3_i) for m_vals_3_i, m_vals_ref_3_i in zip(m_vals_3, m_vals_ref_3)],
     )
 
-    print("\nAll assertions passed.")
+    logger.info("\nAll assertions passed.")
 
 
 if __name__ == "__main__":

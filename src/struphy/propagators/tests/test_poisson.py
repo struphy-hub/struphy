@@ -1,3 +1,5 @@
+import logging
+
 import cunumpy as xp
 import matplotlib.pyplot as plt
 import pytest
@@ -11,8 +13,7 @@ from struphy import (
     domains,
     perturbations,
 )
-from struphy.feec.mass import WeightedMassOperators
-from struphy.feec.projectors import L2Projector
+from struphy.feec.mass import L2Projector, WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry.base import Domain
 from struphy.io.options import DerhamOptions
@@ -26,6 +27,8 @@ from struphy.propagators.base import Propagator
 from struphy.propagators.propagators_fields import ImplicitDiffusion, Poisson
 from struphy.topology.grids import TensorProductGrid
 from struphy.utils.pyccel import Pyccelkernel
+
+logger = logging.getLogger("struphy")
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -156,7 +159,7 @@ def test_poisson_1d(
                     def rho1_xyz(x, y, z):
                         return xp.sin(2 * xp.pi / Lz * z) * (2 * xp.pi / Lz) ** 2
             else:
-                print("Direction should be either 0, 1 or 2")
+                logger.info("Direction should be either 0, 1 or 2")
 
             # create derham object
             grid = TensorProductGrid(num_elements=num_elements)
@@ -237,14 +240,14 @@ def test_poisson_1d(
                 plt.legend()
 
             error = xp.max(xp.abs(analytic_value1 - sol_val1))
-            print(f"{direction =}, {pi =}, {Neli =}, {error=}")
+            logger.info(f"{direction =}, {pi =}, {Neli =}, {error=}")
 
             errors.append(error)
             h = 1 / (Neli)
             h_vec.append(h)
 
         m, _ = xp.polyfit(xp.log(Nels), xp.log(errors), deg=1)
-        print(f"For {pi =}, solution converges in {direction=} with rate {-m =} ")
+        logger.info(f"For {pi =}, solution converges in {direction=} with rate {-m =} ")
         assert -m > (pi + 1 - 0.07)
 
         # Plot convergence in 1D
@@ -426,7 +429,7 @@ def test_poisson_accum_1d(mapping, do_plot=False):
         plt.show()
 
     error = xp.max(xp.abs(num_values_e[0][:, 0, 0] - e_values[:, 0, 0])) / xp.max(xp.abs(e_values[:, 0, 0]))
-    print(f"{error=}")
+    logger.info(f"{error=}")
 
     assert error < 0.0086
 
@@ -628,10 +631,10 @@ def test_poisson_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_
     error1 = xp.max(xp.abs(analytic_value1 - sol_val1))
     error2 = xp.max(xp.abs(analytic_value2 - sol_val2))
 
-    print(f"{degree =}, {bc_type =}, {mapping =}")
-    print(f"{error1 =}")
-    print(f"{error2 =}")
-    print("")
+    logger.info(f"{degree =}, {bc_type =}, {mapping =}")
+    logger.info(f"{error1 =}")
+    logger.info(f"{error2 =}")
+    logger.info("")
 
     if show_plot and rank == 0:
         plt.figure(figsize=(12, 8))

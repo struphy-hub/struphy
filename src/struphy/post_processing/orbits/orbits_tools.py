@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 
@@ -8,6 +9,8 @@ from tqdm import tqdm
 
 from struphy.io.setup import import_parameters_py
 from struphy.post_processing.orbits.orbits_kernels import calculate_guiding_center_from_6d
+
+logger = logging.getLogger("struphy")
 
 
 def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
@@ -83,7 +86,7 @@ def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
     B_cart = xp.empty((n_markers, 3), dtype=float)
     lost_particles_mask = xp.empty(n_markers, dtype=bool)
 
-    print("Evaluation of guiding center for " + str(species))
+    logger.info("Evaluation of guiding center for " + str(species))
 
     # loop over time grid
     for n in tqdm(range(pproc_nt)):
@@ -181,7 +184,7 @@ def post_process_orbit_classification(path_kinetics_species, species):
     trapped_particle_mask = xp.empty(n_markers, dtype=bool)
     lost_particle_mask = xp.empty(n_markers, dtype=bool)
 
-    print("Classifying guiding center orbits for " + str(species))
+    logger.info("Classifying guiding center orbits for " + str(species))
 
     # loop over time grid
     for n in tqdm(range(pproc_nt)):

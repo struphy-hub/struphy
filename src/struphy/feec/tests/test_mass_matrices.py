@@ -1,300 +1,403 @@
+import logging
+
 import pytest
+from matplotlib import pyplot as plt
+
+logger = logging.getLogger("struphy")
 
 
-@pytest.mark.parametrize("num_elements", [[5, 6, 7]])
-@pytest.mark.parametrize("degree", [[2, 2, 3]])
+@pytest.mark.parametrize("matrix_free", [False])
+@pytest.mark.parametrize("num_elements", [(32, 32, 32)])
+@pytest.mark.parametrize("degree", [(1, 1, 1), (2, 2, 2)])
+@pytest.mark.parametrize("bcs", [(("free", "dirichlet"), None, None)])
 @pytest.mark.parametrize(
-    "bcs",
+    "map_and_equil",
     [
-        (("free", "free"), None, None),
-        (("free", "dirichlet"), None, None),
-        (("dirichlet", "free"), None, None),
-        (None, ("free", "free"), None),
-        (None, ("free", "dirichlet"), None),
-        (None, ("dirichlet", "free"), None),
+        ("Cuboid", "HomogenSlab"),
+        ("Colella", "HomogenSlab"),
+        ("HollowCylinder", "ScrewPinch"),
+        ("HollowTorus", "AdhocTorus"),
     ],
 )
-@pytest.mark.parametrize("mapping", [["Colella", {"Lx": 1.0, "Ly": 6.0, "alpha": 0.1, "Lz": 10.0}]])
-def test_mass(num_elements, degree, bcs, mapping, show_plots=False):
-    """Compare Struphy mass matrices to Struphy-legacy mass matrices."""
+def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=False):
+    """Test weighted mass matrices by recovering projected functions from the DeRham complex.
+
+    For each mass operator in ``{M0, M1, M2, M3, Mv, M1n, M2n, Mvn, M1ninv, M0ad}``,
+    the test:
+
+    1. Projects known trigonometric right-hand-side functions onto the
+       corresponding finite-element space using :class:`~struphy.feec.mass.L2Projector`.
+    2. Solves the linear system ``M * u = rhs`` with a CG solver.
+    3. Evaluates the recovered field ``u`` on a uniform test grid and compares
+       it point-wise to the exact function.
+
+    The density-weighted operators (``M1n``, ``M2n``, ``Mvn``, ``M0ad``) are
+    tested against ``exact / n0``, and the inverse-density operator
+    (``M1ninv``) is tested against ``exact * n0``.
+    """
 
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
+    from feectools.linalg.solvers import inverse
 
-    from struphy import domains
-    from struphy.feec.mass import WeightedMassOperators, WeightedMassOperatorsOldForTesting
+    from struphy import domains, equils
+    from struphy.feec.mass import L2Projector, WeightedMassOperator, WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
-    from struphy.feec.utilities import RotationMatrix, compare_arrays, create_equal_random_arrays
-    from struphy.fields_background.equils import ScrewPinch, ShearedSlab
+    from struphy.fields_background.projected_equils import ProjectedMHDequilibrium
+    from struphy.geometry.base import Domain
+    from struphy.geometry.domains import HollowCylinder
     from struphy.io.options import DerhamOptions
     from struphy.topology.grids import TensorProductGrid
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
     mpi_size = mpi_comm.Get_size()
-
-    if mpi_rank == 0:
-        print()
-
     mpi_comm.Barrier()
 
-    print(f"Rank {mpi_rank} | Start test_mass with " + str(mpi_size) + " MPI processes!")
+    logger.debug(f"Rank {mpi_rank} | Start test_mass with " + str(mpi_size) + " MPI processes!")
 
     # mapping
-    domain_class = getattr(domains, mapping[0])
-    domain = domain_class(**mapping[1])
+    domain_class = getattr(domains, map_and_equil[0])
+    if map_and_equil[0] == "HollowCylinder":
+        R0 = 3.0
+        domain: HollowCylinder = domain_class(a1=0.3, Lz=2 * xp.pi * R0)
+    else:
+        domain: Domain = domain_class()
+    logger.debug(f"{domain = }")
 
-    if show_plots:
-        import matplotlib.pyplot as plt
+    # equilibrium
+    equil_class = getattr(equils, map_and_equil[1])
+    if map_and_equil[1] == "HomogenSlab":
+        equil: equils.HomogenSlab = equil_class(n0=2.0)
+    elif map_and_equil[1] == "ScrewPinch":
+        equil: equils.ScrewPinch = equil_class(na=0.5, n1=1.0, n2=1.0, R0=R0)
+    elif map_and_equil[1] == "AdhocTorus":
+        equil: equils.AdhocTorus = equil_class(na=0.4)
+    equil.domain = domain
+    logger.debug(f"{equil = }")
 
-        domain.show()
-
-    # load MHD equilibrium
-    if mapping[0] == "Cuboid":
-        eq_mhd = ShearedSlab(
-            **{
-                "a": (mapping[1]["r1"] - mapping[1]["l1"]),
-                "R0": (mapping[1]["r3"] - mapping[1]["l3"]) / (2 * xp.pi),
-                "B0": 1.0,
-                "q0": 1.05,
-                "q1": 1.8,
-                "n1": 3.0,
-                "n2": 4.0,
-                "na": 0.0,
-                "beta": 0.1,
-            },
-        )
-
-    elif mapping[0] == "Colella":
-        eq_mhd = ShearedSlab(
-            **{
-                "a": mapping[1]["Lx"],
-                "R0": mapping[1]["Lz"] / (2 * xp.pi),
-                "B0": 1.0,
-                "q0": 1.05,
-                "q1": 1.8,
-                "n1": 3.0,
-                "n2": 4.0,
-                "na": 0.0,
-                "beta": 0.1,
-            },
-        )
-
-        if show_plots:
-            eq_mhd.plot_profiles()
-
-    elif mapping[0] == "HollowCylinder":
-        eq_mhd = ScrewPinch(
-            **{
-                "a": mapping[1]["a2"],
-                "R0": 3.0,
-                "B0": 1.0,
-                "q0": 1.05,
-                "q1": 1.8,
-                "n1": 3.0,
-                "n2": 4.0,
-                "na": 0.0,
-                "beta": 0.1,
-            },
-        )
-
-        if show_plots:
-            eq_mhd.plot_profiles()
-
-    eq_mhd.domain = domain
+    if show_plots and False:
+        equil.show()
 
     # derham object
     grid = TensorProductGrid(num_elements=num_elements)
     derham_opts = DerhamOptions(degree=degree, bcs=bcs)
     derham = Derham(grid, derham_opts, comm=mpi_comm)
 
-    print(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
+    logger.debug(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
 
-    fem_spaces = [derham.V0fem, derham.V1fem, derham.V2fem, derham.V3fem, derham.Vvfem]
+    # projected equilibrium for mass matrices with spline weights
+    projected_equil = ProjectedMHDequilibrium(equil, derham)
 
     # mass matrices object
-    mass_matsold = WeightedMassOperatorsOldForTesting(derham, domain, eq_mhd=eq_mhd)
-    mass_matsold_free = WeightedMassOperatorsOldForTesting(derham, domain, eq_mhd=eq_mhd, matrix_free=True)
-    mass_mats = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd)
-    mass_mats_free = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd, matrix_free=True)
+    mass_ops = WeightedMassOperators(derham, domain, eq_mhd=equil, matrix_free=matrix_free)
 
-    # test calling the diagonal method
-    aaa = mass_mats.M0.matrix.diagonal()
-    bbb = mass_mats.M1.matrix.diagonal()
-    print(f"{aaa =}, {bbb[0, 0] =}, {bbb[0, 1] =}")
+    # right-hand side, integrated against the basis functions
+    def rhs_0(e1, e2, e3):
+        return xp.sin(2 * xp.pi * e1) * xp.cos(4 * xp.pi * e2) * xp.cos(2 * xp.pi * e3)
 
-    # compare to old STRUPHY
-    bc_old = [[None, None], [None, None], [None, None]]
-    for i in range(3):
-        if bcs[i] is not None:
-            for j in range(2):
-                if bcs[i][j] == "dirichlet":
-                    bc_old[i][j] = "d"
-                else:
-                    bc_old[i][j] = "f"
+    def rhs_1(e1, e2, e3):
+        return xp.sin(2 * xp.pi * e1) * xp.cos(2 * xp.pi * e2) * xp.cos(2 * xp.pi * e3)
 
-    # create random input arrays
-    x0_str, x0_psy = create_equal_random_arrays(fem_spaces[0], seed=1234, flattened=True)
-    x1_str, x1_psy = create_equal_random_arrays(fem_spaces[1], seed=1568, flattened=True)
-    x2_str, x2_psy = create_equal_random_arrays(fem_spaces[2], seed=8945, flattened=True)
-    x3_str, x3_psy = create_equal_random_arrays(fem_spaces[3], seed=8196, flattened=True)
-    xv_str, xv_psy = create_equal_random_arrays(fem_spaces[4], seed=2038, flattened=True)
+    def rhs_2(e1, e2, e3):
+        return xp.zeros_like(e1)
 
-    # Test toarray and tosparse
-    all_false = all(bc != "dirichlet" for bl in bcs if bl is not None for bc in bl)
-    if all_false:
-        r2psy_compare = mass_mats.M2.dot(x2_psy)
+    l2proj_0 = L2Projector("H1", mass_ops)
+    l2proj_1 = L2Projector("Hcurl", mass_ops)
+    l2proj_2 = L2Projector("Hdiv", mass_ops)
+    l2proj_3 = L2Projector("L2", mass_ops)
+    l2proj_v = L2Projector("H1vec", mass_ops)
 
-    r0_psy = mass_mats.M0.dot(x0_psy, apply_bc=True)
-    r1_psy = mass_mats.M1.dot(x1_psy, apply_bc=True)
-    r2_psy = mass_mats.M2.dot(x2_psy, apply_bc=True)
-    r3_psy = mass_mats.M3.dot(x3_psy, apply_bc=True)
-    rv_psy = mass_mats.Mv.dot(xv_psy, apply_bc=True)
+    rhs = {}
+    rhs["M0"] = l2proj_0.get_dofs(rhs_0, apply_bc=True)
+    rhs["M0ad"] = rhs["M0"]
+    rhs["M1"] = l2proj_1.get_dofs((rhs_0, rhs_1, rhs_2), apply_bc=True)
+    rhs["M1n"] = rhs["M1"]
+    rhs["M1ninv"] = rhs["M1"]
+    rhs["M2"] = l2proj_2.get_dofs((rhs_0, rhs_1, rhs_2), apply_bc=True)
+    rhs["M2n"] = rhs["M2"]
+    rhs["M2B"] = rhs["M2"]
+    rhs["M3"] = l2proj_3.get_dofs(rhs_0, apply_bc=True)
+    rhs["Mv"] = l2proj_v.get_dofs((rhs_0, rhs_1, rhs_2), apply_bc=True)
+    rhs["Mvn"] = rhs["Mv"]
+    rhs["WMM"] = rhs["Mv"]
+    rhs["WMMnew"] = rhs["Mv"]
 
-    rn_psy = mass_mats.M2n.dot(x2_psy, apply_bc=True)
-    rJ_psy = mass_mats.M2J.dot(x2_psy, apply_bc=True)
+    # test mass matrices
+    e1 = xp.linspace(0, 1, 8)
+    e2 = xp.linspace(0, 1, 16)
+    e3 = xp.linspace(0, 1, 12)
+    ee1, ee2, ee3 = xp.meshgrid(e1, e2, e3, indexing="ij")
 
-    r1J_psy = mass_mats.M1J.dot(x2_psy, apply_bc=True)
-    r1Jold_psy = mass_matsold.M1J.dot(x2_psy, apply_bc=True)
+    if min(degree) == 1:
+        err_bound = 2.0e-1
+    elif min(degree) == 2:
+        err_bound = 2.6e-2
 
-    # How to test space x1_psy? M1J is space HdivHcurl
+    names = ["M0", "M1", "M2", "M3", "Mv", "M1n", "M2n", "Mvn", "M1ninv", "M0ad", "WMM", "WMMnew"]
+    for name in names:
+        if name == "WMM":
+            intermediate = mass_ops.WMM
+            intermediate.update_weight(projected_equil.n3)
+            M: WeightedMassOperator = mass_ops.WMM.massop
+        elif name == "WMMnew":
+            M: WeightedMassOperator = mass_ops.WMMnew
+            logger.debug(f"{M.spline_functions = }")
+            M.spline_functions["l2_field"].vector = projected_equil.n3
+            M.assemble()
+        else:
+            M: WeightedMassOperator = getattr(mass_ops, name)
+        space_id = M.domain_symbolic_name
 
-    rM1Bninv_psy = mass_mats.M1Bninv.dot(x1_psy, apply_bc=True)
-    rM1Bninvold_psy = mass_matsold.M1Bninv.dot(x1_psy, apply_bc=True)
-    rM0ad_psy = mass_mats.M0ad.dot(x0_psy, apply_bc=True)
-    rM0adold_psy = mass_matsold.M0ad.dot(x0_psy, apply_bc=True)
-    rM1ninv_psy = mass_mats.M1ninv.dot(x1_psy, apply_bc=True)
-    rM1ninvold_psy = mass_matsold.M1ninv.dot(x1_psy, apply_bc=True)
-    rM1gyro_psy = mass_mats.M1gyro.dot(x1_psy, apply_bc=True)
-    rM1gyroold_psy = mass_matsold.M1gyro.dot(x1_psy, apply_bc=True)
-    rM1perp_psy = mass_mats.M1perp.dot(x1_psy, apply_bc=True)
-    rM1perpold_psy = mass_matsold.M1perp.dot(x1_psy, apply_bc=True)
+        if space_id in ("H1", "L2"):
+            exact = rhs_0(ee1, ee2, ee3)
+        else:
+            exact = xp.array([rhs_0(ee1, ee2, ee3), rhs_1(ee1, ee2, ee3), rhs_2(ee1, ee2, ee3)])
 
-    # Change order of input in callable
-    rM1ninvswitch_psy = mass_mats.create_weighted_mass(
-        "Hcurl",
-        "Hcurl",
-        weights=["sqrt_g", "1/eq_n0", "Ginv"],
-        name="M1ninv",
-        assemble=True,
-    ).dot(x1_psy, apply_bc=True)
+        solver = "cg"
+        if name in ["M1n", "M2n", "Mvn", "M0ad", "WMM", "WMMnew"]:
+            # solve n0 * u = f, where n0 is the equilibrium density
+            exact /= equil.n0(e1, e2, e3)
+        elif name == "M1ninv":
+            # solve u1 / n0 = f1, where n0 is the equilibrium density
+            exact *= equil.n0(e1, e2, e3)
 
-    rot_B = RotationMatrix(
-        mass_mats.weights[mass_mats.selected_weight].b2_1,
-        mass_mats.weights[mass_mats.selected_weight].b2_2,
-        mass_mats.weights[mass_mats.selected_weight].b2_3,
-    )
-    rM1Bninvswitch_psy = mass_mats.create_weighted_mass(
-        "Hcurl",
-        "Hcurl",
-        weights=["1/eq_n0", "sqrt_g", "Ginv", rot_B, "Ginv"],
-        name="M1Bninv",
-        assemble=True,
-    ).dot(x1_psy, apply_bc=True)
+        result = derham.create_spline_function("result", space_id)
+        Minv = inverse(M, solver, tol=1e-8, maxiter=1000, verbose=False)
+        result.vector = Minv.dot(rhs[name])
 
-    # Test matrix free operators
-    r0_fre = mass_mats_free.M0.dot(x0_psy, apply_bc=True)
-    r1_fre = mass_mats_free.M1.dot(x1_psy, apply_bc=True)
-    r2_fre = mass_mats_free.M2.dot(x2_psy, apply_bc=True)
-    r3_fre = mass_mats_free.M3.dot(x3_psy, apply_bc=True)
-    rv_fre = mass_mats_free.Mv.dot(xv_psy, apply_bc=True)
+        result_values = xp.array(result(e1, e2, e3))
+        logger.debug(f"{result_values.shape = }")
 
-    rn_fre = mass_mats_free.M2n.dot(x2_psy, apply_bc=True)
-    rJ_fre = mass_mats_free.M2J.dot(x2_psy, apply_bc=True)
+        if show_plots:
+            if space_id in ("H1", "L2"):
+                plt.figure(figsize=(12, 5))
+                plt.subplot(1, 2, 1)
+                plt.pcolor(e1, e2, result_values[:, :, 0].T)
+                plt.colorbar()
+                plt.title(f"{name} with assembled matrix")
+                plt.subplot(1, 2, 2)
+                plt.pcolor(e1, e2, exact[:, :, 0].T)
+                plt.colorbar()
+                plt.title("exact")
+                plt.show()
+            else:
+                plt.figure(figsize=(24, 10))
+                plt.subplot(2, 3, 1)
+                plt.pcolor(e1, e2, result_values[0, :, :, 0].T)
+                plt.colorbar()
+                plt.title(f"{name} with assembled matrix, component 1")
+                plt.subplot(2, 3, 2)
+                plt.pcolor(e1, e2, result_values[1, :, :, 0].T)
+                plt.colorbar()
+                plt.title(f"{name} with assembled matrix, component 2")
+                plt.subplot(2, 3, 3)
+                plt.pcolor(e1, e2, result_values[2, :, :, 0].T)
+                plt.colorbar()
+                plt.title(f"{name} with assembled matrix, component 3")
+                plt.subplot(2, 3, 4)
+                plt.pcolor(e1, e2, exact[0, :, :, 0].T)
+                plt.colorbar()
+                plt.title("exact, component 1")
+                plt.subplot(2, 3, 5)
+                plt.pcolor(e1, e2, exact[1, :, :, 0].T)
+                plt.colorbar()
+                plt.title("exact, component 2")
+                plt.subplot(2, 3, 6)
+                plt.pcolor(e1, e2, exact[2, :, :, 0].T)
+                plt.colorbar()
+                plt.title("exact, component 3")
+                plt.show()
 
-    rM1Bninv_fre = mass_mats_free.M1Bninv.dot(x1_psy, apply_bc=True)
-    rM1Bninvold_fre = mass_matsold_free.M1Bninv.dot(x1_psy, apply_bc=True)
-    rM0ad_fre = mass_mats_free.M0ad.dot(x0_psy, apply_bc=True)
-    rM0adold_fre = mass_matsold_free.M0ad.dot(x0_psy, apply_bc=True)
-    rM1ninv_fre = mass_mats_free.M1ninv.dot(x1_psy, apply_bc=True)
-    rM1ninvold_fre = mass_matsold_free.M1ninv.dot(x1_psy, apply_bc=True)
-    rM1gyro_fre = mass_mats_free.M1gyro.dot(x1_psy, apply_bc=True)
-    rM1gyroold_fre = mass_matsold_free.M1gyro.dot(x1_psy, apply_bc=True)
-    rM1perp_fre = mass_mats_free.M1perp.dot(x1_psy, apply_bc=True)
-    rM1perpold_fre = mass_matsold_free.M1perp.dot(x1_psy, apply_bc=True)
+        err = xp.max(xp.abs(result_values - exact)) / xp.max(xp.abs(exact))
+        print(f"{name} relative max-error: {err:.2e}")
+        assert err < err_bound, f"{name} relative max-error {err:.2e} exceeds bound of {err_bound:.2e}"
+        logger.info(f"Test passed for {name}")
 
-    # Change order of input in callable
-    rM1ninvswitch_fre = mass_mats_free.create_weighted_mass(
-        "Hcurl",
-        "Hcurl",
-        weights=["sqrt_g", "1/eq_n0", "Ginv"],
-        name="M1ninvswitch",
-        assemble=True,
-    ).dot(x1_psy, apply_bc=True)
-    rot_B = RotationMatrix(
-        mass_mats_free.weights[mass_mats_free.selected_weight].b2_1,
-        mass_mats_free.weights[mass_mats_free.selected_weight].b2_2,
-        mass_mats_free.weights[mass_mats_free.selected_weight].b2_3,
-    )
 
-    rM1Bninvswitch_fre = mass_mats_free.create_weighted_mass(
-        "Hcurl",
-        "Hcurl",
-        weights=["1/eq_n0", "sqrt_g", "Ginv", rot_B, "Ginv"],
-        name="M1Bninvswitch",
-        assemble=True,
-    ).dot(x1_psy, apply_bc=True)
+@pytest.mark.parametrize("matrix_free", [False])
+@pytest.mark.parametrize("eps", [1.0])
+@pytest.mark.parametrize("num_elements", [(32, 32, 32)])
+@pytest.mark.parametrize("degree", [(1, 1, 1), (2, 2, 2)])
+@pytest.mark.parametrize("bcs", [(("free", "dirichlet"), None, None)])
+@pytest.mark.parametrize(
+    "map_and_equil",
+    [
+        ("Cuboid", "HomogenSlab"),
+        ("Colella", "HomogenSlab"),
+        ("HollowCylinder", "ScrewPinch"),
+        ("HollowTorus", "AdhocTorus"),
+    ],
+)
+def test_rotation(num_elements, degree, bcs, map_and_equil, eps, matrix_free, show_plots=False):
+    """Test the rotation-stabilized ``M2B`` mass operator on the Hdiv space.
 
-    # compare output arrays
+    The test verifies that the perp-to-field component of the numerical
+    solution matches the analytically derived exact solution for the
+    regularised rotation problem
 
-    compare_arrays(rM1Bninv_psy, rM1Bninvold_psy.toarray(), mpi_rank, atol=1e-14)
-    compare_arrays(rM1Bninv_fre, rM1Bninvold_fre.toarray(), mpi_rank, atol=1e-14)
+    eps * u2 + B2 x u2 = G*f2,
 
-    compare_arrays(rM1ninv_psy, rM1ninvold_psy.toarray(), mpi_rank, atol=1e-14)
-    compare_arrays(rM1ninv_fre, rM1ninvold_fre.toarray(), mpi_rank, atol=1e-14)
+    where B2 and f2 are given 2-forms, and eps is a regularisation parameter.
 
-    compare_arrays(rM1ninvswitch_psy, rM1ninvold_psy.toarray(), mpi_rank, atol=1e-14)
-    compare_arrays(rM1ninvswitch_fre, rM1ninvold_fre.toarray(), mpi_rank, atol=1e-14)
+    The exact perpendicular solution is computed analytically from the
+    right-hand-side trigonometric functions, the local rotation matrix built
+    from the equilibrium magnetic 2-form components, and the domain metric
+    tensor.  Only the component of the numerical result perpendicular to the
+    background magnetic field is compared to the exact solution.
+    """
 
-    compare_arrays(rM1Bninvswitch_psy, rM1Bninvold_psy.toarray(), mpi_rank, atol=1e-14)
-    compare_arrays(rM1Bninvswitch_fre, rM1Bninvold_fre.toarray(), mpi_rank, atol=1e-14)
+    import cunumpy as xp
+    from feectools.ddm.mpi import mpi as MPI
+    from feectools.linalg.solvers import inverse
 
-    compare_arrays(rM0ad_psy, rM0adold_psy.toarray(), mpi_rank, atol=1e-14)
-    compare_arrays(rM0ad_fre, rM0adold_fre.toarray(), mpi_rank, atol=1e-14)
+    from struphy import domains, equils
+    from struphy.feec.mass import L2Projector, WeightedMassOperators
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import LocalRotationMatrix
+    from struphy.geometry.base import Domain
+    from struphy.geometry.domains import Cuboid, HollowCylinder
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
-    compare_arrays(rM1gyro_psy, rM1gyroold_psy.toarray(), mpi_rank, atol=1e-14)
-    compare_arrays(rM1gyro_fre, rM1gyroold_fre.toarray(), mpi_rank, atol=1e-14)
+    mpi_comm = MPI.COMM_WORLD
+    mpi_rank = mpi_comm.Get_rank()
+    mpi_size = mpi_comm.Get_size()
+    mpi_comm.Barrier()
 
-    compare_arrays(rM1perp_psy, rM1perpold_psy.toarray(), mpi_rank, atol=1e-14)
-    compare_arrays(rM1perp_fre, rM1perpold_fre.toarray(), mpi_rank, atol=1e-14)
+    logger.debug(f"Rank {mpi_rank} | Start test_mass with " + str(mpi_size) + " MPI processes!")
 
-    # perfrom matrix-vector products (without boundary conditions)
+    # mapping
+    domain_class = getattr(domains, map_and_equil[0])
+    if map_and_equil[0] == "Cuboid":
+        domain: Cuboid = domain_class(l1=0.0, r1=10.0, l2=0.0, r2=3.0, l3=0.0, r3=4.0)
+    elif map_and_equil[0] == "HollowCylinder":
+        R0 = 3.0
+        domain: HollowCylinder = domain_class(a1=0.3, Lz=2 * xp.pi * R0)
+    else:
+        domain: Domain = domain_class()
+    logger.debug(f"{domain = }")
 
-    r0_psy = mass_mats.M0.dot(x0_psy, apply_bc=False)
-    r1_psy = mass_mats.M1.dot(x1_psy, apply_bc=False)
-    r2_psy = mass_mats.M2.dot(x2_psy, apply_bc=False)
-    r3_psy = mass_mats.M3.dot(x3_psy, apply_bc=False)
-    rv_psy = mass_mats.Mv.dot(xv_psy, apply_bc=False)
+    # equilibrium
+    equil_class = getattr(equils, map_and_equil[1])
+    if map_and_equil[1] == "HomogenSlab":
+        equil: equils.HomogenSlab = equil_class(n0=2.0)
+    elif map_and_equil[1] == "ScrewPinch":
+        equil: equils.ScrewPinch = equil_class(na=0.5, n1=1.0, n2=1.0, R0=R0)
+    elif map_and_equil[1] == "AdhocTorus":
+        equil: equils.AdhocTorus = equil_class(na=0.4)
+    equil.domain = domain
+    logger.debug(f"{equil = }")
 
-    rM1Bninv_psy = mass_mats.M1Bninv.dot(x1_psy, apply_bc=False)
-    rM1Bninvold_psy = mass_matsold.M1Bninv.dot(x1_psy, apply_bc=False)
-    rM0ad_psy = mass_mats.M0ad.dot(x0_psy, apply_bc=False)
-    rM0adold_psy = mass_matsold.M0ad.dot(x0_psy, apply_bc=False)
-    rM1ninv_psy = mass_mats.M1ninv.dot(x1_psy, apply_bc=False)
-    rM1ninvold_psy = mass_matsold.M1ninv.dot(x1_psy, apply_bc=False)
+    if show_plots and False:
+        equil.show()
 
-    r0_fre = mass_mats_free.M0.dot(x0_psy, apply_bc=False)
-    r1_fre = mass_mats_free.M1.dot(x1_psy, apply_bc=False)
-    r2_fre = mass_mats_free.M2.dot(x2_psy, apply_bc=False)
-    r3_fre = mass_mats_free.M3.dot(x3_psy, apply_bc=False)
-    rv_fre = mass_mats_free.Mv.dot(xv_psy, apply_bc=False)
+    # derham object
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=mpi_comm)
 
-    rM1Bninv_fre = mass_mats_free.M1Bninv.dot(x1_psy, apply_bc=False)
-    rM1Bninvold_fre = mass_matsold_free.M1Bninv.dot(x1_psy, apply_bc=False)
-    rM0ad_fre = mass_mats_free.M0ad.dot(x0_psy, apply_bc=False)
-    rM0adold_fre = mass_matsold_free.M0ad.dot(x0_psy, apply_bc=False)
-    rM1ninv_fre = mass_mats_free.M1ninv.dot(x1_psy, apply_bc=False)
-    rM1ninvold_fre = mass_matsold_free.M1ninv.dot(x1_psy, apply_bc=False)
+    logger.debug(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
 
-    # compare output arrays
-    compare_arrays(rM1Bninv_psy, rM1Bninvold_psy.toarray(), mpi_rank, atol=1e-14)
-    compare_arrays(rM1Bninv_fre, rM1Bninvold_fre.toarray(), mpi_rank, atol=1e-14)
-    compare_arrays(rM0ad_psy, rM0adold_psy.toarray(), mpi_rank, atol=1e-14)
-    compare_arrays(rM0ad_fre, rM0adold_fre.toarray(), mpi_rank, atol=1e-14)
-    compare_arrays(rM1ninv_psy, rM1ninvold_psy.toarray(), mpi_rank, atol=1e-14)
-    compare_arrays(rM1ninv_fre, rM1ninvold_fre.toarray(), mpi_rank, atol=1e-14)
+    # mass matrices object
+    mass_ops = WeightedMassOperators(derham, domain, eq_mhd=equil, matrix_free=matrix_free)
 
-    print(f"Rank {mpi_rank} | All tests passed!")
+    # right-hand side, integrated against the basis functions
+    def rhs_0(e1, e2, e3):
+        return xp.sin(2 * xp.pi * e1) * xp.cos(4 * xp.pi * e2) * xp.cos(2 * xp.pi * e3)
+
+    def rhs_1(e1, e2, e3):
+        return xp.sin(2 * xp.pi * e1) * xp.cos(2 * xp.pi * e2) * xp.cos(2 * xp.pi * e3)
+
+    def rhs_2(e1, e2, e3):
+        return xp.zeros_like(e1)
+
+    l2proj_2 = L2Projector("Hdiv", mass_ops)
+    rhs = l2proj_2.get_dofs((rhs_0, rhs_1, rhs_2), apply_bc=True)
+
+    # test mass matrices
+    e1 = xp.linspace(0, 1, 8)
+    e2 = xp.linspace(0, 1, 16)
+    e3 = xp.linspace(0, 1, 12)
+    ee1, ee2, ee3 = xp.meshgrid(e1, e2, e3, indexing="ij")
+
+    if min(degree) == 1:
+        err_bound = 1e-1
+    elif min(degree) == 2:
+        err_bound = 1e-2
+
+    # exact solution to the rotation problem u2 + B2 x u2 = G*f2, where G is the metric tensor and B2 is the magnetic field as a 2-form
+    rot_B = LocalRotationMatrix(equil.b2_1, equil.b2_2, equil.b2_3)(ee1, ee2, ee3)
+    logger.debug(f"{rot_B.shape = }")
+
+    G = domain.metric(ee1, ee2, ee3, change_out_order=True)
+    logger.debug(f"{G.shape = }")
+
+    # numpy operates on the last two indices with @
+    rhs_mat = xp.array([rhs_0(ee1, ee2, ee3), rhs_1(ee1, ee2, ee3), rhs_2(ee1, ee2, ee3)])
+    tmp = xp.transpose(rhs_mat, axes=(1, 2, 3, 0))
+    logger.debug(f"{tmp.shape = }")
+    f = xp.matvec(G, tmp)
+
+    absB2 = equil.b2_1(ee1, ee2, ee3) ** 2 + equil.b2_2(ee1, ee2, ee3) ** 2 + equil.b2_3(ee1, ee2, ee3) ** 2
+    logger.debug(f"{xp.min(xp.abs(absB2)) = }")
+    f_rot_B = -xp.transpose(xp.matvec(rot_B, f), axes=(3, 0, 1, 2))
+    tmp = -xp.matvec(rot_B, xp.matvec(rot_B, f))
+    f_perp = xp.transpose(tmp, axes=(3, 0, 1, 2)) / absB2
+
+    exact = (f_rot_B + eps * f_perp) / (eps**2 + absB2)
+    logger.debug(f"{exact.shape = }")
+
+    # numerical solution (weak form)
+    solver = "gmres"
+    stab = mass_ops.M2stab_for_rot
+
+    M = mass_ops.M2B
+    M += eps * stab
+
+    result = derham.create_spline_function("result", "Hdiv")
+    Minv = inverse(M, solver, tol=1e-7, maxiter=1000, verbose=False)
+    result.vector = Minv.dot(rhs)
+
+    result_values = xp.array(result(e1, e2, e3))
+    logger.debug(f"{result_values.shape = }")
+
+    tmp = xp.matvec(rot_B, xp.transpose(result_values, axes=(1, 2, 3, 0)))
+    tmp2 = -xp.matvec(rot_B, tmp)
+    result_values_perp = xp.transpose(tmp2, axes=(3, 0, 1, 2)) / absB2
+    logger.debug(f"{result_values_perp.shape = }")
+
+    if show_plots:
+        plt.figure(figsize=(24, 10))
+        plt.subplot(2, 3, 1)
+        plt.pcolor(e1, e2, result_values_perp[0, :, :, 0].T)
+        plt.colorbar()
+        plt.title("solution with assembled matrix, component 1")
+        plt.subplot(2, 3, 2)
+        plt.pcolor(e1, e2, result_values_perp[1, :, :, 0].T)
+        plt.colorbar()
+        plt.title("solution with assembled matrix, component 2")
+        plt.subplot(2, 3, 3)
+        plt.pcolor(e1, e2, result_values_perp[2, :, :, 0].T)
+        plt.colorbar()
+        plt.title("solution with assembled matrix, component 3")
+        plt.subplot(2, 3, 4)
+        plt.pcolor(e1, e2, exact[0, :, :, 0].T)
+        plt.colorbar()
+        plt.title("exact, component 1")
+        plt.subplot(2, 3, 5)
+        plt.pcolor(e1, e2, exact[1, :, :, 0].T)
+        plt.colorbar()
+        plt.title("exact, component 2")
+        plt.subplot(2, 3, 6)
+        plt.pcolor(e1, e2, exact[2, :, :, 0].T)
+        plt.colorbar()
+        plt.title("exact, component 3")
+        plt.show()
+
+    err = xp.max(xp.abs(result_values_perp - exact)) / xp.max(xp.abs(exact))
+    print(f"relative max-error: {err:.2e}")
+    assert err < err_bound, f"relative max-error {err:.2e} exceeds bound of {err_bound:.2e}"
 
 
 @pytest.mark.parametrize("num_elements", [[8, 12, 6]])
@@ -330,11 +433,11 @@ def test_mass_polar(num_elements, degree, bcs, mapping, show_plots=False):
     mpi_size = mpi_comm.Get_size()
 
     if mpi_rank == 0:
-        print()
+        logger.info("")
 
     mpi_comm.Barrier()
 
-    print(f"Rank {mpi_rank} | Start test_mass_polar with " + str(mpi_size) + " MPI processes!")
+    logger.info(f"Rank {mpi_rank} | Start test_mass_polar with " + str(mpi_size) + " MPI processes!")
 
     # mapping
     domain_class = getattr(domains, mapping[0])
@@ -377,7 +480,7 @@ def test_mass_polar(num_elements, degree, bcs, mapping, show_plots=False):
         domain=domain,
     )
 
-    print(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
+    logger.info(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
 
     # mass matrices object
     mass_mats = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd)
@@ -435,7 +538,7 @@ def test_mass_polar(num_elements, degree, bcs, mapping, show_plots=False):
     r2_pol_psy = mass_mats.M2.dot(x2_pol_psy, apply_bc=False)
     r3_pol_psy = mass_mats.M3.dot(x3_pol_psy, apply_bc=False)
 
-    print(f"Rank {mpi_rank} | All tests passed!")
+    logger.info(f"Rank {mpi_rank} | All tests passed!")
 
 
 @pytest.mark.parametrize("num_elements", [[8, 12, 6]])
@@ -462,7 +565,7 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
     from feectools.linalg.solvers import inverse
 
     from struphy import domains
-    from struphy.feec.mass import WeightedMassOperators, WeightedMassOperatorsOldForTesting
+    from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.preconditioner import MassMatrixPreconditioner
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
@@ -475,11 +578,11 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
     mpi_size = mpi_comm.Get_size()
 
     if mpi_rank == 0:
-        print()
+        logger.info("")
 
     mpi_comm.Barrier()
 
-    print(f"Rank {mpi_rank} | Start test_mass_preconditioner with " + str(mpi_size) + " MPI processes!")
+    logger.info(f"Rank {mpi_rank} | Start test_mass_preconditioner with " + str(mpi_size) + " MPI processes!")
 
     # mapping
     domain_class = getattr(domains, mapping[0])
@@ -551,15 +654,14 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
 
     fem_spaces = [derham.V0fem, derham.V1fem, derham.V2fem, derham.V3fem, derham.Vvfem]
 
-    print(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
+    logger.info(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
 
     # exact mass matrices
     mass_mats = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd)
-    mass_matsold = WeightedMassOperatorsOldForTesting(derham, domain, eq_mhd=eq_mhd)
 
     # assemble preconditioners
     if mpi_rank == 0:
-        print("Start assembling preconditioners")
+        logger.info("Start assembling preconditioners")
 
     M0pre = MassMatrixPreconditioner(mass_mats.M0)
     M1pre = MassMatrixPreconditioner(mass_mats.M1)
@@ -572,10 +674,9 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
     Mvnpre = MassMatrixPreconditioner(mass_mats.Mvn)
 
     M1Bninvpre = MassMatrixPreconditioner(mass_mats.M1Bninv)
-    M1Bninvoldpre = MassMatrixPreconditioner(mass_matsold.M1Bninv)
 
     if mpi_rank == 0:
-        print("Done")
+        logger.info("Done")
 
     # create random input arrays
     x0 = create_equal_random_arrays(fem_spaces[0], seed=1234, flattened=True)[1]
@@ -589,7 +690,7 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
 
     if (mapping[0] == "Cuboid" or mapping[0] == "HollowCylinder") and do_this_test:
         if mpi_rank == 0:
-            print("Start matrix-vector products in stencil format for mapping Cuboid/HollowCylinder")
+            logger.info("Start matrix-vector products in stencil format for mapping Cuboid/HollowCylinder")
 
         r0 = mass_mats.M0.dot(x0)
         r1 = mass_mats.M1.dot(x1)
@@ -602,13 +703,12 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
         rvn = mass_mats.Mvn.dot(xv)
 
         r1Bninv = mass_mats.M1Bninv.dot(x1)
-        r1Bninvold = mass_matsold.M1Bninv.dot(x1)
 
         if mpi_rank == 0:
-            print("Done")
+            logger.info("Done")
 
         if mpi_rank == 0:
-            print("Start matrix-vector products in KroneckerStencil format for mapping Cuboid/HollowCylinder")
+            logger.info("Start matrix-vector products in KroneckerStencil format for mapping Cuboid/HollowCylinder")
 
         r0_pre = M0pre.matrix.dot(x0)
         r1_pre = M1pre.matrix.dot(x1)
@@ -621,10 +721,9 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
         rvn_pre = Mvnpre.matrix.dot(xv)
 
         r1Bninv_pre = M1Bninvpre.matrix.dot(x1)
-        r1Bninvold_pre = M1Bninvoldpre.matrix.dot(x1)
 
         if mpi_rank == 0:
-            print("Done")
+            logger.info("Done")
 
         # compare output arrays
         assert xp.allclose(r0.toarray(), r0_pre.toarray())
@@ -638,8 +737,6 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
         assert xp.allclose(rvn.toarray(), rvn_pre.toarray())
 
         assert xp.allclose(r1Bninv.toarray(), r1Bninv_pre.toarray())
-        assert xp.allclose(r1Bninv.toarray(), r1Bninvold_pre.toarray())
-        assert xp.allclose(r1Bninvold.toarray(), r1Bninv_pre.toarray())
 
     # test if preconditioner satisfies PC * M = Identity
     if mapping[0] == "Cuboid" or mapping[0] == "HollowCylinder":
@@ -662,7 +759,7 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
-        print("Invert M0 with preconditioner")
+        logger.info("Invert M0 with preconditioner")
         r0 = M0inv.dot(derham.boundary_ops["0"].dot(x0))
     else:
         r0 = M0inv.dot(derham.boundary_ops["0"].dot(x0))
@@ -672,7 +769,7 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
-        print("Invert M1 with preconditioner")
+        logger.info("Invert M1 with preconditioner")
         r1 = M1inv.dot(derham.boundary_ops["1"].dot(x1))
     else:
         r1 = M1inv.dot(derham.boundary_ops["1"].dot(x1))
@@ -682,7 +779,7 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
-        print("Invert M2 with preconditioner")
+        logger.info("Invert M2 with preconditioner")
         r2 = M2inv.dot(derham.boundary_ops["2"].dot(x2))
     else:
         r2 = M2inv.dot(derham.boundary_ops["2"].dot(x2))
@@ -692,7 +789,7 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
-        print("Invert M3 with preconditioner")
+        logger.info("Invert M3 with preconditioner")
         r3 = M3inv.dot(derham.boundary_ops["3"].dot(x3))
     else:
         r3 = M3inv.dot(derham.boundary_ops["3"].dot(x3))
@@ -702,7 +799,7 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
-        print("Invert Mv with preconditioner")
+        logger.info("Invert Mv with preconditioner")
         rv = Mvinv.dot(derham.boundary_ops["v"].dot(xv))
     else:
         rv = Mvinv.dot(derham.boundary_ops["v"].dot(xv))
@@ -712,7 +809,7 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
-        print("Apply M1n with preconditioner")
+        logger.info("Apply M1n with preconditioner")
         r1n = M1ninv.dot(derham.boundary_ops["1"].dot(x1))
     else:
         r1n = M1ninv.dot(derham.boundary_ops["1"].dot(x1))
@@ -722,7 +819,7 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
-        print("Apply M2n with preconditioner")
+        logger.info("Apply M2n with preconditioner")
         r2n = M2ninv.dot(derham.boundary_ops["2"].dot(x2))
     else:
         r2n = M2ninv.dot(derham.boundary_ops["2"].dot(x2))
@@ -732,7 +829,7 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
-        print("Apply Mvn with preconditioner")
+        logger.info("Apply Mvn with preconditioner")
         rvn = Mvninv.dot(derham.boundary_ops["v"].dot(xv))
     else:
         rvn = Mvninv.dot(derham.boundary_ops["v"].dot(xv))
@@ -741,7 +838,7 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
         assert Mvninv._info["niter"] == 2
 
     time.sleep(2)
-    print(f"Rank {mpi_rank} | All tests passed!")
+    logger.info(f"Rank {mpi_rank} | All tests passed!")
 
 
 @pytest.mark.parametrize("num_elements", [[8, 9, 6]])
@@ -782,11 +879,11 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
     mpi_size = mpi_comm.Get_size()
 
     if mpi_rank == 0:
-        print()
+        logger.info("")
 
     mpi_comm.Barrier()
 
-    print(f"Rank {mpi_rank} | Start test_mass_preconditioner_polar with " + str(mpi_size) + " MPI processes!")
+    logger.info(f"Rank {mpi_rank} | Start test_mass_preconditioner_polar with " + str(mpi_size) + " MPI processes!")
 
     # mapping
     domain_class = getattr(domains, mapping[0])
@@ -829,14 +926,14 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
         domain=domain,
     )
 
-    print(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
+    logger.info(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
 
     # exact mass matrices
     mass_mats = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd)
 
     # preconditioners
     if mpi_rank == 0:
-        print("Start assembling preconditioners")
+        logger.info("Start assembling preconditioners")
 
     M0pre = MassMatrixPreconditioner(mass_mats.M0)
     M1pre = MassMatrixPreconditioner(mass_mats.M1)
@@ -847,7 +944,7 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
     M2npre = MassMatrixPreconditioner(mass_mats.M2n)
 
     if mpi_rank == 0:
-        print("Done")
+        logger.info("Done")
 
     # create random input arrays
     x0 = create_equal_random_arrays(derham.V0fem, seed=1234, flattened=True)[1]
@@ -892,9 +989,9 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
     # =============== M0 ===================================
     mpi_comm.Barrier()
     if mpi_rank == 0:
-        print("Invert M0 with preconditioner")
+        logger.info("Invert M0 with preconditioner")
         r0 = M0inv.dot(derham.boundary_ops["0"].dot(x0_pol))
-        print("Number of iterations : ", M0inv._info["niter"])
+        logger.info(f"Number of iterations : {M0inv._info['niter']}")
     else:
         r0 = M0inv.dot(derham.boundary_ops["0"].dot(x0_pol))
 
@@ -902,9 +999,9 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
-        print("Invert M0 without preconditioner")
+        logger.info("Invert M0 without preconditioner")
         r0 = M0inv_nopc.dot(derham.boundary_ops["0"].dot(x0_pol))
-        print("Number of iterations : ", M0inv_nopc._info["niter"])
+        logger.info(f"Number of iterations : {M0inv_nopc._info['niter']}")
     else:
         r0 = M0inv_nopc.dot(derham.boundary_ops["0"].dot(x0_pol))
 
@@ -914,9 +1011,9 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
     # =============== M1 ===================================
     mpi_comm.Barrier()
     if mpi_rank == 0:
-        print("Invert M1 with preconditioner")
+        logger.info("Invert M1 with preconditioner")
         r1 = M1inv.dot(derham.boundary_ops["1"].dot(x1_pol))
-        print("Number of iterations : ", M1inv._info["niter"])
+        logger.info(f"Number of iterations : {M1inv._info['niter']}")
     else:
         r1 = M1inv.dot(derham.boundary_ops["1"].dot(x1_pol))
 
@@ -924,9 +1021,9 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
-        print("Invert M1 without preconditioner")
+        logger.info("Invert M1 without preconditioner")
         r1 = M1inv_nopc.dot(derham.boundary_ops["1"].dot(x1_pol))
-        print("Number of iterations : ", M1inv_nopc._info["niter"])
+        logger.info(f"Number of iterations : {M1inv_nopc._info['niter']}")
     else:
         r1 = M1inv_nopc.dot(derham.boundary_ops["1"].dot(x1_pol))
 
@@ -936,9 +1033,9 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
     # =============== M2 ===================================
     mpi_comm.Barrier()
     if mpi_rank == 0:
-        print("Invert M2 with preconditioner")
+        logger.info("Invert M2 with preconditioner")
         r2 = M2inv.dot(derham.boundary_ops["2"].dot(x2_pol))
-        print("Number of iterations : ", M2inv._info["niter"])
+        logger.info(f"Number of iterations : {M2inv._info['niter']}")
     else:
         r2 = M2inv.dot(derham.boundary_ops["2"].dot(x2_pol))
 
@@ -946,9 +1043,9 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
-        print("Invert M2 without preconditioner")
+        logger.info("Invert M2 without preconditioner")
         r2 = M2inv_nopc.dot(derham.boundary_ops["2"].dot(x2_pol))
-        print("Number of iterations : ", M2inv_nopc._info["niter"])
+        logger.info(f"Number of iterations : {M2inv_nopc._info['niter']}")
     else:
         r2 = M2inv_nopc.dot(derham.boundary_ops["2"].dot(x2_pol))
 
@@ -958,9 +1055,9 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
     # =============== M3 ===================================
     mpi_comm.Barrier()
     if mpi_rank == 0:
-        print("Invert M3 with preconditioner")
+        logger.info("Invert M3 with preconditioner")
         r3 = M3inv.dot(derham.boundary_ops["3"].dot(x3_pol))
-        print("Number of iterations : ", M3inv._info["niter"])
+        logger.info(f"Number of iterations : {M3inv._info['niter']}")
     else:
         r3 = M3inv.dot(derham.boundary_ops["3"].dot(x3_pol))
 
@@ -968,9 +1065,9 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
-        print("Invert M3 without preconditioner")
+        logger.info("Invert M3 without preconditioner")
         r3 = M3inv_nopc.dot(derham.boundary_ops["3"].dot(x3_pol))
-        print("Number of iterations : ", M3inv_nopc._info["niter"])
+        logger.info(f"Number of iterations : {M3inv_nopc._info['niter']}")
     else:
         r3 = M3inv_nopc.dot(derham.boundary_ops["3"].dot(x3_pol))
 
@@ -980,9 +1077,9 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
     # =============== M1n ===================================
     mpi_comm.Barrier()
     if mpi_rank == 0:
-        print("Invert M1n with preconditioner")
+        logger.info("Invert M1n with preconditioner")
         r1 = M1ninv.dot(derham.boundary_ops["1"].dot(x1_pol))
-        print("Number of iterations : ", M1ninv._info["niter"])
+        logger.info(f"Number of iterations : {M1ninv._info['niter']}")
     else:
         r1 = M1ninv.dot(derham.boundary_ops["1"].dot(x1_pol))
 
@@ -990,9 +1087,9 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
-        print("Invert M1n without preconditioner")
+        logger.info("Invert M1n without preconditioner")
         r1 = M1ninv_nopc.dot(derham.boundary_ops["1"].dot(x1_pol))
-        print("Number of iterations : ", M1ninv_nopc._info["niter"])
+        logger.info(f"Number of iterations : {M1ninv_nopc._info['niter']}")
     else:
         r1 = M1ninv_nopc.dot(derham.boundary_ops["1"].dot(x1_pol))
 
@@ -1002,9 +1099,9 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
     # =============== M2n ===================================
     mpi_comm.Barrier()
     if mpi_rank == 0:
-        print("Invert M2n with preconditioner")
+        logger.info("Invert M2n with preconditioner")
         r2 = M2ninv.dot(derham.boundary_ops["2"].dot(x2_pol))
-        print("Number of iterations : ", M2ninv._info["niter"])
+        logger.info(f"Number of iterations : {M2ninv._info['niter']}")
     else:
         r2 = M2ninv.dot(derham.boundary_ops["2"].dot(x2_pol))
 
@@ -1012,9 +1109,9 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
 
     mpi_comm.Barrier()
     if mpi_rank == 0:
-        print("Invert M2n without preconditioner")
+        logger.info("Invert M2n without preconditioner")
         r2 = M2ninv_nopc.dot(derham.boundary_ops["2"].dot(x2_pol))
-        print("Number of iterations : ", M2ninv_nopc._info["niter"])
+        logger.info(f"Number of iterations : {M2ninv_nopc._info['niter']}")
     else:
         r2 = M2ninv_nopc.dot(derham.boundary_ops["2"].dot(x2_pol))
 
@@ -1022,33 +1119,32 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
     # =======================================================
 
     time.sleep(2)
-    print(f"Rank {mpi_rank} | All tests passed!")
+    logger.info(f"Rank {mpi_rank} | All tests passed!")
 
 
 if __name__ == "__main__":
     test_mass(
-        [5, 6, 7],
-        [2, 2, 3],
-        [True, False, True],
-        [[False, True], [True, False], [False, False]],
-        ["Colella", {"Lx": 1.0, "Ly": 6.0, "alpha": 0.1, "Lz": 10.0}],
-        False,
+        num_elements=(32, 32, 32),
+        degree=(1, 1, 1),
+        bcs=(("dirichlet", "dirichlet"), None, None),
+        # bcs=(None, None, None),
+        map_and_equil=("Cuboid", "HomogenSlab"),
+        # map_and_equil=("Colella", "HomogenSlab"),
+        # map_and_equil=("HollowCylinder", "ScrewPinch"),
+        # map_and_equil=("HollowTorus", "AdhocTorus"),
+        matrix_free=False,
+        show_plots=True,
     )
-    test_mass(
-        [5, 6, 7],
-        [2, 2, 3],
-        [True, False, True],
-        [[False, False], [False, False], [False, False]],
-        ["Colella", {"Lx": 1.0, "Ly": 6.0, "alpha": 0.1, "Lz": 10.0}],
-        False,
-    )
-    # # test_mass([8, 6, 4], [2, 3, 2], [False, True, False], [['d', 'd'], [None, None], [None, 'd']], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}], False)
-    # test_mass([8, 6, 4], [2, 2, 2], [False, True, True], [['d', 'd'], [None, None], [None, None]], ['HollowCylinder', {'a1': .1, 'a2': 1., 'Lz': 10.}], False)
-
-    # test_mass_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[False,  True], [False, False], [False, True]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)
-
-    # test_mass_preconditioner([8, 6, 4], [2, 2, 2], [False, False, False], [[True, True], [False, False], [False, False]], ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False)
-    # test_mass_preconditioner([8, 6, 4], [2, 2, 2], [False, False, False], [['d', 'd'], [None, None], [None, None]], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .05, 'Lz' : 10.}], False)
-    # test_mass_preconditioner([6, 9, 4], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['HollowCylinder', {'a1' : .1, 'a2' : 1., 'Lz' : 18.84955592153876}], False)
-
-    # test_mass_preconditioner_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[False, True], [False, False], [True, False]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)
+    # test_rotation(
+    #     num_elements=(32, 32, 32),
+    #     degree=(1, 1, 1),
+    #     bcs=(("dirichlet", "dirichlet"), None, None),
+    #     # bcs=(None, None, None),
+    #     # map_and_equil=("Cuboid", "HomogenSlab"),
+    #     # map_and_equil=("Colella", "HomogenSlab"),
+    #     # map_and_equil=("HollowCylinder", "ScrewPinch"),
+    #     map_and_equil=("HollowTorus", "AdhocTorus"),
+    #     eps=1.0,
+    #     matrix_free=False,
+    #     show_plots=True,
+    # )

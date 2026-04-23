@@ -1,5 +1,6 @@
 import glob
 import importlib.util
+import logging
 import os
 import shutil
 import sys
@@ -11,6 +12,8 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy.geometry.base import Domain
 from struphy.io.options import DerhamOptions
 from struphy.topology.grids import TensorProductGrid
+
+logger = logging.getLogger("struphy")
 
 
 def import_parameters_py(params_path: str, name: str = "parameters") -> ModuleType:
@@ -93,35 +96,35 @@ def descend_options_dict(
             out = copy.deepcopy(d)
 
     if verbose:
-        print(f"{d =}")
-        print(f"{out =}")
-        print(f"{d_default =}")
-        print(f"{d_opts =}")
-        print(f"{keys =}")
-        print(f"{depth =}")
-        print(f"{pop_again =}")
+        logger.info(f"{d =}")
+        logger.info(f"{out =}")
+        logger.info(f"{d_default =}")
+        logger.info(f"{d_opts =}")
+        logger.info(f"{keys =}")
+        logger.info(f"{depth =}")
+        logger.info(f"{pop_again =}")
 
     if verbose:
-        print(f"{d =}")
-        print(f"{out =}")
-        print(f"{d_default =}")
-        print(f"{d_opts =}")
-        print(f"{keys =}")
-        print(f"{depth =}")
-        print(f"{pop_again =}")
+        logger.info(f"{d =}")
+        logger.info(f"{out =}")
+        logger.info(f"{d_default =}")
+        logger.info(f"{d_opts =}")
+        logger.info(f"{keys =}")
+        logger.info(f"{depth =}")
+        logger.info(f"{pop_again =}")
 
     count = 0
     for key, val in d.items():
         count += 1
 
         if verbose:
-            print(f"\n{keys =} | {key =}, {type(val) =}, {count =}\n")
+            logger.info(f"\n{keys =} | {key =}, {type(val) =}, {count =}\n")
 
         if isinstance(val, list):
             # create default parameter dict "out"
 
             if verbose:
-                print(f"{val =}")
+                logger.info(f"{val =}")
 
             if d_default is None:
                 if len(keys) == 0:
@@ -159,10 +162,10 @@ def descend_options_dict(
                 out += [out_sublist]
 
             if verbose:
-                print(f"{out =}")
+                logger.info(f"{out =}")
 
             if verbose:
-                print(f"{out =}")
+                logger.info(f"{out =}")
 
         # recurse if necessary
         elif isinstance(val, dict):

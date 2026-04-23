@@ -1,3 +1,5 @@
+import logging
+
 import cunumpy as xp
 from feectools.api.essential_bc import apply_essential_bc_stencil
 from feectools.fem.tensor import TensorFemSpace
@@ -10,25 +12,31 @@ import struphy.feec.utilities_kernels as kernels
 from struphy.feec import banded_to_stencil_kernels as bts
 from struphy.polar.basic import PolarVector
 
+logger = logging.getLogger("struphy")
+
 
 def get_quad_grids(
-    space: TensorFemSpace | VectorFemSpace,
+    space: TensorFemSpace,
     nquads: tuple[int, int, int],
 ):
     """Return the 1d quadrature grids in each direction as a tuple."""
     return tuple({q: gag} for q, gag in zip(nquads, space.get_assembly_grids(*nquads)))
 
 
-class RotationMatrix:
-    """For a given vector-valued function a(e1, e2, e3), creates the callable matrix R(e1, e2, e3)
-    that represents the local rotation Rv = a x v at (e1, e2, e3) for any vector v in R^3.
+class LocalRotationMatrix:
+    """For a given triple of callables representing the components of a vector-valued function a(e1, e2, e3),
+    represents the local rotation matrix R defined by Rv = a x v at (e1, e2, e3) for any vector v in R^3.
 
-    When called, R(e1, e2, e3) is a five-dimensional array, with the 3x3 matrix in the last two indices.
+    LocalRotationMatrix(e1, e2, e3) returns a five-dimensional array, with the 3x3 matrix in the last two indices.
+
+    This can then be used with the following numpy functions:
+    * matvec for matrix-vector multiplication in the last indices
+    * @ for matrix-matrix multiplication in the last two indices
 
     Parameters
     ----------
     *vec_fun : list
-        Three callables that represent the vector-valued function a.
+        Three callables that represent the components of the vector-valued function a.
     """
 
     def __init__(self, *vec_fun):
@@ -58,6 +66,32 @@ class RotationMatrix:
 
         # numpy operates on the last two indices with @
         return xp.transpose(tmp, axes=(2, 3, 4, 0, 1))
+
+
+class LocalVector:
+    """For a given triple of callables representing the components of a vector-valued function a(e1, e2, e3),
+    represents the local vector a at (e1, e2, e3) as a 4D numpy array, with the three components in the last index.
+
+    The local scalar product can thus be computed using numpy's vecdot function, operating on the last index.
+
+    Parameters
+    ----------
+    *vec_fun : list
+        Three callables that represent the components of the vector-valued function a.
+    """
+
+    def __init__(self, *vec_fun):
+        assert len(vec_fun) == 3
+        assert all([callable(fun) for fun in vec_fun])
+
+        self._funs = vec_fun
+
+    def __call__(self, e1, e2, e3):
+        # array from list gives 3x3 array is in the first two indices
+        tmp = xp.array([self._funs[n](e1, e2, e3) for n in range(3)])
+
+        # numpy operates on the last two indices with @
+        return xp.transpose(tmp, axes=(1, 2, 3, 0))
 
 
 def create_equal_random_arrays(V, seed=123, flattened=False):
@@ -291,7 +325,7 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
         raise AssertionError("Wrong input type.")
 
     if verbose:
-        print(
+        logger.info(
             f"Rank {rank}: Assertion for array comparison passed with atol={atol}.",
         )
 

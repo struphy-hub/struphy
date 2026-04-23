@@ -1,6 +1,10 @@
+import logging
+
 import pytest
 
 from struphy.utils.pyccel import Pyccelkernel
+
+logger = logging.getLogger("struphy")
 
 
 @pytest.mark.parametrize("num_elements", [[8, 9, 10]])
@@ -114,7 +118,7 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=1000):
     domain_decomp = (domain_array, nprocs)
 
     if mpi_rank == 0:
-        print("Domain decomposition according to", derham.domain_array)
+        logger.info(f"Domain decomposition according to {derham.domain_array}")
 
     # load distributed markers first and use Send/Receive to make global marker copies for the legacy routines
     loading_params = LoadingParameters(
@@ -140,8 +144,8 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=1000):
     _vdim = particles.vdim
     _w0 = particles.weights
 
-    print("Test weights:")
-    print(f"rank {mpi_rank}:", _w0.shape, xp.min(_w0), xp.max(_w0))
+    logger.info("Test weights:")
+    logger.info(f"rank {mpi_rank}: {_w0.shape} {xp.min(_w0)} {xp.max(_w0)}")
 
     _sqrtg = domain.jacobian_det(0.5, 0.5, 0.5)
 
@@ -168,7 +172,7 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=1000):
     if clone_config is not None:
         clone_config.sub_comm.Allreduce(MPI.IN_PLACE, _sum_within_clone, op=MPI.SUM)
 
-    print(f"rank {mpi_rank}: {_sum_within_clone =}, {_sqrtg =}")
+    logger.info(f"rank {mpi_rank}: {_sum_within_clone =}, {_sqrtg =}")
 
     # Check within clone
     assert xp.isclose(_sum_within_clone, _sqrtg)
@@ -181,7 +185,7 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=1000):
         mpi_comm.Allreduce(MPI.IN_PLACE, _sum_between_clones, op=MPI.SUM)
         clone_config.inter_comm.Allreduce(MPI.IN_PLACE, _sqrtg, op=MPI.SUM)
 
-    print(f"rank {mpi_rank}: {_sum_between_clones =}, {_sqrtg =}")
+    logger.info(f"rank {mpi_rank}: {_sum_between_clones =}, {_sqrtg =}")
 
     # Check within clone
     assert xp.isclose(_sum_between_clones, _sqrtg)

@@ -1,4 +1,8 @@
+import logging
+
 import pytest
+
+logger = logging.getLogger("struphy")
 
 
 @pytest.mark.parametrize("num_elements", [[8, 9, 6]])
@@ -20,39 +24,39 @@ def test_spaces(num_elements, degree, bcs):
     derham_opts = DerhamOptions(degree=degree, bcs=bcs)
     derham = Derham(grid, derham_opts)
 
-    print("polar V0:")
+    logger.info("polar V0:")
     V = PolarDerhamSpace(derham, "H1")
-    print("dimensions (parent, polar):", derham.V0fem.nbasis, V.dimension)
-    print(V.dtype)
-    print(V.zeros(), "\n")
+    logger.info(f"dimensions (parent, polar): {derham.V0fem.nbasis} {V.dimension}")
+    logger.info(V.dtype)
+    logger.info(f"{V.zeros()}\n")
     a = PolarVector(V)
     a.pol[0][:] = 1.0
     a.tp[:] = 1.0
-    print(a.toarray())
+    logger.info(a.toarray())
     a.set_tp_coeffs_to_zero()
     b = a.copy()
-    print(a.toarray())
-    print(a.dot(b))
-    print((-a).toarray())
-    print((2 * a).toarray())
-    print((a * 2).toarray())
-    print((a + b).toarray())
-    print((a - b).toarray())
+    logger.info(a.toarray())
+    logger.info(a.dot(b))
+    logger.info((-a).toarray())
+    logger.info((2 * a).toarray())
+    logger.info((a * 2).toarray())
+    logger.info((a + b).toarray())
+    logger.info((a - b).toarray())
     a *= 2
-    print(a.toarray())
+    logger.info(a.toarray())
     a += b
-    print(a.toarray())
+    logger.info(a.toarray())
     a -= b
-    print(a.toarray())
-    print(a.toarray_tp())
+    logger.info(a.toarray())
+    logger.info(a.toarray_tp())
 
-    print()
+    logger.info("")
 
-    print("polar V1:")
+    logger.info("polar V1:")
     V = PolarDerhamSpace(derham, "Hcurl")
-    print("dimensions (parent, polar):", derham.V1fem.nbasis, V.dimension)
-    print(V.dtype)
-    print(V.zeros(), "\n")
+    logger.info(f"dimensions (parent, polar): {derham.V1fem.nbasis} {V.dimension}")
+    logger.info(V.dtype)
+    logger.info(f"{V.zeros()}\n")
     a = PolarVector(V)
     a.pol[0][:] = 1.0
     a.pol[1][:] = 2.0
@@ -60,31 +64,31 @@ def test_spaces(num_elements, degree, bcs):
     a.tp[0][:] = 1.0
     a.tp[1][:] = 2.0
     a.tp[2][:] = 3.0
-    print(a.toarray())
+    logger.info(a.toarray())
     a.set_tp_coeffs_to_zero()
     b = a.copy()
-    print(a.toarray())
-    print(a.dot(b))
-    print((-a).toarray())
-    print((2 * a).toarray())
-    print((a * 2).toarray())
-    print((a + b).toarray())
-    print((a - b).toarray())
+    logger.info(a.toarray())
+    logger.info(a.dot(b))
+    logger.info((-a).toarray())
+    logger.info((2 * a).toarray())
+    logger.info((a * 2).toarray())
+    logger.info((a + b).toarray())
+    logger.info((a - b).toarray())
     a *= 2
-    print(a.toarray())
+    logger.info(a.toarray())
     a += b
-    print(a.toarray())
+    logger.info(a.toarray())
     a -= b
-    print(a.toarray())
-    print(a.toarray_tp())
+    logger.info(a.toarray())
+    logger.info(a.toarray_tp())
 
-    print()
+    logger.info("")
 
-    print("polar V2:")
+    logger.info("polar V2:")
     V = PolarDerhamSpace(derham, "Hdiv")
-    print("dimensions (parent, polar):", derham.V2fem, V.dimension)
-    print(V.dtype)
-    print(V.zeros(), "\n")
+    logger.info(f"dimensions (parent, polar): {derham.V2fem} {V.dimension}")
+    logger.info(V.dtype)
+    logger.info(f"{V.zeros()}\n")
     a = PolarVector(V)
     a.pol[0][:] = 1.0
     a.pol[1][:] = 2.0
@@ -92,59 +96,59 @@ def test_spaces(num_elements, degree, bcs):
     a.tp[0][:] = 1.0
     a.tp[1][:] = 2.0
     a.tp[2][:] = 3.0
-    print(a.toarray())
+    logger.info(a.toarray())
     a.set_tp_coeffs_to_zero()
     b = a.copy()
-    print(a.toarray())
-    print(a.dot(b))
-    print((-a).toarray())
-    print((2 * a).toarray())
-    print((a * 2).toarray())
-    print((a + b).toarray())
-    print((a - b).toarray())
+    logger.info(a.toarray())
+    logger.info(a.dot(b))
+    logger.info((-a).toarray())
+    logger.info((2 * a).toarray())
+    logger.info((a * 2).toarray())
+    logger.info((a + b).toarray())
+    logger.info((a - b).toarray())
     a *= 2
-    print(a.toarray())
+    logger.info(a.toarray())
     a += b
-    print(a.toarray())
+    logger.info(a.toarray())
     a -= b
-    print(a.toarray())
-    print(a.toarray_tp())
+    logger.info(a.toarray())
+    logger.info(a.toarray_tp())
 
-    print()
+    logger.info("")
 
-    print("polar V3:")
+    logger.info("polar V3:")
     V = PolarDerhamSpace(derham, "L2")
-    print("dimensions (parent, polar):", derham.V3fem, V.dimension)
-    print(V.dtype)
-    print(V.zeros(), "\n")
+    logger.info(f"dimensions (parent, polar): {derham.V3fem} {V.dimension}")
+    logger.info(V.dtype)
+    logger.info(f"{V.zeros()}\n")
     a = PolarVector(V)
     a.pol[0][:] = 1.0
     a.tp[:] = 1.0
-    print(a.toarray())
+    logger.info(a.toarray())
     a.set_tp_coeffs_to_zero()
     b = a.copy()
-    print(a.toarray())
-    print(a.dot(b))
-    print((-a).toarray())
-    print((2 * a).toarray())
-    print((a * 2).toarray())
-    print((a + b).toarray())
-    print((a - b).toarray())
+    logger.info(a.toarray())
+    logger.info(a.dot(b))
+    logger.info((-a).toarray())
+    logger.info((2 * a).toarray())
+    logger.info((a * 2).toarray())
+    logger.info((a + b).toarray())
+    logger.info((a - b).toarray())
     a *= 2
-    print(a.toarray())
+    logger.info(a.toarray())
     a += b
-    print(a.toarray())
+    logger.info(a.toarray())
     a -= b
-    print(a.toarray())
-    print(a.toarray_tp())
+    logger.info(a.toarray())
+    logger.info(a.toarray_tp())
 
-    print()
+    logger.info("")
 
-    print("polar V0vec:")
+    logger.info("polar V0vec:")
     V = PolarDerhamSpace(derham, "H1vec")
-    print("dimensions (parent, polar):", derham.Vvfem.nbasis, V.dimension)
-    print(V.dtype)
-    print(V.zeros(), "\n")
+    logger.info(f"dimensions (parent, polar): {derham.Vvfem.nbasis} {V.dimension}")
+    logger.info(V.dtype)
+    logger.info(f"{V.zeros()}\n")
     a = PolarVector(V)
     a.pol[0][:] = 1.0
     a.pol[1][:] = 2.0
@@ -152,25 +156,25 @@ def test_spaces(num_elements, degree, bcs):
     a.tp[0][:] = 1.0
     a.tp[1][:] = 2.0
     a.tp[2][:] = 3.0
-    print(a.toarray())
+    logger.info(a.toarray())
     a.set_tp_coeffs_to_zero()
     b = a.copy()
-    print(a.toarray())
-    print(a.dot(b))
-    print((-a).toarray())
-    print((2 * a).toarray())
-    print((a * 2).toarray())
-    print((a + b).toarray())
-    print((a - b).toarray())
+    logger.info(a.toarray())
+    logger.info(a.dot(b))
+    logger.info((-a).toarray())
+    logger.info((2 * a).toarray())
+    logger.info((a * 2).toarray())
+    logger.info((a + b).toarray())
+    logger.info((a - b).toarray())
     a *= 2
-    print(a.toarray())
+    logger.info(a.toarray())
     a += b
-    print(a.toarray())
+    logger.info(a.toarray())
     a -= b
-    print(a.toarray())
-    print(a.toarray_tp())
+    logger.info(a.toarray())
+    logger.info(a.toarray_tp())
 
-    print()
+    logger.info("")
 
 
 @pytest.mark.parametrize("num_elements", [[6, 9, 6]])
@@ -211,9 +215,9 @@ def test_extraction_ops_and_derivatives(num_elements, degree, bcs):
     # create legacy FEM spaces
 
     if rank == 0:
-        print()
-        print("Domain decomposition : \n", derham.domain_array)
-        print()
+        logger.info("")
+        logger.info(f"Domain decomposition : \n{derham.domain_array}")
+        logger.info("")
 
     comm.Barrier()
 
@@ -247,7 +251,7 @@ def test_extraction_ops_and_derivatives(num_elements, degree, bcs):
 
     # ==================== test basis extraction operators ===================
     if rank == 0:
-        print("----------- Test basis extraction operators ---------")
+        logger.info("----------- Test basis extraction operators ---------")
 
     # test basis extraction operator
     r0_pol = derham.extraction_ops["0"].dot(f0_tp)
@@ -267,12 +271,12 @@ def test_extraction_ops_and_derivatives(num_elements, degree, bcs):
     r3 = E3T.dot(p3_pol)
 
     if rank == 0:
-        print("------------- Test passed ---------------------------")
-        print()
+        logger.info("------------- Test passed ---------------------------")
+        logger.info("")
 
     # ==================== test discrete derivatives ======================
     if rank == 0:
-        print("----------- Test discrete derivatives ---------")
+        logger.info("----------- Test discrete derivatives ---------")
 
     # test discrete derivatives
     r1_pol = derham.grad.dot(f0_pol)
@@ -289,7 +293,7 @@ def test_extraction_ops_and_derivatives(num_elements, degree, bcs):
     r2_pol = DT.dot(p3_pol)
 
     if rank == 0:
-        print("------------- Test passed ---------------------------")
+        logger.info("------------- Test passed ---------------------------")
 
 
 @pytest.mark.parametrize("num_elements", [[6, 12, 7]])
@@ -324,9 +328,9 @@ def test_projectors(num_elements, degree, bcs):
     derham = Derham(grid, derham_opts, comm=comm, domain=domain)
 
     if rank == 0:
-        print()
-        print("Domain decomposition : \n", derham.domain_array)
-        print()
+        logger.info("")
+        logger.info(f"Domain decomposition : \n{derham.domain_array}")
+        logger.info("")
 
     comm.Barrier()
 
@@ -362,8 +366,8 @@ def test_projectors(num_elements, degree, bcs):
         r0_pol = derham.P0(fun0)
 
     if rank == 0:
-        print("Test passed for PI_0 polar projector")
-        print()
+        logger.info("Test passed for PI_0 polar projector")
+        logger.info("")
 
     comm.Barrier()
 
@@ -374,8 +378,8 @@ def test_projectors(num_elements, degree, bcs):
         r1_pol = derham.P1(fun1)
 
     if rank == 0:
-        print("Test passed for PI_1 polar projector")
-        print()
+        logger.info("Test passed for PI_1 polar projector")
+        logger.info("")
 
     comm.Barrier()
 
@@ -386,8 +390,8 @@ def test_projectors(num_elements, degree, bcs):
         r2_pol = derham.P2(fun2)
 
     if rank == 0:
-        print("Test passed for PI_2 polar projector")
-        print()
+        logger.info("Test passed for PI_2 polar projector")
+        logger.info("")
 
     comm.Barrier()
 
@@ -398,8 +402,8 @@ def test_projectors(num_elements, degree, bcs):
         r3_pol = derham.P3(fun3)
 
     if rank == 0:
-        print("Test passed for PI_3 polar projector")
-        print()
+        logger.info("Test passed for PI_3 polar projector")
+        logger.info("")
 
 
 if __name__ == "__main__":
