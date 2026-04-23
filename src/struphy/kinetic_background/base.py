@@ -13,10 +13,6 @@ from struphy.initial.base import Perturbation
 from struphy.geometry.base import Domain
 from struphy.io.options import LiteralOptions
 
-import matplotlib.pyplot as plt
-from matplotlib import cm
-from matplotlib.colors import Normalize
-
 
 class KineticBackground(metaclass=ABCMeta):
     r"""Base class for kinetic background distributions
