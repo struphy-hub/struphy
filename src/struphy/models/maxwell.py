@@ -17,7 +17,6 @@ from struphy.utils.docstring_converter import auto_convert_docstring, info
 rank = MPI.COMM_WORLD.Get_rank()
 
 
-@auto_convert_docstring
 class Maxwell(StruphyModel):
     """Maxwell's equations in vacuum for electromagnetic field evolution.
     
@@ -128,6 +127,10 @@ where :math:`c` is the speed of light."""
 
     @classmethod
     def doc_discretization(cls):
+        """Propagators:
+        
+        1. :class:`~struphy.propagators.propagators_fields.Maxwell`
+        """
         doc = rf"""**1. propagators_fields.Maxwell:**
         
 {propagators_fields.Maxwell.__doc__}

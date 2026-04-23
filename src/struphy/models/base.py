@@ -169,7 +169,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
     @classmethod
     def info(cls):
         doc = "**"
-        doc += cls.__doc__.split("Parameters")[0].split("<")[0] if cls.__doc__ else """Description not available for this model."""
+        doc += rst_to_html(cls.__doc__).split("Parameters")[0].split("<")[0] if cls.__doc__ else """Description not available for this model."""
         doc += "**"
         doc += rf"""To see detailed information on the model, run the following methods:
         

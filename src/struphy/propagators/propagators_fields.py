@@ -72,9 +72,9 @@ class Maxwell(Propagator):
 
     .. math::
 
-        \int_{\Omega} \frac{\partial \mathbf E}{\partial t} \cdot \mathbf F \, \textrm d \mathbf x - \int_{\Omega} \mathbf B \cdot \nabla \times \mathbf F \,\textrm d \mathbf x = 0\,, \qquad \forall \, \mathbf F \in H(\textnormal{curl}) \\
-        
-        \frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,.
+        \int_{\Omega} \frac{\partial \mathbf E}{\partial t} \cdot \mathbf F \, \textrm d \mathbf x - \int_{\Omega} \mathbf B \cdot \nabla \times \mathbf F \,\textrm d \mathbf x &= 0\,, \qquad \forall \, \mathbf F \in H(\textnormal{curl}) 
+        \\
+        \frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E &= 0\,.
 
     Time discretization:
     
@@ -525,8 +525,8 @@ class ShearAlfven(Propagator):
 
     .. math::
 
-        \int_{\Omega} \rho_0\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V\,\textnormal d \mathbf x &= \int_{\Omega} \tilde{\mathbf{B}} \cdot \nabla \times (\mathbf{B}_0 \times \mathbf V) \,\textnormal d \mathbf x \qquad \forall \,\mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\} \\
-        
+        \int_{\Omega} \rho_0\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V\,\textnormal d \mathbf x &= \int_{\Omega} \tilde{\mathbf{B}} \cdot \nabla \times (\mathbf{B}_0 \times \mathbf V) \,\textnormal d \mathbf x \qquad \forall \,\mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\} 
+        \\
         \frac{\partial \tilde{\mathbf{B}}}{\partial t} &= \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
 
    Time discretization:
@@ -1019,10 +1019,10 @@ class Magnetosonic(Propagator):
 
     .. math::
 
-        \frac{\partial \tilde{\rho}}{\partial t} + \nabla\cdot(\rho_0 \tilde{\mathbf{U}}) &= 0 \\
-        
-        \int_{\Omega} \rho_0\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V\,\textrm{d}\mathbf x - \int_{\Omega} \tilde p\,\nabla\cdot\mathbf V\,\textrm{d}\mathbf x &= \int_{\Omega} (\nabla\times\mathbf{B}_0)\times\tilde{\mathbf{B}}\cdot\mathbf V\,\textrm{d}\mathbf x \qquad \forall\,\mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\} \\
-        
+        \frac{\partial \tilde{\rho}}{\partial t} + \nabla\cdot(\rho_0 \tilde{\mathbf{U}}) &= 0 
+        \\
+        \int_{\Omega} \rho_0\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V\,\textrm{d}\mathbf x - \int_{\Omega} \tilde p\,\nabla\cdot\mathbf V\,\textrm{d}\mathbf x &= \int_{\Omega} (\nabla\times\mathbf{B}_0)\times\tilde{\mathbf{B}}\cdot\mathbf V\,\textrm{d}\mathbf x \qquad \forall\,\mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\} 
+        \\
         \frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) + \frac{2}{3}\,p_0\nabla\cdot\tilde{\mathbf{U}} &= 0
 
     Time discretization: Crank-Nicolson (implicit mid-point). 

@@ -19,7 +19,6 @@ from struphy.utils.docstring_converter import auto_convert_docstring
 rank = MPI.COMM_WORLD.Get_rank()
 
 
-@auto_convert_docstring
 class LinearMHD(StruphyModel):
     """Linear ideal MHD with zero-flow equilibrium for magnetohydrodynamic wave propagation.
 
@@ -213,6 +212,10 @@ The model therefore uses the Alfvén velocity as its characteristic speed scale.
 
     @classmethod
     def doc_discretization(cls):
+        """Propagators:
+        
+        1. :class:`~struphy.propagators.propagators_fields.ShearAlfven`
+        2. :class:`~struphy.propagators.propagators_fields.Magnetosonic`"""
         doc = rf"""**1. propagators_fields.ShearAlfven:**
 
 {propagators_fields.ShearAlfven.__doc__}
