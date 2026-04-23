@@ -110,6 +110,14 @@ Faraday's law:
         return cls.equations.__doc__
     
     @classmethod
+    def scalar_quantities(cls) -> str:
+        r"""The following quantities are tracked during simulation:
+- Electric energy: :math:`E_E = \frac{1}{2} \int |\mathbf E|^2 \, dV`
+- Magnetic energy: :math:`E_B = \frac{1}{2} \int |\mathbf B|^2 \, dV`
+- Total energy: :math:`E_{total} = E_E + E_B`"""
+        return cls.scalar_quantities.__doc__
+
+    @classmethod
     def normalization(cls) -> str:
         r"""Fields are normalized such that:
 
@@ -145,13 +153,6 @@ where :math:`c` is the speed of light."""
         """Plasma dynamics, plasma-field interactions, or any scenario involving charged particles. 
         This model does not include any particle species or coupling to matter."""
         return cls.cannot_be_used_for.__doc__
-    
-    @classmethod
-    def create_doc(cls) -> Documentation:
-        
-        doc = Documentation(cls)
-        
-        return doc
 
     __doc_rst__ = r"""
 Maxwell's equations in vacuum for electromagnetic field evolution.

@@ -163,6 +163,12 @@ class StruphyModel(metaclass=StruphyModelMeta):
     
     @classmethod
     @abstractmethod
+    def scalar_quantities(cls) -> str:
+        """Scalar quantities tracked by the model (rst formatted), used in documentation."""
+        pass
+    
+    @classmethod
+    @abstractmethod
     def normalization(cls) -> str:
         """Normalization of the model (rst formatted), used in documentation."""
         pass
@@ -257,6 +263,11 @@ class StruphyModel(metaclass=StruphyModelMeta):
     def short_description(cls) -> str:
         assert cls.__doc__, "Docstring is required for every model."
         return cls.__doc__
+
+    @classmethod
+    def create_doc(cls) -> "Documentation":
+        doc = Documentation(cls)
+        return doc
 
     def add_scalar(self, name: str, variable: PICVariable | SPHVariable = None, compute=None, summands=None):
         """
@@ -931,11 +942,15 @@ class Documentation:
     def __init__(self, 
                 cls: StruphyModel,
                 ):
-        self.short_description = self.Content(short_description)
-        self.equations = self.Content(equations)
-        self.normalization = self.Content(normalization)
-        self.scalar_quantities = cls.update_scalar_quantities.__doc__
+        self.short_description = self.Content(cls.short_description)
+        self.long_description = self.Content(cls.long_description)
+        self.equations = self.Content(cls.equations)
+        self.scalar_quantities = cls.Content(cls.scalar_quantities)
         self.model_properties = f"- **Model type:** {cls.model_type()}\n- **Velocity scale:** {cls.velocity_scale}\n- **Bulk species:** {cls.bulk_species}"
+        self.normalization = self.Content(cls.normalization)
+        self.examples = self.Content(cls.examples)
+        self.use_cases = self.Content(cls.use_cases)
+        self.cannot_be_used_for = self.Content(cls.cannot_be_used_for)
         
     class Content:
         def __init__(self, rst, md=None, html=None):
