@@ -3516,7 +3516,7 @@ class VariationalDensityEvolve(Propagator):
         """update the weighted mass matrix operator"""
         self._Mrho.spline_functions["l2_field"].vector = rho
         self._Mrho.assemble()
-        
+
         logger.debug(f"In VariationalDensityEvolve: {self._Mrho_inv._options['pc'] = }")
         if hasattr(self, "_Mrho_inv") and isinstance(self._Mrho_inv._options["pc"], MassMatrixDiagonalPreconditioner):
             self._Mrho_inv._options["pc"].update_mass_operator(self._Mrho)

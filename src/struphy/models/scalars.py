@@ -339,6 +339,7 @@ class KineticEnergySPH(SPHScalar):
         energy = self.normalization * 0.5 / self.Np * xp.sum(self.weights * xp.sum(self.velocities**2, axis=1))
         self.local_value[0] = energy
 
+
 class FunctionScalarSPH(SPHScalar):
     """Scalar defined by a callable working on a SPH variable."""
 
