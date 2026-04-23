@@ -11,6 +11,7 @@ from scope_profiler import ProfileManager
 
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
+from struphy.models.scalars import Scalars
 from struphy.models.species import DiagnosticSpecies, FieldSpecies, FluidSpecies, ParticleSpecies, Species
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.physics.physics import Units
@@ -50,8 +51,8 @@ class StruphyModel(metaclass=StruphyModelMeta):
         Dictionary of particle species in the model.
     diagnostic_species : dict
         Dictionary of diagnostic species in the model.
-    scalar_quantities : dict
-        Dictionary of scalar quantities to be tracked and saved during simulation.
+    scalars : Scalars or None
+        Scalar quantities to be tracked and saved during simulation.
     prop_list : list
         List of propagator objects controlling time integration.
     clone_config : CloneConfig or None
@@ -67,8 +68,6 @@ class StruphyModel(metaclass=StruphyModelMeta):
         Must return velocity scale: "alfvén", "cyclotron", "light", or "thermal".
     allocate_helpers : method
         Must allocate helper arrays and perform initial solves.
-    update_scalar_quantities : method
-        Must define update rules for each scalar quantity.
     Propagators : class
         Must define the propagators used for time integration.
     __init__ : method
@@ -109,10 +108,6 @@ class StruphyModel(metaclass=StruphyModelMeta):
                 # Initialize helper arrays
                 pass
 
-            def update_scalar_quantities(self):
-                # Update tracked scalars
-                pass
-
             class Propagators:
                 # Define propagators
                 pass
@@ -143,16 +138,6 @@ class StruphyModel(metaclass=StruphyModelMeta):
     @abstractmethod
     def allocate_helpers(self, verbose: bool = False):
         """Allocate helper arrays and perform initial solves if needed."""
-
-    @abstractmethod
-    def update_scalar_quantities(self):
-        """Specify an update rule for each item in ``scalar_quantities`` using :meth:`update_scalar`."""
-
-    @classmethod
-    @abstractmethod
-    def model_type(cls) -> LiteralOptions.ModelTypes:
-        """Model type (Fluid, Kinetic, Hybrid, or Toy)"""
-        pass
 
     # --------------
     # Common methods
@@ -244,139 +229,32 @@ class StruphyModel(metaclass=StruphyModelMeta):
         doc = Documentation(cls)
         return doc
 
-    def add_scalar(self, name: str, variable: PICVariable | SPHVariable = None, compute=None, summands=None):
-        """
-        Add a scalar to be saved during the simulation.
+    @property
+    def scalars(self) -> Scalars | None:
+        """Scalars to be updated and saved during the simulation."""
+        return getattr(self, "_scalars", Scalars())
 
-        Parameters
-        ----------
-        name : str
-            Dictionary key for the scalar.
-        variable : PICVariable | SPHVariable, optional
-            The variable associated with the scalar. Required if compute is 'from_particles'.
-        compute : str, optional
-            Type of scalar, determines the compute operations.
-            Options: 'from_particles' or 'from_field'. Default is None.
-        summands : list, optional
-            List of other scalar names whose values should be summed
-            to compute the value of this scalar. Default is None.
-        """
+    @scalars.setter
+    def scalars(self, value: Scalars):
+        assert isinstance(value, Scalars)
+        self._scalars = value
 
-        assert isinstance(name, str), "name must be a string"
-        if compute == "from_particles":
-            assert isinstance(variable, (PICVariable, SPHVariable)), f"Variable is needed when {compute =}"
-
-        if not hasattr(self, "_scalar_quantities"):
-            self._scalar_quantities = {}
-
-        self._scalar_quantities[name] = {
-            "value": xp.empty(1, dtype=float),
-            "variable": variable,
-            "compute": compute,
-            "summands": summands,
-        }
-
-    def update_scalar(self, name, value=None):
-        """Update a scalar during the simulation.
-
-        Parameters
-        ----------
-            name : str
-                Dictionary key of the scalar.
-
-            value : float, optional
-                Value to be saved. Required if there are no summands.
-        """
-
-        # Ensure the name is a string
-        assert isinstance(name, str)
-
-        scalars = self.scalar_quantities
-
-        variable: PICVariable | SPHVariable = scalars[name]["variable"]
-        summands = scalars[name]["summands"]
-        compute = scalars[name]["compute"]
-
-        if compute == "from_particles":
-            compute_operations = [
-                "sum_within_clone",
-                "sum_between_clones",
-                "divide_n_mks",
-            ]
-        elif compute == "from_sph":
-            compute_operations = [
-                "sum_world",
-                "divide_n_mks",
-            ]
-        elif compute == "from_field":
-            compute_operations = []
-        else:
-            compute_operations = []
-
-        if summands is None:
-            # Ensure the value is a float if there are no summands
-            assert isinstance(value, float)
-
-            # Create a numpy array to hold the scalar value
-            value_array = xp.array([value], dtype=xp.float64)
-
-            # Perform MPI operations based on the compute flags
-            if "sum_world" in compute_operations and not isinstance(MPI, MockMPI):
-                MPI.COMM_WORLD.Allreduce(
-                    MPI.IN_PLACE,
-                    value_array,
-                    op=MPI.SUM,
-                )
-
-            if "sum_within_clone" in compute_operations and Propagator.derham.comm is not None:
-                Propagator.derham.comm.Allreduce(
-                    MPI.IN_PLACE,
-                    value_array,
-                    op=MPI.SUM,
-                )
-            if self.clone_config is None:
-                num_clones = 1
-            else:
-                num_clones = self.clone_config.num_clones
-
-            if "sum_between_clones" in compute_operations and num_clones > 1:
-                self.clone_config.inter_comm.Allreduce(
-                    MPI.IN_PLACE,
-                    value_array,
-                    op=MPI.SUM,
-                )
-
-            if "average_between_clones" in compute_operations and num_clones > 1:
-                self.clone_config.inter_comm.Allreduce(
-                    MPI.IN_PLACE,
-                    value_array,
-                    op=MPI.SUM,
-                )
-                value_array /= num_clones
-
-            if "divide_n_mks" in compute_operations:
-                # Initialize the total number of markers
-                n_mks_tot = xp.array([variable.particles.Np])
-                value_array /= n_mks_tot
-
-            # Update the scalar value
-            scalars[name]["value"][0] = value_array[0]
-
-        else:
-            # Sum the values of the summands
-            value = sum(scalars[summand]["value"][0] for summand in summands)
-            scalars[name]["value"][0] = value
+    @profile
+    def update_scalar_quantities(self):
+        """Update scalar quantities by calling their .update() method.
+        This should be called at the end of each time step in the simulation loop."""
+        if self.scalars is not None:
+            self.scalars.update()
 
     def print_scalar_quantities(self):
         """
-        Check if scalar_quantities are not "nan" and print to screen.
+        Check if scalars are not "nan" and print to screen.
         """
         sq_str = ""
-        for key, scalar_dict in self._scalar_quantities.items():
-            val = scalar_dict["value"]
-            # logger.info(f"{key}: {val[0]}")  # TODO: use logger --- IGNORE ---
-            assert not xp.isnan(val[0]), f"Scalar {key} is {val[0]}."
-            sq_str += f"{key}:".ljust(25) + "{:4.2e}\n".format(val[0]).rjust(26)
+        for key, scalar in self.scalars.dct.items():
+            val = scalar.value[0]
+            assert not xp.isnan(val), f"Scalar {key} is {val}."
+            sq_str += f"{key}:".ljust(25) + "{:4.2e}\n".format(val).rjust(26)
         logger.info(sq_str)
 
     def setup_equation_params(self, base_units: BaseUnits, verbose=False):
@@ -939,12 +817,12 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
     #     Keys must be the same as in :attr:`~propagators_cls`, values are dictionaries holding the keyword arguments."""
     #     return self._kwargs
 
-    @property
-    def scalar_quantities(self):
-        """A dictionary of scalar quantities to be saved during the simulation."""
-        if not hasattr(self, "_scalar_quantities"):
-            self._scalar_quantities = {}
-        return self._scalar_quantities
+    # @property
+    # def scalar_quantities(self):
+    #     """A dictionary of scalar quantities to be saved during the simulation."""
+    #     if not hasattr(self, "_scalar_quantities"):
+    #         self._scalar_quantities = {}
+    #     return self._scalar_quantities
 
     # @property
     # def time_state(self):

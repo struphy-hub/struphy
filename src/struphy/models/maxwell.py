@@ -2,7 +2,8 @@ from feectools.ddm.mpi import mpi as MPI
 
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
-from struphy.models.base import StruphyModel, Documentation
+from struphy.models.base import StruphyModel
+from struphy.models.scalars import BilinearEnergyFEEC, Scalars
 from struphy.models.species import (
     FieldSpecies,
 )
@@ -52,13 +53,16 @@ class Maxwell(StruphyModel):
         self.propagators.maxwell.variables.e = self.em_fields.e_field
         self.propagators.maxwell.variables.b = self.em_fields.b_field
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("electric energy")
-        self.add_scalar("magnetic energy")
-        self.add_scalar("total energy")
-        
-        # docstrings
-        self.doc = self.create_doc()
+        # 5. define scalars to be tracked during simulation
+        electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
+        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
+        total_energy = electric_energy + magnetic_energy
+
+        self.scalars = Scalars(
+            electric_energy=electric_energy,
+            magnetic_energy=magnetic_energy,
+            total_energy=total_energy,
+        )
 
     @property
     def bulk_species(self):
@@ -70,20 +74,6 @@ class Maxwell(StruphyModel):
 
     def allocate_helpers(self, verbose: bool = False):
         pass
-
-    def update_scalar_quantities(self):
-        en_E = 0.5 * Propagator.mass_ops.M1.dot_inner(
-            self.em_fields.e_field.spline.vector,
-            self.em_fields.e_field.spline.vector,
-        )
-        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(
-            self.em_fields.b_field.spline.vector,
-            self.em_fields.b_field.spline.vector,
-        )
-
-        self.update_scalar("electric energy", en_E)
-        self.update_scalar("magnetic energy", en_B)
-        self.update_scalar("total energy", en_E + en_B)
         
     ## abstract methods for documentation
     

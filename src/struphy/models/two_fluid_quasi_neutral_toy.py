@@ -134,7 +134,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
         self.propagators.qn_full.variables.ue = self.electrons.u
         self.propagators.qn_full.variables.phi = self.em_fields.phi
 
-        # define scalars for update_scalar_quantities
+        # 5. define scalars to be tracked during simulation
 
     @property
     def bulk_species(self):
@@ -145,9 +145,6 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
         return "thermal"
 
     def allocate_helpers(self, verbose: bool = False):
-        pass
-
-    def update_scalar_quantities(self):
         pass
 
     ## default parameters

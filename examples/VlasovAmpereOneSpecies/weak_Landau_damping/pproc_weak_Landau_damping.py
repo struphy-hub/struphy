@@ -46,7 +46,7 @@ def main():
         pa_data = os.path.join(env.path_out, "data")
         with h5py.File(os.path.join(pa_data, "data_proc0.hdf5"), "r") as f:
             time = f["time"]["value"][()]*unit_t
-            E = f["scalar"]["en_E"][()]
+            E = f["scalar"]["electric_energy"][()]
         logE = xp.log10(E)
 
         # find where time derivative of E is zero

@@ -73,10 +73,7 @@ class DeterministicParticleDiffusion(StruphyModel):
         # 4. assign variables to propagators
         self.propagators.det_diff.variables.var = self.hydrogen.var
 
-        # define scalars for update_scalar_quantities
-        # self.add_scalar("electric energy")
-        # self.add_scalar("magnetic energy")
-        # self.add_scalar("total energy")
+        # 5. define scalars to be tracked during simulation
 
     @property
     def bulk_species(self):
@@ -87,7 +84,4 @@ class DeterministicParticleDiffusion(StruphyModel):
         return None
 
     def allocate_helpers(self, verbose: bool = False):
-        pass
-
-    def update_scalar_quantities(self):
         pass
