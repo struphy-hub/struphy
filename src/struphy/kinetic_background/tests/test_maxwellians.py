@@ -1074,7 +1074,7 @@ def test_maxwellian_2d_mhd(num_elements, with_desc, show_plot=False):
     import matplotlib.pyplot as plt
 
     from struphy import domains, equils, perturbations
-    from struphy.fields_background.base import FluidEquilibriumWithB
+    from struphy.fields_background.base import MHDequilibrium
     from struphy.initial.base import Perturbation
     from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
 
@@ -1110,7 +1110,7 @@ def test_maxwellian_2d_mhd(num_elements, with_desc, show_plot=False):
                 continue
 
             mhd_equil = val()
-            if not isinstance(mhd_equil, FluidEquilibriumWithB):
+            if not isinstance(mhd_equil, MHDequilibrium):
                 continue
 
             logger.info(f"{mhd_equil.params =}")

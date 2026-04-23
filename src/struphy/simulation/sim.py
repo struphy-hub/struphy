@@ -1018,7 +1018,7 @@ RESTARTing from:
             self._mass_ops = None
             self._basis_ops = None
         else:
-            self._mass_ops = WeightedMassOperators(self.derham, self.domain, eq_mhd=self.equil, verbose=verbose)
+            self._mass_ops = WeightedMassOperators(self.derham, self.domain, eq_mhd=self.equil)
 
             self._basis_ops = BasisProjectionOperators(
                 self.derham,

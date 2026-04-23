@@ -1,7 +1,7 @@
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.feec.projectors import L2Projector
+from struphy.feec.mass import L2Projector
 from struphy.feec.variational_utilities import (
     InternalEnergyEvaluator,
 )

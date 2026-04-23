@@ -1,7 +1,7 @@
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.feec.projectors import L2Projector
+from struphy.feec.mass import L2Projector
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
