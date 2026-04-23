@@ -170,7 +170,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
 
     {cls.name()}.long_description()
     {cls.name()}.pde()
-    {cls.name()}.scalars()
+    {cls.name()}.scalar_quantities()
     {cls.name()}.normalization()
     {cls.name()}.examples()
     {cls.name()}.use_cases()
@@ -191,7 +191,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
         return display(HTML(rst_to_html(doc)))
     
     @classmethod
-    def scalars(cls):
+    def scalar_quantities(cls):
         doc = "**Scalar quantities:**\n"
         doc += cls.doc_scalar_quantities.__doc__ if cls.doc_scalar_quantities else """Description of scalar quantities not available for this model."""
         return display(HTML(rst_to_html(doc)))
