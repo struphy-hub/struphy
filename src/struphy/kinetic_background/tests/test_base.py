@@ -84,10 +84,12 @@ def test_kinetic_background_magics(show_plot=False):
         plt.show()
 
 def test_plotting_function():
+
+    import cunumpy as xp
+
     from struphy import domains
     from struphy import maxwellians
     from struphy import equils
-    import cunumpy as xp
     
     #definition of test functions
     l, m, n = 3,4,5

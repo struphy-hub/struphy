@@ -4,6 +4,9 @@ from abc import ABCMeta, abstractmethod
 from typing import Callable
 
 import cunumpy as xp
+import matplotlib.pyplot as plt
+from matplotlib import cm
+from matplotlib.colors import Normalize
 
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.initial.base import Perturbation
@@ -174,7 +177,7 @@ class KineticBackground(metaclass=ABCMeta):
         if plot_3D and not in_physical:
             AssertionError("To perform a 3D plot you must plot in physical space (activate in_physical).")
         assert 0<=proj_axis[0]<proj_axis[1]<3
-        if dim_2==None:
+        if dim_2 is None:
             if dim_1=="e1":axe_to_plot=0
             elif dim_1=="e2":axe_to_plot=1
             elif dim_1=="e3":axe_to_plot=2
@@ -295,7 +298,7 @@ class KineticBackground(metaclass=ABCMeta):
                 ax.set_xlabel("x")
                 ax.set_ylabel("y")
                 ax.set_zlabel("z")
-            if title== None:ax.set_title(f"Density in ({dim_1}, {dim_2}) space")
+            if title is None:ax.set_title(f"Density in ({dim_1}, {dim_2}) space")
             else:ax.set_title(title)
             fig.colorbar(for_color)
             plt.show(block=True)

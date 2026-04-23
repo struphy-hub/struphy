@@ -318,7 +318,7 @@ class GyroMaxwellian2D(Maxwellian):
             use_mu : bool = False,
             equil: FluidEquilibriumWithB | None = None,
     ):
-        if equil == None:
+        if equil is None:
             equil = self.equil
         super().plot_density_profile(dim_1, dim_2, v_lim, resol, integrate_resol, logical_coord, in_physical, domain, proj_axis, plot_3D, use_mu=use_mu, equil=equil)
 
