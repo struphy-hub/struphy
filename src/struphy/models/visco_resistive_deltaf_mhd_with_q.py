@@ -85,11 +85,12 @@ class ViscoResistiveDeltafMHD_with_q(StruphyModel):
     class Propagators:
         def __init__(
             self,
+            rho: FEECVariable,
             with_viscosity: bool = True,
             with_resistivity: bool = True,
         ):
             self.variat_dens = propagators_fields.VariationalDensityEvolve()
-            self.variat_mom = propagators_fields.VariationalMomentumAdvection()
+            self.variat_mom = propagators_fields.VariationalMomentumAdvection(rho=rho)
             self.variat_qb = propagators_fields.VariationalQBEvolve()
             if with_viscosity:
                 self.variat_viscous = propagators_fields.VariationalViscosity()
@@ -116,6 +117,7 @@ class ViscoResistiveDeltafMHD_with_q(StruphyModel):
 
         # 3. instantiate all propagators
         self.propagators = self.Propagators(
+            rho=self.mhd.density,
             with_viscosity=with_viscosity,
             with_resistivity=with_resistivity,
         )
@@ -135,7 +137,7 @@ class ViscoResistiveDeltafMHD_with_q(StruphyModel):
             self.propagators.variat_resist.variables.b = self.em_fields.b_field
 
         # 5. define scalars to be tracked during simulation
-        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="WMM")
+        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="WMMnew")
         magnetic_energy_1 = BilinearEnergyFEEC(self.em_fields.b_field)
         magnetic_energy_2 = BilinearEnergyFEEC(self.diagnostics.bt2, right_variable="b2")
         thermo_energy_1 = FunctionScalarFEEC(self._compute_en_thermo_1)

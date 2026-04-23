@@ -1840,7 +1840,7 @@ class WeightedMassOperator(LinOpWithTransp):
                             if block is not None:
                                 block._data[:] = 0.0
 
-            logger.info(
+            logger.debug(
                 f'\nAssembling matrix of WeightedMassOperator "{self.name}" with V={self._domain_symbolic_name}, W={self._codomain_symbolic_name}.',
             )
 
@@ -1976,7 +1976,7 @@ class WeightedMassOperator(LinOpWithTransp):
                             )
                             mat = self._mat[a, b]
 
-                        logger.info(f"Assemble block {a, b}")
+                        logger.debug(f"Assemble block {a, b}")
 
                         self._assembly_kernel(
                             *codomain_spans,
@@ -2015,7 +2015,7 @@ class WeightedMassOperator(LinOpWithTransp):
                 self._mat[2, 0]._data[:] = -self._mat[0, 2].T._data
                 self._mat[2, 1]._data[:] = -self._mat[1, 2].T._data
 
-            logger.info("Done.")
+            logger.debug("Done.")
 
     def copy(self, out=None):
         """Create a copy of self, that can potentially be stored in a given WeightedMassOperator.

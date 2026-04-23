@@ -66,9 +66,9 @@ class VariationalCompressibleFluid(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self):
+        def __init__(self, rho: FEECVariable):
             self.variat_dens = propagators_fields.VariationalDensityEvolve()
-            self.variat_mom = propagators_fields.VariationalMomentumAdvection()
+            self.variat_mom = propagators_fields.VariationalMomentumAdvection(rho=rho)
             self.variat_ent = propagators_fields.VariationalEntropyEvolve()
 
     ## abstract methods
@@ -82,7 +82,7 @@ class VariationalCompressibleFluid(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators()
+        self.propagators = self.Propagators(rho=self.fluid.density)
 
         # 4. assign variables to propagators
         self.propagators.variat_dens.variables.rho = self.fluid.density
@@ -92,7 +92,7 @@ class VariationalCompressibleFluid(StruphyModel):
         self.propagators.variat_ent.variables.u = self.fluid.velocity
 
         # 5. define scalars to be tracked during simulation
-        kinetic_energy = BilinearEnergyFEEC(self.fluid.velocity, bilinear_form_name="WMM")
+        kinetic_energy = BilinearEnergyFEEC(self.fluid.velocity, bilinear_form_name="WMMnew")
         thermo_energy = FunctionScalarFEEC(self.update_thermo_energy)
         total_energy = kinetic_energy + thermo_energy
         self.scalars = Scalars(

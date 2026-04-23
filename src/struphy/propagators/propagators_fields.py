@@ -2886,6 +2886,7 @@ class VariationalMomentumAdvection(Propagator):
 
         self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
+        # assembly of WMMnew happens in VariationalDensityEvolve
         self._Mrho = self.mass_ops.WMMnew
         pc = MassMatrixDiagonalPreconditioner(self._Mrho)
         self._Mrho_inv = inverse(
@@ -2896,9 +2897,6 @@ class VariationalMomentumAdvection(Propagator):
             maxiter=500,
             recycle=True,
         )
-        self._Mrho.spline_functions["l2_field"].vector = self.rho.spline.vector
-        logger.debug("Assembling mass matrix Mrho with rho as weight...")
-        self._Mrho.assemble()
 
         self._initialize_mass()
 
@@ -3520,7 +3518,8 @@ class VariationalDensityEvolve(Propagator):
         self._Mrho.spline_functions["l2_field"].vector = rho
         self._Mrho.assemble()
         
-        if hasattr(self, "_Mrho_inv") and self._Mrho_inv._options["pc"] is not None:
+        logger.debug(f"In VariationalDensityEvolve: {self._Mrho_inv._options['pc'] = }")
+        if hasattr(self, "_Mrho_inv") and isinstance(self._Mrho_inv._options["pc"], MassMatrixDiagonalPreconditioner):
             self._Mrho_inv._options["pc"].update_mass_operator(self._Mrho)
 
     def _update_linear_form_dl_drho(self, rhon, rhon1, un, un1, sn):
@@ -3679,8 +3678,9 @@ class VariationalEntropyEvolve(Propagator):
             assert new.space == "H1vec"
             self._u = new
 
-    def __init__(self):
+    def __init__(self, rho: FEECVariable):
         self.variables = self.Variables()
+        self.rho = rho
 
     @dataclass
     class Options:
@@ -3733,8 +3733,17 @@ class VariationalEntropyEvolve(Propagator):
 
         self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
+        # assembly of WMMnew happens in VariationalDensityEvolve
         self._Mrho = self.mass_ops.WMMnew
-        self._Mrho.inv._options["pc"] = MassMatrixDiagonalPreconditioner(self._Mrho.massop)
+        pc = MassMatrixDiagonalPreconditioner(self._Mrho)
+        self._Mrho_inv = inverse(
+            self._Mrho,
+            "pcg",
+            pc=pc,
+            tol=1e-16,
+            maxiter=500,
+            recycle=True,
+        )
 
         # Projector
         self._energy_evaluator = InternalEnergyEvaluator(self.derham, self._gamma)
@@ -3779,12 +3788,12 @@ class VariationalEntropyEvolve(Propagator):
         rho = self._rho.spline.vector
         self._update_Pis(sn)
 
-        mn = self._Mrho.massop.dot(un, out=self._tmp_mn)
+        mn = self._Mrho.dot(un, out=self._tmp_mn)
         sn1 = sn.copy(out=self._tmp_sn1)
         sn1 += self._tmp_sn_diff
         un1 = un.copy(out=self._tmp_un1)
         un1 += self._tmp_un_diff
-        mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
+        mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
         tol = self._nonlin_solver.tol
         err = tol + 1
 
@@ -3846,7 +3855,7 @@ class VariationalEntropyEvolve(Propagator):
             sn1 -= incr[1]
 
             # Multiply by the mass matrix to get the momentum
-            mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
+            mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
 
         if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
             logger.info(
@@ -3898,7 +3907,7 @@ class VariationalEntropyEvolve(Propagator):
         self._dt_pc_divPisT = 2 * (self.divPisT)
         self._dt2_divPis = 2 * self.divPis
 
-        self._Jacobian[0, 0] = self._Mrho.massop
+        self._Jacobian[0, 0] = self._Mrho
         self._Jacobian[0, 1] = self._dt_pc_divPisT @ self._M_ds
         self._Jacobian[1, 0] = self._dt2_divPis
         self._Jacobian[1, 1] = self._I3
@@ -3908,7 +3917,7 @@ class VariationalEntropyEvolve(Propagator):
         self._inv_Jacobian = SchurSolverFull(
             self._Jacobian,
             self.options.solver,
-            pc=self._Mrho.inv,
+            pc=self._Mrho_inv,
             tol=self._lin_solver.tol,
             maxiter=self._lin_solver.maxiter,
             verbose=self._lin_solver.verbose,
@@ -4128,8 +4137,17 @@ class VariationalMagFieldEvolve(Propagator):
 
         self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
+        # assembly of WMMnew happens in VariationalDensityEvolve
         self._Mrho = self.mass_ops.WMMnew
-        self._Mrho.inv._options["pc"] = MassMatrixDiagonalPreconditioner(self._Mrho.massop)
+        pc = MassMatrixDiagonalPreconditioner(self._Mrho)
+        self._Mrho_inv = inverse(
+            self._Mrho,
+            "pcg",
+            pc=pc,
+            tol=1e-16,
+            maxiter=500,
+            recycle=True,
+        )
 
         # Projector
         self._initialize_projectors_and_mass()
@@ -4176,12 +4194,12 @@ class VariationalMagFieldEvolve(Propagator):
 
         self._update_Pib(bn)
 
-        mn = self._Mrho.massop.dot(un, out=self._tmp_mn)
+        mn = self._Mrho.dot(un, out=self._tmp_mn)
         bn1 = bn.copy(out=self._tmp_bn1)
         bn1 += self._tmp_bn_diff
         un1 = un.copy(out=self._tmp_un1)
         un1 += self._tmp_un_diff
-        mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
+        mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
         tol = self._nonlin_solver.tol
         err = tol + 1
 
@@ -4266,7 +4284,7 @@ class VariationalMagFieldEvolve(Propagator):
             bn1 -= incr[1]
 
             # Multiply by the mass matrix to get the momentum
-            mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
+            mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
 
         if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
             logger.info(
@@ -4323,7 +4341,7 @@ class VariationalMagFieldEvolve(Propagator):
 
         # local version to avoid creating new version of LinearOperator every time
 
-        self._Jacobian[0, 0] = self._Mrho.massop
+        self._Jacobian[0, 0] = self._Mrho
         self._Jacobian[0, 1] = self._mdt2_pc_curlPibT_M
         self._Jacobian[1, 0] = self._dt2_curlPib
         self._Jacobian[1, 1] = self._I2
@@ -4331,7 +4349,7 @@ class VariationalMagFieldEvolve(Propagator):
         self._inv_Jacobian = SchurSolverFull(
             self._Jacobian,
             self.options.solver,
-            pc=self._Mrho.inv,
+            pc=self._Mrho_inv,
             tol=self._lin_solver.tol,
             maxiter=self._lin_solver.maxiter,
             verbose=self._lin_solver.verbose,
@@ -4546,8 +4564,17 @@ class VariationalPBEvolve(Propagator):
 
         self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
+        # assembly of WMMnew happens in VariationalDensityEvolve
         self._Mrho = self.mass_ops.WMMnew
-        self._Mrho.inv._options["pc"] = MassMatrixDiagonalPreconditioner(self._Mrho.massop)
+        pc = MassMatrixDiagonalPreconditioner(self._Mrho)
+        self._Mrho_inv = inverse(
+            self._Mrho,
+            "pcg",
+            pc=pc,
+            tol=1e-16,
+            maxiter=500,
+            recycle=True,
+        )
 
         # Projector
         self._initialize_projectors_and_mass()
@@ -4609,14 +4636,14 @@ class VariationalPBEvolve(Propagator):
         self._update_Pib(bn)
         self._update_Projp(pn)
 
-        mn = self._Mrho.massop.dot(un, out=self._tmp_mn)
+        mn = self._Mrho.dot(un, out=self._tmp_mn)
         bn1 = bn.copy(out=self._tmp_bn1)
         bn1 += self._tmp_bn_diff
         pn1 = pn.copy(out=self._tmp_pn1)
         pn1 += self._tmp_pn_diff
         un1 = un.copy(out=self._tmp_un1)
         un1 += self._tmp_un_diff
-        mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
+        mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
         tol = self._nonlin_solver.tol
         err = tol + 1
 
@@ -4765,7 +4792,7 @@ class VariationalPBEvolve(Propagator):
             bn1 -= incr[1]
 
             # Multiply by the mass matrix to get the momentum
-            mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
+            mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
 
         if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
             logger.info(
@@ -4879,7 +4906,7 @@ class VariationalPBEvolve(Propagator):
 
         # local version to avoid creating new version of LinearOperator every time
 
-        self._Jacobian[0, 0] = self._Mrho.massop
+        self._Jacobian[0, 0] = self._Mrho
         self._Jacobian[0, 1] = self._mdt2_pc_curlPibT_M
         self._Jacobian[1, 0] = self._dt2_curlPib
         self._Jacobian[1, 1] = self._I2
@@ -4889,7 +4916,7 @@ class VariationalPBEvolve(Propagator):
         self._inv_Jacobian = SchurSolverFull(
             self._Jacobian,
             self.options.solver,
-            pc=self._Mrho.inv,
+            pc=self._Mrho_inv,
             tol=self._lin_solver.tol,
             maxiter=self._lin_solver.maxiter,
             verbose=self._lin_solver.verbose,
@@ -5140,8 +5167,17 @@ class VariationalQBEvolve(Propagator):
 
         self._info = self._nonlin_solver.info and (self.rank == 0)
 
+        # assembly of WMMnew happens in VariationalDensityEvolve
         self._Mrho = self.mass_ops.WMMnew
-        self._Mrho.inv._options["pc"] = MassMatrixDiagonalPreconditioner(self._Mrho.massop)
+        pc = MassMatrixDiagonalPreconditioner(self._Mrho)
+        self._Mrho_inv = inverse(
+            self._Mrho,
+            "pcg",
+            pc=pc,
+            tol=1e-16,
+            maxiter=500,
+            recycle=True,
+        )
 
         # Projector
         self._initialize_projectors_and_mass()
@@ -5201,14 +5237,14 @@ class VariationalQBEvolve(Propagator):
         self._update_Pib(bn)
         self._update_Projq(qn)
 
-        mn = self._Mrho.massop.dot(un, out=self._tmp_mn)
+        mn = self._Mrho.dot(un, out=self._tmp_mn)
         bn1 = bn.copy(out=self._tmp_bn1)
         bn1 += self._tmp_bn_diff
         qn1 = qn.copy(out=self._tmp_qn1)
         qn1 += self._tmp_qn_diff
         un1 = un.copy(out=self._tmp_un1)
         un1 += self._tmp_un_diff
-        mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
+        mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
         tol = self._nonlin_solver.tol
         err = tol + 1
 
@@ -5352,7 +5388,7 @@ class VariationalQBEvolve(Propagator):
             qn1 -= incr[2]
 
             # Multiply by the mass matrix to get the momentum
-            mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
+            mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
 
         if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
             logger.info(
@@ -5482,7 +5518,7 @@ class VariationalQBEvolve(Propagator):
 
         # local version to avoid creating new version of LinearOperator every time
 
-        self._Jacobian[0, 0] = self._Mrho.massop
+        self._Jacobian[0, 0] = self._Mrho
         self._Jacobian[0, 1] = self._mdt2_pc_curlPibT_M
         self._Jacobian[0, 2] = self._mdt2_pc_transopT_M
         self._Jacobian[1, 0] = self._dt2_curlPib
@@ -5495,7 +5531,7 @@ class VariationalQBEvolve(Propagator):
         self._inv_Jacobian = SchurSolverFull3(
             self._Jacobian,
             self.options.solver,
-            pc=self._Mrho.inv,
+            pc=self._Mrho_inv,
             tol=self._lin_solver.tol,
             maxiter=self._lin_solver.maxiter,
             verbose=self._lin_solver.verbose,
@@ -5716,8 +5752,17 @@ class VariationalViscosity(Propagator):
 
         self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
+        # assembly of WMMnew happens in VariationalDensityEvolve
         self._Mrho = self.mass_ops.WMMnew
-        self._Mrho.inv._options["pc"] = MassMatrixDiagonalPreconditioner(self._Mrho.massop)
+        pc = MassMatrixDiagonalPreconditioner(self._Mrho)
+        self._Mrho_inv = inverse(
+            self._Mrho,
+            "pcg",
+            pc=pc,
+            tol=1e-16,
+            maxiter=500,
+            recycle=True,
+        )
 
         # Femfields for the projector
         self.sf = self.derham.create_spline_function("sf", "L2")
@@ -6030,8 +6075,8 @@ class VariationalViscosity(Propagator):
 
         self._scaled_Mv = 0.1 * self.mass_ops.Mv
 
-        self.r_op = self._Mrho.massop  # - self._scaled_stiffness - self.du_phy_stiffness
-        self.l_op = self._Mrho.massop + self._scaled_Mv + self._scaled_stiffness + self.du_phy_stiffness
+        self.r_op = self._Mrho  # - self._scaled_stiffness - self.du_phy_stiffness
+        self.l_op = self._Mrho + self._scaled_Mv + self._scaled_stiffness + self.du_phy_stiffness
 
         self.grad_0 = grad @ Pcoord0 @ Xv
         self.grad_1 = grad @ Pcoord1 @ Xv
@@ -6040,7 +6085,7 @@ class VariationalViscosity(Propagator):
         self.inv_lop = inverse(
             self.l_op,
             "pcg",
-            pc=self._Mrho.inv,
+            pc=self._Mrho_inv,
             tol=self._lin_solver.tol,
             maxiter=self._lin_solver.maxiter,
             verbose=False,
