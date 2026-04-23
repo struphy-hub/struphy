@@ -180,9 +180,9 @@ class BilinearEnergyFEEC(Scalar):
         )
 
         if bilinear_form_name is None:
-            assert left_variable.space == right_variable.space, (
-                "If bilinear_form_name is not provided, left and right variables must be in the same space to infer the bilinear form."
-            )
+            # assert left_variable.space == right_variable.space, (
+            #     "If bilinear_form_name is not provided, left and right variables must be in the same space to infer the bilinear form."
+            # )
             form = space_to_form[left_variable.space]
             bilinear_form_name = f"M{form}"
 

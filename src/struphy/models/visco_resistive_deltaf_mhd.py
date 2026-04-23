@@ -222,7 +222,7 @@ class ViscoResistiveDeltafMHD(StruphyModel):
                         "                                                                                  rho=model.mhd.density)\n",
                     ]
                 elif "pressure.add_background" in line:
-                    new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
+                    # new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
                     new_file += [line]
                 else:
                     new_file += [line]

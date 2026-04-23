@@ -231,7 +231,7 @@ class ViscoResistiveDeltafMHD_with_q(StruphyModel):
                         "                                                                                  pt3=model.diagnostics.qt3)\n",
                     ]
                 elif "sqrt_p.add_background" in line:
-                    new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
+                    # new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
                     new_file += [line]
                 else:
                     new_file += [line]
