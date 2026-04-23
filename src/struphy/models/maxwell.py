@@ -122,6 +122,14 @@ Faraday's law:
 where :math:`c` is the speed of light."""
 
     @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.Maxwell:**
+        
+{propagators_fields.Maxwell.__doc__}
+"""
+        return doc
+
+    @classmethod
     def doc_examples(cls):
         r"""Create and initialize a Maxwell model:
 

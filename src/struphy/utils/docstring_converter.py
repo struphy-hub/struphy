@@ -655,8 +655,9 @@ def rst_to_html(rst_text: str) -> str:
         # Remove leading indentation consistently
         cleaned_lines = [line.strip() for line in math_lines if line.strip()]
 
-        # Check if this is a multiline equation (contains & or \\)
-        is_multiline = any("&" in line or "\\\\" in line for line in cleaned_lines)
+        # Treat each non-empty line as a separate display row. Alignment markers
+        # and explicit LaTeX line breaks are still handled when present.
+        is_multiline = len(cleaned_lines) > 1 or any("&" in line or "\\\\" in line for line in cleaned_lines)
 
         if is_multiline:
             # Preserve multiline structure and align on '&' (LaTeX align-style).
@@ -728,7 +729,7 @@ def rst_to_html(rst_text: str) -> str:
 
     # Track if we're in the first line (summary)
     first_line = True
-    in_list = False
+    list_tag = None
 
     while i < len(lines):
         line = lines[i]
@@ -738,10 +739,10 @@ def rst_to_html(rst_text: str) -> str:
             next_line = lines[i + 1]
             # Check for RST section markers
             if next_line and all(c in '=-~^"#' for c in next_line.strip()) and len(next_line.strip()) > 0:
-                if in_list:
-                    result_lines.append("</ul>")
+                if list_tag:
+                    result_lines.append(f"</{list_tag}>")
                     result_lines.append("")
-                    in_list = False
+                    list_tag = None
                 level = {"=": 1, "-": 2, "~": 3, "^": 4, '"': 5, "#": 6}.get(next_line.strip()[0], 3)
                 result_lines.append("")  # blank line before header
                 result_lines.append(f"<h{level}>{line.strip()}</h{level}>")
@@ -752,10 +753,10 @@ def rst_to_html(rst_text: str) -> str:
         # Check for bold section headers (**Text**)
         bold_header_match = re.match(r"^\*\*([^*]+)\*\*\s*$", line.strip())
         if bold_header_match:
-            if in_list:
-                result_lines.append("</ul>")
+            if list_tag:
+                result_lines.append(f"</{list_tag}>")
                 result_lines.append("")
-                in_list = False
+                list_tag = None
             result_lines.append("")  # blank line before header
             result_lines.append(f"<h3>{bold_header_match.group(1)}</h3>")
             first_line = False
@@ -763,29 +764,32 @@ def rst_to_html(rst_text: str) -> str:
             continue
 
         # Check for list items
-        list_match = re.match(r"^-\s+(.+)$", line)
+        list_match = re.match(r"^\s*-\s+(.+)$", line)
         if list_match:
-            if not in_list:
+            if list_tag == "ol":
+                result_lines.append("</ol>")
+                result_lines.append("")
+                list_tag = None
+            if not list_tag:
                 result_lines.append("")  # blank line before list
                 result_lines.append("<ul>")
-                in_list = True
+                list_tag = "ul"
             result_lines.append(f"    <li>{list_match.group(1)}</li>")
             first_line = False
             i += 1
             continue
 
         # Check for numbered list items
-        numbered_list_match = re.match(r"^\d+\.\s+(.+)$", line)
+        numbered_list_match = re.match(r"^\s*\d+\.\s+(.+)$", line)
         if numbered_list_match:
-            if in_list:
+            if list_tag == "ul":
                 result_lines.append("</ul>")
                 result_lines.append("")
-                in_list = False
-            # Just treat it as a regular list item
-            if not in_list:
+                list_tag = None
+            if not list_tag:
                 result_lines.append("")
-                result_lines.append("<ul>")
-                in_list = True
+                result_lines.append("<ol>")
+                list_tag = "ol"
             result_lines.append(f"    <li>{numbered_list_match.group(1)}</li>")
             first_line = False
             i += 1
@@ -793,10 +797,10 @@ def rst_to_html(rst_text: str) -> str:
 
         # Empty line handling
         if not line.strip():
-            if in_list:
-                result_lines.append("</ul>")
+            if list_tag:
+                result_lines.append(f"</{list_tag}>")
                 result_lines.append("")
-                in_list = False
+                list_tag = None
             else:
                 result_lines.append("")
             first_line = False
@@ -804,10 +808,10 @@ def rst_to_html(rst_text: str) -> str:
             continue
 
         # Regular paragraph text
-        if in_list:
-            result_lines.append("</ul>")
+        if list_tag:
+            result_lines.append(f"</{list_tag}>")
             result_lines.append("")
-            in_list = False
+            list_tag = None
 
         if first_line:
             # First line (summary) - no <p> tags
@@ -830,9 +834,13 @@ def rst_to_html(rst_text: str) -> str:
                 has_math_block = any("<!--MATHBLOCK" in l for l in paragraph_lines)
 
                 if has_math_block:
-                    # Wrap each line in <p> tags separately
+                    # Keep display-math placeholders out of paragraph tags so
+                    # renderers do not treat them like preformatted blocks.
                     for para_line in paragraph_lines:
-                        result_lines.append(f"<p>{para_line}</p>")
+                        if "<!--MATHBLOCK" in para_line:
+                            result_lines.append(para_line)
+                        else:
+                            result_lines.append(f"<p>{para_line}</p>")
                 else:
                     # Multi-line paragraph (keep together even if it has inline math)
                     result_lines.append(f"<p>{paragraph_lines[0]}")
@@ -846,8 +854,8 @@ def rst_to_html(rst_text: str) -> str:
         i += 1
 
     # Close any open list
-    if in_list:
-        result_lines.append("</ul>")
+    if list_tag:
+        result_lines.append(f"</{list_tag}>")
 
     html = "\n".join(result_lines)
 

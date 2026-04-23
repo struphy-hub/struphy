@@ -67,16 +67,21 @@ logger = logging.getLogger("struphy")
 
 
 class Maxwell(Propagator):
-    r""":ref:`FEEC <gempic>` discretization of the following equations:
+    r"""FEEC discretization of the following equations:
     find :math:`\mathbf E \in H(\textnormal{curl})` and  :math:`\mathbf B \in H(\textnormal{div})` such that
 
     .. math::
 
-        &\int_\Omega \frac{\partial \mathbf E}{\partial t} \cdot \mathbf F \, \textrm d \mathbf x - \int_\Omega \mathbf B \cdot \nabla \times \mathbf F \,\textrm d \mathbf x = 0\,, \qquad \forall \, \mathbf F \in H(\textnormal{curl}) \,.
-        \\[2mm]
-        &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,.
+        \int_{\Omega} \frac{\partial \mathbf E}{\partial t} \cdot \mathbf F \, \textrm d \mathbf x - \int_{\Omega} \mathbf B \cdot \nabla \times \mathbf F \,\textrm d \mathbf x = 0\,, \qquad \forall \, \mathbf F \in H(\textnormal{curl})
+        
+        \frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,.
 
-    :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
+    Time discretization:
+    
+    - implicit: Crank-Nicolson (implicit mid-point)
+    - explicit: explicit RK methods from ButcherTableau
+    
+    System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
     """
 
     class Variables:

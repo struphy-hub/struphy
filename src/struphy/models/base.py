@@ -179,6 +179,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
     {cls.name()}.pde()
     {cls.name()}.scalar_quantities()
     {cls.name()}.normalization()
+    {cls.name()}.discretization()
     {cls.name()}.examples()
     {cls.name()}.use_cases()
     {cls.name()}.cannot_be_used_for()
@@ -207,6 +208,12 @@ class StruphyModel(metaclass=StruphyModelMeta):
     def normalization(cls):
         doc = "**Normalization:**\n"
         doc += cls.doc_normalization.__doc__ if cls.doc_normalization else """Description of normalization not available for this model."""
+        return display(HTML(rst_to_html(doc)))
+    
+    @classmethod
+    def discretization(cls):
+        doc = "**Discretization (Propagators called in sequence):**\n"
+        doc += cls.doc_discretization() if cls.doc_discretization else """Description of discretization not available for this model."""
         return display(HTML(rst_to_html(doc)))
     
     @classmethod
