@@ -54,7 +54,7 @@ def main():
     else:
         tf = 2*ti
     print(f"{ti = }, {tf = }")
-    ti, tf = 2.5, 5.1
+    #ti, tf = 2.5, 5.1
 
     xi = xp.abs(pdata.t_grid - ti).argmin() + 1 # index of time 100 [a.lu.] (observed end of growth rate)
     xf = xp.abs(pdata.t_grid - tf).argmin() + 1 # index of time 200 [a.lu.] (observed end of growth rate)
