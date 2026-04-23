@@ -11,7 +11,6 @@ from feectools.linalg.kron import KroneckerStencilMatrix
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilMatrix, StencilVector
 
-from struphy.feec import mass_kernels
 from struphy.feec.local_projectors_kernels import (
     compute_shifts,
     get_dofs_local_1_form_ec_component,
@@ -34,9 +33,7 @@ from struphy.feec.utilities_local_projectors import (
     is_spline_zero_at_quadrature_points,
     split_points,
 )
-from struphy.fields_background.equils import set_defaults
 from struphy.kernel_arguments.local_projectors_args_kernels import LocalProjectorsArguments
-from struphy.polar.basic import PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 
 
@@ -843,14 +840,14 @@ class CommutingProjectorLocal:
     fem_space : FemSpace
         FEEC space into which the functions shall be projected.
 
-    pts : list of xp.array
-        3-list (or nested 3-list[3-list] for BlockVectors) of 2D arrays with the quasi-interpolation points 
+    pts : Tuple of xp.array
+        Tuple (or nested tuple for BlockVectors) of 2D arrays with the quasi-interpolation points 
         (or Gauss-Legendre quadrature points for histopolation). 
         In format [spatial direction](B-spline index, point) for StencilVector spaces 
         or [vector component][spatial direction](B-spline index, point) for BlockVector spaces.
 
-    wts : list of xp.array
-        3D (4D for BlockVectors) list of 2D array with the Gauss-Legendre quadrature weights 
+    wts : Tuple of xp.array
+        3D (4D for BlockVectors) tuple of 2D array with the Gauss-Legendre quadrature weights 
         (full of ones for interpolation). 
         In format [spatial direction](B-spline index, point) for StencilVector spaces 
         or [vector component][spatial direction](B-spline index, point) for BlockVector spaces.
@@ -877,8 +874,8 @@ class CommutingProjectorLocal:
         space_id: str,
         space_key: str,
         fem_space: FemSpace,
-        pts: list,
-        wts: list,
+        pts: tuple,
+        wts: tuple,
         wij: list,
         whij: list,
         fem_space_B: TensorFemSpace,
@@ -1040,7 +1037,7 @@ class CommutingProjectorLocal:
                 IoH_for_indices,
                 lenj,
                 self._shift,
-                self._pts,
+                self._pts[0],
                 self._starts,
                 self._ends,
                 self._degree,
@@ -1078,9 +1075,9 @@ class CommutingProjectorLocal:
                 self._geo_weights[0],
                 self._geo_weights[1],
                 self._geo_weights[2],
-                self._wts[0],
-                self._wts[1],
-                self._wts[2],
+                self._wts[0][0],
+                self._wts[0][1],
+                self._wts[0][2],
                 self._inv_index_translation[0],
                 self._inv_index_translation[1],
                 self._inv_index_translation[2],
@@ -1514,12 +1511,12 @@ class CommutingProjectorLocal:
 
     @property
     def pts(self):
-        """3D (4D for BlockVectors) list of 2D array with the quasi-interpolation points (or Gauss-Legendre quadrature points for histopolation). In format (ns, nb, np) = (spatial direction, B-spline index, point) for StencilVector spaces or (nv,ns, nb, np) = (vector entry,spatial direction, B-spline index, point) for BlockVector spaces."""
+        """3D (4D for BlockVectors) tuple of 2D array with the quasi-interpolation points (or Gauss-Legendre quadrature points for histopolation). In format (ns, nb, np) = (spatial direction, B-spline index, point) for StencilVector spaces or (nv,ns, nb, np) = (vector entry,spatial direction, B-spline index, point) for BlockVector spaces."""
         return self._pts
 
     @property
     def wts(self):
-        """3D (4D for BlockVectors) list of 2D array with the Gauss-Legendre quadrature points (full of ones for interpolation). In format (ns, nb, np) = (spatial direction, B-spline index, point) for StencilVector spaces or (nv,ns, nb, np) = (vector entry,spatial direction, B-spline index, point) for BlockVector spaces."""
+        """3D (4D for BlockVectors) tuple of 2D array with the Gauss-Legendre quadrature points (full of ones for interpolation). In format (ns, nb, np) = (spatial direction, B-spline index, point) for StencilVector spaces or (nv,ns, nb, np) = (vector entry,spatial direction, B-spline index, point) for BlockVector spaces."""
         return self._wts
 
     @property
@@ -2071,369 +2068,6 @@ class CommutingProjectorLocal:
             return self._are_zero_block_B_or_D_splines[i][h][self._B_or_D[i]][
                 self._translation_indices_block_B_or_D_splines[i][h][self._B_or_D[i]][self._basis_indices[i]]
             ]
-
-
-class L2Projector:
-    r"""
-    An orthogonal projection into a discrete :class:`~struphy.feec.psydac_derham.Derham` space
-    based on the L2-scalar product.
-
-    It solves the following system for the FE-coefficients :math:`\mathbf f = (f_{lmn}) \in \mathbb R^{N_\alpha}`:
-
-    .. math::
-
-        \mathbb M^\alpha_{ijk, lmn} f_{lmn} = (f^\alpha, \Lambda^\alpha_{ijk})_{L^2}\,,
-
-    where :math:`\mathbb M^\alpha` denotes the :ref:`mass matrix <weighted_mass>` of space :math:`\alpha \in \{0,1,2,3,v\}` and :math:`f^\alpha` is a :math:`\alpha`-form proxy function.
-
-    Parameters:
-    -----------
-    space_id : str
-        One of "H1", "Hcurl", "Hdiv", "L2" or "H1vec".
-
-    mass_ops : struphy.mass.WeighteMassOperators
-        Mass operators object, see :ref:`mass_ops`.
-
-    params : dict
-        Keyword arguments for the solver parameters.
-    """
-
-    def __init__(self, space_id, mass_ops, **params):
-        from struphy.feec import preconditioner
-
-        assert space_id in ("H1", "Hcurl", "Hdiv", "L2", "H1vec")
-
-        params_default = {
-            "type": ("pcg", "MassMatrixPreconditioner"),
-            "tol": 1.0e-14,
-            "maxiter": 500,
-            "info": False,
-            "verbose": False,
-        }
-
-        set_defaults(params, params_default)
-
-        self._space_id = space_id
-        self._mass_ops = mass_ops
-        self._params = params
-        self._space_key = mass_ops.derham.space_to_form[self.space_id]
-        self._space = mass_ops.derham.fem_spaces[self.space_key]
-
-        # mass matrix
-        self._Mmat = getattr(self.mass_ops, "M" + self.space_key)
-
-        # quadrature grid
-        self._quad_grid_pts = self.mass_ops.derham.spline_attributes[self.space_key].quad_grid_pts
-
-        if space_id in ("H1", "L2"):
-            self._quad_grid_mesh = xp.meshgrid(
-                *[pt.flatten() for pt in self.quad_grid_pts],
-                indexing="ij",
-            )
-            self._geom_weights = self.Mmat.weights[0][0](*self.quad_grid_mesh)
-        else:
-            self._quad_grid_mesh = []
-            self._tmp = []  # tmp for matrix-vector product of geom_weights with fun
-            for pts in self.quad_grid_pts:
-                self._quad_grid_mesh += [
-                    xp.meshgrid(
-                        *[pt.flatten() for pt in pts],
-                        indexing="ij",
-                    ),
-                ]
-                self._tmp += [xp.zeros_like(self.quad_grid_mesh[-1][0])]
-            # geometric weights evaluated at quadrature grid
-            self._geom_weights = []
-            # loop over rows (different meshes)
-            for mesh, row_weights in zip(self.quad_grid_mesh, self.Mmat.weights):
-                self._geom_weights += [[]]
-                # loop over columns (differnt geometric coeffs)
-                for weight in row_weights:
-                    if weight is not None:
-                        self._geom_weights[-1] += [weight(*mesh)]
-                    else:
-                        self._geom_weights[-1] += [xp.zeros_like(mesh[0])]
-
-        # other quad grid info
-        if isinstance(self.space, TensorFemSpace):
-            self._tensor_fem_spaces = [self.space]
-            self._wts_l = [self.mass_ops.derham.spline_attributes[self.space_key].quad_grid_wts]
-            self._spans_l = [
-                self.mass_ops.derham.spline_attributes[self.space_key].quad_grid_spans,
-            ]
-            self._bases_l = [
-                self.mass_ops.derham.spline_attributes[self.space_key].quad_grid_bases,
-            ]
-        else:
-            self._tensor_fem_spaces = self.space.spaces
-            self._wts_l = self.mass_ops.derham.spline_attributes[self.space_key].quad_grid_wts
-            self._spans_l = self.mass_ops.derham.spline_attributes[self.space_key].quad_grid_spans
-            self._bases_l = self.mass_ops.derham.spline_attributes[self.space_key].quad_grid_bases
-
-        # Preconditioner
-        if self.params["type"][1] is None:
-            pc = None
-        else:
-            pc_class = getattr(preconditioner, self.params["type"][1])
-            pc = pc_class(self.Mmat)
-
-        # solver
-        self._solver = inverse(
-            self.Mmat,
-            self.params["type"][0],
-            pc=pc,
-            tol=self.params["tol"],
-            maxiter=self.params["maxiter"],
-            verbose=self.params["verbose"],
-        )
-
-    @property
-    def mass_ops(self):
-        """Struphy mass operators object, see :ref:`mass_ops`.."""
-        return self._mass_ops
-
-    @property
-    def space_id(self):
-        """The ID of the space (H1, Hcurl, Hdiv, L2 or H1vec)."""
-        return self._space_id
-
-    @property
-    def space_key(self):
-        """The key of the space (0, 1, 2, 3 or v)."""
-        return self._space_key
-
-    @property
-    def space(self):
-        """The Derham finite element space (from ``Derham.fem_spaces``)."""
-        return self._space
-
-    @property
-    def params(self):
-        """Parameters for the iterative solver."""
-        return self._params
-
-    @property
-    def Mmat(self):
-        """The mass matrix of space."""
-        return self._Mmat
-
-    @property
-    def quad_grid_pts(self):
-        """List of quadrature points in each direction for integration over grid cells in format (ni, nq) = (cell, quadrature point)."""
-        return self._quad_grid_pts
-
-    @property
-    def quad_grid_mesh(self):
-        """Mesh grids of quad_grid_pts."""
-        return self._quad_grid_mesh
-
-    @property
-    def geom_weights(self):
-        """Geometric coefficients (e.g. Jacobians) evaluated at quad_grid_mesh, stored as list[list] either 1x1 or 3x3."""
-        return self._geom_weights
-
-    def solve(self, rhs, out=None):
-        """
-        Solves the linear system M * x = rhs, where M is the mass matrix.
-
-        Parameters
-        ----------
-        rhs : feectools.linalg.basic.vector
-            The right-hand side of the linear system.
-
-        out : feectools.linalg.basic.vector, optional
-            If given, the result will be written into this vector in-place.
-
-        Returns
-        -------
-        out : feectools.linalg.basic.vector
-            Output vector (result of linear system).
-        """
-
-        assert isinstance(rhs, Vector)
-
-        if out is None:
-            out = self._solver.dot(rhs)
-        else:
-            self._solver.dot(rhs, out=out)
-
-        return out
-
-    def get_dofs(self, fun, dofs=None, apply_bc=False, clear=True):
-        r"""
-        Assembles (in 3d) the Stencil-/BlockVector
-
-        .. math::
-
-            V_{ijk} = \int f * w_\textrm{geom} * \Lambda^\alpha_{ijk}\,\textrm d \boldsymbol \eta = \left( f\,, \Lambda^\alpha_{ijk}\right)_{L^2}\,,
-
-        where :math:`\Lambda^\alpha_{ijk}` are the basis functions of :math:`V_h^\alpha`,
-        :math:`f` is an :math:`\alpha`-form proxy function and :math:`w_\textrm{geom}` stand for metric coefficients.
-
-        Note that any geometric terms (e.g. Jacobians) in the L2 scalar product are automatically assembled
-        into :math:`w_\textrm{geom}`, depending on the space of :math:`\alpha`-forms.
-
-        The integration is performed with Gauss-Legendre quadrature over the whole logical domain.
-
-        Parameters
-        ----------
-        fun : callable | list
-            Weight function(s) (callables or xp.ndarrays) in a 1d list of shape corresponding to number of components.
-
-        dofs : StencilVector | BlockVector, optional
-            The vector for the output.
-
-        apply_bc : bool, optional
-            Whether to apply essential boundary conditions to degrees of freedom.
-
-        clear : bool
-            Whether to first set all data to zero before assembly. If False, the new contributions are added to existing ones in vec.
-        """
-
-        # evaluate fun at quad_grid or check array size
-        if callable(fun):
-            fun_weights = fun(*self._quad_grid_mesh)
-        elif isinstance(fun, xp.ndarray):
-            assert fun.shape == self._quad_grid_mesh[0].shape, (
-                f"Expected shape {self._quad_grid_mesh[0].shape}, got {fun.shape =} instead."
-            )
-            fun_weights = fun
-        else:
-            assert (
-                len(
-                    fun,
-                )
-                == 3
-            ), f"List input only for vector-valued spaces of size 3, but {len(fun) =}."
-            fun_weights = []
-            # loop over rows (different meshes)
-            for mesh in self._quad_grid_mesh:
-                fun_weights += [[]]
-                # loop over columns (different functions)
-                for f in fun:
-                    if callable(f):
-                        fun_weights[-1] += [f(*mesh)]
-                    elif isinstance(f, xp.ndarray):
-                        assert f.shape == mesh[0].shape, f"Expected shape {mesh[0].shape}, got {f.shape =} instead."
-                        fun_weights[-1] += [f]
-                    else:
-                        raise ValueError(
-                            f"Expected callable or numpy array, got {type(f) =} instead.",
-                        )
-
-        # check output vector
-        if dofs is None:
-            dofs = self.space.coeff_space.zeros()
-        else:
-            assert isinstance(dofs, (StencilVector, BlockVector, PolarVector))
-            assert dofs.space == self.Mmat.codomain
-
-        # compute matrix data for kernel, i.e. fun * geom_weight
-        tot_weights = []
-        if isinstance(fun_weights, xp.ndarray):
-            tot_weights += [fun_weights * self.geom_weights]
-        else:
-            # loop over rows (differnt meshes)
-            for row_fun, row_geom, tmp in zip(fun_weights, self.geom_weights, self._tmp):
-                tmp *= 0.0
-                # loop over columns (different functions)
-                for fun_weight, geom_weight in zip(row_fun, row_geom):
-                    # matrix-vector product
-                    tmp += fun_weight * geom_weight
-                tot_weights += [tmp]
-
-        # clear data
-        if clear:
-            if isinstance(dofs, StencilVector):
-                dofs._data[:] = 0.0
-            elif isinstance(dofs, PolarVector):
-                dofs.tp._data[:] = 0.0
-            else:
-                for block in dofs.blocks:
-                    block._data[:] = 0.0
-
-        # loop over components (just one for scalar spaces)
-        for a, (fem_space, spans, wts, basis, mat_w) in enumerate(
-            zip(
-                self._tensor_fem_spaces,
-                self._spans_l,
-                self._wts_l,
-                self._bases_l,
-                tot_weights,
-            ),
-        ):
-            # indices
-            starts = [int(start) for start in fem_space.coeff_space.starts]
-            pads = fem_space.coeff_space.pads
-
-            if isinstance(dofs, StencilVector):
-                mass_kernels.kernel_3d_vec(
-                    *spans,
-                    *fem_space.degree,
-                    *starts,
-                    *pads,
-                    *wts,
-                    *basis,
-                    mat_w,
-                    dofs._data,
-                )
-            elif isinstance(dofs, PolarVector):
-                mass_kernels.kernel_3d_vec(
-                    *spans,
-                    *fem_space.degree,
-                    *starts,
-                    *pads,
-                    *wts,
-                    *basis,
-                    mat_w,
-                    dofs.tp._data,
-                )
-            else:
-                mass_kernels.kernel_3d_vec(
-                    *spans,
-                    *fem_space.degree,
-                    *starts,
-                    *pads,
-                    *wts,
-                    *basis,
-                    mat_w,
-                    dofs[a]._data,
-                )
-
-        # exchange assembly data (accumulate ghost regions) and update ghost regions
-        dofs.exchange_assembly_data()
-        dofs.update_ghost_regions()
-
-        # apply boundary operator
-        if apply_bc:
-            dofs = self.mass_ops.derham.boundary_ops[self.space_key].dot(dofs)
-
-        return dofs
-
-    def __call__(self, fun, out=None, dofs=None, apply_bc=False):
-        """
-        Applies projector to given callable(s).
-
-        Parameters
-        ----------
-        fun : callable | list
-            The function to be projected. List of three callables for vector-valued functions.
-
-        out : feectools.linalg.basic.vector, optional
-            If given, the result will be written into this vector in-place.
-
-        dofs : feectools.linalg.basic.vector, optional
-            If given, the dofs will be written into this vector in-place.
-
-        apply_bc : bool, optional
-            Whether to apply essential boundary conditions to degrees of freedom and coefficients.
-
-        Returns
-        -------
-        coeffs : feectools.linalg.basic.vector
-            The FEM spline coefficients after projection.
-        """
-        return self.solve(self.get_dofs(fun, dofs=dofs, apply_bc=apply_bc), out=out)
 
 
 class ProjectorPreconditioner(LinearOperator):

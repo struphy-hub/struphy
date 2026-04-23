@@ -1,11 +1,11 @@
 import logging
 
-import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import BilinearEnergyFEEC, KineticEnergyPIC, LostMarkersPIC, Scalars, VolumeFormEnergyFEEC
 from struphy.models.species import (
     FieldSpecies,
     FluidSpecies,
@@ -173,19 +173,20 @@ class LinearMHDVlasovPC(StruphyModel):
         if "PushVxB" not in turn_off:
             self.propagators.push_vxb.variables.ions = self.energetic_ions.var
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_U")
-        self.add_scalar("en_p")
-        self.add_scalar("en_B")
-        self.add_scalar("en_f", compute="from_particles", variable=self.energetic_ions.var)
-        self.add_scalar(
-            "en_tot",
-            summands=[
-                "en_U",
-                "en_p",
-                "en_B",
-                "en_f",
-            ],
+        # 5. define scalars to be tracked during simulation
+        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="M2n")
+        pressure_energy = VolumeFormEnergyFEEC(self.mhd.pressure, normalization=1.0 / (5 / 3 - 1))
+        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
+        Ab = self.mhd.mass_number
+        Ah = self.energetic_ions.var.species.mass_number
+        particle_energy = KineticEnergyPIC(self.energetic_ions.var, normalization=Ah / Ab)
+        self.scalars = Scalars(
+            en_U=kinetic_energy,
+            en_p=pressure_energy,
+            en_B=magnetic_energy,
+            en_f=particle_energy,
+            en_tot=kinetic_energy + pressure_energy + magnetic_energy + particle_energy,
+            n_lost_particles=LostMarkersPIC(self.energetic_ions.var),
         )
 
     @property
@@ -202,70 +203,6 @@ class LinearMHDVlasovPC(StruphyModel):
             self._ones.tp[:] = 1.0
         else:
             self._ones[:] = 1.0
-
-        self._en_f = xp.empty(1, dtype=float)
-        self._n_lost_particles = xp.empty(1, dtype=float)
-
-    def update_scalar_quantities(self):
-        # scaling factor
-        Ab = self.mhd.mass_number
-        Ah = self.energetic_ions.var.species.mass_number
-
-        # perturbed fields
-        en_U = 0.5 * Propagator.mass_ops.M2n.dot_inner(
-            self.mhd.velocity.spline.vector,
-            self.mhd.velocity.spline.vector,
-        )
-        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(
-            self.em_fields.b_field.spline.vector,
-            self.em_fields.b_field.spline.vector,
-        )
-        en_p = self.mhd.pressure.spline.vector.inner(self._ones) / (5 / 3 - 1)
-
-        self.update_scalar("en_U", en_U)
-        self.update_scalar("en_B", en_B)
-        self.update_scalar("en_p", en_p)
-
-        # particles' energy
-        particles = self.energetic_ions.var.particles
-
-        self._en_f[0] = (
-            particles.markers[~particles.holes, 6].dot(
-                particles.markers[~particles.holes, 3] ** 2
-                + particles.markers[~particles.holes, 4] ** 2
-                + particles.markers[~particles.holes, 5] ** 2,
-            )
-            / 2.0
-            * Ah
-            / Ab
-        )
-
-        self.update_scalar("en_f", self._en_f[0])
-        self.update_scalar("en_tot")
-
-        # print number of lost particles
-        n_lost_markers = xp.array(particles.n_lost_markers)
-
-        if Propagator.derham.comm is not None:
-            Propagator.derham.comm.Allreduce(
-                MPI.IN_PLACE,
-                n_lost_markers,
-                op=MPI.SUM,
-            )
-
-        if self.clone_config is not None:
-            self.clone_config.inter_comm.Allreduce(
-                MPI.IN_PLACE,
-                n_lost_markers,
-                op=MPI.SUM,
-            )
-
-        if rank == 0:
-            logger.info(
-                "Lost particle ratio: ",
-                n_lost_markers / particles.Np * 100,
-                "% \n",
-            )
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
