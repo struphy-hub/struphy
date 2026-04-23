@@ -105,7 +105,7 @@ class ViscousFluid(StruphyModel):
             self.propagators.variat_viscous.variables.u = self.fluid.velocity
 
         # 5. define scalars to be tracked during simulation
-        kinetic_energy = BilinearEnergyFEEC(self.fluid.velocity, bilinear_form_name="WMM")
+        kinetic_energy = BilinearEnergyFEEC(self.fluid.velocity, bilinear_form_name="WMMnew")
         thermo_energy = FunctionScalarFEEC(self.update_thermo_energy)
         total_energy = kinetic_energy + thermo_energy
         self.scalars = Scalars(
