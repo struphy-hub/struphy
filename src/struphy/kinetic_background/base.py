@@ -9,8 +9,8 @@ from matplotlib import cm
 from matplotlib.colors import Normalize
 
 from struphy.fields_background.base import FluidEquilibriumWithB
-from struphy.initial.base import Perturbation
 from struphy.geometry.base import Domain
+from struphy.initial.base import Perturbation
 from struphy.io.options import LiteralOptions
 
 

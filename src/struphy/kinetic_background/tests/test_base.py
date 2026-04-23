@@ -87,10 +87,8 @@ def test_plotting_function():
 
     import cunumpy as xp
 
-    from struphy import domains
-    from struphy import maxwellians
-    from struphy import equils
-    
+    from struphy import domains, equils, maxwellians
+
     #definition of test functions
     l, m, n = 3,4,5
     def n_init(*etas):
