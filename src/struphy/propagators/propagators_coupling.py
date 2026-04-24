@@ -37,47 +37,18 @@ logger = logging.getLogger("struphy")
 
 
 class VlasovAmpere(Propagator):
-    r""":ref:`FEEC <gempic>` discretization of the following equations: 
-    find :math:`\mathbf E \in H(\textnormal{curl})` and :math:`f` such that
+    r"""PIC-FEEC discretization of the following equations:
+    find :math:`\mathbf{E} \in H(\textnormal{curl})` and :math:`f` such that
 
     .. math::
 
-        -& \int_\Omega \frac{\partial \mathbf E}{\partial t} \cdot \mathbf F\,\textrm d \mathbf x  =
-        \frac{\alpha^2}{\varepsilon} \int_\Omega \int_{\mathbb{R}^3} f \mathbf{v} \cdot \mathbf F \, \text{d}^3 \mathbf{v} \,\textrm d \mathbf x \qquad \forall \, \mathbf F \in H(\textnormal{curl}) \,,
+        -\int_\Omega \frac{\partial \mathbf{E}}{\partial t} \cdot \mathbf{F}\,\textrm d \mathbf x &= \frac{\alpha^2}{\varepsilon} \int_\Omega \int_{\mathbb{R}^3} f \mathbf{v} \cdot \mathbf{F} \, \text{d}^3 \mathbf{v} \,\textrm d \mathbf x \qquad \forall \, \mathbf{F} \in H(\textnormal{curl})
         \\[2mm]
-        &\frac{\partial f}{\partial t} + \frac{1}{\varepsilon}\, \mathbf{E} 
-            \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,.
+        \frac{\partial f}{\partial t} + \frac{1}{\varepsilon}\, \mathbf{E} \cdot \frac{\partial f}{\partial \mathbf{v}} &= 0 .
 
-    :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`, such that
+    Time discretization: Crank-Nicolson (implicit mid-point).
 
-    .. math::
-
-        \begin{bmatrix}
-            \mathbb{M}_1 \left( \mathbf{e}^{n+1} - \mathbf{e}^n \right) \\
-            \mathbf{V}^{n+1} - \mathbf{V}^n
-        \end{bmatrix}
-        =
-        \frac{\Delta t}{2}
-        \begin{bmatrix}
-            0 & - \frac{\alpha^2}{\varepsilon} \mathbb L^1 \bar{DF^{-1}} \bar{\mathbf w} \\
-            \frac{1}{\varepsilon} \bar{DF^{-\top}} \left(\mathbb L^1\right)^\top & 0
-        \end{bmatrix}
-        \begin{bmatrix}
-            \mathbf{e}^{n+1} + \mathbf{e}^n \\
-            \mathbf{V}^{n+1} + \mathbf{V}^n
-        \end{bmatrix}
-
-    based on the :class:`~struphy.linear_algebra.schur_solver.SchurSolver` with
-
-    .. math::
-
-        A = \mathbb M^1\,,\qquad B = \frac{\alpha^2}{2\varepsilon} \mathbb L^1 \bar{DF^{-1}} \bar{\mathbf w}\,,\qquad C = - \frac{1}{2\varepsilon} \bar{DF^{-\top}} \left(\mathbb L^1\right)^\top \,.
-
-    The accumulation matrix and vector assembled in :class:`~struphy.pic.accumulation.particles_to_grid.Accumulator` are
-
-    .. math::
-
-        M = BC  \,,\qquad V = B \mathbf V \,.
+    System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
     """
 
     class Variables:

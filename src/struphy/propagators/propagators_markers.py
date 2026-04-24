@@ -36,17 +36,17 @@ class PushEta(Propagator):
 
     .. math::
 
-        \frac{\textnormal d \mathbf x_p(t)}{\textnormal d t} = \mathbf v_p\,,
+        \frac{\textnormal d \mathbf{x}_p(t)}{\textnormal d t} = \mathbf{v}_p\,,
 
-    for constant :math:`\mathbf v_p` in logical space given by :math:`\mathbf x = F(\boldsymbol \eta)`:
+    for constant :math:`\mathbf{v}_p` in logical space given by :math:`\mathbf{x} = F(\boldsymbol{\eta})`:
 
     .. math::
 
-        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \,\mathbf v_p\,.
+        \frac{\textnormal d \boldsymbol{\eta}_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol{\eta}_p(t)) \,\mathbf{v}_p\,.
 
     Available algorithms:
 
-    * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
+    - Explicit RK from :class:`~struphy.ode.utils.ButcherTableau`
     """
 
     class Variables:
@@ -131,16 +131,18 @@ class PushVxB(Propagator):
 
     .. math::
 
-        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \frac{1}{\varepsilon} \, \mathbf v_p(t) \times (\mathbf B + \mathbf B_{\text{add}}) \,,
+        \frac{\textnormal d \mathbf{v}_p(t)}{\textnormal d t} =  \frac{1}{\varepsilon} \, \mathbf{v}_p(t) \times (\mathbf{B} + \mathbf{B}_{\text{add}}) \,,
 
-    where :math:`\varepsilon = 1/(\hat\Omega_c \hat t)` is a constant scaling factor, and for rotation vector :math:`\mathbf B` and optional, additional fixed rotation
-    vector :math:`\mathbf B_{\text{add}}`, both given as a 2-form:
+    where :math:`\varepsilon = 1/(\hat{\Omega}_c \hat t)` is a constant scaling factor, and for rotation vector :math:`\mathbf{B}` and optional, additional fixed rotation vector :math:`\mathbf{B}_{\text{add}}`, both given as a 2-form:
 
     .. math::
 
-        \mathbf B =  \frac{DF\, \hat{\mathbf B}^2}{\sqrt g}\,.
+        \mathbf{B} =  \frac{DF\, \hat{\mathbf{B}}^2}{\sqrt{g}}\,.
 
-    Available algorithms: ``analytic``, ``implicit``.
+    Available algorithms:
+
+    - ``analytic``
+    - ``implicit``.
     """
 
     class Variables:

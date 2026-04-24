@@ -642,7 +642,7 @@ def rst_to_html(rst_text: str) -> str:
         return f"<!--CODEBLOCK{len(code_blocks) - 1}-->"
 
     # Match .. code-block:: python (or any language) followed by optional blank line and indented content
-    html = re.sub(r"\.\. code-block::[^\n]*\n(?:\n)?((?:[ \t]+.*\n)*)", save_code_block, html)
+    html = re.sub(r"\.\. code-block::[^\n]*\n(?:\n)?((?:(?:[ \t]+[^\n]*|[ \t]*)\n)*)", save_code_block, html)
 
     # Extract and convert math blocks
     math_blocks = []
@@ -655,28 +655,56 @@ def rst_to_html(rst_text: str) -> str:
         # Remove leading indentation consistently
         cleaned_lines = [line.strip() for line in math_lines if line.strip()]
 
-        # Check if this is a multiline equation (contains & or \\)
-        is_multiline = any("&" in line or "\\\\" in line for line in cleaned_lines)
+        def _sanitize_css_length(length: str) -> str | None:
+            """Allow only simple numeric CSS lengths used in LaTeX line spacing."""
+            value = length.strip()
+            if re.fullmatch(r"[+-]?\d*\.?\d+(?:mm|cm|in|pt|pc|px|em|ex|rem)", value):
+                return value
+            return None
+
+        def _split_latex_newline(line: str):
+            """Split trailing LaTeX newline command with optional spacing (\\[2mm])."""
+            m = re.search(r"\\\\(?:\s*\[\s*([^\]]+)\s*\])?\s*$", line)
+            if not m:
+                return line.strip(), None
+            content = line[: m.start()].strip()
+            spacing = _sanitize_css_length(m.group(1)) if m.group(1) else None
+            return content, spacing
+
+        # Treat each non-empty line as a separate display row. Align only on
+        # '&=' anchors (align-environment style) so matrix '&' separators do
+        # not trigger equation-column splitting.
+        has_equals_align = any(re.search(r"&\s*=", line) for line in cleaned_lines)
+        is_multiline = len(cleaned_lines) > 1 or has_equals_align or any("\\\\" in line for line in cleaned_lines)
 
         if is_multiline:
             # Preserve multiline structure and align on '&' (LaTeX align-style).
             aligned_rows = []
+            next_row_top_spacing = None
             for line in cleaned_lines:
-                # Remove trailing \\
-                line = re.sub(r"\\\\\s*$", "", line).strip()
+                top_padding = next_row_top_spacing
+                line, trailing_spacing = _split_latex_newline(line)
+                if trailing_spacing:
+                    next_row_top_spacing = trailing_spacing
+                else:
+                    next_row_top_spacing = None
+
+                # Handle standalone spacing lines such as '\\[2mm]'.
                 if not line:
                     continue
 
-                if "&" in line:
-                    lhs_raw, rhs_raw = line.split("&", 1)
+                pad_style = f"padding-top:{top_padding};" if top_padding else ""
+
+                if re.search(r"&\s*=", line):
+                    lhs_raw, rhs_raw = re.split(r"&\s*=", line, maxsplit=1)
                     lhs = latex_to_unicode(lhs_raw.strip(), display_mode=True)
-                    rhs = latex_to_unicode(rhs_raw.strip(), display_mode=True)
+                    rhs = latex_to_unicode("=" + rhs_raw.strip(), display_mode=True)
                     aligned_rows.append(
                         "<tr>"
-                        '<td style="text-align:right;padding-right:0.35em;vertical-align:middle;white-space:nowrap;">'
+                        f'<td style="text-align:right;padding-right:0.35em;vertical-align:middle;white-space:nowrap;{pad_style}">'
                         f"{lhs}"
                         "</td>"
-                        '<td style="text-align:left;vertical-align:middle;white-space:nowrap;">'
+                        f'<td style="text-align:left;vertical-align:middle;white-space:nowrap;{pad_style}">'
                         f"{rhs}"
                         "</td>"
                         "</tr>"
@@ -685,7 +713,7 @@ def rst_to_html(rst_text: str) -> str:
                     expr = latex_to_unicode(line, display_mode=True)
                     aligned_rows.append(
                         "<tr>"
-                        '<td colspan="2" style="text-align:center;vertical-align:middle;white-space:nowrap;">'
+                        f'<td colspan="2" style="text-align:center;vertical-align:middle;white-space:nowrap;{pad_style}">'
                         f"{expr}"
                         "</td>"
                         "</tr>"
@@ -728,7 +756,7 @@ def rst_to_html(rst_text: str) -> str:
 
     # Track if we're in the first line (summary)
     first_line = True
-    in_list = False
+    list_tag = None
 
     while i < len(lines):
         line = lines[i]
@@ -738,10 +766,10 @@ def rst_to_html(rst_text: str) -> str:
             next_line = lines[i + 1]
             # Check for RST section markers
             if next_line and all(c in '=-~^"#' for c in next_line.strip()) and len(next_line.strip()) > 0:
-                if in_list:
-                    result_lines.append("</ul>")
+                if list_tag:
+                    result_lines.append(f"</{list_tag}>")
                     result_lines.append("")
-                    in_list = False
+                    list_tag = None
                 level = {"=": 1, "-": 2, "~": 3, "^": 4, '"': 5, "#": 6}.get(next_line.strip()[0], 3)
                 result_lines.append("")  # blank line before header
                 result_lines.append(f"<h{level}>{line.strip()}</h{level}>")
@@ -752,10 +780,10 @@ def rst_to_html(rst_text: str) -> str:
         # Check for bold section headers (**Text**)
         bold_header_match = re.match(r"^\*\*([^*]+)\*\*\s*$", line.strip())
         if bold_header_match:
-            if in_list:
-                result_lines.append("</ul>")
+            if list_tag:
+                result_lines.append(f"</{list_tag}>")
                 result_lines.append("")
-                in_list = False
+                list_tag = None
             result_lines.append("")  # blank line before header
             result_lines.append(f"<h3>{bold_header_match.group(1)}</h3>")
             first_line = False
@@ -763,29 +791,32 @@ def rst_to_html(rst_text: str) -> str:
             continue
 
         # Check for list items
-        list_match = re.match(r"^-\s+(.+)$", line)
+        list_match = re.match(r"^\s*-\s+(.+)$", line)
         if list_match:
-            if not in_list:
+            if list_tag == "ol":
+                result_lines.append("</ol>")
+                result_lines.append("")
+                list_tag = None
+            if not list_tag:
                 result_lines.append("")  # blank line before list
                 result_lines.append("<ul>")
-                in_list = True
+                list_tag = "ul"
             result_lines.append(f"    <li>{list_match.group(1)}</li>")
             first_line = False
             i += 1
             continue
 
         # Check for numbered list items
-        numbered_list_match = re.match(r"^\d+\.\s+(.+)$", line)
+        numbered_list_match = re.match(r"^\s*\d+\.\s+(.+)$", line)
         if numbered_list_match:
-            if in_list:
+            if list_tag == "ul":
                 result_lines.append("</ul>")
                 result_lines.append("")
-                in_list = False
-            # Just treat it as a regular list item
-            if not in_list:
+                list_tag = None
+            if not list_tag:
                 result_lines.append("")
-                result_lines.append("<ul>")
-                in_list = True
+                result_lines.append("<ol>")
+                list_tag = "ol"
             result_lines.append(f"    <li>{numbered_list_match.group(1)}</li>")
             first_line = False
             i += 1
@@ -793,10 +824,10 @@ def rst_to_html(rst_text: str) -> str:
 
         # Empty line handling
         if not line.strip():
-            if in_list:
-                result_lines.append("</ul>")
+            if list_tag:
+                result_lines.append(f"</{list_tag}>")
                 result_lines.append("")
-                in_list = False
+                list_tag = None
             else:
                 result_lines.append("")
             first_line = False
@@ -804,10 +835,10 @@ def rst_to_html(rst_text: str) -> str:
             continue
 
         # Regular paragraph text
-        if in_list:
-            result_lines.append("</ul>")
+        if list_tag:
+            result_lines.append(f"</{list_tag}>")
             result_lines.append("")
-            in_list = False
+            list_tag = None
 
         if first_line:
             # First line (summary) - no <p> tags
@@ -830,9 +861,13 @@ def rst_to_html(rst_text: str) -> str:
                 has_math_block = any("<!--MATHBLOCK" in l for l in paragraph_lines)
 
                 if has_math_block:
-                    # Wrap each line in <p> tags separately
+                    # Keep display-math placeholders out of paragraph tags so
+                    # renderers do not treat them like preformatted blocks.
                     for para_line in paragraph_lines:
-                        result_lines.append(f"<p>{para_line}</p>")
+                        if "<!--MATHBLOCK" in para_line:
+                            result_lines.append(para_line)
+                        else:
+                            result_lines.append(f"<p>{para_line}</p>")
                 else:
                     # Multi-line paragraph (keep together even if it has inline math)
                     result_lines.append(f"<p>{paragraph_lines[0]}")
@@ -846,8 +881,8 @@ def rst_to_html(rst_text: str) -> str:
         i += 1
 
     # Close any open list
-    if in_list:
-        result_lines.append("</ul>")
+    if list_tag:
+        result_lines.append(f"</{list_tag}>")
 
     html = "\n".join(result_lines)
 

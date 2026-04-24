@@ -6,6 +6,21 @@ from textwrap import indent
 import cunumpy as xp
 from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
+
+try:
+    from IPython.display import HTML, Markdown, display
+except ImportError:
+
+    def HTML(data):
+        return data
+
+    def Markdown(data):
+        return data
+
+    def display(*objects, **kwargs):
+        return objects[0] if objects else None
+
+
 from line_profiler import profile
 from scope_profiler import ProfileManager
 
@@ -18,7 +33,7 @@ from struphy.physics.physics import Units
 from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.docstring_converter import info, rst_to_markdown
+from struphy.utils.docstring_converter import rst_to_html, rst_to_markdown
 from struphy.utils.utils import all_class_params_are_default, all_subclasses
 
 logger = logging.getLogger("struphy")
@@ -166,12 +181,111 @@ class StruphyModel(metaclass=StruphyModelMeta):
         return out
 
     @classmethod
-    def info(cls, use_rst=False):
-        return info(cls, use_rst=use_rst)
+    def info(cls):
+        doc = "**"
+        doc += (
+            rst_to_html(cls.__doc__).split("Parameters")[0].split("<")[0]
+            if cls.__doc__
+            else """Description not available for this model."""
+        )
+        doc += "**"
+        doc += rf"""To see detailed information on the model, run the following methods:
+        
+.. code-block:: python
+
+    {cls.name()}.pde()
+    {cls.name()}.normalization()
+    {cls.name()}.scalar_quantities()
+    {cls.name()}.discretization()
+    {cls.name()}.long_description()
+    {cls.name()}.examples()
+    {cls.name()}.use_cases()
+    {cls.name()}.cannot_be_used_for()
+"""
+        return display(HTML(rst_to_html(doc)))
+
+    @classmethod
+    def pde(cls):
+        doc_pde = getattr(cls, "doc_pde", None)
+        doc = doc_pde.__doc__ if doc_pde else """PDE description not available for this model."""
+        return display(HTML(rst_to_html(doc)))
+
+    @classmethod
+    def normalization(cls):
+        doc_normalization = getattr(cls, "doc_normalization", None)
+        doc = "**Normalization:**\n"
+        doc += (
+            doc_normalization.__doc__
+            if doc_normalization
+            else """Description of normalization not available for this model."""
+        )
+        return display(HTML(rst_to_html(doc)))
+
+    @classmethod
+    def scalar_quantities(cls):
+        doc_scalar_quantities = getattr(cls, "doc_scalar_quantities", None)
+        doc = (
+            doc_scalar_quantities.__doc__
+            if doc_scalar_quantities
+            else """Description of scalar quantities not available for this model."""
+        )
+        return display(HTML(rst_to_html(doc)))
+
+    @classmethod
+    def discretization(cls):
+        doc_discretization = getattr(cls, "doc_discretization", None)
+        doc = "**Discretization (Propagators called in sequence):**\n"
+        doc += (
+            doc_discretization()
+            if doc_discretization
+            else """Description of discretization not available for this model."""
+        )
+        return display(HTML(rst_to_html(doc)))
+
+    @classmethod
+    def long_description(cls):
+        doc_long_description = getattr(cls, "doc_long_description", None)
+        doc = "**Long description:**\n"
+        doc += (
+            doc_long_description.__doc__
+            if doc_long_description
+            else """Long description not available for this model."""
+        )
+        return display(HTML(rst_to_html(doc)))
+
+    @classmethod
+    def examples(cls):
+        doc_examples = getattr(cls, "doc_examples", None)
+        doc = "**Examples:**\n"
+        doc += doc_examples.__doc__ if doc_examples else """Examples not available for this model."""
+        return display(HTML(rst_to_html(doc)))
+
+    @classmethod
+    def use_cases(cls):
+        doc_use_cases = getattr(cls, "doc_use_cases", None)
+        doc = "**Use cases:**\n"
+        doc += doc_use_cases.__doc__ if doc_use_cases else """Description of use cases not available for this model."""
+        return display(HTML(rst_to_html(doc)))
+
+    @classmethod
+    def cannot_be_used_for(cls):
+        doc_cannot_be_used_for = getattr(cls, "doc_cannot_be_used_for", None)
+        doc = "**Cannot be used for:**\n"
+        doc += (
+            doc_cannot_be_used_for.__doc__
+            if doc_cannot_be_used_for
+            else """Information on scenarios for which the model is not suitable is not available."""
+        )
+        return display(HTML(rst_to_html(doc)))
 
     @classmethod
     def name(cls) -> str:
         return cls.__name__
+
+    @classmethod
+    def create_doc(cls) -> "Documentation":
+        doc = Documentation(cls)
+        return doc
 
     @property
     def scalars(self) -> Scalars | None:
@@ -772,3 +886,52 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
     # def time_state(self):
     #     """A pointer to the time variable of the dynamics ('t')."""
     #     return self._time_state
+
+
+class Documentation:
+    def __init__(
+        self,
+        cls: StruphyModel,
+    ):
+        self.description = self.Content(cls.__doc__ if cls.__doc__ else "Description not available for this model.")
+        self.pde = self.Content(cls.doc_pde.__doc__ if cls.doc_pde else "PDE description not available for this model.")
+        self.normalization = self.Content(
+            cls.doc_normalization.__doc__
+            if cls.doc_normalization
+            else "Description of normalization not available for this model."
+        )
+        self.scalar_quantities = self.Content(
+            cls.doc_scalar_quantities.__doc__
+            if cls.doc_scalar_quantities
+            else "Description of scalar quantities not available for this model."
+        )
+        self.discretization = self.Content(
+            cls.doc_discretization()
+            if cls.doc_discretization
+            else "Description of discretization not available for this model."
+        )
+        self.long_description = self.Content(
+            cls.doc_long_description.__doc__
+            if cls.doc_long_description
+            else "Long description not available for this model."
+        )
+        self.examples = self.Content(
+            cls.doc_examples.__doc__ if cls.doc_examples else "Examples not available for this model."
+        )
+        self.use_cases = self.Content(
+            cls.doc_use_cases.__doc__ if cls.doc_use_cases else "Use cases not available for this model."
+        )
+        self.cannot_be_used_for = self.Content(
+            cls.doc_cannot_be_used_for.__doc__
+            if cls.doc_cannot_be_used_for
+            else "Information on scenarios for which the model is not suitable is not available."
+        )
+        self.model_properties = self.Content(
+            f"**Model type:** {cls.model_type()}\n- **Velocity scale:** {cls.velocity_scale}\n- **Bulk species:** {cls.bulk_species}"
+        )
+
+    class Content:
+        def __init__(self, rst, md=None, html=None):
+            self.rst = rst
+            self.md = md or rst_to_markdown(rst)
+            self.html = html or rst_to_html(rst)
