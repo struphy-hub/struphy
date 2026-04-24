@@ -199,27 +199,8 @@ class StruphyModel(metaclass=StruphyModelMeta):
         return display(HTML(rst_to_html(doc)))
 
     @classmethod
-    def long_description(cls):
-        doc = "**Long description:**\n"
-        doc += (
-            cls.doc_long_description.__doc__
-            if cls.doc_long_description
-            else """Long description not available for this model."""
-        )
-        return display(HTML(rst_to_html(doc)))
-
-    @classmethod
     def pde(cls):
         doc = cls.doc_pde.__doc__ if cls.doc_pde else """PDE description not available for this model."""
-        return display(HTML(rst_to_html(doc)))
-
-    @classmethod
-    def scalar_quantities(cls):
-        doc = (
-            cls.doc_scalar_quantities.__doc__
-            if cls.doc_scalar_quantities
-            else """Description of scalar quantities not available for this model."""
-        )
         return display(HTML(rst_to_html(doc)))
 
     @classmethod
@@ -231,6 +212,15 @@ class StruphyModel(metaclass=StruphyModelMeta):
             else """Description of normalization not available for this model."""
         )
         return display(HTML(rst_to_html(doc)))
+    
+    @classmethod
+    def scalar_quantities(cls):
+        doc = (
+            cls.doc_scalar_quantities.__doc__
+            if cls.doc_scalar_quantities
+            else """Description of scalar quantities not available for this model."""
+        )
+        return display(HTML(rst_to_html(doc)))
 
     @classmethod
     def discretization(cls):
@@ -239,6 +229,16 @@ class StruphyModel(metaclass=StruphyModelMeta):
             cls.doc_discretization()
             if cls.doc_discretization
             else """Description of discretization not available for this model."""
+        )
+        return display(HTML(rst_to_html(doc)))
+
+    @classmethod
+    def long_description(cls):
+        doc = "**Long description:**\n"
+        doc += (
+            cls.doc_long_description.__doc__
+            if cls.doc_long_description
+            else """Long description not available for this model."""
         )
         return display(HTML(rst_to_html(doc)))
 
@@ -884,21 +884,25 @@ class Documentation:
         cls: StruphyModel,
     ):
         self.description = self.Content(cls.__doc__ if cls.__doc__ else "Description not available for this model.")
-        self.long_description = self.Content(
-            cls.doc_long_description.__doc__
-            if cls.doc_long_description
-            else "Long description not available for this model."
-        )
         self.pde = self.Content(cls.doc_pde.__doc__ if cls.doc_pde else "PDE description not available for this model.")
+        self.normalization = self.Content(
+            cls.doc_normalization.__doc__
+            if cls.doc_normalization
+            else "Description of normalization not available for this model."
+        )
         self.scalar_quantities = self.Content(
             cls.doc_scalar_quantities.__doc__
             if cls.doc_scalar_quantities
             else "Description of scalar quantities not available for this model."
         )
-        self.normalization = self.Content(
-            cls.doc_normalization.__doc__
-            if cls.doc_normalization
-            else "Description of normalization not available for this model."
+        self.discretization = self.Content(
+            cls.doc_discretization() if cls.doc_discretization
+            else "Description of discretization not available for this model."
+        )
+        self.long_description = self.Content(
+            cls.doc_long_description.__doc__
+            if cls.doc_long_description
+            else "Long description not available for this model."
         )
         self.examples = self.Content(
             cls.doc_examples.__doc__ if cls.doc_examples else "Examples not available for this model."
