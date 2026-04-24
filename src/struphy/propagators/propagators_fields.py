@@ -520,7 +520,7 @@ class JxBCold(Propagator):
 
 
 class ShearAlfven(Propagator):
-    r"""FEEC discretization of the following equations:
+    r"""FEEC discretization of the following equations: 
     find :math:`\tilde{\mathbf{U}} \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}` and  :math:`\tilde{\mathbf{B}} \in H(\textnormal{div})` such that
 
     .. math::
@@ -529,7 +529,7 @@ class ShearAlfven(Propagator):
         \\[2mm]
         \frac{\partial \tilde{\mathbf{B}}}{\partial t} &= \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
 
-   Time discretization:
+    Time discretization:
     
     - implicit: Crank-Nicolson (implicit mid-point)
     - explicit: explicit RK methods from ButcherTableau
@@ -1014,7 +1014,7 @@ class Hall(Propagator):
 
 
 class Magnetosonic(Propagator):
-    r"""FEEC discretization of the following equations:
+    r"""FEEC discretization of the following equations: 
     find :math:`\tilde{\rho} \in L^2, \tilde{\mathbf U} \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}, \tilde p \in L^2` such that
 
     .. math::

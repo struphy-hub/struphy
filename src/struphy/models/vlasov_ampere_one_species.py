@@ -149,18 +149,6 @@ class VlasovAmpereOneSpecies(StruphyModel):
     ## abstract methods for documentation
 
     @classmethod
-    def doc_long_description(cls):
-        r"""This model couples the kinetic Vlasov equation for the particle distribution function
-with Ampère's law for the electric field evolution. It includes the effect of a static background
-magnetic field :math:`\mathbf{B}_0` and solves the initial Poisson equation to satisfy Gauss's law
-at :math:`t=0`. The model uses a particle-in-cell (PIC) method with finite element exterior
-calculus (FEEC) for the electromagnetic fields.
-
-All field variables are perturbations around a reference equilibrium distribution. The model enables
-studies of kinetic instabilities, particle-wave interactions, and nonlinear plasma physics without
-assuming a fluid approximation."""
-
-    @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
         
@@ -186,14 +174,6 @@ Initial Poisson equation: At :math:`t=0`, solve weakly for the electric potentia
 """
 
     @classmethod
-    def doc_scalar_quantities(cls):
-        r"""**The following scalars are tracked during simulation:**
-
-- Electric field energy: :math:`E_E = \frac{1}{2} \int |\mathbf{E}|^2 \, \mathrm{d}V`
-- Kinetic energy: :math:`E_f = \frac{\alpha^2}{2N} \sum_p w_p |\mathbf{v}_p|^2`
-- Total energy: :math:`E_\mathrm{tot} = E_E + E_f`"""
-
-    @classmethod
     def doc_normalization(cls):
         r"""Velocity and field normalizations:
 
@@ -216,6 +196,14 @@ where
 For electrons: :math:`Z = -1`, :math:`A = 1/1836`."""
 
     @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+- Electric field energy: :math:`E_E = \frac{1}{2} \int |\mathbf{E}|^2 \, \mathrm{d}V`
+- Kinetic energy: :math:`E_f = \frac{\alpha^2}{2N} \sum_p w_p |\mathbf{v}_p|^2`
+- Total energy: :math:`E_\mathrm{tot} = E_E + E_f`"""
+
+    @classmethod
     def doc_discretization(cls):
         from struphy.propagators import propagators_markers, propagators_coupling
         doc = rf"""Time integration is performed by the following propagators (in sequence):
@@ -233,6 +221,18 @@ For electrons: :math:`Z = -1`, :math:`A = 1/1836`."""
 {propagators_coupling.VlasovAmpere.__doc__}
 """
         return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""This model couples the kinetic Vlasov equation for the particle distribution function
+with Ampère's law for the electric field evolution. It includes the effect of a static background
+magnetic field :math:`\mathbf{B}_0` and solves the initial Poisson equation to satisfy Gauss's law
+at :math:`t=0`. The model uses a particle-in-cell (PIC) method with finite element exterior
+calculus (FEEC) for the electromagnetic fields.
+
+All field variables are perturbations around a reference equilibrium distribution. The model enables
+studies of kinetic instabilities, particle-wave interactions, and nonlinear plasma physics without
+assuming a fluid approximation."""
 
     @classmethod
     def doc_examples(cls):

@@ -86,13 +86,6 @@ class Maxwell(StruphyModel):
         return "Toy"
     
     @classmethod
-    def doc_long_description(cls):
-        r"""This model simulates the propagation of electromagnetic waves in vacuum 
-        using Maxwell's equations without sources. 
-        It uses a finite element exterior calculus (FEEC) formulation 
-        with the electric field in H(curl) and the magnetic field in H(div) spaces."""
-    
-    @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
         
@@ -110,22 +103,22 @@ Faraday's law:
     """
     
     @classmethod
+    def doc_normalization(cls):
+        r"""Velocity and fields are normalized as:
+
+.. math::
+
+    \hat v = c\,,\qquad \hat E = c \hat B
+
+where :math:`c` is the speed of light."""
+
+    @classmethod
     def doc_scalar_quantities(cls):
         r"""**The following scalars are tracked during simulation:**
         
 - Electric energy: :math:`E_E = \frac{1}{2} \int |\mathbf E|^2 \, dV`
 - Magnetic energy: :math:`E_B = \frac{1}{2} \int |\mathbf B|^2 \, dV`
 - Total energy: :math:`E_{total} = E_E + E_B`"""
-
-    @classmethod
-    def doc_normalization(cls):
-        r"""Fields are normalized such that:
-
-.. math::
-
-    \hat E = c \hat B
-
-where :math:`c` is the speed of light."""
 
     @classmethod
     def doc_discretization(cls):
@@ -138,6 +131,13 @@ where :math:`c` is the speed of light."""
 {propagators_fields.Maxwell.__doc__}
 """
         return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""This model simulates the propagation of electromagnetic waves in vacuum 
+        using Maxwell's equations without sources. 
+        It uses a finite element exterior calculus (FEEC) formulation 
+        with the electric field in H(curl) and the magnetic field in H(div) spaces."""
 
     @classmethod
     def doc_examples(cls):

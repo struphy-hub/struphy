@@ -136,32 +136,6 @@ class LinearMHD(StruphyModel):
     ## abstract methods for documentation
 
     @classmethod
-    def doc_long_description(cls):
-        r"""This model simulates small-amplitude perturbations in a magnetized plasma with a static
-equilibrium magnetic field :math:`\mathbf{B}_0` and zero background flow. The model solves the linearized
-ideal magnetohydrodynamic equations, which couple fluid dynamics (density, velocity, pressure)
-with magnetic field evolution.
-
-The linear MHD system supports three wave families:
-
-- **Alfvén waves:** incompressible shear waves propagating along :math:`\mathbf{B}_0`
-- **Fast magnetosonic waves:** compressible waves with phase velocity above the Alfvén speed
-- **Slow magnetosonic waves:** compressible waves with phase velocity below the Alfvén speed
-
-All evolved quantities are perturbations around a stationary equilibrium:
-
-- :math:`\tilde{\rho}` - density perturbation
-- :math:`\tilde{\mathbf{U}}` - velocity perturbation
-- :math:`\tilde{p}` - pressure perturbation
-- :math:`\tilde{\mathbf{B}}` - magnetic field perturbation
-
-The corresponding equilibrium quantities are:
-
-- :math:`\rho_0` - background density
-- :math:`p_0` - background pressure
-- :math:`\mathbf{B}_0` - background magnetic field"""
-
-    @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
         
@@ -191,6 +165,16 @@ Induction (Faraday's law):
     """
 
     @classmethod
+    def doc_normalization(cls):
+        r"""All velocities are normalized by the Alfvén velocity:
+
+.. math::
+
+    \hat{U} = \hat{v}_\mathrm{A} = \frac{\hat{B}_0}{\sqrt{\mu_0 \rho_0}}
+
+The model therefore uses the Alfvén velocity as its characteristic speed scale."""
+
+    @classmethod
     def doc_scalar_quantities(cls):
         r"""**The following scalars are tracked during simulation:**
 
@@ -201,16 +185,6 @@ Induction (Faraday's law):
 - Equilibrium magnetic energy: :math:`E_{B0} = \frac{1}{2} \int \frac{|\mathbf{B}_0|^2}{\mu_0} \, \mathrm{d}V`
 - Equilibrium internal energy: :math:`E_{p0} = \int \frac{p_0}{\gamma - 1} \, \mathrm{d}V`
 - Total magnetic energy: :math:`E_{B,\mathrm{tot}} = \frac{1}{2} \int \frac{|\mathbf{B}_0 + \tilde{\mathbf{B}}|^2}{\mu_0} \, \mathrm{d}V`"""
-
-    @classmethod
-    def doc_normalization(cls):
-        r"""All velocities are normalized by the Alfvén velocity:
-
-.. math::
-
-    \hat{U} = \hat{v}_\mathrm{A} = \frac{\hat{B}_0}{\sqrt{\mu_0 \rho_0}}
-
-The model therefore uses the Alfvén velocity as its characteristic speed scale."""
 
     @classmethod
     def doc_discretization(cls):
@@ -227,6 +201,32 @@ The model therefore uses the Alfvén velocity as its characteristic speed scale.
 {propagators_fields.Magnetosonic.__doc__}
 """
         return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""This model simulates small-amplitude perturbations in a magnetized plasma with a static
+equilibrium magnetic field :math:`\mathbf{B}_0` and zero background flow. The model solves the linearized
+ideal magnetohydrodynamic equations, which couple fluid dynamics (density, velocity, pressure)
+with magnetic field evolution.
+
+The linear MHD system supports three wave families:
+
+- **Alfvén waves:** incompressible shear waves propagating along :math:`\mathbf{B}_0`
+- **Fast magnetosonic waves:** compressible waves with phase velocity above the Alfvén speed
+- **Slow magnetosonic waves:** compressible waves with phase velocity below the Alfvén speed
+
+All evolved quantities are perturbations around a stationary equilibrium:
+
+- :math:`\tilde{\rho}` - density perturbation
+- :math:`\tilde{\mathbf{U}}` - velocity perturbation
+- :math:`\tilde{p}` - pressure perturbation
+- :math:`\tilde{\mathbf{B}}` - magnetic field perturbation
+
+The corresponding equilibrium quantities are:
+
+- :math:`\rho_0` - background density
+- :math:`p_0` - background pressure
+- :math:`\mathbf{B}_0` - background magnetic field"""
 
     @classmethod
     def doc_examples(cls):
