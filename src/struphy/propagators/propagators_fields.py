@@ -72,15 +72,15 @@ class Maxwell(Propagator):
 
     .. math::
 
-        \int_{\Omega} \frac{\partial \mathbf E}{\partial t} \cdot \mathbf F \, \textrm d \mathbf x - \int_{\Omega} \mathbf B \cdot \nabla \times \mathbf F \,\textrm d \mathbf x &= 0\,, \qquad \forall \, \mathbf F \in H(\textnormal{curl}) 
+        \int_{\Omega} \frac{\partial \mathbf E}{\partial t} \cdot \mathbf F \, \textrm d \mathbf x - \int_{\Omega} \mathbf B \cdot \nabla \times \mathbf F \,\textrm d \mathbf x &= 0\,, \qquad \forall \, \mathbf F \in H(\textnormal{curl})
         \\[2mm]
         \frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E &= 0\,.
 
     Time discretization:
-    
+
     - implicit: Crank-Nicolson (implicit mid-point)
     - explicit: explicit RK methods from ButcherTableau
-    
+
     System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
     """
 
@@ -520,20 +520,20 @@ class JxBCold(Propagator):
 
 
 class ShearAlfven(Propagator):
-    r"""FEEC discretization of the following equations: 
+    r"""FEEC discretization of the following equations:
     find :math:`\tilde{\mathbf{U}} \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}` and  :math:`\tilde{\mathbf{B}} \in H(\textnormal{div})` such that
 
     .. math::
 
-        \int_{\Omega} \rho_0\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V\,\textnormal d \mathbf x &= \int_{\Omega} \tilde{\mathbf{B}} \cdot \nabla \times (\mathbf{B}_0 \times \mathbf V) \,\textnormal d \mathbf x \qquad \forall \,\mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\} 
+        \int_{\Omega} \rho_0\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V\,\textnormal d \mathbf x &= \int_{\Omega} \tilde{\mathbf{B}} \cdot \nabla \times (\mathbf{B}_0 \times \mathbf V) \,\textnormal d \mathbf x \qquad \forall \,\mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}
         \\[2mm]
         \frac{\partial \tilde{\mathbf{B}}}{\partial t} &= \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
 
     Time discretization:
-    
+
     - implicit: Crank-Nicolson (implicit mid-point)
     - explicit: explicit RK methods from ButcherTableau
-    
+
     System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
     """
 
@@ -1014,19 +1014,19 @@ class Hall(Propagator):
 
 
 class Magnetosonic(Propagator):
-    r"""FEEC discretization of the following equations: 
+    r"""FEEC discretization of the following equations:
     find :math:`\tilde{\rho} \in L^2, \tilde{\mathbf U} \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}, \tilde p \in L^2` such that
 
     .. math::
 
-        \frac{\partial \tilde{\rho}}{\partial t} + \nabla\cdot(\rho_0 \tilde{\mathbf{U}}) &= 0 
+        \frac{\partial \tilde{\rho}}{\partial t} + \nabla\cdot(\rho_0 \tilde{\mathbf{U}}) &= 0
         \\[2mm]
-        \int_{\Omega} \rho_0\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V\,\textrm{d}\mathbf x - \int_{\Omega} \tilde p\,\nabla\cdot\mathbf V\,\textrm{d}\mathbf x &= \int_{\Omega} (\nabla\times\mathbf{B}_0)\times\tilde{\mathbf{B}}\cdot\mathbf V\,\textrm{d}\mathbf x \qquad \forall\,\mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\} 
+        \int_{\Omega} \rho_0\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V\,\textrm{d}\mathbf x - \int_{\Omega} \tilde p\,\nabla\cdot\mathbf V\,\textrm{d}\mathbf x &= \int_{\Omega} (\nabla\times\mathbf{B}_0)\times\tilde{\mathbf{B}}\cdot\mathbf V\,\textrm{d}\mathbf x \qquad \forall\,\mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}
         \\[2mm]
         \frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) + \frac{2}{3}\,p_0\nabla\cdot\tilde{\mathbf{U}} &= 0
 
-    Time discretization: Crank-Nicolson (implicit mid-point). 
-    
+    Time discretization: Crank-Nicolson (implicit mid-point).
+
     System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`:
     """
 

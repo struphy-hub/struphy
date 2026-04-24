@@ -151,61 +151,62 @@ class VlasovAmpereOneSpecies(StruphyModel):
     @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
-        
-Vlasov equation:
 
-.. math::
+        Vlasov equation:
 
-    \frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \frac{1}{\varepsilon} \left( \mathbf{E} + \mathbf{v} \times \mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0
+        .. math::
 
-Ampère's law:
+            \frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \frac{1}{\varepsilon} \left( \mathbf{E} + \mathbf{v} \times \mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0
 
-.. math::
+        Ampère's law:
 
-    -\frac{\partial \mathbf{E}}{\partial t} = \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} f \, \mathrm{d}^3 \mathbf{v}
+        .. math::
 
-Initial Poisson equation: At :math:`t=0`, solve weakly for the electric potential :math:`\phi`:
+            -\frac{\partial \mathbf{E}}{\partial t} = \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} f \, \mathrm{d}^3 \mathbf{v}
 
-.. math::
+        Initial Poisson equation: At :math:`t=0`, solve weakly for the electric potential :math:`\phi`:
 
-    \int_{\Omega} \nabla \psi^\top \cdot \nabla \phi \,\mathrm{d} \mathbf{x} &= \frac{\alpha^2}{\varepsilon}  \int_{\Omega} \int_{\mathbb{R}^3} \psi\, (f - f_0) \, \mathrm{d}^3 \mathbf{v}\,\mathrm{d} \mathbf{x} \qquad \forall \ \psi \in H^1
-    \\[2mm]
-    \mathbf{E}(t=0) &= -\nabla \phi(t=0)
-"""
+        .. math::
+
+            \int_{\Omega} \nabla \psi^\top \cdot \nabla \phi \,\mathrm{d} \mathbf{x} &= \frac{\alpha^2}{\varepsilon}  \int_{\Omega} \int_{\mathbb{R}^3} \psi\, (f - f_0) \, \mathrm{d}^3 \mathbf{v}\,\mathrm{d} \mathbf{x} \qquad \forall \ \psi \in H^1
+            \\[2mm]
+            \mathbf{E}(t=0) &= -\nabla \phi(t=0)
+        """
 
     @classmethod
     def doc_normalization(cls):
         r"""Velocity and field normalizations:
 
-.. math::
+        .. math::
 
-    \hat{v} = c, \qquad \hat{E} = \hat{B} \hat{v}, \qquad \hat{\phi} = \hat{E} \hat{x}
+            \hat{v} = c, \qquad \hat{E} = \hat{B} \hat{v}, \qquad \hat{\phi} = \hat{E} \hat{x}
 
-Dimensionless parameters:
+        Dimensionless parameters:
 
-.. math::
+        .. math::
 
-    \alpha = \frac{\hat{\omega}_\mathrm{p}}{\hat{\omega}_\mathrm{c}}, \qquad \varepsilon = \frac{1}{\hat{\omega}_\mathrm{c} \hat{t}}
+            \alpha = \frac{\hat{\omega}_\mathrm{p}}{\hat{\omega}_\mathrm{c}}, \qquad \varepsilon = \frac{1}{\hat{\omega}_\mathrm{c} \hat{t}}
 
-where
+        where
 
-.. math::
+        .. math::
 
-    \hat{\omega}_\mathrm{p} = \sqrt{\frac{\hat{n} (Ze)^2}{\epsilon_0 (A m_\mathrm{H})}}, \qquad \hat{\omega}_\mathrm{c} = \frac{(Ze) \hat{B}}{(A m_\mathrm{H})}
+            \hat{\omega}_\mathrm{p} = \sqrt{\frac{\hat{n} (Ze)^2}{\epsilon_0 (A m_\mathrm{H})}}, \qquad \hat{\omega}_\mathrm{c} = \frac{(Ze) \hat{B}}{(A m_\mathrm{H})}
 
-For electrons: :math:`Z = -1`, :math:`A = 1/1836`."""
+        For electrons: :math:`Z = -1`, :math:`A = 1/1836`."""
 
     @classmethod
     def doc_scalar_quantities(cls):
         r"""**The following scalars are tracked during simulation:**
 
-- Electric field energy: :math:`E_E = \frac{1}{2} \int |\mathbf{E}|^2 \, \mathrm{d}V`
-- Kinetic energy: :math:`E_f = \frac{\alpha^2}{2N} \sum_p w_p |\mathbf{v}_p|^2`
-- Total energy: :math:`E_\mathrm{tot} = E_E + E_f`"""
+        - Electric field energy: :math:`E_E = \frac{1}{2} \int |\mathbf{E}|^2 \, \mathrm{d}V`
+        - Kinetic energy: :math:`E_f = \frac{\alpha^2}{2N} \sum_p w_p |\mathbf{v}_p|^2`
+        - Total energy: :math:`E_\mathrm{tot} = E_E + E_f`"""
 
     @classmethod
     def doc_discretization(cls):
-        from struphy.propagators import propagators_markers, propagators_coupling
+        from struphy.propagators import propagators_coupling, propagators_markers
+
         doc = rf"""Time integration is performed by the following propagators (in sequence):
 
 **1. propagators_markers.PushEta:**
@@ -225,54 +226,54 @@ For electrons: :math:`Z = -1`, :math:`A = 1/1836`."""
     @classmethod
     def doc_long_description(cls):
         r"""This model couples the kinetic Vlasov equation for the particle distribution function
-with Ampère's law for the electric field evolution. It includes the effect of a static background
-magnetic field :math:`\mathbf{B}_0` and solves the initial Poisson equation to satisfy Gauss's law
-at :math:`t=0`. The model uses a particle-in-cell (PIC) method with finite element exterior
-calculus (FEEC) for the electromagnetic fields.
+        with Ampère's law for the electric field evolution. It includes the effect of a static background
+        magnetic field :math:`\mathbf{B}_0` and solves the initial Poisson equation to satisfy Gauss's law
+        at :math:`t=0`. The model uses a particle-in-cell (PIC) method with finite element exterior
+        calculus (FEEC) for the electromagnetic fields.
 
-All field variables are perturbations around a reference equilibrium distribution. The model enables
-studies of kinetic instabilities, particle-wave interactions, and nonlinear plasma physics without
-assuming a fluid approximation."""
+        All field variables are perturbations around a reference equilibrium distribution. The model enables
+        studies of kinetic instabilities, particle-wave interactions, and nonlinear plasma physics without
+        assuming a fluid approximation."""
 
     @classmethod
     def doc_examples(cls):
         r"""Create and initialize a Vlasov-Ampère model:
 
-.. code-block:: python
+        .. code-block:: python
 
-    from struphy.models import VlasovAmpereOneSpecies
+            from struphy.models import VlasovAmpereOneSpecies
 
-    model = VlasovAmpereOneSpecies()
+            model = VlasovAmpereOneSpecies()
 
-    # Access fields
-    model.em_fields.e_field
-    model.em_fields.phi
-    model.kinetic_ions.var
+            # Access fields
+            model.em_fields.e_field
+            model.em_fields.phi
+            model.kinetic_ions.var
 
-    # Access tracked scalar quantities
-    model.scalars["electric_energy"]
-    model.scalars["kinetic_energy"]
-    model.scalars["total_energy"]
-"""
+            # Access tracked scalar quantities
+            model.scalars["electric_energy"]
+            model.scalars["kinetic_energy"]
+            model.scalars["total_energy"]
+        """
 
     @classmethod
     def doc_use_cases(cls):
         r"""This model is appropriate for:
 
-- studying kinetic instabilities in collisionless plasmas
-- particle-wave interactions and nonlinear plasma physics
-- initial value problems with prescribed equilibrium distributions
-- benchmark problems for kinetic-field coupling schemes
-- verification of PIC methods in simplified geometries"""
+        - studying kinetic instabilities in collisionless plasmas
+        - particle-wave interactions and nonlinear plasma physics
+        - initial value problems with prescribed equilibrium distributions
+        - benchmark problems for kinetic-field coupling schemes
+        - verification of PIC methods in simplified geometries"""
 
     @classmethod
     def doc_cannot_be_used_for(cls):
         r"""This model is not suitable for:
 
-- multi-species systems (requires extension)
-- collision operator effects
-- electromagnetic wave propagation (no magnetic field evolution)
-- drift-reduced or gyrokinetic approximations (full 6D Vlasov equation)"""
+        - multi-species systems (requires extension)
+        - collision operator effects
+        - electromagnetic wave propagation (no magnetic field evolution)
+        - drift-reduced or gyrokinetic approximations (full 6D Vlasov equation)"""
 
     def allocate_helpers(self, verbose: bool = False):
         """Solve initial Poisson equation.

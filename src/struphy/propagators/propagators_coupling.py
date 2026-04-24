@@ -37,17 +37,17 @@ logger = logging.getLogger("struphy")
 
 
 class VlasovAmpere(Propagator):
-    r"""PIC-FEEC discretization of the following equations: 
+    r"""PIC-FEEC discretization of the following equations:
     find :math:`\mathbf{E} \in H(\textnormal{curl})` and :math:`f` such that
 
     .. math::
 
-        -\int_\Omega \frac{\partial \mathbf{E}}{\partial t} \cdot \mathbf{F}\,\textrm d \mathbf x &= \frac{\alpha^2}{\varepsilon} \int_\Omega \int_{\mathbb{R}^3} f \mathbf{v} \cdot \mathbf{F} \, \text{d}^3 \mathbf{v} \,\textrm d \mathbf x \qquad \forall \, \mathbf{F} \in H(\textnormal{curl}) 
+        -\int_\Omega \frac{\partial \mathbf{E}}{\partial t} \cdot \mathbf{F}\,\textrm d \mathbf x &= \frac{\alpha^2}{\varepsilon} \int_\Omega \int_{\mathbb{R}^3} f \mathbf{v} \cdot \mathbf{F} \, \text{d}^3 \mathbf{v} \,\textrm d \mathbf x \qquad \forall \, \mathbf{F} \in H(\textnormal{curl})
         \\[2mm]
         \frac{\partial f}{\partial t} + \frac{1}{\varepsilon}\, \mathbf{E} \cdot \frac{\partial f}{\partial \mathbf{v}} &= 0 .
 
-    Time discretization: Crank-Nicolson (implicit mid-point). 
-    
+    Time discretization: Crank-Nicolson (implicit mid-point).
+
     System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
     """
 

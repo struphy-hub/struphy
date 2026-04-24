@@ -139,8 +139,8 @@ class PushVxB(Propagator):
 
         \mathbf{B} =  \frac{DF\, \hat{\mathbf{B}}^2}{\sqrt{g}}\,.
 
-    Available algorithms: 
-    
+    Available algorithms:
+
     - ``analytic``
     - ``implicit``.
     """

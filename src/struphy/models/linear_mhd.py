@@ -138,58 +138,58 @@ class LinearMHD(StruphyModel):
     @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
-        
-Continuity (mass conservation):
 
-.. math::
+        Continuity (mass conservation):
 
-    \frac{\partial \tilde{\rho}}{\partial t} + \nabla \cdot (\rho_0 \tilde{\mathbf{U}}) = 0
+        .. math::
 
-Momentum (Lorentz force):
+            \frac{\partial \tilde{\rho}}{\partial t} + \nabla \cdot (\rho_0 \tilde{\mathbf{U}}) = 0
 
-.. math::
+        Momentum (Lorentz force):
 
-    \rho_0 \frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde{p} = (\nabla \times \tilde{\mathbf{B}}) \times \mathbf{B}_0 + (\nabla \times \mathbf{B}_0) \times \tilde{\mathbf{B}}
+        .. math::
 
-Energy (adiabatic process):
+            \rho_0 \frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde{p} = (\nabla \times \tilde{\mathbf{B}}) \times \mathbf{B}_0 + (\nabla \times \mathbf{B}_0) \times \tilde{\mathbf{B}}
 
-.. math::
+        Energy (adiabatic process):
 
-    \frac{\partial \tilde{p}}{\partial t} + \nabla \cdot (p_0 \tilde{\mathbf{U}}) + \frac{2}{3} p_0 \nabla \cdot \tilde{\mathbf{U}} = 0
+        .. math::
 
-Induction (Faraday's law):
+            \frac{\partial \tilde{p}}{\partial t} + \nabla \cdot (p_0 \tilde{\mathbf{U}}) + \frac{2}{3} p_0 \nabla \cdot \tilde{\mathbf{U}} = 0
 
-.. math::
+        Induction (Faraday's law):
 
-    \frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla \times (\tilde{\mathbf{U}} \times \mathbf{B}_0) = 0.
-    """
+        .. math::
+
+            \frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla \times (\tilde{\mathbf{U}} \times \mathbf{B}_0) = 0.
+        """
 
     @classmethod
     def doc_normalization(cls):
         r"""All velocities are normalized by the Alfvén velocity:
 
-.. math::
+        .. math::
 
-    \hat{U} = \hat{v}_\mathrm{A} = \frac{\hat{B}_0}{\sqrt{\mu_0 \rho_0}}
+            \hat{U} = \hat{v}_\mathrm{A} = \frac{\hat{B}_0}{\sqrt{\mu_0 \rho_0}}
 
-The model therefore uses the Alfvén velocity as its characteristic speed scale."""
+        The model therefore uses the Alfvén velocity as its characteristic speed scale."""
 
     @classmethod
     def doc_scalar_quantities(cls):
         r"""**The following scalars are tracked during simulation:**
 
-- Kinetic energy (perturbation): :math:`E_U = \frac{1}{2} \int \rho_0 |\tilde{\mathbf{U}}|^2 \, \mathrm{d}V`
-- Magnetic energy (perturbation): :math:`E_B = \frac{1}{2} \int \frac{|\tilde{\mathbf{B}}|^2}{\mu_0} \, \mathrm{d}V`
-- Internal energy (perturbation): :math:`E_p = \int \frac{\tilde{p}}{\gamma - 1} \, \mathrm{d}V` with :math:`\gamma = 5/3`
-- Total perturbed energy: :math:`E_{\mathrm{tot}} = E_U + E_B + E_p`
-- Equilibrium magnetic energy: :math:`E_{B0} = \frac{1}{2} \int \frac{|\mathbf{B}_0|^2}{\mu_0} \, \mathrm{d}V`
-- Equilibrium internal energy: :math:`E_{p0} = \int \frac{p_0}{\gamma - 1} \, \mathrm{d}V`
-- Total magnetic energy: :math:`E_{B,\mathrm{tot}} = \frac{1}{2} \int \frac{|\mathbf{B}_0 + \tilde{\mathbf{B}}|^2}{\mu_0} \, \mathrm{d}V`"""
+        - Kinetic energy (perturbation): :math:`E_U = \frac{1}{2} \int \rho_0 |\tilde{\mathbf{U}}|^2 \, \mathrm{d}V`
+        - Magnetic energy (perturbation): :math:`E_B = \frac{1}{2} \int \frac{|\tilde{\mathbf{B}}|^2}{\mu_0} \, \mathrm{d}V`
+        - Internal energy (perturbation): :math:`E_p = \int \frac{\tilde{p}}{\gamma - 1} \, \mathrm{d}V` with :math:`\gamma = 5/3`
+        - Total perturbed energy: :math:`E_{\mathrm{tot}} = E_U + E_B + E_p`
+        - Equilibrium magnetic energy: :math:`E_{B0} = \frac{1}{2} \int \frac{|\mathbf{B}_0|^2}{\mu_0} \, \mathrm{d}V`
+        - Equilibrium internal energy: :math:`E_{p0} = \int \frac{p_0}{\gamma - 1} \, \mathrm{d}V`
+        - Total magnetic energy: :math:`E_{B,\mathrm{tot}} = \frac{1}{2} \int \frac{|\mathbf{B}_0 + \tilde{\mathbf{B}}|^2}{\mu_0} \, \mathrm{d}V`"""
 
     @classmethod
     def doc_discretization(cls):
         """**Propagators:**
-        
+
         1. :class:`~struphy.propagators.propagators_fields.ShearAlfven`
         2. :class:`~struphy.propagators.propagators_fields.Magnetosonic`"""
         doc = rf"""**1. propagators_fields.ShearAlfven:**
@@ -205,70 +205,70 @@ The model therefore uses the Alfvén velocity as its characteristic speed scale.
     @classmethod
     def doc_long_description(cls):
         r"""This model simulates small-amplitude perturbations in a magnetized plasma with a static
-equilibrium magnetic field :math:`\mathbf{B}_0` and zero background flow. The model solves the linearized
-ideal magnetohydrodynamic equations, which couple fluid dynamics (density, velocity, pressure)
-with magnetic field evolution.
+        equilibrium magnetic field :math:`\mathbf{B}_0` and zero background flow. The model solves the linearized
+        ideal magnetohydrodynamic equations, which couple fluid dynamics (density, velocity, pressure)
+        with magnetic field evolution.
 
-The linear MHD system supports three wave families:
+        The linear MHD system supports three wave families:
 
-- **Alfvén waves:** incompressible shear waves propagating along :math:`\mathbf{B}_0`
-- **Fast magnetosonic waves:** compressible waves with phase velocity above the Alfvén speed
-- **Slow magnetosonic waves:** compressible waves with phase velocity below the Alfvén speed
+        - **Alfvén waves:** incompressible shear waves propagating along :math:`\mathbf{B}_0`
+        - **Fast magnetosonic waves:** compressible waves with phase velocity above the Alfvén speed
+        - **Slow magnetosonic waves:** compressible waves with phase velocity below the Alfvén speed
 
-All evolved quantities are perturbations around a stationary equilibrium:
+        All evolved quantities are perturbations around a stationary equilibrium:
 
-- :math:`\tilde{\rho}` - density perturbation
-- :math:`\tilde{\mathbf{U}}` - velocity perturbation
-- :math:`\tilde{p}` - pressure perturbation
-- :math:`\tilde{\mathbf{B}}` - magnetic field perturbation
+        - :math:`\tilde{\rho}` - density perturbation
+        - :math:`\tilde{\mathbf{U}}` - velocity perturbation
+        - :math:`\tilde{p}` - pressure perturbation
+        - :math:`\tilde{\mathbf{B}}` - magnetic field perturbation
 
-The corresponding equilibrium quantities are:
+        The corresponding equilibrium quantities are:
 
-- :math:`\rho_0` - background density
-- :math:`p_0` - background pressure
-- :math:`\mathbf{B}_0` - background magnetic field"""
+        - :math:`\rho_0` - background density
+        - :math:`p_0` - background pressure
+        - :math:`\mathbf{B}_0` - background magnetic field"""
 
     @classmethod
     def doc_examples(cls):
         r"""Create and initialize a linear MHD model:
 
-.. code-block:: python
+        .. code-block:: python
 
-    from struphy.models import LinearMHD
+            from struphy.models import LinearMHD
 
-    model = LinearMHD()
+            model = LinearMHD()
 
-    # Access fields
-    model.em_fields.b_field
-    model.mhd.density
-    model.mhd.velocity
-    model.mhd.pressure
+            # Access fields
+            model.em_fields.b_field
+            model.mhd.density
+            model.mhd.velocity
+            model.mhd.pressure
 
-    # Access tracked scalar quantities
-    model.scalars["en_U"]
-    model.scalars["en_B"]
-    model.scalars["en_p"]
-"""
+            # Access tracked scalar quantities
+            model.scalars["en_U"]
+            model.scalars["en_B"]
+            model.scalars["en_p"]
+        """
 
     @classmethod
     def doc_use_cases(cls):
         r"""This model is appropriate for studying linear wave propagation in a static magnetized plasma,
-including Alfvén and magnetosonic dynamics around a prescribed equilibrium.
+        including Alfvén and magnetosonic dynamics around a prescribed equilibrium.
 
-Typical use cases include:
+        Typical use cases include:
 
-- verification of linear MHD wave dispersion and mode structure
-- perturbative studies around static equilibria
-- benchmark problems for ideal-MHD field-fluid coupling"""
+        - verification of linear MHD wave dispersion and mode structure
+        - perturbative studies around static equilibria
+        - benchmark problems for ideal-MHD field-fluid coupling"""
 
     @classmethod
     def doc_cannot_be_used_for(cls):
         r"""This model is not suitable for:
 
-- nonlinear MHD dynamics with finite-amplitude perturbations
-- equilibria with non-zero background flow
-- dissipative effects such as resistivity or viscosity
-- kinetic or particle-field effects beyond the fluid MHD description"""
+        - nonlinear MHD dynamics with finite-amplitude perturbations
+        - equilibria with non-zero background flow
+        - dissipative effects such as resistivity or viscosity
+        - kinetic or particle-field effects beyond the fluid MHD description"""
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
