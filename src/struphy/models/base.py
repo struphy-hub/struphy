@@ -193,11 +193,11 @@ class StruphyModel(metaclass=StruphyModelMeta):
         
 .. code-block:: python
 
-    {cls.name()}.long_description()
     {cls.name()}.pde()
-    {cls.name()}.scalar_quantities()
     {cls.name()}.normalization()
+    {cls.name()}.scalar_quantities()
     {cls.name()}.discretization()
+    {cls.name()}.long_description()
     {cls.name()}.examples()
     {cls.name()}.use_cases()
     {cls.name()}.cannot_be_used_for()
@@ -206,70 +206,74 @@ class StruphyModel(metaclass=StruphyModelMeta):
 
     @classmethod
     def pde(cls):
-        doc = cls.doc_pde.__doc__ if cls.doc_pde else """PDE description not available for this model."""
+        doc_pde = getattr(cls, "doc_pde", None)
+        doc = doc_pde.__doc__ if doc_pde else """PDE description not available for this model."""
         return display(HTML(rst_to_html(doc)))
 
     @classmethod
     def normalization(cls):
+        doc_normalization = getattr(cls, "doc_normalization", None)
         doc = "**Normalization:**\n"
         doc += (
-            cls.doc_normalization.__doc__
-            if cls.doc_normalization
+            doc_normalization.__doc__
+            if doc_normalization
             else """Description of normalization not available for this model."""
         )
         return display(HTML(rst_to_html(doc)))
 
     @classmethod
     def scalar_quantities(cls):
+        doc_scalar_quantities = getattr(cls, "doc_scalar_quantities", None)
         doc = (
-            cls.doc_scalar_quantities.__doc__
-            if cls.doc_scalar_quantities
+            doc_scalar_quantities.__doc__
+            if doc_scalar_quantities
             else """Description of scalar quantities not available for this model."""
         )
         return display(HTML(rst_to_html(doc)))
 
     @classmethod
     def discretization(cls):
+        doc_discretization = getattr(cls, "doc_discretization", None)
         doc = "**Discretization (Propagators called in sequence):**\n"
         doc += (
-            cls.doc_discretization()
-            if cls.doc_discretization
+            doc_discretization()
+            if doc_discretization
             else """Description of discretization not available for this model."""
         )
         return display(HTML(rst_to_html(doc)))
 
     @classmethod
     def long_description(cls):
+        doc_long_description = getattr(cls, "doc_long_description", None)
         doc = "**Long description:**\n"
         doc += (
-            cls.doc_long_description.__doc__
-            if cls.doc_long_description
+            doc_long_description.__doc__
+            if doc_long_description
             else """Long description not available for this model."""
         )
         return display(HTML(rst_to_html(doc)))
 
     @classmethod
     def examples(cls):
+        doc_examples = getattr(cls, "doc_examples", None)
         doc = "**Examples:**\n"
-        doc += cls.doc_examples.__doc__ if cls.doc_examples else """Examples not available for this model."""
+        doc += doc_examples.__doc__ if doc_examples else """Examples not available for this model."""
         return display(HTML(rst_to_html(doc)))
 
     @classmethod
     def use_cases(cls):
+        doc_use_cases = getattr(cls, "doc_use_cases", None)
         doc = "**Use cases:**\n"
-        doc += (
-            cls.doc_use_cases.__doc__
-            if cls.doc_use_cases
-            else """Description of use cases not available for this model."""
-        )
+        doc += doc_use_cases.__doc__ if doc_use_cases else """Description of use cases not available for this model."""
         return display(HTML(rst_to_html(doc)))
 
     @classmethod
     def cannot_be_used_for(cls):
+        doc_cannot_be_used_for = getattr(cls, "doc_cannot_be_used_for", None)
         doc = "**Cannot be used for:**\n"
         doc += (
-            cls.doc_cannot_be_used_for.__doc__
-            if cls.doc_cannot_be_used_for
+            doc_cannot_be_used_for.__doc__
+            if doc_cannot_be_used_for
             else """Information on scenarios for which the model is not suitable is not available."""
         )
         return display(HTML(rst_to_html(doc)))

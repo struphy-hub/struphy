@@ -318,11 +318,9 @@ class ModesCos(Perturbation):
             val = 0.0
             for amp, l, m, n in zip(self.amps, self.ls, self.ms, self.ns):
                 val += amp * xp.cos(
-                    l * 2.0 * xp.pi / self.Lx * x
-                    + m * 2.0 * xp.pi / self.Ly * y
-                    + n * 2.0 * xp.pi / self.Lz * z,
+                    l * 2.0 * xp.pi / self.Lx * x + m * 2.0 * xp.pi / self.Ly * y + n * 2.0 * xp.pi / self.Lz * z,
                 )
-                
+
         # logger.info( "Cos max value", val.max())
         return val
 
