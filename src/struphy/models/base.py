@@ -194,14 +194,12 @@ class StruphyModel(metaclass=StruphyModelMeta):
     
     @classmethod
     def pde(cls):
-        doc = "**Model PDE:**\n"
-        doc += cls.doc_pde.__doc__ if cls.doc_pde else """PDE description not available for this model."""
+        doc = cls.doc_pde.__doc__ if cls.doc_pde else """PDE description not available for this model."""
         return display(HTML(rst_to_html(doc)))
     
     @classmethod
     def scalar_quantities(cls):
-        doc = "**Scalar quantities:**\n"
-        doc += cls.doc_scalar_quantities.__doc__ if cls.doc_scalar_quantities else """Description of scalar quantities not available for this model."""
+        doc = cls.doc_scalar_quantities.__doc__ if cls.doc_scalar_quantities else """Description of scalar quantities not available for this model."""
         return display(HTML(rst_to_html(doc)))
     
     @classmethod

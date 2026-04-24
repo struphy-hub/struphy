@@ -163,7 +163,9 @@ The corresponding equilibrium quantities are:
 
     @classmethod
     def doc_pde(cls):
-        r"""Continuity (mass conservation):
+        r"""**PDEs solved by model:**
+        
+Continuity (mass conservation):
 
 .. math::
 
@@ -190,7 +192,7 @@ Induction (Faraday's law):
 
     @classmethod
     def doc_scalar_quantities(cls):
-        r"""The following energies are tracked during simulation:
+        r"""**The following scalars are tracked during simulation:**
 
 - Kinetic energy (perturbation): :math:`E_U = \frac{1}{2} \int \rho_0 |\tilde{\mathbf{U}}|^2 \, \mathrm{d}V`
 - Magnetic energy (perturbation): :math:`E_B = \frac{1}{2} \int \frac{|\tilde{\mathbf{B}}|^2}{\mu_0} \, \mathrm{d}V`
@@ -212,7 +214,7 @@ The model therefore uses the Alfvén velocity as its characteristic speed scale.
 
     @classmethod
     def doc_discretization(cls):
-        """Propagators:
+        """**Propagators:**
         
         1. :class:`~struphy.propagators.propagators_fields.ShearAlfven`
         2. :class:`~struphy.propagators.propagators_fields.Magnetosonic`"""

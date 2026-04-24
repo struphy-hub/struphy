@@ -94,7 +94,9 @@ class Maxwell(StruphyModel):
     
     @classmethod
     def doc_pde(cls):
-        r"""Ampère's law (no current):
+        r"""**PDEs solved by model:**
+        
+Ampère's law (no current):
 
 .. math::
 
@@ -109,7 +111,7 @@ Faraday's law:
     
     @classmethod
     def doc_scalar_quantities(cls):
-        r"""The following quantities are tracked during simulation:
+        r"""**The following scalars are tracked during simulation:**
         
 - Electric energy: :math:`E_E = \frac{1}{2} \int |\mathbf E|^2 \, dV`
 - Magnetic energy: :math:`E_B = \frac{1}{2} \int |\mathbf B|^2 \, dV`

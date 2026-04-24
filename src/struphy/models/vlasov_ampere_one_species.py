@@ -28,7 +28,6 @@ logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
 
 
-@auto_convert_docstring
 class VlasovAmpereOneSpecies(StruphyModel):
     """Vlasov-Ampère system for a single kinetic species in an electric field.
 
@@ -163,7 +162,9 @@ assuming a fluid approximation."""
 
     @classmethod
     def doc_pde(cls):
-        r"""Vlasov equation:
+        r"""**PDEs solved by model:**
+        
+Vlasov equation:
 
 .. math::
 
@@ -179,14 +180,14 @@ Initial Poisson equation: At :math:`t=0`, solve weakly for the electric potentia
 
 .. math::
 
-    \int_{\Omega} \nabla \psi^\top \cdot \nabla \phi \,\mathrm{d} \mathbf{x} = \frac{\alpha^2}{\varepsilon}  \int_{\Omega} \int_{\mathbb{R}^3} \psi\, (f - f_0) \, \mathrm{d}^3 \mathbf{v}\,\mathrm{d} \mathbf{x} \qquad \forall \ \psi \in H^1
-
-    \mathbf{E}(t=0) = -\nabla \phi(t=0)
+    \int_{\Omega} \nabla \psi^\top \cdot \nabla \phi \,\mathrm{d} \mathbf{x} &= \frac{\alpha^2}{\varepsilon}  \int_{\Omega} \int_{\mathbb{R}^3} \psi\, (f - f_0) \, \mathrm{d}^3 \mathbf{v}\,\mathrm{d} \mathbf{x} \qquad \forall \ \psi \in H^1
+    \\[2mm]
+    \mathbf{E}(t=0) &= -\nabla \phi(t=0)
 """
 
     @classmethod
     def doc_scalar_quantities(cls):
-        r"""The following energies are tracked during simulation:
+        r"""**The following scalars are tracked during simulation:**
 
 - Electric field energy: :math:`E_E = \frac{1}{2} \int |\mathbf{E}|^2 \, \mathrm{d}V`
 - Kinetic energy: :math:`E_f = \frac{\alpha^2}{2N} \sum_p w_p |\mathbf{v}_p|^2`

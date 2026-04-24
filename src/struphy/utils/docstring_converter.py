@@ -655,6 +655,22 @@ def rst_to_html(rst_text: str) -> str:
         # Remove leading indentation consistently
         cleaned_lines = [line.strip() for line in math_lines if line.strip()]
 
+        def _sanitize_css_length(length: str) -> str | None:
+            """Allow only simple numeric CSS lengths used in LaTeX line spacing."""
+            value = length.strip()
+            if re.fullmatch(r"[+-]?\d*\.?\d+(?:mm|cm|in|pt|pc|px|em|ex|rem)", value):
+                return value
+            return None
+
+        def _split_latex_newline(line: str):
+            """Split trailing LaTeX newline command with optional spacing (\\[2mm])."""
+            m = re.search(r"\\\\(?:\s*\[\s*([^\]]+)\s*\])?\s*$", line)
+            if not m:
+                return line.strip(), None
+            content = line[: m.start()].strip()
+            spacing = _sanitize_css_length(m.group(1)) if m.group(1) else None
+            return content, spacing
+
         # Treat each non-empty line as a separate display row. Align only on
         # '&=' anchors (align-environment style) so matrix '&' separators do
         # not trigger equation-column splitting.
@@ -664,11 +680,20 @@ def rst_to_html(rst_text: str) -> str:
         if is_multiline:
             # Preserve multiline structure and align on '&' (LaTeX align-style).
             aligned_rows = []
+            next_row_top_spacing = None
             for line in cleaned_lines:
-                # Remove trailing \\
-                line = re.sub(r"\\\\\s*$", "", line).strip()
+                top_padding = next_row_top_spacing
+                line, trailing_spacing = _split_latex_newline(line)
+                if trailing_spacing:
+                    next_row_top_spacing = trailing_spacing
+                else:
+                    next_row_top_spacing = None
+
+                # Handle standalone spacing lines such as '\\[2mm]'.
                 if not line:
                     continue
+
+                pad_style = f"padding-top:{top_padding};" if top_padding else ""
 
                 if re.search(r"&\s*=", line):
                     lhs_raw, rhs_raw = re.split(r"&\s*=", line, maxsplit=1)
@@ -676,10 +701,10 @@ def rst_to_html(rst_text: str) -> str:
                     rhs = latex_to_unicode("=" + rhs_raw.strip(), display_mode=True)
                     aligned_rows.append(
                         "<tr>"
-                        '<td style="text-align:right;padding-right:0.35em;vertical-align:middle;white-space:nowrap;">'
+                        f'<td style="text-align:right;padding-right:0.35em;vertical-align:middle;white-space:nowrap;{pad_style}">'
                         f"{lhs}"
                         "</td>"
-                        '<td style="text-align:left;vertical-align:middle;white-space:nowrap;">'
+                        f'<td style="text-align:left;vertical-align:middle;white-space:nowrap;{pad_style}">'
                         f"{rhs}"
                         "</td>"
                         "</tr>"
@@ -688,7 +713,7 @@ def rst_to_html(rst_text: str) -> str:
                     expr = latex_to_unicode(line, display_mode=True)
                     aligned_rows.append(
                         "<tr>"
-                        '<td colspan="2" style="text-align:center;vertical-align:middle;white-space:nowrap;">'
+                        f'<td colspan="2" style="text-align:center;vertical-align:middle;white-space:nowrap;{pad_style}">'
                         f"{expr}"
                         "</td>"
                         "</tr>"
