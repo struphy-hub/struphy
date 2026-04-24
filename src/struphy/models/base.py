@@ -6,7 +6,15 @@ from textwrap import indent
 import cunumpy as xp
 from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
-from IPython.display import HTML, Markdown, display
+try:
+    from IPython.display import HTML, Markdown, display
+except ImportError:
+    def HTML(data):
+        return data
+    def Markdown(data):
+        return data
+    def display(*objects, **kwargs):
+        return objects[0] if objects else None
 from line_profiler import profile
 from scope_profiler import ProfileManager
 
