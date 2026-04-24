@@ -109,6 +109,84 @@ class VariationalCompressibleFluid(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        This model advances the fully compressible variational fluid system for
+        density, momentum, and entropy, using the perfect-gas internal energy
+        functional built into the entropy propagator."""
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The model uses Alfvén-speed scaling for the flow variables together
+        with separate units for internal energy and entropy:
+
+        .. math::
+
+            \hat u = \hat v_A,\qquad \hat{\mathcal U}=K,\qquad \hat s=\hat\rho C_v.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Kinetic energy: ``en_U``
+        - Thermodynamic energy: ``en_thermo``
+        - Total energy: ``en_tot``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.VariationalDensityEvolve:**
+
+{propagators_fields.VariationalDensityEvolve.__doc__}
+
+**2. propagators_fields.VariationalMomentumAdvection:**
+
+{propagators_fields.VariationalMomentumAdvection.__doc__}
+
+**3. propagators_fields.VariationalEntropyEvolve:**
+
+{propagators_fields.VariationalEntropyEvolve.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""VariationalCompressibleFluid is the entropy-based compressible fluid
+        model in the variational family. It is the natural non-magnetic
+        counterpart to the full variational MHD models."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize a variational compressible-fluid model:
+
+        .. code-block:: python
+
+            from struphy.models import VariationalCompressibleFluid
+
+            model = VariationalCompressibleFluid()
+            model.fluid.density
+            model.fluid.velocity
+            model.fluid.entropy
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - compressible fluid benchmarks with entropy transport
+        - testing the variational fluid propagator stack
+        - non-magnetic hydrodynamics with conservative thermodynamics"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - magnetic-field evolution or MHD coupling
+        - pressureless or barotropic-only reductions
+        - kinetic or particle-based transport physics"""
+
     def allocate_helpers(self, verbose: bool = False):
         projV3 = L2Projector("L2", Propagator.mass_ops)
 

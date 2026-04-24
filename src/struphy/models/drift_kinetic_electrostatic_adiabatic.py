@@ -154,6 +154,90 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
     def velocity_scale(self):
         return "thermal"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        The model advances a 5D guiding-center distribution for one ion species
+        together with an electrostatic quasi-neutrality equation with adiabatic
+        electrons. The phase-space dynamics contain parallel streaming,
+        :math:`\mathbf E\times\mathbf B` drift, magnetic drifts, and parallel
+        acceleration in the background magnetic geometry."""
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The reference speed is the ion thermal speed and the electrostatic
+        fields are scaled accordingly:
+
+        .. math::
+
+            \hat v = \hat v_i,\qquad \hat E = \hat v_i \hat B,\qquad \hat\phi = \hat E \hat x.
+
+        The small parameter is :math:`\varepsilon = 1/(\hat\Omega_c\hat t)`."""
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Field energy: ``en_phi``
+        - Guiding-center particle energy: ``en_particles``
+        - Total energy: ``en_tot``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.ImplicitDiffusion:**
+
+{propagators_fields.ImplicitDiffusion.__doc__}
+
+**2. propagators_markers.PushGuidingCenterBxEstar:**
+
+{propagators_markers.PushGuidingCenterBxEstar.__doc__}
+
+**3. propagators_markers.PushGuidingCenterParallel:**
+
+{propagators_markers.PushGuidingCenterParallel.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""This model is an electrostatic drift-kinetic reduction for strongly
+        magnetized ions in a fixed magnetic equilibrium. Electrons are not
+        evolved kinetically; instead they enter through the adiabatic response
+        in the quasi-neutrality solve. The implementation supports control
+        variates for the field solve."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the drift-kinetic adiabatic-electron model:
+
+        .. code-block:: python
+
+            from struphy.models import DriftKineticElectrostaticAdiabatic
+
+            model = DriftKineticElectrostaticAdiabatic()
+            model.em_fields.phi
+            model.kinetic_ions.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - electrostatic drift-kinetic ion turbulence studies
+        - strongly magnetized plasmas with adiabatic electrons
+        - guiding-center PIC verification in realistic magnetic geometry
+        - low-frequency regimes where full gyrophase resolution is unnecessary"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - fully electromagnetic dynamics with evolving magnetic perturbations
+        - electron kinetic effects beyond the adiabatic closure
+        - problems that require resolving full cyclotron motion
+        - multi-species kinetic coupling without extending the model"""
+
     def allocate_helpers(self, verbose: bool = False):
         """Solve initial Poisson equation.
 

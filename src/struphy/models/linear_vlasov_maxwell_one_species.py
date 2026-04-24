@@ -189,3 +189,92 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         # initial Poisson (not a propagator used in time stepping)
         self.initial_poisson = propagators_fields.Poisson()
         self.initial_poisson.variables.phi = self.em_fields.phi
+
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        This model extends the linearized Vlasov-Ampère system by adding the
+        magnetic perturbation and the linearized Faraday/Maxwell evolution of
+        :math:`\tilde{\mathbf B}`."""
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The normalization matches the linear Vlasov-Ampère model:
+
+        .. math::
+
+            \hat v = c,\qquad \hat E = \hat B \hat v,\qquad \hat\phi = \hat E \hat x.
+
+        The model retains the same :math:`\alpha` and :math:`\varepsilon`
+        parameters while adding magnetic perturbation dynamics."""
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Electric field energy: ``en_E``
+        - Magnetic field energy: ``en_B``
+        - Perturbation particle energy: ``en_w``
+        - Total energy: ``en_tot``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_markers.PushEta:**
+
+{propagators_markers.PushEta.__doc__}
+
+**2. propagators_markers.PushVinEfield:**
+
+{propagators_markers.PushVinEfield.__doc__}
+
+**3. propagators_coupling.EfieldWeights:**
+
+{propagators_coupling.EfieldWeights.__doc__}
+
+**4. propagators_markers.PushVxB:**
+
+{propagators_markers.PushVxB.__doc__}
+
+**5. propagators_fields.Maxwell:**
+
+{propagators_fields.Maxwell.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""LinearVlasovMaxwellOneSpecies is the electromagnetic extension of the
+        linear delta-f Vlasov model. It is intended for weakly perturbed kinetic
+        electromagnetic waves and instabilities around a prescribed equilibrium."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the linear Vlasov-Maxwell model:
+
+        .. code-block:: python
+
+            from struphy.models import LinearVlasovMaxwellOneSpecies
+
+            model = LinearVlasovMaxwellOneSpecies()
+            model.em_fields.e_field
+            model.em_fields.b_field
+            model.kinetic_ions.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - linear electromagnetic kinetic wave studies
+        - delta-f verification of linear Vlasov-Maxwell coupling
+        - weakly nonlinear regimes where equilibrium perturbations stay small"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - strongly nonlinear fully kinetic plasma dynamics
+        - multi-species electromagnetic coupling
+        - problems without a well-defined linearization background
+        - collisional kinetic closures"""

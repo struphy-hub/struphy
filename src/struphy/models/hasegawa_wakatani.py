@@ -102,6 +102,83 @@ class HasegawaWakatani(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        The Hasegawa-Wakatani system evolves density and vorticity in 2D with:
+
+        - parallel resistive coupling through :math:`C(\phi-n)`
+        - nonlinear advection via Poisson brackets
+        - background-gradient drive proportional to :math:`\kappa`
+        - hyper-/viscous diffusion through :math:`\nu \nabla^{2N}`
+        - a Poisson solve :math:`\Delta\phi=\omega` for the potential"""
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The electrostatic potential is scaled by the thermal-speed unit,
+
+        .. math::
+
+            \hat u = \hat v_\mathrm{th},\qquad \hat\phi = \hat u \hat x.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - No default scalar diagnostics are defined by this model."""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.Poisson:**
+
+{propagators_fields.Poisson.__doc__}
+
+**2. propagators_fields.HasegawaWakatani:**
+
+{propagators_fields.HasegawaWakatani.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""This is a reduced 2D drift-wave turbulence model. The electrostatic
+        potential is recovered from the vorticity at each step, and the coupled
+        density-vorticity dynamics capture resistive drift-wave behavior without
+        resolving full kinetic physics."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize a Hasegawa-Wakatani model:
+
+        .. code-block:: python
+
+            from struphy.models import HasegawaWakatani
+
+            model = HasegawaWakatani()
+            model.em_fields.phi
+            model.plasma.density
+            model.plasma.vorticity
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - 2D resistive drift-wave turbulence studies
+        - reduced electrostatic edge-plasma benchmarks
+        - testing Poisson-coupled advection-diffusion solvers"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - three-dimensional electromagnetic turbulence
+        - full kinetic Landau or cyclotron physics
+        - multi-species warm-fluid closures beyond the reduced HW system
+        - self-consistent magnetic-field evolution"""
+
     def update_rho(self):
         omega = self.plasma.vorticity.spline.vector
         self._rho = Propagator.mass_ops.M0.dot(omega, out=self._rho)

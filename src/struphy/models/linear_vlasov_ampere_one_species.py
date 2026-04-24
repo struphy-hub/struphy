@@ -198,6 +198,92 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
     def velocity_scale(self):
         return "light"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        This model evolves the linearized perturbation :math:`\tilde f` of a
+        one-species Vlasov system coupled to the perturbation electric field
+        through Ampère's law. The equilibrium fields :math:`\mathbf E_0`,
+        :math:`\mathbf B_0`, and Maxwellian :math:`f_0` are prescribed."""
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The light speed defines the velocity scale:
+
+        .. math::
+
+            \hat v = c,\qquad \hat E = \hat B \hat v,\qquad \hat\phi = \hat E \hat x.
+
+        The species parameters are :math:`\alpha=\hat\Omega_p/\hat\Omega_c` and
+        :math:`\varepsilon=1/(\hat\Omega_c\hat t)`."""
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Electric field energy: ``en_E``
+        - Perturbation particle energy: ``en_w``
+        - Total energy: ``en_tot``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_markers.PushEta:**
+
+{propagators_markers.PushEta.__doc__}
+
+**2. propagators_markers.PushVinEfield:**
+
+{propagators_markers.PushVinEfield.__doc__}
+
+**3. propagators_coupling.EfieldWeights:**
+
+{propagators_coupling.EfieldWeights.__doc__}
+
+**4. propagators_markers.PushVxB:**
+
+{propagators_markers.PushVxB.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""LinearVlasovAmpereOneSpecies is the linearized delta-f counterpart of
+        VlasovAmpereOneSpecies. It is intended for weakly perturbed kinetic
+        problems around a prescribed Maxwellian equilibrium and is especially
+        useful for linear instability or damping studies."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the linear Vlasov-Ampère model:
+
+        .. code-block:: python
+
+            from struphy.models import LinearVlasovAmpereOneSpecies
+
+            model = LinearVlasovAmpereOneSpecies()
+            model.em_fields.e_field
+            model.em_fields.phi
+            model.kinetic_ions.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - linear delta-f kinetic instabilities
+        - weakly perturbed Landau-like damping studies with electrostatic fields
+        - verification of linearized field-particle coupling"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - strongly nonlinear departures from the chosen equilibrium
+        - multi-species kinetic coupling
+        - fully electromagnetic magnetic-field evolution
+        - equilibria that are not compatible with the built-in Maxwellian assumptions"""
+
     def allocate_helpers(self, verbose: bool = False):
         """Solve initial Poisson equation.
 

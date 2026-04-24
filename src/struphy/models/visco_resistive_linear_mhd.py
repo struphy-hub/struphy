@@ -157,6 +157,91 @@ class ViscoResistiveLinearMHD(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        Linear density, velocity, pressure, and magnetic perturbations are
+        evolved around a prescribed MHD equilibrium, including explicit viscous
+        and resistive dissipation."""
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The characteristic velocity is the Alfvén speed,
+
+        .. math::
+
+            \hat u = \hat v_A.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Kinetic energy: ``en_U``
+        - Thermal perturbation energy: ``en_thermo``
+        - Magnetic energies: ``en_mag_1``, ``en_mag_2``
+        - Total energy diagnostics: ``en_tot``, ``en_tot_l1``
+        - Auxiliary linearized diagnostics: ``en_thermo_l1``, ``en_mag_l1``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.VariationalDensityEvolve:**
+
+{propagators_fields.VariationalDensityEvolve.__doc__}
+
+**2. propagators_fields.VariationalPBEvolve:**
+
+{propagators_fields.VariationalPBEvolve.__doc__}
+
+**3. propagators_fields.VariationalViscosity:**
+
+{propagators_fields.VariationalViscosity.__doc__}
+
+**4. propagators_fields.VariationalResistivity:**
+
+{propagators_fields.VariationalResistivity.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""This is the linear dissipative MHD model with pressure as primitive
+        thermodynamic variable. It is intended for small-amplitude perturbations
+        around an equilibrium while retaining explicit viscosity and
+        resistivity."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize a linear visco-resistive MHD model:
+
+        .. code-block:: python
+
+            from struphy.models import ViscoResistiveLinearMHD
+
+            model = ViscoResistiveLinearMHD()
+            model.em_fields.b_field
+            model.mhd.velocity
+            model.mhd.pressure
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - linear dissipative MHD wave studies
+        - equilibrium perturbation benchmarks with viscosity and resistivity
+        - verification of linear variational MHD operators"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - strongly nonlinear MHD dynamics
+        - fully kinetic plasma effects
+        - entropy- or q-based thermodynamic formulations
+        - ideal MHD benchmarks where dissipation must be absent by construction"""
+
     def allocate_helpers(self, verbose: bool = False):
         projV3 = L2Projector("L2", Propagator.mass_ops)
 

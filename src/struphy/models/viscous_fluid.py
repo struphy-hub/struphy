@@ -124,6 +124,83 @@ class ViscousFluid(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        This model solves the full nonlinear viscous compressible Navier-Stokes
+        system in entropy form, without magnetic-field evolution."""
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The model uses Alfvén-speed scaling for the velocity and entropy-based
+        thermodynamic units for the internal-energy closure."""
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Kinetic energy: ``en_U``
+        - Thermodynamic energy: ``en_thermo``
+        - Total energy: ``en_tot``
+        - Total density / entropy: ``dens_tot``, ``entr_tot``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.VariationalDensityEvolve:**
+
+{propagators_fields.VariationalDensityEvolve.__doc__}
+
+**2. propagators_fields.VariationalMomentumAdvection:**
+
+{propagators_fields.VariationalMomentumAdvection.__doc__}
+
+**3. propagators_fields.VariationalEntropyEvolve:**
+
+{propagators_fields.VariationalEntropyEvolve.__doc__}
+
+**4. propagators_fields.VariationalViscosity:**
+
+{propagators_fields.VariationalViscosity.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""ViscousFluid is the non-magnetic viscous member of the variational
+        fluid family. It is suited for compressible hydrodynamics with entropy
+        transport and viscous heating but without magnetic effects."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize a viscous-fluid model:
+
+        .. code-block:: python
+
+            from struphy.models import ViscousFluid
+
+            model = ViscousFluid()
+            model.fluid.density
+            model.fluid.velocity
+            model.fluid.entropy
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - nonlinear viscous compressible hydrodynamics
+        - entropy-based Navier-Stokes benchmarks
+        - testing variational viscous closures without magnetism"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - magnetic or MHD dynamics
+        - inviscid strictly conservative benchmarks
+        - kinetic particle effects"""
+
     def allocate_helpers(self, verbose: bool = False):
         projV3 = L2Projector("L2", Propagator.mass_ops)
 

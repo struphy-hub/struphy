@@ -144,6 +144,74 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
     def velocity_scale(self):
         return "thermal"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        The model solves a linearized quasi-neutral two-fluid system with
+        ion momentum, algebraic electron momentum balance, and a divergence
+        constraint enforcing quasi-neutrality."""
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""Thermal-speed scaling is used:
+
+        .. math::
+
+            \hat u = \hat v_\mathrm{th},\qquad e\hat\phi = m \hat v_\mathrm{th}^2.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - No default scalar diagnostics are defined by this model."""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.TwoFluidQuasiNeutralFull:**
+
+{propagators_fields.TwoFluidQuasiNeutralFull.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""TwoFluidQuasiNeutralToy is a reduced linear two-fluid benchmark with
+        zero electron inertia. It is meant for studying the quasi-neutral solve
+        and the coupled ion/electron velocity response in a simplified setting."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the quasi-neutral toy model:
+
+        .. code-block:: python
+
+            from struphy.models import TwoFluidQuasiNeutralToy
+
+            model = TwoFluidQuasiNeutralToy()
+            model.em_fields.phi
+            model.ions.u
+            model.electrons.u
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - linear quasi-neutral two-fluid benchmarks
+        - Stokes-like plasma model verification
+        - testing coupled velocity-potential FEEC solvers"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - nonlinear two-fluid dynamics
+        - finite electron inertia effects
+        - kinetic phase-space phenomena
+        - self-consistent electromagnetic wave propagation"""
+
     def allocate_helpers(self, verbose: bool = False):
         pass
 

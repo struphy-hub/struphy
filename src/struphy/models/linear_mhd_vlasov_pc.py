@@ -197,6 +197,95 @@ class LinearMHDVlasovPC(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        This hybrid model couples linear MHD perturbations to an energetic
+        6D Vlasov population through the pressure-coupling scheme. The feedback
+        enters via the perpendicular energetic-particle pressure tensor rather
+        than the current."""
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""Fluid and hot-particle velocities are normalized with the bulk Alfvén
+        speed. The kinetic pressure tensor is scaled consistently with
+        :math:`A_h m_H \hat n \hat v_A^2`, and the hot cyclotron parameter is
+        :math:`\varepsilon`."""
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - MHD kinetic energy: ``en_U``
+        - Thermal pressure energy: ``en_p``
+        - Magnetic energy: ``en_B``
+        - Energetic-particle kinetic energy: ``en_f``
+        - Total energy: ``en_tot``
+        - Lost particles: ``n_lost_particles``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_markers.PushEtaPC:**
+
+{propagators_markers.PushEtaPC.__doc__}
+
+**2. propagators_markers.PushVxB:**
+
+{propagators_markers.PushVxB.__doc__}
+
+**3. propagators_coupling.PressureCoupling6D:**
+
+{propagators_coupling.PressureCoupling6D.__doc__}
+
+**4. propagators_fields.ShearAlfven:**
+
+{propagators_fields.ShearAlfven.__doc__}
+
+**5. propagators_fields.Magnetosonic:**
+
+{propagators_fields.Magnetosonic.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""LinearMHDVlasovPC is the pressure-coupling counterpart to the
+        current-coupling hybrid model. It is targeted at linear problems where
+        energetic-particle pressure anisotropy is the relevant feedback channel
+        on the bulk MHD dynamics."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the linear MHD-Vlasov pressure-coupling model:
+
+        .. code-block:: python
+
+            from struphy.models import LinearMHDVlasovPC
+
+            model = LinearMHDVlasovPC()
+            model.em_fields.b_field
+            model.mhd.velocity
+            model.energetic_ions.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - linear pressure-coupling hybrid studies
+        - energetic-particle pressure feedback on MHD modes
+        - verification of PushEtaPC and pressure-coupling operators"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - current-coupling closure studies
+        - nonlinear hybrid turbulence
+        - dissipative/resistive MHD
+        - fully kinetic treatment of the bulk plasma"""
+
     def allocate_helpers(self, verbose: bool = False):
         self._ones = Propagator.projected_equil.p3.space.zeros()
         if isinstance(self._ones, PolarVector):

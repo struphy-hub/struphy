@@ -146,5 +146,95 @@ class ColdPlasma(StruphyModel):
     def velocity_scale(self):
         return "light"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        The model advances a cold electron current coupled to Maxwell's equations:
+
+        - cold Ohm response for the electron current :math:`\mathbf j`
+        - Faraday evolution of :math:`\mathbf B`
+        - Ampère evolution of :math:`\mathbf E`
+
+        It represents a cold-plasma closure with background density :math:`n_0`
+        and static magnetic field :math:`\mathbf B_0`."""
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""Velocities are normalized with the speed of light and the fields satisfy
+
+        .. math::
+
+            \hat v = c,\qquad \hat E = c \hat B.
+
+        The dimensionless plasma parameters are the cold-species
+        :math:`\alpha = \hat\Omega_\mathrm{p}/\hat\Omega_\mathrm{c}` and
+        :math:`\varepsilon = 1/(\hat\Omega_\mathrm{c}\hat t)`."""
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Electric field energy: ``electric_energy``
+        - Magnetic field energy: ``magnetic_energy``
+        - Cold-current energy: ``kinetic_energy``
+        - Total energy: ``total_energy``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.Maxwell:**
+
+{propagators_fields.Maxwell.__doc__}
+
+**2. propagators_fields.OhmCold:**
+
+{propagators_fields.OhmCold.__doc__}
+
+**3. propagators_fields.JxBCold:**
+
+{propagators_fields.JxBCold.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""This is a fluid electromagnetic model for a cold plasma response. The
+        electron fluid is represented only through its current, so thermal
+        pressure and kinetic velocity-space effects are omitted. It is useful as
+        a reduced model between vacuum Maxwell and fully kinetic Vlasov-Maxwell
+        dynamics."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize a cold-plasma model:
+
+        .. code-block:: python
+
+            from struphy.models import ColdPlasma
+
+            model = ColdPlasma()
+            model.em_fields.e_field
+            model.em_fields.b_field
+            model.electrons.current
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - cold-plasma wave propagation studies
+        - electromagnetic benchmarks with a fluid current response
+        - regimes where thermal pressure can be neglected
+        - algorithm verification for Maxwell plus current coupling"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - finite-temperature or pressure-driven plasma dynamics
+        - kinetic resonances or velocity-space instabilities
+        - multi-species hybrid or fully kinetic problems
+        - collisional closures beyond the built-in cold-plasma approximation"""
+
     def allocate_helpers(self, verbose: bool = False):
         pass

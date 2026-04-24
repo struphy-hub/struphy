@@ -98,5 +98,75 @@ class Vlasov(StruphyModel):
     def velocity_scale(self):
         return "cyclotron"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        The model solves the collisionless Vlasov equation for a single species
+        in a prescribed static magnetic field :math:`\mathbf B_0`. No
+        self-consistent field equation is evolved."""
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The characteristic speed is the cyclotron scale
+
+        .. math::
+
+            \hat v = \hat\Omega_c \hat x.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Particle kinetic energy: ``kinetic_energy``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_markers.PushVxB:**
+
+{propagators_markers.PushVxB.__doc__}
+
+**2. propagators_markers.PushEta:**
+
+{propagators_markers.PushEta.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""Vlasov is the simplest kinetic test-particle model in the 6D hierarchy.
+        It evolves particles in a static magnetic background without electric or
+        magnetic self-consistency."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize a Vlasov test-particle model:
+
+        .. code-block:: python
+
+            from struphy.models import Vlasov
+
+            model = Vlasov()
+            model.kinetic_ions.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - test-particle motion in prescribed magnetic fields
+        - verification of the Boris-like VxB and PushEta splitting
+        - reduced kinetic transport studies without field feedback"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - self-consistent electrostatic or electromagnetic coupling
+        - collisional kinetic dynamics
+        - guiding-center reduction studies
+        - fluid or MHD-scale closures"""
+
     def allocate_helpers(self, verbose: bool = False):
         pass

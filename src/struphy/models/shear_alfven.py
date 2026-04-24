@@ -68,6 +68,81 @@ class ShearAlfven(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        This model keeps only the shear-Alfvén part of linear ideal MHD:
+
+        - transverse fluid-velocity perturbations
+        - magnetic perturbations coupled through the background field
+
+        Compressible magnetosonic dynamics are deliberately excluded."""
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""All velocities are normalized by the Alfvén speed,
+
+        .. math::
+
+            \hat U = \hat v_A.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Perturbed kinetic energy: ``en_U``
+        - Perturbed magnetic energy: ``en_B``
+        - Background magnetic energy: ``en_B_eq``
+        - Total magnetic energy including background: ``en_B_tot``
+        - Perturbation total energy: ``en_tot``
+        - Total energy including background contribution: ``en_tot2``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.ShearAlfven:**
+
+{propagators_fields.ShearAlfven.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""ShearAlfven is the incompressible magnetic-tension subsystem extracted
+        from linear MHD. It is useful when one wants to isolate Alfvénic
+        propagation from the full linear MHD model."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize a shear-Alfvén model:
+
+        .. code-block:: python
+
+            from struphy.models import ShearAlfven
+
+            model = ShearAlfven()
+            model.em_fields.b_field
+            model.mhd.velocity
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - isolated shear-Alfvén wave propagation
+        - verification of the ShearAlfven propagator
+        - reduced linear-MHD studies without compressibility"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - magnetosonic or compressible wave physics
+        - nonlinear MHD dynamics
+        - kinetic particle coupling
+        - resistive, viscous, or Hall-MHD effects"""
+
     def allocate_helpers(self, verbose: bool = False):
         # project background magnetic field (2-form) and pressure (3-form)
         self._b_eq = Propagator.projected_equil.b2

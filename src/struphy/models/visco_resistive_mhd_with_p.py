@@ -155,6 +155,93 @@ class ViscoResistiveMHD_with_p(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        This is the full nonlinear visco-resistive MHD system in pressure form,
+        evolving density, velocity, pressure, and magnetic field."""
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The characteristic flow speed is the Alfvén speed,
+
+        .. math::
+
+            \hat u = \hat v_A.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Kinetic energy: ``en_U``
+        - Thermodynamic energy: ``en_thermo``
+        - Magnetic energy: ``en_mag``
+        - Total energy: ``en_tot``
+        - Total density: ``dens_tot``
+        - Divergence diagnostic: ``tot_div_B``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.VariationalDensityEvolve:**
+
+{propagators_fields.VariationalDensityEvolve.__doc__}
+
+**2. propagators_fields.VariationalMomentumAdvection:**
+
+{propagators_fields.VariationalMomentumAdvection.__doc__}
+
+**3. propagators_fields.VariationalPBEvolve:**
+
+{propagators_fields.VariationalPBEvolve.__doc__}
+
+**4. propagators_fields.VariationalViscosity:**
+
+{propagators_fields.VariationalViscosity.__doc__}
+
+**5. propagators_fields.VariationalResistivity:**
+
+{propagators_fields.VariationalResistivity.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""This is the pressure-based full nonlinear dissipative MHD model. It is
+        the natural counterpart to the entropy- and q-based full MHD variants
+        when pressure is preferred as primitive thermodynamic variable."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the pressure-based visco-resistive MHD model:
+
+        .. code-block:: python
+
+            from struphy.models import ViscoResistiveMHD_with_p
+
+            model = ViscoResistiveMHD_with_p()
+            model.mhd.pressure
+            model.em_fields.b_field
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - full nonlinear dissipative MHD in p-formulation
+        - comparison against entropy- and q-based full MHD models
+        - variational resistive/viscous MHD benchmarks"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - ideal MHD without dissipation
+        - kinetic plasma physics
+        - reduced linear perturbation studies
+        - thermodynamic formulations that require entropy or q as primitive variables"""
+
     def allocate_helpers(self, verbose: bool = False):
         projV3 = L2Projector("L2", Propagator.mass_ops)
 

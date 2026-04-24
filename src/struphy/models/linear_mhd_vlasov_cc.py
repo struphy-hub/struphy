@@ -191,6 +191,105 @@ class LinearMHDVlasovCC(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        This hybrid model couples linear ideal-MHD perturbations to a 6D
+        energetic-particle Vlasov equation through the current-coupling scheme.
+        The kinetic species feeds back through density/current moments while the
+        MHD subsystem evolves density, velocity, pressure, and magnetic
+        perturbations."""
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""Both fluid and particle velocities are normalized with the Alfvén
+        speed,
+
+        .. math::
+
+            \hat U = \hat v = \hat v_A,\qquad \hat f_h = \hat n / \hat v_A^3.
+
+        The hot-species cyclotron parameter is :math:`\varepsilon =
+        1/(\hat\Omega_{c,\mathrm{hot}}\hat t)`."""
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - MHD kinetic energy: ``en_U``
+        - Thermal pressure energy: ``en_p``
+        - Magnetic energy: ``en_B``
+        - Energetic-particle energy: ``en_f``
+        - Total energy: ``en_tot``
+        - Lost particles: ``n_lost_particles``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.CurrentCoupling6DDensity:**
+
+{propagators_fields.CurrentCoupling6DDensity.__doc__}
+
+**2. propagators_fields.ShearAlfven:**
+
+{propagators_fields.ShearAlfven.__doc__}
+
+**3. propagators_coupling.CurrentCoupling6DCurrent:**
+
+{propagators_coupling.CurrentCoupling6DCurrent.__doc__}
+
+**4. propagators_markers.PushEta:**
+
+{propagators_markers.PushEta.__doc__}
+
+**5. propagators_markers.PushVxB:**
+
+{propagators_markers.PushVxB.__doc__}
+
+**6. propagators_fields.Magnetosonic:**
+
+{propagators_fields.Magnetosonic.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""LinearMHDVlasovCC is a current-coupling hybrid model for small
+        perturbations around an MHD equilibrium. It is intended for energetic
+        particle effects on linear MHD waves and instabilities without the cost
+        of a fully kinetic background plasma."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the linear MHD-Vlasov current-coupling model:
+
+        .. code-block:: python
+
+            from struphy.models import LinearMHDVlasovCC
+
+            model = LinearMHDVlasovCC()
+            model.em_fields.b_field
+            model.mhd.velocity
+            model.energetic_ions.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - linear energetic-particle coupling to MHD modes
+        - current-coupling hybrid verification
+        - reduced-cost studies of fast-ion effects on wave propagation"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - strongly nonlinear dynamics far from equilibrium
+        - full multi-species kinetic plasma evolution
+        - pressure-coupling closures
+        - collisional or dissipative MHD effects not present in the equations"""
+
     def allocate_helpers(self, verbose: bool = False):
         self._ones = Propagator.projected_equil.p3.space.zeros()
         if isinstance(self._ones, PolarVector):

@@ -148,6 +148,80 @@ class ToyDrift(StruphyModel):
     def velocity_scale(self):
         return "thermal"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        ToyDrift keeps only the electrostatic :math:`\mathbf E\times\mathbf B`
+        part of guiding-center advection together with the same quasi-neutrality
+        solve used in the drift-kinetic electrostatic model."""
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The reference speed is the ion thermal velocity:
+
+        .. math::
+
+            \hat v = \hat v_i,\qquad \hat E = \hat v_i \hat B,\qquad \hat\phi = \hat E \hat x.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Electrostatic field energy: ``en_phi``
+        - Particle kinetic energy: ``en_particles``
+        - Total energy: ``en_tot``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.Poisson:**
+
+{propagators_fields.Poisson.__doc__}
+
+**2. propagators_markers.PushGuidingCenterBxEstar:**
+
+{propagators_markers.PushGuidingCenterBxEstar.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""ToyDrift is a stripped-down guiding-center model used to isolate the
+        electrostatic drift part of the dynamics. It is intended for algorithm
+        prototyping and reduced verification problems rather than production
+        drift-kinetic studies."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the toy drift model:
+
+        .. code-block:: python
+
+            from struphy.models import ToyDrift
+
+            model = ToyDrift()
+            model.em_fields.phi
+            model.kinetic_ions.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - reduced electrostatic guiding-center benchmarks
+        - testing the field solve plus :math:`\mathbf E\times\mathbf B` pusher
+        - algorithm prototyping before moving to the full drift-kinetic model"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - full drift-kinetic dynamics with parallel streaming
+        - electromagnetic perturbations
+        - high-fidelity turbulence studies
+        - full-orbit kinetic physics"""
+
     def allocate_helpers(self, verbose: bool = False):
         """Solve initial Poisson equation.
 

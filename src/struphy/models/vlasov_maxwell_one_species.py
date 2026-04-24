@@ -211,6 +211,93 @@ class VlasovMaxwellOneSpecies(StruphyModel):
     def velocity_scale(self):
         return "light"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        This model solves the full one-species Vlasov-Maxwell system with
+        self-consistent electric and magnetic field evolution, plus an initial
+        Poisson solve used to impose Gauss' law at :math:`t=0`."""
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The model uses the light speed as reference velocity:
+
+        .. math::
+
+            \hat v = c,\qquad \hat E = \hat B \hat v,\qquad \hat\phi = \hat E \hat x.
+
+        The species parameters are :math:`\alpha=\hat\Omega_p/\hat\Omega_c` and
+        :math:`\varepsilon=1/(\hat\Omega_c\hat t)`."""
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Electric field energy: ``en_E``
+        - Magnetic field energy: ``en_B``
+        - Particle kinetic energy: ``en_f``
+        - Total energy: ``en_tot``
+        - Optional Gauss-law diagnostic: ``gauss_error``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.Maxwell:**
+
+{propagators_fields.Maxwell.__doc__}
+
+**2. propagators_markers.PushEta:**
+
+{propagators_markers.PushEta.__doc__}
+
+**3. propagators_markers.PushVxB:**
+
+{propagators_markers.PushVxB.__doc__}
+
+**4. propagators_coupling.VlasovAmpere:**
+
+{propagators_coupling.VlasovAmpere.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""VlasovMaxwellOneSpecies is the fully electromagnetic one-species PIC
+        model in Struphy. It evolves particles and fields self-consistently and
+        supports an optional control-variate formulation for the field coupling."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize a Vlasov-Maxwell model:
+
+        .. code-block:: python
+
+            from struphy.models import VlasovMaxwellOneSpecies
+
+            model = VlasovMaxwellOneSpecies()
+            model.em_fields.e_field
+            model.em_fields.b_field
+            model.kinetic_ions.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - self-consistent electromagnetic kinetic simulations
+        - one-species PIC benchmarks
+        - wave-particle interaction studies with evolving magnetic fields
+        - verification of the full Vlasov-Maxwell splitting"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - multi-species plasma dynamics without extension
+        - collisional kinetic closures
+        - reduced electrostatic-only models where magnetic evolution is unnecessary
+        - linearized delta-f studies that should use the dedicated linear models"""
+
     def allocate_helpers(self, verbose: bool = False):
         """Solve initial Poisson equation.
 

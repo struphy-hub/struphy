@@ -154,6 +154,96 @@ class ViscoResistiveMHD(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        This is the full nonlinear visco-resistive MHD system in entropy form,
+        evolving density, velocity, entropy, and magnetic field with explicit
+        viscous and resistive dissipation."""
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The model uses Alfvén-speed normalization together with entropy-based
+        thermodynamic units inherited from the chosen internal-energy
+        functional."""
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Kinetic energy: ``en_U``
+        - Thermodynamic energy: ``en_thermo``
+        - Magnetic energy: ``en_mag``
+        - Total energy: ``en_tot``
+        - Total density / entropy: ``dens_tot``, ``entr_tot``
+        - Divergence diagnostic: ``tot_div_B``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.VariationalDensityEvolve:**
+
+{propagators_fields.VariationalDensityEvolve.__doc__}
+
+**2. propagators_fields.VariationalMomentumAdvection:**
+
+{propagators_fields.VariationalMomentumAdvection.__doc__}
+
+**3. propagators_fields.VariationalEntropyEvolve:**
+
+{propagators_fields.VariationalEntropyEvolve.__doc__}
+
+**4. propagators_fields.VariationalMagFieldEvolve:**
+
+{propagators_fields.VariationalMagFieldEvolve.__doc__}
+
+**5. propagators_fields.VariationalViscosity:**
+
+{propagators_fields.VariationalViscosity.__doc__}
+
+**6. propagators_fields.VariationalResistivity:**
+
+{propagators_fields.VariationalResistivity.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""ViscoResistiveMHD is the full nonlinear dissipative MHD model in the
+        entropy formulation. It is the most complete variational MHD model in
+        this family when both viscosity and resistivity are required."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the full visco-resistive MHD model:
+
+        .. code-block:: python
+
+            from struphy.models import ViscoResistiveMHD
+
+            model = ViscoResistiveMHD()
+            model.mhd.density
+            model.mhd.velocity
+            model.mhd.entropy
+            model.em_fields.b_field
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - nonlinear dissipative MHD simulations
+        - entropy-based variational MHD benchmarks
+        - studies where both viscosity and resistivity matter"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - ideal nondissipative MHD if strict conservation is required
+        - kinetic or hybrid particle effects
+        - reduced linear perturbation studies better served by the linear models"""
+
     def allocate_helpers(self, verbose: bool = False):
         projV3 = L2Projector("L2", Propagator.mass_ops)
 

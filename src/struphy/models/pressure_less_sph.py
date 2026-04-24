@@ -101,6 +101,73 @@ class PressureLessSPH(StruphyModel):
     def velocity_scale(self):
         return None
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        This SPH model represents a pressureless continuum with continuity and
+        momentum advection under a static external potential. The particles move
+        ballistically except for the prescribed forcing."""
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""No special field normalization is introduced beyond the particle units
+        inherited from the simulation setup. This model does not define a
+        separate wave or plasma velocity scale."""
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - SPH kinetic energy: ``en_kin``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_markers.PushEta:**
+
+{propagators_markers.PushEta.__doc__}
+
+**2. propagators_markers.PushVinEfield:**
+
+{propagators_markers.PushVinEfield.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""PressureLessSPH is a meshfree particle model for a pressureless fluid.
+        It is primarily useful as a simple SPH benchmark or as a reduced
+        particle transport model in a prescribed potential."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize a pressureless SPH model:
+
+        .. code-block:: python
+
+            from struphy.models import PressureLessSPH
+
+            model = PressureLessSPH()
+            model.cold_fluid.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - meshfree pressureless-flow benchmarks
+        - straight-line particle transport with external forcing
+        - testing SPH particle loading and diagnostics"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - compressible fluids with pressure forces
+        - FEEC-based grid discretizations
+        - electromagnetic plasma dynamics
+        - viscous or thermal closures"""
+
     # @staticmethod
     # def diagnostics_dct():
     #     dct = {}

@@ -232,6 +232,108 @@ class LinearMHDDriftkineticCC(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        This hybrid model couples linear ideal-MHD perturbations to a 5D
+        drift-kinetic energetic-ion population using a current-coupling scheme.
+        The energetic species contributes density, current, and magnetization
+        terms while avoiding full gyrophase resolution."""
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The bulk and energetic-particle flow scales are normalized with the
+        bulk Alfvén speed, while the magnetic moment carries its own unit:
+
+        .. math::
+
+            \hat U = \hat v = \hat v_{A,\mathrm{bulk}},\qquad
+            \hat\mu = A_h m_H \hat v_h^2 / \hat B.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - MHD kinetic energy: ``en_U``
+        - Thermal pressure energy: ``en_p``
+        - Magnetic energy: ``en_B``
+        - Parallel energetic-particle energy: ``en_fv``
+        - Magnetic-moment energetic-particle energy: ``en_fB``
+        - Total energy: ``en_tot``
+        - Lost particles: ``n_lost_particles``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_markers.PushGuidingCenterBxEstar:**
+
+{propagators_markers.PushGuidingCenterBxEstar.__doc__}
+
+**2. propagators_markers.PushGuidingCenterParallel:**
+
+{propagators_markers.PushGuidingCenterParallel.__doc__}
+
+**3. propagators_coupling.CurrentCoupling5DGradB:**
+
+{propagators_coupling.CurrentCoupling5DGradB.__doc__}
+
+**4. propagators_coupling.CurrentCoupling5DCurlb:**
+
+{propagators_coupling.CurrentCoupling5DCurlb.__doc__}
+
+**5. propagators_fields.CurrentCoupling5DDensity:**
+
+{propagators_fields.CurrentCoupling5DDensity.__doc__}
+
+**6. propagators_fields.ShearAlfvenCurrentCoupling5D:**
+
+{propagators_fields.ShearAlfvenCurrentCoupling5D.__doc__}
+
+**7. propagators_fields.Magnetosonic:**
+
+{propagators_fields.Magnetosonic.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""LinearMHDDriftkineticCC is the reduced-kinetic hybrid current-coupling
+        model for energetic ions. It is useful when gyrophase averaging is
+        acceptable but energetic-particle feedback on linear MHD still has to be
+        retained."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the linear MHD plus drift-kinetic CC model:
+
+        .. code-block:: python
+
+            from struphy.models import LinearMHDDriftkineticCC
+
+            model = LinearMHDDriftkineticCC()
+            model.em_fields.b_field
+            model.mhd.velocity
+            model.energetic_ions.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - linear energetic-ion effects with guiding-center reduction
+        - current-coupling hybrid mode studies in strong magnetic fields
+        - verification of 5D hybrid coupling operators"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - full 6D energetic-particle dynamics
+        - nonlinear hybrid turbulence
+        - resistive or viscous MHD closures
+        - regimes where gyrophase resolution is required"""
+
     def allocate_helpers(self, verbose: bool = False):
         self._ones = Propagator.projected_equil.p3.space.zeros()
         if isinstance(self._ones, PolarVector):

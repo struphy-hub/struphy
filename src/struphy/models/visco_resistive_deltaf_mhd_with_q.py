@@ -157,6 +157,91 @@ class ViscoResistiveDeltafMHD_with_q(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        This is the dissipative ``delta f`` MHD model written with
+        :math:`q=\sqrt{p}`. It evolves perturbations of density, velocity,
+        :math:`q`, and magnetic field around a fixed equilibrium."""
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The model uses Alfvén-speed normalization:
+
+        .. math::
+
+            \hat u = \hat v_A.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Kinetic energy: ``en_U``
+        - Magnetic energies: ``en_mag_1``, ``en_mag_2``
+        - Thermodynamic q-energies: ``en_thermo_1``, ``en_thermo_2``
+        - Total energy: ``en_tot``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.VariationalDensityEvolve:**
+
+{propagators_fields.VariationalDensityEvolve.__doc__}
+
+**2. propagators_fields.VariationalMomentumAdvection:**
+
+{propagators_fields.VariationalMomentumAdvection.__doc__}
+
+**3. propagators_fields.VariationalQBEvolve:**
+
+{propagators_fields.VariationalQBEvolve.__doc__}
+
+**4. propagators_fields.VariationalViscosity:**
+
+{propagators_fields.VariationalViscosity.__doc__}
+
+**5. propagators_fields.VariationalResistivity:**
+
+{propagators_fields.VariationalResistivity.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""This model is the ``delta f`` dissipative MHD formulation in the
+        q-variable representation. It is aimed at perturbative nonlinear MHD
+        studies where the q-formulation is preferred numerically."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the visco-resistive ``delta f`` q-MHD model:
+
+        .. code-block:: python
+
+            from struphy.models import ViscoResistiveDeltafMHD_with_q
+
+            model = ViscoResistiveDeltafMHD_with_q()
+            model.mhd.sqrt_p
+            model.em_fields.b_field
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - dissipative ``delta f`` MHD with q-thermodynamics
+        - comparison against the p-based ``delta f`` model
+        - nonlinear perturbative benchmarks with viscosity and resistivity"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - full-f MHD far from equilibrium
+        - entropy-based thermodynamic evolution
+        - kinetic or hybrid particle coupling"""
+
     def allocate_helpers(self, verbose: bool = False):
         projV3 = L2Projector("L2", Propagator.mass_ops)
 

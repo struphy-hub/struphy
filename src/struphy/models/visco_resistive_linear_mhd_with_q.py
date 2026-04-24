@@ -154,6 +154,89 @@ class ViscoResistiveLinearMHD_with_q(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        This is the linear visco-resistive MHD system written with
+        :math:`q=\sqrt{p}` as thermodynamic variable. Density, velocity,
+        :math:`q`, and magnetic perturbations are evolved around a fixed
+        equilibrium."""
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The flow normalization is Alfvénic:
+
+        .. math::
+
+            \hat u = \hat v_A.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Kinetic energy: ``en_U``
+        - Magnetic energies: ``en_mag_1``, ``en_mag_2``
+        - Thermodynamic q-energies: ``en_thermo_1``, ``en_thermo_2``
+        - Total energy: ``en_tot``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.VariationalDensityEvolve:**
+
+{propagators_fields.VariationalDensityEvolve.__doc__}
+
+**2. propagators_fields.VariationalQBEvolve:**
+
+{propagators_fields.VariationalQBEvolve.__doc__}
+
+**3. propagators_fields.VariationalViscosity:**
+
+{propagators_fields.VariationalViscosity.__doc__}
+
+**4. propagators_fields.VariationalResistivity:**
+
+{propagators_fields.VariationalResistivity.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""This variant of the linear dissipative MHD model uses the square root
+        of the pressure as primary thermodynamic variable, which is convenient
+        for the corresponding variational discretization."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the linear visco-resistive q-MHD model:
+
+        .. code-block:: python
+
+            from struphy.models import ViscoResistiveLinearMHD_with_q
+
+            model = ViscoResistiveLinearMHD_with_q()
+            model.mhd.sqrt_p
+            model.em_fields.b_field
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - linear dissipative MHD in the q-formulation
+        - comparing p- and q-based variational discretizations
+        - verification of linear q/B propagators"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - nonlinear MHD dynamics
+        - entropy-based thermodynamics
+        - kinetic plasma coupling
+        - ideal nondissipative studies"""
+
     def allocate_helpers(self, verbose: bool = False):
         projV3 = L2Projector("L2", Propagator.mass_ops)
 

@@ -131,6 +131,84 @@ class ViscousEulerSPH(StruphyModel):
     def velocity_scale(self):
         return "thermal"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        This SPH model advances compressible Euler dynamics with optional
+        background-magnetic forcing, SPH pressure forces, and a viscous stress
+        approximation."""
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The characteristic speed is thermal:
+
+        .. math::
+
+            \hat u = \hat v_\mathrm{th}.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - SPH kinetic energy: ``en_kin``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_markers.PushEta:**
+
+{propagators_markers.PushEta.__doc__}
+
+**2. propagators_markers.PushVxB:**
+
+{propagators_markers.PushVxB.__doc__}
+
+**3. propagators_markers.PushVinSPHpressure:**
+
+{propagators_markers.PushVinSPHpressure.__doc__}
+
+**4. propagators_markers.PushVinViscousPotential:**
+
+{propagators_markers.PushVinViscousPotential.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""ViscousEulerSPH is the particle-based SPH fluid model with optional
+        pressure and viscosity contributions. It is intended for meshfree fluid
+        experiments rather than FEEC-based field simulations."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the viscous Euler SPH model:
+
+        .. code-block:: python
+
+            from struphy.models import ViscousEulerSPH
+
+            model = ViscousEulerSPH()
+            model.euler_fluid.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - SPH verification with pressure and viscosity
+        - meshfree compressible-fluid experiments
+        - testing particle-based viscosity and pressure pushers"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - FEEC grid-based fluid or MHD formulations
+        - entropy-resolved thermodynamic evolution
+        - kinetic plasma physics
+        - studies that require exact field-based conservation structures"""
+
     def allocate_helpers(self, verbose: bool = False):
         pass
 

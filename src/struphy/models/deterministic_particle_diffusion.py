@@ -83,5 +83,78 @@ class DeterministicParticleDiffusion(StruphyModel):
     def velocity_scale(self):
         return None
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        The model represents a diffusion equation rewritten as conservative
+        transport with a deterministic particle velocity field:
+
+        .. math::
+
+            \partial_t u + \nabla\cdot(\mathbf F(u)u)=0,\qquad
+            \mathbf F(u)=-\mathbb D\,\nabla u/u.
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The diffusion coefficient defines the normalization,
+
+        .. math::
+
+            \hat D = \hat x^2 / \hat t.
+
+        No separate plasma velocity scale is used in this model."""
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - No default scalar diagnostics are defined by this model."""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_markers.PushDeterministicDiffusion:**
+
+{propagators_markers.PushDeterministicDiffusion.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""This is a particle discretization of diffusion where particles follow a
+        deterministic drift derived from the current estimate of the density.
+        It is intended mainly for diffusion-method development and verification
+        rather than plasma dynamics."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize a deterministic diffusion model:
+
+        .. code-block:: python
+
+            from struphy.models import DeterministicParticleDiffusion
+
+            model = DeterministicParticleDiffusion()
+            model.hydrogen.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - deterministic particle discretizations of diffusion
+        - transport benchmarks with positive scalar densities
+        - numerical comparison against stochastic diffusion methods"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - electromagnetic plasma dynamics
+        - kinetic Vlasov problems in phase space
+        - nonlinear fluid systems with pressure or momentum evolution
+        - diffusion tensors outside the currently supported simplified forms"""
+
     def allocate_helpers(self, verbose: bool = False):
         pass
