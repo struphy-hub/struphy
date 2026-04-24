@@ -20,7 +20,6 @@ from struphy.propagators import (
     propagators_markers,
 )
 from struphy.propagators.base import Propagator
-from struphy.utils.docstring_converter import auto_convert_docstring
 from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
@@ -205,8 +204,6 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        from struphy.propagators import propagators_coupling, propagators_markers
-
         doc = rf"""Time integration is performed by the following propagators (in sequence):
 
 **1. propagators_markers.PushEta:**

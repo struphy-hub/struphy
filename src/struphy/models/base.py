@@ -6,15 +6,21 @@ from textwrap import indent
 import cunumpy as xp
 from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
+
 try:
     from IPython.display import HTML, Markdown, display
 except ImportError:
+
     def HTML(data):
         return data
+
     def Markdown(data):
         return data
+
     def display(*objects, **kwargs):
         return objects[0] if objects else None
+
+
 from line_profiler import profile
 from scope_profiler import ProfileManager
 
@@ -212,7 +218,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
             else """Description of normalization not available for this model."""
         )
         return display(HTML(rst_to_html(doc)))
-    
+
     @classmethod
     def scalar_quantities(cls):
         doc = (
@@ -896,7 +902,8 @@ class Documentation:
             else "Description of scalar quantities not available for this model."
         )
         self.discretization = self.Content(
-            cls.doc_discretization() if cls.doc_discretization
+            cls.doc_discretization()
+            if cls.doc_discretization
             else "Description of discretization not available for this model."
         )
         self.long_description = self.Content(
@@ -915,7 +922,9 @@ class Documentation:
             if cls.doc_cannot_be_used_for
             else "Information on scenarios for which the model is not suitable is not available."
         )
-        self.model_properties = f"- **Model type:** {cls.model_type()}\n- **Velocity scale:** {cls.velocity_scale}\n- **Bulk species:** {cls.bulk_species}"
+        self.model_properties = self.Content(
+            f"**Model type:** {cls.model_type()}\n- **Velocity scale:** {cls.velocity_scale}\n- **Bulk species:** {cls.bulk_species}"
+        )
 
     class Content:
         def __init__(self, rst, md=None, html=None):

@@ -12,7 +12,6 @@ from struphy.propagators import (
     propagators_fields,
 )
 from struphy.propagators.base import Propagator
-from struphy.utils.docstring_converter import auto_convert_docstring, info
 
 rank = MPI.COMM_WORLD.Get_rank()
 

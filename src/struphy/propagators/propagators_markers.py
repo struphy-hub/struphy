@@ -133,7 +133,7 @@ class PushVxB(Propagator):
 
         \frac{\textnormal d \mathbf{v}_p(t)}{\textnormal d t} =  \frac{1}{\varepsilon} \, \mathbf{v}_p(t) \times (\mathbf{B} + \mathbf{B}_{\text{add}}) \,,
 
-    where :math:`\varepsilon = 1/(\hat{\Omega}_c \hat t)` is a constant scaling factor, and for rotation vector :math:`\mathbf{B}` and optional, additional fixed rotationvector :math:`\mathbf{B}_{\text{add}}`, both given as a 2-form:
+    where :math:`\varepsilon = 1/(\hat{\Omega}_c \hat t)` is a constant scaling factor, and for rotation vector :math:`\mathbf{B}` and optional, additional fixed rotation vector :math:`\mathbf{B}_{\text{add}}`, both given as a 2-form:
 
     .. math::
 
