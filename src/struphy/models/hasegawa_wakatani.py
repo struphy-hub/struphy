@@ -104,15 +104,27 @@ class HasegawaWakatani(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r""":ref:`Equations <gempic>`:
+        r"""**PDEs solved by model:**
+
+        Density equation:
 
         .. math::
 
-            &\frac{\partial n}{\partial t} = C (\phi - n) - [\phi, n] - \kappa\, \partial_y \phi + \nu\, \nabla^{2N} n\,,
-            \\[2mm]
-            &\frac{\partial \omega}{\partial t} = C (\phi - n) - [\phi, \omega] + \nu\, \nabla^{2N} \omega \,,
-            \\[3mm]
-            &\Delta \phi = \omega\,,
+            \frac{\partial n}{\partial t}
+            = C (\phi - n) - [\phi, n] - \kappa \, \partial_y \phi + \nu \, \nabla^{2N} n
+
+        Vorticity equation:
+
+        .. math::
+
+            \frac{\partial \omega}{\partial t}
+            = C (\phi - n) - [\phi, \omega] + \nu \, \nabla^{2N} \omega
+
+        Potential equation:
+
+        .. math::
+
+            \Delta \phi = \omega
 
         where :math:`[\phi, n] = \partial_x \phi \partial_y n - \partial_y \phi \partial_x n`, :math:`C = C(x, y)` and
         :math:`\kappa` and :math:`\nu` are constants (at the moment only :math:`N=1` is available).

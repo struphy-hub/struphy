@@ -97,14 +97,16 @@ class Poisson(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r""":ref:`Equations <gempic>`: Find :math:`\phi \in H^1` such that
+        r"""**PDEs solved by model:**
+
+        Find :math:`\phi \in H^1` such that
 
         .. math::
 
-            - \nabla \cdot D_0(\mathbf x) \nabla \phi + n_0(\mathbf x) \phi =  \rho(t, \mathbf x)\,,
+            -\nabla \cdot D_0(\mathbf{x}) \nabla \phi + n_0(\mathbf{x}) \phi = \rho(t, \mathbf{x})
 
-        where :math:`n_0, \rho(t):\Omega \to \mathbb R` are real-valued functions, :math:`\rho(t)` parametrized with time :math:`t`,
-        and :math:`D_0:\Omega \to \mathbb R^{3\times 3}` is a positive matrix.
+        where :math:`n_0, \rho(t) : \Omega \to \mathbb{R}` are real-valued functions, :math:`\rho(t)` is
+        parametrized by time :math:`t`, and :math:`D_0 : \Omega \to \mathbb{R}^{3 \times 3}` is a positive matrix.
         Boundary terms from integration by parts are assumed to vanish.
         """
 

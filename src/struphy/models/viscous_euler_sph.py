@@ -133,17 +133,27 @@ class ViscousEulerSPH(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r""":ref:`Equations <gempic>`:
+        r"""**PDEs solved by model:**
+
+        Continuity:
 
         .. math::
 
-            \begin{align}
-            \partial_t \rho + \nabla \cdot (\rho \mathbf u) &= 0\,,
-            \\[2mm]
-            \rho(\partial_t \mathbf u + \mathbf u \cdot \nabla \mathbf u) &= - \nabla \left(\rho^2 \frac{\partial \mathcal U(\rho, S)}{\partial \rho} \right) - \nabla \cdot \boldsymbol{\pi}\,,
-            \\[2mm]
-            \partial_t S + \mathbf u \cdot \nabla S &= 0\,,
-            \end{align}
+            \partial_t \rho + \nabla \cdot (\rho \mathbf{u}) = 0
+
+        Momentum:
+
+        .. math::
+
+            \rho (\partial_t \mathbf{u} + \mathbf{u} \cdot \nabla \mathbf{u})
+            = -\nabla \left( \rho^2 \frac{\partial \mathcal{U}(\rho, S)}{\partial \rho} \right)
+            - \nabla \cdot \boldsymbol{\pi}
+
+        Entropy:
+
+        .. math::
+
+            \partial_t S + \mathbf{u} \cdot \nabla S = 0
 
         where :math:`S` denotes the entropy per unit mass and :math:`\boldsymbol{\pi}` is the viscous stress tensor.
 
@@ -151,7 +161,8 @@ class ViscousEulerSPH(StruphyModel):
 
         .. math::
 
-            \boldsymbol{\sigma} = -\mu \left( \nabla \mathbf u + (\nabla \mathbf u)^T - \frac{2}{3}(\nabla \cdot \mathbf u)\mathbf{I} \right)\,,
+            \boldsymbol{\sigma}
+            = -\mu \left( \nabla \mathbf{u} + (\nabla \mathbf{u})^T - \frac{2}{3} (\nabla \cdot \mathbf{u}) \mathbf{I} \right)
 
         where :math:`\mu` is the dynamic (shear) viscosity and :math:`\mathbf{I}` is the identity tensor.
 
@@ -159,9 +170,15 @@ class ViscousEulerSPH(StruphyModel):
 
         .. math::
 
-            \mathrm{isothermal:}\qquad &\mathcal U(\rho, S) = \kappa(S) \log \rho\,.
+            \mathrm{isothermal:}
+            \qquad
+            \mathcal{U}(\rho, S) = \kappa(S) \log \rho
 
-            \mathrm{polytropic:}\qquad &\mathcal U(\rho, S) = \kappa(S) \frac{\rho^{\gamma - 1}}{\gamma - 1}\,.
+        .. math::
+
+            \mathrm{polytropic:}
+            \qquad
+            \mathcal{U}(\rho, S) = \kappa(S) \frac{\rho^{\gamma - 1}}{\gamma - 1}
         """
 
     @classmethod

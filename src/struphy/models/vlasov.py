@@ -100,11 +100,15 @@ class Vlasov(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r""":ref:`Equations <gempic>`:
+        r"""**PDEs solved by model:**
+
+        Vlasov equation:
 
         .. math::
 
-            \frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \left(\mathbf{v}\times\mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0\,.
+            \frac{\partial f}{\partial t}
+            + \mathbf{v} \cdot \nabla f
+            + \left( \mathbf{v} \times \mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0
         """
 
     @classmethod

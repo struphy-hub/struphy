@@ -148,22 +148,38 @@ class ColdPlasma(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r""":ref:`Equations <gempic>`:
+        r"""**PDEs solved by model:**
+
+        Cold-plasma current:
 
         .. math::
 
-            \frac{1}{n_0} &\frac{\partial \mathbf j}{\partial t} = \frac{1}{\varepsilon} \mathbf E + \frac{1}{\varepsilon n_0} \mathbf j \times \mathbf B_0\,,
-            \\[2mm]
-            &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,,
-            \\[2mm]
-            -&\frac{\partial \mathbf E}{\partial t} + \nabla\times\mathbf B =
-            \frac{\alpha^2}{\varepsilon} \mathbf j \,,
+            \frac{1}{n_0} \frac{\partial \mathbf{j}}{\partial t}
+            = \frac{1}{\varepsilon} \mathbf{E}
+            + \frac{1}{\varepsilon n_0} \mathbf{j} \times \mathbf{B}_0
 
-        where :math:`(n_0,\mathbf B_0)` denotes a (inhomogeneous) background and
+        Faraday's law:
 
         .. math::
 
-            \alpha = \frac{\hat \Omega_\textnormal{p}}{\hat \Omega_\textnormal{c}}\,, \qquad \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t}\,.
+            \frac{\partial \mathbf{B}}{\partial t} + \nabla \times \mathbf{E} = 0
+
+        Ampère's law:
+
+        .. math::
+
+            -\frac{\partial \mathbf{E}}{\partial t} + \nabla \times \mathbf{B}
+            = \frac{\alpha^2}{\varepsilon} \mathbf{j}
+
+        Background and normalization parameters:
+
+        .. math::
+
+            \alpha = \frac{\hat \Omega_\textnormal{p}}{\hat \Omega_\textnormal{c}},
+            \qquad
+            \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t}
+
+        where :math:`(n_0, \mathbf{B}_0)` denotes an inhomogeneous background.
         """
 
     @classmethod

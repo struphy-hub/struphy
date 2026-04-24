@@ -199,44 +199,66 @@ class LinearMHDVlasovPC(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r"""Implemented equations:
+        r"""**PDEs solved by model:**
+
+        MHD continuity:
 
         .. math::
 
-            \begin{align}
-            \textnormal{MHD} &\left\{
-            \begin{aligned}
-            &\frac{\partial \tilde{\rho}}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,, 
-            \\
-            \rho_0 &\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p + \frac{A_\textnormal{h}}{A_\textnormal{b}} \nabla\cdot \tilde{\mathbb{P}}_{\textnormal{h},\perp}
-            =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 + \mathbf{J}_0\times \tilde{\mathbf{B}}
-            \,, \qquad
-            \mathbf{J}_0 = \nabla\times\mathbf{B}_0\,, 
-            \\
-            &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) 
-            + \frac{2}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,, 
-            \\
-            &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
-            = 0\,,
-            \end{aligned}
-            \right.
-            \\[2mm]
-            \textnormal{EPs}\,\, &\left\{\,\,
-            \begin{aligned}
-            &\quad\,\,\frac{\partial f_\textnormal{h}}{\partial t} + (\mathbf{v} + \tilde{\mathbf{U}}_\perp)\cdot \nabla f_\textnormal{h}
-            + \left[\frac{1}{\epsilon}\, \mathbf{v}\times(\mathbf{B}_0 + \tilde{\mathbf{B}}) - \nabla \tilde{\mathbf{U}}_\perp\cdot \mathbf{v} \right]\cdot \frac{\partial f_\textnormal{h}}{\partial \mathbf{v}}
-            = 0\,,
-            \\
-            &\quad\,\,\tilde{\mathbb{P}}_{\textnormal{h},\perp} = \int \mathbf{v}_\perp\mathbf{v}^\top_\perp f_\textnormal{h} d\mathbf{v} \,,
-            \end{aligned}
-            \right.
-            \end{align}
+            \frac{\partial \tilde{\rho}}{\partial t} + \nabla \cdot (\rho_0 \tilde{\mathbf{U}}) = 0
+
+        MHD momentum:
+
+        .. math::
+
+            \rho_0 \frac{\partial \tilde{\mathbf{U}}}{\partial t}
+            + \nabla \tilde{p}
+            + \frac{A_\textnormal{h}}{A_\textnormal{b}} \nabla \cdot \tilde{\mathbb{P}}_{\textnormal{h},\perp}
+            = (\nabla \times \tilde{\mathbf{B}}) \times \mathbf{B}_0 + \mathbf{J}_0 \times \tilde{\mathbf{B}}
+
+        .. math::
+
+            \mathbf{J}_0 = \nabla \times \mathbf{B}_0
+
+        MHD pressure:
+
+        .. math::
+
+            \frac{\partial \tilde{p}}{\partial t}
+            + \nabla \cdot (p_0 \tilde{\mathbf{U}})
+            + \frac{2}{3} p_0 \nabla \cdot \tilde{\mathbf{U}} = 0
+
+        MHD induction:
+
+        .. math::
+
+            \frac{\partial \tilde{\mathbf{B}}}{\partial t}
+            - \nabla \times (\tilde{\mathbf{U}} \times \mathbf{B}_0) = 0
+
+        Energetic-particle Vlasov equation:
+
+        .. math::
+
+            \frac{\partial f_\textnormal{h}}{\partial t}
+            + (\mathbf{v} + \tilde{\mathbf{U}}_\perp) \cdot \nabla f_\textnormal{h}
+            + \left[
+            \frac{1}{\epsilon} \mathbf{v} \times (\mathbf{B}_0 + \tilde{\mathbf{B}})
+            - \nabla \tilde{\mathbf{U}}_\perp \cdot \mathbf{v}
+            \right] \cdot \frac{\partial f_\textnormal{h}}{\partial \mathbf{v}} = 0
+
+        Perpendicular pressure tensor:
+
+        .. math::
+
+            \tilde{\mathbb{P}}_{\textnormal{h},\perp} = \int \mathbf{v}_\perp \mathbf{v}_\perp^\top f_\textnormal{h} \, d \mathbf{v}
 
         where 
 
         .. math::
 
-            \epsilon = \frac{\hat \omega}{2 \pi \, \hat \Omega_{\textnormal{c,hot}}} \,,\qquad \textnormal{with} \qquad\hat \Omega_{\textnormal{c,hot}} = \frac{Z_\textnormal{h}e \hat B}{A_\textnormal{h} m_\textnormal{H}}\,.
+            \epsilon = \frac{\hat \omega}{2 \pi \, \hat \Omega_{\textnormal{c,hot}}},
+            \qquad
+            \hat \Omega_{\textnormal{c,hot}} = \frac{Z_\textnormal{h} e \hat B}{A_\textnormal{h} m_\textnormal{H}}
         """
 
     @classmethod

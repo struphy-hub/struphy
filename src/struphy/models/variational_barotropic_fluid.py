@@ -99,13 +99,21 @@ class VariationalBarotropicFluid(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r""":ref:`Equations <gempic>`:
+        r"""**PDEs solved by model:**
+
+        Continuity:
 
         .. math::
 
-            &\partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 \,,
-            \\[4mm]
-            &\partial_t (\rho \mathbf u) + \nabla \cdot (\rho \mathbf u \otimes \mathbf u) + \rho \nabla \frac{(\rho \mathcal U (\rho))}{\partial \rho} = 0 \,.
+            \partial_t \rho + \nabla \cdot (\rho \mathbf{u}) = 0
+
+        Momentum:
+
+        .. math::
+
+            \partial_t (\rho \mathbf{u})
+            + \nabla \cdot (\rho \mathbf{u} \otimes \mathbf{u})
+            + \rho \nabla \frac{(\rho \mathcal{U}(\rho))}{\partial \rho} = 0
 
         where the internal energy per unit mass is :math:`\mathcal U(\rho) = \rho/2`.
         """

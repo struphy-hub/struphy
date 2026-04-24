@@ -126,18 +126,33 @@ class ViscousFluid(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r""":ref:`Equations <gempic>`:
+        r"""**PDEs solved by model:**
+
+        Continuity:
 
         .. math::
 
-            &\partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 \,,
-            \\[4mm]
-            &\partial_t (\rho \mathbf u) + \nabla \cdot (\rho \mathbf u \otimes \mathbf u) + \rho \nabla \frac{(\rho \mathcal U (\rho, s))}{\partial \rho} + s \nabla \frac{(\rho \mathcal U (\rho, s))}{\partial s} - \nabla \cdot \left((\mu +\mu_a(\mathbf x)) \nabla \mathbf u\right) = 0 \,,
-            \\[4mm]
-            &\partial_t s + \nabla \cdot ( s \mathbf u ) = \frac{1}{T}\left((\mu+\mu_a(\mathbf x)) |\nabla \mathbf u|^2 \right) \,,
+            \partial_t \rho + \nabla \cdot (\rho \mathbf{u}) = 0
+
+        Momentum:
+
+        .. math::
+
+            \partial_t (\rho \mathbf{u})
+            + \nabla \cdot (\rho \mathbf{u} \otimes \mathbf{u})
+            + \rho \nabla \frac{(\rho \mathcal{U}(\rho, s))}{\partial \rho}
+            + s \nabla \frac{(\rho \mathcal{U}(\rho, s))}{\partial s}
+            - \nabla \cdot \left( (\mu + \mu_a(\mathbf{x})) \nabla \mathbf{u} \right) = 0
+
+        Entropy:
+
+        .. math::
+
+            \partial_t s + \nabla \cdot (s \mathbf{u})
+            = \frac{1}{T} \left( (\mu + \mu_a(\mathbf{x})) |\nabla \mathbf{u}|^2 \right)
 
         where the internal energy per unit mass is :math:`\mathcal U(\rho) = \rho^{\gamma-1} \exp(s / \rho)`.
-        and :math:`\mu_a(\mathbf x)` is an artificial viscosity coefficient.
+        and :math:`\mu_a(\mathbf{x})` is an artificial viscosity coefficient.
         """
 
     @classmethod

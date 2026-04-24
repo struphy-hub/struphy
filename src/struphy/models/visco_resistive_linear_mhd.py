@@ -159,19 +159,46 @@ class ViscoResistiveLinearMHD(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r""":ref:`Equations <gempic>`:
+        r"""**PDEs solved by model:**
+
+        Continuity:
 
         .. math::
 
-            &\partial_t \tilde{\rho} + \nabla \cdot ( \rho_0 \tilde{\mathbf u} ) = 0 \,,
-            \\[4mm]
-            &\partial_t (\rho_0 \tilde{\mathbf u}) + \frac{1}{\gamma -1} \nabla \tilde{p} + \mathbf B_0 \times \nabla \times \tilde{\mathbf B} + \tilde{\mathbf B} \times \nabla \times \mathbf B_0 - \nabla \cdot \left((\mu+\mu_a(\mathbf x)) \nabla \tilde{\mathbf u} \right) = 0 \,,
-            \\[4mm]
-            &\partial_t \tilde{p} + \tilde{\mathbf u} \cdot \nabla p_0 + \gamma p_0 \nabla \cdot \tilde{\mathbf u} = \frac{1}{(\gamma -1)}\left((\mu+\mu_a(\mathbf x)) |\nabla \tilde{\mathbf u}|^2 + (\eta + \eta_a(\mathbf x)) |\nabla \times \tilde{\mathbf B}|^2\right) \,,
-            \\[4mm]
-            &\partial_t \tilde{\mathbf B} + \nabla \times ( \mathbf B_0 \times \tilde{\mathbf u} ) + \nabla \times (\eta + \eta_a(\mathbf x)) \nabla \times \tilde{\mathbf B} = 0 \,,
+            \partial_t \tilde{\rho} + \nabla \cdot (\rho_0 \tilde{\mathbf{u}}) = 0
 
-        and :math:`\mu_a(\mathbf x)` and :math:`\eta_a(\mathbf x)` are artificial viscosity and resistivity coefficients.
+        Momentum:
+
+        .. math::
+
+            \partial_t (\rho_0 \tilde{\mathbf{u}})
+            + \frac{1}{\gamma - 1} \nabla \tilde{p}
+            + \mathbf{B}_0 \times \nabla \times \tilde{\mathbf{B}}
+            + \tilde{\mathbf{B}} \times \nabla \times \mathbf{B}_0
+            - \nabla \cdot \left( (\mu + \mu_a(\mathbf{x})) \nabla \tilde{\mathbf{u}} \right) = 0
+
+        Pressure:
+
+        .. math::
+
+            \partial_t \tilde{p}
+            + \tilde{\mathbf{u}} \cdot \nabla p_0
+            + \gamma p_0 \nabla \cdot \tilde{\mathbf{u}}
+            = \frac{1}{\gamma - 1}
+            \left(
+            (\mu + \mu_a(\mathbf{x})) |\nabla \tilde{\mathbf{u}}|^2
+            + (\eta + \eta_a(\mathbf{x})) |\nabla \times \tilde{\mathbf{B}}|^2
+            \right)
+
+        Induction:
+
+        .. math::
+
+            \partial_t \tilde{\mathbf{B}}
+            + \nabla \times (\mathbf{B}_0 \times \tilde{\mathbf{u}})
+            + \nabla \times (\eta + \eta_a(\mathbf{x})) \nabla \times \tilde{\mathbf{B}} = 0
+
+        Here :math:`\mu_a(\mathbf{x})` and :math:`\eta_a(\mathbf{x})` are artificial viscosity and resistivity coefficients.
         """
 
     @classmethod

@@ -157,19 +157,44 @@ class ViscoResistiveMHD_with_p(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r""":ref:`Equations <gempic>`:
+        r"""**PDEs solved by model:**
+
+        Continuity:
 
         .. math::
 
-            &\partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 \,,
-            \\[4mm]
-            &\partial_t (\rho \mathbf u) + \nabla \cdot (\rho \mathbf u \otimes \mathbf u) + \frac{1}{\gamma -1} \nabla p + \mathbf B \times \nabla \times \mathbf B - \nabla \cdot \left((\mu+\mu_a(\mathbf x)) \nabla \mathbf u \right) = 0 \,,
-            \\[4mm]
-            &\partial_t p + u \cdot \nabla p + \gamma p \nabla \cdot u = \frac{1}{(\gamma -1)}\left((\mu+\mu_a(\mathbf x)) |\nabla \mathbf u|^2 + (\eta + \eta_a(\mathbf x)) |\nabla \times \mathbf B|^2\right) \,,
-            \\[4mm]
-            &\partial_t \mathbf B + \nabla \times ( \mathbf B \times \mathbf u ) + \nabla \times (\eta + \eta_a(\mathbf x)) \nabla \times \mathbf B = 0 \,,
+            \partial_t \rho + \nabla \cdot (\rho \mathbf{u}) = 0
 
-        and :math:`\mu_a(\mathbf x)` and :math:`\eta_a(\mathbf x)` are artificial viscosity and resistivity coefficients.
+        Momentum:
+
+        .. math::
+
+            \partial_t (\rho \mathbf{u})
+            + \nabla \cdot (\rho \mathbf{u} \otimes \mathbf{u})
+            + \frac{1}{\gamma - 1} \nabla p
+            + \mathbf{B} \times \nabla \times \mathbf{B}
+            - \nabla \cdot \left( (\mu + \mu_a(\mathbf{x})) \nabla \mathbf{u} \right) = 0
+
+        Pressure:
+
+        .. math::
+
+            \partial_t p + u \cdot \nabla p + \gamma p \nabla \cdot u
+            = \frac{1}{\gamma - 1}
+            \left(
+            (\mu + \mu_a(\mathbf{x})) |\nabla \mathbf{u}|^2
+            + (\eta + \eta_a(\mathbf{x})) |\nabla \times \mathbf{B}|^2
+            \right)
+
+        Induction:
+
+        .. math::
+
+            \partial_t \mathbf{B}
+            + \nabla \times (\mathbf{B} \times \mathbf{u})
+            + \nabla \times (\eta + \eta_a(\mathbf{x})) \nabla \times \mathbf{B} = 0
+
+        Here :math:`\mu_a(\mathbf{x})` and :math:`\eta_a(\mathbf{x})` are artificial viscosity and resistivity coefficients.
         """
 
     @classmethod

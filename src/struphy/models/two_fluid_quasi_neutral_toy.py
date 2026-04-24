@@ -146,22 +146,35 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r""":ref:`Equations <gempic>`:
+        r"""**PDEs solved by model:**
+
+        Ion momentum:
 
         .. math::
 
-            \frac{\partial \mathbf u}{\partial t} &= - \nabla \phi + \frac{\mathbf u \times \mathbf B_0}{\varepsilon} + \nu \Delta \mathbf u + \mathbf f\,,
-            \\[2mm]
-            0 &= \nabla \phi - \frac{\mathbf u_e \times \mathbf B_0}{\varepsilon} + \nu_e \Delta \mathbf u_e + \mathbf f_e \,,
-            \\[3mm]
-            \nabla & \cdot (\mathbf u - \mathbf u_e) = 0\,,
+            \frac{\partial \mathbf{u}}{\partial t}
+            = -\nabla \phi + \frac{\mathbf{u} \times \mathbf{B}_0}{\varepsilon} + \nu \Delta \mathbf{u} + \mathbf{f}
 
-        where :math:`\mathbf B_0` is a static magnetic field and :math:`\mathbf f, \mathbf f_e` are given forcing terms,
+        Electron momentum:
+
+        .. math::
+
+            0 = \nabla \phi - \frac{\mathbf{u}_e \times \mathbf{B}_0}{\varepsilon} + \nu_e \Delta \mathbf{u}_e + \mathbf{f}_e
+
+        Quasi-neutrality constraint:
+
+        .. math::
+
+            \nabla \cdot (\mathbf{u} - \mathbf{u}_e) = 0
+
+        where :math:`\mathbf{B}_0` is a static magnetic field and :math:`\mathbf{f}, \mathbf{f}_e` are given forcing terms,
         and with the normalization parameter
 
         .. math::
 
-            \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t} \,,\qquad \textnormal{with} \,,\qquad \hat \Omega_{\textnormal{c}} = \frac{(Ze) \hat B}{(A m_\textnormal{H})}\,,
+            \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t},
+            \qquad
+            \hat \Omega_{\textnormal{c}} = \frac{(Ze) \hat B}{(A m_\textnormal{H})}
         """
 
     @classmethod

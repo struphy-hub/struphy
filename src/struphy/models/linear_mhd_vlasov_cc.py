@@ -193,39 +193,72 @@ class LinearMHDVlasovCC(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r""":ref:`Equations <gempic>`:
+        r"""**PDEs solved by model:**
+
+        MHD continuity:
 
         .. math::
 
-            \begin{align}
-            \textnormal{MHD}\,\, &\left\{\,\,
-            \begin{aligned}
-            &\frac{\partial \tilde{\rho}}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,,
-            \\[2mm]
-            \rho_0 &\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p
-            =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 + \mathbf{J}_0\times \tilde{\mathbf{B}} \color{blue} + \frac{A_\textnormal{h}}{A_\textnormal{b}} \frac{1}{\varepsilon} \left(n_\textnormal{h}\tilde{\mathbf{U}}-n_\textnormal{h}\mathbf{u}_\textnormal{h}\right)\times(\mathbf{B}_0+\tilde{\mathbf{B}}) \color{black}\,,
-            \\[2mm]
-            &\frac{\partial \tilde p}{\partial t} + (\gamma-1)\nabla\cdot(p_0 \tilde{\mathbf{U}})
-            + p_0\nabla\cdot \tilde{\mathbf{U}}=0\,,
-            \\[2mm]
-            &\frac{\partial \tilde{\mathbf{B}}}{\partial t} = \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)\,,\qquad \nabla\cdot\tilde{\mathbf{B}}=0\,,
-            \end{aligned}
-            \right.
-            \\[2mm]
-            \textnormal{EPs}\,\, &\left\{\,\,
-            \begin{aligned}
-            &\quad\,\,\frac{\partial f_\textnormal{h}}{\partial t}+\mathbf{v}\cdot\nabla f_\textnormal{h} + \frac{1}{\varepsilon} \left[\color{blue} (\mathbf{B}_0+\tilde{\mathbf{B}})\times\tilde{\mathbf{U}} \color{black} + \mathbf{v}\times(\mathbf{B}_0+\tilde{\mathbf{B}})\right]\cdot \frac{\partial f_\textnormal{h}}{\partial \mathbf{v}} =0\,,
-            \\[2mm]
-            &\quad\,\,n_\textnormal{h}=\int_{\mathbb{R}^3}f_\textnormal{h}\,\textnormal{d}^3 \mathbf v\,,\qquad n_\textnormal{h}\mathbf{u}_\textnormal{h}=\int_{\mathbb{R}^3}f_\textnormal{h}\mathbf{v}\,\textnormal{d}^3 \mathbf v\,,
-            \end{aligned}
-            \right.
-            \end{align}
+            \frac{\partial \tilde{\rho}}{\partial t} + \nabla \cdot (\rho_0 \tilde{\mathbf{U}}) = 0
+
+        MHD momentum:
+
+        .. math::
+
+            \rho_0 \frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde{p}
+            = (\nabla \times \tilde{\mathbf{B}}) \times \mathbf{B}_0
+            + \mathbf{J}_0 \times \tilde{\mathbf{B}}
+            \color{blue}
+            + \frac{A_\textnormal{h}}{A_\textnormal{b}} \frac{1}{\varepsilon}
+            \left( n_\textnormal{h} \tilde{\mathbf{U}} - n_\textnormal{h} \mathbf{u}_\textnormal{h} \right)
+            \times (\mathbf{B}_0 + \tilde{\mathbf{B}})
+            \color{black}
+
+        MHD pressure:
+
+        .. math::
+
+            \frac{\partial \tilde{p}}{\partial t}
+            + (\gamma - 1) \nabla \cdot (p_0 \tilde{\mathbf{U}})
+            + p_0 \nabla \cdot \tilde{\mathbf{U}} = 0
+
+        MHD induction:
+
+        .. math::
+
+            \frac{\partial \tilde{\mathbf{B}}}{\partial t} = \nabla \times (\tilde{\mathbf{U}} \times \mathbf{B}_0),
+            \qquad
+            \nabla \cdot \tilde{\mathbf{B}} = 0
+
+        Energetic-particle Vlasov equation:
+
+        .. math::
+
+            \frac{\partial f_\textnormal{h}}{\partial t}
+            + \mathbf{v} \cdot \nabla f_\textnormal{h}
+            + \frac{1}{\varepsilon}
+            \left[
+            \color{blue}
+            (\mathbf{B}_0 + \tilde{\mathbf{B}}) \times \tilde{\mathbf{U}}
+            \color{black}
+            + \mathbf{v} \times (\mathbf{B}_0 + \tilde{\mathbf{B}})
+            \right] \cdot \frac{\partial f_\textnormal{h}}{\partial \mathbf{v}} = 0
+
+        Energetic-particle moments:
+
+        .. math::
+
+            n_\textnormal{h} = \int_{\mathbb{R}^3} f_\textnormal{h} \, \textnormal{d}^3 \mathbf{v},
+            \qquad
+            n_\textnormal{h} \mathbf{u}_\textnormal{h} = \int_{\mathbb{R}^3} f_\textnormal{h} \mathbf{v} \, \textnormal{d}^3 \mathbf{v}
 
         where :math:`\mathbf{J}_0 = \nabla\times\mathbf{B}_0` and
 
         .. math::
 
-            \varepsilon = \frac{1}{\hat \Omega_{\textnormal{c,hot}} \hat t}\,,\qquad \textnormal{with} \qquad\hat \Omega_{\textnormal{c,hot}} = \frac{Z_\textnormal{h}e \hat B}{A_\textnormal{h} m_\textnormal{H}}\,.
+            \varepsilon = \frac{1}{\hat \Omega_{\textnormal{c,hot}} \hat t},
+            \qquad
+            \hat \Omega_{\textnormal{c,hot}} = \frac{Z_\textnormal{h} e \hat B}{A_\textnormal{h} m_\textnormal{H}}
         """
 
     @classmethod

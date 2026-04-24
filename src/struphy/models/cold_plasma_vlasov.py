@@ -211,33 +211,58 @@ class ColdPlasmaVlasov(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r""":ref:`Equations <gempic>`:
+        r"""**PDEs solved by model:**
+
+        Hot Vlasov species:
 
         .. math::
 
-            &\frac{\partial f}{\partial t} + \mathbf{v} \cdot \, \nabla f + \frac{1}{\varepsilon_\textnormal{h}}\Big[ \mathbf{E} + \mathbf{v} \times \left( \mathbf{B} + \mathbf{B}_0 \right) \Big]
-                \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,,
-            \\[2mm]
-            \frac{1}{n_0} &\frac{\partial \mathbf j_\textnormal{c}}{\partial t} = \frac{1}{\varepsilon_\textnormal{c}} \mathbf E + \frac{1}{\varepsilon_\textnormal{c} n_0} \mathbf j_\textnormal{c} \times \mathbf B_0\,,
-            \\[2mm]
-            &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,,
-            \\[2mm]
-            -&\frac{\partial \mathbf E}{\partial t} + \nabla\times\mathbf B =
-            \frac{\alpha^2}{\varepsilon_\textnormal{h}} \left( \mathbf j_\textnormal{c} + \int_{\mathbb{R}^3} \mathbf{v} f \, \text{d}^3 \mathbf{v} \right) \,,
+            \frac{\partial f}{\partial t}
+            + \mathbf{v} \cdot \nabla f
+            + \frac{1}{\varepsilon_\textnormal{h}}
+            \Big[ \mathbf{E} + \mathbf{v} \times \left( \mathbf{B} + \mathbf{B}_0 \right) \Big]
+            \cdot \frac{\partial f}{\partial \mathbf{v}} = 0
 
-        where :math:`(n_0,\mathbf B_0)` denotes a (inhomogeneous) background and
+        Cold-plasma current:
 
         .. math::
 
-            \alpha = \frac{\hat \Omega_\textnormal{p,cold}}{\hat \Omega_\textnormal{c,cold}}\,, \qquad \varepsilon_\textnormal{c} = \frac{1}{\hat \Omega_\textnormal{c,cold} \hat t}\,, \qquad \varepsilon_\textnormal{h} = \frac{1}{\hat \Omega_\textnormal{c,hot} \hat t} \,.
+            \frac{1}{n_0} \frac{\partial \mathbf{j}_\textnormal{c}}{\partial t}
+            = \frac{1}{\varepsilon_\textnormal{c}} \mathbf{E}
+            + \frac{1}{\varepsilon_\textnormal{c} n_0} \mathbf{j}_\textnormal{c} \times \mathbf{B}_0
+
+        Faraday's law:
+
+        .. math::
+
+            \frac{\partial \mathbf{B}}{\partial t} + \nabla \times \mathbf{E} = 0
+
+        Ampère's law:
+
+        .. math::
+
+            -\frac{\partial \mathbf{E}}{\partial t} + \nabla \times \mathbf{B}
+            = \frac{\alpha^2}{\varepsilon_\textnormal{h}}
+            \left( \mathbf{j}_\textnormal{c} + \int_{\mathbb{R}^3} \mathbf{v} f \, \text{d}^3 \mathbf{v} \right)
+
+        Background and normalization parameters:
+
+        .. math::
+
+            \alpha = \frac{\hat \Omega_\textnormal{p,cold}}{\hat \Omega_\textnormal{c,cold}},
+            \qquad
+            \varepsilon_\textnormal{c} = \frac{1}{\hat \Omega_\textnormal{c,cold} \hat t},
+            \qquad
+            \varepsilon_\textnormal{h} = \frac{1}{\hat \Omega_\textnormal{c,hot} \hat t}
+
+        where :math:`(n_0, \mathbf{B}_0)` denotes an inhomogeneous background.
 
         At initial time the Poisson equation is solved once to weakly satisfy the Gauss law:
 
         .. math::
 
-            \begin{align}
-                \nabla \cdot \mathbf{E} & = \nu \frac{\alpha^2}{\varepsilon_\textnormal{h}} \int_{\mathbb{R}^3} f \, \text{d}^3 \mathbf{v}\,.
-            \end{align}
+            \nabla \cdot \mathbf{E}
+            = \nu \frac{\alpha^2}{\varepsilon_\textnormal{h}} \int_{\mathbb{R}^3} f \, \text{d}^3 \mathbf{v}
         """
 
     @classmethod

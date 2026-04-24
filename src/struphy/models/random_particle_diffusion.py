@@ -84,11 +84,13 @@ class RandomParticleDiffusion(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r""":ref:`Equations <gempic>`: Find :math:`u:\mathbb R\times \Omega\to \mathbb R^+` such that
+        r"""**PDEs solved by model:**
+
+        Find :math:`u : \mathbb{R} \times \Omega \to \mathbb{R}^+` such that
 
         .. math::
 
-            \frac{\partial u}{\partial t} -  D \, \Delta u = 0\,,
+            \frac{\partial u}{\partial t} - D \, \Delta u = 0
 
         where :math:`D > 0` is a positive diffusion coefficient.
         """
