@@ -1,6 +1,53 @@
 # Changelog
 
 
+## Struphy 3.1.0 - 2026-04-24
+
+* [PyPI](https://pypi.org/project/struphy/3.1.0)
+* [GitHub Pages](https://struphy-hub.github.io/struphy/index.html)
+* [GitHub release](https://github.com/struphy-hub/struphy/releases/tag/v3.1.0)
+* [Diff to previous release](https://github.com/struphy-hub/struphy/compare/v3.0.4...v3.1.0)
+
+
+### Headlines
+
+* Refactoring of the `Derham` class: https://github.com/struphy-hub/struphy/pull/212
+    - Renamed `Nel -> num_elements`, `p -> degree`, `nq_pr -> nquads_proj`, `polar_ck -> polar_splines` 
+    - The type of spline basis functions is now set via the argument `bcs`, which is a tuple of length three. It holds the type for each direction: `None` for periodic, or a tuple of length two with either `free` or `dirichlet` to indicate the type of clamped splines. `bcs` replaces the two arguments `spl_kind` and `dirichlet_bc`
+    - The lifting is defined for each `FEECVariable` separately through the new attribute `lifting_function`
+* Refactoring of `WeightedMassOperators.create_weighted_mass` method: https://github.com/struphy-hub/struphy/pull/227
+    - The signature remains largely the same, except that list input for weights has been replaced by tuple input. Moreover, within the tuple, one can now pass a `SplineFunction` object, either from H1 or L2 space, which will be multiplied to the constant weights during `.assemble()`. **This allows for time dependent mass operators in nonlinear simulations (formerly treated with workarounds).**
+    - In the constructor of `create_weighted_mass`, we now evaluate all callables derived from `weights: tuple[str]` on the integration grid, multiply them together and then pass them as xp.arrays to `WeightedMassOperator` for building the object. This leads to much simpler code than in the previous version, where we built composed functions and passed them as weights.
+    - In `MassMatrixPreconditioner`, to build the Kronecker matrices from 1D matrices without domain decomposition, the values of the weights are now retrieved via an **MPI sub-communicator**, because the weights in M0, M1 etc. are now given as local xp.arrays, not as callables anymore.
+* Use `logging` instead of print statements; use function `set_logging_level` from the API to set the logging level of all handlers. With pytest you can use `pytest --logging-level DEBUG src/struphy` to set the loggong level: https://github.com/struphy-hub/struphy/pull/199 and https://github.com/struphy-hub/struphy/pull/219
+* New user guide: https://github.com/struphy-hub/struphy/pull/200
+* Remove two submodules `struphy-parameter-files` and `struphy-tutorials` in favor of the new folders `examples/` or `tutorials/`: https://github.com/struphy-hub/struphy/pull/206
+
+### API changes
+
+* `base_units` is removed from the `StruphyModel` constructor; all equation parameters that can be seen in the model docstring can be passed to the model constructor: https://github.com/struphy-hub/struphy/pull/222
+
+
+### User news
+
+* Add `to_dict` and `from_dict` methods to the `Simulation` class: https://github.com/struphy-hub/struphy/pull/186
+* Add `__repr__` and `__repr_no_defaults__` methods to most classes in the API: https://github.com/struphy-hub/struphy/pull/193
+* Using `pyvista`; ddd `show_3d` and `create_geometry_mesh` methods to `Domain` class: https://github.com/struphy-hub/struphy/pull/195
+* Add iterators to models and domains: https://github.com/struphy-hub/struphy/pull/196
+* Added export and from_file methods to `SimulationBase` class: https://github.com/struphy-hub/struphy/pull/197
+* Added name and description to the Simulation class: https://github.com/struphy-hub/struphy/pull/198
+* New model `ToyGyrokinetic` to simulate the diocotron instability: https://github.com/struphy-hub/struphy/pull/201
+* New classes for scalar quantities tracked during simulation (via new type `Scalar`): https://github.com/struphy-hub/struphy/pull/220
+* The components of a model docstring are now available as class methods: https://github.com/struphy-hub/struphy/pull/229
+
+
+### Bug fixes
+
+* Weights in initial Poisson solves of kinetic models without control variate fixed: https://github.com/struphy-hub/struphy/pull/192
+
+
+
+
 ## Struphy 3.0.4 - 2026-02-27
 
 * [PyPI](https://pypi.org/project/struphy/3.0.4)
@@ -11,6 +58,7 @@
 ### Bug fixes
 
 * New lower bound on pyccel is set to 2.2.0, due to this pyccel bug fix: https://github.com/pyccel/pyccel/pull/2567 
+
 
 
 
