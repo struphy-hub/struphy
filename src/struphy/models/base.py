@@ -19,7 +19,7 @@ from struphy.physics.physics import Units
 from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.docstring_converter import auto_convert_docstring, info, rst_to_html, rst_to_markdown
+from struphy.utils.docstring_converter import rst_to_html, rst_to_markdown
 from struphy.utils.utils import all_class_params_are_default, all_subclasses
 
 logger = logging.getLogger("struphy")
