@@ -290,11 +290,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
             \\[2mm]
             \mathbf{E}^* &= -\tilde{\mathbf{U}} \times \mathbf{B} - \epsilon \mu \nabla (\mathbf{b}_0 \cdot \mathbf{B})
 
-        with the normalization parameter 
-
-        .. math::
-
-            \epsilon = \frac{1}{\hat \Omega_\textnormal{c,hot} \hat t}, \qquad \hat \Omega_\textnormal{c,hot} = \frac{Z_\textnormal{h} e \hat B}{A_\textnormal{h} m_\textnormal{H}}
         """
 
     @classmethod

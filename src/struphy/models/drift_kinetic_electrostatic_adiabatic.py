@@ -176,12 +176,6 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
             \mathbf{E}^* = -\nabla \phi - \varepsilon \mu \nabla |B_0|, \qquad \mathbf{B}^* = \mathbf{B}_0 + \varepsilon v_\parallel \nabla \times \mathbf{b}_0, \qquad B^*_\parallel = \mathbf{B}^* \cdot \mathbf{b}_0
 
-        and with the normalization parameters
-
-        .. math::
-
-            \varepsilon := \frac{1}{\hat \Omega_\textrm{c} \hat t}, \qquad \hat \Omega_\textrm{c} = \frac{q_\textrm{i} \hat B}{m_\textrm{i}}
-
         Notes
         -----
 

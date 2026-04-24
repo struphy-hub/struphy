@@ -231,11 +231,7 @@ class LinearMHDVlasovCC(StruphyModel):
 
             n_\textnormal{h} = \int_{\mathbb{R}^3} f_\textnormal{h} \, \textnormal{d}^3 \mathbf{v}, \qquad n_\textnormal{h} \mathbf{u}_\textnormal{h} = \int_{\mathbb{R}^3} f_\textnormal{h} \mathbf{v} \, \textnormal{d}^3 \mathbf{v}
 
-        where :math:`\mathbf{J}_0 = \nabla\times\mathbf{B}_0` and
-
-        .. math::
-
-            \varepsilon = \frac{1}{\hat \Omega_{\textnormal{c,hot}} \hat t}, \qquad \hat \Omega_{\textnormal{c,hot}} = \frac{Z_\textnormal{h} e \hat B}{A_\textnormal{h} m_\textnormal{H}}
+        where :math:`\mathbf{J}_0 = \nabla\times\mathbf{B}_0`.
         """
 
     @classmethod

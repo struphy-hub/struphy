@@ -144,11 +144,6 @@ class GuidingCenter(StruphyModel):
 
             \mathbf{E}^* = -\epsilon \mu \nabla |B_0|, \qquad \mathbf{B}^* = \mathbf{B}_0 + \epsilon v_\parallel \nabla \times \mathbf{b}_0, \qquad B^*_\parallel = \mathbf{B}^* \cdot \mathbf{b}_0
 
-        Moreover,
-
-        .. math::
-
-            \epsilon = \frac{1}{\hat \Omega_{\textnormal{c}} \hat t}, \qquad \hat \Omega_{\textnormal{c}} = \frac{Ze \hat B}{A m_\textnormal{H}}
         """
 
     @classmethod

@@ -181,11 +181,6 @@ class LinearExtendedMHDuniform(StruphyModel):
 
             \frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla \times \left( \tilde{\mathbf{U}} \times \mathbf{B}_0 - \frac{1}{\varepsilon} \frac{\nabla \times \tilde{\mathbf{B}}}{\rho_0} \times \mathbf{B}_0 \right) = 0
 
-        where
-
-        .. math::
-
-            \varepsilon = \frac{1}{\hat \Omega_{\textnormal{c}} \hat t}, \qquad \hat \Omega_{\textnormal{c}} = \frac{Ze \hat B}{A m_\textnormal{H}}
         """
 
     @classmethod

@@ -237,12 +237,6 @@ class ColdPlasmaVlasov(StruphyModel):
 
             -\frac{\partial \mathbf{E}}{\partial t} + \nabla \times \mathbf{B} = \frac{\alpha^2}{\varepsilon_\textnormal{h}} \left( \mathbf{j}_\textnormal{c} + \int_{\mathbb{R}^3} \mathbf{v} f \, \text{d}^3 \mathbf{v} \right)
 
-        Background and normalization parameters:
-
-        .. math::
-
-            \alpha = \frac{\hat \Omega_\textnormal{p,cold}}{\hat \Omega_\textnormal{c,cold}}, \qquad \varepsilon_\textnormal{c} = \frac{1}{\hat \Omega_\textnormal{c,cold} \hat t}, \qquad \varepsilon_\textnormal{h} = \frac{1}{\hat \Omega_\textnormal{c,hot} \hat t}
-
         where :math:`(n_0, \mathbf{B}_0)` denotes an inhomogeneous background.
 
         At initial time the Poisson equation is solved once to weakly satisfy the Gauss law:

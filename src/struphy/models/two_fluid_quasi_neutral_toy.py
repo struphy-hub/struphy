@@ -166,12 +166,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
 
             \nabla \cdot (\mathbf{u} - \mathbf{u}_e) = 0
 
-        where :math:`\mathbf{B}_0` is a static magnetic field and :math:`\mathbf{f}, \mathbf{f}_e` are given forcing terms,
-        and with the normalization parameter
-
-        .. math::
-
-            \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t}, \qquad \hat \Omega_{\textnormal{c}} = \frac{(Ze) \hat B}{(A m_\textnormal{H})}
+        where :math:`\mathbf{B}_0` is a static magnetic field and :math:`\mathbf{f}, \mathbf{f}_e` are given forcing terms.
         """
 
     @classmethod

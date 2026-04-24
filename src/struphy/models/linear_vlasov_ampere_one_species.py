@@ -214,12 +214,6 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
             \frac{\partial \tilde{f}}{\partial t} + \mathbf{v} \cdot \nabla \tilde{f} + \frac{1}{\varepsilon} \left( \mathbf{E}_0 + \mathbf{v} \times \mathbf{B}_0 \right) \cdot \frac{\partial \tilde{f}}{\partial \mathbf{v}} = \frac{1}{v_{\text{th}}^2 \varepsilon} \tilde{\mathbf{E}} \cdot \mathbf{v} f_0
 
-        with the normalization parameter
-
-        .. math::
-
-            \alpha = \frac{\hat \Omega_\textnormal{p}}{\hat \Omega_\textnormal{c}}, \qquad \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t}, \qquad \hat \Omega_\textnormal{p} = \sqrt{\frac{\hat n (Ze)^2}{\epsilon_0 (A m_\textnormal{H})}}, \qquad \hat \Omega_{\textnormal{c}} = \frac{(Ze) \hat B}{(A m_\textnormal{H})}
-
         where :math:`Z=-1` and :math:`A=1/1836` for electrons. The background distribution function :math:`f_0` is a uniform Maxwellian
 
         .. math::

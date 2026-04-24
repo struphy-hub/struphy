@@ -241,11 +241,6 @@ class LinearMHDVlasovPC(StruphyModel):
 
             \tilde{\mathbb{P}}_{\textnormal{h},\perp} = \int \mathbf{v}_\perp \mathbf{v}_\perp^\top f_\textnormal{h} \, d \mathbf{v}
 
-        where 
-
-        .. math::
-
-            \epsilon = \frac{\hat \omega}{2 \pi \, \hat \Omega_{\textnormal{c,hot}}}, \qquad \hat \Omega_{\textnormal{c,hot}} = \frac{Z_\textnormal{h} e \hat B}{A_\textnormal{h} m_\textnormal{H}}
         """
 
     @classmethod

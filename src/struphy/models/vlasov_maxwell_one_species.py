@@ -233,12 +233,6 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
             \frac{\partial \mathbf{B}}{\partial t} + \nabla \times \mathbf{E} = 0
 
-        with the normalization parameters
-
-        .. math::
-
-            \alpha = \frac{\hat \Omega_\textnormal{p}}{\hat \Omega_\textnormal{c}}, \qquad \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t}, \qquad \hat \Omega_\textnormal{p} = \sqrt{\frac{\hat n (Ze)^2}{\epsilon_0 (A m_\textnormal{H})}}, \qquad \hat \Omega_{\textnormal{c}} = \frac{(Ze) \hat B}{(A m_\textnormal{H})}
-
         where :math:`Z=-1` and :math:`A=1/1836` for electrons.
         At initial time the weak Poisson equation is solved once to weakly satisfy Gauss' law,
 
