@@ -3,6 +3,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.linear_vlasov_ampere_one_species import LinearVlasovAmpereOneSpecies
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarPIC, Scalars
 from struphy.models.species import (
     FieldSpecies,
     ParticleSpecies,
@@ -13,7 +14,6 @@ from struphy.propagators import (
     propagators_fields,
     propagators_markers,
 )
-from struphy.propagators.base import Propagator
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -172,21 +172,20 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         self.propagators.maxwell.variables.e = self.em_fields.e_field
         self.propagators.maxwell.variables.b = self.em_fields.b_field
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_E")
-        self.add_scalar("en_B")
-        self.add_scalar("en_w", compute="from_particles", variable=self.kinetic_ions.var)
-        self.add_scalar("en_tot")
+        # 5. define scalars to be tracked during simulation
+        electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
+        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
+        particle_energy = FunctionScalarPIC(
+            self._compute_en_w,
+            self.kinetic_ions.var,
+        )
+        self.scalars = Scalars(
+            en_E=electric_energy,
+            en_B=magnetic_energy,
+            en_w=particle_energy,
+            en_tot=electric_energy + magnetic_energy + particle_energy,
+        )
 
         # initial Poisson (not a propagator used in time stepping)
         self.initial_poisson = propagators_fields.Poisson()
         self.initial_poisson.variables.phi = self.em_fields.phi
-
-    def update_scalar_quantities(self):
-        super().update_scalar_quantities()
-
-        # 0.5 * b^T * M_2 * b
-        b = self.em_fields.b_field.spline.vector
-
-        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(b, b)
-        self.update_scalar("en_tot", self.scalar_quantities["en_tot"]["value"][0] + en_B)

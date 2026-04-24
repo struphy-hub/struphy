@@ -292,12 +292,18 @@ def test_eval_pointwise(num_elements, degree, bcs, n_markers=10):
         # compare spline evaluation routines in V0
         val = evaluate_3d(1, 1, 1, tn1, tn2, tn3, *derham.degree, *derham.indN, x0[0], eta1, eta2, eta3)
 
+        logger.debug(f"{derham.V0splines.spline_types_pyccel[0] = }")
+        logger.debug(f"{derham.V1splines.spline_types_pyccel[0] = }")
+        logger.debug(f"{derham.V2splines.spline_types_pyccel[0] = }")
+        logger.debug(f"{derham.V3splines.spline_types_pyccel[0] = }")
+        logger.debug(f"{derham.Vvsplines.spline_types_pyccel[0] = }")
+
         val_mpi = eval_spline_mpi(
             eta1,
             eta2,
             eta3,
             x0_psy._data,
-            derham.V0splines.spline_types_pyccel,
+            derham.V0splines.spline_types_pyccel[0],
             xp.array(derham.degree),
             tn1,
             tn2,
@@ -542,7 +548,7 @@ def test_eval_pointwise(num_elements, degree, bcs, n_markers=10):
             eta2,
             eta3,
             x3_psy._data,
-            derham.V3splines.spline_types_pyccel,
+            derham.V3splines.spline_types_pyccel[0],
             xp.array(derham.degree),
             tn1,
             tn2,
@@ -630,7 +636,7 @@ def test_eval_tensor_product(num_elements, degree, bcs, n_markers=10):
         eta2s,
         eta3s,
         x0_psy._data,
-        derham.V0splines.spline_types_pyccel,
+        derham.V0splines.spline_types_pyccel[0],
         xp.array(derham.degree),
         tn1,
         tn2,
@@ -648,7 +654,7 @@ def test_eval_tensor_product(num_elements, degree, bcs, n_markers=10):
         eta2s,
         eta3s,
         x0_psy._data,
-        derham.V0splines.spline_types_pyccel,
+        derham.V0splines.spline_types_pyccel[0],
         xp.array(derham.degree),
         tn1,
         tn2,
@@ -690,7 +696,7 @@ def test_eval_tensor_product(num_elements, degree, bcs, n_markers=10):
         eta2s,
         eta3s,
         x3_psy._data,
-        derham.V3splines.spline_types_pyccel,
+        derham.V3splines.spline_types_pyccel[0],
         xp.array(derham.degree),
         tn1,
         tn2,
@@ -708,7 +714,7 @@ def test_eval_tensor_product(num_elements, degree, bcs, n_markers=10):
         eta2s,
         eta3s,
         x3_psy._data,
-        derham.V3splines.spline_types_pyccel,
+        derham.V3splines.spline_types_pyccel[0],
         xp.array(derham.degree),
         tn1,
         tn2,
@@ -819,7 +825,7 @@ def test_eval_tensor_product_grid(num_elements, degree, bcs, n_markers=10):
         *spans_f,
         *bds_f,
         x3_psy._data,
-        derham.V3splines.spline_types_pyccel,
+        derham.V3splines.spline_types_pyccel[0],
         xp.array(derham.degree),
         xp.array(x0_psy.starts),
         vals_mpi_fixed,

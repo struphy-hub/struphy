@@ -1,12 +1,13 @@
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.feec.projectors import L2Projector
+from struphy.feec.mass import L2Projector
 from struphy.feec.variational_utilities import (
     InternalEnergyEvaluator,
 )
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, Scalars
 from struphy.models.species import (
     FluidSpecies,
 )
@@ -90,10 +91,15 @@ class VariationalCompressibleFluid(StruphyModel):
         self.propagators.variat_ent.variables.s = self.fluid.entropy
         self.propagators.variat_ent.variables.u = self.fluid.velocity
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_U")
-        self.add_scalar("en_thermo")
-        self.add_scalar("en_tot")
+        # 5. define scalars to be tracked during simulation
+        kinetic_energy = BilinearEnergyFEEC(self.fluid.velocity, bilinear_form_name="WMMnew")
+        thermo_energy = FunctionScalarFEEC(self.update_thermo_energy)
+        total_energy = kinetic_energy + thermo_energy
+        self.scalars = Scalars(
+            en_U=kinetic_energy,
+            en_thermo=thermo_energy,
+            en_tot=total_energy,
+        )
 
     @property
     def bulk_species(self):
@@ -113,18 +119,6 @@ class VariationalCompressibleFluid(StruphyModel):
         self._integrator = projV3(f)
 
         self._energy_evaluator = InternalEnergyEvaluator(Propagator.derham, self.propagators.variat_ent.options.gamma)
-
-    def update_scalar_quantities(self):
-        rho = self.fluid.density.spline.vector
-        u = self.fluid.velocity.spline.vector
-
-        en_U = 0.5 * Propagator.mass_ops.WMM.massop.dot_inner(u, u)
-        self.update_scalar("en_U", en_U)
-
-        en_thermo = self.update_thermo_energy()
-
-        en_tot = en_U + en_thermo
-        self.update_scalar("en_tot", en_tot)
 
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
@@ -179,7 +173,6 @@ class VariationalCompressibleFluid(StruphyModel):
         ener_values = en_prop._proj_rho2_metric_term * e(rhof_values, sf_values)
         en_prop._get_L2dofs_V3(ener_values, dofs=en_prop._linear_form_dl_ds)
         en_thermo = self._integrator.inner(en_prop._linear_form_dl_ds)
-        self.update_scalar("en_thermo", en_thermo)
         return en_thermo
 
     def __ener(self, rho, s):

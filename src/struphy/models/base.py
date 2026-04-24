@@ -6,18 +6,34 @@ from textwrap import indent
 import cunumpy as xp
 from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
+
+try:
+    from IPython.display import HTML, Markdown, display
+except ImportError:
+
+    def HTML(data):
+        return data
+
+    def Markdown(data):
+        return data
+
+    def display(*objects, **kwargs):
+        return objects[0] if objects else None
+
+
 from line_profiler import profile
 from scope_profiler import ProfileManager
 
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
+from struphy.models.scalars import Scalars
 from struphy.models.species import DiagnosticSpecies, FieldSpecies, FluidSpecies, ParticleSpecies, Species
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.physics.physics import Units
 from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.docstring_converter import rst_to_markdown
+from struphy.utils.docstring_converter import rst_to_html, rst_to_markdown
 from struphy.utils.utils import all_class_params_are_default, all_subclasses
 
 logger = logging.getLogger("struphy")
@@ -49,8 +65,8 @@ class StruphyModel(metaclass=StruphyModelMeta):
         Dictionary of particle species in the model.
     diagnostic_species : dict
         Dictionary of diagnostic species in the model.
-    scalar_quantities : dict
-        Dictionary of scalar quantities to be tracked and saved during simulation.
+    scalars : Scalars or None
+        Scalar quantities to be tracked and saved during simulation.
     prop_list : list
         List of propagator objects controlling time integration.
     clone_config : CloneConfig or None
@@ -66,8 +82,6 @@ class StruphyModel(metaclass=StruphyModelMeta):
         Must return velocity scale: "alfvén", "cyclotron", "light", or "thermal".
     allocate_helpers : method
         Must allocate helper arrays and perform initial solves.
-    update_scalar_quantities : method
-        Must define update rules for each scalar quantity.
     Propagators : class
         Must define the propagators used for time integration.
     __init__ : method
@@ -108,10 +122,6 @@ class StruphyModel(metaclass=StruphyModelMeta):
                 # Initialize helper arrays
                 pass
 
-            def update_scalar_quantities(self):
-                # Update tracked scalars
-                pass
-
             class Propagators:
                 # Define propagators
                 pass
@@ -150,10 +160,6 @@ class StruphyModel(metaclass=StruphyModelMeta):
     def allocate_helpers(self, verbose: bool = False):
         """Allocate helper arrays and perform initial solves if needed."""
 
-    @abstractmethod
-    def update_scalar_quantities(self):
-        """Specify an update rule for each item in ``scalar_quantities`` using :meth:`update_scalar`."""
-
     # --------------
     # Common methods
     # --------------
@@ -175,186 +181,138 @@ class StruphyModel(metaclass=StruphyModelMeta):
         return out
 
     @classmethod
-    def info(cls, use_rst=False):
-        """
-        Render a class or docstring in a Jupyter notebook.
+    def info(cls):
+        doc = "**"
+        doc += (
+            rst_to_html(cls.__doc__).split("Parameters")[0].split("<")[0]
+            if cls.__doc__
+            else """Description not available for this model."""
+        )
+        doc += "**"
+        doc += rf"""To see detailed information on the model, run the following methods:
+        
+.. code-block:: python
 
-        This function returns an IPython display object that will render
-        the docstring with proper formatting in Jupyter notebooks.
+    {cls.name()}.pde()
+    {cls.name()}.normalization()
+    {cls.name()}.scalar_quantities()
+    {cls.name()}.discretization()
+    {cls.name()}.long_description()
+    {cls.name()}.examples()
+    {cls.name()}.use_cases()
+    {cls.name()}.cannot_be_used_for()
+"""
+        return display(HTML(rst_to_html(doc)))
 
-        Args:
-            cls: Class or function whose docstring to display
-            use_rst: If True and __doc_rst__ exists, use that instead of __doc__
+    @classmethod
+    def pde(cls):
+        doc_pde = getattr(cls, "doc_pde", None)
+        doc = doc_pde.__doc__ if doc_pde else """PDE description not available for this model."""
+        return display(HTML(rst_to_html(doc)))
 
-        Returns:
-            IPython.display object for rendering in Jupyter
+    @classmethod
+    def normalization(cls):
+        doc_normalization = getattr(cls, "doc_normalization", None)
+        doc = "**Normalization:**\n"
+        doc += (
+            doc_normalization.__doc__
+            if doc_normalization
+            else """Description of normalization not available for this model."""
+        )
+        return display(HTML(rst_to_html(doc)))
 
-        Examples:
-            >>> from struphy.models.maxwell import Maxwell
-            >>> Maxwell.equations()  # Shows HTML version
-            >>> Maxwell.equations(use_rst=True)  # Shows RST as Markdown
-        """
-        try:
-            from IPython.display import HTML, Markdown
-        except ImportError:
-            logger.info("IPython not available. Install jupyter to use this feature.")
-            return None
+    @classmethod
+    def scalar_quantities(cls):
+        doc_scalar_quantities = getattr(cls, "doc_scalar_quantities", None)
+        doc = (
+            doc_scalar_quantities.__doc__
+            if doc_scalar_quantities
+            else """Description of scalar quantities not available for this model."""
+        )
+        return display(HTML(rst_to_html(doc)))
 
-        # Determine which docstring to use
-        if use_rst and hasattr(cls, "__doc_rst__"):
-            doc_text = cls.__doc_rst__
-            # Convert RST to Markdown for better Jupyter rendering
-            md_text = rst_to_markdown(doc_text)
-            return Markdown(md_text)
-        elif hasattr(cls, "__doc__") and cls.__doc__:
-            # Check if it's HTML (contains tags)
-            doc_text = cls.__doc__
-            if "<" in doc_text and ">" in doc_text:
-                # It's HTML
-                return HTML(doc_text)
-            else:
-                # Plain text or RST, show as is
-                return Markdown(doc_text)
-        else:
-            return Markdown("*No docstring available*")
+    @classmethod
+    def discretization(cls):
+        doc_discretization = getattr(cls, "doc_discretization", None)
+        doc = "**Discretization (Propagators called in sequence):**\n"
+        doc += (
+            doc_discretization()
+            if doc_discretization
+            else """Description of discretization not available for this model."""
+        )
+        return display(HTML(rst_to_html(doc)))
+
+    @classmethod
+    def long_description(cls):
+        doc_long_description = getattr(cls, "doc_long_description", None)
+        doc = "**Long description:**\n"
+        doc += (
+            doc_long_description.__doc__
+            if doc_long_description
+            else """Long description not available for this model."""
+        )
+        return display(HTML(rst_to_html(doc)))
+
+    @classmethod
+    def examples(cls):
+        doc_examples = getattr(cls, "doc_examples", None)
+        doc = "**Examples:**\n"
+        doc += doc_examples.__doc__ if doc_examples else """Examples not available for this model."""
+        return display(HTML(rst_to_html(doc)))
+
+    @classmethod
+    def use_cases(cls):
+        doc_use_cases = getattr(cls, "doc_use_cases", None)
+        doc = "**Use cases:**\n"
+        doc += doc_use_cases.__doc__ if doc_use_cases else """Description of use cases not available for this model."""
+        return display(HTML(rst_to_html(doc)))
+
+    @classmethod
+    def cannot_be_used_for(cls):
+        doc_cannot_be_used_for = getattr(cls, "doc_cannot_be_used_for", None)
+        doc = "**Cannot be used for:**\n"
+        doc += (
+            doc_cannot_be_used_for.__doc__
+            if doc_cannot_be_used_for
+            else """Information on scenarios for which the model is not suitable is not available."""
+        )
+        return display(HTML(rst_to_html(doc)))
 
     @classmethod
     def name(cls) -> str:
         return cls.__name__
 
-    def add_scalar(self, name: str, variable: PICVariable | SPHVariable = None, compute=None, summands=None):
-        """
-        Add a scalar to be saved during the simulation.
+    @classmethod
+    def create_doc(cls) -> "Documentation":
+        doc = Documentation(cls)
+        return doc
 
-        Parameters
-        ----------
-        name : str
-            Dictionary key for the scalar.
-        variable : PICVariable | SPHVariable, optional
-            The variable associated with the scalar. Required if compute is 'from_particles'.
-        compute : str, optional
-            Type of scalar, determines the compute operations.
-            Options: 'from_particles' or 'from_field'. Default is None.
-        summands : list, optional
-            List of other scalar names whose values should be summed
-            to compute the value of this scalar. Default is None.
-        """
+    @property
+    def scalars(self) -> Scalars | None:
+        """Scalars to be updated and saved during the simulation."""
+        return getattr(self, "_scalars", Scalars())
 
-        assert isinstance(name, str), "name must be a string"
-        if compute == "from_particles":
-            assert isinstance(variable, (PICVariable, SPHVariable)), f"Variable is needed when {compute =}"
+    @scalars.setter
+    def scalars(self, value: Scalars):
+        assert isinstance(value, Scalars)
+        self._scalars = value
 
-        if not hasattr(self, "_scalar_quantities"):
-            self._scalar_quantities = {}
-
-        self._scalar_quantities[name] = {
-            "value": xp.empty(1, dtype=float),
-            "variable": variable,
-            "compute": compute,
-            "summands": summands,
-        }
-
-    def update_scalar(self, name, value=None):
-        """Update a scalar during the simulation.
-
-        Parameters
-        ----------
-            name : str
-                Dictionary key of the scalar.
-
-            value : float, optional
-                Value to be saved. Required if there are no summands.
-        """
-
-        # Ensure the name is a string
-        assert isinstance(name, str)
-
-        scalars = self.scalar_quantities
-
-        variable: PICVariable | SPHVariable = scalars[name]["variable"]
-        summands = scalars[name]["summands"]
-        compute = scalars[name]["compute"]
-
-        if compute == "from_particles":
-            compute_operations = [
-                "sum_within_clone",
-                "sum_between_clones",
-                "divide_n_mks",
-            ]
-        elif compute == "from_sph":
-            compute_operations = [
-                "sum_world",
-                "divide_n_mks",
-            ]
-        elif compute == "from_field":
-            compute_operations = []
-        else:
-            compute_operations = []
-
-        if summands is None:
-            # Ensure the value is a float if there are no summands
-            assert isinstance(value, float)
-
-            # Create a numpy array to hold the scalar value
-            value_array = xp.array([value], dtype=xp.float64)
-
-            # Perform MPI operations based on the compute flags
-            if "sum_world" in compute_operations and not isinstance(MPI, MockMPI):
-                MPI.COMM_WORLD.Allreduce(
-                    MPI.IN_PLACE,
-                    value_array,
-                    op=MPI.SUM,
-                )
-
-            if "sum_within_clone" in compute_operations and Propagator.derham.comm is not None:
-                Propagator.derham.comm.Allreduce(
-                    MPI.IN_PLACE,
-                    value_array,
-                    op=MPI.SUM,
-                )
-            if self.clone_config is None:
-                num_clones = 1
-            else:
-                num_clones = self.clone_config.num_clones
-
-            if "sum_between_clones" in compute_operations and num_clones > 1:
-                self.clone_config.inter_comm.Allreduce(
-                    MPI.IN_PLACE,
-                    value_array,
-                    op=MPI.SUM,
-                )
-
-            if "average_between_clones" in compute_operations and num_clones > 1:
-                self.clone_config.inter_comm.Allreduce(
-                    MPI.IN_PLACE,
-                    value_array,
-                    op=MPI.SUM,
-                )
-                value_array /= num_clones
-
-            if "divide_n_mks" in compute_operations:
-                # Initialize the total number of markers
-                n_mks_tot = xp.array([variable.particles.Np])
-                value_array /= n_mks_tot
-
-            # Update the scalar value
-            scalars[name]["value"][0] = value_array[0]
-
-        else:
-            # Sum the values of the summands
-            value = sum(scalars[summand]["value"][0] for summand in summands)
-            scalars[name]["value"][0] = value
+    @profile
+    def update_scalar_quantities(self):
+        """Update scalar quantities by calling their .update() method.
+        This should be called at the end of each time step in the simulation loop."""
+        if self.scalars is not None:
+            self.scalars.update()
 
     def print_scalar_quantities(self):
         """
-        Check if scalar_quantities are not "nan" and print to screen.
+        Check if scalars are not "nan" and print to screen.
         """
         sq_str = ""
-        for key, scalar_dict in self._scalar_quantities.items():
-            val = scalar_dict["value"]
-            # logger.info(f"{key}: {val[0]}")  # TODO: use logger --- IGNORE ---
-            assert not xp.isnan(val[0]), f"Scalar {key} is {val[0]}."
-            sq_str += f"{key}:".ljust(25) + "{:4.2e}\n".format(val[0]).rjust(26)
+        for key, scalar in self.scalars.dct.items():
+            val = scalar.value[0]
+            assert not xp.isnan(val), f"Scalar {key} is {val}."
+            sq_str += f"{key}:".ljust(25) + "{:4.2e}\n".format(val).rjust(26)
         logger.info(sq_str)
 
     def setup_equation_params(self, base_units: BaseUnits, verbose=False):
@@ -930,14 +888,63 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
     #     Keys must be the same as in :attr:`~propagators_cls`, values are dictionaries holding the keyword arguments."""
     #     return self._kwargs
 
-    @property
-    def scalar_quantities(self):
-        """A dictionary of scalar quantities to be saved during the simulation."""
-        if not hasattr(self, "_scalar_quantities"):
-            self._scalar_quantities = {}
-        return self._scalar_quantities
+    # @property
+    # def scalar_quantities(self):
+    #     """A dictionary of scalar quantities to be saved during the simulation."""
+    #     if not hasattr(self, "_scalar_quantities"):
+    #         self._scalar_quantities = {}
+    #     return self._scalar_quantities
 
     # @property
     # def time_state(self):
     #     """A pointer to the time variable of the dynamics ('t')."""
     #     return self._time_state
+
+
+class Documentation:
+    def __init__(
+        self,
+        cls: StruphyModel,
+    ):
+        self.description = self.Content(cls.__doc__ if cls.__doc__ else "Description not available for this model.")
+        self.pde = self.Content(cls.doc_pde.__doc__ if cls.doc_pde else "PDE description not available for this model.")
+        self.normalization = self.Content(
+            cls.doc_normalization.__doc__
+            if cls.doc_normalization
+            else "Description of normalization not available for this model."
+        )
+        self.scalar_quantities = self.Content(
+            cls.doc_scalar_quantities.__doc__
+            if cls.doc_scalar_quantities
+            else "Description of scalar quantities not available for this model."
+        )
+        self.discretization = self.Content(
+            cls.doc_discretization()
+            if cls.doc_discretization
+            else "Description of discretization not available for this model."
+        )
+        self.long_description = self.Content(
+            cls.doc_long_description.__doc__
+            if cls.doc_long_description
+            else "Long description not available for this model."
+        )
+        self.examples = self.Content(
+            cls.doc_examples.__doc__ if cls.doc_examples else "Examples not available for this model."
+        )
+        self.use_cases = self.Content(
+            cls.doc_use_cases.__doc__ if cls.doc_use_cases else "Use cases not available for this model."
+        )
+        self.cannot_be_used_for = self.Content(
+            cls.doc_cannot_be_used_for.__doc__
+            if cls.doc_cannot_be_used_for
+            else "Information on scenarios for which the model is not suitable is not available."
+        )
+        self.model_properties = self.Content(
+            f"**Model type:** {cls.model_type()}\n- **Velocity scale:** {cls.velocity_scale}\n- **Bulk species:** {cls.bulk_species}"
+        )
+
+    class Content:
+        def __init__(self, rst, md=None, html=None):
+            self.rst = rst
+            self.md = md or rst_to_markdown(rst)
+            self.html = html or rst_to_html(rst)

@@ -92,7 +92,7 @@ class HasegawaWakatani(StruphyModel):
         self.propagators.hw.variables.n = self.plasma.density
         self.propagators.hw.variables.omega = self.plasma.vorticity
 
-        # define scalars for update_scalar_quantities
+        # 5. define scalars to be tracked during simulation
 
     @property
     def bulk_species(self):
@@ -124,9 +124,6 @@ class HasegawaWakatani(StruphyModel):
 
         if MPI.COMM_WORLD.Get_rank() == 0:
             logger.info("Done.")
-
-    def update_scalar_quantities(self):
-        pass
 
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

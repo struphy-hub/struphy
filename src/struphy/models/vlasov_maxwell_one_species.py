@@ -6,6 +6,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, FunctionScalarPIC, KineticEnergyPIC, Scalars
 from struphy.models.species import (
     FieldSpecies,
     ParticleSpecies,
@@ -227,13 +228,22 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         self.propagators.coupling_va.variables.e = self.em_fields.e_field
         self.propagators.coupling_va.variables.ions = self.kinetic_ions.var
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_E")
-        self.add_scalar("en_B")
-        self.add_scalar("en_f", compute="from_particles", variable=self.kinetic_ions.var)
-        self.add_scalar("en_tot")
+        # 5. define scalars to be tracked during simulation
+        electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
+        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
+        particle_energy = KineticEnergyPIC(
+            self.kinetic_ions.var,
+            normalization=self.kinetic_ions.equation_params.alpha**2,
+        )
+        scalars_dict = {
+            "en_E": electric_energy,
+            "en_B": magnetic_energy,
+            "en_f": particle_energy,
+            "en_tot": electric_energy + magnetic_energy + particle_energy,
+        }
         if measure_gauss_law:
-            self.add_scalar("gauss_error")
+            scalars_dict["gauss_error"] = FunctionScalarPIC(self.calculate_gauss_error, self.kinetic_ions.var)
+        self.scalars = Scalars(**scalars_dict)
 
         # initial Poisson (not a propagator used in time stepping)
         self.initial_poisson = propagators_fields.Poisson()
@@ -330,40 +340,6 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         particles._gather_scalar_in_intercomm_array(scalar=loc_residual, out=self.intercom_residual)
 
         return xp.max([xp.max(self.subcom_residual), xp.max(self.intercom_residual)])
-
-    def update_scalar_quantities(self):
-        # e*M1*e/2
-        e = self.em_fields.e_field.spline.vector
-        b = self.em_fields.b_field.spline.vector
-
-        en_E = 0.5 * Propagator.mass_ops.M1.dot_inner(e, e)
-        self.update_scalar("en_E", en_E)
-
-        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(b, b)
-        self.update_scalar("en_B", en_B)
-
-        # alpha^2 / 2 / N * sum_p w_p v_p^2
-        particles = self.kinetic_ions.var.particles
-        alpha = self.kinetic_ions.equation_params.alpha
-        self._tmp[0] = (
-            alpha**2
-            / (2 * particles.Np)
-            * xp.dot(
-                particles.markers_wo_holes[:, 3] ** 2
-                + particles.markers_wo_holes[:, 4] ** 2
-                + particles.markers_wo_holes[:, 5] ** 2,
-                particles.markers_wo_holes[:, 6],
-            )
-        )
-
-        self.update_scalar("en_f", self._tmp[0])
-
-        # en_tot = en_w + en_e
-        self.update_scalar("en_tot", en_E + self._tmp[0])
-
-        if self.measure_gauss_law:
-            res = self.calculate_gauss_error()
-            self.update_scalar("gauss_error", res)
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

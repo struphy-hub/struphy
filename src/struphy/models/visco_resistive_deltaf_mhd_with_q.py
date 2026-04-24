@@ -1,9 +1,10 @@
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.feec.projectors import L2Projector
+from struphy.feec.mass import L2Projector
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, Scalars
 from struphy.models.species import (
     DiagnosticSpecies,
     FieldSpecies,
@@ -147,13 +148,20 @@ class ViscoResistiveDeltafMHD_with_q(StruphyModel):
             self.propagators.variat_resist.variables.s = self.mhd.sqrt_p
             self.propagators.variat_resist.variables.b = self.em_fields.b_field
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_U")
-        self.add_scalar("en_mag_1")
-        self.add_scalar("en_mag_2")
-        self.add_scalar("en_thermo_1")
-        self.add_scalar("en_thermo_2")
-        self.add_scalar("en_tot")
+        # 5. define scalars to be tracked during simulation
+        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="WMMnew")
+        magnetic_energy_1 = BilinearEnergyFEEC(self.em_fields.b_field)
+        magnetic_energy_2 = BilinearEnergyFEEC(self.diagnostics.bt2, right_variable="b2")
+        thermo_energy_1 = FunctionScalarFEEC(self._compute_en_thermo_1)
+        thermo_energy_2 = FunctionScalarFEEC(self._compute_en_thermo_2)
+        self.scalars = Scalars(
+            en_U=kinetic_energy,
+            en_mag_1=magnetic_energy_1,
+            en_mag_2=magnetic_energy_2,
+            en_thermo_1=thermo_energy_1,
+            en_thermo_2=thermo_energy_2,
+            en_tot=kinetic_energy + magnetic_energy_1 + magnetic_energy_2 + thermo_energy_1 + thermo_energy_2,
+        )
 
     @property
     def bulk_species(self):
@@ -180,33 +188,15 @@ class ViscoResistiveDeltafMHD_with_q(StruphyModel):
 
         self._tmp_div_B = Propagator.derham.V3pol.zeros()
 
-    def update_scalar_quantities(self):
-        rho = self.mhd.density.spline.vector
-        u = self.mhd.velocity.spline.vector
+    def _compute_en_thermo_1(self):
         q = self.mhd.sqrt_p.spline.vector
-        b = self.em_fields.b_field.spline.vector
-        bt2 = self.propagators.variat_qb.options.bt2.spline.vector
-        qt3 = self.propagators.variat_qb.options.qt3.spline.vector
-
         gamma = self.propagators.variat_qb.options.gamma
+        return 1.0 / (gamma - 1.0) * Propagator.mass_ops.M3.dot_inner(q, q)
 
-        en_U = 0.5 * Propagator.mass_ops.WMM.massop.dot_inner(u, u)
-        self.update_scalar("en_U", en_U)
-
-        en_mag1 = 0.5 * Propagator.mass_ops.M2.dot_inner(b, b)
-        self.update_scalar("en_mag_1", en_mag1)
-
-        en_mag2 = Propagator.mass_ops.M2.dot_inner(bt2, Propagator.projected_equil.b2)
-        self.update_scalar("en_mag_2", en_mag2)
-
-        en_th_1 = 1.0 / (gamma - 1.0) * Propagator.mass_ops.M3.dot_inner(q, q)
-        self.update_scalar("en_thermo_1", en_th_1)
-
-        en_th_2 = 2.0 / (gamma - 1.0) * Propagator.mass_ops.M3.dot_inner(qt3, Propagator.projected_equil.q3)
-        self.update_scalar("en_thermo_2", en_th_2)
-
-        en_tot = en_U + en_th_1 + en_th_2 + en_mag1 + en_mag2
-        self.update_scalar("en_tot", en_tot)
+    def _compute_en_thermo_2(self):
+        qt3 = self.propagators.variat_qb.options.qt3.spline.vector
+        gamma = self.propagators.variat_qb.options.gamma
+        return 2.0 / (gamma - 1.0) * Propagator.mass_ops.M3.dot_inner(qt3, Propagator.projected_equil.q3)
 
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
@@ -255,7 +245,7 @@ class ViscoResistiveDeltafMHD_with_q(StruphyModel):
                         "                                                                                  pt3=model.diagnostics.qt3)\n",
                     ]
                 elif "sqrt_p.add_background" in line:
-                    new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
+                    # new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
                     new_file += [line]
                 else:
                     new_file += [line]
