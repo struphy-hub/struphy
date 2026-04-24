@@ -97,11 +97,16 @@ class Poisson(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r"""**PDEs solved by model:**
+        r""":ref:`Equations <gempic>`: Find :math:`\phi \in H^1` such that
 
-        The model solves a weak Poisson-type elliptic problem for
-        :math:`\phi \in H^1` with diffusion, reaction, and optional
-        time-dependent right-hand side contributions."""
+        .. math::
+
+            - \nabla \cdot D_0(\mathbf x) \nabla \phi + n_0(\mathbf x) \phi =  \rho(t, \mathbf x)\,,
+
+        where :math:`n_0, \rho(t):\Omega \to \mathbb R` are real-valued functions, :math:`\rho(t)` parametrized with time :math:`t`,
+        and :math:`D_0:\Omega \to \mathbb R^{3\times 3}` is a positive matrix.
+        Boundary terms from integration by parts are assumed to vanish.
+        """
 
     @classmethod
     def doc_normalization(cls):

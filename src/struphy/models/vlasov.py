@@ -100,11 +100,12 @@ class Vlasov(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r"""**PDEs solved by model:**
+        r""":ref:`Equations <gempic>`:
 
-        The model solves the collisionless Vlasov equation for a single species
-        in a prescribed static magnetic field :math:`\mathbf B_0`. No
-        self-consistent field equation is evolved."""
+        .. math::
+
+            \frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \left(\mathbf{v}\times\mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0\,.
+        """
 
     @classmethod
     def doc_normalization(cls):

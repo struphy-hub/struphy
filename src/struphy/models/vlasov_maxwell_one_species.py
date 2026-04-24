@@ -213,11 +213,63 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r"""**PDEs solved by model:**
+        r""":ref:`Equations <gempic>`:
 
-        This model solves the full one-species Vlasov-Maxwell system with
-        self-consistent electric and magnetic field evolution, plus an initial
-        Poisson solve used to impose Gauss' law at :math:`t=0`."""
+        .. math::
+
+            &\frac{\partial f}{\partial t} + \mathbf{v} \cdot \, \nabla f + \frac{1}{\varepsilon} \left( \mathbf{E} + \mathbf{v} \times \left( \mathbf{B} + \mathbf{B}_0 \right) \right)
+            \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,,
+            \\[2mm]
+            -&\frac{\partial \mathbf{E}}{\partial t} + \nabla \times \mathbf B =
+            \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3}  \mathbf{v} f \, \text{d}^3 \mathbf{v}\,,
+            \\[2mm]
+            &\frac{\partial \mathbf{B}}{\partial t} + \nabla \times \mathbf{E} = 0 \,,
+
+        with the normalization parameters
+
+        .. math::
+
+            \alpha = \frac{\hat \Omega_\textnormal{p}}{\hat \Omega_\textnormal{c}}\,,\qquad \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t} \,,\qquad \textnormal{with} \qquad \hat\Omega_\textnormal{p} = \sqrt{\frac{\hat n (Ze)^2}{\epsilon_0 (A m_\textnormal{H})}} \,,\qquad \hat \Omega_{\textnormal{c}} = \frac{(Ze) \hat B}{(A m_\textnormal{H})}\,,
+
+        where :math:`Z=-1` and :math:`A=1/1836` for electrons.
+        At initial time the weak Poisson equation is solved once to weakly satisfy Gauss' law,
+
+        .. math::
+
+                \begin{align}
+                \int_\Omega \nabla \psi^\top \cdot \nabla \phi \,\textrm d \mathbf x &= \frac{\alpha^2}{\varepsilon} \int_\Omega \int_{\mathbb{R}^3} \psi\, (f - f_0) \, \text{d}^3 \mathbf{v}\,\textrm d \mathbf x \qquad \forall \ \psi \in H^1\,,
+                \\[2mm]
+                \mathbf{E}(t=0) &= -\nabla \phi(t=0)\,.
+                \end{align}
+
+        Moreover, it is assumed that
+
+        .. math::
+
+            \nabla \times \mathbf B_0 = \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} f_0 \, \text{d}^3 \mathbf{v}\,,
+
+        where :math:`\mathbf B_0` is the static equilibirum magnetic field.
+
+        Notes
+        -----
+
+        * The :ref:`control_var` for Ampère's law is optional; in case it is enabled via the parameter file, the following system is solved:
+        Find :math:`(\mathbf E, \tilde{\mathbf B}, f) \in H(\textnormal{curl}) \times H(\textnormal{div}) \times C^\infty` such that
+
+        .. math::
+
+            \begin{align}
+                -\int_\Omega \mathbf F\, \cdot \, &\frac{\partial \mathbf{E}}{\partial t}\,\textrm d \mathbf x + \int_\Omega \nabla \times \mathbf{F} \cdot \tilde{\mathbf B}\,\textrm d \mathbf x =
+                \frac{\alpha^2}{\varepsilon} \int_\Omega \int_{\mathbb{R}^3} \mathbf F \cdot \mathbf{v} (f - f_0) \, \text{d}^3 \mathbf{v}\,\textrm d \mathbf x \qquad \forall \ \mathbf F \in H(\textnormal{curl}) \,,
+                \\[2mm]
+                &\frac{\partial \tilde{\mathbf B}}{\partial t} + \nabla \times \mathbf{E} = 0 \,,
+                \\[2mm]
+                &\frac{\partial f}{\partial t} + \mathbf{v} \cdot \, \nabla f + \frac{1}{\varepsilon}\Big[ \mathbf{E} + \mathbf{v} \times (\mathbf{B}_0 + \tilde{\mathbf B}) \Big]
+                \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,,
+            \end{align}
+
+        where :math:`\tilde{\mathbf B} = \mathbf B - \mathbf B_0` denotes the magnetic perturbation.
+        """
 
     @classmethod
     def doc_normalization(cls):

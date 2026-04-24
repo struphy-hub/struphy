@@ -146,11 +146,23 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r"""**PDEs solved by model:**
+        r""":ref:`Equations <gempic>`:
 
-        The model solves a linearized quasi-neutral two-fluid system with
-        ion momentum, algebraic electron momentum balance, and a divergence
-        constraint enforcing quasi-neutrality."""
+        .. math::
+
+            \frac{\partial \mathbf u}{\partial t} &= - \nabla \phi + \frac{\mathbf u \times \mathbf B_0}{\varepsilon} + \nu \Delta \mathbf u + \mathbf f\,,
+            \\[2mm]
+            0 &= \nabla \phi - \frac{\mathbf u_e \times \mathbf B_0}{\varepsilon} + \nu_e \Delta \mathbf u_e + \mathbf f_e \,,
+            \\[3mm]
+            \nabla & \cdot (\mathbf u - \mathbf u_e) = 0\,,
+
+        where :math:`\mathbf B_0` is a static magnetic field and :math:`\mathbf f, \mathbf f_e` are given forcing terms,
+        and with the normalization parameter
+
+        .. math::
+
+            \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t} \,,\qquad \textnormal{with} \,,\qquad \hat \Omega_{\textnormal{c}} = \frac{(Ze) \hat B}{(A m_\textnormal{H})}\,,
+        """
 
     @classmethod
     def doc_normalization(cls):

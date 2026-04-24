@@ -99,11 +99,16 @@ class VariationalBarotropicFluid(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r"""**PDEs solved by model:**
+        r""":ref:`Equations <gempic>`:
 
-        The model advances a barotropic compressible fluid with continuity and
-        momentum equations, where the pressure force comes from an internal
-        energy law :math:`\mathcal U(\rho)=\rho/2`."""
+        .. math::
+
+            &\partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 \,,
+            \\[4mm]
+            &\partial_t (\rho \mathbf u) + \nabla \cdot (\rho \mathbf u \otimes \mathbf u) + \rho \nabla \frac{(\rho \mathcal U (\rho))}{\partial \rho} = 0 \,.
+
+        where the internal energy per unit mass is :math:`\mathcal U(\rho) = \rho/2`.
+        """
 
     @classmethod
     def doc_normalization(cls):

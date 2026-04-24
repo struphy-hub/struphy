@@ -211,17 +211,34 @@ class ColdPlasmaVlasov(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r"""**PDEs solved by model:**
+        r""":ref:`Equations <gempic>`:
 
-        This hybrid model combines:
+        .. math::
 
-        - a hot kinetic Vlasov species
-        - a cold electron current response
-        - Ampère and Faraday evolution for the electromagnetic fields
-        - an initial Poisson solve to impose Gauss' law consistently
+            &\frac{\partial f}{\partial t} + \mathbf{v} \cdot \, \nabla f + \frac{1}{\varepsilon_\textnormal{h}}\Big[ \mathbf{E} + \mathbf{v} \times \left( \mathbf{B} + \mathbf{B}_0 \right) \Big]
+                \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,,
+            \\[2mm]
+            \frac{1}{n_0} &\frac{\partial \mathbf j_\textnormal{c}}{\partial t} = \frac{1}{\varepsilon_\textnormal{c}} \mathbf E + \frac{1}{\varepsilon_\textnormal{c} n_0} \mathbf j_\textnormal{c} \times \mathbf B_0\,,
+            \\[2mm]
+            &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,,
+            \\[2mm]
+            -&\frac{\partial \mathbf E}{\partial t} + \nabla\times\mathbf B =
+            \frac{\alpha^2}{\varepsilon_\textnormal{h}} \left( \mathbf j_\textnormal{c} + \int_{\mathbb{R}^3} \mathbf{v} f \, \text{d}^3 \mathbf{v} \right) \,,
 
-        The hot and cold populations contribute jointly to the current in
-        Ampère's law."""
+        where :math:`(n_0,\mathbf B_0)` denotes a (inhomogeneous) background and
+
+        .. math::
+
+            \alpha = \frac{\hat \Omega_\textnormal{p,cold}}{\hat \Omega_\textnormal{c,cold}}\,, \qquad \varepsilon_\textnormal{c} = \frac{1}{\hat \Omega_\textnormal{c,cold} \hat t}\,, \qquad \varepsilon_\textnormal{h} = \frac{1}{\hat \Omega_\textnormal{c,hot} \hat t} \,.
+
+        At initial time the Poisson equation is solved once to weakly satisfy the Gauss law:
+
+        .. math::
+
+            \begin{align}
+                \nabla \cdot \mathbf{E} & = \nu \frac{\alpha^2}{\varepsilon_\textnormal{h}} \int_{\mathbb{R}^3} f \, \text{d}^3 \mathbf{v}\,.
+            \end{align}
+        """
 
     @classmethod
     def doc_normalization(cls):

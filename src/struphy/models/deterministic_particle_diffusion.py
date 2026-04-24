@@ -85,15 +85,14 @@ class DeterministicParticleDiffusion(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r"""**PDEs solved by model:**
-
-        The model represents a diffusion equation rewritten as conservative
-        transport with a deterministic particle velocity field:
+        r""":ref:`Equations <gempic>`: Find :math:`u:\mathbb R\times \Omega\to \mathbb R^+` such that
 
         .. math::
 
-            \partial_t u + \nabla\cdot(\mathbf F(u)u)=0,\qquad
-            \mathbf F(u)=-\mathbb D\,\nabla u/u.
+            \frac{\partial u}{\partial t} +  \nabla \cdot\left(\mathbf F(u) u\right) = 0\,, \qquad \mathbf F(u) = -\mathbb D\,\frac{\nabla u}{u}\,,
+
+        where :math:`\mathbb D: \Omega\to \mathbb R^{3\times 3 }` is a positive diffusion matrix.
+        At the moment only matrices of the form :math:`D*Id` are implemented, where :math:`D > 0` is a positive diffusion coefficient.
         """
 
     @classmethod

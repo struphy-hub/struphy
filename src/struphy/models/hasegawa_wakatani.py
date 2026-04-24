@@ -104,15 +104,19 @@ class HasegawaWakatani(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r"""**PDEs solved by model:**
+        r""":ref:`Equations <gempic>`:
 
-        The Hasegawa-Wakatani system evolves density and vorticity in 2D with:
+        .. math::
 
-        - parallel resistive coupling through :math:`C(\phi-n)`
-        - nonlinear advection via Poisson brackets
-        - background-gradient drive proportional to :math:`\kappa`
-        - hyper-/viscous diffusion through :math:`\nu \nabla^{2N}`
-        - a Poisson solve :math:`\Delta\phi=\omega` for the potential"""
+            &\frac{\partial n}{\partial t} = C (\phi - n) - [\phi, n] - \kappa\, \partial_y \phi + \nu\, \nabla^{2N} n\,,
+            \\[2mm]
+            &\frac{\partial \omega}{\partial t} = C (\phi - n) - [\phi, \omega] + \nu\, \nabla^{2N} \omega \,,
+            \\[3mm]
+            &\Delta \phi = \omega\,,
+
+        where :math:`[\phi, n] = \partial_x \phi \partial_y n - \partial_y \phi \partial_x n`, :math:`C = C(x, y)` and
+        :math:`\kappa` and :math:`\nu` are constants (at the moment only :math:`N=1` is available).
+        """
 
     @classmethod
     def doc_normalization(cls):

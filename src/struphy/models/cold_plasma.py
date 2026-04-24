@@ -148,16 +148,23 @@ class ColdPlasma(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r"""**PDEs solved by model:**
+        r""":ref:`Equations <gempic>`:
 
-        The model advances a cold electron current coupled to Maxwell's equations:
+        .. math::
 
-        - cold Ohm response for the electron current :math:`\mathbf j`
-        - Faraday evolution of :math:`\mathbf B`
-        - Ampère evolution of :math:`\mathbf E`
+            \frac{1}{n_0} &\frac{\partial \mathbf j}{\partial t} = \frac{1}{\varepsilon} \mathbf E + \frac{1}{\varepsilon n_0} \mathbf j \times \mathbf B_0\,,
+            \\[2mm]
+            &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,,
+            \\[2mm]
+            -&\frac{\partial \mathbf E}{\partial t} + \nabla\times\mathbf B =
+            \frac{\alpha^2}{\varepsilon} \mathbf j \,,
 
-        It represents a cold-plasma closure with background density :math:`n_0`
-        and static magnetic field :math:`\mathbf B_0`."""
+        where :math:`(n_0,\mathbf B_0)` denotes a (inhomogeneous) background and
+
+        .. math::
+
+            \alpha = \frac{\hat \Omega_\textnormal{p}}{\hat \Omega_\textnormal{c}}\,, \qquad \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t}\,.
+        """
 
     @classmethod
     def doc_normalization(cls):

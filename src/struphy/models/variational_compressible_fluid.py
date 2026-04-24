@@ -111,11 +111,18 @@ class VariationalCompressibleFluid(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r"""**PDEs solved by model:**
+        r""":ref:`Equations <gempic>`:
 
-        This model advances the fully compressible variational fluid system for
-        density, momentum, and entropy, using the perfect-gas internal energy
-        functional built into the entropy propagator."""
+        .. math::
+
+            &\partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 \,,
+            \\[4mm]
+            &\partial_t (\rho \mathbf u) + \nabla \cdot (\rho \mathbf u \otimes \mathbf u) + \rho \nabla \frac{(\rho \mathcal U (\rho, s))}{\partial \rho} + s \nabla \frac{(\rho \mathcal U (\rho, s))}{\partial s} = 0 \,,
+            \\[4mm]
+            &\partial_t s + \nabla \cdot ( s \mathbf u ) = 0 \,,
+
+        where the internal energy per unit mass is :math:`\mathcal U(\rho) = \rho^{\gamma-1} \exp(s / \rho)`.
+        """
 
     @classmethod
     def doc_normalization(cls):

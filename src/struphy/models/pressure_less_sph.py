@@ -103,11 +103,16 @@ class PressureLessSPH(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r"""**PDEs solved by model:**
+        r""":ref:`Equations <gempic>`:
 
-        This SPH model represents a pressureless continuum with continuity and
-        momentum advection under a static external potential. The particles move
-        ballistically except for the prescribed forcing."""
+        .. math::
+
+            &\partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 \,,
+            \\[4mm]
+            &\partial_t (\rho \mathbf u) + \nabla \cdot (\rho \mathbf u \otimes \mathbf u) = - \nabla \phi_0 \,,
+
+        where :math:`\phi_0` is a static external potential.
+        """
 
     @classmethod
     def doc_normalization(cls):

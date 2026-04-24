@@ -70,14 +70,15 @@ class ShearAlfven(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r"""**PDEs solved by model:**
+        r""":ref:`Equations <gempic>`:
 
-        This model keeps only the shear-Alfvén part of linear ideal MHD:
+        .. math::
 
-        - transverse fluid-velocity perturbations
-        - magnetic perturbations coupled through the background field
+            \rho_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} = (\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0\,,
 
-        Compressible magnetosonic dynamics are deliberately excluded."""
+            &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
+            = 0\,.
+        """
 
     @classmethod
     def doc_normalization(cls):

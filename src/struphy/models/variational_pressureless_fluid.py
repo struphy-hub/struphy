@@ -90,10 +90,14 @@ class VariationalPressurelessFluid(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r"""**PDEs solved by model:**
+        r""":ref:`Equations <gempic>`:
 
-        The model advances a pressureless variational fluid with continuity and
-        momentum transport only. No entropy or pressure closure is included."""
+        .. math::
+
+            &\partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 \,,
+            \\[4mm]
+            &\partial_t (\rho \mathbf u) + \nabla \cdot (\rho \mathbf u \otimes \mathbf u) = 0 \,.
+        """
 
     @classmethod
     def doc_normalization(cls):

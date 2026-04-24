@@ -133,11 +133,36 @@ class ViscousEulerSPH(StruphyModel):
 
     @classmethod
     def doc_pde(cls):
-        r"""**PDEs solved by model:**
+        r""":ref:`Equations <gempic>`:
 
-        This SPH model advances compressible Euler dynamics with optional
-        background-magnetic forcing, SPH pressure forces, and a viscous stress
-        approximation."""
+        .. math::
+
+            \begin{align}
+            \partial_t \rho + \nabla \cdot (\rho \mathbf u) &= 0\,,
+            \\[2mm]
+            \rho(\partial_t \mathbf u + \mathbf u \cdot \nabla \mathbf u) &= - \nabla \left(\rho^2 \frac{\partial \mathcal U(\rho, S)}{\partial \rho} \right) - \nabla \cdot \boldsymbol{\pi}\,,
+            \\[2mm]
+            \partial_t S + \mathbf u \cdot \nabla S &= 0\,,
+            \end{align}
+
+        where :math:`S` denotes the entropy per unit mass and :math:`\boldsymbol{\pi}` is the viscous stress tensor.
+
+        The viscous stress tensor for a Newtonian fluid is given by:
+
+        .. math::
+
+            \boldsymbol{\sigma} = -\mu \left( \nabla \mathbf u + (\nabla \mathbf u)^T - \frac{2}{3}(\nabla \cdot \mathbf u)\mathbf{I} \right)\,,
+
+        where :math:`\mu` is the dynamic (shear) viscosity and :math:`\mathbf{I}` is the identity tensor.
+
+        The internal energy per unit mass can be defined in two ways:
+
+        .. math::
+
+            \mathrm{isothermal:}\qquad &\mathcal U(\rho, S) = \kappa(S) \log \rho\,.
+
+            \mathrm{polytropic:}\qquad &\mathcal U(\rho, S) = \kappa(S) \frac{\rho^{\gamma - 1}}{\gamma - 1}\,.
+        """
 
     @classmethod
     def doc_normalization(cls):
