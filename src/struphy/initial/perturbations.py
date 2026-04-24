@@ -301,18 +301,28 @@ class ModesCos(Perturbation):
         self.perb_domain = perb_domain
 
     def __call__(self, x, y, z):
-        val = xp.zeros_like(x)
 
-        # find mask of particles within the sub domain
-        mask = super()._mask_subdomain(x, y, z, perb_domain=self.perb_domain)
+        if self.perb_domain != (None, None, None):
+            val = xp.zeros_like(x)
+            # find mask of particles within the sub domain
+            mask = super()._mask_subdomain(x, y, z, perb_domain=self.perb_domain)
 
-        # apply perturbation iff perb_domain not specified or (x,y,z) is within perb_domain
-        for amp, l, m, n in zip(self.amps, self.ls, self.ms, self.ns):
-            val[mask] += amp * xp.cos(
-                l * 2.0 * xp.pi / self.Lx * x[mask]
-                + m * 2.0 * xp.pi / self.Ly * y[mask]
-                + n * 2.0 * xp.pi / self.Lz * z[mask],
-            )
+            # apply perturbation iff perb_domain not specified or (x,y,z) is within perb_domain
+            for amp, l, m, n in zip(self.amps, self.ls, self.ms, self.ns):
+                val[mask] += amp * xp.cos(
+                    l * 2.0 * xp.pi / self.Lx * x[mask]
+                    + m * 2.0 * xp.pi / self.Ly * y[mask]
+                    + n * 2.0 * xp.pi / self.Lz * z[mask],
+                )
+        else:
+            val = 0.0
+            for amp, l, m, n in zip(self.amps, self.ls, self.ms, self.ns):
+                val += amp * xp.cos(
+                    l * 2.0 * xp.pi / self.Lx * x
+                    + m * 2.0 * xp.pi / self.Ly * y
+                    + n * 2.0 * xp.pi / self.Lz * z,
+                )
+                
         # logger.info( "Cos max value", val.max())
         return val
 
