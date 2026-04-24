@@ -40,7 +40,7 @@ class LocalProjectorsArguments:
     periodic: 1d bool array
         Array that tell us if the splines are periodic or clamped in each dimension.
 
-    p : 1d int array
+    degree : 1d int array
         Degree of the B-splines in each direction.
 
     wij0: 2d float array
@@ -85,7 +85,7 @@ class LocalProjectorsArguments:
         pds: "int[:]",
         B_nbasis: "int[:]",
         periodic: "bool[:]",
-        p: "int[:]",
+        degree: "int[:]",
         wij0: "float[:,:]",
         wij1: "float[:,:]",
         wij2: "float[:,:]",
@@ -108,7 +108,7 @@ class LocalProjectorsArguments:
         self.pds = pds
         self.B_nbasis = B_nbasis
         self.periodic = periodic
-        self.p = p
+        self.degree = degree
         self.wij0 = wij0
         self.wij1 = wij1
         self.wij2 = wij2

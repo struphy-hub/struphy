@@ -1,8 +1,11 @@
-import cunumpy as xp
+import logging
+
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import BilinearEnergyFEEC, KineticEnergyPIC, Scalars
 from struphy.models.species import (
     FieldSpecies,
     FluidSpecies,
@@ -18,6 +21,8 @@ from struphy.propagators import (
 )
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
+
+logger = logging.getLogger("struphy")
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -83,14 +88,34 @@ class ColdPlasmaVlasov(StruphyModel):
             self.init_variables()
 
     class ThermalElectrons(FluidSpecies):
-        def __init__(self):
+        def __init__(
+            self,
+            charge_number: int,
+            mass_number: float,
+            alpha: float,
+            epsilon: float,
+        ):
             self.current = FEECVariable(space="Hcurl")
-            self.init_variables()
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                alpha=alpha,
+                epsilon=epsilon,
+            )
 
     class HotElectrons(ParticleSpecies):
-        def __init__(self):
+        def __init__(
+            self,
+            charge_number: int,
+            mass_number: float,
+            epsilon: float,
+        ):
             self.var = PICVariable(space="Particles6D")
-            self.init_variables()
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                epsilon=epsilon,
+            )
 
     ## propagators
 
@@ -105,17 +130,39 @@ class ColdPlasmaVlasov(StruphyModel):
 
     ## abstract methods
 
-    def __init__(self):
+    def __init__(
+        self,
+        base_units: BaseUnits = BaseUnits(),
+        thermal_charge_number: int = -1,
+        thermal_mass_number: float = 1 / 1836,
+        hot_charge_number: int = -1,
+        hot_mass_number: float = 1 / 1836,
+        thermal_alpha: float = None,
+        thermal_epsilon: float = None,
+        hot_epsilon: float = None,
+    ):
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
-        self.thermal_elec = self.ThermalElectrons()
-        self.hot_elec = self.HotElectrons()
+        self.thermal_elec = self.ThermalElectrons(
+            thermal_charge_number,
+            thermal_mass_number,
+            thermal_alpha,
+            thermal_epsilon,
+        )
+        self.hot_elec = self.HotElectrons(
+            hot_charge_number,
+            hot_mass_number,
+            hot_epsilon,
+        )
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators()
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.maxwell.variables.e = self.em_fields.e_field
         self.propagators.maxwell.variables.b = self.em_fields.b_field
 
@@ -130,12 +177,25 @@ class ColdPlasmaVlasov(StruphyModel):
         self.propagators.coupling_va.variables.e = self.em_fields.e_field
         self.propagators.coupling_va.variables.ions = self.hot_elec.var
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_E")
-        self.add_scalar("en_B")
-        self.add_scalar("en_J")
-        self.add_scalar("en_f", compute="from_particles", variable=self.hot_elec.var)
-        self.add_scalar("en_tot")
+        # 5. define scalars to be tracked during simulation
+        electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
+        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
+        current_energy = BilinearEnergyFEEC(
+            self.thermal_elec.current,
+            bilinear_form_name="M1ninv",
+            normalization=self.thermal_elec.equation_params.alpha**2,
+        )
+        particle_energy = KineticEnergyPIC(
+            self.hot_elec.var,
+            normalization=self.hot_elec.equation_params.alpha**2,
+        )
+        self.scalars = Scalars(
+            en_E=electric_energy,
+            en_B=magnetic_energy,
+            en_J=current_energy,
+            en_f=particle_energy,
+            en_tot=electric_energy + magnetic_energy + current_energy + particle_energy,
+        )
 
         # initial Poisson (not a propagator used in time stepping)
         self.initial_poisson = propagators_fields.Poisson()
@@ -154,11 +214,8 @@ class ColdPlasmaVlasov(StruphyModel):
 
         :meta private:
         """
-        # helper fields
-        self._tmp = xp.empty(1, dtype=float)
-
         if MPI.COMM_WORLD.Get_rank() == 0:
-            print("\nINITIAL POISSON SOLVE:")
+            logger.info("\nINITIAL POISSON SOLVE:")
 
         # use control variate method
         particles = self.hot_elec.var.particles
@@ -188,38 +245,14 @@ class ColdPlasmaVlasov(StruphyModel):
         self.initial_poisson.allocate()
 
         # Solve with dt=1. and compute electric field
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print("\nSolving initial Poisson problem...")
+        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
+            logger.info("\nSolving initial Poisson problem...")
         self.initial_poisson(1.0)
 
         phi = self.initial_poisson.variables.phi.spline.vector
         Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print("... Done.")
-
-    def update_scalar_quantities(self):
-        # e*M1*e/2
-        e = self.em_fields.e_field.spline.vector
-        en_E = 0.5 * Propagator.mass_ops.M1.dot_inner(e, e)
-        self.update_scalar("en_E", en_E)
-
-        # alpha^2 / 2 / N * sum_p w_p v_p^2
-        particles = self.hot_elec.var.particles
-        alpha = self.hot_elec.equation_params.alpha
-        self._tmp[0] = (
-            alpha**2
-            / (2 * particles.Np)
-            * xp.dot(
-                particles.markers_wo_holes[:, 3] ** 2
-                + particles.markers_wo_holes[:, 4] ** 2
-                + particles.markers_wo_holes[:, 5] ** 2,
-                particles.markers_wo_holes[:, 6],
-            )
-        )
-        self.update_scalar("en_f", self._tmp[0])
-
-        # en_tot = en_w + en_e
-        self.update_scalar("en_tot", en_E + self._tmp[0])
+        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
+            logger.info("... Done.")
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

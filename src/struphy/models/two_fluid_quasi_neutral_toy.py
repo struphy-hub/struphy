@@ -1,6 +1,6 @@
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.io.options import LiteralOptions
+from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     FieldSpecies,
@@ -64,14 +64,32 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
             self.init_variables()
 
     class Ions(FluidSpecies):
-        def __init__(self):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+            epsilon: float = None,
+        ):
             self.u = FEECVariable(space="Hdiv")
-            self.init_variables()
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                epsilon=epsilon,
+            )
 
     class Electrons(FluidSpecies):
-        def __init__(self):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+            epsilon: float = None,
+        ):
             self.u = FEECVariable(space="Hdiv")
-            self.init_variables()
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                epsilon=epsilon,
+            )
 
     ## propagators
 
@@ -81,22 +99,42 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
 
     ## abstract methods
 
-    def __init__(self):
+    def __init__(
+        self,
+        base_units: BaseUnits = BaseUnits(kBT=1.0),
+        ion_charge_number: int = 1,
+        ion_mass_number: float = 1.0,
+        ion_epsilon: float = None,
+        electron_charge_number: int = 1,
+        electron_mass_number: float = 1.0,
+        electron_epsilon: float = None,
+    ):
 
         # 1. instantiate all species
         self.em_fields = self.EMfields()
-        self.ions = self.Ions()
-        self.electrons = self.Electrons()
+        self.ions = self.Ions(
+            charge_number=ion_charge_number,
+            mass_number=ion_mass_number,
+            epsilon=ion_epsilon,
+        )
+        self.electrons = self.Electrons(
+            charge_number=electron_charge_number,
+            mass_number=electron_mass_number,
+            epsilon=electron_epsilon,
+        )
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators()
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.qn_full.variables.u = self.ions.u
         self.propagators.qn_full.variables.ue = self.electrons.u
         self.propagators.qn_full.variables.phi = self.em_fields.phi
 
-        # define scalars for update_scalar_quantities
+        # 5. define scalars to be tracked during simulation
 
     @property
     def bulk_species(self):
@@ -107,9 +145,6 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
         return "thermal"
 
     def allocate_helpers(self, verbose: bool = False):
-        pass
-
-    def update_scalar_quantities(self):
         pass
 
     ## default parameters

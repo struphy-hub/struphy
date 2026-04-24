@@ -1,7 +1,8 @@
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.io.options import LiteralOptions
+from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import KineticEnergySPH, Scalars
 from struphy.models.species import (
     ParticleSpecies,
 )
@@ -67,9 +68,9 @@ class ViscousEulerSPH(StruphyModel):
     ## species
 
     class EulerFluid(ParticleSpecies):
-        def __init__(self):
+        def __init__(self, charge_number: int = 1, mass_number: float = 1.0):
             self.var = SPHVariable()
-            self.init_variables()
+            self.init_variables(charge_number=charge_number, mass_number=mass_number)
 
     ## propagators
 
@@ -85,19 +86,30 @@ class ViscousEulerSPH(StruphyModel):
 
     ## abstract methods
 
-    def __init__(self, with_B0: bool = True, with_p: bool = True, with_viscosity: bool = True):
+    def __init__(
+        self,
+        base_units: BaseUnits = BaseUnits(kBT=1.0),
+        charge_number: int = 1,
+        mass_number: float = 1.0,
+        with_B0: bool = True,
+        with_p: bool = True,
+        with_viscosity: bool = True,
+    ):
 
         self.with_B0 = with_B0
         self.with_p = with_p
         self.with_viscosity = with_viscosity
 
         # 1. instantiate all species
-        self.euler_fluid = self.EulerFluid()
+        self.euler_fluid = self.EulerFluid(charge_number=charge_number, mass_number=mass_number)
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators(with_B0=with_B0, with_p=with_p, with_viscosity=with_viscosity)
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.push_eta.variables.var = self.euler_fluid.var
         if with_B0:
             self.propagators.push_vxb.variables.ions = self.euler_fluid.var
@@ -106,8 +118,10 @@ class ViscousEulerSPH(StruphyModel):
         if with_viscosity:
             self.propagators.push_viscous.variables.fluid = self.euler_fluid.var
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_kin", compute="from_sph", variable=self.euler_fluid.var)
+        # 5. define scalars to be tracked during simulation
+        self.scalars = Scalars(
+            en_kin=KineticEnergySPH(self.euler_fluid.var),
+        )
 
     @property
     def bulk_species(self):
@@ -119,14 +133,6 @@ class ViscousEulerSPH(StruphyModel):
 
     def allocate_helpers(self, verbose: bool = False):
         pass
-
-    def update_scalar_quantities(self):
-        particles = self.euler_fluid.var.particles
-        valid_markers = particles.markers_wo_holes_and_ghost
-        en_kin = valid_markers[:, 6].dot(
-            valid_markers[:, 3] ** 2 + valid_markers[:, 4] ** 2 + valid_markers[:, 5] ** 2,
-        ) / (2.0 * particles.Np)
-        self.update_scalar("en_kin", en_kin)
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

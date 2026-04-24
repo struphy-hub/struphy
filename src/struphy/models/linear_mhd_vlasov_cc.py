@@ -1,8 +1,12 @@
+import logging
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import BilinearEnergyFEEC, KineticEnergyPIC, LostMarkersPIC, Scalars, VolumeFormEnergyFEEC
 from struphy.models.species import (
     FieldSpecies,
     FluidSpecies,
@@ -17,6 +21,7 @@ from struphy.propagators import (
 )
 from struphy.propagators.base import Propagator
 
+logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
 
 
@@ -88,16 +93,25 @@ class LinearMHDVlasovCC(StruphyModel):
             self.init_variables()
 
     class MHD(FluidSpecies):
-        def __init__(self):
+        def __init__(self, mass_number: float = 1.0):
             self.density = FEECVariable(space="L2")
             self.velocity = FEECVariable(space="Hdiv")
             self.pressure = FEECVariable(space="L2")
-            self.init_variables()
+            self.init_variables(mass_number=mass_number)
 
     class EnergeticIons(ParticleSpecies):
-        def __init__(self):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+            epsilon: float = None,
+        ):
             self.var = PICVariable(space="Particles6D")
-            self.init_variables()
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                epsilon=epsilon,
+            )
 
     ## propagators
 
@@ -112,17 +126,31 @@ class LinearMHDVlasovCC(StruphyModel):
 
     ## abstract methods
 
-    def __init__(self):
+    def __init__(
+        self,
+        base_units: BaseUnits = BaseUnits(),
+        mhd_mass_number: float = 1.0,
+        hot_charge_number: int = 1,
+        hot_mass_number: float = 1.0,
+        hot_epsilon: float = None,
+    ):
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
-        self.mhd = self.MHD()
-        self.energetic_ions = self.EnergeticIons()
+        self.mhd = self.MHD(mhd_mass_number)
+        self.energetic_ions = self.EnergeticIons(
+            hot_charge_number,
+            hot_mass_number,
+            hot_epsilon,
+        )
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators()
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.couple_dens.variables.u = self.mhd.velocity
 
         self.propagators.shear_alf.variables.u = self.mhd.velocity
@@ -138,13 +166,22 @@ class LinearMHDVlasovCC(StruphyModel):
         self.propagators.mag_sonic.variables.u = self.mhd.velocity
         self.propagators.mag_sonic.variables.p = self.mhd.pressure
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_U", compute="from_field")
-        self.add_scalar("en_p", compute="from_field")
-        self.add_scalar("en_B", compute="from_field")
-        self.add_scalar("en_f", compute="from_particles", variable=self.energetic_ions.var)
-        self.add_scalar("en_tot", summands=["en_U", "en_p", "en_B", "en_f"])
-        self.add_scalar("n_lost_particles", compute="from_particles", variable=self.energetic_ions.var)
+        # 5. define scalars to be tracked during simulation
+        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="M2n")
+        pressure_energy = VolumeFormEnergyFEEC(self.mhd.pressure, normalization=1.0 / (5 / 3 - 1))
+        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
+        Ab = self.mhd.mass_number
+        Ah = self.energetic_ions.var.species.mass_number
+        particle_energy = KineticEnergyPIC(self.energetic_ions.var, normalization=Ah / Ab)
+        lost_particles = LostMarkersPIC(self.energetic_ions.var)
+        self.scalars = Scalars(
+            en_U=kinetic_energy,
+            en_p=pressure_energy,
+            en_B=magnetic_energy,
+            en_f=particle_energy,
+            en_tot=kinetic_energy + pressure_energy + magnetic_energy + particle_energy,
+            n_lost_particles=lost_particles,
+        )
 
     @property
     def bulk_species(self):
@@ -162,7 +199,6 @@ class LinearMHDVlasovCC(StruphyModel):
             self._ones[:] = 1.0
 
         self._tmp = xp.empty(1, dtype=float)
-        self._n_lost_particles = xp.empty(1, dtype=float)
 
         # add control variate to mass_ops object
         if self.energetic_ions.var.particles.control_variate:
@@ -170,47 +206,6 @@ class LinearMHDVlasovCC(StruphyModel):
 
         self._Ah = self.energetic_ions.mass_number
         self._Ab = self.mhd.mass_number
-
-    def update_scalar_quantities(self):
-        # perturbed fields
-        u = self.mhd.velocity.spline.vector
-        p = self.mhd.pressure.spline.vector
-        b = self.em_fields.b_field.spline.vector
-        particles = self.energetic_ions.var.particles
-
-        en_U = 0.5 * Propagator.mass_ops.M2n.dot_inner(u, u)
-        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(b, b)
-        en_p = p.inner(self._ones) / (5 / 3 - 1)
-
-        self.update_scalar("en_U", en_U)
-        self.update_scalar("en_B", en_B)
-        self.update_scalar("en_p", en_p)
-
-        # particles
-        self._tmp[0] = (
-            self._Ah
-            / self._Ab
-            * particles.markers_wo_holes[:, 6].dot(
-                particles.markers_wo_holes[:, 3] ** 2
-                + particles.markers_wo_holes[:, 4] ** 2
-                + particles.markers_wo_holes[:, 5] ** 2,
-            )
-            / (2)
-        )
-
-        self.update_scalar("en_f", self._tmp[0])
-        self.update_scalar("en_tot", en_U + en_B + en_p + self._tmp[0])
-
-        # Print number of lost ions
-        self._n_lost_particles[0] = particles.n_lost_markers
-        self.update_scalar("n_lost_particles", self._n_lost_particles[0])
-
-        if rank == 0:
-            print(
-                "ratio of lost particles: ",
-                self._n_lost_particles[0] / particles.Np * 100,
-                "%",
-            )
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

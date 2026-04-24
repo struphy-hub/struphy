@@ -1,0 +1,62 @@
+name: Create pull request into struphy-hub/struphy-parameter-files
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  clone-push-and-create-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: true  # This is crucial!
+          fetch-depth: 5
+
+      - name: Read Struphy version from pyproject
+        uses: ./.github/actions/struphy-version
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          repository: struphy-hub/struphy-parameter-files
+          token: ${{ secrets.STRUPHY_HUB_ACCESS_TOKEN }}
+          path: struphy-parameter-files
+
+      - name: Copy examples and push new branch
+        run: |
+            cd struphy-parameter-files
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git checkout -b from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
+            cp -r ../examples/. ./
+            git status
+            git add .
+            git commit -m "Changes to parameter files from struphy (on push to main)"
+            git push origin from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
+
+      - name: Create version tag in struphy-parameter-files
+        run: |
+            cd struphy-parameter-files
+            TAG_NAME="v${STRUPHY_VERSION}"
+            if git ls-remote --exit-code --tags origin "refs/tags/${TAG_NAME}" > /dev/null; then
+              echo "Tag ${TAG_NAME} already exists in origin. Skipping tag creation."
+            else
+              git tag -a "${TAG_NAME}" -m "Parameter files for Struphy v${STRUPHY_VERSION}"
+              git push origin "${TAG_NAME}"
+            fi
+
+      - name: Create pull request
+        run: |
+          gh pr create \
+            --repo struphy-hub/struphy-parameter-files \
+            --title "New parameter files from struphy v${STRUPHY_VERSION}" \
+            --body "This is an auto-generated PR from a Struphy workflow (on push to main)." \
+            --head from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }} \
+            --base main 
+        env:
+          GH_TOKEN: ${{ secrets.STRUPHY_HUB_ACCESS_TOKEN }}

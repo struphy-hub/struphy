@@ -6,10 +6,10 @@ def test_kinetic_background_magics(show_plot=False):
 
     from struphy.kinetic_background.maxwellians import Maxwellian3D
 
-    Nel = [32, 1, 1]
-    e1 = xp.linspace(0.0, 1.0, Nel[0])
-    e2 = xp.linspace(0.0, 1.0, Nel[1])
-    e3 = xp.linspace(0.0, 1.0, Nel[2])
+    num_elements = [32, 1, 1]
+    e1 = xp.linspace(0.0, 1.0, num_elements[0])
+    e2 = xp.linspace(0.0, 1.0, num_elements[1])
+    e3 = xp.linspace(0.0, 1.0, num_elements[2])
     v1 = xp.linspace(-7.0, 7.0, 128)
 
     m1_params = {"n": 0.5, "u1": 3.0}

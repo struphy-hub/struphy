@@ -1,8 +1,19 @@
+import logging
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import (
+    BilinearEnergyFEEC,
+    FunctionScalarPIC,
+    KineticEnergyPIC,
+    LostMarkersPIC,
+    Scalars,
+    VolumeFormEnergyFEEC,
+)
 from struphy.models.species import (
     FieldSpecies,
     FluidSpecies,
@@ -17,6 +28,7 @@ from struphy.propagators import (
 )
 from struphy.propagators.base import Propagator
 
+logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
 
 
@@ -104,9 +116,18 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
     ## species
     class EnergeticIons(ParticleSpecies):
-        def __init__(self):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+            epsilon: float = None,
+        ):
             self.var = PICVariable(space="Particles5D")
-            self.init_variables()
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                epsilon=epsilon,
+            )
 
     class EMFields(FieldSpecies):
         def __init__(self):
@@ -114,11 +135,11 @@ class LinearMHDDriftkineticCC(StruphyModel):
             self.init_variables()
 
     class MHD(FluidSpecies):
-        def __init__(self):
+        def __init__(self, mass_number: float = 1.0):
             self.density = FEECVariable(space="L2")
             self.pressure = FEECVariable(space="L2")
             self.velocity = FEECVariable(space="Hdiv")
-            self.init_variables()
+            self.init_variables(mass_number=mass_number)
 
     ## propagators
 
@@ -139,17 +160,32 @@ class LinearMHDDriftkineticCC(StruphyModel):
             if "CurrentCoupling5DCurlb" not in turn_off:
                 self.cc5d_curlb = propagators_coupling.CurrentCoupling5DCurlb()
 
-    def __init__(self, turn_off: tuple[str, ...] = (None,)):
+    def __init__(
+        self,
+        base_units: BaseUnits = BaseUnits(),
+        mhd_mass_number: float = 1.0,
+        hot_charge_number: int = 1,
+        hot_mass_number: float = 1.0,
+        hot_epsilon: float = None,
+        turn_off: tuple[str, ...] = (None,),
+    ):
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
-        self.mhd = self.MHD()
-        self.energetic_ions = self.EnergeticIons()
+        self.mhd = self.MHD(mhd_mass_number)
+        self.energetic_ions = self.EnergeticIons(
+            hot_charge_number,
+            hot_mass_number,
+            hot_epsilon,
+        )
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators(turn_off)
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         if "ShearAlfvenCurrentCoupling5D" not in turn_off:
             self.propagators.shearalfen_cc5d.variables.u = self.mhd.velocity
             self.propagators.shearalfen_cc5d.variables.b = self.em_fields.b_field
@@ -170,13 +206,23 @@ class LinearMHDDriftkineticCC(StruphyModel):
         if "PushGuidingCenterParallel" not in turn_off:
             self.propagators.push_parallel.variables.ions = self.energetic_ions.var
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_U")
-        self.add_scalar("en_p")
-        self.add_scalar("en_B")
-        self.add_scalar("en_fv", compute="from_particles", variable=self.energetic_ions.var)
-        self.add_scalar("en_fB", compute="from_particles", variable=self.energetic_ions.var)
-        self.add_scalar("en_tot", summands=["en_U", "en_p", "en_B", "en_fv", "en_fB"])
+        # 5. define scalars to be tracked during simulation
+        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="M2n")
+        pressure_energy = VolumeFormEnergyFEEC(self.mhd.pressure, normalization=1.0 / (5 / 3 - 1))
+        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
+        Ab = self.mhd.mass_number
+        Ah = self.energetic_ions.var.species.mass_number
+        particle_parallel = KineticEnergyPIC(self.energetic_ions.var, normalization=Ah / Ab)
+        particle_magnetic = FunctionScalarPIC(self._compute_en_fB, self.energetic_ions.var)
+        self.scalars = Scalars(
+            en_U=kinetic_energy,
+            en_p=pressure_energy,
+            en_B=magnetic_energy,
+            en_fv=particle_parallel,
+            en_fB=particle_magnetic,
+            en_tot=kinetic_energy + pressure_energy + magnetic_energy + particle_parallel + particle_magnetic,
+            n_lost_particles=LostMarkersPIC(self.energetic_ions.var),
+        )
 
     @property
     def bulk_species(self):
@@ -196,81 +242,24 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._en_fv = xp.empty(1, dtype=float)
         self._en_fB = xp.empty(1, dtype=float)
         self._en_tot = xp.empty(1, dtype=float)
-        self._n_lost_particles = xp.empty(1, dtype=float)
 
         self._PB = getattr(Propagator.basis_ops, "PB")
         self._PBb = self._PB.codomain.zeros()
 
-    def update_scalar_quantities(self):
-        # scaling factor
+    def _compute_en_fB(self):
         Ab = self.mhd.mass_number
         Ah = self.energetic_ions.var.species.mass_number
-
-        # perturbed fields
-        en_U = 0.5 * Propagator.mass_ops.M2n.dot_inner(
-            self.mhd.velocity.spline.vector,
-            self.mhd.velocity.spline.vector,
-        )
-        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(
-            self.em_fields.b_field.spline.vector,
-            self.em_fields.b_field.spline.vector,
-        )
-        en_p = self.mhd.pressure.spline.vector.inner(self._ones) / (5 / 3 - 1)
-
-        self.update_scalar("en_U", en_U)
-        self.update_scalar("en_B", en_B)
-        self.update_scalar("en_p", en_p)
-
-        # particles' energy
         particles = self.energetic_ions.var.particles
-
-        self._en_fv[0] = (
-            particles.markers[~particles.holes, 5].dot(
-                particles.markers[~particles.holes, 3] ** 2,
-            )
-            / (2.0)
-            * Ah
-            / Ab
-        )
-
         self._PBb = self._PB.dot(self.em_fields.b_field.spline.vector)
         particles.save_magnetic_energy(self._PBb)
 
-        self._en_fB[0] = (
+        return (
             particles.markers[~particles.holes, 5].dot(
                 particles.markers[~particles.holes, 8],
             )
             * Ah
             / Ab
         )
-
-        self.update_scalar("en_fv", self._en_fv[0])
-        self.update_scalar("en_fB", self._en_fB[0])
-        self.update_scalar("en_tot")
-
-        # print number of lost particles
-        n_lost_markers = xp.array(particles.n_lost_markers)
-
-        if Propagator.derham.comm is not None:
-            Propagator.derham.comm.Allreduce(
-                MPI.IN_PLACE,
-                n_lost_markers,
-                op=MPI.SUM,
-            )
-
-        if self.clone_config is not None:
-            self.clone_config.inter_comm.Allreduce(
-                MPI.IN_PLACE,
-                n_lost_markers,
-                op=MPI.SUM,
-            )
-
-        if rank == 0:
-            print(
-                "Lost particle ratio: ",
-                n_lost_markers / particles.Np * 100,
-                "% \n",
-            )
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

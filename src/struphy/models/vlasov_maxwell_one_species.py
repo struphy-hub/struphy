@@ -1,8 +1,12 @@
+import logging
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, FunctionScalarPIC, KineticEnergyPIC, Scalars
 from struphy.models.species import (
     FieldSpecies,
     ParticleSpecies,
@@ -17,6 +21,8 @@ from struphy.propagators import (
 )
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
+
+logger = logging.getLogger("struphy")
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -114,9 +120,20 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             self.init_variables()
 
     class KineticIons(ParticleSpecies):
-        def __init__(self):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+            alpha: float = None,
+            epsilon: float = None,
+        ):
             self.var = PICVariable(space="Particles6D")
-            self.init_variables()
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                alpha=alpha,
+                epsilon=epsilon,
+            )
 
     ## propagators
 
@@ -129,16 +146,32 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
     ## abstract methods
 
-    def __init__(self):
+    def __init__(
+        self,
+        base_units: BaseUnits = BaseUnits(),
+        charge_number: int = 1,
+        mass_number: float = 1.0,
+        alpha: float = None,
+        epsilon: float = None,
+        measure_gauss_law: bool = False,
+    ):
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
-        self.kinetic_ions = self.KineticIons()
+        self.kinetic_ions = self.KineticIons(
+            charge_number,
+            mass_number,
+            alpha,
+            epsilon,
+        )
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators()
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.maxwell.variables.e = self.em_fields.e_field
         self.propagators.maxwell.variables.b = self.em_fields.b_field
         self.propagators.push_eta.variables.var = self.kinetic_ions.var
@@ -146,15 +179,29 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         self.propagators.coupling_va.variables.e = self.em_fields.e_field
         self.propagators.coupling_va.variables.ions = self.kinetic_ions.var
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_E")
-        self.add_scalar("en_B")
-        self.add_scalar("en_f", compute="from_particles", variable=self.kinetic_ions.var)
-        self.add_scalar("en_tot")
+        # 5. define scalars to be tracked during simulation
+        electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
+        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
+        particle_energy = KineticEnergyPIC(
+            self.kinetic_ions.var,
+            normalization=self.kinetic_ions.equation_params.alpha**2,
+        )
+        scalars_dict = {
+            "en_E": electric_energy,
+            "en_B": magnetic_energy,
+            "en_f": particle_energy,
+            "en_tot": electric_energy + magnetic_energy + particle_energy,
+        }
+        if measure_gauss_law:
+            scalars_dict["gauss_error"] = FunctionScalarPIC(self.calculate_gauss_error, self.kinetic_ions.var)
+        self.scalars = Scalars(**scalars_dict)
 
         # initial Poisson (not a propagator used in time stepping)
         self.initial_poisson = propagators_fields.Poisson()
         self.initial_poisson.variables.phi = self.em_fields.phi
+
+        # property to measure violation of gauss law from control variate
+        self.measure_gauss_law = measure_gauss_law
 
     @property
     def bulk_species(self):
@@ -171,19 +218,24 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         """
         self._tmp = xp.empty(1, dtype=float)
 
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print("\nINITIAL POISSON SOLVE:")
-
-        # use control variate method
         particles = self.kinetic_ions.var.particles
+
+        if self.measure_gauss_law:
+            self.op = Propagator.derham.grad.T @ Propagator.mass_ops.M1
+            self.subcom_residual = xp.empty(shape=particles.mpi_size, dtype=float)
+            self.intercom_residual = xp.empty(shape=particles.num_clones, dtype=float)
+
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            logger.info("\nINITIAL POISSON SOLVE:")
+
+        # use control variate method (reset weights after Poisson solve)
         particles.update_weights()
 
         # sanity check
-        # self.pointer['species1'].show_distribution_function(
-        #     [True] + [False]*5, [xp.linspace(0, 1, 32)])
+        # particles.show_distribution_function([True] + [False]*5, [xp.linspace(0, 1, 32)])
 
         # accumulate charge density
-        charge_accum = AccumulatorVector(
+        self.charge_accum = AccumulatorVector(
             particles,
             "H1",
             Pyccelkernel(accum_kernels.charge_density_0form),
@@ -197,48 +249,48 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         alpha = self.kinetic_ions.equation_params.alpha
         epsilon = self.kinetic_ions.equation_params.epsilon
 
-        self.initial_poisson.options.rho = charge_accum
+        self.initial_poisson.options.rho = self.charge_accum
         self.initial_poisson.options.rho_coeffs = alpha**2 / epsilon
         self.initial_poisson.allocate()
 
         # Solve with dt=1. and compute electric field
         if MPI.COMM_WORLD.Get_rank() == 0:
-            print("\nSolving initial Poisson problem...")
+            logger.info("\nSolving initial Poisson problem...")
         self.initial_poisson(1.0)
 
         phi = self.initial_poisson.variables.phi.spline.vector
         Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print("... Done.")
+        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
+            logger.info("... Done.")
 
-    def update_scalar_quantities(self):
-        # e*M1*e/2
-        e = self.em_fields.e_field.spline.vector
-        b = self.em_fields.b_field.spline.vector
+        # reset particle weights
+        particles.weights = particles.weights_at_t0.copy()
 
-        en_E = 0.5 * Propagator.mass_ops.M1.dot_inner(e, e)
-        self.update_scalar("en_E", en_E)
-
-        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(b, b)
-        self.update_scalar("en_B", en_B)
-
-        # alpha^2 / 2 / N * sum_p w_p v_p^2
+    def calculate_gauss_error(self):
+        # control variate method
         particles = self.kinetic_ions.var.particles
-        alpha = self.kinetic_ions.equation_params.alpha
-        self._tmp[0] = (
-            alpha**2
-            / (2 * particles.Np)
-            * xp.dot(
-                particles.markers_wo_holes[:, 3] ** 2
-                + particles.markers_wo_holes[:, 4] ** 2
-                + particles.markers_wo_holes[:, 5] ** 2,
-                particles.markers_wo_holes[:, 6],
-            )
-        )
-        self.update_scalar("en_f", self._tmp[0])
+        particles.update_weights()
+        self.charge_accum()
+        rhs = self.charge_accum.vectors[0]
+        # reset particle weights
+        particles.weights = particles.weights_at_t0.copy()
 
-        # en_tot = en_w + en_e
-        self.update_scalar("en_tot", en_E + self._tmp[0])
+        # non control variate method
+        e = self.em_fields.e_field.spline.vector
+        lhs = self.op.dot(e)
+
+        # calculate local residual of local MPI rank
+        loc_residual = xp.max(xp.abs(lhs.toarray() - rhs.toarray()))
+
+        # logger.info(f"{MPI.COMM_WORLD.Get_rank() = }, {xp.max(xp.abs(lhs.toarray())) = }")
+        # logger.info(f"{MPI.COMM_WORLD.Get_rank() = }, {xp.max(xp.abs(rhs.toarray())) = }")
+        # logger.info(f"{loc_residual = }")
+
+        # return the maximum residual across all MPI rank
+        particles._gather_scalar_in_subcomm_array(scalar=loc_residual, out=self.subcom_residual)
+        particles._gather_scalar_in_intercomm_array(scalar=loc_residual, out=self.intercom_residual)
+
+        return xp.max([xp.max(self.subcom_residual), xp.max(self.intercom_residual)])
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
@@ -256,6 +308,8 @@ class VlasovMaxwellOneSpecies(StruphyModel):
                 elif "set_save_data" in line:
                     new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
                     new_file += ["model.kinetic_ions.set_save_data(binning_plots=(binplot,))\n"]
+                elif "VlasovMaxwellOneSpecies()" in line:
+                    new_file += ["\nmodel = VlasovMaxwellOneSpecies(measure_gauss_law=True)\n"]
                 else:
                     new_file += [line]
 

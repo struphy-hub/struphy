@@ -1,5 +1,6 @@
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
@@ -58,21 +59,21 @@ class DeterministicParticleDiffusion(StruphyModel):
 
     ## abstract methods
 
-    def __init__(self):
+    def __init__(self, base_units: BaseUnits = BaseUnits()):
 
         # 1. instantiate all species
         self.hydrogen = self.Hydrogen()
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators()
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.det_diff.variables.var = self.hydrogen.var
 
-        # define scalars for update_scalar_quantities
-        # self.add_scalar("electric energy")
-        # self.add_scalar("magnetic energy")
-        # self.add_scalar("total energy")
+        # 5. define scalars to be tracked during simulation
 
     @property
     def bulk_species(self):
@@ -83,7 +84,4 @@ class DeterministicParticleDiffusion(StruphyModel):
         return None
 
     def allocate_helpers(self, verbose: bool = False):
-        pass
-
-    def update_scalar_quantities(self):
         pass

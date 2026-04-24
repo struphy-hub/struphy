@@ -1,9 +1,10 @@
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.feec.projectors import L2Projector
-from struphy.io.options import LiteralOptions
+from struphy.feec.mass import L2Projector
+from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, Scalars
 from struphy.models.species import (
     DiagnosticSpecies,
     FieldSpecies,
@@ -64,11 +65,11 @@ class ViscoResistiveLinearMHD_with_q(StruphyModel):
             self.init_variables()
 
     class MHD(FluidSpecies):
-        def __init__(self):
+        def __init__(self, mass_number: float = 1.0):
             self.density = FEECVariable(space="L2")
             self.velocity = FEECVariable(space="H1vec")
             self.sqrt_p = FEECVariable(space="L2")
-            self.init_variables()
+            self.init_variables(mass_number=mass_number)
 
     class Diagnostics(DiagnosticSpecies):
         def __init__(self):
@@ -97,22 +98,27 @@ class ViscoResistiveLinearMHD_with_q(StruphyModel):
 
     def __init__(
         self,
+        base_units: BaseUnits = BaseUnits(),
+        mass_number: float = 1.0,
         with_viscosity: bool = True,
         with_resistivity: bool = True,
     ):
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
-        self.mhd = self.MHD()
+        self.mhd = self.MHD(mass_number=mass_number)
         self.diagnostics = self.Diagnostics()
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators(
             with_viscosity=with_viscosity,
             with_resistivity=with_resistivity,
         )
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.variat_dens.variables.rho = self.mhd.density
         self.propagators.variat_dens.variables.u = self.mhd.velocity
         self.propagators.variat_qb.variables.u = self.mhd.velocity
@@ -125,13 +131,20 @@ class ViscoResistiveLinearMHD_with_q(StruphyModel):
             self.propagators.variat_resist.variables.s = self.mhd.sqrt_p
             self.propagators.variat_resist.variables.b = self.em_fields.b_field
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_U")
-        self.add_scalar("en_mag_1")
-        self.add_scalar("en_mag_2")
-        self.add_scalar("en_thermo_1")
-        self.add_scalar("en_thermo_2")
-        self.add_scalar("en_tot")
+        # 5. define scalars to be tracked during simulation
+        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="WMMnew")
+        magnetic_energy_1 = BilinearEnergyFEEC(self.em_fields.b_field)
+        magnetic_energy_2 = BilinearEnergyFEEC(self.diagnostics.bt2, right_variable="b2")
+        thermo_energy_1 = FunctionScalarFEEC(self._compute_en_thermo_1)
+        thermo_energy_2 = FunctionScalarFEEC(self._compute_en_thermo_2)
+        self.scalars = Scalars(
+            en_U=kinetic_energy,
+            en_mag_1=magnetic_energy_1,
+            en_mag_2=magnetic_energy_2,
+            en_thermo_1=thermo_energy_1,
+            en_thermo_2=thermo_energy_2,
+            en_tot=kinetic_energy + magnetic_energy_1 + magnetic_energy_2 + thermo_energy_1 + thermo_energy_2,
+        )
 
     @property
     def bulk_species(self):
@@ -150,41 +163,23 @@ class ViscoResistiveLinearMHD_with_q(StruphyModel):
         f = xp.vectorize(f)
         self._integrator = projV3(f)
 
-        self._ones = Propagator.derham.Vh_pol["3"].zeros()
+        self._ones = Propagator.derham.V3pol.zeros()
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.0
         else:
             self._ones[:] = 1.0
 
-        self._tmp_div_B = Propagator.derham.Vh_pol["3"].zeros()
+        self._tmp_div_B = Propagator.derham.V3pol.zeros()
 
-    def update_scalar_quantities(self):
-        rho = self.mhd.density.spline.vector
-        u = self.mhd.velocity.spline.vector
+    def _compute_en_thermo_1(self):
         q = self.mhd.sqrt_p.spline.vector
-        b = self.em_fields.b_field.spline.vector
-        bt2 = self.propagators.variat_qb.options.bt2.spline.vector
-        qt3 = self.propagators.variat_qb.options.qt3.spline.vector
-
         gamma = self.propagators.variat_qb.options.gamma
+        return 1.0 / (gamma - 1.0) * Propagator.mass_ops.M3.dot_inner(q, q)
 
-        en_U = 0.5 * Propagator.mass_ops.WMM.massop.dot_inner(u, u)
-        self.update_scalar("en_U", en_U)
-
-        en_mag1 = 0.5 * Propagator.mass_ops.M2.dot_inner(b, b)
-        self.update_scalar("en_mag_1", en_mag1)
-
-        en_mag2 = Propagator.mass_ops.M2.dot_inner(bt2, Propagator.projected_equil.b2)
-        self.update_scalar("en_mag_2", en_mag2)
-
-        en_th_1 = 1.0 / (gamma - 1.0) * Propagator.mass_ops.M3.dot_inner(q, q)
-        self.update_scalar("en_thermo_1", en_th_1)
-
-        en_th_2 = 2.0 / (gamma - 1.0) * Propagator.mass_ops.M3.dot_inner(qt3, Propagator.projected_equil.q3)
-        self.update_scalar("en_thermo_2", en_th_2)
-
-        en_tot = en_U + en_th_1 + en_th_2 + en_mag1 + en_mag2
-        self.update_scalar("en_tot", en_tot)
+    def _compute_en_thermo_2(self):
+        qt3 = self.propagators.variat_qb.options.qt3.spline.vector
+        gamma = self.propagators.variat_qb.options.gamma
+        return 2.0 / (gamma - 1.0) * Propagator.mass_ops.M3.dot_inner(qt3, Propagator.projected_equil.q3)
 
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

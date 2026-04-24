@@ -1,7 +1,9 @@
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.linear_vlasov_ampere_one_species import LinearVlasovAmpereOneSpecies
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarPIC, Scalars
 from struphy.models.species import (
     FieldSpecies,
     ParticleSpecies,
@@ -12,7 +14,6 @@ from struphy.propagators import (
     propagators_fields,
     propagators_markers,
 )
-from struphy.propagators.base import Propagator
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -101,9 +102,20 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
             self.init_variables()
 
     class KineticIons(ParticleSpecies):
-        def __init__(self):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+            alpha: float = None,
+            epsilon: float = None,
+        ):
             self.var = PICVariable(space="DeltaFParticles6D")
-            self.init_variables()
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                alpha=alpha,
+                epsilon=epsilon,
+            )
 
     ## propagators
 
@@ -125,18 +137,31 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
 
     def __init__(
         self,
+        base_units: BaseUnits = BaseUnits(),
+        charge_number: int = 1,
+        mass_number: float = 1.0,
+        alpha: float = None,
+        epsilon: float = None,
         with_B0: bool = True,
         with_E0: bool = True,
     ):
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
-        self.kinetic_ions = self.KineticIons()
+        self.kinetic_ions = self.KineticIons(
+            charge_number,
+            mass_number,
+            alpha,
+            epsilon,
+        )
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators(with_B0=with_B0, with_E0=with_E0)
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.push_eta.variables.var = self.kinetic_ions.var
         if with_E0:
             self.propagators.push_vinE.variables.var = self.kinetic_ions.var
@@ -147,21 +172,20 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         self.propagators.maxwell.variables.e = self.em_fields.e_field
         self.propagators.maxwell.variables.b = self.em_fields.b_field
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_E")
-        self.add_scalar("en_B")
-        self.add_scalar("en_w", compute="from_particles", variable=self.kinetic_ions.var)
-        self.add_scalar("en_tot")
+        # 5. define scalars to be tracked during simulation
+        electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
+        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
+        particle_energy = FunctionScalarPIC(
+            self._compute_en_w,
+            self.kinetic_ions.var,
+        )
+        self.scalars = Scalars(
+            en_E=electric_energy,
+            en_B=magnetic_energy,
+            en_w=particle_energy,
+            en_tot=electric_energy + magnetic_energy + particle_energy,
+        )
 
         # initial Poisson (not a propagator used in time stepping)
         self.initial_poisson = propagators_fields.Poisson()
         self.initial_poisson.variables.phi = self.em_fields.phi
-
-    def update_scalar_quantities(self):
-        super().update_scalar_quantities()
-
-        # 0.5 * b^T * M_2 * b
-        b = self.em_fields.b_field.spline.vector
-
-        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(b, b)
-        self.update_scalar("en_tot", self.scalar_quantities["en_tot"]["value"][0] + en_B)

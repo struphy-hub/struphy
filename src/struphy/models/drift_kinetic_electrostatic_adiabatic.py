@@ -1,10 +1,12 @@
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.feec.projectors import L2Projector
+from struphy import BaseUnits
+from struphy.feec.mass import L2Projector
 from struphy.io.options import LiteralOptions
 from struphy.kinetic_background.base import KineticBackground
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import FunctionScalarFEEC, FunctionScalarPIC, KineticEnergyPIC, Scalars
 from struphy.models.species import (
     FieldSpecies,
     ParticleSpecies,
@@ -83,9 +85,18 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
             self.init_variables()
 
     class KineticIons(ParticleSpecies):
-        def __init__(self):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+            epsilon: float = None,
+        ):
             self.var = PICVariable(space="Particles5D")
-            self.init_variables()
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                epsilon=epsilon,
+            )
 
     ## propagators
 
@@ -97,24 +108,43 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
     ## abstract methods
 
-    def __init__(self):
+    def __init__(
+        self,
+        base_units: BaseUnits = BaseUnits(kBT=1.0),
+        charge_number: int = 1,
+        mass_number: float = 1.0,
+        epsilon: float = None,
+    ):
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
-        self.kinetic_ions = self.KineticIons()
+        self.kinetic_ions = self.KineticIons(
+            charge_number,
+            mass_number,
+            epsilon,
+        )
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators()
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.gc_poisson.variables.phi = self.em_fields.phi
         self.propagators.push_gc_bxe.variables.ions = self.kinetic_ions.var
         self.propagators.push_gc_para.variables.ions = self.kinetic_ions.var
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_phi")
-        self.add_scalar("en_particles", compute="from_particles", variable=self.kinetic_ions.var)
-        self.add_scalar("en_tot")
+        # 5. define scalars to be tracked during simulation
+        field_energy = FunctionScalarFEEC(self._compute_en_phi)
+        particle_kinetic = KineticEnergyPIC(self.kinetic_ions.var)
+        particle_magnetic = FunctionScalarPIC(self._compute_en_particle_magnetic, self.kinetic_ions.var)
+        particle_energy = particle_kinetic + particle_magnetic
+        self.scalars = Scalars(
+            en_phi=field_energy,
+            en_particles=particle_energy,
+            en_tot=field_energy + particle_energy,
+        )
 
     @property
     def bulk_species(self):
@@ -130,7 +160,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         :meta private:
         """
         self._tmp3 = xp.empty(1, dtype=float)
-        self._e_field = Propagator.derham.Vh["1"].zeros()
+        self._e_field = Propagator.derham.V1.zeros()
 
         assert self.kinetic_ions.charge_number > 0, "Model written only for positive ions."
 
@@ -168,36 +198,19 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         self.propagators.gc_poisson.options.rho = rho
         self.propagators.gc_poisson.allocate()
 
-    def update_scalar_quantities(self):
+    def _compute_en_phi(self):
         phi = self.em_fields.phi.spline.vector
-        particles = self.kinetic_ions.var.particles
         epsilon = self.kinetic_ions.equation_params.epsilon
 
-        # energy from polarization
         e1 = Propagator.derham.grad.dot(-phi, out=self._e_field)
         en_phi1 = 0.5 * Propagator.mass_ops.M1gyro.dot_inner(e1, e1)
-
-        # energy from adiabatic electrons
         en_phi = 0.5 / epsilon**2 * Propagator.mass_ops.M0ad.dot_inner(phi, phi)
+        return en_phi + en_phi1
 
-        # for Landau damping test
-        # en_phi = 0.
-
-        # mu_p * |B0(eta_p)|
+    def _compute_en_particle_magnetic(self):
+        particles = self.kinetic_ions.var.particles
         particles.save_magnetic_background_energy()
-
-        # 1/N sum_p (w_p v_p^2/2 + mu_p |B0|_p)
-        self._tmp3[0] = (
-            1
-            / particles.Np
-            * xp.sum(
-                particles.weights * particles.velocities[:, 0] ** 2 / 2.0 + particles.markers_wo_holes_and_ghost[:, 8],
-            )
-        )
-
-        self.update_scalar("en_phi", en_phi + en_phi1)
-        self.update_scalar("en_particles", self._tmp3[0])
-        self.update_scalar("en_tot", en_phi + en_phi1 + self._tmp3[0])
+        return 1 / particles.Np * xp.sum(particles.markers_wo_holes_and_ghost[:, 8])
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

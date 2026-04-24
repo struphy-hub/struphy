@@ -1,7 +1,8 @@
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.io.options import LiteralOptions
+from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import KineticEnergySPH, Scalars
 from struphy.models.species import (
     ParticleSpecies,
 )
@@ -40,9 +41,18 @@ class PressureLessSPH(StruphyModel):
     ## species
 
     class ColdFluid(ParticleSpecies):
-        def __init__(self):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+            epsilon: float = None,
+        ):
             self.var = SPHVariable()
-            self.init_variables()
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                epsilon=epsilon,
+            )
 
     ## propagators
 
@@ -53,20 +63,35 @@ class PressureLessSPH(StruphyModel):
 
     ## abstract methods
 
-    def __init__(self):
+    def __init__(
+        self,
+        base_units: BaseUnits = BaseUnits(),
+        charge_number: int = 1,
+        mass_number: float = 1.0,
+        epsilon: float = None,
+    ):
 
         # 1. instantiate all species
-        self.cold_fluid = self.ColdFluid()
+        self.cold_fluid = self.ColdFluid(
+            charge_number=charge_number,
+            mass_number=mass_number,
+            epsilon=epsilon,
+        )
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators()
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.push_eta.variables.var = self.cold_fluid.var
         self.propagators.push_v.variables.var = self.cold_fluid.var
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_kin", compute="from_particles", variable=self.cold_fluid.var)
+        # 5. define scalars to be tracked during simulation
+        self.scalars = Scalars(
+            en_kin=KineticEnergySPH(self.cold_fluid.var),
+        )
 
     @property
     def bulk_species(self):
@@ -84,15 +109,6 @@ class PressureLessSPH(StruphyModel):
 
     def allocate_helpers(self, verbose: bool = False):
         pass
-
-    def update_scalar_quantities(self):
-        particles = self.cold_fluid.var.particles
-        valid_parts = particles.markers_wo_holes_and_ghost
-        en_kin = valid_parts[:, 6].dot(valid_parts[:, 3] ** 2 + valid_parts[:, 4] ** 2 + valid_parts[:, 5] ** 2) / (
-            2.0 * particles.Np
-        )
-
-        self.update_scalar("en_kin", en_kin)
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

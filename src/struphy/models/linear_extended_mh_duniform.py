@@ -1,8 +1,9 @@
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector
 
-from struphy.io.options import LiteralOptions
+from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, Scalars, VolumeFormEnergyFEEC
 from struphy.models.species import (
     FieldSpecies,
     FluidSpecies,
@@ -68,11 +69,20 @@ class LinearExtendedMHDuniform(StruphyModel):
             self.init_variables()
 
     class MHD(FluidSpecies):
-        def __init__(self):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+            epsilon: float = None,
+        ):
             self.density = FEECVariable(space="L2")
             self.velocity = FEECVariable(space="Hdiv")
             self.pressure = FEECVariable(space="L2")
-            self.init_variables()
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                epsilon=epsilon,
+            )
 
     ## propagators
 
@@ -84,16 +94,29 @@ class LinearExtendedMHDuniform(StruphyModel):
 
     ## abstract methods
 
-    def __init__(self):
+    def __init__(
+        self,
+        base_units: BaseUnits = BaseUnits(),
+        charge_number: int = 1,
+        mass_number: float = 1.0,
+        epsilon: float = None,
+    ):
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
-        self.mhd = self.MHD()
+        self.mhd = self.MHD(
+            charge_number=charge_number,
+            mass_number=mass_number,
+            epsilon=epsilon,
+        )
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators()
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.shear_alf.variables.u = self.mhd.velocity
         self.propagators.shear_alf.variables.b = self.em_fields.b_field
 
@@ -103,15 +126,24 @@ class LinearExtendedMHDuniform(StruphyModel):
         self.propagators.mag_sonic.variables.u = self.mhd.velocity
         self.propagators.mag_sonic.variables.p = self.mhd.pressure
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_U")
-        self.add_scalar("en_p")
-        self.add_scalar("en_B")
-        self.add_scalar("en_p_eq")
-        self.add_scalar("en_B_eq")
-        self.add_scalar("en_B_tot")
-        self.add_scalar("en_tot")
-        self.add_scalar("helicity")
+        # 5. define scalars to be tracked during simulation
+        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="M2n")
+        pressure_energy = VolumeFormEnergyFEEC(self.mhd.pressure, normalization=1.0 / (5.0 / 3.0 - 1.0))
+        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
+        background_pressure = FunctionScalarFEEC(self._compute_en_p_eq)
+        background_magnetic = FunctionScalarFEEC(self._compute_en_B_eq)
+        total_magnetic = FunctionScalarFEEC(self._compute_en_B_tot)
+        helicity = FunctionScalarFEEC(self._compute_helicity)
+        self.scalars = Scalars(
+            en_U=kinetic_energy,
+            en_p=pressure_energy,
+            en_B=magnetic_energy,
+            en_p_eq=background_pressure,
+            en_B_eq=background_magnetic,
+            en_B_tot=total_magnetic,
+            en_tot=kinetic_energy + pressure_energy + magnetic_energy,
+            helicity=helicity,
+        )
 
     @property
     def bulk_species(self):
@@ -132,8 +164,8 @@ class LinearExtendedMHDuniform(StruphyModel):
         else:
             self._ones[:] = 1.0
 
-        self._tmp_b1: BlockVector = Propagator.derham.Vh["1"].zeros()  # TODO: replace derham.Vh dict by class
-        self._tmp_b2: BlockVector = Propagator.derham.Vh["1"].zeros()
+        self._tmp_b1: BlockVector = Propagator.derham.V1.zeros()
+        self._tmp_b2: BlockVector = Propagator.derham.V1.zeros()
 
         # adjust coupling parameters
         epsilon = self.mhd.equation_params.epsilon
@@ -141,40 +173,28 @@ class LinearExtendedMHDuniform(StruphyModel):
         if abs(epsilon - 1) < 1e-6:
             self.mhd.equation_params.epsilon = 1.0
 
-    def update_scalar_quantities(self):
-        # perturbed fields
+    def _compute_helicity(self):
         u = self.mhd.velocity.spline.vector
         p = self.mhd.pressure.spline.vector
         b = self.em_fields.b_field.spline.vector
 
-        en_U = 0.5 * Propagator.mass_ops.M2n.dot_inner(u, u)
         b1 = Propagator.mass_ops.M1.dot(b, out=self._tmp_b1)
-        en_B = 0.5 * b.inner(b1)
-        helicity = 2.0 * self._a_eq.inner(b1)
-        en_p_i = p.inner(self._ones) / (5.0 / 3.0 - 1.0)
+        return 2.0 * self._a_eq.inner(b1)
 
-        self.update_scalar("en_U", en_U)
-        self.update_scalar("en_B", en_B)
-        self.update_scalar("en_p", en_p_i)
-        self.update_scalar("helicity", helicity)
-        self.update_scalar("en_tot", en_U + en_B + en_p_i)
-
-        # background fields
+    def _compute_en_B_eq(self):
         b1 = Propagator.mass_ops.M1.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
-        en_B0 = self._b_eq.inner(b1) / 2.0
-        en_p0 = self._p_eq.inner(self._ones) / (5.0 / 3.0 - 1.0)
+        return self._b_eq.inner(b1) / 2.0
 
-        self.update_scalar("en_B_eq", en_B0)
-        self.update_scalar("en_p_eq", en_p0)
+    def _compute_en_p_eq(self):
+        return self._p_eq.inner(self._ones) / (5.0 / 3.0 - 1.0)
 
-        # total magnetic field
+    def _compute_en_B_tot(self):
+        b = self.em_fields.b_field.spline.vector
         b1 = self._b_eq.copy(out=self._tmp_b1)
         self._tmp_b1 += b
 
         b2 = Propagator.mass_ops.M1.dot(b1, apply_bc=False, out=self._tmp_b2)
-        en_Btot = b1.inner(b2) / 2.0
-
-        self.update_scalar("en_B_tot", en_Btot)
+        return b1.inner(b2) / 2.0
 
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

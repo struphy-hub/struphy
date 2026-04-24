@@ -1,8 +1,12 @@
+import logging
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import FunctionScalarPIC, KineticEnergyPIC, LostMarkersPIC, Scalars
 from struphy.models.species import (
     ParticleSpecies,
 )
@@ -12,6 +16,7 @@ from struphy.propagators import (
 )
 from struphy.propagators.base import Propagator
 
+logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
 
 
@@ -55,9 +60,18 @@ class GuidingCenter(StruphyModel):
     ## species
 
     class KineticIons(ParticleSpecies):
-        def __init__(self):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+            epsilon: float = None,
+        ):
             self.var = PICVariable(space="Particles5D")
-            self.init_variables()
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                epsilon=epsilon,
+            )
 
     ## propagators
 
@@ -68,25 +82,43 @@ class GuidingCenter(StruphyModel):
 
     ## abstract methods
 
-    def __init__(self):
+    def __init__(
+        self,
+        base_units: BaseUnits = BaseUnits(),
+        charge_number: int = 1,
+        mass_number: float = 1.0,
+        epsilon: float = None,
+    ):
 
         # 1. instantiate all species
-        self.kinetic_ions = self.KineticIons()
+        self.kinetic_ions = self.KineticIons(
+            charge_number,
+            mass_number,
+            epsilon,
+        )
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators()
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.push_bxe.variables.ions = self.kinetic_ions.var
         self.propagators.push_parallel.variables.ions = self.kinetic_ions.var
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_fv", compute="from_particles", variable=self.kinetic_ions.var)
-        self.add_scalar("en_fB", compute="from_particles", variable=self.kinetic_ions.var)
-        self.add_scalar("en_tot", compute="from_particles", variable=self.kinetic_ions.var)
+        # 5. define scalars to be tracked during simulation
+        kinetic_energy = KineticEnergyPIC(self.kinetic_ions.var)
+        magnetic_energy = FunctionScalarPIC(self._compute_en_fB, self.kinetic_ions.var)
+        self.scalars = Scalars(
+            en_fv=kinetic_energy,
+            en_fB=magnetic_energy,
+            en_tot=kinetic_energy + magnetic_energy,
+            n_lost_particles=LostMarkersPIC(self.kinetic_ions.var),
+        )
 
         if rank == 0:
-            print("Done.")
+            logger.info("Done.")
 
     @property
     def bulk_species(self):
@@ -97,36 +129,15 @@ class GuidingCenter(StruphyModel):
         return "alfvén"
 
     def allocate_helpers(self, verbose: bool = False):
-        self._en_fv = xp.empty(1, dtype=float)
-        self._en_fB = xp.empty(1, dtype=float)
-        self._en_tot = xp.empty(1, dtype=float)
-        self._n_lost_particles = xp.empty(1, dtype=float)
+        pass
 
-    def update_scalar_quantities(self):
+    def _compute_en_fB(self):
         particles = self.kinetic_ions.var.particles
-
-        # particles' kinetic energy
-        self._en_fv[0] = particles.markers[~particles.holes, 5].dot(
-            particles.markers[~particles.holes, 3] ** 2,
-        ) / (2.0 * particles.Np)
-
         particles.save_magnetic_background_energy()
-        self._en_tot[0] = (
+        energy = (
             particles.markers[~particles.holes, 5].dot(
                 particles.markers[~particles.holes, 8],
             )
             / particles.Np
         )
-
-        self._en_fB[0] = self._en_tot[0] - self._en_fv[0]
-
-        self.update_scalar("en_fv", self._en_fv[0])
-        self.update_scalar("en_fB", self._en_fB[0])
-        self.update_scalar("en_tot", self._en_tot[0])
-
-        self._n_lost_particles[0] = particles.n_lost_markers
-        Propagator.derham.comm.Allreduce(
-            MPI.IN_PLACE,
-            self._n_lost_particles,
-            op=MPI.SUM,
-        )
+        return energy

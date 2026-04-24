@@ -1,9 +1,13 @@
+import logging
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarPIC, Scalars
 from struphy.models.species import (
     FieldSpecies,
     ParticleSpecies,
@@ -19,6 +23,7 @@ from struphy.propagators import (
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
 
+logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
 
 
@@ -102,9 +107,20 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             self.init_variables()
 
     class KineticIons(ParticleSpecies):
-        def __init__(self):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+            alpha: float = None,
+            epsilon: float = None,
+        ):
             self.var = PICVariable(space="DeltaFParticles6D")
-            self.init_variables()
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                alpha=alpha,
+                epsilon=epsilon,
+            )
 
     ## propagators
 
@@ -125,18 +141,31 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
     def __init__(
         self,
+        base_units: BaseUnits = BaseUnits(),
+        charge_number: int = 1,
+        mass_number: float = 1.0,
+        alpha: float = None,
+        epsilon: float = None,
         with_B0: bool = True,
         with_E0: bool = True,
     ):
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
-        self.kinetic_ions = self.KineticIons()
+        self.kinetic_ions = self.KineticIons(
+            charge_number,
+            mass_number,
+            alpha,
+            epsilon,
+        )
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators(with_B0=with_B0, with_E0=with_E0)
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.push_eta.variables.var = self.kinetic_ions.var
         if with_E0:
             self.propagators.push_vinE.variables.var = self.kinetic_ions.var
@@ -145,10 +174,17 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         if with_B0:
             self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_E")
-        self.add_scalar("en_w", compute="from_particles", variable=self.kinetic_ions.var)
-        self.add_scalar("en_tot")
+        # 5. define scalars to be tracked during simulation
+        electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
+        particle_energy = FunctionScalarPIC(
+            self._compute_en_w,
+            self.kinetic_ions.var,
+        )
+        self.scalars = Scalars(
+            en_E=electric_energy,
+            en_w=particle_energy,
+            en_tot=electric_energy + particle_energy,
+        )
 
         # initial Poisson (not a propagator used in time stepping)
         self.initial_poisson = propagators_fields.Poisson()
@@ -170,7 +206,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         self._tmp = xp.empty(1, dtype=float)
 
         if MPI.COMM_WORLD.Get_rank() == 0:
-            print("\nINITIAL POISSON SOLVE:")
+            logger.info("\nINITIAL POISSON SOLVE:")
 
         # use control variate method
         particles = self.kinetic_ions.var.particles
@@ -201,21 +237,16 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
         # Solve with dt=1. and compute electric field
         if MPI.COMM_WORLD.Get_rank() == 0:
-            print("\nSolving initial Poisson problem...")
+            logger.info("\nSolving initial Poisson problem...")
         self.initial_poisson(1.0)
 
         phi = self.initial_poisson.variables.phi.spline.vector
         Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print("... Done.")
+        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
+            logger.info("... Done.")
 
-    def update_scalar_quantities(self):
-        # e*M1*e/2
-        e = self.em_fields.e_field.spline.vector
+    def _compute_en_w(self):
         particles = self.kinetic_ions.var.particles
-
-        en_E = 0.5 * Propagator.mass_ops.M1.dot_inner(e, e)
-        self.update_scalar("en_E", en_E)
 
         # evaluate f0
         if not hasattr(self, "_f0"):
@@ -245,9 +276,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
                 particles.sampling_density / self._f0_values[particles.valid_mks],  # s_{0,p} / f_{0,p}
             )
         )
-
-        self.update_scalar("en_w", self._tmp[0])
-        self.update_scalar("en_tot", self._tmp[0] + en_E)
+        return self._tmp[0]
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

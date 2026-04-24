@@ -1,7 +1,8 @@
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.io.options import LiteralOptions
+from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import BilinearEnergyFEEC, Scalars
 from struphy.models.species import (
     FluidSpecies,
 )
@@ -9,7 +10,6 @@ from struphy.models.variables import FEECVariable
 from struphy.propagators import (
     propagators_fields,
 )
-from struphy.propagators.base import Propagator
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -46,10 +46,10 @@ class VariationalPressurelessFluid(StruphyModel):
     ## species
 
     class Fluid(FluidSpecies):
-        def __init__(self):
+        def __init__(self, mass_number: float = 1.0):
             self.density = FEECVariable(space="L2")
             self.velocity = FEECVariable(space="H1vec")
-            self.init_variables()
+            self.init_variables(mass_number=mass_number)
 
     ## propagators
 
@@ -60,21 +60,25 @@ class VariationalPressurelessFluid(StruphyModel):
 
     ## abstract methods
 
-    def __init__(self):
+    def __init__(self, base_units: BaseUnits = BaseUnits(), mass_number: float = 1.0):
 
         # 1. instantiate all species
-        self.fluid = self.Fluid()
+        self.fluid = self.Fluid(mass_number=mass_number)
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators()
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.variat_dens.variables.rho = self.fluid.density
         self.propagators.variat_dens.variables.u = self.fluid.velocity
         self.propagators.variat_mom.variables.u = self.fluid.velocity
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_U")
+        # 5. define scalars to be tracked during simulation
+        kinetic_energy = BilinearEnergyFEEC(self.fluid.velocity, bilinear_form_name="WMMnew")
+        self.scalars = Scalars(kinetic_energy=kinetic_energy)
 
     @property
     def bulk_species(self):
@@ -87,11 +91,6 @@ class VariationalPressurelessFluid(StruphyModel):
     def allocate_helpers(self, verbose: bool = False):
         pass
 
-    def update_scalar_quantities(self):
-        u = self.fluid.velocity.spline.vector
-        en_U = 0.5 * Propagator.mass_ops.WMM.massop.dot_inner(u, u)
-        self.update_scalar("en_U", en_U)
-
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
         params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
@@ -102,6 +101,9 @@ class VariationalPressurelessFluid(StruphyModel):
                     new_file += [
                         "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='pressureless')\n",
                     ]
+                elif "velocity.add_background" in line:
+                    new_file += ["model.fluid.density.add_background(FieldsBackground())\n"]
+                    new_file += [line]
                 else:
                     new_file += [line]
 

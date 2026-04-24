@@ -1,8 +1,11 @@
+import logging
 from typing import get_args
 
 import pytest
 
 from struphy.io.options import LiteralOptions
+
+logger = logging.getLogger("struphy")
 
 
 @pytest.mark.parametrize(
@@ -27,16 +30,19 @@ def test_exp_growth(spaces, algo, show_plots=False):
     from matplotlib import pyplot as plt
 
     from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
     from struphy.ode.solvers import ODEsolverFEEC
     from struphy.ode.utils import ButcherTableau
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
-    Nel = [1, 8, 9]
-    p = [1, 2, 3]
-    spl_kind = [True] * 3
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    num_elements = [1, 8, 9]
+    degree = [1, 2, 3]
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     c0 = 1.2
     omega = 2.3
@@ -44,7 +50,7 @@ def test_exp_growth(spaces, algo, show_plots=False):
 
     vector_field = {}
     for i, space in enumerate(spaces):
-        var = derham.Vh[space].zeros()
+        var = derham.coeff_spaces[space].zeros()
         if isinstance(var, StencilVector):
             var[:] = c0
         elif isinstance(var, BlockVector):
@@ -100,9 +106,9 @@ def test_exp_growth(spaces, algo, show_plots=False):
 
         vector_field[var] = f
 
-    print(f"{vector_field =}")
+    logger.info(f"{vector_field =}")
     butcher = ButcherTableau(algo=algo)
-    print(f"{butcher =}")
+    logger.info(f"{butcher =}")
 
     solver = ODEsolverFEEC(vector_field, butcher=butcher)
 
@@ -118,7 +124,7 @@ def test_exp_growth(spaces, algo, show_plots=False):
     for i, h in enumerate(hs):
         errors[h] = {}
         time = xp.linspace(0, Tend, int(Tend / h) + 1)
-        print(f"{h =}, {time.size =}")
+        logger.info(f"{h =}, {time.size =}")
         yvec = y_exact(time)
         ymax = {}
         for var in vector_field:
@@ -139,7 +145,7 @@ def test_exp_growth(spaces, algo, show_plots=False):
         # checks
         for var in vector_field:
             errors[h][var] = h * xp.sum(xp.abs(yvec - ymax[var])) / (h * xp.sum(xp.abs(yvec)))
-            print(f"{errors[h][var] =}")
+            logger.info(f"{errors[h][var] =}")
             assert errors[h][var] < 0.31
 
         if rank == 0:
@@ -162,9 +168,9 @@ def test_exp_growth(spaces, algo, show_plots=False):
             err_vec += [dct[var]]
 
         m, _ = xp.polyfit(xp.log(h_vec), xp.log(err_vec), deg=1)
-        print(f"{spaces[j]}-space, fitted convergence rate = {m} for {algo =} with {solver.butcher.conv_rate =}")
+        logger.info(f"{spaces[j]}-space, fitted convergence rate = {m} for {algo =} with {solver.butcher.conv_rate =}")
         assert xp.abs(m - solver.butcher.conv_rate) < 0.1
-        print(f"Convergence check passed on {rank =}.")
+        logger.info(f"Convergence check passed on {rank =}.")
 
         if rank == 0:
             plt.loglog(h_vec, h_vec, "--", label="h")

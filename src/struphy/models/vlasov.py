@@ -1,8 +1,9 @@
-import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import KineticEnergyPIC, Scalars
 from struphy.models.species import (
     ParticleSpecies,
 )
@@ -42,9 +43,16 @@ class Vlasov(StruphyModel):
     ## species
 
     class KineticIons(ParticleSpecies):
-        def __init__(self):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+        ):
             self.var = PICVariable(space="Particles6D")
-            self.init_variables()
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+            )
 
     ## propagators
 
@@ -55,20 +63,32 @@ class Vlasov(StruphyModel):
 
     ## abstract methods
 
-    def __init__(self):
+    def __init__(
+        self,
+        base_units: BaseUnits = BaseUnits(),
+        charge_number: int = 1,
+        mass_number: float = 1.0,
+    ):
 
         # 1. instantiate all species
-        self.kinetic_ions = self.KineticIons()
+        self.kinetic_ions = self.KineticIons(
+            charge_number,
+            mass_number,
+        )
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators()
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
         self.propagators.push_eta.variables.var = self.kinetic_ions.var
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_f", compute="from_particles", variable=self.kinetic_ions.var)
+        # 5. define scalars to be tracked during simulation
+        kinetic_energy = KineticEnergyPIC(self.kinetic_ions.var)
+        self.scalars = Scalars(kinetic_energy=kinetic_energy)
 
     @property
     def bulk_species(self):
@@ -79,14 +99,4 @@ class Vlasov(StruphyModel):
         return "cyclotron"
 
     def allocate_helpers(self, verbose: bool = False):
-        self._tmp = xp.empty(1, dtype=float)
-
-    def update_scalar_quantities(self):
-        particles = self.kinetic_ions.var.particles
-        self._tmp[0] = particles.markers_wo_holes[:, 6].dot(
-            particles.markers_wo_holes[:, 3] ** 2
-            + particles.markers_wo_holes[:, 4] ** 2
-            + particles.markers_wo_holes[:, 5] ** 2,
-        ) / (2 * particles.Np)
-
-        self.update_scalar("en_f", self._tmp[0])
+        pass
