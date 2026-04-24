@@ -36,6 +36,7 @@ def test_all_models_expose_new_doc_api():
                 f"{model_cls.__name__}.{method_name} did not provide documentation content"
             )
 
+
 # specific tests
 
 

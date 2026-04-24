@@ -280,7 +280,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
             \mathbf{M}_\textnormal{gc} = -\int f_\textnormal{h} B_\parallel^* \mu \mathbf{b}_0 \, \textnormal{d} v_\parallel \textnormal{d} \mu
 
-        where 
+        where
 
         .. math::
 
