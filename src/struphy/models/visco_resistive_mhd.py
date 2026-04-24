@@ -168,31 +168,19 @@ class ViscoResistiveMHD(StruphyModel):
 
         .. math::
 
-            \partial_t (\rho \mathbf{u})
-            + \nabla \cdot (\rho \mathbf{u} \otimes \mathbf{u})
-            + \rho \nabla \frac{(\rho \mathcal{U}(\rho, s))}{\partial \rho}
-            + s \nabla \frac{(\rho \mathcal{U}(\rho, s))}{\partial s}
-            + \mathbf{B} \times \nabla \times \mathbf{B}
-            - \nabla \cdot \left( (\mu + \mu_a(\mathbf{x})) \nabla \mathbf{u} \right) = 0
+            \partial_t (\rho \mathbf{u}) + \nabla \cdot (\rho \mathbf{u} \otimes \mathbf{u}) + \rho \nabla \frac{(\rho \mathcal{U}(\rho, s))}{\partial \rho} + s \nabla \frac{(\rho \mathcal{U}(\rho, s))}{\partial s} + \mathbf{B} \times \nabla \times \mathbf{B} - \nabla \cdot \left( (\mu + \mu_a(\mathbf{x})) \nabla \mathbf{u} \right) = 0
 
         Entropy:
 
         .. math::
 
-            \partial_t s + \nabla \cdot (s \mathbf{u})
-            = \frac{1}{T}
-            \left(
-            (\mu + \mu_a(\mathbf{x})) |\nabla \mathbf{u}|^2
-            + (\eta + \eta_a(\mathbf{x})) |\nabla \times \mathbf{B}|^2
-            \right)
+            \partial_t s + \nabla \cdot (s \mathbf{u}) = \frac{1}{T} \left( (\mu + \mu_a(\mathbf{x})) |\nabla \mathbf{u}|^2 + (\eta + \eta_a(\mathbf{x})) |\nabla \times \mathbf{B}|^2 \right)
 
         Induction:
 
         .. math::
 
-            \partial_t \mathbf{B}
-            + \nabla \times (\mathbf{B} \times \mathbf{u})
-            + \nabla \times (\eta + \eta_a(\mathbf{x})) \nabla \times \mathbf{B} = 0
+            \partial_t \mathbf{B} + \nabla \times (\mathbf{B} \times \mathbf{u}) + \nabla \times (\eta + \eta_a(\mathbf{x})) \nabla \times \mathbf{B} = 0
 
         where the internal energy per unit mass is :math:`\mathcal U(\rho) = \rho^{\gamma-1} \exp(s / \rho)`,
         and :math:`\mu_a(\mathbf{x})` and :math:`\eta_a(\mathbf{x})` are artificial viscosity and resistivity coefficients.

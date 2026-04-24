@@ -155,16 +155,13 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
         .. math::
 
-            \frac{\partial f}{\partial t}
-            + \mathbf{v} \cdot \nabla f
-            + \frac{1}{\varepsilon} \left( \mathbf{E} + \mathbf{v} \times \mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0
+            \frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \frac{1}{\varepsilon} \left( \mathbf{E} + \mathbf{v} \times \mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0
 
         Ampère's law:
 
         .. math::
 
-            -\frac{\partial \mathbf{E}}{\partial t}
-            = \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} f \, \mathrm{d}^3 \mathbf{v}
+            -\frac{\partial \mathbf{E}}{\partial t} = \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} f \, \mathrm{d}^3 \mathbf{v}
 
         Initial Poisson equation: At :math:`t=0`, solve weakly for the electric potential :math:`\phi`:
 

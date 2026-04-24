@@ -211,10 +211,7 @@ class LinearMHDVlasovPC(StruphyModel):
 
         .. math::
 
-            \rho_0 \frac{\partial \tilde{\mathbf{U}}}{\partial t}
-            + \nabla \tilde{p}
-            + \frac{A_\textnormal{h}}{A_\textnormal{b}} \nabla \cdot \tilde{\mathbb{P}}_{\textnormal{h},\perp}
-            = (\nabla \times \tilde{\mathbf{B}}) \times \mathbf{B}_0 + \mathbf{J}_0 \times \tilde{\mathbf{B}}
+            \rho_0 \frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde{p} + \frac{A_\textnormal{h}}{A_\textnormal{b}} \nabla \cdot \tilde{\mathbb{P}}_{\textnormal{h},\perp} = (\nabla \times \tilde{\mathbf{B}}) \times \mathbf{B}_0 + \mathbf{J}_0 \times \tilde{\mathbf{B}}
 
         .. math::
 
@@ -224,27 +221,19 @@ class LinearMHDVlasovPC(StruphyModel):
 
         .. math::
 
-            \frac{\partial \tilde{p}}{\partial t}
-            + \nabla \cdot (p_0 \tilde{\mathbf{U}})
-            + \frac{2}{3} p_0 \nabla \cdot \tilde{\mathbf{U}} = 0
+            \frac{\partial \tilde{p}}{\partial t} + \nabla \cdot (p_0 \tilde{\mathbf{U}}) + \frac{2}{3} p_0 \nabla \cdot \tilde{\mathbf{U}} = 0
 
         MHD induction:
 
         .. math::
 
-            \frac{\partial \tilde{\mathbf{B}}}{\partial t}
-            - \nabla \times (\tilde{\mathbf{U}} \times \mathbf{B}_0) = 0
+            \frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla \times (\tilde{\mathbf{U}} \times \mathbf{B}_0) = 0
 
         Energetic-particle Vlasov equation:
 
         .. math::
 
-            \frac{\partial f_\textnormal{h}}{\partial t}
-            + (\mathbf{v} + \tilde{\mathbf{U}}_\perp) \cdot \nabla f_\textnormal{h}
-            + \left[
-            \frac{1}{\epsilon} \mathbf{v} \times (\mathbf{B}_0 + \tilde{\mathbf{B}})
-            - \nabla \tilde{\mathbf{U}}_\perp \cdot \mathbf{v}
-            \right] \cdot \frac{\partial f_\textnormal{h}}{\partial \mathbf{v}} = 0
+            \frac{\partial f_\textnormal{h}}{\partial t} + (\mathbf{v} + \tilde{\mathbf{U}}_\perp) \cdot \nabla f_\textnormal{h} + \left[ \frac{1}{\epsilon} \mathbf{v} \times (\mathbf{B}_0 + \tilde{\mathbf{B}}) - \nabla \tilde{\mathbf{U}}_\perp \cdot \mathbf{v} \right] \cdot \frac{\partial f_\textnormal{h}}{\partial \mathbf{v}} = 0
 
         Perpendicular pressure tensor:
 
@@ -256,9 +245,7 @@ class LinearMHDVlasovPC(StruphyModel):
 
         .. math::
 
-            \epsilon = \frac{\hat \omega}{2 \pi \, \hat \Omega_{\textnormal{c,hot}}},
-            \qquad
-            \hat \Omega_{\textnormal{c,hot}} = \frac{Z_\textnormal{h} e \hat B}{A_\textnormal{h} m_\textnormal{H}}
+            \epsilon = \frac{\hat \omega}{2 \pi \, \hat \Omega_{\textnormal{c,hot}}}, \qquad \hat \Omega_{\textnormal{c,hot}} = \frac{Z_\textnormal{h} e \hat B}{A_\textnormal{h} m_\textnormal{H}}
         """
 
     @classmethod

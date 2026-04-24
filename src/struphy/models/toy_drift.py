@@ -156,34 +156,25 @@ class ToyDrift(StruphyModel):
 
         .. math::
 
-            \frac{\partial f}{\partial t}
-            + \frac{\mathbf{E} \times \mathbf{b}_0}{B^*_\parallel} \cdot \frac{\partial f}{\partial \mathbf{X}} = 0
+            \frac{\partial f}{\partial t} + \frac{\mathbf{E} \times \mathbf{b}_0}{B^*_\parallel} \cdot \frac{\partial f}{\partial \mathbf{X}} = 0
 
         Poisson equation:
 
         .. math::
 
-            -\nabla_\perp \cdot \left( \frac{n_0}{|B_0|^2} \nabla_\perp \phi \right)
-            + \frac{1}{\varepsilon} n_0 \left( 1 + \frac{1}{Z \varepsilon} \frac{1}{T_0} \phi \right)
-            = \frac{1}{\varepsilon} \int f B^*_\parallel \, \textnormal{d} v_\parallel \textnormal{d} \mu
+            -\nabla_\perp \cdot \left( \frac{n_0}{|B_0|^2} \nabla_\perp \phi \right) + \frac{1}{\varepsilon} n_0 \left( 1 + \frac{1}{Z \varepsilon} \frac{1}{T_0} \phi \right) = \frac{1}{\varepsilon} \int f B^*_\parallel \, \textnormal{d} v_\parallel \textnormal{d} \mu
 
         where :math:`f(\mathbf{X}, v_\parallel, \mu, t)` is the guiding center distribution and
 
         .. math::
 
-            \mathbf{E} = -\nabla \phi,
-            \qquad
-            \mathbf{B}^* = \mathbf{B}_0 + \varepsilon v_\parallel \nabla \times \mathbf{b}_0,
-            \qquad
-            B^*_\parallel = \mathbf{B}^* \cdot \mathbf{b}_0
+            \mathbf{E} = -\nabla \phi, \qquad \mathbf{B}^* = \mathbf{B}_0 + \varepsilon v_\parallel \nabla \times \mathbf{b}_0, \qquad B^*_\parallel = \mathbf{B}^* \cdot \mathbf{b}_0
 
         and with the normalization parameters
 
         .. math::
 
-            \varepsilon := \frac{1}{\hat \Omega_\textrm{c} \hat t},
-            \qquad
-            \hat \Omega_\textrm{c} = \frac{q_\textrm{i} \hat B}{m_\textrm{i}}
+            \varepsilon := \frac{1}{\hat \Omega_\textrm{c} \hat t}, \qquad \hat \Omega_\textrm{c} = \frac{q_\textrm{i} \hat B}{m_\textrm{i}}
 
         Notes
         -----
@@ -193,10 +184,7 @@ class ToyDrift(StruphyModel):
 
         .. math::
 
-            \int \frac{n_0}{|B_0|^2} \nabla_\perp \psi \cdot \nabla_\perp \phi \, \textrm{d} \mathbf{x}
-            + \frac{1}{Z \varepsilon^2} \int \frac{n_0}{T_0} \psi \phi \, \textrm{d} \mathbf{x}
-            = \frac{1}{\varepsilon} \int \int \psi \, (f - f_0) B^*_\parallel \, \textrm{d} \mathbf{x} \, \textnormal{d} v_\parallel \textnormal{d} \mu
-            \qquad \forall \ \psi \in H^1
+            \int \frac{n_0}{|B_0|^2} \nabla_\perp \psi \cdot \nabla_\perp \phi \, \textrm{d} \mathbf{x} + \frac{1}{Z \varepsilon^2} \int \frac{n_0}{T_0} \psi \phi \, \textrm{d} \mathbf{x} = \frac{1}{\varepsilon} \int \int \psi \, (f - f_0) B^*_\parallel \, \textrm{d} \mathbf{x} \, \textnormal{d} v_\parallel \textnormal{d} \mu \qquad \forall \ \psi \in H^1
         """
 
     @classmethod

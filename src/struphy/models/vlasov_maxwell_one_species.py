@@ -219,17 +219,13 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
         .. math::
 
-            \frac{\partial f}{\partial t}
-            + \mathbf{v} \cdot \nabla f
-            + \frac{1}{\varepsilon} \left( \mathbf{E} + \mathbf{v} \times \left( \mathbf{B} + \mathbf{B}_0 \right) \right)
-            \cdot \frac{\partial f}{\partial \mathbf{v}} = 0
+            \frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \frac{1}{\varepsilon} \left( \mathbf{E} + \mathbf{v} \times \left( \mathbf{B} + \mathbf{B}_0 \right) \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0
 
         Ampère's law:
 
         .. math::
 
-            -\frac{\partial \mathbf{E}}{\partial t} + \nabla \times \mathbf{B}
-            = \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} f \, \text{d}^3 \mathbf{v}
+            -\frac{\partial \mathbf{E}}{\partial t} + \nabla \times \mathbf{B} = \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} f \, \text{d}^3 \mathbf{v}
 
         Faraday's law:
 
@@ -241,13 +237,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
         .. math::
 
-            \alpha = \frac{\hat \Omega_\textnormal{p}}{\hat \Omega_\textnormal{c}},
-            \qquad
-            \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t},
-            \qquad
-            \hat \Omega_\textnormal{p} = \sqrt{\frac{\hat n (Ze)^2}{\epsilon_0 (A m_\textnormal{H})}},
-            \qquad
-            \hat \Omega_{\textnormal{c}} = \frac{(Ze) \hat B}{(A m_\textnormal{H})}
+            \alpha = \frac{\hat \Omega_\textnormal{p}}{\hat \Omega_\textnormal{c}}, \qquad \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t}, \qquad \hat \Omega_\textnormal{p} = \sqrt{\frac{\hat n (Ze)^2}{\epsilon_0 (A m_\textnormal{H})}}, \qquad \hat \Omega_{\textnormal{c}} = \frac{(Ze) \hat B}{(A m_\textnormal{H})}
 
         where :math:`Z=-1` and :math:`A=1/1836` for electrons.
         At initial time the weak Poisson equation is solved once to weakly satisfy Gauss' law,

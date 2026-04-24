@@ -123,10 +123,7 @@ class VariationalCompressibleFluid(StruphyModel):
 
         .. math::
 
-            \partial_t (\rho \mathbf{u})
-            + \nabla \cdot (\rho \mathbf{u} \otimes \mathbf{u})
-            + \rho \nabla \frac{(\rho \mathcal{U}(\rho, s))}{\partial \rho}
-            + s \nabla \frac{(\rho \mathcal{U}(\rho, s))}{\partial s} = 0
+            \partial_t (\rho \mathbf{u}) + \nabla \cdot (\rho \mathbf{u} \otimes \mathbf{u}) + \rho \nabla \frac{(\rho \mathcal{U}(\rho, s))}{\partial \rho} + s \nabla \frac{(\rho \mathcal{U}(\rho, s))}{\partial s} = 0
 
         Entropy:
 

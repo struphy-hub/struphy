@@ -152,8 +152,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
 
         .. math::
 
-            \frac{\partial \mathbf{u}}{\partial t}
-            = -\nabla \phi + \frac{\mathbf{u} \times \mathbf{B}_0}{\varepsilon} + \nu \Delta \mathbf{u} + \mathbf{f}
+            \frac{\partial \mathbf{u}}{\partial t} = -\nabla \phi + \frac{\mathbf{u} \times \mathbf{B}_0}{\varepsilon} + \nu \Delta \mathbf{u} + \mathbf{f}
 
         Electron momentum:
 
@@ -172,9 +171,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
 
         .. math::
 
-            \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t},
-            \qquad
-            \hat \Omega_{\textnormal{c}} = \frac{(Ze) \hat B}{(A m_\textnormal{H})}
+            \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t}, \qquad \hat \Omega_{\textnormal{c}} = \frac{(Ze) \hat B}{(A m_\textnormal{H})}
         """
 
     @classmethod

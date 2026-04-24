@@ -76,15 +76,13 @@ class ShearAlfven(StruphyModel):
 
         .. math::
 
-            \rho_0 \frac{\partial \tilde{\mathbf{U}}}{\partial t}
-            = (\nabla \times \tilde{\mathbf{B}}) \times \mathbf{B}_0
+            \rho_0 \frac{\partial \tilde{\mathbf{U}}}{\partial t} = (\nabla \times \tilde{\mathbf{B}}) \times \mathbf{B}_0
 
         Induction:
 
         .. math::
 
-            \frac{\partial \tilde{\mathbf{B}}}{\partial t}
-            - \nabla \times (\tilde{\mathbf{U}} \times \mathbf{B}_0) = 0
+            \frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla \times (\tilde{\mathbf{U}} \times \mathbf{B}_0) = 0
         """
 
     @classmethod

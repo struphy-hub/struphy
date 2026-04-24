@@ -91,9 +91,7 @@ class DeterministicParticleDiffusion(StruphyModel):
 
         .. math::
 
-            \frac{\partial u}{\partial t} + \nabla \cdot \left( \mathbf{F}(u) u \right) = 0,
-            \qquad
-            \mathbf{F}(u) = -\mathbb{D} \frac{\nabla u}{u}
+            \frac{\partial u}{\partial t} + \nabla \cdot \left( \mathbf{F}(u) u \right) = 0, \qquad \mathbf{F}(u) = -\mathbb{D} \frac{\nabla u}{u}
 
         where :math:`\mathbb{D} : \Omega \to \mathbb{R}^{3 \times 3}` is a positive diffusion matrix.
         At the moment only matrices of the form :math:`D * Id` are implemented, where :math:`D > 0`

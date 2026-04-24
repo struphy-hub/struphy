@@ -106,9 +106,7 @@ class Vlasov(StruphyModel):
 
         .. math::
 
-            \frac{\partial f}{\partial t}
-            + \mathbf{v} \cdot \nabla f
-            + \left( \mathbf{v} \times \mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0
+            \frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \left( \mathbf{v} \times \mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0
         """
 
     @classmethod

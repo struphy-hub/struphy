@@ -110,15 +110,13 @@ class HasegawaWakatani(StruphyModel):
 
         .. math::
 
-            \frac{\partial n}{\partial t}
-            = C (\phi - n) - [\phi, n] - \kappa \, \partial_y \phi + \nu \, \nabla^{2N} n
+            \frac{\partial n}{\partial t} = C (\phi - n) - [\phi, n] - \kappa \, \partial_y \phi + \nu \, \nabla^{2N} n
 
         Vorticity equation:
 
         .. math::
 
-            \frac{\partial \omega}{\partial t}
-            = C (\phi - n) - [\phi, \omega] + \nu \, \nabla^{2N} \omega
+            \frac{\partial \omega}{\partial t} = C (\phi - n) - [\phi, \omega] + \nu \, \nabla^{2N} \omega
 
         Potential equation:
 

@@ -217,19 +217,13 @@ class ColdPlasmaVlasov(StruphyModel):
 
         .. math::
 
-            \frac{\partial f}{\partial t}
-            + \mathbf{v} \cdot \nabla f
-            + \frac{1}{\varepsilon_\textnormal{h}}
-            \Big[ \mathbf{E} + \mathbf{v} \times \left( \mathbf{B} + \mathbf{B}_0 \right) \Big]
-            \cdot \frac{\partial f}{\partial \mathbf{v}} = 0
+            \frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \frac{1}{\varepsilon_\textnormal{h}} \Big[ \mathbf{E} + \mathbf{v} \times \left( \mathbf{B} + \mathbf{B}_0 \right) \Big] \cdot \frac{\partial f}{\partial \mathbf{v}} = 0
 
         Cold-plasma current:
 
         .. math::
 
-            \frac{1}{n_0} \frac{\partial \mathbf{j}_\textnormal{c}}{\partial t}
-            = \frac{1}{\varepsilon_\textnormal{c}} \mathbf{E}
-            + \frac{1}{\varepsilon_\textnormal{c} n_0} \mathbf{j}_\textnormal{c} \times \mathbf{B}_0
+            \frac{1}{n_0} \frac{\partial \mathbf{j}_\textnormal{c}}{\partial t} = \frac{1}{\varepsilon_\textnormal{c}} \mathbf{E} + \frac{1}{\varepsilon_\textnormal{c} n_0} \mathbf{j}_\textnormal{c} \times \mathbf{B}_0
 
         Faraday's law:
 
@@ -241,19 +235,13 @@ class ColdPlasmaVlasov(StruphyModel):
 
         .. math::
 
-            -\frac{\partial \mathbf{E}}{\partial t} + \nabla \times \mathbf{B}
-            = \frac{\alpha^2}{\varepsilon_\textnormal{h}}
-            \left( \mathbf{j}_\textnormal{c} + \int_{\mathbb{R}^3} \mathbf{v} f \, \text{d}^3 \mathbf{v} \right)
+            -\frac{\partial \mathbf{E}}{\partial t} + \nabla \times \mathbf{B} = \frac{\alpha^2}{\varepsilon_\textnormal{h}} \left( \mathbf{j}_\textnormal{c} + \int_{\mathbb{R}^3} \mathbf{v} f \, \text{d}^3 \mathbf{v} \right)
 
         Background and normalization parameters:
 
         .. math::
 
-            \alpha = \frac{\hat \Omega_\textnormal{p,cold}}{\hat \Omega_\textnormal{c,cold}},
-            \qquad
-            \varepsilon_\textnormal{c} = \frac{1}{\hat \Omega_\textnormal{c,cold} \hat t},
-            \qquad
-            \varepsilon_\textnormal{h} = \frac{1}{\hat \Omega_\textnormal{c,hot} \hat t}
+            \alpha = \frac{\hat \Omega_\textnormal{p,cold}}{\hat \Omega_\textnormal{c,cold}}, \qquad \varepsilon_\textnormal{c} = \frac{1}{\hat \Omega_\textnormal{c,cold} \hat t}, \qquad \varepsilon_\textnormal{h} = \frac{1}{\hat \Omega_\textnormal{c,hot} \hat t}
 
         where :math:`(n_0, \mathbf{B}_0)` denotes an inhomogeneous background.
 
@@ -261,8 +249,7 @@ class ColdPlasmaVlasov(StruphyModel):
 
         .. math::
 
-            \nabla \cdot \mathbf{E}
-            = \nu \frac{\alpha^2}{\varepsilon_\textnormal{h}} \int_{\mathbb{R}^3} f \, \text{d}^3 \mathbf{v}
+            \nabla \cdot \mathbf{E} = \nu \frac{\alpha^2}{\varepsilon_\textnormal{h}} \int_{\mathbb{R}^3} f \, \text{d}^3 \mathbf{v}
         """
 
     @classmethod

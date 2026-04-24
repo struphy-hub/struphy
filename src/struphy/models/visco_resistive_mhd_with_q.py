@@ -171,30 +171,19 @@ class ViscoResistiveMHD_with_q(StruphyModel):
 
         .. math::
 
-            \partial_t (\rho \mathbf{u})
-            + \nabla \cdot (\rho \mathbf{u} \otimes \mathbf{u})
-            + \frac{2 q}{\gamma - 1} \nabla q
-            + \mathbf{B} \times \nabla \times \mathbf{B}
-            - \nabla \cdot \left( (\mu + \mu_a(\mathbf{x})) \nabla \mathbf{u} \right) = 0
+            \partial_t (\rho \mathbf{u}) + \nabla \cdot (\rho \mathbf{u} \otimes \mathbf{u}) + \frac{2 q}{\gamma - 1} \nabla q + \mathbf{B} \times \nabla \times \mathbf{B} - \nabla \cdot \left( (\mu + \mu_a(\mathbf{x})) \nabla \mathbf{u} \right) = 0
 
         Energy-like variable:
 
         .. math::
 
-            \partial_t q + \cdot (\nabla q \mathbf{u}) + \left( \frac{\gamma}{2} - 1 \right) q \nabla \cdot u
-            = \frac{2 q}{\gamma - 1}
-            \left(
-            (\mu + \mu_a(\mathbf{x})) |\nabla \mathbf{u}|^2
-            + (\eta + \eta_a(\mathbf{x})) |\nabla \times \mathbf{B}|^2
-            \right)
+            \partial_t q + \cdot (\nabla q \mathbf{u}) + \left( \frac{\gamma}{2} - 1 \right) q \nabla \cdot u = \frac{2 q}{\gamma - 1} \left( (\mu + \mu_a(\mathbf{x})) |\nabla \mathbf{u}|^2 + (\eta + \eta_a(\mathbf{x})) |\nabla \times \mathbf{B}|^2 \right)
 
         Induction:
 
         .. math::
 
-            \partial_t \mathbf{B}
-            + \nabla \times (\mathbf{B} \times \mathbf{u})
-            + \nabla \times (\eta + \eta_a(\mathbf{x})) \nabla \times \mathbf{B} = 0
+            \partial_t \mathbf{B} + \nabla \times (\mathbf{B} \times \mathbf{u}) + \nabla \times (\eta + \eta_a(\mathbf{x})) \nabla \times \mathbf{B} = 0
 
         Here :math:`\mu_a(\mathbf{x})` and :math:`\eta_a(\mathbf{x})` are artificial viscosity and resistivity coefficients.
         """

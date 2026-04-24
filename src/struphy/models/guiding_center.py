@@ -136,32 +136,19 @@ class GuidingCenter(StruphyModel):
 
         .. math::
 
-            \frac{\partial f}{\partial t}
-            + \left[
-            v_\parallel \frac{\mathbf{B}^*}{B^*_\parallel}
-            + \frac{\mathbf{E}^* \times \mathbf{b}_0}{B^*_\parallel}
-            \right] \cdot \frac{\partial f}{\partial \mathbf{X}}
-            + \left[
-            \frac{1}{\epsilon} \frac{\mathbf{B}^*}{B^*_\parallel} \cdot \mathbf{E}^*
-            \right] \cdot \frac{\partial f}{\partial v_\parallel} = 0
+            \frac{\partial f}{\partial t} + \left[ v_\parallel \frac{\mathbf{B}^*}{B^*_\parallel} + \frac{\mathbf{E}^* \times \mathbf{b}_0}{B^*_\parallel} \right] \cdot \frac{\partial f}{\partial \mathbf{X}} + \left[ \frac{1}{\epsilon} \frac{\mathbf{B}^*}{B^*_\parallel} \cdot \mathbf{E}^* \right] \cdot \frac{\partial f}{\partial v_\parallel} = 0
 
         where :math:`f(\mathbf{X}, v_\parallel, \mu, t)` is the guiding center distribution and
 
         .. math::
 
-            \mathbf{E}^* = -\epsilon \mu \nabla |B_0|,
-            \qquad
-            \mathbf{B}^* = \mathbf{B}_0 + \epsilon v_\parallel \nabla \times \mathbf{b}_0,
-            \qquad
-            B^*_\parallel = \mathbf{B}^* \cdot \mathbf{b}_0
+            \mathbf{E}^* = -\epsilon \mu \nabla |B_0|, \qquad \mathbf{B}^* = \mathbf{B}_0 + \epsilon v_\parallel \nabla \times \mathbf{b}_0, \qquad B^*_\parallel = \mathbf{B}^* \cdot \mathbf{b}_0
 
         Moreover,
 
         .. math::
 
-            \epsilon = \frac{1}{\hat \Omega_{\textnormal{c}} \hat t},
-            \qquad
-            \hat \Omega_{\textnormal{c}} = \frac{Ze \hat B}{A m_\textnormal{H}}
+            \epsilon = \frac{1}{\hat \Omega_{\textnormal{c}} \hat t}, \qquad \hat \Omega_{\textnormal{c}} = \frac{Ze \hat B}{A m_\textnormal{H}}
         """
 
     @classmethod

@@ -171,29 +171,19 @@ class ViscoResistiveDeltafMHD_with_q(StruphyModel):
 
         .. math::
 
-            \partial_t (\rho_0 \tilde{\mathbf{u}})
-            + \frac{2 q_0}{\gamma - 1} \nabla \tilde{q}
-            + \frac{2 \tilde{q}}{\gamma - 1} \nabla q_0
-            + \frac{2 \tilde{q}}{\gamma - 1} \nabla \tilde{q}
-            + \mathbf{B}_0 \times \nabla \times \tilde{\mathbf{B}}
-            + \tilde{\mathbf{B}} \times \nabla \times \mathbf{B}_0
-            - \nabla \cdot \left( (\mu + \mu_a(\mathbf{x})) \nabla \tilde{\mathbf{u}} \right) = 0
+            \partial_t (\rho_0 \tilde{\mathbf{u}}) + \frac{2 q_0}{\gamma - 1} \nabla \tilde{q} + \frac{2 \tilde{q}}{\gamma - 1} \nabla q_0 + \frac{2 \tilde{q}}{\gamma - 1} \nabla \tilde{q} + \mathbf{B}_0 \times \nabla \times \tilde{\mathbf{B}} + \tilde{\mathbf{B}} \times \nabla \times \mathbf{B}_0 - \nabla \cdot \left( (\mu + \mu_a(\mathbf{x})) \nabla \tilde{\mathbf{u}} \right) = 0
 
         Energy-like variable:
 
         .. math::
 
-            \partial_t \tilde{q}
-            + \cdot (\nabla (q_0 + \tilde{q}) \mathbf{u})
-            + \left( \frac{\gamma}{2} - 1 \right) (q_0 + \tilde{q}) \nabla \cdot u = 0
+            \partial_t \tilde{q} + \cdot (\nabla (q_0 + \tilde{q}) \mathbf{u}) + \left( \frac{\gamma}{2} - 1 \right) (q_0 + \tilde{q}) \nabla \cdot u = 0
 
         Induction:
 
         .. math::
 
-            \partial_t \tilde{\mathbf{B}}
-            + \nabla \times \left( (B_0 + \tilde{\mathbf{B}}) \times \tilde{\mathbf{u}} \right)
-            + \nabla \times (\eta + \eta_a(\mathbf{x})) \nabla \times \tilde{\mathbf{B}} = 0
+            \partial_t \tilde{\mathbf{B}} + \nabla \times \left( (B_0 + \tilde{\mathbf{B}}) \times \tilde{\mathbf{u}} \right) + \nabla \times (\eta + \eta_a(\mathbf{x})) \nabla \times \tilde{\mathbf{B}} = 0
 
         Here :math:`\mu_a(\mathbf{x})` and :math:`\eta_a(\mathbf{x})` are artificial viscosity and resistivity coefficients.
         """

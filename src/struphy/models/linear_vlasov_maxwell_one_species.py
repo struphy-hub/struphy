@@ -198,9 +198,7 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
 
         .. math::
 
-            \frac{\partial \tilde{\mathbf{E}}}{\partial t}
-            = \nabla \times \tilde{\mathbf{B}}
-            - \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} \tilde{f} \, \textrm{d}^3 \mathbf{v}
+            \frac{\partial \tilde{\mathbf{E}}}{\partial t} = \nabla \times \tilde{\mathbf{B}} - \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} \tilde{f} \, \textrm{d}^3 \mathbf{v}
 
         Linearized Faraday's law:
 
@@ -212,37 +210,25 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
 
         .. math::
 
-            \frac{\partial \tilde{f}}{\partial t}
-            + \mathbf{v} \cdot \nabla \tilde{f}
-            + \frac{1}{\varepsilon} \left( \mathbf{E}_0 + \mathbf{v} \times \mathbf{B}_0 \right)
-            \cdot \frac{\partial \tilde{f}}{\partial \mathbf{v}}
-            = \frac{1}{v_{\text{th}}^2 \varepsilon} \tilde{\mathbf{E}} \cdot \mathbf{v} f_0
+            \frac{\partial \tilde{f}}{\partial t} + \mathbf{v} \cdot \nabla \tilde{f} + \frac{1}{\varepsilon} \left( \mathbf{E}_0 + \mathbf{v} \times \mathbf{B}_0 \right) \cdot \frac{\partial \tilde{f}}{\partial \mathbf{v}} = \frac{1}{v_{\text{th}}^2 \varepsilon} \tilde{\mathbf{E}} \cdot \mathbf{v} f_0
 
         with the normalization parameter
 
         .. math::
 
-            \alpha = \frac{\hat \Omega_\textnormal{p}}{\hat \Omega_\textnormal{c}},
-            \qquad
-            \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t},
-            \qquad
-            \hat \Omega_\textnormal{p} = \sqrt{\frac{\hat n (Ze)^2}{\epsilon_0 (A m_\textnormal{H})}},
-            \qquad
-            \hat \Omega_{\textnormal{c}} = \frac{(Ze) \hat B}{(A m_\textnormal{H})}
+            \alpha = \frac{\hat \Omega_\textnormal{p}}{\hat \Omega_\textnormal{c}}, \qquad \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t}, \qquad \hat \Omega_\textnormal{p} = \sqrt{\frac{\hat n (Ze)^2}{\epsilon_0 (A m_\textnormal{H})}}, \qquad \hat \Omega_{\textnormal{c}} = \frac{(Ze) \hat B}{(A m_\textnormal{H})}
 
         where :math:`Z=-1` and :math:`A=1/1836` for electrons. The background distribution function :math:`f_0` is a uniform Maxwellian
 
         .. math::
 
-            f_0 = \frac{n_0(\mathbf{x})}{\left( \sqrt{2 \pi} v_{\text{th}} \right)^3}
-            \exp \left( - \frac{|\mathbf{v}|^2}{2 v_{\text{th}}^2} \right)
+            f_0 = \frac{n_0(\mathbf{x})}{\left( \sqrt{2 \pi} v_{\text{th}} \right)^3} \exp \left( - \frac{|\mathbf{v}|^2}{2 v_{\text{th}}^2} \right)
 
         and the background electric field has to verify the following compatibility condition between with background density
 
         .. math::
 
-            \nabla_{\mathbf{x}} \ln (n_0(\mathbf{x}))
-            = \frac{1}{v_{\text{th}}^2 \varepsilon} \mathbf{E}_0
+            \nabla_{\mathbf{x}} \ln (n_0(\mathbf{x})) = \frac{1}{v_{\text{th}}^2 \varepsilon} \mathbf{E}_0
 
         At initial time the weak Poisson equation is solved once to weakly satisfy Gauss' law,
 

@@ -154,9 +154,7 @@ class ColdPlasma(StruphyModel):
 
         .. math::
 
-            \frac{1}{n_0} \frac{\partial \mathbf{j}}{\partial t}
-            = \frac{1}{\varepsilon} \mathbf{E}
-            + \frac{1}{\varepsilon n_0} \mathbf{j} \times \mathbf{B}_0
+            \frac{1}{n_0} \frac{\partial \mathbf{j}}{\partial t} = \frac{1}{\varepsilon} \mathbf{E} + \frac{1}{\varepsilon n_0} \mathbf{j} \times \mathbf{B}_0
 
         Faraday's law:
 
@@ -168,16 +166,13 @@ class ColdPlasma(StruphyModel):
 
         .. math::
 
-            -\frac{\partial \mathbf{E}}{\partial t} + \nabla \times \mathbf{B}
-            = \frac{\alpha^2}{\varepsilon} \mathbf{j}
+            -\frac{\partial \mathbf{E}}{\partial t} + \nabla \times \mathbf{B} = \frac{\alpha^2}{\varepsilon} \mathbf{j}
 
         Background and normalization parameters:
 
         .. math::
 
-            \alpha = \frac{\hat \Omega_\textnormal{p}}{\hat \Omega_\textnormal{c}},
-            \qquad
-            \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t}
+            \alpha = \frac{\hat \Omega_\textnormal{p}}{\hat \Omega_\textnormal{c}}, \qquad \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t}
 
         where :math:`(n_0, \mathbf{B}_0)` denotes an inhomogeneous background.
         """
