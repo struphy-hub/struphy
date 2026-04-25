@@ -343,14 +343,15 @@ class StruphyModel(metaclass=StruphyModelMeta):
             species.setup_equation_params(units=self.units, verbose=verbose)
 
     def scalar_quantities_to_file(self, time: float, filepath: str):
+        scalar_quantities = self.scalars.dct
         if time == 0:
             with open(filepath, "w") as f:
-                header = "time\t" + "\t".join(self._scalar_quantities.keys()) + "\n"
+                header = "time\t" + "\t".join(scalar_quantities.keys()) + "\n"
                 f.write(header)
         with open(filepath, "a") as f:
             line = (
                 f"{time:.12e}\t"
-                + "\t".join(f"{scalar_dict['value'][0]:.12e}" for scalar_dict in self._scalar_quantities.values())
+                + "\t".join(f"{scalar.value[0]:.12e}" for scalar in scalar_quantities.values())
                 + "\n"
             )
             f.write(line)
