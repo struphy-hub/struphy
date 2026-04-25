@@ -189,3 +189,135 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         # initial Poisson (not a propagator used in time stepping)
         self.initial_poisson = propagators_fields.Poisson()
         self.initial_poisson.variables.phi = self.em_fields.phi
+
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        Linearized Ampère's law:
+
+        .. math::
+
+            \frac{\partial \tilde{\mathbf{E}}}{\partial t} = \nabla \times \tilde{\mathbf{B}} - \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} \tilde{f} \, \textrm{d}^3 \mathbf{v}
+
+        Linearized Faraday's law:
+
+        .. math::
+
+            \frac{\partial \tilde{\mathbf{B}}}{\partial t} = -\nabla \times \tilde{\mathbf{E}}
+
+        Linearized Vlasov equation:
+
+        .. math::
+
+            \frac{\partial \tilde{f}}{\partial t} + \mathbf{v} \cdot \nabla \tilde{f} + \frac{1}{\varepsilon} \left( \mathbf{E}_0 + \mathbf{v} \times \mathbf{B}_0 \right) \cdot \frac{\partial \tilde{f}}{\partial \mathbf{v}} = \frac{1}{v_{\text{th}}^2 \varepsilon} \tilde{\mathbf{E}} \cdot \mathbf{v} f_0
+
+        where :math:`Z=-1` and :math:`A=1/1836` for electrons. The background distribution function :math:`f_0` is a uniform Maxwellian
+
+        .. math::
+
+            f_0 = \frac{n_0(\mathbf{x})}{\left( \sqrt{2 \pi} v_{\text{th}} \right)^3} \exp \left( - \frac{|\mathbf{v}|^2}{2 v_{\text{th}}^2} \right)
+
+        and the background electric field has to verify the following compatibility condition between with background density
+
+        .. math::
+
+            \nabla_{\mathbf{x}} \ln (n_0(\mathbf{x})) = \frac{1}{v_{\text{th}}^2 \varepsilon} \mathbf{E}_0
+
+        At initial time the weak Poisson equation is solved once to weakly satisfy Gauss' law,
+
+        .. math::
+
+            \int_\Omega \nabla \psi^\top \cdot \nabla \phi \, \textrm{d} \mathbf{x}
+            &= \frac{\alpha^2}{\varepsilon} \int_\Omega \int_{\mathbb{R}^3} \psi \, \tilde{f} \, \text{d}^3 \mathbf{v} \, \textrm{d} \mathbf{x}
+            \qquad \forall \ \psi \in H^1
+            \\[2mm]
+            \tilde{\mathbf{E}}(t=0) &= -\nabla \phi(t=0)
+
+        Moreover, it is assumed that
+
+        .. math::
+
+            \int_{\mathbb{R}^3} \mathbf{v} f_0 \, \text{d}^3 \mathbf{v} = 0
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The normalization matches the linear Vlasov-Ampère model:
+
+        .. math::
+
+            \hat v = c,\qquad \hat E = \hat B \hat v,\qquad \hat\phi = \hat E \hat x.
+
+        The model retains the same :math:`\alpha` and :math:`\varepsilon`
+        parameters while adding magnetic perturbation dynamics."""
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Electric field energy: ``en_E``
+        - Magnetic field energy: ``en_B``
+        - Perturbation particle energy: ``en_w``
+        - Total energy: ``en_tot``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_markers.PushEta:**
+
+{propagators_markers.PushEta.__doc__}
+
+**2. propagators_markers.PushVinEfield:**
+
+{propagators_markers.PushVinEfield.__doc__}
+
+**3. propagators_coupling.EfieldWeights:**
+
+{propagators_coupling.EfieldWeights.__doc__}
+
+**4. propagators_markers.PushVxB:**
+
+{propagators_markers.PushVxB.__doc__}
+
+**5. propagators_fields.Maxwell:**
+
+{propagators_fields.Maxwell.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""LinearVlasovMaxwellOneSpecies is the electromagnetic extension of the
+        linear delta-f Vlasov model. It is intended for weakly perturbed kinetic
+        electromagnetic waves and instabilities around a prescribed equilibrium."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the linear Vlasov-Maxwell model:
+
+        .. code-block:: python
+
+            from struphy.models import LinearVlasovMaxwellOneSpecies
+
+            model = LinearVlasovMaxwellOneSpecies()
+            model.em_fields.e_field
+            model.em_fields.b_field
+            model.kinetic_ions.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - linear electromagnetic kinetic wave studies
+        - delta-f verification of linear Vlasov-Maxwell coupling
+        - weakly nonlinear regimes where equilibrium perturbations stay small"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - strongly nonlinear fully kinetic plasma dynamics
+        - multi-species electromagnetic coupling
+        - problems without a well-defined linearization background
+        - collisional kinetic closures"""

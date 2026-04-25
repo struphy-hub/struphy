@@ -232,6 +232,159 @@ class LinearMHDDriftkineticCC(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        MHD continuity:
+
+        .. math::
+
+            \frac{\partial \tilde{\rho}}{\partial t} + \nabla \cdot (\rho_0 \tilde{\mathbf{U}}) = 0
+
+        MHD momentum:
+
+        .. math::
+
+            \rho_0 \frac{\partial \tilde{\mathbf{U}}}{\partial t} - \tilde{p} \, \nabla = (\nabla \times \tilde{\mathbf{B}}) \times \mathbf{B} + (\nabla \times \mathbf{B}_0) \times \tilde{\mathbf{B}} + \frac{A_\textnormal{h}}{A_\textnormal{b}} \left[ \frac{1}{\epsilon} n_\textnormal{gc} \tilde{\mathbf{U}} - \frac{1}{\epsilon} \mathbf{J}_\textnormal{gc} - \nabla \times \mathbf{M}_\textnormal{gc} \right] \times \mathbf{B}
+
+        MHD pressure:
+
+        .. math::
+
+            \frac{\partial \tilde{p}}{\partial t} + \nabla \cdot (p_0 \tilde{\mathbf{U}}) + \frac{2}{3} p_0 \nabla \cdot \tilde{\mathbf{U}} = 0
+
+        MHD induction:
+
+        .. math::
+
+            \frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla \times (\tilde{\mathbf{U}} \times \mathbf{B}) = 0
+
+        Energetic-particle drift-kinetic equation:
+
+        .. math::
+
+            \frac{\partial f_\textnormal{h}}{\partial t} + \frac{1}{B_\parallel^*} \left( v_\parallel \mathbf{B}^* - \mathbf{b}_0 \times \mathbf{E}^* \right) \cdot \nabla f_\textnormal{h} + \frac{1}{\epsilon} \frac{1}{B_\parallel^*} (\mathbf{B}^* \cdot \mathbf{E}^*) \frac{\partial f_\textnormal{h}}{\partial v_\parallel} = 0
+
+        Energetic-particle moments:
+
+        .. math::
+
+            n_\textnormal{gc} = \int f_\textnormal{h} B_\parallel^* \, \textnormal{d} v_\parallel \textnormal{d} \mu
+
+        .. math::
+
+            \mathbf{J}_\textnormal{gc} = \int \frac{f_\textnormal{h}}{B_\parallel^*} \left( v_\parallel \mathbf{B}^* - \mathbf{b}_0 \times \mathbf{E}^* \right) \, \textnormal{d} v_\parallel \textnormal{d} \mu
+
+        .. math::
+
+            \mathbf{M}_\textnormal{gc} = -\int f_\textnormal{h} B_\parallel^* \mu \mathbf{b}_0 \, \textnormal{d} v_\parallel \textnormal{d} \mu
+
+        where
+
+        .. math::
+
+            B^*_\parallel = \mathbf{b}_0 \cdot \mathbf{B}^*
+            \\[2mm]
+            \mathbf{B}^* &= \mathbf{B} + \epsilon v_\parallel \nabla \times \mathbf{b}_0
+            \\[2mm]
+            \mathbf{E}^* &= -\tilde{\mathbf{U}} \times \mathbf{B} - \epsilon \mu \nabla (\mathbf{b}_0 \cdot \mathbf{B})
+
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The bulk and energetic-particle flow scales are normalized with the
+        bulk Alfvén speed, while the magnetic moment carries its own unit:
+
+        .. math::
+
+            \hat U = \hat v = \hat v_{A,\mathrm{bulk}},\qquad
+            \hat\mu = A_h m_H \hat v_h^2 / \hat B.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - MHD kinetic energy: ``en_U``
+        - Thermal pressure energy: ``en_p``
+        - Magnetic energy: ``en_B``
+        - Parallel energetic-particle energy: ``en_fv``
+        - Magnetic-moment energetic-particle energy: ``en_fB``
+        - Total energy: ``en_tot``
+        - Lost particles: ``n_lost_particles``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_markers.PushGuidingCenterBxEstar:**
+
+{propagators_markers.PushGuidingCenterBxEstar.__doc__}
+
+**2. propagators_markers.PushGuidingCenterParallel:**
+
+{propagators_markers.PushGuidingCenterParallel.__doc__}
+
+**3. propagators_coupling.CurrentCoupling5DGradB:**
+
+{propagators_coupling.CurrentCoupling5DGradB.__doc__}
+
+**4. propagators_coupling.CurrentCoupling5DCurlb:**
+
+{propagators_coupling.CurrentCoupling5DCurlb.__doc__}
+
+**5. propagators_fields.CurrentCoupling5DDensity:**
+
+{propagators_fields.CurrentCoupling5DDensity.__doc__}
+
+**6. propagators_fields.ShearAlfvenCurrentCoupling5D:**
+
+{propagators_fields.ShearAlfvenCurrentCoupling5D.__doc__}
+
+**7. propagators_fields.Magnetosonic:**
+
+{propagators_fields.Magnetosonic.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""LinearMHDDriftkineticCC is the reduced-kinetic hybrid current-coupling
+        model for energetic ions. It is useful when gyrophase averaging is
+        acceptable but energetic-particle feedback on linear MHD still has to be
+        retained."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the linear MHD plus drift-kinetic CC model:
+
+        .. code-block:: python
+
+            from struphy.models import LinearMHDDriftkineticCC
+
+            model = LinearMHDDriftkineticCC()
+            model.em_fields.b_field
+            model.mhd.velocity
+            model.energetic_ions.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - linear energetic-ion effects with guiding-center reduction
+        - current-coupling hybrid mode studies in strong magnetic fields
+        - verification of 5D hybrid coupling operators"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - full 6D energetic-particle dynamics
+        - nonlinear hybrid turbulence
+        - resistive or viscous MHD closures
+        - regimes where gyrophase resolution is required"""
+
     def allocate_helpers(self, verbose: bool = False):
         self._ones = Propagator.projected_equil.p3.space.zeros()
         if isinstance(self._ones, PolarVector):

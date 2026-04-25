@@ -95,6 +95,84 @@ class Poisson(StruphyModel):
     def velocity_scale(self):
         return None
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        Find :math:`\phi \in H^1` such that
+
+        .. math::
+
+            -\nabla \cdot D_0(\mathbf{x}) \nabla \phi + n_0(\mathbf{x}) \phi = \rho(t, \mathbf{x})
+
+        where :math:`n_0, \rho(t) : \Omega \to \mathbb{R}` are real-valued functions, :math:`\rho(t)` is
+        parametrized by time :math:`t`, and :math:`D_0 : \Omega \to \mathbb{R}^{3 \times 3}` is a positive matrix.
+        Boundary terms from integration by parts are assumed to vanish.
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The coefficient scaling is
+
+        .. math::
+
+            \hat D = \hat n / \hat x^2,\qquad \hat\rho = \hat n.
+
+        No dedicated velocity normalization is used."""
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - No default scalar diagnostics are defined by this model."""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.TimeDependentSource:**
+
+{propagators_fields.TimeDependentSource.__doc__}
+
+**2. propagators_fields.Poisson:**
+
+{propagators_fields.Poisson.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""Poisson is the standalone elliptic field-solve model used for weak
+        diffusion/Poisson problems. It is also the building block reused by
+        other models for initial electrostatic solves."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize a Poisson model:
+
+        .. code-block:: python
+
+            from struphy.models import Poisson
+
+            model = Poisson()
+            model.em_fields.phi
+            model.em_fields.source
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - elliptic benchmark problems
+        - electrostatic field solves with prescribed source terms
+        - testing weak Poisson discretizations and boundary handling"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - hyperbolic time-dependent wave propagation
+        - self-consistent kinetic plasma evolution on its own
+        - magnetic-field dynamics or full Maxwell coupling"""
+
     def allocate_helpers(self, verbose: bool = False):
         """Solve initial Poisson equation.
 

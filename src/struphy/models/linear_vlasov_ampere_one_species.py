@@ -198,6 +198,128 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
     def velocity_scale(self):
         return "light"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        Linearized Ampère's law:
+
+        .. math::
+
+            \frac{\partial \tilde{\mathbf{E}}}{\partial t} = -\frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} \tilde{f} \, \textrm{d}^3 \mathbf{v}
+
+        Linearized Vlasov equation:
+
+        .. math::
+
+            \frac{\partial \tilde{f}}{\partial t} + \mathbf{v} \cdot \nabla \tilde{f} + \frac{1}{\varepsilon} \left( \mathbf{E}_0 + \mathbf{v} \times \mathbf{B}_0 \right) \cdot \frac{\partial \tilde{f}}{\partial \mathbf{v}} = \frac{1}{v_{\text{th}}^2 \varepsilon} \tilde{\mathbf{E}} \cdot \mathbf{v} f_0
+
+        where :math:`Z=-1` and :math:`A=1/1836` for electrons. The background distribution function :math:`f_0` is a uniform Maxwellian
+
+        .. math::
+
+            f_0 = \frac{n_0(\mathbf{x})}{\left( \sqrt{2 \pi} v_{\text{th}} \right)^3} \exp \left( - \frac{|\mathbf{v}|^2}{2 v_{\text{th}}^2} \right)
+
+        and the background electric field has to verify the following compatibility condition between with background density
+
+        .. math::
+
+            \nabla_{\mathbf{x}} \ln (n_0(\mathbf{x})) = \frac{1}{v_{\text{th}}^2 \varepsilon} \mathbf{E}_0
+
+        At initial time the weak Poisson equation is solved once to weakly satisfy Gauss' law,
+
+        .. math::
+
+            \int_\Omega \nabla \psi^\top \cdot \nabla \phi \, \textrm{d} \mathbf{x}
+            &= \frac{\alpha^2}{\varepsilon} \int_\Omega \int_{\mathbb{R}^3} \psi \, \tilde{f} \, \text{d}^3 \mathbf{v} \, \textrm{d} \mathbf{x}
+            \qquad \forall \ \psi \in H^1
+            \\[2mm]
+            \tilde{\mathbf{E}}(t=0) &= -\nabla \phi(t=0)
+
+        Moreover, it is assumed that
+
+        .. math::
+
+            \int_{\mathbb{R}^3} \mathbf{v} f_0 \, \text{d}^3 \mathbf{v} = 0
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The light speed defines the velocity scale:
+
+        .. math::
+
+            \hat v = c,\qquad \hat E = \hat B \hat v,\qquad \hat\phi = \hat E \hat x.
+
+        The species parameters are :math:`\alpha=\hat\Omega_p/\hat\Omega_c` and
+        :math:`\varepsilon=1/(\hat\Omega_c\hat t)`."""
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Electric field energy: ``en_E``
+        - Perturbation particle energy: ``en_w``
+        - Total energy: ``en_tot``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_markers.PushEta:**
+
+{propagators_markers.PushEta.__doc__}
+
+**2. propagators_markers.PushVinEfield:**
+
+{propagators_markers.PushVinEfield.__doc__}
+
+**3. propagators_coupling.EfieldWeights:**
+
+{propagators_coupling.EfieldWeights.__doc__}
+
+**4. propagators_markers.PushVxB:**
+
+{propagators_markers.PushVxB.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""LinearVlasovAmpereOneSpecies is the linearized delta-f counterpart of
+        VlasovAmpereOneSpecies. It is intended for weakly perturbed kinetic
+        problems around a prescribed Maxwellian equilibrium and is especially
+        useful for linear instability or damping studies."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the linear Vlasov-Ampère model:
+
+        .. code-block:: python
+
+            from struphy.models import LinearVlasovAmpereOneSpecies
+
+            model = LinearVlasovAmpereOneSpecies()
+            model.em_fields.e_field
+            model.em_fields.phi
+            model.kinetic_ions.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - linear delta-f kinetic instabilities
+        - weakly perturbed Landau-like damping studies with electrostatic fields
+        - verification of linearized field-particle coupling"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - strongly nonlinear departures from the chosen equilibrium
+        - multi-species kinetic coupling
+        - fully electromagnetic magnetic-field evolution
+        - equilibria that are not compatible with the built-in Maxwellian assumptions"""
+
     def allocate_helpers(self, verbose: bool = False):
         """Solve initial Poisson equation.
 
