@@ -13,6 +13,7 @@ It is recommended to use the same Python environment as for Struphy, e.g., by in
    :maxdepth: 1
    :caption: Notebook tutorials:
 
+   ../_collections/tutorials/tutorial_poisson
    ../_collections/tutorials/tutorial_01_struphy_simulations
    ../_collections/tutorials/tutorial_02_parameter_files
    ../_collections/tutorials/tutorial_03_test_particles
