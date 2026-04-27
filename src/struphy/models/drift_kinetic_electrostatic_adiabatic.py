@@ -163,6 +163,8 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
         # Poisson right-hand side
         particles = self.kinetic_ions.var.particles
+        if particles.control_variate:
+            particles.update_weights()
         Z = self.kinetic_ions.charge_number
         epsilon = self.kinetic_ions.equation_params.epsilon
 
@@ -191,9 +193,11 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         self.propagators.gc_poisson.options.sigma_2 = 0.0
         self.propagators.gc_poisson.options.sigma_3 = 1.0 / epsilon
         self.propagators.gc_poisson.options.stab_mat = "M0ad"
-        self.propagators.gc_poisson.options.diffusion_mat = "M1perp"
+        self.propagators.gc_poisson.options.diffusion_mat = "M1"  # "M1perp"
         self.propagators.gc_poisson.options.rho = rho
+        self.propagators.gc_poisson.options.divide_by_dt = False
         self.propagators.gc_poisson.allocate()
+        self.propagators.gc_poisson(1.0)
 
     def update_scalar_quantities(self):
         phi = self.em_fields.phi.spline.vector
