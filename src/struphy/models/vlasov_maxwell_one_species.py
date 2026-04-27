@@ -250,7 +250,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
             \nabla \times \mathbf{B}_0 = \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} f_0 \, \text{d}^3 \mathbf{v}
 
-        where :math:`\mathbf{B}_0` is the static equilibirum magnetic field.
+        where :math:`\mathbf{B}_0` is the static equilibrium magnetic field.
 
         Notes
         -----

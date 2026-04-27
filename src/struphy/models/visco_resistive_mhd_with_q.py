@@ -177,7 +177,7 @@ class ViscoResistiveMHD_with_q(StruphyModel):
 
         .. math::
 
-            \partial_t q + \cdot (\nabla q \mathbf{u}) + \left( \frac{\gamma}{2} - 1 \right) q \nabla \cdot u = \frac{2 q}{\gamma - 1} \left( (\mu + \mu_a(\mathbf{x})) |\nabla \mathbf{u}|^2 + (\eta + \eta_a(\mathbf{x})) |\nabla \times \mathbf{B}|^2 \right)
+            \partial_t q + \nabla \cdot (q \mathbf{u}) + \left( \frac{\gamma}{2} - 1 \right) q \nabla \cdot \mathbf{u} = \frac{2 q}{\gamma - 1} \left( (\mu + \mu_a(\mathbf{x})) |\nabla \mathbf{u}|^2 + (\eta + \eta_a(\mathbf{x})) |\nabla \times \mathbf{B}|^2 \right)
 
         Induction:
 
