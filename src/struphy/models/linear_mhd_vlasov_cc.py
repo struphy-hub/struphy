@@ -191,6 +191,138 @@ class LinearMHDVlasovCC(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        MHD continuity:
+
+        .. math::
+
+            \frac{\partial \tilde{\rho}}{\partial t} + \nabla \cdot (\rho_0 \tilde{\mathbf{U}}) = 0
+
+        MHD momentum:
+
+        .. math::
+
+            \rho_0 \frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde{p} = (\nabla \times \tilde{\mathbf{B}}) \times \mathbf{B}_0 + \mathbf{J}_0 \times \tilde{\mathbf{B}} \color{blue} + \frac{A_\textnormal{h}}{A_\textnormal{b}} \frac{1}{\varepsilon} \left( n_\textnormal{h} \tilde{\mathbf{U}} - n_\textnormal{h} \mathbf{u}_\textnormal{h} \right) \times (\mathbf{B}_0 + \tilde{\mathbf{B}}) \color{black}
+
+        MHD pressure:
+
+        .. math::
+
+            \frac{\partial \tilde{p}}{\partial t} + (\gamma - 1) \nabla \cdot (p_0 \tilde{\mathbf{U}}) + p_0 \nabla \cdot \tilde{\mathbf{U}} = 0
+
+        MHD induction:
+
+        .. math::
+
+            \frac{\partial \tilde{\mathbf{B}}}{\partial t} = \nabla \times (\tilde{\mathbf{U}} \times \mathbf{B}_0), \qquad \nabla \cdot \tilde{\mathbf{B}} = 0
+
+        Energetic-particle Vlasov equation:
+
+        .. math::
+
+            \frac{\partial f_\textnormal{h}}{\partial t} + \mathbf{v} \cdot \nabla f_\textnormal{h} + \frac{1}{\varepsilon} \left[ \color{blue} (\mathbf{B}_0 + \tilde{\mathbf{B}}) \times \tilde{\mathbf{U}} \color{black} + \mathbf{v} \times (\mathbf{B}_0 + \tilde{\mathbf{B}}) \right] \cdot \frac{\partial f_\textnormal{h}}{\partial \mathbf{v}} = 0
+
+        Energetic-particle moments:
+
+        .. math::
+
+            n_\textnormal{h} = \int_{\mathbb{R}^3} f_\textnormal{h} \, \textnormal{d}^3 \mathbf{v}, \qquad n_\textnormal{h} \mathbf{u}_\textnormal{h} = \int_{\mathbb{R}^3} f_\textnormal{h} \mathbf{v} \, \textnormal{d}^3 \mathbf{v}
+
+        where :math:`\mathbf{J}_0 = \nabla\times\mathbf{B}_0`.
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""Both fluid and particle velocities are normalized with the Alfvén
+        speed,
+
+        .. math::
+
+            \hat U = \hat v = \hat v_A,\qquad \hat f_h = \hat n / \hat v_A^3.
+
+        The hot-species cyclotron parameter is :math:`\varepsilon =
+        1/(\hat\Omega_{c,\mathrm{hot}}\hat t)`."""
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - MHD kinetic energy: ``en_U``
+        - Thermal pressure energy: ``en_p``
+        - Magnetic energy: ``en_B``
+        - Energetic-particle energy: ``en_f``
+        - Total energy: ``en_tot``
+        - Lost particles: ``n_lost_particles``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.CurrentCoupling6DDensity:**
+
+{propagators_fields.CurrentCoupling6DDensity.__doc__}
+
+**2. propagators_fields.ShearAlfven:**
+
+{propagators_fields.ShearAlfven.__doc__}
+
+**3. propagators_coupling.CurrentCoupling6DCurrent:**
+
+{propagators_coupling.CurrentCoupling6DCurrent.__doc__}
+
+**4. propagators_markers.PushEta:**
+
+{propagators_markers.PushEta.__doc__}
+
+**5. propagators_markers.PushVxB:**
+
+{propagators_markers.PushVxB.__doc__}
+
+**6. propagators_fields.Magnetosonic:**
+
+{propagators_fields.Magnetosonic.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""LinearMHDVlasovCC is a current-coupling hybrid model for small
+        perturbations around an MHD equilibrium. It is intended for energetic
+        particle effects on linear MHD waves and instabilities without the cost
+        of a fully kinetic background plasma."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the linear MHD-Vlasov current-coupling model:
+
+        .. code-block:: python
+
+            from struphy.models import LinearMHDVlasovCC
+
+            model = LinearMHDVlasovCC()
+            model.em_fields.b_field
+            model.mhd.velocity
+            model.energetic_ions.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - linear energetic-particle coupling to MHD modes
+        - current-coupling hybrid verification
+        - reduced-cost studies of fast-ion effects on wave propagation"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - strongly nonlinear dynamics far from equilibrium
+        - full multi-species kinetic plasma evolution
+        - pressure-coupling closures
+        - collisional or dissipative MHD effects not present in the equations"""
+
     def allocate_helpers(self, verbose: bool = False):
         self._ones = Propagator.projected_equil.p3.space.zeros()
         if isinstance(self._ones, PolarVector):

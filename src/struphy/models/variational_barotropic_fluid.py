@@ -97,6 +97,91 @@ class VariationalBarotropicFluid(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        Continuity:
+
+        .. math::
+
+            \partial_t \rho + \nabla \cdot (\rho \mathbf{u}) = 0
+
+        Momentum:
+
+        .. math::
+
+            \partial_t (\rho \mathbf{u}) + \nabla \cdot (\rho \mathbf{u} \otimes \mathbf{u}) + \rho \nabla \frac{(\rho \mathcal{U}(\rho))}{\partial \rho} = 0
+
+        where the internal energy per unit mass is :math:`\mathcal U(\rho) = \rho/2`.
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The reference flow speed is the Alfvén speed and the internal energy is
+        scaled with density:
+
+        .. math::
+
+            \hat u = \hat v_A,\qquad \hat{\mathcal U}=\hat\rho/2.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Kinetic energy: ``kinetic_energy``
+        - Thermodynamic energy: ``thermo_energy``
+        - Total energy: ``total_energy``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.VariationalDensityEvolve:**
+
+{propagators_fields.VariationalDensityEvolve.__doc__}
+
+**2. propagators_fields.VariationalMomentumAdvection:**
+
+{propagators_fields.VariationalMomentumAdvection.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""This is the simplest variational compressible-fluid model in Struphy.
+        It keeps only density and velocity and uses a barotropic closure rather
+        than a separate entropy or pressure evolution equation."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize a variational barotropic-fluid model:
+
+        .. code-block:: python
+
+            from struphy.models import VariationalBarotropicFluid
+
+            model = VariationalBarotropicFluid()
+            model.fluid.density
+            model.fluid.velocity
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - barotropic compressible-flow benchmarks
+        - testing variational density and momentum propagators
+        - reduced fluid studies without entropy evolution"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - non-barotropic thermodynamics
+        - magnetic-field dynamics
+        - viscous or resistive effects
+        - kinetic plasma phenomena"""
+
     def allocate_helpers(self, verbose: bool = False):
         pass
 

@@ -154,6 +154,113 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
     def velocity_scale(self):
         return "thermal"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        Drift-kinetic equation:
+
+        .. math::
+
+            \frac{\partial f}{\partial t} + \left[ v_\parallel \frac{\mathbf{B}^*}{B^*_\parallel} + \frac{\mathbf{E}^* \times \mathbf{b}_0}{B^*_\parallel} \right] \cdot \frac{\partial f}{\partial \mathbf{X}} + \left[ \frac{1}{\varepsilon} \frac{\mathbf{B}^*}{B^*_\parallel} \cdot \mathbf{E}^* \right] \cdot \frac{\partial f}{\partial v_\parallel} = 0
+
+        Poisson equation:
+
+        .. math::
+
+            -\nabla_\perp \cdot \left( \frac{n_0}{|B_0|^2} \nabla_\perp \phi \right) + \frac{1}{\varepsilon} n_0 \left( 1 + \frac{1}{Z \varepsilon} \frac{1}{T_0} \phi \right) = \frac{1}{\varepsilon} \int f B^*_\parallel \, \textnormal{d} v_\parallel \textnormal{d} \mu
+
+        where :math:`f(\mathbf{X}, v_\parallel, \mu, t)` is the guiding center distribution and
+
+        .. math::
+
+            \mathbf{E}^* = -\nabla \phi - \varepsilon \mu \nabla |B_0|, \qquad \mathbf{B}^* = \mathbf{B}_0 + \varepsilon v_\parallel \nabla \times \mathbf{b}_0, \qquad B^*_\parallel = \mathbf{B}^* \cdot \mathbf{b}_0
+
+        Notes
+        -----
+
+        * The ``control_var`` in the Poisson equation is optional; in case it is enabled via the parameter file, the following Poisson equation is solved:
+        Find :math:`\phi \in H^1` such that
+
+        .. math::
+
+            \int \frac{n_0}{|B_0|^2} \nabla_\perp \psi \cdot \nabla_\perp \phi \, \textrm{d} \mathbf{x} + \frac{1}{Z \varepsilon^2} \int \frac{n_0}{T_0} \psi \phi \, \textrm{d} \mathbf{x} = \frac{1}{\varepsilon} \int \int \psi \, (f - f_0) B^*_\parallel \, \textrm{d} \mathbf{x} \, \textnormal{d} v_\parallel \textnormal{d} \mu \qquad \forall \ \psi \in H^1
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The reference speed is the ion thermal speed and the electrostatic
+        fields are scaled accordingly:
+
+        .. math::
+
+            \hat v = \hat v_i,\qquad \hat E = \hat v_i \hat B,\qquad \hat\phi = \hat E \hat x.
+
+        The small parameter is :math:`\varepsilon = 1/(\hat\Omega_c\hat t)`."""
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Field energy: ``en_phi``
+        - Guiding-center particle energy: ``en_particles``
+        - Total energy: ``en_tot``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.ImplicitDiffusion:**
+
+{propagators_fields.ImplicitDiffusion.__doc__}
+
+**2. propagators_markers.PushGuidingCenterBxEstar:**
+
+{propagators_markers.PushGuidingCenterBxEstar.__doc__}
+
+**3. propagators_markers.PushGuidingCenterParallel:**
+
+{propagators_markers.PushGuidingCenterParallel.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""This model is an electrostatic drift-kinetic reduction for strongly
+        magnetized ions in a fixed magnetic equilibrium. Electrons are not
+        evolved kinetically; instead they enter through the adiabatic response
+        in the quasi-neutrality solve. The implementation supports control
+        variates for the field solve."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the drift-kinetic adiabatic-electron model:
+
+        .. code-block:: python
+
+            from struphy.models import DriftKineticElectrostaticAdiabatic
+
+            model = DriftKineticElectrostaticAdiabatic()
+            model.em_fields.phi
+            model.kinetic_ions.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - electrostatic drift-kinetic ion turbulence studies
+        - strongly magnetized plasmas with adiabatic electrons
+        - guiding-center PIC verification in realistic magnetic geometry
+        - low-frequency regimes where full gyrophase resolution is unnecessary"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - fully electromagnetic dynamics with evolving magnetic perturbations
+        - electron kinetic effects beyond the adiabatic closure
+        - problems that require resolving full cyclotron motion
+        - multi-species kinetic coupling without extending the model"""
+
     def allocate_helpers(self, verbose: bool = False):
         """Solve initial Poisson equation.
 

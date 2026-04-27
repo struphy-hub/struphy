@@ -128,6 +128,91 @@ class GuidingCenter(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        Guiding-center Vlasov equation:
+
+        .. math::
+
+            \frac{\partial f}{\partial t} + \left[ v_\parallel \frac{\mathbf{B}^*}{B^*_\parallel} + \frac{\mathbf{E}^* \times \mathbf{b}_0}{B^*_\parallel} \right] \cdot \frac{\partial f}{\partial \mathbf{X}} + \left[ \frac{1}{\epsilon} \frac{\mathbf{B}^*}{B^*_\parallel} \cdot \mathbf{E}^* \right] \cdot \frac{\partial f}{\partial v_\parallel} = 0
+
+        where :math:`f(\mathbf{X}, v_\parallel, \mu, t)` is the guiding center distribution and
+
+        .. math::
+
+            \mathbf{E}^* = -\epsilon \mu \nabla |B_0|, \qquad \mathbf{B}^* = \mathbf{B}_0 + \epsilon v_\parallel \nabla \times \mathbf{b}_0, \qquad B^*_\parallel = \mathbf{B}^* \cdot \mathbf{b}_0
+
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The reference speed is Alfvénic and the key small parameter is the
+        normalized cyclotron time:
+
+        .. math::
+
+            \hat v = \hat v_A,\qquad \varepsilon = 1/(\hat\Omega_c \hat t).
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Parallel kinetic energy: ``en_fv``
+        - Magnetic-moment energy contribution: ``en_fB``
+        - Total particle energy: ``en_tot``
+        - Lost markers: ``n_lost_particles``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_markers.PushGuidingCenterBxEstar:**
+
+{propagators_markers.PushGuidingCenterBxEstar.__doc__}
+
+**2. propagators_markers.PushGuidingCenterParallel:**
+
+{propagators_markers.PushGuidingCenterParallel.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""GuidingCenter is the reduced kinetic model used when fast gyromotion is
+        averaged out and only guiding-center motion needs to be resolved. It
+        evolves particles in a fixed magnetic background without any
+        self-consistent field solve."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize a guiding-center model:
+
+        .. code-block:: python
+
+            from struphy.models import GuidingCenter
+
+            model = GuidingCenter()
+            model.kinetic_ions.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - test-particle guiding-center orbit calculations
+        - strongly magnetized plasmas with scale separation from gyromotion
+        - verification of 5D guiding-center pushers and diagnostics"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - self-consistent electric or magnetic field evolution
+        - full-orbit particle dynamics with resolved gyrophase
+        - collisional transport or source terms not present in the equation
+        - fluid closures or MHD force balance"""
+
     def allocate_helpers(self, verbose: bool = False):
         pass
 

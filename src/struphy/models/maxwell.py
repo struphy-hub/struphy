@@ -92,13 +92,13 @@ class Maxwell(StruphyModel):
 
         .. math::
 
-            \frac{\partial \mathbf E}{\partial t} - \nabla\times\mathbf B = 0
+            \frac{\partial \mathbf{E}}{\partial t} - \nabla \times \mathbf{B} = 0
 
         Faraday's law:
 
         .. math::
 
-            \frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0
+            \frac{\partial \mathbf{B}}{\partial t} + \nabla \times \mathbf{E} = 0
         """
 
     @classmethod
