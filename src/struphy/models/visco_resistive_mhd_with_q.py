@@ -157,6 +157,118 @@ class ViscoResistiveMHD_with_q(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        Continuity:
+
+        .. math::
+
+            \partial_t \rho + \nabla \cdot (\rho \mathbf{u}) = 0
+
+        Momentum:
+
+        .. math::
+
+            \partial_t (\rho \mathbf{u}) + \nabla \cdot (\rho \mathbf{u} \otimes \mathbf{u}) + \frac{2 q}{\gamma - 1} \nabla q + \mathbf{B} \times \nabla \times \mathbf{B} - \nabla \cdot \left( (\mu + \mu_a(\mathbf{x})) \nabla \mathbf{u} \right) = 0
+
+        Energy-like variable:
+
+        .. math::
+
+            \partial_t q + \nabla \cdot (q \mathbf{u}) + \left( \frac{\gamma}{2} - 1 \right) q \nabla \cdot \mathbf{u} = \frac{2 q}{\gamma - 1} \left( (\mu + \mu_a(\mathbf{x})) |\nabla \mathbf{u}|^2 + (\eta + \eta_a(\mathbf{x})) |\nabla \times \mathbf{B}|^2 \right)
+
+        Induction:
+
+        .. math::
+
+            \partial_t \mathbf{B} + \nabla \times (\mathbf{B} \times \mathbf{u}) + \nabla \times (\eta + \eta_a(\mathbf{x})) \nabla \times \mathbf{B} = 0
+
+        Here :math:`\mu_a(\mathbf{x})` and :math:`\eta_a(\mathbf{x})` are artificial viscosity and resistivity coefficients.
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The flow variables are normalized with the Alfvén speed:
+
+        .. math::
+
+            \hat u = \hat v_A.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Kinetic energy: ``en_U``
+        - Thermodynamic q-energy: ``en_thermo``
+        - Magnetic energy: ``en_mag``
+        - Total energy: ``en_tot``
+        - Total density: ``dens_tot``
+        - Divergence diagnostic: ``tot_div_B``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.VariationalDensityEvolve:**
+
+{propagators_fields.VariationalDensityEvolve.__doc__}
+
+**2. propagators_fields.VariationalMomentumAdvection:**
+
+{propagators_fields.VariationalMomentumAdvection.__doc__}
+
+**3. propagators_fields.VariationalQBEvolve:**
+
+{propagators_fields.VariationalQBEvolve.__doc__}
+
+**4. propagators_fields.VariationalViscosity:**
+
+{propagators_fields.VariationalViscosity.__doc__}
+
+**5. propagators_fields.VariationalResistivity:**
+
+{propagators_fields.VariationalResistivity.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""This model is the full nonlinear q-based dissipative MHD formulation.
+        It is useful when the square-root pressure variable is preferred in the
+        variational discretization while still retaining full nonlinear magnetic
+        dynamics."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the q-based visco-resistive MHD model:
+
+        .. code-block:: python
+
+            from struphy.models import ViscoResistiveMHD_with_q
+
+            model = ViscoResistiveMHD_with_q()
+            model.mhd.sqrt_p
+            model.em_fields.b_field
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - full nonlinear dissipative MHD in q-form
+        - comparison against the p- and entropy-based full models
+        - variational MHD studies where q is numerically advantageous"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - ideal dissipation-free MHD
+        - kinetic or hybrid particle physics
+        - reduced linear perturbation problems
+        - pressure or entropy primitive-variable studies"""
+
     def allocate_helpers(self, verbose: bool = False):
         projV3 = L2Projector("L2", Propagator.mass_ops)
 

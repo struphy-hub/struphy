@@ -153,6 +153,115 @@ class LinearExtendedMHDuniform(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        Continuity:
+
+        .. math::
+
+            \frac{\partial \tilde{\rho}}{\partial t} + \nabla \cdot (\rho_0 \tilde{\mathbf{U}}) = 0
+
+        Momentum:
+
+        .. math::
+
+            \rho_0 \frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde{p} = (\nabla \times \tilde{\mathbf{B}}) \times \mathbf{B}_0
+
+        Pressure:
+
+        .. math::
+
+            \frac{\partial \tilde{p}}{\partial t} + \frac{5}{3} p_0 \nabla \cdot \tilde{\mathbf{U}} = 0
+
+        Induction:
+
+        .. math::
+
+            \frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla \times \left( \tilde{\mathbf{U}} \times \mathbf{B}_0 - \frac{1}{\varepsilon} \frac{\nabla \times \tilde{\mathbf{B}}}{\rho_0} \times \mathbf{B}_0 \right) = 0
+
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""All velocities are normalized by the Alfvén speed,
+
+        .. math::
+
+            \hat U = \hat v_A,
+
+        and Hall effects enter through
+        :math:`\varepsilon = 1/(\hat\Omega_c\hat t)`."""
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Flow kinetic energy: ``en_U``
+        - Thermal pressure energy: ``en_p``
+        - Magnetic perturbation energy: ``en_B``
+        - Background pressure energy: ``en_p_eq``
+        - Background magnetic energy: ``en_B_eq``
+        - Total magnetic energy: ``en_B_tot``
+        - Total perturbation energy: ``en_tot``
+        - Magnetic helicity-like invariant: ``helicity``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.ShearAlfvenB1:**
+
+{propagators_fields.ShearAlfvenB1.__doc__}
+
+**2. propagators_fields.Hall:**
+
+{propagators_fields.Hall.__doc__}
+
+**3. propagators_fields.MagnetosonicUniform:**
+
+{propagators_fields.MagnetosonicUniform.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""LinearExtendedMHDuniform extends the linear MHD model with Hall
+        dynamics for a uniform equilibrium. It is targeted at wave propagation
+        and mode studies where the equilibrium is simple but finite Hall
+        corrections are important."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize a linear extended-MHD model:
+
+        .. code-block:: python
+
+            from struphy.models import LinearExtendedMHDuniform
+
+            model = LinearExtendedMHDuniform()
+            model.em_fields.b_field
+            model.mhd.density
+            model.mhd.velocity
+            model.mhd.pressure
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - linear Hall-MHD wave studies
+        - uniform-equilibrium benchmarks for extended MHD
+        - comparison against ideal-MHD dispersion in the Hall-corrected regime"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - nonlinear extended-MHD turbulence
+        - non-uniform equilibrium configurations
+        - kinetic ion/electron effects beyond the Hall correction
+        - dissipation-dominated problems with explicit viscosity or resistivity"""
+
     def allocate_helpers(self, verbose: bool = False):
         self._b_eq = Propagator.projected_equil.b1
         self._a_eq = Propagator.projected_equil.a1

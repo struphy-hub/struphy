@@ -211,6 +211,149 @@ class VlasovMaxwellOneSpecies(StruphyModel):
     def velocity_scale(self):
         return "light"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        Vlasov equation:
+
+        .. math::
+
+            \frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \frac{1}{\varepsilon} \left( \mathbf{E} + \mathbf{v} \times \left( \mathbf{B} + \mathbf{B}_0 \right) \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0
+
+        Ampère's law:
+
+        .. math::
+
+            -\frac{\partial \mathbf{E}}{\partial t} + \nabla \times \mathbf{B} = \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} f \, \text{d}^3 \mathbf{v}
+
+        Faraday's law:
+
+        .. math::
+
+            \frac{\partial \mathbf{B}}{\partial t} + \nabla \times \mathbf{E} = 0
+
+        where :math:`Z=-1` and :math:`A=1/1836` for electrons.
+        At initial time the weak Poisson equation is solved once to weakly satisfy Gauss' law,
+
+        .. math::
+
+            \int_\Omega \nabla \psi^\top \cdot \nabla \phi \, \textrm{d} \mathbf{x}
+            &= \frac{\alpha^2}{\varepsilon} \int_\Omega \int_{\mathbb{R}^3} \psi \, (f - f_0) \, \text{d}^3 \mathbf{v} \, \textrm{d} \mathbf{x}
+            \qquad \forall \ \psi \in H^1
+            \\[2mm]
+            \mathbf{E}(t=0) &= -\nabla \phi(t=0)
+
+        Moreover, it is assumed that
+
+        .. math::
+
+            \nabla \times \mathbf{B}_0 = \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} f_0 \, \text{d}^3 \mathbf{v}
+
+        where :math:`\mathbf{B}_0` is the static equilibrium magnetic field.
+
+        Notes
+        -----
+
+        * The ``control_var`` for Ampère's law is optional; in case it is enabled via the parameter file, the following system is solved:
+        Find :math:`(\mathbf{E}, \tilde{\mathbf{B}}, f) \in H(\textnormal{curl}) \times H(\textnormal{div}) \times C^\infty` such that
+
+        .. math::
+
+            -\int_\Omega \mathbf{F} \cdot \frac{\partial \mathbf{E}}{\partial t} \, \textrm{d} \mathbf{x}
+            + \int_\Omega \nabla \times \mathbf{F} \cdot \tilde{\mathbf{B}} \, \textrm{d} \mathbf{x}
+            &= \frac{\alpha^2}{\varepsilon} \int_\Omega \int_{\mathbb{R}^3} \mathbf{F} \cdot \mathbf{v} (f - f_0) \, \text{d}^3 \mathbf{v} \, \textrm{d} \mathbf{x}
+            \qquad \forall \ \mathbf{F} \in H(\textnormal{curl})
+            \\[2mm]
+            \frac{\partial \tilde{\mathbf{B}}}{\partial t} + \nabla \times \mathbf{E} &= 0
+            \\[2mm]
+            \frac{\partial f}{\partial t}
+            + \mathbf{v} \cdot \nabla f
+            + \frac{1}{\varepsilon} \Big[ \mathbf{E} + \mathbf{v} \times (\mathbf{B}_0 + \tilde{\mathbf{B}}) \Big]
+            \cdot \frac{\partial f}{\partial \mathbf{v}} &= 0
+
+        where :math:`\tilde{\mathbf{B}} = \mathbf{B} - \mathbf{B}_0` denotes the magnetic perturbation.
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The model uses the light speed as reference velocity:
+
+        .. math::
+
+            \hat v = c,\qquad \hat E = \hat B \hat v,\qquad \hat\phi = \hat E \hat x.
+
+        The species parameters are :math:`\alpha=\hat\Omega_p/\hat\Omega_c` and
+        :math:`\varepsilon=1/(\hat\Omega_c\hat t)`."""
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Electric field energy: ``en_E``
+        - Magnetic field energy: ``en_B``
+        - Particle kinetic energy: ``en_f``
+        - Total energy: ``en_tot``
+        - Optional Gauss-law diagnostic: ``gauss_error``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.Maxwell:**
+
+{propagators_fields.Maxwell.__doc__}
+
+**2. propagators_markers.PushEta:**
+
+{propagators_markers.PushEta.__doc__}
+
+**3. propagators_markers.PushVxB:**
+
+{propagators_markers.PushVxB.__doc__}
+
+**4. propagators_coupling.VlasovAmpere:**
+
+{propagators_coupling.VlasovAmpere.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""VlasovMaxwellOneSpecies is the fully electromagnetic one-species PIC
+        model in Struphy. It evolves particles and fields self-consistently and
+        supports an optional control-variate formulation for the field coupling."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize a Vlasov-Maxwell model:
+
+        .. code-block:: python
+
+            from struphy.models import VlasovMaxwellOneSpecies
+
+            model = VlasovMaxwellOneSpecies()
+            model.em_fields.e_field
+            model.em_fields.b_field
+            model.kinetic_ions.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - self-consistent electromagnetic kinetic simulations
+        - one-species PIC benchmarks
+        - wave-particle interaction studies with evolving magnetic fields
+        - verification of the full Vlasov-Maxwell splitting"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - multi-species plasma dynamics without extension
+        - collisional kinetic closures
+        - reduced electrostatic-only models where magnetic evolution is unnecessary
+        - linearized delta-f studies that should use the dedicated linear models"""
+
     def allocate_helpers(self, verbose: bool = False):
         """Solve initial Poisson equation.
 

@@ -209,6 +209,134 @@ class ColdPlasmaVlasov(StruphyModel):
     def velocity_scale(self):
         return "light"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        Hot Vlasov species:
+
+        .. math::
+
+            \frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \frac{1}{\varepsilon_\textnormal{h}} \Big[ \mathbf{E} + \mathbf{v} \times \left( \mathbf{B} + \mathbf{B}_0 \right) \Big] \cdot \frac{\partial f}{\partial \mathbf{v}} = 0
+
+        Cold-plasma current:
+
+        .. math::
+
+            \frac{1}{n_0} \frac{\partial \mathbf{j}_\textnormal{c}}{\partial t} = \frac{1}{\varepsilon_\textnormal{c}} \mathbf{E} + \frac{1}{\varepsilon_\textnormal{c} n_0} \mathbf{j}_\textnormal{c} \times \mathbf{B}_0
+
+        Faraday's law:
+
+        .. math::
+
+            \frac{\partial \mathbf{B}}{\partial t} + \nabla \times \mathbf{E} = 0
+
+        Ampère's law:
+
+        .. math::
+
+            -\frac{\partial \mathbf{E}}{\partial t} + \nabla \times \mathbf{B} = \frac{\alpha^2}{\varepsilon_\textnormal{h}} \left( \mathbf{j}_\textnormal{c} + \int_{\mathbb{R}^3} \mathbf{v} f \, \text{d}^3 \mathbf{v} \right)
+
+        where :math:`(n_0, \mathbf{B}_0)` denotes an inhomogeneous background.
+
+        At initial time the Poisson equation is solved once to weakly satisfy the Gauss law:
+
+        .. math::
+
+            \nabla \cdot \mathbf{E} = \nu \frac{\alpha^2}{\varepsilon_\textnormal{h}} \int_{\mathbb{R}^3} f \, \text{d}^3 \mathbf{v}
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""Velocities are normalized with the speed of light and the kinetic
+        background is scaled as
+
+        .. math::
+
+            \hat v = c,\qquad \hat E = c \hat B,\qquad \hat f = \hat n / c^3.
+
+        The model distinguishes cold and hot cyclotron scales through
+        :math:`\varepsilon_\mathrm{c}` and :math:`\varepsilon_\mathrm{h}`."""
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Electric field energy: ``en_E``
+        - Magnetic field energy: ``en_B``
+        - Cold-current energy: ``en_J``
+        - Hot-particle kinetic energy: ``en_f``
+        - Total energy: ``en_tot``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.Maxwell:**
+
+{propagators_fields.Maxwell.__doc__}
+
+**2. propagators_fields.OhmCold:**
+
+{propagators_fields.OhmCold.__doc__}
+
+**3. propagators_fields.JxBCold:**
+
+{propagators_fields.JxBCold.__doc__}
+
+**4. propagators_markers.PushEta:**
+
+{propagators_markers.PushEta.__doc__}
+
+**5. propagators_markers.PushVxB:**
+
+{propagators_markers.PushVxB.__doc__}
+
+**6. propagators_coupling.VlasovAmpere:**
+
+{propagators_coupling.VlasovAmpere.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""ColdPlasmaVlasov is an electromagnetic hybrid model that keeps a cold
+        fluid response for the thermal electrons and a kinetic PIC description
+        for a hot species. It is designed for problems where the energetic
+        population matters kinetically but the bulk response can still be
+        treated as cold."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the cold-plasma plus Vlasov model:
+
+        .. code-block:: python
+
+            from struphy.models import ColdPlasmaVlasov
+
+            model = ColdPlasmaVlasov()
+            model.em_fields.e_field
+            model.em_fields.b_field
+            model.thermal_elec.current
+            model.hot_elec.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - hybrid electromagnetic problems with one hot kinetic species
+        - energetic-particle interaction with a cold background plasma
+        - reduced-cost alternatives to fully kinetic multi-population models
+        - benchmarks of fluid-kinetic current coupling"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - fully warm-fluid or pressure-anisotropic background dynamics
+        - all-species kinetic simulations
+        - collision operators or detailed dissipative closures
+        - electrostatic-only reductions where magnetic evolution is irrelevant"""
+
     def allocate_helpers(self, verbose: bool = False):
         """Solve initial Poisson equation.
 

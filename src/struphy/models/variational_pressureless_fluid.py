@@ -88,6 +88,86 @@ class VariationalPressurelessFluid(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        Continuity:
+
+        .. math::
+
+            \partial_t \rho + \nabla \cdot (\rho \mathbf{u}) = 0
+
+        Momentum:
+
+        .. math::
+
+            \partial_t (\rho \mathbf{u}) + \nabla \cdot (\rho \mathbf{u} \otimes \mathbf{u}) = 0
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The flow speed is normalized with the Alfvén speed:
+
+        .. math::
+
+            \hat u = \hat v_A.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Kinetic energy: ``kinetic_energy``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.VariationalDensityEvolve:**
+
+{propagators_fields.VariationalDensityEvolve.__doc__}
+
+**2. propagators_fields.VariationalMomentumAdvection:**
+
+{propagators_fields.VariationalMomentumAdvection.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""This is the pressureless limit of the variational fluid hierarchy. It
+        is intended as a reduced benchmark and as a simple transport model with
+        conservative density and momentum updates."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize a pressureless variational-fluid model:
+
+        .. code-block:: python
+
+            from struphy.models import VariationalPressurelessFluid
+
+            model = VariationalPressurelessFluid()
+            model.fluid.density
+            model.fluid.velocity
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - pressureless compressible benchmarks
+        - testing the minimal variational fluid update chain
+        - reduced transport problems without thermodynamics"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - pressure- or entropy-driven flow
+        - magnetic-field coupling
+        - viscous/resistive dissipation
+        - kinetic particle physics"""
+
     def allocate_helpers(self, verbose: bool = False):
         pass
 

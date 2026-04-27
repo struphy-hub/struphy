@@ -148,6 +148,105 @@ class ToyDrift(StruphyModel):
     def velocity_scale(self):
         return "thermal"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        Drift equation:
+
+        .. math::
+
+            \frac{\partial f}{\partial t} + \frac{\mathbf{E} \times \mathbf{b}_0}{B^*_\parallel} \cdot \frac{\partial f}{\partial \mathbf{X}} = 0
+
+        Poisson equation:
+
+        .. math::
+
+            -\nabla_\perp \cdot \left( \frac{n_0}{|B_0|^2} \nabla_\perp \phi \right) + \frac{1}{\varepsilon} n_0 \left( 1 + \frac{1}{Z \varepsilon} \frac{1}{T_0} \phi \right) = \frac{1}{\varepsilon} \int f B^*_\parallel \, \textnormal{d} v_\parallel \textnormal{d} \mu
+
+        where :math:`f(\mathbf{X}, v_\parallel, \mu, t)` is the guiding center distribution and
+
+        .. math::
+
+            \mathbf{E} = -\nabla \phi, \qquad \mathbf{B}^* = \mathbf{B}_0 + \varepsilon v_\parallel \nabla \times \mathbf{b}_0, \qquad B^*_\parallel = \mathbf{B}^* \cdot \mathbf{b}_0
+
+        Notes
+        -----
+
+        * The ``control_var`` in the Poisson equation is optional; in case it is enabled via the parameter file, the following Poisson equation is solved:
+        Find :math:`\phi \in H^1` such that
+
+        .. math::
+
+            \int \frac{n_0}{|B_0|^2} \nabla_\perp \psi \cdot \nabla_\perp \phi \, \textrm{d} \mathbf{x} + \frac{1}{Z \varepsilon^2} \int \frac{n_0}{T_0} \psi \phi \, \textrm{d} \mathbf{x} = \frac{1}{\varepsilon} \int \int \psi \, (f - f_0) B^*_\parallel \, \textrm{d} \mathbf{x} \, \textnormal{d} v_\parallel \textnormal{d} \mu \qquad \forall \ \psi \in H^1
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The reference speed is the ion thermal velocity:
+
+        .. math::
+
+            \hat v = \hat v_i,\qquad \hat E = \hat v_i \hat B,\qquad \hat\phi = \hat E \hat x.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Electrostatic field energy: ``en_phi``
+        - Particle kinetic energy: ``en_particles``
+        - Total energy: ``en_tot``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.Poisson:**
+
+{propagators_fields.Poisson.__doc__}
+
+**2. propagators_markers.PushGuidingCenterBxEstar:**
+
+{propagators_markers.PushGuidingCenterBxEstar.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""ToyDrift is a stripped-down guiding-center model used to isolate the
+        electrostatic drift part of the dynamics. It is intended for algorithm
+        prototyping and reduced verification problems rather than production
+        drift-kinetic studies."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the toy drift model:
+
+        .. code-block:: python
+
+            from struphy.models import ToyDrift
+
+            model = ToyDrift()
+            model.em_fields.phi
+            model.kinetic_ions.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - reduced electrostatic guiding-center benchmarks
+        - testing the field solve plus :math:`\mathbf E\times\mathbf B` pusher
+        - algorithm prototyping before moving to the full drift-kinetic model"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - full drift-kinetic dynamics with parallel streaming
+        - electromagnetic perturbations
+        - high-fidelity turbulence studies
+        - full-orbit kinetic physics"""
+
     def allocate_helpers(self, verbose: bool = False):
         """Solve initial Poisson equation.
 
