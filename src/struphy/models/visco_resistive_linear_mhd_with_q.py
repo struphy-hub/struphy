@@ -174,7 +174,7 @@ class ViscoResistiveLinearMHD_with_q(StruphyModel):
 
         .. math::
 
-            \partial_t \tilde{q} + \cdot (\nabla q_0 \mathbf{u}) + \left( \frac{\gamma}{2} - 1 \right) q_0 \nabla \cdot u = 0
+            \partial_t \tilde{q} + \nabla q_0 \cdot \tilde{\mathbf{u}} + \left( \frac{\gamma}{2} - 1 \right) q_0 \nabla \cdot \tilde{\mathbf{u}} = 0
 
         Induction:
 
