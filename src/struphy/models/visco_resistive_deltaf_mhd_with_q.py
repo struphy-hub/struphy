@@ -183,7 +183,7 @@ class ViscoResistiveDeltafMHD_with_q(StruphyModel):
 
         .. math::
 
-            \partial_t \tilde{\mathbf{B}} + \nabla \times \left( (B_0 + \tilde{\mathbf{B}}) \times \tilde{\mathbf{u}} \right) + \nabla \times (\eta + \eta_a(\mathbf{x})) \nabla \times \tilde{\mathbf{B}} = 0
+            \partial_t \tilde{\mathbf{B}} + \nabla \times \left( (\mathbf{B}_0 + \tilde{\mathbf{B}}) \times \tilde{\mathbf{u}} \right) + \nabla \times (\eta + \eta_a(\mathbf{x})) \nabla \times \tilde{\mathbf{B}} = 0
 
         Here :math:`\mu_a(\mathbf{x})` and :math:`\eta_a(\mathbf{x})` are artificial viscosity and resistivity coefficients.
         """
