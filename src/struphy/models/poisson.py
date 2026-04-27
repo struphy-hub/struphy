@@ -85,6 +85,8 @@ class Poisson(StruphyModel):
             self.propagators.source.variables.source = self.em_fields.source
         self.propagators.poisson.variables.phi = self.em_fields.phi
 
+        # 5. define scalars to be tracked during simulation
+
     @property
     def bulk_species(self):
         return None
@@ -109,9 +111,6 @@ class Poisson(StruphyModel):
 
         if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
             logger.info("... Done.")
-
-    def update_scalar_quantities(self):
-        pass
 
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

@@ -360,7 +360,7 @@ class Accumulator:
     def init_control_variate(self, mass_ops):
         """Set up the use of noise reduction by control variate."""
 
-        from struphy.feec.projectors import L2Projector
+        from struphy.feec.mass import L2Projector
 
         # L2 projector for dofs
         self._get_L2dofs = L2Projector(self.space_id, mass_ops).get_dofs
@@ -377,7 +377,7 @@ class Accumulator:
         """
         from matplotlib import pyplot as plt
 
-        from struphy.feec.projectors import L2Projector
+        from struphy.feec.mass import L2Projector
 
         # L2 projection
         proj = L2Projector(self.space_id, mass_ops)
@@ -616,7 +616,7 @@ class AccumulatorVector:
     def init_control_variate(self, mass_ops):
         """Set up the use of noise reduction by control variate."""
 
-        from struphy.feec.projectors import L2Projector
+        from struphy.feec.mass import L2Projector
 
         # L2 projector for dofs
         self._get_L2dofs = L2Projector(self.space_id, mass_ops).get_dofs
@@ -637,7 +637,7 @@ class AccumulatorVector:
 
         from matplotlib import pyplot as plt
 
-        from struphy.feec.projectors import L2Projector
+        from struphy.feec.mass import L2Projector
 
         # L2 projection
         proj = L2Projector(self.space_id, mass_ops)

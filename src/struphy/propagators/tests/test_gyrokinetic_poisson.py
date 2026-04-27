@@ -6,8 +6,7 @@ import pytest
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import domains
-from struphy.feec.mass import WeightedMassOperators
-from struphy.feec.projectors import L2Projector
+from struphy.feec.mass import L2Projector, WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry.base import Domain
 from struphy.io.options import DerhamOptions
