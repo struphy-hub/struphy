@@ -27,7 +27,7 @@ __version__ = importlib.metadata.version("struphy")
 
 # version message
 version_message = f"Struphy {__version__}\n"
-version_message += "Copyright 2019-2025 (c) Struphy dev team | Max Planck Institute for Plasma Physics\n"
+version_message += "Copyright 2019-2026 (c) Struphy dev team | Max Planck Institute for Plasma Physics\n"
 version_message += "MIT license\n"
 
 
