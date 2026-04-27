@@ -607,7 +607,7 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
     return result.strip()
 
 
-def rst_to_html(rst_text: str) -> str:
+def rst_to_html(rst_text: str, forced_heading_level: int | None = None) -> str:
     """
     Convert RST docstring to HTML for VS Code/Pylance display.
 
@@ -617,11 +617,18 @@ def rst_to_html(rst_text: str) -> str:
     Args:
         rst_text: RST formatted text
 
+    Args:
+        rst_text: RST formatted text
+        forced_heading_level: If set, force all generated headings to this HTML level (1-6).
+
     Returns:
         HTML formatted text
     """
     if not rst_text:
         return ""
+
+    if forced_heading_level is not None:
+        forced_heading_level = max(1, min(6, int(forced_heading_level)))
 
     html = rst_text
 
@@ -776,6 +783,8 @@ def rst_to_html(rst_text: str) -> str:
                     result_lines.append("")
                     list_tag = None
                 level = {"=": 1, "-": 2, "~": 3, "^": 4, '"': 5, "#": 6}.get(next_line.strip()[0], 3)
+                if forced_heading_level is not None:
+                    level = forced_heading_level
                 result_lines.append("")  # blank line before header
                 result_lines.append(f"<h{level}>{line.strip()}</h{level}>")
                 first_line = False
@@ -789,8 +798,9 @@ def rst_to_html(rst_text: str) -> str:
                 result_lines.append(f"</{list_tag}>")
                 result_lines.append("")
                 list_tag = None
+            level = forced_heading_level if forced_heading_level is not None else 3
             result_lines.append("")  # blank line before header
-            result_lines.append(f"<h3>{bold_header_match.group(1)}</h3>")
+            result_lines.append(f"<h{level}>{bold_header_match.group(1)}</h{level}>")
             first_line = False
             i += 1
             continue

@@ -180,15 +180,17 @@ class StruphyModel(metaclass=StruphyModelMeta):
             out += f"{v}"
         return out
 
+    forced_heading_level = 5
+
     @classmethod
     def info(cls):
-        doc = "**"
-        doc += (
+        summary = (
             rst_to_html(cls.__doc__).split("Parameters")[0].split("<")[0]
             if cls.__doc__
             else """Description not available for this model."""
         )
-        doc += "**"
+        summary = " ".join(summary.split())
+        doc = f"**{summary}**\n"
         doc += rf"""To see detailed information on the model, run the following methods:
         
 .. code-block:: python
@@ -202,13 +204,13 @@ class StruphyModel(metaclass=StruphyModelMeta):
     {cls.name()}.use_cases()
     {cls.name()}.cannot_be_used_for()
 """
-        return display(HTML(rst_to_html(doc)))
+        return display(HTML(rst_to_html(doc, forced_heading_level=cls.forced_heading_level)))
 
     @classmethod
     def pde(cls):
         doc_pde = getattr(cls, "doc_pde", None)
         doc = doc_pde.__doc__ if doc_pde else """PDE description not available for this model."""
-        return display(HTML(rst_to_html(doc)))
+        return display(HTML(rst_to_html(doc, forced_heading_level=cls.forced_heading_level)))
 
     @classmethod
     def normalization(cls):
@@ -219,7 +221,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
             if doc_normalization
             else """Description of normalization not available for this model."""
         )
-        return display(HTML(rst_to_html(doc)))
+        return display(HTML(rst_to_html(doc, forced_heading_level=cls.forced_heading_level)))
 
     @classmethod
     def scalar_quantities(cls):
@@ -229,7 +231,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
             if doc_scalar_quantities
             else """Description of scalar quantities not available for this model."""
         )
-        return display(HTML(rst_to_html(doc)))
+        return display(HTML(rst_to_html(doc, forced_heading_level=cls.forced_heading_level)))
 
     @classmethod
     def discretization(cls):
@@ -240,7 +242,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
             if doc_discretization
             else """Description of discretization not available for this model."""
         )
-        return display(HTML(rst_to_html(doc)))
+        return display(HTML(rst_to_html(doc, forced_heading_level=cls.forced_heading_level)))
 
     @classmethod
     def long_description(cls):
@@ -251,21 +253,21 @@ class StruphyModel(metaclass=StruphyModelMeta):
             if doc_long_description
             else """Long description not available for this model."""
         )
-        return display(HTML(rst_to_html(doc)))
+        return display(HTML(rst_to_html(doc, forced_heading_level=cls.forced_heading_level)))
 
     @classmethod
     def examples(cls):
         doc_examples = getattr(cls, "doc_examples", None)
         doc = "**Examples:**\n"
         doc += doc_examples.__doc__ if doc_examples else """Examples not available for this model."""
-        return display(HTML(rst_to_html(doc)))
+        return display(HTML(rst_to_html(doc, forced_heading_level=cls.forced_heading_level)))
 
     @classmethod
     def use_cases(cls):
         doc_use_cases = getattr(cls, "doc_use_cases", None)
         doc = "**Use cases:**\n"
         doc += doc_use_cases.__doc__ if doc_use_cases else """Description of use cases not available for this model."""
-        return display(HTML(rst_to_html(doc)))
+        return display(HTML(rst_to_html(doc, forced_heading_level=cls.forced_heading_level)))
 
     @classmethod
     def cannot_be_used_for(cls):
@@ -276,7 +278,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
             if doc_cannot_be_used_for
             else """Information on scenarios for which the model is not suitable is not available."""
         )
-        return display(HTML(rst_to_html(doc)))
+        return display(HTML(rst_to_html(doc, forced_heading_level=cls.forced_heading_level)))
 
     @classmethod
     def name(cls) -> str:
