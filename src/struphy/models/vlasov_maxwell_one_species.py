@@ -234,13 +234,12 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             \frac{\partial \mathbf{B}}{\partial t} + \nabla \times \mathbf{E} = 0
 
         where :math:`Z=-1` and :math:`A=1/1836` for electrons.
+
         At initial time the weak Poisson equation is solved once to weakly satisfy Gauss' law,
 
         .. math::
 
-            \int_\Omega \nabla \psi^\top \cdot \nabla \phi \, \textrm{d} \mathbf{x}
-            &= \frac{\alpha^2}{\varepsilon} \int_\Omega \int_{\mathbb{R}^3} \psi \, (f - f_0) \, \text{d}^3 \mathbf{v} \, \textrm{d} \mathbf{x}
-            \qquad \forall \ \psi \in H^1
+            \int_{\Omega} \nabla \psi^{\top} \cdot \nabla \phi \, \textrm{d} \mathbf{x} &= \frac{\alpha^2}{\varepsilon} \int_{\Omega} \int_{\mathbb{R}^3} \psi \, (f - f_0) \, \text{d}^3 \mathbf{v} \, \textrm{d} \mathbf{x} \qquad \forall \ \psi \in H^1
             \\[2mm]
             \mathbf{E}(t=0) &= -\nabla \phi(t=0)
 
@@ -251,28 +250,6 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             \nabla \times \mathbf{B}_0 = \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} f_0 \, \text{d}^3 \mathbf{v}
 
         where :math:`\mathbf{B}_0` is the static equilibrium magnetic field.
-
-        Notes
-        -----
-
-        * The ``control_var`` for Ampère's law is optional; in case it is enabled via the parameter file, the following system is solved:
-        Find :math:`(\mathbf{E}, \tilde{\mathbf{B}}, f) \in H(\textnormal{curl}) \times H(\textnormal{div}) \times C^\infty` such that
-
-        .. math::
-
-            -\int_\Omega \mathbf{F} \cdot \frac{\partial \mathbf{E}}{\partial t} \, \textrm{d} \mathbf{x}
-            + \int_\Omega \nabla \times \mathbf{F} \cdot \tilde{\mathbf{B}} \, \textrm{d} \mathbf{x}
-            &= \frac{\alpha^2}{\varepsilon} \int_\Omega \int_{\mathbb{R}^3} \mathbf{F} \cdot \mathbf{v} (f - f_0) \, \text{d}^3 \mathbf{v} \, \textrm{d} \mathbf{x}
-            \qquad \forall \ \mathbf{F} \in H(\textnormal{curl})
-            \\[2mm]
-            \frac{\partial \tilde{\mathbf{B}}}{\partial t} + \nabla \times \mathbf{E} &= 0
-            \\[2mm]
-            \frac{\partial f}{\partial t}
-            + \mathbf{v} \cdot \nabla f
-            + \frac{1}{\varepsilon} \Big[ \mathbf{E} + \mathbf{v} \times (\mathbf{B}_0 + \tilde{\mathbf{B}}) \Big]
-            \cdot \frac{\partial f}{\partial \mathbf{v}} &= 0
-
-        where :math:`\tilde{\mathbf{B}} = \mathbf{B} - \mathbf{B}_0` denotes the magnetic perturbation.
         """
 
     @classmethod

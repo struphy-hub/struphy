@@ -2560,6 +2560,7 @@ class ImplicitDiffusion(Propagator):
             ``verbose``, ``info``, ``recycle``).
             If ``None``, defaults to ``SolverParameters()``.
         """
+
         # specific literals
         OptsStabMat = Literal["M0", "M0ad", "Id"]
         OptsDiffusionMat = Literal["M1", "M1perp"]
@@ -2878,6 +2879,7 @@ class Poisson(ImplicitDiffusion):
         ``sigma_2 = 0.0``, ``sigma_3 = 1.0``, ``divide_by_dt = False`` and
         ``diffusion_mat = "M1"`` in ``__post_init__``.
         """
+
         # specific literals
         OptsStabMat = Literal["M0", "M0ad", "Id"]
         # propagator options
