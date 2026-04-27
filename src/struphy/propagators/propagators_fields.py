@@ -2481,6 +2481,86 @@ class ImplicitDiffusion(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`ImplicitDiffusion`.
+
+        Parameters
+        ----------
+        sigma_1 : float, default=1.0
+            Coefficient multiplying the stabilization/mass contribution on the
+            left-hand side.
+
+            With ``divide_by_dt=True`` it is interpreted as ``sigma_1 / dt`` in
+            the assembled linear system.
+
+        sigma_2 : float, default=0.0
+            Coefficient multiplying the previous solution contribution
+            ``stab_mat * phi^n`` on the right-hand side.
+
+            With ``divide_by_dt=True`` it is interpreted as ``sigma_2 / dt``.
+
+        sigma_3 : float, default=1.0
+            Coefficient multiplying the source terms ``rho`` on the
+            right-hand side.
+
+            With ``divide_by_dt=True`` it is interpreted as ``sigma_3 / dt``.
+
+        divide_by_dt : bool, default=False
+            If ``True``, divide ``sigma_1``, ``sigma_2`` and ``sigma_3`` by the
+            time step passed to ``__call__(dt)`` before assembling the system.
+
+        stab_mat : {"M0", "M0ad", "Id"}, default="M0"
+            Stabilization operator used in the term weighted by ``sigma_1`` and
+            ``sigma_2``.
+
+            - ``"M0"``: standard weighted 0-form mass operator.
+            - ``"M0ad"``: adiabatic-electron weighted 0-form mass operator.
+            - ``"Id"``: identity operator.
+
+        diffusion_mat : {"M1", "M1perp"} or WeightedMassOperator, default="M1"
+            Diffusion metric in the bilinear form
+            ``grad.T @ diffusion_mat @ grad``.
+            You can pass the name of a pre-built operator in ``mass_ops`` or a
+            custom ``WeightedMassOperator`` compatible with the codomain of
+            ``grad``.
+
+        rho : FEECVariable or Callable or tuple or list, default=None
+            Source term(s) on the right-hand side.
+            Accepted entries are:
+
+            - ``None``: zero source.
+            - ``FEECVariable`` in ``H1``.
+            - ``Callable`` to be projected to ``H1`` via ``L2Projector``.
+            - ``AccumulatorVector``.
+            - a ``list`` containing any mix of the entries above.
+
+            The tuple form is accepted by typing for compatibility with other
+            propagator interfaces that pair particle data with accumulators.
+
+        rho_coeffs : float or list, default=None
+            Multiplicative coefficient(s) for ``rho`` sources.
+            If a scalar is provided, it is applied to a single source.
+            If a sequence is provided, its length must match the number of
+            collected sources.
+            If ``None``, all coefficients default to ``1.0``.
+
+        x0 : StencilVector, default=None
+            Initial guess for the iterative linear solver.
+
+        solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Name of the symmetric iterative solver passed to
+            :func:`psydac.linalg.solvers.inverse`.
+
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+            Name of the preconditioner configuration.
+            Currently this class sets ``pc=None`` internally, so this option is
+            reserved for compatibility and future extensions.
+
+        solver_params : SolverParameters, default=None
+            Iterative-solver controls (for example ``tol``, ``maxiter``,
+            ``verbose``, ``info``, ``recycle``).
+            If ``None``, defaults to ``SolverParameters()``.
+        """
+
         # specific literals
         OptsStabMat = Literal["M0", "M0ad", "Id"]
         OptsDiffusionMat = Literal["M1", "M1perp"]
@@ -2741,6 +2821,65 @@ class Poisson(ImplicitDiffusion):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`Poisson`.
+
+        Parameters
+        ----------
+        stab_eps : float, default=0.0
+            Stabilization weight used for the mass-like term in the Poisson
+            operator.
+            Internally mapped to ``sigma_1 = stab_eps`` in the parent
+            :class:`ImplicitDiffusion` formulation.
+
+        stab_mat : {"M0", "M0ad", "Id"}, default="Id"
+            Stabilization matrix multiplied by ``stab_eps``.
+
+            - ``"M0"``: standard weighted 0-form mass operator.
+            - ``"M0ad"``: adiabatic-electron weighted 0-form mass operator.
+            - ``"Id"``: identity operator.
+
+        rho : FEECVariable or Callable or tuple or list, default=None
+            Right-hand side source term(s) of the Poisson problem.
+            Accepted entries are:
+
+            - ``None``: zero source.
+            - ``FEECVariable`` in ``H1``.
+            - ``Callable`` to be projected to ``H1`` via ``L2Projector``.
+            - ``AccumulatorVector``.
+            - a ``list`` containing any mix of the entries above.
+
+            The tuple form is accepted by typing for compatibility with other
+            propagator interfaces that pair particle data with accumulators.
+
+        rho_coeffs : float or list, default=None
+            Multiplicative coefficient(s) applied to ``rho``.
+            If ``None``, coefficients default to ``1.0`` for all sources.
+
+        x0 : StencilVector, default=None
+            Initial guess for the iterative linear solver.
+
+        solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Name of the symmetric iterative solver passed to
+            :func:`psydac.linalg.solvers.inverse`.
+
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+            Name of the preconditioner configuration.
+            Currently this class inherits the same behavior as
+            :class:`ImplicitDiffusion`, where ``pc=None`` is used internally.
+
+        solver_params : SolverParameters, default=None
+            Iterative-solver controls (for example ``tol``, ``maxiter``,
+            ``verbose``, ``info``, ``recycle``).
+            If ``None``, defaults to ``SolverParameters()``.
+
+        Notes
+        -----
+        ``Poisson.Options`` reuses :class:`ImplicitDiffusion` internals by
+        enforcing
+        ``sigma_2 = 0.0``, ``sigma_3 = 1.0``, ``divide_by_dt = False`` and
+        ``diffusion_mat = "M1"`` in ``__post_init__``.
+        """
+
         # specific literals
         OptsStabMat = Literal["M0", "M0ad", "Id"]
         # propagator options
