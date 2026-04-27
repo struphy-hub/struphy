@@ -131,6 +131,119 @@ class ViscousEulerSPH(StruphyModel):
     def velocity_scale(self):
         return "thermal"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        Continuity:
+
+        .. math::
+
+            \partial_t \rho + \nabla \cdot (\rho \mathbf{u}) = 0
+
+        Momentum:
+
+        .. math::
+
+            \rho (\partial_t \mathbf{u} + \mathbf{u} \cdot \nabla \mathbf{u}) = -\nabla \left( \rho^2 \frac{\partial \mathcal{U}(\rho, S)}{\partial \rho} \right) - \nabla \cdot \boldsymbol{\pi}
+
+        Entropy:
+
+        .. math::
+
+            \partial_t S + \mathbf{u} \cdot \nabla S = 0
+
+        where :math:`S` denotes the entropy per unit mass and :math:`\boldsymbol{\pi}` is the viscous stress tensor.
+
+        The viscous stress tensor for a Newtonian fluid is given by:
+
+        .. math::
+
+            \boldsymbol{\sigma} = -\mu \left( \nabla \mathbf{u} + (\nabla \mathbf{u})^T - \frac{2}{3} (\nabla \cdot \mathbf{u}) \mathbf{I} \right)
+
+        where :math:`\mu` is the dynamic (shear) viscosity and :math:`\mathbf{I}` is the identity tensor.
+
+        The internal energy per unit mass can be defined in two ways:
+
+        .. math::
+
+            \mathrm{isothermal:} \qquad \mathcal{U}(\rho, S) = \kappa(S) \log \rho
+
+        .. math::
+
+            \mathrm{polytropic:} \qquad \mathcal{U}(\rho, S) = \kappa(S) \frac{\rho^{\gamma - 1}}{\gamma - 1}
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The characteristic speed is thermal:
+
+        .. math::
+
+            \hat u = \hat v_\mathrm{th}.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - SPH kinetic energy: ``en_kin``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_markers.PushEta:**
+
+{propagators_markers.PushEta.__doc__}
+
+**2. propagators_markers.PushVxB:**
+
+{propagators_markers.PushVxB.__doc__}
+
+**3. propagators_markers.PushVinSPHpressure:**
+
+{propagators_markers.PushVinSPHpressure.__doc__}
+
+**4. propagators_markers.PushVinViscousPotential:**
+
+{propagators_markers.PushVinViscousPotential.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""ViscousEulerSPH is the particle-based SPH fluid model with optional
+        pressure and viscosity contributions. It is intended for meshfree fluid
+        experiments rather than FEEC-based field simulations."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the viscous Euler SPH model:
+
+        .. code-block:: python
+
+            from struphy.models import ViscousEulerSPH
+
+            model = ViscousEulerSPH()
+            model.euler_fluid.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - SPH verification with pressure and viscosity
+        - meshfree compressible-fluid experiments
+        - testing particle-based viscosity and pressure pushers"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - FEEC grid-based fluid or MHD formulations
+        - entropy-resolved thermodynamic evolution
+        - kinetic plasma physics
+        - studies that require exact field-based conservation structures"""
+
     def allocate_helpers(self, verbose: bool = False):
         pass
 

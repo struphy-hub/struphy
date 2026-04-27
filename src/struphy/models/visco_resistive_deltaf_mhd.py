@@ -160,6 +160,115 @@ class ViscoResistiveDeltafMHD(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        Continuity:
+
+        .. math::
+
+            \partial_t \tilde{\rho} + \nabla \cdot \left( (\tilde{\rho} + \rho_0) \tilde{\mathbf{u}} \right) = 0
+
+        Momentum:
+
+        .. math::
+
+            \partial_t \left( (\tilde{\rho} + \rho_0) \tilde{\mathbf{u}} \right) + \nabla \cdot \left( (\tilde{\rho} + \rho_0) \tilde{\mathbf{u}} \otimes \tilde{\mathbf{u}} \right) + \frac{1}{\gamma - 1} \nabla \tilde{p} + \mathbf{B}_0 \times \nabla \times \tilde{\mathbf{B}} + \tilde{\mathbf{B}} \times \nabla \times \mathbf{B}_0 + \tilde{\mathbf{B}} \times \nabla \times \tilde{\mathbf{B}} - \nabla \cdot \left( (\mu + \mu_a(\mathbf{x})) \nabla \tilde{\mathbf{u}} \right) = 0
+
+        Pressure:
+
+        .. math::
+
+            \partial_t \tilde{p} + \tilde{\mathbf{u}} \cdot \nabla (\tilde{p} + p_0) + \gamma (\tilde{p} + p_0) \nabla \cdot \tilde{\mathbf{u}} = \frac{1}{\gamma - 1} \left( (\mu + \mu_a(\mathbf{x})) |\nabla \tilde{\mathbf{u}}|^2 + (\eta + \eta_a(\mathbf{x})) |\nabla \times \tilde{\mathbf{B}}|^2 \right)
+
+        Induction:
+
+        .. math::
+
+            \partial_t \tilde{\mathbf{B}} + \nabla \times \left( (\tilde{\mathbf{B}} + \mathbf{B}_0) \times \tilde{\mathbf{u}} \right) + \nabla \times (\eta + \eta_a(\mathbf{x})) \nabla \times \tilde{\mathbf{B}} = 0
+
+        Here :math:`\mu_a(\mathbf{x})` and :math:`\eta_a(\mathbf{x})` are artificial viscosity and resistivity coefficients.
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The velocity scale is Alfvénic:
+
+        .. math::
+
+            \hat u = \hat v_A.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Kinetic energy: ``en_U``
+        - Thermal energies: ``en_thermo``, ``en_thermo_l1``
+        - Magnetic energies: ``en_mag_1``, ``en_mag_2``, ``en_mag_l1``
+        - Total energies: ``en_tot``, ``en_tot_l1``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators_fields.VariationalDensityEvolve:**
+
+{propagators_fields.VariationalDensityEvolve.__doc__}
+
+**2. propagators_fields.VariationalMomentumAdvection:**
+
+{propagators_fields.VariationalMomentumAdvection.__doc__}
+
+**3. propagators_fields.VariationalPBEvolve:**
+
+{propagators_fields.VariationalPBEvolve.__doc__}
+
+**4. propagators_fields.VariationalViscosity:**
+
+{propagators_fields.VariationalViscosity.__doc__}
+
+**5. propagators_fields.VariationalResistivity:**
+
+{propagators_fields.VariationalResistivity.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""ViscoResistiveDeltafMHD is the dissipative perturbative MHD model using
+        pressure as thermodynamic variable. It is intended for departures from a
+        background equilibrium that are not strictly linear but still naturally
+        formulated as perturbations."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the visco-resistive ``delta f`` MHD model:
+
+        .. code-block:: python
+
+            from struphy.models import ViscoResistiveDeltafMHD
+
+            model = ViscoResistiveDeltafMHD()
+            model.mhd.pressure
+            model.em_fields.b_field
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - perturbative nonlinear MHD around a prescribed equilibrium
+        - dissipative MHD verification with background fields
+        - comparing linear and ``delta f`` variational formulations"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - fully full-f MHD evolution far from the chosen equilibrium
+        - kinetic or particle-resolved plasma effects
+        - entropy- or q-based thermodynamic formulations"""
+
     def allocate_helpers(self, verbose: bool = False):
         projV3 = L2Projector("L2", Propagator.mass_ops)
 
