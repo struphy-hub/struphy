@@ -11,9 +11,8 @@ from struphy.models.species import (
     ParticleSpecies,
 )
 from struphy.models.variables import PICVariable
-from struphy.propagators import (
-    propagators_markers,
-)
+from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
+from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
 from struphy.propagators.base import Propagator
 
 logger = logging.getLogger("struphy")
@@ -49,8 +48,8 @@ class GuidingCenter(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterBxEstar`
-    2. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterParallel`
+    1. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
+    2. :class:`~struphy.propagators.push_guiding_center_parallel.PushGuidingCenterParallel`
     """
 
     @classmethod
@@ -77,8 +76,8 @@ class GuidingCenter(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.push_bxe = propagators_markers.PushGuidingCenterBxEstar()
-            self.push_parallel = propagators_markers.PushGuidingCenterParallel()
+            self.push_bxe = PushGuidingCenterBxEstar()
+            self.push_parallel = PushGuidingCenterParallel()
 
     ## abstract methods
 
@@ -167,13 +166,13 @@ class GuidingCenter(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_markers.PushGuidingCenterBxEstar:**
+        doc = rf"""**1. push_guiding_center_bx_estar.PushGuidingCenterBxEstar:**
 
-{propagators_markers.PushGuidingCenterBxEstar.__doc__}
+    {PushGuidingCenterBxEstar.__doc__}
 
-**2. propagators_markers.PushGuidingCenterParallel:**
+    **2. push_guiding_center_parallel.PushGuidingCenterParallel:**
 
-{propagators_markers.PushGuidingCenterParallel.__doc__}
+    {PushGuidingCenterParallel.__doc__}
 """
         return doc
 

@@ -18,9 +18,9 @@ from struphy.pic.accumulation import accum_kernels_gc
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.propagators import (
     propagators_fields,
-    propagators_markers,
 )
 from struphy.propagators.base import Propagator
+from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
 from struphy.utils.pyccel import Pyccelkernel
 
 rank = MPI.COMM_WORLD.Get_rank()
@@ -66,7 +66,7 @@ class ToyDrift(StruphyModel):
     :ref:`propagators` (called in sequence):
 
     1. :class:`~struphy.propagators.implicit_diffusion.ImplicitDiffusion`
-    2. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterBxEstar`
+    2. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
 
     :ref:`Model info <add_model>`:
     """
@@ -101,7 +101,7 @@ class ToyDrift(StruphyModel):
     class Propagators:
         def __init__(self):
             self.gc_poisson = PoissonFieldSolve()
-            self.push_gc_bxe = propagators_markers.PushGuidingCenterBxEstar()
+            self.push_gc_bxe = PushGuidingCenterBxEstar()
 
     ## abstract methods
 
@@ -204,9 +204,9 @@ class ToyDrift(StruphyModel):
 
 {PoissonFieldSolve.__doc__}
 
-**2. propagators_markers.PushGuidingCenterBxEstar:**
+**2. push_guiding_center_bx_estar.PushGuidingCenterBxEstar:**
 
-{propagators_markers.PushGuidingCenterBxEstar.__doc__}
+{PushGuidingCenterBxEstar.__doc__}
 """
         return doc
 

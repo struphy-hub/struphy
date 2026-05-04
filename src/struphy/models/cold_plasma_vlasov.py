@@ -20,10 +20,11 @@ from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.propagators import (
     propagators_coupling,
     propagators_fields,
-    propagators_markers,
 )
 from struphy.propagators.base import Propagator
 from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
+from struphy.propagators.push_eta import PushEta
+from struphy.propagators.push_vxb import PushVxB
 from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
@@ -72,8 +73,8 @@ class ColdPlasmaVlasov(StruphyModel):
     1. :class:`~struphy.propagators.maxwell.Maxwell`
     2. :class:`~struphy.propagators.ohm_cold.OhmCold`
     3. :class:`~struphy.propagators.jxb_cold.JxBCold`
-    4. :class:`~struphy.propagators.propagators_markers.PushVxB`
-    5. :class:`~struphy.propagators.propagators_markers.PushEta`
+    4. :class:`~struphy.propagators.push_vxb.PushVxB`
+    5. :class:`~struphy.propagators.push_eta.PushEta`
     6. :class:`~struphy.propagators.propagators_coupling.VlasovAmpere`
     """
 
@@ -127,8 +128,8 @@ class ColdPlasmaVlasov(StruphyModel):
             self.maxwell = MaxwellWeakAmpere()
             self.ohm = OhmCold()
             self.jxb = JxBCold()
-            self.push_eta = propagators_markers.PushEta()
-            self.push_vxb = propagators_markers.PushVxB()
+            self.push_eta = PushEta()
+            self.push_vxb = PushVxB()
             self.coupling_va = propagators_coupling.VlasovAmpereCoupling()
 
     ## abstract methods
@@ -285,13 +286,13 @@ class ColdPlasmaVlasov(StruphyModel):
 
 {JxBCold.__doc__}
 
-**4. propagators_markers.PushEta:**
+**4. push_eta.PushEta:**
 
-{propagators_markers.PushEta.__doc__}
+{PushEta.__doc__}
 
-**5. propagators_markers.PushVxB:**
+**5. push_vxb.PushVxB:**
 
-{propagators_markers.PushVxB.__doc__}
+{PushVxB.__doc__}
 
 **6. propagators_coupling.VlasovAmpere:**
 

@@ -13,9 +13,11 @@ from struphy.models.variables import FEECVariable, PICVariable
 from struphy.propagators import (
     propagators_coupling,
     propagators_fields,
-    propagators_markers,
 )
 from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
+from struphy.propagators.push_eta import PushEta
+from struphy.propagators.push_vin_efield import PushVinEfield
+from struphy.propagators.push_vxb import PushVxB
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -80,10 +82,10 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_markers.PushEta`
-    2. :class:`~struphy.propagators.propagators_markers.PushVinEfield`
+    1. :class:`~struphy.propagators.push_eta.PushEta`
+    2. :class:`~struphy.propagators.push_vin_efield.PushVinEfield`
     3. :class:`~struphy.propagators.propagators_coupling.EfieldWeights`
-    4. :class:`~struphy.propagators.propagators_markers.PushVxB`
+    4. :class:`~struphy.propagators.push_vxb.PushVxB`
     5. :class:`~struphy.propagators.maxwell.Maxwell`
 
     :ref:`Model info <add_model>`:
@@ -126,12 +128,12 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
             with_B0: bool = True,
             with_E0: bool = True,
         ):
-            self.push_eta = propagators_markers.PushEta()
+            self.push_eta = PushEta()
             if with_E0:
-                self.push_vinE = propagators_markers.PushVinEfield()
+                self.push_vinE = PushVinEfield()
             self.coupling_Eweights = propagators_coupling.EfieldWeightsCoupling()
             if with_B0:
-                self.push_vxb = propagators_markers.PushVxB()
+                self.push_vxb = PushVxB()
             self.maxwell = MaxwellWeakAmpere()
 
     ## abstract methods
@@ -264,21 +266,21 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_markers.PushEta:**
+        doc = rf"""**1. push_eta.PushEta:**
 
-{propagators_markers.PushEta.__doc__}
+    {PushEta.__doc__}
 
-**2. propagators_markers.PushVinEfield:**
+    **2. push_vin_efield.PushVinEfield:**
 
-{propagators_markers.PushVinEfield.__doc__}
+    {PushVinEfield.__doc__}
 
 **3. propagators_coupling.EfieldWeights:**
 
 {propagators_coupling.EfieldWeightsCoupling.__doc__}
 
-**4. propagators_markers.PushVxB:**
+**4. push_vxb.PushVxB:**
 
-{propagators_markers.PushVxB.__doc__}
+{PushVxB.__doc__}
 
 **5. propagators.maxwell.Maxwell:**
 

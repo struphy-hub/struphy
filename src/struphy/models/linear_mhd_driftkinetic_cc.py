@@ -27,9 +27,10 @@ from struphy.polar.basic import PolarVector
 from struphy.propagators import (
     propagators_coupling,
     propagators_fields,
-    propagators_markers,
 )
 from struphy.propagators.base import Propagator
+from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
+from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
 
 logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
@@ -101,8 +102,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterBxEstar`
-    2. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterParallel`
+    1. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
+    2. :class:`~struphy.propagators.push_guiding_center_parallel.PushGuidingCenterParallel`
     3. :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DGradB`
     4. :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb`
     5. :class:`~struphy.propagators.current_coupling_5d_density.CurrentCoupling5DDensity`
@@ -148,9 +149,9 @@ class LinearMHDDriftkineticCC(StruphyModel):
     class Propagators:
         def __init__(self, turn_off: tuple[str, ...] = (None,)):
             if "PushGuidingCenterBxEstar" not in turn_off:
-                self.push_bxe = propagators_markers.PushGuidingCenterBxEstar()
+                self.push_bxe = PushGuidingCenterBxEstar()
             if "PushGuidingCenterParallel" not in turn_off:
-                self.push_parallel = propagators_markers.PushGuidingCenterParallel()
+                self.push_parallel = PushGuidingCenterParallel()
             if "ShearAlfvenCurrentCoupling5D" not in turn_off:
                 self.shearalfen_cc5d = ShearAlfvenCurrentCoupling5D()
             if "Magnetosonic" not in turn_off:
@@ -319,13 +320,13 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_markers.PushGuidingCenterBxEstar:**
+        doc = rf"""**1. push_guiding_center_bx_estar.PushGuidingCenterBxEstar:**
 
-{propagators_markers.PushGuidingCenterBxEstar.__doc__}
+    {PushGuidingCenterBxEstar.__doc__}
 
-**2. propagators_markers.PushGuidingCenterParallel:**
+    **2. push_guiding_center_parallel.PushGuidingCenterParallel:**
 
-{propagators_markers.PushGuidingCenterParallel.__doc__}
+    {PushGuidingCenterParallel.__doc__}
 
 **3. propagators_coupling.CurrentCoupling5DGradB:**
 

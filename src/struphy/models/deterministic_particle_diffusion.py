@@ -7,9 +7,7 @@ from struphy.models.species import (
     ParticleSpecies,
 )
 from struphy.models.variables import PICVariable
-from struphy.propagators import (
-    propagators_markers,
-)
+from struphy.propagators.push_deterministic_diffusion import PushDeterministicDiffusion
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -35,7 +33,7 @@ class DeterministicParticleDiffusion(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_markers.PushDeterministicDiffusion`
+    1. :class:`~struphy.propagators.push_deterministic_diffusion.PushDeterministicDiffusion`
 
     :ref:`Model info <add_model>`:
     """
@@ -55,7 +53,7 @@ class DeterministicParticleDiffusion(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.det_diff = propagators_markers.PushDeterministicDiffusion()
+            self.det_diff = PushDeterministicDiffusion()
 
     ## abstract methods
 
@@ -116,9 +114,9 @@ class DeterministicParticleDiffusion(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_markers.PushDeterministicDiffusion:**
+        doc = rf"""**1. push_deterministic_diffusion.PushDeterministicDiffusion:**
 
-{propagators_markers.PushDeterministicDiffusion.__doc__}
+    {PushDeterministicDiffusion.__doc__}
 """
         return doc
 

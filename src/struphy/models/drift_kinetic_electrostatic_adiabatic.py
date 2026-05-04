@@ -17,9 +17,10 @@ from struphy.pic.accumulation import accum_kernels_gc
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.propagators import (
     propagators_fields,
-    propagators_markers,
 )
 from struphy.propagators.base import Propagator
+from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
+from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
 from struphy.utils.pyccel import Pyccelkernel
 
 rank = MPI.COMM_WORLD.Get_rank()
@@ -66,8 +67,8 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
     :ref:`propagators` (called in sequence):
 
     1. :class:`~struphy.propagators.implicit_diffusion.ImplicitDiffusion`
-    2. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterBxEstar`
-    3. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterParallel`
+    2. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
+    3. :class:`~struphy.propagators.push_guiding_center_parallel.PushGuidingCenterParallel`
 
     :ref:`Model info <add_model>`:
     """
@@ -102,8 +103,8 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
     class Propagators:
         def __init__(self):
             self.gc_poisson = ImplicitDiffusion()
-            self.push_gc_bxe = propagators_markers.PushGuidingCenterBxEstar()
-            self.push_gc_para = propagators_markers.PushGuidingCenterParallel()
+            self.push_gc_bxe = PushGuidingCenterBxEstar()
+            self.push_gc_para = PushGuidingCenterParallel()
 
     ## abstract methods
 
@@ -211,13 +212,13 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
 {ImplicitDiffusion.__doc__}
 
-**2. propagators_markers.PushGuidingCenterBxEstar:**
+**2. push_guiding_center_bx_estar.PushGuidingCenterBxEstar:**
 
-{propagators_markers.PushGuidingCenterBxEstar.__doc__}
+{PushGuidingCenterBxEstar.__doc__}
 
-**3. propagators_markers.PushGuidingCenterParallel:**
+**3. push_guiding_center_parallel.PushGuidingCenterParallel:**
 
-{propagators_markers.PushGuidingCenterParallel.__doc__}
+{PushGuidingCenterParallel.__doc__}
 """
         return doc
 
