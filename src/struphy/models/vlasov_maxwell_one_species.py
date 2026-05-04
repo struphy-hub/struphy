@@ -20,7 +20,7 @@ from struphy.propagators import (
     propagators_markers,
 )
 from struphy.propagators.base import Propagator
-from struphy.propagators.maxwell import Maxwell
+from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
 from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
@@ -140,7 +140,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.maxwell = Maxwell()
+            self.maxwell = MaxwellWeakAmpere()
             self.push_eta = propagators_markers.PushEta()
             self.push_vxb = propagators_markers.PushVxB()
             self.coupling_va = propagators_coupling.VlasovAmpere()
@@ -278,7 +278,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
     def doc_discretization(cls):
         doc = rf"""**1. propagators.maxwell.Maxwell:**
 
-{Maxwell.__doc__}
+{MaxwellWeakAmpere.__doc__}
 
 **2. propagators_markers.PushEta:**
 
