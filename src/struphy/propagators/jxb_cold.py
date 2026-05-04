@@ -29,6 +29,13 @@ class JxBCold(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`JxBCold`.
+
+        Attributes
+        ----------
+        j : FEECVariable
+            Current variable in ``"Hcurl"`` space.
+        """
         def __init__(self):
             self._j: FEECVariable = None
 
@@ -47,6 +54,20 @@ class JxBCold(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`JxBCold`.
+
+        Parameters
+        ----------
+        solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Symmetric iterative solver used for the linear current update.
+
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+            Preconditioner applied to the weighted mass matrix ``M1ninv``.
+
+        solver_params : SolverParameters, default=None
+            Iterative-solver controls. If ``None``, defaults to
+            ``SolverParameters()``.
+        """
         # propagator options
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"

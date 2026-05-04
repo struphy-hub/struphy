@@ -34,6 +34,14 @@ class PushDeterministicDiffusion(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`PushDeterministicDiffusion`.
+
+        Attributes
+        ----------
+        var : PICVariable
+            Particle variable in ``"Particles3D"`` space whose marker
+            positions are advanced.
+        """
         def __init__(self):
             self._var: PICVariable = None
 
@@ -52,6 +60,20 @@ class PushDeterministicDiffusion(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`PushDeterministicDiffusion`.
+
+        Parameters
+        ----------
+        butcher : ButcherTableau, default=None
+            Butcher tableau used for explicit Runge-Kutta integration.
+            If ``None``, defaults to ``ButcherTableau()``.
+
+        bc_type : tuple, default=("periodic", "periodic", "periodic")
+            Boundary-condition types per logical coordinate.
+
+        diff_coeff : float, default=1.0
+            Positive deterministic diffusion coefficient :math:`D`.
+        """
         butcher: ButcherTableau = None
         bc_type: tuple = ("periodic", "periodic", "periodic")
         diff_coeff: float = 1.0

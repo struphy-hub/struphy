@@ -33,6 +33,13 @@ class PushVinSPHpressure(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`PushVinSPHpressure`.
+
+        Attributes
+        ----------
+        fluid : SPHVariable
+            SPH particle variable in ``"ParticlesSPH"`` space.
+        """
         def __init__(self):
             self._fluid: SPHVariable = None
 
@@ -51,6 +58,26 @@ class PushVinSPHpressure(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`PushVinSPHpressure`.
+
+        Parameters
+        ----------
+        kernel_type : LiteralOptions.OptsKernel, default="gaussian_2d"
+            Smoothing kernel used for density and pressure-force evaluation.
+
+        kernel_width : tuple, default=None
+            Kernel widths per logical direction. If ``None``, defaults to
+            ``(1 / n_i)`` based on sorting boxes.
+
+        algo : {"forward_euler"}, default="forward_euler"
+            Time stepping algorithm for velocity pushing.
+
+        gravity : tuple, default=(0.0, 0.0, 0.0)
+            Constant gravity vector added in the SPH pressure push.
+
+        thermodynamics : {"isothermal", "polytropic"}, default="isothermal"
+            Thermodynamic closure selecting the SPH pressure kernel.
+        """
         # specific literals
         OptsAlgo = Literal["forward_euler"]
         OptsThermo = Literal["isothermal", "polytropic"]

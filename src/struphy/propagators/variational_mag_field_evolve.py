@@ -70,6 +70,15 @@ class VariationalMagFieldEvolve(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`VariationalMagFieldEvolve`.
+
+        Attributes
+        ----------
+        u : FEECVariable
+            Velocity variable in ``"H1vec"`` space.
+        b : FEECVariable
+            Magnetic-field variable in ``"Hdiv"`` space.
+        """
         def __init__(self):
             self._u: FEECVariable = None
             self._b: FEECVariable = None
@@ -99,6 +108,21 @@ class VariationalMagFieldEvolve(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`VariationalMagFieldEvolve`.
+
+        Parameters
+        ----------
+        model : {"full", "full_p", "linear"}, default="full"
+            Magnetic-field evolution model variant.
+        solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Linear solver for implicit substeps.
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+            Preconditioner used in linear solves.
+        solver_params : SolverParameters, default=None
+            Linear-solver controls.
+        nonlin_solver : NonlinearSolverParameters, default=None
+            Nonlinear iteration controls.
+        """
         OptsModel = Literal["full", "full_p", "linear"]
         # propagator options
         model: OptsModel = "full"

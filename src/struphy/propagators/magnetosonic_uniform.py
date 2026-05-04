@@ -65,6 +65,18 @@ class MagnetosonicUniform(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`MagnetosonicUniform`.
+
+        Attributes
+        ----------
+        n : FEECVariable
+            Density perturbation variable in ``"L2"`` space.
+        u : FEECVariable
+            Velocity perturbation variable in one of ``"Hcurl"``, ``"Hdiv"``,
+            or ``"H1vec"``.
+        p : FEECVariable
+            Pressure perturbation variable in ``"L2"`` space.
+        """
         def __init__(self):
             self._n: FEECVariable = None
             self._u: FEECVariable = None
@@ -105,6 +117,20 @@ class MagnetosonicUniform(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`MagnetosonicUniform`.
+
+        Parameters
+        ----------
+        solver : LiteralOptions.OptsGenSolver, default="pbicgstab"
+            Iterative solver used by :class:`SchurSolver`.
+
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+            Preconditioner applied to the ``M2n`` block.
+
+        solver_params : SolverParameters, default=None
+            Iterative-solver controls. If ``None``, defaults to
+            ``SolverParameters()``.
+        """
         solver: LiteralOptions.OptsGenSolver = "pbicgstab"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None

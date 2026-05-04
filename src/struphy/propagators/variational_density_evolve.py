@@ -80,6 +80,15 @@ class VariationalDensityEvolve(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`VariationalDensityEvolve`.
+
+        Attributes
+        ----------
+        rho : FEECVariable
+            Density variable in ``"L2"`` space.
+        u : FEECVariable
+            Velocity variable in ``"H1vec"`` space.
+        """
         def __init__(self):
             self._rho: FEECVariable = None
             self._u: FEECVariable = None
@@ -109,6 +118,25 @@ class VariationalDensityEvolve(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`VariationalDensityEvolve`.
+
+        Parameters
+        ----------
+        model : {"pressureless", "barotropic", "full", "full_p", "full_q", "linear", "deltaf", "linear_q", "deltaf_q"}, default="barotropic"
+            Density/thermodynamic model variant.
+        gamma : float, default=5/3
+            Adiabatic index.
+        solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Linear solver for implicit substeps.
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+            Preconditioner used in linear solves.
+        solver_params : SolverParameters, default=None
+            Linear-solver controls.
+        nonlin_solver : NonlinearSolverParameters, default=None
+            Nonlinear iteration controls.
+        s : FEECVariable, default=None
+            Entropy-like variable required by ``model="full"``.
+        """
         # specific literals
         OptsModel = Literal[
             "pressureless",

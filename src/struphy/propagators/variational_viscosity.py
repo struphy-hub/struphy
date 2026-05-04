@@ -79,6 +79,15 @@ class VariationalViscosity(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`VariationalViscosity`.
+
+        Attributes
+        ----------
+        s : FEECVariable
+            Thermodynamic scalar variable in ``"L2"`` space.
+        u : FEECVariable
+            Velocity variable in ``"H1vec"`` space.
+        """
         def __init__(self):
             self._s: FEECVariable = None
             self._u: FEECVariable = None
@@ -108,6 +117,33 @@ class VariationalViscosity(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`VariationalViscosity`.
+
+        Parameters
+        ----------
+        model : {"full", "full_p", "full_q", "linear_p", "linear_q", "deltaf_q"}, default="full"
+            Thermodynamic model variant.
+        gamma : float, default=5/3
+            Adiabatic index.
+        solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Linear solver for implicit subproblems.
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixDiagonalPreconditioner"
+            Preconditioner used in linear solves.
+        solver_params : SolverParameters, default=None
+            Linear-solver controls.
+        nonlin_solver : NonlinearSolverParameters, default=None
+            Nonlinear iteration controls.
+        rho : FEECVariable, default=None
+            Density variable used by variational forms.
+        pt3 : FEECVariable, default=None
+            Optional equilibrium/background pressure-like field.
+        mu : float, default=0.0
+            Physical viscosity coefficient.
+        mu_a : float, default=0.0
+            Artificial-viscosity coefficient.
+        alpha : float, default=0.0
+            Optional linear damping/regularization parameter.
+        """
         # specific literals
         OptsModel = Literal["full", "full_p", "full_q", "linear_p", "linear_q", "deltaf_q"]
         # propagator options

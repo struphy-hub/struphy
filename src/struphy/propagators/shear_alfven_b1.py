@@ -38,6 +38,15 @@ class ShearAlfvenB1(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`ShearAlfvenB1`.
+
+        Attributes
+        ----------
+        u : FEECVariable
+            Velocity variable in ``"Hdiv"`` space.
+        b : FEECVariable
+            Magnetic-field variable in ``"Hcurl"`` space.
+        """
         def __init__(self):
             self._u: FEECVariable = None
             self._b: FEECVariable = None
@@ -67,6 +76,23 @@ class ShearAlfvenB1(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`ShearAlfvenB1`.
+
+        Parameters
+        ----------
+        solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Solver used for the Schur-reduced system.
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+            Preconditioner for ``M2n`` block.
+        solver_params : SolverParameters, default=None
+            Solver controls for the Schur solve.
+        solver_M1 : LiteralOptions.OptsSymmSolver, default="pcg"
+            Solver used for inverting ``M1``.
+        precond_M1 : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+            Preconditioner for ``M1`` inversion.
+        solver_params_M1 : SolverParameters, default=None
+            Solver controls for ``M1`` inversion.
+        """
         # propagator options
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"

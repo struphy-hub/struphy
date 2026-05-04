@@ -80,6 +80,16 @@ class EfieldWeightsCoupling(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`EfieldWeightsCoupling`.
+
+        Attributes
+        ----------
+        e : FEECVariable
+            Electric-field variable in ``"Hcurl"`` space.
+        ions : PICVariable
+            Particle variable in ``"Particles6D"`` or
+            ``"DeltaFParticles6D"`` space.
+        """
         def __init__(self):
             self._e: FEECVariable = None
             self._ions: PICVariable = None
@@ -109,6 +119,26 @@ class EfieldWeightsCoupling(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`EfieldWeightsCoupling`.
+
+        Parameters
+        ----------
+        alpha : float, default=1.0
+            Coupling scaling factor used in the electric-field equation.
+
+        kappa : float, default=1.0
+            Coupling scaling factor used in the particle-weight update.
+
+        solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Symmetric iterative solver used by :class:`SchurSolver`.
+
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+            Preconditioner applied to the electric-field mass matrix block.
+
+        solver_params : SolverParameters, default=None
+            Iterative-solver controls. If ``None``, defaults to
+            ``SolverParameters()``.
+        """
         alpha: float = 1.0
         kappa: float = 1.0
         solver: LiteralOptions.OptsSymmSolver = "pcg"

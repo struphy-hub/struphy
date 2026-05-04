@@ -74,6 +74,15 @@ class VariationalEntropyEvolve(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`VariationalEntropyEvolve`.
+
+        Attributes
+        ----------
+        s : FEECVariable
+            Entropy variable in ``"L2"`` space.
+        u : FEECVariable
+            Velocity variable in ``"H1vec"`` space.
+        """
         def __init__(self):
             self._s: FEECVariable = None
             self._u: FEECVariable = None
@@ -103,6 +112,25 @@ class VariationalEntropyEvolve(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`VariationalEntropyEvolve`.
+
+        Parameters
+        ----------
+        model : {"full"}, default="full"
+            Entropy-evolution model selection.
+        gamma : float, default=5/3
+            Adiabatic index.
+        solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Linear solver for implicit substeps.
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+            Preconditioner used in linear solves.
+        solver_params : SolverParameters, default=None
+            Linear-solver controls.
+        nonlin_solver : NonlinearSolverParameters, default=None
+            Nonlinear iteration controls.
+        rho : FEECVariable, default=None
+            Density variable used in variational forms.
+        """
         # specific literals
         OptsModel = Literal["full"]
         # propagator options

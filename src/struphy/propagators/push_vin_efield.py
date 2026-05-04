@@ -28,6 +28,13 @@ class PushVinEfield(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`PushVinEfield`.
+
+        Attributes
+        ----------
+        var : PICVariable or SPHVariable
+            Particle variable whose velocities are advanced.
+        """
         def __init__(self):
             self._var: PICVariable | SPHVariable = None
 
@@ -46,6 +53,19 @@ class PushVinEfield(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`PushVinEfield`.
+
+        Parameters
+        ----------
+        e_field : FEECVariable or tuple[Callable], default=None
+            Electric field used in velocity pushing.
+            Accepted forms are an ``Hcurl`` FEEC variable or a tuple of
+            callables to be projected.
+
+        phi : FEECVariable or Callable, default=None
+            Optional electrostatic potential from which the electric field is
+            built as ``-grad(phi)``. If provided, it overrides ``e_field``.
+        """
         # propagator options
         e_field: FEECVariable | tuple[Callable] = None
         phi: FEECVariable | Callable = None

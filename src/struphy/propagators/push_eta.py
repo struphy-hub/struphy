@@ -29,6 +29,13 @@ class PushEta(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`PushEta`.
+
+        Attributes
+        ----------
+        var : PICVariable or SPHVariable
+            Particle variable whose marker positions are advanced.
+        """
         def __init__(self):
             self._var: PICVariable | SPHVariable = None
 
@@ -46,6 +53,14 @@ class PushEta(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`PushEta`.
+
+        Parameters
+        ----------
+        butcher : ButcherTableau, default=None
+            Butcher tableau used for explicit Runge-Kutta marker pushing.
+            If ``None``, defaults to ``ButcherTableau()``.
+        """
         butcher: ButcherTableau = None
 
         def __post_init__(self):

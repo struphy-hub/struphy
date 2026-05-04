@@ -44,6 +44,13 @@ class PushGuidingCenterBxEstar(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`PushGuidingCenterBxEstar`.
+
+        Attributes
+        ----------
+        ions : PICVariable
+            Guiding-center particle variable in ``"Particles5D"`` space.
+        """
         def __init__(self):
             self._ions: PICVariable = None
 
@@ -62,6 +69,43 @@ class PushGuidingCenterBxEstar(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`PushGuidingCenterBxEstar`.
+
+        Parameters
+        ----------
+        phi : FEECVariable, default=None
+            Electrostatic potential variable in ``"H1"`` space.
+            If ``None``, defaults to ``FEECVariable(space="H1")``.
+
+        evaluate_e_field : bool, default=False
+            If ``True``, evaluate and include electric-field contributions in
+            drift-kinetic kernels.
+
+        b_tilde : FEECVariable, default=None
+            Optional magnetic perturbation variable added to the equilibrium
+            magnetic field.
+
+        algo : {"discrete_gradient_2nd_order", "discrete_gradient_1st_order", "discrete_gradient_1st_order_newton", "explicit"}, default="discrete_gradient_1st_order"
+            Guiding-center pushing algorithm.
+
+        butcher : ButcherTableau, default=None
+            Butcher tableau used in explicit mode.
+            If ``None`` and ``algo="explicit"``, defaults to
+            ``ButcherTableau()``.
+
+        maxiter : int, default=20
+            Maximum number of fixed-point or Newton iterations in
+            discrete-gradient modes.
+
+        tol : float, default=1e-7
+            Convergence tolerance for iterative discrete-gradient updates.
+
+        mpi_sort : LiteralOptions.OptsMPIsort, default="each"
+            MPI sorting policy for particle exchange.
+
+        verbose : bool, default=False
+            Verbosity flag for iterative pusher diagnostics.
+        """
         # specific literals
         OptsAlgo = Literal[
             "discrete_gradient_2nd_order",

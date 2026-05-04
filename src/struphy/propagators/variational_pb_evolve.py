@@ -90,6 +90,17 @@ class VariationalPBEvolve(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`VariationalPBEvolve`.
+
+        Attributes
+        ----------
+        p : FEECVariable
+            Pressure variable in ``"L2"`` space.
+        u : FEECVariable
+            Velocity variable in ``"H1vec"`` space.
+        b : FEECVariable
+            Magnetic-field variable in ``"Hdiv"`` space.
+        """
         def __init__(self):
             self._p: FEECVariable = None
             self._u: FEECVariable = None
@@ -130,6 +141,31 @@ class VariationalPBEvolve(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`VariationalPBEvolve`.
+
+        Parameters
+        ----------
+        model : {"full_p", "linear", "deltaf"}, default="full_p"
+            Pressure-magnetic coupled model variant.
+        gamma : float, default=5/3
+            Adiabatic index.
+        solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Linear solver for implicit substeps.
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+            Preconditioner used in linear solves.
+        solver_params : SolverParameters, default=None
+            Linear-solver controls.
+        nonlin_solver : NonlinearSolverParameters, default=None
+            Nonlinear iteration controls.
+        div_u : FEECVariable, default=None
+            Optional external divergence-of-velocity field.
+        u2 : FEECVariable, default=None
+            Optional external velocity in 2-form representation.
+        pt3 : FEECVariable, default=None
+            Optional pressure background field.
+        bt2 : FEECVariable, default=None
+            Optional magnetic background field.
+        """
         # specific literals
         OptsModel = Literal["full_p", "linear", "deltaf"]
         # propagator options

@@ -63,6 +63,16 @@ class CurrentCoupling5DGradB(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`CurrentCoupling5DGradB`.
+
+        Attributes
+        ----------
+        u : FEECVariable
+            Fluid-like FEEC variable in one of ``"Hcurl"``, ``"Hdiv"``, or
+            ``"H1vec"``.
+        energetic_ions : PICVariable
+            Energetic-ion particle variable in ``"Particles5D"`` space.
+        """
         def __init__(self):
             self._u: FEECVariable = None
             self._energetic_ions: PICVariable = None
@@ -92,6 +102,48 @@ class CurrentCoupling5DGradB(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`CurrentCoupling5DGradB`.
+
+        Parameters
+        ----------
+        b_tilde : FEECVariable, default=None
+            Perturbed magnetic field variable added to the equilibrium field.
+
+        ep_scale : float, default=1.0
+            Scaling factor applied in particle accumulation.
+
+        algo : {"discrete_gradient", "explicit"}, default="explicit"
+            Time integration algorithm.
+
+            - ``"explicit"``: explicit Runge-Kutta update with ``butcher``.
+            - ``"discrete_gradient"``: nonlinear discrete-gradient update.
+
+        butcher : ButcherTableau, default=None
+            Butcher tableau used in explicit mode. If ``None`` and
+            ``algo="explicit"``, defaults to ``ButcherTableau()``.
+
+        u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
+            FEEC space used for the unknown ``u`` variable.
+
+        solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Symmetric iterative solver used for mass-matrix inversions.
+
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+            Preconditioner used with the mass matrix.
+
+        solver_params : SolverParameters, default=None
+            Iterative-solver controls. If ``None``, defaults to
+            ``SolverParameters()``.
+
+        filter_params : FilterParameters, default=None
+            Particle-to-grid filtering parameters used by the accumulator.
+            If ``None``, defaults to ``FilterParameters()``.
+
+        dg_solver_params : DiscreteGradientSolverParameters, default=None
+            Nonlinear solver controls for discrete-gradient mode. If ``None``
+            and ``algo="discrete_gradient"``, defaults to
+            ``DiscreteGradientSolverParameters()``.
+        """
         # specific literals
         OptsAlgo = Literal[
             "discrete_gradient",

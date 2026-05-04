@@ -41,6 +41,15 @@ class OhmCold(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`OhmCold`.
+
+        Attributes
+        ----------
+        j : FEECVariable
+            Current variable in ``"Hcurl"`` space.
+        e : FEECVariable
+            Electric-field variable in ``"Hcurl"`` space.
+        """
         def __init__(self):
             self._j: FEECVariable = None
             self._e: FEECVariable = None
@@ -70,6 +79,20 @@ class OhmCold(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`OhmCold`.
+
+        Parameters
+        ----------
+        solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Symmetric iterative solver used by :class:`SchurSolver`.
+
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+            Preconditioner applied to the weighted mass matrix ``M1ninv``.
+
+        solver_params : SolverParameters, default=None
+            Iterative-solver controls. If ``None``, defaults to
+            ``SolverParameters()``.
+        """
         # propagator options
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"

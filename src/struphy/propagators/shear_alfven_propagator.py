@@ -37,6 +37,16 @@ class ShearAlfvenPropagator(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`ShearAlfvenPropagator`.
+
+        Attributes
+        ----------
+        u : FEECVariable
+            Velocity variable in one of ``"Hcurl"``, ``"Hdiv"``, or
+            ``"H1vec"``.
+        b : FEECVariable
+            Magnetic-field variable in ``"Hdiv"`` space.
+        """
         def __init__(self):
             self._u: FEECVariable = None
             self._b: FEECVariable = None
@@ -66,6 +76,23 @@ class ShearAlfvenPropagator(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`ShearAlfvenPropagator`.
+
+        Parameters
+        ----------
+        u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
+            FEEC space used for the velocity variable.
+        algo : {"implicit", "explicit"}, default="implicit"
+            Time stepping algorithm.
+        solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Symmetric iterative solver used by implicit or explicit operators.
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+            Preconditioner for the mass-matrix block.
+        solver_params : SolverParameters, default=None
+            Solver controls; defaults to ``SolverParameters()``.
+        butcher : ButcherTableau, default=None
+            Explicit Runge-Kutta tableau when ``algo="explicit"``.
+        """
         # specific literals
         OptsAlgo = Literal["implicit", "explicit"]
         # propagator options

@@ -32,6 +32,18 @@ class Magnetosonic(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`Magnetosonic`.
+
+        Attributes
+        ----------
+        n : FEECVariable
+            Density perturbation variable in ``"L2"`` space.
+        u : FEECVariable
+            Velocity perturbation variable in one of ``"Hcurl"``, ``"Hdiv"``,
+            or ``"H1vec"``.
+        p : FEECVariable
+            Pressure perturbation variable in ``"L2"`` space.
+        """
         def __init__(self):
             self._n: FEECVariable = None
             self._u: FEECVariable = None
@@ -72,6 +84,29 @@ class Magnetosonic(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`Magnetosonic`.
+
+        Parameters
+        ----------
+        b_field : FEECVariable, default=None
+            Background magnetic-field variable in ``"Hdiv"`` space used in
+            the Lorentz-force coupling. If ``None``, a default
+            ``FEECVariable(space="Hdiv")`` is created.
+
+        u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
+            FEEC space used for the velocity variable ``u``.
+
+        solver : LiteralOptions.OptsGenSolver, default="pbicgstab"
+            Iterative solver used by :class:`SchurSolver`.
+
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+            Preconditioner applied to the mass matrix block associated with
+            ``u_space``.
+
+        solver_params : SolverParameters, default=None
+            Iterative-solver controls. If ``None``, defaults to
+            ``SolverParameters()``.
+        """
         b_field: FEECVariable = None
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
         solver: LiteralOptions.OptsGenSolver = "pbicgstab"

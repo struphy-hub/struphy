@@ -32,6 +32,14 @@ class PushRandomDiffusion(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`PushRandomDiffusion`.
+
+        Attributes
+        ----------
+        var : PICVariable
+            Particle variable in ``"Particles3D"`` space whose marker
+            positions are advanced.
+        """
         def __init__(self):
             self._var: PICVariable = None
 
@@ -50,6 +58,21 @@ class PushRandomDiffusion(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`PushRandomDiffusion`.
+
+        Parameters
+        ----------
+        butcher : ButcherTableau, default=None
+            Butcher tableau used for explicit integration.
+            If ``None``, defaults to ``ButcherTableau()``.
+
+        bc_type : tuple, default=("periodic", "periodic", "periodic")
+            Boundary-condition types per logical coordinate.
+
+        diff_coeff : float, default=1.0
+            Positive diffusion coefficient :math:`D` used in the stochastic
+            increment.
+        """
         butcher: ButcherTableau = None
         bc_type: tuple = ("periodic", "periodic", "periodic")
         diff_coeff: float = 1.0

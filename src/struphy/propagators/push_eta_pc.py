@@ -42,6 +42,13 @@ class PushEtaPC(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`PushEtaPC`.
+
+        Attributes
+        ----------
+        var : PICVariable or SPHVariable
+            Particle variable whose marker positions are advanced.
+        """
         def __init__(self):
             self._var: PICVariable | SPHVariable = None
 
@@ -59,6 +66,24 @@ class PushEtaPC(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`PushEtaPC`.
+
+        Parameters
+        ----------
+        butcher : ButcherTableau, default=None
+            Butcher tableau used for explicit Runge-Kutta marker pushing.
+            If ``None``, defaults to ``ButcherTableau()``.
+
+        use_perp_model : bool, default=True
+            Flag forwarded to the particle kernel to select the perpendicular
+            model formulation.
+
+        u_tilde : FEECVariable, default=None
+            Flow field variable used in the advection term.
+
+        u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
+            FEEC space used to interpret ``u_tilde`` in the pusher kernel.
+        """
         butcher: ButcherTableau = None
         use_perp_model: bool = True
         u_tilde: FEECVariable = None

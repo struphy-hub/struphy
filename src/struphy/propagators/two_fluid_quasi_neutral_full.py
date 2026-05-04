@@ -43,6 +43,17 @@ class TwoFluidQuasiNeutralFull(Propagator):
     # =========================================================================
 
     class Variables:
+        """Container for variables advanced by :class:`TwoFluidQuasiNeutralFull`.
+
+        Attributes
+        ----------
+        u : FEECVariable or None
+            Ion velocity variable in ``"Hdiv"`` space.
+        ue : FEECVariable or None
+            Electron velocity variable in ``"Hdiv"`` space.
+        phi : FEECVariable or None
+            Electrostatic potential variable in ``"L2"`` space.
+        """
         def __init__(self) -> None:
             self._u: FEECVariable | None = None
             self._ue: FEECVariable | None = None
@@ -87,6 +98,31 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`TwoFluidQuasiNeutralFull`.
+
+        Parameters
+        ----------
+        nu : float, default=1.0
+            Ion viscosity coefficient.
+        nu_e : float, default=1.0
+            Electron viscosity coefficient.
+        eps_norm : float, default=1e-3
+            Normalization/scaling parameter in Lorentz coupling terms.
+        boundary_data_u : dict[tuple[int, int], Callable] or None, default=None
+            Inhomogeneous Dirichlet data for ion velocity faces.
+        boundary_data_ue : dict[tuple[int, int], Callable] or None, default=None
+            Inhomogeneous Dirichlet data for electron velocity faces.
+        source_u : Callable or None, default=None
+            Source term for ion momentum equation.
+        source_ue : Callable or None, default=None
+            Source term for electron momentum equation.
+        stab_sigma : float or None, default=None
+            Optional stabilization coefficient for electron block.
+        solver : LiteralOptions.OptsGenSolver, default="gmres"
+            Linear/saddle-point solver used for the global system.
+        solver_params : SolverParameters or None, default=None
+            Solver controls.
+        """
         nu: float = 1.0
         nu_e: float = 1.0
         eps_norm: float = 1e-3

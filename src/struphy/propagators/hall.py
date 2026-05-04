@@ -35,6 +35,13 @@ class Hall(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`Hall`.
+
+        Attributes
+        ----------
+        b : FEECVariable
+            Magnetic-field variable in ``"Hcurl"`` space.
+        """
         def __init__(self):
             self._b: FEECVariable = None
 
@@ -53,6 +60,24 @@ class Hall(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`Hall`.
+
+        Parameters
+        ----------
+        solver : LiteralOptions.OptsGenSolver, default="pbicgstab"
+            General iterative solver used for the linear Hall update.
+
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+            Preconditioner applied to the ``M1`` block.
+
+        solver_params : SolverParameters, default=None
+            Iterative-solver controls. If ``None``, defaults to
+            ``SolverParameters()``.
+
+        epsilon_from : Species, default=None
+            Species object from which ``epsilon`` is taken. If ``None``,
+            ``epsilon`` defaults to ``1.0``.
+        """
         # propagator options
         solver: LiteralOptions.OptsGenSolver = "pbicgstab"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"

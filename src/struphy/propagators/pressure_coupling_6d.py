@@ -49,6 +49,16 @@ class PressureCoupling6D(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`PressureCoupling6D`.
+
+        Attributes
+        ----------
+        u : FEECVariable
+            Fluid-like FEEC variable in one of ``"Hcurl"``, ``"Hdiv"``, or
+            ``"H1vec"``.
+        energetic_ions : PICVariable
+            Energetic-ion particle variable in ``"Particles6D"`` space.
+        """
         def __init__(self):
             self._u: FEECVariable = None
             self._energetic_ions: PICVariable = None
@@ -78,6 +88,35 @@ class PressureCoupling6D(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`PressureCoupling6D`.
+
+        Parameters
+        ----------
+        ep_scale : float, default=1.0
+            Scaling factor applied to energetic-particle pressure coupling
+            terms.
+
+        u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
+            FEEC space used for the unknown ``u`` variable.
+
+        solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Symmetric iterative solver used by :class:`SchurSolver`.
+
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+            Preconditioner applied to the mass matrix block for ``u``.
+
+        solver_params : SolverParameters, default=None
+            Iterative-solver controls. If ``None``, defaults to
+            ``SolverParameters()``.
+
+        filter_params : FilterParameters, default=None
+            Particle-to-grid filtering parameters used by the accumulator.
+            If ``None``, defaults to ``FilterParameters()``.
+
+        use_perp_model : bool, default=True
+            If ``True``, use the perpendicular pressure-coupling model;
+            otherwise use the full-model kernels.
+        """
         # propagator options
         ep_scale: float = 1.0
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"

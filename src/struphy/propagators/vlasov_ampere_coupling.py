@@ -38,6 +38,15 @@ class VlasovAmpereCoupling(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`VlasovAmpereCoupling`.
+
+        Attributes
+        ----------
+        e : FEECVariable
+            Electric-field variable in ``"Hcurl"`` space.
+        ions : PICVariable
+            Particle variable in ``"Particles6D"`` space.
+        """
         def __init__(self):
             self._e: FEECVariable = None
             self._ions: PICVariable = None
@@ -67,6 +76,17 @@ class VlasovAmpereCoupling(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`VlasovAmpereCoupling`.
+
+        Parameters
+        ----------
+        solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Symmetric iterative solver used by :class:`SchurSolver`.
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+            Preconditioner for electric-field mass matrix block.
+        solver_params : SolverParameters, default=None
+            Solver controls.
+        """
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None

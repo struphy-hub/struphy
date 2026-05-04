@@ -33,6 +33,13 @@ class PushVxB(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`PushVxB`.
+
+        Attributes
+        ----------
+        ions : PICVariable or SPHVariable
+            Particle variable whose velocities are advanced.
+        """
         def __init__(self):
             self._ions: PICVariable | SPHVariable = None
 
@@ -51,6 +58,17 @@ class PushVxB(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`PushVxB`.
+
+        Parameters
+        ----------
+        algo : {"analytic", "implicit"}, default="analytic"
+            Time stepping algorithm used for the velocity-rotation update.
+
+        b2_var : FEECVariable, default=None
+            Optional additional magnetic-field 2-form added to the projected
+            equilibrium field before pushing.
+        """
         # specific literals
         OptsAlgo = Literal["analytic", "implicit"]
         # propagator options

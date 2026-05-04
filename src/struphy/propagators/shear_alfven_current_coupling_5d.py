@@ -63,6 +63,16 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`ShearAlfvenCurrentCoupling5D`.
+
+        Attributes
+        ----------
+        u : FEECVariable
+            Velocity variable in one of ``"Hcurl"``, ``"Hdiv"``, or
+            ``"H1vec"``.
+        b : FEECVariable
+            Magnetic-field variable in ``"Hdiv"`` space.
+        """
         def __init__(self):
             self._u: FEECVariable = None
             self._b: FEECVariable = None
@@ -92,6 +102,31 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`ShearAlfvenCurrentCoupling5D`.
+
+        Parameters
+        ----------
+        energetic_ions : PICVariable, default=None
+            Energetic-ion particle variable in ``"Particles5D"`` space.
+        ep_scale : float, default=1.0
+            Scaling factor for particle accumulation terms.
+        u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
+            FEEC space used for velocity variable ``u``.
+        algo : {"implicit", "explicit"}, default="implicit"
+            Time stepping algorithm.
+        solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Symmetric iterative solver.
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixDiagonalPreconditioner"
+            Preconditioner for mass-matrix block.
+        solver_params : SolverParameters, default=None
+            Solver controls.
+        filter_params : FilterParameters, default=None
+            Particle-to-grid filtering parameters.
+        butcher : ButcherTableau, default=None
+            Explicit Runge-Kutta tableau for ``algo="explicit"``.
+        nonlinear : bool, default=True
+            If ``True``, include nonlinear TB operator updates.
+        """
         # specific literals
         OptsAlgo = Literal["implicit", "explicit"]
         # propagator options

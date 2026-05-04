@@ -23,6 +23,13 @@ class TimeDependentSource(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`TimeDependentSource`.
+
+        Attributes
+        ----------
+        source : FEECVariable
+            Source coefficient field in ``"H1"`` space.
+        """
         def __init__(self):
             self._source: FEECVariable = None
 
@@ -41,6 +48,15 @@ class TimeDependentSource(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`TimeDependentSource`.
+
+        Parameters
+        ----------
+        omega : float, default=2*pi
+            Angular frequency of the time-dependent modulation.
+        hfun : {"cos", "sin"}, default="cos"
+            Time modulation function applied to initial coefficients.
+        """
         # specific literals
         OptsTimeSource = Literal["cos", "sin"]
         # propagator options

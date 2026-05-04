@@ -32,6 +32,13 @@ class PushVinViscousPotential(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`PushVinViscousPotential`.
+
+        Attributes
+        ----------
+        fluid : SPHVariable
+            SPH particle variable in ``"ParticlesSPH"`` space.
+        """
         def __init__(self):
             self._fluid: SPHVariable = None
 
@@ -50,6 +57,24 @@ class PushVinViscousPotential(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`PushVinViscousPotential`.
+
+        Parameters
+        ----------
+        kernel_type : LiteralOptions.OptsKernel, default="gaussian_2d"
+            Smoothing kernel used for SPH evaluations.
+
+        kernel_width : tuple, default=None
+            Kernel widths per logical direction. If ``None``, defaults to
+            ``(1 / n_i)`` based on sorting boxes.
+
+        algo : {"forward_euler"}, default="forward_euler"
+            Time stepping algorithm for the viscous potential push.
+
+        mu : float, default=1.0
+            Dynamic viscosity coefficient used by the viscosity tensor kernel.
+            Must be non-negative.
+        """
         # specific literals
         OptsAlgo = Literal["forward_euler"]
         # propagator options

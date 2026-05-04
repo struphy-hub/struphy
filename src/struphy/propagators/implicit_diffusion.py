@@ -52,7 +52,7 @@ class ImplicitDiffusion(Propagator):
     """
 
     class Variables:
-        """Container for ImplicitDiffusion variables.
+        """Container for variables advanced by :class:`ImplicitDiffusion`.
 
         Attributes
         ----------

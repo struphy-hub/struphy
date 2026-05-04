@@ -68,6 +68,15 @@ class VariationalResistivity(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`VariationalResistivity`.
+
+        Attributes
+        ----------
+        s : FEECVariable
+            Thermodynamic scalar variable in ``"L2"`` space.
+        b : FEECVariable
+            Magnetic-field variable in ``"Hdiv"`` space.
+        """
         def __init__(self):
             self._s: FEECVariable = None
             self._b: FEECVariable = None
@@ -97,6 +106,33 @@ class VariationalResistivity(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`VariationalResistivity`.
+
+        Parameters
+        ----------
+        model : {"full", "full_p", "full_q", "linear_p", "linear_q", "deltaf_q"}, default="full"
+            Thermodynamic model variant.
+        gamma : float, default=5/3
+            Adiabatic index.
+        solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Linear solver for implicit subproblems.
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixDiagonalPreconditioner"
+            Preconditioner used in linear solves.
+        solver_params : SolverParameters, default=None
+            Linear-solver controls.
+        nonlin_solver : NonlinearSolverParameters, default=None
+            Nonlinear iteration controls.
+        linearize_current : bool, default=False
+            If ``True``, linearize current terms around background fields.
+        rho : FEECVariable, default=None
+            Density variable used by variational forms.
+        pt3 : FEECVariable, default=None
+            Optional pressure-like background field.
+        eta : float, default=0.0
+            Physical resistivity coefficient.
+        eta_a : float, default=0.0
+            Artificial-resistivity coefficient.
+        """
         # specific literals
         OptsModel = Literal["full", "full_p", "full_q", "linear_p", "linear_q", "deltaf_q"]
         # propagator options

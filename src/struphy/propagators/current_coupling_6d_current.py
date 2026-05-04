@@ -41,6 +41,16 @@ class CurrentCoupling6DCurrent(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`CurrentCoupling6DCurrent`.
+
+        Attributes
+        ----------
+        ions : PICVariable
+            Energetic-ion particle variable in ``"Particles6D"`` space.
+        u : FEECVariable
+            Fluid-like FEEC variable in one of ``"Hcurl"``, ``"Hdiv"``, or
+            ``"H1vec"``.
+        """
         def __init__(self):
             self._ions: PICVariable = None
             self._u: FEECVariable = None
@@ -70,6 +80,33 @@ class CurrentCoupling6DCurrent(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`CurrentCoupling6DCurrent`.
+
+        Parameters
+        ----------
+        b_tilde : FEECVariable, default=None
+            Perturbed magnetic field variable added to the equilibrium field.
+
+        u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
+            FEEC space used for the unknown ``u`` variable.
+
+        solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Symmetric iterative solver used by :class:`SchurSolver`.
+
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+            Preconditioner applied to the FEEC mass matrix block.
+
+        solver_params : SolverParameters, default=None
+            Iterative-solver controls. If ``None``, defaults to
+            ``SolverParameters()``.
+
+        filter_params : FilterParameters, default=None
+            Particle-to-grid filtering parameters used by the accumulator.
+
+        boundary_cut : tuple, default=(0.0, 0.0, 0.0)
+            Boundary clipping parameters forwarded to accumulation/pushing
+            kernels.
+        """
         # propagator options
         b_tilde: FEECVariable = None
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"

@@ -53,6 +53,15 @@ class HasegawaWakataniStep(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`HasegawaWakataniStep`.
+
+        Attributes
+        ----------
+        n : FEECVariable
+            Density variable in ``"H1"`` space.
+        omega : FEECVariable
+            Vorticity variable in ``"H1"`` space.
+        """
         def __init__(self):
             self._n: FEECVariable = None
             self._omega: FEECVariable = None
@@ -82,6 +91,37 @@ class HasegawaWakataniStep(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`HasegawaWakataniStep`.
+
+        Parameters
+        ----------
+        phi : FEECVariable, default=None
+            Stream-function variable in ``"H1"`` space.
+            If ``None``, a default ``FEECVariable(space="H1")`` is allocated.
+
+        c_fun : {"const"}, default="const"
+            Choice of coupling profile :math:`C(x,y)` used in the model.
+
+        kappa : float, default=1.0
+            Constant multiplying the background-gradient drift term.
+
+        nu : float, default=0.01
+            Diffusion coefficient in density and vorticity equations.
+
+        butcher : ButcherTableau, default=None
+            Butcher tableau for explicit Runge-Kutta integration.
+            If ``None``, defaults to ``ButcherTableau()``.
+
+        solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Symmetric iterative solver used for ``M0`` inversions.
+
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+            Preconditioner used with ``M0`` inversions.
+
+        solver_params : SolverParameters, default=None
+            Iterative-solver controls. If ``None``, defaults to
+            ``SolverParameters()``.
+        """
         # specific literals
         OptsCfun = Literal["const"]
         # propagator options

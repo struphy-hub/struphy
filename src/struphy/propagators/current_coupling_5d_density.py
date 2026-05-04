@@ -35,6 +35,14 @@ class CurrentCoupling5DDensity(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`CurrentCoupling5DDensity`.
+
+        Attributes
+        ----------
+        u : FEECVariable
+            Fluid-like FEEC variable in one of ``"Hcurl"``, ``"Hdiv"``, or
+            ``"H1vec"``.
+        """
         def __init__(self):
             self._u: FEECVariable = None
 
@@ -53,6 +61,38 @@ class CurrentCoupling5DDensity(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`CurrentCoupling5DDensity`.
+
+        Parameters
+        ----------
+        energetic_ions : PICVariable, default=None
+            Energetic-ion particle variable providing marker data in
+            ``"Particles5D"`` space.
+
+        b_tilde : FEECVariable, default=None
+            Perturbed magnetic field variable added to the equilibrium field.
+
+        ep_scale : float, default=1.0
+            Scaling factor applied in the energetic-particle accumulation
+            kernel.
+
+        u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
+            FEEC space used for the unknown ``u`` variable.
+
+        solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Symmetric iterative solver used for the linear system.
+
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+            Preconditioner applied to the FEEC mass matrix.
+
+        solver_params : SolverParameters, default=None
+            Iterative-solver controls. If ``None``, defaults to
+            ``SolverParameters()``.
+
+        filter_params : FilterParameters, default=None
+            Particle-to-grid filtering parameters used by the accumulator.
+            If ``None``, defaults to ``FilterParameters()``.
+        """
         # propagator options
         energetic_ions: PICVariable = None
         b_tilde: FEECVariable = None

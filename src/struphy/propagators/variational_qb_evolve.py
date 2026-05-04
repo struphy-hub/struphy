@@ -89,6 +89,17 @@ class VariationalQBEvolve(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`VariationalQBEvolve`.
+
+        Attributes
+        ----------
+        q : FEECVariable
+            Thermal-pressure-like scalar in ``"L2"`` space.
+        u : FEECVariable
+            Velocity variable in ``"H1vec"`` space.
+        b : FEECVariable
+            Magnetic-field variable in ``"Hdiv"`` space.
+        """
         def __init__(self):
             self._q: FEECVariable = None
             self._u: FEECVariable = None
@@ -129,6 +140,31 @@ class VariationalQBEvolve(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`VariationalQBEvolve`.
+
+        Parameters
+        ----------
+        model : {"full_q", "linear_q", "deltaf_q"}, default="full_q"
+            Coupled q-B evolution model variant.
+        gamma : float, default=5/3
+            Adiabatic index.
+        solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Linear solver for implicit substeps.
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+            Preconditioner used in linear solves.
+        solver_params : SolverParameters, default=None
+            Linear-solver controls.
+        nonlin_solver : NonlinearSolverParameters, default=None
+            Nonlinear/Picard iteration controls.
+        div_u : FEECVariable, default=None
+            Optional external divergence-of-velocity field.
+        u2 : FEECVariable, default=None
+            Optional external velocity in 2-form representation.
+        qt3 : FEECVariable, default=None
+            Optional q background field.
+        bt2 : FEECVariable, default=None
+            Optional magnetic background field.
+        """
         # specific literals
         OptsModel = Literal["full_q", "linear_q", "deltaf_q"]
         # propagator options

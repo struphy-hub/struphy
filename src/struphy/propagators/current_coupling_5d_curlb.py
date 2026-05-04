@@ -60,6 +60,16 @@ class CurrentCoupling5DCurlb(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`CurrentCoupling5DCurlb`.
+
+        Attributes
+        ----------
+        u : FEECVariable
+            Fluid-like FEEC variable in one of ``"Hcurl"``, ``"Hdiv"``, or
+            ``"H1vec"``.
+        energetic_ions : PICVariable
+            Energetic-ion particle variable in ``"Particles5D"`` space.
+        """
         def __init__(self):
             self._u: FEECVariable = None
             self._energetic_ions: PICVariable = None
@@ -89,6 +99,35 @@ class CurrentCoupling5DCurlb(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`CurrentCoupling5DCurlb`.
+
+        Parameters
+        ----------
+        b_tilde : FEECVariable, default=None
+            Perturbed magnetic field variable used to build the total magnetic
+            field in the coupling term.
+
+        ep_scale : float, default=1.0
+            Scaling factor applied to energetic-particle contributions in the
+            accumulation kernel.
+
+        u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
+            FEEC space used for the unknown ``u`` variable.
+
+        solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Symmetric iterative solver used by :class:`SchurSolver`.
+
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+            Preconditioner used for the FEEC mass matrix block.
+
+        solver_params : SolverParameters, default=None
+            Iterative-solver controls. If ``None``, defaults to
+            ``SolverParameters()``.
+
+        filter_params : FilterParameters, default=None
+            Particle-to-grid filtering parameters used by the accumulator.
+            If ``None``, defaults to ``FilterParameters()``.
+        """
         # propagator options
         b_tilde: FEECVariable = None
         ep_scale: float = 1.0

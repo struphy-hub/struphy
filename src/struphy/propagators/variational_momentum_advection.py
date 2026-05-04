@@ -53,6 +53,13 @@ class VariationalMomentumAdvection(Propagator):
     """
 
     class Variables:
+        """Container for variables advanced by :class:`VariationalMomentumAdvection`.
+
+        Attributes
+        ----------
+        u : FEECVariable
+            Velocity variable in ``"H1vec"`` space.
+        """
         def __init__(self):
             self._u: FEECVariable = None
 
@@ -71,6 +78,19 @@ class VariationalMomentumAdvection(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`VariationalMomentumAdvection`.
+
+        Parameters
+        ----------
+        solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Linear solver for mass-matrix related solves.
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+            Preconditioner used in linear solves.
+        solver_params : SolverParameters, default=None
+            Linear-solver controls.
+        nonlin_solver : NonlinearSolverParameters, default=None
+            Nonlinear iteration controls (Picard/Newton).
+        """
         # propagator options
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
