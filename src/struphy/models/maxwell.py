@@ -8,13 +8,9 @@ from struphy.models.species import (
     FieldSpecies,
 )
 from struphy.models.variables import FEECVariable
-from struphy.propagators import (
-    propagators_fields,
-)
 from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
 
 rank = MPI.COMM_WORLD.Get_rank()
-
 
 class Maxwell(StruphyModel):
     """Maxwell's equations in vacuum for electromagnetic field evolution.

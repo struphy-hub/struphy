@@ -1,5 +1,7 @@
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
+from struphy.propagators.implicit_diffusion import ImplicitDiffusion
+from struphy.propagators.poisson_field_solve import PoissonFieldSolve
 
 from struphy import BaseUnits
 from struphy.feec.mass import L2Projector
@@ -22,7 +24,6 @@ from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
 
 rank = MPI.COMM_WORLD.Get_rank()
-
 
 class ToyDrift(StruphyModel):
     r"""Drift-kinetic equation for one ion species in static background magnetic field.
@@ -62,10 +63,9 @@ class ToyDrift(StruphyModel):
 
         \int \frac{n_0}{|B_0|^2} \nabla_\perp \psi \cdot \nabla_\perp \phi\,\textrm d \mathbf x + \frac{1}{Z\varepsilon^2} \int  \frac{n_0}{T_{0}} \psi \phi \,\textrm d \mathbf x  = \frac 1 \varepsilon \int \int \psi \, (f - f_0) B^*_\parallel \,\textrm d \mathbf x\,\textnormal d v_\parallel \textnormal d \mu \qquad \forall \ \psi \in H^1\,.
 
-
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.ImplicitDiffusion`
+    1. :class:`~struphy.propagators.implicit_diffusion.ImplicitDiffusion`
     2. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterBxEstar`
 
     :ref:`Model info <add_model>`:
@@ -100,7 +100,7 @@ class ToyDrift(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.gc_poisson = propagators_fields.Poisson()
+            self.gc_poisson = PoissonFieldSolve()
             self.push_gc_bxe = propagators_markers.PushGuidingCenterBxEstar()
 
     ## abstract methods
@@ -200,9 +200,9 @@ class ToyDrift(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_fields.Poisson:**
+        doc = rf"""**1. PoissonFieldSolve:**
 
-{propagators_fields.Poisson.__doc__}
+{PoissonFieldSolve.__doc__}
 
 **2. propagators_markers.PushGuidingCenterBxEstar:**
 

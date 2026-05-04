@@ -1,4 +1,5 @@
 import logging
+from struphy.propagators.poisson_field_solve import PoissonFieldSolve
 
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
@@ -25,7 +26,6 @@ from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
-
 
 class LinearVlasovAmpereOneSpecies(StruphyModel):
     r"""Linearized Vlasov-Ampère equations for one species.
@@ -187,7 +187,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         )
 
         # initial Poisson (not a propagator used in time stepping)
-        self.initial_poisson = propagators_fields.Poisson()
+        self.initial_poisson = PoissonFieldSolve()
         self.initial_poisson.variables.phi = self.em_fields.phi
 
     @property

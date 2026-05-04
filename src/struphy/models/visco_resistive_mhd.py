@@ -1,5 +1,11 @@
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
+from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
+from struphy.propagators.variational_entropy_evolve import VariationalEntropyEvolve
+from struphy.propagators.variational_mag_field_evolve import VariationalMagFieldEvolve
+from struphy.propagators.variational_momentum_advection import VariationalMomentumAdvection
+from struphy.propagators.variational_resistivity import VariationalResistivity
+from struphy.propagators.variational_viscosity import VariationalViscosity
 
 from struphy.feec.mass import L2Projector
 from struphy.feec.variational_utilities import (
@@ -14,13 +20,9 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable
 from struphy.polar.basic import PolarVector
-from struphy.propagators import (
-    propagators_fields,
-)
 from struphy.propagators.base import Propagator
 
 rank = MPI.COMM_WORLD.Get_rank()
-
 
 class ViscoResistiveMHD(StruphyModel):
     r"""Full (non-linear) visco-resistive MHD equations discretized with a variational method.
@@ -48,12 +50,12 @@ class ViscoResistiveMHD(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
-    2. :class:`~struphy.propagators.propagators_fields.VariationalMomentumAdvection`
-    3. :class:`~struphy.propagators.propagators_fields.VariationalEntropyEvolve`
-    4. :class:`~struphy.propagators.propagators_fields.VariationalMagFieldEvolve`
-    5. :class:`~struphy.propagators.propagators_fields.VariationalViscosity`
-    6. :class:`~struphy.propagators.propagators_fields.VariationalResistivity`
+    1. :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`
+    2. :class:`~struphy.propagators.variational_momentum_advection.VariationalMomentumAdvection`
+    3. :class:`~struphy.propagators.variational_entropy_evolve.VariationalEntropyEvolve`
+    4. :class:`~struphy.propagators.variational_mag_field_evolve.VariationalMagFieldEvolve`
+    5. :class:`~struphy.propagators.variational_viscosity.VariationalViscosity`
+    6. :class:`~struphy.propagators.variational_resistivity.VariationalResistivity`
 
     :ref:`Model info <add_model>`:
     """
@@ -84,14 +86,14 @@ class ViscoResistiveMHD(StruphyModel):
             with_viscosity: bool = True,
             with_resistivity: bool = True,
         ):
-            self.variat_dens = propagators_fields.VariationalDensityEvolve()
-            self.variat_mom = propagators_fields.VariationalMomentumAdvection()
-            self.variat_ent = propagators_fields.VariationalEntropyEvolve()
-            self.variat_mag = propagators_fields.VariationalMagFieldEvolve()
+            self.variat_dens = VariationalDensityEvolve()
+            self.variat_mom = VariationalMomentumAdvection()
+            self.variat_ent = VariationalEntropyEvolve()
+            self.variat_mag = VariationalMagFieldEvolve()
             if with_viscosity:
-                self.variat_viscous = propagators_fields.VariationalViscosity()
+                self.variat_viscous = VariationalViscosity()
             if with_resistivity:
-                self.variat_resist = propagators_fields.VariationalResistivity()
+                self.variat_resist = VariationalResistivity()
 
     ## abstract methods
 
@@ -205,29 +207,29 @@ class ViscoResistiveMHD(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_fields.VariationalDensityEvolve:**
+        doc = rf"""**1. VariationalDensityEvolve:**
 
-{propagators_fields.VariationalDensityEvolve.__doc__}
+{VariationalDensityEvolve.__doc__}
 
-**2. propagators_fields.VariationalMomentumAdvection:**
+**2. VariationalMomentumAdvection:**
 
-{propagators_fields.VariationalMomentumAdvection.__doc__}
+{VariationalMomentumAdvection.__doc__}
 
-**3. propagators_fields.VariationalEntropyEvolve:**
+**3. VariationalEntropyEvolve:**
 
-{propagators_fields.VariationalEntropyEvolve.__doc__}
+{VariationalEntropyEvolve.__doc__}
 
-**4. propagators_fields.VariationalMagFieldEvolve:**
+**4. VariationalMagFieldEvolve:**
 
-{propagators_fields.VariationalMagFieldEvolve.__doc__}
+{VariationalMagFieldEvolve.__doc__}
 
-**5. propagators_fields.VariationalViscosity:**
+**5. VariationalViscosity:**
 
-{propagators_fields.VariationalViscosity.__doc__}
+{VariationalViscosity.__doc__}
 
-**6. propagators_fields.VariationalResistivity:**
+**6. VariationalResistivity:**
 
-{propagators_fields.VariationalResistivity.__doc__}
+{VariationalResistivity.__doc__}
 """
         return doc
 

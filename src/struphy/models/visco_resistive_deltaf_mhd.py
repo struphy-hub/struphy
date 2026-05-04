@@ -1,5 +1,10 @@
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
+from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
+from struphy.propagators.variational_momentum_advection import VariationalMomentumAdvection
+from struphy.propagators.variational_pb_evolve import VariationalPBEvolve
+from struphy.propagators.variational_resistivity import VariationalResistivity
+from struphy.propagators.variational_viscosity import VariationalViscosity
 
 from struphy.feec.mass import L2Projector
 from struphy.io.options import BaseUnits, LiteralOptions
@@ -12,13 +17,9 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable
 from struphy.polar.basic import PolarVector
-from struphy.propagators import (
-    propagators_fields,
-)
 from struphy.propagators.base import Propagator
 
 rank = MPI.COMM_WORLD.Get_rank()
-
 
 class ViscoResistiveDeltafMHD(StruphyModel):
     r""":math:`\delta f` visco-resistive MHD equations discretized with a variational method.
@@ -45,11 +46,11 @@ class ViscoResistiveDeltafMHD(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
-    2. :class:`~struphy.propagators.propagators_fields.VariationalMomentumAdvection`
-    3. :class:`~struphy.propagators.propagators_fields.VariationalPBEvolve`
-    4. :class:`~struphy.propagators.propagators_fields.VariationalViscosity`
-    5. :class:`~struphy.propagators.propagators_fields.VariationalResistivity`
+    1. :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`
+    2. :class:`~struphy.propagators.variational_momentum_advection.VariationalMomentumAdvection`
+    3. :class:`~struphy.propagators.variational_pb_evolve.VariationalPBEvolve`
+    4. :class:`~struphy.propagators.variational_viscosity.VariationalViscosity`
+    5. :class:`~struphy.propagators.variational_resistivity.VariationalResistivity`
 
     :ref:`Model info <add_model>`:
     """
@@ -88,13 +89,13 @@ class ViscoResistiveDeltafMHD(StruphyModel):
             with_viscosity: bool = True,
             with_resistivity: bool = True,
         ):
-            self.variat_dens = propagators_fields.VariationalDensityEvolve()
-            self.variat_mom = propagators_fields.VariationalMomentumAdvection()
-            self.variat_pb = propagators_fields.VariationalPBEvolve()
+            self.variat_dens = VariationalDensityEvolve()
+            self.variat_mom = VariationalMomentumAdvection()
+            self.variat_pb = VariationalPBEvolve()
             if with_viscosity:
-                self.variat_viscous = propagators_fields.VariationalViscosity()
+                self.variat_viscous = VariationalViscosity()
             if with_resistivity:
-                self.variat_resist = propagators_fields.VariationalResistivity()
+                self.variat_resist = VariationalResistivity()
 
     ## abstract methods
 
@@ -211,25 +212,25 @@ class ViscoResistiveDeltafMHD(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_fields.VariationalDensityEvolve:**
+        doc = rf"""**1. VariationalDensityEvolve:**
 
-{propagators_fields.VariationalDensityEvolve.__doc__}
+{VariationalDensityEvolve.__doc__}
 
-**2. propagators_fields.VariationalMomentumAdvection:**
+**2. VariationalMomentumAdvection:**
 
-{propagators_fields.VariationalMomentumAdvection.__doc__}
+{VariationalMomentumAdvection.__doc__}
 
-**3. propagators_fields.VariationalPBEvolve:**
+**3. VariationalPBEvolve:**
 
-{propagators_fields.VariationalPBEvolve.__doc__}
+{VariationalPBEvolve.__doc__}
 
-**4. propagators_fields.VariationalViscosity:**
+**4. VariationalViscosity:**
 
-{propagators_fields.VariationalViscosity.__doc__}
+{VariationalViscosity.__doc__}
 
-**5. propagators_fields.VariationalResistivity:**
+**5. VariationalResistivity:**
 
-{propagators_fields.VariationalResistivity.__doc__}
+{VariationalResistivity.__doc__}
 """
         return doc
 

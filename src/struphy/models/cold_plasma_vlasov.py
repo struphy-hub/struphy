@@ -1,4 +1,7 @@
 import logging
+from struphy.propagators.jxb_cold import JxBCold
+from struphy.propagators.ohm_cold import OhmCold
+from struphy.propagators.poisson_field_solve import PoissonFieldSolve
 
 from feectools.ddm.mpi import mpi as MPI
 
@@ -26,7 +29,6 @@ from struphy.utils.pyccel import Pyccelkernel
 logger = logging.getLogger("struphy")
 
 rank = MPI.COMM_WORLD.Get_rank()
-
 
 class ColdPlasmaVlasov(StruphyModel):
     r"""Cold plasma hybrid model.
@@ -68,8 +70,8 @@ class ColdPlasmaVlasov(StruphyModel):
     :ref:`propagators` (called in sequence):
 
     1. :class:`~struphy.propagators.maxwell.Maxwell`
-    2. :class:`~struphy.propagators.propagators_fields.OhmCold`
-    3. :class:`~struphy.propagators.propagators_fields.JxBCold`
+    2. :class:`~struphy.propagators.ohm_cold.OhmCold`
+    3. :class:`~struphy.propagators.jxb_cold.JxBCold`
     4. :class:`~struphy.propagators.propagators_markers.PushVxB`
     5. :class:`~struphy.propagators.propagators_markers.PushEta`
     6. :class:`~struphy.propagators.propagators_coupling.VlasovAmpere`
@@ -123,8 +125,8 @@ class ColdPlasmaVlasov(StruphyModel):
     class Propagators:
         def __init__(self):
             self.maxwell = MaxwellWeakAmpere()
-            self.ohm = propagators_fields.OhmCold()
-            self.jxb = propagators_fields.JxBCold()
+            self.ohm = OhmCold()
+            self.jxb = JxBCold()
             self.push_eta = propagators_markers.PushEta()
             self.push_vxb = propagators_markers.PushVxB()
             self.coupling_va = propagators_coupling.VlasovAmpere()
@@ -199,7 +201,7 @@ class ColdPlasmaVlasov(StruphyModel):
         )
 
         # initial Poisson (not a propagator used in time stepping)
-        self.initial_poisson = propagators_fields.Poisson()
+        self.initial_poisson = PoissonFieldSolve()
         self.initial_poisson.variables.phi = self.em_fields.phi
 
     @property
@@ -275,13 +277,13 @@ class ColdPlasmaVlasov(StruphyModel):
 
 {MaxwellWeakAmpere.__doc__}
 
-**2. propagators_fields.OhmCold:**
+**2. OhmCold:**
 
-{propagators_fields.OhmCold.__doc__}
+{OhmCold.__doc__}
 
-**3. propagators_fields.JxBCold:**
+**3. JxBCold:**
 
-{propagators_fields.JxBCold.__doc__}
+{JxBCold.__doc__}
 
 **4. propagators_markers.PushEta:**
 

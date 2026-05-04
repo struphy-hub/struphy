@@ -1,4 +1,7 @@
 import logging
+from struphy.propagators.current_coupling_5d_density import CurrentCoupling5DDensity
+from struphy.propagators.magnetosonic import Magnetosonic
+from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
 
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
@@ -30,7 +33,6 @@ from struphy.propagators.base import Propagator
 
 logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
-
 
 class LinearMHDDriftkineticCC(StruphyModel):
     r"""Hybrid linear ideal MHD + energetic ions (5D Driftkinetic) with **current coupling scheme**. 
@@ -103,9 +105,9 @@ class LinearMHDDriftkineticCC(StruphyModel):
     2. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterParallel`
     3. :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DGradB`
     4. :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb`
-    5. :class:`~struphy.propagators.propagators_fields.CurrentCoupling5DDensity`
-    6. :class:`~struphy.propagators.propagators_fields.ShearAlfvenCurrentCoupling5D`
-    7. :class:`~struphy.propagators.propagators_fields.Magnetosonic`
+    5. :class:`~struphy.propagators.current_coupling_5d_density.CurrentCoupling5DDensity`
+    6. :class:`~struphy.propagators.shear_alfven_current_coupling_5d.ShearAlfvenCurrentCoupling5D`
+    7. :class:`~struphy.propagators.magnetosonic.Magnetosonic`
 
     :ref:`Model info <add_model>`:
     """
@@ -150,11 +152,11 @@ class LinearMHDDriftkineticCC(StruphyModel):
             if "PushGuidingCenterParallel" not in turn_off:
                 self.push_parallel = propagators_markers.PushGuidingCenterParallel()
             if "ShearAlfvenCurrentCoupling5D" not in turn_off:
-                self.shearalfen_cc5d = propagators_fields.ShearAlfvenCurrentCoupling5D()
+                self.shearalfen_cc5d = ShearAlfvenCurrentCoupling5D()
             if "Magnetosonic" not in turn_off:
-                self.magnetosonic = propagators_fields.Magnetosonic()
+                self.magnetosonic = Magnetosonic()
             if "CurrentCoupling5DDensity" not in turn_off:
-                self.cc5d_density = propagators_fields.CurrentCoupling5DDensity()
+                self.cc5d_density = CurrentCoupling5DDensity()
             if "CurrentCoupling5DGradB" not in turn_off:
                 self.cc5d_gradb = propagators_coupling.CurrentCoupling5DGradB()
             if "CurrentCoupling5DCurlb" not in turn_off:
@@ -333,17 +335,17 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
 {propagators_coupling.CurrentCoupling5DCurlb.__doc__}
 
-**5. propagators_fields.CurrentCoupling5DDensity:**
+**5. CurrentCoupling5DDensity:**
 
-{propagators_fields.CurrentCoupling5DDensity.__doc__}
+{CurrentCoupling5DDensity.__doc__}
 
-**6. propagators_fields.ShearAlfvenCurrentCoupling5D:**
+**6. ShearAlfvenCurrentCoupling5D:**
 
-{propagators_fields.ShearAlfvenCurrentCoupling5D.__doc__}
+{ShearAlfvenCurrentCoupling5D.__doc__}
 
-**7. propagators_fields.Magnetosonic:**
+**7. Magnetosonic:**
 
-{propagators_fields.Magnetosonic.__doc__}
+{Magnetosonic.__doc__}
 """
         return doc
 

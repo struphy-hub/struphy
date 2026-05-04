@@ -1,4 +1,5 @@
 from feectools.ddm.mpi import mpi as MPI
+from struphy.propagators.poisson_field_solve import PoissonFieldSolve
 
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
@@ -17,7 +18,6 @@ from struphy.propagators import (
 from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
 
 rank = MPI.COMM_WORLD.Get_rank()
-
 
 class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
     r"""Linearized Vlasov-Ampère equations for one species.
@@ -188,7 +188,7 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         )
 
         # initial Poisson (not a propagator used in time stepping)
-        self.initial_poisson = propagators_fields.Poisson()
+        self.initial_poisson = PoissonFieldSolve()
         self.initial_poisson.variables.phi = self.em_fields.phi
 
     @classmethod

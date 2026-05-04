@@ -20,7 +20,6 @@ except ImportError:
     def display(*objects, **kwargs):
         return objects[0] if objects else None
 
-
 from line_profiler import profile
 from scope_profiler import ProfileManager
 
@@ -38,11 +37,9 @@ from struphy.utils.utils import all_class_params_are_default, all_subclasses
 
 logger = logging.getLogger("struphy")
 
-
 class StruphyModelMeta(ABCMeta):
     def __iter__(cls):
         return iter(all_subclasses(cls))
-
 
 class StruphyModel(metaclass=StruphyModelMeta):
     """
@@ -888,7 +885,6 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
     # def time_state(self):
     #     """A pointer to the time variable of the dynamics ('t')."""
     #     return self._time_state
-
 
 class Documentation:
     def __init__(

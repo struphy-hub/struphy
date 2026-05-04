@@ -1,4 +1,6 @@
 import logging
+from struphy.propagators.magnetosonic import Magnetosonic
+from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
 
 from feectools.ddm.mpi import mpi as MPI
 
@@ -22,7 +24,6 @@ from struphy.propagators.base import Propagator
 
 logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
-
 
 class LinearMHDVlasovPC(StruphyModel):
     r"""
@@ -80,8 +81,8 @@ class LinearMHDVlasovPC(StruphyModel):
     1. :class:`~struphy.propagators.propagators_markers.PushEtaPC`
     2. :class:`~struphy.propagators.propagators_markers.PushVxB`
     3. :class:`~struphy.propagators.propagators_coupling.PressureCoupling6D`
-    4. :class:`~struphy.propagators.propagators_fields.ShearAlfven`
-    5. :class:`~struphy.propagators.propagators_fields.Magnetosonic`
+    4. :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`
+    5. :class:`~struphy.propagators.magnetosonic.Magnetosonic`
 
     :ref:`Model info <add_model>`:
     """
@@ -128,9 +129,9 @@ class LinearMHDVlasovPC(StruphyModel):
             if "PressureCoupling6D" not in turn_off:
                 self.pc6d = propagators_coupling.PressureCoupling6D()
             if "ShearAlfven" not in turn_off:
-                self.shearalfven = propagators_fields.ShearAlfven()
+                self.shearalfven = ShearAlfvenPropagator()
             if "Magnetosonic" not in turn_off:
-                self.magnetosonic = propagators_fields.Magnetosonic()
+                self.magnetosonic = Magnetosonic()
 
     def __init__(
         self,
@@ -275,13 +276,13 @@ class LinearMHDVlasovPC(StruphyModel):
 
 {propagators_coupling.PressureCoupling6D.__doc__}
 
-**4. propagators_fields.ShearAlfven:**
+**4. ShearAlfvenPropagator:**
 
-{propagators_fields.ShearAlfven.__doc__}
+{ShearAlfvenPropagator.__doc__}
 
-**5. propagators_fields.Magnetosonic:**
+**5. Magnetosonic:**
 
-{propagators_fields.Magnetosonic.__doc__}
+{Magnetosonic.__doc__}
 """
         return doc
 

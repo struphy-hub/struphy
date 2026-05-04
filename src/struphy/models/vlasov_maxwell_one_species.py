@@ -1,4 +1,5 @@
 import logging
+from struphy.propagators.poisson_field_solve import PoissonFieldSolve
 
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
@@ -26,7 +27,6 @@ from struphy.utils.pyccel import Pyccelkernel
 logger = logging.getLogger("struphy")
 
 rank = MPI.COMM_WORLD.Get_rank()
-
 
 class VlasovMaxwellOneSpecies(StruphyModel):
     r"""Vlasov-Maxwell equations for one species.
@@ -95,7 +95,6 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         \end{align}
 
     where :math:`\tilde{\mathbf B} = \mathbf B - \mathbf B_0` denotes the magnetic perturbation.
-
 
     :ref:`propagators` (called in sequence):
 
@@ -198,7 +197,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         self.scalars = Scalars(**scalars_dict)
 
         # initial Poisson (not a propagator used in time stepping)
-        self.initial_poisson = propagators_fields.Poisson()
+        self.initial_poisson = PoissonFieldSolve()
         self.initial_poisson.variables.phi = self.em_fields.phi
 
         # property to measure violation of gauss law from control variate

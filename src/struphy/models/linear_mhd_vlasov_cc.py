@@ -1,4 +1,7 @@
 import logging
+from struphy.propagators.current_coupling_6d_density import CurrentCoupling6DDensity
+from struphy.propagators.magnetosonic import Magnetosonic
+from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
 
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
@@ -23,7 +26,6 @@ from struphy.propagators.base import Propagator
 
 logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
-
 
 class LinearMHDVlasovCC(StruphyModel):
     r"""
@@ -71,12 +73,12 @@ class LinearMHDVlasovCC(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.CurrentCoupling6DDensity`
-    2. :class:`~struphy.propagators.propagators_fields.ShearAlfven`
+    1. :class:`~struphy.propagators.current_coupling_6d_density.CurrentCoupling6DDensity`
+    2. :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`
     3. :class:`~struphy.propagators.propagators_coupling.CurrentCoupling6DCurrent`
     4. :class:`~struphy.propagators.propagators_markers.PushEta`
     5. :class:`~struphy.propagators.propagators_markers.PushVxB`
-    6. :class:`~struphy.propagators.propagators_fields.Magnetosonic`
+    6. :class:`~struphy.propagators.magnetosonic.Magnetosonic`
 
     :ref:`Model info <add_model>`:
     """
@@ -117,12 +119,12 @@ class LinearMHDVlasovCC(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.couple_dens = propagators_fields.CurrentCoupling6DDensity()
-            self.shear_alf = propagators_fields.ShearAlfven()
+            self.couple_dens = CurrentCoupling6DDensity()
+            self.shear_alf = ShearAlfvenPropagator()
             self.couple_curr = propagators_coupling.CurrentCoupling6DCurrent()
             self.push_eta = propagators_markers.PushEta()
             self.push_vxb = propagators_markers.PushVxB()
-            self.mag_sonic = propagators_fields.Magnetosonic()
+            self.mag_sonic = Magnetosonic()
 
     ## abstract methods
 
@@ -259,13 +261,13 @@ class LinearMHDVlasovCC(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_fields.CurrentCoupling6DDensity:**
+        doc = rf"""**1. CurrentCoupling6DDensity:**
 
-{propagators_fields.CurrentCoupling6DDensity.__doc__}
+{CurrentCoupling6DDensity.__doc__}
 
-**2. propagators_fields.ShearAlfven:**
+**2. ShearAlfvenPropagator:**
 
-{propagators_fields.ShearAlfven.__doc__}
+{ShearAlfvenPropagator.__doc__}
 
 **3. propagators_coupling.CurrentCoupling6DCurrent:**
 
@@ -279,9 +281,9 @@ class LinearMHDVlasovCC(StruphyModel):
 
 {propagators_markers.PushVxB.__doc__}
 
-**6. propagators_fields.Magnetosonic:**
+**6. Magnetosonic:**
 
-{propagators_fields.Magnetosonic.__doc__}
+{Magnetosonic.__doc__}
 """
         return doc
 

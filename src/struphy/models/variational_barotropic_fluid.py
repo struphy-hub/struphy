@@ -1,4 +1,6 @@
 from feectools.ddm.mpi import mpi as MPI
+from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
+from struphy.propagators.variational_momentum_advection import VariationalMomentumAdvection
 
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
@@ -7,12 +9,8 @@ from struphy.models.species import (
     FluidSpecies,
 )
 from struphy.models.variables import FEECVariable
-from struphy.propagators import (
-    propagators_fields,
-)
 
 rank = MPI.COMM_WORLD.Get_rank()
-
 
 class VariationalBarotropicFluid(StruphyModel):
     r"""Barotropic fluid equations discretized with a variational method.
@@ -35,8 +33,8 @@ class VariationalBarotropicFluid(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
-    2. :class:`~struphy.propagators.propagators_fields.VariationalMomentumAdvection`
+    1. :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`
+    2. :class:`~struphy.propagators.variational_momentum_advection.VariationalMomentumAdvection`
 
     :ref:`Model info <add_model>`:
     """
@@ -57,8 +55,8 @@ class VariationalBarotropicFluid(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.variat_dens = propagators_fields.VariationalDensityEvolve()
-            self.variat_mom = propagators_fields.VariationalMomentumAdvection()
+            self.variat_dens = VariationalDensityEvolve()
+            self.variat_mom = VariationalMomentumAdvection()
 
     ## abstract methods
 
@@ -136,13 +134,13 @@ class VariationalBarotropicFluid(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_fields.VariationalDensityEvolve:**
+        doc = rf"""**1. VariationalDensityEvolve:**
 
-{propagators_fields.VariationalDensityEvolve.__doc__}
+{VariationalDensityEvolve.__doc__}
 
-**2. propagators_fields.VariationalMomentumAdvection:**
+**2. VariationalMomentumAdvection:**
 
-{propagators_fields.VariationalMomentumAdvection.__doc__}
+{VariationalMomentumAdvection.__doc__}
 """
         return doc
 

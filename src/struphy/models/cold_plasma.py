@@ -1,4 +1,6 @@
 from feectools.ddm.mpi import mpi as MPI
+from struphy.propagators.jxb_cold import JxBCold
+from struphy.propagators.ohm_cold import OhmCold
 
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
@@ -8,13 +10,9 @@ from struphy.models.species import (
     FluidSpecies,
 )
 from struphy.models.variables import FEECVariable
-from struphy.propagators import (
-    propagators_fields,
-)
 from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
 
 rank = MPI.COMM_WORLD.Get_rank()
-
 
 class ColdPlasma(StruphyModel):
     r"""Cold plasma model.
@@ -45,8 +43,8 @@ class ColdPlasma(StruphyModel):
     :ref:`propagators` (called in sequence):
 
     1. :class:`~struphy.propagators.maxwell.Maxwell`
-    2. :class:`~struphy.propagators.propagators_fields.OhmCold`
-    3. :class:`~struphy.propagators.propagators_fields.JxBCold`
+    2. :class:`~struphy.propagators.ohm_cold.OhmCold`
+    3. :class:`~struphy.propagators.jxb_cold.JxBCold`
 
     :ref:`Model info <add_model>`:
     """
@@ -84,8 +82,8 @@ class ColdPlasma(StruphyModel):
     class Propagators:
         def __init__(self):
             self.maxwell = MaxwellWeakAmpere()
-            self.ohm = propagators_fields.OhmCold()
-            self.jxb = propagators_fields.JxBCold()
+            self.ohm = OhmCold()
+            self.jxb = JxBCold()
 
     ## abstract methods
 
@@ -199,13 +197,13 @@ class ColdPlasma(StruphyModel):
 
 {MaxwellWeakAmpere.__doc__}
 
-**2. propagators_fields.OhmCold:**
+**2. OhmCold:**
 
-{propagators_fields.OhmCold.__doc__}
+{OhmCold.__doc__}
 
-**3. propagators_fields.JxBCold:**
+**3. JxBCold:**
 
-{propagators_fields.JxBCold.__doc__}
+{JxBCold.__doc__}
 """
         return doc
 
