@@ -83,7 +83,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
             self.push_eta = propagators_markers.PushEta()
             if with_B0:
                 self.push_vxb = propagators_markers.PushVxB()
-            self.coupling_va = propagators_coupling.VlasovAmpere()
+            self.coupling_va = propagators_coupling.VlasovAmpereCoupling()
 
     # abstract methods
 
@@ -216,7 +216,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
 **3. propagators_coupling.VlasovAmpere:**
 
-{propagators_coupling.VlasovAmpere.__doc__}
+{propagators_coupling.VlasovAmpereCoupling.__doc__}
 """
         return doc
 

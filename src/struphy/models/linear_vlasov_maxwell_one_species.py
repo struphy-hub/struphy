@@ -129,7 +129,7 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
             self.push_eta = propagators_markers.PushEta()
             if with_E0:
                 self.push_vinE = propagators_markers.PushVinEfield()
-            self.coupling_Eweights = propagators_coupling.EfieldWeights()
+            self.coupling_Eweights = propagators_coupling.EfieldWeightsCoupling()
             if with_B0:
                 self.push_vxb = propagators_markers.PushVxB()
             self.maxwell = MaxwellWeakAmpere()
@@ -274,7 +274,7 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
 
 **3. propagators_coupling.EfieldWeights:**
 
-{propagators_coupling.EfieldWeights.__doc__}
+{propagators_coupling.EfieldWeightsCoupling.__doc__}
 
 **4. propagators_markers.PushVxB:**
 

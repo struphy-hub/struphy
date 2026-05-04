@@ -36,7 +36,7 @@ from struphy.utils.utils import check_option
 logger = logging.getLogger("struphy")
 
 
-class VlasovAmpere(Propagator):
+class VlasovAmpereCoupling(Propagator):
     r"""PIC-FEEC discretization of the following equations:
     find :math:`\mathbf{E} \in H(\textnormal{curl})` and :math:`f` such that
 
@@ -241,7 +241,7 @@ class VlasovAmpere(Propagator):
             logger.info("")
 
 
-class EfieldWeights(Propagator):
+class EfieldWeightsCoupling(Propagator):
     r"""Solves the following substep
 
     .. math::

@@ -142,7 +142,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             self.maxwell = MaxwellWeakAmpere()
             self.push_eta = propagators_markers.PushEta()
             self.push_vxb = propagators_markers.PushVxB()
-            self.coupling_va = propagators_coupling.VlasovAmpere()
+            self.coupling_va = propagators_coupling.VlasovAmpereCoupling()
 
     ## abstract methods
 
@@ -289,7 +289,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
 **4. propagators_coupling.VlasovAmpere:**
 
-{propagators_coupling.VlasovAmpere.__doc__}
+{propagators_coupling.VlasovAmpereCoupling.__doc__}
 """
         return doc
 
