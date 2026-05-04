@@ -68,6 +68,40 @@ class MaxwellWeakAmpere(Propagator):
 
     @dataclass
     class Options:
+        """Configuration options for :class:`MaxwellWeakAmpere`.
+
+        Parameters
+        ----------
+        algo : {"implicit", "explicit"}, default="implicit"
+            Time stepping scheme to use for the Maxwell equations.
+
+            - ``"implicit"``: Crank-Nicolson (implicit mid-point) scheme.
+            - ``"explicit"``: explicit Runge-Kutta methods from ``ButcherTableau``.
+
+        solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Name of the symmetric iterative solver passed to
+            :func:`psydac.linalg.solvers.inverse`.
+
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+            Name of the preconditioner configuration.
+            Currently used only for implicit time stepping.
+
+        solver_params : SolverParameters, default=None
+            Iterative-solver controls (for example ``tol``, ``maxiter``,
+            ``verbose``, ``info``, ``recycle``).
+            If ``None``, defaults to ``SolverParameters()``.
+
+        butcher : ButcherTableau, default=None
+            Butcher tableau for explicit Runge-Kutta methods.
+            Only used when ``algo="explicit"``.
+            If ``None``, defaults to ``ButcherTableau()``.
+
+        Notes
+        -----
+        System size reduction is performed via :class:`SchurSolver` for
+        implicit time stepping to eliminate the magnetic field and reduce
+        the system to the electric field equation.
+        """
         # specific literals
         OptsAlgo = Literal["implicit", "explicit"]
         # propagator options
