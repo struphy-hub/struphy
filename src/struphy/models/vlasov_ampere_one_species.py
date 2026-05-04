@@ -14,12 +14,11 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
-from struphy.propagators import (
-    propagators_coupling,
-    propagators_fields,
-    propagators_markers,
-)
 from struphy.propagators.base import Propagator
+from struphy.propagators.poisson_field_solve import PoissonFieldSolve
+from struphy.propagators.push_eta import PushEta
+from struphy.propagators.push_vxb import PushVxB
+from struphy.propagators.vlasov_ampere_coupling import VlasovAmpereCoupling
 from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
@@ -80,10 +79,10 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
     class Propagators:
         def __init__(self, with_B0: bool = True):
-            self.push_eta = propagators_markers.PushEta()
+            self.push_eta = PushEta()
             if with_B0:
-                self.push_vxb = propagators_markers.PushVxB()
-            self.coupling_va = propagators_coupling.VlasovAmpere()
+                self.push_vxb = PushVxB()
+            self.coupling_va = VlasovAmpereCoupling()
 
     # abstract methods
 
@@ -134,7 +133,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
         )
 
         # initial Poisson (not a propagator used in time stepping)
-        self.initial_poisson = propagators_fields.Poisson()
+        self.initial_poisson = PoissonFieldSolve()
         self.initial_poisson.variables.phi = self.em_fields.phi
 
     @property
@@ -206,17 +205,17 @@ class VlasovAmpereOneSpecies(StruphyModel):
     def doc_discretization(cls):
         doc = rf"""Time integration is performed by the following propagators (in sequence):
 
-**1. propagators_markers.PushEta:**
+**1. push_eta.PushEta:**
 
-{propagators_markers.PushEta.__doc__}
+{PushEta.__doc__}
 
-**2. propagators_markers.PushVxB:**
+**2. push_vxb.PushVxB:**
 
-{propagators_markers.PushVxB.__doc__}
+{PushVxB.__doc__}
 
-**3. propagators_coupling.VlasovAmpere:**
+**3. vlasov_ampere_coupling.VlasovAmpereCoupling:**
 
-{propagators_coupling.VlasovAmpere.__doc__}
+{VlasovAmpereCoupling.__doc__}
 """
         return doc
 

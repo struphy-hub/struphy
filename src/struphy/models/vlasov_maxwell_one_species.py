@@ -6,7 +6,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, FunctionScalarPIC, KineticEnergyPIC, Scalars
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarPIC, KineticEnergyPIC, Scalars
 from struphy.models.species import (
     FieldSpecies,
     ParticleSpecies,
@@ -14,12 +14,12 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
-from struphy.propagators import (
-    propagators_coupling,
-    propagators_fields,
-    propagators_markers,
-)
 from struphy.propagators.base import Propagator
+from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
+from struphy.propagators.poisson_field_solve import PoissonFieldSolve
+from struphy.propagators.push_eta import PushEta
+from struphy.propagators.push_vxb import PushVxB
+from struphy.propagators.vlasov_ampere_coupling import VlasovAmpereCoupling
 from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
@@ -95,13 +95,12 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
     where :math:`\tilde{\mathbf B} = \mathbf B - \mathbf B_0` denotes the magnetic perturbation.
 
-
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.Maxwell`
-    2. :class:`~struphy.propagators.propagators_markers.PushEta`
-    3. :class:`~struphy.propagators.propagators_markers.PushVxB`
-    4. :class:`~struphy.propagators.propagators_coupling.VlasovAmpere`
+    1. :class:`~struphy.propagators.maxwell.Maxwell`
+    2. :class:`~struphy.propagators.push_eta.PushEta`
+    3. :class:`~struphy.propagators.push_vxb.PushVxB`
+    4. :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling`
 
     :ref:`Model info <add_model>`:
     """
@@ -139,10 +138,10 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.maxwell = propagators_fields.Maxwell()
-            self.push_eta = propagators_markers.PushEta()
-            self.push_vxb = propagators_markers.PushVxB()
-            self.coupling_va = propagators_coupling.VlasovAmpere()
+            self.maxwell = MaxwellWeakAmpere()
+            self.push_eta = PushEta()
+            self.push_vxb = PushVxB()
+            self.coupling_va = VlasovAmpereCoupling()
 
     ## abstract methods
 
@@ -197,7 +196,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         self.scalars = Scalars(**scalars_dict)
 
         # initial Poisson (not a propagator used in time stepping)
-        self.initial_poisson = propagators_fields.Poisson()
+        self.initial_poisson = PoissonFieldSolve()
         self.initial_poisson.variables.phi = self.em_fields.phi
 
         # property to measure violation of gauss law from control variate
@@ -275,21 +274,21 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_fields.Maxwell:**
+        doc = rf"""**1. propagators.maxwell.Maxwell:**
 
-{propagators_fields.Maxwell.__doc__}
+{MaxwellWeakAmpere.__doc__}
 
-**2. propagators_markers.PushEta:**
+**2. push_eta.PushEta:**
 
-{propagators_markers.PushEta.__doc__}
+{PushEta.__doc__}
 
-**3. propagators_markers.PushVxB:**
+**3. push_vxb.PushVxB:**
 
-{propagators_markers.PushVxB.__doc__}
+{PushVxB.__doc__}
 
-**4. propagators_coupling.VlasovAmpere:**
+**4. vlasov_ampere_coupling.VlasovAmpereCoupling:**
 
-{propagators_coupling.VlasovAmpere.__doc__}
+{VlasovAmpereCoupling.__doc__}
 """
         return doc
 

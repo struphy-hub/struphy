@@ -8,10 +8,7 @@ from struphy.models.species import (
     FieldSpecies,
 )
 from struphy.models.variables import FEECVariable
-from struphy.propagators import (
-    propagators_fields,
-)
-from struphy.propagators.base import Propagator
+from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -37,7 +34,7 @@ class Maxwell(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.maxwell = propagators_fields.Maxwell()
+            self.maxwell = MaxwellWeakAmpere()
 
     ## abstract methods
 
@@ -123,11 +120,11 @@ class Maxwell(StruphyModel):
     def doc_discretization(cls):
         """Propagators:
 
-        1. :class:`~struphy.propagators.propagators_fields.Maxwell`
+        1. :class:`~struphy.propagators.maxwell.Maxwell`
         """
-        doc = rf"""**1. propagators_fields.Maxwell:**
+        doc = rf"""**1. propagators.maxwell.Maxwell:**
         
-{propagators_fields.Maxwell.__doc__}
+{MaxwellWeakAmpere.__doc__}
 """
         return doc
 

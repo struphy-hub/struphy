@@ -10,10 +10,10 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable
 from struphy.polar.basic import PolarVector
-from struphy.propagators import (
-    propagators_fields,
-)
 from struphy.propagators.base import Propagator
+from struphy.propagators.hall import Hall
+from struphy.propagators.magnetosonic_uniform import MagnetosonicUniform
+from struphy.propagators.shear_alfven_b1 import ShearAlfvenB1
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -50,9 +50,9 @@ class LinearExtendedMHDuniform(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.ShearAlfvenB1`
-    2. :class:`~struphy.propagators.propagators_fields.Hall`
-    3. :class:`~struphy.propagators.propagators_fields.MagnetosonicUniform`
+    1. :class:`~struphy.propagators.shear_alfven_b1.ShearAlfvenB1`
+    2. :class:`~struphy.propagators.hall.Hall`
+    3. :class:`~struphy.propagators.magnetosonic_uniform.MagnetosonicUniform`
 
     :ref:`Model info <add_model>`:
     """
@@ -88,9 +88,9 @@ class LinearExtendedMHDuniform(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.shear_alf = propagators_fields.ShearAlfvenB1()
-            self.hall = propagators_fields.Hall()
-            self.mag_sonic = propagators_fields.MagnetosonicUniform()
+            self.shear_alf = ShearAlfvenB1()
+            self.hall = Hall()
+            self.mag_sonic = MagnetosonicUniform()
 
     ## abstract methods
 
@@ -209,17 +209,17 @@ class LinearExtendedMHDuniform(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_fields.ShearAlfvenB1:**
+        doc = rf"""**1. ShearAlfvenB1:**
 
-{propagators_fields.ShearAlfvenB1.__doc__}
+{ShearAlfvenB1.__doc__}
 
-**2. propagators_fields.Hall:**
+**2. Hall:**
 
-{propagators_fields.Hall.__doc__}
+{Hall.__doc__}
 
-**3. propagators_fields.MagnetosonicUniform:**
+**3. MagnetosonicUniform:**
 
-{propagators_fields.MagnetosonicUniform.__doc__}
+{MagnetosonicUniform.__doc__}
 """
         return doc
 

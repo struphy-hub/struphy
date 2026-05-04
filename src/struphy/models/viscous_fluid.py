@@ -13,10 +13,11 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable
 from struphy.polar.basic import PolarVector
-from struphy.propagators import (
-    propagators_fields,
-)
 from struphy.propagators.base import Propagator
+from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
+from struphy.propagators.variational_entropy_evolve import VariationalEntropyEvolve
+from struphy.propagators.variational_momentum_advection import VariationalMomentumAdvection
+from struphy.propagators.variational_viscosity import VariationalViscosity
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -45,10 +46,10 @@ class ViscousFluid(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
-    2. :class:`~struphy.propagators.propagators_fields.VariationalMomentumAdvection`
-    3. :class:`~struphy.propagators.propagators_fields.VariationalEntropyEvolve`
-    4. :class:`~struphy.propagators.propagators_fields.VariationalViscosity`
+    1. :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`
+    2. :class:`~struphy.propagators.variational_momentum_advection.VariationalMomentumAdvection`
+    3. :class:`~struphy.propagators.variational_entropy_evolve.VariationalEntropyEvolve`
+    4. :class:`~struphy.propagators.variational_viscosity.VariationalViscosity`
 
     :ref:`Model info <add_model>`:
     """
@@ -70,11 +71,11 @@ class ViscousFluid(StruphyModel):
 
     class Propagators:
         def __init__(self, with_viscosity: bool = True):
-            self.variat_dens = propagators_fields.VariationalDensityEvolve()
-            self.variat_mom = propagators_fields.VariationalMomentumAdvection()
-            self.variat_ent = propagators_fields.VariationalEntropyEvolve()
+            self.variat_dens = VariationalDensityEvolve()
+            self.variat_mom = VariationalMomentumAdvection()
+            self.variat_ent = VariationalEntropyEvolve()
             if with_viscosity:
-                self.variat_viscous = propagators_fields.VariationalViscosity()
+                self.variat_viscous = VariationalViscosity()
 
     ## abstract methods
 
@@ -166,21 +167,21 @@ class ViscousFluid(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_fields.VariationalDensityEvolve:**
+        doc = rf"""**1. VariationalDensityEvolve:**
 
-{propagators_fields.VariationalDensityEvolve.__doc__}
+{VariationalDensityEvolve.__doc__}
 
-**2. propagators_fields.VariationalMomentumAdvection:**
+**2. VariationalMomentumAdvection:**
 
-{propagators_fields.VariationalMomentumAdvection.__doc__}
+{VariationalMomentumAdvection.__doc__}
 
-**3. propagators_fields.VariationalEntropyEvolve:**
+**3. VariationalEntropyEvolve:**
 
-{propagators_fields.VariationalEntropyEvolve.__doc__}
+{VariationalEntropyEvolve.__doc__}
 
-**4. propagators_fields.VariationalViscosity:**
+**4. VariationalViscosity:**
 
-{propagators_fields.VariationalViscosity.__doc__}
+{VariationalViscosity.__doc__}
 """
         return doc
 

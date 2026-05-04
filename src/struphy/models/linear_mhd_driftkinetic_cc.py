@@ -21,12 +21,14 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.polar.basic import PolarVector
-from struphy.propagators import (
-    propagators_coupling,
-    propagators_fields,
-    propagators_markers,
-)
 from struphy.propagators.base import Propagator
+from struphy.propagators.current_coupling_5d_curlb import CurrentCoupling5DCurlb
+from struphy.propagators.current_coupling_5d_density import CurrentCoupling5DDensity
+from struphy.propagators.current_coupling_5d_gradb import CurrentCoupling5DGradB
+from struphy.propagators.magnetosonic import Magnetosonic
+from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
+from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
+from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
 
 logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
@@ -99,13 +101,13 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterBxEstar`
-    2. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterParallel`
-    3. :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DGradB`
-    4. :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb`
-    5. :class:`~struphy.propagators.propagators_fields.CurrentCoupling5DDensity`
-    6. :class:`~struphy.propagators.propagators_fields.ShearAlfvenCurrentCoupling5D`
-    7. :class:`~struphy.propagators.propagators_fields.Magnetosonic`
+    1. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
+    2. :class:`~struphy.propagators.push_guiding_center_parallel.PushGuidingCenterParallel`
+    3. :class:`~struphy.propagators.current_coupling_5d_gradb.CurrentCoupling5DGradB`
+    4. :class:`~struphy.propagators.current_coupling_5d_curlb.CurrentCoupling5DCurlb`
+    5. :class:`~struphy.propagators.current_coupling_5d_density.CurrentCoupling5DDensity`
+    6. :class:`~struphy.propagators.shear_alfven_current_coupling_5d.ShearAlfvenCurrentCoupling5D`
+    7. :class:`~struphy.propagators.magnetosonic.Magnetosonic`
 
     :ref:`Model info <add_model>`:
     """
@@ -146,19 +148,19 @@ class LinearMHDDriftkineticCC(StruphyModel):
     class Propagators:
         def __init__(self, turn_off: tuple[str, ...] = (None,)):
             if "PushGuidingCenterBxEstar" not in turn_off:
-                self.push_bxe = propagators_markers.PushGuidingCenterBxEstar()
+                self.push_bxe = PushGuidingCenterBxEstar()
             if "PushGuidingCenterParallel" not in turn_off:
-                self.push_parallel = propagators_markers.PushGuidingCenterParallel()
+                self.push_parallel = PushGuidingCenterParallel()
             if "ShearAlfvenCurrentCoupling5D" not in turn_off:
-                self.shearalfen_cc5d = propagators_fields.ShearAlfvenCurrentCoupling5D()
+                self.shearalfen_cc5d = ShearAlfvenCurrentCoupling5D()
             if "Magnetosonic" not in turn_off:
-                self.magnetosonic = propagators_fields.Magnetosonic()
+                self.magnetosonic = Magnetosonic()
             if "CurrentCoupling5DDensity" not in turn_off:
-                self.cc5d_density = propagators_fields.CurrentCoupling5DDensity()
+                self.cc5d_density = CurrentCoupling5DDensity()
             if "CurrentCoupling5DGradB" not in turn_off:
-                self.cc5d_gradb = propagators_coupling.CurrentCoupling5DGradB()
+                self.cc5d_gradb = CurrentCoupling5DGradB()
             if "CurrentCoupling5DCurlb" not in turn_off:
-                self.cc5d_curlb = propagators_coupling.CurrentCoupling5DCurlb()
+                self.cc5d_curlb = CurrentCoupling5DCurlb()
 
     def __init__(
         self,
@@ -317,33 +319,33 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_markers.PushGuidingCenterBxEstar:**
+        doc = rf"""**1. push_guiding_center_bx_estar.PushGuidingCenterBxEstar:**
 
-{propagators_markers.PushGuidingCenterBxEstar.__doc__}
+    {PushGuidingCenterBxEstar.__doc__}
 
-**2. propagators_markers.PushGuidingCenterParallel:**
+    **2. push_guiding_center_parallel.PushGuidingCenterParallel:**
 
-{propagators_markers.PushGuidingCenterParallel.__doc__}
+    {PushGuidingCenterParallel.__doc__}
 
-**3. propagators_coupling.CurrentCoupling5DGradB:**
+**3. current_coupling_5d_gradb.CurrentCoupling5DGradB:**
 
-{propagators_coupling.CurrentCoupling5DGradB.__doc__}
+{CurrentCoupling5DGradB.__doc__}
 
-**4. propagators_coupling.CurrentCoupling5DCurlb:**
+**4. current_coupling_5d_curlb.CurrentCoupling5DCurlb:**
 
-{propagators_coupling.CurrentCoupling5DCurlb.__doc__}
+{CurrentCoupling5DCurlb.__doc__}
 
-**5. propagators_fields.CurrentCoupling5DDensity:**
+**5. CurrentCoupling5DDensity:**
 
-{propagators_fields.CurrentCoupling5DDensity.__doc__}
+{CurrentCoupling5DDensity.__doc__}
 
-**6. propagators_fields.ShearAlfvenCurrentCoupling5D:**
+**6. ShearAlfvenCurrentCoupling5D:**
 
-{propagators_fields.ShearAlfvenCurrentCoupling5D.__doc__}
+{ShearAlfvenCurrentCoupling5D.__doc__}
 
-**7. propagators_fields.Magnetosonic:**
+**7. Magnetosonic:**
 
-{propagators_fields.Magnetosonic.__doc__}
+{Magnetosonic.__doc__}
 """
         return doc
 

@@ -14,11 +14,10 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels_gc
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
-from struphy.propagators import (
-    propagators_fields,
-    propagators_markers,
-)
 from struphy.propagators.base import Propagator
+from struphy.propagators.implicit_diffusion import ImplicitDiffusion
+from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
+from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
 from struphy.utils.pyccel import Pyccelkernel
 
 rank = MPI.COMM_WORLD.Get_rank()
@@ -63,12 +62,11 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
         \int \frac{n_0}{|B_0|^2} \nabla_\perp \psi \cdot \nabla_\perp \phi\,\textrm d \mathbf x + \frac{1}{Z\varepsilon^2} \int  \frac{n_0}{T_{0}} \psi \phi \,\textrm d \mathbf x  = \frac 1 \varepsilon \int \int \psi \, (f - f_0) B^*_\parallel \,\textrm d \mathbf x\,\textnormal d v_\parallel \textnormal d \mu \qquad \forall \ \psi \in H^1\,.
 
-
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.ImplicitDiffusion`
-    2. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterBxEstar`
-    3. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterParallel`
+    1. :class:`~struphy.propagators.implicit_diffusion.ImplicitDiffusion`
+    2. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
+    3. :class:`~struphy.propagators.push_guiding_center_parallel.PushGuidingCenterParallel`
 
     :ref:`Model info <add_model>`:
     """
@@ -102,9 +100,9 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.gc_poisson = propagators_fields.ImplicitDiffusion()
-            self.push_gc_bxe = propagators_markers.PushGuidingCenterBxEstar()
-            self.push_gc_para = propagators_markers.PushGuidingCenterParallel()
+            self.gc_poisson = ImplicitDiffusion()
+            self.push_gc_bxe = PushGuidingCenterBxEstar()
+            self.push_gc_para = PushGuidingCenterParallel()
 
     ## abstract methods
 
@@ -208,17 +206,17 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_fields.ImplicitDiffusion:**
+        doc = rf"""**1. ImplicitDiffusion:**
 
-{propagators_fields.ImplicitDiffusion.__doc__}
+{ImplicitDiffusion.__doc__}
 
-**2. propagators_markers.PushGuidingCenterBxEstar:**
+**2. push_guiding_center_bx_estar.PushGuidingCenterBxEstar:**
 
-{propagators_markers.PushGuidingCenterBxEstar.__doc__}
+{PushGuidingCenterBxEstar.__doc__}
 
-**3. propagators_markers.PushGuidingCenterParallel:**
+**3. push_guiding_center_parallel.PushGuidingCenterParallel:**
 
-{propagators_markers.PushGuidingCenterParallel.__doc__}
+{PushGuidingCenterParallel.__doc__}
 """
         return doc
 

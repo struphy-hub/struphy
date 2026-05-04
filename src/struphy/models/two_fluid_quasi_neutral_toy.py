@@ -7,9 +7,7 @@ from struphy.models.species import (
     FluidSpecies,
 )
 from struphy.models.variables import FEECVariable
-from struphy.propagators import (
-    propagators_fields,
-)
+from struphy.propagators.two_fluid_quasi_neutral_full import TwoFluidQuasiNeutralFull
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -42,7 +40,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.TwoFluidQuasiNeutralFull`
+    1. :class:`~struphy.propagators.two_fluid_quasi_neutral_full.TwoFluidQuasiNeutralFull`
 
     :ref:`Model info <add_model>`:
 
@@ -95,7 +93,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.qn_full = propagators_fields.TwoFluidQuasiNeutralFull()
+            self.qn_full = TwoFluidQuasiNeutralFull()
 
     ## abstract methods
 
@@ -186,9 +184,9 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_fields.TwoFluidQuasiNeutralFull:**
+        doc = rf"""**1. TwoFluidQuasiNeutralFull:**
 
-{propagators_fields.TwoFluidQuasiNeutralFull.__doc__}
+{TwoFluidQuasiNeutralFull.__doc__}
 """
         return doc
 

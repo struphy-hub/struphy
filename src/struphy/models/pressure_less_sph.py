@@ -7,9 +7,8 @@ from struphy.models.species import (
     ParticleSpecies,
 )
 from struphy.models.variables import SPHVariable
-from struphy.propagators import (
-    propagators_markers,
-)
+from struphy.propagators.push_eta import PushEta
+from struphy.propagators.push_vin_efield import PushVinEfield
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -29,7 +28,7 @@ class PressureLessSPH(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_markers.PushEta`
+    1. :class:`~struphy.propagators.push_eta.PushEta`
 
     This is discretized by particles going in straight lines.
     """
@@ -58,8 +57,8 @@ class PressureLessSPH(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.push_eta = propagators_markers.PushEta()
-            self.push_v = propagators_markers.PushVinEfield()
+            self.push_eta = PushEta()
+            self.push_v = PushVinEfield()
 
     ## abstract methods
 
@@ -134,13 +133,13 @@ class PressureLessSPH(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_markers.PushEta:**
+        doc = rf"""**1. push_eta.PushEta:**
 
-{propagators_markers.PushEta.__doc__}
+    {PushEta.__doc__}
 
-**2. propagators_markers.PushVinEfield:**
+    **2. push_vin_efield.PushVinEfield:**
 
-{propagators_markers.PushVinEfield.__doc__}
+    {PushVinEfield.__doc__}
 """
         return doc
 

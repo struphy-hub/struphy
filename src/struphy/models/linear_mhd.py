@@ -10,10 +10,9 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable
 from struphy.polar.basic import PolarVector
-from struphy.propagators import (
-    propagators_fields,
-)
 from struphy.propagators.base import Propagator
+from struphy.propagators.magnetosonic import Magnetosonic
+from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -54,8 +53,8 @@ class LinearMHD(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.shear_alf = propagators_fields.ShearAlfven()
-            self.mag_sonic = propagators_fields.Magnetosonic()
+            self.shear_alf = ShearAlfvenPropagator()
+            self.mag_sonic = Magnetosonic()
 
     ## abstract methods
 
@@ -189,15 +188,15 @@ class LinearMHD(StruphyModel):
     def doc_discretization(cls):
         """**Propagators:**
 
-        1. :class:`~struphy.propagators.propagators_fields.ShearAlfven`
-        2. :class:`~struphy.propagators.propagators_fields.Magnetosonic`"""
-        doc = rf"""**1. propagators_fields.ShearAlfven:**
+        1. :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`
+        2. :class:`~struphy.propagators.magnetosonic.Magnetosonic`"""
+        doc = rf"""**1. ShearAlfvenPropagator:**
 
-{propagators_fields.ShearAlfven.__doc__}
+{ShearAlfvenPropagator.__doc__}
 
-**2. propagators_fields.Magnetosonic:**
+**2. Magnetosonic:**
 
-{propagators_fields.Magnetosonic.__doc__}
+{Magnetosonic.__doc__}
 """
         return doc
 

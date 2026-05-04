@@ -7,9 +7,10 @@ from struphy.models.species import (
     ParticleSpecies,
 )
 from struphy.models.variables import SPHVariable
-from struphy.propagators import (
-    propagators_markers,
-)
+from struphy.propagators.push_eta import PushEta
+from struphy.propagators.push_vin_sph_pressure import PushVinSPHpressure
+from struphy.propagators.push_vin_viscous_potential import PushVinViscousPotential
+from struphy.propagators.push_vxb import PushVxB
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -55,10 +56,10 @@ class ViscousEulerSPH(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_markers.PushEta`
-    2. :class:`~struphy.propagators.propagators_markers.PushVxB`
-    3. :class:`~struphy.propagators.propagators_markers.PushVinSPHpressure`
-    4. :class:`~struphy.propagators.propagators_markers.PushVinViscousPotential`
+    1. :class:`~struphy.propagators.push_eta.PushEta`
+    2. :class:`~struphy.propagators.push_vxb.PushVxB`
+    3. :class:`~struphy.propagators.push_vin_sph_pressure.PushVinSPHpressure`
+    4. :class:`~struphy.propagators.push_vin_viscous_potential.PushVinViscousPotential`
     """
 
     @classmethod
@@ -76,13 +77,13 @@ class ViscousEulerSPH(StruphyModel):
 
     class Propagators:
         def __init__(self, with_B0: bool = True, with_p: bool = True, with_viscosity: bool = True):
-            self.push_eta = propagators_markers.PushEta()
+            self.push_eta = PushEta()
             if with_B0:
-                self.push_vxb = propagators_markers.PushVxB()
+                self.push_vxb = PushVxB()
             if with_p:
-                self.push_sph_p = propagators_markers.PushVinSPHpressure()
+                self.push_sph_p = PushVinSPHpressure()
             if with_viscosity:
-                self.push_viscous = propagators_markers.PushVinViscousPotential()
+                self.push_viscous = PushVinViscousPotential()
 
     ## abstract methods
 
@@ -191,21 +192,21 @@ class ViscousEulerSPH(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_markers.PushEta:**
+        doc = rf"""**1. push_eta.PushEta:**
 
-{propagators_markers.PushEta.__doc__}
+    {PushEta.__doc__}
 
-**2. propagators_markers.PushVxB:**
+    **2. push_vxb.PushVxB:**
 
-{propagators_markers.PushVxB.__doc__}
+    {PushVxB.__doc__}
 
-**3. propagators_markers.PushVinSPHpressure:**
+    **3. push_vin_sph_pressure.PushVinSPHpressure:**
 
-{propagators_markers.PushVinSPHpressure.__doc__}
+    {PushVinSPHpressure.__doc__}
 
-**4. propagators_markers.PushVinViscousPotential:**
+    **4. push_vin_viscous_potential.PushVinViscousPotential:**
 
-{propagators_markers.PushVinViscousPotential.__doc__}
+    {PushVinViscousPotential.__doc__}
 """
         return doc
 
