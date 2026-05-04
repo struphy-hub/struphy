@@ -11,6 +11,8 @@ from struphy.pic.pushing import pusher_kernels
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
+
+
 class PushRandomDiffusion(Propagator):
     r"""For each marker :math:`p`, solves
 
@@ -40,6 +42,7 @@ class PushRandomDiffusion(Propagator):
             Particle variable in ``"Particles3D"`` space whose marker
             positions are advanced.
         """
+
         def __init__(self):
             self._var: PICVariable = None
 
@@ -73,6 +76,7 @@ class PushRandomDiffusion(Propagator):
             Positive diffusion coefficient :math:`D` used in the stochastic
             increment.
         """
+
         butcher: ButcherTableau = None
         bc_type: tuple = ("periodic", "periodic", "periodic")
         diff_coeff: float = 1.0
@@ -151,5 +155,3 @@ class PushRandomDiffusion(Propagator):
         # update_weights
         if particles.control_variate:
             particles.update_weights()
-
-

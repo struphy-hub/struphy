@@ -1,9 +1,11 @@
 import logging
 from dataclasses import dataclass
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+
 from struphy.feec import preconditioner
 from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner, MassMatrixPreconditioner
 from struphy.feec.variational_utilities import (
@@ -60,6 +62,7 @@ class VariationalMomentumAdvection(Propagator):
         u : FEECVariable
             Velocity variable in ``"H1vec"`` space.
         """
+
         def __init__(self):
             self._u: FEECVariable = None
 
@@ -91,6 +94,7 @@ class VariationalMomentumAdvection(Propagator):
         nonlin_solver : NonlinearSolverParameters, default=None
             Nonlinear iteration controls (Picard/Newton).
         """
+
         # propagator options
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"

@@ -2,12 +2,14 @@ import cunumpy as xp
 from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from feectools.linalg.solvers import inverse
 from numpy import zeros
+
 import struphy.feec.utilities as util
 from struphy.feec import preconditioner
 from struphy.fields_background.equils import set_defaults
 from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
+
 
 class FaradayExtended(Propagator):
     r"""Equations: Faraday's law

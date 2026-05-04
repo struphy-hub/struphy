@@ -1,5 +1,4 @@
 import logging
-from struphy.propagators.poisson_field_solve import PoissonFieldSolve
 
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
@@ -15,15 +14,17 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
-from struphy.propagators.vlasov_ampere_coupling import VlasovAmpereCoupling
 from struphy.propagators.base import Propagator
+from struphy.propagators.poisson_field_solve import PoissonFieldSolve
 from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vxb import PushVxB
+from struphy.propagators.vlasov_ampere_coupling import VlasovAmpereCoupling
 from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
 
 rank = MPI.COMM_WORLD.Get_rank()
+
 
 class VlasovAmpereOneSpecies(StruphyModel):
     """Vlasov-Ampère system for a single kinetic species in an electric field.

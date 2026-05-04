@@ -1,6 +1,5 @@
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
-from struphy.propagators.implicit_diffusion import ImplicitDiffusion
 
 from struphy import BaseUnits
 from struphy.feec.mass import L2Projector
@@ -16,11 +15,13 @@ from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels_gc
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.propagators.base import Propagator
+from struphy.propagators.implicit_diffusion import ImplicitDiffusion
 from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
 from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
 from struphy.utils.pyccel import Pyccelkernel
 
 rank = MPI.COMM_WORLD.Get_rank()
+
 
 class DriftKineticElectrostaticAdiabatic(StruphyModel):
     r"""Drift-kinetic equation for one ion species in static background magnetic field,

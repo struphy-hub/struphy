@@ -1,6 +1,8 @@
 import logging
 from dataclasses import dataclass
+
 from line_profiler import profile
+
 from struphy.feec import preconditioner
 from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.schur_solver import SchurSolver, SchurSolverFull
@@ -50,6 +52,7 @@ class OhmCold(Propagator):
         e : FEECVariable
             Electric-field variable in ``"Hcurl"`` space.
         """
+
         def __init__(self):
             self._j: FEECVariable = None
             self._e: FEECVariable = None
@@ -93,6 +96,7 @@ class OhmCold(Propagator):
             Iterative-solver controls. If ``None``, defaults to
             ``SolverParameters()``.
         """
+
         # propagator options
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"

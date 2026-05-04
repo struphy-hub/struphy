@@ -1,8 +1,10 @@
 import logging
 from dataclasses import dataclass
+
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+
 from struphy.feec import preconditioner
 from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.schur_solver import SchurSolver, SchurSolverFull
@@ -47,6 +49,7 @@ class ShearAlfvenB1(Propagator):
         b : FEECVariable
             Magnetic-field variable in ``"Hcurl"`` space.
         """
+
         def __init__(self):
             self._u: FEECVariable = None
             self._b: FEECVariable = None
@@ -93,6 +96,7 @@ class ShearAlfvenB1(Propagator):
         solver_params_M1 : SolverParameters, default=None
             Solver controls for ``M1`` inversion.
         """
+
         # propagator options
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"

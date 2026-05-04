@@ -13,6 +13,8 @@ from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
+
+
 class PushGuidingCenterBxEstar(Propagator):
     r"""For each marker :math:`p`, solves
 
@@ -51,6 +53,7 @@ class PushGuidingCenterBxEstar(Propagator):
         ions : PICVariable
             Guiding-center particle variable in ``"Particles5D"`` space.
         """
+
         def __init__(self):
             self._ions: PICVariable = None
 
@@ -106,6 +109,7 @@ class PushGuidingCenterBxEstar(Propagator):
         verbose : bool, default=False
             Verbosity flag for iterative pusher diagnostics.
         """
+
         # specific literals
         OptsAlgo = Literal[
             "discrete_gradient_2nd_order",
@@ -480,5 +484,3 @@ class PushGuidingCenterBxEstar(Propagator):
         # update_weights
         if self.variables.ions.species.weights_params.control_variate:
             self.variables.ions.particles.update_weights()
-
-

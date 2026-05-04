@@ -1,7 +1,4 @@
 import logging
-from struphy.propagators.implicit_diffusion import ImplicitDiffusion
-from struphy.propagators.poisson_field_solve import PoissonFieldSolve
-from struphy.propagators.time_dependent_source import TimeDependentSource
 
 from feectools.ddm.mpi import mpi as MPI
 
@@ -12,9 +9,13 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
+from struphy.propagators.implicit_diffusion import ImplicitDiffusion
+from struphy.propagators.poisson_field_solve import PoissonFieldSolve
+from struphy.propagators.time_dependent_source import TimeDependentSource
 
 logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
+
 
 class Poisson(StruphyModel):
     r"""Weak discretization of Poisson's equation with diffusion matrix, stabilization

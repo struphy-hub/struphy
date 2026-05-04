@@ -1,7 +1,9 @@
 import logging
 from dataclasses import dataclass
+
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+
 from struphy.feec import preconditioner
 from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
@@ -36,6 +38,7 @@ class JxBCold(Propagator):
         j : FEECVariable
             Current variable in ``"Hcurl"`` space.
         """
+
         def __init__(self):
             self._j: FEECVariable = None
 
@@ -68,6 +71,7 @@ class JxBCold(Propagator):
             Iterative-solver controls. If ``None``, defaults to
             ``SolverParameters()``.
         """
+
         # propagator options
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"

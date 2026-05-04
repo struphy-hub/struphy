@@ -1,6 +1,4 @@
 import logging
-from struphy.propagators.hasegawa_wakatani_step import HasegawaWakataniStep
-from struphy.propagators.poisson_field_solve import PoissonFieldSolve
 
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.stencil import StencilVector
@@ -13,9 +11,12 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
+from struphy.propagators.hasegawa_wakatani_step import HasegawaWakataniStep
+from struphy.propagators.poisson_field_solve import PoissonFieldSolve
 
 logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
+
 
 class HasegawaWakatani(StruphyModel):
     r"""Hasegawa-Wakatani equations in 2D.

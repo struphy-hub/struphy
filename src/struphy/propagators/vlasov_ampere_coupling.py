@@ -47,6 +47,7 @@ class VlasovAmpereCoupling(Propagator):
         ions : PICVariable
             Particle variable in ``"Particles6D"`` space.
         """
+
         def __init__(self):
             self._e: FEECVariable = None
             self._ions: PICVariable = None
@@ -87,6 +88,7 @@ class VlasovAmpereCoupling(Propagator):
         solver_params : SolverParameters, default=None
             Solver controls.
         """
+
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None

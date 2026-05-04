@@ -20,6 +20,7 @@ except ImportError:
     def display(*objects, **kwargs):
         return objects[0] if objects else None
 
+
 from line_profiler import profile
 from scope_profiler import ProfileManager
 
@@ -37,9 +38,11 @@ from struphy.utils.utils import all_class_params_are_default, all_subclasses
 
 logger = logging.getLogger("struphy")
 
+
 class StruphyModelMeta(ABCMeta):
     def __iter__(cls):
         return iter(all_subclasses(cls))
+
 
 class StruphyModel(metaclass=StruphyModelMeta):
     """

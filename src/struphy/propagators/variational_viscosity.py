@@ -2,10 +2,12 @@ import logging
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Callable, Literal, get_args
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import (
     BasisProjectionOperator,
@@ -88,6 +90,7 @@ class VariationalViscosity(Propagator):
         u : FEECVariable
             Velocity variable in ``"H1vec"`` space.
         """
+
         def __init__(self):
             self._s: FEECVariable = None
             self._u: FEECVariable = None
@@ -144,6 +147,7 @@ class VariationalViscosity(Propagator):
         alpha : float, default=0.0
             Optional linear damping/regularization parameter.
         """
+
         # specific literals
         OptsModel = Literal["full", "full_p", "full_q", "linear_p", "linear_q", "deltaf_q"]
         # propagator options

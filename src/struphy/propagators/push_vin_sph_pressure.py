@@ -13,6 +13,8 @@ from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
+
+
 class PushVinSPHpressure(Propagator):
     r"""For each marker :math:`p`, solves
 
@@ -40,6 +42,7 @@ class PushVinSPHpressure(Propagator):
         fluid : SPHVariable
             SPH particle variable in ``"ParticlesSPH"`` space.
         """
+
         def __init__(self):
             self._fluid: SPHVariable = None
 
@@ -78,6 +81,7 @@ class PushVinSPHpressure(Propagator):
         thermodynamics : {"isothermal", "polytropic"}, default="isothermal"
             Thermodynamic closure selecting the SPH pressure kernel.
         """
+
         # specific literals
         OptsAlgo = Literal["forward_euler"]
         OptsThermo = Literal["isothermal", "polytropic"]
@@ -175,5 +179,3 @@ class PushVinSPHpressure(Propagator):
     def __call__(self, dt):
         self.variables.fluid.particles.put_particles_in_boxes()
         self._pusher(dt)
-
-

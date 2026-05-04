@@ -1,5 +1,4 @@
 from feectools.ddm.mpi import mpi as MPI
-from struphy.propagators.two_fluid_quasi_neutral_full import TwoFluidQuasiNeutralFull
 
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
@@ -8,8 +7,10 @@ from struphy.models.species import (
     FluidSpecies,
 )
 from struphy.models.variables import FEECVariable
+from struphy.propagators.two_fluid_quasi_neutral_full import TwoFluidQuasiNeutralFull
 
 rank = MPI.COMM_WORLD.Get_rank()
+
 
 class TwoFluidQuasiNeutralToy(StruphyModel):
     r"""Linearized, quasi-neutral two-fluid model with zero electron inertia.

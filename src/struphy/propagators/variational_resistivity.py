@@ -2,10 +2,12 @@ import logging
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Callable, Literal, get_args
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+
 from struphy.feec import preconditioner
 from struphy.feec.mass import L2Projector, WeightedMassOperator, WeightedMassOperators
 from struphy.feec.variational_utilities import (
@@ -77,6 +79,7 @@ class VariationalResistivity(Propagator):
         b : FEECVariable
             Magnetic-field variable in ``"Hdiv"`` space.
         """
+
         def __init__(self):
             self._s: FEECVariable = None
             self._b: FEECVariable = None
@@ -133,6 +136,7 @@ class VariationalResistivity(Propagator):
         eta_a : float, default=0.0
             Artificial-resistivity coefficient.
         """
+
         # specific literals
         OptsModel = Literal["full", "full_p", "full_q", "linear_p", "linear_q", "deltaf_q"]
         # propagator options

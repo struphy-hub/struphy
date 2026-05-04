@@ -1,9 +1,5 @@
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
-from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
-from struphy.propagators.variational_pb_evolve import VariationalPBEvolve
-from struphy.propagators.variational_resistivity import VariationalResistivity
-from struphy.propagators.variational_viscosity import VariationalViscosity
 
 from struphy.feec.mass import L2Projector
 from struphy.io.options import BaseUnits, LiteralOptions
@@ -17,8 +13,13 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
+from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
+from struphy.propagators.variational_pb_evolve import VariationalPBEvolve
+from struphy.propagators.variational_resistivity import VariationalResistivity
+from struphy.propagators.variational_viscosity import VariationalViscosity
 
 rank = MPI.COMM_WORLD.Get_rank()
+
 
 class ViscoResistiveLinearMHD(StruphyModel):
     r"""Linear visco-resistive MHD equations discretized with a variational method.

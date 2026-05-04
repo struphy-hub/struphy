@@ -48,6 +48,7 @@ class MaxwellWeakAmpere(Propagator):
         b : FEECVariable
             Magnetic field in H(div) space.
         """
+
         def __init__(self):
             self._e: FEECVariable = None
             self._b: FEECVariable = None
@@ -111,6 +112,7 @@ class MaxwellWeakAmpere(Propagator):
         implicit time stepping to eliminate the magnetic field and reduce
         the system to the electric field equation.
         """
+
         # specific literals
         OptsAlgo = Literal["implicit", "explicit"]
         # propagator options

@@ -1,5 +1,4 @@
 from feectools.ddm.mpi import mpi as MPI
-from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
 
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
@@ -10,8 +9,10 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
+from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
 
 rank = MPI.COMM_WORLD.Get_rank()
+
 
 class ShearAlfven(StruphyModel):
     r"""ShearAlfven propagator from :class:`~struphy.models.linear_mhd.LinearMHD` with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).

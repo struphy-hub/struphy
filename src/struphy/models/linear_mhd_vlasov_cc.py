@@ -1,7 +1,4 @@
 import logging
-from struphy.propagators.current_coupling_6d_density import CurrentCoupling6DDensity
-from struphy.propagators.magnetosonic import Magnetosonic
-from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
 
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
@@ -17,13 +14,17 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.polar.basic import PolarVector
-from struphy.propagators.current_coupling_6d_current import CurrentCoupling6DCurrent
 from struphy.propagators.base import Propagator
+from struphy.propagators.current_coupling_6d_current import CurrentCoupling6DCurrent
+from struphy.propagators.current_coupling_6d_density import CurrentCoupling6DDensity
+from struphy.propagators.magnetosonic import Magnetosonic
 from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vxb import PushVxB
+from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
 
 logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
+
 
 class LinearMHDVlasovCC(StruphyModel):
     r"""

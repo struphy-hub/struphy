@@ -73,6 +73,7 @@ class CurrentCoupling5DGradB(Propagator):
         energetic_ions : PICVariable
             Energetic-ion particle variable in ``"Particles5D"`` space.
         """
+
         def __init__(self):
             self._u: FEECVariable = None
             self._energetic_ions: PICVariable = None
@@ -144,6 +145,7 @@ class CurrentCoupling5DGradB(Propagator):
             and ``algo="discrete_gradient"``, defaults to
             ``DiscreteGradientSolverParameters()``.
         """
+
         # specific literals
         OptsAlgo = Literal[
             "discrete_gradient",

@@ -1,8 +1,10 @@
 import logging
 from dataclasses import dataclass
+
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+
 from struphy.feec import preconditioner
 from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
@@ -42,6 +44,7 @@ class Hall(Propagator):
         b : FEECVariable
             Magnetic-field variable in ``"Hcurl"`` space.
         """
+
         def __init__(self):
             self._b: FEECVariable = None
 
@@ -78,6 +81,7 @@ class Hall(Propagator):
             Species object from which ``epsilon`` is taken. If ``None``,
             ``epsilon`` defaults to ``1.0``.
         """
+
         # propagator options
         solver: LiteralOptions.OptsGenSolver = "pbicgstab"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"

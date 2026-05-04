@@ -10,6 +10,8 @@ from struphy.pic.pushing import pusher_kernels
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
+
+
 class PushVinEfield(Propagator):
     r"""Push the velocities according to
 
@@ -35,6 +37,7 @@ class PushVinEfield(Propagator):
         var : PICVariable or SPHVariable
             Particle variable whose velocities are advanced.
         """
+
         def __init__(self):
             self._var: PICVariable | SPHVariable = None
 
@@ -66,6 +69,7 @@ class PushVinEfield(Propagator):
             Optional electrostatic potential from which the electric field is
             built as ``-grad(phi)``. If provided, it overrides ``e_field``.
         """
+
         # propagator options
         e_field: FEECVariable | tuple[Callable] = None
         phi: FEECVariable | Callable = None
@@ -132,5 +136,3 @@ class PushVinEfield(Propagator):
     def __call__(self, dt):
         if self._e_field is not None:
             self._pusher(dt)
-
-

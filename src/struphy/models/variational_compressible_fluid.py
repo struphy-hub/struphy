@@ -1,8 +1,5 @@
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
-from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
-from struphy.propagators.variational_entropy_evolve import VariationalEntropyEvolve
-from struphy.propagators.variational_momentum_advection import VariationalMomentumAdvection
 
 from struphy.feec.mass import L2Projector
 from struphy.feec.variational_utilities import (
@@ -16,8 +13,12 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
+from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
+from struphy.propagators.variational_entropy_evolve import VariationalEntropyEvolve
+from struphy.propagators.variational_momentum_advection import VariationalMomentumAdvection
 
 rank = MPI.COMM_WORLD.Get_rank()
+
 
 class VariationalCompressibleFluid(StruphyModel):
     r"""Fully compressible fluid equations discretized with a variational method.

@@ -1,13 +1,16 @@
 from dataclasses import dataclass
 from typing import Callable, Literal, get_args
+
 from feectools.linalg.stencil import StencilVector
+
 from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
 from struphy.pic.base import Particles
-from struphy.utils.utils import check_option
 from struphy.propagators.implicit_diffusion import ImplicitDiffusion
+from struphy.utils.utils import check_option
+
 
 class PoissonFieldSolve(ImplicitDiffusion):
     r"""

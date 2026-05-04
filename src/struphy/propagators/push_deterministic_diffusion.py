@@ -12,6 +12,8 @@ from struphy.pic.pushing import pusher_kernels
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
+
+
 class PushDeterministicDiffusion(Propagator):
     r"""For each marker :math:`p`, solves
 
@@ -42,6 +44,7 @@ class PushDeterministicDiffusion(Propagator):
             Particle variable in ``"Particles3D"`` space whose marker
             positions are advanced.
         """
+
         def __init__(self):
             self._var: PICVariable = None
 
@@ -74,6 +77,7 @@ class PushDeterministicDiffusion(Propagator):
         diff_coeff : float, default=1.0
             Positive deterministic diffusion coefficient :math:`D`.
         """
+
         butcher: ButcherTableau = None
         bc_type: tuple = ("periodic", "periodic", "periodic")
         diff_coeff: float = 1.0
@@ -162,5 +166,3 @@ class PushDeterministicDiffusion(Propagator):
         # update_weights
         if particles.control_variate:
             particles.update_weights()
-
-

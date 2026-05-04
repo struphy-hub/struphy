@@ -1,5 +1,4 @@
 import logging
-from struphy.propagators.poisson_field_solve import PoissonFieldSolve
 
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
@@ -16,8 +15,9 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
-from struphy.propagators.efield_weights_coupling import EfieldWeightsCoupling
 from struphy.propagators.base import Propagator
+from struphy.propagators.efield_weights_coupling import EfieldWeightsCoupling
+from struphy.propagators.poisson_field_solve import PoissonFieldSolve
 from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vin_efield import PushVinEfield
 from struphy.propagators.push_vxb import PushVxB
@@ -25,6 +25,7 @@ from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
+
 
 class LinearVlasovAmpereOneSpecies(StruphyModel):
     r"""Linearized Vlasov-Ampère equations for one species.

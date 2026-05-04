@@ -2,11 +2,13 @@ import logging
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Callable, Literal, get_args
+
 import cunumpy as xp
 from feectools.linalg.basic import ComposedLinearOperator, IdentityOperator, ZeroOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+
 from struphy.feec import preconditioner
 from struphy.feec.mass import L2Projector, WeightedMassOperator, WeightedMassOperators
 from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner, MassMatrixPreconditioner
@@ -100,6 +102,7 @@ class VariationalQBEvolve(Propagator):
         b : FEECVariable
             Magnetic-field variable in ``"Hdiv"`` space.
         """
+
         def __init__(self):
             self._q: FEECVariable = None
             self._u: FEECVariable = None
@@ -165,6 +168,7 @@ class VariationalQBEvolve(Propagator):
         bt2 : FEECVariable, default=None
             Optional magnetic background field.
         """
+
         # specific literals
         OptsModel = Literal["full_q", "linear_q", "deltaf_q"]
         # propagator options

@@ -1,10 +1,13 @@
 from dataclasses import dataclass
 from typing import Callable, Literal, get_args
+
 import cunumpy as xp
 from line_profiler import profile
+
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
+
 
 class TimeDependentSource(Propagator):
     r"""Propagates a source term :math:`S(t) \in V_h^n` of the form
@@ -30,6 +33,7 @@ class TimeDependentSource(Propagator):
         source : FEECVariable
             Source coefficient field in ``"H1"`` space.
         """
+
         def __init__(self):
             self._source: FEECVariable = None
 
@@ -57,6 +61,7 @@ class TimeDependentSource(Propagator):
         hfun : {"cos", "sin"}, default="cos"
             Time modulation function applied to initial coefficients.
         """
+
         # specific literals
         OptsTimeSource = Literal["cos", "sin"]
         # propagator options

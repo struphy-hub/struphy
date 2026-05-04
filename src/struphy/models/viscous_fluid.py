@@ -1,9 +1,5 @@
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
-from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
-from struphy.propagators.variational_entropy_evolve import VariationalEntropyEvolve
-from struphy.propagators.variational_momentum_advection import VariationalMomentumAdvection
-from struphy.propagators.variational_viscosity import VariationalViscosity
 
 from struphy.feec.mass import L2Projector
 from struphy.feec.variational_utilities import (
@@ -18,8 +14,13 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
+from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
+from struphy.propagators.variational_entropy_evolve import VariationalEntropyEvolve
+from struphy.propagators.variational_momentum_advection import VariationalMomentumAdvection
+from struphy.propagators.variational_viscosity import VariationalViscosity
 
 rank = MPI.COMM_WORLD.Get_rank()
+
 
 class ViscousFluid(StruphyModel):
     r"""Full (non-linear) viscous Navier-Stokes equations discretized with a variational method.

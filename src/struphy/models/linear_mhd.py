@@ -1,7 +1,5 @@
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector
-from struphy.propagators.magnetosonic import Magnetosonic
-from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
 
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
@@ -13,8 +11,11 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
+from struphy.propagators.magnetosonic import Magnetosonic
+from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
 
 rank = MPI.COMM_WORLD.Get_rank()
+
 
 class LinearMHD(StruphyModel):
     """Linear ideal MHD with zero-flow equilibrium for magnetohydrodynamic wave propagation.

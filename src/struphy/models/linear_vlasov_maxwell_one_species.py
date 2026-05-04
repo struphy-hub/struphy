@@ -1,5 +1,4 @@
 from feectools.ddm.mpi import mpi as MPI
-from struphy.propagators.poisson_field_solve import PoissonFieldSolve
 
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
@@ -12,11 +11,13 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.propagators.efield_weights_coupling import EfieldWeightsCoupling
 from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
+from struphy.propagators.poisson_field_solve import PoissonFieldSolve
 from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vin_efield import PushVinEfield
 from struphy.propagators.push_vxb import PushVxB
 
 rank = MPI.COMM_WORLD.Get_rank()
+
 
 class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
     r"""Linearized Vlasov-Ampère equations for one species.

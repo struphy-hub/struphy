@@ -1,7 +1,4 @@
 import logging
-from struphy.propagators.current_coupling_5d_density import CurrentCoupling5DDensity
-from struphy.propagators.magnetosonic import Magnetosonic
-from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
 
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
@@ -24,14 +21,18 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.polar.basic import PolarVector
-from struphy.propagators.current_coupling_5d_curlb import CurrentCoupling5DCurlb
-from struphy.propagators.current_coupling_5d_gradb import CurrentCoupling5DGradB
 from struphy.propagators.base import Propagator
+from struphy.propagators.current_coupling_5d_curlb import CurrentCoupling5DCurlb
+from struphy.propagators.current_coupling_5d_density import CurrentCoupling5DDensity
+from struphy.propagators.current_coupling_5d_gradb import CurrentCoupling5DGradB
+from struphy.propagators.magnetosonic import Magnetosonic
 from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
 from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
+from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
 
 logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
+
 
 class LinearMHDDriftkineticCC(StruphyModel):
     r"""Hybrid linear ideal MHD + energetic ions (5D Driftkinetic) with **current coupling scheme**. 

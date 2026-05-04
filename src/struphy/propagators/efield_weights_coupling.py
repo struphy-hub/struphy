@@ -90,6 +90,7 @@ class EfieldWeightsCoupling(Propagator):
             Particle variable in ``"Particles6D"`` or
             ``"DeltaFParticles6D"`` space.
         """
+
         def __init__(self):
             self._e: FEECVariable = None
             self._ions: PICVariable = None
@@ -139,6 +140,7 @@ class EfieldWeightsCoupling(Propagator):
             Iterative-solver controls. If ``None``, defaults to
             ``SolverParameters()``.
         """
+
         alpha: float = 1.0
         kappa: float = 1.0
         solver: LiteralOptions.OptsSymmSolver = "pcg"

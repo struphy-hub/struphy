@@ -12,6 +12,8 @@ from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
+
+
 class PushVinViscousPotential(Propagator):
     r"""For each marker :math:`p`, solves
 
@@ -39,6 +41,7 @@ class PushVinViscousPotential(Propagator):
         fluid : SPHVariable
             SPH particle variable in ``"ParticlesSPH"`` space.
         """
+
         def __init__(self):
             self._fluid: SPHVariable = None
 
@@ -75,6 +78,7 @@ class PushVinViscousPotential(Propagator):
             Dynamic viscosity coefficient used by the viscosity tensor kernel.
             Must be non-negative.
         """
+
         # specific literals
         OptsAlgo = Literal["forward_euler"]
         # propagator options

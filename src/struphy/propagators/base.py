@@ -25,7 +25,7 @@ class Propagator(metaclass=ABCMeta):
 
     Note
     ----
-    All Struphy propagators are subclasses of ``Propagator`` and must be added under ``struphy/propagators/``. 
+    All Struphy propagators are subclasses of ``Propagator`` and must be added under ``struphy/propagators/``.
     """
 
     @abstractmethod
@@ -56,6 +56,7 @@ class Propagator(metaclass=ABCMeta):
 
         Subclasses should override this to define specific propagator options.
         """
+
         # specific literals
         OptsTemplate = Literal["implicit", "explicit"]
         # propagator options

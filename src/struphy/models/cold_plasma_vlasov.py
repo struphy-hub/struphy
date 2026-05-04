@@ -1,7 +1,4 @@
 import logging
-from struphy.propagators.jxb_cold import JxBCold
-from struphy.propagators.ohm_cold import OhmCold
-from struphy.propagators.poisson_field_solve import PoissonFieldSolve
 
 from feectools.ddm.mpi import mpi as MPI
 
@@ -17,16 +14,20 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
-from struphy.propagators.vlasov_ampere_coupling import VlasovAmpereCoupling
 from struphy.propagators.base import Propagator
+from struphy.propagators.jxb_cold import JxBCold
 from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
+from struphy.propagators.ohm_cold import OhmCold
+from struphy.propagators.poisson_field_solve import PoissonFieldSolve
 from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vxb import PushVxB
+from struphy.propagators.vlasov_ampere_coupling import VlasovAmpereCoupling
 from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
 
 rank = MPI.COMM_WORLD.Get_rank()
+
 
 class ColdPlasmaVlasov(StruphyModel):
     r"""Cold plasma hybrid model.

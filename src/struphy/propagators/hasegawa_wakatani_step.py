@@ -1,8 +1,10 @@
 from dataclasses import dataclass
 from typing import Callable, Literal, get_args
+
 import cunumpy as xp
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+
 from struphy.feec import preconditioner
 from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
@@ -11,6 +13,7 @@ from struphy.ode.solvers import ODEsolverFEEC
 from struphy.ode.utils import ButcherTableau
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
+
 
 class HasegawaWakataniStep(Propagator):
     r""":ref:`FEEC <gempic>` discretization of the following equations:
@@ -62,6 +65,7 @@ class HasegawaWakataniStep(Propagator):
         omega : FEECVariable
             Vorticity variable in ``"H1"`` space.
         """
+
         def __init__(self):
             self._n: FEECVariable = None
             self._omega: FEECVariable = None
@@ -122,6 +126,7 @@ class HasegawaWakataniStep(Propagator):
             Iterative-solver controls. If ``None``, defaults to
             ``SolverParameters()``.
         """
+
         # specific literals
         OptsCfun = Literal["const"]
         # propagator options

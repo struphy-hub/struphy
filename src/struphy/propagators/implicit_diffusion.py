@@ -1,12 +1,14 @@
 import logging
 from dataclasses import dataclass
 from typing import Callable, Literal, get_args
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import ComposedLinearOperator, IdentityOperator, ZeroOperator
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
+
 from struphy.feec.mass import L2Projector, WeightedMassOperator, WeightedMassOperators
 from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
@@ -59,6 +61,7 @@ class ImplicitDiffusion(Propagator):
         phi : FEECVariable
             Scalar solution field in H^1 space.
         """
+
         def __init__(self):
             self._phi: FEECVariable = None
 

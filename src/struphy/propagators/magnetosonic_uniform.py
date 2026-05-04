@@ -1,7 +1,9 @@
 import logging
 from dataclasses import dataclass
+
 from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
+
 from struphy.feec import preconditioner
 from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.schur_solver import SchurSolver, SchurSolverFull
@@ -77,6 +79,7 @@ class MagnetosonicUniform(Propagator):
         p : FEECVariable
             Pressure perturbation variable in ``"L2"`` space.
         """
+
         def __init__(self):
             self._n: FEECVariable = None
             self._u: FEECVariable = None
@@ -131,6 +134,7 @@ class MagnetosonicUniform(Propagator):
             Iterative-solver controls. If ``None``, defaults to
             ``SolverParameters()``.
         """
+
         solver: LiteralOptions.OptsGenSolver = "pbicgstab"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None

@@ -1,6 +1,8 @@
 import logging
+
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilVector
+
 from struphy.feec import preconditioner
 from struphy.feec.mass import L2Projector, WeightedMassOperator, WeightedMassOperators
 from struphy.fields_background.equils import set_defaults

@@ -1,12 +1,14 @@
 import logging
 from dataclasses import dataclass
 from typing import Callable, Literal, get_args
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import ComposedLinearOperator, IdentityOperator, ZeroOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+
 from struphy.feec import preconditioner
 from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner, MassMatrixPreconditioner
 from struphy.feec.variational_utilities import (
@@ -79,6 +81,7 @@ class VariationalMagFieldEvolve(Propagator):
         b : FEECVariable
             Magnetic-field variable in ``"Hdiv"`` space.
         """
+
         def __init__(self):
             self._u: FEECVariable = None
             self._b: FEECVariable = None
@@ -123,6 +126,7 @@ class VariationalMagFieldEvolve(Propagator):
         nonlin_solver : NonlinearSolverParameters, default=None
             Nonlinear iteration controls.
         """
+
         OptsModel = Literal["full", "full_p", "linear"]
         # propagator options
         model: OptsModel = "full"

@@ -1,8 +1,10 @@
 import logging
 from dataclasses import dataclass
+
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+
 from struphy.feec import preconditioner
 from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
@@ -43,6 +45,7 @@ class CurrentCoupling5DDensity(Propagator):
             Fluid-like FEEC variable in one of ``"Hcurl"``, ``"Hdiv"``, or
             ``"H1vec"``.
         """
+
         def __init__(self):
             self._u: FEECVariable = None
 
@@ -93,6 +96,7 @@ class CurrentCoupling5DDensity(Propagator):
             Particle-to-grid filtering parameters used by the accumulator.
             If ``None``, defaults to ``FilterParameters()``.
         """
+
         # propagator options
         energetic_ions: PICVariable = None
         b_tilde: FEECVariable = None

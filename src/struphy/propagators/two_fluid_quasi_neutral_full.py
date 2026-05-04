@@ -2,11 +2,13 @@ import logging
 from dataclasses import dataclass
 from typing import Callable, Literal, get_args
 from warnings import warn
+
 from feectools.api.essential_bc import apply_essential_bc_stencil
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import ComposedLinearOperator, IdentityOperator, ZeroOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from feectools.linalg.solvers import inverse
+
 from struphy.feec.basis_projection_ops import (
     BasisProjectionOperator,
     BasisProjectionOperatorLocal,
@@ -54,6 +56,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         phi : FEECVariable or None
             Electrostatic potential variable in ``"L2"`` space.
         """
+
         def __init__(self) -> None:
             self._u: FEECVariable | None = None
             self._ue: FEECVariable | None = None
@@ -123,6 +126,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         solver_params : SolverParameters or None, default=None
             Solver controls.
         """
+
         nu: float = 1.0
         nu_e: float = 1.0
         eps_norm: float = 1e-3

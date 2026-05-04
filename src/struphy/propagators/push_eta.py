@@ -10,6 +10,8 @@ from struphy.pic.pushing import pusher_kernels
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
+
+
 class PushEta(Propagator):
     r"""For each marker :math:`p`, solves
 
@@ -36,6 +38,7 @@ class PushEta(Propagator):
         var : PICVariable or SPHVariable
             Particle variable whose marker positions are advanced.
         """
+
         def __init__(self):
             self._var: PICVariable | SPHVariable = None
 
@@ -61,6 +64,7 @@ class PushEta(Propagator):
             Butcher tableau used for explicit Runge-Kutta marker pushing.
             If ``None``, defaults to ``ButcherTableau()``.
         """
+
         butcher: ButcherTableau = None
 
         def __post_init__(self):
@@ -118,5 +122,3 @@ class PushEta(Propagator):
         # update_weights
         if self.variables.var.particles.control_variate:
             self.variables.var.particles.update_weights()
-
-

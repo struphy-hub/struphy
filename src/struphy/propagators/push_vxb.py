@@ -13,6 +13,8 @@ from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
+
+
 class PushVxB(Propagator):
     r"""For each marker :math:`p`, solves
 
@@ -40,6 +42,7 @@ class PushVxB(Propagator):
         ions : PICVariable or SPHVariable
             Particle variable whose velocities are advanced.
         """
+
         def __init__(self):
             self._ions: PICVariable | SPHVariable = None
 
@@ -69,6 +72,7 @@ class PushVxB(Propagator):
             Optional additional magnetic-field 2-form added to the projected
             equilibrium field before pushing.
         """
+
         # specific literals
         OptsAlgo = Literal["analytic", "implicit"]
         # propagator options
@@ -158,5 +162,3 @@ class PushVxB(Propagator):
         # update_weights
         if self.variables.ions.particles.control_variate:
             self.variables.ions.particles.update_weights()
-
-

@@ -70,6 +70,7 @@ class CurrentCoupling5DCurlb(Propagator):
         energetic_ions : PICVariable
             Energetic-ion particle variable in ``"Particles5D"`` space.
         """
+
         def __init__(self):
             self._u: FEECVariable = None
             self._energetic_ions: PICVariable = None
@@ -128,6 +129,7 @@ class CurrentCoupling5DCurlb(Propagator):
             Particle-to-grid filtering parameters used by the accumulator.
             If ``None``, defaults to ``FilterParameters()``.
         """
+
         # propagator options
         b_tilde: FEECVariable = None
         ep_scale: float = 1.0

@@ -2,12 +2,14 @@ import logging
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Callable, Literal, get_args
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import ComposedLinearOperator, IdentityOperator, ZeroOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+
 from struphy.feec import preconditioner
 from struphy.feec.mass import L2Projector, WeightedMassOperator, WeightedMassOperators
 from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner, MassMatrixPreconditioner
@@ -83,6 +85,7 @@ class VariationalEntropyEvolve(Propagator):
         u : FEECVariable
             Velocity variable in ``"H1vec"`` space.
         """
+
         def __init__(self):
             self._s: FEECVariable = None
             self._u: FEECVariable = None
@@ -131,6 +134,7 @@ class VariationalEntropyEvolve(Propagator):
         rho : FEECVariable, default=None
             Density variable used in variational forms.
         """
+
         # specific literals
         OptsModel = Literal["full"]
         # propagator options

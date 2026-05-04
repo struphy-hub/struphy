@@ -1,10 +1,12 @@
 import logging
 from dataclasses import dataclass
 from typing import Callable, Literal, get_args
+
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+
 from struphy.feec import preconditioner
 from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.schur_solver import SchurSolver, SchurSolverFull
@@ -47,6 +49,7 @@ class ShearAlfvenPropagator(Propagator):
         b : FEECVariable
             Magnetic-field variable in ``"Hdiv"`` space.
         """
+
         def __init__(self):
             self._u: FEECVariable = None
             self._b: FEECVariable = None
@@ -93,6 +96,7 @@ class ShearAlfvenPropagator(Propagator):
         butcher : ButcherTableau, default=None
             Explicit Runge-Kutta tableau when ``algo="explicit"``.
         """
+
         # specific literals
         OptsAlgo = Literal["implicit", "explicit"]
         # propagator options

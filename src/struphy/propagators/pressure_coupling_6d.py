@@ -59,6 +59,7 @@ class PressureCoupling6D(Propagator):
         energetic_ions : PICVariable
             Energetic-ion particle variable in ``"Particles6D"`` space.
         """
+
         def __init__(self):
             self._u: FEECVariable = None
             self._energetic_ions: PICVariable = None
@@ -117,6 +118,7 @@ class PressureCoupling6D(Propagator):
             If ``True``, use the perpendicular pressure-coupling model;
             otherwise use the full-model kernels.
         """
+
         # propagator options
         ep_scale: float = 1.0
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"

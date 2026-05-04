@@ -13,6 +13,8 @@ from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
+
+
 class PushEtaPC(Propagator):
     r"""For each marker :math:`p`, solves
 
@@ -49,6 +51,7 @@ class PushEtaPC(Propagator):
         var : PICVariable or SPHVariable
             Particle variable whose marker positions are advanced.
         """
+
         def __init__(self):
             self._var: PICVariable | SPHVariable = None
 
@@ -84,6 +87,7 @@ class PushEtaPC(Propagator):
         u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
             FEEC space used to interpret ``u_tilde`` in the pusher kernel.
         """
+
         butcher: ButcherTableau = None
         use_perp_model: bool = True
         u_tilde: FEECVariable = None
@@ -162,5 +166,3 @@ class PushEtaPC(Propagator):
         # update_weights
         if self.variables.var.particles.control_variate:
             self.variables.var.particles.update_weights()
-
-

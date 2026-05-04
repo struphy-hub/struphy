@@ -1,10 +1,12 @@
 import logging
 from dataclasses import dataclass
 from typing import Callable, Literal, get_args
+
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import (
     BasisProjectionOperator,
@@ -73,6 +75,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         b : FEECVariable
             Magnetic-field variable in ``"Hdiv"`` space.
         """
+
         def __init__(self):
             self._u: FEECVariable = None
             self._b: FEECVariable = None
@@ -127,6 +130,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         nonlinear : bool, default=True
             If ``True``, include nonlinear TB operator updates.
         """
+
         # specific literals
         OptsAlgo = Literal["implicit", "explicit"]
         # propagator options

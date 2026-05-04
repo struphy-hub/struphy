@@ -51,6 +51,7 @@ class CurrentCoupling6DCurrent(Propagator):
             Fluid-like FEEC variable in one of ``"Hcurl"``, ``"Hdiv"``, or
             ``"H1vec"``.
         """
+
         def __init__(self):
             self._ions: PICVariable = None
             self._u: FEECVariable = None
@@ -107,6 +108,7 @@ class CurrentCoupling6DCurrent(Propagator):
             Boundary clipping parameters forwarded to accumulation/pushing
             kernels.
         """
+
         # propagator options
         b_tilde: FEECVariable = None
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
