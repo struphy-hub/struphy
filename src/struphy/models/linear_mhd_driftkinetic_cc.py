@@ -24,8 +24,9 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.polar.basic import PolarVector
+from struphy.propagators.current_coupling_5d_curlb import CurrentCoupling5DCurlb
+from struphy.propagators.current_coupling_5d_gradb import CurrentCoupling5DGradB
 from struphy.propagators import (
-    propagators_coupling,
     propagators_fields,
 )
 from struphy.propagators.base import Propagator
@@ -104,8 +105,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
     1. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
     2. :class:`~struphy.propagators.push_guiding_center_parallel.PushGuidingCenterParallel`
-    3. :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DGradB`
-    4. :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb`
+    3. :class:`~struphy.propagators.current_coupling_5d_gradb.CurrentCoupling5DGradB`
+    4. :class:`~struphy.propagators.current_coupling_5d_curlb.CurrentCoupling5DCurlb`
     5. :class:`~struphy.propagators.current_coupling_5d_density.CurrentCoupling5DDensity`
     6. :class:`~struphy.propagators.shear_alfven_current_coupling_5d.ShearAlfvenCurrentCoupling5D`
     7. :class:`~struphy.propagators.magnetosonic.Magnetosonic`
@@ -159,9 +160,9 @@ class LinearMHDDriftkineticCC(StruphyModel):
             if "CurrentCoupling5DDensity" not in turn_off:
                 self.cc5d_density = CurrentCoupling5DDensity()
             if "CurrentCoupling5DGradB" not in turn_off:
-                self.cc5d_gradb = propagators_coupling.CurrentCoupling5DGradB()
+                self.cc5d_gradb = CurrentCoupling5DGradB()
             if "CurrentCoupling5DCurlb" not in turn_off:
-                self.cc5d_curlb = propagators_coupling.CurrentCoupling5DCurlb()
+                self.cc5d_curlb = CurrentCoupling5DCurlb()
 
     def __init__(
         self,
@@ -328,13 +329,13 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
     {PushGuidingCenterParallel.__doc__}
 
-**3. propagators_coupling.CurrentCoupling5DGradB:**
+**3. current_coupling_5d_gradb.CurrentCoupling5DGradB:**
 
-{propagators_coupling.CurrentCoupling5DGradB.__doc__}
+{CurrentCoupling5DGradB.__doc__}
 
-**4. propagators_coupling.CurrentCoupling5DCurlb:**
+**4. current_coupling_5d_curlb.CurrentCoupling5DCurlb:**
 
-{propagators_coupling.CurrentCoupling5DCurlb.__doc__}
+{CurrentCoupling5DCurlb.__doc__}
 
 **5. CurrentCoupling5DDensity:**
 

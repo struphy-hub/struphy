@@ -15,8 +15,8 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+from struphy.propagators.vlasov_ampere_coupling import VlasovAmpereCoupling
 from struphy.propagators import (
-    propagators_coupling,
     propagators_fields,
 )
 from struphy.propagators.base import Propagator
@@ -102,7 +102,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
     1. :class:`~struphy.propagators.maxwell.Maxwell`
     2. :class:`~struphy.propagators.push_eta.PushEta`
     3. :class:`~struphy.propagators.push_vxb.PushVxB`
-    4. :class:`~struphy.propagators.propagators_coupling.VlasovAmpere`
+    4. :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling`
 
     :ref:`Model info <add_model>`:
     """
@@ -143,7 +143,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             self.maxwell = MaxwellWeakAmpere()
             self.push_eta = PushEta()
             self.push_vxb = PushVxB()
-            self.coupling_va = propagators_coupling.VlasovAmpereCoupling()
+            self.coupling_va = VlasovAmpereCoupling()
 
     ## abstract methods
 
@@ -288,9 +288,9 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
 {PushVxB.__doc__}
 
-**4. propagators_coupling.VlasovAmpere:**
+**4. vlasov_ampere_coupling.VlasovAmpereCoupling:**
 
-{propagators_coupling.VlasovAmpereCoupling.__doc__}
+{VlasovAmpereCoupling.__doc__}
 """
         return doc
 

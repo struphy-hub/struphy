@@ -17,8 +17,8 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+from struphy.propagators.vlasov_ampere_coupling import VlasovAmpereCoupling
 from struphy.propagators import (
-    propagators_coupling,
     propagators_fields,
 )
 from struphy.propagators.base import Propagator
@@ -75,7 +75,7 @@ class ColdPlasmaVlasov(StruphyModel):
     3. :class:`~struphy.propagators.jxb_cold.JxBCold`
     4. :class:`~struphy.propagators.push_vxb.PushVxB`
     5. :class:`~struphy.propagators.push_eta.PushEta`
-    6. :class:`~struphy.propagators.propagators_coupling.VlasovAmpere`
+    6. :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling`
     """
 
     @classmethod
@@ -130,7 +130,7 @@ class ColdPlasmaVlasov(StruphyModel):
             self.jxb = JxBCold()
             self.push_eta = PushEta()
             self.push_vxb = PushVxB()
-            self.coupling_va = propagators_coupling.VlasovAmpereCoupling()
+            self.coupling_va = VlasovAmpereCoupling()
 
     ## abstract methods
 
@@ -294,9 +294,9 @@ class ColdPlasmaVlasov(StruphyModel):
 
 {PushVxB.__doc__}
 
-**6. propagators_coupling.VlasovAmpere:**
+**6. vlasov_ampere_coupling.VlasovAmpereCoupling:**
 
-{propagators_coupling.VlasovAmpereCoupling.__doc__}
+{VlasovAmpereCoupling.__doc__}
 """
         return doc
 

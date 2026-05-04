@@ -10,8 +10,8 @@ from struphy.models.species import (
     ParticleSpecies,
 )
 from struphy.models.variables import FEECVariable, PICVariable
+from struphy.propagators.efield_weights_coupling import EfieldWeightsCoupling
 from struphy.propagators import (
-    propagators_coupling,
     propagators_fields,
 )
 from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
@@ -84,7 +84,7 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
 
     1. :class:`~struphy.propagators.push_eta.PushEta`
     2. :class:`~struphy.propagators.push_vin_efield.PushVinEfield`
-    3. :class:`~struphy.propagators.propagators_coupling.EfieldWeights`
+    3. :class:`~struphy.propagators.efield_weights_coupling.EfieldWeightsCoupling`
     4. :class:`~struphy.propagators.push_vxb.PushVxB`
     5. :class:`~struphy.propagators.maxwell.Maxwell`
 
@@ -131,7 +131,7 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
             self.push_eta = PushEta()
             if with_E0:
                 self.push_vinE = PushVinEfield()
-            self.coupling_Eweights = propagators_coupling.EfieldWeightsCoupling()
+            self.coupling_Eweights = EfieldWeightsCoupling()
             if with_B0:
                 self.push_vxb = PushVxB()
             self.maxwell = MaxwellWeakAmpere()
@@ -274,9 +274,9 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
 
     {PushVinEfield.__doc__}
 
-**3. propagators_coupling.EfieldWeights:**
+**3. efield_weights_coupling.EfieldWeightsCoupling:**
 
-{propagators_coupling.EfieldWeightsCoupling.__doc__}
+{EfieldWeightsCoupling.__doc__}
 
 **4. push_vxb.PushVxB:**
 

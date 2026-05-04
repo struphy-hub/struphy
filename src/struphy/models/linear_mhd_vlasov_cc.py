@@ -17,8 +17,8 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.polar.basic import PolarVector
+from struphy.propagators.current_coupling_6d_current import CurrentCoupling6DCurrent
 from struphy.propagators import (
-    propagators_coupling,
     propagators_fields,
 )
 from struphy.propagators.base import Propagator
@@ -76,7 +76,7 @@ class LinearMHDVlasovCC(StruphyModel):
 
     1. :class:`~struphy.propagators.current_coupling_6d_density.CurrentCoupling6DDensity`
     2. :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`
-    3. :class:`~struphy.propagators.propagators_coupling.CurrentCoupling6DCurrent`
+    3. :class:`~struphy.propagators.current_coupling_6d_current.CurrentCoupling6DCurrent`
     4. :class:`~struphy.propagators.push_eta.PushEta`
     5. :class:`~struphy.propagators.push_vxb.PushVxB`
     6. :class:`~struphy.propagators.magnetosonic.Magnetosonic`
@@ -122,7 +122,7 @@ class LinearMHDVlasovCC(StruphyModel):
         def __init__(self):
             self.couple_dens = CurrentCoupling6DDensity()
             self.shear_alf = ShearAlfvenPropagator()
-            self.couple_curr = propagators_coupling.CurrentCoupling6DCurrent()
+            self.couple_curr = CurrentCoupling6DCurrent()
             self.push_eta = PushEta()
             self.push_vxb = PushVxB()
             self.mag_sonic = Magnetosonic()
@@ -270,9 +270,9 @@ class LinearMHDVlasovCC(StruphyModel):
 
 {ShearAlfvenPropagator.__doc__}
 
-**3. propagators_coupling.CurrentCoupling6DCurrent:**
+**3. current_coupling_6d_current.CurrentCoupling6DCurrent:**
 
-{propagators_coupling.CurrentCoupling6DCurrent.__doc__}
+{CurrentCoupling6DCurrent.__doc__}
 
 **4. push_eta.PushEta:**
 

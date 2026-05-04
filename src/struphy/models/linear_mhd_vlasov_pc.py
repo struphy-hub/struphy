@@ -15,8 +15,8 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.polar.basic import PolarVector
+from struphy.propagators.pressure_coupling_6d import PressureCoupling6D
 from struphy.propagators import (
-    propagators_coupling,
     propagators_fields,
 )
 from struphy.propagators.base import Propagator
@@ -81,7 +81,7 @@ class LinearMHDVlasovPC(StruphyModel):
 
     1. :class:`~struphy.propagators.push_eta_pc.PushEtaPC`
     2. :class:`~struphy.propagators.push_vxb.PushVxB`
-    3. :class:`~struphy.propagators.propagators_coupling.PressureCoupling6D`
+    3. :class:`~struphy.propagators.pressure_coupling_6d.PressureCoupling6D`
     4. :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`
     5. :class:`~struphy.propagators.magnetosonic.Magnetosonic`
 
@@ -128,7 +128,7 @@ class LinearMHDVlasovPC(StruphyModel):
             if "PushVxB" not in turn_off:
                 self.push_vxb = PushVxB()
             if "PressureCoupling6D" not in turn_off:
-                self.pc6d = propagators_coupling.PressureCoupling6D()
+                self.pc6d = PressureCoupling6D()
             if "ShearAlfven" not in turn_off:
                 self.shearalfven = ShearAlfvenPropagator()
             if "Magnetosonic" not in turn_off:
@@ -273,9 +273,9 @@ class LinearMHDVlasovPC(StruphyModel):
 
     {PushVxB.__doc__}
 
-**3. propagators_coupling.PressureCoupling6D:**
+**3. pressure_coupling_6d.PressureCoupling6D:**
 
-{propagators_coupling.PressureCoupling6D.__doc__}
+{PressureCoupling6D.__doc__}
 
 **4. ShearAlfvenPropagator:**
 

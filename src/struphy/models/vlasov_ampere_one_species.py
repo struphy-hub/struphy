@@ -15,8 +15,8 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+from struphy.propagators.vlasov_ampere_coupling import VlasovAmpereCoupling
 from struphy.propagators import (
-    propagators_coupling,
     propagators_fields,
 )
 from struphy.propagators.base import Propagator
@@ -84,7 +84,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
             self.push_eta = PushEta()
             if with_B0:
                 self.push_vxb = PushVxB()
-            self.coupling_va = propagators_coupling.VlasovAmpereCoupling()
+            self.coupling_va = VlasovAmpereCoupling()
 
     # abstract methods
 
@@ -215,9 +215,9 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
 {PushVxB.__doc__}
 
-**3. propagators_coupling.VlasovAmpere:**
+**3. vlasov_ampere_coupling.VlasovAmpereCoupling:**
 
-{propagators_coupling.VlasovAmpereCoupling.__doc__}
+{VlasovAmpereCoupling.__doc__}
 """
         return doc
 
