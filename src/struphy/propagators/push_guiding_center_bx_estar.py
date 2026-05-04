@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from typing import Literal
+
 from line_profiler import profile
 
 from struphy.io.options import LiteralOptions

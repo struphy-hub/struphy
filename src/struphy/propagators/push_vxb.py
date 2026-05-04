@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from typing import Literal
+
 from feectools.linalg.basic import LinearOperator
 from feectools.linalg.block import BlockVector
 from line_profiler import profile

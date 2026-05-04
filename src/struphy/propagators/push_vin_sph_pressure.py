@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from typing import Literal
+
 import cunumpy as xp
 from line_profiler import profile
 
