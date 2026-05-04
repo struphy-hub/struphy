@@ -14,6 +14,7 @@ from struphy.propagators import (
     propagators_fields,
     propagators_markers,
 )
+from struphy.propagators.maxwell import Maxwell
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -83,7 +84,7 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
     2. :class:`~struphy.propagators.propagators_markers.PushVinEfield`
     3. :class:`~struphy.propagators.propagators_coupling.EfieldWeights`
     4. :class:`~struphy.propagators.propagators_markers.PushVxB`
-    5. :class:`~struphy.propagators.propagators_fields.Maxwell`
+    5. :class:`~struphy.propagators.maxwell.Maxwell`
 
     :ref:`Model info <add_model>`:
     """
@@ -131,7 +132,7 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
             self.coupling_Eweights = propagators_coupling.EfieldWeights()
             if with_B0:
                 self.push_vxb = propagators_markers.PushVxB()
-            self.maxwell = propagators_fields.Maxwell()
+            self.maxwell = Maxwell()
 
     ## abstract methods
 
@@ -279,9 +280,9 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
 
 {propagators_markers.PushVxB.__doc__}
 
-**5. propagators_fields.Maxwell:**
+**5. propagators.maxwell.Maxwell:**
 
-{propagators_fields.Maxwell.__doc__}
+{Maxwell.__doc__}
 """
         return doc
 

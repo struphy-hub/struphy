@@ -11,6 +11,7 @@ from struphy.models.variables import FEECVariable
 from struphy.propagators import (
     propagators_fields,
 )
+from struphy.propagators.maxwell import Maxwell
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -43,7 +44,7 @@ class ColdPlasma(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.Maxwell`
+    1. :class:`~struphy.propagators.maxwell.Maxwell`
     2. :class:`~struphy.propagators.propagators_fields.OhmCold`
     3. :class:`~struphy.propagators.propagators_fields.JxBCold`
 
@@ -82,7 +83,7 @@ class ColdPlasma(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.maxwell = propagators_fields.Maxwell()
+            self.maxwell = Maxwell()
             self.ohm = propagators_fields.OhmCold()
             self.jxb = propagators_fields.JxBCold()
 
@@ -194,9 +195,9 @@ class ColdPlasma(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_fields.Maxwell:**
+        doc = rf"""**1. propagators.maxwell.Maxwell:**
 
-{propagators_fields.Maxwell.__doc__}
+{Maxwell.__doc__}
 
 **2. propagators_fields.OhmCold:**
 

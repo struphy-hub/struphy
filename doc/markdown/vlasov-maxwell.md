@@ -601,7 +601,7 @@ For our example model {class}`~struphy.models.kinetic.VlasovMaxwellOneSpecies`, 
 
 3. $\Phi^3_{t}$ in {class}`~struphy.propagators.propagators_coupling.VlasovAmpere`,
 
-4. $\Phi^4_{t}$ in {class}`~struphy.propagators.propagators_fields.Maxwell`.
+4. $\Phi^4_{t}$ in {class}`~struphy.propagators.maxwell.Maxwell`.
 
 Let us revisit the third step $\Phi^3_{t}$, which is the most complicated because it is a particle-field coupling step, where marker velocities and FE coefficients are updated simultaneously. Explicitly, the ODE of this step reads
 

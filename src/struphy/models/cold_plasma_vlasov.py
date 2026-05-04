@@ -20,6 +20,7 @@ from struphy.propagators import (
     propagators_markers,
 )
 from struphy.propagators.base import Propagator
+from struphy.propagators.maxwell import Maxwell
 from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
@@ -66,7 +67,7 @@ class ColdPlasmaVlasov(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.Maxwell`
+    1. :class:`~struphy.propagators.maxwell.Maxwell`
     2. :class:`~struphy.propagators.propagators_fields.OhmCold`
     3. :class:`~struphy.propagators.propagators_fields.JxBCold`
     4. :class:`~struphy.propagators.propagators_markers.PushVxB`
@@ -121,7 +122,7 @@ class ColdPlasmaVlasov(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.maxwell = propagators_fields.Maxwell()
+            self.maxwell = Maxwell()
             self.ohm = propagators_fields.OhmCold()
             self.jxb = propagators_fields.JxBCold()
             self.push_eta = propagators_markers.PushEta()
@@ -270,9 +271,9 @@ class ColdPlasmaVlasov(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_fields.Maxwell:**
+        doc = rf"""**1. propagators.maxwell.Maxwell:**
 
-{propagators_fields.Maxwell.__doc__}
+{Maxwell.__doc__}
 
 **2. propagators_fields.OhmCold:**
 
