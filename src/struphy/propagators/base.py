@@ -25,9 +25,7 @@ class Propagator(metaclass=ABCMeta):
 
     Note
     ----
-    All Struphy propagators are subclasses of ``Propagator`` and must be added to ``struphy/propagators``
-    in one of the modules ``propagators_fields.py``, ``propagators_markers.py`` or ``propagators_coupling.py``.
-    Only propagators that update both a FEEC and a PIC species go into ``propagators_coupling.py``.
+    All Struphy propagators are subclasses of ``Propagator`` and must be added under ``struphy/propagators/``. 
     """
 
     @abstractmethod

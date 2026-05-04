@@ -1,12 +1,9 @@
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
-from struphy.propagators.implicit_diffusion import ImplicitDiffusion
 from struphy.propagators.poisson_field_solve import PoissonFieldSolve
 
 from struphy import BaseUnits
-from struphy.feec.mass import L2Projector
 from struphy.io.options import LiteralOptions
-from struphy.kinetic_background.base import KineticBackground
 from struphy.models.base import StruphyModel
 from struphy.models.scalars import FunctionScalarFEEC, KineticEnergyPIC, Scalars
 from struphy.models.species import (
@@ -16,9 +13,6 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels_gc
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
-from struphy.propagators import (
-    propagators_fields,
-)
 from struphy.propagators.base import Propagator
 from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
 from struphy.utils.pyccel import Pyccelkernel

@@ -853,38 +853,6 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         assert isinstance(new_units, Units)
         self._units = new_units
 
-    # @property
-    # def prop_fields(self):
-    #     """Module :mod:`struphy.propagators.propagators_fields`."""
-    #     return self._prop_fields
-
-    # @property
-    # def prop_coupling(self):
-    #     """Module :mod:`struphy.propagators.propagators_coupling`."""
-    #     return self._prop_coupling
-
-    # @property
-    # def prop_markers(self):
-    #     """Module :mod:`struphy.propagators.propagators_markers`."""
-    #     return self._prop_markers
-
-    # @property
-    # def kwargs(self):
-    #     """Dictionary holding the keyword arguments for each propagator specified in :attr:`~propagators_cls`.
-    #     Keys must be the same as in :attr:`~propagators_cls`, values are dictionaries holding the keyword arguments."""
-    #     return self._kwargs
-
-    # @property
-    # def scalar_quantities(self):
-    #     """A dictionary of scalar quantities to be saved during the simulation."""
-    #     if not hasattr(self, "_scalar_quantities"):
-    #         self._scalar_quantities = {}
-    #     return self._scalar_quantities
-
-    # @property
-    # def time_state(self):
-    #     """A pointer to the time variable of the dynamics ('t')."""
-    #     return self._time_state
 
 class Documentation:
     def __init__(

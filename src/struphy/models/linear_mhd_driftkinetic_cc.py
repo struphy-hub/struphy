@@ -26,9 +26,6 @@ from struphy.models.variables import FEECVariable, PICVariable
 from struphy.polar.basic import PolarVector
 from struphy.propagators.current_coupling_5d_curlb import CurrentCoupling5DCurlb
 from struphy.propagators.current_coupling_5d_gradb import CurrentCoupling5DGradB
-from struphy.propagators import (
-    propagators_fields,
-)
 from struphy.propagators.base import Propagator
 from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
 from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel

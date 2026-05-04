@@ -11,9 +11,6 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.propagators.efield_weights_coupling import EfieldWeightsCoupling
-from struphy.propagators import (
-    propagators_fields,
-)
 from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
 from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vin_efield import PushVinEfield

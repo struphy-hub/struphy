@@ -18,9 +18,6 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.polar.basic import PolarVector
 from struphy.propagators.current_coupling_6d_current import CurrentCoupling6DCurrent
-from struphy.propagators import (
-    propagators_fields,
-)
 from struphy.propagators.base import Propagator
 from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vxb import PushVxB

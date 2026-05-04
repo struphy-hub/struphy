@@ -16,9 +16,6 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.polar.basic import PolarVector
 from struphy.propagators.pressure_coupling_6d import PressureCoupling6D
-from struphy.propagators import (
-    propagators_fields,
-)
 from struphy.propagators.base import Propagator
 from struphy.propagators.push_eta_pc import PushEtaPC
 from struphy.propagators.push_vxb import PushVxB

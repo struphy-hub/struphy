@@ -24,7 +24,7 @@ from struphy.pic.accumulation.accum_kernels import charge_density_0form
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.pic.particles import Particles6D
 from struphy.propagators.base import Propagator
-from struphy.propagators.propagators_fields import ImplicitDiffusion, Poisson
+from struphy.propagators.poisson_field_solve import PoissonFieldSolve
 from struphy.topology.grids import TensorProductGrid
 from struphy.utils.pyccel import Pyccelkernel
 
@@ -197,7 +197,7 @@ def test_poisson_1d(
             _phi = FEECVariable(space="H1")
             _phi.allocate(derham=derham, domain=domain)
 
-            poisson_solver = Poisson()
+            poisson_solver = PoissonFieldSolve()
             poisson_solver.variables.phi = _phi
 
             poisson_solver.options = poisson_solver.Options(
@@ -366,7 +366,7 @@ def test_poisson_accum_1d(mapping, do_plot=False):
     _phi = FEECVariable(space="H1")
     _phi.allocate(derham=derham, domain=domain)
 
-    poisson_solver = Poisson()
+    poisson_solver = PoissonFieldSolve()
     poisson_solver.variables.phi = _phi
 
     poisson_solver.options = poisson_solver.Options(
@@ -565,7 +565,7 @@ def test_poisson_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_
     _phi1 = FEECVariable(space="H1")
     _phi1.allocate(derham=derham, domain=domain)
 
-    poisson_solver1 = Poisson()
+    poisson_solver1 = PoissonFieldSolve()
     poisson_solver1.variables.phi = _phi1
 
     poisson_solver1.options = poisson_solver1.Options(
@@ -581,14 +581,14 @@ def test_poisson_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_
     poisson_solver1.allocate()
 
     # _phi1 = derham.create_spline_function("test1", "H1")
-    # poisson_solver1 = Poisson(
+    # poisson_solver1 = PoissonFieldSolve(
     #     _phi1.vector, sigma_1=1e-8, sigma_2=0.0, sigma_3=1.0, rho=rho_vec1, solver=solver_params
     # )
 
     _phi2 = FEECVariable(space="H1")
     _phi2.allocate(derham=derham, domain=domain)
 
-    poisson_solver2 = Poisson()
+    poisson_solver2 = PoissonFieldSolve()
     poisson_solver2.variables.phi = _phi2
 
     stab_eps = 1e-8
