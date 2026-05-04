@@ -7,7 +7,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, FunctionScalarPIC, KineticEnergyPIC, Scalars
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarPIC, KineticEnergyPIC, Scalars
 from struphy.models.species import (
     FieldSpecies,
     ParticleSpecies,
@@ -16,9 +16,6 @@ from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.propagators.vlasov_ampere_coupling import VlasovAmpereCoupling
-from struphy.propagators import (
-    propagators_fields,
-)
 from struphy.propagators.base import Propagator
 from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
 from struphy.propagators.push_eta import PushEta
