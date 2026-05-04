@@ -1,9 +1,9 @@
 import logging
 from dataclasses import dataclass
-from typing import Callable, Literal, get_args
+from typing import Literal
 
 from feectools.ddm.mpi import mpi as MPI
-from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
+from feectools.linalg.block import BlockVector
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
 
@@ -11,18 +11,16 @@ from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import (
     BasisProjectionOperator,
     BasisProjectionOperatorLocal,
-    BasisProjectionOperators,
-    CoordinateProjector,
 )
 from struphy.io.options import LiteralOptions
-from struphy.linear_algebra.schur_solver import SchurSolver, SchurSolverFull
-from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
-from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
+from struphy.linear_algebra.schur_solver import SchurSolver
+from struphy.linear_algebra.solver import SolverParameters
+from struphy.models.variables import FEECVariable, PICVariable
 from struphy.ode.solvers import ODEsolverFEEC
 from struphy.ode.utils import ButcherTableau
-from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
+from struphy.pic.accumulation import accum_kernels_gc
 from struphy.pic.accumulation.filter import FilterParameters
-from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
+from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option

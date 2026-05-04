@@ -1,7 +1,6 @@
 "Only particle variables are updated."
 
 from dataclasses import dataclass
-from typing import Literal
 
 from line_profiler import profile
 

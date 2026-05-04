@@ -1,10 +1,10 @@
 from dataclasses import dataclass
-from typing import Callable, Literal, get_args
+from typing import Literal
 
 import cunumpy as xp
 from line_profiler import profile
 
-from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
+from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
 

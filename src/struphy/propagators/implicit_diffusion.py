@@ -1,19 +1,19 @@
 import logging
 from dataclasses import dataclass
-from typing import Callable, Literal, get_args
+from typing import Callable, Literal
 
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
-from feectools.linalg.basic import ComposedLinearOperator, IdentityOperator, ZeroOperator
+from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
 
-from struphy.feec.mass import L2Projector, WeightedMassOperator, WeightedMassOperators
+from struphy.feec.mass import L2Projector, WeightedMassOperator
 from struphy.io.options import LiteralOptions
-from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
-from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
-from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
+from struphy.linear_algebra.solver import SolverParameters
+from struphy.models.variables import FEECVariable
+from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option

@@ -7,11 +7,11 @@ from line_profiler import profile
 
 from struphy.feec import preconditioner
 from struphy.io.options import LiteralOptions
-from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
-from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
-from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
+from struphy.linear_algebra.solver import SolverParameters
+from struphy.models.variables import FEECVariable, PICVariable
+from struphy.pic.accumulation import accum_kernels_gc
 from struphy.pic.accumulation.filter import FilterParameters
-from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
+from struphy.pic.accumulation.particles_to_grid import Accumulator
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option

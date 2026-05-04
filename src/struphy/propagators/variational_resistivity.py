@@ -1,7 +1,7 @@
 import logging
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Callable, Literal, get_args
+from typing import Literal
 
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
@@ -9,17 +9,11 @@ from feectools.linalg.solvers import inverse
 from line_profiler import profile
 
 from struphy.feec import preconditioner
-from struphy.feec.mass import L2Projector, WeightedMassOperator, WeightedMassOperators
-from struphy.feec.variational_utilities import (
-    BracketOperator,
-    Hdiv0_transport_operator,
-    InternalEnergyEvaluator,
-    KineticEnergyEvaluator,
-    Pressure_transport_operator,
-)
+from struphy.feec.mass import L2Projector
+from struphy.feec.variational_utilities import InternalEnergyEvaluator
 from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
-from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
+from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
 

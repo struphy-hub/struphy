@@ -1,24 +1,19 @@
 import logging
 from dataclasses import dataclass
-from typing import Callable, Literal, get_args
+from typing import Callable, get_args
 from warnings import warn
 
 from feectools.api.essential_bc import apply_essential_bc_stencil
 from feectools.ddm.mpi import mpi as MPI
-from feectools.linalg.basic import ComposedLinearOperator, IdentityOperator, ZeroOperator
+from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from feectools.linalg.solvers import inverse
 
-from struphy.feec.basis_projection_ops import (
-    BasisProjectionOperator,
-    BasisProjectionOperatorLocal,
-    BasisProjectionOperators,
-    CoordinateProjector,
-)
-from struphy.feec.mass import L2Projector, WeightedMassOperator, WeightedMassOperators
+from struphy.feec.basis_projection_ops import BasisProjectionOperators
+from struphy.feec.mass import L2Projector, WeightedMassOperators
 from struphy.io.options import LiteralOptions
-from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
-from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
+from struphy.linear_algebra.solver import SolverParameters
+from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
 

@@ -1,27 +1,24 @@
 import logging
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Callable, Literal, get_args
+from typing import Literal
 
 import cunumpy as xp
-from feectools.linalg.basic import ComposedLinearOperator, IdentityOperator, ZeroOperator
-from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
+from feectools.linalg.basic import IdentityOperator
+from feectools.linalg.block import BlockLinearOperator, BlockVectorSpace
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
 
 from struphy.feec import preconditioner
-from struphy.feec.mass import L2Projector, WeightedMassOperator, WeightedMassOperators
-from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner, MassMatrixPreconditioner
+from struphy.feec.mass import L2Projector
+from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner
 from struphy.feec.variational_utilities import (
-    BracketOperator,
     Hdiv0_transport_operator,
-    InternalEnergyEvaluator,
-    KineticEnergyEvaluator,
     Pressure_transport_operator,
 )
 from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
-from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
+from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
 

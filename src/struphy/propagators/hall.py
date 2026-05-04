@@ -7,9 +7,9 @@ from line_profiler import profile
 
 from struphy.feec import preconditioner
 from struphy.io.options import LiteralOptions
-from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
+from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.species import Species
-from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
+from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
 

@@ -7,17 +7,11 @@ from feectools.linalg.solvers import inverse
 from line_profiler import profile
 
 from struphy.feec import preconditioner
-from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner, MassMatrixPreconditioner
-from struphy.feec.variational_utilities import (
-    BracketOperator,
-    Hdiv0_transport_operator,
-    InternalEnergyEvaluator,
-    KineticEnergyEvaluator,
-    Pressure_transport_operator,
-)
+from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner
+from struphy.feec.variational_utilities import BracketOperator
 from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
-from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
+from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
 

@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass
 from typing import Callable
-
 from line_profiler import profile
 
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable

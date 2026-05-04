@@ -2,14 +2,14 @@ import logging
 from dataclasses import dataclass
 
 from feectools.ddm.mpi import mpi as MPI
-from feectools.linalg.basic import ComposedLinearOperator, IdentityOperator, ZeroOperator
+from feectools.linalg.basic import IdentityOperator
 from line_profiler import profile
 
 from struphy.feec import preconditioner
 from struphy.io.options import LiteralOptions
-from struphy.linear_algebra.schur_solver import SchurSolver, SchurSolverFull
-from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
-from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
+from struphy.linear_algebra.schur_solver import SchurSolver
+from struphy.linear_algebra.solver import SolverParameters
+from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
 
