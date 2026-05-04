@@ -52,6 +52,10 @@ class Propagator(metaclass=ABCMeta):
     @abstractmethod
     @dataclass
     class Options:
+        """Template for configuration options of a propagator.
+
+        Subclasses should override this to define specific propagator options.
+        """
         # specific literals
         OptsTemplate = Literal["implicit", "explicit"]
         # propagator options

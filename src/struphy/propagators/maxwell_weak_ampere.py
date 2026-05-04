@@ -39,6 +39,15 @@ class MaxwellWeakAmpere(Propagator):
     """
 
     class Variables:
+        """Container for Maxwell equation variables.
+
+        Attributes
+        ----------
+        e : FEECVariable
+            Electric field in H(curl) space.
+        b : FEECVariable
+            Magnetic field in H(div) space.
+        """
         def __init__(self):
             self._e: FEECVariable = None
             self._b: FEECVariable = None

@@ -52,6 +52,13 @@ class ImplicitDiffusion(Propagator):
     """
 
     class Variables:
+        """Container for ImplicitDiffusion variables.
+
+        Attributes
+        ----------
+        phi : FEECVariable
+            Scalar solution field in H^1 space.
+        """
         def __init__(self):
             self._phi: FEECVariable = None
 
