@@ -2,10 +2,9 @@ import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import BaseUnits
-from struphy.feec.projectors import L2Projector
 from struphy.io.options import LiteralOptions
-from struphy.kinetic_background.base import KineticBackground
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import FunctionScalarFEEC, KineticEnergyPIC, Scalars
 from struphy.models.species import (
     FieldSpecies,
     ParticleSpecies,
@@ -13,11 +12,9 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels_gc
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
-from struphy.propagators import (
-    propagators_fields,
-    propagators_markers,
-)
 from struphy.propagators.base import Propagator
+from struphy.propagators.poisson_field_solve import PoissonFieldSolve
+from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
 from struphy.utils.pyccel import Pyccelkernel
 
 rank = MPI.COMM_WORLD.Get_rank()
@@ -61,11 +58,10 @@ class ToyDrift(StruphyModel):
 
         \int \frac{n_0}{|B_0|^2} \nabla_\perp \psi \cdot \nabla_\perp \phi\,\textrm d \mathbf x + \frac{1}{Z\varepsilon^2} \int  \frac{n_0}{T_{0}} \psi \phi \,\textrm d \mathbf x  = \frac 1 \varepsilon \int \int \psi \, (f - f_0) B^*_\parallel \,\textrm d \mathbf x\,\textnormal d v_\parallel \textnormal d \mu \qquad \forall \ \psi \in H^1\,.
 
-
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.ImplicitDiffusion`
-    2. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterBxEstar`
+    1. :class:`~struphy.propagators.implicit_diffusion.ImplicitDiffusion`
+    2. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
 
     :ref:`Model info <add_model>`:
     """
@@ -101,8 +97,8 @@ class ToyDrift(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.gc_poisson = propagators_fields.Poisson()
-            self.push_gc_bxe = propagators_markers.PushGuidingCenterBxEstar()
+            self.gc_poisson = PoissonFieldSolve()
+            self.push_gc_bxe = PushGuidingCenterBxEstar()
 
     ## abstract methods
 
@@ -134,10 +130,14 @@ class ToyDrift(StruphyModel):
         self.propagators.gc_poisson.variables.phi = self.em_fields.phi
         self.propagators.push_gc_bxe.variables.ions = self.kinetic_ions.var
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_phi")
-        self.add_scalar("en_particles", compute="from_particles", variable=self.kinetic_ions.var)
-        self.add_scalar("en_tot")
+        # 5. define scalars to be tracked during simulation
+        field_energy = FunctionScalarFEEC(self._compute_en_phi)
+        particle_energy = KineticEnergyPIC(self.kinetic_ions.var)
+        self.scalars = Scalars(
+            en_phi=field_energy,
+            en_particles=particle_energy,
+            en_tot=field_energy + particle_energy,
+        )
 
     @property
     def bulk_species(self):
@@ -146,6 +146,105 @@ class ToyDrift(StruphyModel):
     @property
     def velocity_scale(self):
         return "thermal"
+
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        Drift equation:
+
+        .. math::
+
+            \frac{\partial f}{\partial t} + \frac{\mathbf{E} \times \mathbf{b}_0}{B^*_\parallel} \cdot \frac{\partial f}{\partial \mathbf{X}} = 0
+
+        Poisson equation:
+
+        .. math::
+
+            -\nabla_\perp \cdot \left( \frac{n_0}{|B_0|^2} \nabla_\perp \phi \right) + \frac{1}{\varepsilon} n_0 \left( 1 + \frac{1}{Z \varepsilon} \frac{1}{T_0} \phi \right) = \frac{1}{\varepsilon} \int f B^*_\parallel \, \textnormal{d} v_\parallel \textnormal{d} \mu
+
+        where :math:`f(\mathbf{X}, v_\parallel, \mu, t)` is the guiding center distribution and
+
+        .. math::
+
+            \mathbf{E} = -\nabla \phi, \qquad \mathbf{B}^* = \mathbf{B}_0 + \varepsilon v_\parallel \nabla \times \mathbf{b}_0, \qquad B^*_\parallel = \mathbf{B}^* \cdot \mathbf{b}_0
+
+        Notes
+        -----
+
+        * The ``control_var`` in the Poisson equation is optional; in case it is enabled via the parameter file, the following Poisson equation is solved:
+        Find :math:`\phi \in H^1` such that
+
+        .. math::
+
+            \int \frac{n_0}{|B_0|^2} \nabla_\perp \psi \cdot \nabla_\perp \phi \, \textrm{d} \mathbf{x} + \frac{1}{Z \varepsilon^2} \int \frac{n_0}{T_0} \psi \phi \, \textrm{d} \mathbf{x} = \frac{1}{\varepsilon} \int \int \psi \, (f - f_0) B^*_\parallel \, \textrm{d} \mathbf{x} \, \textnormal{d} v_\parallel \textnormal{d} \mu \qquad \forall \ \psi \in H^1
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The reference speed is the ion thermal velocity:
+
+        .. math::
+
+            \hat v = \hat v_i,\qquad \hat E = \hat v_i \hat B,\qquad \hat\phi = \hat E \hat x.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Electrostatic field energy: ``en_phi``
+        - Particle kinetic energy: ``en_particles``
+        - Total energy: ``en_tot``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. PoissonFieldSolve:**
+
+{PoissonFieldSolve.__doc__}
+
+**2. push_guiding_center_bx_estar.PushGuidingCenterBxEstar:**
+
+{PushGuidingCenterBxEstar.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""ToyDrift is a stripped-down guiding-center model used to isolate the
+        electrostatic drift part of the dynamics. It is intended for algorithm
+        prototyping and reduced verification problems rather than production
+        drift-kinetic studies."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the toy drift model:
+
+        .. code-block:: python
+
+            from struphy.models import ToyDrift
+
+            model = ToyDrift()
+            model.em_fields.phi
+            model.kinetic_ions.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - reduced electrostatic guiding-center benchmarks
+        - testing the field solve plus :math:`\mathbf E\times\mathbf B` pusher
+        - algorithm prototyping before moving to the full drift-kinetic model"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - full drift-kinetic dynamics with parallel streaming
+        - electromagnetic perturbations
+        - high-fidelity turbulence studies
+        - full-orbit kinetic physics"""
 
     def allocate_helpers(self, verbose: bool = False):
         """Solve initial Poisson equation.
@@ -187,23 +286,10 @@ class ToyDrift(StruphyModel):
         if particles.control_variate:
             particles.update_weights()
 
-    def update_scalar_quantities(self):
+    def _compute_en_phi(self):
         phi = self.em_fields.phi.spline.vector
-        particles = self.kinetic_ions.var.particles
-
-        # energy from polarization
         e1 = Propagator.derham.grad.dot(-phi, out=self._e_field)
-        en_phi1 = 0.5 * Propagator.mass_ops.M1.dot_inner(e1, e1)
-
-        # for Landau damping test
-        # en_phi = 0.
-
-        # 1/N sum_p (w_p v_p^2/2 + mu_p |B0|_p)
-        self._tmp3[0] = 1 / particles.Np * xp.sum(particles.weights * particles.velocities[:, 0] ** 2 / 2.0)
-
-        self.update_scalar("en_phi", en_phi1)
-        self.update_scalar("en_particles", self._tmp3[0])
-        self.update_scalar("en_tot", en_phi1 + self._tmp3[0])
+        return 0.5 * Propagator.mass_ops.M1.dot_inner(e1, e1)
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

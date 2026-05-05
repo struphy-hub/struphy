@@ -6,6 +6,14 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import (
+    BilinearEnergyFEEC,
+    FunctionScalarPIC,
+    KineticEnergyPIC,
+    LostMarkersPIC,
+    Scalars,
+    VolumeFormEnergyFEEC,
+)
 from struphy.models.species import (
     FieldSpecies,
     FluidSpecies,
@@ -13,12 +21,14 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.polar.basic import PolarVector
-from struphy.propagators import (
-    propagators_coupling,
-    propagators_fields,
-    propagators_markers,
-)
 from struphy.propagators.base import Propagator
+from struphy.propagators.current_coupling_5d_curlb import CurrentCoupling5DCurlb
+from struphy.propagators.current_coupling_5d_density import CurrentCoupling5DDensity
+from struphy.propagators.current_coupling_5d_gradb import CurrentCoupling5DGradB
+from struphy.propagators.magnetosonic import Magnetosonic
+from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
+from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
+from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
 
 logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
@@ -91,13 +101,13 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterBxEstar`
-    2. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterParallel`
-    3. :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DGradB`
-    4. :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb`
-    5. :class:`~struphy.propagators.propagators_fields.CurrentCoupling5DDensity`
-    6. :class:`~struphy.propagators.propagators_fields.ShearAlfvenCurrentCoupling5D`
-    7. :class:`~struphy.propagators.propagators_fields.Magnetosonic`
+    1. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
+    2. :class:`~struphy.propagators.push_guiding_center_parallel.PushGuidingCenterParallel`
+    3. :class:`~struphy.propagators.current_coupling_5d_gradb.CurrentCoupling5DGradB`
+    4. :class:`~struphy.propagators.current_coupling_5d_curlb.CurrentCoupling5DCurlb`
+    5. :class:`~struphy.propagators.current_coupling_5d_density.CurrentCoupling5DDensity`
+    6. :class:`~struphy.propagators.shear_alfven_current_coupling_5d.ShearAlfvenCurrentCoupling5D`
+    7. :class:`~struphy.propagators.magnetosonic.Magnetosonic`
 
     :ref:`Model info <add_model>`:
     """
@@ -138,19 +148,19 @@ class LinearMHDDriftkineticCC(StruphyModel):
     class Propagators:
         def __init__(self, turn_off: tuple[str, ...] = (None,)):
             if "PushGuidingCenterBxEstar" not in turn_off:
-                self.push_bxe = propagators_markers.PushGuidingCenterBxEstar()
+                self.push_bxe = PushGuidingCenterBxEstar()
             if "PushGuidingCenterParallel" not in turn_off:
-                self.push_parallel = propagators_markers.PushGuidingCenterParallel()
+                self.push_parallel = PushGuidingCenterParallel()
             if "ShearAlfvenCurrentCoupling5D" not in turn_off:
-                self.shearalfen_cc5d = propagators_fields.ShearAlfvenCurrentCoupling5D()
+                self.shearalfen_cc5d = ShearAlfvenCurrentCoupling5D()
             if "Magnetosonic" not in turn_off:
-                self.magnetosonic = propagators_fields.Magnetosonic()
+                self.magnetosonic = Magnetosonic()
             if "CurrentCoupling5DDensity" not in turn_off:
-                self.cc5d_density = propagators_fields.CurrentCoupling5DDensity()
+                self.cc5d_density = CurrentCoupling5DDensity()
             if "CurrentCoupling5DGradB" not in turn_off:
-                self.cc5d_gradb = propagators_coupling.CurrentCoupling5DGradB()
+                self.cc5d_gradb = CurrentCoupling5DGradB()
             if "CurrentCoupling5DCurlb" not in turn_off:
-                self.cc5d_curlb = propagators_coupling.CurrentCoupling5DCurlb()
+                self.cc5d_curlb = CurrentCoupling5DCurlb()
 
     def __init__(
         self,
@@ -198,13 +208,23 @@ class LinearMHDDriftkineticCC(StruphyModel):
         if "PushGuidingCenterParallel" not in turn_off:
             self.propagators.push_parallel.variables.ions = self.energetic_ions.var
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_U")
-        self.add_scalar("en_p")
-        self.add_scalar("en_B")
-        self.add_scalar("en_fv", compute="from_particles", variable=self.energetic_ions.var)
-        self.add_scalar("en_fB", compute="from_particles", variable=self.energetic_ions.var)
-        self.add_scalar("en_tot", summands=["en_U", "en_p", "en_B", "en_fv", "en_fB"])
+        # 5. define scalars to be tracked during simulation
+        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="M2n")
+        pressure_energy = VolumeFormEnergyFEEC(self.mhd.pressure, normalization=1.0 / (5 / 3 - 1))
+        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
+        Ab = self.mhd.mass_number
+        Ah = self.energetic_ions.var.species.mass_number
+        particle_parallel = KineticEnergyPIC(self.energetic_ions.var, normalization=Ah / Ab)
+        particle_magnetic = FunctionScalarPIC(self._compute_en_fB, self.energetic_ions.var)
+        self.scalars = Scalars(
+            en_U=kinetic_energy,
+            en_p=pressure_energy,
+            en_B=magnetic_energy,
+            en_fv=particle_parallel,
+            en_fB=particle_magnetic,
+            en_tot=kinetic_energy + pressure_energy + magnetic_energy + particle_parallel + particle_magnetic,
+            n_lost_particles=LostMarkersPIC(self.energetic_ions.var),
+        )
 
     @property
     def bulk_species(self):
@@ -213,6 +233,159 @@ class LinearMHDDriftkineticCC(StruphyModel):
     @property
     def velocity_scale(self):
         return "alfvén"
+
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        MHD continuity:
+
+        .. math::
+
+            \frac{\partial \tilde{\rho}}{\partial t} + \nabla \cdot (\rho_0 \tilde{\mathbf{U}}) = 0
+
+        MHD momentum:
+
+        .. math::
+
+            \rho_0 \frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde{p} = (\nabla \times \tilde{\mathbf{B}}) \times \mathbf{B} + (\nabla \times \mathbf{B}_0) \times \tilde{\mathbf{B}} + \frac{A_\textnormal{h}}{A_\textnormal{b}} \left[ \frac{1}{\epsilon} n_\textnormal{gc} \tilde{\mathbf{U}} - \frac{1}{\epsilon} \mathbf{J}_\textnormal{gc} - \nabla \times \mathbf{M}_\textnormal{gc} \right] \times \mathbf{B}
+
+        MHD pressure:
+
+        .. math::
+
+            \frac{\partial \tilde{p}}{\partial t} + \nabla \cdot (p_0 \tilde{\mathbf{U}}) + \frac{2}{3} p_0 \nabla \cdot \tilde{\mathbf{U}} = 0
+
+        MHD induction:
+
+        .. math::
+
+            \frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla \times (\tilde{\mathbf{U}} \times \mathbf{B}) = 0
+
+        Energetic-particle drift-kinetic equation:
+
+        .. math::
+
+            \frac{\partial f_\textnormal{h}}{\partial t} + \frac{1}{B_\parallel^*} \left( v_\parallel \mathbf{B}^* - \mathbf{b}_0 \times \mathbf{E}^* \right) \cdot \nabla f_\textnormal{h} + \frac{1}{\epsilon} \frac{1}{B_\parallel^*} (\mathbf{B}^* \cdot \mathbf{E}^*) \frac{\partial f_\textnormal{h}}{\partial v_\parallel} = 0
+
+        Energetic-particle moments:
+
+        .. math::
+
+            n_\textnormal{gc} = \int f_\textnormal{h} B_\parallel^* \, \textnormal{d} v_\parallel \textnormal{d} \mu
+
+        .. math::
+
+            \mathbf{J}_\textnormal{gc} = \int \frac{f_\textnormal{h}}{B_\parallel^*} \left( v_\parallel \mathbf{B}^* - \mathbf{b}_0 \times \mathbf{E}^* \right) \, \textnormal{d} v_\parallel \textnormal{d} \mu
+
+        .. math::
+
+            \mathbf{M}_\textnormal{gc} = -\int f_\textnormal{h} B_\parallel^* \mu \mathbf{b}_0 \, \textnormal{d} v_\parallel \textnormal{d} \mu
+
+        where
+
+        .. math::
+
+            B^*_\parallel = \mathbf{b}_0 \cdot \mathbf{B}^*
+            \\[2mm]
+            \mathbf{B}^* &= \mathbf{B} + \epsilon v_\parallel \nabla \times \mathbf{b}_0
+            \\[2mm]
+            \mathbf{E}^* &= -\tilde{\mathbf{U}} \times \mathbf{B} - \epsilon \mu \nabla (\mathbf{b}_0 \cdot \mathbf{B})
+
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The bulk and energetic-particle flow scales are normalized with the
+        bulk Alfvén speed, while the magnetic moment carries its own unit:
+
+        .. math::
+
+            \hat U = \hat v = \hat v_{A,\mathrm{bulk}},\qquad
+            \hat\mu = A_h m_H \hat v_h^2 / \hat B.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - MHD kinetic energy: ``en_U``
+        - Thermal pressure energy: ``en_p``
+        - Magnetic energy: ``en_B``
+        - Parallel energetic-particle energy: ``en_fv``
+        - Magnetic-moment energetic-particle energy: ``en_fB``
+        - Total energy: ``en_tot``
+        - Lost particles: ``n_lost_particles``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. push_guiding_center_bx_estar.PushGuidingCenterBxEstar:**
+
+    {PushGuidingCenterBxEstar.__doc__}
+
+    **2. push_guiding_center_parallel.PushGuidingCenterParallel:**
+
+    {PushGuidingCenterParallel.__doc__}
+
+**3. current_coupling_5d_gradb.CurrentCoupling5DGradB:**
+
+{CurrentCoupling5DGradB.__doc__}
+
+**4. current_coupling_5d_curlb.CurrentCoupling5DCurlb:**
+
+{CurrentCoupling5DCurlb.__doc__}
+
+**5. CurrentCoupling5DDensity:**
+
+{CurrentCoupling5DDensity.__doc__}
+
+**6. ShearAlfvenCurrentCoupling5D:**
+
+{ShearAlfvenCurrentCoupling5D.__doc__}
+
+**7. Magnetosonic:**
+
+{Magnetosonic.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""LinearMHDDriftkineticCC is the reduced-kinetic hybrid current-coupling
+        model for energetic ions. It is useful when gyrophase averaging is
+        acceptable but energetic-particle feedback on linear MHD still has to be
+        retained."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the linear MHD plus drift-kinetic CC model:
+
+        .. code-block:: python
+
+            from struphy.models import LinearMHDDriftkineticCC
+
+            model = LinearMHDDriftkineticCC()
+            model.em_fields.b_field
+            model.mhd.velocity
+            model.energetic_ions.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - linear energetic-ion effects with guiding-center reduction
+        - current-coupling hybrid mode studies in strong magnetic fields
+        - verification of 5D hybrid coupling operators"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - full 6D energetic-particle dynamics
+        - nonlinear hybrid turbulence
+        - resistive or viscous MHD closures
+        - regimes where gyrophase resolution is required"""
 
     def allocate_helpers(self, verbose: bool = False):
         self._ones = Propagator.projected_equil.p3.space.zeros()
@@ -224,81 +397,24 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._en_fv = xp.empty(1, dtype=float)
         self._en_fB = xp.empty(1, dtype=float)
         self._en_tot = xp.empty(1, dtype=float)
-        self._n_lost_particles = xp.empty(1, dtype=float)
 
         self._PB = getattr(Propagator.basis_ops, "PB")
         self._PBb = self._PB.codomain.zeros()
 
-    def update_scalar_quantities(self):
-        # scaling factor
+    def _compute_en_fB(self):
         Ab = self.mhd.mass_number
         Ah = self.energetic_ions.var.species.mass_number
-
-        # perturbed fields
-        en_U = 0.5 * Propagator.mass_ops.M2n.dot_inner(
-            self.mhd.velocity.spline.vector,
-            self.mhd.velocity.spline.vector,
-        )
-        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(
-            self.em_fields.b_field.spline.vector,
-            self.em_fields.b_field.spline.vector,
-        )
-        en_p = self.mhd.pressure.spline.vector.inner(self._ones) / (5 / 3 - 1)
-
-        self.update_scalar("en_U", en_U)
-        self.update_scalar("en_B", en_B)
-        self.update_scalar("en_p", en_p)
-
-        # particles' energy
         particles = self.energetic_ions.var.particles
-
-        self._en_fv[0] = (
-            particles.markers[~particles.holes, 5].dot(
-                particles.markers[~particles.holes, 3] ** 2,
-            )
-            / (2.0)
-            * Ah
-            / Ab
-        )
-
         self._PBb = self._PB.dot(self.em_fields.b_field.spline.vector)
         particles.save_magnetic_energy(self._PBb)
 
-        self._en_fB[0] = (
+        return (
             particles.markers[~particles.holes, 5].dot(
                 particles.markers[~particles.holes, 8],
             )
             * Ah
             / Ab
         )
-
-        self.update_scalar("en_fv", self._en_fv[0])
-        self.update_scalar("en_fB", self._en_fB[0])
-        self.update_scalar("en_tot")
-
-        # print number of lost particles
-        n_lost_markers = xp.array(particles.n_lost_markers)
-
-        if Propagator.derham.comm is not None:
-            Propagator.derham.comm.Allreduce(
-                MPI.IN_PLACE,
-                n_lost_markers,
-                op=MPI.SUM,
-            )
-
-        if self.clone_config is not None:
-            self.clone_config.inter_comm.Allreduce(
-                MPI.IN_PLACE,
-                n_lost_markers,
-                op=MPI.SUM,
-            )
-
-        if rank == 0:
-            logger.info(
-                "Lost particle ratio: ",
-                n_lost_markers / particles.Np * 100,
-                "% \n",
-            )
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

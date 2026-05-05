@@ -6,6 +6,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarPIC, KineticEnergyPIC, Scalars
 from struphy.models.species import (
     FieldSpecies,
     ParticleSpecies,
@@ -13,12 +14,12 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
-from struphy.propagators import (
-    propagators_coupling,
-    propagators_fields,
-    propagators_markers,
-)
 from struphy.propagators.base import Propagator
+from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
+from struphy.propagators.poisson_field_solve import PoissonFieldSolve
+from struphy.propagators.push_eta import PushEta
+from struphy.propagators.push_vxb import PushVxB
+from struphy.propagators.vlasov_ampere_coupling import VlasovAmpereCoupling
 from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
@@ -94,13 +95,12 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
     where :math:`\tilde{\mathbf B} = \mathbf B - \mathbf B_0` denotes the magnetic perturbation.
 
-
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.Maxwell`
-    2. :class:`~struphy.propagators.propagators_markers.PushEta`
-    3. :class:`~struphy.propagators.propagators_markers.PushVxB`
-    4. :class:`~struphy.propagators.propagators_coupling.VlasovAmpere`
+    1. :class:`~struphy.propagators.maxwell.Maxwell`
+    2. :class:`~struphy.propagators.push_eta.PushEta`
+    3. :class:`~struphy.propagators.push_vxb.PushVxB`
+    4. :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling`
 
     :ref:`Model info <add_model>`:
     """
@@ -138,10 +138,10 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.maxwell = propagators_fields.Maxwell()
-            self.push_eta = propagators_markers.PushEta()
-            self.push_vxb = propagators_markers.PushVxB()
-            self.coupling_va = propagators_coupling.VlasovAmpere()
+            self.maxwell = MaxwellWeakAmpere()
+            self.push_eta = PushEta()
+            self.push_vxb = PushVxB()
+            self.coupling_va = VlasovAmpereCoupling()
 
     ## abstract methods
 
@@ -178,16 +178,25 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         self.propagators.coupling_va.variables.e = self.em_fields.e_field
         self.propagators.coupling_va.variables.ions = self.kinetic_ions.var
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_E")
-        self.add_scalar("en_B")
-        self.add_scalar("en_f", compute="from_particles", variable=self.kinetic_ions.var)
-        self.add_scalar("en_tot")
+        # 5. define scalars to be tracked during simulation
+        electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
+        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
+        particle_energy = KineticEnergyPIC(
+            self.kinetic_ions.var,
+            normalization=self.kinetic_ions.equation_params.alpha**2,
+        )
+        scalars_dict = {
+            "en_E": electric_energy,
+            "en_B": magnetic_energy,
+            "en_f": particle_energy,
+            "en_tot": electric_energy + magnetic_energy + particle_energy,
+        }
         if measure_gauss_law:
-            self.add_scalar("gauss_error")
+            scalars_dict["gauss_error"] = FunctionScalarPIC(self.calculate_gauss_error, self.kinetic_ions.var)
+        self.scalars = Scalars(**scalars_dict)
 
         # initial Poisson (not a propagator used in time stepping)
-        self.initial_poisson = propagators_fields.Poisson()
+        self.initial_poisson = PoissonFieldSolve()
         self.initial_poisson.variables.phi = self.em_fields.phi
 
         # property to measure violation of gauss law from control variate
@@ -200,6 +209,126 @@ class VlasovMaxwellOneSpecies(StruphyModel):
     @property
     def velocity_scale(self):
         return "light"
+
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        Vlasov equation:
+
+        .. math::
+
+            \frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \frac{1}{\varepsilon} \left( \mathbf{E} + \mathbf{v} \times \left( \mathbf{B} + \mathbf{B}_0 \right) \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0
+
+        Ampère's law:
+
+        .. math::
+
+            -\frac{\partial \mathbf{E}}{\partial t} + \nabla \times \mathbf{B} = \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} f \, \text{d}^3 \mathbf{v}
+
+        Faraday's law:
+
+        .. math::
+
+            \frac{\partial \mathbf{B}}{\partial t} + \nabla \times \mathbf{E} = 0
+
+        where :math:`Z=-1` and :math:`A=1/1836` for electrons.
+
+        At initial time the weak Poisson equation is solved once to weakly satisfy Gauss' law,
+
+        .. math::
+
+            \int_{\Omega} \nabla \psi^{\top} \cdot \nabla \phi \, \textrm{d} \mathbf{x} &= \frac{\alpha^2}{\varepsilon} \int_{\Omega} \int_{\mathbb{R}^3} \psi \, (f - f_0) \, \text{d}^3 \mathbf{v} \, \textrm{d} \mathbf{x} \qquad \forall \ \psi \in H^1
+            \\[2mm]
+            \mathbf{E}(t=0) &= -\nabla \phi(t=0)
+
+        Moreover, it is assumed that
+
+        .. math::
+
+            \nabla \times \mathbf{B}_0 = \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} f_0 \, \text{d}^3 \mathbf{v}
+
+        where :math:`\mathbf{B}_0` is the static equilibrium magnetic field.
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The model uses the light speed as reference velocity:
+
+        .. math::
+
+            \hat v = c,\qquad \hat E = \hat B \hat v,\qquad \hat\phi = \hat E \hat x.
+
+        The species parameters are :math:`\alpha=\hat\Omega_p/\hat\Omega_c` and
+        :math:`\varepsilon=1/(\hat\Omega_c\hat t)`."""
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Electric field energy: ``en_E``
+        - Magnetic field energy: ``en_B``
+        - Particle kinetic energy: ``en_f``
+        - Total energy: ``en_tot``
+        - Optional Gauss-law diagnostic: ``gauss_error``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. propagators.maxwell.Maxwell:**
+
+{MaxwellWeakAmpere.__doc__}
+
+**2. push_eta.PushEta:**
+
+{PushEta.__doc__}
+
+**3. push_vxb.PushVxB:**
+
+{PushVxB.__doc__}
+
+**4. vlasov_ampere_coupling.VlasovAmpereCoupling:**
+
+{VlasovAmpereCoupling.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""VlasovMaxwellOneSpecies is the fully electromagnetic one-species PIC
+        model in Struphy. It evolves particles and fields self-consistently and
+        supports an optional control-variate formulation for the field coupling."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize a Vlasov-Maxwell model:
+
+        .. code-block:: python
+
+            from struphy.models import VlasovMaxwellOneSpecies
+
+            model = VlasovMaxwellOneSpecies()
+            model.em_fields.e_field
+            model.em_fields.b_field
+            model.kinetic_ions.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - self-consistent electromagnetic kinetic simulations
+        - one-species PIC benchmarks
+        - wave-particle interaction studies with evolving magnetic fields
+        - verification of the full Vlasov-Maxwell splitting"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - multi-species plasma dynamics without extension
+        - collisional kinetic closures
+        - reduced electrostatic-only models where magnetic evolution is unnecessary
+        - linearized delta-f studies that should use the dedicated linear models"""
 
     def allocate_helpers(self, verbose: bool = False):
         """Solve initial Poisson equation.
@@ -281,40 +410,6 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         particles._gather_scalar_in_intercomm_array(scalar=loc_residual, out=self.intercom_residual)
 
         return xp.max([xp.max(self.subcom_residual), xp.max(self.intercom_residual)])
-
-    def update_scalar_quantities(self):
-        # e*M1*e/2
-        e = self.em_fields.e_field.spline.vector
-        b = self.em_fields.b_field.spline.vector
-
-        en_E = 0.5 * Propagator.mass_ops.M1.dot_inner(e, e)
-        self.update_scalar("en_E", en_E)
-
-        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(b, b)
-        self.update_scalar("en_B", en_B)
-
-        # alpha^2 / 2 / N * sum_p w_p v_p^2
-        particles = self.kinetic_ions.var.particles
-        alpha = self.kinetic_ions.equation_params.alpha
-        self._tmp[0] = (
-            alpha**2
-            / (2 * particles.Np)
-            * xp.dot(
-                particles.markers_wo_holes[:, 3] ** 2
-                + particles.markers_wo_holes[:, 4] ** 2
-                + particles.markers_wo_holes[:, 5] ** 2,
-                particles.markers_wo_holes[:, 6],
-            )
-        )
-
-        self.update_scalar("en_f", self._tmp[0])
-
-        # en_tot = en_w + en_e
-        self.update_scalar("en_tot", en_E + self._tmp[0])
-
-        if self.measure_gauss_law:
-            res = self.calculate_gauss_error()
-            self.update_scalar("gauss_error", res)
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

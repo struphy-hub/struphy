@@ -1,9 +1,10 @@
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.feec.projectors import L2Projector
+from struphy.feec.mass import L2Projector
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, Scalars
 from struphy.models.species import (
     DiagnosticSpecies,
     FieldSpecies,
@@ -11,10 +12,12 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable
 from struphy.polar.basic import PolarVector
-from struphy.propagators import (
-    propagators_fields,
-)
 from struphy.propagators.base import Propagator
+from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
+from struphy.propagators.variational_momentum_advection import VariationalMomentumAdvection
+from struphy.propagators.variational_pb_evolve import VariationalPBEvolve
+from struphy.propagators.variational_resistivity import VariationalResistivity
+from struphy.propagators.variational_viscosity import VariationalViscosity
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -44,11 +47,11 @@ class ViscoResistiveDeltafMHD(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
-    2. :class:`~struphy.propagators.propagators_fields.VariationalMomentumAdvection`
-    3. :class:`~struphy.propagators.propagators_fields.VariationalPBEvolve`
-    4. :class:`~struphy.propagators.propagators_fields.VariationalViscosity`
-    5. :class:`~struphy.propagators.propagators_fields.VariationalResistivity`
+    1. :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`
+    2. :class:`~struphy.propagators.variational_momentum_advection.VariationalMomentumAdvection`
+    3. :class:`~struphy.propagators.variational_pb_evolve.VariationalPBEvolve`
+    4. :class:`~struphy.propagators.variational_viscosity.VariationalViscosity`
+    5. :class:`~struphy.propagators.variational_resistivity.VariationalResistivity`
 
     :ref:`Model info <add_model>`:
     """
@@ -87,13 +90,13 @@ class ViscoResistiveDeltafMHD(StruphyModel):
             with_viscosity: bool = True,
             with_resistivity: bool = True,
         ):
-            self.variat_dens = propagators_fields.VariationalDensityEvolve()
-            self.variat_mom = propagators_fields.VariationalMomentumAdvection()
-            self.variat_pb = propagators_fields.VariationalPBEvolve()
+            self.variat_dens = VariationalDensityEvolve()
+            self.variat_mom = VariationalMomentumAdvection()
+            self.variat_pb = VariationalPBEvolve()
             if with_viscosity:
-                self.variat_viscous = propagators_fields.VariationalViscosity()
+                self.variat_viscous = VariationalViscosity()
             if with_resistivity:
-                self.variat_resist = propagators_fields.VariationalResistivity()
+                self.variat_resist = VariationalResistivity()
 
     ## abstract methods
 
@@ -133,16 +136,23 @@ class ViscoResistiveDeltafMHD(StruphyModel):
             self.propagators.variat_resist.variables.s = self.mhd.pressure
             self.propagators.variat_resist.variables.b = self.em_fields.b_field
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_U")
-        self.add_scalar("en_thermo")
-        self.add_scalar("en_mag_1")
-        self.add_scalar("en_mag_2")
-        self.add_scalar("en_tot")
-
-        self.add_scalar("en_tot_l1")
-        self.add_scalar("en_thermo_l1")
-        self.add_scalar("en_mag_l1")
+        # 5. define scalars to be tracked during simulation
+        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="WMMnew")
+        magnetic_energy_1 = BilinearEnergyFEEC(self.em_fields.b_field)
+        magnetic_energy_2 = BilinearEnergyFEEC(self.diagnostics.bt2, right_variable="b2")
+        thermo_energy = FunctionScalarFEEC(self._compute_en_thermo)
+        thermo_energy_l1 = FunctionScalarFEEC(self._compute_en_thermo_l1)
+        magnetic_energy_l1 = BilinearEnergyFEEC(self.em_fields.b_field, right_variable="b2")
+        self.scalars = Scalars(
+            en_U=kinetic_energy,
+            en_thermo=thermo_energy,
+            en_mag_1=magnetic_energy_1,
+            en_mag_2=magnetic_energy_2,
+            en_tot=kinetic_energy + thermo_energy + magnetic_energy_1 + magnetic_energy_2,
+            en_tot_l1=thermo_energy_l1 + magnetic_energy_l1,
+            en_thermo_l1=thermo_energy_l1,
+            en_mag_l1=magnetic_energy_l1,
+        )
 
     @property
     def bulk_species(self):
@@ -151,6 +161,115 @@ class ViscoResistiveDeltafMHD(StruphyModel):
     @property
     def velocity_scale(self):
         return "alfvén"
+
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        Continuity:
+
+        .. math::
+
+            \partial_t \tilde{\rho} + \nabla \cdot \left( (\tilde{\rho} + \rho_0) \tilde{\mathbf{u}} \right) = 0
+
+        Momentum:
+
+        .. math::
+
+            \partial_t \left( (\tilde{\rho} + \rho_0) \tilde{\mathbf{u}} \right) + \nabla \cdot \left( (\tilde{\rho} + \rho_0) \tilde{\mathbf{u}} \otimes \tilde{\mathbf{u}} \right) + \frac{1}{\gamma - 1} \nabla \tilde{p} + \mathbf{B}_0 \times \nabla \times \tilde{\mathbf{B}} + \tilde{\mathbf{B}} \times \nabla \times \mathbf{B}_0 + \tilde{\mathbf{B}} \times \nabla \times \tilde{\mathbf{B}} - \nabla \cdot \left( (\mu + \mu_a(\mathbf{x})) \nabla \tilde{\mathbf{u}} \right) = 0
+
+        Pressure:
+
+        .. math::
+
+            \partial_t \tilde{p} + \tilde{\mathbf{u}} \cdot \nabla (\tilde{p} + p_0) + \gamma (\tilde{p} + p_0) \nabla \cdot \tilde{\mathbf{u}} = \frac{1}{\gamma - 1} \left( (\mu + \mu_a(\mathbf{x})) |\nabla \tilde{\mathbf{u}}|^2 + (\eta + \eta_a(\mathbf{x})) |\nabla \times \tilde{\mathbf{B}}|^2 \right)
+
+        Induction:
+
+        .. math::
+
+            \partial_t \tilde{\mathbf{B}} + \nabla \times \left( (\tilde{\mathbf{B}} + \mathbf{B}_0) \times \tilde{\mathbf{u}} \right) + \nabla \times (\eta + \eta_a(\mathbf{x})) \nabla \times \tilde{\mathbf{B}} = 0
+
+        Here :math:`\mu_a(\mathbf{x})` and :math:`\eta_a(\mathbf{x})` are artificial viscosity and resistivity coefficients.
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The velocity scale is Alfvénic:
+
+        .. math::
+
+            \hat u = \hat v_A.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Kinetic energy: ``en_U``
+        - Thermal energies: ``en_thermo``, ``en_thermo_l1``
+        - Magnetic energies: ``en_mag_1``, ``en_mag_2``, ``en_mag_l1``
+        - Total energies: ``en_tot``, ``en_tot_l1``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. VariationalDensityEvolve:**
+
+{VariationalDensityEvolve.__doc__}
+
+**2. VariationalMomentumAdvection:**
+
+{VariationalMomentumAdvection.__doc__}
+
+**3. VariationalPBEvolve:**
+
+{VariationalPBEvolve.__doc__}
+
+**4. VariationalViscosity:**
+
+{VariationalViscosity.__doc__}
+
+**5. VariationalResistivity:**
+
+{VariationalResistivity.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""ViscoResistiveDeltafMHD is the dissipative perturbative MHD model using
+        pressure as thermodynamic variable. It is intended for departures from a
+        background equilibrium that are not strictly linear but still naturally
+        formulated as perturbations."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the visco-resistive ``delta f`` MHD model:
+
+        .. code-block:: python
+
+            from struphy.models import ViscoResistiveDeltafMHD
+
+            model = ViscoResistiveDeltafMHD()
+            model.mhd.pressure
+            model.em_fields.b_field
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - perturbative nonlinear MHD around a prescribed equilibrium
+        - dissipative MHD verification with background fields
+        - comparing linear and ``delta f`` variational formulations"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - fully full-f MHD evolution far from the chosen equilibrium
+        - kinetic or particle-resolved plasma effects
+        - entropy- or q-based thermodynamic formulations"""
 
     def allocate_helpers(self, verbose: bool = False):
         projV3 = L2Projector("L2", Propagator.mass_ops)
@@ -169,46 +288,15 @@ class ViscoResistiveDeltafMHD(StruphyModel):
 
         self._tmp_div_B = Propagator.derham.V3pol.zeros()
 
-    def update_scalar_quantities(self):
-        rho = self.mhd.density.spline.vector
-        u = self.mhd.velocity.spline.vector
-        p = self.mhd.pressure.spline.vector
-        b = self.em_fields.b_field.spline.vector
-        bt2 = self.propagators.variat_pb.options.bt2.spline.vector
+    def _compute_en_thermo(self):
         pt3 = self.propagators.variat_pb.options.pt3.spline.vector
-
         gamma = self.propagators.variat_pb.options.gamma
+        return Propagator.mass_ops.M3.dot_inner(pt3, self._integrator) / (gamma - 1.0)
 
-        en_U = 0.5 * Propagator.mass_ops.WMM.massop.dot_inner(u, u)
-        self.update_scalar("en_U", en_U)
-
-        en_mag1 = 0.5 * Propagator.mass_ops.M2.dot_inner(b, b)
-        self.update_scalar("en_mag_1", en_mag1)
-
-        en_mag2 = Propagator.mass_ops.M2.dot_inner(bt2, Propagator.projected_equil.b2)
-        self.update_scalar("en_mag_2", en_mag2)
-
-        en_thermo = Propagator.mass_ops.M3.dot_inner(pt3, self._integrator) / (gamma - 1.0)
-        self.update_scalar("en_thermo", en_thermo)
-
-        en_tot = en_U + en_thermo + en_mag1 + en_mag2
-        self.update_scalar("en_tot", en_tot)
-
-        # dens_tot = self._ones.inner(rho)
-        # self.update_scalar("dens_tot", dens_tot)
-
-        # div_B = Propagator.derham.div.dot(b, out=self._tmp_div_B)
-        # L2_div_B = Propagator.mass_ops.M3.dot_inner(div_B, div_B)
-        # self.update_scalar("tot_div_B", L2_div_B)
-
-        en_thermo_l1 = Propagator.mass_ops.M3.dot_inner(p, self._integrator) / (gamma - 1.0)
-        self.update_scalar("en_thermo_l1", en_thermo_l1)
-
-        en_mag_l1 = Propagator.mass_ops.M2.dot_inner(b, Propagator.projected_equil.b2)
-        self.update_scalar("en_mag_l1", en_mag_l1)
-
-        en_tot_l1 = en_thermo_l1 + en_mag_l1
-        self.update_scalar("en_tot_l1", en_tot_l1)
+    def _compute_en_thermo_l1(self):
+        p = self.mhd.pressure.spline.vector
+        gamma = self.propagators.variat_pb.options.gamma
+        return Propagator.mass_ops.M3.dot_inner(p, self._integrator) / (gamma - 1.0)
 
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
@@ -245,7 +333,7 @@ class ViscoResistiveDeltafMHD(StruphyModel):
                         "                                                                                  rho=model.mhd.density)\n",
                     ]
                 elif "pressure.add_background" in line:
-                    new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
+                    # new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
                     new_file += [line]
                 else:
                     new_file += [line]

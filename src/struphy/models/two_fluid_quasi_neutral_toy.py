@@ -7,9 +7,7 @@ from struphy.models.species import (
     FluidSpecies,
 )
 from struphy.models.variables import FEECVariable
-from struphy.propagators import (
-    propagators_fields,
-)
+from struphy.propagators.two_fluid_quasi_neutral_full import TwoFluidQuasiNeutralFull
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -42,7 +40,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.TwoFluidQuasiNeutralFull`
+    1. :class:`~struphy.propagators.two_fluid_quasi_neutral_full.TwoFluidQuasiNeutralFull`
 
     :ref:`Model info <add_model>`:
 
@@ -95,7 +93,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.qn_full = propagators_fields.TwoFluidQuasiNeutralFull()
+            self.qn_full = TwoFluidQuasiNeutralFull()
 
     ## abstract methods
 
@@ -134,7 +132,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
         self.propagators.qn_full.variables.ue = self.electrons.u
         self.propagators.qn_full.variables.phi = self.em_fields.phi
 
-        # define scalars for update_scalar_quantities
+        # 5. define scalars to be tracked during simulation
 
     @property
     def bulk_species(self):
@@ -144,10 +142,92 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
     def velocity_scale(self):
         return "thermal"
 
-    def allocate_helpers(self, verbose: bool = False):
-        pass
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
 
-    def update_scalar_quantities(self):
+        Ion momentum:
+
+        .. math::
+
+            \frac{\partial \mathbf{u}}{\partial t} = -\nabla \phi + \frac{\mathbf{u} \times \mathbf{B}_0}{\varepsilon} + \nu \Delta \mathbf{u} + \mathbf{f}
+
+        Electron momentum:
+
+        .. math::
+
+            0 = \nabla \phi - \frac{\mathbf{u}_e \times \mathbf{B}_0}{\varepsilon} + \nu_e \Delta \mathbf{u}_e + \mathbf{f}_e
+
+        Quasi-neutrality constraint:
+
+        .. math::
+
+            \nabla \cdot (\mathbf{u} - \mathbf{u}_e) = 0
+
+        where :math:`\mathbf{B}_0` is a static magnetic field and :math:`\mathbf{f}, \mathbf{f}_e` are given forcing terms.
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""Thermal-speed scaling is used:
+
+        .. math::
+
+            \hat u = \hat v_\mathrm{th},\qquad e\hat\phi = m \hat v_\mathrm{th}^2.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - No default scalar diagnostics are defined by this model."""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. TwoFluidQuasiNeutralFull:**
+
+{TwoFluidQuasiNeutralFull.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""TwoFluidQuasiNeutralToy is a reduced linear two-fluid benchmark with
+        zero electron inertia. It is meant for studying the quasi-neutral solve
+        and the coupled ion/electron velocity response in a simplified setting."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the quasi-neutral toy model:
+
+        .. code-block:: python
+
+            from struphy.models import TwoFluidQuasiNeutralToy
+
+            model = TwoFluidQuasiNeutralToy()
+            model.em_fields.phi
+            model.ions.u
+            model.electrons.u
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - linear quasi-neutral two-fluid benchmarks
+        - Stokes-like plasma model verification
+        - testing coupled velocity-potential FEEC solvers"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - nonlinear two-fluid dynamics
+        - finite electron inertia effects
+        - kinetic phase-space phenomena
+        - self-consistent electromagnetic wave propagation"""
+
+    def allocate_helpers(self, verbose: bool = False):
         pass
 
     ## default parameters

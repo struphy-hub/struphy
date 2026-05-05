@@ -25,9 +25,8 @@ def test_saddlepointsolver(method_for_solving, num_elements, degree, bcs, mappin
     from struphy import domains, perturbations
     from struphy.examples.restelli2018 import callables
     from struphy.feec.basis_projection_ops import BasisProjectionOperatorLocal, BasisProjectionOperators
-    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.mass import L2Projector, WeightedMassOperators
     from struphy.feec.preconditioner import MassMatrixPreconditioner
-    from struphy.feec.projectors import L2Projector
     from struphy.feec.psydac_derham import Derham, TransformedPformComponent
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
     from struphy.fields_background.equils import CircularTokamak, HomogenSlab
