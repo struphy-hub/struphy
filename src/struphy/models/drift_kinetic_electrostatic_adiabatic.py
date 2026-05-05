@@ -2,10 +2,11 @@ import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import BaseUnits
-from struphy.feec.projectors import L2Projector
+from struphy.feec.mass import L2Projector
 from struphy.io.options import LiteralOptions
 from struphy.kinetic_background.base import KineticBackground
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import FunctionScalarFEEC, FunctionScalarPIC, KineticEnergyPIC, Scalars
 from struphy.models.species import (
     FieldSpecies,
     ParticleSpecies,
@@ -13,11 +14,10 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels_gc
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
-from struphy.propagators import (
-    propagators_fields,
-    propagators_markers,
-)
 from struphy.propagators.base import Propagator
+from struphy.propagators.implicit_diffusion import ImplicitDiffusion
+from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
+from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
 from struphy.utils.pyccel import Pyccelkernel
 
 rank = MPI.COMM_WORLD.Get_rank()
@@ -62,12 +62,11 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
         \int \frac{n_0}{|B_0|^2} \nabla_\perp \psi \cdot \nabla_\perp \phi\,\textrm d \mathbf x + \frac{1}{Z\varepsilon^2} \int  \frac{n_0}{T_{0}} \psi \phi \,\textrm d \mathbf x  = \frac 1 \varepsilon \int \int \psi \, (f - f_0) B^*_\parallel \,\textrm d \mathbf x\,\textnormal d v_\parallel \textnormal d \mu \qquad \forall \ \psi \in H^1\,.
 
-
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.ImplicitDiffusion`
-    2. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterBxEstar`
-    3. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterParallel`
+    1. :class:`~struphy.propagators.implicit_diffusion.ImplicitDiffusion`
+    2. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
+    3. :class:`~struphy.propagators.push_guiding_center_parallel.PushGuidingCenterParallel`
 
     :ref:`Model info <add_model>`:
     """
@@ -101,9 +100,9 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.gc_poisson = propagators_fields.ImplicitDiffusion()
-            self.push_gc_bxe = propagators_markers.PushGuidingCenterBxEstar()
-            self.push_gc_para = propagators_markers.PushGuidingCenterParallel()
+            self.gc_poisson = ImplicitDiffusion()
+            self.push_gc_bxe = PushGuidingCenterBxEstar()
+            self.push_gc_para = PushGuidingCenterParallel()
 
     ## abstract methods
 
@@ -134,10 +133,16 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         self.propagators.push_gc_bxe.variables.ions = self.kinetic_ions.var
         self.propagators.push_gc_para.variables.ions = self.kinetic_ions.var
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_phi")
-        self.add_scalar("en_particles", compute="from_particles", variable=self.kinetic_ions.var)
-        self.add_scalar("en_tot")
+        # 5. define scalars to be tracked during simulation
+        field_energy = FunctionScalarFEEC(self._compute_en_phi)
+        particle_kinetic = KineticEnergyPIC(self.kinetic_ions.var)
+        particle_magnetic = FunctionScalarPIC(self._compute_en_particle_magnetic, self.kinetic_ions.var)
+        particle_energy = particle_kinetic + particle_magnetic
+        self.scalars = Scalars(
+            en_phi=field_energy,
+            en_particles=particle_energy,
+            en_tot=field_energy + particle_energy,
+        )
 
     @property
     def bulk_species(self):
@@ -146,6 +151,113 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
     @property
     def velocity_scale(self):
         return "thermal"
+
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        Drift-kinetic equation:
+
+        .. math::
+
+            \frac{\partial f}{\partial t} + \left[ v_\parallel \frac{\mathbf{B}^*}{B^*_\parallel} + \frac{\mathbf{E}^* \times \mathbf{b}_0}{B^*_\parallel} \right] \cdot \frac{\partial f}{\partial \mathbf{X}} + \left[ \frac{1}{\varepsilon} \frac{\mathbf{B}^*}{B^*_\parallel} \cdot \mathbf{E}^* \right] \cdot \frac{\partial f}{\partial v_\parallel} = 0
+
+        Poisson equation:
+
+        .. math::
+
+            -\nabla_\perp \cdot \left( \frac{n_0}{|B_0|^2} \nabla_\perp \phi \right) + \frac{1}{\varepsilon} n_0 \left( 1 + \frac{1}{Z \varepsilon} \frac{1}{T_0} \phi \right) = \frac{1}{\varepsilon} \int f B^*_\parallel \, \textnormal{d} v_\parallel \textnormal{d} \mu
+
+        where :math:`f(\mathbf{X}, v_\parallel, \mu, t)` is the guiding center distribution and
+
+        .. math::
+
+            \mathbf{E}^* = -\nabla \phi - \varepsilon \mu \nabla |B_0|, \qquad \mathbf{B}^* = \mathbf{B}_0 + \varepsilon v_\parallel \nabla \times \mathbf{b}_0, \qquad B^*_\parallel = \mathbf{B}^* \cdot \mathbf{b}_0
+
+        Notes
+        -----
+
+        * The ``control_var`` in the Poisson equation is optional; in case it is enabled via the parameter file, the following Poisson equation is solved:
+        Find :math:`\phi \in H^1` such that
+
+        .. math::
+
+            \int \frac{n_0}{|B_0|^2} \nabla_\perp \psi \cdot \nabla_\perp \phi \, \textrm{d} \mathbf{x} + \frac{1}{Z \varepsilon^2} \int \frac{n_0}{T_0} \psi \phi \, \textrm{d} \mathbf{x} = \frac{1}{\varepsilon} \int \int \psi \, (f - f_0) B^*_\parallel \, \textrm{d} \mathbf{x} \, \textnormal{d} v_\parallel \textnormal{d} \mu \qquad \forall \ \psi \in H^1
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The reference speed is the ion thermal speed and the electrostatic
+        fields are scaled accordingly:
+
+        .. math::
+
+            \hat v = \hat v_i,\qquad \hat E = \hat v_i \hat B,\qquad \hat\phi = \hat E \hat x.
+
+        The small parameter is :math:`\varepsilon = 1/(\hat\Omega_c\hat t)`."""
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Field energy: ``en_phi``
+        - Guiding-center particle energy: ``en_particles``
+        - Total energy: ``en_tot``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. ImplicitDiffusion:**
+
+{ImplicitDiffusion.__doc__}
+
+**2. push_guiding_center_bx_estar.PushGuidingCenterBxEstar:**
+
+{PushGuidingCenterBxEstar.__doc__}
+
+**3. push_guiding_center_parallel.PushGuidingCenterParallel:**
+
+{PushGuidingCenterParallel.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""This model is an electrostatic drift-kinetic reduction for strongly
+        magnetized ions in a fixed magnetic equilibrium. Electrons are not
+        evolved kinetically; instead they enter through the adiabatic response
+        in the quasi-neutrality solve. The implementation supports control
+        variates for the field solve."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the drift-kinetic adiabatic-electron model:
+
+        .. code-block:: python
+
+            from struphy.models import DriftKineticElectrostaticAdiabatic
+
+            model = DriftKineticElectrostaticAdiabatic()
+            model.em_fields.phi
+            model.kinetic_ions.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - electrostatic drift-kinetic ion turbulence studies
+        - strongly magnetized plasmas with adiabatic electrons
+        - guiding-center PIC verification in realistic magnetic geometry
+        - low-frequency regimes where full gyrophase resolution is unnecessary"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - fully electromagnetic dynamics with evolving magnetic perturbations
+        - electron kinetic effects beyond the adiabatic closure
+        - problems that require resolving full cyclotron motion
+        - multi-species kinetic coupling without extending the model"""
 
     def allocate_helpers(self, verbose: bool = False):
         """Solve initial Poisson equation.
@@ -191,36 +303,19 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         self.propagators.gc_poisson.options.rho = rho
         self.propagators.gc_poisson.allocate()
 
-    def update_scalar_quantities(self):
+    def _compute_en_phi(self):
         phi = self.em_fields.phi.spline.vector
-        particles = self.kinetic_ions.var.particles
         epsilon = self.kinetic_ions.equation_params.epsilon
 
-        # energy from polarization
         e1 = Propagator.derham.grad.dot(-phi, out=self._e_field)
         en_phi1 = 0.5 * Propagator.mass_ops.M1gyro.dot_inner(e1, e1)
-
-        # energy from adiabatic electrons
         en_phi = 0.5 / epsilon**2 * Propagator.mass_ops.M0ad.dot_inner(phi, phi)
+        return en_phi + en_phi1
 
-        # for Landau damping test
-        # en_phi = 0.
-
-        # mu_p * |B0(eta_p)|
+    def _compute_en_particle_magnetic(self):
+        particles = self.kinetic_ions.var.particles
         particles.save_magnetic_background_energy()
-
-        # 1/N sum_p (w_p v_p^2/2 + mu_p |B0|_p)
-        self._tmp3[0] = (
-            1
-            / particles.Np
-            * xp.sum(
-                particles.weights * particles.velocities[:, 0] ** 2 / 2.0 + particles.markers_wo_holes_and_ghost[:, 8],
-            )
-        )
-
-        self.update_scalar("en_phi", en_phi + en_phi1)
-        self.update_scalar("en_particles", self._tmp3[0])
-        self.update_scalar("en_tot", en_phi + en_phi1 + self._tmp3[0])
+        return 1 / particles.Np * xp.sum(particles.markers_wo_holes_and_ghost[:, 8])
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

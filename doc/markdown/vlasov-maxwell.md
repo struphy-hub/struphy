@@ -345,7 +345,7 @@ $$
  \boldsymbol \rho_\textrm{i0} := \frac{\alpha^2}{\varepsilon}\int \hat \rho_\textrm{i0}\,\mathbf \Lambda^0 \sqrt g\,\textrm d \boldsymbol \eta = \left(\frac{\alpha^2}{\varepsilon} \rho_\textrm{i0}\,, \, \boldsymbol\Lambda^0\right)_{L^2} \qquad \in \mathbb R^{N_0}\,,
 $$
 
-coming from the static ion charge density $\rho_\textrm{i0}$. This term can be viewed as the right-hand side of an [L2Projection](https://struphy-hub.github.io/struphy/sections/subsections-old/feec_projectors.html#struphy.feec.projectors.L2Projector) into $V_h^0$ and computed with the method [L2Projector.get_dofs](https://struphy-hub.github.io/struphy/sections/subsections-old/feec_projectors.html#struphy.feec.projectors.L2Projector.get_dofs). 
+coming from the static ion charge density $\rho_\textrm{i0}$. This term can be viewed as the right-hand side of an [L2Projection](https://struphy-hub.github.io/struphy/sections/subsections-old/feec_projectors.html#struphy.feec.mass.L2Projector) into $V_h^0$ and computed with the method [L2Projector.get_dofs](https://struphy-hub.github.io/struphy/sections/subsections-old/feec_projectors.html#struphy.feec.mass.L2Projector.get_dofs). 
 
 Finally, let us consider the **particle-to-grid coupling terms**. In the Poisson equation we have the coupling term
 
@@ -595,13 +595,13 @@ Once the propagators have been defined and added to a {ref}`struphy_model`, Stru
 
 For our example model {class}`~struphy.models.kinetic.VlasovMaxwellOneSpecies`, the four substeps defined by {eq}`eq:Js` are imlemented in the following propagators:
 
-1. $\Phi^1_{t}$ in {class}`~struphy.propagators.propagators_markers.PushEta`,
+1. $\Phi^1_{t}$ in {class}`~struphy.propagators.push_eta.PushEta`,
 
-2. $\Phi^2_{t}$ in {class}`~struphy.propagators.propagators_markers.PushVxB`,
+2. $\Phi^2_{t}$ in {class}`~struphy.propagators.push_vxb.PushVxB`,
 
-3. $\Phi^3_{t}$ in {class}`~struphy.propagators.propagators_coupling.VlasovAmpere`,
+3. $\Phi^3_{t}$ in {class}`~struphy.propagators.vlasov_ampere.VlasovAmpere`,
 
-4. $\Phi^4_{t}$ in {class}`~struphy.propagators.propagators_fields.Maxwell`.
+4. $\Phi^4_{t}$ in {class}`~struphy.propagators.maxwell.Maxwell`.
 
 Let us revisit the third step $\Phi^3_{t}$, which is the most complicated because it is a particle-field coupling step, where marker velocities and FE coefficients are updated simultaneously. Explicitly, the ODE of this step reads
 

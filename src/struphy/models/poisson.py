@@ -8,10 +8,10 @@ from struphy.models.species import (
     FieldSpecies,
 )
 from struphy.models.variables import FEECVariable
-from struphy.propagators import (
-    propagators_fields,
-)
 from struphy.propagators.base import Propagator
+from struphy.propagators.implicit_diffusion import ImplicitDiffusion
+from struphy.propagators.poisson_field_solve import PoissonFieldSolve
+from struphy.propagators.time_dependent_source import TimeDependentSource
 
 logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
@@ -39,8 +39,8 @@ class Poisson(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.TimeDependentSource`
-    2. :class:`~struphy.propagators.propagators_fields.ImplicitDiffusion`
+    1. :class:`~struphy.propagators.time_dependent_source.TimeDependentSource`
+    2. :class:`~struphy.propagators.implicit_diffusion.ImplicitDiffusion`
 
     :ref:`Model info <add_model>`:
     """
@@ -62,8 +62,8 @@ class Poisson(StruphyModel):
     class Propagators:
         def __init__(self, with_t_dep_source=False):
             if with_t_dep_source:
-                self.source = propagators_fields.TimeDependentSource()
-            self.poisson = propagators_fields.Poisson()
+                self.source = TimeDependentSource()
+            self.poisson = PoissonFieldSolve()
 
     ## abstract methods
 
@@ -85,6 +85,8 @@ class Poisson(StruphyModel):
             self.propagators.source.variables.source = self.em_fields.source
         self.propagators.poisson.variables.phi = self.em_fields.phi
 
+        # 5. define scalars to be tracked during simulation
+
     @property
     def bulk_species(self):
         return None
@@ -92,6 +94,84 @@ class Poisson(StruphyModel):
     @property
     def velocity_scale(self):
         return None
+
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        Find :math:`\phi \in H^1` such that
+
+        .. math::
+
+            -\nabla \cdot D_0(\mathbf{x}) \nabla \phi + n_0(\mathbf{x}) \phi = \rho(t, \mathbf{x})
+
+        where :math:`n_0, \rho(t) : \Omega \to \mathbb{R}` are real-valued functions, :math:`\rho(t)` is
+        parametrized by time :math:`t`, and :math:`D_0 : \Omega \to \mathbb{R}^{3 \times 3}` is a positive matrix.
+        Boundary terms from integration by parts are assumed to vanish.
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The coefficient scaling is
+
+        .. math::
+
+            \hat D = \hat n / \hat x^2,\qquad \hat\rho = \hat n.
+
+        No dedicated velocity normalization is used."""
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - No default scalar diagnostics are defined by this model."""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. TimeDependentSource:**
+
+{TimeDependentSource.__doc__}
+
+**2. PoissonFieldSolve:**
+
+{PoissonFieldSolve.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""Poisson is the standalone elliptic field-solve model used for weak
+        diffusion/Poisson problems. It is also the building block reused by
+        other models for initial electrostatic solves."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize a Poisson model:
+
+        .. code-block:: python
+
+            from struphy.models import Poisson
+
+            model = Poisson()
+            model.em_fields.phi
+            model.em_fields.source
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - elliptic benchmark problems
+        - electrostatic field solves with prescribed source terms
+        - testing weak Poisson discretizations and boundary handling"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - hyperbolic time-dependent wave propagation
+        - self-consistent kinetic plasma evolution on its own
+        - magnetic-field dynamics or full Maxwell coupling"""
 
     def allocate_helpers(self, verbose: bool = False):
         """Solve initial Poisson equation.
@@ -109,9 +189,6 @@ class Poisson(StruphyModel):
 
         if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
             logger.info("... Done.")
-
-    def update_scalar_quantities(self):
-        pass
 
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

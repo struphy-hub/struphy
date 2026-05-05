@@ -25,9 +25,7 @@ class Propagator(metaclass=ABCMeta):
 
     Note
     ----
-    All Struphy propagators are subclasses of ``Propagator`` and must be added to ``struphy/propagators``
-    in one of the modules ``propagators_fields.py``, ``propagators_markers.py`` or ``propagators_coupling.py``.
-    Only propagators that update both a FEEC and a PIC species go into ``propagators_coupling.py``.
+    All Struphy propagators are subclasses of ``Propagator`` and must be added under ``struphy/propagators/``.
     """
 
     @abstractmethod
@@ -54,6 +52,11 @@ class Propagator(metaclass=ABCMeta):
     @abstractmethod
     @dataclass
     class Options:
+        """Template for configuration options of a propagator.
+
+        Subclasses should override this to define specific propagator options.
+        """
+
         # specific literals
         OptsTemplate = Literal["implicit", "explicit"]
         # propagator options
@@ -159,7 +162,7 @@ class Propagator(metaclass=ABCMeta):
         return self._derham
 
     @derham.setter
-    def derham(self, derham):
+    def derham(self, derham: Derham):
         assert isinstance(derham, Derham)
         self._derham = derham
 
@@ -171,7 +174,7 @@ class Propagator(metaclass=ABCMeta):
         return self._domain
 
     @domain.setter
-    def domain(self, domain):
+    def domain(self, domain: Domain):
         assert isinstance(domain, Domain)
         self._domain = domain
 
@@ -183,7 +186,7 @@ class Propagator(metaclass=ABCMeta):
         return self._mass_ops
 
     @mass_ops.setter
-    def mass_ops(self, mass_ops):
+    def mass_ops(self, mass_ops: WeightedMassOperators):
         assert isinstance(mass_ops, WeightedMassOperators)
         self._mass_ops = mass_ops
 
@@ -195,7 +198,7 @@ class Propagator(metaclass=ABCMeta):
         return self._basis_ops
 
     @basis_ops.setter
-    def basis_ops(self, basis_ops):
+    def basis_ops(self, basis_ops: BasisProjectionOperators):
         assert isinstance(basis_ops, BasisProjectionOperators)
         self._basis_ops = basis_ops
 
@@ -210,7 +213,7 @@ class Propagator(metaclass=ABCMeta):
         return self._projected_equil
 
     @projected_equil.setter
-    def projected_equil(self, new):
+    def projected_equil(self, new: ProjectedFluidEquilibriumWithB):
         assert isinstance(new, ProjectedFluidEquilibriumWithB)
         self._projected_equil = new
 

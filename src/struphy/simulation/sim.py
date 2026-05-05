@@ -1018,7 +1018,7 @@ RESTARTing from:
             self._mass_ops = None
             self._basis_ops = None
         else:
-            self._mass_ops = WeightedMassOperators(self.derham, self.domain, eq_mhd=self.equil, verbose=verbose)
+            self._mass_ops = WeightedMassOperators(self.derham, self.domain, eq_mhd=self.equil)
 
             self._basis_ops = BasisProjectionOperators(
                 self.derham,
@@ -1182,14 +1182,14 @@ RESTARTing from:
         """
 
         # save scalar quantities in group 'scalar/'
-        for key, scalar in self.model.scalar_quantities.items():
-            val = scalar["value"]
+        for key, scalar in self.model.scalars.dct.items():
+            val = scalar.value
             key_scalar = "scalar/" + key
             data.add_data({key_scalar: val})
 
         with h5py.File(data.file_path, "a") as file:
             # store grid_info only for runs with 512 ranks or smaller
-            if self.model.scalar_quantities and self.derham is not None:
+            if self.model.scalars.dct and self.derham is not None:
                 if size <= 512:
                     file["scalar"].attrs["grid_info"] = self.derham.domain_array
                 else:

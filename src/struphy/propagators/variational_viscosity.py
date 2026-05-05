@@ -1,0 +1,826 @@
+import logging
+from copy import deepcopy
+from dataclasses import dataclass
+from typing import Literal
+
+import cunumpy as xp
+from feectools.ddm.mpi import mpi as MPI
+from feectools.linalg.solvers import inverse
+from line_profiler import profile
+
+from struphy.feec import preconditioner
+from struphy.feec.basis_projection_ops import CoordinateProjector
+from struphy.feec.mass import L2Projector
+from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner
+from struphy.feec.variational_utilities import InternalEnergyEvaluator
+from struphy.io.options import LiteralOptions
+from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
+from struphy.models.variables import FEECVariable
+from struphy.propagators.base import Propagator
+from struphy.utils.utils import check_option
+
+logger = logging.getLogger("struphy")
+
+
+class VariationalViscosity(Propagator):
+    r""":ref:`FEEC <gempic>` discretization of the following equations:
+    find :math:`s \in L^2` and  :math:`\mathbf u \in (H^1)^3` such that
+
+    .. math::
+
+        &\int_\Omega \partial_t (\rho \mathbf u) \cdot \mathbf v\,\textrm d \mathbf x + \int_\Omega (\mu + \mu_a(\mathbf x)) \nabla \mathbf u : \nabla \mathbf v \,\textrm d \mathbf x = 0 \qquad \forall \, \mathbf v \in (H^1)^3 \,,
+        \\[4mm]
+        &\int_\Omega \frac{\partial \mathcal U}{\partial s} \partial_t s \, q \,\textrm d \mathbf x - \mu \int_\Omega |\nabla \mathbf u|^2 \, q \,\textrm d \mathbf x = 0 \qquad \forall \, q \in L^2\,\text{if using } s,
+        \\[4mm]
+        &\int_\Omega \frac{1}{\gamma - 1} \partial_t p \, q\,\textrm d \mathbf x - \mu \int_\Omega |\nabla \mathbf u|^2 \, q \,\textrm d \mathbf x = 0 \qquad \forall \, q \in L^2\, \text{if using } p.
+
+    With :math:`\mu_a(\mathbf x) = \mu_a |\nabla \mathbf u(\mathbf x)|`
+
+    On the logical domain:
+
+    .. math::
+
+        \begin{align}
+        &\int_{\hat{\Omega}} \partial_t ( \hat{\rho}^3  \hat{\mathbf{u}}) \cdot G \hat{\mathbf{v}} \, \textrm d \boldsymbol \eta
+        + \mu \int_{\hat{\Omega}} \nabla (DF \hat{\mathbf{u}}) : \nabla (DF \hat{\mathbf{v}}) \,\frac{1}{\sqrt g}\, \textrm d \boldsymbol \eta = 0 ~ ,
+        \\[2mm]
+        &\int_{\hat{\Omega}} \partial_t (\hat{\rho} \hat{e}(\hat{\rho}, \hat{s})) \hat{w} \,\frac{1}{\sqrt g}\, \textrm d \boldsymbol \eta -  \int_{\hat{\Omega}} (\mu + \mu_a(\boldsymbol \eta)) \nabla (DF \hat{\mathbf{u}}) : \nabla (DF \hat{\mathbf{u}}) \hat{w} \, \textrm d \boldsymbol \eta = 0 ~ , \text{if using } s,
+        \\[2mm]
+        &\int_{\hat{\Omega}} \partial_t (\frac{1}{\gamma -1} \hat{p} ) \hat{w} \,\frac{1}{\sqrt g}\, \textrm d \boldsymbol \eta - \int_{\hat{\Omega}} (\mu + \mu_a(\boldsymbol \eta)) \nabla (DF \hat{\mathbf{u}}) : \nabla (DF \hat{\mathbf{u}}) \hat{w} \, \textrm d \boldsymbol \eta = 0 ~, \text{if using } p.
+        \end{align}
+
+    It is discretized as
+
+    .. math::
+
+        \begin{align}
+        &\mathbb M^v[\hat{\rho}_h^{n}] \frac{ \mathbf u^{n+1}-\mathbf u^n}{\Delta t}
+        +  \sum_\nu (\mathbb G \mathcal{X}^v_\nu)^T (\mu \mathbb M_0 + \mu_a \mathbb M_0[|\nabla u|] \mathbb G \mathcal{X}^v_\nu \mathbf u^{n+1} = 0 ~ ,
+        \\[2mm]
+        &\frac{P^{3}(\hat{\rho}_h^{n}\mathcal U(\hat{\rho}_h^{n},\hat{s}_h^{n}))- P^{3}(\hat{\rho}_h^{n}\mathcal U(\hat{\rho}_h^{n},\hat{s}_h^{n+1}))}{\Delta t} - \mu P^3(\sum_\nu DF \mathcal{X}^v_\nu \frac{ \mathbf u^{n+1}+\mathbf u^n}{2} \cdot DF \mathcal{X}^v_\nu \mathbf u^{n+1}) = 0 ~ , \text{if using } s,
+        \\[2mm]
+        &\frac{1}{\gamma -1}\frac{p^{n+1}- p^{n}}{\Delta t} - \mu P^3(\sum_\nu DF \mathcal{X}^v_\nu \frac{ \mathbf u^{n+1}+\mathbf u^n}{2} \cdot DF \mathcal{X}^v_\nu \mathbf u^{n+1}) = 0 ~ , \text{if using } p.
+        \end{align}
+
+    where $P^3$ denotes the $L^2$ projection in the last space of the de Rham sequence and the weights in :math:`\mathbb M_0[|\nabla u|]` are given by
+
+    .. math::
+        P^0(g \sqrt{\sum_\nu |(\mathbb G \mathcal{X}^v_\nu \mathbb u)^\top \vec{\boldsymbol \Lambda}^0 |^2]})^\top \vec{\boldsymbol \Lambda}^0 ~.
+
+    """
+
+    class Variables:
+        """Container for variables advanced by :class:`VariationalViscosity`.
+
+        Attributes
+        ----------
+        s : FEECVariable
+            Thermodynamic scalar variable in ``"L2"`` space.
+        u : FEECVariable
+            Velocity variable in ``"H1vec"`` space.
+        """
+
+        def __init__(self):
+            self._s: FEECVariable = None
+            self._u: FEECVariable = None
+
+        @property
+        def s(self) -> FEECVariable:
+            return self._s
+
+        @s.setter
+        def s(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "L2"
+            self._s = new
+
+        @property
+        def u(self) -> FEECVariable:
+            return self._u
+
+        @u.setter
+        def u(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "H1vec"
+            self._u = new
+
+    def __init__(self):
+        self.variables = self.Variables()
+
+    @dataclass
+    class Options:
+        """Configuration options for :class:`VariationalViscosity`.
+
+        Parameters
+        ----------
+        model : {"full", "full_p", "full_q", "linear_p", "linear_q", "deltaf_q"}, default="full"
+            Thermodynamic model variant.
+        gamma : float, default=5/3
+            Adiabatic index.
+        solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Linear solver for implicit subproblems.
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixDiagonalPreconditioner"
+            Preconditioner used in linear solves.
+        solver_params : SolverParameters, default=None
+            Linear-solver controls.
+        nonlin_solver : NonlinearSolverParameters, default=None
+            Nonlinear iteration controls.
+        rho : FEECVariable, default=None
+            Density variable used by variational forms.
+        pt3 : FEECVariable, default=None
+            Optional equilibrium/background pressure-like field.
+        mu : float, default=0.0
+            Physical viscosity coefficient.
+        mu_a : float, default=0.0
+            Artificial-viscosity coefficient.
+        alpha : float, default=0.0
+            Optional linear damping/regularization parameter.
+        """
+
+        # specific literals
+        OptsModel = Literal["full", "full_p", "full_q", "linear_p", "linear_q", "deltaf_q"]
+        # propagator options
+        model: OptsModel = "full"
+        gamma: float = 5.0 / 3.0
+        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixDiagonalPreconditioner"
+        solver_params: SolverParameters = None
+        nonlin_solver: NonlinearSolverParameters = None
+        rho: FEECVariable = None
+        pt3: FEECVariable = None
+        mu: float = 0.0
+        mu_a: float = 0.0
+        alpha: float = 0.0
+
+        def __post_init__(self):
+            # checks
+            check_option(self.model, self.OptsModel)
+            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.precond, LiteralOptions.OptsMassPrecond)
+
+            # defaults
+            if self.solver_params is None:
+                self.solver_params = SolverParameters()
+
+            if self.nonlin_solver is None:
+                self.nonlin_solver = NonlinearSolverParameters(type="Newton")
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        self._options = new
+
+    @profile
+    def allocate(self, verbose: bool = False):
+        self._model = self.options.model
+        self._gamma = self.options.gamma
+        self._lin_solver = self.options.solver_params
+        self._nonlin_solver = self.options.nonlin_solver
+        self._mu_a = self.options.mu_a
+        self._alpha = self.options.alpha
+        self._mu = self.options.mu
+        self._rho = self.options.rho
+        self._pt3 = self.options.pt3
+
+        self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
+
+        # assembly of WMMnew happens in VariationalDensityEvolve
+        self._Mrho = self.mass_ops.WMMnew
+        pc = MassMatrixDiagonalPreconditioner(self._Mrho)
+        self._Mrho_inv = inverse(
+            self._Mrho,
+            "pcg",
+            pc=pc,
+            tol=1e-16,
+            maxiter=500,
+            recycle=True,
+        )
+
+        # Femfields for the projector
+        self.sf = self.derham.create_spline_function("sf", "L2")
+        self.sf1 = self.derham.create_spline_function("sf1", "L2")
+        self.uf1 = self.derham.create_spline_function("uf", "H1vec")
+        self.uf12 = self.derham.create_spline_function("uf1", "H1vec")
+        self.gu0f = self.derham.create_spline_function("gu0", "Hcurl")
+        self.gu1f = self.derham.create_spline_function("gu1", "Hcurl")
+        self.gu2f = self.derham.create_spline_function("gu2", "Hcurl")
+        self.gu120f = self.derham.create_spline_function("gu120", "Hcurl")
+        self.gu121f = self.derham.create_spline_function("gu121", "Hcurl")
+        self.gu122f = self.derham.create_spline_function("gu122", "Hcurl")
+
+        # Projector
+        self._energy_evaluator = InternalEnergyEvaluator(self.derham, self._gamma)
+        self._initialize_projectors_and_mass()
+
+        # bunch of temporaries to avoid allocating in the loop
+        u = self.variables.u.spline.vector
+        s = self.variables.s.spline.vector
+
+        self._tmp_un1 = u.space.zeros()
+        self._tmp_un12 = u.space.zeros()
+        self._tmp_sn1 = s.space.zeros()
+        self._tmp_sn_incr = s.space.zeros()
+        self._tmp_sn_weak_diff = s.space.zeros()
+        self._tmp_gu0 = self.derham.V1pol.zeros()
+        self._tmp_gu1 = self.derham.V1pol.zeros()
+        self._tmp_gu2 = self.derham.V1pol.zeros()
+        self._tmp_gu120 = self.derham.V1pol.zeros()
+        self._tmp_gu121 = self.derham.V1pol.zeros()
+        self._tmp_gu122 = self.derham.V1pol.zeros()
+        self._linear_form_tot_e = s.space.zeros()
+        self._linear_form_en1 = s.space.zeros()
+        self.tot_rhs = s.space.zeros()
+
+    def __call__(self, dt):
+        if self._nonlin_solver.type == "Newton":
+            self.__call_newton(dt)
+        else:
+            raise ValueError(
+                "wrong value for solver type in VariationalViscosity",
+            )
+
+    def __call_newton(self, dt):
+        """Solve the non linear system for updating the variables using Newton iteration method"""
+        # Compute dissipation implicitely
+        sn = self.variables.s.spline.vector
+        un = self.variables.u.spline.vector
+
+        if self._mu < 1.0e-15 and self._mu_a < 1.0e-15 and self._alpha < 1.0e-15:
+            self.update_feec_variables(s=sn, u=un)
+            return
+
+        if self._info:
+            logger.info("")
+            logger.info("Computing the dissipation in VariationalViscosity")
+
+        # Update artificial viscosity weighted mass matrix
+        total_viscosity = self._update_artificial_viscosity(un, dt)
+
+        self._scaled_stiffness._scalar = dt * self._mu  # /2.
+        self._scaled_Mv._scalar = dt * self._alpha
+        # self.evol_op._multiplicants[1]._addends[0]._scalar = - dt*self._mu/2.
+        un1 = self.evol_op.dot(un, out=self._tmp_un1)
+        if self._info:
+            logger.info(f"information on the linear solver : {self.inv_lop._info}")
+
+        if self._model == "linear_p" or (self._model == "linear_q" and self._nonlin_solver["fast"]):
+            self.update_feec_variables(s=sn, u=un1)
+            return
+
+        # Energy balance term
+        # 1) Pointwize energy change
+        energy_change = self._get_energy_change(un, un1, dt, total_viscosity)
+        # 2) Initial energy and linear form
+        rho = self._rho
+        if self._model in ["deltaf_q", "linear_q"]:
+            self.sf.vector = self._pt3.spline.vector
+        else:
+            self.sf.vector = sn
+
+        sf_values = self.sf.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_bd,
+            out=self._sf_values,
+        )
+
+        if self._model == "full":
+            rhof_values = self._energy_evaluator.eval_3form(rho, out=self._rhof_values)
+
+            e_n = self._energy_evaluator.ener(
+                rhof_values,
+                sf_values,
+                out=self._e_n,
+            )
+
+            e_n *= self._energy_metric
+
+        elif self._model == "full_p":
+            e_n = self._e_n
+            e_n *= 0.0
+            e_n += sf_values
+            e_n *= 1.0 / (self._gamma - 1.0)
+            e_n *= self._energy_metric
+
+        elif self._model in ["full_q"]:
+            e_n = self._e_n
+            e_n *= 0.0
+            e_n += sf_values
+            e_n **= 2
+            e_n *= 1.0 / (self._gamma - 1.0)
+            e_n *= self._energy_metric
+
+        elif self._model in ["linear_q", "deltaf_q"]:
+            e_n = self._e_n
+            e_n *= 0.0
+            e_n += sf_values
+            e_n *= self._q0_values
+            e_n *= 2.0 / (self._gamma - 1.0)
+            e_n *= self._energy_metric
+
+        energy_change += e_n
+
+        self._get_L2dofs_V3(energy_change, dofs=self._linear_form_tot_e)
+
+        # 3) Newton iteration
+        sn1 = sn.copy(out=self._tmp_sn1)
+
+        tol = self._nonlin_solver["tol"]
+        err = tol + 1
+
+        for it in range(self._nonlin_solver["maxiter"]):
+            if self._model in ["deltaf_q", "linear_q"]:
+                self.sf1.vector = self._pt3.spline.vector
+            else:
+                self.sf1.vector = sn1
+
+            sf1_values = self.sf1.eval_tp_fixed_loc(
+                self.integration_grid_spans,
+                self.integration_grid_bd,
+                out=self._sf1_values,
+            )
+
+            if self._model == "full":
+                e_n1 = self._energy_evaluator.ener(
+                    rhof_values,
+                    sf1_values,
+                    out=self._e_n1,
+                )
+                e_n1 *= self._energy_metric
+
+            elif self._model == "full_p":
+                e_n1 = self._e_n1
+                e_n1 *= 0.0
+                e_n1 += sf1_values
+                e_n1 *= 1.0 / (self._gamma - 1.0)
+                e_n1 *= self._energy_metric
+
+            elif self._model in ["full_q"]:
+                e_n1 = self._e_n1
+                e_n1 *= 0.0
+                e_n1 += sf1_values
+                e_n1 **= 2
+                e_n1 *= 1.0 / (self._gamma - 1.0)
+                e_n1 *= self._energy_metric
+
+            elif self._model in ["linear_q", "deltaf_q"]:
+                e_n1 = self._e_n1
+                e_n1 *= 0.0
+                e_n1 += sf1_values
+                e_n1 *= self._q0_values
+                e_n1 *= 2.0 / (self._gamma - 1.0)
+                e_n1 *= self._energy_metric
+
+            self._get_L2dofs_V3(e_n1, dofs=self._linear_form_en1)
+
+            self.tot_rhs *= 0.0
+            self.tot_rhs -= self._linear_form_en1
+            self.tot_rhs += self._linear_form_tot_e
+
+            err = self._get_error_newton(self.tot_rhs)
+
+            if self._info:
+                logger.info(f"iteration : {it} error : {err}")
+
+            if (err < tol**2 and it > 0) or xp.isnan(err):
+                # force at least one iteration
+                break
+
+            if self._model == "full":
+                deds = self._energy_evaluator.dener_ds(
+                    rhof_values,
+                    sf1_values,
+                    out=self._de_s1_values,
+                )
+                deds *= self._mass_metric_term
+
+                self.M_de_ds.assemble([[deds]])
+                self.pc_jac.update_mass_operator(self.M_de_ds)
+
+            elif self._model in ["full_q", "linear_q", "deltaf_q"]:
+                if self._model in ["deltaf_q", "linear_q"]:
+                    sf1_values = self._q0_values
+
+                deds = self._de_s1_values
+                deds *= 0.0
+                deds += sf1_values
+                deds *= 2 / (self._gamma - 1.0)
+                deds *= self._mass_metric_term
+
+                self.M_de_ds.assemble([[deds]])
+                self.pc_jac.update_mass_operator(self.M_de_ds)
+
+            incr = self.inv_jac.dot(self.tot_rhs, out=self._tmp_sn_incr)
+
+            if self._info:
+                logger.info(f"information on the linear solver : {self.inv_jac._info}")
+
+            if self._model in ["deltaf_q", "linear_q"]:
+                self._pt3 += incr
+            else:
+                sn1 += incr
+
+        if it == self._nonlin_solver["maxiter"] - 1 or xp.isnan(err):
+            logger.info(
+                f"!!!Warning: Maximum iteration in VariationalViscosity reached - not converged:\n {err =} \n {tol**2 =}",
+            )
+
+        self.update_feec_variables(s=sn1, u=un1)
+
+    def _initialize_projectors_and_mass(self):
+        """Initialization of all the `BasisProjectionOperator` and needed to compute the bracket term"""
+
+        Xv = getattr(self.basis_ops, "Xv")
+        Pcoord0 = CoordinateProjector(
+            0,
+            self.derham.Vvpol,
+            self.derham.V0pol,
+        )
+        Pcoord1 = CoordinateProjector(
+            1,
+            self.derham.Vvpol,
+            self.derham.V0pol,
+        )
+        Pcoord2 = CoordinateProjector(
+            2,
+            self.derham.Vvpol,
+            self.derham.V0pol,
+        )
+
+        M1 = self.mass_ops.M1
+        self.M1_du = self.mass_ops.create_weighted_mass("Hcurl", "Hcurl")
+
+        self.pc_M3 = preconditioner.MassMatrixDiagonalPreconditioner(
+            self.mass_ops.M3,
+        )
+        self._inv_M3 = inverse(
+            self.mass_ops.M3,
+            "pcg",
+            pc=self.pc_M3,
+            tol=1e-16,
+            maxiter=1000,
+            verbose=False,
+        )
+
+        self.M_de_ds = self.mass_ops.create_weighted_mass("L2", "L2")
+
+        if self.options.precond is None:
+            self.pc_jac = None
+        else:
+            pc_class = getattr(
+                preconditioner,
+                self.options.precond,
+            )
+            self.pc_jac = pc_class(self.M_de_ds)
+
+        self.inv_jac = inverse(
+            self.M_de_ds,
+            "pcg",
+            pc=self.pc_jac,
+            tol=self._lin_solver.tol,
+            maxiter=self._lin_solver.maxiter,
+            verbose=False,
+            recycle=True,
+        )
+
+        grad = self.derham.grad_bcfree
+        self.scalar_stiffness = grad.T @ M1 @ grad
+        self.log_stiffness = (
+            Pcoord0.T @ self.scalar_stiffness @ Pcoord0
+            + Pcoord1.T @ self.scalar_stiffness @ Pcoord1
+            + Pcoord2.T @ self.scalar_stiffness @ Pcoord2
+        )
+
+        self.phy_stiffness = Xv.T @ self.log_stiffness @ Xv
+
+        self._scaled_stiffness = 0.00001 * self.phy_stiffness
+
+        self.du_stiffness = grad.T @ self.M1_du @ grad
+        self.du_log_stiffness = (
+            Pcoord0.T @ self.du_stiffness @ Pcoord0
+            + Pcoord1.T @ self.du_stiffness @ Pcoord1
+            + Pcoord2.T @ self.du_stiffness @ Pcoord2
+        )
+
+        self.du_phy_stiffness = Xv.T @ self.du_log_stiffness @ Xv
+
+        self._scaled_stiffness = 0.00001 * self.phy_stiffness
+
+        self._scaled_Mv = 0.1 * self.mass_ops.Mv
+
+        self.r_op = self._Mrho  # - self._scaled_stiffness - self.du_phy_stiffness
+        self.l_op = self._Mrho + self._scaled_Mv + self._scaled_stiffness + self.du_phy_stiffness
+
+        self.grad_0 = grad @ Pcoord0 @ Xv
+        self.grad_1 = grad @ Pcoord1 @ Xv
+        self.grad_2 = grad @ Pcoord2 @ Xv
+
+        self.inv_lop = inverse(
+            self.l_op,
+            "pcg",
+            pc=self._Mrho_inv,
+            tol=self._lin_solver.tol,
+            maxiter=self._lin_solver.maxiter,
+            verbose=False,
+            recycle=True,
+        )
+
+        self.evol_op = self.inv_lop @ self.r_op
+        # self.evol_op = IdentityOperator(self.derham.Vvpol)
+        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts[0]]
+        self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
+            self.derham.prepare_eval_tp_fixed(
+                integration_grid,
+            )
+        )
+
+        self.integration_grid_gradient = [
+            [self.integration_grid_bd[0], self.integration_grid_bn[1], self.integration_grid_bn[2]],
+            [
+                self.integration_grid_bn[0],
+                self.integration_grid_bd[1],
+                self.integration_grid_bn[2],
+            ],
+            [self.integration_grid_bn[0], self.integration_grid_bn[1], self.integration_grid_bd[2]],
+        ]
+
+        self.integration_grid_u = [
+            [self.integration_grid_bn[0], self.integration_grid_bn[1], self.integration_grid_bn[2]],
+            [
+                self.integration_grid_bn[0],
+                self.integration_grid_bn[1],
+                self.integration_grid_bn[2],
+            ],
+            [self.integration_grid_bn[0], self.integration_grid_bn[1], self.integration_grid_bn[2]],
+        ]
+
+        grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
+
+        self._guf0_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._guf1_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._guf2_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
+
+        self._guf120_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._guf121_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._guf122_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
+
+        self._uf1_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._uf12_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
+
+        self._gu_sq_values = xp.zeros(grid_shape, dtype=float)
+        self._u_sq_values = xp.zeros(grid_shape, dtype=float)
+        self._gu_init_values = xp.zeros(grid_shape, dtype=float)
+
+        self._sf_values = xp.zeros(grid_shape, dtype=float)
+        self._sf1_values = xp.zeros(grid_shape, dtype=float)
+        self._rhof_values = xp.zeros(grid_shape, dtype=float)
+
+        self._e_n1 = xp.zeros(grid_shape, dtype=float)
+        self._e_n = xp.zeros(grid_shape, dtype=float)
+
+        self._de_s1_values = xp.zeros(grid_shape, dtype=float)
+
+        self._tmp_int_grid = xp.zeros(grid_shape, dtype=float)
+
+        gam = self._gamma
+        if self._model == "full":
+            metric = xp.power(
+                self.domain.jacobian_det(
+                    *integration_grid,
+                ),
+                -gam,
+            )
+            self._mass_metric_term = deepcopy(metric)
+
+            metric = xp.power(
+                self.domain.jacobian_det(
+                    *integration_grid,
+                ),
+                1 - gam,
+            )
+            self._energy_metric = deepcopy(metric)
+
+        elif self._model == "full_p":
+            metric = 1.0 / self.domain.jacobian_det(
+                *integration_grid,
+            )
+            self._mass_metric_term = deepcopy(metric)
+
+            metric = (
+                0
+                * self.domain.jacobian_det(
+                    *integration_grid,
+                )
+                + 1.0
+            )
+            self._energy_metric = deepcopy(metric)
+
+            # no need to compute this every time step
+            deds = self._de_s1_values
+            deds *= 0.0
+            deds += 1 / (self._gamma - 1.0)
+            deds *= self._mass_metric_term
+
+            self.M_de_ds.assemble([[deds]])
+            self.pc_jac.update_mass_operator(self.M_de_ds)
+
+        elif self._model in ["full_q", "linear_q", "deltaf_q"]:
+            metric = xp.power(
+                self.domain.jacobian_det(
+                    *integration_grid,
+                ),
+                -2,
+            )
+            self._mass_metric_term = deepcopy(metric)
+
+            metric = xp.power(
+                self.domain.jacobian_det(
+                    *integration_grid,
+                ),
+                -1,
+            )
+            self._energy_metric = deepcopy(metric)
+
+        metric = xp.power(
+            self.domain.jacobian_det(
+                *integration_grid,
+            ),
+            1,
+        )
+        self._sq_term_metric = deepcopy(metric)
+
+        metric = self.domain.metric_inv(
+            *integration_grid,
+        ) * self.domain.jacobian_det(*integration_grid)
+        self._mass_M1_metric = deepcopy(metric)
+
+        if self._model in ["linear_q", "deltaf_q"]:
+            self.sf1.vector = self.projected_equil.q3
+
+            self._q0_values = self.sf1.eval_tp_fixed_loc(self.integration_grid_spans, self.integration_grid_bd)
+
+        metric = self.domain.metric(
+            *integration_grid,
+        ) * self.domain.jacobian_det(*integration_grid)
+        self._mass_Mv_metric = deepcopy(metric)
+
+        self._get_L2dofs_V3 = L2Projector("L2", self.mass_ops).get_dofs
+
+    def _get_error_newton(self, sn_diff):
+        err_s = self._inv_M3.dot_inner(sn_diff, sn_diff)
+        return err_s
+
+    def _update_artificial_viscosity(self, un, dt):
+        """Update the artificial viscosity as the norm of the gradient of un.
+        Update the associated mass matrix and return the total viscosity for later computation"""
+        gu0 = self.grad_0.dot(un, out=self._tmp_gu0)
+        gu1 = self.grad_1.dot(un, out=self._tmp_gu1)
+        gu2 = self.grad_2.dot(un, out=self._tmp_gu2)
+
+        self.gu0f.vector = gu0
+        self.gu1f.vector = gu1
+        self.gu2f.vector = gu2
+
+        gu0_v = self.gu0f.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_gradient,
+            out=self._guf0_values,
+        )
+        gu1_v = self.gu1f.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_gradient,
+            out=self._guf1_values,
+        )
+        gu2_v = self.gu2f.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_gradient,
+            out=self._guf2_values,
+        )
+
+        gu_sq_v = self._gu_init_values
+        gu_sq_v *= 0.0
+        for i in range(3):
+            gu0_v[i] **= 2
+            gu1_v[i] **= 2
+            gu2_v[i] **= 2
+            gu_sq_v += gu0_v[i]
+            gu_sq_v += gu1_v[i]
+            gu_sq_v += gu2_v[i]
+
+        xp.sqrt(gu_sq_v, out=gu_sq_v)
+
+        gu_sq_v *= dt * self._mu_a  # /2
+
+        self.M1_du.assemble(
+            [
+                [
+                    gu_sq_v * self._mass_M1_metric[0, 0],
+                    gu_sq_v * self._mass_M1_metric[0, 1],
+                    gu_sq_v * self._mass_M1_metric[0, 2],
+                ],
+                [
+                    gu_sq_v * self._mass_M1_metric[1, 0],
+                    gu_sq_v * self._mass_M1_metric[1, 1],
+                    gu_sq_v * self._mass_M1_metric[1, 2],
+                ],
+                [
+                    gu_sq_v * self._mass_M1_metric[2, 0],
+                    gu_sq_v * self._mass_M1_metric[2, 1],
+                    gu_sq_v * self._mass_M1_metric[2, 2],
+                ],
+            ],
+        )
+
+        # gu_sq_v *= 2.
+        gu_sq_v += dt * self._mu
+
+        return gu_sq_v
+
+    def _get_energy_change(self, un, un1, dt, total_viscosity):
+        """Return the total energy change caused by the viscosity"""
+        un12 = un.copy(out=self._tmp_un12)
+        un12 += un1
+        un12 /= 2.0
+        gu0 = self.grad_0.dot(un1, out=self._tmp_gu0)
+        gu1 = self.grad_1.dot(un1, out=self._tmp_gu1)
+        gu2 = self.grad_2.dot(un1, out=self._tmp_gu2)
+
+        gu012 = self.grad_0.dot(un12, out=self._tmp_gu120)
+        gu112 = self.grad_1.dot(un12, out=self._tmp_gu121)
+        gu212 = self.grad_2.dot(un12, out=self._tmp_gu122)
+
+        self.gu0f.vector = gu0
+        self.gu1f.vector = gu1
+        self.gu2f.vector = gu2
+
+        self.gu120f.vector = gu012
+        self.gu121f.vector = gu112
+        self.gu122f.vector = gu212
+
+        self.uf1.vector = un1
+        self.uf12.vector = un12
+
+        gu0_v = self.gu0f.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_gradient,
+            out=self._guf0_values,
+        )
+        gu1_v = self.gu1f.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_gradient,
+            out=self._guf1_values,
+        )
+        gu2_v = self.gu2f.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_gradient,
+            out=self._guf2_values,
+        )
+
+        gu120_v = self.gu120f.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_gradient,
+            out=self._guf120_values,
+        )
+        gu121_v = self.gu121f.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_gradient,
+            out=self._guf121_values,
+        )
+        gu122_v = self.gu122f.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_gradient,
+            out=self._guf122_values,
+        )
+
+        u1_v = self.uf1.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_u,
+            out=self._uf1_values,
+        )
+        u12_v = self.uf12.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_u,
+            out=self._uf12_values,
+        )
+
+        gu_sq_v = self._gu_sq_values
+        u_sq_v = self._u_sq_values
+        gu_sq_v *= 0.0
+        u_sq_v *= 0.0
+        for i in range(3):
+            for j in range(3):
+                gu_sq_v += gu0_v[i] * self._mass_M1_metric[i, j] * gu120_v[j]
+                gu_sq_v += gu1_v[i] * self._mass_M1_metric[i, j] * gu121_v[j]
+                gu_sq_v += gu2_v[i] * self._mass_M1_metric[i, j] * gu122_v[j]
+                u_sq_v += u1_v[i] * self._mass_Mv_metric[i, j] * u12_v[j]
+
+        gu_sq_v *= total_viscosity
+        u_sq_v *= dt * self._alpha
+        gu_sq_v += u_sq_v
+
+        return gu_sq_v

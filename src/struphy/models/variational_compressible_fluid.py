@@ -1,20 +1,21 @@
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.feec.projectors import L2Projector
+from struphy.feec.mass import L2Projector
 from struphy.feec.variational_utilities import (
     InternalEnergyEvaluator,
 )
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, Scalars
 from struphy.models.species import (
     FluidSpecies,
 )
 from struphy.models.variables import FEECVariable
-from struphy.propagators import (
-    propagators_fields,
-)
 from struphy.propagators.base import Propagator
+from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
+from struphy.propagators.variational_entropy_evolve import VariationalEntropyEvolve
+from struphy.propagators.variational_momentum_advection import VariationalMomentumAdvection
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -42,9 +43,9 @@ class VariationalCompressibleFluid(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
-    2. :class:`~struphy.propagators.propagators_fields.VariationalMomentumAdvection`
-    3. :class:`~struphy.propagators.propagators_fields.VariationalEntropyEvolve`
+    1. :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`
+    2. :class:`~struphy.propagators.variational_momentum_advection.VariationalMomentumAdvection`
+    3. :class:`~struphy.propagators.variational_entropy_evolve.VariationalEntropyEvolve`
 
     :ref:`Model info <add_model>`:
     """
@@ -66,9 +67,9 @@ class VariationalCompressibleFluid(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.variat_dens = propagators_fields.VariationalDensityEvolve()
-            self.variat_mom = propagators_fields.VariationalMomentumAdvection()
-            self.variat_ent = propagators_fields.VariationalEntropyEvolve()
+            self.variat_dens = VariationalDensityEvolve()
+            self.variat_mom = VariationalMomentumAdvection()
+            self.variat_ent = VariationalEntropyEvolve()
 
     ## abstract methods
 
@@ -90,10 +91,15 @@ class VariationalCompressibleFluid(StruphyModel):
         self.propagators.variat_ent.variables.s = self.fluid.entropy
         self.propagators.variat_ent.variables.u = self.fluid.velocity
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_U")
-        self.add_scalar("en_thermo")
-        self.add_scalar("en_tot")
+        # 5. define scalars to be tracked during simulation
+        kinetic_energy = BilinearEnergyFEEC(self.fluid.velocity, bilinear_form_name="WMMnew")
+        thermo_energy = FunctionScalarFEEC(self.update_thermo_energy)
+        total_energy = kinetic_energy + thermo_energy
+        self.scalars = Scalars(
+            en_U=kinetic_energy,
+            en_thermo=thermo_energy,
+            en_tot=total_energy,
+        )
 
     @property
     def bulk_species(self):
@@ -102,6 +108,101 @@ class VariationalCompressibleFluid(StruphyModel):
     @property
     def velocity_scale(self):
         return "alfvén"
+
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        Continuity:
+
+        .. math::
+
+            \partial_t \rho + \nabla \cdot (\rho \mathbf{u}) = 0
+
+        Momentum:
+
+        .. math::
+
+            \partial_t (\rho \mathbf{u}) + \nabla \cdot (\rho \mathbf{u} \otimes \mathbf{u}) + \rho \nabla \frac{(\rho \mathcal{U}(\rho, s))}{\partial \rho} + s \nabla \frac{(\rho \mathcal{U}(\rho, s))}{\partial s} = 0
+
+        Entropy:
+
+        .. math::
+
+            \partial_t s + \nabla \cdot (s \mathbf{u}) = 0
+
+        where the internal energy per unit mass is :math:`\mathcal U(\rho) = \rho^{\gamma-1} \exp(s / \rho)`.
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The model uses Alfvén-speed scaling for the flow variables together
+        with separate units for internal energy and entropy:
+
+        .. math::
+
+            \hat u = \hat v_A,\qquad \hat{\mathcal U}=K,\qquad \hat s=\hat\rho C_v.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Kinetic energy: ``en_U``
+        - Thermodynamic energy: ``en_thermo``
+        - Total energy: ``en_tot``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. VariationalDensityEvolve:**
+
+{VariationalDensityEvolve.__doc__}
+
+**2. VariationalMomentumAdvection:**
+
+{VariationalMomentumAdvection.__doc__}
+
+**3. VariationalEntropyEvolve:**
+
+{VariationalEntropyEvolve.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""VariationalCompressibleFluid is the entropy-based compressible fluid
+        model in the variational family. It is the natural non-magnetic
+        counterpart to the full variational MHD models."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize a variational compressible-fluid model:
+
+        .. code-block:: python
+
+            from struphy.models import VariationalCompressibleFluid
+
+            model = VariationalCompressibleFluid()
+            model.fluid.density
+            model.fluid.velocity
+            model.fluid.entropy
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - compressible fluid benchmarks with entropy transport
+        - testing the variational fluid propagator stack
+        - non-magnetic hydrodynamics with conservative thermodynamics"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - magnetic-field evolution or MHD coupling
+        - pressureless or barotropic-only reductions
+        - kinetic or particle-based transport physics"""
 
     def allocate_helpers(self, verbose: bool = False):
         projV3 = L2Projector("L2", Propagator.mass_ops)
@@ -113,18 +214,6 @@ class VariationalCompressibleFluid(StruphyModel):
         self._integrator = projV3(f)
 
         self._energy_evaluator = InternalEnergyEvaluator(Propagator.derham, self.propagators.variat_ent.options.gamma)
-
-    def update_scalar_quantities(self):
-        rho = self.fluid.density.spline.vector
-        u = self.fluid.velocity.spline.vector
-
-        en_U = 0.5 * Propagator.mass_ops.WMM.massop.dot_inner(u, u)
-        self.update_scalar("en_U", en_U)
-
-        en_thermo = self.update_thermo_energy()
-
-        en_tot = en_U + en_thermo
-        self.update_scalar("en_tot", en_tot)
 
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
@@ -179,7 +268,6 @@ class VariationalCompressibleFluid(StruphyModel):
         ener_values = en_prop._proj_rho2_metric_term * e(rhof_values, sf_values)
         en_prop._get_L2dofs_V3(ener_values, dofs=en_prop._linear_form_dl_ds)
         en_thermo = self._integrator.inner(en_prop._linear_form_dl_ds)
-        self.update_scalar("en_thermo", en_thermo)
         return en_thermo
 
     def __ener(self, rho, s):

@@ -343,6 +343,6 @@ if __name__ == "__main__":
     # mapping = ['Colella', {'Lx': 4., 'Ly': 5., 'alpha': .07, 'Lz': 6.}]
     mapping = ["HollowCylinder", {"a1": 0.1}]
     # mapping = ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 5., 'l3': 0., 'r3': 6.}]
-    test_init_modes([16, 16, 16], [2, 3, 4], (("free", "free"), None, None), mapping, combine_comps=None, do_plot=False)
+    # test_init_modes([16, 16, 16], [2, 3, 4], (("free", "free"), None, None), mapping, combine_comps=None, do_plot=False)
     # mapping = ["HollowTorus", {"tor_period": 1}]
-    # test_init_modes([16, 14, 14], [2, 3, 4], [False, True, True], mapping, combine_comps=None, do_plot=True)
+    test_init_modes([16, 14, 14], [2, 3, 4], (("free", "free"), None, None), mapping, combine_comps=None, do_plot=True)

@@ -6,6 +6,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import BilinearEnergyFEEC, KineticEnergyPIC, LostMarkersPIC, Scalars, VolumeFormEnergyFEEC
 from struphy.models.species import (
     FieldSpecies,
     FluidSpecies,
@@ -13,12 +14,13 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.polar.basic import PolarVector
-from struphy.propagators import (
-    propagators_coupling,
-    propagators_fields,
-    propagators_markers,
-)
 from struphy.propagators.base import Propagator
+from struphy.propagators.current_coupling_6d_current import CurrentCoupling6DCurrent
+from struphy.propagators.current_coupling_6d_density import CurrentCoupling6DDensity
+from struphy.propagators.magnetosonic import Magnetosonic
+from struphy.propagators.push_eta import PushEta
+from struphy.propagators.push_vxb import PushVxB
+from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
 
 logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
@@ -70,12 +72,12 @@ class LinearMHDVlasovCC(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.CurrentCoupling6DDensity`
-    2. :class:`~struphy.propagators.propagators_fields.ShearAlfven`
-    3. :class:`~struphy.propagators.propagators_coupling.CurrentCoupling6DCurrent`
-    4. :class:`~struphy.propagators.propagators_markers.PushEta`
-    5. :class:`~struphy.propagators.propagators_markers.PushVxB`
-    6. :class:`~struphy.propagators.propagators_fields.Magnetosonic`
+    1. :class:`~struphy.propagators.current_coupling_6d_density.CurrentCoupling6DDensity`
+    2. :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`
+    3. :class:`~struphy.propagators.current_coupling_6d_current.CurrentCoupling6DCurrent`
+    4. :class:`~struphy.propagators.push_eta.PushEta`
+    5. :class:`~struphy.propagators.push_vxb.PushVxB`
+    6. :class:`~struphy.propagators.magnetosonic.Magnetosonic`
 
     :ref:`Model info <add_model>`:
     """
@@ -116,12 +118,12 @@ class LinearMHDVlasovCC(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.couple_dens = propagators_fields.CurrentCoupling6DDensity()
-            self.shear_alf = propagators_fields.ShearAlfven()
-            self.couple_curr = propagators_coupling.CurrentCoupling6DCurrent()
-            self.push_eta = propagators_markers.PushEta()
-            self.push_vxb = propagators_markers.PushVxB()
-            self.mag_sonic = propagators_fields.Magnetosonic()
+            self.couple_dens = CurrentCoupling6DDensity()
+            self.shear_alf = ShearAlfvenPropagator()
+            self.couple_curr = CurrentCoupling6DCurrent()
+            self.push_eta = PushEta()
+            self.push_vxb = PushVxB()
+            self.mag_sonic = Magnetosonic()
 
     ## abstract methods
 
@@ -165,13 +167,22 @@ class LinearMHDVlasovCC(StruphyModel):
         self.propagators.mag_sonic.variables.u = self.mhd.velocity
         self.propagators.mag_sonic.variables.p = self.mhd.pressure
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_U", compute="from_field")
-        self.add_scalar("en_p", compute="from_field")
-        self.add_scalar("en_B", compute="from_field")
-        self.add_scalar("en_f", compute="from_particles", variable=self.energetic_ions.var)
-        self.add_scalar("en_tot", summands=["en_U", "en_p", "en_B", "en_f"])
-        self.add_scalar("n_lost_particles", compute="from_particles", variable=self.energetic_ions.var)
+        # 5. define scalars to be tracked during simulation
+        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="M2n")
+        pressure_energy = VolumeFormEnergyFEEC(self.mhd.pressure, normalization=1.0 / (5 / 3 - 1))
+        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
+        Ab = self.mhd.mass_number
+        Ah = self.energetic_ions.var.species.mass_number
+        particle_energy = KineticEnergyPIC(self.energetic_ions.var, normalization=Ah / Ab)
+        lost_particles = LostMarkersPIC(self.energetic_ions.var)
+        self.scalars = Scalars(
+            en_U=kinetic_energy,
+            en_p=pressure_energy,
+            en_B=magnetic_energy,
+            en_f=particle_energy,
+            en_tot=kinetic_energy + pressure_energy + magnetic_energy + particle_energy,
+            n_lost_particles=lost_particles,
+        )
 
     @property
     def bulk_species(self):
@@ -181,6 +192,138 @@ class LinearMHDVlasovCC(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        MHD continuity:
+
+        .. math::
+
+            \frac{\partial \tilde{\rho}}{\partial t} + \nabla \cdot (\rho_0 \tilde{\mathbf{U}}) = 0
+
+        MHD momentum:
+
+        .. math::
+
+            \rho_0 \frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde{p} = (\nabla \times \tilde{\mathbf{B}}) \times \mathbf{B}_0 + \mathbf{J}_0 \times \tilde{\mathbf{B}} \color{blue} + \frac{A_\textnormal{h}}{A_\textnormal{b}} \frac{1}{\varepsilon} \left( n_\textnormal{h} \tilde{\mathbf{U}} - n_\textnormal{h} \mathbf{u}_\textnormal{h} \right) \times (\mathbf{B}_0 + \tilde{\mathbf{B}}) \color{black}
+
+        MHD pressure:
+
+        .. math::
+
+            \frac{\partial \tilde{p}}{\partial t} + (\gamma - 1) \nabla \cdot (p_0 \tilde{\mathbf{U}}) + p_0 \nabla \cdot \tilde{\mathbf{U}} = 0
+
+        MHD induction:
+
+        .. math::
+
+            \frac{\partial \tilde{\mathbf{B}}}{\partial t} = \nabla \times (\tilde{\mathbf{U}} \times \mathbf{B}_0), \qquad \nabla \cdot \tilde{\mathbf{B}} = 0
+
+        Energetic-particle Vlasov equation:
+
+        .. math::
+
+            \frac{\partial f_\textnormal{h}}{\partial t} + \mathbf{v} \cdot \nabla f_\textnormal{h} + \frac{1}{\varepsilon} \left[ \color{blue} (\mathbf{B}_0 + \tilde{\mathbf{B}}) \times \tilde{\mathbf{U}} \color{black} + \mathbf{v} \times (\mathbf{B}_0 + \tilde{\mathbf{B}}) \right] \cdot \frac{\partial f_\textnormal{h}}{\partial \mathbf{v}} = 0
+
+        Energetic-particle moments:
+
+        .. math::
+
+            n_\textnormal{h} = \int_{\mathbb{R}^3} f_\textnormal{h} \, \textnormal{d}^3 \mathbf{v}, \qquad n_\textnormal{h} \mathbf{u}_\textnormal{h} = \int_{\mathbb{R}^3} f_\textnormal{h} \mathbf{v} \, \textnormal{d}^3 \mathbf{v}
+
+        where :math:`\mathbf{J}_0 = \nabla\times\mathbf{B}_0`.
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""Both fluid and particle velocities are normalized with the Alfvén
+        speed,
+
+        .. math::
+
+            \hat U = \hat v = \hat v_A,\qquad \hat f_h = \hat n / \hat v_A^3.
+
+        The hot-species cyclotron parameter is :math:`\varepsilon =
+        1/(\hat\Omega_{c,\mathrm{hot}}\hat t)`."""
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - MHD kinetic energy: ``en_U``
+        - Thermal pressure energy: ``en_p``
+        - Magnetic energy: ``en_B``
+        - Energetic-particle energy: ``en_f``
+        - Total energy: ``en_tot``
+        - Lost particles: ``n_lost_particles``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. CurrentCoupling6DDensity:**
+
+{CurrentCoupling6DDensity.__doc__}
+
+**2. ShearAlfvenPropagator:**
+
+{ShearAlfvenPropagator.__doc__}
+
+**3. current_coupling_6d_current.CurrentCoupling6DCurrent:**
+
+{CurrentCoupling6DCurrent.__doc__}
+
+**4. push_eta.PushEta:**
+
+{PushEta.__doc__}
+
+**5. push_vxb.PushVxB:**
+
+{PushVxB.__doc__}
+
+**6. Magnetosonic:**
+
+{Magnetosonic.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""LinearMHDVlasovCC is a current-coupling hybrid model for small
+        perturbations around an MHD equilibrium. It is intended for energetic
+        particle effects on linear MHD waves and instabilities without the cost
+        of a fully kinetic background plasma."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the linear MHD-Vlasov current-coupling model:
+
+        .. code-block:: python
+
+            from struphy.models import LinearMHDVlasovCC
+
+            model = LinearMHDVlasovCC()
+            model.em_fields.b_field
+            model.mhd.velocity
+            model.energetic_ions.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - linear energetic-particle coupling to MHD modes
+        - current-coupling hybrid verification
+        - reduced-cost studies of fast-ion effects on wave propagation"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - strongly nonlinear dynamics far from equilibrium
+        - full multi-species kinetic plasma evolution
+        - pressure-coupling closures
+        - collisional or dissipative MHD effects not present in the equations"""
+
     def allocate_helpers(self, verbose: bool = False):
         self._ones = Propagator.projected_equil.p3.space.zeros()
         if isinstance(self._ones, PolarVector):
@@ -189,7 +332,6 @@ class LinearMHDVlasovCC(StruphyModel):
             self._ones[:] = 1.0
 
         self._tmp = xp.empty(1, dtype=float)
-        self._n_lost_particles = xp.empty(1, dtype=float)
 
         # add control variate to mass_ops object
         if self.energetic_ions.var.particles.control_variate:
@@ -197,47 +339,6 @@ class LinearMHDVlasovCC(StruphyModel):
 
         self._Ah = self.energetic_ions.mass_number
         self._Ab = self.mhd.mass_number
-
-    def update_scalar_quantities(self):
-        # perturbed fields
-        u = self.mhd.velocity.spline.vector
-        p = self.mhd.pressure.spline.vector
-        b = self.em_fields.b_field.spline.vector
-        particles = self.energetic_ions.var.particles
-
-        en_U = 0.5 * Propagator.mass_ops.M2n.dot_inner(u, u)
-        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(b, b)
-        en_p = p.inner(self._ones) / (5 / 3 - 1)
-
-        self.update_scalar("en_U", en_U)
-        self.update_scalar("en_B", en_B)
-        self.update_scalar("en_p", en_p)
-
-        # particles
-        self._tmp[0] = (
-            self._Ah
-            / self._Ab
-            * particles.markers_wo_holes[:, 6].dot(
-                particles.markers_wo_holes[:, 3] ** 2
-                + particles.markers_wo_holes[:, 4] ** 2
-                + particles.markers_wo_holes[:, 5] ** 2,
-            )
-            / (2)
-        )
-
-        self.update_scalar("en_f", self._tmp[0])
-        self.update_scalar("en_tot", en_U + en_B + en_p + self._tmp[0])
-
-        # Print number of lost ions
-        self._n_lost_particles[0] = particles.n_lost_markers
-        self.update_scalar("n_lost_particles", self._n_lost_particles[0])
-
-        if rank == 0:
-            logger.info(
-                "ratio of lost particles: ",
-                self._n_lost_particles[0] / particles.Np * 100,
-                "%",
-            )
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

@@ -22,7 +22,7 @@ def test_propagator1D(num_elements, degree, bcs, mapping, epsilon, dt):
     from struphy.fields_background.equils import HomogenSlab
     from struphy.io.options import DerhamOptions
     from struphy.models.variables import FEECVariable
-    from struphy.propagators.propagators_fields import TwoFluidQuasiNeutralFull
+    from struphy.propagators.two_fluid_quasi_neutral_full import TwoFluidQuasiNeutralFull
     from struphy.topology.grids import TensorProductGrid
 
     mpi_comm = MPI.COMM_WORLD
@@ -230,7 +230,7 @@ def test_propagator2D(num_elements, degree, bcs, mapping, epsilon, dt):
     from struphy.feec.utilities import compare_arrays
     from struphy.fields_background.equils import HomogenSlab
     from struphy.models.variables import FEECVariable
-    from struphy.propagators.propagators_fields import TwoFluidQuasiNeutralFull
+    from struphy.propagators.two_fluid_quasi_neutral_full import TwoFluidQuasiNeutralFull
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
