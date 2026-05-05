@@ -174,15 +174,11 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
             \mathbf{E}^* = -\nabla \phi - \varepsilon \mu \nabla |B_0|, \qquad \mathbf{B}^* = \mathbf{B}_0 + \varepsilon v_\parallel \nabla \times \mathbf{b}_0, \qquad B^*_\parallel = \mathbf{B}^* \cdot \mathbf{b}_0
 
-        Notes
-        -----
-
-        * The ``control_var`` in the Poisson equation is optional; in case it is enabled via the parameter file, the following Poisson equation is solved:
-        Find :math:`\phi \in H^1` such that
+        The control variate method can be activated in the Poisson equation; if enabled, the following Poisson equation is solved:
 
         .. math::
 
-            \int \frac{n_0}{|B_0|^2} \nabla_\perp \psi \cdot \nabla_\perp \phi \, \textrm{d} \mathbf{x} + \frac{1}{Z \varepsilon^2} \int \frac{n_0}{T_0} \psi \phi \, \textrm{d} \mathbf{x} = \frac{1}{\varepsilon} \int \int \psi \, (f - f_0) B^*_\parallel \, \textrm{d} \mathbf{x} \, \textnormal{d} v_\parallel \textnormal{d} \mu \qquad \forall \ \psi \in H^1
+            -\nabla_\perp \cdot \left( \frac{n_0}{|B_0|^2} \nabla_\perp \phi \right) +  \frac{1}{Z \varepsilon^2} \frac{n_0}{T_0} \phi = \frac{1}{\varepsilon} \int (f - f_0) B^*_\parallel \, \textnormal{d} v_\parallel \textnormal{d} \mu
         """
 
     @classmethod
