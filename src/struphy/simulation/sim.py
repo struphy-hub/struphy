@@ -327,18 +327,22 @@ class Simulation(SimulationBase):
             ]
 
             tmp = self.domain(*grids_log)
-            grids_phy = [tmp[0], tmp[1], tmp[2]]
+            grids_phy = [
+                DataContainer._as_numpy_array(tmp[0]),
+                DataContainer._as_numpy_array(tmp[1]),
+                DataContainer._as_numpy_array(tmp[2]),
+            ]
 
             pointData = {}
             det_df = self.domain.jacobian_det(*grids_log)
-            pointData["det_df"] = det_df
+            pointData["det_df"] = DataContainer._as_numpy_array(det_df)
 
             if self.equil is not None:
                 p0 = self.equil.p0(*grids_log)
-                pointData["p0"] = p0
+                pointData["p0"] = DataContainer._as_numpy_array(p0)
                 if isinstance(self.equil, FluidEquilibriumWithB):
                     absB0 = self.equil.absB0(*grids_log)
-                    pointData["absB0"] = absB0
+                    pointData["absB0"] = DataContainer._as_numpy_array(absB0)
 
             gridToVTK(os.path.join(self.env.path_out, "geometry"), *grids_phy, pointData=pointData)
 
@@ -366,21 +370,25 @@ class Simulation(SimulationBase):
         ]
 
         tmp = self.domain(*grids_log)
-        grids_phy = [tmp[0], tmp[1], tmp[2]]
+        grids_phy = [
+            DataContainer._as_numpy_array(tmp[0]),
+            DataContainer._as_numpy_array(tmp[1]),
+            DataContainer._as_numpy_array(tmp[2]),
+        ]
 
         # Create PyVista structured grid
         mesh = pv.StructuredGrid(grids_phy[0], grids_phy[1], grids_phy[2])
 
         # Add point data
         det_df = self.domain.jacobian_det(*grids_log)
-        mesh["det_df"] = det_df.ravel(order="F")
+        mesh["det_df"] = DataContainer._as_numpy_array(det_df).ravel(order="F")
 
         if self.equil is not None:
             p0 = self.equil.p0(*grids_log)
-            mesh["p0"] = p0.ravel(order="F")
+            mesh["p0"] = DataContainer._as_numpy_array(p0).ravel(order="F")
             if isinstance(self.equil, FluidEquilibriumWithB):
                 absB0 = self.equil.absB0(*grids_log)
-                mesh["absB0"] = absB0.ravel(order="F")
+                mesh["absB0"] = DataContainer._as_numpy_array(absB0).ravel(order="F")
 
         return mesh
 
@@ -544,12 +552,12 @@ class Simulation(SimulationBase):
                 self.time_state["value_sec"][0] = file["restart/time/value_sec"][-1]
                 self.time_state["index"][0] = file["restart/time/index"][-1]
 
-            total_steps = str(int(round((Tend - self.time_state["value"][0]) / dt)))
+            total_steps = str(int(round((Tend - float(self.time_state["value"][0])) / dt)))
             logger.info(f"""\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 RESTARTing from:
-{self.time_state["value"][0]=}
-{self.time_state["value_sec"][0]=}
-{self.time_state["index"][0]=}
+self.time_state["value"][0]={float(self.time_state["value"][0])}
+self.time_state["value_sec"][0]={float(self.time_state["value_sec"][0])}
+self.time_state["index"][0]={int(self.time_state["index"][0])}
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 """)
         else:
@@ -579,19 +587,19 @@ RESTARTing from:
             self.Barrier()
 
             # stop time loop?
-            break_cond_1 = self.time_state["value"][0] >= Tend
+            break_cond_1 = float(self.time_state["value"][0]) >= Tend
             break_cond_2 = run_time_now > self.env.max_runtime
 
             if break_cond_1 or break_cond_2:
                 # save restart data (other data already saved below)
                 self.data.save_data(keys=save_keys_end)
                 end_time = time.time()
-                logger.info(f"\nTime steps done: {self.time_state['index'][0]}")
+                logger.info(f"\nTime steps done: {int(self.time_state['index'][0])}")
                 logger.info(f"wall-clock time of simulation [sec]: {end_time - self.start_time}")
                 logger.info("")
                 break
 
-            if self.env.sort_step and self.time_state["index"][0] % self.env.sort_step == 0:
+            if self.env.sort_step and int(self.time_state["index"][0]) % self.env.sort_step == 0:
                 t0 = time.time()
                 for key, val in self.model.pointer.items():
                     if isinstance(val, Particles):
@@ -605,8 +613,10 @@ RESTARTing from:
                 logger.info("")
 
             # update time and index (round time to 10 decimals for a clean time grid!)
-            self.time_state["value"][0] = round(self.time_state["value"][0] + dt, 14)
-            self.time_state["value_sec"][0] = round(self.time_state["value_sec"][0] + dt * self.model.units.t, 14)
+            self.time_state["value"][0] = round(float(self.time_state["value"][0]) + dt, 14)
+            self.time_state["value_sec"][0] = round(
+                float(self.time_state["value_sec"][0]) + dt * self.model.units.t, 14
+            )
             self.time_state["index"][0] += 1
 
             # perform one time step dt
@@ -618,7 +628,7 @@ RESTARTing from:
             run_time_now = (time.time() - self.start_time) / 60
 
             # update diagnostics data and save data
-            if self.time_state["index"][0] % self.env.save_step == 0:
+            if int(self.time_state["index"][0]) % self.env.save_step == 0:
                 # compute scalars and kinetic data
                 self.model.update_scalar_quantities()
                 self.model.update_markers_to_be_saved()
@@ -638,19 +648,19 @@ RESTARTing from:
                 self.data.save_data(keys=save_keys_all)
 
                 # print current time and scalar quantities to screen
-                step = str(self.time_state["index"][0]).zfill(len(total_steps))
+                step = str(int(self.time_state["index"][0])).zfill(len(total_steps))
 
                 message = "time step:".ljust(25) + f"{step}/{total_steps}".rjust(25)
                 message += (
                     "\n"
                     + "normalized time:".ljust(25)
-                    + "{0:4.2e} / {1:4.2e}".format(self.time_state["value"][0], Tend).rjust(25)
+                    + "{0:4.2e} / {1:4.2e}".format(float(self.time_state["value"][0]), Tend).rjust(25)
                 )
                 message += (
                     "\n"
                     + "physical time [s]:".ljust(25)
                     + "{0:4.2e} / {1:4.2e}".format(
-                        self.time_state["value_sec"][0],
+                        float(self.time_state["value_sec"][0]),
                         Tend * self.model.units.t,
                     ).rjust(25)
                 )
@@ -1191,9 +1201,9 @@ RESTARTing from:
             # store grid_info only for runs with 512 ranks or smaller
             if self.model.scalars.dct and self.derham is not None:
                 if size <= 512:
-                    file["scalar"].attrs["grid_info"] = self.derham.domain_array
+                    file["scalar"].attrs["grid_info"] = DataContainer._as_numpy_array(self.derham.domain_array)
                 else:
-                    file["scalar"].attrs["grid_info"] = self.derham.domain_array[0]
+                    file["scalar"].attrs["grid_info"] = DataContainer._as_numpy_array(self.derham.domain_array[0])
             else:
                 pass
 
@@ -1230,9 +1240,9 @@ RESTARTing from:
 
                         # save field meta data
                         file[key_field].attrs["space_id"] = spline.space_id
-                        file[key_field].attrs["starts"] = spline.starts
-                        file[key_field].attrs["ends"] = spline.ends
-                        file[key_field].attrs["pads"] = spline.pads
+                        file[key_field].attrs["starts"] = DataContainer._as_numpy_array(spline.starts)
+                        file[key_field].attrs["ends"] = DataContainer._as_numpy_array(spline.ends)
+                        file[key_field].attrs["pads"] = DataContainer._as_numpy_array(spline.pads)
 
                     # save numpy array to be updated only at the end of the simulation for restart.
                     key_field_restart = os.path.join(species_path_restart, variable)
@@ -1280,7 +1290,9 @@ RESTARTing from:
                     data.add_data({key_df: bin_plot.df})
 
                     for dim, be in enumerate(bin_plot.bin_edges):
-                        file[key_f].attrs["bin_centers" + "_" + str(dim + 1)] = be[:-1] + (be[1] - be[0]) / 2
+                        file[key_f].attrs["bin_centers" + "_" + str(dim + 1)] = DataContainer._as_numpy_array(
+                            be[:-1] + (be[1] - be[0]) / 2
+                        )
 
                 for i, kd_plot in enumerate(species.kernel_density_plots):
                     key_n = os.path.join(key_spec, "n_sph", f"view_{i}")
@@ -1290,9 +1302,9 @@ RESTARTing from:
                     eta1 = kd_plot.plot_pts[0][:, 0, 0]
                     eta2 = kd_plot.plot_pts[1][0, :, 0]
                     eta3 = kd_plot.plot_pts[2][0, 0, :]
-                    file[key_n].attrs["eta1"] = eta1
-                    file[key_n].attrs["eta2"] = eta2
-                    file[key_n].attrs["eta3"] = eta3
+                    file[key_n].attrs["eta1"] = DataContainer._as_numpy_array(eta1)
+                    file[key_n].attrs["eta2"] = DataContainer._as_numpy_array(eta2)
+                    file[key_n].attrs["eta3"] = DataContainer._as_numpy_array(eta3)
 
                 # TODO: maybe add other data
                 # else:

@@ -110,8 +110,7 @@ class PushRandomDiffusion(Propagator):
         # temp fix due to refactoring of ButcherTableau:
         import cunumpy as xp
 
-        self._butcher._a = xp.diag(self._butcher.a, k=-1)
-        self._butcher._a = xp.array(list(self._butcher.a) + [0.0])
+        self._butcher._a = xp.concatenate((xp.diag(self._butcher.a, k=-1), xp.zeros(1, dtype=self._butcher.a.dtype)))
 
         # instantiate Pusher
         args_kernel = (

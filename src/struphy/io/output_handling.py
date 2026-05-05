@@ -76,6 +76,18 @@ class DataContainer:
         """Dictionary with dataset keys and object IDs."""
         return self._dset_dict
 
+    @staticmethod
+    def _as_numpy_array(val):
+        """Return a NumPy view/copy suitable for h5py writes."""
+        if isinstance(val, np.ndarray):
+            return val
+
+        get = getattr(val, "get", None)
+        if callable(get) and "cupy" in val.__class__.__module__:
+            return get()
+
+        return np.asarray(val)
+
     def add_data(self, data_dict):
         """
         Add data object to be saved during simulation.
@@ -83,11 +95,12 @@ class DataContainer:
         Parameters
         ----------
         data_dict : dict
-            Name-object pairs to save during time stepping, e.g. {key : val}. key must be a string and val must be a np.array of fixed shape. Scalar values (floats) must therefore be passed as 1d arrays of size 1.
+            Name-object pairs to save during time stepping, e.g. {key : val}. key must be a string and val must be an array of fixed shape. Scalar values (floats) must therefore be passed as 1d arrays of size 1.
         """
 
         for key, val in data_dict.items():
-            assert isinstance(val, np.ndarray)
+            val_np = self._as_numpy_array(val)
+            assert isinstance(val_np, np.ndarray)
 
             # if dataset already exists, check for compatibility with given array
             if key in self._dset_dict:
@@ -96,30 +109,30 @@ class DataContainer:
 
                 # scalar values are saved as 1d arrays of size 1
                 if len(dataset_shape) == 1:
-                    assert val.ndim == 1, "for scalar quantities, a 1d array with a single entry must used!"
-                    assert val.size == 1, "for scalar quantities, a 1d array with a single entry must used!"
+                    assert val_np.ndim == 1, "for scalar quantities, a 1d array with a single entry must used!"
+                    assert val_np.size == 1, "for scalar quantities, a 1d array with a single entry must used!"
 
                 # other values
                 else:
-                    assert dataset_shape[1:] == val.shape
+                    assert dataset_shape[1:] == val_np.shape
 
             # create new dataset otherwise and save array
             else:
                 with h5py.File(self.file_path, "a") as file:
                     # scalar values are saved as 1d arrays of size 1
-                    if val.size == 1:
-                        assert val.ndim == 1
-                        file.create_dataset(key, (1,), maxshape=(None,), dtype=val.dtype, chunks=True)
-                        file[key][0] = val[0]
+                    if val_np.size == 1:
+                        assert val_np.ndim == 1
+                        file.create_dataset(key, (1,), maxshape=(None,), dtype=val_np.dtype, chunks=True)
+                        file[key][0] = val_np[0]
                     else:
                         file.create_dataset(
                             key,
-                            (1,) + val.shape,
-                            maxshape=(None,) + val.shape,
-                            dtype=val.dtype,
+                            (1,) + val_np.shape,
+                            maxshape=(None,) + val_np.shape,
+                            dtype=val_np.dtype,
                             chunks=True,
                         )
-                        file[key][0] = val
+                        file[key][0] = val_np
 
             # set object ID
             self._dset_dict[key] = id(val)
@@ -138,13 +151,13 @@ class DataContainer:
             if keys is None:
                 for key in self._dset_dict:
                     file[key].resize(file[key].shape[0] + 1, axis=0)
-                    file[key][-1] = ctypes.cast(self._dset_dict[key], ctypes.py_object).value
+                    file[key][-1] = self._as_numpy_array(ctypes.cast(self._dset_dict[key], ctypes.py_object).value)
 
             # only loop over given keys
             else:
                 for key in keys:
                     file[key].resize(file[key].shape[0] + 1, axis=0)
-                    file[key][-1] = ctypes.cast(self._dset_dict[key], ctypes.py_object).value
+                    file[key][-1] = self._as_numpy_array(ctypes.cast(self._dset_dict[key], ctypes.py_object).value)
 
     def info(self):
         """Print info of data sets to screen."""

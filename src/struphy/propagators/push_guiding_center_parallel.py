@@ -442,8 +442,7 @@ class PushGuidingCenterParallel(Propagator):
             # temp fix due to refactoring of ButcherTableau:
             import cunumpy as xp
 
-            butcher._a = xp.diag(butcher.a, k=-1)
-            butcher._a = xp.array(list(butcher.a) + [0.0])
+            butcher._a = xp.concatenate((xp.diag(butcher.a, k=-1), xp.zeros(1, dtype=butcher.a.dtype)))
 
             kernel = Pyccelkernel(pusher_kernels_gc.push_gc_Bstar_explicit_multistage)
 

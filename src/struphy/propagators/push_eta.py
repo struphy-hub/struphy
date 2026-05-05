@@ -94,8 +94,7 @@ class PushEta(Propagator):
         try:
             import cunumpy as xp
 
-            butcher._a = xp.diag(butcher.a, k=-1)
-            butcher._a = xp.array(list(butcher.a) + [0.0])
+            butcher._a = xp.concatenate((xp.diag(butcher.a, k=-1), xp.zeros(1, dtype=butcher.a.dtype)))
         except ValueError:
             pass
 

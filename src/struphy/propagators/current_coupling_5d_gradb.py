@@ -290,8 +290,7 @@ class CurrentCoupling5DGradB(Propagator):
             butcher = self.options.butcher
             import numpy as np
 
-            butcher._a = xp.diag(butcher.a, k=-1)
-            butcher._a = xp.array(list(butcher.a) + [0.0])
+            butcher._a = xp.concatenate((xp.diag(butcher.a, k=-1), xp.zeros(1, dtype=butcher.a.dtype)))
 
             self._args_pusher_kernel = (
                 self.domain.args_domain,
