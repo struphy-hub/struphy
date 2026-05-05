@@ -2,14 +2,17 @@
 
 import copy
 import importlib.util
+import logging
 import os
 import sys
 import warnings
 from time import time
+from typing import TYPE_CHECKING
 
 import cunumpy as xp
 from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
+from line_profiler import profile
 from scipy.integrate import odeint, quad
 from scipy.interpolate import RectBivariateSpline, UnivariateSpline
 from scipy.optimize import fsolve, minimize
@@ -31,7 +34,14 @@ from struphy.fields_background.base import (
     NumericalMHDequilibrium,
 )
 from struphy.fields_background.mhd_equil.eqdsk import readeqdsk
-from struphy.utils.utils import read_state, subp_run
+from struphy.io.options import BaseUnits
+from struphy.physics.physics import Units
+from struphy.utils.utils import all_class_params_are_default, read_state, subp_run
+
+if TYPE_CHECKING:
+    from struphy import domains
+
+logger = logging.getLogger("struphy")
 
 if isinstance(MPI, MockMPI):
     comm = None
@@ -57,7 +67,7 @@ class HomogenSlab(CartesianMHDequilibrium):
 
         n &= n_0 = const.\,.
 
-    Units are those defned in the parameter file (:code:`struphy units -h`).
+    Units are those defned in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
 
     Parameters
     ----------
@@ -169,7 +179,7 @@ class ShearedSlab(CartesianMHDequilibrium):
 
         n(x) &= n_a + ( 1 - n_a ) \left( 1 - \left(\frac{x}{a}\right)^{n_1} \right)^{n_2} \,.
 
-    Units are those defned in the parameter file (:code:`struphy units -h`).
+    Units are those defned in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
 
     Parameters
     ----------
@@ -394,7 +404,7 @@ class ShearFluid(CartesianMHDequilibrium):
 
         \mathbf B &= B_{0x}\,\mathbf e_x + B_{0y}\,\mathbf e_y + B_{0z}\,\mathbf e_z = const.\,,
 
-    Units are those defned in the parameter file (:code:`struphy units -h`).
+    Units are those defned in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
 
     Parameters
     ----------
@@ -601,7 +611,7 @@ class ScrewPinch(CartesianMHDequilibrium):
 
         n(r) &= n_a + ( 1 - n_a )\left( 1 - \left(\frac{r}{a}\right)^{n_1} \right)^{n_2}\,.
 
-    Units are those defned in the parameter file (:code:`struphy units -h`).
+    Units are those defned in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
 
     Parameters
     ----------
@@ -877,7 +887,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
 
         n(r) = n_a + ( 1 - n_a ) \left( 1 - \left(\frac{r}{a}\right)^{n_1} \right)^{n_2}\,.
 
-    Units are those defned in the parameter file (:code:`struphy units -h`).
+    Units are those defned in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
 
     Parameters
     ----------
@@ -1304,7 +1314,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
         """Toroidal field function g = g(R, Z)."""
 
         if dR == 0 and dZ == 0:
-            out = -self._params["B0"] * self._params["R0"] - 0 * R
+            out = -self.params["B0"] * self.params["R0"] - 0 * R
         elif dR == 1 and dZ == 0:
             out = 0 * R
         elif dR == 0 and dZ == 1:
@@ -1318,7 +1328,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
 
     def p_xyz(self, x, y, z):
         """Pressure p = p(x, y, z)."""
-        r = xp.sqrt((xp.sqrt(x**2 + y**2) - self._params["R0"]) ** 2 + z**2)
+        r = xp.sqrt((xp.sqrt(x**2 + y**2) - self.params["R0"]) ** 2 + z**2)
 
         pp = self.p_r(r)
 
@@ -1326,7 +1336,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
 
     def n_xyz(self, x, y, z):
         """Number density n = n(x, y, z)."""
-        r = xp.sqrt((xp.sqrt(x**2 + y**2) - self._params["R0"]) ** 2 + z**2)
+        r = xp.sqrt((xp.sqrt(x**2 + y**2) - self.params["R0"]) ** 2 + z**2)
 
         nn = self.n_r(r)
 
@@ -1379,7 +1389,7 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
 
         n(\psi) &= n_a + ( 1 - n_a ) \left( 1 - \psi_{\textnormal{norm}}^{n_1} \right)^{n_2}\,.
 
-    Units are those defned in the parameter file (:code:`struphy units -h`).
+    Units are those defned in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
 
     Parameters
     ----------
@@ -1670,7 +1680,7 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
         """Toroidal field function g = g(R, Z)."""
 
         if dR == 0 and dZ == 0:
-            out = -self._params["B0"] * self._params["R0"] - 0 * R
+            out = -self.params["B0"] * self.params["R0"] - 0 * R
         elif dR == 1 and dZ == 0:
             out = 0 * R
         elif dR == 0 and dZ == 1:
@@ -1684,13 +1694,13 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
 
     def p_xyz(self, x, y, z):
         """Pressure p = p(x, y, z)."""
-        r = xp.sqrt((xp.sqrt(x**2 + y**2) - self._params["R0"]) ** 2 + z**2)
+        r = xp.sqrt((xp.sqrt(x**2 + y**2) - self.params["R0"]) ** 2 + z**2)
 
         return self.p_psi(self.psi_r(r))
 
     def n_xyz(self, x, y, z):
         """Number density n = n(x, y, z)."""
-        r = xp.sqrt((xp.sqrt(x**2 + y**2) - self._params["R0"]) ** 2 + z**2)
+        r = xp.sqrt((xp.sqrt(x**2 + y**2) - self.params["R0"]) ** 2 + z**2)
 
         return self.n_psi(self.psi_r(r))
 
@@ -1707,11 +1717,11 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         Path to eqdsk file (default: "AUGNLED_g031213.00830.high").
     data_type : int
         0: there is no space between data, 1: there is space between data (default: 0).
-    p_for_psi : tuple[int]
+    degree_for_psi : tuple[int]
         Spline degrees in (R, Z) directions used for interpolation of psi data (default: [3, 3]).
     psi_resolution : tuple[float]
         Resolution of psi data in (R, Z) directions in %, e.g. [50., 50.] uses every second psi data point (default: [25., 6.25]).
-    p_for_flux : int
+    degree_for_flux : int
         Spline degree in psi direction used for interpolation of 1d functions that depend on psi: f=f(psi) (default: 3).
     flux_resolution : float
         Resolution of 1d f=f(psi) data in %, e.g. 25. uses every forth data point (default: 50.).
@@ -1721,24 +1731,8 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         2nd shape factor for ion number density profile n = n(psi) (default: 0.).
     na : float
         Ion number density at plasma boundary (default: 1.).
-    units : dict
-        All Struphy units. If None, no rescaling of EQDSK output is performed.
-
-    Note
-    ----
-    In the parameter .yml, use the following in the section ``fluid_background``::
-
-        EQDSKequilibrium :
-            rel_path        : True # whether eqdsk file path relative to "<struphy_path>/fields_background/mhd_equil/eqdsk/data/", or the absolute path
-            file            : 'AUGNLED_g031213.00830.high' # path to eqdsk file
-            data_type       : 0 # 0: there is no space between data, 1: there is space between data
-            p_for_psi       : [3, 3]      # spline degrees used in interpolation of poloidal flux function grid data
-            psi_resolution  : [25., 6.25] # resolution used in interpolation of poloidal flux function grid data in %, i.e. [100., 100.] uses all grid points
-            p_for_flux      : 3   # spline degree used in interpolation of 1d functions f=f(psi) (e.g. toroidal field function)
-            flux_resolution : 50. # resolution used in interpolation of of 1d functions f=f(psi) in %
-            n1              : 0.  # 1st shape factor for number density profile n(psi) = (1-na)*(1 - psi_norm^n1)^n2 + na
-            n2              : 0.  # 2nd shape factor for number density profile n(psi) = (1-na)*(1 - psi_norm^n1)^n2 + na
-            na              : 1.  # number density at last closed flux surface
+    base_units : BaseUnits
+        Struphy base units. If None, no rescaling of output is performed.
     """
 
     def __init__(
@@ -1746,14 +1740,14 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         rel_path: bool = True,
         file: str = None,
         data_type: int = 0,
-        p_for_psi: tuple = (3, 3),
+        degree_for_psi: tuple = (3, 3),
         psi_resolution: tuple = (25.0, 6.25),
-        p_for_flux: int = 3,
+        degree_for_flux: int = 3,
         flux_resolution: float = 50.0,
         n1: float = 2.0,
         n2: float = 1.0,
         na: float = 0.2,
-        units: dict = None,
+        base_units: BaseUnits = None,
     ):
         # use params setter
         self.params = copy.deepcopy(locals())
@@ -1762,22 +1756,18 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         if file is None:
             file = "AUGNLED_g031213.00830.high"
             if rank == 0:
-                print(f"EQDSK: taking default file {file}.")
+                logger.info(f"EQDSK: taking default file {file}.")
 
-        # no rescaling if units are not provided
-        if units is None:
-            units = {}
-            units["x"] = 1.0
-            units["B"] = 1.0
-            units["j"] = 1.0
-            units["p"] = 1.0
-            units["n"] = 1e20
+        # units
+        self._units = Units(base=base_units)
+        if base_units is None:
+            self.units._j = 1.0
+            self.units._p = 1.0
             warnings.warn(
-                f"{units =}, no rescaling performed in EQDSK output.",
+                f"{self.units =}, no rescaling performed in EQDSK output.",
             )
 
-        self._units = units
-
+        # path
         if self.params["rel_path"]:
             _path = struphy.__path__[0] + "/fields_background/mhd_equil/eqdsk/data/" + file
         else:
@@ -1841,8 +1831,8 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
             R[:: smooth_steps[0]],
             Z[:: smooth_steps[1]],
             psi[:: smooth_steps[0], :: smooth_steps[1]],
-            kx=self.params["p_for_psi"][0],
-            ky=self.params["p_for_psi"][1],
+            kx=self.params["degree_for_psi"][0],
+            ky=self.params["degree_for_psi"][1],
             s=0.0,
         )
 
@@ -1867,27 +1857,27 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         self._g_i = UnivariateSpline(
             flux_grid[::smooth_step],
             g_profile[::smooth_step],
-            k=self.params["p_for_flux"],
+            k=self.params["degree_for_flux"],
             s=0.0,
             ext=3,
         )
         self._p_i = UnivariateSpline(
             flux_grid[::smooth_step],
             p_profile[::smooth_step],
-            k=self.params["p_for_flux"],
+            k=self.params["degree_for_flux"],
             s=0.0,
             ext=3,
         )
         self._q_i = UnivariateSpline(
             flux_grid[::smooth_step],
             q_profile[::smooth_step],
-            k=self.params["p_for_flux"],
+            k=self.params["degree_for_flux"],
             s=0.0,
             ext=3,
         )
 
     @property
-    def units(self):
+    def units(self) -> Units:
         """All Struphy units."""
         return self._units
 
@@ -1971,7 +1961,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
             out = out.item()
 
         # rescale to Struphy units
-        out /= self.units["p"]
+        out /= self.units.p
 
         return out
 
@@ -2010,7 +2000,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
             out = out.item()
 
         # rescale to Struphy units
-        out /= self.units["B"] * self.units["x"] ** 2
+        out /= self.units.B * self.units.x**2
 
         return out
 
@@ -2025,7 +2015,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
             out = self.g_psi(self.psi(R, Z, dR=0, dZ=0), der=1) * self.psi(R, Z, dR=0, dZ=1)
 
         # rescale to Struphy units
-        out /= self.units["B"] * self.units["x"]
+        out /= self.units.B * self.units.x
 
         return out
 
@@ -2038,7 +2028,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         out = self.p_psi(self.psi(R, Z))
 
         # rescale to Struphy units
-        out /= self.units["p"]
+        out /= self.units.p
 
         return out
 
@@ -2071,8 +2061,6 @@ class GVECequilibrium(NumericalMHDequilibrium):
 
     Parameters
     ----------
-    units : dict
-        All Struphy units. If None, no rescaling of EQDSK output is performed.
     rel_path : bool
         Whether dat_file (json_file) are relative to "<struphy_path>/fields_background/mhd_equil/gvec/", or are absolute paths (default: True).
     dat_file : str
@@ -2085,35 +2073,20 @@ class GVECequilibrium(NumericalMHDequilibrium):
         Whether the field periods of the stellarator should be used in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake) (default: True).
     rmin : float
         Between [0, 1), radius (in logical space) of the domian hole around the magnetic axis (default: rmin=0.01).
-    Nel : tuple[int]
+    num_elements : tuple[int]
         Number of cells in each direction used for interpolation of the mapping (default: (16, 16, 16)).
-    p : tuple[int]
+    degree : tuple[int]
         Spline degree in each direction used for interpolation of the mapping (default: (3, 3, 3)).
     density_profile : str
         'parabolic' for a parabolic density profile, 'linear' for a linear density profile or 'pressure' for a density profile proportional to pressure
+    p0 : float
+        constant added to the pressure (default: 0.)
     n0 : float
         shape factor for ion number density profile (default: 0.2).
     n1 : float
         shape factor for ion number density profile (default: 0.).
-    p0 : float
-        constant added to the pressure (default: 0.)
-    Note
-    ----
-    In the parameter .yml, use the following in the section ``fluid_background``::
-
-        GVECequilibrium :
-            rel_path : True # whether file path is relative to "<struphy_path>/fields_background/mhd_equil/gvec/", or the absolute path
-            dat_file : '/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat' # path to gvec .dat output file
-            param_file : null # give directly the parsed json file, if it exists (then dat_file is not used)
-            use_boozer : False # whether to use Boozer coordinates
-            use_nfp : True # whether to use the field periods of the stellarator in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake).
-            rmin : 0.0 # radius of domain hole around magnetic axis.
-            Nel : [32, 32, 32] # number of cells in each direction used for interpolation of the mapping.
-            p : [3, 3, 3] # spline degree in each direction used for interpolation of the mapping.
-            density_profile : 'pressure'
-            n0 : 0.2
-            n1 : 0.
-            p0 : 1.
+    base_units : BaseUnits
+        All Struphy units. If None, no rescaling of output is performed.
     """
 
     def __init__(
@@ -2128,13 +2101,13 @@ class GVECequilibrium(NumericalMHDequilibrium):
         use_boozer: bool = False,
         use_nfp: bool = True,
         rmin: float = 0.01,
-        Nel: tuple[int] = (16, 16, 16),
-        p: tuple[int] = (3, 3, 3),
+        num_elements: tuple[int] = (16, 16, 16),
+        degree: tuple[int] = (3, 3, 3),
         density_profile: str = "pressure",
         p0: float = 0.1,
         n0: float = 0.2,
         n1: float = 0.0,
-        units: dict = None,
+        base_units: BaseUnits = None,
     ):
         # use params setter
         self.params = copy.deepcopy(locals())
@@ -2146,29 +2119,25 @@ class GVECequilibrium(NumericalMHDequilibrium):
 
             with pytest.raises(SystemExit) as exc:
                 if rank == 0:
-                    print("Simulation aborted, gvec must be installed (pip install gvec)!")
+                    logger.info("Simulation aborted, gvec must be installed (pip install gvec)!")
                 sys.exit(1)
             if rank == 0:
-                print(f"{exc.value.code =}")
+                logger.info(f"{exc.value.code =}")
 
         import gvec
 
         from struphy.geometry.domains import GVECunit
 
-        # no rescaling if units are not provided
-        if units is None:
-            units = {}
-            units["x"] = 1.0
-            units["B"] = 1.0
-            units["j"] = 1.0
-            units["p"] = 1.0
-            units["n"] = 1e20
+        # units
+        self._units = Units(base=base_units)
+        if base_units is None:
+            self.units._j = 1.0
+            self.units._p = 1.0
             warnings.warn(
-                f"{units =}, no rescaling performed in GVEC output.",
+                f"{self.units =}, no rescaling performed in GVEC output.",
             )
 
-        self._units = units
-
+        # path
         assert self.params["dat_file"][-4:] == ".dat"
         assert self.params["param_file"][-4:] == ".ini"
 
@@ -2213,10 +2182,11 @@ class GVECequilibrium(NumericalMHDequilibrium):
         return self._state
 
     @property
-    def units(self):
+    def units(self) -> Units:
         """All Struphy units."""
         return self._units
 
+    @profile
     def bv(self, *etas, squeeze_out=False):
         """Contra-variant (vector field) magnetic field on logical cube [0, 1]^3 in Tesla / meter."""
         # evaluate
@@ -2233,10 +2203,11 @@ class GVECequilibrium(NumericalMHDequilibrium):
 
         # apply struphy units
         for o in out:
-            o /= self.units["B"] / self.units["x"]
+            o /= self.units.B / self.units.x
 
         return out
 
+    @profile
     def jv(self, *etas, squeeze_out=False):
         """Contra-variant (vector field) current density (=curl B) on logical cube [0, 1]^3 in Ampere / meter^3."""
         # evaluate
@@ -2245,7 +2216,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
         jt = "J_contra_t"
         jz = "J_contra_z"
         self.state.compute(ev, jr, jt, jz)
-        rmin = self._params["rmin"]
+        rmin = self.params["rmin"]
         jv_1 = ev.J_contra_r.data / (1.0 - rmin)
         jv_2 = ev.J_contra_t.data / (2 * xp.pi)
         jv_3 = ev.J_contra_z.data / (2 * xp.pi) * self._nfp
@@ -2261,10 +2232,11 @@ class GVECequilibrium(NumericalMHDequilibrium):
 
         # apply struphy units
         for o in out:
-            o /= self.units["j"] / self.units["x"]
+            o /= self.units.j / self.units.x
 
         return out
 
+    @profile
     def p0(self, *etas, squeeze_out=False):
         """0-form equilibrium pressure on logical cube [0, 1]^3."""
         # evaluate
@@ -2281,13 +2253,14 @@ class GVECequilibrium(NumericalMHDequilibrium):
         else:
             tmp = ev.p.data
 
-        return self._params["p0"] + tmp / self.units["p"]
+        return self.params["p0"] + tmp / self.units.p
 
+    @profile
     def n0(self, *etas, squeeze_out=False):
         """0-form equilibrium density on logical cube [0, 1]^3."""
 
-        if self._params["density_profile"] == "pressure":
-            return self._params["n0"] * self.p0(*etas)
+        if self.params["density_profile"] == "pressure":
+            return self.params["n0"] * self.p0(*etas)
         else:
             # flat (marker) evaluation
             if len(etas) == 1:
@@ -2304,22 +2277,24 @@ class GVECequilibrium(NumericalMHDequilibrium):
                 eta3 = etas[2]
                 flat_eval = False
 
-            rmin = self._params["rmin"]
+            rmin = self.params["rmin"]
             r = rmin + eta1 * (1.0 - rmin)
 
-            if self._params["density_profile"] == "parabolic":
-                return self._params["n1"] + (1.0 - r**2) * (self._params["n0"] - self._params["n1"])
-            elif self._params["density_profile"] == "linear":
-                return self._params["n1"] + (1.0 - r) * (self._params["n0"] - self._params["n1"])
+            if self.params["density_profile"] == "parabolic":
+                return self.params["n1"] + (1.0 - r**2) * (self.params["n0"] - self.params["n1"])
+            elif self.params["density_profile"] == "linear":
+                return self.params["n1"] + (1.0 - r) * (self.params["n0"] - self.params["n1"])
             else:
                 raise ValueError("wrong type of density profile for GVEC equilibrium")
 
+    @profile
     def gradB1(self, *etas, squeeze_out=False):
         """1-form gradient of magnetic field strength on logical cube [0, 1]^3."""
         raise NotImplementedError(
             "1-form gradient of magnetic field of GVECequilibrium is not implemented",
         )
 
+    @profile
     def _gvec_evaluations(self, *etas):
         """Call gvec.Evaluations with Struphy coordinates."""
         import gvec
@@ -2350,7 +2325,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
                 eta3 = etas[2][0, 0, :]
             flat_eval = False
 
-        rmin = self._params["rmin"]
+        rmin = self.params["rmin"]
 
         # gvec coordinates
         rho = rmin + eta1 * (1.0 - rmin)
@@ -2382,28 +2357,14 @@ class DESCequilibrium(NumericalMHDequilibrium):
         Whether the field periods of the stellarator should be used in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake) (default: True).
     rmin : float
         Between [0, 1), radius (in logical space) of the domian hole around the magnetic axis (default: rmin=0.01).
-    Nel : tuple[int]
+    num_elements : tuple[int]
         Number of cells in each direction used for interpolation of the mapping (default: (16, 16, 16)).
-    p : tuple[int]
+    degree : tuple[int]
         Spline degree in each direction used for interpolation of the mapping (default: (3, 3, 3)).
-    units : dict
-        All Struphy units. If None, no rescaling of EQDSK output is performed.
-
-    T_kelvin : maximum of temperature in Kelvin (default: 100000).
-
-    Note
-    ----
-    In the parameter .yml, use the following in the section ``fluid_background``::
-
-        DESCequilibrium :
-            eq_name : null # name of DESC equilibrium; if None, the example "DSHAPE" is chosen
-            rel_path : False # whether to add "<struphy_path>/fields_background/mhd_equil/desc/" before eq_name.
-            use_pest : False # whether to use straight-field line coordinates (PEST)
-            use_nfp : True # whether to use the field periods of the stellarator in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake).
-            rmin : 0.0 # radius of domain hole around magnetic axis.
-            Nel : [32, 32, 32] # number of cells in each direction used for interpolation of the mapping.
-            p : [3, 3, 3] # spline degree in each direction used for interpolation of the mapping.
-            T_kelvin : 100000 # maximum temperature in Kelvin used to set density
+    T_kelvin : float
+        maximum of temperature in Kelvin (default: 100000).
+    base_units : BaseUnits
+        Struphy base units. If None, no rescaling of output is performed.
     """
 
     def __init__(
@@ -2413,11 +2374,14 @@ class DESCequilibrium(NumericalMHDequilibrium):
         use_pest: bool = False,
         use_nfp: bool = True,
         rmin: float = 0.01,
-        Nel: tuple[int] = (16, 16, 50),
-        p: tuple[int] = (3, 3, 3),
+        num_elements: tuple[int] = (16, 16, 50),
+        degree: tuple[int] = (3, 3, 3),
         T_kelvin: float = 100000.0,
-        units: dict = None,
+        base_units: BaseUnits = None,
     ):
+        # Can't use in args because of the copy below
+        verbose: bool = False
+
         # use params setter
         self.params = copy.deepcopy(locals())
 
@@ -2427,30 +2391,26 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         if desc_spec is None:
             if rank == 0:
-                print("Simulation aborted, desc-opt must be installed!")
-                print("Install with:\npip install desc-opt")
+                logger.info("Simulation aborted, desc-opt must be installed!")
+                logger.info("Install with:\npip install desc-opt")
             sys.exit(1)
 
         import desc
 
-        if rank == 0:
-            print(f"DESC import: {time() - t} seconds")
+        if rank == 0 and verbose:
+            logger.info(f"DESC import: {time() - t} seconds")
         from struphy.geometry.domains import DESCunit
 
-        # no rescaling if units are not provided
-        if units is None:
-            units = {}
-            units["x"] = 1.0
-            units["B"] = 1.0
-            units["j"] = 1.0
-            units["p"] = 1.0
-            units["n"] = 1e20
+        # units
+        self._units = Units(base=base_units)
+        if base_units is None:
+            self.units._j = 1.0
+            self.units._p = 1.0
             warnings.warn(
-                f"{units =}, no rescaling performed in DESC output.",
+                f"{self.units =}, no rescaling performed in DESC output.",
             )
 
-        self._units = units
-
+        # path
         if self.params["rel_path"]:
             eq_name = os.path.join(
                 struphy.__path__[0],
@@ -2467,8 +2427,8 @@ class DESCequilibrium(NumericalMHDequilibrium):
         else:
             self._eq = desc.io.load(eq_name)
 
-        if rank == 0:
-            print(f"Eq. load: {time() - t} seconds")
+        if rank == 0 and verbose:
+            logger.info(f"Eq. load: {time() - t} seconds")
         self._rmin = self.params["rmin"]
         self._use_nfp = self.params["use_nfp"]
 
@@ -2514,10 +2474,11 @@ class DESCequilibrium(NumericalMHDequilibrium):
         return self._use_nfp
 
     @property
-    def units(self):
+    def units(self) -> Units:
         """All Struphy units."""
         return self._units
 
+    @profile
     def bv(self, *etas, squeeze_out=False):
         """Contra-variant (vector field) magnetic field on logical cube [0, 1]^3 in Tesla / meter."""
         # check if already cached
@@ -2537,19 +2498,20 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
             if cached:
                 out = self._cache["bv"]["outs"][i]
-                # print(f'Used cached bv at {i = }.')
+                # logger.info(f'Used cached bv at {i = }.')
             else:
                 out = self._eval_bv(*etas, squeeze_out=squeeze_out)
                 self._cache["bv"]["grids"] += [etas]
                 self._cache["bv"]["outs"] += [out]
         else:
-            # print('No bv grids yet.')
+            # logger.info('No bv grids yet.')
             out = self._eval_bv(*etas, squeeze_out=squeeze_out)
             self._cache["bv"]["grids"] += [etas]
             self._cache["bv"]["outs"] += [out]
 
         return out
 
+    @profile
     def _eval_bv(self, *etas, squeeze_out=False):
         # flat (marker) evaluation
         if len(etas) == 1:
@@ -2584,11 +2546,12 @@ class DESCequilibrium(NumericalMHDequilibrium):
             elif var == "B^zeta":
                 tmp /= 2.0 * xp.pi / nfp
             # adjust for Struphy units
-            tmp /= self.units["B"] / self.units["x"]
+            tmp /= self.units.B / self.units.x
             out += [tmp]
 
         return out
 
+    @profile
     def jv(self, *etas, squeeze_out=False):
         """Contra-variant (vector field) current density (=curl B)
         on logical cube [0, 1]^3 in Ampere / meter^3.
@@ -2610,19 +2573,20 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
             if cached:
                 out = self._cache["jv"]["outs"][i]
-                # print(f'Used cached jv at {i = }.')
+                # logger.info(f'Used cached jv at {i = }.')
             else:
                 out = self._eval_jv(*etas, squeeze_out=squeeze_out)
                 self._cache["jv"]["grids"] += [etas]
                 self._cache["jv"]["outs"] += [out]
         else:
-            # print('No jv grids yet.')
+            # logger.info('No jv grids yet.')
             out = self._eval_jv(*etas, squeeze_out=squeeze_out)
             self._cache["jv"]["grids"] += [etas]
             self._cache["jv"]["outs"] += [out]
 
         return out
 
+    @profile
     def _eval_jv(self, *etas, squeeze_out=False):
         # flat (marker) evaluation
         if len(etas) == 1:
@@ -2657,11 +2621,12 @@ class DESCequilibrium(NumericalMHDequilibrium):
             elif var == "J^zeta":
                 tmp /= 2.0 * xp.pi / nfp
             # adjust for Struphy units
-            tmp /= self.units["j"] / self.units["x"]
+            tmp /= self.units.j / self.units.x
             out += [tmp]
 
         return out
 
+    @profile
     def p0(self, *etas, squeeze_out=False):
         """0-form equilibrium pressure on logical cube [0, 1]^3 in Pascal."""
         # flat (marker) evaluation
@@ -2688,10 +2653,11 @@ class DESCequilibrium(NumericalMHDequilibrium):
         # eliminate negative values
         out[out < 0.0] = 1e-14
 
-        out /= self.units["p"]
+        out /= self.units.p
 
         return out
 
+    @profile
     def n0(self, *etas, squeeze_out=False):
         """0-form equilibrium density on logical cube [0, 1]^3."""
         # flat (marker) evaluation
@@ -2711,10 +2677,11 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         # Ori 25/06/24 - Add option to set temperature maximum and then set density accordingly, still proportional to pressure
         k_Boltzmann = 1.38 * 1e-23
-        p0_pascal = self.p0(*etas, squeeze_out=squeeze_out) * self.units["p"]  # computes pressure in units of 1 Pa
+        p0_pascal = self.p0(*etas, squeeze_out=squeeze_out) * self.units.p  # computes pressure in units of 1 Pa
         # density in default units, n=1 --> 10^20 m^(-3)
-        return p0_pascal / (self._params["T_kelvin"] * k_Boltzmann) / self.units["n"]
+        return p0_pascal / (self.params["T_kelvin"] * k_Boltzmann) / self.units.n
 
+    @profile
     def gradB1(self, *etas, squeeze_out=False):
         """1-form gradient of magnetic field strength on logical cube [0, 1]^3."""
         # check if already cached
@@ -2739,13 +2706,14 @@ class DESCequilibrium(NumericalMHDequilibrium):
                 self._cache["gradB1"]["grids"] += [etas]
                 self._cache["gradB1"]["outs"] += [out]
         else:
-            # print('No bv grids yet.')
+            # logger.info('No bv grids yet.')
             out = self._eval_gradB1(*etas, squeeze_out=squeeze_out)
             self._cache["gradB1"]["grids"] += [etas]
             self._cache["gradB1"]["outs"] += [out]
 
         return out
 
+    @profile
     def _eval_gradB1(self, *etas, squeeze_out=False):
         # flat (marker) evaluation
         if len(etas) == 1:
@@ -2780,11 +2748,12 @@ class DESCequilibrium(NumericalMHDequilibrium):
             elif var == "|B|_z":
                 tmp *= 2.0 * xp.pi / nfp
             # adjust for Struphy units
-            tmp /= self.units["B"]
+            tmp /= self.units.B
             out += [tmp]
 
         return out
 
+    @profile
     def desc_eval(
         self,
         var: str,
@@ -2899,35 +2868,75 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         if verbose and rank == 0:
             # import sys
-            print(f"\n{nfp =}")
-            print(f"{self.eq.axis =}")
-            print(f"{rho.size =}")
-            print(f"{theta.size =}")
-            print(f"{zeta.size =}")
-            print(f"{grid_3d.num_rho =}")
-            print(f"{grid_3d.num_theta =}")
-            print(f"{grid_3d.num_zeta =}")
-            # print(f'\n{grid_3d.nodes[:, 0] = }')
-            # print(f'\n{grid_3d.nodes[:, 1] = }')
-            # print(f'\n{grid_3d.nodes[:, 2] = }')
-            print(f"\n{rho =}")
-            print(f"{rho1 =}")
-            print(f"\n{theta =}")
-            print(f"{theta1 =}")
-            print(f"\n{zeta =}")
-            print(f"{zeta1 =}")
+            logger.info(f"\n{nfp =}")
+            logger.info(f"{self.eq.axis =}")
+            logger.info(f"{rho.size =}")
+            logger.info(f"{theta.size =}")
+            logger.info(f"{zeta.size =}")
+            logger.info(f"{grid_3d.num_rho =}")
+            logger.info(f"{grid_3d.num_theta =}")
+            logger.info(f"{grid_3d.num_zeta =}")
+            # logger.info(f'\n{grid_3d.nodes[:, 0] = }')
+            # logger.info(f'\n{grid_3d.nodes[:, 1] = }')
+            # logger.info(f'\n{grid_3d.nodes[:, 2] = }')
+            logger.info(f"\n{rho =}")
+            logger.info(f"{rho1 =}")
+            logger.info(f"\n{theta =}")
+            logger.info(f"{theta1 =}")
+            logger.info(f"\n{zeta =}")
+            logger.info(f"{zeta1 =}")
 
         # make c-contiguous
         out = xp.ascontiguousarray(out)
-        if rank == 0:
-            print(f"desc_eval for {var}: {time() - ttime} seconds")
+        if rank == 0 and verbose:
+            logger.info(f"desc_eval for {var}: {time() - ttime} seconds")
         return out
 
 
 class ConstantVelocity(CartesianFluidEquilibrium):
-    r"""Base class for a constant distribution function on the unit cube.
-    The Background does not depend on the velocity
+    r"""Constant-velocity background equilibrium.
 
+    Represents a simple fluid equilibrium with a spatially-constant bulk
+    velocity (``ux``, ``uy``, ``uz``) and configurable density/pressure
+    profiles. The class provides the following instance methods used by
+    the solver:
+
+    - ``u_xyz(x, y, z)``: return the ion bulk velocity components matching
+      the shape of the inputs ``x, y, z``. If ``velocity_step_function_in_y``
+      is set the x-velocity is applied only for ``y < velocity_step_function_in_y``.
+    - ``n_xyz(x, y, z)``: return the number-density according to
+      ``density_profile``. Supported profiles are:
+        - ``"constant"`` : returns ``n`` everywhere.
+        - ``"affine"`` : returns ``n + n1 * x``.
+        - ``"gaussian_xy"`` : returns ``n * exp(-(x**2 + y**2)/p0)``.
+        - ``"step_function_xy"`` : returns a step-like density using the
+          optional bounds ``upper_x``, ``lower_x``, ``upper_y``, and
+          ``lower_y`` (expects a ``Cuboid`` domain for meaningful bounds).
+    - ``p_xyz(x, y, z)``: return an isotropic pressure (constant ``p0``).
+
+    Parameters
+    ----------
+    ux, uy, uz : float
+        Bulk velocity components in x, y and z directions.
+    velocity_step_function_in_y : float or None
+        If provided, x-velocity is applied only for ``y < value``.
+    n : float
+        Base number density.
+    n1 : float
+        Linear coefficient used when ``density_profile == 'affine'``.
+    density_profile : str
+        One of ``'constant'``, ``'affine'``, ``'gaussian_xy'``,
+        or ``'step_function_xy'``.
+    upper_x, lower_x, upper_y, lower_y : float or None
+        Bounds used by the ``'step_function_xy'`` profile (optional).
+    p0 : float
+        Reference pressure (also used as the Gaussian width parameter).
+
+    Notes
+    -----
+    The input arrays ``x, y, z`` are treated elementwise and the returned
+    arrays match their shapes. Small numerical floors (e.g. ``1e-8``) may be
+    used internally to avoid exact zeros where necessary.
     """
 
     def __init__(
@@ -2935,10 +2944,14 @@ class ConstantVelocity(CartesianFluidEquilibrium):
         ux: float = 0.0,
         uy: float = 0.0,
         uz: float = 0.0,
+        velocity_step_function_in_y: float | None = None,
         n: float = 1.0,
         n1: float = 0.0,
         density_profile: str = "constant",
-        velocity_profile: str = "constant",
+        upper_x: float | None = None,
+        lower_x: float | None = None,
+        upper_y: float | None = None,
+        lower_y: float | None = None,
         p0: float = 1.0,
     ):
         # use params setter
@@ -2947,14 +2960,11 @@ class ConstantVelocity(CartesianFluidEquilibrium):
     # equilibrium ion velocity
     def u_xyz(self, x, y, z):
         """Ion velocity."""
-        if self.params["velocity_profile"] == "constant":
+        if self.params["velocity_step_function_in_y"] is None:
             ux = 0 * x + self.params["ux"]
-        elif self.params["velocity_profile"] == "step_function_velocity_y":
+        else:
             ux = 1e-8 + 0 * x
-            # mask_x = np.logical_and(x < .6, x > .4)
-            # mask_y = np.logical_and(y < .6, y > .4)
-            # mask = np.logical_and(mask_x, mask_y)
-            mask = y < 0.5
+            mask = y < self.params["velocity_step_function_in_y"]
             ux[mask] = self.params["ux"]
         uy = 0 * x + self.params["uy"]
         uz = 0 * x + self.params["uz"]
@@ -2977,13 +2987,41 @@ class ConstantVelocity(CartesianFluidEquilibrium):
             return self.params["n"] + self.params["n1"] * x
         elif self.params["density_profile"] == "gaussian_xy":
             return self.params["n"] * xp.exp(-(x**2 + y**2) / self.params["p0"])
-        elif self.params["density_profile"] == "step_function_x":
+        elif self.params["density_profile"] == "step_function_xy":
+            assert isinstance(self.domain, domains.Cuboid)
+            l1 = self.domain.params["l1"]
+            r1 = self.domain.params["r1"]
+            l2 = self.domain.params["l2"]
+            r2 = self.domain.params["r2"]
+
             out = 1e-8 + 0 * x
-            # mask_x = xp.logical_and(x < .6, x > .4)
-            # mask_y = xp.logical_and(y < .6, y > .4)
-            # mask = xp.logical_and(mask_x, mask_y)
-            mask = x < -2.0
+
+            if self.params["upper_x"] is not None:
+                mask_x_upper = x < self.params["upper_x"]
+            else:
+                mask_x_upper = xp.ones_like(x, dtype=bool)
+
+            if self.params["lower_x"] is not None:
+                mask_x_lower = x > self.params["lower_x"]
+            else:
+                mask_x_lower = xp.ones_like(x, dtype=bool)
+
+            if self.params["upper_y"] is not None:
+                mask_y_upper = y < self.params["upper_y"]
+            else:
+                mask_y_upper = xp.ones_like(y, dtype=bool)
+
+            if self.params["lower_y"] is not None:
+                mask_y_lower = y > self.params["lower_y"]
+            else:
+                mask_y_lower = xp.ones_like(y, dtype=bool)
+
+            mask_x = xp.logical_and(mask_x_upper, mask_x_lower)
+            mask_y = xp.logical_and(mask_y_upper, mask_y_lower)
+            mask = xp.logical_and(mask_x, mask_y)
+
             out[mask] = self.params["n"]
+
             return out
 
 
@@ -2999,7 +3037,7 @@ class HomogenSlabITG(CartesianFluidEquilibriumWithB):
 
         \mathbf u &= - \epsilon \frac{p_0}{L_x} \mathbf e_y\,.
 
-    Units are those defned in the parameter file (:code:`struphy units -h`).
+    Units are those defned in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
 
     Parameters
     ----------
@@ -3117,7 +3155,7 @@ class CircularTokamak(AxisymmMHDequilibrium):
 
     The pressure profile and the number density profile are not specified
 
-    Units are those defined in the parameter file (:code:`struphy units -h`).
+    Units are those defined in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
 
     Parameters
     ----------
@@ -3205,7 +3243,7 @@ class CircularTokamak(AxisymmMHDequilibrium):
         """Toroidal field function g = g(R, Z)."""
 
         if dR == 0 and dZ == 0:
-            out = self._params["B0"] * self._params["R0"]
+            out = self.params["B0"] * self.params["R0"]
         elif dR == 1 and dZ == 0:
             out = 0 * R
         elif dR == 0 and dZ == 1:
@@ -3277,7 +3315,7 @@ class CurrentSheet(CartesianMHDequilibrium):
 
         n &= n_0 = 1 \,.
 
-    Units are those defned in the parameter file (:code:`struphy units -h`).
+    Units are those defned in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
 
     Parameters
     ----------
@@ -3341,11 +3379,11 @@ class CurrentSheet(CartesianMHDequilibrium):
         """Magnetic field."""
 
         bz = 0 * x
-        by = xp.tanh(z / self._params["delta"])
+        by = xp.tanh(z / self.params["delta"])
         bx = xp.sqrt(1 - by**2)
 
-        bxs = self._params["amp"] * bx
-        bys = self._params["amp"] * by
+        bxs = self.params["amp"] * bx
+        bys = self.params["amp"] * by
 
         return bxs, bys, bz
 
@@ -3380,3 +3418,119 @@ class CurrentSheet(CartesianMHDequilibrium):
         gradBz = 0 * x
 
         return gradBx, gradBy, gradBz
+
+
+class GenericCartesianFluidEquilibrium(CartesianFluidEquilibrium):
+    """Generic Cartesian fluid equilibrium with callable fields.
+
+    This class extends CartesianFluidEquilibrium to allow user-defined callable
+    functions for velocity, pressure, and number density fields. It provides a
+    flexible interface for specifying equilibrium quantities as functions of
+    spatial coordinates (x, y, z).
+
+    Methods
+    -------
+    u_xyz : callable
+        Velocity field as a function of (x, y, z) coordinates.
+    p_xyz : callable
+        Pressure field as a function of (x, y, z) coordinates.
+    n_xyz : callable
+        Number density field as a function of (x, y, z) coordinates.
+
+    Attributes
+    ----------
+    params : dict
+        Dictionary of initialization parameters for reproducibility.
+    """
+
+    def __init__(
+        self,
+        u_xyz: callable = None,
+        p_xyz: callable = None,
+        n_xyz: callable = None,
+    ):
+        # use params setter
+        self.params = copy.deepcopy(locals())
+
+        if u_xyz is None:
+            u_xyz = lambda x, y, z: (0.0 * x, 0.0 * x, 0.0 * x)
+        else:
+            assert callable(u_xyz)
+
+        if p_xyz is None:
+            p_xyz = lambda x, y, z: xp.ones_like(x, dtype=float)
+        else:
+            assert callable(p_xyz)
+
+        if n_xyz is None:
+            n_xyz = lambda x, y, z: xp.ones_like(x, dtype=float)
+        else:
+            assert callable(n_xyz)
+
+        self._u_xyz = u_xyz
+        self._p_xyz = p_xyz
+        self._n_xyz = n_xyz
+
+    def u_xyz(self, x, y, z):
+        return self._u_xyz(x, y, z)
+
+    def p_xyz(self, x, y, z):
+        return self._p_xyz(x, y, z)
+
+    def n_xyz(self, x, y, z):
+        return self._n_xyz(x, y, z)
+
+
+class GenericCartesianFluidEquilibriumWithB(GenericCartesianFluidEquilibrium):
+    """Generic Cartesian fluid equilibrium with magnetic field and callable fields.
+
+    This class extends GenericCartesianFluidEquilibrium to include magnetic field
+    and its gradient. It allows user-defined callable functions for velocity,
+    pressure, number density, magnetic field, and magnetic field gradient as
+    functions of spatial coordinates (x, y, z).
+
+    Methods
+    -------
+    b_xyz : callable
+        Magnetic field as a function of (x, y, z) coordinates.
+    gradB_xyz : callable
+        Gradient of the magnetic field magnitude as a function of (x, y, z)
+        coordinates.
+
+    Attributes
+    ----------
+    params : dict
+        Dictionary of initialization parameters for reproducibility.
+    """
+
+    def __init__(
+        self,
+        u_xyz: callable = None,
+        p_xyz: callable = None,
+        n_xyz: callable = None,
+        b_xyz: callable = None,
+        gradB_xyz: callable = None,
+    ):
+        # use params setter
+        self.params = copy.deepcopy(locals())
+
+        super().__init__(u_xyz=u_xyz, p_xyz=p_xyz, n_xyz=n_xyz)
+
+        if b_xyz is None:
+            b_xyz = lambda x, y, z: (0.0 * x, 0.0 * x, 0.0 * x)
+        else:
+            assert callable(b_xyz)
+
+        if gradB_xyz is None:
+            gradB_xyz = lambda x, y, z: (0.0 * x, 0.0 * x, 0.0 * x)
+        else:
+            assert callable(gradB_xyz)
+
+        self._b_xyz = b_xyz
+        self._gradB_xyz = gradB_xyz
+
+    def b_xyz(self, x, y, z):
+        return self._b_xyz(x, y, z)
+
+    def gradB_xyz(self, x, y, z):
+        return self._gradB_xyz(x, y, z)

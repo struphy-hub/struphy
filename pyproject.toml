@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "struphy"
-version = "3.0.1"
+version = "3.1.0"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
@@ -25,7 +25,7 @@ classifiers = [
 dependencies = [
     'numpy',
     'cunumpy',
-    'pyccel>=2.1',
+    'pyccel>=2.2.0',
     'feectools',
     'scipy',
     'h5py',
@@ -34,10 +34,21 @@ dependencies = [
     'vtk',
     'tqdm',
     'argcomplete',
+    'ipywidgets',
+    'plotly',
+    'pyvista',
+    'trame',
+    'trame-vtk',
+    'trame-vuetify',
+    'nest_asyncio2',
+    'vtk',
     'pytest',
     'pytest-mpi',
     'pytest-testmon',
+    'ruff>=0.15.0',
     'line_profiler',
+    'scope-profiler>=0.1.7',
+    'jax-finufft<=1.2.0',
 ]
 
 [project.license]
@@ -57,14 +68,12 @@ dev = [
     "pylint",
     "ssort",
     "add-trailing-comma",
-    "ruff>=0.9.1",
     "pre-commit",
     "nbstripout",
     "tabulate",
     "tomli-w",
     "kaleido",
     "pandas",
-    "plotly",
 ]
 mpi = [
     'mpi4py',
@@ -79,6 +88,7 @@ doc = [
     "lxml_html_clean",
     "sphinxcontrib-napoleon",
     "sphinx-copybutton",
+    "sphinx-collections",
     "pydata-sphinx-theme",
     "nbsphinx",
     "m2r2",
@@ -170,7 +180,6 @@ ignore = [
 [tool.pytest.ini_options]
 markers = [
     "models",
-    "toy",
     "fluid",
     "kinetic",
     "hybrid",

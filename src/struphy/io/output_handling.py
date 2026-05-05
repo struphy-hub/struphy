@@ -1,8 +1,11 @@
 import ctypes
+import logging
 import os
 
 import h5py
 import numpy as np
+
+logger = logging.getLogger("struphy")
 
 
 class DataContainer:
@@ -148,8 +151,8 @@ class DataContainer:
 
         for key in self._dset_dict:
             with h5py.File(self.file_path, "a") as file:
-                print(f"\nData set name: {key}")
-                print("Shape:", file[key].shape)
-                print("Attributes:")
+                logger.info(f"\nData set name: {key}")
+                logger.info(f"Shape: {file[key].shape}")
+                logger.info("Attributes:")
                 for attr, val in file[key].attrs.items():
-                    print(attr, val)
+                    logger.info(f"{attr} {val}")

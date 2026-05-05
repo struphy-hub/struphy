@@ -3,22 +3,22 @@ from typing import Literal, get_args
 
 import cunumpy as xp
 
-OptsButcher = Literal[
-    "rk4",
-    "forward_euler",
-    "heun2",
-    "rk2",
-    "heun3",
-    "3/8 rule",
-]
+from struphy.io.options import LiteralOptions
 
 
 @dataclass
 class ButcherTableau:
     r"""
-    Butcher tableau for explicit s-stage Runge-Kutta methods.
+    Butcher tableau for explicit s-stage Runge–Kutta methods.
 
-    The Butcher tableau has the form
+    Encodes the coefficients of an explicit Run–Kutta method in the
+    standard Butcher tableau form::
+
+        c | a
+        --+-----
+          | b
+
+    The tableau image is also included in the project documentation:
 
     .. image:: ../../pics/butcher_tableau.png
         :align: center
@@ -26,11 +26,43 @@ class ButcherTableau:
 
     Parameters
     ----------
-    algo : OptsButcher
-        Name of the RK method.
+    algo : LiteralOptions.OptsButcher, optional
+        Identifier of the RK method to use. Supported identifiers are
+        defined by :class:`struphy.io.options.LiteralOptions.OptsButcher`.
+        Defaults to ``"rk4"``.
+
+    Attributes
+    ----------
+    a : cunumpy.ndarray, shape (s, s)
+        Strictly lower-triangular matrix of stage coefficients (``a_ij``).
+    b : cunumpy.ndarray, shape (s,)
+        Weights used to combine stage derivatives into the final update.
+    c : cunumpy.ndarray, shape (s,)
+        Stage nodes (time fractions) corresponding to each row of ``a``.
+    n_stages : int
+        Number of stages ``s`` of the Run--Kutta method.
+    conv_rate : int
+        Formal order of convergence of the method.
+
+    Notes
+    -----
+    - Arrays are stored using the project's array module ``cunumpy`` (imported
+      as ``xp``) so they behave like numpy arrays but can be swapped for other
+      array backends if configured.
+    - Only explicit (strictly lower-triangular ``a``) Run--Kutta methods
+      are supported. Passing an unsupported ``algo`` raises
+      :class:`NotImplementedError`.
+
+    Examples
+    --------
+    >>> bt = ButcherTableau("rk4")
+    >>> bt.n_stages
+    4
+    >>> bt.b  # doctest: +SKIP
+    array([1/6, 1/3, 1/3, 1/6])
     """
 
-    algo: OptsButcher = "rk4"
+    algo: LiteralOptions.OptsButcher = "rk4"
 
     def __post_init__(self):
         # choose algorithm
@@ -82,7 +114,7 @@ class ButcherTableau:
 
         self._conv_rate = conv_rate
 
-    __available_methods__ = get_args(OptsButcher)
+    __available_methods__ = get_args(LiteralOptions.OptsButcher)
 
     @property
     def a(self):

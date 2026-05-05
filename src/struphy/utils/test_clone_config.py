@@ -1,12 +1,16 @@
+import logging
+
 import pytest
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 
+logger = logging.getLogger("struphy")
 
-@pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
+
+@pytest.mark.parametrize("num_elements", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("Np", [1000, 999])
 @pytest.mark.parametrize("num_clones", [1, 2])
-def test_clone_config(Nel, Np, num_clones):
+def test_clone_config(num_elements, Np, num_clones):
     from struphy.utils.clone_config import CloneConfig
 
     if isinstance(MPI.COMM_WORLD, MockComm):
@@ -18,7 +22,7 @@ def test_clone_config(Nel, Np, num_clones):
     species = "ions"
     params = {
         "grid": {
-            "Nel": Nel,
+            "num_elements": num_elements,
         },
         "kinetic": {
             species: {
@@ -37,7 +41,7 @@ def test_clone_config(Nel, Np, num_clones):
     # Print outputs
     pconf.print_clone_config()
     pconf.print_particle_config()
-    print(f"{pconf.get_Np_clone(Np) =}")
+    logger.info(f"{pconf.get_Np_clone(Np) =}")
 
 
 if __name__ == "__main__":

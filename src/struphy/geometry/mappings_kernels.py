@@ -13,7 +13,7 @@ def spline_3d(
     eta1: float,
     eta2: float,
     eta3: float,
-    p: "int[:]",
+    degree: "int[:]",
     ind1: "int[:, :]",
     ind2: "int[:, :]",
     ind3: "int[:, :]",
@@ -30,28 +30,28 @@ def spline_3d(
     """
 
     # mapping spans
-    span1 = bsplines_kernels.find_span(args.t1, int(p[0]), eta1)
-    span2 = bsplines_kernels.find_span(args.t2, int(p[1]), eta2)
-    span3 = bsplines_kernels.find_span(args.t3, int(p[2]), eta3)
+    span1 = bsplines_kernels.find_span(args.t1, int(degree[0]), eta1)
+    span2 = bsplines_kernels.find_span(args.t2, int(degree[1]), eta2)
+    span3 = bsplines_kernels.find_span(args.t3, int(degree[2]), eta3)
 
-    # p + 1 non-zero mapping splines
-    b1 = zeros(int(p[0]) + 1, dtype=float)
-    b2 = zeros(int(p[1]) + 1, dtype=float)
-    b3 = zeros(int(p[2]) + 1, dtype=float)
+    # degree + 1 non-zero mapping splines
+    b1 = zeros(int(degree[0]) + 1, dtype=float)
+    b2 = zeros(int(degree[1]) + 1, dtype=float)
+    b3 = zeros(int(degree[2]) + 1, dtype=float)
 
-    bsplines_kernels.b_splines_slim(args.t1, int(p[0]), eta1, span1, b1)
-    bsplines_kernels.b_splines_slim(args.t2, int(p[1]), eta2, span2, b2)
-    bsplines_kernels.b_splines_slim(args.t3, int(p[2]), eta3, span3, b3)
+    bsplines_kernels.b_splines_slim(args.t1, int(degree[0]), eta1, span1, b1)
+    bsplines_kernels.b_splines_slim(args.t2, int(degree[1]), eta2, span2, b2)
+    bsplines_kernels.b_splines_slim(args.t3, int(degree[2]), eta3, span3, b3)
 
     # Evaluate spline mapping
-    tmp1 = ind1[span1 - int(p[0]), :]
-    tmp2 = ind2[span2 - int(p[1]), :]
-    tmp3 = ind3[span3 - int(p[2]), :]
+    tmp1 = ind1[span1 - int(degree[0]), :]
+    tmp2 = ind2[span2 - int(degree[1]), :]
+    tmp3 = ind3[span3 - int(degree[2]), :]
 
     f_out[0] = evaluation_kernels_3d.evaluation_kernel_3d(
-        int(p[0]),
-        int(p[1]),
-        int(p[2]),
+        int(degree[0]),
+        int(degree[1]),
+        int(degree[2]),
         b1,
         b2,
         b3,
@@ -61,9 +61,9 @@ def spline_3d(
         args.cx,
     )
     f_out[1] = evaluation_kernels_3d.evaluation_kernel_3d(
-        int(p[0]),
-        int(p[1]),
-        int(p[2]),
+        int(degree[0]),
+        int(degree[1]),
+        int(degree[2]),
         b1,
         b2,
         b3,
@@ -73,9 +73,9 @@ def spline_3d(
         args.cy,
     )
     f_out[2] = evaluation_kernels_3d.evaluation_kernel_3d(
-        int(p[0]),
-        int(p[1]),
-        int(p[2]),
+        int(degree[0]),
+        int(degree[1]),
+        int(degree[2]),
         b1,
         b2,
         b3,
@@ -91,7 +91,7 @@ def spline_3d_df(
     eta1: float,
     eta2: float,
     eta3: float,
-    p: "int[:]",
+    degree: "int[:]",
     ind1: "int[:, :]",
     ind2: "int[:, :]",
     ind3: "int[:, :]",
@@ -101,32 +101,32 @@ def spline_3d_df(
     """Jacobian matrix for :meth:`struphy.geometry.mappings_kernels.spline_3d`."""
 
     # mapping spans
-    span1 = bsplines_kernels.find_span(args.t1, int(p[0]), eta1)
-    span2 = bsplines_kernels.find_span(args.t2, int(p[1]), eta2)
-    span3 = bsplines_kernels.find_span(args.t3, int(p[2]), eta3)
+    span1 = bsplines_kernels.find_span(args.t1, int(degree[0]), eta1)
+    span2 = bsplines_kernels.find_span(args.t2, int(degree[1]), eta2)
+    span3 = bsplines_kernels.find_span(args.t3, int(degree[2]), eta3)
 
     # non-zero splines of mapping, and derivatives
-    b1 = zeros(int(p[0]) + 1, dtype=float)
-    b2 = zeros(int(p[1]) + 1, dtype=float)
-    b3 = zeros(int(p[2]) + 1, dtype=float)
+    b1 = zeros(int(degree[0]) + 1, dtype=float)
+    b2 = zeros(int(degree[1]) + 1, dtype=float)
+    b3 = zeros(int(degree[2]) + 1, dtype=float)
 
-    der1 = zeros(int(p[0]) + 1, dtype=float)
-    der2 = zeros(int(p[1]) + 1, dtype=float)
-    der3 = zeros(int(p[2]) + 1, dtype=float)
+    der1 = zeros(int(degree[0]) + 1, dtype=float)
+    der2 = zeros(int(degree[1]) + 1, dtype=float)
+    der3 = zeros(int(degree[2]) + 1, dtype=float)
 
-    bsplines_kernels.b_der_splines_slim(args.t1, int(p[0]), eta1, span1, b1, der1)
-    bsplines_kernels.b_der_splines_slim(args.t2, int(p[1]), eta2, span2, b2, der2)
-    bsplines_kernels.b_der_splines_slim(args.t3, int(p[2]), eta3, span3, b3, der3)
+    bsplines_kernels.b_der_splines_slim(args.t1, int(degree[0]), eta1, span1, b1, der1)
+    bsplines_kernels.b_der_splines_slim(args.t2, int(degree[1]), eta2, span2, b2, der2)
+    bsplines_kernels.b_der_splines_slim(args.t3, int(degree[2]), eta3, span3, b3, der3)
 
     # Evaluation of Jacobian
-    tmp1 = ind1[span1 - int(p[0]), :]
-    tmp2 = ind2[span2 - int(p[1]), :]
-    tmp3 = ind3[span3 - int(p[2]), :]
+    tmp1 = ind1[span1 - int(degree[0]), :]
+    tmp2 = ind2[span2 - int(degree[1]), :]
+    tmp3 = ind3[span3 - int(degree[2]), :]
 
     df_out[0, 0] = evaluation_kernels_3d.evaluation_kernel_3d(
-        int(p[0]),
-        int(p[1]),
-        int(p[2]),
+        int(degree[0]),
+        int(degree[1]),
+        int(degree[2]),
         der1,
         b2,
         b3,
@@ -136,9 +136,9 @@ def spline_3d_df(
         args.cx,
     )
     df_out[0, 1] = evaluation_kernels_3d.evaluation_kernel_3d(
-        int(p[0]),
-        int(p[1]),
-        int(p[2]),
+        int(degree[0]),
+        int(degree[1]),
+        int(degree[2]),
         b1,
         der2,
         b3,
@@ -148,9 +148,9 @@ def spline_3d_df(
         args.cx,
     )
     df_out[0, 2] = evaluation_kernels_3d.evaluation_kernel_3d(
-        int(p[0]),
-        int(p[1]),
-        int(p[2]),
+        int(degree[0]),
+        int(degree[1]),
+        int(degree[2]),
         b1,
         b2,
         der3,
@@ -160,9 +160,9 @@ def spline_3d_df(
         args.cx,
     )
     df_out[1, 0] = evaluation_kernels_3d.evaluation_kernel_3d(
-        int(p[0]),
-        int(p[1]),
-        int(p[2]),
+        int(degree[0]),
+        int(degree[1]),
+        int(degree[2]),
         der1,
         b2,
         b3,
@@ -172,9 +172,9 @@ def spline_3d_df(
         args.cy,
     )
     df_out[1, 1] = evaluation_kernels_3d.evaluation_kernel_3d(
-        int(p[0]),
-        int(p[1]),
-        int(p[2]),
+        int(degree[0]),
+        int(degree[1]),
+        int(degree[2]),
         b1,
         der2,
         b3,
@@ -184,9 +184,9 @@ def spline_3d_df(
         args.cy,
     )
     df_out[1, 2] = evaluation_kernels_3d.evaluation_kernel_3d(
-        int(p[0]),
-        int(p[1]),
-        int(p[2]),
+        int(degree[0]),
+        int(degree[1]),
+        int(degree[2]),
         b1,
         b2,
         der3,
@@ -196,9 +196,9 @@ def spline_3d_df(
         args.cy,
     )
     df_out[2, 0] = evaluation_kernels_3d.evaluation_kernel_3d(
-        int(p[0]),
-        int(p[1]),
-        int(p[2]),
+        int(degree[0]),
+        int(degree[1]),
+        int(degree[2]),
         der1,
         b2,
         b3,
@@ -208,9 +208,9 @@ def spline_3d_df(
         args.cz,
     )
     df_out[2, 1] = evaluation_kernels_3d.evaluation_kernel_3d(
-        int(p[0]),
-        int(p[1]),
-        int(p[2]),
+        int(degree[0]),
+        int(degree[1]),
+        int(degree[2]),
         b1,
         der2,
         b3,
@@ -220,9 +220,9 @@ def spline_3d_df(
         args.cz,
     )
     df_out[2, 2] = evaluation_kernels_3d.evaluation_kernel_3d(
-        int(p[0]),
-        int(p[1]),
-        int(p[2]),
+        int(degree[0]),
+        int(degree[1]),
+        int(degree[2]),
         b1,
         b2,
         der3,
@@ -238,7 +238,7 @@ def spline_2d_straight(
     eta1: float,
     eta2: float,
     eta3: float,
-    p: "int[:]",
+    degree: "int[:]",
     ind1: "int[:, :]",
     ind2: "int[:, :]",
     args: "DomainArguments",
@@ -260,22 +260,22 @@ def spline_2d_straight(
     cy = args.cy[:, :, 0]
 
     # mapping spans
-    span1 = bsplines_kernels.find_span(args.t1, int(p[0]), eta1)
-    span2 = bsplines_kernels.find_span(args.t2, int(p[1]), eta2)
+    span1 = bsplines_kernels.find_span(args.t1, int(degree[0]), eta1)
+    span2 = bsplines_kernels.find_span(args.t2, int(degree[1]), eta2)
 
-    # p + 1 non-zero mapping splines
-    b1 = zeros(int(p[0]) + 1, dtype=float)
-    b2 = zeros(int(p[1]) + 1, dtype=float)
+    # degree + 1 non-zero mapping splines
+    b1 = zeros(int(degree[0]) + 1, dtype=float)
+    b2 = zeros(int(degree[1]) + 1, dtype=float)
 
-    bsplines_kernels.b_splines_slim(args.t1, int(p[0]), eta1, span1, b1)
-    bsplines_kernels.b_splines_slim(args.t2, int(p[1]), eta2, span2, b2)
+    bsplines_kernels.b_splines_slim(args.t1, int(degree[0]), eta1, span1, b1)
+    bsplines_kernels.b_splines_slim(args.t2, int(degree[1]), eta2, span2, b2)
 
     # Evaluate mapping
-    tmp1 = ind1[span1 - int(p[0]), :]
-    tmp2 = ind2[span2 - int(p[1]), :]
+    tmp1 = ind1[span1 - int(degree[0]), :]
+    tmp2 = ind2[span2 - int(degree[1]), :]
 
-    f_out[0] = evaluation_kernels_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, b2, tmp1, tmp2, cx)
-    f_out[1] = evaluation_kernels_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, b2, tmp1, tmp2, cy)
+    f_out[0] = evaluation_kernels_2d.evaluation_kernel_2d(int(degree[0]), int(degree[1]), b1, b2, tmp1, tmp2, cx)
+    f_out[1] = evaluation_kernels_2d.evaluation_kernel_2d(int(degree[0]), int(degree[1]), b1, b2, tmp1, tmp2, cy)
     f_out[2] = lz * eta3
 
     # TODO: explanation
@@ -290,7 +290,7 @@ def spline_2d_straight(
 def spline_2d_straight_df(
     eta1: float,
     eta2: float,
-    p: "int[:]",
+    degree: "int[:]",
     ind1: "int[:, :]",
     ind2: "int[:, :]",
     args: "DomainArguments",
@@ -303,28 +303,28 @@ def spline_2d_straight_df(
     cy = args.cy[:, :, 0]
 
     # mapping spans
-    span1 = bsplines_kernels.find_span(args.t1, int(p[0]), eta1)
-    span2 = bsplines_kernels.find_span(args.t2, int(p[1]), eta2)
+    span1 = bsplines_kernels.find_span(args.t1, int(degree[0]), eta1)
+    span2 = bsplines_kernels.find_span(args.t2, int(degree[1]), eta2)
 
     # non-zero splines of mapping, and derivatives
-    b1 = zeros(int(p[0]) + 1, dtype=float)
-    b2 = zeros(int(p[1]) + 1, dtype=float)
+    b1 = zeros(int(degree[0]) + 1, dtype=float)
+    b2 = zeros(int(degree[1]) + 1, dtype=float)
 
-    der1 = zeros(int(p[0]) + 1, dtype=float)
-    der2 = zeros(int(p[1]) + 1, dtype=float)
+    der1 = zeros(int(degree[0]) + 1, dtype=float)
+    der2 = zeros(int(degree[1]) + 1, dtype=float)
 
-    bsplines_kernels.b_der_splines_slim(args.t1, int(p[0]), eta1, span1, b1, der1)
-    bsplines_kernels.b_der_splines_slim(args.t2, int(p[1]), eta2, span2, b2, der2)
+    bsplines_kernels.b_der_splines_slim(args.t1, int(degree[0]), eta1, span1, b1, der1)
+    bsplines_kernels.b_der_splines_slim(args.t2, int(degree[1]), eta2, span2, b2, der2)
 
     # Evaluation of Jacobian
-    tmp1 = ind1[span1 - int(p[0]), :]
-    tmp2 = ind2[span2 - int(p[1]), :]
+    tmp1 = ind1[span1 - int(degree[0]), :]
+    tmp2 = ind2[span2 - int(degree[1]), :]
 
-    df_out[0, 0] = evaluation_kernels_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), der1, b2, tmp1, tmp2, cx)
-    df_out[0, 1] = evaluation_kernels_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, der2, tmp1, tmp2, cx)
+    df_out[0, 0] = evaluation_kernels_2d.evaluation_kernel_2d(int(degree[0]), int(degree[1]), der1, b2, tmp1, tmp2, cx)
+    df_out[0, 1] = evaluation_kernels_2d.evaluation_kernel_2d(int(degree[0]), int(degree[1]), b1, der2, tmp1, tmp2, cx)
     df_out[0, 2] = 0.0
-    df_out[1, 0] = evaluation_kernels_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), der1, b2, tmp1, tmp2, cy)
-    df_out[1, 1] = evaluation_kernels_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, der2, tmp1, tmp2, cy)
+    df_out[1, 0] = evaluation_kernels_2d.evaluation_kernel_2d(int(degree[0]), int(degree[1]), der1, b2, tmp1, tmp2, cy)
+    df_out[1, 1] = evaluation_kernels_2d.evaluation_kernel_2d(int(degree[0]), int(degree[1]), b1, der2, tmp1, tmp2, cy)
     df_out[1, 2] = 0.0
     df_out[2, 0] = 0.0
     df_out[2, 1] = 0.0
@@ -343,7 +343,7 @@ def spline_2d_torus(
     eta1: float,
     eta2: float,
     eta3: float,
-    p: "int[:]",
+    degree: "int[:]",
     ind1: "int[:, :]",
     ind2: "int[:, :]",
     args: "DomainArguments",
@@ -369,29 +369,29 @@ def spline_2d_torus(
     cy = args.cy[:, :, 0]
 
     # mapping spans
-    span1 = bsplines_kernels.find_span(args.t1, int(p[0]), eta1)
-    span2 = bsplines_kernels.find_span(args.t2, int(p[1]), eta2)
+    span1 = bsplines_kernels.find_span(args.t1, int(degree[0]), eta1)
+    span2 = bsplines_kernels.find_span(args.t2, int(degree[1]), eta2)
 
-    # p + 1 non-zero mapping splines
-    b1 = zeros(int(p[0]) + 1, dtype=float)
-    b2 = zeros(int(p[1]) + 1, dtype=float)
+    # degree + 1 non-zero mapping splines
+    b1 = zeros(int(degree[0]) + 1, dtype=float)
+    b2 = zeros(int(degree[1]) + 1, dtype=float)
 
-    bsplines_kernels.b_splines_slim(args.t1, int(p[0]), eta1, span1, b1)
-    bsplines_kernels.b_splines_slim(args.t2, int(p[1]), eta2, span2, b2)
+    bsplines_kernels.b_splines_slim(args.t1, int(degree[0]), eta1, span1, b1)
+    bsplines_kernels.b_splines_slim(args.t2, int(degree[1]), eta2, span2, b2)
 
     # Evaluate mapping
-    tmp1 = ind1[span1 - int(p[0]), :]
-    tmp2 = ind2[span2 - int(p[1]), :]
+    tmp1 = ind1[span1 - int(degree[0]), :]
+    tmp2 = ind2[span2 - int(degree[1]), :]
 
-    f_out[0] = evaluation_kernels_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, b2, tmp1, tmp2, cx) * cos(
+    f_out[0] = evaluation_kernels_2d.evaluation_kernel_2d(int(degree[0]), int(degree[1]), b1, b2, tmp1, tmp2, cx) * cos(
         2 * pi * eta3 / tor_period,
     )
     f_out[1] = (
-        evaluation_kernels_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, b2, tmp1, tmp2, cx)
+        evaluation_kernels_2d.evaluation_kernel_2d(int(degree[0]), int(degree[1]), b1, b2, tmp1, tmp2, cx)
         * (-1)
         * sin(2 * pi * eta3 / tor_period)
     )
-    f_out[2] = evaluation_kernels_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, b2, tmp1, tmp2, cy)
+    f_out[2] = evaluation_kernels_2d.evaluation_kernel_2d(int(degree[0]), int(degree[1]), b1, b2, tmp1, tmp2, cy)
 
     # TODO: explanation
     if eta1 == 0.0 and cx[0, 0] == cx[0, 1]:
@@ -407,7 +407,7 @@ def spline_2d_torus_df(
     eta1: float,
     eta2: float,
     eta3: float,
-    p: "int[:]",
+    degree: "int[:]",
     ind1: "int[:, :]",
     ind2: "int[:, :]",
     args: "DomainArguments",
@@ -420,53 +420,57 @@ def spline_2d_torus_df(
     cy = args.cy[:, :, 0]
 
     # mapping spans
-    span1 = bsplines_kernels.find_span(args.t1, int(p[0]), eta1)
-    span2 = bsplines_kernels.find_span(args.t2, int(p[1]), eta2)
+    span1 = bsplines_kernels.find_span(args.t1, int(degree[0]), eta1)
+    span2 = bsplines_kernels.find_span(args.t2, int(degree[1]), eta2)
 
     # non-zero splines of mapping, and derivatives
-    b1 = zeros(int(p[0]) + 1, dtype=float)
-    b2 = zeros(int(p[1]) + 1, dtype=float)
+    b1 = zeros(int(degree[0]) + 1, dtype=float)
+    b2 = zeros(int(degree[1]) + 1, dtype=float)
 
-    der1 = zeros(int(p[0]) + 1, dtype=float)
-    der2 = zeros(int(p[1]) + 1, dtype=float)
+    der1 = zeros(int(degree[0]) + 1, dtype=float)
+    der2 = zeros(int(degree[1]) + 1, dtype=float)
 
-    bsplines_kernels.b_der_splines_slim(args.t1, int(p[0]), eta1, span1, b1, der1)
-    bsplines_kernels.b_der_splines_slim(args.t2, int(p[1]), eta2, span2, b2, der2)
+    bsplines_kernels.b_der_splines_slim(args.t1, int(degree[0]), eta1, span1, b1, der1)
+    bsplines_kernels.b_der_splines_slim(args.t2, int(degree[1]), eta2, span2, b2, der2)
 
-    tmp1 = ind1[span1 - int(p[0]), :]
-    tmp2 = ind2[span2 - int(p[1]), :]
+    tmp1 = ind1[span1 - int(degree[0]), :]
+    tmp2 = ind2[span2 - int(degree[1]), :]
 
-    df_out[0, 0] = evaluation_kernels_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), der1, b2, tmp1, tmp2, cx) * cos(
+    df_out[0, 0] = evaluation_kernels_2d.evaluation_kernel_2d(
+        int(degree[0]), int(degree[1]), der1, b2, tmp1, tmp2, cx
+    ) * cos(
         2 * pi * eta3 / tor_period,
     )
-    df_out[0, 1] = evaluation_kernels_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, der2, tmp1, tmp2, cx) * cos(
+    df_out[0, 1] = evaluation_kernels_2d.evaluation_kernel_2d(
+        int(degree[0]), int(degree[1]), b1, der2, tmp1, tmp2, cx
+    ) * cos(
         2 * pi * eta3 / tor_period,
     )
     df_out[0, 2] = (
-        evaluation_kernels_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, b2, tmp1, tmp2, cx)
+        evaluation_kernels_2d.evaluation_kernel_2d(int(degree[0]), int(degree[1]), b1, b2, tmp1, tmp2, cx)
         * sin(2 * pi * eta3 / tor_period)
         * (-2 * pi / tor_period)
     )
     df_out[1, 0] = (
-        evaluation_kernels_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), der1, b2, tmp1, tmp2, cx)
+        evaluation_kernels_2d.evaluation_kernel_2d(int(degree[0]), int(degree[1]), der1, b2, tmp1, tmp2, cx)
         * (-1)
         * sin(2 * pi * eta3 / tor_period)
     )
     df_out[1, 1] = (
-        evaluation_kernels_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, der2, tmp1, tmp2, cx)
+        evaluation_kernels_2d.evaluation_kernel_2d(int(degree[0]), int(degree[1]), b1, der2, tmp1, tmp2, cx)
         * (-1)
         * sin(2 * pi * eta3 / tor_period)
     )
     df_out[1, 2] = (
-        evaluation_kernels_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, b2, tmp1, tmp2, cx)
+        evaluation_kernels_2d.evaluation_kernel_2d(int(degree[0]), int(degree[1]), b1, b2, tmp1, tmp2, cx)
         * (-1)
         * cos(2 * pi * eta3 / tor_period)
         * 2
         * pi
         / tor_period
     )
-    df_out[2, 0] = evaluation_kernels_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), der1, b2, tmp1, tmp2, cy)
-    df_out[2, 1] = evaluation_kernels_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, der2, tmp1, tmp2, cy)
+    df_out[2, 0] = evaluation_kernels_2d.evaluation_kernel_2d(int(degree[0]), int(degree[1]), der1, b2, tmp1, tmp2, cy)
+    df_out[2, 1] = evaluation_kernels_2d.evaluation_kernel_2d(int(degree[0]), int(degree[1]), b1, der2, tmp1, tmp2, cy)
     df_out[2, 2] = 0.0
 
     # TODO: explanation
@@ -501,12 +505,6 @@ def cuboid(
         F_y &= l_2 + (r_2 - l_2)\,\eta_2\,,
 
         F_z &= l_3 + (r_3 - l_3)\,\eta_3\,.
-
-    Note
-    ----
-    Example with paramters :math:`l_1=0\,,r_1=1\,,l_2=0\,,r_2=1\,,l_3=0` and :math:`r_3=1`:
-
-        .. image:: ../pics/mappings/cuboid.png
 
     Parameters
     ----------
@@ -556,12 +554,6 @@ def orthogonal(eta1: float, eta2: float, eta3: float, lx: float, ly: float, alph
         F_y &= L_y\,\left[\,\eta_2 + \\alpha\sin(2\pi\,\eta_2)\,\\right]\,,
 
         F_z &= L_z\,\eta_3\,.
-
-    Note
-    ----
-    Example with paramters :math:`L_x=1\,,L_y=1\,,\\alpha=0.1` and :math:`L_z=1`:
-
-        .. image:: ../pics/mappings/orthogonal.png
 
     Parameters
     ----------
@@ -617,12 +609,6 @@ def colella(eta1: float, eta2: float, eta3: float, lx: float, ly: float, alpha: 
 
         F_z &= L_z\,\eta_3\,.
 
-    Note
-    ----
-    Example with paramters :math:`L_x=1\,,L_y=1\,,\\alpha=0.1` and :math:`L_z=1`:
-
-        .. image:: ../pics/mappings/colella.png
-
     Parameters
     ----------
     eta1, eta2, eta3 : float
@@ -675,12 +661,6 @@ def hollow_cyl(eta1: float, eta2: float, eta3: float, a1: float, a2: float, lz: 
         F_y &= \left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\sin(2\pi\,\eta_2 / poc)\,,
 
         F_z &= L_z\,\eta_3\,.
-
-    Note
-    ----
-        Example with paramters :math:`a_1=0.2\,,a_2=1` and :math:`L_z=3`:
-
-        .. image:: ../pics/mappings/hollow_cylinder.png
 
     Parameters
     ----------
@@ -747,12 +727,6 @@ def powered_ellipse(
         F_y &= r_y\,\eta_1^s\sin(2\pi\,\eta_2)\,,
 
         F_z &= L_z\,\eta_3\,.
-
-    Note
-    ----
-        Example with paramters :math:`r_x=1\,,r_y=2,s=0.5` and :math:`L_z=1`:
-
-        .. image:: ../pics/mappings/ellipse.png
 
     Parameters
     ----------
@@ -824,12 +798,6 @@ def hollow_torus(
         F_y &= \lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\cos(\theta(\eta_1,\eta_2))+R_0\\rbrace\sin(2\pi\,\eta_3) \,,
 
         F_z &= \,\,\,\left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\sin(\theta(\eta_1,\eta_2)) \,,
-
-    Note
-    ----
-        Example with paramters :math:`a_1=0.2\,,a_2=1` and :math:`R_0=3`:
-
-        .. image:: ../pics/mappings/hollow_torus.png
 
     Parameters
     ----------
@@ -985,12 +953,6 @@ def shafranov_shift(
 
         F_z &= L_z\,\eta_3\,.
 
-    Note
-    ----
-    Example with paramters :math:`r_x=1\,,r_y=1\,,L_z=1` and :math:`\Delta=0.2`:
-
-        .. image:: ../pics/mappings/shafranov_shift.png
-
     Parameters
     ----------
     eta1, eta2, eta3 : float
@@ -1059,10 +1021,6 @@ def shafranov_sqrt(
         F_y &= r_y\,\eta_1\sin(2\pi\,\eta_2)\,,
 
         F_z &= L_z\,\eta_3\,.
-
-    Note
-    ----
-    No example plot yet.
 
     Parameters
     ----------
@@ -1135,12 +1093,6 @@ def shafranov_dshaped(
         y &= R_0\left[    (1 - \eta_1^2)\Delta_y + \eta_1\epsilon\kappa\sin(2\pi\,\eta_2)\\right]\,,
 
         z &= L_z\,\eta_3\,.
-
-    Note
-    ----
-    Example with paramters :math:`R_0=3\,,L_z=1\,,\Delta_x=0.1\,,\Delta_y=0\,,\delta=0.2\,,\epsilon=1/3` and :math:`\kappa=1.5`:
-
-        .. image:: ../pics/mappings/shafranov_dshaped.png
 
     Parameters
     ----------

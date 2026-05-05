@@ -1,3 +1,5 @@
+import logging
+
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilVector
 
@@ -8,22 +10,28 @@ from struphy.fields_background.base import (
     MHDequilibrium,
 )
 
+logger = logging.getLogger("struphy")
+
 
 class ProjectedFluidEquilibrium:
     """Commuting projections of
     :class:`~struphy.fields_background.base.FluidEquilibrium` into Derham spaces.
     Return coefficients."""
 
-    def __init__(self, equil: FluidEquilibrium, derham: Derham):
+    def __init__(self, equil: FluidEquilibrium, derham: Derham, verbose: bool = False):
         self._equil = equil
         self._derham = derham
 
+        if verbose and derham.comm.Get_rank() == 0:
+            logger.info(f"Projecting equilibrium '{equil.__class__.__name__}' into Derham spaces ...")
+            logger.info(f"{self.derham = }")
+
         # commuting projectors
-        self._P0 = derham.P["0"]
-        self._P1 = derham.P["1"]
-        self._P2 = derham.P["2"]
-        self._P3 = derham.P["3"]
-        self._Pv = derham.P["v"]
+        self._P0 = derham.P0
+        self._P1 = derham.P1
+        self._P2 = derham.P2
+        self._P3 = derham.P3
+        self._Pv = derham.Pv
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
         self._E0T = derham.extraction_ops["0"].transpose()
@@ -31,6 +39,9 @@ class ProjectedFluidEquilibrium:
         self._E2T = derham.extraction_ops["2"].transpose()
         self._E3T = derham.extraction_ops["3"].transpose()
         self._EvT = derham.extraction_ops["v"].transpose()
+
+        if verbose and derham.comm.Get_rank() == 0:
+            logger.info("... Done.")
 
     @property
     def equil(self):
@@ -187,8 +198,8 @@ class ProjectedFluidEquilibriumWithB(ProjectedFluidEquilibrium):
     :class:`~struphy.fields_background.base.FluidEquilibriumWithB` into Derham spaces.
     Return coefficients."""
 
-    def __init__(self, equil: FluidEquilibriumWithB, derham: Derham):
-        super().__init__(equil, derham)
+    def __init__(self, equil: FluidEquilibriumWithB, derham: Derham, verbose: bool = False):
+        super().__init__(equil, derham, verbose=verbose)
 
     # ---------#
     # 0-forms #
@@ -323,8 +334,8 @@ class ProjectedMHDequilibrium(ProjectedFluidEquilibriumWithB):
     :class:`~struphy.fields_background.base.MHDequilibrium` into Derham spaces.
     Return coefficients."""
 
-    def __init__(self, equil: MHDequilibrium, derham: Derham):
-        super().__init__(equil, derham)
+    def __init__(self, equil: MHDequilibrium, derham: Derham, verbose: bool = False):
+        super().__init__(equil, derham, verbose=verbose)
 
     # ---------#
     # 0-forms #

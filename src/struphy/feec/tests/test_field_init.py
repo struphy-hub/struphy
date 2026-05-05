@@ -1,30 +1,44 @@
+import logging
+
 import pytest
 
+logger = logging.getLogger("struphy")
 
-@pytest.mark.parametrize("Nel", [[8, 10, 12]])
-@pytest.mark.parametrize("p", [[1, 2, 3]])
-@pytest.mark.parametrize("spl_kind", [[False, False, True], [True, True, False]])
+
+@pytest.mark.parametrize("num_elements", [[8, 10, 12]])
+@pytest.mark.parametrize("degree", [[1, 2, 3]])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), ("free", "free"), None),
+        (None, None, ("free", "free")),
+    ],
+)
 @pytest.mark.parametrize("spaces", [["H1", "Hcurl", "Hdiv"], ["Hdiv", "L2"], ["H1vec"]])
 @pytest.mark.parametrize("vec_comps", [[True, True, False], [False, True, True]])
-def test_bckgr_init_const(Nel, p, spl_kind, spaces, vec_comps):
+def test_bckgr_init_const(num_elements, degree, bcs, spaces, vec_comps):
     """Test field background initialization of "LogicalConst" with multiple fields in params."""
 
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
 
+    from struphy import FieldsBackground
     from struphy.feec.psydac_derham import Derham
-    from struphy.io.options import FieldsBackground
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence and field of space
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # evaluation grids for comparisons
-    e1 = xp.linspace(0.0, 1.0, Nel[0])
-    e2 = xp.linspace(0.0, 1.0, Nel[1])
-    e3 = xp.linspace(0.0, 1.0, Nel[2])
+    e1 = xp.linspace(0.0, 1.0, num_elements[0])
+    e2 = xp.linspace(0.0, 1.0, num_elements[1])
+    e3 = xp.linspace(0.0, 1.0, num_elements[2])
     meshgrids = xp.meshgrid(e1, e2, e3, indexing="ij")
 
     # test values
@@ -39,27 +53,27 @@ def test_bckgr_init_const(Nel, p, spl_kind, spaces, vec_comps):
         if space in ("H1", "L2"):
             background = FieldsBackground(type="LogicalConst", values=(val,))
             field.initialize_coeffs(backgrounds=background)
-            print(
+            logger.info(
                 f"\n{rank =}, {space =}, after init:\n {xp.max(xp.abs(field(*meshgrids) - val)) =}",
             )
-            # print(f'{field(*meshgrids) = }')
+            # logger.info(f'{field(*meshgrids) = }')
             assert xp.allclose(field(*meshgrids), val)
         else:
             background = FieldsBackground(type="LogicalConst", values=(val, None, val))
             field.initialize_coeffs(backgrounds=background)
             for j, val in enumerate(background.values):
                 if val is not None:
-                    print(
+                    logger.info(
                         f"\n{rank =}, {space =}, after init:\n {j =}, {xp.max(xp.abs(field(*meshgrids)[j] - val)) =}",
                     )
-                    # print(f'{field(*meshgrids)[i] = }')
+                    # logger.info(f'{field(*meshgrids)[i] = }')
                     assert xp.allclose(field(*meshgrids)[j], val)
 
 
-@pytest.mark.parametrize("Nel", [[18, 24, 12]])
-@pytest.mark.parametrize("p", [[1, 2, 1]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True]])
-def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show_plot=False):
+@pytest.mark.parametrize("num_elements", [[18, 24, 12]])
+@pytest.mark.parametrize("degree", [[1, 2, 1]])
+@pytest.mark.parametrize("bcs", [(("free", "free"), None, None)])
+def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=False, show_plot=False):
     """Test field background initialization of "MHD" with multiple fields in params."""
 
     import inspect
@@ -68,17 +82,19 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
     from feectools.ddm.mpi import mpi as MPI
     from matplotlib import pyplot as plt
 
+    from struphy import FieldsBackground, domains, equils
     from struphy.feec.psydac_derham import Derham
-    from struphy.fields_background import equils
     from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
-    from struphy.geometry import domains
-    from struphy.io.options import FieldsBackground
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence and field of space
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # background parameters
     bckgr_0 = FieldsBackground(type="FluidEquilibrium", variable="absB0")
@@ -88,28 +104,28 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
     bckgr_4 = FieldsBackground(type="FluidEquilibrium", variable="uv")
 
     # evaluation grids for comparisons
-    e1 = xp.linspace(0.0, 1.0, Nel[0])
-    e2 = xp.linspace(0.0, 1.0, Nel[1])
-    e3 = xp.linspace(0.0, 1.0, Nel[2])
+    e1 = xp.linspace(0.0, 1.0, num_elements[0])
+    e2 = xp.linspace(0.0, 1.0, num_elements[1])
+    e3 = xp.linspace(0.0, 1.0, num_elements[2])
     meshgrids = xp.meshgrid(e1, e2, e3, indexing="ij")
 
     # test
     for key, val in inspect.getmembers(equils):
         if inspect.isclass(val) and val.__module__ == equils.__name__:
-            print(f"{key =}")
+            logger.info(f"{key =}")
             if "DESC" in key and not with_desc:
-                print(f"Attention: {with_desc =}, DESC not tested here !!")
+                logger.info(f"Attention: {with_desc =}, DESC not tested here !!")
                 continue
 
             if "GVEC" in key and not with_gvec:
-                print(f"Attention: {with_gvec =}, GVEC not tested here !!")
+                logger.info(f"Attention: {with_gvec =}, GVEC not tested here !!")
                 continue
 
             mhd_equil = val()
             if not isinstance(mhd_equil, FluidEquilibriumWithB):
                 continue
 
-            print(f"{mhd_equil.params =}")
+            logger.info(f"{mhd_equil.params =}")
 
             if "AdhocTorus" in key:
                 mhd_equil.domain = domains.HollowTorus(
@@ -151,7 +167,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                 try:
                     mhd_equil.domain = domains.Cuboid()
                 except:
-                    print(f"Not setting domain for {key}.")
+                    logger.info(f"Not setting domain for {key}.")
 
             field_0 = derham.create_spline_function(
                 "name_0",
@@ -185,7 +201,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
             )
 
             # scalar spaces
-            print(
+            logger.info(
                 f"{xp.max(xp.abs(field_3(*meshgrids) - mhd_equil.p3(*meshgrids))) / xp.max(xp.abs(mhd_equil.p3(*meshgrids)))}",
             )
             assert (
@@ -197,7 +213,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
             )
 
             if isinstance(mhd_equil, FluidEquilibriumWithB):
-                print(
+                logger.info(
                     f"{xp.max(xp.abs(field_0(*meshgrids) - mhd_equil.absB0(*meshgrids))) / xp.max(xp.abs(mhd_equil.absB0(*meshgrids)))}",
                 )
                 assert (
@@ -207,7 +223,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                     / xp.max(xp.abs(mhd_equil.absB0(*meshgrids)))
                     < 0.057
                 )
-            print("Scalar asserts passed.")
+            logger.info("Scalar asserts passed.")
 
             # vector-valued spaces
             ref = mhd_equil.u1(*meshgrids)
@@ -215,7 +231,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                 denom = 1.0
             else:
                 denom = xp.max(xp.abs(ref[0]))
-            print(
+            logger.info(
                 f"{xp.max(xp.abs(field_1(*meshgrids)[0] - ref[0])) / denom =}",
             )
             assert xp.max(xp.abs(field_1(*meshgrids)[0] - ref[0])) / denom < 0.28
@@ -223,7 +239,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                 denom = 1.0
             else:
                 denom = xp.max(xp.abs(ref[1]))
-            print(
+            logger.info(
                 f"{xp.max(xp.abs(field_1(*meshgrids)[1] - ref[1])) / denom =}",
             )
             assert xp.max(xp.abs(field_1(*meshgrids)[1] - ref[1])) / denom < 0.33
@@ -231,7 +247,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                 denom = 1.0
             else:
                 denom = xp.max(xp.abs(ref[2]))
-            print(
+            logger.info(
                 f"{xp.max(xp.abs(field_1(*meshgrids)[2] - ref[2])) / denom =}",
             )
             assert (
@@ -243,14 +259,14 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                 / denom
                 < 0.1
             )
-            print("u1 asserts passed.")
+            logger.info("u1 asserts passed.")
 
             ref = mhd_equil.u2(*meshgrids)
             if xp.max(xp.abs(ref[0])) < 1e-11:
                 denom = 1.0
             else:
                 denom = xp.max(xp.abs(ref[0]))
-            print(
+            logger.info(
                 f"{xp.max(xp.abs(field_2(*meshgrids)[0] - ref[0])) / denom =}",
             )
             assert xp.max(xp.abs(field_2(*meshgrids)[0] - ref[0])) / denom < 0.86
@@ -258,7 +274,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                 denom = 1.0
             else:
                 denom = xp.max(xp.abs(ref[1]))
-            print(
+            logger.info(
                 f"{xp.max(xp.abs(field_2(*meshgrids)[1] - ref[1])) / denom =}",
             )
             assert (
@@ -274,18 +290,18 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                 denom = 1.0
             else:
                 denom = xp.max(xp.abs(ref[2]))
-            print(
+            logger.info(
                 f"{xp.max(xp.abs(field_2(*meshgrids)[2] - ref[2])) / denom =}",
             )
             assert xp.max(xp.abs(field_2(*meshgrids)[2] - ref[2])) / denom < 0.21
-            print("u2 asserts passed.")
+            logger.info("u2 asserts passed.")
 
             ref = mhd_equil.uv(*meshgrids)
             if xp.max(xp.abs(ref[0])) < 1e-11:
                 denom = 1.0
             else:
                 denom = xp.max(xp.abs(ref[0]))
-            print(
+            logger.info(
                 f"{xp.max(xp.abs(field_4(*meshgrids)[0] - ref[0])) / denom =}",
             )
             assert xp.max(xp.abs(field_4(*meshgrids)[0] - ref[0])) / denom < 0.6
@@ -293,7 +309,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                 denom = 1.0
             else:
                 denom = xp.max(xp.abs(ref[1]))
-            print(
+            logger.info(
                 f"{xp.max(xp.abs(field_4(*meshgrids)[1] - ref[1])) / denom =}",
             )
             assert (
@@ -309,7 +325,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                 denom = 1.0
             else:
                 denom = xp.max(xp.abs(ref[2]))
-            print(
+            logger.info(
                 f"{xp.max(xp.abs(field_4(*meshgrids)[2] - ref[2])) / denom =}",
             )
             assert (
@@ -321,7 +337,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                 / denom
                 < 0.04
             )
-            print("uv asserts passed.")
+            logger.info("uv asserts passed.")
 
             # plotting fields with equilibrium
             if show_plot and rank == 0:
@@ -367,13 +383,13 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                             levels=levels,
                         )
                         plt.contourf(
-                            x[:, Nel[1] // 2, :],
+                            x[:, num_elements[1] // 2, :],
                             z[
                                 :,
-                                Nel[1] // 2 - 1,
+                                num_elements[1] // 2 - 1,
                                 :,
                             ],
-                            absB0_h[:, Nel[1] // 2, :],
+                            absB0_h[:, num_elements[1] // 2, :],
                             levels=levels,
                         )
                         plt.xlabel("x")
@@ -386,13 +402,13 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                             levels=levels,
                         )
                         plt.contourf(
-                            x[:, Nel[1] // 2, :],
+                            x[:, num_elements[1] // 2, :],
                             y[
                                 :,
-                                Nel[1] // 2 - 1,
+                                num_elements[1] // 2 - 1,
                                 :,
                             ],
-                            absB0_h[:, Nel[1] // 2, :],
+                            absB0_h[:, num_elements[1] // 2, :],
                             levels=levels,
                         )
                         plt.xlabel("x")
@@ -409,13 +425,13 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                             levels=levels,
                         )
                         plt.contourf(
-                            x[:, Nel[1] // 2, :],
+                            x[:, num_elements[1] // 2, :],
                             z[
                                 :,
-                                Nel[1] // 2 - 1,
+                                num_elements[1] // 2 - 1,
                                 :,
                             ],
-                            absB0[:, Nel[1] // 2, :],
+                            absB0[:, num_elements[1] // 2, :],
                             levels=levels,
                         )
                         plt.xlabel("x")
@@ -428,13 +444,13 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                             levels=levels,
                         )
                         plt.contourf(
-                            x[:, Nel[1] // 2, :],
+                            x[:, num_elements[1] // 2, :],
                             y[
                                 :,
-                                Nel[1] // 2 - 1,
+                                num_elements[1] // 2 - 1,
                                 :,
                             ],
-                            absB0[:, Nel[1] // 2, :],
+                            absB0[:, num_elements[1] // 2, :],
                             levels=levels,
                         )
                         plt.xlabel("x")
@@ -505,13 +521,13 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                         levels=levels,
                     )
                     plt.contourf(
-                        x[:, Nel[1] // 2, :],
+                        x[:, num_elements[1] // 2, :],
                         z[
                             :,
-                            Nel[1] // 2 - 1,
+                            num_elements[1] // 2 - 1,
                             :,
                         ],
-                        p3_h[:, Nel[1] // 2, :],
+                        p3_h[:, num_elements[1] // 2, :],
                         levels=levels,
                     )
                     plt.xlabel("x")
@@ -524,13 +540,13 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                         levels=levels,
                     )
                     plt.contourf(
-                        x[:, Nel[1] // 2, :],
+                        x[:, num_elements[1] // 2, :],
                         y[
                             :,
-                            Nel[1] // 2 - 1,
+                            num_elements[1] // 2 - 1,
                             :,
                         ],
-                        p3_h[:, Nel[1] // 2, :],
+                        p3_h[:, num_elements[1] // 2, :],
                         levels=levels,
                     )
                     plt.xlabel("x")
@@ -547,13 +563,13 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                         levels=levels,
                     )
                     plt.contourf(
-                        x[:, Nel[1] // 2, :],
+                        x[:, num_elements[1] // 2, :],
                         z[
                             :,
-                            Nel[1] // 2 - 1,
+                            num_elements[1] // 2 - 1,
                             :,
                         ],
-                        p3[:, Nel[1] // 2, :],
+                        p3[:, num_elements[1] // 2, :],
                         levels=levels,
                     )
                     plt.xlabel("x")
@@ -566,13 +582,13 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                         levels=levels,
                     )
                     plt.contourf(
-                        x[:, Nel[1] // 2, :],
+                        x[:, num_elements[1] // 2, :],
                         y[
                             :,
-                            Nel[1] // 2 - 1,
+                            num_elements[1] // 2 - 1,
                             :,
                         ],
-                        p3[:, Nel[1] // 2, :],
+                        p3[:, num_elements[1] // 2, :],
                         levels=levels,
                     )
                     plt.xlabel("x")
@@ -652,13 +668,13 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                             levels=levels,
                         )
                         plt.contourf(
-                            x[:, Nel[1] // 2, :],
+                            x[:, num_elements[1] // 2, :],
                             z[
                                 :,
-                                Nel[1] // 2 - 1,
+                                num_elements[1] // 2 - 1,
                                 :,
                             ],
-                            bh[:, Nel[1] // 2, :],
+                            bh[:, num_elements[1] // 2, :],
                             levels=levels,
                         )
                         plt.xlabel("x")
@@ -671,13 +687,13 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                             levels=levels,
                         )
                         plt.contourf(
-                            x[:, Nel[1] // 2, :],
+                            x[:, num_elements[1] // 2, :],
                             y[
                                 :,
-                                Nel[1] // 2 - 1,
+                                num_elements[1] // 2 - 1,
                                 :,
                             ],
-                            bh[:, Nel[1] // 2, :],
+                            bh[:, num_elements[1] // 2, :],
                             levels=levels,
                         )
                         plt.xlabel("x")
@@ -694,13 +710,13 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                             levels=levels,
                         )
                         plt.contourf(
-                            x[:, Nel[1] // 2, :],
+                            x[:, num_elements[1] // 2, :],
                             z[
                                 :,
-                                Nel[1] // 2 - 1,
+                                num_elements[1] // 2 - 1,
                                 :,
                             ],
-                            b[:, Nel[1] // 2, :],
+                            b[:, num_elements[1] // 2, :],
                             levels=levels,
                         )
                         plt.xlabel("x")
@@ -713,13 +729,13 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                             levels=levels,
                         )
                         plt.contourf(
-                            x[:, Nel[1] // 2, :],
+                            x[:, num_elements[1] // 2, :],
                             y[
                                 :,
-                                Nel[1] // 2 - 1,
+                                num_elements[1] // 2 - 1,
                                 :,
                             ],
-                            b[:, Nel[1] // 2, :],
+                            b[:, num_elements[1] // 2, :],
                             levels=levels,
                         )
                         plt.xlabel("x")
@@ -801,13 +817,13 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                             levels=levels,
                         )
                         plt.contourf(
-                            x[:, Nel[1] // 2, :],
+                            x[:, num_elements[1] // 2, :],
                             z[
                                 :,
-                                Nel[1] // 2 - 1,
+                                num_elements[1] // 2 - 1,
                                 :,
                             ],
-                            bh[:, Nel[1] // 2, :],
+                            bh[:, num_elements[1] // 2, :],
                             levels=levels,
                         )
                         plt.xlabel("x")
@@ -820,13 +836,13 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                             levels=levels,
                         )
                         plt.contourf(
-                            x[:, Nel[1] // 2, :],
+                            x[:, num_elements[1] // 2, :],
                             y[
                                 :,
-                                Nel[1] // 2 - 1,
+                                num_elements[1] // 2 - 1,
                                 :,
                             ],
-                            bh[:, Nel[1] // 2, :],
+                            bh[:, num_elements[1] // 2, :],
                             levels=levels,
                         )
                         plt.xlabel("x")
@@ -843,13 +859,13 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                             levels=levels,
                         )
                         plt.contourf(
-                            x[:, Nel[1] // 2, :],
+                            x[:, num_elements[1] // 2, :],
                             z[
                                 :,
-                                Nel[1] // 2 - 1,
+                                num_elements[1] // 2 - 1,
                                 :,
                             ],
-                            b[:, Nel[1] // 2, :],
+                            b[:, num_elements[1] // 2, :],
                             levels=levels,
                         )
                         plt.xlabel("x")
@@ -862,13 +878,13 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                             levels=levels,
                         )
                         plt.contourf(
-                            x[:, Nel[1] // 2, :],
+                            x[:, num_elements[1] // 2, :],
                             y[
                                 :,
-                                Nel[1] // 2 - 1,
+                                num_elements[1] // 2 - 1,
                                 :,
                             ],
-                            b[:, Nel[1] // 2, :],
+                            b[:, num_elements[1] // 2, :],
                             levels=levels,
                         )
                         plt.xlabel("x")
@@ -950,13 +966,13 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                             levels=levels,
                         )
                         plt.contourf(
-                            x[:, Nel[1] // 2, :],
+                            x[:, num_elements[1] // 2, :],
                             z[
                                 :,
-                                Nel[1] // 2 - 1,
+                                num_elements[1] // 2 - 1,
                                 :,
                             ],
-                            bh[:, Nel[1] // 2, :],
+                            bh[:, num_elements[1] // 2, :],
                             levels=levels,
                         )
                         plt.xlabel("x")
@@ -969,13 +985,13 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                             levels=levels,
                         )
                         plt.contourf(
-                            x[:, Nel[1] // 2, :],
+                            x[:, num_elements[1] // 2, :],
                             y[
                                 :,
-                                Nel[1] // 2 - 1,
+                                num_elements[1] // 2 - 1,
                                 :,
                             ],
-                            bh[:, Nel[1] // 2, :],
+                            bh[:, num_elements[1] // 2, :],
                             levels=levels,
                         )
                         plt.xlabel("x")
@@ -992,13 +1008,13 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                             levels=levels,
                         )
                         plt.contourf(
-                            x[:, Nel[1] // 2, :],
+                            x[:, num_elements[1] // 2, :],
                             z[
                                 :,
-                                Nel[1] // 2 - 1,
+                                num_elements[1] // 2 - 1,
                                 :,
                             ],
-                            b[:, Nel[1] // 2, :],
+                            b[:, num_elements[1] // 2, :],
                             levels=levels,
                         )
                         plt.xlabel("x")
@@ -1011,13 +1027,13 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                             levels=levels,
                         )
                         plt.contourf(
-                            x[:, Nel[1] // 2, :],
+                            x[:, num_elements[1] // 2, :],
                             y[
                                 :,
-                                Nel[1] // 2 - 1,
+                                num_elements[1] // 2 - 1,
                                 :,
                             ],
-                            b[:, Nel[1] // 2, :],
+                            b[:, num_elements[1] // 2, :],
                             levels=levels,
                         )
                         plt.xlabel("x")
@@ -1077,19 +1093,20 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                 plt.show()
 
 
-@pytest.mark.parametrize("Nel", [[1, 32, 32]])
-@pytest.mark.parametrize("p", [[1, 3, 3]])
-@pytest.mark.parametrize("spl_kind", [[True, True, True]])
-def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
+@pytest.mark.parametrize("num_elements", [[1, 32, 32]])
+@pytest.mark.parametrize("degree", [[1, 3, 3]])
+def test_sincos_init_const(num_elements, degree, show_plot=False):
     """Test field perturbation with ModesSin + ModesCos on top of of "LogicalConst" with multiple fields in params."""
 
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
     from matplotlib import pyplot as plt
 
+    from struphy import FieldsBackground
     from struphy.feec.psydac_derham import Derham
     from struphy.initial.perturbations import ModesCos, ModesSin
-    from struphy.io.options import FieldsBackground
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -1158,7 +1175,9 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
     }
 
     # Psydac discrete Derham sequence and fields
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     field_0 = derham.create_spline_function("name_0", "H1", backgrounds=bckgr_0, perturbations=[f_sin_0, f_cos_0])
     field_1 = derham.create_spline_function(
@@ -1170,9 +1189,9 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
     field_2 = derham.create_spline_function("name_2", "Hdiv", backgrounds=bckgr_2, perturbations=[f_cos_22])
 
     # evaluation grids for comparisons
-    e1 = xp.linspace(0.0, 1.0, Nel[0])
-    e2 = xp.linspace(0.0, 1.0, Nel[1])
-    e3 = xp.linspace(0.0, 1.0, Nel[2])
+    e1 = xp.linspace(0.0, 1.0, num_elements[0])
+    e2 = xp.linspace(0.0, 1.0, num_elements[1])
+    e3 = xp.linspace(0.0, 1.0, num_elements[2])
     meshgrids = xp.meshgrid(e1, e2, e3, indexing="ij")
 
     fun_0 = avg_0 + f_sin_0(*meshgrids) + f_cos_0(*meshgrids)
@@ -1192,13 +1211,13 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
     f1_h = field_1(*meshgrids)
     f2_h = field_2(*meshgrids)
 
-    print(f"{xp.max(xp.abs(fun_0 - f0_h)) =}")
-    print(f"{xp.max(xp.abs(fun_1[0] - f1_h[0])) =}")
-    print(f"{xp.max(xp.abs(fun_1[1] - f1_h[1])) =}")
-    print(f"{xp.max(xp.abs(fun_1[2] - f1_h[2])) =}")
-    print(f"{xp.max(xp.abs(fun_2[0] - f2_h[0])) =}")
-    print(f"{xp.max(xp.abs(fun_2[1] - f2_h[1])) =}")
-    print(f"{xp.max(xp.abs(fun_2[2] - f2_h[2])) =}")
+    logger.info(f"{xp.max(xp.abs(fun_0 - f0_h)) =}")
+    logger.info(f"{xp.max(xp.abs(fun_1[0] - f1_h[0])) =}")
+    logger.info(f"{xp.max(xp.abs(fun_1[1] - f1_h[1])) =}")
+    logger.info(f"{xp.max(xp.abs(fun_1[2] - f1_h[2])) =}")
+    logger.info(f"{xp.max(xp.abs(fun_2[0] - f2_h[0])) =}")
+    logger.info(f"{xp.max(xp.abs(fun_2[1] - f2_h[1])) =}")
+    logger.info(f"{xp.max(xp.abs(fun_2[2] - f2_h[2])) =}")
 
     assert xp.max(xp.abs(fun_0 - f0_h)) < 3e-5
     assert xp.max(xp.abs(fun_1[0] - f1_h[0])) < 3e-5
@@ -1307,12 +1326,18 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
         plt.show()
 
 
-@pytest.mark.parametrize("Nel", [[8, 10, 12]])
-@pytest.mark.parametrize("p", [[1, 2, 3]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True], [True, False, True]])
+@pytest.mark.parametrize("num_elements", [[8, 10, 12]])
+@pytest.mark.parametrize("degree", [[1, 2, 3]])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (None, ("free", "free"), None),
+    ],
+)
 @pytest.mark.parametrize("space", ["Hcurl", "Hdiv", "H1vec"])
 @pytest.mark.parametrize("direction", ["e1", "e2", "e3"])
-def test_noise_init(Nel, p, spl_kind, space, direction):
+def test_noise_init(num_elements, degree, bcs, space, direction):
     """Only tests 1d noise ('e1', 'e2', 'e3') !!"""
 
     import cunumpy as xp
@@ -1321,15 +1346,19 @@ def test_noise_init(Nel, p, spl_kind, space, direction):
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays
     from struphy.initial.perturbations import Noise
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence and field of space
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
     field = derham.create_spline_function("field", space)
 
-    derham_np = Derham(Nel, p, spl_kind, comm=None)
+    derham_np = Derham(grid, derham_opts, comm=None)
     field_np = derham_np.create_spline_function("field", space)
 
     # initial conditions
@@ -1338,11 +1367,11 @@ def test_noise_init(Nel, p, spl_kind, space, direction):
     field.initialize_coeffs(perturbations=pert)
     field_np.initialize_coeffs(perturbations=pert)
 
-    # print('#'*80)
-    # print(f'npts={field.vector[0].space.npts}, npts_np={field_np.vector[0].space.npts}')
-    # print(f'rank={rank}: nprocs={derham.domain_array[rank]}')
-    # print(f'rank={rank}, field={field.vector[0].toarray_local().shape}, field_np={field_np.vector[0].toarray_local().shape}')
-    # print(f'rank={rank}: \ncomp{0}={field.vector[0].toarray_local()}, \ncomp{0}_np={field_np.vector[0].toarray_local()}')
+    # logger.info('#'*80)
+    # logger.info(f'npts={field.vector[0].space.npts}, npts_np={field_np.vector[0].space.npts}')
+    # logger.info(f'rank={rank}: nprocs={derham.domain_array[rank]}')
+    # logger.info(f'rank={rank}, field={field.vector[0].toarray_local().shape}, field_np={field_np.vector[0].toarray_local().shape}')
+    # logger.info(f'rank={rank}: \ncomp{0}={field.vector[0].toarray_local()}, \ncomp{0}_np={field_np.vector[0].toarray_local()}')
 
     compare_arrays(
         field.vector,
@@ -1364,5 +1393,5 @@ if __name__ == "__main__":
     #     ],
     #     show_plot=False,
     # )
-    test_sincos_init_const([1, 32, 32], [1, 3, 3], [True] * 3, show_plot=True)
-    test_noise_init([4, 8, 6], [1, 1, 1], [True, True, True], "Hcurl", "e1")
+    test_sincos_init_const([1, 32, 32], [1, 3, 3], None, show_plot=True)
+    test_noise_init([4, 8, 6], [1, 1, 1], None, "Hcurl", "e1")

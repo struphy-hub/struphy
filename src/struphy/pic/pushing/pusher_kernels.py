@@ -521,7 +521,7 @@ def push_hybrid_xp_lnn(
     args_derham: "DerhamArguments",
     p_shape: "int[:]",
     p_size: "float[:]",
-    Nel: "int[:]",
+    num_elements: "int[:]",
     pts1: "float[:]",
     pts2: "float[:]",
     pts3: "float[:]",
@@ -606,13 +606,13 @@ def push_hybrid_xp_lnn(
         point_left[2] = eta3 - 0.5 * compact[2]
         point_right[2] = eta3 + 0.5 * compact[2]
 
-        cell_left[0] = int(floor(point_left[0] * Nel[0]))
-        cell_left[1] = int(floor(point_left[1] * Nel[1]))
-        cell_left[2] = int(floor(point_left[2] * Nel[2]))
+        cell_left[0] = int(floor(point_left[0] * num_elements[0]))
+        cell_left[1] = int(floor(point_left[1] * num_elements[1]))
+        cell_left[2] = int(floor(point_left[2] * num_elements[2]))
 
-        cell_number[0] = int(floor(point_right[0] * Nel[0])) - cell_left[0] + 1.0
-        cell_number[1] = int(floor(point_right[1] * Nel[1])) - cell_left[1] + 1.0
-        cell_number[2] = int(floor(point_right[2] * Nel[2])) - cell_left[2] + 1.0
+        cell_number[0] = int(floor(point_right[0] * num_elements[0])) - cell_left[0] + 1.0
+        cell_number[1] = int(floor(point_right[1] * num_elements[1])) - cell_left[1] + 1.0
+        cell_number[2] = int(floor(point_right[2] * num_elements[2])) - cell_left[2] + 1.0
 
         for i in range(p_shape[0] + 1):
             grids_shapex[i] = point_left[0] + i * p_size[0]
@@ -639,15 +639,15 @@ def push_hybrid_xp_lnn(
                         for q2 in range(n_quad[1]):
                             for q3 in range(n_quad[2]):
                                 # quadrature points in the cell x direction
-                                temp1[0] = (cell_left[0] + il1) / Nel[0] + pts1[q1]
+                                temp1[0] = (cell_left[0] + il1) / num_elements[0] + pts1[q1]
                                 # if > 0, result is 0
                                 temp4[0] = abs(temp1[0] - eta1) - compact[0] / 2
 
-                                temp1[1] = (cell_left[1] + il2) / Nel[1] + pts2[q2]
+                                temp1[1] = (cell_left[1] + il2) / num_elements[1] + pts2[q2]
                                 # if > 0, result is 0
                                 temp4[1] = abs(temp1[1] - eta2) - compact[1] / 2
 
-                                temp1[2] = (cell_left[2] + il3) / Nel[2] + pts3[q3]
+                                temp1[2] = (cell_left[2] + il3) / num_elements[2] + pts3[q3]
                                 # if > 0, result is 0
                                 temp4[2] = abs(temp1[2] - eta3) - compact[2] / 2
 
@@ -3129,7 +3129,7 @@ def push_v_viscosity(
 
         for j in range(3):  # row of viscosity tensor
             for k in range(3):  # column = derivative direction
-                coeff_idx = first_free_idx + 3 * j + k + 15
+                coeff_idx = first_free_idx + 3 * (j + 1) + k
 
                 # if k == 0:
                 #     deriv_type = kernel_type + 1

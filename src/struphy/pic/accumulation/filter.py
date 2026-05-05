@@ -5,7 +5,7 @@ import numpy as np
 from scipy.fft import irfft, rfft
 
 from struphy.feec.psydac_derham import Derham
-from struphy.io.options import OptsFilter
+from struphy.io.options import LiteralOptions
 from struphy.pic.accumulation.filter_kernels import apply_three_point_filter_3d
 
 
@@ -13,7 +13,7 @@ from struphy.pic.accumulation.filter_kernels import apply_three_point_filter_3d
 class FilterParameters:
     """Parameters for the AccumFilter class"""
 
-    use_filter: OptsFilter | None = None
+    use_filter: LiteralOptions.OptsFilter | None = None
     modes: tuple[int, ...] = (1,)
     repeat: int = 1
     alpha: float = 0.5
@@ -94,15 +94,15 @@ class AccumFilter:
         - Otherwise: yields (axis, vec[axis], starts, ends) for axis=0,1,2.
         """
         if self.space_id in ("H1", "L2"):
-            starts = self.derham.Vh[self.form].starts
-            ends = self.derham.Vh[self.form].ends
+            starts = self.derham.coeff_spaces[self.form].starts
+            ends = self.derham.coeff_spaces[self.form].ends
 
             yield 0, vec, starts, ends
 
         else:
             for axis in range(3):
-                starts = self.derham.Vh[self.form][axis].starts
-                ends = self.derham.Vh[self.form][axis].ends
+                starts = self.derham.coeff_spaces[self.form][axis].starts
+                ends = self.derham.coeff_spaces[self.form][axis].ends
 
                 yield axis, vec[axis], starts, ends
 
@@ -128,9 +128,9 @@ class AccumFilter:
                     comp._data,
                     axis,
                     self.form_int,
-                    xp.array(self.derham.Nel),
+                    xp.array(self.derham.num_elements),
                     xp.array(self.derham.spl_kind),
-                    xp.array(self.derham.p),
+                    xp.array(self.derham.degree),
                     xp.array(starts),
                     xp.array(ends),
                     alpha=alpha,
@@ -150,20 +150,20 @@ class AccumFilter:
             Mode numbers which are not filtered out.
         """
 
-        tor_Nel = self.derham.Nel[2]
+        tor_num_elements = self.derham.num_elements[2]
         modes = xp.asarray(modes, dtype=int)
 
-        assert tor_Nel >= 2 * int(xp.max(modes)), "Nel[2] must be at least 2*max(modes)"
+        assert tor_num_elements >= 2 * int(xp.max(modes)), "num_elements[2] must be at least 2*max(modes)"
         assert self.derham.domain_decomposition.nprocs[2] == 1, "No domain decomposition along toroidal direction"
 
-        pn = xp.asarray(self.derham.p, dtype=int)
+        pn = xp.asarray(self.derham.degree, dtype=int)
         ir = xp.empty(3, dtype=int)
 
         # rfft output length
-        if (tor_Nel % 2) == 0:
-            vec_temp = xp.zeros(int(tor_Nel / 2) + 1, dtype=complex)
+        if (tor_num_elements % 2) == 0:
+            vec_temp = xp.zeros(int(tor_num_elements / 2) + 1, dtype=complex)
         else:
-            vec_temp = xp.zeros(int((tor_Nel - 1) / 2) + 1, dtype=complex)
+            vec_temp = xp.zeros(int((tor_num_elements - 1) / 2) + 1, dtype=complex)
 
         for axis, comp, starts, ends in self._yield_dir_components(vec):
             for i in range(3):
@@ -181,6 +181,6 @@ class AccumFilter:
                     vec_temp[modes] = line[modes]  # keep selected modes only
 
                     # inverse FFT back to real space, write in-place
-                    comp._data[ii, jj, pn[2] : pn[2] + ir[2]] = irfft(vec_temp, n=tor_Nel)
+                    comp._data[ii, jj, pn[2] : pn[2] + ir[2]] = irfft(vec_temp, n=tor_num_elements)
 
         vec.update_ghost_regions()

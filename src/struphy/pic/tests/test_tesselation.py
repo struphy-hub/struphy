@@ -1,3 +1,4 @@
+import logging
 from time import time
 
 import cunumpy as xp
@@ -5,12 +6,12 @@ import pytest
 from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 
+from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains, perturbations
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.equils import ConstantVelocity
-from struphy.geometry import domains
-from struphy.initial import perturbations
 from struphy.pic.particles import ParticlesSPH
-from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
+
+logger = logging.getLogger("struphy")
 
 
 @pytest.mark.parametrize("ppb", [8, 12])
@@ -41,8 +42,8 @@ def test_draw(ppb, nx, ny, nz):
     )
     particles.draw_markers(sort=False)
 
-    # print(f'{particles.markers[:, :3] = }')
-    # print(f'{rank = }, {particles.positions = }')
+    # logger.info(f'{particles.markers[:, :3] = }')
+    # logger.info(f'{rank = }, {particles.positions = }')
 
     # test
     tiles_x = int(nx / particles.nprocs[0] * particles.tesselation.nt_per_dim[0])
@@ -65,7 +66,7 @@ def test_draw(ppb, nx, ny, nz):
     e2 = ee2.flatten()
     e3 = ee3.flatten()
 
-    # print(f'\n{rank = }, {e1 = }')
+    # logger.info(f'\n{rank = }, {e1 = }')
 
     assert xp.allclose(particles.positions[:, 0], e1)
     assert xp.allclose(particles.positions[:, 1], e2)
@@ -176,7 +177,7 @@ def test_cell_average(ppb, nx, ny, nz, n_quad, show_plot=False):
         plt.show()
 
     # test
-    print(f"\n{rank =}, {xp.max(xp.abs(particles.weights - particles.f_init(particles.positions))) =}")
+    logger.info(f"\n{rank =}, {xp.max(xp.abs(particles.weights - particles.f_init(particles.positions))) =}")
     assert xp.max(xp.abs(particles.weights - particles.f_init(particles.positions))) < 0.012
 
 

@@ -39,39 +39,11 @@ By default, the produced data is in ``sim_1`` in the cwd::
 
     ls sim_1/ 
 
-The data can be accessed through the Struphy API. If ``ipython`` is installed, type::
-
-    ipython
-    
-and then::
-
-    from struphy.main import pproc, load_data
-    import os
-    path = os.path.join(os.getcwd(), "sim_1")
-    pproc(path)
-    simdata = load_data(path)
-
-The variable ``simdata`` is of type :class:`~struphy.main.SimData` and holds grid and orbit information.
-You can deduce the kind of info held from the screen output. For instance, you have access several ``grids``
-as well as to, for instance::
-
-    print(simdata.spline_values["em_fields"]["e_field_log"].keys())
-    print(simdata.orbits["kinetic_ions"].shape)
-    print(simdata.f["kinetic_ions"]["e1"].keys())
-
-Under ``simdata.spline_values`` you find dictionaries holding splines values at the pre-defined ``simdata.grids_log``
-(or the physical grid); the keys are the time points of evaluation.
-
-Under ``simdata.orbits`` you find numpy arrays holding orbit data, indexed by ``[time, particle, attribute]``.
-
-Under ``simdata.f`` you find binning data, in this case a 1d binning plot in the first logical coordinate :math:`\eta_1`-direction
-(see :ref:`binning` for details).
+Check the :ref:`userguide` or the `tutorials <https://github.com/struphy-hub/struphy-tutorials>`_ for how to process and display the raw data.
  
 Parallel simulations can invoked from the same launch file for instance by::
 
     pip install -U mpi4py
     mpirun -n 4 python struphy_test.py
-
-If you want to learn more please check the :ref:`userguide`.
 
             

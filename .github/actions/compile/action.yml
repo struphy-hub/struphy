@@ -1,18 +1,27 @@
 name: "Compile kernels with pyccel"
 
+description: 
+
+inputs:
+  language:
+    required: false
+    default: fortran
+  env-name:
+    required: false
+    default: ""
+
 runs:
   using: composite
   steps:
-    - name: Checkout pyccel version
-      shell: bash
-      run: |
-        pyccel --version
-
     - name: Compile kernels
       shell: bash
       run: |
-        struphy compile -y --language ${{ matrix.compile-language }} || (
-          echo "Initial compile failed. Removing compiled kernels and trying again..." &&
-          struphy compile -d -y &&
-          struphy compile -y --language ${{ matrix.compile-language }}
-        )
+        if [ -n "${{ inputs.env-name }}" ] ; then
+          echo "Using env: ${{ inputs.env-name }}"
+          python3 -m venv ${{ inputs.env-name }}
+          source ${{ inputs.env-name }}/bin/activate
+        else
+          echo "No env specified, installing outside of any env"
+        fi
+        pyccel --version
+        struphy compile -y --language ${{ inputs.language }}

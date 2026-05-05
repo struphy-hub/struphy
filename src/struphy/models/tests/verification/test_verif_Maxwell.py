@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 
@@ -7,26 +8,32 @@ from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 from scipy.special import jv, yn
 
-from struphy import main
+from struphy import (
+    BaseUnits,
+    DerhamOptions,
+    EnvironmentOptions,
+    Simulation,
+    Time,
+    domains,
+    equils,
+    grids,
+    perturbations,
+)
 from struphy.diagnostics.diagn_tools import power_spectrum_2d
-from struphy.fields_background import equils
-from struphy.geometry import domains
-from struphy.initial import perturbations
-from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, FieldsBackground, Time
-from struphy.kinetic_background import maxwellians
-from struphy.models.toy import Maxwell
-from struphy.topology import grids
+from struphy.models import Maxwell
+
+logger = logging.getLogger("struphy")
 
 
 @pytest.mark.parametrize("algo", ["implicit", "explicit"])
 def test_light_wave_1d(algo: str, do_plot: bool = False):
-    # environment options
+    # light-weight model instance
+    model = Maxwell()
+
+    # set environment options
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "Maxwell")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="light_wave_1d")
-
-    # units
-    base_units = BaseUnits()
 
     # time stepping
     time_opts = Time(dt=0.05, Tend=50.0)
@@ -34,17 +41,11 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
     # geometry
     domain = domains.Cuboid(r3=20.0)
 
-    # fluid equilibrium (can be used as part of initial conditions)
-    equil = None
-
     # grid
-    grid = grids.TensorProductGrid(Nel=(1, 1, 128))
+    grid = grids.TensorProductGrid(num_elements=(1, 1, 128))
 
     # derham options
-    derham_opts = DerhamOptions(p=(1, 1, 3))
-
-    # light-weight model instance
-    model = Maxwell()
+    derham_opts = DerhamOptions(degree=(1, 1, 3))
 
     # propagator options
     model.propagators.maxwell.options = model.propagators.maxwell.Options(algo=algo)
@@ -53,37 +54,35 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
     model.em_fields.e_field.add_perturbation(perturbations.Noise(amp=0.1, comp=0, seed=123))
     model.em_fields.e_field.add_perturbation(perturbations.Noise(amp=0.1, comp=1, seed=123))
 
-    # start run
-    verbose = True
-
-    main.run(
-        model,
-        params_path=None,
+    # instance of simulation
+    sim = Simulation(
+        model=model,
         env=env,
-        base_units=base_units,
         time_opts=time_opts,
         domain=domain,
-        equil=equil,
         grid=grid,
         derham_opts=derham_opts,
-        verbose=verbose,
+        verbose=True,
     )
+
+    # run
+    sim.run(verbose=True)
 
     # post processing
     if MPI.COMM_WORLD.Get_rank() == 0:
-        main.pproc(env.path_out)
+        sim.pproc(verbose=True)
 
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
-        simdata = main.load_data(env.path_out)
+        sim.load_plotting_data(verbose=True)
 
         # fft
-        E_of_t = simdata.spline_values["em_fields"]["e_field_log"]
+        E_of_t = sim.spline_values.em_fields.e_field_log.data
         _1, _2, _3, coeffs = power_spectrum_2d(
             E_of_t,
             "e_field_log",
-            grids=simdata.grids_log,
-            grids_mapped=simdata.grids_phy,
+            grids=sim.grids_log,
+            grids_mapped=sim.grids_phy,
             component=0,
             slice_at=[0, 0, None],
             do_plot=do_plot,
@@ -102,18 +101,13 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
 
 
 def test_coaxial(do_plot: bool = False):
-    # import model, set verbosity
-    from struphy.models.toy import Maxwell
-
-    verbose = True
+    # light-weight model instance
+    model = Maxwell()
 
     # environment options
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "Maxwell")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="coaxial")
-
-    # units
-    base_units = BaseUnits()
 
     # time
     time_opts = Time(dt=0.05, Tend=10.0)
@@ -128,17 +122,13 @@ def test_coaxial(do_plot: bool = False):
     equil = equils.HomogenSlab()
 
     # grid
-    grid = grids.TensorProductGrid(Nel=(32, 64, 1))
+    grid = grids.TensorProductGrid(num_elements=(32, 64, 1))
 
     # derham options
     derham_opts = DerhamOptions(
-        p=(3, 3, 1),
-        spl_kind=(False, True, True),
-        dirichlet_bc=((True, True), (False, False), (False, False)),
+        degree=(3, 3, 1),
+        bcs=(("dirichlet", "dirichlet"), None, None),
     )
-
-    # light-weight model instance
-    model = Maxwell()
 
     # propagator options
     model.propagators.maxwell.options = model.propagators.maxwell.Options(algo="implicit")
@@ -149,39 +139,40 @@ def test_coaxial(do_plot: bool = False):
     model.em_fields.e_field.add_perturbation(perturbations.CoaxialWaveguideElectric_theta(m=m, a1=a1, a2=a2))
     model.em_fields.b_field.add_perturbation(perturbations.CoaxialWaveguideMagnetic(m=m, a1=a1, a2=a2))
 
-    # start run
-    main.run(
-        model,
-        params_path=None,
+    # instance of simulation
+    sim = Simulation(
+        model=model,
         env=env,
-        base_units=base_units,
         time_opts=time_opts,
         domain=domain,
         equil=equil,
         grid=grid,
         derham_opts=derham_opts,
-        verbose=verbose,
+        verbose=True,
     )
+
+    # run
+    sim.run(verbose=True)
 
     # post processing
     if MPI.COMM_WORLD.Get_rank() == 0:
-        main.pproc(env.path_out, physical=True)
+        sim.pproc(physical=True, verbose=True)
 
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
         # get parameters
         dt = time_opts.dt
         split_algo = time_opts.split_algo
-        Nel = grid.Nel
+        num_elements = grid.num_elements
         modes = m
 
         # load data
-        simdata = main.load_data(env.path_out)
+        sim.load_plotting_data(verbose=True)
 
-        t_grid = simdata.t_grid
-        grids_phy = simdata.grids_phy
-        e_field_phy = simdata.spline_values["em_fields"]["e_field_phy"]
-        b_field_phy = simdata.spline_values["em_fields"]["b_field_phy"]
+        t_grid = sim.t_grid
+        grids_phy = sim.grids_phy
+        e_field_phy = sim.spline_values.em_fields.e_field_phy.data
+        b_field_phy = sim.spline_values.em_fields.b_field_phy.data
 
         X = grids_phy[0][:, :, 0]
         Y = grids_phy[1][:, :, 0]
@@ -243,7 +234,7 @@ def test_coaxial(do_plot: bool = False):
             fig.colorbar(plot_exac, ax=[ax1, ax2], orientation="vertical", shrink=0.9)
             ax1.set_xlabel("Exact")
             ax2.set_xlabel("Numerical")
-            fig.suptitle(f"Exact and Simulated $E_\\theta$ Field {dt=}, {split_algo=}, {Nel=}", fontsize=14)
+            fig.suptitle(f"Exact and Simulated $E_\\theta$ Field {dt=}, {split_algo=}, {num_elements=}", fontsize=14)
             plt.show()
 
         # assert
@@ -262,17 +253,17 @@ def test_coaxial(do_plot: bool = False):
         rel_err_Etheta = error_Etheta / xp.max(xp.abs(Etheta_exact))
         rel_err_Bz = error_Bz / xp.max(xp.abs(Bz_exact))
 
-        print("")
+        logger.info("")
         assert rel_err_Bz < 0.0021, f"Assertion for magnetic field Maxwell failed: {rel_err_Bz =}"
-        print(f"Assertion for magnetic field Maxwell passed ({rel_err_Bz =}).")
+        logger.info(f"Assertion for magnetic field Maxwell passed ({rel_err_Bz =}).")
         assert rel_err_Etheta < 0.0021, f"Assertion for electric (E_theta) field Maxwell failed: {rel_err_Etheta =}"
-        print(f"Assertion for electric field Maxwell passed ({rel_err_Etheta =}).")
+        logger.info(f"Assertion for electric field Maxwell passed ({rel_err_Etheta =}).")
         assert rel_err_Er < 0.0021, f"Assertion for electric (E_r) field Maxwell failed: {rel_err_Er =}"
-        print(f"Assertion for electric field Maxwell passed ({rel_err_Er =}).")
+        logger.info(f"Assertion for electric field Maxwell passed ({rel_err_Er =}).")
 
         shutil.rmtree(test_folder)
 
 
 if __name__ == "__main__":
-    # test_light_wave_1d(algo="explicit", do_plot=True)
+    test_light_wave_1d(algo="explicit", do_plot=True)
     test_coaxial(do_plot=True)

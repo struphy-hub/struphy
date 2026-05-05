@@ -1,6 +1,6 @@
-.. _equilibria:
+.. _fluid_equils:
 
-Fluid equilibrium
+Fluid Equilibrium
 =================
 
 Fluid equilibria (or backgrounds) are often the starting point of dynamical plasma simulations.

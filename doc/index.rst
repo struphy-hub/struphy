@@ -11,9 +11,9 @@ Welcome to
 This website is your starting point for solving PDEs with Struphy.
 Check the topics below for detailed information on a subject.
 
-The `Struphy repository on Github <https://github.com/struphy-hub/struphy>`_ is the launch point for the related source code.
+`<https://github.com/struphy-hub/struphy>`_ is the launch point for the related source code.
 
-The code is freely available under an `MIT license <https://github.com/struphy-hub/struphy/blob/devel/LICENSE>`_ - Copyright (c) 2019-2025, Struphy developers, Max Planck Institute for Plasma Physics.
+The code is freely available under an `MIT license <https://github.com/struphy-hub/struphy/blob/devel/LICENSE>`_ - Copyright (c) 2019-2026, Struphy developers, Max Planck Institute for Plasma Physics.
 
 .. image:: pics/MPI_PP_Logo_Wide_E_green_rgb.png
     :align: center
@@ -27,6 +27,9 @@ The code is freely available under an `MIT license <https://github.com/struphy-h
    sections/install
    sections/quickstart
    sections/userguide
+   sections/tutorials
+   sections/dev_tutorials
+   sections/api_guide
    sections/numerics
    sections/models
    sections/domains
@@ -34,10 +37,6 @@ The code is freely available under an `MIT license <https://github.com/struphy-h
    sections/kinetic-equils
    sections/perturbations
    sections/propagators
-..    sections/pic_classes
-..    sections/feec_classes
-..    sections/utilities
-..    sections/developers
 
 
 

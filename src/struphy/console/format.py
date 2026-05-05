@@ -73,7 +73,10 @@ generate_html_table_from_combined_data(combined_data, sort_descending=True)
 
 import ast
 import fileinput
+import importlib
+import inspect
 import json
+import logging
 import os
 import re
 import shutil
@@ -86,6 +89,9 @@ from collections import defaultdict
 from tabulate import tabulate
 
 import struphy
+from struphy.models.base import StruphyModel
+
+logger = logging.getLogger("struphy")
 
 LIBPATH = struphy.__path__[0]
 
@@ -119,7 +125,7 @@ def check_omp_flags(file_path, verbose=False):
             if verbose:
                 for iline, line in enumerate(f):
                     if line.lstrip().startswith("# $"):
-                        print(f"Error on line {iline}: {line}")
+                        logger.info(f"Error on line {iline}: {line}")
             return all(not line.lstrip().startswith("# $") for line in f)
     except (IOError, FileNotFoundError) as e:
         raise ValueError(f"Error reading file: {e}")
@@ -148,8 +154,8 @@ def check_ssort(file_path, verbose=False):
         stderr=subprocess.PIPE,
     )
     if verbose:
-        print("stdout:", result.stdout.decode("utf-8"))
-        print("stderr:", result.stderr.decode("utf-8"))
+        logger.info(f"stdout: {result.stdout.decode('utf-8')}")
+        logger.info(f"stderr: {result.stderr.decode('utf-8')}")
     return result.returncode == 0
 
 
@@ -183,8 +189,8 @@ def check_ruff(file_path, verbose=False):
             stderr=subprocess.PIPE,
         )
         if verbose:
-            print("stdout:", result.stdout.decode("utf-8"))
-            print("stderr:", result.stderr.decode("utf-8"))
+            logger.info(f"stdout: {result.stdout.decode('utf-8')}")
+            logger.info(f"stderr: {result.stderr.decode('utf-8')}")
 
         if result.returncode == 0:
             returncodes.append(0)
@@ -226,8 +232,8 @@ def check_isort(file_path, verbose=False):
         stderr=subprocess.PIPE,
     )
     if verbose:
-        print("stdout:", result.stdout.decode("utf-8"))
-        print("stderr:", result.stderr.decode("utf-8"))
+        logger.info(f"stdout: {result.stdout.decode('utf-8')}")
+        logger.info(f"stderr: {result.stderr.decode('utf-8')}")
     return result.returncode == 0
 
 
@@ -256,8 +262,8 @@ def check_autopep8(file_path, verbose=False):
     )
     # If there's any output, autopep8 suggests changes, so it doesn't pass
     if verbose:
-        print("stdout:", result.stdout.decode("utf-8"))
-        print("stderr:", result.stderr.decode("utf-8"))
+        logger.info(f"stdout: {result.stdout.decode('utf-8')}")
+        logger.info(f"stderr: {result.stderr.decode('utf-8')}")
     return result.stdout == b""
 
 
@@ -285,8 +291,8 @@ def check_flake8(file_path, verbose=False):
         stderr=subprocess.PIPE,
     )
     if verbose:
-        print("stdout:", result.stdout.decode("utf-8"))
-        print("stderr:", result.stderr.decode("utf-8"))
+        logger.info(f"stdout: {result.stdout.decode('utf-8')}")
+        logger.info(f"stderr: {result.stderr.decode('utf-8')}")
     return result.returncode == 0
 
 
@@ -322,8 +328,8 @@ def get_pylint_score(file_path, verbose=False, pass_score=8.0):
     passes_pylint = False
 
     if verbose:
-        print(f"\nPylint report for {file_path}:")
-        print(output)
+        logger.info(f"\nPylint report for {file_path}:")
+        logger.info(output)
 
     # Parse the output to get the score
     for line in output.splitlines():
@@ -384,13 +390,13 @@ def check_trailing_commas(file_path, verbose=False):
 
         if diff_result.stdout:
             if verbose:
-                print(f"Changes by add-trailing-comma {file_path}\n")
-                print(diff_result.stdout)
+                logger.info(f"Changes by add-trailing-comma {file_path}\n")
+                logger.info(diff_result.stdout)
             return False
         return True
 
 
-def parse_path(directory):
+def parse_path(directory, verbose: bool = False):
     """Traverse a directory to find Python files, excluding '__XYZ__.py'.
 
     Parameters
@@ -412,7 +418,6 @@ def parse_path(directory):
             if filename.endswith(".py") and not re.search(r"__\w+__", filename):
                 file_path = os.path.join(root, filename)
                 python_files.append(file_path)
-    # exit()
     return python_files
 
 
@@ -447,9 +452,9 @@ def get_python_files(input_type, path=None):
         python_files = parse_path(LIBPATH)
 
     elif input_type == "path":
-        print(path)
+        logger.info(path)
         if os.path.isfile(path):
-            print("isfile")
+            logger.info("isfile")
             python_files = [path]
         else:
             python_files = parse_path(path)
@@ -468,7 +473,7 @@ def get_python_files(input_type, path=None):
         ]
 
         if not python_files:
-            print("No Python files to analyze.")
+            logger.info("No Python files to analyze.")
             return []
 
     elif input_type == "branch":
@@ -488,17 +493,17 @@ def get_python_files(input_type, path=None):
         ]
 
         if not python_files:
-            print(
+            logger.info(
                 f"No Python files changed between the current branch and '{path}' branch.",
             )
             return []
 
     else:
-        print(f"Unhandled input_type '{input_type}'.")
+        logger.info(f"Unhandled input_type '{input_type}'.")
         sys.exit(1)
 
     if not python_files:
-        print("No Python files found to check.")
+        logger.info("No Python files found to check.")
         return []
 
     python_files = [
@@ -557,7 +562,7 @@ def parse_json_file_to_html(json_file_path, html_output_path):
             data = json.load(file)
 
         if not isinstance(data, list):
-            print("Invalid JSON format: Expected a list of objects.")
+            logger.info("Invalid JSON format: Expected a list of objects.")
             return
 
         # Group issues by filename
@@ -745,7 +750,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
         #         html_content.append("</ul></nav>")
 
         for filename, issues in issues_by_file.items():
-            print(f"Parsing {filename}")
+            logger.info(f"Parsing {filename}")
             # Start foldable section for the file
             anchor = filename.replace(LIBPATH, "src/struphy").replace("/", "_").replace("\\", "_")
             display_name = filename.replace(LIBPATH, "src/struphy")
@@ -882,14 +887,14 @@ document.addEventListener('DOMContentLoaded', (event) => {
         with open(html_output_path, "w") as html_file:
             html_file.write("\n".join(html_content))
 
-        print(f"HTML report generated at {html_output_path}")
+        logger.info(f"HTML report generated at {html_output_path}")
 
     except FileNotFoundError as e:
-        print(f"Error: {e}")
+        logger.info(f"Error: {e}")
     except json.JSONDecodeError as e:
-        print(f"Error: Failed to parse JSON file. {e}")
+        logger.info(f"Error: Failed to parse JSON file. {e}")
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        logger.info(f"An unexpected error occurred: {e}")
 
 
 def generate_report(python_files, linters=["ruff"], verbose=False):
@@ -929,26 +934,26 @@ def print_stats_plain(stats, linters, ci_linters=["ruff"]):
     linters : list
         List of linters to display in the output.
     """
-    print(f"File: {os.path.relpath(stats['path'])}")
-    print(f"  Lines: {stats['num_lines']}")
-    print(f"  Functions: {stats['num_functions']}")
-    print(f"  Classes: {stats['num_classes']}")
-    print(f"  Variables: {stats['num_variables']}")
+    logger.info(f"File: {os.path.relpath(stats['path'])}")
+    logger.info(f"  Lines: {stats['num_lines']}")
+    logger.info(f"  Functions: {stats['num_functions']}")
+    logger.info(f"  Classes: {stats['num_classes']}")
+    logger.info(f"  Variables: {stats['num_variables']}")
 
     if "pylint" in linters:
-        print(f"  Pylint Score: {stats['pylint_score']}/10")
+        logger.info(f"  Pylint Score: {stats['pylint_score']}/10")
 
     for linter in linters:
         status = PASS_GREEN if stats[f"passes_{linter}"] else FAIL_RED
-        print(f"  {linter}: {status}")
+        logger.info(f"  {linter}: {status}")
 
     # Check for CI pass status if both linters are present
     if all(linter in linters for linter in ci_linters):
         # Check if all linters in ci_linters pass
         passes_ci = all(stats[f"passes_{linter}"] for linter in ci_linters)
         ci_status = PASS_GREEN if passes_ci else FAIL_RED
-        print(f"  Full CI check: {ci_status}")
-    print("-" * 40)  # Divider between files
+        logger.info(f"  Full CI check: {ci_status}")
+    logger.info("-" * 40)  # Divider between files
 
 
 def print_stats_table(stats_list, linters, print_header=True, pathlen=0, ci_linters=["ruff"]):
@@ -1005,10 +1010,10 @@ def print_stats_table(stats_list, linters, print_header=True, pathlen=0, ci_lint
             row.append(PASS_GREEN if passes_ci else FAIL_RED)
         table.append(row)
     if print_header:
-        print(tabulate(table, headers=headers, tablefmt="grid"))
+        logger.info(tabulate(table, headers=headers, tablefmt="grid"))
     else:
         lines = tabulate(table, headers=headers, tablefmt="grid").split("\n")
-        print("\n".join(lines[-2:]))
+        logger.info("\n".join(lines[-2:]))
 
 
 def analyze_file(file_path, linters=None, verbose=False):
@@ -1135,13 +1140,13 @@ def struphy_lint(config, verbose):
     if len(python_files) == 0:
         sys.exit(0)
 
-    print(
+    logger.info(
         tabulate(
             [[file] for file in python_files],
             headers=[f"The following files will be linted with {linters}"],
         ),
     )
-    print("\n")
+    logger.info("\n")
 
     if output_format == "report":
         generate_report(python_files, linters=linters, verbose=verbose)
@@ -1152,12 +1157,12 @@ def struphy_lint(config, verbose):
 
     # Check if all ci_linters are included in linters
     if all(ci_linter in linters for ci_linter in ci_linters):
-        print(f"Passes CI if {ci_linters} passes")
-        print("-" * 40)
+        logger.info(f"Passes CI if {ci_linters} passes")
+        logger.info("-" * 40)
         check_ci_pass = True
     else:
         skipped_ci_linters = [ci_linter for ci_linter in ci_linters if ci_linter not in linters]
-        print(
+        logger.info(
             f'The "Pass CI" check is skipped since not --linters {" ".join(skipped_ci_linters)} is used.',
         )
         check_ci_pass = False
@@ -1183,28 +1188,28 @@ def struphy_lint(config, verbose):
             if not all(stats[f"passes_{ci_linter}"] for ci_linter in ci_linters):
                 passes_ci = False
         if passes_ci:
-            print("All files will pass CI")
+            logger.info("All files will pass CI")
             sys.exit(0)
         else:
-            print("Not all files will pass CI")
+            logger.info("Not all files will pass CI")
             sys.exit(1)
-    print("Not all CI linters were checked, unknown if all files will pass CI")
+    logger.info("Not all CI linters were checked, unknown if all files will pass CI")
     sys.exit(1)
 
 
 def confirm_formatting(python_files, linters, yes):
     """Confirm with the user whether to format the listed Python files."""
-    print(
+    logger.info(
         tabulate(
             [[file] for file in python_files],
             headers=[f"The following files will be formatted with {linters}"],
         ),
     )
-    print("\n")
+    logger.info("\n")
     if not yes:
         ans = input("Format files (Y/n)?\n")
         if ans.lower() not in ("y", "yes", ""):
-            print("Exiting...")
+            logger.info("Exiting...")
             sys.exit(1)
 
 
@@ -1242,52 +1247,52 @@ def run_linters_on_files(linters, python_files, flags, verbose):
     """Run each linter on the specified files with appropriate flags."""
     for linter in linters:
         for python_file in python_files:
-            print(f"Formatting {python_file}")
+            logger.info(f"Formatting {python_file}")
             linter_flags = flags.get(linter, [])
             if len(linter_flags) > 0 and isinstance(linter_flags[0], list):
                 # If linter_flags is a list, run each separately
                 for flag in linter_flags:
                     command = [linter] + flag + [python_file]
                     if verbose:
-                        print(f"Running command: {' '.join(command)}")
+                        logger.info(f"Running command: {' '.join(command)}")
 
                     subprocess.run(command, check=False)
             else:
                 # If linter_flags is not a list, treat it as a single value
                 command = [linter] + linter_flags + [python_file]
                 if verbose:
-                    print(f"Running command: {' '.join(command)}")
+                    logger.info(f"Running command: {' '.join(command)}")
                 subprocess.run(command, check=False)
 
             # Loop over each line and replace '# $' with '#$' in place
             for line in fileinput.input(python_file, inplace=True):
                 if line.lstrip().startswith("# $"):
-                    print(line.replace("# $", "#$"), end="")
+                    logger.info(line.replace("# $", "#$"), end="")
                 else:
                     print(line, end="")
 
 
-def construct_models_init_file() -> str:
+def construct_models_init_file(models_dir: str = "src/struphy/models") -> str:
     """
-    Constructs the content for the __init__.py file for the models module.
-
-    Returns:
-        str: The content for the __init__.py file as a string.
+    Constructs __init__.py for all generated model files by reading actual class names.
+    Skips base.py and __init__.py.
     """
-    import struphy.models.fluid as fluid
-    import struphy.models.hybrid as hybrid
-    import struphy.models.kinetic as kinetic
-    import struphy.models.toy as toy
-    from struphy.models.base import StruphyModel
-
     models_init = ""
-
     model_names = []
-    for model_type in [toy, fluid, hybrid, kinetic]:
-        for _, cls in model_type.__dict__.items():
-            if isinstance(cls, type) and issubclass(cls, StruphyModel) and cls != StruphyModel:
-                model_names.append(cls.__name__)
-                models_init += f"from {model_type.__name__} import {cls.__name__}\n"
+
+    for file_name in sorted(os.listdir(models_dir)):
+        if file_name.endswith(".py") and file_name not in ["__init__.py", "base.py"]:
+            module_name = file_name[:-3]  # strip .py
+            module = importlib.import_module(f"struphy.models.{module_name}")
+
+            # Loop over all classes in the module
+            for _, cls in inspect.getmembers(module, inspect.isclass):
+                # Only subclasses of StruphyModel defined in this module
+                if issubclass(cls, StruphyModel) and cls.__module__ == module.__name__ and cls != StruphyModel:
+                    class_name = cls.__name__
+                    models_init += f"from struphy.models.{module_name} import {class_name}\n"
+                    model_names.append(class_name)
+
     models_init += "\n\n"
     models_init += f"__all__ = {model_names}\n"
     return models_init
@@ -1350,23 +1355,26 @@ def struphy_format(config, verbose, yes=False):
         input_type = "path"
 
     if input_type == "__init__.py":
-        print(f"Rewriting {PROPAGATORS_INIT_PATH}")
-        propagators_init = construct_propagators_init_file()
-        with open(PROPAGATORS_INIT_PATH, "w") as f:
-            f.write(propagators_init)
+        # logger.info(f"Rewriting {PROPAGATORS_INIT_PATH}")
+        # propagators_init = construct_propagators_init_file()
+        # with open(PROPAGATORS_INIT_PATH, "w") as f:
+        #     f.write(propagators_init)
 
-        print(f"Rewriting {MODELS_INIT_PATH}")
+        logger.info(f"Rewriting {MODELS_INIT_PATH}")
         models_init = construct_models_init_file()
         with open(MODELS_INIT_PATH, "w") as f:
             f.write(models_init)
 
-        python_files = [PROPAGATORS_INIT_PATH, MODELS_INIT_PATH]
+        python_files = [
+            # PROPAGATORS_INIT_PATH,
+            MODELS_INIT_PATH,
+        ]
         input_type = "path"
     else:
         python_files = get_python_files(input_type, path)
 
     if len(python_files) == 0:
-        print("No Python files to format.")
+        logger.info("No Python files to format.")
         sys.exit(0)
 
     confirm_formatting(python_files, linters, yes)
@@ -1385,7 +1393,7 @@ def struphy_format(config, verbose, yes=False):
     if python_files:
         for iteration in range(iterations):
             if verbose:
-                print(f"Iteration {iteration + 1}: Running formatters...")
+                logger.info(f"Iteration {iteration + 1}: Running formatters...")
 
             run_linters_on_files(
                 linters,
@@ -1399,16 +1407,16 @@ def struphy_format(config, verbose, yes=False):
                 python_files,
                 [lint for lint in linters if lint not in skip_linters],
             ):
-                print("All files are properly formatted.")
+                logger.info("All files are properly formatted.")
                 break
         else:
             if verbose:
-                print(
+                logger.info(
                     "Max iterations reached. The following files may still require manual checks:",
                 )
                 for file_path in python_files:
                     if files_require_formatting([file_path], linters):
-                        print(f" - {file_path}")
-                print("Contact Max about this")
+                        logger.info(f" - {file_path}")
+                logger.info("Contact Max about this")
     else:
-        print("No Python files to format.")
+        logger.info("No Python files to format.")

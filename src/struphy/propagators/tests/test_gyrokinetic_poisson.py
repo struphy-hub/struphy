@@ -1,23 +1,29 @@
+import logging
+
 import cunumpy as xp
 import matplotlib.pyplot as plt
 import pytest
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.feec.mass import WeightedMassOperators
-from struphy.feec.projectors import L2Projector
+from struphy import domains
+from struphy.feec.mass import L2Projector, WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
-from struphy.geometry import domains
 from struphy.geometry.base import Domain
+from struphy.io.options import DerhamOptions
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
-from struphy.propagators.propagators_fields import ImplicitDiffusion
+from struphy.propagators.implicit_diffusion import ImplicitDiffusion
+from struphy.topology.grids import TensorProductGrid
+
+logger = logging.getLogger("struphy")
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 # plt.rcParams.update({'font.size': 22})
 
 
+@pytest.mark.convergence
 @pytest.mark.parametrize("direction", [0, 1])
 @pytest.mark.parametrize("bc_type", ["periodic", "dirichlet", "neumann"])
 @pytest.mark.parametrize(
@@ -62,20 +68,19 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
 
         for n, Neli in enumerate(Nels):
             # boundary conditions (overwritten below)
-            spl_kind = [True, True, True]
-            dirichlet_bc = None
+            bcs = (None, None, None)
 
             # manufactured solution
             e1 = 0.0
             e2 = 0.0
             e3 = 0.0
             if direction == 0:
-                Nel = [Neli, 1, 1]
-                p = [pi, 1, 1]
+                num_elements = [Neli, 1, 1]
+                degree = [pi, 1, 1]
                 e1 = xp.linspace(0.0, 1.0, 50)
 
                 if bc_type == "neumann":
-                    spl_kind = [False, True, True]
+                    bcs = (("free", "free"), None, None)
 
                     def sol1_xyz(x, y, z):
                         return xp.cos(xp.pi / Lx * x)
@@ -84,9 +89,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
                         return xp.cos(xp.pi / Lx * x) * (xp.pi / Lx) ** 2
                 else:
                     if bc_type == "dirichlet":
-                        spl_kind = [False, True, True]
-                        dirichlet_bc = [(not kd,) * 2 for kd in spl_kind]
-                        dirichlet_bc = tuple(dirichlet_bc)
+                        bcs = (("dirichlet", "dirichlet"), None, None)
 
                     def sol1_xyz(x, y, z):
                         return xp.sin(2 * xp.pi / Lx * x)
@@ -95,12 +98,12 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
                         return xp.sin(2 * xp.pi / Lx * x) * (2 * xp.pi / Lx) ** 2
 
             elif direction == 1:
-                Nel = [1, Neli, 1]
-                p = [1, pi, 1]
+                num_elements = [1, Neli, 1]
+                degree = [1, pi, 1]
                 e2 = xp.linspace(0.0, 1.0, 50)
 
                 if bc_type == "neumann":
-                    spl_kind = [True, False, True]
+                    bcs = (None, ("free", "free"), None)
 
                     def sol1_xyz(x, y, z):
                         return xp.cos(xp.pi / Ly * y)
@@ -109,9 +112,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
                         return xp.cos(xp.pi / Ly * y) * (xp.pi / Ly) ** 2
                 else:
                     if bc_type == "dirichlet":
-                        spl_kind = [True, False, True]
-                        dirichlet_bc = [(not kd,) * 2 for kd in spl_kind]
-                        dirichlet_bc = tuple(dirichlet_bc)
+                        bcs = (None, ("dirichlet", "dirichlet"), None)
 
                     def sol1_xyz(x, y, z):
                         return xp.sin(2 * xp.pi / Ly * y)
@@ -119,11 +120,13 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
                     def rho1_xyz(x, y, z):
                         return xp.sin(2 * xp.pi / Ly * y) * (2 * xp.pi / Ly) ** 2
             else:
-                print("Direction should be either 0 or 1")
+                logger.info("Direction should be either 0 or 1")
 
             # create derham object
-            print(f"{dirichlet_bc =}")
-            derham = Derham(Nel, p, spl_kind, dirichlet_bc=dirichlet_bc, comm=comm)
+            logger.info(f"{bcs =}")
+            grid = TensorProductGrid(num_elements=num_elements)
+            derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+            derham = Derham(grid, derham_opts, comm=comm)
 
             # mass matrices
             mass_ops = WeightedMassOperators(derham, domain)
@@ -140,7 +143,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
             if projected_rhs:
                 rho = FEECVariable(space="H1")
                 rho.allocate(derham=derham, domain=domain)
-                rho.spline.vector = derham.P["0"](rho_pulled)
+                rho.spline.vector = derham.P0(rho_pulled)
             else:
                 rho = rho_pulled
 
@@ -193,18 +196,18 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
                     plt.plot(y[0, :, 0], sol_val1[0, :, 0], "ob", label="numerical")
                     plt.plot(y[0, :, 0], analytic_value1[0, :, 0], "r--", label="exact")
                     plt.xlabel("y")
-                plt.title(f"{Nel =}")
+                plt.title(f"{num_elements =}")
                 plt.legend()
 
             error = xp.max(xp.abs(analytic_value1 - sol_val1))
-            print(f"{direction =}, {pi =}, {Neli =}, {error=}")
+            logger.info(f"{direction =}, {pi =}, {Neli =}, {error=}")
 
             errors.append(error)
             h = 1 / (Neli)
             h_vec.append(h)
 
         m, _ = xp.polyfit(xp.log(Nels), xp.log(errors), deg=1)
-        print(f"For {pi =}, solution converges in {direction=} with rate {-m =} ")
+        logger.info(f"For {pi =}, solution converges in {direction=} with rate {-m =} ")
         assert -m > (pi + 1 - 0.07)
 
         # Plot convergence in 1D
@@ -213,12 +216,15 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
                 f"Convergence for degree {pi =}, {direction + 1 =}, {bc_type =}, {mapping[0] =}",
                 figsize=(12, 8),
             )
-            plt.plot(h_vec, errors, "o", label=f"p={p[direction]}")
+            plt.plot(h_vec, errors, "o", label=f"degree={degree[direction]}")
             plt.plot(
                 h_vec,
-                [h ** (p[direction] + 1) / h_vec[direction] ** (p[direction] + 1) * errors[direction] for h in h_vec],
+                [
+                    h ** (degree[direction] + 1) / h_vec[direction] ** (degree[direction] + 1) * errors[direction]
+                    for h in h_vec
+                ],
                 "k--",
-                label="correct rate p+1",
+                label="correct rate degree+1",
             )
             plt.yscale("log")
             plt.xscale("log")
@@ -231,8 +237,8 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
         plt.show()
 
 
-@pytest.mark.parametrize("Nel", [[64, 64, 1]])
-@pytest.mark.parametrize("p", [[1, 1, 1], [2, 2, 1]])
+@pytest.mark.parametrize("num_elements", [[64, 64, 1]])
+@pytest.mark.parametrize("degree", [[1, 1, 1], [2, 2, 1]])
 @pytest.mark.parametrize("bc_type", ["periodic", "dirichlet", "neumann"])
 @pytest.mark.parametrize(
     "mapping",
@@ -242,7 +248,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
     ],
 )
 @pytest.mark.parametrize("projected_rhs", [False, True])
-def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=False):
+def test_poisson_M1perp_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_plot=False):
     """
     Test the Poisson solver with M1perp diffusion matrix
     by means of manufactured solutions in 2D .
@@ -270,10 +276,8 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=Fa
         return xp.sin(2 * xp.pi / Lx * x) * (2 * xp.pi / Lx) ** 2
 
     # boundary conditions
-    dirichlet_bc = None
-
     if bc_type == "periodic":
-        spl_kind = [True] * 3
+        bcs = (None, None, None)
 
         # manufactured solution in 2D
         def sol2_xyz(x, y, z):
@@ -285,10 +289,7 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=Fa
             return ddx + ddy
 
     elif bc_type == "dirichlet":
-        spl_kind = [False, True, True]
-        dirichlet_bc = [(not kd,) * 2 for kd in spl_kind]
-        dirichlet_bc = tuple(dirichlet_bc)
-        print(f"{dirichlet_bc =}")
+        bcs = (("dirichlet", "dirichlet"), None, None)
 
         # manufactured solution in 2D
         def sol2_xyz(x, y, z):
@@ -300,7 +301,7 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=Fa
             return ddx + ddy
 
     elif bc_type == "neumann":
-        spl_kind = [False, True, True]
+        bcs = (("free", "free"), None, None)
 
         # manufactured solution in 2D
         def sol2_xyz(x, y, z):
@@ -319,7 +320,9 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=Fa
             return xp.cos(xp.pi / Lx * x) * (xp.pi / Lx) ** 2
 
     # create derham object
-    derham = Derham(Nel, p, spl_kind, dirichlet_bc=dirichlet_bc, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # create weighted mass operators
     mass_ops = WeightedMassOperators(derham, domain)
@@ -344,11 +347,11 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=Fa
     if projected_rhs:
         rho1 = FEECVariable(space="H1")
         rho1.allocate(derham=derham, domain=domain)
-        rho1.spline.vector = derham.P["0"](rho1_pulled)
+        rho1.spline.vector = derham.P0(rho1_pulled)
 
         rho2 = FEECVariable(space="H1")
         rho2.allocate(derham=derham, domain=domain)
-        rho2.spline.vector = derham.P["0"](rho2_pulled)
+        rho2.spline.vector = derham.P0(rho2_pulled)
     else:
         rho1 = rho1_pulled
         rho2 = rho2_pulled
@@ -419,10 +422,10 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=Fa
     error1 = xp.max(xp.abs(analytic_value1 - sol_val1))
     error2 = xp.max(xp.abs(analytic_value2 - sol_val2))
 
-    print(f"{p =}, {bc_type =}, {mapping =}")
-    print(f"{error1 =}")
-    print(f"{error2 =}")
-    print("")
+    logger.info(f"{degree =}, {bc_type =}, {mapping =}")
+    logger.info(f"{error1 =}")
+    logger.info(f"{error2 =}")
+    logger.info("")
 
     if show_plot and rank == 0:
         plt.figure(figsize=(12, 8))
@@ -451,8 +454,8 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=Fa
 
 
 @pytest.mark.skip(reason="Not clear if the 2.5d strategy is sound.")
-@pytest.mark.parametrize("Nel", [[32, 32, 16]])
-@pytest.mark.parametrize("p", [[1, 1, 1], [2, 2, 1]])
+@pytest.mark.parametrize("num_elements", [[32, 32, 16]])
+@pytest.mark.parametrize("degree", [[1, 1, 1], [2, 2, 1]])
 @pytest.mark.parametrize(
     "mapping",
     [
@@ -460,7 +463,7 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=Fa
         ["Colella", {"Lx": 1.0, "Ly": 1.0, "alpha": 0.1, "Lz": 1.0}],
     ],
 )
-def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
+def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot=False):
     """
     Test the Poisson solver with M1perp diffusion matrix
     by comparing 3d simulation to a loop over 2d simulations.
@@ -477,8 +480,7 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
     domain: Domain = domain_class(**dom_params)
 
     # boundary conditions
-    spl_kind = [False, True, True]
-    dirichlet_bc = ((True, True), (False, False), (False, False))
+    bcs = (("dirichlet", "dirichlet"), None, None)
 
     # evaluation grid
     e1 = xp.linspace(0.0, 1.0, 50)
@@ -492,7 +494,9 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
         return dd1 + dd2
 
     # create 3d derham object
-    derham = Derham(Nel, p, spl_kind, dirichlet_bc=dirichlet_bc, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     mass_ops = WeightedMassOperators(derham, domain)
 
@@ -504,7 +508,7 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
     l2_proj = L2Projector("H1", mass_ops)
     rho_vec = l2_proj.get_dofs(rho, apply_bc=True)
 
-    print(f"{rho_vec[:].shape =}")
+    logger.info(f"{rho_vec[:].shape =}")
 
     # Create 3d Poisson solver
     solver_params = SolverParameters(
@@ -542,10 +546,12 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
     e = _phi.spline.ends
 
     # create 2.5d deRham object
-    Nel_new = [Nel[0], Nel[1], 1]
-    p[2] = 1
-    spl_kind[2] = True
-    derham = Derham(Nel_new, p, spl_kind, dirichlet_bc=dirichlet_bc, comm=comm)
+    num_elements_new = [num_elements[0], num_elements[1], 1]
+    degree[2] = 1
+
+    grid = TensorProductGrid(num_elements=num_elements_new)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     mass_ops = WeightedMassOperators(derham, domain)
 
@@ -578,7 +584,7 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
     poisson_solver_3d(dt)
     t1 = time()
 
-    print(f"rank {rank}, 3d solve time = {t1 - t0}")
+    logger.info(f"rank {rank}, 3d solve time = {t1 - t0}")
 
     t0 = time()
     t_inner = 0.0
@@ -591,15 +597,15 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
         _phi_2p5d.spline.vector[s[0] : e[0] + 1, s[1] : e[1] + 1, n] = _tmp[s[0] : e[0] + 1, s[1] : e[1] + 1, 0]
     t1 = time()
 
-    print(f"rank {rank}, 2.5d pure solve time (without copy) = {t_inner}")
-    print(f"rank {rank}, 2.5d solve time = {t1 - t0}")
+    logger.info(f"rank {rank}, 2.5d pure solve time (without copy) = {t_inner}")
+    logger.info(f"rank {rank}, 2.5d solve time = {t1 - t0}")
 
     # push numerical solutions
     sol_val = domain.push(_phi.spline, e1, e2, e3, kind="0")
     sol_val_2p5d = domain.push(_phi_2p5d.spline, e1, e2, e3, kind="0")
     x, y, z = domain(e1, e2, e3)
 
-    print("max diff:", xp.max(xp.abs(sol_val - sol_val_2p5d)))
+    logger.info(f"max diff: {xp.max(xp.abs(sol_val - sol_val_2p5d))}")
     assert xp.max(xp.abs(sol_val - sol_val_2p5d)) < 0.026
 
     if show_plot and rank == 0:
@@ -642,14 +648,14 @@ if __name__ == "__main__":
     mapping = ["Orthogonal", {"Lx": 4.0, "Ly": 2.0, "alpha": 0.1, "Lz": 3.0}]
     test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=True)
 
-    # Nel = [64, 64, 1]
-    # p = [2, 2, 1]
+    # num_elements = [64, 64, 1]
+    # degree = [2, 2, 1]
     # bc_type = 'neumann'
     # #mapping = ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 3.}]
     # mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
-    # test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=True)
+    # test_poisson_M1perp_2d(num_elements, degree, bc_type, mapping, show_plot=True)
 
-    # Nel = [64, 64, 16]
-    # p = [2, 2, 1]
+    # num_elements = [64, 64, 16]
+    # degree = [2, 2, 1]
     # mapping = ["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}]
-    # test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=True)
+    # test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot=True)

@@ -1,9 +1,19 @@
+import logging
+
 import pytest
 
+logger = logging.getLogger("struphy")
 
-@pytest.mark.parametrize("Nel", [[8, 12, 4]])
-@pytest.mark.parametrize("p", [[2, 3, 1]])
-@pytest.mark.parametrize("spl_kind", [[True, True, True], [False, False, False]])
+
+@pytest.mark.parametrize("num_elements", [[8, 12, 4]])
+@pytest.mark.parametrize("degree", [[2, 3, 1]])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (None, None, None),
+        (("free", "free"), ("free", "free"), ("free", "free")),
+    ],
+)
 @pytest.mark.parametrize(
     "mapping",
     [
@@ -11,24 +21,28 @@ import pytest
         ["HollowCylinder", {"a1": 0.1, "a2": 2.0, "R0": 0.0, "Lz": 3.0}],
     ],
 )
-def test_mass_preconditioner(Nel, p, spl_kind, mapping):
+def test_mass_preconditioner(num_elements, degree, bcs, mapping):
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.block import BlockVector
     from feectools.linalg.stencil import StencilVector
 
+    from struphy import domains
     from struphy.feec.linear_operators import InverseLinearOperator
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.preconditioner import MassMatrixPreconditioner
     from struphy.feec.psydac_derham import Derham
-    from struphy.geometry import domains
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     MPI_COMM = MPI.COMM_WORLD
 
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(mapping[1])
 
-    derham = Derham(Nel, p, spl_kind, comm=MPI_COMM)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=MPI_COMM)
     derham_spaces = [derham.V0, derham.V1, derham.V2, derham.V3, derham.V0vec]
 
     # assemble mass matrices in V0, V1, V2 and V3
@@ -69,19 +83,19 @@ def test_mass_preconditioner(Nel, p, spl_kind, mapping):
 
         if domain.kind_map == 10 or domain.kind_map == 11:
             assert xp.allclose(M._mat.toarray(), M_p.matrix.toarray())
-            print(f'Matrix assertion for space {n} case "Cuboid/HollowCylinder" passed.')
+            logger.info(f'Matrix assertion for space {n} case "Cuboid/HollowCylinder" passed.')
 
         inv_A = InverseLinearOperator(M, pc=M_p, tol=1e-8, maxiter=5000)
         wn = inv_A.dot(vn)
 
         if domain.kind_map == 10 or domain.kind_map == 11:
             assert inv_A.info["niter"] == 2
-            print(f'Solver assertions for space {n} case "Cuboid/HollowCylinder" passed.')
+            logger.info(f'Solver assertions for space {n} case "Cuboid/HollowCylinder" passed.')
 
         inv_A_nopc = InverseLinearOperator(M, pc=None, tol=1e-8, maxiter=30000)
         wn_nopc = inv_A_nopc.dot(vn)
 
-        print(f"Inverse of M{n}: w/ pre {inv_A.info['niter']} and w/o pre {inv_A_nopc.info['niter']}")
+        logger.info(f"Inverse of M{n}: w/ pre {inv_A.info['niter']} and w/o pre {inv_A_nopc.info['niter']}")
 
         assert inv_A.info["success"]
         assert inv_A.info["niter"] < inv_A_nopc.info["niter"]

@@ -16,7 +16,6 @@
 #     ImplicitDiffusion,
 #     JxBCold,
 #     Magnetosonic,
-#     MagnetosonicCurrentCoupling5D,
 #     MagnetosonicUniform,
 #     Maxwell,
 #     OhmCold,
@@ -46,7 +45,6 @@
 #     PushVinSPHpressure,
 #     PushVinViscousPotential,
 #     PushVxB,
-#     StepStaticEfield,
 # )
 
 # __all__ = [
@@ -88,7 +86,6 @@
 #     "PushEtaPC",
 #     "PushGuidingCenterBxEstar",
 #     "PushGuidingCenterParallel",
-#     "StepStaticEfield",
 #     "PushDeterministicDiffusion",
 #     "PushRandomDiffusion",
 #     "PushVinSPHpressure",

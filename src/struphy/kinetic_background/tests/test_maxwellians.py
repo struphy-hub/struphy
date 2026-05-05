@@ -1,8 +1,12 @@
+import logging
+
 import pytest
 
+logger = logging.getLogger("struphy")
 
-@pytest.mark.parametrize("Nel", [[64, 1, 1]])
-def test_maxwellian_3d_uniform(Nel, show_plot=False):
+
+@pytest.mark.parametrize("num_elements", [[64, 1, 1]])
+def test_maxwellian_3d_uniform(num_elements, show_plot=False):
     """Tests the Maxwellian3D class as a uniform Maxwellian.
 
     Asserts that the results over the domain and velocity space correspond to the
@@ -13,9 +17,9 @@ def test_maxwellian_3d_uniform(Nel, show_plot=False):
 
     from struphy.kinetic_background.maxwellians import Maxwellian3D
 
-    e1 = xp.linspace(0.0, 1.0, Nel[0])
-    e2 = xp.linspace(0.0, 1.0, Nel[1])
-    e3 = xp.linspace(0.0, 1.0, Nel[2])
+    e1 = xp.linspace(0.0, 1.0, num_elements[0])
+    e2 = xp.linspace(0.0, 1.0, num_elements[1])
+    e3 = xp.linspace(0.0, 1.0, num_elements[2])
 
     # ==========================================================
     # ==== Test uniform non-shifted, isothermal Maxwellian =====
@@ -89,17 +93,17 @@ def test_maxwellian_3d_uniform(Nel, show_plot=False):
         assert xp.allclose(res, res_ana, atol=10e-10), f"{res=},\n {res_ana =}"
 
 
-@pytest.mark.parametrize("Nel", [[64, 1, 1]])
-def test_maxwellian_3d_perturbed(Nel, show_plot=False):
+@pytest.mark.parametrize("num_elements", [[64, 1, 1]])
+def test_maxwellian_3d_perturbed(num_elements, show_plot=False):
     """Tests the Maxwellian3D class for perturbations."""
 
     import cunumpy as xp
     import matplotlib.pyplot as plt
 
-    from struphy.initial import perturbations
+    from struphy import perturbations
     from struphy.kinetic_background.maxwellians import Maxwellian3D
 
-    e1 = xp.linspace(0.0, 1.0, Nel[0])
+    e1 = xp.linspace(0.0, 1.0, num_elements[0])
     v1 = xp.linspace(-5.0, 5.0, 128)
 
     # ===============================================
@@ -249,8 +253,8 @@ def test_maxwellian_3d_perturbed(Nel, show_plot=False):
     assert xp.allclose(res, ana_res, atol=10e-10), f"{res=},\n {ana_res}"
 
 
-@pytest.mark.parametrize("Nel", [[8, 11, 12]])
-def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
+@pytest.mark.parametrize("num_elements", [[8, 11, 12]])
+def test_maxwellian_3d_mhd(num_elements, with_desc, show_plot=False):
     """Tests the Maxwellian3D class for mhd equilibrium moments."""
 
     import inspect
@@ -258,16 +262,14 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
     import cunumpy as xp
     import matplotlib.pyplot as plt
 
-    from struphy.fields_background import equils
+    from struphy import domains, equils, perturbations
     from struphy.fields_background.base import FluidEquilibrium
-    from struphy.geometry import domains
-    from struphy.initial import perturbations
     from struphy.initial.base import Perturbation
     from struphy.kinetic_background.maxwellians import Maxwellian3D
 
-    e1 = xp.linspace(0.0, 1.0, Nel[0])
-    e2 = xp.linspace(0.0, 1.0, Nel[1])
-    e3 = xp.linspace(0.0, 1.0, Nel[2])
+    e1 = xp.linspace(0.0, 1.0, num_elements[0])
+    e2 = xp.linspace(0.0, 1.0, num_elements[1])
+    e3 = xp.linspace(0.0, 1.0, num_elements[2])
     v1 = [0.0]
     v2 = [0.0, -1.0]
     v3 = [0.0, -1.0, -1.3]
@@ -287,20 +289,20 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
 
     for key, val in inspect.getmembers(equils):
         if inspect.isclass(val) and val.__module__ == equils.__name__:
-            print(f"{key =}")
+            logger.info(f"{key =}")
 
             if "DESCequilibrium" in key and not with_desc:
-                print(f"Attention: {with_desc =}, DESC not tested here !!")
+                logger.info(f"Attention: {with_desc =}, DESC not tested here !!")
                 continue
 
             if "GVECequilibrium" in key:
-                print("Attention: GVEC not tested here !!")
-                # print("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
+                logger.info("Attention: GVEC not tested here !!")
+                # logger.info("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
                 continue
 
             mhd_equil = val()
             assert isinstance(mhd_equil, FluidEquilibrium)
-            print(f"{mhd_equil.params =}")
+            logger.info(f"{mhd_equil.params =}")
             if "AdhocTorus" in key:
                 mhd_equil.domain = domains.HollowTorus(
                     a1=1e-3,
@@ -341,7 +343,7 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                 try:
                     mhd_equil.domain = domains.Cuboid()
                 except:
-                    print(f"Not setting domain for {key}.")
+                    logger.info(f"Not setting domain for {key}.")
 
             maxwellian = Maxwellian3D(
                 n=(mhd_equil.n0, None),
@@ -377,8 +379,8 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
 
             # test flat evaluation
             if "GVECequilibrium" in key:
-                print("Attention: GVEC not tested here !!")
-                # print("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
+                logger.info("Attention: GVEC not tested here !!")
+                # logger.info("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
                 continue
                 pass
             else:
@@ -407,9 +409,9 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                 if "Slab" in key or "Pinch" in key:
                     plt.contourf(x[:, 0, :], z[:, 0, :], n_cart[:, 0, :], levels=levels)
                     plt.contourf(
-                        x[:, Nel[1] // 2, :],
-                        z[:, Nel[1] // 2 - 1, :],
-                        n_cart[:, Nel[1] // 2, :],
+                        x[:, num_elements[1] // 2, :],
+                        z[:, num_elements[1] // 2 - 1, :],
+                        n_cart[:, num_elements[1] // 2, :],
                         levels=levels,
                     )
                     plt.xlabel("x")
@@ -417,9 +419,9 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                 else:
                     plt.contourf(x[:, 0, :], y[:, 0, :], n_cart[:, 0, :], levels=levels)
                     plt.contourf(
-                        x[:, Nel[1] // 2, :],
-                        y[:, Nel[1] // 2 - 1, :],
-                        n_cart[:, Nel[1] // 2, :],
+                        x[:, num_elements[1] // 2, :],
+                        y[:, num_elements[1] // 2 - 1, :],
+                        n_cart[:, num_elements[1] // 2, :],
                         levels=levels,
                     )
                     plt.xlabel("x")
@@ -448,12 +450,22 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                     plt.subplot(2, 5, 2 + i)
                     if "Slab" in key or "Pinch" in key:
                         plt.contourf(x[:, 0, :], z[:, 0, :], u[:, 0, :], levels=levels)
-                        plt.contourf(x[:, Nel[1] // 2, :], z[:, Nel[1] // 2, :], u[:, Nel[1] // 2, :], levels=levels)
+                        plt.contourf(
+                            x[:, num_elements[1] // 2, :],
+                            z[:, num_elements[1] // 2, :],
+                            u[:, num_elements[1] // 2, :],
+                            levels=levels,
+                        )
                         plt.xlabel("x")
                         plt.ylabel("z")
                     else:
                         plt.contourf(x[:, 0, :], y[:, 0, :], u[:, 0, :], levels=levels)
-                        plt.contourf(x[:, Nel[1] // 2, :], y[:, Nel[1] // 2, :], u[:, Nel[1] // 2, :], levels=levels)
+                        plt.contourf(
+                            x[:, num_elements[1] // 2, :],
+                            y[:, num_elements[1] // 2, :],
+                            u[:, num_elements[1] // 2, :],
+                            levels=levels,
+                        )
                         plt.xlabel("x")
                         plt.ylabel("y")
                     plt.axis("equal")
@@ -482,9 +494,9 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                 if "Slab" in key or "Pinch" in key:
                     plt.contourf(x[:, 0, :], z[:, 0, :], vth_cart[:, 0, :], levels=levels)
                     plt.contourf(
-                        x[:, Nel[1] // 2, :],
-                        z[:, Nel[1] // 2 - 1, :],
-                        vth_cart[:, Nel[1] // 2, :],
+                        x[:, num_elements[1] // 2, :],
+                        z[:, num_elements[1] // 2 - 1, :],
+                        vth_cart[:, num_elements[1] // 2, :],
                         levels=levels,
                     )
                     plt.xlabel("x")
@@ -492,9 +504,9 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                 else:
                     plt.contourf(x[:, 0, :], y[:, 0, :], vth_cart[:, 0, :], levels=levels)
                     plt.contourf(
-                        x[:, Nel[1] // 2, :],
-                        y[:, Nel[1] // 2 - 1, :],
-                        vth_cart[:, Nel[1] // 2, :],
+                        x[:, num_elements[1] // 2, :],
+                        y[:, num_elements[1] // 2 - 1, :],
+                        vth_cart[:, num_elements[1] // 2, :],
                         levels=levels,
                     )
                     plt.xlabel("x")
@@ -525,7 +537,7 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                     if inspect.isclass(val_2) and val_2.__module__ == perturbations.__name__:
                         pert = val_2()
                         assert isinstance(pert, Perturbation)
-                        print(f"{pert =}")
+                        logger.info(f"{pert =}")
                         if isinstance(pert, perturbations.Noise):
                             continue
 
@@ -579,9 +591,9 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                             if "Slab" in key or "Pinch" in key:
                                 plt.contourf(x[:, 0, :], z[:, 0, :], n_cart[:, 0, :], levels=levels)
                                 plt.contourf(
-                                    x[:, Nel[1] // 2, :],
-                                    z[:, Nel[1] // 2, :],
-                                    n_cart[:, Nel[1] // 2, :],
+                                    x[:, num_elements[1] // 2, :],
+                                    z[:, num_elements[1] // 2, :],
+                                    n_cart[:, num_elements[1] // 2, :],
                                     levels=levels,
                                 )
                                 plt.xlabel("x")
@@ -589,9 +601,9 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                             else:
                                 plt.contourf(x[:, 0, :], y[:, 0, :], n_cart[:, 0, :], levels=levels)
                                 plt.contourf(
-                                    x[:, Nel[1] // 2, :],
-                                    y[:, Nel[1] // 2, :],
-                                    n_cart[:, Nel[1] // 2, :],
+                                    x[:, num_elements[1] // 2, :],
+                                    y[:, num_elements[1] // 2, :],
+                                    n_cart[:, num_elements[1] // 2, :],
                                     levels=levels,
                                 )
                                 plt.xlabel("x")
@@ -621,9 +633,9 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                                 if "Slab" in key or "Pinch" in key:
                                     plt.contourf(x[:, 0, :], z[:, 0, :], u[:, 0, :], levels=levels)
                                     plt.contourf(
-                                        x[:, Nel[1] // 2, :],
-                                        z[:, Nel[1] // 2, :],
-                                        u[:, Nel[1] // 2, :],
+                                        x[:, num_elements[1] // 2, :],
+                                        z[:, num_elements[1] // 2, :],
+                                        u[:, num_elements[1] // 2, :],
                                         levels=levels,
                                     )
                                     plt.xlabel("x")
@@ -631,9 +643,9 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                                 else:
                                     plt.contourf(x[:, 0, :], y[:, 0, :], u[:, 0, :], levels=levels)
                                     plt.contourf(
-                                        x[:, Nel[1] // 2, :],
-                                        y[:, Nel[1] // 2, :],
-                                        u[:, Nel[1] // 2, :],
+                                        x[:, num_elements[1] // 2, :],
+                                        y[:, num_elements[1] // 2, :],
+                                        u[:, num_elements[1] // 2, :],
                                         levels=levels,
                                     )
                                     plt.xlabel("x")
@@ -664,9 +676,9 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                             if "Slab" in key or "Pinch" in key:
                                 plt.contourf(x[:, 0, :], z[:, 0, :], vth_cart[:, 0, :], levels=levels)
                                 plt.contourf(
-                                    x[:, Nel[1] // 2, :],
-                                    z[:, Nel[1] // 2, :],
-                                    vth_cart[:, Nel[1] // 2, :],
+                                    x[:, num_elements[1] // 2, :],
+                                    z[:, num_elements[1] // 2, :],
+                                    vth_cart[:, num_elements[1] // 2, :],
                                     levels=levels,
                                 )
                                 plt.xlabel("x")
@@ -674,9 +686,9 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                             else:
                                 plt.contourf(x[:, 0, :], y[:, 0, :], vth_cart[:, 0, :], levels=levels)
                                 plt.contourf(
-                                    x[:, Nel[1] // 2, :],
-                                    y[:, Nel[1] // 2, :],
-                                    vth_cart[:, Nel[1] // 2, :],
+                                    x[:, num_elements[1] // 2, :],
+                                    y[:, num_elements[1] // 2, :],
+                                    vth_cart[:, num_elements[1] // 2, :],
                                     levels=levels,
                                 )
                                 plt.xlabel("x")
@@ -700,8 +712,8 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                             plt.show()
 
 
-@pytest.mark.parametrize("Nel", [[64, 1, 1]])
-def test_maxwellian_2d_uniform(Nel, show_plot=False):
+@pytest.mark.parametrize("num_elements", [[64, 1, 1]])
+def test_maxwellian_2d_uniform(num_elements, show_plot=False):
     """Tests the GyroMaxwellian2D class as a uniform Maxwellian.
 
     Asserts that the results over the domain and velocity space correspond to the
@@ -712,9 +724,9 @@ def test_maxwellian_2d_uniform(Nel, show_plot=False):
 
     from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
 
-    e1 = xp.linspace(0.0, 1.0, Nel[0])
-    e2 = xp.linspace(0.0, 1.0, Nel[1])
-    e3 = xp.linspace(0.0, 1.0, Nel[2])
+    e1 = xp.linspace(0.0, 1.0, num_elements[0])
+    e2 = xp.linspace(0.0, 1.0, num_elements[1])
+    e3 = xp.linspace(0.0, 1.0, num_elements[2])
 
     # ===========================================================
     # ===== Test uniform non-shifted, isothermal Maxwellian =====
@@ -796,17 +808,17 @@ def test_maxwellian_2d_uniform(Nel, show_plot=False):
     assert xp.allclose(res, res_ana, atol=10e-10), f"{res=},\n {res_ana =}"
 
 
-@pytest.mark.parametrize("Nel", [[6, 1, 1]])
-def test_maxwellian_2d_perturbed(Nel, show_plot=False):
+@pytest.mark.parametrize("num_elements", [[6, 1, 1]])
+def test_maxwellian_2d_perturbed(num_elements, show_plot=False):
     """Tests the GyroMaxwellian2D class for perturbations."""
 
     import cunumpy as xp
     import matplotlib.pyplot as plt
 
-    from struphy.initial import perturbations
+    from struphy import perturbations
     from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
 
-    e1 = xp.linspace(0.0, 1.0, Nel[0])
+    e1 = xp.linspace(0.0, 1.0, num_elements[0])
     v1 = xp.linspace(-5.0, 5.0, 128)
     v2 = xp.linspace(0, 2.5, 128)
 
@@ -1052,8 +1064,8 @@ def test_maxwellian_2d_perturbed(Nel, show_plot=False):
     assert xp.allclose(res, ana_res, atol=10e-10), f"{res=},\n {ana_res}"
 
 
-@pytest.mark.parametrize("Nel", [[8, 12, 12]])
-def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
+@pytest.mark.parametrize("num_elements", [[8, 12, 12]])
+def test_maxwellian_2d_mhd(num_elements, with_desc, show_plot=False):
     """Tests the GyroMaxwellian2D class for mhd equilibrium moments."""
 
     import inspect
@@ -1061,16 +1073,14 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
     import cunumpy as xp
     import matplotlib.pyplot as plt
 
-    from struphy.fields_background import equils
-    from struphy.fields_background.base import FluidEquilibriumWithB
-    from struphy.geometry import domains
-    from struphy.initial import perturbations
+    from struphy import domains, equils, perturbations
+    from struphy.fields_background.base import MHDequilibrium
     from struphy.initial.base import Perturbation
     from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
 
-    e1 = xp.linspace(0.0, 1.0, Nel[0])
-    e2 = xp.linspace(0.0, 1.0, Nel[1])
-    e3 = xp.linspace(0.0, 1.0, Nel[2])
+    e1 = xp.linspace(0.0, 1.0, num_elements[0])
+    e2 = xp.linspace(0.0, 1.0, num_elements[1])
+    e3 = xp.linspace(0.0, 1.0, num_elements[2])
     v1 = [0.0]
     v2 = [0.0, 2.0]
 
@@ -1088,22 +1098,22 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
 
     for key, val in inspect.getmembers(equils):
         if inspect.isclass(val) and val.__module__ == equils.__name__:
-            print(f"{key =}")
+            logger.info(f"{key =}")
 
             if "DESCequilibrium" in key and not with_desc:
-                print(f"Attention: {with_desc =}, DESC not tested here !!")
+                logger.info(f"Attention: {with_desc =}, DESC not tested here !!")
                 continue
 
             if "GVECequilibrium" in key:
-                print("Attention: GVEC not tested here !!")
-                # print("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
+                logger.info("Attention: GVEC not tested here !!")
+                # logger.info("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
                 continue
 
             mhd_equil = val()
-            if not isinstance(mhd_equil, FluidEquilibriumWithB):
+            if not isinstance(mhd_equil, MHDequilibrium):
                 continue
 
-            print(f"{mhd_equil.params =}")
+            logger.info(f"{mhd_equil.params =}")
             if "AdhocTorus" in key:
                 mhd_equil.domain = domains.HollowTorus(
                     a1=1e-3,
@@ -1144,7 +1154,7 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                 try:
                     mhd_equil.domain = domains.Cuboid()
                 except:
-                    print(f"Not setting domain for {key}.")
+                    logger.info(f"Not setting domain for {key}.")
 
             maxwellian = GyroMaxwellian2D(
                 n=(mhd_equil.n0, None),
@@ -1170,8 +1180,8 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
 
             # test flat evaluation
             if "GVECequilibrium" in key:
-                print("Attention: GVEC not tested here !!")
-                # print("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
+                logger.info("Attention: GVEC not tested here !!")
+                # logger.info("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
                 continue
                 pass
             else:
@@ -1203,9 +1213,9 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                 if "Slab" in key or "Pinch" in key:
                     plt.contourf(x[:, 0, :], z[:, 0, :], n_cart[:, 0, :], levels=levels)
                     plt.contourf(
-                        x[:, Nel[1] // 2, :],
-                        z[:, Nel[1] // 2 - 1, :],
-                        n_cart[:, Nel[1] // 2, :],
+                        x[:, num_elements[1] // 2, :],
+                        z[:, num_elements[1] // 2 - 1, :],
+                        n_cart[:, num_elements[1] // 2, :],
                         levels=levels,
                     )
                     plt.xlabel("x")
@@ -1213,9 +1223,9 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                 else:
                     plt.contourf(x[:, 0, :], y[:, 0, :], n_cart[:, 0, :], levels=levels)
                     plt.contourf(
-                        x[:, Nel[1] // 2, :],
-                        y[:, Nel[1] // 2 - 1, :],
-                        n_cart[:, Nel[1] // 2, :],
+                        x[:, num_elements[1] // 2, :],
+                        y[:, num_elements[1] // 2 - 1, :],
+                        n_cart[:, num_elements[1] // 2, :],
                         levels=levels,
                     )
                     plt.xlabel("x")
@@ -1244,12 +1254,22 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                     plt.subplot(2, 4, 2 + i)
                     if "Slab" in key or "Pinch" in key:
                         plt.contourf(x[:, 0, :], z[:, 0, :], u[:, 0, :], levels=levels)
-                        plt.contourf(x[:, Nel[1] // 2, :], z[:, Nel[1] // 2, :], u[:, Nel[1] // 2, :], levels=levels)
+                        plt.contourf(
+                            x[:, num_elements[1] // 2, :],
+                            z[:, num_elements[1] // 2, :],
+                            u[:, num_elements[1] // 2, :],
+                            levels=levels,
+                        )
                         plt.xlabel("x")
                         plt.ylabel("z")
                     else:
                         plt.contourf(x[:, 0, :], y[:, 0, :], u[:, 0, :], levels=levels)
-                        plt.contourf(x[:, Nel[1] // 2, :], y[:, Nel[1] // 2, :], u[:, Nel[1] // 2, :], levels=levels)
+                        plt.contourf(
+                            x[:, num_elements[1] // 2, :],
+                            y[:, num_elements[1] // 2, :],
+                            u[:, num_elements[1] // 2, :],
+                            levels=levels,
+                        )
                         plt.xlabel("x")
                         plt.ylabel("y")
                     plt.axis("equal")
@@ -1278,9 +1298,9 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                 if "Slab" in key or "Pinch" in key:
                     plt.contourf(x[:, 0, :], z[:, 0, :], vth_cart[:, 0, :], levels=levels)
                     plt.contourf(
-                        x[:, Nel[1] // 2, :],
-                        z[:, Nel[1] // 2 - 1, :],
-                        vth_cart[:, Nel[1] // 2, :],
+                        x[:, num_elements[1] // 2, :],
+                        z[:, num_elements[1] // 2 - 1, :],
+                        vth_cart[:, num_elements[1] // 2, :],
                         levels=levels,
                     )
                     plt.xlabel("x")
@@ -1288,9 +1308,9 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                 else:
                     plt.contourf(x[:, 0, :], y[:, 0, :], vth_cart[:, 0, :], levels=levels)
                     plt.contourf(
-                        x[:, Nel[1] // 2, :],
-                        y[:, Nel[1] // 2 - 1, :],
-                        vth_cart[:, Nel[1] // 2, :],
+                        x[:, num_elements[1] // 2, :],
+                        y[:, num_elements[1] // 2 - 1, :],
+                        vth_cart[:, num_elements[1] // 2, :],
                         levels=levels,
                     )
                     plt.xlabel("x")
@@ -1318,7 +1338,7 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                 for key_2, val_2 in inspect.getmembers(perturbations):
                     if inspect.isclass(val_2) and val_2.__module__ == perturbations.__name__:
                         pert = val_2()
-                        print(f"{pert =}")
+                        logger.info(f"{pert =}")
                         assert isinstance(pert, Perturbation)
 
                         if isinstance(pert, perturbations.Noise):
@@ -1369,9 +1389,9 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                             if "Slab" in key or "Pinch" in key:
                                 plt.contourf(x[:, 0, :], z[:, 0, :], n_cart[:, 0, :], levels=levels)
                                 plt.contourf(
-                                    x[:, Nel[1] // 2, :],
-                                    z[:, Nel[1] // 2, :],
-                                    n_cart[:, Nel[1] // 2, :],
+                                    x[:, num_elements[1] // 2, :],
+                                    z[:, num_elements[1] // 2, :],
+                                    n_cart[:, num_elements[1] // 2, :],
                                     levels=levels,
                                 )
                                 plt.xlabel("x")
@@ -1379,9 +1399,9 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                             else:
                                 plt.contourf(x[:, 0, :], y[:, 0, :], n_cart[:, 0, :], levels=levels)
                                 plt.contourf(
-                                    x[:, Nel[1] // 2, :],
-                                    y[:, Nel[1] // 2, :],
-                                    n_cart[:, Nel[1] // 2, :],
+                                    x[:, num_elements[1] // 2, :],
+                                    y[:, num_elements[1] // 2, :],
+                                    n_cart[:, num_elements[1] // 2, :],
                                     levels=levels,
                                 )
                                 plt.xlabel("x")
@@ -1411,9 +1431,9 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                                 if "Slab" in key or "Pinch" in key:
                                     plt.contourf(x[:, 0, :], z[:, 0, :], u[:, 0, :], levels=levels)
                                     plt.contourf(
-                                        x[:, Nel[1] // 2, :],
-                                        z[:, Nel[1] // 2, :],
-                                        u[:, Nel[1] // 2, :],
+                                        x[:, num_elements[1] // 2, :],
+                                        z[:, num_elements[1] // 2, :],
+                                        u[:, num_elements[1] // 2, :],
                                         levels=levels,
                                     )
                                     plt.xlabel("x")
@@ -1421,9 +1441,9 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                                 else:
                                     plt.contourf(x[:, 0, :], y[:, 0, :], u[:, 0, :], levels=levels)
                                     plt.contourf(
-                                        x[:, Nel[1] // 2, :],
-                                        y[:, Nel[1] // 2, :],
-                                        u[:, Nel[1] // 2, :],
+                                        x[:, num_elements[1] // 2, :],
+                                        y[:, num_elements[1] // 2, :],
+                                        u[:, num_elements[1] // 2, :],
                                         levels=levels,
                                     )
                                     plt.xlabel("x")
@@ -1454,9 +1474,9 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                             if "Slab" in key or "Pinch" in key:
                                 plt.contourf(x[:, 0, :], z[:, 0, :], vth_cart[:, 0, :], levels=levels)
                                 plt.contourf(
-                                    x[:, Nel[1] // 2, :],
-                                    z[:, Nel[1] // 2, :],
-                                    vth_cart[:, Nel[1] // 2, :],
+                                    x[:, num_elements[1] // 2, :],
+                                    z[:, num_elements[1] // 2, :],
+                                    vth_cart[:, num_elements[1] // 2, :],
                                     levels=levels,
                                 )
                                 plt.xlabel("x")
@@ -1464,9 +1484,9 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                             else:
                                 plt.contourf(x[:, 0, :], y[:, 0, :], vth_cart[:, 0, :], levels=levels)
                                 plt.contourf(
-                                    x[:, Nel[1] // 2, :],
-                                    y[:, Nel[1] // 2, :],
-                                    vth_cart[:, Nel[1] // 2, :],
+                                    x[:, num_elements[1] // 2, :],
+                                    y[:, num_elements[1] // 2, :],
+                                    vth_cart[:, num_elements[1] // 2, :],
                                     levels=levels,
                                 )
                                 plt.xlabel("x")
@@ -1490,8 +1510,8 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                             plt.show()
 
 
-@pytest.mark.parametrize("Nel", [[64, 1, 1]])
-def test_canonical_maxwellian_uniform(Nel, show_plot=False):
+@pytest.mark.parametrize("num_elements", [[64, 1, 1]])
+def test_canonical_maxwellian_uniform(num_elements, show_plot=False):
     """Tests the CanonicalMaxwellian class as a uniform canonical Maxwellian.
 
     Asserts that the results over the domain and velocity space correspond to the
@@ -1500,14 +1520,12 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
     import cunumpy as xp
     import matplotlib.pyplot as plt
 
-    from struphy.fields_background import equils
-    from struphy.geometry import domains
-    from struphy.initial import perturbations
+    from struphy import domains, equils, perturbations
     from struphy.kinetic_background.maxwellians import CanonicalMaxwellian
 
-    e1 = xp.linspace(0.0, 1.0, Nel[0])
-    e2 = xp.linspace(0.0, 1.0, Nel[1])
-    e3 = xp.linspace(0.0, 1.0, Nel[2])
+    e1 = xp.linspace(0.0, 1.0, num_elements[0])
+    e2 = xp.linspace(0.0, 1.0, num_elements[1])
+    e3 = xp.linspace(0.0, 1.0, num_elements[2])
 
     eta_meshgrid = xp.meshgrid(e1, e2, e3)
 
@@ -1675,9 +1693,9 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
 
     maxwellian = CanonicalMaxwellian(n=(0.0, pert), equil=mhd_equil, volume_form=False)
 
-    e1 = xp.linspace(0.0, 1.0, Nel[0])
-    e2 = xp.linspace(0.0, 1.0, Nel[1])
-    e3 = xp.linspace(0.0, 1.0, Nel[2])
+    e1 = xp.linspace(0.0, 1.0, num_elements[0])
+    e2 = xp.linspace(0.0, 1.0, num_elements[1])
+    e3 = xp.linspace(0.0, 1.0, num_elements[2])
 
     eta_meshgrid = xp.meshgrid(e1, e2, e3)
 
@@ -1722,10 +1740,10 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
 
 
 if __name__ == "__main__":
-    # test_maxwellian_3d_uniform(Nel=[64, 1, 1], show_plot=True)
-    # test_maxwellian_3d_perturbed(Nel=[64, 1, 1], show_plot=True)
-    # test_maxwellian_3d_mhd(Nel=[8, 11, 12], with_desc=None, show_plot=False)
-    # test_maxwellian_2d_uniform(Nel=[64, 1, 1], show_plot=True)
-    # test_maxwellian_2d_perturbed(Nel=[64, 1, 1], show_plot=True)
-    # test_maxwellian_2d_mhd(Nel=[8, 12, 12], with_desc=None, show_plot=False)
-    test_canonical_maxwellian_uniform(Nel=[64, 1, 1], show_plot=True)
+    # test_maxwellian_3d_uniform(num_elements=[64, 1, 1], show_plot=True)
+    # test_maxwellian_3d_perturbed(num_elements=[64, 1, 1], show_plot=True)
+    # test_maxwellian_3d_mhd(num_elements=[8, 11, 12], with_desc=None, show_plot=False)
+    # test_maxwellian_2d_uniform(num_elements=[64, 1, 1], show_plot=True)
+    # test_maxwellian_2d_perturbed(num_elements=[64, 1, 1], show_plot=True)
+    # test_maxwellian_2d_mhd(num_elements=[8, 12, 12], with_desc=None, show_plot=False)
+    test_canonical_maxwellian_uniform(num_elements=[64, 1, 1], show_plot=True)

@@ -1,4 +1,12 @@
-"Mapped domains (single patch)."
+"""Mapped domains (single patch).
+
+Module providing mapping classes for single-patch geometries used by Struphy.
+
+This module includes classes such as `Tokamak`, `GVECunit`, `DESCunit`,
+`IGAPolarCylinder`, `IGAPolarTorus`, and `Cuboid`. Mappings transform
+reference coordinates to Cartesian coordinates and integrate with spline-based
+grid constructions and field-line tracing.
+"""
 
 import copy
 
@@ -25,9 +33,9 @@ class Tokamak(PoloidalSplineTorus):
     ----------
     equilibrium : struphy.fields_background.base.AxisymmMHDequilibrium
         The axisymmetric MHD equilibrium for which a flux-aligned grid shall be constructed (default: AdhocTorus).
-    Nel : tuple[int]
+    num_elements : tuple[int]
         Number of cells in (radial, angular) direction to be used in spline mapping (default: [8, 32]).
-    p : tuple[int]
+    degree : tuple[int]
         Spline degrees in (radial, angular) direction to be used in spline mapping (default: [2, 3]).
     psi_power : float
         Parametrization of radial flux coordinate :math:`\eta_1=\psi_{\mathrm{norm}}^p`, where :math:`\psi_{\mathrm{norm}}` is the normalized poloidal flux (default: 0.75).
@@ -37,9 +45,9 @@ class Tokamak(PoloidalSplineTorus):
         Parametrization of angular coordinate ("equal_angle", "equal_arc_length" or "sfl" (straight field line), default: "equal_angle").
     r0 : float
         Initial guess for radial distance from axis used in Newton root-finding method (default: 0.3).
-    Nel_pre : tuple[int]
+    num_elements_pre : tuple[int]
         Number of cells in (radial, angular) direction of pre-mapping needed for equal_arc_length and sfl parametrizations (default: [64, 256]).
-    p : tuple[int]
+    p_pre : tuple[int]
         Spline degrees in (radial, angular) direction of pre-mapping needed for equal_arc_length and sfl parametrizations (default: [3, 3]).
     tor_period : int
         Toroidal periodicity built into the mapping: :math:`\phi=2\pi\,\eta_3/\mathrm{torperiod}` (default: 1 --> full torus).
@@ -51,13 +59,13 @@ class Tokamak(PoloidalSplineTorus):
         geometry :
             type : Tokamak
             Tokamak :
-                Nel        : [8, 32]     # number of poloidal grid cells for spline mapping, >p
-                p          : [3, 3]      # poloidal spline degrees for spline mapping, >1
+                num_elements        : [8, 32]     # number of poloidal grid cells for spline mapping, >degree
+                degree          : [3, 3]      # poloidal spline degrees for spline mapping, >1
                 psi_power  : 0.7         # parametrization of radial flux coordinate eta1=psi_norm^psi_power, where psi_norm is normalized flux
                 psi_shifts : [2., 2.]    # start and end shifts of polidal flux in % --> cuts away regions at the axis and edge
                 xi_param   : equal_angle # parametrization of angular coordinate (equal_angle, equal_arc_length or sfl (straight field line))
                 r0         : 0.3         # initial guess for radial distance from axis used in Newton root-finding method for flux surfaces
-                Nel_pre    : [64, 256]   # number of poloidal grid cells of pre-mapping needed for equal_arc_length and sfl
+                num_elements_pre    : [64, 256]   # number of poloidal grid cells of pre-mapping needed for equal_arc_length and sfl
                 p_pre      : [3, 3]      # poloidal spline degrees of pre-mapping needed for equal_arc_length and sfl
                 tor_period : 1           # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
     """
@@ -65,13 +73,13 @@ class Tokamak(PoloidalSplineTorus):
     def __init__(
         self,
         equilibrium: AxisymmMHDequilibrium = None,
-        Nel: tuple = (8, 32),
-        p: tuple = (2, 3),
+        num_elements: tuple = (8, 32),
+        degree: tuple = (2, 3),
         psi_power: float = 0.75,
         psi_shifts: tuple = (0.01, 2.0),
         xi_param: str = "equal_angle",
         r0: float = 0.3,
-        Nel_pre: tuple = (64, 256),
+        num_elements_pre: tuple = (64, 256),
         p_pre: tuple = (3, 3),
         tor_period: int = 1,
     ):
@@ -95,19 +103,19 @@ class Tokamak(PoloidalSplineTorus):
             equilibrium.psi_axis_RZ[1],
             psi_s,
             psi_e,
-            Nel,
-            p,
+            num_elements,
+            degree,
             psi_power=psi_power,
             xi_param=xi_param,
-            Nel_pre=Nel_pre,
+            num_elements_pre=num_elements_pre,
             p_pre=p_pre,
             r0=r0,
         )
 
         # init base class
         super().__init__(
-            Nel=Nel,
-            p=p,
+            num_elements=num_elements,
+            degree=degree,
             spl_kind=(False, True),
             cx=cx,
             cy=cy,
@@ -145,8 +153,8 @@ class GVECunit(Spline):
 
         # do not set params here because of a pickling error
 
-        Nel = gvec_equil.params["Nel"]
-        p = gvec_equil.params["p"]
+        num_elements = gvec_equil.params["num_elements"]
+        degree = gvec_equil.params["degree"]
         if gvec_equil.params["use_nfp"]:
             spl_kind = (False, True, False)
         else:
@@ -178,9 +186,9 @@ class GVECunit(Spline):
         def Z(e1, e2, e3):
             return XYZ(e1, e2, e3)[2]
 
-        cx, cy, cz = interp_mapping(Nel, p, spl_kind, X, Y, Z)
+        cx, cy, cz = interp_mapping(num_elements, degree, spl_kind, X, Y, Z)
 
-        super().__init__(Nel=Nel, p=p, spl_kind=spl_kind, cx=cx, cy=cy, cz=cz)
+        super().__init__(num_elements=num_elements, degree=degree, spl_kind=spl_kind, cx=cx, cy=cy, cz=cz)
 
 
 class DESCunit(Spline):
@@ -210,8 +218,8 @@ class DESCunit(Spline):
         else:
             assert isinstance(desc_equil, DESCequilibrium)
 
-        Nel = desc_equil.params["Nel"]
-        p = desc_equil.params["p"]
+        num_elements = desc_equil.params["num_elements"]
+        degree = desc_equil.params["degree"]
 
         if desc_equil.eq.NFP > 1 and desc_equil.use_nfp:
             spl_kind = (False, True, False)
@@ -234,9 +242,9 @@ class DESCunit(Spline):
         def Z(e1, e2, e3):
             return desc_equil.desc_eval("Z", e1, e2, e3, nfp=nfp)
 
-        cx, cy, cz = interp_mapping(Nel, p, spl_kind, X, Y, Z)
+        cx, cy, cz = interp_mapping(num_elements, degree, spl_kind, X, Y, Z)
 
-        super().__init__(Nel=Nel, p=p, spl_kind=spl_kind, cx=cx, cy=cy, cz=cz)
+        super().__init__(num_elements=num_elements, degree=degree, spl_kind=spl_kind, cx=cx, cy=cy, cz=cz)
 
 
 class IGAPolarCylinder(PoloidalSplineStraight):
@@ -253,9 +261,9 @@ class IGAPolarCylinder(PoloidalSplineStraight):
 
     Parameters
     ----------
-    Nel : list[int]
+    num_elements : list[int]
         Number of cells in (radial, angular) direction used for spline mapping (default: [8, 24]).
-    p : list[int]
+    degree : list[int]
         Splines degrees in (radial, angular) direction used for spline mapping (default: [2, 3]).   
     a : float
         Radius of cylinder (default: 1.).
@@ -269,16 +277,16 @@ class IGAPolarCylinder(PoloidalSplineStraight):
         geometry :
             type : IGAPolarCylinder
             IGAPolarCylinder :
-                Nel : [8, 24] # number of poloidal grid cells, >p
-                p   : [3, 3] # poloidal spline degree, >1
+                num_elements : [8, 24] # number of poloidal grid cells, >degree
+                degree   : [3, 3] # poloidal spline degree, >1
                 Lz  : 6. # Length in third direction
                 a   : 1. # minor radius
     """
 
     def __init__(
         self,
-        Nel: tuple[int] = (8, 24),
-        p: tuple[int] = (2, 3),
+        num_elements: tuple[int] = (8, 24),
+        degree: tuple[int] = (2, 3),
         a: float = 1.0,
         Lz: float = 4.0,
     ):
@@ -294,14 +302,14 @@ class IGAPolarCylinder(PoloidalSplineStraight):
 
         spl_kind = (False, True)
 
-        cx, cy = interp_mapping(Nel, p, spl_kind, X, Y)
+        cx, cy = interp_mapping(num_elements, degree, spl_kind, X, Y)
 
         # make sure that control points at pole are all the same (eta1=0 there)
         cx[0] = 0.0
         cy[0] = 0.0
 
         # init base class
-        super().__init__(Nel=Nel, p=p, spl_kind=spl_kind, cx=cx, cy=cy, Lz=Lz)
+        super().__init__(num_elements=num_elements, degree=degree, spl_kind=spl_kind, cx=cx, cy=cy, Lz=Lz)
 
 
 class IGAPolarTorus(PoloidalSplineTorus):
@@ -320,9 +328,9 @@ class IGAPolarTorus(PoloidalSplineTorus):
 
     Parameters
     ----------
-    Nel : tuple[int]
+    num_elements : tuple[int]
         Number of cells in (radial, angular) direction used for spline mapping (default: [8, 24]).
-    p : tuple[int]
+    degree : tuple[int]
         Splines degrees in (radial, angular) direction used for spline mapping (default: [2, 3]).   
     a : float
         Minor radius of torus (default: 1.).
@@ -340,8 +348,8 @@ class IGAPolarTorus(PoloidalSplineTorus):
         geometry :
             type : IGAPolarTorus
             IGAPolarTorus :
-                Nel        : [8, 24] # number of poloidal grid cells, >p
-                p          : [3, 3] # poloidal spline degree, >1
+                num_elements        : [8, 24] # number of poloidal grid cells, >degree
+                degree          : [3, 3] # poloidal spline degree, >1
                 a          : 1. # minor radius
                 R0         : 3. # major radius
                 tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
@@ -350,8 +358,8 @@ class IGAPolarTorus(PoloidalSplineTorus):
 
     def __init__(
         self,
-        Nel: tuple[int] = (8, 24),
-        p: tuple[int] = (2, 3),
+        num_elements: tuple[int] = (8, 24),
+        degree: tuple[int] = (2, 3),
         a: float = 1.0,
         R0: float = 3.0,
         sfl: bool = False,
@@ -378,7 +386,7 @@ class IGAPolarTorus(PoloidalSplineTorus):
 
         spl_kind = (False, True)
 
-        cx, cy = interp_mapping(Nel, p, spl_kind, R, Z)
+        cx, cy = interp_mapping(num_elements, degree, spl_kind, R, Z)
 
         # make sure that control points at pole are all the same (eta1=0 there)
         cx[0] = R0
@@ -386,8 +394,8 @@ class IGAPolarTorus(PoloidalSplineTorus):
 
         # init base class
         super().__init__(
-            Nel=Nel,
-            p=p,
+            num_elements=num_elements,
+            degree=degree,
             spl_kind=spl_kind,
             cx=cx,
             cy=cy,

@@ -1,19 +1,31 @@
-name: "Install struphy in env"
+name: "Install struphy (in virtual environment)"
+
+description: 
 
 inputs:
+  env-name: 
+    default: ""
   optional-deps:
-    required: true
     default: 'dev'
 
 runs:
   using: composite
   steps:
-
     - name: Install struphy
       shell: bash
       run: |
+        if [ -n "${{ inputs.env-name }}" ] ; then
+          echo "Using env: ${{ inputs.env-name }}"
+          python3 -m venv ${{ inputs.env-name }}
+          source ${{ inputs.env-name }}/bin/activate
+        else
+          echo "No env specified, installing outside of any env"
+        fi
         pip install --upgrade pip
-        pip install ".[${{ inputs.optional-deps }}]"
+        pip install -U --upgrade-strategy eager ".[${{ inputs.optional-deps }}]"
         pip list
         struphy -h
-        struphy --refresh-models
+        PYTHON=$(which python)
+        STRUPHY_PATH=$($PYTHON -c "import struphy; print(struphy.__path__[0])")
+        echo "Struphy is installed at: $STRUPHY_PATH"
+        echo "STRUPHY_PATH=${STRUPHY_PATH}" >> $GITHUB_ENV
