@@ -4,19 +4,25 @@ description: ""
 
 inputs:
   submod-name:
-    description: ""
-    required: true
-    default: struphy-parameter-files
+    description: "Name of the submodule to check for changes"
+    required: false
+    default: feectools
+  start-dir:
+    description: "Directory where the first step should run"
+    required: false
+    default: .
 
 runs:
   using: composite
   steps:
     - name: Check for changes in submodule
       shell: bash
+      working-directory: ${{ inputs.start-dir }}
       # the following compares the base branch to the current head of the feature branch (I verified)!
       run: |
-        git diff --name-only HEAD~1 HEAD 
-        if git diff --name-only HEAD~1 HEAD -- ${{ inputs.submod-name }} | grep -q .; then
+        git log --oneline -n 50 
+        git diff --name-only origin/devel HEAD 
+        if git diff --name-only origin/devel HEAD -- ${{ inputs.submod-name }} | grep -q .; then
           echo "SUBMOD_CHANGED=true" >> $GITHUB_ENV
           echo "SUBMOD_NAME=${{ inputs.submod-name }}" >> $GITHUB_ENV
           exit 0
