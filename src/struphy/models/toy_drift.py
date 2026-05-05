@@ -232,7 +232,7 @@ class ToyDrift(StruphyModel):
 
 {PoissonFieldSolve.__doc__}
 
-**2. push_guiding_center_bx_estar.PushGuidingCenterBxEstar:**
+**2. PushGuidingCenterBxEstar:**
 
 {PushGuidingCenterBxEstar.__doc__}
 """

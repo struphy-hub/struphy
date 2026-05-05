@@ -444,7 +444,9 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
         r"\Omega": "Ω",
     }
 
-    for latex, unicode_sym in symbols.items():
+    # Replace longer commands first to avoid prefix collisions
+    # (e.g. \to must not rewrite \top).
+    for latex, unicode_sym in sorted(symbols.items(), key=lambda item: len(item[0]), reverse=True):
         result = result.replace(latex, unicode_sym)
 
     # Subscripts and Superscripts - handle with better heuristics

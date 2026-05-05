@@ -264,11 +264,11 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
 {ImplicitDiffusion.__doc__}
 
-**2. push_guiding_center_bx_estar.PushGuidingCenterBxEstar:**
+**2. PushGuidingCenterBxEstar:**
 
 {PushGuidingCenterBxEstar.__doc__}
 
-**3. push_guiding_center_parallel.PushGuidingCenterParallel:**
+**3. PushGuidingCenterParallel:**
 
 {PushGuidingCenterParallel.__doc__}
 """
