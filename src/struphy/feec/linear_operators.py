@@ -515,10 +515,8 @@ class BoundaryOperator(LinOpWithTransp):
 
         return out
 
-
     def transpose(self, conjugate=False):
         """
         Returns the transposed operator.
         """
         return BoundaryOperator(self._codomain, self._space_id, self.bc, codomain=self._domain)
-

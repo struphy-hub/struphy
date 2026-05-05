@@ -84,7 +84,7 @@ class Units:
         if not hasattr(self, "_j"):
             raise AttributeError("Must call Units.derive_units() to get full set of units.")
         return self._j
-    
+
     @property
     def nu(self):
         """Unit of dynamic viscosity in kg/(m·s)."""

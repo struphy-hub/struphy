@@ -260,7 +260,7 @@ class FEECVariable(Variable):
         if not hasattr(self, "_boundary_spline"):
             self._boundary_spline = None
         return self._boundary_spline
-    
+
     @property
     def spline_full(self) -> SplineFunction | None:
         """Full solution spline (lifting + zero-BC part) in the unconstrained space. Only allocated if lifting_function is not None."""
@@ -274,7 +274,7 @@ class FEECVariable(Variable):
         if not hasattr(self, "_boundary_op"):
             self._boundary_op = None
         return self._boundary_op
-    
+
     @property
     def boundary_op_lift(self) -> BoundaryOperator | None:
         """Boundary operator mapping from the unconstrained (lifted) space to the constrained space.
@@ -420,7 +420,6 @@ class FEECVariable(Variable):
                 ]
                 self.spline_lift.vector += self.derham_lift.projectors[derham.space_to_form[self.space]](fun)
 
-
             # other helper objects
             self._spline_0 = self.spline_lift.copy()
             self.spline_lift.vector.copy(out=self.spline_0.vector)
@@ -428,7 +427,9 @@ class FEECVariable(Variable):
 
             self._boundary_op = BoundaryOperator(self.spline_lift.space, self.space, derham.dirichlet_bc)
 
-            self._boundary_op_lift = BoundaryOperator(self.spline_lift.space, self.space, derham.dirichlet_bc, codomain=self._spline.space)
+            self._boundary_op_lift = BoundaryOperator(
+                self.spline_lift.space, self.space, derham.dirichlet_bc, codomain=self._spline.space
+            )
 
             self.compute_boundary_spline()
 
