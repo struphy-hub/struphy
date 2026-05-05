@@ -1,10 +1,10 @@
 name: Submodule feectools
 
-on:
-  pull_request:
-    branches:
-      - devel
-  workflow_dispatch:
+on: {}
+  # pull_request:
+  #   branches:
+  #     - devel
+  # workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
