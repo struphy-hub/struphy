@@ -1,15 +1,13 @@
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.io.options import LiteralOptions
+from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     FieldSpecies,
     FluidSpecies,
 )
 from struphy.models.variables import FEECVariable
-from struphy.propagators import (
-    propagators_fields,
-)
+from struphy.propagators.two_fluid_quasi_neutral_full import TwoFluidQuasiNeutralFull
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -42,7 +40,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.TwoFluidQuasiNeutralFull`
+    1. :class:`~struphy.propagators.two_fluid_quasi_neutral_full.TwoFluidQuasiNeutralFull`
 
     :ref:`Model info <add_model>`:
 
@@ -64,39 +62,77 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
             self.init_variables()
 
     class Ions(FluidSpecies):
-        def __init__(self):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+            epsilon: float = None,
+        ):
             self.u = FEECVariable(space="Hdiv")
-            self.init_variables()
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                epsilon=epsilon,
+            )
 
     class Electrons(FluidSpecies):
-        def __init__(self):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+            epsilon: float = None,
+        ):
             self.u = FEECVariable(space="Hdiv")
-            self.init_variables()
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                epsilon=epsilon,
+            )
 
     ## propagators
 
     class Propagators:
         def __init__(self):
-            self.qn_full = propagators_fields.TwoFluidQuasiNeutralFull()
+            self.qn_full = TwoFluidQuasiNeutralFull()
 
     ## abstract methods
 
-    def __init__(self):
+    def __init__(
+        self,
+        base_units: BaseUnits = BaseUnits(kBT=1.0),
+        ion_charge_number: int = 1,
+        ion_mass_number: float = 1.0,
+        ion_epsilon: float = None,
+        electron_charge_number: int = 1,
+        electron_mass_number: float = 1.0,
+        electron_epsilon: float = None,
+    ):
 
         # 1. instantiate all species
         self.em_fields = self.EMfields()
-        self.ions = self.Ions()
-        self.electrons = self.Electrons()
+        self.ions = self.Ions(
+            charge_number=ion_charge_number,
+            mass_number=ion_mass_number,
+            epsilon=ion_epsilon,
+        )
+        self.electrons = self.Electrons(
+            charge_number=electron_charge_number,
+            mass_number=electron_mass_number,
+            epsilon=electron_epsilon,
+        )
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators()
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.qn_full.variables.u = self.ions.u
         self.propagators.qn_full.variables.ue = self.electrons.u
         self.propagators.qn_full.variables.phi = self.em_fields.phi
 
-        # define scalars for update_scalar_quantities
+        # 5. define scalars to be tracked during simulation
 
     @property
     def bulk_species(self):
@@ -106,10 +142,92 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
     def velocity_scale(self):
         return "thermal"
 
-    def allocate_helpers(self, verbose: bool = False):
-        pass
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
 
-    def update_scalar_quantities(self):
+        Ion momentum:
+
+        .. math::
+
+            \frac{\partial \mathbf{u}}{\partial t} = -\nabla \phi + \frac{\mathbf{u} \times \mathbf{B}_0}{\varepsilon} + \nu \Delta \mathbf{u} + \mathbf{f}
+
+        Electron momentum:
+
+        .. math::
+
+            0 = \nabla \phi - \frac{\mathbf{u}_e \times \mathbf{B}_0}{\varepsilon} + \nu_e \Delta \mathbf{u}_e + \mathbf{f}_e
+
+        Quasi-neutrality constraint:
+
+        .. math::
+
+            \nabla \cdot (\mathbf{u} - \mathbf{u}_e) = 0
+
+        where :math:`\mathbf{B}_0` is a static magnetic field and :math:`\mathbf{f}, \mathbf{f}_e` are given forcing terms.
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""Thermal-speed scaling is used:
+
+        .. math::
+
+            \hat u = \hat v_\mathrm{th},\qquad e\hat\phi = m \hat v_\mathrm{th}^2.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - No default scalar diagnostics are defined by this model."""
+
+    @classmethod
+    def doc_discretization(cls):
+        doc = rf"""**1. TwoFluidQuasiNeutralFull:**
+
+{TwoFluidQuasiNeutralFull.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""TwoFluidQuasiNeutralToy is a reduced linear two-fluid benchmark with
+        zero electron inertia. It is meant for studying the quasi-neutral solve
+        and the coupled ion/electron velocity response in a simplified setting."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the quasi-neutral toy model:
+
+        .. code-block:: python
+
+            from struphy.models import TwoFluidQuasiNeutralToy
+
+            model = TwoFluidQuasiNeutralToy()
+            model.em_fields.phi
+            model.ions.u
+            model.electrons.u
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - linear quasi-neutral two-fluid benchmarks
+        - Stokes-like plasma model verification
+        - testing coupled velocity-potential FEEC solvers"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - nonlinear two-fluid dynamics
+        - finite electron inertia effects
+        - kinetic phase-space phenomena
+        - self-consistent electromagnetic wave propagation"""
+
+    def allocate_helpers(self, verbose: bool = False):
         pass
 
     ## default parameters

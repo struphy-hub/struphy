@@ -1,5 +1,6 @@
 "Propagator base class."
 
+import logging
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import Literal
@@ -13,8 +14,10 @@ from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
 from struphy.geometry.base import Domain
-from struphy.utils.utils import check_option
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
+from struphy.utils.utils import check_option
+
+logger = logging.getLogger("struphy")
 
 
 class Propagator(metaclass=ABCMeta):
@@ -22,9 +25,7 @@ class Propagator(metaclass=ABCMeta):
 
     Note
     ----
-    All Struphy propagators are subclasses of ``Propagator`` and must be added to ``struphy/propagators``
-    in one of the modules ``propagators_fields.py``, ``propagators_markers.py`` or ``propagators_coupling.py``.
-    Only propagators that update both a FEEC and a PIC species go into ``propagators_coupling.py``.
+    All Struphy propagators are subclasses of ``Propagator`` and must be added under ``struphy/propagators/``.
     """
 
     @abstractmethod
@@ -51,6 +52,11 @@ class Propagator(metaclass=ABCMeta):
     @abstractmethod
     @dataclass
     class Options:
+        """Template for configuration options of a propagator.
+
+        Subclasses should override this to define specific propagator options.
+        """
+
         # specific literals
         OptsTemplate = Literal["implicit", "explicit"]
         # propagator options
@@ -90,9 +96,9 @@ class Propagator(metaclass=ABCMeta):
 
     def show_options(self):
         """Print the options of the propagator."""
-        print(f"\nOptions for propagator '{self.__class__.__name__}':")
+        logger.info(f"\nOptions for propagator '{self.__class__.__name__}':")
         for k, v in self.options.__dict__.items():
-            print(f"    {k}:".ljust(20), v)
+            logger.info(f"    {k + ':':<20}{v}")
 
     def update_feec_variables(self, **new_coeffs):
         r"""Return max_diff = max(abs(new - old)) for each new_coeffs,
@@ -156,7 +162,7 @@ class Propagator(metaclass=ABCMeta):
         return self._derham
 
     @derham.setter
-    def derham(self, derham):
+    def derham(self, derham: Derham):
         assert isinstance(derham, Derham)
         self._derham = derham
 
@@ -168,7 +174,7 @@ class Propagator(metaclass=ABCMeta):
         return self._domain
 
     @domain.setter
-    def domain(self, domain):
+    def domain(self, domain: Domain):
         assert isinstance(domain, Domain)
         self._domain = domain
 
@@ -180,7 +186,7 @@ class Propagator(metaclass=ABCMeta):
         return self._mass_ops
 
     @mass_ops.setter
-    def mass_ops(self, mass_ops):
+    def mass_ops(self, mass_ops: WeightedMassOperators):
         assert isinstance(mass_ops, WeightedMassOperators)
         self._mass_ops = mass_ops
 
@@ -192,7 +198,7 @@ class Propagator(metaclass=ABCMeta):
         return self._basis_ops
 
     @basis_ops.setter
-    def basis_ops(self, basis_ops):
+    def basis_ops(self, basis_ops: BasisProjectionOperators):
         assert isinstance(basis_ops, BasisProjectionOperators)
         self._basis_ops = basis_ops
 
@@ -207,7 +213,7 @@ class Propagator(metaclass=ABCMeta):
         return self._projected_equil
 
     @projected_equil.setter
-    def projected_equil(self, new):
+    def projected_equil(self, new: ProjectedFluidEquilibriumWithB):
         assert isinstance(new, ProjectedFluidEquilibriumWithB)
         self._projected_equil = new
 

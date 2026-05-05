@@ -1,5 +1,6 @@
 import glob
 import importlib.util
+import logging
 import os
 import shutil
 import sys
@@ -12,104 +13,22 @@ from struphy.geometry.base import Domain
 from struphy.io.options import DerhamOptions
 from struphy.topology.grids import TensorProductGrid
 
+logger = logging.getLogger("struphy")
 
-def import_parameters_py(params_path: str) -> ModuleType:
-    """Import a .py parameter file under the module name 'parameters' and return it."""
+
+def import_parameters_py(params_path: str, name: str = "parameters") -> ModuleType:
+    """Import a .py parameter file under the given module name and return it.
+
+    The parameter file at ``params_path`` is loaded as a module using the
+    provided ``name``, which is also used as the key in ``sys.modules``.
+    By default, the module is registered under the name ``"parameters"``.
+    """
     assert ".py" in params_path
-    spec = importlib.util.spec_from_file_location("parameters", params_path)
+    spec = importlib.util.spec_from_file_location(name, params_path)
     params_in = importlib.util.module_from_spec(spec)
-    sys.modules["parameters"] = params_in
+    sys.modules[name] = params_in
     spec.loader.exec_module(params_in)
     return params_in
-
-
-def setup_derham(
-    grid: TensorProductGrid,
-    options: DerhamOptions,
-    comm: MPI.Intracomm = None,
-    domain: Domain = None,
-    verbose=False,
-):
-    """
-    Creates the 3d derham sequence for given grid parameters.
-
-    Parameters
-    ----------
-    grid : TensorProductGrid
-        The FEEC grid.
-
-    comm: Intracomm
-        MPI communicator (sub_comm if clones are used).
-
-    domain : Domain, optional
-        The Struphy domain object for evaluating the mapping F : [0, 1]^3 --> R^3 and the corresponding metric coefficients.
-
-    verbose : bool
-        Show info on screen.
-
-    Returns
-    -------
-    derham : struphy.feec.psydac_derham.Derham
-        Discrete de Rham sequence on the logical unit cube.
-    """
-
-    from struphy.feec.psydac_derham import Derham
-
-    # number of grid cells
-    Nel = grid.Nel
-    # mpi
-    mpi_dims_mask = grid.mpi_dims_mask
-
-    # spline degrees
-    p = options.p
-    # spline types (clamped vs. periodic)
-    spl_kind = options.spl_kind
-    # boundary conditions (Homogeneous Dirichlet or None)
-    dirichlet_bc = options.dirichlet_bc
-    # Number of quadrature points per histopolation cell
-    nq_pr = options.nq_pr
-    # Number of quadrature points per grid cell for L^2
-    nquads = options.nquads
-    # C^k smoothness at eta_1=0 for polar domains
-    polar_ck = options.polar_ck
-    # local commuting projectors
-    local_projectors = options.local_projectors
-
-    lifting = options.lifting
-
-    derham = Derham(
-        Nel,
-        p,
-        spl_kind,
-        dirichlet_bc=dirichlet_bc,
-        lifting=lifting,
-        nquads=nquads,
-        nq_pr=nq_pr,
-        comm=comm,
-        mpi_dims_mask=mpi_dims_mask,
-        with_projectors=True,
-        polar_ck=polar_ck,
-        domain=domain,
-        local_projectors=local_projectors,
-    )
-
-
-    if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-        print("\nDERHAM:")
-        print("number of elements:".ljust(25), Nel)
-        print("spline degrees:".ljust(25), p)
-        print("periodic bcs:".ljust(25), spl_kind)
-        print("hom. Dirichlet bc:".ljust(25), dirichlet_bc)
-        print("GL quad pts (L2):".ljust(25), nquads)
-        print("GL quad pts (hist):".ljust(25), nq_pr)
-        print(
-            "MPI proc. per dir.:".ljust(25),
-            derham.domain_decomposition.nprocs,
-        )
-        print("use polar splines:".ljust(25), derham.polar_ck == 1)
-        print("domain on process 0:".ljust(25), derham.domain_array[0])
-
-    return derham
 
 
 def descend_options_dict(
@@ -177,35 +96,35 @@ def descend_options_dict(
             out = copy.deepcopy(d)
 
     if verbose:
-        print(f"{d =}")
-        print(f"{out =}")
-        print(f"{d_default =}")
-        print(f"{d_opts =}")
-        print(f"{keys =}")
-        print(f"{depth =}")
-        print(f"{pop_again =}")
+        logger.info(f"{d =}")
+        logger.info(f"{out =}")
+        logger.info(f"{d_default =}")
+        logger.info(f"{d_opts =}")
+        logger.info(f"{keys =}")
+        logger.info(f"{depth =}")
+        logger.info(f"{pop_again =}")
 
     if verbose:
-        print(f"{d =}")
-        print(f"{out =}")
-        print(f"{d_default =}")
-        print(f"{d_opts =}")
-        print(f"{keys =}")
-        print(f"{depth =}")
-        print(f"{pop_again =}")
+        logger.info(f"{d =}")
+        logger.info(f"{out =}")
+        logger.info(f"{d_default =}")
+        logger.info(f"{d_opts =}")
+        logger.info(f"{keys =}")
+        logger.info(f"{depth =}")
+        logger.info(f"{pop_again =}")
 
     count = 0
     for key, val in d.items():
         count += 1
 
         if verbose:
-            print(f"\n{keys =} | {key =}, {type(val) =}, {count =}\n")
+            logger.info(f"\n{keys =} | {key =}, {type(val) =}, {count =}\n")
 
         if isinstance(val, list):
             # create default parameter dict "out"
 
             if verbose:
-                print(f"{val =}")
+                logger.info(f"{val =}")
 
             if d_default is None:
                 if len(keys) == 0:
@@ -243,10 +162,10 @@ def descend_options_dict(
                 out += [out_sublist]
 
             if verbose:
-                print(f"{out =}")
+                logger.info(f"{out =}")
 
             if verbose:
-                print(f"{out =}")
+                logger.info(f"{out =}")
 
         # recurse if necessary
         elif isinstance(val, dict):

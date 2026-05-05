@@ -1,27 +1,26 @@
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import BilinearEnergyFEEC, Scalars
 from struphy.models.species import (
     FieldSpecies,
 )
 from struphy.models.variables import FEECVariable
-from struphy.propagators import (
-    propagators_fields,
-)
-from struphy.propagators.base import Propagator
-from struphy.utils.docstring_converter import auto_convert_docstring
+from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
 
 rank = MPI.COMM_WORLD.Get_rank()
 
 
-@auto_convert_docstring
 class Maxwell(StruphyModel):
-    """Maxwell's equations in vacuum for electromagnetic field evolution."""
+    """Maxwell's equations in vacuum for electromagnetic field evolution.
 
-    @classmethod
-    def model_type(cls) -> LiteralOptions.ModelTypes:
-        return "Toy"
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    """
 
     ## species
 
@@ -35,26 +34,35 @@ class Maxwell(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.maxwell = propagators_fields.Maxwell()
+            self.maxwell = MaxwellWeakAmpere()
 
     ## abstract methods
 
-    def __init__(self):
+    def __init__(self, base_units: BaseUnits = BaseUnits()):
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators()
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.maxwell.variables.e = self.em_fields.e_field
         self.propagators.maxwell.variables.b = self.em_fields.b_field
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("electric energy")
-        self.add_scalar("magnetic energy")
-        self.add_scalar("total energy")
+        # 5. define scalars to be tracked during simulation
+        electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
+        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
+        total_energy = electric_energy + magnetic_energy
+
+        self.scalars = Scalars(
+            electric_energy=electric_energy,
+            magnetic_energy=magnetic_energy,
+            total_energy=total_energy,
+        )
 
     @property
     def bulk_species(self):
@@ -67,89 +75,85 @@ class Maxwell(StruphyModel):
     def allocate_helpers(self, verbose: bool = False):
         pass
 
-    def update_scalar_quantities(self):
-        en_E = 0.5 * Propagator.mass_ops.M1.dot_inner(
-            self.em_fields.e_field.spline.vector,
-            self.em_fields.e_field.spline.vector,
-        )
-        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(
-            self.em_fields.b_field.spline.vector,
-            self.em_fields.b_field.spline.vector,
-        )
+    ## abstract methods for documentation
 
-        self.update_scalar("electric energy", en_E)
-        self.update_scalar("magnetic energy", en_B)
-        self.update_scalar("total energy", en_E + en_B)
+    @classmethod
+    def model_type(cls) -> LiteralOptions.ModelTypes:
+        return "Toy"
 
-    __doc_rst__ = r"""
-Maxwell's equations in vacuum for electromagnetic field evolution.
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
 
-This model simulates the propagation of electromagnetic waves in vacuum using Maxwell's equations
-without sources. It uses a finite element exterior calculus (FEEC) formulation with the electric field
-in H(curl) and the magnetic field in H(div) spaces.
+        Ampère's law (no current):
 
-**Governing Equations**
+        .. math::
 
-Ampère's law (no current):
+            \frac{\partial \mathbf{E}}{\partial t} - \nabla \times \mathbf{B} = 0
 
-.. math::
+        Faraday's law:
 
-    \frac{\partial \mathbf E}{\partial t} - \nabla\times\mathbf B = 0
+        .. math::
 
-Faraday's law:
+            \frac{\partial \mathbf{B}}{\partial t} + \nabla \times \mathbf{E} = 0
+        """
 
-.. math::
+    @classmethod
+    def doc_normalization(cls):
+        r"""Velocity and fields are normalized as:
 
-    \frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0
+        .. math::
 
-**Normalization**
+            \hat v = c\,,\qquad \hat E = c \hat B
 
-Fields are normalized such that:
+        where :math:`c` is the speed of light."""
 
-.. math::
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
 
-    \hat E = c \hat B
+        - Electric energy: :math:`E_E = \frac{1}{2} \int |\mathbf E|^2 \, dV`
+        - Magnetic energy: :math:`E_B = \frac{1}{2} \int |\mathbf B|^2 \, dV`
+        - Total energy: :math:`E_{total} = E_E + E_B`"""
 
-where :math:`c` is the speed of light.
+    @classmethod
+    def doc_discretization(cls):
+        """Propagators:
 
-**Species**
-
-- ``em_fields.e_field`` - Electric field (H(curl) space)
-- ``em_fields.b_field`` - Magnetic field (H(div) space)
-
-**Propagators**
-
-1. :class:`~struphy.propagators.propagators_fields.Maxwell` - Time integration scheme
-
-**Scalar Quantities**
-
-The following quantities are tracked during simulation:
-
-- Electric energy: :math:`E_E = \frac{1}{2} \int |\mathbf E|^2 \, dV`
-- Magnetic energy: :math:`E_B = \frac{1}{2} \int |\mathbf B|^2 \, dV`
-- Total energy: :math:`E_{total} = E_E + E_B`
-
-**Model Properties**
-
-- **Model type:** Toy
-- **Velocity scale:** Speed of light
-- **Bulk species:** None
-
-**See Also**
-
-- :class:`~struphy.models.base.StruphyModel` - Base class for all Struphy models
-- :class:`~struphy.propagators.propagators_fields.Maxwell` - Maxwell propagator implementation
-
-**Examples**
-
-Create and initialize a Maxwell model:
-
-.. code-block:: python
-
-    from struphy.models.maxwell import Maxwell
-    
-    model = Maxwell()
-    # Fields are accessible via:
-    # model.em_fields.e_field
-    # model.em_fields.b_field
+        1. :class:`~struphy.propagators.maxwell.Maxwell`
+        """
+        doc = rf"""**1. propagators.maxwell.Maxwell:**
+        
+{MaxwellWeakAmpere.__doc__}
 """
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""This model simulates the propagation of electromagnetic waves in vacuum
+        using Maxwell's equations without sources.
+        It uses a finite element exterior calculus (FEEC) formulation
+        with the electric field in H(curl) and the magnetic field in H(div) spaces."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize a Maxwell model:
+
+        .. code-block:: python
+
+            from struphy.models import Maxwell
+
+            model = Maxwell()
+            # Fields are accessible via:
+            model.em_fields.e_field
+            model.em_fields.b_field
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        """Propagation of electromagnetic waves in vacuum."""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        """Plasma dynamics, plasma-field interactions, or any scenario involving charged particles.
+        This model does not include any particle species or coupling to matter."""

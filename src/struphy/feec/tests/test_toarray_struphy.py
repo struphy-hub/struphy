@@ -1,14 +1,24 @@
+import logging
+
 import pytest
 
+logger = logging.getLogger("struphy")
 
-@pytest.mark.parametrize("Nel", [[12, 5, 2], [8, 12, 4], [5, 4, 12]])
-@pytest.mark.parametrize("p", [[3, 2, 1]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True], [True, False, False]])
+
+@pytest.mark.parametrize("num_elements", [[12, 5, 2], [8, 12, 4], [5, 4, 12]])
+@pytest.mark.parametrize("degree", [[3, 2, 1]])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (None, ("free", "free"), ("free", "free")),
+    ],
+)
 @pytest.mark.parametrize(
     "mapping",
     [["Cuboid", {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 100.0, "r3": 200.0}]],
 )
-def test_toarray_struphy(Nel, p, spl_kind, mapping):
+def test_toarray_struphy(num_elements, degree, bcs, mapping):
     """
     TODO
     """
@@ -20,6 +30,8 @@ def test_toarray_struphy(Nel, p, spl_kind, mapping):
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -33,7 +45,9 @@ def test_toarray_struphy(Nel, p, spl_kind, mapping):
     domain = domain_class(**dom_params)
 
     # create derham object
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # assemble mass matrices in V0 and V1
     mass = WeightedMassOperators(derham, domain)
@@ -44,15 +58,15 @@ def test_toarray_struphy(Nel, p, spl_kind, mapping):
     M3 = mass.M3
 
     # random vectors
-    v0arr, v0 = create_equal_random_arrays(derham.Vh_fem["0"], seed=4568)
-    v1arr1, v1 = create_equal_random_arrays(derham.Vh_fem["1"], seed=4568)
-    v2arr1, v2 = create_equal_random_arrays(derham.Vh_fem["2"], seed=4568)
-    v3arr, v3 = create_equal_random_arrays(derham.Vh_fem["3"], seed=4568)
+    v0arr, v0 = create_equal_random_arrays(derham.V0fem, seed=4568)
+    v1arr1, v1 = create_equal_random_arrays(derham.V1fem, seed=4568)
+    v2arr1, v2 = create_equal_random_arrays(derham.V2fem, seed=4568)
+    v3arr, v3 = create_equal_random_arrays(derham.V3fem, seed=4568)
 
     # ========= test toarray_struphy =================
     # Get the matrix form of the linear operators M0 to M3
     M0arr = M0.toarray_struphy()
-    print("M0 done.")
+    logger.info("M0 done.")
     M1arr = M1.toarray_struphy()
     M2arr = M2.toarray_struphy()
     M3arr = M3.toarray_struphy()
@@ -92,7 +106,7 @@ def test_toarray_struphy(Nel, p, spl_kind, mapping):
     compare_arrays(M2.dot(v2), xp.matmul(IM2, v2arr), rank)
     compare_arrays(M3.dot(v3), xp.matmul(IM3, v3arr), rank)
 
-    print("test_toarray_struphy passed!")
+    logger.info("test_toarray_struphy passed!")
 
     # assert xp.allclose(out1.toarray(), v1.toarray(), atol=1e-5)
 

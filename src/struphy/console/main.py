@@ -4,6 +4,7 @@ import argparse
 import glob
 import importlib
 import importlib.metadata
+import logging
 import os
 import pickle
 import site
@@ -19,12 +20,14 @@ import struphy
 import struphy.models.utils as models_utils
 from struphy.utils import utils
 
+logger = logging.getLogger("struphy")
+
 libpath = struphy.__path__[0]
 __version__ = importlib.metadata.version("struphy")
 
 # version message
 version_message = f"Struphy {__version__}\n"
-version_message += "Copyright 2019-2025 (c) Struphy dev team | Max Planck Institute for Plasma Physics\n"
+version_message += "Copyright 2019-2026 (c) Struphy dev team | Max Planck Institute for Plasma Physics\n"
 version_message += "MIT license\n"
 
 
@@ -111,8 +114,10 @@ def struphy():
 
     for flag, message in model_flags:
         if flag:
-            print(message)
-            print("For more info on Struphy models, visit https://struphy-hub.github.io/struphy/sections/models.html")
+            logger.info(message)
+            logger.info(
+                "For more info on Struphy models, visit https://struphy-hub.github.io/struphy/sections/models.html"
+            )
             sys.exit(0)
 
     # load sub-command function
@@ -152,7 +157,7 @@ def struphy():
 
     # start sub-command function with all parameters of that function
     # for k, v in kwargs.items():
-    #     print(k, v)
+    #     logger.info(k, v)
     func(**kwargs)
 
 
@@ -596,10 +601,10 @@ def print_short_help(parser):
     lines = parser.format_help().splitlines()
     bool_1 = [i for i, x in enumerate(lines) if "Struphy" in x]
     bool_2 = [i for i, x in enumerate(lines) if "available commands:" in x]
-    print(lines[bool_1[0]])
-    print(lines[bool_1[0] + 1])
+    logger.info(lines[bool_1[0]])
+    logger.info(lines[bool_1[0] + 1])
     for li in lines[bool_2[0] :]:
-        print(li)
+        logger.info(li)
 
 
 class NoSubparsersMetavarFormatter(HelpFormatter):
@@ -699,19 +704,19 @@ def is_installed_editable(package_name):
         pip_show_output = subprocess.check_output(["pip", "show", package_name], text=True)
 
         if "Editable project location" in pip_show_output:
-            # print(f"{package_name} is installed in editable mode.")
+            # logger.info(f"{package_name} is installed in editable mode.")
             return True
 
     except subprocess.CalledProcessError as e:
-        print("Error while checking pip show:", e)
+        logger.info(f"Error while checking pip show: {e}")
         return False
 
     for path in site.getsitepackages():
         editable_file = os.path.join(path, f"__editable__.{package_name.replace('-', '_')}-*.pth")
         if any(os.path.exists(f) for f in glob.glob(editable_file)):
-            # print(f"{package_name} is installed in editable mode.")
-            # print(f"{editable_file} found in site-packages")
+            # logger.info(f"{package_name} is installed in editable mode.")
+            # logger.info(f"{editable_file} found in site-packages")
             return True
 
-    # print(f"{package_name} is not installed in editable mode.")
+    # logger.info(f"{package_name} is not installed in editable mode.")
     return False

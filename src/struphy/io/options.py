@@ -1,68 +1,28 @@
+import logging
 import os
-from dataclasses import dataclass
-from typing import Literal
+from dataclasses import dataclass, fields
+from typing import Any, Callable, Literal
 
-from struphy.utils.utils import check_option
+from struphy.utils.utils import (
+    __class_with_params_repr_no_defaults__,
+    __dataclass_repr_no_defaults__,
+    all_class_params_are_default,
+    check_option,
+)
 
-import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
+logger = logging.getLogger("struphy")
 
-## Literal options
 
-# time
-SplitAlgos = Literal["LieTrotter", "Strang"]
+class OptionsBase:
+    def to_dict(self) -> dict:
+        """Convert dataclass instance to dictionary."""
+        return {field.name: getattr(self, field.name) for field in fields(type(self)) if field.init}
 
-# derham
-PolarRegularity = Literal[-1, 1]
-OptsFEECSpace = Literal["H1", "Hcurl", "Hdiv", "L2", "H1vec"]
-OptsVecSpace = Literal["Hcurl", "Hdiv", "H1vec"]
-
-# fields background
-BackgroundTypes = Literal["LogicalConst", "FluidEquilibrium"]
-
-# perturbations
-NoiseDirections = Literal["e1", "e2", "e3", "e1e2", "e1e3", "e2e3", "e1e2e3"]
-GivenInBasis = Literal["0", "1", "2", "3", "v", "physical", "physical_at_eta", "norm", None]
-
-# solvers
-OptsSymmSolver = Literal["pcg", "cg"]
-OptsGenSolver = Literal["pbicgstab", "bicgstab", "gmres"]
-OptsMassPrecond = Literal["MassMatrixPreconditioner", "MassMatrixDiagonalPreconditioner", None]
-OptsSaddlePointSolver = Literal["Uzawa", "GMRES"]  # todo
-OptsDirectSolver = Literal["SparseSolver", "ScipySparse", "InexactNPInverse", "DirectNPInverse"]
-OptsNonlinearSolver = Literal["Picard", "Newton"]
-
-# markers
-OptsPICSpace = Literal["Particles6D", "DeltaFParticles6D", "Particles5D", "Particles3D"]
-OptsMarkerBC = Literal["periodic", "reflect"]
-OptsRecontructBC = Literal["periodic", "mirror", "fixed"]
-OptsLoading = Literal[
-    "pseudo_random",
-    "sobol_standard",
-    "sobol_antithetic",
-    "external",
-    "restart",
-    "tesselation",
-]
-OptsSpatialLoading = Literal["uniform", "disc"]
-OptsMPIsort = Literal["each", "last", None]
-
-# filters
-OptsFilter = Literal["fourier_in_tor", "hybrid", "three_point", None]
-
-# sph
-OptsKernel = Literal[
-    "trigonometric_1d",
-    "gaussian_1d",
-    "linear_1d",
-    "trigonometric_2d",
-    "gaussian_2d",
-    "linear_2d",
-    "trigonometric_3d",
-    "gaussian_3d",
-    "linear_isotropic_3d",
-    "linear_3d",
-]
+    @classmethod
+    def from_dict(cls, dct) -> "Any":
+        """Create dataclass instance from dictionary."""
+        valid_fields = {field.name for field in fields(cls) if field.init}
+        return cls(**{key: value for key, value in dct.items() if key in valid_fields})
 
 
 @dataclass
@@ -86,9 +46,9 @@ class LiteralOptions:
     SplitAlgos = Literal["LieTrotter", "Strang"]
 
     # derham
-    PolarRegularity = Literal[-1, 1]
     OptsFEECSpace = Literal["H1", "Hcurl", "Hdiv", "L2", "H1vec"]
     OptsVecSpace = Literal["Hcurl", "Hdiv", "H1vec"]
+    OptsNonTrivialBoundaryCondition = Literal["free", "dirichlet"]
 
     # fields background
     BackgroundTypes = Literal["LogicalConst", "FluidEquilibrium"]
@@ -112,7 +72,7 @@ class LiteralOptions:
     # markers
     OptsPICSpace = Literal["Particles6D", "DeltaFParticles6D", "Particles5D", "Particles3D"]
     OptsMarkerBC = Literal["periodic", "reflect"]
-    OptsRecontructBC = Literal["periodic", "mirror", "fixed"]
+    OptsRecontructBC = Literal["periodic", "mirror", "fixed", "noslip"]
     OptsLoading = Literal[
         "pseudo_random",
         "sobol_standard",
@@ -158,17 +118,9 @@ class LiteralOptions:
         "heat_flux_3",
     ]
 
-    def to_dict(self) -> dict:
-        dct = {k: v for k, v in self.__dict__.items()}
-        return dct
-
-    @classmethod
-    def from_dict(cls, dct) -> "LiteralOptions":
-        return cls(**dct)
-
 
 @dataclass
-class Time:
+class Time(OptionsBase):
     """Set options for time stepping in parameter/launch files.
 
     Parameters
@@ -192,7 +144,7 @@ class Time:
 
     def __str__(self):
         for k, v in self.__dict__.items():
-            print(f"{k}:".ljust(20), v)
+            logger.info(f"{k + ':':<20}{v}")
         return ""
 
     def __repr_no_defaults__(self):
@@ -202,25 +154,9 @@ class Time:
     def is_default(self):
         return all_class_params_are_default(self)
 
-    def to_dict(self) -> dict:
-        dct = {
-            "dt": self.dt,
-            "Tend": self.Tend,
-            "split_algo": self.split_algo,
-        }
-        return dct
-
-    @classmethod
-    def from_dict(cls, dct) -> "Time":
-        return cls(
-            dt=dct["dt"],
-            Tend=dct["Tend"],
-            split_algo=dct["split_algo"],
-        )
-
 
 @dataclass
-class BaseUnits:
+class BaseUnits(OptionsBase):
     """Set base units in parameter/launch files from which other units are derived. See :ref:`normalization`.
 
     Parameters
@@ -247,7 +183,7 @@ class BaseUnits:
     def __str__(self):
         units = ["m", "T", "1e20/m^3", "keV"]
         for (k, v), unit in zip(self.__dict__.items(), units):
-            print(f"{k}:".ljust(20), v, unit)
+            logger.info(f"{k + ':':<20}{v} {unit}")
         return ""
 
     def __repr_no_defaults__(self):
@@ -257,73 +193,69 @@ class BaseUnits:
     def is_default(self):
         return all_class_params_are_default(self)
 
-    def to_dict(self) -> dict:
-        dct = {
-            "x": self.x,
-            "B": self.B,
-            "n": self.n,
-            "kBT": self.kBT,
-        }
-        return dct
 
-    @classmethod
-    def from_dict(cls, dct) -> "BaseUnits":
-        return cls(
-            x=dct["x"],
-            B=dct["B"],
-            n=dct["n"],
-            kBT=dct.get("kBT", None),
-        )
+NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
 
 
 @dataclass
-class DerhamOptions:
-    """Set options for the Derham spaces in parameter/launch files. See :ref:`geomFE`.
+class DerhamOptions(OptionsBase):
+    """Set options for the 3D discrete de Rham spaces in parameter/launch files.
+
+    This dataclass controls spline degrees, boundary conditions and quadrature
+    settings used to build the FEEC de Rham sequence. See :ref:`geomFE`.
 
     Parameters
     ----------
-    p : tuple[int]
-        Spline degree in each direction.
+    degree : tuple[int, int, int]
+        Spline degree in each logical direction ``(eta_1, eta_2, eta_3)``.
 
-    spl_kind : tuple[bool]
-        Kind of spline in each direction (True=periodic, False=clamped).
+    bcs : tuple[None | tuple[NonTrivialBC, NonTrivialBC], None | tuple[NonTrivialBC, NonTrivialBC], None | tuple[NonTrivialBC, NonTrivialBC]]
+        Boundary condition selector for each direction.
+        Use ``None`` in a direction for periodic boundaries, or a tuple
+        ``(left, right)`` with entries in ``{"free", "dirichlet"}`` for non-periodic boundaries.
 
-    dirichlet_bc : tuple[tuple[bool]]
-        Whether to apply homogeneous Dirichlet boundary conditions (at left or right boundary in each direction).
+    nquads : tuple[int, int, int] | None
+        Number of Gauss-Legendre quadrature points per direction for cell
+        integrals. If ``None``, backend defaults are used.
 
-    lifting : tuple[tuple[bool]]
-        Whether to build a constrained (v0) sub-complex with additional clamping on each face.
-        Used for inhomogeneous Dirichlet BCs: the v0 complex clamps faces where
-        lifting is True, and the propagator builds a lift in the unconstrained space.
+    nquads_proj : tuple[int, int, int] | None
+        Number of Gauss-Legendre quadrature points per direction for geometric
+        projector/histopolation integrals. If ``None``, backend defaults are
+        used.
 
-    nquads : tuple[int]
-        Number of Gauss-Legendre quadrature points in each direction (default = p, leads to exact integration of degree 2p-1 polynomials).
-
-    nq_pr : tuple[int]
-        Number of Gauss-Legendre quadrature points in each direction for geometric projectors (default = p+1, leads to exact integration of degree 2p+1 polynomials).
-
-    polar_ck : PolarRegularity
-        Smoothness at a polar singularity at eta_1=0 (default -1 : standard tensor product splines, OR 1 : C1 polar splines)
+    polar_splines : bool
+        Smoothness at a possible polar singularity at ``eta_1 = 0``.
+        ``False`` gives standard tensor-product splines, ``True`` gives C1 polar
+        splines.
 
     local_projectors : bool
-        Whether to build the local commuting projectors based on quasi-inter-/histopolation.
+        Whether to build local commuting projectors based on
+        quasi-inter-/histopolation.
     """
 
-    p: tuple = (1, 1, 1)
-    spl_kind: tuple = (True, True, True)
-    dirichlet_bc: tuple = ((False, False), (False, False), (False, False))
-    lifting: tuple = ((False, False), (False, False), (False, False))
-    nquads: tuple = None
-    nq_pr: tuple = None
-    polar_ck: LiteralOptions.PolarRegularity = -1
+    degree: tuple[int, int, int] = (1, 1, 1)
+    bcs: tuple[
+        None | tuple[NonTrivialBC, NonTrivialBC],
+        None | tuple[NonTrivialBC, NonTrivialBC],
+        None | tuple[NonTrivialBC, NonTrivialBC],
+    ] = (None, None, None)
+    nquads: tuple[int, int, int] | None = None
+    nquads_proj: tuple[int, int, int] | None = None
+    polar_splines: bool = False
     local_projectors: bool = False
 
     def __post_init__(self):
-        check_option(self.polar_ck, LiteralOptions.PolarRegularity)
+        for bc in self.bcs:
+            if bc is not None:
+                assert isinstance(bc, tuple) and len(bc) == 2, (
+                    "Boundary conditions must be given as a tuple (left, right) for each direction."
+                )
+                check_option(bc[0], LiteralOptions.OptsNonTrivialBoundaryCondition)
+                check_option(bc[1], LiteralOptions.OptsNonTrivialBoundaryCondition)
 
     def __str__(self):
         for k, v in self.__dict__.items():
-            print(f"{k}:".ljust(20), v)
+            logger.info(f"{k + ':':<20}{v}")
         return ""
 
     def __repr_no_defaults__(self):
@@ -333,35 +265,9 @@ class DerhamOptions:
     def is_default(self):
         return all_class_params_are_default(self)
 
-    def to_dict(self) -> dict:
-        dct = {
-            "p": self.p,
-            "spl_kind": self.spl_kind,
-            "dirichlet_bc": self.dirichlet_bc,
-            "lifting": self.lifting,
-            "nquads": self.nquads,
-            "nq_pr": self.nq_pr,
-            "polar_ck": self.polar_ck,
-            "local_projectors": self.local_projectors,
-        }
-        return dct
-
-    @classmethod
-    def from_dict(cls, dct) -> "DerhamOptions":
-        return cls(
-            p=dct["p"],
-            spl_kind=dct["spl_kind"],
-            dirichlet_bc=dct["dirichlet_bc"],
-            lifting=dct.get("lifting", ((False, False), (False, False), (False, False))),
-            nquads=dct["nquads"],
-            nq_pr=dct["nq_pr"],
-            polar_ck=dct["polar_ck"],
-            local_projectors=dct["local_projectors"],
-        )
-
 
 @dataclass
-class FieldsBackground:
+class FieldsBackground(OptionsBase):
     """Set options for static fluid backgrounds/equilibria in parameter/launch files.
 
     Parameters
@@ -386,7 +292,7 @@ class FieldsBackground:
 
     def __str__(self):
         for k, v in self.__dict__.items():
-            print(f"{k}:".ljust(20), v)
+            logger.info(f"{k + ':':<20}{v}")
         return ""
 
     def __repr_no_defaults__(self):
@@ -396,25 +302,9 @@ class FieldsBackground:
     def is_default(self):
         return all_class_params_are_default(self)
 
-    def to_dict(self) -> dict:
-        dct = {
-            "type": self.type,
-            "values": self.values,
-            "variable": self.variable,
-        }
-        return dct
-
-    @classmethod
-    def from_dict(cls, dct) -> "FieldsBackground":
-        return cls(
-            type=dct["type"],
-            values=dct["values"],
-            variable=dct["variable"],
-        )
-
 
 @dataclass
-class EnvironmentOptions:
+class EnvironmentOptions(OptionsBase):
     """Set environment options for launching run on current architecture
     (these options do not influence the simulation result).
 
@@ -464,7 +354,7 @@ class EnvironmentOptions:
 
     def __str__(self):
         for k, v in self.__dict__.items():
-            print(f"{k}:".ljust(20), v)
+            logger.info(f"{k + ':':<20}{v}")
         return ""
 
     def __repr_no_defaults__(self):
@@ -473,31 +363,3 @@ class EnvironmentOptions:
     @property
     def is_default(self):
         return all_class_params_are_default(self)
-
-    def to_dict(self) -> dict:
-        dct = {
-            "out_folders": self.out_folders,
-            "sim_folder": self.sim_folder,
-            "restart": self.restart,
-            "max_runtime": self.max_runtime,
-            "save_step": self.save_step,
-            "sort_step": self.sort_step,
-            "num_clones": self.num_clones,
-            "profiling_activated": self.profiling_activated,
-            "profiling_trace": self.profiling_trace,
-        }
-        return dct
-
-    @classmethod
-    def from_dict(cls, dct) -> "EnvironmentOptions":
-        return cls(
-            out_folders=dct["out_folders"],
-            sim_folder=dct["sim_folder"],
-            restart=dct["restart"],
-            max_runtime=dct["max_runtime"],
-            save_step=dct["save_step"],
-            sort_step=dct["sort_step"],
-            num_clones=dct["num_clones"],
-            profiling_activated=dct["profiling_activated"],
-            profiling_trace=dct["profiling_trace"],
-        )

@@ -113,7 +113,7 @@ def get_dofs_local_1_form_ec_component_weighted(
         c : int
             This int tell us whichone of the three components of the 1-form vector we are dealing with. It must be 0, 1 or 2.
     """
-    p = args_solve.p[c]
+    p = args_solve.degree[c]
 
     for i in range(shape(f_eval_aux)[0]):
         if c == 0:
@@ -193,7 +193,7 @@ def get_dofs_local_1_form_ec_component(
     shp = zeros(3, dtype=int)
     shp[:] = shape(f_eval_aux)
 
-    p = args_solve.p[c]
+    p = args_solve.degree[c]
     if c == 0:
         wts = args_solve.wts0
         inv_index_translation = args_solve.inv_index_translation0
@@ -253,30 +253,30 @@ def get_dofs_local_2_form_ec_component(
         for j in range(shp[1]):
             for k in range(shp[2]):
                 if c == 0:
-                    in_start_a = j * args_solve.p[1]
-                    in_start_b = k * args_solve.p[2]
-                    for jj in range(args_solve.p[1]):
-                        for kk in range(args_solve.p[2]):
+                    in_start_a = j * args_solve.degree[1]
+                    in_start_b = k * args_solve.degree[2]
+                    for jj in range(args_solve.degree[1]):
+                        for kk in range(args_solve.degree[2]):
                             f_eval_aux[i, j, k] += (
                                 fc[i, in_start_a + jj, in_start_b + kk]
                                 * args_solve.wts1[args_solve.inv_index_translation1[j], jj]
                                 * args_solve.wts2[args_solve.inv_index_translation2[k], kk]
                             )
                 elif c == 1:
-                    in_start_a = i * args_solve.p[0]
-                    in_start_b = k * args_solve.p[2]
-                    for jj in range(args_solve.p[0]):
-                        for kk in range(args_solve.p[2]):
+                    in_start_a = i * args_solve.degree[0]
+                    in_start_b = k * args_solve.degree[2]
+                    for jj in range(args_solve.degree[0]):
+                        for kk in range(args_solve.degree[2]):
                             f_eval_aux[i, j, k] += (
                                 fc[in_start_a + jj, j, in_start_b + kk]
                                 * args_solve.wts0[args_solve.inv_index_translation0[i], jj]
                                 * args_solve.wts2[args_solve.inv_index_translation2[k], kk]
                             )
                 elif c == 2:
-                    in_start_a = i * args_solve.p[0]
-                    in_start_b = j * args_solve.p[1]
-                    for jj in range(args_solve.p[0]):
-                        for kk in range(args_solve.p[1]):
+                    in_start_a = i * args_solve.degree[0]
+                    in_start_b = j * args_solve.degree[1]
+                    for jj in range(args_solve.degree[0]):
+                        for kk in range(args_solve.degree[1]):
                             f_eval_aux[i, j, k] += (
                                 fc[in_start_a + jj, in_start_b + kk, k]
                                 * args_solve.wts0[args_solve.inv_index_translation0[i], jj]
@@ -349,10 +349,10 @@ def get_dofs_local_2_form_ec_component_weighted(
                             computek = arezero_b[k] != 0
                         if computek:
                             if c == 0:
-                                in_start_a = j * args_solve.p[1]
-                                in_start_b = k * args_solve.p[2]
-                                for jj in range(args_solve.p[1]):
-                                    for kk in range(args_solve.p[2]):
+                                in_start_a = j * args_solve.degree[1]
+                                in_start_b = k * args_solve.degree[2]
+                                for jj in range(args_solve.degree[1]):
+                                    for kk in range(args_solve.degree[2]):
                                         f_eval_aux[i, j, k] += (
                                             fc[i, in_start_a + jj, in_start_b + kk]
                                             * basis0[i]
@@ -363,10 +363,10 @@ def get_dofs_local_2_form_ec_component_weighted(
                                         )
 
                             elif c == 1:
-                                in_start_a = i * args_solve.p[0]
-                                in_start_b = k * args_solve.p[2]
-                                for jj in range(args_solve.p[0]):
-                                    for kk in range(args_solve.p[2]):
+                                in_start_a = i * args_solve.degree[0]
+                                in_start_b = k * args_solve.degree[2]
+                                for jj in range(args_solve.degree[0]):
+                                    for kk in range(args_solve.degree[2]):
                                         f_eval_aux[i, j, k] += (
                                             fc[in_start_a + jj, j, in_start_b + kk]
                                             * basis0[in_start_a + jj]
@@ -377,10 +377,10 @@ def get_dofs_local_2_form_ec_component_weighted(
                                         )
 
                             elif c == 2:
-                                in_start_a = i * args_solve.p[0]
-                                in_start_b = j * args_solve.p[1]
-                                for jj in range(args_solve.p[0]):
-                                    for kk in range(args_solve.p[1]):
+                                in_start_a = i * args_solve.degree[0]
+                                in_start_b = j * args_solve.degree[1]
+                                for jj in range(args_solve.degree[0]):
+                                    for kk in range(args_solve.degree[1]):
                                         f_eval_aux[i, j, k] += (
                                             fc[in_start_a + jj, in_start_b + kk, k]
                                             * basis0[in_start_a + jj]
@@ -412,12 +412,12 @@ def get_dofs_local_3_form(args_solve: LocalProjectorsArguments, faux: "float[:,:
     for i in range(shp[0]):
         for j in range(shp[1]):
             for k in range(shp[2]):
-                in_start_1 = i * args_solve.p[0]
-                in_start_2 = j * args_solve.p[1]
-                in_start_3 = k * args_solve.p[2]
-                for ii in range(args_solve.p[0]):
-                    for jj in range(args_solve.p[1]):
-                        for kk in range(args_solve.p[2]):
+                in_start_1 = i * args_solve.degree[0]
+                in_start_2 = j * args_solve.degree[1]
+                in_start_3 = k * args_solve.degree[2]
+                for ii in range(args_solve.degree[0]):
+                    for jj in range(args_solve.degree[1]):
+                        for kk in range(args_solve.degree[2]):
                             f_eval[i, j, k] += (
                                 faux[
                                     in_start_1 + ii,
@@ -479,12 +479,12 @@ def get_dofs_local_3_form_weighted(
                 if arezero1[j] != 0:
                     for k in range(shape(f_eval)[2]):
                         if arezero2[k] != 0:
-                            in_start_1 = i * args_solve.p[0]
-                            in_start_2 = j * args_solve.p[1]
-                            in_start_3 = k * args_solve.p[2]
-                            for ii in range(args_solve.p[0]):
-                                for jj in range(args_solve.p[1]):
-                                    for kk in range(args_solve.p[2]):
+                            in_start_1 = i * args_solve.degree[0]
+                            in_start_2 = j * args_solve.degree[1]
+                            in_start_3 = k * args_solve.degree[2]
+                            for ii in range(args_solve.degree[0]):
+                                for jj in range(args_solve.degree[1]):
+                                    for kk in range(args_solve.degree[2]):
                                         f_eval[i, j, k] += (
                                             faux[
                                                 in_start_1 + ii,
@@ -588,7 +588,7 @@ def solve_local_main_loop(args_solve: LocalProjectorsArguments, rhs: "float[:,:,
         out : 3d float array
             Array of FEEC coefficients.
     """
-    lenj1, lenj2, lenj3 = get_local_problem_size(args_solve.periodic, args_solve.p, args_solve.IoH)
+    lenj1, lenj2, lenj3 = get_local_problem_size(args_solve.periodic, args_solve.degree, args_solve.IoH)
 
     # We iterate over all the entries that belong to the current rank
     counteri0 = 0
@@ -600,19 +600,19 @@ def solve_local_main_loop(args_solve: LocalProjectorsArguments, rhs: "float[:,:,
                 L123 = 0.0
                 startj1, endj1 = select_quasi_points(
                     i0,
-                    args_solve.p[0],
+                    args_solve.degree[0],
                     args_solve.B_nbasis[0],
                     args_solve.periodic[0],
                 )
                 startj2, endj2 = select_quasi_points(
                     i1,
-                    args_solve.p[1],
+                    args_solve.degree[1],
                     args_solve.B_nbasis[1],
                     args_solve.periodic[1],
                 )
                 startj3, endj3 = select_quasi_points(
                     i2,
-                    args_solve.p[2],
+                    args_solve.degree[2],
                     args_solve.B_nbasis[2],
                     args_solve.periodic[2],
                 )
@@ -722,7 +722,7 @@ def solve_local_main_loop_weighted(
     else:
         Need_basis = False
 
-    lenj1, lenj2, lenj3 = get_local_problem_size(args_solve.periodic, args_solve.p, args_solve.IoH)
+    lenj1, lenj2, lenj3 = get_local_problem_size(args_solve.periodic, args_solve.degree, args_solve.IoH)
 
     # We iterate over all the entries that belong to the current rank
     counteri0 = 0
@@ -758,19 +758,19 @@ def solve_local_main_loop_weighted(
                             L123 = 0.0
                             startj1, endj1 = select_quasi_points(
                                 i0,
-                                args_solve.p[0],
+                                args_solve.degree[0],
                                 args_solve.B_nbasis[0],
                                 args_solve.periodic[0],
                             )
                             startj2, endj2 = select_quasi_points(
                                 i1,
-                                args_solve.p[1],
+                                args_solve.degree[1],
                                 args_solve.B_nbasis[1],
                                 args_solve.periodic[1],
                             )
                             startj3, endj3 = select_quasi_points(
                                 i2,
-                                args_solve.p[2],
+                                args_solve.degree[2],
                                 args_solve.B_nbasis[2],
                                 args_solve.periodic[2],
                             )

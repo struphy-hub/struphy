@@ -17,14 +17,16 @@ runs:
           ls / -a
           which python3
           cd /struphy_fortran_
+          ls -a
           git status
           git fetch origin
           echo ${GIT_BRANCH_NAME}
           git checkout ${GIT_BRANCH_NAME}
           git pull
+          git status
           source env_fortran_/bin/activate
           which python3
-          pip install -e ".[phys,mpi,doc]"
+          pip install -U --upgrade-strategy eager -e ".[phys,mpi,doc]"
           PYTHON=$(which python)
           STRUPHY_PATH=$($PYTHON -c "import struphy; print(struphy.__path__[0])")
           echo "Struphy is installed at: $STRUPHY_PATH"

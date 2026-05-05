@@ -43,6 +43,7 @@ Some Linux/MacOS environments on which Struphy is continuously tested are:
             apt install -y libomp-dev libomp5 
             apt install -y git
             apt install -y pandoc
+            apt install -y libosmesa6 libosmesa6-dev libegl-mesa0
 
     .. tab-item:: OpenSuse
 

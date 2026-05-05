@@ -1,5 +1,5 @@
+import logging
 import os
-import pickle
 import sys
 from unittest import mock
 from unittest.mock import patch
@@ -11,6 +11,8 @@ from struphy.console.compile import struphy_compile
 from struphy.console.main import struphy
 from struphy.console.params import struphy_params
 from struphy.utils.utils import read_state, subp_run
+
+logger = logging.getLogger("struphy")
 
 libpath = struphy_lib.__path__[0]
 state = read_state()
@@ -111,7 +113,7 @@ def run_struphy(args):
         [["--hybrid"], ["Hybrid models"]],
     ],
 )
-def test_main_options(args_expected, capsys):
+def test_main_options(args_expected, capsys, caplog):
     args = args_expected[0]
 
     with pytest.raises(SystemExit):
@@ -119,12 +121,13 @@ def test_main_options(args_expected, capsys):
 
     # Capture the output
     captured = capsys.readouterr()
+    log_output = caplog.text
 
     # Assert that output was printed
-    assert captured.out != ""
+    assert captured.out != "" or captured.err != "" or log_output != ""
 
     for expected in args_expected[1]:
-        assert expected in captured.out
+        assert expected in captured.out or expected in captured.err or expected in log_output
 
 
 @pytest.mark.mpi_skip

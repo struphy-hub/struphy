@@ -1,5 +1,7 @@
 "Accelerated particle pushing."
 
+import logging
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
@@ -8,6 +10,8 @@ from scope_profiler import ProfileManager
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
 from struphy.utils.pyccel import Pyccelkernel
+
+logger = logging.getLogger("struphy")
 
 
 class Pusher:
@@ -178,10 +182,10 @@ class Pusher:
         residual_idx = self.particles.residual_idx
 
         if self.verbose:
-            print(f"{first_pusher_idx =}")
-            print(f"{first_shift_idx =}")
-            print(f"{residual_idx =}")
-            print(f"{self.particles.n_cols =}")
+            logger.info(f"{first_pusher_idx =}")
+            logger.info(f"{first_shift_idx =}")
+            logger.info(f"{residual_idx =}")
+            logger.info(f"{self.particles.n_cols =}")
 
         init_slice = slice(first_pusher_idx, first_shift_idx)
         shift_slice = slice(first_shift_idx, residual_idx)
@@ -197,7 +201,7 @@ class Pusher:
 
         if self.verbose:
             rank = self.particles.mpi_rank
-            print(f"rank {rank}: starting {self.kernel} ...")
+            logger.info(f"rank {rank}: starting {self.kernel} ...")
             if self.particles.mpi_comm is not None:
                 self.particles.mpi_comm.Barrier()
 
@@ -230,7 +234,7 @@ class Pusher:
 
             if self.verbose and self.maxiter > 1:
                 max_res = 1.0
-                print(
+                logger.info(
                     f"rank {rank}: {k =}, tol: {self._tol}, {n_not_converged[0] =}, {max_res =}",
                 )
                 if self.particles.mpi_comm is not None:
@@ -308,7 +312,7 @@ class Pusher:
                     )
 
                     if self.verbose:
-                        print(
+                        logger.info(
                             f"rank {rank}: {k =}, tol: {self._tol}, {n_not_converged[0] =}, {max_res =}",
                         )
                         if self.particles.mpi_comm is not None:
@@ -328,7 +332,7 @@ class Pusher:
                 if k == self.maxiter:
                     if self.maxiter > 1:
                         rank = self.particles.mpi_rank
-                        print(
+                        logger.info(
                             f"rank {rank}: {k =}, maxiter={self.maxiter} reached! tol: {self._tol}, {n_not_converged[0] =}, {max_res =}",
                         )
                     # sort markers according to domain decomposition
@@ -352,7 +356,7 @@ class Pusher:
 
             # print stage info
             if self.verbose:
-                print(
+                logger.info(
                     f"rank {rank}: stage {stage + 1} of {self.n_stages} done.",
                 )
                 if self.particles.mpi_comm is not None:

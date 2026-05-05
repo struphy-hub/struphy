@@ -90,7 +90,7 @@ def hybrid_fA_density(
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat: "float[:,:,:,:,:,:]",
-    Nel: "int[:]",
+    num_elements: "int[:]",
     quad: "int[:]",
     quad_pts_x: "float[:]",
     quad_pts_y: "float[:]",
@@ -164,9 +164,9 @@ def hybrid_fA_density(
 
         weight = markers[ip, 6] / (p_size[0] * p_size[1] * p_size[2]) / Np / det_df
 
-        ie1 = int(eta1 * Nel[0])
-        ie2 = int(eta2 * Nel[1])
-        ie3 = int(eta3 * Nel[2])
+        ie1 = int(eta1 * num_elements[0])
+        ie2 = int(eta2 * num_elements[1])
+        ie3 = int(eta3 * num_elements[2])
 
         # the points here are still not put in the periodic box [0, 1] x [0, 1] x [0, 1]
         point_left[0] = eta1 - 0.5 * compact[0]
@@ -176,13 +176,13 @@ def hybrid_fA_density(
         point_left[2] = eta3 - 0.5 * compact[2]
         point_right[2] = eta3 + 0.5 * compact[2]
 
-        cell_left[0] = int(floor(point_left[0] * Nel[0]))
-        cell_left[1] = int(floor(point_left[1] * Nel[1]))
-        cell_left[2] = int(floor(point_left[2] * Nel[2]))
+        cell_left[0] = int(floor(point_left[0] * num_elements[0]))
+        cell_left[1] = int(floor(point_left[1] * num_elements[1]))
+        cell_left[2] = int(floor(point_left[2] * num_elements[2]))
 
-        cell_number[0] = int(floor(point_right[0] * Nel[0])) - cell_left[0] + 1
-        cell_number[1] = int(floor(point_right[1] * Nel[1])) - cell_left[1] + 1
-        cell_number[2] = int(floor(point_right[2] * Nel[2])) - cell_left[2] + 1
+        cell_number[0] = int(floor(point_right[0] * num_elements[0])) - cell_left[0] + 1
+        cell_number[1] = int(floor(point_right[1] * num_elements[1])) - cell_left[1] + 1
+        cell_number[2] = int(floor(point_right[2] * num_elements[2])) - cell_left[2] + 1
 
         for i in range(p_shape[0] + 1):
             grids_shapex[i] = point_left[0] + i * p_size[0]
@@ -196,13 +196,13 @@ def hybrid_fA_density(
             grids_shapez[i] = point_left[2] + i * p_size[2]
         grids_shapez[p_shape[2] + 1] = point_right[2]
 
-        span1 = int(eta1 * Nel[0]) + int(args_derham.pn[0])
-        span2 = int(eta2 * Nel[1]) + int(args_derham.pn[1])
-        span3 = int(eta3 * Nel[2]) + int(args_derham.pn[2])
+        span1 = int(eta1 * num_elements[0]) + int(args_derham.pn[0])
+        span2 = int(eta2 * num_elements[1]) + int(args_derham.pn[1])
+        span3 = int(eta3 * num_elements[2]) + int(args_derham.pn[2])
 
         # =========== kernel part (periodic bundary case) ==========
         particle_to_mat_kernels.hybrid_density(
-            Nel,
+            num_elements,
             args_derham,
             cell_left,
             cell_number,

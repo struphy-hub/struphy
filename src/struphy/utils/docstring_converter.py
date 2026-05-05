@@ -1,6 +1,9 @@
 """Utility to convert RST docstrings to HTML for VS Code display."""
 
+import logging
 import re
+
+logger = logging.getLogger("struphy")
 
 
 def _format_fraction(numerator: str, denominator: str, display_mode: bool = False) -> str:
@@ -19,6 +22,86 @@ def _format_fraction(numerator: str, denominator: str, display_mode: bool = Fals
 
     # Inline: keep lightweight typography.
     return f"<sup>{num}</sup>⁄<sub>{den}</sub>"
+
+
+def _extract_braced_group(text: str, start: int):
+    """Return the content of a balanced braced group and the next index."""
+    if start >= len(text) or text[start] != "{":
+        return None, start
+
+    depth = 0
+    content_start = start + 1
+    i = start
+
+    while i < len(text):
+        ch = text[i]
+        if ch == "{" and (i == 0 or text[i - 1] != "\\"):
+            depth += 1
+            if depth == 1:
+                content_start = i + 1
+        elif ch == "}" and (i == 0 or text[i - 1] != "\\"):
+            depth -= 1
+            if depth == 0:
+                return text[content_start:i], i + 1
+        i += 1
+
+    return None, start
+
+
+def _replace_latex_fractions(text: str, display_mode: bool = False, max_passes: int = 6) -> str:
+    """Replace \\frac{...}{...} using balanced-brace parsing."""
+    result = text
+
+    for _ in range(max_passes):
+        i = 0
+        out = []
+        changed = False
+
+        while i < len(result):
+            frac_start = result.find(r"\frac", i)
+            if frac_start == -1:
+                out.append(result[i:])
+                break
+
+            out.append(result[i:frac_start])
+            cursor = frac_start + len(r"\frac")
+
+            while cursor < len(result) and result[cursor].isspace():
+                cursor += 1
+
+            numerator, cursor = _extract_braced_group(result, cursor)
+            if numerator is None:
+                out.append(result[frac_start : frac_start + len(r"\frac")])
+                i = frac_start + len(r"\frac")
+                continue
+
+            while cursor < len(result) and result[cursor].isspace():
+                cursor += 1
+
+            denominator, cursor = _extract_braced_group(result, cursor)
+            if denominator is None:
+                out.append(result[frac_start : frac_start + len(r"\frac")])
+                i = frac_start + len(r"\frac")
+                continue
+
+            num = numerator.strip()
+            den = denominator.strip()
+
+            partial_num = re.fullmatch(r"\\partial\s+(.+)", num)
+            partial_den = re.fullmatch(r"\\partial\s+(.+)", den)
+            if partial_num and partial_den:
+                num = f"∂{partial_num.group(1).strip()}"
+                den = f"∂{partial_den.group(1).strip()}"
+
+            out.append(_format_fraction(num, den, display_mode=display_mode))
+            i = cursor
+            changed = True
+
+        result = "".join(out)
+        if not changed:
+            break
+
+    return result
 
 
 def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
@@ -109,10 +192,16 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
         result = re.sub(rf"\\mathbf\s*{re.escape(letter)}\b", bold, result)
         result = re.sub(rf"\\mathbf\s*\{{\s*{re.escape(letter)}\s*\}}", bold, result)
 
-    # Roman/upright math symbols (\mathrm)
-    # For \mathrm, we just remove the command and keep the letter
-    result = re.sub(r"\\mathrm\s*\{\s*([A-Za-z0-9]+)\s*\}", r"\1", result)
-    result = re.sub(r"\\mathrm\s+([A-Za-z0-9])\b", r"\1", result)
+    # Bold symbols (\boldsymbol) - wrap content in <b> tags; handles both
+    # \boldsymbol{\eta} and \boldsymbol{η} (already-converted Greek letters)
+    result = re.sub(r"\\boldsymbol\s*\{([^}]+)\}", lambda m: f"<b>{m.group(1).strip()}</b>", result)
+    result = re.sub(r"\\boldsymbol\s+(\S+)", lambda m: f"<b>{m.group(1)}</b>", result)
+
+    # Roman/upright math symbols (\mathrm, \textrm, \textnormal, \text, \textit)
+    # Strip the command and keep the content
+    for _text_cmd in (r"\\mathrm", r"\\textrm", r"\\textnormal", r"\\text", r"\\textit"):
+        result = re.sub(rf"{_text_cmd}\s*\{{\s*([^}}]+?)\s*\}}", r"\1", result)
+        result = re.sub(rf"{_text_cmd}\s+([A-Za-z0-9])\b", r"\1", result)
 
     # Blackboard bold (\mathbb) - common mathematical sets
     mathbb_letters = {
@@ -148,6 +237,41 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
         result = re.sub(rf"\\mathbb\s*{re.escape(letter)}\b", bb, result)
         result = re.sub(rf"\\mathbb\s*\{{\s*{re.escape(letter)}\s*\}}", bb, result)
 
+    # Calligraphic symbols (\mathcal) - common uppercase script letters.
+    # Use Unicode script characters where available.
+    mathcal_letters = {
+        "A": "𝒜",
+        "B": "ℬ",
+        "C": "𝒞",
+        "D": "𝒟",
+        "E": "ℰ",
+        "F": "ℱ",
+        "G": "𝒢",
+        "H": "ℋ",
+        "I": "ℐ",
+        "J": "𝒥",
+        "K": "𝒦",
+        "L": "ℒ",
+        "M": "ℳ",
+        "N": "𝒩",
+        "O": "𝒪",
+        "P": "𝒫",
+        "Q": "𝒬",
+        "R": "ℛ",
+        "S": "𝒮",
+        "T": "𝒯",
+        "U": "𝒰",
+        "V": "𝒱",
+        "W": "𝒲",
+        "X": "𝒳",
+        "Y": "𝒴",
+        "Z": "𝒵",
+    }
+
+    for letter, cal in mathcal_letters.items():
+        result = re.sub(rf"\\mathcal\s*{re.escape(letter)}\b", cal, result)
+        result = re.sub(rf"\\mathcal\s*\{{\s*{re.escape(letter)}\s*\}}", cal, result)
+
     # Hat symbols (\hat)
     # Match \hat E or \hat{E} or \hat{\mathbf{E}}
     def replace_hat(match):
@@ -168,13 +292,24 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
     result = re.sub(r"\\tilde\s*\{([^}]+)\}", replace_tilde, result)
     result = re.sub(r"\\tilde\s+([A-Za-z])\b", replace_tilde, result)
 
-    # Fractions - handle FIRST (before sqrt) to process fractions inside sqrt
-    # \frac{\partial ...}{\partial t} -> typographic fraction
-    result = re.sub(
-        r"\\frac\{\\partial\s+([^}]+)\}\{\\partial\s+([^}]+)\}",
-        lambda m: _format_fraction(f"∂{m.group(1)}", f"∂{m.group(2)}", display_mode=display_mode),
-        result,
-    )
+    # Vector symbols (\vec)
+    # Render with explicit arrow-above HTML to avoid font-dependent issues
+    # with combining Unicode marks.
+    def replace_vec(match):
+        content = match.group(1).strip()
+        return (
+            '<span style="position:relative;display:inline-block;padding-top:0.0em;">'
+            f"{content}"
+            '<span style="position:absolute;left:0;right:0;top:-0.55em;line-height:1;text-align:center;font-size:0.75em;">→</span>'
+            "</span>"
+        )
+
+    result = re.sub(r"\\vec\s*\{([^}]+)\}", replace_vec, result)
+    result = re.sub(r"\\vec\s+([A-Za-z])\b", replace_vec, result)
+
+    # Fractions - handle FIRST (before sqrt) to process fractions inside sqrt.
+    # Use balanced-brace parsing so nested groups are handled correctly.
+    result = _replace_latex_fractions(result, display_mode=display_mode)
 
     # Common fractions
     common_fractions = {
@@ -198,30 +333,18 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
         for frac, unicode_frac in common_fractions.items():
             result = result.replace(frac, unicode_frac)
 
-    # Generic fraction \frac{a}{b} -> typographic fraction
-    # Handle simple nested cases with multiple passes
-    for _ in range(3):  # Multiple passes for nested fractions
-        result = re.sub(
-            r"\\frac\{([^{}]+)\}\{([^{}]+)\}",
-            lambda m: _format_fraction(m.group(1), m.group(2), display_mode=display_mode),
-            result,
-        )
-
     # Square root (\sqrt) - handle AFTER initial fractions so fractions inside sqrt are processed first
     def replace_sqrt(match):
         content = match.group(1).strip()
+        # No parentheses needed for a single character/symbol
+        if len(content) == 1:
+            return f"√{content}"
         return f"√({content})"
 
     result = re.sub(r"\\sqrt\s*\{([^}]+)\}", replace_sqrt, result)
 
-    # Process fractions AGAIN to catch fractions created by sqrt conversion
-    # (e.g., \frac{a}{\sqrt{b}} becomes \frac{a}{√(b)} which can now be matched)
-    for _ in range(3):  # Multiple passes for nested fractions
-        result = re.sub(
-            r"\\frac\{([^{}]+)\}\{([^{}]+)\}",
-            lambda m: _format_fraction(m.group(1), m.group(2), display_mode=display_mode),
-            result,
-        )
+    # Process fractions again to catch any \frac introduced after sqrt conversion.
+    result = _replace_latex_fractions(result, display_mode=display_mode)
 
     # Normalize subscript patterns: _\command{...} -> _{\command{...}}
     # Do this BEFORE symbol replacement so we can handle _\mathbb{R}, _\Omega, etc.
@@ -235,6 +358,11 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
         r"\sum": "∑",
         r"\nabla": "∇",
         r"\times": "×",
+        r"\to": "→",
+        r"\rightarrow": "→",
+        r"\leftarrow": "←",
+        r"\leftrightarrow": "↔",
+        r"\mapsto": "↦",
         r"\partial": "∂",
         r"\int": "∫",
         r"\infty": "∞",
@@ -479,7 +607,7 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
     return result.strip()
 
 
-def rst_to_html(rst_text: str) -> str:
+def rst_to_html(rst_text: str, forced_heading_level: int | None = None) -> str:
     """
     Convert RST docstring to HTML for VS Code/Pylance display.
 
@@ -489,11 +617,18 @@ def rst_to_html(rst_text: str) -> str:
     Args:
         rst_text: RST formatted text
 
+    Args:
+        rst_text: RST formatted text
+        forced_heading_level: If set, force all generated headings to this HTML level (1-6).
+
     Returns:
         HTML formatted text
     """
     if not rst_text:
         return ""
+
+    if forced_heading_level is not None:
+        forced_heading_level = max(1, min(6, int(forced_heading_level)))
 
     html = rst_text
 
@@ -519,7 +654,7 @@ def rst_to_html(rst_text: str) -> str:
         return f"<!--CODEBLOCK{len(code_blocks) - 1}-->"
 
     # Match .. code-block:: python (or any language) followed by optional blank line and indented content
-    html = re.sub(r"\.\. code-block::[^\n]*\n(?:\n)?((?:[ \t]+.*\n)*)", save_code_block, html)
+    html = re.sub(r"\.\. code-block::[^\n]*\n(?:\n)?((?:(?:[ \t]+[^\n]*|[ \t]*)\n)*)", save_code_block, html)
 
     # Extract and convert math blocks
     math_blocks = []
@@ -532,28 +667,56 @@ def rst_to_html(rst_text: str) -> str:
         # Remove leading indentation consistently
         cleaned_lines = [line.strip() for line in math_lines if line.strip()]
 
-        # Check if this is a multiline equation (contains & or \\)
-        is_multiline = any("&" in line or "\\\\" in line for line in cleaned_lines)
+        def _sanitize_css_length(length: str) -> str | None:
+            """Allow only simple numeric CSS lengths used in LaTeX line spacing."""
+            value = length.strip()
+            if re.fullmatch(r"[+-]?\d*\.?\d+(?:mm|cm|in|pt|pc|px|em|ex|rem)", value):
+                return value
+            return None
+
+        def _split_latex_newline(line: str):
+            """Split trailing LaTeX newline command with optional spacing (\\[2mm])."""
+            m = re.search(r"\\\\(?:\s*\[\s*([^\]]+)\s*\])?\s*$", line)
+            if not m:
+                return line.strip(), None
+            content = line[: m.start()].strip()
+            spacing = _sanitize_css_length(m.group(1)) if m.group(1) else None
+            return content, spacing
+
+        # Treat each non-empty line as a separate display row. Align only on
+        # '&=' anchors (align-environment style) so matrix '&' separators do
+        # not trigger equation-column splitting.
+        has_equals_align = any(re.search(r"&\s*=", line) for line in cleaned_lines)
+        is_multiline = len(cleaned_lines) > 1 or has_equals_align or any("\\\\" in line for line in cleaned_lines)
 
         if is_multiline:
             # Preserve multiline structure and align on '&' (LaTeX align-style).
             aligned_rows = []
+            next_row_top_spacing = None
             for line in cleaned_lines:
-                # Remove trailing \\
-                line = re.sub(r"\\\\\s*$", "", line).strip()
+                top_padding = next_row_top_spacing
+                line, trailing_spacing = _split_latex_newline(line)
+                if trailing_spacing:
+                    next_row_top_spacing = trailing_spacing
+                else:
+                    next_row_top_spacing = None
+
+                # Handle standalone spacing lines such as '\\[2mm]'.
                 if not line:
                     continue
 
-                if "&" in line:
-                    lhs_raw, rhs_raw = line.split("&", 1)
+                pad_style = f"padding-top:{top_padding};" if top_padding else ""
+
+                if re.search(r"&\s*=", line):
+                    lhs_raw, rhs_raw = re.split(r"&\s*=", line, maxsplit=1)
                     lhs = latex_to_unicode(lhs_raw.strip(), display_mode=True)
-                    rhs = latex_to_unicode(rhs_raw.strip(), display_mode=True)
+                    rhs = latex_to_unicode("=" + rhs_raw.strip(), display_mode=True)
                     aligned_rows.append(
                         "<tr>"
-                        '<td style="text-align:right;padding-right:0.35em;vertical-align:middle;white-space:nowrap;">'
+                        f'<td style="text-align:right;padding-right:0.35em;vertical-align:middle;white-space:nowrap;{pad_style}">'
                         f"{lhs}"
                         "</td>"
-                        '<td style="text-align:left;vertical-align:middle;white-space:nowrap;">'
+                        f'<td style="text-align:left;vertical-align:middle;white-space:nowrap;{pad_style}">'
                         f"{rhs}"
                         "</td>"
                         "</tr>"
@@ -562,7 +725,7 @@ def rst_to_html(rst_text: str) -> str:
                     expr = latex_to_unicode(line, display_mode=True)
                     aligned_rows.append(
                         "<tr>"
-                        '<td colspan="2" style="text-align:center;vertical-align:middle;white-space:nowrap;">'
+                        f'<td colspan="2" style="text-align:center;vertical-align:middle;white-space:nowrap;{pad_style}">'
                         f"{expr}"
                         "</td>"
                         "</tr>"
@@ -605,7 +768,7 @@ def rst_to_html(rst_text: str) -> str:
 
     # Track if we're in the first line (summary)
     first_line = True
-    in_list = False
+    list_tag = None
 
     while i < len(lines):
         line = lines[i]
@@ -615,11 +778,13 @@ def rst_to_html(rst_text: str) -> str:
             next_line = lines[i + 1]
             # Check for RST section markers
             if next_line and all(c in '=-~^"#' for c in next_line.strip()) and len(next_line.strip()) > 0:
-                if in_list:
-                    result_lines.append("</ul>")
+                if list_tag:
+                    result_lines.append(f"</{list_tag}>")
                     result_lines.append("")
-                    in_list = False
+                    list_tag = None
                 level = {"=": 1, "-": 2, "~": 3, "^": 4, '"': 5, "#": 6}.get(next_line.strip()[0], 3)
+                if forced_heading_level is not None:
+                    level = forced_heading_level
                 result_lines.append("")  # blank line before header
                 result_lines.append(f"<h{level}>{line.strip()}</h{level}>")
                 first_line = False
@@ -629,40 +794,44 @@ def rst_to_html(rst_text: str) -> str:
         # Check for bold section headers (**Text**)
         bold_header_match = re.match(r"^\*\*([^*]+)\*\*\s*$", line.strip())
         if bold_header_match:
-            if in_list:
-                result_lines.append("</ul>")
+            if list_tag:
+                result_lines.append(f"</{list_tag}>")
                 result_lines.append("")
-                in_list = False
+                list_tag = None
+            level = forced_heading_level if forced_heading_level is not None else 3
             result_lines.append("")  # blank line before header
-            result_lines.append(f"<h3>{bold_header_match.group(1)}</h3>")
+            result_lines.append(f"<h{level}>{bold_header_match.group(1)}</h{level}>")
             first_line = False
             i += 1
             continue
 
         # Check for list items
-        list_match = re.match(r"^-\s+(.+)$", line)
+        list_match = re.match(r"^\s*-\s+(.+)$", line)
         if list_match:
-            if not in_list:
+            if list_tag == "ol":
+                result_lines.append("</ol>")
+                result_lines.append("")
+                list_tag = None
+            if not list_tag:
                 result_lines.append("")  # blank line before list
                 result_lines.append("<ul>")
-                in_list = True
+                list_tag = "ul"
             result_lines.append(f"    <li>{list_match.group(1)}</li>")
             first_line = False
             i += 1
             continue
 
         # Check for numbered list items
-        numbered_list_match = re.match(r"^\d+\.\s+(.+)$", line)
+        numbered_list_match = re.match(r"^\s*\d+\.\s+(.+)$", line)
         if numbered_list_match:
-            if in_list:
+            if list_tag == "ul":
                 result_lines.append("</ul>")
                 result_lines.append("")
-                in_list = False
-            # Just treat it as a regular list item
-            if not in_list:
+                list_tag = None
+            if not list_tag:
                 result_lines.append("")
-                result_lines.append("<ul>")
-                in_list = True
+                result_lines.append("<ol>")
+                list_tag = "ol"
             result_lines.append(f"    <li>{numbered_list_match.group(1)}</li>")
             first_line = False
             i += 1
@@ -670,10 +839,10 @@ def rst_to_html(rst_text: str) -> str:
 
         # Empty line handling
         if not line.strip():
-            if in_list:
-                result_lines.append("</ul>")
+            if list_tag:
+                result_lines.append(f"</{list_tag}>")
                 result_lines.append("")
-                in_list = False
+                list_tag = None
             else:
                 result_lines.append("")
             first_line = False
@@ -681,10 +850,10 @@ def rst_to_html(rst_text: str) -> str:
             continue
 
         # Regular paragraph text
-        if in_list:
-            result_lines.append("</ul>")
+        if list_tag:
+            result_lines.append(f"</{list_tag}>")
             result_lines.append("")
-            in_list = False
+            list_tag = None
 
         if first_line:
             # First line (summary) - no <p> tags
@@ -707,9 +876,13 @@ def rst_to_html(rst_text: str) -> str:
                 has_math_block = any("<!--MATHBLOCK" in l for l in paragraph_lines)
 
                 if has_math_block:
-                    # Wrap each line in <p> tags separately
+                    # Keep display-math placeholders out of paragraph tags so
+                    # renderers do not treat them like preformatted blocks.
                     for para_line in paragraph_lines:
-                        result_lines.append(f"<p>{para_line}</p>")
+                        if "<!--MATHBLOCK" in para_line:
+                            result_lines.append(para_line)
+                        else:
+                            result_lines.append(f"<p>{para_line}</p>")
                 else:
                     # Multi-line paragraph (keep together even if it has inline math)
                     result_lines.append(f"<p>{paragraph_lines[0]}")
@@ -723,8 +896,8 @@ def rst_to_html(rst_text: str) -> str:
         i += 1
 
     # Close any open list
-    if in_list:
-        result_lines.append("</ul>")
+    if list_tag:
+        result_lines.append(f"</{list_tag}>")
 
     html = "\n".join(result_lines)
 
@@ -830,19 +1003,86 @@ def rst_to_markdown(rst_text: str) -> str:
     return md
 
 
-def auto_convert_docstring(cls):
+def auto_convert_docstring(obj):
     """
-    Decorator/hook to automatically convert __doc_rst__ to __doc__ (HTML).
+    Decorator/hook to automatically convert RST docstrings to HTML.
 
-    If a class has a __doc_rst__ attribute, this converts it to HTML
-    and sets it as the class docstring for VS Code display.
+    - For classes: converts ``__doc_rst__`` to HTML and sets it as ``__doc__``.
+    - For properties: converts the getter's RST docstring to HTML, sets it as
+      the property docstring, and wraps ``fget`` so the returned value also
+      carries the HTML docstring (making ``instance.prop.__doc__`` work in
+      notebooks).
+    - For plain functions: converts the RST ``__doc__`` to HTML in-place.
     """
-    if hasattr(cls, "__doc_rst__") and cls.__doc_rst__:
-        # Convert RST to HTML
-        html_doc = rst_to_html(cls.__doc_rst__)
-        # Set as the main docstring
-        cls.__doc__ = html_doc
-    return cls
+    if isinstance(obj, property):
+        doc = obj.fget.__doc__ if obj.fget else None
+        if doc:
+            html_doc = rst_to_html(doc)
+            original_fget = obj.fget
+
+            def wrapped_fget(self_inner):
+                result = original_fget(self_inner)
+                try:
+                    result.__doc__ = html_doc
+                except (AttributeError, TypeError):
+                    pass
+                return result
+
+            wrapped_fget.__doc__ = html_doc
+            wrapped_fget.__name__ = original_fget.__name__
+            wrapped_fget.__qualname__ = original_fget.__qualname__
+            return property(wrapped_fget, obj.fset, obj.fdel, html_doc)
+        return obj
+    elif callable(obj) and not isinstance(obj, type):
+        if obj.__doc__:
+            obj.__doc__ = rst_to_html(obj.__doc__)
+        return obj
+    else:
+        # Class behaviour: use __doc_rst__ if present, otherwise convert __doc__
+        if hasattr(obj, "__doc_rst__") and obj.__doc_rst__:
+            obj.__doc__ = rst_to_html(obj.__doc_rst__)
+        elif obj.__doc__:
+            obj.__doc__ = rst_to_html(obj.__doc__)
+        return obj
+
+
+def info(obj, use_rst: bool = True):
+    """
+    Render the docstring of an object in a Jupyter notebook.
+
+    This function returns an IPython display object that will render
+    the docstring with proper formatting in Jupyter notebooks.
+
+    Args:
+        obj: Object/class whose docstring to display
+        use_rst: If True and __doc_rst__ exists, use that instead of __doc__
+
+    Returns:
+        IPython.display object for rendering in Jupyter"""
+
+    try:
+        from IPython.display import HTML, Markdown, display
+    except ImportError:
+        logger.info("IPython not available. Install jupyter to use this feature.")
+        return None
+
+    # Determine which docstring to use
+    if use_rst and hasattr(obj, "__doc_rst__"):
+        doc_text = obj.__doc_rst__
+        # Convert RST to Markdown for better Jupyter rendering
+        md_text = rst_to_markdown(doc_text)
+        return display(Markdown(md_text))
+    elif hasattr(obj, "__doc__") and obj.__doc__:
+        # Check if it's HTML (contains tags)
+        doc_text = obj.__doc__
+        if "<" in doc_text and ">" in doc_text:
+            # It's HTML
+            return display(HTML(doc_text))
+        else:
+            # Plain text or RST, show as is
+            return display(Markdown(doc_text))
+    else:
+        return display(Markdown("*No docstring available*"))
 
 
 if __name__ == "__main__":
@@ -859,4 +1099,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     model = get_model_by_name(args.model_name)
     auto_convert_docstring(model)
-    print(model.__doc__)
+    logger.info(model.__doc__)

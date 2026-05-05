@@ -27,6 +27,8 @@ The code is freely available under an `MIT license <https://github.com/struphy-h
    sections/install
    sections/quickstart
    sections/userguide
+   sections/tutorials
+   sections/dev_tutorials
    sections/api_guide
    sections/numerics
    sections/models
