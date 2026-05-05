@@ -3,26 +3,67 @@ import os
 from dataclasses import dataclass, fields
 from typing import Any, Callable, Literal
 
-from struphy.utils.utils import (
-    __class_with_params_repr_no_defaults__,
-    __dataclass_repr_no_defaults__,
-    all_class_params_are_default,
-    check_option,
-)
+from struphy.utils.utils import __dataclass_repr_no_defaults__, all_class_params_are_default, check_option
 
-logger = logging.getLogger("struphy")
+import cunumpy as xp
+from feectools.ddm.mpi import mpi as MPI
 
+## Literal options
 
-class OptionsBase:
-    def to_dict(self) -> dict:
-        """Convert dataclass instance to dictionary."""
-        return {field.name: getattr(self, field.name) for field in fields(type(self)) if field.init}
+# time
+SplitAlgos = Literal["LieTrotter", "Strang"]
 
-    @classmethod
-    def from_dict(cls, dct) -> "Any":
-        """Create dataclass instance from dictionary."""
-        valid_fields = {field.name for field in fields(cls) if field.init}
-        return cls(**{key: value for key, value in dct.items() if key in valid_fields})
+# derham
+PolarRegularity = Literal[-1, 1]
+OptsFEECSpace = Literal["H1", "Hcurl", "Hdiv", "L2", "H1vec"]
+OptsVecSpace = Literal["Hcurl", "Hdiv", "H1vec"]
+
+# fields background
+BackgroundTypes = Literal["LogicalConst", "FluidEquilibrium"]
+
+# perturbations
+NoiseDirections = Literal["e1", "e2", "e3", "e1e2", "e1e3", "e2e3", "e1e2e3"]
+GivenInBasis = Literal["0", "1", "2", "3", "v", "physical", "physical_at_eta", "norm", None]
+
+# solvers
+OptsSymmSolver = Literal["pcg", "cg"]
+OptsGenSolver = Literal["pbicgstab", "bicgstab", "gmres"]
+OptsMassPrecond = Literal["MassMatrixPreconditioner", "MassMatrixDiagonalPreconditioner", None]
+OptsSaddlePointSolver = Literal["Uzawa", "GMRES"]  # todo
+OptsDirectSolver = Literal["SparseSolver", "ScipySparse", "InexactNPInverse", "DirectNPInverse"]
+OptsNonlinearSolver = Literal["Picard", "Newton"]
+
+# markers
+OptsPICSpace = Literal["Particles6D", "DeltaFParticles6D", "Particles5D", "Particles3D"]
+OptsMarkerBC = Literal["periodic", "reflect"]
+OptsRecontructBC = Literal["periodic", "mirror", "fixed"]
+OptsLoading = Literal[
+    "pseudo_random",
+    "sobol_standard",
+    "sobol_antithetic",
+    "external",
+    "restart",
+    "tesselation",
+]
+OptsSpatialLoading = Literal["uniform", "disc"]
+OptsMPIsort = Literal["each", "last", None]
+
+# filters
+OptsFilter = Literal["fourier_in_tor", "hybrid", "three_point", None]
+
+# sph
+OptsKernel = Literal[
+    "trigonometric_1d",
+    "gaussian_1d",
+    "linear_1d",
+    "trigonometric_2d",
+    "gaussian_2d",
+    "linear_2d",
+    "trigonometric_3d",
+    "gaussian_3d",
+    "linear_isotropic_3d",
+    "linear_3d",
+]
 
 
 @dataclass
@@ -117,6 +158,17 @@ class LiteralOptions:
         "heat_flux_2",
         "heat_flux_3",
     ]
+
+class OptionsBase:
+    def to_dict(self) -> dict:
+        """Convert dataclass instance to dictionary."""
+        return {field.name: getattr(self, field.name) for field in fields(type(self)) if field.init}
+
+    @classmethod
+    def from_dict(cls, dct) -> "Any":
+        """Create dataclass instance from dictionary."""
+        valid_fields = {field.name for field in fields(cls) if field.init}
+        return cls(**{key: value for key, value in dct.items() if key in valid_fields})
 
 
 @dataclass
@@ -264,7 +316,7 @@ class DerhamOptions(OptionsBase):
     @property
     def is_default(self):
         return all_class_params_are_default(self)
-
+    
 
 @dataclass
 class FieldsBackground(OptionsBase):

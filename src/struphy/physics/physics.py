@@ -84,6 +84,13 @@ class Units:
         if not hasattr(self, "_j"):
             raise AttributeError("Must call Units.derive_units() to get full set of units.")
         return self._j
+    
+    @property
+    def nu(self):
+        """Unit of dynamic viscosity in kg/(m·s)."""
+        if not hasattr(self, "_nu"):
+            raise AttributeError("Must call Units.derive_units() to get full set of units.")
+        return self._nu
 
     def derive_units(self, velocity_scale: str = "light", A_bulk: int = None, Z_bulk: int = None, verbose=False):
         """Derive the remaining units from the base units, velocity scale and bulk species' A and Z."""
@@ -129,6 +136,9 @@ class Units:
             # current density (A/m^2)
             self._j = con.e * self.n * self.v
 
+            # dynamic viscosity (kg/(m·s))
+            self._nu = A_bulk * con.mH * self.n * self.x * self.v if A_bulk is not None else None
+
         # print to screen
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
             units_used = (
@@ -141,6 +151,7 @@ class Units:
                 " bar",
                 " kg/m³",
                 " A/m²",
+                " kg/(m·s)",
             )
             logger.info("")
             for (k, v), u in zip(self.__dict__.items(), units_used):

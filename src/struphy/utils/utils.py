@@ -109,7 +109,7 @@ def kernels_to_txt(kernels: list, output: str):
     # logger.info(f"kernels written to {output}.")
 
 
-def check_option(opt, *options):
+def check_option(opt: str | list[str], *options):
     """Check if opt is contained in options; if opt is a list, checks for each element."""
     opts = []
     for o in options:

@@ -31,6 +31,95 @@ def import_parameters_py(params_path: str, name: str = "parameters") -> ModuleTy
     return params_in
 
 
+def setup_derham(
+    grid: TensorProductGrid,
+    options: DerhamOptions,
+    comm: MPI.Intracomm = None,
+    domain: Domain = None,
+    verbose=False,
+):
+    """
+    Creates the 3d derham sequence for given grid parameters.
+
+    Parameters
+    ----------
+    grid : TensorProductGrid
+        The FEEC grid.
+
+    comm: Intracomm
+        MPI communicator (sub_comm if clones are used).
+
+    domain : Domain, optional
+        The Struphy domain object for evaluating the mapping F : [0, 1]^3 --> R^3 and the corresponding metric coefficients.
+
+    verbose : bool
+        Show info on screen.
+
+    Returns
+    -------
+    derham : struphy.feec.psydac_derham.Derham
+        Discrete de Rham sequence on the logical unit cube.
+    """
+
+    from struphy.feec.psydac_derham import Derham
+
+    # number of grid cells
+    Nel = grid.Nel
+    # mpi
+    mpi_dims_mask = grid.mpi_dims_mask
+
+    # spline degrees
+    p = options.p
+    # spline types (clamped vs. periodic)
+    spl_kind = options.spl_kind
+    # boundary conditions (Homogeneous Dirichlet or None)
+    dirichlet_bc = options.dirichlet_bc
+    # Number of quadrature points per histopolation cell
+    nq_pr = options.nq_pr
+    # Number of quadrature points per grid cell for L^2
+    nquads = options.nquads
+    # C^k smoothness at eta_1=0 for polar domains
+    polar_ck = options.polar_ck
+    # local commuting projectors
+    local_projectors = options.local_projectors
+
+    lifting = options.lifting
+
+    derham = Derham(
+        Nel,
+        p,
+        spl_kind,
+        dirichlet_bc=dirichlet_bc,
+        lifting=lifting,
+        nquads=nquads,
+        nq_pr=nq_pr,
+        comm=comm,
+        mpi_dims_mask=mpi_dims_mask,
+        with_projectors=True,
+        polar_ck=polar_ck,
+        domain=domain,
+        local_projectors=local_projectors,
+    )
+
+
+    if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
+        print("\nDERHAM:")
+        print("number of elements:".ljust(25), Nel)
+        print("spline degrees:".ljust(25), p)
+        print("periodic bcs:".ljust(25), spl_kind)
+        print("hom. Dirichlet bc:".ljust(25), dirichlet_bc)
+        print("GL quad pts (L2):".ljust(25), nquads)
+        print("GL quad pts (hist):".ljust(25), nq_pr)
+        print(
+            "MPI proc. per dir.:".ljust(25),
+            derham.domain_decomposition.nprocs,
+        )
+        print("use polar splines:".ljust(25), derham.polar_ck == 1)
+        print("domain on process 0:".ljust(25), derham.domain_array[0])
+
+    return derham
+
+
 def descend_options_dict(
     d: dict,
     out: list | dict,

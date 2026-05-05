@@ -14,6 +14,7 @@ from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
 from struphy.geometry.base import Domain
+from struphy.utils.utils import check_option
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.utils.utils import check_option
 
@@ -118,6 +119,12 @@ class Propagator(metaclass=ABCMeta):
             old = old_var.spline.vector
             assert new.space == old.space
 
+            # update full solution spline (lifting + zero-BC part) if present
+            if old_var.spline_full is not None:
+                new.copy(out=old_var.spline_full.vector)
+                if old_var.boundary_spline is not None:
+                    old_var.spline_full.vector += old_var.boundary_spline.vector
+
             # calculate maximum of difference abs(new - old)
             diffs[var] = xp.max(xp.abs(new.toarray() - old.toarray()))
 
@@ -126,6 +133,7 @@ class Propagator(metaclass=ABCMeta):
 
             # important: sync processes!
             old.update_ghost_regions()
+
 
         return diffs
 
