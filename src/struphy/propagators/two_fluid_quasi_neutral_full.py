@@ -123,7 +123,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         nu_e: float = 1.0
         eps_norm: float | None = None
 
-        source_u:  Callable | None = None
+        source_u: Callable | None = None
         source_ue: Callable | None = None
 
         stab_sigma: float = 0.0
@@ -138,7 +138,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 warn("No source_ue specified — defaulting to zero.")
             if self.eps_norm is None:
                 warn("No eps_norm specified — will default to ion cyclotron parameter epsilon in allocate.")
-            
+
             # --- physical parameter sanity checks ---
             if self.nu < 0:
                 raise ValueError(f"nu must be non-negative, got {self.nu}")
@@ -146,7 +146,6 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 raise ValueError(f"nu_e must be non-negative, got {self.nu_e}")
             if self.eps_norm is not None and self.eps_norm <= 0:
                 raise ValueError(f"eps_norm must be positive, got {self.eps_norm}")
-
 
             # --- defaults ---
             if self.stab_sigma is None:
@@ -180,45 +179,61 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
         self.verbose = verbose
         self._rank = self.derham.comm.Get_rank() if self.derham.comm is not None else 0
-        self._dt   = None
+        self._dt = None
 
         if self.options.eps_norm is None:
             self._options.eps_norm = self.variables.u.species.equation_params.epsilon
 
         # ---- lifting (derham_lift is unconstrained, self.derham is constrained) ---
-        self._has_lifting_u  = self.variables.u.derham_lift  is not None
+        self._has_lifting_u = self.variables.u.derham_lift is not None
         self._has_lifting_ue = self.variables.ue.derham_lift is not None
 
-        self._derham_lift_u  = self.variables.u.derham_lift  if self._has_lifting_u  else self.derham
+        self._derham_lift_u = self.variables.u.derham_lift if self._has_lifting_u else self.derham
         self._derham_lift_ue = self.variables.ue.derham_lift if self._has_lifting_ue else self.derham
 
         # ---- solution splines (constrained) and u in unconstrained space -----
-        self._u_0 = self.derham.create_spline_function("u",   space_id="Hdiv")
+        self._u_0 = self.derham.create_spline_function("u", space_id="Hdiv")
 
         # boundary splines (u', ue') in unconstrained space — zero vectors if no lifting
-        self._boundary_spline_u  = (self.variables.u.boundary_spline.vector  if self._has_lifting_u else self._derham_lift_u.coeff_spaces["2"].zeros())
-        self._boundary_spline_ue = (self.variables.ue.boundary_spline.vector if self._has_lifting_ue else self._derham_lift_ue.coeff_spaces["2"].zeros())
+        self._boundary_spline_u = (
+            self.variables.u.boundary_spline.vector
+            if self._has_lifting_u
+            else self._derham_lift_u.coeff_spaces["2"].zeros()
+        )
+        self._boundary_spline_ue = (
+            self.variables.ue.boundary_spline.vector
+            if self._has_lifting_ue
+            else self._derham_lift_ue.coeff_spaces["2"].zeros()
+        )
 
         # boundary operators
-        self._b_op_u  = self.variables.u.boundary_op_lift  if self._has_lifting_u  else IdentityOperator(self.derham.coeff_spaces["2"])
-        self._b_op_ue = self.variables.ue.boundary_op_lift if self._has_lifting_ue else IdentityOperator(self.derham.coeff_spaces["2"])
+        self._b_op_u = (
+            self.variables.u.boundary_op_lift
+            if self._has_lifting_u
+            else IdentityOperator(self.derham.coeff_spaces["2"])
+        )
+        self._b_op_ue = (
+            self.variables.ue.boundary_op_lift
+            if self._has_lifting_ue
+            else IdentityOperator(self.derham.coeff_spaces["2"])
+        )
 
         # pre-allocated RHS vectors (constrained, after boundary operator)
-        self._rhs_vec_u  = self.derham.create_spline_function("rhs_vec_u",  space_id="Hdiv")
+        self._rhs_vec_u = self.derham.create_spline_function("rhs_vec_u", space_id="Hdiv")
         self._rhs_vec_ue = self.derham.create_spline_function("rhs_vec_ue", space_id="Hdiv")
         self._rhs_vec_phi = self.derham.create_spline_function("rhs_vec_phi", space_id="L2")
 
-        self._div_boundary_u  = self.derham.create_spline_function("div_boundary_u",  space_id="L2")
+        self._div_boundary_u = self.derham.create_spline_function("div_boundary_u", space_id="L2")
         self._div_boundary_ue = self.derham.create_spline_function("div_boundary_ue", space_id="L2")
 
         # ---- source terms projected onto unconstrained space -----------------
-        self._src_u  = self._derham_lift_u.create_spline_function("rhs_u",  space_id="Hdiv")
+        self._src_u = self._derham_lift_u.create_spline_function("rhs_u", space_id="Hdiv")
         self._src_ue = self._derham_lift_ue.create_spline_function("rhs_ue", space_id="Hdiv")
 
         for rhs, source, derham_lift in [
-                    (self._src_u,  self.options.source_u,  self._derham_lift_u),
-                    (self._src_ue, self.options.source_ue, self._derham_lift_ue),
-                ]:
+            (self._src_u, self.options.source_u, self._derham_lift_u),
+            (self._src_ue, self.options.source_ue, self._derham_lift_ue),
+        ]:
             if source is not None:
                 fun_vec = [lambda x, y, z, f=source, c=c: f(x, y, z)[c] for c in range(3)]
                 fun = [
@@ -235,91 +250,102 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
         # ---- unconstrained mass/basis operators (for RHS assembly) -----------
 
-        self._mass_ops_lift_u  = WeightedMassOperators(
-            self._derham_lift_u, self.domain,
+        self._mass_ops_lift_u = WeightedMassOperators(
+            self._derham_lift_u,
+            self.domain,
             eq_mhd=self.mass_ops.eq_mhd,
         )
         self._mass_ops_lift_ue = WeightedMassOperators(
-            self._derham_lift_ue, self.domain,
+            self._derham_lift_ue,
+            self.domain,
             eq_mhd=self.mass_ops.eq_mhd,
         )
-        self._basis_ops_lift_u  = BasisProjectionOperators(
-            self._derham_lift_u, self.domain,
+        self._basis_ops_lift_u = BasisProjectionOperators(
+            self._derham_lift_u,
+            self.domain,
             verbose=self.options.solver_params.verbose,
             eq_mhd=self.basis_ops.weights["eq_mhd"],
         )
         self._basis_ops_lift_ue = BasisProjectionOperators(
-            self._derham_lift_ue, self.domain,
+            self._derham_lift_ue,
+            self.domain,
             verbose=self.options.solver_params.verbose,
             eq_mhd=self.basis_ops.weights["eq_mhd"],
         )
 
-        self._M2_u   = self._mass_ops_lift_u.M2
-        self._M2B_u  = - self._mass_ops_lift_u.M2B
-        self._div_u  = self._derham_lift_u.div
+        self._M2_u = self._mass_ops_lift_u.M2
+        self._M2B_u = -self._mass_ops_lift_u.M2B
+        self._div_u = self._derham_lift_u.div
         self._curl_u = self._derham_lift_u.curl
-        self._S21_u  = self._basis_ops_lift_u.S21
+        self._S21_u = self._basis_ops_lift_u.S21
 
-        self._lapl_u = (self._div_u.T @ self._mass_ops_lift_u.M3 @ self._div_u
-                      + self._S21_u.T @ self._curl_u.T @ self._M2_u @ self._curl_u @ self._S21_u)
+        self._lapl_u = (
+            self._div_u.T @ self._mass_ops_lift_u.M3 @ self._div_u
+            + self._S21_u.T @ self._curl_u.T @ self._M2_u @ self._curl_u @ self._S21_u
+        )
 
-        self._A11_u = - self._M2B_u / self.options.eps_norm + self.options.nu * self._lapl_u
+        self._A11_u = -self._M2B_u / self.options.eps_norm + self.options.nu * self._lapl_u
 
-        self._M2_ue   = self._mass_ops_lift_ue.M2
-        self._M2B_ue  = - self._mass_ops_lift_ue.M2B
-        self._div_ue  = self._derham_lift_ue.div
+        self._M2_ue = self._mass_ops_lift_ue.M2
+        self._M2B_ue = -self._mass_ops_lift_ue.M2B
+        self._div_ue = self._derham_lift_ue.div
         self._curl_ue = self._derham_lift_ue.curl
-        self._S21_ue  = self._basis_ops_lift_ue.S21
+        self._S21_ue = self._basis_ops_lift_ue.S21
 
-        self._lapl_ue = (self._div_ue.T @ self._mass_ops_lift_ue.M3 @ self._div_ue
-                       + self._S21_ue.T @ self._curl_ue.T @ self._M2_ue @ self._curl_ue @ self._S21_ue)
+        self._lapl_ue = (
+            self._div_ue.T @ self._mass_ops_lift_ue.M3 @ self._div_ue
+            + self._S21_ue.T @ self._curl_ue.T @ self._M2_ue @ self._curl_ue @ self._S21_ue
+        )
 
-        self._A22_ue = (self.options.stab_sigma * IdentityOperator(self._derham_lift_ue.coeff_spaces["2"])
-                   + self._M2B_ue / self.options.eps_norm + self.options.nu_e * self._lapl_ue)
+        self._A22_ue = (
+            self.options.stab_sigma * IdentityOperator(self._derham_lift_ue.coeff_spaces["2"])
+            + self._M2B_ue / self.options.eps_norm
+            + self.options.nu_e * self._lapl_ue
+        )
 
         # ---- constrained operators (for system matrix, built from self.derham) ---
 
-        self._M2   = self.mass_ops.M2
-        self._M3   = self.mass_ops.M3
-        self._M2B  = - self.mass_ops.M2B
-        self._div  = self.derham.div
+        self._M2 = self.mass_ops.M2
+        self._M3 = self.mass_ops.M3
+        self._M2B = -self.mass_ops.M2B
+        self._div = self.derham.div
         self._curl = self.derham.curl
-        self._S21  = self.basis_ops.S21
+        self._S21 = self.basis_ops.S21
 
-        self._lapl_v0 = (self._div.T @ self._M3 @ self._div
-                       + self._S21.T @ self._curl.T @ self._M2 @ self._curl @ self._S21)
+        self._lapl_v0 = (
+            self._div.T @ self._M3 @ self._div + self._S21.T @ self._curl.T @ self._M2 @ self._curl @ self._S21
+        )
 
-        self._A11 = - self._M2B / self.options.eps_norm + self.options.nu * self._lapl_v0
-        self._A22 = (self.options.stab_sigma * IdentityOperator(self.derham.coeff_spaces["2"])
-                       + self._M2B / self.options.eps_norm + self.options.nu_e * self._lapl_v0)
+        self._A11 = -self._M2B / self.options.eps_norm + self.options.nu * self._lapl_v0
+        self._A22 = (
+            self.options.stab_sigma * IdentityOperator(self.derham.coeff_spaces["2"])
+            + self._M2B / self.options.eps_norm
+            + self.options.nu_e * self._lapl_v0
+        )
 
         # ---- block saddle-point system ----------------------------------------
 
         self._block_domain = BlockVectorSpace(self.derham.coeff_spaces["2"], self.derham.coeff_spaces["2"])
         self._block_codomain_B = self.derham.coeff_spaces["3"]
 
-        self._B1 = - self._M3 @ self._div
-        self._B2 =   self._M3 @ self._div
+        self._B1 = -self._M3 @ self._div
+        self._B2 = self._M3 @ self._div
 
-        self._B = BlockLinearOperator(
-            self._block_domain, self._block_codomain_B,
-            blocks=[[self._B1, self._B2]]
-        )
+        self._B = BlockLinearOperator(self._block_domain, self._block_codomain_B, blocks=[[self._B1, self._B2]])
 
         self._block_domain_M = BlockVectorSpace(self._block_domain, self._block_codomain_B)
 
         _A_init = BlockLinearOperator(
-            self._block_domain, self._block_domain,
-            blocks=[[self._A11, None], [None, self._A22]]
+            self._block_domain, self._block_domain, blocks=[[self._A11, None], [None, self._A22]]
         )
         _M_init = BlockLinearOperator(
-            self._block_domain_M, self._block_domain_M,
-            blocks=[[_A_init, self._B.T], [self._B, None]]
+            self._block_domain_M, self._block_domain_M, blocks=[[_A_init, self._B.T], [self._B, None]]
         )
 
         if self.options.solver in get_args(LiteralOptions.OptsSaddlePointSolver):
             self._Minv = inverse(
-                _M_init, self.options.solver,
+                _M_init,
+                self.options.solver,
                 A11=self._A11,
                 A22=self._A22,
                 B1=self._B1,
@@ -331,17 +357,21 @@ class TwoFluidQuasiNeutralFull(Propagator):
             )
         else:
             self._Minv = inverse(
-                _M_init, self.options.solver,
+                _M_init,
+                self.options.solver,
                 recycle=self.options.solver_params.recycle,
                 tol=self.options.solver_params.tol,
                 maxiter=self.options.solver_params.maxiter,
                 verbose=self.options.solver_params.verbose,
             )
 
-        self._RHS = BlockVector(self._block_domain_M,
-                        blocks=[BlockVector(self._block_domain,
-                                            blocks=[self._rhs_vec_u.vector, self._rhs_vec_ue.vector]),
-                                self._rhs_vec_phi.vector])
+        self._RHS = BlockVector(
+            self._block_domain_M,
+            blocks=[
+                BlockVector(self._block_domain, blocks=[self._rhs_vec_u.vector, self._rhs_vec_ue.vector]),
+                self._rhs_vec_phi.vector,
+            ],
+        )
         self._SOL = self._block_domain_M.zeros()
 
     # =========================================================================
@@ -350,33 +380,47 @@ class TwoFluidQuasiNeutralFull(Propagator):
     def __call__(self, dt):
 
         # --- copy current homogeneous solution ---
-        self._u_0.vector  = self.variables.u.spline.vector
+        self._u_0.vector = self.variables.u.spline.vector
 
         # --- assemble RHS fully in unconstrained space, then enforce essential BCs ---
-        self._rhs_vec_u.vector  = self._b_op_u.dot((self._M2_u.dot(self._src_u.vector)
-                                                                        - self._A11_u.dot(self._boundary_spline_u)
-                                                                        - self._M2_u.dot(self._boundary_spline_u) / dt)) + self._M2.dot(self._u_0.vector) / dt
-        
-        self._rhs_vec_ue.vector = self._b_op_ue.dot((self._M2_ue.dot(self._src_ue.vector)
-                                                                        - self._A22_ue.dot(self._boundary_spline_ue)))
+        self._rhs_vec_u.vector = (
+            self._b_op_u.dot(
+                (
+                    self._M2_u.dot(self._src_u.vector)
+                    - self._A11_u.dot(self._boundary_spline_u)
+                    - self._M2_u.dot(self._boundary_spline_u) / dt
+                )
+            )
+            + self._M2.dot(self._u_0.vector) / dt
+        )
+
+        self._rhs_vec_ue.vector = self._b_op_ue.dot(
+            (self._M2_ue.dot(self._src_ue.vector) - self._A22_ue.dot(self._boundary_spline_ue))
+        )
 
         self._div_boundary_u.vector = self._div_u.dot(self._boundary_spline_u)
         self._div_boundary_ue.vector = self._div_ue.dot(self._boundary_spline_ue)
 
-        self._rhs_vec_phi.vector = (self.mass_ops.M3.dot(self._div_boundary_u.vector) - self.mass_ops.M3.dot(self._div_boundary_ue.vector))
+        self._rhs_vec_phi.vector = self.mass_ops.M3.dot(self._div_boundary_u.vector) - self.mass_ops.M3.dot(
+            self._div_boundary_ue.vector
+        )
 
-        # --- build block RHS and solve ---        
-        self._Minv.dot(BlockVector(self._block_domain_M,
-                        blocks=[BlockVector(self._block_domain, blocks=[self._rhs_vec_u.vector, self._rhs_vec_ue.vector]),
-                                self._rhs_vec_phi.vector]),
-                        out=self._SOL)
-        
+        # --- build block RHS and solve ---
+        self._Minv.dot(
+            BlockVector(
+                self._block_domain_M,
+                blocks=[
+                    BlockVector(self._block_domain, blocks=[self._rhs_vec_u.vector, self._rhs_vec_ue.vector]),
+                    self._rhs_vec_phi.vector,
+                ],
+            ),
+            out=self._SOL,
+        )
+
         info = self._Minv.get_info()
 
         # --- update FEEC variables ---
-        max_diffs = self.update_feec_variables(
-            u=self._SOL[0][0], ue=self._SOL[0][1], phi=self._SOL[1]
-        )
+        max_diffs = self.update_feec_variables(u=self._SOL[0][0], ue=self._SOL[0][1], phi=self._SOL[1])
 
         if self.options.solver_params.info and self._rank == 0:
             print(f"Status: {info['success']}, Iterations: {info['niter']}")
