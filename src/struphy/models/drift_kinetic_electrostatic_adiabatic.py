@@ -24,51 +24,25 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class DriftKineticElectrostaticAdiabatic(StruphyModel):
-    r"""Drift-kinetic equation for one ion species in static background magnetic field,
-    coupled to quasi-neutrality equation with adiabatic electrons.
+    r"""Electrostatic drift-kinetic model for a single ion species with adiabatic electrons.
 
-    :ref:`normalization`:
+    Evolves the guiding-center distribution :math:`f(\mathbf{X}, v_\parallel, \mu, t)` under
+    both the :math:`\mathbf{E}^* \times \mathbf{B}` drift and parallel streaming along the
+    background magnetic field. Electrons are not evolved kinetically; instead they contribute
+    through an adiabatic response term in the quasi-neutrality (Poisson) equation. The
+    optional control-variate method can be activated for the field solve.
 
-    .. math::
-
-       \hat v = \hat v_\textrm{i} = \sqrt{\frac{k_B \hat T_\textrm{i}}{m_\textrm{i}}}\,,\qquad  \hat E = \hat v_\textrm{i}\hat B\,,\qquad \hat \phi = \hat E \hat x \,.
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        &\frac{\partial f}{\partial t} + \left[ v_\parallel \frac{\mathbf{B}^*}{B^*_\parallel} + \frac{\mathbf{E}^* \times \mathbf{b}_0}{B^*_\parallel}\right] \cdot \frac{\partial f}{\partial \mathbf{X}} + \left[\frac{1}{\varepsilon} \frac{\mathbf{B}^*}{B^*_\parallel} \cdot \mathbf{E}^*\right] \cdot \frac{\partial f}{\partial v_\parallel} = 0\,.
-        \\[2mm]
-        - &\nabla_\perp \cdot \left( \frac{n_0}{|B_0|^2} \nabla_\perp \phi \right) + \frac{1}{\varepsilon} n_0 \left(1 + \frac{1}{Z \varepsilon} \frac{1}{T_{0}} \phi \right) = \frac 1 \varepsilon \int f B^*_\parallel \,\textnormal d v_\parallel \textnormal d \mu \,.
-
-    where :math:`f(\mathbf{X}, v_\parallel, \mu, t)` is the guiding center distribution and
-
-    .. math::
-        \mathbf{E}^* = - \nabla \phi - \varepsilon \mu \nabla |B_0| \,,  \qquad \mathbf{B}^* = \mathbf{B}_0 + \varepsilon v_\parallel \nabla \times \mathbf{b}_0 \,,\qquad B^*_\parallel = \mathbf B^* \cdot \mathbf b_0  \,,
-
-    and with the normalization parameters
-
-    .. math::
-
-        \varepsilon := \frac{1}{\hat \Omega_\textrm{c} \hat t}\,,\qquad \hat \Omega_\textrm{c} = \frac{q_\textrm{i} \hat B}{m_\textrm{i}} \,.
-
-    Notes
-    -----
-
-    * The :ref:`control_var` in the Poisson equation is optional; in case it is enabled via the parameter file, the following Poisson equation is solved:
-    Find :math:`\phi \in H^1` such that
-
-    .. math::
-
-        \int \frac{n_0}{|B_0|^2} \nabla_\perp \psi \cdot \nabla_\perp \phi\,\textrm d \mathbf x + \frac{1}{Z\varepsilon^2} \int  \frac{n_0}{T_{0}} \psi \phi \,\textrm d \mathbf x  = \frac 1 \varepsilon \int \int \psi \, (f - f_0) B^*_\parallel \,\textrm d \mathbf x\,\textnormal d v_\parallel \textnormal d \mu \qquad \forall \ \psi \in H^1\,.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.implicit_diffusion.ImplicitDiffusion`
-    2. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
-    3. :class:`~struphy.propagators.push_guiding_center_parallel.PushGuidingCenterParallel`
-
-    :ref:`Model info <add_model>`:
+    Parameters
+    ----------
+    base_units : BaseUnits
+        Base units for normalization (default: ``BaseUnits(kBT=1.0)``).
+    charge_number : int
+        Charge number (in units of the positive elementary charge) of the ion species (default: 1).
+    mass_number : float
+        Mass number (in units of the proton mass) of the ion species (default: 1.0).
+    epsilon : float, optional
+        Normalized inverse cyclotron frequency: :math:`1 / (\hat{\Omega}_\mathrm{c} \hat{t})`.
+        If ``None``, computed from ``base_units`` and the charge/mass numbers.
     """
 
     @classmethod
@@ -151,6 +125,90 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
     @property
     def velocity_scale(self):
         return "thermal"
+
+    def allocate_helpers(self, verbose: bool = False):
+        """Solve initial Poisson equation.
+
+        :meta private:
+        """
+        self._tmp3 = xp.empty(1, dtype=float)
+        self._e_field = Propagator.derham.V1.zeros()
+
+        assert self.kinetic_ions.charge_number > 0, "Model written only for positive ions."
+
+        # Poisson right-hand side
+        particles = self.kinetic_ions.var.particles
+        Z = self.kinetic_ions.charge_number
+        epsilon = self.kinetic_ions.equation_params.epsilon
+
+        charge_accum = AccumulatorVector(
+            particles,
+            "H1",
+            Pyccelkernel(accum_kernels_gc.gc_density_0form),
+            Propagator.mass_ops,
+            Propagator.domain.args_domain,
+        )
+
+        rho = charge_accum
+
+        # get neutralizing background density
+        if not particles.control_variate:
+            l2_proj = L2Projector("H1", Propagator.mass_ops)
+            f0e = Z * particles.f0
+            assert isinstance(f0e, KineticBackground)
+            rho_eh = FEECVariable(space="H1")
+            rho_eh.allocate(derham=Propagator.derham, domain=Propagator.domain)
+            rho_eh.spline.vector = l2_proj.get_dofs(f0e.n)
+            rho = [rho]
+            rho += [rho_eh]
+
+        self.propagators.gc_poisson.options.sigma_1 = 1.0 / epsilon**2 / Z
+        self.propagators.gc_poisson.options.sigma_2 = 0.0
+        self.propagators.gc_poisson.options.sigma_3 = 1.0 / epsilon
+        self.propagators.gc_poisson.options.stab_mat = "M0ad"
+        self.propagators.gc_poisson.options.diffusion_mat = "M1perp"
+        self.propagators.gc_poisson.options.rho = rho
+        self.propagators.gc_poisson.allocate()
+
+    def _compute_en_phi(self):
+        phi = self.em_fields.phi.spline.vector
+        epsilon = self.kinetic_ions.equation_params.epsilon
+
+        e1 = Propagator.derham.grad.dot(-phi, out=self._e_field)
+        en_phi1 = 0.5 * Propagator.mass_ops.M1gyro.dot_inner(e1, e1)
+        en_phi = 0.5 / epsilon**2 * Propagator.mass_ops.M0ad.dot_inner(phi, phi)
+        return en_phi + en_phi1
+
+    def _compute_en_particle_magnetic(self):
+        particles = self.kinetic_ions.var.particles
+        particles.save_magnetic_background_energy()
+        return 1 / particles.Np * xp.sum(particles.markers_wo_holes_and_ghost[:, 8])
+
+    ## default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "BaseUnits(" in line:
+                    new_file += ["base_units = BaseUnits(kBT=1.0)\n"]
+                elif "push_gc_bxe.Options" in line:
+                    new_file += [
+                        "model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(phi=model.em_fields.phi)\n",
+                    ]
+                elif "push_gc_para.Options" in line:
+                    new_file += [
+                        "model.propagators.push_gc_para.options = model.propagators.push_gc_para.Options(phi=model.em_fields.phi)\n",
+                    ]
+                elif "set_save_data" in line:
+                    new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
+                    new_file += ["model.kinetic_ions.set_save_data(binning_plots=(binplot,))\n"]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
 
     @classmethod
     def doc_pde(cls):
@@ -254,87 +312,3 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         - electron kinetic effects beyond the adiabatic closure
         - problems that require resolving full cyclotron motion
         - multi-species kinetic coupling without extending the model"""
-
-    def allocate_helpers(self, verbose: bool = False):
-        """Solve initial Poisson equation.
-
-        :meta private:
-        """
-        self._tmp3 = xp.empty(1, dtype=float)
-        self._e_field = Propagator.derham.V1.zeros()
-
-        assert self.kinetic_ions.charge_number > 0, "Model written only for positive ions."
-
-        # Poisson right-hand side
-        particles = self.kinetic_ions.var.particles
-        Z = self.kinetic_ions.charge_number
-        epsilon = self.kinetic_ions.equation_params.epsilon
-
-        charge_accum = AccumulatorVector(
-            particles,
-            "H1",
-            Pyccelkernel(accum_kernels_gc.gc_density_0form),
-            Propagator.mass_ops,
-            Propagator.domain.args_domain,
-        )
-
-        rho = charge_accum
-
-        # get neutralizing background density
-        if not particles.control_variate:
-            l2_proj = L2Projector("H1", Propagator.mass_ops)
-            f0e = Z * particles.f0
-            assert isinstance(f0e, KineticBackground)
-            rho_eh = FEECVariable(space="H1")
-            rho_eh.allocate(derham=Propagator.derham, domain=Propagator.domain)
-            rho_eh.spline.vector = l2_proj.get_dofs(f0e.n)
-            rho = [rho]
-            rho += [rho_eh]
-
-        self.propagators.gc_poisson.options.sigma_1 = 1.0 / epsilon**2 / Z
-        self.propagators.gc_poisson.options.sigma_2 = 0.0
-        self.propagators.gc_poisson.options.sigma_3 = 1.0 / epsilon
-        self.propagators.gc_poisson.options.stab_mat = "M0ad"
-        self.propagators.gc_poisson.options.diffusion_mat = "M1perp"
-        self.propagators.gc_poisson.options.rho = rho
-        self.propagators.gc_poisson.allocate()
-
-    def _compute_en_phi(self):
-        phi = self.em_fields.phi.spline.vector
-        epsilon = self.kinetic_ions.equation_params.epsilon
-
-        e1 = Propagator.derham.grad.dot(-phi, out=self._e_field)
-        en_phi1 = 0.5 * Propagator.mass_ops.M1gyro.dot_inner(e1, e1)
-        en_phi = 0.5 / epsilon**2 * Propagator.mass_ops.M0ad.dot_inner(phi, phi)
-        return en_phi + en_phi1
-
-    def _compute_en_particle_magnetic(self):
-        particles = self.kinetic_ions.var.particles
-        particles.save_magnetic_background_energy()
-        return 1 / particles.Np * xp.sum(particles.markers_wo_holes_and_ghost[:, 8])
-
-    ## default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "BaseUnits(" in line:
-                    new_file += ["base_units = BaseUnits(kBT=1.0)\n"]
-                elif "push_gc_bxe.Options" in line:
-                    new_file += [
-                        "model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(phi=model.em_fields.phi)\n",
-                    ]
-                elif "push_gc_para.Options" in line:
-                    new_file += [
-                        "model.propagators.push_gc_para.options = model.propagators.push_gc_para.Options(phi=model.em_fields.phi)\n",
-                    ]
-                elif "set_save_data" in line:
-                    new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
-                    new_file += ["model.kinetic_ions.set_save_data(binning_plots=(binplot,))\n"]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)
