@@ -15,7 +15,7 @@ from feectools.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, Stenc
 from struphy.feec import mass_kernels
 from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
 from struphy.feec.psydac_derham import Derham, SplineFunction
-from struphy.feec.utilities import LocalRotationMatrix, get_quad_grids
+from struphy.feec.utilities import LocalRotationMatrix, get_quad_grids, LocalProjectionMatrix
 from struphy.fields_background.base import MHDequilibrium
 from struphy.fields_background.equils import set_defaults
 from struphy.geometry.base import Domain
@@ -24,6 +24,8 @@ from struphy.polar.basic import PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.docstring_converter import auto_convert_docstring, info
 from struphy.utils.pyccel import Pyccelkernel
+from struphy import equils
+from struphy import domains
 
 logger = logging.getLogger("struphy")
 
@@ -709,24 +711,44 @@ class WeightedMassOperators:
 
         .. math::
 
-            \mathbb M^{1,\perp}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk} DF^{-1} \begin{pmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 0 \end{pmatrix} DF^{-\top} \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
+            \mathbb M^{1,\perp}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk} \left(G^{-1} - b_0 b_0^\top \right) \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
         """
         if not hasattr(self, "_M1perp"):
-            D = [[1, 0, 0], [0, 1, 0], [0, 0, 0]]
+            if self.eq_mhd is None:
+                equil = equils.HomogenSlab()
+            else:
+                equil = self.eq_mhd
+            if not hasattr(equil, "_domain"):
+                equil.domain = domains.Cuboid()
+            bb = LocalProjectionMatrix(equil.unit_bv_1, equil.unit_bv_2, equil.unit_bv_3)
 
-            self._M1perp = self.create_weighted_mass(
+            if hasattr(self, "factors"):
+                factors = self.factors
+            else:
+                factors = ()
+            if factors is None:
+                factors = ()
+            factors = tuple(factors)
+            M1_op = self.create_weighted_mass(
                 "Hcurl",
                 "Hcurl",
-                weights=(
-                    "DFinv",
-                    D,
-                    "DFinv",
-                    "sqrt_g",
-                ),
+                weights = ("Ginv",)
+                  + factors
+                  + ("sqrt_g",),
                 name="M1perp",
                 assemble=True,
             )
-
+            M1para_op = self.create_weighted_mass(
+                "Hcurl",
+                "Hcurl",
+                weights= (bb,)
+                  + factors
+                  + ("sqrt_g",),
+                name="M1para",
+                assemble=True,
+            )
+            self._M1perp = M1_op
+            self._M1perp._mat = M1_op._mat - M1para_op._mat
         return self._M1perp
 
     @auto_convert_docstring
