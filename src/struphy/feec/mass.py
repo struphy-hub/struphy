@@ -12,10 +12,11 @@ from feectools.linalg.block import BlockLinearOperator, BlockVector
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilVector
 
+from struphy import domains, equils
 from struphy.feec import mass_kernels
 from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
 from struphy.feec.psydac_derham import Derham, SplineFunction
-from struphy.feec.utilities import LocalRotationMatrix, get_quad_grids, LocalProjectionMatrix
+from struphy.feec.utilities import LocalProjectionMatrix, LocalRotationMatrix, get_quad_grids
 from struphy.fields_background.base import MHDequilibrium
 from struphy.fields_background.equils import set_defaults
 from struphy.geometry.base import Domain
@@ -24,8 +25,6 @@ from struphy.polar.basic import PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.docstring_converter import auto_convert_docstring, info
 from struphy.utils.pyccel import Pyccelkernel
-from struphy import equils
-from struphy import domains
 
 logger = logging.getLogger("struphy")
 
@@ -732,18 +731,14 @@ class WeightedMassOperators:
             M1_op = self.create_weighted_mass(
                 "Hcurl",
                 "Hcurl",
-                weights = ("Ginv",)
-                  + factors
-                  + ("sqrt_g",),
+                weights=("Ginv",) + factors + ("sqrt_g",),
                 name="M1perp",
                 assemble=True,
             )
             M1para_op = self.create_weighted_mass(
                 "Hcurl",
                 "Hcurl",
-                weights= (bb,)
-                  + factors
-                  + ("sqrt_g",),
+                weights=(bb,) + factors + ("sqrt_g",),
                 name="M1para",
                 assemble=True,
             )

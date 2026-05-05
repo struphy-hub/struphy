@@ -22,9 +22,10 @@ def get_quad_grids(
     """Return the 1d quadrature grids in each direction as a tuple."""
     return tuple({q: gag} for q, gag in zip(nquads, space.get_assembly_grids(*nquads)))
 
+
 class LocalProjectionMatrix:
     """For a given triple of callables representing the components of a normalized vector-valued function a(e1, e2, e3),
-    represents the local projection matrix P defined by P = a a^\intercal at (e1, e2, e3).
+    represents the local projection matrix P defined by P = a a^T at (e1, e2, e3).
 
     LocalProjectionMatrix(e1, e2, e3) returns a five-dimensional array, with the 3x3 matrix in the last two indices.
 
@@ -47,14 +48,12 @@ class LocalProjectionMatrix:
     def __call__(self, e1, e2, e3):
         # array from 2d list gives 3x3 array is in the first two indices
         tmp = xp.array(
-            [
-                [self._funs[m](e1, e2, e3) * self._funs[n](e1, e2, e3) for n in range(3)]
-                for m in range(3)
-            ],
+            [[self._funs[m](e1, e2, e3) * self._funs[n](e1, e2, e3) for n in range(3)] for m in range(3)],
         )
 
         # numpy operates on the last two indices with @
         return xp.transpose(tmp, axes=(2, 3, 4, 0, 1))
+
 
 class LocalRotationMatrix:
     """For a given triple of callables representing the components of a vector-valued function a(e1, e2, e3),

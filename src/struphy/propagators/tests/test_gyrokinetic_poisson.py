@@ -1,12 +1,11 @@
 import logging
-from struphy import set_logging_level
 
 import cunumpy as xp
 import matplotlib.pyplot as plt
 import pytest
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy import domains
+from struphy import domains, equils, set_logging_level
 from struphy.feec.mass import L2Projector, WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry.base import Domain
@@ -16,7 +15,6 @@ from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.propagators.propagators_fields import ImplicitDiffusion
 from struphy.topology.grids import TensorProductGrid
-from struphy import equils
 
 logger = logging.getLogger("struphy")
 set_logging_level(logging.INFO)
@@ -466,7 +464,6 @@ def test_poisson_M1perp_2d(num_elements, degree, bc_type, mapping, projected_rhs
         ["Colella", {"Lx": 1.0, "Ly": 1.0, "alpha": 0.1, "Lz": 1.0}],
     ],
 )
-
 def test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=False):
     """
     Test the Poisson solver with M1perp diffusion matrix
@@ -486,16 +483,16 @@ def test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=F
     equil = equils.HomogenSlab()
     equil.domain = domain
 
-    #evaluation grid
+    # evaluation grid
     e1 = xp.linspace(0.0, 1.0, num_elements[0])
     e2 = xp.linspace(0.0, 1.0, num_elements[1])
     e3 = xp.linspace(0.0, 1.0, num_elements[2])
 
     # solution and right-hand side on unit cube
     def rho(e1, e2, e3):
-        dd1 = xp.sin(xp.pi * e1) * xp.sin(2 * xp.pi * e2) * ( 1 + xp.cos(2 * xp.pi * e3) ) * (xp.pi) ** 2
+        dd1 = xp.sin(xp.pi * e1) * xp.sin(2 * xp.pi * e2) * (1 + xp.cos(2 * xp.pi * e3)) * (xp.pi) ** 2
         return dd1
-    
+
     # create 3d derham object
     grid = TensorProductGrid(num_elements=num_elements)
     derham_opts = DerhamOptions(degree=degree, bcs=(None, None, None))
@@ -581,21 +578,31 @@ def test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=F
     x, y, z = domain(e1, e2, e3)
 
     import numpy as np
+
     logger.info(f"max diff: {xp.max(xp.abs(sol_val_M1 - sol_val_M1perp))}")
-    logger.info(f"max diff of the averaged solutions (over e3): {xp.max(xp.abs(np.trapezoid(sol_val_M1 - sol_val_M1perp, e3, axis=2)/(e3[-1]-e3[0])))}")
+    logger.info(
+        f"max diff of the averaged solutions (over e3): {xp.max(xp.abs(np.trapezoid(sol_val_M1 - sol_val_M1perp, e3, axis=2) / (e3[-1] - e3[0])))}"
+    )
     assert xp.max(xp.abs(sol_val_M1 - sol_val_M1perp)) < 0.0003
 
     if show_plot and rank == 0:
         plt.figure("e1-e2 plane", figsize=(24, 16))
         plt.subplot(2, 3, 1)
         plt.title(f"charge density averaged over e3")
-        plt.pcolor(x[:, :, 0], y[:, :, 0], xp.transpose(xp.sum(rho(*xp.meshgrid(e1, e2, e3)), axis=2))/len(e3), shading="nearest")
+        plt.pcolor(
+            x[:, :, 0],
+            y[:, :, 0],
+            xp.transpose(xp.sum(rho(*xp.meshgrid(e1, e2, e3)), axis=2)) / len(e3),
+            shading="nearest",
+        )
         plt.colorbar()
         ax = plt.gca()
         ax.set_aspect("equal", adjustable="box")
         plt.subplot(2, 3, 4)
         plt.title(f"charge density at e3={e3[len(e3) // 2]:.2f}")
-        plt.pcolor(x[:, :, 0], y[:, :, 0], xp.transpose(rho(*xp.meshgrid(e1, e2, e3))[:, :, len(e3) // 2]), shading="nearest")
+        plt.pcolor(
+            x[:, :, 0], y[:, :, 0], xp.transpose(rho(*xp.meshgrid(e1, e2, e3))[:, :, len(e3) // 2]), shading="nearest"
+        )
         plt.colorbar()
         ax = plt.gca()
         ax.set_aspect("equal", adjustable="box")
@@ -613,13 +620,13 @@ def test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=F
         ax.set_aspect("equal", adjustable="box")
         plt.subplot(2, 3, 3)
         plt.title(f"average over e3 of M1 solve")
-        plt.pcolor(x[:, :, 0], y[:, :, 0], xp.trapezoid(sol_val_M1, e3, axis=2)/(e3[-1]-e3[0]))
+        plt.pcolor(x[:, :, 0], y[:, :, 0], xp.trapezoid(sol_val_M1, e3, axis=2) / (e3[-1] - e3[0]))
         plt.colorbar()
         ax = plt.gca()
         ax.set_aspect("equal", adjustable="box")
         plt.subplot(2, 3, 6)
         plt.title(f"average over e3 of M1perp solve")
-        plt.pcolor(x[:, :, 0], y[:, :, 0], xp.trapezoid(sol_val_M1perp, e3, axis=2)/(e3[-1]-e3[0]))
+        plt.pcolor(x[:, :, 0], y[:, :, 0], xp.trapezoid(sol_val_M1perp, e3, axis=2) / (e3[-1] - e3[0]))
         plt.colorbar()
         ax = plt.gca()
         ax.set_aspect("equal", adjustable="box")
@@ -659,7 +666,7 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
     derham_opts_3D = DerhamOptions(degree=degree, bcs=bcs)
     derham_3D = Derham(grid_3D, derham_opts_3D, comm=comm)
 
-    mass_ops_3D = WeightedMassOperators(derham_3D, domain_3D, eq_mhd=equils.HomogenSlab(B0x=0.0,B0y=0.0,B0z=1.0))
+    mass_ops_3D = WeightedMassOperators(derham_3D, domain_3D, eq_mhd=equils.HomogenSlab(B0x=0.0, B0y=0.0, B0z=1.0))
 
     Propagator.derham = derham_3D
     Propagator.domain = domain_3D
@@ -708,8 +715,6 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
     s = _phi.spline.starts
     e = _phi.spline.ends
 
-
-
     # Solve 3d Poisson equation (call propagator with dt=1.)
     dt = 1.0
     t0 = time()
@@ -726,8 +731,10 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
     t0 = time()
     t_inner = 0.0
     for n in range(s[2], e[2] + 1):
-        dom_params_sliced["l3"] = dom_params["l3"] + (dom_params["r3"] - dom_params["l3"]) / (len(e3)+degree[2]) * n
-        dom_params_sliced["r3"] = dom_params["l3"] + (dom_params["r3"] - dom_params["l3"]) / (len(e3)+degree[2]) * (n + 1)
+        dom_params_sliced["l3"] = dom_params["l3"] + (dom_params["r3"] - dom_params["l3"]) / (len(e3) + degree[2]) * n
+        dom_params_sliced["r3"] = dom_params["l3"] + (dom_params["r3"] - dom_params["l3"]) / (len(e3) + degree[2]) * (
+            n + 1
+        )
         print(dom_params_sliced)
         domain_sliced = domain_class(**dom_params_sliced)
 
@@ -789,13 +796,17 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
         for n in range(3):
             plt.subplot(2, 3, n + 1)
             plt.title(f"e3 = {e3[plot_id_e3[n]]} from 3d solve")
-            plt.pcolor(x[:, :, plot_id_e3[n]], y[:, :, plot_id_e3[n]], sol_val[:, :, plot_id_e3[n]])# vmin=-1.0, vmax=1.0)
+            plt.pcolor(
+                x[:, :, plot_id_e3[n]], y[:, :, plot_id_e3[n]], sol_val[:, :, plot_id_e3[n]]
+            )
             plt.colorbar()
             ax = plt.gca()
             ax.set_aspect("equal", adjustable="box")
             plt.subplot(2, 3, 4 + n)
             plt.title(f"e3 = {e3[plot_id_e3[n]]} from 2.5d solve")
-            plt.pcolor(x[:, :, plot_id_e3[n]], y[:, :, plot_id_e3[n]], sol_val_2p5d[:, :, plot_id_e3[n]])# vmin=-1.0, vmax=1.0)
+            plt.pcolor(
+                x[:, :, plot_id_e3[n]], y[:, :, plot_id_e3[n]], sol_val_2p5d[:, :, plot_id_e3[n]]
+            )
             plt.colorbar()
             ax = plt.gca()
             ax.set_aspect("equal", adjustable="box")
@@ -803,13 +814,17 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
         for n in range(3):
             plt.subplot(2, 3, n + 1)
             plt.title(f"e2 = {e2[plot_id_e2[n]]} from 3d solve")
-            plt.pcolor(x[:, plot_id_e2[n], :], z[:, plot_id_e2[n], :], sol_val[:, plot_id_e2[n], :])# vmin=-1.0, vmax=1.0)
+            plt.pcolor(
+                x[:, plot_id_e2[n], :], z[:, plot_id_e2[n], :], sol_val[:, plot_id_e2[n], :]
+            )
             plt.colorbar()
             ax = plt.gca()
             ax.set_aspect("equal", adjustable="box")
             plt.subplot(2, 3, 4 + n)
             plt.title(f"e2 = {e2[plot_id_e2[n]]} from 2.5d solve")
-            plt.pcolor(x[:, plot_id_e2[n], :], z[:, plot_id_e2[n], :], sol_val_2p5d[:, plot_id_e2[n], :])# vmin=-1.0, vmax=1.0)
+            plt.pcolor(
+                x[:, plot_id_e2[n], :], z[:, plot_id_e2[n], :], sol_val_2p5d[:, plot_id_e2[n], :]
+            )
             plt.colorbar()
             ax = plt.gca()
             ax.set_aspect("equal", adjustable="box")
@@ -826,14 +841,14 @@ if __name__ == "__main__":
 
     num_elements = [64, 64, 1]
     degree = [2, 2, 1]
-    bc_type = 'neumann'
-    mapping = ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 3.}]
-    mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
+    bc_type = "neumann"
+    mapping = ["Cuboid", {"l1": 0.0, "r1": 4.0, "l2": 0.0, "r2": 2.0, "l3": 0.0, "r3": 3.0}]
+    mapping = ["Orthogonal", {"Lx": 4.0, "Ly": 2.0, "alpha": 0.1, "Lz": 1.0}]
     # test_poisson_M1perp_2d(num_elements, degree, bc_type, mapping, projected_rhs=True, show_plot=True)
 
-    num_elements = [20,20,20]
+    num_elements = [20, 20, 20]
     degree = [2, 2, 1]
     mapping = ["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}]
     test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=True)
-    num_elements = [20,20,20]
+    num_elements = [20, 20, 20]
     # test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot=True)
