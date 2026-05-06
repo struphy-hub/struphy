@@ -157,7 +157,7 @@ jobs:
   auto-update-managed-dependency-bounds:
     runs-on: ubuntu-latest
     needs: check-managed-dependency-bounds
-    if: needs.check-managed-dependency-bounds.result == 'failure'
+    if: always() && needs.check-managed-dependency-bounds.result == 'failure'
     permissions:
       contents: write
 
