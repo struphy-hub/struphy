@@ -105,18 +105,36 @@ def update_dependency_group(dependencies, resolved_versions, project_name):
     return updated_dependencies
 
 
-def iter_dependency_entries(pyproject_data):
+def get_selected_optional_groups(pyproject_data, optional_groups):
+    declared_optional_groups = pyproject_data["project"].get("optional-dependencies", {})
+    if optional_groups is None:
+        return None
+
+    missing_groups = [group_name for group_name in optional_groups if group_name not in declared_optional_groups]
+    if missing_groups:
+        missing_display = ", ".join(sorted(missing_groups))
+        raise ValueError(f"Unknown optional dependency group(s): {missing_display}")
+
+    return set(optional_groups)
+
+
+def iter_dependency_entries(pyproject_data, optional_groups=None):
     for entry in pyproject_data["project"]["dependencies"]:
         yield entry
-    for group_dependencies in pyproject_data["project"].get("optional-dependencies", {}).values():
+
+    selected_optional_groups = get_selected_optional_groups(pyproject_data, optional_groups)
+    optional_dependencies = pyproject_data["project"].get("optional-dependencies", {})
+    for group_name, group_dependencies in optional_dependencies.items():
+        if selected_optional_groups is not None and group_name not in selected_optional_groups:
+            continue
         for entry in group_dependencies:
             yield entry
 
 
-def collect_installed_versions(pyproject_data):
+def collect_installed_versions(pyproject_data, optional_groups=None):
     project_name = pyproject_data["project"]["name"]
     versions = {}
-    for entry in iter_dependency_entries(pyproject_data):
+    for entry in iter_dependency_entries(pyproject_data, optional_groups=optional_groups):
         requirement = split_requirement(entry)
         normalized_name = normalize_name(requirement["name"])
 
@@ -153,16 +171,16 @@ def load_versions(versions_path):
     return {normalize_name(name): version for name, version in payload.items()}
 
 
-def write_versions_snapshot(pyproject_data, output_path):
+def write_versions_snapshot(pyproject_data, output_path, optional_groups=None):
     payload = {
         "project": pyproject_data["project"]["name"],
-        "versions": collect_installed_versions(pyproject_data),
+        "versions": collect_installed_versions(pyproject_data, optional_groups=optional_groups),
     }
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def update_pyproject(pyproject_data, resolved_versions):
+def update_pyproject(pyproject_data, resolved_versions, optional_groups=None):
     project_name = pyproject_data["project"]["name"]
     pyproject_data["project"]["dependencies"] = update_dependency_group(
         pyproject_data["project"]["dependencies"],
@@ -170,7 +188,10 @@ def update_pyproject(pyproject_data, resolved_versions):
         project_name,
     )
 
+    selected_optional_groups = get_selected_optional_groups(pyproject_data, optional_groups)
     for group_name, group_dependencies in pyproject_data["project"].get("optional-dependencies", {}).items():
+        if selected_optional_groups is not None and group_name not in selected_optional_groups:
+            continue
         pyproject_data["project"]["optional-dependencies"][group_name] = update_dependency_group(
             group_dependencies,
             resolved_versions,
@@ -188,6 +209,12 @@ def dump_pyproject(pyproject_data, pyproject_path):
 def parse_args():
     parser = argparse.ArgumentParser(description="Update Struphy release dependency bounds.")
     parser.add_argument("--pyproject-file", default="pyproject.toml", help="Path to pyproject.toml.")
+    parser.add_argument(
+        "--optional-group",
+        action="append",
+        dest="optional_groups",
+        help="Optional dependency group to include. If omitted, all optional groups are processed.",
+    )
     parser.add_argument(
         "--versions-file",
         help="Path to a JSON file containing the tested dependency versions.",
@@ -209,13 +236,26 @@ def main():
     pyproject_path = Path(args.pyproject_file)
     pyproject_data = load_pyproject(pyproject_path)
 
-    if args.write_versions_file:
-        write_versions_snapshot(pyproject_data, Path(args.write_versions_file))
-        return 0
+    try:
+        if args.write_versions_file:
+            write_versions_snapshot(
+                pyproject_data,
+                Path(args.write_versions_file),
+                optional_groups=args.optional_groups,
+            )
+            return 0
 
-    original_payload = json.dumps(pyproject_data, sort_keys=True)
-    resolved_versions = load_versions(Path(args.versions_file)) if args.versions_file else collect_installed_versions(pyproject_data)
-    update_pyproject(pyproject_data, resolved_versions)
+        original_payload = json.dumps(pyproject_data, sort_keys=True)
+        resolved_versions = (
+            load_versions(Path(args.versions_file))
+            if args.versions_file
+            else collect_installed_versions(pyproject_data, optional_groups=args.optional_groups)
+        )
+        update_pyproject(pyproject_data, resolved_versions, optional_groups=args.optional_groups)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
     updated_payload = json.dumps(pyproject_data, sort_keys=True)
 
     if args.check:

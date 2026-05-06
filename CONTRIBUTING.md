@@ -8,6 +8,29 @@ The **main** branch holds the current release of the code.
 **devel** is the branch for developers. Feature branches must be checked out and merged into **devel**.
 
 
+# Dependency Bounds On PRs
+
+Pull requests into **devel** are checked for stale dependency upper bounds in `pyproject.toml`.
+
+The policy is intentionally narrow:
+
+1. Only `project.dependencies` are checked.
+2. From `project.optional-dependencies`, only `phys` is checked.
+3. Patch-only updates are ignored.
+4. A pull request fails when a newer **major** or **minor** stable release exists on PyPI beyond the declared upper bound.
+
+If the pull request branch lives in the main Struphy repository, the failing freshness check triggers a follow-up workflow that:
+
+1. creates a clean environment,
+2. runs `pip install -U --update-strategy eager .[phys]`,
+3. runs `python utils/set_release_dependencies.py --optional-group phys`,
+4. commits the resulting `pyproject.toml` change back to the pull request branch.
+
+That push should retrigger the pull request pipeline through the normal `synchronize` event.
+
+For pull requests opened from forks, the freshness check still fails, but the repository workflow does **not** push back to the fork branch automatically.
+
+
 # Releases
 
 Releases should be prepared from code that has already passed the `PR - model tests in Container` workflow on a pull request into **devel**.
