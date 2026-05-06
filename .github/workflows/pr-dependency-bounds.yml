@@ -32,7 +32,6 @@ jobs:
       - name: Install check tooling
         run: |
           python -m pip install --upgrade pip
-          pip install packaging
 
       - name: Check managed dependency bounds
         id: check
@@ -132,10 +131,10 @@ jobs:
                       "This PR comes from a fork, so the follow-up workflow will not push changes back automatically."
                   )
 
-              Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text(
-                "\n".join(summary_lines) + "\n",
-                encoding="utf-8",
-              )
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text(
+              "\n".join(summary_lines) + "\n",
+              encoding="utf-8",
+          )
           PY
 
       - name: Upload dependency report artifact

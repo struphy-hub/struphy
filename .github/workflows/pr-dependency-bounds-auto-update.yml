@@ -2,6 +2,7 @@ name: PR - dependency bounds auto-update
 
 on:
   workflow_run:
+    # This trigger fires only after the referenced workflow run has completed.
     workflows:
       - PR - dependency bounds freshness
     types:
