@@ -39,241 +39,35 @@ jobs:
           python utils/check_dependency_bounds.py \
             --pyproject-file pyproject.toml \
             --optional-group phys \
-            --version-scope major-minor \
-            --report-file dependency-bounds-report.json
+            --version-scope major-minor
           exit_code=$?
           echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
           exit 0
 
-      - name: Add pull request metadata to report
-        if: always()
-        env:
-          BASE_REPOSITORY: ${{ github.repository }}
-          BASE_REF: ${{ github.event.pull_request.base.ref }}
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
-          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          report_path = Path("dependency-bounds-report.json")
-          report = json.loads(report_path.read_text(encoding="utf-8"))
-          head_repository = os.environ["HEAD_REPOSITORY"]
-          base_repository = os.environ["BASE_REPOSITORY"]
-          report["pull_request"] = {
-              "base_ref": os.environ["BASE_REF"],
-              "base_repository": base_repository,
-              "head_ref": os.environ["HEAD_REF"],
-              "head_repository": head_repository,
-              "head_sha": os.environ["HEAD_SHA"],
-              "number": os.environ["PR_NUMBER"],
-              "same_repository": head_repository == base_repository,
-          }
-          report["automation"] = {
-              "auto_update_allowed": head_repository == base_repository,
-              "update_command": "pip install -U --upgrade-strategy eager .[phys]",
-              "update_script": "python utils/set_release_dependencies.py --optional-group phys",
-          }
-          report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-          PY
-
-      - name: Summarize check result
+      - name: Summarize local remediation steps
         if: always()
         run: |
-          python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          report = json.loads(Path("dependency-bounds-report.json").read_text(encoding="utf-8"))
-          summary_lines = [
-              "## Managed dependency freshness",
-              "",
-              f"- Status: `{report['status']}`",
-              f"- Version policy: `{report['version_scope']}`",
-              f"- Optional groups: `{', '.join(report['scope']['optional_groups']) or '(none)'}`",
-              "",
-          ]
-
-          if report["outdated"]:
-              summary_lines.append("### Outdated bounds")
-              summary_lines.append("")
-              for item in report["outdated"]:
-                  if item["kind"] == "missing-upper-bound":
-                      summary_lines.append(
-                          f"- `{item['dependency']}` in `{item['group']}` has no upper bound in `{item['requirement']}`"
-                      )
-                  else:
-                      summary_lines.append(
-                          f"- `{item['dependency']}` in `{item['group']}` is capped at `{item['upper_bound']}` while PyPI has `{item['latest_stable']}`"
-                      )
-              summary_lines.append("")
-
-          if report["errors"]:
-              summary_lines.append("### Errors")
-              summary_lines.append("")
-              for item in report["errors"]:
-                  summary_lines.append(f"- `{item['kind']}`: {item['message']}")
-              summary_lines.append("")
-
-          if report["status"] == "outdated":
-              if report["automation"]["auto_update_allowed"]:
-                  summary_lines.append(
-                      "A follow-up workflow will try to refresh `pyproject.toml` on this PR branch automatically."
-                  )
-              else:
-                  summary_lines.append(
-                      "This PR comes from a fork, so the follow-up workflow will not push changes back automatically."
-                  )
-
-          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text(
-              "\n".join(summary_lines) + "\n",
-              encoding="utf-8",
-          )
-          PY
-
-      - name: Upload dependency report artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: dependency-bounds-report
-          path: dependency-bounds-report.json
-          if-no-files-found: error
-          retention-days: 7
+          {
+            echo "## Managed dependency freshness"
+            echo
+            echo "- Version policy: major-minor"
+            echo "- Optional groups: phys"
+            echo
+            if [[ "${{ steps.check.outputs.exit_code }}" != "0" ]]; then
+              echo "### Local update instructions"
+              echo
+              echo "Run these commands locally to refresh bounds:"
+              echo
+              echo "1. python utils/check_dependency_bounds.py --pyproject-file pyproject.toml --optional-group phys --version-scope major-minor --report-file dependency-bounds-report.json"
+              echo "2. python -m pip install --upgrade pip"
+              echo "3. pip install tomli-w"
+              echo "4. python utils/update_dependency_bounds.py --pyproject-file pyproject.toml --report-file dependency-bounds-report.json"
+              echo "5. git add pyproject.toml && git commit -m \"Refresh managed dependency bounds\""
+            else
+              echo "Managed dependency bounds are in sync."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Enforce dependency freshness policy
         if: steps.check.outputs.exit_code != '0'
         run: exit ${{ steps.check.outputs.exit_code }}
-
-  # ---------------------------------------------------------------------------
-  # Temporary: auto-update runs in the same workflow so it is triggered even
-  # before this file is merged to the default branch (workflow_run only fires
-  # from the default branch).  Remove this job once devel has both files.
-  # ---------------------------------------------------------------------------
-  auto-update-managed-dependency-bounds:
-    runs-on: ubuntu-latest
-    needs: check-managed-dependency-bounds
-    if: always() && needs.check-managed-dependency-bounds.result == 'failure'
-    permissions:
-      contents: write
-
-    steps:
-      - name: Download dependency report artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: dependency-bounds-report
-          path: /tmp/dependency-bounds
-
-      - name: Decide whether auto-update should run
-        id: decide
-        run: |
-          python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          report = json.loads(Path("/tmp/dependency-bounds/dependency-bounds-report.json").read_text(encoding="utf-8"))
-          pull_request = report.get("pull_request", {})
-          auto_update_allowed = report.get("automation", {}).get("auto_update_allowed", False)
-
-          should_update = report.get("status") == "outdated" and auto_update_allowed
-
-          if not should_update:
-              if report.get("status") != "outdated":
-                  skip_reason = f"skip: report status is {report.get('status')}"
-              elif not auto_update_allowed:
-                  skip_reason = "skip: PR branch belongs to a fork"
-              else:
-                  skip_reason = "skip: no auto-update required"
-          else:
-              skip_reason = ""
-
-          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as fh:
-              fh.write(f"should_update={'true' if should_update else 'false'}\n")
-              fh.write(f"head_ref={pull_request.get('head_ref', '')}\n")
-              fh.write(f"head_sha={pull_request.get('head_sha', '')}\n")
-              fh.write(f"pr_number={pull_request.get('number', '')}\n")
-              fh.write(f"skip_reason={skip_reason}\n")
-          PY
-
-      - name: Summarize decision
-        run: |
-          {
-            echo "## Auto-update decision"
-            echo
-            if [[ "${{ steps.decide.outputs.should_update }}" != "true" ]]; then
-              echo "- should_update: false"
-              echo "- reason: ${{ steps.decide.outputs.skip_reason }}"
-            else
-              echo "- should_update: true"
-              echo "- branch: ${{ steps.decide.outputs.head_ref }}"
-              echo "- source sha: ${{ steps.decide.outputs.head_sha }}"
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Checkout PR branch
-        if: steps.decide.outputs.should_update == 'true'
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ steps.decide.outputs.head_ref }}
-          fetch-depth: 0
-          clean: false
-
-      - name: Verify branch head still matches triggering commit
-        if: steps.decide.outputs.should_update == 'true'
-        id: head-match
-        run: |
-          current_head=$(git rev-parse HEAD)
-          if [[ "$current_head" == "${{ steps.decide.outputs.head_sha }}" ]]; then
-            echo "matches=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "matches=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Note branch head mismatch
-        if: steps.decide.outputs.should_update == 'true' && steps.head-match.outputs.matches != 'true'
-        run: echo "The PR branch moved after the failing check run. Skipping." >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Set up Python
-        if: steps.decide.outputs.should_update == 'true' && steps.head-match.outputs.matches == 'true'
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Refresh managed dependency bounds
-        if: steps.decide.outputs.should_update == 'true' && steps.head-match.outputs.matches == 'true'
-        run: |
-          python -m pip install --upgrade pip
-          pip install tomli-w
-          python utils/update_dependency_bounds.py \
-            --pyproject-file pyproject.toml \
-            --report-file /tmp/dependency-bounds/dependency-bounds-report.json
-
-      - name: Detect pyproject change
-        if: steps.decide.outputs.should_update == 'true' && steps.head-match.outputs.matches == 'true'
-        id: diff
-        run: |
-          if git diff --quiet -- pyproject.toml; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Commit refreshed dependency bounds
-        if: >-
-          steps.decide.outputs.should_update == 'true' &&
-          steps.head-match.outputs.matches == 'true' &&
-          steps.diff.outputs.changed == 'true'
-        env:
-          HEAD_REF: ${{ steps.decide.outputs.head_ref }}
-          PR_NUMBER: ${{ steps.decide.outputs.pr_number }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add pyproject.toml
-          git commit -m "Refresh managed dependency bounds for PR #${PR_NUMBER}"
-          git push origin "HEAD:${HEAD_REF}"

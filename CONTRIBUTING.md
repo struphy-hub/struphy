@@ -19,16 +19,7 @@ The policy is intentionally narrow:
 3. Patch-only updates are ignored.
 4. A pull request fails when a newer **major** or **minor** stable release exists on PyPI beyond the declared upper bound.
 
-If the pull request branch lives in the main Struphy repository, the failing freshness check triggers a follow-up workflow that:
-
-1. creates a clean environment,
-2. runs `pip install -U --upgrade-strategy eager .[phys]`,
-3. runs `python utils/set_release_dependencies.py --optional-group phys`,
-4. commits the resulting `pyproject.toml` change back to the pull request branch.
-
-That push should retrigger the pull request pipeline through the normal `synchronize` event.
-
-For pull requests opened from forks, the freshness check still fails, but the repository workflow does **not** push back to the fork branch automatically.
+When the check fails, the CI summary prints local remediation commands. In short, run the checker locally with `--report-file`, run `python utils/update_dependency_bounds.py` on that report, and commit the updated `pyproject.toml`.
 
 
 # Releases
