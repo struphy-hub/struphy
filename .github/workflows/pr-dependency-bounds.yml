@@ -13,12 +13,11 @@ defaults:
   run:
     shell: bash
 
-permissions:
-  contents: read
-
 jobs:
   check-managed-dependency-bounds:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout code
@@ -149,3 +148,132 @@ jobs:
       - name: Enforce dependency freshness policy
         if: steps.check.outputs.exit_code != '0'
         run: exit ${{ steps.check.outputs.exit_code }}
+
+  # ---------------------------------------------------------------------------
+  # Temporary: auto-update runs in the same workflow so it is triggered even
+  # before this file is merged to the default branch (workflow_run only fires
+  # from the default branch).  Remove this job once devel has both files.
+  # ---------------------------------------------------------------------------
+  auto-update-managed-dependency-bounds:
+    runs-on: ubuntu-latest
+    needs: check-managed-dependency-bounds
+    if: needs.check-managed-dependency-bounds.result == 'failure'
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download dependency report artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dependency-bounds-report
+          path: .dependency-bounds
+
+      - name: Decide whether auto-update should run
+        id: decide
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          report = json.loads(Path(".dependency-bounds/dependency-bounds-report.json").read_text(encoding="utf-8"))
+          pull_request = report.get("pull_request", {})
+          auto_update_allowed = report.get("automation", {}).get("auto_update_allowed", False)
+
+          should_update = report.get("status") == "outdated" and auto_update_allowed
+
+          if not should_update:
+              if report.get("status") != "outdated":
+                  skip_reason = f"skip: report status is {report.get('status')}"
+              elif not auto_update_allowed:
+                  skip_reason = "skip: PR branch belongs to a fork"
+              else:
+                  skip_reason = "skip: no auto-update required"
+          else:
+              skip_reason = ""
+
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as fh:
+              fh.write(f"should_update={'true' if should_update else 'false'}\n")
+              fh.write(f"head_ref={pull_request.get('head_ref', '')}\n")
+              fh.write(f"head_sha={pull_request.get('head_sha', '')}\n")
+              fh.write(f"pr_number={pull_request.get('number', '')}\n")
+              fh.write(f"skip_reason={skip_reason}\n")
+          PY
+
+      - name: Summarize decision
+        run: |
+          {
+            echo "## Auto-update decision"
+            echo
+            if [[ "${{ steps.decide.outputs.should_update }}" != "true" ]]; then
+              echo "- should_update: false"
+              echo "- reason: ${{ steps.decide.outputs.skip_reason }}"
+            else
+              echo "- should_update: true"
+              echo "- branch: ${{ steps.decide.outputs.head_ref }}"
+              echo "- source sha: ${{ steps.decide.outputs.head_sha }}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Checkout PR branch
+        if: steps.decide.outputs.should_update == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.decide.outputs.head_ref }}
+          fetch-depth: 0
+
+      - name: Verify branch head still matches triggering commit
+        if: steps.decide.outputs.should_update == 'true'
+        id: head-match
+        run: |
+          current_head=$(git rev-parse HEAD)
+          if [[ "$current_head" == "${{ steps.decide.outputs.head_sha }}" ]]; then
+            echo "matches=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "matches=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Note branch head mismatch
+        if: steps.decide.outputs.should_update == 'true' && steps.head-match.outputs.matches != 'true'
+        run: echo "The PR branch moved after the failing check run. Skipping." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Set up Python
+        if: steps.decide.outputs.should_update == 'true' && steps.head-match.outputs.matches == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Refresh managed dependency bounds in a clean environment
+        if: steps.decide.outputs.should_update == 'true' && steps.head-match.outputs.matches == 'true'
+        run: |
+          python -m venv .dependency-bounds-venv
+          source .dependency-bounds-venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install tomli-w
+          pip install -U --update-strategy eager ".[phys]"
+          python utils/set_release_dependencies.py --optional-group phys
+
+      - name: Detect pyproject change
+        if: steps.decide.outputs.should_update == 'true' && steps.head-match.outputs.matches == 'true'
+        id: diff
+        run: |
+          if git diff --quiet -- pyproject.toml; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit refreshed dependency bounds
+        if: >-
+          steps.decide.outputs.should_update == 'true' &&
+          steps.head-match.outputs.matches == 'true' &&
+          steps.diff.outputs.changed == 'true'
+        env:
+          HEAD_REF: ${{ steps.decide.outputs.head_ref }}
+          PR_NUMBER: ${{ steps.decide.outputs.pr_number }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml
+          git commit -m "Refresh managed dependency bounds for PR #${PR_NUMBER}"
+          git push origin "HEAD:${HEAD_REF}"
