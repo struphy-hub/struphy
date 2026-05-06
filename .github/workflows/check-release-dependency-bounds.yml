@@ -30,6 +30,32 @@ jobs:
         run: |
           test -f .github/release/tested-dependencies.json
 
+      - name: Validate tested dependency snapshot metadata
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          payload = json.loads(Path('.github/release/tested-dependencies.json').read_text(encoding='utf-8'))
+          metadata = payload.get('metadata', {})
+          required_keys = [
+              'artifact_name',
+              'event_name',
+              'install_command',
+              'run_id',
+              'source_sha',
+              'workflow',
+          ]
+
+          missing = [key for key in required_keys if not metadata.get(key)]
+          if missing:
+              raise SystemExit(f'Missing tested dependency snapshot metadata fields: {missing}')
+          if metadata['event_name'] != 'pull_request':
+              raise SystemExit('Release dependency snapshot must originate from a pull_request run into devel.')
+            if metadata.get('pr_base_ref') != 'devel':
+              raise SystemExit('Release dependency snapshot must come from a pull_request targeting devel.')
+          PY
+
       - name: Validate pyproject dependency bounds
         run: |
           python utils/set_release_dependencies.py --versions-file .github/release/tested-dependencies.json --check

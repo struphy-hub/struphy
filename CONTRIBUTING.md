@@ -8,6 +8,23 @@ The **main** branch holds the current release of the code.
 **devel** is the branch for developers. Feature branches must be checked out and merged into **devel**.
 
 
+# Releases
+
+Releases should be prepared from code that has already passed the `PR - model tests in Container` workflow on a pull request into **devel**.
+
+The tested dependency set is recorded automatically from the PR test environment after the workflow installs dependencies with `pip install -U --upgrade-strategy eager -e ".[phys,mpi,doc]"`.
+
+To prepare a release:
+
+1. Merge the tested pull request into **devel**.
+2. Run the `Prepare Release Dependency Bounds` workflow and select the source ref to release from.
+3. The workflow resolves the merged PR into **devel**, finds the successful `PR - model tests in Container` run for that PR head commit, downloads the recorded dependency snapshot, updates `pyproject.toml`, and opens or updates a PR into **main**.
+4. Review that PR, including `.github/release/tested-dependencies.json`, and merge it into **main**.
+5. The existing publish workflows on **main** then build and publish from that reviewed commit.
+
+Pull requests into **main** are checked against `.github/release/tested-dependencies.json` to ensure that the release bounds in `pyproject.toml` match the tested dependency snapshot.
+
+
 # Forking
 
 Please create a **public fork** to be able to merge your code into Struphy!
