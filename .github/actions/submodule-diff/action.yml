@@ -23,7 +23,7 @@ runs:
         ls -a
         ls / -a
         cd ${{ inputs.start-dir }}
-        if [[ -f /.dockerenv ]]; then
+        if [[ -f /.dockerenv ]] && [[ -d /.git ]]; then
           DIFF_BASE="origin/devel"
         else
           DIFF_BASE="HEAD~1"
