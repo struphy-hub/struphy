@@ -116,15 +116,14 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Refresh managed dependency bounds in a clean environment
+      - name: Refresh managed dependency bounds
         if: steps.decide.outputs.should_update == 'true' && steps.head-match.outputs.matches == 'true'
         run: |
-          python -m venv .dependency-bounds-venv
-          source .dependency-bounds-venv/bin/activate
           python -m pip install --upgrade pip
           pip install tomli-w
-          pip install -U --upgrade-strategy eager ".[phys]"
-          python utils/set_release_dependencies.py --optional-group phys
+          python utils/update_dependency_bounds.py \
+            --pyproject-file pyproject.toml \
+            --report-file .dependency-bounds/dependency-bounds-report.json
 
       - name: Detect pyproject change
         if: steps.decide.outputs.should_update == 'true' && steps.head-match.outputs.matches == 'true'
