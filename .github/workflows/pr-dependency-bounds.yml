@@ -36,10 +36,7 @@ jobs:
         id: check
         run: |
           set +e
-          python utils/check_dependency_bounds.py \
-            --pyproject-file pyproject.toml \
-            --optional-group phys \
-            --version-scope major-minor
+          python utils/check_dependency_bounds.py
           exit_code=$?
           echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
           exit 0
@@ -51,17 +48,17 @@ jobs:
             echo "## Managed dependency freshness"
             echo
             echo "- Version policy: major-minor"
-            echo "- Optional groups: phys"
+            echo "- Optional groups: phys, mpi"
             echo
             if [[ "${{ steps.check.outputs.exit_code }}" != "0" ]]; then
               echo "### Local update instructions"
               echo
               echo "Run these commands locally to refresh bounds:"
               echo
-              echo "1. python utils/check_dependency_bounds.py --pyproject-file pyproject.toml --optional-group phys --version-scope major-minor --report-file dependency-bounds-report.json"
+              echo "1. python utils/check_dependency_bounds.py"
               echo "2. python -m pip install --upgrade pip"
               echo "3. pip install tomli-w"
-              echo "4. python utils/update_dependency_bounds.py --pyproject-file pyproject.toml --report-file dependency-bounds-report.json"
+              echo "4. python utils/update_dependency_bounds.py"
               echo "5. git add pyproject.toml && git commit -m \"Refresh managed dependency bounds\""
             else
               echo "Managed dependency bounds are in sync."

@@ -19,6 +19,7 @@ from utils.set_release_dependencies import load_pyproject, normalize_name, split
 EXIT_IN_SYNC = 0
 EXIT_OUTDATED = 1
 EXIT_ERROR = 2
+DEFAULT_OPTIONAL_GROUPS = ["phys", "mpi"]
 NUMERIC_VERSION_PATTERN = re.compile(r"^\d+(?:\.\d+)*$")
 
 
@@ -31,7 +32,7 @@ def parse_args():
         "--optional-group",
         action="append",
         dest="optional_groups",
-        help="Optional dependency group to include. If omitted, only project dependencies are checked.",
+        help="Optional dependency group to include. If omitted, only `phys` and `mpi` are checked.",
     )
     parser.add_argument(
         "--version-scope",
@@ -41,6 +42,7 @@ def parse_args():
     )
     parser.add_argument(
         "--report-file",
+        default="dependency-bounds-report.json",
         help="Write a machine-readable JSON report to this path.",
     )
     return parser.parse_args()
@@ -290,9 +292,10 @@ def print_summary(report):
 def main():
     args = parse_args()
     pyproject_data = load_pyproject(Path(args.pyproject_file))
+    optional_groups = args.optional_groups if args.optional_groups is not None else DEFAULT_OPTIONAL_GROUPS
     report = build_report(
         pyproject_data,
-        optional_groups=args.optional_groups,
+        optional_groups=optional_groups,
         version_scope=args.version_scope,
     )
 

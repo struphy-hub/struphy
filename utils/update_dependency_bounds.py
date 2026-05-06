@@ -30,7 +30,7 @@ def parse_args():
     parser.add_argument("--pyproject-file", default="pyproject.toml", help="Path to pyproject.toml.")
     parser.add_argument(
         "--report-file",
-        required=True,
+        default="dependency-bounds-report.json",
         help="Path to the JSON report produced by check_dependency_bounds.py.",
     )
     return parser.parse_args()
