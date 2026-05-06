@@ -75,7 +75,7 @@ jobs:
           }
           report["automation"] = {
               "auto_update_allowed": head_repository == base_repository,
-              "update_command": "pip install -U --update-strategy eager .[phys]",
+              "update_command": "pip install -U --upgrade-strategy eager .[phys]",
               "update_script": "python utils/set_release_dependencies.py --optional-group phys",
           }
           report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -250,7 +250,7 @@ jobs:
           source .dependency-bounds-venv/bin/activate
           python -m pip install --upgrade pip
           pip install tomli-w
-          pip install -U --update-strategy eager ".[phys]"
+          pip install -U --upgrade-strategy eager ".[phys]"
           python utils/set_release_dependencies.py --optional-group phys
 
       - name: Detect pyproject change

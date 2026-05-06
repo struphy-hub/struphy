@@ -22,7 +22,7 @@ The policy is intentionally narrow:
 If the pull request branch lives in the main Struphy repository, the failing freshness check triggers a follow-up workflow that:
 
 1. creates a clean environment,
-2. runs `pip install -U --update-strategy eager .[phys]`,
+2. runs `pip install -U --upgrade-strategy eager .[phys]`,
 3. runs `python utils/set_release_dependencies.py --optional-group phys`,
 4. commits the resulting `pyproject.toml` change back to the pull request branch.
 
