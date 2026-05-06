@@ -4,12 +4,6 @@ on:
   pull_request:
     branches:
       - main
-      - devel
-    paths:
-      - .github/release/tested-dependencies.json
-      - pyproject.toml
-      - utils/set_release_dependencies.py
-      - .github/workflows/check-release-dependency-bounds.yml
 
 permissions:
   contents: read
@@ -58,7 +52,7 @@ jobs:
               raise SystemExit(f'Missing tested dependency snapshot metadata fields: {missing}')
           if metadata['event_name'] != 'pull_request':
               raise SystemExit('Release dependency snapshot must originate from a pull_request run into devel.')
-          if metadata.get('pr_base_ref') != 'devel':
+            if metadata.get('pr_base_ref') != 'devel':
               raise SystemExit('Release dependency snapshot must come from a pull_request targeting devel.')
           PY
 

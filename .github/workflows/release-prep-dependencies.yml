@@ -11,15 +11,6 @@ on:
         description: Artifact name containing the tested dependency snapshot.
         required: true
         default: tested-dependencies-models
-  pull_request:
-    branches:
-      - devel
-    paths:
-      - .github/workflows/release-prep-dependencies.yml
-      - .github/workflows/test-PR-models.yml
-      - .github/workflows/check-release-dependency-bounds.yml
-      - utils/set_release_dependencies.py
-      - pyproject.toml
 
 permissions:
   actions: read
@@ -34,19 +25,8 @@ jobs:
       - name: Checkout source ref
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source-ref || github.sha }}
+          ref: ${{ inputs.source-ref }}
           fetch-depth: 0
-
-      - name: Resolve workflow input defaults
-        id: input-defaults
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "source_ref=${{ inputs.source-ref }}" >> "$GITHUB_OUTPUT"
-            echo "artifact_name=${{ inputs.artifact-name }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "source_ref=${{ github.head_ref }}" >> "$GITHUB_OUTPUT"
-            echo "artifact_name=tested-dependencies-models" >> "$GITHUB_OUTPUT"
-          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -62,11 +42,8 @@ jobs:
         id: resolve-run
         env:
           GH_TOKEN: ${{ github.token }}
-          ARTIFACT_NAME: ${{ steps.input-defaults.outputs.artifact_name }}
+          ARTIFACT_NAME: ${{ inputs.artifact-name }}
           REPOSITORY: ${{ github.repository }}
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
-          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          GITHUB_HEAD_REF: ${{ github.head_ref }}
         run: |
           source_sha=$(git rev-parse HEAD)
           echo "source_sha=$source_sha" >> "$GITHUB_OUTPUT"
@@ -75,80 +52,69 @@ jobs:
           import json
           import os
           import subprocess
+          import sys
 
           repository = os.environ["REPOSITORY"]
-          source_sha = subprocess.run(
-              ["git", "rev-parse", "HEAD"],
-              check=True,
-              capture_output=True,
-              text=True,
-          ).stdout.strip()
+          source_sha = os.popen("git rev-parse HEAD").read().strip()
           artifact_name = os.environ["ARTIFACT_NAME"]
-          event_name = os.environ["GITHUB_EVENT_NAME"]
-          head_sha = os.environ.get("GITHUB_HEAD_SHA")
 
           def gh_json(path, query=None):
-              command = ["gh", "api", path]
-              if query:
-                  for key, value in query.items():
-                      command.extend(["-F", f"{key}={value}"])
-              result = subprocess.run(command, check=True, capture_output=True, text=True)
-              return json.loads(result.stdout)
+            command = ["gh", "api", path]
+            if query:
+              for key, value in query.items():
+                command.extend(["-F", f"{key}={value}"])
+            result = subprocess.run(command, check=True, capture_output=True, text=True)
+            return json.loads(result.stdout)
 
-          if event_name == "pull_request":
-              tested_sha = head_sha
-              release_pr_number = os.environ.get("GITHUB_REF_NAME", "dry-run")
-          else:
-              pulls = gh_json(
-                  f"repos/{repository}/commits/{source_sha}/pulls",
-                  query={"per_page": "100", "state": "closed"},
-              )
-              release_pr = next(
-                  (
-                      pull
-                      for pull in pulls
-                      if pull.get("merged_at") and pull.get("base", {}).get("ref") == "devel"
-                  ),
-                  None,
-              )
-              if release_pr is None:
-                  raise SystemExit(
-                      f"Could not resolve a merged PR into devel for source commit {source_sha}."
-                  )
-              tested_sha = release_pr["head"]["sha"]
-              release_pr_number = str(release_pr["number"])
+          pulls = gh_json(
+            f"repos/{repository}/commits/{source_sha}/pulls",
+            query={"per_page": "100", "state": "closed"},
+          )
+          release_pr = next(
+            (
+              pull
+              for pull in pulls
+              if pull.get("merged_at") and pull.get("base", {}).get("ref") == "devel"
+            ),
+            None,
+          )
+          if release_pr is None:
+            raise SystemExit(
+              f"Could not resolve a merged PR into devel for source commit {source_sha}."
+            )
 
+          tested_sha = release_pr["head"]["sha"]
           runs = gh_json(
-              f"repos/{repository}/actions/workflows/test-PR-models.yml/runs",
-              query={
-                  "event": "pull_request",
-                  "head_sha": tested_sha,
-                  "per_page": "100",
-                  "status": "success",
-              },
+            f"repos/{repository}/actions/workflows/test-PR-models.yml/runs",
+            query={
+              "event": "pull_request",
+              "head_sha": tested_sha,
+              "per_page": "100",
+              "status": "success",
+            },
           )["workflow_runs"]
 
           selected_run = None
           for run in runs:
-              artifacts = gh_json(
-                  f"repos/{repository}/actions/runs/{run['id']}/artifacts",
-                  query={"per_page": "100"},
-              )["artifacts"]
-              if any(artifact["name"] == artifact_name for artifact in artifacts):
-                  selected_run = run
-                  break
+            artifacts = gh_json(
+              f"repos/{repository}/actions/runs/{run['id']}/artifacts",
+              query={"per_page": "100"},
+            )["artifacts"]
+            if any(artifact["name"] == artifact_name for artifact in artifacts):
+              selected_run = run
+              break
 
           if selected_run is None:
-              raise SystemExit(
-                  f"Could not find a successful test-PR-models.yml pull_request run for tested SHA {tested_sha} with artifact {artifact_name}."
-              )
+            raise SystemExit(
+              f"Could not find a successful test-PR-models.yml pull_request run for tested SHA {tested_sha} with artifact {artifact_name}."
+            )
 
           output_path = os.environ["GITHUB_OUTPUT"]
           with open(output_path, "a", encoding="utf-8") as handle:
-              handle.write(f"pr_number={release_pr_number}\n")
-              handle.write(f"tested_sha={tested_sha}\n")
-              handle.write(f"run_id={selected_run['id']}\n")
-              handle.write(f"run_url={selected_run['html_url']}\n")
+            handle.write(f"pr_number={release_pr['number']}\n")
+            handle.write(f"tested_sha={tested_sha}\n")
+            handle.write(f"run_id={selected_run['id']}\n")
+            handle.write(f"run_url={selected_run['html_url']}\n")
           PY
 
       - name: Download tested dependency snapshot
@@ -156,7 +122,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p .release-prep/download
-          gh run download "${{ steps.resolve-run.outputs.run_id }}" --name "${{ steps.input-defaults.outputs.artifact_name }}" --dir .release-prep/download
+          gh run download "${{ steps.resolve-run.outputs.run_id }}" --name "${{ inputs.artifact-name }}" --dir .release-prep/download
           test -f .release-prep/download/tested-dependencies-models.json
 
       - name: Copy tested dependency snapshot into repository
@@ -166,7 +132,7 @@ jobs:
 
       - name: Validate tested dependency snapshot metadata
         env:
-          EXPECTED_ARTIFACT_NAME: ${{ steps.input-defaults.outputs.artifact_name }}
+          EXPECTED_ARTIFACT_NAME: ${{ inputs.artifact-name }}
           EXPECTED_INSTALL_COMMAND: pip install -U --upgrade-strategy eager -e ".[phys,mpi,doc]"
           EXPECTED_RUN_ID: ${{ steps.resolve-run.outputs.run_id }}
           EXPECTED_SOURCE_SHA: ${{ steps.resolve-run.outputs.tested_sha }}
@@ -207,7 +173,7 @@ jobs:
           fi
 
       - name: Create release prep pull request
-        if: github.event_name == 'workflow_dispatch' && steps.diff.outputs.changed == 'true'
+        if: steps.diff.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
           branch: automation/release-dependency-bounds
@@ -217,18 +183,13 @@ jobs:
           body: |
             Updates the release dependency bounds from the tested dependency snapshot.
 
-            Source ref: `${{ steps.input-defaults.outputs.source_ref }}`
+            Source ref: `${{ inputs.source-ref }}`
             Source commit: `${{ steps.resolve-run.outputs.source_sha }}`
             Merged devel PR: `#${{ steps.resolve-run.outputs.pr_number }}`
             Tested PR head sha: `${{ steps.resolve-run.outputs.tested_sha }}`
             Test run id: `${{ steps.resolve-run.outputs.run_id }}`
             Test run url: `${{ steps.resolve-run.outputs.run_url }}`
-            Artifact: `${{ steps.input-defaults.outputs.artifact_name }}`
+            Artifact: `${{ inputs.artifact-name }}`
           add-paths: |
             pyproject.toml
             .github/release/tested-dependencies.json
-
-      - name: Report dry-run result
-        if: github.event_name == 'pull_request'
-        run: |
-          echo "Dry-run mode: release-prep workflow validated resolution, snapshot checks, and pyproject updates without opening a release PR."
