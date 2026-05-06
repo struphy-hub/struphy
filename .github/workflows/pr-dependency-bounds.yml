@@ -44,7 +44,7 @@ jobs:
           echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
           exit 0
 
-      - name: Summarize local remediation steps
+      - name: Summarize and enforce dependency freshness policy
         if: always()
         run: |
           {
@@ -66,8 +66,8 @@ jobs:
             else
               echo "Managed dependency bounds are in sync."
             fi
-          } >> "$GITHUB_STEP_SUMMARY"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
 
-      - name: Enforce dependency freshness policy
-        if: steps.check.outputs.exit_code != '0'
-        run: exit ${{ steps.check.outputs.exit_code }}
+          if [[ "${{ steps.check.outputs.exit_code }}" != "0" ]]; then
+            exit "${{ steps.check.outputs.exit_code }}"
+          fi
