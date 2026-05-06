@@ -1,0 +1,86 @@
+name: Prepare Release Dependency Bounds
+
+on:
+  workflow_dispatch:
+    inputs:
+      source-ref:
+        description: Branch or commit to prepare for release.
+        required: true
+        default: devel
+      test-run-id:
+        description: Successful model test workflow run id containing the tested dependency snapshot artifact.
+        required: true
+      artifact-name:
+        description: Artifact name containing the tested dependency snapshot.
+        required: true
+        default: tested-dependencies-models
+
+permissions:
+  actions: read
+  contents: write
+  pull-requests: write
+
+jobs:
+  prepare-release-dependency-bounds:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source-ref }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install release tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install tomli-w
+
+      - name: Download tested dependency snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p .release-prep/download
+          gh run download "${{ inputs.test-run-id }}" --name "${{ inputs.artifact-name }}" --dir .release-prep/download
+          test -f .release-prep/download/tested-dependencies-models.json
+
+      - name: Copy tested dependency snapshot into repository
+        run: |
+          mkdir -p .github/release
+          cp .release-prep/download/tested-dependencies-models.json .github/release/tested-dependencies.json
+
+      - name: Update release dependency bounds
+        run: |
+          python utils/set_release_dependencies.py --versions-file .github/release/tested-dependencies.json
+
+      - name: Detect repository changes
+        id: diff
+        run: |
+          if git diff --quiet -- pyproject.toml .github/release/tested-dependencies.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create release prep pull request
+        if: steps.diff.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: automation/release-dependency-bounds
+          base: main
+          commit-message: "Prepare release dependency bounds"
+          title: "Prepare release dependency bounds"
+          body: |
+            Updates the release dependency bounds from the tested dependency snapshot.
+
+            Source ref: `${{ inputs.source-ref }}`
+            Test run id: `${{ inputs.test-run-id }}`
+            Artifact: `${{ inputs.artifact-name }}`
+          add-paths: |
+            pyproject.toml
+            .github/release/tested-dependencies.json

@@ -122,3 +122,17 @@ jobs:
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           mpirun --oversubscribe -n 2 pytest -x --testmon --with-mpi  /struphy_fortran_/src/struphy/models/tests/verification/
+
+      - name: Record tested dependency snapshot
+        shell: bash
+        run: |
+          source /struphy_fortran_/env_fortran_/bin/activate
+          cd /struphy_fortran_
+          python utils/set_release_dependencies.py --write-versions-file "$GITHUB_WORKSPACE/tested-dependencies-models.json"
+
+      - name: Upload tested dependency snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: tested-dependencies-models
+          path: ${{ github.workspace }}/tested-dependencies-models.json
+          if-no-files-found: error
