@@ -38,7 +38,14 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: true  # This is crucial!
-          fetch-depth: 0
+          fetch-depth: 5
+
+      - name: fetch origin devel
+        run: |
+          pwd 
+          ls -a
+          git fetch --no-tags origin devel:refs/remotes/origin/devel
+          git rev-parse --verify origin/devel
 
       - name: Check .testmondata 1
         run: |
