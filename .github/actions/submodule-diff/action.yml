@@ -19,6 +19,9 @@ runs:
       shell: bash
       # the following compares the base branch (usually devel) to the current head of the feature branch (I verified)!
       run: |
+        pwd
+        ls -a
+        ls / -a
         cd ${{ inputs.start-dir }}
         if [[ -f /.dockerenv ]]; then
           DIFF_BASE="origin/devel"

@@ -43,7 +43,7 @@ jobs:
       - name: Get submodule diff
         uses: ./.github/actions/submodule-diff
         with:
-          start-dir: struphy_fortran_
+          start-dir: /struphy_fortran_
 
       - name: Reinstall feectools from submodule   
         if: env.SUBMOD_CHANGED == 'true' 
