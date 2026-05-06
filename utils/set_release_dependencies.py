@@ -8,6 +8,7 @@ from pathlib import Path
 
 
 EXCLUDED_DEPENDENCIES = {"psydac"}
+DEFAULT_OPTIONAL_GROUPS = ["phys", "mpi"]
 UPPER_BOUND_OPERATORS = {"<", "<="}
 SPECIFIER_PATTERN = re.compile(r"(<=|>=|==|!=|~=|<|>)\s*([^,;]+)")
 
@@ -213,7 +214,7 @@ def parse_args():
         "--optional-group",
         action="append",
         dest="optional_groups",
-        help="Optional dependency group to include. If omitted, all optional groups are processed.",
+        help="Optional dependency group to include. If omitted, only `phys` and `mpi` are processed.",
     )
     parser.add_argument(
         "--versions-file",
@@ -235,13 +236,14 @@ def main():
     args = parse_args()
     pyproject_path = Path(args.pyproject_file)
     pyproject_data = load_pyproject(pyproject_path)
+    optional_groups = args.optional_groups if args.optional_groups is not None else DEFAULT_OPTIONAL_GROUPS
 
     try:
         if args.write_versions_file:
             write_versions_snapshot(
                 pyproject_data,
                 Path(args.write_versions_file),
-                optional_groups=args.optional_groups,
+                optional_groups=optional_groups,
             )
             return 0
 
@@ -249,9 +251,9 @@ def main():
         resolved_versions = (
             load_versions(Path(args.versions_file))
             if args.versions_file
-            else collect_installed_versions(pyproject_data, optional_groups=args.optional_groups)
+            else collect_installed_versions(pyproject_data, optional_groups=optional_groups)
         )
-        update_pyproject(pyproject_data, resolved_versions, optional_groups=args.optional_groups)
+        update_pyproject(pyproject_data, resolved_versions, optional_groups=optional_groups)
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 2
