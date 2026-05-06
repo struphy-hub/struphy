@@ -27,7 +27,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p .dependency-bounds
-          gh run download "${{ github.event.workflow_run.id }}" --name dependency-bounds-report --dir .dependency-bounds
+          gh run download "${{ github.event.workflow_run.id }}" --name dependency-bounds-report --dir /tmp/dependency-bounds
 
       - name: Decide whether auto-update should run
         id: decide
@@ -39,7 +39,7 @@ jobs:
           import os
           from pathlib import Path
 
-          report = json.loads(Path(".dependency-bounds/dependency-bounds-report.json").read_text(encoding="utf-8"))
+          report = json.loads(Path("/tmp/dependency-bounds/dependency-bounds-report.json").read_text(encoding="utf-8"))
           pull_request = report.get("pull_request", {})
           auto_update_allowed = report.get("automation", {}).get("auto_update_allowed", False)
 
@@ -124,7 +124,7 @@ jobs:
           pip install tomli-w
           python utils/update_dependency_bounds.py \
             --pyproject-file pyproject.toml \
-            --report-file .dependency-bounds/dependency-bounds-report.json
+            --report-file /tmp/dependency-bounds/dependency-bounds-report.json
 
       - name: Detect pyproject change
         if: steps.decide.outputs.should_update == 'true' && steps.head-match.outputs.matches == 'true'
