@@ -159,7 +159,7 @@ jobs:
           metadata = {
               "artifact_name": os.environ["SNAPSHOT_ARTIFACT_NAME"],
               "event_name": os.environ["SNAPSHOT_EVENT_NAME"],
-              "install_command": 'pip install -U --upgrade-strategy eager -e ".[phys,mpi,doc]"',
+              "install_command": 'pip install -U -e ".[phys,mpi,doc]"',
               "pr_base_ref": os.environ.get("SNAPSHOT_PR_BASE_REF") or None,
               "pr_head_ref": os.environ.get("SNAPSHOT_PR_HEAD_REF") or None,
               "pr_head_sha": os.environ.get("SNAPSHOT_PR_HEAD_SHA") or None,

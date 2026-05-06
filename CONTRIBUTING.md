@@ -12,7 +12,7 @@ The **main** branch holds the current release of the code.
 
 Releases should be prepared from code that has already passed the `PR - model tests in Container` workflow on a pull request into **devel**.
 
-The tested dependency set is recorded automatically from the PR test environment after the workflow installs dependencies with `pip install -U --upgrade-strategy eager -e ".[phys,mpi,doc]"`.
+The tested dependency set is recorded automatically from the PR test environment after the workflow installs dependencies with `pip install -U -e ".[phys,mpi,doc]"`.
 
 To prepare a release:
 

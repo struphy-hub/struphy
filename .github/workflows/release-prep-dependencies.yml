@@ -133,7 +133,7 @@ jobs:
       - name: Validate tested dependency snapshot metadata
         env:
           EXPECTED_ARTIFACT_NAME: ${{ inputs.artifact-name }}
-          EXPECTED_INSTALL_COMMAND: pip install -U --upgrade-strategy eager -e ".[phys,mpi,doc]"
+          EXPECTED_INSTALL_COMMAND: pip install -U -e ".[phys,mpi,doc]"
           EXPECTED_RUN_ID: ${{ steps.resolve-run.outputs.run_id }}
           EXPECTED_SOURCE_SHA: ${{ steps.resolve-run.outputs.tested_sha }}
         run: |
