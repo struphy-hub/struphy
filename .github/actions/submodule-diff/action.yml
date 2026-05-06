@@ -20,13 +20,14 @@ runs:
       # the following compares the base branch (usually devel) to the current head of the feature branch (I verified)!
       run: |
         pwd
-        ls -a
-        ls / -a
         cd ${{ inputs.start-dir }}
-        if [[ -f /.dockerenv ]] && [[ -d /.git ]]; then
+        pwd
+        if git rev-parse --verify origin/devel &>/dev/null; then
           DIFF_BASE="origin/devel"
-        else
+        elif git rev-parse --verify HEAD~1 &>/dev/null; then
           DIFF_BASE="HEAD~1"
+        else
+          echo "Error: neither origin/devel nor HEAD~1 is available" && exit 1
         fi
         echo "Using diff base: $DIFF_BASE"
         git diff --name-only "$DIFF_BASE" HEAD
