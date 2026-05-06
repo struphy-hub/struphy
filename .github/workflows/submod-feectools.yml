@@ -1,10 +1,10 @@
 name: Submodule feectools
 
-on: {}
-  # pull_request:
-  #   branches:
-  #     - devel
-  # workflow_dispatch:
+on:
+  pull_request:
+    branches:
+      - devel
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -27,8 +27,7 @@ jobs:
       - name: Get submodule diff
         uses: ./.github/actions/submodule-diff
         with:
-          submod-name: feectools
-          start-dir: .
+          start-dir: "."
           
       - name: Run workflow if submodule changed (all PR commits)
         if: env.SUBMOD_CHANGED == 'true'
