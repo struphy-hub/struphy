@@ -44,6 +44,7 @@ jobs:
         run: |
           pwd 
           ls -a
+          git config --global --add safe.directory /__w/struphy/struphy
           git fetch --no-tags origin devel:refs/remotes/origin/devel
           git rev-parse --verify origin/devel
 
