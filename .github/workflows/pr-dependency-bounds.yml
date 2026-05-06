@@ -221,6 +221,7 @@ jobs:
         with:
           ref: ${{ steps.decide.outputs.head_ref }}
           fetch-depth: 0
+          clean: false
 
       - name: Verify branch head still matches triggering commit
         if: steps.decide.outputs.should_update == 'true'
