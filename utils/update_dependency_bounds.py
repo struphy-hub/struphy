@@ -2,6 +2,8 @@
 
 Reads the JSON report and rewrites only the affected upper bounds in
 pyproject.toml — no package installation required.
+
+Example: ``python utils/update_dependency_bounds.py``.
 """
 
 import argparse
@@ -24,6 +26,7 @@ from utils.set_release_dependencies import (  # noqa: E402
 
 
 def parse_args():
+    """Parse command-line arguments for report-driven bound updates."""
     parser = argparse.ArgumentParser(
         description="Apply dependency upper bound updates from a check_dependency_bounds.py report.",
     )
@@ -37,7 +40,10 @@ def parse_args():
 
 
 def apply_update(entry, latest_version):
-    """Return the requirement string with the upper bound replaced by <=latest_version."""
+    """Return the requirement string with the upper bound replaced by <=latest_version.
+
+    Example: ``numpy>=1.25`` + ``1.26.4`` -> ``numpy<=1.26.4, >=1.25``.
+    """
     requirement = split_requirement(entry)
     specifiers = get_preserved_specifiers(requirement)
     specifiers.append(f"<={latest_version}")
@@ -52,7 +58,10 @@ def apply_update(entry, latest_version):
 
 
 def build_update_map(report):
-    """Return ({(group_key, normalized_name): latest_stable}, [skipped_items])."""
+    """Return ({(group_key, normalized_name): latest_stable}, [skipped_items]).
+
+    Example: maps ``('optional:phys', 'plotly')`` -> ``'6.7.0'``.
+    """
     updates = {}
     skipped = []
     for item in report.get("outdated", []):
@@ -64,6 +73,10 @@ def build_update_map(report):
 
 
 def apply_updates_to_pyproject(pyproject_data, updates):
+    """Apply report-derived updates to matching dependency entries in pyproject data.
+
+    Example: updates only entries whose ``(group, normalized_name)`` key exists in ``updates``.
+    """
     changed = False
 
     new_deps = []
@@ -91,6 +104,10 @@ def apply_updates_to_pyproject(pyproject_data, updates):
 
 
 def main():
+    """Run the update workflow from report loading through pyproject rewrite.
+
+    Example: exits with ``0`` when no updates are needed.
+    """
     args = parse_args()
     report = json.loads(Path(args.report_file).read_text(encoding="utf-8"))
 

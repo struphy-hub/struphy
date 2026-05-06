@@ -24,6 +24,7 @@ NUMERIC_VERSION_PATTERN = re.compile(r"^\d+(?:\.\d+)*$")
 
 
 def parse_args():
+    """Parse command-line options for dependency bound freshness checks."""
     parser = argparse.ArgumentParser(
         description="Check whether dependency upper bounds lag behind the latest stable releases.",
     )
@@ -49,12 +50,20 @@ def parse_args():
 
 
 def parse_numeric_version(version_text):
+    """Parse a dotted numeric version string into a tuple of integers.
+
+    Example: ``'1.2.3'`` -> ``(1, 2, 3)``.
+    """
     if not NUMERIC_VERSION_PATTERN.match(version_text):
         return None
     return tuple(int(part) for part in version_text.split("."))
 
 
 def get_managed_dependency_entries(pyproject_data, optional_groups):
+    """Return managed dependency entries and unknown optional-group names.
+
+    Example: with ``optional_groups=['phys']``, include core deps plus ``optional:phys``.
+    """
     managed_entries = [("dependencies", entry) for entry in pyproject_data["project"]["dependencies"]]
 
     declared_optional_groups = pyproject_data["project"].get("optional-dependencies", {})
@@ -69,6 +78,10 @@ def get_managed_dependency_entries(pyproject_data, optional_groups):
 
 
 def get_upper_bound(requirement):
+    """Extract the tightest numeric upper bound from parsed requirement specifiers.
+
+    Example: ``['>=1.0', '<2.0', '<=1.9']`` -> upper bound ``1.9``.
+    """
     upper_bound = None
     upper_bound_text = None
     for specifier in requirement["specifiers"]:
@@ -86,12 +99,20 @@ def get_upper_bound(requirement):
 
 
 def release_is_usable(files):
+    """Return True when a release has at least one non-yanked file.
+
+    Example: ``[{'yanked': True}, {'yanked': False}]`` -> ``True``.
+    """
     if not files:
         return True
     return any(not file_info.get("yanked", False) for file_info in files)
 
 
 def fetch_pypi_payload(package_name, normalized_name, attempts=3, timeout=15):
+    """Fetch package metadata from PyPI, retrying and trying normalized names.
+
+    Example: try ``JAX_Finufft`` first, then ``jax-finufft``.
+    """
     candidate_names = [package_name]
     if normalized_name not in candidate_names:
         candidate_names.append(normalized_name)
@@ -117,6 +138,10 @@ def fetch_pypi_payload(package_name, normalized_name, attempts=3, timeout=15):
 
 
 def latest_stable_version(package_name, normalized_name):
+    """Return the latest stable numeric release on PyPI for a package.
+
+    Example: returns ``((1, 13, 1), '1.13.1')`` for a latest stable release.
+    """
     payload, error_message = fetch_pypi_payload(package_name, normalized_name)
     if payload is None:
         return None, error_message
@@ -137,6 +162,10 @@ def latest_stable_version(package_name, normalized_name):
 
 
 def version_scope_tuple(version_tuple):
+    """Normalize a version tuple to major/minor components for comparison.
+
+    Example: ``(2,)`` -> ``(2, 0)``.
+    """
     if len(version_tuple) >= 2:
         return version_tuple[0], version_tuple[1]
     if len(version_tuple) == 1:
@@ -145,6 +174,10 @@ def version_scope_tuple(version_tuple):
 
 
 def is_outdated(upper_bound, latest_version, version_scope):
+    """Decide whether the latest version exceeds the declared upper bound.
+
+    Example: major-minor mode treats ``1.2.9`` vs ``1.2.3`` as in-scope equal.
+    """
     latest_version_tuple = latest_version[0]
     if version_scope == "any":
         return latest_version_tuple > upper_bound
@@ -152,6 +185,10 @@ def is_outdated(upper_bound, latest_version, version_scope):
 
 
 def build_report(pyproject_data, optional_groups, version_scope):
+    """Build a structured report describing in-sync, outdated, and error entries.
+
+    Example: report status is ``'outdated'`` when at least one managed bound lags.
+    """
     managed_entries, missing_groups = get_managed_dependency_entries(pyproject_data, optional_groups)
     report = {
         "status": "in_sync",
@@ -258,12 +295,17 @@ def build_report(pyproject_data, optional_groups, version_scope):
 
 
 def write_report(report, report_file):
+    """Write the machine-readable report JSON to disk."""
     report_path = Path(report_file)
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def print_summary(report):
+    """Print a human-readable summary and return the appropriate exit code.
+
+    Example: returns ``1`` when report status is ``'outdated'``.
+    """
     if report["status"] == "error":
         print("Dependency freshness check failed with lookup/configuration errors.", file=sys.stderr)
         for error in report["errors"]:
@@ -290,6 +332,10 @@ def print_summary(report):
 
 
 def main():
+    """Run the freshness check workflow and return a process exit code.
+
+    Example: ``python utils/check_dependency_bounds.py``.
+    """
     args = parse_args()
     pyproject_data = load_pyproject(Path(args.pyproject_file))
     optional_groups = args.optional_groups if args.optional_groups is not None else DEFAULT_OPTIONAL_GROUPS

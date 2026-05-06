@@ -14,10 +14,20 @@ SPECIFIER_PATTERN = re.compile(r"(<=|>=|==|!=|~=|<|>)\s*([^,;]+)")
 
 
 def normalize_name(package_name):
+    """Return a normalized package name for case-insensitive matching.
+
+    Example: ``JAX_Finufft`` -> ``jax-finufft``.
+    """
     return re.sub(r"[-_.]+", "-", package_name).lower()
 
 
 def split_requirement(entry):
+    """Parse a requirement string into structured parts.
+
+    - extras: optional dependency extras from square brackets (for example, ``pkg[a,b]``).
+    - marker: an environment marker after ``;`` (for example, ``python_version < '3.12'``).
+    - specifiers: version constraints such as ``>=1.0``, ``<2.0``, ``!=1.5``.
+    """
     marker = None
     requirement_part = entry.strip()
     if ";" in requirement_part:
@@ -53,6 +63,10 @@ def split_requirement(entry):
 
 
 def format_requirement_name(requirement):
+    """Build the requirement name portion including optional extras.
+
+    Example: ``{'name': 'foo', 'extras': ['bar']}`` -> ``foo[bar]``.
+    """
     extras = ""
     if requirement["extras"]:
         extras = "[" + ",".join(requirement["extras"]) + "]"
@@ -60,6 +74,10 @@ def format_requirement_name(requirement):
 
 
 def get_preserved_specifiers(requirement):
+    """Return non-upper-bound specifiers that should be kept unchanged.
+
+    Example: ``['>=1.0', '<=2.0', '!=1.5']`` -> ``['!=1.5', '>=1.0']``.
+    """
     preserved = []
     for specifier in requirement["specifiers"]:
         for operator in UPPER_BOUND_OPERATORS:
@@ -71,6 +89,10 @@ def get_preserved_specifiers(requirement):
 
 
 def build_dependency_entry(entry, resolved_versions, project_name):
+    """Return an updated dependency entry with an upper bound from resolved versions.
+
+    Example: ``numpy>=1.25`` + resolved ``1.26.4`` -> ``numpy<=1.26.4, >=1.25``.
+    """
     requirement = split_requirement(entry)
     normalized_name = normalize_name(requirement["name"])
 
@@ -98,6 +120,7 @@ def build_dependency_entry(entry, resolved_versions, project_name):
 
 
 def update_dependency_group(dependencies, resolved_versions, project_name):
+    """Update all dependencies in a single group and drop excluded entries."""
     updated_dependencies = []
     for entry in dependencies:
         updated_entry = build_dependency_entry(entry, resolved_versions, project_name)
@@ -107,6 +130,10 @@ def update_dependency_group(dependencies, resolved_versions, project_name):
 
 
 def get_selected_optional_groups(pyproject_data, optional_groups):
+    """Validate and return the selected optional dependency groups.
+
+    Example: ``['phys', 'mpi']`` -> ``{'phys', 'mpi'}``.
+    """
     declared_optional_groups = pyproject_data["project"].get("optional-dependencies", {})
     if optional_groups is None:
         return None
@@ -120,6 +147,10 @@ def get_selected_optional_groups(pyproject_data, optional_groups):
 
 
 def iter_dependency_entries(pyproject_data, optional_groups=None):
+    """Yield dependency entries from core dependencies and selected optional groups.
+
+    Example: with ``optional_groups=['phys']``, yields core deps plus ``optional:phys`` entries.
+    """
     for entry in pyproject_data["project"]["dependencies"]:
         yield entry
 
@@ -133,6 +164,10 @@ def iter_dependency_entries(pyproject_data, optional_groups=None):
 
 
 def collect_installed_versions(pyproject_data, optional_groups=None):
+    """Collect installed versions for the managed dependency scope.
+
+    Example: returns ``{'numpy': '1.26.4', 'scipy': '1.13.1'}``.
+    """
     project_name = pyproject_data["project"]["name"]
     versions = {}
     for entry in iter_dependency_entries(pyproject_data, optional_groups=optional_groups):
@@ -153,6 +188,7 @@ def collect_installed_versions(pyproject_data, optional_groups=None):
 
 
 def load_pyproject(pyproject_path):
+    """Load and return parsed pyproject.toml content."""
     try:
         toml_reader = importlib.import_module("tomllib")
     except ModuleNotFoundError:  # pragma: no cover - Python 3.10 fallback
@@ -163,6 +199,10 @@ def load_pyproject(pyproject_path):
 
 
 def load_versions(versions_path):
+    """Load dependency versions from a JSON versions snapshot.
+
+    Example: ``{'versions': {'numpy': '1.26.4'}}`` -> ``{'numpy': '1.26.4'}``.
+    """
     with versions_path.open("r", encoding="utf-8") as handle:
         payload = json.load(handle)
 
@@ -173,6 +213,7 @@ def load_versions(versions_path):
 
 
 def write_versions_snapshot(pyproject_data, output_path, optional_groups=None):
+    """Write installed versions for managed dependencies to a JSON file."""
     payload = {
         "project": pyproject_data["project"]["name"],
         "versions": collect_installed_versions(pyproject_data, optional_groups=optional_groups),
@@ -182,6 +223,7 @@ def write_versions_snapshot(pyproject_data, output_path, optional_groups=None):
 
 
 def update_pyproject(pyproject_data, resolved_versions, optional_groups=None):
+    """Update pyproject dependency bounds in-place for the managed scope."""
     project_name = pyproject_data["project"]["name"]
     pyproject_data["project"]["dependencies"] = update_dependency_group(
         pyproject_data["project"]["dependencies"],
@@ -201,6 +243,7 @@ def update_pyproject(pyproject_data, resolved_versions, optional_groups=None):
 
 
 def dump_pyproject(pyproject_data, pyproject_path):
+    """Serialize pyproject data back to pyproject.toml."""
     toml_writer = importlib.import_module("tomli_w")
 
     with pyproject_path.open("wb") as handle:
@@ -208,6 +251,7 @@ def dump_pyproject(pyproject_data, pyproject_path):
 
 
 def parse_args():
+    """Parse command-line arguments for dependency bound updates."""
     parser = argparse.ArgumentParser(description="Update Struphy release dependency bounds.")
     parser.add_argument("--pyproject-file", default="pyproject.toml", help="Path to pyproject.toml.")
     parser.add_argument(
@@ -233,6 +277,10 @@ def parse_args():
 
 
 def main():
+    """Run the dependency-bound update workflow and return an exit code.
+
+    Example: returns ``1`` in ``--check`` mode when ``pyproject.toml`` would change.
+    """
     args = parse_args()
     pyproject_path = Path(args.pyproject_file)
     pyproject_data = load_pyproject(pyproject_path)
