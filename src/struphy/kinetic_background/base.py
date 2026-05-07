@@ -156,7 +156,7 @@ class KineticBackground(metaclass=ABCMeta):
             Domain used to plot the density if in_physical=True.
 
         proj_axis : tuple[float] = (0,1)
-            Axes of the cartesian coordinates used to plot the density: 0->x, 1->y, 2->z.
+            Axes of the Cartesian coordinates used to plot the density: 0->x, 1->y, 2->z.
             I you do not see the density profile in 2D, you may change these axes.
 
         plot_3D : bool = False
