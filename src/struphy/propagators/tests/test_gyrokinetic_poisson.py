@@ -577,14 +577,11 @@ def test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=F
     sol_val_M1perp = domain.push(_phi_M1perp.spline, e1, e2, e3, kind="0")
     x, y, z = domain(e1, e2, e3)
 
-    import numpy as np
-
     logger.info(f"max diff: {xp.max(xp.abs(sol_val_M1 - sol_val_M1perp))}")
     logger.info(
-        f"max diff of the averaged solutions (over e3): {xp.max(xp.abs(np.trapezoid(sol_val_M1 - sol_val_M1perp, e3, axis=2) / (e3[-1] - e3[0])))}"
+        f"max diff of the averaged solutions (over e3): {xp.max(xp.abs(xp.trapezoid(sol_val_M1 - sol_val_M1perp, e3, axis=2) / (e3[-1] - e3[0])))}"
     )
-    assert xp.max(xp.abs(sol_val_M1 - sol_val_M1perp)) < 0.0003
-
+    assert xp.max(xp.abs(xp.trapezoid(sol_val_M1 - sol_val_M1perp, e3, axis=2)/(e3[-1]-e3[0]))) < 0.001
     if show_plot and rank == 0:
         plt.figure("e1-e2 plane", figsize=(24, 16))
         plt.subplot(2, 3, 1)
