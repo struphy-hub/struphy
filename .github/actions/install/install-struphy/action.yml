@@ -22,7 +22,7 @@ runs:
           echo "No env specified, installing outside of any env"
         fi
         pip install --upgrade pip
-        pip install -U ".[${{ inputs.optional-deps }}]"
+        pip install -U --upgrade-strategy eager ".[${{ inputs.optional-deps }}]"
         pip list
         struphy -h
         PYTHON=$(which python)
