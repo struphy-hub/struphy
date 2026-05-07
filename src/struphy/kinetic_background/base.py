@@ -130,7 +130,7 @@ class KineticBackground(metaclass=ABCMeta):
         **kwargs,
     ):
         """
-        Plots the density profile of an initial condition (or a background) from the phase space distribution. The projection can either be 1D or 2D, in the logical space or in cartesian.
+        Plots the density profile (slices) of the phase space background distribution. The slice can either be 1D or 2D, in logical or in Cartesian coordinates.
 
         Parameters
         ----------
