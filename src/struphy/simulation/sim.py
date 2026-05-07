@@ -816,24 +816,19 @@ RESTARTing from:
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
             logger.info("\nPLASMA PARAMETERS:")
             logger.info(
-                "Plasma volume:".ljust(25),
-                "{:4.3e}".format(plasma_volume) + units_affix["plasma volume"],
+                "Plasma volume:".ljust(25) + "{:4.3e}".format(plasma_volume) + units_affix["plasma volume"],
             )
             logger.info(
-                "Transit length:".ljust(25),
-                "{:4.3e}".format(transit_length) + units_affix["transit length"],
+                "Transit length:".ljust(25) + "{:4.3e}".format(transit_length) + units_affix["transit length"],
             )
             logger.info(
-                "Avg. magnetic field:".ljust(25),
-                "{:4.3e}".format(magnetic_field) + units_affix["magnetic field"],
+                "Avg. magnetic field:".ljust(25) + "{:4.3e}".format(magnetic_field) + units_affix["magnetic field"],
             )
             logger.info(
-                "Max magnetic field:".ljust(25),
-                "{:4.3e}".format(B_max) + units_affix["magnetic field"],
+                "Max magnetic field:".ljust(25) + "{:4.3e}".format(B_max) + units_affix["magnetic field"],
             )
             logger.info(
-                "Min magnetic field:".ljust(25),
-                "{:4.3e}".format(B_min) + units_affix["magnetic field"],
+                "Min magnetic field:".ljust(25) + "{:4.3e}".format(B_min) + units_affix["magnetic field"],
             )
 
     def spawn_sister(

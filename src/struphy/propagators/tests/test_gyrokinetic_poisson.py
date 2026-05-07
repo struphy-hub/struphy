@@ -588,7 +588,7 @@ def test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=F
     if show_plot and rank == 0:
         plt.figure("e1-e2 plane", figsize=(24, 16))
         plt.subplot(2, 3, 1)
-        plt.title(f"charge density averaged over e3")
+        plt.title("charge density averaged over e3")
         plt.pcolor(
             x[:, :, 0],
             y[:, :, 0],
@@ -619,13 +619,13 @@ def test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=F
         ax = plt.gca()
         ax.set_aspect("equal", adjustable="box")
         plt.subplot(2, 3, 3)
-        plt.title(f"average over e3 of M1 solve")
+        plt.title("average over e3 of M1 solve")
         plt.pcolor(x[:, :, 0], y[:, :, 0], xp.trapezoid(sol_val_M1, e3, axis=2) / (e3[-1] - e3[0]))
         plt.colorbar()
         ax = plt.gca()
         ax.set_aspect("equal", adjustable="box")
         plt.subplot(2, 3, 6)
-        plt.title(f"average over e3 of M1perp solve")
+        plt.title("average over e3 of M1perp solve")
         plt.pcolor(x[:, :, 0], y[:, :, 0], xp.trapezoid(sol_val_M1perp, e3, axis=2) / (e3[-1] - e3[0]))
         plt.colorbar()
         ax = plt.gca()
@@ -796,17 +796,13 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
         for n in range(3):
             plt.subplot(2, 3, n + 1)
             plt.title(f"e3 = {e3[plot_id_e3[n]]} from 3d solve")
-            plt.pcolor(
-                x[:, :, plot_id_e3[n]], y[:, :, plot_id_e3[n]], sol_val[:, :, plot_id_e3[n]]
-            )
+            plt.pcolor(x[:, :, plot_id_e3[n]], y[:, :, plot_id_e3[n]], sol_val[:, :, plot_id_e3[n]])
             plt.colorbar()
             ax = plt.gca()
             ax.set_aspect("equal", adjustable="box")
             plt.subplot(2, 3, 4 + n)
             plt.title(f"e3 = {e3[plot_id_e3[n]]} from 2.5d solve")
-            plt.pcolor(
-                x[:, :, plot_id_e3[n]], y[:, :, plot_id_e3[n]], sol_val_2p5d[:, :, plot_id_e3[n]]
-            )
+            plt.pcolor(x[:, :, plot_id_e3[n]], y[:, :, plot_id_e3[n]], sol_val_2p5d[:, :, plot_id_e3[n]])
             plt.colorbar()
             ax = plt.gca()
             ax.set_aspect("equal", adjustable="box")
@@ -814,17 +810,13 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
         for n in range(3):
             plt.subplot(2, 3, n + 1)
             plt.title(f"e2 = {e2[plot_id_e2[n]]} from 3d solve")
-            plt.pcolor(
-                x[:, plot_id_e2[n], :], z[:, plot_id_e2[n], :], sol_val[:, plot_id_e2[n], :]
-            )
+            plt.pcolor(x[:, plot_id_e2[n], :], z[:, plot_id_e2[n], :], sol_val[:, plot_id_e2[n], :])
             plt.colorbar()
             ax = plt.gca()
             ax.set_aspect("equal", adjustable="box")
             plt.subplot(2, 3, 4 + n)
             plt.title(f"e2 = {e2[plot_id_e2[n]]} from 2.5d solve")
-            plt.pcolor(
-                x[:, plot_id_e2[n], :], z[:, plot_id_e2[n], :], sol_val_2p5d[:, plot_id_e2[n], :]
-            )
+            plt.pcolor(x[:, plot_id_e2[n], :], z[:, plot_id_e2[n], :], sol_val_2p5d[:, plot_id_e2[n], :])
             plt.colorbar()
             ax = plt.gca()
             ax.set_aspect("equal", adjustable="box")
@@ -849,6 +841,6 @@ if __name__ == "__main__":
     num_elements = [20, 20, 20]
     degree = [2, 2, 1]
     mapping = ["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}]
-    test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=True)
+    # test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=True)
     num_elements = [20, 20, 20]
     # test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot=True)
