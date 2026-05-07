@@ -127,8 +127,8 @@ class KineticBackground(metaclass=ABCMeta):
         proj_axis: tuple[float,] = (0, 1),
         plot_3D: bool = False,
         title: str | None = None,
-        use_mu = False,
-        equil = None,
+        use_mu=False,
+        equil=None,
     ):
         """
         Plots the density profile (slices) of the phase space background distribution. The slice can either be 1D or 2D, in logical or in Cartesian coordinates.
@@ -271,7 +271,7 @@ class KineticBackground(metaclass=ABCMeta):
                     physical_coords[i] = xp.broadcast_to(physical_coords[i], etas[0].shape)
                 for i in range(self.vdim):
                     physical_coords.append(etas[i + 3])
-                total_density = self(*xp.abs(etas))  # domain.push((lambda x, y, z:self(x,y,z,*etas[3:])), *tabs[:3], kind='v')
+                total_density = self(*xp.abs(etas))
             else:
                 physical_coords = list(etas)
                 total_density = self(*xp.abs(etas))
