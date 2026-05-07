@@ -150,7 +150,7 @@ class KineticBackground(metaclass=ABCMeta):
             Refere to the default coordinate (in logical space) attributed to each axe which is not used in the projection.
 
         in_physical : bool = False
-            Specify if the result is plotted in logical coordinates or in cartesian coordinates, has a effect in 2D plotting. If True, you must specify a domain.
+            Specify if the result is plotted in logical coordinates or in Cartesian coordinates, has a effect in 2D plotting. If True, you must specify a domain.
 
         domain : Domain | None = None
             Domain used to plot the density if in_physical=True.
