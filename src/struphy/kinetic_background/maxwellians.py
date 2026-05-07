@@ -304,8 +304,8 @@ class GyroMaxwellian2D(Maxwellian):
 
     def plot_density_profile(
         self,
-        dim_1: LiteralOptions.DimensionToPlot = "e1",
-        dim_2: LiteralOptions.DimensionToPlot | None = None,
+        dim_1: LiteralOptions.KineticDimensionsToPlot = "e1",
+        dim_2: LiteralOptions.KineticDimensionsToPlot | None = None,
         v_lim: float = 5.0,
         resol: int = 100,
         integrate_resol: int = 10,
@@ -331,6 +331,7 @@ class GyroMaxwellian2D(Maxwellian):
             domain,
             proj_axis,
             plot_3D,
+            title,
             use_mu=use_mu,
             equil=equil,
         )
