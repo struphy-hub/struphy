@@ -148,7 +148,14 @@ class MassMatrixPreconditioner(LinearOperator):
                             local_fun.size < npts
                         ):  # this branch is only entered if comm exists (and thus subcomm has been initialized)
                             if subcomm != MPI.COMM_NULL:
-                                subcomm.Allgather(local_fun, fun)
+                                gathered = subcomm.gather(local_fun, root=selected_ranks[0])
+                                if rank == selected_ranks[0]:
+                                    if gathered is None:
+                                        raise RuntimeError("MPI gather failed to return data on root rank")
+                                    fun[:] = xp.concatenate(gathered)
+                                    assert fun.size == npts, (
+                                        f"Gathered weight size {fun.size} does not match expected {npts}"
+                                    )
                             comm.Bcast(fun, root=selected_ranks[0])
                         else:
                             fun[:] = local_fun

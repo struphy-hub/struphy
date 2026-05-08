@@ -454,7 +454,6 @@ def test_poisson_M1perp_2d(num_elements, degree, bc_type, mapping, projected_rhs
     assert error2 < 0.023
 
 
-@pytest.mark.skip(reason="Not clear if the 2.5d strategy is sound.")
 @pytest.mark.parametrize("num_elements", [[32, 32, 16]])
 @pytest.mark.parametrize("degree", [[1, 1, 1], [2, 2, 1]])
 @pytest.mark.parametrize(
@@ -505,7 +504,7 @@ def test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=F
     Propagator.mass_ops = mass_ops
 
     # discrete right-hand sides
-    l2_proj = L2Projector("H1", mass_ops)
+    # l2_proj = L2Projector("H1", mass_ops)
 
     # Create 3d Poisson solver
     solver_params = SolverParameters(
@@ -629,7 +628,15 @@ def test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=F
         ax.set_aspect("equal", adjustable="box")
         plt.show()
 
-
+#@pytest.mark.skip(reason="Not clear if the 2.5d strategy is sound.")
+@pytest.mark.parametrize("num_elements", [[32, 32, 16]])
+@pytest.mark.parametrize("degree", [[1, 1, 1], [2, 2, 1]])
+@pytest.mark.parametrize(
+    "mapping",
+    [
+        ["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}],
+    ],
+)
 def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot=False):
     """
     Test the Poisson solver with M1perp diffusion matrix
@@ -672,7 +679,7 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
     rho_logical_3D = lambda e1, e2, e3: rho_physical(*domain_3D(e1, e2, e3))
 
     # discrete right-hand sides
-    l2_proj = L2Projector("H1", mass_ops_3D)
+    #l2_proj = L2Projector("H1", mass_ops_3D)
     # rho_vec = l2_proj.get_dofs(rho, apply_bc=True)
 
     # logger.info(f"{rho_vec[:].shape =}")
@@ -732,7 +739,6 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
         dom_params_sliced["r3"] = dom_params["l3"] + (dom_params["r3"] - dom_params["l3"]) / (len(e3) + degree[2]) * (
             n + 1
         )
-        print(dom_params_sliced)
         domain_sliced = domain_class(**dom_params_sliced)
 
         grid_sliced = TensorProductGrid(num_elements=num_elements_new)
@@ -835,9 +841,9 @@ if __name__ == "__main__":
     mapping = ["Orthogonal", {"Lx": 4.0, "Ly": 2.0, "alpha": 0.1, "Lz": 1.0}]
     # test_poisson_M1perp_2d(num_elements, degree, bc_type, mapping, projected_rhs=True, show_plot=True)
 
-    num_elements = [20, 20, 20]
+    num_elements = [50, 50, 50]
     degree = [2, 2, 1]
     mapping = ["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}]
     # test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=True)
-    num_elements = [20, 20, 20]
+    num_elements = [50, 50, 50]
     # test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot=True)
