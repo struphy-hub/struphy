@@ -580,7 +580,7 @@ def test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=F
     logger.info(
         f"max diff of the averaged solutions (over e3): {xp.max(xp.abs(xp.trapezoid(sol_val_M1 - sol_val_M1perp, e3, axis=2) / (e3[-1] - e3[0])))}"
     )
-    assert xp.max(xp.abs(xp.trapezoid(sol_val_M1 - sol_val_M1perp, e3, axis=2)/(e3[-1]-e3[0]))) < 0.001
+    assert xp.max(xp.abs(xp.trapezoid(sol_val_M1 - sol_val_M1perp, e3, axis=2) / (e3[-1] - e3[0]))) < 0.001
     if show_plot and rank == 0:
         plt.figure("e1-e2 plane", figsize=(24, 16))
         plt.subplot(2, 3, 1)
@@ -628,7 +628,8 @@ def test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=F
         ax.set_aspect("equal", adjustable="box")
         plt.show()
 
-#@pytest.mark.skip(reason="Not clear if the 2.5d strategy is sound.")
+
+# @pytest.mark.skip(reason="Not clear if the 2.5d strategy is sound.")
 @pytest.mark.parametrize("num_elements", [[32, 32, 16]])
 @pytest.mark.parametrize("degree", [[1, 1, 1], [2, 2, 1]])
 @pytest.mark.parametrize(
@@ -679,7 +680,7 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
     rho_logical_3D = lambda e1, e2, e3: rho_physical(*domain_3D(e1, e2, e3))
 
     # discrete right-hand sides
-    #l2_proj = L2Projector("H1", mass_ops_3D)
+    # l2_proj = L2Projector("H1", mass_ops_3D)
     # rho_vec = l2_proj.get_dofs(rho, apply_bc=True)
 
     # logger.info(f"{rho_vec[:].shape =}")
