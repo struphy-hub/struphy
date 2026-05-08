@@ -8,9 +8,8 @@ from struphy.models.species import (
     ParticleSpecies,
 )
 from struphy.models.variables import PICVariable
-from struphy.propagators import (
-    propagators_markers,
-)
+from struphy.propagators.push_eta import PushEta
+from struphy.propagators.push_vxb import PushVxB
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -32,8 +31,8 @@ class Vlasov(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_markers.PushVxB`
-    2. :class:`~struphy.propagators.propagators_markers.PushEta`
+    1. :class:`~struphy.propagators.push_vxb.PushVxB`
+    2. :class:`~struphy.propagators.push_eta.PushEta`
     """
 
     @classmethod
@@ -58,8 +57,8 @@ class Vlasov(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.push_vxb = propagators_markers.PushVxB()
-            self.push_eta = propagators_markers.PushEta()
+            self.push_vxb = PushVxB()
+            self.push_eta = PushEta()
 
     ## abstract methods
 
@@ -126,13 +125,13 @@ class Vlasov(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_markers.PushVxB:**
+        doc = rf"""**1. push_vxb.PushVxB:**
 
-{propagators_markers.PushVxB.__doc__}
+    {PushVxB.__doc__}
 
-**2. propagators_markers.PushEta:**
+    **2. push_eta.PushEta:**
 
-{propagators_markers.PushEta.__doc__}
+    {PushEta.__doc__}
 """
         return doc
 

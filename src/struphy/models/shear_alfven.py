@@ -8,10 +8,8 @@ from struphy.models.species import (
     FluidSpecies,
 )
 from struphy.models.variables import FEECVariable
-from struphy.propagators import (
-    propagators_fields,
-)
 from struphy.propagators.base import Propagator
+from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -36,7 +34,7 @@ class ShearAlfven(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.ShearAlfven`
+    1. :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`
 
     :ref:`Model info <add_model>`:
     """
@@ -58,7 +56,7 @@ class ShearAlfven(StruphyModel):
 
     class Propagators:
         def __init__(self) -> None:
-            self.shear_alf = propagators_fields.ShearAlfven()
+            self.shear_alf = ShearAlfvenPropagator()
 
     @property
     def bulk_species(self):
@@ -107,9 +105,9 @@ class ShearAlfven(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_fields.ShearAlfven:**
+        doc = rf"""**1. ShearAlfvenPropagator:**
 
-{propagators_fields.ShearAlfven.__doc__}
+{ShearAlfvenPropagator.__doc__}
 """
         return doc
 

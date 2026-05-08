@@ -8,9 +8,9 @@ from struphy.models.species import (
     FluidSpecies,
 )
 from struphy.models.variables import FEECVariable
-from struphy.propagators import (
-    propagators_fields,
-)
+from struphy.propagators.jxb_cold import JxBCold
+from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
+from struphy.propagators.ohm_cold import OhmCold
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -43,9 +43,9 @@ class ColdPlasma(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.Maxwell`
-    2. :class:`~struphy.propagators.propagators_fields.OhmCold`
-    3. :class:`~struphy.propagators.propagators_fields.JxBCold`
+    1. :class:`~struphy.propagators.maxwell.Maxwell`
+    2. :class:`~struphy.propagators.ohm_cold.OhmCold`
+    3. :class:`~struphy.propagators.jxb_cold.JxBCold`
 
     :ref:`Model info <add_model>`:
     """
@@ -82,9 +82,9 @@ class ColdPlasma(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.maxwell = propagators_fields.Maxwell()
-            self.ohm = propagators_fields.OhmCold()
-            self.jxb = propagators_fields.JxBCold()
+            self.maxwell = MaxwellWeakAmpere()
+            self.ohm = OhmCold()
+            self.jxb = JxBCold()
 
     ## abstract methods
 
@@ -194,17 +194,17 @@ class ColdPlasma(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_fields.Maxwell:**
+        doc = rf"""**1. propagators.maxwell.Maxwell:**
 
-{propagators_fields.Maxwell.__doc__}
+{MaxwellWeakAmpere.__doc__}
 
-**2. propagators_fields.OhmCold:**
+**2. OhmCold:**
 
-{propagators_fields.OhmCold.__doc__}
+{OhmCold.__doc__}
 
-**3. propagators_fields.JxBCold:**
+**3. JxBCold:**
 
-{propagators_fields.JxBCold.__doc__}
+{JxBCold.__doc__}
 """
         return doc
 

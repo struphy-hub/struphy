@@ -7,9 +7,7 @@ from struphy.models.species import (
     ParticleSpecies,
 )
 from struphy.models.variables import PICVariable
-from struphy.propagators import (
-    propagators_markers,
-)
+from struphy.propagators.push_random_diffusion import PushRandomDiffusion
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -34,7 +32,7 @@ class RandomParticleDiffusion(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_markers.PushRandomDiffusion`
+    1. :class:`~struphy.propagators.push_random_diffusion.PushRandomDiffusion`
 
     :ref:`Model info <add_model>`:
     """
@@ -54,7 +52,7 @@ class RandomParticleDiffusion(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.rand_diff = propagators_markers.PushRandomDiffusion()
+            self.rand_diff = PushRandomDiffusion()
 
     ## abstract methods
 
@@ -112,9 +110,9 @@ class RandomParticleDiffusion(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_markers.PushRandomDiffusion:**
+        doc = rf"""**1. push_random_diffusion.PushRandomDiffusion:**
 
-{propagators_markers.PushRandomDiffusion.__doc__}
+    {PushRandomDiffusion.__doc__}
 """
         return doc
 

@@ -15,12 +15,12 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
-from struphy.propagators import (
-    propagators_coupling,
-    propagators_fields,
-    propagators_markers,
-)
 from struphy.propagators.base import Propagator
+from struphy.propagators.efield_weights_coupling import EfieldWeightsCoupling
+from struphy.propagators.poisson_field_solve import PoissonFieldSolve
+from struphy.propagators.push_eta import PushEta
+from struphy.propagators.push_vin_efield import PushVinEfield
+from struphy.propagators.push_vxb import PushVxB
 from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
@@ -86,10 +86,10 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_markers.PushEta`
-    2. :class:`~struphy.propagators.propagators_markers.PushVinEfield`
-    3. :class:`~struphy.propagators.propagators_coupling.EfieldWeights`
-    4. :class:`~struphy.propagators.propagators_markers.PushVxB`
+    1. :class:`~struphy.propagators.push_eta.PushEta`
+    2. :class:`~struphy.propagators.push_vin_efield.PushVinEfield`
+    3. :class:`~struphy.propagators.efield_weights_coupling.EfieldWeightsCoupling`
+    4. :class:`~struphy.propagators.push_vxb.PushVxB`
 
     :ref:`Model info <add_model>`:
     """
@@ -130,12 +130,12 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             with_B0: bool = True,
             with_E0: bool = True,
         ):
-            self.push_eta = propagators_markers.PushEta()
+            self.push_eta = PushEta()
             if with_E0:
-                self.push_vinE = propagators_markers.PushVinEfield()
-            self.coupling_Eweights = propagators_coupling.EfieldWeights()
+                self.push_vinE = PushVinEfield()
+            self.coupling_Eweights = EfieldWeightsCoupling()
             if with_B0:
-                self.push_vxb = propagators_markers.PushVxB()
+                self.push_vxb = PushVxB()
 
     ## abstract methods
 
@@ -187,7 +187,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         )
 
         # initial Poisson (not a propagator used in time stepping)
-        self.initial_poisson = propagators_fields.Poisson()
+        self.initial_poisson = PoissonFieldSolve()
         self.initial_poisson.variables.phi = self.em_fields.phi
 
     @property
@@ -264,21 +264,21 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_markers.PushEta:**
+        doc = rf"""**1. push_eta.PushEta:**
 
-{propagators_markers.PushEta.__doc__}
+    {PushEta.__doc__}
 
-**2. propagators_markers.PushVinEfield:**
+    **2. push_vin_efield.PushVinEfield:**
 
-{propagators_markers.PushVinEfield.__doc__}
+    {PushVinEfield.__doc__}
 
-**3. propagators_coupling.EfieldWeights:**
+**3. efield_weights_coupling.EfieldWeightsCoupling:**
 
-{propagators_coupling.EfieldWeights.__doc__}
+{EfieldWeightsCoupling.__doc__}
 
-**4. propagators_markers.PushVxB:**
+**4. push_vxb.PushVxB:**
 
-{propagators_markers.PushVxB.__doc__}
+{PushVxB.__doc__}
 """
         return doc
 

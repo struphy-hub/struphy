@@ -9,11 +9,12 @@ from struphy.models.species import (
     ParticleSpecies,
 )
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.propagators import (
-    propagators_coupling,
-    propagators_fields,
-    propagators_markers,
-)
+from struphy.propagators.efield_weights_coupling import EfieldWeightsCoupling
+from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
+from struphy.propagators.poisson_field_solve import PoissonFieldSolve
+from struphy.propagators.push_eta import PushEta
+from struphy.propagators.push_vin_efield import PushVinEfield
+from struphy.propagators.push_vxb import PushVxB
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -79,11 +80,11 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_markers.PushEta`
-    2. :class:`~struphy.propagators.propagators_markers.PushVinEfield`
-    3. :class:`~struphy.propagators.propagators_coupling.EfieldWeights`
-    4. :class:`~struphy.propagators.propagators_markers.PushVxB`
-    5. :class:`~struphy.propagators.propagators_fields.Maxwell`
+    1. :class:`~struphy.propagators.push_eta.PushEta`
+    2. :class:`~struphy.propagators.push_vin_efield.PushVinEfield`
+    3. :class:`~struphy.propagators.efield_weights_coupling.EfieldWeightsCoupling`
+    4. :class:`~struphy.propagators.push_vxb.PushVxB`
+    5. :class:`~struphy.propagators.maxwell.Maxwell`
 
     :ref:`Model info <add_model>`:
     """
@@ -125,13 +126,13 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
             with_B0: bool = True,
             with_E0: bool = True,
         ):
-            self.push_eta = propagators_markers.PushEta()
+            self.push_eta = PushEta()
             if with_E0:
-                self.push_vinE = propagators_markers.PushVinEfield()
-            self.coupling_Eweights = propagators_coupling.EfieldWeights()
+                self.push_vinE = PushVinEfield()
+            self.coupling_Eweights = EfieldWeightsCoupling()
             if with_B0:
-                self.push_vxb = propagators_markers.PushVxB()
-            self.maxwell = propagators_fields.Maxwell()
+                self.push_vxb = PushVxB()
+            self.maxwell = MaxwellWeakAmpere()
 
     ## abstract methods
 
@@ -187,7 +188,7 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         )
 
         # initial Poisson (not a propagator used in time stepping)
-        self.initial_poisson = propagators_fields.Poisson()
+        self.initial_poisson = PoissonFieldSolve()
         self.initial_poisson.variables.phi = self.em_fields.phi
 
     @classmethod
@@ -263,25 +264,25 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_markers.PushEta:**
+        doc = rf"""**1. push_eta.PushEta:**
 
-{propagators_markers.PushEta.__doc__}
+    {PushEta.__doc__}
 
-**2. propagators_markers.PushVinEfield:**
+    **2. push_vin_efield.PushVinEfield:**
 
-{propagators_markers.PushVinEfield.__doc__}
+    {PushVinEfield.__doc__}
 
-**3. propagators_coupling.EfieldWeights:**
+**3. efield_weights_coupling.EfieldWeightsCoupling:**
 
-{propagators_coupling.EfieldWeights.__doc__}
+{EfieldWeightsCoupling.__doc__}
 
-**4. propagators_markers.PushVxB:**
+**4. push_vxb.PushVxB:**
 
-{propagators_markers.PushVxB.__doc__}
+{PushVxB.__doc__}
 
-**5. propagators_fields.Maxwell:**
+**5. propagators.maxwell.Maxwell:**
 
-{propagators_fields.Maxwell.__doc__}
+{MaxwellWeakAmpere.__doc__}
 """
         return doc
 

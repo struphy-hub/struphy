@@ -14,12 +14,14 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
-from struphy.propagators import (
-    propagators_coupling,
-    propagators_fields,
-    propagators_markers,
-)
 from struphy.propagators.base import Propagator
+from struphy.propagators.jxb_cold import JxBCold
+from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
+from struphy.propagators.ohm_cold import OhmCold
+from struphy.propagators.poisson_field_solve import PoissonFieldSolve
+from struphy.propagators.push_eta import PushEta
+from struphy.propagators.push_vxb import PushVxB
+from struphy.propagators.vlasov_ampere_coupling import VlasovAmpereCoupling
 from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
@@ -66,12 +68,12 @@ class ColdPlasmaVlasov(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.Maxwell`
-    2. :class:`~struphy.propagators.propagators_fields.OhmCold`
-    3. :class:`~struphy.propagators.propagators_fields.JxBCold`
-    4. :class:`~struphy.propagators.propagators_markers.PushVxB`
-    5. :class:`~struphy.propagators.propagators_markers.PushEta`
-    6. :class:`~struphy.propagators.propagators_coupling.VlasovAmpere`
+    1. :class:`~struphy.propagators.maxwell.Maxwell`
+    2. :class:`~struphy.propagators.ohm_cold.OhmCold`
+    3. :class:`~struphy.propagators.jxb_cold.JxBCold`
+    4. :class:`~struphy.propagators.push_vxb.PushVxB`
+    5. :class:`~struphy.propagators.push_eta.PushEta`
+    6. :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling`
     """
 
     @classmethod
@@ -121,12 +123,12 @@ class ColdPlasmaVlasov(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.maxwell = propagators_fields.Maxwell()
-            self.ohm = propagators_fields.OhmCold()
-            self.jxb = propagators_fields.JxBCold()
-            self.push_eta = propagators_markers.PushEta()
-            self.push_vxb = propagators_markers.PushVxB()
-            self.coupling_va = propagators_coupling.VlasovAmpere()
+            self.maxwell = MaxwellWeakAmpere()
+            self.ohm = OhmCold()
+            self.jxb = JxBCold()
+            self.push_eta = PushEta()
+            self.push_vxb = PushVxB()
+            self.coupling_va = VlasovAmpereCoupling()
 
     ## abstract methods
 
@@ -198,7 +200,7 @@ class ColdPlasmaVlasov(StruphyModel):
         )
 
         # initial Poisson (not a propagator used in time stepping)
-        self.initial_poisson = propagators_fields.Poisson()
+        self.initial_poisson = PoissonFieldSolve()
         self.initial_poisson.variables.phi = self.em_fields.phi
 
     @property
@@ -270,29 +272,29 @@ class ColdPlasmaVlasov(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_fields.Maxwell:**
+        doc = rf"""**1. propagators.maxwell.Maxwell:**
 
-{propagators_fields.Maxwell.__doc__}
+{MaxwellWeakAmpere.__doc__}
 
-**2. propagators_fields.OhmCold:**
+**2. OhmCold:**
 
-{propagators_fields.OhmCold.__doc__}
+{OhmCold.__doc__}
 
-**3. propagators_fields.JxBCold:**
+**3. JxBCold:**
 
-{propagators_fields.JxBCold.__doc__}
+{JxBCold.__doc__}
 
-**4. propagators_markers.PushEta:**
+**4. push_eta.PushEta:**
 
-{propagators_markers.PushEta.__doc__}
+{PushEta.__doc__}
 
-**5. propagators_markers.PushVxB:**
+**5. push_vxb.PushVxB:**
 
-{propagators_markers.PushVxB.__doc__}
+{PushVxB.__doc__}
 
-**6. propagators_coupling.VlasovAmpere:**
+**6. vlasov_ampere_coupling.VlasovAmpereCoupling:**
 
-{propagators_coupling.VlasovAmpere.__doc__}
+{VlasovAmpereCoupling.__doc__}
 """
         return doc
 

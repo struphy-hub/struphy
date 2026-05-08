@@ -10,10 +10,9 @@ from struphy.models.species import (
     FluidSpecies,
 )
 from struphy.models.variables import FEECVariable
-from struphy.propagators import (
-    propagators_fields,
-)
 from struphy.propagators.base import Propagator
+from struphy.propagators.hasegawa_wakatani_step import HasegawaWakataniStep
+from struphy.propagators.poisson_field_solve import PoissonFieldSolve
 
 logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
@@ -43,8 +42,8 @@ class HasegawaWakatani(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.Poisson`
-    2. :class:`~struphy.propagators.propagators_fields.HasegawaWakatani`
+    1. :class:`~struphy.propagators.poisson_field_solve.PoissonFieldSolve`
+    2. :class:`~struphy.propagators.hasegawa_wakatani_step.HasegawaWakataniStep`
 
     :ref:`Model info <add_model>`:
     """
@@ -70,8 +69,8 @@ class HasegawaWakatani(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.poisson = propagators_fields.Poisson()
-            self.hw = propagators_fields.HasegawaWakatani()
+            self.poisson = PoissonFieldSolve()
+            self.hw = HasegawaWakataniStep()
 
     ## abstract methods
 
@@ -145,13 +144,13 @@ class HasegawaWakatani(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_fields.Poisson:**
+        doc = rf"""**1. PoissonFieldSolve:**
 
-{propagators_fields.Poisson.__doc__}
+{PoissonFieldSolve.__doc__}
 
-**2. propagators_fields.HasegawaWakatani:**
+**2. HasegawaWakataniStep:**
 
-{propagators_fields.HasegawaWakatani.__doc__}
+{HasegawaWakataniStep.__doc__}
 """
         return doc
 

@@ -12,10 +12,11 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable
 from struphy.polar.basic import PolarVector
-from struphy.propagators import (
-    propagators_fields,
-)
 from struphy.propagators.base import Propagator
+from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
+from struphy.propagators.variational_pb_evolve import VariationalPBEvolve
+from struphy.propagators.variational_resistivity import VariationalResistivity
+from struphy.propagators.variational_viscosity import VariationalViscosity
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -45,10 +46,10 @@ class ViscoResistiveLinearMHD(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
-    2. :class:`~struphy.propagators.propagators_fields.VariationalPBEvolve`
-    3. :class:`~struphy.propagators.propagators_fields.VariationalViscosity`
-    4. :class:`~struphy.propagators.propagators_fields.VariationalResistivity`
+    1. :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`
+    2. :class:`~struphy.propagators.variational_pb_evolve.VariationalPBEvolve`
+    3. :class:`~struphy.propagators.variational_viscosity.VariationalViscosity`
+    4. :class:`~struphy.propagators.variational_resistivity.VariationalResistivity`
 
     :ref:`Model info <add_model>`:
     """
@@ -87,12 +88,12 @@ class ViscoResistiveLinearMHD(StruphyModel):
             with_viscosity: bool = True,
             with_resistivity: bool = True,
         ):
-            self.variat_dens = propagators_fields.VariationalDensityEvolve()
-            self.variat_pb = propagators_fields.VariationalPBEvolve()
+            self.variat_dens = VariationalDensityEvolve()
+            self.variat_pb = VariationalPBEvolve()
             if with_viscosity:
-                self.variat_viscous = propagators_fields.VariationalViscosity()
+                self.variat_viscous = VariationalViscosity()
             if with_resistivity:
-                self.variat_resist = propagators_fields.VariationalResistivity()
+                self.variat_resist = VariationalResistivity()
 
     ## abstract methods
 
@@ -209,21 +210,21 @@ class ViscoResistiveLinearMHD(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_fields.VariationalDensityEvolve:**
+        doc = rf"""**1. VariationalDensityEvolve:**
 
-{propagators_fields.VariationalDensityEvolve.__doc__}
+{VariationalDensityEvolve.__doc__}
 
-**2. propagators_fields.VariationalPBEvolve:**
+**2. VariationalPBEvolve:**
 
-{propagators_fields.VariationalPBEvolve.__doc__}
+{VariationalPBEvolve.__doc__}
 
-**3. propagators_fields.VariationalViscosity:**
+**3. VariationalViscosity:**
 
-{propagators_fields.VariationalViscosity.__doc__}
+{VariationalViscosity.__doc__}
 
-**4. propagators_fields.VariationalResistivity:**
+**4. VariationalResistivity:**
 
-{propagators_fields.VariationalResistivity.__doc__}
+{VariationalResistivity.__doc__}
 """
         return doc
 

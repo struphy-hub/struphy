@@ -8,10 +8,10 @@ from struphy.models.species import (
     FieldSpecies,
 )
 from struphy.models.variables import FEECVariable
-from struphy.propagators import (
-    propagators_fields,
-)
 from struphy.propagators.base import Propagator
+from struphy.propagators.implicit_diffusion import ImplicitDiffusion
+from struphy.propagators.poisson_field_solve import PoissonFieldSolve
+from struphy.propagators.time_dependent_source import TimeDependentSource
 
 logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
@@ -39,8 +39,8 @@ class Poisson(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.TimeDependentSource`
-    2. :class:`~struphy.propagators.propagators_fields.ImplicitDiffusion`
+    1. :class:`~struphy.propagators.time_dependent_source.TimeDependentSource`
+    2. :class:`~struphy.propagators.implicit_diffusion.ImplicitDiffusion`
 
     :ref:`Model info <add_model>`:
     """
@@ -62,8 +62,8 @@ class Poisson(StruphyModel):
     class Propagators:
         def __init__(self, with_t_dep_source=False):
             if with_t_dep_source:
-                self.source = propagators_fields.TimeDependentSource()
-            self.poisson = propagators_fields.Poisson()
+                self.source = TimeDependentSource()
+            self.poisson = PoissonFieldSolve()
 
     ## abstract methods
 
@@ -128,13 +128,13 @@ class Poisson(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_fields.TimeDependentSource:**
+        doc = rf"""**1. TimeDependentSource:**
 
-{propagators_fields.TimeDependentSource.__doc__}
+{TimeDependentSource.__doc__}
 
-**2. propagators_fields.Poisson:**
+**2. PoissonFieldSolve:**
 
-{propagators_fields.Poisson.__doc__}
+{PoissonFieldSolve.__doc__}
 """
         return doc
 

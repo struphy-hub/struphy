@@ -52,7 +52,7 @@ class BracketOperator(LinOpWithTransp):
 
         \hat{\mathbf v}_h = \mathbf v^\top \vec{\boldsymbol \Lambda}^v \in (V_h^0)^3 \,, \qquad \hat{\mathbf A}^1_{\mu,h} = \nabla P_\mu(\mathbf v^\top \vec{\boldsymbol \Lambda}^v)] \in V_h^1\,.
 
-    Initialized and used in :class:`~struphy.propagators.propagators_fields.VariationalMomentumAdvection` propagator.
+    Initialized and used in :class:`~struphy.propagators.variational_momentum_advection.VariationalMomentumAdvection` propagator.
 
     Parameters
     ----------
