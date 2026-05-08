@@ -202,8 +202,22 @@ class KineticBackground(metaclass=ABCMeta):
             etas = xp.abs(xp.meshgrid(*tabs, indexing="ij"))
             total_density = self(*etas)
             if use_mu and axe_to_plot == 4:
-                B_tab = equil.b_xyz(etas[0], etas[1], etas[2])
-                B_norm_tab = xp.sqrt(B_tab[0] ** 2 + B_tab[1] ** 2 + B_tab[2] ** 2)
+                B_norm_tab = equil.absB0(
+                    etas[0][tuple([slice(None), slice(None), slice(None)] + self.vdim * [0])],
+                    etas[1][tuple([slice(None), slice(None), slice(None)] + self.vdim * [0])],
+                    etas[2][tuple([slice(None), slice(None), slice(None)] + self.vdim * [0])],
+                )
+                B_norm_tab = xp.broadcast_to(
+                    B_norm_tab[
+                        tuple(
+                            [
+                                ...,
+                            ]
+                            + self.vdim * [None]
+                        )
+                    ],
+                    etas[0].shape,
+                )
                 total_density *= B_norm_tab / etas[4]
                 plot_linspace = plot_linspace**2
             axes_to_integrate = [i for i in range(3 + self.vdim)]
@@ -277,8 +291,22 @@ class KineticBackground(metaclass=ABCMeta):
                 total_density = self(*xp.abs(etas))
             if use_mu:
                 if axe_to_plot1 == 4 or axe_to_plot2 == 4:
-                    B_tab = equil.b_xyz(etas[0], etas[1], etas[2])
-                    B_norm_tab = xp.sqrt(B_tab[0] ** 2 + B_tab[1] ** 2 + B_tab[2] ** 2)
+                    B_norm_tab = equil.absB0(
+                        etas[0][tuple([slice(None), slice(None), slice(None)] + self.vdim * [0])],
+                        etas[1][tuple([slice(None), slice(None), slice(None)] + self.vdim * [0])],
+                        etas[2][tuple([slice(None), slice(None), slice(None)] + self.vdim * [0])],
+                    )
+                    B_norm_tab = xp.broadcast_to(
+                        B_norm_tab[
+                            tuple(
+                                [
+                                    ...,
+                                ]
+                                + self.vdim * [None]
+                            )
+                        ],
+                        etas[0].shape,
+                    )
                     total_density *= B_norm_tab / etas[4]
                     physical_coords[4] = physical_coords[4] ** 2
             axes_to_integrate = [i for i in range(3 + self.vdim)]

@@ -90,6 +90,9 @@ def test_plotting_function():
 
     from struphy import domains, equils, maxwellians
 
+    equil = equils.HomogenSlab(B0x=0.0, B0y=0.0, B0z=1.0)
+    equil.domain = domains.Cuboid()
+
     # definition of test functions
     l, m, n = 3, 4, 5
 
@@ -110,7 +113,6 @@ def test_plotting_function():
         return 1 + 0.2 * xp.cos(2 * xp.pi * e1 * l) * xp.cos(2 * xp.pi * e2 * m) * xp.cos(2 * xp.pi * e3 * n)
 
     # Testing with GyroMaxwellian2D:
-    equil = equils.HomogenSlab(B0x=0.0, B0y=0.0, B0z=1.0)
     background = maxwellians.GyroMaxwellian2D(n=(n_init, None), vth_para=(vth, None), vth_perp=(vth, None), equil=equil)
     background.plot_density_profile("e1")
     background.plot_density_profile("e2")
