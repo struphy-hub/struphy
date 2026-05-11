@@ -26,7 +26,7 @@ runs:
           git status
           source env_fortran_/bin/activate
           which python3
-          pip install -U --upgrade-strategy eager -e ".[phys,mpi]"
+          pip install -e ".[phys,mpi]"
           pip install -e ".[doc]"
           PYTHON=$(which python)
           STRUPHY_PATH=$($PYTHON -c "import struphy; print(struphy.__path__[0])")
