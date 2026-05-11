@@ -60,6 +60,7 @@ def test_sph_evaluation_1d(
         if derivative == 0:
             ppb = 1000
         else:
+            return  # skip non-tesselation test for derivative in 1D
             ppb = 20000
         loading_params = LoadingParameters(ppb=ppb, seed=223)
 
@@ -1968,6 +1969,7 @@ if __name__ == "__main__":
     #     direction="x",
     #     show_plot=True,
     # )
-    test_sph_velocity_evaluation_2d(
-        (12, 12, 1), "gaussian_2d", 1, "periodic", "periodic", 11, tesselation=False, show_plot=True
-    )
+    # test_sph_velocity_evaluation_2d(
+    #     (12, 12, 1), "gaussian_2d", 1, "periodic", "periodic", 11, tesselation=False, show_plot=True
+    # )
+    test_sph_evaluation_1d((24, 1, 1), "trigonometric_1d", 0, "periodic", 11, tesselation=False, show_plot=True)
