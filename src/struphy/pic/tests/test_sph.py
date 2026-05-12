@@ -60,7 +60,7 @@ def test_sph_evaluation_1d(
         if derivative == 0:
             ppb = 1000
         else:
-            return  # skip non-tesselation test for derivative in 1D
+            # return  # skip non-tesselation test for derivative in 1D
             ppb = 20000
         loading_params = LoadingParameters(ppb=ppb, seed=223)
 
@@ -544,7 +544,7 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselat
         ppb = 160
         loading_params = LoadingParameters(ppb=ppb, loading="tesselation")
     else:
-        return  # skip non-tesselation test for h-convergence in 1D
+        # return  # skip non-tesselation test for h-convergence in 1D
         Np = 160000
         ppb = None
         loading_params = LoadingParameters(Np=Np, ppb=ppb, seed=1607)
@@ -662,7 +662,7 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, te
         ppbs = [4, 8, 16, 32, 64]
         Nps = [None] * len(ppbs)
     else:
-        return  # skip non-tesselation test for convergence in 1D
+        # return  # skip non-tesselation test for convergence in 1D
         Nps = [(2**k) * 10**3 for k in range(-2, 9)]
         ppbs = [None] * len(Nps)
 
