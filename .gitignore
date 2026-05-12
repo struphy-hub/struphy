@@ -103,3 +103,5 @@ share/
 
 lib64
 pyvenv.cfg
+
+examples/TwoFluidQuasiNeutralToy/runs/*/
