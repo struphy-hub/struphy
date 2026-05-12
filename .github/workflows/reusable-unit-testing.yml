@@ -37,13 +37,13 @@ jobs:
       matrix:
         include:
           - shard: shard-1
-            test_files: bsplines/tests/ console/tests/ feec/tests/
+            test_files: bsplines/tests/ console/tests/ fields_background/tests/ geometry/tests/ initial/tests/ kinetic_background/tests/ linear_algebra/tests/ ode/tests/ polar/tests/ post_processing/tests/
           - shard: shard-2
-            test_files: fields_background/tests/ geometry/tests/ initial/tests/
+            test_files: propagators/tests/ 
           - shard: shard-3
-            test_files: kinetic_background/tests/ linear_algebra/tests/ ode/tests/
+            test_files: feec/tests/
           - shard: shard-4
-            test_files: pic/tests/ polar/tests/ post_processing/tests/ propagators/tests/
+            test_files: pic/tests/  
 
     container:
       image: ghcr.io/struphy-hub/struphy/ubuntu-with-struphy:latest

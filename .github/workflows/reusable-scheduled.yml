@@ -104,16 +104,16 @@ jobs:
         run: |
           case "${{ matrix.shard }}" in
             shard-1)
-              TEST_FILES="bsplines/tests/ console/tests/ feec/tests/"
+              TEST_FILES="bsplines/tests/ console/tests/ fields_background/tests/ geometry/tests/ initial/tests/ kinetic_background/tests/ linear_algebra/tests/ ode/tests/ polar/tests/ post_processing/tests/"
               ;;
             shard-2)
-              TEST_FILES="fields_background/tests/ geometry/tests/ initial/tests/"
+              TEST_FILES="propagators/tests/"
               ;;
             shard-3)
-              TEST_FILES="kinetic_background/tests/ linear_algebra/tests/ ode/tests/"
+              TEST_FILES="feec/tests/"
               ;;
             shard-4)
-              TEST_FILES="pic/tests/ polar/tests/ post_processing/tests/ propagators/tests/"
+              TEST_FILES="pic/tests/"
               ;;
             *)
               echo "Unknown test shard: ${{ matrix.shard }}" >&2
