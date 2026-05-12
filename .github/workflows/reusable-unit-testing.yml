@@ -125,6 +125,18 @@ jobs:
         with:
           env-name: /struphy_fortran_/env_fortran_
 
+      - name: Monitor memory
+        run: |
+          while true; do
+            date
+            free -h
+            echo "cgroup memory:"
+            cat /sys/fs/cgroup/memory.current 2>/dev/null || true
+            cat /sys/fs/cgroup/memory.max 2>/dev/null || true
+            echo
+            sleep 10
+          done &
+
       - name: Run unit tests
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit-${{ matrix.shard }}
