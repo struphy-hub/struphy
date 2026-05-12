@@ -109,13 +109,13 @@ jobs:
       - name: Install Struphy in Container
         uses: ./.github/actions/install/struphy_in_container
       
-      # - name: Get submodule diff
-      #   uses: ./.github/actions/submodule-diff
-      #   with:
-      #     start-dir: /struphy_fortran_
+      - name: Get submodule diff
+        uses: ./.github/actions/submodule-diff
+        with:
+          start-dir: /struphy_fortran_
 
       - name: Reinstall feectools from submodule
-      # if: env.SUBMOD_CHANGED == 'true'
+        if: env.SUBMOD_CHANGED == 'true'
         uses: ./.github/actions/install/feectools-submodule
         with:
           env-name: /struphy_fortran_/env_fortran_
@@ -142,7 +142,5 @@ jobs:
           echo "Running $UNINSTALL_MPI"
           $UNINSTALL_MPI
           git status || true
-          free -h
-          grep -E 'MemTotal|MemAvailable|SwapTotal|SwapFree' /proc/meminfo
           echo "Running $PYTEST_CMD $TEST_FILES"
           $PYTEST_CMD $TEST_FILES
