@@ -37,9 +37,9 @@ jobs:
       matrix:
         include:
           - shard: shard-1
-            test_files: bsplines/tests/ console/tests/ fields_background/tests/ geometry/tests/ initial/tests/ kinetic_background/tests/ linear_algebra/tests/ ode/tests/ polar/tests/ post_processing/tests/
+            test_files: bsplines/tests/ console/tests/ fields_background/tests/ geometry/tests/ initial/tests/ kinetic_background/tests/ linear_algebra/tests/
           - shard: shard-2
-            test_files: propagators/tests/ 
+            test_files: propagators/tests/ ode/tests/ polar/tests/ post_processing/tests/
           - shard: shard-3
             test_files: feec/tests/
           - shard: shard-4
