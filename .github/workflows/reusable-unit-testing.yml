@@ -21,6 +21,14 @@ permissions:
   contents: read
 
 jobs:
+  preflight:
+    runs-on: ${{ inputs.os }}
+    steps:
+      - name: Check memory
+        run: |
+          free -h
+          grep -E 'MemTotal|MemAvailable|SwapTotal|SwapFree' /proc/meminfo
+
   unit-tests-in-container-with-struphy:
     runs-on: ${{ inputs.os }}
 
@@ -33,6 +41,11 @@ jobs:
     steps:
       - name: Check for dockerenv file
         run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
+
+      - name: Memory inside container
+        run: |
+          free -h
+          grep -E 'MemTotal|MemAvailable|SwapTotal|SwapFree' /proc/meminfo
 
       - name: Checkout repo
         uses: actions/checkout@v4
