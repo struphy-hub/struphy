@@ -721,24 +721,68 @@ class WeightedMassOperators:
                 equil.domain = domains.Cuboid()
             bb = LocalProjectionMatrix(equil.unit_bv_1, equil.unit_bv_2, equil.unit_bv_3)
 
-            if hasattr(self, "factors"):
-                factors = self.factors
-            else:
-                factors = ()
-            if factors is None:
-                factors = ()
-            factors = tuple(factors)
             M1_op = self.create_weighted_mass(
                 "Hcurl",
                 "Hcurl",
-                weights=("Ginv",) + factors + ("sqrt_g",),
+                weights=(
+                    "Ginv",
+                    "sqrt_g",
+                ),
                 name="M1perp",
                 assemble=True,
             )
             M1para_op = self.create_weighted_mass(
                 "Hcurl",
                 "Hcurl",
-                weights=(bb,) + factors + ("sqrt_g",),
+                weights=(
+                    bb,
+                    "sqrt_g",
+                ),
+                name="M1para",
+                assemble=True,
+            )
+            self._M1perp = M1_op
+            self._M1perp._mat = M1_op._mat - M1para_op._mat
+        return self._M1perp
+
+    @auto_convert_docstring
+    @property
+    def M1perp_MHDeq(self):
+        r"""
+        Mass matrix
+
+        .. math::
+
+            \mathbb M^{1,\perp}_{(\mu,ijk), (\nu,mno)} = \int \frac{n^0_{\textnormal{eq}}(\boldsymbol{\eta})}{\|B_0(\boldsymbol{\eta})\|} \vec{\Lambda}^1_{\mu,ijk} \left(G^{-1} - b_0 b_0^\top \right) \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
+        """
+        if not hasattr(self, "_M1perp"):
+            if self.eq_mhd is None:
+                equil = equils.HomogenSlab()
+            else:
+                equil = self.eq_mhd
+            if not hasattr(equil, "_domain"):
+                equil.domain = domains.Cuboid()
+            bb = LocalProjectionMatrix(equil.unit_bv_1, equil.unit_bv_2, equil.unit_bv_3)
+
+            M1_op = self.create_weighted_mass(
+                "Hcurl",
+                "Hcurl",
+                weights=(
+                    "Ginv",
+                    lambda *etas: 1 / self.eq_mhd.absB0(*etas) ** 2,
+                    "eq_n0",
+                    "sqrt_g",
+                ),
+                name="M1perp",
+                assemble=True,
+            )
+            M1para_op = self.create_weighted_mass(
+                "Hcurl",
+                "Hcurl",
+                weights=(
+                    bb,
+                    "sqrt_g",
+                ),
                 name="M1para",
                 assemble=True,
             )
@@ -763,12 +807,42 @@ class WeightedMassOperators:
             self._M0ad = self.create_weighted_mass(
                 "H1",
                 "H1",
-                weights=("eq_n0", "sqrt_g"),
+                weights=(
+                    "eq_n0",
+                    "sqrt_g",
+                ),
                 name="M0ad",
                 assemble=True,
             )
 
         return self._M0ad
+
+    @auto_convert_docstring
+    @property
+    def M0ad_withT(self):
+        r"""
+        Mass matrix
+
+        .. math::
+
+            \mathbb M⁰_{ijk, mno} = \int \frac{n^0_{\textnormal{eq}}(\boldsymbol{\eta})}{T^0_{\textnormal{eq}}(\boldsymbol{\eta})} \Lambda^0_{ijk} \Lambda^0_{mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
+
+        where :math:`n^0_{\textnormal{eq}}(\boldsymbol{\eta})` and :math:`T^0_{\textnormal{eq}}(\boldsymbol{\eta})` are MHD equilibrium density and electron temperature (0-forms), respectively.
+        """
+        if not hasattr(self, "_M0ad_withT"):
+            self._M0ad_withT = self.create_weighted_mass(
+                "H1",
+                "H1",
+                weights=(
+                    "eq_n0",
+                    "1/eq_t0",
+                    "sqrt_g",
+                ),
+                name="M0ad_withT",
+                assemble=True,
+            )
+
+        return self._M0ad_withT
 
     @auto_convert_docstring
     @property
@@ -942,6 +1016,8 @@ class WeightedMassOperators:
                             f_call = lambda e1, e2, e3: 1.0 / self.eq_mhd.n0(e1, e2, e3)
                         elif f_components[-1] == "eq_absB0":
                             f_call = lambda e1, e2, e3: 1.0 / self.eq_mhd.absB0(e1, e2, e3)
+                        elif f_components[-1] == "eq_t0":
+                            f_call = lambda e1, e2, e3: 1.0 / self.eq_mhd.t0(e1, e2, e3)
                         else:
                             raise NotImplementedError(
                                 f"The option {f} is not available for division ('/') yet.",
