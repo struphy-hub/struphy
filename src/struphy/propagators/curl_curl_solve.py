@@ -39,9 +39,10 @@ class CurlCurlSolve(Propagator):
 
     .. math::
 
-        \left( \mathbb C^\top \mathbb M^2 \mathbb C - \sigma \mathbb M^1 \right)\, \boldsymbol e^{n+1} =\sum_i(\mathbb \Lambda^1, \mathbb J _i  )_{L^2}\,,
+        \left( \mathbb C^\top \cdot \mathbb M^2 \cdot \mathbb C - \sigma \mathbb M^1 \right)\, \boldsymbol e^{n+1} =\sum_i \mathbb P^1 \cdot \boldsymbol J _i\,,
 
-    where :math:`M^1` and :math:`M^2` are :class:`WeightedMassOperators <struphy.feec.mass.WeightedMassOperators>`.
+    where :math:`\mathbb M^1` and :math:`\mathbb M^2` are :class:`WeightedMassOperators <struphy.feec.mass.WeightedMassOperators>` and :math:`\mathbb P^1`
+    is the projector into the space :math:`V ^1 _h`.
 
     """
 
@@ -50,7 +51,7 @@ class CurlCurlSolve(Propagator):
 
         Attributes
         ----------
-        E : FEECVariable
+        e : FEECVariable
             Vector-valued solution in ``"Hcurl"`` space.
         """
 
