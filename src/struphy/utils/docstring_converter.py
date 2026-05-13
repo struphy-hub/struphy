@@ -346,12 +346,15 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
     # Process fractions again to catch any \frac introduced after sqrt conversion.
     result = _replace_latex_fractions(result, display_mode=display_mode)
 
-    # Normalize subscript patterns: _\command{...} -> _{\command{...}}
-    # Do this BEFORE symbol replacement so we can handle _\mathbb{R}, _\Omega, etc.
+    # Normalize subscript patterns so command forms are always braced.
+    # Do this BEFORE symbol replacement so we can handle _\perp, _\parallel,
+    # _\mathbb{R}, _\Omega, etc.
     result = re.sub(r"_(\\[a-zA-Z]+\{[^}]+\})", r"_{\1}", result)
+    result = re.sub(r"_(\\[a-zA-Z]+)(?![a-zA-Z])", r"_{\1}", result)
 
-    # Normalize superscript patterns: ^\command{...} -> ^{\command{...}}
+    # Normalize superscript patterns so command forms are always braced.
     result = re.sub(r"\^(\\[a-zA-Z]+\{[^}]+\})", r"^{\1}", result)
+    result = re.sub(r"\^(\\[a-zA-Z]+)(?![a-zA-Z])", r"^{\1}", result)
 
     # Greek and special symbols
     symbols = {
@@ -376,6 +379,8 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
         r"\equiv": "≡",
         r"\sim": "∼",
         r"\propto": "∝",
+        r"\parallel": "∥",
+        r"\perp": "⟂",
         r"\top": "ᵀ",  # transpose symbol
         r"\in": "∈",
         r"\notin": "∉",
@@ -439,7 +444,9 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
         r"\Omega": "Ω",
     }
 
-    for latex, unicode_sym in symbols.items():
+    # Replace longer commands first to avoid prefix collisions
+    # (e.g. \to must not rewrite \top).
+    for latex, unicode_sym in sorted(symbols.items(), key=lambda item: len(item[0]), reverse=True):
         result = result.replace(latex, unicode_sym)
 
     # Subscripts and Superscripts - handle with better heuristics
@@ -568,6 +575,10 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
     # Convert ^{...} superscripts with smarter handling
     def replace_superscript(match):
         content = match.group(1).strip()
+        # Unicode superscript asterisk is font-dependent and may sit on baseline.
+        # Force HTML superscript so ^* and ^{*} are consistently raised.
+        if content == "*":
+            return "<sup>*</sup>"
         # Check if all characters can be converted to Unicode superscripts
         converted = "".join(superscripts.get(c, "") for c in content)
 
@@ -588,6 +599,51 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
     # Handle multi-character unbraced superscripts before single-character ones
     result = re.sub(r"\^([A-Za-z0-9]+)(?![A-Za-z0-9])", replace_superscript, result)
     result = re.sub(r"\^([A-Za-z0-9])(?![A-Za-z0-9])", replace_superscript, result)
+    # Handle single-symbol unbraced superscripts such as ^*
+    result = re.sub(r"\^([^\s\\{}])", replace_superscript, result)
+
+    # Stretchy delimiters: convert \left...\right to visually larger delimiters.
+    # This is a lightweight approximation for HTML output.
+    delim_map = {
+        "(": "(",
+        ")": ")",
+        "[": "[",
+        "]": "]",
+        "{": "{",
+        "}": "}",
+        r"\{": "{",
+        r"\}": "}",
+        "|": "|",
+        r"\|": "|",
+        r"\\": "|",
+        r"\langle": "⟨",
+        r"\rangle": "⟩",
+        r"\lfloor": "⌊",
+        r"\rfloor": "⌋",
+        r"\lceil": "⌈",
+        r"\rceil": "⌉",
+        ".": "",
+    }
+
+    def _render_stretchy_delim(token: str) -> str:
+        glyph = delim_map.get(token, token)
+        if not glyph:
+            return ""
+        return (
+            '<span style="display:inline-block;font-size:1.18em;line-height:0.9;vertical-align:-0.08em;">'
+            f"{glyph}"
+            "</span>"
+        )
+
+    def _replace_left(match):
+        return _render_stretchy_delim(match.group(1).strip())
+
+    def _replace_right(match):
+        return _render_stretchy_delim(match.group(1).strip())
+
+    result = re.sub(r"\\left\s*(\\[a-zA-Z]+|\\[{}|]|\\\\|[()\[\]{}|.])", _replace_left, result)
+    result = re.sub(r"\\right\s*(\\[a-zA-Z]+|\\[{}|]|\\\\|[()\[\]{}|.])", _replace_right, result)
+
     # Remove remaining LaTeX commands
     # Preserve spacing intent using Unicode space characters (HTML-safe)
     result = re.sub(r"\\,", chr(0x2009), result)  # thin space
