@@ -14,47 +14,19 @@ from struphy.utils.utils import check_option
 
 class PoissonFieldSolve(ImplicitDiffusion):
     r"""
-    Weak discretization of the (stabilized) Poisson equation.
-
-    Find :math:`\phi \in H^1` such that
+    Weak discretization of the (stabilized) Poisson equation: find :math:`\phi \in H^1` such that
 
     .. math::
 
         \epsilon \int_\Omega \psi\, \phi\,\textrm d \mathbf x + \int_\Omega \nabla \psi^\top \, \nabla \phi \,\textrm d \mathbf x = \sum_i \int_\Omega \psi\, \rho_i(\mathbf x)\,\textrm d \mathbf x \qquad \forall \ \psi \in H^1\,,
 
-    where :math:`\epsilon \in \mathbb R` is a stabilization parameter.
-    Boundary terms from integration by parts are assumed to vanish.
-    The equation is discretized as
+    where :math:`\epsilon \in \mathbb R` is a stabilization parameter. Boundary terms from integration by parts are assumed to vanish. The equation is discretized as
 
     .. math::
 
-        \left( \epsilon\,\mathbb S + \mathbb G^\top \mathbb M^1 \mathbb G \right)\, \boldsymbol\phi^{n+1} = \sum_i(\Lambda^0, \rho_i  )_{L^2}\,,
+        \left( \epsilon\,\mathbb S + \mathbb G^\top \mathbb M^1 \mathbb G \right)\, \boldsymbol{\phi} = \sum_i(\Lambda^0, \rho_i  )_{L^2}\,,
 
-    where :math:`\mathbb M^1` is the :math:`H(\textnormal{curl})`-mass matrix
-    and :math:`\mathbb S` is a stabilization matrix.
-
-    Parameters
-    ----------
-    phi : StencilVector
-        FE coefficients of the solution as a discrete 0-form.
-
-    stab_eps : float
-        Stabilization parameter multiplied on stab_mat (default=0.0).
-
-    stab_mat : str
-        Name of the stabilizing matrix.
-
-    rho : StencilVector or tuple or list
-        (List of) right-hand side FE coefficients of a 0-form (optional, can be set with a setter later).
-        Can be either a) StencilVector or b) 2-tuple, or a list of those.
-        In case b) the first tuple entry must be :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector`,
-        and the second entry must be :class:`~struphy.pic.base.Particles`.
-
-    x0 : StencilVector
-        Initial guess for the iterative solver (optional, can be set with a setter later).
-
-    solver : dict
-        Parameters for the iterative solver (see ``__init__`` for details).
+    where :math:`\mathbb M^1` is the :math:`H(\textnormal{curl})`-mass matrix and :math:`\mathbb S` is a stabilization matrix.
     """
 
     @dataclass
