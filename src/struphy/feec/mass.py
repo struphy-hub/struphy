@@ -715,7 +715,7 @@ class WeightedMassOperators:
 
         .. math::
 
-            \mathbb M^{1,\perp}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk} b_0 b_0^\top \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
+            \mathbb M^{1,\parallel}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk} b_0 b_0^\top \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
         """
         if not hasattr(self, "_M1para"):
             bb = LocalProjectionMatrix(self.eq_mhd.unit_bv_1, self.eq_mhd.unit_bv_2, self.eq_mhd.unit_bv_3)
@@ -755,9 +755,9 @@ class WeightedMassOperators:
 
         .. math::
 
-            \mathbb M^{1,\perp}_{(\mu,ijk), (\nu,mno)} = \int \frac{n^0_{\textnormal{eq}}(\boldsymbol{\eta})}{\|B_0(\boldsymbol{\eta})\|^2} \vec{\Lambda}^1_{\mu,ijk} b_0 b_0^\top \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
+            \mathbb M^{1,\parallel}_{(\mu,ijk), (\nu,mno)} = \int \frac{n^0_{\textnormal{eq}}(\boldsymbol{\eta})}{\|B_0(\boldsymbol{\eta})\|^2} \vec{\Lambda}^1_{\mu,ijk} b_0 b_0^\top \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
         """
-        if not hasattr(self, "_M1perp"):
+        if not hasattr(self, "_M1para_MHDeq"):
             bb = LocalProjectionMatrix(self.eq_mhd.unit_bv_1, self.eq_mhd.unit_bv_2, self.eq_mhd.unit_bv_3)
 
             self._M1para_MHDeq = self.create_weighted_mass(
@@ -782,9 +782,9 @@ class WeightedMassOperators:
 
         .. math::
 
-            \mathbb M^{1,\perp}_{(\mu,ijk), (\nu,mno)} = \int \frac{n^0_{\textnormal{eq}}(\boldsymbol{\eta})}{\|B_0(\boldsymbol{\eta})\|^2} \vec{\Lambda}^1_{\mu,ijk} G^{-1} \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
+            \mathbb M^{1}_{(\mu,ijk), (\nu,mno)} = \int \frac{n^0_{\textnormal{eq}}(\boldsymbol{\eta})}{\|B_0(\boldsymbol{\eta})\|^2} \vec{\Lambda}^1_{\mu,ijk} G^{-1} \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
         """
-        if not hasattr(self, "_M1perp"):
+        if not hasattr(self, "_M1_MHDeq"):
             self._M1_MHDeq = self.create_weighted_mass(
                 "Hcurl",
                 "Hcurl",
