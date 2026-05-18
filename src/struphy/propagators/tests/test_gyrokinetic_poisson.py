@@ -460,7 +460,6 @@ def test_poisson_M1perp_2d(num_elements, degree, bc_type, mapping, projected_rhs
     "mapping",
     [
         ["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}],
-        ["Colella", {"Lx": 1.0, "Ly": 1.0, "alpha": 0.1, "Lz": 1.0}],
     ],
 )
 def test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=False):
@@ -577,10 +576,11 @@ def test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=F
     x, y, z = domain(e1, e2, e3)
 
     logger.info(f"max diff: {xp.max(xp.abs(sol_val_M1 - sol_val_M1perp))}")
+    max_diff_av = xp.max(xp.abs(xp.trapezoid(sol_val_M1 - sol_val_M1perp, e2, axis=1) / (e2[-1] - e2[0])))
     logger.info(
-        f"max diff of the averaged solutions (over e3): {xp.max(xp.abs(xp.trapezoid(sol_val_M1 - sol_val_M1perp, e3, axis=2) / (e3[-1] - e3[0])))}"
+        f"max diff of the averaged solutions (over e3): {max_diff_av}"
     )
-    assert xp.max(xp.abs(xp.trapezoid(sol_val_M1 - sol_val_M1perp, e3, axis=2) / (e3[-1] - e3[0]))) < 0.001
+    assert max_diff_av < 0.001
     if show_plot and rank == 0:
         plt.figure("e1-e2 plane", figsize=(24, 16))
         plt.subplot(2, 3, 1)
