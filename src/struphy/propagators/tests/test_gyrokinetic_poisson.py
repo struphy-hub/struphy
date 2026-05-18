@@ -14,6 +14,7 @@ from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.propagators.implicit_diffusion import ImplicitDiffusion
+from struphy.propagators.poisson_field_solve import PoissonFieldSolve
 from struphy.topology.grids import TensorProductGrid
 
 logger = logging.getLogger("struphy")
@@ -517,14 +518,11 @@ def test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=F
     _phi_M1 = FEECVariable(space="H1")
     _phi_M1.allocate(derham=derham, domain=domain)
 
-    poisson_solver_M1 = ImplicitDiffusion()
+    poisson_solver_M1 = PoissonFieldSolve()
     poisson_solver_M1.variables.phi = _phi_M1
 
     poisson_solver_M1.options = poisson_solver_M1.Options(
-        sigma_1=1e-8,
-        sigma_2=0.0,
-        sigma_3=1.0,
-        divide_by_dt=False,
+        stab_eps=1e-8,
         diffusion_mat="M1",
         rho=rho,
         solver="pcg",
@@ -540,14 +538,11 @@ def test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=F
     _phi_M1perp = FEECVariable(space="H1")
     _phi_M1perp.allocate(derham=derham, domain=domain)
 
-    poisson_solver_M1perp = ImplicitDiffusion()
+    poisson_solver_M1perp = PoissonFieldSolve()
     poisson_solver_M1perp.variables.phi = _phi_M1perp
 
     poisson_solver_M1perp.options = poisson_solver_M1perp.Options(
-        sigma_1=1e-8,
-        sigma_2=0.0,
-        sigma_3=1.0,
-        divide_by_dt=False,
+        stab_eps=1e-8,
         diffusion_mat="M1perp",
         rho=rho,
         solver="pcg",
@@ -575,8 +570,11 @@ def test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=F
     sol_val_M1perp = domain.push(_phi_M1perp.spline, e1, e2, e3, kind="0")
     x, y, z = domain(e1, e2, e3)
 
+    # The two solutions might not be the same:
     logger.info(f"max diff: {xp.max(xp.abs(sol_val_M1 - sol_val_M1perp))}")
-    max_diff_av = xp.max(xp.abs(xp.trapezoid(sol_val_M1 - sol_val_M1perp, e2, axis=1) / (e2[-1] - e2[0])))
+
+    # We take the average of both solutions and we compare their value, we should obtain the same:
+    max_diff_av = xp.max(xp.abs(xp.trapezoid(sol_val_M1 - sol_val_M1perp, e3, axis=2) / (e3[-1] - e3[0])))
     logger.info(f"max diff of the averaged solutions (over e3): {max_diff_av}")
     assert max_diff_av < 0.001
     if show_plot and rank == 0:
@@ -698,14 +696,11 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
     _phi_2p5d = FEECVariable(space="H1")
     _phi_2p5d.allocate(derham=derham_3D, domain=domain_3D)
 
-    poisson_solver_3d = ImplicitDiffusion()
+    poisson_solver_3d = PoissonFieldSolve()
     poisson_solver_3d.variables.phi = _phi
 
     poisson_solver_3d.options = poisson_solver_3d.Options(
-        sigma_1=1e-8,
-        sigma_2=0.0,
-        sigma_3=1.0,
-        divide_by_dt=True,
+        stab_eps=1e-8,
         diffusion_mat="M1perp",
         rho=rho_logical_3D,
         solver="pcg",
@@ -734,6 +729,7 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
     t0 = time()
     t_inner = 0.0
     for n in range(s[2], e[2] + 1):
+        # We define another domain that maps into a slice of the previous Cuboid domain, slices are perpendicular to the third direction.
         dom_params_sliced["l3"] = dom_params["l3"] + (dom_params["r3"] - dom_params["l3"]) / (len(e3) + degree[2]) * n
         dom_params_sliced["r3"] = dom_params["l3"] + (dom_params["r3"] - dom_params["l3"]) / (len(e3) + degree[2]) * (
             n + 1
@@ -755,14 +751,11 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
         _phi_small = FEECVariable(space="H1")
         _phi_small.allocate(derham=derham_sliced, domain=domain_sliced)
 
-        poisson_solver_2p5d = ImplicitDiffusion()
+        poisson_solver_2p5d = PoissonFieldSolve()
         poisson_solver_2p5d.variables.phi = _phi_small
 
         poisson_solver_2p5d.options = poisson_solver_2p5d.Options(
-            sigma_1=1e-8,
-            sigma_2=0.0,
-            sigma_3=1.0,
-            divide_by_dt=True,
+            stab_eps=1e-8,
             diffusion_mat="M1",
             rho=rho_logical_sliced,
             solver="pcg",

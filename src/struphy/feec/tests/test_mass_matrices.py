@@ -139,17 +139,6 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
 
     names = ["M0", "M1", "M2", "M3", "Mv", "M1n", "M2n", "Mvn", "M1ninv", "M0ad", "M0ad_withT", "WMM", "WMMnew"]
     for name in names:
-        if name == "M0ad_withT":
-
-            def Ti(e1, e2, e3):
-                return 1.0 + 0.5 * xp.sin(2 * xp.pi * e1) * xp.sin(4 * xp.pi * e2) * xp.sin(2 * xp.pi * e3)
-
-            def p0(self, e1, e2, e3, squeeze_out=False):
-                if squeeze_out:
-                    return xp.squeeze(self.n0(e1, e2, e3) * Ti(*self.domain.prepare_eval_pts(e1, e2, e3)[:3]))
-                return self.n0(e1, e2, e3) * Ti(*self.domain.prepare_eval_pts(e1, e2, e3)[:3])
-
-            equil.p0 = MethodType(p0, equil)
         if name == "WMM":
             intermediate = mass_ops.WMM
             intermediate.update_weight(projected_equil.n3)
