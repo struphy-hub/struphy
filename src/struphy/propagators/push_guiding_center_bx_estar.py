@@ -20,29 +20,27 @@ class PushGuidingCenterBxEstar(Propagator):
 
     .. math::
 
-        \frac{\textnormal d \mathbf X_p(t)}{\textnormal d t} = \frac{\mathbf E^* \times \mathbf b_0}{B_\parallel^*} (\mathbf X_p(t))   \,,
+        \frac{\textnormal d \mathbf{X}_p(t)}{\textnormal d t} = \frac{\mathbf{E}^* \times \mathbf{b}_0}{B_{\parallel}^*} (\mathbf{X}_p(t))   \,,
 
     where
 
     .. math::
 
-        \mathbf E^* = -\nabla \phi - \varepsilon \mu_p \nabla |\mathbf B|\,,\qquad \mathbf B^* = \mathbf B + \varepsilon v_\parallel \nabla \times \mathbf b_0\,,\qquad  B^*_\parallel = \mathbf B^* \cdot \mathbf b_0\,,
+        \mathbf E^* = -\nabla \phi - \varepsilon \mu_p \nabla |\mathbf B|\,,\qquad \mathbf B^* = \mathbf B + \varepsilon v_\parallel \nabla \times \mathbf{b}_0\,,\qquad  B^*_\parallel = \mathbf B^* \cdot \mathbf{b}_0\,,
 
-    where :math:`\mathbf B = \mathbf B_0 + \tilde{\mathbf B}` can be the full magnetic field (equilibrium + perturbation).
-    The electric potential ``phi`` and/or the magnetic perturbation ``b_tilde``
-    can be ignored by passing ``None``.
+    Here, :math:`\mathbf B = \mathbf{B}_0 + \tilde{\mathbf B}` can be the full magnetic field (equilibrium + perturbation). The electric potential :math:`\phi` and/or the magnetic perturbation :math:`\tilde{\mathbf B}` can be ignored by passing ``None``.
     In logical space this is given by :math:`\mathbf X = F(\boldsymbol \eta)`:
 
     .. math::
 
-        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = \frac{\hat{\mathbf E}^{*1} \times \hat{\mathbf b}^1_0}{\sqrt g\,\hat B_\parallel^{*}} (\boldsymbol \eta_p(t)) \,.
+        \frac{\textnormal d \boldsymbol{\eta}_p(t)}{\textnormal d t} = \frac{\hat{\mathbf E}^{*1} \times \hat{\mathbf b}^1_0}{\sqrt{g}\,\hat{B}_{\parallel}^{*}} (\boldsymbol \eta_p(t)) \,.
 
     Available algorithms:
 
-    * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
-    * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order`
-    * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order_newton`
-    * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_2nd_order`
+    - Explicit from :class:`~struphy.ode.utils.ButcherTableau`
+    - :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order`
+    - :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order_newton`
+    - :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_2nd_order`
     """
 
     class Variables:
