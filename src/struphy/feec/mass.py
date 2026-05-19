@@ -2845,3 +2845,99 @@ class L2Projector:
             The FEM spline coefficients after projection.
         """
         return self.solve(self.get_dofs(fun, dofs=dofs, apply_bc=apply_bc), out=out)
+
+
+class AverageOperator(LinOpWithTransp):
+    r"""
+    Class for quadrature operators, performes the average of a `FeecVariable` along a given direction.
+    For exemple along the :math:`\eta_3` direction, it aplies the following linear operator :
+    .. math::
+
+        \mathbb M^{\alpha}_{(\mu,ijk),(\nu,mno)} = \delta_{i,m} \delta_{j,n} c_k
+    
+        with :math:`c_k=\int_0^1 N_{3,k}(\eta_3) \textnormal{d} \eta` and :math:`N_{3,k}` the B-spline function at the place `k`.
+    """
+    def __init__(
+            self,
+            derham: Derham,
+            V: TensorFemSpace | VectorFemSpace,
+            weights: StencilVector,
+            transposed: bool = False,
+            ):
+
+        self._domain = V
+        self._codomain = V
+        self._dtype = weights.dtype
+
+        # c_o
+        self._weights = xp.asarray(weights)
+        self._tmpFlat = StencilVector(TensorFemSpace(V.domain_decomposition, V.spaces[0], V.spaces[1]))
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+    
+    @property
+    def dtype(self):
+        return self._dtype
+    
+    @property
+    def derham(self):
+        return self._derham
+
+    @property
+    def nquads(self):
+        if self._nquads is None:
+            return self.derham.nquads
+        else:
+            return self._nquads
+
+    @property
+    def tosparse(self):
+        raise NotImplementedError()
+
+    @property
+    def toarray(self):
+        raise NotImplementedError()
+
+    def transpose(self, conjugate=False):
+        return StencilMatrixFreeMassOperator(
+            self._derham,
+            self._codomain,
+            self._domain,
+            self._weights,
+            nquads=self._nquads,
+        )
+    
+    def dot(self, v, out=None):
+
+        assert v.space == self.domain
+
+        if out is None:
+            out = self.codomain.zeros()
+
+        x = v._data
+        y = out._data
+
+        # contraction sur o :
+        #
+        # s[i,j] = sum_o c[o] x[i,j,o]
+
+        self._tmpFlat = x * self._weights, axes=([2], [0]))
+
+        # réplication sur k
+        y[:] = s[:, :, None]
+
+        return out
+
+    def transpose(self, conjugate=False):
+        return AverageOperator(
+            self.derham,
+            self.domain,
+            self._weights,
+            transposed = True
+        )
