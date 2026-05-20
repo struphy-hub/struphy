@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import pytest
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy import domains
+from struphy import domains, equils, set_logging_level
 from struphy.feec.mass import L2Projector, WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry.base import Domain
@@ -14,9 +14,11 @@ from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.propagators.implicit_diffusion import ImplicitDiffusion
+from struphy.propagators.poisson_field_solve import PoissonFieldSolve
 from struphy.topology.grids import TensorProductGrid
 
 logger = logging.getLogger("struphy")
+set_logging_level(logging.INFO)
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -453,21 +455,19 @@ def test_poisson_M1perp_2d(num_elements, degree, bc_type, mapping, projected_rhs
     assert error2 < 0.023
 
 
-@pytest.mark.skip(reason="Not clear if the 2.5d strategy is sound.")
 @pytest.mark.parametrize("num_elements", [[32, 32, 16]])
 @pytest.mark.parametrize("degree", [[1, 1, 1], [2, 2, 1]])
 @pytest.mark.parametrize(
     "mapping",
     [
         ["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}],
-        ["Colella", {"Lx": 1.0, "Ly": 1.0, "alpha": 0.1, "Lz": 1.0}],
     ],
 )
-def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot=False):
+def test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=False):
     """
     Test the Poisson solver with M1perp diffusion matrix
-    by comparing 3d simulation to a loop over 2d simulations.
-    Dirichlet boundary conditions in eta1.
+    by comparing 3d simulation using M1perp and M1 diffusion matrices, and integrating over the third direction.
+    The two analytical solutions must be exactly the same in both cases.
     """
 
     from time import time
@@ -479,36 +479,207 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
     domain_class = getattr(domains, dom_type)
     domain: Domain = domain_class(**dom_params)
 
-    # boundary conditions
-    bcs = (("dirichlet", "dirichlet"), None, None)
+    equil = equils.HomogenSlab()
+    equil.domain = domain
 
     # evaluation grid
-    e1 = xp.linspace(0.0, 1.0, 50)
-    e2 = xp.linspace(0.0, 1.0, 60)
-    e3 = xp.linspace(0.0, 1.0, 30)
+    e1 = xp.linspace(0.0, 1.0, num_elements[0])
+    e2 = xp.linspace(0.0, 1.0, num_elements[1])
+    e3 = xp.linspace(0.0, 1.0, num_elements[2])
 
     # solution and right-hand side on unit cube
     def rho(e1, e2, e3):
-        dd1 = xp.sin(xp.pi * e1) * xp.sin(4 * xp.pi * e2) * xp.cos(2 * xp.pi * e3) * (xp.pi) ** 2
-        dd2 = xp.sin(xp.pi * e1) * xp.sin(4 * xp.pi * e2) * xp.cos(2 * xp.pi * e3) * (4 * xp.pi) ** 2
-        return dd1 + dd2
+        dd1 = xp.sin(xp.pi * e1) * xp.sin(2 * xp.pi * e2) * (1 + xp.cos(2 * xp.pi * e3)) * (xp.pi) ** 2
+        return dd1
 
     # create 3d derham object
     grid = TensorProductGrid(num_elements=num_elements)
-    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham_opts = DerhamOptions(degree=degree, bcs=(None, None, None))
     derham = Derham(grid, derham_opts, comm=comm)
 
-    mass_ops = WeightedMassOperators(derham, domain)
+    mass_ops = WeightedMassOperators(derham, domain, eq_mhd=equil)
 
     Propagator.derham = derham
     Propagator.domain = domain
     Propagator.mass_ops = mass_ops
 
     # discrete right-hand sides
-    l2_proj = L2Projector("H1", mass_ops)
-    rho_vec = l2_proj.get_dofs(rho, apply_bc=True)
+    # l2_proj = L2Projector("H1", mass_ops)
 
-    logger.info(f"{rho_vec[:].shape =}")
+    # Create 3d Poisson solver
+    solver_params = SolverParameters(
+        tol=1.0e-13,
+        maxiter=3000,
+        info=True,
+        verbose=False,
+        recycle=False,
+    )
+
+    _phi_M1 = FEECVariable(space="H1")
+    _phi_M1.allocate(derham=derham, domain=domain)
+
+    poisson_solver_M1 = PoissonFieldSolve()
+    poisson_solver_M1.variables.phi = _phi_M1
+
+    poisson_solver_M1.options = poisson_solver_M1.Options(
+        stab_eps=1e-8,
+        diffusion_mat="M1",
+        rho=rho,
+        solver="pcg",
+        precond="MassMatrixPreconditioner",
+        solver_params=solver_params,
+    )
+
+    poisson_solver_M1.allocate()
+
+    s = _phi_M1.spline.starts
+    e = _phi_M1.spline.ends
+
+    _phi_M1perp = FEECVariable(space="H1")
+    _phi_M1perp.allocate(derham=derham, domain=domain)
+
+    poisson_solver_M1perp = PoissonFieldSolve()
+    poisson_solver_M1perp.variables.phi = _phi_M1perp
+
+    poisson_solver_M1perp.options = poisson_solver_M1perp.Options(
+        stab_eps=1e-8,
+        diffusion_mat="M1perp",
+        rho=rho,
+        solver="pcg",
+        precond="MassMatrixPreconditioner",
+        solver_params=solver_params,
+    )
+
+    poisson_solver_M1perp.allocate()
+
+    # Solve M1 Poisson equation (call propagator with dt=1.)
+    dt = 1.0
+    t0 = time()
+    poisson_solver_M1(dt)
+    t1 = time()
+    logger.info(f"rank {rank}, M1 3d solve time = {t1 - t0}")
+
+    # Solve M1perp Poisson equation (call propagator with dt=1.)
+    t0 = time()
+    poisson_solver_M1perp(dt)
+    t1 = time()
+    logger.info(f"rank {rank}, M1perp 3d solve time = {t1 - t0}")
+
+    # push numerical solutions
+    sol_val_M1 = domain.push(_phi_M1.spline, e1, e2, e3, kind="0")
+    sol_val_M1perp = domain.push(_phi_M1perp.spline, e1, e2, e3, kind="0")
+    x, y, z = domain(e1, e2, e3)
+
+    # The two solutions might not be the same:
+    logger.info(f"max diff: {xp.max(xp.abs(sol_val_M1 - sol_val_M1perp))}")
+
+    # We take the average of both solutions and we compare their value, we should obtain the same:
+    max_diff_av = xp.max(xp.abs(xp.trapezoid(sol_val_M1 - sol_val_M1perp, e3, axis=2) / (e3[-1] - e3[0])))
+    logger.info(f"max diff of the averaged solutions (over e3): {max_diff_av}")
+    assert max_diff_av < 0.001
+    if show_plot and rank == 0:
+        plt.figure("e1-e2 plane", figsize=(24, 16))
+        plt.subplot(2, 3, 1)
+        plt.title("charge density averaged over e3")
+        plt.pcolor(
+            x[:, :, 0],
+            y[:, :, 0],
+            xp.transpose(xp.sum(rho(*xp.meshgrid(e1, e2, e3)), axis=2)) / len(e3),
+            shading="nearest",
+        )
+        plt.colorbar()
+        ax = plt.gca()
+        ax.set_aspect("equal", adjustable="box")
+        plt.subplot(2, 3, 4)
+        plt.title(f"charge density at e3={e3[len(e3) // 2]:.2f}")
+        plt.pcolor(
+            x[:, :, 0], y[:, :, 0], xp.transpose(rho(*xp.meshgrid(e1, e2, e3))[:, :, len(e3) // 2]), shading="nearest"
+        )
+        plt.colorbar()
+        ax = plt.gca()
+        ax.set_aspect("equal", adjustable="box")
+        plt.subplot(2, 3, 2)
+        plt.title(f"phi at e3={e3[len(e3) // 2]:.2f} with M1 solve")
+        plt.pcolor(x[:, :, 0], y[:, :, 0], sol_val_M1[:, :, len(e3) // 2])
+        plt.colorbar()
+        ax = plt.gca()
+        ax.set_aspect("equal", adjustable="box")
+        plt.subplot(2, 3, 5)
+        plt.title(f"phi at e3={e3[len(e3) // 2]:.2f} with M1perp solve")
+        plt.pcolor(x[:, :, 0], y[:, :, 0], sol_val_M1perp[:, :, len(e3) // 2])
+        plt.colorbar()
+        ax = plt.gca()
+        ax.set_aspect("equal", adjustable="box")
+        plt.subplot(2, 3, 3)
+        plt.title("average over e3 of M1 solve")
+        plt.pcolor(x[:, :, 0], y[:, :, 0], xp.trapezoid(sol_val_M1, e3, axis=2) / (e3[-1] - e3[0]))
+        plt.colorbar()
+        ax = plt.gca()
+        ax.set_aspect("equal", adjustable="box")
+        plt.subplot(2, 3, 6)
+        plt.title("average over e3 of M1perp solve")
+        plt.pcolor(x[:, :, 0], y[:, :, 0], xp.trapezoid(sol_val_M1perp, e3, axis=2) / (e3[-1] - e3[0]))
+        plt.colorbar()
+        ax = plt.gca()
+        ax.set_aspect("equal", adjustable="box")
+        plt.show()
+
+
+# @pytest.mark.skip(reason="Not clear if the 2.5d strategy is sound.")
+@pytest.mark.parametrize("num_elements", [[32, 32, 16]])
+@pytest.mark.parametrize("degree", [[1, 1, 1], [2, 2, 1]])
+@pytest.mark.parametrize(
+    "mapping",
+    [
+        ["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}],
+    ],
+)
+def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot=False):
+    """
+    Test the Poisson solver with M1perp diffusion matrix
+    by comparing 3d simulation to a loop over 2d simulations.
+    """
+
+    from time import time
+
+    # create domain object
+    dom_type = mapping[0]
+    dom_params = mapping[1]
+
+    domain_class = getattr(domains, dom_type)
+    domain_3D: Domain = domain_class(**dom_params)
+
+    # boundary conditions
+    bcs = (None, None, ("free", "free"))
+
+    # evaluation grid
+    e1 = xp.linspace(0.0, 1.0, num_elements[0])
+    e2 = xp.linspace(0.0, 1.0, num_elements[1])
+    e3 = xp.linspace(0.0, 1.0, num_elements[2])
+
+    # solution and right-hand side on unit cube
+    def rho_physical(x, y, z):
+        dd1 = xp.sin(2 * xp.pi * x) * xp.sin(xp.pi * y) * xp.cos(xp.pi * z) * (xp.pi) ** 2
+        return dd1
+
+    # create 3d derham object
+    grid_3D = TensorProductGrid(num_elements=num_elements)
+    derham_opts_3D = DerhamOptions(degree=degree, bcs=bcs)
+    derham_3D = Derham(grid_3D, derham_opts_3D, comm=comm)
+
+    mass_ops_3D = WeightedMassOperators(derham_3D, domain_3D, eq_mhd=equils.HomogenSlab(B0x=0.0, B0y=0.0, B0z=1.0))
+
+    Propagator.derham = derham_3D
+    Propagator.domain = domain_3D
+    Propagator.mass_ops = mass_ops_3D
+
+    rho_logical_3D = lambda e1, e2, e3: rho_physical(*domain_3D(e1, e2, e3))
+
+    # discrete right-hand sides
+    # l2_proj = L2Projector("H1", mass_ops_3D)
+    # rho_vec = l2_proj.get_dofs(rho, apply_bc=True)
+
+    # logger.info(f"{rho_vec[:].shape =}")
 
     # Create 3d Poisson solver
     solver_params = SolverParameters(
@@ -520,21 +691,18 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
     )
 
     _phi = FEECVariable(space="H1")
-    _phi.allocate(derham=derham, domain=domain)
+    _phi.allocate(derham=derham_3D, domain=domain_3D)
 
     _phi_2p5d = FEECVariable(space="H1")
-    _phi_2p5d.allocate(derham=derham, domain=domain)
+    _phi_2p5d.allocate(derham=derham_3D, domain=domain_3D)
 
-    poisson_solver_3d = ImplicitDiffusion()
+    poisson_solver_3d = PoissonFieldSolve()
     poisson_solver_3d.variables.phi = _phi
 
     poisson_solver_3d.options = poisson_solver_3d.Options(
-        sigma_1=1e-8,
-        sigma_2=0.0,
-        sigma_3=1.0,
-        divide_by_dt=True,
+        stab_eps=1e-8,
         diffusion_mat="M1perp",
-        rho=rho,
+        rho=rho_logical_3D,
         solver="pcg",
         precond="MassMatrixPreconditioner",
         solver_params=solver_params,
@@ -545,40 +713,7 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
     s = _phi.spline.starts
     e = _phi.spline.ends
 
-    # create 2.5d deRham object
-    num_elements_new = [num_elements[0], num_elements[1], 1]
-    degree[2] = 1
-
-    grid = TensorProductGrid(num_elements=num_elements_new)
-    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
-    derham = Derham(grid, derham_opts, comm=comm)
-
-    mass_ops = WeightedMassOperators(derham, domain)
-
-    Propagator.derham = derham
-    Propagator.mass_ops = mass_ops
-
-    _phi_small = FEECVariable(space="H1")
-    _phi_small.allocate(derham=derham, domain=domain)
-
-    poisson_solver_2p5d = ImplicitDiffusion()
-    poisson_solver_2p5d.variables.phi = _phi_small
-
-    poisson_solver_2p5d.options = poisson_solver_2p5d.Options(
-        sigma_1=1e-8,
-        sigma_2=0.0,
-        sigma_3=1.0,
-        divide_by_dt=True,
-        diffusion_mat="M1perp",
-        rho=rho,
-        solver="pcg",
-        precond="MassMatrixPreconditioner",
-        solver_params=solver_params,
-    )
-
-    poisson_solver_2p5d.allocate()
-
-    # Solve Poisson equation (call propagator with dt=1.)
+    # Solve 3d Poisson equation (call propagator with dt=1.)
     dt = 1.0
     t0 = time()
     poisson_solver_3d(dt)
@@ -586,9 +721,49 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
 
     logger.info(f"rank {rank}, 3d solve time = {t1 - t0}")
 
+    # create 2.5d deRham object for each slice in e3, and solve 2d Poisson equations
+    num_elements_new = [num_elements[0], num_elements[1], 1]
+    degree_sliced = degree.copy()
+    degree_sliced[2] = 1
+    dom_params_sliced = dom_params.copy()
     t0 = time()
     t_inner = 0.0
     for n in range(s[2], e[2] + 1):
+        # We define another domain that maps into a slice of the previous Cuboid domain, slices are perpendicular to the third direction.
+        dom_params_sliced["l3"] = dom_params["l3"] + (dom_params["r3"] - dom_params["l3"]) / (len(e3) + degree[2]) * n
+        dom_params_sliced["r3"] = dom_params["l3"] + (dom_params["r3"] - dom_params["l3"]) / (len(e3) + degree[2]) * (
+            n + 1
+        )
+        domain_sliced = domain_class(**dom_params_sliced)
+
+        grid_sliced = TensorProductGrid(num_elements=num_elements_new)
+        derham_opts_sliced = DerhamOptions(degree=degree_sliced, bcs=bcs)
+        derham_sliced = Derham(grid_sliced, derham_opts_sliced, comm=comm)
+
+        mass_ops_sliced = WeightedMassOperators(derham_sliced, domain_sliced)
+
+        Propagator.derham = derham_sliced
+        Propagator.mass_ops = mass_ops_sliced
+        Propagator.domain = domain_sliced
+
+        rho_logical_sliced = lambda e1, e2, e3: rho_physical(*domain_sliced(e1, e2, e3))
+
+        _phi_small = FEECVariable(space="H1")
+        _phi_small.allocate(derham=derham_sliced, domain=domain_sliced)
+
+        poisson_solver_2p5d = PoissonFieldSolve()
+        poisson_solver_2p5d.variables.phi = _phi_small
+
+        poisson_solver_2p5d.options = poisson_solver_2p5d.Options(
+            stab_eps=1e-8,
+            diffusion_mat="M1",
+            rho=rho_logical_sliced,
+            solver="pcg",
+            precond="MassMatrixPreconditioner",
+            solver_params=solver_params,
+        )
+        poisson_solver_2p5d.allocate()
+
         t0i = time()
         poisson_solver_2p5d(dt)
         t1i = time()
@@ -601,39 +776,42 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
     logger.info(f"rank {rank}, 2.5d solve time = {t1 - t0}")
 
     # push numerical solutions
-    sol_val = domain.push(_phi.spline, e1, e2, e3, kind="0")
-    sol_val_2p5d = domain.push(_phi_2p5d.spline, e1, e2, e3, kind="0")
-    x, y, z = domain(e1, e2, e3)
+    sol_val = domain_3D.push(_phi.spline, e1, e2, e3, kind="0")
+    sol_val_2p5d = domain_3D.push(_phi_2p5d.spline, e1, e2, e3, kind="0")
+    x, y, z = domain_3D(e1, e2, e3)
 
+    logger.info(f"mean diff: {xp.mean(xp.abs(sol_val - sol_val_2p5d))}")
     logger.info(f"max diff: {xp.max(xp.abs(sol_val - sol_val_2p5d))}")
-    assert xp.max(xp.abs(sol_val - sol_val_2p5d)) < 0.026
+    assert xp.max(xp.abs(sol_val - sol_val_2p5d)) < 0.01
 
     if show_plot and rank == 0:
         plt.figure("e1-e2 plane", figsize=(24, 16))
+        plot_id_e3 = [0, len(e3) // 2, len(e3) - 1]
+        plot_id_e2 = [0, len(e2) // 2, len(e2) - 1]
         for n in range(3):
             plt.subplot(2, 3, n + 1)
-            plt.title(f"e3 = {e3[n * 6]} from 3d solve")
-            plt.pcolor(x[:, :, n * 6], y[:, :, n * 6], sol_val[:, :, n * 6], vmin=-1.0, vmax=1.0)
+            plt.title(f"e3 = {e3[plot_id_e3[n]]} from 3d solve")
+            plt.pcolor(x[:, :, plot_id_e3[n]], y[:, :, plot_id_e3[n]], sol_val[:, :, plot_id_e3[n]])
             plt.colorbar()
             ax = plt.gca()
             ax.set_aspect("equal", adjustable="box")
             plt.subplot(2, 3, 4 + n)
-            plt.title(f"e3 = {e3[n * 6]} from 2.5d solve")
-            plt.pcolor(x[:, :, n * 6], y[:, :, n * 6], sol_val_2p5d[:, :, n * 6], vmin=-1.0, vmax=1.0)
+            plt.title(f"e3 = {e3[plot_id_e3[n]]} from 2.5d solve")
+            plt.pcolor(x[:, :, plot_id_e3[n]], y[:, :, plot_id_e3[n]], sol_val_2p5d[:, :, plot_id_e3[n]])
             plt.colorbar()
             ax = plt.gca()
             ax.set_aspect("equal", adjustable="box")
         plt.figure("e1-e3 plane", figsize=(24, 16))
         for n in range(3):
             plt.subplot(2, 3, n + 1)
-            plt.title(f"e2 = {e2[n * 12]} from 3d solve")
-            plt.pcolor(x[:, n * 12, :], z[:, n * 12, :], sol_val[:, n * 12, :], vmin=-1.0, vmax=1.0)
+            plt.title(f"e2 = {e2[plot_id_e2[n]]} from 3d solve")
+            plt.pcolor(x[:, plot_id_e2[n], :], z[:, plot_id_e2[n], :], sol_val[:, plot_id_e2[n], :])
             plt.colorbar()
             ax = plt.gca()
             ax.set_aspect("equal", adjustable="box")
             plt.subplot(2, 3, 4 + n)
-            plt.title(f"e2 = {e2[n * 12]} from 2.5d solve")
-            plt.pcolor(x[:, n * 12, :], z[:, n * 12, :], sol_val_2p5d[:, n * 12, :], vmin=-1.0, vmax=1.0)
+            plt.title(f"e2 = {e2[plot_id_e2[n]]} from 2.5d solve")
+            plt.pcolor(x[:, plot_id_e2[n], :], z[:, plot_id_e2[n], :], sol_val_2p5d[:, plot_id_e2[n], :])
             plt.colorbar()
             ax = plt.gca()
             ax.set_aspect("equal", adjustable="box")
@@ -645,17 +823,19 @@ if __name__ == "__main__":
     direction = 0
     bc_type = "dirichlet"
     mapping = ["Cuboid", {"l1": 0.0, "r1": 4.0, "l2": 0.0, "r2": 2.0, "l3": 0.0, "r3": 3.0}]
-    mapping = ["Orthogonal", {"Lx": 4.0, "Ly": 2.0, "alpha": 0.1, "Lz": 3.0}]
-    test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=True)
+    # mapping = ["Orthogonal", {"Lx": 4.0, "Ly": 2.0, "alpha": 0.1, "Lz": 3.0}]
+    # test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs=True, show_plot=True)
 
-    # num_elements = [64, 64, 1]
-    # degree = [2, 2, 1]
-    # bc_type = 'neumann'
-    # #mapping = ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 3.}]
-    # mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
-    # test_poisson_M1perp_2d(num_elements, degree, bc_type, mapping, show_plot=True)
+    num_elements = [64, 64, 1]
+    degree = [2, 2, 1]
+    bc_type = "neumann"
+    mapping = ["Cuboid", {"l1": 0.0, "r1": 4.0, "l2": 0.0, "r2": 2.0, "l3": 0.0, "r3": 3.0}]
+    mapping = ["Orthogonal", {"Lx": 4.0, "Ly": 2.0, "alpha": 0.1, "Lz": 1.0}]
+    # test_poisson_M1perp_2d(num_elements, degree, bc_type, mapping, projected_rhs=True, show_plot=True)
 
-    # num_elements = [64, 64, 16]
-    # degree = [2, 2, 1]
-    # mapping = ["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}]
+    num_elements = [50, 50, 50]
+    degree = [2, 2, 1]
+    mapping = ["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}]
+    # test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=True)
+    num_elements = [50, 50, 50]
     # test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot=True)
