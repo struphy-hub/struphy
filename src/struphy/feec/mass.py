@@ -11,6 +11,7 @@ from feectools.linalg.basic import IdentityOperator, LinearOperator, Vector
 from feectools.linalg.block import BlockLinearOperator, BlockVector
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilVector
+from feectools.ddm.mpi import MockComm
 
 from struphy.feec import mass_kernels
 from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
@@ -2860,18 +2861,83 @@ class AverageOperator(LinOpWithTransp):
     def __init__(
             self,
             derham: Derham,
-            V: TensorFemSpace | VectorFemSpace,
-            weights: StencilVector,
+            space: str = "H1",
+            direction: int = 2,
             transposed: bool = False,
             ):
 
-        self._domain = V
-        self._codomain = V
-        self._dtype = weights.dtype
+        if not space in derham.space_to_form:
+            AssertionError("Must match a space of the derham complex")
+        if space != "H1":
+            NotImplementedError()
+        space_id = "V" + derham.space_to_form[space]
+        self.V = getattr(derham, space_id) #StencilVectorSpace
+        self._domain = getattr(derham, space_id)
+        self._codomain = getattr(derham, space_id)
+        self._pads = self.V.pads #gets the number of ghost cells
+        self._shapes = tuple([self.V.shape[i] - 2 * self._pads[i] for i in range(3)]) #gets the shape of the vectors without the ghost zones
+        print(xp.shape(self.codomain.zeros()._data))
+        self._derham = derham
+        self._dtype = self._domain.dtype
+        self._transposed = transposed
+        if direction == 0:
+            self._directions = (0, 1, 2)
+        elif direction == 1:
+            self._directions = (1, 2, 0)
+        elif direction == 2:
+            self._directions = (2, 0, 1)
+        else:
+            raise ValueError("invalid direction id, must be 0, 1 or 2")
 
-        # c_o
-        self._weights = xp.asarray(weights)
-        self._tmpFlat = StencilVector(TensorFemSpace(V.domain_decomposition, V.spaces[0], V.spaces[1]))
+        comm = derham.comm
+        # Selection of ranks for each subcomms regarding their position in the two perpendicular directions to the averaged direction.
+        if not isinstance(comm, (MockComm, type(None))):
+            rank = comm.Get_rank()
+            nprocs = derham.domain_decomposition.nprocs
+            dom_arr = derham.domain_array
+            color1 = int(1 / dom_arr[rank, 3 * self._directions[1]])
+            color2 = int(1 / dom_arr[rank, 3 * self._directions[2]])
+            color = color1 * nprocs[self._directions[2]] + color2
+            logger.debug(f"{dom_arr = }")
+            self.subcomm = comm.Split(color=color, key=rank)
+
+            # We allocate memory for the 2D temporary array for each process
+            self._tmp = xp.zeros((dom_arr[rank, 3 * self._directions[1] + 2], dom_arr[rank, 3 * self._directions[2] + 2]))
+
+            # We allocate memory for the weights (integrals of 1D B-splines)
+            self._weights = xp.zeros(dom_arr[rank, 3 * self._directions[0] + 2])
+        else:
+            self._weights = xp.zeros(self._shapes[self._directions[0]])
+            self._tmp = xp.zeros((self._shapes[self._directions[1]], self._shapes[self._directions[2]]))
+        
+        self.allocate()
+    
+    def allocate(self):
+        """Compute the weights, which are the integrals of 1D B-splines in the averaged direction"""
+        knots = getattr(self.derham.args_derham, "tn" + str(self._directions[0] + 1))
+        degree = self.derham.degree[self._directions[0]]
+
+        # Calculation of the edges of the weight tab (depends on the MPI rank location in the grid)
+        comm = self.derham.comm
+        if not isinstance(comm, (MockComm, type(None))):
+            rank = comm.Get_rank()
+            index_array = self.derham.index_array
+            i_begin, i_end = index_array[rank, self._directions[0] * 2], index_array[rank, self._directions[0] * 2 + 1]
+        else:
+            print(self.derham.domain_array)
+            print(self.derham.index_array)
+            i_begin, i_end = 0, self._shapes[self._directions[0]]
+        if self.derham.bcs[self._directions[0]] is None:
+            i_begin += self._pads[self._directions[0]]
+            i_end += self._pads[self._directions[0]]
+        # General formula for any distribution of knots for the integral of a B-spline function, thus works with periodic and clamped boundary conditions :
+        print(self._weights.shape, i_begin, i_end)
+        print(self._weights, knots)
+        print(knots[i_begin+degree+1:i_end+degree+1], knots[i_begin:i_end])
+        self._weights[:] = (knots[i_begin+degree+1:i_end+degree+1] - knots[i_begin:i_end]) / (degree+1)
+        print(self._weights)
+        for i in range(i_begin, i_end):
+            assert self._weights[i - i_begin] == (knots[i+degree+1] - knots[i])/(degree+1)
 
     @property
     def domain(self):
@@ -2903,34 +2969,37 @@ class AverageOperator(LinOpWithTransp):
     @property
     def toarray(self):
         raise NotImplementedError()
-
-    def transpose(self, conjugate=False):
-        return StencilMatrixFreeMassOperator(
-            self._derham,
-            self._codomain,
-            self._domain,
-            self._weights,
-            nquads=self._nquads,
-        )
     
     def dot(self, v, out=None):
 
-        assert v.space == self.domain
+        #assert isinstance(v, StencilVector)
+        #assert v.space == self.domain
+
+        v.update_ghost_regions()
 
         if out is None:
             out = self.codomain.zeros()
 
-        x = v._data
-        y = out._data
+        sl = tuple(
+        slice(p, -p) if p > 0 else slice(None)
+        for p in self._pads
+        )
 
-        # contraction sur o :
-        #
-        # s[i,j] = sum_o c[o] x[i,j,o]
+        x = v._data[sl]
+        y = out._data[sl]
 
-        self._tmpFlat = x * self._weights, axes=([2], [0]))
+        print(xp.shape(x), xp.shape(self._weights))
+        xp.einsum(
+            "ijo,o->ij",
+            x,
+            self._weights,
+            out=self._tmp
+        )
 
-        # réplication sur k
-        y[:] = s[:, :, None]
+        if not isinstance(self.derham.comm, (MockComm, type(None))):
+            self.derham.comm.Allreduce(MPI.IN_PLACE, self._tmp, MPI.SUM)#self.subcomm.Allreduce(MPI.IN_PLACE, self._tmp, MPI.SUM)
+
+        y[:] = self._tmp[:,:,None]
 
         return out
 
@@ -2939,5 +3008,5 @@ class AverageOperator(LinOpWithTransp):
             self.derham,
             self.domain,
             self._weights,
-            transposed = True
+            transposed = not self._transposed
         )
