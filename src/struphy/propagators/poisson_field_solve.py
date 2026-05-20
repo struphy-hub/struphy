@@ -48,6 +48,14 @@ class PoissonFieldSolve(ImplicitDiffusion):
             - ``"M0ad"``: adiabatic-electron weighted 0-form mass operator.
             - ``"Id"``: identity operator.
 
+        diffusion_mat : {"M1", "M1perp", "M1gyro"}, defaults="M1"
+            Diffusion matrix.
+
+            - ``"M1"``: standard weighted 1-form mass operator.
+            - ``"M1perp"``: weighted 1-form mass operator perpendicular to magnetic field.
+            - ``"M1para"``: weighted 1-form mass operator parallele to magnetic field.
+            - ``"M1gyro"``: weighted 1-form mass operator used in gyrokinetic model.
+
         rho : FEECVariable or Callable or tuple or list, default=None
             Right-hand side source term(s) of the Poisson problem.
             Accepted entries are:
@@ -92,9 +100,11 @@ class PoissonFieldSolve(ImplicitDiffusion):
 
         # specific literals
         OptsStabMat = Literal["M0", "M0ad", "Id"]
+        OptsDiffusionMat = Literal["M1", "M1perp", "M1para", "M1gyro"]
         # propagator options
         stab_eps: float = 0.0
         stab_mat: OptsStabMat = "Id"
+        diffusion_mat: OptsDiffusionMat = "M1"
         rho: FEECVariable | Callable | tuple[AccumulatorVector, Particles] | list = None
         rho_coeffs: float | list = None
         x0: StencilVector = None
@@ -105,6 +115,7 @@ class PoissonFieldSolve(ImplicitDiffusion):
         def __post_init__(self):
             # checks
             check_option(self.stab_mat, self.OptsStabMat)
+            check_option(self.diffusion_mat, self.OptsDiffusionMat)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
@@ -117,7 +128,6 @@ class PoissonFieldSolve(ImplicitDiffusion):
             self.sigma_2 = 0.0
             self.sigma_3 = 1.0
             self.divide_by_dt = False
-            self.diffusion_mat = "M1"
 
     @property
     def options(self) -> Options:
