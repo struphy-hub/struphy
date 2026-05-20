@@ -22,7 +22,7 @@ logger = logging.getLogger("struphy")
 def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=False):
     """Test weighted mass matrices by recovering projected functions from the DeRham complex.
 
-    For each mass operator in ``{M0, M1, M2, M3, Mv, M1n, M2n, Mvn, M1ninv, M0ad}``,
+    For each mass operator in ``{M0, M1, M2, M3, Mv, M1n, M2n, Mvn, M1ninv, M0ad, M0ad_withT}``,
     the test:
 
     1. Projects known trigonometric right-hand-side functions onto the
@@ -32,9 +32,11 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
        it point-wise to the exact function.
 
     The density-weighted operators (``M1n``, ``M2n``, ``Mvn``, ``M0ad``) are
-    tested against ``exact / n0``, and the inverse-density operator
+    tested against ``exact / n0``, ``M0ad_withT`` is tested against ``exact * t0 / n0``, and the inverse-density operator
     (``M1ninv``) is tested against ``exact * n0``.
     """
+
+    from types import MethodType
 
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
@@ -82,7 +84,7 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
     # derham object
     grid = TensorProductGrid(num_elements=num_elements)
     derham_opts = DerhamOptions(degree=degree, bcs=bcs)
-    derham = Derham(grid, derham_opts, comm=mpi_comm)
+    derham = Derham(grid, derham_opts, comm=mpi_comm, domain=domain)
 
     logger.debug(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
 
@@ -111,6 +113,7 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
     rhs = {}
     rhs["M0"] = l2proj_0.get_dofs(rhs_0, apply_bc=True)
     rhs["M0ad"] = rhs["M0"]
+    rhs["M0ad_withT"] = rhs["M0"]
     rhs["M1"] = l2proj_1.get_dofs((rhs_0, rhs_1, rhs_2), apply_bc=True)
     rhs["M1n"] = rhs["M1"]
     rhs["M1ninv"] = rhs["M1"]
@@ -134,7 +137,7 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
     elif min(degree) == 2:
         err_bound = 2.6e-2
 
-    names = ["M0", "M1", "M2", "M3", "Mv", "M1n", "M2n", "Mvn", "M1ninv", "M0ad", "WMM", "WMMnew"]
+    names = ["M0", "M1", "M2", "M3", "Mv", "M1n", "M2n", "Mvn", "M1ninv", "M0ad", "M0ad_withT", "WMM", "WMMnew"]
     for name in names:
         if name == "WMM":
             intermediate = mass_ops.WMM
@@ -155,7 +158,9 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
             exact = xp.array([rhs_0(ee1, ee2, ee3), rhs_1(ee1, ee2, ee3), rhs_2(ee1, ee2, ee3)])
 
         solver = "cg"
-        if name in ["M1n", "M2n", "Mvn", "M0ad", "WMM", "WMMnew"]:
+        if name == "M0ad_withT":
+            exact *= equil.t0(e1, e2, e3)
+        if name in ["M1n", "M2n", "Mvn", "M0ad", "WMM", "WMMnew", "M0ad_withT"]:
             # solve n0 * u = f, where n0 is the equilibrium density
             exact /= equil.n0(e1, e2, e3)
         elif name == "M1ninv":

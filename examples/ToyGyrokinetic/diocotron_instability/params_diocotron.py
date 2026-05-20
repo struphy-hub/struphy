@@ -22,6 +22,11 @@ DOI: 10.1140/epjd/e2014-50180-9
 # Import Struphy API
 # ------------------
 
+
+import logging
+from struphy import set_logging_level
+set_logging_level(logging.INFO)
+
 from struphy import (
     BaseUnits,
     DerhamOptions,
@@ -52,7 +57,14 @@ import cunumpy as xp
 # ---------------------
 
 from struphy.models import ToyDrift
-model = ToyDrift(epsilon=1.0)
+
+
+base_units = BaseUnits(kBT=1.0)
+model = ToyDrift(
+    epsilon=1.0,
+    alpha=1.0,
+    base_units=base_units,
+    )
 
 # List all variables and decide whether to save their data
 model.em_fields.phi.save_data = True
@@ -63,10 +75,10 @@ model.kinetic_ions.var.save_data = True
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(sim_folder="simdata")
+env = EnvironmentOptions(sim_folder="simdata",profiling_activated=True, profiling_trace=True)
 
 # Time stepping
-time_opts = Time(dt=0.05, Tend=20.0, split_algo="LieTrotter")
+time_opts = Time(dt=0.05, Tend=5.2, split_algo="LieTrotter")
 
 # Geometry
 domain = domains.HollowCylinder(a1=1.0, a2=10.0, Lz=10.0)
@@ -75,13 +87,14 @@ domain = domains.HollowCylinder(a1=1.0, a2=10.0, Lz=10.0)
 equil = equils.HomogenSlab()
 
 # Grid
-grid = grids.TensorProductGrid(num_elements=(32,64,1), mpi_dims_mask=(False,True,False))
+grid = grids.TensorProductGrid(num_elements=(64,128,1), mpi_dims_mask=(False,True,False))
 
 # Derham options
 derham_opts = DerhamOptions(
     degree=(3,3,1), 
     bcs=(("dirichlet", "dirichlet"), None, None),
     )
+
 
 # Simulation object
 sim = Simulation(
@@ -101,15 +114,16 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-loading_params = LoadingParameters(ppc = 500, seed=1234)
-weights_params = WeightsParameters(control_variate=True)
+Np=200000
+loading_params = LoadingParameters(Np = Np, loading="sobol_standard", spatial="disc")
+weights_params = WeightsParameters(control_variate=True, reject_weights=True, threshold=0.00001)
 boundary_params = BoundaryParameters()
 model.kinetic_ions.set_markers(loading_params=loading_params,
                                weights_params=weights_params,
                                boundary_params=boundary_params,
                                bufsize=2.0,
                                )
-model.kinetic_ions.set_sorting_boxes(boxes_per_dim=(16,16,1), do_sort=True)
+model.kinetic_ions.set_sorting_boxes(boxes_per_dim=(24,24,1), do_sort=True)
 
 # density binning
 eta_bin = BinningPlot(slice='e1_e2', n_bins= (128,128), ranges= ((0.0, 1.0), (0.0,1.0)))
@@ -120,7 +134,7 @@ model.kinetic_ions.set_save_data(binning_plots=(eta_bin, ))
 # ------------------
 
 model.propagators.gc_poisson.options = model.propagators.gc_poisson.Options()
-model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(phi=model.em_fields.phi, evaluate_e_field=True)
+model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(algo="explicit", phi=model.em_fields.phi, evaluate_e_field=True)
 
 # ------------------
 # Initial conditions

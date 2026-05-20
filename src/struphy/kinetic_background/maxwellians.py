@@ -6,7 +6,9 @@ import cunumpy as xp
 
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.fields_background.equils import set_defaults
+from struphy.geometry.base import Domain
 from struphy.initial.base import Perturbation
+from struphy.io.options import LiteralOptions
 from struphy.kinetic_background.base import Maxwellian
 
 
@@ -299,6 +301,40 @@ class GyroMaxwellian2D(Maxwellian):
         out += [self._evaluate_moment(eta1, eta2, eta3, name="vth_para")]
         out += [self._evaluate_moment(eta1, eta2, eta3, name="vth_perp")]
         return [ou * mom_fac for ou, mom_fac in zip(out, self.moment_factors["vth"])]
+
+    def plot_density_profile(
+        self,
+        dim_1: LiteralOptions.KineticDimensionsToPlot = "e1",
+        dim_2: LiteralOptions.KineticDimensionsToPlot | None = None,
+        v_lim: float = 5.0,
+        resol: int = 100,
+        integrate_resol: int = 10,
+        logical_coord: tuple[float] = (0.5, 0.5, 0.5),
+        in_physical: bool = False,
+        domain: Domain | None = None,
+        proj_axis: tuple[float,] = (0, 1),
+        plot_3D: bool = False,
+        title: str | None = None,
+        use_mu: bool = False,
+        equil: FluidEquilibriumWithB | None = None,
+    ):
+        if equil is None:
+            equil = self.equil
+        super().plot_density_profile(
+            dim_1,
+            dim_2,
+            v_lim,
+            resol,
+            integrate_resol,
+            logical_coord,
+            in_physical,
+            domain,
+            proj_axis,
+            plot_3D,
+            title,
+            use_mu=use_mu,
+            equil=equil,
+        )
 
 
 class CanonicalMaxwellian:
