@@ -34,16 +34,22 @@ plt.rcParams.update({"font.size": 22})
 
 domain: Domain = domains.Cuboid()
 
-sigma: float = 1.5
+sigma: float = 5
+
+@pytest.mark.parametrize("bc_type", ["dirichlet","periodic","neumann"])
+@pytest.mark.parametrize("direction",["1","2","3"])
+@pytest.mark.parametrize("pmax",[3,4])
+@pytest.mark.parametrize("Nmax",[6,7,8])
 
 
-def convergence_test_1d(
-    bc_type: str = "dirichlet",
-    direction="1",
+def test_convergence_1d(
+    bc_type: str,
+    direction: str,
+    pmax: int,
+    Nmax: int,
+    Nmin: int = 2,
     sigma: float = 1.5,
-    pmax: int = 3,
-    Nmin=2,
-    Nmax=8,
+    show_plot: bool = False,
 ):
     """Test of the solver on 1d problems by means of manufactured solution"""
 
@@ -108,6 +114,10 @@ def convergence_test_1d(
             return (25 * (xp.pi**2) - sigma) * E_exact_z(x, y, z)
 
     if bc_type == "periodic":
+
+        if Nmin < 4:
+            Nmin = 4
+        
         if direction == "1":
 
             def E_exact_x(x, y, z) -> float:
@@ -377,33 +387,49 @@ def convergence_test_1d(
 
         m, _ = xp.polyfit(xp.log(Nels), xp.log(errors), deg=1)
         logger.info(f"For {p =}, solution converges with rate {-m =} ")
-        # assert -m > (p + 1 - 0.07)
+        
+        tolerance: float = 0.07
+        if p == 1:
+            tolerance = 0.2
+        
+        # assert -m > (p + 1 - tolerance)
 
-        plt.figure(f"Convergence for degree {p =}", figsize=(12, 8))
-        plt.title(f"Convergence rate for degree {p =}")
-        plt.plot(h_vec, errors, "o", label="Calculated error")
-        plt.plot(
-            h_vec,
-            [(h ** (p + 1)) / (h_vec[0] ** (p + 1)) * errors[0] for h in h_vec],
-            "k--",
-            label="Theoretical error, rate = p + 1",
-        )
-        plt.xscale("log")
-        plt.yscale("log")
-        plt.xlabel("Grid spacing h")
-        plt.ylabel("Error")
-        plt.legend()
+        if show_plot:
 
-    plt.show()
+            plt.figure(f"Convergence for degree {p =}", figsize=(12, 8))
+            plt.title(f"Convergence rate for degree {p =}")
+            plt.plot(h_vec, errors, "o", label=f"Calculated error, {m =}")
+            plt.plot(
+                h_vec,
+                [(h ** (p + 1)) / (h_vec[0] ** (p + 1)) * errors[0] for h in h_vec],
+                "k--",
+                label="Theoretical error, rate = p + 1",
+            )
+            plt.xscale("log")
+            plt.yscale("log")
+            plt.xlabel("Grid spacing h")
+            plt.ylabel("Error")
+            plt.legend()
+
+    if show_plot:
+
+        plt.show()
 
 
-def convergence_test_2d(
-    bc_type: str = "dirichlet",
-    direction="1",
+
+@pytest.mark.parametrize("bc_type", ["dirichlet","periodic","neumann"])
+@pytest.mark.parametrize("direction",["1","2","3"])
+@pytest.mark.parametrize("pmax",[3,4])
+@pytest.mark.parametrize("Nmax",[6,7,8])
+
+def test_convergence_2d(
+    bc_type: str,
+    direction: str,
+    pmax: int,
+    Nmax: int,
+    Nmin: int = 2,
     sigma: float = 1.5,
-    pmax: int = 3,
-    Nmin=2,
-    Nmax=8,
+    show_plot: bool = False,
 ):
     """Test of the solver on 2d problems by means of manufactured solution"""
 
@@ -468,6 +494,10 @@ def convergence_test_2d(
             return (34 * (xp.pi**2) - sigma) * E_exact_z(x, y, z)
 
     if bc_type == "periodic":
+
+        if Nmin < 4:
+            Nmin = 4
+        
         if direction == "1":
 
             def E_exact_x(x, y, z) -> float:
@@ -753,38 +783,50 @@ def convergence_test_2d(
 
         m, _ = xp.polyfit(xp.log(Nels), xp.log(errors), deg=1)
         logger.info(f"For {p =}, solution converges with rate {-m =} ")
-        # assert -m > (p + 1 - 0.07)
+        
+        tolerance: float = 0.07
+        if p == 1:
+            tolerance = 0.35
+        
+        assert -m > (p + 1 - tolerance)
 
-        plt.figure(f"Convergence for degree {p =}", figsize=(12, 8))
-        plt.title(f"Convergence rate for degree {p =}")
-        plt.plot(h_vec, errors, "o", label="Calculated error")
-        plt.plot(
-            h_vec,
-            [(h ** (p + 1)) / (h_vec[0] ** (p + 1)) * errors[0] for h in h_vec],
-            "k--",
-            label="Theoretical error, rate = p + 1",
-        )
-        plt.xscale("log")
-        plt.yscale("log")
-        plt.xlabel("Grid spacing h")
-        plt.ylabel("Error")
-        plt.legend()
+        if show_plot:
+        
+            plt.figure(f"Convergence for degree {p =}", figsize=(12, 8))
+            plt.title(f"Convergence rate for degree {p =}")
+            plt.plot(h_vec, errors, "o", label=f"Calculated error, {m =}")
+            plt.plot(
+                h_vec,
+                [(h ** (p + 1)) / (h_vec[0] ** (p + 1)) * errors[0] for h in h_vec],
+                "k--",
+                label="Theoretical error, rate = p + 1",
+            )
+            plt.xscale("log")
+            plt.yscale("log")
+            plt.xlabel("Grid spacing h")
+            plt.ylabel("Error")
+            plt.legend()
 
-    plt.show()
+    if show_plot:
+    
+        plt.show()
 
 
-convergence_test_1d(
-    bc_type="dirichlet",
-    direction="3",
-    pmax=4,
-    sigma=5,
-    Nmax=8,
-)
+if __name__ == "__main__":
 
-# convergence_test_2d(
-#     bc_type="neumann",
-#     direction = "2",
-#     pmax=4,
-#     Nmax=6,
-#     sigma=5,
-# )
+    test_convergence_1d(
+        bc_type="periodic",
+        direction="1",
+        pmax=3,
+        sigma=5,
+        Nmax=6,
+        show_plot=True
+    )
+
+    # test_convergence_2d(
+    #     bc_type="neumann",
+    #     direction = "2",
+    #     pmax=4,
+    #     Nmax=6,
+    #     sigma=5,
+     # )
