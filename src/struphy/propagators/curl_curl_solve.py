@@ -139,7 +139,7 @@ class CurlCurlSolve(Propagator):
         sigma: float = 1.0
         stab_mat: OptsStabMat = "M1"
         diffusion_mat: OptsDiffusionMat = "M2"
-        j: FEECVariable | tuple[Callable,Callable,Callable] | tuple[AccumulatorVector, Particles] | list = None
+        j: FEECVariable | tuple[Callable, Callable, Callable] | tuple[AccumulatorVector, Particles] | list = None
         j_coeffs: float | list = None
         x0: StencilVector = None
         solver: LiteralOptions.OptsSymmSolver = "pcg"
@@ -156,7 +156,7 @@ class CurlCurlSolve(Propagator):
             # defaults
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
-        
+
     @property
     def options(self) -> Options:
         if not hasattr(self, "_options"):
@@ -167,7 +167,7 @@ class CurlCurlSolve(Propagator):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
-    
+
     @profile
     def allocate(self, verbose: bool = False):
         # always stabilize
@@ -191,8 +191,13 @@ class CurlCurlSolve(Propagator):
                 rhs = j
             elif isinstance(j, AccumulatorVector):
                 rhs = j
-            elif isinstance(j, tuple[Callable,Callable,Callable]):
-                assert len(j,) == 3
+            elif isinstance(j, tuple[Callable, Callable, Callable]):
+                assert (
+                    len(
+                        j,
+                    )
+                    == 3
+                )
                 rhs = L2Projector("Hcurl", self.mass_ops).get_dofs(j, apply_bc=True)
             else:
                 raise TypeError(f"{type(j) =} is not accepted.")
@@ -261,7 +266,7 @@ class CurlCurlSolve(Propagator):
         self._tmp = e.space.zeros()
         self._rhs = e.space.zeros()
         self._tmp_src = e.space.zeros()
-    
+
     @property
     def sources(self) -> list[StencilVector | FEECVariable | AccumulatorVector]:
         """
@@ -321,4 +326,3 @@ class CurlCurlSolve(Propagator):
             logger.info(info)
 
         self.update_feec_variables(e=out)
-
