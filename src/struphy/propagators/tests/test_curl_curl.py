@@ -386,7 +386,7 @@ def convergence_test_1d(
             h_vec,
             [(h ** (p + 1)) / (h_vec[0] ** (p + 1)) * errors[0] for h in h_vec],
             "k--",
-            label=f"Theoretical error, rate = p + 1",
+            label="Theoretical error, rate = p + 1",
         )
         plt.xscale("log")
         plt.yscale("log")
@@ -762,7 +762,7 @@ def convergence_test_2d(
             h_vec,
             [(h ** (p + 1)) / (h_vec[0] ** (p + 1)) * errors[0] for h in h_vec],
             "k--",
-            label=f"Theoretical error, rate = p + 1",
+            label="Theoretical error, rate = p + 1",
         )
         plt.xscale("log")
         plt.yscale("log")
