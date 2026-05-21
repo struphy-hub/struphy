@@ -34,8 +34,6 @@ plt.rcParams.update({"font.size": 22})
 
 domain: Domain = domains.Cuboid()
 
-sigma: float = 5
-
 @pytest.mark.parametrize("bc_type", ["dirichlet","periodic","neumann"])
 @pytest.mark.parametrize("direction",["1","2","3"])
 @pytest.mark.parametrize("pmax",[3,4])
@@ -47,7 +45,7 @@ def test_convergence_1d(
     direction: str,
     pmax: int,
     Nmax: int,
-    Nmin: int = 2,
+    Nmin: int = 3,
     sigma: float = 1.5,
     show_plot: bool = False,
 ):
@@ -239,6 +237,8 @@ def test_convergence_1d(
             def j_exact_z(x, y, z) -> float:
                 return (25 * (xp.pi**2) - sigma) * E_exact_z(x, y, z)
 
+    assert Nmin < Nmax
+    
     # Test over spline degree and grid resolution
 
     Nels = [2**n for n in range(Nmin, Nmax + 1)]
@@ -247,7 +247,7 @@ def test_convergence_1d(
     e2 = 0.0
     e3 = 0.0
 
-    for p in range(1, pmax + 1):
+    for p in range(2, pmax + 1):
         errors = []
         h_vec = []
 
@@ -389,10 +389,8 @@ def test_convergence_1d(
         logger.info(f"For {p =}, solution converges with rate {-m =} ")
         
         tolerance: float = 0.07
-        if p == 1:
-            tolerance = 0.2
         
-        # assert -m > (p + 1 - tolerance)
+        assert -m > (p + 1 - tolerance)
 
         if show_plot:
 
@@ -427,7 +425,7 @@ def test_convergence_2d(
     direction: str,
     pmax: int,
     Nmax: int,
-    Nmin: int = 2,
+    Nmin: int = 3,
     sigma: float = 1.5,
     show_plot: bool = False,
 ):
@@ -627,7 +625,7 @@ def test_convergence_2d(
     e2 = 0.0
     e3 = 0.0
 
-    for p in range(1, pmax + 1):
+    for p in range(2, pmax + 1):
         errors = []
         h_vec = []
 
@@ -785,8 +783,6 @@ def test_convergence_2d(
         logger.info(f"For {p =}, solution converges with rate {-m =} ")
         
         tolerance: float = 0.07
-        if p == 1:
-            tolerance = 0.35
         
         assert -m > (p + 1 - tolerance)
 
