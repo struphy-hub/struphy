@@ -2968,18 +2968,30 @@ class AverageOperator(LinOpWithTransp):
 
         x = v._data[sl]
         y = out._data[sl]
-
-        xp.einsum(
-            "ijo,o->ij",
-            x,
-            self._weights,
-            out=self._tmp
-        )
-
-        if not isinstance(self.derham.comm, (MockComm, type(None))):
-            self.derham.comm.Allreduce(MPI.IN_PLACE, self._tmp, MPI.SUM)#self.subcomm.Allreduce(MPI.IN_PLACE, self._tmp, MPI.SUM)
-
-        y[:] = self._tmp[:,:,None]
+        if self._transposed:
+            xp.einsum(
+                "ijk->ij",
+                x,
+                out=self._tmp
+            )
+            if not isinstance(self.derham.comm, (MockComm, type(None))):
+                self.subcomm.Allreduce(MPI.IN_PLACE, self._tmp, MPI.SUM)
+            xp.einsum(
+                "ij,o->ijo",
+                self._tmp,
+                self._weights,
+                out=y
+            )
+        else:
+            xp.einsum(
+                "ijo,o->ij",
+                x,
+                self._weights,
+                out=self._tmp
+            )
+            if not isinstance(self.derham.comm, (MockComm, type(None))):
+                self.subcomm.Allreduce(MPI.IN_PLACE, self._tmp, MPI.SUM)
+            y[:] = self._tmp[:,:,None]
 
         return out
 
