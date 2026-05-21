@@ -2871,12 +2871,10 @@ class AverageOperator(LinOpWithTransp):
         if space != "H1":
             NotImplementedError()
         space_id = "V" + derham.space_to_form[space]
-        self.V = getattr(derham, space_id) #StencilVectorSpace
+        self._V = getattr(derham, space_id) #StencilVectorSpace
         self._domain = getattr(derham, space_id)
         self._codomain = getattr(derham, space_id)
-        self._pads = self.V.pads #gets the number of ghost cells
-        self._shapes = tuple([self.V.shape[i] - 2 * self._pads[i] for i in range(3)]) #gets the shape of the vectors without the ghost zones
-        print(xp.shape(self.codomain.zeros()._data))
+        self._pads = self._V.pads #gets the number of ghost cells
         self._derham = derham
         self._dtype = self._domain.dtype
         self._transposed = transposed
@@ -2895,20 +2893,18 @@ class AverageOperator(LinOpWithTransp):
             rank = comm.Get_rank()
             nprocs = derham.domain_decomposition.nprocs
             dom_arr = derham.domain_array
-            color1 = int(1 / dom_arr[rank, 3 * self._directions[1]])
-            color2 = int(1 / dom_arr[rank, 3 * self._directions[2]])
+            color1 = int(dom_arr[rank, 3 * self._directions[1]] * nprocs[self._directions[1]])
+            color2 = int(dom_arr[rank, 3 * self._directions[2]] * nprocs[self._directions[2]])
             color = color1 * nprocs[self._directions[2]] + color2
             logger.debug(f"{dom_arr = }")
             self.subcomm = comm.Split(color=color, key=rank)
 
-            # We allocate memory for the 2D temporary array for each process
-            self._tmp = xp.zeros((dom_arr[rank, 3 * self._directions[1] + 2], dom_arr[rank, 3 * self._directions[2] + 2]))
+        # We allocate memory for the 2D temporary array for each process
+        self._tmp = xp.zeros((int(self._V.ends[self._directions[1]] - self._V.starts[self._directions[1]] + 1),
+                                int(self._V.ends[self._directions[2]] - self._V.starts[self._directions[2]] + 1)))
 
-            # We allocate memory for the weights (integrals of 1D B-splines)
-            self._weights = xp.zeros(dom_arr[rank, 3 * self._directions[0] + 2])
-        else:
-            self._weights = xp.zeros(self._shapes[self._directions[0]])
-            self._tmp = xp.zeros((self._shapes[self._directions[1]], self._shapes[self._directions[2]]))
+        # We allocate memory for the weights (integrals of 1D B-splines)
+        self._weights = xp.zeros(int(self._V.ends[self._directions[0]] - self._V.starts[self._directions[0]] + 1))
         
         self.allocate()
     
@@ -2917,27 +2913,12 @@ class AverageOperator(LinOpWithTransp):
         knots = getattr(self.derham.args_derham, "tn" + str(self._directions[0] + 1))
         degree = self.derham.degree[self._directions[0]]
 
-        # Calculation of the edges of the weight tab (depends on the MPI rank location in the grid)
-        comm = self.derham.comm
-        if not isinstance(comm, (MockComm, type(None))):
-            rank = comm.Get_rank()
-            index_array = self.derham.index_array
-            i_begin, i_end = index_array[rank, self._directions[0] * 2], index_array[rank, self._directions[0] * 2 + 1]
-        else:
-            print(self.derham.domain_array)
-            print(self.derham.index_array)
-            i_begin, i_end = 0, self._shapes[self._directions[0]]
+        i_begin, i_end = self._V.starts[self._directions[0]], self._V.ends[self._directions[0]] + 1
         if self.derham.bcs[self._directions[0]] is None:
-            i_begin += self._pads[self._directions[0]]
-            i_end += self._pads[self._directions[0]]
+            i_begin += self.derham.degree[self._directions[0]]
+            i_end += self.derham.degree[self._directions[0]]
         # General formula for any distribution of knots for the integral of a B-spline function, thus works with periodic and clamped boundary conditions :
-        print(self._weights.shape, i_begin, i_end)
-        print(self._weights, knots)
-        print(knots[i_begin+degree+1:i_end+degree+1], knots[i_begin:i_end])
         self._weights[:] = (knots[i_begin+degree+1:i_end+degree+1] - knots[i_begin:i_end]) / (degree+1)
-        print(self._weights)
-        for i in range(i_begin, i_end):
-            assert self._weights[i - i_begin] == (knots[i+degree+1] - knots[i])/(degree+1)
 
     @property
     def domain(self):
@@ -2988,7 +2969,6 @@ class AverageOperator(LinOpWithTransp):
         x = v._data[sl]
         y = out._data[sl]
 
-        print(xp.shape(x), xp.shape(self._weights))
         xp.einsum(
             "ijo,o->ij",
             x,
