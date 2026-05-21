@@ -1240,4 +1240,3 @@ if __name__ == "__main__":
         bcs=(("dirichlet", "dirichlet"), None, ("dirichlet", "dirichlet")),
         show_plots=True,
     )
-    
