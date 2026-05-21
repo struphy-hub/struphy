@@ -2919,13 +2919,27 @@ class L2Projector:
 
 class AverageOperator(LinOpWithTransp):
     r"""
-    Class for quadrature operators, performes the average of a `FeecVariable` along a given direction.
-    For exemple along the :math:`\eta_3` direction, it aplies the following linear operator :
+    Class for quadrature operators, performs the average of a `FeecVariable` along a given direction.
+    For example along the :math:`\eta_3` direction, it applies the following linear operator :
     .. math::
 
-        \mathbb M^{\alpha}_{(\mu,ijk),(\nu,mno)} = \delta_{i,m} \delta_{j,n} c_k
+        \mathbb M^{\alpha}_{(\mu,ijk),(\nu,mno)} = \delta_{i,m} \delta_{j,n} c_o
     
         with :math:`c_k=\int_0^1 N_{3,k}(\eta_3) \textnormal{d} \eta` and :math:`N_{3,k}` the B-spline function at the place `k`.
+
+    Parameters
+    ----------
+    derham : Derham
+        The derham complexe that supports the space used
+    
+    space : str
+        Identifier of the space on which the average is performed, either `"H1"`, `"Hcurl"`, `"Hdiv"`, `"L2"`, `"H1vec"`
+
+    direction : int, optional
+        The direction of the space along which the average is performed, either `0`, `1` or `2`.
+    
+    transposed : bool, optional
+        Whether to take the transpose of the operator.
     """
     def __init__(
             self,
