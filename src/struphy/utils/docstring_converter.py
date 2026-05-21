@@ -360,6 +360,7 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
     symbols = {
         r"\sum": "∑",
         r"\nabla": "∇",
+        r"\otimes": "⊗",
         r"\times": "×",
         r"\to": "→",
         r"\rightarrow": "→",
@@ -663,6 +664,61 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
     return result.strip()
 
 
+def _extract_math_directives(text: str, save_block) -> str:
+    """Replace ``.. math::`` directives using indentation-aware parsing."""
+    lines = text.splitlines(keepends=True)
+    result = []
+    i = 0
+
+    while i < len(lines):
+        line = lines[i]
+        match = re.match(r"^([ \t]*)\.\. math::\s*$", line.rstrip("\n"))
+        if not match:
+            result.append(line)
+            i += 1
+            continue
+
+        directive_indent = len(match.group(1))
+        j = i + 1
+
+        while j < len(lines) and not lines[j].strip():
+            j += 1
+
+        body_lines = []
+        while j < len(lines):
+            current = lines[j]
+
+            if not current.strip():
+                look_ahead = j + 1
+                while look_ahead < len(lines) and not lines[look_ahead].strip():
+                    look_ahead += 1
+
+                if look_ahead < len(lines):
+                    next_indent = len(re.match(r"^[ \t]*", lines[look_ahead]).group(0))
+                    if next_indent > directive_indent:
+                        body_lines.append(current)
+                        j += 1
+                        continue
+                break
+
+            current_indent = len(re.match(r"^[ \t]*", current).group(0))
+            if current_indent <= directive_indent:
+                break
+
+            body_lines.append(current)
+            j += 1
+
+        if not body_lines:
+            result.append(line)
+            i += 1
+            continue
+
+        result.append(save_block("".join(body_lines)) + "\n")
+        i = j
+
+    return "".join(result)
+
+
 def rst_to_html(rst_text: str, forced_heading_level: int | None = None) -> str:
     """
     Convert RST docstring to HTML for VS Code/Pylance display.
@@ -716,8 +772,7 @@ def rst_to_html(rst_text: str, forced_heading_level: int | None = None) -> str:
     math_blocks = []
     inline_math_items = []
 
-    def save_math_block(match):
-        math_content = match.group(1)
+    def save_math_block(math_content: str):
         # Clean up the math but preserve line structure for multiline equations
         math_lines = math_content.strip().split("\n")
         # Remove leading indentation consistently
@@ -802,8 +857,8 @@ def rst_to_html(rst_text: str, forced_heading_level: int | None = None) -> str:
         inline_math_items.append(unicode_math)
         return f"<!--INLINEMATH{len(inline_math_items) - 1}-->"
 
-    # Handle .. math:: blocks (including trailing blank line if present)
-    html = re.sub(r"\.\. math::\s*\n\n((?:[ \t]+.*\n)*)\n?", lambda m: save_math_block(m) + "\n", html)
+    # Handle .. math:: blocks using indentation-aware parsing.
+    html = _extract_math_directives(html, save_math_block)
 
     # Handle inline :math:`...`
     html = re.sub(r":math:`([^`]+)`", save_inline_math, html)
@@ -1026,16 +1081,15 @@ def rst_to_markdown(rst_text: str) -> str:
     # Extract and convert math blocks
     math_blocks = []
 
-    def save_math(match):
-        math_content = match.group(1)
+    def save_math(math_content: str):
         # Clean up the math (remove leading spaces)
         math_lines = math_content.strip().split("\n")
         cleaned_math = "\n".join(line.strip() for line in math_lines if line.strip())
         math_blocks.append(cleaned_math)
         return f"<!--MATH{len(math_blocks) - 1}-->"
 
-    # Handle .. math:: blocks
-    md = re.sub(r"\.\. math::\s*\n\n((?:[ \t]+.*\n)*)", save_math, md)
+    # Handle .. math:: blocks using indentation-aware parsing.
+    md = _extract_math_directives(md, save_math)
 
     # Convert bold (**text**) - already markdown compatible
     # Convert italic (*text*) - already markdown compatible
