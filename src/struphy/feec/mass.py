@@ -13,10 +13,11 @@ from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilVector
 from feectools.ddm.mpi import MockComm
 
+from struphy import domains, equils
 from struphy.feec import mass_kernels
 from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
 from struphy.feec.psydac_derham import Derham, SplineFunction
-from struphy.feec.utilities import LocalRotationMatrix, get_quad_grids
+from struphy.feec.utilities import LocalProjectionMatrix, LocalRotationMatrix, get_quad_grids
 from struphy.fields_background.base import MHDequilibrium
 from struphy.fields_background.equils import set_defaults
 from struphy.geometry.base import Domain
@@ -59,6 +60,11 @@ class WeightedMassOperators:
         self._domain = domain
         self._matrix_free = matrix_free
         self._eq_mhd = eq_mhd
+
+        if self._eq_mhd is None:
+            self._eq_mhd = equils.HomogenSlab()
+        if not hasattr(self.eq_mhd, "_domain"):
+            self._eq_mhd.domain = self._domain
 
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
@@ -339,7 +345,7 @@ class WeightedMassOperators:
                 weights=(
                     "Ginv",
                     "sqrt_g",
-                    "1/eq_n0",
+                    lambda *etas: 1 / self.eq_mhd.n0(*etas),
                 ),
                 name="M1ninv",
                 assemble=True,
@@ -694,7 +700,7 @@ class WeightedMassOperators:
                     rot_B,
                     "Ginv",
                     "sqrt_g",
-                    "1/eq_n0",
+                    lambda *etas: 1 / self.eq_mhd.n0(*etas),
                 ),
                 name="M1Bninv",
                 assemble=True,
@@ -704,31 +710,110 @@ class WeightedMassOperators:
 
     @auto_convert_docstring
     @property
+    def M1para(self):
+        r"""
+        Mass matrix
+
+        .. math::
+
+            \mathbb M^{1,\parallel}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk} b_0 b_0^\top \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
+        """
+        if not hasattr(self, "_M1para"):
+            bb = LocalProjectionMatrix(self.eq_mhd.unit_bv_1, self.eq_mhd.unit_bv_2, self.eq_mhd.unit_bv_3)
+
+            self._M1para = self.create_weighted_mass(
+                "Hcurl",
+                "Hcurl",
+                weights=(
+                    bb,
+                    "sqrt_g",
+                ),
+                name="M1para",
+                assemble=True,
+            )
+        return self._M1para
+
+    @auto_convert_docstring
+    @property
     def M1perp(self):
         r"""
         Mass matrix
 
         .. math::
 
-            \mathbb M^{1,\perp}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk} DF^{-1} \begin{pmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 0 \end{pmatrix} DF^{-\top} \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
+            \mathbb M^{1,\perp}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk} \left(G^{-1} - b_0 b_0^\top \right) \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
         """
         if not hasattr(self, "_M1perp"):
-            D = [[1, 0, 0], [0, 1, 0], [0, 0, 0]]
+            self._M1perp = self.M1.copy()
+            self._M1perp -= self.M1para
+        return self._M1perp
 
-            self._M1perp = self.create_weighted_mass(
+    @auto_convert_docstring
+    @property
+    def M1para_MHDeq(self):
+        r"""
+        Mass matrix
+
+        .. math::
+
+            \mathbb M^{1,\parallel}_{(\mu,ijk), (\nu,mno)} = \int \frac{n^0_{\textnormal{eq}}(\boldsymbol{\eta})}{\|B_0(\boldsymbol{\eta})\|^2} \vec{\Lambda}^1_{\mu,ijk} b_0 b_0^\top \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
+        """
+        if not hasattr(self, "_M1para_MHDeq"):
+            bb = LocalProjectionMatrix(self.eq_mhd.unit_bv_1, self.eq_mhd.unit_bv_2, self.eq_mhd.unit_bv_3)
+
+            self._M1para_MHDeq = self.create_weighted_mass(
                 "Hcurl",
                 "Hcurl",
                 weights=(
-                    "DFinv",
-                    D,
-                    "DFinv",
+                    bb,
+                    lambda *etas: 1 / self.eq_mhd.absB0(*etas) ** 2,
+                    "eq_n0",
                     "sqrt_g",
                 ),
-                name="M1perp",
+                name="M1para_MHDeq",
                 assemble=True,
             )
+        return self._M1para_MHDeq
 
-        return self._M1perp
+    @auto_convert_docstring
+    @property
+    def M1_MHDeq(self):
+        r"""
+        Mass matrix
+
+        .. math::
+
+            \mathbb M^{1}_{(\mu,ijk), (\nu,mno)} = \int \frac{n^0_{\textnormal{eq}}(\boldsymbol{\eta})}{\|B_0(\boldsymbol{\eta})\|^2} \vec{\Lambda}^1_{\mu,ijk} G^{-1} \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
+        """
+        if not hasattr(self, "_M1_MHDeq"):
+            self._M1_MHDeq = self.create_weighted_mass(
+                "Hcurl",
+                "Hcurl",
+                weights=(
+                    "Ginv",
+                    lambda *etas: 1 / self.eq_mhd.absB0(*etas) ** 2,
+                    "eq_n0",
+                    "sqrt_g",
+                ),
+                name="M1_MHDeq",
+                assemble=True,
+            )
+        return self._M1_MHDeq
+
+    @auto_convert_docstring
+    @property
+    def M1gyro(self):
+        r"""
+        Mass matrix
+
+        .. math::
+
+            \mathbb M^{1,\perp}_{(\mu,ijk), (\nu,mno)} = \int \frac{n^0_{\textnormal{eq}}(\boldsymbol{\eta})}{\|B_0(\boldsymbol{\eta})\|^2} \vec{\Lambda}^1_{\mu,ijk} \left(G^{-1} - b_0 b_0^\top \right) \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
+        """
+        if not hasattr(self, "_M1gyro"):
+            self._M1gyro = self.M1_MHDeq.copy()
+            self._M1gyro -= self.M1para_MHDeq
+        return self._M1gyro
 
     @auto_convert_docstring
     @property
@@ -747,7 +832,10 @@ class WeightedMassOperators:
             self._M0ad = self.create_weighted_mass(
                 "H1",
                 "H1",
-                weights=("eq_n0", "sqrt_g"),
+                weights=(
+                    "eq_n0",
+                    "sqrt_g",
+                ),
                 name="M0ad",
                 assemble=True,
             )
@@ -756,39 +844,30 @@ class WeightedMassOperators:
 
     @auto_convert_docstring
     @property
-    def M1gyro(self):
+    def M0ad_withT(self):
         r"""
         Mass matrix
 
         .. math::
 
-            \mathbb M^{1,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol{\eta}) \Lambda^1_{\mu,ijk} G^{-1}_{\mu,\nu} \Lambda^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta},
+            \mathbb M^0_{ijk, mno} = \int \frac{n^0_{\textnormal{eq}}(\boldsymbol{\eta})}{T^0_{\textnormal{eq}}(\boldsymbol{\eta})} \Lambda^0_{ijk} \Lambda^0_{mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
 
-        where :math:`n^0_{\textnormal{eq}}(\boldsymbol{\eta})` is an MHD equilibrium density (0-form).
+        where :math:`n^0_{\textnormal{eq}}(\boldsymbol{\eta})` and :math:`T^0_{\textnormal{eq}}(\boldsymbol{\eta})` are MHD equilibrium density and electron temperature (0-forms), respectively.
         """
-
-        if not hasattr(self, "_M1gyro"):
-            D = [[1, 0, 0], [0, 1, 0], [0, 0, 0]]
-
-            self._M1gyro = self.create_weighted_mass(
-                "Hcurl",
-                "Hcurl",
+        if not hasattr(self, "_M0ad_withT"):
+            self._M0ad_withT = self.create_weighted_mass(
+                "H1",
+                "H1",
                 weights=(
                     "eq_n0",
-                    "1/eq_absB0",
-                    "1/eq_absB0",
-                    D,
-                    "Ginv",
-                    D,
+                    lambda *etas: 1 / self.eq_mhd.t0(*etas),
                     "sqrt_g",
                 ),
-                name="M1gyro",
+                name="M0ad_withT",
                 assemble=True,
             )
 
-            # 1/eq_absB0**2 written twice instead of square
-
-        return self._M1gyro
+        return self._M0ad_withT
 
     @property
     def WMM(self):
@@ -918,18 +997,8 @@ class WeightedMassOperators:
             for n, f in enumerate(weights):
                 if isinstance(f, str):
                     # determine the callable
-                    if "/" in f:
-                        f_components = f.split("/")
-                        if f_components[-1] == "sqrt_g":
-                            f_call = lambda e1, e2, e3: 1.0 / abs(self.domain.jacobian_det(e1, e2, e3))
-                        elif f_components[-1] == "eq_n0":
-                            f_call = lambda e1, e2, e3: 1.0 / self.eq_mhd.n0(e1, e2, e3)
-                        elif f_components[-1] == "eq_absB0":
-                            f_call = lambda e1, e2, e3: 1.0 / self.eq_mhd.absB0(e1, e2, e3)
-                        else:
-                            raise NotImplementedError(
-                                f"The option {f} is not available for division ('/') yet.",
-                            )
+                    if f == "1/sqrt_g":
+                        f_call = lambda e1, e2, e3: 1.0 / abs(self.domain.jacobian_det(e1, e2, e3))
                     elif "eq_" in f:
                         f_components = f.split("q_")
                         f_call = getattr(self.eq_mhd, f_components[-1])
