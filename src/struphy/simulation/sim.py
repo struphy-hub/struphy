@@ -263,7 +263,7 @@ class Simulation(SimulationBase):
         logger.info(f"\nNew instance of Simulation from file\n{self.params_path}\n")
         logger.info(self.model)
         logger.info("")
-        logger.info(self.env.__repr_all_stacked__())
+        logger.info(self.env)
         logger.info("")
         logger.info(self.time_opts)
         logger.info("")
@@ -273,7 +273,7 @@ class Simulation(SimulationBase):
         logger.info("")
         logger.info(self.grid)
         logger.info("")
-        logger.info(self.derham_opts.__repr_all_stacked__())
+        logger.info(self.derham_opts)
 
     def allocate(self, verbose: bool = False):
         """Allocate FEEC structures, model variables and propagators.

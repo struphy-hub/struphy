@@ -191,7 +191,7 @@ class BaseUnits(OptionsBase):
 NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
 
 
-@dataclass
+@dataclass(repr=False)
 class DerhamOptions(OptionsBase):
     """Set options for the 3D discrete de Rham spaces in parameter/launch files.
 
@@ -295,7 +295,7 @@ class FieldsBackground(OptionsBase):
         return all_class_params_are_default(self)
 
 
-@dataclass
+@dataclass(repr=False)
 class EnvironmentOptions(OptionsBase):
     """Set environment options for launching run on current architecture
     (these options do not influence the simulation result).
