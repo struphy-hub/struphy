@@ -13,7 +13,7 @@ from struphy.utils.utils import (
 
 logger = logging.getLogger("struphy")
 
-
+@dataclass
 class OptionsBase:
     def to_dict(self) -> dict:
         """Convert dataclass instance to dictionary."""
@@ -24,6 +24,9 @@ class OptionsBase:
         """Create dataclass instance from dictionary."""
         valid_fields = {field.name for field in fields(cls) if field.init}
         return cls(**{key: value for key, value in dct.items() if key in valid_fields})
+    
+    def __repr__(self):
+        return __dataclass_repr_all_stacked__(self)
 
 
 @dataclass

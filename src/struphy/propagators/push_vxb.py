@@ -1,5 +1,6 @@
 "Only particle variables are updated."
 
+import logging
 from dataclasses import dataclass
 from typing import Literal
 
@@ -7,12 +8,15 @@ from feectools.linalg.basic import LinearOperator
 from feectools.linalg.block import BlockVector
 from line_profiler import profile
 
+from struphy.io.options import OptionsBase
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.pic.pushing import pusher_kernels
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
+
+logger = logging.getLogger("struphy")
 
 
 class PushVxB(Propagator):
@@ -59,8 +63,8 @@ class PushVxB(Propagator):
     def __init__(self):
         self.variables = self.Variables()
 
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Configuration options for :class:`PushVxB`.
 
         Parameters
@@ -93,6 +97,7 @@ class PushVxB(Propagator):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
     def allocate(self, verbose: bool = False):

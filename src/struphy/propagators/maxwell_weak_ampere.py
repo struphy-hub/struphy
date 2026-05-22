@@ -8,7 +8,7 @@ from feectools.linalg.solvers import inverse
 from line_profiler import profile
 
 from struphy.feec import preconditioner
-from struphy.io.options import LiteralOptions
+from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
@@ -76,8 +76,8 @@ class MaxwellWeakAmpere(Propagator):
     def __init__(self):
         self.variables = self.Variables()
 
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Configuration options for :class:`MaxwellWeakAmpere`.
 
         Parameters
@@ -134,7 +134,7 @@ class MaxwellWeakAmpere(Propagator):
 
             if self.algo == "explicit" and self.butcher is None:
                 self.butcher = ButcherTableau()
-
+                
     @property
     def options(self) -> Options:
         if not hasattr(self, "_options"):
@@ -145,6 +145,7 @@ class MaxwellWeakAmpere(Propagator):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
     def allocate(self, verbose: bool = False):
