@@ -365,9 +365,9 @@ class LinearMHDVlasovCC(StruphyModel):
                     new_file += [
                         "model.propagators.couple_curr.options = model.propagators.couple_curr.Options(b_tilde=model.em_fields.b_field)\n",
                     ]
-                elif "set_save_data" in line:
+                elif "saving_params = " in line:
                     new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
-                    new_file += ["model.energetic_ions.set_save_data(binning_plots=(binplot,))\n"]
+                    new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
                 else:
                     new_file += [line]
 

@@ -340,9 +340,9 @@ class VlasovAmpereOneSpecies(StruphyModel):
                 elif "push_vxb.Options" in line:
                     new_file += ["if model.with_B0:\n"]
                     new_file += ["    " + line]
-                elif "set_save_data" in line:
+                elif "saving_params = " in line:
                     new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
-                    new_file += ["model.kinetic_ions.set_save_data(binning_plots=(binplot,))\n"]
+                    new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
                 else:
                     new_file += [line]
 

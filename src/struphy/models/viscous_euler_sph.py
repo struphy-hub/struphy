@@ -261,9 +261,9 @@ class ViscousEulerSPH(StruphyModel):
                 if "push_vxb.Options" in line:
                     new_file += ["if model.with_B0:\n"]
                     new_file += ["    " + line]
-                elif "set_save_data" in line:
+                elif "saving_params = " in line:
                     new_file += ["\nkd_plot = KernelDensityPlot()\n"]
-                    new_file += ["model.euler_fluid.set_save_data(kernel_density_plots=(kd_plot,))\n"]
+                    new_file += ["saving_params = SavingParameters(kernel_density_plots=(kd_plot,))\n\n"]
                 elif "base_units = BaseUnits" in line:
                     new_file += ["base_units = BaseUnits(kBT=1.0)\n"]
                 else:
