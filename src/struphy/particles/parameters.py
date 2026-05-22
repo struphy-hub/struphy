@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from struphy.io.options import LiteralOptions
 from struphy.utils.utils import check_option
-from struphy.utils.utils import __dataclass_repr_all_stacked__
+from struphy.utils.utils import __dataclass_repr_all_stacked__, __dataclass_repr_no_defaults__
 
 
 @dataclass
@@ -86,7 +86,6 @@ class LoadingParameters:
         
     def __repr_no_defaults__(self):
         return __dataclass_repr_all_stacked__(self)
-
 
 @dataclass
 class WeightsParameters:
@@ -190,6 +189,7 @@ class SortingParameters:
     def __repr_no_defaults__(self):
         return __dataclass_repr_all_stacked__(self)
 
+@dataclass
 class BinningPlot:
     """Configuration for particle phase-space binning and histogram generation.
 
@@ -221,41 +221,33 @@ class BinningPlot:
     output_quantity : LiteralOptions.BinningQuantity, default="density"
         Quantity to compute in binning: determines weighting scheme and output format.
     """
+    slice: str = "e1"
+    n_bins: int | tuple[int] = 128
+    ranges: tuple[float] | tuple[tuple[float]] = (0.0, 1.0)
+    divide_by_jac: bool = True
+    output_quantity: LiteralOptions.BinningQuantity = "density"
 
-    def __init__(
-        self,
-        slice: str = "e1",
-        n_bins: int | tuple[int] = 128,
-        ranges: tuple[float] | tuple[tuple[float]] = (0.0, 1.0),
-        divide_by_jac: bool = True,
-        output_quantity: LiteralOptions.BinningQuantity = "density",
-    ):
-        if isinstance(n_bins, int):
-            n_bins = (n_bins,)
+    def __post_init__(self):
+        if isinstance(self.n_bins, int):
+            self.n_bins = (self.n_bins,)
 
-        if not isinstance(ranges[0], tuple):
-            ranges = (ranges,)
+        if not isinstance(self.ranges[0], tuple):
+            self.ranges = (self.ranges,)
 
-        assert ((len(slice) - 2) / 3).is_integer(), f"Binning coordinates must be separated by '_', but reads {slice}."
-        assert len(slice.split("_")) == len(ranges) == len(n_bins), (
-            f"Number of slices names ({len(slice.split('_'))}), number of bins ({len(n_bins)}), and number of ranges ({len(ranges)}) are inconsistent with each other!\n\n"
+        assert ((len(self.slice) - 2) / 3).is_integer(), f"Binning coordinates must be separated by '_', but reads {self.slice}."
+        assert len(self.slice.split("_")) == len(self.ranges) == len(self.n_bins), (
+            f"Number of slices names ({len(self.slice.split('_'))}), number of bins ({len(self.n_bins)}), and number of ranges ({len(self.ranges)}) are inconsistent with each other!\n\n"
         )
-        check_option(output_quantity, LiteralOptions.BinningQuantity)
-
-        self.slice = slice
-        self.n_bins = n_bins
-        self.ranges = ranges
-        self.divide_by_jac = divide_by_jac
-        self.output_quantity = output_quantity
+        check_option(self.output_quantity, LiteralOptions.BinningQuantity)
 
         # computations and allocations
         self._bin_edges = []
-        for nb, rng in zip(n_bins, ranges):
+        for nb, rng in zip(self.n_bins, self.ranges):
             self._bin_edges += [xp.linspace(rng[0], rng[1], nb + 1)]
         self._bin_edges = tuple(self.bin_edges)
 
-        self._f = xp.zeros(n_bins, dtype=float)
-        self._df = xp.zeros(n_bins, dtype=float)
+        self._f = xp.zeros(self.n_bins, dtype=float)
+        self._df = xp.zeros(self.n_bins, dtype=float)
 
     @property
     def bin_edges(self) -> tuple:
@@ -270,8 +262,11 @@ class BinningPlot:
     def df(self) -> xp.ndarray:
         """The binned distribution function minus the background (delta-f)."""
         return self._df
+    
+    def __repr__(self):
+        return __dataclass_repr_no_defaults__(self)
 
-
+@dataclass
 class KernelDensityPlot:
     """Configuration for smoothed particle hydrodynamics (SPH) density reconstructions.
 
@@ -291,16 +286,14 @@ class KernelDensityPlot:
         Number of evaluation grid points in the third spatial direction (eta3).
         Set to 1 for 2D density plots.
     """
+    pts_e1: int = 16
+    pts_e2: int = 16
+    pts_e3: int = 1
 
-    def __init__(
-        self,
-        pts_e1: int = 16,
-        pts_e2: int = 16,
-        pts_e3: int = 1,
-    ):
-        e1 = xp.linspace(0.0, 1.0, pts_e1)
-        e2 = xp.linspace(0.0, 1.0, pts_e2)
-        e3 = xp.linspace(0.0, 1.0, pts_e3)
+    def __post_init__(self):
+        e1 = xp.linspace(0.0, 1.0, self.pts_e1)
+        e2 = xp.linspace(0.0, 1.0, self.pts_e2)
+        e3 = xp.linspace(0.0, 1.0, self.pts_e3)
         ee1, ee2, ee3 = xp.meshgrid(e1, e2, e3, indexing="ij")
         self._plot_pts = (ee1, ee2, ee3)
         self._n_sph = xp.zeros(ee1.shape, dtype=float)
@@ -313,7 +306,6 @@ class KernelDensityPlot:
     def n_sph(self) -> xp.ndarray:
         """The evaluated density."""
         return self._n_sph
-
 
 @dataclass
 class SavingParameters:
