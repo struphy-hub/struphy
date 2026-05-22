@@ -1,4 +1,5 @@
 from feectools.ddm.mpi import mpi as MPI
+import copy
 from feectools.linalg.block import BlockVector
 
 from struphy.io.options import BaseUnits, LiteralOptions
@@ -101,6 +102,9 @@ class LinearExtendedMHDuniform(StruphyModel):
         mass_number: float = 1.0,
         epsilon: float = None,
     ):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()

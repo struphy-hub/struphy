@@ -1,4 +1,5 @@
 import cunumpy as xp
+import copy
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.feec.mass import L2Projector
@@ -74,6 +75,9 @@ class VariationalCompressibleFluid(StruphyModel):
     ## abstract methods
 
     def __init__(self, base_units: BaseUnits = BaseUnits(), mass_number: float = 1.0):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.fluid = self.Fluid(mass_number=mass_number)

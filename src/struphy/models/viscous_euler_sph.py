@@ -1,4 +1,5 @@
 from feectools.ddm.mpi import mpi as MPI
+import copy
 
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
@@ -100,6 +101,9 @@ class ViscousEulerSPH(StruphyModel):
         self.with_B0 = with_B0
         self.with_p = with_p
         self.with_viscosity = with_viscosity
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.euler_fluid = self.EulerFluid(charge_number=charge_number, mass_number=mass_number)

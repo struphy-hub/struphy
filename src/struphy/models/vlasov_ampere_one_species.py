@@ -1,4 +1,5 @@
 import logging
+import copy
 
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
@@ -97,6 +98,9 @@ class VlasovAmpereOneSpecies(StruphyModel):
     ):
 
         self.with_B0 = with_B0
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()

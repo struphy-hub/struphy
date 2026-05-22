@@ -1,4 +1,5 @@
 from feectools.ddm.mpi import mpi as MPI
+import copy
 
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
@@ -107,6 +108,9 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
         electron_mass_number: float = 1.0,
         electron_epsilon: float = None,
     ):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.em_fields = self.EMfields()

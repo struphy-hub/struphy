@@ -1,4 +1,5 @@
 import logging
+import copy
 
 from feectools.ddm.mpi import mpi as MPI
 
@@ -70,6 +71,9 @@ class Poisson(StruphyModel):
     def __init__(self, base_units: BaseUnits = BaseUnits(), with_t_dep_source=False):
 
         self.with_t_dep_source = with_t_dep_source
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()

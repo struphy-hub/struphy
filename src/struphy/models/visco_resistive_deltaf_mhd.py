@@ -1,4 +1,5 @@
 import cunumpy as xp
+import copy
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.feec.mass import L2Projector
@@ -107,6 +108,9 @@ class ViscoResistiveDeltafMHD(StruphyModel):
         with_viscosity: bool = True,
         with_resistivity: bool = True,
     ):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()

@@ -1,4 +1,5 @@
 import cunumpy as xp
+import copy
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.feec.mass import L2Projector
@@ -85,6 +86,9 @@ class ViscousFluid(StruphyModel):
         mass_number: float = 1.0,
         with_viscosity: bool = True,
     ):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.fluid = self.Fluid(mass_number=mass_number)

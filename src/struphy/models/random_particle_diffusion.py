@@ -1,4 +1,5 @@
 from feectools.ddm.mpi import mpi as MPI
+import copy
 
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
@@ -57,6 +58,9 @@ class RandomParticleDiffusion(StruphyModel):
     ## abstract methods
 
     def __init__(self, base_units: BaseUnits = BaseUnits()):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.hydrogen = self.Hydrogen()

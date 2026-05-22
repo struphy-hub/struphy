@@ -1,4 +1,5 @@
 import logging
+import copy
 
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
@@ -88,6 +89,9 @@ class GuidingCenter(StruphyModel):
         mass_number: float = 1.0,
         epsilon: float = None,
     ):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.kinetic_ions = self.KineticIons(
