@@ -387,7 +387,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
         # alpha^2 * v_th^2 / (2*N) * sum_p s_0 * w_p^2 / f_{0,p}
         alpha = self.kinetic_ions.equation_params.alpha
-        vth = self._f0.maxw_params["vth1"][0]
+        vth = self._f0.params["vth1"][0]
 
         self._tmp[0] = (
             alpha**2

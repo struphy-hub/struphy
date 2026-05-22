@@ -12,6 +12,7 @@ from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.geometry.base import Domain
 from struphy.initial.base import Perturbation
 from struphy.io.options import LiteralOptions
+from struphy.utils.utils import __class_with_params_repr_no_defaults__
 
 
 class KineticBackground(metaclass=ABCMeta):
@@ -113,6 +114,33 @@ class KineticBackground(metaclass=ABCMeta):
             The evaluated background.
         """
         pass
+
+    @property
+    def params(self) -> dict:
+        """Parameters passed to __init__(), as dictionary."""
+        if not hasattr(self, "_params"):
+            self._params = {}
+        return self._params
+
+    @params.setter
+    def params(self, new):
+        assert isinstance(new, dict)
+        if "self" in new:
+            new.pop("self")
+        if "__class__" in new:
+            new.pop("__class__")
+        self._params = new
+        
+    def __repr__(self):
+        out = f"{self.__class__.__name__}(\n"
+        for k, v in self.params.items():
+            out += " "*4
+            out += f"{k}={v},\n"
+        out += ")"
+        return out
+
+    def __repr_no_defaults__(self):
+        return __class_with_params_repr_no_defaults__(self)
 
     def plot_density_profile(
         self,
@@ -601,26 +629,20 @@ class Maxwellian(KineticBackground):
         """
         pass
 
-    @property
-    @abstractmethod
-    def maxw_params(self) -> dict:
-        """Parameters dictionary defining moments of the Maxwellian."""
-
     def check_maxw_params(self):
-        for k, v in self.maxw_params.items():
+        for k, v in self.params.items():
             assert isinstance(k, str)
-            assert isinstance(v, tuple), f"Maxwallian parameter {k} must be tuple, but is {v}"
-            assert len(v) == 2
+            if isinstance(v, tuple):
+                assert len(v) == 2
+                assert isinstance(v[0], (float, int, Callable))
+                assert isinstance(v[1], Perturbation) or v[1] is None
 
-            assert isinstance(v[0], (float, int, Callable))
-            assert isinstance(v[1], Perturbation) or v[1] is None
-
-    def __repr__(self):
-        out = f"    {self.__class__.__name__}:"
-        out += "\n        maxw_params: (background, perturbation)"
-        for k, v in self.maxw_params.items():
-            out += f"\n            {k}: {v}"
-        return out
+    # def __repr__(self):
+    #     out = f"    {self.__class__.__name__}:"
+    #     out += "\n        maxw_params: (background, perturbation)"
+    #     for k, v in self.maxw_params.items():
+    #         out += f"\n            {k}: {v}"
+    #     return out
 
     @classmethod
     def gaussian(self, v, u=0.0, vth=1.0, polar=False, volume_form=False):
@@ -746,7 +768,7 @@ class Maxwellian(KineticBackground):
             Which moment to evaluate (see varaible "dct" below).
 
         add_perturbation : bool | None
-            Whether to add the perturbation defined in maxw_params. If None, is taken from self.add_perturbation.
+            Whether to add the perturbation defined in params. If None, is taken from self.add_perturbation.
 
         Returns
         -------
@@ -759,7 +781,7 @@ class Maxwellian(KineticBackground):
         assert isinstance(eta3, xp.ndarray)
         assert eta1.shape == eta2.shape == eta3.shape
 
-        params = self.maxw_params[name]
+        params = self.params[name]
         assert isinstance(params, tuple)
         assert len(params) == 2
 

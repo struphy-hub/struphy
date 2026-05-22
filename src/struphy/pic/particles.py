@@ -223,7 +223,7 @@ class DeltaFParticles6D(Particles6D):
 
     def set_n_to_zero(self, background: Maxwellian | SumKineticBackground):
         if isinstance(background, Maxwellian):
-            background.maxw_params["n"] = (0.0, background.maxw_params["n"][1])
+            background.params["n"] = (0.0, background.params["n"][1])
         else:
             assert isinstance(background, SumKineticBackground)
             self.set_n_to_zero(background._f1)
@@ -326,14 +326,6 @@ class Particles5D(Particles):
         -------
         """
         # load sampling density svol (normalized to 1 in logical space)
-        maxw_params = {
-            "n": 1.0,
-            "u_para": self.loading_params.moments[0],
-            "u_perp": self.loading_params.moments[1],
-            "vth_para": self.loading_params.moments[2],
-            "vth_perp": self.loading_params.moments[3],
-        }
-
         self._svol = maxwellians.GyroMaxwellian2D(
             n=(1.0, None),
             u_para=(self.loading_params.moments[0], None),

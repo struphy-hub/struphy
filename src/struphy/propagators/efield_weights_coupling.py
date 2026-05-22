@@ -179,7 +179,7 @@ class EfieldWeightsCoupling(Propagator):
         else:
             self._f0 = backgrounds
         assert isinstance(self._f0, Maxwellian3D), "The background distribution function must be a uniform Maxwellian!"
-        self._vth = self._f0.maxw_params["vth1"][0]
+        self._vth = self._f0.params["vth1"][0]
 
         self._info = self.options.solver_params.info
 

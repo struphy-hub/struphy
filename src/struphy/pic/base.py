@@ -1065,34 +1065,6 @@ class Particles(metaclass=ABCMeta):
     def _set_background_function(self):
         self._f0 = self.background
 
-        # if isinstance(self.background, FluidEquilibrium):
-        #     self._f0 = self.background
-        # else:
-        #     self._f0 = copy.deepcopy(self.background)
-        #     self.f0.add_perturbation = False
-
-        # self._f0 = None
-        # if isinstance(self.bckgr_params, FluidEquilibrium):
-        #     self._f0 = self.bckgr_params
-        # else:
-        #     for bckgr in self.backgrounds:
-        #         # SPH case: f0 is set to a FluidEquilibrium
-        #         if self.type == "sph":
-        #             _eq = getattr(equils, fi_type)(**maxw_params)
-        #             if not isinstance(_eq, NumericalFluidEquilibrium):
-        #                 _eq.domain = self.domain
-        #             if self._f0 is None:
-        #                 self._f0 = _eq
-        #             else:
-        #                 raise NotImplementedError("Summation of fluid backgrounds not yet implemented.")
-        #                 # self._f0 = self._f0 + (lambda e1, e2, e3: _eq.n0(e1, e2, e3))
-        #         # default case
-        #         else:
-        #             if self._f0 is None:
-        #                 self._f0 = bckgr
-        #             else:
-        #                 self._f0 = self._f0 + bckgr
-
     def _set_background_coordinates(self):
         if self.type != "sph" and self.f0.coords == "constants_of_motion":
             # Particles6D
