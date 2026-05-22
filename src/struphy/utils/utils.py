@@ -161,7 +161,7 @@ def __dataclass_repr_all_stacked__(obj):
     for k, v in obj.__dict__.items():
         if k not in obj.__dataclass_fields__:
             continue
-        out += " "*4
+        out += " " * 4
         out += f"{k}={repr(v)},\n"
     out = out.rstrip(", ") + ")"
     return out

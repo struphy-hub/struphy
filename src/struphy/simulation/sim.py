@@ -132,7 +132,7 @@ class Simulation(SimulationBase):
         self._setup_domain_and_equil(domain, equil, verbose=verbose)
         self._grid = grid
         self._derham_opts = derham_opts
-        
+
         self.show_parameters()
 
         # setup profiling agent
@@ -158,11 +158,11 @@ class Simulation(SimulationBase):
             self.rank = self.comm.Get_rank()
             self.comm_size = self.comm.Get_size()
             self.Barrier = self.comm.Barrier
-        
+
         logger.info(f"\nMPI comm: {self.comm}")
-        logger.info(f"MPI size: {self.comm_size} processes")  
-        logger.info(f"MPI rank: {self.rank}")  
-        
+        logger.info(f"MPI size: {self.comm_size} processes")
+        logger.info(f"MPI rank: {self.rank}")
+
         # synchronize MPI processes to set same start time of simulation for all processes
         self.Barrier()
         self.start_time = time.time()

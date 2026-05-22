@@ -1,9 +1,9 @@
 # coding: utf-8
 "Base classes for mapped domains (single patch)."
 
+import copy
 import inspect
 import logging
-import copy
 from abc import ABCMeta, abstractmethod
 
 import cunumpy as xp
@@ -283,7 +283,7 @@ class Domain(metaclass=DomainMeta):
     def __repr__(self):
         out = f"{self.__class__.__name__}(\n"
         for k, v in self.params.items():
-            out += " "*4
+            out += " " * 4
             out += f"{k}={v},\n"
         out += ")"
         return out

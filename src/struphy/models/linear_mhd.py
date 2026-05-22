@@ -1,5 +1,6 @@
-from feectools.ddm.mpi import mpi as MPI
 import copy
+
+from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector
 
 from struphy.io.options import BaseUnits, LiteralOptions

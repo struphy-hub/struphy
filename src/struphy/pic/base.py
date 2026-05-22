@@ -23,9 +23,10 @@ from sympy.ntheory import factorint
 
 from struphy.bsplines.bsplines import quadrature_grid
 from struphy.fields_background import equils
-from struphy.fields_background.base import (FluidEquilibrium, 
-                                            FluidEquilibriumWithB, 
-                                            NumericalFluidEquilibrium,
+from struphy.fields_background.base import (
+    FluidEquilibrium,
+    FluidEquilibriumWithB,
+    NumericalFluidEquilibrium,
 )
 from struphy.fields_background.equils import set_defaults
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
@@ -39,9 +40,9 @@ from struphy.kinetic_background.base import KineticBackground, Maxwellian
 from struphy.particles.parameters import (
     BoundaryParameters,
     LoadingParameters,
-    WeightsParameters,
-    SortingParameters,
     SavingParameters,
+    SortingParameters,
+    WeightsParameters,
 )
 from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing import eval_kernels_gc
@@ -149,7 +150,7 @@ class Particles(metaclass=ABCMeta):
 
         boundary_params : BoundaryParameters
             Parameters for particle boundary conditions.
-            
+
         sorting_params : SortingParameters
             Parameters for particle sorting.
 
@@ -212,7 +213,7 @@ class Particles(metaclass=ABCMeta):
 
         if boundary_params is None:
             boundary_params = BoundaryParameters()
-            
+
         if sorting_params is None:
             sorting_params = SortingParameters()
 
@@ -603,7 +604,7 @@ class Particles(metaclass=ABCMeta):
     def boundary_params(self) -> BoundaryParameters:
         """Parameters for marker loading."""
         return self._boundary_params
-    
+
     @property
     def sorting_params(self) -> SortingParameters:
         """Parameters for marker sorting."""

@@ -136,7 +136,9 @@ class Variable(metaclass=ABCMeta):
             if not isinstance(self.backgrounds, list):
                 self._backgrounds = [self.backgrounds]
             self._backgrounds += [background]
-        logger.info(f"\nAdded background\n{background}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'.")
+        logger.info(
+            f"\nAdded background\n{background}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'."
+        )
 
     def show_backgrounds(self):
         logger.info(f"\nBackgrounds for variable '{self.__name__}' of species '{self.species.__class__.__name__}':")
@@ -292,7 +294,9 @@ class FEECVariable(Variable):
             if not isinstance(self.perturbations, list):
                 self._perturbations = [self.perturbations]
             self._perturbations += [perturbation]
-        logger.info(f"\nAdded perturbation\n{perturbation}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'.")
+        logger.info(
+            f"\nAdded perturbation\n{perturbation}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'."
+        )
 
     def allocate(
         self,
@@ -510,10 +514,14 @@ class PICVariable(Variable):
     def add_initial_condition(self, init: KineticBackground):
         """The initial condition must be consistent with the background."""
         self._initial_condition = init
-        logger.info(f"\nAdded initial condition\n{init}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'.")
+        logger.info(
+            f"\nAdded initial condition\n{init}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'."
+        )
 
     def show_initial_condition(self):
-        logger.info(f"\nInitial condition for variable '{self.__name__}' of species '{self.species.__class__.__name__}':")
+        logger.info(
+            f"\nInitial condition for variable '{self.__name__}' of species '{self.species.__class__.__name__}':"
+        )
         if self.initial_condition is not None:
             logger.info(self.initial_condition)
         else:
@@ -725,15 +733,23 @@ class SPHVariable(Variable):
         self._perturbations["u1"] = del_u1
         self._perturbations["u2"] = del_u2
         self._perturbations["u3"] = del_u3
-        
+
         if del_n is not None:
-            logger.info(f"\nAdded density perturbation\n{del_n}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'.")
+            logger.info(
+                f"\nAdded density perturbation\n{del_n}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'."
+            )
         if del_u1 is not None:
-            logger.info(f"\nAdded velocity component u1 perturbation\n{del_u1}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'.")
+            logger.info(
+                f"\nAdded velocity component u1 perturbation\n{del_u1}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'."
+            )
         if del_u2 is not None:
-            logger.info(f"\nAdded velocity component u2 perturbation\n{del_u2}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'.")
+            logger.info(
+                f"\nAdded velocity component u2 perturbation\n{del_u2}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'."
+            )
         if del_u3 is not None:
-            logger.info(f"\nAdded velocity component u3 perturbation\n{del_u3}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'.")
+            logger.info(
+                f"\nAdded velocity component u3 perturbation\n{del_u3}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'."
+            )
 
     def show_perturbations(self):
         logger.info(f"Perturbations for variable '{self.__name__}' of species '{self.species.__class__.__name__}':")

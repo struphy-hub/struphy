@@ -15,11 +15,11 @@ from struphy import (
     EnvironmentOptions,
     KernelDensityPlot,
     LoadingParameters,
+    SavingParameters,
     Simulation,
+    SortingParameters,
     Time,
     WeightsParameters,
-    SortingParameters,
-    SavingParameters,
     domains,
     equils,
     perturbations,
@@ -60,11 +60,17 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
     loading_params = LoadingParameters(ppb=8, loading="tesselation")
     weights_params = WeightsParameters()
     boundary_params = BoundaryParameters()
-    sorting_params = SortingParameters(boxes_per_dim=(nx, 1, 1), dims_maks=(True, False, False),)
-    
+    sorting_params = SortingParameters(
+        boxes_per_dim=(nx, 1, 1),
+        dims_maks=(True, False, False),
+    )
+
     bin_plot = BinningPlot(slice="e1", n_bins=(32,), ranges=(0.0, 1.0))
     kd_plot = KernelDensityPlot(pts_e1=plot_pts, pts_e2=1)
-    saving_params = SavingParameters(binning_plots=(bin_plot,), kernel_density_plots=(kd_plot,),)
+    saving_params = SavingParameters(
+        binning_plots=(bin_plot,),
+        kernel_density_plots=(kd_plot,),
+    )
 
     model.euler_fluid.set_markers(
         loading_params=loading_params,

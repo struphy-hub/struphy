@@ -1,7 +1,8 @@
 "Maxwellian (Gaussian) distributions in velocity space."
 
-from typing import Callable
 import copy
+from typing import Callable
+
 import cunumpy as xp
 
 from struphy.fields_background.base import FluidEquilibriumWithB
@@ -347,13 +348,13 @@ class CanonicalMaxwellian:
     ----------
     n : tuple[float | Callable, Perturbation]
         Density background and optional perturbation.
-        
+
     vth : tuple[float | Callable, Perturbation]
         Thermal-speed background and optional perturbation.
-        
+
     equil : FluidEquilibriumWithB, optional
         Fluid equilibrium used to evaluate background profiles in the magnetic geometry.
-        
+
     volume_form : bool, default=True
         If ``True``, represent the distribution as a volume form and include the appropriate
         velocity-space Jacobian when evaluating it.

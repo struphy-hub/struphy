@@ -107,7 +107,7 @@ class FluidEquilibrium(metaclass=ABCMeta):
     def __repr__(self) -> str:
         out = f"{self.__class__.__name__}(\n"
         for k, v in self.params.items():
-            out += " "*4
+            out += " " * 4
             out += f"{k}={v},\n"
         out += ")"
         return out

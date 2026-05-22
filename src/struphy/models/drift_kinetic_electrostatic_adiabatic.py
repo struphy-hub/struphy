@@ -1,5 +1,6 @@
-import cunumpy as xp
 import copy
+
+import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import BaseUnits

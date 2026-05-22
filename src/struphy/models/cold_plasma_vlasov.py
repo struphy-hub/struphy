@@ -1,5 +1,5 @@
-import logging
 import copy
+import logging
 
 from feectools.ddm.mpi import mpi as MPI
 

@@ -1,5 +1,5 @@
-import logging
 import copy
+import logging
 
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI

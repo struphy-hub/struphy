@@ -5,13 +5,14 @@ from typing import Any, Callable, Literal
 
 from struphy.utils.utils import (
     __class_with_params_repr_no_defaults__,
-    __dataclass_repr_no_defaults__,
     __dataclass_repr_all_stacked__,
+    __dataclass_repr_no_defaults__,
     all_class_params_are_default,
     check_option,
 )
 
 logger = logging.getLogger("struphy")
+
 
 @dataclass
 class OptionsBase:
@@ -24,7 +25,7 @@ class OptionsBase:
         """Create dataclass instance from dictionary."""
         valid_fields = {field.name for field in fields(cls) if field.init}
         return cls(**{key: value for key, value in dct.items() if key in valid_fields})
-    
+
     def __repr__(self):
         return __dataclass_repr_all_stacked__(self)
 
@@ -254,7 +255,7 @@ class DerhamOptions(OptionsBase):
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
-    
+
     def __repr_all_stacked__(self):
         return __dataclass_repr_all_stacked__(self)
 
@@ -351,7 +352,7 @@ class EnvironmentOptions(OptionsBase):
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
-    
+
     def __repr_all_stacked__(self):
         return __dataclass_repr_all_stacked__(self)
 

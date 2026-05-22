@@ -5,7 +5,7 @@ from typing import Callable
 import cunumpy as xp
 
 from struphy.io.options import LiteralOptions
-from struphy.utils.utils import check_option, __class_with_params_repr_no_defaults__
+from struphy.utils.utils import __class_with_params_repr_no_defaults__, check_option
 
 logger = logging.getLogger("struphy")
 
@@ -75,7 +75,7 @@ class Perturbation(metaclass=ABCMeta):
     def __repr__(self):
         out = f"{self.__class__.__name__}(\n"
         for k, v in self.params.items():
-            out += " "*4
+            out += " " * 4
             out += f"{k}={v},\n"
         out += ")"
         return out

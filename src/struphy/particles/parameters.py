@@ -1,9 +1,9 @@
-import cunumpy as xp
 from dataclasses import dataclass
 
+import cunumpy as xp
+
 from struphy.io.options import LiteralOptions
-from struphy.utils.utils import check_option
-from struphy.utils.utils import __dataclass_repr_all_stacked__, __dataclass_repr_no_defaults__
+from struphy.utils.utils import __dataclass_repr_all_stacked__, __dataclass_repr_no_defaults__, check_option
 
 
 @dataclass
@@ -65,6 +65,7 @@ class LoadingParameters:
     restart_key : str, optional
         HDF5 dataset key within the 'restart/' folder containing marker array data.
     """
+
     Np: int = None
     ppc: int = None
     ppb: int = 10
@@ -79,13 +80,14 @@ class LoadingParameters:
     dir_particles: str = None
     dir_particles_abs: str = None
     restart_key: str = None
-    
+
     def __post_init__(self):
         check_option(self.loading, LiteralOptions.OptsLoading)
         check_option(self.spatial, LiteralOptions.OptsSpatialLoading)
-        
+
     def __repr_no_defaults__(self):
         return __dataclass_repr_all_stacked__(self)
+
 
 @dataclass
 class WeightsParameters:
@@ -107,12 +109,14 @@ class WeightsParameters:
         Minimum weight threshold. Particles with weights below this value are rejected
         when ``reject_weights`` is True.
     """
+
     control_variate: bool = False
     reject_weights: bool = False
     threshold: float = 0.0
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_all_stacked__(self)
+
 
 @dataclass
 class BoundaryParameters:
@@ -140,17 +144,19 @@ class BoundaryParameters:
         If any boundary condition is 'noslip', this index specifies the position in the marker array
         where the mean velocity for the noslip condition is stored.
     """
+
     bc: tuple[LiteralOptions.OptsMarkerBC] = ("periodic", "periodic", "periodic")
-    bc_refill=None
+    bc_refill = None
     bc_sph: tuple[LiteralOptions.OptsRecontructBC] = ("periodic", "periodic", "periodic")
     mean_velocity_index: int | None = None
 
     def __post_init__(self):
         check_option(self.bc, LiteralOptions.OptsMarkerBC)
         check_option(self.bc_sph, LiteralOptions.OptsRecontructBC)
-        
+
     def __repr_no_defaults__(self):
         return __dataclass_repr_all_stacked__(self)
+
 
 @dataclass
 class SortingParameters:
@@ -180,6 +186,7 @@ class SortingParameters:
         True if the dimension is to be used in the domain decomposition (=default for each dimension).
         If dims_mask[i]=False, the i-th dimension will not be decomposed.
     """
+
     do_sort: bool = False
     sorting_frequency: int = 0
     boxes_per_dim: tuple = (12, 12, 1)
@@ -188,6 +195,7 @@ class SortingParameters:
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_all_stacked__(self)
+
 
 @dataclass
 class BinningPlot:
@@ -221,6 +229,7 @@ class BinningPlot:
     output_quantity : LiteralOptions.BinningQuantity, default="density"
         Quantity to compute in binning: determines weighting scheme and output format.
     """
+
     slice: str = "e1"
     n_bins: int | tuple[int] = 128
     ranges: tuple[float] | tuple[tuple[float]] = (0.0, 1.0)
@@ -234,7 +243,9 @@ class BinningPlot:
         if not isinstance(self.ranges[0], tuple):
             self.ranges = (self.ranges,)
 
-        assert ((len(self.slice) - 2) / 3).is_integer(), f"Binning coordinates must be separated by '_', but reads {self.slice}."
+        assert ((len(self.slice) - 2) / 3).is_integer(), (
+            f"Binning coordinates must be separated by '_', but reads {self.slice}."
+        )
         assert len(self.slice.split("_")) == len(self.ranges) == len(self.n_bins), (
             f"Number of slices names ({len(self.slice.split('_'))}), number of bins ({len(self.n_bins)}), and number of ranges ({len(self.ranges)}) are inconsistent with each other!\n\n"
         )
@@ -262,9 +273,10 @@ class BinningPlot:
     def df(self) -> xp.ndarray:
         """The binned distribution function minus the background (delta-f)."""
         return self._df
-    
+
     def __repr__(self):
         return __dataclass_repr_no_defaults__(self)
+
 
 @dataclass
 class KernelDensityPlot:
@@ -286,6 +298,7 @@ class KernelDensityPlot:
         Number of evaluation grid points in the third spatial direction (eta3).
         Set to 1 for 2D density plots.
     """
+
     pts_e1: int = 16
     pts_e2: int = 16
     pts_e3: int = 1
@@ -307,12 +320,13 @@ class KernelDensityPlot:
         """The evaluated density."""
         return self._n_sph
 
+
 @dataclass
 class SavingParameters:
     """Configuration for particle data saving strategies and parameters.
 
     Manages how particle data is saved during simulations, including the frequency of saves,
-    the types of data to save (single markers, full distribution vs. delta-f or kernel evaluations), 
+    the types of data to save (single markers, full distribution vs. delta-f or kernel evaluations),
     and the output formats. Supports flexible control over what particle information is stored and when.
 
     Parameters
@@ -327,9 +341,10 @@ class SavingParameters:
     kernel_density_plots: tuple[KernelDensityPlot]
         A tuple of KernelDensityPlot objects.
     """
+
     n_markers: int | float = 3
     binning_plots: tuple[BinningPlot] = ()
     kernel_density_plots: tuple[KernelDensityPlot] = ()
-    
+
     def __repr_no_defaults__(self):
         return __dataclass_repr_all_stacked__(self)

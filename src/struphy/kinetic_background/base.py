@@ -1,8 +1,8 @@
 "Base classes for kinetic backgrounds."
 
+import copy
 from abc import ABCMeta, abstractmethod
 from typing import Callable
-import copy
 
 import cunumpy as xp
 import matplotlib.pyplot as plt
@@ -131,11 +131,11 @@ class KineticBackground(metaclass=ABCMeta):
         if "__class__" in new:
             new.pop("__class__")
         self._params = new
-        
+
     def __repr__(self):
         out = f"{self.__class__.__name__}(\n"
         for k, v in self.params.items():
-            out += " "*4
+            out += " " * 4
             out += f"{k}={v},\n"
         out += ")"
         return out
@@ -412,7 +412,7 @@ class SumKineticBackground(KineticBackground):
     def __init__(self, f1, f2):
         # use setter to store input parameters
         self.params = copy.deepcopy(locals())
-        
+
         assert isinstance(f1, KineticBackground)
         assert isinstance(f2, KineticBackground)
         assert f1.vdim == f2.vdim
@@ -521,7 +521,7 @@ class ScalarMultiplyKineticBackground(KineticBackground):
     def __init__(self, f0, a):
         # use setter to store input parameters
         self.params = copy.deepcopy(locals())
-        
+
         assert isinstance(f0, KineticBackground)
         assert isinstance(a, float) or isinstance(a, int) or isinstance(a, xp.int64)
 

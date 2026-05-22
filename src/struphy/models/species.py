@@ -11,9 +11,9 @@ from struphy.particles.parameters import (
     BoundaryParameters,
     KernelDensityPlot,
     LoadingParameters,
-    WeightsParameters,
-    SortingParameters,
     SavingParameters,
+    SortingParameters,
+    WeightsParameters,
 )
 from struphy.physics.physics import ConstantsOfNature, Units
 
@@ -297,9 +297,9 @@ class ParticleSpecies(Species):
         weights_params : WeightsParameters
 
         boundary_params : BoundaryParameters
-        
+
         sorting_params : SortingParameters
-        
+
         saving_params : SavingParameters
 
         bufsize : float
@@ -315,10 +315,10 @@ class ParticleSpecies(Species):
 
         if boundary_params is None:
             boundary_params = BoundaryParameters()
-            
+
         if sorting_params is None:
             sorting_params = SortingParameters()
-            
+
         if saving_params is None:
             saving_params = SavingParameters()
 
@@ -328,14 +328,14 @@ class ParticleSpecies(Species):
         self.sorting_params = sorting_params
         self.saving_params = saving_params
         self.bufsize = bufsize
-        
+
         logger.info(f"\nMarker parameters for species '{self.__class__.__name__}':")
         logger.info(self.loading_params.__repr_no_defaults__())
         logger.info(self.weights_params.__repr_no_defaults__())
         logger.info(self.boundary_params.__repr_no_defaults__())
         logger.info(self.sorting_params.__repr_no_defaults__())
         logger.info(self.saving_params.__repr_no_defaults__())
-        logger.info(f"Marker array buffer size: {self.bufsize*100:.1f}% of total size")
+        logger.info(f"Marker array buffer size: {self.bufsize * 100:.1f}% of total size")
 
     # def set_sorting_boxes(
     #     self,

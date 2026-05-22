@@ -34,7 +34,7 @@ from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.docstring_converter import rst_to_html, rst_to_markdown
-from struphy.utils.utils import all_class_params_are_default, all_subclasses, __class_with_params_repr_no_defaults__
+from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default, all_subclasses
 
 logger = logging.getLogger("struphy")
 
@@ -166,7 +166,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
     def __repr__(self):
         out = f"{self.__class__.__name__}(\n"
         for k, v in self.params.items():
-            out += " "*4
+            out += " " * 4
             out += f"{k}={v},\n"
         out += ")"
         return out
@@ -887,6 +887,7 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         if "__class__" in new:
             new.pop("__class__")
         self._params = new
+
 
 class Documentation:
     def __init__(

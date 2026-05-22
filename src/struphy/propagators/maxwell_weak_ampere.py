@@ -134,7 +134,7 @@ class MaxwellWeakAmpere(Propagator):
 
             if self.algo == "explicit" and self.butcher is None:
                 self.butcher = ButcherTableau()
-                
+
     @property
     def options(self) -> Options:
         if not hasattr(self, "_options"):
