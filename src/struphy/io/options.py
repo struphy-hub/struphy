@@ -6,6 +6,7 @@ from typing import Any, Callable, Literal
 from struphy.utils.utils import (
     __class_with_params_repr_no_defaults__,
     __dataclass_repr_no_defaults__,
+    __dataclass_repr_all_stacked__,
     all_class_params_are_default,
     check_option,
 )
@@ -143,10 +144,10 @@ class Time(OptionsBase):
     def __post_init__(self):
         check_option(self.split_algo, LiteralOptions.SplitAlgos)
 
-    def __str__(self):
-        for k, v in self.__dict__.items():
-            logger.info(f"{k + ':':<20}{v}")
-        return ""
+    # def __str__(self):
+    #     for k, v in self.__dict__.items():
+    #         logger.info(f"{k + ':':<20}{v}")
+    #     return ""
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
@@ -180,12 +181,6 @@ class BaseUnits(OptionsBase):
     B: float = 1.0
     n: float = 1.0
     kBT: float = None
-
-    def __str__(self):
-        units = ["m", "T", "1e20/m^3", "keV"]
-        for (k, v), unit in zip(self.__dict__.items(), units):
-            logger.info(f"{k + ':':<20}{v} {unit}")
-        return ""
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
@@ -254,13 +249,16 @@ class DerhamOptions(OptionsBase):
                 check_option(bc[0], LiteralOptions.OptsNonTrivialBoundaryCondition)
                 check_option(bc[1], LiteralOptions.OptsNonTrivialBoundaryCondition)
 
-    def __str__(self):
-        for k, v in self.__dict__.items():
-            logger.info(f"{k + ':':<20}{v}")
-        return ""
+    # def __str__(self):
+    #     for k, v in self.__dict__.items():
+    #         logger.info(f"{k + ':':<20}{v}")
+    #     return ""
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
+    
+    def __repr_all_stacked__(self):
+        return __dataclass_repr_all_stacked__(self)
 
     @property
     def is_default(self):
@@ -353,13 +351,16 @@ class EnvironmentOptions(OptionsBase):
     def __post_init__(self):
         self.path_out: str = os.path.join(self.out_folders, self.sim_folder)
 
-    def __str__(self):
-        for k, v in self.__dict__.items():
-            logger.info(f"{k + ':':<20}{v}")
-        return ""
+    # def __str__(self):
+    #     for k, v in self.__dict__.items():
+    #         logger.info(f"{k + ':':<20}{v}")
+    #     return ""
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
+    
+    def __repr_all_stacked__(self):
+        return __dataclass_repr_all_stacked__(self)
 
     @property
     def is_default(self):

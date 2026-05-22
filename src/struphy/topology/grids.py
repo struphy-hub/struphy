@@ -26,11 +26,6 @@ class TensorProductGrid:
     num_elements: Tuple[int, int, int] = (24, 10, 1)
     mpi_dims_mask: Tuple[bool, bool, bool] = (True, True, True)
 
-    def __str__(self):
-        for k, v in self.__dict__.items():
-            logger.info(f"{k + ':':<20}{v}")
-        return ""
-
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
 

@@ -1,4 +1,5 @@
 import logging
+import copy
 
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
@@ -154,6 +155,8 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         epsilon: float = None,
         measure_gauss_law: bool = False,
     ):
+
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()

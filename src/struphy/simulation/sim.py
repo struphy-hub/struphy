@@ -267,24 +267,20 @@ class Simulation(SimulationBase):
 
         Only the MPI rank 0 prints to avoid clutter from multiple processes.
         """
-        logger.debug("SIMULATION PARAMETERS:")
-        logger.debug("\nModel:")
-        logger.debug(self.model)
-        logger.debug("Parameter file path:")
-        logger.debug(self.params_path)
-        logger.debug("\nEnvironment options:")
-        logger.debug(self.env)
-        logger.debug("Time stepping options:")
-        logger.debug(self.time_opts)
-        logger.debug("Domain:")
-        logger.debug(self.domain)
-        logger.debug("Fluid equilibrium:")
-        logger.debug(self.equil)
-        logger.debug("Grid:")
-        logger.debug(self.grid)
-        logger.debug("Derham options:")
-        logger.debug(self.derham_opts)
-        logger.debug("")
+        logger.info(f"\nNew instance of Simulation from file\n{self.params_path}\n")
+        logger.info(self.model)
+        logger.info("")
+        logger.info(self.env.__repr_all_stacked__())
+        logger.info("")
+        logger.info(self.time_opts)
+        logger.info("")
+        logger.info(self.domain)
+        logger.info("")
+        logger.info(self.equil)
+        logger.info("")
+        logger.info(self.grid)
+        logger.info("")
+        logger.info(self.derham_opts.__repr_all_stacked__())
 
     def allocate(self, verbose: bool = False):
         """Allocate FEEC structures, model variables and propagators.

@@ -222,9 +222,10 @@ class Domain(metaclass=DomainMeta):
         )
 
     def __repr__(self):
-        out = f"{self.__class__.__name__}("
+        out = f"{self.__class__.__name__}(\n"
         for k, v in self.params.items():
-            out += f"{k}={v}, "
+            out += " "*4
+            out += f"{k}={v},\n"
         out += ")"
         return out
 
@@ -234,12 +235,6 @@ class Domain(metaclass=DomainMeta):
     @property
     def is_default(self):
         return all_class_params_are_default(self)
-
-    def __str__(self):
-        logger.info(f"{self.__class__.__name__}")
-        for k, v in self.params.items():
-            logger.info(f"{k + ':':<20}{v}")
-        return ""
 
     @property
     def kind_map(self) -> int:

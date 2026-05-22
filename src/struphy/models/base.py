@@ -34,7 +34,7 @@ from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.docstring_converter import rst_to_html, rst_to_markdown
-from struphy.utils.utils import all_class_params_are_default, all_subclasses
+from struphy.utils.utils import all_class_params_are_default, all_subclasses, __class_with_params_repr_no_defaults__
 
 logger = logging.getLogger("struphy")
 
@@ -163,22 +163,32 @@ class StruphyModel(metaclass=StruphyModelMeta):
     # --------------
     # Common methods
     # --------------
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}()"
+    def __repr__(self):
+        out = f"{self.__class__.__name__}(\n"
+        for k, v in self.params.items():
+            out += " "*4
+            out += f"{k}={v},\n"
+        out += ")"
+        return out
 
     def __repr_no_defaults__(self) -> str:
-        return self.__repr__()
+        return __class_with_params_repr_no_defaults__(self)
 
     @property
     def is_default(self):
         return all_class_params_are_default(self)
 
-    def __str__(self):
-        out = f"{self.__class__.__name__}\n"
-        for k, v in self.species.items():
-            out += f"    {k}:\n"
-            out += f"{v}"
-        return out
+    # def __str__(self):
+    #     for k, v in self.__dict__.items():
+    #         logger.info(f"{k + ':':<20}{v}")
+    #     return ""
+
+    # def __str__(self):
+    #     out = f"{self.__class__.__name__}\n"
+    #     for k, v in self.species.items():
+    #         out += f"    {k}:\n"
+    #         out += f"{v}"
+    #     return out
 
     forced_heading_level = 5
 
@@ -856,6 +866,21 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         assert isinstance(new_units, Units)
         self._units = new_units
 
+    @property
+    def params(self) -> dict:
+        """Model parameters passed to __init__() of the class, as dictionary."""
+        if not hasattr(self, "_params"):
+            self._params = {}
+        return self._params
+
+    @params.setter
+    def params(self, new):
+        assert isinstance(new, dict)
+        if "self" in new:
+            new.pop("self")
+        if "__class__" in new:
+            new.pop("__class__")
+        self._params = new
 
 class Documentation:
     def __init__(

@@ -156,6 +156,17 @@ def __dataclass_repr_no_defaults__(obj):
     return out
 
 
+def __dataclass_repr_all_stacked__(obj):
+    out = f"{type(obj).__name__}(\n"
+    for k, v in obj.__dict__.items():
+        if k not in obj.__dataclass_fields__:
+            continue
+        out += " "*4
+        out += f"{k}={repr(v)},\n"
+    out = out.rstrip(", ") + ")"
+    return out
+
+
 def __class_with_params_repr_no_defaults__(cls_instance):
     sig = inspect.signature(cls_instance.__class__.__init__)
     defaults = {k: v.default for k, v in sig.parameters.items() if k != "self"}
