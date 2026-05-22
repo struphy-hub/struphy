@@ -396,11 +396,10 @@ class CanonicalMaxwellian:
     def check_maxw_params(self):
         for k, v in self.params.items():
             assert isinstance(k, str)
-            assert isinstance(v, tuple), f"Maxwallian parameter {k} must be tuple, but is {v}"
-            assert len(v) == 2
-
-            assert isinstance(v[0], (float, int, Callable))
-            assert isinstance(v[1], Perturbation) or v[1] is None
+            if isinstance(v, tuple):
+                assert len(v) == 2
+                assert isinstance(v[0], (float, int, Callable))
+                assert isinstance(v[1], Perturbation) or v[1] is None
 
     def velocity_jacobian_det(self, eta1, eta2, eta3, energy):
         r"""TODO"""
