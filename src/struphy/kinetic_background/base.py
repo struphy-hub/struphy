@@ -2,6 +2,7 @@
 
 from abc import ABCMeta, abstractmethod
 from typing import Callable
+import copy
 
 import cunumpy as xp
 import matplotlib.pyplot as plt
@@ -409,6 +410,9 @@ class KineticBackground(metaclass=ABCMeta):
 
 class SumKineticBackground(KineticBackground):
     def __init__(self, f1, f2):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+        
         assert isinstance(f1, KineticBackground)
         assert isinstance(f2, KineticBackground)
         assert f1.vdim == f2.vdim
@@ -515,6 +519,9 @@ class SumKineticBackground(KineticBackground):
 
 class ScalarMultiplyKineticBackground(KineticBackground):
     def __init__(self, f0, a):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+        
         assert isinstance(f0, KineticBackground)
         assert isinstance(a, float) or isinstance(a, int) or isinstance(a, xp.int64)
 
