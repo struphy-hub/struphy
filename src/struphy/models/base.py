@@ -552,14 +552,16 @@ class StruphyModel(metaclass=StruphyModelMeta):
                 particle_params += "\nloading_params = LoadingParameters()\n"
                 particle_params += "weights_params = WeightsParameters()\n"
                 particle_params += "boundary_params = BoundaryParameters()\n"
+                particle_params += "sorting_params = SortingParameters()\n"
                 particle_params += f"model.{sn}.set_markers(loading_params=loading_params,\n"
                 txt = "weights_params=weights_params,\n"
                 particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
                 txt = "boundary_params=boundary_params,\n"
                 particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
+                txt = "sorting_params=sorting_params,\n"
+                particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
                 txt = ")\n"
                 particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
-                particle_params += f"model.{sn}.set_sorting_boxes()\n"
                 particle_params += f"model.{sn}.set_save_data()\n"
 
             for vn, var in species.variables.items():
@@ -659,6 +661,7 @@ set_logging_level(logging.WARNING)\n""")
     KernelDensityPlot,
     LoadingParameters,
     WeightsParameters,
+    SortingParameters,
     maxwellians,
 )\n""")
 

@@ -156,6 +156,45 @@ class BoundaryParameters:
     def __repr_no_defaults__(self):
         return __dataclass_repr_all_stacked__(self)
 
+@dataclass
+class SortingParameters:
+    """Configuration for particle sorting strategies and parameters.
+
+    Manages the organization of particles into spatial bins (sorting boxes) to optimize
+    neighbor searches and interactions. Supports independent control over the number of
+    boxes per dimension and whether to apply MPI domain decomposition along each dimension.
+
+    Parameters
+    ----------
+    do_sort: bool
+        Whether to sort particles in memory.
+
+    sorting_frequency: int
+        The number of time steps between two sortings (=0 means no sorting is performed).
+
+    boxes_per_dim: tuple[int]
+        Number of boxes in each direction of logical space, (n_eta1, n_eta2, n_eta3).
+
+    box_bufsize : float
+        Relative buffer size for box array (default = 0.25).
+        A number of 1.0 means that the box array is double the size needed to hold N/n_boxes particles,
+        where N is the total number of particles.
+
+    dims_mask: tuple[bool]
+        True if the dimension is to be used in the domain decomposition (=default for each dimension).
+        If dims_mask[i]=False, the i-th dimension will not be decomposed.
+    """
+    
+    do_sort: bool = False
+    sorting_frequency: int = 0
+    boxes_per_dim: tuple = (12, 12, 1)
+    box_bufsize: float = 2.0
+    dims_mask: tuple = (True, True, True)
+
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_all_stacked__(self)
+
+
 class BinningPlot:
     """Configuration for particle phase-space binning and histogram generation.
 

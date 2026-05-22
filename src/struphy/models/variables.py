@@ -559,13 +559,11 @@ class PICVariable(Variable):
             comm_world=comm_world,
             clone_config=clone_config,
             domain_decomp=domain_decomp,
-            mpi_dims_mask=self.species.dims_mask,
-            boxes_per_dim=self.species.boxes_per_dim,
-            box_bufsize=self.species.box_bufsize,
             name=self.species.__class__.__name__,
             loading_params=self.species.loading_params,
             weights_params=self.species.weights_params,
             boundary_params=self.species.boundary_params,
+            sorting_params=self.species.sorting_params,
             bufsize=self.species.bufsize,
             domain=domain,
             equil=equil,
@@ -573,12 +571,11 @@ class PICVariable(Variable):
             background=self.backgrounds,
             initial_condition=self.initial_condition,
             n_as_volume_form=self.n_as_volume_form,
-            # perturbations=self.perturbations,
             equation_params=self.species.equation_params,
             verbose=verbose,
         )
 
-        if self.species.do_sort:
+        if self.species.sorting_params.do_sort:
             sort = True
         else:
             sort = False
@@ -601,7 +598,7 @@ class PICVariable(Variable):
             self._n_to_save = n_markers
 
         assert self._n_to_save <= self.particles.Np, (
-            f"The number of markers for which data should be stored (={self._n_to_save}) murst be <= than the total number of markers (={self.particles.Np})"
+            f"The number of markers for which data should be stored (={self._n_to_save}) must be <= than the total number of markers (={self.particles.Np})"
         )
         if self._n_to_save > 0:
             self._saved_markers = xp.zeros(
@@ -782,13 +779,11 @@ class SPHVariable(Variable):
         self._particles = ParticlesSPH(
             comm_world=comm_world,
             domain_decomp=domain_decomp,
-            mpi_dims_mask=self.species.dims_mask,
-            boxes_per_dim=self.species.boxes_per_dim,
-            box_bufsize=self.species.box_bufsize,
             name=self.species.__class__.__name__,
             loading_params=self.species.loading_params,
             weights_params=self.species.weights_params,
             boundary_params=self.species.boundary_params,
+            sorting_params=self.species.sorting_params,
             bufsize=self.species.bufsize,
             domain=domain,
             equil=equil,
@@ -800,7 +795,7 @@ class SPHVariable(Variable):
             verbose=verbose,
         )
 
-        if self.species.do_sort:
+        if self.species.sorting_params.do_sort:
             sort = True
         else:
             sort = False

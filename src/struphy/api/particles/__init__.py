@@ -4,11 +4,13 @@ from struphy.particles.parameters import (
     KernelDensityPlot,
     LoadingParameters,
     WeightsParameters,
+    SortingParameters,
 )
 
 __all__ = [
     "LoadingParameters",
     "WeightsParameters",
+    "SortingParameters",
     "BoundaryParameters",
     "BinningPlot",
     "KernelDensityPlot",

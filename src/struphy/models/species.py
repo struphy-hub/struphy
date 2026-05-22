@@ -12,6 +12,7 @@ from struphy.particles.parameters import (
     KernelDensityPlot,
     LoadingParameters,
     WeightsParameters,
+    SortingParameters,
 )
 from struphy.physics.physics import ConstantsOfNature, Units
 
@@ -286,6 +287,7 @@ class ParticleSpecies(Species):
         loading_params: LoadingParameters = None,
         weights_params: WeightsParameters = None,
         boundary_params: BoundaryParameters = None,
+        sorting_params: SortingParameters = None,
         bufsize: float = 1.0,
     ):
         """Set marker parameters for loading, weight calculation, kernel density reconstruction
@@ -298,6 +300,8 @@ class ParticleSpecies(Species):
         weights_params : WeightsParameters
 
         boundary_params : BoundaryParameters
+        
+        sorting_params : SortingParameters
 
         bufsize : float
             Size of buffer (as multiple of total size, default=.25) in markers array.
@@ -312,57 +316,63 @@ class ParticleSpecies(Species):
 
         if boundary_params is None:
             boundary_params = BoundaryParameters()
+            
+        if sorting_params is None:
+            sorting_params = SortingParameters()
 
         self.loading_params = loading_params
         self.weights_params = weights_params
         self.boundary_params = boundary_params
+        self.sorting_params = sorting_params
         self.bufsize = bufsize
         
         logger.info("\nMarker parameters set:")
+        logger.info("----------------------")
         logger.info(self.loading_params.__repr_no_defaults__())
         logger.info(self.weights_params.__repr_no_defaults__())
         logger.info(self.boundary_params.__repr_no_defaults__())
+        logger.info(self.sorting_params.__repr_no_defaults__())
         logger.info(f"Marker array buffer size: {self.bufsize*100:.1f}% of total size")
 
-    def set_sorting_boxes(
-        self,
-        do_sort: bool = False,
-        sorting_frequency: int = 0,
-        boxes_per_dim: tuple = (12, 12, 1),
-        box_bufsize: float = 2.0,
-        dims_maks: tuple = (True, True, True),
-    ):
-        """Set options for sorting particles/markers in parameter/launch files.
-        The sorting boxes are used to sort particles in memory and for SPH kernel evaluations.
+    # def set_sorting_boxes(
+    #     self,
+    #     do_sort: bool = False,
+    #     sorting_frequency: int = 0,
+    #     boxes_per_dim: tuple = (12, 12, 1),
+    #     box_bufsize: float = 2.0,
+    #     dims_maks: tuple = (True, True, True),
+    # ):
+    #     """Set options for sorting particles/markers in parameter/launch files.
+    #     The sorting boxes are used to sort particles in memory and for SPH kernel evaluations.
 
-        For SPH kernel evaluation, the box size 1.0/boxes_per_dim[i] defines the maximal
-        kernel width in direction i.
+    #     For SPH kernel evaluation, the box size 1.0/boxes_per_dim[i] defines the maximal
+    #     kernel width in direction i.
 
-        Parameters
-        ----------
-        do_sort: bool
-            Whether to sort particles in memory.
+    #     Parameters
+    #     ----------
+    #     do_sort: bool
+    #         Whether to sort particles in memory.
 
-        sorting_frequency: int
-            The number of time steps between two sortings (=0 means no sorting is performed).
+    #     sorting_frequency: int
+    #         The number of time steps between two sortings (=0 means no sorting is performed).
 
-        boxes_per_dim: tuple
-            Number of boxes in each direction of logical space, (n_eta1, n_eta2, n_eta3).
+    #     boxes_per_dim: tuple
+    #         Number of boxes in each direction of logical space, (n_eta1, n_eta2, n_eta3).
 
-        box_bufsize : float
-            Between 0 and 1, relative buffer size for box array (default = 0.25).
-            A number of 1.0 means that the box array is double the size needed to hold N/n_boxes particles,
-            where N is the total number of particles.
+    #     box_bufsize : float
+    #         Between 0 and 1, relative buffer size for box array (default = 0.25).
+    #         A number of 1.0 means that the box array is double the size needed to hold N/n_boxes particles,
+    #         where N is the total number of particles.
 
-        mpi_dims_mask: tuple[bool]
-            True if the dimension is to be used in the domain decomposition (=default for each dimension).
-            If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
-        """
-        self.do_sort = do_sort
-        self.sorting_fequency = sorting_frequency
-        self.boxes_per_dim = boxes_per_dim
-        self.box_bufsize = box_bufsize
-        self.dims_mask = dims_maks
+    #     mpi_dims_mask: tuple[bool]
+    #         True if the dimension is to be used in the domain decomposition (=default for each dimension).
+    #         If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
+    #     """
+    #     self.do_sort = do_sort
+    #     self.sorting_fequency = sorting_frequency
+    #     self.boxes_per_dim = boxes_per_dim
+    #     self.box_bufsize = box_bufsize
+    #     self.dims_mask = dims_maks
 
     def set_save_data(
         self,

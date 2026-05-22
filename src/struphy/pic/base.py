@@ -23,7 +23,10 @@ from sympy.ntheory import factorint
 
 from struphy.bsplines.bsplines import quadrature_grid
 from struphy.fields_background import equils
-from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB, NumericalFluidEquilibrium
+from struphy.fields_background.base import (FluidEquilibrium, 
+                                            FluidEquilibriumWithB, 
+                                            NumericalFluidEquilibrium,
+)
 from struphy.fields_background.equils import set_defaults
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
@@ -37,6 +40,7 @@ from struphy.particles.parameters import (
     BoundaryParameters,
     LoadingParameters,
     WeightsParameters,
+    SortingParameters,
 )
 from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing import eval_kernels_gc
@@ -70,9 +74,9 @@ class Particles(metaclass=ABCMeta):
         comm_world: Intracomm = None,
         clone_config: CloneConfig = None,
         domain_decomp: tuple = None,
-        mpi_dims_mask: tuple | list = None,
-        boxes_per_dim: tuple | list = None,
-        box_bufsize: float = 5.0,
+        # mpi_dims_mask: tuple | list = None,
+        # boxes_per_dim: tuple | list = None,
+        # box_bufsize: float = 5.0,
         n_cols_diagnostics: int = None,
         n_cols_aux: int = None,
         type: str = "full_f",
@@ -80,6 +84,7 @@ class Particles(metaclass=ABCMeta):
         loading_params: LoadingParameters = None,
         weights_params: WeightsParameters = None,
         boundary_params: BoundaryParameters = None,
+        sorting_params: SortingParameters = None,
         bufsize: float = 0.25,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
@@ -142,6 +147,9 @@ class Particles(metaclass=ABCMeta):
 
         boundary_params : BoundaryParameters
             Parameters for particle boundary conditions.
+            
+        sorting_params : SortingParameters
+            Parameters for particle sorting.
 
         bufsize : float
             Size of buffer (as multiple of total size, default=.25) in markers array.
@@ -199,12 +207,16 @@ class Particles(metaclass=ABCMeta):
 
         if boundary_params is None:
             boundary_params = BoundaryParameters()
+            
+        if sorting_params is None:
+            sorting_params = SortingParameters()
 
         # other parameters
         self._name = name
         self._loading_params = loading_params
         self._weights_params = weights_params
         self._boundary_params = boundary_params
+        self._sorting_params = sorting_params
         self._domain = domain
         self._equil = equil
         self._projected_equil = projected_equil
@@ -221,11 +233,11 @@ class Particles(metaclass=ABCMeta):
             self._Barrier = self.mpi_comm.Barrier
 
         # domain decomposition (MPI) and cell information
-        self._boxes_per_dim = boxes_per_dim
-        self._box_bufsize = box_bufsize
-        self._mpi_dims_mask = mpi_dims_mask
+        self._boxes_per_dim = self.sorting_params.boxes_per_dim
+        self._box_bufsize = self.sorting_params.box_bufsize
+        self._mpi_dims_mask = self.sorting_params.dims_mask
         if domain_decomp is None:
-            self._domain_array, self._nprocs = self._get_domain_decomp(mpi_dims_mask)
+            self._domain_array, self._nprocs = self._get_domain_decomp(self.sorting_params.dims_mask)
         else:
             self._domain_array = domain_decomp[0]
             self._nprocs = domain_decomp[1]
@@ -582,6 +594,11 @@ class Particles(metaclass=ABCMeta):
     def boundary_params(self) -> BoundaryParameters:
         """Parameters for marker loading."""
         return self._boundary_params
+    
+    @property
+    def sorting_params(self) -> SortingParameters:
+        """Parameters for marker sorting."""
+        return self._sorting_params
 
     @property
     def reject_weights(self):
