@@ -124,7 +124,7 @@ class LiteralOptions:
     ]
 
 
-@dataclass
+@dataclass(repr=False)
 class Time(OptionsBase):
     """Set options for time stepping in parameter/launch files.
 
@@ -263,7 +263,7 @@ class DerhamOptions(OptionsBase):
         return all_class_params_are_default(self)
 
 
-@dataclass
+@dataclass(repr=False)
 class FieldsBackground(OptionsBase):
     """Set options for static fluid backgrounds/equilibria in parameter/launch files.
 
@@ -286,11 +286,6 @@ class FieldsBackground(OptionsBase):
 
     def __post_init__(self):
         check_option(self.type, LiteralOptions.BackgroundTypes)
-
-    def __str__(self):
-        for k, v in self.__dict__.items():
-            logger.info(f"{k + ':':<20}{v}")
-        return ""
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)

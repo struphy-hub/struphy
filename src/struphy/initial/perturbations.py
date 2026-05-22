@@ -3,6 +3,7 @@
 
 import logging
 from dataclasses import dataclass
+import copy
 
 import cunumpy as xp
 import scipy
@@ -1063,6 +1064,9 @@ class TorusModesCos(Perturbation):
         given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+        
         if given_in_basis is not None:
             assert "physical" not in given_in_basis
 
