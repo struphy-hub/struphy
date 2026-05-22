@@ -173,19 +173,24 @@ We can now set the particle parameters for the PIC simulation::
         BinningPlot,
         LoadingParameters,
         WeightsParameters,
+        SortingParameters,
+        SavingParameters,
         maxwellians,
         )
 
     loading_params = LoadingParameters(ppc=1000, moments=(0.0, 0.0, 0.0, 3.0, 1.0, 1.0))
     weights_params = WeightsParameters(control_variate=True)
-    model.kinetic_ions.set_markers(loading_params=loading_params,
-                                weights_params=weights_params,
-                                bufsize = 0.4,
-                                )
-    model.kinetic_ions.set_sorting_boxes(boxes_per_dim=(16, 1, 1), do_sort=True) 
+    sorting_params = SortingParameters(boxes_per_dim=(16, 1, 1), do_sort=True)
 
     binplot = BinningPlot(slice='e1_v1', n_bins= (128, 128), ranges= ((0.,1.), (-10.0,10.0)))
-    model.kinetic_ions.set_save_data(binning_plots=(binplot,))
+    saving_params = SavingParameters(binning_plots=(binplot,))
+
+    model.kinetic_ions.set_markers(loading_params=loading_params,
+                                   weights_params=weights_params,
+                                   sorting_params=sorting_params,
+                                   saving_params=saving_params,
+                                   bufsize = 0.4,
+                                   )
 
 Finally, we set the two-stream background::
 

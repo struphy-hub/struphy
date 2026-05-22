@@ -18,6 +18,8 @@ from struphy import (
     Simulation,
     Time,
     WeightsParameters,
+    SortingParameters,
+    SavingParameters,
     domains,
     equils,
     perturbations,
@@ -58,21 +60,18 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
     loading_params = LoadingParameters(ppb=8, loading="tesselation")
     weights_params = WeightsParameters()
     boundary_params = BoundaryParameters()
+    sorting_params = SortingParameters(boxes_per_dim=(nx, 1, 1), dims_maks=(True, False, False),)
+    
+    bin_plot = BinningPlot(slice="e1", n_bins=(32,), ranges=(0.0, 1.0))
+    kd_plot = KernelDensityPlot(pts_e1=plot_pts, pts_e2=1)
+    saving_params = SavingParameters(binning_plots=(bin_plot,), kernel_density_plots=(kd_plot,),)
+
     model.euler_fluid.set_markers(
         loading_params=loading_params,
         weights_params=weights_params,
         boundary_params=boundary_params,
-    )
-    model.euler_fluid.set_sorting_boxes(
-        boxes_per_dim=(nx, 1, 1),
-        dims_maks=(True, False, False),
-    )
-
-    bin_plot = BinningPlot(slice="e1", n_bins=(32,), ranges=(0.0, 1.0))
-    kd_plot = KernelDensityPlot(pts_e1=plot_pts, pts_e2=1)
-    model.euler_fluid.set_save_data(
-        binning_plots=(bin_plot,),
-        kernel_density_plots=(kd_plot,),
+        sorting_params=sorting_params,
+        saving_params=saving_params,
     )
 
     # propagator options

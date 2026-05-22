@@ -268,19 +268,14 @@ class ParticleSpecies(Species):
 
     Methods
     -------
-    set_markers(loading_params, weights_params, boundary_params, bufsize)
-        Configure marker initialization and weight parameters.
-    set_sorting_boxes(do_sort, sorting_frequency, boxes_per_dim, box_bufsize, dims_mask)
-        Configure spatial sorting for memory efficiency and kernel evaluation.
-    set_save_data(n_markers, binning_plots, kernel_density_plots)
-        Configure diagnostic output for particles and distribution functions.
+    set_markers(loading_params, weights_params, boundary_params, sorting_params, saving_params, bufsize)
+        Configure marker initialization and parameters.
 
     Examples
     --------
     >>> electrons = MyParticleSpecies(charge_number=-1, mass_number=1/1836)
     >>> load_params = LoadingParameters(Np=100000)
     >>> electrons.set_markers(loading_params=load_params)
-    >>> electrons.set_sorting_boxes(do_sort=True, sorting_frequency=10)
     """
 
     def set_markers(
