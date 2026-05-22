@@ -65,7 +65,6 @@ class LoadingParameters:
     restart_key : str, optional
         HDF5 dataset key within the 'restart/' folder containing marker array data.
     """
-
     Np: int = None
     ppc: int = None
     ppb: int = 10
@@ -109,7 +108,6 @@ class WeightsParameters:
         Minimum weight threshold. Particles with weights below this value are rejected
         when ``reject_weights`` is True.
     """
-
     control_variate: bool = False
     reject_weights: bool = False
     threshold: float = 0.0
@@ -143,7 +141,6 @@ class BoundaryParameters:
         If any boundary condition is 'noslip', this index specifies the position in the marker array
         where the mean velocity for the noslip condition is stored.
     """
-
     bc: tuple[LiteralOptions.OptsMarkerBC] = ("periodic", "periodic", "periodic")
     bc_refill=None
     bc_sph: tuple[LiteralOptions.OptsRecontructBC] = ("periodic", "periodic", "periodic")
@@ -184,7 +181,6 @@ class SortingParameters:
         True if the dimension is to be used in the domain decomposition (=default for each dimension).
         If dims_mask[i]=False, the i-th dimension will not be decomposed.
     """
-    
     do_sort: bool = False
     sorting_frequency: int = 0
     boxes_per_dim: tuple = (12, 12, 1)
@@ -193,7 +189,6 @@ class SortingParameters:
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_all_stacked__(self)
-
 
 class BinningPlot:
     """Configuration for particle phase-space binning and histogram generation.
@@ -318,3 +313,31 @@ class KernelDensityPlot:
     def n_sph(self) -> xp.ndarray:
         """The evaluated density."""
         return self._n_sph
+
+
+@dataclass
+class SavingParameters:
+    """Configuration for particle data saving strategies and parameters.
+
+    Manages how particle data is saved during simulations, including the frequency of saves,
+    the types of data to save (single markers, full distribution vs. delta-f or kernel evaluations), 
+    and the output formats. Supports flexible control over what particle information is stored and when.
+
+    Parameters
+    ----------
+    n_markers: int | float
+        Number of particles/markers for which to save trajectories.
+        If float and <1.0, then understood as the fraction of the total number of markers.
+
+    binned_data: tuple[BinningPlot]
+        A tuple of BinningPlot objects.
+
+    kernel_density_plots: tuple[KernelDensityPlot]
+        A tuple of KernelDensityPlot objects.
+    """
+    n_markers: int | float = 3
+    binning_plots: tuple[BinningPlot] = ()
+    kernel_density_plots: tuple[KernelDensityPlot] = ()
+    
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_all_stacked__(self)

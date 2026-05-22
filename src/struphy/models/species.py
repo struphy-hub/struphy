@@ -13,6 +13,7 @@ from struphy.particles.parameters import (
     LoadingParameters,
     WeightsParameters,
     SortingParameters,
+    SavingParameters,
 )
 from struphy.physics.physics import ConstantsOfNature, Units
 
@@ -288,6 +289,7 @@ class ParticleSpecies(Species):
         weights_params: WeightsParameters = None,
         boundary_params: BoundaryParameters = None,
         sorting_params: SortingParameters = None,
+        saving_params: SavingParameters = None,
         bufsize: float = 1.0,
     ):
         """Set marker parameters for loading, weight calculation, kernel density reconstruction
@@ -302,6 +304,8 @@ class ParticleSpecies(Species):
         boundary_params : BoundaryParameters
         
         sorting_params : SortingParameters
+        
+        saving_params : SavingParameters
 
         bufsize : float
             Size of buffer (as multiple of total size, default=.25) in markers array.
@@ -319,19 +323,23 @@ class ParticleSpecies(Species):
             
         if sorting_params is None:
             sorting_params = SortingParameters()
+            
+        if saving_params is None:
+            saving_params = SavingParameters()
 
         self.loading_params = loading_params
         self.weights_params = weights_params
         self.boundary_params = boundary_params
         self.sorting_params = sorting_params
+        self.saving_params = saving_params
         self.bufsize = bufsize
         
-        logger.info("\nMarker parameters set:")
-        logger.info("----------------------")
+        logger.info(f"\nMarker parameters for species '{self.__class__.__name__}':")
         logger.info(self.loading_params.__repr_no_defaults__())
         logger.info(self.weights_params.__repr_no_defaults__())
         logger.info(self.boundary_params.__repr_no_defaults__())
         logger.info(self.sorting_params.__repr_no_defaults__())
+        logger.info(self.saving_params.__repr_no_defaults__())
         logger.info(f"Marker array buffer size: {self.bufsize*100:.1f}% of total size")
 
     # def set_sorting_boxes(
@@ -374,29 +382,29 @@ class ParticleSpecies(Species):
     #     self.box_bufsize = box_bufsize
     #     self.dims_mask = dims_maks
 
-    def set_save_data(
-        self,
-        n_markers: int | float = 3,
-        binning_plots: tuple[BinningPlot] = (),
-        kernel_density_plots: tuple[KernelDensityPlot] = (),
-    ):
-        """Set options for saving particle/marker information in parameter/launch files.
+    # def set_save_data(
+    #     self,
+    #     n_markers: int | float = 3,
+    #     binning_plots: tuple[BinningPlot] = (),
+    #     kernel_density_plots: tuple[KernelDensityPlot] = (),
+    # ):
+    #     """Set options for saving particle/marker information in parameter/launch files.
 
-        Parameters
-        ----------
-        n_markers: int | float
-            Number of particles/markers for which to save trajectories.
-            If float and <1.0, then understood as the fraction of the total number of markers.
+    #     Parameters
+    #     ----------
+    #     n_markers: int | float
+    #         Number of particles/markers for which to save trajectories.
+    #         If float and <1.0, then understood as the fraction of the total number of markers.
 
-        binned_data: tuple[BinningPlot]
-            A tuple of BinningPlot objects.
+    #     binned_data: tuple[BinningPlot]
+    #         A tuple of BinningPlot objects.
 
-        kernel_density_plots: tuple[KernelDensityPlot]
-            A tuple of KernelDensityPlot objects.
-        """
-        self.n_markers = n_markers
-        self.binning_plots = binning_plots
-        self.kernel_density_plots = kernel_density_plots
+    #     kernel_density_plots: tuple[KernelDensityPlot]
+    #         A tuple of KernelDensityPlot objects.
+    #     """
+    #     self.n_markers = n_markers
+    #     self.binning_plots = binning_plots
+    #     self.kernel_density_plots = kernel_density_plots
 
 
 class DiagnosticSpecies(Species):

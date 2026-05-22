@@ -1250,7 +1250,7 @@ RESTARTing from:
                 data.add_data({key_mks: var.saved_markers})
 
                 # binning plot data
-                for bin_plot in species.binning_plots:
+                for bin_plot in species.saving_params.binning_plots:
                     # define slice name with binning quantity
                     slice, output_quantity = bin_plot.slice, bin_plot.output_quantity
                     slice = f"{slice}_{output_quantity}"
@@ -1264,7 +1264,7 @@ RESTARTing from:
                     for dim, be in enumerate(bin_plot.bin_edges):
                         file[key_f].attrs["bin_centers" + "_" + str(dim + 1)] = be[:-1] + (be[1] - be[0]) / 2
 
-                for i, kd_plot in enumerate(species.kernel_density_plots):
+                for i, kd_plot in enumerate(species.saving_params.kernel_density_plots):
                     key_n = os.path.join(key_spec, "n_sph", f"view_{i}")
 
                     data.add_data({key_n: kd_plot.n_sph})

@@ -41,6 +41,7 @@ from struphy.particles.parameters import (
     LoadingParameters,
     WeightsParameters,
     SortingParameters,
+    SavingParameters,
 )
 from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing import eval_kernels_gc
@@ -85,6 +86,7 @@ class Particles(metaclass=ABCMeta):
         weights_params: WeightsParameters = None,
         boundary_params: BoundaryParameters = None,
         sorting_params: SortingParameters = None,
+        saving_params: SavingParameters = None,
         bufsize: float = 0.25,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
@@ -151,6 +153,9 @@ class Particles(metaclass=ABCMeta):
         sorting_params : SortingParameters
             Parameters for particle sorting.
 
+        saving_params : SavingParameters
+            Parameters for particle saving.
+
         bufsize : float
             Size of buffer (as multiple of total size, default=.25) in markers array.
 
@@ -211,12 +216,16 @@ class Particles(metaclass=ABCMeta):
         if sorting_params is None:
             sorting_params = SortingParameters()
 
+        if saving_params is None:
+            saving_params = SavingParameters()
+
         # other parameters
         self._name = name
         self._loading_params = loading_params
         self._weights_params = weights_params
         self._boundary_params = boundary_params
         self._sorting_params = sorting_params
+        self._saving_params = saving_params
         self._domain = domain
         self._equil = equil
         self._projected_equil = projected_equil

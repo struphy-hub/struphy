@@ -444,7 +444,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
                         str_dn = f"d{i + 1}"
                         dim_to_int[str_dn] = 3 + obj.vdim + 3 + i
 
-                for bin_plot in species.binning_plots:
+                for bin_plot in species.saving_params.binning_plots:
                     comps = bin_plot.slice.split("_")
                     components = [False] * (3 + obj.vdim + 3 + obj.n_cols_diagnostics)
 
@@ -461,7 +461,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
                     bin_plot.f[:] = f_slice
                     bin_plot.df[:] = df_slice
 
-                for kd_plot in species.kernel_density_plots:
+                for kd_plot in species.saving_params.kernel_density_plots:
                     h1 = 1 / obj.boxes_per_dim[0]
                     h2 = 1 / obj.boxes_per_dim[1]
                     h3 = 1 / obj.boxes_per_dim[2]
@@ -553,6 +553,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
                 particle_params += "weights_params = WeightsParameters()\n"
                 particle_params += "boundary_params = BoundaryParameters()\n"
                 particle_params += "sorting_params = SortingParameters()\n"
+                particle_params += "saving_params = SavingParameters()\n"
                 particle_params += f"model.{sn}.set_markers(loading_params=loading_params,\n"
                 txt = "weights_params=weights_params,\n"
                 particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
@@ -560,9 +561,10 @@ class StruphyModel(metaclass=StruphyModelMeta):
                 particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
                 txt = "sorting_params=sorting_params,\n"
                 particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
+                txt = "saving_params=saving_params,\n"
+                particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
                 txt = ")\n"
                 particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
-                particle_params += f"model.{sn}.set_save_data()\n"
 
             for vn, var in species.variables.items():
                 variables_params += f"model.{sn}.{vn}.save_data = True\n"
@@ -662,6 +664,7 @@ set_logging_level(logging.WARNING)\n""")
     LoadingParameters,
     WeightsParameters,
     SortingParameters,
+    SavingParameters,
     maxwellians,
 )\n""")
 

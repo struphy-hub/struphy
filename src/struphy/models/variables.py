@@ -588,7 +588,7 @@ class PICVariable(Variable):
         self.particles.initialize_weights()
 
         # allocate array for saving markers if not present
-        n_markers = self.species.n_markers
+        n_markers = self.species.saving_params.n_markers
         if isinstance(n_markers, float):
             if n_markers > 1.0:
                 self._n_to_save = int(n_markers)

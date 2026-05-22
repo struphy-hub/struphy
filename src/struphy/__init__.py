@@ -125,6 +125,7 @@ from struphy.api.particles import (
     LoadingParameters,
     WeightsParameters,
     SortingParameters,
+    SavingParameters,
 )
 from struphy.api.perturbations import perturbations
 from struphy.api.post_processing import PlottingData, PostProcessor
@@ -143,6 +144,7 @@ __all__ = [
     "WeightsParameters",
     "BoundaryParameters",
     "SortingParameters",
+    "SavingParameters",
     "BinningPlot",
     "KernelDensityPlot",
     "DerhamOptions",
