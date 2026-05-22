@@ -144,11 +144,6 @@ class Time(OptionsBase):
     def __post_init__(self):
         check_option(self.split_algo, LiteralOptions.SplitAlgos)
 
-    # def __str__(self):
-    #     for k, v in self.__dict__.items():
-    #         logger.info(f"{k + ':':<20}{v}")
-    #     return ""
-
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
 

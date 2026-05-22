@@ -114,7 +114,7 @@ def check_option(opt, *options):
     opts = []
     for o in options:
         opts.extend(get_args(o))
-    if not isinstance(opt, list):
+    if not isinstance(opt, list | tuple):
         opt = [opt]
     for o in opt:
         assert o in opts, f"Option '{o}' is not in {opts}."

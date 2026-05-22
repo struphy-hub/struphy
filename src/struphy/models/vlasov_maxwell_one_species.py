@@ -156,6 +156,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         measure_gauss_law: bool = False,
     ):
 
+        # 0. store input parameters
         self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species

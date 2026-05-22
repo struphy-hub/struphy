@@ -132,6 +132,8 @@ class Simulation(SimulationBase):
         self._setup_domain_and_equil(domain, equil, verbose=verbose)
         self._grid = grid
         self._derham_opts = derham_opts
+        
+        self.show_parameters()
 
         # setup profiling agent
         ProfileManager.setup(
@@ -156,9 +158,11 @@ class Simulation(SimulationBase):
             self.rank = self.comm.Get_rank()
             self.comm_size = self.comm.Get_size()
             self.Barrier = self.comm.Barrier
-
-        self.show_parameters()
-
+        
+        logger.info(f"\nMPI comm: {self.comm}")
+        logger.info(f"MPI size: {self.comm_size} processes")  
+        logger.info(f"MPI rank: {self.rank}")  
+        
         # synchronize MPI processes to set same start time of simulation for all processes
         self.Barrier()
         self.start_time = time.time()
@@ -166,8 +170,6 @@ class Simulation(SimulationBase):
         # check model
         assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
         self.model_name = model.__class__.__name__
-
-        logger.debug(f"Instance of simulation for model {self.model_name} ...")
 
         # meta-data
         path_out = env.path_out
@@ -191,15 +193,8 @@ class Simulation(SimulationBase):
         self.meta["max wall-clock [min]"] = max_runtime
         self.meta["save interval [steps]"] = save_step
 
-        logger.debug("\nMETADATA:")
-        for k, v in self.meta.items():
-            msg = f"{k}:".ljust(25) + f"{v}".rjust(25)
-            logger.debug(msg)
-
         # creating output folders
-        self._setup_folders(
-            verbose=verbose,
-        )
+        self._setup_folders()
 
         # save parameter file
         if self.rank == 0:
@@ -255,8 +250,6 @@ class Simulation(SimulationBase):
 
         self.clone_config = model.clone_config = clone_config
         self.Barrier()
-
-        logger.debug("\n... Done.")
 
     # ----------------
     # Abstract methods
@@ -875,7 +868,7 @@ RESTARTing from:
     # Private methods
     # ---------------
 
-    def _setup_folders(self, verbose: bool = False):
+    def _setup_folders(self):
         """
         Setup output folders.
         """
@@ -883,14 +876,12 @@ RESTARTing from:
             # create output folder if it does not exit
             if not os.path.exists(self.env.path_out):
                 os.makedirs(self.env.path_out, exist_ok=True)
-                if verbose:
-                    logger.info("Created folder " + self.env.path_out)
+                logger.debug("Created folder " + self.env.path_out)
 
             # create data folder in output folder if it does not exist
             if not os.path.exists(os.path.join(self.env.path_out, "data/")):
                 os.mkdir(os.path.join(self.env.path_out, "data/"))
-                if verbose:
-                    logger.info("Created folder " + os.path.join(self.env.path_out, "data/"))
+                logger.debug("Created folder " + os.path.join(self.env.path_out, "data/"))
 
     def _remove_existing_output_files(self, verbose: bool = False):
         """Removes post_processing/, meta.txt and profile_tmp.

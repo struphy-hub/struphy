@@ -317,6 +317,12 @@ class ParticleSpecies(Species):
         self.weights_params = weights_params
         self.boundary_params = boundary_params
         self.bufsize = bufsize
+        
+        logger.info("\nMarker parameters set:")
+        logger.info(self.loading_params.__repr_no_defaults__())
+        logger.info(self.weights_params.__repr_no_defaults__())
+        logger.info(self.boundary_params.__repr_no_defaults__())
+        logger.info(f"Marker array buffer size: {self.bufsize*100:.1f}% of total size")
 
     def set_sorting_boxes(
         self,

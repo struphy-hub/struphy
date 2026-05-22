@@ -1,9 +1,12 @@
 import cunumpy as xp
+from dataclasses import dataclass
 
 from struphy.io.options import LiteralOptions
 from struphy.utils.utils import check_option
+from struphy.utils.utils import __dataclass_repr_all_stacked__
 
 
+@dataclass
 class LoadingParameters:
     """Configuration for particle (marker) loading strategies and data sources.
 
@@ -63,39 +66,30 @@ class LoadingParameters:
         HDF5 dataset key within the 'restart/' folder containing marker array data.
     """
 
-    def __init__(
-        self,
-        Np: int = None,
-        ppc: int = None,
-        ppb: int = 10,
-        loading: LiteralOptions.OptsLoading = "pseudo_random",
-        seed: int = None,
-        moments: tuple = None,
-        spatial: LiteralOptions.OptsSpatialLoading = "uniform",
-        specific_markers: tuple[tuple] = None,
-        set_zero_velocity: tuple[bool] = (False, False, False),
-        n_quad: int = 1,
-        dir_exrernal: str = None,
-        dir_particles: str = None,
-        dir_particles_abs: str = None,
-        restart_key: str = None,
-    ):
-        self.Np = Np
-        self.ppc = ppc
-        self.ppb = ppb
-        self.loading = loading
-        self.seed = seed
-        self.moments = moments
-        self.spatial = spatial
-        self.specific_markers = specific_markers
-        self.set_zero_velocity = set_zero_velocity
-        self.n_quad = n_quad
-        self.dir_external = dir_exrernal
-        self.dir_particles = dir_particles
-        self.dir_particles_abs = dir_particles_abs
-        self.restart_key = restart_key
+    Np: int = None
+    ppc: int = None
+    ppb: int = 10
+    loading: LiteralOptions.OptsLoading = "pseudo_random"
+    seed: int = None
+    moments: tuple = None
+    spatial: LiteralOptions.OptsSpatialLoading = "uniform"
+    specific_markers: tuple[tuple] = None
+    set_zero_velocity: tuple[bool] = (False, False, False)
+    n_quad: int = 1
+    dir_exrernal: str = None
+    dir_particles: str = None
+    dir_particles_abs: str = None
+    restart_key: str = None
+    
+    def __post_init__(self):
+        check_option(self.loading, LiteralOptions.OptsLoading)
+        check_option(self.spatial, LiteralOptions.OptsSpatialLoading)
+        
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_all_stacked__(self)
 
 
+@dataclass
 class WeightsParameters:
     """Configuration for particle weight handling and variance reduction.
 
@@ -116,17 +110,14 @@ class WeightsParameters:
         when ``reject_weights`` is True.
     """
 
-    def __init__(
-        self,
-        control_variate: bool = False,
-        reject_weights: bool = False,
-        threshold: float = 0.0,
-    ):
-        self.control_variate = control_variate
-        self.reject_weights = reject_weights
-        self.threshold = threshold
+    control_variate: bool = False
+    reject_weights: bool = False
+    threshold: float = 0.0
 
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_all_stacked__(self)
 
+@dataclass
 class BoundaryParameters:
     """Configuration for boundary conditions applied to particles and kernel reconstructions.
 
@@ -153,18 +144,17 @@ class BoundaryParameters:
         where the mean velocity for the noslip condition is stored.
     """
 
-    def __init__(
-        self,
-        bc: tuple[LiteralOptions.OptsMarkerBC] = ("periodic", "periodic", "periodic"),
-        bc_refill=None,
-        bc_sph: tuple[LiteralOptions.OptsRecontructBC] = ("periodic", "periodic", "periodic"),
-        mean_velocity_index: int | None = None,
-    ):
-        self.bc = bc
-        self.bc_refill = bc_refill
-        self.bc_sph = bc_sph
-        self.mean_velocity_index = mean_velocity_index
+    bc: tuple[LiteralOptions.OptsMarkerBC] = ("periodic", "periodic", "periodic")
+    bc_refill=None
+    bc_sph: tuple[LiteralOptions.OptsRecontructBC] = ("periodic", "periodic", "periodic")
+    mean_velocity_index: int | None = None
 
+    def __post_init__(self):
+        check_option(self.bc, LiteralOptions.OptsMarkerBC)
+        check_option(self.bc_sph, LiteralOptions.OptsRecontructBC)
+        
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_all_stacked__(self)
 
 class BinningPlot:
     """Configuration for particle phase-space binning and histogram generation.
