@@ -1,12 +1,16 @@
+import logging
 from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
 from line_profiler import profile
 
+from struphy.io.options import OptionsBase
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
+
+logger = logging.getLogger("struphy")
 
 
 class TimeDependentSource(Propagator):
@@ -50,8 +54,8 @@ class TimeDependentSource(Propagator):
     def __init__(self):
         self.variables = self.Variables()
 
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Configuration options for :class:`TimeDependentSource`.
 
         Parameters
@@ -82,6 +86,7 @@ class TimeDependentSource(Propagator):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
     def allocate(self, verbose: bool = False):

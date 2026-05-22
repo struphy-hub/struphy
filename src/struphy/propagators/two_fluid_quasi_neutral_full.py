@@ -11,7 +11,7 @@ from feectools.linalg.solvers import inverse
 
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import L2Projector, WeightedMassOperators
-from struphy.io.options import LiteralOptions
+from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
@@ -94,8 +94,8 @@ class TwoFluidQuasiNeutralFull(Propagator):
     ### Options
     # =========================================================================
 
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Configuration options for :class:`TwoFluidQuasiNeutralFull`.
 
         Parameters
@@ -174,6 +174,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             for k, v in new.__dict__.items():
                 logger.info(f"  {k}: {v}")
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     # =========================================================================
     ### Boundary condition helpers
