@@ -817,7 +817,7 @@ class SPHVariable(Variable):
         self.particles.initialize_weights()
 
         # allocate array for saving markers if not present
-        n_markers = self.species.n_markers
+        n_markers = self.species.saving_params.n_markers
         if isinstance(n_markers, float):
             if n_markers > 1.0:
                 self._n_to_save = int(n_markers)
@@ -827,7 +827,7 @@ class SPHVariable(Variable):
             self._n_to_save = n_markers
 
         assert self._n_to_save <= self.particles.Np, (
-            f"The number of markers for which data should be stored (={self._n_to_save}) murst be <= than the total number of markers (={self.particles.Np})"
+            f"The number of markers for which data should be stored (={self._n_to_save}) must be <= than the total number of markers (={self.particles.Np})"
         )
         if self._n_to_save > 0:
             self._saved_markers = xp.zeros(

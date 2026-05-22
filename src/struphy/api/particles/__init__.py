@@ -3,9 +3,9 @@ from struphy.particles.parameters import (
     BoundaryParameters,
     KernelDensityPlot,
     LoadingParameters,
-    WeightsParameters,
-    SortingParameters,
     SavingParameters,
+    SortingParameters,
+    WeightsParameters,
 )
 
 __all__ = [
