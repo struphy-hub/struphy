@@ -2950,7 +2950,7 @@ class AverageOperator(LinOpWithTransp):
         transposed: bool = False,
     ):
 
-        if not space in derham.space_to_form:
+        if space not in derham.space_to_form:
             AssertionError("Must match a space of the derham complex")
         if space != "H1":
             NotImplementedError()
