@@ -343,7 +343,7 @@ class ParticleSpecies(Species):
     #     sorting_frequency: int = 0,
     #     boxes_per_dim: tuple = (12, 12, 1),
     #     box_bufsize: float = 2.0,
-    #     dims_maks: tuple = (True, True, True),
+    #     dims_mask: tuple = (True, True, True),
     # ):
     #     """Set options for sorting particles/markers in parameter/launch files.
     #     The sorting boxes are used to sort particles in memory and for SPH kernel evaluations.
@@ -375,7 +375,7 @@ class ParticleSpecies(Species):
     #     self.sorting_fequency = sorting_frequency
     #     self.boxes_per_dim = boxes_per_dim
     #     self.box_bufsize = box_bufsize
-    #     self.dims_mask = dims_maks
+    #     self.dims_mask = dims_mask
 
     # def set_save_data(
     #     self,

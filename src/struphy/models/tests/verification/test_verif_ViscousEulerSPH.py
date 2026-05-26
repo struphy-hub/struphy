@@ -62,7 +62,7 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
     boundary_params = BoundaryParameters()
     sorting_params = SortingParameters(
         boxes_per_dim=(nx, 1, 1),
-        dims_maks=(True, False, False),
+        dims_mask=(True, False, False),
     )
 
     bin_plot = BinningPlot(slice="e1", n_bins=(32,), ranges=(0.0, 1.0))
