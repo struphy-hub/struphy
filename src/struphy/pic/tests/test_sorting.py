@@ -5,7 +5,7 @@ import cunumpy as xp
 import pytest
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
+from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, SortingParameters, domains
 from struphy.feec.psydac_derham import Derham
 from struphy.io.options import DerhamOptions
 from struphy.pic.particles import Particles6D
@@ -126,11 +126,13 @@ def test_sorting(num_elements, degree, bcs, mapping, Np, verbose=False):
     loading_params = LoadingParameters(Np=Np, seed=1607, moments=(0.0, 0.0, 0.0, 1.0, 2.0, 3.0), spatial="uniform")
     boxes_per_dim = (3, 3, 6)
 
+    sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim)
+
     particles = Particles6D(
         comm_world=mpi_comm,
         loading_params=loading_params,
         domain_decomp=domain_decomp,
-        boxes_per_dim=boxes_per_dim,
+        sorting_params=sorting_params,
     )
 
     particles.draw_markers(sort=False)
