@@ -16,24 +16,7 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class PressureLessSPH(StruphyModel):
-    r"""Pressureless fluid discretized with smoothed particle hydrodynamics
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        &\partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 \,,
-        \\[4mm]
-        &\partial_t (\rho \mathbf u) + \nabla \cdot (\rho \mathbf u \otimes \mathbf u) = - \nabla \phi_0 \,,
-
-    where :math:`\phi_0` is a static external potential.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.push_eta.PushEta`
-
-    This is discretized by particles going in straight lines.
-    """
+    r"""Pressureless fluid discretized with smoothed particle hydrodynamics (SPH)."""
 
     @classmethod
     def model_type(cls) -> LiteralOptions.ModelTypes:
@@ -138,11 +121,11 @@ class PressureLessSPH(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. push_eta.PushEta:**
+        doc = rf"""**1. PushEta:**
 
     {PushEta.__doc__}
 
-    **2. push_vin_efield.PushVinEfield:**
+    **2. PushVinEfield:**
 
     {PushVinEfield.__doc__}
 """
