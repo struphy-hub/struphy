@@ -6,7 +6,7 @@ import pytest
 from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 
-from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, SortingParameters, domains, perturbations
+from struphy import BoundaryParameters, LoadingParameters, SortingParameters, WeightsParameters, domains, perturbations
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.equils import ConstantVelocity
 from struphy.pic.particles import ParticlesSPH
@@ -91,7 +91,7 @@ def test_cell_average(ppb, nx, ny, nz, n_quad, show_plot=False):
     boxes_per_dim = (nx, ny, nz)
     loading_params = LoadingParameters(ppb=ppb, loading="tesselation", n_quad=n_quad)
     bufsize = 0.5
-    
+
     sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim)
 
     background = ConstantVelocity(n=1.0, ux=0.0, uy=0.0, uz=0.0, density_profile="constant")

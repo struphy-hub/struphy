@@ -5,7 +5,7 @@ import cunumpy as xp
 import pytest
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, SortingParameters, domains
+from struphy import BoundaryParameters, LoadingParameters, SortingParameters, WeightsParameters, domains
 from struphy.feec.psydac_derham import Derham
 from struphy.io.options import DerhamOptions
 from struphy.pic.particles import Particles6D

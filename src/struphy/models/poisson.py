@@ -21,29 +21,6 @@ rank = MPI.COMM_WORLD.Get_rank()
 class Poisson(StruphyModel):
     r"""Weak discretization of Poisson's equation with diffusion matrix, stabilization
     and time-depedent right-hand side.
-
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat D = \frac{\hat n}{\hat x^2}\,,\qquad \hat \rho = \hat n \,.
-
-    :ref:`Equations <gempic>`: Find :math:`\phi \in H^1` such that
-
-    .. math::
-
-        - \nabla \cdot D_0(\mathbf x) \nabla \phi + n_0(\mathbf x) \phi =  \rho(t, \mathbf x)\,,
-
-    where :math:`n_0, \rho(t):\Omega \to \mathbb R` are real-valued functions, :math:`\rho(t)` parametrized with time :math:`t`,
-    and :math:`D_0:\Omega \to \mathbb R^{3\times 3}` is a positive matrix.
-    Boundary terms from integration by parts are assumed to vanish.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.time_dependent_source.TimeDependentSource`
-    2. :class:`~struphy.propagators.implicit_diffusion.ImplicitDiffusion`
-
-    :ref:`Model info <add_model>`:
     """
 
     @classmethod
@@ -109,8 +86,7 @@ class Poisson(StruphyModel):
 
             -\nabla \cdot D_0(\mathbf{x}) \nabla \phi + n_0(\mathbf{x}) \phi = \rho(t, \mathbf{x})
 
-        where :math:`n_0, \rho(t) : \Omega \to \mathbb{R}` are real-valued functions, :math:`\rho(t)` is
-        parametrized by time :math:`t`, and :math:`D_0 : \Omega \to \mathbb{R}^{3 \times 3}` is a positive matrix.
+        where :math:`n_0, \rho(t) : \Omega \to \mathbb{R}` are real-valued functions, :math:`\rho(t)` is parametrized by time :math:`t`, and :math:`D_0 : \Omega \to \mathbb{R}^{3 \times 3}` is a positive matrix.
         Boundary terms from integration by parts are assumed to vanish.
         """
 
