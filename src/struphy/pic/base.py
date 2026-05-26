@@ -1176,46 +1176,41 @@ class Particles(metaclass=ABCMeta):
         each process would get 8 boxes in the first direction.
         Hence boxes_per_dim has to be divisible by the number of ranks in each direction.
         """
+        # split boxes across MPI processes
+        nboxes = [nboxes // nproc for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]
 
-        self._initialized_sorting = False
-        if all([bpd == 1 for bpd in self.boxes_per_dim]):
-            self._sorting_boxes = None
-        else:
-            # split boxes across MPI processes
-            nboxes = [nboxes // nproc for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]
+        # check whether this process touches the domain boundary
+        is_domain_boundary = {}
+        x_l = self.domain_array[self.mpi_rank, 0]
+        x_r = self.domain_array[self.mpi_rank, 1]
+        y_l = self.domain_array[self.mpi_rank, 3]
+        y_r = self.domain_array[self.mpi_rank, 4]
+        z_l = self.domain_array[self.mpi_rank, 6]
+        z_r = self.domain_array[self.mpi_rank, 7]
+        is_domain_boundary["x_m"] = x_l == 0.0
+        is_domain_boundary["x_p"] = x_r == 1.0
+        is_domain_boundary["y_m"] = y_l == 0.0
+        is_domain_boundary["y_p"] = y_r == 1.0
+        is_domain_boundary["z_m"] = z_l == 0.0
+        is_domain_boundary["z_p"] = z_r == 1.0
 
-            # check whether this process touches the domain boundary
-            is_domain_boundary = {}
-            x_l = self.domain_array[self.mpi_rank, 0]
-            x_r = self.domain_array[self.mpi_rank, 1]
-            y_l = self.domain_array[self.mpi_rank, 3]
-            y_r = self.domain_array[self.mpi_rank, 4]
-            z_l = self.domain_array[self.mpi_rank, 6]
-            z_r = self.domain_array[self.mpi_rank, 7]
-            is_domain_boundary["x_m"] = x_l == 0.0
-            is_domain_boundary["x_p"] = x_r == 1.0
-            is_domain_boundary["y_m"] = y_l == 0.0
-            is_domain_boundary["y_p"] = y_r == 1.0
-            is_domain_boundary["z_m"] = z_l == 0.0
-            is_domain_boundary["z_p"] = z_r == 1.0
+        self._sorting_boxes = self.SortingBoxes(
+            self.markers.shape,
+            self.type == "sph",
+            nx=nboxes[0],
+            ny=nboxes[1],
+            nz=nboxes[2],
+            bc_sph=self.bc_sph,
+            is_domain_boundary=is_domain_boundary,
+            comm=self.mpi_comm,
+            verbose=False,
+            box_bufsize=self._box_bufsize,
+        )
 
-            self._sorting_boxes = self.SortingBoxes(
-                self.markers.shape,
-                self.type == "sph",
-                nx=nboxes[0],
-                ny=nboxes[1],
-                nz=nboxes[2],
-                bc_sph=self.bc_sph,
-                is_domain_boundary=is_domain_boundary,
-                comm=self.mpi_comm,
-                verbose=False,
-                box_bufsize=self._box_bufsize,
-            )
+        if self.sorting_boxes.communicate:
+            self._get_neighbouring_proc()
 
-            if self.sorting_boxes.communicate:
-                self._get_neighbouring_proc()
-
-            self._initialized_sorting = True
+        self._initialized_sorting = True
 
     def _generate_sampling_moments(self):
         """Automatically determine moments for sampling distribution (Gaussian) from the given background."""
