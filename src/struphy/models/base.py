@@ -325,7 +325,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
             val = scalar.value[0]
             assert not xp.isnan(val), f"Scalar {key} is {val}."
             sq_str += f"{key}:".ljust(25) + "{:4.2e}\n".format(val).rjust(26)
-        logger.info(sq_str)
+        print(sq_str)
 
     def setup_equation_params(self, base_units: BaseUnits, verbose=False):
         """Compute units and set equation parameters for each fluid and kinetic species."""

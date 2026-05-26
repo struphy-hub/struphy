@@ -205,8 +205,7 @@ class ImplicitDiffusion(Propagator):
         # always stabilize
         if xp.abs(self.options.sigma_1) < 1e-14:
             self.options.sigma_1 = 1e-14
-            if MPI.COMM_WORLD.Get_rank() == 0:
-                logger.info(f"Stabilizing Poisson solve with {self.options.sigma_1 =}")
+            logger.warning(f"Stabilizing Poisson solve with {self.options.sigma_1 =}")
 
         # model parameters
         self._sigma_1 = self.options.sigma_1

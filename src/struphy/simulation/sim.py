@@ -313,7 +313,6 @@ class Simulation(SimulationBase):
 
         # allocate model variables
         self._allocate_variables(verbose=verbose)
-        exit()
 
         # pass info to propagators
         self._allocate_propagators(verbose=verbose)
@@ -559,11 +558,10 @@ RESTARTing from:
         # ======================== main time loop ======================
         self.model.update_scalar_quantities()
 
-        logger.info("\nINITIAL SCALAR QUANTITIES:")
-
-        self.model.print_scalar_quantities()
-
-        logger.info(f"\nSTART TIME STEPPING WITH '{split_algo}' SPLITTING:")
+        if logger.level <= 20 and self.rank == 0:
+            print("\nINITIAL SCALAR QUANTITIES:")
+            self.model.print_scalar_quantities()
+            print(f"START TIME STEPPING WITH '{split_algo}' SPLITTING:")
 
         # time loop
         run_time_now = 0.0
@@ -649,8 +647,9 @@ RESTARTing from:
                 message += "\n" + "wall clock time [s]:".ljust(25) + "{0:8.4f}".format(run_time_now * 60).rjust(25)
                 message += "\n" + "last step duration [s]:".ljust(25) + "{0:8.4f}".format(t1 - t0).rjust(25)
 
-                logger.info(message)
-                self.model.print_scalar_quantities()
+                logger.debug(message)
+                if logger.level <= 10 and self.rank == 0:
+                    self.model.print_scalar_quantities()
 
         # ===================================================================
 
@@ -1140,8 +1139,7 @@ RESTARTing from:
         for prop in self.model.prop_list:
             assert isinstance(prop, Propagator)
             prop.allocate(verbose=verbose)
-            if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-                logger.info(f"\nAllocated propagator '{prop.__class__.__name__}'.")
+            logger.debug(f"\nAllocated propagator '{prop.__class__.__name__}'.")
 
     @profile
     def _initialize_hdf5_datasets(self, data: DataContainer, size, verbose: bool = False):

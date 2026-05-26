@@ -2251,7 +2251,7 @@ class SplineFunction:
         # dimensions in each direction
         self._nbasis = derham.spline_attributes[space_id].nbasis
 
-        logger.info(f"\nAllocated SplineFuntion '{self.name}' in space '{self.space_id}'.")
+        logger.debug(f"\nAllocated SplineFuntion '{self.name}' in space '{self.space_id}'.")
 
         if self.backgrounds is not None or self.perturbations is not None:
             self.initialize_coeffs(domain=self.domain, equil=self.equil, verbose=verbose)
@@ -2469,14 +2469,13 @@ class SplineFunction:
         self._vector *= 0.0
 
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info(f"Initializing {self.name} ...")
+            logger.debug(f"Initializing {self.name} ...")
 
         # add backgrounds to initial vector
         if self.backgrounds is not None:
             for fb in self.backgrounds:
                 assert isinstance(fb, FieldsBackground)
-                if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-                    logger.info(f"Adding background {fb} ...")
+                logger.debug(f"Adding background {fb} ...")
 
                 # special case of const
                 if fb.type == "LogicalConst":
@@ -2530,8 +2529,7 @@ class SplineFunction:
         # add perturbations to coefficient vector
         if self.perturbations is not None:
             for ptb in self.perturbations:
-                if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-                    logger.info(f"Adding perturbation {ptb} ...")
+                logger.debug(f"Adding perturbation {ptb} ...")
 
                 # special case of white noise in logical space for different components
                 if isinstance(ptb, Noise):
