@@ -160,7 +160,7 @@ class Simulation(SimulationBase):
         logger.info(f"\nMPI comm: {self.comm}")
         logger.info(f"MPI size: {self.comm_size} processes")
         logger.info(f"MPI rank: {self.rank}")
-        
+
         if logger.level <= 20 and self.rank == 0:
             self.show_parameters()
 

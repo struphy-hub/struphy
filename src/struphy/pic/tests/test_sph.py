@@ -852,7 +852,10 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
 
     # boundary conditions
     boundary_params = BoundaryParameters(bc_sph=(bc_x, bc_y, "periodic"))
-    sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim, box_bufsize=4.0,)
+    sorting_params = SortingParameters(
+        boxes_per_dim=boxes_per_dim,
+        box_bufsize=4.0,
+    )
 
     err_vec = []
     for Np, ppb in zip(Nps, ppbs):
@@ -986,7 +989,10 @@ def test_sph_velocity_evaluation(
     background.domain = domain
 
     boundary_params = BoundaryParameters(bc_sph=(bc_x, "periodic", "periodic"))
-    sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim, box_bufsize=4.0,)
+    sorting_params = SortingParameters(
+        boxes_per_dim=boxes_per_dim,
+        box_bufsize=4.0,
+    )
 
     particles = ParticlesSPH(
         comm_world=comm,
@@ -1175,7 +1181,10 @@ def test_sph_velocity_evaluation_2d(
     background.domain = domain
 
     boundary_params = BoundaryParameters(bc_sph=(bc_x, bc_y, "periodic"))
-    sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim, box_bufsize=4.0,)
+    sorting_params = SortingParameters(
+        boxes_per_dim=boxes_per_dim,
+        box_bufsize=4.0,
+    )
 
     verbose = False
 
@@ -1421,7 +1430,10 @@ def test_sph_viscosity_evaluation_2d(
     background.domain = domain
 
     boundary_params = BoundaryParameters(bc_sph=(bc_x, bc_y, "periodic"))
-    sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim, box_bufsize=4.0,)
+    sorting_params = SortingParameters(
+        boxes_per_dim=boxes_per_dim,
+        box_bufsize=4.0,
+    )
 
     verbose = False
 
@@ -1820,17 +1832,26 @@ def test_sph_no_slip_boundary_1d(
         kernel = "gaussian_1d"
         boxes_per_dim = (12, 1, 1)
         boundary_params = BoundaryParameters(bc_sph=("noslip", "periodic", "periodic"))
-        sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim, box_bufsize=2.0,)
+        sorting_params = SortingParameters(
+            boxes_per_dim=boxes_per_dim,
+            box_bufsize=2.0,
+        )
     elif direction == "y":
         kernel = "gaussian_2d"
         boxes_per_dim = (1, 12, 1)
         boundary_params = BoundaryParameters(bc_sph=("periodic", "noslip", "periodic"))
-        sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim, box_bufsize=2.0,)
+        sorting_params = SortingParameters(
+            boxes_per_dim=boxes_per_dim,
+            box_bufsize=2.0,
+        )
     else:
         kernel = "gaussian_3d"
         boxes_per_dim = (1, 1, 12)
         boundary_params = BoundaryParameters(bc_sph=("periodic", "periodic", "noslip"))
-        sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim, box_bufsize=2.0,)
+        sorting_params = SortingParameters(
+            boxes_per_dim=boxes_per_dim,
+            box_bufsize=2.0,
+        )
 
     particles = ParticlesSPH(
         comm_world=comm,

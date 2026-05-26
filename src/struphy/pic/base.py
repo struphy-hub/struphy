@@ -1215,7 +1215,7 @@ class Particles(metaclass=ABCMeta):
             if self.sorting_boxes.communicate:
                 self._get_neighbouring_proc()
 
-            self._initialized_sorting = True    
+            self._initialized_sorting = True
 
     def _generate_sampling_moments(self):
         """Automatically determine moments for sampling distribution (Gaussian) from the given background."""

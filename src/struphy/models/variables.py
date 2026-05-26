@@ -519,9 +519,7 @@ class PICVariable(Variable):
         )
 
     def show_initial_condition(self):
-        print(
-            f"\nInitial condition for variable '{self.__name__}' of species '{self.species.__class__.__name__}':"
-        )
+        print(f"\nInitial condition for variable '{self.__name__}' of species '{self.species.__class__.__name__}':")
         if self.initial_condition is not None:
             print(self.initial_condition)
         else:
