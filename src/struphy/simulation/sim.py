@@ -133,8 +133,6 @@ class Simulation(SimulationBase):
         self._grid = grid
         self._derham_opts = derham_opts
 
-        self.show_parameters()
-
         # setup profiling agent
         ProfileManager.setup(
             profiling_activated=env.profiling_activated,
@@ -162,6 +160,9 @@ class Simulation(SimulationBase):
         logger.info(f"\nMPI comm: {self.comm}")
         logger.info(f"MPI size: {self.comm_size} processes")
         logger.info(f"MPI rank: {self.rank}")
+        
+        if logger.level <= 20 and self.rank == 0:
+            self.show_parameters()
 
         # synchronize MPI processes to set same start time of simulation for all processes
         self.Barrier()
@@ -260,20 +261,42 @@ class Simulation(SimulationBase):
 
         Only the MPI rank 0 prints to avoid clutter from multiple processes.
         """
-        logger.info(f"\nNew instance of Simulation from file\n{self.params_path}\n")
-        logger.info(self.model)
-        logger.info("")
-        logger.info(self.env)
-        logger.info("")
-        logger.info(self.time_opts)
-        logger.info("")
-        logger.info(self.domain)
-        logger.info("")
-        logger.info(self.equil)
-        logger.info("")
-        logger.info(self.grid)
-        logger.info("")
-        logger.info(self.derham_opts)
+        print(f"\nNew instance of Simulation from file\n{self.params_path}\n")
+        print(self.model)
+        print("")
+        print(self.env)
+        print("")
+        print(self.time_opts)
+        print("")
+        print(self.domain)
+        print("")
+        print(self.equil)
+        print("")
+        print(self.grid)
+        print("")
+        print(self.derham_opts)
+
+    def show_propagator_options(self):
+        # Display propagator options and intial conditions:
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print("\nPROPAGATOR OPTIONS:")
+            for prop in self.model.prop_list:
+                assert isinstance(prop, Propagator)
+                print(prop)
+
+    def show_initial_conditions(self):
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print("\nINITIAL CONDITIONS:")
+            for species in self.model.species.values():
+                assert isinstance(species, Species)
+                for variable in species.variables.values():
+                    if isinstance(variable, FEECVariable) or isinstance(variable, SPHVariable):
+                        variable.show_backgrounds()
+                        variable.show_perturbations()
+                    elif isinstance(variable, PICVariable):
+                        variable.show_backgrounds()
+                        variable.show_perturbations()
+                        variable.show_initial_condition()
 
     def allocate(self, verbose: bool = False):
         """Allocate FEEC structures, model variables and propagators.
@@ -283,14 +306,14 @@ class Simulation(SimulationBase):
         propagators. Prints progress on MPI rank 0.
         """
 
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("\nAllocating simulation data ...")
+        logger.debug("\nAllocating simulation data ...")
 
         # feec
         self._allocate_feec(self.grid, self.derham_opts, verbose=verbose)
 
         # allocate model variables
         self._allocate_variables(verbose=verbose)
+        exit()
 
         # pass info to propagators
         self._allocate_propagators(verbose=verbose)
@@ -298,8 +321,7 @@ class Simulation(SimulationBase):
         # allocate helper fields and perform initial solves if needed
         self.model.allocate_helpers(verbose=verbose)
 
-        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-            logger.info("... Done.")
+        logger.debug("... Done.")
 
     def save_geometry_and_equil_vtk(self, verbose: bool = False):
         """Write a VTK file with geometry and (projected) equilibrium fields.
@@ -468,32 +490,13 @@ class Simulation(SimulationBase):
             If True, print additional runtime information.
         """
 
-        logger.warning(f"\nStarting simulation run for model {self.model_name} ...")
+        logger.warning(f"\nStarting run for model {self.model_name} ...")
         if self.name != "":
             logger.info(f"Simulation name: {self.name}")
         if self.description != "":
             logger.info(f"Description: {self.description}")
 
         self._remove_existing_output_files(verbose=verbose)
-
-        # Display propagator options and intial conditions:
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("\nPROPAGATOR OPTIONS:")
-            for prop in self.model.prop_list:
-                assert isinstance(prop, Propagator)
-                prop.show_options()
-
-            logger.info("\nINITIAL CONDITIONS:")
-            for species in self.model.species.values():
-                assert isinstance(species, Species)
-                for variable in species.variables.values():
-                    if isinstance(variable, FEECVariable) or isinstance(variable, SPHVariable):
-                        variable.show_backgrounds()
-                        variable.show_perturbations()
-                    elif isinstance(variable, PICVariable):
-                        variable.show_backgrounds()
-                        variable.show_perturbations()
-                        variable.show_initial_condition()
 
         if not self.env.restart:
             # equation paramters
@@ -510,11 +513,11 @@ class Simulation(SimulationBase):
 
         # print info on mpi procs
         if self.rank < 32:
-            logger.info("")
-            logger.info(f"Rank {self.rank}: executing run() for model {self.model_name} ...")
+            logger.debug("")
+            logger.debug(f"Rank {self.rank}: executing run() for model {self.model_name} ...")
 
         if self.comm_size > 32 and self.rank == 32:
-            logger.info(f"Ranks > 31: executing run() for model {self.model_name} ...")
+            logger.debug(f"Ranks > 31: executing run() for model {self.model_name} ...")
 
         # retrieve time parameters
         dt = self.time_opts.dt
@@ -983,8 +986,7 @@ RESTARTing from:
             derham_comm = self.clone_config.sub_comm
 
         if grid is None or derham_opts is None:
-            if MPI.COMM_WORLD.Get_rank() == 0:
-                logger.info(f"\n{grid=}, {derham_opts=}: no Derham object set up.")
+            logger.debug(f"\n{grid=}, {derham_opts=}: no Derham object set up.")
             self._derham = None
         else:
             self._derham = Derham(

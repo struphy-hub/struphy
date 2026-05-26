@@ -141,26 +141,26 @@ class Variable(metaclass=ABCMeta):
         )
 
     def show_backgrounds(self):
-        logger.info(f"\nBackgrounds for variable '{self.__name__}' of species '{self.species.__class__.__name__}':")
+        print(f"\nBackgrounds for variable '{self.__name__}' of species '{self.species.__class__.__name__}':")
         if self.backgrounds is not None:
             if isinstance(self.backgrounds, list):
                 for background in self.backgrounds:
-                    logger.info(background)
+                    print(background)
             else:
-                logger.info(self.backgrounds)
+                print(self.backgrounds)
         else:
-            logger.info("None.")
+            print("None.")
 
     def show_perturbations(self):
-        logger.info(f"\nPerturbations for variable '{self.__name__}' of species '{self.species.__class__.__name__}':")
+        print(f"\nPerturbations for variable '{self.__name__}' of species '{self.species.__class__.__name__}':")
         if self.perturbations is not None:
             if isinstance(self.perturbations, list):
                 for perturbation in self.perturbations:
-                    logger.info(perturbation)
+                    print(perturbation)
             else:
-                logger.info(self.perturbations)
+                print(self.perturbations)
         else:
-            logger.info("None.")
+            print("None.")
 
 
 class FEECVariable(Variable):
@@ -519,13 +519,13 @@ class PICVariable(Variable):
         )
 
     def show_initial_condition(self):
-        logger.info(
+        print(
             f"\nInitial condition for variable '{self.__name__}' of species '{self.species.__class__.__name__}':"
         )
         if self.initial_condition is not None:
-            logger.info(self.initial_condition)
+            print(self.initial_condition)
         else:
-            logger.info("Same as background.")
+            print("Same as background.")
 
     @property
     def initial_condition(self) -> KineticBackground:
@@ -752,12 +752,12 @@ class SPHVariable(Variable):
             )
 
     def show_perturbations(self):
-        logger.info(f"Perturbations for variable '{self.__name__}' of species '{self.species.__class__.__name__}':")
+        print(f"Perturbations for variable '{self.__name__}' of species '{self.species.__class__.__name__}':")
         if self.perturbations is not None:
             for key, perturbation in self.perturbations.items():
-                logger.info(perturbation)
+                print(perturbation)
         else:
-            logger.info("None.")
+            print("None.")
 
     @property
     def perturbations(self) -> dict[str, Perturbation]:
