@@ -126,16 +126,6 @@ class Particles(metaclass=ABCMeta):
             The first entry is a domain_array (see :attr:`~struphy.feec.psydac_derham.Derham.domain_array`) and
             the second entry is the number of MPI processes in each direction.
 
-        mpi_dims_mask: tuple[bool]
-                True if the dimension is to be used in the domain decomposition (=default for each dimension).
-                If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
-
-        boxes_per_dim : tuple
-            Number of sorting boxes in each logical direction (n_eta1, n_eta2, n_eta3).
-
-        box_bufsize : float
-            Between 0 and 1, relative buffer size for box array (default = 0.25).
-
         type : str
             Either 'full_f' (default), 'delta_f' or 'sph'.
 
@@ -258,13 +248,16 @@ class Particles(metaclass=ABCMeta):
         #     logger.info(f"\n{self.mpi_rank = }, {n_cells = }")
 
         # total number of boxes
-        assert all([nboxes >= nproc for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]), (
-            f"There must be at least one box {self.boxes_per_dim =} on each process {self.nprocs =} in each direction."
-        )
-        assert all([nboxes % nproc == 0 for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]), (
-            f"Number of boxes {self.boxes_per_dim =} must be divisible by number of processes {self.nprocs =} in each direction."
-        )
-        n_boxes = xp.prod(self.boxes_per_dim, dtype=int) * self.num_clones
+        if self.boxes_per_dim is None:
+            n_boxes = self.mpi_size * self.num_clones
+        else:
+            assert all([nboxes >= nproc for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]), (
+                f"There must be at least one box {self.boxes_per_dim =} on each process {self.nprocs =} in each direction."
+            )
+            assert all([nboxes % nproc == 0 for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]), (
+                f"Number of boxes {self.boxes_per_dim =} must be divisible by number of processes {self.nprocs =} in each direction."
+            )
+            n_boxes = xp.prod(self.boxes_per_dim, dtype=int) * self.num_clones
 
         # if verbose:
         #     logger.info(f"\n{self.mpi_rank = }, {n_boxes = }")
@@ -1022,13 +1015,16 @@ class Particles(metaclass=ABCMeta):
 
         # processes in each direction
         skip_dims = False
-        if not all([bpd == 1 for bpd in self.boxes_per_dim]):
-            skip_dims = True
+        boxes_per_dim = (1, 1, 1)
+        if self.boxes_per_dim is not None:
+            boxes_per_dim = self.boxes_per_dim
+            if not all([bpd == 1 for bpd in self.boxes_per_dim]):
+                skip_dims = True
 
         nprocs = [1, 1, 1]
         for m, fac in enumerate(factors_vec):
             mm = m % 3
-            while (self.boxes_per_dim[mm] == 1 and skip_dims) or not mpi_dims_mask[mm]:
+            while (boxes_per_dim[mm] == 1 and skip_dims) or not mpi_dims_mask[mm]:
                 mm = (mm + 1) % 3
             nprocs[mm] *= fac
 
@@ -1176,41 +1172,47 @@ class Particles(metaclass=ABCMeta):
         each process would get 8 boxes in the first direction.
         Hence boxes_per_dim has to be divisible by the number of ranks in each direction.
         """
-        # split boxes across MPI processes
-        nboxes = [nboxes // nproc for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]
 
-        # check whether this process touches the domain boundary
-        is_domain_boundary = {}
-        x_l = self.domain_array[self.mpi_rank, 0]
-        x_r = self.domain_array[self.mpi_rank, 1]
-        y_l = self.domain_array[self.mpi_rank, 3]
-        y_r = self.domain_array[self.mpi_rank, 4]
-        z_l = self.domain_array[self.mpi_rank, 6]
-        z_r = self.domain_array[self.mpi_rank, 7]
-        is_domain_boundary["x_m"] = x_l == 0.0
-        is_domain_boundary["x_p"] = x_r == 1.0
-        is_domain_boundary["y_m"] = y_l == 0.0
-        is_domain_boundary["y_p"] = y_r == 1.0
-        is_domain_boundary["z_m"] = z_l == 0.0
-        is_domain_boundary["z_p"] = z_r == 1.0
+        self._initialized_sorting = False
+        if self.boxes_per_dim is not None:
+            # split boxes across MPI processes
+            nboxes = [nboxes // nproc for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]
 
-        self._sorting_boxes = self.SortingBoxes(
-            self.markers.shape,
-            self.type == "sph",
-            nx=nboxes[0],
-            ny=nboxes[1],
-            nz=nboxes[2],
-            bc_sph=self.bc_sph,
-            is_domain_boundary=is_domain_boundary,
-            comm=self.mpi_comm,
-            verbose=False,
-            box_bufsize=self._box_bufsize,
-        )
+            # check whether this process touches the domain boundary
+            is_domain_boundary = {}
+            x_l = self.domain_array[self.mpi_rank, 0]
+            x_r = self.domain_array[self.mpi_rank, 1]
+            y_l = self.domain_array[self.mpi_rank, 3]
+            y_r = self.domain_array[self.mpi_rank, 4]
+            z_l = self.domain_array[self.mpi_rank, 6]
+            z_r = self.domain_array[self.mpi_rank, 7]
+            is_domain_boundary["x_m"] = x_l == 0.0
+            is_domain_boundary["x_p"] = x_r == 1.0
+            is_domain_boundary["y_m"] = y_l == 0.0
+            is_domain_boundary["y_p"] = y_r == 1.0
+            is_domain_boundary["z_m"] = z_l == 0.0
+            is_domain_boundary["z_p"] = z_r == 1.0
 
-        if self.sorting_boxes.communicate:
-            self._get_neighbouring_proc()
+            self._sorting_boxes = self.SortingBoxes(
+                self.markers.shape,
+                self.type == "sph",
+                nx=nboxes[0],
+                ny=nboxes[1],
+                nz=nboxes[2],
+                bc_sph=self.bc_sph,
+                is_domain_boundary=is_domain_boundary,
+                comm=self.mpi_comm,
+                verbose=False,
+                box_bufsize=self._box_bufsize,
+            )
 
-        self._initialized_sorting = True
+            if self.sorting_boxes.communicate:
+                self._get_neighbouring_proc()
+
+            self._initialized_sorting = True
+
+        else:
+            self._sorting_boxes = None
 
     def _generate_sampling_moments(self):
         """Automatically determine moments for sampling distribution (Gaussian) from the given background."""

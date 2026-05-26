@@ -174,8 +174,9 @@ class SortingParameters:
     sorting_frequency: int
         The number of time steps between two sortings (=0 means no sorting is performed).
 
-    boxes_per_dim: tuple[int]
+    boxes_per_dim: tuple[int] | None
         Number of sorting boxes in each direction of logical space, (n_eta1, n_eta2, n_eta3).
+        If None, no sorting boxes are specified.
 
     box_bufsize : float
         Relative buffer size for box array (default = 0.25).
@@ -189,7 +190,7 @@ class SortingParameters:
 
     do_sort: bool = False
     sorting_frequency: int = 0
-    boxes_per_dim: tuple = (1, 1, 1)
+    boxes_per_dim: tuple[int] | None = None
     box_bufsize: float = 2.0
     dims_mask: tuple = (True, True, True)
 
