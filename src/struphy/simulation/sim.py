@@ -158,7 +158,7 @@ class Simulation(SimulationBase):
         logger.info(f"MPI size: {self.comm_size} processes")
         logger.info(f"MPI rank: {self.rank}")
 
-        if logger.level <= 20 and self.rank == 0:
+        if logger.level <= logging.INFO and self.rank == 0:
             self.show_parameters()
 
         # synchronize MPI processes to set same start time of simulation for all processes
@@ -550,7 +550,7 @@ RESTARTing from:
         # ======================== main time loop ======================
         self.model.update_scalar_quantities()
 
-        if logger.level <= 20 and self.rank == 0:
+        if logger.level <= logging.INFO and self.rank == 0:
             print("\nINITIAL SCALAR QUANTITIES:")
             self.model.print_scalar_quantities()
             print(f"START TIME STEPPING WITH '{split_algo}' SPLITTING:")
@@ -640,7 +640,7 @@ RESTARTing from:
                 message += "\n" + "last step duration [s]:".ljust(25) + "{0:8.4f}".format(t1 - t0).rjust(25)
 
                 logger.debug(message)
-                if logger.level <= 10 and self.rank == 0:
+                if logger.level <= logging.DEBUG and self.rank == 0:
                     self.model.print_scalar_quantities()
 
         # ===================================================================

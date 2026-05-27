@@ -360,7 +360,7 @@ class SaddlePointSolver:
                     logger.debug("+---------+---------------------+")
                     info["success"] = True
                     info["niter"] = iteration + 1
-                    if logger.level <= 10:
+                    if logger.level <= logging.DEBUG:
                         _plot_residual_norms(self._residual_norms)
                     return self._Unp, self._Uenp, self._Pnp, info, self._residual_norms, self._spectralresult
 
@@ -377,7 +377,7 @@ class SaddlePointSolver:
             # Return with info if maximum iterations reached
             info["success"] = False
             info["niter"] = iteration + 1
-            if logger.level <= 10:
+            if logger.level <= logging.DEBUG:
                 _plot_residual_norms(self._residual_norms)
             return self._Unp, self._Uenp, self._Pnp, info, self._residual_norms, self._spectralresult
 

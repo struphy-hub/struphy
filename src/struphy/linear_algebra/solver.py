@@ -1,6 +1,10 @@
+import logging
+
 from dataclasses import dataclass
 
 from struphy.io.options import LiteralOptions
+
+logger = logging.getLogger("struphy")
 
 
 @dataclass
@@ -10,8 +14,12 @@ class SolverParameters:
     tol: float = 1e-8
     maxiter: int = 3000
     info: bool = False
-    verbose: bool = False
     recycle: bool = True
+    
+    def __post_init__(self):
+        self.verbose = False
+        if logger.level <= logging.DEBUG:
+            self.verbose = True
 
 
 @dataclass
