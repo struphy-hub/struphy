@@ -198,7 +198,7 @@ class FEECVariable(Variable):
         Add an equilibrium field background.
     add_perturbation(perturbation)
         Add initial perturbations to the field.
-    allocate(derham, domain, equil, verbose)
+    allocate(derham, domain, equil)
         Allocate spline function and initialize on the mesh.
 
     Notes
@@ -303,7 +303,6 @@ class FEECVariable(Variable):
         derham: Derham,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
-        verbose: bool = False,
     ):
         self._spline = derham.create_spline_function(
             name=self.__name__,
@@ -312,7 +311,6 @@ class FEECVariable(Variable):
             perturbations=self.perturbations,
             domain=domain,
             equil=equil,
-            verbose=verbose,
         )
 
         self._derham_lift = None
@@ -350,7 +348,6 @@ class FEECVariable(Variable):
                 space_id=self.space,
                 domain=domain,
                 equil=equil,
-                verbose=verbose,
             )
 
             # project lifting function to spline space
@@ -453,7 +450,7 @@ class PICVariable(Variable):
         Set initial kinetic distribution (must be consistent with background).
     show_initial_condition()
         Display current initial condition information.
-    allocate(clone_config, derham, domain, equil, projected_equil, verbose)
+    allocate(clone_config, derham, domain, equil, projected_equil)
         Initialize particles and allocate marker arrays.
 
     Notes
@@ -538,7 +535,6 @@ class PICVariable(Variable):
         domain: Domain = None,
         equil: FluidEquilibrium = None,
         projected_equil: ProjectedFluidEquilibrium = None,
-        verbose: bool = False,
     ):
         # assert isinstance(self.species, KineticSpecies)
         assert isinstance(self.backgrounds, KineticBackground), (
@@ -575,14 +571,13 @@ class PICVariable(Variable):
             initial_condition=self.initial_condition,
             n_as_volume_form=self.n_as_volume_form,
             equation_params=self.species.equation_params,
-            verbose=verbose,
         )
 
         if self.species.sorting_params.do_sort:
             sort = True
         else:
             sort = False
-        self.particles.draw_markers(sort=sort, verbose=verbose)
+        self.particles.draw_markers(sort=sort)
 
         # set zero velocity according to loading_params
         zero_index = xp.nonzero(self.particles.loading_params.set_zero_velocity)[0].flatten()
@@ -661,7 +656,7 @@ class SPHVariable(Variable):
         Add perturbations to density and/or velocity components.
     show_perturbations()
         Display detailed information about density and velocity perturbations.
-    allocate(derham, domain, equil, projected_equil, verbose)
+    allocate(derham, domain, equil, projected_equil)
         Initialize SPH particles and allocate marker arrays.
 
     Notes
@@ -769,7 +764,6 @@ class SPHVariable(Variable):
         domain: Domain = None,
         equil: FluidEquilibrium = None,
         projected_equil: ProjectedFluidEquilibrium = None,
-        verbose: bool = False,
     ):
         assert isinstance(self.backgrounds, FluidEquilibrium), (
             "List input not allowed, you can sum Kineticbackgrounds before passing them to add_background."
@@ -804,14 +798,13 @@ class SPHVariable(Variable):
             n_as_volume_form=self.n_as_volume_form,
             perturbations=self.perturbations,
             equation_params=self.species.equation_params,
-            verbose=verbose,
         )
 
         if self.species.sorting_params.do_sort:
             sort = True
         else:
             sort = False
-        self.particles.draw_markers(sort=sort, verbose=verbose)
+        self.particles.draw_markers(sort=sort)
         self.particles.initialize_weights()
 
         # allocate array for saving markers if not present

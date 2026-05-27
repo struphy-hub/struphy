@@ -97,11 +97,10 @@ def test_weak_Landau(do_plot: bool = False):
         domain=domain,
         grid=grid,
         derham_opts=derham_opts,
-        verbose=True,
     )
 
     # run
-    sim.run(verbose=True)
+    sim.run()
 
     # post processing not needed for scalar data
 

@@ -103,15 +103,14 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
         domain=domain,
         grid=grid,
         derham_opts=derham_opts,
-        verbose=True,
     )
 
     # run
-    sim.run(verbose=True)
+    sim.run()
 
     # post processing
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.pproc(verbose=True)
+        sim.pproc()
 
         # diagnostics
         sim.load_plotting_data(env.path_out)

@@ -96,7 +96,7 @@ def test_sph_evaluation_1d(
     eta2 = xp.array([0.0])
     eta3 = xp.array([0.0])
 
-    particles.draw_markers(sort=False, verbose=False)
+    particles.draw_markers(sort=False)
     if comm is not None:
         particles.mpi_sort_markers()
     particles.initialize_weights()
@@ -218,10 +218,9 @@ def test_sph_evaluation_2d(
         background=background,
         perturbations=pert,
         n_as_volume_form=True,
-        verbose=False,
     )
 
-    particles.draw_markers(sort=False, verbose=False)
+    particles.draw_markers(sort=False)
     if comm is not None:
         particles.mpi_sort_markers()
     particles.initialize_weights()
@@ -338,10 +337,9 @@ def test_sph_evaluation_3d(
         domain=domain,
         background=background,
         n_as_volume_form=True,
-        verbose=False,
     )
 
-    particles.draw_markers(sort=False, verbose=False)
+    particles.draw_markers(sort=False)
     if comm is not None:
         particles.mpi_sort_markers()
     particles.initialize_weights()
@@ -472,10 +470,9 @@ def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, eval_pts, tessela
             background=background,
             perturbations=pert,
             n_as_volume_form=True,
-            verbose=False,
         )
 
-        particles.draw_markers(sort=False, verbose=False)
+        particles.draw_markers(sort=False)
         if comm is not None:
             particles.mpi_sort_markers()
         particles.initialize_weights()
@@ -591,10 +588,9 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselat
             background=background,
             perturbations=pert,
             n_as_volume_form=True,
-            verbose=False,
         )
 
-        particles.draw_markers(sort=False, verbose=False)
+        particles.draw_markers(sort=False)
         if comm is not None:
             particles.mpi_sort_markers()
         particles.initialize_weights()
@@ -715,10 +711,9 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, te
                 background=background,
                 perturbations=pert,
                 n_as_volume_form=True,
-                verbose=False,
             )
 
-            particles.draw_markers(sort=False, verbose=False)
+            particles.draw_markers(sort=False)
             if comm is not None:
                 particles.mpi_sort_markers()
             particles.initialize_weights()
@@ -874,12 +869,11 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
             background=background,
             perturbations=pert,
             n_as_volume_form=True,
-            verbose=False,
         )
         if rank == 0:
             logger.info(f"{particles.domain_array}")
 
-        particles.draw_markers(sort=False, verbose=False)
+        particles.draw_markers(sort=False)
         if comm is not None:
             particles.mpi_sort_markers()
         particles.initialize_weights()
@@ -1003,7 +997,6 @@ def test_sph_velocity_evaluation(
         domain=domain,
         background=background,
         n_as_volume_form=True,
-        verbose=False,
     )
 
     eta1 = xp.linspace(0, 1.0, eval_pts)
@@ -1011,7 +1004,7 @@ def test_sph_velocity_evaluation(
     eta3 = xp.array([0.0])
     ee1, ee2, ee3 = xp.meshgrid(eta1, eta2, eta3, indexing="ij")
 
-    particles.draw_markers(sort=False, verbose=False)
+    particles.draw_markers(sort=False)
     if comm is not None:
         particles.mpi_sort_markers()
     particles.initialize_weights()
@@ -1186,8 +1179,6 @@ def test_sph_velocity_evaluation_2d(
         box_bufsize=4.0,
     )
 
-    verbose = False
-
     particles = ParticlesSPH(
         comm_world=comm,
         loading_params=loading_params,
@@ -1197,7 +1188,6 @@ def test_sph_velocity_evaluation_2d(
         domain=domain,
         background=background,
         n_as_volume_form=True,
-        verbose=verbose,
     )
 
     # evaluation grids
@@ -1212,7 +1202,7 @@ def test_sph_velocity_evaluation_2d(
     xx, yy, zz = xp.meshgrid(x, y, z, indexing="ij")
 
     # initialize particles
-    particles.draw_markers(sort=False, verbose=verbose)
+    particles.draw_markers(sort=False)
     if comm is not None:
         particles.mpi_sort_markers()
     particles.initialize_weights()
@@ -1435,8 +1425,6 @@ def test_sph_viscosity_evaluation_2d(
         box_bufsize=4.0,
     )
 
-    verbose = False
-
     particles = ParticlesSPH(
         comm_world=comm,
         loading_params=loading_params,
@@ -1446,11 +1434,10 @@ def test_sph_viscosity_evaluation_2d(
         domain=domain,
         background=background,
         n_as_volume_form=True,
-        verbose=verbose,
     )
 
     # initialize particles
-    particles.draw_markers(sort=False, verbose=verbose)
+    particles.draw_markers(sort=False)
     if comm is not None:
         particles.mpi_sort_markers()
     particles.initialize_weights()
@@ -1677,10 +1664,9 @@ def test_sph_viscosity_evaluation_2d(
         #             domain=domain,
         #             background=background,
         #             n_as_volume_form=True,
-        #             verbose=False,
         #         )
 
-        #         particles.draw_markers(sort=False, verbose=False)
+        #         particles.draw_markers(sort=False)
         #         if comm is not None:
         #             particles.mpi_sort_markers()
         #         particles.initialize_weights()
@@ -1862,10 +1848,9 @@ def test_sph_no_slip_boundary_1d(
         domain=domain,
         background=background,
         n_as_volume_form=True,
-        verbose=False,
     )
 
-    particles.draw_markers(sort=False, verbose=False)
+    particles.draw_markers(sort=False)
     if rank == 0:
         ghost_inds = xp.where(particles.ghost_particles)[0]
         logger.info(f"After do_sort: {len(ghost_inds)} ghosts")

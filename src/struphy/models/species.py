@@ -54,7 +54,7 @@ class Species(metaclass=ABCMeta):
     -------
     init_variables()
         Discover and cache Variable objects from instance attributes.
-    setup_equation_params(units, verbose)
+    setup_equation_params(units)
         Compute equation normalization parameters from physical units.
 
     Notes
@@ -167,7 +167,6 @@ class Species(metaclass=ABCMeta):
             alpha: float = None,
             epsilon: float = None,
             kappa: float = None,
-            verbose: bool = False,
         ):
             if units is None:
                 units = Units()
@@ -203,16 +202,15 @@ class Species(metaclass=ABCMeta):
                 if MPI.COMM_WORLD.Get_rank() == 0:
                     warnings.warn(f"Override equation parameter {self.kappa =}")
 
-            if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-                logger.info(f"\nSet normalization parameters for species {species.__class__.__name__}:")
-                for key, val in self.__dict__.items():
-                    logger.info(f"{(key + ':').ljust(25)} {val:4.3e}")
+            logger.info(f"\nSet normalization parameters for species {species.__class__.__name__}:")
+            for key, val in self.__dict__.items():
+                logger.info(f"{(key + ':').ljust(25)} {val:4.3e}")
 
     @property
     def equation_params(self) -> EquationParameters:
         return self._equation_params
 
-    def setup_equation_params(self, units: Units, verbose=False):
+    def setup_equation_params(self, units: Units):
         """Set the following equation parameters:
 
         * alpha = plasma-frequenca / cyclotron frequency
@@ -225,7 +223,6 @@ class Species(metaclass=ABCMeta):
             alpha=self.alpha,
             epsilon=self.epsilon,
             kappa=self.kappa,
-            verbose=verbose,
         )
 
 

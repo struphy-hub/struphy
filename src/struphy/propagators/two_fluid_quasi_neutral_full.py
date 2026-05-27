@@ -219,9 +219,8 @@ class TwoFluidQuasiNeutralFull(Propagator):
     ### Allocate
     # =========================================================================
 
-    def allocate(self, verbose=False):
+    def allocate(self):
 
-        self.verbose = verbose
         self._rank = self.derham.comm.Get_rank() if self.derham.comm is not None else 0
         self._dt = None
 
@@ -236,7 +235,6 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._basis_ops_v0 = BasisProjectionOperators(
             self._derham_v0,
             self.domain,
-            verbose=self.options.solver_params.verbose,
             eq_mhd=self.basis_ops.weights["eq_mhd"],
         )
 

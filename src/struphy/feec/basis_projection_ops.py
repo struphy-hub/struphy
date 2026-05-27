@@ -36,9 +36,6 @@ class BasisProjectionOperators:
     domain : :ref:`avail_mappings`
         Mapping from logical unit cube to physical domain and corresponding metric coefficients.
 
-    verbose : bool
-        Show info on screen.
-
     **weights : dict
         Objects to access callables that can serve as weight functions.
 
@@ -49,11 +46,10 @@ class BasisProjectionOperators:
     - eq_mhd: :class:`struphy.fields_background.base.MHDequilibrium`
     """
 
-    def __init__(self, derham, domain, verbose=True, **weights):
+    def __init__(self, derham, domain, **weights):
         self._derham = derham
         self._domain = domain
         self._weights = weights
-        self._verbose = verbose
 
         self._rank = derham.comm.Get_rank() if derham.comm is not None else 0
 
@@ -83,11 +79,6 @@ class BasisProjectionOperators:
     def rank(self) -> int:
         """MPI rank, is 0 if no communicator."""
         return self._rank
-
-    @property
-    def verbose(self):
-        """Bool: show info on screen."""
-        return self._verbose
 
     # Wrapper functions for evaluating metric coefficients in right order (3x3 entries are last two axes!!)
     def DF(self, e1, e2, e3):
@@ -935,12 +926,9 @@ class BasisProjectionOperators:
             )
 
         if assemble:
-            if MPI.COMM_WORLD.Get_rank() == 0 and self.verbose:
-                logger.info(f'\nAssembling BasisProjectionOperator "{name}" with V={V_id}, W={W_id}.')
-            out.assemble(verbose=self.verbose)
-
-        if MPI.COMM_WORLD.Get_rank() == 0 and self.verbose:
-            logger.info("Done.")
+            logger.debug(f'\nAssembling BasisProjectionOperator "{name}" with V={V_id}, W={W_id}.')
+            out.assemble()
+            logger.debug("Done.")
 
         return out
 
@@ -1233,7 +1221,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
         if self._transposed:
             self._mat_T = self._mat.T
 
-    def assemble(self, verbose=False):
+    def assemble(self):
         """
         Assembles the BasisProjectionOperatorLocal. And
         store it in self._mat.
@@ -1817,7 +1805,7 @@ class BasisProjectionOperator(LinOpWithTransp):
         """The degrees of freedom operator as composite linear operator containing polar extraction and boundary operators."""
         return self._dof_operator
 
-    def dot(self, v, out=None, tol=1e-14, maxiter=1000, verbose=False):
+    def dot(self, v, out=None, tol=1e-14, maxiter=1000):
         """
         Applies the basis projection operator to the FE coefficients v.
 
@@ -1834,9 +1822,6 @@ class BasisProjectionOperator(LinOpWithTransp):
 
         maxiter : int, optional
             Maximum number of iterations in iterative solve (only used in polar case).
-
-        verbose : bool, optional
-            Whether to print some information in each iteration in iterative solve (only used in polar case).
 
         Returns
         -------
@@ -1921,7 +1906,7 @@ class BasisProjectionOperator(LinOpWithTransp):
         if self._transposed:
             self._dof_mat_T = self._dof_mat.transpose(out=self._dof_mat_T)
 
-    def assemble(self, weights=None, verbose=False):
+    def assemble(self, weights=None):
         """
         Assembles the tensor-product DOF matrix sigma_i(weights[i,j]*Lambda_j), where i=(i1, i2, ...)
         and j=(j1, j2, ...) depending on the number of spatial dimensions (1d, 2d or 3d). And
@@ -2065,8 +2050,7 @@ class BasisProjectionOperator(LinOpWithTransp):
                         ),
                     )
 
-                    if rank == 0 and verbose:
-                        logger.info(f"Assemble block {i, j}")
+                    logger.debug(f"Assemble block {i, j}")
                     kernel(
                         dofs_mat._data,
                         _starts_in,

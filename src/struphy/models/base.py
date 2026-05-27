@@ -118,7 +118,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
             def velocity_scale(self):
                 return "thermal"
 
-            def allocate_helpers(self, verbose=False):
+            def allocate_helpers(self):
                 # Initialize helper arrays
                 pass
 
@@ -157,7 +157,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
         Must be one of "alfvén", "cyclotron", "light" or "thermal"."""
 
     @abstractmethod
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         """Allocate helper arrays and perform initial solves if needed."""
 
     # --------------
@@ -327,7 +327,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
             sq_str += f"{key}:".ljust(25) + "{:4.2e}\n".format(val).rjust(26)
         print(sq_str)
 
-    def setup_equation_params(self, base_units: BaseUnits, verbose=False):
+    def setup_equation_params(self, base_units: BaseUnits):
         """Compute units and set equation parameters for each fluid and kinetic species."""
         self.base_units = base_units
         self.units = Units(base_units)
@@ -343,16 +343,15 @@ class StruphyModel(metaclass=StruphyModelMeta):
             velocity_scale=self.velocity_scale,
             A_bulk=A_bulk,
             Z_bulk=Z_bulk,
-            verbose=verbose,
         )
 
         for _, species in self.fluid_species.items():
             assert isinstance(species, FluidSpecies)
-            species.setup_equation_params(units=self.units, verbose=verbose)
+            species.setup_equation_params(units=self.units)
 
         for _, species in self.particle_species.items():
             assert isinstance(species, ParticleSpecies)
-            species.setup_equation_params(units=self.units, verbose=verbose)
+            species.setup_equation_params(units=self.units)
 
     @profile
     def integrate(self, dt, split_algo="LieTrotter"):
@@ -755,7 +754,7 @@ set_logging_level(logging.WARNING)\n""")
             file.write(init_pert_sph)
 
         file.write('\nif __name__ == "__main__":\n')
-        file.write("    sim.run(verbose=False)")
+        file.write("    sim.run()")
 
         file.close()
 

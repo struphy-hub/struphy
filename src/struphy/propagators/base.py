@@ -82,7 +82,7 @@ class Propagator(metaclass=ABCMeta):
         logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @abstractmethod
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         """Allocate all data/objects of the instance."""
 
     @abstractmethod

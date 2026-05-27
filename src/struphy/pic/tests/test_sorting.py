@@ -102,7 +102,7 @@ def test_flattening_3(nx, ny, nz, algo):
     ],
 )
 @pytest.mark.parametrize("Np", [10000])
-def test_sorting(num_elements, degree, bcs, mapping, Np, verbose=False):
+def test_sorting(num_elements, degree, bcs, mapping, Np):
     mpi_comm = MPI.COMM_WORLD
     # assert mpi_comm.size >= 2
     rank = mpi_comm.Get_rank()

@@ -405,8 +405,8 @@ class Particles5D(Particles):
             remove_outside=remove_holes,
         )
 
-    def draw_markers(self, sort: bool = True, verbose: bool = True):
-        super().draw_markers(sort=sort, verbose=verbose)
+    def draw_markers(self, sort: bool = True):
+        super().draw_markers(sort=sort)
 
         utilities_kernels.eval_magnetic_moment_5d(
             self.markers,

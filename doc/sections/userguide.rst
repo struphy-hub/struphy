@@ -31,8 +31,8 @@ Set initial conditions::
 Create and run a simulation::
 
     from struphy import Simulation
-    sim = Simulation(model=model, verbose=True)
-    sim.run(verbose=True)
+    sim = Simulation(model=model)
+    sim.run()
 
 Define another simulation with different parameters::
 
@@ -46,7 +46,6 @@ Define another simulation with different parameters::
                       time_opts=time_opts,
                       grid=grid,
                       derham_opts=derham_opts,
-                      verbose=True,
                       )
     
 Check the :ref:`api_guide` for more details on the available options and how to use them.
@@ -65,7 +64,7 @@ Compare, serialize and save simulations::
 
 Run, post process and load plotting data::
 
-    sim2.run(verbose=True)
+    sim2.run()
     sim2.pproc()
     sim2.load_plotting_data()
 
@@ -209,7 +208,7 @@ and the corresponding initial condition::
 
 Press run::
     
-    sim.run(verbose=True)
+    sim.run()
 
    
 

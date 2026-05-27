@@ -38,7 +38,6 @@ def test_draw(ppb, nx, ny, nz):
         loading_params=loading_params,
         sorting_params=sorting_params,
         domain=domain,
-        verbose=False,
         bufsize=bufsize,
     )
     particles.draw_markers(sort=False)
@@ -105,7 +104,6 @@ def test_cell_average(ppb, nx, ny, nz, n_quad, show_plot=False):
         loading_params=loading_params,
         sorting_params=sorting_params,
         domain=domain,
-        verbose=False,
         bufsize=bufsize,
         background=background,
         perturbations=pert,
