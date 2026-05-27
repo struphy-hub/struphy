@@ -113,7 +113,7 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
         sim.pproc()
 
         # diagnostics
-        sim.load_plotting_data(env.path_out)
+        sim.load_plotting_data()
 
         ee1, ee2, ee3 = sim.n_sph.euler_fluid.view_0.grid_n_sph
         n_sph = sim.n_sph.euler_fluid.view_0.n_sph
