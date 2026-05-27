@@ -146,7 +146,4 @@ class Units:
             if v is None:
                 logger.info(f"Unit of {k[1:]} not specified.")
             else:
-                logger.info(
-                    f"Unit of {k[1:]}:".ljust(25),
-                    "{:4.3e}".format(v) + u,
-                )
+                logger.info(f"Unit of {k[1:]}: {v:4.3e}{u}")
