@@ -169,10 +169,6 @@ class TwoFluidQuasiNeutralFull(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                logger.info(f"  {k}: {v}")
         self._options = new
         logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 

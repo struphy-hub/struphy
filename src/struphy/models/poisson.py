@@ -162,8 +162,7 @@ class Poisson(StruphyModel):
         # self.propagators.poisson.rho = Propagator.mass_ops.M0.dot(self.em_fields.source.spline.vector)
 
         # Solve with dt=1. and compute electric field
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("\nSolving initial Poisson problem...")
+        logger.info("\nSolving initial Poisson problem...")
 
         self.propagators.poisson(1.0)
 

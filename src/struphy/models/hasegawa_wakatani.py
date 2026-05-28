@@ -210,14 +210,12 @@ class HasegawaWakatani(StruphyModel):
         self._rho: StencilVector = Propagator.derham.V0.zeros()
         self.update_rho()
 
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("\nINITIAL POISSON SOLVE:")
+        logger.info("\nINITIAL POISSON SOLVE:")
 
         self.update_rho()
         self.propagators.poisson(1.0)
 
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("Done.")
+        logger.info("Done.")
 
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

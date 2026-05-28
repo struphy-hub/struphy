@@ -348,8 +348,7 @@ class ColdPlasmaVlasov(StruphyModel):
 
         :meta private:
         """
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("\nINITIAL POISSON SOLVE:")
+        logger.info("\nINITIAL POISSON SOLVE:")
 
         # use control variate method
         particles = self.hot_elec.var.particles

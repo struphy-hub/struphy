@@ -331,8 +331,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         """
         self._tmp = xp.empty(1, dtype=float)
 
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("\nINITIAL POISSON SOLVE:")
+        logger.info("\nINITIAL POISSON SOLVE:")
 
         # use control variate method
         particles = self.kinetic_ions.var.particles
@@ -362,8 +361,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         self.initial_poisson.allocate()
 
         # Solve with dt=1. and compute electric field
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("\nSolving initial Poisson problem...")
+        logger.info("\nSolving initial Poisson problem...")
         self.initial_poisson(1.0)
 
         phi = self.initial_poisson.variables.phi.spline.vector
