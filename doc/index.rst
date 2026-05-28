@@ -37,6 +37,7 @@ The code is freely available under an `MIT license <https://github.com/struphy-h
    sections/kinetic-equils
    sections/perturbations
    sections/propagators
+   sections/devs
 
 
 
