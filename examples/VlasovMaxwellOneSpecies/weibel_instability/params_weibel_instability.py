@@ -38,6 +38,8 @@ from struphy import (
     KernelDensityPlot,
     LoadingParameters,
     WeightsParameters,
+    SortingParameters,
+    SavingParameters,
     maxwellians,
 )
 
@@ -117,20 +119,22 @@ loading_params = LoadingParameters(Np = 100000,
                                    )
 weights_params = WeightsParameters(control_variate = False)
 boundary_params = BoundaryParameters()
-model.kinetic_ions.set_markers(loading_params=loading_params,
-                               weights_params=weights_params,
-                               boundary_params=boundary_params,
-                               bufsize = 2.0,
-                               )
-model.kinetic_ions.set_sorting_boxes(boxes_per_dim = (16,1,1), do_sort = True)
+sorting_params = SortingParameters(boxes_per_dim = (16,1,1), do_sort = True)
 
 binplot_dens = BinningPlot(slice="e1_v1", n_bins= (128, 128), ranges= ((0.,1.), (-0.1,0.1))) 
 binplot_velocity = BinningPlot(slice="v1_v2", n_bins= (128, 128), ranges= ((-0.1,0.1), (-0.1,0.1))) 
 binplot_current = tuple(
     [BinningPlot(slice=f"e{i}", n_bins= 32, ranges= (0.,1.), output_quantity=f"current_{j}") for j in range(1,4) for i in range(1,4)] 
     )
+saving_params = SavingParameters(binning_plots=(binplot_dens, binplot_velocity, *binplot_current))
 
-model.kinetic_ions.set_save_data(binning_plots=(binplot_dens, binplot_velocity, *binplot_current))
+model.kinetic_ions.set_markers(loading_params=loading_params,
+                               weights_params=weights_params,
+                               boundary_params=boundary_params,
+                               sorting_params=sorting_params,
+                               saving_params=saving_params,
+                               bufsize = 2.0,
+                               )
 
 # ------------------
 # Propagator options

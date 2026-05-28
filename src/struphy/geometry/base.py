@@ -1,6 +1,7 @@
 # coding: utf-8
 "Base classes for mapped domains (single patch)."
 
+import copy
 import inspect
 import logging
 from abc import ABCMeta, abstractmethod
@@ -221,10 +222,69 @@ class Domain(metaclass=DomainMeta):
             self.cz.copy(),  # make sure we don't have stride = 0
         )
 
+    def _build_args_domain(self):
+        """Build runtime mapping arguments used by compiled evaluation kernels."""
+        return DomainArguments(
+            self.kind_map,
+            self.params_numpy,
+            xp.array(self.degree),
+            self.T[0],
+            self.T[1],
+            self.T[2],
+            self.indN[0],
+            self.indN[1],
+            self.indN[2],
+            self.cx.copy(),  # make sure we don't have stride = 0
+            self.cy.copy(),  # make sure we don't have stride = 0
+            self.cz.copy(),  # make sure we don't have stride = 0
+        )
+
+    def _can_build_args_domain(self):
+        required_attrs = (
+            "_kind_map",
+            "_degree",
+            "_T",
+            "_indN",
+            "_cx",
+            "_cy",
+            "_cz",
+        )
+        return all(hasattr(self, attr) for attr in required_attrs)
+
+    def _rebuild_args_domain(self):
+        if self._can_build_args_domain():
+            self._args_domain = self._build_args_domain()
+        else:
+            self._args_domain = None
+
+    def __deepcopy__(self, memo):
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+
+        for key, value in self.__dict__.items():
+            if key == "_args_domain":
+                continue
+            setattr(result, key, copy.deepcopy(value, memo))
+
+        result._rebuild_args_domain()
+        return result
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state.pop("_args_domain", None)
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self._args_domain = None
+        self._rebuild_args_domain()
+
     def __repr__(self):
-        out = f"{self.__class__.__name__}("
+        out = f"{self.__class__.__name__}(\n"
         for k, v in self.params.items():
-            out += f"{k}={v}, "
+            out += " " * 4
+            out += f"{k}={v},\n"
         out += ")"
         return out
 
@@ -234,12 +294,6 @@ class Domain(metaclass=DomainMeta):
     @property
     def is_default(self):
         return all_class_params_are_default(self)
-
-    def __str__(self):
-        logger.info(f"{self.__class__.__name__}")
-        for k, v in self.params.items():
-            logger.info(f"{k + ':':<20}{v}")
-        return ""
 
     @property
     def kind_map(self) -> int:
@@ -358,6 +412,12 @@ class Domain(metaclass=DomainMeta):
     @property
     def args_domain(self):
         """Object for all parameters needed for evaluation of metric coefficients."""
+        if getattr(self, "_args_domain", None) is None:
+            self._rebuild_args_domain()
+
+        if self._args_domain is None:
+            raise AttributeError("DomainArguments are not available because the domain state is incomplete.")
+
         return self._args_domain
 
     @property
@@ -1479,7 +1539,6 @@ class Domain(metaclass=DomainMeta):
         nx: int = 32,
         ny: int = 32,
         nz: int = 32,
-        verbose: bool = False,
     ):
         """Create a PyVista mesh with geometry
 
@@ -1507,10 +1566,9 @@ class Domain(metaclass=DomainMeta):
         nx: int = 32,
         ny: int = 32,
         nz: int = 32,
-        verbose: bool = False,
     ):
         """Show the 3D geometry using PyVista."""
-        mesh = self.create_geometry_mesh(nx, ny, nz, verbose)
+        mesh = self.create_geometry_mesh(nx, ny, nz)
         plotter = Plotter()
         plotter.add_mesh(mesh, show_edges=True)
         plotter.show()

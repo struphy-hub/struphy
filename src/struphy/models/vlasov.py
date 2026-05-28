@@ -1,3 +1,5 @@
+import copy
+
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import BaseUnits
@@ -68,6 +70,9 @@ class Vlasov(StruphyModel):
         charge_number: int = 1,
         mass_number: float = 1.0,
     ):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.kinetic_ions = self.KineticIons(
@@ -170,5 +175,5 @@ class Vlasov(StruphyModel):
         - guiding-center reduction studies
         - fluid or MHD-scale closures"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         pass

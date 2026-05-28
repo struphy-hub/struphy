@@ -190,7 +190,6 @@ def test_poisson_1d(
                 tol=1.0e-13,
                 maxiter=3000,
                 info=True,
-                verbose=False,
                 recycle=False,
             )
 
@@ -359,7 +358,6 @@ def test_poisson_accum_1d(mapping, do_plot=False):
         tol=1.0e-13,
         maxiter=3000,
         info=True,
-        verbose=False,
         recycle=False,
     )
 
@@ -558,7 +556,6 @@ def test_poisson_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_
         tol=1.0e-13,
         maxiter=3000,
         info=True,
-        verbose=False,
         recycle=False,
     )
 

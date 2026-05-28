@@ -1,3 +1,4 @@
+import copy
 import logging
 
 import cunumpy as xp
@@ -88,6 +89,9 @@ class GuidingCenter(StruphyModel):
         mass_number: float = 1.0,
         epsilon: float = None,
     ):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.kinetic_ions = self.KineticIons(
@@ -212,7 +216,7 @@ class GuidingCenter(StruphyModel):
         - collisional transport or source terms not present in the equation
         - fluid closures or MHD force balance"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         pass
 
     def _compute_en_fB(self):

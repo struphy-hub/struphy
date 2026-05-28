@@ -1,3 +1,4 @@
+import copy
 import logging
 
 from feectools.ddm.mpi import mpi as MPI
@@ -143,6 +144,9 @@ class ColdPlasmaVlasov(StruphyModel):
         thermal_epsilon: float = None,
         hot_epsilon: float = None,
     ):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -339,13 +343,12 @@ class ColdPlasmaVlasov(StruphyModel):
         - collision operators or detailed dissipative closures
         - electrostatic-only reductions where magnetic evolution is irrelevant"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         """Solve initial Poisson equation.
 
         :meta private:
         """
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("\nINITIAL POISSON SOLVE:")
+        logger.info("\nINITIAL POISSON SOLVE:")
 
         # use control variate method
         particles = self.hot_elec.var.particles
@@ -375,14 +378,12 @@ class ColdPlasmaVlasov(StruphyModel):
         self.initial_poisson.allocate()
 
         # Solve with dt=1. and compute electric field
-        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-            logger.info("\nSolving initial Poisson problem...")
+        logger.info("\nSolving initial Poisson problem...")
         self.initial_poisson(1.0)
 
         phi = self.initial_poisson.variables.phi.spline.vector
         Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
-        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-            logger.info("... Done.")
+        logger.info("... Done.")
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
@@ -393,9 +394,9 @@ class ColdPlasmaVlasov(StruphyModel):
                 if "coupling_va.Options" in line:
                     new_file += [line]
                     new_file += ["model.initial_poisson.options = model.initial_poisson.Options()\n"]
-                elif "set_save_data" in line:
+                elif "saving_params = " in line:
                     new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
-                    new_file += ["model.hot_elec.set_save_data(binning_plots=(binplot,))\n"]
+                    new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
                 else:
                     new_file += [line]
 

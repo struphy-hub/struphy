@@ -1,3 +1,5 @@
+import copy
+
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import BaseUnits
@@ -58,6 +60,9 @@ class DeterministicParticleDiffusion(StruphyModel):
     ## abstract methods
 
     def __init__(self, base_units: BaseUnits = BaseUnits()):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.hydrogen = self.Hydrogen()
@@ -156,5 +161,5 @@ class DeterministicParticleDiffusion(StruphyModel):
         - nonlinear fluid systems with pressure or momentum evolution
         - diffusion tensors outside the currently supported simplified forms"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         pass

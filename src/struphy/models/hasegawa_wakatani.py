@@ -1,3 +1,4 @@
+import copy
 import logging
 
 from feectools.ddm.mpi import mpi as MPI
@@ -75,6 +76,9 @@ class HasegawaWakatani(StruphyModel):
     ## abstract methods
 
     def __init__(self, base_units: BaseUnits = BaseUnits(), mass_number: float = 1.0):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -198,7 +202,7 @@ class HasegawaWakatani(StruphyModel):
         self._rho.update_ghost_regions()
         return self._rho
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         """Solve initial Poisson equation.
 
         :meta private:
@@ -206,14 +210,12 @@ class HasegawaWakatani(StruphyModel):
         self._rho: StencilVector = Propagator.derham.V0.zeros()
         self.update_rho()
 
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("\nINITIAL POISSON SOLVE:")
+        logger.info("\nINITIAL POISSON SOLVE:")
 
         self.update_rho()
         self.propagators.poisson(1.0)
 
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("Done.")
+        logger.info("Done.")
 
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

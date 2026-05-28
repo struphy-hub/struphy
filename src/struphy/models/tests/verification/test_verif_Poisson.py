@@ -74,19 +74,18 @@ def test_poisson_1d(do_plot=False):
         domain=domain,
         equil=equil,
         grid=grid,
-        verbose=True,
     )
 
     # run
-    sim.run(verbose=True)
+    sim.run()
 
     # post processing
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.pproc(verbose=True)
+        sim.pproc()
 
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.load_plotting_data(verbose=True)
+        sim.load_plotting_data()
 
         phi = sim.spline_values.em_fields.phi_log.data
         source = sim.spline_values.em_fields.source_log.data

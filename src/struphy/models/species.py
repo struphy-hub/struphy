@@ -11,6 +11,8 @@ from struphy.particles.parameters import (
     BoundaryParameters,
     KernelDensityPlot,
     LoadingParameters,
+    SavingParameters,
+    SortingParameters,
     WeightsParameters,
 )
 from struphy.physics.physics import ConstantsOfNature, Units
@@ -52,7 +54,7 @@ class Species(metaclass=ABCMeta):
     -------
     init_variables()
         Discover and cache Variable objects from instance attributes.
-    setup_equation_params(units, verbose)
+    setup_equation_params(units)
         Compute equation normalization parameters from physical units.
 
     Notes
@@ -165,8 +167,9 @@ class Species(metaclass=ABCMeta):
             alpha: float = None,
             epsilon: float = None,
             kappa: float = None,
-            verbose: bool = False,
         ):
+            self.species = species
+            
             if units is None:
                 units = Units()
 
@@ -201,16 +204,17 @@ class Species(metaclass=ABCMeta):
                 if MPI.COMM_WORLD.Get_rank() == 0:
                     warnings.warn(f"Override equation parameter {self.kappa =}")
 
-            if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-                logger.info(f"\nSet normalization parameters for species {species.__class__.__name__}:")
-                for key, val in self.__dict__.items():
-                    logger.info(f"{(key + ':').ljust(25)} {val:4.3e}")
+        def show(self):
+            print(f"\nEquation parameters for species {self.species.__class__.__name__}:")
+            for key, val in self.__dict__.items():
+                if key != "species":
+                    print(f"{(key + ':').ljust(25)} {val:4.3e}")
 
     @property
     def equation_params(self) -> EquationParameters:
         return self._equation_params
 
-    def setup_equation_params(self, units: Units, verbose=False):
+    def setup_equation_params(self, units: Units):
         """Set the following equation parameters:
 
         * alpha = plasma-frequenca / cyclotron frequency
@@ -223,7 +227,6 @@ class Species(metaclass=ABCMeta):
             alpha=self.alpha,
             epsilon=self.epsilon,
             kappa=self.kappa,
-            verbose=verbose,
         )
 
 
@@ -266,19 +269,14 @@ class ParticleSpecies(Species):
 
     Methods
     -------
-    set_markers(loading_params, weights_params, boundary_params, bufsize)
-        Configure marker initialization and weight parameters.
-    set_sorting_boxes(do_sort, sorting_frequency, boxes_per_dim, box_bufsize, dims_mask)
-        Configure spatial sorting for memory efficiency and kernel evaluation.
-    set_save_data(n_markers, binning_plots, kernel_density_plots)
-        Configure diagnostic output for particles and distribution functions.
+    set_markers(loading_params, weights_params, boundary_params, sorting_params, saving_params, bufsize)
+        Configure marker initialization and parameters.
 
     Examples
     --------
     >>> electrons = MyParticleSpecies(charge_number=-1, mass_number=1/1836)
     >>> load_params = LoadingParameters(Np=100000)
     >>> electrons.set_markers(loading_params=load_params)
-    >>> electrons.set_sorting_boxes(do_sort=True, sorting_frequency=10)
     """
 
     def set_markers(
@@ -286,6 +284,8 @@ class ParticleSpecies(Species):
         loading_params: LoadingParameters = None,
         weights_params: WeightsParameters = None,
         boundary_params: BoundaryParameters = None,
+        sorting_params: SortingParameters = None,
+        saving_params: SavingParameters = None,
         bufsize: float = 1.0,
     ):
         """Set marker parameters for loading, weight calculation, kernel density reconstruction
@@ -298,6 +298,10 @@ class ParticleSpecies(Species):
         weights_params : WeightsParameters
 
         boundary_params : BoundaryParameters
+
+        sorting_params : SortingParameters
+
+        saving_params : SavingParameters
 
         bufsize : float
             Size of buffer (as multiple of total size, default=.25) in markers array.
@@ -313,74 +317,90 @@ class ParticleSpecies(Species):
         if boundary_params is None:
             boundary_params = BoundaryParameters()
 
+        if sorting_params is None:
+            sorting_params = SortingParameters()
+
+        if saving_params is None:
+            saving_params = SavingParameters()
+
         self.loading_params = loading_params
         self.weights_params = weights_params
         self.boundary_params = boundary_params
+        self.sorting_params = sorting_params
+        self.saving_params = saving_params
         self.bufsize = bufsize
 
-    def set_sorting_boxes(
-        self,
-        do_sort: bool = False,
-        sorting_frequency: int = 0,
-        boxes_per_dim: tuple = (12, 12, 1),
-        box_bufsize: float = 2.0,
-        dims_maks: tuple = (True, True, True),
-    ):
-        """Set options for sorting particles/markers in parameter/launch files.
-        The sorting boxes are used to sort particles in memory and for SPH kernel evaluations.
+        logger.info(f"\nMarker parameters for species '{self.__class__.__name__}':")
+        logger.info(self.loading_params.__repr_no_defaults__())
+        logger.info(self.weights_params.__repr_no_defaults__())
+        logger.info(self.boundary_params.__repr_no_defaults__())
+        logger.info(self.sorting_params.__repr_no_defaults__())
+        logger.info(self.saving_params.__repr_no_defaults__())
+        logger.info(f"Marker array buffer size: {self.bufsize * 100:.1f}% of total size")
 
-        For SPH kernel evaluation, the box size 1.0/boxes_per_dim[i] defines the maximal
-        kernel width in direction i.
+    # def set_sorting_boxes(
+    #     self,
+    #     do_sort: bool = False,
+    #     sorting_frequency: int = 0,
+    #     boxes_per_dim: tuple = (12, 12, 1),
+    #     box_bufsize: float = 2.0,
+    #     dims_mask: tuple = (True, True, True),
+    # ):
+    #     """Set options for sorting particles/markers in parameter/launch files.
+    #     The sorting boxes are used to sort particles in memory and for SPH kernel evaluations.
 
-        Parameters
-        ----------
-        do_sort: bool
-            Whether to sort particles in memory.
+    #     For SPH kernel evaluation, the box size 1.0/boxes_per_dim[i] defines the maximal
+    #     kernel width in direction i.
 
-        sorting_frequency: int
-            The number of time steps between two sortings (=0 means no sorting is performed).
+    #     Parameters
+    #     ----------
+    #     do_sort: bool
+    #         Whether to sort particles in memory.
 
-        boxes_per_dim: tuple
-            Number of boxes in each direction of logical space, (n_eta1, n_eta2, n_eta3).
+    #     sorting_frequency: int
+    #         The number of time steps between two sortings (=0 means no sorting is performed).
 
-        box_bufsize : float
-            Between 0 and 1, relative buffer size for box array (default = 0.25).
-            A number of 1.0 means that the box array is double the size needed to hold N/n_boxes particles,
-            where N is the total number of particles.
+    #     boxes_per_dim: tuple
+    #         Number of boxes in each direction of logical space, (n_eta1, n_eta2, n_eta3).
 
-        mpi_dims_mask: tuple[bool]
-            True if the dimension is to be used in the domain decomposition (=default for each dimension).
-            If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
-        """
-        self.do_sort = do_sort
-        self.sorting_fequency = sorting_frequency
-        self.boxes_per_dim = boxes_per_dim
-        self.box_bufsize = box_bufsize
-        self.dims_mask = dims_maks
+    #     box_bufsize : float
+    #         Between 0 and 1, relative buffer size for box array (default = 0.25).
+    #         A number of 1.0 means that the box array is double the size needed to hold N/n_boxes particles,
+    #         where N is the total number of particles.
 
-    def set_save_data(
-        self,
-        n_markers: int | float = 3,
-        binning_plots: tuple[BinningPlot] = (),
-        kernel_density_plots: tuple[KernelDensityPlot] = (),
-    ):
-        """Set options for saving particle/marker information in parameter/launch files.
+    #     mpi_dims_mask: tuple[bool]
+    #         True if the dimension is to be used in the domain decomposition (=default for each dimension).
+    #         If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
+    #     """
+    #     self.do_sort = do_sort
+    #     self.sorting_fequency = sorting_frequency
+    #     self.boxes_per_dim = boxes_per_dim
+    #     self.box_bufsize = box_bufsize
+    #     self.dims_mask = dims_mask
 
-        Parameters
-        ----------
-        n_markers: int | float
-            Number of particles/markers for which to save trajectories.
-            If float and <1.0, then understood as the fraction of the total number of markers.
+    # def set_save_data(
+    #     self,
+    #     n_markers: int | float = 3,
+    #     binning_plots: tuple[BinningPlot] = (),
+    #     kernel_density_plots: tuple[KernelDensityPlot] = (),
+    # ):
+    #     """Set options for saving particle/marker information in parameter/launch files.
 
-        binned_data: tuple[BinningPlot]
-            A tuple of BinningPlot objects.
+    #     Parameters
+    #     ----------
+    #     n_markers: int | float
+    #         Number of particles/markers for which to save trajectories.
+    #         If float and <1.0, then understood as the fraction of the total number of markers.
 
-        kernel_density_plots: tuple[KernelDensityPlot]
-            A tuple of KernelDensityPlot objects.
-        """
-        self.n_markers = n_markers
-        self.binning_plots = binning_plots
-        self.kernel_density_plots = kernel_density_plots
+    #     binned_data: tuple[BinningPlot]
+    #         A tuple of BinningPlot objects.
+
+    #     kernel_density_plots: tuple[KernelDensityPlot]
+    #         A tuple of KernelDensityPlot objects.
+    #     """
+    #     self.n_markers = n_markers
+    #     self.binning_plots = binning_plots
+    #     self.kernel_density_plots = kernel_density_plots
 
 
 class DiagnosticSpecies(Species):
