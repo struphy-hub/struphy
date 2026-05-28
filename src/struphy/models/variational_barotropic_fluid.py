@@ -186,7 +186,7 @@ class VariationalBarotropicFluid(StruphyModel):
         - viscous or resistive effects
         - kinetic plasma phenomena"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         pass
 
     # default parameters

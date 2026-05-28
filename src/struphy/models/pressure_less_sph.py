@@ -172,7 +172,7 @@ class PressureLessSPH(StruphyModel):
     #     dct["projected_density"] = "L2"
     #     return dct
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         pass
 
     ## default parameters

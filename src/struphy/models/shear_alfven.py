@@ -149,7 +149,7 @@ class ShearAlfven(StruphyModel):
         - kinetic particle coupling
         - resistive, viscous, or Hall-MHD effects"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         # project background magnetic field (2-form) and pressure (3-form)
         self._b_eq = Propagator.projected_equil.b2
 

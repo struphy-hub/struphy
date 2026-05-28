@@ -172,7 +172,7 @@ class VariationalPressurelessFluid(StruphyModel):
         - viscous/resistive dissipation
         - kinetic particle physics"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         pass
 
     # default parameters

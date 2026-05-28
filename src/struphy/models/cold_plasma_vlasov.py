@@ -343,7 +343,7 @@ class ColdPlasmaVlasov(StruphyModel):
         - collision operators or detailed dissipative closures
         - electrostatic-only reductions where magnetic evolution is irrelevant"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         """Solve initial Poisson equation.
 
         :meta private:
@@ -379,14 +379,12 @@ class ColdPlasmaVlasov(StruphyModel):
         self.initial_poisson.allocate()
 
         # Solve with dt=1. and compute electric field
-        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-            logger.info("\nSolving initial Poisson problem...")
+        logger.info("\nSolving initial Poisson problem...")
         self.initial_poisson(1.0)
 
         phi = self.initial_poisson.variables.phi.spline.vector
         Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
-        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-            logger.info("... Done.")
+        logger.info("... Done.")
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

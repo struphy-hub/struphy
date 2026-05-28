@@ -253,5 +253,5 @@ class ColdPlasma(StruphyModel):
         - multi-species hybrid or fully kinetic problems
         - collisional closures beyond the built-in cold-plasma approximation"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         pass

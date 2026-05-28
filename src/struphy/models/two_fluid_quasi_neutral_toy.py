@@ -232,7 +232,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
         - kinetic phase-space phenomena
         - self-consistent electromagnetic wave propagation"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         pass
 
     ## default parameters

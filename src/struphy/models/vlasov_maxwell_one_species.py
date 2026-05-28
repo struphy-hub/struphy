@@ -259,7 +259,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         - reduced electrostatic-only models where magnetic evolution is unnecessary
         - linearized delta-f studies that should use the dedicated linear models"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         """Solve initial Poisson equation.
 
         :meta private:

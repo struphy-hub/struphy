@@ -206,7 +206,7 @@ class ViscousEulerSPH(StruphyModel):
         - kinetic plasma physics
         - studies that require exact field-based conservation structures"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         pass
 
     ## default parameters

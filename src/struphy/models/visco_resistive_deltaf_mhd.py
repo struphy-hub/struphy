@@ -276,7 +276,7 @@ class ViscoResistiveDeltafMHD(StruphyModel):
         - kinetic or particle-resolved plasma effects
         - entropy- or q-based thermodynamic formulations"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         projV3 = L2Projector("L2", Propagator.mass_ops)
 
         def f(e1, e2, e3):

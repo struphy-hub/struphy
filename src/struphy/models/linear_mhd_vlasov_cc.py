@@ -328,7 +328,7 @@ class LinearMHDVlasovCC(StruphyModel):
         - pressure-coupling closures
         - collisional or dissipative MHD effects not present in the equations"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         self._ones = Propagator.projected_equil.p3.space.zeros()
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.0

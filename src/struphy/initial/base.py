@@ -80,7 +80,7 @@ class Perturbation(metaclass=ABCMeta):
         out += ")"
         return out
 
-    def __repr_do_defaults__(self):
+    def __repr_no_defaults__(self):
         return __class_with_params_repr_no_defaults__(self)
 
     @property

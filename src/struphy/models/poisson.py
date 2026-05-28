@@ -153,7 +153,7 @@ class Poisson(StruphyModel):
         - self-consistent kinetic plasma evolution on its own
         - magnetic-field dynamics or full Maxwell coupling"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         """Solve initial Poisson equation.
 
         :meta private:
@@ -167,8 +167,7 @@ class Poisson(StruphyModel):
 
         self.propagators.poisson(1.0)
 
-        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-            logger.info("... Done.")
+        logger.info("... Done.")
 
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

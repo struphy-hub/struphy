@@ -216,7 +216,7 @@ class GuidingCenter(StruphyModel):
         - collisional transport or source terms not present in the equation
         - fluid closures or MHD force balance"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         pass
 
     def _compute_en_fB(self):

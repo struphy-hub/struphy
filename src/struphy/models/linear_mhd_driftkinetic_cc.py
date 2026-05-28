@@ -391,7 +391,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         - resistive or viscous MHD closures
         - regimes where gyrophase resolution is required"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         self._ones = Propagator.projected_equil.p3.space.zeros()
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.0

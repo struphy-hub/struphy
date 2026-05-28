@@ -327,7 +327,7 @@ class LinearMHDVlasovPC(StruphyModel):
         - dissipative/resistive MHD
         - fully kinetic treatment of the bulk plasma"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         self._ones = Propagator.projected_equil.p3.space.zeros()
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.0

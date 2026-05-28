@@ -324,7 +324,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         - fully electromagnetic magnetic-field evolution
         - equilibria that are not compatible with the built-in Maxwellian assumptions"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         """Solve initial Poisson equation.
 
         :meta private:
@@ -368,8 +368,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
         phi = self.initial_poisson.variables.phi.spline.vector
         Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
-        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-            logger.info("... Done.")
+        logger.info("... Done.")
 
     def _compute_en_w(self):
         particles = self.kinetic_ions.var.particles

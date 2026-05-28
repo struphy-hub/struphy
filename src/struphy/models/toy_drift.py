@@ -122,7 +122,7 @@ class ToyDrift(StruphyModel):
     def velocity_scale(self):
         return "thermal"
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         """Solve initial Poisson equation.
 
         :meta private:

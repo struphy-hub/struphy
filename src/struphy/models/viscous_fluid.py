@@ -197,7 +197,7 @@ class ViscousFluid(StruphyModel):
         - inviscid strictly conservative benchmarks
         - kinetic particle effects"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         projV3 = L2Projector("L2", Propagator.mass_ops)
 
         def f(e1, e2, e3):

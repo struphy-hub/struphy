@@ -275,7 +275,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
         - electromagnetic wave propagation (no magnetic field evolution)
         - drift-reduced or gyrokinetic approximations (full 6D Vlasov equation)"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         """Solve initial Poisson equation.
 
         :meta private:
@@ -322,8 +322,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
         phi = self.initial_poisson.variables.phi.spline.vector
         Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
-        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-            logger.info("... Done.")
+        logger.info("... Done.")
 
         # reset particle weights
         particles.weights = particles.weights_at_t0.copy()

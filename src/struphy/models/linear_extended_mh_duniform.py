@@ -267,7 +267,7 @@ class LinearExtendedMHDuniform(StruphyModel):
         - kinetic ion/electron effects beyond the Hall correction
         - dissipation-dominated problems with explicit viscosity or resistivity"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         self._b_eq = Propagator.projected_equil.b1
         self._a_eq = Propagator.projected_equil.a1
         self._p_eq = Propagator.projected_equil.p3

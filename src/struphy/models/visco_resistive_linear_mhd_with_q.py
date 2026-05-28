@@ -265,7 +265,7 @@ class ViscoResistiveLinearMHD_with_q(StruphyModel):
         - kinetic plasma coupling
         - ideal nondissipative studies"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         projV3 = L2Projector("L2", Propagator.mass_ops)
 
         def f(e1, e2, e3):

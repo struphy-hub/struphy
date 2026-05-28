@@ -155,5 +155,5 @@ class RandomParticleDiffusion(StruphyModel):
         - deterministic advection-dominated transport
         - anisotropic plasma kinetics in phase space"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         pass

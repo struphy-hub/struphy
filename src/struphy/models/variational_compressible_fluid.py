@@ -209,7 +209,7 @@ class VariationalCompressibleFluid(StruphyModel):
         - pressureless or barotropic-only reductions
         - kinetic or particle-based transport physics"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         projV3 = L2Projector("L2", Propagator.mass_ops)
 
         def f(e1, e2, e3):

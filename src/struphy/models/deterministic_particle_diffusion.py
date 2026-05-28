@@ -161,5 +161,5 @@ class DeterministicParticleDiffusion(StruphyModel):
         - nonlinear fluid systems with pressure or momentum evolution
         - diffusion tensors outside the currently supported simplified forms"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         pass

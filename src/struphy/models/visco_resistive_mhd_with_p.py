@@ -273,7 +273,7 @@ class ViscoResistiveMHD_with_p(StruphyModel):
         - reduced linear perturbation studies
         - thermodynamic formulations that require entropy or q as primitive variables"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         projV3 = L2Projector("L2", Propagator.mass_ops)
 
         def f(e1, e2, e3):

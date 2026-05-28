@@ -276,7 +276,7 @@ class ViscoResistiveMHD(StruphyModel):
         - kinetic or hybrid particle effects
         - reduced linear perturbation studies better served by the linear models"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         projV3 = L2Projector("L2", Propagator.mass_ops)
 
         def f(e1, e2, e3):

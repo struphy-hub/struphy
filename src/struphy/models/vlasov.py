@@ -175,5 +175,5 @@ class Vlasov(StruphyModel):
         - guiding-center reduction studies
         - fluid or MHD-scale closures"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         pass
