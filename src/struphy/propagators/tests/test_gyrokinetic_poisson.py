@@ -154,7 +154,6 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
                 tol=1.0e-13,
                 maxiter=3000,
                 info=True,
-                verbose=False,
                 recycle=False,
             )
 
@@ -363,7 +362,6 @@ def test_poisson_M1perp_2d(num_elements, degree, bc_type, mapping, projected_rhs
         tol=1.0e-13,
         maxiter=3000,
         info=True,
-        verbose=False,
         recycle=False,
     )
 
@@ -511,7 +509,6 @@ def test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=F
         tol=1.0e-13,
         maxiter=3000,
         info=True,
-        verbose=False,
         recycle=False,
     )
 
@@ -686,7 +683,6 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
         tol=1.0e-13,
         maxiter=3000,
         info=True,
-        verbose=False,
         recycle=False,
     )
 
