@@ -1,3 +1,5 @@
+import copy
+
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.io.options import BaseUnits, LiteralOptions
@@ -96,6 +98,9 @@ class ColdPlasma(StruphyModel):
         alpha: float = None,
         epsilon: float = None,
     ):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -248,5 +253,5 @@ class ColdPlasma(StruphyModel):
         - multi-species hybrid or fully kinetic problems
         - collisional closures beyond the built-in cold-plasma approximation"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         pass

@@ -1,31 +1,34 @@
+import copy
 import inspect
 import logging
 from copy import deepcopy
+from typing import Callable
 
 import cunumpy as xp
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
-from feectools.fem.tensor import TensorFemSpace
+from feectools.fem.tensor import FemSpace, TensorFemSpace
 from feectools.fem.vector import VectorFemSpace
-from feectools.linalg.basic import IdentityOperator, LinearOperator, Vector
+from feectools.linalg.basic import IdentityOperator, InverseLinearOperator, LinearOperator, Vector
 from feectools.linalg.block import BlockLinearOperator, BlockVector
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilVector
 
-from struphy import domains, equils
+from struphy import equils
 from struphy.feec import mass_kernels
 from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.feec.utilities import LocalProjectionMatrix, LocalRotationMatrix, get_quad_grids
 from struphy.fields_background.base import MHDequilibrium
-from struphy.fields_background.equils import set_defaults
 from struphy.geometry.base import Domain
 from struphy.io.options import LiteralOptions
+from struphy.linear_algebra.solver import SolverParameters
 from struphy.polar.basic import PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.docstring_converter import auto_convert_docstring, info
 from struphy.utils.pyccel import Pyccelkernel
+from struphy.utils.utils import __class_with_params_repr_no_defaults__
 
 logger = logging.getLogger("struphy")
 
@@ -2585,28 +2588,37 @@ class L2Projector:
     mass_ops : struphy.mass.WeighteMassOperators
         Mass operators object, see :ref:`mass_ops`.
 
-    params : dict
-        Keyword arguments for the solver parameters.
+    solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Symmetric iterative solver used by implicit or explicit operators.
+
+    precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+        Preconditioner for the mass-matrix block.
+
+    solver_params : SolverParameters, default=None
+            Solver controls; defaults to ``SolverParameters()``.
     """
 
-    def __init__(self, space_id, mass_ops: WeightedMassOperators, **params):
-        from struphy.feec import preconditioner
-
+    def __init__(
+        self,
+        space_id: str,
+        mass_ops: WeightedMassOperators,
+        solver_name: LiteralOptions.OptsSymmSolver = "pcg",
+        precond_name: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner",
+        solver_params: SolverParameters = None,
+    ):
         assert space_id in ("H1", "Hcurl", "Hdiv", "L2", "H1vec")
 
-        params_default = {
-            "type": ("pcg", "MassMatrixPreconditioner"),
-            "tol": 1.0e-14,
-            "maxiter": 500,
-            "info": False,
-            "verbose": False,
-        }
+        # TODO: enable serialization of WeightedMassOperators
+        # self.params = copy.deepcopy(locals())
 
-        set_defaults(params, params_default)
+        # TODO: move L2projector to its own file and avoid circular imports
+        from struphy.feec import preconditioner
+
+        if solver_params is None:
+            solver_params = SolverParameters()
 
         self._space_id = space_id
         self._mass_ops = mass_ops
-        self._params = params
         self._space_key = mass_ops.derham.space_to_form[self.space_id]
         self._space = mass_ops.derham.fem_spaces[self.space_key]
 
@@ -2652,68 +2664,95 @@ class L2Projector:
         self._bases_l = self.mass_ops.derham.spline_attributes[self.space_key].quad_grid_bases
 
         # Preconditioner
-        if self.params["type"][1] is None:
+        if precond_name is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, self.params["type"][1])
+            pc_class = getattr(preconditioner, precond_name)
             pc = pc_class(self.Mmat)
 
         # solver
         self._solver = inverse(
             self.Mmat,
-            self.params["type"][0],
+            solver_name,
             pc=pc,
-            tol=self.params["tol"],
-            maxiter=self.params["maxiter"],
-            verbose=self.params["verbose"],
+            tol=solver_params.tol,
+            maxiter=solver_params.maxiter,
+            verbose=solver_params.verbose,
         )
 
     @property
-    def mass_ops(self):
+    def params(self) -> dict:
+        """Parameters passed to __init__(), as dictionary."""
+        if not hasattr(self, "_params"):
+            self._params = {}
+        return self._params
+
+    @params.setter
+    def params(self, new):
+        assert isinstance(new, dict)
+        if "self" in new:
+            new.pop("self")
+        if "__class__" in new:
+            new.pop("__class__")
+        self._params = new
+
+    @property
+    def mass_ops(self) -> WeightedMassOperators:
         """Struphy mass operators object, see :ref:`mass_ops`.."""
         return self._mass_ops
 
     @property
-    def space_id(self):
+    def space_id(self) -> str:
         """The ID of the space (H1, Hcurl, Hdiv, L2 or H1vec)."""
         return self._space_id
 
     @property
-    def space_key(self):
+    def space_key(self) -> str:
         """The key of the space (0, 1, 2, 3 or v)."""
         return self._space_key
 
     @property
-    def space(self):
+    def space(self) -> FemSpace:
         """The Derham finite element space (from ``Derham.fem_spaces``)."""
         return self._space
 
     @property
-    def params(self):
-        """Parameters for the iterative solver."""
-        return self._params
+    def solver(self) -> InverseLinearOperator:
+        """The iterative solver for the mass matrix."""
+        return self._solver
 
     @property
-    def Mmat(self):
+    def Mmat(self) -> WeightedMassOperator:
         """The mass matrix of space."""
         return self._Mmat
 
     @property
-    def quad_grid_pts(self):
+    def quad_grid_pts(self) -> tuple[tuple[xp.ndarray]]:
         """List of quadrature points in each direction for integration over grid cells in format (ni, nq) = (cell, quadrature point)."""
         return self._quad_grid_pts
 
     @property
-    def quad_grid_mesh(self):
+    def quad_grid_mesh(self) -> list[tuple[xp.ndarray]]:
         """Mesh grids of quad_grid_pts."""
         return self._quad_grid_mesh
 
     @property
-    def geom_weights(self):
+    def geom_weights(self) -> list[list[xp.ndarray]]:
         """Geometric coefficients (e.g. Jacobians) evaluated at quad_grid_mesh, stored as list[list] either 1x1 or 3x3."""
         return self._geom_weights
 
-    def solve(self, rhs, out=None):
+    def __repr__(self):
+        out = f"{self.__class__.__name__}(\n"
+        for k, v in self.params.items():
+            out += " " * 4
+            out += f"{k}={v},\n"
+        out += ")"
+        return out
+
+    def __repr_no_defaults__(self):
+        return __class_with_params_repr_no_defaults__(self)
+
+    def solve(self, rhs: StencilVector | BlockVector, out=None) -> StencilVector | BlockVector:
         """
         Solves the linear system M * x = rhs, where M is the mass matrix.
 
@@ -2731,16 +2770,23 @@ class L2Projector:
             Output vector (result of linear system).
         """
 
-        assert isinstance(rhs, Vector)
+        assert isinstance(rhs, StencilVector) or isinstance(rhs, BlockVector)
+        assert rhs.space == self.Mmat.domain
 
         if out is None:
-            out = self._solver.dot(rhs)
+            out = self.solver.dot(rhs)
         else:
-            self._solver.dot(rhs, out=out)
+            self.solver.dot(rhs, out=out)
 
         return out
 
-    def get_dofs(self, fun, dofs=None, apply_bc=False, clear=True):
+    def get_dofs(
+        self,
+        fun: Callable | xp.ndarray | list[Callable | xp.ndarray] | tuple[Callable | xp.ndarray],
+        dofs: StencilVector | BlockVector = None,
+        apply_bc: bool = False,
+        clear: bool = True,
+    ) -> StencilVector | BlockVector:
         r"""
         Assembles (in 3d) the Stencil-/BlockVector
 
@@ -2758,7 +2804,7 @@ class L2Projector:
 
         Parameters
         ----------
-        fun : callable | list
+        fun : Callable | xp.ndarray | list[Callable | xp.ndarray] | tuple[Callable | xp.ndarray]
             Weight function(s) (callables or xp.ndarrays) in a 1d list of shape corresponding to number of components.
 
         dofs : StencilVector | BlockVector, optional
@@ -2767,16 +2813,21 @@ class L2Projector:
         apply_bc : bool, optional
             Whether to apply essential boundary conditions to degrees of freedom.
 
-        clear : bool
+        clear : bool, optional
             Whether to first set all data to zero before assembly. If False, the new contributions are added to existing ones in vec.
+
+        Returns
+        -------
+        dofs : StencilVector | BlockVector
+             The assembled degrees of freedom, before projection.
         """
 
         # evaluate fun at quad_grid or check array size
         if callable(fun):
-            fun_weights = fun(*self._quad_grid_mesh)
+            fun_weights = fun(*self.quad_grid_mesh)
         elif isinstance(fun, xp.ndarray):
-            assert fun.shape == self._quad_grid_mesh[0].shape, (
-                f"Expected shape {self._quad_grid_mesh[0].shape}, got {fun.shape =} instead."
+            assert fun.shape == self.quad_grid_mesh[0].shape, (
+                f"Expected shape {self.quad_grid_mesh[0].shape}, got {fun.shape =} instead."
             )
             fun_weights = fun
         else:
@@ -2788,7 +2839,7 @@ class L2Projector:
             ), f"List input only for vector-valued spaces of size 3, but {len(fun) =}."
             fun_weights = []
             # loop over rows (different meshes)
-            for mesh in self._quad_grid_mesh:
+            for mesh in self.quad_grid_mesh:
                 fun_weights += [[]]
                 # loop over columns (different functions)
                 for f in fun:
@@ -2891,19 +2942,25 @@ class L2Projector:
 
         return dofs
 
-    def __call__(self, fun, out=None, dofs=None, apply_bc=False):
+    def __call__(
+        self,
+        fun: Callable | list[Callable] | tuple[Callable],
+        out: StencilVector | BlockVector = None,
+        dofs: StencilVector | BlockVector = None,
+        apply_bc: bool = False,
+    ) -> StencilVector | BlockVector:
         """
         Applies projector to given callable(s).
 
         Parameters
         ----------
-        fun : callable | list
+        fun : Callable | list[Callable] | tuple[Callable]
             The function to be projected. List of three callables for vector-valued functions.
 
-        out : feectools.linalg.basic.vector, optional
+        out : StencilVector | BlockVector, optional
             If given, the result will be written into this vector in-place.
 
-        dofs : feectools.linalg.basic.vector, optional
+        dofs : StencilVector | BlockVector, optional
             If given, the dofs will be written into this vector in-place.
 
         apply_bc : bool, optional

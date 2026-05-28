@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from typing import Literal
 
@@ -6,13 +7,15 @@ from feectools.linalg.solvers import inverse
 from line_profiler import profile
 
 from struphy.feec import preconditioner
-from struphy.io.options import LiteralOptions
+from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.ode.solvers import ODEsolverFEEC
 from struphy.ode.utils import ButcherTableau
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
+
+logger = logging.getLogger("struphy")
 
 
 class HasegawaWakataniStep(Propagator):
@@ -93,8 +96,8 @@ class HasegawaWakataniStep(Propagator):
     def __init__(self):
         self.variables = self.Variables()
 
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Configuration options for :class:`HasegawaWakataniStep`.
 
         Parameters
@@ -162,9 +165,10 @@ class HasegawaWakataniStep(Propagator):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         # default phi
         if self.options.phi is None:
             self.options.phi = FEECVariable(space="H1")

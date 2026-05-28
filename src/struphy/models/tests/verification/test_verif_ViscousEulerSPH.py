@@ -15,7 +15,9 @@ from struphy import (
     EnvironmentOptions,
     KernelDensityPlot,
     LoadingParameters,
+    SavingParameters,
     Simulation,
+    SortingParameters,
     Time,
     WeightsParameters,
     domains,
@@ -58,21 +60,24 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
     loading_params = LoadingParameters(ppb=8, loading="tesselation")
     weights_params = WeightsParameters()
     boundary_params = BoundaryParameters()
-    model.euler_fluid.set_markers(
-        loading_params=loading_params,
-        weights_params=weights_params,
-        boundary_params=boundary_params,
-    )
-    model.euler_fluid.set_sorting_boxes(
+    sorting_params = SortingParameters(
         boxes_per_dim=(nx, 1, 1),
-        dims_maks=(True, False, False),
+        dims_mask=(True, False, False),
     )
 
     bin_plot = BinningPlot(slice="e1", n_bins=(32,), ranges=(0.0, 1.0))
     kd_plot = KernelDensityPlot(pts_e1=plot_pts, pts_e2=1)
-    model.euler_fluid.set_save_data(
+    saving_params = SavingParameters(
         binning_plots=(bin_plot,),
         kernel_density_plots=(kd_plot,),
+    )
+
+    model.euler_fluid.set_markers(
+        loading_params=loading_params,
+        weights_params=weights_params,
+        boundary_params=boundary_params,
+        sorting_params=sorting_params,
+        saving_params=saving_params,
     )
 
     # propagator options
@@ -98,18 +103,17 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
         domain=domain,
         grid=grid,
         derham_opts=derham_opts,
-        verbose=True,
     )
 
     # run
-    sim.run(verbose=True)
+    sim.run()
 
     # post processing
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.pproc(verbose=True)
+        sim.pproc()
 
         # diagnostics
-        sim.load_plotting_data(env.path_out)
+        sim.load_plotting_data()
 
         ee1, ee2, ee3 = sim.n_sph.euler_fluid.view_0.grid_n_sph
         n_sph = sim.n_sph.euler_fluid.view_0.n_sph

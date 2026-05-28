@@ -1,3 +1,4 @@
+import copy
 import logging
 
 import cunumpy as xp
@@ -149,6 +150,9 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         with_B0: bool = True,
         with_E0: bool = True,
     ):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -320,15 +324,14 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         - fully electromagnetic magnetic-field evolution
         - equilibria that are not compatible with the built-in Maxwellian assumptions"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         """Solve initial Poisson equation.
 
         :meta private:
         """
         self._tmp = xp.empty(1, dtype=float)
 
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("\nINITIAL POISSON SOLVE:")
+        logger.info("\nINITIAL POISSON SOLVE:")
 
         # use control variate method
         particles = self.kinetic_ions.var.particles
@@ -358,14 +361,12 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         self.initial_poisson.allocate()
 
         # Solve with dt=1. and compute electric field
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("\nSolving initial Poisson problem...")
+        logger.info("\nSolving initial Poisson problem...")
         self.initial_poisson(1.0)
 
         phi = self.initial_poisson.variables.phi.spline.vector
         Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
-        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-            logger.info("... Done.")
+        logger.info("... Done.")
 
     def _compute_en_w(self):
         particles = self.kinetic_ions.var.particles
@@ -387,7 +388,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
         # alpha^2 * v_th^2 / (2*N) * sum_p s_0 * w_p^2 / f_{0,p}
         alpha = self.kinetic_ions.equation_params.alpha
-        vth = self._f0.maxw_params["vth1"][0]
+        vth = self._f0.params["vth1"][0]
 
         self._tmp[0] = (
             alpha**2
@@ -410,9 +411,9 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
                     new_file += ["background = maxwellian_1\n"]
                 elif "maxwellian_1pt =" in line:
                     new_file += ["maxwellian_1pt = maxwellians.Maxwellian3D(n=(0.0, perturbation))\n"]
-                elif "set_save_data" in line:
+                elif "saving_params = " in line:
                     new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
-                    new_file += ["model.kinetic_ions.set_save_data(binning_plots=(binplot,))\n"]
+                    new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
                 else:
                     new_file += [line]
 

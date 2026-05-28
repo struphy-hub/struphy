@@ -14,6 +14,7 @@ from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
 from struphy.geometry.base import Domain
+from struphy.io.options import OptionsBase
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.utils.utils import check_option
 
@@ -50,8 +51,8 @@ class Propagator(metaclass=ABCMeta):
         self.variables = self.Variables()
 
     @abstractmethod
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Template for configuration options of a propagator.
 
         Subclasses should override this to define specific propagator options.
@@ -78,9 +79,10 @@ class Propagator(metaclass=ABCMeta):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @abstractmethod
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         """Allocate all data/objects of the instance."""
 
     @abstractmethod

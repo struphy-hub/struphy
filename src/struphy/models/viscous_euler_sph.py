@@ -1,3 +1,5 @@
+import copy
+
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.io.options import BaseUnits, LiteralOptions
@@ -16,51 +18,7 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class ViscousEulerSPH(StruphyModel):
-    r"""Euler equations with viscosity discretized with smoothed particle hydrodynamics (SPH).
-
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat u =  \hat v_\textnormal{th} \,.
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        \begin{align}
-        \partial_t \rho + \nabla \cdot (\rho \mathbf u) &= 0\,,
-        \\[2mm]
-        \rho(\partial_t \mathbf u + \mathbf u \cdot \nabla \mathbf u) &= - \nabla \left(\rho^2 \frac{\partial \mathcal U(\rho, S)}{\partial \rho} \right) - \nabla \cdot \boldsymbol{\pi}\,,
-        \\[2mm]
-        \partial_t S + \mathbf u \cdot \nabla S &= 0\,,
-        \end{align}
-
-    where :math:`S` denotes the entropy per unit mass and :math:`\boldsymbol{\pi}` is the viscous stress tensor.
-
-    The viscous stress tensor for a Newtonian fluid is given by:
-
-    .. math::
-
-        \boldsymbol{\sigma} = -\mu \left( \nabla \mathbf u + (\nabla \mathbf u)^T - \frac{2}{3}(\nabla \cdot \mathbf u)\mathbf{I} \right)\,,
-
-    where :math:`\mu` is the dynamic (shear) viscosity and :math:`\mathbf{I}` is the identity tensor.
-
-    The internal energy per unit mass can be defined in two ways:
-
-    .. math::
-
-        \mathrm{isothermal:}\qquad &\mathcal U(\rho, S) = \kappa(S) \log \rho\,.
-
-        \mathrm{polytropic:}\qquad &\mathcal U(\rho, S) = \kappa(S) \frac{\rho^{\gamma - 1}}{\gamma - 1}\,.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.push_eta.PushEta`
-    2. :class:`~struphy.propagators.push_vxb.PushVxB`
-    3. :class:`~struphy.propagators.push_vin_sph_pressure.PushVinSPHpressure`
-    4. :class:`~struphy.propagators.push_vin_viscous_potential.PushVinViscousPotential`
-    """
+    r"""Euler equations with viscosity discretized with smoothed particle hydrodynamics (SPH)."""
 
     @classmethod
     def model_type(cls) -> LiteralOptions.ModelTypes:
@@ -100,6 +58,9 @@ class ViscousEulerSPH(StruphyModel):
         self.with_B0 = with_B0
         self.with_p = with_p
         self.with_viscosity = with_viscosity
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.euler_fluid = self.EulerFluid(charge_number=charge_number, mass_number=mass_number)
@@ -192,19 +153,19 @@ class ViscousEulerSPH(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. push_eta.PushEta:**
+        doc = rf"""**1. PushEta:**
 
     {PushEta.__doc__}
 
-    **2. push_vxb.PushVxB:**
+    **2. PushVxB:**
 
     {PushVxB.__doc__}
 
-    **3. push_vin_sph_pressure.PushVinSPHpressure:**
+    **3. PushVinSPHpressure:**
 
     {PushVinSPHpressure.__doc__}
 
-    **4. push_vin_viscous_potential.PushVinViscousPotential:**
+    **4. PushVinViscousPotential:**
 
     {PushVinViscousPotential.__doc__}
 """
@@ -245,7 +206,7 @@ class ViscousEulerSPH(StruphyModel):
         - kinetic plasma physics
         - studies that require exact field-based conservation structures"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         pass
 
     ## default parameters
@@ -257,9 +218,11 @@ class ViscousEulerSPH(StruphyModel):
                 if "push_vxb.Options" in line:
                     new_file += ["if model.with_B0:\n"]
                     new_file += ["    " + line]
-                elif "set_save_data" in line:
+                elif "saving_params = " in line:
                     new_file += ["\nkd_plot = KernelDensityPlot()\n"]
-                    new_file += ["model.euler_fluid.set_save_data(kernel_density_plots=(kd_plot,))\n"]
+                    new_file += ["saving_params = SavingParameters(kernel_density_plots=(kd_plot,))\n\n"]
+                elif "sorting_params = " in line:
+                    new_file += ["sorting_params = SortingParameters(boxes_per_dim=(12, 12, 1))\n\n"]
                 elif "base_units = BaseUnits" in line:
                     new_file += ["base_units = BaseUnits(kBT=1.0)\n"]
                 else:

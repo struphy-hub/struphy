@@ -1,3 +1,5 @@
+import copy
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
@@ -107,6 +109,9 @@ class ViscoResistiveDeltafMHD(StruphyModel):
         with_viscosity: bool = True,
         with_resistivity: bool = True,
     ):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -271,7 +276,7 @@ class ViscoResistiveDeltafMHD(StruphyModel):
         - kinetic or particle-resolved plasma effects
         - entropy- or q-based thermodynamic formulations"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         projV3 = L2Projector("L2", Propagator.mass_ops)
 
         def f(e1, e2, e3):

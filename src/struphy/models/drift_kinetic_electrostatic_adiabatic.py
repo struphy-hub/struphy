@@ -1,3 +1,5 @@
+import copy
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
@@ -88,6 +90,9 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         epsilon: float = None,
     ):
 
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
+
         # 1. instantiate all species
         self.em_fields = self.EMFields()
         self.kinetic_ions = self.KineticIons(
@@ -126,7 +131,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
     def velocity_scale(self):
         return "thermal"
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         """Solve initial Poisson equation.
 
         :meta private:
@@ -200,9 +205,9 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
                     new_file += [
                         "model.propagators.push_gc_para.options = model.propagators.push_gc_para.Options(phi=model.em_fields.phi)\n",
                     ]
-                elif "set_save_data" in line:
+                elif "saving_params = " in line:
                     new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
-                    new_file += ["model.kinetic_ions.set_save_data(binning_plots=(binplot,))\n"]
+                    new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
                 else:
                     new_file += [line]
 
