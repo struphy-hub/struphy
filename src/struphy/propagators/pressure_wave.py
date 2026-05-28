@@ -147,7 +147,7 @@ class PressureWave(Propagator):
         E: FEECVariable = None
         rhobar: FEECVariable = None
         theta: FEECVariable = None
-        pressure_gradient: PressureGradient = "chain_rule_splitting"
+        pressure_gradient: PressureGradient = "projection"
         solve_type: SolveType = "rhosin_ucos"
         rho0: StencilVector = None
         u0: StencilVector = None
@@ -217,8 +217,16 @@ class PressureWave(Propagator):
 
         # density and density weight operator
 
+        self._M1rho = None
+        self._u_system_matrix = None
+
         if self.options.rhobar is None:
             self._M1rho = self.mass_ops.M1
+            if self.options.solve_type == "rhosin_ucos":
+                self._u_system_matrix = self._omega * self._M1rho
+            
+            if self.options.solve_type == "rhocos_usin":
+                self._u_system_matrix = - self._omega * self._M1rho
 
         else:
             assert self.options.rhobar.space == "H1"
@@ -235,6 +243,12 @@ class PressureWave(Propagator):
             name = "M1rho",
             assemble = True,
             )
+
+            if self.options.solve_type == "rhosin_ucos":
+                self._u_system_matrix = self._omega * self._M1rho
+            
+            if self.options.solve_type == "rhocos_usin":
+                self._u_system_matrix = - self._omega * self._M1rho
         
 
         # temperature and temperature gradient operators
@@ -246,42 +260,52 @@ class PressureWave(Propagator):
             assert self.options.theta.space == "H1"
             theta = self.options.theta.spline
 
-            if self.options.pressure_gradient == "chain_rule_splitting":
-                
-                grad_theta_vector = self.derham.grad.dot(theta.vector)
-                grad_theta_vector.update_ghost_regions()
-                grad_theta_feec = FEECVariable(space="Hcurl")
-                grad_theta_feec.allocate(derham=self.derham, domain=self.domain)
+            if self.options.pressure_gradient == "projection":
 
-                grad_theta = grad_theta_feec.spline
-                grad_theta.vector = grad_theta_vector
-                grad_theta.vector.update_ghost_regions()
-
-                M1theta = self.mass_ops.create_weighted_mass(
-                    "Hcurl",
-                    "Hcurl",
-                    weights=(
-                        "Ginv",
-                        "sqrt_g",
-                        theta,
-                    ),
-                    name = "M1theta",
-                    assemble = True,
-                )
-
-                Atheta = self.mass_ops.create_weighted_mass(
+                P0theta = self.basis_ops.create_basis_op(
+                    [[theta]],
                     "H1",
-                    "Hcurl",
-                    weights=(
-                        "Ginv",
-                        "sqrt_g",
-                        grad_theta,
-                    ),
-                    name = "Atheta",
+                    "H1",
                     assemble = True,
+                    name = "P0theta",
                 )
 
-                self._Btheta = (M1theta @ self.derham.grad + Atheta) / self._mass
+                self._Btheta = self.mass_ops.M1 @ self.derham.grad @ P0theta / self._mass
+                
+                # grad_theta_vector = self.derham.grad.dot(theta.vector)
+                # grad_theta_vector.update_ghost_regions()
+                # grad_theta_feec = FEECVariable(space="Hcurl")
+                # grad_theta_feec.allocate(derham=self.derham, domain=self.domain)
+
+                # grad_theta = grad_theta_feec.spline
+                # grad_theta.vector = grad_theta_vector
+                # grad_theta.vector.update_ghost_regions()
+
+                # M1theta = self.mass_ops.create_weighted_mass(
+                #     "Hcurl",
+                #     "Hcurl",
+                #     weights=(
+                #         "Ginv",
+                #         "sqrt_g",
+                #         theta,
+                #     ),
+                #     name = "M1theta",
+                #     assemble = True,
+                # )
+
+                # Atheta = self.mass_ops.create_weighted_mass(
+                #     "H1",
+                #     "Hcurl",
+                #     weights=(
+                #         "Ginv",
+                #         "sqrt_g",
+                #         grad_theta,
+                #     ),
+                #     name = "Atheta",
+                #     assemble = True,
+                # )
+
+                # self._Btheta = (M1theta @ self.derham.grad + Atheta) / self._mass
 
 
         # rhobar and theta are taken as SplineFunction callables to build the operators
@@ -292,14 +316,24 @@ class PressureWave(Propagator):
         self._u0 = self.options.u0
         self._info = self.options.solver_params.info
 
-        self._rho_system_matrix = (self._omega * self._omega) * self.derham._M0 - self.derham.grad.T @ self._Btheta
+        self._rho_system_matrix = (self._omega * self._omega) * self.mass_ops.M0 - self.derham.grad.T @ self._Btheta
+
+        
+        # preconditioner and solver for Ax=b
+        if self.options.precond is None:
+            pc = None
+        else:
+            # TODO: waiting for multigrid preconditioner
+            pc = None
+
 
         # preparation of the solvers
 
         self._rho_solver = inverse(
             self._rho_system_matrix,
-            self.options.solver,
-            pc=pc,
+            # self.options.solver,
+            "gmres",
+            # pc=pc,
             x0=self.rho0,
             tol=self.options.solver_params.tol,
             maxiter=self.options.solver_params.maxiter,
@@ -307,31 +341,18 @@ class PressureWave(Propagator):
             recycle=self.options.solver_params.recycle,
         )
 
-        if options.solve_type == "rhosin_ucos":
-
-            self._u_solver = inverse(
-                self._omega * self._M1rho,
-                self.options.solver,
-                pc=pc,
-                x0=self.u0,
-                tol=self.options.solver_params.tol,
-                maxiter=self.options.solver_params.maxiter,
-                verbose=self.options.solver_params.verbose,
-                recycle=self.options.solver_params.recycle,
-            )
+        self._u_solver = inverse(
+            self._u_system_matrix,
+            #self.options.solver,
+            "gmres",
+            #pc=pc,
+            x0=self.u0,
+            tol=self.options.solver_params.tol,
+            maxiter=self.options.solver_params.maxiter,
+            verbose=self.options.solver_params.verbose,
+            recycle=self.options.solver_params.recycle,
+        )
         
-        if options.solve_type == "rhocos_usin":
-
-            self._u_solver = inverse(
-                - self._omega * self._M1rho,
-                self.options.solver,
-                pc=pc,
-                x0=self.u0,
-                tol=self.options.solver_params.tol,
-                maxiter=self.options.solver_params.maxiter,
-                verbose=self.options.solver_params.verbose,
-                recycle=self.options.solver_params.recycle,
-            )
 
         # definition of the source term
         
@@ -398,7 +419,7 @@ class PressureWave(Propagator):
         self._u_rhs = self._Btheta.dot(rho_out) + self._E_source
         self._u_rhs.update_ghost_regions()
 
-        u_out = self._u_solver(self._u_rhs, out=self._u_tmp)
+        u_out = self._u_solver.solve(self._u_rhs, out=self._u_tmp)
         u_info = self._u_solver._info
 
         if self._info:
