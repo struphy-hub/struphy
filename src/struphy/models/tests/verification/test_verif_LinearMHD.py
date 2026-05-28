@@ -73,19 +73,18 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
         grid=grid,
         derham_opts=derham_opts,
         equil=equil,
-        verbose=True,
     )
 
     # run
-    sim.run(verbose=True)
+    sim.run()
 
     # post processing
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.pproc(verbose=True)
+        sim.pproc()
 
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.load_plotting_data(verbose=True)
+        sim.load_plotting_data()
 
         # first fft
         u_of_t = sim.spline_values.mhd.velocity_log.data

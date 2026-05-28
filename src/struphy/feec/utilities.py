@@ -212,7 +212,7 @@ def create_equal_random_arrays(V, seed=123, flattened=False):
     return arr, arr_psy
 
 
-def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
+def compare_arrays(arr_psy, arr, rank, atol=1e-14):
     """Assert equality of distributed psydac array and corresponding fraction of cloned numpy array.
     Arrays can be block-structured as nested lists/tuples.
 
@@ -356,10 +356,9 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
     else:
         raise AssertionError("Wrong input type.")
 
-    if verbose:
-        logger.info(
-            f"Rank {rank}: Assertion for array comparison passed with atol={atol}.",
-        )
+    logger.info(
+        f"Rank {rank}: Assertion for array comparison passed with atol={atol}.",
+    )
 
 
 def apply_essential_bc_to_array(space_id: str, vector: Vector, bc: tuple):

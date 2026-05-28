@@ -1,3 +1,4 @@
+import copy
 import logging
 
 import cunumpy as xp
@@ -135,6 +136,9 @@ class LinearMHDVlasovCC(StruphyModel):
         hot_mass_number: float = 1.0,
         hot_epsilon: float = None,
     ):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -324,7 +328,7 @@ class LinearMHDVlasovCC(StruphyModel):
         - pressure-coupling closures
         - collisional or dissipative MHD effects not present in the equations"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         self._ones = Propagator.projected_equil.p3.space.zeros()
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.0
@@ -361,9 +365,9 @@ class LinearMHDVlasovCC(StruphyModel):
                     new_file += [
                         "model.propagators.couple_curr.options = model.propagators.couple_curr.Options(b_tilde=model.em_fields.b_field)\n",
                     ]
-                elif "set_save_data" in line:
+                elif "saving_params = " in line:
                     new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
-                    new_file += ["model.energetic_ions.set_save_data(binning_plots=(binplot,))\n"]
+                    new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
                 else:
                     new_file += [line]
 

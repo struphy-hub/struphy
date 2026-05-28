@@ -125,7 +125,7 @@ def check_omp_flags(file_path, verbose=False):
             if verbose:
                 for iline, line in enumerate(f):
                     if line.lstrip().startswith("# $"):
-                        logger.info(f"Error on line {iline}: {line}")
+                        print(f"Error on line {iline}: {line}")
             return all(not line.lstrip().startswith("# $") for line in f)
     except (IOError, FileNotFoundError) as e:
         raise ValueError(f"Error reading file: {e}")
@@ -154,8 +154,8 @@ def check_ssort(file_path, verbose=False):
         stderr=subprocess.PIPE,
     )
     if verbose:
-        logger.info(f"stdout: {result.stdout.decode('utf-8')}")
-        logger.info(f"stderr: {result.stderr.decode('utf-8')}")
+        print(f"stdout: {result.stdout.decode('utf-8')}")
+        print(f"stderr: {result.stderr.decode('utf-8')}")
     return result.returncode == 0
 
 
@@ -189,8 +189,8 @@ def check_ruff(file_path, verbose=False):
             stderr=subprocess.PIPE,
         )
         if verbose:
-            logger.info(f"stdout: {result.stdout.decode('utf-8')}")
-            logger.info(f"stderr: {result.stderr.decode('utf-8')}")
+            print(f"stdout: {result.stdout.decode('utf-8')}")
+            print(f"stderr: {result.stderr.decode('utf-8')}")
 
         if result.returncode == 0:
             returncodes.append(0)
@@ -232,8 +232,8 @@ def check_isort(file_path, verbose=False):
         stderr=subprocess.PIPE,
     )
     if verbose:
-        logger.info(f"stdout: {result.stdout.decode('utf-8')}")
-        logger.info(f"stderr: {result.stderr.decode('utf-8')}")
+        print(f"stdout: {result.stdout.decode('utf-8')}")
+        print(f"stderr: {result.stderr.decode('utf-8')}")
     return result.returncode == 0
 
 
@@ -262,8 +262,8 @@ def check_autopep8(file_path, verbose=False):
     )
     # If there's any output, autopep8 suggests changes, so it doesn't pass
     if verbose:
-        logger.info(f"stdout: {result.stdout.decode('utf-8')}")
-        logger.info(f"stderr: {result.stderr.decode('utf-8')}")
+        print(f"stdout: {result.stdout.decode('utf-8')}")
+        print(f"stderr: {result.stderr.decode('utf-8')}")
     return result.stdout == b""
 
 
@@ -291,8 +291,8 @@ def check_flake8(file_path, verbose=False):
         stderr=subprocess.PIPE,
     )
     if verbose:
-        logger.info(f"stdout: {result.stdout.decode('utf-8')}")
-        logger.info(f"stderr: {result.stderr.decode('utf-8')}")
+        print(f"stdout: {result.stdout.decode('utf-8')}")
+        print(f"stderr: {result.stderr.decode('utf-8')}")
     return result.returncode == 0
 
 
@@ -328,8 +328,8 @@ def get_pylint_score(file_path, verbose=False, pass_score=8.0):
     passes_pylint = False
 
     if verbose:
-        logger.info(f"\nPylint report for {file_path}:")
-        logger.info(output)
+        print(f"\nPylint report for {file_path}:")
+        print(output)
 
     # Parse the output to get the score
     for line in output.splitlines():
@@ -390,8 +390,8 @@ def check_trailing_commas(file_path, verbose=False):
 
         if diff_result.stdout:
             if verbose:
-                logger.info(f"Changes by add-trailing-comma {file_path}\n")
-                logger.info(diff_result.stdout)
+                print(f"Changes by add-trailing-comma {file_path}\n")
+                print(diff_result.stdout)
             return False
         return True
 
@@ -452,9 +452,9 @@ def get_python_files(input_type, path=None):
         python_files = parse_path(LIBPATH)
 
     elif input_type == "path":
-        logger.info(path)
+        print(path)
         if os.path.isfile(path):
-            logger.info("isfile")
+            print("isfile")
             python_files = [path]
         else:
             python_files = parse_path(path)
@@ -473,7 +473,7 @@ def get_python_files(input_type, path=None):
         ]
 
         if not python_files:
-            logger.info("No Python files to analyze.")
+            print("No Python files to analyze.")
             return []
 
     elif input_type == "branch":
@@ -495,17 +495,17 @@ def get_python_files(input_type, path=None):
         ]
 
         if not python_files:
-            logger.info(
+            print(
                 f"No Python files changed between the current branch and '{path}' branch.",
             )
             return []
 
     else:
-        logger.info(f"Unhandled input_type '{input_type}'.")
+        print(f"Unhandled input_type '{input_type}'.")
         sys.exit(1)
 
     if not python_files:
-        logger.info("No Python files found to check.")
+        print("No Python files found to check.")
         return []
 
     python_files = [
@@ -564,7 +564,7 @@ def parse_json_file_to_html(json_file_path, html_output_path):
             data = json.load(file)
 
         if not isinstance(data, list):
-            logger.info("Invalid JSON format: Expected a list of objects.")
+            print("Invalid JSON format: Expected a list of objects.")
             return
 
         # Group issues by filename
@@ -752,7 +752,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
         #         html_content.append("</ul></nav>")
 
         for filename, issues in issues_by_file.items():
-            logger.info(f"Parsing {filename}")
+            print(f"Parsing {filename}")
             # Start foldable section for the file
             anchor = filename.replace(LIBPATH, "src/struphy").replace("/", "_").replace("\\", "_")
             display_name = filename.replace(LIBPATH, "src/struphy")
@@ -889,14 +889,14 @@ document.addEventListener('DOMContentLoaded', (event) => {
         with open(html_output_path, "w") as html_file:
             html_file.write("\n".join(html_content))
 
-        logger.info(f"HTML report generated at {html_output_path}")
+        print(f"HTML report generated at {html_output_path}")
 
     except FileNotFoundError as e:
-        logger.info(f"Error: {e}")
+        print(f"Error: {e}")
     except json.JSONDecodeError as e:
-        logger.info(f"Error: Failed to parse JSON file. {e}")
+        print(f"Error: Failed to parse JSON file. {e}")
     except Exception as e:
-        logger.info(f"An unexpected error occurred: {e}")
+        print(f"An unexpected error occurred: {e}")
 
 
 def generate_report(python_files, linters=["ruff"], verbose=False):
@@ -936,26 +936,26 @@ def print_stats_plain(stats, linters, ci_linters=["ruff"]):
     linters : list
         List of linters to display in the output.
     """
-    logger.info(f"File: {os.path.relpath(stats['path'])}")
-    logger.info(f"  Lines: {stats['num_lines']}")
-    logger.info(f"  Functions: {stats['num_functions']}")
-    logger.info(f"  Classes: {stats['num_classes']}")
-    logger.info(f"  Variables: {stats['num_variables']}")
+    print(f"File: {os.path.relpath(stats['path'])}")
+    print(f"  Lines: {stats['num_lines']}")
+    print(f"  Functions: {stats['num_functions']}")
+    print(f"  Classes: {stats['num_classes']}")
+    print(f"  Variables: {stats['num_variables']}")
 
     if "pylint" in linters:
-        logger.info(f"  Pylint Score: {stats['pylint_score']}/10")
+        print(f"  Pylint Score: {stats['pylint_score']}/10")
 
     for linter in linters:
         status = PASS_GREEN if stats[f"passes_{linter}"] else FAIL_RED
-        logger.info(f"  {linter}: {status}")
+        print(f"  {linter}: {status}")
 
     # Check for CI pass status if both linters are present
     if all(linter in linters for linter in ci_linters):
         # Check if all linters in ci_linters pass
         passes_ci = all(stats[f"passes_{linter}"] for linter in ci_linters)
         ci_status = PASS_GREEN if passes_ci else FAIL_RED
-        logger.info(f"  Full CI check: {ci_status}")
-    logger.info("-" * 40)  # Divider between files
+        print(f"  Full CI check: {ci_status}")
+    print("-" * 40)  # Divider between files
 
 
 def print_stats_table(stats_list, linters, print_header=True, pathlen=0, ci_linters=["ruff"]):
@@ -1012,10 +1012,10 @@ def print_stats_table(stats_list, linters, print_header=True, pathlen=0, ci_lint
             row.append(PASS_GREEN if passes_ci else FAIL_RED)
         table.append(row)
     if print_header:
-        logger.info(tabulate(table, headers=headers, tablefmt="grid"))
+        print(tabulate(table, headers=headers, tablefmt="grid"))
     else:
         lines = tabulate(table, headers=headers, tablefmt="grid").split("\n")
-        logger.info("\n".join(lines[-2:]))
+        print("\n".join(lines[-2:]))
 
 
 def analyze_file(file_path, linters=None, verbose=False):
@@ -1142,13 +1142,14 @@ def struphy_lint(config, verbose):
     if len(python_files) == 0:
         sys.exit(0)
 
-    logger.info(
-        tabulate(
-            [[file] for file in python_files],
-            headers=[f"The following files will be linted with {linters}"],
-        ),
-    )
-    logger.info("\n")
+    if verbose:
+        print(
+            tabulate(
+                [[file] for file in python_files],
+                headers=[f"The following files will be linted with {linters}"],
+            ),
+        )
+        print("\n")
 
     if output_format == "report":
         generate_report(python_files, linters=linters, verbose=verbose)
@@ -1159,12 +1160,12 @@ def struphy_lint(config, verbose):
 
     # Check if all ci_linters are included in linters
     if all(ci_linter in linters for ci_linter in ci_linters):
-        logger.info(f"Passes CI if {ci_linters} passes")
-        logger.info("-" * 40)
+        print(f"Passes CI if {ci_linters} passes")
+        print("-" * 41)
         check_ci_pass = True
     else:
         skipped_ci_linters = [ci_linter for ci_linter in ci_linters if ci_linter not in linters]
-        logger.info(
+        print(
             f'The "Pass CI" check is skipped since not --linters {" ".join(skipped_ci_linters)} is used.',
         )
         check_ci_pass = False
@@ -1190,28 +1191,28 @@ def struphy_lint(config, verbose):
             if not all(stats[f"passes_{ci_linter}"] for ci_linter in ci_linters):
                 passes_ci = False
         if passes_ci:
-            logger.info("All files will pass CI")
+            print("All files will pass CI")
             sys.exit(0)
         else:
-            logger.info("Not all files will pass CI")
+            print("Not all files will pass CI")
             sys.exit(1)
-    logger.info("Not all CI linters were checked, unknown if all files will pass CI")
+    print("Not all CI linters were checked, unknown if all files will pass CI")
     sys.exit(1)
 
 
 def confirm_formatting(python_files, linters, yes):
     """Confirm with the user whether to format the listed Python files."""
-    logger.info(
+    print(
         tabulate(
             [[file] for file in python_files],
             headers=[f"The following files will be formatted with {linters}"],
         ),
     )
-    logger.info("\n")
+    print("\n")
     if not yes:
         ans = input("Format files (Y/n)?\n")
         if ans.lower() not in ("y", "yes", ""):
-            logger.info("Exiting...")
+            print("Exiting...")
             sys.exit(1)
 
 
@@ -1249,27 +1250,27 @@ def run_linters_on_files(linters, python_files, flags, verbose):
     """Run each linter on the specified files with appropriate flags."""
     for linter in linters:
         for python_file in python_files:
-            logger.info(f"Formatting {python_file}")
+            print(f"Formatting {python_file}")
             linter_flags = flags.get(linter, [])
             if len(linter_flags) > 0 and isinstance(linter_flags[0], list):
                 # If linter_flags is a list, run each separately
                 for flag in linter_flags:
                     command = [linter] + flag + [python_file]
                     if verbose:
-                        logger.info(f"Running command: {' '.join(command)}")
+                        print(f"Running command: {' '.join(command)}")
 
                     subprocess.run(command, check=False)
             else:
                 # If linter_flags is not a list, treat it as a single value
                 command = [linter] + linter_flags + [python_file]
                 if verbose:
-                    logger.info(f"Running command: {' '.join(command)}")
+                    print(f"Running command: {' '.join(command)}")
                 subprocess.run(command, check=False)
 
             # Loop over each line and replace '# $' with '#$' in place
             for line in fileinput.input(python_file, inplace=True):
                 if line.lstrip().startswith("# $"):
-                    logger.info(line.replace("# $", "#$"), end="")
+                    print(line.replace("# $", "#$"), end="")
                 else:
                     print(line, end="")
 
@@ -1357,12 +1358,12 @@ def struphy_format(config, verbose, yes=False):
         input_type = "path"
 
     if input_type == "__init__.py":
-        # logger.info(f"Rewriting {PROPAGATORS_INIT_PATH}")
+        # print(f"Rewriting {PROPAGATORS_INIT_PATH}")
         # propagators_init = construct_propagators_init_file()
         # with open(PROPAGATORS_INIT_PATH, "w") as f:
         #     f.write(propagators_init)
 
-        logger.info(f"Rewriting {MODELS_INIT_PATH}")
+        print(f"Rewriting {MODELS_INIT_PATH}")
         models_init = construct_models_init_file()
         with open(MODELS_INIT_PATH, "w") as f:
             f.write(models_init)
@@ -1376,7 +1377,7 @@ def struphy_format(config, verbose, yes=False):
         python_files = get_python_files(input_type, path)
 
     if len(python_files) == 0:
-        logger.info("No Python files to format.")
+        print("No Python files to format.")
         sys.exit(0)
 
     confirm_formatting(python_files, linters, yes)
@@ -1395,7 +1396,7 @@ def struphy_format(config, verbose, yes=False):
     if python_files:
         for iteration in range(iterations):
             if verbose:
-                logger.info(f"Iteration {iteration + 1}: Running formatters...")
+                print(f"Iteration {iteration + 1}: Running formatters...")
 
             run_linters_on_files(
                 linters,
@@ -1409,16 +1410,16 @@ def struphy_format(config, verbose, yes=False):
                 python_files,
                 [lint for lint in linters if lint not in skip_linters],
             ):
-                logger.info("All files are properly formatted.")
+                print("All files are properly formatted.")
                 break
         else:
             if verbose:
-                logger.info(
+                print(
                     "Max iterations reached. The following files may still require manual checks:",
                 )
                 for file_path in python_files:
                     if files_require_formatting([file_path], linters):
-                        logger.info(f" - {file_path}")
-                logger.info("Contact Max about this")
+                        print(f" - {file_path}")
+                print("Contact Max about this")
     else:
-        logger.info("No Python files to format.")
+        print("No Python files to format.")

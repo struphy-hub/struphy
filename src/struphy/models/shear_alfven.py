@@ -1,3 +1,5 @@
+import copy
+
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.io.options import BaseUnits, LiteralOptions
@@ -147,7 +149,7 @@ class ShearAlfven(StruphyModel):
         - kinetic particle coupling
         - resistive, viscous, or Hall-MHD effects"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         # project background magnetic field (2-form) and pressure (3-form)
         self._b_eq = Propagator.projected_equil.b2
 
@@ -156,6 +158,9 @@ class ShearAlfven(StruphyModel):
         self._tmp_b2 = Propagator.derham.V2.zeros()
 
     def __init__(self, base_units: BaseUnits = BaseUnits(), mass_number: float = 1.0):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
