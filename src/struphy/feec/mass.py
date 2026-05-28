@@ -6,6 +6,7 @@ from typing import Callable
 
 import cunumpy as xp
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
+from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 from feectools.fem.tensor import FemSpace, TensorFemSpace
 from feectools.fem.vector import VectorFemSpace
@@ -2971,3 +2972,188 @@ class L2Projector:
             The FEM spline coefficients after projection.
         """
         return self.solve(self.get_dofs(fun, dofs=dofs, apply_bc=apply_bc), out=out)
+
+
+class AverageOperator(LinOpWithTransp):
+    r"""
+    Class for quadrature operators, performs the average of a `FeecVariable` along a given direction.
+    For example along the :math:`\eta_3` direction, it applies the following linear operator :
+
+    .. math::
+
+        \mathbb M^{\alpha}_{(\mu,ijk),(\nu,mno)} = \delta_{i,m} \delta_{j,n} c_o
+
+    with :math:`c_o=\int_0^1 N_{o}(\eta_3) \textnormal{d} \eta` and :math:`N_{o}` the B-spline function at the place `o`.
+    In other words, it maps a spline function :math:`S_h` to the function obtained by averaging :math:`S_h` along the given direction, i.e. for the example of direction 3:
+
+    .. math::
+
+        S_h(\eta_1, \eta_2, \eta_3) = \sum_{mno} c_{mno} N_m(\eta_1) N_n(\eta_2) N_o(\eta_3) \quad \mapsto \quad \overline S_h(\eta_1, \eta_2, \eta_3) = \sum_{ijk} \overline c_{ij} N_i(\eta_1) N_j(\eta_2) N_k(\eta_3)\,,
+
+    with
+
+    .. math::
+
+        \overline c_{ij} = \sum_o \delta_{i,m} \delta_{j,n} \, c_{mno} \int_0^1 N_{o}(\eta_3) \textnormal{d} \eta_3 .
+
+    Parameters
+    ----------
+    derham : Derham
+        The derham complexe that supports the space used
+
+    space : str
+        Identifier of the space on which the average is performed, either `"H1"`, `"Hcurl"`, `"Hdiv"`, `"L2"`, `"H1vec"`
+
+    direction : int, optional
+        The direction of the space along which the average is performed, either `0`, `1` or `2`.
+
+    transposed : bool, optional
+        Whether to take the transpose of the operator.
+    """
+
+    def __init__(
+        self,
+        derham: Derham,
+        space: str = "H1",
+        direction: int = 2,
+        transposed: bool = False,
+    ):
+
+        if space not in derham.space_to_form:
+            AssertionError("Must match a space of the derham complex")
+        if space != "H1":
+            NotImplementedError()
+        space_id = "V" + derham.space_to_form[space]
+        self._V = getattr(derham, space_id)  # StencilVectorSpace
+        self._domain = getattr(derham, space_id)
+        self._codomain = getattr(derham, space_id)
+        self._pads = self._V.pads  # gets the number of ghost cells
+        self._derham = derham
+        self._dtype = self._domain.dtype
+        self._transposed = transposed
+        if direction == 0:
+            self._directions = (0, 1, 2)
+        elif direction == 1:
+            self._directions = (1, 0, 2)
+        elif direction == 2:
+            self._directions = (2, 0, 1)
+        else:
+            raise ValueError("invalid direction id, must be 0, 1 or 2")
+
+        comm = derham.comm
+        # Selection of ranks for each subcomms regarding their position in the two perpendicular directions to the averaged direction.
+        if not isinstance(comm, (MockComm, type(None))):
+            rank = comm.Get_rank()
+            nprocs = derham.domain_decomposition.nprocs
+            dom_arr = derham.domain_array
+            color1 = int(dom_arr[rank, 3 * self._directions[1]] * nprocs[self._directions[1]])
+            color2 = int(dom_arr[rank, 3 * self._directions[2]] * nprocs[self._directions[2]])
+            color = color1 * nprocs[self._directions[2]] + color2
+            logger.debug(f"{dom_arr = }")
+            self.subcomm = comm.Split(color=color, key=rank)
+
+        # We allocate memory for the 2D temporary array for each process
+        self._tmp = xp.zeros(
+            (
+                int(self._V.ends[self._directions[1]] - self._V.starts[self._directions[1]] + 1),
+                int(self._V.ends[self._directions[2]] - self._V.starts[self._directions[2]] + 1),
+            )
+        )
+
+        # We allocate memory for the weights (integrals of 1D B-splines)
+        self._weights = xp.zeros(int(self._V.ends[self._directions[0]] - self._V.starts[self._directions[0]] + 1))
+
+        self.allocate()
+
+        # definition of subscripts for function xp.einsum
+        if self._transposed:
+            if self._directions[0] == 0:
+                self._subscripts = ("ijk->jk", "ij,o->oij")
+            if self._directions[0] == 1:
+                self._subscripts = ("ijk->ik", "ij,o->ioj")
+            if self._directions[0] == 2:
+                self._subscripts = ("ijk->ij", "ij,o->ijo")
+        else:
+            if self._directions[0] == 0:
+                self._subscripts = ("ojk,o->jk",)
+            if self._directions[0] == 1:
+                self._subscripts = ("iok,o->ik",)
+            if self._directions[0] == 2:
+                self._subscripts = ("ijo,o->ij",)
+
+        # definition of slices
+        sl_ghost = tuple(slice(p, -p) if p > 0 else slice(None) for p in self._pads)
+        sl_broadcasting = [slice(None), slice(None), slice(None)]
+        sl_broadcasting[self._directions[0]] = None
+        self._slices = (sl_ghost, tuple(sl_broadcasting))
+
+    def allocate(self):
+        """Compute the weights, which are the integrals of 1D B-splines in the averaged direction"""
+        knots = getattr(self.derham.args_derham, "tn" + str(self._directions[0] + 1))
+        degree = self.derham.degree[self._directions[0]]
+
+        i_begin, i_end = self._V.starts[self._directions[0]], self._V.ends[self._directions[0]] + 1
+        if self.derham.bcs[self._directions[0]] is None:
+            i_begin += self.derham.degree[self._directions[0]]
+            i_end += self.derham.degree[self._directions[0]]
+        # General formula for any distribution of knots for the integral of a B-spline function, thus works with periodic and clamped boundary conditions :
+        self._weights[:] = (knots[i_begin + degree + 1 : i_end + degree + 1] - knots[i_begin:i_end]) / (degree + 1)
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    @property
+    def derham(self):
+        return self._derham
+
+    @property
+    def nquads(self):
+        if self._nquads is None:
+            return self.derham.nquads
+        else:
+            return self._nquads
+
+    @property
+    def tosparse(self):
+        raise NotImplementedError()
+
+    @property
+    def toarray(self):
+        raise NotImplementedError()
+
+    def dot(self, v, out=None):
+
+        # assert isinstance(v, StencilVector)
+        # assert v.space == self.domain
+
+        v.update_ghost_regions()
+
+        if out is None:
+            out = self.codomain.zeros()
+
+        x = v._data[self._slices[0]]
+        y = out._data[self._slices[0]]
+        if self._transposed:
+            xp.einsum(self._subscripts[0], x, out=self._tmp)
+            if not isinstance(self.derham.comm, (MockComm, type(None))):
+                self.subcomm.Allreduce(MPI.IN_PLACE, self._tmp, MPI.SUM)
+            xp.einsum(self._subscripts[1], self._tmp, self._weights, out=y)
+        else:
+            xp.einsum(self._subscripts[0], x, self._weights, out=self._tmp)
+            if not isinstance(self.derham.comm, (MockComm, type(None))):
+                self.subcomm.Allreduce(MPI.IN_PLACE, self._tmp, MPI.SUM)
+            y[:] = self._tmp[self._slices[1]]
+
+        return out
+
+    def transpose(self, conjugate=False):
+        return AverageOperator(self.derham, self.domain, self._weights, transposed=not self._transposed)
