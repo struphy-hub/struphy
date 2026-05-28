@@ -160,6 +160,8 @@ class Simulation(SimulationBase):
 
         if logger.level <= logging.INFO and self.rank == 0:
             self.show_parameters()
+            self.model.units.show_units()
+            self.model.show_equation_params()
 
         # synchronize MPI processes to set same start time of simulation for all processes
         self.Barrier()

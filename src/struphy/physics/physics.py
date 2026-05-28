@@ -129,7 +129,7 @@ class Units:
             # current density (A/m^2)
             self._j = con.e * self.n * self.v
 
-        # print to screen
+    def show_units(self):
         units_used = (
             " m",
             " T",
@@ -141,9 +141,12 @@ class Units:
             " kg/m³",
             " A/m²",
         )
-        logger.info("")
+        print("")
         for (k, v), u in zip(self.__dict__.items(), units_used):
             if v is None:
-                logger.info(f"Unit of {k[1:]} not specified.")
+                print(f"Unit of {k[1:]} not specified.")
             else:
-                logger.info(f"Unit of {k[1:]}: {v:4.3e}{u}")
+                print(
+                    f"Unit of {k[1:]}:".ljust(25),
+                    "{:4.3e}".format(v) + u,
+                )

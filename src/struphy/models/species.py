@@ -168,6 +168,8 @@ class Species(metaclass=ABCMeta):
             epsilon: float = None,
             kappa: float = None,
         ):
+            self.species = species
+            
             if units is None:
                 units = Units()
 
@@ -202,9 +204,11 @@ class Species(metaclass=ABCMeta):
                 if MPI.COMM_WORLD.Get_rank() == 0:
                     warnings.warn(f"Override equation parameter {self.kappa =}")
 
-            logger.info(f"\nSet normalization parameters for species {species.__class__.__name__}:")
+        def show(self):
+            print(f"\nEquation parameters for species {self.species.__class__.__name__}:")
             for key, val in self.__dict__.items():
-                logger.info(f"{(key + ':').ljust(25)} {val:4.3e}")
+                if key != "species":
+                    print(f"{(key + ':').ljust(25)} {val:4.3e}")
 
     @property
     def equation_params(self) -> EquationParameters:
