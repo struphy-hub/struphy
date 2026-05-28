@@ -2921,22 +2921,22 @@ class AverageOperator(LinOpWithTransp):
     r"""
     Class for quadrature operators, performs the average of a `FeecVariable` along a given direction.
     For example along the :math:`\eta_3` direction, it applies the following linear operator :
-    
+
     .. math::
 
         \mathbb M^{\alpha}_{(\mu,ijk),(\nu,mno)} = \delta_{i,m} \delta_{j,n} c_o
 
     with :math:`c_o=\int_0^1 N_{o}(\eta_3) \textnormal{d} \eta` and :math:`N_{o}` the B-spline function at the place `o`.
     In other words, it maps a spline function :math:`S_h` to the function obtained by averaging :math:`S_h` along the given direction, i.e. for the example of direction 3:
-    
+
     .. math::
-    
+
         S_h(\eta_1, \eta_2, \eta_3) = \sum_{mno} c_{mno} N_m(\eta_1) N_n(\eta_2) N_o(\eta_3) \quad \mapsto \quad \overline S_h(\eta_1, \eta_2, \eta_3) = \sum_{ijk} \overline c_{ij} N_i(\eta_1) N_j(\eta_2) N_k(\eta_3)\,,
-        
+
     with
-    
+
     .. math::
-    
+
         \overline c_{ij} = \sum_o \delta_{i,m} \delta_{j,n} \, c_{mno} \int_0^1 N_{o}(\eta_3) \textnormal{d} \eta_3 .
 
     Parameters
