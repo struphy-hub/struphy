@@ -9,7 +9,7 @@ from line_profiler import profile
 from struphy.feec import preconditioner
 from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner
 from struphy.feec.variational_utilities import BracketOperator
-from struphy.io.options import LiteralOptions
+from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
@@ -73,8 +73,8 @@ class VariationalMomentumAdvection(Propagator):
     def __init__(self):
         self.variables = self.Variables()
 
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Configuration options for :class:`VariationalMomentumAdvection`.
 
         Parameters
@@ -117,9 +117,10 @@ class VariationalMomentumAdvection(Propagator):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         self._lin_solver = self.options.solver_params
         self._nonlin_solver = self.options.nonlin_solver
 

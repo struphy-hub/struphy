@@ -248,7 +248,6 @@ class Accumulator:
             self._operators[0].assemble(
                 weights=args_control["control_mat"],
                 clear=False,
-                verbose=False,
             )
             mat_finished = True
 

@@ -1,3 +1,5 @@
+import copy
+
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector
 
@@ -101,6 +103,9 @@ class LinearExtendedMHDuniform(StruphyModel):
         mass_number: float = 1.0,
         epsilon: float = None,
     ):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -262,7 +267,7 @@ class LinearExtendedMHDuniform(StruphyModel):
         - kinetic ion/electron effects beyond the Hall correction
         - dissipation-dominated problems with explicit viscosity or resistivity"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         self._b_eq = Propagator.projected_equil.b1
         self._a_eq = Propagator.projected_equil.a1
         self._p_eq = Propagator.projected_equil.p3

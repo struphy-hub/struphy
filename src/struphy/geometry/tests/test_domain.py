@@ -1,8 +1,55 @@
+import copy
 import logging
+import pickle
 
 import pytest
 
 logger = logging.getLogger("struphy")
+
+
+@pytest.mark.parametrize("mapping", ["Cuboid", "IGAPolarCylinder"])
+def test_domain_deepcopy(mapping):
+    """Deepcopy of a domain should preserve behavior and rebuild runtime kernel arguments."""
+
+    import cunumpy as xp
+
+    from struphy import domains
+
+    domain = getattr(domains, mapping)()
+    domain_copy = copy.deepcopy(domain)
+
+    assert domain_copy is not domain
+    assert domain_copy.__class__ is domain.__class__
+    assert domain_copy.args_domain is not domain.args_domain
+
+    # Kernel input arrays are expected to be independent between original and copy.
+    assert domain_copy.args_domain.params is not domain.args_domain.params
+    assert domain_copy.args_domain.degree is not domain.args_domain.degree
+
+    markers = xp.array([[0.2, 0.4, 0.6]])
+    assert xp.allclose(domain(markers), domain_copy(markers))
+    assert xp.allclose(domain.jacobian(markers), domain_copy.jacobian(markers))
+
+
+@pytest.mark.parametrize("mapping", ["Cuboid", "IGAPolarCylinder"])
+def test_domain_pickle_roundtrip(mapping):
+    """Pickle round-trip of a domain should rebuild runtime kernel arguments."""
+
+    import cunumpy as xp
+
+    from struphy import domains
+
+    domain = getattr(domains, mapping)()
+    restored = pickle.loads(pickle.dumps(domain, protocol=pickle.HIGHEST_PROTOCOL))
+
+    assert restored is not domain
+    assert restored.__class__ is domain.__class__
+    assert restored.args_domain is not None
+    assert restored.args_domain.kind_map == domain.args_domain.kind_map
+
+    markers = xp.array([[0.3, 0.5, 0.7]])
+    assert xp.allclose(domain(markers), restored(markers))
+    assert xp.allclose(domain.jacobian_det(markers), restored.jacobian_det(markers))
 
 
 def test_prepare_arg():

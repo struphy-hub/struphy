@@ -1,3 +1,4 @@
+import copy
 import logging
 
 from feectools.ddm.mpi import mpi as MPI
@@ -20,29 +21,6 @@ rank = MPI.COMM_WORLD.Get_rank()
 class Poisson(StruphyModel):
     r"""Weak discretization of Poisson's equation with diffusion matrix, stabilization
     and time-depedent right-hand side.
-
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat D = \frac{\hat n}{\hat x^2}\,,\qquad \hat \rho = \hat n \,.
-
-    :ref:`Equations <gempic>`: Find :math:`\phi \in H^1` such that
-
-    .. math::
-
-        - \nabla \cdot D_0(\mathbf x) \nabla \phi + n_0(\mathbf x) \phi =  \rho(t, \mathbf x)\,,
-
-    where :math:`n_0, \rho(t):\Omega \to \mathbb R` are real-valued functions, :math:`\rho(t)` parametrized with time :math:`t`,
-    and :math:`D_0:\Omega \to \mathbb R^{3\times 3}` is a positive matrix.
-    Boundary terms from integration by parts are assumed to vanish.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.time_dependent_source.TimeDependentSource`
-    2. :class:`~struphy.propagators.implicit_diffusion.ImplicitDiffusion`
-
-    :ref:`Model info <add_model>`:
     """
 
     @classmethod
@@ -70,6 +48,9 @@ class Poisson(StruphyModel):
     def __init__(self, base_units: BaseUnits = BaseUnits(), with_t_dep_source=False):
 
         self.with_t_dep_source = with_t_dep_source
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -105,8 +86,7 @@ class Poisson(StruphyModel):
 
             -\nabla \cdot D_0(\mathbf{x}) \nabla \phi + n_0(\mathbf{x}) \phi = \rho(t, \mathbf{x})
 
-        where :math:`n_0, \rho(t) : \Omega \to \mathbb{R}` are real-valued functions, :math:`\rho(t)` is
-        parametrized by time :math:`t`, and :math:`D_0 : \Omega \to \mathbb{R}^{3 \times 3}` is a positive matrix.
+        where :math:`n_0, \rho(t) : \Omega \to \mathbb{R}` are real-valued functions, :math:`\rho(t)` is parametrized by time :math:`t`, and :math:`D_0 : \Omega \to \mathbb{R}^{3 \times 3}` is a positive matrix.
         Boundary terms from integration by parts are assumed to vanish.
         """
 
@@ -173,7 +153,7 @@ class Poisson(StruphyModel):
         - self-consistent kinetic plasma evolution on its own
         - magnetic-field dynamics or full Maxwell coupling"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         """Solve initial Poisson equation.
 
         :meta private:
@@ -182,13 +162,11 @@ class Poisson(StruphyModel):
         # self.propagators.poisson.rho = Propagator.mass_ops.M0.dot(self.em_fields.source.spline.vector)
 
         # Solve with dt=1. and compute electric field
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("\nSolving initial Poisson problem...")
+        logger.info("\nSolving initial Poisson problem...")
 
         self.propagators.poisson(1.0)
 
-        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-            logger.info("... Done.")
+        logger.info("... Done.")
 
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

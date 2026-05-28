@@ -1,15 +1,18 @@
+import logging
 from dataclasses import dataclass
 from typing import Callable, Literal
 
 from feectools.linalg.stencil import StencilVector
 
-from struphy.io.options import LiteralOptions
+from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.pic.base import Particles
 from struphy.propagators.implicit_diffusion import ImplicitDiffusion
 from struphy.utils.utils import check_option
+
+logger = logging.getLogger("struphy")
 
 
 class PoissonFieldSolve(ImplicitDiffusion):
@@ -29,8 +32,8 @@ class PoissonFieldSolve(ImplicitDiffusion):
     where :math:`\mathbb M^1` is the :math:`H(\textnormal{curl})`-mass matrix and :math:`\mathbb S` is a stabilization matrix.
     """
 
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Configuration options for :class:`Poisson`.
 
         Parameters
@@ -139,3 +142,4 @@ class PoissonFieldSolve(ImplicitDiffusion):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")

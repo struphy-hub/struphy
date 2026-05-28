@@ -1,3 +1,5 @@
+import copy
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
@@ -74,6 +76,9 @@ class VariationalCompressibleFluid(StruphyModel):
     ## abstract methods
 
     def __init__(self, base_units: BaseUnits = BaseUnits(), mass_number: float = 1.0):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.fluid = self.Fluid(mass_number=mass_number)
@@ -204,7 +209,7 @@ class VariationalCompressibleFluid(StruphyModel):
         - pressureless or barotropic-only reductions
         - kinetic or particle-based transport physics"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         projV3 = L2Projector("L2", Propagator.mass_ops)
 
         def f(e1, e2, e3):

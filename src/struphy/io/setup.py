@@ -40,7 +40,6 @@ def descend_options_dict(
     keys: list = None,
     depth: int = 0,
     pop_again: bool = False,
-    verbose: bool = False,
 ):
     """Create all possible parameter dicts from a model options dict,
     by looping through options.
@@ -78,9 +77,6 @@ def descend_options_dict(
 
     pop_again : bool
         Whether to pop one more time from keys; this is automatically set to True when depth is reached during recursion.
-
-    verbose : bool
-        Show some output on screen.
     """
 
     import copy
@@ -95,36 +91,24 @@ def descend_options_dict(
         if d_default is None:
             out = copy.deepcopy(d)
 
-    if verbose:
-        logger.info(f"{d =}")
-        logger.info(f"{out =}")
-        logger.info(f"{d_default =}")
-        logger.info(f"{d_opts =}")
-        logger.info(f"{keys =}")
-        logger.info(f"{depth =}")
-        logger.info(f"{pop_again =}")
-
-    if verbose:
-        logger.info(f"{d =}")
-        logger.info(f"{out =}")
-        logger.info(f"{d_default =}")
-        logger.info(f"{d_opts =}")
-        logger.info(f"{keys =}")
-        logger.info(f"{depth =}")
-        logger.info(f"{pop_again =}")
+    logger.debug(f"{d =}")
+    logger.debug(f"{out =}")
+    logger.debug(f"{d_default =}")
+    logger.debug(f"{d_opts =}")
+    logger.debug(f"{keys =}")
+    logger.debug(f"{depth =}")
+    logger.debug(f"{pop_again =}")
 
     count = 0
     for key, val in d.items():
         count += 1
 
-        if verbose:
-            logger.info(f"\n{keys =} | {key =}, {type(val) =}, {count =}\n")
+        logger.debug(f"\n{keys =} | {key =}, {type(val) =}, {count =}\n")
 
         if isinstance(val, list):
             # create default parameter dict "out"
 
-            if verbose:
-                logger.info(f"{val =}")
+            logger.debug(f"{val =}")
 
             if d_default is None:
                 if len(keys) == 0:
@@ -161,11 +145,7 @@ def descend_options_dict(
                     out_sublist += [d_copy]
                 out += [out_sublist]
 
-            if verbose:
-                logger.info(f"{out =}")
-
-            if verbose:
-                logger.info(f"{out =}")
+            logger.debug(f"{out =}")
 
         # recurse if necessary
         elif isinstance(val, dict):
@@ -180,7 +160,6 @@ def descend_options_dict(
                 depth=len(val),
                 pop_again=pop_again,
                 d_default=d_default,
-                verbose=verbose,
             )
 
         else:

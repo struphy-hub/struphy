@@ -1,3 +1,4 @@
+import copy
 import logging
 
 import cunumpy as xp
@@ -97,6 +98,9 @@ class VlasovAmpereOneSpecies(StruphyModel):
     ):
 
         self.with_B0 = with_B0
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -271,13 +275,12 @@ class VlasovAmpereOneSpecies(StruphyModel):
         - electromagnetic wave propagation (no magnetic field evolution)
         - drift-reduced or gyrokinetic approximations (full 6D Vlasov equation)"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         """Solve initial Poisson equation.
 
         :meta private:
         """
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("\nINITIAL POISSON SOLVE:")
+        logger.info("\nINITIAL POISSON SOLVE:")
 
         # use control variate method (reset weights after Poisson solve)
         particles = self.kinetic_ions.var.particles
@@ -312,14 +315,12 @@ class VlasovAmpereOneSpecies(StruphyModel):
         self.initial_poisson.allocate()
 
         # Solve with dt=1. and compute electric field
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("\nSolving initial Poisson problem...")
+        logger.info("\nSolving initial Poisson problem...")
         self.initial_poisson(1.0)
 
         phi = self.initial_poisson.variables.phi.spline.vector
         Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
-        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-            logger.info("... Done.")
+        logger.info("... Done.")
 
         # reset particle weights
         particles.weights = particles.weights_at_t0.copy()
@@ -336,9 +337,9 @@ class VlasovAmpereOneSpecies(StruphyModel):
                 elif "push_vxb.Options" in line:
                     new_file += ["if model.with_B0:\n"]
                     new_file += ["    " + line]
-                elif "set_save_data" in line:
+                elif "saving_params = " in line:
                     new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
-                    new_file += ["model.kinetic_ions.set_save_data(binning_plots=(binplot,))\n"]
+                    new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
                 else:
                     new_file += [line]
 

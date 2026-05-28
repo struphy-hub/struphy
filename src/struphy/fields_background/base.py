@@ -104,17 +104,11 @@ class FluidEquilibrium(metaclass=ABCMeta):
         assert isinstance(new_domain, Domain) or new_domain is None
         self._domain = new_domain
 
-    def __str__(self):
-        out = f"{self.__class__.__name__}"
-        for k, v in self.params.items():
-            out += f"\n    {k}:".ljust(20)
-            out += f"{v}"
-        return out
-
     def __repr__(self) -> str:
-        out = f"{self.__class__.__name__}("
+        out = f"{self.__class__.__name__}(\n"
         for k, v in self.params.items():
-            out += f"{k}={v}, "
+            out += " " * 4
+            out += f"{k}={v},\n"
         out += ")"
         return out
 

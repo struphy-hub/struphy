@@ -6,7 +6,7 @@ from feectools.linalg.solvers import inverse
 from line_profiler import profile
 
 from struphy.feec import preconditioner
-from struphy.io.options import LiteralOptions
+from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels
@@ -59,8 +59,8 @@ class CurrentCoupling6DDensity(Propagator):
     def __init__(self):
         self.variables = self.Variables()
 
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Configuration options for :class:`CurrentCoupling6DDensity`.
 
         Parameters
@@ -124,9 +124,10 @@ class CurrentCoupling6DDensity(Propagator):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         self._space_key_int = int(self.derham.space_to_form[self.options.u_space])
 
         particles = self.options.energetic_ions.particles
