@@ -68,13 +68,13 @@ def test_convergence_1d(
             return 0*z
         
         def rho_exact(x,y,z) -> float:
-            return 5*xp.pi * xp.cos(5*xp.pi * x) / omega
+            return - 5*xp.pi * xp.cos(5*xp.pi * x) / omega
         
         def theta_exact(x,y,z) -> float:
             return x
         
         def E_exact_x(x,y,z) -> float:
-            return 5*xp.pi/(Z*omega) * xp.cos(5*xp.pi * x) - (mass*omega/Z + (25*xp.pi**2) * x / (Z*omega))*xp.sin(5*xp.pi * x)
+            return - 5*xp.pi/(Z*omega) * xp.cos(5*xp.pi * x) - (mass*omega/Z - (25*xp.pi**2) * x / (Z*omega))*xp.sin(5*xp.pi * x)
         
         def E_exact_y(x,y,z) -> float:
             return 0*y
@@ -94,7 +94,7 @@ def test_convergence_1d(
             return 0*z
         
         def rho_exact(x,y,z) -> float:
-            return 5*xp.pi * xp.cos(5*xp.pi * y) / omega
+            return - 5*xp.pi * xp.cos(5*xp.pi * y) / omega
         
         def theta_exact(x,y,z) -> float:
             return y
@@ -103,7 +103,7 @@ def test_convergence_1d(
             return 0*x
         
         def E_exact_y(x,y,z) -> float:
-            return 5*xp.pi/(Z*omega) * xp.cos(5*xp.pi * y) - (mass*omega/Z + (25*xp.pi**2) * y / (Z*omega))*xp.sin(5*xp.pi * y)
+            return - 5*xp.pi/(Z*omega) * xp.cos(5*xp.pi * y) - (mass*omega/Z - (25*xp.pi**2) * y / (Z*omega))*xp.sin(5*xp.pi * y)
         
         def E_exact_z(x,y,z) -> float:
             return 0*z
@@ -120,7 +120,7 @@ def test_convergence_1d(
             return xp.sin(5*xp.pi * z)
         
         def rho_exact(x,y,z) -> float:
-            return 5*xp.pi * xp.cos(5*xp.pi * z) / omega
+            return - 5*xp.pi * xp.cos(5*xp.pi * z) / omega
         
         def theta_exact(x,y,z) -> float:
             return z
@@ -132,7 +132,7 @@ def test_convergence_1d(
             return 0*y
         
         def E_exact_z(x,y,z) -> float:
-            return 5*xp.pi/(Z*omega) * xp.cos(5*xp.pi * z) - (mass*omega/Z + (25*xp.pi**2) * z / (Z*omega))*xp.sin(5*xp.pi * z)
+            return - 5*xp.pi/(Z*omega) * xp.cos(5*xp.pi * z) - (mass*omega/Z - (25*xp.pi**2) * z / (Z*omega))*xp.sin(5*xp.pi * z)
     
     if bc_type == "neumann":
         if direction == "1":
@@ -147,13 +147,13 @@ def test_convergence_1d(
                 return 0*z
             
             def rho_exact(x,y,z) -> float:
-                return - 5*xp.pi * xp.sin(5*xp.pi * x) / omega
+                return 5*xp.pi * xp.sin(5*xp.pi * x) / omega
             
             def theta_exact(x,y,z) -> float:
                 return x
             
             def E_exact_x(x,y,z) -> float:
-                return - 5*xp.pi/(Z*omega) * xp.sin(5*xp.pi * x) - (mass*omega/Z + (25*xp.pi**2) * x / (Z*omega))*xp.cos(5*xp.pi * x)
+                return 5*xp.pi/(Z*omega) * xp.sin(5*xp.pi * x) - (mass*omega/Z - (25*xp.pi**2) * x / (Z*omega))*xp.cos(5*xp.pi * x)
             
             def E_exact_y(x,y,z) -> float:
                 return 0*y
@@ -173,7 +173,7 @@ def test_convergence_1d(
                 return 0*z
             
             def rho_exact(x,y,z) -> float:
-                return - 5*xp.pi * xp.sin(5*xp.pi * y) / omega
+                return 5*xp.pi * xp.sin(5*xp.pi * y) / omega
             
             def theta_exact(x,y,z) -> float:
                 return y
@@ -182,7 +182,7 @@ def test_convergence_1d(
                 return 0*x
             
             def E_exact_y(x,y,z) -> float:
-                return - 5*xp.pi/(Z*omega) * xp.sin(5*xp.pi * y) - (mass*omega/Z + (25*xp.pi**2) * y / (Z*omega))*xp.cos(5*xp.pi * y)
+                return 5*xp.pi/(Z*omega) * xp.sin(5*xp.pi * y) - (mass*omega/Z - (25*xp.pi**2) * y / (Z*omega))*xp.cos(5*xp.pi * y)
             
             def E_exact_z(x,y,z) -> float:
                 return 0*z
@@ -199,7 +199,7 @@ def test_convergence_1d(
                 return xp.cos(5*xp.pi * z)
             
             def rho_exact(x,y,z) -> float:
-                return - 5*xp.pi * xp.sin(5*xp.pi * z) / omega
+                return 5*xp.pi * xp.sin(5*xp.pi * z) / omega
             
             def theta_exact(x,y,z) -> float:
                 return z
@@ -211,7 +211,7 @@ def test_convergence_1d(
                 return 0*y
             
             def E_exact_z(x,y,z) -> float:
-                return - 5*xp.pi/(Z*omega) * xp.sin(5*xp.pi * z) - (mass*omega/Z + (25*xp.pi**2) * z / (Z*omega))*xp.cos(5*xp.pi * z)
+                return 5*xp.pi/(Z*omega) * xp.sin(5*xp.pi * z) - (mass*omega/Z - (25*xp.pi**2) * z / (Z*omega))*xp.cos(5*xp.pi * z)
     
     if bc_type == "periodic":
 
@@ -230,13 +230,13 @@ def test_convergence_1d(
                 return 0*z
             
             def rho_exact(x,y,z) -> float:
-                return 4*xp.pi * xp.cos(4*xp.pi * x) / omega
+                return - 4*xp.pi * xp.cos(4*xp.pi * x) / omega
             
             def theta_exact(x,y,z) -> float:
                 return x
             
             def E_exact_x(x,y,z) -> float:
-                return 4*xp.pi/(Z*omega) * xp.cos(4*xp.pi * x) - (mass*omega/Z + (16*xp.pi**2) * x / (Z*omega))*xp.sin(4*xp.pi * x)
+                return - 4*xp.pi/(Z*omega) * xp.cos(4*xp.pi * x) - (mass*omega/Z - (16*xp.pi**2) * x / (Z*omega))*xp.sin(4*xp.pi * x)
             
             def E_exact_y(x,y,z) -> float:
                 return 0*y
@@ -256,7 +256,7 @@ def test_convergence_1d(
                 return 0*z
             
             def rho_exact(x,y,z) -> float:
-                return 4*xp.pi * xp.cos(4*xp.pi * y) / omega
+                return - 4*xp.pi * xp.cos(4*xp.pi * y) / omega
             
             def theta_exact(x,y,z) -> float:
                 return y
@@ -265,7 +265,7 @@ def test_convergence_1d(
                 return 0*x
             
             def E_exact_y(x,y,z) -> float:
-                return 4*xp.pi/(Z*omega) * xp.cos(4*xp.pi * y) - (mass*omega/Z + (16*xp.pi**2) * y / (Z*omega))*xp.sin(4*xp.pi * y)
+                return - 4*xp.pi/(Z*omega) * xp.cos(4*xp.pi * y) - (mass*omega/Z - (16*xp.pi**2) * y / (Z*omega))*xp.sin(4*xp.pi * y)
             
             def E_exact_z(x,y,z) -> float:
                 return 0*z
@@ -282,7 +282,7 @@ def test_convergence_1d(
                 return xp.sin(4*xp.pi * z)
             
             def rho_exact(x,y,z) -> float:
-                return 4*xp.pi * xp.cos(4*xp.pi * z) / omega
+                return - 4*xp.pi * xp.cos(4*xp.pi * z) / omega
             
             def theta_exact(x,y,z) -> float:
                 return z
@@ -294,7 +294,7 @@ def test_convergence_1d(
                 return 0*y
             
             def E_exact_z(x,y,z) -> float:
-                return 4*xp.pi/(Z*omega) * xp.cos(4*xp.pi * z) - (mass*omega/Z + (16*xp.pi**2) * z / (Z*omega))*xp.sin(4*xp.pi * z)
+                return - 4*xp.pi/(Z*omega) * xp.cos(4*xp.pi * z) - (mass*omega/Z - (16*xp.pi**2) * z / (Z*omega))*xp.sin(4*xp.pi * z)
     
     assert Nmin < Nmax
     
@@ -477,7 +477,7 @@ def test_convergence_1d(
 if __name__ == "__main__":
 
     test_convergence_1d(
-        bc_type="periodic",
+        bc_type="neumann",
         direction="1",
         pmax=3,
         Nmax=6,

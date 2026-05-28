@@ -222,11 +222,6 @@ class PressureWave(Propagator):
 
         if self.options.rhobar is None:
             self._M1rho = self.mass_ops.M1
-            if self.options.solve_type == "rhosin_ucos":
-                self._u_system_matrix = self._omega * self._M1rho
-            
-            if self.options.solve_type == "rhocos_usin":
-                self._u_system_matrix = - self._omega * self._M1rho
 
         else:
             assert self.options.rhobar.space == "H1"
@@ -244,11 +239,11 @@ class PressureWave(Propagator):
             assemble = True,
             )
 
-            if self.options.solve_type == "rhosin_ucos":
-                self._u_system_matrix = self._omega * self._M1rho
+        if self.options.solve_type == "rhosin_ucos":
+            self._u_system_matrix = self._omega * self._M1rho
             
-            if self.options.solve_type == "rhocos_usin":
-                self._u_system_matrix = - self._omega * self._M1rho
+        if self.options.solve_type == "rhocos_usin":
+            self._u_system_matrix = - self._omega * self._M1rho
         
 
         # temperature and temperature gradient operators
@@ -343,9 +338,8 @@ class PressureWave(Propagator):
 
         self._u_solver = inverse(
             self._u_system_matrix,
-            #self.options.solver,
-            "gmres",
-            #pc=pc,
+            self.options.solver,
+            pc=pc,
             x0=self.u0,
             tol=self.options.solver_params.tol,
             maxiter=self.options.solver_params.maxiter,
