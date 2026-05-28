@@ -99,7 +99,7 @@ class JxBCold(Propagator):
         logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         self._info = self.options.solver_params.info
 
         epsilon = self.variables.j.species.equation_params.epsilon

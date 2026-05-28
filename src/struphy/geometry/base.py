@@ -1539,7 +1539,6 @@ class Domain(metaclass=DomainMeta):
         nx: int = 32,
         ny: int = 32,
         nz: int = 32,
-        verbose: bool = False,
     ):
         """Create a PyVista mesh with geometry
 
@@ -1567,10 +1566,9 @@ class Domain(metaclass=DomainMeta):
         nx: int = 32,
         ny: int = 32,
         nz: int = 32,
-        verbose: bool = False,
     ):
         """Show the 3D geometry using PyVista."""
-        mesh = self.create_geometry_mesh(nx, ny, nz, verbose)
+        mesh = self.create_geometry_mesh(nx, ny, nz)
         plotter = Plotter()
         plotter.add_mesh(mesh, show_edges=True)
         plotter.show()

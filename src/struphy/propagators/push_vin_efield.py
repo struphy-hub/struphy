@@ -99,7 +99,7 @@ class PushVinEfield(Propagator):
         logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         # scaling factor
         self._epsilon = self.variables.var.species.equation_params.epsilon
 

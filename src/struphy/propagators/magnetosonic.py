@@ -142,7 +142,7 @@ class Magnetosonic(Propagator):
         logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         u_space = self.options.u_space
 
         self._info = self.options.solver_params.info

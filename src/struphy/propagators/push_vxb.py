@@ -100,7 +100,7 @@ class PushVxB(Propagator):
         logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         # scaling factor
         self._epsilon = self.variables.ions.species.equation_params.epsilon
         assert self.derham is not None, f"{self.__class__.__name__} needs a Derham object."

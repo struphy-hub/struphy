@@ -110,7 +110,7 @@ class Hall(Propagator):
         logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         if self.options.epsilon_from is None:
             epsilon = 1.0
         else:

@@ -120,7 +120,7 @@ class VariationalMomentumAdvection(Propagator):
         logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         self._lin_solver = self.options.solver_params
         self._nonlin_solver = self.options.nonlin_solver
 

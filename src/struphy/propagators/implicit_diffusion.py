@@ -201,7 +201,7 @@ class ImplicitDiffusion(Propagator):
         logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         # always stabilize
         if xp.abs(self.options.sigma_1) < 1e-14:
             self.options.sigma_1 = 1e-14

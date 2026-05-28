@@ -114,7 +114,7 @@ class PushVinSPHpressure(Propagator):
         logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         # init kernel for evaluating density etc. before each time step.
         init_kernel = eval_kernels_gc.sph_pressure_coeffs
 

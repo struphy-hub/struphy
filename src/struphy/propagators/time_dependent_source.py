@@ -89,7 +89,7 @@ class TimeDependentSource(Propagator):
         logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         if self.options.hfun == "cos":
 
             def hfun(t):

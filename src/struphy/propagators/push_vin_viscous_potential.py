@@ -113,7 +113,7 @@ class PushVinViscousPotential(Propagator):
         logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):  # ersetzt init
+    def allocate(self):  # ersetzt init
         particles = self.variables.fluid.particles
 
         # init kernel for evaluating density etc. before each time step.

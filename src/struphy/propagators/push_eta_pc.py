@@ -117,7 +117,7 @@ class PushEtaPC(Propagator):
         logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         self._u_tilde = self.options.u_tilde.spline.vector
 
         # get kernell:

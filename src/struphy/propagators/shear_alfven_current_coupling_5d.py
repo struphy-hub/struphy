@@ -177,7 +177,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         self._u_form = self.derham.space_to_form[self.options.u_space]
 
         # call operatros

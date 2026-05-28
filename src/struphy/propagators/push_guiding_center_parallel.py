@@ -120,9 +120,6 @@ class PushGuidingCenterParallel(Propagator):
 
         mpi_sort : LiteralOptions.OptsMPIsort, default="each"
             MPI sorting policy for particle exchange.
-
-        verbose : bool, default=False
-            Verbosity flag for iterative pusher diagnostics.
         """
 
         # specific literals
@@ -141,7 +138,6 @@ class PushGuidingCenterParallel(Propagator):
         maxiter: int = 20
         tol: float = 1e-7
         mpi_sort: LiteralOptions.OptsMPIsort = "each"
-        verbose: bool = False
 
         def __post_init__(self):
             # checks
@@ -168,7 +164,7 @@ class PushGuidingCenterParallel(Propagator):
         logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         # scaling factor
         self._epsilon = self.variables.ions.species.equation_params.epsilon
 

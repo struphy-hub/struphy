@@ -134,7 +134,7 @@ class ShearAlfvenPropagator(Propagator):
         logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         u_space = self.options.u_space
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
