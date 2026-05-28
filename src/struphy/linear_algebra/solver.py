@@ -1,5 +1,4 @@
 import logging
-
 from dataclasses import dataclass
 
 from struphy.io.options import LiteralOptions
@@ -15,7 +14,7 @@ class SolverParameters:
     maxiter: int = 3000
     info: bool = False
     recycle: bool = True
-    
+
     def __post_init__(self):
         self.verbose = False
         if logger.level <= logging.DEBUG:
@@ -30,7 +29,7 @@ class DiscreteGradientSolverParameters:
     tol: float = 1e-12
     maxiter: int = 20
     info: bool = False
-    
+
     def __post_init__(self):
         self.verbose = False
         if logger.level <= logging.DEBUG:
@@ -46,7 +45,7 @@ class NonlinearSolverParameters:
     info: bool = False
     type: LiteralOptions.OptsNonlinearSolver = "Picard"
     linearize: bool = False
-    
+
     def __post_init__(self):
         self.verbose = False
         if logger.level <= logging.DEBUG:

@@ -9,7 +9,7 @@ from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.ddm.mpi import mpi as MPI
 from feectools.fem.tensor import FemSpace, TensorFemSpace
 from feectools.fem.vector import VectorFemSpace
-from feectools.linalg.basic import IdentityOperator, LinearOperator, Vector, InverseLinearOperator
+from feectools.linalg.basic import IdentityOperator, InverseLinearOperator, LinearOperator, Vector
 from feectools.linalg.block import BlockLinearOperator, BlockVector
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilVector
@@ -2586,10 +2586,10 @@ class L2Projector:
 
     mass_ops : struphy.mass.WeighteMassOperators
         Mass operators object, see :ref:`mass_ops`.
-        
+
     solver : LiteralOptions.OptsSymmSolver, default="pcg"
             Symmetric iterative solver used by implicit or explicit operators.
-        
+
     precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
         Preconditioner for the mass-matrix block.
 
@@ -2597,18 +2597,19 @@ class L2Projector:
             Solver controls; defaults to ``SolverParameters()``.
     """
 
-    def __init__(self, 
-                 space_id: str, 
-                 mass_ops: WeightedMassOperators, 
-                 solver_name: LiteralOptions.OptsSymmSolver = "pcg",
-                 precond_name: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner",
-                 solver_params: SolverParameters = None,
-                 ):
+    def __init__(
+        self,
+        space_id: str,
+        mass_ops: WeightedMassOperators,
+        solver_name: LiteralOptions.OptsSymmSolver = "pcg",
+        precond_name: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner",
+        solver_params: SolverParameters = None,
+    ):
         assert space_id in ("H1", "Hcurl", "Hdiv", "L2", "H1vec")
 
         # TODO: enable serialization of WeightedMassOperators
         # self.params = copy.deepcopy(locals())
-        
+
         # TODO: move L2projector to its own file and avoid circular imports
         from struphy.feec import preconditioner
 
@@ -2713,7 +2714,7 @@ class L2Projector:
     def space(self) -> FemSpace:
         """The Derham finite element space (from ``Derham.fem_spaces``)."""
         return self._space
-    
+
     @property
     def solver(self) -> InverseLinearOperator:
         """The iterative solver for the mass matrix."""
@@ -2778,11 +2779,13 @@ class L2Projector:
 
         return out
 
-    def get_dofs(self, fun: Callable | xp.ndarray | list[Callable | xp.ndarray] | tuple[Callable | xp.ndarray],
-                 dofs: StencilVector | BlockVector = None,
-                 apply_bc: bool = False, 
-                 clear: bool = True,
-                 ) -> StencilVector | BlockVector:
+    def get_dofs(
+        self,
+        fun: Callable | xp.ndarray | list[Callable | xp.ndarray] | tuple[Callable | xp.ndarray],
+        dofs: StencilVector | BlockVector = None,
+        apply_bc: bool = False,
+        clear: bool = True,
+    ) -> StencilVector | BlockVector:
         r"""
         Assembles (in 3d) the Stencil-/BlockVector
 
@@ -2811,7 +2814,7 @@ class L2Projector:
 
         clear : bool, optional
             Whether to first set all data to zero before assembly. If False, the new contributions are added to existing ones in vec.
-            
+
         Returns
         -------
         dofs : StencilVector | BlockVector
@@ -2938,11 +2941,13 @@ class L2Projector:
 
         return dofs
 
-    def __call__(self, fun: Callable | list[Callable] | tuple[Callable],
-                 out: StencilVector | BlockVector=None, 
-                 dofs: StencilVector | BlockVector=None, 
-                 apply_bc: bool = False,
-                 ) -> StencilVector | BlockVector:
+    def __call__(
+        self,
+        fun: Callable | list[Callable] | tuple[Callable],
+        out: StencilVector | BlockVector = None,
+        dofs: StencilVector | BlockVector = None,
+        apply_bc: bool = False,
+    ) -> StencilVector | BlockVector:
         """
         Applies projector to given callable(s).
 

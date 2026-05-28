@@ -541,7 +541,7 @@ class Derham:
     ----------
     grid : TensorProductGrid
         The FEEC grid.
-        
+
     options: DerhamOptions
         The options for building the discrete de Rham sequence, including spline degrees, boundary conditions, quadrature options, polar spline options, and projector options.
 

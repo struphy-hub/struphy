@@ -62,8 +62,7 @@ def test_fluid(test_profiling: bool = True):
 
 @pytest.mark.models
 @pytest.mark.kinetic
-def test_kinetic(
-    test_profiling: bool = True):
+def test_kinetic(test_profiling: bool = True):
     for model in models_utils.get_models(model_type="Kinetic"):
         ut.call_test(
             model=model(),
