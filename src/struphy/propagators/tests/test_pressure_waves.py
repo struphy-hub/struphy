@@ -311,60 +311,60 @@ def test_convergence_1d(
 
         for n, Nel in enumerate(Nels):
             if direction == "1":
-                degree = [1, p, 1]
-                num_elements = [1, Nel, 1]
-                bcs = (None, ("dirichlet", "dirichlet"), None)
-                e2 = xp.linspace(0.0, 1.0, 64)
-
-            elif direction == "2":
-                degree = [1, 1, p]
-                num_elements = [1, 1, Nel]
-                bcs = (None, None, ("dirichlet", "dirichlet"))
-                e3 = xp.linspace(0.0, 1.0, 64)
-
-            elif direction == "3":
                 degree = [p, 1, 1]
                 num_elements = [Nel, 1, 1]
                 bcs = (("dirichlet", "dirichlet"), None, None)
                 e1 = xp.linspace(0.0, 1.0, 64)
 
+            elif direction == "2":
+                degree = [1, p, 1]
+                num_elements = [1, Nel, 1]
+                bcs = (None, ("dirichlet", "dirichlet"), None)
+                e2 = xp.linspace(0.0, 1.0, 64)
+
+            elif direction == "3":
+                degree = [1, 1, p]
+                num_elements = [1, 1, Nel]
+                bcs = (None, None, ("dirichlet", "dirichlet"))
+                e3 = xp.linspace(0.0, 1.0, 64)
+
             if bc_type == "periodic":
                 if direction == "1":
-                    degree = [1, p, 1]
-                    num_elements = [1, Nel, 1]
-                    bcs = (None, None, None)
-                    e2 = xp.linspace(0.0, 1.0, 64)
-
-                elif direction == "2":
-                    degree = [1, 1, p]
-                    num_elements = [1, 1, Nel]
-                    bcs = (None, None, None)
-                    e3 = xp.linspace(0.0, 1.0, 64)
-
-                elif direction == "3":
                     degree = [p, 1, 1]
                     num_elements = [Nel, 1, 1]
                     bcs = (None, None, None)
                     e1 = xp.linspace(0.0, 1.0, 64)
 
+                elif direction == "2":
+                    degree = [1, p, 1]
+                    num_elements = [1, Nel, 1]
+                    bcs = (None, None, None)
+                    e2 = xp.linspace(0.0, 1.0, 64)
+
+                elif direction == "3":
+                    degree = [1, 1, p]
+                    num_elements = [1, 1, Nel]
+                    bcs = (None, None, None)
+                    e3 = xp.linspace(0.0, 1.0, 64)
+
             elif bc_type == "neumann":
                 if direction == "1":
+                    degree = [p, 1, 1]
+                    num_elements = [Nel, 1, 1]
+                    bcs = (("free", "free"), None, None)
+                    e1 = xp.linspace(0.0, 1.0, 64)
+
+                elif direction == "2":
                     degree = [1, p, 1]
                     num_elements = [1, Nel, 1]
                     bcs = (None, ("free", "free"), None)
                     e2 = xp.linspace(0.0, 1.0, 64)
 
-                elif direction == "2":
+                elif direction == "3":
                     degree = [1, 1, p]
                     num_elements = [1, 1, Nel]
                     bcs = (None, None, ("free", "free"))
                     e3 = xp.linspace(0.0, 1.0, 64)
-
-                elif direction == "3":
-                    degree = [p, 1, 1]
-                    num_elements = [Nel, 1, 1]
-                    bcs = (("free", "free"), None, None)
-                    e1 = xp.linspace(0.0, 1.0, 64)
 
             grid = TensorProductGrid(num_elements=num_elements)
             derham_opts = DerhamOptions(degree=degree, bcs=bcs)
