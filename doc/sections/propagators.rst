@@ -8,7 +8,7 @@ time splitting scheme of every algorithm. A propagator is used to advance a subs
 of a model's variables by one time step, :math:`t \to t + \Delta t`.
 
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 2
     :caption: Contents:
 
     subsections/propagators-base
