@@ -19,7 +19,7 @@ from struphy.propagators.base import Propagator
 from struphy.propagators.jxb_cold import JxBCold
 from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
 from struphy.propagators.ohm_cold import OhmCold
-from struphy.propagators.poisson_field_solve import PoissonSolve
+from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vxb import PushVxB
 from struphy.propagators.vlasov_ampere_coupling import VlasovAmpereCoupling

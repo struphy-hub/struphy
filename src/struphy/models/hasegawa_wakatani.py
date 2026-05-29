@@ -13,7 +13,7 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.propagators.hasegawa_wakatani_step import HasegawaWakataniStep
-from struphy.propagators.poisson_field_solve import PoissonSolve
+from struphy.propagators.poisson_solve import PoissonSolve
 
 logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()

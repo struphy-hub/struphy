@@ -14,7 +14,7 @@ from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.propagators.implicit_diffusion import ImplicitDiffusion
-from struphy.propagators.poisson_field_solve import PoissonSolve
+from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.topology.grids import TensorProductGrid
 
 logger = logging.getLogger("struphy")

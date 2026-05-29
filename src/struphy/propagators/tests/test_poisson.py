@@ -24,7 +24,7 @@ from struphy.pic.accumulation.accum_kernels import charge_density_0form
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.pic.particles import Particles6D
 from struphy.propagators.base import Propagator
-from struphy.propagators.poisson_field_solve import PoissonSolve
+from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.topology.grids import TensorProductGrid
 from struphy.utils.pyccel import Pyccelkernel
 
