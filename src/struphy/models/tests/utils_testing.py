@@ -18,7 +18,7 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 # generic function for calling model tests
-def call_test(model: StruphyModel, test_profiling: bool = False, verbose: bool = True):
+def call_test(model: StruphyModel, test_profiling: bool = False):
     model_name = model.name()
 
     # exceptions
@@ -64,7 +64,6 @@ def call_test(model: StruphyModel, test_profiling: bool = False, verbose: bool =
         equil=equil,
         grid=grid,
         derham_opts=derham_opts,
-        verbose=verbose,
     )
 
     sim_dict = sim.to_dict()  # test the to_dict method
@@ -107,18 +106,18 @@ def call_test(model: StruphyModel, test_profiling: bool = False, verbose: bool =
 
     sim.show_parameters()
 
-    sim.run(verbose=verbose)
+    sim.run()
 
     # test restart
     env.restart = True
     time_opts.Tend += time_opts.dt
     sim.show_parameters()
 
-    sim.run(verbose=verbose)
+    sim.run()
 
     MPI.COMM_WORLD.Barrier()
     if rank == 0:
-        sim.pproc(verbose=verbose)
-        sim.load_plotting_data(verbose=verbose)
+        sim.pproc()
+        sim.load_plotting_data()
         shutil.rmtree(test_folder)
     MPI.COMM_WORLD.Barrier()

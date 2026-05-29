@@ -31,8 +31,8 @@ Set initial conditions::
 Create and run a simulation::
 
     from struphy import Simulation
-    sim = Simulation(model=model, verbose=True)
-    sim.run(verbose=True)
+    sim = Simulation(model=model)
+    sim.run()
 
 Define another simulation with different parameters::
 
@@ -46,7 +46,6 @@ Define another simulation with different parameters::
                       time_opts=time_opts,
                       grid=grid,
                       derham_opts=derham_opts,
-                      verbose=True,
                       )
     
 Check the :ref:`api_guide` for more details on the available options and how to use them.
@@ -65,7 +64,7 @@ Compare, serialize and save simulations::
 
 Run, post process and load plotting data::
 
-    sim2.run(verbose=True)
+    sim2.run()
     sim2.pproc()
     sim2.load_plotting_data()
 
@@ -173,19 +172,24 @@ We can now set the particle parameters for the PIC simulation::
         BinningPlot,
         LoadingParameters,
         WeightsParameters,
+        SortingParameters,
+        SavingParameters,
         maxwellians,
         )
 
     loading_params = LoadingParameters(ppc=1000, moments=(0.0, 0.0, 0.0, 3.0, 1.0, 1.0))
     weights_params = WeightsParameters(control_variate=True)
-    model.kinetic_ions.set_markers(loading_params=loading_params,
-                                weights_params=weights_params,
-                                bufsize = 0.4,
-                                )
-    model.kinetic_ions.set_sorting_boxes(boxes_per_dim=(16, 1, 1), do_sort=True) 
+    sorting_params = SortingParameters(boxes_per_dim=(16, 1, 1), do_sort=True)
 
     binplot = BinningPlot(slice='e1_v1', n_bins= (128, 128), ranges= ((0.,1.), (-10.0,10.0)))
-    model.kinetic_ions.set_save_data(binning_plots=(binplot,))
+    saving_params = SavingParameters(binning_plots=(binplot,))
+
+    model.kinetic_ions.set_markers(loading_params=loading_params,
+                                   weights_params=weights_params,
+                                   sorting_params=sorting_params,
+                                   saving_params=saving_params,
+                                   bufsize = 0.4,
+                                   )
 
 Finally, we set the two-stream background::
 
@@ -204,7 +208,7 @@ and the corresponding initial condition::
 
 Press run::
     
-    sim.run(verbose=True)
+    sim.run()
 
    
 

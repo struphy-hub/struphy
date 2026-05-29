@@ -1,3 +1,5 @@
+import copy
+
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import BaseUnits
@@ -146,6 +148,9 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         with_B0: bool = True,
         with_E0: bool = True,
     ):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()

@@ -1,11 +1,12 @@
 "Only particle variables are updated."
 
+import logging
 from dataclasses import dataclass
 from typing import Literal
 
 from line_profiler import profile
 
-from struphy.io.options import LiteralOptions
+from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.ode.utils import ButcherTableau
 from struphy.pic.pushing import eval_kernels_gc, pusher_kernels_gc
@@ -13,6 +14,8 @@ from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
+
+logger = logging.getLogger("struphy")
 
 
 class PushGuidingCenterBxEstar(Propagator):
@@ -68,8 +71,8 @@ class PushGuidingCenterBxEstar(Propagator):
     def __init__(self):
         self.variables = self.Variables()
 
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Configuration options for :class:`PushGuidingCenterBxEstar`.
 
         Parameters
@@ -103,9 +106,6 @@ class PushGuidingCenterBxEstar(Propagator):
 
         mpi_sort : LiteralOptions.OptsMPIsort, default="each"
             MPI sorting policy for particle exchange.
-
-        verbose : bool, default=False
-            Verbosity flag for iterative pusher diagnostics.
         """
 
         # specific literals
@@ -124,7 +124,6 @@ class PushGuidingCenterBxEstar(Propagator):
         maxiter: int = 20
         tol: float = 1e-7
         mpi_sort: LiteralOptions.OptsMPIsort = "each"
-        verbose: bool = False
 
         def __post_init__(self):
             # checks
@@ -148,9 +147,10 @@ class PushGuidingCenterBxEstar(Propagator):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         # scaling factor
         self._epsilon = self.variables.ions.species.equation_params.epsilon
 
@@ -410,7 +410,6 @@ class PushGuidingCenterBxEstar(Propagator):
                 maxiter=self.options.maxiter,
                 tol=self.options.tol,
                 mpi_sort=self.options.mpi_sort,
-                verbose=self.options.verbose,
             )
 
         else:
@@ -454,7 +453,6 @@ class PushGuidingCenterBxEstar(Propagator):
                 alpha_in_kernel=1.0,
                 n_stages=butcher.n_stages,
                 mpi_sort=self.options.mpi_sort,
-                verbose=self.options.verbose,
             )
 
     @profile

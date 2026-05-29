@@ -2379,9 +2379,6 @@ class DESCequilibrium(NumericalMHDequilibrium):
         T_kelvin: float = 100000.0,
         base_units: BaseUnits = None,
     ):
-        # Can't use in args because of the copy below
-        verbose: bool = False
-
         # use params setter
         self.params = copy.deepcopy(locals())
 
@@ -2397,8 +2394,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         import desc
 
-        if rank == 0 and verbose:
-            logger.info(f"DESC import: {time() - t} seconds")
+        logger.debug(f"DESC import: {time() - t} seconds")
         from struphy.geometry.domains import DESCunit
 
         # units
@@ -2427,8 +2423,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
         else:
             self._eq = desc.io.load(eq_name)
 
-        if rank == 0 and verbose:
-            logger.info(f"Eq. load: {time() - t} seconds")
+        logger.debug(f"Eq. load: {time() - t} seconds")
         self._rmin = self.params["rmin"]
         self._use_nfp = self.params["use_nfp"]
 
@@ -2762,7 +2757,6 @@ class DESCequilibrium(NumericalMHDequilibrium):
         e3: xp.ndarray,
         flat_eval: bool = False,
         nfp: int = 1,
-        verbose: bool = False,
     ):
         """Transform the input grids to conform to desc's .compute method
         and evaluate var.
@@ -2781,9 +2775,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         nfp : int
             Number of stellarator field periods to be used in the mapping (nfp=1 uses the whole stellarator).
-
-        verbose : bool
-            Print grid check to screen."""
+        """
 
         import warnings
 
@@ -2866,30 +2858,28 @@ class DESCequilibrium(NumericalMHDequilibrium):
         assert xp.all(theta == theta1)
         assert xp.all(zeta == zeta1)
 
-        if verbose and rank == 0:
-            # import sys
-            logger.info(f"\n{nfp =}")
-            logger.info(f"{self.eq.axis =}")
-            logger.info(f"{rho.size =}")
-            logger.info(f"{theta.size =}")
-            logger.info(f"{zeta.size =}")
-            logger.info(f"{grid_3d.num_rho =}")
-            logger.info(f"{grid_3d.num_theta =}")
-            logger.info(f"{grid_3d.num_zeta =}")
-            # logger.info(f'\n{grid_3d.nodes[:, 0] = }')
-            # logger.info(f'\n{grid_3d.nodes[:, 1] = }')
-            # logger.info(f'\n{grid_3d.nodes[:, 2] = }')
-            logger.info(f"\n{rho =}")
-            logger.info(f"{rho1 =}")
-            logger.info(f"\n{theta =}")
-            logger.info(f"{theta1 =}")
-            logger.info(f"\n{zeta =}")
-            logger.info(f"{zeta1 =}")
+        # import sys
+        logger.debug(f"\n{nfp =}")
+        logger.debug(f"{self.eq.axis =}")
+        logger.debug(f"{rho.size =}")
+        logger.debug(f"{theta.size =}")
+        logger.debug(f"{zeta.size =}")
+        logger.debug(f"{grid_3d.num_rho =}")
+        logger.debug(f"{grid_3d.num_theta =}")
+        logger.debug(f"{grid_3d.num_zeta =}")
+        # logger.debug(f'\n{grid_3d.nodes[:, 0] = }')
+        # logger.debug(f'\n{grid_3d.nodes[:, 1] = }')
+        # logger.debug(f'\n{grid_3d.nodes[:, 2] = }')
+        logger.debug(f"\n{rho =}")
+        logger.debug(f"{rho1 =}")
+        logger.debug(f"\n{theta =}")
+        logger.debug(f"{theta1 =}")
+        logger.debug(f"\n{zeta =}")
+        logger.debug(f"{zeta1 =}")
 
         # make c-contiguous
         out = xp.ascontiguousarray(out)
-        if rank == 0 and verbose:
-            logger.info(f"desc_eval for {var}: {time() - ttime} seconds")
+        logger.info(f"desc_eval for {var}: {time() - ttime} seconds")
         return out
 
 

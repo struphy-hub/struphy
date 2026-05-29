@@ -118,7 +118,6 @@ class ParamsIn:
     def __init__(
         self,
         path: str,
-        verbose: bool = False,
     ):
         logger.info(f"\nReading in paramters from {path} ... ")
 
@@ -162,8 +161,7 @@ class ParamsIn:
         else:
             raise FileNotFoundError(f"Neither of the paths {params_path} or {bin_path} exists.")
 
-        if verbose:
-            logger.info("\n... Done.")
+        logger.info("... Done.")
 
         self.env = env
         self.time_opts = time_opts
@@ -266,7 +264,6 @@ class PostProcessor:
         guiding_center: bool = False,
         classify: bool = False,
         create_vtk: bool = True,
-        verbose: bool = False,
     ):
         """Run post-processing for fields and particle data in ``self.path_out``.
 
@@ -286,8 +283,6 @@ class PostProcessor:
             If True, run orbit classification (passing, trapped, lost) after computing orbits.
         create_vtk : bool
             If True, create VTK files for visualisation.
-        verbose : bool
-            Verbosity flag.
         """
         if MPI.COMM_WORLD.Get_rank() == 0:
             logger.info(f"\nPost-processing path {self.path_out}")
@@ -328,7 +323,6 @@ class PostProcessor:
             celldivide=celldivide,
             physical=physical,
             create_vtk=create_vtk,
-            verbose=verbose,
         )
 
         # particle variables
@@ -336,7 +330,6 @@ class PostProcessor:
             step=step,
             guiding_center=guiding_center,
             classify=classify,
-            verbose=verbose,
         )
 
     def process_fields(
@@ -345,7 +338,6 @@ class PostProcessor:
         celldivide: int = 1,
         physical: bool = False,
         create_vtk: bool = True,
-        verbose: bool = False,
     ):
         if not self.exist_fields:
             logger.info("\nNo feec fields found in hdf5 file, skipping post-processing of fields.")
@@ -402,7 +394,6 @@ class PostProcessor:
         step: int = 1,
         guiding_center: bool = False,
         classify: bool = False,
-        verbose: bool = False,
     ):
 
         if self.exist_particles is None:
@@ -463,7 +454,7 @@ class PostProcessor:
                     step,
                 )
 
-    def _create_femfields(self, step: int = 1, verbose: bool = False):
+    def _create_femfields(self, step: int = 1):
         """Reconstruct FEEC spline field objects from HDF5 output files.
 
         The method reads the distributed HDF5 files written by Struphy, builds one
@@ -474,8 +465,6 @@ class PostProcessor:
         ----------
         step : int
             Time-step stride when reading saved snapshots (default 1).
-        verbose : bool
-            Verbosity flag.
 
         Returns
         -------
@@ -507,7 +496,6 @@ class PostProcessor:
                     fields[t][species][var] = self.derham.create_spline_function(
                         var,
                         id,
-                        verbose=False,
                     )
 
         # get hdf5 data
@@ -576,7 +564,6 @@ class PostProcessor:
         *,
         celldivide: list = [1, 1, 1],
         physical: bool = False,
-        verbose: bool = False,
     ):
         """Evaluate spline fields on a regular logical grid and optionally push to physical coords.
 
@@ -588,8 +575,6 @@ class PostProcessor:
             Refinement factor in each logical direction; length must be 3.
         physical : bool, optional
             If True, return mapped physical components (x,y,z) using the domain mapping.
-        verbose : bool, optional
-            Verbosity flag.
 
         Returns
         -------
@@ -703,7 +688,6 @@ class PostProcessor:
         point_data: dict,
         *,
         physical: bool = False,
-        verbose: bool = False,
     ):
         """Write evaluated field arrays to VTK (.vts) files for visualization.
 
@@ -719,8 +703,6 @@ class PostProcessor:
             Evaluated field values as returned by :meth:`_eval_femfields`.
         physical : bool, optional
             If True, writes files for push-forwarded physical components (folder suffix "_phy").
-        verbose : bool, optional
-            Verbosity flag.
         """
         for species, vars in point_data.items():
             species_path = os.path.join(path, species, "vtk" + physical * "_phy")
@@ -763,7 +745,6 @@ class PostProcessor:
         self,
         path_kinetic_species: str,
         step: int = 1,
-        verbose: bool = False,
     ):
         """Compute Cartesian marker positions and write them to .npy and .txt files.
 
@@ -779,8 +760,6 @@ class PostProcessor:
             Path to the per-species kinetic output directory where results will be written.
         step : int, optional
             Time-step stride to process (default 1).
-        verbose : bool, optional
-            Verbosity flag.
         """
 
         species = path_kinetic_species.split("/")[-1]
@@ -874,7 +853,6 @@ class PostProcessor:
         path_kinetic_species,
         step=1,
         compute_bckgr=False,
-        verbose: bool = False,
     ):
         """Assemble and save distribution functions from per-rank binned data.
 
@@ -891,8 +869,6 @@ class PostProcessor:
             Time-step stride to process (default 1).
         compute_bckgr : bool, optional
             If True, compute and add background contribution to the saved binned data.
-        verbose : bool, optional
-            Verbosity flag.
         """
         species = path_kinetic_species.split("/")[-1]
         species_obj: ParticleSpecies = self.model.particle_species[species]
@@ -1030,7 +1006,6 @@ class PostProcessor:
         self,
         path_kinetic_species,
         step=1,
-        verbose: bool = False,
     ):
         """Compute and save SPH density fields from per-rank outputs.
 
@@ -1040,8 +1015,6 @@ class PostProcessor:
             Path to the per-species kinetic output directory where results will be written.
         step : int, optional
             Time-step stride to process (default 1).
-        verbose : bool, optional
-            Verbosity flag.
         """
         species = path_kinetic_species.split("/")[-1]
 
@@ -1206,18 +1179,13 @@ class PlottingData:
         """
         return self._n_sph
 
-    def load(self, verbose: bool = False):
+    def load(self):
         """Load all post-processed data from disk into memory.
 
         Reads binary pickle files (``.bin``) and NumPy archives (``.npy``) from the
         post-processing directory. Populates ``self.t_grid``, ``self.grids_log``,
         ``self.grids_phy``, and all species-dependent data properties (orbits, f,
         spline_values, n_sph).
-
-        Parameters
-        ----------
-        verbose : bool, optional
-            If True, print diagnostic information during loading (default False).
 
         Raises
         ------

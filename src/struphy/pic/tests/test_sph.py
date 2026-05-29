@@ -10,6 +10,7 @@ from struphy import (
     BinningPlot,
     BoundaryParameters,
     LoadingParameters,
+    SortingParameters,
     WeightsParameters,
     domains,
     equils,
@@ -76,12 +77,13 @@ def test_sph_evaluation_1d(
         fun_exact = lambda e1, e2, e3: -2 * xp.pi * xp.sin(2 * xp.pi * e1)
 
     boundary_params = BoundaryParameters(bc_sph=(bc_x, "periodic", "periodic"))
+    sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim)
 
     particles = ParticlesSPH(
         comm_world=comm,
         loading_params=loading_params,
         boundary_params=boundary_params,
-        boxes_per_dim=boxes_per_dim,
+        sorting_params=sorting_params,
         bufsize=1.0,
         domain=domain,
         background=background,
@@ -94,7 +96,7 @@ def test_sph_evaluation_1d(
     eta2 = xp.array([0.0])
     eta3 = xp.array([0.0])
 
-    particles.draw_markers(sort=False, verbose=False)
+    particles.draw_markers(sort=False)
     if comm is not None:
         particles.mpi_sort_markers()
     particles.initialize_weights()
@@ -198,6 +200,7 @@ def test_sph_evaluation_2d(
 
     # boundary conditions
     boundary_params = BoundaryParameters(bc_sph=(bc_x, bc_y, "periodic"))
+    sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim)
 
     # eval points
     eta1 = xp.linspace(0, 1.0, eval_pts)
@@ -209,16 +212,15 @@ def test_sph_evaluation_2d(
         comm_world=comm,
         loading_params=loading_params,
         boundary_params=boundary_params,
-        boxes_per_dim=boxes_per_dim,
+        sorting_params=sorting_params,
         bufsize=1.0,
         domain=domain,
         background=background,
         perturbations=pert,
         n_as_volume_form=True,
-        verbose=False,
     )
 
-    particles.draw_markers(sort=False, verbose=False)
+    particles.draw_markers(sort=False)
     if comm is not None:
         particles.mpi_sort_markers()
     particles.initialize_weights()
@@ -318,6 +320,7 @@ def test_sph_evaluation_3d(
 
     # boundary conditions
     boundary_params = BoundaryParameters(bc_sph=(bc_x, bc_y, bc_z))
+    sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim)
 
     # eval points
     eta1 = xp.linspace(0, 1.0, eval_pts)
@@ -329,15 +332,14 @@ def test_sph_evaluation_3d(
         comm_world=comm,
         loading_params=loading_params,
         boundary_params=boundary_params,
-        boxes_per_dim=boxes_per_dim,
+        sorting_params=sorting_params,
         bufsize=2.0,
         domain=domain,
         background=background,
         n_as_volume_form=True,
-        verbose=False,
     )
 
-    particles.draw_markers(sort=False, verbose=False)
+    particles.draw_markers(sort=False)
     if comm is not None:
         particles.mpi_sort_markers()
     particles.initialize_weights()
@@ -448,6 +450,7 @@ def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, eval_pts, tessela
 
     # boundary conditions
     boundary_params = BoundaryParameters(bc_sph=(bc_x, "periodic", "periodic"))
+    sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim)
 
     # loop
     err_vec = []
@@ -461,16 +464,15 @@ def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, eval_pts, tessela
             comm_world=comm,
             loading_params=loading_params,
             boundary_params=boundary_params,
-            boxes_per_dim=boxes_per_dim,
+            sorting_params=sorting_params,
             bufsize=1.0,
             domain=domain,
             background=background,
             perturbations=pert,
             n_as_volume_form=True,
-            verbose=False,
         )
 
-        particles.draw_markers(sort=False, verbose=False)
+        particles.draw_markers(sort=False)
         if comm is not None:
             particles.mpi_sort_markers()
         particles.initialize_weights()
@@ -570,6 +572,7 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselat
 
     # boundary conditions
     boundary_params = BoundaryParameters(bc_sph=(bc_x, "periodic", "periodic"))
+    sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim)
 
     # loop
     h_vec = [((2**k) * 10**-3 * 0.25) for k in range(2, 12)]
@@ -579,16 +582,15 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselat
             comm_world=comm,
             loading_params=loading_params,
             boundary_params=boundary_params,
-            boxes_per_dim=boxes_per_dim,
+            sorting_params=sorting_params,
             bufsize=1.0,
             domain=domain,
             background=background,
             perturbations=pert,
             n_as_volume_form=True,
-            verbose=False,
         )
 
-        particles.draw_markers(sort=False, verbose=False)
+        particles.draw_markers(sort=False)
         if comm is not None:
             particles.mpi_sort_markers()
         particles.initialize_weights()
@@ -687,6 +689,7 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, te
 
     # boundary conditions
     boundary_params = BoundaryParameters(bc_sph=(bc_x, "periodic", "periodic"))
+    sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim)
 
     h_arr = [((2**k) * 10**-3 * 0.25) for k in range(2, 12)]
     err_vec = []
@@ -702,16 +705,15 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, te
                 comm_world=comm,
                 loading_params=loading_params,
                 boundary_params=boundary_params,
-                boxes_per_dim=boxes_per_dim,
+                sorting_params=sorting_params,
                 bufsize=1.0,
                 domain=domain,
                 background=background,
                 perturbations=pert,
                 n_as_volume_form=True,
-                verbose=False,
             )
 
-            particles.draw_markers(sort=False, verbose=False)
+            particles.draw_markers(sort=False)
             if comm is not None:
                 particles.mpi_sort_markers()
             particles.initialize_weights()
@@ -845,6 +847,10 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
 
     # boundary conditions
     boundary_params = BoundaryParameters(bc_sph=(bc_x, bc_y, "periodic"))
+    sorting_params = SortingParameters(
+        boxes_per_dim=boxes_per_dim,
+        box_bufsize=4.0,
+    )
 
     err_vec = []
     for Np, ppb in zip(Nps, ppbs):
@@ -857,19 +863,17 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
             comm_world=comm,
             loading_params=loading_params,
             boundary_params=boundary_params,
-            boxes_per_dim=boxes_per_dim,
+            sorting_params=sorting_params,
             bufsize=1.0,
-            box_bufsize=4.0,
             domain=domain,
             background=background,
             perturbations=pert,
             n_as_volume_form=True,
-            verbose=False,
         )
         if rank == 0:
             logger.info(f"{particles.domain_array}")
 
-        particles.draw_markers(sort=False, verbose=False)
+        particles.draw_markers(sort=False)
         if comm is not None:
             particles.mpi_sort_markers()
         particles.initialize_weights()
@@ -979,18 +983,20 @@ def test_sph_velocity_evaluation(
     background.domain = domain
 
     boundary_params = BoundaryParameters(bc_sph=(bc_x, "periodic", "periodic"))
+    sorting_params = SortingParameters(
+        boxes_per_dim=boxes_per_dim,
+        box_bufsize=4.0,
+    )
 
     particles = ParticlesSPH(
         comm_world=comm,
         loading_params=loading_params,
         boundary_params=boundary_params,
-        boxes_per_dim=boxes_per_dim,
+        sorting_params=sorting_params,
         bufsize=2.0,
-        box_bufsize=4.0,
         domain=domain,
         background=background,
         n_as_volume_form=True,
-        verbose=False,
     )
 
     eta1 = xp.linspace(0, 1.0, eval_pts)
@@ -998,7 +1004,7 @@ def test_sph_velocity_evaluation(
     eta3 = xp.array([0.0])
     ee1, ee2, ee3 = xp.meshgrid(eta1, eta2, eta3, indexing="ij")
 
-    particles.draw_markers(sort=False, verbose=False)
+    particles.draw_markers(sort=False)
     if comm is not None:
         particles.mpi_sort_markers()
     particles.initialize_weights()
@@ -1168,20 +1174,20 @@ def test_sph_velocity_evaluation_2d(
     background.domain = domain
 
     boundary_params = BoundaryParameters(bc_sph=(bc_x, bc_y, "periodic"))
-
-    verbose = False
+    sorting_params = SortingParameters(
+        boxes_per_dim=boxes_per_dim,
+        box_bufsize=4.0,
+    )
 
     particles = ParticlesSPH(
         comm_world=comm,
         loading_params=loading_params,
         boundary_params=boundary_params,
-        boxes_per_dim=boxes_per_dim,
+        sorting_params=sorting_params,
         bufsize=2.0,
-        box_bufsize=4.0,
         domain=domain,
         background=background,
         n_as_volume_form=True,
-        verbose=verbose,
     )
 
     # evaluation grids
@@ -1196,7 +1202,7 @@ def test_sph_velocity_evaluation_2d(
     xx, yy, zz = xp.meshgrid(x, y, z, indexing="ij")
 
     # initialize particles
-    particles.draw_markers(sort=False, verbose=verbose)
+    particles.draw_markers(sort=False)
     if comm is not None:
         particles.mpi_sort_markers()
     particles.initialize_weights()
@@ -1414,24 +1420,24 @@ def test_sph_viscosity_evaluation_2d(
     background.domain = domain
 
     boundary_params = BoundaryParameters(bc_sph=(bc_x, bc_y, "periodic"))
-
-    verbose = False
+    sorting_params = SortingParameters(
+        boxes_per_dim=boxes_per_dim,
+        box_bufsize=4.0,
+    )
 
     particles = ParticlesSPH(
         comm_world=comm,
         loading_params=loading_params,
         boundary_params=boundary_params,
-        boxes_per_dim=boxes_per_dim,
+        sorting_params=sorting_params,
         bufsize=2.0,
-        box_bufsize=4.0,
         domain=domain,
         background=background,
         n_as_volume_form=True,
-        verbose=verbose,
     )
 
     # initialize particles
-    particles.draw_markers(sort=False, verbose=verbose)
+    particles.draw_markers(sort=False)
     if comm is not None:
         particles.mpi_sort_markers()
     particles.initialize_weights()
@@ -1658,10 +1664,9 @@ def test_sph_viscosity_evaluation_2d(
         #             domain=domain,
         #             background=background,
         #             n_as_volume_form=True,
-        #             verbose=False,
         #         )
 
-        #         particles.draw_markers(sort=False, verbose=False)
+        #         particles.draw_markers(sort=False)
         #         if comm is not None:
         #             particles.mpi_sort_markers()
         #         particles.initialize_weights()
@@ -1813,29 +1818,39 @@ def test_sph_no_slip_boundary_1d(
         kernel = "gaussian_1d"
         boxes_per_dim = (12, 1, 1)
         boundary_params = BoundaryParameters(bc_sph=("noslip", "periodic", "periodic"))
+        sorting_params = SortingParameters(
+            boxes_per_dim=boxes_per_dim,
+            box_bufsize=2.0,
+        )
     elif direction == "y":
         kernel = "gaussian_2d"
         boxes_per_dim = (1, 12, 1)
         boundary_params = BoundaryParameters(bc_sph=("periodic", "noslip", "periodic"))
+        sorting_params = SortingParameters(
+            boxes_per_dim=boxes_per_dim,
+            box_bufsize=2.0,
+        )
     else:
         kernel = "gaussian_3d"
         boxes_per_dim = (1, 1, 12)
         boundary_params = BoundaryParameters(bc_sph=("periodic", "periodic", "noslip"))
+        sorting_params = SortingParameters(
+            boxes_per_dim=boxes_per_dim,
+            box_bufsize=2.0,
+        )
 
     particles = ParticlesSPH(
         comm_world=comm,
         loading_params=loading_params,
         boundary_params=boundary_params,
-        boxes_per_dim=boxes_per_dim,
+        sorting_params=sorting_params,
         bufsize=1.0,
-        box_bufsize=2.0,
         domain=domain,
         background=background,
         n_as_volume_form=True,
-        verbose=False,
     )
 
-    particles.draw_markers(sort=False, verbose=False)
+    particles.draw_markers(sort=False)
     if rank == 0:
         ghost_inds = xp.where(particles.ghost_particles)[0]
         logger.info(f"After do_sort: {len(ghost_inds)} ghosts")
