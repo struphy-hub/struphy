@@ -40,7 +40,7 @@ class CurlCurlSolve(Propagator):
 
         \left( \mathbb C^\top \cdot \mathbb M^2 \cdot \mathbb C - \sigma \mathbb M^1 \right)\, \boldsymbol e^{n+1} =\sum_i \boldsymbol j_i\,,
 
-    where :math:`\mathbb M^1` and :math:`\mathbb M^2` are :class:`WeightedMassOperators <struphy.feec.mass.WeightedMassOperators>` and :math:`\boldsymbol j_i` 
+    where :math:`\mathbb M^1` and :math:`\mathbb M^2` are :class:`WeightedMassOperators <struphy.feec.mass.WeightedMassOperators>` and :math:`\boldsymbol j_i`
     is the vector of coefficients of the projection of :math:`\mathbf J_i` into the discrete space :math:`V^1_h\subset H(\textnormal{curl})`.
     """
 

@@ -208,12 +208,12 @@ class VlasovAmpereOneSpecies(StruphyModel):
     @classmethod
     def doc_discretization(cls):
         """Time integration is performed by the following propagators (in sequence):
-        
+
         1. :class:`~struphy.propagators.push_eta.PushEta`
         2. :class:`~struphy.propagators.push_vxb.PushVxB` (if :attr:`with_B0` is True)
         3. :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling`
         """
-        
+
         doc = rf"""Time integration is performed by the following propagators (in sequence):
 
 **1. PushEta:**

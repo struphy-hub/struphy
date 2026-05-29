@@ -34,12 +34,11 @@ plt.rcParams.update({"font.size": 22})
 
 domain: Domain = domains.Cuboid()
 
-@pytest.mark.parametrize("bc_type", ["dirichlet","periodic","neumann"])
-@pytest.mark.parametrize("direction",["1","2","3"])
-@pytest.mark.parametrize("pmax",[3,4])
-@pytest.mark.parametrize("Nmax",[6,7,8])
 
-
+@pytest.mark.parametrize("bc_type", ["dirichlet", "periodic", "neumann"])
+@pytest.mark.parametrize("direction", ["1", "2", "3"])
+@pytest.mark.parametrize("pmax", [3, 4])
+@pytest.mark.parametrize("Nmax", [6, 7, 8])
 def test_convergence_1d(
     bc_type: str,
     direction: str,
@@ -112,10 +111,9 @@ def test_convergence_1d(
             return (25 * (xp.pi**2) - sigma) * E_exact_z(x, y, z)
 
     if bc_type == "periodic":
-
         if Nmin < 4:
             Nmin = 4
-        
+
         if direction == "1":
 
             def E_exact_x(x, y, z) -> float:
@@ -238,7 +236,7 @@ def test_convergence_1d(
                 return (25 * (xp.pi**2) - sigma) * E_exact_z(x, y, z)
 
     assert Nmin < Nmax
-    
+
     # Test over spline degree and grid resolution
 
     Nels = [2**n for n in range(Nmin, Nmax + 1)]
@@ -386,13 +384,12 @@ def test_convergence_1d(
 
         m, _ = xp.polyfit(xp.log(Nels), xp.log(errors), deg=1)
         logger.info(f"For {p =}, solution converges with rate {-m =} ")
-        
+
         tolerance: float = 0.07
-        
+
         assert -m > (p + 1 - tolerance)
 
         if show_plot:
-
             plt.figure(f"Convergence for degree {p =}", figsize=(12, 8))
             plt.title(f"Convergence rate for degree {p =}")
             plt.plot(h_vec, errors, "o", label=f"Calculated error, {m =}")
@@ -409,16 +406,13 @@ def test_convergence_1d(
             plt.legend()
 
     if show_plot:
-
         plt.show()
 
 
-
-@pytest.mark.parametrize("bc_type", ["dirichlet","periodic","neumann"])
-@pytest.mark.parametrize("direction",["1","2","3"])
-@pytest.mark.parametrize("pmax",[3,4])
-@pytest.mark.parametrize("Nmax",[6,7,8])
-
+@pytest.mark.parametrize("bc_type", ["dirichlet", "periodic", "neumann"])
+@pytest.mark.parametrize("direction", ["1", "2", "3"])
+@pytest.mark.parametrize("pmax", [3, 4])
+@pytest.mark.parametrize("Nmax", [6, 7, 8])
 def test_convergence_2d(
     bc_type: str,
     direction: str,
@@ -491,10 +485,9 @@ def test_convergence_2d(
             return (34 * (xp.pi**2) - sigma) * E_exact_z(x, y, z)
 
     if bc_type == "periodic":
-
         if Nmin < 4:
             Nmin = 4
-        
+
         if direction == "1":
 
             def E_exact_x(x, y, z) -> float:
@@ -779,13 +772,12 @@ def test_convergence_2d(
 
         m, _ = xp.polyfit(xp.log(Nels), xp.log(errors), deg=1)
         logger.info(f"For {p =}, solution converges with rate {-m =} ")
-        
+
         tolerance: float = 0.07
-        
+
         assert -m > (p + 1 - tolerance)
 
         if show_plot:
-        
             plt.figure(f"Convergence for degree {p =}", figsize=(12, 8))
             plt.title(f"Convergence rate for degree {p =}")
             plt.plot(h_vec, errors, "o", label=f"Calculated error, {m =}")
@@ -802,20 +794,11 @@ def test_convergence_2d(
             plt.legend()
 
     if show_plot:
-    
         plt.show()
 
 
 if __name__ == "__main__":
-
-    test_convergence_1d(
-        bc_type="periodic",
-        direction="1",
-        pmax=3,
-        sigma=5,
-        Nmax=6,
-        show_plot=True
-    )
+    test_convergence_1d(bc_type="periodic", direction="1", pmax=3, sigma=5, Nmax=6, show_plot=True)
 
     # test_convergence_2d(
     #     bc_type="neumann",
@@ -823,4 +806,4 @@ if __name__ == "__main__":
     #     pmax=4,
     #     Nmax=6,
     #     sigma=5,
-     # )
+    # )
