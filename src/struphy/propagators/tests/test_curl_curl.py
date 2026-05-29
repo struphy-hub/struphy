@@ -335,7 +335,6 @@ def test_convergence_1d(
                 tol=1.0e-10,
                 maxiter=3000,
                 info=True,
-                verbose=False,
                 recycle=False,
             )
 
@@ -722,7 +721,6 @@ def test_convergence_2d(
                 tol=1.0e-10,
                 maxiter=3000,
                 info=True,
-                verbose=False,
                 recycle=False,
             )
 
