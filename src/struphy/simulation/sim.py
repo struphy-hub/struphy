@@ -345,6 +345,8 @@ class Simulation(SimulationBase):
             if self.equil is not None:
                 p0 = self.equil.p0(*grids_log)
                 pointData["p0"] = p0
+                n0 = self.equil.n0(*grids_log)
+                pointData["n0"] = n0
                 if isinstance(self.equil, FluidEquilibriumWithB):
                     absB0 = self.equil.absB0(*grids_log)
                     pointData["absB0"] = absB0
