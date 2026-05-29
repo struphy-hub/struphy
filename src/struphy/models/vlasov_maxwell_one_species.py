@@ -203,6 +203,13 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence):
+
+        1. :class:`~struphy.propagators.maxwell_weak_ampere.MaxwellWeakAmpere`
+        2. :class:`~struphy.propagators.push_eta.PushEta`
+        3. :class:`~struphy.propagators.push_vxb.PushVxB`
+        4. :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling`
+        """
         doc = rf"""**1. propagators.maxwell.Maxwell:**
 
 {MaxwellWeakAmpere.__doc__}

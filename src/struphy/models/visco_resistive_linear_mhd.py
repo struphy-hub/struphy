@@ -215,6 +215,13 @@ class ViscoResistiveLinearMHD(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence):
+
+        1. :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`
+        2. :class:`~struphy.propagators.variational_pb_evolve.VariationalPBEvolve`
+        3. :class:`~struphy.propagators.variational_viscosity.VariationalViscosity` (if :attr:`with_viscosity` is True)
+        4. :class:`~struphy.propagators.variational_resistivity.VariationalResistivity` (if :attr:`with_resistivity` is True)
+        """
         doc = rf"""**1. VariationalDensityEvolve:**
 
 {VariationalDensityEvolve.__doc__}

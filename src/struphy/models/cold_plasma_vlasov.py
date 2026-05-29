@@ -276,7 +276,16 @@ class ColdPlasmaVlasov(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators.maxwell.Maxwell:**
+        """Time integration is performed by the following propagators (in sequence):
+
+        1. :class:`~struphy.propagators.maxwell_weak_ampere.MaxwellWeakAmpere`
+        2. :class:`~struphy.propagators.ohm_cold.OhmCold`
+        3. :class:`~struphy.propagators.jxb_cold.JxBCold`
+        4. :class:`~struphy.propagators.push_eta.PushEta`
+        5. :class:`~struphy.propagators.push_vxb.PushVxB`
+        6. :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling`
+        """
+        doc = rf"""**1. MaxwellWeakAmpere:**
 
 {MaxwellWeakAmpere.__doc__}
 
@@ -288,15 +297,15 @@ class ColdPlasmaVlasov(StruphyModel):
 
 {JxBCold.__doc__}
 
-**4. push_eta.PushEta:**
+**4. PushEta:**
 
 {PushEta.__doc__}
 
-**5. push_vxb.PushVxB:**
+**5. PushVxB:**
 
 {PushVxB.__doc__}
 
-**6. vlasov_ampere_coupling.VlasovAmpereCoupling:**
+**6. VlasovAmpereCoupling:**
 
 {VlasovAmpereCoupling.__doc__}
 """

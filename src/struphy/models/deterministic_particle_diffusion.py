@@ -119,6 +119,10 @@ class DeterministicParticleDiffusion(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence):
+
+        1. :class:`~struphy.propagators.push_deterministic_diffusion.PushDeterministicDiffusion`
+        """
         doc = rf"""**1. push_deterministic_diffusion.PushDeterministicDiffusion:**
 
     {PushDeterministicDiffusion.__doc__}

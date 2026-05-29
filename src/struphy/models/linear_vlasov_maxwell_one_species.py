@@ -269,6 +269,14 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
 
     @classmethod
     def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence):
+
+        1. :class:`~struphy.propagators.push_eta.PushEta`
+        2. :class:`~struphy.propagators.push_vin_efield.PushVinEfield` (if :attr:`with_E0` is True)
+        3. :class:`~struphy.propagators.efield_weights_coupling.EfieldWeightsCoupling`
+        4. :class:`~struphy.propagators.push_vxb.PushVxB` (if :attr:`with_B0` is True)
+        5. :class:`~struphy.propagators.maxwell_weak_ampere.MaxwellWeakAmpere`
+        """
         doc = rf"""**1. push_eta.PushEta:**
 
     {PushEta.__doc__}

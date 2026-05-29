@@ -237,6 +237,11 @@ class ToyDrift(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence):
+
+        1. :class:`~struphy.propagators.poisson_solve.PoissonSolve`
+        2. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
+        """
         doc = rf"""**1. PoissonFieldSolve:**
 
 {PoissonSolve.__doc__}
