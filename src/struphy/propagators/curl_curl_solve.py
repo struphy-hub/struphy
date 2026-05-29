@@ -29,26 +29,23 @@ class CurlCurlSolve(Propagator):
 
     .. math::
 
-        \int_\Omega \nabla \times \mathbf F \cdot \nabla \mathbf E\,\textrm d \mathbf x - \sigma \int_\Omega \mathbf F \cdot \mathbf E\,\textrm d \mathbf x = \sum_i \int_\Omega \mathbf F \cdot \mathbf J _i\,\textrm d \mathbf x \qquad \forall \,\mathbf F \in H(\textnormal{curl})\,,
+        \int_\Omega \nabla \times \mathbf F \cdot \nabla \times \mathbf E\,\textrm d \mathbf x - \sigma \int_\Omega \mathbf F \cdot \mathbf E\,\textrm d \mathbf x = \sum_i \int_\Omega \mathbf F \cdot \mathbf J _i\,\textrm d \mathbf x \qquad \forall \,\mathbf F \in H(\textnormal{curl})\,,
 
-    where :math:`\mathbf J _i:\Omega \to \mathbb R^3` is a real-valued vector field and
-    :math:`\sigma \in \mathbb R`
-    is a scalar.
+    where :math:`\mathbf J _i:\Omega \to \mathbb R^3` are real-valued and
+    :math:`\sigma \in \mathbb R / \{0\}` is a scalar.
     Boundary terms from integration by parts are assumed to vanish.
     The equation is discretized as
 
     .. math::
 
-        \left( \mathbb C^\top \cdot \mathbb M^2 \cdot \mathbb C - \sigma \mathbb M^1 \right)\, \boldsymbol e^{n+1} =\sum_i \mathbb P^1 \cdot \boldsymbol J _i\,,
+        \left( \mathbb C^\top \cdot \mathbb M^2 \cdot \mathbb C - \sigma \mathbb M^1 \right)\, \boldsymbol e^{n+1} =\sum_i \boldsymbol j_i\,,
 
-    where :math:`\mathbb M^1` and :math:`\mathbb M^2` are :class:`WeightedMassOperators <struphy.feec.mass.WeightedMassOperators>` and :math:`\mathbb P^1`
-    is the projector into the space :math:`V ^1 _h`.
-
+    where :math:`\mathbb M^1` and :math:`\mathbb M^2` are :class:`WeightedMassOperators <struphy.feec.mass.WeightedMassOperators>` and :math:`\boldsymbol j_i` 
+    is the vector of coefficients of the projection of :math:`\mathbf J_i` into the discrete space :math:`V^1_h\subset H(\textnormal{curl})`.
     """
 
     class Variables:
-        """Container for variables advanced by :class:`ImplicitDiffusion`.
-
+        """
         Attributes
         ----------
         e : FEECVariable

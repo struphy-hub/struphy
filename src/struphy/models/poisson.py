@@ -11,7 +11,7 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.propagators.implicit_diffusion import ImplicitDiffusion
-from struphy.propagators.poisson_field_solve import PoissonFieldSolve
+from struphy.propagators.poisson_field_solve import PoissonSolve
 from struphy.propagators.time_dependent_source import TimeDependentSource
 
 logger = logging.getLogger("struphy")
@@ -41,7 +41,7 @@ class Poisson(StruphyModel):
         def __init__(self, with_t_dep_source=False):
             if with_t_dep_source:
                 self.source = TimeDependentSource()
-            self.poisson = PoissonFieldSolve()
+            self.poisson = PoissonSolve()
 
     ## abstract methods
 
@@ -114,7 +114,7 @@ class Poisson(StruphyModel):
 
 **2. PoissonFieldSolve:**
 
-{PoissonFieldSolve.__doc__}
+{PoissonSolve.__doc__}
 """
         return doc
 

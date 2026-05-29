@@ -14,7 +14,7 @@ from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.propagators.implicit_diffusion import ImplicitDiffusion
-from struphy.propagators.poisson_field_solve import PoissonFieldSolve
+from struphy.propagators.poisson_field_solve import PoissonSolve
 from struphy.topology.grids import TensorProductGrid
 
 logger = logging.getLogger("struphy")
@@ -515,7 +515,7 @@ def test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=F
     _phi_M1 = FEECVariable(space="H1")
     _phi_M1.allocate(derham=derham, domain=domain)
 
-    poisson_solver_M1 = PoissonFieldSolve()
+    poisson_solver_M1 = PoissonSolve()
     poisson_solver_M1.variables.phi = _phi_M1
 
     poisson_solver_M1.options = poisson_solver_M1.Options(
@@ -535,7 +535,7 @@ def test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=F
     _phi_M1perp = FEECVariable(space="H1")
     _phi_M1perp.allocate(derham=derham, domain=domain)
 
-    poisson_solver_M1perp = PoissonFieldSolve()
+    poisson_solver_M1perp = PoissonSolve()
     poisson_solver_M1perp.variables.phi = _phi_M1perp
 
     poisson_solver_M1perp.options = poisson_solver_M1perp.Options(
@@ -692,7 +692,7 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
     _phi_2p5d = FEECVariable(space="H1")
     _phi_2p5d.allocate(derham=derham_3D, domain=domain_3D)
 
-    poisson_solver_3d = PoissonFieldSolve()
+    poisson_solver_3d = PoissonSolve()
     poisson_solver_3d.variables.phi = _phi
 
     poisson_solver_3d.options = poisson_solver_3d.Options(
@@ -747,7 +747,7 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
         _phi_small = FEECVariable(space="H1")
         _phi_small.allocate(derham=derham_sliced, domain=domain_sliced)
 
-        poisson_solver_2p5d = PoissonFieldSolve()
+        poisson_solver_2p5d = PoissonSolve()
         poisson_solver_2p5d.variables.phi = _phi_small
 
         poisson_solver_2p5d.options = poisson_solver_2p5d.Options(
