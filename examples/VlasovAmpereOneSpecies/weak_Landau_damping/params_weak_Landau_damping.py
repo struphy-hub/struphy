@@ -36,6 +36,8 @@ from struphy import (
     KernelDensityPlot,
     LoadingParameters,
     WeightsParameters,
+    SortingParameters,
+    SavingParameters,
     maxwellians,
 )
 
@@ -97,15 +99,18 @@ sim = Simulation(
 loading_params = LoadingParameters(ppc = 1000)
 weights_params = WeightsParameters(control_variate= True)
 boundary_params = BoundaryParameters()
+sorting_params = SortingParameters(boxes_per_dim=(16, 1, 1), do_sort=True)
+
+binplot = BinningPlot(slice='e1_v1', n_bins= (128, 128), ranges= ((0.,1.), (-5.,5.)))
+saving_params = SavingParameters(binning_plots=(binplot,))
+
 model.kinetic_ions.set_markers(loading_params=loading_params,
                                weights_params=weights_params,
                                boundary_params=boundary_params,
+                               sorting_params=sorting_params,
+                               saving_params=saving_params,
                                bufsize = 0.4,
                                )
-model.kinetic_ions.set_sorting_boxes(boxes_per_dim=(16, 1, 1), do_sort=True)
-
-binplot = BinningPlot(slice='e1_v1', n_bins= (128, 128), ranges= ((0.,1.), (-5.,5.)))
-model.kinetic_ions.set_save_data(binning_plots=(binplot,))
 
 # ------------------
 # Propagator options

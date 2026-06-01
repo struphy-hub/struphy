@@ -46,7 +46,7 @@ def test_examples(params_path: Path):
     logger.info(f"{regress_path = }")
 
     params = import_parameters_py(str(params_path), name=example_name)
-    params.sim.run(one_time_step=True, verbose=True)
+    params.sim.run(one_time_step=True)
 
     MPI.COMM_WORLD.Barrier()
     if MPI.COMM_WORLD.Get_rank() == 0:

@@ -1,3 +1,4 @@
+import copy
 import logging
 
 import cunumpy as xp
@@ -28,82 +29,7 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class VlasovMaxwellOneSpecies(StruphyModel):
-    r"""Vlasov-Maxwell equations for one species.
-
-    :ref:`normalization`:
-
-    .. math::
-
-        \begin{align}
-            \hat v  = c \,, \qquad \hat E = \hat B \hat v\,,\qquad  \hat \phi = \hat E \hat x \,.
-        \end{align}
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        &\frac{\partial f}{\partial t} + \mathbf{v} \cdot \, \nabla f + \frac{1}{\varepsilon} \left( \mathbf{E} + \mathbf{v} \times \left( \mathbf{B} + \mathbf{B}_0 \right) \right)
-        \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,,
-        \\[2mm]
-        -&\frac{\partial \mathbf{E}}{\partial t} + \nabla \times \mathbf B =
-        \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3}  \mathbf{v} f \, \text{d}^3 \mathbf{v}\,,
-        \\[2mm]
-        &\frac{\partial \mathbf{B}}{\partial t} + \nabla \times \mathbf{E} = 0 \,,
-
-    with the normalization parameters
-
-    .. math::
-
-        \alpha = \frac{\hat \Omega_\textnormal{p}}{\hat \Omega_\textnormal{c}}\,,\qquad \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t} \,,\qquad \textnormal{with} \qquad \hat\Omega_\textnormal{p} = \sqrt{\frac{\hat n (Ze)^2}{\epsilon_0 (A m_\textnormal{H})}} \,,\qquad \hat \Omega_{\textnormal{c}} = \frac{(Ze) \hat B}{(A m_\textnormal{H})}\,,
-
-    where :math:`Z=-1` and :math:`A=1/1836` for electrons.
-    At initial time the weak Poisson equation is solved once to weakly satisfy Gauss' law,
-
-    .. math::
-
-            \begin{align}
-            \int_\Omega \nabla \psi^\top \cdot \nabla \phi \,\textrm d \mathbf x &= \frac{\alpha^2}{\varepsilon} \int_\Omega \int_{\mathbb{R}^3} \psi\, (f - f_0) \, \text{d}^3 \mathbf{v}\,\textrm d \mathbf x \qquad \forall \ \psi \in H^1\,,
-            \\[2mm]
-            \mathbf{E}(t=0) &= -\nabla \phi(t=0)\,.
-            \end{align}
-
-    Moreover, it is assumed that
-
-    .. math::
-
-        \nabla \times \mathbf B_0 = \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} f_0 \, \text{d}^3 \mathbf{v}\,,
-
-    where :math:`\mathbf B_0` is the static equilibirum magnetic field.
-
-    Notes
-    -----
-
-    * The :ref:`control_var` for Ampère's law is optional; in case it is enabled via the parameter file, the following system is solved:
-    Find :math:`(\mathbf E, \tilde{\mathbf B}, f) \in H(\textnormal{curl}) \times H(\textnormal{div}) \times C^\infty` such that
-
-    .. math::
-
-        \begin{align}
-            -\int_\Omega \mathbf F\, \cdot \, &\frac{\partial \mathbf{E}}{\partial t}\,\textrm d \mathbf x + \int_\Omega \nabla \times \mathbf{F} \cdot \tilde{\mathbf B}\,\textrm d \mathbf x =
-            \frac{\alpha^2}{\varepsilon} \int_\Omega \int_{\mathbb{R}^3} \mathbf F \cdot \mathbf{v} (f - f_0) \, \text{d}^3 \mathbf{v}\,\textrm d \mathbf x \qquad \forall \ \mathbf F \in H(\textnormal{curl}) \,,
-            \\[2mm]
-            &\frac{\partial \tilde{\mathbf B}}{\partial t} + \nabla \times \mathbf{E} = 0 \,,
-            \\[2mm]
-            &\frac{\partial f}{\partial t} + \mathbf{v} \cdot \, \nabla f + \frac{1}{\varepsilon}\Big[ \mathbf{E} + \mathbf{v} \times (\mathbf{B}_0 + \tilde{\mathbf B}) \Big]
-            \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,,
-        \end{align}
-
-    where :math:`\tilde{\mathbf B} = \mathbf B - \mathbf B_0` denotes the magnetic perturbation.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.maxwell.Maxwell`
-    2. :class:`~struphy.propagators.push_eta.PushEta`
-    3. :class:`~struphy.propagators.push_vxb.PushVxB`
-    4. :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling`
-
-    :ref:`Model info <add_model>`:
-    """
+    r"""Vlasov-Maxwell equations for one species."""
 
     @classmethod
     def model_type(cls) -> LiteralOptions.ModelTypes:
@@ -154,6 +80,9 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         epsilon: float = None,
         measure_gauss_law: bool = False,
     ):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -278,15 +207,15 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
 {MaxwellWeakAmpere.__doc__}
 
-**2. push_eta.PushEta:**
+**2. PushEta:**
 
 {PushEta.__doc__}
 
-**3. push_vxb.PushVxB:**
+**3. PushVxB:**
 
 {PushVxB.__doc__}
 
-**4. vlasov_ampere_coupling.VlasovAmpereCoupling:**
+**4. VlasovAmpereCoupling:**
 
 {VlasovAmpereCoupling.__doc__}
 """
@@ -330,7 +259,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         - reduced electrostatic-only models where magnetic evolution is unnecessary
         - linearized delta-f studies that should use the dedicated linear models"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         """Solve initial Poisson equation.
 
         :meta private:
@@ -344,8 +273,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             self.subcom_residual = xp.empty(shape=particles.mpi_size, dtype=float)
             self.intercom_residual = xp.empty(shape=particles.num_clones, dtype=float)
 
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("\nINITIAL POISSON SOLVE:")
+        logger.info("\nINITIAL POISSON SOLVE:")
 
         # use control variate method (reset weights after Poisson solve)
         particles.update_weights()
@@ -373,14 +301,12 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         self.initial_poisson.allocate()
 
         # Solve with dt=1. and compute electric field
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("\nSolving initial Poisson problem...")
+        logger.info("Solving initial Poisson problem...")
         self.initial_poisson(1.0)
 
         phi = self.initial_poisson.variables.phi.spline.vector
         Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
-        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-            logger.info("... Done.")
+        logger.info("... Done.")
 
         # reset particle weights
         particles.weights = particles.weights_at_t0.copy()
@@ -424,9 +350,9 @@ class VlasovMaxwellOneSpecies(StruphyModel):
                     new_file += [
                         "model.propagators.push_vxb.options = model.propagators.push_vxb.Options(b2_var=model.em_fields.b_field)\n",
                     ]
-                elif "set_save_data" in line:
+                elif "saving_params = " in line:
                     new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
-                    new_file += ["model.kinetic_ions.set_save_data(binning_plots=(binplot,))\n"]
+                    new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
                 elif "VlasovMaxwellOneSpecies()" in line:
                     new_file += ["\nmodel = VlasovMaxwellOneSpecies(measure_gauss_law=True)\n"]
                 else:

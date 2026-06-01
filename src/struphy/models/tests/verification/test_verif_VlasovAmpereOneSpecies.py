@@ -14,7 +14,9 @@ from struphy import (
     DerhamOptions,
     EnvironmentOptions,
     LoadingParameters,
+    SavingParameters,
     Simulation,
+    SortingParameters,
     Time,
     WeightsParameters,
     domains,
@@ -57,16 +59,19 @@ def test_weak_Landau(do_plot: bool = False):
     loading_params = LoadingParameters(ppc=ppc, seed=1234)
     weights_params = WeightsParameters(control_variate=True)
     boundary_params = BoundaryParameters()
+    sorting_params = SortingParameters(boxes_per_dim=(16, 1, 1), do_sort=True)
+
+    binplot = BinningPlot(slice="e1_v1", n_bins=(128, 128), ranges=((0.0, 1.0), (-5.0, 5.0)))
+    saving_params = SavingParameters(binning_plots=(binplot,))
+
     model.kinetic_ions.set_markers(
         loading_params=loading_params,
         weights_params=weights_params,
         boundary_params=boundary_params,
+        sorting_params=sorting_params,
+        saving_params=saving_params,
         bufsize=0.4,
     )
-    model.kinetic_ions.set_sorting_boxes(boxes_per_dim=(16, 1, 1), do_sort=True)
-
-    binplot = BinningPlot(slice="e1_v1", n_bins=(128, 128), ranges=((0.0, 1.0), (-5.0, 5.0)))
-    model.kinetic_ions.set_save_data(binning_plots=(binplot,))
 
     # propagator options
     model.propagators.push_eta.options = model.propagators.push_eta.Options()
@@ -92,11 +97,10 @@ def test_weak_Landau(do_plot: bool = False):
         domain=domain,
         grid=grid,
         derham_opts=derham_opts,
-        verbose=True,
     )
 
     # run
-    sim.run(verbose=True)
+    sim.run()
 
     # post processing not needed for scalar data
 

@@ -12,7 +12,7 @@ from feectools.linalg.solvers import inverse
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import L2Projector, WeightedMassOperators
 from struphy.geometry.utilities import TransformedPformComponent
-from struphy.io.options import LiteralOptions
+from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
@@ -95,8 +95,8 @@ class TwoFluidQuasiNeutralFull(Propagator):
     ### Options
     # =========================================================================
 
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Configuration options for :class:`TwoFluidQuasiNeutralFull`.
 
         Parameters
@@ -165,19 +165,15 @@ class TwoFluidQuasiNeutralFull(Propagator):
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                logger.info(f"  {k}: {v}")
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     # =========================================================================
     ### Allocate
     # =========================================================================
 
-    def allocate(self, verbose=False):
+    def allocate(self):
 
-        self.verbose = verbose
         self._rank = self.derham.comm.Get_rank() if self.derham.comm is not None else 0
         self._dt = None
 
@@ -269,7 +265,6 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._basis_ops_lift_ue = BasisProjectionOperators(
             self._derham_lift_ue,
             self.domain,
-            verbose=self.options.solver_params.verbose,
             eq_mhd=self.basis_ops.weights["eq_mhd"],
         )
 

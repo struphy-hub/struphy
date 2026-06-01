@@ -1,3 +1,5 @@
+import copy
+
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.io.options import BaseUnits, LiteralOptions
@@ -60,6 +62,9 @@ class VariationalPressurelessFluid(StruphyModel):
     ## abstract methods
 
     def __init__(self, base_units: BaseUnits = BaseUnits(), mass_number: float = 1.0):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.fluid = self.Fluid(mass_number=mass_number)
@@ -167,7 +172,7 @@ class VariationalPressurelessFluid(StruphyModel):
         - viscous/resistive dissipation
         - kinetic particle physics"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         pass
 
     # default parameters

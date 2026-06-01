@@ -240,7 +240,6 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
                             basis[space][ij[0]],
                             basis[space][ij[1]],
                             rank,
-                            verbose=False,
                         )  # assertion test of mat
                     if mv == "m_v":
                         for i in range(3):
@@ -263,7 +262,6 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
                             basis[space][ij[0]],
                             basis[space][ij[1]],
                             rank,
-                            verbose=False,
                         )  # assertion test of mat
                     if mv == "m_v":
                         for i in range(3):
@@ -339,7 +337,7 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
             logger.info(f"\n{count}/40 particle_to_mat_kernels routines tested.")
 
 
-def assert_mat(mat, rows, cols, row_str, col_str, rank, verbose=False):
+def assert_mat(mat, rows, cols, row_str, col_str, rank):
     """Check whether the non-zero values in mat are at the indices specified by rows and cols.
     Sets mat to zero after assertion is passed.
 
@@ -363,9 +361,6 @@ def assert_mat(mat, rows, cols, row_str, col_str, rank, verbose=False):
 
         rank : int
             Mpi rank of process.
-
-        verbose : bool
-            Show additional screen output.
     """
     assert len(mat.shape) == 6
     # assert non NaN
@@ -373,14 +368,13 @@ def assert_mat(mat, rows, cols, row_str, col_str, rank, verbose=False):
 
     atol = 1e-14
 
-    if verbose:
-        logger.info(f"\n({row_str}) ({col_str})")
-        logger.info(f"rank {rank} | ind_row1: {set(xp.where(mat > atol)[0])}")
-        logger.info(f"rank {rank} | ind_row2: {set(xp.where(mat > atol)[1])}")
-        logger.info(f"rank {rank} | ind_row3: {set(xp.where(mat > atol)[2])}")
-        logger.info(f"rank {rank} | ind_col1: {set(xp.where(mat > atol)[3])}")
-        logger.info(f"rank {rank} | ind_col2: {set(xp.where(mat > atol)[4])}")
-        logger.info(f"rank {rank} | ind_col3: {set(xp.where(mat > atol)[5])}")
+    logger.debug(f"\n({row_str}) ({col_str})")
+    logger.debug(f"rank {rank} | ind_row1: {set(xp.where(mat > atol)[0])}")
+    logger.debug(f"rank {rank} | ind_row2: {set(xp.where(mat > atol)[1])}")
+    logger.debug(f"rank {rank} | ind_row3: {set(xp.where(mat > atol)[2])}")
+    logger.debug(f"rank {rank} | ind_col1: {set(xp.where(mat > atol)[3])}")
+    logger.debug(f"rank {rank} | ind_col2: {set(xp.where(mat > atol)[4])}")
+    logger.debug(f"rank {rank} | ind_col3: {set(xp.where(mat > atol)[5])}")
 
     # check if correct indices are non-zero
     for n, (r, c) in enumerate(zip(row_str, col_str)):
@@ -393,7 +387,7 @@ def assert_mat(mat, rows, cols, row_str, col_str, rank, verbose=False):
     logger.info(f"rank {rank} | Matrix index assertion passed for ({row_str}) ({col_str}).")
 
 
-def assert_vec(vec, rows, row_str, rank, verbose=False):
+def assert_vec(vec, rows, row_str, rank):
     """Check whether the non-zero values in vec are at the indices specified by rows.
     Sets vec to zero after assertion is passed.
 
@@ -410,9 +404,6 @@ def assert_vec(vec, rows, row_str, rank, verbose=False):
 
         rank : int
             Mpi rank of process.
-
-        verbose : bool
-            Show additional screen output.
     """
     assert len(vec.shape) == 3
     # assert non Nan
@@ -420,11 +411,10 @@ def assert_vec(vec, rows, row_str, rank, verbose=False):
 
     atol = 1e-14
 
-    if verbose:
-        logger.info(f"\n({row_str})")
-        logger.info(f"rank {rank} | ind_row1: {set(xp.where(vec > atol)[0])}")
-        logger.info(f"rank {rank} | ind_row2: {set(xp.where(vec > atol)[1])}")
-        logger.info(f"rank {rank} | ind_row3: {set(xp.where(vec > atol)[2])}")
+    logger.debug(f"\n({row_str})")
+    logger.debug(f"rank {rank} | ind_row1: {set(xp.where(vec > atol)[0])}")
+    logger.debug(f"rank {rank} | ind_row2: {set(xp.where(vec > atol)[1])}")
+    logger.debug(f"rank {rank} | ind_row3: {set(xp.where(vec > atol)[2])}")
 
     # check if correct indices are non-zero
     for n, r in enumerate(row_str):

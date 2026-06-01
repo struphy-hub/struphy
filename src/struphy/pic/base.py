@@ -23,7 +23,11 @@ from sympy.ntheory import factorint
 
 from struphy.bsplines.bsplines import quadrature_grid
 from struphy.fields_background import equils
-from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB, NumericalFluidEquilibrium
+from struphy.fields_background.base import (
+    FluidEquilibrium,
+    FluidEquilibriumWithB,
+    NumericalFluidEquilibrium,
+)
 from struphy.fields_background.equils import set_defaults
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
@@ -36,6 +40,8 @@ from struphy.kinetic_background.base import KineticBackground, Maxwellian
 from struphy.particles.parameters import (
     BoundaryParameters,
     LoadingParameters,
+    SavingParameters,
+    SortingParameters,
     WeightsParameters,
 )
 from struphy.pic import sampling_kernels, sobol_seq
@@ -70,9 +76,9 @@ class Particles(metaclass=ABCMeta):
         comm_world: Intracomm = None,
         clone_config: CloneConfig = None,
         domain_decomp: tuple = None,
-        mpi_dims_mask: tuple | list = None,
-        boxes_per_dim: tuple | list = None,
-        box_bufsize: float = 5.0,
+        # mpi_dims_mask: tuple | list = None,
+        # boxes_per_dim: tuple | list = None,
+        # box_bufsize: float = 5.0,
         n_cols_diagnostics: int = None,
         n_cols_aux: int = None,
         type: str = "full_f",
@@ -80,6 +86,8 @@ class Particles(metaclass=ABCMeta):
         loading_params: LoadingParameters = None,
         weights_params: WeightsParameters = None,
         boundary_params: BoundaryParameters = None,
+        sorting_params: SortingParameters = None,
+        saving_params: SavingParameters = None,
         bufsize: float = 0.25,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
@@ -89,7 +97,6 @@ class Particles(metaclass=ABCMeta):
         perturbations: dict[str, Perturbation] = None,
         n_as_volume_form: bool = False,
         equation_params: dict = None,
-        verbose: bool = False,
     ):
         r"""
         The marker information is stored in a 2D numpy array.
@@ -118,16 +125,6 @@ class Particles(metaclass=ABCMeta):
             The first entry is a domain_array (see :attr:`~struphy.feec.psydac_derham.Derham.domain_array`) and
             the second entry is the number of MPI processes in each direction.
 
-        mpi_dims_mask: tuple[bool]
-                True if the dimension is to be used in the domain decomposition (=default for each dimension).
-                If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
-
-        boxes_per_dim : tuple
-            Number of boxes in each logical direction (n_eta1, n_eta2, n_eta3).
-
-        box_bufsize : float
-            Between 0 and 1, relative buffer size for box array (default = 0.25).
-
         type : str
             Either 'full_f' (default), 'delta_f' or 'sph'.
 
@@ -142,6 +139,12 @@ class Particles(metaclass=ABCMeta):
 
         boundary_params : BoundaryParameters
             Parameters for particle boundary conditions.
+
+        sorting_params : SortingParameters
+            Parameters for particle sorting.
+
+        saving_params : SavingParameters
+            Parameters for particle saving.
 
         bufsize : float
             Size of buffer (as multiple of total size, default=.25) in markers array.
@@ -169,9 +172,6 @@ class Particles(metaclass=ABCMeta):
 
         equation_params : dict
             Normalization parameters (epsilon, alpha, ...)
-
-        verbose : bool
-            Show some more Particle info.
         """
 
         self._clone_config = clone_config
@@ -200,11 +200,19 @@ class Particles(metaclass=ABCMeta):
         if boundary_params is None:
             boundary_params = BoundaryParameters()
 
+        if sorting_params is None:
+            sorting_params = SortingParameters()
+
+        if saving_params is None:
+            saving_params = SavingParameters()
+
         # other parameters
         self._name = name
         self._loading_params = loading_params
         self._weights_params = weights_params
         self._boundary_params = boundary_params
+        self._sorting_params = sorting_params
+        self._saving_params = saving_params
         self._domain = domain
         self._equil = equil
         self._projected_equil = projected_equil
@@ -221,19 +229,17 @@ class Particles(metaclass=ABCMeta):
             self._Barrier = self.mpi_comm.Barrier
 
         # domain decomposition (MPI) and cell information
-        self._boxes_per_dim = boxes_per_dim
-        self._box_bufsize = box_bufsize
-        self._mpi_dims_mask = mpi_dims_mask
+        self._boxes_per_dim = self.sorting_params.boxes_per_dim
+        self._box_bufsize = self.sorting_params.box_bufsize
+        self._mpi_dims_mask = self.sorting_params.dims_mask
         if domain_decomp is None:
-            self._domain_array, self._nprocs = self._get_domain_decomp(mpi_dims_mask)
+            self._domain_array, self._nprocs = self._get_domain_decomp(self.sorting_params.dims_mask)
         else:
             self._domain_array = domain_decomp[0]
             self._nprocs = domain_decomp[1]
 
         # total number of cells (equal to mpi_size if no grid)
         n_cells = xp.sum(xp.prod(self.domain_array[:, 2::3], axis=1, dtype=int)) * self.num_clones
-        # if verbose:
-        #     logger.info(f"\n{self.mpi_rank = }, {n_cells = }")
 
         # total number of boxes
         if self.boxes_per_dim is None:
@@ -246,9 +252,6 @@ class Particles(metaclass=ABCMeta):
                 f"Number of boxes {self.boxes_per_dim =} must be divisible by number of processes {self.nprocs =} in each direction."
             )
             n_boxes = xp.prod(self.boxes_per_dim, dtype=int) * self.num_clones
-
-        # if verbose:
-        #     logger.info(f"\n{self.mpi_rank = }, {n_boxes = }")
 
         # total number of markers (Np) and particles per cell (ppc)
         Np = self.loading_params.Np
@@ -315,7 +318,6 @@ class Particles(metaclass=ABCMeta):
         self._type = type
 
         # initialize sorting boxes
-        self._verbose = verbose
         self._initialize_sorting_boxes()
 
         # particle loading parameters
@@ -584,6 +586,11 @@ class Particles(metaclass=ABCMeta):
         return self._boundary_params
 
     @property
+    def sorting_params(self) -> SortingParameters:
+        """Parameters for marker sorting."""
+        return self._sorting_params
+
+    @property
     def reject_weights(self):
         """Whether to reect weights below threshold."""
         return self._reject_weights
@@ -597,11 +604,6 @@ class Particles(metaclass=ABCMeta):
     def boxes_per_dim(self):
         """Tuple, number of sorting boxes per dimension."""
         return self._boxes_per_dim
-
-    @property
-    def verbose(self):
-        """Show some more particles info."""
-        return self._verbose
 
     @property
     def equation_params(self):
@@ -1039,34 +1041,6 @@ class Particles(metaclass=ABCMeta):
     def _set_background_function(self):
         self._f0 = self.background
 
-        # if isinstance(self.background, FluidEquilibrium):
-        #     self._f0 = self.background
-        # else:
-        #     self._f0 = copy.deepcopy(self.background)
-        #     self.f0.add_perturbation = False
-
-        # self._f0 = None
-        # if isinstance(self.bckgr_params, FluidEquilibrium):
-        #     self._f0 = self.bckgr_params
-        # else:
-        #     for bckgr in self.backgrounds:
-        #         # SPH case: f0 is set to a FluidEquilibrium
-        #         if self.type == "sph":
-        #             _eq = getattr(equils, fi_type)(**maxw_params)
-        #             if not isinstance(_eq, NumericalFluidEquilibrium):
-        #                 _eq.domain = self.domain
-        #             if self._f0 is None:
-        #                 self._f0 = _eq
-        #             else:
-        #                 raise NotImplementedError("Summation of fluid backgrounds not yet implemented.")
-        #                 # self._f0 = self._f0 + (lambda e1, e2, e3: _eq.n0(e1, e2, e3))
-        #         # default case
-        #         else:
-        #             if self._f0 is None:
-        #                 self._f0 = bckgr
-        #             else:
-        #                 self._f0 = self._f0 + bckgr
-
     def _set_background_coordinates(self):
         if self.type != "sph" and self.f0.coords == "constants_of_motion":
             # Particles6D
@@ -1213,7 +1187,6 @@ class Particles(metaclass=ABCMeta):
                 bc_sph=self.bc_sph,
                 is_domain_boundary=is_domain_boundary,
                 comm=self.mpi_comm,
-                verbose=False,
                 box_bufsize=self._box_bufsize,
             )
 
@@ -1445,7 +1418,6 @@ class Particles(metaclass=ABCMeta):
     def draw_markers(
         self,
         sort: bool = True,
-        verbose: bool = True,
     ):
         r""" 
         Drawing markers 
@@ -1525,9 +1497,6 @@ class Particles(metaclass=ABCMeta):
         ----------
         sort : Bool
             Wether to sort the particules in boxes after initial drawing (only if sorting params were passed)
-            
-        verbose : bool
-            Show info on screen.
         """
 
         # number of markers on the local process at loading stage
@@ -1548,20 +1517,19 @@ class Particles(metaclass=ABCMeta):
             n_mks_load_cum_sum - self.n_mks_load
         )[self._mpi_rank]
 
-        if self.mpi_rank == 0 and verbose:
-            logger.info("\nMARKERS:")
-            logger.info(f"{'name:':<25}{self.name}")
-            logger.info(f"{'Np:':<25}{self.Np}")
-            logger.info(f"{'ppc:':<25}{self.ppc}")
-            logger.info(f"{'ppb:':<25}{self.ppb}")
-            logger.info(f"{'bc:':<25}{self.bc}")
-            logger.info(f"{'bc_refill:':<25}{self.bc_refill}")
-            logger.info(f"{'loading:':<25}{self.loading}")
-            logger.info(f"{'type:':<25}{self.type}")
-            logger.info(f"{'control_variate:':<25}{self.control_variate}")
-            logger.info(f"{'domain_array[0]:':<25}{self.domain_array[0]}")
-            logger.info(f"{'boxes_per_dim:':<25}{self.boxes_per_dim}")
-            logger.info(f"{'mpi_dims_mask:':<25}{self.mpi_dims_mask}")
+        logger.debug("\nMARKERS:")
+        logger.debug(f"{'name:':<25}{self.name}")
+        logger.debug(f"{'Np:':<25}{self.Np}")
+        logger.debug(f"{'ppc:':<25}{self.ppc}")
+        logger.debug(f"{'ppb:':<25}{self.ppb}")
+        logger.debug(f"{'bc:':<25}{self.bc}")
+        logger.debug(f"{'bc_refill:':<25}{self.bc_refill}")
+        logger.debug(f"{'loading:':<25}{self.loading}")
+        logger.debug(f"{'type:':<25}{self.type}")
+        logger.debug(f"{'control_variate:':<25}{self.control_variate}")
+        logger.debug(f"{'domain_array[0]:':<25}{self.domain_array[0]}")
+        logger.debug(f"{'boxes_per_dim:':<25}{self.boxes_per_dim}")
+        logger.debug(f"{'mpi_dims_mask:':<25}{self.mpi_dims_mask}")
 
         if self.loading == "external":
             self._load_external()
@@ -1575,10 +1543,9 @@ class Particles(metaclass=ABCMeta):
             # set markers ID in last column
             self.marker_ids = _first_marker_id + xp.arange(n_mks_load_loc, dtype=float)
         else:
-            if self.mpi_rank == 0 and verbose:
-                logger.info("\nLoading fresh markers:")
-                for key, val in self.loading_params.__dict__.items():
-                    logger.info(f"{key + ' :':<25}{val}")
+            logger.debug("\nLoading fresh markers:")
+            for key, val in self.loading_params.__dict__.items():
+                logger.debug(f"{key + ' :':<25}{val}")
 
             # 1. standard random number generator (pseudo-random)
             if self.loading == "pseudo_random":
@@ -1736,11 +1703,11 @@ class Particles(metaclass=ABCMeta):
             assert xp.all(self.holes[n_mks_load_loc:])
 
         if self._initialized_sorting and sort:
-            if self.mpi_rank == 0 and verbose:
-                logger.info("Sorting the markers after initial draw")
+            logger.info("\nSorting the markers after initial draw")
             if self.mpi_comm is not None:
                 self.mpi_sort_markers()
             self.do_sort()
+            logger.info("Done.")
 
     @profile
     def mpi_sort_markers(
@@ -2368,7 +2335,6 @@ class Particles(metaclass=ABCMeta):
             comm: Intracomm = None,
             box_index: "int" = -2,
             box_bufsize: "float" = 2.0,
-            verbose: str = False,
         ):
             self._markers_shape = markers_shape
             self._nx = nx
@@ -2377,7 +2343,6 @@ class Particles(metaclass=ABCMeta):
             self._comm = comm
             self._box_index = box_index
             self._box_bufsize = box_bufsize
-            self._verbose = verbose
 
             if bc_sph is None:
                 bc_sph = ["periodic"] * 3
@@ -2534,8 +2499,7 @@ class Particles(metaclass=ABCMeta):
                         self._bnd_boxes_x_m.append(flatten_index(1, j, k, self.nx, self.ny, self.nz))
                         self._bnd_boxes_x_p.append(flatten_index(self.nx, j, k, self.nx, self.ny, self.nz))
 
-            if self._verbose:
-                logger.info(f"eta1 boundary on {self._rank =}:\n{self._bnd_boxes_x_m =}\n{self._bnd_boxes_x_p =}")
+            logger.debug(f"eta1 boundary on {self._rank =}:\n{self._bnd_boxes_x_m =}\n{self._bnd_boxes_x_p =}")
 
             # y boundary
             # negative direction
@@ -2549,8 +2513,7 @@ class Particles(metaclass=ABCMeta):
                         self._bnd_boxes_y_m.append(flatten_index(i, 1, k, self.nx, self.ny, self.nz))
                         self._bnd_boxes_y_p.append(flatten_index(i, self.ny, k, self.nx, self.ny, self.nz))
 
-            if self._verbose:
-                logger.info(f"eta2 boundary on {self._rank =}:\n{self._bnd_boxes_y_m =}\n{self._bnd_boxes_y_p =}")
+            logger.debug(f"eta2 boundary on {self._rank =}:\n{self._bnd_boxes_y_m =}\n{self._bnd_boxes_y_p =}")
 
             # z boundary
             # negative direction
@@ -2564,8 +2527,7 @@ class Particles(metaclass=ABCMeta):
                         self._bnd_boxes_z_m.append(flatten_index(i, j, 1, self.nx, self.ny, self.nz))
                         self._bnd_boxes_z_p.append(flatten_index(i, j, self.nz, self.nx, self.ny, self.nz))
 
-            if self._verbose:
-                logger.info(f"eta3 boundary on {self._rank =}:\n{self._bnd_boxes_z_m =}\n{self._bnd_boxes_z_p =}")
+            logger.debug(f"eta3 boundary on {self._rank =}:\n{self._bnd_boxes_z_m =}\n{self._bnd_boxes_z_p =}")
 
             # x-y edges
             self._bnd_boxes_x_m_y_m = []
@@ -2580,15 +2542,14 @@ class Particles(metaclass=ABCMeta):
                     self._bnd_boxes_x_p_y_m.append(flatten_index(self.nx, 1, k, self.nx, self.ny, self.nz))
                     self._bnd_boxes_x_p_y_p.append(flatten_index(self.nx, self.ny, k, self.nx, self.ny, self.nz))
 
-            if self._verbose:
-                logger.info(
-                    (
-                        f"eta1-eta2 edge on {self._rank =}:\n{self._bnd_boxes_x_m_y_m =}"
-                        f"\n{self._bnd_boxes_x_m_y_p =}"
-                        f"\n{self._bnd_boxes_x_p_y_m =}"
-                        f"\n{self._bnd_boxes_x_p_y_p =}"
-                    ),
-                )
+            logger.debug(
+                (
+                    f"eta1-eta2 edge on {self._rank =}:\n{self._bnd_boxes_x_m_y_m =}"
+                    f"\n{self._bnd_boxes_x_m_y_p =}"
+                    f"\n{self._bnd_boxes_x_p_y_m =}"
+                    f"\n{self._bnd_boxes_x_p_y_p =}"
+                ),
+            )
 
             # x-z edges
             self._bnd_boxes_x_m_z_m = []
@@ -2603,15 +2564,14 @@ class Particles(metaclass=ABCMeta):
                     self._bnd_boxes_x_p_z_m.append(flatten_index(self.nx, j, 1, self.nx, self.ny, self.nz))
                     self._bnd_boxes_x_p_z_p.append(flatten_index(self.nx, j, self.nz, self.nx, self.ny, self.nz))
 
-            if self._verbose:
-                logger.info(
-                    (
-                        f"eta1-eta3 edge on {self._rank =}:\n{self._bnd_boxes_x_m_z_m =}"
-                        f"\n{self._bnd_boxes_x_m_z_p =}"
-                        f"\n{self._bnd_boxes_x_p_z_m =}"
-                        f"\n{self._bnd_boxes_x_p_z_p =}"
-                    ),
-                )
+            logger.debug(
+                (
+                    f"eta1-eta3 edge on {self._rank =}:\n{self._bnd_boxes_x_m_z_m =}"
+                    f"\n{self._bnd_boxes_x_m_z_p =}"
+                    f"\n{self._bnd_boxes_x_p_z_m =}"
+                    f"\n{self._bnd_boxes_x_p_z_p =}"
+                ),
+            )
 
             # y-z edges
             self._bnd_boxes_y_m_z_m = []
@@ -2626,15 +2586,14 @@ class Particles(metaclass=ABCMeta):
                     self._bnd_boxes_y_p_z_m.append(flatten_index(i, self.ny, 1, self.nx, self.ny, self.nz))
                     self._bnd_boxes_y_p_z_p.append(flatten_index(i, self.ny, self.nz, self.nx, self.ny, self.nz))
 
-            if self._verbose:
-                logger.info(
-                    (
-                        f"eta2-eta3 edge on {self._rank =}:\n{self._bnd_boxes_y_m_z_m =}"
-                        f"\n{self._bnd_boxes_y_m_z_p =}"
-                        f"\n{self._bnd_boxes_y_p_z_m =}"
-                        f"\n{self._bnd_boxes_y_p_z_p =}"
-                    ),
-                )
+            logger.debug(
+                (
+                    f"eta2-eta3 edge on {self._rank =}:\n{self._bnd_boxes_y_m_z_m =}"
+                    f"\n{self._bnd_boxes_y_m_z_p =}"
+                    f"\n{self._bnd_boxes_y_p_z_m =}"
+                    f"\n{self._bnd_boxes_y_p_z_p =}"
+                ),
+            )
 
             # corners
             self._bnd_boxes_x_m_y_m_z_m = []
@@ -2656,19 +2615,18 @@ class Particles(metaclass=ABCMeta):
                 self._bnd_boxes_x_p_y_p_z_m = [flatten_index(self.nx, self.ny, 1, self.nx, self.ny, self.nz)]
                 self._bnd_boxes_x_p_y_p_z_p = [flatten_index(self.nx, self.ny, self.nz, self.nx, self.ny, self.nz)]
 
-            if self._verbose:
-                logger.info(
-                    (
-                        f"corners on {self._rank =}:\n{self._bnd_boxes_x_m_y_m_z_m =}"
-                        f"\n{self._bnd_boxes_x_m_y_m_z_p =}"
-                        f"\n{self._bnd_boxes_x_m_y_p_z_m =}"
-                        f"\n{self._bnd_boxes_x_p_y_m_z_m =}"
-                        f"\n{self._bnd_boxes_x_m_y_p_z_p =}"
-                        f"\n{self._bnd_boxes_x_p_y_m_z_p =}"
-                        f"\n{self._bnd_boxes_x_p_y_p_z_m =}"
-                        f"\n{self._bnd_boxes_x_p_y_p_z_p =}"
-                    ),
-                )
+            logger.debug(
+                (
+                    f"corners on {self._rank =}:\n{self._bnd_boxes_x_m_y_m_z_m =}"
+                    f"\n{self._bnd_boxes_x_m_y_m_z_p =}"
+                    f"\n{self._bnd_boxes_x_m_y_p_z_m =}"
+                    f"\n{self._bnd_boxes_x_p_y_m_z_m =}"
+                    f"\n{self._bnd_boxes_x_m_y_p_z_p =}"
+                    f"\n{self._bnd_boxes_x_p_y_m_z_p =}"
+                    f"\n{self._bnd_boxes_x_p_y_p_z_m =}"
+                    f"\n{self._bnd_boxes_x_p_y_p_z_p =}"
+                ),
+            )
 
     def _sort_boxed_particles_numpy(self):
         """Sort the particles by box using numpy.argsort."""
@@ -2699,7 +2657,7 @@ class Particles(metaclass=ABCMeta):
         self.check_and_assign_particles_to_boxes()
 
         if self.sorting_boxes.communicate:
-            self.communicate_boxes(verbose=self.verbose)
+            self.communicate_boxes()
             self.check_and_assign_particles_to_boxes()
             self.update_ghost_particles()
 
@@ -2773,8 +2731,6 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         4. optional: mirror position for boundary conditions
         """
         shifts = self.sorting_boxes.bc_sph_index_shifts
-        # if self.verbose:
-        #     logger.info(f"{self.sorting_boxes.bc_sph_index_shifts = }")
 
         ## Faces
 
@@ -3337,7 +3293,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             self.markers[holes_inds[xp.arange(self._send_info_box[self.mpi_rank])]] = self._send_list_box[self.mpi_rank]
 
     @profile
-    def communicate_boxes(self, verbose=False):
+    def communicate_boxes(self):
         # if verbose:
         #     n_valid = xp.count_nonzero(self.valid_mks)
         #     n_holes = xp.count_nonzero(self.holes)

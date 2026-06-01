@@ -47,6 +47,8 @@ from struphy import (
     KernelDensityPlot,
     LoadingParameters,
     WeightsParameters,
+    SortingParameters,
+    SavingParameters,
     maxwellians,
 )
 
@@ -118,16 +120,19 @@ Np=200000
 loading_params = LoadingParameters(Np = Np, loading="sobol_standard", spatial="disc")
 weights_params = WeightsParameters(control_variate=True, reject_weights=True, threshold=0.00001)
 boundary_params = BoundaryParameters()
-model.kinetic_ions.set_markers(loading_params=loading_params,
-                               weights_params=weights_params,
-                               boundary_params=boundary_params,
-                               bufsize=2.0,
-                               )
-model.kinetic_ions.set_sorting_boxes(boxes_per_dim=(24,24,1), do_sort=True)
+sorting_params = SortingParameters(boxes_per_dim=(24,24,1), do_sort=True)
 
 # density binning
 eta_bin = BinningPlot(slice='e1_e2', n_bins= (128,128), ranges= ((0.0, 1.0), (0.0,1.0)))
-model.kinetic_ions.set_save_data(binning_plots=(eta_bin, ))
+saving_params = SavingParameters(binning_plots=(eta_bin, ))
+
+model.kinetic_ions.set_markers(loading_params=loading_params,
+                               weights_params=weights_params,
+                               boundary_params=boundary_params,
+                               sorting_params=sorting_params,
+                               saving_params=saving_params,
+                               bufsize=2.0,
+                               )
 
 # ------------------
 # Propagator options

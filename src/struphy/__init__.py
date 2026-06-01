@@ -48,7 +48,7 @@ config = {
 
 def set_logging_level(level: int = logging.WARNING):
     """Set logging level for struphy logger and its handlers.
-    
+
     Useful levels are:
     * logging.DEBUG: for detailed debugging information.
     * logging.INFO: for general informational messages about the simulation setup and progress, plus key events.
@@ -123,6 +123,8 @@ from struphy.api.particles import (
     BoundaryParameters,
     KernelDensityPlot,
     LoadingParameters,
+    SavingParameters,
+    SortingParameters,
     WeightsParameters,
 )
 from struphy.api.perturbations import perturbations
@@ -141,6 +143,8 @@ __all__ = [
     "LoadingParameters",
     "WeightsParameters",
     "BoundaryParameters",
+    "SortingParameters",
+    "SavingParameters",
     "BinningPlot",
     "KernelDensityPlot",
     "DerhamOptions",

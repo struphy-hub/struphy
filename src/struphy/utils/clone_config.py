@@ -170,8 +170,7 @@ class CloneConfig:
     def print_particle_config(self):
         """Print the particle configuration for each clone."""
         if self.params is None:
-            if MPI.COMM_WORLD.Get_rank() == 0:
-                logger.info("No params in clone_config")
+            logger.info("No params in clone_config")
             return
         else:
             _skip = False
@@ -183,9 +182,8 @@ class CloneConfig:
                         _skip = True
 
             if _skip:
-                if MPI.COMM_WORLD.Get_rank() == 0:
-                    logger.info("No kinetic parameters")
-                    return
+                logger.info("No kinetic parameters")
+                return
 
             assert "grid" in self.params
 
@@ -239,8 +237,7 @@ class CloneConfig:
 
             # Print the final message
             message = header + breakline + rows + breakline + sum_row
-            if MPI.COMM_WORLD.Get_rank() == 0:
-                logger.info(message)
+            logger.info(message)
 
     def free(self):
         """Free the MPI communicators associated with this clone configuration."""

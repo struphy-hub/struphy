@@ -1,3 +1,5 @@
+import copy
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
@@ -23,36 +25,7 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class ViscousFluid(StruphyModel):
-    r"""Full (non-linear) viscous Navier-Stokes equations discretized with a variational method.
-
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat u =  \hat v_\textnormal{A}\,, \qquad \hat{\mathcal U} = \frac{\hat{\mathbf B}^2}{\hat \rho \mu_0 (\gamma-1)} \,,\qquad \hat s = \hat \rho\ \textrm{ln}\left(\frac{\hat{\mathbf B}^2}{\mu_0 (\gamma -1) \hat{\rho}}\right) \,.
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        &\partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 \,,
-        \\[4mm]
-        &\partial_t (\rho \mathbf u) + \nabla \cdot (\rho \mathbf u \otimes \mathbf u) + \rho \nabla \frac{(\rho \mathcal U (\rho, s))}{\partial \rho} + s \nabla \frac{(\rho \mathcal U (\rho, s))}{\partial s} - \nabla \cdot \left((\mu +\mu_a(\mathbf x)) \nabla \mathbf u\right) = 0 \,,
-        \\[4mm]
-        &\partial_t s + \nabla \cdot ( s \mathbf u ) = \frac{1}{T}\left((\mu+\mu_a(\mathbf x)) |\nabla \mathbf u|^2 \right) \,,
-
-    where the internal energy per unit mass is :math:`\mathcal U(\rho) = \rho^{\gamma-1} \exp(s / \rho)`.
-    and :math:`\mu_a(\mathbf x)` is an artificial viscosity coefficient.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`
-    2. :class:`~struphy.propagators.variational_momentum_advection.VariationalMomentumAdvection`
-    3. :class:`~struphy.propagators.variational_entropy_evolve.VariationalEntropyEvolve`
-    4. :class:`~struphy.propagators.variational_viscosity.VariationalViscosity`
-
-    :ref:`Model info <add_model>`:
-    """
+    r"""Full (non-linear) viscous Navier-Stokes equations discretized with a variational method."""
 
     @classmethod
     def model_type(cls) -> LiteralOptions.ModelTypes:
@@ -85,6 +58,9 @@ class ViscousFluid(StruphyModel):
         mass_number: float = 1.0,
         with_viscosity: bool = True,
     ):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.fluid = self.Fluid(mass_number=mass_number)
@@ -221,7 +197,7 @@ class ViscousFluid(StruphyModel):
         - inviscid strictly conservative benchmarks
         - kinetic particle effects"""
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         projV3 = L2Projector("L2", Propagator.mass_ops)
 
         def f(e1, e2, e3):
