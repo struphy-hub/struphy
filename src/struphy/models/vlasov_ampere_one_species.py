@@ -16,7 +16,7 @@ from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.propagators.base import Propagator
-from struphy.propagators.poisson_field_solve import PoissonFieldSolve
+from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vxb import PushVxB
 from struphy.propagators.vlasov_ampere_coupling import VlasovAmpereCoupling
@@ -137,7 +137,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
         )
 
         # initial Poisson (not a propagator used in time stepping)
-        self.initial_poisson = PoissonFieldSolve()
+        self.initial_poisson = PoissonSolve()
         self.initial_poisson.variables.phi = self.em_fields.phi
 
     @property
@@ -207,17 +207,24 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence):
+
+        1. :class:`~struphy.propagators.push_eta.PushEta`
+        2. :class:`~struphy.propagators.push_vxb.PushVxB` (if :attr:`with_B0` is True)
+        3. :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling`
+        """
+
         doc = rf"""Time integration is performed by the following propagators (in sequence):
 
-**1. push_eta.PushEta:**
+**1. PushEta:**
 
 {PushEta.__doc__}
 
-**2. push_vxb.PushVxB:**
+**2. PushVxB:**
 
 {PushVxB.__doc__}
 
-**3. vlasov_ampere_coupling.VlasovAmpereCoupling:**
+**3. VlasovAmpereCoupling:**
 
 {VlasovAmpereCoupling.__doc__}
 """

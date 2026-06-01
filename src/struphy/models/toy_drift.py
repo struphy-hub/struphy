@@ -15,7 +15,7 @@ from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels_gc
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.propagators.base import Propagator
-from struphy.propagators.poisson_field_solve import PoissonFieldSolve
+from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
 from struphy.utils.pyccel import Pyccelkernel
 
@@ -69,7 +69,7 @@ class ToyDrift(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.gc_poisson = PoissonFieldSolve()
+            self.gc_poisson = PoissonSolve()
             self.push_gc_bxe = PushGuidingCenterBxEstar()
 
     ## abstract methods
@@ -237,9 +237,14 @@ class ToyDrift(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence):
+
+        1. :class:`~struphy.propagators.poisson_solve.PoissonSolve`
+        2. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
+        """
         doc = rf"""**1. PoissonFieldSolve:**
 
-{PoissonFieldSolve.__doc__}
+{PoissonSolve.__doc__}
 
 **2. PushGuidingCenterBxEstar:**
 

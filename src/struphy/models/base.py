@@ -352,7 +352,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
         for _, species in self.particle_species.items():
             assert isinstance(species, ParticleSpecies)
             species.setup_equation_params(units=self.units)
-            
+
     def show_equation_params(self):
         """Print the equation parameters for each species to screen."""
         for _, species in self.fluid_species.items():
