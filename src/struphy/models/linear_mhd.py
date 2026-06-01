@@ -191,7 +191,7 @@ class LinearMHD(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        """**Propagators:**
+        """Time integration is performed by the following propagators (in sequence):
 
         1. :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`
         2. :class:`~struphy.propagators.magnetosonic.Magnetosonic`"""

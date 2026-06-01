@@ -11,7 +11,7 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.propagators.implicit_diffusion import ImplicitDiffusion
-from struphy.propagators.poisson_field_solve import PoissonFieldSolve
+from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.time_dependent_source import TimeDependentSource
 
 logger = logging.getLogger("struphy")
@@ -41,7 +41,7 @@ class Poisson(StruphyModel):
         def __init__(self, with_t_dep_source=False):
             if with_t_dep_source:
                 self.source = TimeDependentSource()
-            self.poisson = PoissonFieldSolve()
+            self.poisson = PoissonSolve()
 
     ## abstract methods
 
@@ -108,13 +108,18 @@ class Poisson(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence):
+
+        1. :class:`~struphy.propagators.time_dependent_source.TimeDependentSource` (if :attr:`with_t_dep_source` is True)
+        2. :class:`~struphy.propagators.poisson_solve.PoissonSolve`
+        """
         doc = rf"""**1. TimeDependentSource:**
 
 {TimeDependentSource.__doc__}
 
 **2. PoissonFieldSolve:**
 
-{PoissonFieldSolve.__doc__}
+{PoissonSolve.__doc__}
 """
         return doc
 

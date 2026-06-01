@@ -264,6 +264,15 @@ class LinearMHDVlasovCC(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence):
+
+        1. :class:`~struphy.propagators.current_coupling_6d_density.CurrentCoupling6DDensity`
+        2. :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`
+        3. :class:`~struphy.propagators.current_coupling_6d_current.CurrentCoupling6DCurrent`
+        4. :class:`~struphy.propagators.push_eta.PushEta`
+        5. :class:`~struphy.propagators.push_vxb.PushVxB`
+        6. :class:`~struphy.propagators.magnetosonic.Magnetosonic`
+        """
         doc = rf"""**1. CurrentCoupling6DDensity:**
 
 {CurrentCoupling6DDensity.__doc__}

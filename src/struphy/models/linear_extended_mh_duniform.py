@@ -214,6 +214,12 @@ class LinearExtendedMHDuniform(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence):
+
+        1. :class:`~struphy.propagators.shear_alfven_b1.ShearAlfvenB1`
+        2. :class:`~struphy.propagators.hall.Hall`
+        3. :class:`~struphy.propagators.magnetosonic_uniform.MagnetosonicUniform`
+        """
         doc = rf"""**1. ShearAlfvenB1:**
 
 {ShearAlfvenB1.__doc__}

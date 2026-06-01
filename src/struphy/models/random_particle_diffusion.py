@@ -115,6 +115,10 @@ class RandomParticleDiffusion(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence):
+
+        1. :class:`~struphy.propagators.push_random_diffusion.PushRandomDiffusion`
+        """
         doc = rf"""**1. push_random_diffusion.PushRandomDiffusion:**
 
     {PushRandomDiffusion.__doc__}

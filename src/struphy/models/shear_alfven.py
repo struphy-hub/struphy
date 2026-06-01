@@ -107,6 +107,10 @@ class ShearAlfven(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence):
+
+        1. :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`
+        """
         doc = rf"""**1. ShearAlfvenPropagator:**
 
 {ShearAlfvenPropagator.__doc__}
