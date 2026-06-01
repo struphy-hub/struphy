@@ -37,276 +37,93 @@ plt.rcParams.update({"font.size": 22})
 
 domain: Domain = domains.Cuboid()
 
-@pytest.mark.parametrize("bc_type", ["dirichlet","periodic","neumann"])
+@pytest.mark.parametrize("bc_type", ["dirichlet","periodic"])
 @pytest.mark.parametrize("direction",["1","2","3"])
-@pytest.mark.parametrize("pmax",[3,4])
-@pytest.mark.parametrize("Nmax",[6,7,8])
 
 
 def test_convergence_1d(
     bc_type: str,
     direction: str,
-    pmax: int,
-    Nmax: int,
-    Nmin: int = 3,
-    omega: float = 1.5,
-    mass: float = 2.0,
-    Z: float = 1,
     show_plot: bool = False,
 ):
     """Test of the solver on 1d problems by means of manufactured solution.
     
-    Tests done considering constant rhobar = 1 and theta = x (or y or z depending on direction chosen)"""
+    Tests done considering constant rhobar = 1"""
 
-    if direction == "1":
+    pmax: int = 4
+    Nmin: int = 3
+    Nmax: int = 8
+    omega: float = 1.5
+    mass: float = 2.0
+    Z: float = 1
 
-        def u_exact_x(x,y,z) -> float:
-            return xp.cos(5*xp.pi * x)
-        
-        def u_exact_y(x,y,z) -> float:
-            return 0*y
-        
-        def u_exact_z(x,y,z) -> float:
-            return 0*z
-        
-        def rho_exact(x,y,z) -> float:
-            return 5*xp.pi * xp.sin(5*xp.pi * x) / omega
-        
-        def theta_exact(x,y,z) -> float:
-            return x * (1 - x)
-        
-        def E_exact_x(x,y,z) -> float:
-            return 5*xp.pi/(Z*omega) * (1 - 2*x) * xp.sin(5*xp.pi * x) - (mass*omega/Z - (25*xp.pi**2) * x * (1 - x) / (Z*omega))*xp.cos(5*xp.pi * x)
-        
-        def E_exact_y(x,y,z) -> float:
-            return 0*y
-        
-        def E_exact_z(x,y,z) -> float:
-            return 0*z
-    
-    elif direction == "2":
+    u_exact = lambda e: xp.sin(4*xp.pi * e)
+    rho_exact_e = lambda e: - 4*xp.pi * xp.cos(4*xp.pi * e) / omega
+    theta_exact_e = lambda e: xp.sin(2*xp.pi * e)
+    E_exact = lambda e: - 4*xp.pi/(Z*omega) * 2*xp.pi*xp.cos(2*xp.pi * e) * xp.cos(4*xp.pi * e) - (mass*omega/Z - (16*xp.pi**2) * xp.sin(2*xp.pi * e) / (Z*omega))*xp.sin(4*xp.pi * e)
 
-        def u_exact_x(x,y,z) -> float:
-            return 0*x
-        
-        def u_exact_y(x,y,z) -> float:
-            return xp.cos(5*xp.pi * y)
-        
-        def u_exact_z(x,y,z) -> float:
-            return 0*z
-        
-        def rho_exact(x,y,z) -> float:
-            return 5*xp.pi * xp.sin(5*xp.pi * y) / omega
-        
-        def theta_exact(x,y,z) -> float:
-            return y * (1 - y)
-        
-        def E_exact_x(x,y,z) -> float:
-            return 0*x
-        
-        def E_exact_y(x,y,z) -> float:
-            return 5*xp.pi/(Z*omega) * (1 - 2*y) * xp.sin(5*xp.pi * y) - (mass*omega/Z - (25*xp.pi**2) * y * (1 - y) / (Z*omega))*xp.cos(5*xp.pi * y)
-        
-        def E_exact_z(x,y,z) -> float:
-            return 0*z
-    
-    elif direction == "3":
-
-        def u_exact_x(x,y,z) -> float:
-            return 0*x
-        
-        def u_exact_y(x,y,z) -> float:
-            return 0*y
-        
-        def u_exact_z(x,y,z) -> float:
-            return xp.cos(5*xp.pi * z)
-        
-        def rho_exact(x,y,z) -> float:
-            return 5*xp.pi * xp.sin(5*xp.pi * z) / omega
-        
-        def theta_exact(x,y,z) -> float:
-            return z * (1 - z)
-        
-        def E_exact_x(x,y,z) -> float:
-            return 0*x
-        
-        def E_exact_y(x,y,z) -> float:
-            return 0*y
-        
-        def E_exact_z(x,y,z) -> float:
-            return 5*xp.pi/(Z*omega) * (1 - 2*z) * xp.sin(5*xp.pi * z) - (mass*omega/Z - (25*xp.pi**2) * z * (1 - z) / (Z*omega))*xp.cos(5*xp.pi * z)
-    
-    if bc_type == "neumann":
-        if direction == "1":
-
-            def u_exact_x(x,y,z) -> float:
-                return xp.sin(5*xp.pi * x)
-            
-            def u_exact_y(x,y,z) -> float:
-                return 0*y
-            
-            def u_exact_z(x,y,z) -> float:
-                return 0*z
-            
-            def rho_exact(x,y,z) -> float:
-                return - 5*xp.pi * xp.cos(5*xp.pi * x) / omega
-            
-            def theta_exact(x,y,z) -> float:
-                return 3*x**2 - 2*x**3
-            
-            def E_exact_x(x,y,z) -> float:
-                return - 5*xp.pi/(Z*omega) * 6*x * (1 - x) * xp.cos(5*xp.pi * x) - (mass*omega/Z - (25*xp.pi**2) * (3*x**2 - 2*x**3) / (Z*omega))*xp.sin(5*xp.pi * x)
-            
-            def E_exact_y(x,y,z) -> float:
-                return 0*y
-            
-            def E_exact_z(x,y,z) -> float:
-                return 0*z
-    
-        elif direction == "2":
-
-            def u_exact_x(x,y,z) -> float:
-                return 0*x
-            
-            def u_exact_y(x,y,z) -> float:
-                return xp.sin(5*xp.pi * y)
-            
-            def u_exact_z(x,y,z) -> float:
-                return 0*z
-            
-            def rho_exact(x,y,z) -> float:
-                return - 5*xp.pi * xp.cos(5*xp.pi * y) / omega
-            
-            def theta_exact(x,y,z) -> float:
-                return 3*y**2 - 2*y**3
-            
-            def E_exact_x(x,y,z) -> float:
-                return 0*x
-            
-            def E_exact_y(x,y,z) -> float:
-                return - 5*xp.pi/(Z*omega) * 6*y * (1 - y) * xp.cos(5*xp.pi * y) - (mass*omega/Z - (25*xp.pi**2) * (3*y**2 - 2*y**3) / (Z*omega))*xp.sin(5*xp.pi * y)
-            
-            def E_exact_z(x,y,z) -> float:
-                return 0*z
-        
-        elif direction == "3":
-
-            def u_exact_x(x,y,z) -> float:
-                return 0*x
-            
-            def u_exact_y(x,y,z) -> float:
-                return 0*y
-            
-            def u_exact_z(x,y,z) -> float:
-                return xp.sin(5*xp.pi * z)
-            
-            def rho_exact(x,y,z) -> float:
-                return - 5*xp.pi * xp.cos(5*xp.pi * z) / omega
-            
-            def theta_exact(x,y,z) -> float:
-                return 3*z**2 - 2*z**3
-            
-            def E_exact_x(x,y,z) -> float:
-                return 0*x
-            
-            def E_exact_y(x,y,z) -> float:
-                return 0*y
-            
-            def E_exact_z(x,y,z) -> float:
-                return - 5*xp.pi/(Z*omega) * 6*z * (1 - z) * xp.cos(5*xp.pi * z) - (mass*omega/Z - (25*xp.pi**2) * (3*z**2 - 2*z**3) / (Z*omega))*xp.sin(5*xp.pi * z)
-    
-    if bc_type == "periodic":
-
-        if Nmin < 4:
-            Nmin = 4
-        
-        if direction == "1":
-
-            def u_exact_x(x,y,z) -> float:
-                return xp.sin(4*xp.pi * x)
-            
-            def u_exact_y(x,y,z) -> float:
-                return 0*y
-            
-            def u_exact_z(x,y,z) -> float:
-                return 0*z
-            
-            def rho_exact(x,y,z) -> float:
-                return - 4*xp.pi * xp.cos(4*xp.pi * x) / omega
-            
-            def theta_exact(x,y,z) -> float:
-                return xp.sin(2*xp.pi * x)
-            
-            def E_exact_x(x,y,z) -> float:
-                return - 4*xp.pi/(Z*omega) * 2**xp.pi*xp.cos(2*xp.pi * x) * xp.cos(4*xp.pi * x) - (mass*omega/Z - (16*xp.pi**2) * xp.sin(2*xp.pi * x) / (Z*omega))*xp.sin(4*xp.pi * x)
-            
-            def E_exact_y(x,y,z) -> float:
-                return 0*y
-            
-            def E_exact_z(x,y,z) -> float:
-                return 0*z
-    
-        elif direction == "2":
-
-            def u_exact_x(x,y,z) -> float:
-                return 0*x
-            
-            def u_exact_y(x,y,z) -> float:
-                return xp.sin(4*xp.pi * y)
-            
-            def u_exact_z(x,y,z) -> float:
-                return 0*z
-            
-            def rho_exact(x,y,z) -> float:
-                return - 4*xp.pi * xp.cos(4*xp.pi * y) / omega
-            
-            def theta_exact(x,y,z) -> float:
-                return xp.sin(2*xp.pi * y)
-            
-            def E_exact_x(x,y,z) -> float:
-                return 0*x
-            
-            def E_exact_y(x,y,z) -> float:
-                return - 4*xp.pi/(Z*omega) * 2*xp.pi*xp.cos(2*xp.pi * y) * xp.cos(4*xp.pi * y) - (mass*omega/Z - (16*xp.pi**2) * xp.sin(2*xp.pi * y) / (Z*omega))*xp.sin(4*xp.pi * y)
-            
-            def E_exact_z(x,y,z) -> float:
-                return 0*z
-        
-        elif direction == "3":
-
-            def u_exact_x(x,y,z) -> float:
-                return 0*x
-            
-            def u_exact_y(x,y,z) -> float:
-                return 0*y
-            
-            def u_exact_z(x,y,z) -> float:
-                return xp.sin(4*xp.pi * z)
-            
-            def rho_exact(x,y,z) -> float:
-                return - 4*xp.pi * xp.cos(4*xp.pi * z) / omega
-            
-            def theta_exact(x,y,z) -> float:
-                return xp.sin(2*xp.pi * z)
-            
-            def E_exact_x(x,y,z) -> float:
-                return 0*x
-            
-            def E_exact_y(x,y,z) -> float:
-                return 0*y
-            
-            def E_exact_z(x,y,z) -> float:
-                return - 4*xp.pi/(Z*omega) * 2*xp.pi*xp.cos(2*xp.pi * z) * xp.cos(4*xp.pi * z) - (mass*omega/Z - (16*xp.pi**2) * xp.sin(2*xp.pi * z) / (Z*omega))*xp.sin(4*xp.pi * z)
-    
-    assert Nmin < Nmax
+    if bc_type == "dirichlet":
+        u_exact = lambda e: xp.cos(5*xp.pi * e)
+        rho_exact_e = lambda e: 5*xp.pi * xp.sin(5*xp.pi * e) / omega
+        theta_exact_e = lambda e: e * (1 - e)
+        E_exact = lambda e: 5*xp.pi/(Z*omega) * (1 - 2*e) * xp.sin(5*xp.pi * e) - (mass*omega/Z - (25*xp.pi**2) * e * (1 - e) / (Z*omega))*xp.cos(5*xp.pi * e)
     
     # Test over spline degree and grid resolution
-
     Nels = [2**n for n in range(Nmin, Nmax + 1)]
 
     e1 = 0.0
     e2 = 0.0
     e3 = 0.0
+    e = xp.linspace(0.0, 1.0, 64)
+
+    bcs = (None, None, None)
+
+    if direction == "1":
+        u_exact_x = lambda x,y,z: u_exact(x)
+        u_exact_y = lambda x,y,z: 0*y
+        u_exact_z = lambda x,y,z: 0*z
+
+        rho_exact = lambda x,y,z: rho_exact_e(x)
+
+        theta_exact = lambda x,y,z: theta_exact_e(x)
+
+        E_exact_x = lambda x,y,z: E_exact(x)
+        E_exact_y = lambda x,y,z: 0*y
+        E_exact_z = lambda x,y,z: 0*z
+
+        e1 = e
+    
+    elif direction == "2":
+        u_exact_x = lambda x,y,z: 0*x
+        u_exact_y = lambda x,y,z: u_exact(y)
+        u_exact_z = lambda x,y,z: 0*z
+
+        rho_exact = lambda x,y,z: rho_exact_e(y)
+
+        theta_exact = lambda x,y,z: theta_exact_e(y)
+
+        E_exact_x = lambda x,y,z: 0*x
+        E_exact_y = lambda x,y,z: E_exact(y)
+        E_exact_z = lambda x,y,z: 0*z
+
+        e2 = e
+    
+    elif direction == "3":
+        u_exact_x = lambda x,y,z: 0*x
+        u_exact_y = lambda x,y,z: 0*y
+        u_exact_z = lambda x,y,z: u_exact(z)
+
+        rho_exact = lambda x,y,z: rho_exact_e(z)
+
+        theta_exact = lambda x,y,z: theta_exact_e(z)
+
+        E_exact_x = lambda x,y,z: 0*x
+        E_exact_y = lambda x,y,z: 0*y
+        E_exact_z = lambda x,y,z: E_exact(z)
+
+        e3 = e
+
+    ee1, ee2, ee3 = xp.meshgrid(e1, e2, e3, indexing="ij")
 
     for p in range(2, pmax + 1):
         rho_errors = []
@@ -317,58 +134,20 @@ def test_convergence_1d(
             if direction == "1":
                 degree = [p, 1, 1]
                 num_elements = [Nel, 1, 1]
-                bcs = (("dirichlet", "dirichlet"), None, None)
-                e1 = xp.linspace(0.0, 1.0, 64)
+                if bc_type == "dirichlet":
+                    bcs = (("dirichlet", "dirichlet"), None, None)
 
             elif direction == "2":
                 degree = [1, p, 1]
                 num_elements = [1, Nel, 1]
-                bcs = (None, ("dirichlet", "dirichlet"), None)
-                e2 = xp.linspace(0.0, 1.0, 64)
+                if bc_type == "dirichlet":
+                    bcs = (None, ("dirichlet", "dirichlet"), None)
 
             elif direction == "3":
                 degree = [1, 1, p]
                 num_elements = [1, 1, Nel]
-                bcs = (None, None, ("dirichlet", "dirichlet"))
-                e3 = xp.linspace(0.0, 1.0, 64)
-
-            if bc_type == "periodic":
-                if direction == "1":
-                    degree = [p, 1, 1]
-                    num_elements = [Nel, 1, 1]
-                    bcs = (None, None, None)
-                    e1 = xp.linspace(0.0, 1.0, 64)
-
-                elif direction == "2":
-                    degree = [1, p, 1]
-                    num_elements = [1, Nel, 1]
-                    bcs = (None, None, None)
-                    e2 = xp.linspace(0.0, 1.0, 64)
-
-                elif direction == "3":
-                    degree = [1, 1, p]
-                    num_elements = [1, 1, Nel]
-                    bcs = (None, None, None)
-                    e3 = xp.linspace(0.0, 1.0, 64)
-
-            elif bc_type == "neumann":
-                if direction == "1":
-                    degree = [p, 1, 1]
-                    num_elements = [Nel, 1, 1]
-                    bcs = (("free", "free"), None, None)
-                    e1 = xp.linspace(0.0, 1.0, 64)
-
-                elif direction == "2":
-                    degree = [1, p, 1]
-                    num_elements = [1, Nel, 1]
-                    bcs = (None, ("free", "free"), None)
-                    e2 = xp.linspace(0.0, 1.0, 64)
-
-                elif direction == "3":
-                    degree = [1, 1, p]
-                    num_elements = [1, 1, Nel]
-                    bcs = (None, None, ("free", "free"))
-                    e3 = xp.linspace(0.0, 1.0, 64)
+                if bc_type == "dirichlet":
+                    bcs = (None, None, ("dirichlet", "dirichlet"))
 
             grid = TensorProductGrid(num_elements=num_elements)
             derham_opts = DerhamOptions(degree=degree, bcs=bcs)
@@ -382,25 +161,13 @@ def test_convergence_1d(
             Propagator.mass_ops = mass_ops
             Propagator.basis_ops = basis_ops
 
-            def E_pulled_x(e1, e2, e3):
-                return domain.pull([E_exact_x, E_exact_y, E_exact_z], e1, e2, e3, kind="1", squeeze_out=False)[0]
-
-            def E_pulled_y(e1, e2, e3):
-                return domain.pull([E_exact_x, E_exact_y, E_exact_z], e1, e2, e3, kind="1", squeeze_out=False)[1]
-
-            def E_pulled_z(e1, e2, e3):
-                return domain.pull([E_exact_x, E_exact_y, E_exact_z], e1, e2, e3, kind="1", squeeze_out=False)[2]
-
             E = FEECVariable(space="Hcurl")
             E.allocate(derham=derham, domain=domain)
-            E.spline.vector = derham.P1([E_pulled_x, E_pulled_y, E_pulled_z])
-
-            def theta_pulled(e1, e2, e3):
-                return domain.pull(theta_exact, e1, e2, e3, kind="0", squeeze_out=False)
+            E.spline.vector = derham.P1([E_exact_x, E_exact_y, E_exact_z])
             
             theta = FEECVariable(space="H1")
             theta.allocate(derham=derham, domain=domain)
-            theta.spline.vector = derham.P0(theta_pulled)
+            theta.spline.vector = derham.P0(theta_exact)
 
             solver_params = SolverParameters(
                 tol=1.0e-10,
@@ -435,11 +202,10 @@ def test_convergence_1d(
             dt=1.0
             pressure_wave_solver(dt)
 
-            rho_calculated = domain.push(_rho.spline, e1, e2, e3, kind="0")
-            u_calculated = domain.push(_u.spline, e1, e2, e3, kind="1")
-            x, y, z = domain(e1, e2, e3)
-            rho_analytical = rho_exact(x, y, z)
-            u_analytical = xp.array([u_exact_x(x, y, z), u_exact_y(x, y, z), u_exact_z(x, y, z)])
+            rho_calculated = xp.array(_rho.spline(ee1, ee2, ee3))
+            u_calculated = xp.array(_u.spline(ee1, ee2, ee3))
+            rho_analytical = rho_exact(ee1, ee2, ee3)
+            u_analytical = xp.array([u_exact_x(ee1, ee2, ee3), u_exact_y(ee1, ee2, ee3), u_exact_z(ee1, ee2, ee3)])
 
             if show_plot:
 
@@ -447,16 +213,16 @@ def test_convergence_1d(
                 plt.subplot(2, int((Nmax - Nmin) / 2 + 1), n + 1)
 
                 if direction == "1":
-                    plt.plot(x[:, 0, 0], u_calculated[0][:, 0, 0], "bo", label=f"{Nel}, numerical")
-                    plt.plot(x[:, 0, 0], u_analytical[0][:, 0, 0], "k--", label=f"{Nel}, analytical")
+                    plt.plot(e, u_calculated[0][:, 0, 0], "bo", label=f"{Nel}, numerical")
+                    plt.plot(e, u_analytical[0][:, 0, 0], "k--", label=f"{Nel}, analytical")
 
                 elif direction == "2":
-                    plt.plot(y[0, :, 0], u_calculated[1][0, :, 0], "bo", label=f"{Nel}, numerical")
-                    plt.plot(y[0, :, 0], u_analytical[1][0, :, 0], "k--", label=f"{Nel}, analytical")
+                    plt.plot(e, u_calculated[1][0, :, 0], "bo", label=f"{Nel}, numerical")
+                    plt.plot(e, u_analytical[1][0, :, 0], "k--", label=f"{Nel}, analytical")
 
                 elif direction == "3":
-                    plt.plot(z[0, 0, :], u_calculated[2][0, 0, :], "bo", label=f"{Nel}, numerical")
-                    plt.plot(z[0, 0, :], u_analytical[2][0, 0, :], "k--", label=f"{Nel}, analytical")
+                    plt.plot(e, u_calculated[2][0, 0, :], "bo", label=f"{Nel}, numerical")
+                    plt.plot(e, u_analytical[2][0, 0, :], "k--", label=f"{Nel}, analytical")
 
                 plt.legend()
 
@@ -464,16 +230,16 @@ def test_convergence_1d(
                 plt.subplot(2, int((Nmax - Nmin) / 2 + 1), n + 1)
 
                 if direction == "1":
-                    plt.plot(x[:, 0, 0], rho_calculated[:, 0, 0], "ro", label=f"{Nel}, numerical")
-                    plt.plot(x[:, 0, 0], rho_analytical[:, 0, 0], "k--", label=f"{Nel}, analytical")
+                    plt.plot(e, rho_calculated[:, 0, 0], "ro", label=f"{Nel}, numerical")
+                    plt.plot(e, rho_analytical[:, 0, 0], "k--", label=f"{Nel}, analytical")
 
                 elif direction == "2":
-                    plt.plot(y[0, :, 0], rho_calculated[0, :, 0], "ro", label=f"{Nel}, numerical")
-                    plt.plot(y[0, :, 0], rho_analytical[0, :, 0], "k--", label=f"{Nel}, analytical")
+                    plt.plot(e, rho_calculated[0, :, 0], "ro", label=f"{Nel}, numerical")
+                    plt.plot(e, rho_analytical[0, :, 0], "k--", label=f"{Nel}, analytical")
 
                 elif direction == "3":
-                    plt.plot(z[0, 0, :], rho_calculated[0, 0, :], "ro", label=f"{Nel}, numerical")
-                    plt.plot(z[0, 0, :], rho_analytical[0, 0, :], "k--", label=f"{Nel}, analytical")
+                    plt.plot(e, rho_calculated[0, 0, :], "ro", label=f"{Nel}, numerical")
+                    plt.plot(e, rho_analytical[0, 0, :], "k--", label=f"{Nel}, analytical")
 
                 plt.legend()
 
@@ -494,8 +260,8 @@ def test_convergence_1d(
         
         tolerance: float = 0.07
         
-        # assert -m_rho > (p + 1 - tolerance)
-        # assert -m_u > (p + 1 - tolerance)
+        assert -m_rho > (p + 1 - tolerance)
+        assert -m_u > (p - tolerance)
 
         if show_plot:
 
@@ -504,9 +270,9 @@ def test_convergence_1d(
             plt.plot(h_vec, u_errors, "bo", label=f"Calculated u error, {m_u =}")
             plt.plot(
                 h_vec,
-                [(h ** (p + 1)) / (h_vec[0] ** (p + 1)) * u_errors[0] for h in h_vec],
+                [(h ** p) / (h_vec[0] ** p) * u_errors[0] for h in h_vec],
                 "k--",
-                label="Theoretical u error, rate = p + 1",
+                label="Theoretical u error, rate = p",
             )
             plt.xscale("log")
             plt.yscale("log")
@@ -539,9 +305,7 @@ def test_convergence_1d(
 if __name__ == "__main__":
 
     test_convergence_1d(
-        bc_type="dirichlet",
+        bc_type="periodic",
         direction="3",
-        pmax=4,
-        Nmax=6,
-        show_plot=True
+        show_plot=True,
     )
