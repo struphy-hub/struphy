@@ -15,7 +15,7 @@ from struphy.utils.utils import check_option
 logger = logging.getLogger("struphy")
 
 
-class PoissonFieldSolve(ImplicitDiffusion):
+class PoissonSolve(ImplicitDiffusion):
     r"""
     Weak discretization of the (stabilized) Poisson equation: find :math:`\phi \in H^1` such that
 

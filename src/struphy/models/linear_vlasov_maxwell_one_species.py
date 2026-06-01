@@ -13,7 +13,7 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.propagators.efield_weights_coupling import EfieldWeightsCoupling
 from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
-from struphy.propagators.poisson_field_solve import PoissonFieldSolve
+from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vin_efield import PushVinEfield
 from struphy.propagators.push_vxb import PushVxB
@@ -193,7 +193,7 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         )
 
         # initial Poisson (not a propagator used in time stepping)
-        self.initial_poisson = PoissonFieldSolve()
+        self.initial_poisson = PoissonSolve()
         self.initial_poisson.variables.phi = self.em_fields.phi
 
     @classmethod
@@ -269,6 +269,14 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
 
     @classmethod
     def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence):
+
+        1. :class:`~struphy.propagators.push_eta.PushEta`
+        2. :class:`~struphy.propagators.push_vin_efield.PushVinEfield` (if :attr:`with_E0` is True)
+        3. :class:`~struphy.propagators.efield_weights_coupling.EfieldWeightsCoupling`
+        4. :class:`~struphy.propagators.push_vxb.PushVxB` (if :attr:`with_B0` is True)
+        5. :class:`~struphy.propagators.maxwell_weak_ampere.MaxwellWeakAmpere`
+        """
         doc = rf"""**1. push_eta.PushEta:**
 
     {PushEta.__doc__}
