@@ -11,6 +11,7 @@ from scipy import sparse
 
 from struphy.feec.utilities import apply_essential_bc_to_array
 from struphy.polar.basic import PolarDerhamSpace
+from struphy.io.options import LiteralOptions
 
 
 class LinOpWithTransp(LinearOperator):
@@ -317,9 +318,14 @@ class BoundaryOperator(LinOpWithTransp):
         (e.g. unconstrained to constrained). If None, domain and codomain are the same.
     """
 
-    def __init__(self, vector_space, space_id, dirichlet_bc, codomain=None):
+    def __init__(self, 
+                 vector_space: VectorSpace,
+                 space_id: LiteralOptions.OptsFEECSpace, 
+                 dirichlet_bc: tuple[tuple[bool]],
+                 codomain: VectorSpace | None = None,
+                 ):
         assert isinstance(vector_space, VectorSpace)
-        assert isinstance(space_id, str)
+        assert space_id in LiteralOptions.OptsFEECSpace
 
         self._domain = vector_space
         if codomain is not None:
