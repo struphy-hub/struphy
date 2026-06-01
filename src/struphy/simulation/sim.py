@@ -641,7 +641,7 @@ RESTARTing from:
                 message += "\n" + "wall clock time [s]:".ljust(25) + "{0:8.4f}".format(run_time_now * 60).rjust(25)
                 message += "\n" + "last step duration [s]:".ljust(25) + "{0:8.4f}".format(t1 - t0).rjust(25)
 
-                logger.debug(message)
+                logger.info(message)
                 if logger.level <= logging.DEBUG and self.rank == 0:
                     self.model.print_scalar_quantities()
 
