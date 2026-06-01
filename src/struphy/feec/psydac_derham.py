@@ -549,7 +549,7 @@ class Derham:
         MPI communicator (sub_comm if clones are used).
 
     domain : Domain, optional
-        The Struphy domain object for evaluating the mapping F : [0, 1]^3 --> R^3 and the corresponding metric coefficients.
+        The Struphy domain object for evaluating the mapping F: [0, 1]^3 --> R^3 and the corresponding metric coefficients.
 
     Notes
     -----
