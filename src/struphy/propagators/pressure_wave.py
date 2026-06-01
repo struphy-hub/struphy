@@ -133,7 +133,7 @@ class PressureWave(Propagator):
 
         solver_params : SolverParameters, default=None
             Iterative-solver controls (for example ``tol``, ``maxiter``,
-            ``verbose``, ``info``, ``recycle``).
+            ``info``, ``recycle``).
             If ``None``, defaults to ``SolverParameters()``.
         """
 
@@ -178,19 +178,17 @@ class PressureWave(Propagator):
         self._options = new
     
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         # always stabilize
         if xp.abs(self.options.omega) < 1e-14:
             self.options.omega = 1e-14
-            if MPI.COMM_WORLD.Get_rank() == 0:
-                logger.info(f"Running Pressure Wave solve with {self.options.omega =}")
+            logger.info(f"Running Pressure Wave solve with {self.options.omega =}")
             
         self._omega = self.options.omega
 
         if xp.abs(self.options.mass) < 1e-6:
             self.options.mass = 1e-6
-            if MPI.COMM_WORLD.Get_rank() == 0:
-                logger.info(f"Running Pressure Wave solve with {self.options.mass =}")
+            logger.info(f"Running Pressure Wave solve with {self.options.mass =}")
             
         # model parameters
         
@@ -335,6 +333,11 @@ class PressureWave(Propagator):
             verbose=self.options.solver_params.verbose,
             recycle=self.options.solver_params.recycle,
         )
+
+        # print(self._u_system_matrix)
+        # print(self._u_system_matrix.scalar)
+        # print(self._u_system_matrix.operator)
+        # print(self._u_system_matrix.operator.name)
 
         self._u_solver = inverse(
             self._u_system_matrix,

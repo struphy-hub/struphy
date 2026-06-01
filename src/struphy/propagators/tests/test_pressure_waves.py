@@ -12,6 +12,7 @@ from struphy import (
     WeightsParameters,
     domains,
     perturbations,
+    set_logging_level,
 )
 from struphy.feec.mass import L2Projector, WeightedMassOperators
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
@@ -26,6 +27,7 @@ from struphy.topology.grids import TensorProductGrid
 from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
+set_logging_level(logging.INFO)
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -47,7 +49,7 @@ def test_convergence_1d(
     pmax: int,
     Nmax: int,
     Nmin: int = 3,
-    omega: float = 1.0,
+    omega: float = 1.5,
     mass: float = 2.0,
     Z: float = 1,
     show_plot: bool = False,
@@ -59,7 +61,7 @@ def test_convergence_1d(
     if direction == "1":
 
         def u_exact_x(x,y,z) -> float:
-            return xp.sin(5*xp.pi * x)
+            return xp.cos(5*xp.pi * x)
         
         def u_exact_y(x,y,z) -> float:
             return 0*y
@@ -68,13 +70,13 @@ def test_convergence_1d(
             return 0*z
         
         def rho_exact(x,y,z) -> float:
-            return - 5*xp.pi * xp.cos(5*xp.pi * x) / omega
+            return 5*xp.pi * xp.sin(5*xp.pi * x) / omega
         
         def theta_exact(x,y,z) -> float:
-            return x
+            return x * (1 - x)
         
         def E_exact_x(x,y,z) -> float:
-            return - 5*xp.pi/(Z*omega) * xp.cos(5*xp.pi * x) - (mass*omega/Z - (25*xp.pi**2) * x / (Z*omega))*xp.sin(5*xp.pi * x)
+            return 5*xp.pi/(Z*omega) * (1 - 2*x) * xp.sin(5*xp.pi * x) - (mass*omega/Z - (25*xp.pi**2) * x * (1 - x) / (Z*omega))*xp.cos(5*xp.pi * x)
         
         def E_exact_y(x,y,z) -> float:
             return 0*y
@@ -88,22 +90,22 @@ def test_convergence_1d(
             return 0*x
         
         def u_exact_y(x,y,z) -> float:
-            return xp.sin(5*xp.pi * y)
+            return xp.cos(5*xp.pi * y)
         
         def u_exact_z(x,y,z) -> float:
             return 0*z
         
         def rho_exact(x,y,z) -> float:
-            return - 5*xp.pi * xp.cos(5*xp.pi * y) / omega
+            return 5*xp.pi * xp.sin(5*xp.pi * y) / omega
         
         def theta_exact(x,y,z) -> float:
-            return y
+            return y * (1 - y)
         
         def E_exact_x(x,y,z) -> float:
             return 0*x
         
         def E_exact_y(x,y,z) -> float:
-            return - 5*xp.pi/(Z*omega) * xp.cos(5*xp.pi * y) - (mass*omega/Z - (25*xp.pi**2) * y / (Z*omega))*xp.sin(5*xp.pi * y)
+            return 5*xp.pi/(Z*omega) * (1 - 2*y) * xp.sin(5*xp.pi * y) - (mass*omega/Z - (25*xp.pi**2) * y * (1 - y) / (Z*omega))*xp.cos(5*xp.pi * y)
         
         def E_exact_z(x,y,z) -> float:
             return 0*z
@@ -117,13 +119,13 @@ def test_convergence_1d(
             return 0*y
         
         def u_exact_z(x,y,z) -> float:
-            return xp.sin(5*xp.pi * z)
+            return xp.cos(5*xp.pi * z)
         
         def rho_exact(x,y,z) -> float:
-            return - 5*xp.pi * xp.cos(5*xp.pi * z) / omega
+            return 5*xp.pi * xp.sin(5*xp.pi * z) / omega
         
         def theta_exact(x,y,z) -> float:
-            return z
+            return z * (1 - z)
         
         def E_exact_x(x,y,z) -> float:
             return 0*x
@@ -132,13 +134,13 @@ def test_convergence_1d(
             return 0*y
         
         def E_exact_z(x,y,z) -> float:
-            return - 5*xp.pi/(Z*omega) * xp.cos(5*xp.pi * z) - (mass*omega/Z - (25*xp.pi**2) * z / (Z*omega))*xp.sin(5*xp.pi * z)
+            return 5*xp.pi/(Z*omega) * (1 - 2*z) * xp.sin(5*xp.pi * z) - (mass*omega/Z - (25*xp.pi**2) * z * (1 - z) / (Z*omega))*xp.cos(5*xp.pi * z)
     
     if bc_type == "neumann":
         if direction == "1":
 
             def u_exact_x(x,y,z) -> float:
-                return xp.cos(5*xp.pi * x)
+                return xp.sin(5*xp.pi * x)
             
             def u_exact_y(x,y,z) -> float:
                 return 0*y
@@ -147,13 +149,13 @@ def test_convergence_1d(
                 return 0*z
             
             def rho_exact(x,y,z) -> float:
-                return 5*xp.pi * xp.sin(5*xp.pi * x) / omega
+                return - 5*xp.pi * xp.cos(5*xp.pi * x) / omega
             
             def theta_exact(x,y,z) -> float:
-                return x
+                return 3*x**2 - 2*x**3
             
             def E_exact_x(x,y,z) -> float:
-                return 5*xp.pi/(Z*omega) * xp.sin(5*xp.pi * x) - (mass*omega/Z - (25*xp.pi**2) * x / (Z*omega))*xp.cos(5*xp.pi * x)
+                return - 5*xp.pi/(Z*omega) * 6*x * (1 - x) * xp.cos(5*xp.pi * x) - (mass*omega/Z - (25*xp.pi**2) * (3*x**2 - 2*x**3) / (Z*omega))*xp.sin(5*xp.pi * x)
             
             def E_exact_y(x,y,z) -> float:
                 return 0*y
@@ -167,22 +169,22 @@ def test_convergence_1d(
                 return 0*x
             
             def u_exact_y(x,y,z) -> float:
-                return xp.cos(5*xp.pi * y)
+                return xp.sin(5*xp.pi * y)
             
             def u_exact_z(x,y,z) -> float:
                 return 0*z
             
             def rho_exact(x,y,z) -> float:
-                return 5*xp.pi * xp.sin(5*xp.pi * y) / omega
+                return - 5*xp.pi * xp.cos(5*xp.pi * y) / omega
             
             def theta_exact(x,y,z) -> float:
-                return y
+                return 3*y**2 - 2*y**3
             
             def E_exact_x(x,y,z) -> float:
                 return 0*x
             
             def E_exact_y(x,y,z) -> float:
-                return 5*xp.pi/(Z*omega) * xp.sin(5*xp.pi * y) - (mass*omega/Z - (25*xp.pi**2) * y / (Z*omega))*xp.cos(5*xp.pi * y)
+                return - 5*xp.pi/(Z*omega) * 6*y * (1 - y) * xp.cos(5*xp.pi * y) - (mass*omega/Z - (25*xp.pi**2) * (3*y**2 - 2*y**3) / (Z*omega))*xp.sin(5*xp.pi * y)
             
             def E_exact_z(x,y,z) -> float:
                 return 0*z
@@ -196,13 +198,13 @@ def test_convergence_1d(
                 return 0*y
             
             def u_exact_z(x,y,z) -> float:
-                return xp.cos(5*xp.pi * z)
+                return xp.sin(5*xp.pi * z)
             
             def rho_exact(x,y,z) -> float:
-                return 5*xp.pi * xp.sin(5*xp.pi * z) / omega
+                return - 5*xp.pi * xp.cos(5*xp.pi * z) / omega
             
             def theta_exact(x,y,z) -> float:
-                return z
+                return 3*z**2 - 2*z**3
             
             def E_exact_x(x,y,z) -> float:
                 return 0*x
@@ -211,7 +213,7 @@ def test_convergence_1d(
                 return 0*y
             
             def E_exact_z(x,y,z) -> float:
-                return 5*xp.pi/(Z*omega) * xp.sin(5*xp.pi * z) - (mass*omega/Z - (25*xp.pi**2) * z / (Z*omega))*xp.cos(5*xp.pi * z)
+                return - 5*xp.pi/(Z*omega) * 6*z * (1 - z) * xp.cos(5*xp.pi * z) - (mass*omega/Z - (25*xp.pi**2) * (3*z**2 - 2*z**3) / (Z*omega))*xp.sin(5*xp.pi * z)
     
     if bc_type == "periodic":
 
@@ -233,10 +235,10 @@ def test_convergence_1d(
                 return - 4*xp.pi * xp.cos(4*xp.pi * x) / omega
             
             def theta_exact(x,y,z) -> float:
-                return x
+                return xp.sin(2*xp.pi * x)
             
             def E_exact_x(x,y,z) -> float:
-                return - 4*xp.pi/(Z*omega) * xp.cos(4*xp.pi * x) - (mass*omega/Z - (16*xp.pi**2) * x / (Z*omega))*xp.sin(4*xp.pi * x)
+                return - 4*xp.pi/(Z*omega) * 2**xp.pi*xp.cos(2*xp.pi * x) * xp.cos(4*xp.pi * x) - (mass*omega/Z - (16*xp.pi**2) * xp.sin(2*xp.pi * x) / (Z*omega))*xp.sin(4*xp.pi * x)
             
             def E_exact_y(x,y,z) -> float:
                 return 0*y
@@ -259,13 +261,13 @@ def test_convergence_1d(
                 return - 4*xp.pi * xp.cos(4*xp.pi * y) / omega
             
             def theta_exact(x,y,z) -> float:
-                return y
+                return xp.sin(2*xp.pi * y)
             
             def E_exact_x(x,y,z) -> float:
                 return 0*x
             
             def E_exact_y(x,y,z) -> float:
-                return - 4*xp.pi/(Z*omega) * xp.cos(4*xp.pi * y) - (mass*omega/Z - (16*xp.pi**2) * y / (Z*omega))*xp.sin(4*xp.pi * y)
+                return - 4*xp.pi/(Z*omega) * 2*xp.pi*xp.cos(2*xp.pi * y) * xp.cos(4*xp.pi * y) - (mass*omega/Z - (16*xp.pi**2) * xp.sin(2*xp.pi * y) / (Z*omega))*xp.sin(4*xp.pi * y)
             
             def E_exact_z(x,y,z) -> float:
                 return 0*z
@@ -285,7 +287,7 @@ def test_convergence_1d(
                 return - 4*xp.pi * xp.cos(4*xp.pi * z) / omega
             
             def theta_exact(x,y,z) -> float:
-                return z
+                return xp.sin(2*xp.pi * z)
             
             def E_exact_x(x,y,z) -> float:
                 return 0*x
@@ -294,7 +296,7 @@ def test_convergence_1d(
                 return 0*y
             
             def E_exact_z(x,y,z) -> float:
-                return - 4*xp.pi/(Z*omega) * xp.cos(4*xp.pi * z) - (mass*omega/Z - (16*xp.pi**2) * z / (Z*omega))*xp.sin(4*xp.pi * z)
+                return - 4*xp.pi/(Z*omega) * 2*xp.pi*xp.cos(2*xp.pi * z) * xp.cos(4*xp.pi * z) - (mass*omega/Z - (16*xp.pi**2) * xp.sin(2*xp.pi * z) / (Z*omega))*xp.sin(4*xp.pi * z)
     
     assert Nmin < Nmax
     
@@ -307,7 +309,8 @@ def test_convergence_1d(
     e3 = 0.0
 
     for p in range(2, pmax + 1):
-        errors = []
+        rho_errors = []
+        u_errors = []
         h_vec = []
 
         for n, Nel in enumerate(Nels):
@@ -403,7 +406,6 @@ def test_convergence_1d(
                 tol=1.0e-10,
                 maxiter=3000,
                 info=True,
-                verbose=False,
                 recycle=False,
             )
 
@@ -439,35 +441,95 @@ def test_convergence_1d(
             rho_analytical = rho_exact(x, y, z)
             u_analytical = xp.array([u_exact_x(x, y, z), u_exact_y(x, y, z), u_exact_z(x, y, z)])
 
-            error = xp.max([xp.max(xp.abs(rho_calculated - rho_analytical)),xp.max(xp.abs(u_calculated - u_analytical))])
-            errors.append(error)
+            if show_plot:
+
+                plt.figure(f"u, degree {p =}, {bc_type =}, {direction =}")
+                plt.subplot(2, int((Nmax - Nmin) / 2 + 1), n + 1)
+
+                if direction == "1":
+                    plt.plot(x[:, 0, 0], u_calculated[0][:, 0, 0], "bo", label=f"{Nel}, numerical")
+                    plt.plot(x[:, 0, 0], u_analytical[0][:, 0, 0], "k--", label=f"{Nel}, analytical")
+
+                elif direction == "2":
+                    plt.plot(y[0, :, 0], u_calculated[1][0, :, 0], "bo", label=f"{Nel}, numerical")
+                    plt.plot(y[0, :, 0], u_analytical[1][0, :, 0], "k--", label=f"{Nel}, analytical")
+
+                elif direction == "3":
+                    plt.plot(z[0, 0, :], u_calculated[2][0, 0, :], "bo", label=f"{Nel}, numerical")
+                    plt.plot(z[0, 0, :], u_analytical[2][0, 0, :], "k--", label=f"{Nel}, analytical")
+
+                plt.legend()
+
+                plt.figure(f"rho, degree {p =}, {bc_type =}, {direction =}")
+                plt.subplot(2, int((Nmax - Nmin) / 2 + 1), n + 1)
+
+                if direction == "1":
+                    plt.plot(x[:, 0, 0], rho_calculated[:, 0, 0], "ro", label=f"{Nel}, numerical")
+                    plt.plot(x[:, 0, 0], rho_analytical[:, 0, 0], "k--", label=f"{Nel}, analytical")
+
+                elif direction == "2":
+                    plt.plot(y[0, :, 0], rho_calculated[0, :, 0], "ro", label=f"{Nel}, numerical")
+                    plt.plot(y[0, :, 0], rho_analytical[0, :, 0], "k--", label=f"{Nel}, analytical")
+
+                elif direction == "3":
+                    plt.plot(z[0, 0, :], rho_calculated[0, 0, :], "ro", label=f"{Nel}, numerical")
+                    plt.plot(z[0, 0, :], rho_analytical[0, 0, :], "k--", label=f"{Nel}, analytical")
+
+                plt.legend()
+
+            rho_error = xp.max(xp.abs(rho_calculated - rho_analytical))
+            rho_errors.append(rho_error)
+
+            u_error = xp.max(xp.abs(u_calculated - u_analytical))
+            u_errors.append(u_error)
 
             h = 1 / Nel
             h_vec.append(h)
         
-        m, _ = xp.polyfit(xp.log(Nels), xp.log(errors), deg=1)
-        logger.info(f"For {p =}, solution converges with rate {-m =} ")
+        m_rho, _ = xp.polyfit(xp.log(Nels), xp.log(rho_errors), deg=1)
+        logger.info(f"For {p =}, rho solution converges with rate {-m_rho =} ")
+
+        m_u, _ = xp.polyfit(xp.log(Nels), xp.log(u_errors), deg=1)
+        logger.info(f"For {p =}, u solution converges with rate {-m_u =} ")
         
         tolerance: float = 0.07
         
-        # assert -m > (p + 1 - tolerance)
+        # assert -m_rho > (p + 1 - tolerance)
+        # assert -m_u > (p + 1 - tolerance)
 
         if show_plot:
 
-            plt.figure(f"Convergence for degree {p =}", figsize=(12, 8))
-            plt.title(f"Convergence rate for degree {p =}")
-            plt.plot(h_vec, errors, "o", label=f"Calculated error, {m =}")
+            plt.figure(f"u convergence for degree {p =}", figsize=(12, 8))
+            plt.title(f"u convergence rate for degree {p =}")
+            plt.plot(h_vec, u_errors, "bo", label=f"Calculated u error, {m_u =}")
             plt.plot(
                 h_vec,
-                [(h ** (p + 1)) / (h_vec[0] ** (p + 1)) * errors[0] for h in h_vec],
+                [(h ** (p + 1)) / (h_vec[0] ** (p + 1)) * u_errors[0] for h in h_vec],
                 "k--",
-                label="Theoretical error, rate = p + 1",
+                label="Theoretical u error, rate = p + 1",
             )
             plt.xscale("log")
             plt.yscale("log")
             plt.xlabel("Grid spacing h")
             plt.ylabel("Error")
             plt.legend()
+
+            plt.figure(f"Rho convergence for degree {p =}", figsize=(12, 8))
+            plt.title(f"Rho convergence rate for degree {p =}")
+            plt.plot(h_vec, rho_errors, "ro", label=f"Calculated rho error, {m_rho =}")
+            plt.plot(
+                h_vec,
+                [(h ** (p + 1)) / (h_vec[0] ** (p + 1)) * rho_errors[0] for h in h_vec],
+                "k--",
+                label="Theoretical rho error, rate = p + 1",
+            )
+            plt.xscale("log")
+            plt.yscale("log")
+            plt.xlabel("Grid spacing h")
+            plt.ylabel("Error")
+            plt.legend()
+
+            
 
     if show_plot:
 
@@ -477,9 +539,9 @@ def test_convergence_1d(
 if __name__ == "__main__":
 
     test_convergence_1d(
-        bc_type="neumann",
-        direction="1",
-        pmax=3,
+        bc_type="dirichlet",
+        direction="3",
+        pmax=4,
         Nmax=6,
         show_plot=True
     )
