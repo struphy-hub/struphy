@@ -142,4 +142,4 @@ init = maxwellians.Maxwellian3D(n = (1.0, perturbation))
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":
-    sim.run(verbose=False)
+    sim.run()

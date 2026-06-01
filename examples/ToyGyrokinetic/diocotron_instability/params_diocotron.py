@@ -178,4 +178,4 @@ init = maxwellians.GyroMaxwellian2D(n=(n_init, perturbation), equil=equil)
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":
-    sim.run(verbose=True)
+    sim.run()
