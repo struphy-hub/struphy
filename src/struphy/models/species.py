@@ -169,7 +169,7 @@ class Species(metaclass=ABCMeta):
             kappa: float = None,
         ):
             self.species = species
-            
+
             if units is None:
                 units = Units()
 
