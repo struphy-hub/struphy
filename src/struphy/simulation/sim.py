@@ -499,9 +499,8 @@ class Simulation(SimulationBase):
         # output
         self.initialize_data_storage()
 
-        if not self.env.restart:
-            # peek view into geometry
-            self.save_geometry_and_equil_vtk()
+        # peek view into geometry
+        self.save_geometry_and_equil_vtk()
 
         # plasma parameters
         self.compute_plasma_params()
