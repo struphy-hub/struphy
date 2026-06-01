@@ -642,7 +642,7 @@ RESTARTing from:
                 message += "\n" + "last step duration [s]:".ljust(25) + "{0:8.4f}".format(t1 - t0).rjust(25)
 
                 logger.info(message)
-                if logger.level <= logging.DEBUG and self.rank == 0:
+                if logger.level <= logging.INFO and self.rank == 0:
                     self.model.print_scalar_quantities()
 
         # ===================================================================
