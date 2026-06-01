@@ -203,9 +203,9 @@ class ImplicitDiffusion(Propagator):
     @profile
     def allocate(self):
         # always stabilize
-        if xp.abs(self.options.sigma_1) < 1e-14:
-            self.options.sigma_1 = 1e-14
-            logger.warning(f"Stabilizing Poisson solve with {self.options.sigma_1 =}")
+        # if xp.abs(self.options.sigma_1) < 1e-14:
+        #     self.options.sigma_1 = 1e-14
+        #     logger.warning(f"Stabilizing Poisson solve with {self.options.sigma_1 =}")
 
         # model parameters
         self._sigma_1 = self.options.sigma_1
