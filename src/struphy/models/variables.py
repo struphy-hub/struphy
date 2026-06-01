@@ -384,7 +384,6 @@ class FEECVariable(Variable):
                 space_id=self.space,
                 domain=domain,
                 equil=equil,
-                verbose=verbose,
             )
 
             # project each perturbation and accumulate into spline_lift
