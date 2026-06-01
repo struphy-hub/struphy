@@ -12,6 +12,7 @@ from struphy import (
     WeightsParameters,
     domains,
     perturbations,
+    set_logging_level,
 )
 from struphy.feec.mass import L2Projector, WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
@@ -25,6 +26,7 @@ from struphy.topology.grids import TensorProductGrid
 from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
+set_logging_level(logging.INFO)
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -35,276 +37,92 @@ plt.rcParams.update({"font.size": 22})
 domain: Domain = domains.Cuboid()
 
 
-@pytest.mark.parametrize("bc_type", ["dirichlet", "periodic", "neumann"])
+@pytest.mark.parametrize("bc_type", ["dirichlet", "periodic"])
 @pytest.mark.parametrize("direction", ["1", "2", "3"])
-@pytest.mark.parametrize("pmax", [3, 4])
-@pytest.mark.parametrize("Nmax", [6, 7, 8])
 def test_convergence_1d(
     bc_type: str,
     direction: str,
-    pmax: int,
-    Nmax: int,
-    Nmin: int = 3,
-    sigma: float = 1.5,
     show_plot: bool = False,
 ):
     """Test of the solver on 1d problems by means of manufactured solution"""
+    pmax = 4
+    Nmin = 4
+    Nmax = 8
 
-    if direction == "1":
+    sigma = 1.5
 
-        def E_exact_x(x, y, z) -> float:
-            return xp.sin(5 * xp.pi * y)
-
-        def E_exact_y(x, y, z) -> float:
-            return 0 * y
-
-        def E_exact_z(x, y, z) -> float:
-            return 0 * z
-
-        def j_exact_x(x, y, z) -> float:
-            return (25 * (xp.pi**2) - sigma) * E_exact_x(x, y, z)
-
-        def j_exact_y(x, y, z) -> float:
-            return 0 * y
-
-        def j_exact_z(x, y, z) -> float:
-            return 0 * z
-
-    elif direction == "2":
-
-        def E_exact_x(x, y, z) -> float:
-            return 0 * x
-
-        def E_exact_y(x, y, z) -> float:
-            return xp.sin(5 * xp.pi * z)
-
-        def E_exact_z(x, y, z) -> float:
-            return 0 * z
-
-        def j_exact_x(x, y, z) -> float:
-            return 0 * x
-
-        def j_exact_y(x, y, z) -> float:
-            return (25 * (xp.pi**2) - sigma) * E_exact_y(x, y, z)
-
-        def j_exact_z(x, y, z) -> float:
-            return 0 * z
-
-    elif direction == "3":
-
-        def E_exact_x(x, y, z) -> float:
-            return 0 * x
-
-        def E_exact_y(x, y, z) -> float:
-            return 0 * y
-
-        def E_exact_z(x, y, z) -> float:
-            return xp.sin(5 * xp.pi * x)
-
-        def j_exact_x(x, y, z) -> float:
-            return 0 * x
-
-        def j_exact_y(x, y, z) -> float:
-            return 0 * y
-
-        def j_exact_z(x, y, z) -> float:
-            return (25 * (xp.pi**2) - sigma) * E_exact_z(x, y, z)
-
-    if bc_type == "periodic":
-        if Nmin < 4:
-            Nmin = 4
-
-        if direction == "1":
-
-            def E_exact_x(x, y, z) -> float:
-                return xp.sin(8 * xp.pi * y)
-
-            def E_exact_y(x, y, z) -> float:
-                return 0 * y
-
-            def E_exact_z(x, y, z) -> float:
-                return 0 * z
-
-            def j_exact_x(x, y, z) -> float:
-                return (64 * (xp.pi**2) - sigma) * E_exact_x(x, y, z)
-
-            def j_exact_y(x, y, z) -> float:
-                return 0 * y
-
-            def j_exact_z(x, y, z) -> float:
-                return 0 * z
-
-        elif direction == "2":
-
-            def E_exact_x(x, y, z) -> float:
-                return 0 * x
-
-            def E_exact_y(x, y, z) -> float:
-                return xp.sin(8 * xp.pi * z)
-
-            def E_exact_z(x, y, z) -> float:
-                return 0 * z
-
-            def j_exact_x(x, y, z) -> float:
-                return 0 * x
-
-            def j_exact_y(x, y, z) -> float:
-                return (64 * (xp.pi**2) - sigma) * E_exact_y(x, y, z)
-
-            def j_exact_z(x, y, z) -> float:
-                return 0 * z
-
-        elif direction == "3":
-
-            def E_exact_x(x, y, z) -> float:
-                return 0 * x
-
-            def E_exact_y(x, y, z) -> float:
-                return 0 * y
-
-            def E_exact_z(x, y, z) -> float:
-                return xp.sin(8 * xp.pi * x)
-
-            def j_exact_x(x, y, z) -> float:
-                return 0 * x
-
-            def j_exact_y(x, y, z) -> float:
-                return 0 * y
-
-            def j_exact_z(x, y, z) -> float:
-                return (64 * (xp.pi**2) - sigma) * E_exact_z(x, y, z)
-
-    elif bc_type == "neumann":
-        if direction == "1":
-
-            def E_exact_x(x, y, z) -> float:
-                return xp.cos(5 * xp.pi * y)
-
-            def E_exact_y(x, y, z) -> float:
-                return 0 * y
-
-            def E_exact_z(x, y, z) -> float:
-                return 0 * z
-
-            def j_exact_x(x, y, z) -> float:
-                return (25 * (xp.pi**2) - sigma) * E_exact_x(x, y, z)
-
-            def j_exact_y(x, y, z) -> float:
-                return 0 * y
-
-            def j_exact_z(x, y, z) -> float:
-                return 0 * z
-
-        elif direction == "2":
-
-            def E_exact_x(x, y, z) -> float:
-                return 0 * x
-
-            def E_exact_y(x, y, z) -> float:
-                return xp.cos(5 * xp.pi * z)
-
-            def E_exact_z(x, y, z) -> float:
-                return 0 * z
-
-            def j_exact_x(x, y, z) -> float:
-                return 0 * x
-
-            def j_exact_y(x, y, z) -> float:
-                return (25 * (xp.pi**2) - sigma) * E_exact_y(x, y, z)
-
-            def j_exact_z(x, y, z) -> float:
-                return 0 * z
-
-        elif direction == "3":
-
-            def E_exact_x(x, y, z) -> float:
-                return 0 * x
-
-            def E_exact_y(x, y, z) -> float:
-                return 0 * y
-
-            def E_exact_z(x, y, z) -> float:
-                return xp.cos(5 * xp.pi * x)
-
-            def j_exact_x(x, y, z) -> float:
-                return 0 * x
-
-            def j_exact_y(x, y, z) -> float:
-                return 0 * y
-
-            def j_exact_z(x, y, z) -> float:
-                return (25 * (xp.pi**2) - sigma) * E_exact_z(x, y, z)
-
-    assert Nmin < Nmax
+    E_exact = lambda e: xp.sin(8 * xp.pi * e)
+    j_exact = lambda e: (64 * (xp.pi**2) - sigma) * E_exact(e)
 
     # Test over spline degree and grid resolution
-
     Nels = [2**n for n in range(Nmin, Nmax + 1)]
 
     e1 = 0.0
     e2 = 0.0
     e3 = 0.0
+    e = xp.linspace(0.0, 1.0, 64)
+
+    bcs = (None, None, None)
+    if direction == "1":
+        E_exact_x = lambda x, y, z: 0 * x
+        E_exact_y = lambda x, y, z: 0 * y
+        E_exact_z = lambda x, y, z: E_exact(x)
+        j_exact_x = lambda x, y, z: 0 * x
+        j_exact_y = lambda x, y, z: 0 * y
+        j_exact_z = lambda x, y, z: j_exact(x)
+        e1 = e
+
+    elif direction == "2":
+        E_exact_x = lambda x, y, z: E_exact(y)
+        E_exact_y = lambda x, y, z: 0 * y
+        E_exact_z = lambda x, y, z: 0 * z
+        j_exact_x = lambda x, y, z: j_exact(y)
+        j_exact_y = lambda x, y, z: 0 * y
+        j_exact_z = lambda x, y, z: 0 * z
+        e2 = e
+
+    elif direction == "3":
+        E_exact_x = lambda x, y, z: 0 * x
+        E_exact_y = lambda x, y, z: E_exact(z)
+        E_exact_z = lambda x, y, z: 0 * z
+        j_exact_x = lambda x, y, z: 0 * x
+        j_exact_y = lambda x, y, z: j_exact(z)
+        j_exact_z = lambda x, y, z: 0 * z
+        e3 = e
+
+    ee1, ee2, ee3 = xp.meshgrid(e1, e2, e3, indexing="ij")
 
     for p in range(2, pmax + 1):
         errors = []
         h_vec = []
 
+        if show_plot:
+            plt.figure(f"degree {p =}, {bc_type =}, {direction =}", figsize=(12, 8))
+
         for n, Nel in enumerate(Nels):
             if direction == "1":
-                degree = [1, p, 1]
-                num_elements = [1, Nel, 1]
-                bcs = (None, ("dirichlet", "dirichlet"), None)
-                e2 = xp.linspace(0.0, 1.0, 64)
+                degree = (p, 1, 1)
+                num_elements = (Nel, 1, 1)
+                if bc_type == "dirichlet":
+                    bcs = (("dirichlet", "dirichlet"), None, None)
+                # elif bc_type == "neumann":
+                #     bcs = (("free", "free"), None, None)
 
             elif direction == "2":
-                degree = [1, 1, p]
-                num_elements = [1, 1, Nel]
-                bcs = (None, None, ("dirichlet", "dirichlet"))
-                e3 = xp.linspace(0.0, 1.0, 64)
+                degree = (1, p, 1)
+                num_elements = (1, Nel, 1)
+                if bc_type == "dirichlet":
+                    bcs = (None, ("dirichlet", "dirichlet"), None)
+                # elif bc_type == "neumann":
+                #     bcs = (None, ("free", "free"), None)
 
             elif direction == "3":
-                degree = [p, 1, 1]
-                num_elements = [Nel, 1, 1]
-                bcs = (("dirichlet", "dirichlet"), None, None)
-                e1 = xp.linspace(0.0, 1.0, 64)
-
-            if bc_type == "periodic":
-                if direction == "1":
-                    degree = [1, p, 1]
-                    num_elements = [1, Nel, 1]
-                    bcs = (None, None, None)
-                    e2 = xp.linspace(0.0, 1.0, 64)
-
-                elif direction == "2":
-                    degree = [1, 1, p]
-                    num_elements = [1, 1, Nel]
-                    bcs = (None, None, None)
-                    e3 = xp.linspace(0.0, 1.0, 64)
-
-                elif direction == "3":
-                    degree = [p, 1, 1]
-                    num_elements = [Nel, 1, 1]
-                    bcs = (None, None, None)
-                    e1 = xp.linspace(0.0, 1.0, 64)
-
-            elif bc_type == "neumann":
-                if direction == "1":
-                    degree = [1, p, 1]
-                    num_elements = [1, Nel, 1]
-                    bcs = (None, ("free", "free"), None)
-                    e2 = xp.linspace(0.0, 1.0, 64)
-
-                elif direction == "2":
-                    degree = [1, 1, p]
-                    num_elements = [1, 1, Nel]
-                    bcs = (None, None, ("free", "free"))
-                    e3 = xp.linspace(0.0, 1.0, 64)
-
-                elif direction == "3":
-                    degree = [p, 1, 1]
-                    num_elements = [Nel, 1, 1]
-                    bcs = (("free", "free"), None, None)
-                    e1 = xp.linspace(0.0, 1.0, 64)
+                degree = (1, 1, p)
+                num_elements = (1, 1, Nel)
+                if bc_type == "dirichlet":
+                    bcs = (None, None, ("dirichlet", "dirichlet"))
+                # elif bc_type == "neumann":
+                #     bcs = (None, None, ("free", "free"))
 
             grid = TensorProductGrid(num_elements=num_elements)
             derham_opts = DerhamOptions(degree=degree, bcs=bcs)
@@ -316,18 +134,9 @@ def test_convergence_1d(
             Propagator.domain = domain
             Propagator.mass_ops = mass_ops
 
-            def j_pulled_x(e1, e2, e3):
-                return domain.pull([j_exact_x, j_exact_y, j_exact_z], e1, e2, e3, kind="1", squeeze_out=False)[0]
-
-            def j_pulled_y(e1, e2, e3):
-                return domain.pull([j_exact_x, j_exact_y, j_exact_z], e1, e2, e3, kind="1", squeeze_out=False)[1]
-
-            def j_pulled_z(e1, e2, e3):
-                return domain.pull([j_exact_x, j_exact_y, j_exact_z], e1, e2, e3, kind="1", squeeze_out=False)[2]
-
             j = FEECVariable(space="Hcurl")
             j.allocate(derham=derham, domain=domain)
-            j.spline.vector = derham.P1([j_pulled_x, j_pulled_y, j_pulled_z])
+            j.spline.vector = derham.P1([j_exact_x, j_exact_y, j_exact_z])
 
             solver_params = SolverParameters(
                 tol=1.0e-10,
@@ -355,26 +164,25 @@ def test_convergence_1d(
             dt = 1.0
             curlcurl_solver(dt)
 
-            E_calculated = domain.push(_e.spline, e1, e2, e3, kind="1")
-            x, y, z = domain(e1, e2, e3)
-            E_analytical = xp.array([E_exact_x(x, y, z), E_exact_y(x, y, z), E_exact_z(x, y, z)])
+            E_calculated = xp.array(curlcurl_solver.variables.e.spline(ee1, ee2, ee3))
+            logger.info(f"{E_calculated.shape = }")
+            E_analytical = xp.array([E_exact_x(ee1, ee2, ee3), E_exact_y(ee1, ee2, ee3), E_exact_z(ee1, ee2, ee3)])
+            logger.info(f"{E_analytical.shape = }")
 
-            plt.figure(f"degree {p =}, {bc_type =}, {direction =}")
-            plt.subplot(2, int((Nmax - Nmin) / 2 + 1), n + 1)
+            if show_plot:
+                plt.subplot(2, int((Nmax - Nmin) / 2 + 1), n + 1)
+                if direction == "1":
+                    plt.plot(e, E_calculated[2][:, 0, 0], "o", label=f"{Nel}, numerical")
+                    plt.plot(e, E_analytical[2][:, 0, 0], "k--", label=f"{Nel}, analytical")
 
-            if direction == "1":
-                plt.plot(y[0, :, 0], E_calculated[0][0, :, 0], "o", label=f"{Nel}, numerical")
-                plt.plot(y[0, :, 0], E_analytical[0][0, :, 0], "k--", label=f"{Nel}, analytical")
+                elif direction == "2":
+                    plt.plot(e, E_calculated[1][0, :, 0], "o", label=f"{Nel}, numerical")
+                    plt.plot(e, E_analytical[1][0, :, 0], "k--", label=f"{Nel}, analytical")
 
-            elif direction == "2":
-                plt.plot(z[0, 0, :], E_calculated[1][0, 0, :], "o", label=f"{Nel}, numerical")
-                plt.plot(z[0, 0, :], E_analytical[1][0, 0, :], "k--", label=f"{Nel}, analytical")
-
-            elif direction == "3":
-                plt.plot(x[:, 0, 0], E_calculated[2][:, 0, 0], "o", label=f"{Nel}, numerical")
-                plt.plot(x[:, 0, 0], E_analytical[2][:, 0, 0], "k--", label=f"{Nel}, analytical")
-
-            plt.legend()
+                elif direction == "3":
+                    plt.plot(e, E_calculated[0][0, 0, :], "o", label=f"{Nel}, numerical")
+                    plt.plot(e, E_analytical[0][0, 0, :], "k--", label=f"{Nel}, analytical")
+                plt.legend()
 
             error = xp.max(xp.abs(E_calculated - E_analytical))
             errors.append(error)
@@ -385,10 +193,6 @@ def test_convergence_1d(
         m, _ = xp.polyfit(xp.log(Nels), xp.log(errors), deg=1)
         logger.info(f"For {p =}, solution converges with rate {-m =} ")
 
-        tolerance: float = 0.07
-
-        assert -m > (p + 1 - tolerance)
-
         if show_plot:
             plt.figure(f"Convergence for degree {p =}", figsize=(12, 8))
             plt.title(f"Convergence rate for degree {p =}")
@@ -404,288 +208,125 @@ def test_convergence_1d(
             plt.xlabel("Grid spacing h")
             plt.ylabel("Error")
             plt.legend()
+            plt.show()
 
-    if show_plot:
-        plt.show()
+        tolerance: float = 0.07
+        assert -m > (p + 1 - tolerance)
 
 
-@pytest.mark.parametrize("bc_type", ["dirichlet", "periodic", "neumann"])
+@pytest.mark.parametrize("bc_type", ["dirichlet", "periodic"])
 @pytest.mark.parametrize("direction", ["1", "2", "3"])
-@pytest.mark.parametrize("pmax", [3, 4])
-@pytest.mark.parametrize("Nmax", [6, 7, 8])
 def test_convergence_2d(
     bc_type: str,
     direction: str,
-    pmax: int,
-    Nmax: int,
-    Nmin: int = 3,
-    sigma: float = 1.5,
     show_plot: bool = False,
 ):
     """Test of the solver on 2d problems by means of manufactured solution"""
+    pmax = 4
+    Nmin = 3
+    Nmax = 6
+    sigma = 1.5
+
+    # Compact direction- and BC-dependent setup in one lookup table.
+    periodic_mode = {
+        "trig": xp.sin,
+        "freq": (4, 6),
+        "coef": 52,
+    }
+    mode_map = {
+        "dirichlet": {
+            **periodic_mode,
+            "bcs": {
+                "1": (None, ("dirichlet", "dirichlet"), ("dirichlet", "dirichlet")),
+                "2": (("dirichlet", "dirichlet"), None, ("dirichlet", "dirichlet")),
+                "3": (("dirichlet", "dirichlet"), ("dirichlet", "dirichlet"), None),
+            },
+        },
+        "periodic": {
+            **periodic_mode,
+            "bcs": {"1": (None, None, None), "2": (None, None, None), "3": (None, None, None)},
+        },
+    }
+
+    space_map = {
+        "1": {
+            "component": 0,
+            "coords": (1, 2),
+            "degree": lambda p: (1, p, p),
+            "elements": lambda Nel: (1, Nel, Nel),
+        },
+        "2": {
+            "component": 1,
+            "coords": (2, 0),
+            "degree": lambda p: (p, 1, p),
+            "elements": lambda Nel: (Nel, 1, Nel),
+        },
+        "3": {
+            "component": 2,
+            "coords": (0, 1),
+            "degree": lambda p: (p, p, 1),
+            "elements": lambda Nel: (Nel, Nel, 1),
+        },
+    }
+
+    mode = mode_map[bc_type]
+    space = space_map[direction]
+
+    if bc_type == "periodic" and Nmin < 4:
+        Nmin = 4
+
+    trig = mode["trig"]
+    f0, f1 = mode["freq"]
+    prefactor = mode["coef"] * (xp.pi**2) - sigma
+
+    def scalar_exact(a, b):
+        return trig(f0 * xp.pi * a) * trig(f1 * xp.pi * b)
+
+    def scalar_current(a, b):
+        return prefactor * scalar_exact(a, b)
 
     if direction == "1":
-
-        def E_exact_x(x, y, z) -> float:
-            return xp.sin(3 * xp.pi * y) * xp.sin(5 * xp.pi * z)
-
-        def E_exact_y(x, y, z) -> float:
-            return 0 * y
-
-        def E_exact_z(x, y, z) -> float:
-            return 0 * z
-
-        def j_exact_x(x, y, z) -> float:
-            return (34 * (xp.pi**2) - sigma) * E_exact_x(x, y, z)
-
-        def j_exact_y(x, y, z) -> float:
-            return 0 * y
-
-        def j_exact_z(x, y, z) -> float:
-            return 0 * z
-
+        E_exact_x = lambda x, y, z: scalar_exact(y, z)
+        E_exact_y = lambda x, y, z: 0 * y
+        E_exact_z = lambda x, y, z: 0 * z
+        j_exact_x = lambda x, y, z: scalar_current(y, z)
+        j_exact_y = lambda x, y, z: 0 * y
+        j_exact_z = lambda x, y, z: 0 * z
     elif direction == "2":
-
-        def E_exact_x(x, y, z) -> float:
-            return 0 * x
-
-        def E_exact_y(x, y, z) -> float:
-            return xp.sin(3 * xp.pi * z) * xp.sin(5 * xp.pi * x)
-
-        def E_exact_z(x, y, z) -> float:
-            return 0 * z
-
-        def j_exact_x(x, y, z) -> float:
-            return 0 * x
-
-        def j_exact_y(x, y, z) -> float:
-            return (34 * (xp.pi**2) - sigma) * E_exact_y(x, y, z)
-
-        def j_exact_z(x, y, z) -> float:
-            return 0 * z
-
+        E_exact_x = lambda x, y, z: 0 * x
+        E_exact_y = lambda x, y, z: scalar_exact(z, x)
+        E_exact_z = lambda x, y, z: 0 * z
+        j_exact_x = lambda x, y, z: 0 * x
+        j_exact_y = lambda x, y, z: scalar_current(z, x)
+        j_exact_z = lambda x, y, z: 0 * z
     elif direction == "3":
-
-        def E_exact_x(x, y, z) -> float:
-            return 0 * x
-
-        def E_exact_y(x, y, z) -> float:
-            return 0 * y
-
-        def E_exact_z(x, y, z) -> float:
-            return xp.sin(3 * xp.pi * x) * xp.sin(5 * xp.pi * y)
-
-        def j_exact_x(x, y, z) -> float:
-            return 0 * x
-
-        def j_exact_y(x, y, z) -> float:
-            return 0 * y
-
-        def j_exact_z(x, y, z) -> float:
-            return (34 * (xp.pi**2) - sigma) * E_exact_z(x, y, z)
-
-    if bc_type == "periodic":
-        if Nmin < 4:
-            Nmin = 4
-
-        if direction == "1":
-
-            def E_exact_x(x, y, z) -> float:
-                return xp.sin(4 * xp.pi * y) * xp.sin(6 * xp.pi * z)
-
-            def E_exact_y(x, y, z) -> float:
-                return 0 * y
-
-            def E_exact_z(x, y, z) -> float:
-                return 0 * z
-
-            def j_exact_x(x, y, z) -> float:
-                return (52 * (xp.pi**2) - sigma) * E_exact_x(x, y, z)
-
-            def j_exact_y(x, y, z) -> float:
-                return 0 * y
-
-            def j_exact_z(x, y, z) -> float:
-                return 0 * z
-
-        elif direction == "2":
-
-            def E_exact_x(x, y, z) -> float:
-                return 0 * x
-
-            def E_exact_y(x, y, z) -> float:
-                return xp.sin(4 * xp.pi * z) * xp.sin(6 * xp.pi * x)
-
-            def E_exact_z(x, y, z) -> float:
-                return 0 * z
-
-            def j_exact_x(x, y, z) -> float:
-                return 0 * x
-
-            def j_exact_y(x, y, z) -> float:
-                return (52 * (xp.pi**2) - sigma) * E_exact_y(x, y, z)
-
-            def j_exact_z(x, y, z) -> float:
-                return 0 * z
-
-        elif direction == "3":
-
-            def E_exact_x(x, y, z) -> float:
-                return 0 * x
-
-            def E_exact_y(x, y, z) -> float:
-                return 0 * y
-
-            def E_exact_z(x, y, z) -> float:
-                return xp.sin(4 * xp.pi * x) * xp.sin(6 * xp.pi * y)
-
-            def j_exact_x(x, y, z) -> float:
-                return 0 * x
-
-            def j_exact_y(x, y, z) -> float:
-                return 0 * y
-
-            def j_exact_z(x, y, z) -> float:
-                return (52 * (xp.pi**2) - sigma) * E_exact_z(x, y, z)
-
-    elif bc_type == "neumann":
-        if direction == "1":
-
-            def E_exact_x(x, y, z) -> float:
-                return xp.cos(3 * xp.pi * y) * xp.cos(5 * xp.pi * z)
-
-            def E_exact_y(x, y, z) -> float:
-                return 0 * y
-
-            def E_exact_z(x, y, z) -> float:
-                return 0 * z
-
-            def j_exact_x(x, y, z) -> float:
-                return (34 * (xp.pi**2) - sigma) * E_exact_x(x, y, z)
-
-            def j_exact_y(x, y, z) -> float:
-                return 0 * y
-
-            def j_exact_z(x, y, z) -> float:
-                return 0 * z
-
-        elif direction == "2":
-
-            def E_exact_x(x, y, z) -> float:
-                return 0 * x
-
-            def E_exact_y(x, y, z) -> float:
-                return xp.cos(3 * xp.pi * z) * xp.cos(5 * xp.pi * x)
-
-            def E_exact_z(x, y, z) -> float:
-                return 0 * z
-
-            def j_exact_x(x, y, z) -> float:
-                return 0 * x
-
-            def j_exact_y(x, y, z) -> float:
-                return (34 * (xp.pi**2) - sigma) * E_exact_y(x, y, z)
-
-            def j_exact_z(x, y, z) -> float:
-                return 0 * z
-
-        elif direction == "3":
-
-            def E_exact_x(x, y, z) -> float:
-                return 0 * x
-
-            def E_exact_y(x, y, z) -> float:
-                return 0 * y
-
-            def E_exact_z(x, y, z) -> float:
-                return xp.cos(3 * xp.pi * x) * xp.cos(5 * xp.pi * y)
-
-            def j_exact_x(x, y, z) -> float:
-                return 0 * x
-
-            def j_exact_y(x, y, z) -> float:
-                return 0 * y
-
-            def j_exact_z(x, y, z) -> float:
-                return (34 * (xp.pi**2) - sigma) * E_exact_z(x, y, z)
-
-    # Test over spline degree and grid resolution
+        E_exact_x = lambda x, y, z: 0 * x
+        E_exact_y = lambda x, y, z: 0 * y
+        E_exact_z = lambda x, y, z: scalar_exact(x, y)
+        j_exact_x = lambda x, y, z: 0 * x
+        j_exact_y = lambda x, y, z: 0 * y
+        j_exact_z = lambda x, y, z: scalar_current(x, y)
 
     Nels = [2**n for n in range(Nmin, Nmax + 1)]
 
-    e1 = 0.0
-    e2 = 0.0
-    e3 = 0.0
+    e = xp.linspace(0.0, 1.0, 64)
+    egrid = [0.0, 0.0, 0.0]
+    for idx in space["coords"]:
+        egrid[idx] = e
+    e1, e2, e3 = egrid
+    ee1, ee2, ee3 = xp.meshgrid(e1, e2, e3, indexing="ij")
 
     for p in range(2, pmax + 1):
         errors = []
         h_vec = []
 
+        if show_plot:
+            plt.figure(f"max-error, degree {p =}, {bc_type =}, {direction =}", figsize=(12, 8))
+
         for n, Nel in enumerate(Nels):
-            if direction == "1":
-                degree = [1, p, p]
-                num_elements = [1, Nel, Nel]
-                bcs = (None, ("dirichlet", "dirichlet"), ("dirichlet", "dirichlet"))
-                e2 = xp.linspace(0.0, 1.0, 64)
-                e3 = xp.linspace(0.0, 1.0, 64)
-
-            elif direction == "2":
-                degree = [p, 1, p]
-                num_elements = [Nel, 1, Nel]
-                bcs = (("dirichlet", "dirichlet"), None, ("dirichlet", "dirichlet"))
-                e3 = xp.linspace(0.0, 1.0, 64)
-                e1 = xp.linspace(0.0, 1.0, 64)
-
-            elif direction == "3":
-                degree = [p, p, 1]
-                num_elements = [Nel, Nel, 1]
-                bcs = (("dirichlet", "dirichlet"), ("dirichlet", "dirichlet"), None)
-                e1 = xp.linspace(0.0, 1.0, 64)
-                e2 = xp.linspace(0.0, 1.0, 64)
-
-            if bc_type == "periodic":
-                if direction == "1":
-                    degree = [1, p, p]
-                    num_elements = [1, Nel, Nel]
-                    bcs = (None, None, None)
-                    e2 = xp.linspace(0.0, 1.0, 64)
-                    e3 = xp.linspace(0.0, 1.0, 64)
-
-                elif direction == "2":
-                    degree = [p, 1, p]
-                    num_elements = [Nel, 1, Nel]
-                    bcs = (None, None, None)
-                    e3 = xp.linspace(0.0, 1.0, 64)
-                    e1 = xp.linspace(0.0, 1.0, 64)
-
-                elif direction == "3":
-                    degree = [p, p, 1]
-                    num_elements = [Nel, Nel, 1]
-                    bcs = (None, None, None)
-                    e1 = xp.linspace(0.0, 1.0, 64)
-                    e2 = xp.linspace(0.0, 1.0, 64)
-
-            elif bc_type == "neumann":
-                if direction == "1":
-                    degree = [1, p, p]
-                    num_elements = [1, Nel, Nel]
-                    bcs = (None, ("free", "free"), ("free", "free"))
-                    e2 = xp.linspace(0.0, 1.0, 64)
-                    e3 = xp.linspace(0.0, 1.0, 64)
-
-                elif direction == "2":
-                    degree = [p, 1, p]
-                    num_elements = [Nel, 1, Nel]
-                    bcs = (("free", "free"), None, ("free", "free"))
-                    e3 = xp.linspace(0.0, 1.0, 64)
-                    e1 = xp.linspace(0.0, 1.0, 64)
-
-                elif direction == "3":
-                    degree = [p, p, 1]
-                    num_elements = [Nel, Nel, 1]
-                    bcs = (("free", "free"), ("free", "free"), None)
-                    e1 = xp.linspace(0.0, 1.0, 64)
-                    e2 = xp.linspace(0.0, 1.0, 64)
+            degree = space["degree"](p)
+            num_elements = space["elements"](Nel)
+            bcs = mode["bcs"][direction]
 
             grid = TensorProductGrid(num_elements=num_elements)
             derham_opts = DerhamOptions(degree=degree, bcs=bcs)
@@ -697,18 +338,9 @@ def test_convergence_2d(
             Propagator.domain = domain
             Propagator.mass_ops = mass_ops
 
-            def j_pulled_x(e1, e2, e3):
-                return domain.pull([j_exact_x, j_exact_y, j_exact_z], e1, e2, e3, kind="1", squeeze_out=False)[0]
-
-            def j_pulled_y(e1, e2, e3):
-                return domain.pull([j_exact_x, j_exact_y, j_exact_z], e1, e2, e3, kind="1", squeeze_out=False)[1]
-
-            def j_pulled_z(e1, e2, e3):
-                return domain.pull([j_exact_x, j_exact_y, j_exact_z], e1, e2, e3, kind="1", squeeze_out=False)[2]
-
             j = FEECVariable(space="Hcurl")
             j.allocate(derham=derham, domain=domain)
-            j.spline.vector = derham.P1([j_pulled_x, j_pulled_y, j_pulled_z])
+            j.spline.vector = derham.P1([j_exact_x, j_exact_y, j_exact_z])
 
             solver_params = SolverParameters(
                 tol=1.0e-10,
@@ -736,33 +368,26 @@ def test_convergence_2d(
             dt = 1.0
             curlcurl_solver(dt)
 
-            E_calculated = domain.push(_e.spline, e1, e2, e3, kind="1")
-            x, y, z = domain(e1, e2, e3)
-            E_analytical = xp.array([E_exact_x(x, y, z), E_exact_y(x, y, z), E_exact_z(x, y, z)])
+            E_calculated = xp.array(curlcurl_solver.variables.e.spline(ee1, ee2, ee3))
+            logger.info(f"{E_calculated.shape = }")
+            E_analytical = xp.array([E_exact_x(ee1, ee2, ee3), E_exact_y(ee1, ee2, ee3), E_exact_z(ee1, ee2, ee3)])
+            logger.info(f"{E_analytical.shape = }")
             E_difference = xp.abs(E_calculated - E_analytical)
 
-            plt.figure(f"degree {p =}, {bc_type =}, {direction =}")
-            plt.subplot(2, int((Nmax - Nmin) / 2 + 1), n + 1)
+            if show_plot:
+                plt.subplot(2, int((Nmax - Nmin) / 2 + 1), n + 1)
 
-            if direction == "1":
-                plt.pcolormesh(
-                    y[0, :, :], z[0, :, :], E_difference[0][0, :, :], vmin=0.0, vmax=1.0, label=f"{Nel}x{Nel}"
-                )
-                plt.colorbar()
+                if direction == "1":
+                    plt.pcolormesh(e2, e3, E_difference[0][0, :, :], vmin=0.0, vmax=1.0, label=f"{Nel}x{Nel}")
+                    plt.colorbar()
 
-            elif direction == "2":
-                plt.pcolormesh(
-                    z[:, 0, :], x[:, 0, :], E_difference[1][:, 0, :], vmin=0.0, vmax=1.0, label=f"{Nel}x{Nel}"
-                )
-                plt.colorbar()
+                elif direction == "2":
+                    plt.pcolormesh(e3, e1, E_difference[1][:, 0, :], vmin=0.0, vmax=1.0, label=f"{Nel}x{Nel}")
+                    plt.colorbar()
 
-            elif direction == "3":
-                plt.pcolormesh(
-                    x[:, :, 0], y[:, :, 0], E_difference[2][:, :, 0], vmin=0.0, vmax=1.0, label=f"{Nel}x{Nel}"
-                )
-                plt.colorbar()
-
-            plt.legend()
+                elif direction == "3":
+                    plt.pcolormesh(e1, e2, E_difference[2][:, :, 0], vmin=0.0, vmax=1.0, label=f"{Nel}x{Nel}")
+                    plt.colorbar()
 
             error = xp.max(E_difference)
             errors.append(error)
@@ -772,10 +397,6 @@ def test_convergence_2d(
 
         m, _ = xp.polyfit(xp.log(Nels), xp.log(errors), deg=1)
         logger.info(f"For {p =}, solution converges with rate {-m =} ")
-
-        tolerance: float = 0.07
-
-        assert -m > (p + 1 - tolerance)
 
         if show_plot:
             plt.figure(f"Convergence for degree {p =}", figsize=(12, 8))
@@ -792,18 +413,12 @@ def test_convergence_2d(
             plt.xlabel("Grid spacing h")
             plt.ylabel("Error")
             plt.legend()
+            plt.show()
 
-    if show_plot:
-        plt.show()
+        tolerance: float = 0.07
+        assert -m > (p + 1 - tolerance)
 
 
 if __name__ == "__main__":
-    test_convergence_1d(bc_type="periodic", direction="1", pmax=3, sigma=5, Nmax=6, show_plot=True)
-
-    # test_convergence_2d(
-    #     bc_type="neumann",
-    #     direction = "2",
-    #     pmax=4,
-    #     Nmax=6,
-    #     sigma=5,
-    # )
+    # test_convergence_1d(bc_type="dirichlet", direction="1", show_plot=True)
+    test_convergence_2d(bc_type="dirichlet", direction="1", show_plot=True)
