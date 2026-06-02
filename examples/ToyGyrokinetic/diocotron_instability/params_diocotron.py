@@ -77,10 +77,10 @@ model.kinetic_ions.var.save_data = False
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(sim_folder="sim_15",profiling_activated=True, profiling_trace=True, restart=True)
+env = EnvironmentOptions(sim_folder="sim_1",profiling_activated=True, profiling_trace=True, restart=False)
 
 # Time stepping
-time_opts = Time(dt=0.01, Tend=51., split_algo="LieTrotter")
+time_opts = Time(dt=0.01, Tend=51.0, split_algo="LieTrotter")
 
 # Geometry
 domain = domains.HollowCylinder(a1=1.0, a2=10.0, Lz=10.0)
@@ -124,7 +124,7 @@ sorting_params = SortingParameters(boxes_per_dim=(12,12,1), do_sort=True, sortin
 
 # density binning
 eta_bin = BinningPlot(slice='e1_e2', n_bins= (128,128), ranges= ((0.0, 1.0), (0.0,1.0)))
-saving_params = SavingParameters(binning_plots=())
+saving_params = SavingParameters(binning_plots=()) # (binning_plots=(eta_bin,)) if you want to save the density binning data
 
 model.kinetic_ions.set_markers(loading_params=loading_params,
                                weights_params=weights_params,
@@ -172,7 +172,7 @@ eta_plus = (r_plus - domain.params["a1"])/(domain.params["a2"] - domain.params["
 
 # Perturbations for (some) kinetic species
 
-# for linear case amps = (1e-6,)
+# for non linear case amps = (0.5,)
 perturbation = perturbations.ModesCos(amps=(1e-6,), ms=(ms,), perb_domain=((eta_minus,eta_plus), None, None))
 init = maxwellians.GyroMaxwellian2D(n=(n_init, perturbation), equil=equil)
 model.kinetic_ions.var.add_initial_condition(init)
