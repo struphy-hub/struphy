@@ -165,4 +165,4 @@ model.kinetic_ions.var.add_background(maxwellian)
 model.em_fields.b_field.add_perturbation(perturbation = perturbations.ModesCos(amps=(B_pert_amp,), ls = (1,), comp = 2)) # Initial Bz depending on x-axis
 
 if __name__ == "__main__":
-    sim.run(verbose=True)
+    sim.run()

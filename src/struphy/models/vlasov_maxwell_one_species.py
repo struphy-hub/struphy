@@ -17,7 +17,7 @@ from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.propagators.base import Propagator
 from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
-from struphy.propagators.poisson_field_solve import PoissonFieldSolve
+from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vxb import PushVxB
 from struphy.propagators.vlasov_ampere_coupling import VlasovAmpereCoupling
@@ -125,7 +125,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         self.scalars = Scalars(**scalars_dict)
 
         # initial Poisson (not a propagator used in time stepping)
-        self.initial_poisson = PoissonFieldSolve()
+        self.initial_poisson = PoissonSolve()
         self.initial_poisson.variables.phi = self.em_fields.phi
 
         # property to measure violation of gauss law from control variate
@@ -203,6 +203,13 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence):
+
+        1. :class:`~struphy.propagators.maxwell_weak_ampere.MaxwellWeakAmpere`
+        2. :class:`~struphy.propagators.push_eta.PushEta`
+        3. :class:`~struphy.propagators.push_vxb.PushVxB`
+        4. :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling`
+        """
         doc = rf"""**1. propagators.maxwell.Maxwell:**
 
 {MaxwellWeakAmpere.__doc__}

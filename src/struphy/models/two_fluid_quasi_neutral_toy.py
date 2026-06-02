@@ -189,6 +189,10 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence):
+
+        1. :class:`~struphy.propagators.two_fluid_quasi_neutral_full.TwoFluidQuasiNeutralFull`
+        """
         doc = rf"""**1. TwoFluidQuasiNeutralFull:**
 
 {TwoFluidQuasiNeutralFull.__doc__}

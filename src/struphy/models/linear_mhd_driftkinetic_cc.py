@@ -323,6 +323,16 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence):
+
+        1. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
+        2. :class:`~struphy.propagators.push_guiding_center_parallel.PushGuidingCenterParallel`
+        3. :class:`~struphy.propagators.current_coupling_5d_gradb.CurrentCoupling5DGradB`
+        4. :class:`~struphy.propagators.current_coupling_5d_curlb.CurrentCoupling5DCurlb`
+        5. :class:`~struphy.propagators.current_coupling_5d_density.CurrentCoupling5DDensity`
+        6. :class:`~struphy.propagators.shear_alfven_current_coupling_5d.ShearAlfvenCurrentCoupling5D`
+        7. :class:`~struphy.propagators.magnetosonic.Magnetosonic`
+        """
         doc = rf"""**1. push_guiding_center_bx_estar.PushGuidingCenterBxEstar:**
 
     {PushGuidingCenterBxEstar.__doc__}

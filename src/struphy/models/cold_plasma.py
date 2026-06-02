@@ -199,6 +199,12 @@ class ColdPlasma(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence):
+
+        1. :class:`~struphy.propagators.maxwell_weak_ampere.MaxwellWeakAmpere`
+        2. :class:`~struphy.propagators.ohm_cold.OhmCold`
+        3. :class:`~struphy.propagators.jxb_cold.JxBCold`
+        """
         doc = rf"""**1. propagators.maxwell.Maxwell:**
 
 {MaxwellWeakAmpere.__doc__}

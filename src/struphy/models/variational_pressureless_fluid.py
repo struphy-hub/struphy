@@ -126,6 +126,11 @@ class VariationalPressurelessFluid(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence):
+
+        1. :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`
+        2. :class:`~struphy.propagators.variational_momentum_advection.VariationalMomentumAdvection`
+        """
         doc = rf"""**1. VariationalDensityEvolve:**
 
 {VariationalDensityEvolve.__doc__}
