@@ -90,16 +90,15 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
     def __init__(self, allocate_variables: bool = False):
         self.variables = self.Variables()
-        
+
         if allocate_variables:
             self.variables.u = FEECVariable(space="Hdiv")
             self.variables.ue = FEECVariable(space="Hdiv")
             self.variables.phi = FEECVariable(space="L2")
-            
+
             self.variables.u.allocate(derham=self.derham, domain=self.domain, equil=self.projected_equil.equil)
             self.variables.ue.allocate(derham=self.derham, domain=self.domain, equil=self.projected_equil.equil)
             self.variables.phi.allocate(derham=self.derham, domain=self.domain, equil=self.projected_equil.equil)
-
 
     # =========================================================================
     ### Options

@@ -10,8 +10,9 @@ from feectools.linalg.stencil import StencilVectorSpace
 from scipy import sparse
 
 from struphy.feec.utilities import apply_essential_bc_to_array
-from struphy.polar.basic import PolarDerhamSpace
 from struphy.io.options import LiteralOptions
+from struphy.polar.basic import PolarDerhamSpace
+from struphy.utils.utils import check_option
 
 
 class LinOpWithTransp(LinearOperator):
@@ -318,14 +319,15 @@ class BoundaryOperator(LinOpWithTransp):
         (e.g. unconstrained to constrained). If None, domain and codomain are the same.
     """
 
-    def __init__(self, 
-                 vector_space: VectorSpace,
-                 space_id: LiteralOptions.OptsFEECSpace, 
-                 dirichlet_bc: tuple[tuple[bool]],
-                 codomain: VectorSpace | None = None,
-                 ):
+    def __init__(
+        self,
+        vector_space: VectorSpace,
+        space_id: LiteralOptions.OptsFEECSpace,
+        dirichlet_bc: tuple[tuple[bool]],
+        codomain: VectorSpace | None = None,
+    ):
         assert isinstance(vector_space, VectorSpace)
-        assert space_id in LiteralOptions.OptsFEECSpace
+        check_option(space_id, LiteralOptions.OptsFEECSpace)
 
         self._domain = vector_space
         if codomain is not None:

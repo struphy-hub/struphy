@@ -250,6 +250,17 @@ class ImplicitDiffusion(Propagator):
         else:
             self._coeffs = [1.0 for src in self.sources]
 
+        # add term for inhomogeneous boundary conditions if needed
+        if self.variables.phi.lifting_function is not None:
+            grad_lift = self.variables.phi.derham_lift.grad
+            M1_lift = self.variables.phi.mass_ops_lift.M1
+            boundary_op_lift = self.variables.phi.boundary_op_lift
+
+            op = -boundary_op_lift @ grad_lift.T @ M1_lift @ grad_lift
+
+            self._sources += [op.dot(self.variables.phi.boundary_spline.vector)]
+            self._coeffs += [1.0]
+
         # initial guess and solver params
         self._x0 = self.options.x0
         self._info = self.options.solver_params.info

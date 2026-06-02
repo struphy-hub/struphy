@@ -10,6 +10,7 @@ import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.feec.linear_operators import BoundaryOperator
+from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
@@ -226,7 +227,7 @@ class FEECVariable(Variable):
     def lifting_function(self) -> Perturbation | None:
         """The lifting function for the case of lifting of boundary conditions.
         Its values at the boundary determine the inhomogeneous boundary conditions.
-        If None, no lifting is applied."""
+        The interior part is irrelevant. If None, no lifting is applied."""
         if not hasattr(self, "_lifting_function"):
             self._lifting_function = None
         return self._lifting_function
@@ -237,48 +238,58 @@ class FEECVariable(Variable):
 
     @property
     def spline(self) -> SplineFunction:
+        """The solution spline function."""
         if not hasattr(self, "_spline"):
             raise ValueError("Warning: spline not allocated yet. Call allocate() first.")
         return self._spline
 
     @property
     def spline_lift(self) -> SplineFunction | None:
-        """The lifting function for the case of lifting of boundary conditions. Only allocated if lifting_function is not None."""
+        """The spline representation of the lifting function for the case of lifting of boundary conditions.
+        The values in the interior are irrelevant, only the boundary values determine the boundary conditions.
+        Only allocated if lifting_function is not None."""
         if not hasattr(self, "_spline_lift"):
             self._spline_lift = None
         return self._spline_lift
 
     @property
     def spline_0(self) -> SplineFunction | None:
-        """The spline function with zero boundary conditions, used for the lifting of boundary conditions. Only allocated if lifting_function is not None."""
+        """Is equal to spline_lift but with boundary coeffcients set to zero.
+        Only allocated if lifting_function is not None."""
         if not hasattr(self, "_spline_0"):
             self._spline_0 = None
         return self._spline_0
 
     @property
     def boundary_spline(self) -> SplineFunction | None:
-        """The spline function representing the boundary conditions, used for the lifting of boundary conditions. Only allocated if lifting_function is not None."""
+        """Is given by spline_lift - spline_0 and computed by the method set_boundary_spline.
+        This spline appears in the weak form of the equations as a source term and is responsible for the inhomogeneous boundary conditions.
+        Only allocated if lifting_function is not None."""
         if not hasattr(self, "_boundary_spline"):
             self._boundary_spline = None
         return self._boundary_spline
 
     @property
     def spline_full(self) -> SplineFunction | None:
-        """Full solution spline (lifting + zero-BC part) in the unconstrained space. Only allocated if lifting_function is not None."""
-        if not hasattr(self, "_spline_full"):
-            self._spline_full = None
+        """Full solution spline in the unconstrained (helper) space.
+        Its values are equal to spline + boundary_spline.
+        Only allocated if lifting_function is not None."""
+        # update coeffs
+        self._spline_full.vector = self.boundary_op_lift.T.dot(self.spline.vector) + self.boundary_spline.vector
         return self._spline_full
 
     @property
     def boundary_op(self) -> BoundaryOperator | None:
-        """The boundary operator, used for the lifting of boundary conditions. Only allocated if lifting_function is not None."""
+        """Boundary operator in the unconstrained (helper) space.
+        Is used to compute spline_0 for instance.
+        Only allocated if lifting_function is not None."""
         if not hasattr(self, "_boundary_op"):
             self._boundary_op = None
         return self._boundary_op
 
     @property
     def boundary_op_lift(self) -> BoundaryOperator | None:
-        """Boundary operator mapping from the unconstrained (lifted) space to the constrained space.
+        """Boundary operator from the unconstrained (helper) space to the solution space (with homogeneous Dirichlet conditions).
         Only allocated if lifting_function is not None."""
         if not hasattr(self, "_boundary_op_lift"):
             self._boundary_op_lift = None
@@ -286,10 +297,19 @@ class FEECVariable(Variable):
 
     @property
     def derham_lift(self) -> Derham | None:
-        """The Derham object for the lifting function. Only allocated if lifting_function is not None."""
+        """The Derham object for the lifting function, yielding the unconstrained (helper) spaces.
+        Only allocated if lifting_function is not None."""
         if not hasattr(self, "_derham_lift"):
             self._derham_lift = None
         return self._derham_lift
+
+    @property
+    def mass_ops_lift(self) -> WeightedMassOperators | None:
+        """The mass operators for the unconstrained (helper) spaces for the case of lifting of boundary conditions.
+        Only allocated if lifting_function is not None."""
+        if not hasattr(self, "_mass_ops_lift"):
+            self._mass_ops_lift = None
+        return self._mass_ops_lift
 
     @property
     def species(self) -> FieldSpecies | FluidSpecies:
@@ -334,7 +354,7 @@ class FEECVariable(Variable):
         if self.lifting_function is not None:
             check_bcs = False
             for bc in derham.bcs:
-                if "dirichlet" in bc:
+                if bc is not None and "dirichlet" in bc:
                     check_bcs = True
                     break
             assert check_bcs, (
@@ -369,6 +389,9 @@ class FEECVariable(Variable):
             dct["options"]["bcs"] = tuple(bcs_lift)
 
             self._derham_lift = Derham.from_dict(dct, comm=derham.comm)
+
+            # unconstrained mass operators
+            self._mass_ops_lift = WeightedMassOperators(self.derham_lift, domain, eq_mhd=equil)
 
             # spline function for the lifting
             self._spline_lift = self.derham_lift.create_spline_function(
