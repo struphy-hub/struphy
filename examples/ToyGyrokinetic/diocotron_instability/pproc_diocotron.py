@@ -1,76 +1,90 @@
-import params_diocotron as params
+import importlib.util
+import pyvista as pv
 from struphy import PlottingData, PostProcessor
 
-import os
+import os, sys
 import cunumpy as xp
+import scipy.optimize as sc
 from matplotlib import pyplot as plt
 import h5py
+
+import logging
+from struphy import set_logging_level
+set_logging_level(logging.INFO)
 
 
 # ------------------
 # Post process simulation data
+# In order to compare different simulations, execute this file as `python pproc_diocotron.py sim_1 sim_2 ...` 
+# where `sim_1`, `sim_2`, etc. are the names of the simulation folders to be post-processed and plotted together.
+# If only one argument, the 2D plots will be shown. If multiple arguments, only the growth rate plot will be shown.
 # ------------------
 def main():
-    sim_name = "simdata"
-    sim_path = os.path.join(os.getcwd(), sim_name)
-
-    pp = PostProcessor(sim=params.sim)
-    pp.process(physical=True)
-
-    pdata = PlottingData(sim=params.sim)
-    pdata.load()
-
-    # path to save plots
-    # save_path = os.path.join(os.getcwd(), "images", "sim")
-    # os.makedirs(save_path, exist_ok=True)
-
-    # ------------------
-    # Check simulation domain
-    # ------------------
-
-    params.domain.show()
-
-    # ------------------
-    # Determine electrical potentail growth rate
-    # ------------------
-
-    # get scalar data (post processing not needed for scalar data)
-    pa_data = os.path.join(sim_path, "data")
-    with h5py.File(os.path.join(pa_data, "data_proc0.hdf5"), "r") as f:
-        time = f["time"]["value"][()]
-        en_phi = f["scalar"]["en_phi"][()]
-
-    # determine growth rate
-    exp_func = lambda x,m,b: 10**(m*x+b)
-
-    # time interval to determine growth rate
-    ti = pdata.t_grid[-1]//4 
-    if ti == 0.0:
-        tf = pdata.t_grid[-1]
+    if len(sys.argv)>1:
+        sim_names = sys.argv[1:]
     else:
-        tf = 2*ti
-    print(f"{ti = }, {tf = }")
-    #ti, tf = 2.5, 5.1
+        sim_names = ["sim_5"]
+    en_phis = []
+    times = []
+    sls = []
+    params_opts = []
+    for i, sim_name in enumerate(sim_names):
+        sim_path = os.path.join(os.getcwd(), sim_name)
 
-    xi = xp.abs(pdata.t_grid - ti).argmin() + 1 # index of time 100 [a.lu.] (observed end of growth rate)
-    xf = xp.abs(pdata.t_grid - tf).argmin() + 1 # index of time 200 [a.lu.] (observed end of growth rate)
-    phi_init=en_phi[1]
-    en_phi = en_phi - phi_init
-    fitting = xp.polyfit(time[xi:xf], xp.log10(en_phi[xi:xf]), deg=1)
+        spec = importlib.util.spec_from_file_location("params", os.path.join(sim_path, "parameters.py"))
+        params = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(params)
+
+        if not os.path.isdir(os.path.join(sim_path, "post_processing")):
+            pp = PostProcessor(sim=params.sim)
+            pp.process(physical=True)
+
+        pdata = PlottingData(sim=params.sim)
+        pdata.load()
+
+        # ------------------
+        # Determine electrical potentail growth rate
+        # ------------------
+
+        # get scalar data (post processing not needed for scalar data)
+        pa_data = os.path.join(sim_path, "data")
+        with h5py.File(os.path.join(pa_data, "data_proc0.hdf5"), "r") as f:
+            times.append(f["time"]["value"][()])
+            en_phis.append(xp.power(f["scalar"]["en_phi"][()], 1.0))
+
+        # time interval to determine growth rate
+        ti, tf = 0.0, 42.0
+        if tf>times[i][-1]: tf = times[i][-1]
+        if ti>tf:
+            ti = tf/2
+        xi = xp.abs(pdata.t_grid - ti).argmin() # index of time 100 [a.lu.] (observed end of growth rate)
+        xf = xp.abs(pdata.t_grid - tf).argmin() + 1 # index of time 200 [a.lu.] (observed end of growth rate)
+        if xi==0:
+            xi=1 # avoid including t=0 in fit
+
+        sls.append(tuple([slice(xi, xf)]))
+
+        # determine growth rate
+        fitting_func = lambda x,m,b,c0: xp.exp(m*x+b)+c0
+        jac_func = lambda x,m,b,c0: xp.array([x*xp.exp(m*x+b), xp.exp(m*x+b), xp.ones_like(x)]).transpose()
+
+        params_opt, _ = sc.curve_fit(fitting_func, times[i][sls[i]], en_phis[i][sls[i]], p0=(1e-3, -5, en_phis[i][1]), jac=jac_func, maxfev=10000)#3.07e2
+        params_opts.append(params_opt)
+
+        logging.info(f"Fitted growth rate for {sim_name}: {params_opt[0]:.4e}")
 
     fig, ax = plt.subplots(1, figsize = (18, 12))
-
-    # plot
-    ax.plot(time, en_phi, label=r"$\phi$")
-    ax.plot(
-        pdata.t_grid, 
-        exp_func(pdata.t_grid, *fitting), 
-        label=f"fitted growth rate {ti=}, {tf=}, growth_rate={fitting[0]:.4e}"
-    )
+    for i in range(len(sim_names)):
+        ax.scatter(times[i][1:], en_phis[i][1:], label=r"$\phi_{"+sim_names[i][4:]+r"}$", marker='x', s=0.05)
+        ax.plot(
+            times[i][sls[i]], 
+            fitting_func(times[i][sls[i]], *params_opts[i]), 
+            label=f"fitted growth rate {ti=}, {tf=}, growth_rate={params_opts[i][0]:.4e}, b={params_opts[i][1]:.4e}, c0={params_opts[i][2]:.4e}"
+        )
     ax.axvline(ti, color="gray", linestyle="--", alpha=0.5)
     ax.axvline(tf, color="gray", linestyle="--", alpha=0.5)
 
-    ax.set_yscale('log')
+    #ax.set_yscale('log')
     ax.legend()
 
     ax.set_title(f"{params.time_opts.dt=}, {params.time_opts.split_algo=}, {params.grid.num_elements=}, {params.derham_opts.degree=}, {params.loading_params.ppc=}")
@@ -79,11 +93,8 @@ def main():
 
     plt.tight_layout()
     plt.show()
-    # plt.savefig(os.path.join(save_path, "growth_rate.png"))
-    # plt.close()
-
-    en_phi = en_phi + phi_init
-
+    if len(sim_names)>1:
+        exit()
     # ------------------
     # Show evolution of mass density distribution
     # ------------------
@@ -212,7 +223,7 @@ def main():
             plt.close(fig)
 
     # extract_images("e1_e2_density", "f_binned", os.path.join(save_path, "video"))
-    save_video_pngs = True
+    save_video_pngs = False
     if save_video_pngs:
         if not os.path.exists(sim_path+"/video"):
             os.mkdir(sim_path+"/video")
