@@ -1,8 +1,8 @@
 import importlib.util
-import pyvista as pv
 from struphy import PlottingData, PostProcessor
 
-import os, sys
+import os
+import sys
 import cunumpy as xp
 import scipy.optimize as sc
 from matplotlib import pyplot as plt
