@@ -59,7 +59,7 @@ def test_poisson_1d(
     Test the convergence of Poisson solver in 1D by means of manufactured solutions.
     """
     # stabilization (removed for Dirichlet boundary conditions -> well-posed)
-    stab_eps = 1e-12
+    stab_eps = 1e-14
     if "dirichlet" in bc_type:
         stab_eps = 0.0
 
