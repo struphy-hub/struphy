@@ -242,7 +242,7 @@ class ToyDrift(StruphyModel):
         1. :class:`~struphy.propagators.poisson_solve.PoissonSolve`
         2. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
         """
-        doc = rf"""**1. PoissonFieldSolve:**
+        doc = rf"""**1. PoissonSolve:**
 
 {PoissonSolve.__doc__}
 
