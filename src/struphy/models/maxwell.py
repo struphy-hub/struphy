@@ -123,9 +123,9 @@ class Maxwell(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        """Propagators:
+        """Time integration is performed by the following propagators (in sequence):
 
-        1. :class:`~struphy.propagators.maxwell.Maxwell`
+        1. :class:`~struphy.propagators.maxwell_weak_ampere.MaxwellWeakAmpere`
         """
         doc = rf"""**1. propagators.maxwell.Maxwell:**
         

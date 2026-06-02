@@ -13,7 +13,7 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.propagators.hasegawa_wakatani_step import HasegawaWakataniStep
-from struphy.propagators.poisson_field_solve import PoissonFieldSolve
+from struphy.propagators.poisson_solve import PoissonSolve
 
 logger = logging.getLogger("struphy")
 rank = MPI.COMM_WORLD.Get_rank()
@@ -70,7 +70,7 @@ class HasegawaWakatani(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.poisson = PoissonFieldSolve()
+            self.poisson = PoissonSolve()
             self.hw = HasegawaWakataniStep()
 
     ## abstract methods
@@ -148,9 +148,14 @@ class HasegawaWakatani(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence):
+
+        1. :class:`~struphy.propagators.poisson_solve.PoissonSolve`
+        2. :class:`~struphy.propagators.hasegawa_wakatani_step.HasegawaWakataniStep`
+        """
         doc = rf"""**1. PoissonFieldSolve:**
 
-{PoissonFieldSolve.__doc__}
+{PoissonSolve.__doc__}
 
 **2. HasegawaWakataniStep:**
 

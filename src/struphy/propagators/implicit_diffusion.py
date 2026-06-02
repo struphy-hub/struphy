@@ -54,8 +54,7 @@ class ImplicitDiffusion(Propagator):
     """
 
     class Variables:
-        """Container for variables advanced by :class:`ImplicitDiffusion`.
-
+        """
         Attributes
         ----------
         phi : FEECVariable

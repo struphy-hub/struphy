@@ -26,7 +26,7 @@ from struphy.pic.accumulation.accum_kernels import charge_density_0form
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.pic.particles import Particles6D
 from struphy.propagators.base import Propagator
-from struphy.propagators.poisson_field_solve import PoissonFieldSolve
+from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.topology.grids import TensorProductGrid
 from struphy.utils.pyccel import Pyccelkernel
 
@@ -240,7 +240,7 @@ def test_poisson_1d(
             _phi.lifting_function = lifting_fun if "inhom_dirichlet" in bc_type else None
             _phi.allocate(derham=derham, domain=domain)
 
-            poisson_solver = PoissonFieldSolve()
+            poisson_solver = PoissonSolve()
             poisson_solver.variables.phi = _phi
 
             poisson_solver.options = poisson_solver.Options(
@@ -413,7 +413,7 @@ def test_poisson_accum_1d(mapping, do_plot=False):
     _phi = FEECVariable(space="H1")
     _phi.allocate(derham=derham, domain=domain)
 
-    poisson_solver = PoissonFieldSolve()
+    poisson_solver = PoissonSolve()
     poisson_solver.variables.phi = _phi
 
     poisson_solver.options = poisson_solver.Options(
@@ -611,7 +611,7 @@ def test_poisson_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_
     _phi1 = FEECVariable(space="H1")
     _phi1.allocate(derham=derham, domain=domain)
 
-    poisson_solver1 = PoissonFieldSolve()
+    poisson_solver1 = PoissonSolve()
     poisson_solver1.variables.phi = _phi1
 
     poisson_solver1.options = poisson_solver1.Options(
@@ -634,7 +634,7 @@ def test_poisson_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_
     _phi2 = FEECVariable(space="H1")
     _phi2.allocate(derham=derham, domain=domain)
 
-    poisson_solver2 = PoissonFieldSolve()
+    poisson_solver2 = PoissonSolve()
     poisson_solver2.variables.phi = _phi2
 
     stab_eps = 1e-8
