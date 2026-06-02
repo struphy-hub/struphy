@@ -15,6 +15,7 @@
 
 - Maxwell’s equations
 - Magneto-hydrodynamics (MHD)
+- Multi-fluid models
 - Vlasov-Poisson and Vlasov-Maxwell kinetic models
 - Drift-kinetic models for strongly magnetized plasma
 - MHD-kinetic hybrid models
@@ -25,17 +26,10 @@ The code is freely available under an [MIT license](https://github.com/struphy-h
 
 ![Max Planck Institute Logo](https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/MPI_PP_Logo_Vertical_E_green_rgb_centered.png)
 
-## Tutorials
-
-Get familiar with Struphy right away on [mybinder](https://mybinder.org/v2/gh/struphy-hub/struphy-tutorials/main) - no installation needed.
-
 ## Quick install
 
-Quick install on your computer (using a virtual environment):
+Struphy is available on [PyPI](https://pypi.org/project/struphy/), so you can install it with pip:
 
-    python -m venv struphy_env
-    source struphy_env/bin/activate
-    pip install -U pip
     pip install -U struphy
     struphy compile
 
@@ -43,6 +37,38 @@ In case you face troubles with install/compile:
 
 1.  check the [prerequisites](https://struphy-hub.github.io/struphy/sections/install.html#requirements)
 2.  visit [trouble shooting](https://struphy-hub.github.io/struphy/sections/install.html#trouble-shooting)
+
+## Example: solve Maxwell’s equations
+
+Use the command line to generate a default launch file:
+
+    struphy params Maxwell
+
+This will create `params_Maxwell.py` in your current working directory (cwd). You can open the file and - if you feel like it already - change some parameters. Start the simulation with
+
+    python params_Maxwell.py
+
+The default output is in `sim_1/` in your cwd. You can change the output path via the class `EnvironmentOptions` in the parameter file.
+
+Parallel simulations are run for example with
+
+    pip install -U mpi4py
+    mpirun -n 4 python params_Maxwell.py
+
+You can also put the run command in a batch script.
+
+## Available models
+
+Check the list of currently available models in the [documentation](https://struphy-hub.github.io/struphy/sections/models.html). If you want to see a particular model implemented, please let us know via [issues](https://github.com/struphy-hub/struphy/issues).
+
+## Documentation
+
+The doc is on [Github pages](https://struphy-hub.github.io/struphy/index.html), we recommend in particular to visit:
+
+- [Install](https://struphy-hub.github.io/struphy/sections/install.html)
+- [Userguide](https://struphy-hub.github.io/struphy/sections/userguide.html)
+- [Available models](https://struphy-hub.github.io/struphy/sections/models.html)
+- [Numerical methods](https://struphy-hub.github.io/struphy/sections/numerics.html)
 
 ## Python API
 
@@ -74,24 +100,9 @@ sim.show_domain(scalars="absB0", window_size = (850, 250), zoom_factor=2.0)
 
 This will show the domain and equilibrium magnetic field of the linear MHD model. You can find more examples in the [documentation](https://struphy-hub.github.io/struphy/index.html).
 
-## Quick run
+## Tutorials on Binder
 
-As an example, let’s say we want to solve Maxwell’s equations. We can use the CLI and generate a default launch file via
-
-    struphy params Maxwell
-
-Hit yes when prompted - this will create the file `params_Maxwell.py` in your current working directory (cwd). You can open the file and - if you feel like it already - change some parameters, then run
-
-    python params_Maxwell.py
-
-The default output is in `sim_1/` in your cwd. You can change the output path via the class `EnvironmentOptions` in the parameter file.
-
-Parallel simulations are run for example with
-
-    pip install -U mpi4py
-    mpirun -n 4 python params_Maxwell.py
-
-You can also put the run command in a batch script.
+Get familiar with Struphy right away on [mybinder](https://mybinder.org/v2/gh/struphy-hub/struphy-tutorials/main) - no installation needed.
 
 ## Docker
 
@@ -110,15 +121,6 @@ There is also a [Docker image with just the prerequisites](https://hub.docker.co
     docker pull spossann/ubuntu-for-struphy:main
     docker run -it --rm spossann/ubuntu-for-struphy:main
 
-## Documentation
-
-The doc is on [Github pages](https://struphy-hub.github.io/struphy/index.html), we recommend in particular to visit:
-
-- [Install](https://struphy-hub.github.io/struphy/sections/install.html)
-- [Userguide](https://struphy-hub.github.io/struphy/sections/userguide.html)
-- [Available models](https://struphy-hub.github.io/struphy/sections/models.html)
-- [Numerical methods](https://struphy-hub.github.io/struphy/sections/numerics.html)
-
 ## Get in touch
 
 - [Issues](https://github.com/struphy-hub/struphy/issues)
@@ -127,6 +129,21 @@ The doc is on [Github pages](https://struphy-hub.github.io/struphy/index.html), 
 - [@max-models](https://github.com/max-models) [max.lindqvist@ipp.mpg.de](mailto:Max.Lindqvist@ipp.mpg.de) (Maintainer)
 - [LinkedIn profile](https://www.linkedin.com/company/struphy/)
 
-## Citing Struphy
+## Publications
 
-- S. Possanner, F. Holderied, Y. Li, B.-K. Na, D. Bell, S. Hadjout and Y. Güçlü, [**High-Order Structure-Preserving Algorithms for Plasma Hybrid Models**](https://link.springer.com/chapter/10.1007/978-3-031-38299-4_28), International Conference on Geometric Science of Information 2023, 263-271, Springer Nature Switzerland.
+- D. Bell, M.C. Pinto, S. Possanner, E. Sonnendrücker,
+[**The linearized Vlasov–Maxwell system as a Hamiltonian system**](https://doi.org/10.1016/j.jcp.2026.114765),
+Journal of Computational Physics, Volume 555, 114765 (2026).
+
+- V. Carlier, M.C. Pinto, [**Variational discretizations of ideal magnetohydrodynamics in smooth regime using structure-preserving finite elements**](https://doi.org/10.1016/j.jcp.2024.113647),
+Journal of Computational Physics, Volume 523, 113647 (2025).
+
+- Y. Li, M.C. Pinto, F. Holderied, S. Possanner, E. Sonnendrücker, [**Geometric Particle-In-Cell discretizations of a plasma hybrid model with kinetic ions and mass-less fluid electrons**](https://doi.org/10.1016/j.jcp.2023.112671), Journal of Computational Physics 498, 112671 (2023).
+
+- S. Possanner, F. Holderied, Y. Li, B.-K. Na, D. Bell, S. Hadjout and Y. Güçlü, [**High-Order Structure-Preserving Algorithms for Plasma Hybrid Models**](https://link.springer.com/chapter/10.1007/978-3-031-38299-4_28), International Conference on Geometric Science of Information, 263-271, Springer Nature Switzerland (2023).
+
+- F. Holderied, S. Possanner, [**Magneto-hydrodynamic eigenvalue solver for axisymmetric equilibria based on smooth polar splines**](https://doi.org/10.1016/j.jcp.2022.111329), Journal of Computational Physics 464, 111329 (2022).
+
+- F. Holderied, S. Possanner, X. Wang, [**MHD-kinetic hybrid code based on structure-preserving finite elements with particles-in-cell**](https://doi.org/10.1016/j.jcp.2021.110143), Journal of Computational Physics 433, 110143 (2021).
+
+- F. Holderied, S. Possanner, A. Ratnani, X. Wang, [**Structure-preserving vs. standard particle-in-cell methods: The case of an electron hybrid model**](https://doi.org/10.1016/j.jcp.2019.109108), Journal of Computational Physics 402, 109108 (2020).
