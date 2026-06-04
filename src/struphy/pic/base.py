@@ -1268,6 +1268,9 @@ class Particles(metaclass=ABCMeta):
         else:
             assert isinstance(self.f0, FluidEquilibrium)
 
+            _density = None
+            _u1 = None
+
             if self.perturbations is not None:
                 for (moment, pert) in self.perturbations.items():  # only one perturbation is taken into account at the moment
                     assert isinstance(moment, str)
@@ -1298,9 +1301,6 @@ class Particles(metaclass=ABCMeta):
                         )
                         #  self._u_init = lambda e1, e2, e3: self.f0.uv(e1, e2, e3) + _u1(e1, e2, e3)
                         # TODO: add other velocity components
-            else:
-                _density = None
-                _u1 = None
 
             def _f_init(*etas, flat_eval=False):
                 if len(etas) == 1:
