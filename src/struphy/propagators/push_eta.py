@@ -23,13 +23,13 @@ class PushEta(Propagator):
 
         \frac{\textnormal d \mathbf{x}_p(t)}{\textnormal d t} = \mathbf{v}_p\,,
 
-    for constant :math:`\mathbf{v}_p` in logical space given by :math:`\mathbf{x} = F(\boldsymbol{\eta})`:
+    in logical space given by :math:`\mathbf{x} = F(\boldsymbol{\eta})`:
 
     .. math::
 
-        \frac{\textnormal d \boldsymbol{\eta}_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol{\eta}_p(t)) \,\mathbf{v}_p\,.
-
-    Available algorithms:
+        \frac{\textnormal d \boldsymbol{\eta}_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol{\eta}_p(t)) \,\mathbf{v}_p\,,
+    
+    for constant :math:`\mathbf{v}_p`. Available algorithms:
 
     - Explicit RK from :class:`~struphy.ode.utils.ButcherTableau`
     """

@@ -16,7 +16,15 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class PressureLessSPH(StruphyModel):
-    r"""Pressureless fluid discretized with smoothed particle hydrodynamics (SPH)."""
+    r"""Particle discretization of pressureless Euler flow with external forcing.
+
+    Parameters
+    ----------
+    base_units : BaseUnits, optional
+        Reference units used to derive model normalization constants.
+    mass_number : float, optional
+        Species mass number (default is 1.0).
+    """
 
     @classmethod
     def model_type(cls) -> LiteralOptions.ModelTypes:
@@ -50,9 +58,7 @@ class PressureLessSPH(StruphyModel):
     def __init__(
         self,
         base_units: BaseUnits = BaseUnits(),
-        charge_number: int = 1,
         mass_number: float = 1.0,
-        epsilon: float = None,
     ):
 
         # 0. store input parameters
@@ -60,9 +66,7 @@ class PressureLessSPH(StruphyModel):
 
         # 1. instantiate all species
         self.cold_fluid = self.ColdFluid(
-            charge_number=charge_number,
             mass_number=mass_number,
-            epsilon=epsilon,
         )
 
         # 2. derive units (must be done after instantiating species to access charge and mass numbers)
@@ -102,16 +106,19 @@ class PressureLessSPH(StruphyModel):
 
         .. math::
 
-            \partial_t (\rho \mathbf{u}) + \nabla \cdot (\rho \mathbf{u} \otimes \mathbf{u}) = -\nabla \phi_0
+            \partial_t (\rho \mathbf{u}) + \nabla \cdot (\rho \mathbf{u} \otimes \mathbf{u}) = \mathbf{F}
 
-        where :math:`\phi_0` is a static external potential.
+        where :math:`\mathbf{F}` is an external force.
         """
 
     @classmethod
     def doc_normalization(cls):
-        r"""No special field normalization is introduced beyond the particle units
-        inherited from the simulation setup. This model does not define a
-        separate wave or plasma velocity scale."""
+        r"""Velocity and field normalizations:
+
+        .. math::
+
+            \hat{u} = 1\,\textrm{m/s}, \qquad \hat{F} = \frac{m\hat{n}\hat{u}}{\hat{t}}\,.
+        """
 
     @classmethod
     def doc_scalar_quantities(cls):
@@ -140,7 +147,7 @@ class PressureLessSPH(StruphyModel):
     def doc_long_description(cls):
         r"""PressureLessSPH is a meshfree particle model for a pressureless fluid.
         It is primarily useful as a simple SPH benchmark or as a reduced
-        particle transport model in a prescribed potential."""
+        particle transport model in a prescribed force field or potential."""
 
     @classmethod
     def doc_examples(cls):

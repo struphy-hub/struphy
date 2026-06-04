@@ -1264,17 +1264,12 @@ class Particles(metaclass=ABCMeta):
     def _set_initial_condition(self):
         if self.type != "sph":
             self._f_init = self.initial_condition
+            self._u_init = None
         else:
             assert isinstance(self.f0, FluidEquilibrium)
 
-            # get vector-field representation of the fluid velocity
-            self._u_init = self.f0.uv
-
             if self.perturbations is not None:
-                for (
-                    moment,
-                    pert,
-                ) in self.perturbations.items():  # only one perturbation is taken into account at the moment
+                for (moment, pert) in self.perturbations.items():  # only one perturbation is taken into account at the moment
                     assert isinstance(moment, str)
                     if pert is None:
                         continue
@@ -1284,7 +1279,7 @@ class Particles(metaclass=ABCMeta):
                         if pert.given_in_basis is None:
                             pert.given_in_basis = "0"
 
-                        _fun = TransformedPformComponent(
+                        _density = TransformedPformComponent(
                             pert,
                             pert.given_in_basis,
                             "0",
@@ -1294,24 +1289,25 @@ class Particles(metaclass=ABCMeta):
                     elif moment == "u1":
                         if pert.given_in_basis is None:
                             pert.given_in_basis = "v"
-                        _fun = TransformedPformComponent(
+                        _u1 = TransformedPformComponent(
                             pert,
                             pert.given_in_basis,
                             "v",
                             comp=pert.comp,
                             domain=self.domain,
                         )
-                        self._u_init = lambda e1, e2, e3: self.f0.uv(e1, e2, e3) + _fun(e1, e2, e3)
+                        #  self._u_init = lambda e1, e2, e3: self.f0.uv(e1, e2, e3) + _u1(e1, e2, e3)
                         # TODO: add other velocity components
             else:
-                _fun = None
+                _density = None
+                _u1 = None
 
             def _f_init(*etas, flat_eval=False):
                 if len(etas) == 1:
-                    if _fun is None:
+                    if _density is None:
                         out = self.f0.n0(etas[0])
                     else:
-                        out = self.f0.n0(etas[0]) + _fun(*etas[0].T)
+                        out = self.f0.n0(etas[0]) + _density(*etas[0].T)
                 else:
                     assert len(etas) == 3
                     E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
@@ -1323,19 +1319,47 @@ class Particles(metaclass=ABCMeta):
 
                     out0 = self.f0.n0(E1, E2, E3)
 
-                    if _fun is None:
+                    if _density is None:
                         out = out0
                     else:
-                        out1 = _fun(E1, E2, E3)
+                        out1 = _density(E1, E2, E3)
                         assert out0.shape == out1.shape
                         out = out0 + out1
 
                     if flat_eval:
                         out = xp.squeeze(out)
+                return out
+            
+            def _u_init(*etas, flat_eval=False):
+                if len(etas) == 1:
+                    if _u1 is None:
+                        out = self.f0.uv(etas[0])
+                    else:
+                        out = self.f0.uv(etas[0]) + _u1(*etas[0].T)
+                else:
+                    assert len(etas) == 3
+                    E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
+                        etas[0],
+                        etas[1],
+                        etas[2],
+                        flat_eval=flat_eval,
+                    )
 
+                    out0 = self.f0.uv(E1, E2, E3)
+
+                    if _u1 is None:
+                        out = out0
+                    else:
+                        out1 = _u1(E1, E2, E3)
+                        assert out0.shape == out1.shape
+                        out = out0 + out1
+
+                    if flat_eval:
+                        out = xp.squeeze(out)
                 return out
 
             self._f_init = _f_init
+            self._u_init = _u_init
 
     def _load_external(
         self,
