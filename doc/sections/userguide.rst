@@ -7,8 +7,7 @@ This guide is a practical, detailed companion to :ref:`quickstart`.
 It focuses on common workflows in Struphy with copy-paste Python snippets
 that you can adapt to your own cases.
 
-For interactive notebooks and longer tutorial stories, see
-`struphy-tutorials <https://github.com/struphy-hub/struphy-tutorials>`_.
+For interactive notebooks and longer tutorial stories, see the :ref:`tutorial collection <tutorials>`.
 
 .. highlight:: python
 
@@ -713,6 +712,118 @@ Open in PyVista (Python workflow):
 This VTK path is usually the fastest way to inspect full 3D structure in large
 runs, while ``sim.load_plotting_data()`` is often more convenient for custom
 Matplotlib analysis scripts.
+
+
+.. _code_profiling:
+
+12. Code Profiling
+------------------
+
+Struphy offers two complementary profiling paths:
+
+1. Python :mod:`line_profiler` for line-by-line timing of selected functions.
+   This is the right tool when you want to locate hotspots inside a small
+   number of functions and inspect the cost of individual statements.
+2. :class:`~scope_profiler.ProfileManager` for simulation-level profiling.
+   This is the built-in instrumentation used by :class:`~struphy.Simulation`
+   to record coarse profiling regions such as ``model.integrate`` and to
+   collect time traces over a full run.
+
+The two tools are usually used together: ``line_profiler`` helps with local
+optimization, while ``ProfileManager`` shows where time is spent across the
+whole simulation workflow.
+
+
+line_profiler
+^^^^^^^^^^^^^
+
+The Python package `line_profiler <https://kernprof.readthedocs.io/en/latest/>`_
+profiles individual lines inside decorated functions. Struphy already imports
+``from line_profiler import profile`` in the relevant modules, so the functions
+you want to inspect are marked with ``@profile`` in the source code.
+
+To enable line profiling, run the script with the environment variable
+``LINE_PROFILE=1`` set. The repository CI uses the same activation pattern:
+
+.. code-block:: bash
+
+    LINE_PROFILE=1 python test.py
+
+When profiling is enabled, the decorated functions are recorded and the run
+prints a line-by-line summary at the end. The output shows the standard
+``line_profiler`` columns:
+
+1. ``Line #``: source line number.
+2. ``Hits``: number of executions.
+3. ``Time``: total time spent on the line.
+4. ``Per Hit``: average time per execution.
+5. ``% Time``: fraction of the profiled function time.
+6. ``Line Contents``: the source line itself.
+
+For detailed inspection of a saved result, use the formatter provided by
+``line_profiler``:
+
+.. code-block:: bash
+
+    python -m line_profiler profile_output.lprof
+
+This prints the same tabular timing information in a readable form. If you use
+the repository defaults, the profiling output is written alongside the run and
+can be inspected again later from the generated ``.lprof`` and text output
+files.
+
+
+ProfileManager
+^^^^^^^^^^^^^^
+
+Struphy's simulation-wide profiler is configured in
+:class:`~struphy.Simulation` through :class:`~scope_profiler.ProfileManager`.
+The relevant switches live in :class:`~struphy.EnvironmentOptions`:
+
+1. ``profiling_activated=True`` enables profiling data collection.
+2. ``profiling_trace=True`` additionally records a time trace of profiling
+   regions.
+
+The profiler is set up automatically in ``Simulation.__init__()`` and finalized
+when ``Simulation.run()`` finishes. The simulation code already wraps key work
+inside regions such as ``model.integrate`` via
+``ProfileManager.profile_region(...)``.
+
+Example configuration:
+
+.. code-block:: python
+
+    from struphy import EnvironmentOptions, Simulation
+
+    env = EnvironmentOptions(
+        out_folders="./runs",
+        sim_folder="vm1s_profile",
+        profiling_activated=True,
+        profiling_trace=True,
+    )
+
+    sim = Simulation(model=model, env=env)
+    sim.run()
+
+When profiling is enabled, Struphy writes the main profiling data to
+``profiling_data.h5`` in the simulation output folder. If ``profiling_trace``
+is enabled, the run also stores ``profiling_time_trace.pkl``.
+
+To read the time-trace output, call post-processing with ``time_trace=True``:
+
+.. code-block:: python
+
+    sim.pproc(time_trace=True)
+
+This generates profiling plots in the post-processing directory, including a
+time-versus-duration view and an interactive Gantt chart. Those plots are the
+easiest way to identify which profiling regions dominate runtime. The data
+reader behind them consumes ``profiling_data.h5`` and groups timings by region
+and MPI rank, so the output is suitable for both serial and parallel runs.
+
+If you need a quick sanity check, look for the total runtime of the dominant
+regions and compare them across ranks. A large imbalance between ranks usually
+means the expensive section is load-dependent rather than purely algorithmic.
 
    
 
