@@ -28,7 +28,7 @@ class PushEta(Propagator):
     .. math::
 
         \frac{\textnormal d \boldsymbol{\eta}_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol{\eta}_p(t)) \,\mathbf{v}_p\,,
-    
+
     for constant :math:`\mathbf{v}_p`. Available algorithms:
 
     - Explicit RK from :class:`~struphy.ode.utils.ButcherTableau`
