@@ -81,21 +81,18 @@ Connect the ``source`` variable of species ``em_fields`` to the propagator and s
 
     sim.run(one_time_step=True)
 
-7. Set logging level to INFO to see more printed information.
+7. Post-process and load plotting data.
 
 .. code-block:: python
 
-    from struphy import set_logging_level
-    set_logging_level("INFO")
+    sim.pproc()
+    sim.load_plotting_data()
 
-8. Post-process, compare to the exact solution, and save the figure.
+8. Compare to the exact solution, and save the figure.
 
 .. code-block:: python
 
     import matplotlib.pyplot as plt
-
-    sim.pproc()
-    sim.load_plotting_data()
 
     x = sim.grids_phy[0][:, 0, 0]
     t_last = max(sim.spline_values.em_fields.phi_log.data)
@@ -128,7 +125,7 @@ Full copy-paste script:
 .. code-block:: python
 
     import numpy as np
-    from struphy import Simulation, domains, grids, perturbations, set_logging_level
+    from struphy import Simulation, domains, grids, perturbations
     from struphy.models import Poisson
 
     model = Poisson()
@@ -154,8 +151,6 @@ Full copy-paste script:
 
     sim = Simulation(model=model, domain=domain, grid=grid)
     sim.run(one_time_step=True)
-
-    set_logging_level("INFO")
 
     sim.pproc()
     sim.load_plotting_data()
