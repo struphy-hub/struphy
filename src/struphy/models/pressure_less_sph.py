@@ -22,8 +22,12 @@ class PressureLessSPH(StruphyModel):
     ----------
     base_units : BaseUnits, optional
         Reference units used to derive model normalization constants.
+    charge_number : int, optional
+        Species charge number (default is 1).
     mass_number : float, optional
         Species mass number (default is 1.0).
+    epsilon : float, optional
+        Scaling parameter for force field (default is None).
     """
 
     @classmethod
@@ -58,7 +62,9 @@ class PressureLessSPH(StruphyModel):
     def __init__(
         self,
         base_units: BaseUnits = BaseUnits(),
+        charge_number: int = 1,
         mass_number: float = 1.0,
+        epsilon: float = None,
     ):
 
         # 0. store input parameters
@@ -66,7 +72,9 @@ class PressureLessSPH(StruphyModel):
 
         # 1. instantiate all species
         self.cold_fluid = self.ColdFluid(
+            charge_number=charge_number,
             mass_number=mass_number,
+            epsilon=epsilon,
         )
 
         # 2. derive units (must be done after instantiating species to access charge and mass numbers)
