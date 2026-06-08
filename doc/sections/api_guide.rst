@@ -30,6 +30,8 @@ For fluid backgrounds see :ref:`equils_avail`.
 
 .. autoclass:: struphy.EnvironmentOptions
 
+For profiling-related runtime options and output inspection, see :ref:`code_profiling`.
+
 .. autoclass:: struphy.BaseUnits
 
 .. autoclass:: struphy.Time

@@ -284,8 +284,7 @@ class PostProcessor:
         create_vtk : bool
             If True, create VTK files for visualisation.
         """
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info(f"\nPost-processing path {self.path_out}")
+        logger.warning(f"\nPost-processing path {self.path_out}")
 
         # check for fields and kinetic data in hdf5 file that need post processing
         with h5py.File(os.path.join(self.path_out, "data/", "data_proc0.hdf5"), "r") as file:
@@ -340,7 +339,7 @@ class PostProcessor:
         create_vtk: bool = True,
     ):
         if not self.exist_fields:
-            logger.info("\nNo feec fields found in hdf5 file, skipping post-processing of fields.")
+            logger.warning("\nNo feec fields found in hdf5 file, skipping post-processing of fields.")
             return
 
         fields, t_grid = self._create_femfields(step=step)
@@ -397,7 +396,7 @@ class PostProcessor:
     ):
 
         if self.exist_particles is None:
-            logger.info("\nNo kinetic data found in hdf5 file, skipping post-processing of kinetic data.")
+            logger.warning("\nNo kinetic data found in hdf5 file, skipping post-processing of kinetic data.")
             return
 
         # directory for kinetic data
@@ -476,13 +475,13 @@ class PostProcessor:
         # get fields names, space IDs and time grid from 0-th rank hdf5 file
         with h5py.File(os.path.join(self.path_out, "data/", "data_proc0.hdf5"), "r") as file:
             space_ids = {}
-            logger.info("\nReading hdf5 data of following species:")
+            logger.warning("\nReading hdf5 data of following species:")
             for species, dset in file["feec"].items():
                 space_ids[species] = {}
-                logger.info(f"{species}:")
+                logger.warning(f"{species}:")
                 for var, ddset in dset.items():
                     space_ids[species][var] = ddset.attrs["space_id"]
-                    logger.info(f"  {var}: {ddset}")
+                    logger.warning(f"  {var}: {ddset}")
 
             t_grid = file["time/value"][::step].copy()
 
@@ -499,7 +498,7 @@ class PostProcessor:
                     )
 
         # get hdf5 data
-        logger.info("")
+        logger.warning("")
         for rank in range(int(self.comm_size)):
             # open hdf5 file
             with h5py.File(os.path.join(self.path_out, "data/", f"data_proc{rank}.hdf5"), "r") as file:
@@ -554,7 +553,7 @@ class PostProcessor:
                                 # update after each data addition, can be made more efficient
                                 fields[t][species][var].vector.update_ghost_regions()
 
-        logger.info("Creation of Struphy Fields done.")
+        logger.warning("Creation of Struphy Fields done.")
 
         return fields, t_grid
 
@@ -609,7 +608,7 @@ class PostProcessor:
             for name, field in vars.items():
                 point_data[species][name] = {}
 
-        logger.info("\nEvaluating fields ...")
+        logger.warning("\nEvaluating fields ...")
         for t in tqdm(fields):
             for species, vars in fields[t].items():
                 for name, field in vars.items():
@@ -716,7 +715,7 @@ class PostProcessor:
         nt = len(t_grid) - 1
         log_nt = int(xp.log10(nt)) + 1
 
-        logger.info(f"\nCreating vtk in {path} ...")
+        logger.warning(f"\nCreating vtk in {path} ...")
         for n, t in enumerate(tqdm(t_grid)):
             point_data_n = {}
 
@@ -799,7 +798,7 @@ class PostProcessor:
         temp = xp.empty((n_markers, len(save_index)), order="C")
         lost_particles_mask = xp.empty(n_markers, dtype=bool)
 
-        logger.info(f"Evaluation of {n_markers} marker orbits for {species}")
+        logger.warning(f"Evaluation of {n_markers} marker orbits for {species}")
 
         # loop over time grid
         for n in tqdm(range(int((nt - 1) / step) + 1)):
@@ -882,7 +881,7 @@ class PostProcessor:
             shutil.rmtree(path_distr)
             os.mkdir(path_distr)
 
-        logger.info("Evaluation of distribution functions for " + str(species))
+        logger.warning("Evaluation of distribution functions for " + str(species))
 
         # Create grids
         with h5py.File(os.path.join(self.path_out, "data/data_proc0.hdf5"), "r") as file_0:
@@ -1027,7 +1026,7 @@ class PostProcessor:
             shutil.rmtree(path_n_sph)
             os.mkdir(path_n_sph)
 
-        logger.info("Evaluation of sph density for " + str(species))
+        logger.warning("Evaluation of sph density for " + str(species))
 
         with h5py.File(os.path.join(self.path_out, "data/data_proc0.hdf5"), "r") as file_0:
             # Create grids
@@ -1194,8 +1193,8 @@ class PlottingData:
         NotImplementedError
             If an unexpected data folder structure is encountered.
         """
-        logger.info("\nLoading post-processed plotting data:")
-        logger.info(f"Data path: {self.path_pproc}")
+        logger.warning("\nLoading post-processed plotting data:")
+        logger.warning(f"Data path: {self.path_pproc}")
 
         # load time grid
         self.t_grid = xp.load(os.path.join(self.path_pproc, "t_grid.npy"))
@@ -1295,22 +1294,22 @@ class PlottingData:
                         logger.info(f"{folder =}")
                         raise NotImplementedError
 
-        logger.info("\nThe following data has been loaded:")
-        logger.info("\ngrids:")
-        logger.info(f"{self.t_grid.shape =}")
+        logger.warning("\nThe following data has been loaded:")
+        logger.warning("\ngrids:")
+        logger.warning(f"{self.t_grid.shape =}")
         if self.grids_log is not None:
-            logger.info(f"{self.grids_log[0].shape =}")
-            logger.info(f"{self.grids_log[1].shape =}")
-            logger.info(f"{self.grids_log[2].shape =}")
+            logger.warning(f"{self.grids_log[0].shape =}")
+            logger.warning(f"{self.grids_log[1].shape =}")
+            logger.warning(f"{self.grids_log[2].shape =}")
         if self.grids_phy is not None:
-            logger.info(f"{self.grids_phy[0].shape =}")
-            logger.info(f"{self.grids_phy[1].shape =}")
-            logger.info(f"{self.grids_phy[2].shape =}")
-        logger.info("\nself.spline_values:")
-        logger.info(self.spline_values)
-        logger.info("self.orbits:")
-        logger.info(self.orbits)
-        logger.info("self.f:")
-        logger.info(self.f)
-        logger.info("self.n_sph:")
-        logger.info(self.n_sph)
+            logger.warning(f"{self.grids_phy[0].shape =}")
+            logger.warning(f"{self.grids_phy[1].shape =}")
+            logger.warning(f"{self.grids_phy[2].shape =}")
+        logger.warning("\nself.spline_values:")
+        logger.warning(self.spline_values)
+        logger.warning("self.orbits:")
+        logger.warning(self.orbits)
+        logger.warning("self.f:")
+        logger.warning(self.f)
+        logger.warning("self.n_sph:")
+        logger.warning(self.n_sph)
