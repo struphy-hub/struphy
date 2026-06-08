@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_kinetic_background_magics(show_plot=False):
     """Test the magic commands __sum__, __mul__ and __sub__
     of the Maxwellian base class."""
@@ -84,6 +87,7 @@ def test_kinetic_background_magics(show_plot=False):
         plt.show()
 
 
+@pytest.mark.mpi_skip
 def test_plotting_function():
 
     import cunumpy as xp
