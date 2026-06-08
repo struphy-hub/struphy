@@ -14,10 +14,12 @@ It is recommended to use the same Python environment as for Struphy, e.g., by in
    :caption: Notebook tutorials:
 
    ../_collections/tutorials/tutorial_poisson
-   ../_collections/tutorials/tutorial_01_struphy_simulations
-   ../_collections/tutorials/tutorial_02_parameter_files
-   ../_collections/tutorials/tutorial_03_test_particles
-   ../_collections/tutorials/tutorial_04_smoothed_particle_hydrodynamics
-   ../_collections/tutorials/tutorial_05_vlasov_maxwell
-   ../_collections/tutorials/tutorial_06_mapped_domains
-   ../_collections/tutorials/tutorial_07_mhd_equilibria
+   ../_collections/tutorials/tutorial_maxwell
+   ../_collections/tutorials/linear_mhd_slab_waves
+   ../_collections/tutorials/tutorial_vlasov_ampere_one_species_weak_landau
+   ../_collections/tutorials/tutorial_particle_tracing
+   ../_collections/tutorials/tutorial_domains
+   ../_collections/tutorials/tutorial_mhd_equilibria
+   ../_collections/tutorials/tutorial_viscous_euler_sph
+   ../_collections/tutorials/tutorial_beltrami_sph
+   ../_collections/tutorials/tutorial_gas_expansion_sph
