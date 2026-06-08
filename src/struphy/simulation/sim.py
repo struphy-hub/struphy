@@ -18,6 +18,7 @@ from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
 from pyevtk.hl import gridToVTK
 from scope_profiler import ProfileManager
+from tqdm import tqdm
 
 # api imports
 from struphy import (
@@ -529,7 +530,7 @@ class Simulation(SimulationBase):
                 self.time_state["value_sec"][0] = file["restart/time/value_sec"][-1]
                 self.time_state["index"][0] = file["restart/time/index"][-1]
 
-            total_steps = str(int(round((Tend - self.time_state["value"][0]) / dt)))
+            total_steps = int(round((Tend - self.time_state["value"][0]) / dt))
             logger.info(f"""\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 RESTARTing from:
 {self.time_state["value"][0]=}
@@ -538,7 +539,9 @@ RESTARTing from:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 """)
         else:
-            total_steps = str(int(round(Tend / dt)))
+            total_steps = int(round(Tend / dt))
+
+        total_steps_str = str(total_steps)
 
         # compute initial scalars and kinetic data, pass time state to all propagators
         self.model.update_scalar_quantities()
@@ -559,6 +562,8 @@ RESTARTing from:
 
         # time loop
         run_time_now = 0.0
+        show_progress_bar = logger.getEffectiveLevel() <= logging.WARNING and self.rank == 0
+        pbar = tqdm(total=total_steps, disable=not show_progress_bar, desc="Time stepping", unit="step")
         while True:
             self.Barrier()
 
@@ -622,9 +627,9 @@ RESTARTing from:
                 self.data.save_data(keys=save_keys_all)
 
                 # print current time and scalar quantities to screen
-                step = str(self.time_state["index"][0]).zfill(len(total_steps))
+                step = str(self.time_state["index"][0]).zfill(len(total_steps_str))
 
-                message = "time step:".ljust(25) + f"{step}/{total_steps}".rjust(25)
+                message = "time step:".ljust(25) + f"{step}/{total_steps_str}".rjust(25)
                 message += (
                     "\n"
                     + "normalized time:".ljust(25)
@@ -644,6 +649,11 @@ RESTARTing from:
                 logger.info(message)
                 if logger.level <= logging.INFO and self.rank == 0:
                     self.model.print_scalar_quantities()
+
+                if show_progress_bar:
+                    pbar.update(1)
+
+        pbar.close()
 
         # ===================================================================
 
