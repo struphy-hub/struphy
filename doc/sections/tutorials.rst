@@ -11,15 +11,33 @@ It is recommended to use the same Python environment as for Struphy, e.g., by in
 
 .. toctree::
    :maxdepth: 1
-   :caption: Notebook tutorials:
+   :caption: Pure FEEC models:
 
    ../_collections/tutorials/tutorial_poisson
    ../_collections/tutorials/tutorial_maxwell
-   ../_collections/tutorials/linear_mhd_slab_waves
+   ../_collections/tutorials/tutorial_linear_mhd_slab_waves_1d
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: PIC models:
+
    ../_collections/tutorials/tutorial_vlasov_ampere_one_species_weak_landau
    ../_collections/tutorials/tutorial_particle_tracing
-   ../_collections/tutorials/tutorial_domains
-   ../_collections/tutorials/tutorial_mhd_equilibria
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: SPH models:
+
    ../_collections/tutorials/tutorial_viscous_euler_sph
    ../_collections/tutorials/tutorial_beltrami_sph
    ../_collections/tutorials/tutorial_gas_expansion_sph
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Geometry and equilibria:
+
+   ../_collections/tutorials/tutorial_domains
+   ../_collections/tutorials/tutorial_mhd_equilibria

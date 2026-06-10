@@ -6,10 +6,6 @@ Developer's guide
 This is a collection of tutorials for developers. They are meant to be a practical guide to how to use Struphy 
 for development purposes, such as implementing new features, propagators or models.
 
-**Getting started with FEEC**: Begin with the :ref:`FEEC basics tutorial <dev_tutorial_feec_basics>` for an introduction to setting up the discrete de Rham complex, creating callable spline functions, and working with differential operators.
-
-**Next FEEC steps**: Continue with the :ref:`FEEC boundary-conditions tutorial <dev_tutorial_feec_bcs>` and then the :ref:`FEEC data-structures tutorial <dev_tutorial_data_structs>` to understand how ``StencilVector`` and ``StencilMatrix`` are used in practice.
-
 The tutorials give an overview of the most important classes used in writing new Propagators.
 These include classes for FEEC (finite element exterior calculus), particles and the coupling between them.
 
@@ -21,8 +17,15 @@ It is recommended to use the same Python environment as for Struphy, e.g., by in
 
 .. toctree::
    :maxdepth: 1
-   :caption: Notebook tutorials:
+   :caption: FEEC tutorials:
 
    ../_collections/tutorials/dev_tutorial_feec_basics
    ../_collections/tutorials/dev_tutorial_feec_bcs
    ../_collections/tutorials/dev_tutorial_data_structs
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: SPH tutorials:
+
+   ../_collections/tutorials/dev_tutorial_sph_eval_kernels
