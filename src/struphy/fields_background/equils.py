@@ -871,6 +871,9 @@ class AdhocTorus(AxisymmMHDequilibrium):
         &q_0 + ( q_1 - q_0 )\frac{r^2}{a^2} \quad &&\textnormal{if} \quad q_\textnormal{kind}=0\,,
 
         &\frac{q_0}{1-\left(1-\frac{r^2}{a^2}\right)^{\frac{q_1}{q_0}}}\frac{r^2}{a^2} \quad &&\textnormal{if} \quad q_\textnormal{kind}=1\,.
+
+
+        &q_0 + l\frac{r}{a} ( q_1 - q_0 )\frac{r^2}{a^2} \quad &&\textnormal{if} \quad q_\textnormal{kind}=2\,,
         \end{aligned}\right.
 
     The pressure profile
@@ -903,6 +906,8 @@ class AdhocTorus(AxisymmMHDequilibrium):
         Safety factor at r=0 (default: 1.71).
     q1 : float
         Safety factor at r=a (default: 1.87).
+    l : float
+        Linear term factor for q profile if q_kind=2 (default: 0.).
     n1 : float
         1st shape factor for ion number density profile (default: 0.).
     n2 : float
@@ -935,6 +940,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
             q_kind  : 0    # which profile (0 : parabolic, 1 : other, 2 : parabolic with linear term, see documentation)
             q0      : 1.05 # safety factor at r=0
             q1      : 1.80 # safety factor at r=a
+            l       : 0.   # linear term factor for q profile if q_kind=2
             n1      : .5   # 1st shape factor for number density profile
             n2      : 1.   # 2nd shape factor for number density profile
             na      : .2   # number density at r=a
