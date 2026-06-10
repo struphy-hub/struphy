@@ -10,7 +10,7 @@ import h5py
 
 import logging
 from struphy import set_logging_level
-set_logging_level(logging.DEBUG)
+set_logging_level(logging.INFO)
 
 
 # ------------------
