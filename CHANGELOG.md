@@ -1,6 +1,39 @@
 # Changelog
 
 
+## Struphy 3.2.0 - 2026-06-09
+
+* [PyPI](https://pypi.org/project/struphy/3.2.0)
+* [GitHub Pages](https://struphy-hub.github.io/struphy/index.html)
+* [GitHub release](https://github.com/struphy-hub/struphy/releases/tag/v3.2.0)
+* [Diff to previous release](https://github.com/struphy-hub/struphy/compare/v3.1.0...v3.2.0)
+
+
+### Headlines
+
+* New Quickstart, Userguide, Tutorials and Developer's guide in the documentation: https://github.com/struphy-hub/struphy/pull/252
+* Each `Propagator` now sits in his own .py file: https://github.com/struphy-hub/struphy/pull/236
+* New propagator `CurlCurlSolve()` for curl-curl problems: https://github.com/struphy-hub/struphy/pull/245
+* New classmethods to inspect the model docstring (in a jupyter notebook for example): https://github.com/struphy-hub/struphy/pull/229
+
+### API changes
+
+* Change in the signature of `ParticleSpecies.set_markers()`, which is used in parameter files featuring particles. The new classes `SortingParameters` and `SavingParameters` replace the methods `set_sorting_boxes` and `set_save_data`. Instances of the new classes are passed to `set_markers()`: https://github.com/struphy-hub/struphy/pull/247
+
+### User news
+
+* Clean-up logging levels for simulation output: https://github.com/struphy-hub/struphy/pull/247
+* New plotting functionality for kinetic backgrounds: https://github.com/struphy-hub/struphy/pull/239
+* Addition of a matrix-free averaging operator for distributed FEEC data: https://github.com/struphy-hub/struphy/pull/246
+* New default for `boxes_per_dim` is `tuple = (1, 1, 1)`: https://github.com/struphy-hub/struphy/pull/247
+
+### Bug fixes
+
+* Adaptation to general equilibria and new tests of the gyrokinetic Poisson solve: https://github.com/struphy-hub/struphy/pull/238
+
+
+
+
 ## Struphy 3.1.0 - 2026-04-24
 
 * [PyPI](https://pypi.org/project/struphy/3.1.0)
