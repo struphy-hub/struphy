@@ -34,7 +34,12 @@ def naive_evaluation_kernel(
     h2: "float",
     h3: "float",
 ) -> float:
-    """Naive single-point sph evaluation.
+    """Naive single-point sph evaluation:
+    
+    .. math::
+
+            b(\boldsymbol \eta_i) = \frac 1N \sum_k \beta_k W_h(\boldsymbol \eta_i - \boldsymbol \eta_k)\,.
+    
     The sum is done over all particles in markers array.
 
     Parameters
@@ -96,9 +101,23 @@ def boxed_based_kernel(
     h2: "float",
     h3: "float",
 ) -> float:
-    """Box-based single-point sph evaluation.
-    The sum is done over the particles that are in the 26 + 1 neighboring boxes
-    of the ``loc_box`` the evaluation point is in.
+    """Perform a single-point SPH evaluation of a function :math:`\rho: [0, 1]^3 \to \mathbb R` in the following sense:
+
+    .. math::
+
+        \rho(\boldsymbol \eta_i) = \sum_{j=0}^{N-1} \rho_j\, W_h(\boldsymbol \eta_i - \boldsymbol \eta_j)\,.
+
+    The coefficients :math:`\rho_j` must be available in the marker array, stored at some index ``self.markers[j, index]``.
+    In case that `derivative=k` where `k` is not zero, the `k`-th component of the gradient of :math:`\rho` is computed:
+    
+    .. math::
+
+        \textrm{derivative}=k:\qquad [\nabla \rho(\boldsymbol \eta_i)]_k = \sum_{j=0}^{N-1} \rho_j \frac{\partial W_h}{\partial \eta_k}(\boldsymbol \eta_i - \boldsymbol \eta_j)\,.
+    
+    The possible choices for :math:`W_h` are listed in :ref:`smoothing_kernels`
+    and in :meth:`~struphy.pic.base.Particles.ker_dct`.
+    
+    The sum is done over the particles that are in the 26 + 1 neighboring boxes of the ``loc_box`` the evaluation point is in.
 
     Parameters
     ----------

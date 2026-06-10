@@ -4124,14 +4124,20 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         h2: float = 0.1,
         h3: float = 0.1,
     ):
-        r"""Perform an SPH evaluation of a function :math:`b: [0, 1]^3 \to \mathbb R` in the following sense:
+        r"""Perform a (meshgrid) SPH evaluation of a function :math:`\rho: [0, 1]^3 \to \mathbb R` in the following sense:
 
         .. math::
 
-            b(\boldsymbol \eta_i) = \frac 1N \sum_k \beta_k W_h(\boldsymbol \eta_i - \boldsymbol \eta_k)\,.
+            \rho(\boldsymbol \eta_i) = \sum_{j=0}^{N-1} \rho_j\, W_h(\boldsymbol \eta_i - \boldsymbol \eta_j)\,.
 
-        The coefficients :math:`\beta_k` must be stored at ``self.markers[k, index]``.
-        The possible choices for :math:`W_h` are listed in :mod:`~struphy.pic.sph_smoothing_kernels`
+        The coefficients :math:`\rho_j` must be available in the marker array, stored at some index ``self.markers[j, index]``.
+        In case that `derivative=k` where `k` is not zero, the `k`-th component of the gradient of :math:`\rho` is computed:
+        
+        .. math::
+
+            \textrm{derivative}=k:\qquad [\nabla \rho(\boldsymbol \eta_i)]_k = \sum_{j=0}^{N-1} \rho_j \frac{\partial W_h}{\partial \eta_k}(\boldsymbol \eta_i - \boldsymbol \eta_j)\,.
+        
+        The possible choices for :math:`W_h` are listed in :ref:`smoothing_kernels`
         and in :meth:`~struphy.pic.base.Particles.ker_dct`.
 
         Parameters
@@ -4140,7 +4146,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             Logical evaluation points.
 
         index : int
-            At which index of the markers array are located the coefficients :math:`\beta_k`.
+            At which index of the markers array are located the coefficients :math:`\rho_j`.
 
         out : array_like
             Output will be store in this array. A new array is created if not provided.
