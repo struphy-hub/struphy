@@ -150,7 +150,7 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
             self.sigma_3 = 1.0
             self.divide_by_dt = False
 
-    def allocate(self, verbose = False):
+    def allocate(self, verbose=False):
         super().allocate(verbose)
         average_mat = AverageOperator(self.derham, "H1", 2)
         temp = self._stab_mat.copy() @ average_mat

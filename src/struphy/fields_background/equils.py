@@ -1122,7 +1122,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
                 qout = q0 + (q1 - q0) * (r / a) ** 2
             else:
                 qout = 2 * (q1 - q0) * r / a**2
-        
+
         elif self.params["q_kind"] == 2:
             if der == 0:
                 qout = q0 + (q1 - q0) * (r / a) ** 2 + l * r / a
