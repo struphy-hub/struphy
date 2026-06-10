@@ -45,7 +45,7 @@ from struphy.particles.parameters import (
     WeightsParameters,
 )
 from struphy.pic import sampling_kernels, sobol_seq
-from struphy.pic.pushing import eval_kernels_gc
+from struphy.pic.pushing import eval_kernels_sph
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.sorting_kernels import (
     assign_box_to_each_particle,
@@ -3920,7 +3920,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         Notes
         -----
         This method first computes SPH coefficients by calling
-        `eval_kernels_gc.sph_mean_velocity_coeffs` (via a Pyccel kernel) to
+        `eval_kernels_sph.sph_mean_velocity_coeffs` (via a Pyccel kernel) to
         assemble mean-velocity coefficients into the markers array, then calls
         :meth:`eval_sph` for each velocity component.
         """
@@ -3930,7 +3930,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
         self.put_particles_in_boxes()
 
-        func = Pyccelkernel(eval_kernels_gc.sph_mean_velocity_coeffs)
+        func = Pyccelkernel(eval_kernels_sph.sph_mean_velocity_coeffs)
 
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
@@ -4042,7 +4042,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         self.put_particles_in_boxes()
 
         # 1st kernel
-        func = Pyccelkernel(eval_kernels_gc.sph_mean_velocity_coeffs)
+        func = Pyccelkernel(eval_kernels_sph.sph_mean_velocity_coeffs)
         comps = xp.array((0, 1, 2))
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
@@ -4063,7 +4063,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         )
 
         # 2nd kernel
-        func = Pyccelkernel(eval_kernels_gc.sph_viscosity_tensor)
+        func = Pyccelkernel(eval_kernels_sph.sph_viscosity_tensor)
         comps = xp.arange(9)
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),

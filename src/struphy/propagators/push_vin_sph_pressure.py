@@ -9,7 +9,7 @@ from line_profiler import profile
 
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.models.variables import SPHVariable
-from struphy.pic.pushing import eval_kernels_gc, pusher_kernels
+from struphy.pic.pushing import eval_kernels_sph, pusher_kernels
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
@@ -116,7 +116,7 @@ class PushVinSPHpressure(Propagator):
     @profile
     def allocate(self):
         # init kernel for evaluating density etc. before each time step.
-        init_kernel = eval_kernels_gc.sph_pressure_coeffs
+        init_kernel = eval_kernels_sph.sph_pressure_coeffs
 
         particles = self.variables.fluid.particles
 
