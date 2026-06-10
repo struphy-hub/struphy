@@ -23,7 +23,7 @@ def main():
     if len(sys.argv)>1:
         sim_names = sys.argv[1:]
     else:
-        sim_names = ["sim_5"]
+        sim_names = ["sim_1"]
     en_phis = []
     times = []
     sls = []

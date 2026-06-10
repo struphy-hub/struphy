@@ -123,9 +123,11 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
         # specific literals
         OptsStabMat = Literal["M0", "M0ad", "Id", "M0ad_withT"]
         OptsDiffusionMat = Literal["M1", "M1perp", "M1gyro"]
+        OptsGeometry = Literal["cylindrical", "toroidal"]
         # propagator options
         epsilon: float = 0.0
         stab_mat: OptsStabMat = "M0ad_withT"
+        which_geometry: OptsGeometry = "cylindrical"
         diffusion_mat = "M1gyro"
         rho: FEECVariable | Callable | tuple[AccumulatorVector, Particles] | list = None
         rho_coeffs: float | list = None
@@ -152,9 +154,15 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
 
     def allocate(self, verbose=False):
         super().allocate(verbose)
-        average_mat = AverageOperator(self.derham, "H1", 2)
-        temp = self._stab_mat.copy() @ average_mat
-        self._stab_mat -= temp
+        if self.option.which_geometry == "cylindrical":
+            average_mat = AverageOperator(self.derham, "H1", 2)
+            temp = self._stab_mat.copy() @ average_mat
+            self._stab_mat -= temp
+        elif self.option.which_geometry == "toroidal":
+            average_mat1 = AverageOperator(self.derham, "H1", 1)
+            average_mat2 = AverageOperator(self.derham, "H1", 2)
+            temp = self._stab_mat.copy() @ average_mat1 @ average_mat2
+            self._stab_mat -= temp
 
     @property
     def options(self) -> Options:
