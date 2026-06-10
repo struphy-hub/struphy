@@ -15,7 +15,7 @@ It is recommended to use the same Python environment as for Struphy, e.g., by in
 
    ../_collections/tutorials/tutorial_poisson
    ../_collections/tutorials/tutorial_maxwell
-   ../_collections/tutorials/linear_mhd_slab_waves
+   ../_collections/tutorials/tutorial_linear_mhd_slab_waves_1d
    ../_collections/tutorials/tutorial_vlasov_ampere_one_species_weak_landau
    ../_collections/tutorials/tutorial_particle_tracing
    ../_collections/tutorials/tutorial_domains
