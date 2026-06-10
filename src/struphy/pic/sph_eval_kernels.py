@@ -4,7 +4,22 @@ from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
 
 
 def distance(x: "float", y: "float", periodic: "bool") -> float:
-    """Return the one dimensional distance of x and y taking in account the periodicity on [0,1]."""
+    r"""Return the signed one-dimensional distance ``x - y``, adjusted for periodicity on ``[0, 1]``.
+
+    Parameters
+    ----------
+    x, y : float
+        Two coordinates on the domain.
+
+    periodic : bool
+        If ``True``, the result is folded into :math:`(-\tfrac{1}{2}, \tfrac{1}{2}]` so that
+        the shortest path across the periodic boundary is returned.
+
+    Returns
+    -------
+    float
+        Signed distance ``x - y``, adjusted for periodicity.
+    """
     d = x - y
     if periodic:
         if d > 0.5:
@@ -34,39 +49,52 @@ def naive_evaluation_kernel(
     h2: "float",
     h3: "float",
 ) -> float:
-    """Naive single-point sph evaluation:
+    r"""Perform a single-point SPH evaluation of a function :math:`\rho: [0, 1]^3 \to \mathbb R` in the following sense:
+
+    .. math::
+
+        \rho(\boldsymbol \eta_i) = \sum_{j=0}^{N-1} \rho_j\, W_h(\boldsymbol \eta_i - \boldsymbol \eta_j)\,.
+
+    The coefficients :math:`\rho_j` must be available in the marker array, stored at some index ``self.markers[j, index]``.
+    In case that `derivative=k` where `k` is not zero, the `k`-th component of the gradient of :math:`\rho` is computed:
     
     .. math::
 
-            b(\boldsymbol \eta_i) = \frac 1N \sum_k \beta_k W_h(\boldsymbol \eta_i - \boldsymbol \eta_k)\,.
+        \textrm{derivative}=k:\qquad [\nabla \rho(\boldsymbol \eta_i)]_k = \sum_{j=0}^{N-1} \rho_j \frac{\partial W_h}{\partial \eta_k}(\boldsymbol \eta_i - \boldsymbol \eta_j)\,.
     
-    The sum is done over all particles in markers array.
+    The possible choices for :math:`W_h` are listed in :ref:`smoothing_kernels`
+    and in :meth:`~struphy.pic.base.Particles.ker_dct`.
+
+    ATTENTION: The sum is done over all particles in the markers array (ignoring holes), no neighbour search is performed.
+    Hence, the cost of this evaluation is :math:`\mathcal{O}(N)` in the number of particles, and it should only be used for testing and verification purposes.
 
     Parameters
     ----------
+    args_markers : MarkerArguments
+        Container holding the markers array and the total number of particles ``Np``.
+
     eta1, eta2, eta3 : float
         Evaluation point in logical space.
 
-    markers : array[float]
-        Markers array.
-
-    Np : int
-        Total number of particles.
-
-    holes : bool
-        1D array of length markers.shape[0]. True if markers[i] is a hole.
+    holes : bool[:]
+        1D array of length ``markers.shape[0]``.  ``True`` if particle ``i`` is a hole (inactive).
 
     periodic1, periodic2, periodic3 : bool
-        True if periodic in that dimension.
+        ``True`` if the domain is periodic in that dimension.
 
     index : int
-        Column index in markers array where the value multiplying the kernel in the evaluation is stored.
+        Column index in the markers array of the coefficient :math:`\beta_k` multiplying the kernel.
 
-    kernel_type : str
-        Name of the smoothing kernel.
+    kernel_type : int
+        Integer identifier of the smoothing kernel.  See :ref:`smoothing_kernels`.
 
     h1, h2, h3 : float
-        Kernel width in respective dimension.
+        Kernel width in the respective dimension.
+
+    Returns
+    -------
+    float
+        SPH estimate of :math:`b` at the evaluation point.
     """
 
     markers = args_markers.markers
@@ -83,7 +111,7 @@ def naive_evaluation_kernel(
     return out / Np
 
 
-def boxed_based_kernel(
+def box_based_kernel(
     args_markers: "MarkerArguments",
     eta1: "float",
     eta2: "float",
@@ -101,7 +129,7 @@ def boxed_based_kernel(
     h2: "float",
     h3: "float",
 ) -> float:
-    """Perform a single-point SPH evaluation of a function :math:`\rho: [0, 1]^3 \to \mathbb R` in the following sense:
+    r"""Perform a single-point SPH evaluation of a function :math:`\rho: [0, 1]^3 \to \mathbb R` in the following sense:
 
     .. math::
 
@@ -117,7 +145,9 @@ def boxed_based_kernel(
     The possible choices for :math:`W_h` are listed in :ref:`smoothing_kernels`
     and in :meth:`~struphy.pic.base.Particles.ker_dct`.
     
-    The sum is done over the particles that are in the 26 + 1 neighboring boxes of the ``loc_box`` the evaluation point is in.
+    The sum is restricted to the 27 neighbouring boxes of the box containing
+    :math:`\boldsymbol\eta_i`, making the cost :math:`\mathcal{O}(1)` in the number
+    of particles when the kernel support is proportional to the box size.
 
     Parameters
     ----------
@@ -193,37 +223,34 @@ def naive_evaluation_flat(
     h3: "float",
     out: "float[:]",
 ):
-    """Naive flat sph evaluation.
-    The sum is done over all particles in markers array.
+    r"""Naive SPH evaluation on a flat array of points, see :func:`~struphy.pic.sph_eval_kernels.naive_evaluation_kernel`.
 
     Parameters
     ----------
-    eta1, eta2, eta3 : array[float]
-        Evaluation points in logical space for flat evaluation at (eta1[i], eta2[i], eta3[i]).
+    args_markers : MarkerArguments
+        Container holding the markers array and the total number of particles ``Np``.
 
-    markers : array[float]
-        Markers array.
+    eta1, eta2, eta3 : float[:]
+        Evaluation points in logical space.  The :math:`i`-th point is
+        ``(eta1[i], eta2[i], eta3[i])``.
 
-    Np : int
-        Total number of particles.
-
-    holes : bool
-        1D array of length markers.shape[0]. True if markers[i] is a hole.
+    holes : bool[:]
+        1D array of length ``markers.shape[0]``.  ``True`` if particle ``i`` is a hole (inactive).
 
     periodic1, periodic2, periodic3 : bool
-        True if periodic in that dimension.
+        ``True`` if the domain is periodic in that dimension.
 
     index : int
-        Column index in markers array where the value multiplying the kernel in the evaluation is stored.
+        Column index in the markers array of the coefficient :math:`\beta_k` multiplying the kernel.
 
     kernel_type : int
-        Number of the smoothing kernel.
+        Integer identifier of the smoothing kernel.  See :ref:`smoothing_kernels`.
 
     h1, h2, h3 : float
-        Kernel width in respective dimension.
+        Kernel width in the respective dimension.
 
-    out : array[float]
-        Output array of same size as eta1, eta2, eta3.
+    out : float[:]
+        Output array of the same length as ``eta1``.  Modified in place and also returned.
     """
 
     markers = args_markers.markers
@@ -269,37 +296,33 @@ def naive_evaluation_meshgrid(
     h3: "float",
     out: "float[:,:,:]",
 ):
-    """Naive meshgrid sph evaluation.
-    The sum is done over all particles in markers array.
+    r"""Naive SPH evaluation on a 3-D meshgrid of points, see :func:`~struphy.pic.sph_eval_kernels.naive_evaluation_kernel`.
 
     Parameters
     ----------
-    eta1, eta2, eta3 : array[float]
-        Evaluation points in logical space for meshgrid evaluation at (eta1[i,j,k], eta2[i,j,k], eta3[i,j,k]).
+    args_markers : MarkerArguments
+        Container holding the markers array and the total number of particles ``Np``.
 
-    markers : array[float]
-        Markers array.
+    eta1, eta2, eta3 : float[:,:,:]
+        Evaluation points in logical space on a 3-D meshgrid.
 
-    Np : int
-        Total number of particles.
-
-    holes : bool
-        1D array of length markers.shape[0]. True if markers[i] is a hole.
+    holes : bool[:]
+        1D array of length ``markers.shape[0]``.  ``True`` if particle ``i`` is a hole (inactive).
 
     periodic1, periodic2, periodic3 : bool
-        True if periodic in that dimension.
+        ``True`` if the domain is periodic in that dimension.
 
     index : int
-        Column index in markers array where the value multiplying the kernel in the evaluation is stored.
+        Column index in the markers array of the coefficient :math:`\beta_k` multiplying the kernel.
 
     kernel_type : int
-        Number of the smoothing kernel.
+        Integer identifier of the smoothing kernel.  See :ref:`smoothing_kernels`.
 
     h1, h2, h3 : float
-        Kernel width in respective dimension.
+        Kernel width in the respective dimension.
 
-    out : array[float]
-        Output array of same size as eta1, eta2, eta3.
+    out : float[:,:,:]
+        Output array of the same shape as ``eta1``.  Modified in place.
     """
 
     markers = args_markers.markers
@@ -357,50 +380,48 @@ def box_based_evaluation_flat(
     h3: "float",
     out: "float[:]",
 ):
-    """Box-based flat sph evaluation.
-    The sum is done over the particles that are in the 26 + 1 neighboring boxes
-    of the ``loc_box`` the evaluation point is in.
+    r"""Box-based SPH evaluation on a flat array of points, see :func:`~struphy.pic.sph_eval_kernels.box_based_kernel`.
 
     Parameters
     ----------
-    eta1, eta2, eta3 : array[float]
-        Evaluation points in logical space for flat evaluation at (eta1[i], eta2[i], eta3[i]).
+    args_markers : MarkerArguments
+        Container holding the markers array and the total number of particles ``Np``.
+
+    eta1, eta2, eta3 : float[:]
+        Evaluation points in logical space.  The :math:`i`-th point is
+        ``(eta1[i], eta2[i], eta3[i])``.
 
     n1, n2, n3 : int
-        Number of boxes in each dimension.
+        Number of sorting boxes in each dimension.
 
-    domain_array : array
-        Information of the domain on the current mpi process.
+    domain_array : float[:]
+        Flat description of the local MPI sub-domain, used by
+        :func:`~struphy.pic.sorting_kernels.find_box` to locate boxes.
 
-    boxes : 2d array
-        Box array of the sorting boxes structure.
+    boxes : int[:,:]
+        Box array of the sorting-box structure (particles sorted into boxes).
 
-    neighbours : 2d array
-        Array containing the 27 neighbouring boxes of each box.
+    neighbours : int[:,:]
+        ``neighbours[b, :]`` lists the 27 box indices neighbouring box ``b``.
 
-    markers : array[float]
-        Markers array.
-
-    Np : int
-        Total number of particles.
-
-    holes : bool
-        1D array of length markers.shape[0]. True if markers[i] is a hole.
+    holes : bool[:]
+        1D array of length ``markers.shape[0]``.  ``True`` if particle ``i`` is a hole (inactive).
 
     periodic1, periodic2, periodic3 : bool
-        True if periodic in that dimension.
+        ``True`` if the domain is periodic in that dimension.
 
     index : int
-        Column index in markers array where the value multiplying the kernel in the evaluation is stored.
+        Column index in the markers array of the coefficient :math:`\beta_k` multiplying the kernel.
 
     kernel_type : int
-        Number of the smoothing kernel.
+        Integer identifier of the smoothing kernel.  See :ref:`smoothing_kernels`.
 
     h1, h2, h3 : float
-        Kernel width in respective dimension.
+        Kernel width in the respective dimension.
 
-    out : array[float]
-        Output array of same size as eta1, eta2, eta3.
+    out : float[:]
+        Output array of the same length as ``eta1``.  Modified in place.
+        Points outside the local domain are left at zero.
     """
 
     markers = args_markers.markers
@@ -424,7 +445,7 @@ def box_based_evaluation_flat(
         if loc_box == -1:
             continue
         else:
-            out[i] = boxed_based_kernel(
+            out[i] = box_based_kernel(
                 args_markers,
                 e1,
                 e2,
@@ -466,50 +487,47 @@ def box_based_evaluation_meshgrid(
     h3: "float",
     out: "float[:,:,:]",
 ):
-    """Box-based meshgrid sph evaluation.
-    The sum is done over the particles that are in the 26 + 1 neighboring boxes
-    of the ``loc_box`` the evaluation point is in.
+    r"""Box-based SPH evaluation on a 3-D meshgrid of points, see :func:`~struphy.pic.sph_eval_kernels.box_based_kernel`.
 
     Parameters
     ----------
-    eta1, eta2, eta3 : array[float]
-        Evaluation points in logical space for meshgrid evaluation at (eta1[i,j,k], eta2[i,j,k], eta3[i,j,k]).
+    args_markers : MarkerArguments
+        Container holding the markers array and the total number of particles ``Np``.
+
+    eta1, eta2, eta3 : float[:,:,:]
+        Evaluation points in logical space on a 3-D meshgrid.
 
     n1, n2, n3 : int
-        Number of boxes in each dimension.
+        Number of sorting boxes in each dimension.
 
-    domain_array : array
-        Information of the domain on the current mpi process.
+    domain_array : float[:]
+        Flat description of the local MPI sub-domain, used by
+        :func:`~struphy.pic.sorting_kernels.find_box` to locate boxes.
 
-    boxes : 2d array
-        Box array of the sorting boxes structure.
+    boxes : int[:,:]
+        Box array of the sorting-box structure (particles sorted into boxes).
 
-    neighbours : 2d array
-        Array containing the 27 neighbouring boxes of each box.
+    neighbours : int[:,:]
+        ``neighbours[b, :]`` lists the 27 box indices neighbouring box ``b``.
 
-    markers : array[float]
-        Markers array.
-
-    Np : int
-        Total number of particles.
-
-    holes : bool
-        1D array of length markers.shape[0]. True if markers[i] is a hole.
+    holes : bool[:]
+        1D array of length ``markers.shape[0]``.  ``True`` if particle ``i`` is a hole (inactive).
 
     periodic1, periodic2, periodic3 : bool
-        True if periodic in that dimension.
+        ``True`` if the domain is periodic in that dimension.
 
     index : int
-        Column index in markers array where the value multiplying the kernel in the evaluation is stored.
+        Column index in the markers array of the coefficient :math:`\beta_k` multiplying the kernel.
 
     kernel_type : int
-        Number of the smoothing kernel.
+        Integer identifier of the smoothing kernel.  See :ref:`smoothing_kernels`.
 
     h1, h2, h3 : float
-        Kernel width in respective dimension.
+        Kernel width in the respective dimension.
 
-    out : array[float]
-        Output array of same size as eta1, eta2, eta3.
+    out : float[:,:,:]
+        Output array of the same shape as ``eta1``.  Modified in place.
+        Points outside the local domain are left at zero.
     """
 
     markers = args_markers.markers
@@ -549,7 +567,7 @@ def box_based_evaluation_meshgrid(
                 if loc_box == -1:
                     continue
                 else:
-                    out[i, j, k] = boxed_based_kernel(
+                    out[i, j, k] = box_based_kernel(
                         args_markers,
                         e1,
                         e2,

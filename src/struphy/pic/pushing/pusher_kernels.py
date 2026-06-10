@@ -2663,7 +2663,7 @@ def push_v_sph_pressure(
         loc_box = int(markers[ip, n_cols - 2])
 
         # first component
-        grad_u[0] = sph_eval_kernels.boxed_based_kernel(
+        grad_u[0] = sph_eval_kernels.box_based_kernel(
             args_markers,
             eta1,
             eta2,
@@ -2683,7 +2683,7 @@ def push_v_sph_pressure(
         )
         grad_u[0] *= kappa / n_at_eta
 
-        sum2 = sph_eval_kernels.boxed_based_kernel(
+        sum2 = sph_eval_kernels.box_based_kernel(
             args_markers,
             eta1,
             eta2,
@@ -2706,7 +2706,7 @@ def push_v_sph_pressure(
 
         if kernel_type >= 340:
             # second component
-            grad_u[1] = sph_eval_kernels.boxed_based_kernel(
+            grad_u[1] = sph_eval_kernels.box_based_kernel(
                 args_markers,
                 eta1,
                 eta2,
@@ -2726,7 +2726,7 @@ def push_v_sph_pressure(
             )
             grad_u[1] *= kappa / n_at_eta
 
-            sum4 = sph_eval_kernels.boxed_based_kernel(
+            sum4 = sph_eval_kernels.box_based_kernel(
                 args_markers,
                 eta1,
                 eta2,
@@ -2749,7 +2749,7 @@ def push_v_sph_pressure(
 
         if kernel_type >= 670:
             # third component
-            grad_u[2] = sph_eval_kernels.boxed_based_kernel(
+            grad_u[2] = sph_eval_kernels.box_based_kernel(
                 args_markers,
                 eta1,
                 eta2,
@@ -2769,7 +2769,7 @@ def push_v_sph_pressure(
             )
             grad_u[2] *= kappa / n_at_eta
 
-            sum6 = sph_eval_kernels.boxed_based_kernel(
+            sum6 = sph_eval_kernels.box_based_kernel(
                 args_markers,
                 eta1,
                 eta2,
@@ -2896,7 +2896,7 @@ def push_v_sph_pressure_ideal_gas(
         loc_box = int(markers[ip, n_cols - 2])
 
         # first component
-        grad_u[0] = sph_eval_kernels.boxed_based_kernel(
+        grad_u[0] = sph_eval_kernels.box_based_kernel(
             args_markers,
             eta1,
             eta2,
@@ -2916,7 +2916,7 @@ def push_v_sph_pressure_ideal_gas(
         )
         grad_u[0] *= kappa * n_at_eta ** (gamma - 2)
 
-        sum2 = sph_eval_kernels.boxed_based_kernel(
+        sum2 = sph_eval_kernels.box_based_kernel(
             args_markers,
             eta1,
             eta2,
@@ -2939,7 +2939,7 @@ def push_v_sph_pressure_ideal_gas(
 
         if kernel_type >= 340:
             # second component
-            grad_u[1] = sph_eval_kernels.boxed_based_kernel(
+            grad_u[1] = sph_eval_kernels.box_based_kernel(
                 args_markers,
                 eta1,
                 eta2,
@@ -2959,7 +2959,7 @@ def push_v_sph_pressure_ideal_gas(
             )
             grad_u[1] *= kappa * (n_at_eta) ** (gamma - 2)
 
-            sum4 = sph_eval_kernels.boxed_based_kernel(
+            sum4 = sph_eval_kernels.box_based_kernel(
                 args_markers,
                 eta1,
                 eta2,
@@ -2982,7 +2982,7 @@ def push_v_sph_pressure_ideal_gas(
 
         if kernel_type >= 670:
             # third component
-            grad_u[2] = sph_eval_kernels.boxed_based_kernel(
+            grad_u[2] = sph_eval_kernels.box_based_kernel(
                 args_markers,
                 eta1,
                 eta2,
@@ -3002,7 +3002,7 @@ def push_v_sph_pressure_ideal_gas(
             )
             grad_u[2] *= kappa * (n_at_eta) ** (gamma - 2)
 
-            sum6 = sph_eval_kernels.boxed_based_kernel(
+            sum6 = sph_eval_kernels.box_based_kernel(
                 args_markers,
                 eta1,
                 eta2,
@@ -3144,7 +3144,7 @@ def push_v_viscosity(
                 #     use_component = False
 
                 # if use_component:
-                f_visc[j] += sph_eval_kernels.boxed_based_kernel(
+                f_visc[j] += sph_eval_kernels.box_based_kernel(
                     args_markers,
                     eta1,
                     eta2,

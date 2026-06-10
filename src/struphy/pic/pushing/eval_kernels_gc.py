@@ -529,7 +529,7 @@ def sph_pressure_coeffs(
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
         loc_box = int(markers[ip, n_cols - 2])
-        n_at_eta = sph_eval_kernels.boxed_based_kernel(
+        n_at_eta = sph_eval_kernels.box_based_kernel(
             args_markers,
             eta1,
             eta2,
@@ -662,7 +662,7 @@ def sph_mean_velocity_coeffs(
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
         loc_box = int(markers[ip, n_cols - 2])
-        n_at_eta = sph_eval_kernels.boxed_based_kernel(
+        n_at_eta = sph_eval_kernels.box_based_kernel(
             args_markers,
             eta1,
             eta2,
@@ -752,7 +752,7 @@ def sph_mean_velocity(
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
         loc_box = int(markers[ip, n_cols - 2])
-        v1_at_eta = sph_eval_kernels.boxed_based_kernel(
+        v1_at_eta = sph_eval_kernels.box_based_kernel(
             args_markers,
             eta1,
             eta2,
@@ -771,7 +771,7 @@ def sph_mean_velocity(
             h3,
         )
 
-        v2_at_eta = sph_eval_kernels.boxed_based_kernel(
+        v2_at_eta = sph_eval_kernels.box_based_kernel(
             args_markers,
             eta1,
             eta2,
@@ -790,7 +790,7 @@ def sph_mean_velocity(
             h3,
         )
 
-        v3_at_eta = sph_eval_kernels.boxed_based_kernel(
+        v3_at_eta = sph_eval_kernels.box_based_kernel(
             args_markers,
             eta1,
             eta2,
@@ -879,7 +879,7 @@ def sph_grad_mean_velocity(
         loc_box = int(markers[ip, n_cols - 2])
         for j in range(3):
             for k in range(3):
-                grad_v_at_eta[j, k] = sph_eval_kernels.boxed_based_kernel(
+                grad_v_at_eta[j, k] = sph_eval_kernels.box_based_kernel(
                     args_markers,
                     eta1,
                     eta2,
@@ -967,7 +967,7 @@ def sph_viscosity_tensor(
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
         loc_box = int(markers[ip, n_cols - 2])
-        n_at_eta = sph_eval_kernels.boxed_based_kernel(
+        n_at_eta = sph_eval_kernels.box_based_kernel(
             args_markers,
             eta1,
             eta2,
@@ -988,7 +988,7 @@ def sph_viscosity_tensor(
         weight = markers[ip, weight_idx]
         for j in range(3):
             for k in range(3):
-                grad_v_at_eta[j, k] = sph_eval_kernels.boxed_based_kernel(
+                grad_v_at_eta[j, k] = sph_eval_kernels.box_based_kernel(
                     args_markers,
                     eta1,
                     eta2,
