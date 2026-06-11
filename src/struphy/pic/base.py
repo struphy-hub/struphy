@@ -1994,8 +1994,8 @@ class Particles(metaclass=ABCMeta):
             multiplier = velocity_norm2 * self.velocities[:, v_axis[0]]
 
         # compute weights of histogram:
-        _weights0 = self.weights0 * multiplier
-        _weights = self.weights * multiplier
+        _weights0 = self.weights0 * self.Np  * multiplier  
+        _weights = self.weights * self.Np * multiplier 
 
         if divide_by_jac:
             _weights /= self.domain.jacobian_det(self.positions, remove_outside=False)
