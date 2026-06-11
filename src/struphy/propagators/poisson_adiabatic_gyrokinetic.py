@@ -65,18 +65,18 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
 
         Parameters
         ----------
-        stab_eps : float, default=0.0
-            Stabilization weight used for the mass-like term in the Poisson
-            operator.
-            Internally mapped to ``sigma_1 = stab_eps`` in the parent
-            :class:`ImplicitDiffusion` formulation.
-
         stab_mat : {"M0", "M0ad", "Id"}, default="Id"
             Stabilization matrix multiplied by ``stab_eps``.
 
             - ``"M0"``: standard weighted 0-form mass operator.
             - ``"M0ad"``: adiabatic-electron weighted 0-form mass operator.
             - ``"Id"``: identity operator.
+
+        which_geometry: {"cylindrical", "toroidal"}, default="cylindrical"
+            Geometry of the problem, determines the meaning of `<\phi>` in the stabilization term.
+
+        diffusion_mat : {"M1", "M1perp", "M1gyro"}, defaults="M1gyro"
+            Diffusion matrix.
 
         rho : FEECVariable or Callable or tuple or list, default=None
             Right-hand side source term(s) of the Poisson problem.
@@ -125,10 +125,9 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
         OptsDiffusionMat = Literal["M1", "M1perp", "M1gyro"]
         OptsGeometry = Literal["cylindrical", "toroidal"]
         # propagator options
-        epsilon: float = 0.0
         stab_mat: OptsStabMat = "M0ad_withT"
         which_geometry: OptsGeometry = "cylindrical"
-        diffusion_mat = "M1gyro"
+        diffusion_mat: OptsDiffusionMat = "M1gyro"
         rho: FEECVariable | Callable | tuple[AccumulatorVector, Particles] | list = None
         rho_coeffs: float | list = None
         x0: StencilVector = None
@@ -152,13 +151,13 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
             self.sigma_3 = 1.0
             self.divide_by_dt = False
 
-    def allocate(self, verbose=False):
-        super().allocate(verbose)
-        if self.option.which_geometry == "cylindrical":
+    def allocate(self):
+        super().allocate()
+        if self.options.which_geometry == "cylindrical":
             average_mat = AverageOperator(self.derham, "H1", 2)
             temp = self._stab_mat.copy() @ average_mat
             self._stab_mat -= temp
-        elif self.option.which_geometry == "toroidal":
+        elif self.options.which_geometry == "toroidal":
             average_mat1 = AverageOperator(self.derham, "H1", 1)
             average_mat2 = AverageOperator(self.derham, "H1", 2)
             temp = self._stab_mat.copy() @ average_mat1 @ average_mat2
