@@ -1880,7 +1880,7 @@ class Particles(metaclass=ABCMeta):
             self.sampling_density = self.s0(*self.phasespace_coords.T, flat_eval=True)
 
             # compute w0 and save at vdim + 5
-            self.weights0 = f_init / self.sampling_density
+            self.weights0 = f_init / self.sampling_density / self.Np
 
         if self.reject_weights:
             reject = self.markers[:, self.index["w0"]] < self.threshold
@@ -1920,7 +1920,7 @@ class Particles(metaclass=ABCMeta):
         if self.is_volume_form[1]:
             f0 /= self.f0.velocity_jacobian_det(*self.f_jacobian_coords.T)
 
-        self.weights = self.weights0 - f0 / self.sampling_density
+        self.weights = self.weights0 - f0 / self.sampling_density / self.Np
 
     def reset_marker_ids(self):
         """Reset the marker ids (last column in marker array) according to the current distribution of particles.
@@ -2988,11 +2988,15 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                             *arr[:, :3].T,
                             flat_eval=True,
                         )  # evaluation outside of the unit cube - maybe not working for all f_init!
-                        arr[:, self.index["weights"]] = -boundary_values / self.s0(
-                            *arr[:, :3].T,
-                            flat_eval=True,
-                            remove_holes=False,
-                        )
+                        arr[:, self.index["weights"]] = (
+                            -boundary_values
+                            / self.s0(
+                                *arr[:, :3].T,
+                                flat_eval=True,
+                                remove_holes=False,
+                            )
+                            / self.Np
+                        )  # clarify in case of tesselation: multiple by tile volume (=1/Np) to get the integral value right
                         self._fixed_markers_set[arr_name] = True
                     elif self.bc_sph[0] == "noslip":
                         # invert the velocities to have zero velocity at the boundary
@@ -3011,11 +3015,15 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                             *arr[:, :3].T,
                             flat_eval=True,
                         )  # evaluation outside of the unit cube - maybe not working for all f_init!
-                        arr[:, self.index["weights"]] = -boundary_values / self.s0(
-                            *arr[:, :3].T,
-                            flat_eval=True,
-                            remove_holes=False,
-                        )
+                        arr[:, self.index["weights"]] = (
+                            -boundary_values
+                            / self.s0(
+                                *arr[:, :3].T,
+                                flat_eval=True,
+                                remove_holes=False,
+                            )
+                            / self.Np
+                        )  # clarify in case of tesselation: multiple by tile volume (=1/Np) to get the integral value right
                         self._fixed_markers_set[arr_name] = True
                     elif self.bc_sph[0] == "noslip":
                         # invert the velocities to have zero velocity at the boundary
@@ -3036,11 +3044,15 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                             *arr[:, :3].T,
                             flat_eval=True,
                         )  # evaluation outside of the unit cube - maybe not working for all f_init!
-                        arr[:, self.index["weights"]] = -boundary_values / self.s0(
-                            *arr[:, :3].T,
-                            flat_eval=True,
-                            remove_holes=False,
-                        )
+                        arr[:, self.index["weights"]] = (
+                            -boundary_values
+                            / self.s0(
+                                *arr[:, :3].T,
+                                flat_eval=True,
+                                remove_holes=False,
+                            )
+                            / self.Np
+                        )  # clarify in case of tesselation: multiple by tile volume (=1/Np) to get the integral value right
                         self._fixed_markers_set[arr_name] = True
                     elif self.bc_sph[1] == "noslip":
                         # invert the velocities to have zero velocity at the boundary
@@ -3059,11 +3071,15 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                             *arr[:, :3].T,
                             flat_eval=True,
                         )  # evaluation outside of the unit cube - maybe not working for all f_init!
-                        arr[:, self.index["weights"]] = -boundary_values / self.s0(
-                            *arr[:, :3].T,
-                            flat_eval=True,
-                            remove_holes=False,
-                        )
+                        arr[:, self.index["weights"]] = (
+                            -boundary_values
+                            / self.s0(
+                                *arr[:, :3].T,
+                                flat_eval=True,
+                                remove_holes=False,
+                            )
+                            / self.Np
+                        )  # clarify in case of tesselation: multiple by tile volume (=1/Np) to get the integral value right
                         self._fixed_markers_set[arr_name] = True
                     elif self.bc_sph[1] == "noslip":
                         # invert the velocities to have zero velocity at the boundary
@@ -3084,11 +3100,15 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                             *arr[:, :3].T,
                             flat_eval=True,
                         )  # evaluation outside of the unit cube - maybe not working for all f_init!
-                        arr[:, self.index["weights"]] = -boundary_values / self.s0(
-                            *arr[:, :3].T,
-                            flat_eval=True,
-                            remove_holes=False,
-                        )
+                        arr[:, self.index["weights"]] = (
+                            -boundary_values
+                            / self.s0(
+                                *arr[:, :3].T,
+                                flat_eval=True,
+                                remove_holes=False,
+                            )
+                            / self.Np
+                        )  # clarify in case of tesselation: multiple by tile volume (=1/Np) to get the integral value right
                         self._fixed_markers_set[arr_name] = True
                     elif self.bc_sph[2] == "noslip":
                         # invert the velocities to have zero velocity at the boundary
@@ -3107,11 +3127,15 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                             *arr[:, :3].T,
                             flat_eval=True,
                         )  # evaluation outside of the unit cube - maybe not working for all f_init!
-                        arr[:, self.index["weights"]] = -boundary_values / self.s0(
-                            *arr[:, :3].T,
-                            flat_eval=True,
-                            remove_holes=False,
-                        )
+                        arr[:, self.index["weights"]] = (
+                            -boundary_values
+                            / self.s0(
+                                *arr[:, :3].T,
+                                flat_eval=True,
+                                remove_holes=False,
+                            )
+                            / self.Np
+                        )  # clarify in case of tesselation: multiple by tile volume (=1/Np) to get the integral value right
                         self._fixed_markers_set[arr_name] = True
                     elif self.bc_sph[2] == "noslip":
                         # invert the velocities to have zero velocity at the boundary
@@ -4132,11 +4156,11 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
         The coefficients :math:`\rho_j` must be available in the marker array, stored at some index ``self.markers[j, index]``.
         In case that `derivative=k` where `k` is not zero, the `k`-th component of the gradient of :math:`\rho` is computed:
-        
+
         .. math::
 
             \textrm{derivative}=k:\qquad [\nabla \rho(\boldsymbol \eta_i)]_k = \sum_{j=0}^{N-1} \rho_j \frac{\partial W_h}{\partial \eta_k}(\boldsymbol \eta_i - \boldsymbol \eta_j)\,.
-        
+
         The possible choices for :math:`W_h` are listed in :ref:`smoothing_kernels`
         and in :meth:`~struphy.pic.base.Particles.ker_dct`.
 
@@ -4672,7 +4696,7 @@ class Tesselation:
                         single_box_out,
                     )
 
-                    single_box_out /= self.tile_volume
+                    # single_box_out /= self.tile_volume
 
                     out[
                         i * nt_x : (i + 1) * nt_x,

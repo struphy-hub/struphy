@@ -23,9 +23,9 @@ from struphy import (
     domains,
     equils,
     perturbations,
+    set_logging_level,
 )
 from struphy.models import ViscousEulerSPH
-from struphy import set_logging_level
 
 logger = logging.getLogger("struphy")
 set_logging_level(logging.DEBUG)
@@ -260,12 +260,12 @@ def test_damped_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
             x = ee1 * r1
 
             plt.figure(figsize=(20, 40))
-            
+
             dt_plot = end_time / 10.0
             plot_ct = 0
             time = 0.0
             for i in range(Nt + 1):
-                time = dt*i
+                time = dt * i
                 logger.info(f"{i =}, {time =:.4f}, {time // dt_plot =}, {plot_ct =}")
                 if time // dt_plot >= plot_ct:
                     plot_ct += 1
@@ -285,7 +285,6 @@ def test_damped_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
         logger.info("Assertion passed.")
 
         shutil.rmtree(test_folder)
-
 
 
 if __name__ == "__main__":

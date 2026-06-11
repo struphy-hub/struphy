@@ -192,15 +192,15 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=1000):
 
 
 if __name__ == "__main__":
-    for num_clones in [1, 2]:
-        test_accum_poisson(
-            [8, 9, 10],
-            [2, 3, 4],
-            [False, False, True],
-            [
-                "Cuboid",
-                {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0},
-            ],
-            num_clones=num_clones,
-            Np=1000,
-        )
+    # for num_clones in [1, 2]:
+    test_accum_poisson(
+        [8, 9, 10],
+        [2, 3, 4],
+        (("free", "free"), ("free", "free"), None),
+        [
+            "Cuboid",
+            {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0},
+        ],
+        num_clones=1,
+        Np=1000,
+    )

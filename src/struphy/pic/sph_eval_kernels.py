@@ -57,11 +57,11 @@ def naive_evaluation_kernel(
 
     The coefficients :math:`\rho_j` must be available in the marker array, stored at some index ``self.markers[j, index]``.
     In case that `derivative=k` where `k` is not zero, the `k`-th component of the gradient of :math:`\rho` is computed:
-    
+
     .. math::
 
         \textrm{derivative}=k:\qquad [\nabla \rho(\boldsymbol \eta_i)]_k = \sum_{j=0}^{N-1} \rho_j \frac{\partial W_h}{\partial \eta_k}(\boldsymbol \eta_i - \boldsymbol \eta_j)\,.
-    
+
     The possible choices for :math:`W_h` are listed in :ref:`smoothing_kernels`
     and in :meth:`~struphy.pic.base.Particles.ker_dct`.
 
@@ -137,14 +137,14 @@ def box_based_kernel(
 
     The coefficients :math:`\rho_j` must be available in the marker array, stored at some index ``self.markers[j, index]``.
     In case that `derivative=k` where `k` is not zero, the `k`-th component of the gradient of :math:`\rho` is computed:
-    
+
     .. math::
 
         \textrm{derivative}=k:\qquad [\nabla \rho(\boldsymbol \eta_i)]_k = \sum_{j=0}^{N-1} \rho_j \frac{\partial W_h}{\partial \eta_k}(\boldsymbol \eta_i - \boldsymbol \eta_j)\,.
-    
+
     The possible choices for :math:`W_h` are listed in :ref:`smoothing_kernels`
     and in :meth:`~struphy.pic.base.Particles.ker_dct`.
-    
+
     The sum is restricted to the 27 neighbouring boxes of the box containing
     :math:`\boldsymbol\eta_i`, making the cost :math:`\mathcal{O}(1)` in the number
     of particles when the kernel support is proportional to the box size.
@@ -201,7 +201,7 @@ def box_based_kernel(
                 r2 = distance(eta2, markers[p, 1], periodic2)
                 r3 = distance(eta3, markers[p, 2], periodic3)
                 out += markers[p, index] * sph_smoothing_kernels.smoothing_kernel(kernel_type, r1, r2, r3, h1, h2, h3)
-    return out / Np
+    return out
 
 
 ####################
