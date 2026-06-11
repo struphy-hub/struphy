@@ -1,7 +1,9 @@
 import logging
+
 import pytest
-from struphy.utils.pyccel import Pyccelkernel
+
 from struphy import set_logging_level
+from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
 set_logging_level(logging.INFO)
@@ -43,7 +45,7 @@ set_logging_level(logging.INFO)
     ],
 )
 @pytest.mark.parametrize("num_clones", [1, 2])
-def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=1000, show_plot: bool = False):
+def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=10000, show_plot: bool = False):
     r"""Test that AccumulatorVector provides an MC approximation of the L2 projection RHS.
 
     Particles are loaded with a uniform spatial distribution and unit Maxwellian velocity
@@ -167,7 +169,7 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=1000, 
     particles.initialize_weights()
 
     if show_plot and mpi_rank == 0:
-        components = [False]*6
+        components = [False] * 6
         components[0] = True  # show only the spatial distribution (ignore velocities)
         bin_edges = [xp.linspace(0.0, 1.0, 50)]
         particles.show_distribution_function(components=components, bin_edges=bin_edges)
@@ -192,7 +194,7 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=1000, 
         mass_ops,
         domain.args_domain,
     )
-    
+
     # particles.update_weights()  # ensure weights are updated before
     acc()
 
@@ -226,7 +228,7 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=1000, 
     _diff_sq = xp.empty(1, dtype=float)
     _rhs_sq = xp.empty(1, dtype=float)
     _diff_sq[0] = float(xp.sum((acc_arr - rhs_arr) ** 2))
-    _rhs_sq[0] = float(xp.sum(rhs_arr ** 2))
+    _rhs_sq[0] = float(xp.sum(rhs_arr**2))
     if sub_comm is not None:
         sub_comm.Allreduce(MPI.IN_PLACE, _diff_sq, op=MPI.SUM)
         sub_comm.Allreduce(MPI.IN_PLACE, _rhs_sq, op=MPI.SUM)
@@ -234,14 +236,10 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=1000, 
     rhs_rel_err = float(xp.sqrt(_diff_sq[0] / _rhs_sq[0]))
     mc_order = float(1.0 / xp.sqrt(Np))
 
-    logger.info(
-        f"rank {mpi_rank}: RHS relative error = {rhs_rel_err:.4f} "
-        f"(expected O(1/sqrt(N_p)) ≈ {mc_order:.4f})"
-    )
+    logger.info(f"rank {mpi_rank}: RHS relative error = {rhs_rel_err:.4f} (expected O(1/sqrt(N_p)) ≈ {mc_order:.4f})")
 
     assert rhs_rel_err < 0.05, (
-        f"MC RHS relative error {rhs_rel_err:.4f} exceeds 10 * O(1/sqrt(N_p)) = "
-        f"{10 * mc_order:.4f}.  Increase N_p or check the accumulation kernel."
+        f"MC RHS relative error {rhs_rel_err:.4f} exceeds 5%.  Increase N_p or check the accumulation kernel."
     )
 
     # ------------------------------------------------------------------ #
@@ -257,7 +255,7 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=1000, 
     _proj_diff_sq = xp.empty(1, dtype=float)
     _proj_ref_sq = xp.empty(1, dtype=float)
     _proj_diff_sq[0] = float(xp.sum((x_mc_arr - x_exact_arr) ** 2))
-    _proj_ref_sq[0] = float(xp.sum(x_exact_arr ** 2))
+    _proj_ref_sq[0] = float(xp.sum(x_exact_arr**2))
     if sub_comm is not None:
         sub_comm.Allreduce(MPI.IN_PLACE, _proj_diff_sq, op=MPI.SUM)
         sub_comm.Allreduce(MPI.IN_PLACE, _proj_ref_sq, op=MPI.SUM)
@@ -265,13 +263,11 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=1000, 
     proj_rel_err = float(xp.sqrt(_proj_diff_sq[0] / _proj_ref_sq[0]))
 
     logger.info(
-        f"rank {mpi_rank}: projection relative error = {proj_rel_err:.4f} "
-        f"(expected O(1/sqrt(N_p)) ≈ {mc_order:.4f})"
+        f"rank {mpi_rank}: projection relative error = {proj_rel_err:.4f} (expected O(1/sqrt(N_p)) ≈ {mc_order:.4f})"
     )
 
     assert proj_rel_err < 0.16, (
-        f"MC projection relative error {proj_rel_err:.4f} exceeds 10 * O(1/sqrt(N_p)) = "
-        f"{10 * mc_order:.4f}.  Increase N_p or check the accumulation kernel."
+        f"MC projection relative error {proj_rel_err:.4f} exceeds 16%.  Increase N_p or check the accumulation kernel."
     )
 
     # ------------------------------------------------------------------ #
@@ -311,14 +307,11 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=1000, 
         ax.axhline(0.0, color="k", lw=0.5)
         ax.set_xlabel(r"$\eta_1$")
         ax.set_ylabel(r"$n_h^{\rm MC} - n_h^{\rm exact}$")
-        ax.set_title(
-            f"Pointwise error  (proj. rel. err = {proj_rel_err:.3f},  $N_p = {Np}$)"
-        )
+        ax.set_title(f"Pointwise error  (proj. rel. err = {proj_rel_err:.3f},  $N_p = {Np}$)")
         ax.legend(fontsize=9)
 
         fig.suptitle(
-            f"Cuboid {dom_params},  degree = {degree},  "
-            f"num_elements = {num_elements},  bcs = {bcs}",
+            f"Cuboid {dom_params},  degree = {degree},  num_elements = {num_elements},  bcs = {bcs}",
             fontsize=9,
         )
         fig.tight_layout()

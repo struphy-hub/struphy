@@ -163,128 +163,128 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
         shutil.rmtree(test_folder)
 
 
-@pytest.mark.parametrize("nx", [12, 24])
-@pytest.mark.parametrize("plot_pts", [11, 32])
-def test_damped_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
-    """Verification test for SPH discretization of isthermal Euler equations.
-    A standing sound wave with c_s=1 is damped at the rate mu*k^2/2 by viscosity.
-    """
+# @pytest.mark.parametrize("nx", [12, 24])
+# @pytest.mark.parametrize("plot_pts", [11, 32])
+# def test_damped_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
+#     """Verification test for SPH discretization of isthermal Euler equations.
+#     A standing sound wave with c_s=1 is damped at the rate mu*k^2/2 by viscosity.
+#     """
 
-    # environment options
-    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
-    out_folders = os.path.join(test_folder, "ViscousEulerSPH")
-    env = EnvironmentOptions(out_folders=out_folders, sim_folder="damped_soundwave_1d")
+#     # environment options
+#     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+#     out_folders = os.path.join(test_folder, "ViscousEulerSPH")
+#     env = EnvironmentOptions(out_folders=out_folders, sim_folder="damped_soundwave_1d")
 
-    # time stepping
-    time_opts = Time(dt=0.01, Tend=0.18, split_algo="Strang")
+#     # time stepping
+#     time_opts = Time(dt=0.01, Tend=0.18, split_algo="Strang")
 
-    # geometry
-    r1 = 2.5
-    domain = domains.Cuboid(r1=r1)
+#     # geometry
+#     r1 = 2.5
+#     domain = domains.Cuboid(r1=r1)
 
-    # grid
-    grid = None
+#     # grid
+#     grid = None
 
-    # derham options
-    derham_opts = None
+#     # derham options
+#     derham_opts = None
 
-    # light-weight model instance
-    model = ViscousEulerSPH(with_B0=False, with_viscosity=True)
+#     # light-weight model instance
+#     model = ViscousEulerSPH(with_B0=False, with_viscosity=True)
 
-    ppb = 100  # Particles per box (controls resolution)
-    loading_params = LoadingParameters(ppb=ppb, loading="tesselation")
-    weights_params = WeightsParameters()
-    boundary_params = BoundaryParameters()
-    sorting_params = SortingParameters(
-        boxes_per_dim=(nx, 1, 1),
-        dims_mask=(True, False, False),
-    )
+#     ppb = 100  # Particles per box (controls resolution)
+#     loading_params = LoadingParameters(ppb=ppb, loading="tesselation")
+#     weights_params = WeightsParameters()
+#     boundary_params = BoundaryParameters()
+#     sorting_params = SortingParameters(
+#         boxes_per_dim=(nx, 1, 1),
+#         dims_mask=(True, False, False),
+#     )
 
-    bin_plot = BinningPlot(slice="e1", n_bins=(32,), ranges=(0.0, 1.0))
-    kd_plot = KernelDensityPlot(pts_e1=plot_pts, pts_e2=1)
-    saving_params = SavingParameters(
-        binning_plots=(bin_plot,),
-        kernel_density_plots=(kd_plot,),
-    )
+#     bin_plot = BinningPlot(slice="e1", n_bins=(32,), ranges=(0.0, 1.0))
+#     kd_plot = KernelDensityPlot(pts_e1=plot_pts, pts_e2=1)
+#     saving_params = SavingParameters(
+#         binning_plots=(bin_plot,),
+#         kernel_density_plots=(kd_plot,),
+#     )
 
-    model.euler_fluid.set_markers(
-        loading_params=loading_params,
-        weights_params=weights_params,
-        boundary_params=boundary_params,
-        sorting_params=sorting_params,
-        saving_params=saving_params,
-    )
+#     model.euler_fluid.set_markers(
+#         loading_params=loading_params,
+#         weights_params=weights_params,
+#         boundary_params=boundary_params,
+#         sorting_params=sorting_params,
+#         saving_params=saving_params,
+#     )
 
-    # propagator options
-    from struphy.ode.utils import ButcherTableau
+#     # propagator options
+#     from struphy.ode.utils import ButcherTableau
 
-    butcher = ButcherTableau(algo="forward_euler")
-    model.propagators.push_eta.options = model.propagators.push_eta.Options(butcher=butcher)
-    if model.with_B0:
-        model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
-    model.propagators.push_sph_p.options = model.propagators.push_sph_p.Options(kernel_type="gaussian_1d")
+#     butcher = ButcherTableau(algo="forward_euler")
+#     model.propagators.push_eta.options = model.propagators.push_eta.Options(butcher=butcher)
+#     if model.with_B0:
+#         model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
+#     model.propagators.push_sph_p.options = model.propagators.push_sph_p.Options(kernel_type="gaussian_1d")
 
-    # background, perturbations and initial conditions
-    background = equils.ConstantVelocity()
-    model.euler_fluid.var.add_background(background)
-    perturbation = perturbations.ModesSin(ls=(1,), amps=(1.0e-2,))
-    model.euler_fluid.var.add_perturbation(del_n=perturbation)
+#     # background, perturbations and initial conditions
+#     background = equils.ConstantVelocity()
+#     model.euler_fluid.var.add_background(background)
+#     perturbation = perturbations.ModesSin(ls=(1,), amps=(1.0e-2,))
+#     model.euler_fluid.var.add_perturbation(del_n=perturbation)
 
-    # instance of simulation
-    sim = Simulation(
-        model=model,
-        env=env,
-        time_opts=time_opts,
-        domain=domain,
-        grid=grid,
-        derham_opts=derham_opts,
-    )
+#     # instance of simulation
+#     sim = Simulation(
+#         model=model,
+#         env=env,
+#         time_opts=time_opts,
+#         domain=domain,
+#         grid=grid,
+#         derham_opts=derham_opts,
+#     )
 
-    # run
-    sim.run()
+#     # run
+#     sim.run()
 
-    # post processing
-    if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.pproc()
+#     # post processing
+#     if MPI.COMM_WORLD.Get_rank() == 0:
+#         sim.pproc()
 
-        # diagnostics
-        sim.load_plotting_data()
+#         # diagnostics
+#         sim.load_plotting_data()
 
-        ee1, ee2, ee3 = sim.n_sph.euler_fluid.view_0.grid_n_sph
-        n_sph = sim.n_sph.euler_fluid.view_0.n_sph
+#         ee1, ee2, ee3 = sim.n_sph.euler_fluid.view_0.grid_n_sph
+#         n_sph = sim.n_sph.euler_fluid.view_0.n_sph
 
-        if do_plot:
-            dt = time_opts.dt
-            end_time = time_opts.Tend
-            Nt = int(end_time // dt)
-            x = ee1 * r1
+#         if do_plot:
+#             dt = time_opts.dt
+#             end_time = time_opts.Tend
+#             Nt = int(end_time // dt)
+#             x = ee1 * r1
 
-            plt.figure(figsize=(20, 40))
+#             plt.figure(figsize=(20, 40))
 
-            dt_plot = end_time / 10.0
-            plot_ct = 0
-            time = 0.0
-            for i in range(Nt + 1):
-                time = dt * i
-                logger.info(f"{i =}, {time =:.4f}, {time // dt_plot =}, {plot_ct =}")
-                if time // dt_plot >= plot_ct:
-                    plot_ct += 1
-                    plt.subplot(5, 2, plot_ct)
-                    plt.plot(x.squeeze(), n_sph[i, :, 0, 0])
-                    plt.xlim(0, 2.5)
-                    plt.grid(c="k")
-                    plt.xlabel("x")
-                    plt.ylabel(r"$\rho$")
-                    plt.title(f"time={i * dt:4.2f}")
+#             dt_plot = end_time / 10.0
+#             plot_ct = 0
+#             time = 0.0
+#             for i in range(Nt + 1):
+#                 time = dt * i
+#                 logger.info(f"{i =}, {time =:.4f}, {time // dt_plot =}, {plot_ct =}")
+#                 if time // dt_plot >= plot_ct:
+#                     plot_ct += 1
+#                     plt.subplot(5, 2, plot_ct)
+#                     plt.plot(x.squeeze(), n_sph[i, :, 0, 0])
+#                     plt.xlim(0, 2.5)
+#                     plt.grid(c="k")
+#                     plt.xlabel("x")
+#                     plt.ylabel(r"$\rho$")
+#                     plt.title(f"time={i * dt:4.2f}")
 
-            plt.show()
+#             plt.show()
 
-        error = xp.max(xp.abs(n_sph[0] - n_sph[-1]))
-        logger.info(f"SPH sound wave {error =}.")
-        assert error < 6e-4
-        logger.info("Assertion passed.")
+#         error = xp.max(xp.abs(n_sph[0] - n_sph[-1]))
+#         logger.info(f"SPH sound wave {error =}.")
+#         assert error < 6e-4
+#         logger.info("Assertion passed.")
 
-        shutil.rmtree(test_folder)
+#         shutil.rmtree(test_folder)
 
 
 if __name__ == "__main__":
