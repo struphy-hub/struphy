@@ -33,11 +33,7 @@ def charge_density_0form(
     vec: "float[:,:,:]",
 ):
     r"""
-    Kernel for :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` into V0 with the filling
-
-    .. math::
-
-        B_p^\mu = \frac{w_p}{N} \,.
+    Kernel for :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` into V0 with weight :math:`B^\mu = 1`.
     """
 
     markers = args_markers.markers
@@ -55,7 +51,7 @@ def charge_density_0form(
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
-        # filling = w_p/N
+        # filling is just the weights
         filling = markers[ip, weight_idx]
 
         particle_to_mat_kernels.vec_fill_b_v0(

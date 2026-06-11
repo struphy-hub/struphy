@@ -18,7 +18,21 @@ from struphy.utils.pyccel import Pyccelkernel
 
 class Accumulator:
     r"""
-    Struphy accumulation (block) matrices and vectors
+    Approximates integrals of the form
+    
+    .. math::
+    
+        I_A &= \int_\Omega \int_{\mathbb R^3} \Lambda^\mu_{ijk}(\boldsymbol \eta) \, A^{\mu, \nu}(\boldsymbol \eta, \mathbf v) \, \Lambda^\nu_{mno}(\boldsymbol \eta) \, f^{\textrm{vol}}(\boldsymbol \eta, \mathbf v)\,\mathrm d\mathbf v \textrm d \boldsymbol \eta\,, 
+        \\[2mm]
+        I_B &= \int_\Omega \int_{\mathbb R^3} \Lambda^\mu_{ijk}(\boldsymbol \eta) \, B^\mu(\boldsymbol \eta, \mathbf v) \, f^{\textrm{vol}}(\boldsymbol \eta, \mathbf v)\,\mathrm d\mathbf v \textrm d \boldsymbol \eta\,,
+    
+    for given weight functions :math:`A^{\mu,\nu}` and :math:`B^\mu` by Monte-Carlo quadrature through the particle distribution function :math:`f^{\textrm{vol}}`:
+    
+    .. math::
+    
+        f^{\textrm{vol}}(\boldsymbol \eta, \mathbf v) \approx \sum_{p=0}^{N-1} w_p \, \delta(\boldsymbol \eta - \boldsymbol \eta_p) \, \delta(\mathbf v - \mathbf v_p)\,.
+    
+    This results in stencil (block) matrices and vectors
 
     .. math::
 
@@ -33,14 +47,12 @@ class Accumulator:
 
     .. math::
 
-        M^{\mu,\nu}_{ijk,mno} &= \sum_{p=0}^{N-1} \Lambda^\mu_{ijk}(\boldsymbol \eta_p) \, A^{\mu,\nu}_p \, \Lambda^\nu_{mno}(\boldsymbol \eta_p) \,,
+        M^{\mu,\nu}_{ijk,mno} &= \sum_{p=0}^{N-1} w_p\, \Lambda^\mu_{ijk}(\boldsymbol \eta_p) \, A^{\mu,\nu}_p \, \Lambda^\nu_{mno}(\boldsymbol \eta_p) \,,
         \\[2mm]
-        V^\mu_{ijk} &= \sum_{p=0}^{N-1} \Lambda^\mu_{ijk}(\boldsymbol \eta_p) \, B^\mu_p \,.
+        V^\mu_{ijk} &= \sum_{p=0}^{N-1} w_p\, \Lambda^\mu_{ijk}(\boldsymbol \eta_p) \, B^\mu_p \,.
 
     Here, :math:`\Lambda^\mu_{ijk}(\boldsymbol \eta_p)` denotes the :math:`ijk`-th basis function
-    of the :math:`\mu`-th component of a Derham space evaluated at the particle position :math:`\boldsymbol \eta_p`,
-    and :math:`A^{\mu,\nu}_p` and :math:`B^\mu_p` are particle-dependent "filling functions",
-    to be defined in the module :mod:`~struphy.pic.accumulation.accum_kernels`.
+    of the :math:`\mu`-th component of a Derham space.
 
     Parameters
     ----------
@@ -408,7 +420,37 @@ class Accumulator:
 
 class AccumulatorVector:
     r"""
-    Same as :class:`~struphy.pic.accumulation.particles_to_grid.Accumulator` but only for vectors :math:`V`.
+    Approximates integrals of the form
+    
+    .. math::
+    
+        I_B = \int_\Omega \int_{\mathbb R^3} \Lambda^\mu_{ijk}(\boldsymbol \eta) \, B^\mu(\boldsymbol \eta, \mathbf v) \, f^{\textrm{vol}}(\boldsymbol \eta, \mathbf v)\,\mathrm d\mathbf v \textrm d \boldsymbol \eta\,,
+    
+    for a given weight function and :math:`B^\mu` by Monte-Carlo quadrature through the particle distribution function :math:`f^{\textrm{vol}}`:
+    
+    .. math::
+    
+        f^{\textrm{vol}}(\boldsymbol \eta, \mathbf v) \approx \sum_{p=0}^{N-1} w_p \, \delta(\boldsymbol \eta - \boldsymbol \eta_p) \, \delta(\mathbf v - \mathbf v_p)\,.
+    
+    This results in a stencil (block) vector
+
+    .. math::
+
+        V = (V^\mu)_\mu\,,\qquad V^\mu \in \mathbb R^{\mathbb N^\alpha_\mu}\,,
+
+    where :math:`N^\alpha_\mu` denotes the dimension of the :math:`\mu`-th component
+    of the :class:`~struphy.feec.psydac_derham.Derham` space
+    :math:`V_h^\alpha` (:math:`\mu,\nu = 1,2,3` for vector-valued spaces),
+    with entries obtained by summing over all particles :math:`p`,
+
+    .. math::
+    
+        V^\mu_{ijk} = \sum_{p=0}^{N-1} w_p\, \Lambda^\mu_{ijk}(\boldsymbol \eta_p) \, B^\mu_p \,.
+
+    Here, :math:`\Lambda^\mu_{ijk}(\boldsymbol \eta_p)` denotes the :math:`ijk`-th basis function
+    of the :math:`\mu`-th component of a Derham space.
+    
+    Similar to :class:`~struphy.pic.accumulation.particles_to_grid.Accumulator` but only for vectors :math:`V`.
 
     Parameters
     ----------
