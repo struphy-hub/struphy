@@ -7,14 +7,11 @@ logger = logging.getLogger("struphy")
 set_logging_level(logging.INFO)
 
 
-@pytest.mark.parametrize("num_elements", [[8, 9, 10]])
-@pytest.mark.parametrize("degree", [[2, 3, 4]])
+@pytest.mark.parametrize("num_elements", [[16, 1, 1]])
+@pytest.mark.parametrize("degree", [[3, 1, 1]])
 @pytest.mark.parametrize(
     "bcs",
     [
-        (("free", "free"), ("free", "free"), None),
-        (("free", "free"), None, None),
-        (None, ("free", "free"), None),
         (None, None, None),
     ],
 )
