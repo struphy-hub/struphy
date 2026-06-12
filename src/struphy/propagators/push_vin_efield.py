@@ -21,13 +21,13 @@ class PushVinEfield(Propagator):
 
     .. math::
 
-        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \frac{1}{\varepsilon} \, \mathbf{E}(\mathbf{x}_p) \,,
+        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \frac{1}{\varepsilon}\mathbf{E}(\mathbf{x}_p) \,,
 
     where :math:`\varepsilon \in \mathbb R` is a constant. In logical coordinates, given by :math:`\mathbf x = F(\boldsymbol \eta)`:
 
     .. math::
 
-        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \frac{1}{\varepsilon} \, DF^{-\top} \hat{\mathbf E}^1(\boldsymbol \eta_p)  \,,
+        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \frac{1}{\varepsilon}DF^{-\top}\hat{\mathbf E}^1(\boldsymbol \eta_p)  \,,
 
     which is solved analytically. :math:`\mathbf E` can optionally be defined
     through a potential, :math:`\mathbf E = - \nabla \phi`.
