@@ -8,7 +8,7 @@ from line_profiler import profile
 
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.models.variables import SPHVariable
-from struphy.pic.pushing import eval_kernels_sph, pusher_kernels
+from struphy.pic.pushing import eval_kernels_sph, pusher_kernels_sph
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
@@ -170,7 +170,7 @@ class PushVinViscousPotential(Propagator):
             args_init_visc,
         )
 
-        kernel = Pyccelkernel(pusher_kernels.push_v_viscosity)
+        kernel = Pyccelkernel(pusher_kernels_sph.push_v_viscosity)
 
         args_kernel = (
             boxes,

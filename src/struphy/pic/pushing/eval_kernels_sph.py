@@ -7,8 +7,7 @@ import struphy.bsplines.bsplines_kernels as bsplines_kernels
 import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
 import struphy.geometry.evaluation_kernels as evaluation_kernels
 
-# do not remove; needed to identify dependencies
-import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels
+import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels # do not remove; needed to identify dependencies
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
 import struphy.pic.sph_eval_kernels as sph_eval_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
