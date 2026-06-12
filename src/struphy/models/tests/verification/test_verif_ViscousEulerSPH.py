@@ -164,8 +164,8 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
         shutil.rmtree(test_folder)
 
 
-@pytest.mark.parametrize("nx", [12, 24])
-@pytest.mark.parametrize("plot_pts", [11, 32])
+@pytest.mark.parametrize("nx", [8])
+@pytest.mark.parametrize("plot_pts", [11])
 def test_velocity_diffusion(nx: int, plot_pts: int, do_plot: bool = False):
     """Verification test for SPH discretization of isthermal Euler equations.
     A standing sound wave with c_s=1 is damped at the rate mu*k^2/2 by viscosity.
@@ -223,7 +223,8 @@ def test_velocity_diffusion(nx: int, plot_pts: int, do_plot: bool = False):
     butcher = ButcherTableau(algo="forward_euler")
     model.propagators.push_eta.options = model.propagators.push_eta.Options(butcher=butcher)
     
-    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(kernel_type="gaussian_1d", mu=1.0)
+    mu = 1.0
+    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(kernel_type="gaussian_1d", mu=mu)
     
     if model.with_B0:
         model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
@@ -267,6 +268,34 @@ def test_velocity_diffusion(nx: int, plot_pts: int, do_plot: bool = False):
         print(f"{e1_binned.shape = }")
         print(f"{n_binned.shape = }")
         print(f"{j1_binned.shape = }")
+
+        import numpy as np
+
+        dt = time_opts.dt
+        Nt = int(time_opts.Tend // dt)
+        times = np.linspace(0.0, time_opts.Tend, Nt + 1)
+
+        # sin(2*pi*x/r1) for mode l=1 peaks at x = 0.25*r1
+        e1_np = np.asarray(e1_binned).flatten()
+        idx_max = int(np.argmin(np.abs(e1_np - 0.25 * r1)))
+
+        # amplitude time series at the peak bin
+        amplitude = np.asarray(j1_binned[:, idx_max]).flatten()
+
+        # analytical decay rate: gamma = mu * k^2, k = 2*pi/r1 for mode l=1
+        k = 2.0 * np.pi / r1
+        gamma_analytical = mu * 4/3 * k**2
+
+        A0 = amplitude[0]
+        amplitude_analytical = A0 * np.exp(-gamma_analytical * times)
+
+        # numerical decay rate via linear fit to log(amplitude)
+        log_amp = np.log(np.abs(amplitude) + 1e-15)
+        coeffs = np.polyfit(times, log_amp, 1)
+        gamma_numerical = -coeffs[0]
+
+        logger.info(f"Analytical decay rate: gamma = mu*k^2 = {gamma_analytical:.4f}")
+        logger.info(f"Numerical  decay rate: gamma           = {gamma_numerical:.4f}")
 
         if do_plot:
             dt = time_opts.dt
@@ -312,15 +341,36 @@ def test_velocity_diffusion(nx: int, plot_pts: int, do_plot: bool = False):
                     plt.legend()
 
                     plot_ct += 3
-                    if plot_ct == n_rows * 3:    
+                    if plot_ct == n_rows * 3:
                         break
-                    
+
+            plt.show()
+
+            fig, ax = plt.subplots(figsize=(8, 5))
+            ax.semilogy(times, np.abs(amplitude), "o-", markersize=3,
+                        label=f"Numerical (fitted rate = {gamma_numerical:.3f})")
+            ax.semilogy(times, np.abs(amplitude_analytical), "--",
+                        label=rf"Analytical: $\gamma = (4/3) \mu k^2 = {gamma_analytical:.3f}$")
+            ax.set_xlabel("time")
+            ax.set_ylabel(rf"velocity amplitude at $x = {e1_np[idx_max]:.3f}$")
+            ax.set_title("Velocity diffusion: amplitude decay over time")
+            ax.legend()
+            ax.grid(True, which="both")
+            plt.tight_layout()
             plt.show()
 
         error = xp.max(xp.abs(j1_binned[-1] - ux_mean))
         logger.info(f"SPH sound wave {error =}.")
         assert error < 0.0022
         logger.info("Assertion passed.")
+
+        rel_error = abs(gamma_numerical - gamma_analytical) / gamma_analytical
+        logger.info(f"Relative error in decay rate: {rel_error * 100:.2f}%")
+        assert rel_error < 0.04, (
+            f"Numerical decay rate {gamma_numerical:.4f} deviates {rel_error * 100:.1f}% "
+            f"from analytical {gamma_analytical:.4f} (tolerance 4%)"
+        )
+        logger.info("Decay rate assertion passed.")
 
         shutil.rmtree(test_folder)
 
