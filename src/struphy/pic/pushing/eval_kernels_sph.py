@@ -31,27 +31,17 @@ def sph_pressure_coeffs(
     h2: "float",
     h3: "float",
 ):
-    r"""Evaluate the :math:`\boldsymbol \eta`-gradient of the Hamiltonian
+    r"""For each particle, evaluate
+    
+    * the density :math:`\rho^{N,h}(\boldsymbol \eta_i)` abd stored it at ``markers[:, column_nr]``)
+    * the coefficient :math:`w_i/\rho^{N,h}(\boldsymbol \eta_i)` and stored it at ``markers[:, column_nr + 1]``)
+    * the coefficient :math:`w_i (\rho^{N,h}(\boldsymbol \eta_i))^{\gamma - 2}` and stored it at ``markers[:, column_nr + 2]``)
+    
+    where the smoothed SPH density is given by
 
     .. math::
 
-        H(\mathbf Z_p) = H(\boldsymbol \eta_p, v_{\parallel,p}) = \varepsilon \frac{v_{\parallel,p}^2}{2}
-        + \varepsilon \mu |\hat \mathbf B| (\boldsymbol \eta_p) + \hat \phi(\boldsymbol \eta_p)\,,
-
-    that is
-
-    .. math::
-
-        \hat \nabla H(\mathbf Z_p) = \varepsilon \mu \hat \nabla |\hat \mathbf B| (\boldsymbol \eta_p)
-        + \hat \nabla \hat \phi(\boldsymbol \eta_p)\,,
-
-    where the evaluation point is the weighted average
-    :math:`Z_{p,i} = \alpha_i Z_{p,i}^{n+1,k} + (1 - \alpha_i) Z_{p,i}^n`,
-    for :math:`i=1,2,3,4`. Markers must be sorted according to the evaluation point
-    :math:`\boldsymbol \eta_p` beforehand.
-
-    The components specified in ``comps`` are save at ``column_nr:column_nr + len(comps)``
-    in markers array for each particle.
+        \rho^{N,h}(\boldsymbol \eta_i) = \sum_j w_j \, W_h(\boldsymbol \eta_i - \boldsymbol \eta_j)\,.
     """
 
     gamma = 5 / 3
@@ -105,27 +95,7 @@ def sph_isotherm_kappa(
     comps: "int[:]",
     args_markers: "MarkerArguments",
 ):
-    r"""Evaluate the :math:`\boldsymbol \eta`-gradient of the Hamiltonian
-
-    .. math::
-
-        H(\mathbf Z_p) = H(\boldsymbol \eta_p, v_{\parallel,p}) = \varepsilon \frac{v_{\parallel,p}^2}{2}
-        + \varepsilon \mu |\hat \mathbf B| (\boldsymbol \eta_p) + \hat \phi(\boldsymbol \eta_p)\,,
-
-    that is
-
-    .. math::
-
-        \hat \nabla H(\mathbf Z_p) = \varepsilon \mu \hat \nabla |\hat \mathbf B| (\boldsymbol \eta_p)
-        + \hat \nabla \hat \phi(\boldsymbol \eta_p)\,,
-
-    where the evaluation point is the weighted average
-    :math:`Z_{p,i} = \alpha_i Z_{p,i}^{n+1,k} + (1 - \alpha_i) Z_{p,i}^n`,
-    for :math:`i=1,2,3,4`. Markers must be sorted according to the evaluation point
-    :math:`\boldsymbol \eta_p` beforehand.
-
-    The components specified in ``comps`` are save at ``column_nr:column_nr + len(comps)``
-    in markers array for each particle.
+    r"""None yet.
     """
 
     # get marker arguments
@@ -159,37 +129,31 @@ def sph_mean_velocity_coeffs(
     h2: "float",
     h3: "float",
 ):
-    r"""Evaluate the :math:`\boldsymbol \eta`-gradient of the Hamiltonian
+    r"""For each particle, evaluate the smoothed SPH density :math:`\rho^{N,h}(\boldsymbol \eta_i)` and store the
+    coefficient 
+      
+    * :math:`w_i v_{k,i} / \rho^{N,h}(\boldsymbol \eta_i)` at ``markers[:, column_nr + k]`` for :math:`k = 0, 1, 2`
+
+    where the smoothed SPH density is given by
 
     .. math::
 
-        H(\mathbf Z_p) = H(\boldsymbol \eta_p, v_{\parallel,p}) = \varepsilon \frac{v_{\parallel,p}^2}{2}
-        + \varepsilon \mu |\hat \mathbf B| (\boldsymbol \eta_p) + \hat \phi(\boldsymbol \eta_p)\,,
+        \rho^{N,h}(\boldsymbol \eta_i) = \sum_j w_j \, W_h(\boldsymbol \eta_i - \boldsymbol \eta_j)\,.
 
-    that is
+    These coefficients serve as kernel weights so that one can evaluate
+    the SPH mean velocity field
 
     .. math::
 
-        \hat \nabla H(\mathbf Z_p) = \varepsilon \mu \hat \nabla |\hat \mathbf B| (\boldsymbol \eta_p)
-        + \hat \nabla \hat \phi(\boldsymbol \eta_p)\,,
-
-    where the evaluation point is the weighted average
-    :math:`Z_{p,i} = \alpha_i Z_{p,i}^{n+1,k} + (1 - \alpha_i) Z_{p,i}^n`,
-    for :math:`i=1,2,3,4`. Markers must be sorted according to the evaluation point
-    :math:`\boldsymbol \eta_p` beforehand.
-
-    The components specified in ``comps`` are save at ``column_nr:column_nr + len(comps)``
-    in markers array for each particle.
+        v_k^{N,h}(\boldsymbol \eta_i)
+        = \sum_j \frac{w_j \, v_{k,j}}{\rho^{N,h}(\boldsymbol \eta_j)} \,
+          W_h(\boldsymbol \eta_i - \boldsymbol \eta_j)\,.
     """
-
-    gamma = 5 / 3
 
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     n_cols = shape(markers)[1]
-    Np = args_markers.Np
-    vdim = args_markers.vdim
     weight_idx = args_markers.weight_idx
     valid_mks = args_markers.valid_mks
 
@@ -234,216 +198,216 @@ def sph_mean_velocity_coeffs(
         # logger.info(f"{ip = }, {weight = }, {n_at_eta = }, {velocities[0] = }")
 
 
-@stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")
-def sph_mean_velocity(
-    alpha: "float[:]",
-    column_nr: int,
-    comps: "int[:]",
-    args_markers: "MarkerArguments",
-    args_domain: "DomainArguments",
-    boxes: "int[:, :]",
-    neighbours: "int[:, :]",
-    holes: "bool[:]",
-    periodic1: "bool",
-    periodic2: "bool",
-    periodic3: "bool",
-    kernel_type: "int",
-    h1: "float",
-    h2: "float",
-    h3: "float",
-):
-    r"""Evaluate the :math:`\boldsymbol \eta`-gradient of the Hamiltonian
+# @stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")
+# def sph_mean_velocity(
+#     alpha: "float[:]",
+#     column_nr: int,
+#     comps: "int[:]",
+#     args_markers: "MarkerArguments",
+#     args_domain: "DomainArguments",
+#     boxes: "int[:, :]",
+#     neighbours: "int[:, :]",
+#     holes: "bool[:]",
+#     periodic1: "bool",
+#     periodic2: "bool",
+#     periodic3: "bool",
+#     kernel_type: "int",
+#     h1: "float",
+#     h2: "float",
+#     h3: "float",
+# ):
+#     r"""Evaluate the :math:`\boldsymbol \eta`-gradient of the Hamiltonian
 
-    .. math::
+#     .. math::
 
-        H(\mathbf Z_p) = H(\boldsymbol \eta_p, v_{\parallel,p}) = \varepsilon \frac{v_{\parallel,p}^2}{2}
-        + \varepsilon \mu |\hat \mathbf B| (\boldsymbol \eta_p) + \hat \phi(\boldsymbol \eta_p)\,,
+#         H(\mathbf Z_p) = H(\boldsymbol \eta_p, v_{\parallel,p}) = \varepsilon \frac{v_{\parallel,p}^2}{2}
+#         + \varepsilon \mu |\hat \mathbf B| (\boldsymbol \eta_p) + \hat \phi(\boldsymbol \eta_p)\,,
 
-    that is
+#     that is
 
-    .. math::
+#     .. math::
 
-        \hat \nabla H(\mathbf Z_p) = \varepsilon \mu \hat \nabla |\hat \mathbf B| (\boldsymbol \eta_p)
-        + \hat \nabla \hat \phi(\boldsymbol \eta_p)\,,
+#         \hat \nabla H(\mathbf Z_p) = \varepsilon \mu \hat \nabla |\hat \mathbf B| (\boldsymbol \eta_p)
+#         + \hat \nabla \hat \phi(\boldsymbol \eta_p)\,,
 
-    where the evaluation point is the weighted average
-    :math:`Z_{p,i} = \alpha_i Z_{p,i}^{n+1,k} + (1 - \alpha_i) Z_{p,i}^n`,
-    for :math:`i=1,2,3,4`. Markers must be sorted according to the evaluation point
-    :math:`\boldsymbol \eta_p` beforehand.
+#     where the evaluation point is the weighted average
+#     :math:`Z_{p,i} = \alpha_i Z_{p,i}^{n+1,k} + (1 - \alpha_i) Z_{p,i}^n`,
+#     for :math:`i=1,2,3,4`. Markers must be sorted according to the evaluation point
+#     :math:`\boldsymbol \eta_p` beforehand.
 
-    The components specified in ``comps`` are save at ``column_nr:column_nr + len(comps)``
-    in markers array for each particle.
-    """
+#     The components specified in ``comps`` are save at ``column_nr:column_nr + len(comps)``
+#     in markers array for each particle.
+#     """
 
-    gamma = 5 / 3
+#     gamma = 5 / 3
 
-    # get marker arguments
-    markers = args_markers.markers
-    n_markers = args_markers.n_markers
-    n_cols = shape(markers)[1]
-    Np = args_markers.Np
-    vdim = args_markers.vdim
-    weight_idx = args_markers.weight_idx
-    first_free_idx = args_markers.first_free_idx
-    valid_mks = args_markers.valid_mks
+#     # get marker arguments
+#     markers = args_markers.markers
+#     n_markers = args_markers.n_markers
+#     n_cols = shape(markers)[1]
+#     Np = args_markers.Np
+#     vdim = args_markers.vdim
+#     weight_idx = args_markers.weight_idx
+#     first_free_idx = args_markers.first_free_idx
+#     valid_mks = args_markers.valid_mks
 
-    for ip in range(n_markers):
-        # only do something if particle is a "true" particle
-        if not valid_mks[ip]:
-            continue
+#     for ip in range(n_markers):
+#         # only do something if particle is a "true" particle
+#         if not valid_mks[ip]:
+#             continue
 
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-        loc_box = int(markers[ip, n_cols - 2])
-        v1_at_eta = sph_eval_kernels.box_based_kernel(
-            args_markers,
-            eta1,
-            eta2,
-            eta3,
-            loc_box,
-            boxes,
-            neighbours,
-            holes,
-            periodic1,
-            periodic2,
-            periodic3,
-            first_free_idx,
-            kernel_type,
-            h1,
-            h2,
-            h3,
-        )
+#         eta1 = markers[ip, 0]
+#         eta2 = markers[ip, 1]
+#         eta3 = markers[ip, 2]
+#         loc_box = int(markers[ip, n_cols - 2])
+#         v1_at_eta = sph_eval_kernels.box_based_kernel(
+#             args_markers,
+#             eta1,
+#             eta2,
+#             eta3,
+#             loc_box,
+#             boxes,
+#             neighbours,
+#             holes,
+#             periodic1,
+#             periodic2,
+#             periodic3,
+#             first_free_idx,
+#             kernel_type,
+#             h1,
+#             h2,
+#             h3,
+#         )
 
-        v2_at_eta = sph_eval_kernels.box_based_kernel(
-            args_markers,
-            eta1,
-            eta2,
-            eta3,
-            loc_box,
-            boxes,
-            neighbours,
-            holes,
-            periodic1,
-            periodic2,
-            periodic3,
-            first_free_idx + 1,
-            kernel_type,
-            h1,
-            h2,
-            h3,
-        )
+#         v2_at_eta = sph_eval_kernels.box_based_kernel(
+#             args_markers,
+#             eta1,
+#             eta2,
+#             eta3,
+#             loc_box,
+#             boxes,
+#             neighbours,
+#             holes,
+#             periodic1,
+#             periodic2,
+#             periodic3,
+#             first_free_idx + 1,
+#             kernel_type,
+#             h1,
+#             h2,
+#             h3,
+#         )
 
-        v3_at_eta = sph_eval_kernels.box_based_kernel(
-            args_markers,
-            eta1,
-            eta2,
-            eta3,
-            loc_box,
-            boxes,
-            neighbours,
-            holes,
-            periodic1,
-            periodic2,
-            periodic3,
-            first_free_idx + 2,
-            kernel_type,
-            h1,
-            h2,
-            h3,
-        )
-        # save
-        markers[ip, column_nr] = v1_at_eta
-        markers[ip, column_nr + 1] = v2_at_eta
-        markers[ip, column_nr + 2] = v3_at_eta
+#         v3_at_eta = sph_eval_kernels.box_based_kernel(
+#             args_markers,
+#             eta1,
+#             eta2,
+#             eta3,
+#             loc_box,
+#             boxes,
+#             neighbours,
+#             holes,
+#             periodic1,
+#             periodic2,
+#             periodic3,
+#             first_free_idx + 2,
+#             kernel_type,
+#             h1,
+#             h2,
+#             h3,
+#         )
+#         # save
+#         markers[ip, column_nr] = v1_at_eta
+#         markers[ip, column_nr + 1] = v2_at_eta
+#         markers[ip, column_nr + 2] = v3_at_eta
 
 
-@stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")
-def sph_grad_mean_velocity(
-    alpha: "float[:]",
-    column_nr: int,
-    comps: "int[:]",
-    args_markers: "MarkerArguments",
-    args_domain: "DomainArguments",
-    boxes: "int[:, :]",
-    neighbours: "int[:, :]",
-    holes: "bool[:]",
-    periodic1: "bool",
-    periodic2: "bool",
-    periodic3: "bool",
-    kernel_type: "int",
-    h1: "float",
-    h2: "float",
-    h3: "float",
-):
-    r"""Evaluate the :math:`\boldsymbol \eta`-gradient of the Hamiltonian
+# @stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")
+# def sph_grad_mean_velocity(
+#     alpha: "float[:]",
+#     column_nr: int,
+#     comps: "int[:]",
+#     args_markers: "MarkerArguments",
+#     args_domain: "DomainArguments",
+#     boxes: "int[:, :]",
+#     neighbours: "int[:, :]",
+#     holes: "bool[:]",
+#     periodic1: "bool",
+#     periodic2: "bool",
+#     periodic3: "bool",
+#     kernel_type: "int",
+#     h1: "float",
+#     h2: "float",
+#     h3: "float",
+# ):
+#     r"""Evaluate the :math:`\boldsymbol \eta`-gradient of the Hamiltonian
 
-    .. math::
+#     .. math::
 
-        H(\mathbf Z_p) = H(\boldsymbol \eta_p, v_{\parallel,p}) = \varepsilon \frac{v_{\parallel,p}^2}{2}
-        + \varepsilon \mu |\hat \mathbf B| (\boldsymbol \eta_p) + \hat \phi(\boldsymbol \eta_p)\,,
+#         H(\mathbf Z_p) = H(\boldsymbol \eta_p, v_{\parallel,p}) = \varepsilon \frac{v_{\parallel,p}^2}{2}
+#         + \varepsilon \mu |\hat \mathbf B| (\boldsymbol \eta_p) + \hat \phi(\boldsymbol \eta_p)\,,
 
-    that is
+#     that is
 
-    .. math::
+#     .. math::
 
-        \hat \nabla H(\mathbf Z_p) = \varepsilon \mu \hat \nabla |\hat \mathbf B| (\boldsymbol \eta_p)
-        + \hat \nabla \hat \phi(\boldsymbol \eta_p)\,,
+#         \hat \nabla H(\mathbf Z_p) = \varepsilon \mu \hat \nabla |\hat \mathbf B| (\boldsymbol \eta_p)
+#         + \hat \nabla \hat \phi(\boldsymbol \eta_p)\,,
 
-    where the evaluation point is the weighted average
-    :math:`Z_{p,i} = \alpha_i Z_{p,i}^{n+1,k} + (1 - \alpha_i) Z_{p,i}^n`,
-    for :math:`i=1,2,3,4`. Markers must be sorted according to the evaluation point
-    :math:`\boldsymbol \eta_p` beforehand.
+#     where the evaluation point is the weighted average
+#     :math:`Z_{p,i} = \alpha_i Z_{p,i}^{n+1,k} + (1 - \alpha_i) Z_{p,i}^n`,
+#     for :math:`i=1,2,3,4`. Markers must be sorted according to the evaluation point
+#     :math:`\boldsymbol \eta_p` beforehand.
 
-    The components specified in ``comps`` are save at ``column_nr:column_nr + len(comps)``
-    in markers array for each particle.
-    """
+#     The components specified in ``comps`` are save at ``column_nr:column_nr + len(comps)``
+#     in markers array for each particle.
+#     """
 
-    gamma = 5 / 3
+#     gamma = 5 / 3
 
-    # get marker arguments
-    markers = args_markers.markers
-    n_markers = args_markers.n_markers
-    n_cols = shape(markers)[1]
-    Np = args_markers.Np
-    vdim = args_markers.vdim
-    weight_idx = args_markers.weight_idx
-    first_free_idx = args_markers.first_free_idx
-    valid_mks = args_markers.valid_mks
+#     # get marker arguments
+#     markers = args_markers.markers
+#     n_markers = args_markers.n_markers
+#     n_cols = shape(markers)[1]
+#     Np = args_markers.Np
+#     vdim = args_markers.vdim
+#     weight_idx = args_markers.weight_idx
+#     first_free_idx = args_markers.first_free_idx
+#     valid_mks = args_markers.valid_mks
 
-    grad_v_at_eta = zeros((3, 3), dtype=float)
-    for ip in range(n_markers):
-        # only do something if particle is a "true" particle
-        if not valid_mks[ip]:
-            continue
+#     grad_v_at_eta = zeros((3, 3), dtype=float)
+#     for ip in range(n_markers):
+#         # only do something if particle is a "true" particle
+#         if not valid_mks[ip]:
+#             continue
 
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-        loc_box = int(markers[ip, n_cols - 2])
-        for j in range(3):
-            for k in range(3):
-                grad_v_at_eta[j, k] = sph_eval_kernels.box_based_kernel(
-                    args_markers,
-                    eta1,
-                    eta2,
-                    eta3,
-                    loc_box,
-                    boxes,
-                    neighbours,
-                    holes,
-                    periodic1,
-                    periodic2,
-                    periodic3,
-                    first_free_idx + j,
-                    kernel_type + 1 + k,
-                    h1,
-                    h2,
-                    h3,
-                )
+#         eta1 = markers[ip, 0]
+#         eta2 = markers[ip, 1]
+#         eta3 = markers[ip, 2]
+#         loc_box = int(markers[ip, n_cols - 2])
+#         for j in range(3):
+#             for k in range(3):
+#                 grad_v_at_eta[j, k] = sph_eval_kernels.box_based_kernel(
+#                     args_markers,
+#                     eta1,
+#                     eta2,
+#                     eta3,
+#                     loc_box,
+#                     boxes,
+#                     neighbours,
+#                     holes,
+#                     periodic1,
+#                     periodic2,
+#                     periodic3,
+#                     first_free_idx + j,
+#                     kernel_type + 1 + k,
+#                     h1,
+#                     h2,
+#                     h3,
+#                 )
 
-                # save
-                markers[ip, column_nr + 3 * j + k] = grad_v_at_eta[j, k]
+#                 # save
+#                 markers[ip, column_nr + 3 * j + k] = grad_v_at_eta[j, k]
 
 
 @stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")

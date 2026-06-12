@@ -23,7 +23,7 @@ class PushVinSPHpressure(Propagator):
 
     .. math::
 
-        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} = \mathbf g - \sum_{i=1}^N w_p w_i \left( \frac{\partial \mathcal U}{\partial \rho}(\boldsymbol \eta_p) + \frac{\partial \mathcal U}{\partial \rho}(\boldsymbol \eta_i) \right) DF^{-\top}\nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_i) \,,
+        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} = \mathbf g - \sum_{i=1}^N w_i \left( \frac{\partial \mathcal U}{\partial \rho}(\boldsymbol \eta_p) + \frac{\partial \mathcal U}{\partial \rho}(\boldsymbol \eta_i) \right) DF^{-\top}\nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_i) \,,
 
     where :math:`\mathbf g` is a constant acceleration and the second term corresponds to the pressure gradient.
     Here, :math:`\mathcal U(\rho)` denotes the internal energy per unit mass
@@ -35,9 +35,7 @@ class PushVinSPHpressure(Propagator):
     * Isothermal closure: :math:`\mathcal U(\rho) = \kappa \, \ln(\rho)`, where :math:`\kappa` is constant.
     * Polytropic closure: :math:`\mathcal U(\rho) = \kappa \, \rho^{\gamma - 1} / (\gamma - 1)`, where :math:`\kappa` is the polytropic constant and :math:`\gamma = C_p / C_v` is the polytropic index.
 
-    Time stepping:
-
-    * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
+    Time stepping is forward Euler.
     """
 
     class Variables:

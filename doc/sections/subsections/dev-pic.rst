@@ -32,3 +32,13 @@ Accumulation kernels
     :members:
     :special-members:
     :show-inheritance:
+
+
+Pusher class
+^^^^^^^^^^^^
+
+.. autoclass:: struphy.pic.pushing.pusher.Pusher
+    :members:
+    :special-members:
+    :show-inheritance:
+    :exclude-members: __init__

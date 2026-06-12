@@ -23,7 +23,6 @@ from struphy.bsplines.evaluation_kernels_3d import (
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
 
 
-
 @stack_array("grad_u", "grad_u_cart", "tmp1", "dfinv", "dfinvT")
 def push_v_sph_pressure(
     dt: float,
@@ -47,17 +46,26 @@ def push_v_sph_pressure(
 
     .. math::
 
-        \frac{\mathbf v_p^{n+1} - \mathbf v_p^n}{\Delta t} = \mathbf g - \sum_{i=1}^N w_p w_i \left( \frac{\kappa}{\rho^{N,h}(\boldsymbol \eta_p)} + \frac{\kappa}{\rho^{N,h}(\boldsymbol \eta_q)} \right) DF^{-\top}\nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_i) \,,
+        \frac{\mathbf v_p^{n+1} - \mathbf v_p^n}{\Delta t} = \mathbf g - \sum_{i=1}^N w_i \left( \frac{\kappa}{\rho^{N,h}(\boldsymbol \eta_p)} + \frac{\kappa}{\rho^{N,h}(\boldsymbol \eta_i)} \right) DF^{-\top}\nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_i) \,,
 
     where :math:`\mathbf g` is a constant acceleration, the second term corresponds to the pressure gradient
     in the isothermal closure (with constant :math:`\kappa`), and :math:`DF^{-\top}` denotes the inverse transpose Jacobian
     arising in the pull back of the gradient of the smoothing kernel :math:`W_h` 
     chosen from :mod:`~struphy.pic.sph_smoothing_kernels`. 
+    
     The smoothed SPH density is given by
 
     .. math::
 
-        \rho^{N,h}(\boldsymbol \eta_p) = \sum_j w_j \, W_h(\boldsymbol \eta_p - \boldsymbol \eta_j)\,,
+        \rho^{N,h}(\boldsymbol \eta_p) = \sum_j w_j \, W_h(\boldsymbol \eta_p - \boldsymbol \eta_j)\,.
+        
+    This kernel requires:
+    
+    * The density :math:`\rho^{N,h}(\boldsymbol \eta_p)` to be pre-computed for each particle and stored at ``markers[:, first_free_idx]``)
+    * The coefficient :math:`w_i/\rho^{N,h}(\boldsymbol \eta_i)` to be pre-computed for each particle and stored at ``markers[:, first_free_idx + 1]``)
+    
+    This is accomplished by the kernel :func:`~struphy.pic.pushing.eval_kernels_sph.sph_pressure_coeffs`, which needs
+    to be passed as an ``init_kernel`` to the :class:`~struphy.pic.pushing.pusher.Pusher`.
 
     Parameters
     ----------
@@ -152,6 +160,7 @@ def push_v_sph_pressure(
             h3,
         )
         sum2 *= kappa
+        
         grad_u[0] += sum2
 
         if kernel_type >= 340:
@@ -278,19 +287,31 @@ def push_v_sph_pressure_ideal_gas(
     gravity: "float[:]",
     kappa: "float",
 ):
-    r"""Updates particle velocities as
+    r"""Update each marker :math:`p` according to
 
     .. math::
 
-        \frac{\mathbf v^{n+1} - \mathbf v^n}{\Delta t} = \kappa_p \sum_{q} w_p\,w_q \left( \frac{1}{\rho^{N,h}(\boldsymbol \eta_p)} + \frac{1}{\rho^{N,h}(\boldsymbol \eta_q)} \right) G^{-1}\nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_q) \,,
+        \frac{\mathbf v_p^{n+1} - \mathbf v_p^n}{\Delta t} = \mathbf g - \sum_{i=1}^N w_i \left( \kappa (\rho^{N,h}(\boldsymbol \eta_p))^{\gamma - 2} + \kappa (\rho^{N,h}(\boldsymbol \eta_i))^{\gamma - 2} \right) DF^{-\top}\nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_i) \,,
 
-    where :math:`G^{-1}` denotes the inverse metric tensor, and with the smoothed density
+    where :math:`\mathbf g` is a constant acceleration, the second term corresponds to the pressure gradient
+    in the polytropic closure (with constant :math:`\kappa` and :math:`\gamma = 5/3`), 
+    and :math:`DF^{-\top}` denotes the inverse transpose Jacobian
+    arising in the pull back of the gradient of the smoothing kernel :math:`W_h` 
+    chosen from :mod:`~struphy.pic.sph_smoothing_kernels`. 
+    
+    The smoothed SPH density is given by
 
     .. math::
 
-        \rho^{N,h}(\boldsymbol \eta_p) = \frac 1N \sum_q w_q \, W_h(\boldsymbol \eta_p - \boldsymbol \eta_q)\,,
-
-    where :math:`W_h(\boldsymbol \eta)` is a smoothing kernel from :mod:`~struphy.pic.sph_smoothing_kernels`.
+        \rho^{N,h}(\boldsymbol \eta_p) = \sum_j w_j \, W_h(\boldsymbol \eta_p - \boldsymbol \eta_j)\,.
+        
+    This kernel requires:
+    
+    * The density :math:`\rho^{N,h}(\boldsymbol \eta_p)` to be pre-computed for each particle and stored at ``markers[:, first_free_idx]``)
+    * The coefficient :math:`w_i (\rho^{N,h}(\boldsymbol \eta_i))^{\gamma - 2}` to be pre-computed for each particle and stored at ``markers[:, first_free_idx + 2]``)
+    
+    This is accomplished by the kernel :func:`~struphy.pic.pushing.eval_kernels_sph.sph_pressure_coeffs`, which needs
+    to be passed as an ``init_kernel`` to the :class:`~struphy.pic.pushing.pusher.Pusher`.
 
     Parameters
     ----------
@@ -328,14 +349,12 @@ def push_v_sph_pressure_ideal_gas(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    Np = args_markers.Np
     weight_idx = args_markers.weight_idx
     first_free_idx = args_markers.first_free_idx
     valid_mks = args_markers.valid_mks
     n_cols = shape(markers)[1]
 
     gamma = 5 / 3
-    kappa = 1 / (gamma - 1)
 
     # -- removed omp: #$ omp parallel private(ip, eta1, eta2, eta3, dfinv)
     # -- removed omp: #$ omp for
@@ -513,19 +532,30 @@ def push_v_viscosity(
     h2: "float",
     h3: "float",
 ):
-    r"""Updates particle velocities as
+    r"""Update each marker :math:`p` according to
 
     .. math::
 
-        \frac{\mathbf v^{n+1} - \mathbf v^n}{\Delta t} = \kappa_p \sum_{q} w_p\,w_q \left( \frac{1}{\rho^{N,h}(\boldsymbol \eta_p)} + \frac{1}{\rho^{N,h}(\boldsymbol \eta_q)} \right) G^{-1}\nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_q) \,,
+        \frac{\mathbf v_p^{n+1} - \mathbf v_p^n}{\Delta t} = \mu \sum_{i=1}^N \frac{w_i}{\rho^{N,h}(\boldsymbol \eta_i)} \left( \right) DF^{-\top} \nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_i) \,,
 
-    where :math:`G^{-1}` denotes the inverse metric tensor, and with the smoothed density
+    where :math:`\mathbf g` is a constant acceleration, the second term corresponds to the pressure gradient
+    in the isothermal closure (with constant :math:`\kappa`), and :math:`DF^{-\top}` denotes the inverse transpose Jacobian
+    arising in the pull back of the gradient of the smoothing kernel :math:`W_h` 
+    chosen from :mod:`~struphy.pic.sph_smoothing_kernels`. 
+    
+    The smoothed SPH density is given by
 
     .. math::
 
-        \rho^{N,h}(\boldsymbol \eta_p) = \frac 1N \sum_q w_q \, W_h(\boldsymbol \eta_p - \boldsymbol \eta_q)\,,
-
-    where :math:`W_h(\boldsymbol \eta)` is a smoothing kernel from :mod:`~struphy.pic.sph_smoothing_kernels`.
+        \rho^{N,h}(\boldsymbol \eta_i) = \sum_j w_j \, W_h(\boldsymbol \eta_i - \boldsymbol \eta_j)\,.
+        
+    This kernel requires:
+    
+    * The density :math:`\rho^{N,h}(\boldsymbol \eta_p)` to be pre-computed for each particle and stored at ``markers[:, first_free_idx]``)
+    * The coefficient :math:`w_i/\rho^{N,h}(\boldsymbol \eta_i)` to be pre-computed for each particle and stored at ``markers[:, first_free_idx + 1]``)
+    
+    This is accomplished by the kernel :func:`~struphy.pic.pushing.eval_kernels_sph.sph_pressure_coeffs`, which needs
+    to be passed as an ``init_kernel`` to the :class:`~struphy.pic.pushing.pusher.Pusher`.
 
     Parameters
     ----------
@@ -577,8 +607,6 @@ def push_v_viscosity(
         eta1 = markers[ip, 0]
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
-        kappa = 1.0  # markers[ip, first_diagnostics_idx]
-        # n_at_eta = markers[ip, first_free_idx]
         loc_box = int(markers[ip, n_cols - 2])
 
         for j in range(3):  # row of viscosity tensor
