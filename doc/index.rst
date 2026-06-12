@@ -36,8 +36,8 @@ The code is freely available under an `MIT license <https://github.com/struphy-h
    sections/fluid-equils
    sections/kinetic-equils
    sections/perturbations
-   sections/devs
-   sections/dev_tutorials
+   sections/dev_guide
+   sections/dev_reference
 
 
 

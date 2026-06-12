@@ -1,7 +1,7 @@
-.. _devs:
+.. _dev_reference:
 
-Developers guide
-================
+Developer reference
+===================
 
 FEEC
 ----
@@ -15,6 +15,14 @@ Derham complex
     :show-inheritance:
     :exclude-members: __init__
 
+Grids
+^^^^^
+
+.. automodule:: struphy.topology.grids
+    :members:
+    :special-members:
+    :show-inheritance:
+    :exclude-members: __init__
 
 Mass Operators (bilinear forms)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
