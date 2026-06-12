@@ -536,26 +536,30 @@ def push_v_viscosity(
 
     .. math::
 
-        \frac{\mathbf v_p^{n+1} - \mathbf v_p^n}{\Delta t} = \mu \sum_{i=1}^N \frac{w_i}{\rho^{N,h}(\boldsymbol \eta_i)} \left( \right) DF^{-\top} \nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_i) \,,
+        \frac{v_{p,j}^{n+1} - v_{p,j}^n}{\Delta t}
+        = \sum_{i=1}^N
+          \frac{w_i \, \sigma_{jk}(\boldsymbol \eta_i)}{\rho^{N,h}(\boldsymbol \eta_i)} \,
+          \bigl(DF^{-\top} \nabla W_h\bigr)_k(\boldsymbol \eta_p - \boldsymbol \eta_i)\,,
 
-    where :math:`\mathbf g` is a constant acceleration, the second term corresponds to the pressure gradient
-    in the isothermal closure (with constant :math:`\kappa`), and :math:`DF^{-\top}` denotes the inverse transpose Jacobian
-    arising in the pull back of the gradient of the smoothing kernel :math:`W_h` 
-    chosen from :mod:`~struphy.pic.sph_smoothing_kernels`. 
-    
-    The smoothed SPH density is given by
+    where :math:`\sigma_{jk} = \mu \left[(\partial_k v_j^{N,h} + \partial_j v_k^{N,h}) - \tfrac{2}{3}\delta_{jk}\partial_l v_l^{N,h}\right]`
+    is the deviatoric strain rate, and :math:`DF^{-\top}` denotes the inverse transpose Jacobian
+    arising in the pull back of the gradient of the smoothing kernel :math:`W_h`
+    chosen from :mod:`~struphy.pic.sph_smoothing_kernels`.
 
-    .. math::
+    This kernel requires the 9 coefficients
 
-        \rho^{N,h}(\boldsymbol \eta_i) = \sum_j w_j \, W_h(\boldsymbol \eta_i - \boldsymbol \eta_j)\,.
-        
-    This kernel requires:
-    
-    * The density :math:`\rho^{N,h}(\boldsymbol \eta_p)` to be pre-computed for each particle and stored at ``markers[:, first_free_idx]``)
-    * The coefficient :math:`w_i/\rho^{N,h}(\boldsymbol \eta_i)` to be pre-computed for each particle and stored at ``markers[:, first_free_idx + 1]``)
-    
-    This is accomplished by the kernel :func:`~struphy.pic.pushing.eval_kernels_sph.sph_pressure_coeffs`, which needs
-    to be passed as an ``init_kernel`` to the :class:`~struphy.pic.pushing.pusher.Pusher`.
+    * :math:`w_i \, \sigma_{jk}(\boldsymbol \eta_i) / \rho^{N,h}(\boldsymbol \eta_i)` to be
+      pre-computed for each particle and stored at ``markers[:, first_free_idx + 3*(j+1) + k]``
+      for :math:`j, k = 0, 1, 2`
+
+    This is accomplished by the kernel
+    :func:`~struphy.pic.pushing.eval_kernels_sph.sph_viscosity_tensor`, which itself requires
+    the mean velocity coefficients
+    :math:`w_i v_{k,i} / \rho^{N,h}(\boldsymbol \eta_i)` to be stored at
+    ``markers[:, first_free_idx:first_free_idx + 3]`` via
+    :func:`~struphy.pic.pushing.eval_kernels_sph.sph_mean_velocity_coeffs`.
+    Both kernels must be passed as ``init_kernel`` entries to the
+    :class:`~struphy.pic.pushing.pusher.Pusher`.
 
     Parameters
     ----------
@@ -576,13 +580,8 @@ def push_v_viscosity(
 
     h1, h2, h3 : float
         Kernel width in respective dimension.
-
-    gravity: xp.ndarray
-        Constant gravitational force as 3-vector.
     """
     # allocate arrays
-    grad_u = zeros(3, dtype=float)
-    grad_u_cart = zeros(3, dtype=float)
     tmp1 = zeros((3, 3), dtype=float)
     dfinv = zeros((3, 3), dtype=float)
     dfinvT = zeros((3, 3), dtype=float)
@@ -590,8 +589,6 @@ def push_v_viscosity(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    Np = args_markers.Np
-    weight_idx = args_markers.weight_idx
     first_free_idx = args_markers.first_free_idx
     valid_mks = args_markers.valid_mks
     n_cols = shape(markers)[1]
@@ -609,6 +606,7 @@ def push_v_viscosity(
         eta3 = markers[ip, 2]
         loc_box = int(markers[ip, n_cols - 2])
 
+        f_visc[:] = 0.0
         for j in range(3):  # row of viscosity tensor
             for k in range(3):  # column = derivative direction
                 coeff_idx = first_free_idx + 3 * (j + 1) + k
