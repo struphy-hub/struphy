@@ -69,7 +69,7 @@ model = ToyDrift(
     )
 
 # List all variables and decide whether to save their data
-model.em_fields.phi.save_data = False
+model.em_fields.phi.save_data = True
 model.kinetic_ions.var.save_data = False
 
 # --------------------------
@@ -124,7 +124,7 @@ sorting_params = SortingParameters(boxes_per_dim=(12,12,1), do_sort=True, sortin
 
 # density binning
 eta_bin = BinningPlot(slice='e1_e2', n_bins= (128,128), ranges= ((0.0, 1.0), (0.0,1.0)))
-saving_params = SavingParameters(binning_plots=()) # (binning_plots=(eta_bin,)) if you want to save the density binning data
+saving_params = SavingParameters(binning_plots=(eta_bin,)) # (binning_plots=(eta_bin,)) if you want to save the density binning data
 
 model.kinetic_ions.set_markers(loading_params=loading_params,
                                weights_params=weights_params,
@@ -178,4 +178,4 @@ init = maxwellians.GyroMaxwellian2D(n=(n_init, perturbation), equil=equil)
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":
-    sim.run()
+    sim.run(one_time_step=True)

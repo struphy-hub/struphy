@@ -28,6 +28,7 @@ def main():
     times = []
     sls = []
     params_opts = []
+    fitting = []
     for i, sim_name in enumerate(sim_names):
         sim_path = os.path.join(os.getcwd(), sim_name)
 
@@ -64,23 +65,28 @@ def main():
 
         sls.append(tuple([slice(xi, xf)]))
 
-        # determine growth rate
-        fitting_func = lambda x,m,b,c0: xp.exp(m*x+b)+c0
-        jac_func = lambda x,m,b,c0: xp.array([x*xp.exp(m*x+b), xp.exp(m*x+b), xp.ones_like(x)]).transpose()
+        if len(times[i]) > 3:
+            fitting.append(True)
+            # determine growth rate
+            fitting_func = lambda x,m,b,c0: xp.exp(m*x+b)+c0
+            jac_func = lambda x,m,b,c0: xp.array([x*xp.exp(m*x+b), xp.exp(m*x+b), xp.ones_like(x)]).transpose()
 
-        params_opt, _ = sc.curve_fit(fitting_func, times[i][sls[i]], en_phis[i][sls[i]], p0=(1e-3, -5, en_phis[i][1]), jac=jac_func, maxfev=10000)#3.07e2
-        params_opts.append(params_opt)
+            params_opt, _ = sc.curve_fit(fitting_func, times[i][sls[i]], en_phis[i][sls[i]], p0=(1e-3, -5, en_phis[i][1]), jac=jac_func, maxfev=10000)#3.07e2
+            params_opts.append(params_opt)
 
-        logging.info(f"Fitted growth rate for {sim_name}: {params_opt[0]:.4e}")
+            logging.info(f"Fitted growth rate for {sim_name}: {params_opt[0]:.4e}")
+        else:
+            fitting.append(False)
 
     fig, ax = plt.subplots(1, figsize = (18, 12))
     for i in range(len(sim_names)):
         ax.scatter(times[i][1:], en_phis[i][1:], label=r"$\phi_{"+sim_names[i][4:]+r"}$", marker='x', s=0.05)
-        ax.plot(
-            times[i][sls[i]], 
-            fitting_func(times[i][sls[i]], *params_opts[i]), 
-            label=f"fitted growth rate {ti=}, {tf=}, growth_rate={params_opts[i][0]:.4e}, b={params_opts[i][1]:.4e}, c0={params_opts[i][2]:.4e}"
-        )
+        if fitting[i]:
+            ax.plot(
+                times[i][sls[i]], 
+                fitting_func(times[i][sls[i]], *params_opts[i]), 
+                label=f"fitted growth rate {ti=}, {tf=}, growth_rate={params_opts[i][0]:.4e}, b={params_opts[i][1]:.4e}, c0={params_opts[i][2]:.4e}"
+            )
     ax.axvline(ti, color="gray", linestyle="--", alpha=0.5)
     ax.axvline(tf, color="gray", linestyle="--", alpha=0.5)
 
