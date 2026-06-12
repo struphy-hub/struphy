@@ -290,12 +290,9 @@ class CurrentCoupling5DGradB(Propagator):
             # temp fix due to refactoring of ButcherTableau:
             butcher = self.options.butcher
             import numpy as np
-            a = butcher.a
-            if a.ndim == 2:
-                a_stage = xp.zeros(butcher.n_stages)
-                a_stage[:-1] = xp.diag(a, k=-1)
-            else:
-                a_stage = a
+
+            butcher._a = xp.diag(butcher.a, k=-1)
+            butcher._a = xp.array(list(butcher.a) + [0.0])
 
             self._args_pusher_kernel = (
                 self.domain.args_domain,
@@ -313,7 +310,7 @@ class CurrentCoupling5DGradB(Propagator):
                 self._u_temp[0]._data,
                 self._u_temp[1]._data,
                 self._u_temp[2]._data,
-                a_stage,
+                self.options.butcher.a,
                 self.options.butcher.b,
                 self.options.butcher.c,
             )
