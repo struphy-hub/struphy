@@ -288,5 +288,6 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
 
 
 if __name__ == "__main__":
+    pass
     # test_soundwave_1d(nx=12, plot_pts=11, do_plot=True)
-    test_damped_soundwave_1d(nx=12, plot_pts=11, do_plot=True)
+    # test_damped_soundwave_1d(nx=12, plot_pts=11, do_plot=True)

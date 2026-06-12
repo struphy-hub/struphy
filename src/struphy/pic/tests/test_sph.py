@@ -1986,7 +1986,7 @@ if __name__ == "__main__":
     #     direction="x",
     #     show_plot=True,
     # )
-    # test_sph_velocity_evaluation_2d(
-    #     (12, 12, 1), "gaussian_2d", 1, "periodic", "periodic", 11, tesselation=False, show_plot=True
-    # )
-    test_sph_evaluation_1d((24, 1, 1), "trigonometric_1d", 0, "periodic", 11, tesselation=False, show_plot=True)
+    test_sph_viscosity_evaluation_2d(
+        (12, 12, 1), "gaussian_2d", "periodic", "periodic", 11, tesselation=True, show_plot=True
+    )
+    # test_sph_evaluation_1d((24, 1, 1), "trigonometric_1d", 0, "periodic", 11, tesselation=False, show_plot=True)
