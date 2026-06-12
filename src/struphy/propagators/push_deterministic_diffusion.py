@@ -115,8 +115,13 @@ class PushDeterministicDiffusion(Propagator):
         # temp fix due to refactoring of ButcherTableau:
         import cunumpy as xp
 
-        self._butcher._a = xp.diag(self._butcher.a, k=-1)
-        self._butcher._a = xp.array(list(self._butcher.a) + [0.0])
+        butcher = self._butcher
+        a = butcher.a
+        if a.ndim == 2:
+            a_stage = xp.zeros(butcher.n_stages)
+            a_stage[:-1] = xp.diag(a, k=-1)
+        else:
+            a_stage = a
 
         particles = self.variables.var.particles
 
@@ -136,7 +141,7 @@ class PushDeterministicDiffusion(Propagator):
             self._tmp[1]._data,
             self._tmp[2]._data,
             self._diffusion,
-            self._butcher.a,
+            a_stage,
             self._butcher.b,
             self._butcher.c,
         )
