@@ -20,7 +20,7 @@ set_logging_level(logging.INFO)
 # If only one argument, the 2D plots will be shown. If multiple arguments, only the growth rate plot will be shown.
 # ------------------
 def main():
-    if len(sys.argv)>1:
+    if len(sys.argv)>1 and __name__=="__main__":
         sim_names = sys.argv[1:]
     else:
         sim_names = ["sim_5"]
