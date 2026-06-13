@@ -1798,6 +1798,11 @@ class Particles(metaclass=ABCMeta):
         # new holes and new number of holes and markers on process
         self.update_holes()
 
+        # refresh ghost mask: received markers may land in rows that previously held
+        # ghost particles. update_holes alone recomputes valid_mks from a stale
+        # _ghost_particles mask, which would wrongly exclude these incoming real markers.
+        self.update_ghost_particles()
+
         # check if all markers are on the right process after sorting
         if do_test:
             all_on_right_proc = xp.all(
