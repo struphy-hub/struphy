@@ -829,9 +829,216 @@ def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False, create_
         # shutil.rmtree(test_folder)
 
 
+@pytest.mark.mpi_skip
+@pytest.mark.parametrize("nx", [8])
+@pytest.mark.parametrize("plot_pts", [21])
+def test_dam_break(nx: int, plot_pts: int, do_plot: bool = False, create_png: bool = False):
+    """2D dam break: a dense fluid column (left half, x < r1/2) released in a
+    closed box with reflective walls, driven by pressure gradient and gravity.
+
+    The initial density step (left: n_high, right: 1.0) is set via ConstantVelocity
+    background plus a GenericPerturbation. Downward gravity drives the collapse.
+    """
+
+    # environment options
+    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    out_folders = os.path.join(test_folder, "ViscousEulerSPH")
+    env = EnvironmentOptions(out_folders=out_folders, sim_folder="dam_break")
+
+    # physical parameters
+    # WCSPH liquid regime: kappa = c_s^2 must satisfy c_s >> U_max = sqrt(2*g*H).
+    # With g=10, H=0.5: U_max ≈ 3.2.  kappa=50 → c_s≈7, Ma≈0.45 (subsonic, liquid-like).
+    # Raising gravity would increase Ma and make things more gas-like — wrong direction.
+    kappa = 0.2  # isothermal coefficient (= c_s^2); controls fluid stiffness
+    mu = 0.05     # dynamic viscosity
+    g_y = 10.0    # gravitational acceleration (downward, i.e. −y)
+    r1 = 1.0      # domain width  (x-direction)
+    r2 = 1.0      # domain height (y-direction)
+    n_high = 0.1  # density of the fluid column (uniform → no initial pressure gradient)
+
+    # free-fall time sqrt(2*H/g) ≈ 0.32 s; acoustic CFL: h/c_s = (1/nx)/sqrt(kappa) ≈ 0.018
+    time_opts = Time(dt=0.02, Tend=3.0, split_algo="Strang")
+
+    # 2D closed box
+    domain = domains.Cuboid(r1=r1, r2=r2)
+
+    # model with pressure and small viscosity
+    model = ViscousEulerSPH(with_B0=False, with_p=True, with_viscosity=True)
+
+    loading_params = LoadingParameters(ppb=32, loading="tesselation")
+    # markers with weight ∝ 1e-8 (near-vacuum right half) are rejected;
+    # left-half weights ∝ n_high × vol_per_marker ≈ n_high/(nx²×ppb) ≈ 5e-5, so 1e-6 separates cleanly
+    weights_params = WeightsParameters(reject_weights=True, threshold=1e-6)
+    boundary_params = BoundaryParameters(
+        bc=("reflect", "reflect", "periodic"),
+        bc_sph=("mirror", "mirror", "periodic"),
+    )
+    sorting_params = SortingParameters(
+        boxes_per_dim=(nx, nx, 1),
+        dims_mask=(True, True, False),
+    )
+
+    kd_plot = KernelDensityPlot(pts_e1=plot_pts, pts_e2=plot_pts, pts_e3=1)
+    saving_params = SavingParameters(
+        n_markers=1.0,
+        kernel_density_plots=(kd_plot,),
+    )
+
+    model.euler_fluid.set_markers(
+        loading_params=loading_params,
+        weights_params=weights_params,
+        boundary_params=boundary_params,
+        sorting_params=sorting_params,
+        saving_params=saving_params,
+        bufsize=2,
+    )
+
+    # propagator options: 2D Gaussian kernel with downward gravity
+    from struphy.ode.utils import ButcherTableau
+
+    butcher = ButcherTableau(algo="forward_euler")
+    model.propagators.push_eta.options = model.propagators.push_eta.Options(butcher=butcher)
+    model.propagators.push_sph_p.options = model.propagators.push_sph_p.Options(
+        kernel_type="gaussian_2d",
+        gravity=(0.0, -g_y, 0.0),
+        kappa=kappa,
+    )
+    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(
+        kernel_type="gaussian_2d",
+        mu=mu,
+    )
+
+    # initial condition: dense column on the left half (x < r1/2), near-vacuum on the right.
+    # step_function_xy places n_high where x < upper_x and 1e-8 elsewhere; the near-vacuum
+    # markers are then removed by reject_weights above.
+    background = equils.ConstantVelocity(
+        density_profile="step_function_xy",
+        n=n_high,
+        upper_x=r1 / 4,
+        upper_y=r2,  
+    )
+    model.euler_fluid.var.add_background(background)
+
+    sim = Simulation(
+        model=model,
+        env=env,
+        time_opts=time_opts,
+        domain=domain,
+        grid=None,
+        derham_opts=None,
+    )
+
+    sim.run()
+
+    if MPI.COMM_WORLD.Get_rank() == 0:
+        sim.pproc()
+        sim.load_plotting_data()
+
+        import numpy as np
+
+        dt = time_opts.dt
+        Nt = int(time_opts.Tend / dt)
+        times = np.linspace(0.0, time_opts.Tend, Nt + 1)
+
+        ee1, ee2, ee3 = sim.n_sph.euler_fluid.view_0.grid_n_sph
+        n_sph = sim.n_sph.euler_fluid.view_0.n_sph  # (Nt+1, pts_e1, pts_e2, 1)
+
+        X = np.asarray(ee1)[:, :, 0] * r1  # physical x, shape (pts_e1, pts_e2)
+        Y = np.asarray(ee2)[:, :, 0] * r2  # physical y, shape (pts_e1, pts_e2)
+        n_arr = np.asarray(n_sph)           # (Nt+1, pts_e1, pts_e2, 1)
+
+        # orbits needed for both do_plot scatter overlay and create_png
+        orbits = np.asarray(sim.orbits.euler_fluid)  # (Nt_orb, n_markers, n_attrs)
+        Nt_orb = orbits.shape[0]
+        t_orbit = np.linspace(0.0, time_opts.Tend, Nt_orb)
+
+        # color each marker by its initial x (gradient across the left column)
+        x_init = orbits[0, :, 0]
+        c_val = x_init / (r1 / 2)  # 0 = left wall, 1 = dam face
+
+        if do_plot:
+            snapshot_inds = np.round(np.linspace(0, Nt, 12)).astype(int)
+            # index into orbits at the same times (Nt_orb == Nt + 1 when n_markers=1.0)
+            orb_inds = np.round(np.linspace(0, Nt_orb - 1, 12)).astype(int)
+
+            vmax_plot = float(np.max(n_arr))  # density can pile above n_high as fluid collects
+
+            fig, axes = plt.subplots(4, 3, figsize=(15, 10), sharex=True, sharey=True)
+            im = None
+            for ax, idx, oidx in zip(axes.flatten(), snapshot_inds, orb_inds):
+                n_2d = n_arr[idx, :, :, 0]
+                im = ax.pcolormesh(X, Y, n_2d, vmin=0.0, vmax=vmax_plot, cmap="Blues", shading="auto")
+                ax.scatter(
+                    orbits[oidx, :, 0],
+                    orbits[oidx, :, 1],
+                    c=c_val,
+                    cmap="autumn",
+                    s=2,
+                    vmin=0.0,
+                    vmax=1.0,
+                    alpha=0.6,
+                )
+                ax.set_title(f"$t = {times[idx]:.2f}$")
+                ax.set_aspect("equal")
+            for ax in axes[-1, :]:
+                ax.set_xlabel("$x$")
+            for ax in axes[:, 0]:
+                ax.set_ylabel("$y$")
+            if im is not None:
+                fig.colorbar(im, ax=axes.ravel().tolist(), label=r"$\rho$", shrink=0.6)
+            fig.suptitle(
+                rf"2D dam break: $\rho$ (KDE) + markers, $\kappa={kappa}$, $g_y={g_y}$, $\mu={mu}$, {nx}×{nx} boxes",
+                fontsize=12,
+            )
+            plt.tight_layout()
+            plt.show()
+
+        if create_png:
+            from tqdm import tqdm as _tqdm
+
+            n_snaps = 250
+            snap_inds = np.round(np.linspace(0, Nt_orb - 1, n_snaps)).astype(int)
+
+            png_dir = os.path.join(out_folders, "dam_break_pngs")
+            os.makedirs(png_dir, exist_ok=True)
+
+            for i, idx in _tqdm(enumerate(snap_inds), total=n_snaps, desc="saving PNGs"):
+                fig_png, ax_png = plt.subplots(figsize=(10, 5))
+                ax_png.scatter(
+                    orbits[idx, :, 0],
+                    orbits[idx, :, 1],
+                    c=c_val,
+                    cmap="autumn",
+                    s=4,
+                    vmin=0.0,
+                    vmax=1.0,
+                )
+                ax_png.set_xlim(0.0, r1)
+                ax_png.set_ylim(0.0, r2)
+                ax_png.set_xlabel("x")
+                ax_png.set_ylabel("y")
+                ax_png.set_title(rf"Dam break, $t = {t_orbit[idx]:.3f}$")
+                ax_png.set_aspect("equal")
+                plt.tight_layout()
+                fig_png.savefig(os.path.join(png_dir, f"snap_{i:04d}.png"), dpi=80)
+                plt.close(fig_png)
+
+        # sanity: no markers should escape the closed box (allow 1% tolerance)
+        x_all = orbits[:, :, 0]
+        y_all = orbits[:, :, 1]
+        assert np.all(x_all >= -0.01 * r1) and np.all(x_all <= 1.01 * r1), (
+            "Markers escaped x-domain in dam break test"
+        )
+        assert np.all(y_all >= -0.01 * r2) and np.all(y_all <= 1.01 * r2), (
+            "Markers escaped y-domain in dam break test"
+        )
+        logger.info("Dam break domain bounds assertion passed.")
+
+
 if __name__ == "__main__":
     # test_soundwave_1d(nx=12, plot_pts=11, do_plot=True)
     # test_velocity_diffusion(nx=8, plot_pts=11, do_plot=True)
     # test_damped_sound_wave(nx=8, plot_pts=21, do_plot=True)
-    test_hagen_poiseuille(nx=8, plot_pts=21, do_plot=True, create_png=True)
+    # test_hagen_poiseuille(nx=8, plot_pts=21, do_plot=True, create_png=True)
+    test_dam_break(nx=8, plot_pts=21, do_plot=True, create_png=True)
 
