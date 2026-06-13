@@ -608,7 +608,7 @@ def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False):
     # model with pressure (to maintain ~uniform density) and viscosity
     model = ViscousEulerSPH(with_B0=False, with_p=True, with_viscosity=True)
 
-    loading_params = LoadingParameters(ppb=16, loading="tesselation", seed=3476)
+    loading_params = LoadingParameters(ppb=16, loading="tesselation")
     weights_params = WeightsParameters()
     boundary_params = BoundaryParameters(
         bc=("periodic", "reflect", "periodic"),
@@ -634,7 +634,7 @@ def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False):
         boundary_params=boundary_params,
         sorting_params=sorting_params,
         saving_params=saving_params,
-        bufsize=1.5,
+        bufsize=2,
     )
 
     # propagator options: use 2D Gaussian kernel
@@ -701,10 +701,10 @@ def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False):
         # pointwise relative error (avoid division by zero at the walls)
         rel_err_pointwise = abs_err / u_max_exact
         # exclude wall bins where the exact value is effectively zero
-        mean_rel_error = np.mean(rel_err_pointwise)
+        rel_error_interior = rel_err_pointwise[1:-1]  # exclude first and last bins
         rel_error_umax = abs(u_max_num - u_max_exact) / u_max_exact
 
-        logger.info(f"Hagen-Poiseuille: mean relative error = {mean_rel_error * 100:.2f}%")
+        logger.info(f"Hagen-Poiseuille: mean interior relative error = {np.mean(rel_error_interior) * 100:.2f}%")
         logger.info(f"Hagen-Poiseuille: relative error in U_max = {rel_error_umax * 100:.2f}%")
 
         if do_plot:
@@ -725,7 +725,7 @@ def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False):
             ax.plot(rel_err_pointwise * 100, y_np, "r-o", markersize=4)
             ax.set_xlabel(r"$|u_x^{num} - u_x^{exact}| \,/\, u_x^{exact}$ [%]")
             ax.set_ylabel(r"$y$")
-            ax.set_title(f"Pointwise relative error (mean = {mean_rel_error * 100:.1f}%)")
+            ax.set_title(f"Pointwise relative error (mean = {np.mean(rel_error_interior) * 100:.1f}%)")
             ax.grid(True)
 
             # time evolution of centreline velocity
@@ -746,8 +746,8 @@ def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False):
             plt.tight_layout()
             plt.show()
 
-        assert mean_rel_error < 0.15, (
-            f"Hagen-Poiseuille mean relative error {mean_rel_error * 100:.1f}% exceeds tolerance 15%"
+        assert np.max(rel_error_interior) < 0.15, (
+            f"Hagen-Poiseuille mean relative error {np.mean(rel_error_interior) * 100:.1f}% exceeds tolerance 15%"
         )
         logger.info("Hagen-Poiseuille profile assertion passed.")
 
