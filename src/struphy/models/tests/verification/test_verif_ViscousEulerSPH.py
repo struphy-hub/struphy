@@ -581,7 +581,7 @@ def test_velocity_diffusion(nx: int, plot_pts: int, do_plot: bool = False):
 
 @pytest.mark.parametrize("nx", [8])
 @pytest.mark.parametrize("plot_pts", [21])
-def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False):
+def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False, create_png: bool = False):
     """Verification test for SPH viscosity tensor in 2D Hagen-Poiseuille channel flow.
 
     Channel geometry: x ∈ [0, 1] periodic (flow direction), y ∈ [0, 1] no-slip walls.
@@ -596,7 +596,7 @@ def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False):
 
     # physical parameters
     mu = 0.1    # dynamic viscosity
-    g_x = 0.01  # body force in x (acts as driving pressure gradient)
+    g_x = 0.1  # body force in x (acts as driving pressure gradient)
     H = 1.0     # channel height in y
 
     # time stepping: T_relax = H^2 / (pi^2 * mu) ~ 1.0, run 10x past relaxation
@@ -624,6 +624,7 @@ def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False):
     bin_plot_n = BinningPlot(slice="e2", n_bins=(16,), ranges=(0.0, 1.0))
     kd_plot = KernelDensityPlot(pts_e1=plot_pts, pts_e2=plot_pts, pts_e3=1)
     saving_params = SavingParameters(
+        n_markers=1.0,
         binning_plots=(bin_plot_j1, bin_plot_n),
         kernel_density_plots=(kd_plot,),
     )
@@ -746,12 +747,81 @@ def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False):
             plt.tight_layout()
             plt.show()
 
-        assert np.max(rel_error_interior) < 0.15, (
+        if create_png:
+            from matplotlib.colors import LinearSegmentedColormap
+            from tqdm import tqdm as _tqdm
+
+            orbits = np.asarray(sim.orbits.euler_fluid)  # (Nt_orb, n_markers, n_attrs)
+            # attrs for vdim=2: [x, y, z, v1, v2, w, diag, id]
+
+            Nt_orb = orbits.shape[0]
+            t_orbit = np.linspace(0.0, time_opts.Tend, Nt_orb)
+
+            # colormap: blue at walls (y=0, y=H), red at channel centre (y=H/2)
+            # c_val = 1 - 2*|y/H - 0.5| maps walls→0 (blue) and centre→1 (red)
+            cmap_pos = LinearSegmentedColormap.from_list("wall_centre", ["blue", "red"])
+            norm = plt.Normalize(0.0, 1.0)
+
+            # 250 equally spaced snapshot indices
+            n_snaps = 250
+            snap_inds = np.round(np.linspace(0, Nt_orb - 1, n_snaps)).astype(int)
+
+            png_dir = os.path.join(out_folders, "hagen_poiseuille_pngs")
+            os.makedirs(png_dir, exist_ok=True)
+
+            for i, idx in _tqdm(enumerate(snap_inds), total=n_snaps, desc="saving PNGs"):
+                c_val = 1.0 - 2.0 * np.abs(orbits[idx, :, 1] / H - 0.5)
+                fig_png, ax_png = plt.subplots(figsize=(8, 6))
+                sc_png = ax_png.scatter(
+                    orbits[idx, :, 0],
+                    orbits[idx, :, 1],
+                    c=c_val,
+                    cmap=cmap_pos,
+                    norm=norm,
+                    s=10,
+                )
+                ax_png.axhline(0.0, color="k", linewidth=6)
+                ax_png.axhline(H, color="k", linewidth=6)
+                ax_png.set_xlim(0.0, 1.0)
+                ax_png.set_ylim(-0.05 * H, 1.05 * H)
+                ax_png.set_xlabel("x")
+                ax_png.set_ylabel("y")
+                ax_png.set_title(rf"Hagen-Poiseuille markers, $t = {t_orbit[idx]:.2f}$")
+                plt.colorbar(sc_png, ax=ax_png, label="steady-state velocity [a.u.]")
+                plt.tight_layout()
+                fig_png.savefig(os.path.join(png_dir, f"snap_{i:04d}.png"), dpi=80)
+                plt.close(fig_png)
+
+            # show last snapshot in a new figure
+            fig_last, ax_last = plt.subplots(figsize=(8, 6))
+            idx_last = snap_inds[-1]
+            c_val_last = 1.0 - 2.0 * np.abs(orbits[idx_last, :, 1] / H - 0.5)
+            sc_last = ax_last.scatter(
+                orbits[idx_last, :, 0],
+                orbits[idx_last, :, 1],
+                c=c_val_last,
+                cmap=cmap_pos,
+                norm=norm,
+                s=4,
+            )
+            ax_last.axhline(0.0, color="k", linewidth=3, label="no-slip boundary")
+            ax_last.axhline(H, color="k", linewidth=3)
+            ax_last.set_xlim(0.0, 1.0)
+            ax_last.set_ylim(-0.05 * H, 1.05 * H)
+            ax_last.set_xlabel("x")
+            ax_last.set_ylabel("y")
+            ax_last.set_title(rf"Last snapshot: $t = {t_orbit[idx_last]:.2f}$")
+            ax_last.legend()
+            plt.colorbar(sc_last, ax=ax_last, label="steady-state velocity [a.u.]")
+            plt.tight_layout()
+            plt.show()
+
+        assert np.max(rel_error_interior) < 0.05, (
             f"Hagen-Poiseuille mean relative error {np.mean(rel_error_interior) * 100:.1f}% exceeds tolerance 15%"
         )
         logger.info("Hagen-Poiseuille profile assertion passed.")
 
-        assert rel_error_umax < 0.10, (
+        assert rel_error_umax < 0.05, (
             f"Hagen-Poiseuille U_max relative error {rel_error_umax * 100:.1f}% exceeds tolerance 10%"
         )
         logger.info("Hagen-Poiseuille U_max assertion passed.")
@@ -763,5 +833,5 @@ if __name__ == "__main__":
     # test_soundwave_1d(nx=12, plot_pts=11, do_plot=True)
     # test_velocity_diffusion(nx=8, plot_pts=11, do_plot=True)
     # test_damped_sound_wave(nx=8, plot_pts=21, do_plot=True)
-    test_hagen_poiseuille(nx=8, plot_pts=21, do_plot=True)
+    test_hagen_poiseuille(nx=8, plot_pts=21, do_plot=True, create_png=True)
 
