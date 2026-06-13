@@ -579,8 +579,189 @@ def test_velocity_diffusion(nx: int, plot_pts: int, do_plot: bool = False):
         shutil.rmtree(test_folder)
 
 
+@pytest.mark.parametrize("nx", [8])
+@pytest.mark.parametrize("plot_pts", [21])
+def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False):
+    """Verification test for SPH viscosity tensor in 2D Hagen-Poiseuille channel flow.
+
+    Channel geometry: x ∈ [0, 1] periodic (flow direction), y ∈ [0, 1] no-slip walls.
+    A constant body force g_x drives the flow; viscosity produces the parabolic
+    steady-state profile u_x(y) = g_x / (2 mu) * y * (1 - y).
+    """
+
+    # environment options
+    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    out_folders = os.path.join(test_folder, "ViscousEulerSPH")
+    env = EnvironmentOptions(out_folders=out_folders, sim_folder="hagen_poiseuille")
+
+    # physical parameters
+    mu = 0.1    # dynamic viscosity
+    g_x = 0.01  # body force in x (acts as driving pressure gradient)
+    H = 1.0     # channel height in y
+
+    # time stepping: T_relax = H^2 / (pi^2 * mu) ~ 1.0, run 10x past relaxation
+    time_opts = Time(dt=0.01, Tend=10.0, split_algo="Strang")
+
+    # 2D channel: x-periodic [0, 1], y-walls [0, H=1], z-trivial
+    domain = domains.Cuboid(r1=1.0, r2=H)
+
+    # model with pressure (to maintain ~uniform density) and viscosity
+    model = ViscousEulerSPH(with_B0=False, with_p=True, with_viscosity=True)
+
+    loading_params = LoadingParameters(ppb=16, loading="tesselation", seed=3476)
+    weights_params = WeightsParameters()
+    boundary_params = BoundaryParameters(
+        bc=("periodic", "reflect", "periodic"),
+        bc_sph=("periodic", "noslip", "periodic"),
+    )
+    sorting_params = SortingParameters(
+        boxes_per_dim=(nx, nx, 1),
+        dims_mask=(True, True, False),
+    )
+
+    # bin current_1 (≈ rho*u_x ≈ u_x) as a function of y to get the velocity profile
+    bin_plot_j1 = BinningPlot(slice="e2", n_bins=(16,), ranges=(0.0, 1.0), output_quantity="current_1")
+    bin_plot_n = BinningPlot(slice="e2", n_bins=(16,), ranges=(0.0, 1.0))
+    kd_plot = KernelDensityPlot(pts_e1=plot_pts, pts_e2=plot_pts, pts_e3=1)
+    saving_params = SavingParameters(
+        binning_plots=(bin_plot_j1, bin_plot_n),
+        kernel_density_plots=(kd_plot,),
+    )
+
+    model.euler_fluid.set_markers(
+        loading_params=loading_params,
+        weights_params=weights_params,
+        boundary_params=boundary_params,
+        sorting_params=sorting_params,
+        saving_params=saving_params,
+        bufsize=1.5,
+    )
+
+    # propagator options: use 2D Gaussian kernel
+    from struphy.ode.utils import ButcherTableau
+
+    butcher = ButcherTableau(algo="forward_euler")
+    model.propagators.push_eta.options = model.propagators.push_eta.Options(butcher=butcher)
+    model.propagators.push_sph_p.options = model.propagators.push_sph_p.Options(
+        kernel_type="gaussian_2d",
+        gravity=(g_x, 0.0, 0.0),
+    )
+    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(
+        kernel_type="gaussian_2d",
+        mu=mu,
+    )
+
+    # start from rest; body force drives the flow to the Hagen-Poiseuille steady state
+    background = equils.ConstantVelocity()
+    model.euler_fluid.var.add_background(background)
+
+    sim = Simulation(
+        model=model,
+        env=env,
+        time_opts=time_opts,
+        domain=domain,
+        grid=None,
+        derham_opts=None,
+    )
+
+    sim.run()
+
+    if MPI.COMM_WORLD.Get_rank() == 0:
+        sim.pproc()
+        sim.load_plotting_data()
+
+        e2_grid = sim.f.euler_fluid.e2_current_1.grid_e2  # logical y in [0, 1]
+        j1_binned = sim.f.euler_fluid.e2_current_1.f_binned  # shape (Nt+1, n_bins)
+
+        import numpy as np
+
+        dt = time_opts.dt
+        Nt = int(time_opts.Tend / dt)
+        times = np.linspace(0.0, time_opts.Tend, Nt + 1)
+
+        e2_np = np.asarray(e2_grid).flatten()
+        y_np = e2_np * H  # physical y coordinate
+
+        # analytical Hagen-Poiseuille: u_x(y) = g_x/(2*mu) * y*(H - y)
+        u_exact = g_x / (2.0 * mu) * y_np * (H - y_np)
+        u_max_exact = np.max(u_exact)
+
+        u_num_final = np.asarray(j1_binned[-1, :]).flatten()
+        u_max_num = np.max(u_num_final)
+
+        # velocity at channel centre (y=H/2) as function of time
+        idx_centre = int(np.argmin(np.abs(e2_np - 0.5)))
+        u_centre = np.asarray(j1_binned[:, idx_centre]).flatten()
+        u_centre_exact = u_max_exact  # peak at y=H/2
+
+        logger.info(f"Hagen-Poiseuille: analytical U_max = {u_max_exact:.6f}")
+        logger.info(f"Hagen-Poiseuille: numerical  U_max = {u_max_num:.6f}")
+
+        abs_err = np.abs(u_num_final - u_exact)
+        # pointwise relative error (avoid division by zero at the walls)
+        rel_err_pointwise = abs_err / u_max_exact
+        # exclude wall bins where the exact value is effectively zero
+        mean_rel_error = np.mean(rel_err_pointwise)
+        rel_error_umax = abs(u_max_num - u_max_exact) / u_max_exact
+
+        logger.info(f"Hagen-Poiseuille: mean relative error = {mean_rel_error * 100:.2f}%")
+        logger.info(f"Hagen-Poiseuille: relative error in U_max = {rel_error_umax * 100:.2f}%")
+
+        if do_plot:
+            fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+
+            # velocity profile: numerical vs analytical
+            ax = axes[0]
+            ax.plot(u_num_final, y_np, "o-", markersize=4, label="Numerical (SPH)")
+            ax.plot(u_exact, y_np, "--", color="k", label="Analytical (Hagen-Poiseuille)")
+            ax.set_xlabel(r"$u_x$")
+            ax.set_ylabel(r"$y$")
+            ax.set_title("Steady-state velocity profile")
+            ax.legend()
+            ax.grid(True)
+
+            # pointwise relative error
+            ax = axes[1]
+            ax.plot(rel_err_pointwise * 100, y_np, "r-o", markersize=4)
+            ax.set_xlabel(r"$|u_x^{num} - u_x^{exact}| \,/\, u_x^{exact}$ [%]")
+            ax.set_ylabel(r"$y$")
+            ax.set_title(f"Pointwise relative error (mean = {mean_rel_error * 100:.1f}%)")
+            ax.grid(True)
+
+            # time evolution of centreline velocity
+            ax = axes[2]
+            ax.plot(times, u_centre, label=r"Numerical $u_x(y=H/2)$")
+            ax.axhline(u_centre_exact, color="k", linestyle="--",
+                       label=rf"Exact $U_{{max}} = {u_centre_exact:.4f}$")
+            ax.set_xlabel("time")
+            ax.set_ylabel(r"$u_x(y=H/2)$")
+            ax.set_title("Centreline velocity relaxation to steady state")
+            ax.legend()
+            ax.grid(True)
+
+            plt.suptitle(
+                rf"Hagen-Poiseuille: $\mu={mu}$, $g_x={g_x}$, $H={H}$, {nx}×{nx} boxes",
+                fontsize=12,
+            )
+            plt.tight_layout()
+            plt.show()
+
+        assert mean_rel_error < 0.15, (
+            f"Hagen-Poiseuille mean relative error {mean_rel_error * 100:.1f}% exceeds tolerance 15%"
+        )
+        logger.info("Hagen-Poiseuille profile assertion passed.")
+
+        assert rel_error_umax < 0.10, (
+            f"Hagen-Poiseuille U_max relative error {rel_error_umax * 100:.1f}% exceeds tolerance 10%"
+        )
+        logger.info("Hagen-Poiseuille U_max assertion passed.")
+
+        # shutil.rmtree(test_folder)
+
+
 if __name__ == "__main__":
     # test_soundwave_1d(nx=12, plot_pts=11, do_plot=True)
     # test_velocity_diffusion(nx=8, plot_pts=11, do_plot=True)
-    test_damped_sound_wave(nx=8, plot_pts=21, do_plot=True)
+    # test_damped_sound_wave(nx=8, plot_pts=21, do_plot=True)
+    test_hagen_poiseuille(nx=8, plot_pts=21, do_plot=True)
 
