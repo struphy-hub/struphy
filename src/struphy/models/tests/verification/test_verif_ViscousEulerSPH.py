@@ -763,7 +763,7 @@ def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False, create_
             norm = plt.Normalize(0.0, 1.0)
 
             # 250 equally spaced snapshot indices
-            n_snaps = 250
+            n_snaps = np.min([250, Nt_orb])
             snap_inds = np.round(np.linspace(0, Nt_orb - 1, n_snaps)).astype(int)
 
             png_dir = os.path.join(out_folders, "hagen_poiseuille_pngs")
@@ -1039,6 +1039,6 @@ if __name__ == "__main__":
     # test_soundwave_1d(nx=12, plot_pts=11, do_plot=True)
     # test_velocity_diffusion(nx=8, plot_pts=11, do_plot=True)
     # test_damped_sound_wave(nx=8, plot_pts=21, do_plot=True)
-    # test_hagen_poiseuille(nx=8, plot_pts=21, do_plot=True, create_png=True)
-    test_dam_break(nx=8, plot_pts=21, do_plot=True, create_png=True)
+    test_hagen_poiseuille(nx=8, plot_pts=21, do_plot=True, create_png=True)
+    # test_dam_break(nx=8, plot_pts=21, do_plot=True, create_png=True)
 

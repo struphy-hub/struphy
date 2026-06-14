@@ -187,5 +187,22 @@ class PushVinSPHpressure(Propagator):
 
     @profile
     def __call__(self, dt):
-        self.variables.fluid.particles.put_particles_in_boxes()
-        self._pusher(dt)
+        particles = self.variables.fluid.particles
+
+        # The "noslip" BC reflects ghost particles and, when ``mean_velocity_index`` is set,
+        # negates the three auxiliary columns starting at that index (see Particles._mirror_particles).
+        # That negation is meant for the viscous mean-velocity coefficients (which are odd under
+        # wall reflection). Here those same columns hold the SPH density rho, w/rho and w*rho^(gamma-2)
+        # computed by sph_pressure_coeffs -- scalars that are EVEN under reflection and must NOT be
+        # flipped. Aliasing the index (it defaults to first_free_idx, which is exactly where the
+        # pressure coefficients live) would otherwise give the mirror particles a negative w/rho, so
+        # the symmetric pressure-gradient sum no longer cancels at the wall and the near-wall markers
+        # receive a spurious normal force into the wall. Suppress the flip for the duration of the
+        # pressure push and restore it afterwards so the viscous propagator keeps its correct behaviour.
+        saved_mean_velocity_index = particles._mean_velocity_index
+        particles._mean_velocity_index = None
+        try:
+            particles.put_particles_in_boxes()
+            self._pusher(dt)
+        finally:
+            particles._mean_velocity_index = saved_mean_velocity_index
