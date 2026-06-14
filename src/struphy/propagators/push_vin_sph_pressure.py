@@ -28,10 +28,10 @@ class PushVinSPHpressure(Propagator):
     where :math:`\mathbf g` is a constant acceleration and the second term corresponds to the pressure gradient.
     Here, :math:`\mathcal U(\rho)` denotes the internal energy per unit mass
     as a function of the mass density :math:`\rho` and :math:`DF^{-\top}` denotes the inverse transpose Jacobian
-    arising in the pull back of the gradient of the smoothing kernel :math:`W_h` 
-    chosen from :mod:`~struphy.pic.sph_smoothing_kernels`. 
+    arising in the pull back of the gradient of the smoothing kernel :math:`W_h`
+    chosen from :mod:`~struphy.pic.sph_smoothing_kernels`.
     Two choices of the internal energy are implemented:
-    
+
     * Isothermal closure: :math:`\mathcal U(\rho) = \kappa \, \ln(\rho)`, where :math:`\kappa` is constant.
     * Polytropic closure: :math:`\mathcal U(\rho) = \kappa \, \rho^{\gamma - 1} / (\gamma - 1)`, where :math:`\kappa` is the polytropic constant and :math:`\gamma = C_p / C_v` is the polytropic index.
 
@@ -81,7 +81,7 @@ class PushVinSPHpressure(Propagator):
 
         gravity : tuple, default=(0.0, 0.0, 0.0)
             Constant gravity vector added in the SPH pressure push.
-        
+
         kappa : float, default=1.0
             Coefficient in the internal energy function.
 

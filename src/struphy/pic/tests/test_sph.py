@@ -2051,7 +2051,14 @@ def test_sph_no_slip_boundary_2d(
     h3 = 1.0 / boxes_per_dim[2]
 
     v1, v2, v3 = particles.eval_velocity(
-        ee1, ee2, ee3, h1=h1, h2=h2, h3=h3, kernel_type=kernel, derivative=0,
+        ee1,
+        ee2,
+        ee3,
+        h1=h1,
+        h2=h2,
+        h3=h3,
+        kernel_type=kernel,
+        derivative=0,
     )
 
     if comm is not None:
@@ -2063,18 +2070,13 @@ def test_sph_no_slip_boundary_2d(
     # Average over x (uniform in x by periodicity)
     v1_avg = xp.mean(all_v1[:, :, 0], axis=0)  # shape (n_y,)
 
-    v_wall_bottom = float(v1_avg[0])   # y=0 (eta_2=0)
-    v_wall_top = float(v1_avg[-1])     # y=1 (eta_2=1)
+    v_wall_bottom = float(v1_avg[0])  # y=0 (eta_2=0)
+    v_wall_top = float(v1_avg[-1])  # y=1 (eta_2=1)
     v_interior = v1_avg[5:-5]
 
     if rank == 0:
-        logger.info(
-            f"\n2D no-slip (boxes={boxes_per_dim}): "
-            f"v at y=0: {v_wall_bottom:.4f}, y=1: {v_wall_top:.4f}"
-        )
-        logger.info(
-            f"Interior v range: [{float(xp.min(v_interior)):.4f}, {float(xp.max(v_interior)):.4f}]"
-        )
+        logger.info(f"\n2D no-slip (boxes={boxes_per_dim}): v at y=0: {v_wall_bottom:.4f}, y=1: {v_wall_top:.4f}")
+        logger.info(f"Interior v range: [{float(xp.min(v_interior)):.4f}, {float(xp.max(v_interior)):.4f}]")
 
     if show_plot and rank == 0:
         eta2_plot = xp.linspace(0.0, 1.0, n_y)
@@ -2093,16 +2095,10 @@ def test_sph_no_slip_boundary_2d(
     tol_interior = 1e-1
 
     if rank == 0:
-        assert abs(v_wall_bottom) < tol_wall, (
-            f"Bottom wall (y=0) velocity not zero: {v_wall_bottom:.4f}"
-        )
-        assert abs(v_wall_top) < tol_wall, (
-            f"Top wall (y=1) velocity not zero: {v_wall_top:.4f}"
-        )
+        assert abs(v_wall_bottom) < tol_wall, f"Bottom wall (y=0) velocity not zero: {v_wall_bottom:.4f}"
+        assert abs(v_wall_top) < tol_wall, f"Top wall (y=1) velocity not zero: {v_wall_top:.4f}"
         rel_error = float(xp.max(xp.abs(v_interior - 1.0)))
-        assert rel_error < tol_interior, (
-            f"Interior x-velocity error too large: {rel_error:.4f}"
-        )
+        assert rel_error < tol_interior, f"Interior x-velocity error too large: {rel_error:.4f}"
 
 
 if __name__ == "__main__":

@@ -25,8 +25,8 @@ from struphy import (
     perturbations,
     set_logging_level,
 )
-from struphy.models import ViscousEulerSPH
 from struphy.initial.base import GenericPerturbation
+from struphy.models import ViscousEulerSPH
 
 logger = logging.getLogger("struphy")
 set_logging_level(logging.INFO)
@@ -224,9 +224,7 @@ def test_damped_sound_wave(nx: int, plot_pts: int, do_plot: bool = False):
     butcher = ButcherTableau(algo="forward_euler")
     model.propagators.push_eta.options = model.propagators.push_eta.Options(butcher=butcher)
     model.propagators.push_sph_p.options = model.propagators.push_sph_p.Options(kernel_type="gaussian_1d")
-    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(
-        kernel_type="gaussian_1d", mu=mu
-    )
+    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(kernel_type="gaussian_1d", mu=mu)
 
     # background and initial conditions: velocity perturbation excites the sound wave
     background = equils.ConstantVelocity()
@@ -278,7 +276,7 @@ def test_damped_sound_wave(nx: int, plot_pts: int, do_plot: bool = False):
 
         # analytical decay rate: gamma = -mu*k^2/2 for the acoustic mode
         k = 2.0 * np.pi / r1
-        gamma_analytical = -mu * 4/3 * k**2 / 2
+        gamma_analytical = -mu * 4 / 3 * k**2 / 2
 
         A0 = amplitude[0]
         amplitude_analytical = A0 * np.exp(gamma_analytical * times)
@@ -426,15 +424,14 @@ def test_velocity_diffusion(nx: int, plot_pts: int, do_plot: bool = False):
 
     butcher = ButcherTableau(algo="forward_euler")
     model.propagators.push_eta.options = model.propagators.push_eta.Options(butcher=butcher)
-    
+
     mu = 1.0
     model.propagators.push_viscous.options = model.propagators.push_viscous.Options(kernel_type="gaussian_1d", mu=mu)
-    
+
     if model.with_B0:
         model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
     if model.with_p:
         model.propagators.push_sph_p.options = model.propagators.push_sph_p.Options(kernel_type="gaussian_1d")
-        
 
     # background, perturbations and initial conditions
     ux_mean = 0.0
@@ -488,7 +485,7 @@ def test_velocity_diffusion(nx: int, plot_pts: int, do_plot: bool = False):
 
         # analytical decay rate: gamma = mu * k^2, k = 2*pi/r1 for mode l=1
         k = 2.0 * np.pi / r1
-        gamma_analytical = mu * 4/3 * k**2
+        gamma_analytical = mu * 4 / 3 * k**2
 
         A0 = amplitude[0]
         amplitude_analytical = A0 * np.exp(-gamma_analytical * times)
@@ -551,10 +548,15 @@ def test_velocity_diffusion(nx: int, plot_pts: int, do_plot: bool = False):
             plt.show()
 
             fig, ax = plt.subplots(figsize=(8, 5))
-            ax.semilogy(times, np.abs(amplitude), "o-", markersize=3,
-                        label=f"Numerical (fitted rate = {gamma_numerical:.3f})")
-            ax.semilogy(times, np.abs(amplitude_analytical), "--",
-                        label=rf"Analytical: $\gamma = (4/3) \mu k^2 = {gamma_analytical:.3f}$")
+            ax.semilogy(
+                times, np.abs(amplitude), "o-", markersize=3, label=f"Numerical (fitted rate = {gamma_numerical:.3f})"
+            )
+            ax.semilogy(
+                times,
+                np.abs(amplitude_analytical),
+                "--",
+                label=rf"Analytical: $\gamma = (4/3) \mu k^2 = {gamma_analytical:.3f}$",
+            )
             ax.set_xlabel("time")
             ax.set_ylabel(rf"velocity amplitude at $x = {e1_np[idx_max]:.3f}$")
             ax.set_title("Velocity diffusion: amplitude decay over time")
@@ -595,9 +597,9 @@ def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False, create_
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="hagen_poiseuille")
 
     # physical parameters
-    mu = 0.1    # dynamic viscosity
+    mu = 0.1  # dynamic viscosity
     g_x = 0.1  # body force in x (acts as driving pressure gradient)
-    H = 1.0     # channel height in y
+    H = 1.0  # channel height in y
 
     # time stepping: T_relax = H^2 / (pi^2 * mu) ~ 1.0, run 10x past relaxation
     time_opts = Time(dt=0.01, Tend=10.0, split_algo="Strang")
@@ -732,8 +734,7 @@ def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False, create_
             # time evolution of centreline velocity
             ax = axes[2]
             ax.plot(times, u_centre, label=r"Numerical $u_x(y=H/2)$")
-            ax.axhline(u_centre_exact, color="k", linestyle="--",
-                       label=rf"Exact $U_{{max}} = {u_centre_exact:.4f}$")
+            ax.axhline(u_centre_exact, color="k", linestyle="--", label=rf"Exact $U_{{max}} = {u_centre_exact:.4f}$")
             ax.set_xlabel("time")
             ax.set_ylabel(r"$u_x(y=H/2)$")
             ax.set_title("Centreline velocity relaxation to steady state")
@@ -850,10 +851,10 @@ def test_dam_break(nx: int, plot_pts: int, do_plot: bool = False, create_png: bo
     # With g=10, H=0.5: U_max ≈ 3.2.  kappa=50 → c_s≈7, Ma≈0.45 (subsonic, liquid-like).
     # Raising gravity would increase Ma and make things more gas-like — wrong direction.
     kappa = 0.2  # isothermal coefficient (= c_s^2); controls fluid stiffness
-    mu = 0.05     # dynamic viscosity
-    g_y = 10.0    # gravitational acceleration (downward, i.e. −y)
-    r1 = 1.0      # domain width  (x-direction)
-    r2 = 1.0      # domain height (y-direction)
+    mu = 0.05  # dynamic viscosity
+    g_y = 10.0  # gravitational acceleration (downward, i.e. −y)
+    r1 = 1.0  # domain width  (x-direction)
+    r2 = 1.0  # domain height (y-direction)
     n_high = 0.1  # density of the fluid column (uniform → no initial pressure gradient)
 
     # free-fall time sqrt(2*H/g) ≈ 0.32 s; acoustic CFL: h/c_s = (1/nx)/sqrt(kappa) ≈ 0.018
@@ -915,7 +916,7 @@ def test_dam_break(nx: int, plot_pts: int, do_plot: bool = False, create_png: bo
         density_profile="step_function_xy",
         n=n_high,
         upper_x=r1 / 4,
-        upper_y=r2,  
+        upper_y=r2,
     )
     model.euler_fluid.var.add_background(background)
 
@@ -945,7 +946,7 @@ def test_dam_break(nx: int, plot_pts: int, do_plot: bool = False, create_png: bo
 
         X = np.asarray(ee1)[:, :, 0] * r1  # physical x, shape (pts_e1, pts_e2)
         Y = np.asarray(ee2)[:, :, 0] * r2  # physical y, shape (pts_e1, pts_e2)
-        n_arr = np.asarray(n_sph)           # (Nt+1, pts_e1, pts_e2, 1)
+        n_arr = np.asarray(n_sph)  # (Nt+1, pts_e1, pts_e2, 1)
 
         # orbits needed for both do_plot scatter overlay and create_png
         orbits = np.asarray(sim.orbits.euler_fluid)  # (Nt_orb, n_markers, n_attrs)
@@ -1026,12 +1027,8 @@ def test_dam_break(nx: int, plot_pts: int, do_plot: bool = False, create_png: bo
         # sanity: no markers should escape the closed box (allow 1% tolerance)
         x_all = orbits[:, :, 0]
         y_all = orbits[:, :, 1]
-        assert np.all(x_all >= -0.01 * r1) and np.all(x_all <= 1.01 * r1), (
-            "Markers escaped x-domain in dam break test"
-        )
-        assert np.all(y_all >= -0.01 * r2) and np.all(y_all <= 1.01 * r2), (
-            "Markers escaped y-domain in dam break test"
-        )
+        assert np.all(x_all >= -0.01 * r1) and np.all(x_all <= 1.01 * r1), "Markers escaped x-domain in dam break test"
+        assert np.all(y_all >= -0.01 * r2) and np.all(y_all <= 1.01 * r2), "Markers escaped y-domain in dam break test"
         logger.info("Dam break domain bounds assertion passed.")
 
 
@@ -1041,4 +1038,3 @@ if __name__ == "__main__":
     # test_damped_sound_wave(nx=8, plot_pts=21, do_plot=True)
     # test_hagen_poiseuille(nx=8, plot_pts=21, do_plot=True, create_png=True)
     # test_dam_break(nx=8, plot_pts=21, do_plot=True, create_png=True)
-

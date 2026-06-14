@@ -50,20 +50,20 @@ def push_v_sph_pressure(
 
     where :math:`\mathbf g` is a constant acceleration, the second term corresponds to the pressure gradient
     in the isothermal closure (with constant :math:`\kappa`), and :math:`DF^{-\top}` denotes the inverse transpose Jacobian
-    arising in the pull back of the gradient of the smoothing kernel :math:`W_h` 
-    chosen from :mod:`~struphy.pic.sph_smoothing_kernels`. 
-    
+    arising in the pull back of the gradient of the smoothing kernel :math:`W_h`
+    chosen from :mod:`~struphy.pic.sph_smoothing_kernels`.
+
     The smoothed SPH density is given by
 
     .. math::
 
         \rho^{N,h}(\boldsymbol \eta_p) = \sum_j w_j \, W_h(\boldsymbol \eta_p - \boldsymbol \eta_j)\,.
-        
+
     This kernel requires:
-    
+
     * The density :math:`\rho^{N,h}(\boldsymbol \eta_p)` to be pre-computed for each particle and stored at ``markers[:, first_free_idx]``)
     * The coefficient :math:`w_i/\rho^{N,h}(\boldsymbol \eta_i)` to be pre-computed for each particle and stored at ``markers[:, first_free_idx + 1]``)
-    
+
     This is accomplished by the kernel :func:`~struphy.pic.pushing.eval_kernels_sph.sph_pressure_coeffs`, which needs
     to be passed as an ``init_kernel`` to the :class:`~struphy.pic.pushing.pusher.Pusher`.
 
@@ -89,7 +89,7 @@ def push_v_sph_pressure(
 
     gravity: xp.ndarray
         Constant gravitational force as 3-vector.
-        
+
     kappa: float
         Constant isothermal coefficient.
     """
@@ -160,7 +160,7 @@ def push_v_sph_pressure(
             h3,
         )
         sum2 *= kappa
-        
+
         grad_u[0] += sum2
 
         if kernel_type >= 340:
@@ -294,22 +294,22 @@ def push_v_sph_pressure_ideal_gas(
         \frac{\mathbf v_p^{n+1} - \mathbf v_p^n}{\Delta t} = \mathbf g - \sum_{i=1}^N w_i \left( \kappa (\rho^{N,h}(\boldsymbol \eta_p))^{\gamma - 2} + \kappa (\rho^{N,h}(\boldsymbol \eta_i))^{\gamma - 2} \right) DF^{-\top}\nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_i) \,,
 
     where :math:`\mathbf g` is a constant acceleration, the second term corresponds to the pressure gradient
-    in the polytropic closure (with constant :math:`\kappa` and :math:`\gamma = 5/3`), 
+    in the polytropic closure (with constant :math:`\kappa` and :math:`\gamma = 5/3`),
     and :math:`DF^{-\top}` denotes the inverse transpose Jacobian
-    arising in the pull back of the gradient of the smoothing kernel :math:`W_h` 
-    chosen from :mod:`~struphy.pic.sph_smoothing_kernels`. 
-    
+    arising in the pull back of the gradient of the smoothing kernel :math:`W_h`
+    chosen from :mod:`~struphy.pic.sph_smoothing_kernels`.
+
     The smoothed SPH density is given by
 
     .. math::
 
         \rho^{N,h}(\boldsymbol \eta_p) = \sum_j w_j \, W_h(\boldsymbol \eta_p - \boldsymbol \eta_j)\,.
-        
+
     This kernel requires:
-    
+
     * The density :math:`\rho^{N,h}(\boldsymbol \eta_p)` to be pre-computed for each particle and stored at ``markers[:, first_free_idx]``)
     * The coefficient :math:`w_i (\rho^{N,h}(\boldsymbol \eta_i))^{\gamma - 2}` to be pre-computed for each particle and stored at ``markers[:, first_free_idx + 2]``)
-    
+
     This is accomplished by the kernel :func:`~struphy.pic.pushing.eval_kernels_sph.sph_pressure_coeffs`, which needs
     to be passed as an ``init_kernel`` to the :class:`~struphy.pic.pushing.pusher.Pusher`.
 
@@ -335,7 +335,7 @@ def push_v_sph_pressure_ideal_gas(
 
     gravity: xp.ndarray
         Constant gravitational force as 3-vector.
-        
+
     kappa: float
         Polytropic coefficient in the ideal gas closure.
     """

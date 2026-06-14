@@ -6,8 +6,7 @@ from pyccel.decorators import stack_array
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
 import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
 import struphy.geometry.evaluation_kernels as evaluation_kernels
-
-import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels # do not remove; needed to identify dependencies
+import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
 import struphy.pic.sph_eval_kernels as sph_eval_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
@@ -32,11 +31,11 @@ def sph_pressure_coeffs(
     h3: "float",
 ):
     r"""For each particle, evaluate
-    
+
     * the density :math:`\rho^{N,h}(\boldsymbol \eta_i)` abd stored it at ``markers[:, column_nr]``)
     * the coefficient :math:`w_i/\rho^{N,h}(\boldsymbol \eta_i)` and stored it at ``markers[:, column_nr + 1]``)
     * the coefficient :math:`w_i (\rho^{N,h}(\boldsymbol \eta_i))^{\gamma - 2}` and stored it at ``markers[:, column_nr + 2]``)
-    
+
     where the smoothed SPH density is given by
 
     .. math::
@@ -95,8 +94,7 @@ def sph_isotherm_kappa(
     comps: "int[:]",
     args_markers: "MarkerArguments",
 ):
-    r"""None yet.
-    """
+    r"""None yet."""
 
     # get marker arguments
     markers = args_markers.markers
@@ -130,8 +128,8 @@ def sph_mean_velocity_coeffs(
     h3: "float",
 ):
     r"""For each particle, evaluate the smoothed SPH density :math:`\rho^{N,h}(\boldsymbol \eta_i)` and store the
-    coefficient 
-      
+    coefficient
+
     * :math:`w_i v_{k,i} / \rho^{N,h}(\boldsymbol \eta_i)` at ``markers[:, column_nr + k]`` for :math:`k = 0, 1, 2`
 
     where the smoothed SPH density is given by
@@ -456,8 +454,8 @@ def sph_viscosity_tensor(
         (-\nabla \cdot \Pi_{\textrm{vis}})^{N,h}_j(\boldsymbol \eta_i)
         = \sum_l \frac{ w_l \, \sigma_{jk}(\boldsymbol \eta_l)}{\rho^{N,h}(\boldsymbol \eta_l)} \,
           (\nabla W_h)_k(\boldsymbol \eta_i - \boldsymbol \eta_l)\,.
-          
-    This kernel requires the coefficients of the mean velocity :math:`v_k^{N,h}` 
+
+    This kernel requires the coefficients of the mean velocity :math:`v_k^{N,h}`
     for each particle to be pre-evaluated and stored at ``markers[:, first_free_idx:first_free_idx + 3]``,
     which can be achieved by the kernel :func:`~struphy.pic.pushing.eval_kernels_sph.sph_mean_velocity_coeffs`.
     """
