@@ -772,6 +772,7 @@ class Particles(metaclass=ABCMeta):
     @property
     def n_mks_loc(self):
         """Number of valid markers on process (without holes and ghosts)."""
+        # print(f"{self.kinds} on clone {self.clone_id}: counting valid markers: {xp.count_nonzero(self.valid_mks)} valid markers on process {self.mpi_rank} found.")
         return xp.count_nonzero(self.valid_mks)
 
     @property

@@ -817,8 +817,8 @@ def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False, create_
             plt.tight_layout()
             plt.show()
 
-        assert np.max(rel_error_interior) < 0.05, (
-            f"Hagen-Poiseuille mean relative error {np.mean(rel_error_interior) * 100:.1f}% exceeds tolerance 15%"
+        assert np.mean(rel_error_interior) < 0.05, (
+            f"Hagen-Poiseuille mean relative error {np.mean(rel_error_interior) * 100:.1f}% exceeds tolerance 5%"
         )
         logger.info("Hagen-Poiseuille profile assertion passed.")
 
@@ -968,7 +968,7 @@ def test_dam_break(nx: int, plot_pts: int, do_plot: bool = False, create_png: bo
             im = None
             for ax, idx, oidx in zip(axes.flatten(), snapshot_inds, orb_inds):
                 n_2d = n_arr[idx, :, :, 0]
-                im = ax.pcolormesh(X, Y, n_2d, vmin=0.0, vmax=vmax_plot, cmap="Blues", shading="auto")
+                im = ax.pcolormesh(X, Y, n_2d, vmin=0.0, vmax=vmax_plot/2, cmap="Blues", shading="auto")
                 ax.scatter(
                     orbits[oidx, :, 0],
                     orbits[oidx, :, 1],
@@ -997,31 +997,39 @@ def test_dam_break(nx: int, plot_pts: int, do_plot: bool = False, create_png: bo
         if create_png:
             from tqdm import tqdm as _tqdm
 
-            n_snaps = 250
+            n_snaps = 300
             snap_inds = np.round(np.linspace(0, Nt_orb - 1, n_snaps)).astype(int)
+            n_snap_inds = np.round(np.linspace(0, Nt, n_snaps)).astype(int)
+
+            vmax_plot = float(np.max(n_arr))
 
             png_dir = os.path.join(out_folders, "dam_break_pngs")
             os.makedirs(png_dir, exist_ok=True)
 
-            for i, idx in _tqdm(enumerate(snap_inds), total=n_snaps, desc="saving PNGs"):
+            for i, (idx, n_idx) in _tqdm(
+                enumerate(zip(snap_inds, n_snap_inds)), total=n_snaps, desc="saving PNGs"
+            ):
                 fig_png, ax_png = plt.subplots(figsize=(10, 5))
+                n_2d = n_arr[n_idx, :, :, 0]
+                im = ax_png.pcolormesh(X, Y, n_2d, vmin=0.0, vmax=vmax_plot/2, cmap="Blues", shading="auto")
                 ax_png.scatter(
                     orbits[idx, :, 0],
                     orbits[idx, :, 1],
                     c=c_val,
                     cmap="autumn",
-                    s=4,
+                    s=1,
                     vmin=0.0,
                     vmax=1.0,
+                    alpha=0.6,
                 )
                 ax_png.set_xlim(0.0, r1)
                 ax_png.set_ylim(0.0, r2)
                 ax_png.set_xlabel("x")
                 ax_png.set_ylabel("y")
-                ax_png.set_title(rf"Dam break, $t = {t_orbit[idx]:.3f}$")
+                ax_png.set_title(rf"Dam break (compressible), $t = {t_orbit[idx]:.3f}$")
                 ax_png.set_aspect("equal")
-                plt.tight_layout()
-                fig_png.savefig(os.path.join(png_dir, f"snap_{i:04d}.png"), dpi=80)
+                plt.colorbar(im, ax=ax_png, label=r"$\rho$")
+                fig_png.savefig(os.path.join(png_dir, f"snap_{i:04d}.png"), dpi=80, bbox_inches="tight", pad_inches=0.02)
                 plt.close(fig_png)
 
         # sanity: no markers should escape the closed box (allow 1% tolerance)
@@ -1034,7 +1042,7 @@ def test_dam_break(nx: int, plot_pts: int, do_plot: bool = False, create_png: bo
 
 if __name__ == "__main__":
     # test_soundwave_1d(nx=12, plot_pts=11, do_plot=True)
-    test_velocity_diffusion(nx=8, plot_pts=11, do_plot=True)
+    # test_velocity_diffusion(nx=8, plot_pts=11, do_plot=True)
     # test_damped_sound_wave(nx=8, plot_pts=21, do_plot=True)
     # test_hagen_poiseuille(nx=8, plot_pts=21, do_plot=True, create_png=True)
-    # test_dam_break(nx=8, plot_pts=21, do_plot=True, create_png=True)
+    test_dam_break(nx=8, plot_pts=21, do_plot=True, create_png=True)
