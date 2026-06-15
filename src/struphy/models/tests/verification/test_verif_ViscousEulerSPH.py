@@ -968,7 +968,7 @@ def test_dam_break(nx: int, plot_pts: int, do_plot: bool = False, create_png: bo
             im = None
             for ax, idx, oidx in zip(axes.flatten(), snapshot_inds, orb_inds):
                 n_2d = n_arr[idx, :, :, 0]
-                im = ax.pcolormesh(X, Y, n_2d, vmin=0.0, vmax=vmax_plot/2, cmap="Blues", shading="auto")
+                im = ax.pcolormesh(X, Y, n_2d, vmin=0.0, vmax=vmax_plot / 2, cmap="Blues", shading="auto")
                 ax.scatter(
                     orbits[oidx, :, 0],
                     orbits[oidx, :, 1],
@@ -1006,12 +1006,10 @@ def test_dam_break(nx: int, plot_pts: int, do_plot: bool = False, create_png: bo
             png_dir = os.path.join(out_folders, "dam_break_pngs")
             os.makedirs(png_dir, exist_ok=True)
 
-            for i, (idx, n_idx) in _tqdm(
-                enumerate(zip(snap_inds, n_snap_inds)), total=n_snaps, desc="saving PNGs"
-            ):
+            for i, (idx, n_idx) in _tqdm(enumerate(zip(snap_inds, n_snap_inds)), total=n_snaps, desc="saving PNGs"):
                 fig_png, ax_png = plt.subplots(figsize=(10, 5))
                 n_2d = n_arr[n_idx, :, :, 0]
-                im = ax_png.pcolormesh(X, Y, n_2d, vmin=0.0, vmax=vmax_plot/2, cmap="Blues", shading="auto")
+                im = ax_png.pcolormesh(X, Y, n_2d, vmin=0.0, vmax=vmax_plot / 2, cmap="Blues", shading="auto")
                 ax_png.scatter(
                     orbits[idx, :, 0],
                     orbits[idx, :, 1],
@@ -1029,7 +1027,9 @@ def test_dam_break(nx: int, plot_pts: int, do_plot: bool = False, create_png: bo
                 ax_png.set_title(rf"Dam break (compressible), $t = {t_orbit[idx]:.3f}$")
                 ax_png.set_aspect("equal")
                 plt.colorbar(im, ax=ax_png, label=r"$\rho$")
-                fig_png.savefig(os.path.join(png_dir, f"snap_{i:04d}.png"), dpi=80, bbox_inches="tight", pad_inches=0.02)
+                fig_png.savefig(
+                    os.path.join(png_dir, f"snap_{i:04d}.png"), dpi=80, bbox_inches="tight", pad_inches=0.02
+                )
                 plt.close(fig_png)
 
         # sanity: no markers should escape the closed box (allow 1% tolerance)
