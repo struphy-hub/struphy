@@ -1,6 +1,9 @@
 import logging
 import shutil
 from pathlib import Path
+import subprocess
+import sys
+import os
 
 import pytest
 from feectools.ddm.mpi import mpi as MPI
@@ -50,13 +53,28 @@ def test_examples(params_path: Path):
 
     MPI.COMM_WORLD.Barrier()
     if MPI.COMM_WORLD.Get_rank() == 0:
+        env = os.environ.copy()
+        env["MPLBACKEND"] = "Agg"
+
+        for key in list(env):
+            if key.startswith(("OMPI_", "PMI_", "PMIX_", "MPI_")):
+                env.pop(key)
         if pproc_path.exists():
-            pproc_module = import_parameters_py(str(pproc_path), name=pproc_name)
-            pproc_module.main()
+
+            subprocess.run(
+                [sys.executable, str(pproc_path)],
+                check=True,
+                cwd=os.getcwd(),
+                env=env,
+            )
 
         if regress_path.exists():
-            regress_module = import_parameters_py(str(regress_path), name=regress_name)
-            regress_module.main()
+            subprocess.run(
+                [sys.executable, str(regress_path)],
+                check=True,
+                cwd=os.getcwd(),
+                env=env,
+            )
 
         shutil.rmtree(params.sim.env.path_out)
     MPI.COMM_WORLD.Barrier()
