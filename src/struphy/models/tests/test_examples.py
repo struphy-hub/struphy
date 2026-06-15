@@ -1,9 +1,9 @@
 import logging
+import os
 import shutil
-from pathlib import Path
 import subprocess
 import sys
-import os
+from pathlib import Path
 
 import pytest
 from feectools.ddm.mpi import mpi as MPI
@@ -60,7 +60,6 @@ def test_examples(params_path: Path):
             if key.startswith(("OMPI_", "PMI_", "PMIX_", "MPI_")):
                 env.pop(key)
         if pproc_path.exists():
-
             subprocess.run(
                 [sys.executable, str(pproc_path)],
                 check=True,
