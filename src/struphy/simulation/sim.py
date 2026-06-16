@@ -346,6 +346,8 @@ class Simulation(SimulationBase):
             if self.equil is not None:
                 p0 = self.equil.p0(*grids_log)
                 pointData["p0"] = p0
+                n0 = self.equil.n0(*grids_log)
+                pointData["n0"] = n0
                 if isinstance(self.equil, FluidEquilibriumWithB):
                     absB0 = self.equil.absB0(*grids_log)
                     pointData["absB0"] = absB0
@@ -492,18 +494,17 @@ class Simulation(SimulationBase):
 
         self._remove_existing_output_files()
 
-        if not self.env.restart:
-            # equation paramters
-            self.allocate()
+        # equation paramters
+        self.allocate()
 
-            # output
-            self.initialize_data_storage()
+        # output
+        self.initialize_data_storage()
 
-            # peek view into geometry
-            self.save_geometry_and_equil_vtk()
+        # peek view into geometry
+        self.save_geometry_and_equil_vtk()
 
-            # plasma parameters
-            self.compute_plasma_params()
+        # plasma parameters
+        self.compute_plasma_params()
 
         # print info on mpi procs
         if self.rank < 32:
@@ -529,6 +530,7 @@ class Simulation(SimulationBase):
                 self.time_state["value"][0] = file["restart/time/value"][-1]
                 self.time_state["value_sec"][0] = file["restart/time/value_sec"][-1]
                 self.time_state["index"][0] = file["restart/time/index"][-1]
+                start_step = file["restart/time/index"][-1]
 
             total_steps = int(round((Tend - self.time_state["value"][0]) / dt))
             logger.info(f"""\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -540,6 +542,7 @@ RESTARTing from:
 """)
         else:
             total_steps = int(round(Tend / dt))
+            start_step = 0
 
         total_steps_str = str(total_steps)
 
@@ -629,7 +632,7 @@ RESTARTing from:
                 # print current time and scalar quantities to screen
                 step = str(self.time_state["index"][0]).zfill(len(total_steps_str))
 
-                message = "time step:".ljust(25) + f"{step}/{total_steps_str}".rjust(25)
+                message = "time step:".ljust(25) + f"{step}/{total_steps + start_step}".rjust(25)
                 message += (
                     "\n"
                     + "normalized time:".ljust(25)

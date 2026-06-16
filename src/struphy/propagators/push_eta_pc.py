@@ -135,10 +135,6 @@ class PushEtaPC(Propagator):
         # define algorithm
         butcher = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
-        import cunumpy as xp
-
-        butcher._a = xp.diag(butcher.a, k=-1)
-        butcher._a = xp.array(list(butcher.a) + [0.0])
 
         args_kernel = (
             self.derham.args_derham,
@@ -146,7 +142,7 @@ class PushEtaPC(Propagator):
             self._u_tilde[1]._data,
             self._u_tilde[2]._data,
             self.options.use_perp_model,
-            butcher.a,
+            butcher.a_stage,
             butcher.b,
             butcher.c,
         )
