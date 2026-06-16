@@ -102,7 +102,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
             charge_number,
             mass_number,
             epsilon,
-            alpha,
+            alpha=alpha,
         )
 
         # 2. derive units (must be done after instantiating species to access charge and mass numbers)
