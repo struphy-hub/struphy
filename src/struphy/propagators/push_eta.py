@@ -96,16 +96,9 @@ class PushEta(Propagator):
         # define algorithm
         butcher = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
-        try:
-            import cunumpy as xp
-
-            butcher._a = xp.diag(butcher.a, k=-1)
-            butcher._a = xp.array(list(butcher.a) + [0.0])
-        except ValueError:
-            pass
 
         args_kernel = (
-            butcher.a,
+            butcher.a_stage,
             butcher.b,
             butcher.c,
         )
