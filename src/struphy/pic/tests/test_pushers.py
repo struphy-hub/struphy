@@ -685,13 +685,11 @@ def test_push_eta_rk4(num_elements, degree, bcs, mapping, show_plots=False):
 
     butcher = ButcherTableau("rk4")
     # temp fix due to refactoring of ButcherTableau:
-    butcher._a = xp.diag(butcher.a, k=-1)
-    butcher._a = xp.array(list(butcher._a) + [0.0])
 
     pusher_psy = Pusher_psy(
         particles,
         Pyccelkernel(pusher_kernels.push_eta_stage),
-        (butcher.a, butcher.b, butcher.c),
+        (butcher.a_stage, butcher.b, butcher.c),
         domain.args_domain,
         alpha_in_kernel=1.0,
         n_stages=butcher.n_stages,

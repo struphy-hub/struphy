@@ -64,12 +64,14 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
             charge_number: int = 1,
             mass_number: float = 1.0,
             epsilon: float = None,
+            alpha: float = None,
         ):
             self.var = PICVariable(space="Particles5D")
             self.init_variables(
                 charge_number=charge_number,
                 mass_number=mass_number,
                 epsilon=epsilon,
+                alpha=alpha,
             )
 
     ## propagators
@@ -88,6 +90,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         charge_number: int = 1,
         mass_number: float = 1.0,
         epsilon: float = None,
+        alpha: float = None,
     ):
 
         # 0. store input parameters
@@ -99,6 +102,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
             charge_number,
             mass_number,
             epsilon,
+            alpha=alpha,
         )
 
         # 2. derive units (must be done after instantiating species to access charge and mass numbers)
