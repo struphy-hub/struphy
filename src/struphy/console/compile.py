@@ -92,6 +92,7 @@ def struphy_compile(
                     and "_tmp.py" not in file
                     and "test" not in file
                     and "__pycache__" not in subdir
+                    and "__pyccel__" not in subdir
                 ):
                     state["kernels"] += [os.path.join(subdir, file)]
 

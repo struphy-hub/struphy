@@ -807,6 +807,9 @@ class SPHVariable(Variable):
         self.particles.draw_markers(sort=sort)
         self.particles.initialize_weights()
 
+        # if self.particles.sorting_boxes.communicate:
+        #     self.particles.put_particles_in_boxes()
+
         # allocate array for saving markers if not present
         n_markers = self.species.saving_params.n_markers
         if isinstance(n_markers, float):

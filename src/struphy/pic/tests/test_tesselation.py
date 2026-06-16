@@ -178,8 +178,10 @@ def test_cell_average(ppb, nx, ny, nz, n_quad, show_plot=False):
         plt.show()
 
     # test
-    logger.info(f"\n{rank =}, {xp.max(xp.abs(particles.weights - particles.f_init(particles.positions))) =}")
-    assert xp.max(xp.abs(particles.weights - particles.f_init(particles.positions))) < 0.012
+    logger.info(
+        f"\n{rank =}, {xp.max(xp.abs(particles.weights * particles.Np - particles.f_init(particles.positions))) =}"
+    )
+    assert xp.max(xp.abs(particles.weights * particles.Np - particles.f_init(particles.positions))) < 0.012
 
 
 if __name__ == "__main__":

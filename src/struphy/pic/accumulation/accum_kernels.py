@@ -12,9 +12,7 @@ from numpy import empty, floor, log, shape, sqrt, zeros
 from pyccel.decorators import stack_array
 
 import struphy.geometry.evaluation_kernels as evaluation_kernels
-
-# do not remove; needed to identify dependencies
-import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels
+import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies (for import below)
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
 import struphy.pic.accumulation.particle_to_mat_kernels as particle_to_mat_kernels
 from struphy.bsplines.evaluation_kernels_3d import (
@@ -35,15 +33,10 @@ def charge_density_0form(
     vec: "float[:,:,:]",
 ):
     r"""
-    Kernel for :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` into V0 with the filling
-
-    .. math::
-
-        B_p^\mu = \frac{w_p}{N} \,.
+    Kernel for :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` into V0 with weight :math:`B^\mu = 1`.
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
     weight_idx = args_markers.weight_idx
 
     # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, filling)
@@ -58,8 +51,8 @@ def charge_density_0form(
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
-        # filling = w_p/N
-        filling = markers[ip, weight_idx] / Np
+        # filling is just the weights
+        filling = markers[ip, weight_idx]
 
         particle_to_mat_kernels.vec_fill_b_v0(
             args_derham,
@@ -113,7 +106,6 @@ def hybrid_fA_density(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
 
     # allocate
     cell_left = empty(3, dtype=int)
@@ -162,7 +154,7 @@ def hybrid_fA_density(
         # metric coeffs
         det_df = linalg_kernels.det(dfm)
 
-        weight = markers[ip, 6] / (p_size[0] * p_size[1] * p_size[2]) / Np / det_df
+        weight = markers[ip, 6] / (p_size[0] * p_size[1] * p_size[2]) / det_df
 
         ie1 = int(eta1 * num_elements[0])
         ie2 = int(eta2 * num_elements[1])
@@ -263,7 +255,6 @@ def hybrid_fA_Arelated(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
 
     # allocate for metric coeffs
     dfm = empty((3, 3), dtype=float)
@@ -309,29 +300,29 @@ def hybrid_fA_Arelated(
         weight = markers[ip, 6]
 
         # filling_m
-        filling_m[0, 0] = (
-            weight / Np * (df_inv[0, 0] * df_inv[0, 0] + df_inv[0, 1] * df_inv[0, 1] + df_inv[0, 2] * df_inv[0, 2])
+        filling_m[0, 0] = weight * (
+            df_inv[0, 0] * df_inv[0, 0] + df_inv[0, 1] * df_inv[0, 1] + df_inv[0, 2] * df_inv[0, 2]
         )
-        filling_m[0, 1] = (
-            weight / Np * (df_inv[0, 0] * df_inv[1, 0] + df_inv[0, 1] * df_inv[1, 1] + df_inv[0, 2] * df_inv[1, 2])
+        filling_m[0, 1] = weight * (
+            df_inv[0, 0] * df_inv[1, 0] + df_inv[0, 1] * df_inv[1, 1] + df_inv[0, 2] * df_inv[1, 2]
         )
-        filling_m[0, 2] = (
-            weight / Np * (df_inv[0, 0] * df_inv[2, 0] + df_inv[0, 1] * df_inv[2, 1] + df_inv[0, 2] * df_inv[2, 2])
-        )
-
-        filling_m[1, 1] = (
-            weight / Np * (df_inv[1, 0] * df_inv[1, 0] + df_inv[1, 1] * df_inv[1, 1] + df_inv[1, 2] * df_inv[1, 2])
-        )
-        filling_m[1, 2] = (
-            weight / Np * (df_inv[1, 0] * df_inv[2, 0] + df_inv[1, 1] * df_inv[2, 1] + df_inv[1, 2] * df_inv[2, 2])
+        filling_m[0, 2] = weight * (
+            df_inv[0, 0] * df_inv[2, 0] + df_inv[0, 1] * df_inv[2, 1] + df_inv[0, 2] * df_inv[2, 2]
         )
 
-        filling_m[2, 2] = (
-            weight / Np * (df_inv[2, 0] * df_inv[2, 0] + df_inv[2, 1] * df_inv[2, 1] + df_inv[2, 2] * df_inv[2, 2])
+        filling_m[1, 1] = weight * (
+            df_inv[1, 0] * df_inv[1, 0] + df_inv[1, 1] * df_inv[1, 1] + df_inv[1, 2] * df_inv[1, 2]
+        )
+        filling_m[1, 2] = weight * (
+            df_inv[1, 0] * df_inv[2, 0] + df_inv[1, 1] * df_inv[2, 1] + df_inv[1, 2] * df_inv[2, 2]
+        )
+
+        filling_m[2, 2] = weight * (
+            df_inv[2, 0] * df_inv[2, 0] + df_inv[2, 1] * df_inv[2, 1] + df_inv[2, 2] * df_inv[2, 2]
         )
 
         # filling_v
-        filling_v[:] = weight / Np * df_inv_times_v
+        filling_v[:] = weight * df_inv_times_v
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.m_v_fill_b_v1_symm(
@@ -404,7 +395,6 @@ def linear_vlasov_ampere(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
 
     # allocate for metric coeffs
     dfm = empty((3, 3), dtype=float)
@@ -451,12 +441,12 @@ def linear_vlasov_ampere(
         # compute DF^{-1} v
         linalg_kernels.matrix_vector(df_inv, v, df_inv_v)
 
-        # filling_m = alpha^2 * kappa^2 * f0 / (N * s_0 * v_th^2) * (DF^{-1} v_p)_mu * (DF^{-1} v_p)_nu
+        # filling_m = alpha^2 * kappa^2 * f0 / (s_0 * v_th^2) * (DF^{-1} v_p)_mu * (DF^{-1} v_p)_nu
         linalg_kernels.outer(df_inv_v, df_inv_v, filling_m)
-        filling_m[:, :] *= f0_values[ip] / (Np * markers[ip, 7])
+        filling_m[:, :] *= f0_values[ip] / markers[ip, 7]
 
-        # filling_v = alpha^2 * kappa / N * w_p * DL^{-1} * v_p
-        filling_v[:] = markers[ip, 6] * df_inv_v / Np
+        # filling_v = alpha^2 * kappa * w_p * DL^{-1} * v_p
+        filling_v[:] = markers[ip, 6] * df_inv_v
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.m_v_fill_b_v1_symm(
@@ -520,7 +510,6 @@ def vlasov_maxwell(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
 
     # allocate for metric coeffs
     dfm = zeros((3, 3), dtype=float)
@@ -567,10 +556,10 @@ def vlasov_maxwell(
         linalg_kernels.matrix_vector(df_inv, v, df_inv_times_v)
 
         # filling_m = w_p * DF^{-1} * DF^{-T}
-        filling_m[:, :] = markers[ip, 6] * g_inv / Np
+        filling_m[:, :] = markers[ip, 6] * g_inv
 
         # filling_v = w_p * DF^{-1} * \V
-        filling_v[:] = markers[ip, 6] * df_inv_times_v / Np
+        filling_v[:] = markers[ip, 6] * df_inv_times_v
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.m_v_fill_b_v1_symm(
@@ -635,7 +624,6 @@ def cc_lin_mhd_6d_1(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -774,10 +762,6 @@ def cc_lin_mhd_6d_1(
 
     # -- removed omp: #$ omp end parallel
 
-    mat12 /= Np
-    mat13 /= Np
-    mat23 /= Np
-
 
 @stack_array(
     "b",
@@ -837,7 +821,6 @@ def cc_lin_mhd_6d_2(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -1050,17 +1033,6 @@ def cc_lin_mhd_6d_2(
 
     # -- removed omp: #$ omp end parallel
 
-    mat11 /= Np
-    mat12 /= Np
-    mat13 /= Np
-    mat22 /= Np
-    mat23 /= Np
-    mat33 /= Np
-
-    vec1 /= Np
-    vec2 /= Np
-    vec3 /= Np
-
 
 @stack_array("dfm", "df_t", "df_inv", "df_inv_t", "filling_m", "filling_v", "tmp1", "v", "tmp_v")
 def pc_lin_mhd_6d_full(
@@ -1131,7 +1103,6 @@ def pc_lin_mhd_6d_full(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
 
     # allocate for metric coeffs
     dfm = empty((3, 3), dtype=float)
@@ -1186,8 +1157,8 @@ def pc_lin_mhd_6d_full(
 
         weight = markers[ip, 8]
 
-        filling_m[:, :] = weight * tmp1 / Np * ep_scale
-        filling_v[:] = weight * tmp_v / Np * ep_scale
+        filling_m[:, :] = weight * tmp1 * ep_scale
+        filling_v[:] = weight * tmp_v * ep_scale
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.m_v_fill_v1_pressure_full(
@@ -1324,7 +1295,6 @@ def pc_lin_mhd_6d(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
 
     # allocate for metric coeffs
     dfm = empty((3, 3), dtype=float)
@@ -1423,29 +1393,3 @@ def pc_lin_mhd_6d(
             v[0],
             v[1],
         )
-
-    mat11_11 /= Np
-    mat12_11 /= Np
-    mat13_11 /= Np
-    mat22_11 /= Np
-    mat23_11 /= Np
-    mat33_11 /= Np
-    mat11_12 /= Np
-    mat12_12 /= Np
-    mat13_12 /= Np
-    mat22_12 /= Np
-    mat23_12 /= Np
-    mat33_12 /= Np
-    mat11_22 /= Np
-    mat12_22 /= Np
-    mat13_22 /= Np
-    mat22_22 /= Np
-    mat23_22 /= Np
-    mat33_22 /= Np
-
-    vec1_1 /= Np
-    vec2_1 /= Np
-    vec3_1 /= Np
-    vec1_2 /= Np
-    vec2_2 /= Np
-    vec3_2 /= Np

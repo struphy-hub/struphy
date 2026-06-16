@@ -1270,7 +1270,7 @@ class PlottingData:
                             for file in files:
                                 name = file.split(".")[0]
                                 tmp = xp.load(os.path.join(path_dat, sli, file))
-                                # logger.info(f"{name = }")
+                                logger.info(f"{name = }")
                                 setattr(s, name, tmp)
 
                     elif "n_sph" in folder:
