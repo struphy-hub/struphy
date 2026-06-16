@@ -140,7 +140,7 @@ def subp_run(cmd, cwd="libpath", check=True):
     if cwd == "libpath":
         cwd = STRUPHY_LIBPATH
 
-    logger.info(f"\nRunning the following command as a subprocess:\n{' '.join(cmd)}\nfrom {cwd}")
+    print(f"\nRunning the following command as a subprocess:\n{' '.join(cmd)}\nfrom {cwd}")
     subprocess.run(cmd, cwd=cwd, check=check)
 
 

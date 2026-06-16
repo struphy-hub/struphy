@@ -42,7 +42,7 @@ dependencies = [
     "trame-vuetify<=3.2.2",
     "nest_asyncio2<=1.7.2",
     "vtk<=9.6.1",
-    "pytest<=9.0.3",
+    "pytest<=9.1.0",
     "pytest-mpi<=0.6",
     "pytest-testmon<=2.2.0",
     "ruff>=0.15.0, <=0.15.12",
