@@ -281,7 +281,7 @@ def field_line_tracing(
             xis_extended = xp.array([0.0] + list(xis) + [1.0])
 
             # compute (R, Z) coordinates for given xis on fixed flux surface corresponding to s_val
-            _RZ = domain_eq_angle(s_val, xis_extended, 0.0)
+            _RZ = domain_eq_angle(s_val, xis_extended, 0.0, squeeze_out=True)
 
             _R = _RZ[0]
             _Z = _RZ[2]
@@ -335,15 +335,15 @@ def field_line_tracing(
 
             # add zero angle for odd degree
             if px % 2 == 1:
-                R[i, 1:] = domain_eq_angle(s_flux, tracing["x"], 0.0)[0]
-                Z[i, 1:] = domain_eq_angle(s_flux, tracing["x"], 0.0)[2]
+                R[i, 1:] = domain_eq_angle(s_flux, tracing["x"], 0.0, squeeze_out=True)[0]
+                Z[i, 1:] = domain_eq_angle(s_flux, tracing["x"], 0.0, squeeze_out=True)[2]
 
-                R[i, 0] = domain_eq_angle(s_flux, 0.0, 0.0)[0]
-                Z[i, 0] = domain_eq_angle(s_flux, 0.0, 0.0)[2]
+                R[i, 0] = domain_eq_angle(s_flux, 0.0, 0.0, squeeze_out=True)[0]
+                Z[i, 0] = domain_eq_angle(s_flux, 0.0, 0.0, squeeze_out=True)[2]
 
             else:
-                R[i, :] = domain_eq_angle(s_flux, tracing["x"], 0.0)[0]
-                Z[i, :] = domain_eq_angle(s_flux, tracing["x"], 0.0)[2]
+                R[i, :] = domain_eq_angle(s_flux, tracing["x"], 0.0, squeeze_out=True)[0]
+                Z[i, :] = domain_eq_angle(s_flux, tracing["x"], 0.0, squeeze_out=True)[2]
 
         # get control points
         cR = kron_lusolve_2d(ILUs, R)

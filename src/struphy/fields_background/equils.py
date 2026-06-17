@@ -901,7 +901,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
     B0 : float
         On-axis (r=0) toroidal magnetic field (default: 2.).
     q_kind : int
-        Which safety factor profile, see docstring (0 or 1, default: 0).
+        Which safety factor profile, see docstring (0, 1 or 2, default: 0).
     q0 : float
         Safety factor at r=0 (default: 1.71).
     q1 : float
