@@ -185,10 +185,6 @@ class ColdPlasmaPerturbation(Propagator):
             Average electron temperature.
         Ebar : FEECVariable in ``"Hcurl"`` or list
             Average electrostatic field.
-        Esin0 : StencilVector, default=None
-            Initial Esin guess for the iterative linear solver.
-        Ecos0 : StencilVector, default=None
-            Initial Ecos guess for the iterative linear solver.
         solver : LiteralOptions.OptsGenSolver, default="gmres"
             Linear/saddle-point solver used for the global system.
         solver_params : SolverParameters or None, default=None
@@ -204,9 +200,6 @@ class ColdPlasmaPerturbation(Propagator):
         rhobar: FEECVariable | Callable | float = 1.0
         theta: FEECVariable | Callable | float = 1.0
         Ebar: FEECVariable | list
-        
-        Esin0: FEECVariable | StencilVector = None
-        Ecos0: FEECVariable | StencilVector = None
 
         solver: LiteralOptions.OptsGenSolver = "gmres"
         solver_params: SolverParameters | None = None
@@ -255,12 +248,6 @@ class ColdPlasmaPerturbation(Propagator):
             if isinstance(nu, float) and self.nu < 0:
                 raise ValueError(f"nu must be non-negative, got {self.nu}")
 
-            # --- E initial guess correct space check ---
-            if isinstance(self.Esin0, FEECVariable):
-                assert self.Esin0.space == "Hcurl"
-            if isinstance(self.Ecos0, FEECVariable):
-                assert self.Ecos0.space == "Hcurl"
-
             check_option(self.solver, LiteralOptions.OptsGenSolver, LiteralOptions.OptsSaddlePointSolver)
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
@@ -284,7 +271,7 @@ class ColdPlasmaPerturbation(Propagator):
 
         # ---- source term vector (for RHS assembly) ---------------------------
 
-        self._j: StencilVector
+        self._j: StencilVector = None
 
         if isinstance(self._options.J,FEECVariable):
             self._j = self._options.J.spline.vector
@@ -310,9 +297,9 @@ class ColdPlasmaPerturbation(Propagator):
             recycle = self._options.solver_params.recycle,
         )
 
-        self._M1mu: WeightedMassOperators
-        self._M2mu: WeightedMassOperators
-        self._M3mu: WeightedMassOperators
+        self._M1mu: WeightedMassOperators = None
+        self._M2mu: WeightedMassOperators = None
+        self._M3mu: WeightedMassOperators = None
 
         if isinstance(self._options.mu, float):
             self._M1mu = self._options.mu * self._M1
@@ -355,8 +342,8 @@ class ColdPlasmaPerturbation(Propagator):
             )
         
 
-        self._M1rho: WeightedMassOperators
-        self._M1xrhoB: WeightedMassOperators
+        self._M1rho: WeightedMassOperators = None
+        self._M1xrhoB: WeightedMassOperators = None
 
         rot_B = LocalRotationMatrix(
             self.eq_mhd.b2_1,
@@ -364,9 +351,9 @@ class ColdPlasmaPerturbation(Propagator):
             self.eq_mhd.b2_3,
         )
 
-        rhoB1: Callable
-        rhoB2: Callable
-        rhoB3: Callable
+        rhoB1: Callable = None
+        rhoB2: Callable = None
+        rhoB3: Callable = None
         
         if isinstance(self._options.rhobar, float):
             self._M1rho = self._options.rhobar * self.mass_ops.M1
@@ -449,7 +436,7 @@ class ColdPlasmaPerturbation(Propagator):
         )
         
 
-        self._M1nurho: WeightedMassOperators
+        self._M1nurho: WeightedMassOperators = None
 
         if isinstance(self._options.nu, float):
             self._M1nurho = self._options.nu * self._M1rho
@@ -476,7 +463,7 @@ class ColdPlasmaPerturbation(Propagator):
             )
 
 
-        self._P00theta: BasisProjectionOperators
+        self._P00theta: BasisProjectionOperators = None
 
         if isinstance(self._options.theta, float):
             self._P00theta = self._options.theta * IdentityOperator(self.derham.V0)
@@ -499,7 +486,7 @@ class ColdPlasmaPerturbation(Propagator):
                     name = "P00theta",
                 )
         
-        self._P01Ebar: BasisProjectionOperators
+        self._P01Ebar: BasisProjectionOperators = None
 
         if isinstance(self._options.Ebar, list):
             self._P01Ebar = self.basis_ops.create_basis_op(
@@ -580,6 +567,10 @@ class ColdPlasmaPerturbation(Propagator):
 
         self._block_Divergence = BlockLinearOperator(
             self._block_V1, self._block_V0, blocks=[[None, - self._grad.T @ self._M1rho], [self._grad.T @ self._M1rho, None]]
+        )
+
+        self._block_curl = BlockLinearOperator(
+            self._block_V1, self._block_V2, blocks=[[None, - self._curl], [self._curl, None]]
         )
 
         self._block_Acurlcurl = BlockLinearOperator(
@@ -701,34 +692,50 @@ class ColdPlasmaPerturbation(Propagator):
     def __call__(self, dt):
 
         # --- calculate auxilliary vectors ---
-        _calE = self._coupled_equations_matrix_inverse.solve(self._calE_RHS)
+        block_E = self._block_Ematrix_inv.solve(self._block_source)
 
-        _calEsin = _calE[0]
-        _calEcos = _calE[1]
+        block_B = self._block_curl.dot(block_E) / self._options.omega
 
-        _m_curlcurlEsin = self._M1rho.dot(_calEsin)
-        _m_curlcurlEcos = self._M1rho.dot(_calEcos)
+        block_u = self._block_umatrix_inv.solve(self._block_R.dot(block_E))
 
-        _M1rho_usin = _m_curlcurlEcos.copy()
-        _M1rho_ucos = self._options.mass * self._j - _m_curlcurlEsin
-
-        # --- calculate solutions ---
-        self._Esin.vector = self._Acurlcurl_inv_sin.solve(_m_curlcurlEsin / self._options.mass)
-        self._Ecos.vector = self._Acurlcurl_inv_cos.solve(_m_curlcurlEcos / self._options.mass)
-
-        self._Bsin.vector = - self._curl.dot(self._Ecos.vector) / self._options.omega
-        self._Bcos.vector = self._curl.dot(self._Esin.vector) / self._options.omega
-
-        self._usin.vector = self._M1rho_inv.solve(_M1rho_usin)
-        self._ucos.vector = self._M1rho_inv.solve(_M1rho_ucos)
-
-        self._rhosin.vector = self._M0inv.solve(self._grad.T.dot(_M1rho_ucos)) / self._options.omega
-        self._rhocos.vector = - self._M0inv.solve(self._grad.T.dot(_M1rho_usin)) / self._options.omega
+        block_rho = self._block_rhomatrix.dot(block_u)
 
         # --- update FEEC variables ---
         self.update_feec_variables(
-            rhosin=self._rhosin.vector, rhocos=self._rhocos.vector,
-            usin=self._usin.vector, ucos=self._ucos.vector,
-            Esin=self._Esin.vector, Ecos=self._Ecos.vector,
-            Bsin=self._Bsin.vector, Bcos=self._Bcos.vector)
+            rhosin=block_rho[0], rhocos=block_rho[1],
+            usin=block_u[0], ucos=block_u[1],
+            Esin=block_E[0], Ecos=block_E[1],
+            Bsin=block_B[0], Bcos=Block_B[1])
+
+
+        # _calE = self._coupled_equations_matrix_inverse.solve(self._calE_RHS)
+
+        # _calEsin = _calE[0]
+        # _calEcos = _calE[1]
+
+        # _m_curlcurlEsin = self._M1rho.dot(_calEsin)
+        # _m_curlcurlEcos = self._M1rho.dot(_calEcos)
+
+        # _M1rho_usin = _m_curlcurlEcos.copy()
+        # _M1rho_ucos = self._options.mass * self._j - _m_curlcurlEsin
+
+        # # --- calculate solutions ---
+        # self._Esin.vector = self._Acurlcurl_inv_sin.solve(_m_curlcurlEsin / self._options.mass)
+        # self._Ecos.vector = self._Acurlcurl_inv_cos.solve(_m_curlcurlEcos / self._options.mass)
+
+        # self._Bsin.vector = - self._curl.dot(self._Ecos.vector) / self._options.omega
+        # self._Bcos.vector = self._curl.dot(self._Esin.vector) / self._options.omega
+
+        # self._usin.vector = self._M1rho_inv.solve(_M1rho_usin)
+        # self._ucos.vector = self._M1rho_inv.solve(_M1rho_ucos)
+
+        # self._rhosin.vector = self._M0inv.solve(self._grad.T.dot(_M1rho_ucos)) / self._options.omega
+        # self._rhocos.vector = - self._M0inv.solve(self._grad.T.dot(_M1rho_usin)) / self._options.omega
+
+        # # --- update FEEC variables ---
+        # self.update_feec_variables(
+        #     rhosin=self._rhosin.vector, rhocos=self._rhocos.vector,
+        #     usin=self._usin.vector, ucos=self._ucos.vector,
+        #     Esin=self._Esin.vector, Ecos=self._Ecos.vector,
+        #     Bsin=self._Bsin.vector, Bcos=self._Bcos.vector)
 
