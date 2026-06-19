@@ -561,66 +561,137 @@ class ColdPlasmaPerturbation(Propagator):
                         + 2 * self._O2.T @ self._grad.T @ self._M1mu @ self._grad @ self._O2 \
                         + 2 * self._O3.T @ self._grad.T @ self._M1mu @ self._grad @ self._O3
         
-        self._A = self._M1rho + self._M1 @ (self._grad @ self._P0theta + self._P01Ebar) @ self._M0inv @ self._grad.T @ self._M1rho \
-                                / (self._options.mass * self._options.omega * self._options.omega)
+        # self._A = self._M1rho + self._M1 @ (self._grad @ self._P0theta + self._P01Ebar) @ self._M0inv @ self._grad.T @ self._M1rho \
+        #                         / (self._options.mass * self._options.omega * self._options.omega)
 
-        self._B = (self._divPi - self._M1xrhoB / self._options.mass + self._M1nurho) / self._options.omega
+        # self._B = (self._divPi - self._M1xrhoB / self._options.mass + self._M1nurho) / self._options.omega
 
         # ---- block saddle-point system ----------------------------------------
 
-        self._block_domain = BlockVectorSpace(self.derham.V1, self.derham.V1)
-        self._block_codomain = self._block_domain
+        self._block_V0 = BlockVectorSpace(self.derham.V0, self.derham.V0)
+        self._block_V1 = BlockVectorSpace(self.derham.V1, self.derham.V1)
+        self._block_V2 = BlockVectorSpace(self.derham.V2, self.derham.V2)
 
-        self._coupled_equations_matrix = BlockLinearOperator(
-            self._block_domain, self._block_codomain, blocks=[[self._A, -self._B], [self._B, self._A]]
+        self._block_source = BlockVector(self._block_V1, blocks=[self._M1.dot(self._j), None])
+
+        self._block_M = BlockLinearOperator(
+            self._block_V0, self._block_V0, blocks=[[self._M0, None], [None, self._M0]]
         )
 
-        M1rhoinv_j = self._M1rho_inv.solve(self._j)
-        A_j = self._A.dot(M1rhoinv_j)
-        minusB_j = - self.B.dot(M1rhoinv_j)
+        self._block_Divergence = BlockLinearOperator(
+            self._block_V1, self._block_V0, blocks=[[None, - self._grad.T @ self._M1rho], [self._grad.T @ self._M1rho, None]]
+        )
 
-        self._calEsin0: StencilVector = None
-        self._calEcos0: StencilVector = None
+        self._block_Acurlcurl = BlockLinearOperator(
+            self.block_V, self._block_V1, blocks=[[self._Acurlcurl, None], [None, self._Acurlcurl]]
+        )
 
-        # --- copy current state ---
-        Esin0 = self.variables.Esin.spline.vector
-        Ecos0 = self.variables.Ecos.spline.vector
+        self._block_B = BlockLinearOperator(
+            self._block_V1, self._block_V1, blocks=[[None, self._M1rho / self._options.mass], [- self._M1rho / self._options.mass, None]]
+        )
 
-        self._calEsin0 = self._M1rho_inv.dot(self._options.mass * self._Acurlcurl.dot(Esin0))
-        self._calEcos0 = self._M1rho_inv.dot(self._options.mass * self._Acurlcurl.dot(Ecos0))
+        self._block_P = BlockLinearOperator(
+            self._block_V0, self._block_V1, 
+            blocks=[[None, self._M1 @ (self._grad @ self._P0theta + self._P01Ebar) / self._options.mass], 
+            [self._M1 @ (self._grad @ self._P0theta + self._P01Ebar) / self._options.mass, None]]
+        )
 
-        self._calE0 = BlockVector(self._block_domain, blocks=[self._calEsin0, self._calEcos0])
+        self._block_Q = BlockLinearOperator(
+            self._block_V1, self._block_V1,
+            blocks=[[self._options.omega * self._M1rho, self._divPi - self._M1xrhoB / self._options.mass + self._M1nurho], 
+            [self._divPi - self._M1xrhoB / self._options.mass + self._M1nurho, - self._options.omega * self._M1rho]]
+        )
 
-        self._coupled_equations_matrix_inverse = inverse(
-            self._coupled_equations_matrix,
-            solver="gmres",
-            x0=self._calE0,
+        self._block_R = BlockLinearOperator(
+            self._block_V1, self._block_V1, blocks=[[None, self._M1rho / self._options.mass], [self._M1rho / self._options.mass, None]]
+        )
+
+        self._block_Minv = inverse(
+            self._block_M,
+            "pcg",
+            pc="MassMatrixPreconditioner",
             tol=self._options.solver_params.tol,
             maxiter=self._options.solver_params.maxiter,
-            verbose=False,
-            recycle=True,
+            verbose = False,
+            recycle = self._options.solver_params.recycle,
         )
 
-        # --- build inverses of the curl-curl matrices with good initial guesses ---
-        self._Acurlcurl_inv_sin = inverse(
-            self._Acurlcurl,
-            solver="pcg",
-            x0=Esin0,
+        self._block_rhomatrix = - self._block_Minv @ self._block_Divergence / self._options.omega
+
+        self._block_umatrix = - self._block_P @ self._block_rhomatrix - self._block_Q
+
+        self._block_umatrix_inv = inverse(
+            self._block_umatrix,
+            "gmres",
+            pc=None,
             tol=self._options.solver_params.tol,
             maxiter=self._options.solver_params.maxiter,
-            verbose=False,
-            recycle=True,
+            verbose = False,
+            recycle = self._options.solver_params.recycle,
         )
 
-        self._Acurlcurl_inv_cos = inverse(
-            self._Acurlcurl,
-            solver="pcg",
-            x0=Ecos0,
+        self._block_Ematrix = self._block_Acurlcurl / self._options.omega + self._block_B @ self._block_umatrix_inv @ self._block_R
+
+        self._block_Ematrix_inv = inverse(
+            self._block_Ematrix,
+            "gmres",
+            pc=None,
             tol=self._options.solver_params.tol,
             maxiter=self._options.solver_params.maxiter,
-            verbose=False,
-            recycle=True,
+            verbose = False,
+            recycle = self._options.solver_params.recycle,
         )
+
+        # self._coupled_equations_matrix = BlockLinearOperator(
+        #     self._block_domain, self._block_codomain, blocks=[[self._A, -self._B], [self._B, self._A]]
+        # )
+
+        # M1rhoinv_j = self._M1rho_inv.solve(self._j)
+        # A_j = self._A.dot(M1rhoinv_j)
+        # minusB_j = - self.B.dot(M1rhoinv_j)
+
+        # self._calEsin0: StencilVector = None
+        # self._calEcos0: StencilVector = None
+
+        # # --- copy current state ---
+        # Esin0 = self.variables.Esin.spline.vector
+        # Ecos0 = self.variables.Ecos.spline.vector
+
+        # self._calEsin0 = self._M1rho_inv.dot(self._options.mass * self._Acurlcurl.dot(Esin0))
+        # self._calEcos0 = self._M1rho_inv.dot(self._options.mass * self._Acurlcurl.dot(Ecos0))
+
+        # self._calE0 = BlockVector(self._block_domain, blocks=[self._calEsin0, self._calEcos0])
+
+        # self._coupled_equations_matrix_inverse = inverse(
+        #     self._coupled_equations_matrix,
+        #     solver="gmres",
+        #     x0=self._calE0,
+        #     tol=self._options.solver_params.tol,
+        #     maxiter=self._options.solver_params.maxiter,
+        #     verbose=False,
+        #     recycle=True,
+        # )
+
+        # # --- build inverses of the curl-curl matrices with good initial guesses ---
+        # self._Acurlcurl_inv_sin = inverse(
+        #     self._Acurlcurl,
+        #     solver="pcg",
+        #     x0=Esin0,
+        #     tol=self._options.solver_params.tol,
+        #     maxiter=self._options.solver_params.maxiter,
+        #     verbose=False,
+        #     recycle=True,
+        # )
+
+        # self._Acurlcurl_inv_cos = inverse(
+        #     self._Acurlcurl,
+        #     solver="pcg",
+        #     x0=Ecos0,
+        #     tol=self._options.solver_params.tol,
+        #     maxiter=self._options.solver_params.maxiter,
+        #     verbose=False,
+        #     recycle=True,
+        # )
 
 
     # =========================================================================
