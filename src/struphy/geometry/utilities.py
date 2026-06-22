@@ -254,7 +254,7 @@ def field_line_tracing(
         s_gr = bsp.greville(Ts, ps, False)
         x_gr = bsp.greville(Tx, px, True)
 
-        if degree[1] % 2 == 1:
+        if px % 2 == 1:
             assert x_gr[0] == 0.0
 
         # collocation matrices

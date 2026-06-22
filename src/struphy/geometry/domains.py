@@ -77,12 +77,15 @@ class Tokamak(PoloidalSplineTorus):
         degree: tuple = (2, 3),
         psi_power: float = 0.75,
         psi_shifts: tuple = (0.01, 2.0),
+        r_min: float = 0.0,
         xi_param: str = "equal_angle",
         r0: float = 0.3,
         num_elements_pre: tuple = (64, 256),
         p_pre: tuple = (3, 3),
         tor_period: int = 1,
     ):
+        if r_min!=0.0:
+            r0 = r_min
         if equilibrium is None:
             equilibrium = EQDSKequilibrium()
         else:
@@ -94,8 +97,30 @@ class Tokamak(PoloidalSplineTorus):
         # get control points via field tracing between fluxes [psi_s, psi_e]
         psi0, psi1 = equilibrium.psi_range[0], equilibrium.psi_range[1]
 
-        psi_s = psi0 + psi_shifts[0] * 0.01 * (psi1 - psi0)
+        assert r_min >= 0.0, f"Inner radius must be non-negative, got {r_min = }."
+
+        if r_min == 0.0:
+            # Default behaviour: keep exactly the historical psi_shifts logic.
+            psi_s = psi0 + psi_shifts[0] * 0.01 * (psi1 - psi0)
+        else:
+            # Annular domain: eta1=0 is the flux surface crossing the outboard
+            # midplane at distance r_min from the magnetic axis.
+            psi_s = equilibrium.psi(
+                equilibrium.psi_axis_RZ[0] + r_min,
+                equilibrium.psi_axis_RZ[1],
+            )
+
         psi_e = psi1 - psi_shifts[1] * 0.01 * (psi1 - psi0)
+
+        assert (psi_s - psi0) * (psi_s - psi1) <= 0.0, (
+            f"Inner radius gives a flux outside equilibrium.psi_range: "
+            f"{r_min = }, {psi_s = }, {equilibrium.psi_range = }."
+        )
+
+        assert (psi_e - psi_s) * (psi1 - psi0) > 0.0, (
+            f"Invalid radial interval: {psi_s = }, {psi_e = }, "
+            f"{equilibrium.psi_range = }."
+        )
 
         cx, cy = field_line_tracing(
             equilibrium.psi,
