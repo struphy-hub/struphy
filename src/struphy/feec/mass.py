@@ -747,8 +747,7 @@ class WeightedMassOperators:
             \mathbb M^{1,\perp}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk} \left(G^{-1} - b_0 b_0^\top \right) \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
         """
         if not hasattr(self, "_M1perp"):
-            self._M1perp = self.M1.copy()
-            self._M1perp -= self.M1para
+            self._M1perp = self.M1 - self.M1para
         return self._M1perp
 
     @auto_convert_docstring
@@ -814,8 +813,7 @@ class WeightedMassOperators:
             \mathbb M^{1,\perp}_{(\mu,ijk), (\nu,mno)} = \int \frac{n^0_{\textnormal{eq}}(\boldsymbol{\eta})}{\|B_0(\boldsymbol{\eta})\|^2} \vec{\Lambda}^1_{\mu,ijk} \left(G^{-1} - b_0 b_0^\top \right) \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
         """
         if not hasattr(self, "_M1gyro"):
-            self._M1gyro = self.M1_MHDeq.copy()
-            self._M1gyro -= self.M1para_MHDeq
+            self._M1gyro = self.M1_MHDeq - self.M1para_MHDeq
         return self._M1gyro
 
     @auto_convert_docstring
