@@ -156,8 +156,7 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
         super().allocate()
         if self.options.which_geometry == "cylindrical":
             average_mat = AverageOperator(self.derham, "H1", 2)
-            temp = self._stab_mat.copy() @ average_mat
-            self._stab_mat -= temp
+            self._stab_mat = self._stab_mat @ (IdentityOperator(self._stab_mat.domain, self._stab_mat.codomain) - average_mat)
         elif self.options.which_geometry == "toroidal":
             average_mat1 = AverageOperator(self.derham, "H1", 1)
             average_mat2 = AverageOperator(self.derham, "H1", 2)

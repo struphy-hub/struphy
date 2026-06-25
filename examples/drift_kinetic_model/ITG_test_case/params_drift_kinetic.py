@@ -77,7 +77,7 @@ model.kinetic_ions.var.save_data = False
 env = EnvironmentOptions(sim_folder="sim_1", profiling_activated=True, profiling_trace=True)
 
 # Time stepping
-time_opts = Time(dt=1.0, Tend=1200.0, split_algo="LieTrotter")
+time_opts = Time(dt=1.0, Tend=20.0, split_algo="LieTrotter")
 
 # Geometry
 a1, a2, Lz = 0.1, 14.5, 1506.759067
@@ -112,7 +112,7 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-Np = 5000000
+Np = 500000
 loading_params = LoadingParameters(Np=Np, loading="pseudo_random", spatial="uniform", seed=1234)
 weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters(bc=('remove','periodic','periodic'))
@@ -137,7 +137,7 @@ model.kinetic_ions.set_markers(loading_params=loading_params,
 # Propagator options
 # ------------------
 
-model.propagators.gc_poisson.options.solver_params = implicit_diffusion.SolverParameters(maxiter=5000, info=True)
+model.propagators.gc_poisson.options.solver_params = implicit_diffusion.SolverParameters(maxiter=5000, tol=1e-14)
 model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(phi=model.em_fields.phi, algo="explicit", evaluate_e_field=True)
 model.propagators.push_gc_para.options = model.propagators.push_gc_para.Options(phi=model.em_fields.phi, algo="explicit", evaluate_e_field=True)
 
@@ -233,4 +233,4 @@ init = maxwellians.GyroMaxwellian2D(n=(n_init, perturbation), equil=equil, vth_p
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":
-    sim.run(verbose=True, one_time_step=False)
+    sim.run(one_time_step=False)

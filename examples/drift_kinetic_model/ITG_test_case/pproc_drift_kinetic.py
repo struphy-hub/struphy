@@ -48,7 +48,7 @@ def main():
         time = f["time"]["value"][()]
         en_phi = f["scalar"]["phi_integral"][()]#"en_phi"
     
-    t0, t1 = 10, 50
+    t0, t1 = 1, 5
     m, b = xp.polyfit(time[t0:t1], xp.log(xp.sqrt(en_phi))[t0:t1], 1)
 
 
