@@ -41,6 +41,8 @@ class Tokamak(PoloidalSplineTorus):
         Parametrization of radial flux coordinate :math:`\eta_1=\psi_{\mathrm{norm}}^p`, where :math:`\psi_{\mathrm{norm}}` is the normalized poloidal flux (default: 0.75).
     psi_shifts : tuple[float]
         Start and end shifts of polidal flux in % --> cuts away regions at the axis and edge (default: [2., 2.])
+    r_min : float
+        Inner radius of poloidal section (optionnal, default: 0.0). If >0.0, then r_0 = r_min.
     xi_param : str
         Parametrization of angular coordinate ("equal_angle", "equal_arc_length" or "sfl" (straight field line), default: "equal_angle").
     r0 : float
@@ -63,6 +65,7 @@ class Tokamak(PoloidalSplineTorus):
                 degree          : [3, 3]      # poloidal spline degrees for spline mapping, >1
                 psi_power  : 0.7         # parametrization of radial flux coordinate eta1=psi_norm^psi_power, where psi_norm is normalized flux
                 psi_shifts : [2., 2.]    # start and end shifts of polidal flux in % --> cuts away regions at the axis and edge
+                r_min : 0.0              # Inner radius of poloidal section. If >0.0, then r_0 = r_min.
                 xi_param   : equal_angle # parametrization of angular coordinate (equal_angle, equal_arc_length or sfl (straight field line))
                 r0         : 0.3         # initial guess for radial distance from axis used in Newton root-finding method for flux surfaces
                 num_elements_pre    : [64, 256]   # number of poloidal grid cells of pre-mapping needed for equal_arc_length and sfl

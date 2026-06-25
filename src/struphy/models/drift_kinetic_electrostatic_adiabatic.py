@@ -207,7 +207,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         self.phi_squared._data = phi._data**2
         self.average_matrix.dot(self.phi_squared, out=self.phi_squared_average)
         self.phi_squared_averaged_feec.spline.vector = self.phi_squared_average
-        return self.phi_squared_averaged_feec.spline(0.5, 0.5, 0.5)[0, 0, 0] * 2 * xp.pi * 1506.759067
+        return self.phi_squared_averaged_feec.spline(0.5, 0.5, 0.5)[0, 0, 0]
 
     def _compute_en_particle_magnetic(self):
         particles = self.kinetic_ions.var.particles

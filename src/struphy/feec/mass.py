@@ -3049,7 +3049,6 @@ class AverageOperator(LinOpWithTransp):
             color1 = int(dom_arr[rank, 3 * self._directions[1]] * nprocs[self._directions[1]])
             color2 = int(dom_arr[rank, 3 * self._directions[2]] * nprocs[self._directions[2]])
             color = color1 * nprocs[self._directions[2]] + color2
-            logger.debug(f"{dom_arr = }")
             self.subcomm = comm.Split(color=color, key=rank)
 
         # We allocate memory for the 2D temporary array for each process

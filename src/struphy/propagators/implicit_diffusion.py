@@ -354,6 +354,8 @@ class ImplicitDiffusion(Propagator):
                 v = src.spline.vector
                 self._rhs2 += sig_3 * coeff * self.mass_ops.M0.dot(v, out=self._tmp_src)
             elif isinstance(src, AccumulatorVector):
+                if src.particles.control_variate:
+                    src.particles.update_weights()
                 src()  # accumulate
                 self._rhs2 += sig_3 * coeff * src.vectors[0]
 
