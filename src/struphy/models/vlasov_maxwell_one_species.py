@@ -63,10 +63,12 @@ class VlasovMaxwellOneSpecies(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self):
+        def __init__(self, 
+                     b2_var: FEECVariable = None,
+                     ):
             self.maxwell = MaxwellWeakAmpere()
             self.push_eta = PushEta()
-            self.push_vxb = PushVxB()
+            self.push_vxb = PushVxB(b2_var=b2_var)
             self.coupling_va = VlasovAmpereCoupling()
 
     ## abstract methods
@@ -97,7 +99,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators()
+        self.propagators = self.Propagators(b2_var=self.em_fields.b_field)
 
         # 4. assign variables to propagators
         self.propagators.maxwell.variables.e = self.em_fields.e_field
@@ -353,10 +355,6 @@ class VlasovMaxwellOneSpecies(StruphyModel):
                 if "coupling_va.Options" in line:
                     new_file += [line]
                     new_file += ["model.initial_poisson.options = model.initial_poisson.Options()\n"]
-                elif "push_vxb.Options" in line:
-                    new_file += [
-                        "model.propagators.push_vxb.options = model.propagators.push_vxb.Options(b2_var=model.em_fields.b_field)\n",
-                    ]
                 elif "saving_params = " in line:
                     new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
                     new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
