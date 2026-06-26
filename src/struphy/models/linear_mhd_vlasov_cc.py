@@ -118,13 +118,16 @@ class LinearMHDVlasovCC(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self):
-            self.couple_dens = CurrentCoupling6DDensity()
+        def __init__(self, 
+                     b_field: FEECVariable = None, 
+                     energetic_ions_var: PICVariable = None,
+                     ):
+            self.couple_dens = CurrentCoupling6DDensity(energetic_ions=energetic_ions_var, b_tilde=b_field)
             self.shear_alf = ShearAlfvenPropagator()
-            self.couple_curr = CurrentCoupling6DCurrent()
+            self.couple_curr = CurrentCoupling6DCurrent(b_tilde=b_field)
             self.push_eta = PushEta()
             self.push_vxb = PushVxB()
-            self.mag_sonic = Magnetosonic()
+            self.mag_sonic = Magnetosonic(b_field=b_field)
 
     ## abstract methods
 
@@ -153,7 +156,9 @@ class LinearMHDVlasovCC(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators()
+        self.propagators = self.Propagators(b_field=self.em_fields.b_field, 
+                                            energetic_ions_var=self.energetic_ions.var,
+                                            )
 
         # 4. assign variables to propagators
         self.propagators.couple_dens.variables.u = self.mhd.velocity
@@ -359,22 +364,7 @@ class LinearMHDVlasovCC(StruphyModel):
         new_file = []
         with open(params_path, "r") as f:
             for line in f:
-                if "mag_sonic.Options" in line:
-                    new_file += [
-                        "model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options(b_field=model.em_fields.b_field)\n",
-                    ]
-                elif "couple_dens.Options" in line:
-                    new_file += [
-                        "model.propagators.couple_dens.options = model.propagators.couple_dens.Options(energetic_ions=model.energetic_ions.var,\n",
-                    ]
-                    new_file += [
-                        "                                                                              b_tilde=model.em_fields.b_field)\n",
-                    ]
-                elif "couple_curr.Options" in line:
-                    new_file += [
-                        "model.propagators.couple_curr.options = model.propagators.couple_curr.Options(b_tilde=model.em_fields.b_field)\n",
-                    ]
-                elif "saving_params = " in line:
+                if "saving_params = " in line:
                     new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
                     new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
                 else:

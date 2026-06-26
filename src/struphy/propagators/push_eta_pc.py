@@ -66,8 +66,9 @@ class PushEtaPC(Propagator):
             assert isinstance(new, PICVariable | SPHVariable)
             self._var = new
 
-    def __init__(self):
+    def __init__(self, u_tilde: FEECVariable = None):
         self.variables = self.Variables()
+        self.u_tilde = u_tilde
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -83,22 +84,17 @@ class PushEtaPC(Propagator):
             Flag forwarded to the particle kernel to select the perpendicular
             model formulation.
 
-        u_tilde : FEECVariable, default=None
-            Flow field variable used in the advection term.
-
         u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
             FEEC space used to interpret ``u_tilde`` in the pusher kernel.
         """
 
         butcher: ButcherTableau = None
         use_perp_model: bool = True
-        u_tilde: FEECVariable = None
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
 
         def __post_init__(self):
             # checks
             check_option(self.u_space, LiteralOptions.OptsVecSpace)
-            assert isinstance(self.u_tilde, FEECVariable)
 
             # defaults
             if self.butcher is None:
@@ -118,7 +114,7 @@ class PushEtaPC(Propagator):
 
     @profile
     def allocate(self):
-        self._u_tilde = self.options.u_tilde.spline.vector
+        self._u_tilde = self.u_tilde.spline.vector
 
         # get kernell:
         if self.options.u_space == "Hcurl":

@@ -147,21 +147,24 @@ class LinearMHDDriftkineticCC(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self, turn_off: tuple[str, ...] = (None,)):
+        def __init__(self, turn_off: tuple[str, ...] = (None,),
+                     b_field: FEECVariable = None,
+                     energetic_ions_var: PICVariable = None,
+                     ):
             if "PushGuidingCenterBxEstar" not in turn_off:
-                self.push_bxe = PushGuidingCenterBxEstar()
+                self.push_bxe = PushGuidingCenterBxEstar(b_tilde=b_field)
             if "PushGuidingCenterParallel" not in turn_off:
-                self.push_parallel = PushGuidingCenterParallel()
+                self.push_parallel = PushGuidingCenterParallel(b_tilde=b_field)
             if "ShearAlfvenCurrentCoupling5D" not in turn_off:
-                self.shearalfen_cc5d = ShearAlfvenCurrentCoupling5D()
+                self.shearalfen_cc5d = ShearAlfvenCurrentCoupling5D(energetic_ions=energetic_ions_var)
             if "Magnetosonic" not in turn_off:
-                self.magnetosonic = Magnetosonic()
+                self.magnetosonic = Magnetosonic(b_field=b_field)
             if "CurrentCoupling5DDensity" not in turn_off:
-                self.cc5d_density = CurrentCoupling5DDensity()
+                self.cc5d_density = CurrentCoupling5DDensity(energetic_ions=energetic_ions_var, b_tilde=b_field)
             if "CurrentCoupling5DGradB" not in turn_off:
-                self.cc5d_gradb = CurrentCoupling5DGradB()
+                self.cc5d_gradb = CurrentCoupling5DGradB(b_tilde=b_field)
             if "CurrentCoupling5DCurlb" not in turn_off:
-                self.cc5d_curlb = CurrentCoupling5DCurlb()
+                self.cc5d_curlb = CurrentCoupling5DCurlb(b_tilde=b_field)
 
     def __init__(
         self,
@@ -189,7 +192,10 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators(turn_off)
+        self.propagators = self.Propagators(turn_off, 
+                                            b_field=self.em_fields.b_field,
+                                            energetic_ions_var=self.energetic_ions.var,
+                                            )
 
         # 4. assign variables to propagators
         if "ShearAlfvenCurrentCoupling5D" not in turn_off:
@@ -429,59 +435,3 @@ class LinearMHDDriftkineticCC(StruphyModel):
             * Ah
             / Ab
         )
-
-    ## default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "shearalfen_cc5d.Options" in line:
-                    new_file += [
-                        """model.propagators.shearalfen_cc5d.options = model.propagators.shearalfen_cc5d.Options(
-                        energetic_ions = model.energetic_ions.var,)\n""",
-                    ]
-
-                elif "magnetosonic.Options" in line:
-                    new_file += [
-                        """model.propagators.magnetosonic.options = model.propagators.magnetosonic.Options(
-                        b_field=model.em_fields.b_field,)\n""",
-                    ]
-
-                elif "cc5d_density.Options" in line:
-                    new_file += [
-                        """model.propagators.cc5d_density.options = model.propagators.cc5d_density.Options(
-                        energetic_ions = model.energetic_ions.var,
-                        b_tilde = model.em_fields.b_field,)\n""",
-                    ]
-
-                elif "cc5d_curlb.Options" in line:
-                    new_file += [
-                        """model.propagators.cc5d_curlb.options = model.propagators.cc5d_curlb.Options(
-                        b_tilde = model.em_fields.b_field,)\n""",
-                    ]
-
-                elif "cc5d_gradb.Options" in line:
-                    new_file += [
-                        """model.propagators.cc5d_gradb.options = model.propagators.cc5d_gradb.Options(
-                        b_tilde = model.em_fields.b_field,)\n""",
-                    ]
-
-                elif "push_bxe.Options" in line:
-                    new_file += [
-                        """model.propagators.push_bxe.options = model.propagators.push_bxe.Options(
-                        b_tilde = model.em_fields.b_field,)\n""",
-                    ]
-
-                elif "push_parallel.Options" in line:
-                    new_file += [
-                        """model.propagators.push_parallel.options = model.propagators.push_parallel.Options(
-                        b_tilde = model.em_fields.b_field,)\n""",
-                    ]
-
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)

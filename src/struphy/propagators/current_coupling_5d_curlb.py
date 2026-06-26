@@ -95,8 +95,9 @@ class CurrentCoupling5DCurlb(Propagator):
             assert new.space == "Particles5D"
             self._energetic_ions = new
 
-    def __init__(self):
+    def __init__(self, b_tilde: FEECVariable = None):
         self.variables = self.Variables()
+        self.b_tilde = b_tilde
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -104,10 +105,6 @@ class CurrentCoupling5DCurlb(Propagator):
 
         Parameters
         ----------
-        b_tilde : FEECVariable, default=None
-            Perturbed magnetic field variable used to build the total magnetic
-            field in the coupling term.
-
         ep_scale : float, default=1.0
             Scaling factor applied to energetic-particle contributions in the
             accumulation kernel.
@@ -131,7 +128,6 @@ class CurrentCoupling5DCurlb(Propagator):
         """
 
         # propagator options
-        b_tilde: FEECVariable = None
         ep_scale: float = 1.0
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
         solver: LiteralOptions.OptsSymmSolver = "pcg"
@@ -144,7 +140,6 @@ class CurrentCoupling5DCurlb(Propagator):
             check_option(self.u_space, LiteralOptions.OptsVecSpace)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
-            assert isinstance(self.b_tilde, FEECVariable)
             assert isinstance(self.ep_scale, float)
 
             # defaults
@@ -188,9 +183,6 @@ class CurrentCoupling5DCurlb(Propagator):
         unit_b1 = self.projected_equil.unit_b1
         curl_unit_b1 = self.projected_equil.curl_unit_b1
         self._b2 = self.projected_equil.b2
-
-        # magnetic field
-        self._b_tilde = self.options.b_tilde.spline.vector
 
         # scaling factor
         epsilon = self.variables.energetic_ions.species.equation_params.epsilon
@@ -281,7 +273,7 @@ class CurrentCoupling5DCurlb(Propagator):
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         b_full = self._b2.copy(out=self._b_full)
 
-        b_full += self._b_tilde
+        b_full += self.b_tilde.spline.vector
         b_full.update_ghost_regions()
 
         self._ACC(

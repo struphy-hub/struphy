@@ -98,8 +98,9 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             assert new.space == "Hdiv"
             self._b = new
 
-    def __init__(self):
+    def __init__(self, energetic_ions: PICVariable = None):
         self.variables = self.Variables()
+        self.energetic_ions = energetic_ions
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -107,8 +108,6 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         Parameters
         ----------
-        energetic_ions : PICVariable, default=None
-            Energetic-ion particle variable in ``"Particles5D"`` space.
         ep_scale : float, default=1.0
             Scaling factor for particle accumulation terms.
         u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
@@ -132,7 +131,6 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         # specific literals
         OptsAlgo = Literal["implicit", "explicit"]
         # propagator options
-        energetic_ions: PICVariable = None
         ep_scale: float = 1.0
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
         algo: OptsAlgo = "implicit"
@@ -149,8 +147,6 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             check_option(self.algo, self.OptsAlgo)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
-            assert isinstance(self.energetic_ions, PICVariable)
-            assert self.energetic_ions.space == "Particles5D"
             assert isinstance(self.ep_scale, float)
             assert isinstance(self.nonlinear, bool)
 
@@ -192,7 +188,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         # define Accumulator and arguments
         self._ACC = AccumulatorVector(
-            self.options.energetic_ions.particles,
+            self.energetic_ions.particles,
             "H1",
             Pyccelkernel(accum_kernels_gc.gc_mag_density_0form),
             self.mass_ops,

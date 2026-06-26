@@ -76,8 +76,9 @@ class CurrentCoupling6DCurrent(Propagator):
             assert new.space in ("Hcurl", "Hdiv", "H1vec")
             self._u = new
 
-    def __init__(self):
+    def __init__(self, b_tilde: FEECVariable = None):
         self.variables = self.Variables()
+        self.b_tilde = b_tilde
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -85,9 +86,6 @@ class CurrentCoupling6DCurrent(Propagator):
 
         Parameters
         ----------
-        b_tilde : FEECVariable, default=None
-            Perturbed magnetic field variable added to the equilibrium field.
-
         u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
             FEEC space used for the unknown ``u`` variable.
 
@@ -110,7 +108,6 @@ class CurrentCoupling6DCurrent(Propagator):
         """
 
         # propagator options
-        b_tilde: FEECVariable = None
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
@@ -123,7 +120,6 @@ class CurrentCoupling6DCurrent(Propagator):
             check_option(self.u_space, LiteralOptions.OptsVecSpace)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
-            assert self.b_tilde.space == "Hdiv"
 
             # defaults
             if self.solver_params is None:
@@ -148,7 +144,6 @@ class CurrentCoupling6DCurrent(Propagator):
         particles = self.variables.ions.particles
         u = self.variables.u.spline.vector
         self._b_eq = self.projected_equil.b2
-        self._b_tilde = self.options.b_tilde.spline.vector
 
         self._info = self.options.solver_params.info
 
@@ -253,8 +248,8 @@ class CurrentCoupling6DCurrent(Propagator):
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         self._b_eq.copy(out=self._b_full1)
 
-        if self._b_tilde is not None:
-            self._b_full1 += self._b_tilde
+        if self.b_tilde is not None:
+            self._b_full1 += self.b_tilde.spline.vector
 
         # extract coefficients to tensor product space (in-place)
         self._EbT.dot(self._b_full1, out=self._b_full2)

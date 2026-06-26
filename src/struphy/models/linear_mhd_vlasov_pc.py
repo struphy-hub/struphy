@@ -123,9 +123,11 @@ class LinearMHDVlasovPC(StruphyModel):
     class Propagators:
         def __init__(self, turn_off: tuple[str, ...] = (None,),
                      b2_var: FEECVariable = None,
+                     b_field: FEECVariable = None,
+                     u_tilde: FEECVariable = None,
                      ):
             if "PushEtaPC" not in turn_off:
-                self.push_eta_pc = PushEtaPC()
+                self.push_eta_pc = PushEtaPC(u_tilde=u_tilde)
             if "PushVxB" not in turn_off:
                 self.push_vxb = PushVxB(b2_var=b2_var)
             if "PressureCoupling6D" not in turn_off:
@@ -133,7 +135,7 @@ class LinearMHDVlasovPC(StruphyModel):
             if "ShearAlfven" not in turn_off:
                 self.shearalfven = ShearAlfvenPropagator()
             if "Magnetosonic" not in turn_off:
-                self.magnetosonic = Magnetosonic()
+                self.magnetosonic = Magnetosonic(b_field=b_field)
 
     def __init__(
         self,
@@ -161,7 +163,11 @@ class LinearMHDVlasovPC(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators(turn_off, b2_var=self.em_fields.b_field)
+        self.propagators = self.Propagators(turn_off, 
+                                            b2_var=self.em_fields.b_field,
+                                            b_field=self.em_fields.b_field, 
+                                            u_tilde=self.mhd.velocity,
+                                            )
 
         # 4. assign variables to propagators
         if "ShearAlfven" not in turn_off:
@@ -343,28 +349,3 @@ class LinearMHDVlasovPC(StruphyModel):
             self._ones.tp[:] = 1.0
         else:
             self._ones[:] = 1.0
-
-    ## default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "magnetosonic.Options" in line:
-                    new_file += [
-                        """model.propagators.magnetosonic.options = model.propagators.magnetosonic.Options(
-                        b_field=model.em_fields.b_field,)\n""",
-                    ]
-
-                elif "push_eta_pc.Options" in line:
-                    new_file += [
-                        """model.propagators.push_eta_pc.options = model.propagators.push_eta_pc.Options(
-                        u_tilde = model.mhd.velocity,)\n""",
-                    ]
-
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)
