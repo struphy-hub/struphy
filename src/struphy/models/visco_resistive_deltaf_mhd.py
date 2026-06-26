@@ -89,16 +89,19 @@ class ViscoResistiveDeltafMHD(StruphyModel):
     class Propagators:
         def __init__(
             self,
+            pt3: FEECVariable = None,
+            bt2: FEECVariable = None,
+            rho: FEECVariable = None,
             with_viscosity: bool = True,
             with_resistivity: bool = True,
         ):
             self.variat_dens = VariationalDensityEvolve()
             self.variat_mom = VariationalMomentumAdvection()
-            self.variat_pb = VariationalPBEvolve()
+            self.variat_pb = VariationalPBEvolve(pt3=pt3, bt2=bt2)
             if with_viscosity:
-                self.variat_viscous = VariationalViscosity()
+                self.variat_viscous = VariationalViscosity(rho=rho)
             if with_resistivity:
-                self.variat_resist = VariationalResistivity()
+                self.variat_resist = VariationalResistivity(rho=rho)
 
     ## abstract methods
 
@@ -123,6 +126,9 @@ class ViscoResistiveDeltafMHD(StruphyModel):
 
         # 3. instantiate all propagators
         self.propagators = self.Propagators(
+            pt3=self.diagnostics.pt3,
+            bt2=self.diagnostics.bt2,
+            rho=self.mhd.density,
             with_viscosity=with_viscosity,
             with_resistivity=with_resistivity,
         )
@@ -302,7 +308,7 @@ class ViscoResistiveDeltafMHD(StruphyModel):
         self._tmp_div_B = Propagator.derham.V3pol.zeros()
 
     def _compute_en_thermo(self):
-        pt3 = self.propagators.variat_pb.options.pt3.spline.vector
+        pt3 = self.propagators.variat_pb.pt3.spline.vector
         gamma = self.propagators.variat_pb.options.gamma
         return Propagator.mass_ops.M3.dot_inner(pt3, self._integrator) / (gamma - 1.0)
 
@@ -323,27 +329,15 @@ class ViscoResistiveDeltafMHD(StruphyModel):
                     ]
                 elif "variat_pb.Options" in line:
                     new_file += [
-                        "model.propagators.variat_pb.options = model.propagators.variat_pb.Options(model='deltaf',\n",
-                    ]
-                    new_file += [
-                        "                                                                          pt3=model.diagnostics.pt3,\n",
-                    ]
-                    new_file += [
-                        "                                                                          bt2=model.diagnostics.bt2)\n",
+                        "model.propagators.variat_pb.options = model.propagators.variat_pb.Options(model='deltaf')\n",
                     ]
                 elif "variat_viscous.Options" in line:
                     new_file += [
-                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='full_p',\n",
-                    ]
-                    new_file += [
-                        "                                                                                    rho=model.mhd.density)\n",
+                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='full_p')\n",
                     ]
                 elif "variat_resist.Options" in line:
                     new_file += [
-                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='full_p',\n",
-                    ]
-                    new_file += [
-                        "                                                                                  rho=model.mhd.density)\n",
+                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='full_p')\n",
                     ]
                 elif "pressure.add_background" in line:
                     # new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]

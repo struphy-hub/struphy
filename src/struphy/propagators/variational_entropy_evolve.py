@@ -102,8 +102,9 @@ class VariationalEntropyEvolve(Propagator):
             assert new.space == "H1vec"
             self._u = new
 
-    def __init__(self):
+    def __init__(self, rho: FEECVariable = None):
         self.variables = self.Variables()
+        self.rho = rho
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -123,8 +124,6 @@ class VariationalEntropyEvolve(Propagator):
             Linear-solver controls.
         nonlin_solver : NonlinearSolverParameters, default=None
             Nonlinear iteration controls.
-        rho : FEECVariable, default=None
-            Density variable used in variational forms.
         """
 
         # specific literals
@@ -136,7 +135,6 @@ class VariationalEntropyEvolve(Propagator):
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
-        rho: FEECVariable = None
 
         def __post_init__(self):
             # checks
@@ -166,11 +164,10 @@ class VariationalEntropyEvolve(Propagator):
     @profile
     def allocate(self):
         if self.options.model == "full":
-            assert self.options.rho is not None
+            assert self.rho is not None
 
         self._model = self.options.model
         self._gamma = self.options.gamma
-        self._rho = self.options.rho
         self._lin_solver = self.options.solver_params
         self._nonlin_solver = self.options.nonlin_solver
         self._linearize = self.options.nonlin_solver.linearize
@@ -229,7 +226,7 @@ class VariationalEntropyEvolve(Propagator):
 
         sn1 = sn.copy(out=self._tmp_sn1)
         # Initialize variable for Newton iteration
-        rho = self._rho.spline.vector
+        rho = self.rho.spline.vector
         self._update_Pis(sn)
 
         mn = self._Mrho.dot(un, out=self._tmp_mn)

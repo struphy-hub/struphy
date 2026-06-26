@@ -111,8 +111,9 @@ class VariationalDensityEvolve(Propagator):
             assert new.space == "H1vec"
             self._u = new
 
-    def __init__(self):
+    def __init__(self, s: FEECVariable = None):
         self.variables = self.Variables()
+        self.s = s
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -132,8 +133,6 @@ class VariationalDensityEvolve(Propagator):
             Linear-solver controls.
         nonlin_solver : NonlinearSolverParameters, default=None
             Nonlinear iteration controls.
-        s : FEECVariable, default=None
-            Entropy-like variable required by ``model="full"``.
         """
 
         # specific literals
@@ -155,7 +154,6 @@ class VariationalDensityEvolve(Propagator):
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
-        s: FEECVariable = None
 
         def __post_init__(self):
             # checks
@@ -185,11 +183,10 @@ class VariationalDensityEvolve(Propagator):
     @profile
     def allocate(self):
         if self.options.model == "full":
-            assert self.options.s is not None
+            assert self.s is not None
 
         self._model = self.options.model
         self._gamma = self.options.gamma
-        self._s = self.options.s
         self._lin_solver = self.options.solver_params
         self._nonlin_solver = self.options.nonlin_solver
         self._linearize = self.options.nonlin_solver.linearize
@@ -284,7 +281,7 @@ class VariationalDensityEvolve(Propagator):
 
         # Initialize variable for Newton iteration
         if self._model == "full":
-            s = self._s.spline.vector
+            s = self.s.spline.vector
         else:
             s = None
 

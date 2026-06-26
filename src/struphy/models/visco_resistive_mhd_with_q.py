@@ -89,6 +89,7 @@ class ViscoResistiveMHD_with_q(StruphyModel):
     class Propagators:
         def __init__(
             self,
+            rho: FEECVariable = None,
             with_viscosity: bool = True,
             with_resistivity: bool = True,
         ):
@@ -96,9 +97,9 @@ class ViscoResistiveMHD_with_q(StruphyModel):
             self.variat_mom = VariationalMomentumAdvection()
             self.variat_qb = VariationalQBEvolve()
             if with_viscosity:
-                self.variat_viscous = VariationalViscosity()
+                self.variat_viscous = VariationalViscosity(rho=rho)
             if with_resistivity:
-                self.variat_resist = VariationalResistivity()
+                self.variat_resist = VariationalResistivity(rho=rho)
 
     ## abstract methods
 
@@ -123,6 +124,7 @@ class ViscoResistiveMHD_with_q(StruphyModel):
 
         # 3. instantiate all propagators
         self.propagators = self.Propagators(
+            rho=self.mhd.density,
             with_viscosity=with_viscosity,
             with_resistivity=with_resistivity,
         )
@@ -322,22 +324,14 @@ class ViscoResistiveMHD_with_q(StruphyModel):
                         "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='full_q')\n",
                     ]
                 elif "variat_qb.Options" in line:
-                    new_file += [
-                        "model.propagators.variat_qb.options = model.propagators.variat_qb.Options(model='full_q')\n",
-                    ]
+                    pass
                 elif "variat_viscous.Options" in line:
                     new_file += [
-                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='full_q',\n",
-                    ]
-                    new_file += [
-                        "                                                                                    rho=model.mhd.density)\n",
+                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='full_q')\n",
                     ]
                 elif "variat_resist.Options" in line:
                     new_file += [
-                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='full_q',\n",
-                    ]
-                    new_file += [
-                        "                                                                                  rho=model.mhd.density)\n",
+                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='full_q')\n",
                     ]
                 elif "sqrt_p.add_background" in line:
                     new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]

@@ -93,8 +93,9 @@ class HasegawaWakataniStep(Propagator):
             assert new.space == "H1"
             self._omega = new
 
-    def __init__(self):
+    def __init__(self, phi: FEECVariable = None):
         self.variables = self.Variables()
+        self.phi = phi
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -102,10 +103,6 @@ class HasegawaWakataniStep(Propagator):
 
         Parameters
         ----------
-        phi : FEECVariable, default=None
-            Stream-function variable in ``"H1"`` space.
-            If ``None``, a default ``FEECVariable(space="H1")`` is allocated.
-
         c_fun : {"const"}, default="const"
             Choice of coupling profile :math:`C(x,y)` used in the model.
 
@@ -133,7 +130,6 @@ class HasegawaWakataniStep(Propagator):
         # specific literals
         OptsCfun = Literal["const"]
         # propagator options
-        phi: FEECVariable = None
         c_fun: OptsCfun = "const"
         kappa: float = 1.0
         nu: float = 0.01
@@ -169,14 +165,12 @@ class HasegawaWakataniStep(Propagator):
 
     @profile
     def allocate(self):
-        # default phi
-        if self.options.phi is None:
-            self.options.phi = FEECVariable(space="H1")
-            self.options.phi.allocate(derham=self.derham, domain=self.domain)
+        if self.phi is None:
+            self.phi = FEECVariable(space="H1")
+            self.phi.allocate(derham=self.derham, domain=self.domain)
 
-        self._phi = self.options.phi.spline
-        self._phi.vector[:] = 1.0
-        self._phi.vector.update_ghost_regions()
+        self.phi.spline.vector[:] = 1.0
+        self.phi.spline.vector.update_ghost_regions()
 
         # default c-function
         if self.options.c_fun == "const":
@@ -198,7 +192,7 @@ class HasegawaWakataniStep(Propagator):
 
         # evaluate phi at local quadrature grid
         self._spans, self._bns, self._bnd = self.derham.prepare_eval_tp_fixed(pts)
-        self._phi_at_pts = self._phi.eval_tp_fixed_loc(self._spans, self._bns)
+        self._phi_at_pts = self.phi.spline.eval_tp_fixed_loc(self._spans, self._bns)
 
         # Jacobain at quad grid
         self._jac_det = self.domain.jacobian_det(*mesh_pts)
@@ -302,10 +296,10 @@ class HasegawaWakataniStep(Propagator):
 
         def f1(t, n, omega, out=out1):
             terms1_n.dot(n, out=self._tmp1)
-            terms1_phi.dot(self._phi.vector, out=tmp2)
+            terms1_phi.dot(self.phi.spline.vector, out=tmp2)
             self._tmp1 += tmp2
             M0_inv.dot(self._tmp1, out=out)
-            terms1_phi_strong.dot(self._phi.vector, out=tmp2)
+            terms1_phi_strong.dot(self.phi.spline.vector, out=tmp2)
             out += tmp2
             out.update_ghost_regions()
             return out
@@ -313,7 +307,7 @@ class HasegawaWakataniStep(Propagator):
         def f2(t, n, omega, out=out2):
             terms2_omega.dot(omega, out=self._tmp3)
             terms2_n.dot(n, out=tmp4)
-            terms2_phi.dot(self._phi.vector, out=tmp5)
+            terms2_phi.dot(self.phi.spline.vector, out=tmp5)
             self._tmp3 += tmp4
             self._tmp3 += tmp5
             M0_inv.dot(self._tmp3, out=out)
@@ -325,7 +319,7 @@ class HasegawaWakataniStep(Propagator):
 
     def __call__(self, dt):
         # update time-dependent mass operator
-        self._phi.eval_tp_fixed_loc(self._spans, self._bns, out=self._phi_at_pts)
+        self.phi.spline.eval_tp_fixed_loc(self._spans, self._bns, out=self._phi_at_pts)
 
         self._phi_5d[:, :, :, 0, 1] = self._phi_at_pts * self._jac_det
         self._phi_5d[:, :, :, 1, 0] = -self._phi_at_pts * self._jac_det

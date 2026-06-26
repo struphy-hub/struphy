@@ -87,15 +87,20 @@ class ViscoResistiveLinearMHD(StruphyModel):
     class Propagators:
         def __init__(
             self,
+            div_u: FEECVariable = None,
+            u2: FEECVariable = None,
+            pt3: FEECVariable = None,
+            bt2: FEECVariable = None,
+            rho: FEECVariable = None,
             with_viscosity: bool = True,
             with_resistivity: bool = True,
         ):
             self.variat_dens = VariationalDensityEvolve()
-            self.variat_pb = VariationalPBEvolve()
+            self.variat_pb = VariationalPBEvolve(div_u=div_u, u2=u2, pt3=pt3, bt2=bt2)
             if with_viscosity:
-                self.variat_viscous = VariationalViscosity()
+                self.variat_viscous = VariationalViscosity(rho=rho)
             if with_resistivity:
-                self.variat_resist = VariationalResistivity()
+                self.variat_resist = VariationalResistivity(rho=rho, pt3=pt3)
 
     ## abstract methods
 
@@ -120,6 +125,11 @@ class ViscoResistiveLinearMHD(StruphyModel):
 
         # 3. instantiate all propagators
         self.propagators = self.Propagators(
+            div_u=self.diagnostics.div_u,
+            u2=self.diagnostics.u2,
+            pt3=self.diagnostics.pt3,
+            bt2=self.diagnostics.bt2,
+            rho=self.mhd.density,
             with_viscosity=with_viscosity,
             with_resistivity=with_resistivity,
         )
@@ -296,7 +306,7 @@ class ViscoResistiveLinearMHD(StruphyModel):
         self._tmp_div_B = Propagator.derham.V3pol.zeros()
 
     def _compute_en_thermo(self):
-        pt3 = self.propagators.variat_pb.options.pt3.spline.vector
+        pt3 = self.propagators.variat_pb.pt3.spline.vector
         gamma = self.propagators.variat_pb.options.gamma
         return Propagator.mass_ops.M3.dot_inner(pt3, self._integrator) / (gamma - 1.0)
 
@@ -317,36 +327,15 @@ class ViscoResistiveLinearMHD(StruphyModel):
                     ]
                 elif "variat_pb.Options" in line:
                     new_file += [
-                        "model.propagators.variat_pb.options = model.propagators.variat_pb.Options(model='linear',\n",
-                    ]
-                    new_file += [
-                        "                                                                          div_u=model.diagnostics.div_u,\n",
-                    ]
-                    new_file += [
-                        "                                                                          u2=model.diagnostics.u2,\n",
-                    ]
-                    new_file += [
-                        "                                                                          pt3=model.diagnostics.pt3,\n",
-                    ]
-                    new_file += [
-                        "                                                                          bt2=model.diagnostics.bt2)\n",
+                        "model.propagators.variat_pb.options = model.propagators.variat_pb.Options(model='linear')\n",
                     ]
                 elif "variat_viscous.Options" in line:
                     new_file += [
-                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='linear_p',\n",
-                    ]
-                    new_file += [
-                        "                                                                                    rho=model.mhd.density)\n",
+                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='linear_p')\n",
                     ]
                 elif "variat_resist.Options" in line:
                     new_file += [
-                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='linear_p',\n",
-                    ]
-                    new_file += [
-                        "                                                                                  rho=model.mhd.density,\n",
-                    ]
-                    new_file += [
-                        "                                                                                  pt3=model.diagnostics.pt3)\n",
+                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='linear_p')\n",
                     ]
                 elif "pressure.add_background" in line:
                     new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]

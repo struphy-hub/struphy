@@ -89,16 +89,21 @@ class ViscoResistiveDeltafMHD_with_q(StruphyModel):
     class Propagators:
         def __init__(
             self,
+            div_u: FEECVariable = None,
+            u2: FEECVariable = None,
+            qt3: FEECVariable = None,
+            bt2: FEECVariable = None,
+            rho: FEECVariable = None,
             with_viscosity: bool = True,
             with_resistivity: bool = True,
         ):
             self.variat_dens = VariationalDensityEvolve()
             self.variat_mom = VariationalMomentumAdvection()
-            self.variat_qb = VariationalQBEvolve()
+            self.variat_qb = VariationalQBEvolve(div_u=div_u, u2=u2, qt3=qt3, bt2=bt2)
             if with_viscosity:
-                self.variat_viscous = VariationalViscosity()
+                self.variat_viscous = VariationalViscosity(rho=rho, pt3=qt3)
             if with_resistivity:
-                self.variat_resist = VariationalResistivity()
+                self.variat_resist = VariationalResistivity(rho=rho, pt3=qt3)
 
     ## abstract methods
 
@@ -123,6 +128,11 @@ class ViscoResistiveDeltafMHD_with_q(StruphyModel):
 
         # 3. instantiate all propagators
         self.propagators = self.Propagators(
+            div_u=self.diagnostics.div_u,
+            u2=self.diagnostics.u2,
+            qt3=self.diagnostics.qt3,
+            bt2=self.diagnostics.bt2,
+            rho=self.mhd.density,
             with_viscosity=with_viscosity,
             with_resistivity=with_resistivity,
         )
@@ -303,7 +313,7 @@ class ViscoResistiveDeltafMHD_with_q(StruphyModel):
         return 1.0 / (gamma - 1.0) * Propagator.mass_ops.M3.dot_inner(q, q)
 
     def _compute_en_thermo_2(self):
-        qt3 = self.propagators.variat_qb.options.qt3.spline.vector
+        qt3 = self.propagators.variat_qb.qt3.spline.vector
         gamma = self.propagators.variat_qb.options.gamma
         return 2.0 / (gamma - 1.0) * Propagator.mass_ops.M3.dot_inner(qt3, Propagator.projected_equil.q3)
 
@@ -319,39 +329,15 @@ class ViscoResistiveDeltafMHD_with_q(StruphyModel):
                     ]
                 elif "variat_qb.Options" in line:
                     new_file += [
-                        "model.propagators.variat_qb.options = model.propagators.variat_qb.Options(model='deltaf_q',\n",
-                    ]
-                    new_file += [
-                        "                                                                          div_u=model.diagnostics.div_u,\n",
-                    ]
-                    new_file += [
-                        "                                                                          u2=model.diagnostics.u2,\n",
-                    ]
-                    new_file += [
-                        "                                                                          qt3=model.diagnostics.qt3,\n",
-                    ]
-                    new_file += [
-                        "                                                                          bt2=model.diagnostics.bt2)\n",
+                        "model.propagators.variat_qb.options = model.propagators.variat_qb.Options(model='deltaf_q')\n",
                     ]
                 elif "variat_viscous.Options" in line:
                     new_file += [
-                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='deltaf_q',\n",
-                    ]
-                    new_file += [
-                        "                                                                                    rho=model.mhd.density,\n",
-                    ]
-                    new_file += [
-                        "                                                                                    pt3=model.diagnostics.qt3)\n",
+                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='deltaf_q')\n",
                     ]
                 elif "variat_resist.Options" in line:
                     new_file += [
-                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='deltaf_q',\n",
-                    ]
-                    new_file += [
-                        "                                                                                  rho=model.mhd.density,\n",
-                    ]
-                    new_file += [
-                        "                                                                                  pt3=model.diagnostics.qt3)\n",
+                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='deltaf_q')\n",
                     ]
                 elif "sqrt_p.add_background" in line:
                     # new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]

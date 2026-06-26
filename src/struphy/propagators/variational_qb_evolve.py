@@ -135,8 +135,18 @@ class VariationalQBEvolve(Propagator):
             assert new.space == "Hdiv"
             self._b = new
 
-    def __init__(self):
+    def __init__(
+        self,
+        div_u: FEECVariable = None,
+        u2: FEECVariable = None,
+        qt3: FEECVariable = None,
+        bt2: FEECVariable = None,
+    ):
         self.variables = self.Variables()
+        self.div_u = div_u
+        self.u2 = u2
+        self.qt3 = qt3
+        self.bt2 = bt2
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -156,14 +166,6 @@ class VariationalQBEvolve(Propagator):
             Linear-solver controls.
         nonlin_solver : NonlinearSolverParameters, default=None
             Nonlinear/Picard iteration controls.
-        div_u : FEECVariable, default=None
-            Optional external divergence-of-velocity field.
-        u2 : FEECVariable, default=None
-            Optional external velocity in 2-form representation.
-        qt3 : FEECVariable, default=None
-            Optional q background field.
-        bt2 : FEECVariable, default=None
-            Optional magnetic background field.
         """
 
         # specific literals
@@ -175,10 +177,6 @@ class VariationalQBEvolve(Propagator):
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
-        div_u: FEECVariable = None
-        u2: FEECVariable = None
-        qt3: FEECVariable = None
-        bt2: FEECVariable = None
 
         def __post_init__(self):
             # checks
@@ -213,25 +211,25 @@ class VariationalQBEvolve(Propagator):
         self._linearize = self.options.nonlin_solver.linearize
         self._gamma = self.options.gamma
 
-        if self.options.div_u is None:
+        if self.div_u is None:
             self._divu = None
         else:
-            self._divu = self.options.div_u.spline.vector
+            self._divu = self.div_u.spline.vector
 
-        if self.options.u2 is None:
+        if self.u2 is None:
             self._u2 = None
         else:
-            self._u2 = self.options.u2.spline.vector
+            self._u2 = self.u2.spline.vector
 
-        if self.options.qt3 is None:
+        if self.qt3 is None:
             self._qt3 = None
         else:
-            self._qt3 = self.options.qt3.spline.vector
+            self._qt3 = self.qt3.spline.vector
 
-        if self.options.bt2 is None:
+        if self.bt2 is None:
             self._bt2 = None
         else:
-            self._bt2 = self.options.bt2.spline.vector
+            self._bt2 = self.bt2.spline.vector
 
         self._info = self._nonlin_solver.info and (self.rank == 0)
 

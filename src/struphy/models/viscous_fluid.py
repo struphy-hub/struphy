@@ -43,12 +43,17 @@ class ViscousFluid(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self, with_viscosity: bool = True):
-            self.variat_dens = VariationalDensityEvolve()
+        def __init__(
+            self,
+            s: FEECVariable = None,
+            rho: FEECVariable = None,
+            with_viscosity: bool = True,
+        ):
+            self.variat_dens = VariationalDensityEvolve(s=s)
             self.variat_mom = VariationalMomentumAdvection()
-            self.variat_ent = VariationalEntropyEvolve()
+            self.variat_ent = VariationalEntropyEvolve(rho=rho)
             if with_viscosity:
-                self.variat_viscous = VariationalViscosity()
+                self.variat_viscous = VariationalViscosity(rho=rho)
 
     ## abstract methods
 
@@ -69,7 +74,11 @@ class ViscousFluid(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators(with_viscosity=with_viscosity)
+        self.propagators = self.Propagators(
+            s=self.fluid.entropy,
+            rho=self.fluid.density,
+            with_viscosity=with_viscosity,
+        )
 
         # 4. assign variables to propagators
         self.propagators.variat_dens.variables.rho = self.fluid.density
@@ -256,21 +265,7 @@ class ViscousFluid(StruphyModel):
             for line in f:
                 if "variat_dens.Options" in line:
                     new_file += [
-                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='full',\n",
-                    ]
-                    new_file += [
-                        "                                                                              s=model.fluid.entropy)\n",
-                    ]
-                elif "variat_ent.Options" in line:
-                    new_file += [
-                        "model.propagators.variat_ent.options = model.propagators.variat_ent.Options(model='full',\n",
-                    ]
-                    new_file += [
-                        "                                                                            rho=model.fluid.density)\n",
-                    ]
-                elif "variat_viscous.Options" in line:
-                    new_file += [
-                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(rho=model.fluid.density)\n",
+                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='full')\n",
                     ]
                 elif "entropy.add_background" in line:
                     new_file += ["model.fluid.density.add_background(FieldsBackground())\n"]

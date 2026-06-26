@@ -69,9 +69,9 @@ class HasegawaWakatani(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self):
+        def __init__(self, phi: FEECVariable = None):
             self.poisson = PoissonSolve()
-            self.hw = HasegawaWakataniStep()
+            self.hw = HasegawaWakataniStep(phi=phi)
 
     ## abstract methods
 
@@ -88,7 +88,7 @@ class HasegawaWakatani(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators()
+        self.propagators = self.Propagators(phi=self.em_fields.phi)
 
         # 4. assign variables to propagators
         self.propagators.poisson.variables.phi = self.em_fields.phi
@@ -228,11 +228,7 @@ class HasegawaWakatani(StruphyModel):
         new_file = []
         with open(params_path, "r") as f:
             for line in f:
-                if "hw.Options" in line:
-                    new_file += [
-                        "model.propagators.hw.options = model.propagators.hw.Options(phi=model.em_fields.phi)\n",
-                    ]
-                elif "vorticity.add_background" in line:
+                if "vorticity.add_background" in line:
                     new_file += ["model.plasma.density.add_background(FieldsBackground())\n"]
                 else:
                     new_file += [line]

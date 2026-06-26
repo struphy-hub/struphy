@@ -87,16 +87,19 @@ class ViscoResistiveMHD_with_p(StruphyModel):
     class Propagators:
         def __init__(
             self,
+            div_u: FEECVariable = None,
+            u2: FEECVariable = None,
+            rho: FEECVariable = None,
             with_viscosity: bool = True,
             with_resistivity: bool = True,
         ):
             self.variat_dens = VariationalDensityEvolve()
             self.variat_mom = VariationalMomentumAdvection()
-            self.variat_pb = VariationalPBEvolve()
+            self.variat_pb = VariationalPBEvolve(div_u=div_u, u2=u2)
             if with_viscosity:
-                self.variat_viscous = VariationalViscosity()
+                self.variat_viscous = VariationalViscosity(rho=rho)
             if with_resistivity:
-                self.variat_resist = VariationalResistivity()
+                self.variat_resist = VariationalResistivity(rho=rho)
 
     ## abstract methods
 
@@ -121,6 +124,9 @@ class ViscoResistiveMHD_with_p(StruphyModel):
 
         # 3. instantiate all propagators
         self.propagators = self.Propagators(
+            div_u=self.diagnostics.div_u,
+            u2=self.diagnostics.u2,
+            rho=self.mhd.density,
             with_viscosity=with_viscosity,
             with_resistivity=with_resistivity,
         )
@@ -314,22 +320,7 @@ class ViscoResistiveMHD_with_p(StruphyModel):
         new_file = []
         with open(params_path, "r") as f:
             for line in f:
-                if "variat_pb.Options" in line:
-                    new_file += [
-                        "model.propagators.variat_pb.options = model.propagators.variat_pb.Options(div_u=model.diagnostics.div_u,\n",
-                    ]
-                    new_file += [
-                        "                                                                          u2=model.diagnostics.u2)\n",
-                    ]
-                elif "variat_viscous.Options" in line:
-                    new_file += [
-                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(rho=model.mhd.density)\n",
-                    ]
-                elif "variat_resist.Options" in line:
-                    new_file += [
-                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(rho=model.mhd.density)\n",
-                    ]
-                elif "pressure.add_background" in line:
+                if "pressure.add_background" in line:
                     new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
                     new_file += [line]
                 else:
