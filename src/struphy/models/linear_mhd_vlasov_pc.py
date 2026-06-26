@@ -121,11 +121,13 @@ class LinearMHDVlasovPC(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self, turn_off: tuple[str, ...] = (None,)):
+        def __init__(self, turn_off: tuple[str, ...] = (None,),
+                     b2_var: FEECVariable = None,
+                     ):
             if "PushEtaPC" not in turn_off:
                 self.push_eta_pc = PushEtaPC()
             if "PushVxB" not in turn_off:
-                self.push_vxb = PushVxB()
+                self.push_vxb = PushVxB(b2_var=b2_var)
             if "PressureCoupling6D" not in turn_off:
                 self.pc6d = PressureCoupling6D()
             if "ShearAlfven" not in turn_off:
@@ -159,7 +161,7 @@ class LinearMHDVlasovPC(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators(turn_off)
+        self.propagators = self.Propagators(turn_off, b2_var=self.em_fields.b_field)
 
         # 4. assign variables to propagators
         if "ShearAlfven" not in turn_off:
@@ -358,12 +360,6 @@ class LinearMHDVlasovPC(StruphyModel):
                     new_file += [
                         """model.propagators.push_eta_pc.options = model.propagators.push_eta_pc.Options(
                         u_tilde = model.mhd.velocity,)\n""",
-                    ]
-
-                elif "push_vxb.Options" in line:
-                    new_file += [
-                        """model.propagators.push_vxb.options = model.propagators.push_vxb.Options(
-                        b2_var = model.em_fields.b_field,)\n""",
                     ]
 
                 else:
