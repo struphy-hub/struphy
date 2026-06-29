@@ -367,7 +367,7 @@ def test_poisson_M1perp_2d(num_elements, degree, bc_type, mapping, projected_rhs
     _phi1 = FEECVariable(space="H1")
     _phi1.allocate(derham=derham, domain=domain)
 
-    poisson_solver1 = ImplicitDiffusion()
+    poisson_solver1 = ImplicitDiffusion(rho=rho1)
     poisson_solver1.variables.phi = _phi1
 
     poisson_solver1.options = poisson_solver1.Options(
@@ -376,7 +376,6 @@ def test_poisson_M1perp_2d(num_elements, degree, bc_type, mapping, projected_rhs
         sigma_3=1.0,
         divide_by_dt=True,
         diffusion_mat="M1perp",
-        rho=rho1,
         solver="pcg",
         precond="MassMatrixPreconditioner",
         solver_params=solver_params,
@@ -387,7 +386,7 @@ def test_poisson_M1perp_2d(num_elements, degree, bc_type, mapping, projected_rhs
     _phi2 = FEECVariable(space="H1")
     _phi2.allocate(derham=derham, domain=domain)
 
-    poisson_solver2 = ImplicitDiffusion()
+    poisson_solver2 = ImplicitDiffusion(rho=rho2)
     poisson_solver2.variables.phi = _phi2
 
     poisson_solver2.options = poisson_solver2.Options(
@@ -396,7 +395,6 @@ def test_poisson_M1perp_2d(num_elements, degree, bc_type, mapping, projected_rhs
         sigma_3=1.0,
         divide_by_dt=True,
         diffusion_mat="M1perp",
-        rho=rho2,
         solver="pcg",
         precond="MassMatrixPreconditioner",
         solver_params=solver_params,
@@ -514,13 +512,12 @@ def test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=F
     _phi_M1 = FEECVariable(space="H1")
     _phi_M1.allocate(derham=derham, domain=domain)
 
-    poisson_solver_M1 = PoissonSolve()
+    poisson_solver_M1 = PoissonSolve(rho=rho)
     poisson_solver_M1.variables.phi = _phi_M1
 
     poisson_solver_M1.options = poisson_solver_M1.Options(
         stab_eps=1e-8,
         diffusion_mat="M1",
-        rho=rho,
         solver="pcg",
         precond="MassMatrixPreconditioner",
         solver_params=solver_params,
@@ -534,13 +531,12 @@ def test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=F
     _phi_M1perp = FEECVariable(space="H1")
     _phi_M1perp.allocate(derham=derham, domain=domain)
 
-    poisson_solver_M1perp = PoissonSolve()
+    poisson_solver_M1perp = PoissonSolve(rho=rho)
     poisson_solver_M1perp.variables.phi = _phi_M1perp
 
     poisson_solver_M1perp.options = poisson_solver_M1perp.Options(
         stab_eps=1e-8,
         diffusion_mat="M1perp",
-        rho=rho,
         solver="pcg",
         precond="MassMatrixPreconditioner",
         solver_params=solver_params,
@@ -691,13 +687,12 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
     _phi_2p5d = FEECVariable(space="H1")
     _phi_2p5d.allocate(derham=derham_3D, domain=domain_3D)
 
-    poisson_solver_3d = PoissonSolve()
+    poisson_solver_3d = PoissonSolve(rho=rho_logical_3D)
     poisson_solver_3d.variables.phi = _phi
 
     poisson_solver_3d.options = poisson_solver_3d.Options(
         stab_eps=1e-8,
         diffusion_mat="M1perp",
-        rho=rho_logical_3D,
         solver="pcg",
         precond="MassMatrixPreconditioner",
         solver_params=solver_params,
@@ -746,13 +741,12 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
         _phi_small = FEECVariable(space="H1")
         _phi_small.allocate(derham=derham_sliced, domain=domain_sliced)
 
-        poisson_solver_2p5d = PoissonSolve()
+        poisson_solver_2p5d = PoissonSolve(rho=rho_logical_sliced)
         poisson_solver_2p5d.variables.phi = _phi_small
 
         poisson_solver_2p5d.options = poisson_solver_2p5d.Options(
             stab_eps=1e-8,
             diffusion_mat="M1",
-            rho=rho_logical_sliced,
             solver="pcg",
             precond="MassMatrixPreconditioner",
             solver_params=solver_params,
