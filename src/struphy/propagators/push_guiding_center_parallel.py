@@ -87,6 +87,16 @@ class PushGuidingCenterParallel(Propagator):
         phi: FEECVariable = None,
         b_tilde: FEECVariable = None,
     ):
+        """
+        Parameters
+        ----------
+        phi : FEECVariable, default=None
+            Electric potential in ``"H1"`` space contributing to :math:`E^*`.
+            If ``None``, an empty ``FEECVariable(space="H1")`` is created internally.
+        b_tilde : FEECVariable, default=None
+            Magnetic perturbation in ``"Hcurl"`` space contributing to :math:`B^*`.
+            If ``None``, the perturbation is ignored.
+        """
         self.variables = self.Variables()
         self.phi = phi if phi is not None else FEECVariable(space="H1")
         self.b_tilde = b_tilde

@@ -112,6 +112,13 @@ class VariationalDensityEvolve(Propagator):
             self._u = new
 
     def __init__(self, s: FEECVariable = None):
+        """
+        Parameters
+        ----------
+        s : FEECVariable, default=None
+            Entropy density 3-form (``"L2"`` space) evolved alongside the mass density.
+            If ``None``, only the density equation is solved.
+        """
         self.variables = self.Variables()
         self.s = s
 

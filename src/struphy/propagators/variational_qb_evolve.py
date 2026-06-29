@@ -142,6 +142,18 @@ class VariationalQBEvolve(Propagator):
         qt3: FEECVariable = None,
         bt2: FEECVariable = None,
     ):
+        """
+        Parameters
+        ----------
+        div_u : FEECVariable, default=None
+            Divergence diagnostic variable (``"L2"`` space) updated by the velocity field.
+        u2 : FEECVariable, default=None
+            Velocity 2-form diagnostic (``"Hdiv"`` space).
+        qt3 : FEECVariable, default=None
+            Heat-flux pressure 3-form (``"L2"`` space) used in the momentum source term.
+        bt2 : FEECVariable, default=None
+            Magnetic 2-form (``"Hdiv"`` space) providing the Lorentz force.
+        """
         self.variables = self.Variables()
         self.div_u = div_u
         self.u2 = u2

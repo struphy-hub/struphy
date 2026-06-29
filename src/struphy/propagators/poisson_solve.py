@@ -116,6 +116,23 @@ class PoissonSolve(ImplicitDiffusion):
         rho: FEECVariable | Callable | list = None,
         rho_coeffs: float | list = None,
     ):
+        """
+        Parameters
+        ----------
+        rho : FEECVariable or Callable or list, default=None
+            Right-hand side source term(s) of the Poisson problem.
+            Accepted entries are:
+
+            - ``None``: zero source.
+            - ``FEECVariable`` in ``H1``.
+            - ``Callable`` to be projected to ``H1`` via ``L2Projector``.
+            - ``AccumulatorVector``.
+            - a ``list`` containing any mix of the entries above.
+
+        rho_coeffs : float or list, default=None
+            Multiplicative coefficient(s) applied to ``rho``.
+            If ``None``, coefficients default to ``1.0`` for all sources.
+        """
         super().__init__(rho=rho, rho_coeffs=rho_coeffs)
 
     @property

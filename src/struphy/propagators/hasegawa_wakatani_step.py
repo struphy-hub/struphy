@@ -94,6 +94,13 @@ class HasegawaWakataniStep(Propagator):
             self._omega = new
 
     def __init__(self, phi: FEECVariable = None):
+        """
+        Parameters
+        ----------
+        phi : FEECVariable, default=None
+            Electric potential (stream function) in ``"H1"`` space.
+            If ``None``, a zero-initialized field is created during allocation.
+        """
         self.variables = self.Variables()
         self.phi = phi
 

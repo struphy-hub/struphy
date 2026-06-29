@@ -83,6 +83,13 @@ class Magnetosonic(Propagator):
             self._p = new
 
     def __init__(self, b_field: FEECVariable = None):
+        """
+        Parameters
+        ----------
+        b_field : FEECVariable, default=None
+            Magnetic 2-form (``"Hdiv"`` space) providing the equilibrium magnetic field.
+            If ``None``, an empty ``FEECVariable(space="Hdiv")`` is created internally.
+        """
         self.variables = self.Variables()
         self.b_field = b_field if b_field is not None else FEECVariable(space="Hdiv")
 

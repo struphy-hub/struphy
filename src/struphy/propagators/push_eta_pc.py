@@ -67,6 +67,13 @@ class PushEtaPC(Propagator):
             self._var = new
 
     def __init__(self, u_tilde: FEECVariable = None):
+        """
+        Parameters
+        ----------
+        u_tilde : FEECVariable, default=None
+            Background fluid velocity field used to push particles.
+            The FEEC space is controlled by ``Options.u_space``.
+        """
         self.variables = self.Variables()
         self.u_tilde = u_tilde
 

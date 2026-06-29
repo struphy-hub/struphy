@@ -59,6 +59,13 @@ class Hall(Propagator):
             self._b = new
 
     def __init__(self, epsilon_from: Species = None):
+        """
+        Parameters
+        ----------
+        epsilon_from : Species, default=None
+            Species instance from which to read the Hall parameter ``epsilon``.
+            If ``None``, ``epsilon`` defaults to ``1.0``.
+        """
         self.variables = self.Variables()
         self.epsilon_from = epsilon_from
 

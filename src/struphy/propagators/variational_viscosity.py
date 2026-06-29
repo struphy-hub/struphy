@@ -105,6 +105,15 @@ class VariationalViscosity(Propagator):
             self._u = new
 
     def __init__(self, rho: FEECVariable = None, pt3: FEECVariable = None):
+        """
+        Parameters
+        ----------
+        rho : FEECVariable, default=None
+            Mass density 3-form (``"L2"`` space) weighting the velocity mass matrix.
+        pt3 : FEECVariable, default=None
+            Pressure or entropy 3-form (``"L2"`` space) evolved alongside the velocity.
+            If ``None``, the thermodynamic equation is skipped.
+        """
         self.variables = self.Variables()
         self.rho = rho
         self.pt3 = pt3

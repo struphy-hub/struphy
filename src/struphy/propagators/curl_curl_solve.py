@@ -70,6 +70,30 @@ class CurlCurlSolve(Propagator):
         j: FEECVariable | tuple[Callable, Callable, Callable] | tuple[AccumulatorVector, Particles] | list = None,
         j_coeffs: float | list = None,
     ):
+        """
+        Parameters
+        ----------
+        j : FEECVariable or tuple of Callables or tuple or list, default=None
+            Source term(s) on the right-hand side.
+            Accepted entries are:
+
+            - ``None``: zero source.
+            - ``FEECVariable`` in ``"Hcurl"``.
+            - ``tuple`` of three ``Callable``s to be projected to ``"Hcurl"`` via
+              ``L2Projector``.
+            - ``AccumulatorVector``.
+            - a ``list`` containing any mix of the entries above.
+
+            The tuple form is accepted by typing for compatibility with other
+            propagator interfaces that pair particle data with accumulators.
+
+        j_coeffs : float or list, default=None
+            Multiplicative coefficient(s) for ``j`` sources.
+            If a scalar is provided, it is applied to a single source.
+            If a sequence is provided, its length must match the number of
+            collected sources.
+            If ``None``, all coefficients default to ``1.0``.
+        """
         self.variables = self.Variables()
         self.j = j
         self.j_coeffs = j_coeffs

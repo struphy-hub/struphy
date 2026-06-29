@@ -103,6 +103,12 @@ class VariationalEntropyEvolve(Propagator):
             self._u = new
 
     def __init__(self, rho: FEECVariable = None):
+        """
+        Parameters
+        ----------
+        rho : FEECVariable, default=None
+            Mass density 3-form (``"L2"`` space) weighting the entropy mass matrix.
+        """
         self.variables = self.Variables()
         self.rho = rho
 

@@ -61,6 +61,15 @@ class CurrentCoupling6DDensity(Propagator):
         energetic_ions: PICVariable = None,
         b_tilde: FEECVariable = None,
     ):
+        """
+        Parameters
+        ----------
+        energetic_ions : PICVariable, default=None
+            Energetic-ion particle distribution providing the density source term.
+        b_tilde : FEECVariable, default=None
+            Magnetic perturbation 1-form (``"Hcurl"`` space) entering the coupling term.
+            If ``None``, only the equilibrium field is used.
+        """
         self.variables = self.Variables()
         self.energetic_ions = energetic_ions
         self.b_tilde = b_tilde

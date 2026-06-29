@@ -99,6 +99,13 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             self._b = new
 
     def __init__(self, energetic_ions: PICVariable = None):
+        """
+        Parameters
+        ----------
+        energetic_ions : PICVariable, default=None
+            Energetic-ion particle distribution (``"Particles5D"`` space) providing
+            the current source for the shear Alfvén wave coupling.
+        """
         self.variables = self.Variables()
         self.energetic_ions = energetic_ions
 

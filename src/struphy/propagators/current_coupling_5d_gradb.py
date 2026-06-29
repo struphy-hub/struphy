@@ -99,6 +99,13 @@ class CurrentCoupling5DGradB(Propagator):
             self._energetic_ions = new
 
     def __init__(self, b_tilde: FEECVariable = None):
+        """
+        Parameters
+        ----------
+        b_tilde : FEECVariable, default=None
+            Magnetic perturbation 1-form (``"Hcurl"`` space) entering the grad-B
+            coupling term. If ``None``, only the equilibrium field is used.
+        """
         self.variables = self.Variables()
         self.b_tilde = b_tilde
 
