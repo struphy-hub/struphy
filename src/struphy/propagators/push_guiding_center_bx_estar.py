@@ -418,10 +418,6 @@ class PushGuidingCenterBxEstar(Propagator):
             else:
                 butcher = self.options.butcher
             # temp fix due to refactoring of ButcherTableau:
-            import cunumpy as xp
-
-            butcher._a = xp.diag(butcher.a, k=-1)
-            butcher._a = xp.array(list(butcher.a) + [0.0])
 
             kernel = Pyccelkernel(pusher_kernels_gc.push_gc_bxEstar_explicit_multistage)
 
@@ -440,7 +436,7 @@ class PushGuidingCenterBxEstar(Propagator):
                 self._e_field[1]._data,
                 self._e_field[2]._data,
                 self._evaluate_e_field,
-                butcher.a,
+                butcher.a_stage,
                 butcher.b,
                 butcher.c,
             )

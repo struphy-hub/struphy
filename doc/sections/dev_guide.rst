@@ -1,7 +1,7 @@
-.. _dev_tutorials:
+.. _dev_guide:
 
-Developer Tutorials
-===================
+Developer's guide
+=================
 
 This is a collection of tutorials for developers. They are meant to be a practical guide to how to use Struphy 
 for development purposes, such as implementing new features, propagators or models.
@@ -17,6 +17,15 @@ It is recommended to use the same Python environment as for Struphy, e.g., by in
 
 .. toctree::
    :maxdepth: 1
-   :caption: Notebook tutorials:
+   :caption: FEEC tutorials:
 
-   ../_collections/tutorials/tutorial_for_devs_01_feec
+   ../_collections/tutorials/dev_tutorial_feec_basics
+   ../_collections/tutorials/dev_tutorial_feec_bcs
+   ../_collections/tutorials/dev_tutorial_data_structs
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: SPH tutorials:
+
+   ../_collections/tutorials/dev_tutorial_sph_eval_kernels

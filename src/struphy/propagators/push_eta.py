@@ -23,13 +23,13 @@ class PushEta(Propagator):
 
         \frac{\textnormal d \mathbf{x}_p(t)}{\textnormal d t} = \mathbf{v}_p\,,
 
-    for constant :math:`\mathbf{v}_p` in logical space given by :math:`\mathbf{x} = F(\boldsymbol{\eta})`:
+    in logical space given by :math:`\mathbf{x} = F(\boldsymbol{\eta})`:
 
     .. math::
 
-        \frac{\textnormal d \boldsymbol{\eta}_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol{\eta}_p(t)) \,\mathbf{v}_p\,.
+        \frac{\textnormal d \boldsymbol{\eta}_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol{\eta}_p(t)) \,\mathbf{v}_p\,,
 
-    Available algorithms:
+    for constant :math:`\mathbf{v}_p`. Available algorithms:
 
     - Explicit RK from :class:`~struphy.ode.utils.ButcherTableau`
     """
@@ -96,16 +96,9 @@ class PushEta(Propagator):
         # define algorithm
         butcher = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
-        try:
-            import cunumpy as xp
-
-            butcher._a = xp.diag(butcher.a, k=-1)
-            butcher._a = xp.array(list(butcher.a) + [0.0])
-        except ValueError:
-            pass
 
         args_kernel = (
-            butcher.a,
+            butcher.a_stage,
             butcher.b,
             butcher.c,
         )

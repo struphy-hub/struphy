@@ -45,7 +45,7 @@ from struphy.particles.parameters import (
     WeightsParameters,
 )
 from struphy.pic import sampling_kernels, sobol_seq
-from struphy.pic.pushing import eval_kernels_gc
+from struphy.pic.pushing import eval_kernels_sph
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.sorting_kernels import (
     assign_box_to_each_particle,
@@ -772,6 +772,7 @@ class Particles(metaclass=ABCMeta):
     @property
     def n_mks_loc(self):
         """Number of valid markers on process (without holes and ghosts)."""
+        # print(f"{self.kinds} on clone {self.clone_id}: counting valid markers: {xp.count_nonzero(self.valid_mks)} valid markers on process {self.mpi_rank} found.")
         return xp.count_nonzero(self.valid_mks)
 
     @property
@@ -1264,11 +1265,12 @@ class Particles(metaclass=ABCMeta):
     def _set_initial_condition(self):
         if self.type != "sph":
             self._f_init = self.initial_condition
+            self._u_init = None
         else:
             assert isinstance(self.f0, FluidEquilibrium)
 
-            # get vector-field representation of the fluid velocity
-            self._u_init = self.f0.uv
+            _density = None
+            _u1 = None
 
             if self.perturbations is not None:
                 for (
@@ -1284,7 +1286,7 @@ class Particles(metaclass=ABCMeta):
                         if pert.given_in_basis is None:
                             pert.given_in_basis = "0"
 
-                        _fun = TransformedPformComponent(
+                        _density = TransformedPformComponent(
                             pert,
                             pert.given_in_basis,
                             "0",
@@ -1294,24 +1296,22 @@ class Particles(metaclass=ABCMeta):
                     elif moment == "u1":
                         if pert.given_in_basis is None:
                             pert.given_in_basis = "v"
-                        _fun = TransformedPformComponent(
+                        _u1 = TransformedPformComponent(
                             pert,
                             pert.given_in_basis,
                             "v",
                             comp=pert.comp,
                             domain=self.domain,
                         )
-                        self._u_init = lambda e1, e2, e3: self.f0.uv(e1, e2, e3) + _fun(e1, e2, e3)
+                        #  self._u_init = lambda e1, e2, e3: self.f0.uv(e1, e2, e3) + _u1(e1, e2, e3)
                         # TODO: add other velocity components
-            else:
-                _fun = None
 
             def _f_init(*etas, flat_eval=False):
                 if len(etas) == 1:
-                    if _fun is None:
+                    if _density is None:
                         out = self.f0.n0(etas[0])
                     else:
-                        out = self.f0.n0(etas[0]) + _fun(*etas[0].T)
+                        out = self.f0.n0(etas[0]) + _density(*etas[0].T)
                 else:
                     assert len(etas) == 3
                     E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
@@ -1323,19 +1323,47 @@ class Particles(metaclass=ABCMeta):
 
                     out0 = self.f0.n0(E1, E2, E3)
 
-                    if _fun is None:
+                    if _density is None:
                         out = out0
                     else:
-                        out1 = _fun(E1, E2, E3)
+                        out1 = _density(E1, E2, E3)
                         assert out0.shape == out1.shape
                         out = out0 + out1
 
                     if flat_eval:
                         out = xp.squeeze(out)
+                return out
 
+            def _u_init(*etas, flat_eval=False):
+                if len(etas) == 1:
+                    if _u1 is None:
+                        out = self.f0.uv(etas[0])
+                    else:
+                        out = self.f0.uv(etas[0]) + _u1(*etas[0].T)
+                else:
+                    assert len(etas) == 3
+                    E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
+                        etas[0],
+                        etas[1],
+                        etas[2],
+                        flat_eval=flat_eval,
+                    )
+
+                    out0 = self.f0.uv(E1, E2, E3)
+
+                    if _u1 is None:
+                        out = out0
+                    else:
+                        out1 = _u1(E1, E2, E3)
+                        assert out0.shape == out1.shape
+                        out = out0 + out1
+
+                    if flat_eval:
+                        out = xp.squeeze(out)
                 return out
 
             self._f_init = _f_init
+            self._u_init = _u_init
 
     def _load_external(
         self,
@@ -1771,6 +1799,11 @@ class Particles(metaclass=ABCMeta):
         # new holes and new number of holes and markers on process
         self.update_holes()
 
+        # refresh ghost mask: received markers may land in rows that previously held
+        # ghost particles. update_holes alone recomputes valid_mks from a stale
+        # _ghost_particles mask, which would wrongly exclude these incoming real markers.
+        self.update_ghost_particles()
+
         # check if all markers are on the right process after sorting
         if do_test:
             all_on_right_proc = xp.all(
@@ -1853,7 +1886,7 @@ class Particles(metaclass=ABCMeta):
             self.sampling_density = self.s0(*self.phasespace_coords.T, flat_eval=True)
 
             # compute w0 and save at vdim + 5
-            self.weights0 = f_init / self.sampling_density
+            self.weights0 = f_init / self.sampling_density / self.Np
 
         if self.reject_weights:
             reject = self.markers[:, self.index["w0"]] < self.threshold
@@ -1893,7 +1926,7 @@ class Particles(metaclass=ABCMeta):
         if self.is_volume_form[1]:
             f0 /= self.f0.velocity_jacobian_det(*self.f_jacobian_coords.T)
 
-        self.weights = self.weights0 - f0 / self.sampling_density
+        self.weights = self.weights0 - f0 / self.sampling_density / self.Np
 
     def reset_marker_ids(self):
         """Reset the marker ids (last column in marker array) according to the current distribution of particles.
@@ -1967,8 +2000,8 @@ class Particles(metaclass=ABCMeta):
             multiplier = velocity_norm2 * self.velocities[:, v_axis[0]]
 
         # compute weights of histogram:
-        _weights0 = self.weights0 * multiplier
-        _weights = self.weights * multiplier
+        _weights0 = self.weights0 * self.Np * multiplier
+        _weights = self.weights * self.Np * multiplier
 
         if divide_by_jac:
             _weights /= self.domain.jacobian_det(self.positions, remove_outside=False)
@@ -2961,11 +2994,15 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                             *arr[:, :3].T,
                             flat_eval=True,
                         )  # evaluation outside of the unit cube - maybe not working for all f_init!
-                        arr[:, self.index["weights"]] = -boundary_values / self.s0(
-                            *arr[:, :3].T,
-                            flat_eval=True,
-                            remove_holes=False,
-                        )
+                        arr[:, self.index["weights"]] = (
+                            -boundary_values
+                            / self.s0(
+                                *arr[:, :3].T,
+                                flat_eval=True,
+                                remove_holes=False,
+                            )
+                            / self.Np
+                        )  # clarify in case of tesselation: multiple by tile volume (=1/Np) to get the integral value right
                         self._fixed_markers_set[arr_name] = True
                     elif self.bc_sph[0] == "noslip":
                         # invert the velocities to have zero velocity at the boundary
@@ -2984,11 +3021,15 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                             *arr[:, :3].T,
                             flat_eval=True,
                         )  # evaluation outside of the unit cube - maybe not working for all f_init!
-                        arr[:, self.index["weights"]] = -boundary_values / self.s0(
-                            *arr[:, :3].T,
-                            flat_eval=True,
-                            remove_holes=False,
-                        )
+                        arr[:, self.index["weights"]] = (
+                            -boundary_values
+                            / self.s0(
+                                *arr[:, :3].T,
+                                flat_eval=True,
+                                remove_holes=False,
+                            )
+                            / self.Np
+                        )  # clarify in case of tesselation: multiple by tile volume (=1/Np) to get the integral value right
                         self._fixed_markers_set[arr_name] = True
                     elif self.bc_sph[0] == "noslip":
                         # invert the velocities to have zero velocity at the boundary
@@ -3009,11 +3050,15 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                             *arr[:, :3].T,
                             flat_eval=True,
                         )  # evaluation outside of the unit cube - maybe not working for all f_init!
-                        arr[:, self.index["weights"]] = -boundary_values / self.s0(
-                            *arr[:, :3].T,
-                            flat_eval=True,
-                            remove_holes=False,
-                        )
+                        arr[:, self.index["weights"]] = (
+                            -boundary_values
+                            / self.s0(
+                                *arr[:, :3].T,
+                                flat_eval=True,
+                                remove_holes=False,
+                            )
+                            / self.Np
+                        )  # clarify in case of tesselation: multiple by tile volume (=1/Np) to get the integral value right
                         self._fixed_markers_set[arr_name] = True
                     elif self.bc_sph[1] == "noslip":
                         # invert the velocities to have zero velocity at the boundary
@@ -3032,11 +3077,15 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                             *arr[:, :3].T,
                             flat_eval=True,
                         )  # evaluation outside of the unit cube - maybe not working for all f_init!
-                        arr[:, self.index["weights"]] = -boundary_values / self.s0(
-                            *arr[:, :3].T,
-                            flat_eval=True,
-                            remove_holes=False,
-                        )
+                        arr[:, self.index["weights"]] = (
+                            -boundary_values
+                            / self.s0(
+                                *arr[:, :3].T,
+                                flat_eval=True,
+                                remove_holes=False,
+                            )
+                            / self.Np
+                        )  # clarify in case of tesselation: multiple by tile volume (=1/Np) to get the integral value right
                         self._fixed_markers_set[arr_name] = True
                     elif self.bc_sph[1] == "noslip":
                         # invert the velocities to have zero velocity at the boundary
@@ -3057,11 +3106,15 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                             *arr[:, :3].T,
                             flat_eval=True,
                         )  # evaluation outside of the unit cube - maybe not working for all f_init!
-                        arr[:, self.index["weights"]] = -boundary_values / self.s0(
-                            *arr[:, :3].T,
-                            flat_eval=True,
-                            remove_holes=False,
-                        )
+                        arr[:, self.index["weights"]] = (
+                            -boundary_values
+                            / self.s0(
+                                *arr[:, :3].T,
+                                flat_eval=True,
+                                remove_holes=False,
+                            )
+                            / self.Np
+                        )  # clarify in case of tesselation: multiple by tile volume (=1/Np) to get the integral value right
                         self._fixed_markers_set[arr_name] = True
                     elif self.bc_sph[2] == "noslip":
                         # invert the velocities to have zero velocity at the boundary
@@ -3080,11 +3133,15 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                             *arr[:, :3].T,
                             flat_eval=True,
                         )  # evaluation outside of the unit cube - maybe not working for all f_init!
-                        arr[:, self.index["weights"]] = -boundary_values / self.s0(
-                            *arr[:, :3].T,
-                            flat_eval=True,
-                            remove_holes=False,
-                        )
+                        arr[:, self.index["weights"]] = (
+                            -boundary_values
+                            / self.s0(
+                                *arr[:, :3].T,
+                                flat_eval=True,
+                                remove_holes=False,
+                            )
+                            / self.Np
+                        )  # clarify in case of tesselation: multiple by tile volume (=1/Np) to get the integral value right
                         self._fixed_markers_set[arr_name] = True
                     elif self.bc_sph[2] == "noslip":
                         # invert the velocities to have zero velocity at the boundary
@@ -3893,7 +3950,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         Notes
         -----
         This method first computes SPH coefficients by calling
-        `eval_kernels_gc.sph_mean_velocity_coeffs` (via a Pyccel kernel) to
+        `eval_kernels_sph.sph_mean_velocity_coeffs` (via a Pyccel kernel) to
         assemble mean-velocity coefficients into the markers array, then calls
         :meth:`eval_sph` for each velocity component.
         """
@@ -3903,7 +3960,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
         self.put_particles_in_boxes()
 
-        func = Pyccelkernel(eval_kernels_gc.sph_mean_velocity_coeffs)
+        func = Pyccelkernel(eval_kernels_sph.sph_mean_velocity_coeffs)
 
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
@@ -4015,7 +4072,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         self.put_particles_in_boxes()
 
         # 1st kernel
-        func = Pyccelkernel(eval_kernels_gc.sph_mean_velocity_coeffs)
+        func = Pyccelkernel(eval_kernels_sph.sph_mean_velocity_coeffs)
         comps = xp.array((0, 1, 2))
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
@@ -4036,7 +4093,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         )
 
         # 2nd kernel
-        func = Pyccelkernel(eval_kernels_gc.sph_viscosity_tensor)
+        func = Pyccelkernel(eval_kernels_sph.sph_viscosity_tensor)
         comps = xp.arange(9)
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
@@ -4097,14 +4154,20 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         h2: float = 0.1,
         h3: float = 0.1,
     ):
-        r"""Perform an SPH evaluation of a function :math:`b: [0, 1]^3 \to \mathbb R` in the following sense:
+        r"""Perform a (meshgrid) SPH evaluation of a function :math:`\rho: [0, 1]^3 \to \mathbb R` in the following sense:
 
         .. math::
 
-            b(\boldsymbol \eta_i) = \frac 1N \sum_k \beta_k W_h(\boldsymbol \eta_i - \boldsymbol \eta_k)\,.
+            \rho(\boldsymbol \eta_i) = \sum_{j=0}^{N-1} \rho_j\, W_h(\boldsymbol \eta_i - \boldsymbol \eta_j)\,.
 
-        The coefficients :math:`\beta_k` must be stored at ``self.markers[k, index]``.
-        The possible choices for :math:`W_h` are listed in :mod:`~struphy.pic.sph_smoothing_kernels`
+        The coefficients :math:`\rho_j` must be available in the marker array, stored at some index ``self.markers[j, index]``.
+        In case that `derivative=k` where `k` is not zero, the `k`-th component of the gradient of :math:`\rho` is computed:
+
+        .. math::
+
+            \textrm{derivative}=k:\qquad [\nabla \rho(\boldsymbol \eta_i)]_k = \sum_{j=0}^{N-1} \rho_j \frac{\partial W_h}{\partial \eta_k}(\boldsymbol \eta_i - \boldsymbol \eta_j)\,.
+
+        The possible choices for :math:`W_h` are listed in :ref:`smoothing_kernels`
         and in :meth:`~struphy.pic.base.Particles.ker_dct`.
 
         Parameters
@@ -4113,7 +4176,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             Logical evaluation points.
 
         index : int
-            At which index of the markers array are located the coefficients :math:`\beta_k`.
+            At which index of the markers array are located the coefficients :math:`\rho_j`.
 
         out : array_like
             Output will be store in this array. A new array is created if not provided.
@@ -4639,7 +4702,7 @@ class Tesselation:
                         single_box_out,
                     )
 
-                    single_box_out /= self.tile_volume
+                    # single_box_out /= self.tile_volume
 
                     out[
                         i * nt_x : (i + 1) * nt_x,

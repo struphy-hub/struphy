@@ -9,7 +9,7 @@ from line_profiler import profile
 
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.models.variables import SPHVariable
-from struphy.pic.pushing import eval_kernels_gc, pusher_kernels
+from struphy.pic.pushing import eval_kernels_sph, pusher_kernels_sph
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
@@ -23,18 +23,19 @@ class PushVinSPHpressure(Propagator):
 
     .. math::
 
-        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} = \kappa_p \sum_{i=1}^N w_i \left( \frac{1}{\rho^{N,h}(\boldsymbol \eta_p)} + \frac{1}{\rho^{N,h}(\boldsymbol \eta_i)} \right) DF^{-\top}\nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_i) \,,
+        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} = \mathbf g - \sum_{i=1}^N w_i \left( \frac{\partial \mathcal U}{\partial \rho}(\boldsymbol \eta_p) + \frac{\partial \mathcal U}{\partial \rho}(\boldsymbol \eta_i) \right) DF^{-\top}\nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_i) \,,
 
-    where :math:`DF^{-\top}` denotes the inverse transpose Jacobian, and with the smoothed density
+    where :math:`\mathbf g` is a constant acceleration and the second term corresponds to the pressure gradient.
+    Here, :math:`\mathcal U(\rho)` denotes the internal energy per unit mass
+    as a function of the mass density :math:`\rho` and :math:`DF^{-\top}` denotes the inverse transpose Jacobian
+    arising in the pull back of the gradient of the smoothing kernel :math:`W_h`
+    chosen from :mod:`~struphy.pic.sph_smoothing_kernels`.
+    Two choices of the internal energy are implemented:
 
-    .. math::
+    * Isothermal closure: :math:`\mathcal U(\rho) = \kappa \, \ln(\rho)`, where :math:`\kappa` is constant.
+    * Polytropic closure: :math:`\mathcal U(\rho) = \kappa \, \rho^{\gamma - 1} / (\gamma - 1)`, where :math:`\kappa` is the polytropic constant and :math:`\gamma = C_p / C_v` is the polytropic index.
 
-        \rho^{N,h}(\boldsymbol \eta) = \frac 1N \sum_{j=1}^N w_j \, W_h(\boldsymbol \eta - \boldsymbol \eta_j)\,,
-
-    where :math:`W_h(\boldsymbol \eta)` is a smoothing kernel from :mod:`~struphy.pic.sph_smoothing_kernels`.
-    Time stepping:
-
-    * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
+    Time stepping is forward Euler.
     """
 
     class Variables:
@@ -81,6 +82,9 @@ class PushVinSPHpressure(Propagator):
         gravity : tuple, default=(0.0, 0.0, 0.0)
             Constant gravity vector added in the SPH pressure push.
 
+        kappa : float, default=1.0
+            Coefficient in the internal energy function.
+
         thermodynamics : {"isothermal", "polytropic"}, default="isothermal"
             Thermodynamic closure selecting the SPH pressure kernel.
         """
@@ -93,6 +97,7 @@ class PushVinSPHpressure(Propagator):
         kernel_width: tuple = None
         algo: OptsAlgo = "forward_euler"
         gravity: tuple = (0.0, 0.0, 0.0)
+        kappa: float = 1.0
         thermodynamics: OptsThermo = "isothermal"
 
         def __post_init__(self):
@@ -116,7 +121,7 @@ class PushVinSPHpressure(Propagator):
     @profile
     def allocate(self):
         # init kernel for evaluating density etc. before each time step.
-        init_kernel = eval_kernels_gc.sph_pressure_coeffs
+        init_kernel = eval_kernels_sph.sph_pressure_coeffs
 
         particles = self.variables.fluid.particles
 
@@ -153,9 +158,9 @@ class PushVinSPHpressure(Propagator):
 
         # pusher kernel
         if self.options.thermodynamics == "isothermal":
-            kernel = Pyccelkernel(pusher_kernels.push_v_sph_pressure)
+            kernel = Pyccelkernel(pusher_kernels_sph.push_v_sph_pressure)
         elif self.options.thermodynamics == "polytropic":
-            kernel = Pyccelkernel(pusher_kernels.push_v_sph_pressure_ideal_gas)
+            kernel = Pyccelkernel(pusher_kernels_sph.push_v_sph_pressure_ideal_gas)
 
         gravity = xp.array(self.options.gravity, dtype=float)
 
@@ -167,6 +172,7 @@ class PushVinSPHpressure(Propagator):
             kernel_nr,
             *self.options.kernel_width,
             gravity,
+            self.options.kappa,
         )
 
         # the Pusher class wraps around all kernels
@@ -181,5 +187,22 @@ class PushVinSPHpressure(Propagator):
 
     @profile
     def __call__(self, dt):
-        self.variables.fluid.particles.put_particles_in_boxes()
-        self._pusher(dt)
+        particles = self.variables.fluid.particles
+
+        # The "noslip" BC reflects ghost particles and, when ``mean_velocity_index`` is set,
+        # negates the three auxiliary columns starting at that index (see Particles._mirror_particles).
+        # That negation is meant for the viscous mean-velocity coefficients (which are odd under
+        # wall reflection). Here those same columns hold the SPH density rho, w/rho and w*rho^(gamma-2)
+        # computed by sph_pressure_coeffs -- scalars that are EVEN under reflection and must NOT be
+        # flipped. Aliasing the index (it defaults to first_free_idx, which is exactly where the
+        # pressure coefficients live) would otherwise give the mirror particles a negative w/rho, so
+        # the symmetric pressure-gradient sum no longer cancels at the wall and the near-wall markers
+        # receive a spurious normal force into the wall. Suppress the flip for the duration of the
+        # pressure push and restore it afterwards so the viscous propagator keeps its correct behaviour.
+        saved_mean_velocity_index = particles._mean_velocity_index
+        particles._mean_velocity_index = None
+        try:
+            particles.put_particles_in_boxes()
+            self._pusher(dt)
+        finally:
+            particles._mean_velocity_index = saved_mean_velocity_index
