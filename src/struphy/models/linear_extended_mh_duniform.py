@@ -89,9 +89,9 @@ class LinearExtendedMHDuniform(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self):
+        def __init__(self, epsilon_from=None):
             self.shear_alf = ShearAlfvenB1()
-            self.hall = Hall()
+            self.hall = Hall(epsilon_from=epsilon_from)
             self.mag_sonic = MagnetosonicUniform()
 
     ## abstract methods
@@ -119,7 +119,7 @@ class LinearExtendedMHDuniform(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators()
+        self.propagators = self.Propagators(epsilon_from=self.mhd)
 
         # 4. assign variables to propagators
         self.propagators.shear_alf.variables.u = self.mhd.velocity
@@ -322,12 +322,7 @@ class LinearExtendedMHDuniform(StruphyModel):
         new_file = []
         with open(params_path, "r") as f:
             for line in f:
-                if "hall.Options" in line:
-                    new_file += [
-                        "model.propagators.hall.options = model.propagators.hall.Options(epsilon_from=model.mhd)\n",
-                    ]
-                else:
-                    new_file += [line]
+                new_file += [line]
 
         with open(params_path, "w") as f:
             for line in new_file:

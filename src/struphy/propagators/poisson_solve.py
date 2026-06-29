@@ -132,6 +132,9 @@ class PoissonSolve(ImplicitDiffusion):
             self.sigma_3 = 1.0
             self.divide_by_dt = False
 
+    def __init__(self, rho: FEECVariable | Callable | list = None):
+        self.rho = rho
+
     @property
     def options(self) -> Options:
         if not hasattr(self, "_options"):
@@ -143,3 +146,8 @@ class PoissonSolve(ImplicitDiffusion):
         assert isinstance(new, self.Options)
         self._options = new
         logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
+
+    def allocate(self):
+        if self.rho is not None and self.options.rho is None:
+            self.options.rho = self.rho
+        super().allocate()

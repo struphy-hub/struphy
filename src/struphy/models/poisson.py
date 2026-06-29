@@ -38,10 +38,10 @@ class Poisson(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self, with_t_dep_source=False):
+        def __init__(self, rho: FEECVariable = None, with_t_dep_source=False):
             if with_t_dep_source:
                 self.source = TimeDependentSource()
-            self.poisson = PoissonSolve()
+            self.poisson = PoissonSolve(rho=rho)
 
     ## abstract methods
 
@@ -59,7 +59,7 @@ class Poisson(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators(with_t_dep_source=with_t_dep_source)
+        self.propagators = self.Propagators(rho=self.em_fields.source, with_t_dep_source=with_t_dep_source)
 
         # 4. assign variables to propagators
         if with_t_dep_source:
@@ -179,12 +179,7 @@ class Poisson(StruphyModel):
         new_file = []
         with open(params_path, "r") as f:
             for line in f:
-                if "poisson.Options" in line:
-                    new_file += [
-                        "model.propagators.poisson.options = model.propagators.poisson.Options(rho=model.em_fields.source)\n",
-                    ]
-                else:
-                    new_file += [line]
+                new_file += [line]
 
         with open(params_path, "w") as f:
             for line in new_file:
