@@ -118,10 +118,11 @@ class LinearMHDVlasovCC(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self, 
-                     b_field: FEECVariable = None, 
-                     energetic_ions_var: PICVariable = None,
-                     ):
+        def __init__(
+            self,
+            b_field: FEECVariable = None,
+            energetic_ions_var: PICVariable = None,
+        ):
             self.couple_dens = CurrentCoupling6DDensity(energetic_ions=energetic_ions_var, b_tilde=b_field)
             self.shear_alf = ShearAlfvenPropagator()
             self.couple_curr = CurrentCoupling6DCurrent(b_tilde=b_field)
@@ -156,9 +157,10 @@ class LinearMHDVlasovCC(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators(b_field=self.em_fields.b_field, 
-                                            energetic_ions_var=self.energetic_ions.var,
-                                            )
+        self.propagators = self.Propagators(
+            b_field=self.em_fields.b_field,
+            energetic_ions_var=self.energetic_ions.var,
+        )
 
         # 4. assign variables to propagators
         self.propagators.couple_dens.variables.u = self.mhd.velocity

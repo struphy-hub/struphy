@@ -82,10 +82,11 @@ class PushGuidingCenterParallel(Propagator):
             assert new.space == "Particles5D"
             self._ions = new
 
-    def __init__(self, 
-                 phi: FEECVariable = None, 
-                 b_tilde: FEECVariable = None,
-                 ):
+    def __init__(
+        self,
+        phi: FEECVariable = None,
+        b_tilde: FEECVariable = None,
+    ):
         self.variables = self.Variables()
         self.phi = phi if phi is not None else FEECVariable(space="H1")
         self.b_tilde = b_tilde

@@ -68,10 +68,11 @@ class VariationalCompressibleFluid(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self, 
-                     s: FEECVariable = None, 
-                     rho: FEECVariable = None,
-                     ):
+        def __init__(
+            self,
+            s: FEECVariable = None,
+            rho: FEECVariable = None,
+        ):
             self.variat_dens = VariationalDensityEvolve(s=s)
             self.variat_mom = VariationalMomentumAdvection()
             self.variat_ent = VariationalEntropyEvolve(rho=rho)

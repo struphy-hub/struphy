@@ -147,10 +147,12 @@ class LinearMHDDriftkineticCC(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self, turn_off: tuple[str, ...] = (None,),
-                     b_field: FEECVariable = None,
-                     energetic_ions_var: PICVariable = None,
-                     ):
+        def __init__(
+            self,
+            turn_off: tuple[str, ...] = (None,),
+            b_field: FEECVariable = None,
+            energetic_ions_var: PICVariable = None,
+        ):
             if "PushGuidingCenterBxEstar" not in turn_off:
                 self.push_bxe = PushGuidingCenterBxEstar(b_tilde=b_field)
             if "PushGuidingCenterParallel" not in turn_off:
@@ -192,10 +194,11 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators(turn_off, 
-                                            b_field=self.em_fields.b_field,
-                                            energetic_ions_var=self.energetic_ions.var,
-                                            )
+        self.propagators = self.Propagators(
+            turn_off,
+            b_field=self.em_fields.b_field,
+            energetic_ions_var=self.energetic_ions.var,
+        )
 
         # 4. assign variables to propagators
         if "ShearAlfvenCurrentCoupling5D" not in turn_off:

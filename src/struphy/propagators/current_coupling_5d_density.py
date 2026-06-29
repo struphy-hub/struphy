@@ -59,10 +59,11 @@ class CurrentCoupling5DDensity(Propagator):
             assert new.space in ("Hcurl", "Hdiv", "H1vec")
             self._u = new
 
-    def __init__(self, 
-                 energetic_ions: PICVariable = None, 
-                 b_tilde: FEECVariable = None,
-                 ):
+    def __init__(
+        self,
+        energetic_ions: PICVariable = None,
+        b_tilde: FEECVariable = None,
+    ):
         self.variables = self.Variables()
         self.energetic_ions = energetic_ions
         self.b_tilde = b_tilde

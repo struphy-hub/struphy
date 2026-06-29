@@ -121,11 +121,13 @@ class LinearMHDVlasovPC(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self, turn_off: tuple[str, ...] = (None,),
-                     b2_var: FEECVariable = None,
-                     b_field: FEECVariable = None,
-                     u_tilde: FEECVariable = None,
-                     ):
+        def __init__(
+            self,
+            turn_off: tuple[str, ...] = (None,),
+            b2_var: FEECVariable = None,
+            b_field: FEECVariable = None,
+            u_tilde: FEECVariable = None,
+        ):
             if "PushEtaPC" not in turn_off:
                 self.push_eta_pc = PushEtaPC(u_tilde=u_tilde)
             if "PushVxB" not in turn_off:
@@ -163,11 +165,12 @@ class LinearMHDVlasovPC(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators(turn_off, 
-                                            b2_var=self.em_fields.b_field,
-                                            b_field=self.em_fields.b_field, 
-                                            u_tilde=self.mhd.velocity,
-                                            )
+        self.propagators = self.Propagators(
+            turn_off,
+            b2_var=self.em_fields.b_field,
+            b_field=self.em_fields.b_field,
+            u_tilde=self.mhd.velocity,
+        )
 
         # 4. assign variables to propagators
         if "ShearAlfven" not in turn_off:

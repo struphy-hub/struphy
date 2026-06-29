@@ -63,9 +63,10 @@ class VlasovMaxwellOneSpecies(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self, 
-                     b2_var: FEECVariable = None,
-                     ):
+        def __init__(
+            self,
+            b2_var: FEECVariable = None,
+        ):
             self.maxwell = MaxwellWeakAmpere()
             self.push_eta = PushEta()
             self.push_vxb = PushVxB(b2_var=b2_var)
