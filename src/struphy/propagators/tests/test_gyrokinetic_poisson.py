@@ -160,7 +160,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
             _phi = FEECVariable(space="H1")
             _phi.allocate(derham=derham, domain=domain)
 
-            poisson_solver = ImplicitDiffusion()
+            poisson_solver = ImplicitDiffusion(rho=rho)
             poisson_solver.variables.phi = _phi
 
             poisson_solver.options = poisson_solver.Options(
@@ -169,7 +169,6 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
                 sigma_3=1.0,
                 divide_by_dt=True,
                 diffusion_mat="M1perp",
-                rho=rho,
                 solver="pcg",
                 precond="MassMatrixPreconditioner",
                 solver_params=solver_params,

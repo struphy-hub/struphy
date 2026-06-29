@@ -306,8 +306,8 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         alpha = self.kinetic_ions.equation_params.alpha
         epsilon = self.kinetic_ions.equation_params.epsilon
 
-        self.initial_poisson.options.rho = self.charge_accum
-        self.initial_poisson.options.rho_coeffs = alpha**2 / epsilon
+        self.initial_poisson.rho = self.charge_accum
+        self.initial_poisson.rho_coeffs = alpha**2 / epsilon
         self.initial_poisson.allocate()
 
         # Solve with dt=1. and compute electric field

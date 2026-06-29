@@ -7,8 +7,6 @@ from feectools.linalg.stencil import StencilVector
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
-from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
-from struphy.pic.base import Particles
 from struphy.propagators.implicit_diffusion import ImplicitDiffusion
 from struphy.utils.utils import check_option
 
@@ -59,23 +57,6 @@ class PoissonSolve(ImplicitDiffusion):
             - ``"M1para"``: weighted 1-form mass operator parallele to magnetic field.
             - ``"M1gyro"``: weighted 1-form mass operator used in gyrokinetic model.
 
-        rho : FEECVariable or Callable or tuple or list, default=None
-            Right-hand side source term(s) of the Poisson problem.
-            Accepted entries are:
-
-            - ``None``: zero source.
-            - ``FEECVariable`` in ``H1``.
-            - ``Callable`` to be projected to ``H1`` via ``L2Projector``.
-            - ``AccumulatorVector``.
-            - a ``list`` containing any mix of the entries above.
-
-            The tuple form is accepted by typing for compatibility with other
-            propagator interfaces that pair particle data with accumulators.
-
-        rho_coeffs : float or list, default=None
-            Multiplicative coefficient(s) applied to ``rho``.
-            If ``None``, coefficients default to ``1.0`` for all sources.
-
         x0 : StencilVector, default=None
             Initial guess for the iterative linear solver.
 
@@ -108,8 +89,6 @@ class PoissonSolve(ImplicitDiffusion):
         stab_eps: float = 0.0
         stab_mat: OptsStabMat = "Id"
         diffusion_mat: OptsDiffusionMat = "M1"
-        rho: FEECVariable | Callable | tuple[AccumulatorVector, Particles] | list = None
-        rho_coeffs: float | list = None
         x0: StencilVector = None
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
@@ -132,8 +111,12 @@ class PoissonSolve(ImplicitDiffusion):
             self.sigma_3 = 1.0
             self.divide_by_dt = False
 
-    def __init__(self, rho: FEECVariable | Callable | list = None):
-        self.rho = rho
+    def __init__(
+        self,
+        rho: FEECVariable | Callable | list = None,
+        rho_coeffs: float | list = None,
+    ):
+        super().__init__(rho=rho, rho_coeffs=rho_coeffs)
 
     @property
     def options(self) -> Options:
@@ -146,8 +129,3 @@ class PoissonSolve(ImplicitDiffusion):
         assert isinstance(new, self.Options)
         self._options = new
         logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
-
-    def allocate(self):
-        if self.rho is not None and self.options.rho is None:
-            self.options.rho = self.rho
-        super().allocate()

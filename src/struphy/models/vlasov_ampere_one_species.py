@@ -317,8 +317,8 @@ class VlasovAmpereOneSpecies(StruphyModel):
             alpha**2
         )  # TODO: it would be nice to have alpha (and other eq. params) before runtime
 
-        self.initial_poisson.options.rho = charge_accum
-        self.initial_poisson.options.rho_coeffs = alpha**2 / epsilon
+        self.initial_poisson.rho = charge_accum
+        self.initial_poisson.rho_coeffs = alpha**2 / epsilon
         self.initial_poisson.allocate()
 
         # Solve with dt=1. and compute electric field

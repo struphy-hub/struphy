@@ -176,7 +176,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         self.propagators.gc_poisson.options.sigma_3 = 1.0 / epsilon
         self.propagators.gc_poisson.options.stab_mat = "M0ad"
         self.propagators.gc_poisson.options.diffusion_mat = "M1perp"
-        self.propagators.gc_poisson.options.rho = rho
+        self.propagators.gc_poisson.rho = rho
         self.propagators.gc_poisson.allocate()
 
     def _compute_en_phi(self):

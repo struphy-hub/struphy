@@ -155,8 +155,8 @@ class ToyDrift(StruphyModel):
 
         self.propagators.gc_poisson.options.stab_eps = 0.0
         self.propagators.gc_poisson.options.stab_mat = "M0ad"
-        self.propagators.gc_poisson.options.rho = rho
-        self.propagators.gc_poisson.options.rho_coeffs = alpha**2 / epsilon
+        self.propagators.gc_poisson.rho = rho
+        self.propagators.gc_poisson.rho_coeffs = alpha**2 / epsilon
         self.propagators.gc_poisson.allocate()
 
         if particles.control_variate:
