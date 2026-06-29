@@ -203,7 +203,8 @@ class PressureLessSPH(StruphyModel):
             for line in f:
                 if "push_v.Options" in line:
                     new_file += ["phi = equil.p0\n"]
-                    new_file += ["model.propagators.push_v.options = model.propagators.push_v.Options(phi=phi)\n"]
+                    new_file += ["model.propagators.push_v.phi = phi\n"]
+                    new_file += [line]
                 else:
                     new_file += [line]
 
