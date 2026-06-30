@@ -110,6 +110,70 @@ class ViscousFluid(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    def allocate_helpers(self):
+        projV3 = L2Projector("L2", Propagator.mass_ops)
+
+        def f(e1, e2, e3):
+            return 1
+
+        f = xp.vectorize(f)
+        self._integrator = projV3(f)
+
+        self._energy_evaluator = InternalEnergyEvaluator(Propagator.derham, self.propagators.variat_ent.options.gamma)
+
+        self._ones = Propagator.derham.V3pol.zeros()
+        if isinstance(self._ones, PolarVector):
+            self._ones.tp[:] = 1.0
+        else:
+            self._ones[:] = 1.0
+
+    def update_thermo_energy(self):
+        """Reuse tmp used in VariationalEntropyEvolve to compute the thermodynamical energy.
+
+        :meta private:
+        """
+        rho = self.fluid.density.spline.vector
+        s = self.fluid.entropy.spline.vector
+        en_prop = self.propagators.variat_dens
+
+        self._energy_evaluator.sf.vector = s
+        self._energy_evaluator.rhof.vector = rho
+        sf_values = self._energy_evaluator.sf.eval_tp_fixed_loc(
+            self._energy_evaluator.integration_grid_spans,
+            self._energy_evaluator.integration_grid_bd,
+            out=self._energy_evaluator._sf_values,
+        )
+        rhof_values = self._energy_evaluator.rhof.eval_tp_fixed_loc(
+            self._energy_evaluator.integration_grid_spans,
+            self._energy_evaluator.integration_grid_bd,
+            out=self._energy_evaluator._rhof_values,
+        )
+        e = self._energy_evaluator.ener
+        ener_values = en_prop._proj_rho2_metric_term * e(rhof_values, sf_values)
+        en_prop._get_L2dofs_V3(ener_values, dofs=en_prop._linear_form_dl_drho)
+        en_thermo = self._integrator.inner(en_prop._linear_form_dl_drho)
+        return en_thermo
+
+    # default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "variat_dens.Options" in line:
+                    new_file += [
+                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='full')\n",
+                    ]
+                elif "entropy.add_background" in line:
+                    new_file += ["model.fluid.density.add_background(FieldsBackground())\n"]
+                    new_file += [line]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
+
     @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
@@ -212,67 +276,3 @@ class ViscousFluid(StruphyModel):
         - magnetic or MHD dynamics
         - inviscid strictly conservative benchmarks
         - kinetic particle effects"""
-
-    def allocate_helpers(self):
-        projV3 = L2Projector("L2", Propagator.mass_ops)
-
-        def f(e1, e2, e3):
-            return 1
-
-        f = xp.vectorize(f)
-        self._integrator = projV3(f)
-
-        self._energy_evaluator = InternalEnergyEvaluator(Propagator.derham, self.propagators.variat_ent.options.gamma)
-
-        self._ones = Propagator.derham.V3pol.zeros()
-        if isinstance(self._ones, PolarVector):
-            self._ones.tp[:] = 1.0
-        else:
-            self._ones[:] = 1.0
-
-    def update_thermo_energy(self):
-        """Reuse tmp used in VariationalEntropyEvolve to compute the thermodynamical energy.
-
-        :meta private:
-        """
-        rho = self.fluid.density.spline.vector
-        s = self.fluid.entropy.spline.vector
-        en_prop = self.propagators.variat_dens
-
-        self._energy_evaluator.sf.vector = s
-        self._energy_evaluator.rhof.vector = rho
-        sf_values = self._energy_evaluator.sf.eval_tp_fixed_loc(
-            self._energy_evaluator.integration_grid_spans,
-            self._energy_evaluator.integration_grid_bd,
-            out=self._energy_evaluator._sf_values,
-        )
-        rhof_values = self._energy_evaluator.rhof.eval_tp_fixed_loc(
-            self._energy_evaluator.integration_grid_spans,
-            self._energy_evaluator.integration_grid_bd,
-            out=self._energy_evaluator._rhof_values,
-        )
-        e = self._energy_evaluator.ener
-        ener_values = en_prop._proj_rho2_metric_term * e(rhof_values, sf_values)
-        en_prop._get_L2dofs_V3(ener_values, dofs=en_prop._linear_form_dl_drho)
-        en_thermo = self._integrator.inner(en_prop._linear_form_dl_drho)
-        return en_thermo
-
-    # default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "variat_dens.Options" in line:
-                    new_file += [
-                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='full')\n",
-                    ]
-                elif "entropy.add_background" in line:
-                    new_file += ["model.fluid.density.add_background(FieldsBackground())\n"]
-                    new_file += [line]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)

@@ -151,6 +151,9 @@ class ColdPlasma(StruphyModel):
     def velocity_scale(self):
         return "light"
 
+    def allocate_helpers(self):
+        pass
+
     @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
@@ -258,6 +261,3 @@ class ColdPlasma(StruphyModel):
         - kinetic resonances or velocity-space instabilities
         - multi-species hybrid or fully kinetic problems
         - collisional closures beyond the built-in cold-plasma approximation"""
-
-    def allocate_helpers(self):
-        pass

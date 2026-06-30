@@ -102,6 +102,9 @@ class Vlasov(StruphyModel):
     def velocity_scale(self):
         return "cyclotron"
 
+    def allocate_helpers(self):
+        pass
+
     @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
@@ -179,6 +182,3 @@ class Vlasov(StruphyModel):
         - collisional kinetic dynamics
         - guiding-center reduction studies
         - fluid or MHD-scale closures"""
-
-    def allocate_helpers(self):
-        pass

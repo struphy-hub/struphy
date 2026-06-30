@@ -247,6 +247,35 @@ class LinearMHDDriftkineticCC(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    def allocate_helpers(self):
+        self._ones = Propagator.projected_equil.p3.space.zeros()
+        if isinstance(self._ones, PolarVector):
+            self._ones.tp[:] = 1.0
+        else:
+            self._ones[:] = 1.0
+
+        self._en_fv = xp.empty(1, dtype=float)
+        self._en_fB = xp.empty(1, dtype=float)
+        self._en_tot = xp.empty(1, dtype=float)
+
+        self._PB = getattr(Propagator.basis_ops, "PB")
+        self._PBb = self._PB.codomain.zeros()
+
+    def _compute_en_fB(self):
+        Ab = self.mhd.mass_number
+        Ah = self.energetic_ions.var.species.mass_number
+        particles = self.energetic_ions.var.particles
+        self._PBb = self._PB.dot(self.em_fields.b_field.spline.vector)
+        particles.save_magnetic_energy(self._PBb)
+
+        return (
+            particles.markers[~particles.holes, 5].dot(
+                particles.markers[~particles.holes, 8],
+            )
+            * Ah
+            / Ab
+        )
+
     @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
@@ -409,32 +438,3 @@ class LinearMHDDriftkineticCC(StruphyModel):
         - nonlinear hybrid turbulence
         - resistive or viscous MHD closures
         - regimes where gyrophase resolution is required"""
-
-    def allocate_helpers(self):
-        self._ones = Propagator.projected_equil.p3.space.zeros()
-        if isinstance(self._ones, PolarVector):
-            self._ones.tp[:] = 1.0
-        else:
-            self._ones[:] = 1.0
-
-        self._en_fv = xp.empty(1, dtype=float)
-        self._en_fB = xp.empty(1, dtype=float)
-        self._en_tot = xp.empty(1, dtype=float)
-
-        self._PB = getattr(Propagator.basis_ops, "PB")
-        self._PBb = self._PB.codomain.zeros()
-
-    def _compute_en_fB(self):
-        Ab = self.mhd.mass_number
-        Ah = self.energetic_ions.var.species.mass_number
-        particles = self.energetic_ions.var.particles
-        self._PBb = self._PB.dot(self.em_fields.b_field.spline.vector)
-        particles.save_magnetic_energy(self._PBb)
-
-        return (
-            particles.markers[~particles.holes, 5].dot(
-                particles.markers[~particles.holes, 8],
-            )
-            * Ah
-            / Ab
-        )

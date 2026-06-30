@@ -105,6 +105,42 @@ class HasegawaWakatani(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    def update_rho(self):
+        omega = self.plasma.vorticity.spline.vector
+        self._rho = Propagator.mass_ops.M0.dot(omega, out=self._rho)
+        self._rho.update_ghost_regions()
+        return self._rho
+
+    def allocate_helpers(self):
+        """Solve initial Poisson equation.
+
+        :meta private:
+        """
+        self._rho: StencilVector = Propagator.derham.V0.zeros()
+        self.update_rho()
+
+        logger.info("\nINITIAL POISSON SOLVE:")
+
+        self.update_rho()
+        self.propagators.poisson(1.0)
+
+        logger.info("Done.")
+
+    # default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "vorticity.add_background" in line:
+                    new_file += ["model.plasma.density.add_background(FieldsBackground())\n"]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
+
     @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
@@ -200,39 +236,3 @@ class HasegawaWakatani(StruphyModel):
         - full kinetic Landau or cyclotron physics
         - multi-species warm-fluid closures beyond the reduced HW system
         - self-consistent magnetic-field evolution"""
-
-    def update_rho(self):
-        omega = self.plasma.vorticity.spline.vector
-        self._rho = Propagator.mass_ops.M0.dot(omega, out=self._rho)
-        self._rho.update_ghost_regions()
-        return self._rho
-
-    def allocate_helpers(self):
-        """Solve initial Poisson equation.
-
-        :meta private:
-        """
-        self._rho: StencilVector = Propagator.derham.V0.zeros()
-        self.update_rho()
-
-        logger.info("\nINITIAL POISSON SOLVE:")
-
-        self.update_rho()
-        self.propagators.poisson(1.0)
-
-        logger.info("Done.")
-
-    # default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "vorticity.add_background" in line:
-                    new_file += ["model.plasma.density.add_background(FieldsBackground())\n"]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)

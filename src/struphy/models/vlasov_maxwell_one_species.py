@@ -142,6 +142,105 @@ class VlasovMaxwellOneSpecies(StruphyModel):
     def velocity_scale(self):
         return "light"
 
+    def allocate_helpers(self):
+        """Solve initial Poisson equation.
+
+        :meta private:
+        """
+        self._tmp = xp.empty(1, dtype=float)
+
+        particles = self.kinetic_ions.var.particles
+
+        if self.measure_gauss_law:
+            self.op = Propagator.derham.grad.T @ Propagator.mass_ops.M1
+            self.subcom_residual = xp.empty(shape=particles.mpi_size, dtype=float)
+            self.intercom_residual = xp.empty(shape=particles.num_clones, dtype=float)
+
+        logger.info("\nINITIAL POISSON SOLVE:")
+
+        # use control variate method (reset weights after Poisson solve)
+        particles.update_weights()
+
+        # sanity check
+        # particles.show_distribution_function([True] + [False]*5, [xp.linspace(0, 1, 32)])
+
+        # accumulate charge density
+        self.charge_accum = AccumulatorVector(
+            particles,
+            "H1",
+            Pyccelkernel(accum_kernels.charge_density_0form),
+            Propagator.mass_ops,
+            Propagator.domain.args_domain,
+        )
+
+        # another sanity check: compute FE coeffs of density
+        # charge_accum.show_accumulated_spline_field(Propagator.mass_ops)
+
+        alpha = self.kinetic_ions.equation_params.alpha
+        epsilon = self.kinetic_ions.equation_params.epsilon
+
+        self.initial_poisson.rho = self.charge_accum
+        self.initial_poisson.rho_coeffs = alpha**2 / epsilon
+        self.initial_poisson.allocate()
+
+        # Solve with dt=1. and compute electric field
+        logger.info("Solving initial Poisson problem...")
+        self.initial_poisson(1.0)
+
+        phi = self.initial_poisson.variables.phi.spline.vector
+        Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
+        logger.info("... Done.")
+
+        # reset particle weights
+        particles.weights = particles.weights_at_t0.copy()
+
+    def calculate_gauss_error(self):
+        # control variate method
+        particles = self.kinetic_ions.var.particles
+        particles.update_weights()
+        self.charge_accum()
+        rhs = self.charge_accum.vectors[0]
+        # reset particle weights
+        particles.weights = particles.weights_at_t0.copy()
+
+        # non control variate method
+        e = self.em_fields.e_field.spline.vector
+        lhs = self.op.dot(e)
+
+        # calculate local residual of local MPI rank
+        loc_residual = xp.max(xp.abs(lhs.toarray() - rhs.toarray()))
+
+        # logger.info(f"{MPI.COMM_WORLD.Get_rank() = }, {xp.max(xp.abs(lhs.toarray())) = }")
+        # logger.info(f"{MPI.COMM_WORLD.Get_rank() = }, {xp.max(xp.abs(rhs.toarray())) = }")
+        # logger.info(f"{loc_residual = }")
+
+        # return the maximum residual across all MPI rank
+        particles._gather_scalar_in_subcomm_array(scalar=loc_residual, out=self.subcom_residual)
+        particles._gather_scalar_in_intercomm_array(scalar=loc_residual, out=self.intercom_residual)
+
+        return xp.max([xp.max(self.subcom_residual), xp.max(self.intercom_residual)])
+
+    ## default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "coupling_va.Options" in line:
+                    new_file += [line]
+                    new_file += ["model.initial_poisson.options = model.initial_poisson.Options()\n"]
+                elif "saving_params = " in line:
+                    new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
+                    new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
+                elif "VlasovMaxwellOneSpecies()" in line:
+                    new_file += ["\nmodel = VlasovMaxwellOneSpecies(measure_gauss_law=True)\n"]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
+
     @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
@@ -268,102 +367,3 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         - collisional kinetic closures
         - reduced electrostatic-only models where magnetic evolution is unnecessary
         - linearized delta-f studies that should use the dedicated linear models"""
-
-    def allocate_helpers(self):
-        """Solve initial Poisson equation.
-
-        :meta private:
-        """
-        self._tmp = xp.empty(1, dtype=float)
-
-        particles = self.kinetic_ions.var.particles
-
-        if self.measure_gauss_law:
-            self.op = Propagator.derham.grad.T @ Propagator.mass_ops.M1
-            self.subcom_residual = xp.empty(shape=particles.mpi_size, dtype=float)
-            self.intercom_residual = xp.empty(shape=particles.num_clones, dtype=float)
-
-        logger.info("\nINITIAL POISSON SOLVE:")
-
-        # use control variate method (reset weights after Poisson solve)
-        particles.update_weights()
-
-        # sanity check
-        # particles.show_distribution_function([True] + [False]*5, [xp.linspace(0, 1, 32)])
-
-        # accumulate charge density
-        self.charge_accum = AccumulatorVector(
-            particles,
-            "H1",
-            Pyccelkernel(accum_kernels.charge_density_0form),
-            Propagator.mass_ops,
-            Propagator.domain.args_domain,
-        )
-
-        # another sanity check: compute FE coeffs of density
-        # charge_accum.show_accumulated_spline_field(Propagator.mass_ops)
-
-        alpha = self.kinetic_ions.equation_params.alpha
-        epsilon = self.kinetic_ions.equation_params.epsilon
-
-        self.initial_poisson.rho = self.charge_accum
-        self.initial_poisson.rho_coeffs = alpha**2 / epsilon
-        self.initial_poisson.allocate()
-
-        # Solve with dt=1. and compute electric field
-        logger.info("Solving initial Poisson problem...")
-        self.initial_poisson(1.0)
-
-        phi = self.initial_poisson.variables.phi.spline.vector
-        Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
-        logger.info("... Done.")
-
-        # reset particle weights
-        particles.weights = particles.weights_at_t0.copy()
-
-    def calculate_gauss_error(self):
-        # control variate method
-        particles = self.kinetic_ions.var.particles
-        particles.update_weights()
-        self.charge_accum()
-        rhs = self.charge_accum.vectors[0]
-        # reset particle weights
-        particles.weights = particles.weights_at_t0.copy()
-
-        # non control variate method
-        e = self.em_fields.e_field.spline.vector
-        lhs = self.op.dot(e)
-
-        # calculate local residual of local MPI rank
-        loc_residual = xp.max(xp.abs(lhs.toarray() - rhs.toarray()))
-
-        # logger.info(f"{MPI.COMM_WORLD.Get_rank() = }, {xp.max(xp.abs(lhs.toarray())) = }")
-        # logger.info(f"{MPI.COMM_WORLD.Get_rank() = }, {xp.max(xp.abs(rhs.toarray())) = }")
-        # logger.info(f"{loc_residual = }")
-
-        # return the maximum residual across all MPI rank
-        particles._gather_scalar_in_subcomm_array(scalar=loc_residual, out=self.subcom_residual)
-        particles._gather_scalar_in_intercomm_array(scalar=loc_residual, out=self.intercom_residual)
-
-        return xp.max([xp.max(self.subcom_residual), xp.max(self.intercom_residual)])
-
-    ## default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "coupling_va.Options" in line:
-                    new_file += [line]
-                    new_file += ["model.initial_poisson.options = model.initial_poisson.Options()\n"]
-                elif "saving_params = " in line:
-                    new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
-                    new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
-                elif "VlasovMaxwellOneSpecies()" in line:
-                    new_file += ["\nmodel = VlasovMaxwellOneSpecies(measure_gauss_law=True)\n"]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)

@@ -100,6 +100,32 @@ class PressureLessSPH(StruphyModel):
     def velocity_scale(self):
         return None
 
+    # @staticmethod
+    # def diagnostics_dct():
+    #     dct = {}
+    #     dct["projected_density"] = "L2"
+    #     return dct
+
+    def allocate_helpers(self):
+        pass
+
+    ## default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "push_v.Options" in line:
+                    new_file += ["phi = equil.p0\n"]
+                    new_file += ["model.propagators.push_v.phi = phi\n"]
+                    new_file += [line]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
+
     @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
@@ -185,29 +211,3 @@ class PressureLessSPH(StruphyModel):
         - FEEC-based grid discretizations
         - electromagnetic plasma dynamics
         - viscous or thermal closures"""
-
-    # @staticmethod
-    # def diagnostics_dct():
-    #     dct = {}
-    #     dct["projected_density"] = "L2"
-    #     return dct
-
-    def allocate_helpers(self):
-        pass
-
-    ## default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "push_v.Options" in line:
-                    new_file += ["phi = equil.p0\n"]
-                    new_file += ["model.propagators.push_v.phi = phi\n"]
-                    new_file += [line]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)

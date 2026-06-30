@@ -158,6 +158,61 @@ class LinearExtendedMHDuniform(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    def allocate_helpers(self):
+        self._b_eq = Propagator.projected_equil.b1
+        self._a_eq = Propagator.projected_equil.a1
+        self._p_eq = Propagator.projected_equil.p3
+
+        self._ones = Propagator.projected_equil.p3.space.zeros()
+        if isinstance(self._ones, PolarVector):
+            self._ones.tp[:] = 1.0
+        else:
+            self._ones[:] = 1.0
+
+        self._tmp_b1: BlockVector = Propagator.derham.V1.zeros()
+        self._tmp_b2: BlockVector = Propagator.derham.V1.zeros()
+
+        # adjust coupling parameters
+        epsilon = self.mhd.equation_params.epsilon
+
+        if abs(epsilon - 1) < 1e-6:
+            self.mhd.equation_params.epsilon = 1.0
+
+    def _compute_helicity(self):
+        u = self.mhd.velocity.spline.vector
+        p = self.mhd.pressure.spline.vector
+        b = self.em_fields.b_field.spline.vector
+
+        b1 = Propagator.mass_ops.M1.dot(b, out=self._tmp_b1)
+        return 2.0 * self._a_eq.inner(b1)
+
+    def _compute_en_B_eq(self):
+        b1 = Propagator.mass_ops.M1.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
+        return self._b_eq.inner(b1) / 2.0
+
+    def _compute_en_p_eq(self):
+        return self._p_eq.inner(self._ones) / (5.0 / 3.0 - 1.0)
+
+    def _compute_en_B_tot(self):
+        b = self.em_fields.b_field.spline.vector
+        b1 = self._b_eq.copy(out=self._tmp_b1)
+        self._tmp_b1 += b
+
+        b2 = Propagator.mass_ops.M1.dot(b1, apply_bc=False, out=self._tmp_b2)
+        return b1.inner(b2) / 2.0
+
+    # default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
+
     @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
@@ -272,58 +327,3 @@ class LinearExtendedMHDuniform(StruphyModel):
         - non-uniform equilibrium configurations
         - kinetic ion/electron effects beyond the Hall correction
         - dissipation-dominated problems with explicit viscosity or resistivity"""
-
-    def allocate_helpers(self):
-        self._b_eq = Propagator.projected_equil.b1
-        self._a_eq = Propagator.projected_equil.a1
-        self._p_eq = Propagator.projected_equil.p3
-
-        self._ones = Propagator.projected_equil.p3.space.zeros()
-        if isinstance(self._ones, PolarVector):
-            self._ones.tp[:] = 1.0
-        else:
-            self._ones[:] = 1.0
-
-        self._tmp_b1: BlockVector = Propagator.derham.V1.zeros()
-        self._tmp_b2: BlockVector = Propagator.derham.V1.zeros()
-
-        # adjust coupling parameters
-        epsilon = self.mhd.equation_params.epsilon
-
-        if abs(epsilon - 1) < 1e-6:
-            self.mhd.equation_params.epsilon = 1.0
-
-    def _compute_helicity(self):
-        u = self.mhd.velocity.spline.vector
-        p = self.mhd.pressure.spline.vector
-        b = self.em_fields.b_field.spline.vector
-
-        b1 = Propagator.mass_ops.M1.dot(b, out=self._tmp_b1)
-        return 2.0 * self._a_eq.inner(b1)
-
-    def _compute_en_B_eq(self):
-        b1 = Propagator.mass_ops.M1.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
-        return self._b_eq.inner(b1) / 2.0
-
-    def _compute_en_p_eq(self):
-        return self._p_eq.inner(self._ones) / (5.0 / 3.0 - 1.0)
-
-    def _compute_en_B_tot(self):
-        b = self.em_fields.b_field.spline.vector
-        b1 = self._b_eq.copy(out=self._tmp_b1)
-        self._tmp_b1 += b
-
-        b2 = Propagator.mass_ops.M1.dot(b1, apply_bc=False, out=self._tmp_b2)
-        return b1.inner(b2) / 2.0
-
-    # default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)

@@ -131,6 +131,20 @@ class GuidingCenter(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    def allocate_helpers(self):
+        pass
+
+    def _compute_en_fB(self):
+        particles = self.kinetic_ions.var.particles
+        particles.save_magnetic_background_energy()
+        energy = (
+            particles.markers[~particles.holes, 5].dot(
+                particles.markers[~particles.holes, 8],
+            )
+            / particles.Np
+        )
+        return energy
+
     @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
@@ -220,17 +234,3 @@ class GuidingCenter(StruphyModel):
         - full-orbit particle dynamics with resolved gyrophase
         - collisional transport or source terms not present in the equation
         - fluid closures or MHD force balance"""
-
-    def allocate_helpers(self):
-        pass
-
-    def _compute_en_fB(self):
-        particles = self.kinetic_ions.var.particles
-        particles.save_magnetic_background_energy()
-        energy = (
-            particles.markers[~particles.holes, 5].dot(
-                particles.markers[~particles.holes, 8],
-            )
-            / particles.Np
-        )
-        return energy

@@ -85,6 +85,9 @@ class RandomParticleDiffusion(StruphyModel):
     def velocity_scale(self):
         return None
 
+    def allocate_helpers(self):
+        pass
+
     @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
@@ -158,6 +161,3 @@ class RandomParticleDiffusion(StruphyModel):
         - electromagnetic or fluid plasma dynamics
         - deterministic advection-dominated transport
         - anisotropic plasma kinetics in phase space"""
-
-    def allocate_helpers(self):
-        pass

@@ -173,6 +173,65 @@ class ViscoResistiveLinearMHD(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    def allocate_helpers(self):
+        projV3 = L2Projector("L2", Propagator.mass_ops)
+
+        def f(e1, e2, e3):
+            return 1
+
+        f = xp.vectorize(f)
+        self._integrator = projV3(f)
+
+        self._ones = Propagator.derham.V3pol.zeros()
+        if isinstance(self._ones, PolarVector):
+            self._ones.tp[:] = 1.0
+        else:
+            self._ones[:] = 1.0
+
+        self._tmp_div_B = Propagator.derham.V3pol.zeros()
+
+    def _compute_en_thermo(self):
+        pt3 = self.propagators.variat_pb.pt3.spline.vector
+        gamma = self.propagators.variat_pb.options.gamma
+        return Propagator.mass_ops.M3.dot_inner(pt3, self._integrator) / (gamma - 1.0)
+
+    def _compute_en_thermo_l1(self):
+        p = self.mhd.pressure.spline.vector
+        gamma = self.propagators.variat_pb.options.gamma
+        return Propagator.mass_ops.M3.dot_inner(p, self._integrator) / (gamma - 1.0)
+
+    # default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "variat_dens.Options" in line:
+                    new_file += [
+                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='linear')\n",
+                    ]
+                elif "variat_pb.Options" in line:
+                    new_file += [
+                        "model.propagators.variat_pb.options = model.propagators.variat_pb.Options(model='linear')\n",
+                    ]
+                elif "variat_viscous.Options" in line:
+                    new_file += [
+                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='linear_p')\n",
+                    ]
+                elif "variat_resist.Options" in line:
+                    new_file += [
+                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='linear_p')\n",
+                    ]
+                elif "pressure.add_background" in line:
+                    new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
+                    new_file += [line]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
+
     @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
@@ -287,62 +346,3 @@ class ViscoResistiveLinearMHD(StruphyModel):
         - fully kinetic plasma effects
         - entropy- or q-based thermodynamic formulations
         - ideal MHD benchmarks where dissipation must be absent by construction"""
-
-    def allocate_helpers(self):
-        projV3 = L2Projector("L2", Propagator.mass_ops)
-
-        def f(e1, e2, e3):
-            return 1
-
-        f = xp.vectorize(f)
-        self._integrator = projV3(f)
-
-        self._ones = Propagator.derham.V3pol.zeros()
-        if isinstance(self._ones, PolarVector):
-            self._ones.tp[:] = 1.0
-        else:
-            self._ones[:] = 1.0
-
-        self._tmp_div_B = Propagator.derham.V3pol.zeros()
-
-    def _compute_en_thermo(self):
-        pt3 = self.propagators.variat_pb.pt3.spline.vector
-        gamma = self.propagators.variat_pb.options.gamma
-        return Propagator.mass_ops.M3.dot_inner(pt3, self._integrator) / (gamma - 1.0)
-
-    def _compute_en_thermo_l1(self):
-        p = self.mhd.pressure.spline.vector
-        gamma = self.propagators.variat_pb.options.gamma
-        return Propagator.mass_ops.M3.dot_inner(p, self._integrator) / (gamma - 1.0)
-
-    # default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "variat_dens.Options" in line:
-                    new_file += [
-                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='linear')\n",
-                    ]
-                elif "variat_pb.Options" in line:
-                    new_file += [
-                        "model.propagators.variat_pb.options = model.propagators.variat_pb.Options(model='linear')\n",
-                    ]
-                elif "variat_viscous.Options" in line:
-                    new_file += [
-                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='linear_p')\n",
-                    ]
-                elif "variat_resist.Options" in line:
-                    new_file += [
-                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='linear_p')\n",
-                    ]
-                elif "pressure.add_background" in line:
-                    new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
-                    new_file += [line]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)

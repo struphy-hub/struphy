@@ -92,6 +92,29 @@ class VariationalPressurelessFluid(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    def allocate_helpers(self):
+        pass
+
+    # default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "variat_dens.Options" in line:
+                    new_file += [
+                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='pressureless')\n",
+                    ]
+                elif "velocity.add_background" in line:
+                    new_file += ["model.fluid.density.add_background(FieldsBackground())\n"]
+                    new_file += [line]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
+
     @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
@@ -176,26 +199,3 @@ class VariationalPressurelessFluid(StruphyModel):
         - magnetic-field coupling
         - viscous/resistive dissipation
         - kinetic particle physics"""
-
-    def allocate_helpers(self):
-        pass
-
-    # default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "variat_dens.Options" in line:
-                    new_file += [
-                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='pressureless')\n",
-                    ]
-                elif "velocity.add_background" in line:
-                    new_file += ["model.fluid.density.add_background(FieldsBackground())\n"]
-                    new_file += [line]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)

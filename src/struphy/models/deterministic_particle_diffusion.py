@@ -86,6 +86,9 @@ class DeterministicParticleDiffusion(StruphyModel):
     def velocity_scale(self):
         return None
 
+    def allocate_helpers(self):
+        pass
+
     @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
@@ -164,6 +167,3 @@ class DeterministicParticleDiffusion(StruphyModel):
         - kinetic Vlasov problems in phase space
         - nonlinear fluid systems with pressure or momentum evolution
         - diffusion tensors outside the currently supported simplified forms"""
-
-    def allocate_helpers(self):
-        pass

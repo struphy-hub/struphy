@@ -202,6 +202,103 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
     def velocity_scale(self):
         return "light"
 
+    def allocate_helpers(self):
+        """Solve initial Poisson equation.
+
+        :meta private:
+        """
+        self._tmp = xp.empty(1, dtype=float)
+
+        logger.info("\nINITIAL POISSON SOLVE:")
+
+        # use control variate method
+        particles = self.kinetic_ions.var.particles
+        particles.update_weights()
+
+        # sanity check
+        # self.pointer['species1'].show_distribution_function(
+        #     [True] + [False]*5, [xp.linspace(0, 1, 32)])
+
+        # accumulate charge density
+        charge_accum = AccumulatorVector(
+            particles,
+            "H1",
+            Pyccelkernel(accum_kernels.charge_density_0form),
+            Propagator.mass_ops,
+            Propagator.domain.args_domain,
+        )
+
+        # another sanity check: compute FE coeffs of density
+        # charge_accum.show_accumulated_spline_field(Propagator.mass_ops)
+
+        alpha = self.kinetic_ions.equation_params.alpha
+        epsilon = self.kinetic_ions.equation_params.epsilon
+
+        self.initial_poisson.rho = charge_accum
+        self.initial_poisson.rho_coeffs = alpha**2 / epsilon
+        self.initial_poisson.allocate()
+
+        # Solve with dt=1. and compute electric field
+        logger.info("\nSolving initial Poisson problem...")
+        self.initial_poisson(1.0)
+
+        phi = self.initial_poisson.variables.phi.spline.vector
+        Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
+        logger.info("... Done.")
+
+    def _compute_en_w(self):
+        particles = self.kinetic_ions.var.particles
+
+        # evaluate f0
+        if not hasattr(self, "_f0"):
+            backgrounds = self.kinetic_ions.var.backgrounds
+            if isinstance(backgrounds, list):
+                self._f0 = backgrounds[0]
+            else:
+                self._f0 = backgrounds
+            self._f0_values = xp.zeros(
+                self.kinetic_ions.var.particles.markers.shape[0],
+                dtype=float,
+            )
+            assert isinstance(self._f0, Maxwellian3D)
+
+        self._f0_values[particles.valid_mks] = self._f0(*particles.phasespace_coords.T)
+
+        # alpha^2 * v_th^2 / (2*N) * sum_p s_0 * w_p^2 / f_{0,p}
+        alpha = self.kinetic_ions.equation_params.alpha
+        vth = self._f0.params["vth1"][0]
+
+        self._tmp[0] = (
+            alpha**2
+            * vth**2
+            / (2 * particles.Np)
+            * xp.dot(
+                particles.weights**2,  # w_p^2
+                particles.sampling_density / self._f0_values[particles.valid_mks],  # s_{0,p} / f_{0,p}
+            )
+        )
+        return self._tmp[0]
+
+    ## default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "maxwellian_1 + maxwellian_2" in line:
+                    new_file += ["background = maxwellian_1\n"]
+                elif "maxwellian_1pt =" in line:
+                    new_file += ["maxwellian_1pt = maxwellians.Maxwellian3D(n=(0.0, perturbation))\n"]
+                elif "saving_params = " in line:
+                    new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
+                    new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
+
     @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
@@ -330,100 +427,3 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         - multi-species kinetic coupling
         - fully electromagnetic magnetic-field evolution
         - equilibria that are not compatible with the built-in Maxwellian assumptions"""
-
-    def allocate_helpers(self):
-        """Solve initial Poisson equation.
-
-        :meta private:
-        """
-        self._tmp = xp.empty(1, dtype=float)
-
-        logger.info("\nINITIAL POISSON SOLVE:")
-
-        # use control variate method
-        particles = self.kinetic_ions.var.particles
-        particles.update_weights()
-
-        # sanity check
-        # self.pointer['species1'].show_distribution_function(
-        #     [True] + [False]*5, [xp.linspace(0, 1, 32)])
-
-        # accumulate charge density
-        charge_accum = AccumulatorVector(
-            particles,
-            "H1",
-            Pyccelkernel(accum_kernels.charge_density_0form),
-            Propagator.mass_ops,
-            Propagator.domain.args_domain,
-        )
-
-        # another sanity check: compute FE coeffs of density
-        # charge_accum.show_accumulated_spline_field(Propagator.mass_ops)
-
-        alpha = self.kinetic_ions.equation_params.alpha
-        epsilon = self.kinetic_ions.equation_params.epsilon
-
-        self.initial_poisson.rho = charge_accum
-        self.initial_poisson.rho_coeffs = alpha**2 / epsilon
-        self.initial_poisson.allocate()
-
-        # Solve with dt=1. and compute electric field
-        logger.info("\nSolving initial Poisson problem...")
-        self.initial_poisson(1.0)
-
-        phi = self.initial_poisson.variables.phi.spline.vector
-        Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
-        logger.info("... Done.")
-
-    def _compute_en_w(self):
-        particles = self.kinetic_ions.var.particles
-
-        # evaluate f0
-        if not hasattr(self, "_f0"):
-            backgrounds = self.kinetic_ions.var.backgrounds
-            if isinstance(backgrounds, list):
-                self._f0 = backgrounds[0]
-            else:
-                self._f0 = backgrounds
-            self._f0_values = xp.zeros(
-                self.kinetic_ions.var.particles.markers.shape[0],
-                dtype=float,
-            )
-            assert isinstance(self._f0, Maxwellian3D)
-
-        self._f0_values[particles.valid_mks] = self._f0(*particles.phasespace_coords.T)
-
-        # alpha^2 * v_th^2 / (2*N) * sum_p s_0 * w_p^2 / f_{0,p}
-        alpha = self.kinetic_ions.equation_params.alpha
-        vth = self._f0.params["vth1"][0]
-
-        self._tmp[0] = (
-            alpha**2
-            * vth**2
-            / (2 * particles.Np)
-            * xp.dot(
-                particles.weights**2,  # w_p^2
-                particles.sampling_density / self._f0_values[particles.valid_mks],  # s_{0,p} / f_{0,p}
-            )
-        )
-        return self._tmp[0]
-
-    ## default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "maxwellian_1 + maxwellian_2" in line:
-                    new_file += ["background = maxwellian_1\n"]
-                elif "maxwellian_1pt =" in line:
-                    new_file += ["maxwellian_1pt = maxwellians.Maxwellian3D(n=(0.0, perturbation))\n"]
-                elif "saving_params = " in line:
-                    new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
-                    new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)

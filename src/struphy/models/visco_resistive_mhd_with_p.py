@@ -168,6 +168,49 @@ class ViscoResistiveMHD_with_p(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    def allocate_helpers(self):
+        projV3 = L2Projector("L2", Propagator.mass_ops)
+
+        def f(e1, e2, e3):
+            return 1
+
+        f = xp.vectorize(f)
+        self._integrator = projV3(f)
+
+        self._ones = Propagator.derham.V3pol.zeros()
+        if isinstance(self._ones, PolarVector):
+            self._ones.tp[:] = 1.0
+        else:
+            self._ones[:] = 1.0
+
+        self._tmp_div_B = Propagator.derham.V3pol.zeros()
+
+    def _compute_en_thermo(self):
+        p = self.mhd.pressure.spline.vector
+        gamma = self.propagators.variat_pb.options.gamma
+        return Propagator.mass_ops.M3.dot_inner(p, self._integrator) / (gamma - 1.0)
+
+    def _compute_tot_div_B(self):
+        b = self.em_fields.b_field.spline.vector
+        div_B = Propagator.derham.div.dot(b, out=self._tmp_div_B)
+        return Propagator.mass_ops.M3.dot_inner(div_B, div_B)
+
+    # default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "pressure.add_background" in line:
+                    new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
+                    new_file += [line]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
+
     @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
@@ -286,46 +329,3 @@ class ViscoResistiveMHD_with_p(StruphyModel):
         - kinetic plasma physics
         - reduced linear perturbation studies
         - thermodynamic formulations that require entropy or q as primitive variables"""
-
-    def allocate_helpers(self):
-        projV3 = L2Projector("L2", Propagator.mass_ops)
-
-        def f(e1, e2, e3):
-            return 1
-
-        f = xp.vectorize(f)
-        self._integrator = projV3(f)
-
-        self._ones = Propagator.derham.V3pol.zeros()
-        if isinstance(self._ones, PolarVector):
-            self._ones.tp[:] = 1.0
-        else:
-            self._ones[:] = 1.0
-
-        self._tmp_div_B = Propagator.derham.V3pol.zeros()
-
-    def _compute_en_thermo(self):
-        p = self.mhd.pressure.spline.vector
-        gamma = self.propagators.variat_pb.options.gamma
-        return Propagator.mass_ops.M3.dot_inner(p, self._integrator) / (gamma - 1.0)
-
-    def _compute_tot_div_B(self):
-        b = self.em_fields.b_field.spline.vector
-        div_B = Propagator.derham.div.dot(b, out=self._tmp_div_B)
-        return Propagator.mass_ops.M3.dot_inner(div_B, div_B)
-
-    # default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "pressure.add_background" in line:
-                    new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
-                    new_file += [line]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)

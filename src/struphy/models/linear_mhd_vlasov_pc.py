@@ -212,6 +212,13 @@ class LinearMHDVlasovPC(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    def allocate_helpers(self):
+        self._ones = Propagator.projected_equil.p3.space.zeros()
+        if isinstance(self._ones, PolarVector):
+            self._ones.tp[:] = 1.0
+        else:
+            self._ones[:] = 1.0
+
     @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
@@ -345,10 +352,3 @@ class LinearMHDVlasovPC(StruphyModel):
         - nonlinear hybrid turbulence
         - dissipative/resistive MHD
         - fully kinetic treatment of the bulk plasma"""
-
-    def allocate_helpers(self):
-        self._ones = Propagator.projected_equil.p3.space.zeros()
-        if isinstance(self._ones, PolarVector):
-            self._ones.tp[:] = 1.0
-        else:
-            self._ones[:] = 1.0

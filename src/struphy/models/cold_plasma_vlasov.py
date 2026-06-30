@@ -215,6 +215,67 @@ class ColdPlasmaVlasov(StruphyModel):
     def velocity_scale(self):
         return "light"
 
+    def allocate_helpers(self):
+        """Solve initial Poisson equation.
+
+        :meta private:
+        """
+        logger.info("\nINITIAL POISSON SOLVE:")
+
+        # use control variate method
+        particles = self.hot_elec.var.particles
+        particles.update_weights()
+
+        # sanity check
+        # self.pointer['species1'].show_distribution_function(
+        #     [True] + [False]*5, [xp.linspace(0, 1, 32)])
+
+        # accumulate charge density
+        charge_accum = AccumulatorVector(
+            particles,
+            "H1",
+            Pyccelkernel(accum_kernels.charge_density_0form),
+            Propagator.mass_ops,
+            Propagator.domain.args_domain,
+        )
+
+        # another sanity check: compute FE coeffs of density
+        # charge_accum.show_accumulated_spline_field(Propagator.mass_ops)
+
+        alpha = self.hot_elec.equation_params.alpha
+        epsilon = self.hot_elec.equation_params.epsilon
+
+        self.initial_poisson.rho = charge_accum
+        self.initial_poisson.rho_coeffs = alpha**2 / epsilon
+        self.initial_poisson.allocate()
+
+        # Solve with dt=1. and compute electric field
+        logger.info("\nSolving initial Poisson problem...")
+        self.initial_poisson(1.0)
+
+        phi = self.initial_poisson.variables.phi.spline.vector
+        Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
+        logger.info("... Done.")
+
+    ## default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "coupling_va.Options" in line:
+                    new_file += [line]
+                    new_file += ["model.initial_poisson.options = model.initial_poisson.Options()\n"]
+                elif "saving_params = " in line:
+                    new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
+                    new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
+
     @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
@@ -351,64 +412,3 @@ class ColdPlasmaVlasov(StruphyModel):
         - all-species kinetic simulations
         - collision operators or detailed dissipative closures
         - electrostatic-only reductions where magnetic evolution is irrelevant"""
-
-    def allocate_helpers(self):
-        """Solve initial Poisson equation.
-
-        :meta private:
-        """
-        logger.info("\nINITIAL POISSON SOLVE:")
-
-        # use control variate method
-        particles = self.hot_elec.var.particles
-        particles.update_weights()
-
-        # sanity check
-        # self.pointer['species1'].show_distribution_function(
-        #     [True] + [False]*5, [xp.linspace(0, 1, 32)])
-
-        # accumulate charge density
-        charge_accum = AccumulatorVector(
-            particles,
-            "H1",
-            Pyccelkernel(accum_kernels.charge_density_0form),
-            Propagator.mass_ops,
-            Propagator.domain.args_domain,
-        )
-
-        # another sanity check: compute FE coeffs of density
-        # charge_accum.show_accumulated_spline_field(Propagator.mass_ops)
-
-        alpha = self.hot_elec.equation_params.alpha
-        epsilon = self.hot_elec.equation_params.epsilon
-
-        self.initial_poisson.rho = charge_accum
-        self.initial_poisson.rho_coeffs = alpha**2 / epsilon
-        self.initial_poisson.allocate()
-
-        # Solve with dt=1. and compute electric field
-        logger.info("\nSolving initial Poisson problem...")
-        self.initial_poisson(1.0)
-
-        phi = self.initial_poisson.variables.phi.spline.vector
-        Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
-        logger.info("... Done.")
-
-    ## default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "coupling_va.Options" in line:
-                    new_file += [line]
-                    new_file += ["model.initial_poisson.options = model.initial_poisson.Options()\n"]
-                elif "saving_params = " in line:
-                    new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
-                    new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)

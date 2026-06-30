@@ -203,6 +203,38 @@ class LinearMHDVlasovCC(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    def allocate_helpers(self):
+        self._ones = Propagator.projected_equil.p3.space.zeros()
+        if isinstance(self._ones, PolarVector):
+            self._ones.tp[:] = 1.0
+        else:
+            self._ones[:] = 1.0
+
+        self._tmp = xp.empty(1, dtype=float)
+
+        # add control variate to mass_ops object
+        if self.energetic_ions.var.particles.control_variate:
+            Propagator.mass_ops.weights["f0"] = self.energetic_ions.var.particles.f0
+
+        self._Ah = self.energetic_ions.mass_number
+        self._Ab = self.mhd.mass_number
+
+    ## default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "saving_params = " in line:
+                    new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
+                    new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
+
     @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
@@ -343,35 +375,3 @@ class LinearMHDVlasovCC(StruphyModel):
         - full multi-species kinetic plasma evolution
         - pressure-coupling closures
         - collisional or dissipative MHD effects not present in the equations"""
-
-    def allocate_helpers(self):
-        self._ones = Propagator.projected_equil.p3.space.zeros()
-        if isinstance(self._ones, PolarVector):
-            self._ones.tp[:] = 1.0
-        else:
-            self._ones[:] = 1.0
-
-        self._tmp = xp.empty(1, dtype=float)
-
-        # add control variate to mass_ops object
-        if self.energetic_ions.var.particles.control_variate:
-            Propagator.mass_ops.weights["f0"] = self.energetic_ions.var.particles.f0
-
-        self._Ah = self.energetic_ions.mass_number
-        self._Ab = self.mhd.mass_number
-
-    ## default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "saving_params = " in line:
-                    new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
-                    new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)

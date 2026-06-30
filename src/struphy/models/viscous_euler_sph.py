@@ -93,6 +93,32 @@ class ViscousEulerSPH(StruphyModel):
     def velocity_scale(self):
         return "thermal"
 
+    def allocate_helpers(self):
+        pass
+
+    ## default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "push_vxb.Options" in line:
+                    new_file += ["if model.with_B0:\n"]
+                    new_file += ["    " + line]
+                elif "saving_params = " in line:
+                    new_file += ["\nkd_plot = KernelDensityPlot()\n"]
+                    new_file += ["saving_params = SavingParameters(kernel_density_plots=(kd_plot,))\n\n"]
+                elif "sorting_params = " in line:
+                    new_file += ["sorting_params = SortingParameters(boxes_per_dim=(12, 12, 1))\n\n"]
+                elif "base_units = BaseUnits" in line:
+                    new_file += ["base_units = BaseUnits(kBT=1.0)\n"]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
+
     @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
@@ -212,29 +238,3 @@ class ViscousEulerSPH(StruphyModel):
         - entropy-resolved thermodynamic evolution
         - kinetic plasma physics
         - studies that require exact field-based conservation structures"""
-
-    def allocate_helpers(self):
-        pass
-
-    ## default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "push_vxb.Options" in line:
-                    new_file += ["if model.with_B0:\n"]
-                    new_file += ["    " + line]
-                elif "saving_params = " in line:
-                    new_file += ["\nkd_plot = KernelDensityPlot()\n"]
-                    new_file += ["saving_params = SavingParameters(kernel_density_plots=(kd_plot,))\n\n"]
-                elif "sorting_params = " in line:
-                    new_file += ["sorting_params = SortingParameters(boxes_per_dim=(12, 12, 1))\n\n"]
-                elif "base_units = BaseUnits" in line:
-                    new_file += ["base_units = BaseUnits(kBT=1.0)\n"]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)
