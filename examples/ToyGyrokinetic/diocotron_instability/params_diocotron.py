@@ -139,7 +139,7 @@ model.kinetic_ions.set_markers(loading_params=loading_params,
 # ------------------
 
 model.propagators.gc_poisson.options = model.propagators.gc_poisson.Options()
-model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(algo="explicit", phi=model.em_fields.phi, evaluate_e_field=True)
+model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(algo="explicit", evaluate_e_field=True)
 
 # ------------------
 # Initial conditions
