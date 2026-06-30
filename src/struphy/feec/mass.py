@@ -2025,6 +2025,8 @@ class WeightedMassOperator(LinOpWithTransp):
 
                     # assemble matrix (if mat_w is not zero) by calling the appropriate kernel (1d, 2d or 3d)
                     if not_weight_zero or self._is_scalar:
+                        if mat_w is None:
+                            mat_w = xp.zeros(tuple([pt.size for pt in pts]))
                         # get cell of block matrix (don't instantiate if all zeros)
                         if self._is_scalar:
                             mat = self._mat
