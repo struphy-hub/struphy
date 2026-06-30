@@ -77,10 +77,16 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self):
-            self.gc_poisson = PoissonAdiabaticGyrokinetic()
-            self.push_gc_bxe = PushGuidingCenterBxEstar()
-            self.push_gc_para = PushGuidingCenterParallel()
+        def __init__(
+            self,
+            phi: FEECVariable = None,
+            rho: AccumulatorVector = None,
+            epsilon: float = 1.0,
+            Z: int = 1,
+        ):
+            self.gc_poisson = PoissonAdiabaticGyrokinetic(rho=rho, epsilon=epsilon, Z=Z)
+            self.push_gc_bxe = PushGuidingCenterBxEstar(phi=phi)
+            self.push_gc_para = PushGuidingCenterParallel(phi=phi)
 
     ## abstract methods
 
@@ -109,7 +115,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators()
+        self.propagators = self.Propagators(phi=self.em_fields.phi, rho=None, epsilon=epsilon, Z=charge_number)
 
         # 4. assign variables to propagators
         self.propagators.gc_poisson.variables.phi = self.em_fields.phi
@@ -173,13 +179,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
             rho = [rho]
             rho += [rho_eh]
 
-        self.propagators.gc_poisson.options.sigma_1 = 1.0 / epsilon**2 / Z
-        self.propagators.gc_poisson.options.sigma_2 = 0.0
-        self.propagators.gc_poisson.options.sigma_3 = 1.0 / epsilon
-        self.propagators.gc_poisson.options.stab_mat = "M0ad_withT"
-        self.propagators.gc_poisson.options.diffusion_mat = "M1gyro"
-        self.propagators.gc_poisson.options.rho = rho
-        self.propagators.gc_poisson.options.divide_by_dt = False
+        self.propagators.gc_poisson.rho = rho
         self.propagators.gc_poisson.allocate()
         self.propagators.gc_poisson(1.0)
 
@@ -222,14 +222,6 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
             for line in f:
                 if "BaseUnits(" in line:
                     new_file += ["base_units = BaseUnits(kBT=1.0)\n"]
-                elif "push_gc_bxe.Options" in line:
-                    new_file += [
-                        "model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(phi=model.em_fields.phi)\n",
-                    ]
-                elif "push_gc_para.Options" in line:
-                    new_file += [
-                        "model.propagators.push_gc_para.options = model.propagators.push_gc_para.Options(phi=model.em_fields.phi)\n",
-                    ]
                 elif "saving_params = " in line:
                     new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
                     new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]

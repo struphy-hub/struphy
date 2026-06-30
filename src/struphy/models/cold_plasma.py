@@ -18,38 +18,20 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class ColdPlasma(StruphyModel):
-    r"""Cold plasma model.
+    """Cold plasma model: electron-fluid current coupled with Maxwell's equations via a cold-plasma Ohm's law.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat v = c\,,\qquad \hat E = c \hat B \,.
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        \frac{1}{n_0} &\frac{\partial \mathbf j}{\partial t} = \frac{1}{\varepsilon} \mathbf E + \frac{1}{\varepsilon n_0} \mathbf j \times \mathbf B_0\,,
-        \\[2mm]
-        &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,,
-        \\[2mm]
-        -&\frac{\partial \mathbf E}{\partial t} + \nabla\times\mathbf B =
-        \frac{\alpha^2}{\varepsilon} \mathbf j \,,
-
-    where :math:`(n_0,\mathbf B_0)` denotes a (inhomogeneous) background and
-
-    .. math::
-
-        \alpha = \frac{\hat \Omega_\textnormal{p}}{\hat \Omega_\textnormal{c}}\,, \qquad \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t}\,.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.maxwell.Maxwell`
-    2. :class:`~struphy.propagators.ohm_cold.OhmCold`
-    3. :class:`~struphy.propagators.jxb_cold.JxBCold`
-
-    :ref:`Model info <add_model>`:
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    charge_number: int
+        Charge number (in units of the positive elementary charge) of the electron species (default: -1)
+    mass_number: float
+        Mass number (in units of Proton mass) of the electron species (default: 1/1836)
+    alpha: float, optional
+        Dimensionless parameter: plasma frequency / cyclotron frequency. If None, computed from units and charge/mass numbers.
+    epsilon: float, optional
+        Normalized cyclotron period: 1 / (cyclotron frequency × time unit). If None, computed from units and charge/mass numbers.
     """
 
     @classmethod
@@ -150,6 +132,9 @@ class ColdPlasma(StruphyModel):
     @property
     def velocity_scale(self):
         return "light"
+
+    def allocate_helpers(self):
+        pass
 
     @classmethod
     def doc_pde(cls):
@@ -258,6 +243,3 @@ class ColdPlasma(StruphyModel):
         - kinetic resonances or velocity-space instabilities
         - multi-species hybrid or fully kinetic problems
         - collisional closures beyond the built-in cold-plasma approximation"""
-
-    def allocate_helpers(self):
-        pass

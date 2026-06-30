@@ -23,33 +23,14 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class VariationalCompressibleFluid(StruphyModel):
-    r"""Fully compressible fluid equations discretized with a variational method.
+    """Fully compressible fluid equations discretized with a variational method.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat u =  \hat v_\textnormal{A}\,, \qquad \hat{\mathcal U} = K\,,\qquad \hat s = \hat \rho C_v \,.
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        &\partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 \,,
-        \\[4mm]
-        &\partial_t (\rho \mathbf u) + \nabla \cdot (\rho \mathbf u \otimes \mathbf u) + \rho \nabla \frac{(\rho \mathcal U (\rho, s))}{\partial \rho} + s \nabla \frac{(\rho \mathcal U (\rho, s))}{\partial s} = 0 \,,
-        \\[4mm]
-        &\partial_t s + \nabla \cdot ( s \mathbf u ) = 0 \,,
-
-    where the internal energy per unit mass is :math:`\mathcal U(\rho) = \rho^{\gamma-1} \exp(s / \rho)`.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`
-    2. :class:`~struphy.propagators.variational_momentum_advection.VariationalMomentumAdvection`
-    3. :class:`~struphy.propagators.variational_entropy_evolve.VariationalEntropyEvolve`
-
-    :ref:`Model info <add_model>`:
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    mass_number: float
+        Mass number (in units of Proton mass) of the fluid species (default: 1.0)
     """
 
     @classmethod
@@ -68,10 +49,14 @@ class VariationalCompressibleFluid(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self):
-            self.variat_dens = VariationalDensityEvolve()
+        def __init__(
+            self,
+            s: FEECVariable = None,
+            rho: FEECVariable = None,
+        ):
+            self.variat_dens = VariationalDensityEvolve(s=s)
             self.variat_mom = VariationalMomentumAdvection()
-            self.variat_ent = VariationalEntropyEvolve()
+            self.variat_ent = VariationalEntropyEvolve(rho=rho)
 
     ## abstract methods
 
@@ -87,7 +72,7 @@ class VariationalCompressibleFluid(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators()
+        self.propagators = self.Propagators(s=self.fluid.entropy, rho=self.fluid.density)
 
         # 4. assign variables to propagators
         self.propagators.variat_dens.variables.rho = self.fluid.density
@@ -113,6 +98,67 @@ class VariationalCompressibleFluid(StruphyModel):
     @property
     def velocity_scale(self):
         return "alfvén"
+
+    def allocate_helpers(self):
+        projV3 = L2Projector("L2", Propagator.mass_ops)
+
+        def f(e1, e2, e3):
+            return 1
+
+        f = xp.vectorize(f)
+        self._integrator = projV3(f)
+
+        self._energy_evaluator = InternalEnergyEvaluator(Propagator.derham, self.propagators.variat_ent.options.gamma)
+
+    # default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "variat_dens.Options" in line:
+                    new_file += [
+                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='full')\n",
+                    ]
+                elif "entropy.add_background" in line:
+                    new_file += ["model.fluid.density.add_background(FieldsBackground())\n"]
+                    new_file += [line]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
+
+    def update_thermo_energy(self):
+        """Reuse tmp used in VariationalEntropyEvolve to compute the thermodynamical energy.
+
+        :meta private:
+        """
+        en_prop = self.propagators.variat_ent
+
+        self._energy_evaluator.sf.vector = self.fluid.entropy.spline.vector
+        self._energy_evaluator.rhof.vector = self.fluid.density.spline.vector
+        sf_values = self._energy_evaluator.sf.eval_tp_fixed_loc(
+            self._energy_evaluator.integration_grid_spans,
+            self._energy_evaluator.integration_grid_bd,
+            out=self._energy_evaluator._sf_values,
+        )
+        rhof_values = self._energy_evaluator.rhof.eval_tp_fixed_loc(
+            self._energy_evaluator.integration_grid_spans,
+            self._energy_evaluator.integration_grid_bd,
+            out=self._energy_evaluator._rhof_values,
+        )
+        e = self.__ener
+        ener_values = en_prop._proj_rho2_metric_term * e(rhof_values, sf_values)
+        en_prop._get_L2dofs_V3(ener_values, dofs=en_prop._linear_form_dl_ds)
+        en_thermo = self._integrator.inner(en_prop._linear_form_dl_ds)
+        return en_thermo
+
+    def __ener(self, rho, s):
+        """Themodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
+        E(rho, s) = rho^gamma*exp(s/rho)"""
+        return xp.power(rho, self.propagators.variat_ent.options.gamma) * xp.exp(s / rho)
 
     @classmethod
     def doc_pde(cls):
@@ -214,74 +260,3 @@ class VariationalCompressibleFluid(StruphyModel):
         - magnetic-field evolution or MHD coupling
         - pressureless or barotropic-only reductions
         - kinetic or particle-based transport physics"""
-
-    def allocate_helpers(self):
-        projV3 = L2Projector("L2", Propagator.mass_ops)
-
-        def f(e1, e2, e3):
-            return 1
-
-        f = xp.vectorize(f)
-        self._integrator = projV3(f)
-
-        self._energy_evaluator = InternalEnergyEvaluator(Propagator.derham, self.propagators.variat_ent.options.gamma)
-
-    # default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "variat_dens.Options" in line:
-                    new_file += [
-                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='full',\n",
-                    ]
-                    new_file += [
-                        "                                                                              s=model.fluid.entropy)\n",
-                    ]
-                elif "variat_ent.Options" in line:
-                    new_file += [
-                        "model.propagators.variat_ent.options = model.propagators.variat_ent.Options(model='full',\n",
-                    ]
-                    new_file += [
-                        "                                                                            rho=model.fluid.density)\n",
-                    ]
-                elif "entropy.add_background" in line:
-                    new_file += ["model.fluid.density.add_background(FieldsBackground())\n"]
-                    new_file += [line]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)
-
-    def update_thermo_energy(self):
-        """Reuse tmp used in VariationalEntropyEvolve to compute the thermodynamical energy.
-
-        :meta private:
-        """
-        en_prop = self.propagators.variat_ent
-
-        self._energy_evaluator.sf.vector = self.fluid.entropy.spline.vector
-        self._energy_evaluator.rhof.vector = self.fluid.density.spline.vector
-        sf_values = self._energy_evaluator.sf.eval_tp_fixed_loc(
-            self._energy_evaluator.integration_grid_spans,
-            self._energy_evaluator.integration_grid_bd,
-            out=self._energy_evaluator._sf_values,
-        )
-        rhof_values = self._energy_evaluator.rhof.eval_tp_fixed_loc(
-            self._energy_evaluator.integration_grid_spans,
-            self._energy_evaluator.integration_grid_bd,
-            out=self._energy_evaluator._rhof_values,
-        )
-        e = self.__ener
-        ener_values = en_prop._proj_rho2_metric_term * e(rhof_values, sf_values)
-        en_prop._get_L2dofs_V3(ener_values, dofs=en_prop._linear_form_dl_ds)
-        en_thermo = self._integrator.inner(en_prop._linear_form_dl_ds)
-        return en_thermo
-
-    def __ener(self, rho, s):
-        """Themodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
-        E(rho, s) = rho^gamma*exp(s/rho)"""
-        return xp.power(rho, self.propagators.variat_ent.options.gamma) * xp.exp(s / rho)

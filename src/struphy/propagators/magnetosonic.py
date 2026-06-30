@@ -82,8 +82,16 @@ class Magnetosonic(Propagator):
             assert new.space == "L2"
             self._p = new
 
-    def __init__(self):
+    def __init__(self, b_field: FEECVariable = None):
+        """
+        Parameters
+        ----------
+        b_field : FEECVariable, default=None
+            Magnetic 2-form (``"Hdiv"`` space) providing the equilibrium magnetic field.
+            If ``None``, an empty ``FEECVariable(space="Hdiv")`` is created internally.
+        """
         self.variables = self.Variables()
+        self.b_field = b_field if b_field is not None else FEECVariable(space="Hdiv")
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -91,11 +99,6 @@ class Magnetosonic(Propagator):
 
         Parameters
         ----------
-        b_field : FEECVariable, default=None
-            Background magnetic-field variable in ``"Hdiv"`` space used in
-            the Lorentz-force coupling. If ``None``, a default
-            ``FEECVariable(space="Hdiv")`` is created.
-
         u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
             FEEC space used for the velocity variable ``u``.
 
@@ -111,7 +114,6 @@ class Magnetosonic(Propagator):
             ``SolverParameters()``.
         """
 
-        b_field: FEECVariable = None
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
         solver: LiteralOptions.OptsGenSolver = "pbicgstab"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
@@ -124,8 +126,6 @@ class Magnetosonic(Propagator):
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
             # defaults
-            if self.b_field is None:
-                self.b_field = FEECVariable(space="Hdiv")
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
 
@@ -176,8 +176,8 @@ class Magnetosonic(Propagator):
         self._MJ = getattr(self.mass_ops, id_MJ)
         self._DQ = self.derham.div @ getattr(self.basis_ops, id_Q)
 
-        self.options.b_field.allocate(self.derham, self.domain)
-        self._b = self.options.b_field.spline.vector
+        self.b_field.allocate(self.derham, self.domain)
+        self._b = self.b_field.spline.vector
 
         # preconditioner
         if self.options.precond is None:
