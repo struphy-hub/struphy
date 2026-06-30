@@ -75,14 +75,14 @@ model.kinetic_ions.var.save_data = False
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(sim_folder="sim_3",profiling_activated=True, profiling_trace=True, restart=False)
+env = EnvironmentOptions(sim_folder="sim_1",profiling_activated=True, profiling_trace=True, restart=False)
 
 # Time stepping
-time_opts = Time(dt=0.000001, Tend=0.00002, split_algo="LieTrotter")
+time_opts = Time(dt=0.000001, Tend=0.00001, split_algo="LieTrotter")
 
-a, r_min, R0 = 0.36, 0.03, 1.0
-num_elements = (32,64,12)#(64, 128, 15)
-degree = (2, 3, 1)
+a, r_min, R0 = 0.36, 0.01, 1.0
+num_elements = (32,64,24)#(64, 128, 15)
+degree = (3, 3, 2)
 
 # Fluid equilibrium (can be used as part of initial conditions)
 equil = equils.AdhocTorus(a=a, R0=R0, B0=1.0, q_kind=2, q0=0.86, q1=2.52+0.86, l=-0.16, psi_k=5, psi_nel=200)
@@ -118,9 +118,10 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-Np=7000000
-loading_params = LoadingParameters(Np = Np, loading="pseudo_random", spatial="uniform")
-weights_params = WeightsParameters(control_variate=True)
+Np=6000000
+ppc = 200
+loading_params = LoadingParameters(Np = Np, loading="pseudo_random", spatial="uniform", moments=(0, 0, 5, 5))
+weights_params = WeightsParameters(control_variate=True, reject_weights=True, threshold=1e-9)
 boundary_params = BoundaryParameters(bc=("periodic", "periodic", "periodic"))
 sorting_params = SortingParameters(boxes_per_dim=(12,12,6), do_sort=True, sorting_frequency=5)
 
@@ -140,7 +141,7 @@ model.kinetic_ions.set_markers(loading_params=loading_params,
 # Propagator options
 # ------------------
 
-model.propagators.gc_poisson.options = model.propagators.gc_poisson.Options(which_geometry="toroidal", solver_params=SolverParameters(tol=1e-14, maxiter=5000))
+model.propagators.gc_poisson.options = model.propagators.gc_poisson.Options(which_geometry="toroidal", solver_params=SolverParameters(tol=1e-14, maxiter=3000))
 model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(algo="explicit", phi=model.em_fields.phi, evaluate_e_field=True, maxiter=100)
 model.propagators.push_gc_para.options = model.propagators.push_gc_para.Options(algo="explicit", phi=model.em_fields.phi, evaluate_e_field=True, maxiter=100)
 
@@ -204,8 +205,8 @@ def pert_func(*etas):
         e1,e2,e3 = etas[0][:,0], etas[0][:,1], etas[0][:,2]
     else:
         e1, e2, e3 = etas[0], etas[1], etas[2]
-    r = a * e1
-    teta = 2*xp.pi * e2
+    r = (a - r_min) * e1 + r_min
+    teta = 2*xp.arctan(xp.sqrt((R0+r)/(R0-r))*xp.tan(xp.pi*e2))
     phi = 2*xp.pi * e3
     return n_r(r)*amps*xp.exp(-(r-r0)**2/delta_r**2)*xp.cos(ms*teta - ns*phi)
 

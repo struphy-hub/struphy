@@ -48,15 +48,17 @@ def main():
         time = f["time"]["value"][()]
         en_phi = f["scalar"]["phi_integral"][()]#"en_phi"
     
-    t0, t1 = 1, 5
+    t0, t1 = 700, 1000
     m, b = xp.polyfit(time[t0:t1], xp.log(xp.sqrt(en_phi))[t0:t1], 1)
 
 
-    plt.figure()
+    plt.figure(figsize=(6,4))
     plt.plot(time, xp.sqrt(en_phi), label="simulated value")
-    plt.plot(time[t0:t1], xp.exp(time[t0:t1]* m + b), label=f"fit y=c*e^(mx) with {m=} and c={xp.exp(b)}")
+    plt.plot(time[t0:t1], xp.exp(time[t0:t1]* m + b), label=f"fit y=c*e^(mx) with {m=:.4e} and c={xp.exp(b):.4e}")
     plt.legend()
     plt.semilogy()
+    plt.xlabel("time")
+    plt.ylabel("$\mathcal{E}$(t)")
     plt.show()
 
     equil_dim_grid = equil_data.dimensions
@@ -123,7 +125,7 @@ def main():
 
                     if in_physical: color_mapped = color_mapped.T
 
-                    pcm = ax_maxwellian.pcolor(xs, ys, color_mapped)
+                    pcm = ax_maxwellian.pcolor(xs, ys, color_mapped, vmin=-1e-7, vmax=1e-7)
 
                     ax_maxwellian.set_xlabel(x_label)
                     ax_maxwellian.set_ylabel(y_label)
@@ -138,7 +140,7 @@ def main():
     phy_bin = params.domain(e1_bin, e2_bin, 0, squeeze_out=True)
     plot_phaseSpace("e1_e2_density", "delta_f_binned", xs=phy_bin[0], ys=phy_bin[1], in_physical=True)
 
-
+    
     # ------------------
     # Show evolution of electric potential
     # ------------------

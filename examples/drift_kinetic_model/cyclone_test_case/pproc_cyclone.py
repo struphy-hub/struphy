@@ -241,9 +241,10 @@ def main():
 
 
     plt.figure()
-    plt.plot(time, en_phi, label="simulated value")
+    plt.plot(time, en_phi, label="")
     #plt.plot(time[t0:t1], xp.exp(time[t0:t1]* m + b), label=f"fit y=c*e^(mx) with {m=} and c={xp.exp(b)}")
-    plt.legend()
+    plt.xlabel("time")
+    plt.ylabel("Electrostatic energy")
     plt.show()
 
     equil_dim_grid = equil_data.dimensions
@@ -349,6 +350,8 @@ def main():
         ys=Z,
         x_label="R",
         y_label="Z",
+        vmin=-1e-7,
+        vmax=1e-7,
         in_physical=True
     )   
 
@@ -370,7 +373,7 @@ def main():
 
             phi = pdata.spline_values.em_fields.phi_phy.data[pdata.t_grid[time_idx]][0][:,:,0]
 
-            pcm = ax_maxwellian.pcolormesh(R, Z, phi, shading='auto')
+            pcm = ax_maxwellian.pcolormesh(R, Z, phi, shading='auto')#, vmin=-5e-9, vmax=5e-9)
 
             ax_maxwellian.set_aspect("equal", adjustable="box")
             ax_maxwellian.set_xlabel("x")

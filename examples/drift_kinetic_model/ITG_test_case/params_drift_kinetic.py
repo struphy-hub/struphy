@@ -77,7 +77,7 @@ model.kinetic_ions.var.save_data = False
 env = EnvironmentOptions(sim_folder="sim_1", profiling_activated=True, profiling_trace=True)
 
 # Time stepping
-time_opts = Time(dt=1.0, Tend=20.0, split_algo="LieTrotter")
+time_opts = Time(dt=1.0, Tend=100.0, split_algo="LieTrotter")
 
 # Geometry
 a1, a2, Lz = 0.1, 14.5, 1506.759067

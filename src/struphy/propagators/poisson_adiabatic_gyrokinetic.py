@@ -66,6 +66,12 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
 
         Parameters
         ----------
+        epsilon : float, default=1.0
+            Gyrokinetic parameter
+
+        Z : float, default=1.0
+            Charge number of ions
+
         stab_mat : {"M0", "M0ad", "Id"}, default="Id"
             Stabilization matrix multiplied by ``stab_eps``.
 
@@ -126,6 +132,8 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
         OptsDiffusionMat = Literal["M1", "M1perp", "M1gyro"]
         OptsGeometry = Literal["cylindrical", "toroidal"]
         # propagator options
+        """epsilon: float = 1.0
+        Z: float = 1.0"""
         stab_mat: OptsStabMat = "M0ad_withT"
         which_geometry: OptsGeometry = "cylindrical"
         diffusion_mat: OptsDiffusionMat = "M1gyro"
@@ -153,6 +161,13 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
             self.divide_by_dt = False
 
     def allocate(self):
+        """epsilon = self.options.epsilon
+        self.options.sigma_1 = 1/epsilon**2/self.option.Z
+        self.options.sigma_2 = 0.0
+        self.options.sigma_3 = 1/epsilon
+        self.options.stab_mat = "M0ad_withT"
+        self.options.diffusion_mat = "M1gyro"
+        self.options.divide_by_dt = False"""
         super().allocate()
         if self.options.which_geometry == "cylindrical":
             average_mat = AverageOperator(self.derham, "H1", 2)

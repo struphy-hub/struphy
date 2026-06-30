@@ -20,7 +20,7 @@ set_logging_level(logging.INFO)
 # If only one argument, the 2D plots will be shown. If multiple arguments, only the growth rate plot will be shown.
 # ------------------
 def main():
-    if len(sys.argv)>1 and __name__ == "main":
+    if len(sys.argv)>1 and __name__ == "__main__":
         sim_names = sys.argv[1:]
     else:
         sim_names = ["sim_1"]
@@ -66,7 +66,7 @@ def main():
 
         sls.append(tuple([slice(xi, xf)]))
 
-        if len(times) > 3:
+        if len(times[i]) > 3:
             fitting.append(True)
             # determine growth rate
             fitting_func = lambda x,m,b,c0: xp.exp(m*x+b)+c0
@@ -79,14 +79,15 @@ def main():
         else:
             fitting.append(False)
 
-    fig, ax = plt.subplots(1, figsize = (18, 12))
+    fig, ax = plt.subplots(1, figsize = (6, 4))
     for i in range(len(sim_names)):
-        ax.scatter(times[i][1:], en_phis[i][1:], label=r"$\phi_{"+sim_names[i][4:]+r"}$", marker='x', s=0.05)
+        ax.scatter(times[i][1:], en_phis[i][1:], marker='x', s=0.05, label=r"$\phi$")#_{"+sim_names[i][4:]+r"}$")
         if fitting[i]:
             ax.plot(
                 times[i][sls[i]], 
                 fitting_func(times[i][sls[i]], *params_opts[i]), 
-                label=f"fitted growth rate {ti=}, {tf=}, growth_rate={params_opts[i][0]:.4e}, b={params_opts[i][1]:.4e}, c0={params_opts[i][2]:.4e}"
+                label=f"{ti=}, {tf=}, fitted growth_rate={params_opts[i][0]:.4e}",
+                c="orange"
             )
     ax.axvline(ti, color="gray", linestyle="--", alpha=0.5)
     ax.axvline(tf, color="gray", linestyle="--", alpha=0.5)
@@ -94,7 +95,7 @@ def main():
     #ax.set_yscale('log')
     ax.legend()
 
-    ax.set_title(f"{params.time_opts.dt=}, {params.time_opts.split_algo=}, {params.grid.num_elements=}, {params.derham_opts.degree=}, {params.loading_params.ppc=}")
+    #ax.set_title(f"{params.time_opts.dt=}, {params.time_opts.split_algo=}, {params.grid.num_elements=}, {params.derham_opts.degree=}, {params.loading_params.ppc=}")
     ax.set_xlabel("time")
     ax.set_ylabel("Energy [a.u.]")
 

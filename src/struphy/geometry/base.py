@@ -1684,14 +1684,14 @@ class Domain(metaclass=DomainMeta):
                 if key not in {"cx", "cy", "cz"}:
                     tstr += key + ": " + str(val) + "\n"
             ax.set_title(self.__class__.__name__ + " at $\\eta_3=0$")
-            '''ax.text(
+            ax.text(
                 0.01,
                 0.99,
                 tstr,
                 ha="left",
                 va="top",
                 transform=ax.transAxes,
-            )'''
+            )
 
             # top view
             e3 = xp.linspace(0.0, 1.0, 65)
