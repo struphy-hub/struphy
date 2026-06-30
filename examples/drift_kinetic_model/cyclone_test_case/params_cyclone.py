@@ -75,23 +75,23 @@ model.kinetic_ions.var.save_data = False
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(sim_folder="sim_1",profiling_activated=True, profiling_trace=True, restart=False)
+env = EnvironmentOptions(sim_folder="sim_2",profiling_activated=True, profiling_trace=True, restart=False)
 
 # Time stepping
 time_opts = Time(dt=0.000001, Tend=0.00001, split_algo="LieTrotter")
 
 a, r_min, R0 = 0.36, 0.01, 1.0
-num_elements = (32,64,24)#(64, 128, 15)
-degree = (3, 3, 2)
+num_elements = (32, 8*27, 8)#(64, 128, 15)
+degree = (3, 3, 3)
 
 # Fluid equilibrium (can be used as part of initial conditions)
 equil = equils.AdhocTorus(a=a, R0=R0, B0=1.0, q_kind=2, q0=0.86, q1=2.52+0.86, l=-0.16, psi_k=5, psi_nel=200)
 
 # Geometry
-domain = domains.Tokamak(equil, num_elements=num_elements[:2], degree=degree[:2], r_min=r_min, num_elements_pre=(128, 512), p_pre=(4, 4), xi_param="sfl")
-
+domain = domains.Tokamak(equil, num_elements=num_elements[:2], degree=degree[:2], r_min=r_min, num_elements_pre=(128, 512), p_pre=(4, 4), xi_param="sfl", tor_period=19)
+domain.show()
 # Grid
-grid = grids.TensorProductGrid(num_elements=num_elements, mpi_dims_mask=(True,True,True))
+grid = grids.TensorProductGrid(num_elements=num_elements, mpi_dims_mask=(True,True,False))
 
 # Derham options
 derham_opts = DerhamOptions(
@@ -156,8 +156,8 @@ model.propagators.push_gc_para.options = model.propagators.push_gc_para.Options(
 # For kinetic species the perturbations are added to the moments of the distribution function (defined as tuples).
 
 # piecewise function for initial condition of density
-ns = 6
-ms = 9
+ns = 1
+ms = 27
 amps = 1.0e-6
 kappa_n = 2.23
 kappa_Ti = 6.96
