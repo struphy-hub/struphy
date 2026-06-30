@@ -15,28 +15,12 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class RandomParticleDiffusion(StruphyModel):
-    r"""Diffusion equation discretized with a (random) particle method;
-    the diffusion is computed through a Wiener process.
+    """Diffusion equation discretized with a random particle method, via a Wiener process.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat D := \frac{\hat x^2}{\hat t } \,.
-
-    :ref:`Equations <gempic>`: Find :math:`u:\mathbb R\times \Omega\to \mathbb R^+` such that
-
-    .. math::
-
-        \frac{\partial u}{\partial t} -  D \, \Delta u = 0\,,
-
-    where :math:`D > 0` is a positive diffusion coefficient.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.push_random_diffusion.PushRandomDiffusion`
-
-    :ref:`Model info <add_model>`:
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
     """
 
     @classmethod
@@ -84,6 +68,9 @@ class RandomParticleDiffusion(StruphyModel):
     @property
     def velocity_scale(self):
         return None
+
+    def allocate_helpers(self):
+        pass
 
     @classmethod
     def doc_pde(cls):
@@ -158,6 +145,3 @@ class RandomParticleDiffusion(StruphyModel):
         - electromagnetic or fluid plasma dynamics
         - deterministic advection-dominated transport
         - anisotropic plasma kinetics in phase space"""
-
-    def allocate_helpers(self):
-        pass

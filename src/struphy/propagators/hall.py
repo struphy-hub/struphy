@@ -58,8 +58,16 @@ class Hall(Propagator):
             assert new.space == "Hcurl"
             self._b = new
 
-    def __init__(self):
+    def __init__(self, epsilon_from: Species = None):
+        """
+        Parameters
+        ----------
+        epsilon_from : Species, default=None
+            Species instance from which to read the Hall parameter ``epsilon``.
+            If ``None``, ``epsilon`` defaults to ``1.0``.
+        """
         self.variables = self.Variables()
+        self.epsilon_from = epsilon_from
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -76,17 +84,12 @@ class Hall(Propagator):
         solver_params : SolverParameters, default=None
             Iterative-solver controls. If ``None``, defaults to
             ``SolverParameters()``.
-
-        epsilon_from : Species, default=None
-            Species object from which ``epsilon`` is taken. If ``None``,
-            ``epsilon`` defaults to ``1.0``.
         """
 
         # propagator options
         solver: LiteralOptions.OptsGenSolver = "pbicgstab"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
-        epsilon_from: Species = None
 
         def __post_init__(self):
             # checks
@@ -111,10 +114,10 @@ class Hall(Propagator):
 
     @profile
     def allocate(self):
-        if self.options.epsilon_from is None:
+        if self.epsilon_from is None:
             epsilon = 1.0
         else:
-            epsilon = self.options.epsilon_from.equation_params.epsilon
+            epsilon = self.epsilon_from.equation_params.epsilon
 
         self._info = self.options.solver_params.info
         self._tol = self.options.solver_params.tol

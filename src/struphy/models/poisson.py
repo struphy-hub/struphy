@@ -19,8 +19,14 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class Poisson(StruphyModel):
-    r"""Weak discretization of Poisson's equation with diffusion matrix, stabilization
-    and time-depedent right-hand side.
+    """Weak discretization of Poisson's equation with a diffusion matrix, stabilization and an optional time-dependent right-hand side.
+
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    with_t_dep_source: bool
+        Whether the right-hand side source term is time-dependent (default: False)
     """
 
     @classmethod
@@ -38,10 +44,10 @@ class Poisson(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self, with_t_dep_source=False):
+        def __init__(self, rho: FEECVariable = None, with_t_dep_source=False):
             if with_t_dep_source:
                 self.source = TimeDependentSource()
-            self.poisson = PoissonSolve()
+            self.poisson = PoissonSolve(rho=rho)
 
     ## abstract methods
 
@@ -59,7 +65,7 @@ class Poisson(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators(with_t_dep_source=with_t_dep_source)
+        self.propagators = self.Propagators(rho=self.em_fields.source, with_t_dep_source=with_t_dep_source)
 
         # 4. assign variables to propagators
         if with_t_dep_source:
@@ -75,6 +81,33 @@ class Poisson(StruphyModel):
     @property
     def velocity_scale(self):
         return None
+
+    def allocate_helpers(self):
+        """Solve initial Poisson equation.
+
+        :meta private:
+        """
+        # # use setter to assign source
+        # self.propagators.poisson.rho = Propagator.mass_ops.M0.dot(self.em_fields.source.spline.vector)
+
+        # Solve with dt=1. and compute electric field
+        logger.info("\nSolving initial Poisson problem...")
+
+        self.propagators.poisson(1.0)
+
+        logger.info("... Done.")
+
+    # default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
 
     @classmethod
     def doc_pde(cls):
@@ -157,35 +190,3 @@ class Poisson(StruphyModel):
         - hyperbolic time-dependent wave propagation
         - self-consistent kinetic plasma evolution on its own
         - magnetic-field dynamics or full Maxwell coupling"""
-
-    def allocate_helpers(self):
-        """Solve initial Poisson equation.
-
-        :meta private:
-        """
-        # # use setter to assign source
-        # self.propagators.poisson.rho = Propagator.mass_ops.M0.dot(self.em_fields.source.spline.vector)
-
-        # Solve with dt=1. and compute electric field
-        logger.info("\nSolving initial Poisson problem...")
-
-        self.propagators.poisson(1.0)
-
-        logger.info("... Done.")
-
-    # default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "poisson.Options" in line:
-                    new_file += [
-                        "model.propagators.poisson.options = model.propagators.poisson.Options(rho=model.em_fields.source)\n",
-                    ]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)

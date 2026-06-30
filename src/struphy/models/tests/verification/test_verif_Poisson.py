@@ -51,7 +51,6 @@ def test_poisson_1d(do_plot=False):
     omega = 2 * xp.pi
     if model.with_t_dep_source:
         model.propagators.source.options = model.propagators.source.Options(omega=omega)
-    model.propagators.poisson.options = model.propagators.poisson.Options(rho=model.em_fields.source)
 
     # background, perturbations and initial conditions
     l = 2

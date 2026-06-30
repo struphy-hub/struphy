@@ -28,59 +28,20 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class LinearMHDVlasovCC(StruphyModel):
-    r"""
-    Hybrid linear MHD + energetic ions (6D Vlasov) with **current coupling scheme**.
+    """Hybrid linear MHD coupled with energetic ions (6D Vlasov) via the current-coupling scheme.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat U = \hat v = \hat v_\textnormal{A} \,, \qquad \hat f_\textnormal{h} = \frac{\hat n}{\hat v_\textnormal{A}^3} \,.
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        \begin{align}
-        \textnormal{MHD}\,\, &\left\{\,\,
-        \begin{aligned}
-        &\frac{\partial \tilde{\rho}}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,,
-        \\[2mm]
-        \rho_0 &\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p
-        =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 + \mathbf{J}_0\times \tilde{\mathbf{B}} \color{blue} + \frac{A_\textnormal{h}}{A_\textnormal{b}} \frac{1}{\varepsilon} \left(n_\textnormal{h}\tilde{\mathbf{U}}-n_\textnormal{h}\mathbf{u}_\textnormal{h}\right)\times(\mathbf{B}_0+\tilde{\mathbf{B}}) \color{black}\,,
-        \\[2mm]
-        &\frac{\partial \tilde p}{\partial t} + (\gamma-1)\nabla\cdot(p_0 \tilde{\mathbf{U}})
-        + p_0\nabla\cdot \tilde{\mathbf{U}}=0\,,
-        \\[2mm]
-        &\frac{\partial \tilde{\mathbf{B}}}{\partial t} = \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)\,,\qquad \nabla\cdot\tilde{\mathbf{B}}=0\,,
-        \end{aligned}
-        \right.
-        \\[2mm]
-        \textnormal{EPs}\,\, &\left\{\,\,
-        \begin{aligned}
-        &\quad\,\,\frac{\partial f_\textnormal{h}}{\partial t}+\mathbf{v}\cdot\nabla f_\textnormal{h} + \frac{1}{\varepsilon} \left[\color{blue} (\mathbf{B}_0+\tilde{\mathbf{B}})\times\tilde{\mathbf{U}} \color{black} + \mathbf{v}\times(\mathbf{B}_0+\tilde{\mathbf{B}})\right]\cdot \frac{\partial f_\textnormal{h}}{\partial \mathbf{v}} =0\,,
-        \\[2mm]
-        &\quad\,\,n_\textnormal{h}=\int_{\mathbb{R}^3}f_\textnormal{h}\,\textnormal{d}^3 \mathbf v\,,\qquad n_\textnormal{h}\mathbf{u}_\textnormal{h}=\int_{\mathbb{R}^3}f_\textnormal{h}\mathbf{v}\,\textnormal{d}^3 \mathbf v\,,
-        \end{aligned}
-        \right.
-        \end{align}
-
-    where :math:`\mathbf{J}_0 = \nabla\times\mathbf{B}_0` and
-
-    .. math::
-
-        \varepsilon = \frac{1}{\hat \Omega_{\textnormal{c,hot}} \hat t}\,,\qquad \textnormal{with} \qquad\hat \Omega_{\textnormal{c,hot}} = \frac{Z_\textnormal{h}e \hat B}{A_\textnormal{h} m_\textnormal{H}}\,.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.current_coupling_6d_density.CurrentCoupling6DDensity`
-    2. :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`
-    3. :class:`~struphy.propagators.current_coupling_6d_current.CurrentCoupling6DCurrent`
-    4. :class:`~struphy.propagators.push_eta.PushEta`
-    5. :class:`~struphy.propagators.push_vxb.PushVxB`
-    6. :class:`~struphy.propagators.magnetosonic.Magnetosonic`
-
-    :ref:`Model info <add_model>`:
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    mhd_mass_number: float
+        Mass number (in units of Proton mass) of the MHD bulk species (default: 1.0)
+    hot_charge_number: int
+        Charge number (in units of the positive elementary charge) of the energetic ion species (default: 1)
+    hot_mass_number: float
+        Mass number (in units of Proton mass) of the energetic ion species (default: 1.0)
+    hot_epsilon: float, optional
+        Normalized cyclotron period of the energetic ion species. If None, computed from units and charge/mass numbers.
     """
 
     @classmethod
@@ -118,13 +79,17 @@ class LinearMHDVlasovCC(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self):
-            self.couple_dens = CurrentCoupling6DDensity()
+        def __init__(
+            self,
+            b_field: FEECVariable = None,
+            energetic_ions_var: PICVariable = None,
+        ):
+            self.couple_dens = CurrentCoupling6DDensity(energetic_ions=energetic_ions_var, b_tilde=b_field)
             self.shear_alf = ShearAlfvenPropagator()
-            self.couple_curr = CurrentCoupling6DCurrent()
+            self.couple_curr = CurrentCoupling6DCurrent(b_tilde=b_field)
             self.push_eta = PushEta()
             self.push_vxb = PushVxB()
-            self.mag_sonic = Magnetosonic()
+            self.mag_sonic = Magnetosonic(b_field=b_field)
 
     ## abstract methods
 
@@ -153,7 +118,10 @@ class LinearMHDVlasovCC(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators()
+        self.propagators = self.Propagators(
+            b_field=self.em_fields.b_field,
+            energetic_ions_var=self.energetic_ions.var,
+        )
 
         # 4. assign variables to propagators
         self.propagators.couple_dens.variables.u = self.mhd.velocity
@@ -195,6 +163,38 @@ class LinearMHDVlasovCC(StruphyModel):
     @property
     def velocity_scale(self):
         return "alfvén"
+
+    def allocate_helpers(self):
+        self._ones = Propagator.projected_equil.p3.space.zeros()
+        if isinstance(self._ones, PolarVector):
+            self._ones.tp[:] = 1.0
+        else:
+            self._ones[:] = 1.0
+
+        self._tmp = xp.empty(1, dtype=float)
+
+        # add control variate to mass_ops object
+        if self.energetic_ions.var.particles.control_variate:
+            Propagator.mass_ops.weights["f0"] = self.energetic_ions.var.particles.f0
+
+        self._Ah = self.energetic_ions.mass_number
+        self._Ab = self.mhd.mass_number
+
+    ## default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "saving_params = " in line:
+                    new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
+                    new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
 
     @classmethod
     def doc_pde(cls):
@@ -336,50 +336,3 @@ class LinearMHDVlasovCC(StruphyModel):
         - full multi-species kinetic plasma evolution
         - pressure-coupling closures
         - collisional or dissipative MHD effects not present in the equations"""
-
-    def allocate_helpers(self):
-        self._ones = Propagator.projected_equil.p3.space.zeros()
-        if isinstance(self._ones, PolarVector):
-            self._ones.tp[:] = 1.0
-        else:
-            self._ones[:] = 1.0
-
-        self._tmp = xp.empty(1, dtype=float)
-
-        # add control variate to mass_ops object
-        if self.energetic_ions.var.particles.control_variate:
-            Propagator.mass_ops.weights["f0"] = self.energetic_ions.var.particles.f0
-
-        self._Ah = self.energetic_ions.mass_number
-        self._Ab = self.mhd.mass_number
-
-    ## default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "mag_sonic.Options" in line:
-                    new_file += [
-                        "model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options(b_field=model.em_fields.b_field)\n",
-                    ]
-                elif "couple_dens.Options" in line:
-                    new_file += [
-                        "model.propagators.couple_dens.options = model.propagators.couple_dens.Options(energetic_ions=model.energetic_ions.var,\n",
-                    ]
-                    new_file += [
-                        "                                                                              b_tilde=model.em_fields.b_field)\n",
-                    ]
-                elif "couple_curr.Options" in line:
-                    new_file += [
-                        "model.propagators.couple_curr.options = model.propagators.couple_curr.Options(b_tilde=model.em_fields.b_field)\n",
-                    ]
-                elif "saving_params = " in line:
-                    new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
-                    new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)

@@ -43,6 +43,10 @@ from struphy import (
     maxwellians,
 )
 
+import logging
+from struphy import set_logging_level
+set_logging_level(logging.WARNING)
+
 # ---------------------
 # Instance of the model
 # ---------------------
@@ -142,7 +146,7 @@ model.kinetic_ions.set_markers(loading_params=loading_params,
 
 model.propagators.maxwell.options = model.propagators.maxwell.Options()
 model.propagators.push_eta.options = model.propagators.push_eta.Options()
-model.propagators.push_vxb.options = model.propagators.push_vxb.Options(b2_var=model.em_fields.b_field)
+model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
 model.propagators.coupling_va.options = model.propagators.coupling_va.Options()
 model.initial_poisson.options = model.initial_poisson.Options(stab_mat="M0")
 

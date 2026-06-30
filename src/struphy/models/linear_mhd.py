@@ -54,9 +54,9 @@ class LinearMHD(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self):
+        def __init__(self, b_field: FEECVariable = None):
             self.shear_alf = ShearAlfvenPropagator()
-            self.mag_sonic = Magnetosonic()
+            self.mag_sonic = Magnetosonic(b_field=b_field)
 
     ## abstract methods
 
@@ -77,7 +77,7 @@ class LinearMHD(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators()
+        self.propagators = self.Propagators(b_field=self.em_fields.b_field)
 
         # 4. assign variables to propagators
         self.propagators.shear_alf.variables.u = self.mhd.velocity
@@ -272,20 +272,3 @@ class LinearMHD(StruphyModel):
         - equilibria with non-zero background flow
         - dissipative effects such as resistivity or viscosity
         - kinetic or particle-field effects beyond the fluid MHD description"""
-
-    ## default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "mag_sonic.Options" in line:
-                    new_file += [
-                        "model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options(b_field=model.em_fields.b_field)\n",
-                    ]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)
