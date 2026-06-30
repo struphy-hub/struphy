@@ -24,36 +24,18 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class ViscoResistiveLinearMHD_with_q(StruphyModel):
-    r"""Linear visco-resistive MHD equations, with the q variable (square root of the pressure), discretized with a variational method.
+    """Linear visco-resistive MHD equations, with the q variable (square root of the pressure), discretized with a variational method.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat u =  \hat v_\textnormal{A}\,.
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        &\partial_t \tilde{\rho} + \nabla \cdot ( \rho_0 \tilde{\mathbf u} ) = 0 \,,
-        \\[4mm]
-        &\partial_t (\rho_0 \tilde{\mathbf u}) + \frac{2 q_0}{\gamma -1} \nabla \tilde{q} +  \frac{2 \tilde{q}}{\gamma -1} \nabla q_0 + \mathbf B_0 \times \nabla \times \tilde{\mathbf B} + \tilde{\mathbf B} \times \nabla \times \mathbf B_0 - \nabla \cdot \left((\mu+\mu_a(\mathbf x)) \nabla \tilde{\mathbf u} \right) = 0 \,,
-        \\[4mm]
-        &\partial_t \tilde{q} + \cdot(\nabla q_0 \mathbf u) + (\gamma/2 -1) q_0 \nabla \cdot u = 0 \,,
-        \\[4mm]
-        &\partial_t \tilde{\mathbf B} + \nabla \times ( \mathbf B_0 \times \tilde{\mathbf u} ) + \nabla \times (\eta + \eta_a(\mathbf x)) \nabla \times \tilde{\mathbf B} = 0 \,,
-
-    and :math:`\mu_a(\mathbf x)` and :math:`\eta_a(\mathbf x)` are artificial viscosity and resistivity coefficients.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`
-    2. :class:`~struphy.propagators.variational_qb_evolve.VariationalQBEvolve`
-    3. :class:`~struphy.propagators.variational_viscosity.VariationalViscosity`
-    4. :class:`~struphy.propagators.variational_resistivity.VariationalResistivity`
-
-    :ref:`Model info <add_model>`:
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    mass_number: float
+        Mass number (in units of Proton mass) of the fluid species (default: 1.0)
+    with_viscosity: bool
+        Whether to include viscous dissipation (default: True)
+    with_resistivity: bool
+        Whether to include resistive dissipation (default: True)
     """
 
     @classmethod

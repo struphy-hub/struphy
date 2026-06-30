@@ -31,50 +31,26 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class ColdPlasmaVlasov(StruphyModel):
-    r"""Cold plasma hybrid model.
+    """Hybrid cold-plasma model: a cold electron fluid coupled with a hot kinetic species and Maxwell's equations.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat v = c\,,\qquad \hat E = c \hat B \,,\qquad \hat f = \frac{\hat n}{c^3} \,.
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        &\frac{\partial f}{\partial t} + \mathbf{v} \cdot \, \nabla f + \frac{1}{\varepsilon_\textnormal{h}}\Big[ \mathbf{E} + \mathbf{v} \times \left( \mathbf{B} + \mathbf{B}_0 \right) \Big]
-            \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,,
-        \\[2mm]
-        \frac{1}{n_0} &\frac{\partial \mathbf j_\textnormal{c}}{\partial t} = \frac{1}{\varepsilon_\textnormal{c}} \mathbf E + \frac{1}{\varepsilon_\textnormal{c} n_0} \mathbf j_\textnormal{c} \times \mathbf B_0\,,
-        \\[2mm]
-        &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,,
-        \\[2mm]
-        -&\frac{\partial \mathbf E}{\partial t} + \nabla\times\mathbf B =
-        \frac{\alpha^2}{\varepsilon_\textnormal{h}} \left( \mathbf j_\textnormal{c} + \int_{\mathbb{R}^3} \mathbf{v} f \, \text{d}^3 \mathbf{v} \right) \,,
-
-    where :math:`(n_0,\mathbf B_0)` denotes a (inhomogeneous) background and
-
-    .. math::
-
-        \alpha = \frac{\hat \Omega_\textnormal{p,cold}}{\hat \Omega_\textnormal{c,cold}}\,, \qquad \varepsilon_\textnormal{c} = \frac{1}{\hat \Omega_\textnormal{c,cold} \hat t}\,, \qquad \varepsilon_\textnormal{h} = \frac{1}{\hat \Omega_\textnormal{c,hot} \hat t} \,.
-
-    At initial time the Poisson equation is solved once to weakly satisfy the Gauss law:
-
-    .. math::
-
-        \begin{align}
-            \nabla \cdot \mathbf{E} & = \nu \frac{\alpha^2}{\varepsilon_\textnormal{h}} \int_{\mathbb{R}^3} f \, \text{d}^3 \mathbf{v}\,.
-        \end{align}
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.maxwell.Maxwell`
-    2. :class:`~struphy.propagators.ohm_cold.OhmCold`
-    3. :class:`~struphy.propagators.jxb_cold.JxBCold`
-    4. :class:`~struphy.propagators.push_vxb.PushVxB`
-    5. :class:`~struphy.propagators.push_eta.PushEta`
-    6. :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling`
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    thermal_charge_number: int
+        Charge number of the cold (fluid) electron species (default: -1)
+    thermal_mass_number: float
+        Mass number of the cold (fluid) electron species (default: 1/1836)
+    hot_charge_number: int
+        Charge number of the hot (kinetic) electron species (default: -1)
+    hot_mass_number: float
+        Mass number of the hot (kinetic) electron species (default: 1/1836)
+    thermal_alpha: float, optional
+        Dimensionless parameter: cold-species plasma frequency / cyclotron frequency. If None, computed from units and charge/mass numbers.
+    thermal_epsilon: float, optional
+        Normalized cyclotron period of the cold species. If None, computed from units and charge/mass numbers.
+    hot_epsilon: float, optional
+        Normalized cyclotron period of the hot species. If None, computed from units and charge/mass numbers.
     """
 
     @classmethod

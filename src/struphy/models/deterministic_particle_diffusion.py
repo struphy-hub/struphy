@@ -15,29 +15,12 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class DeterministicParticleDiffusion(StruphyModel):
-    r"""Diffusion equation discretized with a deterministic particle method;
-    the solution is :math:`L^2`-projected onto :math:`V^0 \subset H^1` to compute the flux.
+    """Diffusion equation discretized with a deterministic particle method.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat D := \frac{\hat x^2}{\hat t } \,.
-
-    :ref:`Equations <gempic>`: Find :math:`u:\mathbb R\times \Omega\to \mathbb R^+` such that
-
-    .. math::
-
-        \frac{\partial u}{\partial t} +  \nabla \cdot\left(\mathbf F(u) u\right) = 0\,, \qquad \mathbf F(u) = -\mathbb D\,\frac{\nabla u}{u}\,,
-
-    where :math:`\mathbb D: \Omega\to \mathbb R^{3\times 3 }` is a positive diffusion matrix.
-    At the moment only matrices of the form :math:`D*Id` are implemented, where :math:`D > 0` is a positive diffusion coefficient.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.push_deterministic_diffusion.PushDeterministicDiffusion`
-
-    :ref:`Model info <add_model>`:
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
     """
 
     @classmethod

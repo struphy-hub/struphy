@@ -25,7 +25,17 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class ViscousFluid(StruphyModel):
-    r"""Full (non-linear) viscous Navier-Stokes equations discretized with a variational method."""
+    """Full (non-linear) viscous Navier-Stokes equations discretized with a variational method.
+
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    mass_number: float
+        Mass number (in units of Proton mass) of the fluid species (default: 1.0)
+    with_viscosity: bool
+        Whether to include viscous dissipation (default: True)
+    """
 
     @classmethod
     def model_type(cls) -> LiteralOptions.ModelTypes:

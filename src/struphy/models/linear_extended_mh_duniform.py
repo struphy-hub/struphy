@@ -21,42 +21,18 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class LinearExtendedMHDuniform(StruphyModel):
-    r"""Linear extended MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).
-    For uniform background conditions only.
+    """Linear extended MHD with zero-flow equilibrium, for uniform background conditions only.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat U = \hat v_\textnormal{A} \,.
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        &\frac{\partial \tilde \rho}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,,
-        \\[2mm]
-        \rho_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p
-        =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 \,,
-        \\[2mm]
-        &\frac{\partial \tilde p}{\partial t} + \frac{5}{3}\,p_{0}\nabla\cdot \tilde{\mathbf{U}}=0\,,
-        \\[2mm]
-        &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times \left( \tilde{\mathbf{U}} \times \mathbf{B}_0 - \frac{1}{\varepsilon} \frac{\nabla\times \tilde{\mathbf{B}}}{\rho_0}\times \mathbf{B}_0 \right)
-        = 0\,.
-
-    where
-
-    .. math::
-
-        \varepsilon = \frac{1}{\hat \Omega_{\textnormal{c}} \hat t}\,,\qquad \textnormal{with} \qquad\hat \Omega_{\textnormal{c}} = \frac{Ze \hat B}{A m_\textnormal{H}}\,.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.shear_alfven_b1.ShearAlfvenB1`
-    2. :class:`~struphy.propagators.hall.Hall`
-    3. :class:`~struphy.propagators.magnetosonic_uniform.MagnetosonicUniform`
-
-    :ref:`Model info <add_model>`:
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    charge_number: int
+        Charge number (in units of the positive elementary charge) of the ion species (default: 1)
+    mass_number: float
+        Mass number (in units of Proton mass) of the ion species (default: 1.0)
+    epsilon: float, optional
+        Normalized cyclotron period: 1 / (cyclotron frequency × time unit). If None, computed from units and charge/mass numbers.
     """
 
     @classmethod

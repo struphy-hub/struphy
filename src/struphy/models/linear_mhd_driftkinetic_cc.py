@@ -36,81 +36,22 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class LinearMHDDriftkineticCC(StruphyModel):
-    r"""Hybrid linear ideal MHD + energetic ions (5D Driftkinetic) with **current coupling scheme**. 
+    """Hybrid linear ideal MHD coupled with energetic ions (5D drift-kinetic) via the current-coupling scheme.
 
-    :ref:`normalization`: 
-
-    .. math::
-
-        \hat U = \hat v =: \hat v_\textnormal{A, bulk} \,, \qquad
-        \hat f_\textnormal{h} = \frac{\hat n}{\hat v_\textnormal{h} \hat \mu \hat B} \,,\qquad 
-        \hat \mu = \frac{A_\textnormal{h} m_\textnormal{H} \hat v_\textnormal{h}^2}{\hat B} \,.
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        \begin{align}
-        \textnormal{MHD} &\left\{
-        \begin{aligned}
-        &\frac{\partial \tilde{\rho}}{\partial t}+\nabla\cdot(\rho_{0} \tilde{\mathbf{U}})=0\,, 
-        \\
-        \rho_{0} &\frac{\partial \tilde{\mathbf{U}}}{\partial t} - \tilde p\, \nabla
-        = (\nabla \times \tilde{\mathbf{B}}) \times \mathbf{B} + (\nabla \times \mathbf B_0) \times \tilde{\mathbf{B}}
-        + \frac{A_\textnormal{h}}{A_\textnormal{b}} \left[ \frac{1}{\epsilon} n_\textnormal{gc} \tilde{\mathbf{U}} - \frac{1}{\epsilon} \mathbf{J}_\textnormal{gc} - \nabla \times \mathbf{M}_\textnormal{gc} \right] \times \mathbf{B} \,,
-        \\
-        &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) 
-        + \frac{2}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,, 
-        \\
-        &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B})
-        = 0\,,
-        \end{aligned}
-        \right.
-        \\[2mm]
-        \textnormal{EPs}\,\, &\left\{\,\,
-        \begin{aligned}
-        \quad &\frac{\partial f_\textnormal{h}}{\partial t} + \frac{1}{B_\parallel^*}(v_\parallel \mathbf{B}^* - \mathbf{b}_0 \times \mathbf{E}^*)\cdot\nabla f_\textnormal{h}
-        + \frac{1}{\epsilon} \frac{1}{B_\parallel^*} (\mathbf{B}^* \cdot \mathbf{E}^*) \frac{\partial f_\textnormal{h}}{\partial v_\parallel}
-        = 0\,,
-        \\
-        & n_\textnormal{gc} = \int f_\textnormal{h} B_\parallel^* \,\textnormal dv_\parallel \textnormal d\mu \,,
-        \\
-        & \mathbf{J}_\textnormal{gc} = \int \frac{f_\textnormal{h}}{B_\parallel^*}(v_\parallel \mathbf{B}^* - \mathbf{b}_0 \times \mathbf{E}^*) \,\textnormal dv_\parallel \textnormal d\mu \,,
-        \\
-        & \mathbf{M}_\textnormal{gc} = - \int f_\textnormal{h} B_\parallel^* \mu \mathbf{b}_0 \,\textnormal dv_\parallel \textnormal d\mu \,,
-        \end{aligned}
-        \right.
-        \end{align}
-
-    where 
-
-    .. math::
-
-        \begin{align}
-        B^*_\parallel = \mathbf{b}_0 \cdot \mathbf{B}^*\,,
-        \\[2mm]
-        \mathbf{B}^* &= \mathbf{B} + \epsilon v_\parallel \nabla \times \mathbf{b}_0 \,,
-        \\[2mm]
-        \mathbf{E}^* &= - \tilde{\mathbf{U}} \times \mathbf{B} - \epsilon \mu \nabla (\mathbf{b}_0 \cdot \mathbf{B}) \,,
-        \end{align}
-
-    with the normalization parameter 
-
-    .. math::
-
-        \epsilon = \frac{1}{\hat \Omega_\textnormal{c,hot} \hat t} \,, \qquad \hat \Omega_\textnormal{c,hot} = \frac{Z_\textnormal{h} e \hat B}{A_\textnormal{h} m_\textnormal{H}} \,.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
-    2. :class:`~struphy.propagators.push_guiding_center_parallel.PushGuidingCenterParallel`
-    3. :class:`~struphy.propagators.current_coupling_5d_gradb.CurrentCoupling5DGradB`
-    4. :class:`~struphy.propagators.current_coupling_5d_curlb.CurrentCoupling5DCurlb`
-    5. :class:`~struphy.propagators.current_coupling_5d_density.CurrentCoupling5DDensity`
-    6. :class:`~struphy.propagators.shear_alfven_current_coupling_5d.ShearAlfvenCurrentCoupling5D`
-    7. :class:`~struphy.propagators.magnetosonic.Magnetosonic`
-
-    :ref:`Model info <add_model>`:
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    mhd_mass_number: float
+        Mass number (in units of Proton mass) of the MHD bulk species (default: 1.0)
+    hot_charge_number: int
+        Charge number (in units of the positive elementary charge) of the energetic ion species (default: 1)
+    hot_mass_number: float
+        Mass number (in units of Proton mass) of the energetic ion species (default: 1.0)
+    hot_epsilon: float, optional
+        Normalized cyclotron period of the energetic ion species. If None, computed from units and charge/mass numbers.
+    turn_off: tuple[str, ...]
+        Names of coupling terms to turn off (default: (None,))
     """
 
     @classmethod

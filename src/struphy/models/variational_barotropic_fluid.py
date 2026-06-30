@@ -16,30 +16,14 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class VariationalBarotropicFluid(StruphyModel):
-    r"""Barotropic fluid equations discretized with a variational method.
+    """Barotropic fluid equations discretized with a variational method.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat u =  \hat v_\textnormal{A} \qquad \hat{\mathcal U} = \frac{\hat \rho}{2} \,.
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        &\partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 \,,
-        \\[4mm]
-        &\partial_t (\rho \mathbf u) + \nabla \cdot (\rho \mathbf u \otimes \mathbf u) + \rho \nabla \frac{(\rho \mathcal U (\rho))}{\partial \rho} = 0 \,.
-
-    where the internal energy per unit mass is :math:`\mathcal U(\rho) = \rho/2`.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`
-    2. :class:`~struphy.propagators.variational_momentum_advection.VariationalMomentumAdvection`
-
-    :ref:`Model info <add_model>`:
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    mass_number: float
+        Mass number (in units of Proton mass) of the fluid species (default: 1.0)
     """
 
     @classmethod

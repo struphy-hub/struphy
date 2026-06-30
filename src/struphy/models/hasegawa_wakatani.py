@@ -20,33 +20,14 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class HasegawaWakatani(StruphyModel):
-    r"""Hasegawa-Wakatani equations in 2D.
+    """Hasegawa-Wakatani equations in 2D for drift-wave turbulence.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat u = \hat v_\textnormal{th}\,,\qquad \hat \phi = \hat u\, \hat x \,.
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        &\frac{\partial n}{\partial t} = C (\phi - n) - [\phi, n] - \kappa\, \partial_y \phi + \nu\, \nabla^{2N} n\,,
-        \\[2mm]
-        &\frac{\partial \omega}{\partial t} = C (\phi - n) - [\phi, \omega] + \nu\, \nabla^{2N} \omega \,,
-        \\[3mm]
-        &\Delta \phi = \omega\,,
-
-    where :math:`[\phi, n] = \partial_x \phi \partial_y n - \partial_y \phi \partial_x n`, :math:`C = C(x, y)` and
-    :math:`\kappa` and :math:`\nu` are constants (at the moment only :math:`N=1` is available).
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.poisson_field_solve.PoissonFieldSolve`
-    2. :class:`~struphy.propagators.hasegawa_wakatani_step.HasegawaWakataniStep`
-
-    :ref:`Model info <add_model>`:
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    mass_number: float
+        Mass number (in units of Proton mass) of the species (default: 1.0)
     """
 
     @classmethod

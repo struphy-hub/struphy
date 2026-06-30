@@ -25,37 +25,18 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class ViscoResistiveDeltafMHD(StruphyModel):
-    r""":math:`\delta f` visco-resistive MHD equations discretized with a variational method.
+    """Delta-f visco-resistive MHD equations discretized with a variational method.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat u =  \hat v_\textnormal{A}\,.
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        &\partial_t \tilde{\rho} + \nabla \cdot ( (\tilde{\rho}+\rho_0) \tilde{\mathbf u} ) = 0 \,,
-        \\[4mm]
-        &\partial_t ((\tilde{\rho}+\rho_0) \tilde{\mathbf u}) + \nabla \cdot ((\tilde{\rho}+\rho_0) \tilde{\mathbf u} \otimes \tilde{\mathbf u}) + \frac{1}{\gamma -1} \nabla \tilde{p} + \mathbf B_0 \times \nabla \times \tilde{\mathbf B} + \tilde{\mathbf B} \times \nabla \times \mathbf B_0 +  \tilde{\mathbf B} \times \nabla \times \tilde{\mathbf B} - \nabla \cdot \left((\mu+\mu_a(\mathbf x)) \nabla \tilde{\mathbf u} \right) = 0 \,,
-        \\[4mm]
-        &\partial_t \tilde{p} + \tilde{\mathbf u} \cdot \nabla (\tilde{p} + p_0) + \gamma (\tilde{p} + p_0) \nabla \cdot \tilde{\mathbf u} = \frac{1}{(\gamma -1)}\left((\mu+\mu_a(\mathbf x)) |\nabla \tilde{\mathbf u}|^2 + (\eta + \eta_a(\mathbf x)) |\nabla \times \tilde{\mathbf B}|^2\right) \,,
-        \\[4mm]
-        &\partial_t \tilde{\mathbf B} + \nabla \times ( (\tilde{\mathbf B} + \mathbf B_0) \times \tilde{\mathbf u} ) + \nabla \times (\eta + \eta_a(\mathbf x)) \nabla \times \tilde{\mathbf B} = 0 \,,
-
-    and :math:`\mu_a(\mathbf x)` and :math:`\eta_a(\mathbf x)` are artificial viscosity and resistivity coefficients.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`
-    2. :class:`~struphy.propagators.variational_momentum_advection.VariationalMomentumAdvection`
-    3. :class:`~struphy.propagators.variational_pb_evolve.VariationalPBEvolve`
-    4. :class:`~struphy.propagators.variational_viscosity.VariationalViscosity`
-    5. :class:`~struphy.propagators.variational_resistivity.VariationalResistivity`
-
-    :ref:`Model info <add_model>`:
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    mass_number: float
+        Mass number (in units of Proton mass) of the fluid species (default: 1.0)
+    with_viscosity: bool
+        Whether to include viscous dissipation (default: True)
+    with_resistivity: bool
+        Whether to include resistive dissipation (default: True)
     """
 
     @classmethod

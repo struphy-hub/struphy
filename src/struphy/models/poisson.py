@@ -19,8 +19,14 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class Poisson(StruphyModel):
-    r"""Weak discretization of Poisson's equation with diffusion matrix, stabilization
-    and time-depedent right-hand side.
+    """Weak discretization of Poisson's equation with a diffusion matrix, stabilization and an optional time-dependent right-hand side.
+
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    with_t_dep_source: bool
+        Whether the right-hand side source term is time-dependent (default: False)
     """
 
     @classmethod

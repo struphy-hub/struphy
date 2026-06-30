@@ -26,65 +26,22 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class LinearMHDVlasovPC(StruphyModel):
-    r"""
-    Hybrid linear MHD + energetic ions (6D Vlasov) with **pressure coupling scheme**.
+    """Hybrid linear MHD coupled with energetic ions (6D Vlasov) via the pressure-coupling scheme.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat U = \hat v =: \hat v_\textnormal{A, bulk} \,, \qquad
-        \hat f_\textnormal{h} = \frac{\hat n}{\hat v_\textnormal{A}^3} \,,\qquad 
-        \hat{\mathbb{P}}_\textnormal{h} = A_\textnormal{h}m_\textnormal{H}\hat n \hat v_\textnormal{A}^2\,,
-
-    Implemented equations:
-
-    .. math::
-
-        \begin{align}
-        \textnormal{MHD} &\left\{
-        \begin{aligned}
-        &\frac{\partial \tilde{\rho}}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,, 
-        \\
-        \rho_0 &\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p + \frac{A_\textnormal{h}}{A_\textnormal{b}} \nabla\cdot \tilde{\mathbb{P}}_{\textnormal{h},\perp}
-        =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 + \mathbf{J}_0\times \tilde{\mathbf{B}}
-        \,, \qquad
-        \mathbf{J}_0 = \nabla\times\mathbf{B}_0\,, 
-        \\
-        &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) 
-        + \frac{2}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,, 
-        \\
-        &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
-        = 0\,,
-        \end{aligned}
-        \right.
-        \\[2mm]
-        \textnormal{EPs}\,\, &\left\{\,\,
-        \begin{aligned}
-        &\quad\,\,\frac{\partial f_\textnormal{h}}{\partial t} + (\mathbf{v} + \tilde{\mathbf{U}}_\perp)\cdot \nabla f_\textnormal{h}
-        + \left[\frac{1}{\epsilon}\, \mathbf{v}\times(\mathbf{B}_0 + \tilde{\mathbf{B}}) - \nabla \tilde{\mathbf{U}}_\perp\cdot \mathbf{v} \right]\cdot \frac{\partial f_\textnormal{h}}{\partial \mathbf{v}}
-        = 0\,,
-        \\
-        &\quad\,\,\tilde{\mathbb{P}}_{\textnormal{h},\perp} = \int \mathbf{v}_\perp\mathbf{v}^\top_\perp f_\textnormal{h} d\mathbf{v} \,,
-        \end{aligned}
-        \right.
-        \end{align}
-
-    where 
-
-    .. math::
-
-        \epsilon = \frac{\hat \omega}{2 \pi \, \hat \Omega_{\textnormal{c,hot}}} \,,\qquad \textnormal{with} \qquad\hat \Omega_{\textnormal{c,hot}} = \frac{Z_\textnormal{h}e \hat B}{A_\textnormal{h} m_\textnormal{H}}\,.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.push_eta_pc.PushEtaPC`
-    2. :class:`~struphy.propagators.push_vxb.PushVxB`
-    3. :class:`~struphy.propagators.pressure_coupling_6d.PressureCoupling6D`
-    4. :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`
-    5. :class:`~struphy.propagators.magnetosonic.Magnetosonic`
-
-    :ref:`Model info <add_model>`:
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    mhd_mass_number: float
+        Mass number (in units of Proton mass) of the MHD bulk species (default: 1.0)
+    hot_charge_number: int
+        Charge number (in units of the positive elementary charge) of the energetic ion species (default: 1)
+    hot_mass_number: float
+        Mass number (in units of Proton mass) of the energetic ion species (default: 1.0)
+    hot_epsilon: float, optional
+        Normalized cyclotron period of the energetic ion species. If None, computed from units and charge/mass numbers.
+    turn_off: tuple[str, ...]
+        Names of coupling terms to turn off (default: (None,))
     """
 
     @classmethod

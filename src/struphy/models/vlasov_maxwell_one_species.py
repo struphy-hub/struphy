@@ -29,7 +29,23 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class VlasovMaxwellOneSpecies(StruphyModel):
-    r"""Vlasov-Maxwell equations for one species."""
+    """Vlasov-Maxwell equations for one kinetic species.
+
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    charge_number: int
+        Charge number (in units of the positive elementary charge) of the species (default: 1)
+    mass_number: float
+        Mass number (in units of Proton mass) of the species (default: 1.0)
+    alpha: float, optional
+        Dimensionless parameter: plasma frequency / cyclotron frequency. If None, computed from units and charge/mass numbers.
+    epsilon: float, optional
+        Normalized cyclotron period: 1 / (cyclotron frequency × time unit). If None, computed from units and charge/mass numbers.
+    measure_gauss_law: bool
+        Whether to track the Gauss-law error as a scalar quantity (default: False)
+    """
 
     @classmethod
     def model_type(cls) -> LiteralOptions.ModelTypes:

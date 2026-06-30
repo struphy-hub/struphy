@@ -17,28 +17,14 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class ShearAlfven(StruphyModel):
-    r"""ShearAlfven propagator from :class:`~struphy.models.linear_mhd.LinearMHD` with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).
+    """Shear-Alfvén part of :class:`~struphy.models.linear_mhd.LinearMHD` with zero-flow equilibrium.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat U =  \hat v_\textnormal{A} \,.
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        \rho_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} = (\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0\,,
-
-        &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
-        = 0\,.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`
-
-    :ref:`Model info <add_model>`:
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    mass_number: float
+        Mass number (in units of Proton mass) of the ion species (default: 1.0)
     """
 
     @classmethod

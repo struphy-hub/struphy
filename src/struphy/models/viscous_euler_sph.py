@@ -18,7 +18,23 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class ViscousEulerSPH(StruphyModel):
-    r"""Euler equations with viscosity discretized with smoothed particle hydrodynamics (SPH)."""
+    """Euler equations with viscosity discretized with smoothed particle hydrodynamics (SPH).
+
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits(kBT=1.0))
+    charge_number: int
+        Charge number (in units of the positive elementary charge) of the fluid species (default: 1)
+    mass_number: float
+        Mass number (in units of Proton mass) of the fluid species (default: 1.0)
+    with_B0: bool
+        Whether to include the effect of a background magnetic field B0 (default: True)
+    with_p: bool
+        Whether to include pressure forces (default: True)
+    with_viscosity: bool
+        Whether to include viscous dissipation (default: True)
+    """
 
     @classmethod
     def model_type(cls) -> LiteralOptions.ModelTypes:
