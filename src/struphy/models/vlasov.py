@@ -17,24 +17,16 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class Vlasov(StruphyModel):
-    r"""Vlasov equation in static background magnetic field.
+    """Vlasov equation for a single species in a static background magnetic field.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat v = \hat \Omega_\textnormal{c} \hat x\,.
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        \frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \left(\mathbf{v}\times\mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0\,.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.push_vxb.PushVxB`
-    2. :class:`~struphy.propagators.push_eta.PushEta`
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    charge_number: int
+        Charge number (in units of the positive elementary charge) of the species (default: 1)
+    mass_number: float
+        Mass number (in units of Proton mass) of the species (default: 1.0)
     """
 
     @classmethod
@@ -101,6 +93,9 @@ class Vlasov(StruphyModel):
     @property
     def velocity_scale(self):
         return "cyclotron"
+
+    def allocate_helpers(self):
+        pass
 
     @classmethod
     def doc_pde(cls):
@@ -179,6 +174,3 @@ class Vlasov(StruphyModel):
         - collisional kinetic dynamics
         - guiding-center reduction studies
         - fluid or MHD-scale closures"""
-
-    def allocate_helpers(self):
-        pass

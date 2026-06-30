@@ -55,36 +55,34 @@ class PushVinEfield(Propagator):
             assert new.space in ("Particles6D", "DeltaFParticles6D", "ParticlesSPH")
             self._var = new
 
-    def __init__(self):
+    def __init__(
+        self,
+        phi: FEECVariable | Callable = None,
+        e_field: FEECVariable | tuple[Callable] = None,
+    ):
+        """
+        Parameters
+        ----------
+        phi : FEECVariable or Callable, default=None
+            Electrostatic potential from which the electric field is built as
+            ``-grad(phi)``. If provided, it overrides ``e_field``.
+            Accepted forms are an ``H1`` FEEC variable or a callable projected
+            via ``L2Projector``.
+        e_field : FEECVariable or tuple of Callables, default=None
+            Electric field used directly in velocity pushing.
+            Accepted forms are an ``Hcurl`` FEEC variable or a tuple of
+            callables to be projected. Ignored when ``phi`` is set.
+        """
         self.variables = self.Variables()
+        self.phi = phi
+        self.e_field = e_field
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`PushVinEfield`.
-
-        Parameters
-        ----------
-        e_field : FEECVariable or tuple[Callable], default=None
-            Electric field used in velocity pushing.
-            Accepted forms are an ``Hcurl`` FEEC variable or a tuple of
-            callables to be projected.
-
-        phi : FEECVariable or Callable, default=None
-            Optional electrostatic potential from which the electric field is
-            built as ``-grad(phi)``. If provided, it overrides ``e_field``.
-        """
-
-        # propagator options
-        e_field: FEECVariable | tuple[Callable] = None
-        phi: FEECVariable | Callable = None
+        """Configuration options for :class:`PushVinEfield`."""
 
         def __post_init__(self):
-            # checks
-            if self.e_field is not None:
-                assert isinstance(self.e_field, tuple[Callable]) or self.e_field.space == "Hcurl"
-            else:
-                if self.phi is not None:
-                    assert isinstance(self.phi, Callable) or self.phi.space == "H1"
+            pass
 
     @property
     def options(self) -> Options:
@@ -105,17 +103,17 @@ class PushVinEfield(Propagator):
 
         self._e_field = None
 
-        if self.options.e_field is not None:
-            if isinstance(self.options.e_field, tuple[Callable]):
-                self._e_field = self.derham.P1(self.options.e_field)
+        if self.e_field is not None:
+            if isinstance(self.e_field, tuple[Callable]):
+                self._e_field = self.derham.P1(self.e_field)
             else:
-                self._e_field = self.options.e_field.spline.vector
+                self._e_field = self.e_field.spline.vector
 
-        if self.options.phi is not None:
-            if isinstance(self.options.phi, Callable):
-                _phi = self.derham.P0(self.options.phi)
+        if self.phi is not None:
+            if isinstance(self.phi, Callable):
+                _phi = self.derham.P0(self.phi)
             else:
-                _phi = self.options.phi.spline.vector
+                _phi = self.phi.spline.vector
             self._e_field = self.derham.grad.dot(_phi)
             self._e_field.update_ghost_regions()  # very important, we will move it inside grad
             self._e_field *= -1.0

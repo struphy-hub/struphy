@@ -56,8 +56,23 @@ class CurrentCoupling6DDensity(Propagator):
             assert new.space in ("Hcurl", "Hdiv", "H1vec")
             self._u = new
 
-    def __init__(self):
+    def __init__(
+        self,
+        energetic_ions: PICVariable = None,
+        b_tilde: FEECVariable = None,
+    ):
+        """
+        Parameters
+        ----------
+        energetic_ions : PICVariable, default=None
+            Energetic-ion particle distribution providing the density source term.
+        b_tilde : FEECVariable, default=None
+            Magnetic perturbation 1-form (``"Hcurl"`` space) entering the coupling term.
+            If ``None``, only the equilibrium field is used.
+        """
         self.variables = self.Variables()
+        self.energetic_ions = energetic_ions
+        self.b_tilde = b_tilde
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -65,13 +80,6 @@ class CurrentCoupling6DDensity(Propagator):
 
         Parameters
         ----------
-        energetic_ions : PICVariable, default=None
-            Energetic-ion particle variable providing marker data in
-            ``"Particles6D"`` space.
-
-        b_tilde : FEECVariable, default=None
-            Perturbed magnetic field variable added to the equilibrium field.
-
         u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
             FEEC space used for the unknown ``u`` variable.
 
@@ -93,8 +101,6 @@ class CurrentCoupling6DDensity(Propagator):
         """
 
         # propagator options
-        energetic_ions: PICVariable = None
-        b_tilde: FEECVariable = None
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
@@ -107,8 +113,6 @@ class CurrentCoupling6DDensity(Propagator):
             check_option(self.u_space, LiteralOptions.OptsVecSpace)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
-            assert self.energetic_ions.space == "Particles6D"
-            assert self.b_tilde.space == "Hdiv"
 
             # defaults
             if self.solver_params is None:
@@ -130,10 +134,9 @@ class CurrentCoupling6DDensity(Propagator):
     def allocate(self):
         self._space_key_int = int(self.derham.space_to_form[self.options.u_space])
 
-        particles = self.options.energetic_ions.particles
+        particles = self.energetic_ions.particles
         u = self.variables.u.spline.vector
         self._b_eq = self.projected_equil.b2
-        self._b_tilde = self.options.b_tilde.spline.vector
 
         # if self._particles.control_variate:
 
@@ -169,9 +172,9 @@ class CurrentCoupling6DDensity(Propagator):
         self._verbose = self.options.solver_params.verbose
         self._recycle = self.options.solver_params.recycle
 
-        Ah = self.options.energetic_ions.species.mass_number
+        Ah = self.energetic_ions.species.mass_number
         Ab = self.variables.u.species.mass_number
-        epsilon = self.options.energetic_ions.species.equation_params.epsilon
+        epsilon = self.energetic_ions.species.equation_params.epsilon
 
         self._coupling_const = Ah / Ab / epsilon
 
@@ -229,8 +232,8 @@ class CurrentCoupling6DDensity(Propagator):
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         self._b_eq.copy(out=self._b_full1)
 
-        if self._b_tilde is not None:
-            self._b_full1 += self._b_tilde
+        if self.b_tilde is not None:
+            self._b_full1 += self.b_tilde.spline.vector
 
         # extract coefficients to tensor product space (in-place)
         self._E2T.dot(self._b_full1, out=self._b_full2)
