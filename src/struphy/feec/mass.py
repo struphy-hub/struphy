@@ -1530,46 +1530,55 @@ class WeightedMassOperator(LinOpWithTransp):
                         self._weights[-1] += [lambda *etas: 0 * etas[0]]
 
                     else:
-                        if weights_info[a][b] is None:
-                            blocks[-1] += [None]
-                            self._weights[-1] += [None]
+                        loc_weight = weights_info[a][b]
 
+                        if loc_weight is None:
+                            mat_w = None
+                            local_nonzero = xp.array(False, dtype=bool)
                         else:
-                            if callable(weights_info[a][b]):
+                            if callable(loc_weight):
                                 PTS = xp.meshgrid(*pts, indexing="ij")
-                                mat_w = weights_info[a][b](*PTS).copy()
-                            elif isinstance(weights_info[a][b], xp.ndarray):
-                                mat_w = weights_info[a][b]
+                                mat_w = loc_weight(*PTS).copy()
+                            elif isinstance(loc_weight, xp.ndarray):
+                                mat_w = loc_weight
+                            else:
+                                raise TypeError(f"Invalid weight type: {type(loc_weight)}")
 
                             logger.debug(f"{mat_w.shape = } and {[pt.size for pt in pts] = }.")
-                            assert mat_w.shape == tuple(
-                                [pt.size for pt in pts],
-                            )
+                            assert mat_w.shape == tuple([pt.size for pt in pts])
+                            local_nonzero = xp.array(bool(xp.any(xp.abs(mat_w) > 1e-14)), dtype=bool)
 
-                            if xp.any(xp.abs(mat_w) > 1e-14):
-                                if self._matrix_free:
-                                    blocks[-1] += [
-                                        StencilMatrixFreeMassOperator(
-                                            self.derham,
-                                            vspace,
-                                            wspace,
-                                            weights=weights_info[a][b],
-                                            nquads=self.nquads,
-                                        ),
-                                    ]
-                                else:
-                                    blocks[-1] += [
-                                        StencilMatrix(
-                                            vspace.coeff_space,
-                                            wspace.coeff_space,
-                                            backend=PSYDAC_BACKEND_GPYCCEL,
-                                            precompiled=True,
-                                        ),
-                                    ]
-                                self._weights[-1] += [weights_info[a][b]]
+                        if self.derham.comm is not None:
+                            self.derham.comm.Allreduce(MPI.IN_PLACE, local_nonzero, op=MPI.LOR)
+
+                        if bool(local_nonzero):
+                            if mat_w is None:
+                                mat_w = xp.zeros(tuple([pt.size for pt in pts]), dtype=float)
+
+                            if self._matrix_free:
+                                blocks[-1] += [
+                                    StencilMatrixFreeMassOperator(
+                                        self.derham,
+                                        vspace,
+                                        wspace,
+                                        weights=loc_weight if loc_weight is not None else mat_w,
+                                        nquads=self.nquads,
+                                    )
+                                ]
                             else:
-                                blocks[-1] += [None]
-                                self._weights[-1] += [None]
+                                blocks[-1] += [
+                                    StencilMatrix(
+                                        vspace.coeff_space,
+                                        wspace.coeff_space,
+                                        backend=PSYDAC_BACKEND_GPYCCEL,
+                                        precompiled=True,
+                                    )
+                                ]
+
+                            self._weights[-1] += [loc_weight if loc_weight is not None else mat_w]
+                        else:
+                            blocks[-1] += [None]
+                            self._weights[-1] += [None]
 
             if len(blocks) == len(blocks[0]) == 1:
                 if blocks[0][0] is None:
@@ -2025,8 +2034,6 @@ class WeightedMassOperator(LinOpWithTransp):
 
                     # assemble matrix (if mat_w is not zero) by calling the appropriate kernel (1d, 2d or 3d)
                     if not_weight_zero or self._is_scalar:
-                        if mat_w is None:
-                            mat_w = xp.zeros(tuple([pt.size for pt in pts]))
                         # get cell of block matrix (don't instantiate if all zeros)
                         if self._is_scalar:
                             mat = self._mat
@@ -2037,6 +2044,11 @@ class WeightedMassOperator(LinOpWithTransp):
                                 )
                         else:
                             mat = self._mat[a, b]
+
+                            # block case: after the MPI Allreduce, this block may be globally
+                            # non-zero even if it is locally zero on this rank.
+                            if mat_w is None:
+                                mat_w = xp.zeros(tuple([pt.size for pt in pts]))
 
                         if mat is None:
                             # Maybe in a previous iteration we had more zeros
