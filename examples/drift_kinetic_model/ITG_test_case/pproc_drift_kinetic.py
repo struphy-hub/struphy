@@ -1,188 +1,463 @@
 import importlib.util
-import pyvista as pv
-from struphy import PlottingData, PostProcessor
-
 import os
 import sys
+
+import h5py
+import pyvista as pv
 import cunumpy as xp
 from matplotlib import pyplot as plt
-import h5py
+from matplotlib.widgets import Slider
+from struphy import PlottingData, PostProcessor
 
 
-# ------------------
-# Post process simulation data
-# ------------------
-def main():
-    if len(sys.argv)>1 and __name__=="__main__":
-        sim_name = sys.argv[1]
-    else:
-        sim_name = "sim_1"
-    sim_path = os.path.join(os.getcwd(), sim_name)
+# ============================================================
+# User options
+# ============================================================
+FIT_T0 = 0.0
+FIT_T1 = None              # None -> last available time
+FIT_QUANTITY = "phi_integral"  # or "en_phi" if this scalar exists in data_proc0.hdf5
 
+SHOW_EQUIL_PROFILE = False
+SHOW_DENSITY_SLIDER = True
+SHOW_FIELD_SLIDER = True
+
+DENSITY_PLOTS = [
+    {
+        "bin": "e1_e2_density",
+        "quantity": "delta_f_binned",
+        "physical": True,
+        "axes": "XY",
+        "vmin": None,
+        "vmax": None,
+        "title": "delta_f (X,Y)",
+    },
+]
+
+FIELD_PLOTS = [
+    {
+        "species": "em_fields",
+        "field": "phi_phy",
+        "component": 0,
+        "axes": "XYZ",
+        "fixed_index": 0,
+        "vmin": None,
+        "vmax": None,
+        "title": "Electric potential phi",
+    },
+    {
+        "species": "diagnostics",
+        "field": "rho_phy",
+        "component": 0,
+        "axes": "XYZ",
+        "fixed_index": 0,
+        "vmin": None,
+        "vmax": None,
+        "title": "Right-hand side of Poisson equation",
+    },
+]
+
+SAVE_DENSITY_IMAGES = False
+SAVE_DENSITY_QUANTITY = "delta_f_binned"
+SAVE_DENSITY_EVERY = 1
+SAVE_DENSITY_VMIN = None
+SAVE_DENSITY_VMAX = None
+
+
+# ============================================================
+# Small utilities
+# ============================================================
+def load_params(sim_path):
     spec = importlib.util.spec_from_file_location("params", os.path.join(sim_path, "parameters.py"))
     params = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(params)
+    return params
 
+
+def ensure_post_processing(params, sim_path):
     if not os.path.isdir(os.path.join(sim_path, "post_processing")):
         pp = PostProcessor(sim=params.sim)
         pp.process(physical=True)
 
+
+def load_scalar(sim_path, quantity):
+    with h5py.File(os.path.join(sim_path, "data", "data_proc0.hdf5"), "r") as f:
+        time = xp.asarray(f["time"]["value"][()])
+        if quantity in f["scalar"]:
+            y = xp.asarray(f["scalar"][quantity][()])
+        elif quantity == "en_phi" and "phi_integral" in f["scalar"]:
+            y = xp.asarray(f["scalar"]["phi_integral"][()])
+        else:
+            available = list(f["scalar"].keys())
+            raise KeyError(f"Scalar {quantity!r} not found. Available scalars: {available}")
+    return time, y
+
+
+def fit_window(time, y, t0, t1):
+    """Return safe indices for a log-fit of sqrt(y)."""
+    if t1 is None:
+        t1 = float(time[-1])
+
+    lo, hi = sorted((float(t0), float(t1)))
+    mask = (time >= lo) & (time <= hi) & xp.isfinite(y) & (y > 0.0)
+
+    # If the user window is unusable, use all positive finite samples.
+    if xp.count_nonzero(mask) < 2:
+        mask = xp.isfinite(y) & (y > 0.0)
+
+    # If there are still too few points, disable fit cleanly.
+    if xp.count_nonzero(mask) < 2:
+        return None
+
+    idx = xp.nonzero(mask)[0]
+    return int(idx[0]), int(idx[-1]) + 1
+
+
+def plot_energy_fit(time, en_phi, t0=FIT_T0, t1=FIT_T1):
+    window = fit_window(time, en_phi, t0, t1)
+
+    fig, ax = plt.subplots()
+    ax.plot(time, en_phi, label=FIT_QUANTITY)
+    ax.set_xlabel("time")
+    ax.set_ylabel(FIT_QUANTITY)
+    ax.set_title(f"Evolution of {FIT_QUANTITY}")
+
+    if window is not None:
+        i0, i1 = window
+        fit_time = time[i0:i1]
+        fit_signal = xp.log(xp.sqrt(en_phi[i0:i1]))
+        gamma, b = xp.polyfit(fit_time, fit_signal, 1)
+        en_fit = xp.exp(2.0 * (gamma * fit_time + b))
+        ax.plot(fit_time, en_fit, "--", label=f"fit: gamma={gamma:.4e}")
+        ax.axvspan(fit_time[0], fit_time[-1], alpha=0.12)
+        print(f"{FIT_QUANTITY} fit window: [{fit_time[0]:.6e}, {fit_time[-1]:.6e}]")
+        print(f"growth rate from log(sqrt({FIT_QUANTITY})): gamma = {gamma:.8e}")
+    else:
+        print(f"No valid positive data found for exponential fit of {FIT_QUANTITY}.")
+
+    ax.legend()
+    fig.tight_layout()
+    plt.show()
+
+
+def plot_equilibrium_profile(sim_path):
+    equil_data = pv.read(os.path.join(sim_path, "geometry.vts"))
+    dims = equil_data.dimensions
+    grid = xp.reshape(equil_data.points, dims + (3,))
+    r = xp.sqrt(grid[:, :, :, 0] ** 2 + grid[:, :, :, 1] ** 2)
+    p0 = xp.reshape(equil_data.point_data["p0"], dims)
+
+    fig, ax = plt.subplots()
+    ax.set_title("Radial equilibrium profiles")
+    ax.set_xlabel("R")
+    ax.plot(r[0, 0, :], p0[0, 0, :], label="p0")
+
+    if "n0" in equil_data.point_data:
+        n0 = xp.reshape(equil_data.point_data["n0"], dims)
+        ax.plot(r[0, 0, :], n0[0, 0, :], label="n0")
+        ax.plot(r[0, 0, :], p0[0, 0, :] / n0[0, 0, :], label="T0")
+
+    ax.legend()
+    fig.tight_layout()
+    plt.show()
+
+
+def match_field_to_grid(field, xgrid):
+    """Return field with orientation compatible with xgrid when possible."""
+    if field.shape == xgrid.shape:
+        return field
+    if field.T.shape == xgrid.shape:
+        return field.T
+    raise ValueError(f"Cannot match field shape {field.shape} with grid shape {xgrid.shape}.")
+
+
+def get_binned_data(pdata, bin_name, quantity):
+    return xp.asarray(getattr(getattr(pdata.f.kinetic_ions, bin_name), quantity))
+
+
+def get_binned_grids(
+    params,
+    pdata,
+    bin_name,
+    in_physical=True,
+    plot_axes="RZ",
+    fixed_eta=(0.5, 0.0, 0.0),
+):
+    bin_data = getattr(pdata.f.kinetic_ions, bin_name)
+
+    bin_axes = [int(part[1]) for part in bin_name.split("_") if part.startswith("e")]
+    if len(bin_axes) != 2:
+        raise ValueError(f"Cannot infer two binned axes from bin_name={bin_name!r}")
+
+    g0 = getattr(bin_data, f"grid_e{bin_axes[0]}")
+    g1 = getattr(bin_data, f"grid_e{bin_axes[1]}")
+
+    if not in_physical:
+        xgrid, ygrid = xp.meshgrid(g0, g1, indexing="ij")
+        return xgrid, ygrid, f"eta{bin_axes[0]}", f"eta{bin_axes[1]}"
+
+    etas = []
+    for ax in (1, 2, 3):
+        if ax == bin_axes[0]:
+            etas.append(g0)
+        elif ax == bin_axes[1]:
+            etas.append(g1)
+        else:
+            etas.append(fixed_eta[ax - 1])
+
+    x, y, z = params.domain(*etas, squeeze_out=True)
+
+    if plot_axes == "RZ":
+        return xp.sqrt(x**2 + y**2), z, "R", "Z"
+    elif plot_axes == "XY":
+        return x, y, "X", "Y"
+    elif plot_axes == "XZ":
+        return x, z, "X", "Z"
+    elif plot_axes == "YZ":
+        return y, z, "Y", "Z"
+    else:
+        raise ValueError(f"Unknown plot_axes={plot_axes!r}")
+
+
+def make_slider_plot(time_grid, xgrid, ygrid, data, *, title, xlabel, ylabel, vmin=None, vmax=None):
+    data0 = match_field_to_grid(xp.asarray(data[0]), xgrid)
+
+    fig, ax = plt.subplots()
+    fig.subplots_adjust(bottom=0.20)
+    pcm = ax.pcolormesh(xgrid, ygrid, data0, shading="auto", vmin=vmin, vmax=vmax)
+    cbar = fig.colorbar(pcm, ax=ax)
+    ax.set_aspect("equal", adjustable="box")
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(f"{title} at t = {time_grid[0]:.4e}")
+
+    slider_ax = fig.add_axes([0.20, 0.07, 0.60, 0.03])
+    slider = Slider(
+        slider_ax,
+        "time index",
+        0,
+        len(time_grid) - 1,
+        valinit=0,
+        valstep=1,
+    )
+
+    def update(_):
+        idx = int(slider.val)
+        field = match_field_to_grid(xp.asarray(data[idx]), xgrid)
+        pcm.set_array(field.ravel())
+        if vmin is None and vmax is None:
+            pcm.set_clim(float(xp.nanmin(field)), float(xp.nanmax(field)))
+            cbar.update_normal(pcm)
+        ax.set_title(f"{title} at t = {time_grid[idx]:.4e}")
+        fig.canvas.draw_idle()
+
+    slider.on_changed(update)
+    plt.show()
+
+
+def plot_binned_quantity_slider(params, pdata, *, bin_name, quantity, in_physical=True, axes="RZ", vmin=None, vmax=None, title="density binned"):
+    data = get_binned_data(pdata, bin_name, quantity)
+    xgrid, ygrid, xlabel, ylabel = get_binned_grids(params, pdata, bin_name, in_physical=in_physical, plot_axes=axes)
+    make_slider_plot(
+        pdata.t_grid,
+        xgrid,
+        ygrid,
+        data,
+        title=title,
+        xlabel=xlabel,
+        ylabel=ylabel,
+        vmin=vmin,
+        vmax=vmax,
+    )
+
+
+def get_field_3d(pdata, species, field, component=0):
+    field_data = getattr(getattr(pdata.spline_values, species), field)
+    times = list(field_data.data.keys())
+    values = [field_data.data[t][component] for t in times]
+    return xp.array(times), values
+
+
+def get_slice_from_field(pdata, arr3d, axes="RZT", fixed_index=0):
+    X = pdata.grids_phy[0]
+    Y = pdata.grids_phy[1]
+    Z = pdata.grids_phy[2]
+    R = xp.sqrt(X**2 + Y**2)
+
+    if axes == "RZT":
+        data = arr3d[:, :, fixed_index]
+        return R[:, :, fixed_index], Z[:, :, fixed_index], data, "R", "Z"
+
+    elif axes == "XYZ":
+        data = arr3d[:, :, fixed_index]
+        return X[:, :, fixed_index], Y[:, :, fixed_index], data, "X", "Y"
+
+    elif axes == "RTP":
+        data = arr3d[:, fixed_index, :]
+        return R[:, fixed_index, :], Z[:, fixed_index, :], data, "R", "Z"
+
+    else:
+        raise ValueError(f"Unknown field slice axes={axes!r}")
+
+
+def plot_field_slider(
+    pdata,
+    species,
+    field,
+    component=0,
+    axes="RZT",
+    vmin=None,
+    vmax=None,
+    title=None,
+):
+    times, values = get_field_3d(pdata, species, field, component=component)
+
+    nt = len(values)
+    shape = values[0].shape
+
+    if axes == "RZT":
+        nslice = shape[2]
+        slice_label = "toroidal index"
+    elif axes == "XYZ":
+        nslice = shape[2]
+        slice_label = "poloidal/radial slice index"
+    elif axes == "RTP":
+        nslice = shape[1]
+        slice_label = "eta2 index"
+    else:
+        raise ValueError(f"Unknown field slice axes={axes!r}")
+
+    fig, ax = plt.subplots()
+    plt.subplots_adjust(bottom=0.22)
+
+    time_idx = 0
+    slice_idx = min(nslice - 1, nslice // 2)
+
+    xg, yg, data, xlabel, ylabel = get_slice_from_field(
+        pdata,
+        values[time_idx],
+        axes=axes,
+        fixed_index=slice_idx,
+    )
+
+    pcm = ax.pcolormesh(xg, yg, data, shading="auto", vmin=vmin, vmax=vmax)
+    ax.set_aspect("equal", adjustable="box")
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title or f"{species}.{field}")
+
+    cbar = fig.colorbar(pcm, ax=ax)
+
+    ax_time = plt.axes([0.15, 0.10, 0.70, 0.03])
+    ax_slice = plt.axes([0.15, 0.05, 0.70, 0.03])
+
+    s_time = Slider(ax_time, "time", 0, nt - 1, valinit=time_idx, valstep=1)
+    s_slice = Slider(ax_slice, slice_label, 0, nslice - 1, valinit=slice_idx, valstep=1)
+
+    def update(_):
+        ti = int(s_time.val)
+        si = int(s_slice.val)
+
+        xg, yg, data, xlabel, ylabel = get_slice_from_field(
+            pdata,
+            values[ti],
+            axes=axes,
+            fixed_index=si,
+        )
+
+        pcm.set_array(data.ravel())
+        pcm.set_clim(
+            vmin if vmin is not None else xp.nanmin(data),
+            vmax if vmax is not None else xp.nanmax(data),
+        )
+        ax.set_title(f"{title or field} | t = {times[ti]:.4e}, slice = {si}")
+        fig.canvas.draw_idle()
+
+    s_time.on_changed(update)
+    s_slice.on_changed(update)
+
+    plt.show()
+
+
+def save_density_images(params, pdata, sim_path):
+    data = get_binned_data(pdata, DENSITY_BIN_NAME, SAVE_DENSITY_QUANTITY)
+    xgrid, ygrid, xlabel, ylabel = get_binned_grids(params, pdata, DENSITY_BIN_NAME, in_physical=True)
+
+    out_dir = os.path.join(sim_path, "images", SAVE_DENSITY_QUANTITY)
+    os.makedirs(out_dir, exist_ok=True)
+
+    for idx in range(0, len(data), SAVE_DENSITY_EVERY):
+        field = match_field_to_grid(xp.asarray(data[idx]), xgrid)
+        fig, ax = plt.subplots()
+        pcm = ax.pcolormesh(xgrid, ygrid, field, shading="auto", vmin=SAVE_DENSITY_VMIN, vmax=SAVE_DENSITY_VMAX)
+        fig.colorbar(pcm, ax=ax)
+        ax.set_aspect("equal", adjustable="box")
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        ax.set_title(f"{SAVE_DENSITY_QUANTITY} at t = {pdata.t_grid[idx]:.4e}")
+        fig.tight_layout()
+        fig.savefig(os.path.join(out_dir, f"{SAVE_DENSITY_QUANTITY}_{idx:05d}.png"), dpi=180)
+        plt.close(fig)
+
+    print(f"Saved density images in {out_dir}")
+
+
+# ============================================================
+# Main
+# ============================================================
+def main():
+    if len(sys.argv) > 1 and __name__ == "__main__":
+        sim_name = sys.argv[1]
+    else:
+        sim_name = "sim_1"
+
+    sim_path = os.path.join(os.getcwd(), sim_name)
+    params = load_params(sim_path)
+    ensure_post_processing(params, sim_path)
+
     pdata = PlottingData(sim=params.sim)
     pdata.load()
-
-    equil_data = pv.read(os.path.join(sim_path, "geometry.vts"))
-
-    # path to save plots
-    # save_path = os.path.join(os.getcwd(), "images", "sim")
-    # os.makedirs(save_path, exist_ok=True)
 
     # ------------------
     # Check simulation domain
     # ------------------
+    params.domain.show()
 
-    #params.domain.show()
+    # Everything below this line is the rewritten post-processing part.
+    time, en_phi = load_scalar(sim_path, FIT_QUANTITY)
+    plot_energy_fit(time, en_phi)
 
-    # get scalar data (post processing not needed for scalar data)
-    pa_data = os.path.join(sim_path, "data")
-    with h5py.File(os.path.join(pa_data, "data_proc0.hdf5"), "r") as f:
-        time = f["time"]["value"][()]
-        en_phi = f["scalar"]["phi_integral"][()]#"en_phi"
-    
-    t0, t1 = 700, 1000
-    m, b = xp.polyfit(time[t0:t1], xp.log(xp.sqrt(en_phi))[t0:t1], 1)
+    if SHOW_EQUIL_PROFILE:
+        plot_equilibrium_profile(sim_path)
 
+    if SAVE_DENSITY_IMAGES:
+        save_density_images(params, pdata, sim_path)
 
-    plt.figure(figsize=(6,4))
-    plt.plot(time, xp.sqrt(en_phi), label="simulated value")
-    plt.plot(time[t0:t1], xp.exp(time[t0:t1]* m + b), label=f"fit y=c*e^(mx) with {m=:.4e} and c={xp.exp(b):.4e}")
-    plt.legend()
-    plt.semilogy()
-    plt.xlabel("time")
-    plt.ylabel("$\mathcal{E}$(t)")
-    plt.show()
+    if SHOW_DENSITY_SLIDER:
+        for cfg in DENSITY_PLOTS:
+            plot_binned_quantity_slider(
+                params,
+                pdata,
+                bin_name=cfg["bin"],
+                quantity=cfg["quantity"],
+                in_physical=cfg.get("physical", True),
+                axes=cfg.get("axes", "RZ"),
+                vmin=cfg.get("vmin"),
+                vmax=cfg.get("vmax"),
+                title=cfg.get("title"),
+            )
 
-    equil_dim_grid = equil_data.dimensions
-    equil_grid = xp.reshape(equil_data.points, equil_dim_grid + (3,))
-    equil_r = xp.sqrt(equil_grid[:,:,:,0]**2 + equil_grid[:,:,:,1]**2)
-    equil_p0 = xp.reshape(equil_data.point_data["p0"], equil_dim_grid)
-    if "n0" in equil_data.point_data:
-         equil_n0 = xp.reshape(equil_data.point_data["n0"], equil_dim_grid)
-    plt.figure()
-    plt.title("radial distribution")
-    plt.xlabel("r")
-    plt.plot(equil_r[0,0,:], equil_p0[0,0,:], label="p0")
-    if "n0" in equil_data.point_data:
-        plt.plot(equil_r[0,0,:], equil_n0[0,0,:], label="n0")
-        plt.plot(equil_r[0,0,:], equil_p0[0,0,:]/equil_n0[0,0,:], label="T0")
-    plt.legend()
-    plt.show()
-
-    nrows = 4
-    ncols = 4
-    ntime = len(pdata.f.kinetic_ions.e1_e2_density.f_binned) 
-    time_indices = [int( i/(nrows*ncols-1) * (ntime - 1) ) for i in range(nrows*ncols)]
-
-    def plot_radial_density(bin_name, quantity, x_label = "r", y_label = "density"):
-        time_idx=0
-        fig, axs = plt.subplots(nrows = nrows, ncols = ncols, figsize = (14,10), sharex=True, sharey=True)
-        for i in range(nrows):
-            for j in range(ncols):
-                ax_maxwellian = axs[i][j]
-                previous = time_idx
-                time_idx = time_indices[j + i*ncols]
-
-                #maxwellian distribution plot
-                f = getattr(
-                    getattr(pdata.f.kinetic_ions, bin_name), quantity
-                    )[time_idx]
-                f2 = getattr(
-                    getattr(pdata.f.kinetic_ions, bin_name), quantity
-                    )[previous]
-
-                pcm = ax_maxwellian.plot(f[:,0])# - f2[:,0])
-
-                ax_maxwellian.set_xlabel(x_label)
-                ax_maxwellian.set_ylabel(y_label)
-                ax_maxwellian.set_title(f"t = {pdata.t_grid[time_idx]:4.2e}")
-        fig.suptitle(quantity)
-        plt.tight_layout()
-        plt.show()
-
-    plot_radial_density("e1_e2_density", "delta_f_binned")
-
-    def plot_phaseSpace(bin_name, quantity, xs, ys, x_label = "x", y_label = "y", in_physical = False):
-
-            fig, axs = plt.subplots(nrows = nrows, ncols = ncols, figsize = (14,10), sharex=True, sharey=True)
-            for i in range(nrows):
-                for j in range(ncols):
-                    ax_maxwellian = axs[i][j]
-                    time_idx = time_indices[j + i*ncols]
-
-                    #maxwellian distribution plot
-                    color_mapped = getattr(
-                        getattr(pdata.f.kinetic_ions, bin_name), quantity
-                        )[time_idx].T
-
-                    if in_physical: color_mapped = color_mapped.T
-
-                    pcm = ax_maxwellian.pcolor(xs, ys, color_mapped, vmin=-1e-7, vmax=1e-7)
-
-                    ax_maxwellian.set_xlabel(x_label)
-                    ax_maxwellian.set_ylabel(y_label)
-                    ax_maxwellian.set_title(f"t = {pdata.t_grid[time_idx]:4.2e}")
-                    fig.colorbar(pcm, ax = ax_maxwellian)
-            fig.suptitle(quantity)
-            plt.tight_layout()
-            plt.show()
-    print(f"evol : {xp.max([xp.abs(pdata.f.kinetic_ions.e1_e2_density.f_binned[i+1]-pdata.f.kinetic_ions.e1_e2_density.f_binned[i]) for i in range(ntime-1)])}")
-    e1_bin = pdata.f.kinetic_ions.e1_e2_density.grid_e1
-    e2_bin = pdata.f.kinetic_ions.e1_e2_density.grid_e2
-    phy_bin = params.domain(e1_bin, e2_bin, 0, squeeze_out=True)
-    plot_phaseSpace("e1_e2_density", "delta_f_binned", xs=phy_bin[0], ys=phy_bin[1], in_physical=True)
-
-    
-    # ------------------
-    # Show evolution of electric potential
-    # ------------------
-    time_indices = [int( i/(nrows*ncols-1) * (ntime - 1) ) for i in range(nrows*ncols)]
-
-    fig, axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=(14,10), sharex=True, sharey=True)
-
-    for i in range(nrows):
-        for j in range(ncols):
-            ax_maxwellian = axs[i][j]
-            time_idx = time_indices[j + i*ncols]
-
-            phi = pdata.spline_values.em_fields.phi_phy.data[pdata.t_grid[time_idx]][0][:,:,0]
-
-            pcm = ax_maxwellian.pcolormesh(pdata.grids_phy[0][:,:,0], pdata.grids_phy[1][:,:,0], phi)
-
-            ax_maxwellian.set_xlabel("x")
-            ax_maxwellian.set_ylabel("y")
-            ax_maxwellian.set_title(f"Electrical potential at t = {pdata.t_grid[time_idx]:4.2e}")
-
-            fig.colorbar(pcm, ax=ax_maxwellian)
-
-    plt.tight_layout()
-    plt.show()
-
-    save_video_pngs = False
-    if save_video_pngs:
-        if not os.path.exists(sim_path+"/video"):
-            os.mkdir(sim_path+"/video")
-        # create .png for video
-        jump = 1
-        fig = plt.figure(figsize=(8, 8))
-        for n in range(50):
-            if n % jump == 0:
-                color_mapped = pdata.f.kinetic_ions.e1_e2_density.f_binned[n].T
-                plt.pcolor(phy_bin[0], phy_bin[1], pdata.f.kinetic_ions.e1_e2_density.delta_f_binned[n])
-                
-                plt.xlabel("x position")
-                plt.ylabel("y position")
-                plt.title(f"t = {pdata.t_grid[n]:4.2e}")
-                plt.savefig(sim_path+"/video"+f"/fig_{n:04.0f}.png", transparent=False, bbox_inches='tight', pad_inches=0)
-
+    if SHOW_FIELD_SLIDER:
+        for cfg in FIELD_PLOTS:
+            plot_field_slider(
+                pdata,
+                species=cfg["species"],
+                field=cfg["field"],
+                component=cfg.get("component", 0),
+                axes=cfg.get("axes", "RZT"),
+                vmin=cfg.get("vmin"),
+                vmax=cfg.get("vmax"),
+                title=cfg.get("title"),
+            )
 
 
 if __name__ == "__main__":

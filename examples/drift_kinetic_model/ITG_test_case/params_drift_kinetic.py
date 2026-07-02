@@ -63,7 +63,12 @@ restart = False
 base_units = BaseUnits(kBT=1.0)
 
 # Model instance
-model = DriftKineticElectrostaticAdiabatic(base_units=base_units, epsilon=1.0, alpha=1.0)
+model = DriftKineticElectrostaticAdiabatic(
+    base_units=base_units,
+    epsilon=1.0,
+    alpha=1.0,
+    use_diagnostic_poisson=True,
+    )
 
 # List all variables and decide whether to save their data
 model.em_fields.phi.save_data = True
@@ -77,7 +82,7 @@ model.kinetic_ions.var.save_data = False
 env = EnvironmentOptions(sim_folder="sim_1", profiling_activated=True, profiling_trace=True)
 
 # Time stepping
-time_opts = Time(dt=1.0, Tend=100.0, split_algo="LieTrotter")
+time_opts = Time(dt=1.0, Tend=10.0, split_algo="LieTrotter")
 
 # Geometry
 a1, a2, Lz = 0.1, 14.5, 1506.759067
@@ -87,12 +92,12 @@ domain = domains.HollowCylinder(a1=a1, a2=a2, Lz=Lz)
 equil = equils.HomogenSlab(B0x=0.0, B0y=0.0, B0z=1.0)
 
 # Grid
-Nx, Ny, Nz = (42,96,18)
+Nx, Ny, Nz = (32, 5*10, 10)
 num_element = (Nx, Ny, Nz)
 grid = grids.TensorProductGrid(num_elements=num_element, mpi_dims_mask=(True,True,True))
 
 # Derham options
-derham_opts = DerhamOptions(degree=(2,2,2), bcs=(("dirichlet", "dirichlet"), None, None))
+derham_opts = DerhamOptions(degree=(3,3,3), bcs=(("dirichlet", "dirichlet"), None, None))
 
 # Simulation object
 sim = Simulation(
@@ -112,8 +117,8 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-Np = 500000
-loading_params = LoadingParameters(Np=Np, loading="pseudo_random", spatial="uniform", seed=1234)
+ppc = 100
+loading_params = LoadingParameters(ppc=ppc, loading="sobol_standard", spatial="uniform", moments=(0.0, 0.0, 2.0, 2.0))
 weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters(bc=('remove','periodic','periodic'))
 sorting_params = SortingParameters(
@@ -137,9 +142,9 @@ model.kinetic_ions.set_markers(loading_params=loading_params,
 # Propagator options
 # ------------------
 
-model.propagators.gc_poisson.options.solver_params = implicit_diffusion.SolverParameters(maxiter=5000, tol=1e-14)
-model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(phi=model.em_fields.phi, algo="explicit", evaluate_e_field=True)
-model.propagators.push_gc_para.options = model.propagators.push_gc_para.Options(phi=model.em_fields.phi, algo="explicit", evaluate_e_field=True)
+model.propagators.gc_poisson.options.solver_params = implicit_diffusion.SolverParameters(maxiter=3000, tol=1e-14)
+model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(algo="explicit", evaluate_e_field=True)
+model.propagators.push_gc_para.options = model.propagators.push_gc_para.Options(algo="explicit", evaluate_e_field=True)
 
 # ------------------
 # Initial conditions
@@ -162,7 +167,7 @@ model.propagators.push_gc_para.options = model.propagators.push_gc_para.Options(
 
 rp = (a2+a1)/2
 amps=1e-6
-ms, ns = 5, 0
+ms, ns = 5, 1
 kappa_n0 = 0.055
 kappa_Ti = kappa_Te = 0.27586
 delta_r_Ti = delta_r_Te = 1.45
@@ -186,7 +191,7 @@ def n_init(*etas):
 
 def pert_func(*etas):
     if len(etas)==1:
-        e1,e2,e3 = etas[0][:,0], etas[0][:,1], etas[0][:,1]
+        e1,e2,e3 = etas[0][:,0], etas[0][:,1], etas[0][:,2]
     else:
         e1, e2, e3 = etas[0], etas[1], etas[2]
     r = (a1 + (a2 - a1) * e1)
@@ -227,7 +232,6 @@ equil.n_xyz = n0_xyz
 
 perturbation = GenericPerturbation(pert_func)
 background = maxwellians.GyroMaxwellian2D(n=(n_init, None), equil=equil, vth_para=(vth_i,None), vth_perp=(vth_i,None))
-#background.plot_density_profile(dim_1="e1", dim_2="e2", in_physical=True, domain=domain, resol=100, integrate_resol=10, logical_coord=(0.0,0.0,0.0), plot_3D=False, use_mu=True)
 model.kinetic_ions.var.add_background(background)
 init = maxwellians.GyroMaxwellian2D(n=(n_init, perturbation), equil=equil, vth_para=(vth_i,None), vth_perp=(vth_i,None))
 model.kinetic_ions.var.add_initial_condition(init)

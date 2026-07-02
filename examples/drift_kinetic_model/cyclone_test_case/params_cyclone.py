@@ -59,11 +59,13 @@ import cunumpy as xp
 
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models import DriftKineticElectrostaticAdiabatic
+from struphy.pic.accumulation.filter import FilterParameters
 
-base_units = BaseUnits(kBT=1.0)
+base_units = BaseUnits(kBT=191.6)
 model = DriftKineticElectrostaticAdiabatic(
     epsilon=1.4142e-3,
     base_units=base_units,
+    use_diagnostic_poisson=True,
     )
 
 # List all variables and decide whether to save their data
@@ -78,10 +80,10 @@ model.kinetic_ions.var.save_data = False
 env = EnvironmentOptions(sim_folder="sim_2",profiling_activated=True, profiling_trace=True, restart=False)
 
 # Time stepping
-time_opts = Time(dt=0.000001, Tend=0.00001, split_algo="LieTrotter")
+time_opts = Time(dt=0.00001, Tend=0.0001, split_algo="LieTrotter")
 
 a, r_min, R0 = 0.36, 0.01, 1.0
-num_elements = (32, 8*27, 8)#(64, 128, 15)
+num_elements = (32, 5*27, 5)
 degree = (3, 3, 3)
 
 # Fluid equilibrium (can be used as part of initial conditions)
@@ -89,7 +91,7 @@ equil = equils.AdhocTorus(a=a, R0=R0, B0=1.0, q_kind=2, q0=0.86, q1=2.52+0.86, l
 
 # Geometry
 domain = domains.Tokamak(equil, num_elements=num_elements[:2], degree=degree[:2], r_min=r_min, num_elements_pre=(128, 512), p_pre=(4, 4), xi_param="sfl", tor_period=19)
-domain.show()
+
 # Grid
 grid = grids.TensorProductGrid(num_elements=num_elements, mpi_dims_mask=(True,True,False))
 
@@ -118,32 +120,33 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-Np=6000000
-ppc = 200
-loading_params = LoadingParameters(Np = Np, loading="pseudo_random", spatial="uniform", moments=(0, 0, 5, 5))
-weights_params = WeightsParameters(control_variate=True, reject_weights=True, threshold=1e-9)
+Np=1000000
+ppc = 100
+loading_params = LoadingParameters(ppc = ppc, loading="sobol_standard", spatial="uniform", moments=(0, 0, 4, 4))
+weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters(bc=("periodic", "periodic", "periodic"))
 sorting_params = SortingParameters(boxes_per_dim=(12,12,6), do_sort=True, sorting_frequency=5)
 
 # density binning
-eta_bin = BinningPlot(slice='e1_e2', n_bins= (128,128), ranges= ((0.01, 0.99), (0.0, 1.0)))
-saving_params = SavingParameters(binning_plots=(eta_bin,)) # (binning_plots=(eta_bin,)) if you want to save the density binning data
+eta_bin = BinningPlot(slice='e1_e2', n_bins= (64,64), ranges= ((0.01, 0.99), (0.0, 1.0)))
+eta_bin2 = BinningPlot(slice='e2_e3', n_bins= (64,64), ranges= ((0.0, 1.0), (0.0, 1.0)))
+saving_params = SavingParameters(binning_plots=(eta_bin, eta_bin2,)) # (binning_plots=(eta_bin,)) if you want to save the density binning data
 
 model.kinetic_ions.set_markers(loading_params=loading_params,
                                weights_params=weights_params,
                                boundary_params=boundary_params,
                                sorting_params=sorting_params,
                                saving_params=saving_params,
-                               bufsize=2.0,
+                               bufsize=1.0,
                                )
 
 # ------------------
 # Propagator options
 # ------------------
 
-model.propagators.gc_poisson.options = model.propagators.gc_poisson.Options(which_geometry="toroidal", solver_params=SolverParameters(tol=1e-14, maxiter=3000))
-model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(algo="explicit", phi=model.em_fields.phi, evaluate_e_field=True, maxiter=100)
-model.propagators.push_gc_para.options = model.propagators.push_gc_para.Options(algo="explicit", phi=model.em_fields.phi, evaluate_e_field=True, maxiter=100)
+model.propagators.gc_poisson.options = model.propagators.gc_poisson.Options(which_geometry="toroidal", solver_params=SolverParameters(tol=1e-12, maxiter=3000, recycle=False), particle_filter=FilterParameters("hybrid", (1,), repeat=2))
+model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(algo="explicit", evaluate_e_field=True, maxiter=100)
+model.propagators.push_gc_para.options = model.propagators.push_gc_para.Options(algo="explicit", evaluate_e_field=True, maxiter=100)
 
 # ------------------
 # Initial conditions

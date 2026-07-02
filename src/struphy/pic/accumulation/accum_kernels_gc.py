@@ -45,6 +45,7 @@ def gc_density_0form(
     """
 
     markers = args_markers.markers
+    weight_idx = args_markers.weight_idx
 
     # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, filling)
     # -- removed omp: #$ omp for reduction ( + :vec)
@@ -59,9 +60,9 @@ def gc_density_0form(
         eta3 = markers[ip, 2]
 
         # filling = w_p/N
-        filling = markers[ip, 5]
+        filling = markers[ip, weight_idx]
 
-        particle_to_mat_kernels.vec_fill_b_v0(args_derham, eta1, eta2, eta3, vec, filling)
+        particle_to_mat_kernels.vec_fill_b_v0(args_derham, eta1, eta2, eta3, vec, filling,)
 
     # -- removed omp: #$ omp end parallel
 

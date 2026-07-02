@@ -7,11 +7,14 @@ from struphy.feec.mass import AverageOperator
 from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.solver import SolverParameters
 from feectools.linalg.basic import IdentityOperator
-from struphy.models.variables import FEECVariable
+from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.pic.base import Particles
 from struphy.propagators.implicit_diffusion import ImplicitDiffusion
 from struphy.utils.utils import check_option
+from struphy.utils.pyccel import Pyccelkernel
+from struphy.pic.accumulation.filter import FilterParameters
+from struphy.pic.accumulation import accum_kernels_gc
 
 
 class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
@@ -59,6 +62,29 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
     solver : dict
         Parameters for the iterative solver (see ``__init__`` for details).
     """
+
+    def __init__(
+        self,
+        rho: FEECVariable | Callable | AccumulatorVector | Particles | PICVariable | list = None,
+        rho_coeffs: float | list = None,
+        epsilon: float = 1.0,
+        Z: int = 1,
+        diagnostic: FEECVariable | None = None
+    ):
+        """
+        Parameters
+        ----------
+        see ImplicitDiffusion.__init__ docstring for other parameters.
+        
+        epsilon : float
+            Gyrokinetic parameter, appears in gyrokinetic Poisson equation
+        
+        Z : int
+            Charge number for ions, appears in gyrokinetic Poisson equation
+        """
+        super().__init__(rho=rho, rho_coeffs=rho_coeffs, diagnostic=diagnostic)
+        self.epsilon = epsilon
+        self.Z = Z
 
     @dataclass
     class Options:
@@ -132,42 +158,34 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
         OptsDiffusionMat = Literal["M1", "M1perp", "M1gyro"]
         OptsGeometry = Literal["cylindrical", "toroidal"]
         # propagator options
-        """epsilon: float = 1.0
-        Z: float = 1.0"""
         stab_mat: OptsStabMat = "M0ad_withT"
-        which_geometry: OptsGeometry = "cylindrical"
         diffusion_mat: OptsDiffusionMat = "M1gyro"
-        rho: FEECVariable | Callable | tuple[AccumulatorVector, Particles] | list = None
-        rho_coeffs: float | list = None
+        which_geometry: OptsGeometry = "cylindrical"
         x0: StencilVector = None
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
+        param_kernel: Pyccelkernel = Pyccelkernel(accum_kernels_gc.gc_density_0form)
+        particle_filter: FilterParameters = None
 
         def __post_init__(self):
             # checks
             check_option(self.stab_mat, self.OptsStabMat)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
+            assert isinstance(self.param_kernel, Pyccelkernel)
 
             # defaults
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
 
-            # Poisson solve (-> set some params of parent class)
-            self.sigma_1 = 1.0
-            self.sigma_2 = 0.0
-            self.sigma_3 = 1.0
-            self.divide_by_dt = False
-
     def allocate(self):
-        """epsilon = self.options.epsilon
-        self.options.sigma_1 = 1/epsilon**2/self.option.Z
+        epsilon = self.epsilon
+        Z = self.Z
+        self.options.sigma_1 = 1/epsilon**2/self.Z
         self.options.sigma_2 = 0.0
         self.options.sigma_3 = 1/epsilon
-        self.options.stab_mat = "M0ad_withT"
-        self.options.diffusion_mat = "M1gyro"
-        self.options.divide_by_dt = False"""
+        self.options.divide_by_dt = False
         super().allocate()
         if self.options.which_geometry == "cylindrical":
             average_mat = AverageOperator(self.derham, "H1", 2)
