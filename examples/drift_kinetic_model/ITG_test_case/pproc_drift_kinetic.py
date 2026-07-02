@@ -17,7 +17,7 @@ FIT_T0 = 0.0
 FIT_T1 = None              # None -> last available time
 FIT_QUANTITY = "phi_integral"  # or "en_phi" if this scalar exists in data_proc0.hdf5
 
-SHOW_EQUIL_PROFILE = False
+SHOW_EQUIL_PROFILE = True
 SHOW_DENSITY_SLIDER = True
 SHOW_FIELD_SLIDER = True
 
@@ -85,7 +85,7 @@ def load_scalar(sim_path, quantity):
         if quantity in f["scalar"]:
             y = xp.asarray(f["scalar"][quantity][()])
         elif quantity == "en_phi" and "phi_integral" in f["scalar"]:
-            y = xp.asarray(f["scalar"]["phi_integral"][()])
+            y = xp.asarray(f["scalar"]["phi_integral"][()]) * 7.3 * 2 * xp.pi * 1506.759067
         else:
             available = list(f["scalar"].keys())
             raise KeyError(f"Scalar {quantity!r} not found. Available scalars: {available}")

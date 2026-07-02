@@ -10,9 +10,9 @@ from struphy.kinetic_background.base import KineticBackground
 from struphy.models.base import StruphyModel
 from struphy.models.scalars import FunctionScalarFEEC, FunctionScalarPIC, KineticEnergyPIC, Scalars
 from struphy.models.species import (
+    DiagnosticSpecies,
     FieldSpecies,
     ParticleSpecies,
-    DiagnosticSpecies,
 )
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels_gc
@@ -130,7 +130,9 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators(phi=self.em_fields.phi, rho=self.kinetic_ions.var, epsilon=epsilon, Z=charge_number, diagnostic=diagnostic)
+        self.propagators = self.Propagators(
+            phi=self.em_fields.phi, rho=self.kinetic_ions.var, epsilon=epsilon, Z=charge_number, diagnostic=diagnostic
+        )
 
         # 4. assign variables to propagators
         self.propagators.gc_poisson.variables.phi = self.em_fields.phi

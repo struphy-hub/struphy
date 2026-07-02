@@ -1,20 +1,20 @@
 from dataclasses import dataclass
 from typing import Callable, Literal
 
+from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.stencil import StencilVector
 
 from struphy.feec.mass import AverageOperator
 from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.solver import SolverParameters
-from feectools.linalg.basic import IdentityOperator
 from struphy.models.variables import FEECVariable, PICVariable
+from struphy.pic.accumulation import accum_kernels_gc
+from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.pic.base import Particles
 from struphy.propagators.implicit_diffusion import ImplicitDiffusion
-from struphy.utils.utils import check_option
 from struphy.utils.pyccel import Pyccelkernel
-from struphy.pic.accumulation.filter import FilterParameters
-from struphy.pic.accumulation import accum_kernels_gc
+from struphy.utils.utils import check_option
 
 
 class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
@@ -69,16 +69,16 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
         rho_coeffs: float | list = None,
         epsilon: float = 1.0,
         Z: int = 1,
-        diagnostic: FEECVariable | None = None
+        diagnostic: FEECVariable | None = None,
     ):
         """
         Parameters
         ----------
         see ImplicitDiffusion.__init__ docstring for other parameters.
-        
+
         epsilon : float
             Gyrokinetic parameter, appears in gyrokinetic Poisson equation
-        
+
         Z : int
             Charge number for ions, appears in gyrokinetic Poisson equation
         """
@@ -182,18 +182,22 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
     def allocate(self):
         epsilon = self.epsilon
         Z = self.Z
-        self.options.sigma_1 = 1/epsilon**2/self.Z
+        self.options.sigma_1 = 1 / epsilon**2 / self.Z
         self.options.sigma_2 = 0.0
-        self.options.sigma_3 = 1/epsilon
+        self.options.sigma_3 = 1 / epsilon
         self.options.divide_by_dt = False
         super().allocate()
         if self.options.which_geometry == "cylindrical":
             average_mat = AverageOperator(self.derham, "H1", 2)
-            self._stab_mat = self._stab_mat @ (IdentityOperator(self._stab_mat.domain, self._stab_mat.codomain) - average_mat)
+            self._stab_mat = self._stab_mat @ (
+                IdentityOperator(self._stab_mat.domain, self._stab_mat.codomain) - average_mat
+            )
         elif self.options.which_geometry == "toroidal":
             average_mat1 = AverageOperator(self.derham, "H1", 1)
             average_mat2 = AverageOperator(self.derham, "H1", 2)
-            self._stab_mat = self._stab_mat @ (IdentityOperator(self._stab_mat.domain, self._stab_mat.codomain) - (average_mat1 @ average_mat2))
+            self._stab_mat = self._stab_mat @ (
+                IdentityOperator(self._stab_mat.domain, self._stab_mat.codomain) - (average_mat1 @ average_mat2)
+            )
 
     @property
     def options(self) -> Options:

@@ -62,7 +62,14 @@ def gc_density_0form(
         # filling = w_p/N
         filling = markers[ip, weight_idx]
 
-        particle_to_mat_kernels.vec_fill_b_v0(args_derham, eta1, eta2, eta3, vec, filling,)
+        particle_to_mat_kernels.vec_fill_b_v0(
+            args_derham,
+            eta1,
+            eta2,
+            eta3,
+            vec,
+            filling,
+        )
 
     # -- removed omp: #$ omp end parallel
 

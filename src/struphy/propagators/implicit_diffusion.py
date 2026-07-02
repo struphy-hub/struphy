@@ -13,13 +13,13 @@ from struphy.feec.mass import L2Projector, WeightedMassOperator
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
+from struphy.pic.accumulation import accum_kernels
+from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
-from struphy.utils.utils import check_option
 from struphy.utils.pyccel import Pyccelkernel
-from struphy.pic.accumulation.filter import FilterParameters
-from struphy.pic.accumulation import accum_kernels
+from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
 
@@ -175,11 +175,11 @@ class ImplicitDiffusion(Propagator):
             Iterative-solver controls (for example ``tol``, ``maxiter``,
             ``verbose``, ``info``, ``recycle``).
             If ``None``, defaults to ``SolverParameters()``.
-        
+
         param_kernel : Pyccelkernel
             Contain the kernel to use for AccumulatorVector creation if rho is or contains particles
             for example Pyccelkernel(accum_kernels.gc_density_0form).
-        
+
         particle_filter : FilterParameters, default=None
             If a particle is provided as source, the AccumulatorVector applies this filter.
             If None, no filter is applied.
@@ -260,7 +260,7 @@ class ImplicitDiffusion(Propagator):
                     params,
                     Propagator.mass_ops,
                     Propagator.domain.args_domain,
-                    filter_params=self.options.particle_filter
+                    filter_params=self.options.particle_filter,
                 )
                 if not rho.control_variate:
                     l2_proj = L2Projector("H1", Propagator.mass_ops)

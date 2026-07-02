@@ -87,7 +87,7 @@ class Tokamak(PoloidalSplineTorus):
         p_pre: tuple = (3, 3),
         tor_period: int = 1,
     ):
-        if r_min!=0.0:
+        if r_min != 0.0:
             r0 = r_min
         if equilibrium is None:
             equilibrium = EQDSKequilibrium()
@@ -121,8 +121,7 @@ class Tokamak(PoloidalSplineTorus):
         )
 
         assert (psi_e - psi_s) * (psi1 - psi0) > 0.0, (
-            f"Invalid radial interval: {psi_s = }, {psi_e = }, "
-            f"{equilibrium.psi_range = }."
+            f"Invalid radial interval: {psi_s = }, {psi_e = }, {equilibrium.psi_range = }."
         )
 
         cx, cy = field_line_tracing(
