@@ -1497,9 +1497,14 @@ if __name__ == "__main__":
         return self._params_path
 
     @property
-    def env(self):
+    def env(self) -> EnvironmentOptions:
         """EnvironmentOptions object containing options related to the environment of the run."""
         return self._env
+
+    @env.setter
+    def env(self, value: EnvironmentOptions):
+        """Update the environment options for the simulation."""
+        self._env = value
 
     @property
     def time_opts(self):
