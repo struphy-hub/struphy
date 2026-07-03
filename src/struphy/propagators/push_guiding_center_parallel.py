@@ -82,8 +82,24 @@ class PushGuidingCenterParallel(Propagator):
             assert new.space == "Particles5D"
             self._ions = new
 
-    def __init__(self):
+    def __init__(
+        self,
+        phi: FEECVariable = None,
+        b_tilde: FEECVariable = None,
+    ):
+        """
+        Parameters
+        ----------
+        phi : FEECVariable, default=None
+            Electric potential in ``"H1"`` space contributing to :math:`E^*`.
+            If ``None``, an empty ``FEECVariable(space="H1")`` is created internally.
+        b_tilde : FEECVariable, default=None
+            Magnetic perturbation in ``"Hcurl"`` space contributing to :math:`B^*`.
+            If ``None``, the perturbation is ignored.
+        """
         self.variables = self.Variables()
+        self.phi = phi if phi is not None else FEECVariable(space="H1")
+        self.b_tilde = b_tilde
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -91,17 +107,9 @@ class PushGuidingCenterParallel(Propagator):
 
         Parameters
         ----------
-        phi : FEECVariable, default=None
-            Electrostatic potential variable in ``"H1"`` space.
-            If ``None``, defaults to ``FEECVariable(space="H1")``.
-
         evaluate_e_field : bool, default=False
             If ``True``, evaluate and include electric-field contributions in
             drift-kinetic kernels.
-
-        b_tilde : FEECVariable, default=None
-            Optional magnetic perturbation variable added to the equilibrium
-            magnetic field.
 
         algo : {"discrete_gradient_2nd_order", "discrete_gradient_1st_order", "discrete_gradient_1st_order_newton", "explicit"}, default="discrete_gradient_1st_order"
             Guiding-center pushing algorithm.
@@ -130,9 +138,7 @@ class PushGuidingCenterParallel(Propagator):
             "explicit",
         ]
         # propagator options
-        phi: FEECVariable = None
         evaluate_e_field: bool = False
-        b_tilde: FEECVariable = None
         algo: OptsAlgo = "discrete_gradient_1st_order"
         butcher: ButcherTableau = None
         maxiter: int = 20
@@ -145,9 +151,6 @@ class PushGuidingCenterParallel(Propagator):
             check_option(self.mpi_sort, LiteralOptions.OptsMPIsort)
 
             # defaults
-            if self.phi is None:
-                self.phi = FEECVariable(space="H1")
-
             if self.algo == "explicit" and self.butcher is None:
                 self.butcher = ButcherTableau()
 
@@ -176,13 +179,13 @@ class PushGuidingCenterParallel(Propagator):
         curl_unit_b_dot_b0 = self.projected_equil.curl_unit_b_dot_b0
 
         # magnetic perturbation
-        if self.options.b_tilde is not None:
+        if self.b_tilde is not None:
             self._B_dot_b = self.derham.V0.zeros()
             self._grad_b_full = self.derham.V1.zeros()
 
             self._PB = getattr(self.basis_ops, "PB")
 
-            B_dot_b = self._PB.dot(self.options.b_tilde.spline.vector, out=self._B_dot_b)
+            B_dot_b = self._PB.dot(self.b_tilde.spline.vector, out=self._B_dot_b)
             B_dot_b.update_ghost_regions()
 
             grad_b_full = self.derham.grad.dot(B_dot_b, out=self._grad_b_full)
@@ -195,8 +198,8 @@ class PushGuidingCenterParallel(Propagator):
             self._B_dot_b = self._absB0
 
         # allocate electric field
-        self.options.phi.allocate(self.derham, domain=self.domain)
-        self._phi = self.options.phi.spline.vector
+        self.phi.allocate(self.derham, domain=self.domain)
+        self._phi = self.phi.spline.vector
         self._evaluate_e_field = self.options.evaluate_e_field
         self._e_field = self.derham.V1.zeros()
 
@@ -484,8 +487,8 @@ class PushGuidingCenterParallel(Propagator):
             e_field.update_ghost_regions()
 
         # magnetic perturbation
-        if self.options.b_tilde is not None:
-            B_dot_b = self._PB.dot(self.options.b_tilde.spline.vector, out=self._B_dot_b)
+        if self.b_tilde is not None:
+            B_dot_b = self._PB.dot(self.b_tilde.spline.vector, out=self._B_dot_b)
             B_dot_b.update_ghost_regions()
 
             grad_b_full = self.derham.grad.dot(B_dot_b, out=self._grad_b_full)
