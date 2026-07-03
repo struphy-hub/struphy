@@ -106,7 +106,7 @@ def setup_logging(logging_level: int = logging.WARNING):
 # Default logging setup
 logger = logging.getLogger("struphy")
 setup_logging(logging_level=logging.WARNING)
-logger.info(f"Logging setup complete, log-file at {config["handlers"]["file"]["filename"]}")
+logger.info(f"Logging setup complete, log-file at {config['handlers']['file']['filename']}")
 
 # Import API components
 from struphy.api.domains import domains
