@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 from pathlib import Path
+import subprocess
 
 from slurm_script_generator.slurm_script import SlurmScript
-
+from slurm_script_generator.squeue import SQueue
 
 @dataclass(frozen=True)
 class ProfilingCase:
@@ -74,14 +75,25 @@ def main() -> None:
         )
 
         output_path = repo_root / f"job_profile_{case.name}.sh"
-        script.save(output_path)
-        text = output_path.read_text(encoding="utf-8")
-        output_path.write_text(
-            text.replace("#!/bin/bash\n", "#!/bin/bash -l\n", 1),
-            encoding="utf-8",
-        )
-        print(f"Generated {output_path}")
+        # script.save(output_path)
+        # text = output_path.read_text(encoding="utf-8")
+        # output_path.write_text(
+        #     text.replace("#!/bin/bash\n", "#!/bin/bash -l\n", 1),
+        #     encoding="utf-8",
+        # )
+        # print(f"Generated {output_path}")
 
+        # Do this once the MR has been merged
+        job_id = script.submit_job(str(output_path))
+
+        # Temporary workaround
+        script.save(output_path)
+        result = subprocess.run(["sbatch", str(output_path)], capture_output=True, text=True, check=True)
+        job_id = int(result.stdout.strip().split()[-1])
+
+        SQueue().wait_until_done(job_id=job_id)
+
+        print(f"Profiling case '{case.name}' completed. Output saved in {output_root / case.name}")
 
 if __name__ == "__main__":
     main()
