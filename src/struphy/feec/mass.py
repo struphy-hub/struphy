@@ -968,6 +968,9 @@ class WeightedMassOperators:
         assert W_id in self.derham.spline_attributes, (
             f"Spline attributes for the codomain space {W_id} not found in the Derham object !!"
         )
+        
+        logger.debug(f"\nCreating weighted mass matrix {name} from {V_id} to {W_id}.")
+        
         quad_grid_pts = self.derham.spline_attributes[W_id].quad_grid_pts
         quad_grid_wts = self.derham.spline_attributes[W_id].quad_grid_wts
         quad_grid_spans = self.derham.spline_attributes[W_id].quad_grid_spans
@@ -975,7 +978,7 @@ class WeightedMassOperators:
         logger.debug(f"{len(quad_grid_pts) = }")
         logger.debug(f"{len(quad_grid_wts) = }")
         logger.debug(f"{len(quad_grid_spans) = }")
-        logger.debug(f"{len(quad_grid_bases) = }\nfor the weighted mass matrix {name}.")
+        logger.debug(f"{len(quad_grid_bases) = }")
 
         weights_values = []
         integration_grids = []
@@ -983,7 +986,7 @@ class WeightedMassOperators:
         for component in quad_grid_pts:
             grids_1d = [pts.flatten() for pts in component]
             grid_sizes = tuple([len(grid_1d) for grid_1d in grids_1d])
-            logger.debug(f"Initializing {grid_sizes = } for the weighted mass matrix {name}.")
+            logger.debug(f"Initializing {grid_sizes = }")
             integration_grids += [grids_1d]
 
             # loop over components of V_id (columns)
@@ -993,13 +996,15 @@ class WeightedMassOperators:
                 weights_values += [[None, None, None]]
             else:
                 raise ValueError(f"Unknown space identifier {V_id} for the domain of the weighted mass matrix {name}.")
-        logger.debug(f"Initialized {weights_values = } for the weighted mass matrix {name}.")
+        logger.debug(f"Initialized {weights_values = }")
 
         spline_functions = {}
         if isinstance(weights, tuple):  # Case 3 (1D tuple)
             for n, f in enumerate(weights):
+                logger.debug(f"Processing weight #{n}")
                 if isinstance(f, str):
                     # determine the callable
+                    logger.debug(f"Processing string weight {f}.")
                     if f == "1/sqrt_g":
                         f_call = lambda e1, e2, e3: 1.0 / abs(self.domain.jacobian_det(e1, e2, e3))
                     elif "eq_" in f:
@@ -1034,6 +1039,7 @@ class WeightedMassOperators:
                             )
                 elif isinstance(f, list):
                     assert len(f) == 3
+                    logger.debug(f"Processing nested list weight {f}.")
                     for fi in f:
                         assert isinstance(fi, list)
                         assert len(fi) == 3
@@ -1046,9 +1052,11 @@ class WeightedMassOperators:
                                 out[m, n] = f[m][n]
                         return xp.transpose(out, axes=(2, 3, 4, 0, 1))
                 elif isinstance(f, SplineFunction):
+                    logger.debug(f"Processing SplineFunction weight {f}.")
                     spline_functions[f.name] = f
                     continue
                 else:
+                    logger.debug(f"Processing callable weight {f}.")
                     assert callable(f)
                     # Input is a a matrix or a Rotation matrix etc.
                     f_call = f
@@ -1057,8 +1065,11 @@ class WeightedMassOperators:
                 for m, grids_1d in enumerate(integration_grids):
                     E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(*grids_1d)
                     tmp = f_call(E1, E2, E3)
+                    logger.debug(f"rows of {W_id}: {m}")
                     logger.debug(f"Evaluated callable with shape {tmp.shape = }")
+                    logger.debug(f"max value: {xp.max(tmp)}, min value: {xp.min(tmp)}")
                     for n in range(len(weights_values[m])):
+                        logger.debug(f"columns of {V_id}: {n}")
                         if tmp.shape[-2:] == (3, 3):
                             if weights_values[m][n] is None:
                                 weights_values[m][n] = tmp[:, :, :, m, n]
@@ -1071,8 +1082,9 @@ class WeightedMassOperators:
                                 weights_values[m][n] *= tmp
                         else:
                             raise ValueError(
-                                f"Callable {f_call} has wrong output shape {tmp.shape} for the weighted mass matrix {name}.",
+                                f"Callable {f_call} has wrong output shape {tmp.shape}.",
                             )
+                        logger.debug(f"{xp.max(weights_values[m][n]) = }, min value: {xp.min(weights_values[m][n]) = }")
         else:
             weights_values = weights
 
@@ -1691,7 +1703,6 @@ class WeightedMassOperator(LinOpWithTransp):
     def dtype(self):
         return self._dtype
 
-    @property
     def tosparse(self):
         if all(op is None for op in (self._W_extraction_op, self._V_extraction_op)):
             for bl in self._V_boundary_op.bc:
@@ -1707,7 +1718,6 @@ class WeightedMassOperator(LinOpWithTransp):
         else:
             raise NotImplementedError()
 
-    @property
     def toarray(self):
         if all(op is None for op in (self._W_extraction_op, self._V_extraction_op)):
             for bl in self._V_boundary_op.bc:

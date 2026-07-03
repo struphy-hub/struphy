@@ -2,8 +2,10 @@ import logging
 
 import pytest
 from matplotlib import pyplot as plt
+from struphy import set_logging_level
 
 logger = logging.getLogger("struphy")
+set_logging_level(logging.DEBUG)
 
 
 @pytest.mark.parametrize("matrix_free", [False])
@@ -403,6 +405,105 @@ def test_rotation(num_elements, degree, bcs, map_and_equil, eps, matrix_free, sh
     err = xp.max(xp.abs(result_values_perp - exact)) / xp.max(xp.abs(exact))
     print(f"relative max-error: {err:.2e}")
     assert err < err_bound, f"relative max-error {err:.2e} exceeds bound of {err_bound:.2e}"
+
+
+@pytest.mark.parametrize("num_elements", [(8, 9, 11)])
+@pytest.mark.parametrize("degree", [(1, 1, 1), (2, 2, 2)])
+@pytest.mark.parametrize("bcs", [(("free", "dirichlet"), None, None)])
+@pytest.mark.parametrize("matrix_free", [False])
+def test_identity_mapping_equivalence(num_elements, degree, bcs, matrix_free=False):
+    """Test whether different choices of basis for the magnetic background yield the same rotation-stabilized mass operator.
+    """
+
+    import cunumpy as xp
+    from feectools.ddm.mpi import mpi as MPI
+    from feectools.linalg.solvers import inverse
+
+    from struphy import domains, equils
+    from struphy.feec.mass import L2Projector, WeightedMassOperators
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import LocalRotationMatrix
+    from struphy.geometry.base import Domain
+    from struphy.geometry.domains import Cuboid, HollowCylinder
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    mpi_comm = MPI.COMM_WORLD
+    mpi_rank = mpi_comm.Get_rank()
+    mpi_size = mpi_comm.Get_size()
+    mpi_comm.Barrier()
+
+    logger.debug(f"Rank {mpi_rank} | Start test_mass with " + str(mpi_size) + " MPI processes!")
+
+    # mapping
+    domain = Cuboid()
+    logger.debug(f"{domain = }")
+
+    equil = equils.HomogenSlab()
+    equil.domain = domain
+    logger.debug(f"{equil = }")
+    
+    # derham object
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=mpi_comm)
+
+    logger.debug(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
+
+    # mass matrices object
+    mass_ops = WeightedMassOperators(derham, domain, eq_mhd=equil, matrix_free=matrix_free)
+
+    # different spaces for B:
+    rot_B1 = LocalRotationMatrix(
+        equil.b1_1,
+        equil.b1_2,
+        equil.b1_3,
+    )
+    
+    rot_B2 = LocalRotationMatrix(
+        equil.b2_1,
+        equil.b2_2,
+        equil.b2_3,
+    )
+    
+    e = xp.array([0.5])
+    ee1, ee2, ee3 = xp.meshgrid(e, e, e, indexing="ij")
+    
+    print(f"{rot_B1(ee1, ee2, ee3) = }")
+    print(f"{rot_B2(ee1, ee2, ee3) = }")
+    assert xp.all(rot_B1(ee1, ee2, ee3) == rot_B2(ee1, ee2, ee3)), "Rotation matrices for B1 and B2 are not equal at the same point."
+
+    M1B1 = mass_ops.create_weighted_mass(
+        "Hcurl",
+        "Hcurl",
+        weights=(
+            rot_B1,
+        ),
+        name="M1B1",
+        assemble=True,
+    )
+
+    M1B2 = mass_ops.create_weighted_mass(
+        "Hcurl",
+        "Hcurl",
+        weights=(
+            "Ginv",
+            rot_B2,
+            "Ginv",
+            "sqrt_g",
+        ),
+        name="M1B2",
+        assemble=True,
+    )
+
+    print(f"{M1B1.toarray().shape = }")
+    print(f"{M1B2.toarray().shape = }")
+    print(f"{M1B2.toarray() = }")
+    print(f"{M1B1.toarray() = }")
+    
+    assert xp.all(xp.isclose(M1B1.toarray(), M1B2.toarray())), "Mass matrices for B1 and B2 are not equal."
+
+
 
 
 @pytest.mark.parametrize("num_elements", [[8, 12, 6]])
@@ -1233,10 +1334,15 @@ if __name__ == "__main__":
     #     matrix_free=False,
     #     show_plots=True,
     # )
-    test_average_operator(
-        num_elements=(12, 13, 14),
-        mpi_mask=(True, True, True),
-        degree=(2, 3, 4),
-        bcs=(("dirichlet", "dirichlet"), None, ("dirichlet", "dirichlet")),
-        show_plots=True,
-    )
+    # test_average_operator(
+    #     num_elements=(12, 13, 14),
+    #     mpi_mask=(True, True, True),
+    #     degree=(2, 3, 4),
+    #     bcs=(("dirichlet", "dirichlet"), None, ("dirichlet", "dirichlet")),
+    #     show_plots=True,
+    test_identity_mapping_equivalence(
+        num_elements=(8, 1, 1),
+        degree=(1, 1, 1),
+        bcs=(None, None, None),
+        # bcs=(("dirichlet", "dirichlet"), None, None),
+        )
