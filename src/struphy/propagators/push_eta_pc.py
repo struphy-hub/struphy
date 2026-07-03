@@ -1,10 +1,11 @@
 "Only particle variables are updated."
 
+import logging
 from dataclasses import dataclass
 
 from line_profiler import profile
 
-from struphy.io.options import LiteralOptions
+from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.ode.utils import ButcherTableau
 from struphy.pic.pushing import pusher_kernels
@@ -12,6 +13,8 @@ from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
+
+logger = logging.getLogger("struphy")
 
 
 class PushEtaPC(Propagator):
@@ -63,11 +66,19 @@ class PushEtaPC(Propagator):
             assert isinstance(new, PICVariable | SPHVariable)
             self._var = new
 
-    def __init__(self):
+    def __init__(self, u_tilde: FEECVariable = None):
+        """
+        Parameters
+        ----------
+        u_tilde : FEECVariable, default=None
+            Background fluid velocity field used to push particles.
+            The FEEC space is controlled by ``Options.u_space``.
+        """
         self.variables = self.Variables()
+        self.u_tilde = u_tilde
 
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Configuration options for :class:`PushEtaPC`.
 
         Parameters
@@ -80,22 +91,17 @@ class PushEtaPC(Propagator):
             Flag forwarded to the particle kernel to select the perpendicular
             model formulation.
 
-        u_tilde : FEECVariable, default=None
-            Flow field variable used in the advection term.
-
         u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
             FEEC space used to interpret ``u_tilde`` in the pusher kernel.
         """
 
         butcher: ButcherTableau = None
         use_perp_model: bool = True
-        u_tilde: FEECVariable = None
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
 
         def __post_init__(self):
             # checks
             check_option(self.u_space, LiteralOptions.OptsVecSpace)
-            assert isinstance(self.u_tilde, FEECVariable)
 
             # defaults
             if self.butcher is None:
@@ -111,10 +117,11 @@ class PushEtaPC(Propagator):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
-        self._u_tilde = self.options.u_tilde.spline.vector
+    def allocate(self):
+        self._u_tilde = self.u_tilde.spline.vector
 
         # get kernell:
         if self.options.u_space == "Hcurl":
@@ -131,9 +138,6 @@ class PushEtaPC(Propagator):
         # define algorithm
         butcher = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
-        import cunumpy as xp
-
-        butcher._a = xp.concatenate((xp.diag(butcher.a, k=-1), xp.zeros(1, dtype=butcher.a.dtype)))
 
         args_kernel = (
             self.derham.args_derham,
@@ -141,7 +145,7 @@ class PushEtaPC(Propagator):
             self._u_tilde[1]._data,
             self._u_tilde[2]._data,
             self.options.use_perp_model,
-            butcher.a,
+            butcher.a_stage,
             butcher.b,
             butcher.c,
         )

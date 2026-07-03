@@ -6,7 +6,7 @@ from feectools.linalg.solvers import inverse
 from line_profiler import profile
 
 from struphy.feec import preconditioner
-from struphy.io.options import LiteralOptions
+from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.species import Species
 from struphy.models.variables import FEECVariable
@@ -58,11 +58,19 @@ class Hall(Propagator):
             assert new.space == "Hcurl"
             self._b = new
 
-    def __init__(self):
+    def __init__(self, epsilon_from: Species = None):
+        """
+        Parameters
+        ----------
+        epsilon_from : Species, default=None
+            Species instance from which to read the Hall parameter ``epsilon``.
+            If ``None``, ``epsilon`` defaults to ``1.0``.
+        """
         self.variables = self.Variables()
+        self.epsilon_from = epsilon_from
 
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Configuration options for :class:`Hall`.
 
         Parameters
@@ -76,17 +84,12 @@ class Hall(Propagator):
         solver_params : SolverParameters, default=None
             Iterative-solver controls. If ``None``, defaults to
             ``SolverParameters()``.
-
-        epsilon_from : Species, default=None
-            Species object from which ``epsilon`` is taken. If ``None``,
-            ``epsilon`` defaults to ``1.0``.
         """
 
         # propagator options
         solver: LiteralOptions.OptsGenSolver = "pbicgstab"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
-        epsilon_from: Species = None
 
         def __post_init__(self):
             # checks
@@ -107,13 +110,14 @@ class Hall(Propagator):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
-        if self.options.epsilon_from is None:
+    def allocate(self):
+        if self.epsilon_from is None:
             epsilon = 1.0
         else:
-            epsilon = self.options.epsilon_from.equation_params.epsilon
+            epsilon = self.epsilon_from.equation_params.epsilon
 
         self._info = self.options.solver_params.info
         self._tol = self.options.solver_params.tol

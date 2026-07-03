@@ -1,11 +1,12 @@
 "Only particle variables are updated."
 
+import logging
 from dataclasses import dataclass
 from typing import Literal
 
 from line_profiler import profile
 
-from struphy.io.options import LiteralOptions
+from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.ode.utils import ButcherTableau
 from struphy.pic.pushing import eval_kernels_gc, pusher_kernels_gc
@@ -14,35 +15,35 @@ from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
 
+logger = logging.getLogger("struphy")
+
 
 class PushGuidingCenterBxEstar(Propagator):
     r"""For each marker :math:`p`, solves
 
     .. math::
 
-        \frac{\textnormal d \mathbf X_p(t)}{\textnormal d t} = \frac{\mathbf E^* \times \mathbf b_0}{B_\parallel^*} (\mathbf X_p(t))   \,,
+        \frac{\textnormal d \mathbf{X}_p(t)}{\textnormal d t} = \frac{\mathbf{E}^* \times \mathbf{b}_0}{B_{\parallel}^*} (\mathbf{X}_p(t))   \,,
 
     where
 
     .. math::
 
-        \mathbf E^* = -\nabla \phi - \varepsilon \mu_p \nabla |\mathbf B|\,,\qquad \mathbf B^* = \mathbf B + \varepsilon v_\parallel \nabla \times \mathbf b_0\,,\qquad  B^*_\parallel = \mathbf B^* \cdot \mathbf b_0\,,
+        \mathbf E^* = -\nabla \phi - \varepsilon \mu_p \nabla |\mathbf B|\,,\qquad \mathbf B^* = \mathbf B + \varepsilon v_\parallel \nabla \times \mathbf{b}_0\,,\qquad  B^*_\parallel = \mathbf B^* \cdot \mathbf{b}_0\,,
 
-    where :math:`\mathbf B = \mathbf B_0 + \tilde{\mathbf B}` can be the full magnetic field (equilibrium + perturbation).
-    The electric potential ``phi`` and/or the magnetic perturbation ``b_tilde``
-    can be ignored by passing ``None``.
+    Here, :math:`\mathbf B = \mathbf{B}_0 + \tilde{\mathbf B}` can be the full magnetic field (equilibrium + perturbation). The electric potential :math:`\phi` and/or the magnetic perturbation :math:`\tilde{\mathbf B}` can be ignored by passing ``None``.
     In logical space this is given by :math:`\mathbf X = F(\boldsymbol \eta)`:
 
     .. math::
 
-        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = \frac{\hat{\mathbf E}^{*1} \times \hat{\mathbf b}^1_0}{\sqrt g\,\hat B_\parallel^{*}} (\boldsymbol \eta_p(t)) \,.
+        \frac{\textnormal d \boldsymbol{\eta}_p(t)}{\textnormal d t} = \frac{\hat{\mathbf E}^{*1} \times \hat{\mathbf b}^1_0}{\sqrt{g}\,\hat{B}_{\parallel}^{*}} (\boldsymbol \eta_p(t)) \,.
 
     Available algorithms:
 
-    * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
-    * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order`
-    * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order_newton`
-    * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_2nd_order`
+    - Explicit from :class:`~struphy.ode.utils.ButcherTableau`
+    - :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order`
+    - :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order_newton`
+    - :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_2nd_order`
     """
 
     class Variables:
@@ -67,26 +68,34 @@ class PushGuidingCenterBxEstar(Propagator):
             assert new.space == "Particles5D"
             self._ions = new
 
-    def __init__(self):
+    def __init__(
+        self,
+        phi: FEECVariable = None,
+        b_tilde: FEECVariable = None,
+    ):
+        """
+        Parameters
+        ----------
+        phi : FEECVariable, default=None
+            Electric potential in ``"H1"`` space contributing to :math:`E^*`.
+            If ``None``, an empty ``FEECVariable(space="H1")`` is created internally.
+        b_tilde : FEECVariable, default=None
+            Magnetic perturbation in ``"Hcurl"`` space contributing to :math:`B^*`.
+            If ``None``, the perturbation is ignored.
+        """
         self.variables = self.Variables()
+        self.phi = phi if phi is not None else FEECVariable(space="H1")
+        self.b_tilde = b_tilde
 
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Configuration options for :class:`PushGuidingCenterBxEstar`.
 
         Parameters
         ----------
-        phi : FEECVariable, default=None
-            Electrostatic potential variable in ``"H1"`` space.
-            If ``None``, defaults to ``FEECVariable(space="H1")``.
-
         evaluate_e_field : bool, default=False
             If ``True``, evaluate and include electric-field contributions in
             drift-kinetic kernels.
-
-        b_tilde : FEECVariable, default=None
-            Optional magnetic perturbation variable added to the equilibrium
-            magnetic field.
 
         algo : {"discrete_gradient_2nd_order", "discrete_gradient_1st_order", "discrete_gradient_1st_order_newton", "explicit"}, default="discrete_gradient_1st_order"
             Guiding-center pushing algorithm.
@@ -105,9 +114,6 @@ class PushGuidingCenterBxEstar(Propagator):
 
         mpi_sort : LiteralOptions.OptsMPIsort, default="each"
             MPI sorting policy for particle exchange.
-
-        verbose : bool, default=False
-            Verbosity flag for iterative pusher diagnostics.
         """
 
         # specific literals
@@ -118,15 +124,12 @@ class PushGuidingCenterBxEstar(Propagator):
             "explicit",
         ]
         # propagator options
-        phi: FEECVariable = None
         evaluate_e_field: bool = False
-        b_tilde: FEECVariable = None
         algo: OptsAlgo = "discrete_gradient_1st_order"
         butcher: ButcherTableau = None
         maxiter: int = 20
         tol: float = 1e-7
         mpi_sort: LiteralOptions.OptsMPIsort = "each"
-        verbose: bool = False
 
         def __post_init__(self):
             # checks
@@ -134,9 +137,6 @@ class PushGuidingCenterBxEstar(Propagator):
             check_option(self.mpi_sort, LiteralOptions.OptsMPIsort)
 
             # defaults
-            if self.phi is None:
-                self.phi = FEECVariable(space="H1")
-
             if self.algo == "explicit" and self.butcher is None:
                 self.butcher = ButcherTableau()
 
@@ -150,9 +150,10 @@ class PushGuidingCenterBxEstar(Propagator):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         # scaling factor
         self._epsilon = self.variables.ions.species.equation_params.epsilon
 
@@ -163,13 +164,13 @@ class PushGuidingCenterBxEstar(Propagator):
         curl_unit_b_dot_b0 = self.projected_equil.curl_unit_b_dot_b0
 
         # magnetic perturbation
-        if self.options.b_tilde is not None:
+        if self.b_tilde is not None:
             self._B_dot_b = self.derham.V0.zeros()
             self._grad_b_full = self.derham.V1.zeros()
 
             self._PB = getattr(self.basis_ops, "PB")
 
-            B_dot_b = self._PB.dot(self.options.b_tilde.spline.vector, out=self._B_dot_b)
+            B_dot_b = self._PB.dot(self.b_tilde.spline.vector, out=self._B_dot_b)
             B_dot_b.update_ghost_regions()
 
             grad_b_full = self.derham.grad.dot(B_dot_b, out=self._grad_b_full)
@@ -182,8 +183,8 @@ class PushGuidingCenterBxEstar(Propagator):
             self._B_dot_b = self._absB0
 
         # allocate electric field
-        self.options.phi.allocate(self.derham, self.domain)
-        self._phi = self.options.phi.spline.vector
+        self.phi.allocate(self.derham, self.domain)
+        self._phi = self.phi.spline.vector
         self._evaluate_e_field = self.options.evaluate_e_field
         self._e_field = self.derham.V1.zeros()
 
@@ -412,7 +413,6 @@ class PushGuidingCenterBxEstar(Propagator):
                 maxiter=self.options.maxiter,
                 tol=self.options.tol,
                 mpi_sort=self.options.mpi_sort,
-                verbose=self.options.verbose,
             )
 
         else:
@@ -421,9 +421,6 @@ class PushGuidingCenterBxEstar(Propagator):
             else:
                 butcher = self.options.butcher
             # temp fix due to refactoring of ButcherTableau:
-            import cunumpy as xp
-
-            butcher._a = xp.concatenate((xp.diag(butcher.a, k=-1), xp.zeros(1, dtype=butcher.a.dtype)))
 
             kernel = Pyccelkernel(pusher_kernels_gc.push_gc_bxEstar_explicit_multistage)
 
@@ -442,7 +439,7 @@ class PushGuidingCenterBxEstar(Propagator):
                 self._e_field[1]._data,
                 self._e_field[2]._data,
                 self._evaluate_e_field,
-                butcher.a,
+                butcher.a_stage,
                 butcher.b,
                 butcher.c,
             )
@@ -455,7 +452,6 @@ class PushGuidingCenterBxEstar(Propagator):
                 alpha_in_kernel=1.0,
                 n_stages=butcher.n_stages,
                 mpi_sort=self.options.mpi_sort,
-                verbose=self.options.verbose,
             )
 
     @profile
@@ -467,8 +463,8 @@ class PushGuidingCenterBxEstar(Propagator):
             e_field.update_ghost_regions()
 
         # magnetic perturbation
-        if self.options.b_tilde is not None:
-            B_dot_b = self._PB.dot(self.options.b_tilde.spline.vector, out=self._B_dot_b)
+        if self.b_tilde is not None:
+            B_dot_b = self._PB.dot(self.b_tilde.spline.vector, out=self._B_dot_b)
             B_dot_b.update_ghost_regions()
 
             grad_b_full = self.derham.grad.dot(B_dot_b, out=self._grad_b_full)

@@ -1,5 +1,6 @@
 "Only particle variables are updated."
 
+import logging
 from dataclasses import dataclass
 from typing import Literal
 
@@ -7,12 +8,15 @@ from feectools.linalg.basic import LinearOperator
 from feectools.linalg.block import BlockVector
 from line_profiler import profile
 
+from struphy.io.options import OptionsBase
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.pic.pushing import pusher_kernels
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
+
+logger = logging.getLogger("struphy")
 
 
 class PushVxB(Propagator):
@@ -56,28 +60,31 @@ class PushVxB(Propagator):
             assert new.space in ("Particles6D", "DeltaFParticles6D", "ParticlesSPH")
             self._ions = new
 
-    def __init__(self):
+    def __init__(self, b2_var: FEECVariable = None):
+        """
+        Parameters
+        ----------
+        b2_var : FEECVariable, default=None
+            Optional additional magnetic-field 2-form added to the projected
+            equilibrium field before pushing.
+        """
         self.variables = self.Variables()
+        self.b2_var = b2_var
 
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Configuration options for :class:`PushVxB`.
 
         Parameters
         ----------
         algo : {"analytic", "implicit"}, default="analytic"
             Time stepping algorithm used for the velocity-rotation update.
-
-        b2_var : FEECVariable, default=None
-            Optional additional magnetic-field 2-form added to the projected
-            equilibrium field before pushing.
         """
 
         # specific literals
         OptsAlgo = Literal["analytic", "implicit"]
         # propagator options
         algo: OptsAlgo = "analytic"
-        b2_var: FEECVariable = None
 
         def __post_init__(self):
             # checks
@@ -93,25 +100,23 @@ class PushVxB(Propagator):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         # scaling factor
         self._epsilon = self.variables.ions.species.equation_params.epsilon
         assert self.derham is not None, f"{self.__class__.__name__} needs a Derham object."
 
         # TODO: treat PolarVector as well, but polar splines are being reworked at the moment
         if self.projected_equil is not None:
-            self._b2 = self.projected_equil.b2
-            assert self._b2.space == self.derham.V2
+            self.b2_0 = self.projected_equil.b2
+            assert self.b2_0.space == self.derham.V2
         else:
-            self._b2 = self.derham.V2.zeros()
+            self.b2_0 = self.derham.V2.zeros()
 
-        if self.options.b2_var is None:
-            self._b2_var = None
-        else:
-            assert self.options.b2_var.spline.vector.space == self.derham.V2
-            self._b2_var = self.options.b2_var.spline.vector
+        if self.b2_var is not None:
+            assert self.b2_var.spline.vector.space == self.derham.V2
 
         # allocate dummy vectors to avoid temporary array allocations
         self._tmp = self.derham.V2.zeros()
@@ -147,9 +152,9 @@ class PushVxB(Propagator):
     @profile
     def __call__(self, dt):
         # sum up total magnetic field
-        tmp = self._b2.copy(out=self._tmp)
-        if self._b2_var is not None:
-            tmp += self._b2_var
+        tmp = self.b2_0.copy(out=self._tmp)
+        if self.b2_var is not None:
+            tmp += self.b2_var.spline.vector
 
         # extract coefficients to tensor product space
         b_full: BlockVector = self._E2T.dot(tmp, out=self._b_full)

@@ -22,7 +22,7 @@ logger = logging.getLogger("struphy")
 def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=False):
     """Test weighted mass matrices by recovering projected functions from the DeRham complex.
 
-    For each mass operator in ``{M0, M1, M2, M3, Mv, M1n, M2n, Mvn, M1ninv, M0ad}``,
+    For each mass operator in ``{M0, M1, M2, M3, Mv, M1n, M2n, Mvn, M1ninv, M0ad, M0ad_withT}``,
     the test:
 
     1. Projects known trigonometric right-hand-side functions onto the
@@ -32,9 +32,11 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
        it point-wise to the exact function.
 
     The density-weighted operators (``M1n``, ``M2n``, ``Mvn``, ``M0ad``) are
-    tested against ``exact / n0``, and the inverse-density operator
+    tested against ``exact / n0``, ``M0ad_withT`` is tested against ``exact * t0 / n0``, and the inverse-density operator
     (``M1ninv``) is tested against ``exact * n0``.
     """
+
+    from types import MethodType
 
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
@@ -82,7 +84,7 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
     # derham object
     grid = TensorProductGrid(num_elements=num_elements)
     derham_opts = DerhamOptions(degree=degree, bcs=bcs)
-    derham = Derham(grid, derham_opts, comm=mpi_comm)
+    derham = Derham(grid, derham_opts, comm=mpi_comm, domain=domain)
 
     logger.debug(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
 
@@ -111,6 +113,7 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
     rhs = {}
     rhs["M0"] = l2proj_0.get_dofs(rhs_0, apply_bc=True)
     rhs["M0ad"] = rhs["M0"]
+    rhs["M0ad_withT"] = rhs["M0"]
     rhs["M1"] = l2proj_1.get_dofs((rhs_0, rhs_1, rhs_2), apply_bc=True)
     rhs["M1n"] = rhs["M1"]
     rhs["M1ninv"] = rhs["M1"]
@@ -134,7 +137,7 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
     elif min(degree) == 2:
         err_bound = 2.6e-2
 
-    names = ["M0", "M1", "M2", "M3", "Mv", "M1n", "M2n", "Mvn", "M1ninv", "M0ad", "WMM", "WMMnew"]
+    names = ["M0", "M1", "M2", "M3", "Mv", "M1n", "M2n", "Mvn", "M1ninv", "M0ad", "M0ad_withT", "WMM", "WMMnew"]
     for name in names:
         if name == "WMM":
             intermediate = mass_ops.WMM
@@ -155,7 +158,9 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
             exact = xp.array([rhs_0(ee1, ee2, ee3), rhs_1(ee1, ee2, ee3), rhs_2(ee1, ee2, ee3)])
 
         solver = "cg"
-        if name in ["M1n", "M2n", "Mvn", "M0ad", "WMM", "WMMnew"]:
+        if name == "M0ad_withT":
+            exact *= equil.t0(e1, e2, e3)
+        if name in ["M1n", "M2n", "Mvn", "M0ad", "WMM", "WMMnew", "M0ad_withT"]:
             # solve n0 * u = f, where n0 is the equilibrium density
             exact /= equil.n0(e1, e2, e3)
         elif name == "M1ninv":
@@ -1122,19 +1127,99 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
     logger.info(f"Rank {mpi_rank} | All tests passed!")
 
 
+@pytest.mark.parametrize("num_elements", [[12, 13, 14]])
+@pytest.mark.parametrize("mpi_mask", [(False, False, True), (True, False, True)])
+@pytest.mark.parametrize("degree", [[2, 2, 3], [1, 1, 1], [1, 4, 2]])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (None, None, None),
+        (("free", "dirichlet"), None, None),
+        (None, ("dirichlet", "dirichlet"), ("dirichlet", "dirichlet")),
+    ],
+)
+def test_average_operator(num_elements, mpi_mask, degree, bcs, show_plots=False):
+    """This function tests the AverageOperator implementation by comparing the result
+    from the AverageOperator/StencilVector multiplication and a basic averaging with np.mean.
+    The vector averaged with numpy is produced by evaluating a FEECVariable that contains the StencilVector."""
+    import cunumpy as xp
+    import matplotlib.pyplot as plt
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy import DerhamOptions, domains, grids
+    from struphy.feec.mass import AverageOperator
+    from struphy.feec.psydac_derham import Derham
+    from struphy.models.variables import FEECVariable
+
+    derham_opt = DerhamOptions(degree, bcs)
+    domain = domains.Cuboid()
+    grid = grids.TensorProductGrid(num_elements, mpi_mask)
+    comm = MPI.COMM_WORLD
+    derham = Derham(grid, derham_opt, comm=(comm if comm.Get_size() > 1 else None), domain=domain)
+
+    n_points = 100
+    linspace = xp.linspace(0, 1, n_points)
+    grid_eval = xp.meshgrid(linspace, linspace, linspace, indexing="ij")
+
+    var = FEECVariable("H1")
+    var.allocate(derham, domain)
+    v = derham.V0.zeros()
+    v._data = xp.random.random(v._data.shape)
+    v.update_ghost_regions()
+    var.spline.vector = v
+    var_eval = var.spline(*grid_eval)
+
+    var_out = FEECVariable("H1")
+    var_out.allocate(derham, domain)
+
+    for dir in range(3):
+        av_op = AverageOperator(derham, "H1", dir)
+
+        out = av_op.dot(v)
+        sl_out = tuple([(slice(None) if i != dir else 0) for i in range(3)])
+
+        var_out.spline.vector = out
+
+        var_out_eval = var_out.spline(*grid_eval)
+        var_averaged = var_eval.mean(axis=dir)
+
+        max_diff = xp.max(xp.abs(var_out_eval[sl_out] - var_averaged))
+        logger.info(f"{max_diff=} for direction={dir}")
+        assert max_diff < 0.03
+
+        if show_plots:
+            e1, e2 = grid_eval[(dir + 1) % 3][sl_out], grid_eval[(dir + 2) % 3][sl_out]
+            xlabel = 1 if dir == 0 else 0
+            ylabel = 1 if dir == 2 else 2
+            plt.figure(figsize=(12, 5))
+            plt.subplot(1, 2, 1)
+            plt.pcolor(e1, e2, var_averaged)
+            plt.colorbar()
+            plt.title("simple average using np.mean")
+            plt.xlabel("eta_" + str(xlabel))
+            plt.ylabel("eta_" + str(ylabel))
+            plt.subplot(1, 2, 2)
+            plt.pcolor(e1, e2, var_out_eval[sl_out])
+            plt.colorbar()
+            plt.title("average using linear operator")
+            plt.xlabel("eta_" + str(xlabel))
+            plt.ylabel("eta_" + str(ylabel))
+            plt.show()
+
+
 if __name__ == "__main__":
-    test_mass(
-        num_elements=(32, 32, 32),
-        degree=(1, 1, 1),
-        bcs=(("dirichlet", "dirichlet"), None, None),
-        # bcs=(None, None, None),
-        map_and_equil=("Cuboid", "HomogenSlab"),
-        # map_and_equil=("Colella", "HomogenSlab"),
-        # map_and_equil=("HollowCylinder", "ScrewPinch"),
-        # map_and_equil=("HollowTorus", "AdhocTorus"),
-        matrix_free=False,
-        show_plots=True,
-    )
+    # test_mass(
+    #    num_elements=(32, 32, 32),
+    #    degree=(1, 1, 1),
+    #    bcs=(("dirichlet", "dirichlet"), None, None),
+    #    # bcs=(None, None, None),
+    #    map_and_equil=("Cuboid", "HomogenSlab"),
+    #    # map_and_equil=("Colella", "HomogenSlab"),
+    #    # map_and_equil=("HollowCylinder", "ScrewPinch"),
+    #    # map_and_equil=("HollowTorus", "AdhocTorus"),
+    #    matrix_free=False,
+    #    show_plots=True,
+    # )
     # test_rotation(
     #     num_elements=(32, 32, 32),
     #     degree=(1, 1, 1),
@@ -1148,3 +1233,10 @@ if __name__ == "__main__":
     #     matrix_free=False,
     #     show_plots=True,
     # )
+    test_average_operator(
+        num_elements=(12, 13, 14),
+        mpi_mask=(True, True, True),
+        degree=(2, 3, 4),
+        bcs=(("dirichlet", "dirichlet"), None, ("dirichlet", "dirichlet")),
+        show_plots=True,
+    )

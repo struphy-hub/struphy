@@ -13,7 +13,7 @@ from line_profiler import profile
 from struphy.feec import preconditioner
 from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner
 from struphy.feec.variational_utilities import InternalEnergyEvaluator
-from struphy.io.options import LiteralOptions
+from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
@@ -102,11 +102,18 @@ class VariationalEntropyEvolve(Propagator):
             assert new.space == "H1vec"
             self._u = new
 
-    def __init__(self):
+    def __init__(self, rho: FEECVariable = None):
+        """
+        Parameters
+        ----------
+        rho : FEECVariable, default=None
+            Mass density 3-form (``"L2"`` space) weighting the entropy mass matrix.
+        """
         self.variables = self.Variables()
+        self.rho = rho
 
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Configuration options for :class:`VariationalEntropyEvolve`.
 
         Parameters
@@ -123,8 +130,6 @@ class VariationalEntropyEvolve(Propagator):
             Linear-solver controls.
         nonlin_solver : NonlinearSolverParameters, default=None
             Nonlinear iteration controls.
-        rho : FEECVariable, default=None
-            Density variable used in variational forms.
         """
 
         # specific literals
@@ -136,7 +141,6 @@ class VariationalEntropyEvolve(Propagator):
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
-        rho: FEECVariable = None
 
         def __post_init__(self):
             # checks
@@ -161,15 +165,15 @@ class VariationalEntropyEvolve(Propagator):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         if self.options.model == "full":
-            assert self.options.rho is not None
+            assert self.rho is not None
 
         self._model = self.options.model
         self._gamma = self.options.gamma
-        self._rho = self.options.rho
         self._lin_solver = self.options.solver_params
         self._nonlin_solver = self.options.nonlin_solver
         self._linearize = self.options.nonlin_solver.linearize
@@ -228,7 +232,7 @@ class VariationalEntropyEvolve(Propagator):
 
         sn1 = sn.copy(out=self._tmp_sn1)
         # Initialize variable for Newton iteration
-        rho = self._rho.spline.vector
+        rho = self.rho.spline.vector
         self._update_Pis(sn)
 
         mn = self._Mrho.dot(un, out=self._tmp_mn)

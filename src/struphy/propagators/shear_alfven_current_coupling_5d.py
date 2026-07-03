@@ -12,7 +12,7 @@ from struphy.feec.basis_projection_ops import (
     BasisProjectionOperator,
     BasisProjectionOperatorLocal,
 )
-from struphy.io.options import LiteralOptions
+from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
@@ -98,17 +98,23 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             assert new.space == "Hdiv"
             self._b = new
 
-    def __init__(self):
+    def __init__(self, energetic_ions: PICVariable = None):
+        """
+        Parameters
+        ----------
+        energetic_ions : PICVariable, default=None
+            Energetic-ion particle distribution (``"Particles5D"`` space) providing
+            the current source for the shear Alfvén wave coupling.
+        """
         self.variables = self.Variables()
+        self.energetic_ions = energetic_ions
 
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Configuration options for :class:`ShearAlfvenCurrentCoupling5D`.
 
         Parameters
         ----------
-        energetic_ions : PICVariable, default=None
-            Energetic-ion particle variable in ``"Particles5D"`` space.
         ep_scale : float, default=1.0
             Scaling factor for particle accumulation terms.
         u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
@@ -132,7 +138,6 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         # specific literals
         OptsAlgo = Literal["implicit", "explicit"]
         # propagator options
-        energetic_ions: PICVariable = None
         ep_scale: float = 1.0
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
         algo: OptsAlgo = "implicit"
@@ -149,8 +154,6 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             check_option(self.algo, self.OptsAlgo)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
-            assert isinstance(self.energetic_ions, PICVariable)
-            assert self.energetic_ions.space == "Particles5D"
             assert isinstance(self.ep_scale, float)
             assert isinstance(self.nonlinear, bool)
 
@@ -174,9 +177,10 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         self._u_form = self.derham.space_to_form[self.options.u_space]
 
         # call operatros
@@ -191,7 +195,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         # define Accumulator and arguments
         self._ACC = AccumulatorVector(
-            self.options.energetic_ions.particles,
+            self.energetic_ions.particles,
             "H1",
             Pyccelkernel(accum_kernels_gc.gc_mag_density_0form),
             self.mass_ops,

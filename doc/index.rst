@@ -27,16 +27,17 @@ The code is freely available under an `MIT license <https://github.com/struphy-h
    sections/install
    sections/quickstart
    sections/userguide
-   sections/tutorials
-   sections/dev_tutorials
    sections/api_guide
-   sections/numerics
    sections/models
+   sections/propagators
+   sections/tutorials
+   sections/numerics
    sections/domains
    sections/fluid-equils
    sections/kinetic-equils
    sections/perturbations
-   sections/propagators
+   sections/dev_guide
+   sections/dev_reference
 
 
 

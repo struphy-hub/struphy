@@ -1,15 +1,19 @@
 "Only particle variables are updated."
 
+import logging
 from dataclasses import dataclass
 
 from line_profiler import profile
 
+from struphy.io.options import OptionsBase
 from struphy.models.variables import PICVariable, SPHVariable
 from struphy.ode.utils import ButcherTableau
 from struphy.pic.pushing import pusher_kernels
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
+
+logger = logging.getLogger("struphy")
 
 
 class PushEta(Propagator):
@@ -19,13 +23,13 @@ class PushEta(Propagator):
 
         \frac{\textnormal d \mathbf{x}_p(t)}{\textnormal d t} = \mathbf{v}_p\,,
 
-    for constant :math:`\mathbf{v}_p` in logical space given by :math:`\mathbf{x} = F(\boldsymbol{\eta})`:
+    in logical space given by :math:`\mathbf{x} = F(\boldsymbol{\eta})`:
 
     .. math::
 
-        \frac{\textnormal d \boldsymbol{\eta}_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol{\eta}_p(t)) \,\mathbf{v}_p\,.
+        \frac{\textnormal d \boldsymbol{\eta}_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol{\eta}_p(t)) \,\mathbf{v}_p\,,
 
-    Available algorithms:
+    for constant :math:`\mathbf{v}_p`. Available algorithms:
 
     - Explicit RK from :class:`~struphy.ode.utils.ButcherTableau`
     """
@@ -54,8 +58,8 @@ class PushEta(Propagator):
     def __init__(self):
         self.variables = self.Variables()
 
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Configuration options for :class:`PushEta`.
 
         Parameters
@@ -82,24 +86,19 @@ class PushEta(Propagator):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         # get kernel
         kernel = Pyccelkernel(pusher_kernels.push_eta_stage)
 
         # define algorithm
         butcher = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
-        try:
-            import cunumpy as xp
-
-            butcher._a = xp.concatenate((xp.diag(butcher.a, k=-1), xp.zeros(1, dtype=butcher.a.dtype)))
-        except ValueError:
-            pass
 
         args_kernel = (
-            butcher.a,
+            butcher.a_stage,
             butcher.b,
             butcher.c,
         )

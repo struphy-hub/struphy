@@ -127,7 +127,7 @@ class Variable(metaclass=ABCMeta):
             self._name = None
         return self._name
 
-    def add_background(self, background, verbose=True):
+    def add_background(self, background):
         """Add a static background for this variable.
         Multiple backgrounds can be added up."""
         if not hasattr(self, "_backgrounds") or self.backgrounds is None:
@@ -136,30 +136,31 @@ class Variable(metaclass=ABCMeta):
             if not isinstance(self.backgrounds, list):
                 self._backgrounds = [self.backgrounds]
             self._backgrounds += [background]
+        logger.info(
+            f"\nAdded background\n{background}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'."
+        )
 
     def show_backgrounds(self):
+        print(f"\nBackgrounds for variable '{self.__name__}' of species '{self.species.__class__.__name__}':")
         if self.backgrounds is not None:
-            logger.info(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - backgrounds:")
             if isinstance(self.backgrounds, list):
                 for background in self.backgrounds:
-                    logger.info(background)
+                    print(background)
             else:
-                logger.info(self.backgrounds)
+                print(self.backgrounds)
         else:
-            logger.info(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no background.")
+            print("None.")
 
     def show_perturbations(self):
+        print(f"\nPerturbations for variable '{self.__name__}' of species '{self.species.__class__.__name__}':")
         if self.perturbations is not None:
-            logger.info(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - perturbations:")
             if isinstance(self.perturbations, list):
                 for perturbation in self.perturbations:
-                    logger.info(perturbation)
+                    print(perturbation)
             else:
-                logger.info(self.perturbations)
+                print(self.perturbations)
         else:
-            logger.info(
-                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no perturbation."
-            )
+            print("None.")
 
 
 class FEECVariable(Variable):
@@ -197,7 +198,7 @@ class FEECVariable(Variable):
         Add an equilibrium field background.
     add_perturbation(perturbation)
         Add initial perturbations to the field.
-    allocate(derham, domain, equil, verbose)
+    allocate(derham, domain, equil)
         Allocate spline function and initialize on the mesh.
 
     Notes
@@ -281,10 +282,10 @@ class FEECVariable(Variable):
             self._species = None
         return self._species
 
-    def add_background(self, background: FieldsBackground, verbose=True):
-        super().add_background(background, verbose=verbose)
+    def add_background(self, background: FieldsBackground):
+        super().add_background(background)
 
-    def add_perturbation(self, perturbation: Perturbation, verbose=True):
+    def add_perturbation(self, perturbation: Perturbation):
         """Add an initial :class:`~struphy.initial.base.Perturbation` for this variable.
         Multiple perturbations can be added up."""
         if not hasattr(self, "_perturbations") or self.perturbations is None:
@@ -293,13 +294,15 @@ class FEECVariable(Variable):
             if not isinstance(self.perturbations, list):
                 self._perturbations = [self.perturbations]
             self._perturbations += [perturbation]
+        logger.info(
+            f"\nAdded perturbation\n{perturbation}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'."
+        )
 
     def allocate(
         self,
         derham: Derham,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
-        verbose: bool = False,
     ):
         self._spline = derham.create_spline_function(
             name=self.__name__,
@@ -308,7 +311,6 @@ class FEECVariable(Variable):
             perturbations=self.perturbations,
             domain=domain,
             equil=equil,
-            verbose=verbose,
         )
 
         self._derham_lift = None
@@ -346,7 +348,6 @@ class FEECVariable(Variable):
                 space_id=self.space,
                 domain=domain,
                 equil=equil,
-                verbose=verbose,
             )
 
             # project lifting function to spline space
@@ -449,7 +450,7 @@ class PICVariable(Variable):
         Set initial kinetic distribution (must be consistent with background).
     show_initial_condition()
         Display current initial condition information.
-    allocate(clone_config, derham, domain, equil, projected_equil, verbose)
+    allocate(clone_config, derham, domain, equil, projected_equil)
         Initialize particles and allocate marker arrays.
 
     Notes
@@ -503,24 +504,23 @@ class PICVariable(Variable):
             self._n_as_volume_form = False
         return self._n_as_volume_form
 
-    def add_background(self, background: KineticBackground, n_as_volume_form: bool = False, verbose=True):
+    def add_background(self, background: KineticBackground, n_as_volume_form: bool = False):
         self._n_as_volume_form = n_as_volume_form
-        super().add_background(background, verbose=verbose)
+        super().add_background(background)
 
-    def add_initial_condition(self, init: KineticBackground, verbose=True):
+    def add_initial_condition(self, init: KineticBackground):
         """The initial condition must be consistent with the background."""
         self._initial_condition = init
+        logger.info(
+            f"\nAdded initial condition\n{init}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'."
+        )
 
     def show_initial_condition(self):
+        print(f"\nInitial condition for variable '{self.__name__}' of species '{self.species.__class__.__name__}':")
         if self.initial_condition is not None:
-            logger.info(
-                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - initial condition:"
-            )
-            logger.info(self.initial_condition)
+            print(self.initial_condition)
         else:
-            logger.info(
-                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no initial condition."
-            )
+            print("Same as background.")
 
     @property
     def initial_condition(self) -> KineticBackground:
@@ -535,7 +535,6 @@ class PICVariable(Variable):
         domain: Domain = None,
         equil: FluidEquilibrium = None,
         projected_equil: ProjectedFluidEquilibrium = None,
-        verbose: bool = False,
     ):
         # assert isinstance(self.species, KineticSpecies)
         assert isinstance(self.backgrounds, KineticBackground), (
@@ -559,13 +558,11 @@ class PICVariable(Variable):
             comm_world=comm_world,
             clone_config=clone_config,
             domain_decomp=domain_decomp,
-            mpi_dims_mask=self.species.dims_mask,
-            boxes_per_dim=self.species.boxes_per_dim,
-            box_bufsize=self.species.box_bufsize,
             name=self.species.__class__.__name__,
             loading_params=self.species.loading_params,
             weights_params=self.species.weights_params,
             boundary_params=self.species.boundary_params,
+            sorting_params=self.species.sorting_params,
             bufsize=self.species.bufsize,
             domain=domain,
             equil=equil,
@@ -573,16 +570,14 @@ class PICVariable(Variable):
             background=self.backgrounds,
             initial_condition=self.initial_condition,
             n_as_volume_form=self.n_as_volume_form,
-            # perturbations=self.perturbations,
             equation_params=self.species.equation_params,
-            verbose=verbose,
         )
 
-        if self.species.do_sort:
+        if self.species.sorting_params.do_sort:
             sort = True
         else:
             sort = False
-        self.particles.draw_markers(sort=sort, verbose=verbose)
+        self.particles.draw_markers(sort=sort)
 
         # set zero velocity according to loading_params
         zero_index = tuple(i for i, is_zero in enumerate(self.particles.loading_params.set_zero_velocity) if is_zero)
@@ -591,7 +586,7 @@ class PICVariable(Variable):
         self.particles.initialize_weights()
 
         # allocate array for saving markers if not present
-        n_markers = self.species.n_markers
+        n_markers = self.species.saving_params.n_markers
         if isinstance(n_markers, float):
             if n_markers > 1.0:
                 self._n_to_save = int(n_markers)
@@ -601,7 +596,7 @@ class PICVariable(Variable):
             self._n_to_save = n_markers
 
         assert self._n_to_save <= self.particles.Np, (
-            f"The number of markers for which data should be stored (={self._n_to_save}) murst be <= than the total number of markers (={self.particles.Np})"
+            f"The number of markers for which data should be stored (={self._n_to_save}) must be <= than the total number of markers (={self.particles.Np})"
         )
         if self._n_to_save > 0:
             self._saved_markers = xp.zeros(
@@ -661,7 +656,7 @@ class SPHVariable(Variable):
         Add perturbations to density and/or velocity components.
     show_perturbations()
         Display detailed information about density and velocity perturbations.
-    allocate(derham, domain, equil, projected_equil, verbose)
+    allocate(derham, domain, equil, projected_equil)
         Initialize SPH particles and allocate marker arrays.
 
     Notes
@@ -715,8 +710,8 @@ class SPHVariable(Variable):
         """Whether the number density n is given as a volume form or scalar function (=default)."""
         return self._n_as_volume_form
 
-    def add_background(self, background: FluidEquilibrium, verbose=True):
-        super().add_background(background, verbose=verbose)
+    def add_background(self, background: FluidEquilibrium):
+        super().add_background(background)
 
     def add_perturbation(
         self,
@@ -724,7 +719,6 @@ class SPHVariable(Variable):
         del_u1: Perturbation = None,
         del_u2: Perturbation = None,
         del_u3: Perturbation = None,
-        verbose=True,
     ):
         """Add an initial :class:`~struphy.initial.base.Perturbation` for the fluid density and/or velocity."""
         self._perturbations = {}
@@ -733,20 +727,30 @@ class SPHVariable(Variable):
         self._perturbations["u2"] = del_u2
         self._perturbations["u3"] = del_u3
 
-    def show_perturbations(self):
-        if self.perturbations is not None:
-            logger.info(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - perturbations:")
-            for key, perturbation in self.perturbations.items():
-                if perturbation is not None:
-                    logger.info(f"    {key}: {perturbation.__class__.__name__}")
-                    for k, v in perturbation.__dict__.items():
-                        logger.info(f"        {k}: {v}")
-                else:
-                    logger.info(f"    {key}: None")
-        else:
+        if del_n is not None:
             logger.info(
-                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no perturbation."
+                f"\nAdded density perturbation\n{del_n}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'."
             )
+        if del_u1 is not None:
+            logger.info(
+                f"\nAdded velocity component u1 perturbation\n{del_u1}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'."
+            )
+        if del_u2 is not None:
+            logger.info(
+                f"\nAdded velocity component u2 perturbation\n{del_u2}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'."
+            )
+        if del_u3 is not None:
+            logger.info(
+                f"\nAdded velocity component u3 perturbation\n{del_u3}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'."
+            )
+
+    def show_perturbations(self):
+        print(f"Perturbations for variable '{self.__name__}' of species '{self.species.__class__.__name__}':")
+        if self.perturbations is not None:
+            for key, perturbation in self.perturbations.items():
+                print(perturbation)
+        else:
+            print("None.")
 
     @property
     def perturbations(self) -> dict[str, Perturbation]:
@@ -760,7 +764,6 @@ class SPHVariable(Variable):
         domain: Domain = None,
         equil: FluidEquilibrium = None,
         projected_equil: ProjectedFluidEquilibrium = None,
-        verbose: bool = False,
     ):
         assert isinstance(self.backgrounds, FluidEquilibrium), (
             "List input not allowed, you can sum Kineticbackgrounds before passing them to add_background."
@@ -782,13 +785,11 @@ class SPHVariable(Variable):
         self._particles = ParticlesSPH(
             comm_world=comm_world,
             domain_decomp=domain_decomp,
-            mpi_dims_mask=self.species.dims_mask,
-            boxes_per_dim=self.species.boxes_per_dim,
-            box_bufsize=self.species.box_bufsize,
             name=self.species.__class__.__name__,
             loading_params=self.species.loading_params,
             weights_params=self.species.weights_params,
             boundary_params=self.species.boundary_params,
+            sorting_params=self.species.sorting_params,
             bufsize=self.species.bufsize,
             domain=domain,
             equil=equil,
@@ -797,18 +798,20 @@ class SPHVariable(Variable):
             n_as_volume_form=self.n_as_volume_form,
             perturbations=self.perturbations,
             equation_params=self.species.equation_params,
-            verbose=verbose,
         )
 
-        if self.species.do_sort:
+        if self.species.sorting_params.do_sort:
             sort = True
         else:
             sort = False
-        self.particles.draw_markers(sort=sort, verbose=verbose)
+        self.particles.draw_markers(sort=sort)
         self.particles.initialize_weights()
 
+        # if self.particles.sorting_boxes.communicate:
+        #     self.particles.put_particles_in_boxes()
+
         # allocate array for saving markers if not present
-        n_markers = self.species.n_markers
+        n_markers = self.species.saving_params.n_markers
         if isinstance(n_markers, float):
             if n_markers > 1.0:
                 self._n_to_save = int(n_markers)
@@ -818,7 +821,7 @@ class SPHVariable(Variable):
             self._n_to_save = n_markers
 
         assert self._n_to_save <= self.particles.Np, (
-            f"The number of markers for which data should be stored (={self._n_to_save}) murst be <= than the total number of markers (={self.particles.Np})"
+            f"The number of markers for which data should be stored (={self._n_to_save}) must be <= than the total number of markers (={self.particles.Np})"
         )
         if self._n_to_save > 0:
             self._saved_markers = xp.zeros(

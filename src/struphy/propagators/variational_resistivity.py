@@ -11,7 +11,7 @@ from line_profiler import profile
 from struphy.feec import preconditioner
 from struphy.feec.mass import L2Projector
 from struphy.feec.variational_utilities import InternalEnergyEvaluator
-from struphy.io.options import LiteralOptions
+from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
@@ -98,11 +98,22 @@ class VariationalResistivity(Propagator):
             assert new.space == "Hdiv"
             self._b = new
 
-    def __init__(self):
+    def __init__(self, rho: FEECVariable = None, pt3: FEECVariable = None):
+        """
+        Parameters
+        ----------
+        rho : FEECVariable, default=None
+            Mass density 3-form (``"L2"`` space) weighting the thermodynamic equation.
+        pt3 : FEECVariable, default=None
+            Pressure or entropy 3-form (``"L2"`` space) evolved by the resistive heating.
+            If ``None``, the thermodynamic equation is skipped.
+        """
         self.variables = self.Variables()
+        self.rho = rho
+        self.pt3 = pt3
 
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Configuration options for :class:`VariationalResistivity`.
 
         Parameters
@@ -121,10 +132,6 @@ class VariationalResistivity(Propagator):
             Nonlinear iteration controls.
         linearize_current : bool, default=False
             If ``True``, linearize current terms around background fields.
-        rho : FEECVariable, default=None
-            Density variable used by variational forms.
-        pt3 : FEECVariable, default=None
-            Optional pressure-like background field.
         eta : float, default=0.0
             Physical resistivity coefficient.
         eta_a : float, default=0.0
@@ -141,8 +148,6 @@ class VariationalResistivity(Propagator):
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
         linearize_current: bool = False
-        rho: FEECVariable = None
-        pt3: FEECVariable = None
         eta: float = 0.0
         eta_a: float = 0.0
 
@@ -169,9 +174,10 @@ class VariationalResistivity(Propagator):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         self._model = self.options.model
         self._gamma = self.options.gamma
         self._eta = self.options.eta
@@ -179,8 +185,6 @@ class VariationalResistivity(Propagator):
         self._lin_solver = self.options.solver_params
         self._nonlin_solver = self.options.nonlin_solver
         self._linearize_current = self.options.linearize_current
-        self._rho = self.options.rho
-        self._pt3 = self.options.pt3
 
         self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
@@ -265,10 +269,10 @@ class VariationalResistivity(Propagator):
         # 1) Pointwize energy change
         energy_change = self._get_energy_change(bn, bn1, total_resistivity)
         # 2) Initial energy and linear form
-        rho = self._rho.spline.vector
+        rho = self.rho.spline.vector
         self.rhof.vector = rho
         if self._model in ["deltaf_q", "linear_q"]:
-            self.sf.vector = self._pt3.spline.vector
+            self.sf.vector = self.pt3.spline.vector
         else:
             self.sf.vector = sn
 
@@ -328,7 +332,7 @@ class VariationalResistivity(Propagator):
 
         for it in range(self._nonlin_solver["maxiter"]):
             if self._model in ["deltaf_q", "linear_q"]:
-                self.sf1.vector = self._pt3.spline.vector
+                self.sf1.vector = self.pt3.spline.vector
             else:
                 self.sf1.vector = sn1
 
@@ -412,7 +416,7 @@ class VariationalResistivity(Propagator):
                 logger.info(f"information on the linear solver : {self.inv_jac._info}")
 
             if self._model in ["deltaf_q", "linear_q"]:
-                self._pt3 += incr
+                self.pt3 += incr
             else:
                 sn1 += incr
 
@@ -423,7 +427,7 @@ class VariationalResistivity(Propagator):
 
         self.update_feec_variables(s=sn1, b=bn1)
 
-        # if self._pt3 is not None:
+        # if self.pt3 is not None:
         #     bn12 = bn.copy(out=self._tmp_bn12)
         #     bn12 += bn1
         #     bn12 /= 2.0
@@ -452,7 +456,7 @@ class VariationalResistivity(Propagator):
 
         #     cb_sq_v *= self._cb_sq_values_init
         #     # 2) Initial energy and linear form
-        #     self.sf.vector = self._pt3
+        #     self.sf.vector = self.pt3
 
         #     sf_values = self.sf.eval_tp_fixed_loc(
         #         self.integration_grid_spans,
@@ -474,7 +478,7 @@ class VariationalResistivity(Propagator):
         #     err = tol + 1
 
         #     for it in range(self._nonlin_solver["maxiter"]):
-        #         self.sf1.vector = self._pt3
+        #         self.sf1.vector = self.pt3
 
         #         sf1_values = self.sf1.eval_tp_fixed_loc(
         #             self.integration_grid_spans,
@@ -507,7 +511,7 @@ class VariationalResistivity(Propagator):
         #         if self._info:
         #             logger.info("information on the linear solver : ", self.inv_jac._info)
 
-        #         self._pt3 += incr
+        #         self.pt3 += incr
 
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and needed to compute the bracket term"""

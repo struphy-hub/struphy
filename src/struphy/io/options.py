@@ -5,6 +5,7 @@ from typing import Any, Callable, Literal
 
 from struphy.utils.utils import (
     __class_with_params_repr_no_defaults__,
+    __dataclass_repr_all_stacked__,
     __dataclass_repr_no_defaults__,
     all_class_params_are_default,
     check_option,
@@ -13,6 +14,7 @@ from struphy.utils.utils import (
 logger = logging.getLogger("struphy")
 
 
+@dataclass
 class OptionsBase:
     def to_dict(self) -> dict:
         """Convert dataclass instance to dictionary."""
@@ -23,6 +25,9 @@ class OptionsBase:
         """Create dataclass instance from dictionary."""
         valid_fields = {field.name for field in fields(cls) if field.init}
         return cls(**{key: value for key, value in dct.items() if key in valid_fields})
+
+    def __repr__(self):
+        return __dataclass_repr_all_stacked__(self)
 
 
 @dataclass
@@ -52,6 +57,7 @@ class LiteralOptions:
 
     # fields background
     BackgroundTypes = Literal["LogicalConst", "FluidEquilibrium"]
+    KineticDimensionsToPlot = Literal["e1", "e2", "e3", "v1", "v2", "v3"]
 
     # models
     ModelTypes = Literal["Toy", "Kinetic", "Fluid", "Hybrid"]
@@ -71,7 +77,7 @@ class LiteralOptions:
 
     # markers
     OptsPICSpace = Literal["Particles6D", "DeltaFParticles6D", "Particles5D", "Particles3D"]
-    OptsMarkerBC = Literal["periodic", "reflect"]
+    OptsMarkerBC = Literal["periodic", "reflect", "remove", "refill"]
     OptsRecontructBC = Literal["periodic", "mirror", "fixed", "noslip"]
     OptsLoading = Literal[
         "pseudo_random",
@@ -119,7 +125,7 @@ class LiteralOptions:
     ]
 
 
-@dataclass
+@dataclass(repr=False)
 class Time(OptionsBase):
     """Set options for time stepping in parameter/launch files.
 
@@ -141,11 +147,6 @@ class Time(OptionsBase):
 
     def __post_init__(self):
         check_option(self.split_algo, LiteralOptions.SplitAlgos)
-
-    def __str__(self):
-        for k, v in self.__dict__.items():
-            logger.info(f"{k + ':':<20}{v}")
-        return ""
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
@@ -180,12 +181,6 @@ class BaseUnits(OptionsBase):
     n: float = 1.0
     kBT: float = None
 
-    def __str__(self):
-        units = ["m", "T", "1e20/m^3", "keV"]
-        for (k, v), unit in zip(self.__dict__.items(), units):
-            logger.info(f"{k + ':':<20}{v} {unit}")
-        return ""
-
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
 
@@ -197,7 +192,7 @@ class BaseUnits(OptionsBase):
 NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
 
 
-@dataclass
+@dataclass(repr=False)
 class DerhamOptions(OptionsBase):
     """Set options for the 3D discrete de Rham spaces in parameter/launch files.
 
@@ -253,20 +248,23 @@ class DerhamOptions(OptionsBase):
                 check_option(bc[0], LiteralOptions.OptsNonTrivialBoundaryCondition)
                 check_option(bc[1], LiteralOptions.OptsNonTrivialBoundaryCondition)
 
-    def __str__(self):
-        for k, v in self.__dict__.items():
-            logger.info(f"{k + ':':<20}{v}")
-        return ""
+    # def __str__(self):
+    #     for k, v in self.__dict__.items():
+    #         logger.info(f"{k + ':':<20}{v}")
+    #     return ""
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
+
+    def __repr_all_stacked__(self):
+        return __dataclass_repr_all_stacked__(self)
 
     @property
     def is_default(self):
         return all_class_params_are_default(self)
 
 
-@dataclass
+@dataclass(repr=False)
 class FieldsBackground(OptionsBase):
     """Set options for static fluid backgrounds/equilibria in parameter/launch files.
 
@@ -290,11 +288,6 @@ class FieldsBackground(OptionsBase):
     def __post_init__(self):
         check_option(self.type, LiteralOptions.BackgroundTypes)
 
-    def __str__(self):
-        for k, v in self.__dict__.items():
-            logger.info(f"{k + ':':<20}{v}")
-        return ""
-
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
 
@@ -303,7 +296,7 @@ class FieldsBackground(OptionsBase):
         return all_class_params_are_default(self)
 
 
-@dataclass
+@dataclass(repr=False)
 class EnvironmentOptions(OptionsBase):
     """Set environment options for launching run on current architecture
     (these options do not influence the simulation result).
@@ -352,13 +345,16 @@ class EnvironmentOptions(OptionsBase):
     def __post_init__(self):
         self.path_out: str = os.path.join(self.out_folders, self.sim_folder)
 
-    def __str__(self):
-        for k, v in self.__dict__.items():
-            logger.info(f"{k + ':':<20}{v}")
-        return ""
+    # def __str__(self):
+    #     for k, v in self.__dict__.items():
+    #         logger.info(f"{k + ':':<20}{v}")
+    #     return ""
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
+
+    def __repr_all_stacked__(self):
+        return __dataclass_repr_all_stacked__(self)
 
     @property
     def is_default(self):

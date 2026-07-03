@@ -38,8 +38,14 @@ from struphy import (
     KernelDensityPlot,
     LoadingParameters,
     WeightsParameters,
+    SortingParameters,
+    SavingParameters,
     maxwellians,
 )
+
+import logging
+from struphy import set_logging_level
+set_logging_level(logging.WARNING)
 
 # ---------------------
 # Instance of the model
@@ -117,20 +123,22 @@ loading_params = LoadingParameters(Np = 100000,
                                    )
 weights_params = WeightsParameters(control_variate = False)
 boundary_params = BoundaryParameters()
-model.kinetic_ions.set_markers(loading_params=loading_params,
-                               weights_params=weights_params,
-                               boundary_params=boundary_params,
-                               bufsize = 2.0,
-                               )
-model.kinetic_ions.set_sorting_boxes(boxes_per_dim = (16,1,1), do_sort = True)
+sorting_params = SortingParameters(boxes_per_dim = (16,1,1), do_sort = True)
 
 binplot_dens = BinningPlot(slice="e1_v1", n_bins= (128, 128), ranges= ((0.,1.), (-0.1,0.1))) 
 binplot_velocity = BinningPlot(slice="v1_v2", n_bins= (128, 128), ranges= ((-0.1,0.1), (-0.1,0.1))) 
 binplot_current = tuple(
     [BinningPlot(slice=f"e{i}", n_bins= 32, ranges= (0.,1.), output_quantity=f"current_{j}") for j in range(1,4) for i in range(1,4)] 
     )
+saving_params = SavingParameters(binning_plots=(binplot_dens, binplot_velocity, *binplot_current))
 
-model.kinetic_ions.set_save_data(binning_plots=(binplot_dens, binplot_velocity, *binplot_current))
+model.kinetic_ions.set_markers(loading_params=loading_params,
+                               weights_params=weights_params,
+                               boundary_params=boundary_params,
+                               sorting_params=sorting_params,
+                               saving_params=saving_params,
+                               bufsize = 2.0,
+                               )
 
 # ------------------
 # Propagator options
@@ -138,7 +146,7 @@ model.kinetic_ions.set_save_data(binning_plots=(binplot_dens, binplot_velocity, 
 
 model.propagators.maxwell.options = model.propagators.maxwell.Options()
 model.propagators.push_eta.options = model.propagators.push_eta.Options()
-model.propagators.push_vxb.options = model.propagators.push_vxb.Options(b2_var=model.em_fields.b_field)
+model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
 model.propagators.coupling_va.options = model.propagators.coupling_va.Options()
 model.initial_poisson.options = model.initial_poisson.Options(stab_mat="M0")
 
@@ -161,4 +169,4 @@ model.kinetic_ions.var.add_background(maxwellian)
 model.em_fields.b_field.add_perturbation(perturbation = perturbations.ModesCos(amps=(B_pert_amp,), ls = (1,), comp = 2)) # Initial Bz depending on x-axis
 
 if __name__ == "__main__":
-    sim.run(verbose=True)
+    sim.run()

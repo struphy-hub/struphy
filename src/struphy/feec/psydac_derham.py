@@ -543,14 +543,14 @@ class Derham:
     grid : TensorProductGrid
         The FEEC grid.
 
+    options: DerhamOptions
+        The options for building the discrete de Rham sequence, including spline degrees, boundary conditions, quadrature options, polar spline options, and projector options.
+
     comm: Intracomm
         MPI communicator (sub_comm if clones are used).
 
     domain : Domain, optional
         The Struphy domain object for evaluating the mapping F : [0, 1]^3 --> R^3 and the corresponding metric coefficients.
-
-    verbose : bool
-        Show info on screen.
 
     Notes
     -----
@@ -568,7 +568,6 @@ class Derham:
         options: DerhamOptions,
         comm: MPI.Intracomm = None,
         domain: Domain = None,
-        verbose=False,
     ):
 
         # inputs
@@ -893,16 +892,15 @@ class Derham:
             xp.array(self.V0.starts),
         )
 
-        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-            logger.info("\nDERHAM:")
-            logger.info(f"{'number of elements:'.ljust(25)} {num_elements}")
-            logger.info(f"{'spline degrees:'.ljust(25)} {degree}")
-            logger.info(f"{'boundary conditions:'.ljust(25)} {bcs}")
-            logger.info(f"{'GL quad pts (L2):'.ljust(25)} {nquads}")
-            logger.info(f"{'GL quad pts (hist):'.ljust(25)} {nquads_proj}")
-            logger.info(f"{'MPI proc. per dir.:'.ljust(25)} {self.domain_decomposition.nprocs}")
-            logger.info(f"{'use polar splines:'.ljust(25)} {self.polar_splines}")
-            logger.info(f"{'domain on process 0:'.ljust(25)} {self.domain_array[0]}")
+        logger.debug("\nDERHAM:")
+        logger.debug(f"{'number of elements:'.ljust(25)} {num_elements}")
+        logger.debug(f"{'spline degrees:'.ljust(25)} {degree}")
+        logger.debug(f"{'boundary conditions:'.ljust(25)} {bcs}")
+        logger.debug(f"{'GL quad pts (L2):'.ljust(25)} {nquads}")
+        logger.debug(f"{'GL quad pts (hist):'.ljust(25)} {nquads_proj}")
+        logger.debug(f"{'MPI proc. per dir.:'.ljust(25)} {self.domain_decomposition.nprocs}")
+        logger.debug(f"{'use polar splines:'.ljust(25)} {self.polar_splines}")
+        logger.debug(f"{'domain on process 0:'.ljust(25)} {self.domain_array[0]}")
 
     # -----------------------------
     # Input arguments as properties
@@ -1582,7 +1580,6 @@ class Derham:
         perturbations: Perturbation | list = None,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
-        verbose: bool = False,
     ):
         """Creat a callable spline function.
 
@@ -1618,7 +1615,6 @@ class Derham:
             perturbations=perturbations,
             domain=domain,
             equil=equil,
-            verbose=verbose,
         )
 
     def prepare_eval_tp_fixed(self, grids_1d):
@@ -2211,7 +2207,6 @@ class SplineFunction:
         perturbations: Perturbation | list = None,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
-        verbose: bool = False,
     ):
         self._name = name
         self._space_id = space_id
@@ -2252,10 +2247,10 @@ class SplineFunction:
         # dimensions in each direction
         self._nbasis = derham.spline_attributes[space_id].nbasis
 
-        logger.info(f"\nAllocated SplineFuntion '{self.name}' in space '{self.space_id}'.")
+        logger.debug(f"\nAllocated SplineFuntion '{self.name}' in space '{self.space_id}'.")
 
         if self.backgrounds is not None or self.perturbations is not None:
-            self.initialize_coeffs(domain=self.domain, equil=self.equil, verbose=verbose)
+            self.initialize_coeffs(domain=self.domain, equil=self.equil)
 
     @property
     def name(self):
@@ -2436,7 +2431,6 @@ class SplineFunction:
         perturbations: Perturbation | list = None,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
-        verbose: bool = False,
     ):
         """
         Set the initial conditions for self.vector.
@@ -2469,15 +2463,13 @@ class SplineFunction:
         # start from zero coeffs
         self._vector *= 0.0
 
-        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info(f"Initializing {self.name} ...")
+        logger.debug(f"Initializing {self.name} ...")
 
         # add backgrounds to initial vector
         if self.backgrounds is not None:
             for fb in self.backgrounds:
                 assert isinstance(fb, FieldsBackground)
-                if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-                    logger.info(f"Adding background {fb} ...")
+                logger.debug(f"Adding background {fb} ...")
 
                 # special case of const
                 if fb.type == "LogicalConst":
@@ -2531,8 +2523,7 @@ class SplineFunction:
         # add perturbations to coefficient vector
         if self.perturbations is not None:
             for ptb in self.perturbations:
-                if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-                    logger.info(f"Adding perturbation {ptb} ...")
+                logger.debug(f"Adding perturbation {ptb} ...")
 
                 # special case of white noise in logical space for different components
                 if isinstance(ptb, Noise):

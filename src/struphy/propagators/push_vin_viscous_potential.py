@@ -1,17 +1,20 @@
 "Only particle variables are updated."
 
+import logging
 from dataclasses import dataclass
 from typing import Literal
 
 from line_profiler import profile
 
-from struphy.io.options import LiteralOptions
+from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.models.variables import SPHVariable
-from struphy.pic.pushing import eval_kernels_gc, pusher_kernels
+from struphy.pic.pushing import eval_kernels_sph, pusher_kernels_sph
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
+
+logger = logging.getLogger("struphy")
 
 
 class PushVinViscousPotential(Propagator):
@@ -58,8 +61,8 @@ class PushVinViscousPotential(Propagator):
     def __init__(self):
         self.variables = self.Variables()
 
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Configuration options for :class:`PushVinViscousPotential`.
 
         Parameters
@@ -107,17 +110,18 @@ class PushVinViscousPotential(Propagator):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):  # ersetzt init
+    def allocate(self):  # ersetzt init
         particles = self.variables.fluid.particles
 
         # init kernel for evaluating density etc. before each time step.
-        init_kernel_1 = eval_kernels_gc.sph_mean_velocity_coeffs
+        init_kernel_1 = eval_kernels_sph.sph_mean_velocity_coeffs
         first_free_idx = particles.args_markers.first_free_idx
         comps = (0, 1, 2)
 
-        init_kernel_2 = eval_kernels_gc.sph_viscosity_tensor
+        init_kernel_2 = eval_kernels_sph.sph_viscosity_tensor
         comps_tensor = (0, 1, 2, 3, 4, 5, 6, 7, 8)
 
         boxes = particles.sorting_boxes.boxes
@@ -166,7 +170,7 @@ class PushVinViscousPotential(Propagator):
             args_init_visc,
         )
 
-        kernel = Pyccelkernel(pusher_kernels.push_v_viscosity)
+        kernel = Pyccelkernel(pusher_kernels_sph.push_v_viscosity)
 
         args_kernel = (
             boxes,

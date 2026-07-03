@@ -1,15 +1,19 @@
 "Only particle variables are updated."
 
+import logging
 from dataclasses import dataclass
 from typing import Callable
 
 from line_profiler import profile
 
+from struphy.io.options import OptionsBase
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.pic.pushing import pusher_kernels
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
+
+logger = logging.getLogger("struphy")
 
 
 class PushVinEfield(Propagator):
@@ -17,13 +21,13 @@ class PushVinEfield(Propagator):
 
     .. math::
 
-        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \frac{1}{\varepsilon} \, \mathbf{E}(\mathbf{x}_p) \,,
+        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \frac{1}{\varepsilon}\mathbf{E}(\mathbf{x}_p) \,,
 
     where :math:`\varepsilon \in \mathbb R` is a constant. In logical coordinates, given by :math:`\mathbf x = F(\boldsymbol \eta)`:
 
     .. math::
 
-        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \frac{1}{\varepsilon} \, DF^{-\top} \hat{\mathbf E}^1(\boldsymbol \eta_p)  \,,
+        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \frac{1}{\varepsilon}DF^{-\top}\hat{\mathbf E}^1(\boldsymbol \eta_p)  \,,
 
     which is solved analytically. :math:`\mathbf E` can optionally be defined
     through a potential, :math:`\mathbf E = - \nabla \phi`.
@@ -51,36 +55,34 @@ class PushVinEfield(Propagator):
             assert new.space in ("Particles6D", "DeltaFParticles6D", "ParticlesSPH")
             self._var = new
 
-    def __init__(self):
-        self.variables = self.Variables()
-
-    @dataclass
-    class Options:
-        """Configuration options for :class:`PushVinEfield`.
-
+    def __init__(
+        self,
+        phi: FEECVariable | Callable = None,
+        e_field: FEECVariable | tuple[Callable] = None,
+    ):
+        """
         Parameters
         ----------
-        e_field : FEECVariable or tuple[Callable], default=None
-            Electric field used in velocity pushing.
-            Accepted forms are an ``Hcurl`` FEEC variable or a tuple of
-            callables to be projected.
-
         phi : FEECVariable or Callable, default=None
-            Optional electrostatic potential from which the electric field is
-            built as ``-grad(phi)``. If provided, it overrides ``e_field``.
+            Electrostatic potential from which the electric field is built as
+            ``-grad(phi)``. If provided, it overrides ``e_field``.
+            Accepted forms are an ``H1`` FEEC variable or a callable projected
+            via ``L2Projector``.
+        e_field : FEECVariable or tuple of Callables, default=None
+            Electric field used directly in velocity pushing.
+            Accepted forms are an ``Hcurl`` FEEC variable or a tuple of
+            callables to be projected. Ignored when ``phi`` is set.
         """
+        self.variables = self.Variables()
+        self.phi = phi
+        self.e_field = e_field
 
-        # propagator options
-        e_field: FEECVariable | tuple[Callable] = None
-        phi: FEECVariable | Callable = None
+    @dataclass(repr=False)
+    class Options(OptionsBase):
+        """Configuration options for :class:`PushVinEfield`."""
 
         def __post_init__(self):
-            # checks
-            if self.e_field is not None:
-                assert isinstance(self.e_field, tuple[Callable]) or self.e_field.space == "Hcurl"
-            else:
-                if self.phi is not None:
-                    assert isinstance(self.phi, Callable) or self.phi.space == "H1"
+            pass
 
     @property
     def options(self) -> Options:
@@ -92,25 +94,26 @@ class PushVinEfield(Propagator):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         # scaling factor
         self._epsilon = self.variables.var.species.equation_params.epsilon
 
         self._e_field = None
 
-        if self.options.e_field is not None:
-            if isinstance(self.options.e_field, tuple[Callable]):
-                self._e_field = self.derham.P1(self.options.e_field)
+        if self.e_field is not None:
+            if isinstance(self.e_field, tuple[Callable]):
+                self._e_field = self.derham.P1(self.e_field)
             else:
-                self._e_field = self.options.e_field.spline.vector
+                self._e_field = self.e_field.spline.vector
 
-        if self.options.phi is not None:
-            if isinstance(self.options.phi, Callable):
-                _phi = self.derham.P0(self.options.phi)
+        if self.phi is not None:
+            if isinstance(self.phi, Callable):
+                _phi = self.derham.P0(self.phi)
             else:
-                _phi = self.options.phi.spline.vector
+                _phi = self.phi.spline.vector
             self._e_field = self.derham.grad.dot(_phi)
             self._e_field.update_ghost_regions()  # very important, we will move it inside grad
             self._e_field *= -1.0

@@ -10,7 +10,7 @@ from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
 
 from struphy.feec.mass import L2Projector, WeightedMassOperator
-from struphy.io.options import LiteralOptions
+from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
@@ -54,8 +54,7 @@ class ImplicitDiffusion(Propagator):
     """
 
     class Variables:
-        """Container for variables advanced by :class:`ImplicitDiffusion`.
-
+        """
         Attributes
         ----------
         phi : FEECVariable
@@ -75,11 +74,40 @@ class ImplicitDiffusion(Propagator):
             assert new.space == "H1"
             self._phi = new
 
-    def __init__(self):
-        self.variables = self.Variables()
+    def __init__(
+        self,
+        rho: FEECVariable | Callable | tuple[AccumulatorVector, Particles] | list = None,
+        rho_coeffs: float | list = None,
+    ):
+        """
+        Parameters
+        ----------
+        rho : FEECVariable or Callable or tuple or list, default=None
+            Source term(s) on the right-hand side.
+            Accepted entries are:
 
-    @dataclass
-    class Options:
+            - ``None``: zero source.
+            - ``FEECVariable`` in ``H1``.
+            - ``Callable`` to be projected to ``H1`` via ``L2Projector``.
+            - ``AccumulatorVector``.
+            - a ``list`` containing any mix of the entries above.
+
+            The tuple form is accepted by typing for compatibility with other
+            propagator interfaces that pair particle data with accumulators.
+
+        rho_coeffs : float or list, default=None
+            Multiplicative coefficient(s) for ``rho`` sources.
+            If a scalar is provided, it is applied to a single source.
+            If a sequence is provided, its length must match the number of
+            collected sources.
+            If ``None``, all coefficients default to ``1.0``.
+        """
+        self.variables = self.Variables()
+        self.rho = rho
+        self.rho_coeffs = rho_coeffs
+
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Configuration options for :class:`ImplicitDiffusion`.
 
         Parameters
@@ -122,26 +150,6 @@ class ImplicitDiffusion(Propagator):
             custom ``WeightedMassOperator`` compatible with the codomain of
             ``grad``.
 
-        rho : FEECVariable or Callable or tuple or list, default=None
-            Source term(s) on the right-hand side.
-            Accepted entries are:
-
-            - ``None``: zero source.
-            - ``FEECVariable`` in ``H1``.
-            - ``Callable`` to be projected to ``H1`` via ``L2Projector``.
-            - ``AccumulatorVector``.
-            - a ``list`` containing any mix of the entries above.
-
-            The tuple form is accepted by typing for compatibility with other
-            propagator interfaces that pair particle data with accumulators.
-
-        rho_coeffs : float or list, default=None
-            Multiplicative coefficient(s) for ``rho`` sources.
-            If a scalar is provided, it is applied to a single source.
-            If a sequence is provided, its length must match the number of
-            collected sources.
-            If ``None``, all coefficients default to ``1.0``.
-
         x0 : StencilVector, default=None
             Initial guess for the iterative linear solver.
 
@@ -170,8 +178,6 @@ class ImplicitDiffusion(Propagator):
         divide_by_dt: bool = False
         stab_mat: OptsStabMat = "M0"
         diffusion_mat: OptsDiffusionMat = "M1"
-        rho: FEECVariable | Callable | tuple[AccumulatorVector, Particles] | list = None
-        rho_coeffs: float | list = None
         x0: StencilVector = None
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
@@ -198,14 +204,14 @@ class ImplicitDiffusion(Propagator):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         # always stabilize
         if xp.abs(self.options.sigma_1) < 1e-14:
             self.options.sigma_1 = 1e-14
-            if MPI.COMM_WORLD.Get_rank() == 0:
-                logger.info(f"Stabilizing Poisson solve with {self.options.sigma_1 =}")
+            logger.warning(f"Stabilizing Poisson solve with {self.options.sigma_1 =}")
 
         # model parameters
         self._sigma_1 = self.options.sigma_1
@@ -232,7 +238,7 @@ class ImplicitDiffusion(Propagator):
 
             return rhs
 
-        rho = self.options.rho
+        rho = self.rho
         if isinstance(rho, list):
             self._sources = []
             for r in rho:
@@ -241,11 +247,11 @@ class ImplicitDiffusion(Propagator):
             self._sources = [verify_rhs(rho)]
 
         # coeffs of rhs
-        if self.options.rho_coeffs is not None:
-            if isinstance(self.options.rho_coeffs, (list, tuple)):
-                self._coeffs = self.options.rho_coeffs
+        if self.rho_coeffs is not None:
+            if isinstance(self.rho_coeffs, (list, tuple)):
+                self._coeffs = self.rho_coeffs
             else:
-                self._coeffs = [self.options.rho_coeffs]
+                self._coeffs = [self.rho_coeffs]
             assert len(self._coeffs) == len(self._sources)
         else:
             self._coeffs = [1.0 for src in self.sources]

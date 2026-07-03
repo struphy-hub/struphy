@@ -1,3 +1,4 @@
+import copy
 import logging
 
 import cunumpy as xp
@@ -20,36 +21,18 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class GuidingCenter(StruphyModel):
-    r"""Guiding-center equation in static background magnetic field.
+    """Guiding-center equation for a single species in a static background magnetic field.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat v = \hat v_\textnormal{A} \,.
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        \frac{\partial f}{\partial t} + \left[ v_\parallel \frac{\mathbf{B}^*}{B^*_\parallel} + \frac{\mathbf{E}^* \times \mathbf{b}_0}{B^*_\parallel}\right] \cdot \frac{\partial f}{\partial \mathbf{X}} + \left[\frac{1}{\epsilon} \frac{\mathbf{B}^*}{B^*_\parallel} \cdot \mathbf{E}^*\right] \cdot \frac{\partial f}{\partial v_\parallel} = 0\,.
-
-    where :math:`f(\mathbf{X}, v_\parallel, \mu, t)` is the guiding center distribution and
-
-    .. math::
-
-        \mathbf{E}^* = -\epsilon \mu \nabla |B_0| \,,  \qquad \mathbf{B}^* = \mathbf{B}_0 + \epsilon v_\parallel \nabla \times \mathbf{b}_0 \,,\qquad B^*_\parallel = \mathbf B^* \cdot \mathbf b_0  \,.
-
-    Moreover,
-
-    .. math::
-
-        \epsilon = \frac{1 }{ \hat \Omega_{\textnormal{c}} \hat t}\,,\qquad \textnormal{with} \qquad\hat \Omega_{\textnormal{c}} = \frac{Ze \hat B}{A m_\textnormal{H}}\,.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
-    2. :class:`~struphy.propagators.push_guiding_center_parallel.PushGuidingCenterParallel`
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    charge_number: int
+        Charge number (in units of the positive elementary charge) of the species (default: 1)
+    mass_number: float
+        Mass number (in units of Proton mass) of the species (default: 1.0)
+    epsilon: float, optional
+        Normalized cyclotron period: 1 / (cyclotron frequency × time unit). If None, computed from units and charge/mass numbers.
     """
 
     @classmethod
@@ -89,6 +72,9 @@ class GuidingCenter(StruphyModel):
         epsilon: float = None,
     ):
 
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
+
         # 1. instantiate all species
         self.kinetic_ions = self.KineticIons(
             charge_number,
@@ -126,6 +112,20 @@ class GuidingCenter(StruphyModel):
     @property
     def velocity_scale(self):
         return "alfvén"
+
+    def allocate_helpers(self):
+        pass
+
+    def _compute_en_fB(self):
+        particles = self.kinetic_ions.var.particles
+        particles.save_magnetic_background_energy()
+        energy = (
+            particles.markers[~particles.holes, 5].dot(
+                particles.markers[~particles.holes, 8],
+            )
+            / particles.Np
+        )
+        return energy
 
     @classmethod
     def doc_pde(cls):
@@ -166,6 +166,11 @@ class GuidingCenter(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence):
+
+        1. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
+        2. :class:`~struphy.propagators.push_guiding_center_parallel.PushGuidingCenterParallel`
+        """
         doc = rf"""**1. push_guiding_center_bx_estar.PushGuidingCenterBxEstar:**
 
     {PushGuidingCenterBxEstar.__doc__}
@@ -211,17 +216,3 @@ class GuidingCenter(StruphyModel):
         - full-orbit particle dynamics with resolved gyrophase
         - collisional transport or source terms not present in the equation
         - fluid closures or MHD force balance"""
-
-    def allocate_helpers(self, verbose: bool = False):
-        pass
-
-    def _compute_en_fB(self):
-        particles = self.kinetic_ions.var.particles
-        particles.save_magnetic_background_energy()
-        energy = (
-            particles.markers[~particles.holes, 5].dot(
-                particles.markers[~particles.holes, 8],
-            )
-            / particles.Np
-        )
-        return energy

@@ -1,3 +1,4 @@
+import copy
 import logging
 
 from feectools.ddm.mpi import mpi as MPI
@@ -10,7 +11,7 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.propagators.implicit_diffusion import ImplicitDiffusion
-from struphy.propagators.poisson_field_solve import PoissonFieldSolve
+from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.time_dependent_source import TimeDependentSource
 
 logger = logging.getLogger("struphy")
@@ -18,31 +19,14 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class Poisson(StruphyModel):
-    r"""Weak discretization of Poisson's equation with diffusion matrix, stabilization
-    and time-depedent right-hand side.
+    """Weak discretization of Poisson's equation with a diffusion matrix, stabilization and an optional time-dependent right-hand side.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat D = \frac{\hat n}{\hat x^2}\,,\qquad \hat \rho = \hat n \,.
-
-    :ref:`Equations <gempic>`: Find :math:`\phi \in H^1` such that
-
-    .. math::
-
-        - \nabla \cdot D_0(\mathbf x) \nabla \phi + n_0(\mathbf x) \phi =  \rho(t, \mathbf x)\,,
-
-    where :math:`n_0, \rho(t):\Omega \to \mathbb R` are real-valued functions, :math:`\rho(t)` parametrized with time :math:`t`,
-    and :math:`D_0:\Omega \to \mathbb R^{3\times 3}` is a positive matrix.
-    Boundary terms from integration by parts are assumed to vanish.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.time_dependent_source.TimeDependentSource`
-    2. :class:`~struphy.propagators.implicit_diffusion.ImplicitDiffusion`
-
-    :ref:`Model info <add_model>`:
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    with_t_dep_source: bool
+        Whether the right-hand side source term is time-dependent (default: False)
     """
 
     @classmethod
@@ -60,16 +44,19 @@ class Poisson(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self, with_t_dep_source=False):
+        def __init__(self, rho: FEECVariable = None, with_t_dep_source=False):
             if with_t_dep_source:
                 self.source = TimeDependentSource()
-            self.poisson = PoissonFieldSolve()
+            self.poisson = PoissonSolve(rho=rho)
 
     ## abstract methods
 
     def __init__(self, base_units: BaseUnits = BaseUnits(), with_t_dep_source=False):
 
         self.with_t_dep_source = with_t_dep_source
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -78,7 +65,7 @@ class Poisson(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators(with_t_dep_source=with_t_dep_source)
+        self.propagators = self.Propagators(rho=self.em_fields.source, with_t_dep_source=with_t_dep_source)
 
         # 4. assign variables to propagators
         if with_t_dep_source:
@@ -95,6 +82,33 @@ class Poisson(StruphyModel):
     def velocity_scale(self):
         return None
 
+    def allocate_helpers(self):
+        """Solve initial Poisson equation.
+
+        :meta private:
+        """
+        # # use setter to assign source
+        # self.propagators.poisson.rho = Propagator.mass_ops.M0.dot(self.em_fields.source.spline.vector)
+
+        # Solve with dt=1. and compute electric field
+        logger.info("\nSolving initial Poisson problem...")
+
+        self.propagators.poisson(1.0)
+
+        logger.info("... Done.")
+
+    # default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
+
     @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
@@ -105,8 +119,7 @@ class Poisson(StruphyModel):
 
             -\nabla \cdot D_0(\mathbf{x}) \nabla \phi + n_0(\mathbf{x}) \phi = \rho(t, \mathbf{x})
 
-        where :math:`n_0, \rho(t) : \Omega \to \mathbb{R}` are real-valued functions, :math:`\rho(t)` is
-        parametrized by time :math:`t`, and :math:`D_0 : \Omega \to \mathbb{R}^{3 \times 3}` is a positive matrix.
+        where :math:`n_0, \rho(t) : \Omega \to \mathbb{R}` are real-valued functions, :math:`\rho(t)` is parametrized by time :math:`t`, and :math:`D_0 : \Omega \to \mathbb{R}^{3 \times 3}` is a positive matrix.
         Boundary terms from integration by parts are assumed to vanish.
         """
 
@@ -128,13 +141,18 @@ class Poisson(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence):
+
+        1. :class:`~struphy.propagators.time_dependent_source.TimeDependentSource` (if :attr:`with_t_dep_source` is True)
+        2. :class:`~struphy.propagators.poisson_solve.PoissonSolve`
+        """
         doc = rf"""**1. TimeDependentSource:**
 
 {TimeDependentSource.__doc__}
 
 **2. PoissonFieldSolve:**
 
-{PoissonFieldSolve.__doc__}
+{PoissonSolve.__doc__}
 """
         return doc
 
@@ -172,37 +190,3 @@ class Poisson(StruphyModel):
         - hyperbolic time-dependent wave propagation
         - self-consistent kinetic plasma evolution on its own
         - magnetic-field dynamics or full Maxwell coupling"""
-
-    def allocate_helpers(self, verbose: bool = False):
-        """Solve initial Poisson equation.
-
-        :meta private:
-        """
-        # # use setter to assign source
-        # self.propagators.poisson.rho = Propagator.mass_ops.M0.dot(self.em_fields.source.spline.vector)
-
-        # Solve with dt=1. and compute electric field
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("\nSolving initial Poisson problem...")
-
-        self.propagators.poisson(1.0)
-
-        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-            logger.info("... Done.")
-
-    # default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "poisson.Options" in line:
-                    new_file += [
-                        "model.propagators.poisson.options = model.propagators.poisson.Options(rho=model.em_fields.source)\n",
-                    ]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)

@@ -6,7 +6,7 @@ from feectools.linalg.solvers import inverse
 from line_profiler import profile
 
 from struphy.feec import preconditioner
-from struphy.io.options import LiteralOptions
+from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels_gc
@@ -59,22 +59,31 @@ class CurrentCoupling5DDensity(Propagator):
             assert new.space in ("Hcurl", "Hdiv", "H1vec")
             self._u = new
 
-    def __init__(self):
+    def __init__(
+        self,
+        energetic_ions: PICVariable = None,
+        b_tilde: FEECVariable = None,
+    ):
+        """
+        Parameters
+        ----------
+        energetic_ions : PICVariable, default=None
+            Energetic-ion particle distribution (``"Particles5D"`` space) providing
+            the density source term.
+        b_tilde : FEECVariable, default=None
+            Magnetic perturbation 1-form (``"Hcurl"`` space) entering the coupling term.
+            If ``None``, only the equilibrium field is used.
+        """
         self.variables = self.Variables()
+        self.energetic_ions = energetic_ions
+        self.b_tilde = b_tilde
 
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Configuration options for :class:`CurrentCoupling5DDensity`.
 
         Parameters
         ----------
-        energetic_ions : PICVariable, default=None
-            Energetic-ion particle variable providing marker data in
-            ``"Particles5D"`` space.
-
-        b_tilde : FEECVariable, default=None
-            Perturbed magnetic field variable added to the equilibrium field.
-
         ep_scale : float, default=1.0
             Scaling factor applied in the energetic-particle accumulation
             kernel.
@@ -98,8 +107,6 @@ class CurrentCoupling5DDensity(Propagator):
         """
 
         # propagator options
-        energetic_ions: PICVariable = None
-        b_tilde: FEECVariable = None
         ep_scale: float = 1.0
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
         solver: LiteralOptions.OptsSymmSolver = "pcg"
@@ -112,9 +119,6 @@ class CurrentCoupling5DDensity(Propagator):
             check_option(self.u_space, LiteralOptions.OptsVecSpace)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
-            assert isinstance(self.energetic_ions, PICVariable)
-            assert self.energetic_ions.space == "Particles5D"
-            assert isinstance(self.b_tilde, FEECVariable)
             assert isinstance(self.ep_scale, float)
 
             # defaults
@@ -134,9 +138,10 @@ class CurrentCoupling5DDensity(Propagator):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         if self.options.u_space == "H1vec":
             self._u_form_int = 0
         else:
@@ -152,7 +157,7 @@ class CurrentCoupling5DDensity(Propagator):
         self._b2 = self.projected_equil.b2
 
         # scaling factor
-        epsilon = self.options.energetic_ions.species.equation_params.epsilon
+        epsilon = self.energetic_ions.species.equation_params.epsilon
 
         # temporary vectors to avoid memory allocation
         self._b_full = self._b2.space.zeros()
@@ -161,7 +166,7 @@ class CurrentCoupling5DDensity(Propagator):
 
         # define Accumulator and arguments
         self._ACC = Accumulator(
-            self.options.energetic_ions.particles,
+            self.energetic_ions.particles,
             self.options.u_space,
             Pyccelkernel(accum_kernels_gc.cc_lin_mhd_5d_D),
             self.mass_ops,
@@ -210,7 +215,7 @@ class CurrentCoupling5DDensity(Propagator):
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         b_full = self._b2.copy(out=self._b_full)
 
-        b_full += self.options.b_tilde.spline.vector
+        b_full += self.b_tilde.spline.vector
         b_full.update_ghost_regions()
 
         self._ACC(

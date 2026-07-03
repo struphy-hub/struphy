@@ -1,9 +1,11 @@
 "Only particle variables are updated."
 
+import logging
 from dataclasses import dataclass
 
 from line_profiler import profile
 
+from struphy.io.options import OptionsBase
 from struphy.models.variables import PICVariable
 from struphy.ode.utils import ButcherTableau
 from struphy.pic.accumulation import accum_kernels
@@ -12,6 +14,8 @@ from struphy.pic.pushing import pusher_kernels
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
+
+logger = logging.getLogger("struphy")
 
 
 class PushDeterministicDiffusion(Propagator):
@@ -61,8 +65,8 @@ class PushDeterministicDiffusion(Propagator):
     def __init__(self):
         self.variables = self.Variables()
 
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Configuration options for :class:`PushDeterministicDiffusion`.
 
         Parameters
@@ -97,9 +101,10 @@ class PushDeterministicDiffusion(Propagator):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         self._bc_type = self.options.bc_type
         self._diffusion = self.options.diff_coeff
 
@@ -108,9 +113,6 @@ class PushDeterministicDiffusion(Propagator):
         # choose algorithm
         self._butcher = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
-        import cunumpy as xp
-
-        self._butcher._a = xp.concatenate((xp.diag(self._butcher.a, k=-1), xp.zeros(1, dtype=self._butcher.a.dtype)))
 
         particles = self.variables.var.particles
 
@@ -130,7 +132,7 @@ class PushDeterministicDiffusion(Propagator):
             self._tmp[1]._data,
             self._tmp[2]._data,
             self._diffusion,
-            self._butcher.a,
+            self._butcher.a_stage,
             self._butcher.b,
             self._butcher.c,
         )

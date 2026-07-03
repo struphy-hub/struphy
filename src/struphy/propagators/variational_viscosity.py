@@ -13,7 +13,7 @@ from struphy.feec.basis_projection_ops import CoordinateProjector
 from struphy.feec.mass import L2Projector
 from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner
 from struphy.feec.variational_utilities import InternalEnergyEvaluator
-from struphy.io.options import LiteralOptions
+from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
@@ -104,11 +104,22 @@ class VariationalViscosity(Propagator):
             assert new.space == "H1vec"
             self._u = new
 
-    def __init__(self):
+    def __init__(self, rho: FEECVariable = None, pt3: FEECVariable = None):
+        """
+        Parameters
+        ----------
+        rho : FEECVariable, default=None
+            Mass density 3-form (``"L2"`` space) weighting the velocity mass matrix.
+        pt3 : FEECVariable, default=None
+            Pressure or entropy 3-form (``"L2"`` space) evolved alongside the velocity.
+            If ``None``, the thermodynamic equation is skipped.
+        """
         self.variables = self.Variables()
+        self.rho = rho
+        self.pt3 = pt3
 
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Configuration options for :class:`VariationalViscosity`.
 
         Parameters
@@ -125,10 +136,6 @@ class VariationalViscosity(Propagator):
             Linear-solver controls.
         nonlin_solver : NonlinearSolverParameters, default=None
             Nonlinear iteration controls.
-        rho : FEECVariable, default=None
-            Density variable used by variational forms.
-        pt3 : FEECVariable, default=None
-            Optional equilibrium/background pressure-like field.
         mu : float, default=0.0
             Physical viscosity coefficient.
         mu_a : float, default=0.0
@@ -146,8 +153,6 @@ class VariationalViscosity(Propagator):
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixDiagonalPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
-        rho: FEECVariable = None
-        pt3: FEECVariable = None
         mu: float = 0.0
         mu_a: float = 0.0
         alpha: float = 0.0
@@ -175,9 +180,10 @@ class VariationalViscosity(Propagator):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         self._model = self.options.model
         self._gamma = self.options.gamma
         self._lin_solver = self.options.solver_params
@@ -185,8 +191,6 @@ class VariationalViscosity(Propagator):
         self._mu_a = self.options.mu_a
         self._alpha = self.options.alpha
         self._mu = self.options.mu
-        self._rho = self.options.rho
-        self._pt3 = self.options.pt3
 
         self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
@@ -277,9 +281,9 @@ class VariationalViscosity(Propagator):
         # 1) Pointwize energy change
         energy_change = self._get_energy_change(un, un1, dt, total_viscosity)
         # 2) Initial energy and linear form
-        rho = self._rho
+        rho = self.rho
         if self._model in ["deltaf_q", "linear_q"]:
-            self.sf.vector = self._pt3.spline.vector
+            self.sf.vector = self.pt3.spline.vector
         else:
             self.sf.vector = sn
 
@@ -335,7 +339,7 @@ class VariationalViscosity(Propagator):
 
         for it in range(self._nonlin_solver["maxiter"]):
             if self._model in ["deltaf_q", "linear_q"]:
-                self.sf1.vector = self._pt3.spline.vector
+                self.sf1.vector = self.pt3.spline.vector
             else:
                 self.sf1.vector = sn1
 
@@ -421,7 +425,7 @@ class VariationalViscosity(Propagator):
                 logger.info(f"information on the linear solver : {self.inv_jac._info}")
 
             if self._model in ["deltaf_q", "linear_q"]:
-                self._pt3 += incr
+                self.pt3 += incr
             else:
                 sn1 += incr
 

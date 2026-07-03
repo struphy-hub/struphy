@@ -346,17 +346,21 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
     # Process fractions again to catch any \frac introduced after sqrt conversion.
     result = _replace_latex_fractions(result, display_mode=display_mode)
 
-    # Normalize subscript patterns: _\command{...} -> _{\command{...}}
-    # Do this BEFORE symbol replacement so we can handle _\mathbb{R}, _\Omega, etc.
+    # Normalize subscript patterns so command forms are always braced.
+    # Do this BEFORE symbol replacement so we can handle _\perp, _\parallel,
+    # _\mathbb{R}, _\Omega, etc.
     result = re.sub(r"_(\\[a-zA-Z]+\{[^}]+\})", r"_{\1}", result)
+    result = re.sub(r"_(\\[a-zA-Z]+)(?![a-zA-Z])", r"_{\1}", result)
 
-    # Normalize superscript patterns: ^\command{...} -> ^{\command{...}}
+    # Normalize superscript patterns so command forms are always braced.
     result = re.sub(r"\^(\\[a-zA-Z]+\{[^}]+\})", r"^{\1}", result)
+    result = re.sub(r"\^(\\[a-zA-Z]+)(?![a-zA-Z])", r"^{\1}", result)
 
     # Greek and special symbols
     symbols = {
         r"\sum": "∑",
         r"\nabla": "∇",
+        r"\otimes": "⊗",
         r"\times": "×",
         r"\to": "→",
         r"\rightarrow": "→",
@@ -376,6 +380,8 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
         r"\equiv": "≡",
         r"\sim": "∼",
         r"\propto": "∝",
+        r"\parallel": "∥",
+        r"\perp": "⟂",
         r"\top": "ᵀ",  # transpose symbol
         r"\in": "∈",
         r"\notin": "∉",
@@ -439,7 +445,9 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
         r"\Omega": "Ω",
     }
 
-    for latex, unicode_sym in symbols.items():
+    # Replace longer commands first to avoid prefix collisions
+    # (e.g. \to must not rewrite \top).
+    for latex, unicode_sym in sorted(symbols.items(), key=lambda item: len(item[0]), reverse=True):
         result = result.replace(latex, unicode_sym)
 
     # Subscripts and Superscripts - handle with better heuristics
@@ -568,6 +576,10 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
     # Convert ^{...} superscripts with smarter handling
     def replace_superscript(match):
         content = match.group(1).strip()
+        # Unicode superscript asterisk is font-dependent and may sit on baseline.
+        # Force HTML superscript so ^* and ^{*} are consistently raised.
+        if content == "*":
+            return "<sup>*</sup>"
         # Check if all characters can be converted to Unicode superscripts
         converted = "".join(superscripts.get(c, "") for c in content)
 
@@ -588,6 +600,51 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
     # Handle multi-character unbraced superscripts before single-character ones
     result = re.sub(r"\^([A-Za-z0-9]+)(?![A-Za-z0-9])", replace_superscript, result)
     result = re.sub(r"\^([A-Za-z0-9])(?![A-Za-z0-9])", replace_superscript, result)
+    # Handle single-symbol unbraced superscripts such as ^*
+    result = re.sub(r"\^([^\s\\{}])", replace_superscript, result)
+
+    # Stretchy delimiters: convert \left...\right to visually larger delimiters.
+    # This is a lightweight approximation for HTML output.
+    delim_map = {
+        "(": "(",
+        ")": ")",
+        "[": "[",
+        "]": "]",
+        "{": "{",
+        "}": "}",
+        r"\{": "{",
+        r"\}": "}",
+        "|": "|",
+        r"\|": "|",
+        r"\\": "|",
+        r"\langle": "⟨",
+        r"\rangle": "⟩",
+        r"\lfloor": "⌊",
+        r"\rfloor": "⌋",
+        r"\lceil": "⌈",
+        r"\rceil": "⌉",
+        ".": "",
+    }
+
+    def _render_stretchy_delim(token: str) -> str:
+        glyph = delim_map.get(token, token)
+        if not glyph:
+            return ""
+        return (
+            '<span style="display:inline-block;font-size:1.18em;line-height:0.9;vertical-align:-0.08em;">'
+            f"{glyph}"
+            "</span>"
+        )
+
+    def _replace_left(match):
+        return _render_stretchy_delim(match.group(1).strip())
+
+    def _replace_right(match):
+        return _render_stretchy_delim(match.group(1).strip())
+
+    result = re.sub(r"\\left\s*(\\[a-zA-Z]+|\\[{}|]|\\\\|[()\[\]{}|.])", _replace_left, result)
+    result = re.sub(r"\\right\s*(\\[a-zA-Z]+|\\[{}|]|\\\\|[()\[\]{}|.])", _replace_right, result)
+
     # Remove remaining LaTeX commands
     # Preserve spacing intent using Unicode space characters (HTML-safe)
     result = re.sub(r"\\,", chr(0x2009), result)  # thin space
@@ -605,6 +662,61 @@ def latex_to_unicode(latex_str: str, display_mode: bool = False) -> str:
     result = re.sub(r"\\(?=[^\w\\])", " ", result)  # backslash before non-word char
 
     return result.strip()
+
+
+def _extract_math_directives(text: str, save_block) -> str:
+    """Replace ``.. math::`` directives using indentation-aware parsing."""
+    lines = text.splitlines(keepends=True)
+    result = []
+    i = 0
+
+    while i < len(lines):
+        line = lines[i]
+        match = re.match(r"^([ \t]*)\.\. math::\s*$", line.rstrip("\n"))
+        if not match:
+            result.append(line)
+            i += 1
+            continue
+
+        directive_indent = len(match.group(1))
+        j = i + 1
+
+        while j < len(lines) and not lines[j].strip():
+            j += 1
+
+        body_lines = []
+        while j < len(lines):
+            current = lines[j]
+
+            if not current.strip():
+                look_ahead = j + 1
+                while look_ahead < len(lines) and not lines[look_ahead].strip():
+                    look_ahead += 1
+
+                if look_ahead < len(lines):
+                    next_indent = len(re.match(r"^[ \t]*", lines[look_ahead]).group(0))
+                    if next_indent > directive_indent:
+                        body_lines.append(current)
+                        j += 1
+                        continue
+                break
+
+            current_indent = len(re.match(r"^[ \t]*", current).group(0))
+            if current_indent <= directive_indent:
+                break
+
+            body_lines.append(current)
+            j += 1
+
+        if not body_lines:
+            result.append(line)
+            i += 1
+            continue
+
+        result.append(save_block("".join(body_lines)) + "\n")
+        i = j
+
+    return "".join(result)
 
 
 def rst_to_html(rst_text: str, forced_heading_level: int | None = None) -> str:
@@ -660,8 +772,7 @@ def rst_to_html(rst_text: str, forced_heading_level: int | None = None) -> str:
     math_blocks = []
     inline_math_items = []
 
-    def save_math_block(match):
-        math_content = match.group(1)
+    def save_math_block(math_content: str):
         # Clean up the math but preserve line structure for multiline equations
         math_lines = math_content.strip().split("\n")
         # Remove leading indentation consistently
@@ -746,8 +857,8 @@ def rst_to_html(rst_text: str, forced_heading_level: int | None = None) -> str:
         inline_math_items.append(unicode_math)
         return f"<!--INLINEMATH{len(inline_math_items) - 1}-->"
 
-    # Handle .. math:: blocks (including trailing blank line if present)
-    html = re.sub(r"\.\. math::\s*\n\n((?:[ \t]+.*\n)*)\n?", lambda m: save_math_block(m) + "\n", html)
+    # Handle .. math:: blocks using indentation-aware parsing.
+    html = _extract_math_directives(html, save_math_block)
 
     # Handle inline :math:`...`
     html = re.sub(r":math:`([^`]+)`", save_inline_math, html)
@@ -970,16 +1081,15 @@ def rst_to_markdown(rst_text: str) -> str:
     # Extract and convert math blocks
     math_blocks = []
 
-    def save_math(match):
-        math_content = match.group(1)
+    def save_math(math_content: str):
         # Clean up the math (remove leading spaces)
         math_lines = math_content.strip().split("\n")
         cleaned_math = "\n".join(line.strip() for line in math_lines if line.strip())
         math_blocks.append(cleaned_math)
         return f"<!--MATH{len(math_blocks) - 1}-->"
 
-    # Handle .. math:: blocks
-    md = re.sub(r"\.\. math::\s*\n\n((?:[ \t]+.*\n)*)", save_math, md)
+    # Handle .. math:: blocks using indentation-aware parsing.
+    md = _extract_math_directives(md, save_math)
 
     # Convert bold (**text**) - already markdown compatible
     # Convert italic (*text*) - already markdown compatible

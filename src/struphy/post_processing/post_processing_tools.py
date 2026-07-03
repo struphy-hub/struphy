@@ -118,7 +118,6 @@ class ParamsIn:
     def __init__(
         self,
         path: str,
-        verbose: bool = False,
     ):
         logger.info(f"\nReading in paramters from {path} ... ")
 
@@ -162,8 +161,7 @@ class ParamsIn:
         else:
             raise FileNotFoundError(f"Neither of the paths {params_path} or {bin_path} exists.")
 
-        if verbose:
-            logger.info("\n... Done.")
+        logger.info("... Done.")
 
         self.env = env
         self.time_opts = time_opts
@@ -266,7 +264,6 @@ class PostProcessor:
         guiding_center: bool = False,
         classify: bool = False,
         create_vtk: bool = True,
-        verbose: bool = False,
     ):
         """Run post-processing for fields and particle data in ``self.path_out``.
 
@@ -286,11 +283,8 @@ class PostProcessor:
             If True, run orbit classification (passing, trapped, lost) after computing orbits.
         create_vtk : bool
             If True, create VTK files for visualisation.
-        verbose : bool
-            Verbosity flag.
         """
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info(f"\nPost-processing path {self.path_out}")
+        logger.warning(f"\nPost-processing path {self.path_out}")
 
         # check for fields and kinetic data in hdf5 file that need post processing
         with h5py.File(os.path.join(self.path_out, "data/", "data_proc0.hdf5"), "r") as file:
@@ -328,7 +322,6 @@ class PostProcessor:
             celldivide=celldivide,
             physical=physical,
             create_vtk=create_vtk,
-            verbose=verbose,
         )
 
         # particle variables
@@ -336,7 +329,6 @@ class PostProcessor:
             step=step,
             guiding_center=guiding_center,
             classify=classify,
-            verbose=verbose,
         )
 
     def process_fields(
@@ -345,10 +337,9 @@ class PostProcessor:
         celldivide: int = 1,
         physical: bool = False,
         create_vtk: bool = True,
-        verbose: bool = False,
     ):
         if not self.exist_fields:
-            logger.info("\nNo feec fields found in hdf5 file, skipping post-processing of fields.")
+            logger.warning("\nNo feec fields found in hdf5 file, skipping post-processing of fields.")
             return
 
         fields, t_grid = self._create_femfields(step=step)
@@ -402,11 +393,10 @@ class PostProcessor:
         step: int = 1,
         guiding_center: bool = False,
         classify: bool = False,
-        verbose: bool = False,
     ):
 
         if self.exist_particles is None:
-            logger.info("\nNo kinetic data found in hdf5 file, skipping post-processing of kinetic data.")
+            logger.warning("\nNo kinetic data found in hdf5 file, skipping post-processing of kinetic data.")
             return
 
         # directory for kinetic data
@@ -463,7 +453,7 @@ class PostProcessor:
                     step,
                 )
 
-    def _create_femfields(self, step: int = 1, verbose: bool = False):
+    def _create_femfields(self, step: int = 1):
         """Reconstruct FEEC spline field objects from HDF5 output files.
 
         The method reads the distributed HDF5 files written by Struphy, builds one
@@ -474,8 +464,6 @@ class PostProcessor:
         ----------
         step : int
             Time-step stride when reading saved snapshots (default 1).
-        verbose : bool
-            Verbosity flag.
 
         Returns
         -------
@@ -487,13 +475,13 @@ class PostProcessor:
         # get fields names, space IDs and time grid from 0-th rank hdf5 file
         with h5py.File(os.path.join(self.path_out, "data/", "data_proc0.hdf5"), "r") as file:
             space_ids = {}
-            logger.info("\nReading hdf5 data of following species:")
+            logger.warning("\nReading hdf5 data of following species:")
             for species, dset in file["feec"].items():
                 space_ids[species] = {}
-                logger.info(f"{species}:")
+                logger.warning(f"{species}:")
                 for var, ddset in dset.items():
                     space_ids[species][var] = ddset.attrs["space_id"]
-                    logger.info(f"  {var}: {ddset}")
+                    logger.warning(f"  {var}: {ddset}")
 
             t_grid = file["time/value"][::step].copy()
 
@@ -507,11 +495,10 @@ class PostProcessor:
                     fields[t][species][var] = self.derham.create_spline_function(
                         var,
                         id,
-                        verbose=False,
                     )
 
         # get hdf5 data
-        logger.info("")
+        logger.warning("")
         for rank in range(int(self.comm_size)):
             # open hdf5 file
             with h5py.File(os.path.join(self.path_out, "data/", f"data_proc{rank}.hdf5"), "r") as file:
@@ -566,7 +553,7 @@ class PostProcessor:
                                 # update after each data addition, can be made more efficient
                                 fields[t][species][var].vector.update_ghost_regions()
 
-        logger.info("Creation of Struphy Fields done.")
+        logger.warning("Creation of Struphy Fields done.")
 
         return fields, t_grid
 
@@ -576,7 +563,6 @@ class PostProcessor:
         *,
         celldivide: list = [1, 1, 1],
         physical: bool = False,
-        verbose: bool = False,
     ):
         """Evaluate spline fields on a regular logical grid and optionally push to physical coords.
 
@@ -588,8 +574,6 @@ class PostProcessor:
             Refinement factor in each logical direction; length must be 3.
         physical : bool, optional
             If True, return mapped physical components (x,y,z) using the domain mapping.
-        verbose : bool, optional
-            Verbosity flag.
 
         Returns
         -------
@@ -624,7 +608,7 @@ class PostProcessor:
             for name, field in vars.items():
                 point_data[species][name] = {}
 
-        logger.info("\nEvaluating fields ...")
+        logger.warning("\nEvaluating fields ...")
         for t in tqdm(fields):
             for species, vars in fields[t].items():
                 for name, field in vars.items():
@@ -703,7 +687,6 @@ class PostProcessor:
         point_data: dict,
         *,
         physical: bool = False,
-        verbose: bool = False,
     ):
         """Write evaluated field arrays to VTK (.vts) files for visualization.
 
@@ -719,8 +702,6 @@ class PostProcessor:
             Evaluated field values as returned by :meth:`_eval_femfields`.
         physical : bool, optional
             If True, writes files for push-forwarded physical components (folder suffix "_phy").
-        verbose : bool, optional
-            Verbosity flag.
         """
         for species, vars in point_data.items():
             species_path = os.path.join(path, species, "vtk" + physical * "_phy")
@@ -734,7 +715,7 @@ class PostProcessor:
         nt = len(t_grid) - 1
         log_nt = int(xp.log10(nt)) + 1
 
-        logger.info(f"\nCreating vtk in {path} ...")
+        logger.warning(f"\nCreating vtk in {path} ...")
         for n, t in enumerate(tqdm(t_grid)):
             point_data_n = {}
 
@@ -763,7 +744,6 @@ class PostProcessor:
         self,
         path_kinetic_species: str,
         step: int = 1,
-        verbose: bool = False,
     ):
         """Compute Cartesian marker positions and write them to .npy and .txt files.
 
@@ -779,8 +759,6 @@ class PostProcessor:
             Path to the per-species kinetic output directory where results will be written.
         step : int, optional
             Time-step stride to process (default 1).
-        verbose : bool, optional
-            Verbosity flag.
         """
 
         species = path_kinetic_species.split("/")[-1]
@@ -820,7 +798,7 @@ class PostProcessor:
         temp = xp.empty((n_markers, len(save_index)), order="C")
         lost_particles_mask = xp.empty(n_markers, dtype=bool)
 
-        logger.info(f"Evaluation of {n_markers} marker orbits for {species}")
+        logger.warning(f"Evaluation of {n_markers} marker orbits for {species}")
 
         # loop over time grid
         for n in tqdm(range(int((nt - 1) / step) + 1)):
@@ -874,7 +852,6 @@ class PostProcessor:
         path_kinetic_species,
         step=1,
         compute_bckgr=False,
-        verbose: bool = False,
     ):
         """Assemble and save distribution functions from per-rank binned data.
 
@@ -891,8 +868,6 @@ class PostProcessor:
             Time-step stride to process (default 1).
         compute_bckgr : bool, optional
             If True, compute and add background contribution to the saved binned data.
-        verbose : bool, optional
-            Verbosity flag.
         """
         species = path_kinetic_species.split("/")[-1]
         species_obj: ParticleSpecies = self.model.particle_species[species]
@@ -906,7 +881,7 @@ class PostProcessor:
             shutil.rmtree(path_distr)
             os.mkdir(path_distr)
 
-        logger.info("Evaluation of distribution functions for " + str(species))
+        logger.warning("Evaluation of distribution functions for " + str(species))
 
         # Create grids
         with h5py.File(os.path.join(self.path_out, "data/data_proc0.hdf5"), "r") as file_0:
@@ -1030,7 +1005,6 @@ class PostProcessor:
         self,
         path_kinetic_species,
         step=1,
-        verbose: bool = False,
     ):
         """Compute and save SPH density fields from per-rank outputs.
 
@@ -1040,8 +1014,6 @@ class PostProcessor:
             Path to the per-species kinetic output directory where results will be written.
         step : int, optional
             Time-step stride to process (default 1).
-        verbose : bool, optional
-            Verbosity flag.
         """
         species = path_kinetic_species.split("/")[-1]
 
@@ -1054,7 +1026,7 @@ class PostProcessor:
             shutil.rmtree(path_n_sph)
             os.mkdir(path_n_sph)
 
-        logger.info("Evaluation of sph density for " + str(species))
+        logger.warning("Evaluation of sph density for " + str(species))
 
         with h5py.File(os.path.join(self.path_out, "data/data_proc0.hdf5"), "r") as file_0:
             # Create grids
@@ -1206,18 +1178,13 @@ class PlottingData:
         """
         return self._n_sph
 
-    def load(self, verbose: bool = False):
+    def load(self):
         """Load all post-processed data from disk into memory.
 
         Reads binary pickle files (``.bin``) and NumPy archives (``.npy``) from the
         post-processing directory. Populates ``self.t_grid``, ``self.grids_log``,
         ``self.grids_phy``, and all species-dependent data properties (orbits, f,
         spline_values, n_sph).
-
-        Parameters
-        ----------
-        verbose : bool, optional
-            If True, print diagnostic information during loading (default False).
 
         Raises
         ------
@@ -1226,8 +1193,8 @@ class PlottingData:
         NotImplementedError
             If an unexpected data folder structure is encountered.
         """
-        logger.info("\nLoading post-processed plotting data:")
-        logger.info(f"Data path: {self.path_pproc}")
+        logger.warning("\nLoading post-processed plotting data:")
+        logger.warning(f"Data path: {self.path_pproc}")
 
         # load time grid
         self.t_grid = xp.load(os.path.join(self.path_pproc, "t_grid.npy"))
@@ -1303,7 +1270,7 @@ class PlottingData:
                             for file in files:
                                 name = file.split(".")[0]
                                 tmp = xp.load(os.path.join(path_dat, sli, file))
-                                # logger.info(f"{name = }")
+                                logger.info(f"{name = }")
                                 setattr(s, name, tmp)
 
                     elif "n_sph" in folder:
@@ -1327,22 +1294,22 @@ class PlottingData:
                         logger.info(f"{folder =}")
                         raise NotImplementedError
 
-        logger.info("\nThe following data has been loaded:")
-        logger.info("\ngrids:")
-        logger.info(f"{self.t_grid.shape =}")
+        logger.warning("\nThe following data has been loaded:")
+        logger.warning("\ngrids:")
+        logger.warning(f"{self.t_grid.shape =}")
         if self.grids_log is not None:
-            logger.info(f"{self.grids_log[0].shape =}")
-            logger.info(f"{self.grids_log[1].shape =}")
-            logger.info(f"{self.grids_log[2].shape =}")
+            logger.warning(f"{self.grids_log[0].shape =}")
+            logger.warning(f"{self.grids_log[1].shape =}")
+            logger.warning(f"{self.grids_log[2].shape =}")
         if self.grids_phy is not None:
-            logger.info(f"{self.grids_phy[0].shape =}")
-            logger.info(f"{self.grids_phy[1].shape =}")
-            logger.info(f"{self.grids_phy[2].shape =}")
-        logger.info("\nself.spline_values:")
-        logger.info(self.spline_values)
-        logger.info("self.orbits:")
-        logger.info(self.orbits)
-        logger.info("self.f:")
-        logger.info(self.f)
-        logger.info("self.n_sph:")
-        logger.info(self.n_sph)
+            logger.warning(f"{self.grids_phy[0].shape =}")
+            logger.warning(f"{self.grids_phy[1].shape =}")
+            logger.warning(f"{self.grids_phy[2].shape =}")
+        logger.warning("\nself.spline_values:")
+        logger.warning(self.spline_values)
+        logger.warning("self.orbits:")
+        logger.warning(self.orbits)
+        logger.warning("self.f:")
+        logger.warning(self.f)
+        logger.warning("self.n_sph:")
+        logger.warning(self.n_sph)

@@ -89,7 +89,6 @@ def test_saddlepointsolver(method_for_solving, num_elements, degree, bcs, mappin
     pc = None  # M2pre # Preconditioner
     # Conjugate gradient solver  'bicg', 'bicgstab',  'lsmr', 'gmres', 'cg', 'pcg', 'minres'
     solver_name = "gmres"  # lsmr gmres
-    verbose = False
 
     x1 = derham.curl.dot(x1_rdm)
     x2 = derham.curl.dot(x2_rdm)
@@ -266,7 +265,6 @@ def test_saddlepointsolver(method_for_solving, num_elements, degree, bcs, mappin
             spectralanalysis=spectralanalysis,
             tol=tol,
             max_iter=max_iter,
-            verbose=verbose,
         )
         solver.A = Anp
         solver.B = Bnp
@@ -288,7 +286,6 @@ def test_saddlepointsolver(method_for_solving, num_elements, degree, bcs, mappin
             solver_name=solver_name,
             tol=tol,
             max_iter=max_iter,
-            verbose=verbose,
             pc=pc,
         )
         solver.A = A

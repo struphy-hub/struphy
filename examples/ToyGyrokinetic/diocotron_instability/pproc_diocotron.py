@@ -11,7 +11,8 @@ import h5py
 # Post process simulation data
 # ------------------
 def main():
-    sim_path = os.path.join(os.getcwd(), "simdata")
+    sim_name = "simdata"
+    sim_path = os.path.join(os.getcwd(), sim_name)
 
     pp = PostProcessor(sim=params.sim)
     pp.process(physical=True)
@@ -49,10 +50,12 @@ def main():
     else:
         tf = 2*ti
     print(f"{ti = }, {tf = }")
+    #ti, tf = 2.5, 5.1
 
     xi = xp.abs(pdata.t_grid - ti).argmin() + 1 # index of time 100 [a.lu.] (observed end of growth rate)
     xf = xp.abs(pdata.t_grid - tf).argmin() + 1 # index of time 200 [a.lu.] (observed end of growth rate)
-
+    phi_init=en_phi[1]
+    en_phi = en_phi - phi_init
     fitting = xp.polyfit(time[xi:xf], xp.log10(en_phi[xi:xf]), deg=1)
 
     fig, ax = plt.subplots(1, figsize = (18, 12))
@@ -79,6 +82,7 @@ def main():
     # plt.savefig(os.path.join(save_path, "growth_rate.png"))
     # plt.close()
 
+    en_phi = en_phi + phi_init
 
     # ------------------
     # Show evolution of mass density distribution
@@ -208,6 +212,22 @@ def main():
             plt.close(fig)
 
     # extract_images("e1_e2_density", "f_binned", os.path.join(save_path, "video"))
+    save_video_pngs = True
+    if save_video_pngs:
+        if not os.path.exists(sim_path+"/video"):
+            os.mkdir(sim_path+"/video")
+        # create .png for video
+        jump = 1
+        fig = plt.figure(figsize=(8, 8))
+        for n in range(ntime):
+            if n % jump == 0:
+                color_mapped = pdata.f.kinetic_ions.e1_e2_density.f_binned[n].T
+                plt.pcolor(phy_bin[0], phy_bin[1], pdata.f.kinetic_ions.e1_e2_density.f_binned[n])
+                
+                plt.xlabel("x position")
+                plt.ylabel("y position")
+                plt.title(f"t = {pdata.t_grid[n]:4.2e}")
+                plt.savefig(sim_path+"/video"+f"/fig_{n:04.0f}.png", transparent=False, bbox_inches='tight', pad_inches=0)
 
 if __name__ == "__main__":
     main()

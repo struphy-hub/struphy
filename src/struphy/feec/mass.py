@@ -1,29 +1,34 @@
+import copy
 import inspect
 import logging
 from copy import deepcopy
+from typing import Callable
 
 import cunumpy as xp
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
+from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
-from feectools.fem.tensor import TensorFemSpace
+from feectools.fem.tensor import FemSpace, TensorFemSpace
 from feectools.fem.vector import VectorFemSpace
-from feectools.linalg.basic import IdentityOperator, LinearOperator, Vector
+from feectools.linalg.basic import IdentityOperator, InverseLinearOperator, LinearOperator, Vector
 from feectools.linalg.block import BlockLinearOperator, BlockVector
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilVector
 
+from struphy import equils
 from struphy.feec import mass_kernels
 from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
 from struphy.feec.psydac_derham import Derham, SplineFunction
-from struphy.feec.utilities import LocalRotationMatrix, get_quad_grids
+from struphy.feec.utilities import LocalProjectionMatrix, LocalRotationMatrix, get_quad_grids
 from struphy.fields_background.base import MHDequilibrium
-from struphy.fields_background.equils import set_defaults
 from struphy.geometry.base import Domain
 from struphy.io.options import LiteralOptions
+from struphy.linear_algebra.solver import SolverParameters
 from struphy.polar.basic import PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.docstring_converter import auto_convert_docstring, info
 from struphy.utils.pyccel import Pyccelkernel
+from struphy.utils.utils import __class_with_params_repr_no_defaults__
 
 logger = logging.getLogger("struphy")
 
@@ -58,6 +63,11 @@ class WeightedMassOperators:
         self._domain = domain
         self._matrix_free = matrix_free
         self._eq_mhd = eq_mhd
+
+        if self._eq_mhd is None:
+            self._eq_mhd = equils.HomogenSlab()
+        if not hasattr(self.eq_mhd, "_domain"):
+            self._eq_mhd.domain = self._domain
 
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
@@ -338,7 +348,7 @@ class WeightedMassOperators:
                 weights=(
                     "Ginv",
                     "sqrt_g",
-                    "1/eq_n0",
+                    lambda *etas: 1 / self.eq_mhd.n0(*etas),
                 ),
                 name="M1ninv",
                 assemble=True,
@@ -693,7 +703,7 @@ class WeightedMassOperators:
                     rot_B,
                     "Ginv",
                     "sqrt_g",
-                    "1/eq_n0",
+                    lambda *etas: 1 / self.eq_mhd.n0(*etas),
                 ),
                 name="M1Bninv",
                 assemble=True,
@@ -703,31 +713,110 @@ class WeightedMassOperators:
 
     @auto_convert_docstring
     @property
+    def M1para(self):
+        r"""
+        Mass matrix
+
+        .. math::
+
+            \mathbb M^{1,\parallel}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk} b_0 b_0^\top \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
+        """
+        if not hasattr(self, "_M1para"):
+            bb = LocalProjectionMatrix(self.eq_mhd.unit_bv_1, self.eq_mhd.unit_bv_2, self.eq_mhd.unit_bv_3)
+
+            self._M1para = self.create_weighted_mass(
+                "Hcurl",
+                "Hcurl",
+                weights=(
+                    bb,
+                    "sqrt_g",
+                ),
+                name="M1para",
+                assemble=True,
+            )
+        return self._M1para
+
+    @auto_convert_docstring
+    @property
     def M1perp(self):
         r"""
         Mass matrix
 
         .. math::
 
-            \mathbb M^{1,\perp}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk} DF^{-1} \begin{pmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 0 \end{pmatrix} DF^{-\top} \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
+            \mathbb M^{1,\perp}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk} \left(G^{-1} - b_0 b_0^\top \right) \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
         """
         if not hasattr(self, "_M1perp"):
-            D = [[1, 0, 0], [0, 1, 0], [0, 0, 0]]
+            self._M1perp = self.M1.copy()
+            self._M1perp -= self.M1para
+        return self._M1perp
 
-            self._M1perp = self.create_weighted_mass(
+    @auto_convert_docstring
+    @property
+    def M1para_MHDeq(self):
+        r"""
+        Mass matrix
+
+        .. math::
+
+            \mathbb M^{1,\parallel}_{(\mu,ijk), (\nu,mno)} = \int \frac{n^0_{\textnormal{eq}}(\boldsymbol{\eta})}{\|B_0(\boldsymbol{\eta})\|^2} \vec{\Lambda}^1_{\mu,ijk} b_0 b_0^\top \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
+        """
+        if not hasattr(self, "_M1para_MHDeq"):
+            bb = LocalProjectionMatrix(self.eq_mhd.unit_bv_1, self.eq_mhd.unit_bv_2, self.eq_mhd.unit_bv_3)
+
+            self._M1para_MHDeq = self.create_weighted_mass(
                 "Hcurl",
                 "Hcurl",
                 weights=(
-                    "DFinv",
-                    D,
-                    "DFinv",
+                    bb,
+                    lambda *etas: 1 / self.eq_mhd.absB0(*etas) ** 2,
+                    "eq_n0",
                     "sqrt_g",
                 ),
-                name="M1perp",
+                name="M1para_MHDeq",
                 assemble=True,
             )
+        return self._M1para_MHDeq
 
-        return self._M1perp
+    @auto_convert_docstring
+    @property
+    def M1_MHDeq(self):
+        r"""
+        Mass matrix
+
+        .. math::
+
+            \mathbb M^{1}_{(\mu,ijk), (\nu,mno)} = \int \frac{n^0_{\textnormal{eq}}(\boldsymbol{\eta})}{\|B_0(\boldsymbol{\eta})\|^2} \vec{\Lambda}^1_{\mu,ijk} G^{-1} \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
+        """
+        if not hasattr(self, "_M1_MHDeq"):
+            self._M1_MHDeq = self.create_weighted_mass(
+                "Hcurl",
+                "Hcurl",
+                weights=(
+                    "Ginv",
+                    lambda *etas: 1 / self.eq_mhd.absB0(*etas) ** 2,
+                    "eq_n0",
+                    "sqrt_g",
+                ),
+                name="M1_MHDeq",
+                assemble=True,
+            )
+        return self._M1_MHDeq
+
+    @auto_convert_docstring
+    @property
+    def M1gyro(self):
+        r"""
+        Mass matrix
+
+        .. math::
+
+            \mathbb M^{1,\perp}_{(\mu,ijk), (\nu,mno)} = \int \frac{n^0_{\textnormal{eq}}(\boldsymbol{\eta})}{\|B_0(\boldsymbol{\eta})\|^2} \vec{\Lambda}^1_{\mu,ijk} \left(G^{-1} - b_0 b_0^\top \right) \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
+        """
+        if not hasattr(self, "_M1gyro"):
+            self._M1gyro = self.M1_MHDeq.copy()
+            self._M1gyro -= self.M1para_MHDeq
+        return self._M1gyro
 
     @auto_convert_docstring
     @property
@@ -746,7 +835,10 @@ class WeightedMassOperators:
             self._M0ad = self.create_weighted_mass(
                 "H1",
                 "H1",
-                weights=("eq_n0", "sqrt_g"),
+                weights=(
+                    "eq_n0",
+                    "sqrt_g",
+                ),
                 name="M0ad",
                 assemble=True,
             )
@@ -755,39 +847,30 @@ class WeightedMassOperators:
 
     @auto_convert_docstring
     @property
-    def M1gyro(self):
+    def M0ad_withT(self):
         r"""
         Mass matrix
 
         .. math::
 
-            \mathbb M^{1,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol{\eta}) \Lambda^1_{\mu,ijk} G^{-1}_{\mu,\nu} \Lambda^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta},
+            \mathbb M^0_{ijk, mno} = \int \frac{n^0_{\textnormal{eq}}(\boldsymbol{\eta})}{T^0_{\textnormal{eq}}(\boldsymbol{\eta})} \Lambda^0_{ijk} \Lambda^0_{mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
 
-        where :math:`n^0_{\textnormal{eq}}(\boldsymbol{\eta})` is an MHD equilibrium density (0-form).
+        where :math:`n^0_{\textnormal{eq}}(\boldsymbol{\eta})` and :math:`T^0_{\textnormal{eq}}(\boldsymbol{\eta})` are MHD equilibrium density and electron temperature (0-forms), respectively.
         """
-
-        if not hasattr(self, "_M1gyro"):
-            D = [[1, 0, 0], [0, 1, 0], [0, 0, 0]]
-
-            self._M1gyro = self.create_weighted_mass(
-                "Hcurl",
-                "Hcurl",
+        if not hasattr(self, "_M0ad_withT"):
+            self._M0ad_withT = self.create_weighted_mass(
+                "H1",
+                "H1",
                 weights=(
                     "eq_n0",
-                    "1/eq_absB0",
-                    "1/eq_absB0",
-                    D,
-                    "Ginv",
-                    D,
+                    lambda *etas: 1 / self.eq_mhd.t0(*etas),
                     "sqrt_g",
                 ),
-                name="M1gyro",
+                name="M0ad_withT",
                 assemble=True,
             )
 
-            # 1/eq_absB0**2 written twice instead of square
-
-        return self._M1gyro
+        return self._M0ad_withT
 
     @property
     def WMM(self):
@@ -917,18 +1000,8 @@ class WeightedMassOperators:
             for n, f in enumerate(weights):
                 if isinstance(f, str):
                     # determine the callable
-                    if "/" in f:
-                        f_components = f.split("/")
-                        if f_components[-1] == "sqrt_g":
-                            f_call = lambda e1, e2, e3: 1.0 / abs(self.domain.jacobian_det(e1, e2, e3))
-                        elif f_components[-1] == "eq_n0":
-                            f_call = lambda e1, e2, e3: 1.0 / self.eq_mhd.n0(e1, e2, e3)
-                        elif f_components[-1] == "eq_absB0":
-                            f_call = lambda e1, e2, e3: 1.0 / self.eq_mhd.absB0(e1, e2, e3)
-                        else:
-                            raise NotImplementedError(
-                                f"The option {f} is not available for division ('/') yet.",
-                            )
+                    if f == "1/sqrt_g":
+                        f_call = lambda e1, e2, e3: 1.0 / abs(self.domain.jacobian_det(e1, e2, e3))
                     elif "eq_" in f:
                         f_components = f.split("q_")
                         f_call = getattr(self.eq_mhd, f_components[-1])
@@ -2515,28 +2588,37 @@ class L2Projector:
     mass_ops : struphy.mass.WeighteMassOperators
         Mass operators object, see :ref:`mass_ops`.
 
-    params : dict
-        Keyword arguments for the solver parameters.
+    solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Symmetric iterative solver used by implicit or explicit operators.
+
+    precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+        Preconditioner for the mass-matrix block.
+
+    solver_params : SolverParameters, default=None
+            Solver controls; defaults to ``SolverParameters()``.
     """
 
-    def __init__(self, space_id, mass_ops: WeightedMassOperators, **params):
-        from struphy.feec import preconditioner
-
+    def __init__(
+        self,
+        space_id: str,
+        mass_ops: WeightedMassOperators,
+        solver_name: LiteralOptions.OptsSymmSolver = "pcg",
+        precond_name: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner",
+        solver_params: SolverParameters = None,
+    ):
         assert space_id in ("H1", "Hcurl", "Hdiv", "L2", "H1vec")
 
-        params_default = {
-            "type": ("pcg", "MassMatrixPreconditioner"),
-            "tol": 1.0e-14,
-            "maxiter": 500,
-            "info": False,
-            "verbose": False,
-        }
+        # TODO: enable serialization of WeightedMassOperators
+        # self.params = copy.deepcopy(locals())
 
-        set_defaults(params, params_default)
+        # TODO: move L2projector to its own file and avoid circular imports
+        from struphy.feec import preconditioner
+
+        if solver_params is None:
+            solver_params = SolverParameters()
 
         self._space_id = space_id
         self._mass_ops = mass_ops
-        self._params = params
         self._space_key = mass_ops.derham.space_to_form[self.space_id]
         self._space = mass_ops.derham.fem_spaces[self.space_key]
 
@@ -2582,68 +2664,95 @@ class L2Projector:
         self._bases_l = self.mass_ops.derham.spline_attributes[self.space_key].quad_grid_bases
 
         # Preconditioner
-        if self.params["type"][1] is None:
+        if precond_name is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, self.params["type"][1])
+            pc_class = getattr(preconditioner, precond_name)
             pc = pc_class(self.Mmat)
 
         # solver
         self._solver = inverse(
             self.Mmat,
-            self.params["type"][0],
+            solver_name,
             pc=pc,
-            tol=self.params["tol"],
-            maxiter=self.params["maxiter"],
-            verbose=self.params["verbose"],
+            tol=solver_params.tol,
+            maxiter=solver_params.maxiter,
+            verbose=solver_params.verbose,
         )
 
     @property
-    def mass_ops(self):
+    def params(self) -> dict:
+        """Parameters passed to __init__(), as dictionary."""
+        if not hasattr(self, "_params"):
+            self._params = {}
+        return self._params
+
+    @params.setter
+    def params(self, new):
+        assert isinstance(new, dict)
+        if "self" in new:
+            new.pop("self")
+        if "__class__" in new:
+            new.pop("__class__")
+        self._params = new
+
+    @property
+    def mass_ops(self) -> WeightedMassOperators:
         """Struphy mass operators object, see :ref:`mass_ops`.."""
         return self._mass_ops
 
     @property
-    def space_id(self):
+    def space_id(self) -> str:
         """The ID of the space (H1, Hcurl, Hdiv, L2 or H1vec)."""
         return self._space_id
 
     @property
-    def space_key(self):
+    def space_key(self) -> str:
         """The key of the space (0, 1, 2, 3 or v)."""
         return self._space_key
 
     @property
-    def space(self):
+    def space(self) -> FemSpace:
         """The Derham finite element space (from ``Derham.fem_spaces``)."""
         return self._space
 
     @property
-    def params(self):
-        """Parameters for the iterative solver."""
-        return self._params
+    def solver(self) -> InverseLinearOperator:
+        """The iterative solver for the mass matrix."""
+        return self._solver
 
     @property
-    def Mmat(self):
+    def Mmat(self) -> WeightedMassOperator:
         """The mass matrix of space."""
         return self._Mmat
 
     @property
-    def quad_grid_pts(self):
+    def quad_grid_pts(self) -> tuple[tuple[xp.ndarray]]:
         """List of quadrature points in each direction for integration over grid cells in format (ni, nq) = (cell, quadrature point)."""
         return self._quad_grid_pts
 
     @property
-    def quad_grid_mesh(self):
+    def quad_grid_mesh(self) -> list[tuple[xp.ndarray]]:
         """Mesh grids of quad_grid_pts."""
         return self._quad_grid_mesh
 
     @property
-    def geom_weights(self):
+    def geom_weights(self) -> list[list[xp.ndarray]]:
         """Geometric coefficients (e.g. Jacobians) evaluated at quad_grid_mesh, stored as list[list] either 1x1 or 3x3."""
         return self._geom_weights
 
-    def solve(self, rhs, out=None):
+    def __repr__(self):
+        out = f"{self.__class__.__name__}(\n"
+        for k, v in self.params.items():
+            out += " " * 4
+            out += f"{k}={v},\n"
+        out += ")"
+        return out
+
+    def __repr_no_defaults__(self):
+        return __class_with_params_repr_no_defaults__(self)
+
+    def solve(self, rhs: StencilVector | BlockVector, out=None) -> StencilVector | BlockVector:
         """
         Solves the linear system M * x = rhs, where M is the mass matrix.
 
@@ -2661,16 +2770,23 @@ class L2Projector:
             Output vector (result of linear system).
         """
 
-        assert isinstance(rhs, Vector)
+        assert isinstance(rhs, StencilVector) or isinstance(rhs, BlockVector)
+        assert rhs.space == self.Mmat.domain
 
         if out is None:
-            out = self._solver.dot(rhs)
+            out = self.solver.dot(rhs)
         else:
-            self._solver.dot(rhs, out=out)
+            self.solver.dot(rhs, out=out)
 
         return out
 
-    def get_dofs(self, fun, dofs=None, apply_bc=False, clear=True):
+    def get_dofs(
+        self,
+        fun: Callable | xp.ndarray | list[Callable | xp.ndarray] | tuple[Callable | xp.ndarray],
+        dofs: StencilVector | BlockVector = None,
+        apply_bc: bool = False,
+        clear: bool = True,
+    ) -> StencilVector | BlockVector:
         r"""
         Assembles (in 3d) the Stencil-/BlockVector
 
@@ -2688,7 +2804,7 @@ class L2Projector:
 
         Parameters
         ----------
-        fun : callable | list
+        fun : Callable | xp.ndarray | list[Callable | xp.ndarray] | tuple[Callable | xp.ndarray]
             Weight function(s) (callables or xp.ndarrays) in a 1d list of shape corresponding to number of components.
 
         dofs : StencilVector | BlockVector, optional
@@ -2697,16 +2813,21 @@ class L2Projector:
         apply_bc : bool, optional
             Whether to apply essential boundary conditions to degrees of freedom.
 
-        clear : bool
+        clear : bool, optional
             Whether to first set all data to zero before assembly. If False, the new contributions are added to existing ones in vec.
+
+        Returns
+        -------
+        dofs : StencilVector | BlockVector
+             The assembled degrees of freedom, before projection.
         """
 
         # evaluate fun at quad_grid or check array size
         if callable(fun):
-            fun_weights = fun(*self._quad_grid_mesh)
+            fun_weights = fun(*self.quad_grid_mesh)
         elif isinstance(fun, xp.ndarray):
-            assert fun.shape == self._quad_grid_mesh[0].shape, (
-                f"Expected shape {self._quad_grid_mesh[0].shape}, got {fun.shape =} instead."
+            assert fun.shape == self.quad_grid_mesh[0].shape, (
+                f"Expected shape {self.quad_grid_mesh[0].shape}, got {fun.shape =} instead."
             )
             fun_weights = fun
         else:
@@ -2718,7 +2839,7 @@ class L2Projector:
             ), f"List input only for vector-valued spaces of size 3, but {len(fun) =}."
             fun_weights = []
             # loop over rows (different meshes)
-            for mesh in self._quad_grid_mesh:
+            for mesh in self.quad_grid_mesh:
                 fun_weights += [[]]
                 # loop over columns (different functions)
                 for f in fun:
@@ -2821,19 +2942,25 @@ class L2Projector:
 
         return dofs
 
-    def __call__(self, fun, out=None, dofs=None, apply_bc=False):
+    def __call__(
+        self,
+        fun: Callable | list[Callable] | tuple[Callable],
+        out: StencilVector | BlockVector = None,
+        dofs: StencilVector | BlockVector = None,
+        apply_bc: bool = False,
+    ) -> StencilVector | BlockVector:
         """
         Applies projector to given callable(s).
 
         Parameters
         ----------
-        fun : callable | list
+        fun : Callable | list[Callable] | tuple[Callable]
             The function to be projected. List of three callables for vector-valued functions.
 
-        out : feectools.linalg.basic.vector, optional
+        out : StencilVector | BlockVector, optional
             If given, the result will be written into this vector in-place.
 
-        dofs : feectools.linalg.basic.vector, optional
+        dofs : StencilVector | BlockVector, optional
             If given, the dofs will be written into this vector in-place.
 
         apply_bc : bool, optional
@@ -2845,3 +2972,188 @@ class L2Projector:
             The FEM spline coefficients after projection.
         """
         return self.solve(self.get_dofs(fun, dofs=dofs, apply_bc=apply_bc), out=out)
+
+
+class AverageOperator(LinOpWithTransp):
+    r"""
+    Class for quadrature operators, performs the average of a `FeecVariable` along a given direction.
+    For example along the :math:`\eta_3` direction, it applies the following linear operator :
+
+    .. math::
+
+        \mathbb M^{\alpha}_{(\mu,ijk),(\nu,mno)} = \delta_{i,m} \delta_{j,n} c_o
+
+    with :math:`c_o=\int_0^1 N_{o}(\eta_3) \textnormal{d} \eta` and :math:`N_{o}` the B-spline function at the place `o`.
+    In other words, it maps a spline function :math:`S_h` to the function obtained by averaging :math:`S_h` along the given direction, i.e. for the example of direction 3:
+
+    .. math::
+
+        S_h(\eta_1, \eta_2, \eta_3) = \sum_{mno} c_{mno} N_m(\eta_1) N_n(\eta_2) N_o(\eta_3) \quad \mapsto \quad \overline S_h(\eta_1, \eta_2, \eta_3) = \sum_{ijk} \overline c_{ij} N_i(\eta_1) N_j(\eta_2) N_k(\eta_3)\,,
+
+    with
+
+    .. math::
+
+        \overline c_{ij} = \sum_o \delta_{i,m} \delta_{j,n} \, c_{mno} \int_0^1 N_{o}(\eta_3) \textnormal{d} \eta_3 .
+
+    Parameters
+    ----------
+    derham : Derham
+        The derham complexe that supports the space used
+
+    space : str
+        Identifier of the space on which the average is performed, either `"H1"`, `"Hcurl"`, `"Hdiv"`, `"L2"`, `"H1vec"`
+
+    direction : int, optional
+        The direction of the space along which the average is performed, either `0`, `1` or `2`.
+
+    transposed : bool, optional
+        Whether to take the transpose of the operator.
+    """
+
+    def __init__(
+        self,
+        derham: Derham,
+        space: str = "H1",
+        direction: int = 2,
+        transposed: bool = False,
+    ):
+
+        if space not in derham.space_to_form:
+            AssertionError("Must match a space of the derham complex")
+        if space != "H1":
+            NotImplementedError()
+        space_id = "V" + derham.space_to_form[space]
+        self._V = getattr(derham, space_id)  # StencilVectorSpace
+        self._domain = getattr(derham, space_id)
+        self._codomain = getattr(derham, space_id)
+        self._pads = self._V.pads  # gets the number of ghost cells
+        self._derham = derham
+        self._dtype = self._domain.dtype
+        self._transposed = transposed
+        if direction == 0:
+            self._directions = (0, 1, 2)
+        elif direction == 1:
+            self._directions = (1, 0, 2)
+        elif direction == 2:
+            self._directions = (2, 0, 1)
+        else:
+            raise ValueError("invalid direction id, must be 0, 1 or 2")
+
+        comm = derham.comm
+        # Selection of ranks for each subcomms regarding their position in the two perpendicular directions to the averaged direction.
+        if not isinstance(comm, (MockComm, type(None))):
+            rank = comm.Get_rank()
+            nprocs = derham.domain_decomposition.nprocs
+            dom_arr = derham.domain_array
+            color1 = int(dom_arr[rank, 3 * self._directions[1]] * nprocs[self._directions[1]])
+            color2 = int(dom_arr[rank, 3 * self._directions[2]] * nprocs[self._directions[2]])
+            color = color1 * nprocs[self._directions[2]] + color2
+            logger.debug(f"{dom_arr = }")
+            self.subcomm = comm.Split(color=color, key=rank)
+
+        # We allocate memory for the 2D temporary array for each process
+        self._tmp = xp.zeros(
+            (
+                int(self._V.ends[self._directions[1]] - self._V.starts[self._directions[1]] + 1),
+                int(self._V.ends[self._directions[2]] - self._V.starts[self._directions[2]] + 1),
+            )
+        )
+
+        # We allocate memory for the weights (integrals of 1D B-splines)
+        self._weights = xp.zeros(int(self._V.ends[self._directions[0]] - self._V.starts[self._directions[0]] + 1))
+
+        self.allocate()
+
+        # definition of subscripts for function xp.einsum
+        if self._transposed:
+            if self._directions[0] == 0:
+                self._subscripts = ("ijk->jk", "ij,o->oij")
+            if self._directions[0] == 1:
+                self._subscripts = ("ijk->ik", "ij,o->ioj")
+            if self._directions[0] == 2:
+                self._subscripts = ("ijk->ij", "ij,o->ijo")
+        else:
+            if self._directions[0] == 0:
+                self._subscripts = ("ojk,o->jk",)
+            if self._directions[0] == 1:
+                self._subscripts = ("iok,o->ik",)
+            if self._directions[0] == 2:
+                self._subscripts = ("ijo,o->ij",)
+
+        # definition of slices
+        sl_ghost = tuple(slice(p, -p) if p > 0 else slice(None) for p in self._pads)
+        sl_broadcasting = [slice(None), slice(None), slice(None)]
+        sl_broadcasting[self._directions[0]] = None
+        self._slices = (sl_ghost, tuple(sl_broadcasting))
+
+    def allocate(self):
+        """Compute the weights, which are the integrals of 1D B-splines in the averaged direction"""
+        knots = getattr(self.derham.args_derham, "tn" + str(self._directions[0] + 1))
+        degree = self.derham.degree[self._directions[0]]
+
+        i_begin, i_end = self._V.starts[self._directions[0]], self._V.ends[self._directions[0]] + 1
+        if self.derham.bcs[self._directions[0]] is None:
+            i_begin += self.derham.degree[self._directions[0]]
+            i_end += self.derham.degree[self._directions[0]]
+        # General formula for any distribution of knots for the integral of a B-spline function, thus works with periodic and clamped boundary conditions :
+        self._weights[:] = (knots[i_begin + degree + 1 : i_end + degree + 1] - knots[i_begin:i_end]) / (degree + 1)
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    @property
+    def derham(self):
+        return self._derham
+
+    @property
+    def nquads(self):
+        if self._nquads is None:
+            return self.derham.nquads
+        else:
+            return self._nquads
+
+    @property
+    def tosparse(self):
+        raise NotImplementedError()
+
+    @property
+    def toarray(self):
+        raise NotImplementedError()
+
+    def dot(self, v, out=None):
+
+        # assert isinstance(v, StencilVector)
+        # assert v.space == self.domain
+
+        v.update_ghost_regions()
+
+        if out is None:
+            out = self.codomain.zeros()
+
+        x = v._data[self._slices[0]]
+        y = out._data[self._slices[0]]
+        if self._transposed:
+            xp.einsum(self._subscripts[0], x, out=self._tmp)
+            if not isinstance(self.derham.comm, (MockComm, type(None))):
+                self.subcomm.Allreduce(MPI.IN_PLACE, self._tmp, MPI.SUM)
+            xp.einsum(self._subscripts[1], self._tmp, self._weights, out=y)
+        else:
+            xp.einsum(self._subscripts[0], x, self._weights, out=self._tmp)
+            if not isinstance(self.derham.comm, (MockComm, type(None))):
+                self.subcomm.Allreduce(MPI.IN_PLACE, self._tmp, MPI.SUM)
+            y[:] = self._tmp[self._slices[1]]
+
+        return out
+
+    def transpose(self, conjugate=False):
+        return AverageOperator(self.derham, self.domain, self._weights, transposed=not self._transposed)

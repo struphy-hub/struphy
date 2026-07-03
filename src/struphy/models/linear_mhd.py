@@ -1,3 +1,5 @@
+import copy
+
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector
 
@@ -52,9 +54,9 @@ class LinearMHD(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self):
+        def __init__(self, b_field: FEECVariable = None):
             self.shear_alf = ShearAlfvenPropagator()
-            self.mag_sonic = Magnetosonic()
+            self.mag_sonic = Magnetosonic(b_field=b_field)
 
     ## abstract methods
 
@@ -64,6 +66,9 @@ class LinearMHD(StruphyModel):
         mass_number: float = 1.0,
     ):
 
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
+
         # 1. instantiate all species
         self.em_fields = self.EMFields()
         self.mhd = self.MHD(mass_number)
@@ -72,7 +77,7 @@ class LinearMHD(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators()
+        self.propagators = self.Propagators(b_field=self.em_fields.b_field)
 
         # 4. assign variables to propagators
         self.propagators.shear_alf.variables.u = self.mhd.velocity
@@ -107,7 +112,7 @@ class LinearMHD(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         self._ones = Propagator.projected_equil.p3.space.zeros()
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.0
@@ -186,7 +191,7 @@ class LinearMHD(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        """**Propagators:**
+        """Time integration is performed by the following propagators (in sequence):
 
         1. :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`
         2. :class:`~struphy.propagators.magnetosonic.Magnetosonic`"""
@@ -267,20 +272,3 @@ class LinearMHD(StruphyModel):
         - equilibria with non-zero background flow
         - dissipative effects such as resistivity or viscosity
         - kinetic or particle-field effects beyond the fluid MHD description"""
-
-    ## default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "mag_sonic.Options" in line:
-                    new_file += [
-                        "model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options(b_field=model.em_fields.b_field)\n",
-                    ]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)

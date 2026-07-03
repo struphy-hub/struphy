@@ -531,8 +531,6 @@ def test_maxwellian_3d_mhd(num_elements, with_desc, show_plot=False):
 
             # test perturbations
             if "EQDSKequilibrium" in key:
-                maxw_params_zero = {"n": 0.0, "vth1": 0.0, "vth2": 0.0, "vth3": 0.0}
-
                 for key_2, val_2 in inspect.getmembers(perturbations):
                     if inspect.isclass(val_2) and val_2.__module__ == perturbations.__name__:
                         pert = val_2()

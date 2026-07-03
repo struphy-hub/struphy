@@ -16,7 +16,7 @@ from struphy.feec.variational_utilities import (
     InternalEnergyEvaluator,
     KineticEnergyEvaluator,
 )
-from struphy.io.options import LiteralOptions
+from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
@@ -111,11 +111,19 @@ class VariationalDensityEvolve(Propagator):
             assert new.space == "H1vec"
             self._u = new
 
-    def __init__(self):
+    def __init__(self, s: FEECVariable = None):
+        """
+        Parameters
+        ----------
+        s : FEECVariable, default=None
+            Entropy density 3-form (``"L2"`` space) evolved alongside the mass density.
+            If ``None``, only the density equation is solved.
+        """
         self.variables = self.Variables()
+        self.s = s
 
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Configuration options for :class:`VariationalDensityEvolve`.
 
         Parameters
@@ -132,8 +140,6 @@ class VariationalDensityEvolve(Propagator):
             Linear-solver controls.
         nonlin_solver : NonlinearSolverParameters, default=None
             Nonlinear iteration controls.
-        s : FEECVariable, default=None
-            Entropy-like variable required by ``model="full"``.
         """
 
         # specific literals
@@ -155,7 +161,6 @@ class VariationalDensityEvolve(Propagator):
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
-        s: FEECVariable = None
 
         def __post_init__(self):
             # checks
@@ -180,15 +185,15 @@ class VariationalDensityEvolve(Propagator):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         if self.options.model == "full":
-            assert self.options.s is not None
+            assert self.s is not None
 
         self._model = self.options.model
         self._gamma = self.options.gamma
-        self._s = self.options.s
         self._lin_solver = self.options.solver_params
         self._nonlin_solver = self.options.nonlin_solver
         self._linearize = self.options.nonlin_solver.linearize
@@ -283,7 +288,7 @@ class VariationalDensityEvolve(Propagator):
 
         # Initialize variable for Newton iteration
         if self._model == "full":
-            s = self._s.spline.vector
+            s = self.s.spline.vector
         else:
             s = None
 

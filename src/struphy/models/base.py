@@ -34,7 +34,7 @@ from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.docstring_converter import rst_to_html, rst_to_markdown
-from struphy.utils.utils import all_class_params_are_default, all_subclasses
+from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default, all_subclasses
 
 logger = logging.getLogger("struphy")
 
@@ -118,7 +118,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
             def velocity_scale(self):
                 return "thermal"
 
-            def allocate_helpers(self, verbose=False):
+            def allocate_helpers(self):
                 # Initialize helper arrays
                 pass
 
@@ -157,28 +157,38 @@ class StruphyModel(metaclass=StruphyModelMeta):
         Must be one of "alfvén", "cyclotron", "light" or "thermal"."""
 
     @abstractmethod
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         """Allocate helper arrays and perform initial solves if needed."""
 
     # --------------
     # Common methods
     # --------------
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}()"
+    def __repr__(self):
+        out = f"{self.__class__.__name__}(\n"
+        for k, v in self.params.items():
+            out += " " * 4
+            out += f"{k}={v},\n"
+        out += ")"
+        return out
 
     def __repr_no_defaults__(self) -> str:
-        return self.__repr__()
+        return __class_with_params_repr_no_defaults__(self)
 
     @property
     def is_default(self):
         return all_class_params_are_default(self)
 
-    def __str__(self):
-        out = f"{self.__class__.__name__}\n"
-        for k, v in self.species.items():
-            out += f"    {k}:\n"
-            out += f"{v}"
-        return out
+    # def __str__(self):
+    #     for k, v in self.__dict__.items():
+    #         logger.info(f"{k + ':':<20}{v}")
+    #     return ""
+
+    # def __str__(self):
+    #     out = f"{self.__class__.__name__}\n"
+    #     for k, v in self.species.items():
+    #         out += f"    {k}:\n"
+    #         out += f"{v}"
+    #     return out
 
     forced_heading_level = 5
 
@@ -315,9 +325,9 @@ class StruphyModel(metaclass=StruphyModelMeta):
             val = scalar.value[0]
             assert not xp.isnan(val), f"Scalar {key} is {val}."
             sq_str += f"{key}:".ljust(25) + "{:4.2e}\n".format(val).rjust(26)
-        logger.info(sq_str)
+        print(sq_str)
 
-    def setup_equation_params(self, base_units: BaseUnits, verbose=False):
+    def setup_equation_params(self, base_units: BaseUnits):
         """Compute units and set equation parameters for each fluid and kinetic species."""
         self.base_units = base_units
         self.units = Units(base_units)
@@ -333,16 +343,25 @@ class StruphyModel(metaclass=StruphyModelMeta):
             velocity_scale=self.velocity_scale,
             A_bulk=A_bulk,
             Z_bulk=Z_bulk,
-            verbose=verbose,
         )
 
         for _, species in self.fluid_species.items():
             assert isinstance(species, FluidSpecies)
-            species.setup_equation_params(units=self.units, verbose=verbose)
+            species.setup_equation_params(units=self.units)
 
         for _, species in self.particle_species.items():
             assert isinstance(species, ParticleSpecies)
-            species.setup_equation_params(units=self.units, verbose=verbose)
+            species.setup_equation_params(units=self.units)
+
+    def show_equation_params(self):
+        """Print the equation parameters for each species to screen."""
+        for _, species in self.fluid_species.items():
+            assert isinstance(species, FluidSpecies)
+            species.equation_params.show()
+
+        for _, species in self.particle_species.items():
+            assert isinstance(species, ParticleSpecies)
+            species.equation_params.show()
 
     @profile
     def integrate(self, dt, split_algo="LieTrotter"):
@@ -434,7 +453,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
                         str_dn = f"d{i + 1}"
                         dim_to_int[str_dn] = 3 + obj.vdim + 3 + i
 
-                for bin_plot in species.binning_plots:
+                for bin_plot in species.saving_params.binning_plots:
                     comps = bin_plot.slice.split("_")
                     components = [False] * (3 + obj.vdim + 3 + obj.n_cols_diagnostics)
 
@@ -451,7 +470,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
                     bin_plot.f[:] = f_slice
                     bin_plot.df[:] = df_slice
 
-                for kd_plot in species.kernel_density_plots:
+                for kd_plot in species.saving_params.kernel_density_plots:
                     h1 = 1 / obj.boxes_per_dim[0]
                     h2 = 1 / obj.boxes_per_dim[1]
                     h3 = 1 / obj.boxes_per_dim[2]
@@ -542,15 +561,19 @@ class StruphyModel(metaclass=StruphyModelMeta):
                 particle_params += "\nloading_params = LoadingParameters()\n"
                 particle_params += "weights_params = WeightsParameters()\n"
                 particle_params += "boundary_params = BoundaryParameters()\n"
+                particle_params += "sorting_params = SortingParameters()\n"
+                particle_params += "saving_params = SavingParameters()\n"
                 particle_params += f"model.{sn}.set_markers(loading_params=loading_params,\n"
                 txt = "weights_params=weights_params,\n"
                 particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
                 txt = "boundary_params=boundary_params,\n"
                 particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
+                txt = "sorting_params=sorting_params,\n"
+                particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
+                txt = "saving_params=saving_params,\n"
+                particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
                 txt = ")\n"
                 particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
-                particle_params += f"model.{sn}.set_sorting_boxes()\n"
-                particle_params += f"model.{sn}.set_save_data()\n"
 
             for vn, var in species.variables.items():
                 variables_params += f"model.{sn}.{vn}.save_data = True\n"
@@ -649,6 +672,8 @@ set_logging_level(logging.WARNING)\n""")
     KernelDensityPlot,
     LoadingParameters,
     WeightsParameters,
+    SortingParameters,
+    SavingParameters,
     maxwellians,
 )\n""")
 
@@ -739,7 +764,7 @@ set_logging_level(logging.WARNING)\n""")
             file.write(init_pert_sph)
 
         file.write('\nif __name__ == "__main__":\n')
-        file.write("    sim.run(verbose=False)")
+        file.write("    sim.run()")
 
         file.close()
 
@@ -855,6 +880,22 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
     def units(self, new_units):
         assert isinstance(new_units, Units)
         self._units = new_units
+
+    @property
+    def params(self) -> dict:
+        """Model parameters passed to __init__() of the class, as dictionary."""
+        if not hasattr(self, "_params"):
+            self._params = {}
+        return self._params
+
+    @params.setter
+    def params(self, new):
+        assert isinstance(new, dict)
+        if "self" in new:
+            new.pop("self")
+        if "__class__" in new:
+            new.pop("__class__")
+        self._params = new
 
 
 class Documentation:

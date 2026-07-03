@@ -17,7 +17,7 @@ from struphy.feec.variational_utilities import (
     Hdiv0_transport_operator,
     Pressure_transport_operator,
 )
-from struphy.io.options import LiteralOptions
+from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
@@ -135,11 +135,33 @@ class VariationalPBEvolve(Propagator):
             assert new.space == "Hdiv"
             self._b = new
 
-    def __init__(self):
+    def __init__(
+        self,
+        div_u: FEECVariable = None,
+        u2: FEECVariable = None,
+        pt3: FEECVariable = None,
+        bt2: FEECVariable = None,
+    ):
+        """
+        Parameters
+        ----------
+        div_u : FEECVariable, default=None
+            Divergence diagnostic variable (``"L2"`` space) updated by the velocity field.
+        u2 : FEECVariable, default=None
+            Velocity 2-form diagnostic (``"Hdiv"`` space).
+        pt3 : FEECVariable, default=None
+            Pressure 3-form (``"L2"`` space) used in the momentum source term.
+        bt2 : FEECVariable, default=None
+            Magnetic 2-form (``"Hdiv"`` space) providing the Lorentz force.
+        """
         self.variables = self.Variables()
+        self.div_u = div_u
+        self.u2 = u2
+        self.pt3 = pt3
+        self.bt2 = bt2
 
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Configuration options for :class:`VariationalPBEvolve`.
 
         Parameters
@@ -156,14 +178,6 @@ class VariationalPBEvolve(Propagator):
             Linear-solver controls.
         nonlin_solver : NonlinearSolverParameters, default=None
             Nonlinear iteration controls.
-        div_u : FEECVariable, default=None
-            Optional external divergence-of-velocity field.
-        u2 : FEECVariable, default=None
-            Optional external velocity in 2-form representation.
-        pt3 : FEECVariable, default=None
-            Optional pressure background field.
-        bt2 : FEECVariable, default=None
-            Optional magnetic background field.
         """
 
         # specific literals
@@ -175,10 +189,6 @@ class VariationalPBEvolve(Propagator):
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
-        div_u: FEECVariable = None
-        u2: FEECVariable = None
-        pt3: FEECVariable = None
-        bt2: FEECVariable = None
 
         def __post_init__(self):
             # checks
@@ -203,34 +213,35 @@ class VariationalPBEvolve(Propagator):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         self._model = self.options.model
         self._lin_solver = self.options.solver_params
         self._nonlin_solver = self.options.nonlin_solver
         self._linearize = self.options.nonlin_solver.linearize
         self._gamma = self.options.gamma
 
-        if self.options.div_u is None:
+        if self.div_u is None:
             self._divu = None
         else:
-            self._divu = self.options.div_u.spline.vector
+            self._divu = self.div_u.spline.vector
 
-        if self.options.u2 is None:
+        if self.u2 is None:
             self._u2 = None
         else:
-            self._u2 = self.options.u2.spline.vector
+            self._u2 = self.u2.spline.vector
 
-        if self.options.pt3 is None:
+        if self.pt3 is None:
             self._pt3 = None
         else:
-            self._pt3 = self.options.pt3.spline.vector
+            self._pt3 = self.pt3.spline.vector
 
-        if self.options.bt2 is None:
+        if self.bt2 is None:
             self._bt2 = None
         else:
-            self._bt2 = self.options.bt2.spline.vector
+            self._bt2 = self.bt2.spline.vector
 
         self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 

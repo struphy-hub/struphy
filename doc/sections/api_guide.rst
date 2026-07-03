@@ -20,7 +20,7 @@ Simulation class
 
 
 Simulation parameters
-^^^^^^^^^^^^^^^^^^^^^
+---------------------
 
 For available models see :ref:`models`.
 
@@ -30,6 +30,8 @@ For fluid backgrounds see :ref:`equils_avail`.
 
 .. autoclass:: struphy.EnvironmentOptions
 
+For profiling-related runtime options and output inspection, see :ref:`code_profiling`.
+
 .. autoclass:: struphy.BaseUnits
 
 .. autoclass:: struphy.Time
@@ -38,7 +40,6 @@ For fluid backgrounds see :ref:`equils_avail`.
     :show-inheritance:
 
 .. autoclass:: struphy.DerhamOptions
-
 
 
 .. _species:
@@ -70,11 +71,17 @@ Each species can contain multiple variables.
 Particle parameters
 -------------------
 
+.. automethod:: struphy.models.species.ParticleSpecies.set_markers
+
 .. autoclass:: struphy.particles.parameters.LoadingParameters
 
 .. autoclass:: struphy.particles.parameters.WeightsParameters
 
 .. autoclass:: struphy.particles.parameters.BoundaryParameters
+
+.. autoclass:: struphy.particles.parameters.SortingParameters
+
+.. autoclass:: struphy.particles.parameters.SavingParameters
 
 .. autoclass:: struphy.particles.parameters.BinningPlot
 
@@ -89,7 +96,6 @@ Fields background
 
 Perturbation functions
 ----------------------
-
 
 .. autoclass:: struphy.initial.base.Perturbation
 

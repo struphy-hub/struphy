@@ -23,6 +23,38 @@ def get_quad_grids(
     return tuple({q: gag} for q, gag in zip(nquads, space.get_assembly_grids(*nquads)))
 
 
+class LocalProjectionMatrix:
+    """For a given triple of callables representing the components of a normalized vector-valued function a(e1, e2, e3),
+    represents the local projection matrix P defined by P = a a^T at (e1, e2, e3).
+
+    LocalProjectionMatrix(e1, e2, e3) returns a five-dimensional array, with the 3x3 matrix in the last two indices.
+
+    This can then be used with the following numpy functions:
+    * matvec for matrix-vector multiplication in the last indices
+    * @ for matrix-matrix multiplication in the last two indices
+
+    Parameters
+    ----------
+    *vec_fun : list
+        Three callables that represent the components of the vector-valued function a.
+    """
+
+    def __init__(self, *vec_fun):
+        assert len(vec_fun) == 3
+        assert all([callable(fun) for fun in vec_fun])
+
+        self._funs = vec_fun
+
+    def __call__(self, e1, e2, e3):
+        # array from 2d list gives 3x3 array is in the first two indices
+        tmp = xp.array(
+            [[self._funs[m](e1, e2, e3) * self._funs[n](e1, e2, e3) for n in range(3)] for m in range(3)],
+        )
+
+        # numpy operates on the last two indices with @
+        return xp.transpose(tmp, axes=(2, 3, 4, 0, 1))
+
+
 class LocalRotationMatrix:
     """For a given triple of callables representing the components of a vector-valued function a(e1, e2, e3),
     represents the local rotation matrix R defined by Rv = a x v at (e1, e2, e3) for any vector v in R^3.
@@ -180,7 +212,7 @@ def create_equal_random_arrays(V, seed=123, flattened=False):
     return arr, arr_psy
 
 
-def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
+def compare_arrays(arr_psy, arr, rank, atol=1e-14):
     """Assert equality of distributed psydac array and corresponding fraction of cloned numpy array.
     Arrays can be block-structured as nested lists/tuples.
 
@@ -324,10 +356,9 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
     else:
         raise AssertionError("Wrong input type.")
 
-    if verbose:
-        logger.info(
-            f"Rank {rank}: Assertion for array comparison passed with atol={atol}.",
-        )
+    logger.info(
+        f"Rank {rank}: Assertion for array comparison passed with atol={atol}.",
+    )
 
 
 def apply_essential_bc_to_array(space_id: str, vector: Vector, bc: tuple):

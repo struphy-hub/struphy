@@ -18,6 +18,7 @@ from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
 from pyevtk.hl import gridToVTK
 from scope_profiler import ProfileManager
+from tqdm import tqdm
 
 # api imports
 from struphy import (
@@ -101,8 +102,6 @@ class Simulation(SimulationBase):
         Spatial grid used for FEEC variables.
     derham_opts : DerhamOptions
         Options for discrete differential operators.
-    verbose : bool, optional
-        If True, print additional setup information.
     """
 
     def __init__(
@@ -118,7 +117,6 @@ class Simulation(SimulationBase):
         grid: grids.TensorProductGrid = grids.TensorProductGrid(),
         derham_opts: DerhamOptions = DerhamOptions(),
         logging_level: int | None = None,
-        verbose: bool = False,
     ):
         if logging_level is not None:
             set_logging_level(logging_level)
@@ -129,7 +127,7 @@ class Simulation(SimulationBase):
         self._params_path = params_path
         self._env = env
         self._time_opts = time_opts
-        self._setup_domain_and_equil(domain, equil, verbose=verbose)
+        self._setup_domain_and_equil(domain, equil)
         self._grid = grid
         self._derham_opts = derham_opts
 
@@ -157,7 +155,14 @@ class Simulation(SimulationBase):
             self.comm_size = self.comm.Get_size()
             self.Barrier = self.comm.Barrier
 
-        self.show_parameters()
+        logger.info(f"\nMPI comm: {self.comm}")
+        logger.info(f"MPI size: {self.comm_size} processes")
+        logger.info(f"MPI rank: {self.rank}")
+
+        if logger.level <= logging.INFO and self.rank == 0:
+            self.show_parameters()
+            self.model.units.show_units()
+            self.model.show_equation_params()
 
         # synchronize MPI processes to set same start time of simulation for all processes
         self.Barrier()
@@ -166,8 +171,6 @@ class Simulation(SimulationBase):
         # check model
         assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
         self.model_name = model.__class__.__name__
-
-        logger.debug(f"Instance of simulation for model {self.model_name} ...")
 
         # meta-data
         path_out = env.path_out
@@ -191,15 +194,8 @@ class Simulation(SimulationBase):
         self.meta["max wall-clock [min]"] = max_runtime
         self.meta["save interval [steps]"] = save_step
 
-        logger.debug("\nMETADATA:")
-        for k, v in self.meta.items():
-            msg = f"{k}:".ljust(25) + f"{v}".rjust(25)
-            logger.debug(msg)
-
         # creating output folders
-        self._setup_folders(
-            verbose=verbose,
-        )
+        self._setup_folders()
 
         # save parameter file
         if self.rank == 0:
@@ -256,8 +252,6 @@ class Simulation(SimulationBase):
         self.clone_config = model.clone_config = clone_config
         self.Barrier()
 
-        logger.debug("\n... Done.")
-
     # ----------------
     # Abstract methods
     # ----------------
@@ -267,26 +261,44 @@ class Simulation(SimulationBase):
 
         Only the MPI rank 0 prints to avoid clutter from multiple processes.
         """
-        logger.debug("SIMULATION PARAMETERS:")
-        logger.debug("\nModel:")
-        logger.debug(self.model)
-        logger.debug("Parameter file path:")
-        logger.debug(self.params_path)
-        logger.debug("\nEnvironment options:")
-        logger.debug(self.env)
-        logger.debug("Time stepping options:")
-        logger.debug(self.time_opts)
-        logger.debug("Domain:")
-        logger.debug(self.domain)
-        logger.debug("Fluid equilibrium:")
-        logger.debug(self.equil)
-        logger.debug("Grid:")
-        logger.debug(self.grid)
-        logger.debug("Derham options:")
-        logger.debug(self.derham_opts)
-        logger.debug("")
+        print(f"\nNew instance of Simulation from file\n{self.params_path}\n")
+        print(self.model)
+        print("")
+        print(self.env)
+        print("")
+        print(self.time_opts)
+        print("")
+        print(self.domain)
+        print("")
+        print(self.equil)
+        print("")
+        print(self.grid)
+        print("")
+        print(self.derham_opts)
 
-    def allocate(self, verbose: bool = False):
+    def show_propagator_options(self):
+        # Display propagator options and intial conditions:
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print("\nPROPAGATOR OPTIONS:")
+            for prop in self.model.prop_list:
+                assert isinstance(prop, Propagator)
+                print(prop)
+
+    def show_initial_conditions(self):
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print("\nINITIAL CONDITIONS:")
+            for species in self.model.species.values():
+                assert isinstance(species, Species)
+                for variable in species.variables.values():
+                    if isinstance(variable, FEECVariable) or isinstance(variable, SPHVariable):
+                        variable.show_backgrounds()
+                        variable.show_perturbations()
+                    elif isinstance(variable, PICVariable):
+                        variable.show_backgrounds()
+                        variable.show_perturbations()
+                        variable.show_initial_condition()
+
+    def allocate(self):
         """Allocate FEEC structures, model variables and propagators.
 
         This prepares FEEC operators, allocates variable storage for all
@@ -294,25 +306,23 @@ class Simulation(SimulationBase):
         propagators. Prints progress on MPI rank 0.
         """
 
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("\nAllocating simulation data ...")
+        logger.debug("\nAllocating simulation data ...")
 
         # feec
-        self._allocate_feec(self.grid, self.derham_opts, verbose=verbose)
+        self._allocate_feec(self.grid, self.derham_opts)
 
         # allocate model variables
-        self._allocate_variables(verbose=verbose)
+        self._allocate_variables()
 
         # pass info to propagators
-        self._allocate_propagators(verbose=verbose)
+        self._allocate_propagators()
 
         # allocate helper fields and perform initial solves if needed
-        self.model.allocate_helpers(verbose=verbose)
+        self.model.allocate_helpers()
 
-        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-            logger.info("... Done.")
+        logger.debug("... Done.")
 
-    def save_geometry_and_equil_vtk(self, verbose: bool = False):
+    def save_geometry_and_equil_vtk(self):
         """Write a VTK file with geometry and (projected) equilibrium fields.
 
         Only executed on MPI rank 0. Outputs basic diagnostic fields such as
@@ -340,6 +350,8 @@ class Simulation(SimulationBase):
             if self.equil is not None:
                 p0 = self.equil.p0(*grids_log)
                 pointData["p0"] = DataContainer._as_numpy_array(p0)
+                n0 = self.equil.n0(*grids_log)
+                pointData["n0"] = DataContainer._as_numpy_array(n0)
                 if isinstance(self.equil, FluidEquilibriumWithB):
                     absB0 = self.equil.absB0(*grids_log)
                     pointData["absB0"] = DataContainer._as_numpy_array(absB0)
@@ -351,7 +363,6 @@ class Simulation(SimulationBase):
         nx: int = 32,
         ny: int = 32,
         nz: int = 32,
-        verbose: bool = False,
     ):
         """Create a PyVista mesh with geometry and (projected) equilibrium fields.
 
@@ -400,11 +411,10 @@ class Simulation(SimulationBase):
         nz: int = 32,
         window_size: tuple | None = None,
         zoom_factor: int = 1.0,
-        verbose: bool = False,
     ) -> pv.Plotter:
         """Visualize the geometry and (projected) equilibrium fields using PyVista."""
         if self.rank == 0:
-            mesh = self.create_geometry_mesh(nx=nx, ny=ny, nz=nz, verbose=verbose)
+            mesh = self.create_geometry_mesh(nx=nx, ny=ny, nz=nz)
 
             pv.set_jupyter_backend("static")
             if scalars:
@@ -444,7 +454,7 @@ class Simulation(SimulationBase):
             return plotter
         return None
 
-    def initialize_data_storage(self, verbose: bool = False):
+    def initialize_data_storage(self):
         """Create the `DataContainer` and register time datasets.
 
         Initializes `time_state` arrays (normalized and physical time and
@@ -470,7 +480,7 @@ class Simulation(SimulationBase):
             self.data.add_data({key_time: val})
             self.data.add_data({key_time_restart: val})
 
-    def run(self, one_time_step: bool = False, verbose: bool = False):
+    def run(self, one_time_step: bool = False):
         """Main entry point to execute the simulation time loop.
 
         Responsibilities include allocation (when not restarting),
@@ -482,58 +492,35 @@ class Simulation(SimulationBase):
         ----------
         one_time_step : bool
             If True, only perform one time step (useful for testing).
-
-        verbose : bool
-            If True, print additional runtime information.
         """
 
-        logger.warning(f"\nStarting simulation run for model {self.model_name} ...")
+        logger.warning(f"\nStarting run for model {self.model_name} ...")
         if self.name != "":
             logger.info(f"Simulation name: {self.name}")
         if self.description != "":
             logger.info(f"Description: {self.description}")
 
-        self._remove_existing_output_files(verbose=verbose)
+        self._remove_existing_output_files()
 
-        # Display propagator options and intial conditions:
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("\nPROPAGATOR OPTIONS:")
-            for prop in self.model.prop_list:
-                assert isinstance(prop, Propagator)
-                prop.show_options()
+        # equation paramters
+        self.allocate()
 
-            logger.info("\nINITIAL CONDITIONS:")
-            for species in self.model.species.values():
-                assert isinstance(species, Species)
-                for variable in species.variables.values():
-                    if isinstance(variable, FEECVariable) or isinstance(variable, SPHVariable):
-                        variable.show_backgrounds()
-                        variable.show_perturbations()
-                    elif isinstance(variable, PICVariable):
-                        variable.show_backgrounds()
-                        variable.show_perturbations()
-                        variable.show_initial_condition()
+        # output
+        self.initialize_data_storage()
 
-        if not self.env.restart:
-            # equation paramters
-            self.allocate(verbose=verbose)
+        # peek view into geometry
+        self.save_geometry_and_equil_vtk()
 
-            # output
-            self.initialize_data_storage(verbose=verbose)
-
-            # peek view into geometry
-            self.save_geometry_and_equil_vtk(verbose=verbose)
-
-            # plasma parameters
-            self.compute_plasma_params(verbose=verbose)
+        # plasma parameters
+        self.compute_plasma_params()
 
         # print info on mpi procs
         if self.rank < 32:
-            logger.info("")
-            logger.info(f"Rank {self.rank}: executing run() for model {self.model_name} ...")
+            logger.debug("")
+            logger.debug(f"Rank {self.rank}: executing run() for model {self.model_name} ...")
 
         if self.comm_size > 32 and self.rank == 32:
-            logger.info(f"Ranks > 31: executing run() for model {self.model_name} ...")
+            logger.debug(f"Ranks > 31: executing run() for model {self.model_name} ...")
 
         # retrieve time parameters
         dt = self.time_opts.dt
@@ -551,8 +538,9 @@ class Simulation(SimulationBase):
                 self.time_state["value"][0] = file["restart/time/value"][-1]
                 self.time_state["value_sec"][0] = file["restart/time/value_sec"][-1]
                 self.time_state["index"][0] = file["restart/time/index"][-1]
+                start_step = file["restart/time/index"][-1]
 
-            total_steps = str(int(round((Tend - float(self.time_state["value"][0])) / dt)))
+            total_steps = int(round((Tend - float(self.time_state["value"][0])) / dt))
             logger.info(f"""\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 RESTARTing from:
 self.time_state["value"][0]={float(self.time_state["value"][0])}
@@ -561,7 +549,10 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 """)
         else:
-            total_steps = str(int(round(Tend / dt)))
+            total_steps = int(round(Tend / dt))
+            start_step = 0
+
+        total_steps_str = str(total_steps)
 
         # compute initial scalars and kinetic data, pass time state to all propagators
         self.model.update_scalar_quantities()
@@ -575,14 +566,15 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
         # ======================== main time loop ======================
         self.model.update_scalar_quantities()
 
-        logger.info("\nINITIAL SCALAR QUANTITIES:")
-
-        self.model.print_scalar_quantities()
-
-        logger.info(f"\nSTART TIME STEPPING WITH '{split_algo}' SPLITTING:")
+        if logger.level <= logging.INFO and self.rank == 0:
+            print("\nINITIAL SCALAR QUANTITIES:")
+            self.model.print_scalar_quantities()
+            print(f"START TIME STEPPING WITH '{split_algo}' SPLITTING:")
 
         # time loop
         run_time_now = 0.0
+        show_progress_bar = logger.getEffectiveLevel() <= logging.WARNING and self.rank == 0
+        pbar = tqdm(total=total_steps, disable=not show_progress_bar, desc="Time stepping", unit="step")
         while True:
             self.Barrier()
 
@@ -648,9 +640,9 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                 self.data.save_data(keys=save_keys_all)
 
                 # print current time and scalar quantities to screen
-                step = str(int(self.time_state["index"][0])).zfill(len(total_steps))
+                step = str(int(self.time_state["index"][0])).zfill(len(total_steps_str))
 
-                message = "time step:".ljust(25) + f"{step}/{total_steps}".rjust(25)
+                message = "time step:".ljust(25) + f"{step}/{total_steps + start_step}".rjust(25)
                 message += (
                     "\n"
                     + "normalized time:".ljust(25)
@@ -668,7 +660,13 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                 message += "\n" + "last step duration [s]:".ljust(25) + "{0:8.4f}".format(t1 - t0).rjust(25)
 
                 logger.info(message)
-                self.model.print_scalar_quantities()
+                if logger.level <= logging.INFO and self.rank == 0:
+                    self.model.print_scalar_quantities()
+
+                if show_progress_bar:
+                    pbar.update(1)
+
+        pbar.close()
 
         # ===================================================================
 
@@ -694,7 +692,6 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
         classify: bool = False,
         create_vtk: bool = True,
         time_trace: bool = False,
-        verbose: bool = False,
     ):
         """Run post-processing on saved simulation data.
 
@@ -707,7 +704,7 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
             self._post_processor = PostProcessor(sim=self)
 
         if time_trace:
-            self.post_processor.plot_time_traces(verbose=verbose)
+            self.post_processor.plot_time_traces()
 
         self.post_processor.process(
             step=step,
@@ -716,10 +713,9 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
             guiding_center=guiding_center,
             classify=classify,
             create_vtk=create_vtk,
-            verbose=verbose,
         )
 
-    def load_plotting_data(self, verbose: bool = False):
+    def load_plotting_data(self):
         """Load plotting datasets produced by post-processing.
 
         Creates a `PlottingData` instance on rank 0 (if needed), loads the
@@ -729,7 +725,7 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
 
         if not hasattr(self, "_plotting_data") and self.rank == 0:
             self._plotting_data = PlottingData(sim=self)
-        self.plotting_data.load(verbose=verbose)
+        self.plotting_data.load()
 
         # expose attributes
         self.orbits = self.plotting_data.orbits
@@ -743,7 +739,7 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
     # ---------------------
     # Code specific methods
     # ---------------------
-    def compute_plasma_params(self, verbose: bool = True):
+    def compute_plasma_params(self):
         """
         Compute and print volume averaged plasma parameters for each species of the model.
 
@@ -823,28 +819,22 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
             magnetic_field = xp.nan
             # logger.info("\n+++++++ WARNING +++++++ magnetic field is zero - set to nan !!")
 
-        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info("\nPLASMA PARAMETERS:")
-            logger.info(
-                "Plasma volume:".ljust(25),
-                "{:4.3e}".format(plasma_volume) + units_affix["plasma volume"],
-            )
-            logger.info(
-                "Transit length:".ljust(25),
-                "{:4.3e}".format(transit_length) + units_affix["transit length"],
-            )
-            logger.info(
-                "Avg. magnetic field:".ljust(25),
-                "{:4.3e}".format(magnetic_field) + units_affix["magnetic field"],
-            )
-            logger.info(
-                "Max magnetic field:".ljust(25),
-                "{:4.3e}".format(B_max) + units_affix["magnetic field"],
-            )
-            logger.info(
-                "Min magnetic field:".ljust(25),
-                "{:4.3e}".format(B_min) + units_affix["magnetic field"],
-            )
+        logger.info("\nPLASMA PARAMETERS:")
+        logger.info(
+            "Plasma volume:".ljust(25) + "{:4.3e}".format(plasma_volume) + units_affix["plasma volume"],
+        )
+        logger.info(
+            "Transit length:".ljust(25) + "{:4.3e}".format(transit_length) + units_affix["transit length"],
+        )
+        logger.info(
+            "Avg. magnetic field:".ljust(25) + "{:4.3e}".format(magnetic_field) + units_affix["magnetic field"],
+        )
+        logger.info(
+            "Max magnetic field:".ljust(25) + "{:4.3e}".format(B_max) + units_affix["magnetic field"],
+        )
+        logger.info(
+            "Min magnetic field:".ljust(25) + "{:4.3e}".format(B_min) + units_affix["magnetic field"],
+        )
 
     def spawn_sister(
         self,
@@ -856,7 +846,6 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
         equil: FluidEquilibrium = None,
         grid: grids.TensorProductGrid = None,
         derham_opts: DerhamOptions = None,
-        verbose: bool = False,
     ):
         """Spawn a sister simulation with parameters that default to the current instance.
         This can be used to quickly generate multiple similar simulations."""
@@ -886,7 +875,6 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
             equil=equil,
             grid=grid,
             derham_opts=derham_opts,
-            verbose=verbose,
         )
         return sister
 
@@ -894,7 +882,7 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
     # Private methods
     # ---------------
 
-    def _setup_folders(self, verbose: bool = False):
+    def _setup_folders(self):
         """
         Setup output folders.
         """
@@ -902,16 +890,14 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
             # create output folder if it does not exit
             if not os.path.exists(self.env.path_out):
                 os.makedirs(self.env.path_out, exist_ok=True)
-                if verbose:
-                    logger.info("Created folder " + self.env.path_out)
+                logger.debug("Created folder " + self.env.path_out)
 
             # create data folder in output folder if it does not exist
             if not os.path.exists(os.path.join(self.env.path_out, "data/")):
                 os.mkdir(os.path.join(self.env.path_out, "data/"))
-                if verbose:
-                    logger.info("Created folder " + os.path.join(self.env.path_out, "data/"))
+                logger.debug("Created folder " + os.path.join(self.env.path_out, "data/"))
 
-    def _remove_existing_output_files(self, verbose: bool = False):
+    def _remove_existing_output_files(self):
         """Removes post_processing/, meta.txt and profile_tmp.
         If not restart, also removes existing hdf5 and png files in output folder."""
         if MPI.COMM_WORLD.Get_rank() == 0:
@@ -919,38 +905,35 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
             folder = os.path.join(self.env.path_out, "post_processing")
             if os.path.exists(folder):
                 shutil.rmtree(folder)
-                if verbose:
-                    logger.info("Removed existing folder " + folder)
+                logger.info("Removed existing folder " + folder)
 
             # remove meta file
             file = os.path.join(self.env.path_out, "meta.txt")
             if os.path.exists(file):
                 os.remove(file)
-                if verbose:
-                    logger.info("Removed existing file " + file)
+                logger.info("Removed existing file " + file)
 
             # remove profiling file
             file = os.path.join(self.env.path_out, "profile_tmp")
             if os.path.exists(file):
                 os.remove(file)
-                if verbose:
-                    logger.info("Removed existing file " + file)
+                logger.info("Removed existing file " + file)
 
             # remove hdf5 and png files (if NOT a restart)
             if not self.env.restart:
                 files = glob.glob(os.path.join(self.env.path_out, "data", "*.hdf5"))
                 for n, file in enumerate(files):
                     os.remove(file)
-                    if verbose and n < 10:  # print only ten statements in case of many processes
+                    if n < 10:  # print only ten statements in case of many processes
                         logger.info("Removed existing file " + file)
 
                 files = glob.glob(os.path.join(self.env.path_out, "*.png"))
                 for n, file in enumerate(files):
                     os.remove(file)
-                    if verbose and n < 10:  # print only ten statements in case of many processes
+                    if n < 10:  # print only ten statements in case of many processes
                         logger.info("Removed existing file " + file)
 
-    def _setup_domain_and_equil(self, domain: Domain, equil: FluidEquilibrium, verbose: bool = False):
+    def _setup_domain_and_equil(self, domain: Domain, equil: FluidEquilibrium):
         """If a numerical equilibirum is used, the domain is taken from this equilibirum."""
         if equil is not None:
             if isinstance(equil, NumericalMHDequilibrium):
@@ -965,7 +948,6 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                     velocity_scale=self.model.velocity_scale,
                     A_bulk=self.model.bulk_species.mass_number,
                     Z_bulk=self.model.bulk_species.charge_number,
-                    verbose=verbose,
                 )
 
         else:
@@ -973,23 +955,8 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
 
         self._equil = equil
 
-        # if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-        #     logger.info("\nDOMAIN:")
-        #     logger.info("type:".ljust(25), self.domain.__class__.__name__)
-        #     for key, val in self.domain.params.items():
-        #         if key not in {"cx", "cy", "cz"}:
-        #             logger.info((key + ":").ljust(25), val)
-
-        #     logger.info("\nFLUID BACKGROUND:")
-        #     if self.equil is not None:
-        #         logger.info("type:".ljust(25), self.equil.__class__.__name__)
-        #         for key, val in self.equil.params.items():
-        #             logger.info((key + ":").ljust(25), val)
-        #     else:
-        #         logger.info("None.")
-
     @profile
-    def _allocate_feec(self, grid: grids.TensorProductGrid, derham_opts: DerhamOptions, verbose: bool = False):
+    def _allocate_feec(self, grid: grids.TensorProductGrid, derham_opts: DerhamOptions):
         """Create the discrete Derham sequence, mass/basis operators and projected equilibrium.
 
         This sets up the 3D Derham object (unless grid or derham_opts are
@@ -1011,8 +978,7 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
             derham_comm = self.clone_config.sub_comm
 
         if grid is None or derham_opts is None:
-            if MPI.COMM_WORLD.Get_rank() == 0:
-                logger.info(f"\n{grid=}, {derham_opts=}: no Derham object set up.")
+            logger.debug(f"\n{grid=}, {derham_opts=}: no Derham object set up.")
             self._derham = None
         else:
             self._derham = Derham(
@@ -1020,7 +986,6 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                 derham_opts,
                 comm=derham_comm,
                 domain=self.domain,
-                verbose=verbose,
             )
 
         # create weighted mass and basis operators
@@ -1034,7 +999,6 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                 self.derham,
                 self.domain,
                 eq_mhd=self.equil,
-                verbose=verbose,
             )
 
         # create projected equilibrium
@@ -1045,25 +1009,22 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                 self._projected_equil = ProjectedMHDequilibrium(
                     self.equil,
                     self.derham,
-                    verbose=verbose,
                 )
             elif isinstance(self.equil, FluidEquilibriumWithB):
                 self._projected_equil = ProjectedFluidEquilibriumWithB(
                     self.equil,
                     self.derham,
-                    verbose=verbose,
                 )
             elif isinstance(self.equil, FluidEquilibrium):
                 self._projected_equil = ProjectedFluidEquilibrium(
                     self.equil,
                     self.derham,
-                    verbose=verbose,
                 )
             else:
                 self._projected_equil = None
 
     @profile
-    def _allocate_variables(self, verbose: bool = False):
+    def _allocate_variables(self):
         """
         Allocate memory for model variables and set initial conditions.
         """
@@ -1077,7 +1038,6 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                         derham=self.derham,
                         domain=self.domain,
                         equil=self.equil,
-                        verbose=verbose,
                     )
 
         # allocate memory for FE coeffs of fluid variables
@@ -1090,7 +1050,6 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                         derham=self.derham,
                         domain=self.domain,
                         equil=self.equil,
-                        verbose=verbose,
                     )
 
         # allocate memory for marker arrays of kinetic variables
@@ -1105,7 +1064,6 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                             domain=self.domain,
                             equil=self.equil,
                             projected_equil=self.projected_equil,
-                            verbose=verbose,
                         )
                     if isinstance(v, SPHVariable):
                         v.allocate(
@@ -1113,7 +1071,6 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                             domain=self.domain,
                             equil=self.equil,
                             projected_equil=self.projected_equil,
-                            verbose=verbose,
                         )
 
         # allocate memory for FE coeffs of fluid variables
@@ -1126,7 +1083,6 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                         derham=self.derham,
                         domain=self.domain,
                         equil=self.equil,
-                        verbose=verbose,
                     )
 
         # TODO: allocate memory for FE coeffs of diagnostics
@@ -1145,7 +1101,7 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
         #             self._pointer[key] = val["obj"].vector
 
     @profile
-    def _allocate_propagators(self, verbose: bool = False):
+    def _allocate_propagators(self):
         """Allocate propagators and bind shared FEEC/domain operators.
 
         Assigns `derham`, `domain`, `mass_ops`, `basis_ops` and
@@ -1165,12 +1121,11 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
         assert len(self.model.prop_list) > 0, "No propagators in this model, check the model class."
         for prop in self.model.prop_list:
             assert isinstance(prop, Propagator)
-            prop.allocate(verbose=verbose)
-            if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-                logger.info(f"\nAllocated propagator '{prop.__class__.__name__}'.")
+            prop.allocate()
+            logger.debug(f"\nAllocated propagator '{prop.__class__.__name__}'.")
 
     @profile
-    def _initialize_hdf5_datasets(self, data: DataContainer, size, verbose: bool = False):
+    def _initialize_hdf5_datasets(self, data: DataContainer, size: int):
         """
         Create datasets in hdf5 files according to model unknowns and diagnostics data.
 
@@ -1278,7 +1233,7 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                 data.add_data({key_mks: var.saved_markers})
 
                 # binning plot data
-                for bin_plot in species.binning_plots:
+                for bin_plot in species.saving_params.binning_plots:
                     # define slice name with binning quantity
                     slice, output_quantity = bin_plot.slice, bin_plot.output_quantity
                     slice = f"{slice}_{output_quantity}"
@@ -1294,7 +1249,7 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                             be[:-1] + (be[1] - be[0]) / 2
                         )
 
-                for i, kd_plot in enumerate(species.kernel_density_plots):
+                for i, kd_plot in enumerate(species.saving_params.kernel_density_plots):
                     key_n = os.path.join(key_spec, "n_sph", f"view_{i}")
 
                     data.add_data({key_n: kd_plot.n_sph})
@@ -1337,7 +1292,7 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
             if isinstance(prop, Propagator):
                 prop.add_time_state(time_state)
 
-    def _initialize_from_restart(self, data: DataContainer, verbose: bool = False):
+    def _initialize_from_restart(self, data: DataContainer):
         """
         Set initial conditions for FE coefficients (electromagnetic and fluid) and markers from restart group in hdf5 files.
 
@@ -1378,7 +1333,6 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
             "equil": self.equil.to_dict() if self.equil is not None else None,
             "grid": self.grid.to_dict(),
             "derham_opts": self.derham_opts.to_dict(),
-            "verbose": getattr(self, "verbose", False),
         }
 
     @classmethod
@@ -1396,7 +1350,6 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
             equil=FluidEquilibrium.from_dict(dct["equil"]),
             grid=grids.TensorProductGrid.from_dict(dct["grid"]),
             derham_opts=DerhamOptions.from_dict(dct["derham_opts"]),
-            verbose=dct.get("verbose", False),
         )
 
     @classmethod

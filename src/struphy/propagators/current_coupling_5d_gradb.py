@@ -10,7 +10,7 @@ from feectools.linalg.solvers import inverse
 from line_profiler import profile
 
 from struphy.feec import preconditioner
-from struphy.io.options import LiteralOptions
+from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import DiscreteGradientSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.ode.utils import ButcherTableau
@@ -98,18 +98,23 @@ class CurrentCoupling5DGradB(Propagator):
             assert new.space == "Particles5D"
             self._energetic_ions = new
 
-    def __init__(self):
+    def __init__(self, b_tilde: FEECVariable = None):
+        """
+        Parameters
+        ----------
+        b_tilde : FEECVariable, default=None
+            Magnetic perturbation 1-form (``"Hcurl"`` space) entering the grad-B
+            coupling term. If ``None``, only the equilibrium field is used.
+        """
         self.variables = self.Variables()
+        self.b_tilde = b_tilde
 
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
         """Configuration options for :class:`CurrentCoupling5DGradB`.
 
         Parameters
         ----------
-        b_tilde : FEECVariable, default=None
-            Perturbed magnetic field variable added to the equilibrium field.
-
         ep_scale : float, default=1.0
             Scaling factor applied in particle accumulation.
 
@@ -152,7 +157,6 @@ class CurrentCoupling5DGradB(Propagator):
             "explicit",
         ]
         # propagator options
-        b_tilde: FEECVariable = None
         ep_scale: float = 1.0
         algo: OptsAlgo = "explicit"
         butcher: ButcherTableau = None
@@ -169,7 +173,6 @@ class CurrentCoupling5DGradB(Propagator):
             check_option(self.u_space, LiteralOptions.OptsVecSpace)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
-            assert isinstance(self.b_tilde, FEECVariable)
             assert isinstance(self.ep_scale, float)
 
             # defaults
@@ -195,9 +198,10 @@ class CurrentCoupling5DGradB(Propagator):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         if self.options.u_space == "H1vec":
             self._u_form_int = 0
         else:
@@ -230,9 +234,6 @@ class CurrentCoupling5DGradB(Propagator):
         self._b2 = self.projected_equil.b2
         gradB1 = self.projected_equil.gradB1
         absB0 = self.projected_equil.absB0
-
-        # magnetic field
-        self._b_tilde = self.options.b_tilde.spline.vector
 
         # scaling factor
         epsilon = self.variables.energetic_ions.species.equation_params.epsilon
@@ -287,10 +288,6 @@ class CurrentCoupling5DGradB(Propagator):
                 )
 
             # temp fix due to refactoring of ButcherTableau:
-            butcher = self.options.butcher
-            import numpy as np
-
-            butcher._a = xp.concatenate((xp.diag(butcher.a, k=-1), xp.zeros(1, dtype=butcher.a.dtype)))
 
             self._args_pusher_kernel = (
                 self.domain.args_domain,
@@ -308,7 +305,7 @@ class CurrentCoupling5DGradB(Propagator):
                 self._u_temp[0]._data,
                 self._u_temp[1]._data,
                 self._u_temp[2]._data,
-                self.options.butcher.a,
+                self.options.butcher.a_stage,
                 self.options.butcher.b,
                 self.options.butcher.c,
             )
@@ -334,9 +331,9 @@ class CurrentCoupling5DGradB(Propagator):
             self._args_accum_kernel = (
                 epsilon,
                 self.options.ep_scale,
-                self._b_tilde[0]._data,
-                self._b_tilde[1]._data,
-                self._b_tilde[2]._data,
+                self.b_tilde.spline.vector[0]._data,
+                self.b_tilde.spline.vector[1]._data,
+                self.b_tilde.spline.vector[2]._data,
                 self._b2[0]._data,
                 self._b2[1]._data,
                 self._b2[2]._data,
@@ -447,7 +444,7 @@ class CurrentCoupling5DGradB(Propagator):
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         b_full = self._b2.copy(out=self._b_full)
 
-        b_full += self._b_tilde
+        b_full += self.b_tilde.spline.vector
         b_full.update_ghost_regions()
 
         if self.options.algo == "explicit":
@@ -483,7 +480,7 @@ class CurrentCoupling5DGradB(Propagator):
 
                 # calculate u^{n+1}_k
                 u_temp = un.copy(out=self._u_temp)
-                u_temp += ku * dt * self.options.butcher.a[stage]
+                u_temp += ku * dt * self.options.butcher.a_stage[stage]
 
                 u_temp.update_ghost_regions()
 
@@ -518,7 +515,7 @@ class CurrentCoupling5DGradB(Propagator):
             alpha = self.options.dg_solver_params.relaxation_factor
 
             # eval parallel tilde b and its gradient
-            PB_b = self._PB.dot(self._b_tilde, out=self._PB_b)
+            PB_b = self._PB.dot(self.b_tilde.spline.vector, out=self._PB_b)
             PB_b.update_ghost_regions()
             grad_PB_b = self.derham.grad.dot(PB_b, out=self._grad_PB_b)
             grad_PB_b.update_ghost_regions()

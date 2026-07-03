@@ -1,3 +1,4 @@
+import copy
 import logging
 
 from feectools.ddm.mpi import mpi as MPI
@@ -25,65 +26,22 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class LinearMHDVlasovPC(StruphyModel):
-    r"""
-    Hybrid linear MHD + energetic ions (6D Vlasov) with **pressure coupling scheme**.
+    """Hybrid linear MHD coupled with energetic ions (6D Vlasov) via the pressure-coupling scheme.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat U = \hat v =: \hat v_\textnormal{A, bulk} \,, \qquad
-        \hat f_\textnormal{h} = \frac{\hat n}{\hat v_\textnormal{A}^3} \,,\qquad 
-        \hat{\mathbb{P}}_\textnormal{h} = A_\textnormal{h}m_\textnormal{H}\hat n \hat v_\textnormal{A}^2\,,
-
-    Implemented equations:
-
-    .. math::
-
-        \begin{align}
-        \textnormal{MHD} &\left\{
-        \begin{aligned}
-        &\frac{\partial \tilde{\rho}}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,, 
-        \\
-        \rho_0 &\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p + \frac{A_\textnormal{h}}{A_\textnormal{b}} \nabla\cdot \tilde{\mathbb{P}}_{\textnormal{h},\perp}
-        =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 + \mathbf{J}_0\times \tilde{\mathbf{B}}
-        \,, \qquad
-        \mathbf{J}_0 = \nabla\times\mathbf{B}_0\,, 
-        \\
-        &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) 
-        + \frac{2}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,, 
-        \\
-        &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
-        = 0\,,
-        \end{aligned}
-        \right.
-        \\[2mm]
-        \textnormal{EPs}\,\, &\left\{\,\,
-        \begin{aligned}
-        &\quad\,\,\frac{\partial f_\textnormal{h}}{\partial t} + (\mathbf{v} + \tilde{\mathbf{U}}_\perp)\cdot \nabla f_\textnormal{h}
-        + \left[\frac{1}{\epsilon}\, \mathbf{v}\times(\mathbf{B}_0 + \tilde{\mathbf{B}}) - \nabla \tilde{\mathbf{U}}_\perp\cdot \mathbf{v} \right]\cdot \frac{\partial f_\textnormal{h}}{\partial \mathbf{v}}
-        = 0\,,
-        \\
-        &\quad\,\,\tilde{\mathbb{P}}_{\textnormal{h},\perp} = \int \mathbf{v}_\perp\mathbf{v}^\top_\perp f_\textnormal{h} d\mathbf{v} \,,
-        \end{aligned}
-        \right.
-        \end{align}
-
-    where 
-
-    .. math::
-
-        \epsilon = \frac{\hat \omega}{2 \pi \, \hat \Omega_{\textnormal{c,hot}}} \,,\qquad \textnormal{with} \qquad\hat \Omega_{\textnormal{c,hot}} = \frac{Z_\textnormal{h}e \hat B}{A_\textnormal{h} m_\textnormal{H}}\,.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.push_eta_pc.PushEtaPC`
-    2. :class:`~struphy.propagators.push_vxb.PushVxB`
-    3. :class:`~struphy.propagators.pressure_coupling_6d.PressureCoupling6D`
-    4. :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`
-    5. :class:`~struphy.propagators.magnetosonic.Magnetosonic`
-
-    :ref:`Model info <add_model>`:
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    mhd_mass_number: float
+        Mass number (in units of Proton mass) of the MHD bulk species (default: 1.0)
+    hot_charge_number: int
+        Charge number (in units of the positive elementary charge) of the energetic ion species (default: 1)
+    hot_mass_number: float
+        Mass number (in units of Proton mass) of the energetic ion species (default: 1.0)
+    hot_epsilon: float, optional
+        Normalized cyclotron period of the energetic ion species. If None, computed from units and charge/mass numbers.
+    turn_off: tuple[str, ...]
+        Names of coupling terms to turn off (default: (None,))
     """
 
     @classmethod
@@ -120,17 +78,23 @@ class LinearMHDVlasovPC(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self, turn_off: tuple[str, ...] = (None,)):
+        def __init__(
+            self,
+            turn_off: tuple[str, ...] = (None,),
+            b2_var: FEECVariable = None,
+            b_field: FEECVariable = None,
+            u_tilde: FEECVariable = None,
+        ):
             if "PushEtaPC" not in turn_off:
-                self.push_eta_pc = PushEtaPC()
+                self.push_eta_pc = PushEtaPC(u_tilde=u_tilde)
             if "PushVxB" not in turn_off:
-                self.push_vxb = PushVxB()
+                self.push_vxb = PushVxB(b2_var=b2_var)
             if "PressureCoupling6D" not in turn_off:
                 self.pc6d = PressureCoupling6D()
             if "ShearAlfven" not in turn_off:
                 self.shearalfven = ShearAlfvenPropagator()
             if "Magnetosonic" not in turn_off:
-                self.magnetosonic = Magnetosonic()
+                self.magnetosonic = Magnetosonic(b_field=b_field)
 
     def __init__(
         self,
@@ -141,6 +105,9 @@ class LinearMHDVlasovPC(StruphyModel):
         hot_epsilon: float = None,
         turn_off: tuple[str, ...] = (None,),
     ):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -155,7 +122,12 @@ class LinearMHDVlasovPC(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators(turn_off)
+        self.propagators = self.Propagators(
+            turn_off,
+            b2_var=self.em_fields.b_field,
+            b_field=self.em_fields.b_field,
+            u_tilde=self.mhd.velocity,
+        )
 
         # 4. assign variables to propagators
         if "ShearAlfven" not in turn_off:
@@ -196,6 +168,13 @@ class LinearMHDVlasovPC(StruphyModel):
     @property
     def velocity_scale(self):
         return "alfvén"
+
+    def allocate_helpers(self):
+        self._ones = Propagator.projected_equil.p3.space.zeros()
+        if isinstance(self._ones, PolarVector):
+            self._ones.tp[:] = 1.0
+        else:
+            self._ones[:] = 1.0
 
     @classmethod
     def doc_pde(cls):
@@ -263,6 +242,14 @@ class LinearMHDVlasovPC(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence):
+
+        1. :class:`~struphy.propagators.push_eta_pc.PushEtaPC`
+        2. :class:`~struphy.propagators.push_vxb.PushVxB`
+        3. :class:`~struphy.propagators.pressure_coupling_6d.PressureCoupling6D`
+        4. :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`
+        5. :class:`~struphy.propagators.magnetosonic.Magnetosonic`
+        """
         doc = rf"""**1. push_eta_pc.PushEtaPC:**
 
     {PushEtaPC.__doc__}
@@ -322,41 +309,3 @@ class LinearMHDVlasovPC(StruphyModel):
         - nonlinear hybrid turbulence
         - dissipative/resistive MHD
         - fully kinetic treatment of the bulk plasma"""
-
-    def allocate_helpers(self, verbose: bool = False):
-        self._ones = Propagator.projected_equil.p3.space.zeros()
-        if isinstance(self._ones, PolarVector):
-            self._ones.tp[:] = 1.0
-        else:
-            self._ones[:] = 1.0
-
-    ## default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "magnetosonic.Options" in line:
-                    new_file += [
-                        """model.propagators.magnetosonic.options = model.propagators.magnetosonic.Options(
-                        b_field=model.em_fields.b_field,)\n""",
-                    ]
-
-                elif "push_eta_pc.Options" in line:
-                    new_file += [
-                        """model.propagators.push_eta_pc.options = model.propagators.push_eta_pc.Options(
-                        u_tilde = model.mhd.velocity,)\n""",
-                    ]
-
-                elif "push_vxb.Options" in line:
-                    new_file += [
-                        """model.propagators.push_vxb.options = model.propagators.push_vxb.Options(
-                        b2_var = model.em_fields.b_field,)\n""",
-                    ]
-
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)
