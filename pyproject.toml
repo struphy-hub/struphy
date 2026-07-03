@@ -76,7 +76,7 @@ dev = [
     "tomli-w",
     "kaleido",
     "pandas",
-    "slurm-script-generator",
+    "slurm-script-generator>=0.3.3",
 ]
 doc = [
     "struphy[phys]",
