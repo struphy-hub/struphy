@@ -1,7 +1,7 @@
 .. _install:
 
-Install
-=======
+Installation
+============
 
 .. _require:
 
@@ -382,7 +382,7 @@ Or, if you want the source code (with tests, examples and tutorials), install fr
     pip install .[mpi]
     struphy compile
 
-3. When using SLURM, make sure to activate the virtual environment in your BATCH script::
+4. When using SLURM, make sure to activate the virtual environment in your BATCH script::
 
     source struphy-env/bin/activate
 
@@ -404,7 +404,7 @@ MPCDF cluster installation
 
     pip install -U struphy --no-binary mpi4py
 
-3. When using SLURM, make sure to activate the virtual environment in your BATCH script::
+4. When using SLURM, make sure to activate the virtual environment in your BATCH script::
 
     source struphy-env/bin/activate
 

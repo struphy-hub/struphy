@@ -37,7 +37,7 @@ config = {
             "class": "logging.handlers.RotatingFileHandler",
             "level": "WARNING",
             "formatter": "detailed",
-            "filename": "tmp/struphy.log",
+            "filename": "struphy.log",
             "maxBytes": 10000,
             "backupCount": 3,
         },
