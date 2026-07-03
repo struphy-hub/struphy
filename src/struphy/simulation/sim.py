@@ -125,7 +125,7 @@ class Simulation(SimulationBase):
         self._description = description
         self._model = model
         self._params_path = params_path
-        self._env = env
+        self.env = env
         self._time_opts = time_opts
         self._setup_domain_and_equil(domain, equil)
         self._grid = grid
@@ -175,9 +175,6 @@ class Simulation(SimulationBase):
         # meta-data
         path_out = env.path_out
         num_clones = env.num_clones
-
-        # creating output folders
-        self._setup_folders()
 
         # save parameter file
         if self.rank == 0:
@@ -1500,6 +1497,9 @@ if __name__ == "__main__":
     def env(self, value: EnvironmentOptions):
         """Update the environment options for the simulation."""
         self._env = value
+
+        # create output folders
+        self._setup_folders()
 
     @property
     def time_opts(self):

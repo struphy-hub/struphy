@@ -29,7 +29,6 @@ def main() -> None:
     from params_diocotron import sim
 
     sim.env = env
-    sim.meta["output folder"] = env.path_out
     sim._setup_folders()
 
     sim.run(one_time_step=True)
