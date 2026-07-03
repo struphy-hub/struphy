@@ -19,10 +19,9 @@ def main() -> None:
     parser.add_argument("nranks", type=int, help="Number of MPI ranks used for the run")
     num_ranks = parser.parse_args().nranks
 
-    out_folders = default_out_root / f"n{num_ranks}"
     env = EnvironmentOptions(
-        out_folders=str(out_folders),
-        sim_folder=f"sim_{num_ranks}",
+        out_folders=str(default_out_root),
+        sim_folder=f"sim_ranks{num_ranks}",
         profiling_activated=True,
         profiling_trace=True,
     )
@@ -32,14 +31,6 @@ def main() -> None:
     sim.env = env
     sim.meta["output folder"] = env.path_out
     sim._setup_folders()
-
-    ProfileManager.finalize()
-    ProfileManager.setup(
-        profiling_activated=env.profiling_activated,
-        time_trace=env.profiling_trace,
-        use_likwid=False,
-        file_path=str(Path(env.path_out) / "profiling_data.h5"),
-    )
 
     sim.run(one_time_step=True)
 
