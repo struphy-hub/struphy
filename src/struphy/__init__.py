@@ -2,6 +2,7 @@
 import atexit
 import logging
 import logging.config
+import os
 
 from feectools.ddm.mpi import mpi as MPI
 
@@ -13,7 +14,6 @@ class RankZeroFilter(logging.Filter):
 
     def filter(self, record):
         return self.rank == 0
-
 
 # logger configuration
 config = {
@@ -37,7 +37,7 @@ config = {
             "class": "logging.handlers.RotatingFileHandler",
             "level": "WARNING",
             "formatter": "detailed",
-            "filename": "/tmp/struphy.log",
+            "filename": "struphy.log",
             "maxBytes": 10000,
             "backupCount": 3,
         },
@@ -72,6 +72,9 @@ def setup_logging(logging_level: int = logging.WARNING):
     """Setup logging configuration for struphy."""
     logger = logging.getLogger("struphy")
 
+    log_path = config["handlers"]["file"]["filename"]
+    os.makedirs(os.path.dirname(log_path) or ".", exist_ok=True)
+
     logging.config.dictConfig(config)
 
     set_logging_level(logging_level)
@@ -103,7 +106,7 @@ def setup_logging(logging_level: int = logging.WARNING):
 # Default logging setup
 logger = logging.getLogger("struphy")
 setup_logging(logging_level=logging.WARNING)
-logger.info("Logging setup complete.")
+logger.info(f"Logging setup complete, log-file at {config['handlers']['file']['filename']}")
 
 # Import API components
 from struphy.api.domains import domains
