@@ -1341,7 +1341,7 @@ if __name__ == "__main__":
     #     bcs=(("dirichlet", "dirichlet"), None, ("dirichlet", "dirichlet")),
     #     show_plots=True,
     test_identity_mapping_equivalence(
-        num_elements=(8, 1, 1),
+        num_elements=(3, 1, 1),
         degree=(1, 1, 1),
         bcs=(None, None, None),
         # bcs=(("dirichlet", "dirichlet"), None, None),
