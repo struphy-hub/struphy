@@ -109,7 +109,7 @@ def struphy_compile(
     # actions
     if delete:
         # (change dir not to be in source path)
-        logger.info("\nDeleting .f90/.c and .so files ...")
+        print("\nDeleting .f90/.c and .so files ...")
         # TODO: for using pyccel clean in the future
         # cmd = [
         #     "pyccel",
@@ -123,19 +123,19 @@ def struphy_compile(
             "sources=" + sources,
         ]
         subp_run(cmd)
-        logger.info("Done.")
+        print("Done.")
 
-        logger.info("\nDeleting psydac kernels ...")
+        print("\nDeleting psydac kernels ...")
         cmd = [
             "psydac-accelerate",
             "--cleanup",
         ]
         subp_run(cmd)
-        logger.info("Done.")
+        print("Done.")
 
-        logger.info("\nDeleting state.yml ...")
+        print("\nDeleting state.yml ...")
         os.remove(os.path.join(libpath, "state.yml"))
-        logger.info("Done.")
+        print("Done.")
 
     elif status:
         # update status
@@ -176,19 +176,19 @@ def struphy_compile(
                             list_not_compiled.remove(matching)
 
         n_kernels = len(state["kernels"])
-        logger.info("")
-        logger.info(f"{count_c} of {n_kernels} Struphy kernels are compiled with language C.")
-        logger.info(
+        print("")
+        print(f"{count_c} of {n_kernels} Struphy kernels are compiled with language C.")
+        print(
             f"{count_f90} of {n_kernels} Struphy kernels are compiled with language Fortran.",
         )
-        logger.info(f"{n_kernels - count_c - count_f90} of {n_kernels} Struphy kernels are not compiled (pure Python).")
-        logger.info(
+        print(f"{n_kernels - count_c - count_f90} of {n_kernels} Struphy kernels are not compiled (pure Python).")
+        print(
             f"\ncompiler={state['last_used_compiler']}\nflags_omp_pic={state['last_used_omp_pic']}\nflags_omp_feec={state['last_used_omp_feec']}",
         )
         if len(list_not_compiled) > 0:
-            logger.info("\nPure Python kernels (not compiled) are:")
+            print("\nPure Python kernels (not compiled) are:")
             for ker in list_not_compiled:
-                logger.info(ker)
+                print(ker)
 
         state["kernels_n"] = n_kernels
         state["compiled_in_c"] = count_c
@@ -199,14 +199,14 @@ def struphy_compile(
         utils.save_state(state)
 
     elif dependencies:
-        logger.info("\nAuto-detect dependencies ...")
+        print("\nAuto-detect dependencies ...")
         for ker in state["kernels"]:
             deps = depmod.get_dependencies(ker.replace(".py", so_suffix))
             deps_li = deps.split(" ")
-            logger.info("-" * 28)
-            logger.info(f"{ker =}")
+            print("-" * 28)
+            print(f"{ker =}")
             for dep in deps_li:
-                logger.info(f"{dep =}")
+                print(f"{dep =}")
 
     else:
         # struphy and psydac (change dir not to be in source path)
@@ -257,7 +257,7 @@ def struphy_compile(
         # Compile psydac kernels, note that this is a special function call in psydac-for-struphy.
         # Otherwise, psydac only allows for recompiling the kernels when installed in editable mode.
 
-        logger.info("\nCompiling Psydac kernels ...")
+        print("\nCompiling Psydac kernels ...")
         cmd = [
             "psydac-accelerate",
             "--language=" + language,
@@ -279,7 +279,7 @@ def struphy_compile(
             flags += " --verbose"
 
         # compilation
-        logger.info("\nCompiling Struphy kernels ...")
+        print("\nCompiling Struphy kernels ...")
         kernel_file = os.path.join(libpath, "kernels.txt")
         # TODO: for using pyccel make in the future
         # cmd = [
@@ -299,7 +299,7 @@ def struphy_compile(
             "flags_openmp_mhd=" + flag_omp_feec,
         ]
         subp_run(cmd)
-        logger.info("Done.")
+        print("Done.")
 
         cmd = [
             "struphy",

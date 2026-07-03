@@ -95,12 +95,11 @@ src/struphy/io/inp/params_*
 *.bin
 
 # models list
-src/struphy/models/models_list
-src/struphy/models/models_message
-
 bin/
 share/
+tmp/
 
 lib64
 pyvenv.cfg
 *profile_output*.txt
+*kernels.txt
