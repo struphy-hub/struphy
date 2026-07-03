@@ -1,8 +1,9 @@
+import sys
 from argparse import ArgumentParser
 from pathlib import Path
-import sys
 
 from scope_profiler import ProfileManager
+
 from struphy import EnvironmentOptions
 
 script_dir = Path(__file__).resolve().parent

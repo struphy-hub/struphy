@@ -36,7 +36,7 @@ def build_case_commands(case: ProfilingCase) -> list[str]:
                 "",
                 f'echo "Running {case.name} with {ntasks} MPI ranks"',
                 f'mpirun -n {ntasks} {case.command.format(nranks=ntasks)} > "{log_file}" 2>&1',
-            ]
+            ],
         )
 
     return commands
@@ -76,7 +76,10 @@ def main() -> None:
         output_path = repo_root / f"job_profile_{case.name}.sh"
         script.save(output_path)
         text = output_path.read_text(encoding="utf-8")
-        output_path.write_text(text.replace("#!/bin/bash\n", "#!/bin/bash -l\n", 1), encoding="utf-8")
+        output_path.write_text(
+            text.replace("#!/bin/bash\n", "#!/bin/bash -l\n", 1),
+            encoding="utf-8",
+        )
         print(f"Generated {output_path}")
 
 
