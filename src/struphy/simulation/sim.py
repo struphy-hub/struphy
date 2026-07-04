@@ -174,25 +174,7 @@ class Simulation(SimulationBase):
 
         # meta-data
         path_out = env.path_out
-        restart = env.restart
-        max_runtime = env.max_runtime
-        save_step = env.save_step
-        sort_step = env.sort_step
         num_clones = env.num_clones
-        use_mpi = (self.comm is not None,)
-
-        self.meta = {}
-        self.meta["platform"] = sysconfig.get_platform()
-        self.meta["python version"] = sysconfig.get_python_version()
-        self.meta["model name"] = self.model_name
-        self.meta["parameter file"] = self.params_path
-        self.meta["output folder"] = path_out
-        self.meta["MPI processes"] = self.comm_size
-        self.meta["use MPI.COMM_WORLD"] = use_mpi
-        self.meta["number of domain clones"] = num_clones
-        self.meta["restart"] = restart
-        self.meta["max wall-clock [min]"] = max_runtime
-        self.meta["save interval [steps]"] = save_step
 
         # creating output folders
         self._setup_folders()
@@ -660,12 +642,25 @@ RESTARTing from:
 
         # ===================================================================
 
-        self.meta["wall-clock time[min]"] = (end_time - self.start_time) / 60
         self.Barrier()
 
         if self.rank == 0:
             # save meta-data
-            dict_to_yaml(self.meta, os.path.join(self.env.path_out, "meta.yml"))
+            meta = {
+                "platform": sysconfig.get_platform(),
+                "python version": sysconfig.get_python_version(),
+                "model name": self.model_name,
+                "parameter file": self.params_path,
+                "output folder": self.env.path_out,
+                "MPI processes": self.comm_size,
+                "use MPI.COMM_WORLD": self.comm is not None,
+                "number of domain clones": self.env.num_clones,
+                "restart": self.env.restart,
+                "max wall-clock [min]": self.env.max_runtime,
+                "save interval [steps]": self.env.save_step,
+                "wall-clock time[min]": (end_time - self.start_time) / 60,
+            }
+            dict_to_yaml(meta, os.path.join(self.env.path_out, "meta.yml"))
         logger.warning("Struphy run finished.")
 
         if self.clone_config is not None:
