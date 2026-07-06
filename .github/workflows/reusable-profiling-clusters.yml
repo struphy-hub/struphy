@@ -35,6 +35,10 @@ jobs:
       # Checkout the repository
       - name: Checkout code
         uses: actions/checkout@v5
+      
+      - name: Install and run tests
+        run: |
+          bash .github/scripts/install_and_test.sh "${{ matrix.compile-language }}"
 
       # - name: Say hello from cluster
       #   shell: bash
