@@ -1047,9 +1047,12 @@ class WeightedMassOperators:
                     if out_dim == 3:
                         f_call_scalars.append(f)
                     elif out_dim == 4:
-                        f_call_column_vector = f
-                        f_call_row_vector = f
-                    elif out_dim == 5:
+                        if V_id in ("H1", "L2") and W_id in ("Hcurl", "Hdiv", "H1vec"):
+                            f_call_column_vector = f
+                        elif V_id in ("Hcurl", "Hdiv", "H1vec") and W_id in ("H1", "L2"):
+                            f_call_row_vector = f
+                        else:
+                            raise ValueError(f"Vector weight {f} is only supported for scalar<->vector maps; got {V_id}->{W_id}.")
                         f_call_matrices.append(f)
                     else:
                         raise ValueError(
