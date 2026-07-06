@@ -263,7 +263,7 @@ class WeightedMassOperators:
                 weights=(
                     "Ginv",
                     "sqrt_g",
-                    "eq_n0",
+                    lambda *etas: self.eq_mhd.n0(*etas),
                 ),
                 name="M1n",
                 assemble=True,
@@ -291,7 +291,7 @@ class WeightedMassOperators:
                 weights=(
                     "G",
                     "1/sqrt_g",
-                    "eq_n0",
+                    lambda *etas: self.eq_mhd.n0(*etas),
                 ),
                 name="M2n",
                 assemble=True,
@@ -319,7 +319,7 @@ class WeightedMassOperators:
                 weights=(
                     "G",
                     "sqrt_g",
-                    "eq_n0",
+                    lambda *etas: self.eq_mhd.n0(*etas),
                 ),
                 name="Mvn",
                 assemble=True,
@@ -657,7 +657,7 @@ class WeightedMassOperators:
                 weights=(
                     rot_B,
                     "1/sqrt_g",
-                    "eq_n0",
+                    lambda *etas: 1 / self.eq_mhd.n0(*etas),
                 ),
                 name="M2Bn",
                 assemble=True,
@@ -768,8 +768,7 @@ class WeightedMassOperators:
                 "Hcurl",
                 weights=(
                     bb,
-                    lambda *etas: 1 / self.eq_mhd.absB0(*etas) ** 2,
-                    "eq_n0",
+                    lambda *etas: self.eq_mhd.n0(*etas) / self.eq_mhd.absB0(*etas) ** 2,
                     "sqrt_g",
                 ),
                 name="M1para_MHDeq",
@@ -793,8 +792,7 @@ class WeightedMassOperators:
                 "Hcurl",
                 weights=(
                     "Ginv",
-                    lambda *etas: 1 / self.eq_mhd.absB0(*etas) ** 2,
-                    "eq_n0",
+                    lambda *etas: self.eq_mhd.n0(*etas) / self.eq_mhd.absB0(*etas) ** 2,
                     "sqrt_g",
                 ),
                 name="M1_MHDeq",
@@ -835,7 +833,7 @@ class WeightedMassOperators:
                 "H1",
                 "H1",
                 weights=(
-                    "eq_n0",
+                    lambda *etas: self.eq_mhd.n0(*etas),
                     "sqrt_g",
                 ),
                 name="M0ad",
@@ -861,8 +859,7 @@ class WeightedMassOperators:
                 "H1",
                 "H1",
                 weights=(
-                    "eq_n0",
-                    lambda *etas: 1 / self.eq_mhd.t0(*etas),
+                    lambda *etas: self.eq_mhd.n0(*etas) / self.eq_mhd.t0(*etas),
                     "sqrt_g",
                 ),
                 name="M0ad_withT",
@@ -935,15 +932,11 @@ class WeightedMassOperators:
 
                     Supported tuple entries are:
 
-                    - Strings (predefined names):
-                        ``'G'``, ``'Ginv'``, ``'DFinv'``, ``'DFinvT'``, ``'sqrt_g'``, ``'Identity'``.
-                    - Strings from equilibrium methods:
-                        ``'eq_<method_name>'`` for methods of :class:`~struphy.fields_background.base.MHDequilibrium`.
-                    - Reciprocal strings:
-                        ``'1/sqrt_g'``, ``'1/eq_n0'``, ``'1/eq_absB0'``.
-                    - Nested ``3x3`` Python lists (constant matrix entries).
+                    - Strings (predefined names) for metric and Jacobian-related weights:
+                        ``'G'``, ``'Ginv'``, ``'DFinv'``, ``'DFinvT'``, ``'sqrt_g'``, ``'1/sqrt_g'``, ``'Identity'``.
                     - Callables (including objects such as local rotation matrices) returning
                         either scalar values or ``3x3`` matrix values at quadrature points.
+                    - Nested ``3x3`` Python lists (constant matrix entries).
                     - :class:`~struphy.feec.psydac_derham.SplineFunction` instances.
 
                     Example:
@@ -978,46 +971,42 @@ class WeightedMassOperators:
                 if isinstance(f, str):
                     # determine the callable and add to list f_call_
                     logger.debug(f"Processing string weight {f}.")
-                    if f == "1/sqrt_g":
+                    if f == "G":
+                        f_call = lambda e1, e2, e3: self.domain.metric(e1, e2, e3, change_out_order=True)
+                        f_call_matrices.append(f_call)
+                    elif f == "Ginv":
+                        f_call = lambda e1, e2, e3: self.domain.metric_inv(e1, e2, e3, change_out_order=True)
+                        f_call_matrices.append(f_call)
+                    elif f == "DFinv":
+                        f_call = lambda e1, e2, e3: self.domain.jacobian_inv(e1, e2, e3, change_out_order=True)
+                        f_call_matrices.append(f_call)
+                    elif f == "DFinvT":
+                        f_call = lambda e1, e2, e3: self.domain.jacobian_inv(
+                            e1, e2, e3, change_out_order=True, transposed=True
+                        )
+                        f_call_matrices.append(f_call)
+                    elif f == "sqrt_g":
+                        f_call = lambda e1, e2, e3: abs(self.domain.jacobian_det(e1, e2, e3))
+                        f_call_scalars.append(f_call)
+                    elif f == "1/sqrt_g":
                         f_call = lambda e1, e2, e3: 1.0 / abs(self.domain.jacobian_det(e1, e2, e3))
                         f_call_scalars.append(f_call)
-                    elif "eq_n0" in f:
-                        f_call = getattr(self.eq_mhd, "n0")
-                        f_call_scalars.append(f_call)
+                    elif f == "Identity":
+
+                        def f_call(e1, e2, e3):
+                            """Identity callable."""
+                            # to keep C-ordering the (3, 3)-part is in the last indices
+                            out = xp.zeros((3, 3, e1.shape[0], e2.shape[1], e3.shape[2]), dtype=float)
+                            out[0, 0] = 1.0
+                            out[1, 1] = 1.0
+                            out[2, 2] = 1.0
+                            return xp.transpose(out, axes=(2, 3, 4, 0, 1))
+
+                        f_call_matrices.append(f_call)
                     else:
-                        if f == "G":
-                            f_call = lambda e1, e2, e3: self.domain.metric(e1, e2, e3, change_out_order=True)
-                            f_call_matrices.append(f_call)
-                        elif f == "Ginv":
-                            f_call = lambda e1, e2, e3: self.domain.metric_inv(e1, e2, e3, change_out_order=True)
-                            f_call_matrices.append(f_call)
-                        elif f == "DFinv":
-                            f_call = lambda e1, e2, e3: self.domain.jacobian_inv(e1, e2, e3, change_out_order=True)
-                            f_call_matrices.append(f_call)
-                        elif f == "DFinvT":
-                            f_call = lambda e1, e2, e3: self.domain.jacobian_inv(
-                                e1, e2, e3, change_out_order=True, transposed=True
-                            )
-                            f_call_matrices.append(f_call)
-                        elif f == "sqrt_g":
-                            f_call = lambda e1, e2, e3: abs(self.domain.jacobian_det(e1, e2, e3))
-                            f_call_scalars.append(f_call)
-                        elif f == "Identity":
-
-                            def f_call(e1, e2, e3):
-                                """Identity callable."""
-                                # to keep C-ordering the (3, 3)-part is in the last indices
-                                out = xp.zeros((3, 3, e1.shape[0], e2.shape[1], e3.shape[2]), dtype=float)
-                                out[0, 0] = 1.0
-                                out[1, 1] = 1.0
-                                out[2, 2] = 1.0
-                                return xp.transpose(out, axes=(2, 3, 4, 0, 1))
-
-                            f_call_matrices.append(f_call)
-                        else:
-                            raise NotImplementedError(
-                                f"The option {f} is not available.",
-                            )
+                        raise NotImplementedError(
+                            f"The option {f} is not available.",
+                        )
                 elif isinstance(f, list):
                     assert len(f) == 3
                     logger.debug(f"Processing nested list weight {f}.")
