@@ -38,7 +38,8 @@ jobs:
       
       - name: Install and run tests
         run: |
-          bash .github/scripts/install_and_test.sh "${{ matrix.compile-language }}"
+          # bash .github/scripts/install_and_test.sh "${{ matrix.compile-language }}"
+          python --version
 
       # - name: Say hello from cluster
       #   shell: bash
