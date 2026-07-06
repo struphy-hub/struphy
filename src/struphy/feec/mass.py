@@ -1025,12 +1025,16 @@ class WeightedMassOperators:
                         assert isinstance(fi, list)
                         assert len(fi) == 3
 
+                    # copy the values of the nested list to avoid any issues with references
+                    values = tuple([tuple([value for value in fi_row]) for fi_row in f])
+
                     def f_call(e1, e2, e3):
                         """Nested list callable."""
                         out = xp.zeros((3, 3, e1.shape[0], e2.shape[1], e3.shape[2]), dtype=float)
                         for m in range(3):
                             for n in range(3):
-                                out[m, n] = f[m][n]
+                                logger.debug(f"{values[m][n] = }")
+                                out[m, n] = values[m][n]
                         return xp.transpose(out, axes=(2, 3, 4, 0, 1))
 
                     f_call_matrices.append(f_call)
