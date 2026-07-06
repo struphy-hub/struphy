@@ -65,7 +65,7 @@ def main() -> None:
         ProfilingCase(
             name="diocotron_poisson_scaling",
             command="python /toks/work/maxlin/git_repos/struphy/profiling/run_diocotron.py {nranks}",
-            ranks=(1, 2, 4, 8, 16, 32, 64),
+            ranks=(1, 2, 4, 8),
         ),
     ]
 
