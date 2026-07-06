@@ -39,6 +39,7 @@ jobs:
       - name: Install and run tests
         run: |
           bash hello.sh 
+          echo "hello"
 
       # bash .github/scripts/install_and_test.sh "${{ matrix.compile-language }}"
       # - name: Say hello from cluster
