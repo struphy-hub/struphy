@@ -131,18 +131,6 @@ class Simulation(SimulationBase):
         self._grid = grid
         self._derham_opts = derham_opts
 
-        # setup profiling agent
-        ProfileManager.setup(
-            profiling_activated=env.profiling_activated,
-            time_trace=env.profiling_trace,
-            use_likwid=False,
-            file_path=os.path.join(
-                env.out_folders,
-                env.sim_folder,
-                "profiling_data.h5",
-            ),
-        )
-
         # mpi info
         if isinstance(MPI, MockMPI):
             self.comm = None
@@ -234,6 +222,19 @@ class Simulation(SimulationBase):
     # ----------------
     # Abstract methods
     # ----------------
+
+    def _setup_profiling(self):
+        # setup profiling agent
+        ProfileManager.setup(
+            profiling_activated=self.env.profiling_activated,
+            time_trace=self.env.profiling_trace,
+            use_likwid=False,
+            file_path=os.path.join(
+                self.env.out_folders,
+                self.env.sim_folder,
+                "profiling_data.h5",
+            ),
+        )
 
     def show_parameters(self):
         """Print the current simulation configuration to stdout.
@@ -1500,6 +1501,7 @@ if __name__ == "__main__":
 
         # create output folders
         self._setup_folders()
+        self._setup_profiling()
 
     @property
     def time_opts(self):
