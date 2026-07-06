@@ -3,10 +3,7 @@ import logging
 import pytest
 from matplotlib import pyplot as plt
 
-from struphy import set_logging_level
-
 logger = logging.getLogger("struphy")
-set_logging_level(logging.DEBUG)
 
 
 @pytest.mark.parametrize("matrix_free", [False])
@@ -529,8 +526,6 @@ def test_identity_mapping_equivalence(num_elements, degree, bcs, matrix_free, ma
     e = xp.array([0.5])
     ee1, ee2, ee3 = xp.meshgrid(e, e, e, indexing="ij")
 
-    print(f"{rot_B1(ee1, ee2, ee3) = }")
-    print(f"{rot_B2(ee1, ee2, ee3) = }")
     if isinstance(domain, domains.Cuboid):
         assert xp.all(rot_B1(ee1, ee2, ee3) == rot_B2(ee1, ee2, ee3)), (
             "Rotation matrices for B1 and B2 are not equal at the same point."
@@ -559,8 +554,6 @@ def test_identity_mapping_equivalence(num_elements, degree, bcs, matrix_free, ma
 
     print(f"{M1B1.toarray().shape = }")
     print(f"{M1B2.toarray().shape = }")
-    logger.debug(f"{M1B2.toarray() = }")
-    logger.debug(f"{M1B1.toarray() = }")
 
     assert xp.all(xp.isclose(M1B1.toarray(), M1B2.toarray())), "Mass matrices for B1 and B2 are not equal."
 
