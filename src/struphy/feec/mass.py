@@ -1157,6 +1157,7 @@ class WeightedMassOperators:
                             weights_values[m][n] *= tmp
 
         else:
+            logger.debug(f"Processing weights of type {type(weights)}.")
             weights_values = weights
 
         out = WeightedMassOperator(
