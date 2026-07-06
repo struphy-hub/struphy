@@ -37,6 +37,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Say hello from cluster
+        shell: bash
         run: |
           set -euxo pipefail
 
@@ -49,6 +50,7 @@ jobs:
           python --version
       
       - name: Print some information
+        shell: bash
         run: |
           echo "Current date and time: $(date)"
           echo "Current user: $(whoami)"
@@ -64,5 +66,6 @@ jobs:
           whereami
 
       - name: Submit SLURM job
+        shell: bash
         run: |
           python profiling/submit_diocotron_job.py
