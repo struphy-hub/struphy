@@ -32,11 +32,13 @@ def build_case_commands(case: ProfilingCase) -> list[str]:
     for ntasks in case.ranks:
         # case_dir = output_root / case.name / f"n{ntasks}"
         # log_file = case_dir / "run.log"
+        sim_dir = output_root / case.name / f"sim_ranks{ntasks}"
         commands.extend(
             [
                 "",
                 f'echo "Running {case.name} with {ntasks} MPI ranks"',
                 f'mpirun -n {ntasks} {case.command.format(nranks=ntasks)}', # > "{log_file}" 2>&1',
+                f"scope-profiler-pproc {sim_dir / 'profiling_data.h5'} -o {sim_dir}",
             ],
         )
 
@@ -77,26 +79,10 @@ def main() -> None:
         print(script)
         
         output_path = repo_root / f"job_profile_{case.name}.sh"
-        # script.save(output_path, verbose=True)
-        # exit()
-        # script.save(output_path)
-        # text = output_path.read_text(encoding="utf-8")
-        # output_path.write_text(
-        #     text.replace("#!/bin/bash\n", "#!/bin/bash -l\n", 1),
-        #     encoding="utf-8",
-        # )
-        # print(f"Generated {output_path}")
 
-        # Do this once the MR has been merged
         job_id = script.submit_job(str(output_path), verbose=True)
         
-
         print(f"Submitted profiling case '{case.name}' with job ID {job_id}. Waiting for completion...")
-
-        # Temporary workaround
-        # script.save(output_path)Python: Select Interpreter
-        # result = subprocess.run(["sbatch", str(output_path)], capture_output=True, text=True, check=True)
-        # job_id = int(result.stdout.strip().split()[-1])
 
         SQueue().wait_until_done(job_id=job_id, poll_interval=1)
 
