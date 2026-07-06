@@ -967,13 +967,12 @@ class WeightedMassOperators:
 
         spline_functions = {}
         if isinstance(weights, tuple):  # Case 3 (1D tuple)
-            
             # save callables in lists for later evaluation at quadrature points
             f_call_scalars = []
             f_call_column_vector = None
             f_call_row_vector = None
             f_call_matrices = []
-            
+
             for n, f in enumerate(weights):
                 logger.debug(f"Processing weight #{n}")
                 if isinstance(f, str):
@@ -1004,6 +1003,7 @@ class WeightedMassOperators:
                             f_call = lambda e1, e2, e3: abs(self.domain.jacobian_det(e1, e2, e3))
                             f_call_scalars.append(f_call)
                         elif f == "Identity":
+
                             def f_call(e1, e2, e3):
                                 """Identity callable."""
                                 # to keep C-ordering the (3, 3)-part is in the last indices
@@ -1012,7 +1012,8 @@ class WeightedMassOperators:
                                 out[1, 1] = 1.0
                                 out[2, 2] = 1.0
                                 return xp.transpose(out, axes=(2, 3, 4, 0, 1))
-                            f_call_matrices.append(f_call) 
+
+                            f_call_matrices.append(f_call)
                         else:
                             raise NotImplementedError(
                                 f"The option {f} is not available.",
@@ -1031,6 +1032,7 @@ class WeightedMassOperators:
                             for n in range(3):
                                 out[m, n] = f[m][n]
                         return xp.transpose(out, axes=(2, 3, 4, 0, 1))
+
                     f_call_matrices.append(f_call)
                 elif isinstance(f, SplineFunction):
                     logger.debug(f"Processing SplineFunction weight {f}.")
@@ -1040,11 +1042,11 @@ class WeightedMassOperators:
                     # Input is a a matrix or a Rotation matrix etc.
                     logger.debug(f"Processing callable weight {f}.")
                     assert callable(f)
-                    
+
                     # determine the output dimension of the callable and add to list f_call_
                     xx, yy, zz = xp.meshgrid(
                         xp.linspace(0, 1, 1),
-                        xp.linspace(0, 1, 2),  
+                        xp.linspace(0, 1, 2),
                         xp.linspace(0, 1, 3),
                         indexing="ij",
                     )
@@ -1075,26 +1077,27 @@ class WeightedMassOperators:
                 assert W_id in ("Hcurl", "Hdiv", "H1vec")
                 assert f_call_column_vector is None
                 assert f_call_row_vector is None
-                
-            # matrix-matrix multiplication of the callables in f_call_matrices to get a single callable 
+
+            # matrix-matrix multiplication of the callables in f_call_matrices to get a single callable
             if len(f_call_matrices) > 0:
+
                 def f_call_matrix(e1, e2, e3):
                     """Matrix-matrix multiplication of the callables in f_call_matrices."""
                     out = f_call_matrices[0](e1, e2, e3)
                     if len(f_call_matrices) > 1:
                         for f in f_call_matrices[1:]:
                             # out = xp.einsum("...ij,...jk->...ik", out, f(e1, e2, e3))
-                            out[:] = out @ f(e1, e2, e3) # the 3x3 part must be in the last two indices
+                            out[:] = out @ f(e1, e2, e3)  # the 3x3 part must be in the last two indices
                     return out
-               
-            # get the evaluation points for the quadrature grid of the codomain space W_id 
+
+            # get the evaluation points for the quadrature grid of the codomain space W_id
             assert W_id in self.derham.spline_attributes, (
                 f"Spline attributes for the codomain space {W_id} not found in the Derham object !!"
             )
-            
+
             quad_grid_pts = self.derham.spline_attributes[W_id].quad_grid_pts
             logger.debug(f"{len(quad_grid_pts) = }")
-            
+
             weights_values = []
             integration_grids = []
             # loop over components of W_id (rows, equal to the number of entries in quad_grid_pts)
@@ -1117,7 +1120,7 @@ class WeightedMassOperators:
             for m, grids_1d in enumerate(integration_grids):
                 logger.debug(f"rows of {W_id}: {m}")
                 E1, E2, E3, _ = Domain.prepare_eval_pts(*grids_1d)
-                
+
                 # matrix or vectors first
                 if len(f_call_matrices) > 0:
                     tmp = f_call_matrix(E1, E2, E3)
@@ -1140,7 +1143,7 @@ class WeightedMassOperators:
                     for n in range(len(weights_values[m])):
                         logger.debug(f"columns of {V_id}: {n}")
                         weights_values[m][n] = tmp[:, :, :, n]
-                    
+
                 # then loop over scalars and multiply with the previous result
                 for f_call in f_call_scalars:
                     tmp = f_call(E1, E2, E3)

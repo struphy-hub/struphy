@@ -2,6 +2,7 @@ import logging
 
 import pytest
 from matplotlib import pyplot as plt
+
 from struphy import set_logging_level
 
 logger = logging.getLogger("struphy")
@@ -412,8 +413,7 @@ def test_rotation(num_elements, degree, bcs, map_and_equil, eps, matrix_free, sh
 @pytest.mark.parametrize("bcs", [(("free", "dirichlet"), None, None)])
 @pytest.mark.parametrize("matrix_free", [False])
 def test_identity_mapping_equivalence(num_elements, degree, bcs, matrix_free=False):
-    """Test whether different choices of basis for the magnetic background yield the same rotation-stabilized mass operator.
-    """
+    """Test whether different choices of basis for the magnetic background yield the same rotation-stabilized mass operator."""
 
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
@@ -442,7 +442,7 @@ def test_identity_mapping_equivalence(num_elements, degree, bcs, matrix_free=Fal
     equil = equils.HomogenSlab()
     equil.domain = domain
     logger.debug(f"{equil = }")
-    
+
     # derham object
     grid = TensorProductGrid(num_elements=num_elements)
     derham_opts = DerhamOptions(degree=degree, bcs=bcs)
@@ -459,26 +459,26 @@ def test_identity_mapping_equivalence(num_elements, degree, bcs, matrix_free=Fal
         equil.b1_2,
         equil.b1_3,
     )
-    
+
     rot_B2 = LocalRotationMatrix(
         equil.b2_1,
         equil.b2_2,
         equil.b2_3,
     )
-    
+
     e = xp.array([0.5])
     ee1, ee2, ee3 = xp.meshgrid(e, e, e, indexing="ij")
-    
+
     print(f"{rot_B1(ee1, ee2, ee3) = }")
     print(f"{rot_B2(ee1, ee2, ee3) = }")
-    assert xp.all(rot_B1(ee1, ee2, ee3) == rot_B2(ee1, ee2, ee3)), "Rotation matrices for B1 and B2 are not equal at the same point."
+    assert xp.all(rot_B1(ee1, ee2, ee3) == rot_B2(ee1, ee2, ee3)), (
+        "Rotation matrices for B1 and B2 are not equal at the same point."
+    )
 
     M1B1 = mass_ops.create_weighted_mass(
         "Hcurl",
         "Hcurl",
-        weights=(
-            rot_B1,
-        ),
+        weights=(rot_B1,),
         name="M1B1",
         assemble=True,
     )
@@ -500,10 +500,8 @@ def test_identity_mapping_equivalence(num_elements, degree, bcs, matrix_free=Fal
     print(f"{M1B2.toarray().shape = }")
     print(f"{M1B2.toarray() = }")
     print(f"{M1B1.toarray() = }")
-    
+
     assert xp.all(xp.isclose(M1B1.toarray(), M1B2.toarray())), "Mass matrices for B1 and B2 are not equal."
-
-
 
 
 @pytest.mark.parametrize("num_elements", [[8, 12, 6]])
@@ -1345,4 +1343,4 @@ if __name__ == "__main__":
         degree=(1, 1, 1),
         bcs=(None, None, None),
         # bcs=(("dirichlet", "dirichlet"), None, None),
-        )
+    )
