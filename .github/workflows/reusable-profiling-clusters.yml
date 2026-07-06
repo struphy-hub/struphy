@@ -35,12 +35,17 @@ jobs:
       # Checkout the repository
       - name: Checkout code
         uses: actions/checkout@v5
-      
+
       - name: Say hello from cluster
         run: |
+          set -euxo pipefail
+
           echo "Hello from cluster!"
-          ls
           pwd
+          whoami
+          hostname
+          which bash
+          which ssh
           python --version
       
       - name: Print some information
