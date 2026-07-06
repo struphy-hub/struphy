@@ -1,9 +1,10 @@
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-import subprocess
 
 from slurm_script_generator.slurm_script import SlurmScript
 from slurm_script_generator.squeue import SQueue
+
 
 @dataclass(frozen=True)
 class ProfilingCase:

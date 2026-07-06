@@ -1,13 +1,12 @@
+import logging
 import sys
 from argparse import ArgumentParser
 from pathlib import Path
 
 from scope_profiler import ProfileManager
 
-from struphy import EnvironmentOptions
+from struphy import EnvironmentOptions, set_logging_level
 
-import logging
-from struphy import set_logging_level
 set_logging_level(logging.INFO)
 
 script_dir = Path(__file__).resolve().parent
