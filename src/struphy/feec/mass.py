@@ -1149,8 +1149,11 @@ class WeightedMassOperators:
                     logger.debug(f"max value: {xp.max(tmp)}, min value: {xp.min(tmp)}")
                     for n in range(len(weights_values[m])):
                         logger.debug(f"columns of {V_id}: {n}")
-                        if weights_values[m][n] is None and m == n:
-                            weights_values[m][n] = tmp
+                        if weights_values[m][n] is None:
+                            if m == n:
+                                weights_values[m][n] = tmp
+                            else:
+                                continue
                         else:
                             weights_values[m][n] *= tmp
 
