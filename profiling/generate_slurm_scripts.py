@@ -29,6 +29,8 @@ def build_case_commands(case: ProfilingCase) -> list[str]:
         'echo "----------------------------------------"',
     ]
 
+    
+
     for ntasks in case.ranks:
         # case_dir = output_root / case.name / f"n{ntasks}"
         # log_file = case_dir / "run.log"
@@ -41,6 +43,19 @@ def build_case_commands(case: ProfilingCase) -> list[str]:
                 f"scope-profiler-pproc {sim_dir / 'profiling_data.h5'} -o {sim_dir}",
             ],
         )
+    
+
+    sim_dirs = [output_root / case.name / f"sim_ranks{ntasks}" for ntasks in case.ranks]
+    commands.extend(
+        [
+            "",
+            'echo "----------------------------------------"',
+            f'echo "Completed profiling case: {case.name}"',
+            'echo "----------------------------------------"',
+            '# Postprocessing comparison plots',
+            f"scope-profiler-pproc {' '.join(str(sim_dir / 'profiling_data.h5') for sim_dir in sim_dirs)} --rank 0 -o {output_root / case.name / 'figures'}"
+        ]
+    )
 
     return commands
 
@@ -50,7 +65,7 @@ def main() -> None:
         ProfilingCase(
             name="diocotron_poisson_scaling",
             command="python /toks/work/maxlin/git_repos/struphy/profiling/run_diocotron.py {nranks}",
-            ranks=(1, 2, 4, 8),
+            ranks=(1, 2, 4, 8, 16, 32, 64),
         ),
     ]
 
@@ -84,7 +99,7 @@ def main() -> None:
         
         print(f"Submitted profiling case '{case.name}' with job ID {job_id}. Waiting for completion...")
 
-        SQueue().wait_until_done(job_id=job_id, poll_interval=1)
+        SQueue().wait_until_done(job_id=job_id, poll_interval=10)
 
         print(f"Profiling case '{case.name}' completed. Output saved in {output_root / case.name}")
 
