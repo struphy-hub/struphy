@@ -27,6 +27,11 @@ jobs:
         # test-type: ["unit", "model", "verification"]
 
     steps:
+      - name: Set strict shell options
+        shell: bash
+        run: |
+          set -euo pipefail
+
       # Checkout the repository
       - name: Checkout code
         uses: actions/checkout@v5
