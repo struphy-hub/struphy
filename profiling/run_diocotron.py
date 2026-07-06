@@ -6,6 +6,10 @@ from scope_profiler import ProfileManager
 
 from struphy import EnvironmentOptions
 
+import logging
+from struphy import set_logging_level
+set_logging_level(logging.INFO)
+
 script_dir = Path(__file__).resolve().parent
 repo_root = script_dir.parent
 params_dir = repo_root / "examples" / "ToyGyrokinetic" / "diocotron_instability"
@@ -30,6 +34,9 @@ def main() -> None:
 
     sim.env = env
     sim._setup_folders()
+
+    # print(f"Running diocotron profiling case with {num_ranks} MPI ranks...")
+    # print("Environment options:", sim.env)
 
     sim.run(one_time_step=True)
 

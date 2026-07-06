@@ -30,13 +30,13 @@ def build_case_commands(case: ProfilingCase) -> list[str]:
     ]
 
     for ntasks in case.ranks:
-        case_dir = output_root / case.name / f"n{ntasks}"
-        log_file = case_dir / "run.log"
+        # case_dir = output_root / case.name / f"n{ntasks}"
+        # log_file = case_dir / "run.log"
         commands.extend(
             [
                 "",
                 f'echo "Running {case.name} with {ntasks} MPI ranks"',
-                f'mpirun -n {ntasks} {case.command.format(nranks=ntasks)} > "{log_file}" 2>&1',
+                f'mpirun -n {ntasks} {case.command.format(nranks=ntasks)}', # > "{log_file}" 2>&1',
             ],
         )
 
@@ -47,7 +47,7 @@ def main() -> None:
     cases = [
         ProfilingCase(
             name="diocotron_poisson_scaling",
-            command="python profiling/run_diocotron.py {nranks}",
+            command="python /toks/work/maxlin/git_repos/struphy/profiling/run_diocotron.py {nranks}",
             ranks=(1, 2, 4, 8),
         ),
     ]
@@ -66,15 +66,19 @@ def main() -> None:
             mem_per_cpu="1GB",
             partition="s.tok",
             qos="tok.debug",
-            #stdout="./%x.%j.out",
-            #stderr="./%x.%j.err",
+            output="./%x.%j.out",
+            error="./%x.%j.err",
             chdir="./",
             mail_type="none",
             time="00:15:00",
             custom_commands=case_commands,
         )
 
+        print(script)
+        
         output_path = repo_root / f"job_profile_{case.name}.sh"
+        # script.save(output_path, verbose=True)
+        # exit()
         # script.save(output_path)
         # text = output_path.read_text(encoding="utf-8")
         # output_path.write_text(
@@ -84,14 +88,17 @@ def main() -> None:
         # print(f"Generated {output_path}")
 
         # Do this once the MR has been merged
-        job_id = script.submit_job(str(output_path))
+        job_id = script.submit_job(str(output_path), verbose=True)
+        
+
+        print(f"Submitted profiling case '{case.name}' with job ID {job_id}. Waiting for completion...")
 
         # Temporary workaround
-        script.save(output_path)
-        result = subprocess.run(["sbatch", str(output_path)], capture_output=True, text=True, check=True)
-        job_id = int(result.stdout.strip().split()[-1])
+        # script.save(output_path)Python: Select Interpreter
+        # result = subprocess.run(["sbatch", str(output_path)], capture_output=True, text=True, check=True)
+        # job_id = int(result.stdout.strip().split()[-1])
 
-        SQueue().wait_until_done(job_id=job_id)
+        SQueue().wait_until_done(job_id=job_id, poll_interval=1)
 
         print(f"Profiling case '{case.name}' completed. Output saved in {output_root / case.name}")
 

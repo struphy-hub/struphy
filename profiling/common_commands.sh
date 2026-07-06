@@ -1,7 +1,7 @@
-set -euo pipefail
+# set -euo pipefail
 
 echo "========================================"
-echo "Starting Struphy profiling setup"
+echo "Starting Struphy setup"
 echo "========================================"
 echo
 
