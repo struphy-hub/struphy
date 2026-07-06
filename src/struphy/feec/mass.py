@@ -1061,11 +1061,13 @@ class WeightedMassOperators:
 
             # check that the dimensions of the callables are compatible with the domain and codomain spaces
             if f_call_column_vector is not None:
-                assert V_id in ("Hcurl", "Hdiv", "H1vec")
+                assert V_id in ("H1", "L2")
+                assert W_id in ("Hcurl", "Hdiv", "H1vec")
                 assert len(f_call_matrices) == 0
                 assert f_call_row_vector is None
             if f_call_row_vector is not None:
-                assert W_id in ("Hcurl", "Hdiv", "H1vec")
+                assert V_id in ("Hcurl", "Hdiv", "H1vec")
+                assert W_id in ("H1", "L2")
                 assert len(f_call_matrices) == 0
                 assert f_call_column_vector is None
             if len(f_call_matrices) > 0:
