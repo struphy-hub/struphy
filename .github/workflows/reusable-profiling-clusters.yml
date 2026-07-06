@@ -30,6 +30,28 @@ jobs:
       # Checkout the repository
       - name: Checkout code
         uses: actions/checkout@v5
+      
+      - name: Say hello from cluster
+        run: |
+          echo "Hello from cluster!"
+          ls
+          pwd
+          python --version
+      
+      - name: Print some information
+        run: |
+          echo "Current date and time: $(date)"
+          echo "Current user: $(whoami)"
+          echo "Current working directory: $(pwd)"
+          echo "List of files in the current directory:"
+          ls -l
+          echo "Python version:"
+          python --version
+          echo "SLURM job information:"
+          squeue -u $(whoami)
+          curl -fsSL https://raw.githubusercontent.com/max-models/whereami/main/install.sh | bash
+          export PATH="${HOME}/.local/bin:${PATH}"
+          whereami
 
       - name: Submit SLURM job
         run: |
