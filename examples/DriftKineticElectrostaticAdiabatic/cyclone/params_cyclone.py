@@ -123,7 +123,7 @@ sim = Simulation(
 ppc = 200
 loading_params = LoadingParameters(ppc = ppc, loading="sobol_standard", spatial="uniform", moments=(0, 0, 4, 4))
 weights_params = WeightsParameters(control_variate=True)
-boundary_params = BoundaryParameters(bc=("refill", "periodic", "periodic"))
+boundary_params = BoundaryParameters(bc=("remove", "periodic", "periodic"))
 sorting_params = SortingParameters(boxes_per_dim=(12,12,6), do_sort=True, sorting_frequency=5)
 
 # density binning

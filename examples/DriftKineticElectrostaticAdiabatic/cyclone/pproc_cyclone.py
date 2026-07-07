@@ -34,15 +34,6 @@ DENSITY_PLOTS = [
         "vmax": None,
         "title": "delta_f (R,Z)",
     },
-    {
-        "bin": "e2_e3_density",
-        "quantity": "delta_f_binned",
-        "physical": True,
-        "axes": "XY",
-        "vmin": None,
-        "vmax": None,
-        "title": "delta_f (X,Y)",
-    },
 ]
 
 FIELD_PLOTS = [
