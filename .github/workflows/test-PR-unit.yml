@@ -14,10 +14,34 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      should_run: ${{ steps.filter.outputs.should_run }}
+      reason: ${{ steps.filter.outputs.reason }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          ref: ${{ github.event_name == 'pull_request' && format('refs/pull/{0}/head', github.event.number) || github.sha }}
+
+      - name: Check workflow filters
+        id: filter
+        uses: ./.github/actions/commit-message-filter
+        with:
+          categories: tests,unit
+          event_name: ${{ github.event_name }}
+
   unit-test-serial:
+    needs: preflight
+    if: needs.preflight.outputs.should_run == 'true'
     uses: ./.github/workflows/reusable-unit-testing.yml
     with:
       os: ubuntu-latest
       n-procs: 1
+      should_run: ${{ needs.preflight.outputs.should_run == 'true' }}
     secrets:
       ghcr-token: ${{ secrets.GHCR_TOKEN }}

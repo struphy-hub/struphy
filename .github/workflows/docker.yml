@@ -15,8 +15,31 @@ on:
       - main
 
 jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      should_run: ${{ steps.filter.outputs.should_run }}
+      reason: ${{ steps.filter.outputs.reason }}
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          ref: ${{ github.event_name == 'pull_request' && format('refs/pull/{0}/head', github.event.number) || github.sha }}
+
+      - name: Check workflow filters
+        id: filter
+        uses: ./.github/actions/commit-message-filter
+        with:
+          categories: release,docker
+          event_name: ${{ github.event_name }}
+
   push_to_ubuntu-for-struphy:
     name: Push ubuntu-for-struphy to Docker Hub
+    needs: preflight
+    if: needs.preflight.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     permissions:
       packages: write
@@ -58,6 +81,8 @@ jobs:
 
   push_to_struphy:
     name: Push struphy to Docker Hub
+    needs: preflight
+    if: needs.preflight.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     permissions:
       packages: write

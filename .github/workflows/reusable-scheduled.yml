@@ -6,9 +6,14 @@ on:
       os:
         required: true
         type: string
+      should_run:
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   test:
+    if: inputs.should_run
     name: ${{ matrix.test-type }} (${{ matrix.compile-language }}, ${{ matrix.shard }})
     runs-on: ${{ inputs.os }}
     env:

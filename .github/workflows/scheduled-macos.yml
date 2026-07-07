@@ -12,7 +12,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      should_run: ${{ steps.filter.outputs.should_run }}
+      reason: ${{ steps.filter.outputs.reason }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          ref: ${{ github.event_name == 'pull_request' && format('refs/pull/{0}/head', github.event.number) || github.sha }}
+
+      - name: Check workflow filters
+        id: filter
+        uses: ./.github/actions/commit-message-filter
+        with:
+          categories: scheduled
+          event_name: ${{ github.event_name }}
+
   macos-install-test:
+    needs: preflight
+    if: needs.preflight.outputs.should_run == 'true'
     uses: ./.github/workflows/reusable-scheduled.yml
     with:
       os: macos-latest
+      should_run: ${{ needs.preflight.outputs.should_run == 'true' }}

@@ -7,6 +7,10 @@ on:
         description: JSON array of runner labels
         required: true
         type: string
+      should_run:
+        required: false
+        type: boolean
+        default: true
 
 # concurrency:
 #   group: ${{ github.workflow }}-${{ github.ref }}
@@ -18,6 +22,7 @@ defaults:
 
 jobs:
   test:
+    if: inputs.should_run
     # environment: protected
     runs-on: ${{ fromJSON(inputs.runner_tags) }}
     strategy:

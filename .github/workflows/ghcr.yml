@@ -15,7 +15,30 @@ env:
 
 # There is a single job in this workflow. It's configured to run on the latest available version of Ubuntu.
 jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      should_run: ${{ steps.filter.outputs.should_run }}
+      reason: ${{ steps.filter.outputs.reason }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          ref: ${{ github.event_name == 'pull_request' && format('refs/pull/{0}/head', github.event.number) || github.sha }}
+
+      - name: Check workflow filters
+        id: filter
+        uses: ./.github/actions/commit-message-filter
+        with:
+          categories: release,docker,ghcr
+          event_name: ${{ github.event_name }}
+
   build-and-push-ubuntu-with-reqs:
+    needs: preflight
+    if: needs.preflight.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     # Sets the permissions granted to the `GITHUB_TOKEN` for the actions in this job.
     permissions:
@@ -62,6 +85,8 @@ jobs:
           push-to-registry: true
 
   build-and-push-ubuntu-with-struphy:
+    needs: preflight
+    if: needs.preflight.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     # Sets the permissions granted to the `GITHUB_TOKEN` for the actions in this job.
     permissions:

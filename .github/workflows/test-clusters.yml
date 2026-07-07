@@ -6,21 +6,51 @@ on:
   workflow_dispatch:
 
 jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      should_run: ${{ steps.filter.outputs.should_run }}
+      reason: ${{ steps.filter.outputs.reason }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          ref: ${{ github.event_name == 'pull_request' && format('refs/pull/{0}/head', github.event.number) || github.sha }}
+
+      - name: Check workflow filters
+        id: filter
+        uses: ./.github/actions/commit-message-filter
+        with:
+          categories: clusters
+          event_name: ${{ github.event_name }}
+
   Raven:
+    needs: preflight
+    if: needs.preflight.outputs.should_run == 'true'
     uses: ./.github/workflows/reusable-clusters.yml
     with:
       runner_tags: '["self-hosted", "protected", "raven"]'
+      should_run: ${{ needs.preflight.outputs.should_run == 'true' }}
   
   Viper:
+    needs: preflight
+    if: needs.preflight.outputs.should_run == 'true'
     uses: ./.github/workflows/reusable-clusters.yml
     with:
       runner_tags: '["self-hosted", "protected", "viper"]'
+      should_run: ${{ needs.preflight.outputs.should_run == 'true' }}
   # TOK:
   #   uses: ./.github/workflows/reusable-clusters.yml
   #   with:
   #     runner_tags: '["self-hosted", "protected", "tok"]'
   
   Pitagora:
+    needs: preflight
+    if: needs.preflight.outputs.should_run == 'true'
     uses: ./.github/workflows/reusable-clusters.yml
     with:
       runner_tags: '["self-hosted", "protected", "pitagora"]'
+      should_run: ${{ needs.preflight.outputs.should_run == 'true' }}

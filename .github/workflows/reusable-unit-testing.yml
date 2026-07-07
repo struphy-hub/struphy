@@ -9,6 +9,10 @@ on:
       n-procs:
         type: number
         default: 1
+      should_run:
+        required: false
+        type: boolean
+        default: true
     secrets:
       ghcr-token:
         required: true
@@ -22,6 +26,7 @@ permissions:
 
 jobs:
   preflight:
+    if: inputs.should_run
     runs-on: ${{ inputs.os }}
     steps:
       - name: Check memory
@@ -30,6 +35,7 @@ jobs:
           grep -E 'MemTotal|MemAvailable|SwapTotal|SwapFree' /proc/meminfo
 
   unit-tests-in-container-with-struphy:
+    if: inputs.should_run
     name: Unit tests (${{ matrix.shard }})
     runs-on: ${{ inputs.os }}
     strategy:
