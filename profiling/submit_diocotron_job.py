@@ -1,3 +1,4 @@
+import argparse
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,9 +24,10 @@ def load_common_commands() -> list[str]:
     return common_commands_path.read_text(encoding="utf-8").splitlines()
 
 
-def build_case_commands(case: ProfilingCase) -> list[str]:
+def build_case_commands(case: ProfilingCase, venv_path: Path) -> list[str]:
+    activate_path = venv_path.expanduser().resolve() / "bin" / "activate"
     commands = [
-        "source .venv/bin/activate",
+        f"source {str(activate_path)}",
         'echo "----------------------------------------"',
         f'echo "Running profiling case: {case.name}"',
         'echo "----------------------------------------"',
@@ -61,8 +63,18 @@ def build_case_commands(case: ProfilingCase) -> list[str]:
 
     return commands
 
-
 def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Submit the diocotron profiling job."
+    )
+    parser.add_argument(
+        "--venv-path",
+        type=Path,
+        default=Path(".venv"),
+        help="Path to the virtual environment to activate (default: .venv).",
+    )
+    args = parser.parse_args()
+
     cases = [
         ProfilingCase(
             name="diocotron_poisson_scaling",
@@ -77,7 +89,7 @@ def main() -> None:
         case_commands = (
             # [f'cd "{repo_root}"'] + \
             #     common_commands + \
-                build_case_commands(case)
+                build_case_commands(case, args.venv_path)
         )
 
         # TOK

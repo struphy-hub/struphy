@@ -82,4 +82,4 @@ jobs:
       - name: Submit SLURM job
         run: |          
           pip install slurm-script-generator
-          python profiling/submit_diocotron_job.py
+          python profiling/submit_diocotron_job.py --venv-path .venv-fortran
