@@ -304,9 +304,6 @@ class FEECVariable(Variable):
         domain: Domain = None,
         equil: FluidEquilibrium = None,
     ):
-        if hasattr(self, "_spline"):
-            logger.debug(f"Already allocated {self.__class__.__name__}")
-            return
         self._spline = derham.create_spline_function(
             name=self.__name__,
             space_id=self.space,
@@ -539,9 +536,6 @@ class PICVariable(Variable):
         equil: FluidEquilibrium = None,
         projected_equil: ProjectedFluidEquilibrium = None,
     ):
-        if hasattr(self, "_particles"):
-            logger.debug(f"Already allocated {self.__class__.__name__}")
-            return
         # assert isinstance(self.species, KineticSpecies)
         assert isinstance(self.backgrounds, KineticBackground), (
             "List input not allowed, you can sum Kineticbackgrounds before passing them to add_background."
