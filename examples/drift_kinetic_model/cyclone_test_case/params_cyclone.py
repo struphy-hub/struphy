@@ -61,9 +61,8 @@ from struphy.linear_algebra.solver import SolverParameters
 from struphy.models import DriftKineticElectrostaticAdiabatic
 from struphy.pic.accumulation.filter import FilterParameters
 
-base_units = BaseUnits(kBT=191.6)
+base_units = BaseUnits(kBT=0.1916) # provides the correct value for epsilon = 1.4142e-3 = 0.36/(180*sqrt(2)) from the paper
 model = DriftKineticElectrostaticAdiabatic(
-    epsilon=1.4142e-3,
     base_units=base_units,
     use_diagnostic_poisson=True,
     )
@@ -77,10 +76,10 @@ model.kinetic_ions.var.save_data = False
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(sim_folder="sim_2",profiling_activated=True, profiling_trace=True, restart=False)
+env = EnvironmentOptions(sim_folder="sim_1",profiling_activated=True, profiling_trace=True, restart=False)
 
 # Time stepping
-time_opts = Time(dt=0.00001, Tend=0.0001, split_algo="LieTrotter")
+time_opts = Time(dt=0.001, Tend=0.01, split_algo="LieTrotter")
 
 a, r_min, R0 = 0.36, 0.01, 1.0
 num_elements = (32, 5*27, 5)
@@ -120,17 +119,16 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-Np=1000000
-ppc = 100
+ppc = 200
 loading_params = LoadingParameters(ppc = ppc, loading="sobol_standard", spatial="uniform", moments=(0, 0, 4, 4))
 weights_params = WeightsParameters(control_variate=True)
-boundary_params = BoundaryParameters(bc=("periodic", "periodic", "periodic"))
+boundary_params = BoundaryParameters(bc=("refill", "periodic", "periodic"))
 sorting_params = SortingParameters(boxes_per_dim=(12,12,6), do_sort=True, sorting_frequency=5)
 
 # density binning
 eta_bin = BinningPlot(slice='e1_e2', n_bins= (64,64), ranges= ((0.01, 0.99), (0.0, 1.0)))
 eta_bin2 = BinningPlot(slice='e2_e3', n_bins= (64,64), ranges= ((0.0, 1.0), (0.0, 1.0)))
-saving_params = SavingParameters(binning_plots=(eta_bin, eta_bin2,)) # (binning_plots=(eta_bin,)) if you want to save the density binning data
+saving_params = SavingParameters(n_markers=10000, binning_plots=(eta_bin,))
 
 model.kinetic_ions.set_markers(loading_params=loading_params,
                                weights_params=weights_params,
@@ -144,7 +142,7 @@ model.kinetic_ions.set_markers(loading_params=loading_params,
 # Propagator options
 # ------------------
 
-model.propagators.gc_poisson.options = model.propagators.gc_poisson.Options(which_geometry="toroidal", solver_params=SolverParameters(tol=1e-12, maxiter=3000, recycle=False), particle_filter=FilterParameters("hybrid", (1,), repeat=2))
+model.propagators.gc_poisson.options = model.propagators.gc_poisson.Options(which_geometry="toroidal", solver_params=SolverParameters(tol=1e-12, maxiter=3000, recycle=False), particle_filter=FilterParameters("fourier_in_tor", (1,), repeat=1))
 model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(algo="explicit", evaluate_e_field=True, maxiter=100)
 model.propagators.push_gc_para.options = model.propagators.push_gc_para.Options(algo="explicit", evaluate_e_field=True, maxiter=100)
 
@@ -158,7 +156,7 @@ model.propagators.push_gc_para.options = model.propagators.push_gc_para.Options(
 # For kinetic species, if add_initial_condition() is not called, the background is taken as the kinetic initial condition.
 # For kinetic species the perturbations are added to the moments of the distribution function (defined as tuples).
 
-# piecewise function for initial condition of density
+# piecewise function for initial condition of density, perturbation modes ns=19 and ms=27 in a whole torus geometry
 ns = 1
 ms = 27
 amps = 1.0e-6

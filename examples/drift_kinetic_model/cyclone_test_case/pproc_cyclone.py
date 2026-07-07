@@ -2,6 +2,9 @@ import importlib.util
 import os
 import sys
 
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
+import glob
+
 import h5py
 import pyvista as pv
 import cunumpy as xp
@@ -98,8 +101,8 @@ def ensure_post_processing(params, sim_path):
         pp.process(physical=True)
 
 
-def load_scalar(sim_path, quantity):
-    with h5py.File(os.path.join(sim_path, "data", "data_proc0.hdf5"), "r") as f:
+def load_scalar(data_path, quantity):
+    with h5py.File(os.path.join(data_path, "data_proc0.hdf5"), "r") as f:
         time = xp.asarray(f["time"]["value"][()])
         if quantity in f["scalar"]:
             y = xp.asarray(f["scalar"][quantity][()])
@@ -397,28 +400,89 @@ def plot_field_slider(
     plt.show()
 
 
-def save_density_images(params, pdata, sim_path):
-    data = get_binned_data(pdata, DENSITY_BIN_NAME, SAVE_DENSITY_QUANTITY)
-    xgrid, ygrid, xlabel, ylabel = get_binned_grids(params, pdata, DENSITY_BIN_NAME, in_physical=True)
 
-    out_dir = os.path.join(sim_path, "images", SAVE_DENSITY_QUANTITY)
-    os.makedirs(out_dir, exist_ok=True)
 
-    for idx in range(0, len(data), SAVE_DENSITY_EVERY):
-        field = match_field_to_grid(xp.asarray(data[idx]), xgrid)
-        fig, ax = plt.subplots()
-        pcm = ax.pcolormesh(xgrid, ygrid, field, shading="auto", vmin=SAVE_DENSITY_VMIN, vmax=SAVE_DENSITY_VMAX)
-        fig.colorbar(pcm, ax=ax)
-        ax.set_aspect("equal", adjustable="box")
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel(ylabel)
-        ax.set_title(f"{SAVE_DENSITY_QUANTITY} at t = {pdata.t_grid[idx]:.4e}")
-        fig.tight_layout()
-        fig.savefig(os.path.join(out_dir, f"{SAVE_DENSITY_QUANTITY}_{idx:05d}.png"), dpi=180)
-        plt.close(fig)
+def load_marker_data(pdata, species="kinetic_ions", max_markers=200):
+    orbs = getattr(pdata.orbits, species)
+    nb_markers = min(orbs.shape[1], max_markers)
+    return orbs[:, :nb_markers, 0], orbs[:, :nb_markers, 1], orbs[:, :nb_markers, 2], orbs[:, :nb_markers, 6]
 
-    print(f"Saved density images in {out_dir}")
 
+def plot_marker_trajectories_slider(
+    pdata,
+    species="kinetic_ions",
+    max_markers=200,
+    show_paths=None,
+    title="Marker trajectories",
+):
+    if show_paths is None:
+        show_paths = max_markers <= 200
+
+    x, y, z, weights = load_marker_data(
+        pdata=pdata,
+        species=species,
+        max_markers=max_markers,
+    )
+
+    nt, nmarkers = x.shape
+    print(f"loaded markers: {x.shape}")
+    print(f"plotted trajectories: {nmarkers}")
+    print("x min/max:", xp.nanmin(x), xp.nanmax(x))
+    print("y min/max:", xp.nanmin(y), xp.nanmax(y))
+    print("z min/max:", xp.nanmin(z), xp.nanmax(z))
+
+    fig = plt.figure(figsize=(8, 7))
+    ax = fig.add_subplot(111, projection="3d")
+    plt.subplots_adjust(bottom=0.18)
+
+    it0 = 0
+    sc = ax.scatter(
+        x[it0],
+        y[it0],
+        z[it0],
+        c=weights[it0],
+        s=8,
+        cmap="viridis",
+    )
+
+    lines = []
+    if show_paths:
+        for j in range(nmarkers):
+            line, = ax.plot(
+                x[: it0 + 1, j],
+                y[: it0 + 1, j],
+                z[: it0 + 1, j],
+                lw=0.8,
+                alpha=0.5,
+            )
+            lines.append(line)
+
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_zlabel("Z")
+    ax.set_title(f"{title} | step {it0}/{nt - 1}")
+
+    fig.colorbar(sc, ax=ax, label=f"marker weights")
+
+    ax_slider = plt.axes([0.18, 0.06, 0.65, 0.03])
+    slider = Slider(ax_slider, "time index", 0, nt - 1, valinit=it0, valstep=1)
+
+    def update(_):
+        it = int(slider.val)
+
+        sc._offsets3d = (x[it], y[it], z[it])
+        sc.set_array(weights[it])
+
+        if show_paths:
+            for j, line in enumerate(lines):
+                line.set_data(x[: it + 1, j], y[: it + 1, j])
+                line.set_3d_properties(z[: it + 1, j])
+
+        ax.set_title(f"{title} | step {it}/{nt - 1}")
+        fig.canvas.draw_idle()
+
+    slider.on_changed(update)
+    plt.show()
 
 # ============================================================
 # Main
@@ -436,13 +500,11 @@ def main():
     pdata = PlottingData(sim=params.sim)
     pdata.load()
 
-    # ------------------
-    # Check simulation domain
-    # ------------------
     params.domain.show()
 
-    # Everything below this line is the rewritten post-processing part.
-    time, en_phi = load_scalar(sim_path, FIT_QUANTITY)
+    data_path = os.path.join(sim_path, "data")
+    
+    time, en_phi = load_scalar(data_path, FIT_QUANTITY)
     plot_energy_fit(time, en_phi)
 
     if SHOW_EQUIL_PROFILE:
@@ -477,6 +539,13 @@ def main():
                 vmax=cfg.get("vmax"),
                 title=cfg.get("title"),
             )
+    
+    plot_marker_trajectories_slider(
+        pdata=pdata,
+        species="kinetic_ions",
+        max_markers=1000,
+        show_paths=True,
+    )
 
 
 if __name__ == "__main__":

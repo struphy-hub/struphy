@@ -128,6 +128,8 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
         # 2. derive units (must be done after instantiating species to access charge and mass numbers)
         self.setup_equation_params(base_units=base_units)
+        if epsilon is None:
+            epsilon = self.params["epsilon"] = self.kinetic_ions.var.species.equation_params.epsilon
 
         # 3. instantiate all propagators
         self.propagators = self.Propagators(

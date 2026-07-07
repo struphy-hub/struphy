@@ -264,7 +264,7 @@ class ImplicitDiffusion(Propagator):
                 )
                 if not rho.control_variate:
                     l2_proj = L2Projector("H1", Propagator.mass_ops)
-                    f0e = rho.Z * rho.f0
+                    f0e = self.Z * rho.f0
                     rho_eh = FEECVariable(space="H1")
                     rho_eh.allocate(derham=Propagator.derham, domain=Propagator.domain)
                     rho_eh.spline.vector = l2_proj.get_dofs(f0e.n)
