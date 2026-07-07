@@ -257,18 +257,18 @@ class Particles(metaclass=ABCMeta):
         Np = self.loading_params.Np
         ppc = self.loading_params.ppc
         ppb = self.loading_params.ppb
-        if Np is not None:
-            self._Np = int(Np)
+        if ppb is not None:
+            self._ppb = ppb
+            self._Np = int(self.ppb * n_boxes)
             self._ppc = self.Np / n_cells
-            self._ppb = self.Np / n_boxes
         elif ppc is not None:
             self._ppc = ppc
             self._Np = int(self.ppc * n_cells)
             self._ppb = self.Np / n_boxes
-        elif ppb is not None:
-            self._ppb = ppb
-            self._Np = int(self.ppb * n_boxes)
+        elif Np is not None:
+            self._Np = int(Np)
             self._ppc = self.Np / n_cells
+            self._ppb = self.Np / n_boxes
 
         assert self.Np >= self.mpi_size
 
