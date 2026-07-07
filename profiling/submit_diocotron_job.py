@@ -102,7 +102,7 @@ def main() -> None:
             cpus_per_task=1,
             mem_per_cpu="1GB",
             partition="dcgp_fua_dbg",
-            account="FUSIO_HLST_6",
+            account="FUSIO_HLST_7",
             output="./%x.%j.out",
             error="./%x.%j.err",
             chdir="./",
