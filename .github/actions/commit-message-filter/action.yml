@@ -1,0 +1,78 @@
+name: Commit message filter
+
+description: Evaluate [skip.*] and [only.*] commit tags for a workflow category list.
+
+inputs:
+  categories:
+    description: Comma-separated workflow categories handled by the calling job.
+    required: true
+  event_name:
+    description: GitHub event name.
+    required: true
+
+outputs:
+  should_run:
+    description: Whether the workflow should run.
+    value: ${{ steps.filter.outputs.should_run }}
+  reason:
+    description: Short explanation of the decision.
+    value: ${{ steps.filter.outputs.reason }}
+
+runs:
+  using: composite
+  steps:
+    - id: filter
+      shell: bash
+      env:
+        WORKFLOW_CATEGORIES: ${{ inputs.categories }}
+        EVENT_NAME: ${{ inputs.event_name }}
+      run: |
+        python3 - <<'PY'
+        import os
+        import re
+        import subprocess
+
+        event_name = os.environ["EVENT_NAME"].strip().lower()
+        categories = [item.strip().lower() for item in os.environ["WORKFLOW_CATEGORIES"].split(",") if item.strip()]
+
+        output_path = os.environ["GITHUB_OUTPUT"]
+
+        def write_outputs(should_run: bool, reason: str) -> None:
+            with open(output_path, "a", encoding="utf-8") as handle:
+                handle.write(f"should_run={'true' if should_run else 'false'}\n")
+                handle.write(f"reason={reason}\n")
+
+        if event_name not in {"push", "pull_request", "workflow_dispatch"}:
+            print(f"Skipping commit-tag filtering for non-commit event: {event_name}")
+            write_outputs(True, event_name)
+            raise SystemExit(0)
+
+        message = subprocess.check_output(["git", "log", "-1", "--pretty=%B"], text=True)
+        tags = re.findall(r"\[(skip|only)\.([a-z0-9_-]+)\]", message, flags=re.IGNORECASE)
+        skip_tags = {tag.lower() for kind, tag in tags if kind.lower() == "skip"}
+        only_tags = {tag.lower() for kind, tag in tags if kind.lower() == "only"}
+
+        if "all" in only_tags:
+            should_run = True
+            reason = "only.all"
+        elif only_tags:
+            matched = sorted(set(categories) & only_tags)
+            should_run = bool(matched)
+            reason = "only:" + ",".join(matched) if matched else "only.no-match"
+        elif "all" in skip_tags:
+            should_run = False
+            reason = "skip.all"
+        else:
+            matched = sorted(set(categories) & skip_tags)
+            should_run = not matched
+            reason = "skip:" + ",".join(matched) if matched else "no-tags"
+
+        print("Commit message filter:")
+        print(f"  event: {event_name}")
+        print(f"  categories: {', '.join(categories) if categories else '(none)'}")
+        print(f"  skip tags: {', '.join(sorted(skip_tags)) if skip_tags else '(none)'}")
+        print(f"  only tags: {', '.join(sorted(only_tags)) if only_tags else '(none)'}")
+        print(f"  decision: {'run' if should_run else 'skip'} ({reason})")
+
+        write_outputs(should_run, reason)
+        PY
