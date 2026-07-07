@@ -40,6 +40,10 @@ jobs:
         run: |
           bash hello.sh 
           echo "hello"
+          module list
+          module avail
+          module load python-waterboa/2025.06
+          python --version
 
       # bash .github/scripts/install_and_test.sh "${{ matrix.compile-language }}"
       # - name: Say hello from cluster
