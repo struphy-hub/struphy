@@ -43,8 +43,9 @@ jobs:
           module list
           module avail
           module load python-waterboa/2025.06
+          module list
           python --version
-
+      
       # bash .github/scripts/install_and_test.sh "${{ matrix.compile-language }}"
       # - name: Say hello from cluster
       #   shell: bash
@@ -75,7 +76,12 @@ jobs:
       #     export PATH="${HOME}/.local/bin:${PATH}"
       #     whereami
 
-      # - name: Submit SLURM job
-      #   shell: bash
-      #   run: |
-      #     python profiling/submit_diocotron_job.py
+      - name: Submit SLURM job
+        shell: bash
+        run: |
+          module list
+          module avail
+          module load python-waterboa/2025.06
+          module list
+          python --version
+          python profiling/submit_diocotron_job.py
