@@ -370,7 +370,7 @@ def plot_marker_trajectories_slider(
     ax.set_zlabel("Z")
     ax.set_title(f"{title} | step {it0}/{nt - 1}")
 
-    fig.colorbar(sc, ax=ax, label=f"marker weights")
+    fig.colorbar(sc, ax=ax, label="marker weights")
 
     ax_slider = plt.axes([0.18, 0.06, 0.65, 0.03])
     slider = Slider(ax_slider, "time index", 0, nt - 1, valinit=it0, valstep=1)
@@ -474,7 +474,7 @@ def main():
     #ax.set_yscale('log')
     ax.legend()
 
-    #ax.set_title(f"{params.time_opts.dt=}, {params.time_opts.split_algo=}, {params.grid.num_elements=}, {params.derham_opts.degree=}, {params.loading_params.ppc=}")
+    ax.set_title(f"{params.time_opts.dt=}, {params.time_opts.split_algo=}, {params.grid.num_elements=}, {params.derham_opts.degree=}, {params.loading_params.ppc=}")
     ax.set_xlabel("time")
     ax.set_ylabel("Energy [a.u.]")
 
