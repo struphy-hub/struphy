@@ -84,7 +84,7 @@ jobs:
           python profiling/submit_diocotron_job.py --venv-path .venv-fortran
           mv profiling/results profiling-results-${{ matrix.compile-language }}
       - name: Upload results as an artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: profiling-results-${{ matrix.compile-language }}
           path: profiling-results-${{ matrix.compile-language }}
