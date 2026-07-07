@@ -131,8 +131,6 @@ def main() -> None:
         output_path = repo_root / f"job_profile_{case.name}.sh"
 
         job_id = script.submit_job(str(output_path), verbose=True)
-        
-        print(f"Submitted profiling case '{case.name}' with job ID {job_id}. Waiting for completion...")
 
         SQueue().wait_until_done(job_id=job_id, poll_interval=10)
 
