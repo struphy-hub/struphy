@@ -89,7 +89,8 @@ degree = (3, 3, 3)
 equil = equils.AdhocTorus(a=a, R0=R0, B0=1.0, q_kind=2, q0=0.86, q1=2.52+0.86, l=-0.16, psi_k=5, psi_nel=200)
 
 # Geometry
-domain = domains.Tokamak(equil, num_elements=num_elements[:2], degree=degree[:2], r_min=r_min, num_elements_pre=(128, 512), p_pre=(4, 4), xi_param="sfl", tor_period=19)
+# domain = domains.Tokamak(equil, num_elements=num_elements[:2], degree=degree[:2], r_min=r_min, num_elements_pre=(128, 512), p_pre=(4, 4), xi_param="sfl", tor_period=19)
+domain = domains.HollowTorus(a1=r_min, a2=a, R0=R0, sfl=True, pol_period=1, tor_period=19) # use a hollowtorus to avoid premaping
 
 # Grid
 grid = grids.TensorProductGrid(num_elements=num_elements, mpi_dims_mask=(True,True,False))
