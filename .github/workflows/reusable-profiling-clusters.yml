@@ -77,7 +77,6 @@ jobs:
       #     whereami
 
       - name: Submit SLURM job
-        shell: bash
         run: |
           module list
           module avail
