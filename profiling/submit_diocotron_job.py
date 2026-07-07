@@ -76,14 +76,33 @@ def main() -> None:
         case_commands = (
             [f'cd "{repo_root}"'] + common_commands + build_case_commands(case)
         )
+
+        # TOK
+        # script = SlurmScript(
+        #     job_name=f"profiling_{case.name}",
+        #     nodes=1,
+        #     ntasks_per_node=max(case.ranks),
+        #     cpus_per_task=1,
+        #     mem_per_cpu="1GB",
+        #     partition="s.tok",
+        #     qos="tok.debug",
+        #     output="./%x.%j.out",
+        #     error="./%x.%j.err",
+        #     chdir="./",
+        #     mail_type="none",
+        #     time="00:15:00",
+        #     custom_commands=case_commands,
+        # )
+
+        # Pitagora
         script = SlurmScript(
             job_name=f"profiling_{case.name}",
             nodes=1,
             ntasks_per_node=max(case.ranks),
             cpus_per_task=1,
             mem_per_cpu="1GB",
-            partition="s.tok",
-            qos="tok.debug",
+            partition="dcgp_fua_dbg",
+            account="FUSIO_HLST_6",
             output="./%x.%j.out",
             error="./%x.%j.err",
             chdir="./",
