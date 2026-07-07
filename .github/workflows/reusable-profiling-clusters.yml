@@ -82,9 +82,34 @@ jobs:
       - name: Submit SLURM job
         run: |          
           python profiling/submit_diocotron_job.py --venv-path .venv-fortran
-          mv profiling/results profiling-results-${{ matrix.compile-language }}
-      - name: Upload results as an artifact
+
+      - name: Package profiling .h5 files
+        run: |
+          python profiling/package_profiling_results.py \
+            --results-root profiling/results \
+            --language "${{ matrix.compile-language }}" \
+            --commit "${{ github.sha }}" \
+            --output-root profiling-results-export
+
+      - name: Push packaged profiling data to profiling-data main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone git@github.com:struphy-hub/profiling-data.git profiling-data
+          cp -R profiling-results-export/* profiling-data/
+          cd profiling-data
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          if git diff --cached --quiet; then
+            echo "No profiling data changes to commit."
+            exit 0
+          fi
+          git commit -m "Add profiling data (${GITHUB_SHA::8}, ${{ matrix.compile-language }})"
+          git push origin main
+
+      - name: Upload packaged profiling data as an artifact
         uses: actions/upload-artifact@v4
         with:
-          name: profiling-results-${{ matrix.compile-language }}
-          path: profiling-results-${{ matrix.compile-language }}
+          name: profiling-results-export-${{ matrix.compile-language }}
+          path: profiling-results-export

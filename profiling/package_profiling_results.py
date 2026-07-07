@@ -1,0 +1,157 @@
+import argparse
+import json
+import os
+import re
+import shutil
+from datetime import UTC, datetime
+from pathlib import Path
+
+
+def _slug(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]+", "_", value).strip("._-") or "unknown"
+
+
+def _extract_ranks(path: Path) -> str:
+    rank_match = re.search(r"(?:^|[-_])ranks?(\d+)(?:$|[-_])", str(path))
+    if rank_match:
+        return rank_match.group(1)
+
+    for part in path.parts:
+        part_match = re.search(r"sim_ranks(\d+)", part)
+        if part_match:
+            return part_match.group(1)
+    return "unknown"
+
+
+def _build_output_name(testcase: str, language: str, ranks: str, index: int) -> str:
+    base = f"{_slug(testcase)}-ranks{ranks}-{_slug(language)}"
+    if index > 0:
+        base = f"{base}-{index}"
+    return f"{base}.h5"
+
+
+def package_results(
+    results_root: Path,
+    language: str,
+    commit: str,
+    output_root: Path,
+) -> list[Path]:
+    if not results_root.exists():
+        raise FileNotFoundError(f"Results folder does not exist: {results_root}")
+
+    timestamp = datetime.now(UTC)
+    datetime_token = timestamp.strftime("%Y%m%dT%H%M%SZ")
+    commit_short = commit[:8]
+    created_dirs: list[Path] = []
+
+    testcase_dirs = [path for path in sorted(results_root.iterdir()) if path.is_dir()]
+    for testcase_dir in testcase_dirs:
+        h5_files = sorted(testcase_dir.rglob("*.h5"))
+        if not h5_files:
+            continue
+
+        testcase = testcase_dir.name
+        folder_name = f"{datetime_token}-{commit_short}-{_slug(testcase)}-{_slug(language)}"
+        destination_dir = output_root / folder_name
+        destination_dir.mkdir(parents=True, exist_ok=True)
+
+        files_metadata = []
+        name_counts: dict[str, int] = {}
+        for source_h5 in h5_files:
+            relative_source = source_h5.relative_to(testcase_dir)
+            ranks = _extract_ranks(relative_source)
+            base_key = f"{_slug(testcase)}-ranks{ranks}-{_slug(language)}"
+            output_name = _build_output_name(
+                testcase=testcase,
+                language=language,
+                ranks=ranks,
+                index=name_counts.get(base_key, 0),
+            )
+            name_counts[base_key] = name_counts.get(base_key, 0) + 1
+            destination_h5 = destination_dir / output_name
+            shutil.copy2(source_h5, destination_h5)
+            files_metadata.append(
+                {
+                    "source": str(source_h5),
+                    "relative_source": str(relative_source),
+                    "ranks": ranks,
+                    "destination": output_name,
+                }
+            )
+
+        metadata = {
+            "datetime_utc": timestamp.isoformat(),
+            "datetime_token": datetime_token,
+            "commit": commit,
+            "commit_short": commit_short,
+            "testcase": testcase,
+            "language": language,
+            "source_results_root": str(results_root),
+            "files": files_metadata,
+            "github": {
+                "repository": os.environ.get("GITHUB_REPOSITORY"),
+                "run_id": os.environ.get("GITHUB_RUN_ID"),
+                "run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT"),
+                "workflow": os.environ.get("GITHUB_WORKFLOW"),
+                "job": os.environ.get("GITHUB_JOB"),
+            },
+        }
+        (destination_dir / "metadata.json").write_text(
+            json.dumps(metadata, indent=2),
+            encoding="utf-8",
+        )
+        created_dirs.append(destination_dir)
+
+    if not created_dirs:
+        raise RuntimeError(f"No .h5 profiling files found under: {results_root}")
+
+    return created_dirs
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Package profiling .h5 outputs into DATETIME-COMMIT-TESTCASE-LANGUAGE folders."
+    )
+    parser.add_argument(
+        "--results-root",
+        type=Path,
+        default=Path("profiling/results"),
+        help="Folder containing testcase result directories (default: profiling/results).",
+    )
+    parser.add_argument(
+        "--language",
+        required=True,
+        help="Compile language label to include in output naming.",
+    )
+    parser.add_argument(
+        "--commit",
+        required=True,
+        help="Commit SHA used in destination folder naming.",
+    )
+    parser.add_argument(
+        "--output-root",
+        type=Path,
+        default=Path("profiling-results-export"),
+        help="Folder where packaged result folders are created.",
+    )
+    args = parser.parse_args()
+
+    output_root = args.output_root.resolve()
+    if output_root.exists():
+        shutil.rmtree(output_root)
+    output_root.mkdir(parents=True, exist_ok=True)
+
+    created_dirs = package_results(
+        results_root=args.results_root.resolve(),
+        language=args.language,
+        commit=args.commit,
+        output_root=output_root,
+    )
+
+    print("Packaged result folders:")
+    for path in created_dirs:
+        print(f" - {path}")
+
+
+if __name__ == "__main__":
+    main()
