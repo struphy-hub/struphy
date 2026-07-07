@@ -42,7 +42,7 @@ jobs:
           echo "hello"
           module list
           module avail
-          module load python-waterboa/2025.06
+          module load python/3.11.7
           module list
           python --version
       
@@ -80,7 +80,7 @@ jobs:
         run: |
           module list
           module avail
-          module load python-waterboa/2025.06
+          module load python/3.11.7
           module list
           python --version
           echo "----------------------------------------"
@@ -89,4 +89,4 @@ jobs:
           module purge
           source ./setup/modules.sh load
           module list
-          # python profiling/submit_diocotron_job.py
+          python profiling/submit_diocotron_job.py
