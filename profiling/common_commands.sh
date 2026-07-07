@@ -21,14 +21,16 @@ echo "----------------------------------------"
 echo "Setting up Python virtual environment"
 echo "----------------------------------------"
 which python
+export VENV_NAME=".venv-$LANGUAGE"
+echo $VENV_NAME
 python --version
-if [ ! -d ".venv" ]; then
-    echo "Creating virtual environment '.venv'"
-    python -m venv .venv
+if [ ! -d "$VENV_NAME" ]; then
+    echo "Creating virtual environment '$VENV_NAME'"
+    python -m venv "$VENV_NAME"
 else
-    echo "Virtual environment '.venv' already exists"
+    echo "Virtual environment '$VENV_NAME' already exists"
 fi
-source .venv/bin/activate
+source "$VENV_NAME/bin/activate"
 echo "Activated virtual environment"
 echo
 
