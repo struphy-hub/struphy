@@ -83,30 +83,17 @@ jobs:
         run: |          
           python profiling/submit_diocotron_job.py --venv-path .venv-fortran
 
-      - name: Package profiling .h5 files
+      - name: Package and push profiling data
+        shell: bash
         run: |
-          python profiling/package_profiling_results.py \
+          bash profiling/package_and_publish_results.sh \
             --results-root profiling/results \
             --language "${{ matrix.compile-language }}" \
             --commit "${{ github.sha }}" \
-            --output-root profiling-results-export
-
-      - name: Push packaged profiling data to profiling-data main
-        shell: bash
-        run: |
-          set -euo pipefail
-          git clone git@github.com:struphy-hub/profiling-data.git profiling-data
-          cp -R profiling-results-export/* profiling-data/
-          cd profiling-data
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .
-          if git diff --cached --quiet; then
-            echo "No profiling data changes to commit."
-            exit 0
-          fi
-          git commit -m "Add profiling data (${GITHUB_SHA::8}, ${{ matrix.compile-language }})"
-          git push origin main
+            --output-root profiling-results-export \
+            --target-repo git@github.com:struphy-hub/profiling-data.git \
+            --target-branch main \
+            --clone-dir profiling-data
 
       - name: Upload packaged profiling data as an artifact
         uses: actions/upload-artifact@v4
