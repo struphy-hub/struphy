@@ -36,15 +36,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
       
-      - name: Install and run tests
-        run: |
-          bash hello.sh 
-          echo "hello"
-          module list
-          module avail
-          module load python/3.11.7
-          module list
-          python --version
+      # - name: Install and run tests
+      #   run: |
+      #     bash hello.sh 
+      #     echo "hello"
+      #     module list
+      #     module avail
+      #     module load python/3.11.7
+      #     module list
+      #     python --version
       
       # bash .github/scripts/install_and_test.sh "${{ matrix.compile-language }}"
       # - name: Say hello from cluster
@@ -77,16 +77,16 @@ jobs:
       #     whereami
 
       - name: Submit SLURM job
-        run: |
-          module list
-          module avail
-          module load python/3.11.7
-          module list
-          python --version
+        run: |          
           echo "----------------------------------------"
           echo "Purging and loading modules"
           echo "----------------------------------------"
           module purge
           source ./setup/modules.sh load
           module list
+          python --version
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip
+          pip install slurm-script-generator
           python profiling/submit_diocotron_job.py
