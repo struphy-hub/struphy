@@ -83,4 +83,10 @@ jobs:
           module load python-waterboa/2025.06
           module list
           python --version
-          python profiling/submit_diocotron_job.py
+          echo "----------------------------------------"
+          echo "Purging and loading modules"
+          echo "----------------------------------------"
+          module purge
+          source ./setup/modules.sh load
+          module list
+          # python profiling/submit_diocotron_job.py
