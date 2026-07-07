@@ -171,7 +171,7 @@ model.propagators.qn_full.options = model.propagators.qn_full.Options(
     source_u=source_function_u,
     source_ue=source_function_ue,
     solver="gmres",
-    solver_params=SolverParameters(verbose=True, info=True, tol=tol),
+    solver_params=SolverParameters(info=True, tol=tol),
 )
 
 if BC == "dirichlet_inhom":
@@ -190,9 +190,9 @@ sim = Simulation(
 )
 
 if __name__ == "__main__":
-    sim.run(verbose=True)
-    sim.pproc(verbose=True)
-    sim.load_plotting_data(verbose=True)
+    sim.run()
+    sim.pproc()
+    sim.load_plotting_data()
 
     simdata = sim.plotting_data
     n1_vals = simdata.grids_log[0]
@@ -215,17 +215,30 @@ if __name__ == "__main__":
         plt.clf()
 
     for t in list(simdata.spline_values.ions.u_log.data.keys()):
-        u_ions = simdata.spline_values.ions.u_log.data[t]
+        u_ions      = simdata.spline_values.ions.u_log.data[t]
         u_electrons = simdata.spline_values.electrons.u_log.data[t]
-        phi = simdata.spline_values.em_fields.phi_log.data[t]
+        phi         = simdata.spline_values.em_fields.phi_log.data[t]
+
+        # reconstruct full solution by adding lifting back
+        if BC == "dirichlet_inhom":
+            e1 = xp.array(n1_vals)
+            e2 = xp.array([0.5])
+            e3 = xp.array([0.5])
+            full_u  = model.ions.u.spline_full(e1, e2, e3, squeeze_out=True)
+            full_ue = model.electrons.u.spline_full(e1, e2, e3, squeeze_out=True)
+            u_ions_x      = full_u[0]
+            u_electrons_x = full_ue[0]
+        else:
+            u_ions_x      = u_ions[0][:, 0, 0]
+            u_electrons_x = u_electrons[0][:, 0, 0]
 
         mms_phi_x, _, _ = mms_phi(x, x * 0, x * 0)
         mms_ion_ux, _, _ = mms_ion_u(x, x * 0, x * 0)
-        mms_el_ux, _, _ = mms_electron_u(x, x * 0, x * 0)
+        mms_el_ux, _, _  = mms_electron_u(x, x * 0, x * 0)
 
-        save_plot(n1_vals, phi[0][:, 0, 0], mms_phi_x, "φ", "Potential φ", "plot_potential", t)
-        save_plot(n1_vals, u_ions[0][:, 0, 0], mms_ion_ux, "u_x", "Ion velocity u_x", "plot_ion_ux", t)
-        save_plot(n1_vals, u_electrons[0][:, 0, 0], mms_el_ux, "u_x", "Electron velocity", "plot_electron_ux", t)
+        save_plot(n1_vals, phi[0][:, 0, 0], mms_phi_x,  "φ",   "Potential φ",       "plot_potential",   t)
+        save_plot(n1_vals, u_ions_x,         mms_ion_ux, "u_x", "Ion velocity u_x",  "plot_ion_ux",      t)
+        save_plot(n1_vals, u_electrons_x,    mms_el_ux,  "u_x", "Electron velocity", "plot_electron_ux", t)
 
     # ---- lifting diagnostics ----
     if BC == "dirichlet_inhom":
@@ -262,17 +275,17 @@ if __name__ == "__main__":
     zeros_e = xp.zeros_like(e1)
 
     for label, spline, src_fn, comp in [
-        ("ion_source_x", prop._src_u, prop.options.source_u, 0),
+        ("ion_source_x",      prop._src_u,  prop.options.source_u,  0),
         ("electron_source_x", prop._src_ue, prop.options.source_ue, 0),
     ]:
         if spline is None:
             print(f"  {label}: None, skipping")
             continue
         vals_proj = spline(e1, e2, e3, squeeze_out=True)[comp]
-        vals_ref = src_fn(e1, zeros_e, zeros_e)[comp]
+        vals_ref  = src_fn(e1, zeros_e, zeros_e)[comp]
         plt.figure(figsize=(8, 4))
-        plt.plot(e1, vals_ref, "--", label="analytical")
-        plt.plot(e1, vals_proj, "-", label="projected (FE)")
+        plt.plot(e1, vals_ref,  "--", label="analytical")
+        plt.plot(e1, vals_proj, "-",  label="projected (FE)")
         plt.xlabel("x")
         plt.title(f"{label}")
         plt.legend()

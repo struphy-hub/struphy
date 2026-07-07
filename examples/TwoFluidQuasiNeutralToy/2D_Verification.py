@@ -21,7 +21,7 @@ from struphy.models.two_fluid_quasi_neutral_toy import TwoFluidQuasiNeutralToy
 
 # ------------------ args ------------------
 parser = argparse.ArgumentParser()
-parser.add_argument("bc", choices=["periodic", "dirichlet_inhom", "neumann"])
+parser.add_argument("bc", choices=["periodic", "dirichlet_hom", "dirichlet_inhom"])
 args = parser.parse_args()
 BC = args.bc
 
@@ -34,11 +34,11 @@ B0 = 1
 nu = 10.0
 nu_e = 1.0
 Nel = (8, 8, 1)
-p = (2, 2, 1)
+p = (1, 1, 1)
 epsilon = 1.0
 dt = 1
 Tend = 1
-sigma = 1
+sigma = 0
 tol = 1e-5
 
 time_opts = Time(dt=dt, Tend=Tend)
@@ -50,24 +50,25 @@ grid = grids.TensorProductGrid(num_elements=Nel)
 if BC == "periodic":
     derham_opts = DerhamOptions(degree=p, bcs=(None, None, None))
 
-elif BC == "neumann":
-    derham_opts = DerhamOptions(degree=p, bcs=(None, ("free", "free"), None))
+
+elif BC == "dirichlet_hom":
+    derham_opts = DerhamOptions(degree=p, bcs=(("dirichlet", "dirichlet"), ("dirichlet", "dirichlet"), None))
+    # derham_opts = DerhamOptions(degree=p, bcs=(None, None, None))
+
 
 elif BC == "dirichlet_inhom":
     derham_opts = DerhamOptions(degree=p, bcs=(("dirichlet", "dirichlet"), ("dirichlet", "dirichlet"), None))
+    # derham_opts = DerhamOptions(degree=p, bcs=(None, None, None))
 
     lifting_function_u = [
-        GenericPerturbation(lambda x, y, z: -x * y, comp=0, given_in_basis="physical"),
-        GenericPerturbation(
-            lambda x, y, z: -xp.cos(2 * pi * x) * xp.cos(2 * pi * y) - x * y, comp=1, given_in_basis="physical"
-        ),
+        GenericPerturbation(lambda x, y, z: -xp.sin(2*pi*x)*xp.sin(2*pi*y), comp=0, given_in_basis="physical"),
+        GenericPerturbation(lambda x, y, z: -xp.cos(2*pi*x)*xp.cos(2*pi*y), comp=1, given_in_basis="physical"),
     ]
     lifting_function_ue = [
-        GenericPerturbation(lambda x, y, z: -x * y - 1, comp=0, given_in_basis="physical"),
-        GenericPerturbation(
-            lambda x, y, z: -xp.cos(4 * pi * x) * xp.cos(4 * pi * y) - x * y - 1, comp=1, given_in_basis="physical"
-        ),
+        GenericPerturbation(lambda x, y, z: -xp.sin(4*pi*x)*xp.sin(4*pi*y), comp=0, given_in_basis="physical"),
+        GenericPerturbation(lambda x, y, z: -xp.cos(4*pi*x)*xp.cos(4*pi*y), comp=1, given_in_basis="physical"),
     ]
+
 
 # ------------------ manufactured solutions ------------------
 if BC == "periodic":
@@ -81,35 +82,31 @@ if BC == "periodic":
     def mms_electron_u(x, y, z):
         return -xp.sin(4 * pi * x) * xp.sin(4 * pi * y), -xp.cos(4 * pi * x) * xp.cos(4 * pi * y), xp.zeros_like(x)
 
-elif BC == "neumann":
+
+
+elif BC == "dirichlet_hom":
 
     def mms_phi(x, y, z):
         return xp.cos(2 * pi * x) + xp.sin(2 * pi * y), xp.zeros_like(x), xp.zeros_like(x)
 
     def mms_ion_u(x, y, z):
-        return -xp.sin(2 * pi * x) * xp.sin(2 * pi * y), -xp.cos(2 * pi * y), xp.zeros_like(x)
+        return -xp.sin(2 * pi * x) * xp.cos(2 * pi * y), xp.cos(2 * pi * x) * xp.sin(2 * pi * y), xp.zeros_like(x)
 
     def mms_electron_u(x, y, z):
-        return -xp.sin(2 * pi * x) * xp.sin(2 * pi * y), -xp.cos(2 * pi * y), xp.zeros_like(x)
+        return -xp.sin(4 * pi * x) * xp.cos(4 * pi * y), xp.cos(4 * pi * x) * xp.sin(4 * pi * y), xp.zeros_like(x)
+
 
 elif BC == "dirichlet_inhom":
 
     def mms_phi(x, y, z):
-        return xp.cos(2 * pi * x) + xp.sin(2 * pi * y), xp.zeros_like(x), xp.zeros_like(x)
+        return xp.cos(2*pi*x) + xp.sin(2*pi*y), xp.zeros_like(x), xp.zeros_like(x)
 
     def mms_ion_u(x, y, z):
-        return (
-            -xp.sin(2 * pi * x) * xp.sin(2 * pi * y) - x * y,
-            -xp.cos(2 * pi * x) * xp.cos(2 * pi * y) - x * y,
-            xp.zeros_like(x),
-        )
+        return -xp.sin(2*pi*x)*xp.sin(2*pi*y), -xp.cos(2*pi*x)*xp.cos(2*pi*y), xp.zeros_like(x)
 
     def mms_electron_u(x, y, z):
-        return (
-            -xp.sin(4 * pi * x) * xp.sin(4 * pi * y) - x * y - 1,
-            -xp.cos(4 * pi * x) * xp.cos(4 * pi * y) - x * y - 1,
-            xp.zeros_like(x),
-        )
+        return -xp.sin(4*pi*x)*xp.sin(4*pi*y), -xp.cos(4*pi*x)*xp.cos(4*pi*y), xp.zeros_like(x)
+
 
 
 # ------------------ source terms ------------------
@@ -143,70 +140,67 @@ if BC == "periodic":
         )
         return fx, fy, zeros_like(x)
 
-elif BC == "neumann":
 
-    def source_function_u(x, y, z):
-        fx = (
-            B0 / epsilon * xp.cos(2 * pi * y)
-            - 2 * pi * xp.sin(2 * pi * x)
-            - nu * 8 * pi**2 * xp.sin(2 * pi * x) * xp.sin(2 * pi * y)
-        )
-        fy = (
-            2 * pi * xp.cos(2 * pi * y)
-            - nu * 4 * pi**2 * xp.cos(2 * pi * y)
-            - B0 / epsilon * xp.sin(2 * pi * x) * xp.sin(2 * pi * y)
-        )
-        return fx, fy, zeros_like(x)
-
-    def source_function_ue(x, y, z):
-        fx = (
-            -B0 / epsilon * xp.cos(2 * pi * y)
-            + 2 * pi * xp.sin(2 * pi * x)
-            - nu_e * 8 * pi**2 * xp.sin(2 * pi * x) * xp.sin(2 * pi * y)
-            + sigma * xp.sin(2 * pi * x) * xp.sin(2 * pi * y)
-        )
-        fy = (
-            -2 * pi * xp.cos(2 * pi * y)
-            - nu_e * 4 * pi**2 * xp.cos(2 * pi * y)
-            + sigma * xp.cos(2 * pi * y)
-            + B0 / epsilon * xp.sin(2 * pi * x) * xp.sin(2 * pi * y)
-        )
-        return fx, fy, zeros_like(x)
-
-
-elif BC == "dirichlet_inhom":
+elif BC == "dirichlet_hom":
 
     def source_function_u(x, y, z):
         fx = (
             -2 * pi * xp.sin(2 * pi * x)
-            + B0 / epsilon * xp.cos(2 * pi * x) * xp.cos(2 * pi * y)
-            - nu * 8 * pi**2 * xp.sin(2 * pi * x) * xp.sin(2 * pi * y)
+            - B0 / epsilon * xp.cos(2 * pi * x) * xp.sin(2 * pi * y)
+            - nu * 8 * pi**2 * xp.sin(2 * pi * x) * xp.cos(2 * pi * y)
         )
         fy = (
             2 * pi * xp.cos(2 * pi * y)
-            - B0 / epsilon * xp.sin(2 * pi * x) * xp.sin(2 * pi * y)
-            - nu * 8 * pi**2 * xp.cos(2 * pi * x) * xp.cos(2 * pi * y)
+            - B0 / epsilon * xp.sin(2 * pi * x) * xp.cos(2 * pi * y)
+            + nu * 8 * pi**2 * xp.cos(2 * pi * x) * xp.sin(2 * pi * y)
         )
-        fx += -B0 / epsilon * x * y
-        fy += B0 * x * y / epsilon
         return fx, fy, zeros_like(x)
 
     def source_function_ue(x, y, z):
         fx = (
             2 * pi * xp.sin(2 * pi * x)
-            - B0 / epsilon * xp.cos(4 * pi * x) * xp.cos(4 * pi * y)
-            - nu_e * 32 * pi**2 * xp.sin(4 * pi * x) * xp.sin(4 * pi * y)
-            + sigma * xp.sin(4 * pi * x) * xp.sin(4 * pi * y)
+            + B0 / epsilon * xp.cos(4 * pi * x) * xp.sin(4 * pi * y)
+            - nu_e * 32 * pi**2 * xp.sin(4 * pi * x) * xp.cos(4 * pi * y)
+            + sigma * xp.sin(4 * pi * x) * xp.cos(4 * pi * y)
         )
         fy = (
             -2 * pi * xp.cos(2 * pi * y)
-            + B0 / epsilon * xp.sin(4 * pi * x) * xp.sin(4 * pi * y)
-            - nu_e * 32 * pi**2 * xp.cos(4 * pi * x) * xp.cos(4 * pi * y)
-            + sigma * xp.cos(4 * pi * x) * xp.cos(4 * pi * y)
+            + B0 / epsilon * xp.sin(4 * pi * x) * xp.cos(4 * pi * y)
+            + nu_e * 32 * pi**2 * xp.cos(4 * pi * x) * xp.sin(4 * pi * y)
+            - sigma * xp.cos(4 * pi * x) * xp.sin(4 * pi * y)
         )
-        fx += B0 / epsilon * (x * y + 1) - sigma * (x * y + 1)
-        fy += -B0 / epsilon * (x * y + 1) - sigma * (x * y + 1)
         return fx, fy, zeros_like(x)
+
+
+elif BC == "dirichlet_inhom":
+    def source_function_u(x, y, z):
+        fx = (
+            -2*pi*xp.sin(2*pi*x)
+            + B0/epsilon * xp.cos(2*pi*x) * xp.cos(2*pi*y)
+            - nu*8*pi**2 * xp.sin(2*pi*x) * xp.sin(2*pi*y)
+        )
+        fy = (
+            2*pi*xp.cos(2*pi*y)
+            - B0/epsilon * xp.sin(2*pi*x) * xp.sin(2*pi*y)
+            - nu*8*pi**2 * xp.cos(2*pi*x) * xp.cos(2*pi*y)
+        )
+        return fx, fy, zeros_like(x)
+
+    def source_function_ue(x, y, z):
+        fx = (
+            2*pi*xp.sin(2*pi*x)
+            - B0/epsilon * xp.cos(4*pi*x) * xp.cos(4*pi*y)
+            - nu_e*32*pi**2 * xp.sin(4*pi*x) * xp.sin(4*pi*y)
+            + sigma * xp.sin(4*pi*x) * xp.sin(4*pi*y)
+        )
+        fy = (
+            -2*pi*xp.cos(2*pi*y)
+            + B0/epsilon * xp.sin(4*pi*x) * xp.sin(4*pi*y)
+            - nu_e*32*pi**2 * xp.cos(4*pi*x) * xp.cos(4*pi*y)
+            + sigma * xp.cos(4*pi*x) * xp.cos(4*pi*y)
+        )
+        return fx, fy, zeros_like(x)
+
 
 
 class MMSIonVelocity(perturbations.Perturbation):
@@ -246,18 +240,18 @@ model.propagators.qn_full.options = model.propagators.qn_full.Options(
     source_u=source_function_u,
     source_ue=source_function_ue,
     solver="gmres",
-    solver_params=SolverParameters(verbose=True, info=True, tol=tol),
+    solver_params=SolverParameters(info=True, tol=tol),
 )
 
 if BC == "dirichlet_inhom":
     model.ions.u.lifting_function = lifting_function_u
     model.electrons.u.lifting_function = lifting_function_ue
 
-    # model.ions.u.add_perturbation(MMSIonVelocity(comp=0))
-    # model.ions.u.add_perturbation(MMSIonVelocity(comp=1))
-    # model.electrons.u.add_perturbation(MMSElectronVelocity(comp=0))
-    # model.electrons.u.add_perturbation(MMSElectronVelocity(comp=1))
-    # model.em_fields.phi.add_perturbation(MMSPotential())
+# model.ions.u.add_perturbation(MMSIonVelocity(comp=0))
+# model.ions.u.add_perturbation(MMSIonVelocity(comp=1))
+# model.electrons.u.add_perturbation(MMSElectronVelocity(comp=0))
+# model.electrons.u.add_perturbation(MMSElectronVelocity(comp=1))
+# model.em_fields.phi.add_perturbation(MMSPotential())
 
 # ------------------ simulation ------------------
 sim = Simulation(
@@ -273,11 +267,11 @@ sim = Simulation(
 
 # ------------------ run ------------------
 if __name__ == "__main__":
-    sim.run(verbose=True)
+    sim.run()
 
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.pproc(verbose=True)
-        sim.load_plotting_data(verbose=True)
+        sim.pproc()
+        sim.load_plotting_data()
 
         simdata = sim.plotting_data
 
@@ -306,19 +300,37 @@ if __name__ == "__main__":
             plt.close(fig)
 
         for t in simdata.spline_values.ions.u_log.data.keys():
-            u_ions = simdata.spline_values.ions.u_log.data[t]
+            u_ions      = simdata.spline_values.ions.u_log.data[t]
             u_electrons = simdata.spline_values.electrons.u_log.data[t]
-            phi = simdata.spline_values.em_fields.phi_log.data[t]
+            phi         = simdata.spline_values.em_fields.phi_log.data[t]
 
-            mms_phi_x, _, _ = mms_phi(Xf, Yf, 0 * Xf)
+            if BC == "dirichlet_inhom":
+                e1 = xp.array(n1_vals)
+                e2 = xp.array(n2_vals)
+                e3 = xp.array([0.5])
+                full_u  = model.ions.u.spline_full(e1, e2, e3, squeeze_out=True)
+                full_ue = model.electrons.u.spline_full(e1, e2, e3, squeeze_out=True)
+                phi_plot = phi[0][:, :, 0]
+                uix_plot = full_u[0]
+                uiy_plot = full_u[1]
+                uex_plot = full_ue[0]
+                uey_plot = full_ue[1]
+            else:
+                phi_plot = phi[0][:, :, 0]
+                uix_plot = u_ions[0][:, :, 0]
+                uiy_plot = u_ions[1][:, :, 0]
+                uex_plot = u_electrons[0][:, :, 0]
+                uey_plot = u_electrons[1][:, :, 0]
+
+            mms_phi_x, _, _           = mms_phi(Xf, Yf, 0 * Xf)
             mms_ion_ux, mms_ion_uy, _ = mms_ion_u(Xf, Yf, 0 * Xf)
-            mms_el_ux, mms_el_uy, _ = mms_electron_u(Xf, Yf, 0 * Xf)
+            mms_el_ux, mms_el_uy, _   = mms_electron_u(Xf, Yf, 0 * Xf)
 
-            save_plot(phi[0][:, :, 0], mms_phi_x, "φ", "plot_phi", t)
-            save_plot(u_ions[0][:, :, 0], mms_ion_ux, "u_ix", "plot_uix", t)
-            save_plot(u_ions[1][:, :, 0], mms_ion_uy, "u_iy", "plot_uiy", t)
-            save_plot(u_electrons[0][:, :, 0], mms_el_ux, "u_ex", "plot_uex", t)
-            save_plot(u_electrons[1][:, :, 0], mms_el_uy, "u_ey", "plot_uey", t)
+            save_plot(phi_plot,  mms_phi_x,  "φ",    "plot_phi", t)
+            save_plot(uix_plot,  mms_ion_ux, "u_ix", "plot_uix", t)
+            save_plot(uiy_plot,  mms_ion_uy, "u_iy", "plot_uiy", t)
+            save_plot(uex_plot,  mms_el_ux,  "u_ex", "plot_uex", t)
+            save_plot(uey_plot,  mms_el_uy,  "u_ey", "plot_uey", t)
 
         # ---- lifting diagnostics (dirichlet_inhom only) ----
         if BC == "dirichlet_inhom":
@@ -363,8 +375,8 @@ if __name__ == "__main__":
         zeros_E = xp.zeros_like(E1)
 
         for label, spline, src_fn, comp in [
-            ("ion_source_x", prop._src_u, prop.options.source_u, 0),
-            ("ion_source_y", prop._src_u, prop.options.source_u, 1),
+            ("ion_source_x",      prop._src_u,  prop.options.source_u,  0),
+            ("ion_source_y",      prop._src_u,  prop.options.source_u,  1),
             ("electron_source_x", prop._src_ue, prop.options.source_ue, 0),
             ("electron_source_y", prop._src_ue, prop.options.source_ue, 1),
         ]:
@@ -373,7 +385,7 @@ if __name__ == "__main__":
                 continue
 
             vals_proj = spline(e1, e2, e3, squeeze_out=True)[comp]
-            vals_ref = src_fn(E1, E2, zeros_E)[comp]
+            vals_ref  = src_fn(E1, E2, zeros_E)[comp]
 
             fig, axes = plt.subplots(1, 2, figsize=(10, 4))
             im0 = axes[0].contourf(E1, E2, vals_proj, levels=50)
@@ -393,24 +405,22 @@ if __name__ == "__main__":
             x_check = xp.linspace(0, 1, 80)
             z_check = xp.array([0.5])
 
-            # comp=0: normal trace at x=0 and x=1
             for x_bnd, label in [(0.0, "x=0"), (1.0, "x=1")]:
                 x_bnd_arr = xp.array([x_bnd])
-                mms_vals = mms_ion_u(x_bnd_arr, y_check, z_check)[0]
+                mms_vals  = mms_ion_u(x_bnd_arr, y_check, z_check)[0]
                 lift_vals = model.ions.u.spline_lift(x_bnd_arr, y_check, z_check, squeeze_out=True)[0]
                 print(f"ion ux normal trace diff at {label}: max={xp.max(xp.abs(mms_vals - lift_vals)):.3e}")
 
-                mms_vals = mms_electron_u(x_bnd_arr, y_check, z_check)[0]
+                mms_vals  = mms_electron_u(x_bnd_arr, y_check, z_check)[0]
                 lift_vals = model.electrons.u.spline_lift(x_bnd_arr, y_check, z_check, squeeze_out=True)[0]
                 print(f"elec ux normal trace diff at {label}: max={xp.max(xp.abs(mms_vals - lift_vals)):.3e}")
 
-            # comp=1: normal trace at y=0 and y=1
             for y_bnd, label in [(0.0, "y=0"), (1.0, "y=1")]:
                 y_bnd_arr = xp.array([y_bnd])
-                mms_vals = mms_ion_u(x_check, y_bnd_arr, z_check)[1]
+                mms_vals  = mms_ion_u(x_check, y_bnd_arr, z_check)[1]
                 lift_vals = model.ions.u.spline_lift(x_check, y_bnd_arr, z_check, squeeze_out=True)[1]
                 print(f"ion uy normal trace diff at {label}: max={xp.max(xp.abs(mms_vals - lift_vals)):.3e}")
 
-                mms_vals = mms_electron_u(x_check, y_bnd_arr, z_check)[1]
+                mms_vals  = mms_electron_u(x_check, y_bnd_arr, z_check)[1]
                 lift_vals = model.electrons.u.spline_lift(x_check, y_bnd_arr, z_check, squeeze_out=True)[1]
                 print(f"elec uy normal trace diff at {label}: max={xp.max(xp.abs(mms_vals - lift_vals)):.3e}")

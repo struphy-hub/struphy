@@ -106,3 +106,4 @@ pyvenv.cfg
 
 examples/TwoFluidQuasiNeutralToy/runs/*/
 *profile_output*.txt
+src/struphy/kernels.txt

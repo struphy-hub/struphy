@@ -125,7 +125,11 @@ model.propagators.qn_full.options = model.propagators.qn_full.Options(
     source_u=source_function_u,
     source_ue=source_function_ue,
     solver="gmres",
+<<<<<<< Updated upstream
     solver_params=SolverParameters(verbose=True, info=True, tol=tol),
+=======
+    solver_params=SolverParameters(info=True, tol=tol),
+>>>>>>> Stashed changes
 )
 
 model.ions.u.lifting_function = lifting_u
@@ -145,11 +149,19 @@ sim = Simulation(
 
 # ------------------ run ------------------
 if __name__ == "__main__":
+<<<<<<< Updated upstream
     # sim.run(verbose=True)
 
     if MPI.COMM_WORLD.Get_rank() == 0:
         sim.pproc(verbose=True)
         sim.load_plotting_data(verbose=True)
+=======
+    sim.run()
+
+    if MPI.COMM_WORLD.Get_rank() == 0:
+        sim.pproc()
+        sim.load_plotting_data()
+>>>>>>> Stashed changes
 
         simdata = sim.plotting_data
         os.makedirs(f"{name}/plots", exist_ok=True)

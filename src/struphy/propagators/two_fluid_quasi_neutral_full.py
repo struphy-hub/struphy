@@ -20,7 +20,6 @@ from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
 
-
 class TwoFluidQuasiNeutralFull(Propagator):
     r""":ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\mathbf u \in H(\textnormal{div})`, :math:`\mathbf u_e \in H(\textnormal{div})` and  :math:`\mathbf \phi \in L^2` such that
@@ -283,7 +282,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._curl_u = self._derham_lift_u.curl
         self._S21_u = self._basis_ops_lift_u.S21
 
-        self._lapl_u = (
+        self._lapl_u = (  # TODO
             self._div_u.T @ self._mass_ops_lift_u.M3 @ self._div_u
             + self._S21_u.T @ self._curl_u.T @ self._M2_u @ self._curl_u @ self._S21_u
         )
@@ -296,7 +295,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._curl_ue = self._derham_lift_ue.curl
         self._S21_ue = self._basis_ops_lift_ue.S21
 
-        self._lapl_ue = (
+        self._lapl_ue = (  # TODO
             self._div_ue.T @ self._mass_ops_lift_ue.M3 @ self._div_ue
             + self._S21_ue.T @ self._curl_ue.T @ self._M2_ue @ self._curl_ue @ self._S21_ue
         )
@@ -309,6 +308,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
         # ---- constrained operators (for system matrix, built from self.derham) ---
 
+        self._M1 = self.mass_ops.M1
         self._M2 = self.mass_ops.M2
         self._M3 = self.mass_ops.M3
         self._M2B = -self.mass_ops.M2B
@@ -316,9 +316,13 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._curl = self.derham.curl
         self._S21 = self.basis_ops.S21
 
-        self._lapl_v0 = (
-            self._div.T @ self._M3 @ self._div + self._S21.T @ self._curl.T @ self._M2 @ self._curl @ self._S21
-        )
+        self._M1inv = inverse(self._M1, "cg", tol=1e-6, maxiter=500, recycle=True)
+
+        # self._lapl_v0 = (
+        #     self._div.T @ self._M3 @ self._div + self._S21.T @ self._curl.T @ self._M2 @ self._curl @ self._S21
+        # )
+        self._lapl_v0 = self._div.T @ self._M3 @ self._div + self._M2 @ self._curl @ self._M1inv @ self._curl.T @ self._M2
+
 
         self._A11 = -self._M2B / self.options.eps_norm + self.options.nu * self._lapl_v0
         self._A22 = (
@@ -382,6 +386,20 @@ class TwoFluidQuasiNeutralFull(Propagator):
     ### Time step
     # =========================================================================
     def __call__(self, dt):
+
+        # --- rebuild system matrix if dt changed ---
+        if dt != self._dt:
+            self._dt = dt
+            _A = BlockLinearOperator(
+                self._block_domain, self._block_domain,
+                blocks=[[self._A11 + self._M2 / dt, None], [None, self._A22]]
+            )
+            _M = BlockLinearOperator(
+                self._block_domain_M, self._block_domain_M,
+                blocks=[[_A, self._B.T], [self._B, None]]
+            )
+            self._Minv.linop = _M
+
 
         # --- copy current homogeneous solution ---
         self._u_0.vector = self.variables.u.spline.vector
