@@ -34,7 +34,7 @@ B0 = 1
 nu = 10.0
 nu_e = 1.0
 Nel = (8, 8, 1)
-p = (1, 1, 1)
+p = (2, 2, 1)
 epsilon = 1.0
 dt = 1
 Tend = 1
@@ -239,7 +239,7 @@ model.propagators.qn_full.options = model.propagators.qn_full.Options(
     stab_sigma=sigma,
     source_u=source_function_u,
     source_ue=source_function_ue,
-    solver="gmres",
+    solver="uzawa",
     solver_params=SolverParameters(info=True, tol=tol),
 )
 

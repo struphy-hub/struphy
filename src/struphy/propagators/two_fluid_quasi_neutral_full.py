@@ -17,6 +17,7 @@ from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
+from struphy.feec.preconditioner import MassMatrixPreconditioner
 
 logger = logging.getLogger("struphy")
 
@@ -316,7 +317,8 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._curl = self.derham.curl
         self._S21 = self.basis_ops.S21
 
-        self._M1inv = inverse(self._M1, "cg", tol=1e-6, maxiter=500, recycle=True)
+        self._mass_pc = MassMatrixPreconditioner(mass_operator=self._M1)
+        self._M1inv = inverse(self._M1, "pcg", pc=self._mass_pc, tol=1e-6, maxiter=500, recycle=True)
 
         # self._lapl_v0 = (
         #     self._div.T @ self._M3 @ self._div + self._S21.T @ self._curl.T @ self._M2 @ self._curl @ self._S21
@@ -390,15 +392,19 @@ class TwoFluidQuasiNeutralFull(Propagator):
         # --- rebuild system matrix if dt changed ---
         if dt != self._dt:
             self._dt = dt
+            _A11 = self._A11 + self._M2 / dt
             _A = BlockLinearOperator(
                 self._block_domain, self._block_domain,
-                blocks=[[self._A11 + self._M2 / dt, None], [None, self._A22]]
+                blocks=[[_A11, None], [None, self._A22]]
             )
             _M = BlockLinearOperator(
                 self._block_domain_M, self._block_domain_M,
                 blocks=[[_A, self._B.T], [self._B, None]]
             )
             self._Minv.linop = _M
+            
+            if self.options.solver in get_args(LiteralOptions.OptsSaddlePointSolver):
+                self._Minv.update_A11(_A11)
 
 
         # --- copy current homogeneous solution ---
