@@ -462,7 +462,7 @@ def plot_marker_trajectories_slider(
     ax.set_zlabel("Z")
     ax.set_title(f"{title} | step {it0}/{nt - 1}")
 
-    fig.colorbar(sc, ax=ax, label=f"marker weights")
+    fig.colorbar(sc, ax=ax, label="marker weights")
 
     ax_slider = plt.axes([0.18, 0.06, 0.65, 0.03])
     slider = Slider(ax_slider, "time index", 0, nt - 1, valinit=it0, valstep=1)
@@ -509,9 +509,6 @@ def main():
 
     if SHOW_EQUIL_PROFILE:
         plot_equilibrium_profile(sim_path)
-
-    if SAVE_DENSITY_IMAGES:
-        save_density_images(params, pdata, sim_path)
 
     if SHOW_DENSITY_SLIDER:
         for cfg in DENSITY_PLOTS:
