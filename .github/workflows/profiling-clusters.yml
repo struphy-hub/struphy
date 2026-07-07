@@ -21,7 +21,7 @@ jobs:
   TOK:
     uses: ./.github/workflows/reusable-profiling-clusters.yml
     with:
-      runner_tags: '["self-hosted", "maxlin", "pc"]'
+      runner_tags: '["self-hosted", "pitagora"]'
   
   # Pitagora:
   #   uses: ./.github/workflows/reusable-profiling-clusters.yml
