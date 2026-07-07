@@ -116,7 +116,7 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-ppc=1000
+ppc = 100 # run with 1000 minimum
 loading_params = LoadingParameters(ppc = ppc, loading="sobol_standard", spatial="disc")
 weights_params = WeightsParameters(control_variate=True, reject_weights=True, threshold=0.0001)
 boundary_params = BoundaryParameters()
