@@ -81,12 +81,13 @@ jobs:
           echo "----------------------------------------"
           echo "Purging and loading modules"
           echo "----------------------------------------"
-          module purge
-          source ./setup/modules.sh load
-          module list
-          python --version
-          python -m venv .venv
-          source .venv/bin/activate
-          pip install --upgrade pip
+          source profiling/common_commands.sh
+          # module purge
+          # source ./setup/modules.sh load
+          # module list
+          # python --version
+          # python -m venv .venv
+          # source .venv/bin/activate
+          # pip install --upgrade pip
           pip install slurm-script-generator
           python profiling/submit_diocotron_job.py

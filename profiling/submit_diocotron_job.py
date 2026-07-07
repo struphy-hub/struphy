@@ -25,6 +25,7 @@ def load_common_commands() -> list[str]:
 
 def build_case_commands(case: ProfilingCase) -> list[str]:
     commands = [
+        "source .venv/bin/activate",
         'echo "----------------------------------------"',
         f'echo "Running profiling case: {case.name}"',
         'echo "----------------------------------------"',
@@ -74,7 +75,9 @@ def main() -> None:
 
     for case in cases:
         case_commands = (
-            [f'cd "{repo_root}"'] + common_commands + build_case_commands(case)
+            # [f'cd "{repo_root}"'] + \
+            #     common_commands + \
+                build_case_commands(case)
         )
 
         # TOK
