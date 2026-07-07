@@ -37,7 +37,7 @@ def main() -> None:
     # print(f"Running diocotron profiling case with {num_ranks} MPI ranks...")
     # print("Environment options:", sim.env)
 
-    sim.run()
+    sim.run(one_time_step=True)
 
 
 if __name__ == "__main__":
