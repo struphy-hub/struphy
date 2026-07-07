@@ -35,57 +35,26 @@ jobs:
       # Checkout the repository
       - name: Checkout code
         uses: actions/checkout@v5
-      
-      # - name: Install and run tests
-      #   run: |
-      #     bash hello.sh 
-      #     echo "hello"
-      #     module list
-      #     module avail
-      #     module load python/3.11.7
-      #     module list
-      #     python --version
-      
-      # bash .github/scripts/install_and_test.sh "${{ matrix.compile-language }}"
-      # - name: Say hello from cluster
-      #   shell: bash
-      #   run: |
-      #     set -euxo pipefail
 
-      #     echo "Hello from cluster!"
-      #     pwd
-      #     whoami
-      #     hostname
-      #     which bash
-      #     which ssh
-      #     python --version
-      
-      # - name: Print some information
-      #   shell: bash
-      #   run: |
-      #     echo "Current date and time: $(date)"
-      #     echo "Current user: $(whoami)"
-      #     echo "Current working directory: $(pwd)"
-      #     echo "List of files in the current directory:"
-      #     ls -l
-      #     echo "Python version:"
-      #     python --version
-      #     echo "SLURM job information:"
-      #     squeue -u $(whoami)
-      #     curl -fsSL https://raw.githubusercontent.com/max-models/whereami/main/install.sh | bash
-      #     export PATH="${HOME}/.local/bin:${PATH}"
-      #     whereami
+      - name: Print some information
+        shell: bash
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/max-models/whereami/main/install.sh | bash
+          export PATH="${HOME}/.local/bin:${PATH}"
+          whereami
       - name: Install struphy
         run: |
           source profiling/common_commands.sh
 
       - name: Submit SLURM job
-        run: |          
+        run: |
+          source .venv-fortran/bin/activate
           python profiling/submit_diocotron_job.py --venv-path .venv-fortran
 
       - name: Package and push profiling data
         shell: bash
         run: |
+          source .venv-fortran/bin/activate
           bash profiling/package_and_publish_results.sh \
             --results-root profiling/results \
             --language "${{ matrix.compile-language }}" \
