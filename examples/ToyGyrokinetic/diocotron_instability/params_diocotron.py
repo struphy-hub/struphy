@@ -116,8 +116,8 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-Np=500000
-loading_params = LoadingParameters(Np = Np, loading="sobol_standard", spatial="disc")
+ppc=1000
+loading_params = LoadingParameters(ppc = ppc, loading="sobol_standard", spatial="disc")
 weights_params = WeightsParameters(control_variate=True, reject_weights=True, threshold=0.0001)
 boundary_params = BoundaryParameters()
 sorting_params = SortingParameters(boxes_per_dim=(12,12,1), do_sort=True, sorting_frequency=5)
