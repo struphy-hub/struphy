@@ -28,6 +28,7 @@ def build_case_commands(case: ProfilingCase, venv_path: Path) -> list[str]:
     activate_path = venv_path.expanduser().resolve() / "bin" / "activate"
     commands = [
         f"source {str(activate_path)}",
+        "source ./setup/modules.sh load",
         'echo "----------------------------------------"',
         f'echo "Running profiling case: {case.name}"',
         'echo "----------------------------------------"',
