@@ -129,7 +129,7 @@ sorting_params = SortingParameters(boxes_per_dim=(12,12,6), do_sort=True, sortin
 # density binning
 eta_bin = BinningPlot(slice='e1_e2', n_bins= (64,64), ranges= ((0.01, 0.99), (0.0, 1.0)))
 eta_bin2 = BinningPlot(slice='e2_e3', n_bins= (64,64), ranges= ((0.0, 1.0), (0.0, 1.0)))
-saving_params = SavingParameters(n_markers=10000, binning_plots=(eta_bin,))
+saving_params = SavingParameters(n_markers=100, binning_plots=(eta_bin,))
 
 model.kinetic_ions.set_markers(loading_params=loading_params,
                                weights_params=weights_params,
