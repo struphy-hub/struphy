@@ -513,20 +513,22 @@ def main():
 
 if len(sys.argv)>1 and __name__ == "__main__":
     sim_names = sys.argv[1:]
+    params_files = []
+    sim_paths = []
+
+    for i, sim_name in enumerate(sim_names):
+        sim_path = os.path.join(os.getcwd(), sim_name)
+
+        spec = importlib.util.spec_from_file_location("params", os.path.join(sim_path, "parameters.py"))
+        params = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(params)
+        sim_paths.append(sim_path)
+        params_files.append(params)
 else:
     sim_names = ["sim_1"]
-
-params_files = []
-sim_paths = []
-
-for i, sim_name in enumerate(sim_names):
-    sim_path = os.path.join(os.getcwd(), sim_name)
-
-    spec = importlib.util.spec_from_file_location("params", os.path.join(sim_path, "parameters.py"))
-    params = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(params)
-    sim_paths.append(sim_path)
-    params_files.append(params)
+    import params_diocotron as params
+    params_files = [params]
+    sim_paths = [os.path.join(os.getcwd(), sim_names[0])]
 
 if __name__ == "__main__":
     main()

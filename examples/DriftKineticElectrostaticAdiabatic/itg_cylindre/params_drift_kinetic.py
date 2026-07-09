@@ -101,7 +101,6 @@ derham_opts = DerhamOptions(degree=(3,3,3), bcs=(("dirichlet", "dirichlet"), Non
 # Simulation object
 from feectools.ddm.mpi import mpi as MPI
 rank = MPI.COMM_WORLD.Get_rank()
-print(f"[rank {rank}] before Simulation", flush=True)
 sim = Simulation(
     model=model,
     name=name,
@@ -114,13 +113,12 @@ sim = Simulation(
     grid=grid,
     derham_opts=derham_opts,
 )
-print(f"[rank {rank}] after Simulation", flush=True)
 
 # -------------------
 # Particle parameters
 # -------------------
 
-ppc = 10 # run with 200 minimum
+ppc = 50 # run with 200 minimum
 loading_params = LoadingParameters(ppc=ppc, loading="sobol_standard", spatial="uniform", moments=(0.0, 0.0, 2.0, 2.0))
 weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters(bc=('remove','periodic','periodic'))
@@ -240,5 +238,4 @@ init = maxwellians.GyroMaxwellian2D(n=(n_init, perturbation), equil=equil, vth_p
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":
-    print(f"[rank {rank}] before sim.run", flush=True)
-    sim.run(one_time_step=False)
+    sim.run()

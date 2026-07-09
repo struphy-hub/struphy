@@ -524,11 +524,13 @@ def main():
 
 if len(sys.argv) > 1 and __name__ == "__main__":
     sim_name = sys.argv[1]
+    sim_path = os.path.join(os.getcwd(), sim_name)
+    params = load_params(sim_path)
 else:
     sim_name = "sim_1"
+    sim_path = os.path.join(os.getcwd(), sim_name)
+    import params_drift_kinetic as params
 
-sim_path = os.path.join(os.getcwd(), sim_name)
-params = load_params(sim_path)
 
 if __name__ == "__main__":
     main()

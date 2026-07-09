@@ -120,7 +120,7 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-ppc = 10 # run with 200 minimum
+ppc = 50 # run with 200 minimum
 loading_params = LoadingParameters(ppc = ppc, loading="sobol_standard", spatial="uniform", moments=(0, 0, 4, 4))
 weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters(bc=("remove", "periodic", "periodic"))
