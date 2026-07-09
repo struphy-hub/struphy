@@ -18,13 +18,13 @@ class LoadingParameters:
 
     Parameters
     ----------
-    Np : int, optional
+    Np : int, default=5000
         Total number of particles to load into the simulation.
 
     ppc : int, optional
         Particles per cell to load if a grid is defined. Cell divisions follow ``domain_array``.
 
-    ppb : int, default=10
+    ppb : int, optional
         Particles per sorting box. Sorting boxes are defined by ``boxes_per_dim``.
 
     loading : LiteralOptions.OptsLoading, default="pseudo_random"
@@ -66,9 +66,9 @@ class LoadingParameters:
         HDF5 dataset key within the 'restart/' folder containing marker array data.
     """
 
-    Np: int = None
+    Np: int = 5000
     ppc: int = None
-    ppb: int = 10
+    ppb: int = None
     loading: LiteralOptions.OptsLoading = "pseudo_random"
     seed: int = None
     moments: tuple = None
