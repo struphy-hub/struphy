@@ -56,7 +56,6 @@ jobs:
         run: |
           source .venv-fortran/bin/activate
           bash profiling/package_and_publish_results.sh \
-            --results-root profiling/results \
             --language "${{ matrix.compile-language }}" \
             --commit "${{ github.sha }}" \
             --output-root profiling-results-export \

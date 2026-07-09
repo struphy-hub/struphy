@@ -1,6 +1,7 @@
 import argparse
 import subprocess
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 from slurm_script_generator.slurm_script import SlurmScript
@@ -10,18 +11,37 @@ from slurm_script_generator.squeue import SQueue
 @dataclass(frozen=True)
 class ProfilingCase:
     name: str
-    command: str
     ranks: tuple[int, ...]
+    output_root: Path
 
 
 script_dir = Path(__file__).resolve().parent
 repo_root = script_dir.parent
-common_commands_path = script_dir / "common_commands.sh"
-output_root = repo_root / "profiling" / "results"
+profiling_results_base = repo_root / "results" / "profiling"
+latest_results_root_path = profiling_results_base / "latest_run_root.txt"
 
 
-def load_common_commands() -> list[str]:
-    return common_commands_path.read_text(encoding="utf-8").splitlines()
+def _make_unique_results_root(base_dir: Path, run_token: str) -> Path:
+    candidate = base_dir / run_token
+    if not candidate.exists():
+        return candidate
+
+    suffix = 1
+    while True:
+        candidate = base_dir / f"{run_token}-{suffix}"
+        if not candidate.exists():
+            return candidate
+        suffix += 1
+
+
+def _git_commit_short(repo_dir: Path) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(repo_dir), "rev-parse", "--short=8", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip()
 
 
 def build_case_commands(case: ProfilingCase, venv_path: Path) -> list[str]:
@@ -33,23 +53,21 @@ def build_case_commands(case: ProfilingCase, venv_path: Path) -> list[str]:
         'echo "----------------------------------------"',
     ]
 
-    
-
     for ntasks in case.ranks:
-        # case_dir = output_root / case.name / f"n{ntasks}"
-        # log_file = case_dir / "run.log"
-        sim_dir = output_root / case.name / f"sim_ranks{ntasks}"
+        sim_dir = case.output_root / f"sim_ranks{ntasks}"
         commands.extend(
             [
                 "",
                 f'echo "Running {case.name} with {ntasks} MPI ranks"',
-                f'mpirun -n {ntasks} {case.command.format(nranks=ntasks)}', # > "{log_file}" 2>&1',
+                (
+                    f'mpirun -n {ntasks} python profiling/run_diocotron.py '
+                    f'{ntasks} --out-root "{case.output_root}"'
+                ),
                 f"scope-profiler-pproc {sim_dir / 'profiling_data.h5'} -o {sim_dir}",
             ],
         )
-    
 
-    sim_dirs = [output_root / case.name / f"sim_ranks{ntasks}" for ntasks in case.ranks]
+    sim_dirs = [case.output_root / f"sim_ranks{ntasks}" for ntasks in case.ranks]
     commands.extend(
         [
             "",
@@ -57,11 +75,16 @@ def build_case_commands(case: ProfilingCase, venv_path: Path) -> list[str]:
             f'echo "Completed profiling case: {case.name}"',
             'echo "----------------------------------------"',
             '# Postprocessing comparison plots',
-            f"scope-profiler-pproc {' '.join(str(sim_dir / 'profiling_data.h5') for sim_dir in sim_dirs)} --rank 0 -o {output_root / case.name / 'figures'}"
+            (
+                f"scope-profiler-pproc "
+                f"{' '.join(str(sim_dir / 'profiling_data.h5') for sim_dir in sim_dirs)} "
+                f"--rank 0 -o {case.output_root / 'figures'}"
+            ),
         ]
     )
 
     return commands
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -73,24 +96,40 @@ def main() -> None:
         default=Path(".venv"),
         help="Path to the virtual environment to activate (default: .venv).",
     )
+    parser.add_argument(
+        "--results-root",
+        type=Path,
+        default=None,
+        help=(
+            "Root folder for this profiling run. By default a unique "
+            "results/profiling/DATETIME-COMMIT folder is created."
+        ),
+    )
     args = parser.parse_args()
+
+    profiling_results_base.mkdir(parents=True, exist_ok=True)
+    if args.results_root is None:
+        timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        run_token = f"{timestamp}-{_git_commit_short(repo_root)}"
+        run_results_root = _make_unique_results_root(profiling_results_base, run_token)
+    else:
+        run_results_root = args.results_root.expanduser().resolve()
+
+    run_results_root.mkdir(parents=True, exist_ok=True)
+    latest_results_root_path.write_text(str(run_results_root), encoding="utf-8")
+    print(f"Profiling run root: {run_results_root}")
 
     cases = [
         ProfilingCase(
             name="diocotron_poisson_scaling",
-            command="python profiling/run_diocotron.py {nranks}",
             ranks=(1, 2, 4, 8),
+            output_root=run_results_root / "diocotron_poisson_scaling",
         ),
     ]
 
-    common_commands = load_common_commands()
-
     for case in cases:
-        case_commands = (
-            # [f'cd "{repo_root}"'] + \
-            #     common_commands + \
-                build_case_commands(case, args.venv_path)
-        )
+        case.output_root.mkdir(parents=True, exist_ok=True)
+        case_commands = build_case_commands(case, args.venv_path)
 
         # TOK
         # script = SlurmScript(
@@ -127,14 +166,18 @@ def main() -> None:
         )
 
         print(script)
-        
+
         output_path = repo_root / f"job_profile_{case.name}.sh"
 
         job_id = script.submit_job(str(output_path), verbose=True)
 
         SQueue().wait_until_done(job_id=job_id, poll_interval=10)
 
-        print(f"Profiling case '{case.name}' completed. Output saved in {output_root / case.name}")
+        print(f"Profiling case '{case.name}' completed. Output saved in {case.output_root}")
+
+    latest_results_root_path.write_text(str(run_results_root), encoding="utf-8")
+    print(f"Updated latest profiling root marker: {latest_results_root_path}")
+
 
 if __name__ == "__main__":
     main()

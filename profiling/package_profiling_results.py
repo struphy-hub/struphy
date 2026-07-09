@@ -101,6 +101,15 @@ def _ensure_testcase_parameters_file(testcase_dir: Path) -> Path | None:
 
 
 def _discover_results_root(search_root: Path) -> Path:
+    marker_path = search_root / "results" / "profiling" / "latest_run_root.txt"
+    if marker_path.exists():
+        marker_root = Path(marker_path.read_text(encoding="utf-8").strip())
+        if not marker_root.is_absolute():
+            marker_root = (marker_path.parent / marker_root).resolve()
+        if marker_root.exists():
+            print(f"Discovered results root from marker: {marker_root}")
+            return marker_root
+
     candidates: set[Path] = set()
 
     for h5_path in search_root.rglob("profiling_data.h5"):
@@ -108,6 +117,13 @@ def _discover_results_root(search_root: Path) -> Path:
         for idx in range(len(parts) - 1):
             if parts[idx] == "profiling" and parts[idx + 1] == "results":
                 candidates.add(Path(*parts[: idx + 2]))
+                break
+            if (
+                idx + 2 < len(parts)
+                and parts[idx] == "results"
+                and parts[idx + 1] == "profiling"
+            ):
+                candidates.add(Path(*parts[: idx + 3]))
                 break
 
     if not candidates:
@@ -118,7 +134,7 @@ def _discover_results_root(search_root: Path) -> Path:
     if len(candidates) > 1:
         discovered = "\n".join(f" - {path}" for path in sorted(candidates))
         raise RuntimeError(
-            "Found multiple possible profiling/results roots; pass --results-root explicitly:\n"
+            "Found multiple possible profiling results roots; pass --results-root explicitly:\n"
             f"{discovered}"
         )
 
@@ -127,12 +143,25 @@ def _discover_results_root(search_root: Path) -> Path:
     return discovered_root
 
 
+def _resolve_results_root_arg(results_root: Path) -> Path:
+    marker_path = results_root / "latest_run_root.txt"
+    if marker_path.exists():
+        marker_root = Path(marker_path.read_text(encoding="utf-8").strip())
+        if not marker_root.is_absolute():
+            marker_root = (results_root / marker_root).resolve()
+        if marker_root.exists():
+            print(f"Resolved run results root from marker: {marker_root}")
+            return marker_root
+    return results_root
+
+
 def package_results(
     results_root: Path,
     language: str,
     commit: str,
     output_root: Path,
 ) -> list[Path]:
+    results_root = _resolve_results_root_arg(results_root)
     if not results_root.exists():
         results_root = _discover_results_root(search_root=Path.cwd().resolve())
 
@@ -227,8 +256,11 @@ def main() -> None:
     parser.add_argument(
         "--results-root",
         type=Path,
-        default=Path("profiling/results"),
-        help="Folder containing testcase result directories (default: profiling/results).",
+        default=Path("results/profiling"),
+        help=(
+            "Folder containing testcase result directories for one profiling run "
+            "(default: results/profiling; marker/discovery may resolve to latest run)."
+        ),
     )
     parser.add_argument(
         "--language",

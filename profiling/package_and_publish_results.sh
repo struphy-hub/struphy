@@ -2,13 +2,14 @@
 
 set -euo pipefail
 
-RESULTS_ROOT="profiling/results"
+RESULTS_ROOT=""
 OUTPUT_ROOT="profiling-results-export"
 TARGET_REPO="git@github.com:struphy-hub/profiling-data.git"
 TARGET_BRANCH="main"
 CLONE_DIR="profiling-data"
 LANGUAGE=""
 COMMIT_SHA=""
+LATEST_RESULTS_ROOT_FILE="results/profiling/latest_run_root.txt"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -54,6 +55,16 @@ fi
 
 if [[ -z "$COMMIT_SHA" ]]; then
   COMMIT_SHA="$(git rev-parse HEAD)"
+fi
+
+if [[ -z "$RESULTS_ROOT" ]]; then
+  if [[ -f "$LATEST_RESULTS_ROOT_FILE" ]]; then
+    RESULTS_ROOT="$(cat "$LATEST_RESULTS_ROOT_FILE")"
+    echo "Using latest profiling run root from marker: $RESULTS_ROOT"
+  else
+    echo "Missing --results-root and no marker file found at $LATEST_RESULTS_ROOT_FILE" >&2
+    exit 1
+  fi
 fi
 
 python profiling/package_profiling_results.py \
