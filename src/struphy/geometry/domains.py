@@ -41,6 +41,8 @@ class Tokamak(PoloidalSplineTorus):
         Parametrization of radial flux coordinate :math:`\eta_1=\psi_{\mathrm{norm}}^p`, where :math:`\psi_{\mathrm{norm}}` is the normalized poloidal flux (default: 0.75).
     psi_shifts : tuple[float]
         Start and end shifts of polidal flux in % --> cuts away regions at the axis and edge (default: [2., 2.])
+    r_min : float
+        Inner radius of poloidal section (optional, default: 0.0). If >0.0, then r_0 = r_min.
     xi_param : str
         Parametrization of angular coordinate ("equal_angle", "equal_arc_length" or "sfl" (straight field line), default: "equal_angle").
     r0 : float
@@ -54,6 +56,15 @@ class Tokamak(PoloidalSplineTorus):
 
     Note
     ----
+    Regarding r_min and psi_shifts:
+        If r_min is left at 0.0, psi_shifts defines both the inner and outer boundaries of the computational
+        domain in terms of the normalized flux coordinate \psi.
+        When r_min > 0.0, however, psi_shifts[0] is no longer used. Instead, the code computes the flux value
+        corresponding to the physical radius r_min (measured from the magnetic axis),
+        which then defines the inner boundary of the domain.
+        This allows the user to specify the inner boundary using a more intuitive physical radius rather
+        than a flux coordinate. The outer boundary is still controlled by psi_shifts[1].
+
     In the parameter .yml, use the following in the section `geometry`::
 
         geometry :
@@ -63,6 +74,7 @@ class Tokamak(PoloidalSplineTorus):
                 degree          : [3, 3]      # poloidal spline degrees for spline mapping, >1
                 psi_power  : 0.7         # parametrization of radial flux coordinate eta1=psi_norm^psi_power, where psi_norm is normalized flux
                 psi_shifts : [2., 2.]    # start and end shifts of polidal flux in % --> cuts away regions at the axis and edge
+                r_min : 0.0              # Inner radius of poloidal section. If >0.0, then r_0 = r_min.
                 xi_param   : equal_angle # parametrization of angular coordinate (equal_angle, equal_arc_length or sfl (straight field line))
                 r0         : 0.3         # initial guess for radial distance from axis used in Newton root-finding method for flux surfaces
                 num_elements_pre    : [64, 256]   # number of poloidal grid cells of pre-mapping needed for equal_arc_length and sfl
@@ -77,12 +89,15 @@ class Tokamak(PoloidalSplineTorus):
         degree: tuple = (2, 3),
         psi_power: float = 0.75,
         psi_shifts: tuple = (0.01, 2.0),
+        r_min: float = 0.0,
         xi_param: str = "equal_angle",
         r0: float = 0.3,
         num_elements_pre: tuple = (64, 256),
         p_pre: tuple = (3, 3),
         tor_period: int = 1,
     ):
+        if r_min != 0.0:
+            r0 = r_min
         if equilibrium is None:
             equilibrium = EQDSKequilibrium()
         else:
@@ -94,8 +109,29 @@ class Tokamak(PoloidalSplineTorus):
         # get control points via field tracing between fluxes [psi_s, psi_e]
         psi0, psi1 = equilibrium.psi_range[0], equilibrium.psi_range[1]
 
-        psi_s = psi0 + psi_shifts[0] * 0.01 * (psi1 - psi0)
+        assert r_min >= 0.0, f"Inner radius must be non-negative, got {r_min = }."
+
+        if r_min == 0.0:
+            # Default behaviour: keep exactly the historical psi_shifts logic.
+            psi_s = psi0 + psi_shifts[0] * 0.01 * (psi1 - psi0)
+        else:
+            # Annular domain: eta1=0 is the flux surface crossing the outboard
+            # midplane at distance r_min from the magnetic axis.
+            psi_s = equilibrium.psi(
+                equilibrium.psi_axis_RZ[0] + r_min,
+                equilibrium.psi_axis_RZ[1],
+            )
+
         psi_e = psi1 - psi_shifts[1] * 0.01 * (psi1 - psi0)
+
+        assert (psi_s - psi0) * (psi_s - psi1) <= 0.0, (
+            f"Inner radius gives a flux outside equilibrium.psi_range: "
+            f"{r_min = }, {psi_s = }, {equilibrium.psi_range = }."
+        )
+
+        assert (psi_e - psi_s) * (psi1 - psi0) > 0.0, (
+            f"Invalid radial interval: {psi_s = }, {psi_e = }, {equilibrium.psi_range = }."
+        )
 
         cx, cy = field_line_tracing(
             equilibrium.psi,
