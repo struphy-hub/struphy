@@ -112,7 +112,7 @@ class AccumFilter:
 
         Parameters
         ----------
-        vec : BlockVector
+        vec : StencilVector | BlockVector
 
         repeat : int
             Number of repeatition.

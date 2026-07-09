@@ -12,10 +12,13 @@ from line_profiler import profile
 from struphy.feec.mass import L2Projector, WeightedMassOperator
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
-from struphy.models.variables import FEECVariable
+from struphy.models.variables import FEECVariable, PICVariable
+from struphy.pic.accumulation import accum_kernels
+from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
+from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -78,6 +81,7 @@ class ImplicitDiffusion(Propagator):
         self,
         rho: FEECVariable | Callable | tuple[AccumulatorVector, Particles] | list = None,
         rho_coeffs: float | list = None,
+        diagnostic: FEECVariable | None = None,
     ):
         """
         Parameters
@@ -101,10 +105,15 @@ class ImplicitDiffusion(Propagator):
             If a sequence is provided, its length must match the number of
             collected sources.
             If ``None``, all coefficients default to ``1.0``.
+
+        diagnostic : FEECVariable, default=None
+            If not None, updates at each call to the propagator, takes the value of the right-hand side.
+            Otherwise does not provide diagnostic.
         """
         self.variables = self.Variables()
         self.rho = rho
         self.rho_coeffs = rho_coeffs
+        self.diagnostic = diagnostic
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -166,6 +175,14 @@ class ImplicitDiffusion(Propagator):
             Iterative-solver controls (for example ``tol``, ``maxiter``,
             ``verbose``, ``info``, ``recycle``).
             If ``None``, defaults to ``SolverParameters()``.
+
+        param_kernel : Pyccelkernel
+            Contain the kernel to use for AccumulatorVector creation if rho is or contains particles
+            for example Pyccelkernel(accum_kernels.gc_density_0form).
+
+        particle_filter : FilterParameters, default=None
+            If a particle is provided as source, the AccumulatorVector applies this filter.
+            If None, no filter is applied.
         """
 
         # specific literals
@@ -182,6 +199,8 @@ class ImplicitDiffusion(Propagator):
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
+        param_kernel: Pyccelkernel = Pyccelkernel(accum_kernels.charge_density_0form)
+        particle_filter: FilterParameters = None
 
         def __post_init__(self):
             # checks
@@ -224,6 +243,8 @@ class ImplicitDiffusion(Propagator):
         # collect rhs
         def verify_rhs(rho) -> StencilVector | FEECVariable | AccumulatorVector:
             """Perform preliminary operations on rho to comute the rhs and return the result."""
+            if isinstance(rho, PICVariable):
+                rho = rho.particles
             if rho is None:
                 rhs = phi.space.zeros()
             elif isinstance(rho, FEECVariable):
@@ -231,20 +252,37 @@ class ImplicitDiffusion(Propagator):
                 rhs = rho
             elif isinstance(rho, AccumulatorVector):
                 rhs = rho
+            elif isinstance(rho, Particles):
+                params = self.options.param_kernel
+                rhs = AccumulatorVector(
+                    rho,
+                    "H1",
+                    params,
+                    Propagator.mass_ops,
+                    Propagator.domain.args_domain,
+                    filter_params=self.options.particle_filter,
+                )
+                if not rho.control_variate:
+                    l2_proj = L2Projector("H1", Propagator.mass_ops)
+                    f0e = self.Z * rho.f0
+                    rho_eh = FEECVariable(space="H1")
+                    rho_eh.allocate(derham=Propagator.derham, domain=Propagator.domain)
+                    rho_eh.spline.vector = l2_proj.get_dofs(f0e.n)
+                    return [rhs, rho_eh]
             elif isinstance(rho, Callable):
                 rhs = L2Projector("H1", self.mass_ops).get_dofs(rho, apply_bc=True)
             else:
                 raise TypeError(f"{type(rho) =} is not accepted.")
 
-            return rhs
+            return [rhs]
 
         rho = self.rho
         if isinstance(rho, list):
             self._sources = []
             for r in rho:
-                self._sources += [verify_rhs(r)]
+                self._sources += verify_rhs(r)
         else:
-            self._sources = [verify_rhs(rho)]
+            self._sources = verify_rhs(rho)
 
         # coeffs of rhs
         if self.rho_coeffs is not None:
@@ -361,10 +399,16 @@ class ImplicitDiffusion(Propagator):
                 v = src.spline.vector
                 self._rhs2 += sig_3 * coeff * self.mass_ops.M0.dot(v, out=self._tmp_src)
             elif isinstance(src, AccumulatorVector):
+                if src.particles.control_variate:
+                    src.particles.update_weights()
                 src()  # accumulate
                 self._rhs2 += sig_3 * coeff * src.vectors[0]
 
         rhs += self._rhs2
+
+        if self.diagnostic is not None:
+            proj = L2Projector("H1", self.mass_ops)
+            self.diagnostic.spline.vector = proj.solve(rhs)
 
         # compute lhs
         self._solver.linop = sig_1 * self._stab_mat + self._diffusion_op

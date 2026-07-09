@@ -746,8 +746,7 @@ class WeightedMassOperators:
             \mathbb M^{1,\perp}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk} \left(G^{-1} - b_0 b_0^\top \right) \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
         """
         if not hasattr(self, "_M1perp"):
-            self._M1perp = self.M1.copy()
-            self._M1perp -= self.M1para
+            self._M1perp = self.M1 - self.M1para
         return self._M1perp
 
     @auto_convert_docstring
@@ -811,8 +810,7 @@ class WeightedMassOperators:
             \mathbb M^{1,\perp}_{(\mu,ijk), (\nu,mno)} = \int \frac{n^0_{\textnormal{eq}}(\boldsymbol{\eta})}{\|B_0(\boldsymbol{\eta})\|^2} \vec{\Lambda}^1_{\mu,ijk} \left(G^{-1} - b_0 b_0^\top \right) \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
         """
         if not hasattr(self, "_M1gyro"):
-            self._M1gyro = self.M1_MHDeq.copy()
-            self._M1gyro -= self.M1para_MHDeq
+            self._M1gyro = self.M1_MHDeq - self.M1para_MHDeq
         return self._M1gyro
 
     @auto_convert_docstring
@@ -1620,46 +1618,64 @@ class WeightedMassOperator(LinOpWithTransp):
                         self._weights[-1] += [lambda *etas: 0 * etas[0]]
 
                     else:
-                        if weights_info[a][b] is None:
-                            blocks[-1] += [None]
-                            self._weights[-1] += [None]
+                        # A block can be locally zero on this MPI rank but non-zero on another rank.
+                        # We therefore check whether the block is globally non-zero before deciding
+                        # whether to allocate the corresponding StencilMatrix. All ranks must make
+                        # the same block-allocation decision, otherwise exchange_assembly_data()
+                        # will communicate incompatible block structures.
+                        loc_weight = weights_info[a][b]
 
+                        if loc_weight is None:
+                            mat_w = None
+                            local_nonzero = xp.array(False, dtype=bool)
                         else:
-                            if callable(weights_info[a][b]):
+                            if callable(loc_weight):
                                 PTS = xp.meshgrid(*pts, indexing="ij")
-                                mat_w = weights_info[a][b](*PTS).copy()
-                            elif isinstance(weights_info[a][b], xp.ndarray):
-                                mat_w = weights_info[a][b]
+                                mat_w = loc_weight(*PTS).copy()
+                            elif isinstance(loc_weight, xp.ndarray):
+                                mat_w = loc_weight
+                            else:
+                                raise TypeError(f"Invalid weight type: {type(loc_weight)}")
 
                             logger.debug(f"{mat_w.shape = } and {[pt.size for pt in pts] = }.")
-                            assert mat_w.shape == tuple(
-                                [pt.size for pt in pts],
-                            )
+                            assert mat_w.shape == tuple([pt.size for pt in pts])
+                            local_nonzero = xp.array(bool(xp.any(xp.abs(mat_w) > 1e-14)), dtype=bool)
 
-                            if xp.any(xp.abs(mat_w) > 1e-14):
-                                if self._matrix_free:
-                                    blocks[-1] += [
-                                        StencilMatrixFreeMassOperator(
-                                            self.derham,
-                                            vspace,
-                                            wspace,
-                                            weights=weights_info[a][b],
-                                            nquads=self.nquads,
-                                        ),
-                                    ]
-                                else:
-                                    blocks[-1] += [
-                                        StencilMatrix(
-                                            vspace.coeff_space,
-                                            wspace.coeff_space,
-                                            backend=PSYDAC_BACKEND_GPYCCEL,
-                                            precompiled=True,
-                                        ),
-                                    ]
-                                self._weights[-1] += [weights_info[a][b]]
+                        if self.derham.comm is not None:
+                            # Checks if the block is non zero on at least MPI processes
+                            self.derham.comm.Allreduce(MPI.IN_PLACE, local_nonzero, op=MPI.LOR)
+
+                        if bool(local_nonzero):
+                            if mat_w is None:
+                                # The block is globally non-zero, but this rank has a locally zero weight.
+                                # We still allocate the block and pass a zero local weight array so that
+                                # the local matrix has the same structure as on the other MPI ranks.
+                                mat_w = xp.zeros(tuple([pt.size for pt in pts]), dtype=float)
+
+                            if self._matrix_free:
+                                blocks[-1] += [
+                                    StencilMatrixFreeMassOperator(
+                                        self.derham,
+                                        vspace,
+                                        wspace,
+                                        weights=loc_weight if loc_weight is not None else mat_w,
+                                        nquads=self.nquads,
+                                    )
+                                ]
                             else:
-                                blocks[-1] += [None]
-                                self._weights[-1] += [None]
+                                blocks[-1] += [
+                                    StencilMatrix(
+                                        vspace.coeff_space,
+                                        wspace.coeff_space,
+                                        backend=PSYDAC_BACKEND_GPYCCEL,
+                                        precompiled=True,
+                                    )
+                                ]
+
+                            self._weights[-1] += [loc_weight if loc_weight is not None else mat_w]
+                        else:
+                            blocks[-1] += [None]
+                            self._weights[-1] += [None]
 
             if len(blocks) == len(blocks[0]) == 1:
                 if blocks[0][0] is None:
@@ -2117,13 +2133,24 @@ class WeightedMassOperator(LinOpWithTransp):
                         if self._is_scalar:
                             mat = self._mat
                             if loc_weight is None:
-                                # in case it's none we still need to have zeros weights to call the kernel
+                                # not_weight_zero is global after the MPI reduction. Hence this rank may
+                                # enter the assembly branch even when its own local weight is None.
+                                # In that case we assemble a zero local contribution, but we must still
+                                # provide a correctly shaped array to the pyccel kernel.
                                 mat_w = xp.zeros(
                                     tuple([pt.size for pt in pts]),
                                 )
                         else:
                             mat = self._mat[a, b]
 
+                            # block case: after the MPI Allreduce, this block may be globally
+                            # non-zero even if it is locally zero on this rank.
+                            if mat_w is None:
+                                mat_w = xp.zeros(tuple([pt.size for pt in pts]))
+
+                        # This can happen for block matrices if the block was previously considered
+                        # zero locally, but is now required because it is non-zero on at least one
+                        # MPI rank. The block must exist on all ranks before assembly/exchange.
                         if mat is None:
                             # Maybe in a previous iteration we had more zeros
                             # Can only happen in the Block case
@@ -3135,7 +3162,6 @@ class AverageOperator(LinOpWithTransp):
             color1 = int(dom_arr[rank, 3 * self._directions[1]] * nprocs[self._directions[1]])
             color2 = int(dom_arr[rank, 3 * self._directions[2]] * nprocs[self._directions[2]])
             color = color1 * nprocs[self._directions[2]] + color2
-            logger.debug(f"{dom_arr = }")
             self.subcomm = comm.Split(color=color, key=rank)
 
         # We allocate memory for the 2D temporary array for each process
