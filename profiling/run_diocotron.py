@@ -15,7 +15,7 @@ params_dir = repo_root / "examples" / "ToyGyrokinetic" / "diocotron_instability"
 default_out_root = repo_root / "profiling" / "results" / "diocotron_poisson_scaling"
 
 sys.path.insert(0, str(params_dir))
-
+from params_diocotron import sim
 
 def main() -> None:
     parser = ArgumentParser(description="Run the diocotron profiling case.")
@@ -28,8 +28,6 @@ def main() -> None:
         profiling_activated=True,
         profiling_trace=True,
     )
-
-    from params_diocotron import sim
 
     sim.env = env
     sim._setup_folders()

@@ -1,4 +1,5 @@
 import argparse
+import ast
 import json
 import os
 import re
@@ -30,6 +31,102 @@ def _build_output_name(testcase: str, language: str, ranks: str, index: int) -> 
     return f"{base}.h5"
 
 
+def _extract_string_node(node: ast.AST, constants: dict[str, str]) -> str | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.Name):
+        return constants.get(node.id)
+    return None
+
+
+def _read_sim_metadata_from_parameters(
+    parameters_path: Path, fallback_name: str
+) -> tuple[str, str]:
+    tree = ast.parse(parameters_path.read_text(encoding="utf-8"))
+    string_constants: dict[str, str] = {}
+    sim_name: str | None = None
+    sim_description: str | None = None
+
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(
+            node.targets[0], ast.Name
+        ):
+            target_name = node.targets[0].id
+            value = _extract_string_node(node.value, string_constants)
+            if value is not None:
+                string_constants[target_name] = value
+
+            if (
+                target_name == "sim"
+                and isinstance(node.value, ast.Call)
+                and isinstance(node.value.func, ast.Name)
+                and node.value.func.id == "Simulation"
+            ):
+                for keyword in node.value.keywords:
+                    if keyword.arg == "name":
+                        sim_name = _extract_string_node(keyword.value, string_constants)
+                    elif keyword.arg == "description":
+                        sim_description = _extract_string_node(
+                            keyword.value, string_constants
+                        )
+
+    if sim_name is None:
+        sim_name = string_constants.get("name", fallback_name)
+    if sim_description is None:
+        sim_description = string_constants.get("description", "")
+
+    return sim_name, sim_description
+
+
+def _ensure_testcase_parameters_file(testcase_dir: Path) -> Path | None:
+    testcase_parameters = testcase_dir / "parameters.py"
+    if testcase_parameters.exists():
+        return testcase_parameters
+
+    candidate_parameters = sorted(testcase_dir.rglob("parameters.py"))
+    if not candidate_parameters:
+        return None
+
+    chosen_parameters = candidate_parameters[0]
+    chosen_content = chosen_parameters.read_text(encoding="utf-8")
+    for candidate in candidate_parameters[1:]:
+        if candidate.read_text(encoding="utf-8") != chosen_content:
+            raise RuntimeError(
+                "Found multiple different parameters.py files under testcase "
+                f"directory: {testcase_dir}"
+            )
+
+    shutil.copy2(chosen_parameters, testcase_parameters)
+    return testcase_parameters
+
+
+def _discover_results_root(search_root: Path) -> Path:
+    candidates: set[Path] = set()
+
+    for h5_path in search_root.rglob("profiling_data.h5"):
+        parts = h5_path.parts
+        for idx in range(len(parts) - 1):
+            if parts[idx] == "profiling" and parts[idx + 1] == "results":
+                candidates.add(Path(*parts[: idx + 2]))
+                break
+
+    if not candidates:
+        raise FileNotFoundError(
+            f"Results folder does not exist and no profiling_data.h5 files were found under: {search_root}"
+        )
+
+    if len(candidates) > 1:
+        discovered = "\n".join(f" - {path}" for path in sorted(candidates))
+        raise RuntimeError(
+            "Found multiple possible profiling/results roots; pass --results-root explicitly:\n"
+            f"{discovered}"
+        )
+
+    discovered_root = next(iter(candidates))
+    print(f"Discovered results root: {discovered_root}")
+    return discovered_root
+
+
 def package_results(
     results_root: Path,
     language: str,
@@ -37,7 +134,7 @@ def package_results(
     output_root: Path,
 ) -> list[Path]:
     if not results_root.exists():
-        raise FileNotFoundError(f"Results folder does not exist: {results_root}")
+        results_root = _discover_results_root(search_root=Path.cwd().resolve())
 
     timestamp = datetime.now(UTC)
     datetime_token = timestamp.strftime("%Y%m%dT%H%M%SZ")
@@ -54,6 +151,16 @@ def package_results(
         folder_name = f"{datetime_token}-{commit_short}-{_slug(testcase)}-{_slug(language)}"
         destination_dir = output_root / folder_name
         destination_dir.mkdir(parents=True, exist_ok=True)
+
+        parameters_path = _ensure_testcase_parameters_file(testcase_dir)
+        sim_name = testcase
+        sim_description = ""
+        if parameters_path is not None:
+            sim_name, sim_description = _read_sim_metadata_from_parameters(
+                parameters_path=parameters_path,
+                fallback_name=testcase,
+            )
+            shutil.copy2(parameters_path, destination_dir / "parameters.py")
 
         files_metadata = []
         name_counts: dict[str, int] = {}
@@ -80,6 +187,8 @@ def package_results(
             )
 
         metadata = {
+            "name": sim_name,
+            "description": sim_description,
             "datetime_utc": timestamp.isoformat(),
             "datetime_token": datetime_token,
             "commit": commit,
@@ -87,6 +196,9 @@ def package_results(
             "testcase": testcase,
             "language": language,
             "source_results_root": str(results_root),
+            "source_parameters_file": (
+                str(parameters_path) if parameters_path is not None else None
+            ),
             "files": files_metadata,
             "github": {
                 "repository": os.environ.get("GITHUB_REPOSITORY"),
