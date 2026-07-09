@@ -39,6 +39,14 @@ def _extract_string_node(node: ast.AST, constants: dict[str, str]) -> str | None
     return None
 
 
+def _is_simulation_constructor(call: ast.Call) -> bool:
+    if isinstance(call.func, ast.Name):
+        return call.func.id == "Simulation"
+    if isinstance(call.func, ast.Attribute):
+        return call.func.attr == "Simulation"
+    return False
+
+
 def _read_sim_metadata_from_parameters(
     parameters_path: Path, fallback_name: str
 ) -> tuple[str, str]:
@@ -48,27 +56,39 @@ def _read_sim_metadata_from_parameters(
     sim_description: str | None = None
 
     for node in tree.body:
-        if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(
-            node.targets[0], ast.Name
-        ):
-            target_name = node.targets[0].id
-            value = _extract_string_node(node.value, string_constants)
-            if value is not None:
-                string_constants[target_name] = value
+        assign_target_name: str | None = None
+        assign_value: ast.AST | None = None
 
-            if (
-                target_name == "sim"
-                and isinstance(node.value, ast.Call)
-                and isinstance(node.value.func, ast.Name)
-                and node.value.func.id == "Simulation"
-            ):
-                for keyword in node.value.keywords:
-                    if keyword.arg == "name":
-                        sim_name = _extract_string_node(keyword.value, string_constants)
-                    elif keyword.arg == "description":
-                        sim_description = _extract_string_node(
-                            keyword.value, string_constants
-                        )
+        if (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+        ):
+            assign_target_name = node.targets[0].id
+            assign_value = node.value
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            assign_target_name = node.target.id
+            assign_value = node.value
+
+        if assign_target_name is None or assign_value is None:
+            continue
+
+        value = _extract_string_node(assign_value, string_constants)
+        if value is not None:
+            string_constants[assign_target_name] = value
+
+        if (
+            assign_target_name == "sim"
+            and isinstance(assign_value, ast.Call)
+            and _is_simulation_constructor(assign_value)
+        ):
+            for keyword in assign_value.keywords:
+                if keyword.arg == "name":
+                    sim_name = _extract_string_node(keyword.value, string_constants)
+                elif keyword.arg == "description":
+                    sim_description = _extract_string_node(
+                        keyword.value, string_constants
+                    )
 
     if sim_name is None:
         sim_name = string_constants.get("name", fallback_name)

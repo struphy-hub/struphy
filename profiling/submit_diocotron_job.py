@@ -13,6 +13,7 @@ class ProfilingCase:
     name: str
     ranks: tuple[int, ...]
     output_root: Path
+    params_source: Path
 
 
 script_dir = Path(__file__).resolve().parent
@@ -54,6 +55,8 @@ def build_case_commands(case: ProfilingCase, venv_path: Path) -> list[str]:
         'echo "----------------------------------------"',
         f'echo "Running profiling case: {case.name}"',
         'echo "----------------------------------------"',
+        f'mkdir -p "{case.output_root}"',
+        f'cp "{case.params_source}" "{case.output_root / "parameters.py"}"',
     ]
 
     for ntasks in case.ranks:
@@ -127,6 +130,13 @@ def main() -> None:
             name="diocotron_poisson_scaling",
             ranks=(1, 2, 4, 8),
             output_root=run_results_root / "diocotron_poisson_scaling",
+            params_source=(
+                repo_root
+                / "examples"
+                / "ToyGyrokinetic"
+                / "diocotron_instability"
+                / "params_diocotron.py"
+            ),
         ),
     ]
 
