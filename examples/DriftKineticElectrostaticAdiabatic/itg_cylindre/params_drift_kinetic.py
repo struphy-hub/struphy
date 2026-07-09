@@ -99,6 +99,9 @@ grid = grids.TensorProductGrid(num_elements=num_element, mpi_dims_mask=(True,Tru
 derham_opts = DerhamOptions(degree=(3,3,3), bcs=(("dirichlet", "dirichlet"), None, None))
 
 # Simulation object
+from feectools.ddm.mpi import mpi as MPI
+rank = MPI.COMM_WORLD.Get_rank()
+print(f"[rank {rank}] before Simulation", flush=True)
 sim = Simulation(
     model=model,
     name=name,
@@ -111,6 +114,7 @@ sim = Simulation(
     grid=grid,
     derham_opts=derham_opts,
 )
+print(f"[rank {rank}] after Simulation", flush=True)
 
 # -------------------
 # Particle parameters
@@ -122,7 +126,7 @@ weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters(bc=('remove','periodic','periodic'))
 sorting_params = SortingParameters(
     do_sort=True,
-    boxes_per_dim=num_element,
+    boxes_per_dim=(12, 12, 6),
     sorting_frequency=0,
 )
 
@@ -236,4 +240,5 @@ init = maxwellians.GyroMaxwellian2D(n=(n_init, perturbation), equil=equil, vth_p
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":
+    print(f"[rank {rank}] before sim.run", flush=True)
     sim.run(one_time_step=False)

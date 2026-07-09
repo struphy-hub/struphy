@@ -1530,6 +1530,11 @@ class WeightedMassOperator(LinOpWithTransp):
                         self._weights[-1] += [lambda *etas: 0 * etas[0]]
 
                     else:
+                        # A block can be locally zero on this MPI rank but non-zero on another rank.
+                        # We therefore check whether the block is globally non-zero before deciding
+                        # whether to allocate the corresponding StencilMatrix. All ranks must make
+                        # the same block-allocation decision, otherwise exchange_assembly_data()
+                        # will communicate incompatible block structures.
                         loc_weight = weights_info[a][b]
 
                         if loc_weight is None:
@@ -1549,10 +1554,14 @@ class WeightedMassOperator(LinOpWithTransp):
                             local_nonzero = xp.array(bool(xp.any(xp.abs(mat_w) > 1e-14)), dtype=bool)
 
                         if self.derham.comm is not None:
+                            # Checks if the block is non zero on at least MPI processes
                             self.derham.comm.Allreduce(MPI.IN_PLACE, local_nonzero, op=MPI.LOR)
 
                         if bool(local_nonzero):
                             if mat_w is None:
+                                # The block is globally non-zero, but this rank has a locally zero weight.
+                                # We still allocate the block and pass a zero local weight array so that
+                                # the local matrix has the same structure as on the other MPI ranks.
                                 mat_w = xp.zeros(tuple([pt.size for pt in pts]), dtype=float)
 
                             if self._matrix_free:
@@ -2038,7 +2047,10 @@ class WeightedMassOperator(LinOpWithTransp):
                         if self._is_scalar:
                             mat = self._mat
                             if loc_weight is None:
-                                # in case it's none we still need to have zeros weights to call the kernel
+                                # not_weight_zero is global after the MPI reduction. Hence this rank may
+                                # enter the assembly branch even when its own local weight is None.
+                                # In that case we assemble a zero local contribution, but we must still
+                                # provide a correctly shaped array to the pyccel kernel.
                                 mat_w = xp.zeros(
                                     tuple([pt.size for pt in pts]),
                                 )
@@ -2050,6 +2062,9 @@ class WeightedMassOperator(LinOpWithTransp):
                             if mat_w is None:
                                 mat_w = xp.zeros(tuple([pt.size for pt in pts]))
 
+                        # This can happen for block matrices if the block was previously considered
+                        # zero locally, but is now required because it is non-zero on at least one
+                        # MPI rank. The block must exist on all ranks before assembly/exchange.
                         if mat is None:
                             # Maybe in a previous iteration we had more zeros
                             # Can only happen in the Block case

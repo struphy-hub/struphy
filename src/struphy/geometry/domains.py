@@ -42,7 +42,7 @@ class Tokamak(PoloidalSplineTorus):
     psi_shifts : tuple[float]
         Start and end shifts of polidal flux in % --> cuts away regions at the axis and edge (default: [2., 2.])
     r_min : float
-        Inner radius of poloidal section (optionnal, default: 0.0). If >0.0, then r_0 = r_min.
+        Inner radius of poloidal section (optional, default: 0.0). If >0.0, then r_0 = r_min.
     xi_param : str
         Parametrization of angular coordinate ("equal_angle", "equal_arc_length" or "sfl" (straight field line), default: "equal_angle").
     r0 : float
@@ -56,6 +56,15 @@ class Tokamak(PoloidalSplineTorus):
 
     Note
     ----
+    Regarding r_min and psi_shifts:
+        If r_min is left at 0.0, psi_shifts defines both the inner and outer boundaries of the computational
+        domain in terms of the normalized flux coordinate \psi. 
+        When r_min > 0.0, however, psi_shifts[0] is no longer used. Instead, the code computes the flux value 
+        corresponding to the physical radius r_min (measured from the magnetic axis), 
+        which then defines the inner boundary of the domain. 
+        This allows the user to specify the inner boundary using a more intuitive physical radius rather 
+        than a flux coordinate. The outer boundary is still controlled by psi_shifts[1].
+    
     In the parameter .yml, use the following in the section `geometry`::
 
         geometry :
