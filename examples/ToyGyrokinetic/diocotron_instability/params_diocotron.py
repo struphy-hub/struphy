@@ -70,17 +70,17 @@ model = ToyDrift(
 
 # List all variables and decide whether to save their data
 model.em_fields.phi.save_data = True
-model.kinetic_ions.var.save_data = True
+model.kinetic_ions.var.save_data = False
 
 # --------------------------
 # Instance of the simulation
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(sim_folder="simdata",profiling_activated=True, profiling_trace=True)
+env = EnvironmentOptions(sim_folder="sim_1",profiling_activated=True, profiling_trace=True, restart=False)
 
 # Time stepping
-time_opts = Time(dt=0.05, Tend=5.2, split_algo="LieTrotter")
+time_opts = Time(dt=0.01, Tend=51.0, split_algo="LieTrotter")
 
 # Geometry
 domain = domains.HollowCylinder(a1=1.0, a2=10.0, Lz=10.0)
@@ -116,15 +116,15 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-Np=200000
-loading_params = LoadingParameters(Np = Np, loading="sobol_standard", spatial="disc")
-weights_params = WeightsParameters(control_variate=True, reject_weights=True, threshold=0.00001)
+ppc = 100 # run with 1000 minimum
+loading_params = LoadingParameters(ppc = ppc, loading="sobol_standard", spatial="disc")
+weights_params = WeightsParameters(control_variate=True, reject_weights=True, threshold=0.0001)
 boundary_params = BoundaryParameters()
-sorting_params = SortingParameters(boxes_per_dim=(24,24,1), do_sort=True)
+sorting_params = SortingParameters(boxes_per_dim=(12,12,1), do_sort=True, sorting_frequency=5)
 
 # density binning
 eta_bin = BinningPlot(slice='e1_e2', n_bins= (128,128), ranges= ((0.0, 1.0), (0.0,1.0)))
-saving_params = SavingParameters(binning_plots=(eta_bin, ))
+saving_params = SavingParameters(binning_plots=(eta_bin,))
 
 model.kinetic_ions.set_markers(loading_params=loading_params,
                                weights_params=weights_params,
@@ -139,7 +139,7 @@ model.kinetic_ions.set_markers(loading_params=loading_params,
 # ------------------
 
 model.propagators.gc_poisson.options = model.propagators.gc_poisson.Options()
-model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(algo="explicit", evaluate_e_field=True)
+model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(algo="discrete_gradient_1st_order_newton", evaluate_e_field=True)
 
 # ------------------
 # Initial conditions
@@ -172,8 +172,8 @@ eta_plus = (r_plus - domain.params["a1"])/(domain.params["a2"] - domain.params["
 
 # Perturbations for (some) kinetic species
 
-# for linear case amps = (1e-6,)
-perturbation = perturbations.ModesCos(amps=(0.5,), ms=(ms,), perb_domain=((eta_minus,eta_plus), None, None))
+# for non linear case amps = (0.5,)
+perturbation = perturbations.ModesCos(amps=(1e-6,), ms=(ms,), perb_domain=((eta_minus,eta_plus), None, None))
 init = maxwellians.GyroMaxwellian2D(n=(n_init, perturbation), equil=equil)
 model.kinetic_ions.var.add_initial_condition(init)
 

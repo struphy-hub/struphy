@@ -662,7 +662,7 @@ class AccumulatorVector:
         # L2 projector for dofs
         self._get_L2dofs = L2Projector(self.space_id, mass_ops).get_dofs
 
-    def show_accumulated_spline_field(self, mass_ops, eta_direction=(True, False, False)):
+    def show_accumulated_spline_field(self, mass_ops, eta_direction=(True, False, False), save_L2=False):
         r"""1 or 2D plot of the spline field corresponding to the accumulated vector.
         The latter can be viewed as the rhs of an L2-projection:
 
@@ -683,6 +683,9 @@ class AccumulatorVector:
         # L2 projection
         proj = L2Projector(self.space_id, mass_ops)
         a = proj.solve(self.vectors[0])
+
+        if save_L2:
+            return a
 
         # create field and assign coeffs
         field = self.derham.create_spline_function("accum_field", self.space_id)

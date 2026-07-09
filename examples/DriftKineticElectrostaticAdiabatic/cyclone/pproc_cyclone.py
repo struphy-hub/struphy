@@ -1,43 +1,38 @@
 import importlib.util
-from struphy import PlottingData, PostProcessor
-
 import os
 import sys
-import cunumpy as xp
-import scipy.optimize as sc
-from matplotlib import pyplot as plt
-from matplotlib.widgets import Slider
+
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
+import glob
+
 import h5py
 import pyvista as pv
+import cunumpy as xp
+from matplotlib import pyplot as plt
+from matplotlib.widgets import Slider
+from struphy import PlottingData, PostProcessor
 
-from struphy import logging, set_logging_level
-set_logging_level(logging.INFO)
 
-
+# ============================================================
 # User options
+# ============================================================
+FIT_T0 = 0.0
+FIT_T1 = None              # None -> last available time
+FIT_QUANTITY = "phi_integral"  # or "en_phi" if this scalar exists in data_proc0.hdf5
 
-SHOW_EQUIL_PROFILE = True
+SHOW_EQUIL_PROFILE = False
 SHOW_DENSITY_SLIDER = True
 SHOW_FIELD_SLIDER = True
 
 DENSITY_PLOTS = [
     {
         "bin": "e1_e2_density",
-        "quantity": "f_binned",
-        "physical": True,
-        "axes": "XY",
-        "vmin": None,
-        "vmax": None,
-        "title": "f (R,Z)",
-    },
-    {
-        "bin": "e1_e2_density",
         "quantity": "delta_f_binned",
         "physical": True,
-        "axes": "XY",
+        "axes": "RZ",
         "vmin": None,
         "vmax": None,
-        "title": "delta_f (X,Y)",
+        "title": "delta_f (R,Z)",
     },
 ]
 
@@ -46,13 +41,40 @@ FIELD_PLOTS = [
         "species": "em_fields",
         "field": "phi_phy",
         "component": 0,
-        "axes": "XYZ",
+        "axes": "RZT",
         "fixed_index": 0,
         "vmin": None,
         "vmax": None,
         "title": "Electric potential phi",
     },
+    {
+        "species": "diagnostics",
+        "field": "rho_phy",
+        "component": 0,
+        "axes": "RZT",
+        "fixed_index": 0,
+        "vmin": None,
+        "vmax": None,
+        "title": "Right-hand side of Poisson equation",
+    },
+    {
+        "species": "diagnostics",
+        "field": "rho_phy",
+        "component": 0,
+        "axes": "XYZ",
+        "fixed_index": 0,
+        "vmin": None,
+        "vmax": None,
+        "title": "Right-hand side of Poisson equation",
+    },
 ]
+
+SAVE_DENSITY_IMAGES = False
+SAVE_DENSITY_QUANTITY = "delta_f_binned"
+SAVE_DENSITY_EVERY = 1
+SAVE_DENSITY_VMIN = None
+SAVE_DENSITY_VMAX = None
+
 
 # ============================================================
 # Small utilities
@@ -68,6 +90,66 @@ def ensure_post_processing(params, sim_path):
     if not os.path.isdir(os.path.join(sim_path, "post_processing")):
         pp = PostProcessor(sim=params.sim)
         pp.process(physical=True)
+
+
+def load_scalar(data_path, quantity):
+    with h5py.File(os.path.join(data_path, "data_proc0.hdf5"), "r") as f:
+        time = xp.asarray(f["time"]["value"][()])
+        if quantity in f["scalar"]:
+            y = xp.asarray(f["scalar"][quantity][()])
+        elif quantity == "en_phi" and "phi_integral" in f["scalar"]:
+            y = xp.asarray(f["scalar"]["phi_integral"][()])
+        else:
+            available = list(f["scalar"].keys())
+            raise KeyError(f"Scalar {quantity!r} not found. Available scalars: {available}")
+    return time, y
+
+
+def fit_window(time, y, t0, t1):
+    """Return safe indices for a log-fit of sqrt(y)."""
+    if t1 is None:
+        t1 = float(time[-1])
+
+    lo, hi = sorted((float(t0), float(t1)))
+    mask = (time >= lo) & (time <= hi) & xp.isfinite(y) & (y > 0.0)
+
+    # If the user window is unusable, use all positive finite samples.
+    if xp.count_nonzero(mask) < 2:
+        mask = xp.isfinite(y) & (y > 0.0)
+
+    # If there are still too few points, disable fit cleanly.
+    if xp.count_nonzero(mask) < 2:
+        return None
+
+    idx = xp.nonzero(mask)[0]
+    return int(idx[0]), int(idx[-1]) + 1
+
+
+def plot_energy_fit(time, en_phi, t0=FIT_T0, t1=FIT_T1):
+    window = fit_window(time, en_phi, t0, t1)
+
+    fig, ax = plt.subplots()
+    ax.plot(time, en_phi, label=FIT_QUANTITY)
+    ax.set_xlabel("time")
+    ax.set_ylabel(FIT_QUANTITY)
+    ax.set_title(f"Evolution of {FIT_QUANTITY}")
+
+    if window is not None:
+        i0, i1 = window
+        fit_time = time[i0:i1]
+        fit_signal = xp.log(xp.sqrt(en_phi[i0:i1]))
+        gamma, b = xp.polyfit(fit_time, fit_signal, 1)
+        en_fit = xp.exp(2.0 * (gamma * fit_time + b))
+        ax.plot(fit_time, en_fit, "--", label=f"fit: gamma={gamma:.4e}")
+        ax.axvspan(fit_time[0], fit_time[-1], alpha=0.12)
+        print(f"{FIT_QUANTITY} fit window: [{fit_time[0]:.6e}, {fit_time[-1]:.6e}]")
+        print(f"growth rate from log(sqrt({FIT_QUANTITY})): gamma = {gamma:.8e}")
+    else:
+        print(f"No valid positive data found for exponential fit of {FIT_QUANTITY}.")
+
+    ax.legend()
+    fig.tight_layout()
+    plt.show()
 
 
 def plot_equilibrium_profile(sim_path):
@@ -219,8 +301,8 @@ def get_slice_from_field(pdata, arr3d, axes="RZT", fixed_index=0):
         return R[:, :, fixed_index], Z[:, :, fixed_index], data, "R", "Z"
 
     elif axes == "XYZ":
-        data = arr3d[:, :, fixed_index]
-        return X[:, :, fixed_index], Y[:, :, fixed_index], data, "X", "Y"
+        data = arr3d[:, fixed_index, :]
+        return X[:, fixed_index, :], Y[:, fixed_index, :], data, "X", "Y"
 
     elif axes == "RTP":
         data = arr3d[:, fixed_index, :]
@@ -249,7 +331,7 @@ def plot_field_slider(
         nslice = shape[2]
         slice_label = "toroidal index"
     elif axes == "XYZ":
-        nslice = shape[2]
+        nslice = shape[1]
         slice_label = "poloidal/radial slice index"
     elif axes == "RTP":
         nslice = shape[1]
@@ -307,6 +389,7 @@ def plot_field_slider(
     s_slice.on_changed(update)
 
     plt.show()
+
 
 
 
@@ -392,86 +475,21 @@ def plot_marker_trajectories_slider(
     slider.on_changed(update)
     plt.show()
 
-
-# ------------------
-# Post process simulation data
-# In order to compare different simulations, execute this file as `python pproc_diocotron.py sim_1 sim_2 ...` 
-# where `sim_1`, `sim_2`, etc. are the names of the simulation folders to be post-processed and plotted together.
-# If only one argument, the 2D plots will be shown. If multiple arguments, only the growth rate plot will be shown.
-# ------------------
+# ============================================================
+# Main
+# ============================================================
 def main():
-    en_phis = []
-    times = []
-    sls = []
-    params_opts = []
-    fitting = []
-    for i, sim_name in enumerate(sim_names):
-        params = params_files[i]
-        sim_path = sim_paths[i]
-        if not os.path.isdir(os.path.join(sim_path, "post_processing")):
-            pp = PostProcessor(sim=params.sim)
-            pp.process(physical=True)
+    ensure_post_processing(params, sim_path)
 
-        pdata = PlottingData(sim=params.sim)
-        pdata.load()
+    pdata = PlottingData(sim=params.sim)
+    pdata.load()
 
-        # ------------------
-        # Determine electrical potentail growth rate
-        # ------------------
+    params.domain.show()
 
-        # get scalar data (post processing not needed for scalar data)
-        pa_data = os.path.join(sim_path, "data")
-        with h5py.File(os.path.join(pa_data, "data_proc0.hdf5"), "r") as f:
-            times.append(f["time"]["value"][()])
-            en_phis.append(xp.power(f["scalar"]["en_phi"][()], 1.0))
-
-        # time interval to determine growth rate
-        ti, tf = 0.0, 42.0
-        if tf>times[i][-1]: tf = times[i][-1]
-        if ti>tf:
-            ti = tf/2
-        xi = xp.abs(pdata.t_grid - ti).argmin() # index of time 100 [a.lu.] (observed end of growth rate)
-        xf = xp.abs(pdata.t_grid - tf).argmin() + 1 # index of time 200 [a.lu.] (observed end of growth rate)
-        if xi==0:
-            xi=1 # avoid including t=0 in fit
-
-        sls.append(tuple([slice(xi, xf)]))
-
-        if len(times[i]) > 3:
-            fitting.append(True)
-            # determine growth rate
-            fitting_func = lambda x,m,b,c0: xp.exp(m*x+b)+c0
-            jac_func = lambda x,m,b,c0: xp.array([x*xp.exp(m*x+b), xp.exp(m*x+b), xp.ones_like(x)]).transpose()
-
-            params_opt, _ = sc.curve_fit(fitting_func, times[i][sls[i]], en_phis[i][sls[i]], p0=(1e-3, -5, en_phis[i][1]), jac=jac_func, maxfev=10000)#3.07e2
-            params_opts.append(params_opt)
-
-            logging.info(f"Fitted growth rate for {sim_name}: {params_opt[0]:.4e}")
-        else:
-            fitting.append(False)
-
-    fig, ax = plt.subplots(1, figsize = (6, 4))
-    for i in range(len(sim_names)):
-        ax.scatter(times[i][1:], en_phis[i][1:], marker='x', s=0.05, label=r"$\phi$")#_{"+sim_names[i][4:]+r"}$")
-        if fitting[i]:
-            ax.plot(
-                times[i][sls[i]], 
-                fitting_func(times[i][sls[i]], *params_opts[i]), 
-                label=f"{ti=}, {tf=}, fitted growth_rate={params_opts[i][0]:.4e}",
-                c="orange"
-            )
-    ax.axvline(ti, color="gray", linestyle="--", alpha=0.5)
-    ax.axvline(tf, color="gray", linestyle="--", alpha=0.5)
-
-    #ax.set_yscale('log')
-    ax.legend()
-
-    ax.set_title(f"{params.time_opts.dt=}, {params.time_opts.split_algo=}, {params.grid.num_elements=}, {params.derham_opts.degree=}, {params.loading_params.ppc=}")
-    ax.set_xlabel("time")
-    ax.set_ylabel("Energy [a.u.]")
-
-    plt.tight_layout()
-    plt.show()
+    data_path = os.path.join(sim_path, "data")
+    
+    time, en_phi = load_scalar(data_path, FIT_QUANTITY)
+    plot_energy_fit(time, en_phi)
 
     if SHOW_EQUIL_PROFILE:
         plot_equilibrium_profile(sim_path)
@@ -511,24 +529,14 @@ def main():
     )
 
 
-if len(sys.argv)>1 and __name__ == "__main__":
-    sim_names = sys.argv[1:]
-    params_files = []
-    sim_paths = []
-
-    for i, sim_name in enumerate(sim_names):
-        sim_path = os.path.join(os.getcwd(), sim_name)
-
-        spec = importlib.util.spec_from_file_location("params", os.path.join(sim_path, "parameters.py"))
-        params = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(params)
-        sim_paths.append(sim_path)
-        params_files.append(params)
+if len(sys.argv) > 1 and __name__ == "__main__":
+    sim_name = sys.argv[1]
+    sim_path = os.path.join(os.getcwd(), sim_name)
+    params = load_params(sim_path)
 else:
-    sim_names = ["sim_1"]
-    import params_diocotron as params
-    params_files = [params]
-    sim_paths = [os.path.join(os.getcwd(), sim_names[0])]
+    sim_name = "sim_1"
+    sim_path = os.path.join(os.getcwd(), sim_name)
+    import params_cyclone as params
 
 if __name__ == "__main__":
     main()

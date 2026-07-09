@@ -85,6 +85,10 @@ class PushGuidingCenterBxEstar(Propagator):
         """
         self.variables = self.Variables()
         self.phi = phi if phi is not None else FEECVariable(space="H1")
+        if phi is None:
+            self._allocate_phi = True
+        else:
+            self._allocate_phi = False
         self.b_tilde = b_tilde
 
     @dataclass(repr=False)
@@ -183,7 +187,8 @@ class PushGuidingCenterBxEstar(Propagator):
             self._B_dot_b = self._absB0
 
         # allocate electric field
-        self.phi.allocate(self.derham, self.domain)
+        if self._allocate_phi:
+            self.phi.allocate(self.derham, self.domain)
         self._phi = self.phi.spline.vector
         self._evaluate_e_field = self.options.evaluate_e_field
         self._e_field = self.derham.V1.zeros()

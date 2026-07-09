@@ -871,6 +871,9 @@ class AdhocTorus(AxisymmMHDequilibrium):
         &q_0 + ( q_1 - q_0 )\frac{r^2}{a^2} \quad &&\textnormal{if} \quad q_\textnormal{kind}=0\,,
 
         &\frac{q_0}{1-\left(1-\frac{r^2}{a^2}\right)^{\frac{q_1}{q_0}}}\frac{r^2}{a^2} \quad &&\textnormal{if} \quad q_\textnormal{kind}=1\,.
+
+
+        &q_0 + l\frac{r}{a} ( q_1 - q_0 )\frac{r^2}{a^2} \quad &&\textnormal{if} \quad q_\textnormal{kind}=2\,,
         \end{aligned}\right.
 
     The pressure profile
@@ -898,11 +901,13 @@ class AdhocTorus(AxisymmMHDequilibrium):
     B0 : float
         On-axis (r=0) toroidal magnetic field (default: 2.).
     q_kind : int
-        Which safety factor profile, see docstring (0 or 1, default: 0).
+        Which safety factor profile, see docstring (0, 1 or 2, default: 0).
     q0 : float
         Safety factor at r=0 (default: 1.71).
     q1 : float
         Safety factor at r=a (default: 1.87).
+    l : float
+        Linear term factor for q profile if q_kind=2 (default: 0.).
     n1 : float
         1st shape factor for ion number density profile (default: 0.).
     n2 : float
@@ -932,9 +937,10 @@ class AdhocTorus(AxisymmMHDequilibrium):
             a       : 1.   # minor radius
             R0      : 3.   # major radius
             B0      : 2.   # on-axis toroidal magnetic field
-            q_kind  : 0    # which profile (0 : parabolic, 1 : other, see documentation)
+            q_kind  : 0    # which profile (0 : parabolic, 1 : other, 2 : parabolic with linear term, see documentation)
             q0      : 1.05 # safety factor at r=0
             q1      : 1.80 # safety factor at r=a
+            l       : 0.   # linear term factor for q profile if q_kind=2
             n1      : .5   # 1st shape factor for number density profile
             n2      : 1.   # 2nd shape factor for number density profile
             na      : .2   # number density at r=a
@@ -955,6 +961,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
         q_kind: int = 0,
         q0: float = 1.71,
         q1: float = 1.87,
+        l: float = 0.0,
         n1: float = 2.0,
         n2: float = 1.0,
         na: float = 0.2,
@@ -983,7 +990,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
             self._psi_i = None
             self._p_i = None
 
-        else:
+        elif self.params["q_kind"] == 1 or self.params["q_kind"] == 2:
             r_i = xp.linspace(0.0, self.params["a"], self.params["psi_nel"] + 1)
 
             def dpsi_dr(r):
@@ -1088,7 +1095,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
                 out = self.params["B0"] * (q_bar_0 - r * q_bar_1) / q_bar_0**2
 
         # alternative profile (interpolated)
-        else:
+        elif self.params["q_kind"] == 1 or self.params["q_kind"] == 2:
             out = self._psi_i(r, nu=der)
 
             # remove all "dimensions" for point-wise evaluation
@@ -1105,6 +1112,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
 
         q0 = self.params["q0"]
         q1 = self.params["q1"]
+        l = self.params["l"]
 
         a = self.params["a"]
 
@@ -1115,8 +1123,14 @@ class AdhocTorus(AxisymmMHDequilibrium):
             else:
                 qout = 2 * (q1 - q0) * r / a**2
 
+        elif self.params["q_kind"] == 2:
+            if der == 0:
+                qout = q0 + (q1 - q0) * (r / a) ** 2 + l * r / a
+            else:
+                qout = 2 * (q1 - q0) * r / a**2 + l / a
+
         # alternative profile
-        else:
+        elif self.params["q_kind"] == 1:
             # int/float input
             if isinstance(r, (int, float)):
                 if r == 0:
@@ -1210,7 +1224,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
                     )
 
             # alternative profile
-            else:
+            elif self.params["q_kind"] == 1:
                 pout = self._p_i(r)
 
                 # remove all "dimensions" for point-wise evaluation
@@ -1219,7 +1233,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
                     pout = pout.item()
 
         # ad-hoc profile
-        else:
+        elif self.params["p_kind"] == 1:
             pout = (
                 self.params["B0"] ** 2
                 * self.params["beta"]
