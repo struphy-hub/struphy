@@ -400,22 +400,14 @@ def plot_marker_trajectories_slider(
 # If only one argument, the 2D plots will be shown. If multiple arguments, only the growth rate plot will be shown.
 # ------------------
 def main():
-    if len(sys.argv)>1 and __name__ == "__main__":
-        sim_names = sys.argv[1:]
-    else:
-        sim_names = ["sim_1"]
     en_phis = []
     times = []
     sls = []
     params_opts = []
     fitting = []
     for i, sim_name in enumerate(sim_names):
-        sim_path = os.path.join(os.getcwd(), sim_name)
-
-        spec = importlib.util.spec_from_file_location("params", os.path.join(sim_path, "parameters.py"))
-        params = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(params)
-
+        params = params_files[i]
+        sim_path = sim_paths[i]
         if not os.path.isdir(os.path.join(sim_path, "post_processing")):
             pp = PostProcessor(sim=params.sim)
             pp.process(physical=True)
@@ -518,6 +510,23 @@ def main():
         show_paths=True,
     )
 
+
+if len(sys.argv)>1 and __name__ == "__main__":
+    sim_names = sys.argv[1:]
+else:
+    sim_names = ["sim_1"]
+
+params_files = []
+sim_paths = []
+
+for i, sim_name in enumerate(sim_names):
+    sim_path = os.path.join(os.getcwd(), sim_name)
+
+    spec = importlib.util.spec_from_file_location("params", os.path.join(sim_path, "parameters.py"))
+    params = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(params)
+    sim_paths.append(sim_path)
+    params_files.append(params)
 
 if __name__ == "__main__":
     main()

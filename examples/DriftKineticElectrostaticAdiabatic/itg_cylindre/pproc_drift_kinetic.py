@@ -472,13 +472,6 @@ def plot_marker_trajectories_slider(
 # Main
 # ============================================================
 def main():
-    '''if len(sys.argv) > 1 and __name__ == "__main__":
-        sim_name = sys.argv[1]
-    else:
-        sim_name = "sim_1"
-
-    sim_path = os.path.join(os.getcwd(), sim_name)
-    params = load_params(sim_path)'''
     ensure_post_processing(params, sim_path)
 
     pdata = PlottingData(sim=params.sim)
