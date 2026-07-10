@@ -313,8 +313,8 @@ def _collect_software_info(
 
 def package_results(
     results_root: Path,
-    language: str,
-    commit: str,
+    language: str | None,
+    commit: str | None,
     output_root: Path,
 ) -> list[Path]:
     results_root = _resolve_results_root_arg(results_root)
@@ -323,7 +323,6 @@ def package_results(
 
     timestamp = datetime.now(UTC)
     datetime_token = timestamp.strftime("%Y%m%dT%H%M%SZ")
-    commit_short = commit[:8]
     created_dirs: list[Path] = []
 
     testcase_dirs = [path for path in sorted(results_root.iterdir()) if path.is_dir()]
@@ -333,12 +332,28 @@ def package_results(
             continue
 
         testcase = testcase_dir.name
-        folder_name = f"{datetime_token}-{commit_short}-{_slug(testcase)}-{_slug(language)}"
+        parameters_path = _ensure_testcase_parameters_file(testcase_dir)
+        case_info = _read_case_info(testcase_dir)
+        case_language = case_info.get("pyccel_language") or language
+        case_commit = case_info.get("struphy_commit") or commit
+        if case_language is None:
+            raise RuntimeError(
+                f"Missing pyccel language for testcase '{testcase}'. "
+                "Provide it in profiling_case_info.json or via --language."
+            )
+        if case_commit is None:
+            raise RuntimeError(
+                f"Missing commit hash for testcase '{testcase}'. "
+                "Provide it in profiling_case_info.json or via --commit."
+            )
+
+        commit_short = case_commit[:8]
+        folder_name = (
+            f"{datetime_token}-{commit_short}-{_slug(testcase)}-{_slug(case_language)}"
+        )
         destination_dir = output_root / folder_name
         destination_dir.mkdir(parents=True, exist_ok=True)
 
-        parameters_path = _ensure_testcase_parameters_file(testcase_dir)
-        case_info = _read_case_info(testcase_dir)
         sim_name = testcase
         sim_description = ""
         if parameters_path is not None:
@@ -353,10 +368,10 @@ def package_results(
         for source_h5 in h5_files:
             relative_source = source_h5.relative_to(testcase_dir)
             ranks = _extract_ranks(relative_source)
-            base_key = f"{_slug(testcase)}-ranks{ranks}-{_slug(language)}"
+            base_key = f"{_slug(testcase)}-ranks{ranks}-{_slug(case_language)}"
             output_name = _build_output_name(
                 testcase=testcase,
-                language=language,
+                language=case_language,
                 ranks=ranks,
                 index=name_counts.get(base_key, 0),
             )
@@ -388,8 +403,8 @@ def package_results(
         }
         hardware_information = _collect_hardware_info()
         software_information = _collect_software_info(
-            language=language,
-            commit=commit,
+            language=case_language,
+            commit=case_commit,
             parameters_path=parameters_path,
             case_info=case_info,
         )
@@ -402,10 +417,10 @@ def package_results(
             "description": sim_description,
             "datetime_utc": timestamp.isoformat(),
             "datetime_token": datetime_token,
-            "commit": commit,
+            "commit": case_commit,
             "commit_short": commit_short,
             "testcase": testcase,
-            "language": language,
+            "language": case_language,
             "source_results_root": str(results_root),
             "source_parameters_file": (
                 str(parameters_path) if parameters_path is not None else None
@@ -447,13 +462,13 @@ def main() -> None:
     )
     parser.add_argument(
         "--language",
-        required=True,
-        help="Compile language label to include in output naming.",
+        required=False,
+        help="Optional compile language fallback if not present in profiling_case_info.json.",
     )
     parser.add_argument(
         "--commit",
-        required=True,
-        help="Commit SHA used in destination folder naming.",
+        required=False,
+        help="Optional commit SHA fallback if not present in profiling_case_info.json.",
     )
     parser.add_argument(
         "--output-root",

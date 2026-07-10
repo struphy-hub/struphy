@@ -56,8 +56,6 @@ jobs:
         run: |
           source .venv-fortran/bin/activate
           bash profiling/package_and_publish_results.sh \
-            --language "${{ matrix.compile-language }}" \
-            --commit "${{ github.sha }}" \
             --output-root profiling-results-export \
             --target-repo git@github.com:struphy-hub/profiling-data.git \
             --target-branch main \

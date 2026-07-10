@@ -52,6 +52,16 @@ def _git_commit_short(repo_dir: Path) -> str:
     return result.stdout.strip()
 
 
+def _git_commit(repo_dir: Path) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(repo_dir), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip()
+
+
 def build_case_commands(case: ProfilingCase, venv_path: Path) -> list[str]:
     activate_path = venv_path.expanduser().resolve() / "bin" / "activate"
     commands = [
@@ -121,6 +131,7 @@ def main() -> None:
     args = parser.parse_args()
 
     profiling_results_base.mkdir(parents=True, exist_ok=True)
+    run_commit = _git_commit(repo_root)
     if args.results_root is None:
         timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         run_token = f"{timestamp}-{_git_commit_short(repo_root)}"
@@ -214,6 +225,7 @@ def main() -> None:
                     "test_case_description": case.description,
                     "physics_problem": case.physics_problem,
                     "struphy_model_used": case.struphy_model_used,
+                    "struphy_commit": run_commit,
                     "pyccel_language": case.pyccel_language,
                     "pyccel_compiler_family": case.pyccel_compiler_family,
                     "slurm_script": str(output_path),
