@@ -1,11 +1,15 @@
 import argparse
+import getpass
 import ast
 import json
 import os
+import platform
 import re
 import shutil
+import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 
 def _slug(value: str) -> str:
@@ -175,6 +179,138 @@ def _resolve_results_root_arg(results_root: Path) -> Path:
     return results_root
 
 
+def _run_command(command: list[str]) -> dict[str, Any]:
+    result = subprocess.run(
+        command,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return {
+        "command": command,
+        "returncode": result.returncode,
+        "stdout": result.stdout.strip(),
+        "stderr": result.stderr.strip(),
+    }
+
+
+def _run_shell_command(command: str) -> dict[str, Any]:
+    result = subprocess.run(
+        ["bash", "-lc", command],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return {
+        "command": command,
+        "returncode": result.returncode,
+        "stdout": result.stdout.strip(),
+        "stderr": result.stderr.strip(),
+    }
+
+
+def _read_case_info(testcase_dir: Path) -> dict[str, Any]:
+    case_info_path = testcase_dir / "profiling_case_info.json"
+    if not case_info_path.exists():
+        return {}
+    return json.loads(case_info_path.read_text(encoding="utf-8"))
+
+
+def _collect_environment_variables() -> dict[str, str]:
+    allowed_prefixes = (
+        "SLURM_",
+        "OMP_",
+        "PYTHON",
+        "VIRTUAL_ENV",
+        "CONDA",
+        "MODULE",
+        "LOADEDMODULES",
+        "GITHUB_",
+    )
+    allowed_names = {"PATH", "LD_LIBRARY_PATH"}
+    filtered = {
+        key: value
+        for key, value in os.environ.items()
+        if key.startswith(allowed_prefixes) or key in allowed_names
+    }
+    return dict(sorted(filtered.items()))
+
+
+def _collect_slurm_environment_variables() -> dict[str, str]:
+    slurm_variables = {
+        key: value for key, value in os.environ.items() if key.startswith("SLURM_")
+    }
+    return dict(sorted(slurm_variables.items()))
+
+
+def _collect_hardware_info() -> dict[str, Any]:
+    cluster_name = os.environ.get("SLURM_CLUSTER_NAME")
+    if cluster_name is None:
+        cluster_name = _run_command(["hostname", "-f"])["stdout"] or None
+
+    slurm_nodelist = os.environ.get("SLURM_JOB_NODELIST")
+    resolved_nodes: list[str] = []
+    if slurm_nodelist:
+        hostnames_cmd = _run_command(["scontrol", "show", "hostnames", slurm_nodelist])
+        if hostnames_cmd["returncode"] == 0 and hostnames_cmd["stdout"]:
+            resolved_nodes = hostnames_cmd["stdout"].splitlines()
+    if not resolved_nodes:
+        resolved_nodes = [_run_command(["hostname"])["stdout"]]
+
+    return {
+        "cluster_name": cluster_name,
+        "machine_information": {
+            "platform": platform.platform(),
+            "hostname": _run_command(["hostname"])["stdout"],
+            "uname": _run_command(["uname", "-a"])["stdout"],
+            "chip_information": _run_command(["lscpu"])["stdout"],
+        },
+        "nodes": {
+            "slurm_job_nodelist": slurm_nodelist,
+            "resolved_hostnames": resolved_nodes,
+            "slurm_nnodes": os.environ.get("SLURM_NNODES"),
+            "slurm_ntasks": os.environ.get("SLURM_NTASKS"),
+        },
+    }
+
+
+def _collect_software_info(
+    *,
+    language: str,
+    commit: str,
+    parameters_path: Path | None,
+    case_info: dict[str, Any],
+) -> dict[str, Any]:
+    module_list_cmd = _run_shell_command("module list -t 2>&1")
+    loaded_modules = [
+        line
+        for line in module_list_cmd["stdout"].splitlines()
+        if line
+        and not line.startswith("Currently Loaded Modulefiles:")
+        and not line.startswith("No Modulefiles Currently Loaded.")
+    ]
+    if not loaded_modules and os.environ.get("LOADEDMODULES"):
+        loaded_modules = [
+            entry for entry in os.environ["LOADEDMODULES"].split(":") if entry
+        ]
+
+    return {
+        "parameter_file": (
+            str(parameters_path)
+            if parameters_path is not None
+            else case_info.get("parameter_file")
+        ),
+        "python_environment_pip_freeze": _run_command(["python", "-m", "pip", "freeze"])[
+            "stdout"
+        ],
+        "environment_variables": _collect_environment_variables(),
+        "modules": loaded_modules,
+        "struphy_commit": commit,
+        "pyccel_language": case_info.get("pyccel_language", language),
+        "pyccel_compiler_family": case_info.get("pyccel_compiler_family"),
+    }
+
+
 def package_results(
     results_root: Path,
     language: str,
@@ -202,6 +338,7 @@ def package_results(
         destination_dir.mkdir(parents=True, exist_ok=True)
 
         parameters_path = _ensure_testcase_parameters_file(testcase_dir)
+        case_info = _read_case_info(testcase_dir)
         sim_name = testcase
         sim_description = ""
         if parameters_path is not None:
@@ -235,7 +372,32 @@ def package_results(
                 }
             )
 
+        general_information = {
+            "time_date_utc": timestamp.isoformat(),
+            "user": getpass.getuser(),
+            "slurm_script": case_info.get("slurm_script"),
+            "slurm_variables": case_info.get(
+                "slurm_variables", _collect_slurm_environment_variables()
+            ),
+            "test_case_name": case_info.get("test_case_name", sim_name),
+            "test_case_description": case_info.get(
+                "test_case_description", sim_description
+            ),
+            "physics_problem": case_info.get("physics_problem", sim_name),
+            "struphy_model_used": case_info.get("struphy_model_used"),
+        }
+        hardware_information = _collect_hardware_info()
+        software_information = _collect_software_info(
+            language=language,
+            commit=commit,
+            parameters_path=parameters_path,
+            case_info=case_info,
+        )
+
         metadata = {
+            "general_information": general_information,
+            "hardware_information": hardware_information,
+            "software_information": software_information,
             "name": sim_name,
             "description": sim_description,
             "datetime_utc": timestamp.isoformat(),
@@ -256,8 +418,9 @@ def package_results(
                 "workflow": os.environ.get("GITHUB_WORKFLOW"),
                 "job": os.environ.get("GITHUB_JOB"),
             },
+            "profiling_case_info": case_info,
         }
-        (destination_dir / "metadata.json").write_text(
+        (destination_dir / "case_metadata.json").write_text(
             json.dumps(metadata, indent=2),
             encoding="utf-8",
         )

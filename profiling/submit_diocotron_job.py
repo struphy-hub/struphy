@@ -1,4 +1,5 @@
 import argparse
+import json
 import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -11,9 +12,15 @@ from slurm_script_generator.squeue import SQueue
 @dataclass(frozen=True)
 class ProfilingCase:
     name: str
+    test_case_name: str
+    test_case_description: str
+    physics_problem: str
+    struphy_model_used: str
     ranks: tuple[int, ...]
     output_root: Path
     params_source: Path
+    pyccel_language: str = "fortran"
+    pyccel_compiler_family: str = "GNU"
 
 
 script_dir = Path(__file__).resolve().parent
@@ -128,6 +135,10 @@ def main() -> None:
     cases = [
         ProfilingCase(
             name="diocotron_poisson_scaling",
+            test_case_name="Diocotron Poisson scaling",
+            test_case_description="Scaling test running the diocotron profiling setup with multiple MPI ranks.",
+            physics_problem="Diocotron instability in a non-neutral plasma.",
+            struphy_model_used="ToyDrift",
             ranks=(1, 2, 4, 8),
             output_root=run_results_root / "diocotron_poisson_scaling",
             params_source=(
@@ -181,6 +192,38 @@ def main() -> None:
         print(script)
 
         output_path = repo_root / f"job_profile_{case.name}.sh"
+        slurm_variables = {
+            "job_name": f"profiling_{case.name}",
+            "nodes": 1,
+            "ntasks_per_node": max(case.ranks),
+            "cpus_per_task": 1,
+            "mem_per_cpu": "1GB",
+            "partition": "dcgp_fua_dbg",
+            "account": "FUSIO_HLST_7",
+            "output": "./%x.%j.out",
+            "error": "./%x.%j.err",
+            "chdir": "./",
+            "mail_type": "none",
+            "time": "00:15:00",
+        }
+        (case.output_root / "profiling_case_info.json").write_text(
+            json.dumps(
+                {
+                    "test_case_identifier": case.name,
+                    "test_case_name": case.test_case_name,
+                    "test_case_description": case.test_case_description,
+                    "physics_problem": case.physics_problem,
+                    "struphy_model_used": case.struphy_model_used,
+                    "pyccel_language": case.pyccel_language,
+                    "pyccel_compiler_family": case.pyccel_compiler_family,
+                    "slurm_script": str(output_path),
+                    "slurm_variables": slurm_variables,
+                    "parameter_file": str(case.params_source),
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
 
         job_id = script.submit_job(str(output_path), verbose=True)
 

@@ -33,7 +33,7 @@ def test_package_results_reads_sim_metadata_from_attribute_constructor(tmp_path:
         output_root=output_root,
     )
 
-    metadata_path = created_dirs[0] / "metadata.json"
+    metadata_path = created_dirs[0] / "case_metadata.json"
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     assert metadata["name"] == "Diocotron instability"
     assert metadata["description"] == "Shear-driven non-neutral plasma instability."
@@ -66,7 +66,7 @@ def test_package_results_promotes_nested_parameters_and_uses_metadata(tmp_path: 
     promoted_parameters = testcase_dir / "parameters.py"
     assert promoted_parameters.exists()
 
-    metadata_path = created_dirs[0] / "metadata.json"
+    metadata_path = created_dirs[0] / "case_metadata.json"
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     assert metadata["name"] == "Nested params name"
     assert metadata["description"] == "Nested params description"
