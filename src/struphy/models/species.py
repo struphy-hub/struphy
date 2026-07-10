@@ -287,8 +287,6 @@ class ParticleSpecies(Species):
         sorting_params: SortingParameters = None,
         saving_params: SavingParameters = None,
         bufsize: float = 1.0,
-        n_cols_diagnostics: int = 0,
-        n_cols_aux: int = 5,
     ):
         """Set marker parameters for loading, weight calculation, kernel density reconstruction
         and boundary conditions in parameter/launch files.
@@ -307,12 +305,6 @@ class ParticleSpecies(Species):
 
         bufsize : float
             Size of buffer (as multiple of total size, default=.25) in markers array.
-
-        n_cols_diagnostics : int
-            Number of diagnostics columns.
-
-        n_cols_aux : int
-            Number of auxiliary columns.
         ----------
         """
 
@@ -338,8 +330,6 @@ class ParticleSpecies(Species):
         self.sorting_params = sorting_params
         self.saving_params = saving_params
         self.bufsize = bufsize
-        self.n_cols_diagnostics = n_cols_diagnostics
-        self.n_cols_aux = n_cols_aux
 
         logger.info(f"\nMarker parameters for species '{self.__class__.__name__}':")
         logger.info(self.loading_params.__repr_no_defaults__())

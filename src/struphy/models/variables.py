@@ -564,8 +564,6 @@ class PICVariable(Variable):
             boundary_params=self.species.boundary_params,
             sorting_params=self.species.sorting_params,
             bufsize=self.species.bufsize,
-            n_cols_diagnostics=self.species.n_cols_diagnostics,
-            n_cols_aux=self.species.n_cols_aux,
             domain=domain,
             equil=equil,
             projected_equil=projected_equil,
