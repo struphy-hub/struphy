@@ -6,11 +6,10 @@ from typing import Callable
 import cunumpy as xp
 
 from struphy.fields_background.base import FluidEquilibriumWithB
-from struphy.fields_background.equils import set_defaults
 from struphy.geometry.base import Domain
 from struphy.initial.base import Perturbation
 from struphy.io.options import LiteralOptions
-from struphy.kinetic_background.base import CanonicalMaxwellian, Maxwellian
+from struphy.kinetic_background.base import Maxwellian
 
 
 class Maxwellian3D(Maxwellian):
@@ -594,9 +593,36 @@ class CanonicalMaxwellian(Maxwellian):
         self._add_perturbation = new
 
 
-class CanonicalMaxwellian2D(CanonicalMaxwellian):
-    r"""Guiding-center :class:`~struphy.kinetic_background.base.CanonicalMaxwellian` depending on
-    three constants of motion :math:`\epsilon, \mu, \psi_c`, in a axissymmetric toroidal system:
+class CanonicalMaxwellian2D(GyroMaxwellian2D):
+    r"""Canonical Maxwellian distribution function in constants-of-motion coordinates.
+    Standard evaluation methods in :math:`(v_\parallel, v_\perp)` coordinates are available through :class:`~struphy.kinetic_background.maxwellians.GyroMaxwellian2D`.
+
+    The distribution is parameterized by the density and thermal speed as functions of the
+    canonical toroidal momentum :math:`\psi_c`:
+
+    .. math::
+
+        \psi_c = \psi + \frac{m_s F}{q_s B}v_\parallel - \text{sign}(v_\parallel)\sqrt{2(\epsilon - \mu B)}\frac{m_sF}{q_sB} \mathcal{H}(\epsilon - \mu B),
+
+    - Energy
+
+    .. math::
+
+        \epsilon = \frac{1}{2}m_sv_\parallel² + \mu B,
+
+    - Magnetic moment
+
+    .. math::
+
+        \mu = \frac{m_s v_\perp²}{2B},
+
+    where :math:`\psi` is the poloidal magnetic flux function, :math:`F=F(\psi)` is the poloidal current function and :math:`\mathcal{H}` is the Heaviside function.
+
+    With the three constants of motion, a canonical Maxwellian distribution function is defined as
+
+    .. math::
+
+        F(\psi_c, \epsilon, \mu) = \frac{n(\psi_c)}{(2\pi)^{3/2}v_\text{th}³(\psi_c)} \text{exp}\left[ - \frac{\epsilon}{v_\text{th}²(\psi_c)}\right].
 
     Parameters
     ----------
