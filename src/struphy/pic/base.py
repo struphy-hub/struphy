@@ -37,6 +37,7 @@ from struphy.io.options import LiteralOptions
 from struphy.io.output_handling import DataContainer
 from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
 from struphy.kinetic_background.base import KineticBackground, Maxwellian
+from struphy.kinetic_background.maxwellians import CanonicalMaxwellian
 from struphy.particles.parameters import (
     BoundaryParameters,
     LoadingParameters,
@@ -1866,7 +1867,7 @@ class Particles(metaclass=ABCMeta):
             if self.type != "sph":
                 self._set_initial_condition()
 
-                if self.f_init.coords == "constants_of_motion":
+                if isinstance(self.f_init, CanonicalMaxwellian):
                     self.save_constants_of_motion()
 
             # evaluate initial distribution function
@@ -1920,7 +1921,7 @@ class Particles(metaclass=ABCMeta):
             f0 = self.f0.n0(self.positions)
         else:
             # in case of CanonicalMaxwellian, evaluate constants_of_motion
-            if self.f0.coords == "constants_of_motion":
+            if isinstance(self.f0, CanonicalMaxwellian):
                 self.save_constants_of_motion()
             f0 = self.f0(*self.f_coords.T)
 
