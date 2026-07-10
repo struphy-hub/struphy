@@ -265,7 +265,7 @@ class Particles5D(Particles):
     @property
     def magn_bckgr(self):
         """Fluid equilibrium with B."""
-        return self._magn_bckgr
+        return self.equil
 
     @property
     def absB0_h(self):
@@ -313,7 +313,7 @@ class Particles5D(Particles):
             vth_para=(self.loading_params.moments[2], None),
             vth_perp=(self.loading_params.moments[3], None),
             volume_form=True,
-            equil=self._magn_bckgr,
+            equil=self.magn_bckgr,
         )
 
         if self.spatial == "uniform":
