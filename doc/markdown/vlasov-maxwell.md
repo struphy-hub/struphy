@@ -1,18 +1,18 @@
 (disc_example)=
-## Example: Vlasov-Maxwell-Poisson discretization
+# Example: Vlasov-Maxwell-Poisson discretization
 
 The Vlasov-Maxwell equations for one species in a static background provide a good example 
 for PDE discretization in Struphy (see {class}`~struphy.models.kinetic.VlasovMaxwellOneSpecies`) for the full implementation). The model we are going to discretize reads as follows:
 
 $$
-\begin{align}
+\begin{aligned}
     &\partial_t f + \mathbf{v} \cdot  \nabla f - \frac em (\mathbf{E} + \mathbf{v} \times \mathbf{B}) 
     \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,,
     \\[2mm]
-    -\frac{1}{c^2}&\frac{\partial \mathbf{E}}{\partial t} + \nabla \times \mathbf{B} = -\mu_0 e \int_{\mathbb{R}^3} \mathbf{v} f \, \text{d} \mathbf{v} \,,
+    -\frac{1}{c^2} &\frac{\partial \mathbf{E}}{\partial t} + \nabla \times \mathbf{B} = -\mu_0 e \int_{\mathbb{R}^3} \mathbf{v} f \, \text{d} \mathbf{v} \,,
     \\[2mm]
     &\frac{\partial \mathbf{B}}{\partial t} + \nabla \times \mathbf{E} = 0 \,.
-\end{align}
+\end{aligned}
 $$ (eq:model)
 
 Here, $f(t, \mathbf x, \mathbf v)$ denotes the kinetic distribution function, $\mathbf E(t, \mathbf x)$ and $\mathbf B(t, \mathbf x)$ are the electric and magnetic field, respectively, $e/m$ is the charge-to-mass ratio of the electrons, $c$ denotes the speed of light and $\mu_0$ stands for the magnetic constant. In order to determine an initial electric field that is consistent with Gauss' law, one has to solve Poisson's equation once at the beginning of the simulation:
@@ -36,12 +36,12 @@ Every model discretization for Struphy should proceed through the following step
 Let us now go through these steps for the above model.
 
 (normalization_ex)=
-### Normalization
+## Normalization
 
 Prior to implementation, we have to find suitable units for the model quantities, a process called {ref}`normalization`. For this, let us write the Vlasov-Maxwell system in terms of units (with a hat) and dimensionless quantities (with a prime):
 
 $$
-\begin{align}
+\begin{aligned}
     & \frac{\hat f}{\hat t}\,\partial_{t'} f' + \frac{\hat v \hat f}{\hat x}\,\mathbf{v}' \cdot  \nabla' f' - \frac em \hat B \hat f\left(\frac{\hat E}{\hat v\hat B}\mathbf{E}'  + \mathbf{v}' \times \mathbf{B}' \right) 
     \cdot \frac{\partial f'}{\partial \mathbf{v}'} = 0 \,,
     \\[2mm]
@@ -50,10 +50,10 @@ $$
     &\frac{\hat B}{\hat t}\frac{\partial \mathbf{B}'}{\partial t'} + \frac{\hat E}{\hat x}\nabla' \times \mathbf{E}' = 0 \,,
     \\[3mm]
     &-\epsilon_0\,\frac{\hat \phi}{\hat x^2}\Delta' \phi' = e \hat n\left(\rho_\textrm{i0}' - \int_{\mathbb{R}^3} f'(t=0) \, \text{d} \mathbf{v}' \right)\,,\qquad \hat E\mathbf E'(t=0) = -\frac{\hat \phi}{\hat x}\nabla' \phi'\,.
-\end{align}
+\end{aligned}
 $$ (eq:norm)
 
-In Struphy, the three basic units $\hat x$, $\hat B$ and $\hat n$ are defined by the user through the {ref}`parameter file <units>`. Moreover, several other units are fixed, as described in {ref}`normalization`, namely:
+In Struphy, the three basic units $\hat x$, $\hat B$ and $\hat n$ are defined by the user. Moreover, several other units are fixed, as described in {ref}`normalization`, namely:
 
 $$
 \hat t, \, \hat p,\, \hat \rho,\,\hat \jmath \quad \textrm{are fixed}\,.
@@ -93,7 +93,7 @@ $$
 Let us summarize what we have thus far, omitting the primes in {eq}`eq:norm` for clarity:
 
 $$
-\begin{align}
+\begin{aligned}
     & \partial_{t} f + \mathbf{v} \cdot \nabla f - \frac{1}{\varepsilon}\left(\mathbf{E}  + \mathbf{v} \times \mathbf{B} \right) 
     \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,,
     \\[2mm]
@@ -102,7 +102,7 @@ $$
     &\frac{\partial \mathbf{B}}{\partial t} + \nabla \times \mathbf{E} = 0 \,,
     \\[2mm]
     &-\Delta \phi = \frac{\alpha^2}{\varepsilon}\left(\rho_\textrm{i0} - \int_{\mathbb{R}^3} f(t=0) \, \text{d} \mathbf{v} \right)\,,\qquad \mathbf E(t=0) = -\nabla \phi\,.
-\end{align}
+\end{aligned}
 $$
 
 In Ampere's law we have
@@ -120,7 +120,7 @@ $$
 leads to the final, Struphy-normalized equations
 
 $$
-\begin{align}
+\begin{aligned}
     & \partial_{t} f + \mathbf{v} \cdot \nabla f - \frac{1}{\varepsilon}\left(\mathbf{E}  + \mathbf{v} \times \mathbf{B} \right) 
     \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,,
     \\[2mm]
@@ -129,11 +129,11 @@ $$
     &\frac{\partial \mathbf{B}}{\partial t} + \nabla \times \mathbf{E} = 0 \,,
     \\[2mm]
     &-\Delta \phi = \frac{\alpha^2}{\varepsilon}\left(\rho_\textrm{i0} - \int_{\mathbb{R}^3} f(t=0) \, \text{d} \mathbf{v} \right)\,,\qquad \mathbf E(t=0) = -\nabla \phi\,.
-\end{align}
+\end{aligned}
 $$
 
 (def_spaces)=
-### Definition of solution spaces
+## Definition of solution spaces
 
 In Struphy, kinetic equations are always solved by means of the PIC method due to the high dimensionality of the phase space. By contrast, field (and fluid) equations are solved with the FEEC method; thus one has to decide in which of the four De Rham spaces $H^1$, $H$(curl), $H$(div) or $L^2$ each of the unkowns lives. The choice is usually informed by the grad-, curl- and div-operators appearing in the model equations, so that all terms are well-defined. For instance in Faraday's law (15), the electric field $\mathbf E$ must be in the domain of the curl operator, whereas the magnetic field $\mathbf B$ must be in the co-domain (or image) of the curl operator, which implies the natural choice $\mathbf E \in H$(curl) and $\mathbf B \in H$(div). In Struphy, there is another very important guideline:
 
@@ -144,7 +144,7 @@ The above rule applied to the current Vlasov-Maxwell model means that Ampère's 
 Find $(f, \mathbf E, \mathbf B, \phi) \in C^\infty \times H(\textrm{curl}) \times H(\textrm{div}) \times H^1$ such that
 
 $$
-\begin{align}
+\begin{aligned}
     & \partial_{t} f + \mathbf{v} \cdot  \nabla f - \frac{1}{\varepsilon}\left(\mathbf{E}  + \mathbf{v} \times \mathbf{B} \right) 
     \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,,
     \\[2mm]
@@ -155,11 +155,11 @@ $$
     &\int \nabla \psi \cdot \nabla \phi\,\textrm d \mathbf x = \frac{\alpha^2}{\varepsilon}\left(\int \rho_\textrm{i0}\,\psi\,\textrm d \mathbf x - \int\int_{\mathbb{R}^3} f(t=0)\, \psi \, \text{d} \mathbf{v} \textrm d \mathbf x\right)\,, \qquad \forall \ \psi \in H^1\,,
     \\[4mm]
     &\mathbf E(t=0) = -\nabla \phi\,.
-\end{align}
+\end{aligned}
 $$ (eq:spaces)
 
 (pullback)=
-### Pull-back to the logical domain
+## Pull-back to the logical domain
 
 All PDE models in Struphy are discretized on the unit cube $(0,1)^3$, called the "logical domain". The mapping to the actual problem domain, a torus for instance, called "physical" or Cartesian domain and denoted by $\Omega$, is described under [Geometry](https://struphy-hub.github.io/struphy/sections/domains.html). Briefly, logical coordinates are curvi-linear and denoted by $\boldsymbol \eta \in (0, 1)^3$, whereas physical Cartesian coordinates are denoted by $\mathbf x \in \Omega$. The mapping $F: (0, 1)^3 \to \Omega, \boldsymbol \eta \mapsto \mathbf x$ is one-to-one and differentiable, with Jacobian matrix $DF: (0, 1)^3 \to \mathbb R^{3\times 3}$, metric tensor $G = DF^\top DF$ and determinant $\sqrt g = |\textrm{det} DF|$. In Struphy, only right-handed mappings with $\textrm{det} DF > 0$ are allowed.
 
@@ -208,7 +208,7 @@ It is no coincidence that this exactly fits the correspondence between the de Rh
 Given the choice of spaces we made in writing down the model (17)-(21), we can now apply the appropriate pullback formulas to derive the model on the logical domain. For the kinetic distribution function $f$, the mapping $F:\boldsymbol \eta \mapsto \mathbf x$ only acts on the spatial coordinate; the velocity $\mathbf v$ is not tranformed. Hence we write $\hat f(t,\boldsymbol \eta, \mathbf v) := f(t, F(\boldsymbol \eta), \mathbf v)$ to obtain
 
 $$
-\begin{align}
+\begin{aligned}
     & \partial_{t} \hat f + \mathbf{v} \cdot DF^{-\top} \hat\nabla \hat f - \frac{1}{\varepsilon}\left(DF^{-\top}\hat{\mathbf{E}}^1  + \mathbf{v} \times \frac{DF}{\sqrt g}\hat{\mathbf{B}}^2 \right) 
     \cdot \frac{\partial \hat f}{\partial \mathbf{v}} = 0 \,,
     \\[2mm]
@@ -219,7 +219,7 @@ $$
     &\int \hat \nabla \hat \psi \,G^{-1} \hat \nabla \hat \phi \sqrt g\,\textrm d \boldsymbol \eta = \frac{\alpha^2}{\varepsilon}\left(\int \hat \rho_\textrm{i0}\,\hat\psi \sqrt g\,\textrm d \boldsymbol \eta - \int\int_{\mathbb{R}^3} \hat f(t=0)\, \hat \psi \sqrt g \, \text{d} \mathbf{v} \textrm d \boldsymbol \eta\right)\,, \qquad \forall \ \hat \psi \in H^1\,,
     \\[4mm]
     &\hat{\mathbf E}^1(t=0) = -\hat \nabla \hat \phi\,.
-\end{align} 
+\end{aligned} 
 $$ (eq:pulledback)
 
 Note here in particular that the third and fifth equation are independent of metric coefficients, which means they will have the same form for any mapping $F$ (they are indeed coordinate independent with the present choice of spaces). This immediately guarantees
@@ -231,7 +231,7 @@ $$
 regardless of the mapping $F$ used in the simulation.
 
 (semi_disc)=
-### Semi-discretization in space
+## Semi-discretization in space
 
 There are three types of terms that can appear in a Struphy discretization:
 
@@ -276,7 +276,7 @@ $$
 Let us substitute these discretizations in the model {eq}`eq:pulledback`:
 
 $$
-\begin{align}
+\begin{aligned}
     & \partial_{t} \hat f + \mathbf{v} \cdot DF^{-\top} \hat\nabla \hat f - \frac{1}{\varepsilon}\left(DF^{-\top}\hat{\mathbf{E}}^1_h  + \mathbf{v} \times \frac{DF}{\sqrt g}\hat{\mathbf{B}}^2_h \right) 
     \cdot \frac{\partial \hat f}{\partial \mathbf{v}} = 0 \,,
     \\[2mm]
@@ -289,7 +289,7 @@ $$
     &\sum_{\mu=1, \nu = 1}^{3,3} (\mathbb G_\mu \boldsymbol \psi)^\top \left(\int \vec{\mathbf \Lambda}^1_\mu \,G^{-1} \left( \vec{\mathbf \Lambda}^1_\nu\right)^\top \sqrt g\,\textrm d \boldsymbol \eta \right) \mathbb G_\nu \boldsymbol \phi = \frac{\alpha^2}{\varepsilon}\boldsymbol \psi^\top\left( \int \hat \rho_\textrm{i0}\,\mathbf \Lambda^0 \sqrt g\,\textrm d \boldsymbol \eta - \int\int_{\mathbb{R}^3} \hat f(t=0)\, \mathbf \Lambda^0 \sqrt g \, \text{d} \mathbf{v} \textrm d \boldsymbol \eta\right)\,, \qquad \forall \ \boldsymbol \psi \in \mathbb R^{N_0}\,,
     \\[4mm]
     &\sum_{\mu=1}^3 \mathbf (\mathbf e_\mu + \mathbb G_\mu \boldsymbol \phi)^\top \vec{\mathbf \Lambda}^1_\mu = 0\,.
-\end{align}
+\end{aligned}
 $$
 
 There appear a couple of mass matrices that are already [predefined in Struphy](https://struphy-hub.github.io/struphy/sections/subsections-old/feec_weightedmass.html), for any mapping:
@@ -305,7 +305,7 @@ $$
 These are 3x3 block matrices (implemented as [BlockLinearOperators](https://github.com/struphy-hub/psydac-for-struphy/blob/d9d81cb2104cbff990e129c8785cf4a7cb2dc54b/psydac/linalg/block.py#L492)), where the blocks are indexed by $(\mu, \nu)$. We remark that the weak equations must hold for any choice of $\mathbf f = (\mathbf f_\mu)_{\mu=1}^3 \in \mathbb R^{N_1}$ and $ \boldsymbol \psi \in \mathbb R^{N_0}$, respectively, which means that these can be factored out to lead to a system of equations. Besides, all basis functions are linearly independent such that the coefficients in the third and fifth equation must vanish separately. This leads to the much more compact notation
 
 $$
-\begin{align}
+\begin{aligned}
     & \partial_{t} \hat f + \mathbf{v} \cdot DF^{-\top} \hat\nabla \hat f - \frac{1}{\varepsilon}\left(DF^{-\top}\hat{\mathbf{E}}^1_h  + \mathbf{v} \times \frac{DF}{\sqrt g}\hat{\mathbf{B}}^2_h \right) 
     \cdot \frac{\partial \hat f}{\partial \mathbf{v}} = 0 \,,
     \\[2mm]
@@ -316,7 +316,7 @@ $$
     &\mathbb G^\top \mathbb M^1\mathbb G \boldsymbol \phi = \frac{\alpha^2}{\varepsilon}\left( \int \hat \rho_\textrm{i0}\,\mathbf \Lambda^0 \sqrt g\,\textrm d \boldsymbol \eta - \int\int_{\mathbb{R}^3} \hat f(t=0)\, \mathbf \Lambda^0 \sqrt g \, \text{d} \mathbf{v} \textrm d \boldsymbol \eta\right)\,, 
     \\[4mm]
     &\mathbf e + \mathbb G\boldsymbol \phi = 0\,.
-\end{align}
+\end{aligned}
 $$ (eq:compact)
 
 The next step is to discretize the kinetic equation by means of {ref}`particle_discrete`, which leads us to **particle equations of motion**. For this, the volume form $\hat f^\textrm{vol} := \hat f \sqrt g$ in "logical" phase space is such that it includes the measure of the phase space, i.e. the Jacobian determinant arising from coordinate transformations in phase space. The volume form is then aproximated by a sum of Dirac delta functions,
@@ -330,15 +330,14 @@ $$ (eq:pic)
 where $\boldsymbol \eta_p(t)$ and $\mathbf v_p(t)$ satisfy the characteristics of the kinetic transport equation in {eq}`eq:compact`, that is
 
 $$
-\begin{align}
+\begin{aligned}
  \dot{\boldsymbol \eta}_p &= DF^{-1}(\boldsymbol \eta_p) \mathbf v_p\,,
  \\[2mm]
  \dot{\mathbf v}_p &= -\frac{1}{\varepsilon}\left(DF^{-\top}(\boldsymbol \eta_p)\hat{\mathbf{E}}^1_h (\boldsymbol \eta_p)  + \mathbf{v} \times \frac{DF}{\sqrt g} (\boldsymbol \eta_p)\hat{\mathbf{B}}^2_h (\boldsymbol \eta_p) \right)\,.
-\end{align}
+\end{aligned}
 $$
 
 Since the number of particles in PIC simulations is usually very large (on the order of millions or even billions), an efficient solution loop over $p$ (sometimes also $k$ is used as the particle index) is absolutely mandatory here. Therefore, specific [pusher kernels](https://github.com/struphy-hub/struphy/blob/devel/src/struphy/pic/pushing/pusher_kernels.py) must be written for each particle pushing step, which are then accelerated (compiled) with Pyccel (see our [Tl:dr](https://struphy-hub.github.io/struphy/sections/abstract.html)) to enable C- or Fortran execution speed. In Struphy models, the pusher kernels are integrated via the [Pusher class](https://github.com/struphy-hub/struphy/blob/devel/src/struphy/pic/pushing/pusher.py) that provides some syntactic sugar for calling the kernels. 
-See {ref}`prop_kernels` for more details.
 
 Now that we know how to discretize the kinetic equation by means of a Lagrangian particle method, it remains to tackle the right-hand sides of Ampère's law and of Poisson's equation in {eq}`eq:compact`. In the latter, there is the source term
 
@@ -346,7 +345,7 @@ $$
  \boldsymbol \rho_\textrm{i0} := \frac{\alpha^2}{\varepsilon}\int \hat \rho_\textrm{i0}\,\mathbf \Lambda^0 \sqrt g\,\textrm d \boldsymbol \eta = \left(\frac{\alpha^2}{\varepsilon} \rho_\textrm{i0}\,, \, \boldsymbol\Lambda^0\right)_{L^2} \qquad \in \mathbb R^{N_0}\,,
 $$
 
-coming from the static ion charge density $\rho_\textrm{i0}$. This term can be viewed as the right-hand side of an [L2Projection](https://struphy-hub.github.io/struphy/sections/subsections-old/feec_projectors.html#struphy.feec.projectors.L2Projector) into $V_h^0$ and computed with the method [L2Projector.get_dofs](https://struphy-hub.github.io/struphy/sections/subsections-old/feec_projectors.html#struphy.feec.projectors.L2Projector.get_dofs). 
+coming from the static ion charge density $\rho_\textrm{i0}$. This term can be viewed as the right-hand side of an [L2Projection](https://struphy-hub.github.io/struphy/sections/subsections-old/feec_projectors.html#struphy.feec.mass.L2Projector) into $V_h^0$ and computed with the method [L2Projector.get_dofs](https://struphy-hub.github.io/struphy/sections/subsections-old/feec_projectors.html#struphy.feec.mass.L2Projector.get_dofs). 
 
 Finally, let us consider the **particle-to-grid coupling terms**. In the Poisson equation we have the coupling term
 
@@ -417,7 +416,7 @@ $$
 with $\mathbf v = (\mathbf v_p)_{p=0}^{N-1} \in \mathbb R^{N\times 3}$. In summary, this leads to the following semi-discrete Vlasov-Maxwell system, which is a coupled, nonlinear system of ordinary differential equations (ODEs):
 
 $$
-\begin{align}
+\begin{aligned}
     \dot{\boldsymbol \eta} &= \bar{DF}^{-1} \mathbf v\,,
     \\[2mm]
     \dot{\mathbf v} &= -\frac{1}{\varepsilon}\left( \bar{DF}^{-\top} (\mathbb L^1)^\top \mathbf e   + \bar{\mathbf B}^2_\times\mathbf{v} \right)\,,
@@ -429,7 +428,7 @@ $$
     &\mathbb G^\top \mathbb M^1\mathbb G \boldsymbol \phi = \frac{\alpha^2}{\varepsilon}\left( \boldsymbol \rho_\textrm{i0} - \mathbb L^0\mathbf w\right)\,, 
     \\[4mm]
     &\mathbf e + \mathbb G\boldsymbol \phi = 0\,.
-\end{align}
+\end{aligned}
 $$ (eq:semidisc)
 
 where we introduced the short-hand notation for the operator
@@ -439,7 +438,7 @@ $$
 $$
 
 (time_disc)=
-### Time discretization
+## Time discretization
 
 In Struphy, the time discretization is usually informed by the Hamiltonian structure of the model equations. We refer to the time discretization of the simpler [electrostatic Vlasov-Poisson system](https://gitlab.mpcdf.mpg.de/struphy/struphy-projects/-/blob/main/running-projects/2024_VlasovPoissonInhomB.md?ref_type=heads#time-discretization) for a brief introduction. In case of a non-ideal model with dissipation, there usually is an ideal "core model" that is Hamiltonian if the dissipative terms are neglected, which can inform the basic time discretization. The Vlasov-Maxwell system considered here has such a Hamiltonian structure, see for instance [Kraus et al.](https://www.cambridge.org/core/journals/journal-of-plasma-physics/article/gempic-geometric-electromagnetic-particleincell-methods/C32D97F1B5281878F094B7E5075D291A). In most cases, the Hamiltonian structure can be retrieved after semi-discretization is space, here thus from the system {eq}`eq:semidisc`. The methodology goes as follows:
 
@@ -485,7 +484,6 @@ $$
 We can thus write {eq}`eq:semidisc` as
 
 $$
-\begin{equation}
 \begin{pmatrix}
  \dot{\boldsymbol \eta}
  \\
@@ -514,7 +512,6 @@ $$
  \\
  \mathbb M^2 \mathbf b 
  \end{pmatrix}\,.
- \end{equation}
 $$ (eq:hamilton)
 
 Quite magically, our space discretization led to the skew symmetric Poisson matrix $\mathbb J(\mathbf Z)$ in $\dot{\mathbf Z} = \mathbb J(\mathbf Z)\nabla H(\mathbf Z)$. The skew symmetry of this matrix guarantees energy conservation, because
@@ -532,7 +529,7 @@ $$
  with
 
  $$
- \begin{align}
+ \begin{aligned}
  \mathbb J_1 &= \begin{pmatrix}
   0 & \frac{1}{\alpha^2} \bar{DF}^{-1}\bar{\mathbf w}^{-1} & 0 & 0
  \\
@@ -572,7 +569,7 @@ $$
  \\
   0 & 0 & -\mathbb C (\mathbb M^1)^{-1} & 0
  \end{pmatrix}\,.
- \end{align}
+ \end{aligned}
 $$ (eq:Js)
 
 These four split Poisson matrices define the four substeps of the time splitting algorithm, called {ref}`propagators` in Struphy. These are maps $\Phi_t^{n}:\mathbf Z_0 \mapsto \mathbf Z(t)$ defined via the solution of
@@ -593,18 +590,18 @@ $$
  \mathbf Z(t + \Delta t) = (\Phi_{\Delta t/2}^{4} \circ \Phi_{\Delta t/2}^{3} \circ \Phi_{\Delta t/2}^{2} \circ \Phi_{\Delta t}^{1} \circ \Phi_{\Delta t/2}^{2} \circ \Phi_{\Delta t/2}^{3} \circ \Phi_{\Delta t/2}^{4}) \mathbf Z(t)\,.
 $$
 
-Once the propagators have been defined and added to a {ref}`struphy_model`, Struphy performs the compositions automatically; the user can choose the splitting algorithm in the {ref}`parameter file <time>`. 
+Once the propagators have been defined and added to a {ref}`struphy_model`, Struphy performs the compositions automatically; the user can choose the splitting algorithm. 
 
 
 For our example model {class}`~struphy.models.kinetic.VlasovMaxwellOneSpecies`, the four substeps defined by {eq}`eq:Js` are imlemented in the following propagators:
 
-1. $\Phi^1_{t}$ in {class}`~struphy.propagators.propagators_markers.PushEta`,
+1. $\Phi^1_{t}$ in {class}`~struphy.propagators.push_eta.PushEta`,
 
-2. $\Phi^2_{t}$ in {class}`~struphy.propagators.propagators_markers.PushVxB`,
+2. $\Phi^2_{t}$ in {class}`~struphy.propagators.push_vxb.PushVxB`,
 
-3. $\Phi^3_{t}$ in {class}`~struphy.propagators.propagators_coupling.VlasovAmpere`,
+3. $\Phi^3_{t}$ in {class}`~struphy.propagators.vlasov_ampere.VlasovAmpere`,
 
-4. $\Phi^4_{t}$ in {class}`~struphy.propagators.propagators_fields.Maxwell`.
+4. $\Phi^4_{t}$ in {class}`~struphy.propagators.maxwell.Maxwell`.
 
 Let us revisit the third step $\Phi^3_{t}$, which is the most complicated because it is a particle-field coupling step, where marker velocities and FE coefficients are updated simultaneously. Explicitly, the ODE of this step reads
 

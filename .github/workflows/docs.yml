@@ -48,6 +48,9 @@ jobs:
         with:
           optional-deps: 'dev,doc'
 
+      - name: Compile Struphy
+        uses: ./.github/actions/compile
+
       - name: Build Sphinx docs
         run: |
           cd doc

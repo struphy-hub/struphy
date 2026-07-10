@@ -1,0 +1,3 @@
+[submodule "feectools"]
+	path = feectools
+	url = https://github.com/struphy-hub/feectools.git

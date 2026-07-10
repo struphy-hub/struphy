@@ -1,5 +1,7 @@
 name: "Install Struphy in Container"
 
+description: 
+
 runs:
   using: composite
   steps:
@@ -14,12 +16,19 @@ runs:
       run: |
           ls / -a
           which python3
-          cd /struphy_c_
+          cd /struphy_fortran_
+          ls -a
           git status
           git fetch origin
           echo ${GIT_BRANCH_NAME}
           git checkout ${GIT_BRANCH_NAME}
           git pull
-          source env_c_/bin/activate
+          git status
+          source env_fortran_/bin/activate
           which python3
-          pip install -e ".[phys,mpi,doc]"
+          pip install -U --upgrade-strategy eager -e ".[phys,mpi]"
+          pip install -e ".[doc]"
+          PYTHON=$(which python)
+          STRUPHY_PATH=$($PYTHON -c "import struphy; print(struphy.__path__[0])")
+          echo "Struphy is installed at: $STRUPHY_PATH"
+          echo "STRUPHY_PATH=${STRUPHY_PATH}" >> $GITHUB_ENV

@@ -15,12 +15,9 @@ To add a new model, please visit :ref:`add_model`.
     :maxdepth: 2
     :caption: Contents:
 
-    subsections/models-normalization
-    subsections/models-fluid
-    subsections/models-kinetic
-    subsections/models-hybrid
-    subsections/models-toy
     subsections/models-base
+    subsections/models-all
+    subsections/models-normalization
    
 
 

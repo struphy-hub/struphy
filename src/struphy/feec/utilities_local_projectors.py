@@ -10,7 +10,7 @@ def split_points(
     pts,
     starts,
     ends,
-    p,
+    degree,
     npts,
     periodic,
     wij,
@@ -44,7 +44,7 @@ def split_points(
     ends : 1D int array
         Array with the BlockVector (or StencilVector) end indices for each MPI rank.
 
-    p : 1D int array
+    degree : 1D int array
         Contains the B-splines degrees for each one of the three spatial directions.
 
     npts : list of ints
@@ -84,7 +84,7 @@ def split_points(
             localpts = xp.full((xp.shape(pt)), fill_value=-1, dtype=float)
 
         for i in range(starts[n], ends[n] + 1):
-            startj1, endj1 = select_quasi_points(int(i), int(p[n]), int(npts[n]), bool(periodic[n]))
+            startj1, endj1 = select_quasi_points(int(i), int(degree[n]), int(npts[n]), bool(periodic[n]))
             for j1 in range(lenj[n]):
                 if startj1 + j1 < xp.shape(pt)[0]:
                     pos = startj1 + j1
@@ -92,7 +92,7 @@ def split_points(
                     pos = int(startj1 + j1 + shift[n])
                 if IoH[n] == "I":
                     if wij[n][i][j1] != 0.0:
-                        localpts[pos] = pt[pos]
+                        localpts[pos] = pt[pos][0]
                 elif IoH[n] == "H":
                     if whij[n][i][j1] != 0.0:
                         localpts[pos] = pt[pos]
@@ -210,7 +210,7 @@ def get_one_spline(a, values, eval_indeces):
 
 
 def get_span_and_basis(pts, space):
-    """Compute the knot span index and the values of p + 1 basis function at each point in pts.
+    """Compute the knot span index and the values of degree + 1 basis function at each point in pts.
 
     Parameters
     ----------
@@ -233,19 +233,19 @@ def get_span_and_basis(pts, space):
 
     # Extract knot vectors, degree and kind of basis
     T = space.knots
-    p = space.degree
+    degree = space.degree
 
     span = xp.zeros(pts.shape, dtype=int)
-    basis = xp.zeros((*pts.shape, p + 1), dtype=float)
+    basis = xp.zeros((*pts.shape, degree + 1), dtype=float)
 
     for n in range(pts.shape[0]):
         for nq in range(pts.shape[1]):
             # avoid 1. --> 0. for clamped interpolation
             x = pts[n, nq] % (1.0 + 1e-14)
-            span_tmp = bsp.find_span(T, p, x)
+            span_tmp = bsp.find_span(T, degree, x)
             basis[n, nq, :] = bsp.basis_funs_all_ders(
                 T,
-                p,
+                degree,
                 x,
                 span_tmp,
                 0,
@@ -296,14 +296,14 @@ def transform_into_ranges(numbers):
     return rangestart, rangeend
 
 
-def get_sparsity_pattern_periodic(p, S_nbasis, starts, ends, modr, modl):
+def get_sparsity_pattern_periodic(degree, S_nbasis, starts, ends, modr, modl):
     """Using the information about the BasisProjectionOperatorsLocals sparsity pattern this function returns a list with the
     columns that will have non-zero entries for the rows that belong to the current MPI rank. This particular function works for
     periodic boundary conditions.
 
     Parameters
     ----------
-    p : int
+    degree : int
         Denotes the degree of the B-splines for the relevant spatial direction.
 
     S_nbasis : int
@@ -317,23 +317,23 @@ def get_sparsity_pattern_periodic(p, S_nbasis, starts, ends, modr, modl):
 
     modr : int
         Determines the maximum column that is not zero in the basis projection operator. This column has a value
-        of j = i+p+modr, with i being the row index.
+        of j = i+degree+modr, with i being the row index.
 
     modl : int
         Determines the minimum column that is not zero in the basis projection operator. This column has a value
-        of j = i-p+modl, with i being the row index.
+        of j = i-degree+modl, with i being the row index.
     """
     # Compute the number of non-zero columns
-    N_non_zero = 2 * p + modr - modl + 1
+    N_non_zero = 2 * degree + modr - modl + 1
 
     # Handle the case where all basis functions are nonzero
     if N_non_zero >= S_nbasis:
         return list(range(S_nbasis))
 
     # Compute the indices
-    aux_indices = [(starts + j) % S_nbasis for j in range(-p + modl, p + modr + 1)]
+    aux_indices = [(starts + j) % S_nbasis for j in range(-degree + modl, degree + modr + 1)]
     for cont, j in enumerate(range(starts + 1, ends + 1), start=1):
-        next_index = (starts + p + modr + cont) % S_nbasis
+        next_index = (starts + degree + modr + cont) % S_nbasis
         if next_index == aux_indices[0]:
             break
         aux_indices.append(next_index)
@@ -341,14 +341,14 @@ def get_sparsity_pattern_periodic(p, S_nbasis, starts, ends, modr, modl):
     return aux_indices
 
 
-def get_sparsity_pattern_clamped(p, B_nbasis, S_nbasis, starts, ends, modr, modl, bordr, bordl, stuck):
+def get_sparsity_pattern_clamped(degree, B_nbasis, S_nbasis, starts, ends, modr, modl, bordr, bordl, stuck):
     """Using the information about the BasisProjectionOperatorsLocals sparsity pattern this function returns a list with the
     columns that will have non-zero entries for the rows that belong to the current MPI rank. This particular function works for
     clamped boundary conditions.
 
     Parameters
     ----------
-    p : int
+    degree : int
         Denotes the degree of the B-splines for the relevant spatial direction.
 
     B_nbasis : int
@@ -365,11 +365,11 @@ def get_sparsity_pattern_clamped(p, B_nbasis, S_nbasis, starts, ends, modr, modl
 
     modr : int
         Determines the maximum column that is not zero in the basis projection operator. This column has a value
-        of j = i+p+modr, with i being the row index.
+        of j = i+degree+modr, with i being the row index.
 
     modl : int
         Determines the minimum column that is not zero in the basis projection operator. This column has a value
-        of j = i-p+modl, with i being the row index.
+        of j = i-degree+modl, with i being the row index.
 
     bordr : int
         Determines the column for which the xij start to touch the right border
@@ -382,37 +382,37 @@ def get_sparsity_pattern_clamped(p, B_nbasis, S_nbasis, starts, ends, modr, modl
         to last column.
     """
     if stuck and starts == (B_nbasis - 1):
-        return list(range(starts - 1 - p + modl, S_nbasis))
+        return list(range(starts - 1 - degree + modl, S_nbasis))
 
     if bordr <= starts:
-        return list(range(starts - p + modl, S_nbasis))
+        return list(range(starts - degree + modl, S_nbasis))
 
     if bordl <= starts or int(stuck) <= starts:
         aux_indices = list(
             range(
-                starts - p + modl if bordl <= starts else 0,
-                starts + p + modr + 1,
+                starts - degree + modl if bordl <= starts else 0,
+                starts + degree + modr + 1,
             ),
         )
         cont = 1
         for j in range(starts + 1, ends + 1):
             if j >= bordr:
                 break
-            aux_indices.append(starts + p + modr + cont)
+            aux_indices.append(starts + degree + modr + cont)
             cont += 1
     elif stuck and starts == 0:
-        aux_indices = list(range(0, starts + 1 + p + modr + 1))
+        aux_indices = list(range(0, starts + 1 + degree + modr + 1))
         cont = 1
         for j in range(starts + 2, ends + 1):
             if j >= bordr:
                 break
-            aux_indices.append(starts + p + modr + 1 + cont)
+            aux_indices.append(starts + degree + modr + 1 + cont)
             cont += 1
 
     return aux_indices
 
 
-def get_non_zero_B_spline_indices(periodic, IoH, p, B_nbasis, starts, ends, Basis_functions_indices_B):
+def get_non_zero_B_spline_indices(periodic, IoH, degree, B_nbasis, starts, ends, Basis_functions_indices_B):
     """This function builds a list with the B-spline indices of those B-splines that have a non-zero contribution to the FE coefficients the current MPI rank needs for building
     the BasisProjectionOperatorLocal.
 
@@ -424,7 +424,7 @@ def get_non_zero_B_spline_indices(periodic, IoH, p, B_nbasis, starts, ends, Basi
     IoH : list char
         1d list of 3 chars, they must be either an I to denote Interpolation in this direction or an H to denote Histopolation.
 
-    p : 1D int array
+    degree : 1D int array
         1d array of 3 ints, they denote the degree of the B-splines for each one of the three spatial directions.
 
     B_nbasis : np int array
@@ -447,12 +447,12 @@ def get_non_zero_B_spline_indices(periodic, IoH, p, B_nbasis, starts, ends, Basi
         modr = -1 if IoH[i] == "I" else 0
 
         if per:  # Periodic
-            aux_indices = get_sparsity_pattern_periodic(p[i], B_nbasis[i], starts[i], ends[i], modr, 1)
+            aux_indices = get_sparsity_pattern_periodic(degree[i], B_nbasis[i], starts[i], ends[i], modr, 1)
         else:  # Clamped
-            bordr = B_nbasis[i] - p[i] + (1 if IoH[i] == "I" else 0)
+            bordr = B_nbasis[i] - degree[i] + (1 if IoH[i] == "I" else 0)
             stuck = IoH[i] == "I"
             aux_indices = get_sparsity_pattern_clamped(
-                p[i],
+                degree[i],
                 B_nbasis[i],
                 B_nbasis[i],
                 starts[i],
@@ -460,14 +460,14 @@ def get_non_zero_B_spline_indices(periodic, IoH, p, B_nbasis, starts, ends, Basi
                 modr,
                 1,
                 bordr,
-                p[i] - 1,
+                degree[i] - 1,
                 stuck,
             )
 
         Basis_functions_indices_B.append(xp.array(aux_indices))
 
 
-def get_non_zero_D_spline_indices(periodic, IoH, p, D_nbasis, starts, ends, Basis_functions_indices_D):
+def get_non_zero_D_spline_indices(periodic, IoH, degree, D_nbasis, starts, ends, Basis_functions_indices_D):
     """This function builds a list with the D-spline indices of those D-splines that have a non-zero contribution to the FE coefficients the current MPI rank needs for building
     the BasisProjectionOperatorLocal.
 
@@ -479,7 +479,7 @@ def get_non_zero_D_spline_indices(periodic, IoH, p, D_nbasis, starts, ends, Basi
     IoH : list char
         1d list of 3 chars, they must be either an I to denote Interpolation in this direction or an H to denote Histopolation.
 
-    p : 1D int array
+    degree : 1D int array
         1d array of 3 ints, they denote the degree of the B-splines (not the D-splines) for each one of the three spatial directions.
 
     D_nbasis : np int array
@@ -501,16 +501,16 @@ def get_non_zero_D_spline_indices(periodic, IoH, p, D_nbasis, starts, ends, Basi
 
         if per:  # Periodic
             if IoH[i] == "I":
-                modr, modl = (-2, 1) if p[i] != 1 else (-1, 0)
+                modr, modl = (-2, 1) if degree[i] != 1 else (-1, 0)
             else:  # IoH[i] == "H"
                 modr, modl = -1, 1
-            aux_indices = get_sparsity_pattern_periodic(p[i], D_nbasis[i], starts[i], ends[i], modr, modl)
+            aux_indices = get_sparsity_pattern_periodic(degree[i], D_nbasis[i], starts[i], ends[i], modr, modl)
         else:  # Clamped
             modr = -2 if IoH[i] == "I" else -1
-            bordr = D_nbasis[i] + (2 if IoH[i] == "I" else 1) - p[i]
+            bordr = D_nbasis[i] + (2 if IoH[i] == "I" else 1) - degree[i]
             stuck = IoH[i] == "I"
             aux_indices = get_sparsity_pattern_clamped(
-                p[i],
+                degree[i],
                 D_nbasis[i] + 1,
                 D_nbasis[i],
                 starts[i],
@@ -518,7 +518,7 @@ def get_non_zero_D_spline_indices(periodic, IoH, p, D_nbasis, starts, ends, Basi
                 modr,
                 1,
                 bordr,
-                p[i] - 1,
+                degree[i] - 1,
                 stuck,
             )
 
@@ -701,7 +701,7 @@ def determine_non_zero_rows_for_each_spline(
     Basis_functions_indices_D,
     starts,
     ends,
-    p,
+    degree,
     B_nbasis,
     D_nbasis,
     periodic,
@@ -726,7 +726,7 @@ def determine_non_zero_rows_for_each_spline(
     ends : np int array
         1d array containing for each spatial direction the end index of the FE coefficients the current MPI rank is responsible for.
 
-    p : 1D int array
+    degree : 1D int array
         1d array of 3 ints, they denote the degree of the B-splines (not the D-splines) for each one of the three spatial directions.
 
     B_nbasis : np int array
@@ -777,7 +777,7 @@ def determine_non_zero_rows_for_each_spline(
                 int(i),
                 int(starts[h]),
                 int(ends[h]),
-                int(p[h]),
+                int(degree[h]),
                 int(nbasis[h]),
                 bool(periodic[h]),
                 bool(IoH[h]),
@@ -845,7 +845,7 @@ def is_spline_zero_at_quadrature_points(
     Basis_functions_indices_B,
     Basis_functions_indices_D,
     localpts,
-    p,
+    degree,
     values_B_or_D_splines,
     translation_indices_B_or_D_splines,
     necessary_direction,
@@ -868,7 +868,7 @@ def is_spline_zero_at_quadrature_points(
     localpts : list
         list of 3 float arrays, the ith array contains the points on the ith spatial direction this MPI rank needs to compute its share of FE coefficients.
 
-    p : 1D int array
+    degree : 1D int array
         1d array of 3 ints, they denote the degree of the B-splines (not the D-splines) for each one of the three spatial directions.
 
     values_B_or_D_splines : list of three dictionaries
@@ -908,7 +908,7 @@ def is_spline_zero_at_quadrature_points(
                 are_quadrature_points_zero(
                     Auxiliar,
                     int(
-                        p[h],
+                        degree[h],
                     ),
                     values_B_or_D_splines[h]["B"][translation_indices_B_or_D_splines[h]["B"][i]],
                 )
@@ -919,7 +919,7 @@ def is_spline_zero_at_quadrature_points(
                 are_quadrature_points_zero(
                     Auxiliar,
                     int(
-                        p[h],
+                        degree[h],
                     ),
                     values_B_or_D_splines[h]["D"][translation_indices_B_or_D_splines[h]["D"][i]],
                 )

@@ -1,13 +1,16 @@
 "Maxwellian (Gaussian) distributions in velocity space."
 
+import copy
 from typing import Callable
 
 import cunumpy as xp
 
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.fields_background.equils import set_defaults
+from struphy.geometry.base import Domain
 from struphy.initial.base import Perturbation
 from struphy.kinetic_background.base import CanonicalMaxwellian, Maxwellian
+from struphy.io.options import LiteralOptions
 
 
 class Maxwellian3D(Maxwellian):
@@ -30,14 +33,8 @@ class Maxwellian3D(Maxwellian):
         vth2: tuple[float | Callable, Perturbation] = (1.0, None),
         vth3: tuple[float | Callable, Perturbation] = (1.0, None),
     ):
-        self._maxw_params = {}
-        self._maxw_params["n"] = n
-        self._maxw_params["u1"] = u1
-        self._maxw_params["u2"] = u2
-        self._maxw_params["u3"] = u3
-        self._maxw_params["vth1"] = vth1
-        self._maxw_params["vth2"] = vth2
-        self._maxw_params["vth3"] = vth3
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
 
         self.check_maxw_params()
 
@@ -47,10 +44,6 @@ class Maxwellian3D(Maxwellian):
             "u": [1.0, 1.0, 1.0],
             "vth": [1.0, 1.0, 1.0],
         }
-
-    @property
-    def maxw_params(self):
-        return self._maxw_params
 
     @property
     def coords(self):
@@ -146,12 +139,6 @@ class GyroMaxwellian2D(Maxwellian):
         Moments of the Maxwellian as tuples. The first entry defines the background
         (float for constant background or callable), the second entry defines a Perturbation (can be None).
 
-    maxw_params : dict
-        Parameters for the kinetic background.
-
-    pert_params : dict
-        Parameters for the kinetic perturbation added to the background.
-
     equil : FluidEquilibriumWithB
         Fluid background.
 
@@ -171,12 +158,8 @@ class GyroMaxwellian2D(Maxwellian):
         equil: FluidEquilibriumWithB = None,
         volume_form: bool = True,
     ):
-        self._maxw_params = {}
-        self._maxw_params["n"] = n
-        self._maxw_params["u_para"] = u_para
-        self._maxw_params["u_perp"] = u_perp
-        self._maxw_params["vth_para"] = vth_para
-        self._maxw_params["vth_perp"] = vth_perp
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
 
         self.check_maxw_params()
 
@@ -190,10 +173,6 @@ class GyroMaxwellian2D(Maxwellian):
             "u": [1.0, 1.0],
             "vth": [1.0, 1.0],
         }
-
-    @property
-    def maxw_params(self):
-        return self._maxw_params
 
     @property
     def coords(self):
@@ -309,6 +288,40 @@ class GyroMaxwellian2D(Maxwellian):
         out += [self._evaluate_moment(eta1, eta2, eta3, name="vth_perp")]
         return [ou * mom_fac for ou, mom_fac in zip(out, self.moment_factors["vth"])]
 
+    def plot_density_profile(
+        self,
+        dim_1: LiteralOptions.KineticDimensionsToPlot = "e1",
+        dim_2: LiteralOptions.KineticDimensionsToPlot | None = None,
+        v_lim: float = 5.0,
+        resol: int = 100,
+        integrate_resol: int = 10,
+        logical_coord: tuple[float] = (0.5, 0.5, 0.5),
+        in_physical: bool = False,
+        domain: Domain | None = None,
+        proj_axis: tuple[float,] = (0, 1),
+        plot_3D: bool = False,
+        title: str | None = None,
+        use_mu: bool = False,
+        equil: FluidEquilibriumWithB | None = None,
+    ):
+        if equil is None:
+            equil = self.equil
+        super().plot_density_profile(
+            dim_1,
+            dim_2,
+            v_lim,
+            resol,
+            integrate_resol,
+            logical_coord,
+            in_physical,
+            domain,
+            proj_axis,
+            plot_3D,
+            title,
+            use_mu=use_mu,
+            equil=equil,
+        )
+
 
 class CanonicalMaxwellian2D(CanonicalMaxwellian):
     r"""Guiding-center :class:`~struphy.kinetic_background.base.CanonicalMaxwellian` depending on
@@ -323,16 +336,15 @@ class CanonicalMaxwellian2D(CanonicalMaxwellian):
     maxw_params : dict
         Parameters for the kinetic background.
 
-    pert_params : dict
-        Parameters for the kinetic perturbation added to the background.
+    vth : tuple[float | Callable, Perturbation]
+        Thermal-speed background and optional perturbation.
 
-    equil : FluidEquilibriumWithB
-        Fluid background.
+    equil : FluidEquilibriumWithB, optional
+        Fluid equilibrium used to evaluate background profiles in the magnetic geometry.
 
-    volume_form : bool
-        Whether to represent the Maxwellian as a volume form;
-        if True it is multiplied by the Jacobian determinant |v_perp|
-        of the polar coordinate transofrmation (default = False).
+    volume_form : bool, default=True
+        If ``True``, represent the distribution as a volume form and include the appropriate
+        velocity-space Jacobian when evaluating it.
     """
 
     def __init__(
@@ -343,10 +355,8 @@ class CanonicalMaxwellian2D(CanonicalMaxwellian):
         volume_form: bool = True,
         epsilon: float = 1.,
     ):
-        self._maxw_params = {}
-        self._maxw_params["n"] = n
-        self._maxw_params["vth"] = vth
-        self._epsilon = epsilon
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
 
         self.check_maxw_params()
 
@@ -388,13 +398,12 @@ class CanonicalMaxwellian2D(CanonicalMaxwellian):
         return self._equil
 
     def check_maxw_params(self):
-        for k, v in self.maxw_params.items():
+        for k, v in self.params.items():
             assert isinstance(k, str)
-            assert isinstance(v, tuple), f"Maxwallian parameter {k} must be tuple, but is {v}"
-            assert len(v) == 2
-
-            assert isinstance(v[0], (float, int, Callable))
-            assert isinstance(v[1], Perturbation) or v[1] is None
+            if isinstance(v, tuple):
+                assert len(v) == 2
+                assert isinstance(v[0], (float, int, Callable))
+                assert isinstance(v[1], Perturbation) or v[1] is None
 
     def velocity_jacobian_det(self, eta1, eta2, eta3, vparallel, mu):
         r"""TODO"""
@@ -585,22 +594,15 @@ class ColdPlasma(Maxwellian):
         u3: tuple[float | Callable, Perturbation] = (0.0, None),
         equil: FluidEquilibriumWithB = None,
     ):
-        self._maxw_params = {}
-        self._maxw_params["n"] = n
-        self._maxw_params["u1"] = u1
-        self._maxw_params["u2"] = u2
-        self._maxw_params["u3"] = u3
-        self._maxw_params["vth1"] = (0.0, None)
-        self._maxw_params["vth2"] = (0.0, None)
-        self._maxw_params["vth3"] = (0.0, None)
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+        self._params["vth1"] = (0.0, None)
+        self._params["vth2"] = (0.0, None)
+        self._params["vth3"] = (0.0, None)
 
         self.check_maxw_params()
 
         self._equil = equil
-
-    @property
-    def maxw_params(self):
-        return self._maxw_params
 
     @property
     def coords(self):

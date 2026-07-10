@@ -4,6 +4,7 @@ import argparse
 import glob
 import importlib
 import importlib.metadata
+import logging
 import os
 import pickle
 import site
@@ -16,14 +17,17 @@ import yaml
 
 # struphy path
 import struphy
+import struphy.models.utils as models_utils
 from struphy.utils import utils
+
+logger = logging.getLogger("struphy")
 
 libpath = struphy.__path__[0]
 __version__ = importlib.metadata.version("struphy")
 
 # version message
 version_message = f"Struphy {__version__}\n"
-version_message += "Copyright 2019-2025 (c) Struphy dev team | Max Planck Institute for Plasma Physics\n"
+version_message += "Copyright 2019-2026 (c) Struphy dev team | Max Planck Institute for Plasma Physics\n"
 version_message += "MIT license\n"
 
 
@@ -49,18 +53,12 @@ def struphy():
     utils.save_state(state=state)
 
     # Load the models and messages
-    model_message = "All models are listed on https://struphy-hub.github.io/struphy/sections/models.html"
-    list_models = []
-    ml_path = os.path.join(libpath, "models", "models_list")
-    if not os.path.isfile(ml_path):
-        utils.refresh_models()
+    list_models = models_utils.get_model_names()
 
-    with open(ml_path, "rb") as fp:
-        list_models = pickle.load(fp)
-    with open(os.path.join(libpath, "models", "models_message"), "rb") as fp:
-        model_message, fluid_message, kinetic_message, hybrid_message, toy_message = pickle.load(
-            fp,
-        )
+    model_message = models_utils.generate_models_message()
+    fluid_message = models_utils.get_model_type_message(model_type="Fluid")
+    kinetic_message = models_utils.get_model_type_message(model_type="Kinetic")
+    hybrid_message = models_utils.get_model_type_message(model_type="Hybrid")
 
     # 0. basic options
     add_parser_basic_options(parser)
@@ -112,18 +110,15 @@ def struphy():
         (args.fluid, fluid_message),
         (args.kinetic, kinetic_message),
         (args.hybrid, hybrid_message),
-        (args.toy, toy_message),
     ]
 
     for flag, message in model_flags:
         if flag:
-            print(message)
-            print("For more info on Struphy models, visit https://struphy-hub.github.io/struphy/sections/models.html")
+            logger.info(message)
+            logger.info(
+                "For more info on Struphy models, visit https://struphy-hub.github.io/struphy/sections/models.html"
+            )
             sys.exit(0)
-
-    if args.refresh_models:
-        utils.refresh_models()
-        sys.exit(0)
 
     # load sub-command function
     command_map = {
@@ -151,8 +146,6 @@ def struphy():
         "fluid",
         "kinetic",
         "hybrid",
-        "toy",
-        "refresh_models",
         # These options are stored in kwargs.config
         "input_type",
         "path",
@@ -164,7 +157,7 @@ def struphy():
 
     # start sub-command function with all parameters of that function
     # for k, v in kwargs.items():
-    #     print(k, v)
+    #     logger.info(k, v)
     func(**kwargs)
 
 
@@ -196,16 +189,6 @@ def add_parser_basic_options(parser):
         action="store_true",
         help="display available hybrid models",
     )
-    parser.add_argument(
-        "--toy",
-        action="store_true",
-        help="display available toy models",
-    )
-    parser.add_argument(
-        "--refresh-models",
-        help="refresh list of available model names",
-        action="store_true",
-    )
 
 
 def add_parser_compile(
@@ -221,8 +204,8 @@ def add_parser_compile(
         "--language",
         type=str,
         metavar="LANGUAGE",
-        help='either "c" (default) or "fortran"',
-        default="c",
+        help='either "fortran" (default) or "c"',
+        default="fortran",
     )
 
     parser_compile.add_argument(
@@ -467,17 +450,10 @@ def add_parser_test(subparsers, list_models):
         parser_test.add_argument(
             "group",
             type=str,
-            choices=list_models
-            + ["models"]
-            + ["unit"]
-            + ["fluid"]
-            + ["kinetic"]
-            + ["hybrid"]
-            + ["toy"]
-            + ["verification"],
+            choices=list_models + ["models"] + ["unit"] + ["fluid"] + ["kinetic"] + ["hybrid"] + ["verification"],
             metavar="GROUP",
             help='can be either:\na) a model name \
-                                    \nb) "models" for testing of all models (or "fluid", "kinetic", "hybrid", "toy" for testing just a sub-group) \
+                                    \nb) "models" for testing of all models (or "fluid", "kinetic", "hybrid" for testing just a sub-group) \
                                     \nc) "verification" for running all verification tests \
                                     \nd) "unit" for performing unit tests',
         )
@@ -625,10 +601,10 @@ def print_short_help(parser):
     lines = parser.format_help().splitlines()
     bool_1 = [i for i, x in enumerate(lines) if "Struphy" in x]
     bool_2 = [i for i, x in enumerate(lines) if "available commands:" in x]
-    print(lines[bool_1[0]])
-    print(lines[bool_1[0] + 1])
+    logger.info(lines[bool_1[0]])
+    logger.info(lines[bool_1[0] + 1])
     for li in lines[bool_2[0] :]:
-        print(li)
+        logger.info(li)
 
 
 class NoSubparsersMetavarFormatter(HelpFormatter):
@@ -728,19 +704,19 @@ def is_installed_editable(package_name):
         pip_show_output = subprocess.check_output(["pip", "show", package_name], text=True)
 
         if "Editable project location" in pip_show_output:
-            # print(f"{package_name} is installed in editable mode.")
+            # logger.info(f"{package_name} is installed in editable mode.")
             return True
 
     except subprocess.CalledProcessError as e:
-        print("Error while checking pip show:", e)
+        logger.info(f"Error while checking pip show: {e}")
         return False
 
     for path in site.getsitepackages():
         editable_file = os.path.join(path, f"__editable__.{package_name.replace('-', '_')}-*.pth")
         if any(os.path.exists(f) for f in glob.glob(editable_file)):
-            # print(f"{package_name} is installed in editable mode.")
-            # print(f"{editable_file} found in site-packages")
+            # logger.info(f"{package_name} is installed in editable mode.")
+            # logger.info(f"{editable_file} found in site-packages")
             return True
 
-    # print(f"{package_name} is not installed in editable mode.")
+    # logger.info(f"{package_name} is not installed in editable mode.")
     return False

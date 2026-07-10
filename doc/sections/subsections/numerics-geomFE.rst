@@ -221,9 +221,9 @@ where the :math:`\mathbf f = (f_i)_{i=0}^{n-1} \in \mathbb R^n` are the **spline
 two different boundary conditions can be chosen: **periodic** or **clamped**. For the latter,
 the first and last basis functions are "interpolatory" at :math:`\eta=0` and :math:`\eta=1`, respectively,
 meaning that :math:`f_h(0) = f_0` and :math:`f_h(1) = f_{n-1}`.
-Assuming that the interval :math:`[0, 1]` is split into :math:`Nel` cells (or elements), 
-the dimension of the periodic space is :math:`n=Nel`, whereas the dimension of the clamped space is :math:`n=Nel + p`.
-Spline basis functions of degree :math:`p=2` are potted in Fig. 3 for :math:`Nel=8` cells.
+Assuming that the interval :math:`[0, 1]` is split into :math:`num_elements` cells (or elements), 
+the dimension of the periodic space is :math:`n=num_elements`, whereas the dimension of the clamped space is :math:`n=num_elements + p`.
+Spline basis functions of degree :math:`p=2` are potted in Fig. 3 for :math:`num_elements=8` cells.
 
 .. figure:: ../../pics/splines_1d_N2.png 
     :align: center

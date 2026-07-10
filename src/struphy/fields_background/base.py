@@ -1,5 +1,6 @@
 "Base classes for MHD equilibria."
 
+import logging
 from abc import ABCMeta, abstractmethod
 
 import cunumpy as xp
@@ -7,18 +8,71 @@ from matplotlib import pyplot as plt
 from pyevtk.hl import gridToVTK
 
 from struphy.geometry.base import Domain
+from struphy.utils.utils import (
+    __class_with_params_repr_no_defaults__,
+    __dataclass_repr_no_defaults__,
+    all_class_params_are_default,
+)
+
+logger = logging.getLogger("struphy")
 
 
 class FluidEquilibrium(metaclass=ABCMeta):
     """
-    Base class for callable fluid equilibria consisting of at least
-    u (velocity), p (pressure) and n (density).
+    Abstract base class for callable fluid equilibria on arbitrary domains.
 
-    Any child class must provide  the following callables:
+    This class provides a unified interface for representing fluid equilibrium states,
+    including velocity, pressure, and number density fields. It supports coordinate
+    transformations between logical (reference) and physical domains through the Domain
+    object, enabling computations on mapped domains.
 
-    * either ``u_xyz`` or override ``uv``
-    * either ``p_xyz`` or override ``p0``
-    * either ``n_xyz`` or override ``n0``
+    Attributes
+    ----------
+    params : dict
+        Dictionary of parameters passed to the class initialization. Automatically
+        strips 'self' and '__class__' entries.
+    domain : Domain
+        Domain object that characterizes the mapping from the logical cube [0, 1]^3
+        to the physical domain. Enables coordinate transformations and differential
+        form conversions (0-forms, 1-forms, 2-forms, 3-forms).
+
+    Implementation Requirements
+    ---------------------------
+    Child classes must provide at least one method from each of these pairs:
+
+    * Velocity: either ``u_xyz`` (Cartesian) or override ``uv`` (logical coordinates)
+    * Pressure: either ``p_xyz`` (Cartesian) or override ``p0`` (0-form on logical domain)
+    * Number Density: either ``n_xyz`` (Cartesian) or override ``n0`` (0-form on logical domain)
+
+    Derived Quantities
+    ------------------
+    The class automatically provides derived fields computed from the basic fields:
+
+    * Temperature: ``t0``, ``t3`` (from p/n)
+    * Thermal velocity: ``vth0``, ``vth3`` (from temperature)
+    * Entropy density: ``s0_monoatomic``, ``s3_monoatomic``, ``s0_diatomic``, ``s3_diatomic``
+
+    Differential Forms
+    -------------------
+    Vector fields (velocity) are available as:
+
+    * ``uv``: contravariant components on logical domain
+    * ``u1``: 1-form components
+    * ``u2``: 2-form components
+    * ``u_cart``: Cartesian components with physical coordinates
+
+    Scalar fields are available as 0-forms (point values) and 3-forms (densities):
+
+    * ``p0``, ``p3``: pressure
+    * ``n0``, ``n3``: number density
+    * ``t0``, ``t3``: temperature
+    * ``q0``, ``q3``: square root of pressure
+
+    Notes
+    -----
+    The class uses abstract methods to enforce implementation in child classes.
+    Subclasses should override coordinate-appropriate base methods (CartesianFluidEquilibrium
+    or LogicalFluidEquilibrium) to simplify implementation.
     """
 
     @property
@@ -49,6 +103,21 @@ class FluidEquilibrium(metaclass=ABCMeta):
     def domain(self, new_domain):
         assert isinstance(new_domain, Domain) or new_domain is None
         self._domain = new_domain
+
+    def __repr__(self) -> str:
+        out = f"{self.__class__.__name__}(\n"
+        for k, v in self.params.items():
+            out += " " * 4
+            out += f"{k}={v},\n"
+        out += ")"
+        return out
+
+    def __repr_no_defaults__(self):
+        return __class_with_params_repr_no_defaults__(self)
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
 
     ###########################
     # Vector-valued callables #
@@ -253,10 +322,44 @@ class FluidEquilibrium(metaclass=ABCMeta):
     def u_cart_3(self, *etas, squeeze_out=False):
         return self.u_cart(*etas, squeeze_out=squeeze_out)[0][2]
 
+    def to_dict(self) -> dict:
+        return {
+            "type": self.__class__.__name__,
+            "params": self.params,
+        }
+
+    @classmethod
+    def from_dict(cls, dct: dict | None) -> "FluidEquilibrium":
+        if dct is None:
+            return None
+        equil = cls.get_equil_by_name(dct["type"])
+        return equil(**dct["params"])
+
+    @classmethod
+    def get_equil_by_name(cls, equil_name: str) -> type["FluidEquilibrium"]:
+        from struphy.fields_background import equils
+
+        try:
+            equil_class: FluidEquilibrium = getattr(equils, equil_name)
+            if not issubclass(equil_class, FluidEquilibrium):
+                raise TypeError(f"{equil_name} is not a FluidEquilibrium subclass.")
+            else:
+                return equil_class
+        except AttributeError:
+            raise ModuleNotFoundError(f"{equil_name} not found in equils.")
+
+    def __eq__(self, other: "FluidEquilibrium") -> bool:
+        assert isinstance(other, FluidEquilibrium), f"Cannot compare FluidEquilibrium with {type(other)}."
+        return self.to_dict() == other.to_dict()
+
 
 class CartesianFluidEquilibrium(FluidEquilibrium):
     r"""
-    The callables ``u_xyz``, ``p_xyz`` and ``n_xyz`` must be provided in Cartesian coordinates.
+    Specialization for equilibria defined in Cartesian coordinates.
+
+    Child classes must implement the abstract methods ``u_xyz``, ``p_xyz``, and ``n_xyz``,
+    which return velocity, pressure, and number density in Cartesian physical space (x, y, z).
+    The base class automatically handles coordinate transformations and differential form conversions.
     """
 
     @abstractmethod
@@ -282,7 +385,12 @@ class CartesianFluidEquilibrium(FluidEquilibrium):
 
 class LogicalFluidEquilibrium(FluidEquilibrium):
     r"""
-    The callables ``uv``, ``p0`` and ``n0`` must be provided on the logical cube [0, 1]^3.
+    Specialization for equilibria defined on the logical cube [0, 1]^3.
+
+    Child classes must implement the abstract methods ``uv``, ``p0``, and ``n0``,
+    which return contravariant velocity, 0-form pressure, and 0-form number density
+    on the logical reference domain. Useful for direct implementation when physical
+    coordinates are obtained via coordinate transformation through the domain mapping.
     """
 
     @abstractmethod
@@ -309,8 +417,11 @@ class LogicalFluidEquilibrium(FluidEquilibrium):
 
 class NumericalFluidEquilibrium(LogicalFluidEquilibrium):
     r"""
-    Must provide a (numerical) mapping from the logical cube [0, 1]^3 to the physical domain.
-    Overrides base class domain.
+    Specialization for equilibria with numerically computed domain mappings.
+
+    Child classes must provide a ``numerical_domain`` property that returns a Domain object
+    representing the mapping from the logical cube [0, 1]^3 to the physical domain.
+    This class overrides the domain property to use the numerically computed mapping.
     """
 
     @property
@@ -327,12 +438,11 @@ class NumericalFluidEquilibrium(LogicalFluidEquilibrium):
 
 class FluidEquilibriumWithB(FluidEquilibrium):
     """
-    :ref:`FluidEquilibrium` with B (magnetic field) in addition.
+    Extension of FluidEquilibrium with magnetic field and its gradient.
 
-    Any child class must provide the following callables:
-
-    * either ``b_xyz`` or override ``bv``
-    * either ``gradB_xyz`` or override ``gradB1``
+    Child classes must implement either Cartesian (``b_xyz``, ``gradB_xyz``) or
+    logical (``bv``, ``gradB1``) methods for magnetic field and its gradient.
+    Provides methods for 1-form and 2-form transformations of the magnetic field.
     """
 
     @FluidEquilibrium.domain.setter
@@ -540,6 +650,15 @@ class FluidEquilibriumWithB(FluidEquilibrium):
     def bv_3(self, *etas, squeeze_out=False):
         return self.bv(*etas, squeeze_out=squeeze_out)[2]
 
+    def b_cart_1(self, *etas, squeeze_out=False):
+        return self.b_cart(*etas, squeeze_out=squeeze_out)[0][0]
+
+    def b_cart_2(self, *etas, squeeze_out=False):
+        return self.b_cart(*etas, squeeze_out=squeeze_out)[0][1]
+
+    def b_cart_3(self, *etas, squeeze_out=False):
+        return self.b_cart(*etas, squeeze_out=squeeze_out)[0][2]
+
     def unit_b1_1(self, *etas, squeeze_out=False):
         return self.unit_b1(*etas, squeeze_out=squeeze_out)[0]
 
@@ -621,10 +740,23 @@ class FluidEquilibriumWithB(FluidEquilibrium):
     def av_3(self, *etas, squeeze_out=False):
         return self.av(*etas, squeeze_out=squeeze_out)[2]
 
+    ###########
+    # Methods #
+    ###########
 
-class CartesianFluidEquilibriumWithB(CartesianFluidEquilibrium):
+    def parallel_component(self, *etas, squeeze_out=False):
+        raise NotImplementedError()
+
+    def perpendicular_component(self, *etas, squeeze_out=False):
+        raise NotImplementedError()
+
+
+class CartesianFluidEquilibriumWithB(CartesianFluidEquilibrium, FluidEquilibriumWithB):
     r"""
-    The callables ``b_xyz`` and ``gradB_xyz`` must be provided in Cartesian coordinates.
+    Specialization for fluid equilibria with magnetic field in Cartesian coordinates.
+
+    Child classes must implement the abstract methods ``b_xyz`` and ``gradB_xyz``,
+    which return magnetic field and its gradient strength in Cartesian physical space.
     """
 
     @abstractmethod
@@ -643,9 +775,12 @@ class CartesianFluidEquilibriumWithB(CartesianFluidEquilibrium):
         super(CartesianFluidEquilibriumWithB, type(self)).domain.fset(self, new_domain)
 
 
-class LogicalFluidEquilibriumWithB(LogicalFluidEquilibrium):
+class LogicalFluidEquilibriumWithB(LogicalFluidEquilibrium, FluidEquilibriumWithB):
     r"""
-    The callable ``bv`` must be provided on the logical cube [0, 1]^3.
+    Specialization for fluid equilibria with magnetic field on the logical cube [0, 1]^3.
+
+    Child classes must implement the abstract methods ``bv`` (contravariant magnetic field)
+    and ``gradB1`` (1-form gradient of magnetic field strength) on the logical domain.
     """
 
     @abstractmethod
@@ -669,8 +804,10 @@ class LogicalFluidEquilibriumWithB(LogicalFluidEquilibrium):
 
 class NumericalFluidEquilibriumWithB(LogicalFluidEquilibriumWithB):
     r"""
-    Must provide a (numerical) mapping from the logical cube [0, 1]^3 to the physical domain.
-    Overrides base class domain.
+    Specialization for fluid equilibria with magnetic field and numerically computed domain mappings.
+
+    Child classes must provide a ``numerical_domain`` property that returns a Domain object.
+    This class overrides the domain property to use the numerically computed mapping.
     """
 
     @property
@@ -687,12 +824,12 @@ class NumericalFluidEquilibriumWithB(LogicalFluidEquilibriumWithB):
 
 class MHDequilibrium(FluidEquilibriumWithB):
     """
-    :ref:`FluidEquilibriumWithB` with j (current density) in addition.
-    The mean velocity is returned as j/n (overriding the base class).
+    Extension of FluidEquilibriumWithB with current density field.
 
-    Any child class must provide  the following callables:
-
-    * either ``j_xyz`` or override ``jv``
+    Child classes must implement either Cartesian (``j_xyz``) or logical (``jv``) methods
+    for current density. The velocity field is derived from current density as j/n,
+    overriding the base FluidEquilibrium. Provides methods for 1-form and 2-form
+    transformations of the current density.
     """
 
     @FluidEquilibriumWithB.domain.setter
@@ -827,6 +964,11 @@ class MHDequilibrium(FluidEquilibriumWithB):
     # Scalar-valued callables #
     ###########################
 
+    def absJ0(self, *etas, squeeze_out=False):
+        """0-form absolute value of current on logical cube [0, 1]^3."""
+        j, xyz = self.j_cart(*etas, squeeze_out=squeeze_out)
+        return xp.sqrt(j[0] ** 2 + j[1] ** 2 + j[2] ** 2)
+
     def curl_unit_b_dot_b0(self, *etas, squeeze_out=False):
         r"""0-form of :math:`(\nabla \times \mathbf b_0) \times \mathbf b_0` evaluated on logical cube [0, 1]^3."""
         curl_b, xyz = self.curl_unit_b_cart(*etas, squeeze_out=squeeze_out)
@@ -864,6 +1006,15 @@ class MHDequilibrium(FluidEquilibriumWithB):
 
     def jv_3(self, *etas, squeeze_out=False):
         return self.jv(*etas, squeeze_out=squeeze_out)[2]
+
+    def j_cart_1(self, *etas, squeeze_out=False):
+        return self.j_cart(*etas, squeeze_out=squeeze_out)[0][0]
+
+    def j_cart_2(self, *etas, squeeze_out=False):
+        return self.j_cart(*etas, squeeze_out=squeeze_out)[0][1]
+
+    def j_cart_3(self, *etas, squeeze_out=False):
+        return self.j_cart(*etas, squeeze_out=squeeze_out)[0][2]
 
     def curl_unit_b1_1(self, *etas, squeeze_out=False):
         return self.curl_unit_b1(*etas, squeeze_out=squeeze_out)[0]
@@ -931,19 +1082,19 @@ class MHDequilibrium(FluidEquilibriumWithB):
             jump = 0
 
         x, y, z = self.domain(e1, e2, e3)
-        print("Evaluation of mapping done.")
+        logger.info("Evaluation of mapping done.")
         det_df = self.domain.jacobian_det(e1, e2, e3)
         p = self.p0(e1, e2, e3)
-        print("Computation of pressure done.")
+        logger.info("Computation of pressure done.")
 
         # ori 240624
         n_dens = self.n0(e1, e2, e3)
-        print("Computation of density done.")
+        logger.info("Computation of density done.")
 
         absB = self.absB0(e1, e2, e3)
-        print("Computation of abs(B) done.")
+        logger.info("Computation of abs(B) done.")
         j_cart, xyz = self.j_cart(e1, e2, e3)
-        print("Computation of current density done.")
+        logger.info("Computation of current density done.")
         absJ = xp.sqrt(j_cart[0] ** 2 + j_cart[1] ** 2 + j_cart[2] ** 2)
 
         _path = struphy.__path__[0] + "/fields_background/mhd_equil/gvec/output/"
@@ -954,17 +1105,17 @@ class MHDequilibrium(FluidEquilibriumWithB):
             z,
             pointData={"det_df": det_df, "pressure": p, "absB": absB},
         )
-        print("Generation of vtk files done.")
+        logger.info("Generation of vtk files done.")
 
         # show params
-        print("\nEquilibrium parameters:")
+        logger.info("\nEquilibrium parameters:")
         for key, val in self.params.items():
-            print(key, ": ", val)
+            logger.info(f"{key}: {val}")
 
-        print("\nMapping parameters:")
+        logger.info("\nMapping parameters:")
         for key, val in self.domain.params.items():
             if key not in {"cx", "cy", "cz"}:
-                print(key, ": ", val)
+                logger.info(f"{key}: {val}")
 
         # poloidal plane grid
         fig = plt.figure(figsize=(13, xp.ceil(n_planes / 2) * 6.5))
@@ -1221,8 +1372,10 @@ class MHDequilibrium(FluidEquilibriumWithB):
 
 class CartesianMHDequilibrium(MHDequilibrium):
     r"""
-    The callables ``b_xyz``, ``j_xyz``, ``p_xyz``, ``n_xyz`` and ``gradB_xyz``
-    must be provided in Cartesian coordinates.
+    Specialization for MHD equilibria in Cartesian coordinates.
+
+    Child classes must implement the abstract methods ``b_xyz``, ``j_xyz``, ``p_xyz``,
+    ``n_xyz``, and ``gradB_xyz`` in Cartesian physical space.
     """
 
     @abstractmethod
@@ -1395,8 +1548,10 @@ class AxisymmMHDequilibrium(CartesianMHDequilibrium):
 
 class LogicalMHDequilibrium(MHDequilibrium):
     r"""
-    The callables ``bv``, ``jv``, ``p0``, ``n0`` and ``gradB1``
-    must be provided on the logical cube [0, 1]^3.
+    Specialization for MHD equilibria on the logical cube [0, 1]^3.
+
+    Child classes must implement the abstract methods ``bv``, ``jv``, ``p0``, ``n0``,
+    and ``gradB1`` on the logical reference domain.
     """
 
     @abstractmethod
@@ -1439,8 +1594,10 @@ class LogicalMHDequilibrium(MHDequilibrium):
 
 class NumericalMHDequilibrium(LogicalMHDequilibrium):
     r"""
-    Must provide a (numerical) mapping from the logical cube [0, 1]^3 to the physical domain.
-    Overrides base class domain.
+    Specialization for MHD equilibria with numerically computed domain mappings.
+
+    Child classes must provide a ``numerical_domain`` property that returns a Domain object.
+    This class overrides the domain property to use the numerically computed mapping.
     """
 
     @property

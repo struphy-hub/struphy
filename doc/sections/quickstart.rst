@@ -3,75 +3,216 @@
 Quickstart
 ==========
 
-Get familiar with Struphy right away through the tutorials on `mybinder <https://mybinder.org/v2/gh/struphy-hub/struphy-tutorials/main>`_ - no installation needed.
+Struphy is a Python API for solving PDEs with structure-preserving discretizations.
+This quickstart shows how to solve a simple problem with minimal input: a 1D Poisson solve.
 
-What follows is an introduction to the CLI (command line interface) of Struphy.
-For a more in-depth manual please go to :ref:`userguide`.
+For interactive tutorials (no local install), use `mybinder <https://mybinder.org/v2/gh/struphy-hub/struphy-tutorials/main>`_.
+For more examples, see :ref:`userguide` and the :ref:`tutorial collection <tutorials>`.
 
-Get help on Struphy console commands::
+Solve Poisson In A Few Steps
+----------------------------
 
-    struphy -h
+Make sure that Struphy is installed and compiled (see :ref:`install_modes`).
 
-Check if kernels are compiled::
+We search for a potential :math:`\phi(x)` satisfying the Poisson equation
 
-    struphy compile
+.. math::
 
-Display available kinetic models::
+    -\Delta \phi = \rho
 
-    struphy --kinetic
+for given source term :math:`\rho(x)` on a periodic 1D domain.
 
-Generate default parameters for the model :class:`~struphy.models.kinetic.VlasovMaxwellOneSpecies`::
+1. Import the API and choose a model.
 
-    struphy params VlasovMaxwellOneSpecies
+.. code-block:: python
 
-After hitting enter on prompt, the default launch file ``params_VlasovMaxwellOneSpecies.py`` is created
-in the current working directory (cwd). Let us rename it for convenience::
+    from struphy import Simulation, domains, grids, perturbations
+    from struphy.models import Poisson
 
-    mv params_VlasovMaxwellOneSpecies.py test_struphy.py
+2. Create the :class:`~struphy.models.poisson.Poisson` model.
 
-The file ``test_struphy.py`` contains all information for a simulation with the above model. 
-We can change the parameters therein to our liking. 
-Then, we can run a simulation simply with::
+.. code-block:: python
 
-    python test_struphy.py
+    model = Poisson()
 
-By default, the produced data is in ``sim_1`` in the cwd::
+3. This model features the Propagator :class:`~struphy.propagators.poisson_solve.PoissonSolve` under ``propagators.poisson``. 
+Connect the ``source`` variable of species ``em_fields`` to the propagator and stabilize via ``options``.
 
-    ls sim_1/ 
+.. code-block:: python
 
-The data can be accessed through the Struphy API. If ``ipython`` is installed, type::
+    stab_eps = 1e-8
 
-    ipython
+    model.propagators.poisson.options = model.propagators.poisson.Options(
+        rho=model.em_fields.source,
+        stab_eps=stab_eps,
+    )
+
+4. Add a manufactured term :math:`\rho(x) = (k^2 + \epsilon)\cos(kx)` to the ``source`` variable.
+
+.. code-block:: python
+
+    import numpy as np
+
+    Lx = 2.0 * np.pi
+    mode = 2
+    k = mode * 2.0 * np.pi / Lx
+    source_amp = k**2 + stab_eps
+
+    fun = perturbations.ModesCos(ls=(mode,), amps=(source_amp,))
+
+    model.em_fields.source.add_perturbation(fun)
+
+5. Build domain and grid, then instantiate a simulation.
+
+.. code-block:: python
+
+    domain = domains.Cuboid(l1=0.0, r1=Lx)
+    grid = grids.TensorProductGrid(num_elements=(64, 1, 1))
+
+    sim = Simulation(
+        model=model,
+        domain=domain,
+        grid=grid,
+    )
+
+6. Run one step (enough for this stationary solve).
+
+.. code-block:: python
+
+    sim.run(one_time_step=True)
+
+7. Post-process and load plotting data.
+
+.. code-block:: python
+
+    sim.pproc()
+    sim.load_plotting_data()
+
+8. Compare to the exact solution, and save the figure.
+
+.. code-block:: python
+
+    import matplotlib.pyplot as plt
+
+    x = sim.grids_phy[0][:, 0, 0]
+    t_last = max(sim.spline_values.em_fields.phi_log.data)
+    phi_num = sim.spline_values.em_fields.phi_log.data[t_last][0][:, 0, 0]
+    phi_exact = np.cos(k * x)
+    err_max = np.max(np.abs(phi_num - phi_exact))
+
+    plt.figure(figsize=(7, 3.8))
+    plt.plot(x, phi_exact, "k--", lw=1.8, label="exact")
+    plt.plot(x, phi_num, "o", ms=3.5, label="Struphy")
+    plt.xlabel("x")
+    plt.ylabel("phi")
+    plt.title("Struphy quickstart: Poisson solution")
+    plt.legend()
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.savefig("quickstart_poisson_phi.png", dpi=150)
+    plt.show()
+
+    print(f"max error = {err_max:.3e}")
+
+.. figure:: ../pics/quickstart_poisson_phi.png
+    :figwidth: 85%
+    :alt: Poisson quickstart comparison of exact and numerical solution
+
+    Exact (dashed) and Struphy (markers) solutions from Step 6.
+
+Full copy-paste script:
+
+.. code-block:: python
+
+    import numpy as np
+    from struphy import Simulation, domains, grids, perturbations
+    from struphy.models import Poisson
+
+    model = Poisson()
+
+    stab_eps = 1e-8
     
-and then::
+    model.propagators.poisson.options = model.propagators.poisson.Options(
+        rho=model.em_fields.source,
+        stab_eps=stab_eps,
+    )
 
-    from struphy.main import pproc, load_data
-    import os
-    path = os.path.join(os.getcwd(), "sim_1")
-    pproc(path)
-    simdata = load_data(path)
+    Lx = 2.0 * np.pi
+    mode = 2
+    k = mode * 2.0 * np.pi / Lx
+    source_amp = k**2 + stab_eps
 
-The variable ``simdata`` is of type :class:`~struphy.main.SimData` and holds grid and orbit information.
-You can deduce the kind of info held from the screen output. For instance, you have access several ``grids``
-as well as to, for instance::
+    fun = perturbations.ModesCos(ls=(mode,), amps=(source_amp,))
 
-    print(simdata.spline_values["em_fields"]["e_field_log"].keys())
-    print(simdata.orbits["kinetic_ions"].shape)
-    print(simdata.f["kinetic_ions"]["e1"].keys())
+    model.em_fields.source.add_perturbation(fun)
 
-Under ``simdata.spline_values`` you find dictionaries holding splines values at the pre-defined ``simdata.grids_log``
-(or the physical grid); the keys are the time points of evaluation.
+    domain = domains.Cuboid(l1=0.0, r1=Lx)
+    grid = grids.TensorProductGrid(num_elements=(64, 1, 1))
 
-Under ``simdata.orbits`` you find numpy arrays holding orbit data, indexed by ``[time, particle, attribute]``.
+    sim = Simulation(model=model, domain=domain, grid=grid)
+    sim.run(one_time_step=True)
 
-Under ``simdata.f`` you find binning data, in this case a 1d binning plot in the first logical coordinate :math:`\eta_1`-direction
-(see :ref:`binning` for details).
- 
-Parallel simulations can invoked from the same launch file for instance by::
+    sim.pproc()
+    sim.load_plotting_data()
 
-    pip install -U mpi4py
-    mpirun -n 4 python struphy_test.py
+    x = sim.grids_phy[0][:, 0, 0]
+    t_last = max(sim.spline_values.em_fields.phi_log.data)
+    phi_num = sim.spline_values.em_fields.phi_log.data[t_last][0][:, 0, 0]
+    phi_exact = np.cos(k * x)
 
-If you want to learn more please check the :ref:`userguide`.
+    import matplotlib.pyplot as plt
+
+    plt.figure(figsize=(7, 3.8))
+    plt.plot(x, phi_exact, "k--", lw=1.8, label="exact")
+    plt.plot(x, phi_num, "o", ms=3.5, label="Struphy")
+    plt.xlabel("x")
+    plt.ylabel("phi")
+    plt.title("Struphy quickstart: Poisson solution")
+    plt.legend()
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.savefig("quickstart_poisson_phi.png", dpi=150)
+    plt.show()
+
+Same Workflow For All Models
+----------------------------
+
+The same Simulation API is reused across models. For example, replace :class:`~struphy.models.poisson.Poisson` with :class:`~struphy.models.maxwell.Maxwell`:
+
+.. code-block:: python
+
+    from struphy import Simulation, perturbations
+    from struphy.models import Maxwell
+
+    model = Maxwell()
+    model.em_fields.e_field.add_perturbation(
+        perturbations.ModesCos(ls=(1,), amps=(1e-2,), comp=1)
+    )
+
+    sim = Simulation(model=model)
+    sim.run()
+
+Check :ref:`models` for more models and their specific options.
+
+Generate A Default Parameter File
+---------------------------------
+
+You can generate a ready-to-edit parameter file for any model from the CLI:
+
+.. code-block:: bash
+
+    struphy params Poisson
+
+This writes ``params_Poisson.py`` in your current directory. You can open and edit it, then run with:
+
+.. code-block:: bash
+
+    python params_Poisson.py
+
+As all data structures in Struphy are written for MPI, you can run the same script with ``mpirun`` to use multiple processes:
+
+.. code-block:: bash
+
+    mpirun -n 4 python params_Poisson.py
 
             

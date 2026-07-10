@@ -1,10 +1,20 @@
+import atexit
+import inspect
+import json
+import logging
+import logging.config
 import os
+import pathlib
 import subprocess
-import sys
+import tempfile
+from typing import Literal, get_args
 
 import yaml
+from feectools.ddm.mpi import mpi as MPI
 
 import struphy
+
+logger = logging.getLogger("struphy")
 
 # Get the path to the Struphy library
 STRUPHY_LIBPATH = struphy.__path__[0]
@@ -27,10 +37,10 @@ def read_state(libpath=STRUPHY_LIBPATH):
         with open(state_file, "r") as f:
             state = yaml.load(f, Loader=yaml.FullLoader)
     except FileNotFoundError as e:
-        print(f"The state file '{state_file}' was not found. Creating a new one.")
+        logger.info(f"The state file '{state_file}' was not found. Creating a new one.")
         state = {}
     except yaml.YAMLError as e:
-        print(f"Error {e}: parsing the YAML file")
+        logger.info(f"Error {e}: parsing the YAML file")
         state = {}
 
     return state
@@ -73,7 +83,7 @@ def print_all_attr(obj):
                 v = f"{type(getattr(obj, k))} of shape {v.shape}"
             if "proj_" in k or "quad_grid_" in k:
                 v = "(arrays not displayed)"
-            print(k.ljust(26), v)
+            logger.info(f"{k:<26}{v}")
 
 
 def dict_to_yaml(dictionary: dict, output: str):
@@ -88,7 +98,7 @@ def dict_to_yaml(dictionary: dict, output: str):
             indent=4,
             line_break="\n",
         )
-    # print(f"dict written to {output}.")
+    # logger.info(f"dict written to {output}.")
 
 
 def kernels_to_txt(kernels: list, output: str):
@@ -96,7 +106,18 @@ def kernels_to_txt(kernels: list, output: str):
     with open(output, "w") as file:
         for ker in kernels:
             file.write(f"{ker}\n")
-    # print(f"kernels written to {output}.")
+    # logger.info(f"kernels written to {output}.")
+
+
+def check_option(opt, *options):
+    """Check if opt is contained in options; if opt is a list, checks for each element."""
+    opts = []
+    for o in options:
+        opts.extend(get_args(o))
+    if not isinstance(opt, list | tuple):
+        opt = [opt]
+    for o in opt:
+        assert o in opts, f"Option '{o}' is not in {opts}."
 
 
 class MyDumper(yaml.SafeDumper):
@@ -112,108 +133,99 @@ class MyDumper(yaml.SafeDumper):
         return True
 
 
-def refresh_models():
-    print("Collecting available models ...")
-
-    import inspect
-    import pickle
-
-    from struphy.models import fluid, hybrid, kinetic, toy
-
-    list_fluid = []
-    fluid_string = ""
-    for name, obj in inspect.getmembers(fluid):
-        if inspect.isclass(obj) and obj.__module__ == fluid.__name__:
-            # if name not in {"StruphyModel", "Propagator"}:
-            list_fluid += [name]
-            fluid_string += '"' + name + '"\n'
-
-    list_kinetic = []
-    kinetic_string = ""
-    for name, obj in inspect.getmembers(kinetic):
-        if inspect.isclass(obj) and obj.__module__ == kinetic.__name__:
-            if name not in {"StruphyModel", "Propagator"}:
-                list_kinetic += [name]
-                kinetic_string += '"' + name + '"\n'
-
-    list_hybrid = []
-    hybrid_string = ""
-    for name, obj in inspect.getmembers(hybrid):
-        if inspect.isclass(obj) and obj.__module__ == hybrid.__name__:
-            if name not in {"StruphyModel", "Propagator"}:
-                list_hybrid += [name]
-                hybrid_string += '"' + name + '"\n'
-
-    list_toy = []
-    toy_string = ""
-    for name, obj in inspect.getmembers(toy):
-        if inspect.isclass(obj) and obj.__module__ == toy.__name__:
-            if name not in {"StruphyModel", "Propagator"}:
-                list_toy += [name]
-                toy_string += '"' + name + '"\n'
-
-    list_models = list_fluid + list_kinetic + list_hybrid + list_toy
-
-    with open(os.path.join(STRUPHY_LIBPATH, "models", "models_list"), "wb") as fp:
-        pickle.dump(list_models, fp)
-
-    # fluid message
-    fluid_message = "Fluid models:\n"
-    fluid_message += "-------------\n"
-    fluid_message += fluid_string
-
-    # kinetic message
-    kinetic_message = "Kinetic models:\n"
-    kinetic_message += "---------------\n"
-    kinetic_message += kinetic_string
-
-    # hybrid message
-    hybrid_message = "Hybrid models:\n"
-    hybrid_message += "--------------\n"
-    hybrid_message += hybrid_string
-
-    # toy message
-    toy_message = "Toy models:\n"
-    toy_message += "-----------\n"
-    toy_message += toy_string
-
-    # model message
-    model_message = "run one of the following models:\n"
-    model_message += "\n" + fluid_message
-    model_message += "\n" + kinetic_message
-    model_message += "\n" + hybrid_message
-    model_message += "\n" + toy_message
-
-    with open(os.path.join(STRUPHY_LIBPATH, "models", "models_message"), "wb") as fp:
-        pickle.dump(
-            [
-                model_message,
-                fluid_message,
-                kinetic_message,
-                hybrid_message,
-                toy_message,
-            ],
-            fp,
-        )
-
-    print("Done.")
-
-
 def subp_run(cmd, cwd="libpath", check=True):
     """Call subprocess.run and print run command."""
+    from struphy.utils.utils import STRUPHY_LIBPATH
 
     if cwd == "libpath":
-        cwd = struphy.__path__[0]
+        cwd = STRUPHY_LIBPATH
 
-    print(f"\nRunning the following command as a subprocess:\n{' '.join(cmd)}")
+    print(f"\nRunning the following command as a subprocess:\n{' '.join(cmd)}\nfrom {cwd}")
     subprocess.run(cmd, cwd=cwd, check=check)
 
 
+def __dataclass_repr_no_defaults__(obj):
+    out = f"{type(obj).__name__}("
+    for k, v in obj.__dict__.items():
+        if k not in obj.__dataclass_fields__:
+            continue
+        default_value = obj.__dataclass_fields__[k].default
+        if v != default_value:
+            out += f"{k}={repr(v)}, "
+    out = out.rstrip(", ") + ")"
+    return out
+
+
+def __dataclass_repr_all_stacked__(obj):
+    out = f"{type(obj).__name__}(\n"
+    for k, v in obj.__dict__.items():
+        if k not in obj.__dataclass_fields__:
+            continue
+        out += " " * 4
+        out += f"{k}={repr(v)},\n"
+    out = out.rstrip(", ") + ")"
+    return out
+
+
+def __class_with_params_repr_no_defaults__(cls_instance):
+    sig = inspect.signature(cls_instance.__class__.__init__)
+    defaults = {k: v.default for k, v in sig.parameters.items() if k != "self"}
+    out = f"{cls_instance.__class__.__name__}("
+    for k, v in cls_instance.params.items():
+        if k in defaults and v != defaults[k]:
+            out += f"{k}={v}, "
+    out += ")"
+    return out
+
+
+def all_class_params_are_default(cls_instance):
+    return cls_instance.__repr_no_defaults__() == cls_instance.__class__.__name__ + "()"
+
+
+def ruff_autofix_and_format(code: str) -> str:
+    with tempfile.NamedTemporaryFile(suffix=".py", mode="w+") as tmp:
+        tmp.write(code)
+        tmp.flush()
+        # Run Ruff to autofix (remove unused imports)
+        subprocess.run(
+            ["ruff", "check", "--select", "F401", "--fix", tmp.name],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        # Run Ruff formatter
+        subprocess.run(
+            ["ruff", "format", tmp.name],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        tmp.seek(0)
+        result = tmp.read()
+    return result
+
+
+def all_subclasses(cls):
+    subclasses = cls.__subclasses__()
+    subclasses = subclasses + [g for s in subclasses for g in all_subclasses(s)]
+    return subclasses
+
+
 if __name__ == "__main__":
-    state = read_state()
-    for k, val in state.items():
-        print(k, val)
-    i_path, o_path, b_path = get_paths(state)
-    print(f"{i_path =}")
-    print(f"{o_path =}")
-    print(f"{b_path =}")
+    from struphy import set_logging_level
+
+    logger = logging.getLogger("struphy")
+    logger.debug("debug message", extra={"x": "hello"})
+    logger.info("info message")
+    logger.warning("warning message")
+    logger.error("error message")
+    logger.critical("critical message")
+    try:
+        1 / 0
+    except ZeroDivisionError:
+        logger.exception("exception message")
+
+    set_logging_level(logging.DEBUG)
+
+    logger.debug("\ndebug message", extra={"x": "hello"})
+    logger.info("info message")

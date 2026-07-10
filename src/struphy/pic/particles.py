@@ -27,45 +27,20 @@ class Particles6D(Particles):
     ===== ============== ======================= ======= ====== ====== ==========
     """
 
-    @classmethod
-    def default_background(cls):
-        return maxwellians.Maxwellian3D()
+    # Class properties
+    vdim = 3
+    type = "full_f"
+    default_background = maxwellians.Maxwellian3D()
+    default_n_cols = {"diagnostics": 0, "aux": 5}
 
-    def __init__(
-        self,
-        **kwargs,
-    ):
-        kwargs["type"] = "full_f"
-
-        if "background" not in kwargs:
-            kwargs["background"] = self.default_background()
-        elif kwargs["background"] is None:
-            kwargs["background"] = self.default_background()
-
-        # default number of diagnostics and auxiliary columns
-        kwargs.setdefault("n_cols_diag", 0)
-        kwargs.setdefault("n_cols_aux", 5)
-
-        super().__init__(**kwargs)
-
-        # call projected mhd equilibrium in case of CanonicalMaxwellian
-        if isinstance(kwargs["background"], maxwellians.CanonicalMaxwellian):
+    def __post_init__(self):
+        if isinstance(self.background, maxwellians.CanonicalMaxwellian):
             assert isinstance(self.equil, FluidEquilibriumWithB), (
                 "CanonicalMaxwellian needs background with magnetic field."
             )
             self._absB0_h = self.projected_equil.absB0
             self._b2_h = self.projected_equil.b2
             self._derham = self.projected_equil.derham
-
-    @property
-    def vdim(self):
-        """Dimension of the velocity space."""
-        return 3
-
-    @property
-    def coords(self):
-        """Coordinates of the Particles6D, :math:`(v_1, v_2, v_3)`."""
-        return "cartesian"
 
     def svol(self, eta1, eta2, eta3, *v):
         """Sampling density function as volume form.
@@ -235,42 +210,19 @@ class DeltaFParticles6D(Particles6D):
     A class for kinetic species in full 6D phase space that solve for delta_f = f - f0.
     """
 
-    @classmethod
-    def default_background(cls):
-        return maxwellians.Maxwellian3D()
+    # Class properties
+    type = "delta_f"
 
-    def __init__(
-        self,
-        **kwargs,
-    ):
-        kwargs["type"] = "delta_f"
-        if "weights_params" in kwargs:
-            kwargs["weights_params"].control_variate = False
-        super().__init__(**kwargs)
+    def __post_init__(self):
+        self.weights_params.control_variate = False
 
     def _set_initial_condition(self):
-        # bp_copy = copy.deepcopy(self.bckgr_params)
-        # pp_copy = copy.deepcopy(self.pert_params)
-
-        # # Prepare delta-f perturbation parameters
-        # if pp_copy is not None:
-        #     for fi in bp_copy:
-        #         # Set background to zero (if "use_background_n" in perturbation params is set to false or not in keys)
-        #         if fi in pp_copy:
-        #             if "use_background_n" in pp_copy[fi]:
-        #                 if not pp_copy[fi]["use_background_n"]:
-        #                     bp_copy[fi]["n"] = 0.0
-        #             else:
-        #                 bp_copy[fi]["n"] = 0.0
-        #         else:
-        #             bp_copy[fi]["n"] = 0.0
         self.set_n_to_zero(self.initial_condition)
-
         super()._set_initial_condition()
 
     def set_n_to_zero(self, background: Maxwellian | SumKineticBackground):
         if isinstance(background, Maxwellian):
-            background.maxw_params["n"] = (0.0, background.maxw_params["n"][1])
+            background.params["n"] = (0.0, background.params["n"][1])
         else:
             assert isinstance(background, SumKineticBackground)
             self.set_n_to_zero(background._f1)
@@ -290,30 +242,14 @@ class Particles5D(Particles):
     ===== ============== ========== ====== ======= ====== ====== ==========
     """
 
-    @classmethod
-    def default_background(cls):
-        return maxwellians.GyroMaxwellian2D()
+    # Class properties
+    vdim = 2
+    type = "full_f"
+    default_background = maxwellians.GyroMaxwellian2D()
+    default_n_cols = {"diagnostics": 3, "aux": 12}
 
-    def __init__(
-        self,
-        projected_equil: ProjectedFluidEquilibriumWithB,
-        **kwargs,
-    ):
-        assert projected_equil is not None, "Particles5D needs a projected MHD equilibrium."
-
-        kwargs["type"] = "full_f"
-
-        # if "bckgr_params" not in kwargs:
-        #     kwargs["bckgr_params"] = self.default_bckgr_params()
-
-        # default number of diagnostics and auxiliary columns
-        kwargs.setdefault("n_cols_diag", 3)
-        kwargs.setdefault("n_cols_aux", 12)
-
-        super().__init__(
-            projected_equil=projected_equil,
-            **kwargs,
-        )
+    def __post_init__(self):
+        assert self.projected_equil is not None, "Particles5D needs a projected MHD equilibrium."
 
         # magnetic background
         if self.equil is not None:
@@ -323,13 +259,13 @@ class Particles5D(Particles):
         self._unit_b1_h = self.projected_equil.unit_b1
         self._derham = self.projected_equil.derham
 
-        self._tmp0 = self.derham.Vh["0"].zeros()
-        self._tmp2 = self.derham.Vh["2"].zeros()
+        self._tmp0 = self.derham.V0.zeros()
+        self._tmp2 = self.derham.V2.zeros()
 
     @property
-    def vdim(self):
-        """Dimension of the velocity space."""
-        return 2
+    def magn_bckgr(self):
+        """Fluid equilibrium with B."""
+        return self._magn_bckgr
 
     @property
     def absB0_h(self):
@@ -342,9 +278,9 @@ class Particles5D(Particles):
         return self._unit_b1_h
 
     @property
-    def coords(self):
-        r"""Coordinates of the Particles5D, :math:`(v_\parallel, \mu)`."""
-        return "vpara_mu"
+    def epsilon(self):
+        """One of equation params, epsilon"""
+        return self._epsilon
 
     @property
     def derham(self):
@@ -370,15 +306,15 @@ class Particles5D(Particles):
         -------
         """
         # load sampling density svol (normalized to 1 in logical space)
-        maxw_params = {
-            "n": (1.0, None),
-            "u_para": (self.loading_params.moments[0], None),
-            "u_perp": (self.loading_params.moments[1], None),
-            "vth_para": (self.loading_params.moments[2], None),
-            "vth_perp": (self.loading_params.moments[3], None),
-        }
-
-        self._svol = maxwellians.GyroMaxwellian2D(**maxw_params, equil=self.equil)
+        self._svol = maxwellians.GyroMaxwellian2D(
+            n=(1.0, None),
+            u_para=(self.loading_params.moments[0], None),
+            u_perp=(self.loading_params.moments[1], None),
+            vth_para=(self.loading_params.moments[2], None),
+            vth_perp=(self.loading_params.moments[3], None),
+            volume_form=True,
+            equil=self._magn_bckgr,
+        )
 
         if self.spatial == "uniform":
             out = self._svol(eta1, eta2, eta3, *v)
@@ -449,8 +385,8 @@ class Particles5D(Particles):
             remove_outside=remove_holes,
         )
 
-    def draw_markers(self, sort: bool = True, verbose: bool = True):
-        super().draw_markers(sort=sort, verbose=verbose)
+    def draw_markers(self, sort: bool = True):
+        super().draw_markers(sort=sort)
 
         utilities_kernels.eval_magnetic_moment_5d(
             self.markers,
@@ -585,36 +521,14 @@ class Particles3D(Particles):
         Parameters for markers, see :class:`~struphy.pic.base.Particles`.
     """
 
-    @classmethod
-    def default_background(cls):
-        return maxwellians.ColdPlasma()
+    # Class properties
+    vdim = 0
+    type = "full_f"
+    default_background = maxwellians.ColdPlasma()
+    default_n_cols = {"diagnostics": 0, "aux": 5}
 
-    def __init__(
-        self,
-        **kwargs,
-    ):
-        kwargs["type"] = "full_f"
-
-        if "background" not in kwargs:
-            kwargs["background"] = self.default_background()
-        elif kwargs["background"] is None:
-            kwargs["background"] = self.default_background()
-
-        # default number of diagnostics and auxiliary columns
-        kwargs.setdefault("n_cols_diag", 0)
-        kwargs.setdefault("n_cols_aux", 5)
-
-        super().__init__(**kwargs)
-
-    @property
-    def vdim(self):
-        """Dimension of the velocity space."""
-        return 0
-
-    @property
-    def coords(self):
-        """Coordinates of the Particles3D."""
-        return "cartesian"
+    def __post_init__(self):
+        pass
 
     def svol(self, eta1, eta2, eta3):
         """Sampling density function as volume form.
@@ -700,55 +614,15 @@ class ParticlesSPH(Particles):
         Parameters for markers, see :class:`~struphy.pic.base.Particles`.
     """
 
-    @classmethod
-    def default_background(cls):
-        return equils.ConstantVelocity()
+    # Class properties
+    vdim = 3
+    type = "sph"
+    default_background = equils.ConstantVelocity()
+    default_n_cols = {"diagnostics": 0, "aux": 24}
 
-    def __init__(
-        self,
-        **kwargs,
-    ):
-        kwargs["type"] = "sph"
-
-        if "background" not in kwargs:
-            bckgr = self.default_background()
-            bckgr.domain = kwargs["domain"]
-            kwargs["background"] = bckgr
-        elif kwargs["background"] is None:
-            bckgr = self.default_background()
-            bckgr.domain = kwargs["domain"]
-            kwargs["background"] = bckgr
-
-        if "boxes_per_dim" not in kwargs:
-            kwargs["boxes_per_dim"] = (1, 1, 1)
-        else:
-            if kwargs["boxes_per_dim"] is None:
-                kwargs["boxes_per_dim"] = (1, 1, 1)
-
-        # TODO: maybe this needs a fix
-        # else:
-        #     if "communicate" not in kwargs["sorting_params"] or not kwargs["sorting_params"]["communicate"]:
-        #         print("Enforcing communication of boxes in sph")
-        #         kwargs["sorting_params"]["communicate"] = True
-
-        # default number of diagnostics and auxiliary columns
-        kwargs.setdefault("n_cols_diag", 0)
-        kwargs.setdefault("n_cols_aux", 24)
-
-        clone_config = kwargs.get("clone_config", None)
-        assert clone_config is None, "SPH can only be launched with --nclones 1"
-
-        super().__init__(**kwargs)
-
-    @property
-    def vdim(self):
-        """Dimension of the velocity space."""
-        return 3
-
-    @property
-    def coords(self):
-        """Coordinates of the Particles6D, :math:`(v_1, v_2, v_3)`."""
-        return "cartesian"
+    def __post_init__(self):
+        assert self.clone_config is None, "SPH can only be launched with --nclones 1"
+        self.background.domain = self.domain
 
     def svol(self, eta1, eta2, eta3, *v):
         """Sampling density function as volume form.

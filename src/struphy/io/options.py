@@ -1,76 +1,133 @@
+import logging
 import os
-from dataclasses import dataclass
-from typing import Literal, get_args
+from dataclasses import dataclass, fields
+from typing import Any, Callable, Literal
 
-import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
+from struphy.utils.utils import (
+    __class_with_params_repr_no_defaults__,
+    __dataclass_repr_all_stacked__,
+    __dataclass_repr_no_defaults__,
+    all_class_params_are_default,
+    check_option,
+)
 
-from struphy.physics.physics import ConstantsOfNature
-
-## Literal options
-
-# time
-SplitAlgos = Literal["LieTrotter", "Strang"]
-
-# derham
-PolarRegularity = Literal[-1, 1]
-OptsFEECSpace = Literal["H1", "Hcurl", "Hdiv", "L2", "H1vec"]
-OptsVecSpace = Literal["Hcurl", "Hdiv", "H1vec"]
-
-# fields background
-BackgroundTypes = Literal["LogicalConst", "FluidEquilibrium"]
-
-# perturbations
-NoiseDirections = Literal["e1", "e2", "e3", "e1e2", "e1e3", "e2e3", "e1e2e3"]
-GivenInBasis = Literal["0", "1", "2", "3", "v", "physical", "physical_at_eta", "norm", None]
-
-# solvers
-OptsSymmSolver = Literal["pcg", "cg"]
-OptsGenSolver = Literal["pbicgstab", "bicgstab", "GMRES"]
-OptsMassPrecond = Literal["MassMatrixPreconditioner", "MassMatrixDiagonalPreconditioner", None]
-OptsSaddlePointSolver = Literal["Uzawa", "GMRES"]
-OptsDirectSolver = Literal["SparseSolver", "ScipySparse", "InexactNPInverse", "DirectNPInverse"]
-OptsNonlinearSolver = Literal["Picard", "Newton"]
-
-# markers
-OptsPICSpace = Literal["Particles6D", "DeltaFParticles6D", "Particles5D", "Particles3D"]
-OptsMarkerBC = Literal["periodic", "reflect"]
-OptsRecontructBC = Literal["periodic", "mirror", "fixed"]
-OptsLoading = Literal[
-    "pseudo_random",
-    "sobol_standard",
-    "sobol_antithetic",
-    "external",
-    "restart",
-    "tesselation",
-]
-OptsSpatialLoading = Literal["uniform", "disc"]
-OptsMPIsort = Literal["each", "last", None]
-
-# filters
-OptsFilter = Literal["fourier_in_tor", "hybrid", "three_point", None]
-
-# sph
-OptsKernel = Literal[
-    "trigonometric_1d",
-    "gaussian_1d",
-    "linear_1d",
-    "trigonometric_2d",
-    "gaussian_2d",
-    "linear_2d",
-    "trigonometric_3d",
-    "gaussian_3d",
-    "linear_isotropic_3d",
-    "linear_3d",
-]
-
-
-## Option classes
+logger = logging.getLogger("struphy")
 
 
 @dataclass
-class Time:
-    """Time stepping options.
+class OptionsBase:
+    def to_dict(self) -> dict:
+        """Convert dataclass instance to dictionary."""
+        return {field.name: getattr(self, field.name) for field in fields(type(self)) if field.init}
+
+    @classmethod
+    def from_dict(cls, dct) -> "Any":
+        """Create dataclass instance from dictionary."""
+        valid_fields = {field.name for field in fields(cls) if field.init}
+        return cls(**{key: value for key, value in dct.items() if key in valid_fields})
+
+    def __repr__(self):
+        return __dataclass_repr_all_stacked__(self)
+
+
+@dataclass
+class LiteralOptions:
+    """
+    (String) options for parameters in launch files, including:
+
+    * Time stepping
+    * Derham finite element spaces
+    * Background/equilibrium types
+    * Model types
+    * Initial conditions / perturbations
+    * Linear, nonlinear, explicit (Butcher) and saddle-point solvers
+    * Drawing of markers, type of PIC methods
+    * Noise filtering in PIC
+    * Smoothing kernels for SPH methods
+    * Particle binning in phase space
+    """
+
+    # time
+    SplitAlgos = Literal["LieTrotter", "Strang"]
+
+    # derham
+    OptsFEECSpace = Literal["H1", "Hcurl", "Hdiv", "L2", "H1vec"]
+    OptsVecSpace = Literal["Hcurl", "Hdiv", "H1vec"]
+    OptsNonTrivialBoundaryCondition = Literal["free", "dirichlet"]
+
+    # fields background
+    BackgroundTypes = Literal["LogicalConst", "FluidEquilibrium"]
+    KineticDimensionsToPlot = Literal["e1", "e2", "e3", "v1", "v2", "v3"]
+
+    # models
+    ModelTypes = Literal["Toy", "Kinetic", "Fluid", "Hybrid"]
+
+    # perturbations
+    NoiseDirections = Literal["e1", "e2", "e3", "e1e2", "e1e3", "e2e3", "e1e2e3"]
+    GivenInBasis = Literal["0", "1", "2", "3", "v", "physical", "physical_at_eta", "norm", None]
+
+    # solvers
+    OptsSymmSolver = Literal["pcg", "cg"]
+    OptsGenSolver = Literal["pbicgstab", "bicgstab", "gmres"]
+    OptsMassPrecond = Literal["MassMatrixPreconditioner", "MassMatrixDiagonalPreconditioner", None]
+    OptsSaddlePointSolver = Literal["uzawa"]
+    OptsDirectSolver = Literal["SparseSolver", "ScipySparse", "InexactNPInverse", "DirectNPInverse"]
+    OptsNonlinearSolver = Literal["Picard", "Newton"]
+    OptsButcher = Literal["rk4", "forward_euler", "heun2", "rk2", "heun3", "3/8 rule"]
+
+    # markers
+    OptsPICSpace = Literal["Particles6D", "DeltaFParticles6D", "Particles5D", "Particles3D"]
+    OptsMarkerBC = Literal["periodic", "reflect", "remove", "refill"]
+    OptsRecontructBC = Literal["periodic", "mirror", "fixed", "noslip"]
+    OptsLoading = Literal[
+        "pseudo_random",
+        "sobol_standard",
+        "sobol_antithetic",
+        "external",
+        "restart",
+        "tesselation",
+    ]
+    OptsSpatialLoading = Literal["uniform", "disc"]
+    OptsMPIsort = Literal["each", "last", None]
+
+    # filters
+    OptsFilter = Literal["fourier_in_tor", "hybrid", "three_point", None]
+
+    # sph
+    OptsKernel = Literal[
+        "trigonometric_1d",
+        "gaussian_1d",
+        "linear_1d",
+        "trigonometric_2d",
+        "gaussian_2d",
+        "linear_2d",
+        "trigonometric_3d",
+        "gaussian_3d",
+        "linear_isotropic_3d",
+        "linear_3d",
+    ]
+
+    # Create new Literal to determine type of binning output
+    BinningQuantity = Literal[
+        "density",
+        "current_1",
+        "current_2",
+        "current_3",
+        "energy_tensor_11",
+        "energy_tensor_22",
+        "energy_tensor_33",
+        "energy_tensor_12",
+        "energy_tensor_13",
+        "energy_tensor_23",
+        "heat_flux_1",
+        "heat_flux_2",
+        "heat_flux_3",
+    ]
+
+
+@dataclass(repr=False)
+class Time(OptionsBase):
+    """Set options for time stepping in parameter/launch files.
 
     Parameters
     ----------
@@ -80,22 +137,28 @@ class Time:
     Tend : float
         End time.
 
-    split_algo : SplitAlgos
+    split_algo : LiteralOptions.SplitAlgos
         Splitting algorithm (the order of the propagators is defined in the model).
     """
 
     dt: float = 0.01
     Tend: float = 0.03
-    split_algo: SplitAlgos = "LieTrotter"
+    split_algo: LiteralOptions.SplitAlgos = "LieTrotter"
 
     def __post_init__(self):
-        check_option(self.split_algo, SplitAlgos)
+        check_option(self.split_algo, LiteralOptions.SplitAlgos)
+
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_no_defaults__(self)
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
 
 
 @dataclass
-class BaseUnits:
-    """
-    Base units from which other units are derived. See :ref:`normalization`.
+class BaseUnits(OptionsBase):
+    """Set base units in parameter/launch files from which other units are derived. See :ref:`normalization`.
 
     Parameters
     ----------
@@ -118,174 +181,92 @@ class BaseUnits:
     n: float = 1.0
     kBT: float = None
 
-
-class Units:
-    """
-    Colllects base units and derives other units from these. See :ref:`normalization`.
-    """
-
-    def __init__(self, base: BaseUnits = None):
-        if base is None:
-            base = BaseUnits()
-
-        self._x = base.x
-        self._B = base.B
-        self._n = base.n * 1e20
-        self._kBT = base.kBT
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_no_defaults__(self)
 
     @property
-    def x(self):
-        return self._x
-
-    @property
-    def B(self):
-        return self._B
-
-    @property
-    def n(self):
-        """Unit of particle number density in 1/m^3."""
-        return self._n
-
-    @property
-    def kBT(self):
-        return self._kBT
-
-    @property
-    def v(self):
-        """Unit of velocity in m/s."""
-        return self._v
-
-    @property
-    def t(self):
-        """Unit of time in s."""
-        return self._t
-
-    @property
-    def p(self):
-        """Unit of pressure in Pa, equal to B^2/mu0 if velocity_scale='alfvén'."""
-        return self._p
-
-    @property
-    def rho(self):
-        """Unit of mass density in kg/m^3."""
-        return self._rho
-
-    @property
-    def j(self):
-        """Unit of current density in A/m^2."""
-        return self._j
-
-    def derive_units(self, velocity_scale: str = "light", A_bulk: int = None, Z_bulk: int = None, verbose=False):
-        """Derive the remaining units from the base units, velocity scale and bulk species' A and Z."""
-
-        con = ConstantsOfNature()
-
-        # velocity (m/s)
-        if velocity_scale is None:
-            self._v = 1.0
-
-        elif velocity_scale == "light":
-            self._v = con.c
-
-        elif velocity_scale == "alfvén":
-            assert A_bulk is not None, 'Need bulk species to choose velocity scale "alfvén".'
-            self._v = self.B / xp.sqrt(self.n * A_bulk * con.mH * con.mu0)
-
-        elif velocity_scale == "cyclotron":
-            assert Z_bulk is not None, 'Need bulk species to choose velocity scale "cyclotron".'
-            assert A_bulk is not None, 'Need bulk species to choose velocity scale "cyclotron".'
-            self._v = Z_bulk * con.e * self.B / (A_bulk * con.mH) * self.x
-
-        elif velocity_scale == "thermal":
-            assert A_bulk is not None, 'Need bulk species to choose velocity scale "thermal".'
-            assert self.kBT is not None
-            self._v = xp.sqrt(self.kBT * 1000 * con.e / (con.mH * A_bulk))
-
-        # time (s)
-        self._t = self.x / self.v
-
-        # return if no bulk is present
-        if A_bulk is None:
-            self._p = None
-            self._rho = None
-            self._j = None
-        else:
-            # pressure (Pa), equal to B^2/mu0 if velocity_scale='alfvén'
-            self._p = A_bulk * con.mH * self.n * self.v**2
-
-            # mass density (kg/m^3)
-            self._rho = A_bulk * con.mH * self.n
-
-            # current density (A/m^2)
-            self._j = con.e * self.n * self.v
-
-        # print to screen
-        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            units_used = (
-                " m",
-                " T",
-                " m⁻³",
-                "keV",
-                " m/s",
-                " s",
-                " bar",
-                " kg/m³",
-                " A/m²",
-            )
-            print("")
-            for (k, v), u in zip(self.__dict__.items(), units_used):
-                if v is None:
-                    print(f"Unit of {k[1:]} not specified.")
-                else:
-                    print(
-                        f"Unit of {k[1:]}:".ljust(25),
-                        "{:4.3e}".format(v) + u,
-                    )
+    def is_default(self):
+        return all_class_params_are_default(self)
 
 
-@dataclass
-class DerhamOptions:
-    """Options for the Derham spaces. See :ref:`geomFE`.
+NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
+
+
+@dataclass(repr=False)
+class DerhamOptions(OptionsBase):
+    """Set options for the 3D discrete de Rham spaces in parameter/launch files.
+
+    This dataclass controls spline degrees, boundary conditions and quadrature
+    settings used to build the FEEC de Rham sequence. See :ref:`geomFE`.
 
     Parameters
     ----------
-    p : tuple[int]
-        Spline degree in each direction.
+    degree : tuple[int, int, int]
+        Spline degree in each logical direction ``(eta_1, eta_2, eta_3)``.
 
-    spl_kind : tuple[bool]
-        Kind of spline in each direction (True=periodic, False=clamped).
+    bcs : tuple[None | tuple[NonTrivialBC, NonTrivialBC], None | tuple[NonTrivialBC, NonTrivialBC], None | tuple[NonTrivialBC, NonTrivialBC]]
+        Boundary condition selector for each direction.
+        Use ``None`` in a direction for periodic boundaries, or a tuple
+        ``(left, right)`` with entries in ``{"free", "dirichlet"}`` for non-periodic boundaries.
 
-    dirichlet_bc : tuple[tuple[bool]]
-        Whether to apply homogeneous Dirichlet boundary conditions (at left or right boundary in each direction).
+    nquads : tuple[int, int, int] | None
+        Number of Gauss-Legendre quadrature points per direction for cell
+        integrals. If ``None``, backend defaults are used.
 
-    nquads : tuple[int]
-        Number of Gauss-Legendre quadrature points in each direction (default = p, leads to exact integration of degree 2p-1 polynomials).
+    nquads_proj : tuple[int, int, int] | None
+        Number of Gauss-Legendre quadrature points per direction for geometric
+        projector/histopolation integrals. If ``None``, backend defaults are
+        used.
 
-    nq_pr : tuple[int]
-        Number of Gauss-Legendre quadrature points in each direction for geometric projectors (default = p+1, leads to exact integration of degree 2p+1 polynomials).
-
-    polar_ck : PolarRegularity
-        Smoothness at a polar singularity at eta_1=0 (default -1 : standard tensor product splines, OR 1 : C1 polar splines)
+    polar_splines : bool
+        Smoothness at a possible polar singularity at ``eta_1 = 0``.
+        ``False`` gives standard tensor-product splines, ``True`` gives C1 polar
+        splines.
 
     local_projectors : bool
-        Whether to build the local commuting projectors based on quasi-inter-/histopolation.
+        Whether to build local commuting projectors based on
+        quasi-inter-/histopolation.
     """
 
-    p: tuple = (1, 1, 1)
-    spl_kind: tuple = (True, True, True)
-    dirichlet_bc: tuple = ((False, False), (False, False), (False, False))
-    nquads: tuple = None
-    nq_pr: tuple = None
-    polar_ck: PolarRegularity = -1
+    degree: tuple[int, int, int] = (1, 1, 1)
+    bcs: tuple[
+        None | tuple[NonTrivialBC, NonTrivialBC],
+        None | tuple[NonTrivialBC, NonTrivialBC],
+        None | tuple[NonTrivialBC, NonTrivialBC],
+    ] = (None, None, None)
+    nquads: tuple[int, int, int] | None = None
+    nquads_proj: tuple[int, int, int] | None = None
+    polar_splines: bool = False
     local_projectors: bool = False
 
     def __post_init__(self):
-        check_option(self.polar_ck, PolarRegularity)
+        for bc in self.bcs:
+            if bc is not None:
+                assert isinstance(bc, tuple) and len(bc) == 2, (
+                    "Boundary conditions must be given as a tuple (left, right) for each direction."
+                )
+                check_option(bc[0], LiteralOptions.OptsNonTrivialBoundaryCondition)
+                check_option(bc[1], LiteralOptions.OptsNonTrivialBoundaryCondition)
+
+    # def __str__(self):
+    #     for k, v in self.__dict__.items():
+    #         logger.info(f"{k + ':':<20}{v}")
+    #     return ""
+
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_no_defaults__(self)
+
+    def __repr_all_stacked__(self):
+        return __dataclass_repr_all_stacked__(self)
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
 
 
-@dataclass
-class FieldsBackground:
-    """Options for backgrounds in configuration (=position) space.
+@dataclass(repr=False)
+class FieldsBackground(OptionsBase):
+    """Set options for static fluid backgrounds/equilibria in parameter/launch files.
 
     Parameters
     ----------
@@ -300,17 +281,24 @@ class FieldsBackground:
         Name of the method in :class:`~struphy.fields_background.base.FluidEquilibrium` that should be the background.
     """
 
-    type: BackgroundTypes = "LogicalConst"
+    type: LiteralOptions.BackgroundTypes = "LogicalConst"
     values: tuple = (1.5, 0.7, 2.4)
     variable: str = None
 
     def __post_init__(self):
-        check_option(self.type, BackgroundTypes)
+        check_option(self.type, LiteralOptions.BackgroundTypes)
+
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_no_defaults__(self)
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
 
 
-@dataclass
-class EnvironmentOptions:
-    """Environment options for launching run on current architecture
+@dataclass(repr=False)
+class EnvironmentOptions(OptionsBase):
+    """Set environment options for launching run on current architecture
     (these options do not influence the simulation result).
 
     Parameters
@@ -357,15 +345,17 @@ class EnvironmentOptions:
     def __post_init__(self):
         self.path_out: str = os.path.join(self.out_folders, self.sim_folder)
 
-    def __repr__(self):
-        for k, v in self.__dict__.items():
-            print(f"{k}:".ljust(20), v)
+    # def __str__(self):
+    #     for k, v in self.__dict__.items():
+    #         logger.info(f"{k + ':':<20}{v}")
+    #     return ""
 
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_no_defaults__(self)
 
-def check_option(opt, options):
-    """Check if opt is contained in options; if opt is a list, checks for each element."""
-    opts = get_args(options)
-    if not isinstance(opt, list):
-        opt = [opt]
-    for o in opt:
-        assert o in opts, f"Option '{o}' is not in {opts}."
+    def __repr_all_stacked__(self):
+        return __dataclass_repr_all_stacked__(self)
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)

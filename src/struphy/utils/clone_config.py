@@ -1,6 +1,10 @@
+import logging
+
 import cunumpy as xp
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
+
+logger = logging.getLogger("struphy")
 
 
 class CloneConfig:
@@ -52,7 +56,7 @@ class CloneConfig:
             # Ensure the total number of ranks is divisible by the number of clones
             if size % num_clones != 0:
                 if rank == 0:
-                    print(
+                    logger.info(
                         f"Total number of ranks ({size}) is not divisible by the number of clones ({num_clones}).",
                     )
                 MPI.COMM_WORLD.Abort()  # MPI abort instead of sys.exit(1)
@@ -121,7 +125,7 @@ class CloneConfig:
         if "Np" in markers:
             return markers["Np"]
         elif "ppc" in markers:
-            n_cells = xp.prod(self.params["grid"]["Nel"], dtype=int)
+            n_cells = xp.prod(self.params["grid"]["num_elements"], dtype=int)
             return int(markers["ppc"] * n_cells)
         elif "ppb" in markers:
             n_boxes = xp.prod(species["boxes_per_dim"], dtype=int) * self.num_clones
@@ -151,7 +155,7 @@ class CloneConfig:
             )
 
         if rank == 0:
-            print(f"\nNumber of clones: {self.num_clones}")
+            logger.info(f"\nNumber of clones: {self.num_clones}")
             # Generate an ASCII table for each clone
             message = ""
             for clone in range(self.num_clones):
@@ -161,13 +165,12 @@ class CloneConfig:
                 for entry in clone_info:
                     if entry[1] == clone:
                         message += f"{entry[0]:15} | {entry[2]:19} | {entry[3]:21}\n"
-            print(message)
+            logger.info(message)
 
     def print_particle_config(self):
         """Print the particle configuration for each clone."""
         if self.params is None:
-            if MPI.COMM_WORLD.Get_rank() == 0:
-                print("No params in clone_config")
+            logger.info("No params in clone_config")
             return
         else:
             _skip = False
@@ -179,9 +182,8 @@ class CloneConfig:
                         _skip = True
 
             if _skip:
-                if MPI.COMM_WORLD.Get_rank() == 0:
-                    print("No kinetic parameters")
-                    return
+                logger.info("No kinetic parameters")
+                return
 
             assert "grid" in self.params
 
@@ -209,7 +211,7 @@ class CloneConfig:
                     row = f"{i_clone:6} "
                     # Np = self.params["kinetic"][species_name]["markers"]["Np"]
                     Np = self.get_Np_global(species_name)
-                    n_cells_clone = xp.prod(self.params["grid"]["Nel"])
+                    n_cells_clone = xp.prod(self.params["grid"]["num_elements"])
 
                     Np_clone = self.get_Np_clone(Np, clone_id=i_clone)
                     ppc_clone = Np_clone / n_cells_clone
@@ -235,8 +237,7 @@ class CloneConfig:
 
             # Print the final message
             message = header + breakline + rows + breakline + sum_row
-            if MPI.COMM_WORLD.Get_rank() == 0:
-                print(message)
+            logger.info(message)
 
     def free(self):
         """Free the MPI communicators associated with this clone configuration."""

@@ -1,67 +1,99 @@
+import logging
+
 import pytest
 
+import struphy.models.utils as models_utils
+from struphy.models.base import StruphyModel
 from struphy.models.tests import utils_testing as ut
+
+logger = logging.getLogger("struphy")
+
+
+@pytest.mark.models
+def test_all_models_expose_new_doc_api():
+    doc_methods = (
+        "doc_pde",
+        "doc_normalization",
+        "doc_scalar_quantities",
+        "doc_discretization",
+        "doc_long_description",
+        "doc_examples",
+        "doc_use_cases",
+        "doc_cannot_be_used_for",
+    )
+
+    for model_cls in StruphyModel:
+        for method_name in doc_methods:
+            method = getattr(model_cls, method_name, None)
+            assert method is not None, f"{model_cls.__name__} is missing {method_name}"
+
+            if method_name == "doc_discretization":
+                content = method()
+            else:
+                content = method.__doc__
+
+            assert isinstance(content, str) and content.strip(), (
+                f"{model_cls.__name__}.{method_name} did not provide documentation content"
+            )
 
 
 # specific tests
+
+
 @pytest.mark.models
 @pytest.mark.toy
-@pytest.mark.parametrize("model", ut.toy_models)
-def test_toy(
-    model: str,
-    vrbose: bool,
-    nclones: int,
-    show_plots: bool,
-):
-    ut.call_test(model_name=model, module=ut.toy, verbose=vrbose, test_profiling=True)
+def test_toy(test_profiling: bool = True):
+    for model in models_utils.get_models(model_type="Toy"):
+        ut.call_test(
+            model=model(),
+            test_profiling=test_profiling,
+        )
 
 
 @pytest.mark.models
 @pytest.mark.fluid
-@pytest.mark.parametrize("model", ut.fluid_models)
-def test_fluid(
-    model: str,
-    vrbose: bool,
-    nclones: int,
-    show_plots: bool,
-):
-    ut.call_test(model_name=model, module=ut.fluid, verbose=vrbose, test_profiling=True)
+def test_fluid(test_profiling: bool = True):
+    for model in models_utils.get_models(model_type="Fluid"):
+        ut.call_test(
+            model=model(),
+            test_profiling=test_profiling,
+        )
 
 
 @pytest.mark.models
 @pytest.mark.kinetic
-@pytest.mark.parametrize("model", ut.kinetic_models)
-def test_kinetic(
-    model: str,
-    vrbose: bool,
-    nclones: int,
-    show_plots: bool,
-):
-    ut.call_test(model_name=model, module=ut.kinetic, verbose=vrbose, test_profiling=True)
+def test_kinetic(test_profiling: bool = True):
+    for model in models_utils.get_models(model_type="Kinetic"):
+        ut.call_test(
+            model=model(),
+            test_profiling=test_profiling,
+        )
 
 
 @pytest.mark.models
 @pytest.mark.hybrid
-@pytest.mark.parametrize("model", ut.hybrid_models)
-def test_hybrid(
-    model: str,
-    vrbose: bool,
-    nclones: int,
-    show_plots: bool,
-):
-    ut.call_test(model_name=model, module=ut.hybrid, verbose=vrbose, test_profiling=True)
+def test_hybrid(test_profiling: bool = True):
+    for model in models_utils.get_models(model_type="Hybrid"):
+        ut.call_test(
+            model=model(),
+            test_profiling=test_profiling,
+        )
 
 
 @pytest.mark.single
 def test_single_model(
     model_name: str,
-    vrbose: bool,
-    nclones: int,
-    show_plots: bool,
+    test_profiling: bool = True,
 ):
-    ut.call_test(model_name=model_name, module=None, verbose=vrbose, test_profiling=True)
+    logger.info(f"{model_name = }")
+    model = models_utils.get_model_by_name(model_name=model_name)
+    ut.call_test(
+        model=model(),
+        test_profiling=test_profiling,
+    )
 
 
 if __name__ == "__main__":
-    test_toy("Maxwell")
-    test_fluid("LinearMHD")
+    test_toy()
+    test_fluid()
+    test_single_model("Maxwell")

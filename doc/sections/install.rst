@@ -43,6 +43,7 @@ Some Linux/MacOS environments on which Struphy is continuously tested are:
             apt install -y libomp-dev libomp5 
             apt install -y git
             apt install -y pandoc
+            apt install -y libosmesa6 libosmesa6-dev libegl-mesa0
 
     .. tab-item:: OpenSuse
 
@@ -189,7 +190,7 @@ Install and compile
 
         .. code-block::
 
-            git clone git@github.com:struphy-hub/struphy.git
+            git clone --recurse-submodules https://github.com/struphy-hub/struphy.git
             cd struphy
             pip install -e .[dev]
             struphy compile
@@ -199,7 +200,7 @@ Install and compile
 
         .. code-block::
 
-            git clone git@github.com:struphy-hub/struphy.git
+            git clone --recurse-submodules https://github.com/struphy-hub/struphy.git
             cd struphy
             pip install -e .[all]
             struphy compile
@@ -266,7 +267,6 @@ encapsulated from your host machine.
 The container is launched from an `image <https://docs.docker.com/get-started/overview/#docker-objects>`_ 
 which you can download and run immediately, irrespective of your architecture and OS.
 
-`Struphy's Github package registry <https://github.com/orgs/struphy-hub/packages>`_
 
 .. _user_install:
 
@@ -295,13 +295,13 @@ To use Struphy via docker, perform the following steps:
 
         It is recommended to read the `Windows permission requirements <https://docs.docker.com/desktop/windows/permission-requirements/>`_
 
-2. Pull one of the availabale images listed above (< 1 GB in size), for instance::
+2. Pull one of the availabale images, for instance::
 
-    docker pull ghcr.io/struphy-hub/struphy/ubuntu-with-reqs:latest
+    docker pull spossann/ubuntu-for-struphy:main
 
 3. Run the container::
 
-    docker run -it ghcr.io/struphy-hub/struphy/ubuntu-with-reqs:latest
+    docker run -it --rm spossann/ubuntu-for-struphy:main
 
 The option ``-i`` stands for interactive while ``-t`` gives you a terminal.
 
@@ -351,29 +351,62 @@ We recommend to install the following VScode extensions inside the container:
 .. image:: ../pics/vscode_docker_red.png
 
 
-MPCDF computing clusters
-------------------------
+IPP computing clusters
+----------------------
 
-Struphy is periodically tested on the `MPCDF HPC facilities <https://docs.mpcdf.mpg.de/doc/computing/index.html>`_.
+Information about the computing clusters at the `Max Planck Institute for Plasma Physics <https://www.ipp.mpg.de/>`_ can be found in the `IPP computing cluster Wiki <https://hpc.wiki.ipp.mpg.de/available_computing_systems>`_.
 
-A common installation looks like this
 
-1. Load necessary modules and create a virtual environment::
+TOK cluster installation
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+1. Load necessary modules::
 
     module purge
-    module load gcc/14 openmpi/5.0 python-waterboa/2024.06 git pandoc graphviz/8
-    pip install -U virtualenv
-    python3 -m venv <some_name>
-    source <some_name>/bin/activate
-    python3 -m pip install --upgrade pip
+    module load gcc/14 python-waterboa/2025.06 openmpi/5.0 mpi4py/4.1.1
 
-2. Install Struphy by not using the binaries of `mpi4py` (see install methods from above: :ref:`pypi_install` or :ref:`source_install`):
+2. Create and source virtual environment::
+
+    python3 -m venv struphy-env
+    source struphy-env/bin/activate
+
+3. Install the latest release of Struphy (with mpi)::
+
+    pip install -U struphy[mpi]
+    struphy compile
+
+Or, if you want the source code (with tests, examples and tutorials), install from the current ``devel`` branch::
+    
+    git clone --recurse-submodules https://github.com/struphy-hub/struphy.git
+    cd struphy
+    pip install .[mpi]
+    struphy compile
+
+4. When using SLURM, make sure to activate the virtual environment in your BATCH script::
+
+    source struphy-env/bin/activate
+
+
+MPCDF cluster installation
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+1. Load necessary modules::
+
+    module purge
+    module load gcc/14 python-waterboa/2025.06 openmpi/5.0 mpi4py/4.1.1
+
+2. Create and source virtual environment::
+
+    python3 -m venv struphy-env
+    source struphy-env/bin/activate
+
+3. Install Struphy by not using the binaries of `mpi4py` (see install methods from above: :ref:`pypi_install` or :ref:`source_install`):
 
     pip install -U struphy --no-binary mpi4py
 
-3. When using slurm, include the following lines in your BATCH script::
+4. When using SLURM, make sure to activate the virtual environment in your BATCH script::
 
-    source <some_name>/bin/activate
+    source struphy-env/bin/activate
 
     OMPI_MCA_mpi_warn_on_fork=0
-    export OMPI_MCA_mpi_warn_on_fork  
+    export OMPI_MCA_mpi_warn_on_fork 

@@ -4,9 +4,6 @@ on:
   pull_request:
     branches:
       - devel
-  push:
-    branches:
-      - devel
   schedule:
     # run at 1 a.m. on Sunday
     - cron: "0 1 * * 0"
@@ -16,65 +13,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-defaults:
-  run:
-    shell: bash
-
-permissions:
-  contents: read
-
 jobs:
-  unit-tests-in-container-with-struphy:
-    runs-on: ubuntu-latest
-
-    container:
-      image: ghcr.io/struphy-hub/struphy/ubuntu-with-struphy:latest
-      credentials:
-        username: spossann
-        password: ${{ secrets.GHCR_TOKEN }}
-
-    steps:
-      - name: Check for dockerenv file
-        run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
-
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Check .testmondata 1
-        run: |
-          ls .testmon* || echo "No .testmondata"
-
-      - name: Setup cache for testmon
-        uses: actions/cache@v4
-        with:
-          path: |
-            .testmondata-unit
-          key: testmon-unit-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
-          restore-keys: |
-            testmon-unit-${{ github.ref_name }}-${{ github.event.number }}-
-            testmon-unit-${{ github.ref_name }}
-            testmon-unit-devel
-            testmon-unit-
-
-      - name: Check .testmondata 2
-        run: |
-          ls .testmon* || echo "No .testmondata"
-
-      - name: Install Struphy in Container
-        uses: ./.github/actions/install/struphy_in_container
-
-      - name: Compile Struphy
-        run: |
-          source /struphy_c_/env_c_/bin/activate
-          struphy compile
-
-      - name: Run unit tests
-        shell: bash
-        env:
-          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit
-        run: |
-          source /struphy_c_/env_c_/bin/activate
-          struphy compile --status
-          pip show mpi4py
-          pip uninstall -y mpi4py
-          struphy test unit
+  unit-test-serial:
+    uses: ./.github/workflows/reusable-unit-testing.yml
+    with:
+      os: ubuntu-latest
+      n-procs: 1
+    secrets:
+      ghcr-token: ${{ secrets.GHCR_TOKEN }}

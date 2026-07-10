@@ -1,5 +1,7 @@
 name: "Clone and install struphy"
 
+description: 
+
 runs:
   using: composite
   steps:
@@ -9,6 +11,7 @@ runs:
       run: |
         pip install --upgrade pip
         pip uninstall -y gvec
-        pip install -e ".[dev,mpi,doc]"
+        pip install -U --upgrade-strategy eager -e ".[phys,mpi]"
+        pip install -e ".[dev,doc]" 
         pip list
         struphy -h

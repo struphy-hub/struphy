@@ -1,0 +1,16 @@
+name: Read Struphy version from pyproject.toml
+
+description: Reads the version of struphy from the pyproject.toml file and sets it as an environment variable STRUPHY_VERSION.
+
+runs:
+  using: composite
+  steps:
+    - name: Install struphy
+      shell: bash
+      run: |
+        STRUPHY_VERSION=$(grep -m1 '^version = ' pyproject.toml | sed -E 's/version = "([^"]+)"/\1/')
+        if [ -z "$STRUPHY_VERSION" ]; then
+          echo "Failed to parse version from pyproject.toml" >&2
+          exit 1
+        fi
+        echo "STRUPHY_VERSION=$STRUPHY_VERSION" >> "$GITHUB_ENV"

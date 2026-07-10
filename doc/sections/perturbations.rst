@@ -1,6 +1,6 @@
 .. _perturbations:
 
-Perturbation functions
+Perturbation Functions
 ----------------------
 
 .. automodule:: struphy.initial.perturbations

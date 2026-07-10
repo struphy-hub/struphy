@@ -1,3 +1,5 @@
+import logging
+
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilVector
 
@@ -7,6 +9,8 @@ from struphy.fields_background.base import (
     FluidEquilibriumWithB,
     MHDequilibrium,
 )
+
+logger = logging.getLogger("struphy")
 
 
 class ProjectedFluidEquilibrium:
@@ -18,12 +22,15 @@ class ProjectedFluidEquilibrium:
         self._equil = equil
         self._derham = derham
 
+        logger.debug(f"Projecting equilibrium '{equil.__class__.__name__}' into Derham spaces ...")
+        logger.debug(f"{self.derham = }")
+
         # commuting projectors
-        self._P0 = derham.P["0"]
-        self._P1 = derham.P["1"]
-        self._P2 = derham.P["2"]
-        self._P3 = derham.P["3"]
-        self._Pv = derham.P["v"]
+        self._P0 = derham.P0
+        self._P1 = derham.P1
+        self._P2 = derham.P2
+        self._P3 = derham.P3
+        self._Pv = derham.Pv
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
         self._E0T = derham.extraction_ops["0"].transpose()
@@ -31,6 +38,8 @@ class ProjectedFluidEquilibrium:
         self._E2T = derham.extraction_ops["2"].transpose()
         self._E3T = derham.extraction_ops["3"].transpose()
         self._EvT = derham.extraction_ops["v"].transpose()
+
+        logger.debug("... Done.")
 
     @property
     def equil(self):

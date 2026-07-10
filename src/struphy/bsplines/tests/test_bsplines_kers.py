@@ -1,14 +1,24 @@
+import logging
 import time
 
 import cunumpy as xp
 import pytest
 from feectools.ddm.mpi import mpi as MPI
 
+logger = logging.getLogger("struphy")
 
-@pytest.mark.parametrize("Nel", [[8, 9, 10]])
-@pytest.mark.parametrize("p", [[1, 2, 1], [2, 1, 2], [3, 4, 3]])
-@pytest.mark.parametrize("spl_kind", [[False, False, True], [False, True, False], [True, False, False]])
-def test_bsplines_span_and_basis(Nel, p, spl_kind):
+
+@pytest.mark.parametrize("num_elements", [[8, 9, 10]])
+@pytest.mark.parametrize("degree", [[1, 2, 1], [2, 1, 2], [3, 4, 3]])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), ("free", "free"), None),
+        (("free", "free"), None, ("free", "free")),
+        (None, ("free", "free"), ("free", "free")),
+    ],
+)
+def test_bsplines_span_and_basis(num_elements, degree, bcs):
     """
     Compare Struphy and Psydac bsplines kernels for knot spans and basis values computation.
     Print timings.
@@ -19,16 +29,20 @@ def test_bsplines_span_and_basis(Nel, p, spl_kind):
     import struphy.bsplines.bsplines_kernels as bsp
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays as cera
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # knot vectors
-    tn1, tn2, tn3 = derham.Vh_fem["0"].knots
-    td1, td2, td3 = derham.Vh_fem["3"].knots
+    tn1, tn2, tn3 = derham.V0fem.knots
+    td1, td2, td3 = derham.V3fem.knots
 
     # Random points in domain of process
     n_pts = 100
@@ -41,64 +55,64 @@ def test_bsplines_span_and_basis(Nel, p, spl_kind):
     t0 = time.time()
     span1s, span2s, span3s = [], [], []
     for eta1, eta2, eta3 in zip(eta1s, eta2s, eta3s):
-        span1s += [bsp.find_span(tn1, derham.p[0], eta1)]
-        span2s += [bsp.find_span(tn2, derham.p[1], eta2)]
-        span3s += [bsp.find_span(tn3, derham.p[2], eta3)]
+        span1s += [bsp.find_span(tn1, derham.degree[0], eta1)]
+        span2s += [bsp.find_span(tn2, derham.degree[1], eta2)]
+        span3s += [bsp.find_span(tn3, derham.degree[2], eta3)]
     t1 = time.time()
     if rank == 0:
-        print(f"struphy find_span  : {t1 - t0}")
+        logger.info(f"struphy find_span  : {t1 - t0}")
 
     # psydac find_span_p
     t0 = time.time()
     span1s_psy, span2s_psy, span3s_psy = [], [], []
     for eta1, eta2, eta3 in zip(eta1s, eta2s, eta3s):
-        span1s_psy += [bsp_psy.find_span_p(tn1, derham.p[0], eta1)]
-        span2s_psy += [bsp_psy.find_span_p(tn2, derham.p[1], eta2)]
-        span3s_psy += [bsp_psy.find_span_p(tn3, derham.p[2], eta3)]
+        span1s_psy += [bsp_psy.find_span_p(tn1, derham.degree[0], eta1)]
+        span2s_psy += [bsp_psy.find_span_p(tn2, derham.degree[1], eta2)]
+        span3s_psy += [bsp_psy.find_span_p(tn3, derham.degree[2], eta3)]
     t1 = time.time()
     if rank == 0:
-        print(f"psydac find_span_p : {t1 - t0}")
+        logger.info(f"psydac find_span_p : {t1 - t0}")
 
     assert xp.allclose(span1s, span1s_psy)
     assert xp.allclose(span2s, span2s_psy)
     assert xp.allclose(span3s, span3s_psy)
 
     # allocate tmps
-    bn1 = xp.empty(derham.p[0] + 1, dtype=float)
-    bn2 = xp.empty(derham.p[1] + 1, dtype=float)
-    bn3 = xp.empty(derham.p[2] + 1, dtype=float)
+    bn1 = xp.empty(derham.degree[0] + 1, dtype=float)
+    bn2 = xp.empty(derham.degree[1] + 1, dtype=float)
+    bn3 = xp.empty(derham.degree[2] + 1, dtype=float)
 
-    bd1 = xp.empty(derham.p[0], dtype=float)
-    bd2 = xp.empty(derham.p[1], dtype=float)
-    bd3 = xp.empty(derham.p[2], dtype=float)
+    bd1 = xp.empty(derham.degree[0], dtype=float)
+    bd2 = xp.empty(derham.degree[1], dtype=float)
+    bd3 = xp.empty(derham.degree[2], dtype=float)
 
     # struphy b_splines_slim
     val1s, val2s, val3s = [], [], []
     t0 = time.time()
     for eta1, eta2, eta3, span1, span2, span3 in zip(eta1s, eta2s, eta3s, span1s, span2s, span3s):
-        bsp.b_splines_slim(tn1, derham.p[0], eta1, span1, bn1)
-        bsp.b_splines_slim(tn2, derham.p[1], eta2, span2, bn2)
-        bsp.b_splines_slim(tn3, derham.p[2], eta3, span3, bn3)
+        bsp.b_splines_slim(tn1, derham.degree[0], eta1, span1, bn1)
+        bsp.b_splines_slim(tn2, derham.degree[1], eta2, span2, bn2)
+        bsp.b_splines_slim(tn3, derham.degree[2], eta3, span3, bn3)
         val1s += [bn1]
         val2s += [bn2]
         val3s += [bn3]
     t1 = time.time()
     if rank == 0:
-        print(f"bsp.b_splines_slim        : {t1 - t0}")
+        logger.info(f"bsp.b_splines_slim        : {t1 - t0}")
 
     # psydac basis_funs_p
     val1s_psy, val2s_psy, val3s_psy = [], [], []
     t0 = time.time()
     for eta1, eta2, eta3, span1, span2, span3 in zip(eta1s, eta2s, eta3s, span1s, span2s, span3s):
-        bsp_psy.basis_funs_p(tn1, derham.p[0], eta1, span1, bn1)
-        bsp_psy.basis_funs_p(tn2, derham.p[1], eta2, span2, bn2)
-        bsp_psy.basis_funs_p(tn3, derham.p[2], eta3, span3, bn3)
+        bsp_psy.basis_funs_p(tn1, derham.degree[0], eta1, span1, bn1)
+        bsp_psy.basis_funs_p(tn2, derham.degree[1], eta2, span2, bn2)
+        bsp_psy.basis_funs_p(tn3, derham.degree[2], eta3, span3, bn3)
         val1s_psy += [bn1]
         val2s_psy += [bn2]
         val3s_psy += [bn3]
     t1 = time.time()
     if rank == 0:
-        print(f"bsp_psy.basis_funs_p for N: {t1 - t0}")
+        logger.info(f"bsp_psy.basis_funs_p for N: {t1 - t0}")
 
     # compare
     for val1, val1_psy in zip(val1s, val1s_psy):
@@ -115,9 +129,9 @@ def test_bsplines_span_and_basis(Nel, p, spl_kind):
     val1s_d, val2s_d, val3s_d = [], [], []
     t0 = time.time()
     for eta1, eta2, eta3, span1, span2, span3 in zip(eta1s, eta2s, eta3s, span1s, span2s, span3s):
-        bsp.b_d_splines_slim(tn1, derham.p[0], eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, derham.p[1], eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, derham.p[2], eta3, span3, bn3, bd3)
+        bsp.b_d_splines_slim(tn1, derham.degree[0], eta1, span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, derham.degree[1], eta2, span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, derham.degree[2], eta3, span3, bn3, bd3)
         val1s_n += [bn1]
         val2s_n += [bn2]
         val3s_n += [bn3]
@@ -126,7 +140,7 @@ def test_bsplines_span_and_basis(Nel, p, spl_kind):
         val3s_d += [bd3]
     t1 = time.time()
     if rank == 0:
-        print(f"bsp.b_d_splines_slim      : {t1 - t0}")
+        logger.info(f"bsp.b_d_splines_slim      : {t1 - t0}")
 
     # compare
     for val1, val1_psy in zip(val1s_n, val1s_psy):
@@ -141,36 +155,36 @@ def test_bsplines_span_and_basis(Nel, p, spl_kind):
     # struphy d_splines_slim
     span1s, span2s, span3s = [], [], []
     for eta1, eta2, eta3 in zip(eta1s, eta2s, eta3s):
-        span1s += [bsp.find_span(td1, derham.p[0], eta1)]
-        span2s += [bsp.find_span(td2, derham.p[1], eta2)]
-        span3s += [bsp.find_span(td3, derham.p[2], eta3)]
+        span1s += [bsp.find_span(td1, derham.degree[0], eta1)]
+        span2s += [bsp.find_span(td2, derham.degree[1], eta2)]
+        span3s += [bsp.find_span(td3, derham.degree[2], eta3)]
 
     val1s, val2s, val3s = [], [], []
     t0 = time.time()
     for eta1, eta2, eta3, span1, span2, span3 in zip(eta1s, eta2s, eta3s, span1s, span2s, span3s):
-        bsp.d_splines_slim(td1, derham.p[0], eta1, span1, bd1)
-        bsp.d_splines_slim(td2, derham.p[1], eta2, span2, bd2)
-        bsp.d_splines_slim(td3, derham.p[2], eta3, span3, bd3)
+        bsp.d_splines_slim(td1, derham.degree[0], eta1, span1, bd1)
+        bsp.d_splines_slim(td2, derham.degree[1], eta2, span2, bd2)
+        bsp.d_splines_slim(td3, derham.degree[2], eta3, span3, bd3)
         val1s += [bd1]
         val2s += [bd2]
         val3s += [bd3]
     t1 = time.time()
     if rank == 0:
-        print(f"bsp.d_splines_slim        : {t1 - t0}")
+        logger.info(f"bsp.d_splines_slim        : {t1 - t0}")
 
     # psydac basis_funs_p for D-splines
     val1s_psy, val2s_psy, val3s_psy = [], [], []
     t0 = time.time()
     for eta1, eta2, eta3, span1, span2, span3 in zip(eta1s, eta2s, eta3s, span1s, span2s, span3s):
-        bsp_psy.basis_funs_p(td1, derham.p[0] - 1, eta1, span1, bd1)
-        bsp_psy.basis_funs_p(td2, derham.p[1] - 1, eta2, span2, bd2)
-        bsp_psy.basis_funs_p(td3, derham.p[2] - 1, eta3, span3, bd3)
+        bsp_psy.basis_funs_p(td1, derham.degree[0] - 1, eta1, span1, bd1)
+        bsp_psy.basis_funs_p(td2, derham.degree[1] - 1, eta2, span2, bd2)
+        bsp_psy.basis_funs_p(td3, derham.degree[2] - 1, eta3, span3, bd3)
         val1s_psy += [bd1]
         val2s_psy += [bd2]
         val3s_psy += [bd3]
     t1 = time.time()
     if rank == 0:
-        print(f"bsp_psy.basis_funs_p for D: {t1 - t0}")
+        logger.info(f"bsp_psy.basis_funs_p for D: {t1 - t0}")
 
     # compare
     for val1, val1_psy in zip(val1s, val1s_psy):

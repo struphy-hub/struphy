@@ -4,9 +4,6 @@ on:
   pull_request:
     branches:
       - devel
-  push:
-    branches:
-      - devel
   schedule:
     # run at 1 a.m. on Sunday
     - cron: "0 1 * * 0"
@@ -39,6 +36,9 @@ jobs:
 
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          submodules: true  # This is crucial!
+          fetch-depth: 5
 
       - name: Check .testmondata 1
         run: |
@@ -64,42 +64,46 @@ jobs:
       - name: Install Struphy in Container
         uses: ./.github/actions/install/struphy_in_container
 
+      - name: Get submodule diff
+        uses: ./.github/actions/submodule-diff
+        with:
+          start-dir: /struphy_fortran_
+
+      - name: Reinstall feectools from submodule
+        if: env.SUBMOD_CHANGED == 'true'
+        uses: ./.github/actions/install/feectools-submodule
+        with:
+          env-name: /struphy_fortran_/env_fortran_
+
       - name: Compile Struphy
-        run: |
-          source /struphy_c_/env_c_/bin/activate
-          struphy compile
+        uses: ./.github/actions/compile
+        with:
+          env-name: /struphy_fortran_/env_fortran_
 
       - name: LinearMHD test
         shell: bash
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
         run: |
-          source /struphy_c_/env_c_/bin/activate
-          struphy test LinearMHD
-
-      - name: Toy test
-        shell: bash
-        env:
-          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
-        run: |
-          source /struphy_c_/env_c_/bin/activate
-          struphy test toy
+          source /struphy_fortran_/env_fortran_/bin/activate
+          pytest -m single -xvs --model-name LinearMHD $STRUPHY_PATH
 
       - name: Model tests
         shell: bash
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
         run: |
-          source /struphy_c_/env_c_/bin/activate
-          struphy test models 
+          source /struphy_fortran_/env_fortran_/bin/activate
+          pytest -x -m models --testmon-forceselect  /struphy_fortran_/src/struphy/models/tests/default_params/ 
 
       - name: Verification tests
         shell: bash
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
         run: |
-          source /struphy_c_/env_c_/bin/activate
-          struphy test verification
+          source /struphy_fortran_/env_fortran_/bin/activate
+          cd /struphy_fortran_/src/struphy
+          pytest -x --testmon models/tests/verification/
 
       - name: Model tests with MPI
         shell: bash
@@ -107,14 +111,14 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model-mpi
         # init .testmondata with non-MPI call
         run: |
-          source /struphy_c_/env_c_/bin/activate
-          struphy test Maxwell
-          struphy test models --mpi 2
+          source /struphy_fortran_/env_fortran_/bin/activate
+          mpirun -n 1 pytest -m single --testmon-forceselect -xs --with-mpi --model-name Maxwell /struphy_fortran_/src/struphy
+          mpirun -oversubscribe -n 2 pytest -x -m models --testmon-forceselect --with-mpi  /struphy_fortran_/src/struphy/models/tests/default_params/
 
       - name: Verification tests with 2 MPI
         shell: bash
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model-mpi
         run: |
-          source /struphy_c_/env_c_/bin/activate
-          struphy test verification --mpi 2
+          source /struphy_fortran_/env_fortran_/bin/activate
+          mpirun --oversubscribe -n 2 pytest -x --testmon --with-mpi  /struphy_fortran_/src/struphy/models/tests/verification/

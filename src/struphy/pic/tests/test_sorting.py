@@ -1,13 +1,17 @@
+import logging
 from time import time
 
 import cunumpy as xp
 import pytest
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy import BoundaryParameters, LoadingParameters, SortingParameters, WeightsParameters, domains
 from struphy.feec.psydac_derham import Derham
-from struphy.geometry import domains
+from struphy.io.options import DerhamOptions
 from struphy.pic.particles import Particles6D
-from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
+from struphy.topology.grids import TensorProductGrid
+
+logger = logging.getLogger("struphy")
 
 
 @pytest.mark.parametrize("nx", [8, 70])
@@ -70,11 +74,16 @@ def test_flattening_3(nx, ny, nz, algo):
                 assert n3n == n3
 
 
-@pytest.mark.parametrize("Nel", [[8, 9, 10]])
-@pytest.mark.parametrize("p", [[2, 3, 4]])
+@pytest.mark.parametrize("num_elements", [[8, 9, 10]])
+@pytest.mark.parametrize("degree", [[2, 3, 4]])
 @pytest.mark.parametrize(
-    "spl_kind",
-    [[False, False, True], [False, True, False], [True, False, True], [True, True, False]],
+    "bcs",
+    [
+        (("free", "free"), ("free", "free"), None),
+        (("free", "free"), None, ("free", "free")),
+        (None, ("free", "free"), None),
+        (None, None, ("free", "free")),
+    ],
 )
 @pytest.mark.parametrize(
     "mapping",
@@ -93,7 +102,7 @@ def test_flattening_3(nx, ny, nz, algo):
     ],
 )
 @pytest.mark.parametrize("Np", [10000])
-def test_sorting(Nel, p, spl_kind, mapping, Np, verbose=False):
+def test_sorting(num_elements, degree, bcs, mapping, Np):
     mpi_comm = MPI.COMM_WORLD
     # assert mpi_comm.size >= 2
     rank = mpi_comm.Get_rank()
@@ -105,7 +114,10 @@ def test_sorting(Nel, p, spl_kind, mapping, Np, verbose=False):
     domain = domain_class(**dom_params)
 
     # DeRham object
-    derham = Derham(Nel, p, spl_kind, comm=mpi_comm)
+
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=mpi_comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs
@@ -114,11 +126,13 @@ def test_sorting(Nel, p, spl_kind, mapping, Np, verbose=False):
     loading_params = LoadingParameters(Np=Np, seed=1607, moments=(0.0, 0.0, 0.0, 1.0, 2.0, 3.0), spatial="uniform")
     boxes_per_dim = (3, 3, 6)
 
+    sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim)
+
     particles = Particles6D(
         comm_world=mpi_comm,
         loading_params=loading_params,
         domain_decomp=domain_decomp,
-        boxes_per_dim=boxes_per_dim,
+        sorting_params=sorting_params,
     )
 
     particles.draw_markers(sort=False)
@@ -129,7 +143,7 @@ def test_sorting(Nel, p, spl_kind, mapping, Np, verbose=False):
     time_end = time()
     time_sorting = time_end - time_start
 
-    print("Rank : {0} | Sorting time : {1:8.6f}".format(rank, time_sorting))
+    logger.info("Rank : {0} | Sorting time : {1:8.6f}".format(rank, time_sorting))
 
     box_markers = particles.markers[:, -2]
     assert all(box_markers[i] <= box_markers[i + 1] for i in range(len(box_markers) - 1))

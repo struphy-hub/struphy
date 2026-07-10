@@ -1,5 +1,7 @@
 "Analytic dispersion relations."
 
+import logging
+
 import cunumpy as xp
 from numpy.polynomial import Polynomial
 from scipy.optimize import fsolve
@@ -7,6 +9,8 @@ from scipy.optimize import fsolve
 from struphy.dispersion_relations.base import ContinuousSpectra1D, DispersionRelations1D
 from struphy.dispersion_relations.utilities import Zplasma
 from struphy.fields_background.equils import set_defaults
+
+logger = logging.getLogger("struphy")
 
 
 class Maxwell1D(DispersionRelations1D):
@@ -20,7 +24,7 @@ class Maxwell1D(DispersionRelations1D):
     Parameters
     ----------
     c : float
-        Speed of light. Remark that :math:`c=1.0` in Struphy units, see :class:`~struphy.models.toy.Maxwell`.
+        Speed of light. Remark that :math:`c=1.0` in Struphy units, see :class:`~struphy.models.Maxwell`.
     """
 
     def __init__(self, c=1.0):
@@ -49,7 +53,7 @@ class Maxwell1D(DispersionRelations1D):
 class MHDhomogenSlab(DispersionRelations1D):
     r"""
     Dispersion relation for linear MHD equations in homogeneous background :math:`(n_0,p_0,\mathbf B_0)`
-    and wave propagation along :math:`z`-axis in Struphy units (see :class:`~struphy.models.fluid.LinearMHD`):
+    and wave propagation along :math:`z`-axis in Struphy units (see :class:`~struphy.models.linear_mhd.LinearMHD`):
 
     .. math::
 
@@ -127,7 +131,7 @@ class MHDhomogenSlab(DispersionRelations1D):
 class ExtendedMHDhomogenSlab(DispersionRelations1D):
     r"""
     Dispersion relation for linear extended MHD equations in homogeneous background :math:`(n_0,p_0,\mathbf B_0)` 
-    and wave propagation along :math:`z`-axis in Struphy units (see :class:`~struphy.models.fluid.LinearExtendedMHD`).
+    and wave propagation along :math:`z`-axis in Struphy units (see :class:`~struphy.models.linear_extended_mhd.LinearExtendedMHD`).
     The linear mode analysis is performed on the following system:
 
     .. math::
@@ -299,7 +303,7 @@ class FluidSlabITG(DispersionRelations1D):
             * self.params["vstar"]
             / self.params["vi"]
         )
-        print(f"{ky_crit =}")
+        logger.info(f"{ky_crit =}")
         self._k_crit["analytic threshold"] = ky_crit
 
         # auxiliary functions
@@ -359,7 +363,7 @@ class ColdPlasma1D(DispersionRelations1D):
             theta = xp.pi / 2
         else:
             theta = xp.arctan(xp.sqrt(self.params["B0x"] ** 2 + self.params["B0y"] ** 2) / self.params["B0z"])
-        print(theta)
+        logger.info(theta)
         cos2 = xp.cos(theta) ** 2
 
         neq = self.params["n0"]

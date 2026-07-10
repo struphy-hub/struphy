@@ -18,7 +18,21 @@ from struphy.utils.pyccel import Pyccelkernel
 
 class Accumulator:
     r"""
-    Struphy accumulation (block) matrices and vectors
+    Approximates integrals of the form
+
+    .. math::
+
+        I_A &= \int_\Omega \int_{\mathbb R^3} \Lambda^\mu_{ijk}(\boldsymbol \eta) \, A^{\mu, \nu}(\boldsymbol \eta, \mathbf v) \, \Lambda^\nu_{mno}(\boldsymbol \eta) \, f^{\textrm{vol}}(\boldsymbol \eta, \mathbf v)\,\mathrm d\mathbf v \textrm d \boldsymbol \eta\,,
+        \\[2mm]
+        I_B &= \int_\Omega \int_{\mathbb R^3} \Lambda^\mu_{ijk}(\boldsymbol \eta) \, B^\mu(\boldsymbol \eta, \mathbf v) \, f^{\textrm{vol}}(\boldsymbol \eta, \mathbf v)\,\mathrm d\mathbf v \textrm d \boldsymbol \eta\,,
+
+    for given weight functions :math:`A^{\mu,\nu}` and :math:`B^\mu` by Monte-Carlo quadrature through the particle distribution function :math:`f^{\textrm{vol}}`:
+
+    .. math::
+
+        f^{\textrm{vol}}(\boldsymbol \eta, \mathbf v) \approx \sum_{p=0}^{N-1} w_p \, \delta(\boldsymbol \eta - \boldsymbol \eta_p) \, \delta(\mathbf v - \mathbf v_p)\,.
+
+    This results in stencil (block) matrices and vectors
 
     .. math::
 
@@ -33,14 +47,12 @@ class Accumulator:
 
     .. math::
 
-        M^{\mu,\nu}_{ijk,mno} &= \sum_{p=0}^{N-1} \Lambda^\mu_{ijk}(\boldsymbol \eta_p) \, A^{\mu,\nu}_p \, \Lambda^\nu_{mno}(\boldsymbol \eta_p) \,,
+        M^{\mu,\nu}_{ijk,mno} &= \sum_{p=0}^{N-1} w_p\, \Lambda^\mu_{ijk}(\boldsymbol \eta_p) \, A^{\mu,\nu}_p \, \Lambda^\nu_{mno}(\boldsymbol \eta_p) \,,
         \\[2mm]
-        V^\mu_{ijk} &= \sum_{p=0}^{N-1} \Lambda^\mu_{ijk}(\boldsymbol \eta_p) \, B^\mu_p \,.
+        V^\mu_{ijk} &= \sum_{p=0}^{N-1} w_p\, \Lambda^\mu_{ijk}(\boldsymbol \eta_p) \, B^\mu_p \,.
 
     Here, :math:`\Lambda^\mu_{ijk}(\boldsymbol \eta_p)` denotes the :math:`ijk`-th basis function
-    of the :math:`\mu`-th component of a Derham space evaluated at the particle position :math:`\boldsymbol \eta_p`,
-    and :math:`A^{\mu,\nu}_p` and :math:`B^\mu_p` are particle-dependent "filling functions",
-    to be defined in the module :mod:`~struphy.pic.accumulation.accum_kernels`.
+    of the :math:`\mu`-th component of a Derham space.
 
     Parameters
     ----------
@@ -145,12 +157,12 @@ class Accumulator:
             # special treatment in model LinearMHDVlasovPC (symmetry=pressure, three BlockVectors are needed)
             if symmetry == "pressure":
                 for _ in range(3):
-                    self._vectors += [BlockVector(self.derham.Vh[self.form])]
+                    self._vectors += [BlockVector(self.derham.coeff_spaces[self.form])]
                     self._vectors_temp += [
-                        BlockVector(self.derham.Vh[self.form]),
+                        BlockVector(self.derham.coeff_spaces[self.form]),
                     ]
                     self._vectors_out += [
-                        BlockVector(self.derham.Vh[self.form]),
+                        BlockVector(self.derham.coeff_spaces[self.form]),
                     ]
 
             # normal treatment (just one vector)
@@ -248,7 +260,6 @@ class Accumulator:
             self._operators[0].assemble(
                 weights=args_control["control_mat"],
                 clear=False,
-                verbose=False,
             )
             mat_finished = True
 
@@ -360,7 +371,7 @@ class Accumulator:
     def init_control_variate(self, mass_ops):
         """Set up the use of noise reduction by control variate."""
 
-        from struphy.feec.projectors import L2Projector
+        from struphy.feec.mass import L2Projector
 
         # L2 projector for dofs
         self._get_L2dofs = L2Projector(self.space_id, mass_ops).get_dofs
@@ -377,7 +388,7 @@ class Accumulator:
         """
         from matplotlib import pyplot as plt
 
-        from struphy.feec.projectors import L2Projector
+        from struphy.feec.mass import L2Projector
 
         # L2 projection
         proj = L2Projector(self.space_id, mass_ops)
@@ -409,7 +420,37 @@ class Accumulator:
 
 class AccumulatorVector:
     r"""
-    Same as :class:`~struphy.pic.accumulation.particles_to_grid.Accumulator` but only for vectors :math:`V`.
+    Approximates integrals of the form
+
+    .. math::
+
+        I_B = \int_\Omega \int_{\mathbb R^3} \Lambda^\mu_{ijk}(\boldsymbol \eta) \, B^\mu(\boldsymbol \eta, \mathbf v) \, f^{\textrm{vol}}(\boldsymbol \eta, \mathbf v)\,\mathrm d\mathbf v \textrm d \boldsymbol \eta\,,
+
+    for a given weight function and :math:`B^\mu` by Monte-Carlo quadrature through the particle distribution function :math:`f^{\textrm{vol}}`:
+
+    .. math::
+
+        f^{\textrm{vol}}(\boldsymbol \eta, \mathbf v) \approx \sum_{p=0}^{N-1} w_p \, \delta(\boldsymbol \eta - \boldsymbol \eta_p) \, \delta(\mathbf v - \mathbf v_p)\,.
+
+    This results in a stencil (block) vector
+
+    .. math::
+
+        V = (V^\mu)_\mu\,,\qquad V^\mu \in \mathbb R^{\mathbb N^\alpha_\mu}\,,
+
+    where :math:`N^\alpha_\mu` denotes the dimension of the :math:`\mu`-th component
+    of the :class:`~struphy.feec.psydac_derham.Derham` space
+    :math:`V_h^\alpha` (:math:`\mu,\nu = 1,2,3` for vector-valued spaces),
+    with entries obtained by summing over all particles :math:`p`,
+
+    .. math::
+
+        V^\mu_{ijk} = \sum_{p=0}^{N-1} w_p\, \Lambda^\mu_{ijk}(\boldsymbol \eta_p) \, B^\mu_p \,.
+
+    Here, :math:`\Lambda^\mu_{ijk}(\boldsymbol \eta_p)` denotes the :math:`ijk`-th basis function
+    of the :math:`\mu`-th component of a Derham space.
+
+    Similar to :class:`~struphy.pic.accumulation.particles_to_grid.Accumulator` but only for vectors :math:`V`.
 
     Parameters
     ----------
@@ -458,29 +499,29 @@ class AccumulatorVector:
 
         if space_id in ("H1", "L2"):
             self._vectors += [
-                StencilVector(self.derham.Vh_fem[self.form].coeff_space),
+                StencilVector(self.derham.fem_spaces[self.form].coeff_space),
             ]
             self._vectors_temp += [
-                StencilVector(self.derham.Vh_fem[self.form].coeff_space),
+                StencilVector(self.derham.fem_spaces[self.form].coeff_space),
             ]
             self._vectors_out += [
-                StencilVector(self.derham.Vh_fem[self.form].coeff_space),
+                StencilVector(self.derham.fem_spaces[self.form].coeff_space),
             ]
 
         elif space_id in ("Hcurl", "Hdiv", "H1vec"):
             self._vectors += [
                 BlockVector(
-                    self.derham.Vh_fem[self.form].coeff_space,
+                    self.derham.fem_spaces[self.form].coeff_space,
                 ),
             ]
             self._vectors_temp += [
                 BlockVector(
-                    self.derham.Vh_fem[self.form].coeff_space,
+                    self.derham.fem_spaces[self.form].coeff_space,
                 ),
             ]
             self._vectors_out += [
                 BlockVector(
-                    self.derham.Vh_fem[self.form].coeff_space,
+                    self.derham.fem_spaces[self.form].coeff_space,
                 ),
             ]
 
@@ -616,13 +657,13 @@ class AccumulatorVector:
     def init_control_variate(self, mass_ops):
         """Set up the use of noise reduction by control variate."""
 
-        from struphy.feec.projectors import L2Projector
+        from struphy.feec.mass import L2Projector
 
         # L2 projector for dofs
         self._get_L2dofs = L2Projector(self.space_id, mass_ops).get_dofs
 
-    def show_accumulated_spline_field(self, mass_ops, eta_direction=0):
-        r"""1D plot of the spline field corresponding to the accumulated vector.
+    def show_accumulated_spline_field(self, mass_ops, eta_direction=(True, False, False), save_L2=False):
+        r"""1 or 2D plot of the spline field corresponding to the accumulated vector.
         The latter can be viewed as the rhs of an L2-projection:
 
         .. math::
@@ -630,32 +671,59 @@ class AccumulatorVector:
             \mathbb M \mathbf a = \sum_p \boldsymbol \Lambda(\boldsymbol \eta_p) * B_p\,.
 
         The FE coefficients :math:`\mathbf a` determine a FE :class:`~struphy.feec.psydac_derham.SplineFunction`.
+
+        :param eta_direction: axes of eta to show accumulation (eta1, eta2, eta3).
         """
+        assert sum(eta_direction) < 3, "Current implementation is only possible with 1 and 2D visualization"
+
         from matplotlib import pyplot as plt
 
-        from struphy.feec.projectors import L2Projector
+        from struphy.feec.mass import L2Projector
 
         # L2 projection
         proj = L2Projector(self.space_id, mass_ops)
         a = proj.solve(self.vectors[0])
+
+        if save_L2:
+            return a
 
         # create field and assign coeffs
         field = self.derham.create_spline_function("accum_field", self.space_id)
         field.vector = a
 
         # plot field
-        eta = xp.linspace(0, 1, 100)
-        if eta_direction == 0:
-            args = (eta, 0.5, 0.5)
-        elif eta_direction == 1:
-            args = (0.5, eta, 0.5)
-        else:
-            args = (0.5, 0.5, eta)
 
-        plt.plot(eta, field(*args, squeeze_out=True))
+        # initialize axis and slicing
+        eta = xp.linspace(0, 1, 100)
+        args = [0.5, 0.5, 0.5]
+
+        # fill slices to plot with eta
+        plt_axis = xp.flatnonzero(eta_direction)
+
+        for idx in plt_axis:
+            args[idx] = eta
+        args = tuple(args)
+
+        # field value at specified axes
+        field_value = field(*args, squeeze_out=True)
+
+        # One-dimensional case
+        if len(plt_axis) == 1:
+            plt.plot(eta, field_value)
+
+            plt.xlabel(rf"$\eta_{plt_axis[0] + 1}$")
+            plt.ylabel("field amplitude")
+
+        # Two-dimensional case
+        elif len(plt_axis) == 2:
+            Eta1, Eta2 = xp.meshgrid(eta, eta, indexing="ij")
+            pcm = plt.pcolor(Eta1, Eta2, field_value)
+
+            plt.colorbar(pcm, label="field amplitude")
+            plt.xlabel(rf"$\eta_{plt_axis[0] + 1}$")
+            plt.ylabel(rf"$\eta_{plt_axis[1] + 1}$")
+
         plt.title(
             f'Spline field accumulated with the kernel "{self.kernel}"',
         )
-        plt.xlabel(rf"$\eta_{eta_direction + 1}$")
-        plt.ylabel("field amplitude")
         plt.show()
