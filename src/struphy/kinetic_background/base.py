@@ -923,7 +923,7 @@ class CanonicalMaxwellian(KineticBackground):
 
     @abstractmethod
     def eval_rc(self, *etas):
-        """Callable function return evaluation points ( :math:`r_c` ) from particle positions ( :math:`\eta_1, \eta_2, \eta_3` ).
+        r"""Callable function return evaluation points ( :math:`r_c` ) from particle positions ( :math:`\eta_1, \eta_2, \eta_3` ).
 
         Parameters
         ----------

@@ -316,7 +316,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         else:
             self._ode_solver(0.0, dt)
-            
+
         # update_weights
         if self.energetic_ions.species.weights_params.control_variate:
             self.energetic_ions.particles.update_weights()

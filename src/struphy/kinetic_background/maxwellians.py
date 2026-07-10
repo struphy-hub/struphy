@@ -9,8 +9,8 @@ from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.fields_background.equils import set_defaults
 from struphy.geometry.base import Domain
 from struphy.initial.base import Perturbation
-from struphy.kinetic_background.base import CanonicalMaxwellian, Maxwellian
 from struphy.io.options import LiteralOptions
+from struphy.kinetic_background.base import CanonicalMaxwellian, Maxwellian
 
 
 class Maxwellian3D(Maxwellian):
@@ -353,7 +353,7 @@ class CanonicalMaxwellian2D(CanonicalMaxwellian):
         vth: tuple[float | Callable, Perturbation] = (1.0, None),
         equil: FluidEquilibriumWithB = None,
         volume_form: bool = True,
-        epsilon: float = 1.,
+        epsilon: float = 1.0,
     ):
         # use setter to store input parameters
         self.params = copy.deepcopy(locals())
@@ -459,7 +459,7 @@ class CanonicalMaxwellian2D(CanonicalMaxwellian):
             absB0 = self.equil.absB0(eta1, eta2, eta3)
 
         # calculate energy
-        energy = 1/2 * vparallel**2 + mu * absB0
+        energy = 1 / 2 * vparallel**2 + mu * absB0
 
         return energy
 
@@ -479,7 +479,7 @@ class CanonicalMaxwellian2D(CanonicalMaxwellian):
             absB0 = self.equil.absB0(*etas)
         else:
             absB0 = self.equil.absB0(eta1, eta2, eta3)
-        psi = self.equil.psi_r(eta1 * (1-a1) + a1)
+        psi = self.equil.psi_r(eta1 * (1 - a1) + a1)
 
         # calculate energy
         energy = self.eval_energy(eta1, eta2, eta3, vparallel, mu)

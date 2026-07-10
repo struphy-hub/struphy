@@ -491,7 +491,7 @@ class CurrentCoupling5DGradB(Propagator):
 
                 # calculate u^{n+1}
                 u_new += ku * dt * self.options.butcher.b[stage]
-                
+
                 u_new.update_ghost_regions()
 
                 if self.options.solver_params.info and MPI.COMM_WORLD.Get_rank() == 0:

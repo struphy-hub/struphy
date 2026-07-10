@@ -414,12 +414,6 @@ class Particles(metaclass=ABCMeta):
         pass
 
     @property
-    @abstractmethod
-    def vdim(self):
-        """Dimension of the velocity space."""
-        pass
-
-    @property
     def n_cols_diagnostics(self):
         """Number of columns for storing diagnostics for each marker."""
         return self._n_cols_diagnostics
