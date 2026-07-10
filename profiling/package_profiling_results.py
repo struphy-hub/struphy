@@ -244,9 +244,27 @@ def _collect_slurm_environment_variables() -> dict[str, str]:
 
 
 def _collect_hardware_info() -> dict[str, Any]:
-    cluster_name = os.environ.get("SLURM_CLUSTER_NAME")
-    if cluster_name is None:
-        cluster_name = _run_command(["hostname", "-f"])["stdout"] or None
+    whereami_variables = {
+        key: os.environ.get(key)
+        for key in (
+            "MACHINE_NAME",
+            "MACHINE_HOST",
+            "CPU_VENDOR",
+            "CHIP",
+            "GPU_VENDOR",
+            "GPU_NAME",
+            "GPUS_FOUND",
+            "MACHINE_HOSTNAME",
+        )
+    }
+
+    cluster_name = (
+        whereami_variables["MACHINE_NAME"]
+        or whereami_variables["MACHINE_HOST"]
+        or os.environ.get("SLURM_CLUSTER_NAME")
+        or _run_command(["hostname", "-f"])["stdout"]
+        or None
+    )
 
     slurm_nodelist = os.environ.get("SLURM_JOB_NODELIST")
     resolved_nodes: list[str] = []
@@ -259,11 +277,20 @@ def _collect_hardware_info() -> dict[str, Any]:
 
     return {
         "cluster_name": cluster_name,
+        "whereami": whereami_variables,
         "machine_information": {
             "platform": platform.platform(),
             "hostname": _run_command(["hostname"])["stdout"],
             "uname": _run_command(["uname", "-a"])["stdout"],
             "chip_information": _run_command(["lscpu"])["stdout"],
+            "machine_name": whereami_variables["MACHINE_NAME"],
+            "machine_host": whereami_variables["MACHINE_HOST"],
+            "machine_hostname": whereami_variables["MACHINE_HOSTNAME"],
+            "cpu_vendor": whereami_variables["CPU_VENDOR"],
+            "chip": whereami_variables["CHIP"],
+            "gpu_vendor": whereami_variables["GPU_VENDOR"],
+            "gpu_name": whereami_variables["GPU_NAME"],
+            "gpus_found": whereami_variables["GPUS_FOUND"],
         },
         "nodes": {
             "slurm_job_nodelist": slurm_nodelist,

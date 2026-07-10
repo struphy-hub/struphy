@@ -48,6 +48,16 @@ if [[ -z "$RESULTS_ROOT" ]]; then
   fi
 fi
 
+export PATH="${HOME}/.local/bin:${PATH}"
+if ! command -v whereami >/dev/null 2>&1; then
+  curl -fsSL https://raw.githubusercontent.com/max-models/whereami/main/install.sh | bash
+fi
+
+if command -v whereami >/dev/null 2>&1; then
+  # shellcheck disable=SC1090
+  source "$(command -v whereami)"
+fi
+
 python profiling/package_profiling_results.py \
   --results-root "$RESULTS_ROOT" \
   --output-root "$OUTPUT_ROOT"
