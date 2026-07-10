@@ -11,9 +11,9 @@ from slurm_script_generator.squeue import SQueue
 
 @dataclass(frozen=True)
 class ProfilingCase:
+    label: str
     name: str
-    test_case_name: str
-    test_case_description: str
+    description: str
     physics_problem: str
     struphy_model_used: str
     ranks: tuple[int, ...]
@@ -60,7 +60,7 @@ def build_case_commands(case: ProfilingCase, venv_path: Path) -> list[str]:
         "module list",
         f"source {str(activate_path)}",
         'echo "----------------------------------------"',
-        f'echo "Running profiling case: {case.name}"',
+        f'echo "Running profiling case: {case.label}"',
         'echo "----------------------------------------"',
         f'mkdir -p "{case.output_root}"',
         f'cp "{case.params_source}" "{case.output_root / "parameters.py"}"',
@@ -71,7 +71,7 @@ def build_case_commands(case: ProfilingCase, venv_path: Path) -> list[str]:
         commands.extend(
             [
                 "",
-                f'echo "Running {case.name} with {ntasks} MPI ranks"',
+                f'echo "Running {case.label} with {ntasks} MPI ranks"',
                 (
                     f'mpirun -n {ntasks} python profiling/run_diocotron.py '
                     f'{ntasks} --out-root "{case.output_root}"'
@@ -85,7 +85,7 @@ def build_case_commands(case: ProfilingCase, venv_path: Path) -> list[str]:
         [
             "",
             'echo "----------------------------------------"',
-            f'echo "Completed profiling case: {case.name}"',
+            f'echo "Completed profiling case: {case.label}"',
             'echo "----------------------------------------"',
             '# Postprocessing comparison plots',
             (
@@ -134,9 +134,9 @@ def main() -> None:
 
     cases = [
         ProfilingCase(
-            name="diocotron_poisson_scaling",
-            test_case_name="Diocotron Poisson scaling",
-            test_case_description="Scaling test running the diocotron profiling setup with multiple MPI ranks.",
+            label="diocotron_poisson_scaling",
+            name="Diocotron Poisson scaling",
+            description="Scaling test running the diocotron profiling setup with multiple MPI ranks.",
             physics_problem="Diocotron instability in a non-neutral plasma.",
             struphy_model_used="ToyDrift",
             ranks=(1, 2, 4, 8),
@@ -157,7 +157,7 @@ def main() -> None:
 
         # TOK
         # script = SlurmScript(
-        #     job_name=f"profiling_{case.name}",
+        #     job_name=f"profiling_{case.label}",
         #     nodes=1,
         #     ntasks_per_node=max(case.ranks),
         #     cpus_per_task=1,
@@ -174,7 +174,7 @@ def main() -> None:
 
         # Pitagora
         script = SlurmScript(
-            job_name=f"profiling_{case.name}",
+            job_name=f"profiling_{case.label}",
             nodes=1,
             ntasks_per_node=max(case.ranks),
             cpus_per_task=1,
@@ -191,9 +191,9 @@ def main() -> None:
 
         print(script)
 
-        output_path = repo_root / f"job_profile_{case.name}.sh"
+        output_path = repo_root / f"job_profile_{case.label}.sh"
         slurm_variables = {
-            "job_name": f"profiling_{case.name}",
+            "job_name": f"profiling_{case.label}",
             "nodes": 1,
             "ntasks_per_node": max(case.ranks),
             "cpus_per_task": 1,
@@ -209,9 +209,9 @@ def main() -> None:
         (case.output_root / "profiling_case_info.json").write_text(
             json.dumps(
                 {
-                    "test_case_identifier": case.name,
-                    "test_case_name": case.test_case_name,
-                    "test_case_description": case.test_case_description,
+                    "test_case_identifier": case.label,
+                    "test_case_name": case.name,
+                    "test_case_description": case.description,
                     "physics_problem": case.physics_problem,
                     "struphy_model_used": case.struphy_model_used,
                     "pyccel_language": case.pyccel_language,
@@ -229,7 +229,7 @@ def main() -> None:
 
         SQueue().wait_until_done(job_id=job_id, poll_interval=10)
 
-        print(f"Profiling case '{case.name}' completed. Output saved in {case.output_root}")
+        print(f"Profiling case '{case.label}' completed. Output saved in {case.output_root}")
 
     latest_results_root_path.write_text(str(run_results_root), encoding="utf-8")
     print(f"Updated latest profiling root marker: {latest_results_root_path}")
