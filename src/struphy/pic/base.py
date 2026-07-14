@@ -454,9 +454,76 @@ class Particles(metaclass=ABCMeta):
         return self._n_rows
 
     @property
+    def mean_velocity_index(self):
+        """Index in marker array where mean velocity for noslip BC is stored."""
+        return self._mean_velocity_index
+
+    @property
+    def index(self):
+        """Dict holding the column indices referring to specific marker parameters (coordinates)."""
+        out = {}
+        out["pos"] = slice(0, 3)  # positions
+        out["vel"] = slice(3, 3 + self.vdim)  # velocities
+        out["coords"] = slice(0, 3 + self.vdim)  # phasespace_coords
+        out["com"] = {}
+        out["com"]["6D"] = slice(12, 15)  # constants of motion (Particles6D)
+        out["com"]["5D"] = slice(8, 11)  # constants of motion (Particles5D)
+        out["pos+energy"] = {}
+        out["pos+energy"]["6D"] = slice(9, 13)  # positions + energy
+        out["pos+energy"]["5D"] = list(range(0, 3)) + [8]  # positions + energy
+        out["weights"] = 3 + self.vdim  # weights
+        out["s0"] = 4 + self.vdim  # sampling density at t=0
+        out["w0"] = 5 + self.vdim  # weights at t=0
+        out["box"] = -2  # sorting box index
+        out["ids"] = -1  # marker_inds
+        return out
+
+    @property
+    def f_coords_index(self):
+        """Dict holding the column indices referring to coords of the distribution fuction."""
+        return self._f_coords_index
+
+    @property
+    def f_jacobian_coords_index(self):
+        """Dict holding the column indices referring to coords of the velocity jacobian determinant of the distribution fuction."""
+        return self._f_jacobian_coords_index
+
+    # ------------------------
+    # Marker parameter classes
+    # ------------------------
+
+    @property
+    def loading_params(self) -> LoadingParameters:
+        return self._loading_params
+
+    @property
+    def weights_params(self) -> WeightsParameters:
+        return self._weights_params
+
+    @property
+    def boundary_params(self) -> BoundaryParameters:
+        """Parameters for marker loading."""
+        return self._boundary_params
+
+    @property
+    def sorting_params(self) -> SortingParameters:
+        """Parameters for marker sorting."""
+        return self._sorting_params
+
+    @property
+    def saving_params(self) -> SavingParameters:
+        """Parameters for marker/distribution function saving."""
+        return self._saving_params
+
+    @property
     def loading(self) -> LiteralOptions.OptsLoading:
         """Type of particle loading."""
         return self.loading_params.loading
+
+    @property
+    def spatial(self):
+        """Drawing particles uniformly on the unit cube('uniform') or on the disc('disc')"""
+        return self.loading_params.spatial
 
     @property
     def bc(self):
@@ -473,36 +540,9 @@ class Particles(metaclass=ABCMeta):
         """List of boundary conditions for sph evaluation in each direction."""
         return self._bc_sph
 
-    @property
-    def mean_velocity_index(self):
-        """Index in marker array where mean velocity for noslip BC is stored."""
-        return self._mean_velocity_index
-
-    @property
-    def Np(self):
-        """Total number of markers/particles, from user input."""
-        return self._Np
-
-    @property
-    def Np_per_clone(self):
-        """Array where i-th entry corresponds to the number of loaded particles on clone i.
-        (This is not necessarily the number of valid markers per clone, see self.n_mks_on_each_clone)."""
-        return self._Np_per_clone
-
-    @property
-    def ppc(self):
-        """Particles per cell (=Np if no grid is present)."""
-        return self._ppc
-
-    @property
-    def ppb(self):
-        """Particles per sorting box."""
-        return self._ppb
-
-    @property
-    def bufsize(self):
-        """Relative size of buffer in markers array."""
-        return self._bufsize
+    # -----------------------------------------
+    # MPI decomposition and clone configuration
+    # -----------------------------------------
 
     @property
     def mpi_comm(self):
@@ -535,90 +575,6 @@ class Particles(metaclass=ABCMeta):
         return self._clone_id
 
     @property
-    def background(self) -> KineticBackground:
-        """Kinetic background."""
-        return self._background
-
-    @property
-    def perturbations(self) -> dict[str, Perturbation]:
-        """Kinetic perturbations, keys are the names of moments of the distribution function ("n", "u1", etc.)."""
-        return self._perturbations
-
-    @property
-    def loading_params(self) -> LoadingParameters:
-        return self._loading_params
-
-    @property
-    def weights_params(self) -> WeightsParameters:
-        return self._weights_params
-
-    @property
-    def boundary_params(self) -> BoundaryParameters:
-        """Parameters for marker loading."""
-        return self._boundary_params
-
-    @property
-    def sorting_params(self) -> SortingParameters:
-        """Parameters for marker sorting."""
-        return self._sorting_params
-
-    @property
-    def reject_weights(self):
-        """Whether to reect weights below threshold."""
-        return self.weights_params.reject_weights
-
-    @property
-    def threshold(self):
-        """Threshold for rejecting weights."""
-        return self.weights_params.threshold
-
-    @property
-    def boxes_per_dim(self):
-        """Tuple, number of sorting boxes per dimension."""
-        return self._boxes_per_dim
-
-    @property
-    def equation_params(self):
-        """Parameters appearing in model equation due to Struphy normalization."""
-        return self._equation_params
-
-    @property
-    def initial_condition(self) -> KineticBackground:
-        """Kinetic initial condition"""
-        return self._initial_condition
-
-    @property
-    def f_init(self):
-        """Callable initial condition (background + perturbation).
-        For kinetic models this is a Maxwellian.
-        For SPH models this is a :class:`~struphy.fields_background.base.FluidEquilibrium`."""
-        assert hasattr(self, "_f_init"), AttributeError(
-            'The method "_set_initial_condition" has not yet been called.',
-        )
-        return self._f_init
-
-    @property
-    def u_init(self):
-        """Callable initial condition (background + perturbation) for the Cartesian velocity
-        in SPH models."""
-        assert hasattr(self, "_u_init"), AttributeError(
-            'The method "_set_initial_condition" has not yet been called.',
-        )
-        return self._u_init
-
-    @property
-    def f0(self) -> Maxwellian:
-        assert hasattr(self, "_f0"), AttributeError(
-            "No background distribution available, please run self._set_background_function()",
-        )
-        return self._f0
-
-    @property
-    def control_variate(self):
-        """Boolean for whether to use the :ref:`control_var` during time stepping."""
-        return self.weights_params.control_variate
-
-    @property
     def domain_array(self):
         """
         A 2d array[float] of shape (comm.Get_size(), 9). The row index denotes the process number and
@@ -641,6 +597,36 @@ class Particles(metaclass=ABCMeta):
         """Number of MPI processes in each dimension."""
         return self._nprocs
 
+    # --------------------------------
+    # Markers and their data structure
+    # --------------------------------
+
+    @property
+    def Np(self):
+        """Total number of markers/particles, from user input."""
+        return self._Np
+
+    @property
+    def Np_per_clone(self):
+        """Array where i-th entry corresponds to the number of loaded particles on clone i.
+        (This is not necessarily the number of valid markers per clone, see self.n_mks_on_each_clone)."""
+        return self._Np_per_clone
+
+    @property
+    def ppc(self):
+        """Particles per cell (=Np if no grid is present)."""
+        return self._ppc
+
+    @property
+    def ppb(self):
+        """Particles per sorting box."""
+        return self._ppb
+
+    @property
+    def bufsize(self):
+        """Relative size of buffer in markers array."""
+        return self._bufsize
+    
     @property
     def n_mks_load(self):
         """Array of number of markers on each process at loading stage"""
@@ -687,21 +673,6 @@ class Particles(metaclass=ABCMeta):
         return self.markers[self.valid_mks]
 
     @property
-    def domain(self):
-        """From :mod:`struphy.geometry.domains`."""
-        return self._domain
-
-    @property
-    def equil(self):
-        """From :mod:`struphy.fields_background.equils`."""
-        return self._equil
-
-    @property
-    def projected_equil(self):
-        """MHD equilibrium projected on 3d Derham sequence with commuting projectors."""
-        return self._projected_equil
-
-    @property
     def lost_markers(self):
         """Array containing the last infos of removed markers"""
         return self._lost_markers
@@ -710,26 +681,6 @@ class Particles(metaclass=ABCMeta):
     def n_lost_markers(self):
         """Number of removed particles."""
         return self._n_lost_markers
-
-    @property
-    def index(self):
-        """Dict holding the column indices referring to specific marker parameters (coordinates)."""
-        out = {}
-        out["pos"] = slice(0, 3)  # positions
-        out["vel"] = slice(3, 3 + self.vdim)  # velocities
-        out["coords"] = slice(0, 3 + self.vdim)  # phasespace_coords
-        out["com"] = {}
-        out["com"]["6D"] = slice(12, 15)  # constants of motion (Particles6D)
-        out["com"]["5D"] = slice(8, 11)  # constants of motion (Particles5D)
-        out["pos+energy"] = {}
-        out["pos+energy"]["6D"] = slice(9, 13)  # positions + energy
-        out["pos+energy"]["5D"] = list(range(0, 3)) + [8]  # positions + energy
-        out["weights"] = 3 + self.vdim  # weights
-        out["s0"] = 4 + self.vdim  # sampling density at t=0
-        out["w0"] = 5 + self.vdim  # weights at t=0
-        out["box"] = -2  # sorting box index
-        out["ids"] = -1  # marker_inds
-        return out
 
     @property
     def valid_mks(self):
@@ -853,27 +804,7 @@ class Particles(metaclass=ABCMeta):
         assert isinstance(new, xp.ndarray)
         assert new.shape == (self.n_mks_loc,)
         self._markers[self.valid_mks, self.index["ids"]] = new
-
-    @property
-    def is_volume_form(self):
-        """Tuple of size 2 for (position, velocity), defining the p-form representation of f_init: True means volume-form, False means 0-form."""
-        return self._is_volume_form
-
-    @property
-    def spatial(self):
-        """Drawing particles uniformly on the unit cube('uniform') or on the disc('disc')"""
-        return self.loading_params.spatial
-
-    @property
-    def f_coords_index(self):
-        """Dict holding the column indices referring to coords of the distribution fuction."""
-        return self._f_coords_index
-
-    @property
-    def f_jacobian_coords_index(self):
-        """Dict holding the column indices referring to coords of the velocity jacobian determinant of the distribution fuction."""
-        return self._f_jacobian_coords_index
-
+        
     @property
     def f_coords(self):
         """Coordinates of the distribution function."""
@@ -883,11 +814,6 @@ class Particles(metaclass=ABCMeta):
     def f_coords(self, new):
         assert isinstance(new, xp.ndarray)
         self.markers[self.valid_mks, self.f_coords_index] = new
-
-    @property
-    def args_markers(self):
-        """Collection of mandatory arguments for pusher kernels."""
-        return self._args_markers
 
     @property
     def f_jacobian_coords(self):
@@ -911,6 +837,85 @@ class Particles(metaclass=ABCMeta):
             self.markers[~self.holes, self.f_jacobian_coords_index] = new
 
     @property
+    def args_markers(self) -> MarkerArguments:
+        """Collection of mandatory arguments for pusher kernels."""
+        return self._args_markers
+
+    # -------------------------------------------
+    # Initial condition and background -> weights
+    # -------------------------------------------
+
+    @property
+    def background(self) -> KineticBackground:
+        """Kinetic background."""
+        return self._background
+
+    @property
+    def perturbations(self) -> dict[str, Perturbation]:
+        """Kinetic perturbations, keys are the names of moments of the distribution function ("n", "u1", etc.)."""
+        return self._perturbations
+
+    @property
+    def reject_weights(self):
+        """Whether to reect weights below threshold."""
+        return self.weights_params.reject_weights
+
+    @property
+    def threshold(self):
+        """Threshold for rejecting weights."""
+        return self.weights_params.threshold
+
+    @property
+    def initial_condition(self) -> KineticBackground:
+        """Kinetic initial condition"""
+        return self._initial_condition
+
+    @property
+    def f_init(self):
+        """Callable initial condition (background + perturbation).
+        For kinetic models this is a Maxwellian.
+        For SPH models this is a :class:`~struphy.fields_background.base.FluidEquilibrium`."""
+        assert hasattr(self, "_f_init"), AttributeError(
+            'The method "_set_initial_condition" has not yet been called.',
+        )
+        return self._f_init
+
+    @property
+    def u_init(self):
+        """Callable initial condition (background + perturbation) for the Cartesian velocity
+        in SPH models."""
+        assert hasattr(self, "_u_init"), AttributeError(
+            'The method "_set_initial_condition" has not yet been called.',
+        )
+        return self._u_init
+
+    @property
+    def f0(self) -> Maxwellian:
+        assert hasattr(self, "_f0"), AttributeError(
+            "No background distribution available, please run self._set_background_function()",
+        )
+        return self._f0
+
+    @property
+    def is_volume_form(self):
+        """Tuple of size 2 for (position, velocity), defining the p-form representation of f_init: True means volume-form, False means 0-form."""
+        return self._is_volume_form
+
+    @property
+    def control_variate(self):
+        """Boolean for whether to use the :ref:`control_var` during time stepping."""
+        return self.weights_params.control_variate
+
+    # ----------------
+    # Particle sorting
+    # ----------------
+
+    @property
+    def boxes_per_dim(self):
+        """Tuple, number of sorting boxes per dimension."""
+        return self._boxes_per_dim
+    
+    @property
     def sorting_boxes(self):
         if not hasattr(self, "_sorting_boxes"):
             self._initialize_sorting_boxes()
@@ -920,6 +925,34 @@ class Particles(metaclass=ABCMeta):
     def tesselation(self):
         """Tesselation of the current process domain."""
         return self._tesselation
+
+    # -------
+    # Physics
+    # -------
+
+    @property
+    def equation_params(self):
+        """Parameters appearing in model equation due to Struphy normalization."""
+        return self._equation_params
+
+    @property
+    def domain(self):
+        """From :mod:`struphy.geometry.domains`."""
+        return self._domain
+
+    @property
+    def equil(self):
+        """From :mod:`struphy.fields_background.equils`."""
+        return self._equil
+
+    @property
+    def projected_equil(self):
+        """MHD equilibrium projected on 3d Derham sequence with commuting projectors."""
+        return self._projected_equil
+
+    # -------
+    # Methods
+    # -------
 
     @classmethod
     def ker_dct(self):
