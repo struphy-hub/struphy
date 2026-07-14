@@ -48,11 +48,10 @@ from struphy.particles.parameters import (
 from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing import eval_kernels_sph
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
+from struphy.pic.sorting import SortingBoxes
 from struphy.pic.sorting_kernels import (
     assign_box_to_each_particle,
     assign_particles_to_boxes,
-    flatten_index,
-    initialize_neighbours,
     sort_boxed_particles,
 )
 from struphy.pic.sph_eval_kernels import (
@@ -912,7 +911,7 @@ class Particles(metaclass=ABCMeta):
     
     @property
     def sorting_boxes(self):
-        """The :class:`~struphy.pic.base.Particles.SortingBoxes` instance holding the
+        """The :class:`~struphy.pic.sorting.SortingBoxes` instance holding the
         sorting-box data structure used by :meth:`~struphy.pic.base.Particles.put_particles_in_boxes`
         and :meth:`~struphy.pic.base.Particles.do_sort`."""
         if not hasattr(self, "_sorting_boxes"):
@@ -2339,7 +2338,7 @@ class Particles(metaclass=ABCMeta):
             is_domain_boundary["z_m"] = z_l == 0.0
             is_domain_boundary["z_p"] = z_r == 1.0
 
-            self._sorting_boxes = self.SortingBoxes(
+            self._sorting_boxes = SortingBoxes(
                 self.markers.shape,
                 isinstance(self, ParticlesSPH),
                 nx=nboxes[0],
@@ -2772,353 +2771,6 @@ class Particles(metaclass=ABCMeta):
         self.markers[outside_inds, 3:6] = (norm_b_cart * v_parallel).T + new_v_perp.T
 
         return xp.logical_and(1.0 > gc_etas[0], gc_etas[0] > 0.0)
-
-    class SortingBoxes:
-        """Boxes used for the sorting of the particles.
-
-        Boxes are represented as a 2D array of integers, where
-        each line coresponds to one box, and all entries of line i that are not -1
-        correspond to a particles in the i-th box.
-
-        Parameters
-        ----------
-        markers_shape : tuple
-            shape of 2D marker array.
-
-        is_sph : bool
-            True if particle type is "sph".
-
-        nx : int
-            number of boxes in the x direction.
-
-        ny : int
-            number of boxes in the y direction.
-
-        nz : int
-            number of boxes in the z direction.
-
-        bc_sph : list
-            Boundary condition for sph density evaluation.
-            Either 'periodic', 'mirror', 'fixed' or 'noslip' in each direction.
-
-        is_domain_boundary: dict
-            Has two booleans for each direction; True when the boundary of the MPI process is a domain boundary.
-
-        comm : Intracomm
-            MPI communicator or None.
-
-        box_index : int
-            Column index of the particles array to store the box number, counted from
-            the end (e.g. -2 for the second-to-last).
-
-        box_bufsize : float
-            additional buffer space in the size of the boxes"""
-
-        def __init__(
-            self,
-            markers_shape: tuple,
-            is_sph: bool,
-            *,
-            nx: int = 1,
-            ny: int = 1,
-            nz: int = 1,
-            bc_sph: list = None,
-            is_domain_boundary: dict = None,
-            comm: Intracomm = None,
-            box_index: "int" = -2,
-            box_bufsize: "float" = 2.0,
-        ):
-            self._markers_shape = markers_shape
-            self._nx = nx
-            self._ny = ny
-            self._nz = nz
-            self._comm = comm
-            self._box_index = box_index
-            self._box_bufsize = box_bufsize
-
-            if bc_sph is None:
-                bc_sph = ["periodic"] * 3
-            self._bc_sph = bc_sph
-
-            if is_domain_boundary is None:
-                is_domain_boundary = {}
-                is_domain_boundary["x_m"] = True
-                is_domain_boundary["x_p"] = True
-                is_domain_boundary["y_m"] = True
-                is_domain_boundary["y_p"] = True
-                is_domain_boundary["z_m"] = True
-                is_domain_boundary["z_p"] = True
-
-            self._is_domain_boundary = is_domain_boundary
-
-            if comm is None:
-                self._rank = 0
-            else:
-                self._rank = comm.Get_rank()
-
-            self._set_boxes()
-
-            self._communicate = is_sph
-
-            if self.communicate:
-                self._set_boundary_boxes()
-
-        @property
-        def nx(self):
-            return self._nx
-
-        @property
-        def ny(self):
-            return self._ny
-
-        @property
-        def nz(self):
-            return self._nz
-
-        @property
-        def comm(self):
-            return self._comm
-
-        @property
-        def box_index(self):
-            return self._box_index
-
-        @property
-        def boxes(self):
-            if not hasattr(self, "_boxes"):
-                self._set_boxes()
-            return self._boxes
-
-        @property
-        def neighbours(self):
-            if not hasattr(self, "_neighbours"):
-                self._set_boxes()
-            return self._neighbours
-
-        @property
-        def communicate(self):
-            return self._communicate
-
-        @property
-        def is_domain_boundary(self):
-            """Dict with two booleans for each direction (e.g. 'x_m' and 'x_p'); True when the boundary of the MPI process is a domain boundary (0.0 or 1.0)."""
-            return self._is_domain_boundary
-
-        @property
-        def bc_sph(self):
-            """List of boundary conditions for sph evaluation in each direction."""
-            return self._bc_sph
-
-        @property
-        def bc_sph_index_shifts(self):
-            """Dictionary holding the index shifts of box number for ghost particles in each direction."""
-            if not hasattr(self, "_bc_sph_index_shifts"):
-                self._compute_sph_index_shifts()
-            return self._bc_sph_index_shifts
-
-        def _compute_sph_index_shifts(self):
-            """The index shifts are applied to ghost particles to indicate their new box after sending."""
-            self._bc_sph_index_shifts = {}
-            self._bc_sph_index_shifts["x_m"] = flatten_index(self.nx, 0, 0, self.nx, self.ny, self.nz)
-            self._bc_sph_index_shifts["x_p"] = flatten_index(self.nx, 0, 0, self.nx, self.ny, self.nz)
-            self._bc_sph_index_shifts["y_m"] = flatten_index(0, self.ny, 0, self.nx, self.ny, self.nz)
-            self._bc_sph_index_shifts["y_p"] = flatten_index(0, self.ny, 0, self.nx, self.ny, self.nz)
-            self._bc_sph_index_shifts["z_m"] = flatten_index(0, 0, self.nz, self.nx, self.ny, self.nz)
-            self._bc_sph_index_shifts["z_p"] = flatten_index(0, 0, self.nz, self.nx, self.ny, self.nz)
-
-            if self.bc_sph[0] in ("mirror", "fixed", "noslip"):
-                if self.is_domain_boundary["x_m"]:
-                    self._bc_sph_index_shifts["x_m"] = flatten_index(-1, 0, 0, self.nx, self.ny, self.nz)
-                if self.is_domain_boundary["x_p"]:
-                    self._bc_sph_index_shifts["x_p"] = flatten_index(-1, 0, 0, self.nx, self.ny, self.nz)
-
-            if self.bc_sph[1] in ("mirror", "fixed", "noslip"):
-                if self.is_domain_boundary["y_m"]:
-                    self._bc_sph_index_shifts["y_m"] = flatten_index(0, -1, 0, self.nx, self.ny, self.nz)
-                if self.is_domain_boundary["y_p"]:
-                    self._bc_sph_index_shifts["y_p"] = flatten_index(0, -1, 0, self.nx, self.ny, self.nz)
-
-            if self.bc_sph[2] in ("mirror", "fixed", "noslip"):
-                if self.is_domain_boundary["z_m"]:
-                    self._bc_sph_index_shifts["z_m"] = flatten_index(0, 0, -1, self.nx, self.ny, self.nz)
-                if self.is_domain_boundary["z_p"]:
-                    self._bc_sph_index_shifts["z_p"] = flatten_index(0, 0, -1, self.nx, self.ny, self.nz)
-
-        def _set_boxes(self):
-            """ "(Re)set the box structure."""
-            self._n_boxes = (self._nx + 2) * (self._ny + 2) * (self._nz + 2)
-            n_box_in = self._nx * self._ny * self._nz
-
-            n_particles = self._markers_shape[0]
-            n_mkr = int(n_particles / n_box_in) + 1
-            n_cols = round(
-                n_mkr * (1 + 1 / xp.sqrt(n_mkr) + self._box_bufsize),
-            )
-
-            # cartesian boxes
-            self._boxes = xp.zeros((self._n_boxes + 1, n_cols), dtype=int)
-
-            # TODO: there is still a bug here
-            # the row number in self._boxes should not be n_boxes + 1; this is just a temporary fix to avoid an error that I dont understand.
-            # Must be fixed soon!
-
-            self._next_index = xp.zeros((self._n_boxes + 1), dtype=int)
-            self._cumul_next_index = xp.zeros((self._n_boxes + 2), dtype=int)
-            self._neighbours = xp.zeros((self._n_boxes, 27), dtype=int)
-
-            # A particle on box i only sees particles in boxes that belong to neighbours[i]
-            initialize_neighbours(self._neighbours, self.nx, self.ny, self.nz)
-            # logger.info(f"{self._rank = }\n{self._neighbours = }")
-
-            self._swap_line_1 = xp.zeros(self._markers_shape[1])
-            self._swap_line_2 = xp.zeros(self._markers_shape[1])
-
-        def _set_boundary_boxes(self):
-            """Gather all the boxes that are part of a boundary"""
-            gather_x_boxes = self.nx > 1
-            gather_y_boxes = self.ny > 1
-            gather_z_boxes = self.nz > 1
-
-            # x boundary
-            # negative direction
-            self._bnd_boxes_x_m = []
-            # positive direction
-            self._bnd_boxes_x_p = []
-
-            if gather_x_boxes:
-                for j in range(1, self.ny + 1):
-                    for k in range(1, self.nz + 1):
-                        self._bnd_boxes_x_m.append(flatten_index(1, j, k, self.nx, self.ny, self.nz))
-                        self._bnd_boxes_x_p.append(flatten_index(self.nx, j, k, self.nx, self.ny, self.nz))
-
-            logger.debug(f"eta1 boundary on {self._rank =}:\n{self._bnd_boxes_x_m =}\n{self._bnd_boxes_x_p =}")
-
-            # y boundary
-            # negative direction
-            self._bnd_boxes_y_m = []
-            # positive direction
-            self._bnd_boxes_y_p = []
-
-            if gather_y_boxes:
-                for i in range(1, self.nx + 1):
-                    for k in range(1, self.nz + 1):
-                        self._bnd_boxes_y_m.append(flatten_index(i, 1, k, self.nx, self.ny, self.nz))
-                        self._bnd_boxes_y_p.append(flatten_index(i, self.ny, k, self.nx, self.ny, self.nz))
-
-            logger.debug(f"eta2 boundary on {self._rank =}:\n{self._bnd_boxes_y_m =}\n{self._bnd_boxes_y_p =}")
-
-            # z boundary
-            # negative direction
-            self._bnd_boxes_z_m = []
-            # positive direction
-            self._bnd_boxes_z_p = []
-
-            if gather_z_boxes:
-                for i in range(1, self.nx + 1):
-                    for j in range(1, self.ny + 1):
-                        self._bnd_boxes_z_m.append(flatten_index(i, j, 1, self.nx, self.ny, self.nz))
-                        self._bnd_boxes_z_p.append(flatten_index(i, j, self.nz, self.nx, self.ny, self.nz))
-
-            logger.debug(f"eta3 boundary on {self._rank =}:\n{self._bnd_boxes_z_m =}\n{self._bnd_boxes_z_p =}")
-
-            # x-y edges
-            self._bnd_boxes_x_m_y_m = []
-            self._bnd_boxes_x_m_y_p = []
-            self._bnd_boxes_x_p_y_m = []
-            self._bnd_boxes_x_p_y_p = []
-
-            if gather_x_boxes and gather_y_boxes:
-                for k in range(1, self.nz + 1):
-                    self._bnd_boxes_x_m_y_m.append(flatten_index(1, 1, k, self.nx, self.ny, self.nz))
-                    self._bnd_boxes_x_m_y_p.append(flatten_index(1, self.ny, k, self.nx, self.ny, self.nz))
-                    self._bnd_boxes_x_p_y_m.append(flatten_index(self.nx, 1, k, self.nx, self.ny, self.nz))
-                    self._bnd_boxes_x_p_y_p.append(flatten_index(self.nx, self.ny, k, self.nx, self.ny, self.nz))
-
-            logger.debug(
-                (
-                    f"eta1-eta2 edge on {self._rank =}:\n{self._bnd_boxes_x_m_y_m =}"
-                    f"\n{self._bnd_boxes_x_m_y_p =}"
-                    f"\n{self._bnd_boxes_x_p_y_m =}"
-                    f"\n{self._bnd_boxes_x_p_y_p =}"
-                ),
-            )
-
-            # x-z edges
-            self._bnd_boxes_x_m_z_m = []
-            self._bnd_boxes_x_m_z_p = []
-            self._bnd_boxes_x_p_z_m = []
-            self._bnd_boxes_x_p_z_p = []
-
-            if gather_x_boxes and gather_z_boxes:
-                for j in range(1, self.ny + 1):
-                    self._bnd_boxes_x_m_z_m.append(flatten_index(1, j, 1, self.nx, self.ny, self.nz))
-                    self._bnd_boxes_x_m_z_p.append(flatten_index(1, j, self.nz, self.nx, self.ny, self.nz))
-                    self._bnd_boxes_x_p_z_m.append(flatten_index(self.nx, j, 1, self.nx, self.ny, self.nz))
-                    self._bnd_boxes_x_p_z_p.append(flatten_index(self.nx, j, self.nz, self.nx, self.ny, self.nz))
-
-            logger.debug(
-                (
-                    f"eta1-eta3 edge on {self._rank =}:\n{self._bnd_boxes_x_m_z_m =}"
-                    f"\n{self._bnd_boxes_x_m_z_p =}"
-                    f"\n{self._bnd_boxes_x_p_z_m =}"
-                    f"\n{self._bnd_boxes_x_p_z_p =}"
-                ),
-            )
-
-            # y-z edges
-            self._bnd_boxes_y_m_z_m = []
-            self._bnd_boxes_y_m_z_p = []
-            self._bnd_boxes_y_p_z_m = []
-            self._bnd_boxes_y_p_z_p = []
-
-            if gather_y_boxes and gather_z_boxes:
-                for i in range(1, self.nx + 1):
-                    self._bnd_boxes_y_m_z_m.append(flatten_index(i, 1, 1, self.nx, self.ny, self.nz))
-                    self._bnd_boxes_y_m_z_p.append(flatten_index(i, 1, self.nz, self.nx, self.ny, self.nz))
-                    self._bnd_boxes_y_p_z_m.append(flatten_index(i, self.ny, 1, self.nx, self.ny, self.nz))
-                    self._bnd_boxes_y_p_z_p.append(flatten_index(i, self.ny, self.nz, self.nx, self.ny, self.nz))
-
-            logger.debug(
-                (
-                    f"eta2-eta3 edge on {self._rank =}:\n{self._bnd_boxes_y_m_z_m =}"
-                    f"\n{self._bnd_boxes_y_m_z_p =}"
-                    f"\n{self._bnd_boxes_y_p_z_m =}"
-                    f"\n{self._bnd_boxes_y_p_z_p =}"
-                ),
-            )
-
-            # corners
-            self._bnd_boxes_x_m_y_m_z_m = []
-            self._bnd_boxes_x_m_y_m_z_p = []
-            self._bnd_boxes_x_m_y_p_z_m = []
-            self._bnd_boxes_x_p_y_m_z_m = []
-            self._bnd_boxes_x_m_y_p_z_p = []
-            self._bnd_boxes_x_p_y_m_z_p = []
-            self._bnd_boxes_x_p_y_p_z_m = []
-            self._bnd_boxes_x_p_y_p_z_p = []
-
-            if gather_x_boxes and gather_y_boxes and gather_z_boxes:
-                self._bnd_boxes_x_m_y_m_z_m = [flatten_index(1, 1, 1, self.nx, self.ny, self.nz)]
-                self._bnd_boxes_x_m_y_m_z_p = [flatten_index(1, 1, self.nz, self.nx, self.ny, self.nz)]
-                self._bnd_boxes_x_m_y_p_z_m = [flatten_index(1, self.ny, 1, self.nx, self.ny, self.nz)]
-                self._bnd_boxes_x_p_y_m_z_m = [flatten_index(self.nx, 1, 1, self.nx, self.ny, self.nz)]
-                self._bnd_boxes_x_m_y_p_z_p = [flatten_index(1, self.ny, self.nz, self.nx, self.ny, self.nz)]
-                self._bnd_boxes_x_p_y_m_z_p = [flatten_index(self.nx, 1, self.nz, self.nx, self.ny, self.nz)]
-                self._bnd_boxes_x_p_y_p_z_m = [flatten_index(self.nx, self.ny, 1, self.nx, self.ny, self.nz)]
-                self._bnd_boxes_x_p_y_p_z_p = [flatten_index(self.nx, self.ny, self.nz, self.nx, self.ny, self.nz)]
-
-            logger.debug(
-                (
-                    f"corners on {self._rank =}:\n{self._bnd_boxes_x_m_y_m_z_m =}"
-                    f"\n{self._bnd_boxes_x_m_y_m_z_p =}"
-                    f"\n{self._bnd_boxes_x_m_y_p_z_m =}"
-                    f"\n{self._bnd_boxes_x_p_y_m_z_m =}"
-                    f"\n{self._bnd_boxes_x_m_y_p_z_p =}"
-                    f"\n{self._bnd_boxes_x_p_y_m_z_p =}"
-                    f"\n{self._bnd_boxes_x_p_y_p_z_m =}"
-                    f"\n{self._bnd_boxes_x_p_y_p_z_p =}"
-                ),
-            )
 
     def _sort_boxed_particles_numpy(self):
         """Sort the particles by box using numpy.argsort."""
@@ -4550,7 +4202,21 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
 class Tesselation:
     """
-    Make a tesselation of the simulation domain into tiles of equal size.
+    Subdivide each :class:`~struphy.pic.sorting.SortingBoxes` box on the current MPI
+    process into ``tiles_pb`` equally sized, axis-aligned tiles (1 sorting box, hence 1
+    set of tiles, if ``sorting_boxes=None``).
+
+    The tesselation gives a deterministic, evenly spaced set of points inside the process
+    domain: :meth:`draw_markers` places one marker at the midpoint of each tile (used for
+    ``loading="tesselation"``, e.g. deterministic SPH marker loading with ``ppb`` markers per
+    box), and :meth:`cell_averages` integrates a given function over each tile via
+    Gauss-Legendre quadrature (used to initialize marker weights from cell averages of the
+    background distribution).
+
+    The number of tiles per direction is chosen by factorizing ``tiles_pb`` and greedily
+    assigning factors to whichever direction currently has the fewest tiles (see
+    :meth:`get_tiles`), so ``tiles_pb`` should factorize into small primes for a
+    close-to-cubic tile shape.
 
     Parameters
     ----------
@@ -4564,7 +4230,7 @@ class Tesselation:
     domain_array : xp.ndarray
         A 2d array[float] of shape (comm.Get_size(), 9) holding info on the domain decomposition.
 
-    sorting_boxes : Particles.SortingBoxes
+    sorting_boxes : SortingBoxes
         Box info for SPH evaluations.
     """
 
@@ -4574,7 +4240,7 @@ class Tesselation:
         *,
         comm: Intracomm = None,
         domain_array: xp.ndarray = None,
-        sorting_boxes: Particles.SortingBoxes = None,
+        sorting_boxes: SortingBoxes = None,
     ):
         if isinstance(tiles_pb, int):
             self._tiles_pb = tiles_pb
@@ -4627,7 +4293,13 @@ class Tesselation:
         self.get_tiles()
 
     def get_tiles(self):
-        """Compute tesselation of a single sorting box."""
+        """Compute the tesselation of a single sorting box: split ``tiles_pb`` into prime
+        factors and distribute them, one at a time, over the directions marked True in
+        :attr:`dims_mask` (each factor going to the direction with the currently fewest
+        tiles), yielding :attr:`nt_per_dim`. From this, compute the tile breakpoints
+        (:attr:`tile_breaks`), midpoints (:attr:`tile_midpoints`) and volume
+        (:attr:`tile_volume`) within a single sorting box, all expressed relative to the
+        box's own origin (i.e. on ``[0, box_width]`` in each direction)."""
         # factorize tiles per box
         factors = factorint(self.tiles_pb)
         factors_vec = []
@@ -4658,7 +4330,14 @@ class Tesselation:
             self._tile_volume *= tb[1]
 
     def draw_markers(self):
-        """Draw markers on the tile midpoints."""
+        """Place one marker at the midpoint of every tile of every sorting box on the
+        current process, i.e. a deterministic alternative to random marker loading.
+
+        Returns
+        -------
+        eta1, eta2, eta3 : xp.ndarray
+            1d arrays of logical-space marker coordinates, one entry per tile
+            (length :attr:`n_tiles`)."""
         _, eta1 = self._tile_output_arrays()
         eta2 = xp.zeros_like(eta1)
         eta3 = xp.zeros_like(eta1)
@@ -4700,7 +4379,9 @@ class Tesselation:
         return eta1.flatten(), eta2.flatten(), eta3.flatten()
 
     def _get_quad_pts(self, n_quad=None):
-        """Compute the quadrature points and weights in a single tile."""
+        """Compute the Gauss-Legendre quadrature points and weights on a single tile
+        (:attr:`tile_quad_pts`, :attr:`tile_quad_wts`), rescaled from ``[-1, 1]`` to the
+        tile's own extent, i.e. the first tile of :attr:`tile_breaks` in each direction."""
         if n_quad is None:
             n_quad = [1, 1, 1]
         elif isinstance(n_quad, int):
@@ -4715,12 +4396,25 @@ class Tesselation:
             self._tile_quad_wts += [wts[0]]
 
     def cell_averages(self, fun, n_quad=None):
-        """Compute cell averages of fun over all tiles on current process.
+        """Compute the cell average of ``fun`` over every tile on the current process,
+        via Gauss-Legendre quadrature of the given order in each direction.
 
         Parameters
         ----------
-        fun: callable
-            Some callable function.
+        fun : callable
+            Function of (eta1, eta2, eta3) to be averaged; called once per sorting box
+            with meshgrid-shaped arrays of quadrature points.
+
+        n_quad : int | list[int]
+            Number of Gauss-Legendre quadrature points per tile, either the same in all
+            three directions (int) or one value per direction (list of 3 ints).
+            Defaults to 1 point per direction.
+
+        Returns
+        -------
+        out : xp.ndarray
+            3d array of shape ``n_tiles_per_dim * boxes_per_dim`` (one entry per tile on
+            the current process) holding the cell average of ``fun`` over each tile.
         """
         self._get_quad_pts(n_quad=n_quad)
         # logger.info(f'{self.tile_quad_pts = }')
@@ -4761,9 +4455,13 @@ class Tesselation:
         return out
 
     def _tile_output_arrays(self):
-        """Returns two 3d arrays filled with zeros:
-        * the first with one entry for each tile on one sorting box
-        * the second with one entry for each tile on current process
+        """Allocate two 3d arrays filled with zeros, to be filled tile-by-tile and
+        box-by-box in :meth:`draw_markers` and :meth:`cell_averages`:
+
+        * the first, of shape :attr:`nt_per_dim`, holds one entry per tile within a
+          single sorting box;
+        * the second, of shape ``nt_per_dim * boxes_per_dim``, holds one entry per tile
+          on the current process (i.e. the first array tiled over all sorting boxes).
         """
         # self._quad_pts = [xp.zeros((nt, nq)).flatten() for nt, nq in zip(self.nt_per_dim, self.tile_quad_pts)]
         single_box_out = xp.zeros(self.nt_per_dim)
@@ -4771,7 +4469,23 @@ class Tesselation:
         return single_box_out, out
 
     def _get_midpoints(self, i: int, dim: int):
-        """Compute all tile midpoints within one sorting box."""
+        """Compute the tile midpoints within the i-th sorting box in direction dim,
+        i.e. :attr:`tile_midpoints` shifted from the single-box-local frame ``[0,
+        box_width]`` to the process-global frame.
+
+        Parameters
+        ----------
+        i : int
+            Index of the sorting box in direction dim, starting at 0.
+
+        dim : int
+            Direction, either 0, 1, or 2.
+
+        Returns
+        -------
+        xp.ndarray
+            1d array of tile midpoints, length ``nt_per_dim[dim]``.
+        """
         xl = self.starts[dim] + i * self.box_widths[dim]
         return xl + self.tile_midpoints[dim]
 
