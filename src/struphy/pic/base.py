@@ -225,7 +225,6 @@ class Particles(metaclass=ABCMeta):
         # domain decomposition (MPI) and cell information
         self._boxes_per_dim = self.sorting_params.boxes_per_dim
         self._box_bufsize = self.sorting_params.box_bufsize
-        self._mpi_dims_mask = self.sorting_params.dims_mask
         if domain_decomp is None:
             self._domain_array, self._nprocs = self._get_domain_decomp(self.sorting_params.dims_mask)
         else:
@@ -289,7 +288,6 @@ class Particles(metaclass=ABCMeta):
         self._periodic_axes = [axis for axis, b_c in enumerate(bc) if b_c == "periodic"]
         self._reflect_axes = [axis for axis, b_c in enumerate(bc) if b_c == "reflect"]
         self._remove_axes = [axis for axis, b_c in enumerate(bc) if b_c == "remove"]
-        self._bc_refill = bc_refill
 
         bc_sph = boundary_params.bc_sph
         if bc_sph is None:
@@ -309,15 +307,6 @@ class Particles(metaclass=ABCMeta):
 
         # initialize sorting boxes
         self._initialize_sorting_boxes()
-
-        # particle loading parameters
-        self._loading = loading_params.loading
-        self._spatial = loading_params.spatial
-
-        # weights
-        self._reject_weights = weights_params.reject_weights
-        self._threshold = weights_params.threshold
-        self._control_variate = weights_params.control_variate
 
         # background
         if background is None:
@@ -467,7 +456,7 @@ class Particles(metaclass=ABCMeta):
     @property
     def loading(self) -> LiteralOptions.OptsLoading:
         """Type of particle loading."""
-        return self._loading
+        return self.loading_params.loading
 
     @property
     def bc(self):
@@ -477,7 +466,7 @@ class Particles(metaclass=ABCMeta):
     @property
     def bc_refill(self):
         """How to re-enter particles if bc is 'refill'."""
-        return self._bc_refill
+        return self.boundary_params.bc_refill
 
     @property
     def bc_sph(self):
@@ -576,12 +565,12 @@ class Particles(metaclass=ABCMeta):
     @property
     def reject_weights(self):
         """Whether to reect weights below threshold."""
-        return self._reject_weights
+        return self.weights_params.reject_weights
 
     @property
     def threshold(self):
         """Threshold for rejecting weights."""
-        return self._threshold
+        return self.weights_params.threshold
 
     @property
     def boxes_per_dim(self):
@@ -627,7 +616,7 @@ class Particles(metaclass=ABCMeta):
     @property
     def control_variate(self):
         """Boolean for whether to use the :ref:`control_var` during time stepping."""
-        return self._control_variate
+        return self.weights_params.control_variate
 
     @property
     def domain_array(self):
@@ -645,7 +634,7 @@ class Particles(metaclass=ABCMeta):
     def mpi_dims_mask(self):
         """3-list | tuple; True if the dimension is to be used in the domain decomposition (=default for each dimension).
         If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed."""
-        return self._mpi_dims_mask
+        return self.sorting_params.dims_mask
 
     @property
     def nprocs(self):
@@ -873,7 +862,7 @@ class Particles(metaclass=ABCMeta):
     @property
     def spatial(self):
         """Drawing particles uniformly on the unit cube('uniform') or on the disc('disc')"""
-        return self._spatial
+        return self.loading_params.spatial
 
     @property
     def f_coords_index(self):

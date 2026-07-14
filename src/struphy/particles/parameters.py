@@ -133,7 +133,7 @@ class BoundaryParameters:
         'remove' (delete particles), 'reflect' (specular reflection), 'periodic' (wrap around),
         or 'refill' (reload particles).
 
-    bc_refill : list, optional
+    bc_refill : tuple[LiteralOptions.OptsRefillBC], optional
         Refill strategy when 'refill' boundary condition is active. Either 'inner' or 'outer'.
 
     bc_sph : tuple[LiteralOptions.OptsRecontructBC], default=("periodic", "periodic", "periodic")
@@ -146,7 +146,7 @@ class BoundaryParameters:
     """
 
     bc: tuple[LiteralOptions.OptsMarkerBC] = ("periodic", "periodic", "periodic")
-    bc_refill = None
+    bc_refill: tuple[LiteralOptions.OptsRefillBC] | None = None
     bc_sph: tuple[LiteralOptions.OptsRecontructBC] = ("periodic", "periodic", "periodic")
     mean_velocity_index: int | None = None
 
