@@ -231,8 +231,8 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # logger.info(f"{loc_residual = }")
 
         # return the maximum residual across all MPI rank
-        particles._gather_scalar_in_subcomm_array(scalar=loc_residual, out=self.subcom_residual)
-        particles._gather_scalar_in_intercomm_array(scalar=loc_residual, out=self.intercom_residual)
+        particles.gather_scalar_in_subcomm_array(scalar=loc_residual, out=self.subcom_residual)
+        particles.gather_scalar_in_intercomm_array(scalar=loc_residual, out=self.intercom_residual)
 
         return xp.max([xp.max(self.subcom_residual), xp.max(self.intercom_residual)])
 
