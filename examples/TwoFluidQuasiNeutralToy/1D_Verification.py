@@ -8,6 +8,8 @@ from struphy.initial import perturbations
 from struphy.initial.base import GenericPerturbation
 from struphy import Simulation
 from struphy.linear_algebra.solver import SolverParameters
+import logging
+logging.getLogger("struphy").setLevel(logging.DEBUG)
 
 import argparse
 import os

@@ -318,7 +318,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._S21 = self.basis_ops.S21
 
         self._mass_pc = MassMatrixPreconditioner(mass_operator=self._M1)
-        self._M1inv = inverse(self._M1, "pcg", pc=self._mass_pc, tol=1e-6, maxiter=500, recycle=True)
+        self._M1inv = inverse(self._M1, "pcg", pc=self._mass_pc, tol=1e-10, maxiter=1000, recycle=True)
 
         # self._lapl_v0 = (
         #     self._div.T @ self._M3 @ self._div + self._S21.T @ self._curl.T @ self._M2 @ self._curl @ self._S21

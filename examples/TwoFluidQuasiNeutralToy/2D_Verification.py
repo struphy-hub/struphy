@@ -8,6 +8,8 @@ from struphy.initial import perturbations
 from struphy.initial.base import GenericPerturbation
 from struphy import Simulation
 from struphy.linear_algebra.solver import SolverParameters
+import logging
+logging.getLogger("struphy").setLevel(logging.DEBUG)
 
 import argparse
 import os
@@ -239,7 +241,7 @@ model.propagators.qn_full.options = model.propagators.qn_full.Options(
     stab_sigma=sigma,
     source_u=source_function_u,
     source_ue=source_function_ue,
-    solver="uzawa",
+    solver="gmres",
     solver_params=SolverParameters(info=True, tol=tol),
 )
 
