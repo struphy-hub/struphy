@@ -29,7 +29,6 @@ class Particles6D(Particles):
 
     # Class properties
     vdim = 3
-    type = "full_f"
     default_background = maxwellians.Maxwellian3D()
     default_n_cols = {"diagnostics": 0, "aux": 5}
 
@@ -210,9 +209,6 @@ class DeltaFParticles6D(Particles6D):
     A class for kinetic species in full 6D phase space that solve for delta_f = f - f0.
     """
 
-    # Class properties
-    type = "delta_f"
-
     def __post_init__(self):
         self.weights_params.control_variate = False
 
@@ -244,7 +240,6 @@ class Particles5D(Particles):
 
     # Class properties
     vdim = 2
-    type = "full_f"
     default_background = maxwellians.GyroMaxwellian2D()
     default_n_cols = {"diagnostics": 3, "aux": 12}
 
@@ -523,7 +518,6 @@ class Particles3D(Particles):
 
     # Class properties
     vdim = 0
-    type = "full_f"
     default_background = maxwellians.ColdPlasma()
     default_n_cols = {"diagnostics": 0, "aux": 5}
 
@@ -616,7 +610,6 @@ class ParticlesSPH(Particles):
 
     # Class properties
     vdim = 3
-    type = "sph"
     default_background = equils.ConstantVelocity()
     default_n_cols = {"diagnostics": 0, "aux": 24}
 

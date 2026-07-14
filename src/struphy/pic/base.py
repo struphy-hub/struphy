@@ -82,7 +82,6 @@ class Particles(metaclass=ABCMeta):
         # box_bufsize: float = 5.0,
         n_cols_diagnostics: int = None,
         n_cols_aux: int = None,
-        type: str = "full_f",
         name: str = "some_name",
         loading_params: LoadingParameters = None,
         weights_params: WeightsParameters = None,
@@ -125,9 +124,6 @@ class Particles(metaclass=ABCMeta):
         domain_decomp : tuple
             The first entry is a domain_array (see :attr:`~struphy.feec.psydac_derham.Derham.domain_array`) and
             the second entry is the number of MPI processes in each direction.
-
-        type : str
-            Either 'full_f' (default), 'delta_f' or 'sph'.
 
         name : str
             Name of particle species.
@@ -316,10 +312,6 @@ class Particles(metaclass=ABCMeta):
                     self._mean_velocity_index = boundary_params.mean_velocity_index
         self._bc_sph = bc_sph
 
-        # particle type
-        assert type in ("full_f", "delta_f", "sph")
-        self._type = type
-
         # initialize sorting boxes
         self._initialize_sorting_boxes()
 
@@ -362,7 +354,7 @@ class Particles(metaclass=ABCMeta):
             self._initial_condition = initial_condition
 
         # for loading
-        # if self.loading_params["moments"] is None and self.type != "sph" and isinstance(self.bckgr_params, dict):
+        # if self.loading_params["moments"] is None and not isinstance(self, ParticlesSPH) and isinstance(self.bckgr_params, dict):
         self._generate_sampling_moments()
 
         # create buffers for mpi_sort_markers
@@ -379,12 +371,6 @@ class Particles(metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def type(self):
-        """Particle type: 'full_f', 'delta_f' or 'sph'."""
-        pass
-
-    @property
-    @abstractmethod
     def vdim(self):
         """Dimension of the velocity space."""
         pass
@@ -396,6 +382,7 @@ class Particles(metaclass=ABCMeta):
         pass
 
     @property
+    @abstractmethod
     def default_n_cols(self):
         "Dictionary of the form {'diagnostics': 3, 'aux': 12} for default number of columns."
         pass
@@ -1046,13 +1033,8 @@ class Particles(metaclass=ABCMeta):
         self._f0 = self.background
 
     def _set_background_coordinates(self):
-        if self.type == "sph":
-            self._f_coords_index = self.index["coords"]
-            self._f_jacobian_coords_index = self.index["coords"]
-
-        else:
-            self._f_coords_index = self.index["coords"]
-            self._f_jacobian_coords_index = self.index["coords"]
+        self._f_coords_index = self.index["coords"]
+        self._f_jacobian_coords_index = self.index["coords"]
 
     def _n_mks_load_and_Np_per_clone(self):
         """Return two arrays: 1) an array of sub_comm.size where the i-th entry corresponds to the number of markers drawn on process i,
@@ -1139,6 +1121,8 @@ class Particles(metaclass=ABCMeta):
         Hence boxes_per_dim has to be divisible by the number of ranks in each direction.
         """
 
+        from struphy.pic.particles import ParticlesSPH
+
         self._initialized_sorting = False
         if self.boxes_per_dim is not None:
             # split boxes across MPI processes
@@ -1161,7 +1145,7 @@ class Particles(metaclass=ABCMeta):
 
             self._sorting_boxes = self.SortingBoxes(
                 self.markers.shape,
-                self.type == "sph",
+                isinstance(self, ParticlesSPH),
                 nx=nboxes[0],
                 ny=nboxes[1],
                 nz=nboxes[2],
@@ -1243,7 +1227,9 @@ class Particles(metaclass=ABCMeta):
         # self.loading_params["moments"] = new_moments
 
     def _set_initial_condition(self):
-        if self.type != "sph":
+        from struphy.pic.particles import ParticlesSPH
+
+        if not isinstance(self, ParticlesSPH):
             self._f_init = self.initial_condition
             self._u_init = None
         else:
@@ -1506,6 +1492,7 @@ class Particles(metaclass=ABCMeta):
         sort : Bool
             Wether to sort the particules in boxes after initial drawing (only if sorting params were passed)
         """
+        from struphy.pic.particles import ParticlesSPH
 
         # number of markers on the local process at loading stage
         n_mks_load_loc = self.n_mks_load[self.mpi_rank]
@@ -1533,7 +1520,7 @@ class Particles(metaclass=ABCMeta):
         logger.debug(f"{'bc:':<25}{self.bc}")
         logger.debug(f"{'bc_refill:':<25}{self.bc_refill}")
         logger.debug(f"{'loading:':<25}{self.loading}")
-        logger.debug(f"{'type:':<25}{self.type}")
+        logger.debug(f"{'type:':<25}{type(self).__name__}")
         logger.debug(f"{'control_variate:':<25}{self.control_variate}")
         logger.debug(f"{'domain_array[0]:':<25}{self.domain_array[0]}")
         logger.debug(f"{'boxes_per_dim:':<25}{self.boxes_per_dim}")
@@ -1545,7 +1532,7 @@ class Particles(metaclass=ABCMeta):
             self._load_restart()
         elif self.loading == "tesselation":
             self._load_tesselation()
-            if self.type == "sph":
+            if isinstance(self, ParticlesSPH):
                 self._set_initial_condition()
                 self.velocities = xp.array(self.u_init(self.positions)).T
             # set markers ID in last column
@@ -1634,7 +1621,7 @@ class Particles(metaclass=ABCMeta):
                 )
 
             # initial velocities - SPH case: v(0) = u(x(0)) for given velocity u(x)
-            if self.type == "sph":
+            if isinstance(self, ParticlesSPH):
                 self._set_initial_condition()
                 self.velocities = xp.array(self.u_init(self.positions)).T
             else:
@@ -1843,6 +1830,7 @@ class Particles(metaclass=ABCMeta):
         pert_params : dict
             Kinetic perturbation parameters for initial condition.
         """
+        from struphy.pic.particles import ParticlesSPH
 
         if self.loading == "tesselation":
             if not self.is_volume_form[0]:
@@ -1864,14 +1852,14 @@ class Particles(metaclass=ABCMeta):
             if pert_params is not None:
                 self._pert_params = pert_params
 
-            if self.type != "sph":
+            if not isinstance(self, ParticlesSPH):
                 self._set_initial_condition()
 
                 if isinstance(self.f_init, CanonicalMaxwellian):
                     self.save_constants_of_motion()
 
             # evaluate initial distribution function
-            if self.type == "sph":
+            if isinstance(self, ParticlesSPH):
                 f_init = self.f_init(self.positions)
             else:
                 f_init = self.f_init(*self.f_coords.T)
@@ -1913,11 +1901,12 @@ class Particles(metaclass=ABCMeta):
         according to the algorithm in :ref:`control_var`.
         The background :attr:`~struphy.pic.base.Particles.f0` is used for this.
         """
+        from struphy.pic.particles import ParticlesSPH
 
         if xp.size(self.markers_wo_holes_and_ghost) == 0:
             return
 
-        if self.type == "sph":
+        if isinstance(self, ParticlesSPH):
             f0 = self.f0.n0(self.positions)
         else:
             # in case of CanonicalMaxwellian, evaluate constants_of_motion
