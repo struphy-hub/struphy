@@ -51,8 +51,8 @@ class Maxwellian3D(Maxwellian):
 
     @property
     def is_polar(self):
-        """List of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp)."""
-        return [False, False, False]
+        """Tuple of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp)."""
+        return (False, False, False)
 
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
         """Jacobian determinant of the velocity coordinate transformation from Maxwellian6D('cartesian') to Particles6D('cartesian').
@@ -123,7 +123,7 @@ class Maxwellian3D(Maxwellian):
 class GyroMaxwellian2D(Maxwellian):
     r"""A gyrotropic :class:`~struphy.kinetic_background.base.Maxwellian` depending on
     two velocities :math:`(v_\parallel, v_\perp)`, :math:`n=2`,
-    where :math:`v_\parallel = \matbf v \cdot \mathbf b_0` and :math:`v_\perp`
+    where :math:`v_\parallel = \mathbf v \cdot \mathbf b_0` and :math:`v_\perp`
     is the radial component of a polar coordinate system perpendicular
     to the magentic direction :math:`\mathbf b_0`.
 
@@ -175,8 +175,8 @@ class GyroMaxwellian2D(Maxwellian):
 
     @property
     def is_polar(self):
-        """List of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp)."""
-        return [False, True]
+        """Tuple of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp)."""
+        return (False, True)
 
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
         r"""Jacobian determinant of the velocity coordinate transformation from Maxwellian5D('vpara_vperp') to Particles5D('vpara_mu').
@@ -342,60 +342,6 @@ class CanonicalMaxwellian(Maxwellian):
 
         F(\psi_c, \epsilon, \mu) = \frac{n(\psi_c)}{(2\pi)^{3/2}v_\text{th}³(\psi_c)} \text{exp}\left[ - \frac{\epsilon}{v_\text{th}²(\psi_c)}\right].
     """
-
-    @abstractmethod
-    def vth(self, *etas):
-        """Thermal velocities (0-forms).
-
-        Parameters
-        ----------
-        etas : numpy.arrays
-            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-
-        Returns
-        -------
-        A list[float] (background values) or a list[numpy.array] of the evaluated thermal velocities.
-        """
-        pass
-
-    @abstractmethod
-    def eval_energy(self, *etas):
-        """Energy evaluated at given particle positions and velocities."""
-        pass
-
-    @abstractmethod
-    def eval_psic(self, *etas):
-        """Shifted canonical toroidal momentum evaluated at given particle positions and velocities."""
-        pass
-
-    @abstractmethod
-    def eval_rc(self, *etas):
-        r"""Callable function return evaluation points ( :math:`r_c` ) from particle positions ( :math:`\eta_1, \eta_2, \eta_3` ).
-
-        Parameters
-        ----------
-        etas : numpy.arrays
-            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-
-        Returns
-        -------
-        A list[float] (background values) or a list[numpy.array] of the evaluation points (etas).
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def maxw_params(self) -> dict:
-        """Parameters dictionary defining moments of the Maxwellian."""
-
-    def check_maxw_params(self):
-        for k, v in self.maxw_params.items():
-            assert isinstance(k, str)
-            assert isinstance(v, tuple), f"Maxwallian parameter {k} must be tuple, but is {v}"
-            assert len(v) == 2
-
-            assert isinstance(v[0], (float, int, Callable))
-            assert isinstance(v[1], Perturbation) or v[1] is None
 
     @classmethod
     def gaussian(self, e, vth=1.0):
@@ -674,8 +620,8 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
 
     @property
     def is_polar(self):
-        """List of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp)."""
-        return [False, True]
+        """Tuple of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp)."""
+        return (False, True)
 
     @property
     def maxw_params(self):
@@ -903,8 +849,8 @@ class ColdPlasma(Maxwellian):
 
     @property
     def is_polar(self):
-        """List of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp)."""
-        return []
+        """Tuple of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp)."""
+        return ()
 
     @property
     def volume_form(self):

@@ -40,7 +40,7 @@ class KineticBackground(metaclass=ABCMeta):
     @property
     @abstractmethod
     def is_polar(self):
-        """List of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp)."""
+        """Tuple of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp)."""
         pass
 
     @property
@@ -427,7 +427,7 @@ class SumKineticBackground(KineticBackground):
 
     @property
     def is_polar(self):
-        """List of booleans. True if the velocity coordinates are polar coordinates."""
+        """Tuple of booleans. True if the velocity coordinates are polar coordinates."""
         return self._f1.is_polar
 
     @property
@@ -524,7 +524,7 @@ class ScalarMultiplyKineticBackground(KineticBackground):
 
     @property
     def is_polar(self):
-        """List of booleans. True if the velocity coordinates are polar coordinates."""
+        """Tuple of booleans. True if the velocity coordinates are polar coordinates."""
         return self._f.is_polar
 
     @property
@@ -637,12 +637,34 @@ class Maxwellian(KineticBackground):
 
     @classmethod
     def gaussian(self, v, u=0.0, vth=1.0, polar=False, volume_form=False):
-        """1-dim. normal distribution, to which array-valued mean- and thermal velocities can be passed.
+        r"""1-dim. normal distribution, to which array-valued mean- and thermal velocities can be passed.
+
+        If ``polar=False``, this is the standard 1d normal distribution
+
+        .. math::
+
+            G(v) = \frac{1}{\sqrt{2\pi}\,v_{\mathrm{th}}}\exp\left[-\frac{(v-u)^2}{2\,v_{\mathrm{th}}^2}\right]\,.
+
+        If ``polar=True``, :math:`v \geq 0` is treated as the radial coordinate of a polar
+        representation :math:`(v, \theta)` of a 2d isotropic Gaussian velocity space
+        (as used e.g. for :math:`v_\perp` in gyro-/drift-kinetic Maxwellians,
+        with the gyro-angle :math:`\theta` already integrated out):
+
+        .. math::
+
+            G_{\mathrm{polar}}(v) = \frac{1}{v_{\mathrm{th}}^2}\exp\left[-\frac{(v-u)^2}{2\,v_{\mathrm{th}}^2}\right]\,.
+
+        This is normalized such that multiplying by the polar velocity Jacobian :math:`|v|`
+        (``volume_form=True``) and integrating over :math:`v \in [0,\infty)` gives 1; for
+        :math:`u=0` this reduces to the Rayleigh distribution. If ``volume_form=False``,
+        the Jacobian is *not* included, corresponding to the 0-form (density) representation
+        used elsewhere in the discretization; see :attr:`Maxwellian.volume_form`
+        and :attr:`KineticBackground.is_polar`.
 
         Parameters
         ----------
         v : float | array-like
-            Velocity coordinate(s).
+            Velocity coordinate(s); must be non-negative if ``polar=True``.
 
         u : float | array-like
             Mean velocity evaluated at position array.
@@ -651,10 +673,12 @@ class Maxwellian(KineticBackground):
             Thermal velocity evaluated at position array, same shape as u.
 
         polar : bool
-            True if the velocity coordinate is the radial one of polar coordinates (v >= 0).
+            True if the velocity coordinate is the radial one of polar coordinates (v >= 0),
+            e.g. :math:`v_\perp` of a gyro-Maxwellian.
 
         volume_form : bool
             If True, the polar Gaussian is multiplied by the polar velocity Jacobian |v|.
+            Ignored if ``polar=False``.
 
         Returns
         -------
@@ -674,7 +698,7 @@ class Maxwellian(KineticBackground):
 
         return out
 
-    def __call__(self, *args):
+    def __call__(self, eta1, eta2, eta3, *v):
         """Evaluates the Maxwellian distribution function M(etas, v1, ..., vn).
 
         There are two use-cases for this function in the code:
@@ -689,14 +713,17 @@ class Maxwellian(KineticBackground):
 
         Parameters
         ----------
-        *args : array_like
-            Position-velocity arguments in the order eta1, eta2, eta3, v1, ..., vn.
+        eta1, eta2, eta3 : array_like
+            Position arguments.
+        *v : array_like
+            Velocity arguments (for example :math:`(v_\parallel, v_\perp)` for GyroMaxwellians).
 
         Returns
         -------
         f : xp.ndarray
             The evaluated Maxwellian.
         """
+        args = (eta1, eta2, eta3) + v
 
         # Check that all args have the same shape
         shape0 = xp.shape(args[0])
