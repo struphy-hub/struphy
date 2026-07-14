@@ -82,7 +82,6 @@ class Particles(metaclass=ABCMeta):
         # box_bufsize: float = 5.0,
         n_cols_diagnostics: int = None,
         n_cols_aux: int = None,
-        name: str = "some_name",
         loading_params: LoadingParameters = None,
         weights_params: WeightsParameters = None,
         boundary_params: BoundaryParameters = None,
@@ -124,9 +123,6 @@ class Particles(metaclass=ABCMeta):
         domain_decomp : tuple
             The first entry is a domain_array (see :attr:`~struphy.feec.psydac_derham.Derham.domain_array`) and
             the second entry is the number of MPI processes in each direction.
-
-        name : str
-            Name of particle species.
 
         loading_params : LoadingParameters
             Parameterts for particle loading.
@@ -204,7 +200,6 @@ class Particles(metaclass=ABCMeta):
             saving_params = SavingParameters()
 
         # other parameters
-        self._name = name
         self._loading_params = loading_params
         self._weights_params = weights_params
         self._boundary_params = boundary_params
@@ -369,6 +364,10 @@ class Particles(metaclass=ABCMeta):
         # post init
         self.__post_init__()
 
+    # ----------------
+    # Abstract methods
+    # ----------------
+
     @property
     @abstractmethod
     def vdim(self):
@@ -400,6 +399,10 @@ class Particles(metaclass=ABCMeta):
     def s0(self, eta1, eta2, eta3, *v, flat_eval=False, remove_holes=True):
         r"""Marker sampling distribution function :math:`s^0` as 0-form, see :ref:`monte_carlo`."""
         pass
+
+    # ------------------------------------
+    # Columns and indexing of marker array
+    # ------------------------------------
 
     @property
     def n_cols_diagnostics(self):
@@ -460,16 +463,6 @@ class Particles(metaclass=ABCMeta):
             input("\nWarning: marker array not yet created, creating now ...")
             self._allocate_marker_array()
         return self._n_rows
-
-    @property
-    def kinds(self):
-        """Name of the class."""
-        return self.__class__.__name__
-
-    @property
-    def name(self):
-        """Name of the kinetic species in DATA container."""
-        return self._name
 
     @property
     def loading(self) -> LiteralOptions.OptsLoading:
@@ -762,7 +755,6 @@ class Particles(metaclass=ABCMeta):
     @property
     def n_mks_loc(self):
         """Number of valid markers on process (without holes and ghosts)."""
-        # print(f"{self.kinds} on clone {self.clone_id}: counting valid markers: {xp.count_nonzero(self.valid_mks)} valid markers on process {self.mpi_rank} found.")
         return xp.count_nonzero(self.valid_mks)
 
     @property
@@ -1513,7 +1505,6 @@ class Particles(metaclass=ABCMeta):
         )[self._mpi_rank]
 
         logger.debug("\nMARKERS:")
-        logger.debug(f"{'name:':<25}{self.name}")
         logger.debug(f"{'Np:':<25}{self.Np}")
         logger.debug(f"{'ppc:':<25}{self.ppc}")
         logger.debug(f"{'ppb:':<25}{self.ppb}")
