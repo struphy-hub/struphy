@@ -494,10 +494,12 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def loading_params(self) -> LoadingParameters:
+        """Parameters for particle loading."""
         return self._loading_params
 
     @property
     def weights_params(self) -> WeightsParameters:
+        """Parameters for particle weights."""
         return self._weights_params
 
     @property
@@ -882,6 +884,8 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def f0(self) -> Maxwellian:
+        """Callable background distribution function, used as the control variate in
+        :meth:`~struphy.pic.base.Particles.update_weights`."""
         assert hasattr(self, "_f0"), AttributeError(
             "No background distribution available, please run self._set_background_function()",
         )
@@ -908,6 +912,9 @@ class Particles(metaclass=ABCMeta):
     
     @property
     def sorting_boxes(self):
+        """The :class:`~struphy.pic.base.Particles.SortingBoxes` instance holding the
+        sorting-box data structure used by :meth:`~struphy.pic.base.Particles.put_particles_in_boxes`
+        and :meth:`~struphy.pic.base.Particles.do_sort`."""
         if not hasattr(self, "_sorting_boxes"):
             self._initialize_sorting_boxes()
         return self._sorting_boxes
@@ -1533,7 +1540,7 @@ class Particles(metaclass=ABCMeta):
 
         Parameters
         ----------
-        appl_bc : bool
+        apply_bc : bool
             Whether to apply kinetic boundary conditions before sorting.
 
         alpha : tuple | list | int | float
@@ -1679,11 +1686,24 @@ class Particles(metaclass=ABCMeta):
             )
 
     def update_holes(self):
-        """Compute new holes, new number of holes and markers on process"""
+        """Recompute the :attr:`~struphy.pic.base.Particles.holes` mask (rows with ``markers[:, 0] == -1``)
+        and, from it, refresh :attr:`~struphy.pic.base.Particles.valid_mks`.
+        Must be called after any operation that creates, removes or moves markers
+        (e.g. sorting, boundary conditions, refilling), since holes are tracked per row index."""
         self._holes[:] = self.markers[:, 0] == -1.0
         self._update_valid_mks()
 
     def set_velocities_comp(self, velocity, comp):
+        """Set one or several velocity components to the same constant value, for all valid markers.
+
+        Parameters
+        ----------
+        velocity : float
+            The constant value to assign to the selected velocity components.
+
+        comp : iterable[int]
+            Velocity components to set (0-based, e.g. 0 for v1, 1 for v2, ...).
+        """
         new = xp.ones(shape=(self.velocities.shape[0], 1)) * velocity
 
         for c in comp:
@@ -1693,7 +1713,7 @@ class Particles(metaclass=ABCMeta):
     def put_particles_in_boxes(self):
         """Assign the right box to the particles and the list of the particles to each box.
         If sorting_boxes was instantiated with an MPI comm, then the particles in the
-        neighbouring boxes of neighbours processors or also communicated"""
+        neighbouring boxes of neighbouring processes are also communicated (as ghost particles)."""
         self._remove_ghost_particles()
 
         assign_box_to_each_particle(
@@ -1721,7 +1741,15 @@ class Particles(metaclass=ABCMeta):
     
     @profile
     def do_sort(self, use_numpy_argsort=False):
-        """Assign the particles to boxes and then sort them."""
+        """Assign the particles to their sorting boxes and reorder the markers array accordingly,
+        so that markers in the same box occupy contiguous rows.
+
+        Parameters
+        ----------
+        use_numpy_argsort : bool
+            If True, sort via :func:`numpy.argsort` on the box column; if False (default),
+            use the Pyccel kernel :func:`~struphy.pic.sorting_kernels.sort_boxed_particles`.
+        """
         nx = self._sorting_boxes.nx
         ny = self._sorting_boxes.ny
         nz = self._sorting_boxes.nz
@@ -2043,7 +2071,9 @@ class Particles(metaclass=ABCMeta):
 
     @classmethod
     def ker_dct(self):
-        """Available smoothing kernels, numbers must be multiplies of 100."""
+        """Dict mapping the name of each available SPH smoothing kernel (e.g. ``"gaussian_1d"``)
+        to its integer kernel ID, used in the Pyccel kernels.
+        Kernel IDs must have three digits, see :meth:`~struphy.pic.smoothing_kernels.smoothing_kernel`."""
         return {
             "trigonometric_1d": 100,
             "gaussian_1d": 110,
