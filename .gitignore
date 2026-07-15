@@ -95,15 +95,13 @@ src/struphy/io/inp/params_*
 *.bin
 
 # models list
-src/struphy/models/models_list
-src/struphy/models/models_message
-
 bin/
 share/
+tmp/
 
 lib64
 pyvenv.cfg
 
 examples/TwoFluidQuasiNeutralToy/runs/*/
 *profile_output*.txt
-src/struphy/kernels.txt
+*kernels.txt

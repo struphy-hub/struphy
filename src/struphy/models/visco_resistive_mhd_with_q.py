@@ -25,39 +25,18 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class ViscoResistiveMHD_with_q(StruphyModel):
-    r"""Full (non-linear) visco-resistive MHD equations, with the q variable (square root of the pressure) discretized with a variational method.
+    """Full (non-linear) visco-resistive MHD equations, with the q variable (square root of the pressure), discretized with a variational method.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat u =  \hat v_\textnormal{A}\,.
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        &\partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 \,,
-        \\[4mm]
-        &\partial_t (\rho \mathbf u) + \nabla \cdot (\rho \mathbf u \otimes \mathbf u) + \frac{2q}{\gamma -1} \nabla q + \mathbf B \times \nabla \times \mathbf B - \nabla \cdot \left((\mu+\mu_a(\mathbf x)) \nabla \mathbf u \right) = 0 \,,
-        \\[4mm]
-        &\partial_t q + \cdot(\nabla q \mathbf u) + (\gamma/2 -1) q \nabla \cdot u = \frac{2 q}{(\gamma -1)}\left((\mu+\mu_a(\mathbf x)) |\nabla \mathbf u|^2 + (\eta + \eta_a(\mathbf x)) |\nabla \times \mathbf B|^2\right) \,,
-        \\[4mm]
-        &\partial_t \mathbf B + \nabla \times ( \mathbf B \times \mathbf u ) + \nabla \times (\eta + \eta_a(\mathbf x)) \nabla \times \mathbf B = 0 \,,
-
-    and :math:`\mu_a(\mathbf x)` and :math:`\eta_a(\mathbf x)` are artificial viscosity and resistivity coefficients.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`
-
-    1. :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`
-    2. :class:`~struphy.propagators.variational_momentum_advection.VariationalMomentumAdvection`
-    3. :class:`~struphy.propagators.variational_qb_evolve.VariationalQBEvolve`
-    4. :class:`~struphy.propagators.variational_viscosity.VariationalViscosity`
-    5. :class:`~struphy.propagators.variational_resistivity.VariationalResistivity`
-
-    :ref:`Model info <add_model>`:
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    mass_number: float
+        Mass number (in units of Proton mass) of the fluid species (default: 1.0)
+    with_viscosity: bool
+        Whether to include viscous dissipation (default: True)
+    with_resistivity: bool
+        Whether to include resistive dissipation (default: True)
     """
 
     @classmethod
@@ -89,6 +68,7 @@ class ViscoResistiveMHD_with_q(StruphyModel):
     class Propagators:
         def __init__(
             self,
+            rho: FEECVariable = None,
             with_viscosity: bool = True,
             with_resistivity: bool = True,
         ):
@@ -96,9 +76,9 @@ class ViscoResistiveMHD_with_q(StruphyModel):
             self.variat_mom = VariationalMomentumAdvection()
             self.variat_qb = VariationalQBEvolve()
             if with_viscosity:
-                self.variat_viscous = VariationalViscosity()
+                self.variat_viscous = VariationalViscosity(rho=rho)
             if with_resistivity:
-                self.variat_resist = VariationalResistivity()
+                self.variat_resist = VariationalResistivity(rho=rho)
 
     ## abstract methods
 
@@ -123,6 +103,7 @@ class ViscoResistiveMHD_with_q(StruphyModel):
 
         # 3. instantiate all propagators
         self.propagators = self.Propagators(
+            rho=self.mhd.density,
             with_viscosity=with_viscosity,
             with_resistivity=with_resistivity,
         )
@@ -163,6 +144,63 @@ class ViscoResistiveMHD_with_q(StruphyModel):
     @property
     def velocity_scale(self):
         return "alfvén"
+
+    def allocate_helpers(self):
+        projV3 = L2Projector("L2", Propagator.mass_ops)
+
+        def f(e1, e2, e3):
+            return 1
+
+        f = xp.vectorize(f)
+        self._integrator = projV3(f)
+
+        self._ones = Propagator.derham.V3pol.zeros()
+        if isinstance(self._ones, PolarVector):
+            self._ones.tp[:] = 1.0
+        else:
+            self._ones[:] = 1.0
+
+        self._tmp_div_B = Propagator.derham.V3pol.zeros()
+
+    def _compute_en_thermo(self):
+        q = self.mhd.sqrt_p.spline.vector
+        gamma = self.propagators.variat_qb.options.gamma
+        return 1.0 / (gamma - 1.0) * Propagator.mass_ops.M3.dot_inner(q, q)
+
+    def _compute_tot_div_B(self):
+        b = self.em_fields.b_field.spline.vector
+        div_B = Propagator.derham.div.dot(b, out=self._tmp_div_B)
+        return Propagator.mass_ops.M3.dot_inner(div_B, div_B)
+
+    # default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "variat_dens.Options" in line:
+                    new_file += [
+                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='full_q')\n",
+                    ]
+                elif "variat_qb.Options" in line:
+                    pass
+                elif "variat_viscous.Options" in line:
+                    new_file += [
+                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='full_q')\n",
+                    ]
+                elif "variat_resist.Options" in line:
+                    new_file += [
+                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='full_q')\n",
+                    ]
+                elif "sqrt_p.add_background" in line:
+                    new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
+                    new_file += [line]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
 
     @classmethod
     def doc_pde(cls):
@@ -283,68 +321,3 @@ class ViscoResistiveMHD_with_q(StruphyModel):
         - kinetic or hybrid particle physics
         - reduced linear perturbation problems
         - pressure or entropy primitive-variable studies"""
-
-    def allocate_helpers(self):
-        projV3 = L2Projector("L2", Propagator.mass_ops)
-
-        def f(e1, e2, e3):
-            return 1
-
-        f = xp.vectorize(f)
-        self._integrator = projV3(f)
-
-        self._ones = Propagator.derham.V3pol.zeros()
-        if isinstance(self._ones, PolarVector):
-            self._ones.tp[:] = 1.0
-        else:
-            self._ones[:] = 1.0
-
-        self._tmp_div_B = Propagator.derham.V3pol.zeros()
-
-    def _compute_en_thermo(self):
-        q = self.mhd.sqrt_p.spline.vector
-        gamma = self.propagators.variat_qb.options.gamma
-        return 1.0 / (gamma - 1.0) * Propagator.mass_ops.M3.dot_inner(q, q)
-
-    def _compute_tot_div_B(self):
-        b = self.em_fields.b_field.spline.vector
-        div_B = Propagator.derham.div.dot(b, out=self._tmp_div_B)
-        return Propagator.mass_ops.M3.dot_inner(div_B, div_B)
-
-    # default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "variat_dens.Options" in line:
-                    new_file += [
-                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='full_q')\n",
-                    ]
-                elif "variat_qb.Options" in line:
-                    new_file += [
-                        "model.propagators.variat_qb.options = model.propagators.variat_qb.Options(model='full_q')\n",
-                    ]
-                elif "variat_viscous.Options" in line:
-                    new_file += [
-                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='full_q',\n",
-                    ]
-                    new_file += [
-                        "                                                                                    rho=model.mhd.density)\n",
-                    ]
-                elif "variat_resist.Options" in line:
-                    new_file += [
-                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='full_q',\n",
-                    ]
-                    new_file += [
-                        "                                                                                  rho=model.mhd.density)\n",
-                    ]
-                elif "sqrt_p.add_background" in line:
-                    new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
-                    new_file += [line]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)

@@ -11,6 +11,11 @@ Field solvers
     :exclude-members: options, allocate
     :show-inheritance:
 
+.. automodule:: struphy.propagators.poisson_adiabatic_gyrokinetic
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 .. automodule:: struphy.propagators.curl_curl_solve
     :members:
     :exclude-members: options, allocate

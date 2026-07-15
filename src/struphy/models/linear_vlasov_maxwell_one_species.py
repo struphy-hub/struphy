@@ -22,73 +22,24 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
-    r"""Linearized Vlasov-Ampère equations for one species.
+    """Linearized Vlasov-Maxwell equations for one kinetic species around a Maxwellian background.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \begin{align}
-            \hat v  = c \,, \qquad \hat E = \hat B \hat v\,,\qquad  \hat \phi = \hat E \hat x \,.
-        \end{align}
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        \begin{align}
-            & \frac{\partial \tilde{\mathbf E}}{\partial t} = \nabla \times \tilde{\mathbf B} - \frac{\alpha^2}{\varepsilon} \int_{\mathbb R^3}\mathbf{v} \tilde f\, \textrm d^3 \mathbf v \,,
-            \\[2mm]
-            & \frac{\partial \tilde{\mathbf B}}{\partial t} = - \nabla \times \tilde{\mathbf E} \,,
-            \\[2mm]
-            & \frac{\partial \tilde f}{\partial t} + \mathbf{v} \cdot \, \nabla \tilde f + \frac{1}{\varepsilon} \left( \mathbf{E}_0 + \mathbf{v} \times \mathbf{B}_0 \right)
-            \cdot \frac{\partial \tilde f}{\partial \mathbf{v}} = \frac{1}{v_{\text{th}}^2 \varepsilon} \, \tilde{\mathbf E} \cdot \mathbf{v} f_0 \,,
-        \end{align}
-
-    with the normalization parameter
-
-    .. math::
-
-        \alpha = \frac{\hat \Omega_\textnormal{p}}{\hat \Omega_\textnormal{c}}\,,\qquad \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t} \,,\qquad \textnormal{with} \qquad \hat\Omega_\textnormal{p} = \sqrt{\frac{\hat n (Ze)^2}{\epsilon_0 (A m_\textnormal{H})}} \,,\qquad \hat \Omega_{\textnormal{c}} = \frac{(Ze) \hat B}{(A m_\textnormal{H})}\,,
-
-    where :math:`Z=-1` and :math:`A=1/1836` for electrons. The background distribution function :math:`f_0` is a uniform Maxwellian
-
-    .. math::
-
-        f_0 = \frac{n_0(\mathbf{x})}{\left( \sqrt{2 \pi} v_{\text{th}} \right)^3}
-        \exp \left( - \frac{|\mathbf{v}|^2}{2 v_{\text{th}}^2} \right) \,,
-
-    and the background electric field has to verify the following compatibility condition between with background density
-
-    .. math::
-
-        \nabla_{\mathbf{x}} \ln (n_0(\mathbf{x})) = \frac{1}{v_{\text{th}}^2 \varepsilon} \mathbf{E}_0 \,.
-
-    At initial time the weak Poisson equation is solved once to weakly satisfy Gauss' law,
-
-    .. math::
-
-            \begin{align}
-            \int_\Omega \nabla \psi^\top \cdot \nabla \phi \,\textrm d \mathbf x &= \frac{\alpha^2}{\varepsilon} \int_\Omega \int_{\mathbb{R}^3} \psi\, \tilde f \, \text{d}^3 \mathbf{v}\,\textrm d \mathbf x \qquad \forall \ \psi \in H^1\,,
-            \\[2mm]
-            \tilde{\mathbf{E}(t=0)} &= -\nabla \phi(t=0) \,.
-            \end{align}
-
-    Moreover, it is assumed that
-
-    .. math::
-
-        \int_{\mathbb{R}^3} \mathbf{v} f_0 \, \text{d}^3 \mathbf{v} = 0 \,.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.push_eta.PushEta`
-    2. :class:`~struphy.propagators.push_vin_efield.PushVinEfield`
-    3. :class:`~struphy.propagators.efield_weights_coupling.EfieldWeightsCoupling`
-    4. :class:`~struphy.propagators.push_vxb.PushVxB`
-    5. :class:`~struphy.propagators.maxwell.Maxwell`
-
-    :ref:`Model info <add_model>`:
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    charge_number: int
+        Charge number (in units of the positive elementary charge) of the species (default: 1)
+    mass_number: float
+        Mass number (in units of Proton mass) of the species (default: 1.0)
+    alpha: float, optional
+        Dimensionless parameter: plasma frequency / cyclotron frequency. If None, computed from units and charge/mass numbers.
+    epsilon: float, optional
+        Normalized cyclotron period: 1 / (cyclotron frequency × time unit). If None, computed from units and charge/mass numbers.
+    with_B0: bool
+        Whether to include the effect of a background magnetic field B0 (default: True)
+    with_E0: bool
+        Whether to include the effect of a background electric field E0 (default: True)
     """
 
     @classmethod

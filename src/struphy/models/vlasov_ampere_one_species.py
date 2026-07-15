@@ -148,6 +148,78 @@ class VlasovAmpereOneSpecies(StruphyModel):
     def velocity_scale(self):
         return "light"
 
+    def allocate_helpers(self):
+        """Solve initial Poisson equation.
+
+        :meta private:
+        """
+        logger.info("\nINITIAL POISSON SOLVE:")
+
+        # use control variate method (reset weights after Poisson solve)
+        particles = self.kinetic_ions.var.particles
+        particles.update_weights()
+
+        # sanity check
+        # self.pointer['species1'].show_distribution_function(
+        #     [True] + [False]*5, [xp.linspace(0, 1, 32)])
+
+        # accumulate charge density
+        charge_accum = AccumulatorVector(
+            particles,
+            "H1",
+            Pyccelkernel(accum_kernels.charge_density_0form),
+            Propagator.mass_ops,
+            Propagator.domain.args_domain,
+        )
+
+        # another sanity check: compute FE coeffs of density
+        # charge_accum.show_accumulated_spline_field(Propagator.mass_ops)
+
+        alpha = self.kinetic_ions.equation_params.alpha
+        epsilon = self.kinetic_ions.equation_params.epsilon
+
+        # Kinetic energy is alpha^2/(2 Np) * sum_p w_p |v_p|^2.
+        self.scalars.dct["kinetic_energy"].normalization = (
+            alpha**2
+        )  # TODO: it would be nice to have alpha (and other eq. params) before runtime
+
+        self.initial_poisson.rho = charge_accum
+        self.initial_poisson.rho_coeffs = alpha**2 / epsilon
+        self.initial_poisson.allocate()
+
+        # Solve with dt=1. and compute electric field
+        logger.info("\nSolving initial Poisson problem...")
+        self.initial_poisson(1.0)
+
+        phi = self.initial_poisson.variables.phi.spline.vector
+        Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
+        logger.info("... Done.")
+
+        # reset particle weights
+        particles.weights = particles.weights_at_t0.copy()
+
+    ## default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "coupling_va.Options" in line:
+                    new_file += [line]
+                    new_file += ["model.initial_poisson.options = model.initial_poisson.Options()\n"]
+                elif "push_vxb.Options" in line:
+                    new_file += ["if model.with_B0:\n"]
+                    new_file += ["    " + line]
+                elif "saving_params = " in line:
+                    new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
+                    new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
+
     ## abstract methods for documentation
 
     @classmethod
@@ -281,75 +353,3 @@ class VlasovAmpereOneSpecies(StruphyModel):
         - collision operator effects
         - electromagnetic wave propagation (no magnetic field evolution)
         - drift-reduced or gyrokinetic approximations (full 6D Vlasov equation)"""
-
-    def allocate_helpers(self):
-        """Solve initial Poisson equation.
-
-        :meta private:
-        """
-        logger.info("\nINITIAL POISSON SOLVE:")
-
-        # use control variate method (reset weights after Poisson solve)
-        particles = self.kinetic_ions.var.particles
-        particles.update_weights()
-
-        # sanity check
-        # self.pointer['species1'].show_distribution_function(
-        #     [True] + [False]*5, [xp.linspace(0, 1, 32)])
-
-        # accumulate charge density
-        charge_accum = AccumulatorVector(
-            particles,
-            "H1",
-            Pyccelkernel(accum_kernels.charge_density_0form),
-            Propagator.mass_ops,
-            Propagator.domain.args_domain,
-        )
-
-        # another sanity check: compute FE coeffs of density
-        # charge_accum.show_accumulated_spline_field(Propagator.mass_ops)
-
-        alpha = self.kinetic_ions.equation_params.alpha
-        epsilon = self.kinetic_ions.equation_params.epsilon
-
-        # Kinetic energy is alpha^2/(2 Np) * sum_p w_p |v_p|^2.
-        self.scalars.dct["kinetic_energy"].normalization = (
-            alpha**2
-        )  # TODO: it would be nice to have alpha (and other eq. params) before runtime
-
-        self.initial_poisson.options.rho = charge_accum
-        self.initial_poisson.options.rho_coeffs = alpha**2 / epsilon
-        self.initial_poisson.allocate()
-
-        # Solve with dt=1. and compute electric field
-        logger.info("\nSolving initial Poisson problem...")
-        self.initial_poisson(1.0)
-
-        phi = self.initial_poisson.variables.phi.spline.vector
-        Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
-        logger.info("... Done.")
-
-        # reset particle weights
-        particles.weights = particles.weights_at_t0.copy()
-
-    ## default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "coupling_va.Options" in line:
-                    new_file += [line]
-                    new_file += ["model.initial_poisson.options = model.initial_poisson.Options()\n"]
-                elif "push_vxb.Options" in line:
-                    new_file += ["if model.with_B0:\n"]
-                    new_file += ["    " + line]
-                elif "saving_params = " in line:
-                    new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
-                    new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)

@@ -148,12 +148,11 @@ def test_convergence_1d(
             _e = FEECVariable(space="Hcurl")
             _e.allocate(derham=derham, domain=domain)
 
-            curlcurl_solver = CurlCurlSolve()
+            curlcurl_solver = CurlCurlSolve(j=j)
             curlcurl_solver.variables.e = _e
 
             curlcurl_solver.options = curlcurl_solver.Options(
                 sigma=sigma,
-                j=j,
                 solver="pcg",
                 precond="MassMatrixPreconditioner",
                 solver_params=solver_params,
@@ -352,12 +351,11 @@ def test_convergence_2d(
             _e = FEECVariable(space="Hcurl")
             _e.allocate(derham=derham, domain=domain)
 
-            curlcurl_solver = CurlCurlSolve()
+            curlcurl_solver = CurlCurlSolve(j=j)
             curlcurl_solver.variables.e = _e
 
             curlcurl_solver.options = curlcurl_solver.Options(
                 sigma=sigma,
-                j=j,
                 solver="pcg",
                 precond="MassMatrixPreconditioner",
                 solver_params=solver_params,

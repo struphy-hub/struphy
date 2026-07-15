@@ -55,11 +55,11 @@ jobs:
               echo
               echo "Run these commands locally to refresh bounds:"
               echo
-              echo "1. python utils/check_dependency_bounds.py"
-              echo "2. python -m pip install --upgrade pip"
-              echo "3. pip install tomli-w"
-              echo "4. python utils/update_dependency_bounds.py"
-              echo "5. git add pyproject.toml && git commit -m \"Refresh managed dependency bounds\""
+              echo "python utils/check_dependency_bounds.py"
+              echo "python -m pip install --upgrade pip"
+              echo "pip install tomli-w"
+              echo "python utils/update_dependency_bounds.py"
+              echo "git add pyproject.toml && git commit -m \"Refresh managed dependency bounds\""
             else
               echo "Managed dependency bounds are in sync."
             fi

@@ -65,8 +65,38 @@ class CurlCurlSolve(Propagator):
             assert new.space == "Hcurl"
             self._e = new
 
-    def __init__(self):
+    def __init__(
+        self,
+        j: FEECVariable | tuple[Callable, Callable, Callable] | tuple[AccumulatorVector, Particles] | list = None,
+        j_coeffs: float | list = None,
+    ):
+        """
+        Parameters
+        ----------
+        j : FEECVariable or tuple of Callables or tuple or list, default=None
+            Source term(s) on the right-hand side.
+            Accepted entries are:
+
+            - ``None``: zero source.
+            - ``FEECVariable`` in ``"Hcurl"``.
+            - ``tuple`` of three ``Callable``s to be projected to ``"Hcurl"`` via
+              ``L2Projector``.
+            - ``AccumulatorVector``.
+            - a ``list`` containing any mix of the entries above.
+
+            The tuple form is accepted by typing for compatibility with other
+            propagator interfaces that pair particle data with accumulators.
+
+        j_coeffs : float or list, default=None
+            Multiplicative coefficient(s) for ``j`` sources.
+            If a scalar is provided, it is applied to a single source.
+            If a sequence is provided, its length must match the number of
+            collected sources.
+            If ``None``, all coefficients default to ``1.0``.
+        """
         self.variables = self.Variables()
+        self.j = j
+        self.j_coeffs = j_coeffs
 
     @dataclass
     class Options:
@@ -90,26 +120,6 @@ class CurlCurlSolve(Propagator):
             You can pass the name of a pre-built operator in ``mass_ops`` or a
             custom ``WeightedMassOperator`` compatible with the codomain of
             ``curl``.
-
-        j : FEECVariable or list of Callables or tuple or list, default=None
-            Source term(s) on the right-hand side.
-            Accepted entries are:
-
-            - ``None``: zero source.
-            - ``FEECVariable`` in ``"Hcurl"``.
-            - ``list`` of ``Callable``s to be projected to ``"Hcurl"`` via ``L2Projector``.
-            - ``AccumulatorVector``.
-            - a ``list`` containing any mix of the entries above.
-
-            The tuple form is accepted by typing for compatibility with other
-            propagator interfaces that pair particle data with accumulators.
-
-        j_coeffs : float or list, default=None
-            Multiplicative coefficient(s) for ``j`` sources.
-            If a scalar is provided, it is applied to a single source.
-            If a sequence is provided, its length must match the number of
-            collected sources.
-            If ``None``, all coefficients default to ``1.0``.
 
         x0 : StencilVector, default=None
             Initial guess for the iterative linear solver.
@@ -136,8 +146,6 @@ class CurlCurlSolve(Propagator):
         sigma: float = 1.0
         stab_mat: OptsStabMat = "M1"
         diffusion_mat: OptsDiffusionMat = "M2"
-        j: FEECVariable | tuple[Callable, Callable, Callable] | tuple[AccumulatorVector, Particles] | list = None
-        j_coeffs: float | list = None
         x0: StencilVector = None
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
@@ -201,7 +209,7 @@ class CurlCurlSolve(Propagator):
 
             return rhs
 
-        j = self.options.j
+        j = self.j
         if isinstance(j, list):
             self._sources = []
             for ji in j:
@@ -210,11 +218,11 @@ class CurlCurlSolve(Propagator):
             self._sources = [verify_rhs(j)]
 
         # coeffs of rhs
-        if self.options.j_coeffs is not None:
-            if isinstance(self.options.j_coeffs, (list, tuple)):
-                self._coeffs = self.options.j_coeffs
+        if self.j_coeffs is not None:
+            if isinstance(self.j_coeffs, (list, tuple)):
+                self._coeffs = self.j_coeffs
             else:
-                self._coeffs = [self.options.j_coeffs]
+                self._coeffs = [self.j_coeffs]
             assert len(self._coeffs) == len(self._sources)
         else:
             self._coeffs = [1.0 for src in self.sources]

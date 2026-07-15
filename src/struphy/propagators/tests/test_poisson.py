@@ -240,14 +240,13 @@ def test_poisson_1d(
             _phi.lifting_function = lifting_fun if "inhom_dirichlet" in bc_type else None
             _phi.allocate(derham=derham, domain=domain)
 
-            poisson_solver = PoissonSolve()
+            poisson_solver = PoissonSolve(rho=rho)
             poisson_solver.variables.phi = _phi
 
             poisson_solver.options = poisson_solver.Options(
                 stab_eps=stab_eps,
                 # sigma_2=0.0,
                 # sigma_3=1.0,
-                rho=rho,
                 solver="pcg",
                 precond="MassMatrixPreconditioner",
                 solver_params=solver_params,
@@ -413,14 +412,13 @@ def test_poisson_accum_1d(mapping, do_plot=False):
     _phi = FEECVariable(space="H1")
     _phi.allocate(derham=derham, domain=domain)
 
-    poisson_solver = PoissonSolve()
+    poisson_solver = PoissonSolve(rho=rho)
     poisson_solver.variables.phi = _phi
 
     poisson_solver.options = poisson_solver.Options(
         stab_eps=1e-6,
         # sigma_2=0.0,
         # sigma_3=1.0,
-        rho=rho,
         solver="pcg",
         precond="MassMatrixPreconditioner",
         solver_params=solver_params,
@@ -611,14 +609,13 @@ def test_poisson_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_
     _phi1 = FEECVariable(space="H1")
     _phi1.allocate(derham=derham, domain=domain)
 
-    poisson_solver1 = PoissonSolve()
+    poisson_solver1 = PoissonSolve(rho=rho1)
     poisson_solver1.variables.phi = _phi1
 
     poisson_solver1.options = poisson_solver1.Options(
         stab_eps=1e-8,
         # sigma_2=0.0,
         # sigma_3=1.0,
-        rho=rho1,
         solver="pcg",
         precond="MassMatrixPreconditioner",
         solver_params=solver_params,
@@ -634,7 +631,7 @@ def test_poisson_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_
     _phi2 = FEECVariable(space="H1")
     _phi2.allocate(derham=derham, domain=domain)
 
-    poisson_solver2 = PoissonSolve()
+    poisson_solver2 = PoissonSolve(rho=rho2)
     poisson_solver2.variables.phi = _phi2
 
     stab_eps = 1e-8
@@ -647,7 +644,6 @@ def test_poisson_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_
         stab_eps=stab_eps,
         # sigma_2=0.0,
         # sigma_3=1.0,
-        rho=rho2,
         solver="pcg",
         precond="MassMatrixPreconditioner",
         solver_params=solver_params,
