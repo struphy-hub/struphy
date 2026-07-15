@@ -208,7 +208,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         logger.info("... Done.")
 
         # reset particle weights
-        particles.weights = particles.weights_at_t0.copy()
+        particles.weights = particles.weights0.copy()
 
     def calculate_gauss_error(self):
         # control variate method
@@ -217,7 +217,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         self.charge_accum()
         rhs = self.charge_accum.vectors[0]
         # reset particle weights
-        particles.weights = particles.weights_at_t0.copy()
+        particles.weights = particles.weights0.copy()
 
         # non control variate method
         e = self.em_fields.e_field.spline.vector
