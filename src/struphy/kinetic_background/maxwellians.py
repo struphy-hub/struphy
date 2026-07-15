@@ -54,8 +54,8 @@ class Maxwellian3D(Maxwellian):
         """Tuple of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp)."""
         return (False, False, False)
 
-    def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
-        """Jacobian determinant of the velocity coordinate transformation from Maxwellian6D('cartesian') to Particles6D('cartesian').
+    def velocity_jacobian_det(self, eta1, eta2, eta3, vx, vy, vz):
+        """Jacobian determinant is 1 (Cartesian velocity coordinates).
 
         Input parameters should be slice of 2d numpy marker array. (i.e. *self.phasespace_coords.T)
 
@@ -64,7 +64,7 @@ class Maxwellian3D(Maxwellian):
         eta1, eta2, eta3 : array_like
             Logical evaluation points.
 
-        *v : array_like
+        vx, vy, vz : array_like
             Velocity evaluation points.
 
         Returns
@@ -74,10 +74,8 @@ class Maxwellian3D(Maxwellian):
         -------
         """
 
-        assert eta1.ndim == 1
-        assert eta2.ndim == 1
-        assert eta3.ndim == 1
-        assert len(v) == 3
+        assert eta1.ndim == eta2.ndim == eta3.ndim == 1
+        assert vx.ndim == vy.ndim == vz.ndim == 1
 
         return 1.0 + 0 * eta1
 
@@ -93,7 +91,7 @@ class Maxwellian3D(Maxwellian):
 
     @moment_factors.setter
     def moment_factors(self, **kwargs):
-        for kw, arg in kwargs:
+        for kw, arg in kwargs.items():
             if kw in {"u", "vth"}:
                 assert len(arg) == 3
             self._moment_factors[kw] = arg
@@ -178,23 +176,8 @@ class GyroMaxwellian2D(Maxwellian):
         """Tuple of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp)."""
         return (False, True)
 
-    def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
-        r"""Jacobian determinant of the velocity coordinate transformation from Maxwellian5D('vpara_vperp') to Particles5D('vpara_mu').
-
-        .. math::
-
-            \begin{aligned}
-            F &: (v_\parallel, v_\perp) \to (v_\parallel, \mu) \,,
-            \\[3mm]
-            DF &= \begin{bmatrix} \frac{\partial v_\parallel}{\partial v_\parallel} & \frac{\partial v_\parallel}{\partial v_\perp} \\
-                 \frac{\partial \mu}{\partial v_\parallel} & \frac{\partial \mu}{\partial v_\perp}  \end{bmatrix} =
-                 \begin{bmatrix} 1 & 0 \\
-                 0 & \frac{v_\perp}{B}  \end{bmatrix} \,,
-            \\[3mm]
-            J_F &= \frac{v_\perp}{B} \,,
-            \end{aligned}
-
-        where :math:`\mu = \frac{v_\perp^2}{2B}`.
+    def velocity_jacobian_det(self, eta1, eta2, eta3, v_para, v_perp):
+        r"""Jacobian determinant of the velocity coordinate transformation to :math:`(v_\parallel, v_\perp)`, is :math:`v_\perp`.
 
         Input parameters should be slice of 2d numpy marker array. (i.e. *self.phasespace_coords.T)
 
@@ -203,8 +186,8 @@ class GyroMaxwellian2D(Maxwellian):
         eta1, eta2, eta3 : array_like
             Logical evaluation points.
 
-        *v : array_like
-            Velocity evaluation points.
+        v_para, v_perp : array_like
+            Parallel and perpendicular velocity evaluation points.
 
         Returns
         -------
@@ -212,29 +195,10 @@ class GyroMaxwellian2D(Maxwellian):
             The Jacobian determinant evaluated at given logical coordinates.
         -------
         """
+        assert eta1.ndim == eta2.ndim == eta3.ndim == 1
+        assert v_para.ndim == v_perp.ndim == 1
 
-        # collect arguments
-        assert isinstance(eta1, xp.ndarray)
-        assert isinstance(eta2, xp.ndarray)
-        assert isinstance(eta3, xp.ndarray)
-        assert isinstance(v[0], xp.ndarray)
-        assert isinstance(v[1], xp.ndarray)
-        assert eta1.shape == eta2.shape == eta3.shape == v[0].shape == v[1].shape
-        assert eta1.ndim == 1, "Input arguments must be a marker array."
-
-        etas = [
-            xp.concatenate(
-                (eta1[:, None], eta2[:, None], eta3[:, None]),
-                axis=1,
-            ),
-        ]
-
-        absB0 = self.equil.absB0(*etas)
-
-        # J = v_perp/B
-        jacobian_det = v[1] / absB0
-
-        return jacobian_det
+        return v_perp
 
     @property
     def volume_form(self) -> bool:

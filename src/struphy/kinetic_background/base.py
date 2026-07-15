@@ -51,7 +51,7 @@ class KineticBackground(metaclass=ABCMeta):
 
     @abstractmethod
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
-        """Jacobian determinant of the velocity coordinate transformation."""
+        """Jacobian determinant of the velocity coordinate transformation (starting from Cartesian coordinates)."""
         pass
 
     @abstractmethod
