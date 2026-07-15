@@ -69,7 +69,111 @@ logger = logging.getLogger("struphy")
 
 
 class Particles(metaclass=ABCMeta):
-    """Base class for particle species."""
+    r"""
+    Base class for particle species.
+    
+    The marker information is stored in a 2D numpy array.
+    In ``markers[ip, j]`` The row index ``ip`` refers to a specific particle,
+    the column index ``j`` to its attributes.
+    The columns are indexed as follows:
+
+    * ``0:3``: position in the logical unit cube (:math:`\boldsymbol \eta_p \in [0, 1]^3`)
+    * ``3:3 + vdim``: velocities
+    * ``3 + vdim``: (time-dependent) weight :math:`w_k(t)`
+    * ``4 + vdim``: PDF :math:`s^0 = s^3/\sqrt g` at particle position
+    * ``5 + vdim``: initial weight :math:`w_0`
+    * ``6 + vdim <= j < -2``: buffer columns, laid out in consecutive blocks (each block's starting
+      column and width are given by a pair of attributes/properties):
+
+      * :attr:`first_diagnostics_idx` (width :attr:`n_cols_diagnostics`): free columns for
+        model-specific diagnostics (e.g. canonical momentum, magnetic moment, ...).
+      * :attr:`first_pusher_idx` (width :attr:`n_cols_pusher` :math:`= 3 + \mathrm{vdim}`): scratch
+        space for a :class:`~struphy.pic.pushing.pusher.Pusher` call, used to hold the phase space
+        coordinates at the start of a push (or of a sub-stage, for multi-stage pushers).
+      * :attr:`first_shift_idx` (width :attr:`n_cols_shift` :math:`= 3`): accumulated shifts in
+        :math:`\eta`-space due to boundary conditions (e.g. periodic wrap-around), added back onto
+        the pusher's initial positions when reconstructing a marker's unwrapped trajectory.
+      * :attr:`residual_idx` (width 1): residual of the current iteration, for pushers that solve a
+        nonlinear/implicit equation iteratively.
+      * :attr:`first_free_idx` (width :attr:`n_cols_aux`): general-purpose scratch columns available
+        to any routine that needs temporary per-marker storage (e.g. field evaluations).
+
+      The total number of columns is given by :attr:`n_cols`, i.e. ``first_free_idx + n_cols_aux + 2``
+      (the ``+ 2`` accounts for the last two columns below).
+    * ``-2``: number of the sorting box the particle is in
+    * ``-1``: particle ID
+
+    Direct indexing into ``markers`` is rarely needed outside of the ``Particles`` class itself.
+    Instead, the most commonly used columns are exposed as convenience properties, each returning
+    (or setting) a 2D array of shape ``(n_mks_loc, ...)`` restricted to the valid markers on the
+    current process (i.e. ``markers[self.valid_mks, ...]``):
+
+    * :attr:`positions` (columns ``0:3``): marker positions :math:`\boldsymbol\eta_p`.
+    * :attr:`velocities` (columns ``3:3 + vdim``): marker velocities.
+    * :attr:`phasespace_coords` (columns ``0:3 + vdim``): positions and velocities combined.
+    * :attr:`weights` (column ``3 + vdim``): current weights :math:`w_k(t)`.
+    * :attr:`sampling_density` (column ``4 + vdim``): PDF :math:`s^0` at the particle position.
+    * :attr:`weights0` (column ``5 + vdim``): initial weights :math:`w_0`.
+    * :attr:`marker_ids` (column ``-1``): unique particle IDs.
+
+    Each of these properties has a matching setter (e.g. ``self.positions = new_positions``) that
+    validates the shape of the assigned array and writes it back into ``self._markers`` at the
+    corresponding columns, for the valid markers only.
+
+    Parameters
+    ----------
+    comm_world : Intracomm
+        World MPI communicator.
+
+    clone_config : CloneConfig
+        Manages the configuration for clone-based (copied grids) parallel processing using MPI.
+
+    domain_decomp : tuple
+        The first entry is a domain_array (see :attr:`~struphy.feec.psydac_derham.Derham.domain_array`) and
+        the second entry is the number of MPI processes in each direction.
+
+    loading_params : LoadingParameters
+        Parameterts for particle loading.
+
+    weights_params : WeightsParameters
+        Parameters for particle weights.
+
+    boundary_params : BoundaryParameters
+        Parameters for particle boundary conditions.
+
+    sorting_params : SortingParameters
+        Parameters for particle sorting.
+
+    saving_params : SavingParameters
+        Parameters for particle saving.
+
+    bufsize : float
+        Size of buffer (as multiple of total size, default=.25) in markers array.
+
+    domain : Domain
+        Struphy domain object.
+
+    equil : FluidEquilibrium
+        Struphy fluid equilibrium object.
+
+    projected_equil : ProjectedFluidEquilibrium
+        Struphy fluid equilibrium projected into a discrete Derham complex.
+
+    background : KineticBackground
+        Kinetic background.
+
+    initial_condition : KineticBackground
+        Kinetic initial condition.
+
+    n_as_volume_form: bool
+        Whether the number density n is given as a volume form or scalar function (=default).
+
+    perturbations : Perturbation | list
+        Kinetic perturbation parameters.
+
+    equation_params : dict
+        Normalization parameters (epsilon, alpha, ...)
+    """
 
     def __init__(
         self,
@@ -96,75 +200,6 @@ class Particles(metaclass=ABCMeta):
         n_as_volume_form: bool = False,
         equation_params: dict = None,
     ):
-        r"""
-        The marker information is stored in a 2D numpy array.
-        In ``markers[ip, j]`` The row index ``ip`` refers to a specific particle,
-        the column index ``j`` to its attributes.
-        The columns are indexed as follows:
-
-        * ``0:3``: position in the logical unit cube (:math:`\boldsymbol \eta_p \in [0, 1]^3`)
-        * ``3:3 + vdim``: velocities
-        * ``3 + vdim``: (time-dependent) weight :math:`w_k(t)`
-        * ``4 + vdim``: PDF :math:`s^0 = s^3/\sqrt g` at particle position
-        * ``5 + vdim``: initial weight :math:`w_0`
-        * ``6 + vdim <= j < -2``: buffer indices; see attributes ``first_diagnostics_idx``, ``first_pusher_idx`` and ``first_free_idx`` below
-        * ``-2``: number of the sorting box the particle is in
-        * ``-1``: particle ID
-
-        Parameters
-        ----------
-        comm_world : Intracomm
-            World MPI communicator.
-
-        clone_config : CloneConfig
-            Manages the configuration for clone-based (copied grids) parallel processing using MPI.
-
-        domain_decomp : tuple
-            The first entry is a domain_array (see :attr:`~struphy.feec.psydac_derham.Derham.domain_array`) and
-            the second entry is the number of MPI processes in each direction.
-
-        loading_params : LoadingParameters
-            Parameterts for particle loading.
-
-        weights_params : WeightsParameters
-            Parameters for particle weights.
-
-        boundary_params : BoundaryParameters
-            Parameters for particle boundary conditions.
-
-        sorting_params : SortingParameters
-            Parameters for particle sorting.
-
-        saving_params : SavingParameters
-            Parameters for particle saving.
-
-        bufsize : float
-            Size of buffer (as multiple of total size, default=.25) in markers array.
-
-        domain : Domain
-            Struphy domain object.
-
-        equil : FluidEquilibrium
-            Struphy fluid equilibrium object.
-
-        projected_equil : ProjectedFluidEquilibrium
-            Struphy fluid equilibrium projected into a discrete Derham complex.
-
-        background : KineticBackground
-            Kinetic background.
-
-        initial_condition : KineticBackground
-            Kinetic initial condition.
-
-        n_as_volume_form: bool
-            Whether the number density n is given as a volume form or scalar function (=default).
-
-        perturbations : Perturbation | list
-            Kinetic perturbation parameters.
-
-        equation_params : dict
-            Normalization parameters (epsilon, alpha, ...)
-        """
 
         self._clone_config = clone_config
         if self.clone_config is None:
@@ -929,17 +964,17 @@ class Particles(metaclass=ABCMeta):
         return self._equation_params
 
     @property
-    def domain(self):
+    def domain(self) -> Domain:
         """From :mod:`struphy.geometry.domains`."""
         return self._domain
 
     @property
-    def equil(self):
+    def equil(self) -> FluidEquilibrium:
         """From :mod:`struphy.fields_background.equils`."""
         return self._equil
 
     @property
-    def projected_equil(self):
+    def projected_equil(self) -> ProjectedFluidEquilibrium:
         """MHD equilibrium projected on 3d Derham sequence with commuting projectors."""
         return self._projected_equil
 

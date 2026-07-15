@@ -16,41 +16,52 @@ from struphy.pic.base import Particles
 
 class Particles6D(Particles):
     """
-    A class for initializing particles in models that use the full 6D phase space.
+    Particles in the full 6D phase space :math:`(\\boldsymbol \\eta, \\mathbf v) \\in [0, 1]^3 \\times \\mathbb R^3`,
+    as used e.g. in full-orbit (Vlasov) kinetic models.
 
-    The numpy marker array is as follows:
-
-    ===== ============== ======================= ======= ====== ====== ==========
-    index  | 0 | 1 | 2 | | 3 | 4 | 5           |  6       7       8    >=9
-    ===== ============== ======================= ======= ====== ====== ==========
-    value position (eta)    velocities           weight   s0     w0    buffer
-    ===== ============== ======================= ======= ====== ====== ==========
+    Each marker carries a logical (curvilinear) position :math:`\\boldsymbol \\eta_p` together with a velocity
+    :math:`\\mathbf v_p` expressed in the *Cartesian* velocity space attached to that position
+    (i.e. velocities are not transformed by the curvilinear map, unlike positions).
+    
+    See :class:`~struphy.pic.base.Particles` for the structure of the numpy marker array and the meaning of its columns.
     """
 
     # Class properties
     vdim = 3
+    """Dimension of the (Cartesian) velocity space, here 3."""
     default_background = maxwellians.Maxwellian3D()
+    """Default sampling background is a 3D Cartesian Maxwellian."""
     default_n_cols = {"diagnostics": 0, "aux": 5}
+    """Default number of buffer columns reserved for diagnostics and auxiliary (pusher/free) use."""
 
     def __post_init__(self):
+        """If the background is a :class:`~struphy.kinetic_background.maxwellians.CanonicalMaxwellian`,
+        set up the discrete magnetic field (needed to evaluate canonical invariants) from the projected equilibrium."""
         if isinstance(self.background, maxwellians.CanonicalMaxwellian):
-            assert isinstance(self.equil, FluidEquilibriumWithB), (
+            assert isinstance(self.projected_equil, ProjectedFluidEquilibriumWithB), (
                 "CanonicalMaxwellian needs background with magnetic field."
             )
             self._absB0_h = self.projected_equil.absB0
             self._b2_h = self.projected_equil.b2
             self._derham = self.projected_equil.derham
 
-    def svol(self, eta1, eta2, eta3, *v):
-        """Sampling density function as volume form.
+    def svol(self, eta1, eta2, eta3, vx, vy, vz):
+        """Sampling density function as volume form, used to draw markers via inverse transform/rejection
+        sampling and to compute their initial weights (see :meth:`~struphy.pic.base.Particles.draw_markers`).
+
+        This is a :class:`~struphy.kinetic_background.maxwellians.Maxwellian3D` in the Cartesian velocities
+        ``vx, vy, vz``, parametrized by the mean velocities and thermal velocities in :attr:`loading_params`,
+        with density normalized to 1 (i.e. uniform in ``eta1, eta2, eta3``), further multiplied by the
+        Jacobian factor ``2 * eta1`` if :attr:`spatial` is ``"disc"`` (to sample uniformly in physical
+        space on a disc, where ``eta1`` plays the role of a normalized radius).
 
         Parameters
         ----------
         eta1, eta2, eta3 : array_like
             Logical evaluation points.
 
-        *v : array_like
-            Velocity evaluation points.
+        vx, vy, vz : array_like
+            Cartesian velocity evaluation points.
 
         Returns
         -------
@@ -58,40 +69,42 @@ class Particles6D(Particles):
             The volume-form sampling density.
         -------
         """
-        # load sampling density svol (normalized to 1 in logical space)
-        maxw_params = {
-            "n": (1.0, None),
-            "u1": (self.loading_params.moments[0], None),
-            "u2": (self.loading_params.moments[1], None),
-            "u3": (self.loading_params.moments[2], None),
-            "vth1": (self.loading_params.moments[3], None),
-            "vth2": (self.loading_params.moments[4], None),
-            "vth3": (self.loading_params.moments[5], None),
-        }
-
-        fun = maxwellians.Maxwellian3D(**maxw_params)
+        if not hasattr(self, "_svol"):
+            # load sampling density svol (normalized to 1 in logical space)
+            self._svol = maxwellians.Maxwellian3D(n = (1.0, None),
+                u1 = (self.loading_params.moments[0], None),
+                u2 = (self.loading_params.moments[1], None),
+                u3 = (self.loading_params.moments[2], None),
+                vth1 = (self.loading_params.moments[3], None),
+                vth2 = (self.loading_params.moments[4], None),
+                vth3 = (self.loading_params.moments[5], None),
+                )
 
         if self.spatial == "uniform":
-            return fun(eta1, eta2, eta3, *v)
+            return self._svol(eta1, eta2, eta3, vx, vy, vz)
 
         elif self.spatial == "disc":
-            return fun(eta1, eta2, eta3, *v) * 2 * eta1
+            return self._svol(eta1, eta2, eta3, vx, vy, vz) * 2 * eta1
 
         else:
             raise NotImplementedError(
                 f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.',
             )
 
-    def s0(self, eta1, eta2, eta3, *v, flat_eval=False, remove_holes=True):
-        """Sampling density function as 0 form.
+    def s0(self, eta1, eta2, eta3, vx, vy, vz, flat_eval=False, remove_holes=True):
+        """Sampling density function as 0 form, i.e. :meth:`svol` pushed forward to a pointwise
+        (non-volume-form) density by dividing out the metric Jacobian determinant via
+        :meth:`~struphy.geometry.base.Domain.transform`. This is the quantity stored in each
+        marker's ``s0`` column (see the class docstring) and used to compute initial weights
+        ``w0 = f_init / s0 / Np``.
 
         Parameters
         ----------
         eta1, eta2, eta3 : array_like
             Logical evaluation points.
 
-        *v : array_like
-            Velocity evaluation points.
+        vx, vy, vz : array_like
+            Cartesian velocity evaluation points.
 
         flat_eval : bool
             If true, perform flat (marker) evaluation (etas must be same size 1D).
@@ -108,7 +121,7 @@ class Particles6D(Particles):
         assert self.domain, "self.domain must be set to call the sampling density 0-form."
 
         return self.domain.transform(
-            self.svol(eta1, eta2, eta3, *v),
+            self.svol(eta1, eta2, eta3, vx, vy, vz),
             eta1,
             eta2,
             eta3,
@@ -119,16 +132,14 @@ class Particles6D(Particles):
 
     def save_constants_of_motion(self):
         """
-        Calculate each markers' guiding center constants of motion
-        and assign them into diagnostics columns of marker array:
+        Calculate each marker's guiding-center constants of motion (only the equilibrium
+        magnetic field is considered) and assign them into the diagnostics columns of the marker array:
 
-        ================= ============== ======= ============ ============= ==============
-        diagnostics index | 0 | 1 | 2 |  |  3  | |    4     | |     5     | |     6      |
-        ================= ============== ======= ============ ============= ==============
-              value       guiding_center energy  magn. moment can. momentum para. velocity
-        ================= ============== ======= ============ ============= ==============
-
-        Only equilibrium magnetic field is considered.
+        * ``0:3``: guiding-center position (logical :math:`\\boldsymbol \\eta`)
+        * ``3``: energy
+        * ``4``: magnetic moment
+        * ``5``: canonical toroidal momentum
+        * ``6``: parallel velocity
         """
 
         assert isinstance(self.equil, FluidEquilibriumWithB), "Constants of motion need background with magnetic field."
@@ -207,16 +218,31 @@ class Particles6D(Particles):
 class DeltaFParticles6D(Particles6D):
     """
     A class for kinetic species in full 6D phase space that solve for delta_f = f - f0.
+    
+    See :class:`~struphy.pic.particles.Particles6D` for more information.
     """
 
     def __post_init__(self):
+        """Force the control-variate weight update off, since delta-f weights already evolve
+        the perturbation directly (there is no separate background contribution to subtract)."""
         self.weights_params.control_variate = False
 
     def _set_initial_condition(self):
+        """Zero out the density of the (unperturbed) background before setting the initial
+        condition, so that only the perturbation :math:`\\delta f` is initialized on the markers."""
         self.set_n_to_zero(self.initial_condition)
         super()._set_initial_condition()
 
     def set_n_to_zero(self, background: Maxwellian | SumKineticBackground):
+        """Recursively set the density moment ``n`` of ``background`` (and, if it is a
+        :class:`~struphy.kinetic_background.base.SumKineticBackground`, of both its summands) to zero,
+        keeping any perturbation attached to it.
+
+        Parameters
+        ----------
+        background : Maxwellian | SumKineticBackground
+            The kinetic background whose density is to be zeroed.
+        """
         if isinstance(background, Maxwellian):
             background.params["n"] = (0.0, background.params["n"][1])
         else:
@@ -227,28 +253,47 @@ class DeltaFParticles6D(Particles6D):
 
 class Particles5D(Particles):
     """
-    A class for initializing particles in guiding-center, drift-kinetic or gyro-kinetic models that use the 5D phase space.
+    Particles in the 5D guiding-center, drift-kinetic or gyro-kinetic phase space
+    :math:`(\\boldsymbol \\eta, v_\\parallel, v_\\perp) \\in [0, 1]^3 \\times \\mathbb R \\times \\mathbb R_{\\geq 0}`.
 
-    The numpy marker array is as follows:
+    Each marker carries a logical (curvilinear) position :math:`\\boldsymbol \\eta_p` together with the
+    parallel and perpendicular velocity coordinates
 
-    ===== ============== ========== ====== ======= ====== ====== ==========
-    index  | 0 | 1 | 2 |     3        4       5      6      7       >=8
-    ===== ============== ========== ====== ======= ====== ====== ==========
-    value position (eta) v_parallel v_perp  weight   s0     w0   buffer
-    ===== ============== ========== ====== ======= ====== ====== ==========
+    .. math::
+
+        v_{\\parallel, p} = \\mathbf v_p \\cdot \\mathbf b_0(\\boldsymbol \\eta_p) \\,, \\qquad
+        v_{\\perp, p} = \\left| \\mathbf v_p - v_{\\parallel, p} \\, \\mathbf b_0(\\boldsymbol \\eta_p) \\right| \\,,
+
+    defined with respect to the equilibrium magnetic field :math:`\\mathbf B_0` and its unit vector
+    :math:`\\mathbf b_0 = \\mathbf B_0 / |\\mathbf B_0|` (unlike :class:`Particles6D`, velocities are thus
+    not Cartesian but expressed in a field-aligned basis that itself depends on :math:`\\boldsymbol \\eta_p`).
+
+    By default, three diagnostics columns are reserved (``default_n_cols["diagnostics"] = 3``), holding
+    each marker's guiding-center energy, magnetic moment and canonical toroidal momentum
+    (see :meth:`save_constants_of_motion`).
+
+    See :class:`~struphy.pic.base.Particles` for the structure of the numpy marker array and the meaning of its columns.
     """
 
     # Class properties
     vdim = 2
+    """Dimension of the velocity space, here 2 (:math:`v_\\parallel, v_\\perp`)."""
     default_background = maxwellians.GyroMaxwellian2D()
+    """Default sampling background is a gyrotropic Maxwellian in :math:`(v_\\parallel, v_\\perp)`."""
     default_n_cols = {"diagnostics": 3, "aux": 12}
+    """Default number of buffer columns is 3 diagnostics (energy, magnetic moment, canonical toroidal
+    momentum, see :meth:`save_constants_of_motion`) and 12 auxiliary columns."""
 
     def __post_init__(self):
+        """Retrieve the discrete equilibrium magnetic-field quantities (:math:`|B_0|`, unit 1-form
+        :math:`\\mathbf b_0`, Derham complex) needed to project marker velocities onto
+        :math:`v_\\parallel, v_\\perp` and to evaluate diagnostics, and allocate the temporary
+        FE coefficient vectors used for that."""
         assert self.projected_equil is not None, "Particles5D needs a projected MHD equilibrium."
 
         # magnetic background
-        if self.equil is not None:
-            assert isinstance(self.equil, FluidEquilibriumWithB), "Particles5D needs background with magnetic field."
+        if self.projected_equil is not None:
+            assert isinstance(self.projected_equil, ProjectedFluidEquilibriumWithB), "Particles5D needs background with magnetic field."
 
         self._absB0_h = self.projected_equil.absB0
         self._unit_b1_h = self.projected_equil.unit_b1
@@ -259,40 +304,50 @@ class Particles5D(Particles):
 
     @property
     def magn_bckgr(self):
-        """Fluid equilibrium with B."""
+        """Equilibrium fluid background carrying the magnetic field :math:`\\mathbf B_0` with respect to
+        which :math:`v_\\parallel, v_\\perp` are defined."""
         return self.equil
 
     @property
     def absB0_h(self):
-        """Discrete 0-form coefficients of |B_0|."""
+        """Discrete 0-form coefficients of :math:`|B_0|`."""
         return self._absB0_h
 
     @property
     def unit_b1_h(self):
-        """Discrete 1-form coefficients of B/|B|."""
+        """Discrete 1-form coefficients of the equilibrium field-aligned unit vector :math:`\\mathbf b_0 = \\mathbf B_0/|B_0|`."""
         return self._unit_b1_h
 
     @property
     def epsilon(self):
-        """One of equation params, epsilon"""
+        """Normalization parameter :math:`\\epsilon` (from :attr:`equation_params`) entering the
+        guiding-center equations of motion, e.g. the canonical toroidal momentum evaluation."""
         return self._epsilon
 
     @property
     def derham(self):
-        """Discrete Deram complex."""
+        """Discrete Derham complex of the projected equilibrium."""
         return self._derham
 
-    def svol(self, eta1, eta2, eta3, *v):
+    def svol(self, eta1, eta2, eta3, v_para, v_perp):
         """
-        Sampling density function as volume-form.
+        Sampling density function as volume form, used to draw markers via inverse transform/rejection
+        sampling and to compute their initial weights (see :meth:`~struphy.pic.base.Particles.draw_markers`).
+
+        This is a :class:`~struphy.kinetic_background.maxwellians.GyroMaxwellian2D` in
+        :math:`(v_\\parallel, v_\\perp)`, parametrized by the mean/thermal parallel and perpendicular velocities
+        in :attr:`loading_params` and by the equilibrium magnetic field :attr:`magn_bckgr`. It is normalized to
+        1 in logical space (i.e. uniform in ``eta1, eta2, eta3``) and already includes the polar-coordinate
+        Jacobian factor :math:`|v_\\perp|` (``volume_form=True``), further multiplied by ``2 * eta1`` if
+        :attr:`spatial` is ``"disc"``.
 
         Parameters
         ----------
         eta1, eta2, eta3 : array_like
             Logical evaluation points.
 
-        *v : array_like
-            Velocity evaluation points.
+        v_para, v_perp : array_like
+            Parallel and perpendicular velocity evaluation points.
 
         Returns
         -------
@@ -300,22 +355,23 @@ class Particles5D(Particles):
             The volume-form sampling density.
         -------
         """
-        # load sampling density svol (normalized to 1 in logical space)
-        self._svol = maxwellians.GyroMaxwellian2D(
-            n=(1.0, None),
-            u_para=(self.loading_params.moments[0], None),
-            u_perp=(self.loading_params.moments[1], None),
-            vth_para=(self.loading_params.moments[2], None),
-            vth_perp=(self.loading_params.moments[3], None),
-            volume_form=True,
-            equil=self.magn_bckgr,
-        )
+        if not hasattr(self, "_svol"):
+            # load sampling density svol (normalized to 1 in logical space)
+            self._svol = maxwellians.GyroMaxwellian2D(
+                n=(1.0, None),
+                u_para=(self.loading_params.moments[0], None),
+                u_perp=(self.loading_params.moments[1], None),
+                vth_para=(self.loading_params.moments[2], None),
+                vth_perp=(self.loading_params.moments[3], None),
+                volume_form=True,
+                equil=self.magn_bckgr,
+            )
 
         if self.spatial == "uniform":
-            out = self._svol(eta1, eta2, eta3, *v)
+            out = self._svol(eta1, eta2, eta3, v_para, v_perp)
 
         elif self.spatial == "disc":
-            out = 2 * eta1 * self._svol(eta1, eta2, eta3, *v)
+            out = 2 * eta1 * self._svol(eta1, eta2, eta3, v_para, v_perp)
 
         else:
             raise NotImplementedError(
@@ -324,17 +380,20 @@ class Particles5D(Particles):
 
         return out
 
-    def s3(self, eta1, eta2, eta3, *v):
+    def s3(self, eta1, eta2, eta3, v_para, v_perp):
         """
-        Sampling density function as 3-form.
+        Sampling density function as 3-form, i.e. :meth:`svol` with the velocity-space
+        (:math:`|v_\\perp|`) Jacobian factor divided back out via
+        :meth:`~struphy.kinetic_background.maxwellians.GyroMaxwellian2D.velocity_jacobian_det`,
+        leaving a density that is a volume form in :math:`\\boldsymbol \\eta` only.
 
         Parameters
         ----------
         eta1, eta2, eta3 : array_like
             Logical evaluation points.
 
-        *v : array_like
-            Velocity evaluation points.
+        v_para, v_perp : array_like
+            Parallel and perpendicular velocity evaluation points.
 
         Returns
         -------
@@ -343,19 +402,24 @@ class Particles5D(Particles):
         -------
         """
 
-        return self.svol(eta1, eta2, eta3, *v) / self._svol.velocity_jacobian_det(eta1, eta2, eta3, *v)
+        return self.svol(eta1, eta2, eta3, v_para, v_perp) / self._svol.velocity_jacobian_det(
+            eta1, eta2, eta3, v_para, v_perp
+        )
 
-    def s0(self, eta1, eta2, eta3, *v, flat_eval=False, remove_holes=True):
+    def s0(self, eta1, eta2, eta3, v_para, v_perp, flat_eval=False, remove_holes=True):
         """
-        Sampling density function as 0-form.
+        Sampling density function as 0-form, i.e. :meth:`s3` pushed forward to a pointwise density by
+        dividing out the spatial metric Jacobian determinant via
+        :meth:`~struphy.geometry.base.Domain.transform`. This is the quantity stored in each marker's
+        ``s0`` column and used to compute initial weights ``w0 = f_init / s0 / Np``.
 
         Parameters
         ----------
         eta1, eta2, eta3 : array_like
             Logical evaluation points.
 
-        v_parallel, v_perp : array_like
-            Velocity evaluation points.
+        v_para, v_perp : array_like
+            Parallel and perpendicular velocity evaluation points.
 
         flat_eval : bool
             If true, perform flat (marker) evaluation (etas must be same size 1D).
@@ -371,7 +435,7 @@ class Particles5D(Particles):
         """
 
         return self.domain.transform(
-            self.s3(eta1, eta2, eta3, *v),
+            self.s3(eta1, eta2, eta3, v_para, v_perp),
             eta1,
             eta2,
             eta3,
@@ -383,6 +447,7 @@ class Particles5D(Particles):
     def draw_markers(self, sort: bool = True):
         super().draw_markers(sort=sort)
 
+        # magnetic moment is an adiabatic invariant: evaluate once at draw time (diagnostics column 1)
         utilities_kernels.eval_magnetic_moment_5d(
             self.markers,
             self.derham.args_derham,
@@ -392,16 +457,14 @@ class Particles5D(Particles):
 
     def save_constants_of_motion(self):
         """
-        Calculate each markers' energy and canonical toroidal momentum
-        and assign them into diagnostics columns of marker array:
+        Calculate each marker's guiding-center energy and canonical toroidal momentum (only the
+        equilibrium magnetic field is considered) and assign them into the diagnostics columns of
+        the marker array:
 
-        ================= ======= ============ =============
-        diagnostics index |  0  | |    1     | |     2     |
-        ================= ======= ============ =============
-              value       energy  magn. moment can. momentum
-        ================= ======= ============ =============
-
-        Only equilibrium magnetic field is considered.
+        * ``first_diagnostics_idx + 0``: energy
+        * ``first_diagnostics_idx + 1``: magnetic moment (set once in :meth:`draw_markers`, unchanged here
+          since it is an adiabatic invariant)
+        * ``first_diagnostics_idx + 2``: canonical toroidal momentum
         """
 
         assert isinstance(self.equil, FluidEquilibriumWithB), "Constants of motion need background with magnetic field."
@@ -436,13 +499,13 @@ class Particles5D(Particles):
 
     def save_magnetic_energy(self, PBb):
         r"""
-        Calculate magnetic field energy at each particles' position and assign it into markers[:,self.first_diagnostics_idx].
+        Calculate the (time-dependent) magnetic field energy at each marker's position and assign it
+        into the energy diagnostics column (``self.first_diagnostics_idx``).
 
         Parameters
         ----------
-
-        b2 : BlockVector
-            Finite element coefficients of the time-dependent magnetic field.
+        PBb : BlockVector
+            Finite element coefficients of the time-dependent magnetic field, projected onto V0.
         """
 
         E0T = self.derham.extraction_ops["0"].transpose()
@@ -460,8 +523,8 @@ class Particles5D(Particles):
 
     def save_magnetic_background_energy(self):
         r"""
-        Evaluate :math:`mu_p |B_0(\boldsymbol \eta_p)|` for each marker.
-        The result is stored at markers[:, self.first_diagnostics_idx,].
+        Evaluate the equilibrium magnetic-moment energy :math:`\mu_p |B_0(\boldsymbol \eta_p)|` for each marker.
+        The result is stored in the energy diagnostics column (``self.first_diagnostics_idx``).
         """
 
         utilities_kernels.eval_magnetic_background_energy(
@@ -474,7 +537,8 @@ class Particles5D(Particles):
 
     def save_magnetic_moment(self):
         r"""
-        Calculate magnetic moment of each particles and assign it into markers[:,self.first_diagnostics_idx,+1].
+        Calculate the magnetic moment of each marker and assign it into the magnetic-moment
+        diagnostics column (``self.first_diagnostics_idx + 1``).
         """
 
         utilities_kernels.eval_magnetic_moment_5d(
@@ -487,15 +551,11 @@ class Particles5D(Particles):
 
 class Particles3D(Particles):
     """
-    A class for initializing particles in 3D configuration space.
+    Particles in pure 3D configuration space :math:`\\boldsymbol \\eta \\in [0, 1]^3`, with no velocity
+    space attached (``vdim = 0``) — each marker only carries a logical (curvilinear) position, used e.g.
+    to represent a (massless) tracer or cold-plasma fluid density.
 
-    The numpy marker array is as follows:
-
-    ===== ============== ====== ====== ====== ======
-    index  | 0 | 1 | 2 |   3       4     5      >=6
-    ===== ============== ====== ====== ====== ======
-    value position (eta) weight   s0     w0   buffer
-    ===== ============== ====== ====== ====== ======
+    See :class:`~struphy.pic.base.Particles` for the structure of the numpy marker array and the meaning of its columns.
 
     Parameters
     ----------
@@ -518,11 +578,14 @@ class Particles3D(Particles):
 
     # Class properties
     vdim = 0
+    """Dimension of the velocity space, here 0 (no velocity coordinates)."""
     default_background = maxwellians.ColdPlasma()
+    """Default sampling background is a cold-plasma (velocity-independent) density."""
     default_n_cols = {"diagnostics": 0, "aux": 5}
+    """Default number of buffer columns reserved for diagnostics and auxiliary (pusher/free) use."""
 
     def __post_init__(self):
-        pass
+        """No additional setup is required for this class."""
 
     def svol(self, eta1, eta2, eta3):
         """Sampling density function as volume form.
@@ -531,9 +594,6 @@ class Particles3D(Particles):
         ----------
         eta1, eta2, eta3 : array_like
             Logical evaluation points.
-
-        *v : array_like
-            Velocity evaluation points.
 
         Returns
         -------
@@ -554,15 +614,14 @@ class Particles3D(Particles):
             )
 
     def s0(self, eta1, eta2, eta3, flat_eval=False, remove_holes=True):
-        """Sampling density function as 0 form.
+        """Sampling density function as 0 form, i.e. :meth:`svol` pushed forward to a pointwise
+        (non-volume-form) density by dividing out the metric Jacobian determinant via
+        :meth:`~struphy.geometry.base.Domain.transform`.
 
         Parameters
         ----------
         eta1, eta2, eta3 : array_like
             Logical evaluation points.
-
-        *v : array_like
-            Velocity evaluation points.
 
         flat_eval : bool
             If true, perform flat (marker) evaluation (etas must be same size 1D).
@@ -589,15 +648,15 @@ class Particles3D(Particles):
 
 class ParticlesSPH(Particles):
     """
-    A class for initializing particles in SPH models.
+    Particles for Smoothed Particle Hydrodynamics (SPH) models. The particle distribution itself lives
+    in pure 3D configuration space :math:`\\boldsymbol \\eta \\in [0, 1]^3`, exactly as for :class:`Particles3D`
+    (:meth:`svol` and :meth:`s0` depend only on :math:`\\boldsymbol \\eta_p`).
 
-    The numpy marker array is as follows:
+    Each marker additionally carries a Cartesian velocity :math:`\\mathbf v_p` in its marker-array columns,
+    but this is a per-particle *helper* quantity (e.g. the SPH velocity-field sample used by pushers and
+    kernel-based reconstructions) rather than a coordinate of a sampled phase-space density.
 
-    ===== ============== ======================= ======= ====== ====== ==========
-    index  | 0 | 1 | 2 | | 3 | 4 | 5           |  6       7       8    >=9
-    ===== ============== ======================= ======= ====== ====== ==========
-    value position (eta)    velocities           weight   s0     w0    buffer
-    ===== ============== ======================= ======= ====== ====== ==========
+    See :class:`~struphy.pic.base.Particles` for the structure of the numpy marker array and the meaning of its columns.
 
     Parameters
     ----------
@@ -610,15 +669,24 @@ class ParticlesSPH(Particles):
 
     # Class properties
     vdim = 3
+    """Dimension of the per-marker Cartesian velocity attribute, here 3 (not a sampled coordinate, see class docstring)."""
     default_background = equils.ConstantVelocity()
+    """Default background is a spatially constant velocity field."""
     default_n_cols = {"diagnostics": 0, "aux": 24}
+    """Default number of buffer columns reserved for diagnostics and auxiliary (pusher/free) use."""
 
     def __post_init__(self):
+        """Attach the domain to the background (needed to evaluate it at marker positions).
+        SPH does not support clone-based (tile-copied) MPI parallelization."""
         assert self.clone_config is None, "SPH can only be launched with --nclones 1"
         self.background.domain = self.domain
 
     def svol(self, eta1, eta2, eta3, *v):
-        """Sampling density function as volume form.
+        """Sampling density function as volume form, used to draw markers via inverse transform/rejection
+        sampling and to compute their initial weights (see :meth:`~struphy.pic.base.Particles.draw_markers`).
+
+        This density is purely spatial: uniform (normalized to 1) if :attr:`spatial` is ``"uniform"``, or
+        multiplied by the Jacobian factor ``2 * eta1`` if :attr:`spatial` is ``"disc"``.
 
         Parameters
         ----------
@@ -626,7 +694,9 @@ class ParticlesSPH(Particles):
             Logical evaluation points.
 
         *v : array_like
-            Velocity evaluation points.
+            Accepted for a call signature compatible with generic phase-space evaluation
+            (e.g. via :attr:`~struphy.pic.base.Particles.phasespace_coords`), but unused: the marker
+            velocities are helper quantities, not coordinates of the sampled density.
 
         Returns
         -------
@@ -645,7 +715,9 @@ class ParticlesSPH(Particles):
             raise NotImplementedError(f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.')
 
     def s0(self, eta1, eta2, eta3, *v, flat_eval=False, remove_holes=True):
-        """Sampling density function as 0 form.
+        """Sampling density function as 0 form, i.e. :meth:`svol` pushed forward to a pointwise
+        (non-volume-form) density by dividing out the metric Jacobian determinant via
+        :meth:`~struphy.geometry.base.Domain.transform`.
 
         Parameters
         ----------
@@ -653,7 +725,8 @@ class ParticlesSPH(Particles):
             Logical evaluation points.
 
         *v : array_like
-            Velocity evaluation points.
+            Accepted for a call signature compatible with generic phase-space evaluation, but unused
+            (see :meth:`svol`).
 
         flat_eval : bool
             If true, perform flat (marker) evaluation (etas must be same size 1D).
