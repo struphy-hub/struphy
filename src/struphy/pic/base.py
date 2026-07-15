@@ -2149,6 +2149,8 @@ class Particles(metaclass=ABCMeta):
     # =================
 
     def _update_valid_mks(self):
+        """Refresh :attr:`~struphy.pic.base.Particles.valid_mks`: a row is a valid marker
+        if and only if it is neither a hole nor a ghost particle."""
         self._valid_mks[:] = ~xp.logical_or(self.holes, self.ghost_particles)
 
     def _get_domain_decomp(self, mpi_dims_mask: tuple | list = None):
@@ -2225,9 +2227,13 @@ class Particles(metaclass=ABCMeta):
         return dom_arr, tuple(nprocs)
 
     def _set_background_function(self):
+        """Set :attr:`~struphy.pic.base.Particles.f0` to :attr:`~struphy.pic.base.Particles.background`."""
         self._f0 = self.background
 
     def _set_background_coordinates(self):
+        """Set the default marker-array column indices at which :attr:`f0` and its
+        Jacobian determinant are evaluated (both default to ``self.index["coords"]``,
+        the phase-space coordinate columns)."""
         self._f_coords_index = self.index["coords"]
         self._f_jacobian_coords_index = self.index["coords"]
 
@@ -2422,6 +2428,16 @@ class Particles(metaclass=ABCMeta):
         # self.loading_params["moments"] = new_moments
 
     def _set_initial_condition(self):
+        """Build :attr:`~struphy.pic.base.Particles.f_init` (and, for SPH particles,
+        :attr:`~struphy.pic.base.Particles.u_init`).
+
+        For non-SPH particles, :attr:`f_init` is simply
+        :attr:`~struphy.pic.base.Particles.initial_condition`. For SPH particles,
+        :attr:`f_init`/:attr:`u_init` are built from the fluid equilibrium density/velocity
+        (:attr:`~struphy.pic.base.Particles.f0`) plus, if given, a single density ('n') or
+        velocity ('u1') :class:`~struphy.initial.base.Perturbation` from
+        :attr:`~struphy.pic.base.Particles.perturbations`, transformed to the matching
+        (0-form / vector-field) representation."""
         from struphy.pic.particles import ParticlesSPH
 
         if not isinstance(self, ParticlesSPH):
@@ -2615,6 +2631,20 @@ class Particles(metaclass=ABCMeta):
         self.marker_ids = first_marker_id + xp.arange(self.n_mks_loc, dtype=int)
 
     def _find_outside_particles(self, axis):
+        """Find markers whose ``axis``-th logical coordinate lies outside ``[0, 1]``
+        (holes and ghost particles are excluded), updating
+        :attr:`_is_outside_left`/:attr:`_is_outside_right`/:attr:`_is_outside` accordingly.
+
+        Parameters
+        ----------
+        axis : int
+            Column of the markers array (0, 1 or 2) holding the logical coordinate to check.
+
+        Returns
+        -------
+        outside_inds : xp.ndarray[int]
+            Row indices of the markers that are outside the logical unit cube.
+        """
         # determine particles outside of the logical unit cube
         self._is_outside_right[:] = self.markers[:, axis] > 1.0
         self._is_outside_left[:] = self.markers[:, axis] < 0.0
@@ -2784,7 +2814,7 @@ class Particles(metaclass=ABCMeta):
 
     def _check_and_assign_particles_to_boxes(self):
         """Check whether the box array has enough columns (detect load imbalance wrt to sorting boxes),
-        and then assigne the particles to boxes."""
+        and then assign the particles to boxes."""
 
         bcount = xp.bincount(xp.int64(self.markers_wo_holes[:, -2]))
         max_in_box = xp.max(bcount)
@@ -2805,11 +2835,16 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         )
 
     def _update_ghost_particles(self):
-        """Compute new particles that belong to boundary processes needed for sph evaluation"""
+        """Refresh :attr:`~struphy.pic.base.Particles.ghost_particles`: a marker is flagged
+        as a ghost particle when its ID column (last column) equals -2, the marker set by
+        :meth:`_prepare_ghost_particles`/:meth:`_sendrecv_markers_boxes` for SPH ghost-box
+        particles received from a neighbouring process."""
         self._ghost_particles[:] = self.markers[:, -1] == -2.0
         self._update_valid_mks()
 
     def _remove_ghost_particles(self):
+        """Discard all current ghost particles: turn their marker-array rows into new
+        holes (so the space can be reused before the next SPH ghost-box update)."""
         self._update_ghost_particles()
         new_holes = xp.nonzero(self.ghost_particles)
         self._markers[new_holes] = -1.0
@@ -3215,7 +3250,21 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                             arr[:, mean_velocity_index + 2] *= -1.0
 
     def _determine_markers_in_box(self, list_boxes):
-        """Determine the markers that belong to a certain box (list of boxes) and put them in an array"""
+        """Gather the markers currently sorted into any of the given boxes into a new array
+        (used to collect the particles on a domain/process boundary before turning them
+        into ghost particles).
+
+        Parameters
+        ----------
+        list_boxes : list[int]
+            Flat box indices (as computed by
+            :func:`~struphy.pic.sorting_kernels.flatten_index`) whose particles are collected.
+
+        Returns
+        -------
+        markers_in_box : xp.ndarray
+            Copy of the marker-array rows belonging to any of ``list_boxes``.
+        """
         indices = []
         for i in list_boxes:
             indices += list(self._sorting_boxes._boxes[i][self._sorting_boxes._boxes[i] != -1])
@@ -3225,7 +3274,12 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         return markers_in_box
 
     def _get_destinations_box(self):
-        """Find the destination proc for the particles to communicate for the box structure."""
+        """Route the ghost markers prepared by :meth:`_prepare_ghost_particles` (one array
+        per face/edge/corner) to the neighbouring process on that side (found earlier by
+        :meth:`_get_neighbouring_proc`), accumulating, per destination rank, the number of
+        markers to send (:attr:`_send_info_box`) and the markers themselves
+        (:attr:`_send_list_box`, used by :meth:`_self_communication_boxes` and
+        :meth:`_sendrecv_markers_boxes`)."""
         self._send_info_box = xp.zeros(self.mpi_size, dtype=int)
         self._send_list_box = [xp.zeros((0, self.n_cols))] * self.mpi_size
 
@@ -3884,6 +3938,13 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
     @profile
     def _communicate_boxes(self):
+        """Refresh the SPH ghost-box layer: build the outgoing ghost markers
+        (:meth:`_prepare_ghost_particles`), route them to the neighbouring processes
+        (:meth:`_get_destinations_box`), deliver the ones staying on this process
+        (:meth:`_self_communication_boxes`), and, if running under MPI, exchange the rest
+        with neighbouring processes (:meth:`_sendrecv_all_to_all_boxes`,
+        :meth:`_sendrecv_markers_boxes`) before marking the received rows as ghost
+        particles (:meth:`_update_ghost_particles`)."""
         # if verbose:
         #     n_valid = xp.count_nonzero(self.valid_mks)
         #     n_holes = xp.count_nonzero(self.holes)
