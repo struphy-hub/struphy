@@ -23,6 +23,8 @@ from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
 
+opts_feec_space = LiteralOptions.OptsFEECSpace
+
 
 class ImplicitDiffusion(Propagator):
     r"""
@@ -82,6 +84,9 @@ class ImplicitDiffusion(Propagator):
         rho: FEECVariable | PICVariable | Callable | list = None,
         rho_coeffs: float | list = None,
         diagnostic: FEECVariable | None = None,
+        accum_space: opts_feec_space = None,
+        accum_kernel: Pyccelkernel = None,
+        filter_params: FilterParameters = None,
     ):
         """
         Parameters
@@ -110,11 +115,24 @@ class ImplicitDiffusion(Propagator):
             If not None, updates at each call to the propagator, takes the value of the right-hand side.
             Otherwise does not provide diagnostic.
         """
+        if isinstance(rho, PICVariable):
+            assert accum_space is not None, "If rho is a PICVariable, accum_space must be provided."
+            assert accum_kernel is not None, "If rho is a PICVariable, accum_kernel must be provided."
+        
+        if accum_space is not None:
+            check_option(accum_space, LiteralOptions.OptsFEECSpace)
+                
+        assert isinstance(accum_kernel, Pyccelkernel) or accum_kernel is None
+        assert isinstance(filter_params, FilterParameters) or filter_params is None
+        
         self.variables = self.Variables()
         self.rho = rho
         self.rho_coeffs = rho_coeffs
         self.diagnostic = diagnostic
-
+        self.accum_space = accum_space
+        self.accum_kernel = accum_kernel
+        self.filter_params = filter_params
+            
     @dataclass(repr=False)
     class Options(OptionsBase):
         """Configuration options for :class:`ImplicitDiffusion`.
@@ -242,31 +260,37 @@ class ImplicitDiffusion(Propagator):
 
         # collect rhs
         def verify_rhs(rho) -> StencilVector | FEECVariable | AccumulatorVector:
-            """Perform preliminary operations on rho to comute the rhs and return the result."""
-            if isinstance(rho, PICVariable):
-                rhs = AccumulatorVector(
-                    rho.particles,
-                    rho.accum_spaces,
-                    rho.accum_kernels,
-                    Propagator.mass_ops,
-                    Propagator.domain.args_domain,
-                    filter_params=rho.filter_params,
-                )
-                if not rho.control_variate:
-                    l2_proj = L2Projector("H1", Propagator.mass_ops)
-                    f0e = self.Z * rho.f0
-                    rho_eh = FEECVariable(space="H1")
-                    rho_eh.allocate(derham=Propagator.derham, domain=Propagator.domain)
-                    rho_eh.spline.vector = l2_proj.get_dofs(f0e.n)
-                    return [rhs, rho_eh]
-                
+            """Perform preliminary operations on rho to compute the rhs and return the result."""
+            
             if rho is None:
                 rhs = phi.space.zeros()
+                
             elif isinstance(rho, FEECVariable):
                 assert rho.space == "H1"
                 rhs = rho
+                
+            elif isinstance(rho, PICVariable):
+                rhs = AccumulatorVector(
+                    rho.particles,
+                    self.accum_space,
+                    self.accum_kernel,
+                    Propagator.mass_ops,
+                    Propagator.domain.args_domain,
+                    filter_params=self.filter_params,
+                )
+                
+                # TODO: move this to the respective model where it is needed
+                # if not rho.particles.control_variate:
+                #     l2_proj = L2Projector("H1", Propagator.mass_ops)
+                #     f0e = self.Z * rho.f0
+                #     rho_eh = FEECVariable(space="H1")
+                #     rho_eh.allocate(derham=Propagator.derham, domain=Propagator.domain)
+                #     rho_eh.spline.vector = l2_proj.get_dofs(f0e.n)
+                #     return [rhs, rho_eh]
+                
             elif isinstance(rho, Callable):
                 rhs = L2Projector("H1", self.mass_ops).get_dofs(rho, apply_bc=True)
+            
             else:
                 raise TypeError(f"{type(rho) =} is not accepted.")
 

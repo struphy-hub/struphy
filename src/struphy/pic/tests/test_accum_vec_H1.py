@@ -601,22 +601,22 @@ def test_accum_div_u_weak_1form(num_elements, degree, bcs, Np=10000, show_plot: 
 
 
 if __name__ == "__main__":
-    test_accum_poisson(
-        [16, 1, 1],
-        [3, 1, 1],
-        (None, ("free", "free"), None),
-        [
-            "Cuboid",
-            {"l1": 0.0, "r1": 2.0, "l2": 0.0, "r2": 10.0, "l3": 0.0, "r3": 1.0},
-        ],
-        num_clones=1,
-        Np=10000,
-        show_plot=True,
-    )
-    # test_accum_div_u_weak_1form(
+    # test_accum_poisson(
     #     [16, 1, 1],
     #     [3, 1, 1],
-    #     (None, None, None),
+    #     (None, ("free", "free"), None),
+    #     [
+    #         "Cuboid",
+    #         {"l1": 0.0, "r1": 2.0, "l2": 0.0, "r2": 10.0, "l3": 0.0, "r3": 1.0},
+    #     ],
+    #     num_clones=1,
     #     Np=10000,
     #     show_plot=True,
     # )
+    test_accum_div_u_weak_1form(
+        [16, 1, 1],
+        [3, 1, 1],
+        (None, None, None),
+        Np=10000,
+        show_plot=True,
+    )
