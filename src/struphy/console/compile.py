@@ -3,6 +3,8 @@ import logging
 from struphy.utils.utils import STRUPHY_LIBPATH, subp_run
 
 logger = logging.getLogger("struphy")
+from struphy import set_logging_level
+set_logging_level(logging.WARNING)
 
 
 def struphy_compile(
@@ -83,9 +85,11 @@ def struphy_compile(
 
     # collect kernels
     if "kernels" not in state:
-        state["kernels"] = []
+        tmp = []
         for subdir, dirs, files in os.walk(libpath):
+            logger.debug(f"\n{subdir = }")
             for file in files:
+                logger.debug(f"{file = }")
                 if (
                     "kernels" in file
                     and ".py" in file
@@ -94,7 +98,9 @@ def struphy_compile(
                     and "__pycache__" not in subdir
                     and "__pyccel__" not in subdir
                 ):
-                    state["kernels"] += [os.path.join(subdir, file)]
+                    tmp += [os.path.join(subdir, file)]
+
+        state["kernels"] = sorted(tmp)
 
         # set initial compiler infos to None
         state["last_used_language"] = None
