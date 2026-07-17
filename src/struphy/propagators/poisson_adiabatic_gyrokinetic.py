@@ -25,18 +25,19 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
 
     .. math::
 
-        \frac{1}{Z\epsilon^2} \int_\Omega \frac{n_0}{T_0} \psi\, \phi\,\textrm d \mathbf x + \int_\Omega \frac{n_0}{|B_0|²} \nabla \psi^\top \, \nabla \phi \,\textrm d \mathbf x = \sum_i \int_\Omega \psi\, \rho_i(\mathbf x)\,\textrm d \mathbf x \qquad \forall \ \psi \in H^1\,,
+        \frac{1}{Z\epsilon^2} \int_\Omega \frac{n_0}{T_0} \psi\, \phi\,\textrm d \mathbf x + \int_\Omega \frac{n_0}{|B_0|²} \nabla \psi^\top \,\mathbb D \nabla \phi \,\textrm d \mathbf x = \sum_i \int_\Omega \psi\, \rho_i(\mathbf x)\,\textrm d \mathbf x \qquad \forall \ \psi \in H^1\,,
 
-    where :math:`\epsilon \in \mathbb R` is the gyrokinetic ratio defined in units, and Z the charge number of ions.
+    where :math:`\mathbb D` can be an anisotropic (gyrokinetic) diffusion operator (or the identity), 
+    :math:`\epsilon \in \mathbb R` is the gyrokinetic ratio defined in units, and Z the charge number of ions.
     Boundary terms from integration by parts are assumed to vanish.
 
     The equation is discretized as
 
     .. math::
 
-        \left( \frac{1}{Z\epsilon^2}\,\mathbb M^0_ad + \mathbb G^\top \mathbb M^1 \mathbb G \right)\, \boldsymbol\phi^{n+1} = \sum_i(\Lambda^0, \rho_i  )_{L^2}\,,
+        \left( \frac{1}{Z\epsilon^2}\,\mathbb M^0_ad + \mathbb G^\top \mathbb M^1_\textnormal{gyro} \mathbb G \right)\, \boldsymbol\phi^{n+1} = \sum_i(\Lambda^0, \rho_i  )_{L^2}\,,
 
-    where :math:`\mathbb M^1` is the :math:`H(\textnormal{curl})`-mass matrix
+    where :math:`\mathbb M^1_\textnormal{gyro}` is the gyrokinetic mass matrix
     and :math:`\mathbb S` is a stabilization matrix.
 
     Parameters

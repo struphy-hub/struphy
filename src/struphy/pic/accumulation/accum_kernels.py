@@ -33,7 +33,13 @@ def charge_density_0form(
     vec: "float[:,:,:]",
 ):
     r"""
-    Kernel for :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` into V0 with weight :math:`B^\mu = 1`.
+    Kernel for :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` into V0 with filling function
+
+    .. math::
+
+        B_p = w_p \,,
+
+    where :math:`w_p` is the marker weight.
     """
 
     markers = args_markers.markers
@@ -66,162 +72,67 @@ def charge_density_0form(
     # -- removed omp: #$ omp end parallel
 
 
-@stack_array(
-    "cell_left",
-    "point_left",
-    "point_right",
-    "cell_number",
-    "temp1",
-    "temp4",
-    "compact",
-    "grids_shapex",
-    "grids_shapey",
-    "grids_shapez",
-)
-def hybrid_fA_density(
+def div_u_weak_1form(
     args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
-    mat: "float[:,:,:,:,:,:]",
-    num_elements: "int[:]",
-    quad: "int[:]",
-    quad_pts_x: "float[:]",
-    quad_pts_y: "float[:]",
-    quad_pts_z: "float[:]",
-    p_shape: "int[:]",
-    p_size: "float[:]",
+    vec1: "float[:,:,:]",
+    vec2: "float[:,:,:]",
+    vec3: "float[:,:,:]",
 ):
     r"""
-    Accumulates the values of density at quadrature points with the filling functions
+    Kernel for :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` into V1 with filling function
 
     .. math::
-        n = \sum_p w_p S(x - x_p)
 
-    Parameters
-    ----------
-        To do
-    Note
-    ----
-        The above parameter list contains only the model specific input arguments.
+        \mathbf{B}_p = \frac{w_p}{n_p} \mathbf{v}_p \,,
+
+    where :math:`w_p` is the marker weight, :math:`\mathbf{v}_p` the marker velocity
+    and :math:`n_p` the (previously accumulated) density evaluated at the marker position,
+    stored in column ``args_markers.first_free_idx`` of the markers array.
     """
 
     markers = args_markers.markers
+    weight_idx = args_markers.weight_idx
+    density_idx = args_markers.first_free_idx
 
-    # allocate
-    cell_left = empty(3, dtype=int)
-    point_left = zeros(3, dtype=float)
-    point_right = zeros(3, dtype=float)
-    cell_number = empty(3, dtype=int)
-
-    temp1 = zeros(3, dtype=float)
-    temp4 = zeros(3, dtype=float)
-
-    compact = zeros(3, dtype=float)
-    compact[0] = (p_shape[0] + 1.0) * p_size[0]
-    compact[1] = (p_shape[1] + 1.0) * p_size[1]
-    compact[2] = (p_shape[2] + 1.0) * p_size[2]
-
-    grids_shapex = zeros(p_shape[0] + 2, dtype=float)
-    grids_shapey = zeros(p_shape[1] + 2, dtype=float)
-    grids_shapez = zeros(p_shape[2] + 2, dtype=float)
-
-    dfm = zeros((3, 3), dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    # -- removed omp: #$ omp parallel private (dfm, det_df, cell_left, point_left, point_right, cell_number, temp1, temp4, compact, grids_shapex, grids_shapey, grids_shapez, n_markers, ip, eta1, eta2, eta3, weight, ie1, ie2, ie3, span1, span2, span3)
-    # -- removed omp: #$ omp for reduction ( + : mat)
-    for ip in range(n_markers):
+    # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, filling)
+    # -- removed omp: #$ omp for reduction ( + :vec)
+    for ip in range(shape(markers)[0]):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
             continue
 
-        # marker positions
+        # marker positions and velocites
         eta1 = markers[ip, 0]
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
+        v1 = markers[ip, 3]
+        v2 = markers[ip, 4]
+        v3 = markers[ip, 5]
+        
+        # weight and density
+        weight = markers[ip, weight_idx]
+        density = markers[ip, density_idx]
 
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
-            eta1,
-            eta2,
-            eta3,
-            args_domain,
-            dfm,
-        )
+        # filling is just the weights
+        fill1 = weight * v1 / density
+        fill2 = weight * v2 / density
+        fill3 = weight * v3 / density
 
-        # metric coeffs
-        det_df = linalg_kernels.det(dfm)
-
-        weight = markers[ip, 6] / (p_size[0] * p_size[1] * p_size[2]) / det_df
-
-        ie1 = int(eta1 * num_elements[0])
-        ie2 = int(eta2 * num_elements[1])
-        ie3 = int(eta3 * num_elements[2])
-
-        # the points here are still not put in the periodic box [0, 1] x [0, 1] x [0, 1]
-        point_left[0] = eta1 - 0.5 * compact[0]
-        point_right[0] = eta1 + 0.5 * compact[0]
-        point_left[1] = eta2 - 0.5 * compact[1]
-        point_right[1] = eta2 + 0.5 * compact[1]
-        point_left[2] = eta3 - 0.5 * compact[2]
-        point_right[2] = eta3 + 0.5 * compact[2]
-
-        cell_left[0] = int(floor(point_left[0] * num_elements[0]))
-        cell_left[1] = int(floor(point_left[1] * num_elements[1]))
-        cell_left[2] = int(floor(point_left[2] * num_elements[2]))
-
-        cell_number[0] = int(floor(point_right[0] * num_elements[0])) - cell_left[0] + 1
-        cell_number[1] = int(floor(point_right[1] * num_elements[1])) - cell_left[1] + 1
-        cell_number[2] = int(floor(point_right[2] * num_elements[2])) - cell_left[2] + 1
-
-        for i in range(p_shape[0] + 1):
-            grids_shapex[i] = point_left[0] + i * p_size[0]
-        grids_shapex[p_shape[0] + 1] = point_right[0]
-
-        for i in range(p_shape[1] + 1):
-            grids_shapey[i] = point_left[1] + i * p_size[1]
-        grids_shapey[p_shape[1] + 1] = point_right[1]
-
-        for i in range(p_shape[2] + 1):
-            grids_shapez[i] = point_left[2] + i * p_size[2]
-        grids_shapez[p_shape[2] + 1] = point_right[2]
-
-        span1 = int(eta1 * num_elements[0]) + int(args_derham.pn[0])
-        span2 = int(eta2 * num_elements[1]) + int(args_derham.pn[1])
-        span3 = int(eta3 * num_elements[2]) + int(args_derham.pn[2])
-
-        # =========== kernel part (periodic bundary case) ==========
-        particle_to_mat_kernels.hybrid_density(
-            num_elements,
+        particle_to_mat_kernels.vec_fill_b_v1(
             args_derham,
-            cell_left,
-            cell_number,
-            span1,
-            span2,
-            span3,
-            ie1,
-            ie2,
-            ie3,
-            temp1,
-            temp4,
-            quad,
-            quad_pts_x,
-            quad_pts_y,
-            quad_pts_z,
-            compact,
             eta1,
             eta2,
             eta3,
-            mat,
-            weight,
-            p_shape,
-            p_size,
-            grids_shapex,
-            grids_shapey,
-            grids_shapez,
+            vec1,
+            vec2,
+            vec3,
+            fill1,
+            fill2,
+            fill3,
         )
+
     # -- removed omp: #$ omp end parallel
 
 
