@@ -54,9 +54,8 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=10000,
 
     .. math::
 
-        n(\boldsymbol{\eta}) = 1 + \tfrac{1}{2}\sin(2\pi\eta_1),
+        n(\boldsymbol{\eta}) = 1 + \tfrac{1}{2}\sin(2\pi\eta_1).
 
-    so that each weight becomes :math:`w_p = n(\boldsymbol{\eta}_p)\,\sqrt{g}\,/\,N_p`.
     With :math:`B^\mu = 1` (``charge_density_0form``), the accumulator then computes
 
     .. math::
@@ -274,7 +273,7 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=10000,
     # Optional plot (rank 0 only): evaluate SplineFunctions along a 1-D  #
     # slice eta_1 in [0,1] at (eta_2, eta_3) = (0.5, 0.5).              #
     # ------------------------------------------------------------------ #
-    if show_plot and mpi_rank == 0:
+    if show_plot:
         import matplotlib.pyplot as plt
 
         e1_plot = xp.linspace(0.0, 1.0, 200)
@@ -291,31 +290,32 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=10000,
 
         vals_analytic = init_maxwellian.n(e1_plot, xp.full_like(e1_plot, e2_plot), xp.full_like(e1_plot, e3_plot))
 
-        fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+        if mpi_rank == 0:
+            fig, axes = plt.subplots(1, 2, figsize=(11, 4))
 
-        ax = axes[0]
-        ax.plot(e1_plot, vals_analytic, "k-", lw=1.5, label=r"$n(\eta_1)$ analytic")
-        ax.plot(e1_plot, vals_exact, "b--", lw=1.5, label=r"$n_h^{\rm exact}$ (L2Projector)")
-        ax.plot(e1_plot, vals_mc, "r:", lw=1.5, label=r"$n_h^{\rm MC}$ (AccumulatorVector)")
-        ax.set_xlabel(r"$\eta_1$")
-        ax.set_ylabel(r"$n$")
-        ax.set_title("L2 projections along the $\\eta_1$-slice")
-        ax.legend(fontsize=9)
+            ax = axes[0]
+            ax.plot(e1_plot, vals_analytic, "k-", lw=1.5, label=r"$n(\eta_1)$ analytic")
+            ax.plot(e1_plot, vals_exact, "b--", lw=1.5, label=r"$n_h^{\rm exact}$ (L2Projector)")
+            ax.plot(e1_plot, vals_mc, "r:", lw=1.5, label=r"$n_h^{\rm MC}$ (AccumulatorVector)")
+            ax.set_xlabel(r"$\eta_1$")
+            ax.set_ylabel(r"$n$")
+            ax.set_title("L2 projections along the $\\eta_1$-slice")
+            ax.legend(fontsize=9)
 
-        ax = axes[1]
-        ax.plot(e1_plot, vals_mc - vals_exact, "r-", lw=1.0, label="MC $-$ exact")
-        ax.axhline(0.0, color="k", lw=0.5)
-        ax.set_xlabel(r"$\eta_1$")
-        ax.set_ylabel(r"$n_h^{\rm MC} - n_h^{\rm exact}$")
-        ax.set_title(f"Pointwise error  (proj. rel. err = {proj_rel_err:.3f},  $N_p = {Np}$)")
-        ax.legend(fontsize=9)
+            ax = axes[1]
+            ax.plot(e1_plot, vals_mc - vals_exact, "r-", lw=1.0, label="MC $-$ exact")
+            ax.axhline(0.0, color="k", lw=0.5)
+            ax.set_xlabel(r"$\eta_1$")
+            ax.set_ylabel(r"$n_h^{\rm MC} - n_h^{\rm exact}$")
+            ax.set_title(f"Pointwise error  (proj. rel. err = {proj_rel_err:.3f},  $N_p = {Np}$)")
+            ax.legend(fontsize=9)
 
-        fig.suptitle(
-            f"Cuboid {dom_params},  degree = {degree},  num_elements = {num_elements},  bcs = {bcs}",
-            fontsize=9,
-        )
-        fig.tight_layout()
-        plt.show()
+            fig.suptitle(
+                f"Cuboid {dom_params},  degree = {degree},  num_elements = {num_elements},  bcs = {bcs}",
+                fontsize=9,
+            )
+            fig.tight_layout()
+            plt.show()
 
 
 @pytest.mark.parametrize("num_elements", [[16, 1, 1]])
@@ -351,8 +351,7 @@ def test_accum_div_u_weak_1form(num_elements, degree, bcs, Np=10000, show_plot: 
     without applying any :math:`DF`-related pullback, so a unit-cube domain removes any ambiguity
     about which frame (covariant/contravariant) those components live in.
 
-    Marker weights are initialised from :math:`n(\boldsymbol{\eta})` as usual,
-    :math:`w_p = n(\boldsymbol{\eta}_p)\,\sqrt g\, / N_p`. Before accumulation, the density
+    Before accumulation, the density
     :math:`n(\boldsymbol{\eta}_p)` is evaluated at each marker's own position and stored at
     ``args_markers.first_free_idx``, exactly as ``div_u_weak_1form`` expects. Since :math:`\sqrt g
     = 1` everywhere, this equals the weight normalisation used above, so the filling function
@@ -556,7 +555,7 @@ def test_accum_div_u_weak_1form(num_elements, degree, bcs, Np=10000, show_plot: 
     # Optional plot (rank 0 only): evaluate SplineFunctions (component 1) #
     # along a 1-D slice eta_1 in [0,1] at (eta_2, eta_3) = (0.5, 0.5).    #
     # ------------------------------------------------------------------ #
-    if show_plot and mpi_rank == 0:
+    if show_plot:
         import matplotlib.pyplot as plt
 
         e1_plot = xp.linspace(0.0, 1.0, 200)
@@ -573,50 +572,51 @@ def test_accum_div_u_weak_1form(num_elements, degree, bcs, Np=10000, show_plot: 
 
         vals_analytic = u_xyz(e1_plot, xp.full_like(e1_plot, e2_plot), xp.full_like(e1_plot, e3_plot))[0]
 
-        fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+        if mpi_rank == 0:
+            fig, axes = plt.subplots(1, 2, figsize=(11, 4))
 
-        ax = axes[0]
-        ax.plot(e1_plot, vals_analytic, "k-", lw=1.5, label=r"$u_1(\eta_1)$ analytic")
-        ax.plot(e1_plot, vals_exact, "b--", lw=1.5, label=r"$u_{h,1}^{\rm exact}$ (L2Projector)")
-        ax.plot(e1_plot, vals_mc, "r:", lw=1.5, label=r"$u_{h,1}^{\rm MC}$ (AccumulatorVector)")
-        ax.set_xlabel(r"$\eta_1$")
-        ax.set_ylabel(r"$u_1$")
-        ax.set_title("L2 projections along the $\\eta_1$-slice")
-        ax.legend(fontsize=9)
+            ax = axes[0]
+            ax.plot(e1_plot, vals_analytic, "k-", lw=1.5, label=r"$u_1(\eta_1)$ analytic")
+            ax.plot(e1_plot, vals_exact, "b--", lw=1.5, label=r"$u_{h,1}^{\rm exact}$ (L2Projector)")
+            ax.plot(e1_plot, vals_mc, "r:", lw=1.5, label=r"$u_{h,1}^{\rm MC}$ (AccumulatorVector)")
+            ax.set_xlabel(r"$\eta_1$")
+            ax.set_ylabel(r"$u_1$")
+            ax.set_title("L2 projections along the $\\eta_1$-slice")
+            ax.legend(fontsize=9)
 
-        ax = axes[1]
-        ax.plot(e1_plot, vals_mc - vals_exact, "r-", lw=1.0, label="MC $-$ exact")
-        ax.axhline(0.0, color="k", lw=0.5)
-        ax.set_xlabel(r"$\eta_1$")
-        ax.set_ylabel(r"$u_{h,1}^{\rm MC} - u_{h,1}^{\rm exact}$")
-        ax.set_title(f"Pointwise error  (proj. rel. err = {proj_rel_err:.3f},  $N_p = {Np}$)")
-        ax.legend(fontsize=9)
+            ax = axes[1]
+            ax.plot(e1_plot, vals_mc - vals_exact, "r-", lw=1.0, label="MC $-$ exact")
+            ax.axhline(0.0, color="k", lw=0.5)
+            ax.set_xlabel(r"$\eta_1$")
+            ax.set_ylabel(r"$u_{h,1}^{\rm MC} - u_{h,1}^{\rm exact}$")
+            ax.set_title(f"Pointwise error  (proj. rel. err = {proj_rel_err:.3f},  $N_p = {Np}$)")
+            ax.legend(fontsize=9)
 
-        fig.suptitle(
-            f"Cuboid unit cube,  degree = {degree},  num_elements = {num_elements},  bcs = {bcs}",
-            fontsize=9,
-        )
-        fig.tight_layout()
-        plt.show()
+            fig.suptitle(
+                f"Cuboid unit cube,  degree = {degree},  num_elements = {num_elements},  bcs = {bcs}",
+                fontsize=9,
+            )
+            fig.tight_layout()
+            plt.show()
 
 
 if __name__ == "__main__":
-    # test_accum_poisson(
-    #     [16, 1, 1],
-    #     [3, 1, 1],
-    #     (None, ("free", "free"), None),
-    #     [
-    #         "Cuboid",
-    #         {"l1": 0.0, "r1": 2.0, "l2": 0.0, "r2": 10.0, "l3": 0.0, "r3": 1.0},
-    #     ],
-    #     num_clones=1,
-    #     Np=10000,
-    #     show_plot=True,
-    # )
-    test_accum_div_u_weak_1form(
+    test_accum_poisson(
         [16, 1, 1],
         [3, 1, 1],
-        (None, None, None),
+        (None, ("free", "free"), None),
+        [
+            "Cuboid",
+            {"l1": 0.0, "r1": 2.0, "l2": 0.0, "r2": 10.0, "l3": 0.0, "r3": 1.0},
+        ],
+        num_clones=1,
         Np=10000,
         show_plot=True,
     )
+    # test_accum_div_u_weak_1form(
+    #     [16, 1, 1],
+    #     [3, 1, 1],
+    #     (None, None, None),
+    #     Np=10000,
+    #     show_plot=True,
+    # )
