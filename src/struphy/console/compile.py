@@ -4,6 +4,7 @@ from struphy.utils.utils import STRUPHY_LIBPATH, subp_run
 
 logger = logging.getLogger("struphy")
 from struphy import set_logging_level
+
 set_logging_level(logging.WARNING)
 
 
