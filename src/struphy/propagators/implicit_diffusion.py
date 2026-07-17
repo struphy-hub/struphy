@@ -79,7 +79,7 @@ class ImplicitDiffusion(Propagator):
 
     def __init__(
         self,
-        rho: FEECVariable | Callable | tuple[AccumulatorVector, Particles] | list = None,
+        rho: FEECVariable | PICVariable | Callable | list = None,
         rho_coeffs: float | list = None,
         diagnostic: FEECVariable | None = None,
     ):
@@ -199,8 +199,8 @@ class ImplicitDiffusion(Propagator):
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
-        param_kernel: Pyccelkernel = Pyccelkernel(accum_kernels.charge_density_0form)
-        particle_filter: FilterParameters = None
+        # param_kernel: Pyccelkernel = Pyccelkernel(accum_kernels.charge_density_0form)
+        # particle_filter: FilterParameters = None
 
         def __post_init__(self):
             # checks
@@ -244,23 +244,13 @@ class ImplicitDiffusion(Propagator):
         def verify_rhs(rho) -> StencilVector | FEECVariable | AccumulatorVector:
             """Perform preliminary operations on rho to comute the rhs and return the result."""
             if isinstance(rho, PICVariable):
-                rho = rho.particles
-            if rho is None:
-                rhs = phi.space.zeros()
-            elif isinstance(rho, FEECVariable):
-                assert rho.space == "H1"
-                rhs = rho
-            elif isinstance(rho, AccumulatorVector):
-                rhs = rho
-            elif isinstance(rho, Particles):
-                params = self.options.param_kernel
                 rhs = AccumulatorVector(
-                    rho,
-                    "H1",
-                    params,
+                    rho.particles,
+                    rho.accum_spaces,
+                    rho.accum_kernels,
                     Propagator.mass_ops,
                     Propagator.domain.args_domain,
-                    filter_params=self.options.particle_filter,
+                    filter_params=rho.filter_params,
                 )
                 if not rho.control_variate:
                     l2_proj = L2Projector("H1", Propagator.mass_ops)
@@ -269,6 +259,12 @@ class ImplicitDiffusion(Propagator):
                     rho_eh.allocate(derham=Propagator.derham, domain=Propagator.domain)
                     rho_eh.spline.vector = l2_proj.get_dofs(f0e.n)
                     return [rhs, rho_eh]
+                
+            if rho is None:
+                rhs = phi.space.zeros()
+            elif isinstance(rho, FEECVariable):
+                assert rho.space == "H1"
+                rhs = rho
             elif isinstance(rho, Callable):
                 rhs = L2Projector("H1", self.mass_ops).get_dofs(rho, apply_bc=True)
             else:

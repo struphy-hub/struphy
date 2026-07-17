@@ -23,12 +23,14 @@ from struphy.pic.base import Particles
 from struphy.pic.particles import ParticlesSPH
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import check_option
+from struphy.utils.pyccel import Pyccelkernel
+from struphy.pic.accumulation.filter import FilterParameters
 
 if TYPE_CHECKING:
     from struphy.models.species import FieldSpecies, FluidSpecies, ParticleSpecies, Species
 
 logger = logging.getLogger("struphy")
-
+opts_feec_space = LiteralOptions.OptsFEECSpace
 
 class Variable(metaclass=ABCMeta):
     """
@@ -470,16 +472,61 @@ class PICVariable(Variable):
     >>> electrons.add_perturbation(pert)
     """
 
-    def __init__(self, space: LiteralOptions.OptsPICSpace = "Particles6D"):
+    def __init__(self, 
+                 space: LiteralOptions.OptsPICSpace = "Particles6D",
+                 accum_spaces: opts_feec_space | tuple[opts_feec_space] = None,
+                 accum_kernels: Pyccelkernel | tuple[Pyccelkernel] = None,
+                 filter_params: FilterParameters | tuple[FilterParameters | None] = None,
+                 ):
         check_option(space, LiteralOptions.OptsPICSpace)
+        
+        if accum_spaces is not None:
+            if isinstance(accum_spaces, tuple):
+                assert len(accum_spaces) == len(accum_kernels), "accum_spaces and accum_kernels must have the same length."
+                for s in accum_spaces:
+                    check_option(s, LiteralOptions.OptsFEECSpace)
+            else:
+                check_option(accum_spaces, LiteralOptions.OptsFEECSpace)
+                
+        if accum_kernels is not None:
+            if isinstance(accum_kernels, tuple):
+                for k in accum_kernels:
+                    assert isinstance(k, Pyccelkernel), f"accum_kernels must be a tuple of Pyccelkernel objects, but got {type(k)}"
+            else:
+                assert isinstance(accum_kernels, Pyccelkernel), f"accum_kernels must be a Pyccelkernel object, but got {type(accum_kernels)}"
+        
+        if filter_params is not None:
+            if isinstance(filter_params, tuple):
+                assert len(filter_params) == len(accum_kernels), "filter_params and accum_kernels must have the same length."
+                for f in filter_params:
+                    assert isinstance(f, FilterParameters) or f is None, f"filter_params must be a tuple of FilterParameters objects or None, but got {type(f)}"
+            else:
+                assert isinstance(filter_params, FilterParameters) or filter_params is None, f"filter_params must be a FilterParameters object or None, but got {type(filter_params)}"
+        
         self._space = space
+        self._accum_spaces = accum_spaces
+        self._accum_kernels = accum_kernels
+        self._filter_params = filter_params
+        
         for name, cls in inspect.getmembers(particles):
             if inspect.isclass(cls) and cls.__module__ == particles.__name__ and name == space:
                 self._particles_class = cls
 
     @property
-    def space(self):
+    def space(self) -> LiteralOptions.OptsPICSpace:
         return self._space
+    
+    @property
+    def accum_spaces(self) -> opts_feec_space | tuple[opts_feec_space]:
+        return self._accum_spaces
+    
+    @property
+    def accum_kernels(self) -> Pyccelkernel | tuple[Pyccelkernel]:
+        return self._accum_kernels
+    
+    @property
+    def filter_params(self) -> FilterParameters | tuple[FilterParameters]:
+        return self._filter_params
 
     @property
     def particles_class(self) -> Particles:
