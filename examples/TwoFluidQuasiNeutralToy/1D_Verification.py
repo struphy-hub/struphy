@@ -221,18 +221,36 @@ if __name__ == "__main__":
         u_electrons = simdata.spline_values.electrons.u_log.data[t]
         phi         = simdata.spline_values.em_fields.phi_log.data[t]
 
-        # reconstruct full solution by adding lifting back
+        u_ions_x      = u_ions[0][:, 0, 0]
+        u_electrons_x = u_electrons[0][:, 0, 0]
+
         if BC == "dirichlet_inhom":
             e1 = xp.array(n1_vals)
             e2 = xp.array([0.5])
             e3 = xp.array([0.5])
-            full_u  = model.ions.u.spline_full(e1, e2, e3, squeeze_out=True)
-            full_ue = model.electrons.u.spline_full(e1, e2, e3, squeeze_out=True)
-            u_ions_x      = full_u[0]
-            u_electrons_x = full_ue[0]
-        else:
-            u_ions_x      = u_ions[0][:, 0, 0]
-            u_electrons_x = u_electrons[0][:, 0, 0]
+            lift_u  = model.ions.u.boundary_spline(e1, e2, e3, squeeze_out=True)
+            lift_ue = model.electrons.u.boundary_spline(e1, e2, e3, squeeze_out=True)
+            u_ions_x      = u_ions_x      + lift_u[0]
+            u_electrons_x = u_electrons_x + lift_ue[0]
+
+            # ---- lifting diagnostics ----
+            for label, zero_bc, lift in [
+                ("ion",      u_ions[0][:, 0, 0],      lift_u[0]),
+                ("electron", u_electrons[0][:, 0, 0], lift_ue[0]),
+            ]:
+                fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+                axes[0].plot(n1_vals, zero_bc + lift)
+                axes[0].set_title(f"{label}: postprocessed + lift (full)")
+                axes[1].plot(n1_vals, zero_bc)
+                axes[1].set_title(f"{label}: postprocessed (zero-BC)")
+                axes[2].plot(n1_vals, lift)
+                axes[2].set_title(f"{label}: lift")
+                for ax in axes:
+                    ax.set_xlabel("x")
+                    ax.grid(True)
+                plt.tight_layout()
+                plt.savefig(f"{name}/plots/lifting_{label}_{t:.3f}.png", dpi=300)
+                plt.clf()
 
         mms_phi_x, _, _ = mms_phi(x, x * 0, x * 0)
         mms_ion_ux, _, _ = mms_ion_u(x, x * 0, x * 0)
@@ -241,33 +259,6 @@ if __name__ == "__main__":
         save_plot(n1_vals, phi[0][:, 0, 0], mms_phi_x,  "φ",   "Potential φ",       "plot_potential",   t)
         save_plot(n1_vals, u_ions_x,         mms_ion_ux, "u_x", "Ion velocity u_x",  "plot_ion_ux",      t)
         save_plot(n1_vals, u_electrons_x,    mms_el_ux,  "u_x", "Electron velocity", "plot_electron_ux", t)
-
-    # ---- lifting diagnostics ----
-    if BC == "dirichlet_inhom":
-        e1 = xp.linspace(0, 1, 200)
-        e2 = xp.array([0.5])
-        e3 = xp.array([0.5])
-
-        for label, var in [("ion", model.ions.u), ("electron", model.electrons.u)]:
-            if var.spline_lift is None:
-                continue
-
-            def _eval(fn, comp=0):
-                return fn(e1, e2, e3, squeeze_out=True)[comp]
-
-            fig, axes = plt.subplots(1, 3, figsize=(12, 4))
-            axes[0].plot(e1, _eval(var.spline_lift))
-            axes[0].set_title(f"{label}: spline_lift")
-            axes[1].plot(e1, _eval(var.spline_0))
-            axes[1].set_title(f"{label}: spline_0")
-            axes[2].plot(e1, _eval(var.boundary_spline))
-            axes[2].set_title(f"{label}: boundary_spline")
-            for ax in axes:
-                ax.set_xlabel("x")
-                ax.grid(True)
-            plt.tight_layout()
-            plt.savefig(f"{name}/plots/lifting_{label}.png", dpi=300)
-            plt.clf()
 
     # ---- source diagnostics ----
     prop = model.propagators.qn_full

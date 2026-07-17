@@ -277,28 +277,36 @@ class TwoFluidQuasiNeutralFull(Propagator):
             eq_mhd=self.basis_ops.weights["eq_mhd"],
         )
 
+        self._M1_u = self._mass_ops_lift_u.M1
         self._M2_u = self._mass_ops_lift_u.M2
         self._M2B_u = -self._mass_ops_lift_u.M2B
         self._div_u = self._derham_lift_u.div
         self._curl_u = self._derham_lift_u.curl
         self._S21_u = self._basis_ops_lift_u.S21
 
-        self._lapl_u = (  # TODO
+        self._mass_pc_u = MassMatrixPreconditioner(mass_operator=self._M1_u)
+        self._M1inv_u = inverse(self._M1_u, "pcg", pc=self._mass_pc_u, tol=1e-10, maxiter=1000, recycle=True)
+
+        self._lapl_u = (
             self._div_u.T @ self._mass_ops_lift_u.M3 @ self._div_u
-            + self._S21_u.T @ self._curl_u.T @ self._M2_u @ self._curl_u @ self._S21_u
+            + self._M2_u @ self._curl_u @ self._M1inv_u @ self._curl_u.T @ self._M2_u
         )
 
         self._A11_u = -self._M2B_u / self.options.eps_norm + self.options.nu * self._lapl_u
 
+        self._M1_ue = self._mass_ops_lift_ue.M1
         self._M2_ue = self._mass_ops_lift_ue.M2
         self._M2B_ue = -self._mass_ops_lift_ue.M2B
         self._div_ue = self._derham_lift_ue.div
         self._curl_ue = self._derham_lift_ue.curl
         self._S21_ue = self._basis_ops_lift_ue.S21
 
-        self._lapl_ue = (  # TODO
+        self._mass_pc_ue = MassMatrixPreconditioner(mass_operator=self._M1_ue)
+        self._M1inv_ue = inverse(self._M1_ue, "pcg", pc=self._mass_pc_ue, tol=1e-10, maxiter=1000, recycle=True)
+    
+        self._lapl_ue = (
             self._div_ue.T @ self._mass_ops_lift_ue.M3 @ self._div_ue
-            + self._S21_ue.T @ self._curl_ue.T @ self._M2_ue @ self._curl_ue @ self._S21_ue
+            + self._M2_ue @ self._curl_ue @ self._M1inv_ue @ self._curl_ue.T @ self._M2_ue
         )
 
         self._A22_ue = (

@@ -35,7 +35,7 @@ env = EnvironmentOptions(sim_folder=name)
 B0 = 1
 nu = 10.0
 nu_e = 1.0
-Nel = (8, 8, 1)
+Nel = (20, 20, 1)
 p = (2, 2, 1)
 epsilon = 1.0
 dt = 1
@@ -306,23 +306,43 @@ if __name__ == "__main__":
             u_electrons = simdata.spline_values.electrons.u_log.data[t]
             phi         = simdata.spline_values.em_fields.phi_log.data[t]
 
+            phi_plot = phi[0][:, :, 0]
+            uix_plot = u_ions[0][:, :, 0]
+            uiy_plot = u_ions[1][:, :, 0]
+            uex_plot = u_electrons[0][:, :, 0]
+            uey_plot = u_electrons[1][:, :, 0]
+
             if BC == "dirichlet_inhom":
                 e1 = xp.array(n1_vals)
                 e2 = xp.array(n2_vals)
                 e3 = xp.array([0.5])
-                full_u  = model.ions.u.spline_full(e1, e2, e3, squeeze_out=True)
-                full_ue = model.electrons.u.spline_full(e1, e2, e3, squeeze_out=True)
-                phi_plot = phi[0][:, :, 0]
-                uix_plot = full_u[0]
-                uiy_plot = full_u[1]
-                uex_plot = full_ue[0]
-                uey_plot = full_ue[1]
-            else:
-                phi_plot = phi[0][:, :, 0]
-                uix_plot = u_ions[0][:, :, 0]
-                uiy_plot = u_ions[1][:, :, 0]
-                uex_plot = u_electrons[0][:, :, 0]
-                uey_plot = u_electrons[1][:, :, 0]
+                lift_u  = model.ions.u.boundary_spline(e1, e2, e3, squeeze_out=True)
+                lift_ue = model.electrons.u.boundary_spline(e1, e2, e3, squeeze_out=True)
+                uix_plot = uix_plot + lift_u[0]
+                uiy_plot = uiy_plot + lift_u[1]
+                uex_plot = uex_plot + lift_ue[0]
+                uey_plot = uey_plot + lift_ue[1]
+
+                # ---- lifting diagnostics ----
+                for label, zero_bc, lift, comp in [
+                    ("ion_ux",      u_ions[0][:, :, 0],      lift_u[0],  0),
+                    ("ion_uy",      u_ions[1][:, :, 0],      lift_u[1],  1),
+                    ("electron_ux", u_electrons[0][:, :, 0], lift_ue[0], 0),
+                    ("electron_uy", u_electrons[1][:, :, 0], lift_ue[1], 1),
+                ]:
+                    fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+                    for ax, data, ttl in zip(
+                        axes,
+                        [zero_bc + lift, zero_bc, lift],
+                        ["postprocessed + lift (full)", "postprocessed (zero-BC)", "lift"],
+                    ):
+                        im = ax.contourf(X, Y, data, levels=50)
+                        ax.set_title(f"{label}: {ttl}")
+                        plt.colorbar(im, ax=ax)
+                    out = f"{name}/plots/lifting_{label}_{t:.3f}.png"
+                    plt.savefig(out, dpi=300)
+                    plt.close(fig)
+                    print(f"  -> saved {out}")
 
             mms_phi_x, _, _           = mms_phi(Xf, Yf, 0 * Xf)
             mms_ion_ux, mms_ion_uy, _ = mms_ion_u(Xf, Yf, 0 * Xf)
@@ -334,39 +354,6 @@ if __name__ == "__main__":
             save_plot(uex_plot,  mms_el_ux,  "u_ex", "plot_uex", t)
             save_plot(uey_plot,  mms_el_uy,  "u_ey", "plot_uey", t)
 
-        # ---- lifting diagnostics (dirichlet_inhom only) ----
-        if BC == "dirichlet_inhom":
-            e1 = xp.linspace(0, 1, 80)
-            e2 = xp.linspace(0, 1, 80)
-            e3 = xp.array([0.5])
-            E1, E2 = xp.meshgrid(e1, e2, indexing="ij")
-
-            for label, var, comp in [
-                ("ion_ux", model.ions.u, 0),
-                ("ion_uy", model.ions.u, 1),
-                ("electron_ux", model.electrons.u, 0),
-                ("electron_uy", model.electrons.u, 1),
-            ]:
-                if var.spline_lift is None:
-                    print(f"  {label}: spline_lift is None, skipping")
-                    continue
-
-                def _eval(fn):
-                    return fn(e1, e2, e3, squeeze_out=True)[comp]
-
-                fig, axes = plt.subplots(1, 3, figsize=(15, 4))
-                for ax, fn, ttl in zip(
-                    axes,
-                    [var.spline_lift, var.spline_0, var.boundary_spline],
-                    ["lifting", "zero-BC part", "boundary spline"],
-                ):
-                    im = ax.contourf(E1, E2, _eval(fn), levels=50)
-                    ax.set_title(f"{label}: {ttl}")
-                    plt.colorbar(im, ax=ax)
-                out = f"{name}/plots/lifting_{label}.png"
-                plt.savefig(out, dpi=300)
-                plt.close(fig)
-                print(f"  -> saved {out}")
 
         # ---- source diagnostics ----
         prop = model.propagators.qn_full
