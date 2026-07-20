@@ -8,6 +8,8 @@ from pathlib import Path
 from slurm_script_generator.slurm_script import SlurmScript
 from slurm_script_generator.squeue import SQueue
 
+from struphy import Compiler
+
 
 @dataclass(frozen=True)
 class ProfilingCase:
@@ -19,8 +21,6 @@ class ProfilingCase:
     ranks: tuple[int, ...]
     output_root: Path
     params_source: Path
-    pyccel_language: str = "fortran"
-    pyccel_compiler_family: str = "GNU"
 
 
 script_dir = Path(__file__).resolve().parent
@@ -128,7 +128,22 @@ def main() -> None:
             "results/profiling/DATETIME-COMMIT folder is created."
         ),
     )
+    parser.add_argument(
+        "--language",
+        type=str,
+        default="fortran",
+        help='Pyccel language to compile the Struphy kernels with: "fortran" (default) or "c".',
+    )
+    parser.add_argument(
+        "--compiler",
+        type=str,
+        default="GNU",
+        help='Pyccel compiler family to use: "GNU" (default), "intel", "PGI", "nvidia", or "LLVM".',
+    )
     args = parser.parse_args()
+
+    compiler = Compiler(language=args.language, compiler=args.compiler)
+    compiler.compile()
 
     profiling_results_base.mkdir(parents=True, exist_ok=True)
     run_commit = _git_commit(repo_root)
@@ -213,8 +228,7 @@ def main() -> None:
                     "physics_problem": case.physics_problem,
                     "struphy_model_used": case.struphy_model_used,
                     "struphy_commit": run_commit,
-                    "pyccel_language": case.pyccel_language,
-                    "pyccel_compiler_family": case.pyccel_compiler_family,
+                    "compiler": compiler.to_dict(),
                     "output_path": str(output_path),
                     "slurm_script": str(script),
                     "slurm_dict": script.to_dict(),
