@@ -1,10 +1,12 @@
 import argparse
 import json
+import shutil
 import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from package_profiling_results import package_testcase
 from slurm_script_generator.slurm_script import SlurmScript
 from slurm_script_generator.squeue import SQueue
 
@@ -140,10 +142,24 @@ def main() -> None:
         default="GNU",
         help='Pyccel compiler family to use: "GNU" (default), "intel", "PGI", "nvidia", or "LLVM".',
     )
+    parser.add_argument(
+        "--output-root",
+        type=Path,
+        default=Path("profiling-results-export"),
+        help=(
+            "Folder where profiling data from completed jobs is packaged for upload "
+            "(default: profiling-results-export)."
+        ),
+    )
     args = parser.parse_args()
 
     compiler = Compiler(language=args.language, compiler=args.compiler)
     compiler.compile()
+
+    output_root = args.output_root.resolve()
+    if output_root.exists():
+        shutil.rmtree(output_root)
+    output_root.mkdir(parents=True, exist_ok=True)
 
     profiling_results_base.mkdir(parents=True, exist_ok=True)
     run_commit = _git_commit(repo_root)
@@ -176,6 +192,8 @@ def main() -> None:
             ),
         ),
     ]
+
+    packaged_dirs: list[Path] = []
 
     for case in cases:
         case.output_root.mkdir(parents=True, exist_ok=True)
@@ -245,8 +263,27 @@ def main() -> None:
 
         print(f"Profiling case '{case.label}' completed. Output saved in {case.output_root}")
 
+        # Package only what this job actually produced, so cases that never ran
+        # (or failed before writing output) are not packaged/uploaded.
+        packaged_dir = package_testcase(
+            testcase_dir=case.output_root,
+            results_root=run_results_root,
+            language=compiler.language,
+            commit=run_commit,
+            output_root=output_root,
+        )
+        if packaged_dir is not None:
+            packaged_dirs.append(packaged_dir)
+            print(f"Packaged profiling data for '{case.label}' into {packaged_dir}")
+        else:
+            print(f"No profiling output found for '{case.label}'; nothing to package.")
+
     latest_results_root_path.write_text(str(run_results_root), encoding="utf-8")
     print(f"Updated latest profiling root marker: {latest_results_root_path}")
+
+    print(f"Packaged {len(packaged_dirs)} profiling case(s) into {output_root}:")
+    for packaged_dir in packaged_dirs:
+        print(f" - {packaged_dir}")
 
 
 if __name__ == "__main__":

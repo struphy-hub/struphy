@@ -46,23 +46,14 @@ jobs:
         run: |
           source profiling/common_commands.sh
 
-      - name: Submit SLURM job
+      - name: Submit SLURM job and package profiling data
         run: |
           source .venv-fortran/bin/activate
           python profiling/submit_diocotron_job.py \
             --venv-path .venv-fortran \
             --language ${{ matrix.compile-language }} \
-            --compiler GNU
-
-      - name: Package and push profiling data
-        shell: bash
-        run: |
-          source .venv-fortran/bin/activate
-          bash profiling/package_and_publish_results.sh \
-            --output-root profiling-results-export \
-            --target-repo git@github.com:struphy-hub/profiling-data.git \
-            --target-branch main \
-            --clone-dir profiling-data
+            --compiler GNU \
+            --output-root profiling-results-export
 
       - name: Upload packaged profiling data as an artifact
         uses: actions/upload-artifact@v4
