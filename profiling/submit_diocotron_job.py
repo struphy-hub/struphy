@@ -203,20 +203,7 @@ def main() -> None:
         print(script)
 
         output_path = repo_root / f"job_profile_{case.label}.sh"
-        slurm_variables = {
-            "job_name": f"profiling_{case.label}",
-            "nodes": 1,
-            "ntasks_per_node": max(case.ranks),
-            "cpus_per_task": 1,
-            "mem_per_cpu": "1GB",
-            "partition": "dcgp_fua_dbg",
-            "account": "FUSIO_HLST_7",
-            "output": "./%x.%j.out",
-            "error": "./%x.%j.err",
-            "chdir": "./",
-            "mail_type": "none",
-            "time": "00:15:00",
-        }
+
         (case.output_root / "profiling_case_info.json").write_text(
             json.dumps(
                 {
@@ -228,8 +215,9 @@ def main() -> None:
                     "struphy_commit": run_commit,
                     "pyccel_language": case.pyccel_language,
                     "pyccel_compiler_family": case.pyccel_compiler_family,
-                    "slurm_script": str(output_path),
-                    "slurm_variables": slurm_variables,
+                    "output_path": str(output_path),
+                    "slurm_script": str(script),
+                    "slurm_dict": script.to_dict(),
                     "parameter_file": str(case.params_source),
                 },
                 indent=2,
