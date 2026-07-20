@@ -1318,6 +1318,65 @@ RESTARTing from:
             "derham_opts": self.derham_opts.to_dict(),
         }
 
+    def _collect_particle_metadata(self) -> dict:
+        """Collect per-species marker metadata (Np, ppc, ppb) for the current sim."""
+        particle_metadata = {}
+        for species_name, species in self.model.particle_species.items():
+            species_metadata = {}
+            for variable_name, variable in species.variables.items():
+                if isinstance(variable, PICVariable | SPHVariable) and hasattr(variable, "_particles"):
+                    particles = variable.particles
+                    species_metadata[variable_name] = {
+                        "Np": particles.Np,
+                        "ppc": particles.ppc,
+                        "ppb": particles.ppb,
+                    }
+            if species_metadata:
+                particle_metadata[species_name] = species_metadata
+        return particle_metadata
+
+    def to_json(self, file_path: str = None) -> str:
+        """Assemble the run's data and metadata by hand and serialize to a JSON string.
+
+        "data" holds facts about this specific run (model, sizing, MPI layout);
+        "metadata" holds the configuration objects (env, time, domain, equil, grid, derham_opts)
+        that fully describe how the run was set up.
+
+        Parameters
+        ----------
+        file_path : str, optional
+            If given, also write the JSON string to this file.
+
+        Returns
+        -------
+        str
+            The JSON-encoded simulation data and metadata.
+        """
+        data = {
+            "name": self.name,
+            "description": self.description,
+            "model_name": self.model_name,
+            "parameter_file": self.params_path,
+            "mpi_ranks": self.comm_size,
+            "use_mpi_comm_world": self.comm is not None,
+            "particle_species": self._collect_particle_metadata(),
+        }
+
+        metadata = {
+            "env": self.env.to_dict(),
+            "time_opts": self.time_opts.to_dict(),
+            "domain": self.domain.to_dict(),
+            "equil": self.equil.to_dict() if self.equil is not None else None,
+            "grid": self.grid.to_dict(),
+            "derham_opts": self.derham_opts.to_dict(),
+        }
+
+        json_str = json.dumps({"data": data, "metadata": metadata}, indent=4)
+        if file_path is not None:
+            with open(file_path, "w") as f:
+                f.write(json_str)
+        return json_str
+
     @classmethod
     def from_dict(cls, dct) -> "Simulation":
         """Deserialize a simulation configuration from a dictionary."""
