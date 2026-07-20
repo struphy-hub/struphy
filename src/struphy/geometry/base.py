@@ -8,7 +8,6 @@ from abc import ABCMeta, abstractmethod
 
 import cunumpy as xp
 import h5py
-from pyvista import Plotter, StructuredGrid
 from scipy.sparse import csc_matrix, kron
 from scipy.sparse.linalg import splu, spsolve
 
@@ -1547,6 +1546,8 @@ class Domain(metaclass=DomainMeta):
         pyvista.StructuredGrid
         """
 
+        from pyvista import StructuredGrid
+
         grids_log = [
             xp.linspace(1e-6, 1.0, nx),
             xp.linspace(0.0, 1.0, ny),
@@ -1569,6 +1570,8 @@ class Domain(metaclass=DomainMeta):
     ):
         """Show the 3D geometry using PyVista."""
         mesh = self.create_geometry_mesh(nx, ny, nz)
+        from pyvista import Plotter
+
         plotter = Plotter()
         plotter.add_mesh(mesh, show_edges=True)
         plotter.show()
