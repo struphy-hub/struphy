@@ -10,7 +10,6 @@ import time
 
 import cunumpy as xp
 import h5py
-import pyvista as pv
 import yaml
 from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
@@ -67,6 +66,17 @@ from struphy.propagators.base import Propagator
 from struphy.simulation.base import SimulationBase
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml, ruff_autofix_and_format
+
+
+def _import_pyvista():
+    try:
+        import pyvista as pv
+    except ImportError:
+        raise ImportError(
+            "PyVista is required for visualization. Please install it using 'pip install pyvista'.",
+        )
+    return pv
+
 
 logger = logging.getLogger("struphy")
 
@@ -352,6 +362,9 @@ class Simulation(SimulationBase):
         pyvista.StructuredGrid
             Mesh containing geometry and equilibrium field data.
         """
+
+        pv = _import_pyvista()
+
         grids_log = [
             xp.linspace(1e-6, 1.0, nx),
             xp.linspace(0.0, 1.0, ny),
@@ -385,8 +398,11 @@ class Simulation(SimulationBase):
         nz: int = 32,
         window_size: tuple | None = None,
         zoom_factor: int = 1.0,
-    ) -> pv.Plotter:
+    ):  # -> pv.Plotter:
         """Visualize the geometry and (projected) equilibrium fields using PyVista."""
+
+        pv = _import_pyvista()
+
         if self.rank == 0:
             mesh = self.create_geometry_mesh(nx=nx, ny=ny, nz=nz)
 
