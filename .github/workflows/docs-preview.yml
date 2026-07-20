@@ -1,0 +1,125 @@
+name: Deploy PR docs preview
+
+on:
+  pull_request:
+    branches:
+      - devel
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: docs-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  build-and-deploy-preview:
+    # Forked PRs don't get repo secrets on the pull_request event, so the
+    # push to struphy-hub/docs-preview would fail anyway; skip early.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install prerequisites (Ubuntu)
+        uses: ./.github/actions/install/ubuntu-latest
+        env:
+          FC: ${{ env.FC }}
+          CC: ${{ env.CC }}
+          CXX: ${{ env.CXX }}
+
+      - name: Install Struphy (dev-doc)
+        uses: ./.github/actions/install/install-struphy
+        with:
+          optional-deps: 'dev,doc'
+
+      - name: Compile Struphy
+        uses: ./.github/actions/compile
+
+      - name: Build Sphinx docs
+        run: |
+          cd doc
+          make html
+
+      - name: Checkout docs-preview repo
+        uses: actions/checkout@v5
+        with:
+          repository: struphy-hub/docs-preview
+          token: ${{ secrets.STRUPHY_HUB_ACCESS_TOKEN }}
+          path: docs-preview
+
+      - name: Publish preview
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          cd docs-preview
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          PR_DIR="pr-${PR_NUMBER}"
+          rm -rf "$PR_DIR"
+          mkdir -p "$PR_DIR"
+          cp -r ../doc/_build/html/. "$PR_DIR/"
+
+          git add "$PR_DIR"
+          if git diff --cached --quiet; then
+            echo "No changes to publish"
+            exit 0
+          fi
+          git commit -m "Update docs preview for struphy PR #${PR_NUMBER}"
+
+          # Other PR previews may push concurrently; rebase and retry a few times.
+          for i in 1 2 3 4 5; do
+            if git push; then
+              exit 0
+            fi
+            git fetch origin
+            git rebase origin/HEAD
+            sleep $((RANDOM % 5 + 1))
+          done
+          echo "Failed to push docs preview after retries" >&2
+          exit 1
+
+      - name: Comment preview link on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const url = `https://struphy-hub.github.io/docs-preview/pr-${prNumber}/`;
+            const marker = '<!-- docs-preview-link -->';
+            const body = `${marker}\n📖 Docs preview: ${url}\n\n_Updated automatically on each push to this PR._`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+            const existing = comments.find(c => c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+            }
