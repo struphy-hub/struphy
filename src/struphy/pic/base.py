@@ -257,18 +257,18 @@ class Particles(metaclass=ABCMeta):
         Np = self.loading_params.Np
         ppc = self.loading_params.ppc
         ppb = self.loading_params.ppb
-        if Np is not None:
-            self._Np = int(Np)
+        if ppb is not None:
+            self._ppb = ppb
+            self._Np = int(self.ppb * n_boxes)
             self._ppc = self.Np / n_cells
-            self._ppb = self.Np / n_boxes
         elif ppc is not None:
             self._ppc = ppc
             self._Np = int(self.ppc * n_cells)
             self._ppb = self.Np / n_boxes
-        elif ppb is not None:
-            self._ppb = ppb
-            self._Np = int(self.ppb * n_boxes)
+        elif Np is not None:
+            self._Np = int(Np)
             self._ppc = self.Np / n_cells
+            self._ppb = self.Np / n_boxes
 
         assert self.Np >= self.mpi_size
 
@@ -1659,6 +1659,15 @@ class Particles(metaclass=ABCMeta):
                 self.velocities = xp.array(self.u_init(self.positions)).T
             else:
                 # inverse transform sampling in velocity space
+                # Avoid exact 0 or 1 from low-discrepancy sequences: erfinv(±1)
+                # and log(0) produce infinities or invalid polar velocities.
+                eps = xp.finfo(float).eps
+                self._markers[:n_mks_load_loc, 3 : 3 + self.vdim] = xp.clip(
+                    self._markers[:n_mks_load_loc, 3 : 3 + self.vdim],
+                    eps,
+                    1.0 - eps,
+                )
+
                 u_mean = xp.array(self.loading_params.moments[: self.vdim])
                 v_th = xp.array(self.loading_params.moments[self.vdim :])
 
@@ -1685,12 +1694,20 @@ class Particles(metaclass=ABCMeta):
 
                     self._markers[:n_mks_load_loc, 4] = (
                         xp.sqrt(
-                            -1 * xp.log(1 - self.velocities[:, 1]),
+                            -xp.log(1.0 - self.velocities[:, 1]),
                         )
                         * xp.sqrt(2)
                         * v_th[1]
-                        + u_mean[1]
                     )
+
+                    # v_perp is a polar velocity coordinate and must be >= 0.
+                    # A mean shift in this coordinate is not physically consistent
+                    # with the polar Maxwellian used later in gaussian(..., polar=True).
+                    if abs(float(u_mean[1])) > 0.0:
+                        raise ValueError(
+                            "For Particles5D, the second velocity coordinate is polar "
+                            "(v_perp), so loading_params.moments[1] must be 0.0."
+                        )
                 elif self.vdim == 0:
                     pass
                 else:
@@ -2745,8 +2762,11 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                 self._sorting_boxes._cumul_next_index,
             )
 
-        if self.sorting_boxes.communicate:
-            self.update_ghost_particles()
+        # The marker rows have just been reordered. The masks are row-based,
+        # so they must be rebuilt before any later use of valid_mks/f_coords.
+        self.update_holes()
+        self.update_ghost_particles()
+        self.update_valid_mks()
 
     def remove_ghost_particles(self):
         self.update_ghost_particles()
