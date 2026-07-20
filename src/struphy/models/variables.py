@@ -23,14 +23,11 @@ from struphy.pic.base import Particles
 from struphy.pic.particles import ParticlesSPH
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import check_option
-from struphy.utils.pyccel import Pyccelkernel
-from struphy.pic.accumulation.filter import FilterParameters
 
 if TYPE_CHECKING:
     from struphy.models.species import FieldSpecies, FluidSpecies, ParticleSpecies, Species
 
 logger = logging.getLogger("struphy")
-opts_feec_space = LiteralOptions.OptsFEECSpace
 
 class Variable(metaclass=ABCMeta):
     """
@@ -483,18 +480,6 @@ class PICVariable(Variable):
     @property
     def space(self) -> LiteralOptions.OptsPICSpace:
         return self._space
-    
-    @property
-    def accum_spaces(self) -> opts_feec_space | tuple[opts_feec_space]:
-        return self._accum_spaces
-    
-    @property
-    def accum_kernels(self) -> Pyccelkernel | tuple[Pyccelkernel]:
-        return self._accum_kernels
-    
-    @property
-    def filter_params(self) -> FilterParameters | tuple[FilterParameters]:
-        return self._filter_params
 
     @property
     def particles_class(self) -> Particles:
