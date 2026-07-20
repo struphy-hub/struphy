@@ -49,7 +49,10 @@ jobs:
       - name: Submit SLURM job
         run: |
           source .venv-fortran/bin/activate
-          python profiling/submit_diocotron_job.py --venv-path .venv-fortran
+          python profiling/submit_diocotron_job.py \
+            --venv-path .venv-fortran \
+            --language ${{ matrix.compile-language }} \
+            --compiler GNU
 
       - name: Package and push profiling data
         shell: bash
