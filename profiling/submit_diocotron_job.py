@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -65,7 +66,7 @@ def _git_commit(repo_dir: Path) -> str:
 
 
 def build_case_commands(case: ProfilingCase, venv_path: Path) -> list[str]:
-    activate_path = venv_path.expanduser().resolve() / "bin" / "activate"
+    activate_path = venv_path / "bin" / "activate"
     commands = [
         "module purge",
         "source ./setup/modules.sh load",
@@ -116,12 +117,6 @@ def main() -> None:
         description="Submit the diocotron profiling job."
     )
     parser.add_argument(
-        "--venv-path",
-        type=Path,
-        default=Path(".venv"),
-        help="Path to the virtual environment to activate (default: .venv).",
-    )
-    parser.add_argument(
         "--results-root",
         type=Path,
         default=None,
@@ -152,6 +147,13 @@ def main() -> None:
         ),
     )
     args = parser.parse_args()
+
+    virtual_env = os.environ.get("VIRTUAL_ENV")
+    if not virtual_env:
+        raise RuntimeError(
+            "VIRTUAL_ENV is not set; activate a virtual environment before submitting the job."
+        )
+    venv_path = Path(virtual_env)
 
     compiler = Compiler(language=args.language, compiler=args.compiler)
     compiler.compile()
@@ -197,7 +199,7 @@ def main() -> None:
 
     for case in cases:
         case.output_root.mkdir(parents=True, exist_ok=True)
-        case_commands = build_case_commands(case, args.venv_path)
+        case_commands = build_case_commands(case, venv_path)
 
         # TOK
         # script = SlurmScript(

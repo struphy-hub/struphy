@@ -50,7 +50,6 @@ jobs:
         run: |
           source .venv-fortran/bin/activate
           python profiling/submit_diocotron_job.py \
-            --venv-path .venv-fortran \
             --language ${{ matrix.compile-language }} \
             --compiler GNU \
             --output-root profiling-results-export
