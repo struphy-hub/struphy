@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from typing import Callable, Literal
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilVector
@@ -12,13 +11,9 @@ from line_profiler import profile
 from struphy.feec.mass import L2Projector, WeightedMassOperator
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
-from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation import accum_kernels
-from struphy.pic.accumulation.filter import FilterParameters
+from struphy.models.variables import FEECVariable
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector, ParticlesToGrid
-from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
-from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -88,18 +83,18 @@ class ImplicitDiffusion(Propagator):
         """
         Parameters
         ----------
-        rho : FEECVariable or Callable or tuple or list, default=None
+        rho : FEECVariable or Callable or ParticlesToGrid or list, default=None
             Source term(s) on the right-hand side.
             Accepted entries are:
 
             - ``None``: zero source.
             - ``FEECVariable`` in ``H1``.
             - ``Callable`` to be projected to ``H1`` via ``L2Projector``.
-            - ``AccumulatorVector``.
+            - :class:`~struphy.pic.accumulation.particles_to_grid.ParticlesToGrid`, describing a
+              particle-to-grid (charge/current) deposition. An
+              :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` is built from
+              it at ``allocate()``.
             - a ``list`` containing any mix of the entries above.
-
-            The tuple form is accepted by typing for compatibility with other
-            propagator interfaces that pair particle data with accumulators.
 
         rho_coeffs : float or list, default=None
             Multiplicative coefficient(s) for ``rho`` sources.
@@ -187,13 +182,11 @@ class ImplicitDiffusion(Propagator):
             ``verbose``, ``info``, ``recycle``).
             If ``None``, defaults to ``SolverParameters()``.
 
-        param_kernel : Pyccelkernel
-            Contain the kernel to use for AccumulatorVector creation if rho is or contains particles
-            for example Pyccelkernel(accum_kernels.gc_density_0form).
-
-        particle_filter : FilterParameters, default=None
-            If a particle is provided as source, the AccumulatorVector applies this filter.
-            If None, no filter is applied.
+        Note
+        ----
+        The accumulation kernel and filter for a particle source are not configured here:
+        they are carried by the :class:`~struphy.pic.accumulation.particles_to_grid.ParticlesToGrid`
+        instance passed as (part of) ``rho``.
         """
 
         # specific literals
@@ -210,8 +203,6 @@ class ImplicitDiffusion(Propagator):
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
-        # param_kernel: Pyccelkernel = Pyccelkernel(accum_kernels.charge_density_0form)
-        # particle_filter: FilterParameters = None
 
         def __post_init__(self):
             # checks
@@ -305,9 +296,6 @@ class ImplicitDiffusion(Propagator):
             self._sources = tmp
 
         # coeffs of rhs
-        print(f"self.rho_coeffs = {self.rho_coeffs}")
-        print(f"self.sources = {self.sources}")
-        
         if self.rho_coeffs is not None:
             if isinstance(self.rho_coeffs, (list, tuple)):
                 self._coeffs = self.rho_coeffs
