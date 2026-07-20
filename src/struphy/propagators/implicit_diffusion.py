@@ -15,7 +15,7 @@ from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.filter import FilterParameters
-from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+from struphy.pic.accumulation.particles_to_grid import AccumulatorVector, ParticlesToGrid
 from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
@@ -81,12 +81,9 @@ class ImplicitDiffusion(Propagator):
 
     def __init__(
         self,
-        rho: FEECVariable | PICVariable | Callable | list = None,
+        rho: FEECVariable | ParticlesToGrid | Callable | list = None,
         rho_coeffs: float | list = None,
         diagnostic: FEECVariable | None = None,
-        accum_space: opts_feec_space = None,
-        accum_kernel: Pyccelkernel = None,
-        filter_params: FilterParameters = None,
     ):
         """
         Parameters
@@ -115,23 +112,19 @@ class ImplicitDiffusion(Propagator):
             If not None, updates at each call to the propagator, takes the value of the right-hand side.
             Otherwise does not provide diagnostic.
         """
-        if isinstance(rho, PICVariable):
-            assert accum_space is not None, "If rho is a PICVariable, accum_space must be provided."
-            assert accum_kernel is not None, "If rho is a PICVariable, accum_kernel must be provided."
-        
-        if accum_space is not None:
-            check_option(accum_space, LiteralOptions.OptsFEECSpace)
-                
-        assert isinstance(accum_kernel, Pyccelkernel) or accum_kernel is None
-        assert isinstance(filter_params, FilterParameters) or filter_params is None
+        if isinstance(rho, list):
+            for r in rho:
+                if isinstance(r, ParticlesToGrid):
+                    assert r.accum_space is not None, "If rho contains a PICVariable, accum_space must be provided."
+                    assert r.accum_kernel is not None, "If rho contains a PICVariable, accum_kernel must be provided."
+        elif isinstance(rho, ParticlesToGrid):
+            assert rho.accum_space is not None, "If rho is a PICVariable, accum_space must be provided."
+            assert rho.accum_kernel is not None, "If rho is a PICVariable, accum_kernel must be provided."
         
         self.variables = self.Variables()
         self.rho = rho
         self.rho_coeffs = rho_coeffs
         self.diagnostic = diagnostic
-        self.accum_space = accum_space
-        self.accum_kernel = accum_kernel
-        self.filter_params = filter_params
             
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -269,24 +262,23 @@ class ImplicitDiffusion(Propagator):
                 assert rho.space == "H1"
                 rhs = rho
                 
-            elif isinstance(rho, PICVariable):
+            elif isinstance(rho, ParticlesToGrid):
                 rhs = AccumulatorVector(
-                    rho.particles,
-                    self.accum_space,
-                    self.accum_kernel,
+                    rho.pic_variable.particles,
+                    rho.accum_space,
+                    rho.accum_kernel,
                     Propagator.mass_ops,
                     Propagator.domain.args_domain,
-                    filter_params=self.filter_params,
+                    filter_params=rho.filter_params,
                 )
                 
-                # TODO: move this to the respective model where it is needed
-                # if not rho.particles.control_variate:
-                #     l2_proj = L2Projector("H1", Propagator.mass_ops)
-                #     f0e = self.Z * rho.f0
-                #     rho_eh = FEECVariable(space="H1")
-                #     rho_eh.allocate(derham=Propagator.derham, domain=Propagator.domain)
-                #     rho_eh.spline.vector = l2_proj.get_dofs(f0e.n)
-                #     return [rhs, rho_eh]
+                if not rhs.particles.control_variate and rhs.space_id == "H1":
+                    l2_proj = L2Projector("H1", Propagator.mass_ops)
+                    f0e = -rho.pic_variable.species.charge_number * rhs.particles.f0
+                    rho_eh = FEECVariable(space="H1")
+                    rho_eh.allocate(derham=Propagator.derham, domain=Propagator.domain)
+                    rho_eh.spline.vector = l2_proj.get_dofs(f0e.n)
+                    return [rhs, rho_eh]
                 
             elif isinstance(rho, Callable):
                 rhs = L2Projector("H1", self.mass_ops).get_dofs(rho, apply_bc=True)
@@ -299,12 +291,23 @@ class ImplicitDiffusion(Propagator):
         rho = self.rho
         if isinstance(rho, list):
             self._sources = []
-            for r in rho:
-                self._sources += verify_rhs(r)
+            for n, r in enumerate(rho):
+                tmp = verify_rhs(r)
+                if len(tmp) == 2 and self.rho_coeffs is not None:
+                    if len(self.rho_coeffs) < len(rho):
+                        self.rho_coeffs.insert(n + 1, self.rho_coeffs[n])
+                self._sources += tmp
         else:
-            self._sources = verify_rhs(rho)
+            tmp = verify_rhs(rho)
+            if len(tmp) == 2 and self.rho_coeffs is not None:
+                if not isinstance(self.rho_coeffs, (list, tuple)):
+                    self.rho_coeffs = [self.rho_coeffs, self.rho_coeffs]
+            self._sources = tmp
 
         # coeffs of rhs
+        print(f"self.rho_coeffs = {self.rho_coeffs}")
+        print(f"self.sources = {self.sources}")
+        
         if self.rho_coeffs is not None:
             if isinstance(self.rho_coeffs, (list, tuple)):
                 self._coeffs = self.rho_coeffs

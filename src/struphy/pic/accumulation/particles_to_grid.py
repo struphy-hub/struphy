@@ -5,6 +5,7 @@ from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilMatrix, StencilVector
 from scope_profiler import ProfileManager
+from dataclasses import dataclass
 
 import struphy.pic.accumulation.accum_kernels as accums
 import struphy.pic.accumulation.accum_kernels_gc as accums_gc
@@ -14,6 +15,9 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Domain
 from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
 from struphy.pic.base import Particles
 from struphy.utils.pyccel import Pyccelkernel
+from struphy.io.options import LiteralOptions
+from struphy.utils.utils import check_option, __dataclass_repr_no_defaults__
+from struphy.models.variables import PICVariable
 
 
 class Accumulator:
@@ -727,3 +731,32 @@ class AccumulatorVector:
             f'Spline field accumulated with the kernel "{self.kernel}"',
         )
         plt.show()
+
+
+@dataclass
+class ParticlesToGrid:
+    """Defines a particle-to-grid coupling (for example charge- or current deposition)
+    into FEEC degrees of freedom.
+    
+    Optional filtering for noise reduction can be applied to the coefficients.
+    
+    Parameters
+    ----------
+    """
+    
+    pic_variable: PICVariable = None
+    accum_space: LiteralOptions.OptsFEECSpace = None
+    accum_kernel: Pyccelkernel = None
+    filter_params: FilterParameters = None
+    
+    def __post_init__(self):
+        if self.accum_space is not None:
+            check_option(self.accum_space, LiteralOptions.OptsFEECSpace)
+            
+        assert isinstance(self.accum_kernel, Pyccelkernel) or self.accum_kernel is None
+        assert isinstance(self.filter_params, FilterParameters) or self.filter_params is None
+            
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_no_defaults__(self)
+        
+        
