@@ -28,6 +28,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Verify access to docs-preview repo
+        env:
+          GH_TOKEN: ${{ secrets.STRUPHY_HUB_ACCESS_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::STRUPHY_HUB_ACCESS_TOKEN secret is not set"
+            exit 1
+          fi
+          can_push=$(gh api repos/struphy-hub/docs-preview --jq .permissions.push 2>&1) || {
+            echo "::error::Could not reach struphy-hub/docs-preview with STRUPHY_HUB_ACCESS_TOKEN: $can_push"
+            exit 1
+          }
+          if [ "$can_push" != "true" ]; then
+            echo "::error::STRUPHY_HUB_ACCESS_TOKEN does not have push access to struphy-hub/docs-preview"
+            exit 1
+          fi
+          echo "Push access to struphy-hub/docs-preview confirmed"
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
