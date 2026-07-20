@@ -137,15 +137,6 @@ def main() -> None:
         default="GNU",
         help='Pyccel compiler family to use: "GNU" (default), "intel", "PGI", "nvidia", or "LLVM".',
     )
-    parser.add_argument(
-        "--output-root",
-        type=Path,
-        default=Path("profiling-results-export"),
-        help=(
-            "Folder where profiling data from completed jobs is packaged for upload "
-            "(default: profiling-results-export)."
-        ),
-    )
     args = parser.parse_args()
 
     virtual_env = os.environ.get("VIRTUAL_ENV")
@@ -158,7 +149,7 @@ def main() -> None:
     compiler = Compiler(language=args.language, compiler=args.compiler)
     compiler.compile()
 
-    output_root = args.output_root.resolve()
+    output_root = Path("profiling-results-export").resolve()
     if output_root.exists():
         shutil.rmtree(output_root)
     output_root.mkdir(parents=True, exist_ok=True)
