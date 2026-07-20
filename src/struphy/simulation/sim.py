@@ -1259,52 +1259,16 @@ RESTARTing from:
 
         return save_keys_all, save_keys_end
 
-    def _collect_particle_run_metadata(self) -> dict:
-        """Collect per-species marker metadata (Np, ppc, ppb) for the current run."""
-        particle_metadata = {}
-        for species_name, species in self.model.particle_species.items():
-            species_metadata = {}
-            for variable_name, variable in species.variables.items():
-                if isinstance(variable, PICVariable | SPHVariable) and hasattr(variable, "_particles"):
-                    particles = variable.particles
-                    species_metadata[variable_name] = {
-                        "Np": particles.Np,
-                        "ppc": particles.ppc,
-                        "ppb": particles.ppb,
-                    }
-            if species_metadata:
-                particle_metadata[species_name] = species_metadata
-        return particle_metadata
-
     def _write_run_metadata(self, one_time_step: bool = False):
-        """Write run-specific JSON metadata for each sim.run() event."""
+        """Write run-specific JSON metadata for each sim.run() event, reusing to_json()."""
         if self.rank != 0:
             return
 
-        run_metadata = {
-            "run": {
-                "started_at_epoch_s": self.start_time,
-                "one_time_step": one_time_step,
-                "parameter_file": self.params_path,
-                "model_name": self.model_name,
-                "mpi_ranks": self.comm_size,
-                "use_mpi_comm_world": self.comm is not None,
-            },
-            "env": {
-                **self.env.to_dict(),
-                "path_out": self.env.path_out,
-            },
-            "time_opts": self.time_opts.to_dict(),
-            "grid": {
-                **self.grid.to_dict(),
-                "Nel": self.grid.num_elements,
-            },
-            "derham_opts": self.derham_opts.to_dict(),
-            "particle_species": self._collect_particle_run_metadata(),
-        }
-
-        with open(os.path.join(self.env.path_out, "run_metadata.json"), "w", encoding="utf-8") as file:
-            json.dump(run_metadata, file, indent=2)
+        self.to_json(
+            file_path=os.path.join(self.env.path_out, "run_metadata.json"),
+            started_at_epoch_s=self.start_time,
+            one_time_step=one_time_step,
+        )
 
     def _add_time_state(self, time_state):
         """Add a pointer to the time variable of the dynamics ('t')
@@ -1381,7 +1345,7 @@ RESTARTing from:
                 particle_metadata[species_name] = species_metadata
         return particle_metadata
 
-    def to_json(self, file_path: str = None) -> str:
+    def to_json(self, file_path: str = None, **extra_data) -> str:
         """Assemble the run's data and metadata by hand and serialize to a JSON string.
 
         "data" holds facts about this specific run (model, sizing, MPI layout);
@@ -1392,6 +1356,10 @@ RESTARTing from:
         ----------
         file_path : str, optional
             If given, also write the JSON string to this file.
+
+        **extra_data
+            Additional key/value pairs merged into the "data" section,
+            e.g. call-specific facts like a start timestamp.
 
         Returns
         -------
@@ -1406,6 +1374,7 @@ RESTARTing from:
             "mpi_ranks": self.comm_size,
             "use_mpi_comm_world": self.comm is not None,
             "particle_species": self._collect_particle_metadata(),
+            **extra_data,
         }
 
         metadata = {
