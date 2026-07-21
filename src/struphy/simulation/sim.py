@@ -1348,10 +1348,6 @@ RESTARTing from:
     def to_json(self, file_path: str = None, **extra_data) -> str:
         """Assemble the run's data and metadata by hand and serialize to a JSON string.
 
-        "data" holds facts about this specific run (model, sizing, MPI layout);
-        "metadata" holds the configuration objects (env, time, domain, equil, grid, derham_opts)
-        that fully describe how the run was set up.
-
         Parameters
         ----------
         file_path : str, optional
@@ -1364,29 +1360,26 @@ RESTARTing from:
         Returns
         -------
         str
-            The JSON-encoded simulation data and metadata.
+            The JSON-encoded simulation configuration.
         """
-        data = {
+        config = {
             "name": self.name,
             "description": self.description,
             "model_name": self.model_name,
             "parameter_file": self.params_path,
             "mpi_ranks": self.comm_size,
             "use_mpi_comm_world": self.comm is not None,
-            "particle_species": self._collect_particle_metadata(),
-            **extra_data,
-        }
-
-        metadata = {
             "env": self.env.to_dict(),
             "time_opts": self.time_opts.to_dict(),
             "domain": self.domain.to_dict(),
             "equil": self.equil.to_dict() if self.equil is not None else None,
             "grid": self.grid.to_dict(),
             "derham_opts": self.derham_opts.to_dict(),
+            "particle_species": self._collect_particle_metadata(),
+            **extra_data,
         }
 
-        json_str = json.dumps({"data": data, "metadata": metadata}, indent=4)
+        json_str = json.dumps(config, indent=4)
         if file_path is not None:
             with open(file_path, "w") as f:
                 f.write(json_str)
