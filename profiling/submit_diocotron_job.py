@@ -215,7 +215,7 @@ def main() -> None:
             nodes=1,
             ntasks_per_node=max(case.ranks),
             cpus_per_task=1,
-            mem_per_cpu="1GB",
+            mem_per_cpu="8GB",
             partition="dcgp_fua_dbg",
             account="FUSIO_HLST_7",
             output="./%x.%j.out",
