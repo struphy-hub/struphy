@@ -1,4 +1,4 @@
-set -euo pipefail
+# set -euo pipefail
 
 echo "========================================"
 echo "Starting Struphy setup"
