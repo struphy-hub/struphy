@@ -89,7 +89,7 @@ def build_case_commands(case: ProfilingCase, venv_path: Path) -> list[str]:
                     f'mpirun -n {ntasks} python profiling/run_diocotron.py '
                     f'{ntasks} --out-root "{case.output_root}"'
                 ),
-                f"scope-profiler-pproc {sim_dir / 'profiling_data.h5'} -o {sim_dir}",
+                f"scope-profiler pproc {sim_dir / 'profiling_data.h5'} -o {sim_dir}",
             ],
         )
 
@@ -102,7 +102,7 @@ def build_case_commands(case: ProfilingCase, venv_path: Path) -> list[str]:
             'echo "----------------------------------------"',
             '# Postprocessing comparison plots',
             (
-                f"scope-profiler-pproc "
+                f"scope-profiler pproc "
                 f"{' '.join(str(sim_dir / 'profiling_data.h5') for sim_dir in sim_dirs)} "
                 f"--rank 0 -o {case.output_root / 'figures'}"
             ),
