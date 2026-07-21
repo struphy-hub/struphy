@@ -150,21 +150,11 @@ jobs:
           script: |
             const prNumber = context.payload.pull_request.number;
             const url = `https://struphy-hub.github.io/docs-preview/pr-${prNumber}/`;
-            const marker = '<!-- docs-preview-link -->';
-            const body = `${marker}\n📖 Docs preview: ${url}`;
+            const body = `📖 Docs preview: ${url}`;
 
-            const { data: comments } = await github.rest.issues.listComments({
+            await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: prNumber,
+              body,
             });
-            const existing = comments.find(c => c.body.includes(marker));
-
-            if (!existing) {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: prNumber,
-                body,
-              });
-            }
