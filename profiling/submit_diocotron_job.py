@@ -147,7 +147,10 @@ def main() -> None:
     venv_path = Path(virtual_env)
 
     compiler = Compiler(language=args.language, compiler=args.compiler)
-    compiler.compile()
+    print(f"Using compiler: {compiler.language} ({compiler.compiler})")
+    # compiler.compile()
+    print("Done compiling Struphy kernels.")
+    
 
     output_root = Path("profiling-results-export").resolve()
     if output_root.exists():
@@ -226,10 +229,12 @@ def main() -> None:
             custom_commands=case_commands,
         )
 
-        print(script)
+        # print(script)
 
         output_path = repo_root / f"job_profile_{case.label}.sh"
 
+
+        print(f"Writing metadata for '{case.label}' to {case.output_root / 'profiling_case_info.json'}")
         (case.output_root / "profiling_case_info.json").write_text(
             json.dumps(
                 {
@@ -250,6 +255,7 @@ def main() -> None:
             encoding="utf-8",
         )
 
+        
         job_id = script.submit_job(str(output_path), verbose=True)
 
         SQueue().wait_until_done(job_id=job_id, poll_interval=10)
