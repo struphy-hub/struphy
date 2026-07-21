@@ -65,5 +65,6 @@ jobs:
           ls /struphy_fortran_
           cd /struphy_fortran_/tutorials
           ls
+          python debug_gvec.py
           jupyter nbconvert --show-config
           jupyter nbconvert --execute --embed-images --to html --debug tutorial_*.ipynb
