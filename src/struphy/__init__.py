@@ -15,6 +15,7 @@ class RankZeroFilter(logging.Filter):
     def filter(self, record):
         return self.rank == 0
 
+
 # logger configuration
 config = {
     "version": 1,
@@ -109,6 +110,7 @@ setup_logging(logging_level=logging.WARNING)
 logger.info(f"Logging setup complete, log-file at {config['handlers']['file']['filename']}")
 
 # Import API components
+from struphy.api.compiler import Compiler
 from struphy.api.domains import domains
 from struphy.api.equils import equils
 from struphy.api.grids import grids
@@ -135,6 +137,7 @@ from struphy.api.post_processing import PlottingData, PostProcessor
 from struphy.api.simulation import Simulation
 
 __all__ = [
+    "Compiler",
     "domains",
     "equils",
     "grids",
