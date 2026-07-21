@@ -8,7 +8,7 @@ Welcome to
 
 |
 
-This website is your starting point for solving PDEs with Struphy.
+This website is your starting point for solving PDEs with Struphy!
 Check the topics below for detailed information on a subject.
 
 `<https://github.com/struphy-hub/struphy>`_ is the launch point for the related source code.
