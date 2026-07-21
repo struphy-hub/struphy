@@ -1359,7 +1359,6 @@ RESTARTing from:
             "parameter_file": self.params_path,
             "mpi_ranks": self.comm_size,
             "use_mpi_comm_world": self.comm is not None,
-            "particle_species": self._collect_particle_metadata(),
         }
 
         metadata = {
@@ -1369,6 +1368,7 @@ RESTARTing from:
             "equil": self.equil.to_dict() if self.equil is not None else None,
             "grid": self.grid.to_dict(),
             "derham_opts": self.derham_opts.to_dict(),
+            "particle_species": self._collect_particle_metadata(),
         }
 
         json_str = json.dumps({"data": data, "metadata": metadata}, indent=4)
