@@ -1,0 +1,53 @@
+name: Remove PR docs preview
+
+on:
+  pull_request:
+    branches:
+      - devel
+    types: [closed]
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  remove-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout docs-preview repo
+        uses: actions/checkout@v5
+        with:
+          repository: struphy-hub/docs-preview
+          token: ${{ secrets.STRUPHY_PREVIEW_DOCS_TOKEN }}
+          path: docs-preview
+
+      - name: Remove preview folder
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          cd docs-preview
+          PR_DIR="pr-${PR_NUMBER}"
+
+          if [ ! -d "$PR_DIR" ]; then
+            echo "No preview folder for PR #${PR_NUMBER}, nothing to do"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git rm -r "$PR_DIR"
+          git commit -m "Remove docs preview for struphy PR #${PR_NUMBER}"
+
+          for i in 1 2 3 4 5; do
+            if git push; then
+              exit 0
+            fi
+            git fetch origin
+            git rebase origin/HEAD
+            sleep $((RANDOM % 5 + 1))
+          done
+          echo "Failed to push docs preview removal after retries" >&2
+          exit 1
