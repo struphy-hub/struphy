@@ -145,7 +145,6 @@ class VlasovAmpereOneSpecies(StruphyModel):
         particles_to_grid = ParticlesToGrid(self.kinetic_ions.var,
                                             "H1",
                                             Pyccelkernel(accum_kernels.charge_density_0form),
-                                            filter_params=None,
                                             )
         
         self.initial_poisson = PoissonSolve(rho=particles_to_grid,

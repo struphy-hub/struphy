@@ -753,10 +753,6 @@ class ParticlesToGrid:
         Pyccelized accumulation kernel matching ``accum_space``, for example
         ``Pyccelkernel(accum_kernels.charge_density_0form)``.
 
-    filter_params : FilterParameters, optional
-        Parameters for the accumulation filter applied for noise reduction.
-        If ``None`` (default), no filter is applied.
-
     Examples
     --------
     >>> from struphy.pic.accumulation import accum_kernels
@@ -774,15 +770,13 @@ class ParticlesToGrid:
     pic_variable: PICVariable | SPHVariable = None
     accum_space: LiteralOptions.OptsFEECSpace = None
     accum_kernel: Pyccelkernel = None
-    filter_params: FilterParameters = None
-    
+
     def __post_init__(self):
         if self.accum_space is not None:
             check_option(self.accum_space, LiteralOptions.OptsFEECSpace)
-            
+
         assert isinstance(self.accum_kernel, Pyccelkernel) or self.accum_kernel is None
-        assert isinstance(self.filter_params, FilterParameters) or self.filter_params is None
-            
+
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
         

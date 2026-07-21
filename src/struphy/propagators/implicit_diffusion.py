@@ -11,10 +11,11 @@ from line_profiler import profile
 from struphy.feec.mass import L2Projector, WeightedMassOperator
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
-from struphy.models.variables import FEECVariable
+from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector, ParticlesToGrid
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
+from struphy.pic.accumulation.filter import FilterParameters
 
 logger = logging.getLogger("struphy")
 
@@ -181,11 +182,16 @@ class ImplicitDiffusion(Propagator):
             Iterative-solver controls (for example ``tol``, ``maxiter``,
             ``verbose``, ``info``, ``recycle``).
             If ``None``, defaults to ``SolverParameters()``.
+            
+        filter_params : dict[PICVariable | SPHVariable, FilterParameters], default=None
+            If not None, specifies a filter to the accumulation of a specific variable.
+            Keyed by the ``pic_variable`` of the corresponding
+            :class:`~struphy.pic.accumulation.particles_to_grid.ParticlesToGrid` source in ``rho``.
 
         Note
         ----
-        The accumulation kernel and filter for a particle source are not configured here:
-        they are carried by the :class:`~struphy.pic.accumulation.particles_to_grid.ParticlesToGrid`
+        The accumulation kernel for a particle source is not configured here:
+        it is carried by the :class:`~struphy.pic.accumulation.particles_to_grid.ParticlesToGrid`
         instance passed as (part of) ``rho``.
         """
 
@@ -203,6 +209,7 @@ class ImplicitDiffusion(Propagator):
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
+        filter_params: dict[PICVariable | SPHVariable, FilterParameters] = None
 
         def __post_init__(self):
             # checks
@@ -254,13 +261,17 @@ class ImplicitDiffusion(Propagator):
                 rhs = rho
                 
             elif isinstance(rho, ParticlesToGrid):
+                filter_params = None
+                if self.options.filter_params is not None:
+                    filter_params = self.options.filter_params.get(rho.pic_variable)
+
                 rhs = AccumulatorVector(
                     rho.pic_variable.particles,
                     rho.accum_space,
                     rho.accum_kernel,
                     Propagator.mass_ops,
                     Propagator.domain.args_domain,
-                    filter_params=rho.filter_params,
+                    filter_params=filter_params,
                 )
                 
                 if not rhs.particles.control_variate and rhs.space_id == "H1":
