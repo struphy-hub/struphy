@@ -17,7 +17,7 @@ from struphy.pic.base import Particles
 from struphy.utils.pyccel import Pyccelkernel
 from struphy.io.options import LiteralOptions
 from struphy.utils.utils import check_option, __dataclass_repr_no_defaults__
-from struphy.models.variables import PICVariable
+from struphy.models.variables import PICVariable, SPHVariable
 
 
 class Accumulator:
@@ -739,27 +739,11 @@ class ParticlesToGrid:
     (for example charge- or current deposition) into FEEC degrees of freedom.
 
     A ``ParticlesToGrid`` does not perform any accumulation itself: it simply bundles
-    the pieces needed to build an :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector`
-    for a given :class:`~struphy.models.variables.PICVariable`, namely the target FEEC space,
-    the accumulation kernel and an optional noise-reduction filter. It is meant to be handed
-    to propagators that accept particle sources, most notably
-    :class:`~struphy.propagators.implicit_diffusion.ImplicitDiffusion` (and its subclasses
-    :class:`~struphy.propagators.poisson_solve.PoissonSolve` and
-    :class:`~struphy.propagators.poisson_adiabatic_gyrokinetic.PoissonAdiabaticGyrokinetic`)
-    as (part of) the ``rho`` right-hand side. There, the actual
-    :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` is built from it during
-    ``allocate()``.
-
-    If the particles are **not** using the control variate method and ``accum_space`` is ``"H1"``,
-    the consuming propagator additionally projects the analytical background charge density
-    :math:`-Z \int f_0 \, \mathrm d\mathbf v` onto ``H1`` (via :class:`~struphy.feec.mass.L2Projector`)
-    and adds it as an extra source, so that the full charge density (background + perturbation)
-    enters the right-hand side. If control variate is used, the markers already represent
-    :math:`f - f_0` and no such correction is added.
+    the pieces needed to build an :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector`.
 
     Parameters
     ----------
-    pic_variable : PICVariable
+    pic_variable : PICVariable | SPHVariable
         The kinetic variable whose markers (``pic_variable.particles``) are deposited on the grid.
 
     accum_space : {"H1", "Hcurl", "Hdiv", "L2", "H1vec"}
@@ -787,7 +771,7 @@ class ParticlesToGrid:
     >>> poisson = PoissonSolve(rho=rho, rho_coeffs=alpha**2 / epsilon)
     """
 
-    pic_variable: PICVariable = None
+    pic_variable: PICVariable | SPHVariable = None
     accum_space: LiteralOptions.OptsFEECSpace = None
     accum_kernel: Pyccelkernel = None
     filter_params: FilterParameters = None

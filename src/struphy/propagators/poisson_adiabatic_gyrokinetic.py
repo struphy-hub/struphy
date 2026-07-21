@@ -85,7 +85,7 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
 
     @dataclass
     class Options:
-        """Configuration options for :class:`PoissonAdiabaticGyrokinetic`.
+        r"""Configuration options for :class:`PoissonAdiabaticGyrokinetic`.
 
         Parameters
         ----------

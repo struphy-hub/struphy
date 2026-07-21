@@ -39,6 +39,7 @@ from struphy.models.viscous_fluid import ViscousFluid
 from struphy.models.vlasov import Vlasov
 from struphy.models.vlasov_ampere_one_species import VlasovAmpereOneSpecies
 from struphy.models.vlasov_maxwell_one_species import VlasovMaxwellOneSpecies
+from struphy.models.incompressible_navier_stokes_sph import IncompressibleNavierStokesSPH
 
 __all__ = [
     "ColdPlasma",
@@ -47,6 +48,7 @@ __all__ = [
     "DriftKineticElectrostaticAdiabatic",
     "GuidingCenter",
     "HasegawaWakatani",
+    "IncompressibleNavierStokesSPH",
     "LinearExtendedMHDuniform",
     "LinearMHD",
     "LinearMHDDriftkineticCC",
