@@ -62,6 +62,8 @@ jobs:
           PYVISTA_JUPYTER_BACKEND: "static"
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
+          pip uninstall -y gvec
+          pip install gvec
           ls /struphy_fortran_
           cd /struphy_fortran_/tutorials
           ls
