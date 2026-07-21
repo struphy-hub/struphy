@@ -110,7 +110,7 @@ def div_u_weak_1form(
         v1 = markers[ip, 3]
         v2 = markers[ip, 4]
         v3 = markers[ip, 5]
-        
+
         # weight and density
         weight = markers[ip, weight_idx]
         density = markers[ip, density_idx]

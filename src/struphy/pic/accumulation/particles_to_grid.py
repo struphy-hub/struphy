@@ -1,23 +1,24 @@
 "Base classes for particle deposition (accumulation) on the grid."
 
+from dataclasses import dataclass
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilMatrix, StencilVector
 from scope_profiler import ProfileManager
-from dataclasses import dataclass
 
 import struphy.pic.accumulation.accum_kernels as accums
 import struphy.pic.accumulation.accum_kernels_gc as accums_gc
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
+from struphy.io.options import LiteralOptions
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
+from struphy.models.variables import PICVariable, SPHVariable
 from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
 from struphy.pic.base import Particles
 from struphy.utils.pyccel import Pyccelkernel
-from struphy.io.options import LiteralOptions
-from struphy.utils.utils import check_option, __dataclass_repr_no_defaults__
-from struphy.models.variables import PICVariable, SPHVariable
+from struphy.utils.utils import __dataclass_repr_no_defaults__, check_option
 
 
 class Accumulator:
@@ -779,5 +780,3 @@ class ParticlesToGrid:
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
-        
-        

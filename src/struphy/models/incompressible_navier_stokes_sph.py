@@ -8,16 +8,16 @@ from struphy.models.scalars import KineticEnergySPH, Scalars
 from struphy.models.species import (
     ParticleSpecies,
 )
-from struphy.models.variables import SPHVariable, FEECVariable
+from struphy.models.variables import FEECVariable, SPHVariable
+from struphy.pic.accumulation import accum_kernels
+from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
+from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.push_eta import PushEta
+from struphy.propagators.push_vin_efield import PushVinEfield
 from struphy.propagators.push_vin_sph_pressure import PushVinSPHpressure
 from struphy.propagators.push_vin_viscous_potential import PushVinViscousPotential
 from struphy.propagators.push_vxb import PushVxB
-from struphy.propagators.poisson_solve import PoissonSolve
-from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
-from struphy.propagators.push_vin_efield import PushVinEfield
 from struphy.utils.pyccel import Pyccelkernel
-from struphy.pic.accumulation import accum_kernels
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -56,13 +56,14 @@ class IncompressibleNavierStokesSPH(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self, 
-                     ptg: ParticlesToGrid, 
-                     pressure: FEECVariable,
-                     ptg_coeff: float = 1.0, 
-                     with_B0: bool = True, 
-                     with_viscosity: bool = True,
-                     ):
+        def __init__(
+            self,
+            ptg: ParticlesToGrid,
+            pressure: FEECVariable,
+            ptg_coeff: float = 1.0,
+            with_B0: bool = True,
+            with_viscosity: bool = True,
+        ):
             self.push_eta = PushEta()
             if with_B0:
                 self.push_vxb = PushVxB()
@@ -95,15 +96,17 @@ class IncompressibleNavierStokesSPH(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        ptg = ParticlesToGrid(self.fluid.density,
-                              "Hcurl",
-                              Pyccelkernel(accum_kernels.div_u_weak_1form),
-                              )
-        self.propagators = self.Propagators(ptg=ptg,
-                                            pressure=self.fluid.pressure,
-                                            with_B0=with_B0, 
-                                            with_viscosity=with_viscosity,
-                                            )
+        ptg = ParticlesToGrid(
+            self.fluid.density,
+            "Hcurl",
+            Pyccelkernel(accum_kernels.div_u_weak_1form),
+        )
+        self.propagators = self.Propagators(
+            ptg=ptg,
+            pressure=self.fluid.pressure,
+            with_B0=with_B0,
+            with_viscosity=with_viscosity,
+        )
 
         # 4. assign variables to propagators
         self.propagators.push_eta.variables.var = self.fluid.density

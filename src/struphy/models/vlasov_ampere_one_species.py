@@ -128,11 +128,12 @@ class VlasovAmpereOneSpecies(StruphyModel):
         # 5. define scalars to be tracked during simulation
         alpha = self.kinetic_ions.equation_params.alpha
         epsilon = self.kinetic_ions.equation_params.epsilon
-        
+
         electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
-        kinetic_energy = KineticEnergyPIC(self.kinetic_ions.var, 
-                                          normalization=alpha**2,
-                                          )
+        kinetic_energy = KineticEnergyPIC(
+            self.kinetic_ions.var,
+            normalization=alpha**2,
+        )
         total_energy = electric_energy + kinetic_energy
 
         self.scalars = Scalars(
@@ -142,14 +143,16 @@ class VlasovAmpereOneSpecies(StruphyModel):
         )
 
         # initial Poisson (not a propagator used in time stepping)
-        particles_to_grid = ParticlesToGrid(self.kinetic_ions.var,
-                                            "H1",
-                                            Pyccelkernel(accum_kernels.charge_density_0form),
-                                            )
-        
-        self.initial_poisson = PoissonSolve(rho=particles_to_grid,
-                                            rho_coeffs=alpha**2 / epsilon,
-                                            )
+        particles_to_grid = ParticlesToGrid(
+            self.kinetic_ions.var,
+            "H1",
+            Pyccelkernel(accum_kernels.charge_density_0form),
+        )
+
+        self.initial_poisson = PoissonSolve(
+            rho=particles_to_grid,
+            rho_coeffs=alpha**2 / epsilon,
+        )
         self.initial_poisson.variables.phi = self.em_fields.phi
 
     @property

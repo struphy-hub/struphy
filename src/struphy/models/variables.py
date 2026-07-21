@@ -29,6 +29,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("struphy")
 
+
 class Variable(metaclass=ABCMeta):
     """
     Abstract base class for a single variable of a Species object.
@@ -472,7 +473,7 @@ class PICVariable(Variable):
     def __init__(self, space: LiteralOptions.OptsPICSpace = "Particles6D"):
         check_option(space, LiteralOptions.OptsPICSpace)
         self._space = space
-        
+
         for name, cls in inspect.getmembers(particles):
             if inspect.isclass(cls) and cls.__module__ == particles.__name__ and name == space:
                 self._particles_class = cls

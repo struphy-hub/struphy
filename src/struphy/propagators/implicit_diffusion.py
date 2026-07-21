@@ -12,10 +12,10 @@ from struphy.feec.mass import L2Projector, WeightedMassOperator
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
+from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector, ParticlesToGrid
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
-from struphy.pic.accumulation.filter import FilterParameters
 
 logger = logging.getLogger("struphy")
 
@@ -116,12 +116,12 @@ class ImplicitDiffusion(Propagator):
         elif isinstance(rho, ParticlesToGrid):
             assert rho.accum_space is not None, "If rho is a PICVariable, accum_space must be provided."
             assert rho.accum_kernel is not None, "If rho is a PICVariable, accum_kernel must be provided."
-        
+
         self.variables = self.Variables()
         self.rho = rho
         self.rho_coeffs = rho_coeffs
         self.diagnostic = diagnostic
-            
+
     @dataclass(repr=False)
     class Options(OptionsBase):
         """Configuration options for :class:`ImplicitDiffusion`.
@@ -182,7 +182,7 @@ class ImplicitDiffusion(Propagator):
             Iterative-solver controls (for example ``tol``, ``maxiter``,
             ``verbose``, ``info``, ``recycle``).
             If ``None``, defaults to ``SolverParameters()``.
-            
+
         filter_params : dict[PICVariable | SPHVariable, FilterParameters], default=None
             If not None, specifies a filter to the accumulation of a specific variable.
             Keyed by the ``pic_variable`` of the corresponding
@@ -252,14 +252,14 @@ class ImplicitDiffusion(Propagator):
         # collect rhs
         def verify_rhs(rho) -> StencilVector | FEECVariable | AccumulatorVector:
             """Perform preliminary operations on rho to compute the rhs and return the result."""
-            
+
             if rho is None:
                 rhs = phi.space.zeros()
-                
+
             elif isinstance(rho, FEECVariable):
                 assert rho.space == "H1"
                 rhs = rho
-                
+
             elif isinstance(rho, ParticlesToGrid):
                 filter_params = None
                 if self.options.filter_params is not None:
@@ -273,7 +273,7 @@ class ImplicitDiffusion(Propagator):
                     Propagator.domain.args_domain,
                     filter_params=filter_params,
                 )
-                
+
                 if not rhs.particles.control_variate and rhs.space_id == "H1":
                     l2_proj = L2Projector("H1", Propagator.mass_ops)
                     f0e = -rho.pic_variable.species.charge_number * rhs.particles.f0
@@ -281,10 +281,10 @@ class ImplicitDiffusion(Propagator):
                     rho_eh.allocate(derham=Propagator.derham, domain=Propagator.domain)
                     rho_eh.spline.vector = l2_proj.get_dofs(f0e.n)
                     return [rhs, rho_eh]
-                
+
             elif isinstance(rho, Callable):
                 rhs = L2Projector("H1", self.mass_ops).get_dofs(rho, apply_bc=True)
-            
+
             else:
                 raise TypeError(f"{type(rho) =} is not accepted.")
 
