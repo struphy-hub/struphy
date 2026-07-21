@@ -5,9 +5,14 @@ on:
     branches:
       - devel
     types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to build/publish a preview for'
+        required: true
 
 concurrency:
-  group: docs-preview-${{ github.event.pull_request.number }}
+  group: docs-preview-${{ github.event.pull_request.number || github.event.inputs.pr_number }}
   cancel-in-progress: true
 
 defaults:
@@ -19,14 +24,42 @@ permissions:
   pull-requests: write
 
 jobs:
-  build-and-deploy-preview:
+  check:
+    runs-on: ubuntu-latest
     # Forked PRs don't get repo secrets on the pull_request event, so the
     # push to struphy-hub/docs-preview would fail anyway; skip early.
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    outputs:
+      should_run: ${{ steps.decide.outputs.should_run }}
+    steps:
+      - name: Decide whether to build a preview
+        id: decide
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manually triggered, building preview"
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          message=$(gh api "repos/${{ github.repository }}/commits/${{ github.event.pull_request.head.sha }}" --jq .commit.message)
+          echo "Last commit message: $message"
+          if echo "$message" | grep -qF '[preview docs]'; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build-and-deploy-preview:
+    needs: check
+    if: needs.check.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/pull/{0}/head', github.event.inputs.pr_number) || github.event.pull_request.head.sha }}
 
       - name: Verify access to docs-preview repo
         env:
@@ -80,7 +113,7 @@ jobs:
 
       - name: Publish preview
         env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
         run: |
           cd docs-preview
           git config user.name "github-actions[bot]"
@@ -111,6 +144,7 @@ jobs:
           exit 1
 
       - name: Comment preview link on PR
+        if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
