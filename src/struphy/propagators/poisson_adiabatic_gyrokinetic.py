@@ -7,13 +7,10 @@ from feectools.linalg.stencil import StencilVector
 from struphy.feec.mass import AverageOperator
 from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.solver import SolverParameters
-from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation import accum_kernels_gc
+from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.pic.accumulation.filter import FilterParameters
-from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
-from struphy.pic.base import Particles
+from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.propagators.implicit_diffusion import ImplicitDiffusion
-from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
 
 
@@ -25,18 +22,19 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
 
     .. math::
 
-        \frac{1}{Z\epsilon^2} \int_\Omega \frac{n_0}{T_0} \psi\, \phi\,\textrm d \mathbf x + \int_\Omega \frac{n_0}{|B_0|²} \nabla \psi^\top \, \nabla \phi \,\textrm d \mathbf x = \sum_i \int_\Omega \psi\, \rho_i(\mathbf x)\,\textrm d \mathbf x \qquad \forall \ \psi \in H^1\,,
+        \frac{1}{Z\epsilon^2} \int_\Omega \frac{n_0}{T_0} \psi\, \phi\,\textrm d \mathbf x + \int_\Omega \frac{n_0}{|B_0|²} \nabla \psi^\top \,\mathbb D \nabla \phi \,\textrm d \mathbf x = \sum_i \int_\Omega \psi\, \rho_i(\mathbf x)\,\textrm d \mathbf x \qquad \forall \ \psi \in H^1\,,
 
-    where :math:`\epsilon \in \mathbb R` is the gyrokinetic ratio defined in units, and Z the charge number of ions.
+    where :math:`\mathbb D` can be an anisotropic (gyrokinetic) diffusion operator (or the identity),
+    :math:`\epsilon \in \mathbb R` is the gyrokinetic ratio defined in units, and Z the charge number of ions.
     Boundary terms from integration by parts are assumed to vanish.
 
     The equation is discretized as
 
     .. math::
 
-        \left( \frac{1}{Z\epsilon^2}\,\mathbb M^0_ad + \mathbb G^\top \mathbb M^1 \mathbb G \right)\, \boldsymbol\phi^{n+1} = \sum_i(\Lambda^0, \rho_i  )_{L^2}\,,
+        \left( \frac{1}{Z\epsilon^2}\,\mathbb M^0_ad + \mathbb G^\top \mathbb M^1_\textnormal{gyro} \mathbb G \right)\, \boldsymbol\phi^{n+1} = \sum_i(\Lambda^0, \rho_i  )_{L^2}\,,
 
-    where :math:`\mathbb M^1` is the :math:`H(\textnormal{curl})`-mass matrix
+    where :math:`\mathbb M^1_\textnormal{gyro}` is the gyrokinetic mass matrix
     and :math:`\mathbb S` is a stabilization matrix.
 
     Parameters
@@ -50,11 +48,11 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
     stab_mat : str
         Name of the stabilizing matrix.
 
-    rho : StencilVector or tuple or list
-        (List of) right-hand side FE coefficients of a 0-form (optional, can be set with a setter later).
-        Can be either a) StencilVector or b) 2-tuple, or a list of those.
-        In case b) the first tuple entry must be :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector`,
-        and the second entry must be :class:`~struphy.pic.base.Particles`.
+    rho : FEECVariable or Callable or ParticlesToGrid or list
+        (List of) right-hand side source term(s) of the Poisson problem (optional, can be set with
+        a setter later). See :class:`~struphy.propagators.implicit_diffusion.ImplicitDiffusion` for
+        the accepted entries; particle sources are passed as
+        :class:`~struphy.pic.accumulation.particles_to_grid.ParticlesToGrid`.
 
     x0 : StencilVector
         Initial guess for the iterative solver (optional, can be set with a setter later).
@@ -65,7 +63,7 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
 
     def __init__(
         self,
-        rho: FEECVariable | Callable | AccumulatorVector | Particles | PICVariable | list = None,
+        rho: FEECVariable | Callable | ParticlesToGrid | list = None,
         rho_coeffs: float | list = None,
         epsilon: float = 1.0,
         Z: int = 1,
@@ -88,7 +86,7 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
 
     @dataclass
     class Options:
-        """Configuration options for :class:`PoissonAdiabaticGyrokinetic`.
+        r"""Configuration options for :class:`PoissonAdiabaticGyrokinetic`.
 
         Parameters
         ----------
@@ -111,18 +109,16 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
         diffusion_mat : {"M1", "M1perp", "M1gyro"}, defaults="M1gyro"
             Diffusion matrix.
 
-        rho : FEECVariable or Callable or tuple or list, default=None
+        rho : FEECVariable or Callable or ParticlesToGrid or list, default=None
             Right-hand side source term(s) of the Poisson problem.
             Accepted entries are:
 
             - ``None``: zero source.
             - ``FEECVariable`` in ``H1``.
             - ``Callable`` to be projected to ``H1`` via ``L2Projector``.
-            - ``AccumulatorVector``.
+            - :class:`~struphy.pic.accumulation.particles_to_grid.ParticlesToGrid`, describing a
+              particle-to-grid (charge/current) deposition.
             - a ``list`` containing any mix of the entries above.
-
-            The tuple form is accepted by typing for compatibility with other
-            propagator interfaces that pair particle data with accumulators.
 
         rho_coeffs : float or list, default=None
             Multiplicative coefficient(s) applied to ``rho``.
@@ -145,6 +141,9 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
             ``verbose``, ``info``, ``recycle``).
             If ``None``, defaults to ``SolverParameters()``.
 
+        filter_params : dict[PICVariable | SPHVariable, FilterParameters], default=None
+            If not None, specifies a filter to the accumulation of a specific variable.
+
         Notes
         -----
         ``Poisson.Options`` reuses :class:`ImplicitDiffusion` internals by
@@ -165,15 +164,13 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
-        param_kernel: Pyccelkernel = Pyccelkernel(accum_kernels_gc.gc_density_0form)
-        particle_filter: FilterParameters = None
+        filter_params: dict[PICVariable | SPHVariable, FilterParameters] = None
 
         def __post_init__(self):
             # checks
             check_option(self.stab_mat, self.OptsStabMat)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
-            assert isinstance(self.param_kernel, Pyccelkernel)
 
             # defaults
             if self.solver_params is None:

@@ -14,7 +14,7 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels
-from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+from struphy.pic.accumulation.particles_to_grid import AccumulatorVector, ParticlesToGrid
 from struphy.propagators.base import Propagator
 from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.push_eta import PushEta
@@ -126,8 +126,14 @@ class VlasovAmpereOneSpecies(StruphyModel):
         self.propagators.coupling_va.variables.ions = self.kinetic_ions.var
 
         # 5. define scalars to be tracked during simulation
+        alpha = self.kinetic_ions.equation_params.alpha
+        epsilon = self.kinetic_ions.equation_params.epsilon
+
         electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
-        kinetic_energy = KineticEnergyPIC(self.kinetic_ions.var)
+        kinetic_energy = KineticEnergyPIC(
+            self.kinetic_ions.var,
+            normalization=alpha**2,
+        )
         total_energy = electric_energy + kinetic_energy
 
         self.scalars = Scalars(
@@ -137,7 +143,16 @@ class VlasovAmpereOneSpecies(StruphyModel):
         )
 
         # initial Poisson (not a propagator used in time stepping)
-        self.initial_poisson = PoissonSolve()
+        particles_to_grid = ParticlesToGrid(
+            self.kinetic_ions.var,
+            "H1",
+            Pyccelkernel(accum_kernels.charge_density_0form),
+        )
+
+        self.initial_poisson = PoissonSolve(
+            rho=particles_to_grid,
+            rho_coeffs=alpha**2 / epsilon,
+        )
         self.initial_poisson.variables.phi = self.em_fields.phi
 
     @property
@@ -159,32 +174,6 @@ class VlasovAmpereOneSpecies(StruphyModel):
         particles = self.kinetic_ions.var.particles
         particles.update_weights()
 
-        # sanity check
-        # self.pointer['species1'].show_distribution_function(
-        #     [True] + [False]*5, [xp.linspace(0, 1, 32)])
-
-        # accumulate charge density
-        charge_accum = AccumulatorVector(
-            particles,
-            "H1",
-            Pyccelkernel(accum_kernels.charge_density_0form),
-            Propagator.mass_ops,
-            Propagator.domain.args_domain,
-        )
-
-        # another sanity check: compute FE coeffs of density
-        # charge_accum.show_accumulated_spline_field(Propagator.mass_ops)
-
-        alpha = self.kinetic_ions.equation_params.alpha
-        epsilon = self.kinetic_ions.equation_params.epsilon
-
-        # Kinetic energy is alpha^2/(2 Np) * sum_p w_p |v_p|^2.
-        self.scalars.dct["kinetic_energy"].normalization = (
-            alpha**2
-        )  # TODO: it would be nice to have alpha (and other eq. params) before runtime
-
-        self.initial_poisson.rho = charge_accum
-        self.initial_poisson.rho_coeffs = alpha**2 / epsilon
         self.initial_poisson.allocate()
 
         # Solve with dt=1. and compute electric field

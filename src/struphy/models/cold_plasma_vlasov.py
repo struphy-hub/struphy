@@ -14,7 +14,7 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels
-from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.propagators.base import Propagator
 from struphy.propagators.jxb_cold import JxBCold
 from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
@@ -180,7 +180,18 @@ class ColdPlasmaVlasov(StruphyModel):
         )
 
         # initial Poisson (not a propagator used in time stepping)
-        self.initial_poisson = PoissonSolve()
+        hot_alpha = self.hot_elec.equation_params.alpha
+        hot_epsilon = self.hot_elec.equation_params.epsilon
+        particles_to_grid = ParticlesToGrid(
+            self.hot_elec.var,
+            "H1",
+            Pyccelkernel(accum_kernels.charge_density_0form),
+        )
+
+        self.initial_poisson = PoissonSolve(
+            rho=particles_to_grid,
+            rho_coeffs=hot_alpha**2 / hot_epsilon,
+        )
         self.initial_poisson.variables.phi = self.em_fields.phi
 
     @property
@@ -202,27 +213,6 @@ class ColdPlasmaVlasov(StruphyModel):
         particles = self.hot_elec.var.particles
         particles.update_weights()
 
-        # sanity check
-        # self.pointer['species1'].show_distribution_function(
-        #     [True] + [False]*5, [xp.linspace(0, 1, 32)])
-
-        # accumulate charge density
-        charge_accum = AccumulatorVector(
-            particles,
-            "H1",
-            Pyccelkernel(accum_kernels.charge_density_0form),
-            Propagator.mass_ops,
-            Propagator.domain.args_domain,
-        )
-
-        # another sanity check: compute FE coeffs of density
-        # charge_accum.show_accumulated_spline_field(Propagator.mass_ops)
-
-        alpha = self.hot_elec.equation_params.alpha
-        epsilon = self.hot_elec.equation_params.epsilon
-
-        self.initial_poisson.rho = charge_accum
-        self.initial_poisson.rho_coeffs = alpha**2 / epsilon
         self.initial_poisson.allocate()
 
         # Solve with dt=1. and compute electric field
