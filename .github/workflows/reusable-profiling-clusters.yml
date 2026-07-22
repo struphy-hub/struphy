@@ -42,12 +42,10 @@ jobs:
           curl -fsSL https://raw.githubusercontent.com/max-models/whereami/main/install.sh | bash
           export PATH="${HOME}/.local/bin:${PATH}"
           whereami
-      - name: Install struphy
-        run: |
-          source profiling/common_commands.sh
 
       - name: Submit SLURM job, package and push profiling data
         run: |
+          source profiling/common_commands.sh
           source .venv-fortran/bin/activate
           python profiling/submit_diocotron_job.py \
             --language ${{ matrix.compile-language }} \

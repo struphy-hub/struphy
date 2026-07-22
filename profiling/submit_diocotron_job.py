@@ -235,7 +235,7 @@ def main() -> None:
 
     compiler = Compiler(language=args.language, compiler=args.compiler)
     print(f"Using compiler: {compiler.language} ({compiler.compiler})")
-    # compiler.compile()
+    compiler.compile()
     print("Done compiling Struphy kernels.")
     
 
