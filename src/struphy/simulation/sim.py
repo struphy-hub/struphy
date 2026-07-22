@@ -489,6 +489,9 @@ class Simulation(SimulationBase):
         self.compute_plasma_params()
 
         # print info on mpi procs
+        if self.comm_size < 32:
+            logger.info(f"\nderham.domain_array:\n{self.derham.domain_array}")
+
         if self.rank < 32:
             logger.debug("")
             logger.debug(f"Rank {self.rank}: executing run() for model {self.model_name} ...")

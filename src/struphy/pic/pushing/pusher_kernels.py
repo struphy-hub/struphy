@@ -65,12 +65,13 @@ def push_v_with_efield(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
+    valid_mks = args_markers.valid_mks
 
     # -- removed omp: #$ omp parallel private(ip, eta1, eta2, eta3, dfm, dfinv, dfinvt, span1, span2, span3, e_form, e_cart)
     # -- removed omp: #$ omp for
     for ip in range(n_markers):
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        # only do something if particle is valid (i.e. not a hole or ghost)
+        if not valid_mks[ip]:
             continue
 
         eta1 = markers[ip, 0]

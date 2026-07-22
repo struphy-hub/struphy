@@ -95,12 +95,13 @@ def div_u_weak_1form(
     markers = args_markers.markers
     weight_idx = args_markers.weight_idx
     density_idx = args_markers.first_free_idx
+    valid_mks = args_markers.valid_mks
 
     # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, filling)
     # -- removed omp: #$ omp for reduction ( + :vec)
     for ip in range(shape(markers)[0]):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if not valid_mks[ip]:
             continue
 
         # marker positions and velocites

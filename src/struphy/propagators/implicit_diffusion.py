@@ -431,11 +431,19 @@ class ImplicitDiffusion(Propagator):
                 if src.particles.control_variate:
                     src.particles.update_weights()
 
-                src()  # accumulate
-
                 if src.space_id == "H1":
+                    src()  # accumulate
                     vec = src.vectors[0]
                 elif src.space_id == "Hcurl":
+                    # 1. update density at marker positions
+                    eta = src.particles.positions
+                    valid_mks = src.particles.valid_mks
+                    first_free_idx = src.particles.first_free_idx
+                    density = src.particles.f0.n0(eta)
+                    src.particles.markers[valid_mks, first_free_idx] = density
+                    # 2. accumulate
+                    src()
+                    # 3. take weak divergence
                     vec = -self.derham.grad.T.dot(src.vectors[0], out=self._tmp_src)
                 else:
                     raise ValueError(f"Unsupported source space {src.space_id}.")
