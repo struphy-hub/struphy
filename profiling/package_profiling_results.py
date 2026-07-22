@@ -345,6 +345,7 @@ def package_testcase(
     commit: str | None,
     output_root: Path,
     timestamp: datetime | None = None,
+    verbose: bool = False,
 ) -> Path | None:
     """Package a single testcase directory (e.g. one `ProfilingCase.output_root`) into `output_root`.
 
@@ -352,7 +353,11 @@ def package_testcase(
     SLURM job never ran (or failed before writing output) is silently skipped instead
     of being uploaded. Returns the created destination folder, or None if skipped.
     """
+    if verbose:
+        print(f"Packaging testcase directory: {testcase_dir}")
     h5_files = sorted(testcase_dir.rglob("*.h5"))
+    if verbose:
+        print(f"Found {len(h5_files)} .h5 file(s) in {testcase_dir}")
     if not h5_files:
         return None
 

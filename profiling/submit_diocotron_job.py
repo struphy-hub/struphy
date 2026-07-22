@@ -74,26 +74,56 @@ def build_case_commands(case: ProfilingCase, venv_path: Path) -> list[str]:
         f"source {str(activate_path)}",
         'echo "----------------------------------------"',
         f'echo "Running profiling case: {case.label}"',
+        f'echo "Description: {case.description}"',
+        f'echo "Physics problem: {case.physics_problem}"',
+        f'echo "Struphy model used: {case.struphy_model_used}"',
+        f'echo "Case directory: {case.output_root}"',
+        'pwd',
         'echo "----------------------------------------"',
         f'mkdir -p "{case.output_root}"',
         f'cp "{case.params_source}" "{case.output_root / "parameters.py"}"',
+        f'ls -l "{case.output_root}"',
+        'echo "===== Diagnostics ====="',
+        'pwd',
+        'which python',
+        'python --version',
+        'which mpirun',
+        'echo "VIRTUAL_ENV=$VIRTUAL_ENV"',
+        'echo "PATH=$PATH"',
+        'echo "======================="',
+        'srun -n1 hostname',
+        'srun -n1 python -c "print(\'hello\')"',
+        'srun -n1 mpirun -n1 hostname',
     ]
+
+    commands.append("existing_h5_files=()")
 
     for ntasks in case.ranks:
         sim_dir = case.output_root / f"sim_ranks{ntasks}"
+        h5_file = sim_dir / "profiling_data.h5"
+        mpirun_log = case.output_root / f"mpirun_ranks{ntasks}.log"
         commands.extend(
             [
                 "",
                 f'echo "Running {case.label} with {ntasks} MPI ranks"',
                 (
-                    f'mpirun -n {ntasks} python profiling/run_diocotron.py '
-                    f'{ntasks} --out-root "{case.output_root}"'
+                    f'if srun -n {ntasks} python profiling/run_diocotron.py '
+                    f'{ntasks} --out-root "{case.output_root}" > "{mpirun_log}" 2>&1; then'
                 ),
-                f"scope-profiler pproc {sim_dir / 'profiling_data.h5'} -o {sim_dir}",
+                f'    echo "srun ({ntasks} ranks) succeeded"',
+                'else',
+                f'    echo "srun ({ntasks} ranks) FAILED with exit code $?; log follows:"',
+                f'    cat "{mpirun_log}"',
+                'fi',
+                f'if [ -f "{h5_file}" ]; then',
+                f'    scope-profiler pproc "{h5_file}" -o "{sim_dir}"',
+                f'    existing_h5_files+=("{h5_file}")',
+                'else',
+                f'    echo "No profiling data found at {h5_file}; skipping scope-profiler pproc for this rank count."',
+                'fi',
             ],
         )
 
-    sim_dirs = [case.output_root / f"sim_ranks{ntasks}" for ntasks in case.ranks]
     commands.extend(
         [
             "",
@@ -101,11 +131,11 @@ def build_case_commands(case: ProfilingCase, venv_path: Path) -> list[str]:
             f'echo "Completed profiling case: {case.label}"',
             'echo "----------------------------------------"',
             '# Postprocessing comparison plots',
-            (
-                f"scope-profiler pproc "
-                f"{' '.join(str(sim_dir / 'profiling_data.h5') for sim_dir in sim_dirs)} "
-                f"--rank 0 -o {case.output_root / 'figures'}"
-            ),
+            'if [ "${#existing_h5_files[@]}" -gt 0 ]; then',
+            f'    scope-profiler pproc "${{existing_h5_files[@]}}" --rank 0 -o "{case.output_root / "figures"}"',
+            'else',
+            '    echo "No profiling data was produced for any rank count; skipping comparison plots."',
+            'fi',
         ]
     )
 
@@ -177,7 +207,7 @@ def main() -> None:
             description="Scaling test running the diocotron profiling setup with multiple MPI ranks.",
             physics_problem="Diocotron instability in a non-neutral plasma.",
             struphy_model_used="ToyDrift",
-            ranks=(1, 2, 4, 8),
+            ranks=(1, 2, 4), #, 8),
             output_root=run_results_root / "diocotron_poisson_scaling",
             params_source=(
                 repo_root
@@ -223,7 +253,6 @@ def main() -> None:
             account="FUSIO_HLST_7",
             output="./%x.%j.out",
             error="./%x.%j.err",
-            chdir="./",
             mail_type="none",
             time="00:15:00",
             custom_commands=case_commands,
@@ -255,10 +284,30 @@ def main() -> None:
             encoding="utf-8",
         )
 
-        
-        job_id = script.submit_job(str(output_path), verbose=True)
+        script.save(str(output_path))
+        print(f"Saved SLURM script for '{case.label}' to {output_path} from {os.getcwd()}")
+        # result = subprocess.run(["sbatch", str(output_path)], capture_output=True, text=True)
 
+        print("=== Script contents ===")
+        print(Path(output_path).read_text())
+
+        result = subprocess.run(
+            ["sbatch", "--parsable", str(output_path)],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        print("stdout:", repr(result.stdout))
+        print("stderr:", repr(result.stderr))
+        print("returncode:", result.returncode)
+        print("cwd:", os.getcwd())
+
+        # job_id = script.submit_job(str(output_path), verbose=True)
+        job_id = result.stdout.strip().split()[-1]
+        print(f"Submitted profiling case '{case.label}' as job {job_id}. Waiting for completion...")
+        
         SQueue().wait_until_done(job_id=job_id, poll_interval=10)
+        # SQueue().wait_until_done(job_name="profiling_*", poll_interval=10)
 
         print(f"Profiling case '{case.label}' completed. Output saved in {case.output_root}")
 
@@ -270,6 +319,7 @@ def main() -> None:
             language=compiler.language,
             commit=run_commit,
             output_root=output_root,
+            verbose=True,
         )
         if packaged_dir is not None:
             packaged_dirs.append(packaged_dir)
