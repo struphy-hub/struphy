@@ -303,6 +303,7 @@ class ImplicitDiffusion(Propagator):
             for n, r in enumerate(rho):
                 tmp = verify_rhs(r)
                 if len(tmp) == 2 and self.rho_coeffs is not None:
+                    assert isinstance(self.rho_coeffs, list), "If rho is a list, rho_coeffs must be a list too."
                     if len(self.rho_coeffs) < len(rho):
                         self.rho_coeffs.insert(n + 1, self.rho_coeffs[n])
                 self._sources += tmp

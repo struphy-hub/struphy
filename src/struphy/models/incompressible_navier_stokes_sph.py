@@ -15,7 +15,6 @@ from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vin_efield import PushVinEfield
-from struphy.propagators.push_vin_sph_pressure import PushVinSPHpressure
 from struphy.propagators.push_vin_viscous_potential import PushVinViscousPotential
 from struphy.propagators.push_vxb import PushVxB
 from struphy.utils.pyccel import Pyccelkernel
@@ -24,7 +23,7 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 
 class IncompressibleNavierStokesSPH(StruphyModel):
-    """Imcompressible Navier-Stokes equations discretized with smoothed particle hydrodynamics (SPH).
+    """Incompressible Navier-Stokes equations discretized with smoothed particle hydrodynamics (SPH).
 
     Parameters
     ----------
@@ -36,8 +35,6 @@ class IncompressibleNavierStokesSPH(StruphyModel):
         Mass number (in units of Proton mass) of the fluid species (default: 1.0)
     with_B0: bool
         Whether to include the effect of a background magnetic field B0 (default: True)
-    with_p: bool
-        Whether to include pressure forces (default: True)
     with_viscosity: bool
         Whether to include viscous dissipation (default: True)
     """
@@ -55,7 +52,7 @@ class IncompressibleNavierStokesSPH(StruphyModel):
 
     class LagrangeMultiplier(FieldSpecies):
         def __init__(self):
-            self.pressure = FEECVariable()
+            self.pressure = FEECVariable(space="H1")
             self.init_variables()
 
     ## propagators
@@ -169,7 +166,7 @@ class IncompressibleNavierStokesSPH(StruphyModel):
     def doc_pde(cls):
         r"""**PDEs solved by model:**
 
-        Incomressible Navier-Stokes:
+        Incompressible Navier-Stokes:
 
         .. math::
 

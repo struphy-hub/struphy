@@ -1,5 +1,4 @@
 import logging
-from types import SimpleNamespace
 
 import cunumpy as xp
 import matplotlib.pyplot as plt
@@ -20,7 +19,7 @@ from struphy.geometry.base import Domain
 from struphy.io.options import DerhamOptions
 from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.linear_algebra.solver import SolverParameters
-from struphy.models.variables import FEECVariable
+from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation.accum_kernels import charge_density_0form
 from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.pic.particles import Particles6D
@@ -347,7 +346,9 @@ def test_poisson_accum_1d(mapping, do_plot=False):
     # particle to grid coupling
     kernel = Pyccelkernel(charge_density_0form)
     # control_variate=True, so no PICVariable.species is needed to build the analytical background term
-    rho = ParticlesToGrid(SimpleNamespace(particles=particles), "H1", kernel)
+    pic_var = PICVariable(space="Particles6D")
+    pic_var._particles = particles
+    rho = ParticlesToGrid(pic_var, "H1", kernel)
 
     # create Poisson solver
     solver_params = SolverParameters(
