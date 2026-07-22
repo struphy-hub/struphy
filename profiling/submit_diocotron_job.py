@@ -75,37 +75,13 @@ def _push_profiling_data(packaged_dirs: list[Path], run_commit: str) -> None:
         return
 
     repo_url = os.environ.get(
-        "PROFILING_DATA_REPO_URL", "https://github.com/struphy-hub/profiling-data.git"
-    )
-    token = os.environ.get("PROFILING_DATA_TOKEN")
-    # In CI, PROFILING_DATA_TOKEN authenticates the push. For manual/local runs it's
-    # typically unset, and we fall back to whatever git credentials are already
-    # configured (SSH key, credential helper, `gh auth`, ...).
-    clone_url = (
-        repo_url.replace("https://", f"https://x-access-token:{token}@")
-        if token
-        else repo_url
+        "PROFILING_DATA_REPO_URL", "git@github.com:struphy-hub/profiling-data.git"
     )
 
     with tempfile.TemporaryDirectory(prefix="profiling-data-") as clone_dir_str:
         clone_dir = Path(clone_dir_str)
         subprocess.run(
-            ["git", "clone", "--depth", "1", clone_url, str(clone_dir)],
-            check=True,
-        )
-        subprocess.run(
-            ["git", "-C", str(clone_dir), "config", "user.name", "github-actions[bot]"],
-            check=True,
-        )
-        subprocess.run(
-            [
-                "git",
-                "-C",
-                str(clone_dir),
-                "config",
-                "user.email",
-                "github-actions[bot]@users.noreply.github.com",
-            ],
+            ["git", "clone", "--depth", "1", repo_url, str(clone_dir)],
             check=True,
         )
 
