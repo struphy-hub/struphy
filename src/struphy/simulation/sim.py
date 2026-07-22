@@ -490,7 +490,14 @@ class Simulation(SimulationBase):
 
         # print info on mpi procs
         if self.comm_size < 32:
-            logger.info(f"\nderham.domain_array:\n{self.derham.domain_array}")
+            if self.derham is not None:
+                logger.info(f"\nderham.domain_array:\n{self.derham.domain_array}")
+            else:
+                for _, species in self.model.species.items():
+                    for _, variable in species.variables.items():
+                        if isinstance(variable, (PICVariable, SPHVariable)):
+                            logger.info(f"\nparticle domain_array:\n{variable.particles.domain_array}")
+                            break
 
         if self.rank < 32:
             logger.debug("")
