@@ -336,7 +336,7 @@ class ParticleSpecies(Species):
         logger.info(self.boundary_params.__repr_no_defaults__())
         logger.info(self.sorting_params.__repr_no_defaults__())
         logger.info(self.saving_params.__repr_no_defaults__())
-        logger.info(f"Marker array buffer size: {self.bufsize * 100:.1f}% of total size")
+        logger.info(f"\nMarker array buffer size: {self.bufsize * 100:.1f}% of total size")
 
     # def set_sorting_boxes(
     #     self,

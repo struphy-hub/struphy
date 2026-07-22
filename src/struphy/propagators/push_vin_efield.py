@@ -74,6 +74,12 @@ class PushVinEfield(Propagator):
             callables to be projected. Ignored when ``phi`` is set.
         """
         self.variables = self.Variables()
+
+        if isinstance(phi, FEECVariable):
+            assert phi.space == "H1"
+        if isinstance(e_field, FEECVariable):
+            assert e_field.space == "Hcurl"
+
         self.phi = phi
         self.e_field = e_field
 

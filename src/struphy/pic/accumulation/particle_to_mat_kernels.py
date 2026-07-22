@@ -12646,67 +12646,6 @@ def m_v_fill_v1_pressure(
     )
 
 
-def hybrid_density(
-    num_elements: "int[:]",
-    args_derham: "DerhamArguments",
-    cell_left: "int[:]",
-    cell_number: "int[:]",
-    span1: "int",
-    span2: "int",
-    span3: "int",
-    ie1: "int",
-    ie2: "int",
-    ie3: "int",
-    temp1: "float[:]",
-    temp4: "float[:]",
-    quad: "int[:]",
-    quad_pts_x: "float[:]",
-    quad_pts_y: "float[:]",
-    quad_pts_z: "float[:]",
-    compact: "float[:]",
-    eta1: "float",
-    eta2: "float",
-    eta3: "float",
-    mat: "float[:,:,:,:,:,:]",
-    weight: "float",
-    p_shape: "int[:]",
-    p_size: "float[:]",
-    grids_shapex: "float[:]",
-    grids_shapey: "float[:]",
-    grids_shapez: "float[:]",
-):
-    filler_kernels.hy_density(
-        num_elements,
-        args_derham.pn,
-        cell_left,
-        cell_number,
-        span1,
-        span2,
-        span3,
-        args_derham.starts,
-        ie1,
-        ie2,
-        ie3,
-        temp1,
-        temp4,
-        quad,
-        quad_pts_x,
-        quad_pts_y,
-        quad_pts_z,
-        compact,
-        eta1,
-        eta2,
-        eta3,
-        mat,
-        weight,
-        p_shape,
-        p_size,
-        grids_shapex,
-        grids_shapey,
-        grids_shapez,
-    )
-
-
 #####################################
 ### Kernels for AccumulatorVector ###
 #####################################
