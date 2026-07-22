@@ -174,25 +174,7 @@ class Simulation(SimulationBase):
 
         # meta-data
         path_out = env.path_out
-        restart = env.restart
-        max_runtime = env.max_runtime
-        save_step = env.save_step
-        sort_step = env.sort_step
         num_clones = env.num_clones
-        use_mpi = (self.comm is not None,)
-
-        self.meta = {}
-        self.meta["platform"] = sysconfig.get_platform()
-        self.meta["python version"] = sysconfig.get_python_version()
-        self.meta["model name"] = self.model_name
-        self.meta["parameter file"] = self.params_path
-        self.meta["output folder"] = path_out
-        self.meta["MPI processes"] = self.comm_size
-        self.meta["use MPI.COMM_WORLD"] = use_mpi
-        self.meta["number of domain clones"] = num_clones
-        self.meta["restart"] = restart
-        self.meta["max wall-clock [min]"] = max_runtime
-        self.meta["save interval [steps]"] = save_step
 
         # creating output folders
         self._setup_folders()
@@ -515,6 +497,16 @@ class Simulation(SimulationBase):
         self.compute_plasma_params()
 
         # print info on mpi procs
+        if self.comm_size < 32:
+            if self.derham is not None:
+                logger.info(f"\nderham.domain_array:\n{self.derham.domain_array}")
+            else:
+                for _, species in self.model.species.items():
+                    for _, variable in species.variables.items():
+                        if isinstance(variable, (PICVariable, SPHVariable)):
+                            logger.info(f"\nparticle domain_array:\n{variable.particles.domain_array}")
+                            break
+
         if self.rank < 32:
             logger.debug("")
             logger.debug(f"Rank {self.rank}: executing run() for model {self.model_name} ...")
@@ -670,12 +662,25 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
 
         # ===================================================================
 
-        self.meta["wall-clock time[min]"] = (end_time - self.start_time) / 60
         self.Barrier()
 
         if self.rank == 0:
             # save meta-data
-            dict_to_yaml(self.meta, os.path.join(self.env.path_out, "meta.yml"))
+            meta = {
+                "platform": sysconfig.get_platform(),
+                "python version": sysconfig.get_python_version(),
+                "model name": self.model_name,
+                "parameter file": self.params_path,
+                "output folder": self.env.path_out,
+                "MPI processes": self.comm_size,
+                "use MPI.COMM_WORLD": self.comm is not None,
+                "number of domain clones": self.env.num_clones,
+                "restart": self.env.restart,
+                "max wall-clock [min]": self.env.max_runtime,
+                "save interval [steps]": self.env.save_step,
+                "wall-clock time[min]": (end_time - self.start_time) / 60,
+            }
+            dict_to_yaml(meta, os.path.join(self.env.path_out, "meta.yml"))
         logger.warning("Struphy run finished.")
 
         if self.clone_config is not None:
@@ -1334,6 +1339,58 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
             "grid": self.grid.to_dict(),
             "derham_opts": self.derham_opts.to_dict(),
         }
+
+    def _collect_particle_metadata(self) -> dict:
+        """Collect per-species marker metadata (Np, ppc, ppb) for the current sim."""
+        particle_metadata = {}
+        for species_name, species in self.model.particle_species.items():
+            species_metadata = {}
+            for variable_name, variable in species.variables.items():
+                if isinstance(variable, PICVariable | SPHVariable) and hasattr(variable, "_particles"):
+                    particles = variable.particles
+                    species_metadata[variable_name] = {
+                        "Np": particles.Np,
+                        "ppc": particles.ppc,
+                        "ppb": particles.ppb,
+                    }
+            if species_metadata:
+                particle_metadata[species_name] = species_metadata
+        return particle_metadata
+
+    def to_json(self, file_path: str = None) -> str:
+        """Assemble the run's data and metadata by hand and serialize to a JSON string.
+
+        Parameters
+        ----------
+        file_path : str, optional
+            If given, also write the JSON string to this file.
+
+        Returns
+        -------
+        str
+            The JSON-encoded simulation configuration.
+        """
+        config = {
+            "name": self.name,
+            "description": self.description,
+            "model_name": self.model_name,
+            "parameter_file": self.params_path,
+            "mpi_ranks": self.comm_size,
+            "use_mpi_comm_world": self.comm is not None,
+            "env": self.env.to_dict(),
+            "time_opts": self.time_opts.to_dict(),
+            "domain": self.domain.to_dict(),
+            "equil": self.equil.to_dict() if self.equil is not None else None,
+            "grid": self.grid.to_dict(),
+            "derham_opts": self.derham_opts.to_dict(),
+            "particle_species": self._collect_particle_metadata(),
+        }
+
+        json_str = json.dumps(config, indent=4)
+        if file_path is not None:
+            with open(file_path, "w") as f:
+                f.write(json_str)
+        return json_str
 
     @classmethod
     def from_dict(cls, dct) -> "Simulation":

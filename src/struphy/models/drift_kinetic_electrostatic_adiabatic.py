@@ -4,20 +4,21 @@ import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import BaseUnits
-from struphy.feec.mass import L2Projector
+from struphy.feec.mass import AverageOperator, L2Projector
 from struphy.io.options import LiteralOptions
 from struphy.kinetic_background.base import KineticBackground
 from struphy.models.base import StruphyModel
 from struphy.models.scalars import FunctionScalarFEEC, FunctionScalarPIC, KineticEnergyPIC, Scalars
 from struphy.models.species import (
+    DiagnosticSpecies,
     FieldSpecies,
     ParticleSpecies,
 )
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels_gc
-from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.propagators.base import Propagator
-from struphy.propagators.implicit_diffusion import ImplicitDiffusion
+from struphy.propagators.poisson_adiabatic_gyrokinetic import PoissonAdiabaticGyrokinetic
 from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
 from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
 from struphy.utils.pyccel import Pyccelkernel
@@ -74,11 +75,25 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
                 alpha=alpha,
             )
 
+    class Diagnostics(DiagnosticSpecies):
+        def __init__(
+            self,
+        ):
+            self.rho = FEECVariable(space="H1")
+            self.init_variables()
+
     ## propagators
 
     class Propagators:
-        def __init__(self, phi: FEECVariable = None):
-            self.gc_poisson = ImplicitDiffusion()
+        def __init__(
+            self,
+            phi: FEECVariable = None,
+            rho: ParticlesToGrid = None,
+            epsilon: float = 1.0,
+            Z: int = 1,
+            diagnostic: FEECVariable | None = None,
+        ):
+            self.gc_poisson = PoissonAdiabaticGyrokinetic(rho=rho, epsilon=epsilon, Z=Z, diagnostic=diagnostic)
             self.push_gc_bxe = PushGuidingCenterBxEstar(phi=phi)
             self.push_gc_para = PushGuidingCenterParallel(phi=phi)
 
@@ -91,6 +106,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         mass_number: float = 1.0,
         epsilon: float = None,
         alpha: float = None,
+        use_diagnostic_poisson: bool = False,
     ):
 
         # 0. store input parameters
@@ -104,12 +120,26 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
             epsilon,
             alpha=alpha,
         )
+        if use_diagnostic_poisson:
+            self.diagnostics = self.Diagnostics()
+            diagnostic = self.diagnostics.rho
+        else:
+            diagnostic = None
 
         # 2. derive units (must be done after instantiating species to access charge and mass numbers)
         self.setup_equation_params(base_units=base_units)
+        if epsilon is None:
+            epsilon = self.params["epsilon"] = self.kinetic_ions.var.species.equation_params.epsilon
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators(phi=self.em_fields.phi)
+        rho = ParticlesToGrid(
+            self.kinetic_ions.var,
+            "H1",
+            Pyccelkernel(accum_kernels_gc.gc_density_0form),
+        )
+        self.propagators = self.Propagators(
+            phi=self.em_fields.phi, rho=rho, epsilon=epsilon, Z=charge_number, diagnostic=diagnostic
+        )
 
         # 4. assign variables to propagators
         self.propagators.gc_poisson.variables.phi = self.em_fields.phi
@@ -118,10 +148,12 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
         # 5. define scalars to be tracked during simulation
         field_energy = FunctionScalarFEEC(self._compute_en_phi)
+        phi_integral_ITGtest = FunctionScalarFEEC(self._compute_phi_integral_ITGtest)
         particle_kinetic = KineticEnergyPIC(self.kinetic_ions.var)
         particle_magnetic = FunctionScalarPIC(self._compute_en_particle_magnetic, self.kinetic_ions.var)
         particle_energy = particle_kinetic + particle_magnetic
         self.scalars = Scalars(
+            phi_integral=phi_integral_ITGtest,
             en_phi=field_energy,
             en_particles=particle_energy,
             en_tot=field_energy + particle_energy,
@@ -143,41 +175,17 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         self._tmp3 = xp.empty(1, dtype=float)
         self._e_field = Propagator.derham.V1.zeros()
 
-        assert self.kinetic_ions.charge_number > 0, "Model written only for positive ions."
+        self.propagators.gc_poisson(1.0)
 
-        # Poisson right-hand side
-        particles = self.kinetic_ions.var.particles
-        Z = self.kinetic_ions.charge_number
-        epsilon = self.kinetic_ions.equation_params.epsilon
-
-        charge_accum = AccumulatorVector(
-            particles,
-            "H1",
-            Pyccelkernel(accum_kernels_gc.gc_density_0form),
-            Propagator.mass_ops,
-            Propagator.domain.args_domain,
-        )
-
-        rho = charge_accum
-
-        # get neutralizing background density
-        if not particles.control_variate:
-            l2_proj = L2Projector("H1", Propagator.mass_ops)
-            f0e = Z * particles.f0
-            assert isinstance(f0e, KineticBackground)
-            rho_eh = FEECVariable(space="H1")
-            rho_eh.allocate(derham=Propagator.derham, domain=Propagator.domain)
-            rho_eh.spline.vector = l2_proj.get_dofs(f0e.n)
-            rho = [rho]
-            rho += [rho_eh]
-
-        self.propagators.gc_poisson.options.sigma_1 = 1.0 / epsilon**2 / Z
-        self.propagators.gc_poisson.options.sigma_2 = 0.0
-        self.propagators.gc_poisson.options.sigma_3 = 1.0 / epsilon
-        self.propagators.gc_poisson.options.stab_mat = "M0ad"
-        self.propagators.gc_poisson.options.diffusion_mat = "M1perp"
-        self.propagators.gc_poisson.rho = rho
-        self.propagators.gc_poisson.allocate()
+        # allocate temporary tabs for scalars computation
+        derham = self.em_fields.phi.spline.derham
+        self.phi_squared_averaged_feec = FEECVariable("H1")
+        self.phi_squared_averaged_feec.allocate(derham, self.em_fields.phi.spline.domain)
+        self.phi_squared = self.em_fields.phi.spline.vector.space.zeros()
+        self.phi_squared_average = self.em_fields.phi.spline.vector.space.zeros()
+        average_matrix_z = AverageOperator(derham, direction=2)
+        average_matrix_teta = AverageOperator(derham, direction=1)
+        self.average_matrix = average_matrix_z @ average_matrix_teta
 
     def _compute_en_phi(self):
         phi = self.em_fields.phi.spline.vector
@@ -187,6 +195,13 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         en_phi1 = 0.5 * Propagator.mass_ops.M1gyro.dot_inner(e1, e1)
         en_phi = 0.5 / epsilon**2 * Propagator.mass_ops.M0ad.dot_inner(phi, phi)
         return en_phi + en_phi1
+
+    def _compute_phi_integral_ITGtest(self):
+        phi = self.em_fields.phi.spline.vector
+        self.phi_squared._data = phi._data**2
+        self.average_matrix.dot(self.phi_squared, out=self.phi_squared_average)
+        self.phi_squared_averaged_feec.spline.vector = self.phi_squared_average
+        return self.phi_squared_averaged_feec.spline(0.5, 0.5, 0.5)[0, 0, 0]
 
     def _compute_en_particle_magnetic(self):
         particles = self.kinetic_ions.var.particles
@@ -269,7 +284,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         """
         doc = rf"""**1. ImplicitDiffusion:**
 
-{ImplicitDiffusion.__doc__}
+{PoissonAdiabaticGyrokinetic.__doc__}
 
 **2. PushGuidingCenterBxEstar:**
 
