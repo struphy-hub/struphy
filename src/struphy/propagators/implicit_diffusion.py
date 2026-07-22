@@ -45,20 +45,28 @@ class ImplicitDiffusion(Propagator):
     where :math:`M^0_{n_0}` and :math:`M^1_{D_0}` are :class:`WeightedMassOperators <struphy.feec.mass.WeightedMassOperators>`
     and :math:`\sigma_1, \sigma_2, \sigma_3 \in \mathbb R` are artificial parameters that can be tuned to
     change the model (see Notes).
-    
+
     Parameters
     ----------
     rho : FEECVariable or Callable or ParticlesToGrid or list, default=None
-        Source term(s) on the right-hand side.
+        Source term(s) :math:`\rho_i` on the right-hand side. Several entries can be combined
+        by passing a ``list``; each is weighted by the corresponding entry of ``rho_coeffs``.
         Accepted entries are:
 
         - ``None``: zero source.
-        - ``FEECVariable`` in ``H1``.
-        - ``Callable`` to be projected to ``H1`` via ``L2Projector``.
+        - ``FEECVariable`` in ``H1``: its coefficients are mass-multiplied by :math:`M^0` on the fly.
+        - ``Callable`` :math:`\rho_i(\mathbf x)`, projected to ``H1`` via ``L2Projector``.
         - :class:`~struphy.pic.accumulation.particles_to_grid.ParticlesToGrid`, describing a
-            particle-to-grid (charge/current) deposition. An
+            particle-to-grid deposition. An
             :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` is built from
-            it at ``allocate()``.
+            it at ``allocate()`` and re-accumulated at every call. Its ``accum_space`` selects
+            what is deposited:
+
+            - ``"H1"``: the kernel deposits a scalar density directly, used as-is.
+            - ``"Hcurl"``: the kernel deposits a 1-form (vector) quantity :math:`\mathbf w`,
+              e.g. :math:`n\mathbf u`; the propagator then applies the weak divergence
+              :math:`-\mathbb G^\top` to it before adding it to the right-hand side. This is
+              used in the Chorin-projection scheme for example.
         - a ``list`` containing any mix of the entries above.
 
     rho_coeffs : float or list, default=None
@@ -422,16 +430,16 @@ class ImplicitDiffusion(Propagator):
             elif isinstance(src, AccumulatorVector):
                 if src.particles.control_variate:
                     src.particles.update_weights()
-                    
+
                 src()  # accumulate
-                
+
                 if src.space_id == "H1":
                     vec = src.vectors[0]
                 elif src.space_id == "Hcurl":
-                    vec = - self.derham.grad.T.dot(src.vectors[0], out=self._tmp_src)
+                    vec = -self.derham.grad.T.dot(src.vectors[0], out=self._tmp_src)
                 else:
                     raise ValueError(f"Unsupported source space {src.space_id}.")
-                    
+
                 self._rhs2 += sig_3 * coeff * vec
 
         rhs += self._rhs2

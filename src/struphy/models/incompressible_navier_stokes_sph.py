@@ -6,8 +6,8 @@ from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.scalars import KineticEnergySPH, Scalars
 from struphy.models.species import (
-    ParticleSpecies,
     FieldSpecies,
+    ParticleSpecies,
 )
 from struphy.models.variables import FEECVariable, SPHVariable
 from struphy.pic.accumulation import accum_kernels
@@ -52,7 +52,7 @@ class IncompressibleNavierStokesSPH(StruphyModel):
         def __init__(self, charge_number: int = 1, mass_number: float = 1.0):
             self.density = SPHVariable()
             self.init_variables(charge_number=charge_number, mass_number=mass_number)
-            
+
     class LagrangeMultiplier(FieldSpecies):
         def __init__(self):
             self.pressure = FEECVariable()
