@@ -1278,7 +1278,9 @@ def run_linters_on_files(linters, python_files, flags, verbose):
                     print(line, end="")
 
 
-def construct_package_init_file(package_dir: str, package_name: str, base_class: type, skip: tuple = ("base.py",)) -> str:
+def construct_package_init_file(
+    package_dir: str, package_name: str, base_class: type, skip: tuple = ("base.py",)
+) -> str:
     """
     Constructs the content of an `__init__.py` file for a package laid out with one class
     per module, by importing each module and collecting the subclasses of `base_class` that
