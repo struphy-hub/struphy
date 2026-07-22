@@ -46,7 +46,9 @@ jobs:
         run: |
           source profiling/common_commands.sh
 
-      - name: Submit SLURM job and package profiling data
+      - name: Submit SLURM job, package and push profiling data
+        env:
+          PROFILING_DATA_TOKEN: ${{ secrets.STRUPHY_PROFILING_DATA_TOKEN }}
         run: |
           source .venv-fortran/bin/activate
           python profiling/submit_diocotron_job.py \
