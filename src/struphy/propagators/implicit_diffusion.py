@@ -45,6 +45,32 @@ class ImplicitDiffusion(Propagator):
     where :math:`M^0_{n_0}` and :math:`M^1_{D_0}` are :class:`WeightedMassOperators <struphy.feec.mass.WeightedMassOperators>`
     and :math:`\sigma_1, \sigma_2, \sigma_3 \in \mathbb R` are artificial parameters that can be tuned to
     change the model (see Notes).
+    
+    Parameters
+    ----------
+    rho : FEECVariable or Callable or ParticlesToGrid or list, default=None
+        Source term(s) on the right-hand side.
+        Accepted entries are:
+
+        - ``None``: zero source.
+        - ``FEECVariable`` in ``H1``.
+        - ``Callable`` to be projected to ``H1`` via ``L2Projector``.
+        - :class:`~struphy.pic.accumulation.particles_to_grid.ParticlesToGrid`, describing a
+            particle-to-grid (charge/current) deposition. An
+            :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` is built from
+            it at ``allocate()``.
+        - a ``list`` containing any mix of the entries above.
+
+    rho_coeffs : float or list, default=None
+        Multiplicative coefficient(s) for ``rho`` sources.
+        If a scalar is provided, it is applied to a single source.
+        If a sequence is provided, its length must match the number of
+        collected sources.
+        If ``None``, all coefficients default to ``1.0``.
+
+    diagnostic : FEECVariable, default=None
+        If not None, updates at each call to the propagator, takes the value of the right-hand side.
+        Otherwise does not provide diagnostic.
 
     Notes
     -----
@@ -81,33 +107,6 @@ class ImplicitDiffusion(Propagator):
         rho_coeffs: float | list = None,
         diagnostic: FEECVariable | None = None,
     ):
-        """
-        Parameters
-        ----------
-        rho : FEECVariable or Callable or ParticlesToGrid or list, default=None
-            Source term(s) on the right-hand side.
-            Accepted entries are:
-
-            - ``None``: zero source.
-            - ``FEECVariable`` in ``H1``.
-            - ``Callable`` to be projected to ``H1`` via ``L2Projector``.
-            - :class:`~struphy.pic.accumulation.particles_to_grid.ParticlesToGrid`, describing a
-              particle-to-grid (charge/current) deposition. An
-              :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` is built from
-              it at ``allocate()``.
-            - a ``list`` containing any mix of the entries above.
-
-        rho_coeffs : float or list, default=None
-            Multiplicative coefficient(s) for ``rho`` sources.
-            If a scalar is provided, it is applied to a single source.
-            If a sequence is provided, its length must match the number of
-            collected sources.
-            If ``None``, all coefficients default to ``1.0``.
-
-        diagnostic : FEECVariable, default=None
-            If not None, updates at each call to the propagator, takes the value of the right-hand side.
-            Otherwise does not provide diagnostic.
-        """
         if isinstance(rho, list):
             for r in rho:
                 if isinstance(r, ParticlesToGrid):
