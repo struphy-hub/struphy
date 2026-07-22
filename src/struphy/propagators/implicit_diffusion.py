@@ -423,8 +423,17 @@ class ImplicitDiffusion(Propagator):
             elif isinstance(src, AccumulatorVector):
                 if src.particles.control_variate:
                     src.particles.update_weights()
+                    
                 src()  # accumulate
-                self._rhs2 += sig_3 * coeff * src.vectors[0]
+                
+                if src.space_id == "H1":
+                    vec = src.vectors[0]
+                elif src.space_id == "Hcurl":
+                    vec = - self.derham.grad.T.dot(src.vectors[0], out=self._tmp_src)
+                else:
+                    raise ValueError(f"Unsupported source space {src.space_id}.")
+                    
+                self._rhs2 += sig_3 * coeff * vec
 
         rhs += self._rhs2
 

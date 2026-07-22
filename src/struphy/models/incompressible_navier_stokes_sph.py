@@ -7,6 +7,7 @@ from struphy.models.base import StruphyModel
 from struphy.models.scalars import KineticEnergySPH, Scalars
 from struphy.models.species import (
     ParticleSpecies,
+    FieldSpecies,
 )
 from struphy.models.variables import FEECVariable, SPHVariable
 from struphy.pic.accumulation import accum_kernels
@@ -50,8 +51,12 @@ class IncompressibleNavierStokesSPH(StruphyModel):
     class Fluid(ParticleSpecies):
         def __init__(self, charge_number: int = 1, mass_number: float = 1.0):
             self.density = SPHVariable()
-            self.pressure = FEECVariable()
             self.init_variables(charge_number=charge_number, mass_number=mass_number)
+            
+    class LagrangeMultiplier(FieldSpecies):
+        def __init__(self):
+            self.pressure = FEECVariable()
+            self.init_variables()
 
     ## propagators
 
@@ -91,6 +96,7 @@ class IncompressibleNavierStokesSPH(StruphyModel):
 
         # 1. instantiate all species
         self.fluid = self.Fluid(charge_number=charge_number, mass_number=mass_number)
+        self.lagrange_multiplier = self.LagrangeMultiplier()
 
         # 2. derive units (must be done after instantiating species to access charge and mass numbers)
         self.setup_equation_params(base_units=base_units)
@@ -103,7 +109,7 @@ class IncompressibleNavierStokesSPH(StruphyModel):
         )
         self.propagators = self.Propagators(
             ptg=ptg,
-            pressure=self.fluid.pressure,
+            pressure=self.lagrange_multiplier.pressure,
             with_B0=with_B0,
             with_viscosity=with_viscosity,
         )
@@ -114,7 +120,7 @@ class IncompressibleNavierStokesSPH(StruphyModel):
             self.propagators.push_vxb.variables.ions = self.fluid.density
         if with_viscosity:
             self.propagators.push_viscous.variables.fluid = self.fluid.density
-        self.propagators.pressure_poisson.variables.phi = self.fluid.pressure
+        self.propagators.pressure_poisson.variables.phi = self.lagrange_multiplier.pressure
         self.propagators.chorin_projection.variables.var = self.fluid.density
 
         # 5. define scalars to be tracked during simulation
@@ -164,11 +170,11 @@ class IncompressibleNavierStokesSPH(StruphyModel):
 
         .. math::
 
-            \rho (\partial_t \mathbf{u} + \mathbf{u} \cdot \nabla \mathbf{u}) = -\nabla p - \nabla \cdot \boldsymbol{\pi}
+            \rho (\partial_t \mathbf{u} + \mathbf{u} \cdot \nabla \mathbf{u}) = -\nabla p - \nabla \cdot \boldsymbol{\sigma}
             \\[2mm]
             \nabla \cdot \mathbf{u} = 0\,.
 
-        where :math:`\boldsymbol{\pi}` is the viscous stress tensor.
+        where :math:`\boldsymbol{\sigma}` is the viscous stress tensor.
 
         The viscous stress tensor for a Newtonian fluid is given by:
 
