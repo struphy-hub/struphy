@@ -415,7 +415,10 @@ def parse_path(directory, verbose: bool = False):
         for filename in files:
             if re.search(r"__\w+__", root):
                 continue
-            if (filename.endswith(".py") or filename.endswith(".ipynb")) and not re.search(r"__\w+__", filename):
+            # Dunder files (e.g. '__main__.py') are excluded, but '__init__.py' is kept
+            # so that it still gets linted/formatted.
+            is_dunder_file = re.match(r"^__\w+__\.py$", filename) and filename != "__init__.py"
+            if (filename.endswith(".py") or filename.endswith(".ipynb")) and not is_dunder_file:
                 file_path = os.path.join(root, filename)
                 python_files.append(file_path)
     return python_files
@@ -1280,7 +1283,13 @@ def construct_models_init_file(models_dir: str = "src/struphy/models") -> str:
     Constructs __init__.py for all generated model files by reading actual class names.
     Skips base.py and __init__.py.
     """
-    models_init = ""
+    existing_init_path = os.path.join(models_dir, "__init__.py")
+    docstring = None
+    if os.path.isfile(existing_init_path):
+        with open(existing_init_path, "r") as f:
+            docstring = ast.get_docstring(ast.parse(f.read()), clean=False)
+
+    models_init = f'"""{docstring}"""\n\n' if docstring else ""
     model_names = []
 
     for file_name in sorted(os.listdir(models_dir)):
@@ -1325,6 +1334,64 @@ def construct_propagators_init_file() -> str:
     return propagators_init
 
 
+def run_formatting_loop(python_files, linters, iterations, verbose):
+    """Repeatedly run the given formatters on `python_files` until they are clean.
+
+    Parameters
+    ----------
+    python_files : list
+        List of Python file paths to format.
+
+    linters : list
+        List of formatter names to apply.
+
+    iterations : int
+        Maximum number of times to apply formatting.
+
+    verbose : bool
+        If True, enables detailed output, showing each command and iteration.
+    """
+
+    flags = {
+        "autopep8": ["--in-place"],
+        "isort": [],
+        "add-trailing-comma": ["--exit-zero-even-if-changed"],
+        "ruff": [["check", "--fix", "--select", "I"], ["format"]],
+        "ssort": [],
+    }
+
+    # Skip linting with add-trailing-comma since it disagrees with autopep8
+    skip_linters = ["add-trailing-comma"]
+
+    for iteration in range(iterations):
+        if verbose:
+            print(f"Iteration {iteration + 1}: Running formatters...")
+
+        run_linters_on_files(
+            linters,
+            python_files,
+            flags,
+            verbose,
+        )
+
+        # Check if any files still require changes
+        if not files_require_formatting(
+            python_files,
+            [lint for lint in linters if lint not in skip_linters],
+        ):
+            print("All files are properly formatted.")
+            break
+    else:
+        if verbose:
+            print(
+                "Max iterations reached. The following files may still require manual checks:",
+            )
+            for file_path in python_files:
+                if files_require_formatting([file_path], linters):
+                    print(f" - {file_path}")
+            print("Contact Max about this")
+
+
 def struphy_format(config, verbose, yes=False):
     """Format Python files with specified linters, optionally iterating multiple times.
 
@@ -1333,7 +1400,7 @@ def struphy_format(config, verbose, yes=False):
     config : dict
         Configuration dictionary containing the following keys:
             - input_type : str, optional
-                The type of files to format ('all', 'path', 'staged', 'branch', or '__init__.py'). Defaults to 'all'.
+                The type of files to format ('all', 'path', 'staged', or 'branch'). Defaults to 'all'.
             - path : str, optional
                 Directory or file path where files will be formatted.
             - linters : list
@@ -1357,24 +1424,7 @@ def struphy_format(config, verbose, yes=False):
     if input_type is None and path is not None:
         input_type = "path"
 
-    if input_type == "__init__.py":
-        # print(f"Rewriting {PROPAGATORS_INIT_PATH}")
-        # propagators_init = construct_propagators_init_file()
-        # with open(PROPAGATORS_INIT_PATH, "w") as f:
-        #     f.write(propagators_init)
-
-        print(f"Rewriting {MODELS_INIT_PATH}")
-        models_init = construct_models_init_file()
-        with open(MODELS_INIT_PATH, "w") as f:
-            f.write(models_init)
-
-        python_files = [
-            # PROPAGATORS_INIT_PATH,
-            MODELS_INIT_PATH,
-        ]
-        input_type = "path"
-    else:
-        python_files = get_python_files(input_type, path)
+    python_files = get_python_files(input_type, path)
 
     if len(python_files) == 0:
         print("No Python files to format.")
@@ -1382,44 +1432,42 @@ def struphy_format(config, verbose, yes=False):
 
     confirm_formatting(python_files, linters, yes)
 
-    flags = {
-        "autopep8": ["--in-place"],
-        "isort": [],
-        "add-trailing-comma": ["--exit-zero-even-if-changed"],
-        "ruff": [["check", "--fix", "--select", "I"], ["format"]],
-        "ssort": [],
-    }
+    run_formatting_loop(python_files, linters, iterations, verbose)
 
-    # Skip linting with add-trailing-comma since it disagrees with autopep8
-    skip_linters = ["add-trailing-comma"]
 
-    if python_files:
-        for iteration in range(iterations):
-            if verbose:
-                print(f"Iteration {iteration + 1}: Running formatters...")
+def struphy_build_init_files(config, verbose, yes=False):
+    """Regenerate the auto-generated `__init__.py` files and format them.
 
-            run_linters_on_files(
-                linters,
-                python_files,
-                flags,
-                verbose,
-            )
+    Currently this (re-)writes `struphy/models/__init__.py` based on the
+    `StruphyModel` subclasses found in `struphy/models/`, preserving its
+    existing module docstring, and then formats the result.
 
-            # Check if any files still require changes
-            if not files_require_formatting(
-                python_files,
-                [lint for lint in linters if lint not in skip_linters],
-            ):
-                print("All files are properly formatted.")
-                break
-        else:
-            if verbose:
-                print(
-                    "Max iterations reached. The following files may still require manual checks:",
-                )
-                for file_path in python_files:
-                    if files_require_formatting([file_path], linters):
-                        print(f" - {file_path}")
-                print("Contact Max about this")
-    else:
-        print("No Python files to format.")
+    Parameters
+    ----------
+    config : dict
+        Configuration dictionary containing the following keys:
+            - linters : list
+                List of formatter names to apply.
+            - iterations : int, optional
+                Maximum number of times to apply formatting (default=5).
+
+    verbose : bool
+        If True, enables detailed output, showing each command and iteration.
+
+    yes : bool, optional
+        If True, skips the confirmation prompt before formatting.
+    """
+
+    linters = config.get("linters", ["ruff"])
+    iterations = config.get("iterations", 5)
+
+    print(f"Rewriting {MODELS_INIT_PATH}")
+    models_init = construct_models_init_file()
+    with open(MODELS_INIT_PATH, "w") as f:
+        f.write(models_init)
+
+    python_files = [MODELS_INIT_PATH]
+
+    confirm_formatting(python_files, linters, yes)
+
+    run_formatting_loop(python_files, linters, iterations, verbose)
