@@ -17,6 +17,7 @@ default_out_root = repo_root / "results" / "profiling" / "manual" / "diocotron_p
 sys.path.insert(0, str(params_dir))
 from params_diocotron import sim
 
+
 def main() -> None:
     parser = ArgumentParser(description="Run the diocotron profiling case.")
     parser.add_argument("nranks", type=int, help="Number of MPI ranks used for the run")

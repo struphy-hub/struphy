@@ -74,9 +74,7 @@ def _push_profiling_data(packaged_dirs: list[Path], run_commit: str) -> None:
         print("No packaged profiling data to push; skipping profiling-data repo push.")
         return
 
-    repo_url = os.environ.get(
-        "PROFILING_DATA_REPO_URL", "git@github.com:struphy-hub/profiling-data.git"
-    )
+    repo_url = os.environ.get("PROFILING_DATA_REPO_URL", "git@github.com:struphy-hub/profiling-data.git")
 
     with tempfile.TemporaryDirectory(prefix="profiling-data-") as clone_dir_str:
         clone_dir = Path(clone_dir_str)
@@ -135,22 +133,22 @@ def build_case_commands(case: ProfilingCase, venv_path: Path) -> list[str]:
         f'echo "Physics problem: {case.physics_problem}"',
         f'echo "Struphy model used: {case.struphy_model_used}"',
         f'echo "Case directory: {case.output_root}"',
-        'pwd',
+        "pwd",
         'echo "----------------------------------------"',
         f'mkdir -p "{case.output_root}"',
         f'cp "{case.params_source}" "{case.output_root / "parameters.py"}"',
         f'ls -l "{case.output_root}"',
         'echo "===== Diagnostics ====="',
-        'pwd',
-        'which python',
-        'python --version',
-        'which mpirun',
+        "pwd",
+        "which python",
+        "python --version",
+        "which mpirun",
         'echo "VIRTUAL_ENV=$VIRTUAL_ENV"',
         'echo "PATH=$PATH"',
         'echo "======================="',
-        'srun -n1 hostname',
-        'srun -n1 python -c "print(\'hello\')"',
-        'srun -n1 mpirun -n1 hostname',
+        "srun -n1 hostname",
+        "srun -n1 python -c \"print('hello')\"",
+        "srun -n1 mpirun -n1 hostname",
     ]
 
     commands.append("existing_h5_files=()")
@@ -164,20 +162,20 @@ def build_case_commands(case: ProfilingCase, venv_path: Path) -> list[str]:
                 "",
                 f'echo "Running {case.label} with {ntasks} MPI ranks"',
                 (
-                    f'if srun -n {ntasks} python profiling/run_diocotron.py '
+                    f"if srun -n {ntasks} python profiling/run_diocotron.py "
                     f'{ntasks} --out-root "{case.output_root}" > "{mpirun_log}" 2>&1; then'
                 ),
                 f'    echo "srun ({ntasks} ranks) succeeded"',
-                'else',
+                "else",
                 f'    echo "srun ({ntasks} ranks) FAILED with exit code $?; log follows:"',
                 f'    cat "{mpirun_log}"',
-                'fi',
+                "fi",
                 f'if [ -f "{h5_file}" ]; then',
                 f'    scope-profiler pproc "{h5_file}" -o "{sim_dir}"',
                 f'    existing_h5_files+=("{h5_file}")',
-                'else',
+                "else",
                 f'    echo "No profiling data found at {h5_file}; skipping scope-profiler pproc for this rank count."',
-                'fi',
+                "fi",
             ],
         )
 
@@ -187,12 +185,12 @@ def build_case_commands(case: ProfilingCase, venv_path: Path) -> list[str]:
             'echo "----------------------------------------"',
             f'echo "Completed profiling case: {case.label}"',
             'echo "----------------------------------------"',
-            '# Postprocessing comparison plots',
+            "# Postprocessing comparison plots",
             'if [ "${#existing_h5_files[@]}" -gt 0 ]; then',
             f'    scope-profiler pproc "${{existing_h5_files[@]}}" --rank 0 -o "{case.output_root / "figures"}"',
-            'else',
+            "else",
             '    echo "No profiling data was produced for any rank count; skipping comparison plots."',
-            'fi',
+            "fi",
         ]
     )
 
@@ -200,9 +198,7 @@ def build_case_commands(case: ProfilingCase, venv_path: Path) -> list[str]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Submit the diocotron profiling job."
-    )
+    parser = argparse.ArgumentParser(description="Submit the diocotron profiling job.")
     parser.add_argument(
         "--results-root",
         type=Path,
@@ -228,16 +224,13 @@ def main() -> None:
 
     virtual_env = os.environ.get("VIRTUAL_ENV")
     if not virtual_env:
-        raise RuntimeError(
-            "VIRTUAL_ENV is not set; activate a virtual environment before submitting the job."
-        )
+        raise RuntimeError("VIRTUAL_ENV is not set; activate a virtual environment before submitting the job.")
     venv_path = Path(virtual_env)
 
     compiler = Compiler(language=args.language, compiler=args.compiler)
     print(f"Using compiler: {compiler.language} ({compiler.compiler})")
     compiler.compile()
     print("Done compiling Struphy kernels.")
-    
 
     output_root = Path("profiling-results-export").resolve()
     if output_root.exists():
@@ -264,15 +257,9 @@ def main() -> None:
             description="Scaling test running the diocotron profiling setup with multiple MPI ranks.",
             physics_problem="Diocotron instability in a non-neutral plasma.",
             struphy_model_used="ToyDrift",
-            ranks=(1, 2, 4), #, 8),
+            ranks=(1, 2, 4),  # , 8),
             output_root=run_results_root / "diocotron_poisson_scaling",
-            params_source=(
-                repo_root
-                / "examples"
-                / "ToyGyrokinetic"
-                / "diocotron_instability"
-                / "params_diocotron.py"
-            ),
+            params_source=(repo_root / "examples" / "ToyGyrokinetic" / "diocotron_instability" / "params_diocotron.py"),
         ),
     ]
 
@@ -319,7 +306,6 @@ def main() -> None:
 
         output_path = repo_root / f"job_profile_{case.label}.sh"
 
-
         print(f"Writing metadata for '{case.label}' to {case.output_root / 'profiling_case_info.json'}")
         (case.output_root / "profiling_case_info.json").write_text(
             json.dumps(
@@ -362,7 +348,7 @@ def main() -> None:
         # job_id = script.submit_job(str(output_path), verbose=True)
         job_id = result.stdout.strip().split()[-1]
         print(f"Submitted profiling case '{case.label}' as job {job_id}. Waiting for completion...")
-        
+
         SQueue().wait_until_done(job_id=job_id, poll_interval=10)
         # SQueue().wait_until_done(job_name="profiling_*", poll_interval=10)
 
