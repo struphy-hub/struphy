@@ -13,7 +13,7 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels_gc
-from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.propagators.base import Propagator
 from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
@@ -68,8 +68,15 @@ class ToyDrift(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self, phi: FEECVariable = None):
-            self.gc_poisson = PoissonSolve()
+        def __init__(
+            self,
+            phi: FEECVariable = None,
+            rho: ParticlesToGrid = None,
+            rho_coeffs: float = None,
+        ):
+            self.gc_poisson = PoissonSolve(rho=rho, rho_coeffs=rho_coeffs)
+            self.gc_poisson.options.stab_eps = 0.0
+            self.gc_poisson.options.stab_mat = "M0ad"
             self.push_gc_bxe = PushGuidingCenterBxEstar(phi=phi)
 
     ## abstract methods
@@ -99,7 +106,18 @@ class ToyDrift(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators(phi=self.em_fields.phi)
+        alpha = self.kinetic_ions.equation_params.alpha
+        epsilon = self.kinetic_ions.equation_params.epsilon
+        rho = ParticlesToGrid(
+            self.kinetic_ions.var,
+            "H1",
+            Pyccelkernel(accum_kernels_gc.gc_density_0form),
+        )
+        self.propagators = self.Propagators(
+            phi=self.em_fields.phi,
+            rho=rho,
+            rho_coeffs=alpha**2 / epsilon,
+        )
 
         # 4. assign variables to propagators
         self.propagators.gc_poisson.variables.phi = self.em_fields.phi
@@ -123,7 +141,7 @@ class ToyDrift(StruphyModel):
         return "thermal"
 
     def allocate_helpers(self):
-        """Solve initial Poisson equation.
+        """Prepare initial particle weights for the Poisson right-hand side.
 
         :meta private:
         """
@@ -135,29 +153,6 @@ class ToyDrift(StruphyModel):
         # Poisson right-hand side
         particles = self.kinetic_ions.var.particles
         particles.weights = particles.weights_at_t0.copy()
-
-        alpha = self.kinetic_ions.equation_params.alpha
-        epsilon = self.kinetic_ions.equation_params.epsilon
-
-        charge_accum = AccumulatorVector(
-            particles,
-            "H1",
-            Pyccelkernel(accum_kernels_gc.gc_density_0form),
-            Propagator.mass_ops,
-            Propagator.domain.args_domain,
-        )
-
-        rho = charge_accum
-
-        # sanity check: compute FE coeffs of density
-        # rho()
-        # rho.show_accumulated_spline_field(Propagator.mass_ops, eta_direction=(True,True,False))
-
-        self.propagators.gc_poisson.options.stab_eps = 0.0
-        self.propagators.gc_poisson.options.stab_mat = "M0ad"
-        self.propagators.gc_poisson.rho = rho
-        self.propagators.gc_poisson.rho_coeffs = alpha**2 / epsilon
-        self.propagators.gc_poisson.allocate()
 
         if particles.control_variate:
             particles.update_weights()
