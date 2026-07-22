@@ -145,7 +145,10 @@ class IncompressibleNavierStokesSPH(StruphyModel):
         new_file = []
         with open(params_path, "r") as f:
             for line in f:
-                if "push_vxb.Options" in line:
+                if "time_opts = " in line:
+                    new_file += [line]
+                    new_file += ["assert time_opts.split_algo == 'LieTrotter'\n"]
+                elif "push_vxb.Options" in line:
                     new_file += ["if model.with_B0:\n"]
                     new_file += ["    " + line]
                 elif "saving_params = " in line:
