@@ -1278,60 +1278,70 @@ def run_linters_on_files(linters, python_files, flags, verbose):
                     print(line, end="")
 
 
-def construct_models_init_file(models_dir: str = "src/struphy/models") -> str:
+def construct_package_init_file(package_dir: str, package_name: str, base_class: type, skip: tuple = ("base.py",)) -> str:
     """
-    Constructs __init__.py for all generated model files by reading actual class names.
-    Skips base.py and __init__.py.
+    Constructs the content of an `__init__.py` file for a package laid out with one class
+    per module, by importing each module and collecting the subclasses of `base_class` that
+    are defined in it. Preserves the existing module docstring of the `__init__.py`, if any.
+
+    Parameters
+    ----------
+    package_dir : str
+        Path to the package directory (e.g. "src/struphy/models").
+
+    package_name : str
+        Dotted import path of the package (e.g. "struphy.models").
+
+    base_class : type
+        Only classes that are (strict) subclasses of `base_class`, and defined directly in
+        the module being scanned, are collected.
+
+    skip : tuple, optional
+        Module filenames to skip in addition to `__init__.py` (default=("base.py",)).
     """
-    existing_init_path = os.path.join(models_dir, "__init__.py")
+    existing_init_path = os.path.join(package_dir, "__init__.py")
     docstring = None
     if os.path.isfile(existing_init_path):
         with open(existing_init_path, "r") as f:
             docstring = ast.get_docstring(ast.parse(f.read()), clean=False)
 
-    models_init = f'"""{docstring}"""\n\n' if docstring else ""
-    model_names = []
+    init_content = f'"""{docstring}"""\n\n' if docstring else ""
+    class_names = []
 
-    for file_name in sorted(os.listdir(models_dir)):
-        if file_name.endswith(".py") and file_name not in ["__init__.py", "base.py"]:
+    for file_name in sorted(os.listdir(package_dir)):
+        if file_name.endswith(".py") and file_name not in ("__init__.py", *skip):
             module_name = file_name[:-3]  # strip .py
-            module = importlib.import_module(f"struphy.models.{module_name}")
+            module = importlib.import_module(f"{package_name}.{module_name}")
 
             # Loop over all classes in the module
             for _, cls in inspect.getmembers(module, inspect.isclass):
-                # Only subclasses of StruphyModel defined in this module
-                if issubclass(cls, StruphyModel) and cls.__module__ == module.__name__ and cls != StruphyModel:
+                # Only subclasses of base_class defined in this module
+                if issubclass(cls, base_class) and cls.__module__ == module.__name__ and cls != base_class:
                     class_name = cls.__name__
-                    models_init += f"from struphy.models.{module_name} import {class_name}\n"
-                    model_names.append(class_name)
+                    init_content += f"from {package_name}.{module_name} import {class_name}\n"
+                    class_names.append(class_name)
 
-    models_init += "\n\n"
-    models_init += f"__all__ = {model_names}\n"
-    return models_init
+    init_content += "\n\n"
+    init_content += f"__all__ = {class_names}\n"
+    return init_content
 
 
-def construct_propagators_init_file() -> str:
+def construct_models_init_file(models_dir: str = "src/struphy/models") -> str:
     """
-    Constructs the content for the __init__.py file for the propagators module.
-
-    Returns:
-        str: The content for the __init__.py file as a string.
+    Constructs __init__.py for all generated model files by reading actual class names.
+    Skips base.py and __init__.py.
     """
-    import struphy.propagators.propagators_coupling as propagators_coupling
-    import struphy.propagators.propagators_fields as propagators_fields
-    import struphy.propagators.propagators_markers as propagators_markers
+    return construct_package_init_file(models_dir, "struphy.models", StruphyModel)
+
+
+def construct_propagators_init_file(propagators_dir: str = "src/struphy/propagators") -> str:
+    """
+    Constructs __init__.py for all generated propagator files by reading actual class names.
+    Skips base.py and __init__.py.
+    """
     from struphy.propagators.base import Propagator
 
-    propagators_init = ""
-    propagators_names = []
-    for model_type in [propagators_coupling, propagators_fields, propagators_markers]:
-        for _, cls in model_type.__dict__.items():
-            if isinstance(cls, type) and issubclass(cls, Propagator) and cls != Propagator:
-                propagators_names.append(cls.__name__)
-                propagators_init += f"from {model_type.__name__} import {cls.__name__}\n"
-    propagators_init += "\n\n"
-    propagators_init += f"__all__ = {propagators_names}\n"
-    return propagators_init
+    return construct_package_init_file(propagators_dir, "struphy.propagators", Propagator)
 
 
 def run_formatting_loop(python_files, linters, iterations, verbose):
@@ -1438,9 +1448,9 @@ def struphy_format(config, verbose, yes=False):
 def struphy_build_init_files(config, verbose, yes=False):
     """Regenerate the auto-generated `__init__.py` files and format them.
 
-    Currently this (re-)writes `struphy/models/__init__.py` based on the
-    `StruphyModel` subclasses found in `struphy/models/`, preserving its
-    existing module docstring, and then formats the result.
+    This (re-)writes `struphy/models/__init__.py` and `struphy/propagators/__init__.py`
+    based on the `StruphyModel`/`Propagator` subclasses found in those packages,
+    preserving each file's existing module docstring, and then formats the result.
 
     Parameters
     ----------
@@ -1466,7 +1476,12 @@ def struphy_build_init_files(config, verbose, yes=False):
     with open(MODELS_INIT_PATH, "w") as f:
         f.write(models_init)
 
-    python_files = [MODELS_INIT_PATH]
+    print(f"Rewriting {PROPAGATORS_INIT_PATH}")
+    propagators_init = construct_propagators_init_file()
+    with open(PROPAGATORS_INIT_PATH, "w") as f:
+        f.write(propagators_init)
+
+    python_files = [MODELS_INIT_PATH, PROPAGATORS_INIT_PATH]
 
     confirm_formatting(python_files, linters, yes)
 
