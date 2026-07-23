@@ -125,6 +125,7 @@ def struphy():
         "compile": ("struphy.console.compile", "struphy_compile"),
         "lint": ("struphy.console.format", "struphy_lint"),
         "format": ("struphy.console.format", "struphy_format"),
+        "build-init-files": ("struphy.console.format", "struphy_build_init_files"),
         "likwid_profile": ("struphy.console.likwid", "struphy_likwid_profile"),
         "params": ("struphy.console.params", "struphy_params"),
         "profile": ("struphy.console.profile", "struphy_profile"),
@@ -522,7 +523,7 @@ def add_parser_format(subparsers):
             subparser.add_argument(
                 "input_type",
                 type=str,
-                choices=["all", "staged", "branch", "__init__.py"],
+                choices=["all", "staged", "branch"],
                 nargs="?",  # optional
                 help="specify the files to process",
             )
@@ -580,6 +581,38 @@ def add_parser_format(subparsers):
             help="specify the format of the output: 'table' for tabular output, 'plain' for regular output, or 'report' for saving a html report",
         )
 
+        parser_build_init_files = subparsers.add_parser(
+            "build-init-files",
+            help="regenerate auto-generated __init__.py files",
+            description="Regenerate the auto-generated __init__.py files (e.g. struphy/models/__init__.py) and format them.",
+        )
+        parser_build_init_files.add_argument(
+            "--verbose",
+            action="store_true",
+            help="use verbose output",
+        )
+        parser_build_init_files.add_argument(
+            "--linters",
+            type=str,
+            nargs="+",
+            default=["ruff"],
+            choices=["add-trailing-comma", "isort", "autopep8", "ruff"],
+            help="list of linters to use",
+        )
+        parser_build_init_files.add_argument(
+            "--iterations",
+            type=int,
+            default=5,
+            help="maximum number of times to run each formatter",
+        )
+        build_init_files_group = parser_build_init_files.add_argument_group("build-init-files options")
+        build_init_files_group.add_argument(
+            "-y",
+            "--yes",
+            action="store_true",
+            help="say yes to prompt when asked if all files should be formatted",
+        )
+
 
 def set_args_format_config(args, parser):
     if args.command == "format" or args.command == "lint":
@@ -595,6 +628,12 @@ def set_args_format_config(args, parser):
         args.config["iterations"] = args.iterations
     if args.command == "lint":
         args.config["output_format"] = args.output_format
+
+    if args.command == "build-init-files":
+        args.config = {
+            "linters": args.linters,
+            "iterations": args.iterations,
+        }
 
 
 def print_short_help(parser):
