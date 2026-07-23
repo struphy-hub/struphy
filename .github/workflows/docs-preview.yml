@@ -57,7 +57,7 @@ jobs:
     runs-on: ubuntu-latest
 
     environment:
-      name: github-pages
+      name: docs-preview
       url: https://struphy-hub.github.io/docs-preview/pr-${{ github.event.pull_request.number || github.event.inputs.pr_number }}/
 
     steps:
