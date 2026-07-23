@@ -1334,8 +1334,8 @@ RESTARTing from:
             "time_opts": self.time_opts.to_dict(),
             "domain": self.domain.to_dict(),
             "equil": self.equil.to_dict() if self.equil is not None else None,
-            "grid": self.grid.to_dict(),
-            "derham_opts": self.derham_opts.to_dict(),
+            "grid": self.grid.to_dict() if self.grid is not None else None,
+            "derham_opts": self.derham_opts.to_dict() if self.derham_opts is not None else None,
         }
 
     def _collect_particle_metadata(self) -> dict:
@@ -1383,8 +1383,8 @@ RESTARTing from:
             "time_opts": self.time_opts.to_dict(),
             "domain": self.domain.to_dict(),
             "equil": self.equil.to_dict() if self.equil is not None else None,
-            "grid": self.grid.to_dict(),
-            "derham_opts": self.derham_opts.to_dict(),
+            "grid": self.grid.to_dict() if self.grid is not None else None,
+            "derham_opts": self.derham_opts.to_dict() if self.derham_opts is not None else None,
             "particle_species": self._collect_particle_metadata(),
             **extra_data,
         }
