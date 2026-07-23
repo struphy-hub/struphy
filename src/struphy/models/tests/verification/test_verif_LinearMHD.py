@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 
@@ -15,9 +16,13 @@ from struphy import (
     equils,
     grids,
     perturbations,
+    set_logging_level,
 )
 from struphy.diagnostics.diagn_tools import power_spectrum_2d
 from struphy.models import LinearMHD
+
+set_logging_level()
+logger = logging.getLogger("struphy")
 
 
 @pytest.mark.parametrize("algo", ["implicit", "explicit"])
@@ -45,17 +50,13 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
     equil = equils.HomogenSlab(B0x=B0x, B0y=B0y, B0z=B0z, beta=beta, n0=n0)
 
     # grid
-    grid = grids.TensorProductGrid(Nel=(1, 1, 64))
+    grid = grids.TensorProductGrid(num_elements=(1, 1, 64))
 
     # derham options
-    derham_opts = DerhamOptions(p=(1, 1, 3))
-
-    # species parameters
-    model.mhd.set_species_properties()
+    derham_opts = DerhamOptions(degree=(1, 1, 3))
 
     # propagator options
     model.propagators.shear_alf.options = model.propagators.shear_alf.Options(algo=algo)
-    model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options(b_field=model.em_fields.b_field)
 
     # initial conditions (background + perturbation)
     model.mhd.velocity.add_perturbation(perturbations.Noise(amp=0.1, comp=0, seed=123))
@@ -71,19 +72,18 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
         grid=grid,
         derham_opts=derham_opts,
         equil=equil,
-        verbose=True,
     )
 
     # run
-    sim.run(verbose=True)
+    sim.run()
 
     # post processing
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.pproc(verbose=True)
+        sim.pproc()
 
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.load_plotting_data(verbose=True)
+        sim.load_plotting_data()
 
         # first fft
         u_of_t = sim.spline_values.mhd.velocity_log.data
@@ -112,7 +112,7 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
         # assert
         vA = xp.sqrt(Bsquare / n0)
         v_alfven = vA * B0z / xp.sqrt(Bsquare)
-        print(f"{v_alfven =}")
+        logger.info(f"{v_alfven =}")
         assert xp.abs(coeffs[0][0] - v_alfven) < 0.07
 
         # second fft
@@ -141,8 +141,8 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
         delta = (4 * B0z**2 * cS**2 * vA**2) / ((cS**2 + vA**2) ** 2 * Bsquare)
         v_slow = xp.sqrt(1 / 2 * (cS**2 + vA**2) * (1 - xp.sqrt(1 - delta)))
         v_fast = xp.sqrt(1 / 2 * (cS**2 + vA**2) * (1 + xp.sqrt(1 - delta)))
-        print(f"{v_slow =}")
-        print(f"{v_fast =}")
+        logger.info(f"{v_slow =}")
+        logger.info(f"{v_fast =}")
         assert xp.abs(coeffs[0][0] - v_slow) < 0.05
         assert xp.abs(coeffs[1][0] - v_fast) < 0.19
 

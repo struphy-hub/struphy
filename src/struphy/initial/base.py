@@ -1,8 +1,13 @@
+import logging
 from abc import ABCMeta, abstractmethod
 from typing import Callable
 
+import cunumpy as xp
+
 from struphy.io.options import LiteralOptions
-from struphy.utils.utils import check_option
+from struphy.utils.utils import __class_with_params_repr_no_defaults__, check_option
+
+logger = logging.getLogger("struphy")
 
 
 class Perturbation(metaclass=ABCMeta):
@@ -68,10 +73,15 @@ class Perturbation(metaclass=ABCMeta):
         pass
 
     def __repr__(self):
-        print(f"    {self.__class__.__name__}:")
-        for k, v in self.__dict__.items():
-            print(f"        {k}: {v}")
-        return ""
+        out = f"{self.__class__.__name__}(\n"
+        for k, v in self.params.items():
+            out += " " * 4
+            out += f"{k}={v},\n"
+        out += ")"
+        return out
+
+    def __repr_no_defaults__(self):
+        return __class_with_params_repr_no_defaults__(self)
 
     @property
     def given_in_basis(self) -> str:
@@ -103,3 +113,69 @@ class Perturbation(metaclass=ABCMeta):
     def comp(self, new: int):
         assert new in (0, 1, 2)
         self._comp = new
+
+    @property
+    def params(self) -> dict:
+        """Parameters passed to __init__(), as dictionary."""
+        if not hasattr(self, "_params"):
+            self._params = {}
+        return self._params
+
+    @params.setter
+    def params(self, new):
+        assert isinstance(new, dict)
+        if "self" in new:
+            new.pop("self")
+        if "__class__" in new:
+            new.pop("__class__")
+        self._params = new
+
+    def _mask_subdomain(self, *etas, perb_domain: tuple[tuple[float] | None, ...] = (None, None, None)):
+        """
+        Create mask of particles within perturbation subdomain.
+
+        :param eta: location of each partiles in space
+        :param perb_domain : tuple[tuple[float]]
+            Subdomain in logical space in which the pertrubation is applied to: ((eta1_min, eta1_max), (eta2_min, eta2_max), (eta3_min, eta3_max)).
+            None means apply perturbation to all domain in that direction
+        """
+
+        mask = xp.ones_like(etas[0], dtype=bool)
+
+        for i in range(len(perb_domain)):
+            if perb_domain[i] is None:
+                continue
+            mask &= (perb_domain[i][0] <= etas[i]) & (etas[i] <= perb_domain[i][1])
+
+        return mask
+
+
+class GenericPerturbation(Perturbation):
+    """Generic perturbation defined by a user-provided function.
+
+    Parameters
+    ----------
+    fun: callable
+        A function of three variables (x, y, z) defining the perturbation in physical space.
+
+    given_in_basis: str
+        In which basis the perturbation is represented (see base class).
+
+    comp: int
+        Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
+    """
+
+    def __init__(
+        self,
+        fun: callable,
+        given_in_basis: LiteralOptions.GivenInBasis = None,
+        comp: int = 0,
+    ):
+        self.fun = fun
+
+        # use the setters
+        self.given_in_basis = given_in_basis
+        self.comp = comp
+
+    def __call__(self, x, y, z):
+        return self.fun(x, y, z)

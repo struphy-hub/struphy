@@ -12,9 +12,7 @@ from numpy import empty, floor, log, shape, sqrt, zeros
 from pyccel.decorators import stack_array
 
 import struphy.geometry.evaluation_kernels as evaluation_kernels
-
-# do not remove; needed to identify dependencies
-import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels
+import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies (for import below)
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
 import struphy.pic.accumulation.particle_to_mat_kernels as particle_to_mat_kernels
 from struphy.bsplines.evaluation_kernels_3d import (
@@ -35,15 +33,16 @@ def charge_density_0form(
     vec: "float[:,:,:]",
 ):
     r"""
-    Kernel for :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` into V0 with the filling
+    Kernel for :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` into V0 with filling function
 
     .. math::
 
-        B_p^\mu = \frac{w_p}{N} \,.
+        B_p = w_p \,,
+
+    where :math:`w_p` is the marker weight.
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
     weight_idx = args_markers.weight_idx
 
     # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, filling)
@@ -58,8 +57,8 @@ def charge_density_0form(
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
-        # filling = w_p/N
-        filling = markers[ip, weight_idx] / Np
+        # filling is just the weights
+        filling = markers[ip, weight_idx]
 
         particle_to_mat_kernels.vec_fill_b_v0(
             args_derham,
@@ -73,296 +72,66 @@ def charge_density_0form(
     # -- removed omp: #$ omp end parallel
 
 
-@stack_array(
-    "cell_left",
-    "point_left",
-    "point_right",
-    "cell_number",
-    "temp1",
-    "temp4",
-    "compact",
-    "grids_shapex",
-    "grids_shapey",
-    "grids_shapez",
-)
-def hybrid_fA_density(
+def div_u_weak_1form(
     args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
-    mat: "float[:,:,:,:,:,:]",
-    Nel: "int[:]",
-    quad: "int[:]",
-    quad_pts_x: "float[:]",
-    quad_pts_y: "float[:]",
-    quad_pts_z: "float[:]",
-    p_shape: "int[:]",
-    p_size: "float[:]",
-):
-    r"""
-    Accumulates the values of density at quadrature points with the filling functions
-
-    .. math::
-        n = \sum_p w_p S(x - x_p)
-
-    Parameters
-    ----------
-        To do
-    Note
-    ----
-        The above parameter list contains only the model specific input arguments.
-    """
-
-    markers = args_markers.markers
-    Np = args_markers.Np
-
-    # allocate
-    cell_left = empty(3, dtype=int)
-    point_left = zeros(3, dtype=float)
-    point_right = zeros(3, dtype=float)
-    cell_number = empty(3, dtype=int)
-
-    temp1 = zeros(3, dtype=float)
-    temp4 = zeros(3, dtype=float)
-
-    compact = zeros(3, dtype=float)
-    compact[0] = (p_shape[0] + 1.0) * p_size[0]
-    compact[1] = (p_shape[1] + 1.0) * p_size[1]
-    compact[2] = (p_shape[2] + 1.0) * p_size[2]
-
-    grids_shapex = zeros(p_shape[0] + 2, dtype=float)
-    grids_shapey = zeros(p_shape[1] + 2, dtype=float)
-    grids_shapez = zeros(p_shape[2] + 2, dtype=float)
-
-    dfm = zeros((3, 3), dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    # -- removed omp: #$ omp parallel private (dfm, det_df, cell_left, point_left, point_right, cell_number, temp1, temp4, compact, grids_shapex, grids_shapey, grids_shapez, n_markers, ip, eta1, eta2, eta3, weight, ie1, ie2, ie3, span1, span2, span3)
-    # -- removed omp: #$ omp for reduction ( + : mat)
-    for ip in range(n_markers):
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
-            continue
-
-        # marker positions
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
-            eta1,
-            eta2,
-            eta3,
-            args_domain,
-            dfm,
-        )
-
-        # metric coeffs
-        det_df = linalg_kernels.det(dfm)
-
-        weight = markers[ip, 6] / (p_size[0] * p_size[1] * p_size[2]) / Np / det_df
-
-        ie1 = int(eta1 * Nel[0])
-        ie2 = int(eta2 * Nel[1])
-        ie3 = int(eta3 * Nel[2])
-
-        # the points here are still not put in the periodic box [0, 1] x [0, 1] x [0, 1]
-        point_left[0] = eta1 - 0.5 * compact[0]
-        point_right[0] = eta1 + 0.5 * compact[0]
-        point_left[1] = eta2 - 0.5 * compact[1]
-        point_right[1] = eta2 + 0.5 * compact[1]
-        point_left[2] = eta3 - 0.5 * compact[2]
-        point_right[2] = eta3 + 0.5 * compact[2]
-
-        cell_left[0] = int(floor(point_left[0] * Nel[0]))
-        cell_left[1] = int(floor(point_left[1] * Nel[1]))
-        cell_left[2] = int(floor(point_left[2] * Nel[2]))
-
-        cell_number[0] = int(floor(point_right[0] * Nel[0])) - cell_left[0] + 1
-        cell_number[1] = int(floor(point_right[1] * Nel[1])) - cell_left[1] + 1
-        cell_number[2] = int(floor(point_right[2] * Nel[2])) - cell_left[2] + 1
-
-        for i in range(p_shape[0] + 1):
-            grids_shapex[i] = point_left[0] + i * p_size[0]
-        grids_shapex[p_shape[0] + 1] = point_right[0]
-
-        for i in range(p_shape[1] + 1):
-            grids_shapey[i] = point_left[1] + i * p_size[1]
-        grids_shapey[p_shape[1] + 1] = point_right[1]
-
-        for i in range(p_shape[2] + 1):
-            grids_shapez[i] = point_left[2] + i * p_size[2]
-        grids_shapez[p_shape[2] + 1] = point_right[2]
-
-        span1 = int(eta1 * Nel[0]) + int(args_derham.pn[0])
-        span2 = int(eta2 * Nel[1]) + int(args_derham.pn[1])
-        span3 = int(eta3 * Nel[2]) + int(args_derham.pn[2])
-
-        # =========== kernel part (periodic bundary case) ==========
-        particle_to_mat_kernels.hybrid_density(
-            Nel,
-            args_derham,
-            cell_left,
-            cell_number,
-            span1,
-            span2,
-            span3,
-            ie1,
-            ie2,
-            ie3,
-            temp1,
-            temp4,
-            quad,
-            quad_pts_x,
-            quad_pts_y,
-            quad_pts_z,
-            compact,
-            eta1,
-            eta2,
-            eta3,
-            mat,
-            weight,
-            p_shape,
-            p_size,
-            grids_shapex,
-            grids_shapey,
-            grids_shapez,
-        )
-    # -- removed omp: #$ omp end parallel
-
-
-@stack_array("dfm", "df_t", "df_inv", "df_inv_times_v", "filling_m", "filling_v", "v")
-def hybrid_fA_Arelated(
-    args_markers: "MarkerArguments",
-    args_derham: "DerhamArguments",
-    args_domain: "DomainArguments",
-    mat11: "float[:,:,:,:,:,:]",
-    mat12: "float[:,:,:,:,:,:]",
-    mat13: "float[:,:,:,:,:,:]",
-    mat22: "float[:,:,:,:,:,:]",
-    mat23: "float[:,:,:,:,:,:]",
-    mat33: "float[:,:,:,:,:,:]",
     vec1: "float[:,:,:]",
     vec2: "float[:,:,:]",
     vec3: "float[:,:,:]",
 ):
     r"""
-    Accumulates into V1 with the filling functions
+    Kernel for :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` into V1 with filling function
 
     .. math::
 
-        A_p^{\mu, \nu} &= f_0(\eta_p, v_p) * [ DF^{-1}(\eta_p) * v_p ]_\mu * [ DF^{-1}(\eta_p) * v_p ]_\nu
+        \mathbf{B}_p = \frac{w_p}{n_p} \mathbf{v}_p \,,
 
-        B_p^\mu &= \sqrt{f_0(\eta_p, v_p)} * w_p * [ DF^{-1}(\eta_p) * v_p ]_\mu
-
-    Note
-    ----
-        The above parameter list contains only the model specific input arguments.
+    where :math:`w_p` is the marker weight, :math:`\mathbf{v}_p` the marker velocity
+    and :math:`n_p` the (previously accumulated) density evaluated at the marker position,
+    stored in column ``args_markers.first_free_idx`` of the markers array.
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
+    weight_idx = args_markers.weight_idx
+    density_idx = args_markers.first_free_idx
+    valid_mks = args_markers.valid_mks
 
-    # allocate for metric coeffs
-    dfm = empty((3, 3), dtype=float)
-    df_inv = empty((3, 3), dtype=float)
-
-    # allocate for filling
-    df_inv_times_v = empty(3, dtype=float)
-    filling_m = empty((3, 3), dtype=float)
-    filling_v = empty(3, dtype=float)
-    v = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, v, dfm, df_inv, df_inv_times_v, weight, filling_m, filling_v)
-    # -- removed omp: #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, vec1, vec2, vec3)
-    for ip in range(n_markers):
+    # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, filling)
+    # -- removed omp: #$ omp for reduction ( + :vec)
+    for ip in range(shape(markers)[0]):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if not valid_mks[ip]:
             continue
 
-        # marker positions
+        # marker positions and velocites
         eta1 = markers[ip, 0]
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
+        v1 = markers[ip, 3]
+        v2 = markers[ip, 4]
+        v3 = markers[ip, 5]
 
-        # evaluate background
-        v[:] = markers[ip, 3:6]
+        # weight and density
+        weight = markers[ip, weight_idx]
+        density = markers[ip, density_idx]
 
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
-            eta1,
-            eta2,
-            eta3,
-            args_domain,
-            dfm,
-        )
+        # filling is just the weights
+        fill1 = weight * v1 / density
+        fill2 = weight * v2 / density
+        fill3 = weight * v3 / density
 
-        # filling functions
-        linalg_kernels.matrix_inv(dfm, df_inv)
-        linalg_kernels.matrix_vector(df_inv, v, df_inv_times_v)
-
-        weight = markers[ip, 6]
-
-        # filling_m
-        filling_m[0, 0] = (
-            weight / Np * (df_inv[0, 0] * df_inv[0, 0] + df_inv[0, 1] * df_inv[0, 1] + df_inv[0, 2] * df_inv[0, 2])
-        )
-        filling_m[0, 1] = (
-            weight / Np * (df_inv[0, 0] * df_inv[1, 0] + df_inv[0, 1] * df_inv[1, 1] + df_inv[0, 2] * df_inv[1, 2])
-        )
-        filling_m[0, 2] = (
-            weight / Np * (df_inv[0, 0] * df_inv[2, 0] + df_inv[0, 1] * df_inv[2, 1] + df_inv[0, 2] * df_inv[2, 2])
-        )
-
-        filling_m[1, 1] = (
-            weight / Np * (df_inv[1, 0] * df_inv[1, 0] + df_inv[1, 1] * df_inv[1, 1] + df_inv[1, 2] * df_inv[1, 2])
-        )
-        filling_m[1, 2] = (
-            weight / Np * (df_inv[1, 0] * df_inv[2, 0] + df_inv[1, 1] * df_inv[2, 1] + df_inv[1, 2] * df_inv[2, 2])
-        )
-
-        filling_m[2, 2] = (
-            weight / Np * (df_inv[2, 0] * df_inv[2, 0] + df_inv[2, 1] * df_inv[2, 1] + df_inv[2, 2] * df_inv[2, 2])
-        )
-
-        # filling_v
-        filling_v[:] = weight / Np * df_inv_times_v
-
-        # call the appropriate matvec filler
-        particle_to_mat_kernels.m_v_fill_b_v1_symm(
+        particle_to_mat_kernels.vec_fill_b_v1(
             args_derham,
             eta1,
             eta2,
             eta3,
-            mat11,
-            mat12,
-            mat13,
-            mat22,
-            mat23,
-            mat33,
-            filling_m[0, 0],
-            filling_m[
-                0,
-                1,
-            ],
-            filling_m[0, 2],
-            filling_m[1, 1],
-            filling_m[
-                1,
-                2,
-            ],
-            filling_m[2, 2],
             vec1,
             vec2,
             vec3,
-            filling_v[0],
-            filling_v[1],
-            filling_v[2],
+            fill1,
+            fill2,
+            fill3,
         )
 
     # -- removed omp: #$ omp end parallel
@@ -404,7 +173,6 @@ def linear_vlasov_ampere(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
 
     # allocate for metric coeffs
     dfm = empty((3, 3), dtype=float)
@@ -451,12 +219,12 @@ def linear_vlasov_ampere(
         # compute DF^{-1} v
         linalg_kernels.matrix_vector(df_inv, v, df_inv_v)
 
-        # filling_m = alpha^2 * kappa^2 * f0 / (N * s_0 * v_th^2) * (DF^{-1} v_p)_mu * (DF^{-1} v_p)_nu
+        # filling_m = alpha^2 * kappa^2 * f0 / (s_0 * v_th^2) * (DF^{-1} v_p)_mu * (DF^{-1} v_p)_nu
         linalg_kernels.outer(df_inv_v, df_inv_v, filling_m)
-        filling_m[:, :] *= f0_values[ip] / (Np * markers[ip, 7])
+        filling_m[:, :] *= f0_values[ip] / markers[ip, 7]
 
-        # filling_v = alpha^2 * kappa / N * w_p * DL^{-1} * v_p
-        filling_v[:] = markers[ip, 6] * df_inv_v / Np
+        # filling_v = alpha^2 * kappa * w_p * DL^{-1} * v_p
+        filling_v[:] = markers[ip, 6] * df_inv_v
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.m_v_fill_b_v1_symm(
@@ -520,7 +288,6 @@ def vlasov_maxwell(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
 
     # allocate for metric coeffs
     dfm = zeros((3, 3), dtype=float)
@@ -567,10 +334,10 @@ def vlasov_maxwell(
         linalg_kernels.matrix_vector(df_inv, v, df_inv_times_v)
 
         # filling_m = w_p * DF^{-1} * DF^{-T}
-        filling_m[:, :] = markers[ip, 6] * g_inv / Np
+        filling_m[:, :] = markers[ip, 6] * g_inv
 
         # filling_v = w_p * DF^{-1} * \V
-        filling_v[:] = markers[ip, 6] * df_inv_times_v / Np
+        filling_v[:] = markers[ip, 6] * df_inv_times_v
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.m_v_fill_b_v1_symm(
@@ -635,7 +402,6 @@ def cc_lin_mhd_6d_1(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -774,10 +540,6 @@ def cc_lin_mhd_6d_1(
 
     # -- removed omp: #$ omp end parallel
 
-    mat12 /= Np
-    mat13 /= Np
-    mat23 /= Np
-
 
 @stack_array(
     "b",
@@ -837,7 +599,6 @@ def cc_lin_mhd_6d_2(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -1050,17 +811,6 @@ def cc_lin_mhd_6d_2(
 
     # -- removed omp: #$ omp end parallel
 
-    mat11 /= Np
-    mat12 /= Np
-    mat13 /= Np
-    mat22 /= Np
-    mat23 /= Np
-    mat33 /= Np
-
-    vec1 /= Np
-    vec2 /= Np
-    vec3 /= Np
-
 
 @stack_array("dfm", "df_t", "df_inv", "df_inv_t", "filling_m", "filling_v", "tmp1", "v", "tmp_v")
 def pc_lin_mhd_6d_full(
@@ -1131,7 +881,6 @@ def pc_lin_mhd_6d_full(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
 
     # allocate for metric coeffs
     dfm = empty((3, 3), dtype=float)
@@ -1186,8 +935,8 @@ def pc_lin_mhd_6d_full(
 
         weight = markers[ip, 8]
 
-        filling_m[:, :] = weight * tmp1 / Np * ep_scale
-        filling_v[:] = weight * tmp_v / Np * ep_scale
+        filling_m[:, :] = weight * tmp1 * ep_scale
+        filling_v[:] = weight * tmp_v * ep_scale
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.m_v_fill_v1_pressure_full(
@@ -1324,7 +1073,6 @@ def pc_lin_mhd_6d(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
 
     # allocate for metric coeffs
     dfm = empty((3, 3), dtype=float)
@@ -1423,29 +1171,3 @@ def pc_lin_mhd_6d(
             v[0],
             v[1],
         )
-
-    mat11_11 /= Np
-    mat12_11 /= Np
-    mat13_11 /= Np
-    mat22_11 /= Np
-    mat23_11 /= Np
-    mat33_11 /= Np
-    mat11_12 /= Np
-    mat12_12 /= Np
-    mat13_12 /= Np
-    mat22_12 /= Np
-    mat23_12 /= Np
-    mat33_12 /= Np
-    mat11_22 /= Np
-    mat12_22 /= Np
-    mat13_22 /= Np
-    mat22_22 /= Np
-    mat23_22 /= Np
-    mat33_22 /= Np
-
-    vec1_1 /= Np
-    vec2_1 /= Np
-    vec3_1 /= Np
-    vec1_2 /= Np
-    vec2_2 /= Np
-    vec3_2 /= Np

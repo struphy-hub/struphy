@@ -1,9 +1,12 @@
+from dataclasses import dataclass
+
 import cunumpy as xp
 
 from struphy.io.options import LiteralOptions
-from struphy.utils.utils import check_option
+from struphy.utils.utils import __dataclass_repr_all_stacked__, __dataclass_repr_no_defaults__, check_option
 
 
+@dataclass
 class LoadingParameters:
     """Configuration for particle (marker) loading strategies and data sources.
 
@@ -15,13 +18,13 @@ class LoadingParameters:
 
     Parameters
     ----------
-    Np : int, optional
+    Np : int, default=5000
         Total number of particles to load into the simulation.
 
     ppc : int, optional
         Particles per cell to load if a grid is defined. Cell divisions follow ``domain_array``.
 
-    ppb : int, default=10
+    ppb : int, optional
         Particles per sorting box. Sorting boxes are defined by ``boxes_per_dim``.
 
     loading : LiteralOptions.OptsLoading, default="pseudo_random"
@@ -63,39 +66,30 @@ class LoadingParameters:
         HDF5 dataset key within the 'restart/' folder containing marker array data.
     """
 
-    def __init__(
-        self,
-        Np: int = None,
-        ppc: int = None,
-        ppb: int = 10,
-        loading: LiteralOptions.OptsLoading = "pseudo_random",
-        seed: int = None,
-        moments: tuple = None,
-        spatial: LiteralOptions.OptsSpatialLoading = "uniform",
-        specific_markers: tuple[tuple] = None,
-        set_zero_velocity: tuple[bool] = (False, False, False),
-        n_quad: int = 1,
-        dir_exrernal: str = None,
-        dir_particles: str = None,
-        dir_particles_abs: str = None,
-        restart_key: str = None,
-    ):
-        self.Np = Np
-        self.ppc = ppc
-        self.ppb = ppb
-        self.loading = loading
-        self.seed = seed
-        self.moments = moments
-        self.spatial = spatial
-        self.specific_markers = specific_markers
-        self.set_zero_velocity = set_zero_velocity
-        self.n_quad = n_quad
-        self.dir_external = dir_exrernal
-        self.dir_particles = dir_particles
-        self.dir_particles_abs = dir_particles_abs
-        self.restart_key = restart_key
+    Np: int = 5000
+    ppc: int = None
+    ppb: int = None
+    loading: LiteralOptions.OptsLoading = "pseudo_random"
+    seed: int = None
+    moments: tuple = None
+    spatial: LiteralOptions.OptsSpatialLoading = "uniform"
+    specific_markers: tuple[tuple] = None
+    set_zero_velocity: tuple[bool] = (False, False, False)
+    n_quad: int = 1
+    dir_exrernal: str = None
+    dir_particles: str = None
+    dir_particles_abs: str = None
+    restart_key: str = None
+
+    def __post_init__(self):
+        check_option(self.loading, LiteralOptions.OptsLoading)
+        check_option(self.spatial, LiteralOptions.OptsSpatialLoading)
+
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_all_stacked__(self)
 
 
+@dataclass
 class WeightsParameters:
     """Configuration for particle weight handling and variance reduction.
 
@@ -116,17 +110,15 @@ class WeightsParameters:
         when ``reject_weights`` is True.
     """
 
-    def __init__(
-        self,
-        control_variate: bool = False,
-        reject_weights: bool = False,
-        threshold: float = 0.0,
-    ):
-        self.control_variate = control_variate
-        self.reject_weights = reject_weights
-        self.threshold = threshold
+    control_variate: bool = False
+    reject_weights: bool = False
+    threshold: float = 0.0
+
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_all_stacked__(self)
 
 
+@dataclass
 class BoundaryParameters:
     """Configuration for boundary conditions applied to particles and kernel reconstructions.
 
@@ -147,19 +139,66 @@ class BoundaryParameters:
     bc_sph : tuple[LiteralOptions.OptsRecontructBC], default=("periodic", "periodic", "periodic")
         Boundary conditions for SPH kernel reconstruction in each spatial direction.
         Typically matches or differs from ``bc`` depending on reconstruction needs.
+
+    mean_velocity_index : int, optional
+        If any boundary condition is 'noslip', this index specifies the position in the marker array
+        where the mean velocity for the noslip condition is stored.
     """
 
-    def __init__(
-        self,
-        bc: tuple[LiteralOptions.OptsMarkerBC] = ("periodic", "periodic", "periodic"),
-        bc_refill=None,
-        bc_sph: tuple[LiteralOptions.OptsRecontructBC] = ("periodic", "periodic", "periodic"),
-    ):
-        self.bc = bc
-        self.bc_refill = bc_refill
-        self.bc_sph = bc_sph
+    bc: tuple[LiteralOptions.OptsMarkerBC] = ("periodic", "periodic", "periodic")
+    bc_refill = None
+    bc_sph: tuple[LiteralOptions.OptsRecontructBC] = ("periodic", "periodic", "periodic")
+    mean_velocity_index: int | None = None
+
+    def __post_init__(self):
+        check_option(self.bc, LiteralOptions.OptsMarkerBC)
+        check_option(self.bc_sph, LiteralOptions.OptsRecontructBC)
+
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_all_stacked__(self)
 
 
+@dataclass
+class SortingParameters:
+    """Configuration for particle sorting strategies and parameters.
+
+    Manages the organization of particles into spatial bins (sorting boxes) to optimize
+    neighbor searches and interactions. Supports independent control over the number of
+    boxes per dimension and whether to apply MPI domain decomposition along each dimension.
+
+    Parameters
+    ----------
+    do_sort: bool
+        Whether to sort particles in memory.
+
+    sorting_frequency: int
+        The number of time steps between two sortings (=0 means no sorting is performed).
+
+    boxes_per_dim: tuple[int] | None
+        Number of sorting boxes in each direction of logical space, (n_eta1, n_eta2, n_eta3).
+        If None, no sorting boxes are specified.
+
+    box_bufsize : float
+        Relative buffer size for box array (default = 0.25).
+        A number of 1.0 means that the box array is double the size needed to hold N/n_boxes particles,
+        where N is the total number of particles.
+
+    dims_mask: tuple[bool]
+        True if the dimension is to be used in the domain decomposition (=default for each dimension).
+        If dims_mask[i]=False, the i-th dimension will not be decomposed.
+    """
+
+    do_sort: bool = False
+    sorting_frequency: int = 0
+    boxes_per_dim: tuple[int] | None = None
+    box_bufsize: float = 2.0
+    dims_mask: tuple = (True, True, True)
+
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_all_stacked__(self)
+
+
+@dataclass
 class BinningPlot:
     """Configuration for particle phase-space binning and histogram generation.
 
@@ -192,40 +231,35 @@ class BinningPlot:
         Quantity to compute in binning: determines weighting scheme and output format.
     """
 
-    def __init__(
-        self,
-        slice: str = "e1",
-        n_bins: int | tuple[int] = 128,
-        ranges: tuple[float] | tuple[tuple[float]] = (0.0, 1.0),
-        divide_by_jac: bool = True,
-        output_quantity: LiteralOptions.BinningQuantity = "density",
-    ):
-        if isinstance(n_bins, int):
-            n_bins = (n_bins,)
+    slice: str = "e1"
+    n_bins: int | tuple[int] = 128
+    ranges: tuple[float] | tuple[tuple[float]] = (0.0, 1.0)
+    divide_by_jac: bool = True
+    output_quantity: LiteralOptions.BinningQuantity = "density"
 
-        if not isinstance(ranges[0], tuple):
-            ranges = (ranges,)
+    def __post_init__(self):
+        if isinstance(self.n_bins, int):
+            self.n_bins = (self.n_bins,)
 
-        assert ((len(slice) - 2) / 3).is_integer(), f"Binning coordinates must be separated by '_', but reads {slice}."
-        assert len(slice.split("_")) == len(ranges) == len(n_bins), (
-            f"Number of slices names ({len(slice.split('_'))}), number of bins ({len(n_bins)}), and number of ranges ({len(ranges)}) are inconsistent with each other!\n\n"
+        if not isinstance(self.ranges[0], tuple):
+            self.ranges = (self.ranges,)
+
+        assert ((len(self.slice) - 2) / 3).is_integer(), (
+            f"Binning coordinates must be separated by '_', but reads {self.slice}."
         )
-        check_option(output_quantity, LiteralOptions.BinningQuantity)
-
-        self.slice = slice
-        self.n_bins = n_bins
-        self.ranges = ranges
-        self.divide_by_jac = divide_by_jac
-        self.output_quantity = output_quantity
+        assert len(self.slice.split("_")) == len(self.ranges) == len(self.n_bins), (
+            f"Number of slices names ({len(self.slice.split('_'))}), number of bins ({len(self.n_bins)}), and number of ranges ({len(self.ranges)}) are inconsistent with each other!\n\n"
+        )
+        check_option(self.output_quantity, LiteralOptions.BinningQuantity)
 
         # computations and allocations
         self._bin_edges = []
-        for nb, rng in zip(n_bins, ranges):
+        for nb, rng in zip(self.n_bins, self.ranges):
             self._bin_edges += [xp.linspace(rng[0], rng[1], nb + 1)]
         self._bin_edges = tuple(self.bin_edges)
 
-        self._f = xp.zeros(n_bins, dtype=float)
-        self._df = xp.zeros(n_bins, dtype=float)
+        self._f = xp.zeros(self.n_bins, dtype=float)
+        self._df = xp.zeros(self.n_bins, dtype=float)
 
     @property
     def bin_edges(self) -> tuple:
@@ -241,7 +275,11 @@ class BinningPlot:
         """The binned distribution function minus the background (delta-f)."""
         return self._df
 
+    def __repr__(self):
+        return __dataclass_repr_no_defaults__(self)
 
+
+@dataclass
 class KernelDensityPlot:
     """Configuration for smoothed particle hydrodynamics (SPH) density reconstructions.
 
@@ -262,15 +300,14 @@ class KernelDensityPlot:
         Set to 1 for 2D density plots.
     """
 
-    def __init__(
-        self,
-        pts_e1: int = 16,
-        pts_e2: int = 16,
-        pts_e3: int = 1,
-    ):
-        e1 = xp.linspace(0.0, 1.0, pts_e1)
-        e2 = xp.linspace(0.0, 1.0, pts_e2)
-        e3 = xp.linspace(0.0, 1.0, pts_e3)
+    pts_e1: int = 16
+    pts_e2: int = 16
+    pts_e3: int = 1
+
+    def __post_init__(self):
+        e1 = xp.linspace(0.0, 1.0, self.pts_e1)
+        e2 = xp.linspace(0.0, 1.0, self.pts_e2)
+        e3 = xp.linspace(0.0, 1.0, self.pts_e3)
         ee1, ee2, ee3 = xp.meshgrid(e1, e2, e3, indexing="ij")
         self._plot_pts = (ee1, ee2, ee3)
         self._n_sph = xp.zeros(ee1.shape, dtype=float)
@@ -283,3 +320,32 @@ class KernelDensityPlot:
     def n_sph(self) -> xp.ndarray:
         """The evaluated density."""
         return self._n_sph
+
+
+@dataclass
+class SavingParameters:
+    """Configuration for particle data saving strategies and parameters.
+
+    Manages how particle data is saved during simulations, including the frequency of saves,
+    the types of data to save (single markers, full distribution vs. delta-f or kernel evaluations),
+    and the output formats. Supports flexible control over what particle information is stored and when.
+
+    Parameters
+    ----------
+    n_markers: int | float
+        Number of particles/markers for which to save trajectories.
+        If float and <1.0, then understood as the fraction of the total number of markers.
+
+    binned_data: tuple[BinningPlot]
+        A tuple of BinningPlot objects.
+
+    kernel_density_plots: tuple[KernelDensityPlot]
+        A tuple of KernelDensityPlot objects.
+    """
+
+    n_markers: int | float = 3
+    binning_plots: tuple[BinningPlot] = ()
+    kernel_density_plots: tuple[KernelDensityPlot] = ()
+
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_all_stacked__(self)

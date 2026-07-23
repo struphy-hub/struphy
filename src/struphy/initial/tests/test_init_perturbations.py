@@ -1,13 +1,16 @@
 import inspect
+import logging
 from copy import deepcopy
 
 import pytest
 
+logger = logging.getLogger("struphy")
+
 
 # @pytest.mark.parametrize('combine_comps', [('f0', 'f1'), ('f0', 'f3'), ('f1', 'f2'), ('fvec', 'f3'), ('f1', 'fvec', 'f0')])
-@pytest.mark.parametrize("Nel", [[16, 16, 16]])
-@pytest.mark.parametrize("p", [[2, 3, 4]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True]])
+@pytest.mark.parametrize("num_elements", [[16, 16, 16]])
+@pytest.mark.parametrize("degree", [[2, 3, 4]])
+@pytest.mark.parametrize("bcs", [(("free", "free"), None, None)])
 @pytest.mark.parametrize(
     "mapping",
     [
@@ -17,7 +20,7 @@ import pytest
         ["HollowTorus", {"tor_period": 1}],
     ],
 )
-def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False):
+def test_init_modes(num_elements, degree, bcs, mapping, combine_comps=None, do_plot=False):
     """Test the initialization Field.initialize_coeffs with all "Modes" classes in perturbations.py."""
 
     import cunumpy as xp
@@ -28,7 +31,9 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry.base import Domain
     from struphy.initial.base import Perturbation
+    from struphy.io.options import DerhamOptions
     from struphy.models.variables import FEECVariable
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -39,7 +44,9 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
     assert isinstance(domain, Domain)
 
     # Derham
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid=grid, options=derham_opts, comm=comm)
 
     fields = {}
     for space, form in derham.space_to_form.items():
@@ -79,7 +86,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
 
     for key, val in inspect.getmembers(perturbations):
         if inspect.isclass(val) and val.__module__ == perturbations.__name__:
-            print(key, val)
+            logger.info(f"{key} {val}")
 
             if key not in ("ModesCos", "ModesSin", "TorusModesCos", "TorusModesSin"):
                 continue
@@ -139,7 +146,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                             fun_vals_xyz = domain.push(perturbation, eee1, eee2, eee3, kind=fun_form)
 
                         error = xp.max(xp.abs(field_vals_xyz - fun_vals_xyz)) / xp.max(xp.abs(fun_vals_xyz))
-                        print(f"{rank=}, {key=}, {form=}, {fun_form=}, {error=}")
+                        logger.info(f"{rank=}, {key=}, {form=}, {fun_form=}, {error=}")
                         assert error < 0.02
 
                         if do_plot:
@@ -288,7 +295,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                         for fi, funi in zip(f_xyz, fun_xyz_vec):
                             error += xp.max(xp.abs(fi - funi)) / xp.max(xp.abs(funi))
                         error /= 3.0
-                        print(f"{rank=}, {key=}, {form=}, {fun_form=}, {error=}")
+                        logger.info(f"{rank=}, {key=}, {form=}, {fun_form=}, {error=}")
                         assert error < 0.02
 
                         if do_plot:
@@ -336,6 +343,6 @@ if __name__ == "__main__":
     # mapping = ['Colella', {'Lx': 4., 'Ly': 5., 'alpha': .07, 'Lz': 6.}]
     mapping = ["HollowCylinder", {"a1": 0.1}]
     # mapping = ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 5., 'l3': 0., 'r3': 6.}]
-    test_init_modes([16, 16, 16], [2, 3, 4], [False, True, True], mapping, combine_comps=None, do_plot=False)
+    # test_init_modes([16, 16, 16], [2, 3, 4], (("free", "free"), None, None), mapping, combine_comps=None, do_plot=False)
     # mapping = ["HollowTorus", {"tor_period": 1}]
-    # test_init_modes([16, 14, 14], [2, 3, 4], [False, True, True], mapping, combine_comps=None, do_plot=True)
+    test_init_modes([16, 14, 14], [2, 3, 4], (("free", "free"), None, None), mapping, combine_comps=None, do_plot=True)

@@ -1,11 +1,22 @@
+import logging
+
 import cunumpy as xp
 import pytest
 
+logger = logging.getLogger("struphy")
 
-@pytest.mark.parametrize("Nel", [[8, 9, 10]])
-@pytest.mark.parametrize("p", [[1, 2, 3]])
-@pytest.mark.parametrize("spl_kind", [[False, False, True], [False, True, False], [True, False, False]])
-def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
+
+@pytest.mark.parametrize("num_elements", [[8, 9, 10]])
+@pytest.mark.parametrize("degree", [[1, 2, 3]])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), ("free", "free"), None),
+        (("free", "free"), None, ("free", "free")),
+        (None, ("free", "free"), ("free", "free")),
+    ],
+)
+def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
     """This test assumes a single particle and verifies
         a) if the correct indices are non-zero in _data
         b) if there are no NaNs
@@ -20,28 +31,32 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
 
     from struphy.bsplines import bsplines_kernels as bsp
     from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
     from struphy.pic.accumulation import particle_to_mat_kernels as ptomat
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
-    DR = Derham(Nel, p, spl_kind, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    DR = Derham(grid, derham_opts, comm=comm)
 
     if rank == 0:
-        print(f"\nNel={Nel}, p={p}, spl_kind={spl_kind}\n")
+        logger.info(f"\nnum_elements={num_elements}, degree={degree}, bcs={bcs}\n")
 
     # DR attributes
-    pn = xp.array(DR.p)
-    tn1, tn2, tn3 = DR.Vh_fem["0"].knots
+    pn = xp.array(DR.degree)
+    tn1, tn2, tn3 = DR.V0fem.knots
 
     starts1 = {}
 
-    starts1["v0"] = xp.array(DR.Vh["0"].starts)
+    starts1["v0"] = xp.array(DR.V0.starts)
 
     comm.Barrier()
     sleep(0.02 * (rank + 1))
-    print(f"rank {rank} | starts1['v0']: {starts1['v0']}")
+    logger.info(f"rank {rank} | starts1['v0']: {starts1['v0']}")
     comm.Barrier()
 
     # basis identifiers
@@ -58,11 +73,11 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
     mat = {}
     vec = {}
 
-    mat["v0"] = StencilMatrix(DR.Vh["0"], DR.Vh["0"], backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)._data
-    vec["v0"] = StencilVector(DR.Vh["0"])._data
+    mat["v0"] = StencilMatrix(DR.V0, DR.V0, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)._data
+    vec["v0"] = StencilVector(DR.V0)._data
 
-    mat["v3"] = StencilMatrix(DR.Vh["3"], DR.Vh["3"], backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)._data
-    vec["v3"] = StencilVector(DR.Vh["3"])._data
+    mat["v3"] = StencilMatrix(DR.V3, DR.V3, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)._data
+    vec["v3"] = StencilVector(DR.V3)._data
 
     mat["v1"] = []
     for i in range(3):
@@ -70,8 +85,8 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
         for j in range(3):
             mat["v1"][-1] += [
                 StencilMatrix(
-                    DR.Vh["1"].spaces[i],
-                    DR.Vh["1"].spaces[j],
+                    DR.V1.spaces[i],
+                    DR.V1.spaces[j],
                     backend=PSYDAC_BACKEND_GPYCCEL,
                     precompiled=True,
                 )._data,
@@ -79,7 +94,7 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
 
     vec["v1"] = []
     for i in range(3):
-        vec["v1"] += [StencilVector(DR.Vh["1"].spaces[i])._data]
+        vec["v1"] += [StencilVector(DR.V1.spaces[i])._data]
 
     mat["v2"] = []
     for i in range(3):
@@ -87,8 +102,8 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
         for j in range(3):
             mat["v2"][-1] += [
                 StencilMatrix(
-                    DR.Vh["2"].spaces[i],
-                    DR.Vh["2"].spaces[j],
+                    DR.V2.spaces[i],
+                    DR.V2.spaces[j],
                     backend=PSYDAC_BACKEND_GPYCCEL,
                     precompiled=True,
                 )._data,
@@ -96,7 +111,7 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
 
     vec["v2"] = []
     for i in range(3):
-        vec["v2"] += [StencilVector(DR.Vh["2"].spaces[i])._data]
+        vec["v2"] += [StencilVector(DR.V2.spaces[i])._data]
 
     # Some filling for testing
     fill_mat = xp.reshape(xp.arange(9, dtype=float), (3, 3)) + 1.0
@@ -111,29 +126,29 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
     for eta1, eta2, eta3 in zip(eta1s, eta2s, eta3s):
         comm.Barrier()
         sleep(0.02 * (rank + 1))
-        print(f"rank {rank} | eta1 = {eta1}")
-        print(f"rank {rank} | eta2 = {eta2}")
-        print(f"rank {rank} | eta3 = {eta3}\n")
+        logger.info(f"rank {rank} | eta1 = {eta1}")
+        logger.info(f"rank {rank} | eta2 = {eta2}")
+        logger.info(f"rank {rank} | eta3 = {eta3}\n")
         comm.Barrier()
 
         # spans (i.e. index for non-vanishing basis functions)
-        # TODO: understand "Argument must be native int" when passing "pn[0]" here instead of "DR.p[0]"
-        span1 = bsp.find_span(tn1, DR.p[0], eta1)
-        span2 = bsp.find_span(tn2, DR.p[1], eta2)
-        span3 = bsp.find_span(tn3, DR.p[2], eta3)
+        # TODO: understand "Argument must be native int" when passing "pn[0]" here instead of "DR.degree[0]"
+        span1 = bsp.find_span(tn1, DR.degree[0], eta1)
+        span2 = bsp.find_span(tn2, DR.degree[1], eta2)
+        span3 = bsp.find_span(tn3, DR.degree[2], eta3)
 
         # non-zero spline values at eta
-        bn1 = xp.empty(DR.p[0] + 1, dtype=float)
-        bn2 = xp.empty(DR.p[1] + 1, dtype=float)
-        bn3 = xp.empty(DR.p[2] + 1, dtype=float)
+        bn1 = xp.empty(DR.degree[0] + 1, dtype=float)
+        bn2 = xp.empty(DR.degree[1] + 1, dtype=float)
+        bn3 = xp.empty(DR.degree[2] + 1, dtype=float)
 
-        bd1 = xp.empty(DR.p[0], dtype=float)
-        bd2 = xp.empty(DR.p[1], dtype=float)
-        bd3 = xp.empty(DR.p[2], dtype=float)
+        bd1 = xp.empty(DR.degree[0], dtype=float)
+        bd2 = xp.empty(DR.degree[1], dtype=float)
+        bd3 = xp.empty(DR.degree[2], dtype=float)
 
-        bsp.b_d_splines_slim(tn1, DR.p[0], eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, DR.p[1], eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, DR.p[2], eta3, span3, bn3, bd3)
+        bsp.b_d_splines_slim(tn1, DR.degree[0], eta1, span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, DR.degree[1], eta2, span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, DR.degree[2], eta3, span3, bn3, bd3)
 
         # element index of the particle in each direction
         ie1 = span1 - pn[0]
@@ -161,9 +176,9 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
 
         comm.Barrier()
         sleep(0.02 * (rank + 1))
-        print(f"rank {rank} | particles rows[0]['N']: {rows[0]['N']}, rows[0]['D'] {rows[0]['D']}")
-        print(f"rank {rank} | particles rows[1]['N']: {rows[1]['N']}, rows[1]['D'] {rows[1]['D']}")
-        print(f"rank {rank} | particles rows[2]['N']: {rows[2]['N']}, rows[2]['D'] {rows[2]['D']}")
+        logger.info(f"rank {rank} | particles rows[0]['N']: {rows[0]['N']}, rows[0]['D'] {rows[0]['D']}")
+        logger.info(f"rank {rank} | particles rows[1]['N']: {rows[1]['N']}, rows[1]['D'] {rows[1]['D']}")
+        logger.info(f"rank {rank} | particles rows[2]['N']: {rows[2]['N']}, rows[2]['D'] {rows[2]['D']}")
         comm.Barrier()
 
         # local column indices in _data of non-vanishing B- and D-splines, as sets for comparison
@@ -213,7 +228,7 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
 
                     # test with basis evaluation (_b)
                     if rank == 0:
-                        print(f"\nTesting {name_b} ...")
+                        logger.info(f"\nTesting {name_b} ...")
 
                     fun_b(DR.args_derham, eta1, eta2, eta3, *args)
 
@@ -225,7 +240,6 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
                             basis[space][ij[0]],
                             basis[space][ij[1]],
                             rank,
-                            verbose=False,
                         )  # assertion test of mat
                     if mv == "m_v":
                         for i in range(3):
@@ -236,7 +250,7 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
 
                     # test without basis evaluation
                     if rank == 0:
-                        print(f"\nTesting {name} ...")
+                        logger.info(f"\nTesting {name} ...")
 
                     fun(DR.args_derham, span1, span2, span3, *args)
 
@@ -248,7 +262,6 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
                             basis[space][ij[0]],
                             basis[space][ij[1]],
                             rank,
-                            verbose=False,
                         )  # assertion test of mat
                     if mv == "m_v":
                         for i in range(3):
@@ -261,14 +274,14 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
 
         # testing salar spaces
         if rank == 0:
-            print("\nTesting mat_fill_b_v0 ...")
+            logger.info("\nTesting mat_fill_b_v0 ...")
         ptomat.mat_fill_b_v0(DR.args_derham, eta1, eta2, eta3, mat["v0"], fill_mat[0, 0])
         assert_mat(mat["v0"], rows, cols, basis["v0"], basis["v0"], rank)  # assertion test of mat
         count += 1
         comm.Barrier()
 
         if rank == 0:
-            print("\nTesting m_v_fill_b_v0 ...")
+            logger.info("\nTesting m_v_fill_b_v0 ...")
         ptomat.m_v_fill_b_v0(DR.args_derham, eta1, eta2, eta3, mat["v0"], fill_mat[0, 0], vec["v0"], fill_vec[0])
         assert_mat(mat["v0"], rows, cols, basis["v0"], basis["v0"], rank)  # assertion test of mat
         assert_vec(vec["v0"], rows, basis["v0"], rank)  # assertion test of vec
@@ -276,14 +289,14 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
         comm.Barrier()
 
         if rank == 0:
-            print("\nTesting mat_fill_b_v3 ...")
+            logger.info("\nTesting mat_fill_b_v3 ...")
         ptomat.mat_fill_b_v3(DR.args_derham, eta1, eta2, eta3, mat["v3"], fill_mat[0, 0])
         assert_mat(mat["v3"], rows, cols, basis["v3"], basis["v3"], rank)  # assertion test of mat
         count += 1
         comm.Barrier()
 
         if rank == 0:
-            print("\nTesting m_v_fill_b_v3 ...")
+            logger.info("\nTesting m_v_fill_b_v3 ...")
         ptomat.m_v_fill_b_v3(DR.args_derham, eta1, eta2, eta3, mat["v3"], fill_mat[0, 0], vec["v3"], fill_vec[0])
         assert_mat(mat["v3"], rows, cols, basis["v3"], basis["v3"], rank)  # assertion test of mat
         assert_vec(vec["v3"], rows, basis["v3"], rank)  # assertion test of vec
@@ -291,14 +304,14 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
         comm.Barrier()
 
         if rank == 0:
-            print("\nTesting mat_fill_v0 ...")
+            logger.info("\nTesting mat_fill_v0 ...")
         ptomat.mat_fill_v0(DR.args_derham, span1, span2, span3, mat["v0"], fill_mat[0, 0])
         assert_mat(mat["v0"], rows, cols, basis["v0"], basis["v0"], rank)  # assertion test of mat
         count += 1
         comm.Barrier()
 
         if rank == 0:
-            print("\nTesting m_v_fill_v0 ...")
+            logger.info("\nTesting m_v_fill_v0 ...")
         ptomat.m_v_fill_v0(DR.args_derham, span1, span2, span3, mat["v0"], fill_mat[0, 0], vec["v0"], fill_vec[0])
         assert_mat(mat["v0"], rows, cols, basis["v0"], basis["v0"], rank)  # assertion test of mat
         assert_vec(vec["v0"], rows, basis["v0"], rank)  # assertion test of vec
@@ -306,14 +319,14 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
         comm.Barrier()
 
         if rank == 0:
-            print("\nTesting mat_fill_v3 ...")
+            logger.info("\nTesting mat_fill_v3 ...")
         ptomat.mat_fill_v3(DR.args_derham, span1, span2, span3, mat["v3"], fill_mat[0, 0])
         assert_mat(mat["v3"], rows, cols, basis["v3"], basis["v3"], rank)  # assertion test of mat
         count += 1
         comm.Barrier()
 
         if rank == 0:
-            print("\nTesting m_v_fill_v3 ...")
+            logger.info("\nTesting m_v_fill_v3 ...")
         ptomat.m_v_fill_v3(DR.args_derham, span1, span2, span3, mat["v3"], fill_mat[0, 0], vec["v3"], fill_vec[0])
         assert_mat(mat["v3"], rows, cols, basis["v3"], basis["v3"], rank)  # assertion test of mat
         assert_vec(vec["v3"], rows, basis["v3"], rank)  # assertion test of vec
@@ -321,10 +334,10 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
         comm.Barrier()
 
         if rank == 0:
-            print(f"\n{count}/40 particle_to_mat_kernels routines tested.")
+            logger.info(f"\n{count}/40 particle_to_mat_kernels routines tested.")
 
 
-def assert_mat(mat, rows, cols, row_str, col_str, rank, verbose=False):
+def assert_mat(mat, rows, cols, row_str, col_str, rank):
     """Check whether the non-zero values in mat are at the indices specified by rows and cols.
     Sets mat to zero after assertion is passed.
 
@@ -334,7 +347,7 @@ def assert_mat(mat, rows, cols, row_str, col_str, rank, verbose=False):
             6d array, the _data attribute of a StencilMatrix.
 
         rows : list[dict]
-            3-list, each dict has the two keys "N" and "D", holding a set of row indices of p + 1 resp. p non-zero splines.
+            3-list, each dict has the two keys "N" and "D", holding a set of row indices of degree + 1 resp. degree non-zero splines.
 
         cols : list[dict]
             3-list, each dict has four keys "NN", "ND", "DN" or "DD", holding the column indices of non-zero _data entries
@@ -348,9 +361,6 @@ def assert_mat(mat, rows, cols, row_str, col_str, rank, verbose=False):
 
         rank : int
             Mpi rank of process.
-
-        verbose : bool
-            Show additional screen output.
     """
     assert len(mat.shape) == 6
     # assert non NaN
@@ -358,14 +368,13 @@ def assert_mat(mat, rows, cols, row_str, col_str, rank, verbose=False):
 
     atol = 1e-14
 
-    if verbose:
-        print(f"\n({row_str}) ({col_str})")
-        print(f"rank {rank} | ind_row1: {set(xp.where(mat > atol)[0])}")
-        print(f"rank {rank} | ind_row2: {set(xp.where(mat > atol)[1])}")
-        print(f"rank {rank} | ind_row3: {set(xp.where(mat > atol)[2])}")
-        print(f"rank {rank} | ind_col1: {set(xp.where(mat > atol)[3])}")
-        print(f"rank {rank} | ind_col2: {set(xp.where(mat > atol)[4])}")
-        print(f"rank {rank} | ind_col3: {set(xp.where(mat > atol)[5])}")
+    logger.debug(f"\n({row_str}) ({col_str})")
+    logger.debug(f"rank {rank} | ind_row1: {set(xp.where(mat > atol)[0])}")
+    logger.debug(f"rank {rank} | ind_row2: {set(xp.where(mat > atol)[1])}")
+    logger.debug(f"rank {rank} | ind_row3: {set(xp.where(mat > atol)[2])}")
+    logger.debug(f"rank {rank} | ind_col1: {set(xp.where(mat > atol)[3])}")
+    logger.debug(f"rank {rank} | ind_col2: {set(xp.where(mat > atol)[4])}")
+    logger.debug(f"rank {rank} | ind_col3: {set(xp.where(mat > atol)[5])}")
 
     # check if correct indices are non-zero
     for n, (r, c) in enumerate(zip(row_str, col_str)):
@@ -375,10 +384,10 @@ def assert_mat(mat, rows, cols, row_str, col_str, rank, verbose=False):
     # Set matrix back to zero
     mat[:, :] = 0.0
 
-    print(f"rank {rank} | Matrix index assertion passed for ({row_str}) ({col_str}).")
+    logger.info(f"rank {rank} | Matrix index assertion passed for ({row_str}) ({col_str}).")
 
 
-def assert_vec(vec, rows, row_str, rank, verbose=False):
+def assert_vec(vec, rows, row_str, rank):
     """Check whether the non-zero values in vec are at the indices specified by rows.
     Sets vec to zero after assertion is passed.
 
@@ -388,16 +397,13 @@ def assert_vec(vec, rows, row_str, rank, verbose=False):
             3d array, the _data attribute of a StencilVector.
 
         rows : list[dict]
-            3-list, each dict has the two keys "N" and "D", holding a set of row indices of p + 1 resp. p non-zero splines.
+            3-list, each dict has the two keys "N" and "D", holding a set of row indices of degree + 1 resp. degree non-zero splines.
 
         row_str : str
             String of length 3 specifying the codomain of mat, e.g. "DNN" for the first component of V1.
 
         rank : int
             Mpi rank of process.
-
-        verbose : bool
-            Show additional screen output.
     """
     assert len(vec.shape) == 3
     # assert non Nan
@@ -405,11 +411,10 @@ def assert_vec(vec, rows, row_str, rank, verbose=False):
 
     atol = 1e-14
 
-    if verbose:
-        print(f"\n({row_str})")
-        print(f"rank {rank} | ind_row1: {set(xp.where(vec > atol)[0])}")
-        print(f"rank {rank} | ind_row2: {set(xp.where(vec > atol)[1])}")
-        print(f"rank {rank} | ind_row3: {set(xp.where(vec > atol)[2])}")
+    logger.debug(f"\n({row_str})")
+    logger.debug(f"rank {rank} | ind_row1: {set(xp.where(vec > atol)[0])}")
+    logger.debug(f"rank {rank} | ind_row2: {set(xp.where(vec > atol)[1])}")
+    logger.debug(f"rank {rank} | ind_row3: {set(xp.where(vec > atol)[2])}")
 
     # check if correct indices are non-zero
     for n, r in enumerate(row_str):
@@ -418,7 +423,7 @@ def assert_vec(vec, rows, row_str, rank, verbose=False):
     # Set vector back to zero
     vec[:] = 0.0
 
-    print(f"rank {rank} | Vector index assertion passed for ({row_str}).")
+    logger.info(f"rank {rank} | Vector index assertion passed for ({row_str}).")
 
 
 if __name__ == "__main__":

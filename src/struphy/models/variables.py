@@ -2,16 +2,19 @@
 from __future__ import annotations
 
 import inspect
+import logging
 from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING
 
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
+from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial.perturbations import Perturbation
 from struphy.io.options import FieldsBackground, LiteralOptions
 from struphy.kinetic_background.base import KineticBackground
@@ -23,6 +26,8 @@ from struphy.utils.utils import check_option
 
 if TYPE_CHECKING:
     from struphy.models.species import FieldSpecies, FluidSpecies, ParticleSpecies, Species
+
+logger = logging.getLogger("struphy")
 
 
 class Variable(metaclass=ABCMeta):
@@ -122,7 +127,7 @@ class Variable(metaclass=ABCMeta):
             self._name = None
         return self._name
 
-    def add_background(self, background, verbose=True):
+    def add_background(self, background):
         """Add a static background for this variable.
         Multiple backgrounds can be added up."""
         if not hasattr(self, "_backgrounds") or self.backgrounds is None:
@@ -131,28 +136,31 @@ class Variable(metaclass=ABCMeta):
             if not isinstance(self.backgrounds, list):
                 self._backgrounds = [self.backgrounds]
             self._backgrounds += [background]
+        logger.info(
+            f"\nAdded background\n{background}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'."
+        )
 
     def show_backgrounds(self):
+        print(f"\nBackgrounds for variable '{self.__name__}' of species '{self.species.__class__.__name__}':")
         if self.backgrounds is not None:
-            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - backgrounds:")
             if isinstance(self.backgrounds, list):
                 for background in self.backgrounds:
                     print(background)
             else:
                 print(self.backgrounds)
         else:
-            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no background.")
+            print("None.")
 
     def show_perturbations(self):
+        print(f"\nPerturbations for variable '{self.__name__}' of species '{self.species.__class__.__name__}':")
         if self.perturbations is not None:
-            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - perturbations:")
             if isinstance(self.perturbations, list):
                 for perturbation in self.perturbations:
                     print(perturbation)
             else:
                 print(self.perturbations)
         else:
-            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no perturbation.")
+            print("None.")
 
 
 class FEECVariable(Variable):
@@ -162,6 +170,12 @@ class FEECVariable(Variable):
     FEECVariable represents field quantities discretized on a computational grid using finite element
     methods. It supports arbitrary FEEC spaces (H1, Hdiv, Hcurl, L2) and is used for electromagnetic
     fields, fluid moments, or other spatially distributed quantities.
+
+    Parameters
+    ----------
+    space : str
+        The FEEC function space. Options: 'H1', 'HDiv', 'HCurl', 'L2'.
+        Determines the continuity and smoothness properties of the discretization.
 
     Attributes
     ----------
@@ -184,7 +198,7 @@ class FEECVariable(Variable):
         Add an equilibrium field background.
     add_perturbation(perturbation)
         Add initial perturbations to the field.
-    allocate(derham, domain, equil, verbose)
+    allocate(derham, domain, equil)
         Allocate spline function and initialize on the mesh.
 
     Notes
@@ -205,8 +219,21 @@ class FEECVariable(Variable):
         self._space = space
 
     @property
-    def space(self):
+    def space(self) -> str:
         return self._space
+
+    @property
+    def lifting_function(self) -> Perturbation | None:
+        """The lifting function for the case of lifting of boundary conditions.
+        Its values at the boundary determine the inhomogeneous boundary conditions.
+        If None, no lifting is applied."""
+        if not hasattr(self, "_lifting_function"):
+            self._lifting_function = None
+        return self._lifting_function
+
+    @lifting_function.setter
+    def lifting_function(self, new: Perturbation | None):
+        self._lifting_function = new
 
     @property
     def spline(self) -> SplineFunction:
@@ -215,15 +242,50 @@ class FEECVariable(Variable):
         return self._spline
 
     @property
+    def spline_lift(self) -> SplineFunction | None:
+        """The lifting function for the case of lifting of boundary conditions. Only allocated if lifting_function is not None."""
+        if not hasattr(self, "_spline_lift"):
+            self._spline_lift = None
+        return self._spline_lift
+
+    @property
+    def spline_0(self) -> SplineFunction | None:
+        """The spline function with zero boundary conditions, used for the lifting of boundary conditions. Only allocated if lifting_function is not None."""
+        if not hasattr(self, "_spline_0"):
+            self._spline_0 = None
+        return self._spline_0
+
+    @property
+    def boundary_spline(self) -> SplineFunction | None:
+        """The spline function representing the boundary conditions, used for the lifting of boundary conditions. Only allocated if lifting_function is not None."""
+        if not hasattr(self, "_boundary_spline"):
+            self._boundary_spline = None
+        return self._boundary_spline
+
+    @property
+    def boundary_op(self) -> BoundaryOperator | None:
+        """The boundary operator, used for the lifting of boundary conditions. Only allocated if lifting_function is not None."""
+        if not hasattr(self, "_boundary_op"):
+            self._boundary_op = None
+        return self._boundary_op
+
+    @property
+    def derham_lift(self) -> Derham | None:
+        """The Derham object for the lifting function. Only allocated if lifting_function is not None."""
+        if not hasattr(self, "_derham_lift"):
+            self._derham_lift = None
+        return self._derham_lift
+
+    @property
     def species(self) -> FieldSpecies | FluidSpecies:
         if not hasattr(self, "_species"):
             self._species = None
         return self._species
 
-    def add_background(self, background: FieldsBackground, verbose=True):
-        super().add_background(background, verbose=verbose)
+    def add_background(self, background: FieldsBackground):
+        super().add_background(background)
 
-    def add_perturbation(self, perturbation: Perturbation, verbose=True):
+    def add_perturbation(self, perturbation: Perturbation):
         """Add an initial :class:`~struphy.initial.base.Perturbation` for this variable.
         Multiple perturbations can be added up."""
         if not hasattr(self, "_perturbations") or self.perturbations is None:
@@ -232,13 +294,15 @@ class FEECVariable(Variable):
             if not isinstance(self.perturbations, list):
                 self._perturbations = [self.perturbations]
             self._perturbations += [perturbation]
+        logger.info(
+            f"\nAdded perturbation\n{perturbation}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'."
+        )
 
     def allocate(
         self,
         derham: Derham,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
-        verbose: bool = False,
     ):
         self._spline = derham.create_spline_function(
             name=self.__name__,
@@ -247,8 +311,102 @@ class FEECVariable(Variable):
             perturbations=self.perturbations,
             domain=domain,
             equil=equil,
-            verbose=verbose,
         )
+
+        self._derham_lift = None
+        self._spline_lift = None
+
+        if self.lifting_function is not None:
+            check_bcs = False
+            for bc in derham.bcs:
+                if "dirichlet" in bc:
+                    check_bcs = True
+                    break
+            assert check_bcs, (
+                f"Lifting of boundary conditions can only be applied if at least one homogenous Dirichlet boundary condition is present in the Derham object, but here {derham.bcs = }"
+            )
+
+            # create another Derham object with the same options but with homogenous Dirichlet BCs replaced by free BCs, to be used for the lifting function
+            dct = derham.to_dict()
+            bcs_lift = list(dct["options"]["bcs"])
+            for i, bc in enumerate(bcs_lift):
+                if bc is not None:
+                    bcn = list(bc)  # convert tuple to list to allow modification
+                    if bcn[0] == "dirichlet":
+                        bcn[0] = "free"
+                    if bcn[1] == "dirichlet":
+                        bcn[1] = "free"
+                    bcn = tuple(bcn)  # convert back to tuple
+                    bcs_lift[i] = bcn
+            dct["options"]["bcs"] = tuple(bcs_lift)  # convert list back to tuple
+
+            self._derham_lift = Derham.from_dict(dct, comm=derham.comm)
+
+            # spline function for the lifting function
+            self._spline_lift = self.derham_lift.create_spline_function(
+                name=self.__name__ + "_lift" if self.__name__ is not None else None,
+                space_id=self.space,
+                domain=domain,
+                equil=equil,
+            )
+
+            # project lifting function to spline space
+            ptb = self.lifting_function
+
+            if self.space in {
+                "H1",
+                "L2",
+            }:  # TODO: this is a copy-paste from SplineFunction.initialize_coeffs(), to be unified
+                if ptb.given_in_basis is None:
+                    ptb.given_in_basis = "0"
+
+                fun = TransformedPformComponent(
+                    ptb,
+                    ptb.given_in_basis,
+                    derham.space_to_form[self.space],
+                    domain=domain,
+                )
+            elif self.space in {"Hcurl", "Hdiv", "H1vec"}:
+                fun_vec = [None] * 3
+                fun_vec[ptb.comp] = ptb
+
+                if ptb.given_in_basis is None:
+                    ptb.given_in_basis = "v"
+                # pullback callable for each component
+                fun = []
+                for comp in range(3):
+                    fun += [
+                        TransformedPformComponent(
+                            fun_vec,
+                            ptb.given_in_basis,
+                            derham.space_to_form[self.space],
+                            comp=comp,
+                            domain=domain,
+                        ),
+                    ]
+
+            # peform projection
+            self.spline_lift.vector += self.derham_lift.projectors[derham.space_to_form[self.space]](fun)
+
+            # other helper objects for the lifting of boundary conditions
+            self._spline_0 = self.spline_lift.copy()
+            self.spline_0.vector[:] = self.spline_lift.vector[:]
+            self._boundary_spline = self.spline_lift.copy()
+            self._boundary_op = BoundaryOperator(self.spline_lift.space, self.space, derham.dirichlet_bc)
+
+            self.compute_boundary_spline()
+
+    def compute_boundary_spline(self, spline_lift: SplineFunction | None = None):
+        """Compute boundary_spline = spline_lift - spline_0. If spline_lift is None, uses self.spline_lift from the initial condition.
+        This method can be used to update the boundary spline during the simulation if the lifting function changes in time."""
+        # update spline_0
+        if spline_lift is None:
+            spline_lift = self.spline_lift
+        self.boundary_op.dot(spline_lift.vector, out=self.spline_0.vector)
+
+        # set new boundary spline
+        diff_vec = spline_lift.vector - self.spline_0.vector
+        self.boundary_spline.vector[:] = diff_vec[:]
 
 
 class PICVariable(Variable):
@@ -292,7 +450,7 @@ class PICVariable(Variable):
         Set initial kinetic distribution (must be consistent with background).
     show_initial_condition()
         Display current initial condition information.
-    allocate(clone_config, derham, domain, equil, projected_equil, verbose)
+    allocate(clone_config, derham, domain, equil, projected_equil)
         Initialize particles and allocate marker arrays.
 
     Notes
@@ -315,12 +473,13 @@ class PICVariable(Variable):
     def __init__(self, space: LiteralOptions.OptsPICSpace = "Particles6D"):
         check_option(space, LiteralOptions.OptsPICSpace)
         self._space = space
+
         for name, cls in inspect.getmembers(particles):
             if inspect.isclass(cls) and cls.__module__ == particles.__name__ and name == space:
                 self._particles_class = cls
 
     @property
-    def space(self):
+    def space(self) -> LiteralOptions.OptsPICSpace:
         return self._space
 
     @property
@@ -346,22 +505,23 @@ class PICVariable(Variable):
             self._n_as_volume_form = False
         return self._n_as_volume_form
 
-    def add_background(self, background: KineticBackground, n_as_volume_form: bool = False, verbose=True):
+    def add_background(self, background: KineticBackground, n_as_volume_form: bool = False):
         self._n_as_volume_form = n_as_volume_form
-        super().add_background(background, verbose=verbose)
+        super().add_background(background)
 
-    def add_initial_condition(self, init: KineticBackground, verbose=True):
+    def add_initial_condition(self, init: KineticBackground):
         """The initial condition must be consistent with the background."""
         self._initial_condition = init
+        logger.info(
+            f"\nAdded initial condition\n{init}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'."
+        )
 
     def show_initial_condition(self):
+        print(f"\nInitial condition for variable '{self.__name__}' of species '{self.species.__class__.__name__}':")
         if self.initial_condition is not None:
-            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - initial condition:")
             print(self.initial_condition)
         else:
-            print(
-                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no initial condition."
-            )
+            print("Same as background.")
 
     @property
     def initial_condition(self) -> KineticBackground:
@@ -376,7 +536,6 @@ class PICVariable(Variable):
         domain: Domain = None,
         equil: FluidEquilibrium = None,
         projected_equil: ProjectedFluidEquilibrium = None,
-        verbose: bool = False,
     ):
         # assert isinstance(self.species, KineticSpecies)
         assert isinstance(self.backgrounds, KineticBackground), (
@@ -400,13 +559,11 @@ class PICVariable(Variable):
             comm_world=comm_world,
             clone_config=clone_config,
             domain_decomp=domain_decomp,
-            mpi_dims_mask=self.species.dims_mask,
-            boxes_per_dim=self.species.boxes_per_dim,
-            box_bufsize=self.species.box_bufsize,
             name=self.species.__class__.__name__,
             loading_params=self.species.loading_params,
             weights_params=self.species.weights_params,
             boundary_params=self.species.boundary_params,
+            sorting_params=self.species.sorting_params,
             bufsize=self.species.bufsize,
             domain=domain,
             equil=equil,
@@ -414,16 +571,14 @@ class PICVariable(Variable):
             background=self.backgrounds,
             initial_condition=self.initial_condition,
             n_as_volume_form=self.n_as_volume_form,
-            # perturbations=self.perturbations,
             equation_params=self.species.equation_params,
-            verbose=verbose,
         )
 
-        if self.species.do_sort:
+        if self.species.sorting_params.do_sort:
             sort = True
         else:
             sort = False
-        self.particles.draw_markers(sort=sort, verbose=verbose)
+        self.particles.draw_markers(sort=sort)
 
         # set zero velocity according to loading_params
         zero_index = xp.nonzero(self.particles.loading_params.set_zero_velocity)[0].flatten()
@@ -432,7 +587,7 @@ class PICVariable(Variable):
         self.particles.initialize_weights()
 
         # allocate array for saving markers if not present
-        n_markers = self.species.n_markers
+        n_markers = self.species.saving_params.n_markers
         if isinstance(n_markers, float):
             if n_markers > 1.0:
                 self._n_to_save = int(n_markers)
@@ -442,7 +597,7 @@ class PICVariable(Variable):
             self._n_to_save = n_markers
 
         assert self._n_to_save <= self.particles.Np, (
-            f"The number of markers for which data should be stored (={self._n_to_save}) murst be <= than the total number of markers (={self.particles.Np})"
+            f"The number of markers for which data should be stored (={self._n_to_save}) must be <= than the total number of markers (={self.particles.Np})"
         )
         if self._n_to_save > 0:
             self._saved_markers = xp.zeros(
@@ -502,7 +657,7 @@ class SPHVariable(Variable):
         Add perturbations to density and/or velocity components.
     show_perturbations()
         Display detailed information about density and velocity perturbations.
-    allocate(derham, domain, equil, projected_equil, verbose)
+    allocate(derham, domain, equil, projected_equil)
         Initialize SPH particles and allocate marker arrays.
 
     Notes
@@ -556,8 +711,8 @@ class SPHVariable(Variable):
         """Whether the number density n is given as a volume form or scalar function (=default)."""
         return self._n_as_volume_form
 
-    def add_background(self, background: FluidEquilibrium, verbose=True):
-        super().add_background(background, verbose=verbose)
+    def add_background(self, background: FluidEquilibrium):
+        super().add_background(background)
 
     def add_perturbation(
         self,
@@ -565,7 +720,6 @@ class SPHVariable(Variable):
         del_u1: Perturbation = None,
         del_u2: Perturbation = None,
         del_u3: Perturbation = None,
-        verbose=True,
     ):
         """Add an initial :class:`~struphy.initial.base.Perturbation` for the fluid density and/or velocity."""
         self._perturbations = {}
@@ -574,18 +728,30 @@ class SPHVariable(Variable):
         self._perturbations["u2"] = del_u2
         self._perturbations["u3"] = del_u3
 
+        if del_n is not None:
+            logger.info(
+                f"\nAdded density perturbation\n{del_n}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'."
+            )
+        if del_u1 is not None:
+            logger.info(
+                f"\nAdded velocity component u1 perturbation\n{del_u1}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'."
+            )
+        if del_u2 is not None:
+            logger.info(
+                f"\nAdded velocity component u2 perturbation\n{del_u2}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'."
+            )
+        if del_u3 is not None:
+            logger.info(
+                f"\nAdded velocity component u3 perturbation\n{del_u3}\nto variable '{self.__name__}' of species '{self.species.__class__.__name__}'."
+            )
+
     def show_perturbations(self):
+        print(f"Perturbations for variable '{self.__name__}' of species '{self.species.__class__.__name__}':")
         if self.perturbations is not None:
-            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - perturbations:")
             for key, perturbation in self.perturbations.items():
-                if perturbation is not None:
-                    print(f"    {key}: {perturbation.__class__.__name__}")
-                    for k, v in perturbation.__dict__.items():
-                        print(f"        {k}: {v}")
-                else:
-                    print(f"    {key}: None")
+                print(perturbation)
         else:
-            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - no perturbation.")
+            print("None.")
 
     @property
     def perturbations(self) -> dict[str, Perturbation]:
@@ -599,7 +765,6 @@ class SPHVariable(Variable):
         domain: Domain = None,
         equil: FluidEquilibrium = None,
         projected_equil: ProjectedFluidEquilibrium = None,
-        verbose: bool = False,
     ):
         assert isinstance(self.backgrounds, FluidEquilibrium), (
             "List input not allowed, you can sum Kineticbackgrounds before passing them to add_background."
@@ -621,13 +786,11 @@ class SPHVariable(Variable):
         self._particles = ParticlesSPH(
             comm_world=comm_world,
             domain_decomp=domain_decomp,
-            mpi_dims_mask=self.species.dims_mask,
-            boxes_per_dim=self.species.boxes_per_dim,
-            box_bufsize=self.species.box_bufsize,
             name=self.species.__class__.__name__,
             loading_params=self.species.loading_params,
             weights_params=self.species.weights_params,
             boundary_params=self.species.boundary_params,
+            sorting_params=self.species.sorting_params,
             bufsize=self.species.bufsize,
             domain=domain,
             equil=equil,
@@ -636,18 +799,20 @@ class SPHVariable(Variable):
             n_as_volume_form=self.n_as_volume_form,
             perturbations=self.perturbations,
             equation_params=self.species.equation_params,
-            verbose=verbose,
         )
 
-        if self.species.do_sort:
+        if self.species.sorting_params.do_sort:
             sort = True
         else:
             sort = False
-        self.particles.draw_markers(sort=sort, verbose=verbose)
+        self.particles.draw_markers(sort=sort)
         self.particles.initialize_weights()
 
+        # if self.particles.sorting_boxes.communicate:
+        #     self.particles.put_particles_in_boxes()
+
         # allocate array for saving markers if not present
-        n_markers = self.species.n_markers
+        n_markers = self.species.saving_params.n_markers
         if isinstance(n_markers, float):
             if n_markers > 1.0:
                 self._n_to_save = int(n_markers)
@@ -657,7 +822,7 @@ class SPHVariable(Variable):
             self._n_to_save = n_markers
 
         assert self._n_to_save <= self.particles.Np, (
-            f"The number of markers for which data should be stored (={self._n_to_save}) murst be <= than the total number of markers (={self.particles.Np})"
+            f"The number of markers for which data should be stored (={self._n_to_save}) must be <= than the total number of markers (={self.particles.Np})"
         )
         if self._n_to_save > 0:
             self._saved_markers = xp.zeros(

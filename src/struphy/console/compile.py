@@ -1,4 +1,11 @@
+import logging
+
 from struphy.utils.utils import STRUPHY_LIBPATH, subp_run
+
+logger = logging.getLogger("struphy")
+from struphy import set_logging_level
+
+set_logging_level(logging.WARNING)
 
 
 def struphy_compile(
@@ -79,17 +86,22 @@ def struphy_compile(
 
     # collect kernels
     if "kernels" not in state:
-        state["kernels"] = []
+        tmp = []
         for subdir, dirs, files in os.walk(libpath):
+            logger.debug(f"\n{subdir = }")
             for file in files:
+                logger.debug(f"{file = }")
                 if (
                     "kernels" in file
                     and ".py" in file
                     and "_tmp.py" not in file
                     and "test" not in file
                     and "__pycache__" not in subdir
+                    and "__pyccel__" not in subdir
                 ):
-                    state["kernels"] += [os.path.join(subdir, file)]
+                    tmp += [os.path.join(subdir, file)]
+
+        state["kernels"] = sorted(tmp)
 
         # set initial compiler infos to None
         state["last_used_language"] = None
@@ -138,10 +150,10 @@ def struphy_compile(
         count_f90 = 0
         list_not_compiled = [s for s in state["kernels"]]
         for subdir, _, files in os.walk(libpath):
-            # print(f'{subdir = }')
+            # logger.info(f'{subdir = }')
             if subdir[-10:] == "__pyccel__" and "__epyccel__" not in subdir:
                 dir_stem = "/".join(subdir.split("/")[:-1])
-                # print(f'{dir_stem = }')
+                # logger.info(f'{dir_stem = }')
                 for file in files:
                     if file[-2:] == ".c" and "wrapper" not in file and "bind_c_" not in file:
                         stem = file[:-2]
@@ -154,14 +166,14 @@ def struphy_compile(
 
                     py_file = stem + ".py"
                     matches = [ker for ker in state["kernels"] if py_file in ker and dir_stem in ker]
-                    # print(f'{matches = }')
+                    # logger.info(f'{matches = }')
                     matching = None
                     for match in matches:
                         py_ker = match.split("/")[-1]
                         if py_ker == py_file:
                             matching = match
                     matching_so = matching.replace(".py", so_suffix)
-                    # print(f'{matching_so = }')
+                    # logger.info(f'{matching_so = }')
                     if os.path.isfile(matching_so):
                         if is_c and state["last_used_language"] == "c":
                             count_c += 1

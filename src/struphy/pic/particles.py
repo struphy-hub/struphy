@@ -223,7 +223,7 @@ class DeltaFParticles6D(Particles6D):
 
     def set_n_to_zero(self, background: Maxwellian | SumKineticBackground):
         if isinstance(background, Maxwellian):
-            background.maxw_params["n"] = (0.0, background.maxw_params["n"][1])
+            background.params["n"] = (0.0, background.params["n"][1])
         else:
             assert isinstance(background, SumKineticBackground)
             self.set_n_to_zero(background._f1)
@@ -279,8 +279,8 @@ class Particles5D(Particles):
         self._unit_b1_h = self.projected_equil.unit_b1
         self._derham = self.projected_equil.derham
 
-        self._tmp0 = self.derham.Vh["0"].zeros()
-        self._tmp2 = self.derham.Vh["2"].zeros()
+        self._tmp0 = self.derham.V0.zeros()
+        self._tmp2 = self.derham.V2.zeros()
 
     @property
     def magn_bckgr(self):
@@ -326,14 +326,6 @@ class Particles5D(Particles):
         -------
         """
         # load sampling density svol (normalized to 1 in logical space)
-        maxw_params = {
-            "n": 1.0,
-            "u_para": self.loading_params.moments[0],
-            "u_perp": self.loading_params.moments[1],
-            "vth_para": self.loading_params.moments[2],
-            "vth_perp": self.loading_params.moments[3],
-        }
-
         self._svol = maxwellians.GyroMaxwellian2D(
             n=(1.0, None),
             u_para=(self.loading_params.moments[0], None),
@@ -413,8 +405,8 @@ class Particles5D(Particles):
             remove_outside=remove_holes,
         )
 
-    def draw_markers(self, sort: bool = True, verbose: bool = True):
-        super().draw_markers(sort=sort, verbose=verbose)
+    def draw_markers(self, sort: bool = True):
+        super().draw_markers(sort=sort)
 
         utilities_kernels.eval_magnetic_moment_5d(
             self.markers,

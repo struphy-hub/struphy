@@ -1,3 +1,4 @@
+import logging
 import warnings
 from abc import ABCMeta, abstractmethod
 
@@ -10,9 +11,13 @@ from struphy.particles.parameters import (
     BoundaryParameters,
     KernelDensityPlot,
     LoadingParameters,
+    SavingParameters,
+    SortingParameters,
     WeightsParameters,
 )
 from struphy.physics.physics import ConstantsOfNature, Units
+
+logger = logging.getLogger("struphy")
 
 
 class Species(metaclass=ABCMeta):
@@ -49,9 +54,7 @@ class Species(metaclass=ABCMeta):
     -------
     init_variables()
         Discover and cache Variable objects from instance attributes.
-    set_species_properties(charge_number, mass_number, alpha, epsilon, kappa)
-        Set physical and equation parameters in parameter files.
-    setup_equation_params(units, verbose)
+    setup_equation_params(units)
         Compute equation normalization parameters from physical units.
 
     Notes
@@ -71,14 +74,49 @@ class Species(metaclass=ABCMeta):
             out += f"{v}\n"
         return out
 
-    # set species attribute for each variable
-    def init_variables(self):
+    def init_variables(
+        self,
+        charge_number: int = 1,
+        mass_number: int = 1,
+        alpha: float = None,
+        epsilon: float = None,
+        kappa: float = None,
+    ):
+        """Create variables dict and set physical and equation parameters for a plasma species.
+
+        Sets the charge and mass numbers, and optionally overrides normalized equation parameters
+        (alpha, epsilon, kappa) that would otherwise be computed from physical units.
+
+        Parameters
+        ----------
+        charge_number : int, optional
+            Charge number in units of elementary charge (default = 1).
+        mass_number : int, optional
+            Mass number in units of proton mass (default = 1).
+        alpha : float, optional
+            Dimensionless parameter: plasma frequency / cyclotron frequency.
+            If None, computed from units and charge/mass numbers (default = None).
+        epsilon : float, optional
+            Normalized cyclotron period: 1 / (cyclotron frequency × time unit).
+            If None, computed from units and charge/mass numbers (default = None).
+        kappa : float, optional
+            Normalized plasma frequency: plasma frequency × time unit.
+            If None, computed from units and charge/mass numbers (default = None)."""
+
+        # create variables dict
         self._variables = {}
         for k, v in self.__dict__.items():
             if isinstance(v, Variable):
                 v._name = k
                 v._species = self
                 self._variables[k] = v
+
+        # set species properties
+        self._charge_number = charge_number
+        self._mass_number = mass_number
+        self._alpha = alpha
+        self._epsilon = epsilon
+        self._kappa = kappa
 
     @property
     def variables(self) -> dict:
@@ -119,47 +157,6 @@ class Species(metaclass=ABCMeta):
             self._kappa = None
         return self._kappa
 
-    def set_species_properties(
-        self,
-        charge_number: int = 1,
-        mass_number: int = 1,
-        alpha: float = None,
-        epsilon: float = None,
-        kappa: float = None,
-    ):
-        """Set physical and equation parameters for a plasma species.
-
-        Sets the charge and mass numbers, and optionally overrides normalized equation parameters
-        (alpha, epsilon, kappa) that would otherwise be computed from physical units.
-
-        Parameters
-        ----------
-        charge_number : int, optional
-            Charge number in units of elementary charge (default = 1).
-        mass_number : int, optional
-            Mass number in units of proton mass (default = 1).
-        alpha : float, optional
-            Dimensionless parameter: plasma frequency / cyclotron frequency.
-            If None, computed from units and charge/mass numbers (default = None).
-        epsilon : float, optional
-            Normalized cyclotron period: 1 / (cyclotron frequency × time unit).
-            If None, computed from units and charge/mass numbers (default = None).
-        kappa : float, optional
-            Normalized plasma frequency: plasma frequency × time unit.
-            If None, computed from units and charge/mass numbers (default = None).
-
-        Notes
-        -----
-        This method should be called BEFORE instantiating a Simulation object.
-        For existing simulation objects, call Simulation.normalize_model() to apply changes.
-        A warning will be issued if this requirement is not followed."""
-
-        self._charge_number = charge_number
-        self._mass_number = mass_number
-        self._alpha = alpha
-        self._epsilon = epsilon
-        self._kappa = kappa
-
     class EquationParameters:
         """Normalization parameters of one species, appearing in scaled equations."""
 
@@ -170,8 +167,9 @@ class Species(metaclass=ABCMeta):
             alpha: float = None,
             epsilon: float = None,
             kappa: float = None,
-            verbose: bool = False,
         ):
+            self.species = species
+
             if units is None:
                 units = Units()
 
@@ -206,16 +204,17 @@ class Species(metaclass=ABCMeta):
                 if MPI.COMM_WORLD.Get_rank() == 0:
                     warnings.warn(f"Override equation parameter {self.kappa =}")
 
-            if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-                print(f"\nSet normalization parameters for species {species.__class__.__name__}:")
-                for key, val in self.__dict__.items():
-                    print((key + ":").ljust(25), "{:4.3e}".format(val))
+        def show(self):
+            print(f"\nEquation parameters for species {self.species.__class__.__name__}:")
+            for key, val in self.__dict__.items():
+                if key != "species":
+                    print(f"{(key + ':').ljust(25)} {val:4.3e}")
 
     @property
     def equation_params(self) -> EquationParameters:
         return self._equation_params
 
-    def setup_equation_params(self, units: Units, verbose=False):
+    def setup_equation_params(self, units: Units):
         """Set the following equation parameters:
 
         * alpha = plasma-frequenca / cyclotron frequency
@@ -228,7 +227,6 @@ class Species(metaclass=ABCMeta):
             alpha=self.alpha,
             epsilon=self.epsilon,
             kappa=self.kappa,
-            verbose=verbose,
         )
 
 
@@ -239,26 +237,12 @@ class FieldSpecies(Species):
     Field species are used to represent electromagnetic or other non-particle fields in a plasma
     model. They have no direct physical mass or charge properties (charge_number = 0, mass_number = 0),
     but may have associated equation parameters for scaled formulations.
-
-    Examples
-    --------
-    >>> E_field = FieldSpecies()
-    >>> E_field.set_species_properties(alpha=0.5, epsilon=0.1, kappa=0.2)
     """
 
-    def set_species_properties(
-        self,
-        alpha: float = None,
-        epsilon: float = None,
-        kappa: float = None,
-    ):
-        """Set equation parameters (alpha, epsilon, kappa) to override units."""
-
-        self._charge_number = 0
-        self._mass_number = 0
-        self._alpha = alpha
-        self._epsilon = epsilon
-        self._kappa = kappa
+    def init_variables(self):
+        """Create variables dict.
+        For field species, set charge and mass numbers to zero by default."""
+        super().init_variables(charge_number=0, mass_number=0)
 
 
 class FluidSpecies(Species):
@@ -271,8 +255,7 @@ class FluidSpecies(Species):
 
     Examples
     --------
-    >>> ions = FluidSpecies()
-    >>> ions.set_species_properties(charge_number=-1, mass_number=1/1836)  # electrons
+    >>> electrons = MyFluidSpecies(charge_number=-1, mass_number=1/1836)  # for electrons
     """
 
 
@@ -286,20 +269,14 @@ class ParticleSpecies(Species):
 
     Methods
     -------
-    set_markers(loading_params, weights_params, boundary_params, bufsize)
-        Configure marker initialization and weight parameters.
-    set_sorting_boxes(do_sort, sorting_frequency, boxes_per_dim, box_bufsize, dims_mask)
-        Configure spatial sorting for memory efficiency and kernel evaluation.
-    set_save_data(n_markers, binning_plots, kernel_density_plots)
-        Configure diagnostic output for particles and distribution functions.
+    set_markers(loading_params, weights_params, boundary_params, sorting_params, saving_params, bufsize)
+        Configure marker initialization and parameters.
 
     Examples
     --------
-    >>> electrons = ParticleSpecies()
-    >>> electrons.set_species_properties(charge_number=-1, mass_number=1/1836)
+    >>> electrons = MyParticleSpecies(charge_number=-1, mass_number=1/1836)
     >>> load_params = LoadingParameters(Np=100000)
     >>> electrons.set_markers(loading_params=load_params)
-    >>> electrons.set_sorting_boxes(do_sort=True, sorting_frequency=10)
     """
 
     def set_markers(
@@ -307,6 +284,8 @@ class ParticleSpecies(Species):
         loading_params: LoadingParameters = None,
         weights_params: WeightsParameters = None,
         boundary_params: BoundaryParameters = None,
+        sorting_params: SortingParameters = None,
+        saving_params: SavingParameters = None,
         bufsize: float = 1.0,
     ):
         """Set marker parameters for loading, weight calculation, kernel density reconstruction
@@ -319,6 +298,10 @@ class ParticleSpecies(Species):
         weights_params : WeightsParameters
 
         boundary_params : BoundaryParameters
+
+        sorting_params : SortingParameters
+
+        saving_params : SavingParameters
 
         bufsize : float
             Size of buffer (as multiple of total size, default=.25) in markers array.
@@ -334,74 +317,90 @@ class ParticleSpecies(Species):
         if boundary_params is None:
             boundary_params = BoundaryParameters()
 
+        if sorting_params is None:
+            sorting_params = SortingParameters()
+
+        if saving_params is None:
+            saving_params = SavingParameters()
+
         self.loading_params = loading_params
         self.weights_params = weights_params
         self.boundary_params = boundary_params
+        self.sorting_params = sorting_params
+        self.saving_params = saving_params
         self.bufsize = bufsize
 
-    def set_sorting_boxes(
-        self,
-        do_sort: bool = False,
-        sorting_frequency: int = 0,
-        boxes_per_dim: tuple = (12, 12, 1),
-        box_bufsize: float = 2.0,
-        dims_maks: tuple = (True, True, True),
-    ):
-        """Set options for sorting particles/markers in parameter/launch files.
-        The sorting boxes are used to sort particles in memory and for SPH kernel evaluations.
+        logger.info(f"\nMarker parameters for species '{self.__class__.__name__}':")
+        logger.info(self.loading_params.__repr_no_defaults__())
+        logger.info(self.weights_params.__repr_no_defaults__())
+        logger.info(self.boundary_params.__repr_no_defaults__())
+        logger.info(self.sorting_params.__repr_no_defaults__())
+        logger.info(self.saving_params.__repr_no_defaults__())
+        logger.info(f"\nMarker array buffer size: {self.bufsize * 100:.1f}% of total size")
 
-        For SPH kernel evaluation, the box size 1.0/boxes_per_dim[i] defines the maximal
-        kernel width in direction i.
+    # def set_sorting_boxes(
+    #     self,
+    #     do_sort: bool = False,
+    #     sorting_frequency: int = 0,
+    #     boxes_per_dim: tuple = (12, 12, 1),
+    #     box_bufsize: float = 2.0,
+    #     dims_mask: tuple = (True, True, True),
+    # ):
+    #     """Set options for sorting particles/markers in parameter/launch files.
+    #     The sorting boxes are used to sort particles in memory and for SPH kernel evaluations.
 
-        Parameters
-        ----------
-        do_sort: bool
-            Whether to sort particles in memory.
+    #     For SPH kernel evaluation, the box size 1.0/boxes_per_dim[i] defines the maximal
+    #     kernel width in direction i.
 
-        sorting_frequency: int
-            The number of time steps between two sortings (=0 means no sorting is performed).
+    #     Parameters
+    #     ----------
+    #     do_sort: bool
+    #         Whether to sort particles in memory.
 
-        boxes_per_dim: tuple
-            Number of boxes in each direction of logical space, (n_eta1, n_eta2, n_eta3).
+    #     sorting_frequency: int
+    #         The number of time steps between two sortings (=0 means no sorting is performed).
 
-        box_bufsize : float
-            Between 0 and 1, relative buffer size for box array (default = 0.25).
-            A number of 1.0 means that the box array is double the size needed to hold N/n_boxes particles,
-            where N is the total number of particles.
+    #     boxes_per_dim: tuple
+    #         Number of boxes in each direction of logical space, (n_eta1, n_eta2, n_eta3).
 
-        mpi_dims_mask: tuple[bool]
-            True if the dimension is to be used in the domain decomposition (=default for each dimension).
-            If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
-        """
-        self.do_sort = do_sort
-        self.sorting_fequency = sorting_frequency
-        self.boxes_per_dim = boxes_per_dim
-        self.box_bufsize = box_bufsize
-        self.dims_mask = dims_maks
+    #     box_bufsize : float
+    #         Between 0 and 1, relative buffer size for box array (default = 0.25).
+    #         A number of 1.0 means that the box array is double the size needed to hold N/n_boxes particles,
+    #         where N is the total number of particles.
 
-    def set_save_data(
-        self,
-        n_markers: int | float = 3,
-        binning_plots: tuple[BinningPlot] = (),
-        kernel_density_plots: tuple[KernelDensityPlot] = (),
-    ):
-        """Set options for saving particle/marker information in parameter/launch files.
+    #     mpi_dims_mask: tuple[bool]
+    #         True if the dimension is to be used in the domain decomposition (=default for each dimension).
+    #         If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
+    #     """
+    #     self.do_sort = do_sort
+    #     self.sorting_fequency = sorting_frequency
+    #     self.boxes_per_dim = boxes_per_dim
+    #     self.box_bufsize = box_bufsize
+    #     self.dims_mask = dims_mask
 
-        Parameters
-        ----------
-        n_markers: int | float
-            Number of particles/markers for which to save trajectories.
-            If float and <1.0, then understood as the fraction of the total number of markers.
+    # def set_save_data(
+    #     self,
+    #     n_markers: int | float = 3,
+    #     binning_plots: tuple[BinningPlot] = (),
+    #     kernel_density_plots: tuple[KernelDensityPlot] = (),
+    # ):
+    #     """Set options for saving particle/marker information in parameter/launch files.
 
-        binned_data: tuple[BinningPlot]
-            A tuple of BinningPlot objects.
+    #     Parameters
+    #     ----------
+    #     n_markers: int | float
+    #         Number of particles/markers for which to save trajectories.
+    #         If float and <1.0, then understood as the fraction of the total number of markers.
 
-        kernel_density_plots: tuple[KernelDensityPlot]
-            A tuple of KernelDensityPlot objects.
-        """
-        self.n_markers = n_markers
-        self.binning_plots = binning_plots
-        self.kernel_density_plots = kernel_density_plots
+    #     binned_data: tuple[BinningPlot]
+    #         A tuple of BinningPlot objects.
+
+    #     kernel_density_plots: tuple[KernelDensityPlot]
+    #         A tuple of KernelDensityPlot objects.
+    #     """
+    #     self.n_markers = n_markers
+    #     self.binning_plots = binning_plots
+    #     self.kernel_density_plots = kernel_density_plots
 
 
 class DiagnosticSpecies(Species):

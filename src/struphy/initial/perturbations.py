@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 "Analytical perturbations."
 
+import copy
+import logging
 from dataclasses import dataclass
 
 import cunumpy as xp
@@ -10,6 +12,8 @@ import scipy.special
 from struphy.initial.base import Perturbation
 from struphy.io.options import LiteralOptions
 from struphy.utils.utils import check_option
+
+logger = logging.getLogger("struphy")
 
 
 @dataclass
@@ -37,6 +41,9 @@ class Noise(Perturbation):
     def __post_init__(
         self,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         check_option(self.direction, LiteralOptions.NoiseDirections)
 
     def __call__(self):
@@ -115,6 +122,9 @@ class ModesSin(Perturbation):
         given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         if ls is not None:
             n_modes = len(ls)
         elif ms is not None:
@@ -235,6 +245,10 @@ class ModesCos(Perturbation):
 
     comp : int
         Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
+
+    perb_domain : tuple[tuple[float]]
+        Subdomain in which the pertrubation is applied to: ((x_min, x_max), (y_min, y_max), (z_min, z_max)).
+        None means apply perturbation to all domain in that direction
     """
 
     def __init__(
@@ -248,7 +262,11 @@ class ModesCos(Perturbation):
         Lz=1.0,
         given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
+        perb_domain: tuple[tuple[float]] = (None, None, None),
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         if ls is not None:
             n_modes = len(ls)
         elif ms is not None:
@@ -290,15 +308,30 @@ class ModesCos(Perturbation):
         # use the setters
         self.given_in_basis = given_in_basis
         self.comp = comp
+        self.perb_domain = perb_domain
 
     def __call__(self, x, y, z):
-        val = 0.0
 
-        for amp, l, m, n in zip(self.amps, self.ls, self.ms, self.ns):
-            val += amp * xp.cos(
-                l * 2.0 * xp.pi / self.Lx * x + m * 2.0 * xp.pi / self.Ly * y + n * 2.0 * xp.pi / self.Lz * z,
-            )
-        # print( "Cos max value", val.max())
+        if self.perb_domain != (None, None, None):
+            val = xp.zeros_like(x)
+            # find mask of particles within the sub domain
+            mask = super()._mask_subdomain(x, y, z, perb_domain=self.perb_domain)
+
+            # apply perturbation iff perb_domain not specified or (x,y,z) is within perb_domain
+            for amp, l, m, n in zip(self.amps, self.ls, self.ms, self.ns):
+                val[mask] += amp * xp.cos(
+                    l * 2.0 * xp.pi / self.Lx * x[mask]
+                    + m * 2.0 * xp.pi / self.Ly * y[mask]
+                    + n * 2.0 * xp.pi / self.Lz * z[mask],
+                )
+        else:
+            val = 0.0
+            for amp, l, m, n in zip(self.amps, self.ls, self.ms, self.ns):
+                val += amp * xp.cos(
+                    l * 2.0 * xp.pi / self.Lx * x + m * 2.0 * xp.pi / self.Ly * y + n * 2.0 * xp.pi / self.Lz * z,
+                )
+
+        # logger.info( "Cos max value", val.max())
         return val
 
 
@@ -319,6 +352,9 @@ class CoaxialWaveguideElectric_r(Perturbation):
     """
 
     def __init__(self, m=1, a1=1.0, a2=2.0, a=1, b=-0.28):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         self._m = m
         self._r1 = a1
         self._r2 = a2
@@ -361,6 +397,9 @@ class CoaxialWaveguideElectric_theta(Perturbation):
     """
 
     def __init__(self, m=1, a1=1.0, a2=2.0, a=1, b=-0.28):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         self._m = m
         self._r1 = a1
         self._r2 = a2
@@ -400,6 +439,9 @@ class CoaxialWaveguideMagnetic(Perturbation):
     """
 
     def __init__(self, m=1, a1=1.0, a2=2.0, a=1, b=-0.28):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         self._m = m
         self._r1 = a1
         self._r2 = a2
@@ -450,6 +492,9 @@ class ModesCosCos(Perturbation):
         given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         if ls is not None:
             n_modes = len(ls)
         elif ms is not None:
@@ -555,6 +600,9 @@ class ModesSinSin(Perturbation):
         given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         if ls is not None:
             n_modes = len(ls)
         elif ms is not None:
@@ -660,6 +708,9 @@ class ModesSinCos(Perturbation):
         given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         # number of modes
         if ls is not None:
             n_modes = len(ls)
@@ -767,6 +818,9 @@ class ModesCosSin(Perturbation):
         given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         # number of modes
         if ls is not None:
             n_modes = len(ls)
@@ -904,6 +958,9 @@ class TorusModesSin(Perturbation):
         given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         if given_in_basis is not None:
             assert "physical" not in given_in_basis
 
@@ -1040,6 +1097,9 @@ class TorusModesCos(Perturbation):
         given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         if given_in_basis is not None:
             assert "physical" not in given_in_basis
 
@@ -1154,6 +1214,9 @@ class Shear_x(Perturbation):
         given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         if given_in_basis is not None:
             assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
 
@@ -1201,6 +1264,9 @@ class Shear_y(Perturbation):
         given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         if given_in_basis is not None:
             assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
 
@@ -1248,6 +1314,9 @@ class Shear_z(Perturbation):
         given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         if given_in_basis is not None:
             assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
 
@@ -1295,6 +1364,9 @@ class Erf_z(Perturbation):
         given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         if given_in_basis is not None:
             assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
 
@@ -1373,6 +1445,9 @@ class RestelliAnalyticSolutionVelocity(Perturbation):
         beta=1.0,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         self._a = a
         self._R0 = R0
         self._B0 = B0
@@ -1479,6 +1554,9 @@ class RestelliAnalyticSolutionVelocity_2(Perturbation):
         beta=1.0,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         self._a = a
         self._R0 = R0
         self._B0 = B0
@@ -1585,6 +1663,9 @@ class RestelliAnalyticSolutionVelocity_3(Perturbation):
         beta=1.0,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         self._a = a
         self._R0 = R0
         self._B0 = B0
@@ -1680,6 +1761,9 @@ class RestelliAnalyticSolutionPotential(Perturbation):
     """
 
     def __init__(self, a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         self._a = a
         self._R0 = R0
         self._B0 = B0
@@ -1742,6 +1826,9 @@ class ManufacturedSolutionVelocity(Perturbation):
         b0=1.0,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         self._b = b0
         self._species = species
         self._dimension = dimension
@@ -1845,6 +1932,9 @@ class ManufacturedSolutionPotential(Perturbation):
     """
 
     def __init__(self, dimension="1D", b0=1.0):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         self._ab = b0
         self._dimension = dimension
 
@@ -1903,6 +1993,9 @@ class ManufacturedSolutionVelocity_2(Perturbation):
         b0=1.0,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         self._b = b0
         self._species = species
         self._dimension = dimension
@@ -1975,6 +2068,14 @@ class ITPA_density(Perturbation):
     .. math::
 
         n(\eta_1) = n_0*c_3\exp\left[-\frac{c_2}{c_1}\tanh\left(\frac{\eta_1 - c_0}{c_2}\right)\right]\,.
+
+    Parameters
+    ----------
+    n0 : float
+        ITPA profile density
+
+    c : tuple | list
+        4 ITPA profile coefficients
     """
 
     def __init__(
@@ -1983,15 +2084,8 @@ class ITPA_density(Perturbation):
         c: tuple = (0.491230, 0.298228, 0.198739, 0.521298),
         comp: int = 0,
     ):
-        """
-        Parameters
-        ----------
-        n0 : float
-            ITPA profile density
-
-        c : tuple | list
-            4 ITPA profile coefficients
-        """
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
 
         assert len(c) == 4
 
@@ -2083,6 +2177,9 @@ class TokamakManufacturedSolutionVelocity(Perturbation):
         alpha=0.1,
         beta=1.0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         self._comp = comp
         self._a = a
         self._R0 = R0
@@ -2187,6 +2284,9 @@ class TokamakManufacturedSolutionVelocity_1(Perturbation):
         alpha=0.1,
         beta=1.0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         self._comp = comp
         self._a = a
         self._R0 = R0
@@ -2291,6 +2391,9 @@ class TokamakManufacturedSolutionVelocity_2(Perturbation):
         alpha=0.1,
         beta=1.0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         self._comp = comp
         self._a = a
         self._R0 = R0

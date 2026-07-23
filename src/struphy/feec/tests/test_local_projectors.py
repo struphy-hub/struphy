@@ -1,4 +1,5 @@
 import inspect
+import logging
 import time
 
 import cunumpy as xp
@@ -13,12 +14,23 @@ from struphy.feec.basis_projection_ops import BasisProjectionOperator, BasisProj
 from struphy.feec.local_projectors_kernels import fill_matrix_column
 from struphy.feec.psydac_derham import Derham
 from struphy.feec.utilities_local_projectors import get_one_spline, get_span_and_basis, get_values_and_indices_splines
+from struphy.io.options import DerhamOptions
+from struphy.topology.grids import TensorProductGrid
+
+logger = logging.getLogger("struphy")
 
 
-@pytest.mark.parametrize("Nel", [[14, 16, 18]])
-@pytest.mark.parametrize("p", [[5, 4, 3]])
-@pytest.mark.parametrize("spl_kind", [[True, False, False], [False, True, False], [False, False, True]])
-def test_local_projectors_compare_global(Nel, p, spl_kind):
+@pytest.mark.parametrize("num_elements", [[14, 16, 18]])
+@pytest.mark.parametrize("degree", [[5, 4, 3]])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), ("free", "free"), None),
+        (("free", "free"), None, ("free", "free")),
+        (None, ("free", "free"), ("free", "free")),
+    ],
+)
+def test_local_projectors_compare_global(num_elements, degree, bcs):
     """Tests the Local-projectors, by comparing them to the analytical function as well as to the global projectors."""
     # get global communicator
     comm = MPI.COMM_WORLD
@@ -26,9 +38,11 @@ def test_local_projectors_compare_global(Nel, p, spl_kind):
 
     timei = time.time()
     # create derham object
-    derham = Derham(Nel, p, spl_kind, comm=comm, local_projectors=True)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs, local_projectors=True)
+    derham = Derham(grid, derham_opts, comm=comm)
     timef = time.time()
-    print("Time for building Derham = " + str(timef - timei))
+    logger.info("Time for building Derham = " + str(timef - timei))
 
     # constant function
     def f(e1, e2, e3):
@@ -44,9 +58,9 @@ def test_local_projectors_compare_global(Nel, p, spl_kind):
 
     # loop over spaces
     for sp_id, sp_key in derham.space_to_form.items():
-        P_Loc = derham.P[sp_key]
+        P_Loc = derham.projectors[sp_key]
 
-        out = derham.Vh[sp_key].zeros()
+        out = derham.coeff_spaces[sp_key].zeros()
 
         # field for local projection output
         field = derham.create_spline_function("fh", sp_id)
@@ -68,7 +82,7 @@ def test_local_projectors_compare_global(Nel, p, spl_kind):
         exectime = timef - timei
 
         timeig = time.time()
-        vecg = derham._P[sp_key](f_analytic)
+        vecg = derham.projectors[sp_key](f_analytic)
         timefg = time.time()
         exectimeg = timefg - timeig
 
@@ -95,7 +109,7 @@ def test_local_projectors_compare_global(Nel, p, spl_kind):
             errg[1] = xp.max(xp.abs(fieldg_vals[1] - field_vals[1]))
             errg[2] = xp.max(xp.abs(fieldg_vals[2] - field_vals[2]))
 
-        print(f"{sp_id =}, {xp.max(err) =}, {xp.max(errg) =},{exectime =}")
+        logger.info(f"{sp_id =}, {xp.max(err) =}, {xp.max(errg) =},{exectime =}")
         if sp_id in ("H1", "H1vec"):
             assert xp.max(err) < 0.011
             assert xp.max(errg) < 0.011
@@ -104,10 +118,11 @@ def test_local_projectors_compare_global(Nel, p, spl_kind):
             assert xp.max(errg) < 0.1
 
 
+@pytest.mark.convergence
 @pytest.mark.parametrize("direction", [0, 1, 2])
 @pytest.mark.parametrize("pi", [3, 4])
-@pytest.mark.parametrize("spl_kindi", [True, False])
-def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
+@pytest.mark.parametrize("bc_kind", [None, ("free", "free")])
+def test_local_projectors_convergence(direction, pi, bc_kind, do_plot=False):
     """Tests the convergence rate of the Local projectors along singleton dimensions, without mapping."""
     # get global communicator
     comm = MPI.COMM_WORLD
@@ -133,9 +148,9 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
         e2 = 0.0
         e3 = 0.0
         if direction == 0:
-            Nel = [Neli, 1, 1]
-            p = [pi, 1, 1]
-            spl_kind = [spl_kindi, True, True]
+            num_elements = [Neli, 1, 1]
+            degree = [pi, 1, 1]
+            bcs = (bc_kind, None, None)
             e1 = xp.linspace(0.0, 1.0, 100)
             e = e1
             c = 0
@@ -143,9 +158,9 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
             def f(x, y, z):
                 return fun(x)
         elif direction == 1:
-            Nel = [1, Neli, 1]
-            p = [1, pi, 1]
-            spl_kind = [True, spl_kindi, True]
+            num_elements = [1, Neli, 1]
+            degree = [1, pi, 1]
+            bcs = (None, bc_kind, None)
             e2 = xp.linspace(0.0, 1.0, 100)
             e = e2
             c = 1
@@ -153,9 +168,9 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
             def f(x, y, z):
                 return fun(y)
         elif direction == 2:
-            Nel = [1, 1, Neli]
-            p = [1, 1, pi]
-            spl_kind = [True, True, spl_kindi]
+            num_elements = [1, 1, Neli]
+            degree = [1, 1, pi]
+            bcs = (None, None, bc_kind)
             e3 = xp.linspace(0.0, 1.0, 100)
             e = e3
             c = 2
@@ -163,12 +178,14 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
             def f(x, y, z):
                 return fun(z)
 
-        derham = Derham(Nel, p, spl_kind, comm=comm, local_projectors=True)
+        grid = TensorProductGrid(num_elements=num_elements)
+        derham_opts = DerhamOptions(degree=degree, bcs=bcs, local_projectors=True)
+        derham = Derham(grid, derham_opts, comm=comm)
 
         # loop over spaces
         for sp_id, sp_key in derham.space_to_form.items():
-            P_Loc = derham.P[sp_key]
-            out = derham.Vh[sp_key].zeros()
+            P_Loc = derham.projectors[sp_key]
+            out = derham.coeff_spaces[sp_key].zeros()
 
             field = derham.create_spline_function("fh", sp_id)
 
@@ -199,7 +216,7 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
                 plt.plot(e, f(e1, e2, e3), "o")
                 plt.plot(e, f_plot)
                 plt.xlabel(f"eta{c}")
-                plt.title(f"Nel[{c}] = {Nel[c]}")
+                plt.title(f"num_elements[{c}] = {num_elements[c]}")
 
             del P_Loc, out, field, vec, veco, field_vals
 
@@ -214,17 +231,17 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
 
         if sp_id in ("H1", "H1vec"):
             # Sometimes for very large number of elements the convergance rate falls of a bit since the error is already so small floating point impressions become relevant
-            # for those cases is better to compute the convergance rate using only the information of Nel with smaller number
+            # for those cases is better to compute the convergance rate using only the information of num_elements with smaller number
             if -m <= (pi + 1 - 0.1):
                 m = -xp.log2(errors[sp_id][1] / errors[sp_id][2])
-            print(f"{sp_id =}, fitted convergence rate = {-m}, degree = {pi}")
+            logger.info(f"{sp_id =}, fitted convergence rate = {-m}, degree = {pi}")
             assert -m > (pi + 1 - 0.1)
         else:
             # Sometimes for very large number of elements the convergance rate falls of a bit since the error is already so small floating point impressions become relevant
-            # for those cases is better to compute the convergance rate using only the information of Nel with smaller number
+            # for those cases is better to compute the convergance rate using only the information of num_elements with smaller number
             if -m <= (pi - 0.1):
                 m = -xp.log2(errors[sp_id][1] / errors[sp_id][2])
-            print(f"{sp_id =}, fitted convergence rate = {-m}, degree = {pi}")
+            logger.info(f"{sp_id =}, fitted convergence rate = {-m}, degree = {pi}")
             assert -m > (pi - 0.1)
 
         if do_plot:
@@ -233,10 +250,10 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
             plt.loglog(Nels, errors[sp_id])
             plt.loglog(Nels, line_for_rate_p1, "k--")
             plt.loglog(Nels, line_for_rate_p0, "k--")
-            plt.text(Nels[-2], line_for_rate_p1[-2], f"1/Nel^{rate_p1}")
-            plt.text(Nels[-2], line_for_rate_p0[-2], f"1/Nel^{rate_p0}")
+            plt.text(Nels[-2], line_for_rate_p1[-2], f"1/num_elements^{rate_p1}")
+            plt.text(Nels[-2], line_for_rate_p0[-2], f"1/num_elements^{rate_p0}")
             plt.title(f"{sp_id =}, degree = {pi}")
-            plt.xlabel("Nel")
+            plt.xlabel("num_elements")
 
     if do_plot and rank == 0:
         plt.show()
@@ -245,21 +262,24 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
 # Works only in one processor
 
 
-def aux_test_replication_of_basis(Nel, plist, spl_kind):
+def aux_test_replication_of_basis(num_elements, plist, bcs):
     """Tests that the local projectors do not alter the basis functions."""
     # get global communicator
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    derham = Derham(Nel, plist, spl_kind, comm=comm, local_projectors=True)
+
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=plist, bcs=bcs, local_projectors=True)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # For B-splines
     sp_key = "0"
-    P_Loc = derham.P[sp_key]
-    spaces = derham.Vh_fem[sp_key].spaces
+    P_Loc = derham.projectors[sp_key]
+    spaces = derham.fem_spaces[sp_key].spaces
     space = spaces[0]
     N = space.nbasis
     ncells = space.ncells
-    p = space.degree
+    degree = space.degree
     T = space.knots
     periodic = space.periodic
     basis = space.basis
@@ -271,13 +291,13 @@ def aux_test_replication_of_basis(Nel, plist, spl_kind):
                 etas = xp.array([etas])
             out = xp.zeros_like(etas)
             for j, eta in enumerate(etas):
-                span = find_span(T, p, eta)
-                inds = xp.arange(span - p, span + 1) % N
+                span = find_span(T, degree, eta)
+                inds = xp.arange(span - degree, span + 1) % N
                 pos = xp.argwhere(inds == i)
-                # print(f'{pos = }')
+                # logger.info(f'{pos = }')
                 if pos.size > 0:
                     pos = pos[0, 0]
-                    out[j] = basis_funs(T, p, eta, span, normalize=normalize)[pos]
+                    out[j] = basis_funs(T, degree, eta, span, normalize=normalize)[pos]
                 else:
                     out[j] = 0.0
             return out
@@ -291,15 +311,15 @@ def aux_test_replication_of_basis(Nel, plist, spl_kind):
         etas = xp.linspace(0.0, 1.0, 100)
         fun_h = xp.zeros(100)
         for k, eta in enumerate(etas):
-            span = find_span(T, p, eta)
-            ind1 = xp.arange(span - p, span + 1) % N
-            basis = basis_funs(T, p, eta, span, normalize=normalize)
-            fun_h[k] = evaluation_kernel_1d(p, basis, ind1, lambdas)
+            span = find_span(T, degree, eta)
+            ind1 = xp.arange(span - degree, span + 1) % N
+            basis = basis_funs(T, degree, eta, span, normalize=normalize)
+            fun_h[k] = evaluation_kernel_1d(degree, basis, ind1, lambdas)
 
         if xp.max(xp.abs(fun(etas, 0.0, 0.0) - fun_h)) >= 10.0**-10:
-            print(xp.max(xp.abs(fun(etas, 0.0, 0.0) - fun_h)))
+            logger.info(xp.max(xp.abs(fun(etas, 0.0, 0.0) - fun_h)))
         assert xp.max(xp.abs(fun(etas, 0.0, 0.0) - fun_h)) < 10.0**-10
-        # print(f'{j = }, max error: {xp.max(xp.abs(fun(etas,0.0,0.0) - fun_h))}')
+        # logger.info(f'{j = }, max error: {xp.max(xp.abs(fun(etas,0.0,0.0) - fun_h))}')
 
     # For D-splines
 
@@ -310,19 +330,19 @@ def aux_test_replication_of_basis(Nel, plist, spl_kind):
         for i, value in enumerate(val):
             if i != entry:
                 if abs(value) >= tol:
-                    print(value, i, entry)
+                    logger.info(f"{value} {i} {entry}")
                 assert abs(value) < tol
             else:
                 if abs(value - 1.0) >= tol:
-                    print(value, i, abs(value - 1.0))
+                    logger.info(f"{value} {i} {abs(value - 1.0)}")
                 assert abs(value - 1.0) < tol
 
     sp_key = "3"
     sp_id = "L2"
-    P_Loc = derham.P[sp_key]
-    spaces = derham.Vh_fem[sp_key].spaces
-    input = derham.Vh[sp_key].zeros()
-    npts = derham.Vh[sp_key].npts
+    P_Loc = derham.projectors[sp_key]
+    spaces = derham.fem_spaces[sp_key].spaces
+    input = derham.coeff_spaces[sp_key].zeros()
+    npts = derham.coeff_spaces[sp_key].npts
     field = derham.create_spline_function("fh", sp_id)
 
     counter = 0
@@ -339,12 +359,12 @@ def aux_test_replication_of_basis(Nel, plist, spl_kind):
                 counter += 1
 
 
-@pytest.mark.parametrize("Nel", [[5, 4, 1]])
+@pytest.mark.parametrize("num_elements", [[5, 4, 1]])
 @pytest.mark.parametrize("plist", [[3, 2, 1]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True]])
+@pytest.mark.parametrize("bcs", [(("free", "free"), None, None)])
 @pytest.mark.parametrize("out_sp_key", ["0", "1", "2", "3", "v"])
 @pytest.mark.parametrize("in_sp_key", ["0", "1", "2", "3", "v"])
-def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp_key):
+def test_basis_projection_operator_local(num_elements, plist, bcs, out_sp_key, in_sp_key):
     import random
 
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
@@ -353,20 +373,23 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     world_size = comm.Get_size()
-    derham = Derham(Nel, plist, spl_kind, comm=comm, local_projectors=True)
+
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=plist, bcs=bcs, local_projectors=True)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # The first step to test our BasisProjectionOperatorLocal is to build the B and D spline functions in such a way that we can evaluate them in parallel.
     # We cannot us the fields of a derham space to do this since the evaluation of the splines in this way is a collective operation, and we want our functions
     # to be able to be computed by each rank on its own.
 
     # We will need the FEM spline space that contains B-splines in all three directions.
-    fem_space_B = derham.Vh_fem["0"]
+    fem_space_B = derham.V0fem
     # FE space of one forms. That means that we have B-splines in all three spatial directions.
     W = fem_space_B
     W1ds = [W.spaces]
 
     # We will need the FEM spline space that contains D-splines in all three directions.
-    fem_space_D = derham.Vh_fem["3"]
+    fem_space_D = derham.V3fem
     # FE space of three forms. That means that we have D-splines in all three spatial directions.
     V = fem_space_D
     V1ds = [V.spaces]
@@ -413,10 +436,10 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
 
     # random vectors
     if in_sp_key == "0" or in_sp_key == "3":
-        varr, v = create_equal_random_arrays(derham.Vh_fem[in_sp_key], seed=4568)
+        varr, v = create_equal_random_arrays(derham.fem_spaces[in_sp_key], seed=4568)
         varr = varr[0].flatten()
     elif in_sp_key == "v" or in_sp_key == "1" or in_sp_key == "2":
-        varraux, v = create_equal_random_arrays(derham.Vh_fem[in_sp_key], seed=4568)
+        varraux, v = create_equal_random_arrays(derham.fem_spaces[in_sp_key], seed=4568)
         varr = []
         for i in varraux:
             aux = i.flatten()
@@ -424,12 +447,12 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
                 varr.append(j)
 
     # We get the local projector
-    P_Loc = derham.P[out_sp_key]
-    out = derham.Vh[out_sp_key].zeros()
-    VFEM = derham.Vh_fem[out_sp_key]
+    P_Loc = derham.projectors[out_sp_key]
+    out = derham.coeff_spaces[out_sp_key].zeros()
+    VFEM = derham.fem_spaces[out_sp_key]
 
     if out_sp_key == "0" or out_sp_key == "3":
-        npts_out = derham.Vh[out_sp_key].npts
+        npts_out = derham.coeff_spaces[out_sp_key].npts
         starts = xp.array(out.starts, dtype=int)
         ends = xp.array(out.ends, dtype=int)
         pds = xp.array(out.pads, dtype=int)
@@ -457,9 +480,9 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
         )
 
     if in_sp_key == "0" or in_sp_key == "3":
-        npts_in = derham.Vh[in_sp_key].npts
+        npts_in = derham.coeff_spaces[in_sp_key].npts
     else:
-        npts_in = xp.array([sp.npts for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
+        npts_in = xp.array([sp.npts for sp in derham.fem_spaces[in_sp_key].coeff_space.spaces])
 
     def define_basis(in_sp_key):
         def wrapper(dim, index, h=None):
@@ -496,10 +519,10 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
 
     basis1, basis2, basis3 = define_basis(in_sp_key)
 
-    input = derham.Vh[in_sp_key].zeros()
+    input = derham.coeff_spaces[in_sp_key].zeros()
     random.seed(42)
     if in_sp_key == "0" or in_sp_key == "3":
-        npts_in = derham.Vh[in_sp_key].npts
+        npts_in = derham.coeff_spaces[in_sp_key].npts
         random_i0 = random.randrange(0, npts_in[0])
         random_i1 = random.randrange(0, npts_in[1])
         random_i2 = random.randrange(0, npts_in[2])
@@ -509,13 +532,13 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
             input[random_i0, random_i1, random_i2] = 1.0
         input.update_ghost_regions()
     else:
-        npts_in = xp.array([sp.npts for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
+        npts_in = xp.array([sp.npts for sp in derham.fem_spaces[in_sp_key].coeff_space.spaces])
         random_h = random.randrange(0, 3)
         random_i0 = random.randrange(0, npts_in[random_h][0])
         random_i1 = random.randrange(0, npts_in[random_h][1])
         random_i2 = random.randrange(0, npts_in[random_h][2])
-        starts_in = xp.array([sp.starts for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
-        ends_in = xp.array([sp.ends for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
+        starts_in = xp.array([sp.starts for sp in derham.fem_spaces[in_sp_key].coeff_space.spaces])
+        ends_in = xp.array([sp.ends for sp in derham.fem_spaces[in_sp_key].coeff_space.spaces])
         if starts_in[random_h][0] <= random_i0 and random_i0 <= ends_in[random_h][0]:
             input[random_h][random_i0, random_i1, random_i2] = 1.0
         input.update_ghost_regions()
@@ -863,7 +886,9 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
             def f_analytic(e1, e2, e3):
                 return xp.sin(2.0 * xp.pi * e1) + xp.cos(4.0 * xp.pi * e2)
 
-            matrix_new = BasisProjectionOperatorLocal(P_Loc, derham.Vh_fem[in_sp_key], [[f_analytic]], transposed=False)
+            matrix_new = BasisProjectionOperatorLocal(
+                P_Loc, derham.fem_spaces[in_sp_key], [[f_analytic]], transposed=False
+            )
         else:
 
             def f_analytic(e1, e2, e3):
@@ -871,7 +896,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
 
             matrix_new = BasisProjectionOperatorLocal(
                 P_Loc,
-                derham.Vh_fem[in_sp_key],
+                derham.fem_spaces[in_sp_key],
                 [
                     [f_analytic, f_analytic, f_analytic],
                 ],
@@ -892,7 +917,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
 
             matrix_new = BasisProjectionOperatorLocal(
                 P_Loc,
-                derham.Vh_fem[in_sp_key],
+                derham.fem_spaces[in_sp_key],
                 [
                     [f_analytic1],
                     [
@@ -933,7 +958,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
 
             matrix_new = BasisProjectionOperatorLocal(
                 P_Loc,
-                derham.Vh_fem[in_sp_key],
+                derham.fem_spaces[in_sp_key],
                 [
                     [f_analytic00, f_analytic01, f_analytic02],
                     [
@@ -948,32 +973,35 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
 
     compare_arrays(matrix_new.dot(v), xp.matmul(matrix, varr), rank)
 
-    print("BasisProjectionOperatorLocal test passed.")
+    logger.info("BasisProjectionOperatorLocal test passed.")
 
 
-@pytest.mark.parametrize("Nel", [[40, 1, 1]])
+@pytest.mark.parametrize("num_elements", [[40, 1, 1]])
 @pytest.mark.parametrize("plist", [[5, 1, 1]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True]])
+@pytest.mark.parametrize("bcs", [(("free", "free"), None, None)])
 @pytest.mark.parametrize("out_sp_key", ["0", "1", "2", "3", "v"])
 @pytest.mark.parametrize("in_sp_key", ["0", "1", "2", "3", "v"])
-def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, in_sp_key, do_plot=False):
+def test_basis_projection_operator_local_new(num_elements, plist, bcs, out_sp_key, in_sp_key, do_plot=False):
     import random
 
     # get global communicator
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     world_size = comm.Get_size()
-    derham = Derham(Nel, plist, spl_kind, comm=comm, local_projectors=True)
+
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=plist, bcs=bcs, local_projectors=True)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # Building the B-splines
     # We will need the FEM spline space that contains D-splines in all three directions.
-    fem_space_B = derham.Vh_fem["0"]
+    fem_space_B = derham.V0fem
     # FE space of one forms. That means that we have B-splines in all three spatial directions.
     W = fem_space_B
     W1ds = [W.spaces]
 
     # We will need the FEM spline space that contains D-splines in all three directions.
-    fem_space_D = derham.Vh_fem["3"]
+    fem_space_D = derham.V3fem
 
     # FE space of three forms. That means that we have D-splines in all three spatial directions.
     V = fem_space_D
@@ -1055,14 +1083,14 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
     basis1, basis2, basis3 = define_basis(in_sp_key)
 
     # We get the local projector
-    P_Loc = derham.P[out_sp_key]
+    P_Loc = derham.projectors[out_sp_key]
     # We get the global projector
-    P = derham._P[out_sp_key]
+    P = derham.projectors_global[out_sp_key]
 
-    input = derham.Vh[in_sp_key].zeros()
+    input = derham.coeff_spaces[in_sp_key].zeros()
     random.seed(42)
     if in_sp_key == "0" or in_sp_key == "3":
-        npts_in = derham.Vh[in_sp_key].npts
+        npts_in = derham.coeff_spaces[in_sp_key].npts
         random_i0 = random.randrange(0, npts_in[0])
         random_i1 = random.randrange(0, npts_in[1])
         random_i2 = random.randrange(0, npts_in[2])
@@ -1072,13 +1100,13 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
             input[random_i0, random_i1, random_i2] = 1.0
         input.update_ghost_regions()
     else:
-        npts_in = xp.array([sp.npts for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
+        npts_in = xp.array([sp.npts for sp in derham.fem_spaces[in_sp_key].coeff_space.spaces])
         random_h = random.randrange(0, 3)
         random_i0 = random.randrange(0, npts_in[random_h][0])
         random_i1 = random.randrange(0, npts_in[random_h][1])
         random_i2 = random.randrange(0, npts_in[random_h][2])
-        starts = xp.array([sp.starts for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
-        ends = xp.array([sp.ends for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
+        starts = xp.array([sp.starts for sp in derham.fem_spaces[in_sp_key].coeff_space.spaces])
+        ends = xp.array([sp.ends for sp in derham.fem_spaces[in_sp_key].coeff_space.spaces])
         if starts[random_h][0] <= random_i0 and random_i0 <= ends[random_h][0]:
             input[random_h][random_i0, random_i1, random_i2] = 1.0
         input.update_ghost_regions()
@@ -1097,8 +1125,10 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
             def f_analytic(e1, e2, e3):
                 return xp.sin(2.0 * xp.pi * e1) + xp.sin(4.0 * xp.pi * e1)
 
-            matrix_new = BasisProjectionOperatorLocal(P_Loc, derham.Vh_fem[in_sp_key], [[f_analytic]], transposed=False)
-            matrix_global = BasisProjectionOperator(P, derham.Vh_fem[in_sp_key], [[f_analytic]], transposed=False)
+            matrix_new = BasisProjectionOperatorLocal(
+                P_Loc, derham.fem_spaces[in_sp_key], [[f_analytic]], transposed=False
+            )
+            matrix_global = BasisProjectionOperator(P, derham.fem_spaces[in_sp_key], [[f_analytic]], transposed=False)
 
             analytic_vals = (
                 f_analytic(*meshgrid)
@@ -1113,7 +1143,7 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
 
             matrix_new = BasisProjectionOperatorLocal(
                 P_Loc,
-                derham.Vh_fem[in_sp_key],
+                derham.fem_spaces[in_sp_key],
                 [
                     [f_analytic, f_analytic, f_analytic],
                 ],
@@ -1121,7 +1151,7 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
             )
             matrix_global = BasisProjectionOperator(
                 P,
-                derham.Vh_fem[in_sp_key],
+                derham.fem_spaces[in_sp_key],
                 [
                     [f_analytic, f_analytic, f_analytic],
                 ],
@@ -1149,7 +1179,7 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
 
             matrix_new = BasisProjectionOperatorLocal(
                 P_Loc,
-                derham.Vh_fem[in_sp_key],
+                derham.fem_spaces[in_sp_key],
                 [
                     [f_analytic1],
                     [
@@ -1161,7 +1191,7 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
             )
             matrix_global = BasisProjectionOperator(
                 P,
-                derham.Vh_fem[in_sp_key],
+                derham.fem_spaces[in_sp_key],
                 [
                     [f_analytic1],
                     [
@@ -1219,7 +1249,7 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
 
             matrix_new = BasisProjectionOperatorLocal(
                 P_Loc,
-                derham.Vh_fem[in_sp_key],
+                derham.fem_spaces[in_sp_key],
                 [
                     [f_analytic00, f_analytic01, f_analytic02],
                     [
@@ -1233,7 +1263,7 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
             )
             matrix_global = BasisProjectionOperator(
                 P,
-                derham.Vh_fem[in_sp_key],
+                derham.fem_spaces[in_sp_key],
                 [
                     [f_analytic00, f_analytic01, f_analytic02],
                     [
@@ -1320,10 +1350,10 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
 
     if rank == 0:
         assert reducemeanlocal < 10.0 * reducemeanglobal or reducemeanlocal < 10.0**-5
-        print(f"{reducemeanlocal =}")
-        print(f"{reducemaxlocal =}")
-        print(f"{reducemeanglobal =}")
-        print(f"{reducemaxglobal =}")
+        logger.info(f"{reducemeanlocal =}")
+        logger.info(f"{reducemaxlocal =}")
+        logger.info(f"{reducemeanglobal =}")
+        logger.info(f"{reducemaxglobal =}")
 
     if do_plot:
         if out_sp_key == "0" or out_sp_key == "3":
@@ -1346,15 +1376,18 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
         if rank == 0:
             plt.show()
 
-    print("BasisProjectionOperatorLocal test passed.")
+    logger.info("BasisProjectionOperatorLocal test passed.")
 
 
 # Works only in one processor
-def aux_test_spline_evaluation(Nel, plist, spl_kind):
+def aux_test_spline_evaluation(num_elements, plist, bcs):
     # get global communicator
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    derham = Derham(Nel, plist, spl_kind, comm=comm, local_projectors=True)
+
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=plist, bcs=bcs, local_projectors=True)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     # The first step to test our BasisProjectionOperatorLocal is to build the B and D spline functions in such a way that we can evaluate them in parallel.
     # We cannot us the fields of a derham space to do this since the evaluation of the splines in this way is a collective operation, and we want our functions
@@ -1362,13 +1395,13 @@ def aux_test_spline_evaluation(Nel, plist, spl_kind):
 
     # Building the B-splines
     # We will need the FEM spline space that contains D-splines in all three directions.
-    fem_space_B = derham.Vh_fem["0"]
+    fem_space_B = derham.V0fem
     # FE space of one forms. That means that we have B-splines in all three spatial directions.
     W = fem_space_B
     W1ds = [W.spaces]
 
     # We will need the FEM spline space that contains D-splines in all three directions.
-    fem_space_D = derham.Vh_fem["3"]
+    fem_space_D = derham.V3fem
 
     # FE space of three forms. That means that we have D-splines in all three spatial directions.
     V = fem_space_D
@@ -1415,14 +1448,14 @@ def aux_test_spline_evaluation(Nel, plist, spl_kind):
         return fun
 
     # FE coefficeints to get B-splines from field
-    inputB = derham.Vh["0"].zeros()
+    inputB = derham.V0.zeros()
     fieldB = derham.create_spline_function("fh", "H1")
-    npts_in_B = derham.Vh["0"].npts
+    npts_in_B = derham.V0.npts
 
     # FE coefficeints to get D-splines from field
-    inputD = derham.Vh["3"].zeros()
+    inputD = derham.V3.zeros()
     fieldD = derham.create_spline_function("fh", "L2")
-    npts_in_D = derham.Vh["3"].npts
+    npts_in_D = derham.V3.npts
 
     etas1 = xp.linspace(0.0, 1.0, 20)
     etas2 = xp.linspace(0.0, 1.0, 20)
@@ -1455,7 +1488,7 @@ def aux_test_spline_evaluation(Nel, plist, spl_kind):
                     maxerrorB = auxerror
                 inputB[col0, col1, col2] = 0.0
 
-    print(f"{maxerrorB =}")
+    logger.info(f"{maxerrorB =}")
     assert maxerrorB < 10.0**-13
 
     maxerrorD = 0.0
@@ -1483,24 +1516,13 @@ def aux_test_spline_evaluation(Nel, plist, spl_kind):
                     maxerrorD = auxerror
                 inputD[col0, col1, col2] = 0.0
 
-    print(f"{maxerrorD =}")
+    logger.info(f"{maxerrorD =}")
     assert maxerrorD < 10.0**-13
-    print("Test spline evaluation passed.")
+    logger.info("Test spline evaluation passed.")
 
 
 if __name__ == "__main__":
-    Nel = [14, 16, 18]
-    p = [5, 4, 3]
-    spl_kind = [True, False, False]
-
-    # test_spline_evaluation(Nel, p, spl_kind)
-    test_local_projectors_compare_global(Nel, p, spl_kind)
-    # test_local_projectors_convergence(2, 3, False, do_plot=False)
-    # test_replication_of_basis(Nel, p, spl_kind)
-    #'0', 'H1'
-    #'1', 'Hcurl'
-    #'2', 'Hdiv'
-    #'3', 'L2'
-    #'v', 'H1vec'
-    # test_basis_projection_operator_local(Nel, p , spl_kind, '1', '2')
-    # test_basis_projection_operator_local_new([40, 1, 1], [5, 1, 1] , [False, True, True], 'v', 'v', do_plot=True)
+    num_elements = [14, 16, 18]
+    degree = [5, 4, 3]
+    bcs = (None, ("free", "free"), ("free", "free"))
+    test_local_projectors_compare_global(num_elements, degree, bcs)

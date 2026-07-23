@@ -1,9 +1,12 @@
+import copy
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.feec.projectors import L2Projector
-from struphy.io.options import LiteralOptions
+from struphy.feec.mass import L2Projector
+from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, Scalars, VolumeFormEnergyFEEC
 from struphy.models.species import (
     DiagnosticSpecies,
     FieldSpecies,
@@ -11,48 +14,29 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable
 from struphy.polar.basic import PolarVector
-from struphy.propagators import (
-    propagators_fields,
-)
 from struphy.propagators.base import Propagator
+from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
+from struphy.propagators.variational_momentum_advection import VariationalMomentumAdvection
+from struphy.propagators.variational_qb_evolve import VariationalQBEvolve
+from struphy.propagators.variational_resistivity import VariationalResistivity
+from struphy.propagators.variational_viscosity import VariationalViscosity
 
 rank = MPI.COMM_WORLD.Get_rank()
 
 
 class ViscoResistiveMHD_with_q(StruphyModel):
-    r"""Full (non-linear) visco-resistive MHD equations, with the q variable (square root of the pressure) discretized with a variational method.
+    """Full (non-linear) visco-resistive MHD equations, with the q variable (square root of the pressure), discretized with a variational method.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat u =  \hat v_\textnormal{A}\,.
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        &\partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 \,,
-        \\[4mm]
-        &\partial_t (\rho \mathbf u) + \nabla \cdot (\rho \mathbf u \otimes \mathbf u) + \frac{2q}{\gamma -1} \nabla q + \mathbf B \times \nabla \times \mathbf B - \nabla \cdot \left((\mu+\mu_a(\mathbf x)) \nabla \mathbf u \right) = 0 \,,
-        \\[4mm]
-        &\partial_t q + \cdot(\nabla q \mathbf u) + (\gamma/2 -1) q \nabla \cdot u = \frac{2 q}{(\gamma -1)}\left((\mu+\mu_a(\mathbf x)) |\nabla \mathbf u|^2 + (\eta + \eta_a(\mathbf x)) |\nabla \times \mathbf B|^2\right) \,,
-        \\[4mm]
-        &\partial_t \mathbf B + \nabla \times ( \mathbf B \times \mathbf u ) + \nabla \times (\eta + \eta_a(\mathbf x)) \nabla \times \mathbf B = 0 \,,
-
-    and :math:`\mu_a(\mathbf x)` and :math:`\eta_a(\mathbf x)` are artificial viscosity and resistivity coefficients.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
-
-    1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
-    2. :class:`~struphy.propagators.propagators_fields.VariationalMomentumAdvection`
-    3. :class:`~struphy.propagators.propagators_fields.VariationalQBEvolve`
-    4. :class:`~struphy.propagators.propagators_fields.VariationalViscosity`
-    5. :class:`~struphy.propagators.propagators_fields.VariationalResistivity`
-
-    :ref:`Model info <add_model>`:
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    mass_number: float
+        Mass number (in units of Proton mass) of the fluid species (default: 1.0)
+    with_viscosity: bool
+        Whether to include viscous dissipation (default: True)
+    with_resistivity: bool
+        Whether to include resistive dissipation (default: True)
     """
 
     @classmethod
@@ -67,11 +51,11 @@ class ViscoResistiveMHD_with_q(StruphyModel):
             self.init_variables()
 
     class MHD(FluidSpecies):
-        def __init__(self):
+        def __init__(self, mass_number: float = 1.0):
             self.density = FEECVariable(space="L2")
             self.velocity = FEECVariable(space="H1vec")
             self.sqrt_p = FEECVariable(space="L2")
-            self.init_variables()
+            self.init_variables(mass_number=mass_number)
 
     class Diagnostics(DiagnosticSpecies):
         def __init__(self):
@@ -84,37 +68,47 @@ class ViscoResistiveMHD_with_q(StruphyModel):
     class Propagators:
         def __init__(
             self,
+            rho: FEECVariable = None,
             with_viscosity: bool = True,
             with_resistivity: bool = True,
         ):
-            self.variat_dens = propagators_fields.VariationalDensityEvolve()
-            self.variat_mom = propagators_fields.VariationalMomentumAdvection()
-            self.variat_qb = propagators_fields.VariationalQBEvolve()
+            self.variat_dens = VariationalDensityEvolve()
+            self.variat_mom = VariationalMomentumAdvection()
+            self.variat_qb = VariationalQBEvolve()
             if with_viscosity:
-                self.variat_viscous = propagators_fields.VariationalViscosity()
+                self.variat_viscous = VariationalViscosity(rho=rho)
             if with_resistivity:
-                self.variat_resist = propagators_fields.VariationalResistivity()
+                self.variat_resist = VariationalResistivity(rho=rho)
 
     ## abstract methods
 
     def __init__(
         self,
+        base_units: BaseUnits = BaseUnits(),
+        mass_number: float = 1.0,
         with_viscosity: bool = True,
         with_resistivity: bool = True,
     ):
 
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
+
         # 1. instantiate all species
         self.em_fields = self.EMFields()
-        self.mhd = self.MHD()
+        self.mhd = self.MHD(mass_number=mass_number)
         self.diagnostics = self.Diagnostics()
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators(
+            rho=self.mhd.density,
             with_viscosity=with_viscosity,
             with_resistivity=with_resistivity,
         )
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.variat_dens.variables.rho = self.mhd.density
         self.propagators.variat_dens.variables.u = self.mhd.velocity
         self.propagators.variat_mom.variables.u = self.mhd.velocity
@@ -128,13 +122,20 @@ class ViscoResistiveMHD_with_q(StruphyModel):
             self.propagators.variat_resist.variables.s = self.mhd.sqrt_p
             self.propagators.variat_resist.variables.b = self.em_fields.b_field
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_U")
-        self.add_scalar("en_thermo")
-        self.add_scalar("en_mag")
-        self.add_scalar("en_tot")
-        self.add_scalar("dens_tot")
-        self.add_scalar("tot_div_B")
+        # 5. define scalars to be tracked during simulation
+        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="WMMnew")
+        thermo_energy = FunctionScalarFEEC(self._compute_en_thermo)
+        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
+        density_total = VolumeFormEnergyFEEC(self.mhd.density)
+        div_b_total = FunctionScalarFEEC(self._compute_tot_div_B)
+        self.scalars = Scalars(
+            en_U=kinetic_energy,
+            en_thermo=thermo_energy,
+            en_mag=magnetic_energy,
+            en_tot=kinetic_energy + thermo_energy + magnetic_energy,
+            dens_tot=density_total,
+            tot_div_B=div_b_total,
+        )
 
     @property
     def bulk_species(self):
@@ -144,7 +145,7 @@ class ViscoResistiveMHD_with_q(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         projV3 = L2Projector("L2", Propagator.mass_ops)
 
         def f(e1, e2, e3):
@@ -153,40 +154,23 @@ class ViscoResistiveMHD_with_q(StruphyModel):
         f = xp.vectorize(f)
         self._integrator = projV3(f)
 
-        self._ones = Propagator.derham.Vh_pol["3"].zeros()
+        self._ones = Propagator.derham.V3pol.zeros()
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.0
         else:
             self._ones[:] = 1.0
 
-        self._tmp_div_B = Propagator.derham.Vh_pol["3"].zeros()
+        self._tmp_div_B = Propagator.derham.V3pol.zeros()
 
-    def update_scalar_quantities(self):
-        rho = self.mhd.density.spline.vector
-        u = self.mhd.velocity.spline.vector
+    def _compute_en_thermo(self):
         q = self.mhd.sqrt_p.spline.vector
-        b = self.em_fields.b_field.spline.vector
-
         gamma = self.propagators.variat_qb.options.gamma
+        return 1.0 / (gamma - 1.0) * Propagator.mass_ops.M3.dot_inner(q, q)
 
-        en_U = 0.5 * Propagator.mass_ops.WMM.massop.dot_inner(u, u)
-        self.update_scalar("en_U", en_U)
-
-        en_mag = 0.5 * Propagator.mass_ops.M2.dot_inner(b, b)
-        self.update_scalar("en_mag", en_mag)
-
-        en_thermo = 1.0 / (gamma - 1.0) * Propagator.mass_ops.M3.dot_inner(q, q)
-        self.update_scalar("en_thermo", en_thermo)
-
-        en_tot = en_U + en_thermo + en_mag
-        self.update_scalar("en_tot", en_tot)
-
-        dens_tot = self._ones.inner(rho)
-        self.update_scalar("dens_tot", dens_tot)
-
+    def _compute_tot_div_B(self):
+        b = self.em_fields.b_field.spline.vector
         div_B = Propagator.derham.div.dot(b, out=self._tmp_div_B)
-        L2_div_B = Propagator.mass_ops.M3.dot_inner(div_B, div_B)
-        self.update_scalar("tot_div_B", L2_div_B)
+        return Propagator.mass_ops.M3.dot_inner(div_B, div_B)
 
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
@@ -199,22 +183,14 @@ class ViscoResistiveMHD_with_q(StruphyModel):
                         "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='full_q')\n",
                     ]
                 elif "variat_qb.Options" in line:
-                    new_file += [
-                        "model.propagators.variat_qb.options = model.propagators.variat_qb.Options(model='full_q')\n",
-                    ]
+                    pass
                 elif "variat_viscous.Options" in line:
                     new_file += [
-                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='full_q',\n",
-                    ]
-                    new_file += [
-                        "                                                                                    rho=model.mhd.density)\n",
+                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='full_q')\n",
                     ]
                 elif "variat_resist.Options" in line:
                     new_file += [
-                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='full_q',\n",
-                    ]
-                    new_file += [
-                        "                                                                                  rho=model.mhd.density)\n",
+                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='full_q')\n",
                     ]
                 elif "sqrt_p.add_background" in line:
                     new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
@@ -225,3 +201,123 @@ class ViscoResistiveMHD_with_q(StruphyModel):
         with open(params_path, "w") as f:
             for line in new_file:
                 f.write(line)
+
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        Continuity:
+
+        .. math::
+
+            \partial_t \rho + \nabla \cdot (\rho \mathbf{u}) = 0
+
+        Momentum:
+
+        .. math::
+
+            \partial_t (\rho \mathbf{u}) + \nabla \cdot (\rho \mathbf{u} \otimes \mathbf{u}) + \frac{2 q}{\gamma - 1} \nabla q + \mathbf{B} \times \nabla \times \mathbf{B} - \nabla \cdot \left( (\mu + \mu_a(\mathbf{x})) \nabla \mathbf{u} \right) = 0
+
+        Energy-like variable:
+
+        .. math::
+
+            \partial_t q + \nabla \cdot (q \mathbf{u}) + \left( \frac{\gamma}{2} - 1 \right) q \nabla \cdot \mathbf{u} = \frac{2 q}{\gamma - 1} \left( (\mu + \mu_a(\mathbf{x})) |\nabla \mathbf{u}|^2 + (\eta + \eta_a(\mathbf{x})) |\nabla \times \mathbf{B}|^2 \right)
+
+        Induction:
+
+        .. math::
+
+            \partial_t \mathbf{B} + \nabla \times (\mathbf{B} \times \mathbf{u}) + \nabla \times (\eta + \eta_a(\mathbf{x})) \nabla \times \mathbf{B} = 0
+
+        Here :math:`\mu_a(\mathbf{x})` and :math:`\eta_a(\mathbf{x})` are artificial viscosity and resistivity coefficients.
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The flow variables are normalized with the Alfvén speed:
+
+        .. math::
+
+            \hat u = \hat v_A.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Kinetic energy: ``en_U``
+        - Thermodynamic q-energy: ``en_thermo``
+        - Magnetic energy: ``en_mag``
+        - Total energy: ``en_tot``
+        - Total density: ``dens_tot``
+        - Divergence diagnostic: ``tot_div_B``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence):
+
+        1. :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`
+        2. :class:`~struphy.propagators.variational_momentum_advection.VariationalMomentumAdvection`
+        3. :class:`~struphy.propagators.variational_qb_evolve.VariationalQBEvolve`
+        4. :class:`~struphy.propagators.variational_viscosity.VariationalViscosity` (if :attr:`with_viscosity` is True)
+        5. :class:`~struphy.propagators.variational_resistivity.VariationalResistivity` (if :attr:`with_resistivity` is True)
+        """
+        doc = rf"""**1. VariationalDensityEvolve:**
+
+{VariationalDensityEvolve.__doc__}
+
+**2. VariationalMomentumAdvection:**
+
+{VariationalMomentumAdvection.__doc__}
+
+**3. VariationalQBEvolve:**
+
+{VariationalQBEvolve.__doc__}
+
+**4. VariationalViscosity:**
+
+{VariationalViscosity.__doc__}
+
+**5. VariationalResistivity:**
+
+{VariationalResistivity.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""This model is the full nonlinear q-based dissipative MHD formulation.
+        It is useful when the square-root pressure variable is preferred in the
+        variational discretization while still retaining full nonlinear magnetic
+        dynamics."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the q-based visco-resistive MHD model:
+
+        .. code-block:: python
+
+            from struphy.models import ViscoResistiveMHD_with_q
+
+            model = ViscoResistiveMHD_with_q()
+            model.mhd.sqrt_p
+            model.em_fields.b_field
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - full nonlinear dissipative MHD in q-form
+        - comparison against the p- and entropy-based full models
+        - variational MHD studies where q is numerically advantageous"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - ideal dissipation-free MHD
+        - kinetic or hybrid particle physics
+        - reduced linear perturbation problems
+        - pressure or entropy primitive-variable studies"""

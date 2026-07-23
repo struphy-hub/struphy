@@ -1,4 +1,55 @@
+import copy
+import logging
+import pickle
+
 import pytest
+
+logger = logging.getLogger("struphy")
+
+
+@pytest.mark.parametrize("mapping", ["Cuboid", "IGAPolarCylinder"])
+def test_domain_deepcopy(mapping):
+    """Deepcopy of a domain should preserve behavior and rebuild runtime kernel arguments."""
+
+    import cunumpy as xp
+
+    from struphy import domains
+
+    domain = getattr(domains, mapping)()
+    domain_copy = copy.deepcopy(domain)
+
+    assert domain_copy is not domain
+    assert domain_copy.__class__ is domain.__class__
+    assert domain_copy.args_domain is not domain.args_domain
+
+    # Kernel input arrays are expected to be independent between original and copy.
+    assert domain_copy.args_domain.params is not domain.args_domain.params
+    assert domain_copy.args_domain.degree is not domain.args_domain.degree
+
+    markers = xp.array([[0.2, 0.4, 0.6]])
+    assert xp.allclose(domain(markers), domain_copy(markers))
+    assert xp.allclose(domain.jacobian(markers), domain_copy.jacobian(markers))
+
+
+@pytest.mark.parametrize("mapping", ["Cuboid", "IGAPolarCylinder"])
+def test_domain_pickle_roundtrip(mapping):
+    """Pickle round-trip of a domain should rebuild runtime kernel arguments."""
+
+    import cunumpy as xp
+
+    from struphy import domains
+
+    domain = getattr(domains, mapping)()
+    restored = pickle.loads(pickle.dumps(domain, protocol=pickle.HIGHEST_PROTOCOL))
+
+    assert restored is not domain
+    assert restored.__class__ is domain.__class__
+    assert restored.args_domain is not None
+    assert restored.args_domain.kind_map == domain.args_domain.kind_map
+
+    markers = xp.array([[0.3, 0.5, 0.7]])
+    assert xp.allclose(domain(markers), restored(markers))
+    assert xp.allclose(domain.jacobian_det(markers), restored.jacobian_det(markers))
 
 
 def test_prepare_arg():
@@ -175,28 +226,28 @@ def test_evaluation_mappings(mapping):
     arr2 = xp.linspace(0.0, 1.0, 5)
     arr3 = xp.linspace(0.0, 1.0, 6)
     arrm = xp.random.rand(10, 8)
-    print()
-    print('Testing "evaluate"...')
-    print("array shapes:", arr1.shape, arr2.shape, arr3.shape, arrm.shape)
+    logger.info("")
+    logger.info('Testing "evaluate"...')
+    logger.info(f"array shapes: {arr1.shape} {arr2.shape} {arr3.shape} {arrm.shape}")
 
     domain_class = getattr(domains, mapping)
     domain = domain_class()
-    print()
-    print("Domain object set.")
+    logger.info("")
+    logger.info("Domain object set.")
 
     assert isinstance(domain, Domain)
-    print("domain's kind_map   :", domain.kind_map)
-    print("domain's params :", domain.params)
+    logger.info(f"domain's kind_map   : {domain.kind_map}")
+    logger.info(f"domain's params : {domain.params}")
 
     # Test to-from-dict:
     domain_dict = domain.to_dict()
-    print("\ndomain_dict:")
+    logger.info("\ndomain_dict:")
     for k, v in domain_dict.items():
-        print(f"{k} = {v}")
+        logger.info(f"{k} = {v}")
     domain_from_dict = domain.__class__.from_dict(domain_dict)
 
     # point-wise evaluation:
-    print("pointwise evaluation, shape:", domain(0.5, 0.5, 0.5, squeeze_out=True).shape)
+    logger.info(f"pointwise evaluation, shape: {domain(0.5, 0.5, 0.5, squeeze_out=True).shape}")
     assert domain(0.5, 0.5, 0.5, squeeze_out=True).shape == (3,)
     assert domain.jacobian(0.5, 0.5, 0.5, squeeze_out=True).shape == (3, 3)
     assert isinstance(domain.jacobian_det(0.5, 0.5, 0.5, squeeze_out=True), float)
@@ -205,7 +256,7 @@ def test_evaluation_mappings(mapping):
     assert domain.metric_inv(0.5, 0.5, 0.5, squeeze_out=True).shape == (3, 3)
 
     # markers evaluation:
-    print("markers evaluation, shape:", domain(arrm).shape)
+    logger.info(f"markers evaluation, shape: {domain(arrm).shape}")
     assert domain(arrm).shape == (3, arrm.shape[0])
     assert domain.jacobian(arrm).shape == (3, 3, arrm.shape[0])
     assert domain.jacobian_det(arrm).shape == (arrm.shape[0],)
@@ -214,7 +265,7 @@ def test_evaluation_mappings(mapping):
     assert domain.metric_inv(arrm).shape == (3, 3, arrm.shape[0])
 
     # eta1-array evaluation:
-    print("eta1 array evaluation, shape:", domain(arr1, 0.5, 0.5, squeeze_out=True).shape)
+    logger.info(f"eta1 array evaluation, shape: {domain(arr1, 0.5, 0.5, squeeze_out=True).shape}")
     assert domain(arr1, 0.5, 0.5, squeeze_out=True).shape == (3,) + arr1.shape
     assert domain.jacobian(arr1, 0.5, 0.5, squeeze_out=True).shape == (3, 3) + arr1.shape
     assert domain.jacobian_inv(arr1, 0.5, 0.5, squeeze_out=True).shape == (3, 3) + arr1.shape
@@ -223,7 +274,7 @@ def test_evaluation_mappings(mapping):
     assert domain.metric_inv(arr1, 0.5, 0.5, squeeze_out=True).shape == (3, 3) + arr1.shape
 
     # eta2-array evaluation:
-    print("eta2 array evaluation, shape:", domain(0.5, arr2, 0.5, squeeze_out=True).shape)
+    logger.info(f"eta2 array evaluation, shape: {domain(0.5, arr2, 0.5, squeeze_out=True).shape}")
     assert domain(0.5, arr2, 0.5, squeeze_out=True).shape == (3,) + arr2.shape
     assert domain.jacobian(0.5, arr2, 0.5, squeeze_out=True).shape == (3, 3) + arr2.shape
     assert domain.jacobian_inv(0.5, arr2, 0.5, squeeze_out=True).shape == (3, 3) + arr2.shape
@@ -232,7 +283,7 @@ def test_evaluation_mappings(mapping):
     assert domain.metric_inv(0.5, arr2, 0.5, squeeze_out=True).shape == (3, 3) + arr2.shape
 
     # eta3-array evaluation:
-    print("eta3 array evaluation, shape:", domain(0.5, 0.5, arr3).shape)
+    logger.info(f"eta3 array evaluation, shape: {domain(0.5, 0.5, arr3).shape}")
     assert domain(0.5, 0.5, arr3, squeeze_out=True).shape == (3,) + arr3.shape
     assert domain.jacobian(0.5, 0.5, arr3, squeeze_out=True).shape == (3, 3) + arr3.shape
     assert domain.jacobian_inv(0.5, 0.5, arr3, squeeze_out=True).shape == (3, 3) + arr3.shape
@@ -241,7 +292,7 @@ def test_evaluation_mappings(mapping):
     assert domain.metric_inv(0.5, 0.5, arr3, squeeze_out=True).shape == (3, 3) + arr3.shape
 
     # eta1-eta2-array evaluation:
-    print("eta1-eta2 array evaluation, shape:", domain(arr1, arr2, 0.5, squeeze_out=True))
+    logger.info(f"eta1-eta2 array evaluation, shape: {domain(arr1, arr2, 0.5, squeeze_out=True)}")
     assert domain(arr1, arr2, 0.5, squeeze_out=True).shape == (3,) + arr1.shape + arr2.shape
     assert domain.jacobian(arr1, arr2, 0.5, squeeze_out=True).shape == (3, 3) + arr1.shape + arr2.shape
     assert domain.jacobian_inv(arr1, arr2, 0.5, squeeze_out=True).shape == (3, 3) + arr1.shape + arr2.shape
@@ -250,7 +301,7 @@ def test_evaluation_mappings(mapping):
     assert domain.metric_inv(arr1, arr2, 0.5, squeeze_out=True).shape == (3, 3) + arr1.shape + arr2.shape
 
     # eta1-eta3-array evaluation:
-    print("eta1-eta3 array evaluation, shape:", domain(arr1, 0.5, arr3, squeeze_out=True))
+    logger.info(f"eta1-eta3 array evaluation, shape: {domain(arr1, 0.5, arr3, squeeze_out=True)}")
     assert domain(arr1, 0.5, arr3, squeeze_out=True).shape == (3,) + arr1.shape + arr3.shape
     assert domain.jacobian(arr1, 0.5, arr3, squeeze_out=True).shape == (3, 3) + arr1.shape + arr3.shape
     assert domain.jacobian_inv(arr1, 0.5, arr3, squeeze_out=True).shape == (3, 3) + arr1.shape + arr3.shape
@@ -259,7 +310,7 @@ def test_evaluation_mappings(mapping):
     assert domain.metric_inv(arr1, 0.5, arr3, squeeze_out=True).shape == (3, 3) + arr1.shape + arr3.shape
 
     # eta2-eta3-array evaluation:
-    print("eta2-eta3 array evaluation, shape:", domain(0.5, arr2, arr3, squeeze_out=True))
+    logger.info(f"eta2-eta3 array evaluation, shape: {domain(0.5, arr2, arr3, squeeze_out=True)}")
     assert domain(0.5, arr2, arr3, squeeze_out=True).shape == (3,) + arr2.shape + arr3.shape
     assert domain.jacobian(0.5, arr2, arr3, squeeze_out=True).shape == (3, 3) + arr2.shape + arr3.shape
     assert domain.jacobian_inv(0.5, arr2, arr3, squeeze_out=True).shape == (3, 3) + arr2.shape + arr3.shape
@@ -268,7 +319,7 @@ def test_evaluation_mappings(mapping):
     assert domain.metric_inv(0.5, arr2, arr3, squeeze_out=True).shape == (3, 3) + arr2.shape + arr3.shape
 
     # eta1-eta2-eta3 array evaluation:
-    print("eta1-eta2-eta3-array evaluation, shape:", domain(arr1, arr2, arr3))
+    logger.info(f"eta1-eta2-eta3-array evaluation, shape: {domain(arr1, arr2, arr3)}")
     assert domain(arr1, arr2, arr3).shape == (3,) + arr1.shape + arr2.shape + arr3.shape
     assert domain.jacobian(arr1, arr2, arr3).shape == (3, 3) + arr1.shape + arr2.shape + arr3.shape
     assert domain.jacobian_inv(arr1, arr2, arr3).shape == (3, 3) + arr1.shape + arr2.shape + arr3.shape
@@ -282,7 +333,7 @@ def test_evaluation_mappings(mapping):
     mat23_y, mat23_z = xp.meshgrid(arr2, arr3, indexing="ij")
 
     # eta1-eta2 matrix evaluation:
-    print("eta1-eta2 matrix evaluation, shape:", domain(mat12_x, mat12_y, 0.5, squeeze_out=True).shape)
+    logger.info(f"eta1-eta2 matrix evaluation, shape: {domain(mat12_x, mat12_y, 0.5, squeeze_out=True).shape}")
     assert domain(mat12_x, mat12_y, 0.5, squeeze_out=True).shape == (3,) + mat12_x.shape
     assert domain.jacobian(mat12_x, mat12_y, 0.5, squeeze_out=True).shape == (3, 3) + mat12_x.shape
     assert domain.jacobian_inv(mat12_x, mat12_y, 0.5, squeeze_out=True).shape == (3, 3) + mat12_x.shape
@@ -291,7 +342,7 @@ def test_evaluation_mappings(mapping):
     assert domain.metric_inv(mat12_x, mat12_y, 0.5, squeeze_out=True).shape == (3, 3) + mat12_x.shape
 
     # eta1-eta3 matrix evaluation:
-    print("eta1-eta3 matrix evaluation, shape:", domain(mat13_x, 0.5, mat13_z, squeeze_out=True).shape)
+    logger.info(f"eta1-eta3 matrix evaluation, shape: {domain(mat13_x, 0.5, mat13_z, squeeze_out=True).shape}")
     assert domain(mat13_x, 0.5, mat13_z, squeeze_out=True).shape == (3,) + mat13_x.shape
     assert domain.jacobian(mat13_x, 0.5, mat13_z, squeeze_out=True).shape == (3, 3) + mat13_x.shape
     assert domain.jacobian_inv(mat13_x, 0.5, mat13_z, squeeze_out=True).shape == (3, 3) + mat13_x.shape
@@ -300,7 +351,7 @@ def test_evaluation_mappings(mapping):
     assert domain.metric_inv(mat13_x, 0.5, mat13_z, squeeze_out=True).shape == (3, 3) + mat13_x.shape
 
     # eta2-eta3 matrix evaluation:
-    print("eta2-eta3 matrix evaluation, shape:", domain(0.5, mat23_y, mat23_z, squeeze_out=True).shape)
+    logger.info(f"eta2-eta3 matrix evaluation, shape: {domain(0.5, mat23_y, mat23_z, squeeze_out=True).shape}")
     assert domain(0.5, mat23_y, mat23_z, squeeze_out=True).shape == (3,) + mat23_y.shape
     assert domain.jacobian(0.5, mat23_y, mat23_z, squeeze_out=True).shape == (3, 3) + mat23_y.shape
     assert domain.jacobian_inv(0.5, mat23_y, mat23_z, squeeze_out=True).shape == (3, 3) + mat23_y.shape
@@ -310,7 +361,7 @@ def test_evaluation_mappings(mapping):
 
     # matrix evaluations for sparse meshgrid
     mat_x, mat_y, mat_z = xp.meshgrid(arr1, arr2, arr3, indexing="ij", sparse=True)
-    print("sparse meshgrid matrix evaluation, shape:", domain(mat_x, mat_y, mat_z).shape)
+    logger.info(f"sparse meshgrid matrix evaluation, shape: {domain(mat_x, mat_y, mat_z).shape}")
     assert domain(mat_x, mat_y, mat_z).shape == (3,) + (mat_x.shape[0], mat_y.shape[1], mat_z.shape[2])
     assert domain.jacobian(mat_x, mat_y, mat_z).shape == (3, 3) + (mat_x.shape[0], mat_y.shape[1], mat_z.shape[2])
     assert domain.jacobian_inv(mat_x, mat_y, mat_z).shape == (3, 3) + (mat_x.shape[0], mat_y.shape[1], mat_z.shape[2])
@@ -320,7 +371,7 @@ def test_evaluation_mappings(mapping):
 
     # matrix evaluations
     mat_x, mat_y, mat_z = xp.meshgrid(arr1, arr2, arr3, indexing="ij")
-    print("matrix evaluation, shape:", domain(mat_x, mat_y, mat_z).shape)
+    logger.info(f"matrix evaluation, shape: {domain(mat_x, mat_y, mat_z).shape}")
     assert domain(mat_x, mat_y, mat_z).shape == (3,) + mat_x.shape
     assert domain.jacobian(mat_x, mat_y, mat_z).shape == (3, 3) + mat_x.shape
     assert domain.jacobian_inv(mat_x, mat_y, mat_z).shape == (3, 3) + mat_x.shape
@@ -341,9 +392,9 @@ def test_pullback():
     arr1 = xp.linspace(0.0, 1.0, 4)
     arr2 = xp.linspace(0.0, 1.0, 5)
     arr3 = xp.linspace(0.0, 1.0, 6)
-    print()
-    print('Testing "pull"...')
-    print("array shapes:", arr1.shape, arr2.shape, arr3.shape)
+    logger.info("")
+    logger.info('Testing "pull"...')
+    logger.info(f"array shapes: {arr1.shape} {arr2.shape} {arr3.shape}")
 
     markers = xp.random.rand(13, 6)
 
@@ -353,15 +404,15 @@ def test_pullback():
 
     domain_class = getattr(domains, "Colella")
     domain = domain_class()
-    print()
-    print("Domain object set.")
+    logger.info("")
+    logger.info("Domain object set.")
 
     assert isinstance(domain, Domain)
-    print("domain's kind_map   :", domain.kind_map)
-    print("domain's params :", domain.params)
+    logger.info(f"domain's kind_map   : {domain.kind_map}")
+    logger.info(f"domain's params : {domain.params}")
 
     for p_str in domain.dict_transformations["pull"]:
-        print("component:", p_str)
+        logger.info(f"component: {p_str}")
 
         if p_str == "0" or p_str == "3":
             fun_form = fun
@@ -381,21 +432,21 @@ def test_pullback():
             assert domain.pull(fun_form, markers, kind=p_str, squeeze_out=True).shape == (3, markers.shape[0])
 
         # eta1-array pullback:
-        # print('eta1 array pullback, shape:', domain.pull(fun_form, arr1, .5, .5, p_str).shape)
+        # logger.info('eta1 array pullback, shape:', domain.pull(fun_form, arr1, .5, .5, p_str).shape)
         if p_str == "0" or p_str == "3":
             assert domain.pull(fun_form, arr1, 0.5, 0.5, kind=p_str, squeeze_out=True).shape == arr1.shape
         else:
             assert domain.pull(fun_form, arr1, 0.5, 0.5, kind=p_str, squeeze_out=True).shape == (3,) + arr1.shape
 
         # eta2-array pullback:
-        # print('eta2 array pullback, shape:', domain.pull(fun_form, .5, arr2, .5, p_str).shape)
+        # logger.info('eta2 array pullback, shape:', domain.pull(fun_form, .5, arr2, .5, p_str).shape)
         if p_str == "0" or p_str == "3":
             assert domain.pull(fun_form, 0.5, arr2, 0.5, kind=p_str, squeeze_out=True).shape == arr2.shape
         else:
             assert domain.pull(fun_form, 0.5, arr2, 0.5, kind=p_str, squeeze_out=True).shape == (3,) + arr2.shape
 
         # eta3-array pullback:
-        # print('eta3 array pullback, shape:', domain.pull(fun_form, .5, .5, arr3, p_str).shape)
+        # logger.info('eta3 array pullback, shape:', domain.pull(fun_form, .5, .5, arr3, p_str).shape)
         if p_str == "0" or p_str == "3":
             assert domain.pull(fun_form, 0.5, 0.5, arr3, kind=p_str, squeeze_out=True).shape == arr3.shape
         else:
@@ -501,9 +552,9 @@ def test_pushforward():
     arr1 = xp.linspace(0.0, 1.0, 4)
     arr2 = xp.linspace(0.0, 1.0, 5)
     arr3 = xp.linspace(0.0, 1.0, 6)
-    print()
-    print('Testing "push"...')
-    print("array shapes:", arr1.shape, arr2.shape, arr3.shape)
+    logger.info("")
+    logger.info('Testing "push"...')
+    logger.info(f"array shapes: {arr1.shape} {arr2.shape} {arr3.shape}")
 
     markers = xp.random.rand(13, 6)
 
@@ -513,15 +564,15 @@ def test_pushforward():
 
     domain_class = getattr(domains, "Colella")
     domain = domain_class()
-    print()
-    print("Domain object set.")
+    logger.info("")
+    logger.info("Domain object set.")
 
     assert isinstance(domain, Domain)
-    print("domain's kind_map   :", domain.kind_map)
-    print("domain's params :", domain.params)
+    logger.info(f"domain's kind_map   : {domain.kind_map}")
+    logger.info(f"domain's params : {domain.params}")
 
     for p_str in domain.dict_transformations["push"]:
-        print("component:", p_str)
+        logger.info(f"component: {p_str}")
 
         if p_str == "0" or p_str == "3":
             fun_form = fun
@@ -541,21 +592,21 @@ def test_pushforward():
             assert domain.push(fun_form, markers, kind=p_str).shape == (3, markers.shape[0])
 
         # eta1-array push:
-        # print('eta1 array push, shape:', domain.push(fun_form, arr1, .5, .5, p_str).shape)
+        # logger.info('eta1 array push, shape:', domain.push(fun_form, arr1, .5, .5, p_str).shape)
         if p_str == "0" or p_str == "3":
             assert domain.push(fun_form, arr1, 0.5, 0.5, kind=p_str, squeeze_out=True).shape == arr1.shape
         else:
             assert domain.push(fun_form, arr1, 0.5, 0.5, kind=p_str, squeeze_out=True).shape == (3,) + arr1.shape
 
         # eta2-array push:
-        # print('eta2 array push, shape:', domain.push(fun_form, .5, arr2, .5, p_str).shape)
+        # logger.info('eta2 array push, shape:', domain.push(fun_form, .5, arr2, .5, p_str).shape)
         if p_str == "0" or p_str == "3":
             assert domain.push(fun_form, 0.5, arr2, 0.5, kind=p_str, squeeze_out=True).shape == arr2.shape
         else:
             assert domain.push(fun_form, 0.5, arr2, 0.5, kind=p_str, squeeze_out=True).shape == (3,) + arr2.shape
 
         # eta3-array push:
-        # print('eta3 array push, shape:', domain.push(fun_form, .5, .5, arr3, p_str).shape)
+        # logger.info('eta3 array push, shape:', domain.push(fun_form, .5, .5, arr3, p_str).shape)
         if p_str == "0" or p_str == "3":
             assert domain.push(fun_form, 0.5, 0.5, arr3, kind=p_str, squeeze_out=True).shape == arr3.shape
         else:
@@ -661,9 +712,9 @@ def test_transform():
     arr1 = xp.linspace(0.0, 1.0, 4)
     arr2 = xp.linspace(0.0, 1.0, 5)
     arr3 = xp.linspace(0.0, 1.0, 6)
-    print()
-    print('Testing "transform"...')
-    print("array shapes:", arr1.shape, arr2.shape, arr3.shape)
+    logger.info("")
+    logger.info('Testing "transform"...')
+    logger.info(f"array shapes: {arr1.shape} {arr2.shape} {arr3.shape}")
 
     markers = xp.random.rand(13, 6)
 
@@ -673,15 +724,15 @@ def test_transform():
 
     domain_class = getattr(domains, "Colella")
     domain = domain_class()
-    print()
-    print("Domain object set.")
+    logger.info("")
+    logger.info("Domain object set.")
 
     assert isinstance(domain, Domain)
-    print("domain's kind_map   :", domain.kind_map)
-    print("domain's params :", domain.params)
+    logger.info(f"domain's kind_map   : {domain.kind_map}")
+    logger.info(f"domain's params : {domain.params}")
 
     for p_str in domain.dict_transformations["tran"]:
-        print("component:", p_str)
+        logger.info(f"component: {p_str}")
 
         if p_str == "0_to_3" or p_str == "3_to_0":
             fun_form = fun
@@ -701,21 +752,21 @@ def test_transform():
             assert domain.transform(fun_form, markers, kind=p_str).shape == (3, markers.shape[0])
 
         # eta1-array transform:
-        # print('eta1 array transform, shape:', domain.transform(fun_form, arr1, .5, .5, p_str).shape)
+        # logger.info('eta1 array transform, shape:', domain.transform(fun_form, arr1, .5, .5, p_str).shape)
         if p_str == "0_to_3" or p_str == "3_to_0":
             assert domain.transform(fun_form, arr1, 0.5, 0.5, kind=p_str, squeeze_out=True).shape == arr1.shape
         else:
             assert domain.transform(fun_form, arr1, 0.5, 0.5, kind=p_str, squeeze_out=True).shape == (3,) + arr1.shape
 
         # eta2-array transform:
-        # print('eta2 array transform, shape:', domain.transform(fun_form, .5, arr2, .5, p_str).shape)
+        # logger.info('eta2 array transform, shape:', domain.transform(fun_form, .5, arr2, .5, p_str).shape)
         if p_str == "0_to_3" or p_str == "3_to_0":
             assert domain.transform(fun_form, 0.5, arr2, 0.5, kind=p_str, squeeze_out=True).shape == arr2.shape
         else:
             assert domain.transform(fun_form, 0.5, arr2, 0.5, kind=p_str, squeeze_out=True).shape == (3,) + arr2.shape
 
         # eta3-array transform:
-        # print('eta3 array transform, shape:', domain.transform(fun_form, .5, .5, arr3, p_str).shape)
+        # logger.info('eta3 array transform, shape:', domain.transform(fun_form, .5, .5, arr3, p_str).shape)
         if p_str == "0_to_3" or p_str == "3_to_0":
             assert domain.transform(fun_form, 0.5, 0.5, arr3, kind=p_str, squeeze_out=True).shape == arr3.shape
         else:
@@ -841,24 +892,24 @@ def test_transform():
 #    arr1 = xp.linspace(0., 1., 4)
 #    arr2 = xp.linspace(0., 1., 5)
 #    arr3 = xp.linspace(0., 1., 6)
-#    print()
-#    print('Testing "transform"...')
-#    print('array shapes:', arr1.shape, arr2.shape, arr3.shape)
+#    logger.info("")
+#    logger.info('Testing "transform"...')
+#    logger.info('array shapes:', arr1.shape, arr2.shape, arr3.shape)
 #
 #    # logical function to tranform (used as components of forms too):
 #    fun = lambda eta1, eta2, eta3: xp.exp(eta1)*xp.sin(eta2)*xp.cos(eta3)
 #
 #    domain_class = getattr(domains, 'Colella')
 #    domain = domain_class()
-#    print()
-#    print('Domain object set.')
+#    logger.info("")
+#    logger.info('Domain object set.')
 #
-#    print('domain\'s kind_map   :', domain.kind_map)
-#    print('domain\'s params :', domain.params)
+#    logger.info('domain\'s kind_map   :', domain.kind_map)
+#    logger.info('domain\'s params :', domain.params)
 #
 #    for p_str in domain.keys_transform:
 #
-#        print('component:', p_str)
+#        logger.info('component:', p_str)
 #
 #        if p_str == '0_to_3' or p_str == '3_to_0':
 #            fun_form = fun
@@ -867,7 +918,7 @@ def test_transform():
 #
 #        # point-wise transformation:
 #        assert isinstance(domain.transform(fun_form, .5, .5, .5, p_str), float)
-#        #print('pointwise transformation, size:', domain.transform(fun_form, .5, .5, .5, p_str).size)
+#        #logger.info('pointwise transformation, size:', domain.transform(fun_form, .5, .5, .5, p_str).size)
 #
 #        # flat transformation:
 #        #assert domain.transform(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
@@ -875,31 +926,31 @@ def test_transform():
 #        #assert domain.transform(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
 #
 #        # eta1-array transformation:
-#        #print('eta1 array transformation, shape:', domain.transform(fun_form, arr1, .5, .5, p_str).shape)
+#        #logger.info('eta1 array transformation, shape:', domain.transform(fun_form, arr1, .5, .5, p_str).shape)
 #        assert domain.transform(fun_form, arr1, .5, .5, p_str).shape == arr1.shape
 #        # eta2-array transformation:
-#        #print('eta2 array transformation, shape:', domain.transform(fun_form, .5, arr2, .5, p_str).shape)
+#        #logger.info('eta2 array transformation, shape:', domain.transform(fun_form, .5, arr2, .5, p_str).shape)
 #        assert domain.transform(fun_form, .5, arr2, .5, p_str).shape == arr2.shape
 #        # eta3-array transformation:
-#        #print('eta3 array transformation, shape:', domain.transform(fun_form, .5, .5, arr3, p_str).shape)
+#        #logger.info('eta3 array transformation, shape:', domain.transform(fun_form, .5, .5, arr3, p_str).shape)
 #        assert domain.transform(fun_form, .5, .5, arr3, p_str).shape == arr3.shape
 #
 #        # eta1-eta2-array transformation:
 #        a = domain.transform(fun_form, arr1, arr2, .5, p_str)
-#        #print('eta1-eta2 array transformation, shape:', a.shape)
+#        #logger.info('eta1-eta2 array transformation, shape:', a.shape)
 #        assert a.shape[0] == arr1.size and a.shape[1] == arr2.size
 #        # eta1-eta3-array transformation:
 #        a = domain.transform(fun_form, arr1, .5, arr3, p_str)
-#        #print('eta1-eta3 array transformation, shape:', a.shape)
+#        #logger.info('eta1-eta3 array transformation, shape:', a.shape)
 #        assert a.shape[0] == arr1.size and a.shape[1] == arr3.size
 #        # eta2-eta3-array transformation:
 #        a = domain.transform(fun_form, .5, arr2, arr3, p_str)
-#        #print('eta2-eta3 array transformation, shape:', a.shape)
+#        #logger.info('eta2-eta3 array transformation, shape:', a.shape)
 #        assert a.shape[0] == arr2.size and a.shape[1] == arr3.size
 #
 #        # eta1-eta2-eta3 array transformation:
 #        a = domain.transform(fun_form, arr1, arr2, arr3, p_str)
-#        #print('eta1-eta2-eta3-array transformation, shape:', a.shape)
+#        #logger.info('eta1-eta2-eta3-array transformation, shape:', a.shape)
 #        assert a.shape[0] == arr1.size and a.shape[1] == arr2.size and a.shape[2] == arr3.size
 #
 #        # matrix transformation at one point in third direction
@@ -909,27 +960,27 @@ def test_transform():
 #
 #        # eta1-eta2 matrix transformation:
 #        a = domain.transform(fun_form, mat12_x, mat12_y, .5, p_str)
-#        #print('eta1-eta2 matrix transformation, shape:', a.shape)
+#        #logger.info('eta1-eta2 matrix transformation, shape:', a.shape)
 #        assert a.shape == mat12_x.shape
 #        # eta1-eta3 matrix transformation:
 #        a = domain.transform(fun_form, mat13_x, .5, mat13_z, p_str)
-#        #print('eta1-eta3 matrix transformation, shape:', a.shape)
+#        #logger.info('eta1-eta3 matrix transformation, shape:', a.shape)
 #        assert a.shape == mat13_x.shape
 #        # eta2-eta3 matrix transformation:
 #        a = domain.transform(fun_form, .5, mat23_y, mat23_z, p_str)
-#        #print('eta2-eta3 matrix transformation, shape:', a.shape)
+#        #logger.info('eta2-eta3 matrix transformation, shape:', a.shape)
 #        assert a.shape == mat23_y.shape
 #
 #        # matrix transformation for sparse meshgrid
 #        mat_x, mat_y, mat_z = xp.meshgrid(arr1, arr2, arr3, indexing='ij', sparse=True)
 #        a = domain.transform(fun_form, mat_x, mat_y, mat_z, p_str)
-#        #print('sparse meshgrid matrix transformation, shape:', a.shape)
+#        #logger.info('sparse meshgrid matrix transformation, shape:', a.shape)
 #        assert a.shape[0] == mat_x.shape[0] and a.shape[1] == mat_y.shape[1] and a.shape[2] == mat_z.shape[2]
 #
 #        # matrix transformation
 #        mat_x, mat_y, mat_z = xp.meshgrid(arr1, arr2, arr3, indexing='ij')
 #        a = domain.transform(fun_form, mat_x, mat_y, mat_z, p_str)
-#        #print('matrix transformation, shape:', a.shape)
+#        #logger.info('matrix transformation, shape:', a.shape)
 #        assert a.shape == mat_x.shape
 
 

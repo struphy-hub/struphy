@@ -13,32 +13,32 @@ class SimulationBase(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         """Allocate the simulation variables in memory."""
         pass
 
     @abstractmethod
-    def save_geometry_and_equil_vtk(self, verbose: bool = False):
+    def save_geometry_and_equil_vtk(self):
         """Save geometry and equilibrium in VTK format."""
         pass
 
     @abstractmethod
-    def initialize_data_storage(self, verbose: bool = False):
+    def initialize_data_storage(self):
         """Initialize the simulation data storage."""
         pass
 
     @abstractmethod
-    def run(self, verbose: bool = False):
+    def run(self):
         """Run the simulation."""
         pass
 
     @abstractmethod
-    def pproc(self, verbose: bool = False):
+    def pproc(self):
         """Post-process the simulation results."""
         pass
 
     @abstractmethod
-    def load_plotting_data(self, verbose: bool = False):
+    def load_plotting_data(self):
         """Load post-processed data for visualization."""
         pass
 

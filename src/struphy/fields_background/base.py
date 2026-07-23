@@ -1,5 +1,6 @@
 "Base classes for MHD equilibria."
 
+import logging
 from abc import ABCMeta, abstractmethod
 
 import cunumpy as xp
@@ -12,6 +13,8 @@ from struphy.utils.utils import (
     __dataclass_repr_no_defaults__,
     all_class_params_are_default,
 )
+
+logger = logging.getLogger("struphy")
 
 
 class FluidEquilibrium(metaclass=ABCMeta):
@@ -101,17 +104,11 @@ class FluidEquilibrium(metaclass=ABCMeta):
         assert isinstance(new_domain, Domain) or new_domain is None
         self._domain = new_domain
 
-    def __str__(self):
-        out = f"{self.__class__.__name__}"
-        for k, v in self.params.items():
-            out += f"\n    {k}:".ljust(20)
-            out += f"{v}"
-        return out
-
     def __repr__(self) -> str:
-        out = f"{self.__class__.__name__}("
+        out = f"{self.__class__.__name__}(\n"
         for k, v in self.params.items():
-            out += f"{k}={v}, "
+            out += " " * 4
+            out += f"{k}={v},\n"
         out += ")"
         return out
 
@@ -653,6 +650,15 @@ class FluidEquilibriumWithB(FluidEquilibrium):
     def bv_3(self, *etas, squeeze_out=False):
         return self.bv(*etas, squeeze_out=squeeze_out)[2]
 
+    def b_cart_1(self, *etas, squeeze_out=False):
+        return self.b_cart(*etas, squeeze_out=squeeze_out)[0][0]
+
+    def b_cart_2(self, *etas, squeeze_out=False):
+        return self.b_cart(*etas, squeeze_out=squeeze_out)[0][1]
+
+    def b_cart_3(self, *etas, squeeze_out=False):
+        return self.b_cart(*etas, squeeze_out=squeeze_out)[0][2]
+
     def unit_b1_1(self, *etas, squeeze_out=False):
         return self.unit_b1(*etas, squeeze_out=squeeze_out)[0]
 
@@ -734,8 +740,18 @@ class FluidEquilibriumWithB(FluidEquilibrium):
     def av_3(self, *etas, squeeze_out=False):
         return self.av(*etas, squeeze_out=squeeze_out)[2]
 
+    ###########
+    # Methods #
+    ###########
 
-class CartesianFluidEquilibriumWithB(CartesianFluidEquilibrium):
+    def parallel_component(self, *etas, squeeze_out=False):
+        raise NotImplementedError()
+
+    def perpendicular_component(self, *etas, squeeze_out=False):
+        raise NotImplementedError()
+
+
+class CartesianFluidEquilibriumWithB(CartesianFluidEquilibrium, FluidEquilibriumWithB):
     r"""
     Specialization for fluid equilibria with magnetic field in Cartesian coordinates.
 
@@ -759,7 +775,7 @@ class CartesianFluidEquilibriumWithB(CartesianFluidEquilibrium):
         super(CartesianFluidEquilibriumWithB, type(self)).domain.fset(self, new_domain)
 
 
-class LogicalFluidEquilibriumWithB(LogicalFluidEquilibrium):
+class LogicalFluidEquilibriumWithB(LogicalFluidEquilibrium, FluidEquilibriumWithB):
     r"""
     Specialization for fluid equilibria with magnetic field on the logical cube [0, 1]^3.
 
@@ -948,6 +964,11 @@ class MHDequilibrium(FluidEquilibriumWithB):
     # Scalar-valued callables #
     ###########################
 
+    def absJ0(self, *etas, squeeze_out=False):
+        """0-form absolute value of current on logical cube [0, 1]^3."""
+        j, xyz = self.j_cart(*etas, squeeze_out=squeeze_out)
+        return xp.sqrt(j[0] ** 2 + j[1] ** 2 + j[2] ** 2)
+
     def curl_unit_b_dot_b0(self, *etas, squeeze_out=False):
         r"""0-form of :math:`(\nabla \times \mathbf b_0) \times \mathbf b_0` evaluated on logical cube [0, 1]^3."""
         curl_b, xyz = self.curl_unit_b_cart(*etas, squeeze_out=squeeze_out)
@@ -985,6 +1006,15 @@ class MHDequilibrium(FluidEquilibriumWithB):
 
     def jv_3(self, *etas, squeeze_out=False):
         return self.jv(*etas, squeeze_out=squeeze_out)[2]
+
+    def j_cart_1(self, *etas, squeeze_out=False):
+        return self.j_cart(*etas, squeeze_out=squeeze_out)[0][0]
+
+    def j_cart_2(self, *etas, squeeze_out=False):
+        return self.j_cart(*etas, squeeze_out=squeeze_out)[0][1]
+
+    def j_cart_3(self, *etas, squeeze_out=False):
+        return self.j_cart(*etas, squeeze_out=squeeze_out)[0][2]
 
     def curl_unit_b1_1(self, *etas, squeeze_out=False):
         return self.curl_unit_b1(*etas, squeeze_out=squeeze_out)[0]
@@ -1052,19 +1082,19 @@ class MHDequilibrium(FluidEquilibriumWithB):
             jump = 0
 
         x, y, z = self.domain(e1, e2, e3)
-        print("Evaluation of mapping done.")
+        logger.info("Evaluation of mapping done.")
         det_df = self.domain.jacobian_det(e1, e2, e3)
         p = self.p0(e1, e2, e3)
-        print("Computation of pressure done.")
+        logger.info("Computation of pressure done.")
 
         # ori 240624
         n_dens = self.n0(e1, e2, e3)
-        print("Computation of density done.")
+        logger.info("Computation of density done.")
 
         absB = self.absB0(e1, e2, e3)
-        print("Computation of abs(B) done.")
+        logger.info("Computation of abs(B) done.")
         j_cart, xyz = self.j_cart(e1, e2, e3)
-        print("Computation of current density done.")
+        logger.info("Computation of current density done.")
         absJ = xp.sqrt(j_cart[0] ** 2 + j_cart[1] ** 2 + j_cart[2] ** 2)
 
         _path = struphy.__path__[0] + "/fields_background/mhd_equil/gvec/output/"
@@ -1075,17 +1105,17 @@ class MHDequilibrium(FluidEquilibriumWithB):
             z,
             pointData={"det_df": det_df, "pressure": p, "absB": absB},
         )
-        print("Generation of vtk files done.")
+        logger.info("Generation of vtk files done.")
 
         # show params
-        print("\nEquilibrium parameters:")
+        logger.info("\nEquilibrium parameters:")
         for key, val in self.params.items():
-            print(key, ": ", val)
+            logger.info(f"{key}: {val}")
 
-        print("\nMapping parameters:")
+        logger.info("\nMapping parameters:")
         for key, val in self.domain.params.items():
             if key not in {"cx", "cy", "cz"}:
-                print(key, ": ", val)
+                logger.info(f"{key}: {val}")
 
         # poloidal plane grid
         fig = plt.figure(figsize=(13, xp.ceil(n_planes / 2) * 6.5))

@@ -11,7 +11,6 @@ from feectools.linalg.kron import KroneckerStencilMatrix
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilMatrix, StencilVector
 
-from struphy.feec import mass_kernels
 from struphy.feec.local_projectors_kernels import (
     compute_shifts,
     get_dofs_local_1_form_ec_component,
@@ -34,10 +33,271 @@ from struphy.feec.utilities_local_projectors import (
     is_spline_zero_at_quadrature_points,
     split_points,
 )
-from struphy.fields_background.equils import set_defaults
 from struphy.kernel_arguments.local_projectors_args_kernels import LocalProjectorsArguments
-from struphy.polar.basic import PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
+
+
+class TensorCommutingProjector:
+    r"""
+    A commuting projector of the 3d :class:`~struphy.feec.psydac_derham.Derham` diagram.
+
+    The general structure of the inter-/histopolation problem reads:
+    given a function :math:`f \in V^\alpha` in one of the (continuous) de Rham spaces :math:`\alpha \in \{0,1,2,3,v\}`,
+    find its projection :math:`f_h \in V_h^\alpha \subset V^\alpha` determined by
+    the spline coefficients :math:`\mathbf f \in \mathbb R^{N_\alpha}` such that
+
+    .. math::
+
+         \mathbb B \, \mathcal I\, \mathbb B^T \mathbf f = \mathbb B \, \mathbf d(f)\,,
+
+    where :math:`\mathbf d(f) \in \mathbb R^{N_\alpha}` are the degrees of freedom corresponding to :math:`f`,
+    and with the following linear operators:
+
+    * :math:`\mathbb B`: :class:`~struphy.feec.linear_operators.BoundaryOperator`,
+    * :math:`\mathcal I`: Kronecker product inter-/histopolation matrix, from :class:`~feectools.feec.global_geometric_projectors.GlobalGeometricProjector`
+
+    :math:`\mathbb B` is the identity in case of no boundary conditions,
+    which gives the pure tensor-product Psydac :class:`~feectools.feec.global_geometric_projectors.GlobalGeometricProjector`.
+
+    Parameters
+    ----------
+    projector_tensor : GlobalGeometricProjector
+        The pure tensor product projector..
+
+    boundary_op : BoundaryOperator
+        The boundary operator applying essential boundary conditions to a vector. If not given, is set to identity.
+    """
+
+    def __init__(
+        self,
+        projector_tensor: GlobalGeometricProjector,
+        boundary_op=None,
+    ):
+        self._projector_tensor = projector_tensor
+        if boundary_op is not None:
+            self._boundary_op = boundary_op
+        else:
+            self._boundary_op = IdentityOperator(self.space.coeff_space)
+        self._space = projector_tensor.space
+
+        # TODO: delete these:
+        self._dofs_extraction_op = IdentityOperator(
+            self.space.coeff_space,
+        )
+        self._base_extraction_op = IdentityOperator(
+            self.space.coeff_space,
+        )
+
+        # Kronecker matrices
+        self._imat = projector_tensor.imat_kronecker
+        self._imatT = self._imat.T
+
+        # build inter-/histopolation matrix I = ID * P * I * E^T * ID^T and I0 = B * P * I * E^T * B^T as ComposedLinearOperator
+        B = self.boundary_op
+        self._I = self._imat
+        self._I0 = B @ self.I @ B.T
+
+        # transposed
+        self._IT = self._imatT
+        self._I0T = B @ self._IT @ B.T
+
+        # preconditioner I^(-1) and B * I^(-1) * B^T for iterative polar projections
+        self._pc = ProjectorPreconditioner(
+            self,
+            transposed=False,
+            apply_bc=False,
+        )
+        self._pc0 = ProjectorPreconditioner(
+            self,
+            transposed=False,
+            apply_bc=True,
+        )
+
+        # transposed
+        self._pcT = ProjectorPreconditioner(
+            self,
+            transposed=True,
+            apply_bc=False,
+        )
+        self._pc0T = ProjectorPreconditioner(
+            self,
+            transposed=True,
+            apply_bc=True,
+        )
+
+    @property
+    def projector_tensor(self):
+        """Tensor product projector."""
+        return self._projector_tensor
+
+    @property
+    def space(self):
+        """Tensor product FEM space corresponding to projector."""
+        return self._space
+
+    @property
+    def dofs_extraction_op(self):
+        """Degrees of freedom extraction operator (tensor product DOFs --> polar DOFs)."""
+        return self._dofs_extraction_op
+
+    @property
+    def base_extraction_op(self):
+        """Basis functions extraction operator (tensor product basis functions --> polar basis functions)."""
+        return self._base_extraction_op
+
+    @property
+    def is_polar(self):
+        """Whether the projector maps to polar splines (True) or pure tensor product splines."""
+        return False
+
+    @property
+    def boundary_op(self):
+        """Boundary operator setting essential boundary conditions to Stencil-/BlockVector."""
+        return self._boundary_op
+
+    @property
+    def I(self):
+        """Inter-/histopolation matrix ID * P * I * E^T * ID^T as ComposedLinearOperator (ID = IdentityOperator)."""
+        return self._I
+
+    @property
+    def I0(self):
+        """Inter-/histopolation matrix B * P * I * E^T * B^T as ComposedLinearOperator."""
+        return self._I0
+
+    @property
+    def IT(self):
+        """Transposed inter-/histopolation matrix ID * E * I^T * P^T * ID^T as ComposedLinearOperator (ID = IdentityOperator)."""
+        return self._IT
+
+    @property
+    def I0T(self):
+        """Transposed inter-/histopolation matrix B * E * I^T * P^T * B^T as ComposedLinearOperator."""
+        return self._I0T
+
+    @property
+    def pc(self):
+        """Preconditioner P * I^(-1) * E^T for iterative polar projections."""
+        return self._pc
+
+    @property
+    def pc0(self):
+        """Preconditioner B * P * I^(-1) * E^T * B^T for iterative polar projections."""
+        return self._pc0
+
+    @property
+    def pcT(self):
+        """Transposed preconditioner P * I^(-T) * E^T for iterative polar projections."""
+        return self._pcT
+
+    @property
+    def pc0T(self):
+        """Transposed preconditioner B * P * I^(-T) * E^T * B^T for iterative polar projections."""
+        return self._pc0T
+
+    def solve(self, rhs, transposed=False, apply_bc=False, out=None, x0=None):
+        """
+        Solves the linear system I * x = rhs, resp. I^T * x = rhs for x, where I is the composite inter-/histopolation matrix.
+
+        Parameters
+        ----------
+        rhs : feectools.linalg.basic.vector
+            The right-hand side of the linear system.
+
+        transposed : bool, optional
+            Whether to invert the transposed inter-/histopolation matrix.
+
+        apply_bc : bool, optional
+            Whether to apply essential boundary conditions to degrees of freedom and coefficients.
+
+        out : feectools.linalg.basic.vector, optional
+            If given, the result will be written into this vector in-place.
+
+        Returns
+        -------
+        x : feectools.linalg.basic.vector
+            Output vector (result of linear system).
+        """
+
+        assert isinstance(rhs, Vector)
+        assert rhs.space == self._I.domain
+
+        if transposed:
+            if apply_bc:
+                x = self.pc0T.solve(rhs, out=out)
+            else:
+                x = self.pcT.solve(rhs, out=out)
+        else:
+            if apply_bc:
+                x = self.pc0.solve(rhs, out=out)
+            else:
+                x = self.pc.solve(rhs, out=out)
+
+        return x
+
+    def get_dofs(self, fun, dofs=None, apply_bc=False):
+        """
+        Computes the geometric degrees of freedom associated to given callable(s).
+
+        Parameters
+        ----------
+        fun : callable | list
+            The function for which the geometric degrees of freedom shall be computed. List of callables for vector-valued functions.
+
+        dofs : feectools.linalg.basic.vector, optional
+            If given, the dofs will be written into this vector in-place.
+
+        apply_bc : bool, optional
+            Whether to apply essential boundary conditions to degrees of freedom.
+
+        Returns
+        -------
+        dofs : feectools.linalg.basic.vector
+            The geometric degrees of freedom associated to given callable(s) "fun".
+        """
+        # get dofs on tensor-product grid + apply polar DOF extraction operator
+        if dofs is None:
+            dofs = self.projector_tensor(fun, dofs_only=True)
+        else:
+            dofs[:] = self.projector_tensor(
+                fun, dofs_only=True
+            )  # needs to be revisited, there is always a copy made here.
+
+        # apply boundary operator
+        if apply_bc:
+            dofs = self.boundary_op.dot(dofs)
+
+        return dofs
+
+    def __call__(self, fun, out=None, dofs=None, apply_bc=False):
+        """
+        Applies projector to given callable(s).
+
+        Parameters
+        ----------
+        fun : callable | list
+            The function to be projected. List of three callables for vector-valued functions.
+
+        out : feectools.linalg.basic.vector, optional
+            If given, the result will be written into this vector in-place.
+
+        dofs : feectools.linalg.basic.vector, optional
+            If given, the dofs will be written into this vector in-place.
+
+        apply_bc : bool, optional
+            Whether to apply essential boundary conditions to degrees of freedom and coefficients.
+
+        Returns
+        -------
+        coeffs : feectools.linalg.basic.vector
+            The FEM spline coefficients after projection.
+        """
+        return self.solve(
+            self.get_dofs(fun, dofs=dofs, apply_bc=apply_bc),
+            transposed=False,
+            apply_bc=apply_bc,
+            out=out,
+        )
 
 
 class CommutingProjector:
@@ -401,7 +661,7 @@ class CommutingProjector:
 
         return dofs
 
-    def __call__(self, fun, out=None, dofs=None, apply_bc=False):
+    def __call__(self, fun, out=None, dofs=None, apply_bc=True):
         """
         Applies projector to given callable(s).
 
@@ -580,14 +840,14 @@ class CommutingProjectorLocal:
     fem_space : FemSpace
         FEEC space into which the functions shall be projected.
 
-    pts : list of xp.array
-        3-list (or nested 3-list[3-list] for BlockVectors) of 2D arrays with the quasi-interpolation points 
+    pts : Tuple of xp.array
+        Tuple (or nested tuple for BlockVectors) of 2D arrays with the quasi-interpolation points 
         (or Gauss-Legendre quadrature points for histopolation). 
         In format [spatial direction](B-spline index, point) for StencilVector spaces 
         or [vector component][spatial direction](B-spline index, point) for BlockVector spaces.
 
-    wts : list of xp.array
-        3D (4D for BlockVectors) list of 2D array with the Gauss-Legendre quadrature weights 
+    wts : Tuple of xp.array
+        3D (4D for BlockVectors) tuple of 2D array with the Gauss-Legendre quadrature weights 
         (full of ones for interpolation). 
         In format [spatial direction](B-spline index, point) for StencilVector spaces 
         or [vector component][spatial direction](B-spline index, point) for BlockVector spaces.
@@ -614,8 +874,8 @@ class CommutingProjectorLocal:
         space_id: str,
         space_key: str,
         fem_space: FemSpace,
-        pts: list,
-        wts: list,
+        pts: tuple,
+        wts: tuple,
         wij: list,
         whij: list,
         fem_space_B: TensorFemSpace,
@@ -646,9 +906,9 @@ class CommutingProjectorLocal:
         self._B_nbasis = xp.array([space.nbasis for space in Bspaces_1d[0]])
 
         # Degree of the B-spline space, not to be confused with the degrees given by fem_space.spaces.degree since depending on the situation it will give the D-spline degree instead
-        self._p = xp.zeros(3, dtype=int)
+        self._degree = xp.zeros(3, dtype=int)
         for i, space in enumerate(fem_space_B.spaces):
-            self._p[i] = space.degree
+            self._degree[i] = space.degree
 
         # FE space of three forms. That means that we have D-splines in all three spatial directions.
         Dspaces_1d = [fem_space_D.spaces]
@@ -766,21 +1026,21 @@ class CommutingProjectorLocal:
                 self._IoH = xp.array([True, True, True], dtype=bool)
                 self._geo_weights = [self._whij[0], self._whij[1], self._whij[2]]
 
-            lenj1, lenj2, lenj3 = get_local_problem_size(self._periodic, self._p, self._IoH)
+            lenj1, lenj2, lenj3 = get_local_problem_size(self._periodic, self._degree, self._IoH)
 
             lenj = [lenj1, lenj2, lenj3]
 
             self._shift = xp.array([0, 0, 0], dtype=int)
-            compute_shifts(self._IoH, self._p, self._B_nbasis, self._shift)
+            compute_shifts(self._IoH, self._degree, self._B_nbasis, self._shift)
 
             split_points(
                 IoH_for_indices,
                 lenj,
                 self._shift,
-                self._pts,
+                self._pts[0],
                 self._starts,
                 self._ends,
-                self._p,
+                self._degree,
                 self._B_nbasis,
                 self._periodic,
                 self._wij,
@@ -811,13 +1071,13 @@ class CommutingProjectorLocal:
                 self._pds,
                 self._B_nbasis,
                 self._periodic,
-                self._p,
+                self._degree,
                 self._geo_weights[0],
                 self._geo_weights[1],
                 self._geo_weights[2],
-                self._wts[0],
-                self._wts[1],
-                self._wts[2],
+                self._wts[0][0],
+                self._wts[0][1],
+                self._wts[0][2],
                 self._inv_index_translation[0],
                 self._inv_index_translation[1],
                 self._inv_index_translation[2],
@@ -840,7 +1100,7 @@ class CommutingProjectorLocal:
             get_non_zero_B_spline_indices(
                 self._periodic,
                 IoH_for_indices,
-                self._p,
+                self._degree,
                 self._B_nbasis,
                 self._starts,
                 self._ends,
@@ -854,7 +1114,7 @@ class CommutingProjectorLocal:
             get_non_zero_D_spline_indices(
                 self._periodic,
                 IoH_for_indices,
-                self._p,
+                self._degree,
                 D_nbasis,
                 self._starts,
                 self._ends,
@@ -904,7 +1164,7 @@ class CommutingProjectorLocal:
                 self._Basis_functions_indices_D,
                 self._starts,
                 self._ends,
-                self._p,
+                self._degree,
                 self._B_nbasis,
                 D_nbasis,
                 self._periodic,
@@ -919,7 +1179,7 @@ class CommutingProjectorLocal:
                         self._Basis_functions_indices_B,
                         self._Basis_functions_indices_D,
                         self._localpts,
-                        self._p,
+                        self._degree,
                         [self._values_B_or_D_splines_0, self._values_B_or_D_splines_1, self._values_B_or_D_splines_2],
                         [
                             self._translation_indices_B_or_D_splines_0,
@@ -988,11 +1248,11 @@ class CommutingProjectorLocal:
                 ]
 
             for h in range(self._nsp):
-                lenj1, lenj2, lenj3 = get_local_problem_size(self._periodic[0], self._p, self._IoH[h])
+                lenj1, lenj2, lenj3 = get_local_problem_size(self._periodic[0], self._degree, self._IoH[h])
 
                 lenj = [lenj1, lenj2, lenj3]
 
-                compute_shifts(self._IoH[h], self._p, self._B_nbasis, self._shift[h])
+                compute_shifts(self._IoH[h], self._degree, self._B_nbasis, self._shift[h])
 
                 split_points(
                     IoH_for_indices[h],
@@ -1001,7 +1261,7 @@ class CommutingProjectorLocal:
                     self._pts[h],
                     self._starts[h],
                     self._ends[h],
-                    self._p,
+                    self._degree,
                     self._B_nbasis,
                     self._periodic[0],
                     self._wij,
@@ -1035,7 +1295,7 @@ class CommutingProjectorLocal:
                         self._pds[h],
                         self._B_nbasis,
                         self._periodic[0],
-                        self._p,
+                        self._degree,
                         self._geo_weights[h][0],
                         self._geo_weights[h][1],
                         self._geo_weights[h][2],
@@ -1064,7 +1324,7 @@ class CommutingProjectorLocal:
                 get_non_zero_B_spline_indices(
                     self._periodic[h],
                     IoH_for_indices[h],
-                    self._p,
+                    self._degree,
                     self._B_nbasis,
                     self._starts[h],
                     self._ends[h],
@@ -1080,7 +1340,7 @@ class CommutingProjectorLocal:
                 get_non_zero_D_spline_indices(
                     self._periodic[h],
                     IoH_for_indices[h],
-                    self._p,
+                    self._degree,
                     D_nbasis,
                     self._starts[h],
                     self._ends[h],
@@ -1155,7 +1415,7 @@ class CommutingProjectorLocal:
                     self._Basis_functions_indices_D,
                     self._starts[h],
                     self._ends[h],
-                    self._p,
+                    self._degree,
                     self._B_nbasis,
                     D_nbasis,
                     self._periodic[h],
@@ -1205,7 +1465,7 @@ class CommutingProjectorLocal:
                         self._Basis_functions_indices_block_B[h],
                         self._Basis_functions_indices_block_D[h],
                         self._localpts[h],
-                        self._p,
+                        self._degree,
                         [
                             self._values_block_B_or_D_splines[0][h],
                             self._values_block_B_or_D_splines[1][h],
@@ -1251,12 +1511,12 @@ class CommutingProjectorLocal:
 
     @property
     def pts(self):
-        """3D (4D for BlockVectors) list of 2D array with the quasi-interpolation points (or Gauss-Legendre quadrature points for histopolation). In format (ns, nb, np) = (spatial direction, B-spline index, point) for StencilVector spaces or (nv,ns, nb, np) = (vector entry,spatial direction, B-spline index, point) for BlockVector spaces."""
+        """3D (4D for BlockVectors) tuple of 2D array with the quasi-interpolation points (or Gauss-Legendre quadrature points for histopolation). In format (ns, nb, np) = (spatial direction, B-spline index, point) for StencilVector spaces or (nv,ns, nb, np) = (vector entry,spatial direction, B-spline index, point) for BlockVector spaces."""
         return self._pts
 
     @property
     def wts(self):
-        """3D (4D for BlockVectors) list of 2D array with the Gauss-Legendre quadrature points (full of ones for interpolation). In format (ns, nb, np) = (spatial direction, B-spline index, point) for StencilVector spaces or (nv,ns, nb, np) = (vector entry,spatial direction, B-spline index, point) for BlockVector spaces."""
+        """3D (4D for BlockVectors) tuple of 2D array with the Gauss-Legendre quadrature points (full of ones for interpolation). In format (ns, nb, np) = (spatial direction, B-spline index, point) for StencilVector spaces or (nv,ns, nb, np) = (vector entry,spatial direction, B-spline index, point) for BlockVector spaces."""
         return self._wts
 
     @property
@@ -1808,369 +2068,6 @@ class CommutingProjectorLocal:
             return self._are_zero_block_B_or_D_splines[i][h][self._B_or_D[i]][
                 self._translation_indices_block_B_or_D_splines[i][h][self._B_or_D[i]][self._basis_indices[i]]
             ]
-
-
-class L2Projector:
-    r"""
-    An orthogonal projection into a discrete :class:`~struphy.feec.psydac_derham.Derham` space
-    based on the L2-scalar product.
-
-    It solves the following system for the FE-coefficients :math:`\mathbf f = (f_{lmn}) \in \mathbb R^{N_\alpha}`:
-
-    .. math::
-
-        \mathbb M^\alpha_{ijk, lmn} f_{lmn} = (f^\alpha, \Lambda^\alpha_{ijk})_{L^2}\,,
-
-    where :math:`\mathbb M^\alpha` denotes the :ref:`mass matrix <weighted_mass>` of space :math:`\alpha \in \{0,1,2,3,v\}` and :math:`f^\alpha` is a :math:`\alpha`-form proxy function.
-
-    Parameters:
-    -----------
-    space_id : str
-        One of "H1", "Hcurl", "Hdiv", "L2" or "H1vec".
-
-    mass_ops : struphy.mass.WeighteMassOperators
-        Mass operators object, see :ref:`mass_ops`.
-
-    params : dict
-        Keyword arguments for the solver parameters.
-    """
-
-    def __init__(self, space_id, mass_ops, **params):
-        from struphy.feec import preconditioner
-
-        assert space_id in ("H1", "Hcurl", "Hdiv", "L2", "H1vec")
-
-        params_default = {
-            "type": ("pcg", "MassMatrixPreconditioner"),
-            "tol": 1.0e-14,
-            "maxiter": 500,
-            "info": False,
-            "verbose": False,
-        }
-
-        set_defaults(params, params_default)
-
-        self._space_id = space_id
-        self._mass_ops = mass_ops
-        self._params = params
-        self._space_key = mass_ops.derham.space_to_form[self.space_id]
-        self._space = mass_ops.derham.Vh_fem[self.space_key]
-
-        # mass matrix
-        self._Mmat = getattr(self.mass_ops, "M" + self.space_key)
-
-        # quadrature grid
-        self._quad_grid_pts = self.mass_ops.derham.quad_grid_pts[self.space_key]
-
-        if space_id in ("H1", "L2"):
-            self._quad_grid_mesh = xp.meshgrid(
-                *[pt.flatten() for pt in self.quad_grid_pts],
-                indexing="ij",
-            )
-            self._geom_weights = self.Mmat.weights[0][0](*self.quad_grid_mesh)
-        else:
-            self._quad_grid_mesh = []
-            self._tmp = []  # tmp for matrix-vector product of geom_weights with fun
-            for pts in self.quad_grid_pts:
-                self._quad_grid_mesh += [
-                    xp.meshgrid(
-                        *[pt.flatten() for pt in pts],
-                        indexing="ij",
-                    ),
-                ]
-                self._tmp += [xp.zeros_like(self.quad_grid_mesh[-1][0])]
-            # geometric weights evaluated at quadrature grid
-            self._geom_weights = []
-            # loop over rows (different meshes)
-            for mesh, row_weights in zip(self.quad_grid_mesh, self.Mmat.weights):
-                self._geom_weights += [[]]
-                # loop over columns (differnt geometric coeffs)
-                for weight in row_weights:
-                    if weight is not None:
-                        self._geom_weights[-1] += [weight(*mesh)]
-                    else:
-                        self._geom_weights[-1] += [xp.zeros_like(mesh[0])]
-
-        # other quad grid info
-        if isinstance(self.space, TensorFemSpace):
-            self._tensor_fem_spaces = [self.space]
-            self._wts_l = [self.mass_ops.derham.quad_grid_wts[self.space_key]]
-            self._spans_l = [
-                self.mass_ops.derham.quad_grid_spans[self.space_key],
-            ]
-            self._bases_l = [
-                self.mass_ops.derham.quad_grid_bases[self.space_key],
-            ]
-        else:
-            self._tensor_fem_spaces = self.space.spaces
-            self._wts_l = self.mass_ops.derham.quad_grid_wts[self.space_key]
-            self._spans_l = self.mass_ops.derham.quad_grid_spans[self.space_key]
-            self._bases_l = self.mass_ops.derham.quad_grid_bases[self.space_key]
-
-        # Preconditioner
-        if self.params["type"][1] is None:
-            pc = None
-        else:
-            pc_class = getattr(preconditioner, self.params["type"][1])
-            pc = pc_class(self.Mmat)
-
-        # solver
-        self._solver = inverse(
-            self.Mmat,
-            self.params["type"][0],
-            pc=pc,
-            tol=self.params["tol"],
-            maxiter=self.params["maxiter"],
-            verbose=self.params["verbose"],
-        )
-
-    @property
-    def mass_ops(self):
-        """Struphy mass operators object, see :ref:`mass_ops`.."""
-        return self._mass_ops
-
-    @property
-    def space_id(self):
-        """The ID of the space (H1, Hcurl, Hdiv, L2 or H1vec)."""
-        return self._space_id
-
-    @property
-    def space_key(self):
-        """The key of the space (0, 1, 2, 3 or v)."""
-        return self._space_key
-
-    @property
-    def space(self):
-        """The Derham finite element space (from ``Derham.Vh_fem``)."""
-        return self._space
-
-    @property
-    def params(self):
-        """Parameters for the iterative solver."""
-        return self._params
-
-    @property
-    def Mmat(self):
-        """The mass matrix of space."""
-        return self._Mmat
-
-    @property
-    def quad_grid_pts(self):
-        """List of quadrature points in each direction for integration over grid cells in format (ni, nq) = (cell, quadrature point)."""
-        return self._quad_grid_pts
-
-    @property
-    def quad_grid_mesh(self):
-        """Mesh grids of quad_grid_pts."""
-        return self._quad_grid_mesh
-
-    @property
-    def geom_weights(self):
-        """Geometric coefficients (e.g. Jacobians) evaluated at quad_grid_mesh, stored as list[list] either 1x1 or 3x3."""
-        return self._geom_weights
-
-    def solve(self, rhs, out=None):
-        """
-        Solves the linear system M * x = rhs, where M is the mass matrix.
-
-        Parameters
-        ----------
-        rhs : feectools.linalg.basic.vector
-            The right-hand side of the linear system.
-
-        out : feectools.linalg.basic.vector, optional
-            If given, the result will be written into this vector in-place.
-
-        Returns
-        -------
-        out : feectools.linalg.basic.vector
-            Output vector (result of linear system).
-        """
-
-        assert isinstance(rhs, Vector)
-
-        if out is None:
-            out = self._solver.dot(rhs)
-        else:
-            self._solver.dot(rhs, out=out)
-
-        return out
-
-    def get_dofs(self, fun, dofs=None, apply_bc=False, clear=True):
-        r"""
-        Assembles (in 3d) the Stencil-/BlockVector
-
-        .. math::
-
-            V_{ijk} = \int f * w_\textrm{geom} * \Lambda^\alpha_{ijk}\,\textrm d \boldsymbol \eta = \left( f\,, \Lambda^\alpha_{ijk}\right)_{L^2}\,,
-
-        where :math:`\Lambda^\alpha_{ijk}` are the basis functions of :math:`V_h^\alpha`,
-        :math:`f` is an :math:`\alpha`-form proxy function and :math:`w_\textrm{geom}` stand for metric coefficients.
-
-        Note that any geometric terms (e.g. Jacobians) in the L2 scalar product are automatically assembled
-        into :math:`w_\textrm{geom}`, depending on the space of :math:`\alpha`-forms.
-
-        The integration is performed with Gauss-Legendre quadrature over the whole logical domain.
-
-        Parameters
-        ----------
-        fun : callable | list
-            Weight function(s) (callables or xp.ndarrays) in a 1d list of shape corresponding to number of components.
-
-        dofs : StencilVector | BlockVector, optional
-            The vector for the output.
-
-        apply_bc : bool, optional
-            Whether to apply essential boundary conditions to degrees of freedom.
-
-        clear : bool
-            Whether to first set all data to zero before assembly. If False, the new contributions are added to existing ones in vec.
-        """
-
-        # evaluate fun at quad_grid or check array size
-        if callable(fun):
-            fun_weights = fun(*self._quad_grid_mesh)
-        elif isinstance(fun, xp.ndarray):
-            assert fun.shape == self._quad_grid_mesh[0].shape, (
-                f"Expected shape {self._quad_grid_mesh[0].shape}, got {fun.shape =} instead."
-            )
-            fun_weights = fun
-        else:
-            assert (
-                len(
-                    fun,
-                )
-                == 3
-            ), f"List input only for vector-valued spaces of size 3, but {len(fun) =}."
-            fun_weights = []
-            # loop over rows (different meshes)
-            for mesh in self._quad_grid_mesh:
-                fun_weights += [[]]
-                # loop over columns (different functions)
-                for f in fun:
-                    if callable(f):
-                        fun_weights[-1] += [f(*mesh)]
-                    elif isinstance(f, xp.ndarray):
-                        assert f.shape == mesh[0].shape, f"Expected shape {mesh[0].shape}, got {f.shape =} instead."
-                        fun_weights[-1] += [f]
-                    else:
-                        raise ValueError(
-                            f"Expected callable or numpy array, got {type(f) =} instead.",
-                        )
-
-        # check output vector
-        if dofs is None:
-            dofs = self.space.coeff_space.zeros()
-        else:
-            assert isinstance(dofs, (StencilVector, BlockVector, PolarVector))
-            assert dofs.space == self.Mmat.codomain
-
-        # compute matrix data for kernel, i.e. fun * geom_weight
-        tot_weights = []
-        if isinstance(fun_weights, xp.ndarray):
-            tot_weights += [fun_weights * self.geom_weights]
-        else:
-            # loop over rows (differnt meshes)
-            for row_fun, row_geom, tmp in zip(fun_weights, self.geom_weights, self._tmp):
-                tmp *= 0.0
-                # loop over columns (different functions)
-                for fun_weight, geom_weight in zip(row_fun, row_geom):
-                    # matrix-vector product
-                    tmp += fun_weight * geom_weight
-                tot_weights += [tmp]
-
-        # clear data
-        if clear:
-            if isinstance(dofs, StencilVector):
-                dofs._data[:] = 0.0
-            elif isinstance(dofs, PolarVector):
-                dofs.tp._data[:] = 0.0
-            else:
-                for block in dofs.blocks:
-                    block._data[:] = 0.0
-
-        # loop over components (just one for scalar spaces)
-        for a, (fem_space, spans, wts, basis, mat_w) in enumerate(
-            zip(
-                self._tensor_fem_spaces,
-                self._spans_l,
-                self._wts_l,
-                self._bases_l,
-                tot_weights,
-            ),
-        ):
-            # indices
-            starts = [int(start) for start in fem_space.coeff_space.starts]
-            pads = fem_space.coeff_space.pads
-
-            if isinstance(dofs, StencilVector):
-                mass_kernels.kernel_3d_vec(
-                    *spans,
-                    *fem_space.degree,
-                    *starts,
-                    *pads,
-                    *wts,
-                    *basis,
-                    mat_w,
-                    dofs._data,
-                )
-            elif isinstance(dofs, PolarVector):
-                mass_kernels.kernel_3d_vec(
-                    *spans,
-                    *fem_space.degree,
-                    *starts,
-                    *pads,
-                    *wts,
-                    *basis,
-                    mat_w,
-                    dofs.tp._data,
-                )
-            else:
-                mass_kernels.kernel_3d_vec(
-                    *spans,
-                    *fem_space.degree,
-                    *starts,
-                    *pads,
-                    *wts,
-                    *basis,
-                    mat_w,
-                    dofs[a]._data,
-                )
-
-        # exchange assembly data (accumulate ghost regions) and update ghost regions
-        dofs.exchange_assembly_data()
-        dofs.update_ghost_regions()
-
-        # apply boundary operator
-        if apply_bc:
-            dofs = self.mass_ops.derham.boundary_ops[self.space_key].dot(dofs)
-
-        return dofs
-
-    def __call__(self, fun, out=None, dofs=None, apply_bc=False):
-        """
-        Applies projector to given callable(s).
-
-        Parameters
-        ----------
-        fun : callable | list
-            The function to be projected. List of three callables for vector-valued functions.
-
-        out : feectools.linalg.basic.vector, optional
-            If given, the result will be written into this vector in-place.
-
-        dofs : feectools.linalg.basic.vector, optional
-            If given, the dofs will be written into this vector in-place.
-
-        apply_bc : bool, optional
-            Whether to apply essential boundary conditions to degrees of freedom and coefficients.
-
-        Returns
-        -------
-        coeffs : feectools.linalg.basic.vector
-            The FEM spline coefficients after projection.
-        """
-        return self.solve(self.get_dofs(fun, dofs=dofs, apply_bc=apply_bc), out=out)
 
 
 class ProjectorPreconditioner(LinearOperator):

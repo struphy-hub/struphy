@@ -12,6 +12,7 @@
 FROM ubuntu:latest
 
 ARG DEBIAN_FRONTEND=noninteractive
+ARG PYTHON_VERSION=3.13
 
 # install linux packages
 RUN apt update -y && apt clean \
@@ -19,10 +20,11 @@ RUN apt update -y && apt clean \
     && add-apt-repository -y ppa:deadsnakes/ppa \
     && apt update -y 
 
-RUN apt install -y python3 \
-    && apt install -y python3-dev \
-    && apt install -y python3-pip \
-    && apt install -y python3-venv 
+RUN apt install -y python${PYTHON_VERSION} \
+    && apt install -y python${PYTHON_VERSION}-dev \
+    && apt install -y python${PYTHON_VERSION}-venv \
+    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
+    && update-alternatives --set python3 /usr/bin/python${PYTHON_VERSION}
 
 RUN apt install -y gfortran gcc \
     && apt install -y liblapack-dev libblas-dev 
@@ -34,6 +36,9 @@ RUN apt install -y git \
     && apt install -y pandoc graphviz sqlite3 \
     && bash -c "source ~/.bashrc" 
 
+# for .show_3d methods (pyvista)
+RUN apt install -y libosmesa6 libosmesa6-dev libegl-mesa0
+
 # for gvec
 RUN apt install -y g++ liblapack3 cmake cmake-curses-gui zlib1g-dev libnetcdf-dev libnetcdff-dev \
     && export FC=`which gfortran` \ 
@@ -41,32 +46,32 @@ RUN apt install -y g++ liblapack3 cmake cmake-curses-gui zlib1g-dev libnetcdf-de
     && export CXX=`which g++`  
 
 # install three versions of struphy
-RUN git clone https://github.com/struphy-hub/struphy.git struphy_c_ \
-    && cd struphy_c_ \
-    && python3 -m venv env_c_ \
-    && . env_c_/bin/activate \
-    && pip install -U pip \
-    && pip install -e .[phys,mpi,doc] --no-cache-dir \
-    && struphy compile \
-    && deactivate
+# RUN git clone https://github.com/struphy-hub/struphy.git struphy_c_ \
+#     && cd struphy_c_ \
+#     && python${PYTHON_VERSION} -m venv env_c_ \
+#     && . env_c_/bin/activate \
+#     && pip install -U pip \
+#     && pip install -e .[phys,mpi,doc] --no-cache-dir \
+#     && struphy compile \
+#     && deactivate
     
 RUN git clone https://github.com/struphy-hub/struphy.git struphy_fortran_\
     && cd struphy_fortran_ \
-    && python3 -m venv env_fortran_ \
+    && python${PYTHON_VERSION} -m venv env_fortran_ \
     && . env_fortran_/bin/activate \
     && pip install -U pip \
     && pip install -e .[phys,mpi,doc] --no-cache-dir \
     && struphy compile --language fortran -y \
     && deactivate 
 
-RUN git clone https://github.com/struphy-hub/struphy.git struphy_fortran_--omp-pic\
-    && cd struphy_fortran_--omp-pic \
-    && python3 -m venv env_fortran_--omp-pic \
-    && . env_fortran_--omp-pic/bin/activate \
-    && pip install -U pip \
-    && pip install -e .[phys,mpi,doc] --no-cache-dir \
-    && struphy compile --language fortran --omp-pic -y \
-    && deactivate 
+# RUN git clone https://github.com/struphy-hub/struphy.git struphy_fortran_--omp-pic\
+#     && cd struphy_fortran_--omp-pic \
+#     && python${PYTHON_VERSION} -m venv env_fortran_--omp-pic \
+#     && . env_fortran_--omp-pic/bin/activate \
+#     && pip install -U pip \
+#     && pip install -e .[phys,mpi,doc] --no-cache-dir \
+#     && struphy compile --language fortran --omp-pic -y \
+#     && deactivate 
 
 # allow mpirun as root
 ENV OMPI_ALLOW_RUN_AS_ROOT=1

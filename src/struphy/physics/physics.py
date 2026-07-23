@@ -1,9 +1,12 @@
+import logging
 from dataclasses import dataclass
 
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.io.options import BaseUnits
+
+logger = logging.getLogger("struphy")
 
 
 @dataclass
@@ -82,7 +85,7 @@ class Units:
             raise AttributeError("Must call Units.derive_units() to get full set of units.")
         return self._j
 
-    def derive_units(self, velocity_scale: str = "light", A_bulk: int = None, Z_bulk: int = None, verbose=False):
+    def derive_units(self, velocity_scale: str = "light", A_bulk: int = None, Z_bulk: int = None):
         """Derive the remaining units from the base units, velocity scale and bulk species' A and Z."""
 
         con = ConstantsOfNature()
@@ -126,25 +129,24 @@ class Units:
             # current density (A/m^2)
             self._j = con.e * self.n * self.v
 
-        # print to screen
-        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            units_used = (
-                " m",
-                " T",
-                " m⁻³",
-                "keV",
-                " m/s",
-                " s",
-                " bar",
-                " kg/m³",
-                " A/m²",
-            )
-            print("")
-            for (k, v), u in zip(self.__dict__.items(), units_used):
-                if v is None:
-                    print(f"Unit of {k[1:]} not specified.")
-                else:
-                    print(
-                        f"Unit of {k[1:]}:".ljust(25),
-                        "{:4.3e}".format(v) + u,
-                    )
+    def show_units(self):
+        units_used = (
+            " m",
+            " T",
+            " m⁻³",
+            "keV",
+            " m/s",
+            " s",
+            " bar",
+            " kg/m³",
+            " A/m²",
+        )
+        print("")
+        for (k, v), u in zip(self.__dict__.items(), units_used):
+            if v is None:
+                print(f"Unit of {k[1:]} not specified.")
+            else:
+                print(
+                    f"Unit of {k[1:]}:".ljust(25),
+                    "{:4.3e}".format(v) + u,
+                )

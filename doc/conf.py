@@ -10,9 +10,10 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 
-import sys
 import os
-sys.path.insert(0, os.path.abspath('_ext'))
+import sys
+
+sys.path.insert(0, os.path.abspath("_ext"))
 
 with open("../src/struphy/console/main.py") as f:
     exec(f.read())
@@ -61,13 +62,13 @@ napoleon_use_admonition_for_references = True
 napoleon_use_ivar = True
 napoleon_attr_annotations = False
 
-# Set path to outside sources for sphinxcontrib-collections. 
+# Set path to outside sources for sphinxcontrib-collections.
 collections = {
-    'notebooks': {
-        'driver': 'copy_folder',
-        'source': '../tutorials/',
-        'target': 'tutorials/',
-        'ignore': ['*.py', '.sh'],
+    "notebooks": {
+        "driver": "copy_folder",
+        "source": "../tutorials/",
+        "target": "tutorials/",
+        "ignore": ["*.py", ".sh"],
     }
 }
 

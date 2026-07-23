@@ -37,6 +37,8 @@ from struphy import (
     KernelDensityPlot,
     LoadingParameters,
     WeightsParameters,
+    SortingParameters,
+    SavingParameters,
     maxwellians,
 )
 
@@ -45,11 +47,12 @@ from struphy import (
 # ---------------------
 
 from struphy.models import VlasovAmpereOneSpecies
-model = VlasovAmpereOneSpecies(with_B0=False)
 
-# List all species and set their physical properties (charge and mass number, etc.)
-model.em_fields.set_species_properties()
-model.kinetic_ions.set_species_properties(alpha=1.0, epsilon=-1.0)
+# Units
+base_units = BaseUnits()
+
+# Model instance
+model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False)
 
 # List all variables and decide whether to save their data
 model.em_fields.e_field.save_data = True
@@ -63,9 +66,6 @@ model.kinetic_ions.var.save_data = True
 # Environment options
 env = EnvironmentOptions(sim_folder="sim_data")
 
-# Units
-base_units = BaseUnits()
-
 # Time stepping
 time_opts = Time(dt = 0.05, Tend = 75.0, split_algo = "LieTrotter")
 
@@ -76,7 +76,7 @@ domain = domains.Cuboid(r1 = 12.56)
 equil = None
 
 # Grid
-grid = grids.TensorProductGrid(Nel=(32, 1, 1))
+grid = grids.TensorProductGrid(num_elements=(32, 1, 1))
 
 # Derham options
 derham_opts = DerhamOptions()
@@ -86,7 +86,6 @@ sim = Simulation(
     model=model,
     params_path=__file__,
     env=env,
-    base_units=base_units,
     time_opts=time_opts,
     domain=domain,
     equil=equil,
@@ -101,14 +100,17 @@ sim = Simulation(
 loading_params = LoadingParameters(ppc = 1000)
 weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters()
+sorting_params = SortingParameters(boxes_per_dim=(16, 1, 1), do_sort=True)
+
+binplot = BinningPlot(slice='e1_v1', n_bins= (128, 128), ranges= ((0.,1.), (-5.,5.)))
+saving_params = SavingParameters(binning_plots=(binplot,))
+
 model.kinetic_ions.set_markers(loading_params=loading_params,
                                weights_params=weights_params,
                                boundary_params=boundary_params,
+                               sorting_params=sorting_params,
+                               saving_params=saving_params,
                                bufsize = 0.4,)
-model.kinetic_ions.set_sorting_boxes(boxes_per_dim=(16, 1, 1), do_sort=True)
-
-binplot = BinningPlot(slice='e1_v1', n_bins= (128, 128), ranges= ((0.,1.), (-5.,5.)))
-model.kinetic_ions.set_save_data(binning_plots=(binplot,))
 
 # ------------------
 # Propagator options
@@ -140,4 +142,4 @@ init = maxwellians.Maxwellian3D(n = (1.0, perturbation))
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":
-    sim.run(verbose=False)
+    sim.run()

@@ -35,8 +35,8 @@ def main():
     # get parameters
     dt = params.time_opts.dt
     algo = params.time_opts.split_algo
-    Nel = params.grid.Nel
-    p = params.derham_opts.p
+    num_elements = params.grid.num_elements
+    degree = params.derham_opts.degree
 
     env = params.env
     ppc = params.loading_params.ppc
@@ -59,13 +59,13 @@ def main():
         pa_data = os.path.join(env.path_out, "data")
         with h5py.File(os.path.join(pa_data, "data_proc0.hdf5"), "r") as f:
             time = f["time"]["value"][()]*unit_t
-            E = f["scalar"]["en_E"][()]
+            E = f["scalar"]["electric_energy"][()]
 
         # plot
         plt.figure(figsize=(18, 12))
         plt.plot(time, E, label="numerical")
         plt.legend()
-        plt.title(f"{dt=}, {algo=}, {Nel=}, {p=}, {ppc=}")
+        plt.title(f"{dt=}, {algo=}, {num_elements=}, {degree=}, {ppc=}")
         plt.yscale("log")
         plt.xlabel("time [s]")
         plt.ylabel("electric energy $E^2/2$ [a.u.]")

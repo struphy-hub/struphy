@@ -1,3 +1,4 @@
+import logging
 from typing import Union
 
 import cunumpy as xp
@@ -8,6 +9,8 @@ from feectools.linalg.direct_solvers import SparseSolver
 from feectools.linalg.solvers import inverse
 
 from struphy.linear_algebra.tests.test_saddlepoint_massmatrices import _plot_residual_norms
+
+logger = logging.getLogger("struphy")
 
 
 class SaddlePointSolver:
@@ -137,12 +140,8 @@ class SaddlePointSolver:
         self._max_iter = max_iter
         self._spectralanalysis = spectralanalysis
         self._dimension = dimension
-        self._verbose = solver_params["verbose"]
 
         if self._variant == "Inverse_Solver":
-            self._BT = B.transpose()
-
-            # initialize solver with dummy matrix A
             self._block_domainM = BlockVectorSpace(self._A.domain, self._B.transpose().domain)
             self._block_codomainM = self._block_domainM
             self._blocks = [[self._A, self._B.T], [self._B, None]]
@@ -320,12 +319,11 @@ class SaddlePointSolver:
                 self._Unp = U_init.toarray() if U_init is not None else self._Unp
                 self._Uenp = Ue_init.toarray() if U_init is not None else self._Uenp
 
-            if self._verbose:
-                print("Uzawa solver:")
-                print("+---------+---------------------+")
-                print("+ Iter. # | L2-norm of residual |")
-                print("+---------+---------------------+")
-                template = "| {:7d} | {:19.2e} |"
+            logger.debug("Uzawa solver:")
+            logger.debug("+---------+---------------------+")
+            logger.debug("+ Iter. # | L2-norm of residual |")
+            logger.debug("+---------+---------------------+")
+            template = "| {:7d} | {:19.2e} |"
 
             for iteration in range(self._max_iter):
                 # Step 1: Compute velocity U by solving A U = -Bᵀ P + F -A Un
@@ -358,12 +356,11 @@ class SaddlePointSolver:
                 self._residual_norms.append(residual_normR1)  # Store residual norm
                 # Check for convergence based on residual norm
                 if residual_norm < self._tol:
-                    if self._verbose:
-                        print(template.format(iteration + 1, residual_norm))
-                        print("+---------+---------------------+")
+                    logger.debug(template.format(iteration + 1, residual_norm))
+                    logger.debug("+---------+---------------------+")
                     info["success"] = True
                     info["niter"] = iteration + 1
-                    if self._verbose:
+                    if logger.level <= logging.DEBUG:
                         _plot_residual_norms(self._residual_norms)
                     return self._Unp, self._Uenp, self._Pnp, info, self._residual_norms, self._spectralresult
 
@@ -373,16 +370,14 @@ class SaddlePointSolver:
                 # alpha = ((self._Precnp.dot(R)).dot(R)) / ((self._Precnp.dot(R)).dot(self._Precnp.dot(R)))
                 self._Pnp += alpha.real * R.real
 
-                if self._verbose:
-                    print(template.format(iteration + 1, residual_norm))
+                logger.debug(template.format(iteration + 1, residual_norm))
 
-            if self._verbose:
-                print("+---------+---------------------+")
+            logger.debug("+---------+---------------------+")
 
             # Return with info if maximum iterations reached
             info["success"] = False
             info["niter"] = iteration + 1
-            if self._verbose:
+            if logger.level <= logging.DEBUG:
                 _plot_residual_norms(self._residual_norms)
             return self._Unp, self._Uenp, self._Pnp, info, self._residual_norms, self._spectralresult
 
@@ -451,9 +446,9 @@ class SaddlePointSolver:
             if not xp.allclose(I_approx, I_exact, atol=1e-6):
                 diff = I_approx - I_exact
                 max_abs = xp.abs(diff).max()
-                print(f"{name} inverse is NOT valid anymore. Max diff: {max_abs:.2e}")
+                logger.info(f"{name} inverse is NOT valid anymore. Max diff: {max_abs:.2e}")
                 return False
-            print(f"{name} inverse is still valid.")
+            logger.info(f"{name} inverse is still valid.")
             return True
         elif self._method_to_solve == "ScipySparse":
             I_exact = sc.sparse.identity(I_approx.shape[0], format=I_approx.format)
@@ -461,15 +456,15 @@ class SaddlePointSolver:
             max_abs = xp.abs(diff.data).max() if diff.nnz > 0 else 0.0
 
             if max_abs > 1e-6:
-                print(f"{name} inverse is NOT valid anymore.")
-                print(f"Max absolute difference: {max_abs:.2e}")
-                print(f"Number of differing entries: {diff.nnz}")
+                logger.info(f"{name} inverse is NOT valid anymore.")
+                logger.info(f"Max absolute difference: {max_abs:.2e}")
+                logger.info(f"Number of differing entries: {diff.nnz}")
                 return False
-            print(f"{name} inverse is still valid.")
+            logger.info(f"{name} inverse is still valid.")
             return True
 
     def _compute_inverse(self, mat, which="matrix"):
-        print(f"Computing inverse for {which} using method {self._method_to_solve}")
+        logger.info(f"Computing inverse for {which} using method {self._method_to_solve}")
         if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
             return xp.linalg.inv(mat)
         elif self._method_to_solve == "ScipySparse":
@@ -495,12 +490,12 @@ class SaddlePointSolver:
         minbeforeA11 = min(eigvalsA11_before)
         specA11_bef = maxbeforeA11 / minbeforeA11
         specA11_bef_abs = maxbeforeA11_abs / minbeforeA11_abs
-        # print(f'{maxbeforeA11 = }')
-        # print(f'{maxbeforeA11_abs = }')
-        # print(f'{minbeforeA11_abs = }')
-        # print(f'{minbeforeA11 = }')
-        # print(f'{specA11_bef = }')
-        print(f"{specA11_bef_abs =}")
+        # logger.info(f'{maxbeforeA11 = }')
+        # logger.info(f'{maxbeforeA11_abs = }')
+        # logger.info(f'{minbeforeA11_abs = }')
+        # logger.info(f'{minbeforeA11 = }')
+        # logger.info(f'{specA11_bef = }')
+        logger.info(f"{specA11_bef_abs =}")
 
         # A22 before
         if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
@@ -515,13 +510,13 @@ class SaddlePointSolver:
         minbeforeA22 = min(eigvalsA22_before)
         specA22_bef = maxbeforeA22 / minbeforeA22
         specA22_bef_abs = maxbeforeA22_abs / minbeforeA22_abs
-        # print(f'{maxbeforeA22 = }')
-        # print(f'{maxbeforeA22_abs = }')
-        # print(f'{minbeforeA22_abs = }')
-        # print(f'{minbeforeA22 = }')
-        # print(f'{specA22_bef = }')
-        print(f"{specA22_bef_abs =}")
-        print(f"{condA22_before =}")
+        # logger.info(f'{maxbeforeA22 = }')
+        # logger.info(f'{maxbeforeA22_abs = }')
+        # logger.info(f'{minbeforeA22_abs = }')
+        # logger.info(f'{minbeforeA22 = }')
+        # logger.info(f'{specA22_bef = }')
+        logger.info(f"{specA22_bef_abs =}")
+        logger.info(f"{condA22_before =}")
 
         if self._preconditioner:
             # A11 after preconditioning with its inverse
@@ -535,12 +530,12 @@ class SaddlePointSolver:
             minafterA11_abs_prec = xp.min(xp.abs(eigvalsA11_after_prec))
             specA11_aft_prec = maxafterA11_prec / minafterA11_prec
             specA11_aft_abs_prec = maxafterA11_abs_prec / minafterA11_abs_prec
-            # print(f'{maxafterA11_prec = }')
-            # print(f'{maxafterA11_abs_prec = }')
-            # print(f'{minafterA11_abs_prec = }')
-            # print(f'{minafterA11_prec = }')
-            # print(f'{specA11_aft_prec = }')
-            print(f"{specA11_aft_abs_prec =}")
+            # logger.info(f'{maxafterA11_prec = }')
+            # logger.info(f'{maxafterA11_abs_prec = }')
+            # logger.info(f'{minafterA11_abs_prec = }')
+            # logger.info(f'{minafterA11_prec = }')
+            # logger.info(f'{specA11_aft_prec = }')
+            logger.info(f"{specA11_aft_abs_prec =}")
 
             # A22 after preconditioning with its inverse
             if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
@@ -555,12 +550,12 @@ class SaddlePointSolver:
             minafterA22_abs_prec = xp.min(xp.abs(eigvalsA22_after_prec))
             specA22_aft_prec = maxafterA22_prec / minafterA22_prec
             specA22_aft_abs_prec = maxafterA22_abs_prec / minafterA22_abs_prec
-            # print(f'{maxafterA22_prec = }')
-            # print(f'{maxafterA22_abs_prec = }')
-            # print(f'{minafterA22_abs_prec = }')
-            # print(f'{minafterA22_prec = }')
-            # print(f'{specA22_aft_prec = }')
-            print(f"{specA22_aft_abs_prec =}")
+            # logger.info(f'{maxafterA22_prec = }')
+            # logger.info(f'{maxafterA22_abs_prec = }')
+            # logger.info(f'{minafterA22_abs_prec = }')
+            # logger.info(f'{minafterA22_prec = }')
+            # logger.info(f'{specA22_aft_prec = }')
+            logger.info(f"{specA22_aft_abs_prec =}")
 
             return condA22_before, specA22_bef_abs, condA11_before, condA22_after, specA22_aft_abs_prec
 

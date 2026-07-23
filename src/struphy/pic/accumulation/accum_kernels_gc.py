@@ -45,7 +45,7 @@ def gc_density_0form(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
+    weight_idx = args_markers.weight_idx
 
     # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, filling)
     # -- removed omp: #$ omp for reduction ( + :vec)
@@ -60,9 +60,16 @@ def gc_density_0form(
         eta3 = markers[ip, 2]
 
         # filling = w_p/N
-        filling = markers[ip, 5] / Np
+        filling = markers[ip, weight_idx]
 
-        particle_to_mat_kernels.vec_fill_b_v0(args_derham, eta1, eta2, eta3, vec, filling)
+        particle_to_mat_kernels.vec_fill_b_v0(
+            args_derham,
+            eta1,
+            eta2,
+            eta3,
+            vec,
+            filling,
+        )
 
     # -- removed omp: #$ omp end parallel
 
@@ -83,7 +90,6 @@ def gc_mag_density_0form(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
 
     # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, filling)
     # -- removed omp: #$ omp for reduction ( + :vec)
@@ -102,7 +108,7 @@ def gc_mag_density_0form(
         mu = markers[ip, 9]
 
         # filling =mu*w_p/N
-        filling = mu * weight / Np * scale
+        filling = mu * weight * scale
 
         particle_to_mat_kernels.vec_fill_b_v0(args_derham, eta1, eta2, eta3, vec, filling)
 
@@ -156,7 +162,6 @@ def cc_lin_mhd_5d_D(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -300,10 +305,6 @@ def cc_lin_mhd_5d_D(
 
     # -- removed omp: #$ omp end parallel
 
-    mat12 /= Np
-    mat13 /= Np
-    mat23 /= Np
-
 
 @stack_array(
     "dfm",
@@ -363,7 +364,6 @@ def cc_lin_mhd_5d_curlb(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -510,17 +510,6 @@ def cc_lin_mhd_5d_curlb(
                 filling_v[2],
             )
 
-    mat11 /= Np
-    mat12 /= Np
-    mat13 /= Np
-    mat22 /= Np
-    mat23 /= Np
-    mat33 /= Np
-
-    vec1 /= Np
-    vec2 /= Np
-    vec3 /= Np
-
 
 @stack_array("dfm", "norm_b1", "filling_v")
 def cc_lin_mhd_5d_M(
@@ -561,7 +550,6 @@ def cc_lin_mhd_5d_M(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
 
     # allocate for a field evaluation
     norm_b1 = empty(3, dtype=float)
@@ -617,10 +605,6 @@ def cc_lin_mhd_5d_M(
             filling_v[1],
             filling_v[2],
         )
-
-    vec1 /= Np
-    vec2 /= Np
-    vec3 /= Np
 
     # -- removed omp: #$ omp end parallel
 
@@ -700,7 +684,6 @@ def cc_lin_mhd_5d_gradB(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -826,9 +809,6 @@ def cc_lin_mhd_5d_gradB(
                 filling_v[1],
                 filling_v[2],
             )
-    vec1 /= Np
-    vec2 /= Np
-    vec3 /= Np
 
 
 @stack_array(
@@ -882,7 +862,6 @@ def cc_lin_mhd_5d_gradB_dg_init(
     r"""TODO"""
 
     markers = args_markers.markers
-    Np = args_markers.Np
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -1056,10 +1035,6 @@ def cc_lin_mhd_5d_gradB_dg_init(
                 filling_v[2],
             )
 
-    vec1 /= Np
-    vec2 /= Np
-    vec3 /= Np
-
 
 @stack_array(
     "dfm",
@@ -1116,7 +1091,6 @@ def cc_lin_mhd_5d_gradB_dg(
     r"""TODO"""
 
     markers = args_markers.markers
-    Np = args_markers.Np
 
     # allocate for magnetic field evaluation
     eta_diff = empty(3, dtype=float)
@@ -1310,7 +1284,3 @@ def cc_lin_mhd_5d_gradB_dg(
                 filling_v[1],
                 filling_v[2],
             )
-
-    vec1 /= Np
-    vec2 /= Np
-    vec3 /= Np

@@ -1,90 +1,45 @@
+import copy
+
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.linear_vlasov_ampere_one_species import LinearVlasovAmpereOneSpecies
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarPIC, Scalars
 from struphy.models.species import (
     FieldSpecies,
     ParticleSpecies,
 )
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.propagators import (
-    propagators_coupling,
-    propagators_fields,
-    propagators_markers,
-)
-from struphy.propagators.base import Propagator
+from struphy.propagators.efield_weights_coupling import EfieldWeightsCoupling
+from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
+from struphy.propagators.poisson_solve import PoissonSolve
+from struphy.propagators.push_eta import PushEta
+from struphy.propagators.push_vin_efield import PushVinEfield
+from struphy.propagators.push_vxb import PushVxB
 
 rank = MPI.COMM_WORLD.Get_rank()
 
 
 class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
-    r"""Linearized Vlasov-Ampère equations for one species.
+    """Linearized Vlasov-Maxwell equations for one kinetic species around a Maxwellian background.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \begin{align}
-            \hat v  = c \,, \qquad \hat E = \hat B \hat v\,,\qquad  \hat \phi = \hat E \hat x \,.
-        \end{align}
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        \begin{align}
-            & \frac{\partial \tilde{\mathbf E}}{\partial t} = \nabla \times \tilde{\mathbf B} - \frac{\alpha^2}{\varepsilon} \int_{\mathbb R^3}\mathbf{v} \tilde f\, \textrm d^3 \mathbf v \,,
-            \\[2mm]
-            & \frac{\partial \tilde{\mathbf B}}{\partial t} = - \nabla \times \tilde{\mathbf E} \,,
-            \\[2mm]
-            & \frac{\partial \tilde f}{\partial t} + \mathbf{v} \cdot \, \nabla \tilde f + \frac{1}{\varepsilon} \left( \mathbf{E}_0 + \mathbf{v} \times \mathbf{B}_0 \right)
-            \cdot \frac{\partial \tilde f}{\partial \mathbf{v}} = \frac{1}{v_{\text{th}}^2 \varepsilon} \, \tilde{\mathbf E} \cdot \mathbf{v} f_0 \,,
-        \end{align}
-
-    with the normalization parameter
-
-    .. math::
-
-        \alpha = \frac{\hat \Omega_\textnormal{p}}{\hat \Omega_\textnormal{c}}\,,\qquad \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t} \,,\qquad \textnormal{with} \qquad \hat\Omega_\textnormal{p} = \sqrt{\frac{\hat n (Ze)^2}{\epsilon_0 (A m_\textnormal{H})}} \,,\qquad \hat \Omega_{\textnormal{c}} = \frac{(Ze) \hat B}{(A m_\textnormal{H})}\,,
-
-    where :math:`Z=-1` and :math:`A=1/1836` for electrons. The background distribution function :math:`f_0` is a uniform Maxwellian
-
-    .. math::
-
-        f_0 = \frac{n_0(\mathbf{x})}{\left( \sqrt{2 \pi} v_{\text{th}} \right)^3}
-        \exp \left( - \frac{|\mathbf{v}|^2}{2 v_{\text{th}}^2} \right) \,,
-
-    and the background electric field has to verify the following compatibility condition between with background density
-
-    .. math::
-
-        \nabla_{\mathbf{x}} \ln (n_0(\mathbf{x})) = \frac{1}{v_{\text{th}}^2 \varepsilon} \mathbf{E}_0 \,.
-
-    At initial time the weak Poisson equation is solved once to weakly satisfy Gauss' law,
-
-    .. math::
-
-            \begin{align}
-            \int_\Omega \nabla \psi^\top \cdot \nabla \phi \,\textrm d \mathbf x &= \frac{\alpha^2}{\varepsilon} \int_\Omega \int_{\mathbb{R}^3} \psi\, \tilde f \, \text{d}^3 \mathbf{v}\,\textrm d \mathbf x \qquad \forall \ \psi \in H^1\,,
-            \\[2mm]
-            \tilde{\mathbf{E}(t=0)} &= -\nabla \phi(t=0) \,.
-            \end{align}
-
-    Moreover, it is assumed that
-
-    .. math::
-
-        \int_{\mathbb{R}^3} \mathbf{v} f_0 \, \text{d}^3 \mathbf{v} = 0 \,.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.propagators_markers.PushEta`
-    2. :class:`~struphy.propagators.propagators_markers.PushVinEfield`
-    3. :class:`~struphy.propagators.propagators_coupling.EfieldWeights`
-    4. :class:`~struphy.propagators.propagators_markers.PushVxB`
-    5. :class:`~struphy.propagators.propagators_fields.Maxwell`
-
-    :ref:`Model info <add_model>`:
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    charge_number: int
+        Charge number (in units of the positive elementary charge) of the species (default: 1)
+    mass_number: float
+        Mass number (in units of Proton mass) of the species (default: 1.0)
+    alpha: float, optional
+        Dimensionless parameter: plasma frequency / cyclotron frequency. If None, computed from units and charge/mass numbers.
+    epsilon: float, optional
+        Normalized cyclotron period: 1 / (cyclotron frequency × time unit). If None, computed from units and charge/mass numbers.
+    with_B0: bool
+        Whether to include the effect of a background magnetic field B0 (default: True)
+    with_E0: bool
+        Whether to include the effect of a background electric field E0 (default: True)
     """
 
     @classmethod
@@ -101,9 +56,20 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
             self.init_variables()
 
     class KineticIons(ParticleSpecies):
-        def __init__(self):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+            alpha: float = None,
+            epsilon: float = None,
+        ):
             self.var = PICVariable(space="DeltaFParticles6D")
-            self.init_variables()
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                alpha=alpha,
+                epsilon=epsilon,
+            )
 
     ## propagators
 
@@ -113,30 +79,46 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
             with_B0: bool = True,
             with_E0: bool = True,
         ):
-            self.push_eta = propagators_markers.PushEta()
+            self.push_eta = PushEta()
             if with_E0:
-                self.push_vinE = propagators_markers.PushVinEfield()
-            self.coupling_Eweights = propagators_coupling.EfieldWeights()
+                self.push_vinE = PushVinEfield()
+            self.coupling_Eweights = EfieldWeightsCoupling()
             if with_B0:
-                self.push_vxb = propagators_markers.PushVxB()
-            self.maxwell = propagators_fields.Maxwell()
+                self.push_vxb = PushVxB()
+            self.maxwell = MaxwellWeakAmpere()
 
     ## abstract methods
 
     def __init__(
         self,
+        base_units: BaseUnits = BaseUnits(),
+        charge_number: int = 1,
+        mass_number: float = 1.0,
+        alpha: float = None,
+        epsilon: float = None,
         with_B0: bool = True,
         with_E0: bool = True,
     ):
 
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
+
         # 1. instantiate all species
         self.em_fields = self.EMFields()
-        self.kinetic_ions = self.KineticIons()
+        self.kinetic_ions = self.KineticIons(
+            charge_number,
+            mass_number,
+            alpha,
+            epsilon,
+        )
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators(with_B0=with_B0, with_E0=with_E0)
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.push_eta.variables.var = self.kinetic_ions.var
         if with_E0:
             self.propagators.push_vinE.variables.var = self.kinetic_ions.var
@@ -147,21 +129,160 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         self.propagators.maxwell.variables.e = self.em_fields.e_field
         self.propagators.maxwell.variables.b = self.em_fields.b_field
 
-        # define scalars for update_scalar_quantities
-        self.add_scalar("en_E")
-        self.add_scalar("en_B")
-        self.add_scalar("en_w", compute="from_particles", variable=self.kinetic_ions.var)
-        self.add_scalar("en_tot")
+        # 5. define scalars to be tracked during simulation
+        electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
+        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
+        particle_energy = FunctionScalarPIC(
+            self._compute_en_w,
+            self.kinetic_ions.var,
+        )
+        self.scalars = Scalars(
+            en_E=electric_energy,
+            en_B=magnetic_energy,
+            en_w=particle_energy,
+            en_tot=electric_energy + magnetic_energy + particle_energy,
+        )
 
         # initial Poisson (not a propagator used in time stepping)
-        self.initial_poisson = propagators_fields.Poisson()
+        self.initial_poisson = PoissonSolve()
         self.initial_poisson.variables.phi = self.em_fields.phi
 
-    def update_scalar_quantities(self):
-        super().update_scalar_quantities()
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
 
-        # 0.5 * b^T * M_2 * b
-        b = self.em_fields.b_field.spline.vector
+        Linearized Ampère's law:
 
-        en_B = 0.5 * Propagator.mass_ops.M2.dot_inner(b, b)
-        self.update_scalar("en_tot", self.scalar_quantities["en_tot"]["value"][0] + en_B)
+        .. math::
+
+            \frac{\partial \tilde{\mathbf{E}}}{\partial t} = \nabla \times \tilde{\mathbf{B}} - \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} \tilde{f} \, \textrm{d}^3 \mathbf{v}
+
+        Linearized Faraday's law:
+
+        .. math::
+
+            \frac{\partial \tilde{\mathbf{B}}}{\partial t} = -\nabla \times \tilde{\mathbf{E}}
+
+        Linearized Vlasov equation:
+
+        .. math::
+
+            \frac{\partial \tilde{f}}{\partial t} + \mathbf{v} \cdot \nabla \tilde{f} + \frac{1}{\varepsilon} \left( \mathbf{E}_0 + \mathbf{v} \times \mathbf{B}_0 \right) \cdot \frac{\partial \tilde{f}}{\partial \mathbf{v}} = \frac{1}{v_{\text{th}}^2 \varepsilon} \tilde{\mathbf{E}} \cdot \mathbf{v} f_0
+
+        where :math:`Z=-1` and :math:`A=1/1836` for electrons. The background distribution function :math:`f_0` is a uniform Maxwellian
+
+        .. math::
+
+            f_0 = \frac{n_0(\mathbf{x})}{\left( \sqrt{2 \pi} v_{\text{th}} \right)^3} \exp \left( - \frac{|\mathbf{v}|^2}{2 v_{\text{th}}^2} \right)
+
+        and the background electric field has to verify the following compatibility condition between with background density
+
+        .. math::
+
+            \nabla_{\mathbf{x}} \ln (n_0(\mathbf{x})) = \frac{1}{v_{\text{th}}^2 \varepsilon} \mathbf{E}_0
+
+        At initial time the weak Poisson equation is solved once to weakly satisfy Gauss' law,
+
+        .. math::
+
+            \int_\Omega \nabla \psi^\top \cdot \nabla \phi \, \textrm{d} \mathbf{x}
+            &= \frac{\alpha^2}{\varepsilon} \int_\Omega \int_{\mathbb{R}^3} \psi \, \tilde{f} \, \text{d}^3 \mathbf{v} \, \textrm{d} \mathbf{x}
+            \qquad \forall \ \psi \in H^1
+            \\[2mm]
+            \tilde{\mathbf{E}}(t=0) &= -\nabla \phi(t=0)
+
+        Moreover, it is assumed that
+
+        .. math::
+
+            \int_{\mathbb{R}^3} \mathbf{v} f_0 \, \text{d}^3 \mathbf{v} = 0
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The normalization matches the linear Vlasov-Ampère model:
+
+        .. math::
+
+            \hat v = c,\qquad \hat E = \hat B \hat v,\qquad \hat\phi = \hat E \hat x.
+
+        The model retains the same :math:`\alpha` and :math:`\varepsilon`
+        parameters while adding magnetic perturbation dynamics."""
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - Electric field energy: ``en_E``
+        - Magnetic field energy: ``en_B``
+        - Perturbation particle energy: ``en_w``
+        - Total energy: ``en_tot``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence):
+
+        1. :class:`~struphy.propagators.push_eta.PushEta`
+        2. :class:`~struphy.propagators.push_vin_efield.PushVinEfield` (if :attr:`with_E0` is True)
+        3. :class:`~struphy.propagators.efield_weights_coupling.EfieldWeightsCoupling`
+        4. :class:`~struphy.propagators.push_vxb.PushVxB` (if :attr:`with_B0` is True)
+        5. :class:`~struphy.propagators.maxwell_weak_ampere.MaxwellWeakAmpere`
+        """
+        doc = rf"""**1. push_eta.PushEta:**
+
+    {PushEta.__doc__}
+
+    **2. push_vin_efield.PushVinEfield:**
+
+    {PushVinEfield.__doc__}
+
+**3. efield_weights_coupling.EfieldWeightsCoupling:**
+
+{EfieldWeightsCoupling.__doc__}
+
+**4. push_vxb.PushVxB:**
+
+{PushVxB.__doc__}
+
+**5. propagators.maxwell.Maxwell:**
+
+{MaxwellWeakAmpere.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""LinearVlasovMaxwellOneSpecies is the electromagnetic extension of the
+        linear delta-f Vlasov model. It is intended for weakly perturbed kinetic
+        electromagnetic waves and instabilities around a prescribed equilibrium."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize the linear Vlasov-Maxwell model:
+
+        .. code-block:: python
+
+            from struphy.models import LinearVlasovMaxwellOneSpecies
+
+            model = LinearVlasovMaxwellOneSpecies()
+            model.em_fields.e_field
+            model.em_fields.b_field
+            model.kinetic_ions.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - linear electromagnetic kinetic wave studies
+        - delta-f verification of linear Vlasov-Maxwell coupling
+        - weakly nonlinear regimes where equilibrium perturbations stay small"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - strongly nonlinear fully kinetic plasma dynamics
+        - multi-species electromagnetic coupling
+        - problems without a well-defined linearization background
+        - collisional kinetic closures"""

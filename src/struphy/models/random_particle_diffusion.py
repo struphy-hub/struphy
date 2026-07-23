@@ -1,41 +1,26 @@
+import copy
+
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     ParticleSpecies,
 )
 from struphy.models.variables import PICVariable
-from struphy.propagators import (
-    propagators_markers,
-)
+from struphy.propagators.push_random_diffusion import PushRandomDiffusion
 
 rank = MPI.COMM_WORLD.Get_rank()
 
 
 class RandomParticleDiffusion(StruphyModel):
-    r"""Diffusion equation discretized with a (random) particle method;
-    the diffusion is computed through a Wiener process.
+    """Diffusion equation discretized with a random particle method, via a Wiener process.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat D := \frac{\hat x^2}{\hat t } \,.
-
-    :ref:`Equations <gempic>`: Find :math:`u:\mathbb R\times \Omega\to \mathbb R^+` such that
-
-    .. math::
-
-        \frac{\partial u}{\partial t} -  D \, \Delta u = 0\,,
-
-    where :math:`D > 0` is a positive diffusion coefficient.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.propagators_markers.PushRandomDiffusion`
-
-    :ref:`Model info <add_model>`:
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
     """
 
     @classmethod
@@ -53,25 +38,28 @@ class RandomParticleDiffusion(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.rand_diff = propagators_markers.PushRandomDiffusion()
+            self.rand_diff = PushRandomDiffusion()
 
     ## abstract methods
 
-    def __init__(self):
+    def __init__(self, base_units: BaseUnits = BaseUnits()):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.hydrogen = self.Hydrogen()
 
-        # 2. instantiate all propagators
+        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
+        self.setup_equation_params(base_units=base_units)
+
+        # 3. instantiate all propagators
         self.propagators = self.Propagators()
 
-        # 3. assign variables to propagators
+        # 4. assign variables to propagators
         self.propagators.rand_diff.variables.var = self.hydrogen.var
 
-        # define scalars for update_scalar_quantities
-        # self.add_scalar("electric energy")
-        # self.add_scalar("magnetic energy")
-        # self.add_scalar("total energy")
+        # 5. define scalars to be tracked during simulation
 
     @property
     def bulk_species(self):
@@ -81,8 +69,79 @@ class RandomParticleDiffusion(StruphyModel):
     def velocity_scale(self):
         return None
 
-    def allocate_helpers(self, verbose: bool = False):
+    def allocate_helpers(self):
         pass
 
-    def update_scalar_quantities(self):
-        pass
+    @classmethod
+    def doc_pde(cls):
+        r"""**PDEs solved by model:**
+
+        Find :math:`u : \mathbb{R} \times \Omega \to \mathbb{R}^+` such that
+
+        .. math::
+
+            \frac{\partial u}{\partial t} - D \, \Delta u = 0
+
+        where :math:`D > 0` is a positive diffusion coefficient.
+        """
+
+    @classmethod
+    def doc_normalization(cls):
+        r"""The natural scaling is set by the diffusion coefficient:
+
+        .. math::
+
+            \hat D = \hat x^2 / \hat t.
+        """
+
+    @classmethod
+    def doc_scalar_quantities(cls):
+        r"""**The following scalars are tracked during simulation:**
+
+        - No default scalar diagnostics are defined by this model."""
+
+    @classmethod
+    def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence):
+
+        1. :class:`~struphy.propagators.push_random_diffusion.PushRandomDiffusion`
+        """
+        doc = rf"""**1. push_random_diffusion.PushRandomDiffusion:**
+
+    {PushRandomDiffusion.__doc__}
+"""
+        return doc
+
+    @classmethod
+    def doc_long_description(cls):
+        r"""This model is the stochastic counterpart of the deterministic particle
+        diffusion model. It is intended for diffusion-method development and
+        comparisons between random-walk and deterministic transport strategies."""
+
+    @classmethod
+    def doc_examples(cls):
+        r"""Create and initialize a random diffusion model:
+
+        .. code-block:: python
+
+            from struphy.models import RandomParticleDiffusion
+
+            model = RandomParticleDiffusion()
+            model.hydrogen.var
+        """
+
+    @classmethod
+    def doc_use_cases(cls):
+        r"""This model is appropriate for:
+
+        - stochastic particle diffusion benchmarks
+        - Monte-Carlo transport verification
+        - comparison against deterministic diffusion solvers"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - electromagnetic or fluid plasma dynamics
+        - deterministic advection-dominated transport
+        - anisotropic plasma kinetics in phase space"""
