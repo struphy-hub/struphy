@@ -21,7 +21,7 @@ CASES = [
         physics_problem="Diocotron instability in a non-neutral plasma.",
         struphy_model_used="ToyDrift",
         ranks=(1, 2, 4),  # , 8),
-        params_source=(repo_root / "examples" / "ToyGyrokinetic" / "diocotron_instability" / "params_diocotron.py"),
+        params_source=(script_dir / "examples" / "ToyGyrokinetic" / "diocotron_instability" / "params_diocotron.py"),
         run_script=script_dir / "run_diocotron.py",
     ),
 ]

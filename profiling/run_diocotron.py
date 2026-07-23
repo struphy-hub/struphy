@@ -11,7 +11,7 @@ set_logging_level(logging.INFO)
 
 script_dir = Path(__file__).resolve().parent
 repo_root = script_dir.parent
-params_dir = repo_root / "examples" / "ToyGyrokinetic" / "diocotron_instability"
+params_dir = script_dir / "examples" / "ToyGyrokinetic" / "diocotron_instability"
 default_out_root = repo_root / "results" / "profiling" / "manual" / "diocotron_poisson_scaling"
 
 sys.path.insert(0, str(params_dir))
