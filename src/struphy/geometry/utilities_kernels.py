@@ -1,7 +1,8 @@
+import numpy as np
 from numpy import shape, sqrt
 
 
-def weighted_arc_lengths_flux_surface(r: "float[:]", z: "float[:]", grad_psi: "float[:]", dwls: "float[:]", kind: int):
+def weighted_arc_lengths_flux_surface(r: "float[:]", z: "float[:]", grad_psi: "float[:]", kind: int) -> "float[:]":
     """
     Computes the weighted arc lengths
 
@@ -27,11 +28,13 @@ def weighted_arc_lengths_flux_surface(r: "float[:]", z: "float[:]", grad_psi: "f
     grad_psi : xp.ndarray
         Absolute values of the flux function gradient on the flux surface: |grad(psi)| = sqrt[ (d_R psi)**2 + (d_Z psi)**2 ].
 
-    dwls : xp.ndarray
-        The weighted arc lengths will be written into this array. Length must be one smaller than lengths of r, z and grad_psi.
-
     kind : int
         Which weight to use (see above table: 1: equal arc length, 2: straight field line, etc.)
+
+    Returns
+    -------
+    dwls : xp.ndarray
+        The weighted arc lengths. Length is one smaller than lengths of r, z and grad_psi.
 
     References
     ----------
@@ -40,6 +43,8 @@ def weighted_arc_lengths_flux_surface(r: "float[:]", z: "float[:]", grad_psi: "f
 
     # number of angle boundaries
     n_th = r.size
+
+    dwls = np.zeros(n_th - 1, dtype=float)
 
     for j in range(n_th - 1):
         # local orthonormal coordinate system at line segment (j --> j+1)
@@ -96,3 +101,5 @@ def weighted_arc_lengths_flux_surface(r: "float[:]", z: "float[:]", grad_psi: "f
         # h = 1 (constant volume)
         elif kind == 4:
             dwls[j] = dls * 1 / 2 * (r[j] / grad_psi[j] + r[j + 1] / grad_psi[j + 1])
+
+    return dwls

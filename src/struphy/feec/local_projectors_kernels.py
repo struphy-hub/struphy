@@ -5,7 +5,7 @@ import struphy.kernel_arguments.local_projectors_args_kernels as local_projector
 from struphy.kernel_arguments.local_projectors_args_kernels import LocalProjectorsArguments
 
 
-def compute_shifts(IoH: "bool[:]", p: "int[:]", B_nbasis: "int[:]", shift: "int[:]"):
+def compute_shifts(IoH: "bool[:]", p: "int[:]", B_nbasis: "int[:]") -> "int[:]":
     """This function computes by how much we must shift the indices in case we loop over the evaluation points.
 
     Parameters
@@ -19,9 +19,13 @@ def compute_shifts(IoH: "bool[:]", p: "int[:]", B_nbasis: "int[:]", shift: "int[
     B_nbasis: 1d int array
         Array with the number of B-splines in each direction.
 
-    shifts : 1d int array
+    Returns
+    -------
+    shift : 1d int array
         array of 3 ints, each one denotes the amout by which we must shift the indices to loop around the quasi-points for each spatial direction.
     """
+    shift = zeros(3, dtype=int)
+
     for i, ioh in enumerate(IoH):
         # Histopolation
         if ioh:
@@ -32,6 +36,8 @@ def compute_shifts(IoH: "bool[:]", p: "int[:]", B_nbasis: "int[:]", shift: "int[
         # Interpolation
         else:
             shift[i] = -2 * B_nbasis[i]
+
+    return shift
 
 
 def get_local_problem_size(periodic: "bool[:]", p: "int[:]", IoH: "bool[:]"):
@@ -82,9 +88,11 @@ def get_dofs_local_1_form_ec_component_weighted(
     basis1: "float[:]",
     basis2: "float[:]",
     arezeroc: "int[:]",
-    f_eval_aux: "float[:,:,:]",
+    n1: int,
+    n2: int,
+    n3: int,
     c: int,
-):
+) -> "float[:,:,:]":
     """Kernel for evaluating the degrees of freedom for the c-th component of 1-forms. This function is for local commuting projetors.
 
     Parameters
@@ -107,13 +115,20 @@ def get_dofs_local_1_form_ec_component_weighted(
         arezeroc : 1d int array
             Array of zeros or ones. A one means that for this particular set of quadrature points, in the c-th direction, the basis function is not zero for at least one of them.
 
-        f_eval_aux : 3d float array
-            Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
+        n1, n2, n3 : int
+            Shape of the output array of evaluated degrees of freedom.
 
         c : int
             This int tell us whichone of the three components of the 1-form vector we are dealing with. It must be 0, 1 or 2.
+
+    Returns
+    -------
+    f_eval_aux : 3d float array
+        The evaluated degrees of freedom.
     """
     p = args_solve.degree[c]
+
+    f_eval_aux = zeros((n1, n2, n3), dtype=float)
 
     for i in range(shape(f_eval_aux)[0]):
         if c == 0:
@@ -165,14 +180,18 @@ def get_dofs_local_1_form_ec_component_weighted(
                                         * args_solve.wts2[args_solve.inv_index_translation2[k], ii]
                                     )
 
+    return f_eval_aux
+
 
 @stack_array("shp")
 def get_dofs_local_1_form_ec_component(
     args_solve: LocalProjectorsArguments,
     f3: "float[:,:,:]",
-    f_eval_aux: "float[:,:,:]",
+    n1: int,
+    n2: int,
+    n3: int,
     c: int,
-):
+) -> "float[:,:,:]":
     """Kernel for evaluating the degrees of freedom for the c-th component of 1-forms.  This function is for local commuting projetors.
 
     Parameters
@@ -183,12 +202,19 @@ def get_dofs_local_1_form_ec_component(
         f3 : 3d float array
             Evaluation for the c-th component of the 1-form function over all the interpolation points in e_a and e_b (a!=b!=c), as well as all the Gauss-Legendre quadrature point in e_c.
 
-        f_eval_aux : 3d float array
-            Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
+        n1, n2, n3 : int
+            Shape of the output array of evaluated degrees of freedom.
 
         c : int
             This integer determines which of the three components of the 1-form vector we are working on. Must be 0,1 or 2.
+
+    Returns
+    -------
+    f_eval_aux : 3d float array
+        The evaluated degrees of freedom.
     """
+
+    f_eval_aux = zeros((n1, n2, n3), dtype=float)
 
     shp = zeros(3, dtype=int)
     shp[:] = shape(f_eval_aux)
@@ -220,14 +246,18 @@ def get_dofs_local_1_form_ec_component(
                     for ii in range(p):
                         f_eval_aux[i, j, k] += f3[i, j, in_start + ii] * wts[inv_index_translation[k], ii]
 
+    return f_eval_aux
+
 
 @stack_array("shp")
 def get_dofs_local_2_form_ec_component(
     args_solve: LocalProjectorsArguments,
     fc: "float[:,:,:]",
-    f_eval_aux: "float[:,:,:]",
+    n1: int,
+    n2: int,
+    n3: int,
     c: int,
-):
+) -> "float[:,:,:]":
     """Kernel for evaluating the degrees of freedom for the c-th component of 2-forms.  This function is for local commuting projetors.
 
     Parameters
@@ -239,12 +269,19 @@ def get_dofs_local_2_form_ec_component(
             Evaluation for the c-th component of the 2-form function over all the interpolation points in e_c, as well as all the Gauss-Legendre quadrature point in e_a and e_b.
             Of the two spatial directions different from e_c, e_a is the one with the smaller index, and e_b is the one with the larger index.
 
-        f_eval_aux : 3d float array
-            Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
+        n1, n2, n3 : int
+            Shape of the output array of evaluated degrees of freedom.
 
         c : int
             This integer determines which of the three components of the 2-form vector we are working on. Must be 0, 1 or 2.
+
+    Returns
+    -------
+    f_eval_aux : 3d float array
+        The evaluated degrees of freedom.
     """
+
+    f_eval_aux = zeros((n1, n2, n3), dtype=float)
 
     shp = zeros(3, dtype=int)
     shp[:] = shape(f_eval_aux)
@@ -283,6 +320,8 @@ def get_dofs_local_2_form_ec_component(
                                 * args_solve.wts1[args_solve.inv_index_translation1[j], kk]
                             )
 
+    return f_eval_aux
+
 
 def get_dofs_local_2_form_ec_component_weighted(
     args_solve: LocalProjectorsArguments,
@@ -292,9 +331,11 @@ def get_dofs_local_2_form_ec_component_weighted(
     basis2: "float[:]",
     arezero_a: "int[:]",
     arezero_b: "int[:]",
-    f_eval_aux: "float[:,:,:]",
+    n1: int,
+    n2: int,
+    n3: int,
     c: int,
-):
+) -> "float[:,:,:]":
     """Kernel for evaluating the degrees of freedom for the c-th component of 2-forms.  This function is for local commuting projetors.
 
     Parameters
@@ -321,12 +362,19 @@ def get_dofs_local_2_form_ec_component_weighted(
         arezero_b : 1d int array
             Array zeros or ones. A one means that for this particular set of quadrature points, in the e_b direction, the basis function is not zero for at least one of them.
 
-        f_eval_aux : 3d float array
-            Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
+        n1, n2, n3 : int
+            Shape of the output array of evaluated degrees of freedom.
 
         c : int
             This int tell us whichone of the three components of the 2-form vector we are dealing with. It must be 0, 1 or 2.
+
+    Returns
+    -------
+    f_eval_aux : 3d float array
+        The evaluated degrees of freedom.
     """
+
+    f_eval_aux = zeros((n1, n2, n3), dtype=float)
 
     for i in range(shape(f_eval_aux)[0]):
         if c == 0:
@@ -390,9 +438,17 @@ def get_dofs_local_2_form_ec_component_weighted(
                                             * args_solve.wts1[args_solve.inv_index_translation1[j], kk]
                                         )
 
+    return f_eval_aux
+
 
 @stack_array("shp")
-def get_dofs_local_3_form(args_solve: LocalProjectorsArguments, faux: "float[:,:,:]", f_eval: "float[:,:,:]"):
+def get_dofs_local_3_form(
+    args_solve: LocalProjectorsArguments,
+    faux: "float[:,:,:]",
+    n1: int,
+    n2: int,
+    n3: int,
+) -> "float[:,:,:]":
     """Kernel for evaluating the degrees of freedom for 3-forms.  This function is for local commuting projetors.
 
     Parameters
@@ -403,9 +459,16 @@ def get_dofs_local_3_form(args_solve: LocalProjectorsArguments, faux: "float[:,:
         faux : 3d float array
             Evaluation for the 3-form function over all the Gauss-Legendre quadrature point in e1, e2 and e3.
 
-        f_eval : 3d float array
-            Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
+        n1, n2, n3 : int
+            Shape of the output array of evaluated degrees of freedom.
+
+    Returns
+    -------
+    f_eval : 3d float array
+        The evaluated degrees of freedom.
     """
+    f_eval = zeros((n1, n2, n3), dtype=float)
+
     shp = zeros(3, dtype=int)
     shp[:] = shape(f_eval)
 
@@ -429,6 +492,8 @@ def get_dofs_local_3_form(args_solve: LocalProjectorsArguments, faux: "float[:,:
                                 * args_solve.wts2[args_solve.inv_index_translation2[k], kk]
                             )
 
+    return f_eval
+
 
 def get_dofs_local_3_form_weighted(
     args_solve: LocalProjectorsArguments,
@@ -439,8 +504,10 @@ def get_dofs_local_3_form_weighted(
     arezero0: "int[:]",
     arezero1: "int[:]",
     arezero2: "int[:]",
-    f_eval: "float[:,:,:]",
-):
+    n1: int,
+    n2: int,
+    n3: int,
+) -> "float[:,:,:]":
     """Kernel for evaluating the degrees of freedom for 3-forms.  This function is for local commuting projetors.
 
     Parameters
@@ -469,9 +536,16 @@ def get_dofs_local_3_form_weighted(
         arezero2 : 1d int array
             Array of zeros or ones. A one means that for this particular set of quadrature points, in the third direction, the basis function is not zero for at least one of them.
 
-        f_eval : 3d float array
-            Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
+        n1, n2, n3 : int
+            Shape of the output array of evaluated degrees of freedom.
+
+    Returns
+    -------
+    f_eval : 3d float array
+        The evaluated degrees of freedom.
     """
+
+    f_eval = zeros((n1, n2, n3), dtype=float)
 
     for i in range(shape(f_eval)[0]):
         if arezero0[i] != 0:
@@ -498,6 +572,8 @@ def get_dofs_local_3_form_weighted(
                                             * args_solve.wts1[args_solve.inv_index_translation1[j], jj]
                                             * args_solve.wts2[args_solve.inv_index_translation2[k], kk]
                                         )
+
+    return f_eval
 
 
 # We need a functions that tell us which of the quasi-interpolation points to take for a any given i

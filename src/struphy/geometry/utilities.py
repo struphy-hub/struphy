@@ -290,8 +290,7 @@ def field_line_tracing(
             gp = xp.sqrt(psi(_R, _Z, dR=1) ** 2 + psi(_R, _Z, dZ=1) ** 2)
 
             # compute weighted arc_lengths between two successive points in xis_extended array
-            dl = xp.zeros(xis_extended.size - 1, dtype=float)
-            weighted_arc_lengths_flux_surface(_R, _Z, gp, dl, xi_param_dict[xi_param])
+            dl = weighted_arc_lengths_flux_surface(_R, _Z, gp, xi_param_dict[xi_param])
 
             # total length of the flux surface
             l = xp.sum(dl)

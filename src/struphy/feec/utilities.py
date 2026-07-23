@@ -294,18 +294,7 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14):
         if tmp_arr.shape == tmp1.shape:
             tmp2 = tmp_arr
         else:
-            tmp2 = xp.zeros(
-                (
-                    e[0] + 1 - s[0],
-                    e[1] + 1 - s[1],
-                    e[2] + 1 - s[2],
-                    2 * degree[0] + 1,
-                    2 * degree[1] + 1,
-                    2 * degree[2] + 1,
-                ),
-                dtype=float,
-            )
-            bts.band_to_stencil_3d(tmp_arr, tmp2)
+            tmp2 = bts.band_to_stencil_3d(tmp_arr, degree[0], degree[1], degree[2])
 
         assert xp.allclose(tmp1, tmp2, atol=atol)
 
@@ -338,18 +327,7 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14):
                 if tmp_mat.shape == tmp1.shape:
                     tmp2 = tmp_mat
                 else:
-                    tmp2 = xp.zeros(
-                        (
-                            e[0] + 1 - s[0],
-                            e[1] + 1 - s[1],
-                            e[2] + 1 - s[2],
-                            2 * degree[0] + 1,
-                            2 * degree[1] + 1,
-                            2 * degree[2] + 1,
-                        ),
-                        dtype=float,
-                    )
-                    bts.band_to_stencil_3d(tmp_mat, tmp2)
+                    tmp2 = bts.band_to_stencil_3d(tmp_mat, degree[0], degree[1], degree[2])
 
                 assert xp.allclose(tmp1, tmp2, atol=atol)
 

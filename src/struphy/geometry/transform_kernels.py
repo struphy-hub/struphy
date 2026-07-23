@@ -301,8 +301,7 @@ def kernel_pullpush(
     kind_fun: int,
     args_domain: "DomainArguments",
     is_sparse_meshgrid: bool,
-    out: "float[:,:,:,:]",
-):
+) -> "float[:,:,:,:]":
     """
     Pull-backs, pushforwards and transformations on a given 3d grid of evaluation points.
 
@@ -326,18 +325,20 @@ def kernel_pullpush(
     is_sparse_meshgrid : bool
         Whether the evaluation points were obtained from a sparse meshgrid.
 
+    Returns
+    -------
     out : float[:,:,:,:]
         Output values.
     """
 
     tmp1 = zeros(shape(a)[-1], dtype=float)
-    tmp2 = zeros(shape(out)[-1], dtype=float)
-    # tmp1 = zeros(3, dtype=float)
-    # tmp2 = zeros(3, dtype=float)
+    tmp2 = zeros(3, dtype=float)
 
     n1 = shape(eta1)[0]
     n2 = shape(eta2)[1]
     n3 = shape(eta3)[2]
+
+    out = zeros((n1, n2, n3, 3), dtype=float)
 
     if is_sparse_meshgrid:
         sparse_factor = 0
@@ -352,7 +353,6 @@ def kernel_pullpush(
                 e3 = eta3[i1 * sparse_factor, i2 * sparse_factor, i3]
 
                 tmp1[:] = a[i1, i2, i3, :]
-                tmp2[:] = out[i1, i2, i3, :]
 
                 if kind_transform == 0:
                     pull(tmp1, e1, e2, e3, kind_fun, args_domain, tmp2)
@@ -362,6 +362,8 @@ def kernel_pullpush(
                     tran(tmp1, e1, e2, e3, kind_fun, args_domain, tmp2)
 
                 out[i1, i2, i3, :] = tmp2
+
+    return out
 
 
 @stack_array("tmp1", "tmp2")
@@ -403,8 +405,6 @@ def kernel_pullpush_pic(
 
     tmp1 = zeros(shape(a)[1], dtype=float)
     tmp2 = zeros(shape(out)[1], dtype=float)
-    # tmp1 = zeros((3,), dtype=float)
-    # tmp2 = zeros((3,), dtype=float)
 
     np = shape(markers)[0]
 

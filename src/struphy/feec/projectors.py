@@ -1030,8 +1030,7 @@ class CommutingProjectorLocal:
 
             lenj = [lenj1, lenj2, lenj3]
 
-            self._shift = xp.array([0, 0, 0], dtype=int)
-            compute_shifts(self._IoH, self._degree, self._B_nbasis, self._shift)
+            self._shift = compute_shifts(self._IoH, self._degree, self._B_nbasis)
 
             split_points(
                 IoH_for_indices,
@@ -1252,7 +1251,7 @@ class CommutingProjectorLocal:
 
                 lenj = [lenj1, lenj2, lenj3]
 
-                compute_shifts(self._IoH[h], self._degree, self._B_nbasis, self._shift[h])
+                self._shift[h] = compute_shifts(self._IoH[h], self._degree, self._B_nbasis)
 
                 split_points(
                     IoH_for_indices[h],
@@ -1693,23 +1692,23 @@ class CommutingProjectorLocal:
                     # Evaluation of the function to compute the h component
                     fh = fun[h](*self._meshgrid[h])
 
-                # Array into which we will write the Dofs.
-                f_eval_aux = xp.zeros(tuple(xp.shape(dim)[0] for dim in self._localpts[h]))
+                # Shape of the array into which we will write the Dofs.
+                n1, n2, n3 = (xp.shape(dim)[0] for dim in self._localpts[h])
 
                 # For 1-forms
                 if self._space_key == "1":
-                    get_dofs_local_1_form_ec_component(self._solve_args[h], fh, f_eval_aux, h)
+                    f_eval_aux = get_dofs_local_1_form_ec_component(self._solve_args[h], fh, n1, n2, n3, h)
                 # For 2-forms
                 else:
-                    get_dofs_local_2_form_ec_component(self._solve_args[h], fh, f_eval_aux, h)
+                    f_eval_aux = get_dofs_local_2_form_ec_component(self._solve_args[h], fh, n1, n2, n3, h)
 
                 f_eval.append(f_eval_aux)
 
         elif self._space_key == "3":
-            f_eval = xp.zeros(tuple(xp.shape(dim)[0] for dim in self._localpts))
+            n1, n2, n3 = (xp.shape(dim)[0] for dim in self._localpts)
             # Evaluation of the function at all Gauss-Legendre quadrature points
             faux = fun(*self._meshgrid)
-            get_dofs_local_3_form(self._solve_args, faux, f_eval)
+            f_eval = get_dofs_local_3_form(self._solve_args, faux, n1, n2, n3)
 
         elif self._space_key == "v":
             f_eval = []
@@ -1759,8 +1758,8 @@ class CommutingProjectorLocal:
                 if first_go:
                     pre_computed_dofs.append(fun[h](*self._meshgrid[h]))
 
-                # Array into which we will write the Dofs.
-                f_eval_aux = xp.zeros(tuple(xp.shape(dim)[0] for dim in self._localpts[h]))
+                # Shape of the array into which we will write the Dofs.
+                n1, n2, n3 = (xp.shape(dim)[0] for dim in self._localpts[h])
 
                 # We check if the current set of basis functions is not one of those we have to compute in the current MPI rank.
                 if (
@@ -1770,8 +1769,9 @@ class CommutingProjectorLocal:
                 ):
                     # We should do nothing here
                     self._do_nothing[h] = 1
+                    f_eval_aux = xp.zeros((n1, n2, n3))
                 elif self._space_key == "1":
-                    get_dofs_local_1_form_ec_component_weighted(
+                    f_eval_aux = get_dofs_local_1_form_ec_component_weighted(
                         self._solve_args[h],
                         pre_computed_dofs[h],
                         self.get_values(
@@ -1781,13 +1781,15 @@ class CommutingProjectorLocal:
                         self.get_values(1, h),
                         self.get_values(2, h),
                         self.get_are_zero(h, h),
-                        f_eval_aux,
+                        n1,
+                        n2,
+                        n3,
                         h,
                     )
                 else:
                     # ind1 and ind2 are the indices of the two directions with histopolation, ind1 must be smaller than ind2.
                     (ind1, ind2) = [(1, 2), (0, 2), (0, 1)][h]
-                    get_dofs_local_2_form_ec_component_weighted(
+                    f_eval_aux = get_dofs_local_2_form_ec_component_weighted(
                         self._solve_args[h],
                         pre_computed_dofs[h],
                         self.get_values(
@@ -1798,19 +1800,21 @@ class CommutingProjectorLocal:
                         self.get_values(2, h),
                         self.get_are_zero(ind1, h),
                         self.get_are_zero(ind2, h),
-                        f_eval_aux,
+                        n1,
+                        n2,
+                        n3,
                         h,
                     )
 
                 f_eval.append(f_eval_aux)
 
         elif self._space_key == "3":
-            f_eval = xp.zeros(tuple(xp.shape(dim)[0] for dim in self._localpts))
+            n1, n2, n3 = (xp.shape(dim)[0] for dim in self._localpts)
             # Evaluation of the function at all Gauss-Legendre quadrature points
             if first_go:
                 pre_computed_dofs = [fun(*self._meshgrid)]
 
-            get_dofs_local_3_form_weighted(
+            f_eval = get_dofs_local_3_form_weighted(
                 self._solve_args,
                 pre_computed_dofs[0],
                 self.get_values(0),
@@ -1821,7 +1825,9 @@ class CommutingProjectorLocal:
                 self.get_are_zero(0),
                 self.get_are_zero(1),
                 self.get_are_zero(2),
-                f_eval,
+                n1,
+                n2,
+                n3,
             )
 
         elif self._space_key == "v":

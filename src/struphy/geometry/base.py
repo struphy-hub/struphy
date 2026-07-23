@@ -977,18 +977,12 @@ class Domain(metaclass=DomainMeta):
                 flat_eval=False,
             )
 
-            # to keep C-ordering the (3, 3)-part is in the last indices
-            out = xp.empty(
-                (E1.shape[0], E2.shape[1], E3.shape[2], 3, 3),
-                dtype=float,
-            )
-            evaluation_kernels.kernel_evaluate(
+            out = evaluation_kernels.kernel_evaluate(
                 E1,
                 E2,
                 E3,
                 which,
                 self.args_domain,
-                out,
                 is_sparse_meshgrid,
                 avoid_round_off,
             )
@@ -1180,12 +1174,7 @@ class Domain(metaclass=DomainMeta):
                 X = self(E1, E2, E3)
                 A = Domain.prepare_arg(a, X[0], X[1], X[2], a_kwargs=a_kwargs)
 
-            # call evaluation kernel
-            out = xp.empty(
-                (E1.shape[0], E2.shape[1], E3.shape[2], 3),
-                dtype=float,
-            )
-            transform_kernels.kernel_pullpush(
+            out = transform_kernels.kernel_pullpush(
                 A,
                 E1,
                 E2,
@@ -1194,7 +1183,6 @@ class Domain(metaclass=DomainMeta):
                 kind_int,
                 self.args_domain,
                 is_sparse_meshgrid,
-                out,
             )
 
             # move the (3, 3)-part to front
