@@ -80,7 +80,9 @@ from utils import _git_commit, _git_commit_short, _make_unique_results_root
 
 
 def build_case_commands(
-    case: ProfilingCase, output_root: Path, venv_path: Path
+    case: ProfilingCase,
+    output_root: Path,
+    venv_path: Path,
 ) -> list[str]:
     activate_path = venv_path / "bin" / "activate"
     commands = [
@@ -136,10 +138,11 @@ def build_case_commands(
             'echo "----------------------------------------"',
             "# Postprocessing comparison plots",
             f'scope-profiler pproc "${{existing_h5_files[@]}}" --rank 0 -o "{output_root / "figures"}"',
-        ]
+        ],
     )
 
     return commands
+
 
 def build_arg_parser(description: str) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=description)
@@ -181,7 +184,7 @@ def run_profiling_job(cases: list[ProfilingCase], description: str) -> None:
     virtual_env = os.environ.get("VIRTUAL_ENV")
     if not virtual_env:
         raise RuntimeError(
-            "VIRTUAL_ENV is not set; activate a virtual environment before submitting the job."
+            "VIRTUAL_ENV is not set; activate a virtual environment before submitting the job.",
         )
     venv_path = Path(virtual_env)
 
@@ -225,7 +228,7 @@ def run_profiling_job(cases: list[ProfilingCase], description: str) -> None:
         output_path = repo_root / f"job_profile_{case.label}.sh"
 
         print(
-            f"Writing metadata for '{case.label}' to {case_output_root / 'profiling_case_info.json'}"
+            f"Writing metadata for '{case.label}' to {case_output_root / 'profiling_case_info.json'}",
         )
         (case_output_root / "profiling_case_info.json").write_text(
             json.dumps(
@@ -249,7 +252,7 @@ def run_profiling_job(cases: list[ProfilingCase], description: str) -> None:
 
         script.save(str(output_path))
         print(
-            f"Saved SLURM script for '{case.label}' to {output_path} from {os.getcwd()}"
+            f"Saved SLURM script for '{case.label}' to {output_path} from {os.getcwd()}",
         )
 
         print("=== Script contents ===")
@@ -268,13 +271,13 @@ def run_profiling_job(cases: list[ProfilingCase], description: str) -> None:
 
         job_id = result.stdout.strip().split()[-1]
         print(
-            f"Submitted profiling case '{case.label}' as job {job_id}. Waiting for completion..."
+            f"Submitted profiling case '{case.label}' as job {job_id}. Waiting for completion...",
         )
 
         SQueue().wait_until_done(job_id=job_id, poll_interval=10)
 
         print(
-            f"Profiling case '{case.label}' completed. Output saved in {case_output_root}"
+            f"Profiling case '{case.label}' completed. Output saved in {case_output_root}",
         )
 
         # Package only what this job actually produced, so cases that never ran

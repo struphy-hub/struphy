@@ -18,7 +18,8 @@ def _push_profiling_data(packaged_dirs: list[Path], run_commit: str) -> None:
         return
 
     repo_url = os.environ.get(
-        "PROFILING_DATA_REPO_URL", "git@github.com:struphy-hub/profiling-data.git"
+        "PROFILING_DATA_REPO_URL",
+        "git@github.com:struphy-hub/profiling-data.git",
     )
 
     with tempfile.TemporaryDirectory(prefix="profiling-data-") as clone_dir_str:
@@ -36,7 +37,7 @@ def _push_profiling_data(packaged_dirs: list[Path], run_commit: str) -> None:
 
         subprocess.run(["git", "-C", str(clone_dir), "add", "."], check=True)
         status = subprocess.run(
-            ["git", "-C", str(clone_dir), "diff", "--cached", "--quiet"]
+            ["git", "-C", str(clone_dir), "diff", "--cached", "--quiet"],
         )
         if status.returncode == 0:
             print("No changes to push to profiling-data repo.")
@@ -58,18 +59,19 @@ def _push_profiling_data(packaged_dirs: list[Path], run_commit: str) -> None:
             push_result = subprocess.run(["git", "-C", str(clone_dir), "push"])
             if push_result.returncode == 0:
                 print(
-                    f"Pushed {len(packaged_dirs)} profiling data folder(s) to {repo_url}."
+                    f"Pushed {len(packaged_dirs)} profiling data folder(s) to {repo_url}.",
                 )
                 return
             print(
-                f"Push attempt {attempt + 1} failed; fetching and rebasing before retrying."
+                f"Push attempt {attempt + 1} failed; fetching and rebasing before retrying.",
             )
             subprocess.run(["git", "-C", str(clone_dir), "fetch", "origin"], check=True)
             subprocess.run(
-                ["git", "-C", str(clone_dir), "rebase", "origin/HEAD"], check=True
+                ["git", "-C", str(clone_dir), "rebase", "origin/HEAD"],
+                check=True,
             )
             time.sleep(random.randint(1, 5))
 
         raise RuntimeError(
-            "Failed to push profiling data to profiling-data repo after retries."
+            "Failed to push profiling data to profiling-data repo after retries.",
         )
