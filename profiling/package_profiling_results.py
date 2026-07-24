@@ -29,7 +29,7 @@ def _extract_ranks(path: Path) -> str:
 
 
 def _build_output_name(testcase: str, language: str, ranks: str, index: int) -> str:
-    base = f"{_slug(testcase)}-ranks{ranks}-{_slug(language)}"
+    base = f"{_slug(testcase)}-ranks{ranks:04d}-{_slug(language)}"
     if index > 0:
         base = f"{base}-{index}"
     return f"{base}.h5"
