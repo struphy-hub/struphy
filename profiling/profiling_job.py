@@ -31,6 +31,9 @@ repo_root = script_dir.parent
 profiling_results_base = repo_root / "results" / "profiling"
 latest_results_root_path = profiling_results_base / "latest_run_root.txt"
 
+# TODO: This should be taken from whereami
+cluster_name = "pitagora"
+
 @dataclass(frozen=True)
 class ProfilingCase:
     label: str
@@ -186,7 +189,7 @@ def run_profiling_job(case: ProfilingCase) -> None:
     print(f"Profiling run root: {run_results_root}")
 
     # Get the cluster preset for the specified cluster
-    cluster_preset = case.cluster_presets[args.cluster]
+    cluster_preset = case.cluster_presets[cluster_name]
     packaged_dirs: list[Path] = []
 
     # Create a subdirectory for this case's output under the run results root
