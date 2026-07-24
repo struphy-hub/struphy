@@ -186,42 +186,7 @@ def struphy_compile(
 
     elif status:
         # update status
-        count_c = 0
-        count_f90 = 0
-        list_not_compiled = [s for s in state["kernels"]]
-        for subdir, _, files in os.walk(libpath):
-            # logger.info(f'{subdir = }')
-            if subdir[-10:] == "__pyccel__" and "__epyccel__" not in subdir:
-                dir_stem = "/".join(subdir.split("/")[:-1])
-                # logger.info(f'{dir_stem = }')
-                for file in files:
-                    if file[-2:] == ".c" and "wrapper" not in file and "bind_c_" not in file:
-                        stem = file[:-2]
-                        is_c = True
-                    elif file[-4:] == ".f90" and "wrapper" not in file and "bind_c_" not in file:
-                        stem = file[:-4]
-                        is_c = False
-                    else:
-                        continue
-
-                    py_file = stem + ".py"
-                    matches = [ker for ker in state["kernels"] if py_file in ker and dir_stem in ker]
-                    # logger.info(f'{matches = }')
-                    matching = None
-                    for match in matches:
-                        py_ker = match.split("/")[-1]
-                        if py_ker == py_file:
-                            matching = match
-                    matching_so = matching.replace(".py", so_suffix)
-                    # logger.info(f'{matching_so = }')
-                    if os.path.isfile(matching_so):
-                        if is_c and state["last_used_language"] == "c":
-                            count_c += 1
-                        elif not is_c and state["last_used_language"] == "fortran":
-                            count_f90 += 1
-                        if matching in list_not_compiled:
-                            list_not_compiled.remove(matching)
-
+        count_c, count_f90, list_not_compiled = count_compiled_kernels(state)
         n_kernels = len(state["kernels"])
         print("")
         print(f"{count_c} of {n_kernels} Struphy kernels are compiled with language C.")
