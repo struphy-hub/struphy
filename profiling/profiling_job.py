@@ -144,8 +144,13 @@ def build_case_commands(
     return commands
 
 
-def build_arg_parser(description: str) -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=description)
+def build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Submit profiling jobs to a SLURM cluster "
+            "and package the results for upload."
+        )
+    )
     parser.add_argument(
         "--results-root",
         type=Path,
@@ -177,10 +182,13 @@ def build_arg_parser(description: str) -> argparse.ArgumentParser:
     return parser
 
 
-def run_profiling_job(cases: list[ProfilingCase], description: str) -> None:
+def run_profiling_job(cases: list[ProfilingCase]) -> None:
     """Compile Struphy, submit `cases` as SLURM jobs one by one, and package/push the results."""
-    args = build_arg_parser(description).parse_args()
 
+    # Parse command-line arguments and validate the virtual environment
+    args = build_arg_parser().parse_args()
+
+    # Validate that a virtual environment is active
     virtual_env = os.environ.get("VIRTUAL_ENV")
     if not virtual_env:
         raise RuntimeError(
@@ -188,16 +196,20 @@ def run_profiling_job(cases: list[ProfilingCase], description: str) -> None:
         )
     venv_path = Path(virtual_env)
 
+    # Compile Struphy kernels with the specified language and compiler
     compiler = Compiler(language=args.language, compiler=args.compiler)
     compiler.compile()
     print("Done compiling Struphy kernels.")
 
+    # Create a unique results root for this profiling run
+    # and write it to the "latest_run_root.txt" marker file.
     output_root = Path("profiling-results-export").resolve()
     if output_root.exists():
         shutil.rmtree(output_root)
     output_root.mkdir(parents=True, exist_ok=True)
-
     profiling_results_base.mkdir(parents=True, exist_ok=True)
+
+    # Determine the current git commit hash for the Struphy repo
     run_commit = _git_commit(repo_root)
     if args.results_root is None:
         timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
@@ -210,14 +222,18 @@ def run_profiling_job(cases: list[ProfilingCase], description: str) -> None:
     latest_results_root_path.write_text(str(run_results_root), encoding="utf-8")
     print(f"Profiling run root: {run_results_root}")
 
+    # Get the cluster preset for the specified cluster
     cluster_preset = CLUSTER_PRESETS[args.cluster]
     packaged_dirs: list[Path] = []
 
+    job_ids = []
     for case in cases:
+        # Create a subdirectory for this case's output under the run results root
         case_output_root = run_results_root / case.label
         case_output_root.mkdir(parents=True, exist_ok=True)
         case_commands = build_case_commands(case, case_output_root, venv_path)
 
+        # Create a SLURM script for this case using the cluster preset and case-specific commands
         script = SlurmScript(
             job_name=f"profiling_{case.label}",
             ntasks_per_node=max(case.ranks),
@@ -225,7 +241,7 @@ def run_profiling_job(cases: list[ProfilingCase], description: str) -> None:
             **cluster_preset,
         )
 
-        output_path = repo_root / f"job_profile_{case.label}.sh"
+        slurm_script_path = repo_root / f"job_profile_{case.label}.sh"
 
         print(
             f"Writing metadata for '{case.label}' to {case_output_root / 'profiling_case_info.json'}",
@@ -240,7 +256,7 @@ def run_profiling_job(cases: list[ProfilingCase], description: str) -> None:
                     "struphy_model_used": case.struphy_model_used,
                     "struphy_commit": run_commit,
                     "compiler": compiler.to_dict(),
-                    "output_path": str(output_path),
+                    "slurm_script_path": str(slurm_script_path),
                     "slurm_script": str(script),
                     "slurm_dict": script.to_dict(),
                     "parameter_file": str(case.params_source),
@@ -250,36 +266,36 @@ def run_profiling_job(cases: list[ProfilingCase], description: str) -> None:
             encoding="utf-8",
         )
 
-        script.save(str(output_path))
-        print(
-            f"Saved SLURM script for '{case.label}' to {output_path} from {os.getcwd()}",
-        )
+        # Save the SLURM script to a file
+        # script.save(str(slurm_script_path))
+        # print(
+        #     f"Saved SLURM script for '{case.label}' to {slurm_script_path} from {os.getcwd()}",
+        # )
 
-        print("=== Script contents ===")
-        print(Path(output_path).read_text())
+        # Submit the SLURM job
+        job_id = script.submit_job(slurm_script_path)
+        job_ids.append(job_id)
+        # result = subprocess.run(
+        #     ["sbatch", "--parsable", str(slurm_script_path)],
+        #     capture_output=True,
+        #     text=True,
+        #     check=True,
+        # )
+        # print("stdout:", repr(result.stdout))
+        # print("stderr:", repr(result.stderr))
+        # print("returncode:", result.returncode)
+        # print("cwd:", os.getcwd())
 
-        result = subprocess.run(
-            ["sbatch", "--parsable", str(output_path)],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        print("stdout:", repr(result.stdout))
-        print("stderr:", repr(result.stderr))
-        print("returncode:", result.returncode)
-        print("cwd:", os.getcwd())
-
-        job_id = result.stdout.strip().split()[-1]
+        # job_id = result.stdout.strip().split()[-1]
         print(
             f"Submitted profiling case '{case.label}' as job {job_id}. Waiting for completion...",
         )
+    # Wait for all submitted jobs to complete
+    SQueue().wait_until_done(job_id=[job_ids], poll_interval=10)
 
-        SQueue().wait_until_done(job_id=job_id, poll_interval=10)
-
-        print(
-            f"Profiling case '{case.label}' completed. Output saved in {case_output_root}",
-        )
-
+    # Package the results of each profiling case and push to the profiling-data repo
+    for case in cases:
+        case_output_root = run_results_root / case.label
         # Package only what this job actually produced, so cases that never ran
         # (or failed before writing output) are not packaged/uploaded.
         packaged_dir = package_testcase(
