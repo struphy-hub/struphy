@@ -195,7 +195,9 @@ def run_profiling_job(cases: list[ProfilingCase]) -> None:
 
     # Compile Struphy kernels with the specified language and compiler
     compiler = Compiler(language=args.language, compiler=args.compiler)
-    compiler.compile()
+    if not compiler.compiled(language=args.language):
+        print("Compiling Struphy kernels ...")
+        compiler.compile()
     print("Done compiling Struphy kernels.")
 
     # Create a unique results root for this profiling run
