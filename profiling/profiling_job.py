@@ -37,7 +37,8 @@ CLUSTER_PRESETS: dict[str, dict] = {
     "pitagora": {
         "nodes": 1,
         "cpus_per_task": 1,
-        "mem_per_cpu": "8GB",
+        # "mem_per_cpu": "8GB",
+        "mem": "480GB",
         "partition": "dcgp_fua_dbg",
         "account": "FUSIO_HLST_7",
         "output": "./%x.%j.out",
