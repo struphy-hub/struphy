@@ -3,7 +3,8 @@
 import json
 from typing import Literal, Optional
 
-from struphy.console.compile import struphy_compile
+from struphy.console.compile import struphy_compile, count_compiled_kernels
+import struphy.utils.utils as utils
 
 Language = Literal["fortran", "c"]
 CompilerFamily = Literal["GNU", "intel", "PGI", "nvidia", "LLVM"]
@@ -225,3 +226,26 @@ class Compiler:
             with open(file_path, "w") as f:
                 f.write(json_str)
         return json_str
+    
+    def compiled(self, language: Optional[Language] = None) -> bool:
+        """Check whether Struphy kernels have been compiled (i.e. .so files exist).
+
+        Returns
+        -------
+        bool
+            True if compiled, False otherwise.
+        """
+        if language is None:
+            language = self.language
+
+        state = utils.read_state()
+        num_kernels = len(state["kernels"])
+        count_c, count_f90, list_not_compiled = count_compiled_kernels(state)
+        if len(list_not_compiled) > 0:
+            return False
+        elif self.language == "fortran" and count_f90 == num_kernels:
+            return True
+        elif self.language == "c" and count_c == num_kernels:
+            return True
+        else:
+            return False
