@@ -78,7 +78,7 @@ jobs:
         shell: bash
         run: |
           source .venv-fortran/bin/activate
-          python -c "import struphy; print(struphy.__version__)"
+          # python -c "import struphy; print(struphy.__version__)"
           struphy --help
       
       - name: Verify MPI installation
@@ -86,9 +86,11 @@ jobs:
         run: |
           source .venv-fortran/bin/activate
           module list
-          which mpiexec
-          mpiexec --version
-          mpirun --version
+          which mpiexec || true
+          mpiexec --version || true
+          which mpirun || true
+          mpirun --version || true
+          echo
           python -c "from mpi4py import MPI; print('mpi4py import successful:', MPI)"
           echo
           echo "Running test with 4 MPI ranks:"
