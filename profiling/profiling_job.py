@@ -290,7 +290,7 @@ def run_profiling_job(cases: list[ProfilingCase]) -> None:
             f"Submitted profiling case '{case.label}' as job {job_id}. Waiting for completion...",
         )
     # Wait for all submitted jobs to complete
-    SQueue().wait_until_done(job_id=[job_ids], poll_interval=10)
+    SQueue().wait_until_done(job_id=job_ids, poll_interval=10)
 
     # Package the results of each profiling case and push to the profiling-data repo
     for case in cases:
