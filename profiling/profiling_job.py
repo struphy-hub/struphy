@@ -146,10 +146,7 @@ def build_case_commands(
 
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description=(
-            "Submit profiling jobs to a SLURM cluster "
-            "and package the results for upload."
-        )
+        description=("Submit profiling jobs to a SLURM cluster and package the results for upload.")
     )
     parser.add_argument(
         "--results-root",

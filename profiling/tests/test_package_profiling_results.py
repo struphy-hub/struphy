@@ -77,9 +77,7 @@ def test_package_results_promotes_nested_parameters_and_uses_metadata(
     assert Path(metadata["source_parameters_file"]) == promoted_parameters
 
 
-def test_package_results_uses_whereami_variables_for_hardware_metadata(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_package_results_uses_whereami_variables_for_hardware_metadata(tmp_path: Path, monkeypatch) -> None:
     results_root = tmp_path / "results-root"
     testcase_dir = results_root / "toy_case"
     _write_profiling_file(testcase_dir / "sim_ranks2" / "profiling_data.h5")

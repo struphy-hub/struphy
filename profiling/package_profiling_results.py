@@ -64,11 +64,7 @@ def _read_sim_metadata_from_parameters(
         assign_target_name: str | None = None
         assign_value: ast.AST | None = None
 
-        if (
-            isinstance(node, ast.Assign)
-            and len(node.targets) == 1
-            and isinstance(node.targets[0], ast.Name)
-        ):
+        if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
             assign_target_name = node.targets[0].id
             assign_value = node.value
         elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
@@ -143,11 +139,7 @@ def _discover_results_root(search_root: Path) -> Path:
             if parts[idx] == "profiling" and parts[idx + 1] == "results":
                 candidates.add(Path(*parts[: idx + 2]))
                 break
-            if (
-                idx + 2 < len(parts)
-                and parts[idx] == "results"
-                and parts[idx + 1] == "profiling"
-            ):
+            if idx + 2 < len(parts) and parts[idx] == "results" and parts[idx + 1] == "profiling":
                 candidates.add(Path(*parts[: idx + 3]))
                 break
 
@@ -229,17 +221,13 @@ def _collect_environment_variables() -> dict[str, str]:
     )
     allowed_names = {"PATH", "LD_LIBRARY_PATH"}
     filtered = {
-        key: value
-        for key, value in os.environ.items()
-        if key.startswith(allowed_prefixes) or key in allowed_names
+        key: value for key, value in os.environ.items() if key.startswith(allowed_prefixes) or key in allowed_names
     }
     return dict(sorted(filtered.items()))
 
 
 def _collect_slurm_environment_variables() -> dict[str, str]:
-    slurm_variables = {
-        key: value for key, value in os.environ.items() if key.startswith("SLURM_")
-    }
+    slurm_variables = {key: value for key, value in os.environ.items() if key.startswith("SLURM_")}
     return dict(sorted(slurm_variables.items()))
 
 
@@ -317,16 +305,10 @@ def _collect_software_info(
         and not line.startswith("No Modulefiles Currently Loaded.")
     ]
     if not loaded_modules and os.environ.get("LOADEDMODULES"):
-        loaded_modules = [
-            entry for entry in os.environ["LOADEDMODULES"].split(":") if entry
-        ]
+        loaded_modules = [entry for entry in os.environ["LOADEDMODULES"].split(":") if entry]
 
     return {
-        "parameter_file": (
-            str(parameters_path)
-            if parameters_path is not None
-            else case_info.get("parameter_file")
-        ),
+        "parameter_file": (str(parameters_path) if parameters_path is not None else case_info.get("parameter_file")),
         "python_environment_pip_freeze": _run_command(
             ["python", "-m", "pip", "freeze"],
         )["stdout"],
@@ -381,9 +363,7 @@ def package_testcase(
         )
 
     commit_short = case_commit[:8]
-    folder_name = (
-        f"{datetime_token}-{commit_short}-{_slug(testcase)}-{_slug(case_language)}"
-    )
+    folder_name = f"{datetime_token}-{commit_short}-{_slug(testcase)}-{_slug(case_language)}"
     destination_dir = output_root / folder_name
     destination_dir.mkdir(parents=True, exist_ok=True)
 
@@ -457,9 +437,7 @@ def package_testcase(
         "testcase": testcase,
         "language": case_language,
         "source_results_root": str(results_root),
-        "source_parameters_file": (
-            str(parameters_path) if parameters_path is not None else None
-        ),
+        "source_parameters_file": (str(parameters_path) if parameters_path is not None else None),
         "files": files_metadata,
         "github": {
             "repository": os.environ.get("GITHUB_REPOSITORY"),
