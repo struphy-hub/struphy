@@ -104,22 +104,30 @@ def build_case_commands(
             [
                 "",
                 f'echo "Running {case.label} with {ntasks} MPI ranks"',
-                (
-                    f"if srun -n {ntasks} python {case.run_script} "
-                    f'--out-root "{output_root}" > "{mpirun_log}" 2>&1; then'
-                ),
-                f'    echo "srun ({ntasks} ranks) succeeded"',
-                "else",
-                f'    echo "srun ({ntasks} ranks) FAILED with exit code $?; log follows:"',
-                f'    cat "{mpirun_log}"',
-                "fi",
-                f'if [ -f "{h5_file}" ]; then',
-                f'    scope-profiler pproc "{h5_file}" -o "{sim_dir}"',
-                f'    existing_h5_files+=("{h5_file}")',
-                "else",
-                f'    echo "No profiling data found at {h5_file}; skipping scope-profiler pproc for this rank count."',
-                "fi",
-            ],
+                f"srun -n {ntasks} python {case.run_script} "
+                f'--out-root "{output_root}"'
+                f'scope-profiler pproc "{h5_file}" -o "{sim_dir}"',
+                f'existing_h5_files+=("{h5_file}")',
+            ]
+            # [
+            #     "",
+            #     f'echo "Running {case.label} with {ntasks} MPI ranks"',
+            #     (
+            #         f"if srun -n {ntasks} python {case.run_script} "
+            #         f'--out-root "{output_root}" > "{mpirun_log}" 2>&1; then'
+            #     ),
+            #     f'    echo "srun ({ntasks} ranks) succeeded"',
+            #     "else",
+            #     f'    echo "srun ({ntasks} ranks) FAILED with exit code $?; log follows:"',
+            #     f'    cat "{mpirun_log}"',
+            #     "fi",
+            #     f'if [ -f "{h5_file}" ]; then',
+            #     f'    scope-profiler pproc "{h5_file}" -o "{sim_dir}"',
+            #     f'    existing_h5_files+=("{h5_file}")',
+            #     "else",
+            #     f'    echo "No profiling data found at {h5_file}; skipping scope-profiler pproc for this rank count."',
+            #     "fi",
+            # ],
         )
 
     commands.extend(
