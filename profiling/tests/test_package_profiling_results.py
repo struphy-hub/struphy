@@ -9,7 +9,9 @@ def _write_profiling_file(path: Path) -> None:
     path.write_bytes(b"")
 
 
-def test_package_results_reads_sim_metadata_from_attribute_constructor(tmp_path: Path) -> None:
+def test_package_results_reads_sim_metadata_from_attribute_constructor(
+    tmp_path: Path,
+) -> None:
     results_root = tmp_path / "results-root"
     testcase_dir = results_root / "toy_case"
     _write_profiling_file(testcase_dir / "sim_ranks1" / "profiling_data.h5")
@@ -39,7 +41,9 @@ def test_package_results_reads_sim_metadata_from_attribute_constructor(tmp_path:
     assert metadata["description"] == "Shear-driven non-neutral plasma instability."
 
 
-def test_package_results_promotes_nested_parameters_and_uses_metadata(tmp_path: Path) -> None:
+def test_package_results_promotes_nested_parameters_and_uses_metadata(
+    tmp_path: Path,
+) -> None:
     results_root = tmp_path / "results-root"
     testcase_dir = results_root / "toy_case"
     _write_profiling_file(testcase_dir / "sim_ranks2" / "profiling_data.h5")

@@ -28,7 +28,7 @@ CASES = [
 
 
 def main() -> None:
-    run_profiling_job(CASES, description="Submit the diocotron profiling job.")
+    run_profiling_job(CASES)
 
 
 if __name__ == "__main__":

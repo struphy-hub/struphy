@@ -51,7 +51,10 @@ def _is_simulation_constructor(call: ast.Call) -> bool:
     return False
 
 
-def _read_sim_metadata_from_parameters(parameters_path: Path, fallback_name: str) -> tuple[str, str]:
+def _read_sim_metadata_from_parameters(
+    parameters_path: Path,
+    fallback_name: str,
+) -> tuple[str, str]:
     tree = ast.parse(parameters_path.read_text(encoding="utf-8"))
     string_constants: dict[str, str] = {}
     sim_name: str | None = None
@@ -84,7 +87,10 @@ def _read_sim_metadata_from_parameters(parameters_path: Path, fallback_name: str
                 if keyword.arg == "name":
                     sim_name = _extract_string_node(keyword.value, string_constants)
                 elif keyword.arg == "description":
-                    sim_description = _extract_string_node(keyword.value, string_constants)
+                    sim_description = _extract_string_node(
+                        keyword.value,
+                        string_constants,
+                    )
 
     if sim_name is None:
         sim_name = string_constants.get("name", fallback_name)
@@ -107,7 +113,9 @@ def _ensure_testcase_parameters_file(testcase_dir: Path) -> Path | None:
     chosen_content = chosen_parameters.read_text(encoding="utf-8")
     for candidate in candidate_parameters[1:]:
         if candidate.read_text(encoding="utf-8") != chosen_content:
-            raise RuntimeError(f"Found multiple different parameters.py files under testcase directory: {testcase_dir}")
+            raise RuntimeError(
+                f"Found multiple different parameters.py files under testcase directory: {testcase_dir}",
+            )
 
     shutil.copy2(chosen_parameters, testcase_parameters)
     return testcase_parameters
@@ -137,13 +145,13 @@ def _discover_results_root(search_root: Path) -> Path:
 
     if not candidates:
         raise FileNotFoundError(
-            f"Results folder does not exist and no profiling_data.h5 files were found under: {search_root}"
+            f"Results folder does not exist and no profiling_data.h5 files were found under: {search_root}",
         )
 
     if len(candidates) > 1:
         discovered = "\n".join(f" - {path}" for path in sorted(candidates))
         raise RuntimeError(
-            f"Found multiple possible profiling results roots; pass --results-root explicitly:\n{discovered}"
+            f"Found multiple possible profiling results roots; pass --results-root explicitly:\n{discovered}",
         )
 
     discovered_root = next(iter(candidates))
@@ -301,7 +309,9 @@ def _collect_software_info(
 
     return {
         "parameter_file": (str(parameters_path) if parameters_path is not None else case_info.get("parameter_file")),
-        "python_environment_pip_freeze": _run_command(["python", "-m", "pip", "freeze"])["stdout"],
+        "python_environment_pip_freeze": _run_command(
+            ["python", "-m", "pip", "freeze"],
+        )["stdout"],
         "environment_variables": _collect_environment_variables(),
         "modules": loaded_modules,
         "struphy_commit": commit,
@@ -345,11 +355,11 @@ def package_testcase(
     if case_language is None:
         raise RuntimeError(
             f"Missing pyccel language for testcase '{testcase}'. "
-            "Provide it in profiling_case_info.json or via --language."
+            "Provide it in profiling_case_info.json or via --language.",
         )
     if case_commit is None:
         raise RuntimeError(
-            f"Missing commit hash for testcase '{testcase}'. Provide it in profiling_case_info.json or via --commit."
+            f"Missing commit hash for testcase '{testcase}'. Provide it in profiling_case_info.json or via --commit.",
         )
 
     commit_short = case_commit[:8]
@@ -387,16 +397,22 @@ def package_testcase(
                 "relative_source": str(relative_source),
                 "ranks": ranks,
                 "destination": output_name,
-            }
+            },
         )
 
     general_information = {
         "time_date_utc": timestamp.isoformat(),
         "user": getpass.getuser(),
         "slurm_script": case_info.get("slurm_script"),
-        "slurm_variables": case_info.get("slurm_variables", _collect_slurm_environment_variables()),
+        "slurm_variables": case_info.get(
+            "slurm_variables",
+            _collect_slurm_environment_variables(),
+        ),
         "test_case_name": case_info.get("test_case_name", sim_name),
-        "test_case_description": case_info.get("test_case_description", sim_description),
+        "test_case_description": case_info.get(
+            "test_case_description",
+            sim_description,
+        ),
         "physics_problem": case_info.get("physics_problem", sim_name),
         "struphy_model_used": case_info.get("struphy_model_used"),
     }
@@ -473,7 +489,7 @@ def package_results(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Package profiling .h5 outputs into DATETIME-COMMIT-TESTCASE-LANGUAGE folders."
+        description="Package profiling .h5 outputs into DATETIME-COMMIT-TESTCASE-LANGUAGE folders.",
     )
     parser.add_argument(
         "--results-root",
