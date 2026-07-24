@@ -20,7 +20,7 @@ CASES = [
         description="Scaling test running the diocotron profiling setup with multiple MPI ranks.",
         physics_problem="Diocotron instability in a non-neutral plasma.",
         struphy_model_used="ToyDrift",
-        ranks=(1, 2, 4),  # , 8),
+        ranks=(2, 4, 8, 16, 32, 64),
         params_source=(script_dir / "examples" / "ToyGyrokinetic" / "diocotron_instability" / "params_diocotron.py"),
         run_script=script_dir / "run_diocotron.py",
     ),

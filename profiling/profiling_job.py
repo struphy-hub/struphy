@@ -104,8 +104,7 @@ def build_case_commands(
             [
                 "",
                 f'echo "Running {case.label} with {ntasks} MPI ranks"',
-                f"srun -n {ntasks} python {case.run_script} "
-                f'--out-root "{output_root}"'
+                f'srun -n {ntasks} python {case.run_script} --out-root "{output_root}"',
                 f'scope-profiler pproc "{h5_file}" -o "{sim_dir}"',
                 f'existing_h5_files+=("{h5_file}")',
             ]
