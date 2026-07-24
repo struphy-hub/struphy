@@ -7,6 +7,8 @@ from scope_profiler import ProfileManager
 
 from struphy import EnvironmentOptions, set_logging_level
 
+from mpi4py import MPI
+
 set_logging_level(logging.INFO)
 
 script_dir = Path(__file__).resolve().parent
@@ -20,7 +22,6 @@ from params_diocotron import sim
 
 def main() -> None:
     parser = ArgumentParser(description="Run the diocotron profiling case.")
-    parser.add_argument("nranks", type=int, help="Number of MPI ranks used for the run")
     parser.add_argument(
         "--out-root",
         type=Path,
@@ -31,7 +32,10 @@ def main() -> None:
         ),
     )
     args = parser.parse_args()
-    num_ranks = args.nranks
+
+    comm = MPI.COMM_WORLD
+    # rank = comm.Get_rank()
+    num_ranks = comm.Get_size()
 
     env = EnvironmentOptions(
         out_folders=str(args.out_root.expanduser().resolve()),

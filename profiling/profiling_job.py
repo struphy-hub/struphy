@@ -22,6 +22,10 @@ from slurm_script_generator.squeue import SQueue
 
 from struphy import Compiler
 
+from upload import _push_profiling_data
+
+from utils import _git_commit, _git_commit_short, _make_unique_results_root
+
 script_dir = Path(__file__).resolve().parent
 repo_root = script_dir.parent
 profiling_results_base = repo_root / "results" / "profiling"
@@ -66,18 +70,6 @@ class ProfilingCase:
     ranks: tuple[int, ...]
     params_source: Path
     run_script: Path
-    """Python script invoked as `srun -n <ntasks> python {run_script} <ntasks> --out-root ...`.
-
-    Must accept a positional `nranks` argument and an `--out-root` option, as
-    `profiling/run_diocotron.py` does. Each case's output goes under
-    `<run_results_root>/<case.label>`, created by `run_profiling_job`.
-    """
-
-
-from upload import _push_profiling_data
-
-from utils import _git_commit, _git_commit_short, _make_unique_results_root
-
 
 def build_case_commands(
     case: ProfilingCase,
@@ -114,7 +106,7 @@ def build_case_commands(
                 f'echo "Running {case.label} with {ntasks} MPI ranks"',
                 (
                     f"if srun -n {ntasks} python {case.run_script} "
-                    f'{ntasks} --out-root "{output_root}" > "{mpirun_log}" 2>&1; then'
+                    f'--out-root "{output_root}" > "{mpirun_log}" 2>&1; then'
                 ),
                 f'    echo "srun ({ntasks} ranks) succeeded"',
                 "else",
