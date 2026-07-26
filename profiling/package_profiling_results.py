@@ -13,6 +13,12 @@ from pathlib import Path
 from typing import Any
 
 
+# Written by `whereami` during the job, one per profiling case.
+MACHINE_PARAMS_FILE = "machine_params.json"
+# Written by `Simulation.run()`, one per `sim_ranks<N>` run directory.
+RUN_METADATA_FILE = "run_metadata.json"
+
+
 def _slug(value: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]+", "_", value).strip("._-") or "unknown"
 
@@ -35,6 +41,23 @@ def _build_output_name(testcase: str, language: str, ranks: str, index: int) -> 
     if index > 0:
         base = f"{base}-{index}"
     return f"{base}.h5"
+
+
+def _copy_run_metadata(source_h5: Path, destination_h5: Path) -> str | None:
+    """Copy the `run_metadata.json` that Struphy wrote next to `source_h5`.
+
+    Each `sim_ranks<N>` run directory holds its own `run_metadata.json`, so it is
+    packaged per run, named after the corresponding `.h5` file. Returns the packaged
+    file name, or None if the run produced no metadata.
+    """
+    source = source_h5.parent / RUN_METADATA_FILE
+    if not source.exists():
+        print(f"No {RUN_METADATA_FILE} next to {source_h5}; skipping.")
+        return None
+
+    output_name = f"{destination_h5.stem}-{RUN_METADATA_FILE}"
+    shutil.copy2(source, destination_h5.parent / output_name)
+    return output_name
 
 
 def _extract_string_node(node: ast.AST, constants: dict[str, str]) -> str | None:
@@ -238,9 +261,6 @@ def _collect_environment_variables() -> dict[str, str]:
 def _collect_slurm_environment_variables() -> dict[str, str]:
     slurm_variables = {key: value for key, value in os.environ.items() if key.startswith("SLURM_")}
     return dict(sorted(slurm_variables.items()))
-
-
-MACHINE_PARAMS_FILE = "machine_params.json"
 
 
 def detect_machine_name() -> str | None:
@@ -475,12 +495,17 @@ def package_testcase(
         name_counts[base_key] = name_counts.get(base_key, 0) + 1
         destination_h5 = destination_dir / output_name
         shutil.copy2(source_h5, destination_h5)
+        run_metadata_name = _copy_run_metadata(
+            source_h5=source_h5,
+            destination_h5=destination_h5,
+        )
         files_metadata.append(
             {
                 "source": str(source_h5),
                 "relative_source": str(relative_source),
                 "ranks": ranks,
                 "destination": output_name,
+                "run_metadata_destination": run_metadata_name,
             },
         )
 

@@ -213,6 +213,7 @@ results/profiling/<timestamp>-<commit>/
 │   ├── machine_params.json           # `whereami` export for the compute node
 │   ├── sim_ranks1/                   # Output for 1 MPI rank
 │   │   ├── profiling_data.h5         # Raw profiling data
+│   │   ├── run_metadata.json         # Metadata for this run
 │   │   └── *.png                     # Processed plots
 │   ├── sim_ranks2/                   # Output for 2 MPI ranks
 │   ├── sim_ranks4/                   # Output for 4 MPI ranks
@@ -233,7 +234,16 @@ top-level sections:
 | `hardware_information` | Cluster name, platform, hostname, uname, `lscpu` output, resolved node hostnames, and the name of the packaged `whereami` export (see below) |
 | `software_information` | Struphy commit, pyccel language/compiler family and remaining compiler options, parameter file paths, loaded modules, environment variables, `pip freeze` |
 | `slurm_information` | Batch script path and contents, SBATCH pragmas, `SLURM_*` variables |
-| `files` | One entry per packaged `.h5` file: source path, rank count, destination file name |
+| `files` | One entry per packaged `.h5` file: source path, rank count, destination file name, and the name of that run's packaged `run_metadata.json` |
+
+Each run also contributes its own `run_metadata.json` (written by `Simulation.run()`
+into `sim_ranks<N>/`). It is copied next to the corresponding `.h5` file and renamed to
+match it, e.g.:
+
+```
+diocotron_poisson_scaling-ranks0004-fortran.h5
+diocotron_poisson_scaling-ranks0004-fortran-run_metadata.json
+```
 
 Notes on where things live, to avoid re-adding duplicates:
 

@@ -196,3 +196,59 @@ def test_detect_machine_name(environment: dict[str, str], expected: str | None, 
     monkeypatch.setattr(package_profiling_results.socket, "gethostname", lambda: "unknown-host")
 
     assert package_profiling_results.detect_machine_name() == expected
+
+
+def test_package_results_packages_run_metadata_per_run(tmp_path: Path) -> None:
+    results_root = tmp_path / "results-root"
+    testcase_dir = results_root / "toy_case"
+    (testcase_dir / "parameters.py").parent.mkdir(parents=True, exist_ok=True)
+    (testcase_dir / "parameters.py").write_text(
+        "name = 'Run metadata case'\nfrom struphy import Simulation\nsim = Simulation(model=None, name=name)\n",
+        encoding="utf-8",
+    )
+
+    # Struphy writes one run_metadata.json per run directory, next to the .h5 file.
+    for ranks in (2, 4):
+        run_dir = testcase_dir / f"sim_ranks{ranks}"
+        _write_profiling_file(run_dir / "profiling_data.h5")
+        (run_dir / "run_metadata.json").write_text(
+            json.dumps({"data": {"mpi_ranks": ranks}}),
+            encoding="utf-8",
+        )
+
+    output_root = tmp_path / "packaged"
+    created_dirs = package_results(
+        results_root=results_root,
+        language="fortran",
+        commit="19c82323312d9f83e995f2bdd8dcec2df18820c7",
+        output_root=output_root,
+    )
+
+    metadata = json.loads((created_dirs[0] / "case_metadata.json").read_text(encoding="utf-8"))
+    packaged_by_ranks = {entry["ranks"]: entry for entry in metadata["files"]}
+    assert set(packaged_by_ranks) == {"2", "4"}
+
+    for ranks, entry in packaged_by_ranks.items():
+        expected_name = f"toy_case-ranks{int(ranks):04d}-fortran-run_metadata.json"
+        assert entry["run_metadata_destination"] == expected_name
+
+        packaged_run_metadata = created_dirs[0] / expected_name
+        assert json.loads(packaged_run_metadata.read_text(encoding="utf-8")) == {"data": {"mpi_ranks": int(ranks)}}
+
+
+def test_package_results_without_run_metadata(tmp_path: Path) -> None:
+    results_root = tmp_path / "results-root"
+    testcase_dir = results_root / "toy_case"
+    _write_toy_case(testcase_dir)
+
+    output_root = tmp_path / "packaged"
+    created_dirs = package_results(
+        results_root=results_root,
+        language="fortran",
+        commit="19c82323312d9f83e995f2bdd8dcec2df18820c7",
+        output_root=output_root,
+    )
+
+    metadata = json.loads((created_dirs[0] / "case_metadata.json").read_text(encoding="utf-8"))
+    assert metadata["files"][0]["run_metadata_destination"] is None
+    assert not list(created_dirs[0].glob("*run_metadata.json"))
