@@ -1,9 +1,7 @@
 import argparse
 import ast
-import getpass
 import json
 import os
-import platform
 import re
 import shutil
 import socket
@@ -214,21 +212,6 @@ def _run_command(command: list[str]) -> dict[str, Any]:
     }
 
 
-def _run_shell_command(command: str) -> dict[str, Any]:
-    result = subprocess.run(
-        ["bash", "-lc", command],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    return {
-        "command": command,
-        "returncode": result.returncode,
-        "stdout": result.stdout.strip(),
-        "stderr": result.stderr.strip(),
-    }
-
-
 def _read_case_info(testcase_dir: Path) -> dict[str, Any]:
     case_info_path = testcase_dir / "profiling_case_info.json"
     if not case_info_path.exists():
@@ -236,30 +219,38 @@ def _read_case_info(testcase_dir: Path) -> dict[str, Any]:
     return json.loads(case_info_path.read_text(encoding="utf-8"))
 
 
-def _collect_environment_variables() -> dict[str, str]:
-    """Environment variables of interest, excluding those stored elsewhere in the metadata.
-
-    ``SLURM_*`` variables live in ``job_information.variables`` and ``LOADEDMODULES``
-    is expanded into ``software_information.modules``, so both are skipped here.
-    """
-    allowed_prefixes = (
-        "OMP_",
-        "PYTHON",
+# Environment variables that scope-profiler (>=0.2.2) already records as attributes on
+# the `metadata` group of every `profiling_data.h5`, together with the machine, python,
+# module and parallelism description. Anything listed here is deliberately NOT repeated
+# in `case_metadata.json`.
+# See https://github.com/max-models/scope-profiler -> docs/guide/hdf5_and_visualization.
+H5_METADATA_ENVIRONMENT_PREFIXES = ("SLURM_", "SLURMD_", "PYTHON", "MODULE")
+H5_METADATA_ENVIRONMENT_NAMES = frozenset(
+    {
+        "LD_LIBRARY_PATH",
+        "LOADEDMODULES",
+        "PATH",
         "VIRTUAL_ENV",
-        "CONDA",
-        "MODULE",
-        "GITHUB_",
-    )
-    allowed_names = {"PATH", "LD_LIBRARY_PATH"}
+    },
+)
+
+
+def _collect_environment_variables() -> dict[str, str]:
+    """Environment variables of interest that the `.h5` metadata does not already cover.
+
+    scope-profiler stores the toolchain, module stack and batch-job variables in each
+    `profiling_data.h5`; only what it leaves out is recorded here (the OpenMP settings
+    beyond `omp_num_threads`, conda environments, and the GitHub Actions context).
+    """
+    allowed_prefixes = ("OMP_", "CONDA", "GITHUB_")
     filtered = {
-        key: value for key, value in os.environ.items() if key.startswith(allowed_prefixes) or key in allowed_names
+        key: value
+        for key, value in os.environ.items()
+        if key.startswith(allowed_prefixes)
+        and not key.startswith(H5_METADATA_ENVIRONMENT_PREFIXES)
+        and key not in H5_METADATA_ENVIRONMENT_NAMES
     }
     return dict(sorted(filtered.items()))
-
-
-def _collect_slurm_environment_variables() -> dict[str, str]:
-    slurm_variables = {key: value for key, value in os.environ.items() if key.startswith("SLURM_")}
-    return dict(sorted(slurm_variables.items()))
 
 
 def detect_machine_name() -> str | None:
@@ -364,10 +355,6 @@ def _collect_hardware_info() -> dict[str, Any]:
 
     return {
         "cluster_name": cluster_name,
-        "platform": platform.platform(),
-        "hostname": _run_command(["hostname"])["stdout"],
-        "uname": _run_command(["uname", "-a"])["stdout"],
-        "chip_information": _run_command(["lscpu"])["stdout"],
         "node_hostnames": resolved_nodes,
     }
 
@@ -379,17 +366,11 @@ def _collect_software_info(
     parameters_path: Path | None,
     case_info: dict[str, Any],
 ) -> dict[str, Any]:
-    module_list_cmd = _run_shell_command("module list -t 2>&1")
-    loaded_modules = [
-        line
-        for line in (module_list_cmd["stdout"].splitlines() if module_list_cmd["returncode"] == 0 else [])
-        if line
-        and not line.startswith("Currently Loaded Modulefiles:")
-        and not line.startswith("No Modulefiles Currently Loaded.")
-    ]
-    if not loaded_modules and os.environ.get("LOADEDMODULES"):
-        loaded_modules = [entry for entry in os.environ["LOADEDMODULES"].split(":") if entry]
+    """Struphy-specific software description.
 
+    The interpreter, the loaded modules and the toolchain environment are not repeated
+    here: scope-profiler writes them into every `profiling_data.h5`.
+    """
     compiler_info = case_info.get("compiler") or {}
     compiler_options = {key: value for key, value in compiler_info.items() if key not in ("language", "compiler")}
 
@@ -400,7 +381,6 @@ def _collect_software_info(
         "compiler_options": compiler_options,
         "parameter_file": (str(parameters_path) if parameters_path is not None else case_info.get("parameter_file")),
         "parameter_file_source": case_info.get("parameter_file"),
-        "modules": loaded_modules,
         "environment_variables": _collect_environment_variables(),
         "python_environment_pip_freeze": _run_command(
             ["python", "-m", "pip", "freeze"],
@@ -412,9 +392,10 @@ def _collect_job_info(case_info: dict[str, Any]) -> dict[str, Any]:
     """Job description; the script is stored once, as a single string.
 
     Covers both schedulers: a SLURM batch script with `pragmas`, or the plain bash
-    script of a local run (`scheduler: "local"`, no pragmas and no SLURM variables).
+    script of a local run (`scheduler: "local"`, no pragmas).
     ``slurm_dict["custom_commands"]`` is dropped because those commands are already
-    part of ``script``.
+    part of ``script``, and the `SLURM_*` variables because scope-profiler stores them
+    in every `profiling_data.h5`.
     """
     slurm_dict = case_info.get("slurm_dict") or {}
     return {
@@ -422,7 +403,6 @@ def _collect_job_info(case_info: dict[str, Any]) -> dict[str, Any]:
         "script_path": case_info.get("job_script_path"),
         "script": case_info.get("job_script"),
         "pragmas": slurm_dict.get("pragmas"),
-        "variables": case_info.get("slurm_variables", _collect_slurm_environment_variables()),
     }
 
 
@@ -522,7 +502,6 @@ def package_testcase(
         "general_information": {
             "time_date_utc": timestamp.isoformat(),
             "datetime_token": datetime_token,
-            "user": getpass.getuser(),
             "test_case_identifier": case_info.get("test_case_identifier", testcase),
             "test_case_name": case_info.get("test_case_name", sim_name),
             "test_case_description": case_info.get(

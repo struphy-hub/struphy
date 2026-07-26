@@ -262,11 +262,14 @@ top-level sections:
 
 | Section | Contents |
 | --- | --- |
-| `general_information` | Timestamp, user, test case identity/description, model, simulation name and description read from `parameters.py`, source results root |
-| `hardware_information` | Cluster name, platform, hostname, uname, `lscpu` output, resolved node hostnames, and the name of the packaged `whereami` export (see below) |
-| `software_information` | Struphy commit, pyccel language/compiler family and remaining compiler options, parameter file paths, loaded modules, environment variables, `pip freeze` |
-| `job_information` | Scheduler (`slurm` or `local`), job script path and contents, SBATCH pragmas, `SLURM_*` variables |
+| `general_information` | Packaging timestamp, test case identity/description, model, simulation name and description read from `parameters.py`, source results root |
+| `hardware_information` | Cluster name, resolved node hostnames, and the name of the packaged `whereami` export (see below) |
+| `software_information` | Struphy commit, pyccel language/compiler family and remaining compiler options, parameter file paths, `pip freeze`, and the few environment variables the `.h5` files do not capture |
+| `job_information` | Scheduler (`slurm` or `local`), job script path and contents, SBATCH pragmas |
 | `files` | One entry per packaged `.h5` file: source path, rank count, destination file name, and the name of that run's packaged `run_metadata.json` |
+
+It is deliberately small: everything describing the machine, the interpreter and the
+batch job now lives in the `.h5` files themselves (see below).
 
 Each run also contributes its own `run_metadata.json` (written by `Simulation.run()`
 into `sim_ranks<N>/`). It is copied next to the corresponding `.h5` file and renamed to
@@ -297,14 +300,31 @@ lookup if you cannot rule that out.
 
 Notes on where things live, to avoid re-adding duplicates:
 
-- `SLURM_*` variables appear only in `job_information.variables`, not in
-  `software_information.environment_variables`.
-- `LOADEDMODULES` is expanded into `software_information.modules` and is not repeated
-  as an environment variable.
+- The machine, python, module and batch-job description is **not** here; it is stored
+  by scope-profiler in each `profiling_data.h5` (see below).
 - The job script is stored once as `job_information.script`; the generator's
   `custom_commands` list is dropped because it is already contained in that script.
 - The raw `profiling_case_info.json` is not embedded; its fields are hoisted into the
   sections above.
+
+### Run environment (inside the `.h5` files)
+
+Since **scope-profiler 0.2.2** every `profiling_data.h5` records its own environment on
+its `metadata` group: `timestamp`, `user`, `hostname`, `working_directory`, `platform`,
+`uname`, `chip_information`, `python_version`, `scope_profiler_version`,
+`omp_num_threads`, `mpi_size`, `total_cores`, `modules`, the toolchain variables
+(`PATH`, `LD_LIBRARY_PATH`, `VIRTUAL_ENV`, `LOADEDMODULES`, `MODULE*`, `PYTHON*`) and
+every `SLURM_*` / `SLURMD_*` variable.
+
+Packaging does not read any of it — the `.h5` files are copied as they are, and
+`case_metadata.json` simply leaves those fields out. Read them from the `.h5` itself
+(e.g. with `scope_profiler.h5reader.ProfilingH5Reader`) when you need them; that copy is
+per run and describes the node the run executed on, rather than the login node where
+packaging happens.
+
+`H5_METADATA_ENVIRONMENT_PREFIXES` / `H5_METADATA_ENVIRONMENT_NAMES` in
+`package_profiling_results.py` list which environment variables the `.h5` covers; keep
+them in sync if scope-profiler starts (or stops) recording one.
 
 ### Machine parameters (`machine_params.json`)
 

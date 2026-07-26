@@ -252,3 +252,42 @@ def test_package_results_without_run_metadata(tmp_path: Path) -> None:
     metadata = json.loads((created_dirs[0] / "case_metadata.json").read_text(encoding="utf-8"))
     assert metadata["files"][0]["run_metadata_destination"] is None
     assert not list(created_dirs[0].glob("*run_metadata.json"))
+
+
+def test_package_results_omits_metadata_stored_in_the_h5_files(tmp_path: Path, monkeypatch) -> None:
+    results_root = tmp_path / "results-root"
+    testcase_dir = results_root / "toy_case"
+    _write_toy_case(testcase_dir)
+
+    # All of these are recorded by scope-profiler on the `metadata` group of every
+    # profiling_data.h5, so packaging must not duplicate them.
+    monkeypatch.setenv("PATH", "/usr/bin")
+    monkeypatch.setenv("LD_LIBRARY_PATH", "/usr/lib")
+    monkeypatch.setenv("LOADEDMODULES", "gcc/12.3.0:python/3.11.7")
+    monkeypatch.setenv("MODULEPATH", "/opt/modulefiles")
+    monkeypatch.setenv("PYTHON_HOME", "/opt/python")
+    monkeypatch.setenv("VIRTUAL_ENV", "/venv")
+    monkeypatch.setenv("SLURM_JOB_ID", "1144137")
+    monkeypatch.setenv("SLURMD_NODENAME", "r350c06s02")
+    # ... while these are not, and are still worth recording.
+    monkeypatch.setenv("OMP_PROC_BIND", "close")
+    monkeypatch.setenv("GITHUB_RUN_ID", "42")
+
+    output_root = tmp_path / "packaged"
+    created_dirs = package_results(
+        results_root=results_root,
+        language="fortran",
+        commit="19c82323312d9f83e995f2bdd8dcec2df18820c7",
+        output_root=output_root,
+    )
+
+    metadata = json.loads((created_dirs[0] / "case_metadata.json").read_text(encoding="utf-8"))
+
+    for field in ("platform", "hostname", "uname", "chip_information"):
+        assert field not in metadata["hardware_information"]
+    assert "modules" not in metadata["software_information"]
+    assert "variables" not in metadata["job_information"]
+    assert "user" not in metadata["general_information"]
+
+    environment_variables = metadata["software_information"]["environment_variables"]
+    assert environment_variables == {"GITHUB_RUN_ID": "42", "OMP_PROC_BIND": "close"}
