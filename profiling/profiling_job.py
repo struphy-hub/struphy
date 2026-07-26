@@ -1,7 +1,12 @@
-"""Shared machinery for submitting profiling jobs to a SLURM cluster.
+"""Shared machinery for running profiling jobs.
 
 A concrete profiling job (e.g. ``submit_diocotron_job.py``) only needs to define
 its own list of `ProfilingCase` objects and call `run_profiling_job`.
+
+With a batch system the case is submitted to SLURM; without one (a laptop or
+workstation) the very same commands run directly on this machine, with `mpirun`
+instead of `srun` and without the environment-module lines. Profiling, packaging and
+upload are identical either way.
 """
 
 import argparse
@@ -95,16 +100,65 @@ class ProfilingCase:
     cluster_presets: dict[str, dict]
 
 
+def has_module_system() -> bool:
+    """True on a machine with environment modules (Lmod / Tcl modules)."""
+    return bool(
+        os.environ.get("MODULESHOME") or os.environ.get("LMOD_CMD") or shutil.which("modulecmd"),
+    )
+
+
+def detect_launcher() -> str:
+    """The MPI launcher to use: `srun` under SLURM, otherwise `mpirun`/`mpiexec`."""
+    if shutil.which("srun"):
+        return "srun"
+    for launcher in ("mpirun", "mpiexec"):
+        if shutil.which(launcher):
+            return launcher
+    raise RuntimeError(
+        "No MPI launcher found; install an MPI implementation providing `mpirun` (or `mpiexec`).",
+    )
+
+
+def local_ranks(ranks: tuple[int, ...]) -> tuple[int, ...]:
+    """Drop rank counts that exceed the number of local cores.
+
+    Oversubscribing simply makes `mpirun` refuse to start, so a case designed for a
+    64-core node still runs its small rank counts on a laptop.
+    """
+    available = os.cpu_count() or 1
+    usable = tuple(ntasks for ntasks in ranks if ntasks <= available)
+    skipped = [ntasks for ntasks in ranks if ntasks > available]
+    if skipped:
+        print(f"Skipping rank counts that exceed the {available} local cores: {skipped}")
+    if not usable:
+        raise RuntimeError(
+            f"None of the requested rank counts {list(ranks)} fit on {available} local cores.",
+        )
+    return usable
+
+
 def build_case_commands(
     case: ProfilingCase,
     output_root: Path,
     venv_path: Path,
+    *,
+    launcher: str = "srun",
+    use_modules: bool = True,
+    ranks: tuple[int, ...] | None = None,
 ) -> list[str]:
     activate_path = venv_path / "bin" / "activate"
+    case_ranks = case.ranks if ranks is None else ranks
     commands = [
-        "module purge",
-        "source ./setup/modules.sh load",
-        "module list",
+        # Environment modules only exist on the clusters, not on a laptop.
+        *(
+            [
+                "module purge",
+                "source ./setup/modules.sh load",
+                "module list",
+            ]
+            if use_modules
+            else []
+        ),
         f"source {activate_path!s}",
         'echo "----------------------------------------"',
         f'echo "Running profiling case: {case.label}"',
@@ -115,16 +169,16 @@ def build_case_commands(
         'echo "----------------------------------------"',
         f'mkdir -p "{output_root}"',
         f'cp "{case.params_source}" "{output_root / "parameters.py"}"',
-        # Record the machine parameters of the compute node this job runs on.
-        # `whereami` was installed into the venv by `install_whereami` before submission,
-        # since compute nodes have no network access.
+        # Record the machine parameters of the node this job runs on. `whereami` was
+        # installed into the venv by `install_whereami` before submission, since compute
+        # nodes have no network access.
         f'whereami --output "{output_root / MACHINE_PARAMS_FILE}"',
         f'ls -l "{output_root}"',
     ]
 
     commands.append("existing_h5_files=()")
 
-    for ntasks in case.ranks:
+    for ntasks in case_ranks:
         sim_dir = output_root / f"sim_ranks{ntasks}"
         h5_file = sim_dir / "profiling_data.h5"
         mpirun_log = output_root / f"mpirun_ranks{ntasks}.log"
@@ -132,7 +186,7 @@ def build_case_commands(
             [
                 "",
                 f'echo "Running {case.label} with {ntasks} MPI ranks"',
-                f'srun -n {ntasks} python {case.run_script} --out-root "{output_root}"',
+                f'{launcher} -n {ntasks} python {case.run_script} --out-root "{output_root}"',
                 f'scope-profiler pproc "{h5_file}" -o "{sim_dir}"',
                 f'existing_h5_files+=("{h5_file}")',
             ]
@@ -200,7 +254,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 
 def run_profiling_job(case: ProfilingCase) -> None:
-    """Compile Struphy, submit `cases` as SLURM jobs one by one, and package/push the results."""
+    """Compile Struphy, run `case` (via SLURM or locally), and package/push the results."""
 
     # Parse command-line arguments and validate the virtual environment
     args = build_arg_parser().parse_args()
@@ -245,24 +299,45 @@ def run_profiling_job(case: ProfilingCase) -> None:
     latest_results_root_path.write_text(str(run_results_root), encoding="utf-8")
     print(f"Profiling run root: {run_results_root}")
 
-    # Get the cluster preset for the detected cluster
-    cluster_preset = case.cluster_presets[detect_cluster_name(case.cluster_presets)]
     packaged_dirs: list[Path] = []
 
     # Create a subdirectory for this case's output under the run results root
     case_output_root = run_results_root / case.label
     case_output_root.mkdir(parents=True, exist_ok=True)
-    case_commands = build_case_commands(case, case_output_root, venv_path)
 
-    # Create a SLURM script for this case using the cluster preset and case-specific commands
-    script = SlurmScript(
-        job_name=f"profiling_{case.label}",
-        ntasks_per_node=max(case.ranks),
-        custom_commands=case_commands,
-        **cluster_preset,
-    )
+    script_path = repo_root / f"job_profile_{case.label}.sh"
+    use_slurm = shutil.which("sbatch") is not None
 
-    slurm_script_path = repo_root / f"job_profile_{case.label}.sh"
+    if use_slurm:
+        case_commands = build_case_commands(
+            case,
+            case_output_root,
+            venv_path,
+            launcher=detect_launcher(),
+            use_modules=has_module_system(),
+        )
+        # Create a SLURM script for this case using the cluster preset and case-specific commands
+        cluster_preset = case.cluster_presets[detect_cluster_name(case.cluster_presets)]
+        script = SlurmScript(
+            job_name=f"profiling_{case.label}",
+            ntasks_per_node=max(case.ranks),
+            custom_commands=case_commands,
+            **cluster_preset,
+        )
+        script_text = str(script)
+        script_pragmas = script.to_dict()
+    else:
+        # No batch system: run the very same commands directly on this machine.
+        case_commands = build_case_commands(
+            case,
+            case_output_root,
+            venv_path,
+            launcher=detect_launcher(),
+            use_modules=has_module_system(),
+            ranks=local_ranks(case.ranks),
+        )
+        script_text = "\n".join(["#!/bin/bash", *case_commands, ""])
+        script_pragmas = None
 
     print(
         f"Writing metadata for '{case.label}' to {case_output_root / 'profiling_case_info.json'}",
@@ -277,9 +352,10 @@ def run_profiling_job(case: ProfilingCase) -> None:
                 "struphy_model_used": case.struphy_model_used,
                 "struphy_commit": run_commit,
                 "compiler": compiler.to_dict(),
-                "slurm_script_path": str(slurm_script_path),
-                "slurm_script": str(script),
-                "slurm_dict": script.to_dict(),
+                "scheduler": "slurm" if use_slurm else "local",
+                "job_script_path": str(script_path),
+                "job_script": script_text,
+                "slurm_dict": script_pragmas,
                 "parameter_file": str(case.params_source),
             },
             indent=2,
@@ -287,32 +363,20 @@ def run_profiling_job(case: ProfilingCase) -> None:
         encoding="utf-8",
     )
 
-    # Save the SLURM script to a file
-    # script.save(str(slurm_script_path))
-    # print(
-    #     f"Saved SLURM script for '{case.label}' to {slurm_script_path} from {os.getcwd()}",
-    # )
-
-    # Submit the SLURM job
-    job_id = script.submit_job(slurm_script_path)
-
-    # result = subprocess.run(
-    #     ["sbatch", "--parsable", str(slurm_script_path)],
-    #     capture_output=True,
-    #     text=True,
-    #     check=True,
-    # )
-    # print("stdout:", repr(result.stdout))
-    # print("stderr:", repr(result.stderr))
-    # print("returncode:", result.returncode)
-    # print("cwd:", os.getcwd())
-
-    # job_id = result.stdout.strip().split()[-1]
-    print(
-        f"Submitted profiling case '{case.label}' as job {job_id}. Waiting for completion...",
-    )
-    # Wait for all submitted jobs to complete
-    SQueue().wait_until_done(job_id=job_id, poll_interval=10)
+    if use_slurm:
+        # Submit the SLURM job and wait for it to complete
+        job_id = script.submit_job(script_path)
+        print(
+            f"Submitted profiling case '{case.label}' as job {job_id}. Waiting for completion...",
+        )
+        SQueue().wait_until_done(job_id=job_id, poll_interval=10)
+    else:
+        script_path.write_text(script_text, encoding="utf-8")
+        script_path.chmod(0o755)
+        print(f"No batch system found; running '{case.label}' locally via {script_path} ...")
+        result = subprocess.run(["bash", str(script_path)], check=False, cwd=repo_root)
+        if result.returncode != 0:
+            print(f"WARNING: local run of '{case.label}' exited with code {result.returncode}.")
 
     # Package the results of each profiling case and push to the profiling-data repo
     case_output_root = run_results_root / case.label

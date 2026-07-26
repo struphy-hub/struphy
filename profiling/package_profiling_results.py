@@ -239,7 +239,7 @@ def _read_case_info(testcase_dir: Path) -> dict[str, Any]:
 def _collect_environment_variables() -> dict[str, str]:
     """Environment variables of interest, excluding those stored elsewhere in the metadata.
 
-    ``SLURM_*`` variables live in ``slurm_information.variables`` and ``LOADEDMODULES``
+    ``SLURM_*`` variables live in ``job_information.variables`` and ``LOADEDMODULES``
     is expanded into ``software_information.modules``, so both are skipped here.
     """
     allowed_prefixes = (
@@ -408,16 +408,19 @@ def _collect_software_info(
     }
 
 
-def _collect_slurm_info(case_info: dict[str, Any]) -> dict[str, Any]:
-    """SLURM job description; the batch script is stored once, as a single string.
+def _collect_job_info(case_info: dict[str, Any]) -> dict[str, Any]:
+    """Job description; the script is stored once, as a single string.
 
+    Covers both schedulers: a SLURM batch script with `pragmas`, or the plain bash
+    script of a local run (`scheduler: "local"`, no pragmas and no SLURM variables).
     ``slurm_dict["custom_commands"]`` is dropped because those commands are already
     part of ``script``.
     """
     slurm_dict = case_info.get("slurm_dict") or {}
     return {
-        "script_path": case_info.get("slurm_script_path"),
-        "script": case_info.get("slurm_script"),
+        "scheduler": case_info.get("scheduler", "slurm"),
+        "script_path": case_info.get("job_script_path"),
+        "script": case_info.get("job_script"),
         "pragmas": slurm_dict.get("pragmas"),
         "variables": case_info.get("slurm_variables", _collect_slurm_environment_variables()),
     }
@@ -539,7 +542,7 @@ def package_testcase(
             parameters_path=parameters_path,
             case_info=case_info,
         ),
-        "slurm_information": _collect_slurm_info(case_info),
+        "job_information": _collect_job_info(case_info),
         "files": files_metadata,
     }
     (destination_dir / "case_metadata.json").write_text(

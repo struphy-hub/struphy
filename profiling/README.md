@@ -1,6 +1,6 @@
 # Struphy Profiling System
 
-This directory contains the infrastructure for running profiling jobs on SLURM clusters. The system is designed to be easily extensible for adding new profiling cases.
+This directory contains the infrastructure for running profiling jobs on SLURM clusters, and on a laptop or workstation without a batch system. The system is designed to be easily extensible for adding new profiling cases.
 
 ## Directory Structure
 
@@ -29,8 +29,8 @@ The profiling system consists of three main components:
 
 1. **Core Infrastructure** (`profiling_job.py`): Provides the `ProfilingCase` dataclass and `run_profiling_job()` function that handle:
    - Compiling Struphy kernels
-   - Generating SLURM job scripts
-   - Submitting jobs to the cluster
+   - Generating the job script (SLURM batch script, or plain bash when there is no batch system)
+   - Submitting the job to the cluster, or running it locally
    - Waiting for completion
    - Packaging and uploading results
 
@@ -192,6 +192,38 @@ python profiling/submit_<model>_job.py \
 - `--language`: Pyccel language (`fortran` or `c`)
 - `--results-root`: Custom output directory (default: auto-generated timestamp-based)
 
+## Running Locally
+
+The same command works on a laptop — there is no separate local mode to select. If
+`sbatch` is not on `PATH`, `run_profiling_job` runs the case directly on this machine
+instead of submitting it:
+
+```bash
+source .venv/bin/activate
+python profiling/submit_<model>_job.py
+```
+
+What changes, and what does not:
+
+| | Cluster | Local |
+| --- | --- | --- |
+| Job script | SBATCH pragmas, submitted with `sbatch`, waited on with `squeue` | plain `#!/bin/bash`, run with `bash` |
+| MPI launcher | `srun -n <N>` | `mpirun -n <N>` (or `mpiexec`) |
+| Environment modules | `module purge` / `source ./setup/modules.sh load` | omitted when there is no module system |
+| Rank counts | all of `case.ranks` | only those that fit in `os.cpu_count()`; larger ones are skipped with a message |
+| whereami, profiling, packaging, upload | | identical |
+
+The script is still written to `job_profile_<case_label>.sh` in the repo root, so you
+can inspect or rerun it by hand. Detection is per capability rather than per machine:
+the MPI launcher comes from `detect_launcher()`, the module lines from
+`has_module_system()`, so a cluster login node without Lmod, or a workstation with
+`mpirun` only, both work.
+
+Because a laptop typically has far fewer cores than a compute node, a case declaring
+`ranks=(2, 4, 8, 16, 32, 64)` runs `(2, 4, 8)` on an 8-core machine. Oversubscribing
+would just make `mpirun` refuse to start; if no rank count fits, the run raises.
+`job_information.scheduler` in the packaged metadata records which path was taken.
+
 ## Example: Diocotron Instability
 
 The diocotron instability profiling job is provided as a complete example:
@@ -233,7 +265,7 @@ top-level sections:
 | `general_information` | Timestamp, user, test case identity/description, model, simulation name and description read from `parameters.py`, source results root |
 | `hardware_information` | Cluster name, platform, hostname, uname, `lscpu` output, resolved node hostnames, and the name of the packaged `whereami` export (see below) |
 | `software_information` | Struphy commit, pyccel language/compiler family and remaining compiler options, parameter file paths, loaded modules, environment variables, `pip freeze` |
-| `slurm_information` | Batch script path and contents, SBATCH pragmas, `SLURM_*` variables |
+| `job_information` | Scheduler (`slurm` or `local`), job script path and contents, SBATCH pragmas, `SLURM_*` variables |
 | `files` | One entry per packaged `.h5` file: source path, rank count, destination file name, and the name of that run's packaged `run_metadata.json` |
 
 Each run also contributes its own `run_metadata.json` (written by `Simulation.run()`
@@ -265,11 +297,11 @@ lookup if you cannot rule that out.
 
 Notes on where things live, to avoid re-adding duplicates:
 
-- `SLURM_*` variables appear only in `slurm_information.variables`, not in
+- `SLURM_*` variables appear only in `job_information.variables`, not in
   `software_information.environment_variables`.
 - `LOADEDMODULES` is expanded into `software_information.modules` and is not repeated
   as an environment variable.
-- The batch script is stored once as `slurm_information.script`; the generator's
+- The job script is stored once as `job_information.script`; the generator's
   `custom_commands` list is dropped because it is already contained in that script.
 - The raw `profiling_case_info.json` is not embedded; its fields are hoisted into the
   sections above.
