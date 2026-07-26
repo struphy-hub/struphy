@@ -259,8 +259,8 @@ def test_package_results_omits_metadata_stored_in_the_h5_files(tmp_path: Path, m
     testcase_dir = results_root / "toy_case"
     _write_toy_case(testcase_dir)
 
-    # All of these are recorded by scope-profiler on the `metadata` group of every
-    # profiling_data.h5, so packaging must not duplicate them.
+    # The run environment is described by scope-profiler in every profiling_data.h5,
+    # so packaging records no environment variables of its own.
     monkeypatch.setenv("PATH", "/usr/bin")
     monkeypatch.setenv("LD_LIBRARY_PATH", "/usr/lib")
     monkeypatch.setenv("LOADEDMODULES", "gcc/12.3.0:python/3.11.7")
@@ -269,7 +269,6 @@ def test_package_results_omits_metadata_stored_in_the_h5_files(tmp_path: Path, m
     monkeypatch.setenv("VIRTUAL_ENV", "/venv")
     monkeypatch.setenv("SLURM_JOB_ID", "1144137")
     monkeypatch.setenv("SLURMD_NODENAME", "r350c06s02")
-    # ... while these are not, and are still worth recording.
     monkeypatch.setenv("OMP_PROC_BIND", "close")
     monkeypatch.setenv("GITHUB_RUN_ID", "42")
 
@@ -288,6 +287,12 @@ def test_package_results_omits_metadata_stored_in_the_h5_files(tmp_path: Path, m
     assert "modules" not in metadata["software_information"]
     assert "variables" not in metadata["job_information"]
     assert "user" not in metadata["general_information"]
+    assert "environment_variables" not in metadata["software_information"]
 
-    environment_variables = metadata["software_information"]["environment_variables"]
-    assert environment_variables == {"GITHUB_RUN_ID": "42", "OMP_PROC_BIND": "close"}
+    # No section carries an environment variable's value (`pip freeze` is excluded: it
+    # is a package list whose version strings could match by coincidence).
+    software = dict(metadata["software_information"])
+    software.pop("python_environment_pip_freeze")
+    serialised = json.dumps([metadata["general_information"], metadata["hardware_information"], software])
+    for value in ("/usr/bin", "/usr/lib", "gcc/12.3.0", "/opt/modulefiles", "/venv", "1144137", "close"):
+        assert value not in serialised

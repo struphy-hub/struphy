@@ -219,40 +219,6 @@ def _read_case_info(testcase_dir: Path) -> dict[str, Any]:
     return json.loads(case_info_path.read_text(encoding="utf-8"))
 
 
-# Environment variables that scope-profiler (>=0.2.2) already records as attributes on
-# the `metadata` group of every `profiling_data.h5`, together with the machine, python,
-# module and parallelism description. Anything listed here is deliberately NOT repeated
-# in `case_metadata.json`.
-# See https://github.com/max-models/scope-profiler -> docs/guide/hdf5_and_visualization.
-H5_METADATA_ENVIRONMENT_PREFIXES = ("SLURM_", "SLURMD_", "PYTHON", "MODULE")
-H5_METADATA_ENVIRONMENT_NAMES = frozenset(
-    {
-        "LD_LIBRARY_PATH",
-        "LOADEDMODULES",
-        "PATH",
-        "VIRTUAL_ENV",
-    },
-)
-
-
-def _collect_environment_variables() -> dict[str, str]:
-    """Environment variables of interest that the `.h5` metadata does not already cover.
-
-    scope-profiler stores the toolchain, module stack and batch-job variables in each
-    `profiling_data.h5`; only what it leaves out is recorded here (the OpenMP settings
-    beyond `omp_num_threads`, conda environments, and the GitHub Actions context).
-    """
-    allowed_prefixes = ("OMP_", "CONDA", "GITHUB_")
-    filtered = {
-        key: value
-        for key, value in os.environ.items()
-        if key.startswith(allowed_prefixes)
-        and not key.startswith(H5_METADATA_ENVIRONMENT_PREFIXES)
-        and key not in H5_METADATA_ENVIRONMENT_NAMES
-    }
-    return dict(sorted(filtered.items()))
-
-
 def detect_machine_name() -> str | None:
     """Name of the current HPC machine, following the detection order of `whereami`.
 
@@ -368,8 +334,10 @@ def _collect_software_info(
 ) -> dict[str, Any]:
     """Struphy-specific software description.
 
-    The interpreter, the loaded modules and the toolchain environment are not repeated
-    here: scope-profiler writes them into every `profiling_data.h5`.
+    No environment variables are collected here. The interpreter, the module stack, the
+    toolchain and the batch job are described by scope-profiler in every
+    `profiling_data.h5`; anything important that it misses belongs there, not in a
+    second, struphy-only copy.
     """
     compiler_info = case_info.get("compiler") or {}
     compiler_options = {key: value for key, value in compiler_info.items() if key not in ("language", "compiler")}
@@ -381,7 +349,6 @@ def _collect_software_info(
         "compiler_options": compiler_options,
         "parameter_file": (str(parameters_path) if parameters_path is not None else case_info.get("parameter_file")),
         "parameter_file_source": case_info.get("parameter_file"),
-        "environment_variables": _collect_environment_variables(),
         "python_environment_pip_freeze": _run_command(
             ["python", "-m", "pip", "freeze"],
         )["stdout"],

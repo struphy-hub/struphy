@@ -264,7 +264,7 @@ top-level sections:
 | --- | --- |
 | `general_information` | Packaging timestamp, test case identity/description, model, simulation name and description read from `parameters.py`, source results root |
 | `hardware_information` | Cluster name, resolved node hostnames, and the name of the packaged `whereami` export (see below) |
-| `software_information` | Struphy commit, pyccel language/compiler family and remaining compiler options, parameter file paths, `pip freeze`, and the few environment variables the `.h5` files do not capture |
+| `software_information` | Struphy commit, pyccel language/compiler family and remaining compiler options, parameter file paths, `pip freeze` |
 | `job_information` | Scheduler (`slurm` or `local`), job script path and contents, SBATCH pragmas |
 | `files` | One entry per packaged `.h5` file: source path, rank count, destination file name, and the name of that run's packaged `run_metadata.json` |
 
@@ -300,8 +300,9 @@ lookup if you cannot rule that out.
 
 Notes on where things live, to avoid re-adding duplicates:
 
-- The machine, python, module and batch-job description is **not** here; it is stored
-  by scope-profiler in each `profiling_data.h5` (see below).
+- The machine, python, module and batch-job description is **not** here, and neither
+  are any environment variables; scope-profiler stores them in each
+  `profiling_data.h5` (see below).
 - The job script is stored once as `job_information.script`; the generator's
   `custom_commands` list is dropped because it is already contained in that script.
 - The raw `profiling_case_info.json` is not embedded; its fields are hoisted into the
@@ -322,9 +323,10 @@ Packaging does not read any of it — the `.h5` files are copied as they are, an
 per run and describes the node the run executed on, rather than the login node where
 packaging happens.
 
-`H5_METADATA_ENVIRONMENT_PREFIXES` / `H5_METADATA_ENVIRONMENT_NAMES` in
-`package_profiling_results.py` list which environment variables the `.h5` covers; keep
-them in sync if scope-profiler starts (or stops) recording one.
+Packaging stores **no environment variables at all**. If one turns out to be worth
+keeping (an `OMP_*` placement setting, the GitHub Actions run id, ...), add it to
+scope-profiler's `_ENVIRONMENT_VARIABLES` so every `.h5` records it, rather than
+starting a second, struphy-only copy here.
 
 ### Machine parameters (`machine_params.json`)
 
