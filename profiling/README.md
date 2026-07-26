@@ -238,12 +238,30 @@ top-level sections:
 
 Each run also contributes its own `run_metadata.json` (written by `Simulation.run()`
 into `sim_ranks<N>/`). It is copied next to the corresponding `.h5` file and renamed to
-match it, e.g.:
+match it, and both file names are listed in the `files` entry for that run:
 
+```json
+{
+  "ranks": "4",
+  "destination": "diocotron_poisson_scaling-ranks0004-fortran.h5",
+  "run_metadata_destination": "diocotron_poisson_scaling-ranks0004-fortran-run_metadata.json"
+}
 ```
-diocotron_poisson_scaling-ranks0004-fortran.h5
-diocotron_poisson_scaling-ranks0004-fortran-run_metadata.json
+
+So looping over the runs of a case needs nothing but the metadata file:
+
+```python
+case_dir = Path("20260724T135741Z-d045c53a-diocotron_poisson_scaling-fortran")
+metadata = json.loads((case_dir / "case_metadata.json").read_text())
+
+for entry in metadata["files"]:
+    profiling_data = case_dir / entry["destination"]
+    run_metadata = json.loads((case_dir / entry["run_metadata_destination"]).read_text())
+    print(entry["ranks"], run_metadata["data"]["mpi_ranks"])
 ```
+
+`run_metadata_destination` is `null` for a run that produced no metadata, so guard the
+lookup if you cannot rule that out.
 
 Notes on where things live, to avoid re-adding duplicates:
 
@@ -258,19 +276,27 @@ Notes on where things live, to avoid re-adding duplicates:
 
 ### Machine parameters (`machine_params.json`)
 
-CPU/GPU details are not written into `case_metadata.json`. Instead the batch script
-installs [`whereami`](https://github.com/max-models/whereami) into the venv's `bin`
-directory and exports the parameters of the compute node the job actually runs on:
+CPU/GPU details are not written into `case_metadata.json`. Instead
+[`whereami`](https://github.com/max-models/whereami) exports the parameters of the
+compute node the job actually runs on.
+
+Because compute nodes have no outbound network access, `run_profiling_job` installs
+`whereami` from the **login node**, before `sbatch`:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/max-models/whereami/main/install.sh | bash -s -- "$VIRTUAL_ENV/bin"
+```
+
+The venv is on a shared filesystem, so the batch script only has to run:
+
+```bash
 whereami --output <case dir>/machine_params.json
 ```
 
 The packaging step copies that file verbatim next to the `.h5` files and records its
-name in `hardware_information.machine_params_file`. If the job produced no export
-(older run, or the install failed), packaging regenerates it with `whereami` from
-`PATH`; if that is unavailable too, `machine_params_file` is `null`.
+name in `hardware_information.machine_params_file`. A failed install is not fatal: the
+job then writes no export, packaging regenerates it with `whereami` from `PATH`, and if
+that is unavailable too `machine_params_file` is `null`.
 
 Choosing the SLURM preset at submission time does not depend on `whereami` being
 installed: `detect_machine_name()` in `package_profiling_results.py` is a Python port of

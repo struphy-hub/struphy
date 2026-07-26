@@ -37,6 +37,30 @@ default_cluster_name = "pitagora"
 whereami_install_url = "https://raw.githubusercontent.com/max-models/whereami/main/install.sh"
 
 
+def install_whereami(venv_path: Path) -> None:
+    """Install `whereami` into the venv's bin directory, from the login node.
+
+    Compute nodes have no outbound network, so this must happen before `sbatch`. The
+    venv lives on a shared filesystem, so the job picks the executable up from `PATH`
+    once it activates the same venv.
+
+    A failed install is not fatal: the job then produces no `machine_params.json` and
+    packaging records `machine_params_file: null`.
+    """
+    install_dir = venv_path / "bin"
+    print(f"Installing whereami into {install_dir} ...")
+    result = subprocess.run(
+        f'curl -fsSL {whereami_install_url} | bash -s -- "{install_dir}"',
+        shell=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        print(
+            f"WARNING: installing whereami failed (exit code {result.returncode}); "
+            "the job will not record machine parameters.",
+        )
+
+
 def detect_cluster_name(cluster_presets: dict[str, dict]) -> str:
     """Pick the cluster preset for the current machine.
 
@@ -91,9 +115,9 @@ def build_case_commands(
         'echo "----------------------------------------"',
         f'mkdir -p "{output_root}"',
         f'cp "{case.params_source}" "{output_root / "parameters.py"}"',
-        # Install whereami into the venv's bin directory (so it is on PATH) and record
-        # the machine parameters of the compute node this job actually runs on.
-        f'curl -fsSL {whereami_install_url} | bash -s -- "{venv_path / "bin"}"',
+        # Record the machine parameters of the compute node this job runs on.
+        # `whereami` was installed into the venv by `install_whereami` before submission,
+        # since compute nodes have no network access.
         f'whereami --output "{output_root / MACHINE_PARAMS_FILE}"',
         f'ls -l "{output_root}"',
     ]
@@ -188,6 +212,10 @@ def run_profiling_job(case: ProfilingCase) -> None:
             "VIRTUAL_ENV is not set; activate a virtual environment before submitting the job.",
         )
     venv_path = Path(virtual_env)
+
+    # Install whereami here, on the login node: the compute nodes running the job have
+    # no outbound network access.
+    install_whereami(venv_path)
 
     # Compile Struphy kernels with the specified language and compiler
     compiler = Compiler(language=args.language, compiler=args.compiler)
