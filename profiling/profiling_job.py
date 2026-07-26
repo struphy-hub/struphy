@@ -250,6 +250,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default="GNU",
         help='Pyccel compiler family to use: "GNU" (default), "intel", "PGI", "nvidia", or "LLVM".',
     )
+    parser.add_argument(
+        "--upload",
+        action="store_true",
+        help="Upload the packaged profiling results to the profiling-data repo.",
+    )
     return parser
 
 
@@ -391,16 +396,18 @@ def run_profiling_job(case: ProfilingCase) -> None:
         verbose=True,
     )
     if packaged_dir is not None:
-        packaged_dirs.append(packaged_dir)
         print(f"Packaged profiling data for '{case.label}' into {packaged_dir}")
+        latest_results_root_path.write_text(str(run_results_root), encoding="utf-8")
+        print(f"Updated latest profiling root marker: {latest_results_root_path}")
+
+        print(f"Packaged profiling data for '{case.label}' into {output_root}:")
+        print(f" - {packaged_dir}")
+        if args.upload:
+            print("Uploading packaged profiling data to the profiling-data repo ...")
+            _push_profiling_data([packaged_dir], run_commit)
+        else:
+            print("Upload skipped; use --upload to push the packaged profiling data to the profiling-data repo.")
+            print("Plot the results locally by opening the HTML files in the packaged directories, e.g.:")
+            print(f"scope-profiler pproc {packaged_dir / '*.h5'} --rank 0")
     else:
         print(f"No profiling output found for '{case.label}'; nothing to package.")
-
-    latest_results_root_path.write_text(str(run_results_root), encoding="utf-8")
-    print(f"Updated latest profiling root marker: {latest_results_root_path}")
-
-    print(f"Packaged {len(packaged_dirs)} profiling case(s) into {output_root}:")
-    for packaged_dir in packaged_dirs:
-        print(f" - {packaged_dir}")
-
-    _push_profiling_data(packaged_dirs, run_commit)
