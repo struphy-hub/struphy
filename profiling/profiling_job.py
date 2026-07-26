@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from package_profiling_results import package_testcase
+from package_profiling_results import MACHINE_PARAMS_FILE, detect_machine_name, package_testcase
 from slurm_script_generator.slurm_script import SlurmScript
 from slurm_script_generator.squeue import SQueue
 
@@ -31,8 +31,32 @@ repo_root = script_dir.parent
 profiling_results_base = repo_root / "results" / "profiling"
 latest_results_root_path = profiling_results_base / "latest_run_root.txt"
 
-# TODO: This should be taken from whereami
-cluster_name = "pitagora"
+default_cluster_name = "pitagora"
+
+# Installs `whereami` and `load_modules` into the directory passed to the script.
+whereami_install_url = "https://raw.githubusercontent.com/max-models/whereami/main/install.sh"
+
+
+def detect_cluster_name(cluster_presets: dict[str, dict]) -> str:
+    """Pick the cluster preset for the current machine.
+
+    The detected machine name ("Pitagora (DCGP)", "TOK", ...) is matched against the
+    preset keys ("pitagora", "tok", ...). Falls back to `default_cluster_name` when the
+    machine is unknown or has no preset (e.g. when submitting from a laptop), so
+    submission behaves as before.
+    """
+    machine_name = detect_machine_name()
+    if machine_name:
+        for preset_name in cluster_presets:
+            if preset_name.lower() in machine_name.lower():
+                print(f"Detected machine '{machine_name}'; using cluster preset '{preset_name}'.")
+                return preset_name
+
+    print(
+        f"No cluster preset matches the detected machine ({machine_name!r}); using '{default_cluster_name}'.",
+    )
+    return default_cluster_name
+
 
 @dataclass(frozen=True)
 class ProfilingCase:
@@ -45,6 +69,7 @@ class ProfilingCase:
     params_source: Path
     run_script: Path
     cluster_presets: dict[str, dict]
+
 
 def build_case_commands(
     case: ProfilingCase,
@@ -66,6 +91,10 @@ def build_case_commands(
         'echo "----------------------------------------"',
         f'mkdir -p "{output_root}"',
         f'cp "{case.params_source}" "{output_root / "parameters.py"}"',
+        # Install whereami into the venv's bin directory (so it is on PATH) and record
+        # the machine parameters of the compute node this job actually runs on.
+        f'curl -fsSL {whereami_install_url} | bash -s -- "{venv_path / "bin"}"',
+        f'whereami --output "{output_root / MACHINE_PARAMS_FILE}"',
         f'ls -l "{output_root}"',
     ]
 
@@ -188,8 +217,8 @@ def run_profiling_job(case: ProfilingCase) -> None:
     latest_results_root_path.write_text(str(run_results_root), encoding="utf-8")
     print(f"Profiling run root: {run_results_root}")
 
-    # Get the cluster preset for the specified cluster
-    cluster_preset = case.cluster_presets[cluster_name]
+    # Get the cluster preset for the detected cluster
+    cluster_preset = case.cluster_presets[detect_cluster_name(case.cluster_presets)]
     packaged_dirs: list[Path] = []
 
     # Create a subdirectory for this case's output under the run results root

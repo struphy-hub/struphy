@@ -6,6 +6,7 @@ import os
 import platform
 import re
 import shutil
+import socket
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
@@ -239,29 +240,95 @@ def _collect_slurm_environment_variables() -> dict[str, str]:
     return dict(sorted(slurm_variables.items()))
 
 
-def _collect_hardware_info() -> dict[str, Any]:
-    """Flat description of the machine the profiling job ran on.
+MACHINE_PARAMS_FILE = "machine_params.json"
 
-    The `whereami` environment variables (``MACHINE_NAME``, ``CPU_VENDOR``, ...) are
-    stored once, under lower-case keys.
+
+def detect_machine_name() -> str | None:
+    """Name of the current HPC machine, following the detection order of `whereami`.
+
+    This is a Python port of the `MACHINE_NAME` branch of
+    https://github.com/max-models/whereami; the other parameters (`CPU_VENDOR`,
+    `CHIP`, ...) are not duplicated here, they come from the `machine_params.json`
+    that `whereami` itself writes during the job.
+
+    Returns None on an unrecognised machine (e.g. a laptop).
     """
-    whereami_variables = {
-        key: os.environ.get(key)
-        for key in (
-            "MACHINE_NAME",
-            "MACHINE_HOST",
-            "MACHINE_HOSTNAME",
-            "CPU_VENDOR",
-            "CHIP",
-            "GPU_VENDOR",
-            "GPU_NAME",
-            "GPUS_FOUND",
-        )
-    }
+    host = os.environ.get("HOST", "")
+    hostname = os.environ.get("HOSTNAME") or socket.gethostname()
+    lmod_admin_file = os.environ.get("LMOD_ADMIN_FILE", "")
+    hpc_system = os.environ.get("HPC_SYSTEM", "")
+    nersc_host = os.environ.get("NERSC_HOST", "")
+    runner_tags = os.environ.get("CI_RUNNER_TAGS", "")
+    partition = os.environ.get("PARTITION", "")
 
+    if "raven" in host:
+        return "Raven"
+    if "viper12" in hostname:
+        return "Viper-GPU"
+    if "viper" in hostname:
+        return "Viper-CPU"
+    if "cobra" in host:
+        return "Cobra"
+    if "lumi" in lmod_admin_file:
+        lumi_partition = partition or "LUMI-G"
+        if lumi_partition in ("LUMI-G", "LUMI-C", "LUMI-D"):
+            return lumi_partition
+        print(f"Unsupported LUMI partition: {lumi_partition}")
+        return None
+    if "leonardo" in hpc_system:
+        return "Leonardo (Booster)" if (partition or "Booster") == "Booster" else "Leonardo (DCGP)"
+    if "marconi" in hpc_system:
+        return "Marconi"
+    if "pitagora" in hpc_system:
+        return "Pitagora (DCGP)"
+    if "toki" in host:
+        return "TOK"
+    if "vega" in hostname:
+        return "Vega (GPU)" if (partition or "GPU") == "GPU" else "Vega (CPU)"
+    if "perlmutter" in nersc_host:
+        return "Perlmutter"
+    if "runner" in hostname:
+        if "nvidia-cc80" in runner_tags:
+            return "Shared GPU Runner (NVIDIA)"
+        if "amd-mi200" in runner_tags:
+            return "Shared GPU Runner (AMD)"
+        return "Shared Runner"
+    return None
+
+
+def _copy_machine_params(testcase_dir: Path, destination_dir: Path) -> str | None:
+    """Copy the `whereami` JSON export produced by the job next to the packaged data.
+
+    The file is stored verbatim, not parsed. If the job did not produce one (older
+    run, or `whereami` install failed), it is regenerated here as a best effort.
+    Returns the packaged file name, or None if no parameters could be obtained.
+    """
+    source = testcase_dir / MACHINE_PARAMS_FILE
+    destination = destination_dir / MACHINE_PARAMS_FILE
+
+    if not source.exists():
+        executable = shutil.which("whereami")
+        if executable is None:
+            print(f"No {MACHINE_PARAMS_FILE} in {testcase_dir} and `whereami` is not on PATH; skipping.")
+            return None
+        result = _run_command([executable, "--output", str(destination)])
+        if result["returncode"] != 0 or not destination.exists():
+            print(f"`whereami --output` failed: {result['stderr'] or result['stdout']}")
+            return None
+        return MACHINE_PARAMS_FILE
+
+    shutil.copy2(source, destination)
+    return MACHINE_PARAMS_FILE
+
+
+def _collect_hardware_info() -> dict[str, Any]:
+    """Description of the machine the profiling job ran on.
+
+    CPU/GPU details are not repeated here: they live in the `whereami` export
+    (`machine_params.json`) that is packaged alongside this metadata.
+    """
     cluster_name = (
-        whereami_variables["MACHINE_NAME"]
-        or whereami_variables["MACHINE_HOST"]
+        detect_machine_name()
         or os.environ.get("SLURM_CLUSTER_NAME")
         or _run_command(["hostname", "-f"])["stdout"]
         or None
@@ -283,7 +350,6 @@ def _collect_hardware_info() -> dict[str, Any]:
         "uname": _run_command(["uname", "-a"])["stdout"],
         "chip_information": _run_command(["lscpu"])["stdout"],
         "node_hostnames": resolved_nodes,
-        **{key.lower(): value for key, value in whereami_variables.items()},
     }
 
 
@@ -418,6 +484,12 @@ def package_testcase(
             },
         )
 
+    hardware_information = _collect_hardware_info()
+    hardware_information["machine_params_file"] = _copy_machine_params(
+        testcase_dir=testcase_dir,
+        destination_dir=destination_dir,
+    )
+
     metadata = {
         "general_information": {
             "time_date_utc": timestamp.isoformat(),
@@ -435,7 +507,7 @@ def package_testcase(
             "simulation_description": sim_description,
             "results_root": str(results_root),
         },
-        "hardware_information": _collect_hardware_info(),
+        "hardware_information": hardware_information,
         "software_information": _collect_software_info(
             language=case_language,
             commit=case_commit,

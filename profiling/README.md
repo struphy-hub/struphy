@@ -210,6 +210,7 @@ After a profiling run completes, results are organized as:
 results/profiling/<timestamp>-<commit>/
 ├── <case_label>/
 │   ├── profiling_case_info.json      # Metadata about the case
+│   ├── machine_params.json           # `whereami` export for the compute node
 │   ├── sim_ranks1/                   # Output for 1 MPI rank
 │   │   ├── profiling_data.h5         # Raw profiling data
 │   │   └── *.png                     # Processed plots
@@ -229,7 +230,7 @@ top-level sections:
 | Section | Contents |
 | --- | --- |
 | `general_information` | Timestamp, user, test case identity/description, model, simulation name and description read from `parameters.py`, source results root |
-| `hardware_information` | Cluster name, platform, hostname, uname, `lscpu` output, resolved node hostnames, and the `whereami` variables (`machine_name`, `cpu_vendor`, `gpu_name`, ...) as lower-case keys |
+| `hardware_information` | Cluster name, platform, hostname, uname, `lscpu` output, resolved node hostnames, and the name of the packaged `whereami` export (see below) |
 | `software_information` | Struphy commit, pyccel language/compiler family and remaining compiler options, parameter file paths, loaded modules, environment variables, `pip freeze` |
 | `slurm_information` | Batch script path and contents, SBATCH pragmas, `SLURM_*` variables |
 | `files` | One entry per packaged `.h5` file: source path, rank count, destination file name |
@@ -244,6 +245,30 @@ Notes on where things live, to avoid re-adding duplicates:
   `custom_commands` list is dropped because it is already contained in that script.
 - The raw `profiling_case_info.json` is not embedded; its fields are hoisted into the
   sections above.
+
+### Machine parameters (`machine_params.json`)
+
+CPU/GPU details are not written into `case_metadata.json`. Instead the batch script
+installs [`whereami`](https://github.com/max-models/whereami) into the venv's `bin`
+directory and exports the parameters of the compute node the job actually runs on:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/max-models/whereami/main/install.sh | bash -s -- "$VIRTUAL_ENV/bin"
+whereami --output <case dir>/machine_params.json
+```
+
+The packaging step copies that file verbatim next to the `.h5` files and records its
+name in `hardware_information.machine_params_file`. If the job produced no export
+(older run, or the install failed), packaging regenerates it with `whereami` from
+`PATH`; if that is unavailable too, `machine_params_file` is `null`.
+
+Choosing the SLURM preset at submission time does not depend on `whereami` being
+installed: `detect_machine_name()` in `package_profiling_results.py` is a Python port of
+the machine-detection table of `whereami` (`MACHINE_NAME` only). `detect_cluster_name`
+matches the detected name ("Pitagora (DCGP)", "TOK", ...) against the keys of
+`CLUSTER_PRESETS` and falls back to `default_cluster_name` on an unknown machine, e.g.
+when submitting from a laptop. Keep the port in sync when `whereami` learns about a new
+machine.
 
 ## Cluster Configuration
 
