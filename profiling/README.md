@@ -219,6 +219,32 @@ results/profiling/<timestamp>-<commit>/
 └── latest_run_root.txt               # Pointer to most recent run
 ```
 
+### Packaged metadata (`case_metadata.json`)
+
+`package_profiling_results.py` copies the `.h5` files into
+`profiling-results-export/<timestamp>-<commit>-<case>-<language>/` and writes a
+`case_metadata.json` next to them. Every value is stored exactly once, in one of five
+top-level sections:
+
+| Section | Contents |
+| --- | --- |
+| `general_information` | Timestamp, user, test case identity/description, model, simulation name and description read from `parameters.py`, source results root |
+| `hardware_information` | Cluster name, platform, hostname, uname, `lscpu` output, resolved node hostnames, and the `whereami` variables (`machine_name`, `cpu_vendor`, `gpu_name`, ...) as lower-case keys |
+| `software_information` | Struphy commit, pyccel language/compiler family and remaining compiler options, parameter file paths, loaded modules, environment variables, `pip freeze` |
+| `slurm_information` | Batch script path and contents, SBATCH pragmas, `SLURM_*` variables |
+| `files` | One entry per packaged `.h5` file: source path, rank count, destination file name |
+
+Notes on where things live, to avoid re-adding duplicates:
+
+- `SLURM_*` variables appear only in `slurm_information.variables`, not in
+  `software_information.environment_variables`.
+- `LOADEDMODULES` is expanded into `software_information.modules` and is not repeated
+  as an environment variable.
+- The batch script is stored once as `slurm_information.script`; the generator's
+  `custom_commands` list is dropped because it is already contained in that script.
+- The raw `profiling_case_info.json` is not embedded; its fields are hoisted into the
+  sections above.
+
 ## Cluster Configuration
 
 Cluster-specific SLURM settings are defined in `profiling_job.py` in the `CLUSTER_PRESETS` dictionary. To add a new cluster:

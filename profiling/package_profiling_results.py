@@ -29,7 +29,8 @@ def _extract_ranks(path: Path) -> str:
 
 
 def _build_output_name(testcase: str, language: str, ranks: str, index: int) -> str:
-    base = f"{_slug(testcase)}-ranks{ranks:04d}-{_slug(language)}"
+    ranks_token = f"{int(ranks):04d}" if ranks.isdigit() else _slug(ranks)
+    base = f"{_slug(testcase)}-ranks{ranks_token}-{_slug(language)}"
     if index > 0:
         base = f"{base}-{index}"
     return f"{base}.h5"
@@ -172,12 +173,16 @@ def _resolve_results_root_arg(results_root: Path) -> Path:
 
 
 def _run_command(command: list[str]) -> dict[str, Any]:
-    result = subprocess.run(
-        command,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            command,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except (FileNotFoundError, OSError) as exc:
+        # e.g. `lscpu` or `scontrol` are not available outside a Linux/SLURM machine.
+        return {"command": command, "returncode": 127, "stdout": "", "stderr": str(exc)}
     return {
         "command": command,
         "returncode": result.returncode,
@@ -209,14 +214,17 @@ def _read_case_info(testcase_dir: Path) -> dict[str, Any]:
 
 
 def _collect_environment_variables() -> dict[str, str]:
+    """Environment variables of interest, excluding those stored elsewhere in the metadata.
+
+    ``SLURM_*`` variables live in ``slurm_information.variables`` and ``LOADEDMODULES``
+    is expanded into ``software_information.modules``, so both are skipped here.
+    """
     allowed_prefixes = (
-        "SLURM_",
         "OMP_",
         "PYTHON",
         "VIRTUAL_ENV",
         "CONDA",
         "MODULE",
-        "LOADEDMODULES",
         "GITHUB_",
     )
     allowed_names = {"PATH", "LD_LIBRARY_PATH"}
@@ -232,17 +240,22 @@ def _collect_slurm_environment_variables() -> dict[str, str]:
 
 
 def _collect_hardware_info() -> dict[str, Any]:
+    """Flat description of the machine the profiling job ran on.
+
+    The `whereami` environment variables (``MACHINE_NAME``, ``CPU_VENDOR``, ...) are
+    stored once, under lower-case keys.
+    """
     whereami_variables = {
         key: os.environ.get(key)
         for key in (
             "MACHINE_NAME",
             "MACHINE_HOST",
+            "MACHINE_HOSTNAME",
             "CPU_VENDOR",
             "CHIP",
             "GPU_VENDOR",
             "GPU_NAME",
             "GPUS_FOUND",
-            "MACHINE_HOSTNAME",
         )
     }
 
@@ -265,27 +278,12 @@ def _collect_hardware_info() -> dict[str, Any]:
 
     return {
         "cluster_name": cluster_name,
-        "whereami": whereami_variables,
-        "machine_information": {
-            "platform": platform.platform(),
-            "hostname": _run_command(["hostname"])["stdout"],
-            "uname": _run_command(["uname", "-a"])["stdout"],
-            "chip_information": _run_command(["lscpu"])["stdout"],
-            "machine_name": whereami_variables["MACHINE_NAME"],
-            "machine_host": whereami_variables["MACHINE_HOST"],
-            "machine_hostname": whereami_variables["MACHINE_HOSTNAME"],
-            "cpu_vendor": whereami_variables["CPU_VENDOR"],
-            "chip": whereami_variables["CHIP"],
-            "gpu_vendor": whereami_variables["GPU_VENDOR"],
-            "gpu_name": whereami_variables["GPU_NAME"],
-            "gpus_found": whereami_variables["GPUS_FOUND"],
-        },
-        "nodes": {
-            "slurm_job_nodelist": slurm_nodelist,
-            "resolved_hostnames": resolved_nodes,
-            "slurm_nnodes": os.environ.get("SLURM_NNODES"),
-            "slurm_ntasks": os.environ.get("SLURM_NTASKS"),
-        },
+        "platform": platform.platform(),
+        "hostname": _run_command(["hostname"])["stdout"],
+        "uname": _run_command(["uname", "-a"])["stdout"],
+        "chip_information": _run_command(["lscpu"])["stdout"],
+        "node_hostnames": resolved_nodes,
+        **{key.lower(): value for key, value in whereami_variables.items()},
     }
 
 
@@ -299,7 +297,7 @@ def _collect_software_info(
     module_list_cmd = _run_shell_command("module list -t 2>&1")
     loaded_modules = [
         line
-        for line in module_list_cmd["stdout"].splitlines()
+        for line in (module_list_cmd["stdout"].splitlines() if module_list_cmd["returncode"] == 0 else [])
         if line
         and not line.startswith("Currently Loaded Modulefiles:")
         and not line.startswith("No Modulefiles Currently Loaded.")
@@ -307,16 +305,36 @@ def _collect_software_info(
     if not loaded_modules and os.environ.get("LOADEDMODULES"):
         loaded_modules = [entry for entry in os.environ["LOADEDMODULES"].split(":") if entry]
 
+    compiler_info = case_info.get("compiler") or {}
+    compiler_options = {key: value for key, value in compiler_info.items() if key not in ("language", "compiler")}
+
     return {
+        "struphy_commit": commit,
+        "pyccel_language": case_info.get("pyccel_language") or compiler_info.get("language") or language,
+        "pyccel_compiler_family": case_info.get("pyccel_compiler_family") or compiler_info.get("compiler"),
+        "compiler_options": compiler_options,
         "parameter_file": (str(parameters_path) if parameters_path is not None else case_info.get("parameter_file")),
+        "parameter_file_source": case_info.get("parameter_file"),
+        "modules": loaded_modules,
+        "environment_variables": _collect_environment_variables(),
         "python_environment_pip_freeze": _run_command(
             ["python", "-m", "pip", "freeze"],
         )["stdout"],
-        "environment_variables": _collect_environment_variables(),
-        "modules": loaded_modules,
-        "struphy_commit": commit,
-        "pyccel_language": case_info.get("pyccel_language", language),
-        "pyccel_compiler_family": case_info.get("pyccel_compiler_family"),
+    }
+
+
+def _collect_slurm_info(case_info: dict[str, Any]) -> dict[str, Any]:
+    """SLURM job description; the batch script is stored once, as a single string.
+
+    ``slurm_dict["custom_commands"]`` is dropped because those commands are already
+    part of ``script``.
+    """
+    slurm_dict = case_info.get("slurm_dict") or {}
+    return {
+        "script_path": case_info.get("slurm_script_path"),
+        "script": case_info.get("slurm_script"),
+        "pragmas": slurm_dict.get("pragmas"),
+        "variables": case_info.get("slurm_variables", _collect_slurm_environment_variables()),
     }
 
 
@@ -400,53 +418,32 @@ def package_testcase(
             },
         )
 
-    general_information = {
-        "time_date_utc": timestamp.isoformat(),
-        "user": getpass.getuser(),
-        "slurm_script": case_info.get("slurm_script"),
-        "slurm_variables": case_info.get(
-            "slurm_variables",
-            _collect_slurm_environment_variables(),
-        ),
-        "test_case_name": case_info.get("test_case_name", sim_name),
-        "test_case_description": case_info.get(
-            "test_case_description",
-            sim_description,
-        ),
-        "physics_problem": case_info.get("physics_problem", sim_name),
-        "struphy_model_used": case_info.get("struphy_model_used"),
-    }
-    hardware_information = _collect_hardware_info()
-    software_information = _collect_software_info(
-        language=case_language,
-        commit=case_commit,
-        parameters_path=parameters_path,
-        case_info=case_info,
-    )
-
     metadata = {
-        "general_information": general_information,
-        "hardware_information": hardware_information,
-        "software_information": software_information,
-        "name": sim_name,
-        "description": sim_description,
-        "datetime_utc": timestamp.isoformat(),
-        "datetime_token": datetime_token,
-        "commit": case_commit,
-        "commit_short": commit_short,
-        "testcase": testcase,
-        "language": case_language,
-        "source_results_root": str(results_root),
-        "source_parameters_file": (str(parameters_path) if parameters_path is not None else None),
-        "files": files_metadata,
-        "github": {
-            "repository": os.environ.get("GITHUB_REPOSITORY"),
-            "run_id": os.environ.get("GITHUB_RUN_ID"),
-            "run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT"),
-            "workflow": os.environ.get("GITHUB_WORKFLOW"),
-            "job": os.environ.get("GITHUB_JOB"),
+        "general_information": {
+            "time_date_utc": timestamp.isoformat(),
+            "datetime_token": datetime_token,
+            "user": getpass.getuser(),
+            "test_case_identifier": case_info.get("test_case_identifier", testcase),
+            "test_case_name": case_info.get("test_case_name", sim_name),
+            "test_case_description": case_info.get(
+                "test_case_description",
+                sim_description,
+            ),
+            "physics_problem": case_info.get("physics_problem", sim_name),
+            "struphy_model_used": case_info.get("struphy_model_used"),
+            "simulation_name": sim_name,
+            "simulation_description": sim_description,
+            "results_root": str(results_root),
         },
-        "profiling_case_info": case_info,
+        "hardware_information": _collect_hardware_info(),
+        "software_information": _collect_software_info(
+            language=case_language,
+            commit=case_commit,
+            parameters_path=parameters_path,
+            case_info=case_info,
+        ),
+        "slurm_information": _collect_slurm_info(case_info),
+        "files": files_metadata,
     }
     (destination_dir / "case_metadata.json").write_text(
         json.dumps(metadata, indent=2),

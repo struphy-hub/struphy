@@ -37,8 +37,9 @@ def test_package_results_reads_sim_metadata_from_attribute_constructor(
 
     metadata_path = created_dirs[0] / "case_metadata.json"
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    assert metadata["name"] == "Diocotron instability"
-    assert metadata["description"] == "Shear-driven non-neutral plasma instability."
+    general = metadata["general_information"]
+    assert general["simulation_name"] == "Diocotron instability"
+    assert general["simulation_description"] == "Shear-driven non-neutral plasma instability."
 
 
 def test_package_results_promotes_nested_parameters_and_uses_metadata(
@@ -72,9 +73,10 @@ def test_package_results_promotes_nested_parameters_and_uses_metadata(
 
     metadata_path = created_dirs[0] / "case_metadata.json"
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    assert metadata["name"] == "Nested params name"
-    assert metadata["description"] == "Nested params description"
-    assert Path(metadata["source_parameters_file"]) == promoted_parameters
+    general = metadata["general_information"]
+    assert general["simulation_name"] == "Nested params name"
+    assert general["simulation_description"] == "Nested params description"
+    assert Path(metadata["software_information"]["parameter_file"]) == promoted_parameters
 
 
 def test_package_results_uses_whereami_variables_for_hardware_metadata(tmp_path: Path, monkeypatch) -> None:
@@ -114,7 +116,12 @@ def test_package_results_uses_whereami_variables_for_hardware_metadata(tmp_path:
     hardware = metadata["hardware_information"]
 
     assert hardware["cluster_name"] == "cluster-alpha"
-    assert hardware["whereami"]["MACHINE_NAME"] == "cluster-alpha"
-    assert hardware["machine_information"]["machine_host"] == "alpha-host"
-    assert hardware["machine_information"]["cpu_vendor"] == "ExampleCPU"
-    assert hardware["machine_information"]["gpus_found"] == "4"
+    assert hardware["machine_name"] == "cluster-alpha"
+    assert hardware["machine_host"] == "alpha-host"
+    assert hardware["cpu_vendor"] == "ExampleCPU"
+    assert hardware["gpus_found"] == "4"
+
+    # The whereami variables are stored exactly once, and the github block is gone.
+    assert "whereami" not in hardware
+    assert "machine_information" not in hardware
+    assert "github" not in metadata
