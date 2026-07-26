@@ -106,7 +106,8 @@ jobs:
           source .venv-fortran/bin/activate
           python profiling/submit_diocotron_job.py \
             --language ${{ matrix.compile-language }} \
-            --compiler GNU
+            --compiler GNU \
+            --upload
 
       - name: Upload packaged profiling data as an artifact
         uses: actions/upload-artifact@v4
