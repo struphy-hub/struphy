@@ -44,10 +44,6 @@ def main() -> None:
     )
 
     sim.env = env
-    sim._setup_folders()
-
-    # print(f"Running diocotron profiling case with {num_ranks} MPI ranks...")
-    # print("Environment options:", sim.env)
 
     sim.run(one_time_step=True)
 
