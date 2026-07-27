@@ -360,9 +360,9 @@ def _collect_job_info(case_info: dict[str, Any]) -> dict[str, Any]:
 
     Covers both schedulers: a SLURM batch script with `pragmas`, or the plain bash
     script of a local run (`scheduler: "local"`, no pragmas). Each rank count is
-    submitted (or run locally) as its own job/script, since `run_profiling_job` builds
-    and submits one script per rank count instead of looping over rank counts inside a
-    single script.
+    submitted (or run locally) as its own job/script, since the caller's loop over
+    rank counts builds and submits one script per rank count instead of looping over
+    rank counts inside a single script.
     ``slurm_dict["custom_commands"]`` is dropped because those commands are already
     part of ``script``, and the `SLURM_*` variables because scope-profiler stores them
     in every `profiling_data.h5`.

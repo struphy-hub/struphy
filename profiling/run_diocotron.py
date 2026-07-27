@@ -1,21 +1,33 @@
 """Diocotron profiling case.
 
-This file defines the diocotron profiling case (the `ProfilingCase` and its cluster
-presets) and submits it: `profiling_job.run_profiling_job` builds one SLURM script
-per rank count in `profiling_case.ranks`, submits all of them, waits for all to
-finish, and then packages/uploads the results. Each generated script runs the
-simulation itself by invoking `params_diocotron.py` directly (its `__main__` block
-is the worker).
+This file defines the diocotron profiling case (the `ProfilingCase`, its cluster
+presets, and the rank counts to profile) and submits it: for each rank count in
+`RANKS`, one SLURM script is built and submitted (or, without a batch system, run
+directly on this machine). Once every rank count has finished running, the
+comparison plot across rank counts is built, and the case is packaged/uploaded.
+Each generated script runs the simulation itself by invoking `params_diocotron.py`
+directly (its `__main__` block is the worker).
 
 Use this file as a template for defining other profiling cases.
 """
 
+import subprocess
 from pathlib import Path
 
-from profiling_job import ProfilingCase, run_profiling_job
+from profiling_job import (
+    ProfilingCase,
+    build_case_commands,
+    finalize_profiling_run,
+    local_ranks,
+    setup_profiling_run,
+)
+from slurm_script_generator.slurm_script import SlurmScript
 
 script_dir = Path(__file__).resolve().parent
+repo_root = script_dir.parent
 params_dir = script_dir / "examples" / "ToyGyrokinetic" / "diocotron_instability"
+
+RANKS: tuple[int, ...] = (2, 4, 8, 16, 32, 64)
 
 # Static SLURM settings per cluster. `job_name` and `ntasks_per_node` are filled in
 # per rank count at submission time.
@@ -51,14 +63,74 @@ profiling_case = ProfilingCase(
     description="Scaling test running the diocotron profiling setup with multiple MPI ranks.",
     physics_problem="Diocotron instability in a non-neutral plasma.",
     struphy_model_used="ToyDrift",
-    ranks=(2, 4, 8, 16, 32, 64),
     params_source=params_dir / "params_diocotron.py",
     cluster_presets=CLUSTER_PRESETS,
 )
 
 
 def main() -> None:
-    run_profiling_job(profiling_case)
+    setup = setup_profiling_run(profiling_case)
+    ranks = RANKS if setup.use_slurm else local_ranks(RANKS)
+
+    job_infos: list[dict] = []
+    job_ids: list[int] = []
+    local_processes: list[tuple[int, subprocess.Popen, Path]] = []
+
+    # Build (and submit/launch) one script per rank count, without waiting for any of
+    # them yet, so they all run concurrently.
+    for ntasks in ranks:
+        case_commands = build_case_commands(
+            profiling_case,
+            setup.case_output_root,
+            setup.venv_path,
+            ntasks,
+            launcher=setup.launcher,
+            use_modules=setup.use_modules,
+        )
+        script_path = repo_root / f"job_profile_{profiling_case.label}_ranks{ntasks}.sh"
+
+        if setup.use_slurm:
+            script = SlurmScript(
+                job_name=f"profiling_{profiling_case.label}_ranks{ntasks}",
+                ntasks_per_node=ntasks,
+                custom_commands=case_commands,
+                **setup.cluster_preset,
+            )
+            script_text = str(script)
+            job_id = script.submit_job(str(script_path))
+            print(f"Submitted '{profiling_case.label}' ({ntasks} MPI ranks) as job {job_id}.")
+
+            job_infos.append(
+                {
+                    "ranks": ntasks,
+                    "job_script_path": str(script_path),
+                    "job_script": script_text,
+                    "slurm_dict": script.to_dict(),
+                },
+            )
+            job_ids.append(job_id)
+        else:
+            script_text = "\n".join(["#!/bin/bash", *case_commands, ""])
+            script_path.write_text(script_text, encoding="utf-8")
+            script_path.chmod(0o755)
+
+            print(
+                f"No batch system found; launching '{profiling_case.label}' ({ntasks} MPI ranks) "
+                f"locally via {script_path} ...",
+            )
+            process = subprocess.Popen(["bash", str(script_path)], cwd=repo_root)
+
+            job_infos.append(
+                {
+                    "ranks": ntasks,
+                    "job_script_path": str(script_path),
+                    "job_script": script_text,
+                    "slurm_dict": None,
+                },
+            )
+            local_processes.append((ntasks, process, script_path))
+
+    finalize_profiling_run(profiling_case, setup, job_infos, job_ids, local_processes)
 
 
 if __name__ == "__main__":
