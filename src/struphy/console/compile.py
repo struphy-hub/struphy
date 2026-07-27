@@ -39,6 +39,8 @@ def count_compiled_kernels(state):
                     py_ker = match.split("/")[-1]
                     if py_ker == py_file:
                         matching = match
+                if matching is None:
+                    continue
                 matching_so = matching.replace(".py", so_suffix)
                 # logger.info(f'{matching_so = }')
                 if os.path.isfile(matching_so):
