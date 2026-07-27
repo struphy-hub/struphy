@@ -111,15 +111,6 @@ def build_arg_parser() -> argparse.ArgumentParser:
         description=("Submit profiling jobs to a SLURM cluster and package the results for upload.")
     )
     parser.add_argument(
-        "--results-root",
-        type=Path,
-        default=None,
-        help=(
-            "Root folder for this profiling run. By default a unique "
-            "results/profiling/DATETIME-COMMIT folder is created."
-        ),
-    )
-    parser.add_argument(
         "--language",
         type=str,
         default="fortran",
@@ -285,12 +276,9 @@ class ProfilingCase:
 
         # Determine the current git commit hash for the Struphy repo
         run_commit = _git_commit(repo_root)
-        if args.results_root is None:
-            timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-            run_token = f"{timestamp}-{_git_commit_short(repo_root)}"
-            run_results_root = _make_unique_results_root(profiling_results_base, run_token)
-        else:
-            run_results_root = args.results_root.expanduser().resolve()
+        timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        run_token = f"{timestamp}-{_git_commit_short(repo_root)}"
+        run_results_root = _make_unique_results_root(profiling_results_base, run_token)
 
         run_results_root.mkdir(parents=True, exist_ok=True)
         latest_results_root_path.write_text(str(run_results_root), encoding="utf-8")
