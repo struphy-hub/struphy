@@ -1,7 +1,11 @@
 """Shared machinery for running profiling jobs.
 
 A concrete profiling job (e.g. ``run_diocotron.py``) defines its own `ProfilingCase`
-and drives the run itself, looping over whichever rank counts it wants to profile:
+and drives the run itself, looping over whichever rank counts it wants to profile.
+Keeping that loop in the caller (rather than behind one `ProfilingCase.run()` call)
+is deliberate: it is the place to tweak the per-rank shell commands with
+case-specific flags (e.g. an arbitrary `ppc`) before they are wrapped in a
+`SlurmScript` or plain bash script.
 
 - `ProfilingCase.setup_run` parses CLI args, validates the venv, compiles Struphy, and
   creates the results directories.
@@ -111,18 +115,6 @@ def build_arg_parser() -> argparse.ArgumentParser:
         description=("Submit profiling jobs to a SLURM cluster and package the results for upload.")
     )
     parser.add_argument(
-        "--language",
-        type=str,
-        default="fortran",
-        help='Pyccel language to compile the Struphy kernels with: "fortran" (default) or "c".',
-    )
-    parser.add_argument(
-        "--compiler",
-        type=str,
-        default="GNU",
-        help='Pyccel compiler family to use: "GNU" (default), "intel", "PGI", "nvidia", or "LLVM".',
-    )
-    parser.add_argument(
         "--upload",
         action="store_true",
         help="Upload the packaged profiling results to the profiling-data repo.",
@@ -160,6 +152,8 @@ class ProfilingCase:
     struphy_model_used: str
     params_source: Path
     cluster_presets: dict[str, dict]
+    language: str = "fortran"  # Pyccel language to compile the Struphy kernels with: "fortran" or "c".
+    compiler: str = "GNU"  # Pyccel compiler family: "GNU", "intel", "PGI", "nvidia", or "LLVM".
 
     def detect_cluster_name(self) -> str:
         """Pick the cluster preset for the current machine.
@@ -259,9 +253,9 @@ class ProfilingCase:
         # have no outbound network access.
         install_whereami(venv_path)
 
-        # Compile Struphy kernels with the specified language and compiler
-        compiler = Compiler(language=args.language, compiler=args.compiler)
-        if not compiler.compiled(language=args.language):
+        # Compile Struphy kernels with the case's language and compiler
+        compiler = Compiler(language=self.language, compiler=self.compiler)
+        if not compiler.compiled(language=self.language):
             print("Compiling Struphy kernels ...")
             compiler.compile()
         print("Done compiling Struphy kernels.")

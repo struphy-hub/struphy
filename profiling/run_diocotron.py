@@ -8,6 +8,10 @@ finished running, the comparison plot across rank counts is built, and the case 
 packaged/uploaded. Each generated script runs the simulation itself by invoking
 `params_diocotron.py` directly (its `__main__` block is the worker).
 
+The per-rank command list and `SlurmScript` are built right here (not hidden behind a
+shared "submit" helper), so a case-specific flag (e.g. an arbitrary `ppc`) can be
+added to `case_commands` before it's wrapped in a script.
+
 Use this file as a template for defining other profiling cases.
 """
 
@@ -63,6 +67,7 @@ def main() -> None:
             launcher=setup.launcher,
             use_modules=setup.use_modules,
         )
+        # Case-specific tweaks go here
         script_path = repo_root / f"job_profile_{profiling_case.label}_ranks{ntasks}.sh"
 
         if setup.use_slurm:
