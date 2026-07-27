@@ -43,8 +43,8 @@ CLUSTER_PRESETS: dict[str, dict] = {
 }
 
 profiling_case = ProfilingCase(
-    label="diocotron_poisson_scaling",
-    name="Diocotron Poisson scaling",
+    label="diocotron_instability",
+    name="Diocotron instability",
     description="Scaling test running the diocotron profiling setup with multiple MPI ranks.",
     physics_problem="Diocotron instability in a non-neutral plasma.",
     struphy_model_used="ToyDrift",
