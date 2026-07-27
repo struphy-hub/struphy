@@ -74,15 +74,8 @@ def main() -> None:
             script_text = str(script)
             job_id = script.submit_job(str(script_path))
             print(f"Submitted '{profiling_case.label}' ({ntasks} MPI ranks) as job {job_id}.")
-
-            job_infos.append(
-                {
-                    "ranks": ntasks,
-                    "job_script_path": str(script_path),
-                    "job_script": script_text,
-                    "slurm_dict": script.to_dict(),
-                },
-            )
+            script_dict = script.to_dict()
+            
             job_ids.append(job_id)
         else:
             script_text = "\n".join(["#!/bin/bash", *case_commands, ""])
@@ -94,19 +87,21 @@ def main() -> None:
                 f"locally via {script_path} ...",
             )
             process = subprocess.Popen(["bash", str(script_path)], cwd=repo_root)
-
-            job_infos.append(
-                {
-                    "ranks": ntasks,
-                    "job_script_path": str(script_path),
-                    "job_script": script_text,
-                    "slurm_dict": None,
-                },
-            )
+            script_dict = None
             local_processes.append((ntasks, process, script_path))
 
-    profiling_case.finalize_run(job_infos, job_ids, local_processes)
+        # Store the job info for later packaging and comparison plotting
+        job_infos.append(
+            {
+                "ranks": ntasks,
+                "job_script_path": str(script_path),
+                "job_script": script_text,
+                "slurm_dict": script_dict,
+            },
+        )
 
+    # Wait for all jobs to finish, and then build the comparison plot and package the case.
+    profiling_case.finalize_run(job_infos, job_ids, local_processes)
 
 if __name__ == "__main__":
     main()

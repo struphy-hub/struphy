@@ -169,7 +169,7 @@ class ProfilingCase:
         )
         return default_cluster_name
 
-    def build_commands(self, ntasks: int) -> list[str]:
+    def build_commands(self, ntasks: int, param_flags: str = "") -> list[str]:
         """Build the shell commands that run this case with a single MPI rank count.
 
         Reads the setup computed by `setup_run` (`case_output_root`, `venv_path`,
@@ -212,8 +212,7 @@ class ProfilingCase:
             "",
             f'echo "Running {self.label} with {ntasks} MPI ranks"',
             f'cd "{output_root}"',
-            f"{self.launcher} -n {ntasks} python {self.params_source}",
-            # f'scope-profiler pproc "{h5_file}" -o "{sim_dir}"',
+            f"{self.launcher} -n {ntasks} python {self.params_source} {param_flags}",
             "",
             'echo "----------------------------------------"',
             f'echo "Completed profiling case: {self.label} ({ntasks} MPI ranks)"',
