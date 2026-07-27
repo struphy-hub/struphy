@@ -92,7 +92,6 @@ class ProfilingCase:
     struphy_model_used: str
     ranks: tuple[int, ...]
     params_source: Path
-    run_script: Path
     cluster_presets: dict[str, dict]
 
 
@@ -180,7 +179,8 @@ def build_case_commands(
         f'ls -l "{output_root}"',
         "",
         f'echo "Running {case.label} with {ntasks} MPI ranks"',
-        f'{launcher} -n {ntasks} python {case.run_script} --worker --out-root "{output_root}"',
+        f'cd "{output_root}"',
+        f"{launcher} -n {ntasks} python {case.params_source}",
         f'scope-profiler pproc "{h5_file}" -o "{sim_dir}"',
         "",
         'echo "----------------------------------------"',

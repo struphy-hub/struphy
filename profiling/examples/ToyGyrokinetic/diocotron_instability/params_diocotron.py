@@ -25,6 +25,8 @@ DOI: 10.1140/epjd/e2014-50180-9
 
 import logging
 
+from mpi4py import MPI
+
 from struphy import set_logging_level
 
 set_logging_level(logging.INFO)
@@ -74,7 +76,13 @@ model.kinetic_ions.var.save_data = False
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(sim_folder="sim_1", profiling_activated=True, profiling_trace=True, restart=False)
+num_ranks = MPI.COMM_WORLD.Get_size()
+env = EnvironmentOptions(
+    sim_folder=f"sim_ranks{num_ranks}",
+    profiling_activated=True,
+    profiling_trace=True,
+    restart=False
+)
 
 # Time stepping
 time_opts = Time(dt=0.01, Tend=51.0, split_algo="LieTrotter")
@@ -181,4 +189,4 @@ init = maxwellians.GyroMaxwellian2D(n=(n_init, perturbation), equil=equil)
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":
-    sim.run()
+    sim.run(one_time_step=True)
