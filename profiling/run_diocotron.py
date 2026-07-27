@@ -1,12 +1,12 @@
 """Diocotron profiling case.
 
-This file defines the diocotron profiling case (the `ProfilingCase`, its cluster
-presets, and the rank counts to profile) and submits it: for each rank count in
-`RANKS`, one SLURM script is built and submitted (or, without a batch system, run
-directly on this machine). Once every rank count has finished running, the
-comparison plot across rank counts is built, and the case is packaged/uploaded.
-Each generated script runs the simulation itself by invoking `params_diocotron.py`
-directly (its `__main__` block is the worker).
+This file defines the diocotron profiling case (the `ProfilingCase` and the rank
+counts to profile, using the shared `cluster_presets.CLUSTER_PRESETS`) and submits
+it: for each rank count in `RANKS`, one SLURM script is built and submitted (or,
+without a batch system, run directly on this machine). Once every rank count has
+finished running, the comparison plot across rank counts is built, and the case is
+packaged/uploaded. Each generated script runs the simulation itself by invoking
+`params_diocotron.py` directly (its `__main__` block is the worker).
 
 Use this file as a template for defining other profiling cases.
 """
@@ -14,6 +14,7 @@ Use this file as a template for defining other profiling cases.
 import subprocess
 from pathlib import Path
 
+from cluster_presets import CLUSTER_PRESETS
 from profiling_job import ProfilingCase, local_ranks
 from slurm_script_generator.slurm_script import SlurmScript
 
@@ -29,34 +30,6 @@ params_dir = script_dir / "examples" / "ToyGyrokinetic" / "diocotron_instability
 RANKS: tuple[int, ...] = (2, 4, 8, 16, 32, 64)
 # ------------------------------------------------------------------------ #
 
-
-# Static SLURM settings per cluster. `job_name` and `ntasks_per_node` are filled in
-# per rank count at submission time.
-CLUSTER_PRESETS: dict[str, dict] = {
-    "pitagora": {
-        "nodes": 1,
-        "cpus_per_task": 1,
-        "mem": "480GB",
-        "partition": "dcgp_fua_dbg",
-        "account": "FUSIO_HLST_7",
-        "output": "./%x.%j.out",
-        "error": "./%x.%j.err",
-        "mail_type": "none",
-        "time": "00:15:00",
-    },
-    "tok": {
-        "nodes": 1,
-        "cpus_per_task": 1,
-        "mem_per_cpu": "1GB",
-        "partition": "s.tok",
-        "qos": "tok.debug",
-        "chdir": "./",
-        "output": "./%x.%j.out",
-        "error": "./%x.%j.err",
-        "mail_type": "none",
-        "time": "00:15:00",
-    },
-}
 
 # ------------------------------------------------------------------------ #
 # Define the profiling case
