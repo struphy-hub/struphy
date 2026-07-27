@@ -356,20 +356,28 @@ def _collect_software_info(
 
 
 def _collect_job_info(case_info: dict[str, Any]) -> dict[str, Any]:
-    """Job description; the script is stored once, as a single string.
+    """Job description: one entry per rank count, each with its own script.
 
     Covers both schedulers: a SLURM batch script with `pragmas`, or the plain bash
-    script of a local run (`scheduler: "local"`, no pragmas).
+    script of a local run (`scheduler: "local"`, no pragmas). Each rank count is
+    submitted (or run locally) as its own job/script, since `run_profiling_job` builds
+    and submits one script per rank count instead of looping over rank counts inside a
+    single script.
     ``slurm_dict["custom_commands"]`` is dropped because those commands are already
     part of ``script``, and the `SLURM_*` variables because scope-profiler stores them
     in every `profiling_data.h5`.
     """
-    slurm_dict = case_info.get("slurm_dict") or {}
     return {
         "scheduler": case_info.get("scheduler", "slurm"),
-        "script_path": case_info.get("job_script_path"),
-        "script": case_info.get("job_script"),
-        "pragmas": slurm_dict.get("pragmas"),
+        "jobs": [
+            {
+                "ranks": job.get("ranks"),
+                "script_path": job.get("job_script_path"),
+                "script": job.get("job_script"),
+                "pragmas": (job.get("slurm_dict") or {}).get("pragmas"),
+            }
+            for job in case_info.get("jobs", [])
+        ],
     }
 
 

@@ -1,22 +1,20 @@
 """Shared machinery for running profiling jobs.
 
-A concrete profiling job (e.g. ``submit_diocotron_job.py``) only needs to define
-its own list of `ProfilingCase` objects and call `run_profiling_job`.
+A concrete profiling job (e.g. ``run_diocotron.py``) only needs to define its own
+`ProfilingCase` and call `run_profiling_job`.
 
-With a batch system the case is submitted to SLURM; without one (a laptop or
-workstation) the very same commands run directly on this machine, with `mpirun`
-instead of `srun` and without the environment-module lines. Profiling, packaging and
-upload are identical either way.
+For each rank count in `ProfilingCase.ranks`, one SLURM script is built and submitted
+(or, without a batch system, run directly on this machine with `mpirun` instead of
+`srun` and without the environment-module lines). Once every rank count has finished
+running, the comparison plot across rank counts is built, and the case is
+packaged/uploaded exactly once. See `run_diocotron.py` for a template.
 """
 
 import argparse
 import json
 import os
-import random
 import shutil
 import subprocess
-import tempfile
-import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -139,14 +137,22 @@ def build_case_commands(
     case: ProfilingCase,
     output_root: Path,
     venv_path: Path,
+    ntasks: int,
     *,
     launcher: str = "srun",
     use_modules: bool = True,
-    ranks: tuple[int, ...] | None = None,
 ) -> list[str]:
+    """Build the shell commands that run `case` with a single MPI rank count.
+
+    One script is built (and submitted) per rank count by `run_profiling_job`, so this
+    only ever covers one `ntasks` value. The comparison plot across rank counts is
+    built separately, once every rank count has finished running.
+    """
     activate_path = venv_path / "bin" / "activate"
-    case_ranks = case.ranks if ranks is None else ranks
-    commands = [
+    sim_dir = output_root / f"sim_ranks{ntasks}"
+    h5_file = sim_dir / "profiling_data.h5"
+
+    return [
         # Environment modules only exist on the clusters, not on a laptop.
         *(
             [
@@ -159,7 +165,7 @@ def build_case_commands(
         ),
         f"source {activate_path!s}",
         'echo "----------------------------------------"',
-        f'echo "Running profiling case: {case.label}"',
+        f'echo "Running profiling case: {case.label} ({ntasks} MPI ranks)"',
         f'echo "Description: {case.description}"',
         f'echo "Physics problem: {case.physics_problem}"',
         f'echo "Struphy model used: {case.struphy_model_used}"',
@@ -172,55 +178,15 @@ def build_case_commands(
         # nodes have no network access.
         f'whereami --output "{output_root / MACHINE_PARAMS_FILE}"',
         f'ls -l "{output_root}"',
+        "",
+        f'echo "Running {case.label} with {ntasks} MPI ranks"',
+        f'{launcher} -n {ntasks} python {case.run_script} --worker --out-root "{output_root}"',
+        f'scope-profiler pproc "{h5_file}" -o "{sim_dir}"',
+        "",
+        'echo "----------------------------------------"',
+        f'echo "Completed profiling case: {case.label} ({ntasks} MPI ranks)"',
+        'echo "----------------------------------------"',
     ]
-
-    commands.append("existing_h5_files=()")
-
-    for ntasks in case_ranks:
-        sim_dir = output_root / f"sim_ranks{ntasks}"
-        h5_file = sim_dir / "profiling_data.h5"
-        mpirun_log = output_root / f"mpirun_ranks{ntasks}.log"
-        commands.extend(
-            [
-                "",
-                f'echo "Running {case.label} with {ntasks} MPI ranks"',
-                f'{launcher} -n {ntasks} python {case.run_script} --out-root "{output_root}"',
-                f'scope-profiler pproc "{h5_file}" -o "{sim_dir}"',
-                f'existing_h5_files+=("{h5_file}")',
-            ]
-            # [
-            #     "",
-            #     f'echo "Running {case.label} with {ntasks} MPI ranks"',
-            #     (
-            #         f"if srun -n {ntasks} python {case.run_script} "
-            #         f'--out-root "{output_root}" > "{mpirun_log}" 2>&1; then'
-            #     ),
-            #     f'    echo "srun ({ntasks} ranks) succeeded"',
-            #     "else",
-            #     f'    echo "srun ({ntasks} ranks) FAILED with exit code $?; log follows:"',
-            #     f'    cat "{mpirun_log}"',
-            #     "fi",
-            #     f'if [ -f "{h5_file}" ]; then',
-            #     f'    scope-profiler pproc "{h5_file}" -o "{sim_dir}"',
-            #     f'    existing_h5_files+=("{h5_file}")',
-            #     "else",
-            #     f'    echo "No profiling data found at {h5_file}; skipping scope-profiler pproc for this rank count."',
-            #     "fi",
-            # ],
-        )
-
-    commands.extend(
-        [
-            "",
-            'echo "----------------------------------------"',
-            f'echo "Completed profiling case: {case.label}"',
-            'echo "----------------------------------------"',
-            "# Postprocessing comparison plots",
-            f'scope-profiler pproc "${{existing_h5_files[@]}}" --rank 0 -o "{output_root / "figures"}"',
-        ],
-    )
-
-    return commands
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -257,7 +223,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 
 def run_profiling_job(case: ProfilingCase) -> None:
-    """Compile Struphy, run `case` (via SLURM or locally), and package/push the results."""
+    """Compile Struphy, run `case` (via SLURM or locally), and package/push the results.
+
+    One script is built per rank count in `case.ranks`. All of them are submitted (or
+    launched locally) before waiting for any of them, so they run concurrently; only
+    once every rank count has finished are the comparison plots built and the case
+    packaged.
+    """
 
     # Parse command-line arguments and validate the virtual environment
     args = build_arg_parser().parse_args()
@@ -302,45 +274,66 @@ def run_profiling_job(case: ProfilingCase) -> None:
     latest_results_root_path.write_text(str(run_results_root), encoding="utf-8")
     print(f"Profiling run root: {run_results_root}")
 
-    packaged_dirs: list[Path] = []
-
-    # Create a subdirectory for this case's output under the run results root
     case_output_root = run_results_root / case.label
     case_output_root.mkdir(parents=True, exist_ok=True)
 
-    script_path = repo_root / f"job_profile_{case.label}.sh"
     use_slurm = shutil.which("sbatch") is not None
+    launcher = detect_launcher()
+    ranks = case.ranks if use_slurm else local_ranks(case.ranks)
 
-    if use_slurm:
+    job_infos: list[dict] = []
+    job_ids: list[int] = []
+    local_processes: list[tuple[int, subprocess.Popen, Path]] = []
+
+    # Build (and submit/launch) one script per rank count, without waiting for any of
+    # them yet, so they all run concurrently.
+    for ntasks in ranks:
         case_commands = build_case_commands(
             case,
             case_output_root,
             venv_path,
-            launcher=detect_launcher(),
-            use_modules=has_module_system(),
+            ntasks,
+            launcher=launcher,
+            use_modules=use_slurm and has_module_system(),
         )
-        # Create a SLURM script for this case using the cluster preset and case-specific commands
-        cluster_preset = case.cluster_presets[detect_cluster_name(case.cluster_presets)]
-        script = SlurmScript(
-            job_name=f"profiling_{case.label}",
-            ntasks_per_node=max(case.ranks),
-            custom_commands=case_commands,
-            **cluster_preset,
-        )
-        script_text = str(script)
-        script_pragmas = script.to_dict()
-    else:
-        # No batch system: run the very same commands directly on this machine.
-        case_commands = build_case_commands(
-            case,
-            case_output_root,
-            venv_path,
-            launcher=detect_launcher(),
-            use_modules=False,  # has_module_system(),
-            ranks=local_ranks(case.ranks),
-        )
-        script_text = "\n".join(["#!/bin/bash", *case_commands, ""])
-        script_pragmas = None
+        script_path = repo_root / f"job_profile_{case.label}_ranks{ntasks}.sh"
+
+        if use_slurm:
+            cluster_preset = case.cluster_presets[detect_cluster_name(case.cluster_presets)]
+            script = SlurmScript(
+                job_name=f"profiling_{case.label}_ranks{ntasks}",
+                ntasks_per_node=ntasks,
+                custom_commands=case_commands,
+                **cluster_preset,
+            )
+            script_text = str(script)
+            job_infos.append(
+                {
+                    "ranks": ntasks,
+                    "job_script_path": str(script_path),
+                    "job_script": script_text,
+                    "slurm_dict": script.to_dict(),
+                },
+            )
+            job_id = script.submit_job(str(script_path))
+            print(f"Submitted '{case.label}' ({ntasks} MPI ranks) as job {job_id}.")
+            job_ids.append(job_id)
+        else:
+            script_text = "\n".join(["#!/bin/bash", *case_commands, ""])
+            script_path.write_text(script_text, encoding="utf-8")
+            script_path.chmod(0o755)
+            job_infos.append(
+                {
+                    "ranks": ntasks,
+                    "job_script_path": str(script_path),
+                    "job_script": script_text,
+                    "slurm_dict": None,
+                },
+            )
+            print(f"No batch system found; launching '{case.label}' ({ntasks} MPI ranks) locally via {script_path} ...")
+            local_processes.append(
+                (ntasks, subprocess.Popen(["bash", str(script_path)], cwd=repo_root), script_path),
+            )
 
     print(
         f"Writing metadata for '{case.label}' to {case_output_root / 'profiling_case_info.json'}",
@@ -356,35 +349,52 @@ def run_profiling_job(case: ProfilingCase) -> None:
                 "struphy_commit": run_commit,
                 "compiler": compiler.to_dict(),
                 "scheduler": "slurm" if use_slurm else "local",
-                "job_script_path": str(script_path),
-                "job_script": script_text,
-                "slurm_dict": script_pragmas,
                 "parameter_file": str(case.params_source),
+                "jobs": job_infos,
             },
             indent=2,
         ),
         encoding="utf-8",
     )
 
+    # Wait for every rank count to finish before packaging anything.
     if use_slurm:
-        # Submit the SLURM job and wait for it to complete
-        job_id = script.submit_job(script_path)
         print(
-            f"Submitted profiling case '{case.label}' as job {job_id}. Waiting for completion...",
+            f"Submitted {len(job_ids)} job(s) for '{case.label}'. Waiting for all of them to complete...",
         )
-        SQueue().wait_until_done(job_id=job_id, poll_interval=10)
+        SQueue().wait_until_done(job_id=job_ids, poll_interval=10)
     else:
-        script_path.write_text(script_text, encoding="utf-8")
-        script_path.chmod(0o755)
-        print(f"No batch system found; running '{case.label}' locally via {script_path} ...")
-        result = subprocess.run(["bash", str(script_path)], check=False, cwd=repo_root)
-        if result.returncode != 0:
-            print(f"WARNING: local run of '{case.label}' exited with code {result.returncode}.")
+        print(f"Waiting for {len(local_processes)} local run(s) of '{case.label}' to complete...")
+        for ntasks, process, script_path in local_processes:
+            returncode = process.wait()
+            if returncode != 0:
+                print(
+                    f"WARNING: local run of '{case.label}' ({ntasks} MPI ranks) via {script_path} "
+                    f"exited with code {returncode}.",
+                )
 
-    # Package the results of each profiling case and push to the profiling-data repo
-    case_output_root = run_results_root / case.label
-    # Package only what this job actually produced, so cases that never ran
-    # (or failed before writing output) are not packaged/uploaded.
+    # Comparison plot across all rank counts, now that every one of them has finished.
+    h5_files = sorted(case_output_root.glob("sim_ranks*/profiling_data.h5"))
+    if h5_files:
+        figures_dir = case_output_root / "figures"
+        subprocess.run(
+            [
+                "scope-profiler",
+                "pproc",
+                *[str(h5_file) for h5_file in h5_files],
+                "--rank",
+                "0",
+                "-o",
+                str(figures_dir),
+            ],
+            check=False,
+        )
+    else:
+        print(f"No profiling_data.h5 produced for '{case.label}'; skipping comparison plots.")
+
+    # Package the results of this profiling case and push to the profiling-data repo.
+    # Packaging only what this job actually produced means a case that never ran (or
+    # failed before writing output) is not packaged/uploaded.
     packaged_dir = package_testcase(
         testcase_dir=case_output_root,
         results_root=run_results_root,
