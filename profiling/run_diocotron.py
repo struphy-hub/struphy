@@ -17,11 +17,18 @@ from pathlib import Path
 from profiling_job import ProfilingCase, local_ranks
 from slurm_script_generator.slurm_script import SlurmScript
 
+# ------------------------------------------------------------------------ #
+# Setup paths relative to this script's location, so this script can be run from
 script_dir = Path(__file__).resolve().parent
 repo_root = script_dir.parent
 params_dir = script_dir / "examples" / "ToyGyrokinetic" / "diocotron_instability"
+# ------------------------------------------------------------------------ #
 
+# ------------------------------------------------------------------------ #
+# Define relevant parameters for this profiling case.
 RANKS: tuple[int, ...] = (2, 4, 8, 16, 32, 64)
+# ------------------------------------------------------------------------ #
+
 
 # Static SLURM settings per cluster. `job_name` and `ntasks_per_node` are filled in
 # per rank count at submission time.
@@ -51,6 +58,8 @@ CLUSTER_PRESETS: dict[str, dict] = {
     },
 }
 
+# ------------------------------------------------------------------------ #
+# Define the profiling case
 profiling_case = ProfilingCase(
     label="diocotron_instability",
     name="Diocotron instability",
@@ -60,6 +69,7 @@ profiling_case = ProfilingCase(
     params_source=params_dir / "params_diocotron.py",
     cluster_presets=CLUSTER_PRESETS,
 )
+# ------------------------------------------------------------------------ #
 
 
 def main() -> None:
