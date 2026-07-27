@@ -32,7 +32,7 @@ dependencies = [
     "matplotlib<=3.11.0",
     "pyyaml<=6.0.3",
     "vtk<=9.6.1",
-    "tqdm<=4.68.1",
+    "tqdm<=4.69.0",
     "argcomplete<=3.7.0",
     "ipywidgets<=8.1.8",
     "plotly<=6.9.0",
@@ -45,9 +45,9 @@ dependencies = [
     "pytest<=9.1.0",
     "pytest-mpi<=0.6",
     "pytest-testmon<=2.2.0",
-    "ruff>=0.15.0, <=0.15.12",
+    "ruff==0.15.0, <=0.16.0",
     "line_profiler<=5.0.2",
-    "scope-profiler>=0.1.7, <=0.1.9",
+    "scope-profiler>=0.1.7, <=0.10.9",
 ]
 
 [project.license]
