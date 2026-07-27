@@ -55,8 +55,12 @@ class LiteralOptions:
     OptsVecSpace = Literal["Hcurl", "Hdiv", "H1vec"]
     OptsNonTrivialBoundaryCondition = Literal["free", "dirichlet"]
 
-    # fields background
+    # fields backgrounds
     BackgroundTypes = Literal["LogicalConst", "FluidEquilibrium"]
+    
+    # kinetic backgrounds
+    VelocityCoordinates = Literal["cartesian", "vpara_vperp", "vpara_mu"]
+    OptsGaussianCoordinate = Literal["cartesian", "polar", "energy"]
     KineticDimensionsToPlot = Literal["e1", "e2", "e3", "v1", "v2", "v3"]
 
     # models

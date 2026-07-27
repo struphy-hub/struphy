@@ -17,18 +17,15 @@ from struphy.utils.utils import __class_with_params_repr_no_defaults__
 
 
 class KineticBackground(metaclass=ABCMeta):
-    r"""Base class for kinetic background distributions
-    defined on :math:`[0, 1]^3 \times \mathbb R^n, n \geq 1,`
-    with logical position coordinates :math:`\boldsymbol{\eta} \in [0, 1]^3`.
+    r"""Base class for kinetic background distributions.
+    
+    Kinetic backgrounds are mainly used for particle weight computation:
+    
+    * they appear as initial conditions in the numerator of particle weights 
+    * they are evaluated at particle coordinates in the control-variate method for noise reduction.
 
-    Explicit expressions for the following number density :math:`n`
-    and mean velocity :math:`\mathbf u` must be implemented:
-
-    .. math::
-
-        n &= \int f \,\mathrm{d} \mathbf v
-
-        \mathbf u &= \frac 1n \int \mathbf v f \,\mathrm{d} \mathbf v\,.
+    Kinetic backgrounds can be defined in arbitrary phase space coordinates. 
+    A determinant of the velocity Jacobian must be provided in the subclasses.
     """
 
     @property
@@ -39,10 +36,15 @@ class KineticBackground(metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def is_polar(self):
-        """Tuple of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp)."""
+    def velocity_coords(self) -> LiteralOptions.VelocityCoordinates:
+        """Velocity coordinates of the background."""
         pass
 
+    @abstractmethod
+    def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
+        """Jacobian determinant of the velocity coordinate transformation (starting from Cartesian velocity coordinates)."""
+        pass
+    
     @property
     @abstractmethod
     def volume_form(self) -> bool:
@@ -50,32 +52,27 @@ class KineticBackground(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
-        """Jacobian determinant of the velocity coordinate transformation (starting from Cartesian coordinates)."""
-        pass
-
-    @abstractmethod
-    def n(self, *etas):
+    def n(self, *coords):
         """Number density (0-form).
 
         Parameters
         ----------
-        etas : numpy.arrays
+        coords : numpy.arrays
             Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
 
         Returns
         -------
-        A numpy.array with the density evaluated at evaluation points (same shape as etas).
+        A numpy.array with the density evaluated at evaluation points (same shape as coords).
         """
         pass
 
     @abstractmethod
-    def u(self, *etas):
-        """Mean velocities (Cartesian components evaluated at x = F(eta)).
+    def u(self, *coords):
+        """Mean velocities (Cartesian components).
 
         Parameters
         ----------
-        etas : numpy.arrays
+        coords : numpy.arrays
             Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
 
         Returns
@@ -85,8 +82,8 @@ class KineticBackground(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def __call__(self, *args):
-        """Evaluates the background distribution function f0(etas, v1, ..., vn).
+    def __call__(self, *phase_space_coords):
+        """Evaluates the background distribution function f0 at the given phase space coordinates.
 
         There are two use-cases for this function in the code:
 
@@ -100,8 +97,8 @@ class KineticBackground(metaclass=ABCMeta):
 
         Parameters
         ----------
-        *args : array_like
-            Position-velocity arguments in the order eta1, eta2, eta3, v1, ..., vn.
+        *phase_space_coords : array_like
+            Position-velocity arguments.
 
         Returns
         -------
@@ -109,6 +106,19 @@ class KineticBackground(metaclass=ABCMeta):
             The evaluated background.
         """
         pass
+
+    @property
+    def gauss_types(self) -> tuple[LiteralOptions.OptsGaussianCoordinate]:
+        """Velocity coordinate types of the Maxwellian (one per velocity dimension)."""
+        if self.velocity_coords == "cartesian":
+            self._gauss_types = ("cartesian",) * self.vdim
+        elif self.velocity_coords == "vpara_vperp":
+            self._gauss_types = ("cartesian", "polar")
+        elif self.velocity_coords == "vpara_mu":
+            self._gauss_types = ("cartesian", "energy")
+        else:
+            raise ValueError(f"Unknown velocity coordinates {self.velocity_coords}, must be one of ['cartesian', 'vpara_vperp', 'vpara_mu']")
+        return self._gauss_types
 
     @property
     def params(self) -> dict:
@@ -410,7 +420,7 @@ class SumKineticBackground(KineticBackground):
         assert isinstance(f1, KineticBackground)
         assert isinstance(f2, KineticBackground)
         assert f1.vdim == f2.vdim
-        assert f1.is_polar == f2.is_polar
+        assert f1.velocity_coords == f2.velocity_coords
         assert f1.volume_form == f2.volume_form
 
         self._f1 = f1
@@ -426,9 +436,9 @@ class SumKineticBackground(KineticBackground):
         return self._f1.vdim
 
     @property
-    def is_polar(self):
-        """Tuple of booleans. True if the velocity coordinates are polar coordinates."""
-        return self._f1.is_polar
+    def velocity_coords(self):
+        """Velocity coordinates of the background."""
+        return self._f1.velocity_coords
 
     @property
     def volume_form(self):
@@ -446,64 +456,19 @@ class SumKineticBackground(KineticBackground):
         """Jacobian determinant of the velocity coordinate transformation."""
         return self._f1.velocity_jacobian_det(eta1, eta2, eta3, *v)
 
-    def n(self, *etas):
-        """Number density (0-form).
+    def n(self, *coords):
+        return self._f1.n(*coords) + self._f2.n(*coords)
 
-        Parameters
-        ----------
-        etas : numpy.arrays
-            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-
-        Returns
-        -------
-        A numpy.array with the density evaluated at evaluation points (same shape as etas).
-        """
-        return self._f1.n(*etas) + self._f2.n(*etas)
-
-    def u(self, *etas):
-        """Mean velocities (Cartesian components evaluated at x = F(eta)).
-
-        Parameters
-        ----------
-        etas : numpy.arrays
-            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-
-        Returns
-        -------
-        A list[float] (background values) or a list[numpy.array] of the evaluated velocities.
-        """
-
-        n1 = self._f1.n(*etas)
-        n2 = self._f2.n(*etas)
-        u1s = self._f1.u(*etas)
-        u2s = self._f2.u(*etas)
+    def u(self, *coords):
+        n1 = self._f1.n(*coords)
+        n2 = self._f2.n(*coords)
+        u1s = self._f1.u(*coords)
+        u2s = self._f2.u(*coords)
 
         return [(n1 * u1 + n2 * u2) / (n1 + n2) for u1, u2 in zip(u1s, u2s)]
 
-    def __call__(self, *args):
-        """Evaluates the background distribution function f0(etas, v1, ..., vn).
-
-        There are two use-cases for this function in the code:
-
-        1. Evaluating for particles ("flat evaluation", inputs are all 1D of length N_p)
-        2. Evaluating the function on a meshgrid (in phase space).
-
-        Hence all arguments must always have
-
-        1. the same shape
-        2. either ndim = 1 or ndim = 3 + vdim.
-
-        Parameters
-        ----------
-        *args : array_like
-            Position-velocity arguments in the order eta1, eta2, eta3, v1, ..., vn.
-
-        Returns
-        -------
-        f0 : xp.ndarray
-            The evaluated background.
-        """
-        return self._f1(*args) + self._f2(*args)
+    def __call__(self, *phase_space_coords):
+        return self._f1(*phase_space_coords) + self._f2(*phase_space_coords)
 
 
 class ScalarMultiplyKineticBackground(KineticBackground):
@@ -523,9 +488,9 @@ class ScalarMultiplyKineticBackground(KineticBackground):
         return self._f.vdim
 
     @property
-    def is_polar(self):
-        """Tuple of booleans. True if the velocity coordinates are polar coordinates."""
-        return self._f.is_polar
+    def velocity_coords(self):
+        """Velocity coordinates of the background."""
+        return self._f.velocity_coords
 
     @property
     def volume_form(self):
@@ -536,58 +501,14 @@ class ScalarMultiplyKineticBackground(KineticBackground):
         """Jacobian determinant of the velocity coordinate transformation."""
         return self._f.velocity_jacobian_det(eta1, eta2, eta3, *v)
 
-    def n(self, *etas):
-        """Number density (0-form).
+    def n(self, *coords):
+        return self._a * self._f.n(*coords)
 
-        Parameters
-        ----------
-        etas : numpy.arrays
-            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+    def u(self, *coords):
+        return self._f.u(*coords)
 
-        Returns
-        -------
-        A numpy.array with the density evaluated at evaluation points (same shape as etas).
-        """
-        return self._a * self._f.n(*etas)
-
-    def u(self, *etas):
-        """Mean velocities (Cartesian components evaluated at x = F(eta)).
-
-        Parameters
-        ----------
-        etas : numpy.arrays
-            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-
-        Returns
-        -------
-        A list[float] (background values) or a list[numpy.array] of the evaluated velocities.
-        """
-        return self._f.u(*etas)
-
-    def __call__(self, *args):
-        """Evaluates the background distribution function f0(etas, v1, ..., vn).
-
-        There are two use-cases for this function in the code:
-
-        1. Evaluating for particles ("flat evaluation", inputs are all 1D of length N_p)
-        2. Evaluating the function on a meshgrid (in phase space).
-
-        Hence all arguments must always have
-
-        1. the same shape
-        2. either ndim = 1 or ndim = 3 + vdim.
-
-        Parameters
-        ----------
-        *args : array_like
-            Position-velocity arguments in the order eta1, eta2, eta3, v1, ..., vn.
-
-        Returns
-        -------
-        f0 : xp.ndarray
-            The evaluated background.
-        """
-        return self._a * self._f(*args)
+    def __call__(self, *phase_space_coords):
+        return self._a * self._f(*phase_space_coords)
 
 
 class Maxwellian(KineticBackground):
@@ -606,12 +527,12 @@ class Maxwellian(KineticBackground):
     """
 
     @abstractmethod
-    def vth(self, *etas):
+    def vth(self, *coords):
         """Thermal velocities (0-forms).
 
         Parameters
         ----------
-        etas : numpy.arrays
+        coords : numpy.arrays
             Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
 
         Returns
@@ -636,49 +557,51 @@ class Maxwellian(KineticBackground):
     #     return out
 
     @classmethod
-    def gaussian(self, v, u=0.0, vth=1.0, polar=False, volume_form=False):
+    def gaussian(self, v, u=0.0, vth=1.0, type: LiteralOptions.OptsGaussianCoordinate = "cartesian", volume_form=False):
         r"""1-dim. normal distribution, to which array-valued mean- and thermal velocities can be passed.
 
-        If ``polar=False``, this is the standard 1d normal distribution
+        The ``type`` selects the velocity coordinate of the Maxwellian:
 
-        .. math::
+        - ``"cartesian"``: standard Gaussian,
 
-            G(v) = \frac{1}{\sqrt{2\pi}\,v_{\mathrm{th}}}\exp\left[-\frac{(v-u)^2}{2\,v_{\mathrm{th}}^2}\right]\,.
+          .. math::
+              G(v) = \frac{1}{\sqrt{2\pi}\,v_{\mathrm{th}}}\exp\left[-\frac{(v-u)^2}{2\,v_{\mathrm{th}}^2}\right]\,.
 
-        If ``polar=True``, :math:`v \geq 0` is treated as the radial coordinate of a polar
-        representation :math:`(v, \theta)` of a 2d isotropic Gaussian velocity space
-        (as used e.g. for :math:`v_\perp` in gyro-/drift-kinetic Maxwellians,
-        with the gyro-angle :math:`\theta` already integrated out):
+        - ``"polar"``: :math:`v \geq 0` is the radial coordinate of a polar representation
+          :math:`(v, \theta)` of a 2d isotropic Gaussian velocity space (e.g. :math:`v_\perp`
+          in gyro-/drift-kinetic Maxwellians, gyro-angle already integrated out), requires :math:`u=0`,
 
-        .. math::
+          .. math::
+              G_{\mathrm{polar}}(v) = \frac{1}{v_{\mathrm{th}}^2}\exp\left[-\frac{v^2}{2\,v_{\mathrm{th}}^2}\right]\,.
 
-            G_{\mathrm{polar}}(v) = \frac{1}{v_{\mathrm{th}}^2}\exp\left[-\frac{(v-u)^2}{2\,v_{\mathrm{th}}^2}\right]\,.
+        - ``"energy"``: :math:`v \geq 0` is an energy-like coordinate such as :math:`\mu|\mathbf B| = m v_\perp^2/2`, 
+        requires :math:`u=0`, ``volume_form`` must be ``False`` (its Jacobian depends on :math:`B^*`),
 
-        This is normalized such that multiplying by the polar velocity Jacobian :math:`|v|`
-        (``volume_form=True``) and integrating over :math:`v \in [0,\infty)` gives 1; for
-        :math:`u=0` this reduces to the Rayleigh distribution. If ``volume_form=False``,
-        the Jacobian is *not* included, corresponding to the 0-form (density) representation
-        used elsewhere in the discretization; see :attr:`Maxwellian.volume_form`
-        and :attr:`KineticBackground.is_polar`.
+          .. math::
+              G_{\mathrm{energy}}(v) = \frac{1}{v_{\mathrm{th}}^2}\exp\left[-\frac{v}{v_{\mathrm{th}}^2}\right]\,.
+
+        For ``"polar"``, ``volume_form=True`` multiplies by the polar velocity Jacobian
+        :math:`|v|` (needed to integrate to 1 over :math:`v \in [0,\infty)`; for :math:`u=0`
+        this reduces to the Rayleigh distribution); ``volume_form=False`` leaves the Jacobian
+        out, corresponding to the 0-form (density) representation used elsewhere in the
+        discretization.
 
         Parameters
         ----------
         v : float | array-like
-            Velocity coordinate(s); must be non-negative if ``polar=True``.
+            Velocity coordinate; must be non-negative if ``type`` is ``"polar"`` or ``"energy"``.
 
         u : float | array-like
-            Mean velocity evaluated at position array.
+            Mean velocity evaluated at position array; must be 0 unless ``type == "cartesian"``.
 
         vth : float | array-like
             Thermal velocity evaluated at position array, same shape as u.
 
-        polar : bool
-            True if the velocity coordinate is the radial one of polar coordinates (v >= 0),
-            e.g. :math:`v_\perp` of a gyro-Maxwellian.
+        type : str
+            Velocity coordinate type, one of ``"cartesian"``, ``"polar"``, ``"energy"``.
 
         volume_form : bool
-            If True, the polar Gaussian is multiplied by the polar velocity Jacobian |v|.
-            Ignored if ``polar=False``.
+            If True, multiply by the polar velocity Jacobian |v|. Only valid for ``type == "polar"``.
 
         Returns
         -------
@@ -688,18 +611,26 @@ class Maxwellian(KineticBackground):
         if isinstance(v, xp.ndarray) and isinstance(u, xp.ndarray):
             assert v.shape == u.shape, f"{v.shape =} but {u.shape =}"
 
-        if not polar:
+        if type == "cartesian":
             out = 1.0 / vth * 1.0 / xp.sqrt(2.0 * xp.pi) * xp.exp(-((v - u) ** 2) / (2.0 * vth**2))
-        else:
+        elif type == "polar":
             assert xp.all(v >= 0.0)
-            out = 1.0 / vth**2 * xp.exp(-((v - u) ** 2) / (2.0 * vth**2))
+            assert xp.all(u == 0.0)
+            out = 1.0 / vth**2 * xp.exp(-(v ** 2) / (2.0 * vth**2))
             if volume_form:
-                out *= v
+                out *= v   
+        elif type == "energy":
+            assert xp.all(v >= 0.0)
+            assert xp.all(u == 0.0)
+            assert not volume_form, "Jacobian determinant cannot be multiplied for energy coordinates, as it depends on the background magentic field (B^*)."
+            out = 1.0 / vth**2 * xp.exp(-v / vth**2)
+        else:
+            raise ValueError(f"Unknown Gaussian coordinate type {type}. Must be one of ['cartesian', 'polar', 'energy'].")
 
         return out
 
-    def __call__(self, eta1, eta2, eta3, *v):
-        """Evaluates the Maxwellian distribution function M(etas, v1, ..., vn).
+    def __call__(self, *phase_space_coords):
+        """Evaluates the Maxwellian distribution function.
 
         There are two use-cases for this function in the code:
 
@@ -713,17 +644,15 @@ class Maxwellian(KineticBackground):
 
         Parameters
         ----------
-        eta1, eta2, eta3 : array_like
-            Position arguments.
-        *v : array_like
-            Velocity arguments (for example :math:`(v_\parallel, v_\perp)` for GyroMaxwellians).
+        *phase_space_coords : array_like
+            Phase space coordinates (position and velocity).
 
         Returns
         -------
         f : xp.ndarray
             The evaluated Maxwellian.
         """
-        args = (eta1, eta2, eta3) + v
+        args = phase_space_coords
 
         # Check that all args have the same shape
         shape0 = xp.shape(args[0])
@@ -770,16 +699,16 @@ class Maxwellian(KineticBackground):
                 u = us[i]
                 vth = vths[i]
 
-            res *= self.gaussian(v, u=u, vth=vth, polar=self.is_polar[i], volume_form=self.volume_form)
+            res *= self.gaussian(v, u=u, vth=vth, type=self.gauss_types[i], volume_form=self.volume_form)
 
         return res
 
-    def _evaluate_moment(self, eta1, eta2, eta3, *, name: str = "n", add_perturbation: bool = None):
+    def _evaluate_moment(self, *coords, name: str = "n", add_perturbation: bool = None):
         """Scalar moment evaluation as background + perturbation.
 
         Parameters
         ----------
-        eta1, eta2, eta3 : numpy.arrays
+        coords : numpy.arrays
             Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
 
         name : str
@@ -794,10 +723,12 @@ class Maxwellian(KineticBackground):
         """
 
         # collect arguments
-        assert isinstance(eta1, xp.ndarray)
-        assert isinstance(eta2, xp.ndarray)
-        assert isinstance(eta3, xp.ndarray)
-        assert eta1.shape == eta2.shape == eta3.shape
+        for n, coord in enumerate(coords):
+            assert isinstance(coord, xp.ndarray)
+            if n== 0:
+                shp = coord.shape
+            else:
+                assert coord.shape == shp, f"Argument {n} has shape {coord.shape}, but must match {shp}."
 
         params = self.params[name]
         assert isinstance(params, tuple)
