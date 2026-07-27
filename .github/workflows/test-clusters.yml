@@ -1,5 +1,8 @@
 name: Cluster workflow
 on:
+  # pull_request:
+  #   branches:
+  #     - devel
   schedule:
     # run at 1 a.m. every night
     - cron: "0 1 * * *"

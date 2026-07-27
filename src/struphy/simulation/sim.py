@@ -130,23 +130,11 @@ class Simulation(SimulationBase):
         self._description = description
         self._model = model
         self._params_path = params_path
-        self._env = env
+        self.env = env
         self._time_opts = time_opts
         self._setup_domain_and_equil(domain, equil)
         self._grid = grid
         self._derham_opts = derham_opts
-
-        # setup profiling agent
-        ProfileManager.setup(
-            profiling_activated=env.profiling_activated,
-            time_trace=env.profiling_trace,
-            use_likwid=False,
-            file_path=os.path.join(
-                env.out_folders,
-                env.sim_folder,
-                "profiling_data.h5",
-            ),
-        )
 
         # mpi info
         if isinstance(MPI, MockMPI):
@@ -183,9 +171,6 @@ class Simulation(SimulationBase):
         # meta-data
         path_out = env.path_out
         num_clones = env.num_clones
-
-        # creating output folders
-        self._setup_folders()
 
         # save parameter file
         if self.rank == 0:
@@ -245,6 +230,19 @@ class Simulation(SimulationBase):
     # ----------------
     # Abstract methods
     # ----------------
+
+    def _setup_profiling(self):
+        # setup profiling agent
+        ProfileManager.setup(
+            profiling_activated=self.env.profiling_activated,
+            time_trace=self.env.profiling_trace,
+            use_likwid=False,
+            file_path=os.path.join(
+                self.env.out_folders,
+                self.env.sim_folder,
+                "profiling_data.h5",
+            ),
+        )
 
     def show_parameters(self):
         """Print the current simulation configuration to stdout.
@@ -486,6 +484,7 @@ class Simulation(SimulationBase):
 
         # equation paramters
         self.allocate()
+        self._write_run_metadata(one_time_step=one_time_step)
 
         # output
         self.initialize_data_storage()
@@ -1278,6 +1277,17 @@ RESTARTing from:
 
         return save_keys_all, save_keys_end
 
+    def _write_run_metadata(self, one_time_step: bool = False):
+        """Write run-specific JSON metadata for each sim.run() event, reusing to_json()."""
+        if self.rank != 0:
+            return
+
+        self.to_json(
+            file_path=os.path.join(self.env.path_out, "run_metadata.json"),
+            started_at_epoch_s=self.start_time,
+            one_time_step=one_time_step,
+        )
+
     def _add_time_state(self, time_state):
         """Add a pointer to the time variable of the dynamics ('t')
         to the model and to all propagators of the model.
@@ -1332,8 +1342,8 @@ RESTARTing from:
             "time_opts": self.time_opts.to_dict(),
             "domain": self.domain.to_dict(),
             "equil": self.equil.to_dict() if self.equil is not None else None,
-            "grid": self.grid.to_dict(),
-            "derham_opts": self.derham_opts.to_dict(),
+            "grid": self.grid.to_dict() if self.grid is not None else None,
+            "derham_opts": self.derham_opts.to_dict() if self.derham_opts is not None else None,
         }
 
     def _collect_particle_metadata(self) -> dict:
@@ -1353,13 +1363,17 @@ RESTARTing from:
                 particle_metadata[species_name] = species_metadata
         return particle_metadata
 
-    def to_json(self, file_path: str = None) -> str:
+    def to_json(self, file_path: str = None, **extra_data) -> str:
         """Assemble the run's data and metadata by hand and serialize to a JSON string.
 
         Parameters
         ----------
         file_path : str, optional
             If given, also write the JSON string to this file.
+
+        **extra_data
+            Additional key/value pairs merged into the "data" section,
+            e.g. call-specific facts like a start timestamp.
 
         Returns
         -------
@@ -1377,9 +1391,10 @@ RESTARTing from:
             "time_opts": self.time_opts.to_dict(),
             "domain": self.domain.to_dict(),
             "equil": self.equil.to_dict() if self.equil is not None else None,
-            "grid": self.grid.to_dict(),
-            "derham_opts": self.derham_opts.to_dict(),
+            "grid": self.grid.to_dict() if self.grid is not None else None,
+            "derham_opts": self.derham_opts.to_dict() if self.derham_opts is not None else None,
             "particle_species": self._collect_particle_metadata(),
+            **extra_data,
         }
 
         json_str = json.dumps(config, indent=4)
@@ -1562,9 +1577,18 @@ if __name__ == "__main__":
         return self._params_path
 
     @property
-    def env(self):
+    def env(self) -> EnvironmentOptions:
         """EnvironmentOptions object containing options related to the environment of the run."""
         return self._env
+
+    @env.setter
+    def env(self, value: EnvironmentOptions):
+        """Update the environment options for the simulation."""
+        self._env = value
+
+        # create output folders
+        self._setup_folders()
+        self._setup_profiling()
 
     @property
     def time_opts(self):
