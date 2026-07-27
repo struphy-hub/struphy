@@ -338,7 +338,7 @@ def run_profiling_job(case: ProfilingCase) -> None:
             case_output_root,
             venv_path,
             launcher=detect_launcher(),
-            use_modules=has_module_system(),
+            use_modules= False, # has_module_system(),
             ranks=local_ranks(case.ranks),
         )
         script_text = "\n".join(["#!/bin/bash", *case_commands, ""])
