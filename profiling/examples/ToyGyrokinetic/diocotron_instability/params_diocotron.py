@@ -117,7 +117,7 @@ ppc = 100  # run with 1000 minimum
 loading_params = LoadingParameters(ppc=ppc, loading="sobol_standard", spatial="disc")
 weights_params = WeightsParameters(control_variate=True, reject_weights=True, threshold=0.0001)
 boundary_params = BoundaryParameters()
-sorting_params = SortingParameters(boxes_per_dim=(16, 16, 1), do_sort=True, sorting_frequency=5)
+sorting_params = SortingParameters(boxes_per_dim=(256, 256, 1), do_sort=True, sorting_frequency=5)
 
 # density binning
 eta_bin = BinningPlot(slice="e1_e2", n_bins=(128, 128), ranges=((0.0, 1.0), (0.0, 1.0)))
