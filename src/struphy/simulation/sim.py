@@ -102,6 +102,10 @@ class Simulation(SimulationBase):
         Spatial grid used for FEEC variables.
     derham_opts : DerhamOptions
         Options for discrete differential operators.
+    comm: MPI.Intracomm, optional
+        MPI communicator for parallel execution. If None, uses MPI.COMM_WORLD.
+    logging_level : int, optional
+        Logging level (e.g., logging.INFO, logging.DEBUG). If None, uses default.
     """
 
     def __init__(
@@ -116,6 +120,7 @@ class Simulation(SimulationBase):
         equil: FluidEquilibrium = None,
         grid: grids.TensorProductGrid = grids.TensorProductGrid(),
         derham_opts: DerhamOptions = DerhamOptions(),
+        comm: MPI.Intracomm | None = None,
         logging_level: int | None = None,
     ):
         if logging_level is not None:
@@ -150,7 +155,10 @@ class Simulation(SimulationBase):
             self.comm_size = 1
             self.Barrier = lambda: None
         else:
-            self.comm = MPI.COMM_WORLD
+            if comm is None:
+                self.comm = MPI.COMM_WORLD
+            else:
+                self.comm = comm
             self.rank = self.comm.Get_rank()
             self.comm_size = self.comm.Get_size()
             self.Barrier = self.comm.Barrier
