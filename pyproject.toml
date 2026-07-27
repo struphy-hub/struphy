@@ -47,7 +47,7 @@ dependencies = [
     "pytest-testmon<=2.2.0",
     "ruff==0.15.0, <=0.16.0",
     "line_profiler<=5.0.2",
-    "scope-profiler>=0.1.7, <=0.10.9",
+    "scope-profiler>=0.1.7, <=0.1.9",
 ]
 
 [project.license]
