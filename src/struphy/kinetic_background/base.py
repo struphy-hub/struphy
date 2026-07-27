@@ -735,38 +735,26 @@ class Maxwellian(KineticBackground):
         assert len(params) == 2
 
         # flat evaluation for markers
-        if eta1.ndim == 1:
+        if coords[0].ndim == 1:
             etas = [
                 xp.concatenate(
-                    (eta1[:, None], eta2[:, None], eta3[:, None]),
+                    [coord[:, None] for coord in coords],
                     axis=1,
                 ),
             ]
         # assuming that input comes from meshgrid.
-        elif eta1.ndim == 4:
-            etas = (
-                eta1[:, :, :, 0],
-                eta2[:, :, :, 0],
-                eta3[:, :, :, 0],
-            )
-        elif eta1.ndim == 5:
-            etas = (
-                eta1[:, :, :, 0, 0],
-                eta2[:, :, :, 0, 0],
-                eta3[:, :, :, 0, 0],
-            )
-        elif eta1.ndim == 6:
-            etas = (
-                eta1[:, :, :, 0, 0, 0],
-                eta2[:, :, :, 0, 0, 0],
-                eta3[:, :, :, 0, 0, 0],
-            )
+        elif coords[0].ndim == 4:
+            etas = tuple(coord[:, :, :, 0] for coord in coords)
+        elif coords[0].ndim == 5:
+            etas = tuple(coord[:, :, :, 0, 0] for coord in coords)
+        elif coords[0].ndim == 6:
+            etas = tuple(coord[:, :, :, 0, 0, 0] for coord in coords)
         else:
-            etas = (eta1, eta2, eta3)
+            etas = coords
 
         # initialize output
-        if eta1.ndim == 1:
-            out = 0.0 * eta1
+        if coords[0].ndim == 1:
+            out = 0.0 * coords[0]
         else:
             out = 0.0 * etas[0]
 
@@ -776,9 +764,6 @@ class Maxwellian(KineticBackground):
             out += background
         else:
             assert callable(background)
-            # if eta1.ndim == 1:
-            #     out += background(eta1, eta2, eta3)
-            # else:
             out += background(*etas)
 
         # add perturbation
@@ -788,8 +773,8 @@ class Maxwellian(KineticBackground):
         perturbation = params[1]
         if perturbation is not None and add_perturbation:
             assert isinstance(perturbation, Perturbation)
-            if eta1.ndim == 1:
-                out += perturbation(eta1, eta2, eta3)
+            if coords[0].ndim == 1:
+                out += perturbation(*coords)
             else:
                 out += perturbation(*etas)
 
