@@ -50,8 +50,8 @@ profiling_case = ProfilingCase(
 
 
 def main() -> None:
-    setup = profiling_case.setup_run()
-    ranks = RANKS if setup.use_slurm else local_ranks(RANKS)
+    profiling_case.setup_run()
+    ranks = RANKS if profiling_case.use_slurm else local_ranks(RANKS)
 
     job_infos: list[dict] = []
     job_ids: list[int] = []
@@ -60,22 +60,16 @@ def main() -> None:
     # Build (and submit/launch) one script per rank count, without waiting for any of
     # them yet, so they all run concurrently.
     for ntasks in ranks:
-        case_commands = profiling_case.build_commands(
-            setup.case_output_root,
-            setup.venv_path,
-            ntasks,
-            launcher=setup.launcher,
-            use_modules=setup.use_modules,
-        )
+        case_commands = profiling_case.build_commands(ntasks)
         # Case-specific tweaks go here
         script_path = repo_root / f"job_profile_{profiling_case.label}_ranks{ntasks}.sh"
 
-        if setup.use_slurm:
+        if profiling_case.use_slurm:
             script = SlurmScript(
                 job_name=f"profiling_{profiling_case.label}_ranks{ntasks}",
                 ntasks_per_node=ntasks,
                 custom_commands=case_commands,
-                **setup.cluster_preset,
+                **profiling_case.cluster_preset,
             )
             script_text = str(script)
             job_id = script.submit_job(str(script_path))
@@ -111,7 +105,7 @@ def main() -> None:
             )
             local_processes.append((ntasks, process, script_path))
 
-    profiling_case.finalize_run(setup, job_infos, job_ids, local_processes)
+    profiling_case.finalize_run(job_infos, job_ids, local_processes)
 
 
 if __name__ == "__main__":

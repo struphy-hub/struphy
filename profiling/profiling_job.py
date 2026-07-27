@@ -8,7 +8,9 @@ case-specific flags (e.g. an arbitrary `ppc`) before they are wrapped in a
 `SlurmScript` or plain bash script.
 
 - `ProfilingCase.setup_run` parses CLI args, validates the venv, compiles Struphy, and
-  creates the results directories.
+  creates the results directories. It stores everything it computes as attributes on
+  the case itself (`venv_path`, `use_slurm`, `launcher`, `case_output_root`, ...), so
+  there's a single object to thread through the rest of the run.
 - For each rank count, the caller builds `ProfilingCase.build_commands` and either
   constructs its own `SlurmScript` (under SLURM) or writes/launches a plain bash
   script (otherwise) — see `run_diocotron.py` for the loop.
@@ -27,7 +29,7 @@ import json
 import os
 import shutil
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -122,28 +124,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
-@dataclass(frozen=True)
-class ProfilingRunSetup:
-    """Everything the caller's per-rank loop and `ProfilingCase.finalize_run` need.
-
-    Built once per profiling run by `ProfilingCase.setup_run`, then reused for every
-    rank count in the caller's loop.
-    """
-
-    args: argparse.Namespace
-    venv_path: Path
-    compiler: Compiler
-    run_commit: str
-    output_root: Path
-    run_results_root: Path
-    case_output_root: Path
-    use_slurm: bool
-    use_modules: bool
-    launcher: str
-    cluster_preset: dict | None
-
-
-@dataclass(frozen=True)
+@dataclass
 class ProfilingCase:
     label: str
     name: str
@@ -154,6 +135,19 @@ class ProfilingCase:
     cluster_presets: dict[str, dict]
     language: str = "fortran"  # Pyccel language to compile the Struphy kernels with: "fortran" or "c".
     compiler: str = "GNU"  # Pyccel compiler family: "GNU", "intel", "PGI", "nvidia", or "LLVM".
+
+    # Populated by `setup_run`; unset (None) until then. Not constructor arguments.
+    args: argparse.Namespace | None = field(init=False, default=None)
+    venv_path: Path | None = field(init=False, default=None)
+    compiler_instance: Compiler | None = field(init=False, default=None)
+    run_commit: str | None = field(init=False, default=None)
+    output_root: Path | None = field(init=False, default=None)
+    run_results_root: Path | None = field(init=False, default=None)
+    case_output_root: Path | None = field(init=False, default=None)
+    use_slurm: bool | None = field(init=False, default=None)
+    use_modules: bool | None = field(init=False, default=None)
+    launcher: str | None = field(init=False, default=None)
+    cluster_preset: dict | None = field(init=False, default=None)
 
     def detect_cluster_name(self) -> str:
         """Pick the cluster preset for the current machine.
@@ -175,23 +169,17 @@ class ProfilingCase:
         )
         return default_cluster_name
 
-    def build_commands(
-        self,
-        output_root: Path,
-        venv_path: Path,
-        ntasks: int,
-        *,
-        launcher: str = "srun",
-        use_modules: bool = True,
-    ) -> list[str]:
+    def build_commands(self, ntasks: int) -> list[str]:
         """Build the shell commands that run this case with a single MPI rank count.
 
-        One script is built (and submitted) per rank count, by the caller's loop over
-        rank counts, so this only ever covers one `ntasks` value. The comparison plot
-        across rank counts is built separately, once every rank count has finished
-        running.
+        Reads the setup computed by `setup_run` (`case_output_root`, `venv_path`,
+        `launcher`, `use_modules`). One script is built (and submitted) per rank
+        count, by the caller's loop over rank counts, so this only ever covers one
+        `ntasks` value. The comparison plot across rank counts is built separately,
+        once every rank count has finished running.
         """
-        activate_path = venv_path / "bin" / "activate"
+        output_root = self.case_output_root
+        activate_path = self.venv_path / "bin" / "activate"
         sim_dir = output_root / f"sim_ranks{ntasks}"
         h5_file = sim_dir / "profiling_data.h5"
 
@@ -203,7 +191,7 @@ class ProfilingCase:
                     "source ./setup/modules.sh load",
                     "module list",
                 ]
-                if use_modules
+                if self.use_modules
                 else []
             ),
             f"source {activate_path!s}",
@@ -224,7 +212,7 @@ class ProfilingCase:
             "",
             f'echo "Running {self.label} with {ntasks} MPI ranks"',
             f'cd "{output_root}"',
-            f"{launcher} -n {ntasks} python {self.params_source}",
+            f"{self.launcher} -n {ntasks} python {self.params_source}",
             # f'scope-profiler pproc "{h5_file}" -o "{sim_dir}"',
             "",
             'echo "----------------------------------------"',
@@ -232,14 +220,16 @@ class ProfilingCase:
             'echo "----------------------------------------"',
         ]
 
-    def setup_run(self) -> ProfilingRunSetup:
+    def setup_run(self) -> None:
         """Parse CLI args, validate the venv, compile Struphy, and create the results dirs.
 
-        Called once per profiling run, before looping over rank counts.
+        Called once per profiling run, before looping over rank counts. Stores
+        everything it computes as attributes on `self`, for the caller's loop and
+        `finalize_run` to read.
         """
 
         # Parse command-line arguments and validate the virtual environment
-        args = build_arg_parser().parse_args()
+        self.args = build_arg_parser().parse_args()
 
         # Validate that a virtual environment is active
         virtual_env = os.environ.get("VIRTUAL_ENV")
@@ -247,60 +237,47 @@ class ProfilingCase:
             raise RuntimeError(
                 "VIRTUAL_ENV is not set; activate a virtual environment before submitting the job.",
             )
-        venv_path = Path(virtual_env)
+        self.venv_path = Path(virtual_env)
 
         # Install whereami here, on the login node: the compute nodes running the job
         # have no outbound network access.
-        install_whereami(venv_path)
+        install_whereami(self.venv_path)
 
         # Compile Struphy kernels with the case's language and compiler
-        compiler = Compiler(language=self.language, compiler=self.compiler)
-        if not compiler.compiled(language=self.language):
+        self.compiler_instance = Compiler(language=self.language, compiler=self.compiler)
+        if not self.compiler_instance.compiled(language=self.language):
             print("Compiling Struphy kernels ...")
-            compiler.compile()
+            self.compiler_instance.compile()
         print("Done compiling Struphy kernels.")
 
         # Create a unique results root for this profiling run
         # and write it to the "latest_run_root.txt" marker file.
-        output_root = Path("profiling-results-export").resolve()
-        if output_root.exists():
-            shutil.rmtree(output_root)
-        output_root.mkdir(parents=True, exist_ok=True)
+        self.output_root = Path("profiling-results-export").resolve()
+        if self.output_root.exists():
+            shutil.rmtree(self.output_root)
+        self.output_root.mkdir(parents=True, exist_ok=True)
         profiling_results_base.mkdir(parents=True, exist_ok=True)
 
         # Determine the current git commit hash for the Struphy repo
-        run_commit = _git_commit(repo_root)
+        self.run_commit = _git_commit(repo_root)
         timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         run_token = f"{timestamp}-{_git_commit_short(repo_root)}"
-        run_results_root = _make_unique_results_root(profiling_results_base, run_token)
+        self.run_results_root = _make_unique_results_root(profiling_results_base, run_token)
 
-        run_results_root.mkdir(parents=True, exist_ok=True)
-        latest_results_root_path.write_text(str(run_results_root), encoding="utf-8")
-        print(f"Profiling run root: {run_results_root}")
+        self.run_results_root.mkdir(parents=True, exist_ok=True)
+        latest_results_root_path.write_text(str(self.run_results_root), encoding="utf-8")
+        print(f"Profiling run root: {self.run_results_root}")
 
-        case_output_root = run_results_root / self.label
-        case_output_root.mkdir(parents=True, exist_ok=True)
+        self.case_output_root = self.run_results_root / self.label
+        self.case_output_root.mkdir(parents=True, exist_ok=True)
 
-        use_slurm = shutil.which("sbatch") is not None
-        cluster_preset = self.cluster_presets[self.detect_cluster_name()] if use_slurm else None
-
-        return ProfilingRunSetup(
-            args=args,
-            venv_path=venv_path,
-            compiler=compiler,
-            run_commit=run_commit,
-            output_root=output_root,
-            run_results_root=run_results_root,
-            case_output_root=case_output_root,
-            use_slurm=use_slurm,
-            use_modules=use_slurm and has_module_system(),
-            launcher=detect_launcher(),
-            cluster_preset=cluster_preset,
-        )
+        self.use_slurm = shutil.which("sbatch") is not None
+        self.cluster_preset = self.cluster_presets[self.detect_cluster_name()] if self.use_slurm else None
+        self.use_modules = self.use_slurm and has_module_system()
+        self.launcher = detect_launcher()
 
     def finalize_run(
         self,
-        setup: ProfilingRunSetup,
         job_infos: list[dict],
         job_ids: list[int],
         local_processes: list[tuple[int, subprocess.Popen, Path]],
@@ -310,9 +287,9 @@ class ProfilingCase:
         Called once per case, after every rank count has been submitted/launched.
         """
         print(
-            f"Writing metadata for '{self.label}' to {setup.case_output_root / 'profiling_case_info.json'}",
+            f"Writing metadata for '{self.label}' to {self.case_output_root / 'profiling_case_info.json'}",
         )
-        (setup.case_output_root / "profiling_case_info.json").write_text(
+        (self.case_output_root / "profiling_case_info.json").write_text(
             json.dumps(
                 {
                     "test_case_identifier": self.label,
@@ -320,9 +297,9 @@ class ProfilingCase:
                     "test_case_description": self.description,
                     "physics_problem": self.physics_problem,
                     "struphy_model_used": self.struphy_model_used,
-                    "struphy_commit": setup.run_commit,
-                    "compiler": setup.compiler.to_dict(),
-                    "scheduler": "slurm" if setup.use_slurm else "local",
+                    "struphy_commit": self.run_commit,
+                    "compiler": self.compiler_instance.to_dict(),
+                    "scheduler": "slurm" if self.use_slurm else "local",
                     "parameter_file": str(self.params_source),
                     "jobs": job_infos,
                 },
@@ -332,7 +309,7 @@ class ProfilingCase:
         )
 
         # Wait for every rank count to finish before packaging anything.
-        if setup.use_slurm:
+        if self.use_slurm:
             print(
                 f"Submitted {len(job_ids)} job(s) for '{self.label}'. Waiting for all of them to complete...",
             )
@@ -348,9 +325,9 @@ class ProfilingCase:
                     )
 
         # Comparison plot across all rank counts, now that every one of them has finished.
-        h5_files = sorted(setup.case_output_root.glob("sim_ranks*/profiling_data.h5"))
+        h5_files = sorted(self.case_output_root.glob("sim_ranks*/profiling_data.h5"))
         if h5_files:
-            figures_dir = setup.case_output_root / "figures"
+            figures_dir = self.case_output_root / "figures"
             subprocess.run(
                 [
                     "scope-profiler",
@@ -370,23 +347,23 @@ class ProfilingCase:
         # Packaging only what this job actually produced means a case that never ran
         # (or failed before writing output) is not packaged/uploaded.
         packaged_dir = package_testcase(
-            testcase_dir=setup.case_output_root,
-            results_root=setup.run_results_root,
-            language=setup.compiler.language,
-            commit=setup.run_commit,
-            output_root=setup.output_root,
+            testcase_dir=self.case_output_root,
+            results_root=self.run_results_root,
+            language=self.compiler_instance.language,
+            commit=self.run_commit,
+            output_root=self.output_root,
             verbose=True,
         )
         if packaged_dir is not None:
             print(f"Packaged profiling data for '{self.label}' into {packaged_dir}")
-            latest_results_root_path.write_text(str(setup.run_results_root), encoding="utf-8")
+            latest_results_root_path.write_text(str(self.run_results_root), encoding="utf-8")
             print(f"Updated latest profiling root marker: {latest_results_root_path}")
 
-            print(f"Packaged profiling data for '{self.label}' into {setup.output_root}:")
+            print(f"Packaged profiling data for '{self.label}' into {self.output_root}:")
             print(f" - {packaged_dir}")
-            if setup.args.upload:
+            if self.args.upload:
                 print("Uploading packaged profiling data to the profiling-data repo ...")
-                _push_profiling_data([packaged_dir], setup.run_commit)
+                _push_profiling_data([packaged_dir], self.run_commit)
             else:
                 print("Upload skipped; use --upload to push the packaged profiling data to the profiling-data repo.")
                 print("Plot the results locally by opening the HTML files in the packaged directories, e.g.:")
