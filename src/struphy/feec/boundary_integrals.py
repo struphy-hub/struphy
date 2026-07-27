@@ -55,7 +55,27 @@ class BoundaryIntegralOperator:
         self._surface_wts = []
         self._surface_bases = []
 
+        self._active_faces = []
         for face_idx in range(6):
+            normal_dir = face_idx % 3
+            bc = self._derham.bcs[normal_dir]
+            
+            if bc is None:
+                self._active_faces.append(False)
+            elif face_idx < 3:
+                self._active_faces.append(bc[0] == "free")
+            else:
+                self._active_faces.append(bc[1] == "free")
+
+        for face_idx in range(6):
+            if not self._active_faces[face_idx]:
+                self._surface_quad_grid_meshes.append(None)
+                self._surface_geom_weights.append(None)
+                self._surface_spans.append(None)
+                self._surface_wts.append(None)
+                self._surface_bases.append(None)
+                continue
+
             normal_dir = face_idx % 3
             surf_dirs = [d for d in range(3) if d != normal_dir]
 
@@ -164,6 +184,9 @@ class BoundaryIntegralOperator:
             dofs._data[:] = 0.0
 
         for face_idx in range(6):
+            if not self._active_faces[face_idx]:
+                continue
+
             normal_dir = face_idx % 3
             # fix the normal coordinate to 0.0 or 1.0
             fixed_val = 0.0 if face_idx < 3 else 1.0
@@ -186,9 +209,15 @@ class BoundaryIntegralOperator:
 
             self._assemble_face(face_idx, fun_weights, dofs)
 
+            tmp = self._space.coeff_space.zeros()
+            self._assemble_face(face_idx, fun_weights, tmp)
+            tmp.exchange_assembly_data()
+            tmp.update_ghost_regions()
+
         dofs.exchange_assembly_data()
         dofs.update_ghost_regions()
 
+        
         return dofs
 
     def __call__(
