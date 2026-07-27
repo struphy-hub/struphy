@@ -14,13 +14,7 @@ Use this file as a template for defining other profiling cases.
 import subprocess
 from pathlib import Path
 
-from profiling_job import (
-    ProfilingCase,
-    build_case_commands,
-    finalize_profiling_run,
-    local_ranks,
-    setup_profiling_run,
-)
+from profiling_job import ProfilingCase, local_ranks
 from slurm_script_generator.slurm_script import SlurmScript
 
 script_dir = Path(__file__).resolve().parent
@@ -69,7 +63,7 @@ profiling_case = ProfilingCase(
 
 
 def main() -> None:
-    setup = setup_profiling_run(profiling_case)
+    setup = profiling_case.setup_run()
     ranks = RANKS if setup.use_slurm else local_ranks(RANKS)
 
     job_infos: list[dict] = []
@@ -79,8 +73,7 @@ def main() -> None:
     # Build (and submit/launch) one script per rank count, without waiting for any of
     # them yet, so they all run concurrently.
     for ntasks in ranks:
-        case_commands = build_case_commands(
-            profiling_case,
+        case_commands = profiling_case.build_commands(
             setup.case_output_root,
             setup.venv_path,
             ntasks,
@@ -130,7 +123,7 @@ def main() -> None:
             )
             local_processes.append((ntasks, process, script_path))
 
-    finalize_profiling_run(profiling_case, setup, job_infos, job_ids, local_processes)
+    profiling_case.finalize_run(setup, job_infos, job_ids, local_processes)
 
 
 if __name__ == "__main__":
