@@ -766,3 +766,58 @@ def kernel_3d_diag(
 
                             # No padding on StencilDiagonalMatrix
                             data[i_local1, i_local2, i_local3] += value
+
+
+def surface_kernel_3d_vec(
+    spans1: "int[:]",
+    spans2: "int[:]",
+    pi0: int,
+    pi1: int,
+    pi2: int,
+    starts0: int,
+    starts1: int,
+    starts2: int,
+    pads0: int,
+    pads1: int,
+    pads2: int,
+    w1: "float[:,:]",
+    w2: "float[:,:]",
+    bi1: "float[:,:,:,:]",
+    bi2: "float[:,:,:,:]",
+    boundary_index: int,
+    mat_fun: "float[:,:]",
+    data: "float[:,:,:]",
+):
+    ne1 = spans1.size
+    ne2 = spans2.size
+
+    nq1 = shape(w1)[1]
+    nq2 = shape(w2)[1]
+
+    i_local0 = boundary_index - starts0
+
+    for iel1 in range(ne1):
+        for iel2 in range(ne2):
+            for il1 in range(pi1 + 1):
+                for il2 in range(pi2 + 1):
+                    i_global1 = spans1[iel1] - pi1 + il1
+                    i_global2 = spans2[iel2] - pi2 + il2
+
+                    i_local1 = i_global1 - starts1
+                    i_local2 = i_global2 - starts2
+
+                    value = 0.0
+
+                    for q1 in range(nq1):
+                        for q2 in range(nq2):
+                            wvol = (
+                                w1[iel1, q1]
+                                * w2[iel2, q2]
+                                * mat_fun[iel1 * nq1 + q1, iel2 * nq2 + q2]
+                            )
+
+                            value += (
+                                wvol * bi1[iel1, il1, 0, q1] * bi2[iel2, il2, 0, q2]
+                            )
+
+                    data[pads0 + i_local0, pads1 + i_local1, pads2 + i_local2] += value
