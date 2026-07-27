@@ -235,17 +235,20 @@ class Compiler:
         bool
             True if compiled, False otherwise.
         """
-        if language is None:
-            language = self.language
+        lang = (language or self.language).lower()
 
         state = utils.read_state()
-        num_kernels = len(state["kernels"])
+        kernels = state.get("kernels")
+        if not kernels:
+            return False
+
+        num_kernels = len(kernels)
         count_c, count_f90, list_not_compiled = count_compiled_kernels(state)
-        if len(list_not_compiled) > 0:
+        if list_not_compiled:
             return False
-        elif self.language == "fortran" and count_f90 == num_kernels:
-            return True
-        elif self.language == "c" and count_c == num_kernels:
-            return True
-        else:
-            return False
+
+        if lang == "fortran":
+            return count_f90 == num_kernels
+        if lang == "c":
+            return count_c == num_kernels
+        raise ValueError(f"Unknown language: {lang!r}")
