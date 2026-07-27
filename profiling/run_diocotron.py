@@ -3,11 +3,10 @@ import sys
 from argparse import ArgumentParser
 from pathlib import Path
 
+from mpi4py import MPI
 from scope_profiler import ProfileManager
 
 from struphy import EnvironmentOptions, set_logging_level
-
-from mpi4py import MPI
 
 set_logging_level(logging.INFO)
 

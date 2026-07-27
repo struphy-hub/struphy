@@ -1,13 +1,15 @@
 import logging
 import os
-from struphy.utils.utils import STRUPHY_LIBPATH, subp_run
 import sysconfig
+
+from struphy.utils.utils import STRUPHY_LIBPATH, subp_run
 
 logger = logging.getLogger("struphy")
 from struphy import set_logging_level
 
 set_logging_level(logging.WARNING)
 so_suffix = sysconfig.get_config_var("EXT_SUFFIX")
+
 
 def count_compiled_kernels(state):
     """Count the number of compiled kernels in the state dictionary."""
@@ -48,6 +50,7 @@ def count_compiled_kernels(state):
                         list_not_compiled.remove(matching)
 
     return count_c, count_f90, list_not_compiled
+
 
 def struphy_compile(
     language,
@@ -104,7 +107,6 @@ def struphy_compile(
     import importlib.metadata
     import importlib.util
     import re
-    
 
     import pyccel
 

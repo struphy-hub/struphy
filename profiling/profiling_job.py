@@ -24,11 +24,9 @@ from pathlib import Path
 from package_profiling_results import MACHINE_PARAMS_FILE, detect_machine_name, package_testcase
 from slurm_script_generator.slurm_script import SlurmScript
 from slurm_script_generator.squeue import SQueue
-
-from struphy import Compiler
-
 from upload import _push_profiling_data
 
+from struphy import Compiler
 from utils import _git_commit, _git_commit_short, _make_unique_results_root
 
 script_dir = Path(__file__).resolve().parent
@@ -338,7 +336,7 @@ def run_profiling_job(case: ProfilingCase) -> None:
             case_output_root,
             venv_path,
             launcher=detect_launcher(),
-            use_modules= False, # has_module_system(),
+            use_modules=False,  # has_module_system(),
             ranks=local_ranks(case.ranks),
         )
         script_text = "\n".join(["#!/bin/bash", *case_commands, ""])
