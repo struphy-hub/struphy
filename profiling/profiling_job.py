@@ -240,7 +240,7 @@ class ProfilingCase:
             f'echo "Running {self.label} with {ntasks} MPI ranks"',
             f'cd "{output_root}"',
             f"{launcher} -n {ntasks} python {self.params_source}",
-            f'scope-profiler pproc "{h5_file}" -o "{sim_dir}"',
+            # f'scope-profiler pproc "{h5_file}" -o "{sim_dir}"',
             "",
             'echo "----------------------------------------"',
             f'echo "Completed profiling case: {self.label} ({ntasks} MPI ranks)"',
