@@ -120,7 +120,7 @@ class Simulation(SimulationBase):
         equil: FluidEquilibrium = None,
         grid: grids.TensorProductGrid = grids.TensorProductGrid(),
         derham_opts: DerhamOptions = DerhamOptions(),
-        comm: MPI.Intracomm | None = None,
+        comm: MPI.Intracomm = None,
         logging_level: int | None = None,
     ):
         if logging_level is not None:
