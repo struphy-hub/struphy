@@ -43,7 +43,7 @@ def main() -> None:
     # --------------------------------------------------------------------- #
     # Wait for all jobs to finish, and then build the comparison plot and package the case.
     parser = argparse.ArgumentParser(
-        description=("Submit profiling jobs to a SLURM cluster and package the results for upload.")
+        description=("Submit profiling jobs to a SLURM cluster and package the results for upload."),
     )
     parser.add_argument(
         "--upload",

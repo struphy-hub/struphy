@@ -32,7 +32,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from cluster_presets import CLUSTER_PRESETS
-from package_profiling_results import MACHINE_PARAMS_FILE, detect_machine_name, package_testcase
+from package_profiling_results import (
+    MACHINE_PARAMS_FILE,
+    detect_machine_name,
+    package_testcase,
+)
 from slurm_script_generator.slurm_script import SlurmScript
 from slurm_script_generator.squeue import SQueue
 from upload import _push_profiling_data
