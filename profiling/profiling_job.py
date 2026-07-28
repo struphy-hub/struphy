@@ -438,7 +438,7 @@ class ProfilingCase:
         )
         return self.destination_dir
 
-    def package_run(self, job_info: dict, case_info: dict, verbose: bool = False) -> bool:
+    def package_run(self, job_info: dict, verbose: bool = False) -> bool:
         """Copy one finished run's `.h5` files and run metadata into the packaged folder.
 
         Only packages what that run actually produced, so a run whose job never started
@@ -452,14 +452,12 @@ class ProfilingCase:
 
         Args:
             job_info: The `job_infos` entry of the run that just finished.
-            case_info: `self.case_info_dict()` for the case being packaged.
             verbose: Print what is being packaged.
 
         Returns:
             Whether any `.h5` output was found and packaged.
         """
         testcase = self.case_output_root.name
-        case_language, _ = self._packaged_language_and_commit(case_info)
         sim_dir = self.case_output_root / f"sim_{job_info['launch_id']:02d}"
 
         h5_files = sorted(sim_dir.rglob("*.h5")) if sim_dir.is_dir() else []
@@ -474,7 +472,6 @@ class ProfilingCase:
             relative_source = source_h5.relative_to(self.case_output_root)
             output_name = _build_output_name(
                 testcase=testcase,
-                language=case_language,
                 launch_id=job_info["launch_id"],
                 index=index,
             )
@@ -586,7 +583,7 @@ class ProfilingCase:
         for job_info in self._iter_finished_runs(poll_interval=poll_interval):
             # The launch id identifies the run; the rank count is just context.
             run = f"run {job_info['launch_id']:02d} ({job_info['ranks']} MPI ranks)"
-            if not self.package_run(job_info, case_info, verbose=True):
+            if not self.package_run(job_info, verbose=True):
                 print(f"No profiling output for '{self.label}' {run}; nothing to package.")
                 continue
             packaged_launch_ids.append(job_info["launch_id"])

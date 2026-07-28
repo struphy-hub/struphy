@@ -27,13 +27,13 @@ def _read_mpi_ranks(source_h5: Path) -> str:
     return "unknown"
 
 
-def _build_output_name(testcase: str, language: str, launch_id: int, index: int) -> str:
+def _build_output_name(testcase: str, launch_id: int, index: int) -> str:
     """Name of a packaged `.h5`, identifying its run by launch id.
 
     `index` disambiguates a run that produced more than one `.h5` file; the first keeps
     the plain name.
     """
-    base = f"{_slug(testcase)}-run{launch_id:02d}-{_slug(language)}"
+    base = f"{_slug(testcase)}-run{launch_id:02d}"
     if index > 0:
         base = f"{base}-{index}"
     return f"{base}.h5"
