@@ -1,7 +1,6 @@
 import ast
 import json
 import os
-import re
 import shutil
 from pathlib import Path
 from typing import Any
@@ -13,29 +12,28 @@ from utils import _run_command, _slug
 RUN_METADATA_FILE = "run_metadata.json"
 
 
-def _extract_ranks(source_h5: Path) -> str:
+def _read_mpi_ranks(source_h5: Path) -> str:
     """Rank count of the run that produced `source_h5`.
 
-    Read from the `run_metadata.json` Struphy writes next to it, since the run
-    directory is named after the run id alone and no longer carries the rank count.
-    Falls back to a rank count spelled out in the path, for older result trees.
+    Read from the `run_metadata.json` Struphy writes next to it. Nothing in the run's
+    naming carries the rank count — runs are identified by their launch id — so this
+    is the only place it comes from. Recorded as metadata only; it never names a file.
     """
     metadata_path = source_h5.parent / RUN_METADATA_FILE
     if metadata_path.exists():
         mpi_ranks = json.loads(metadata_path.read_text(encoding="utf-8")).get("mpi_ranks")
         if isinstance(mpi_ranks, int):
             return str(mpi_ranks)
-
-    for part in source_h5.parts:
-        part_match = re.search(r"ranks(\d+)", part)
-        if part_match:
-            return part_match.group(1)
     return "unknown"
 
 
-def _build_output_name(testcase: str, language: str, ranks: str, index: int) -> str:
-    ranks_token = f"{int(ranks):04d}" if ranks.isdigit() else _slug(ranks)
-    base = f"{_slug(testcase)}-ranks{ranks_token}-{_slug(language)}"
+def _build_output_name(testcase: str, language: str, launch_id: int, index: int) -> str:
+    """Name of a packaged `.h5`, identifying its run by launch id.
+
+    `index` disambiguates a run that produced more than one `.h5` file; the first keeps
+    the plain name.
+    """
+    base = f"{_slug(testcase)}-run{launch_id:02d}-{_slug(language)}"
     if index > 0:
         base = f"{base}-{index}"
     return f"{base}.h5"
@@ -199,13 +197,12 @@ def _collect_software_info(
 
 
 def _collect_job_info(case_info: dict[str, Any]) -> dict[str, Any]:
-    """Job description: one entry per rank count, each with its own script.
+    """Job description: one entry per launch, each with its own script.
 
     Covers both schedulers: a SLURM batch script with `pragmas`, or the plain bash
-    script of a local run (`scheduler: "local"`, no pragmas). Each rank count is
-    submitted (or run locally) as its own job/script, since the caller's loop over
-    rank counts builds and submits one script per rank count instead of looping over
-    rank counts inside a single script.
+    script of a local run (`scheduler: "local"`, no pragmas). Each launch is submitted
+    (or run locally) as its own job/script, identified by its launch id, instead of
+    looping over rank counts inside a single script.
     ``slurm_dict["custom_commands"]`` is dropped because those commands are already
     part of ``script``, and the `SLURM_*` variables because scope-profiler stores them
     in every `profiling_data.h5`.
@@ -214,6 +211,7 @@ def _collect_job_info(case_info: dict[str, Any]) -> dict[str, Any]:
         "scheduler": case_info.get("scheduler", "slurm"),
         "jobs": [
             {
+                "launch_id": job.get("launch_id"),
                 "ranks": job.get("ranks"),
                 "script_path": job.get("job_script_path"),
                 "script": job.get("job_script"),
