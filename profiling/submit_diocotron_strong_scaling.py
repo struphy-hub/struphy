@@ -45,7 +45,7 @@ def main() -> None:
     )
 
     # Launch one run per rank count
-    for num_tasks in (2, 4): #, 8, 16, 32, 64, 128, 256):
+    for num_tasks in (2, 4, 8, 16, 32, 64, 128, 256):
         profiling_case.launch(num_tasks)
 
     # Wait for all jobs to finish, and then build the comparison plot and package the case.
