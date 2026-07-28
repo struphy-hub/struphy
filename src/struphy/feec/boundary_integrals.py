@@ -98,7 +98,7 @@ class BoundaryIntegralOperator:
             sqrt_g = xp.abs(self._domain.jacobian_det(*e_1d))  # metric
 
             DFinv = self._domain.jacobian_inv(*e_1d, change_out_order=True)
-            DFinv_n = DFinv[..., :, normal_dir]
+            DFinv_n = DFinv[..., normal_dir, :]
             norm_DFinv_n = xp.sqrt(xp.sum(DFinv_n**2, axis=-1))  # jacobian
 
             surface_geom_weights = sqrt_g * norm_DFinv_n
@@ -216,7 +216,6 @@ class BoundaryIntegralOperator:
 
         dofs.exchange_assembly_data()
         dofs.update_ghost_regions()
-
         
         return dofs
 

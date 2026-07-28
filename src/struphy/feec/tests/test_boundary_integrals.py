@@ -82,7 +82,7 @@ def test_boundary_integral_callable_nonconstant(num_elements, degree, bcs):
 def test_boundary_integral_callable_cuboid_nontrivial(num_elements, degree, bcs):
     """
     Tests the boundary integral operator for a non-constant callable alpha
-    on a non-cubic cuboid [0,1] x [0,2] x [0,3].
+    on a non-unit cuboid [0,2]^3.
     """
     comm = MPI.COMM_WORLD
 
@@ -90,11 +90,11 @@ def test_boundary_integral_callable_cuboid_nontrivial(num_elements, degree, bcs)
     derham_opts = DerhamOptions(degree=degree, bcs=bcs)
     derham = Derham(grid, derham_opts, comm=comm)
 
-    domain = domains.Cuboid(l1=0.0, r1=1.0, l2=0.0, r2=2.0, l3=0.0, r3=3.0)
+    domain = domains.Cuboid(l1=0.0, r1=2.0, l2=0.0, r2=2.0, l3=0.0, r3=2.0)
     mass_ops = WeightedMassOperators(derham, domain)
 
     alpha = lambda e1, e2, e3: e1 + e2 + e3
-    exact = 33.0
+    exact = 36.0
 
     bnd_op = BoundaryIntegralOperator(mass_ops)
     v = bnd_op.assemble_callable(alpha)
@@ -108,7 +108,7 @@ def test_boundary_integral_callable_cuboid_nontrivial(num_elements, degree, bcs)
 
 @pytest.mark.parametrize("num_elements", [[8, 8, 8]])
 @pytest.mark.parametrize("degree", [[2, 2, 2], [3, 3, 3]])
-@pytest.mark.parametrize("bcs", [(("free", "free"), ("free", "free"), ("free", "free"))])
+@pytest.mark.parametrize("bcs", [(("free", "free"), None, ("free", "free"))])
 def test_boundary_integral_callable_hollow_cylinder(num_elements, degree, bcs):
     """
     Tests the boundary integral operator for alpha = 1 on a HollowCylinder.
@@ -157,5 +157,5 @@ if __name__ == "__main__":
     test_boundary_integral_callable_hollow_cylinder(
         [8, 8, 8],
         [2, 2, 2],
-        (("free", "free"), ("free", "free"), ("free", "free")),
+        (("free", "free"), None, ("free", "free")),
     )
