@@ -32,13 +32,22 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from clusters import SLURM_PRESETS, HARDWARE_INFO, detect_machine_name
-from package_profiling_results import package_testcase
+from package_profiling_results import (
+    _build_output_name,
+    _collect_hardware_info,
+    _collect_job_info,
+    _collect_software_info,
+    _copy_run_metadata,
+    _ensure_testcase_parameters_file,
+    _extract_ranks,
+    _read_sim_metadata_from_parameters,
+)
 from slurm_script_generator.slurm_script import SlurmScript
 from slurm_script_generator.squeue import SQueue
 from upload import _push_profiling_data
 
 from struphy import Compiler
-from utils import _git_commit, _git_commit_short, _make_unique_results_root
+from utils import _git_commit, _git_commit_short, _make_unique_results_root, _slug
 
 script_dir = Path(__file__).resolve().parent
 repo_root = script_dir.parent
@@ -326,6 +335,131 @@ class ProfilingCase:
             "jobs": self.job_infos,
         }
 
+    def package_testcase(
+        self,
+        case_info: dict,
+        timestamp: datetime | None = None,
+        verbose: bool = False,
+    ) -> Path | None:
+        """Package this case's results (`case_output_root`) into `output_root`.
+
+        Only packages the testcase if it actually produced `.h5` output, so a case whose
+        SLURM job never ran (or failed before writing output) is silently skipped instead
+        of being uploaded. Returns the created destination folder, or None if skipped.
+
+        `case_info` is `self.case_info_dict()` for the case being packaged.
+        """
+        testcase_dir = self.case_output_root
+        results_root = self.run_results_root
+        language = self.compiler_instance.language
+        commit = self.run_commit
+        output_root = self.output_root
+
+        if verbose:
+            print(f"Packaging testcase directory: {testcase_dir}")
+        h5_files = sorted(testcase_dir.rglob("*.h5"))
+        if verbose:
+            print(f"Found {len(h5_files)} .h5 file(s) in {testcase_dir}")
+        if not h5_files:
+            return None
+
+        if timestamp is None:
+            timestamp = datetime.now(UTC)
+        datetime_token = timestamp.strftime("%Y%m%dT%H%M%SZ")
+
+        testcase = testcase_dir.name
+        parameters_path = _ensure_testcase_parameters_file(testcase_dir)
+        case_language = case_info.get("pyccel_language") or language
+        case_commit = case_info.get("struphy_commit") or commit
+        if case_language is None:
+            raise RuntimeError(
+                f"Missing pyccel language for testcase '{testcase}'. "
+                "Provide it in profiling_case_info.json or via --language.",
+            )
+        if case_commit is None:
+            raise RuntimeError(
+                f"Missing commit hash for testcase '{testcase}'. "
+                "Provide it in profiling_case_info.json or via --commit.",
+            )
+
+        commit_short = case_commit[:8]
+        folder_name = f"{datetime_token}-{commit_short}-{_slug(testcase)}-{_slug(case_language)}"
+        destination_dir = output_root / folder_name
+        destination_dir.mkdir(parents=True, exist_ok=True)
+
+        sim_name = testcase
+        sim_description = ""
+        if parameters_path is not None:
+            sim_name, sim_description = _read_sim_metadata_from_parameters(
+                parameters_path=parameters_path,
+                fallback_name=testcase,
+            )
+            shutil.copy2(parameters_path, destination_dir / "parameters.py")
+
+        files_metadata = []
+        name_counts: dict[str, int] = {}
+        for source_h5 in h5_files:
+            relative_source = source_h5.relative_to(testcase_dir)
+            ranks = _extract_ranks(relative_source)
+            base_key = f"{_slug(testcase)}-ranks{ranks}-{_slug(case_language)}"
+            output_name = _build_output_name(
+                testcase=testcase,
+                language=case_language,
+                ranks=ranks,
+                index=name_counts.get(base_key, 0),
+            )
+            name_counts[base_key] = name_counts.get(base_key, 0) + 1
+            destination_h5 = destination_dir / output_name
+            shutil.copy2(source_h5, destination_h5)
+            run_metadata_name, run_metadata_source = _copy_run_metadata(
+                source_h5=source_h5,
+                destination_h5=destination_h5,
+            )
+            files_metadata.append(
+                {
+                    "source": str(source_h5),
+                    "relative_source": str(relative_source),
+                    "ranks": ranks,
+                    "destination": output_name,
+                    "run_metadata_source": run_metadata_source,
+                    "run_metadata_destination": run_metadata_name,
+                },
+            )
+
+        hardware_information = _collect_hardware_info()
+
+        metadata = {
+            "general_information": {
+                "time_date_utc": timestamp.isoformat(),
+                "datetime_token": datetime_token,
+                "test_case_identifier": case_info.get("test_case_identifier", testcase),
+                "test_case_name": case_info.get("test_case_name", sim_name),
+                "test_case_description": case_info.get(
+                    "test_case_description",
+                    sim_description,
+                ),
+                "physics_problem": case_info.get("physics_problem", sim_name),
+                "struphy_model_used": case_info.get("struphy_model_used"),
+                "simulation_name": sim_name,
+                "simulation_description": sim_description,
+                "results_root": str(results_root),
+            },
+            "hardware_information": hardware_information,
+            "software_information": _collect_software_info(
+                language=case_language,
+                commit=case_commit,
+                parameters_path=parameters_path,
+                case_info=case_info,
+            ),
+            "job_information": _collect_job_info(case_info),
+            "files": files_metadata,
+        }
+        (destination_dir / "case_metadata.json").write_text(
+            json.dumps(metadata, indent=2),
+            encoding="utf-8",
+        )
+        return destination_dir
+
     def finalize_run(self, upload: bool = False) -> None:
         """Wait for every rank count to finish, then build comparison plots and package/push results.
 
@@ -369,15 +503,7 @@ class ProfilingCase:
         # Package the results of this profiling case and push to the profiling-data repo.
         # Packaging only what this job actually produced means a case that never ran
         # (or failed before writing output) is not packaged/uploaded.
-        packaged_dir = package_testcase(
-            testcase_dir=self.case_output_root,
-            results_root=self.run_results_root,
-            language=self.compiler_instance.language,
-            commit=self.run_commit,
-            output_root=self.output_root,
-            verbose=True,
-            case_info=case_info,
-        )
+        packaged_dir = self.package_testcase(case_info=case_info, verbose=True)
         if packaged_dir is not None:
             print(f"Packaged profiling data for '{self.label}' into {packaged_dir}")
             print(f"Packaged profiling data for '{self.label}' into {self.output_root}:")
