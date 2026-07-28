@@ -38,12 +38,11 @@ from slurm_script_generator.squeue import SQueue
 from upload import _push_profiling_data
 
 from struphy import Compiler
-from utils import _git_commit, _git_commit_short, _make_unique_results_root, write_latest_run_root
+from utils import _git_commit, _git_commit_short, _make_unique_results_root
 
 script_dir = Path(__file__).resolve().parent
 repo_root = script_dir.parent
 profiling_results_base = repo_root / "results" / "profiling"
-latest_results_root_path = profiling_results_base / "latest_run_root.txt"
 
 default_cluster_name = "pitagora"
 
@@ -284,8 +283,9 @@ class ProfilingCase:
             self.compiler_instance.compile()
         print("Done compiling Struphy kernels.")
 
-        # Create a unique results root for this profiling run
-        # and write it to the "latest_run_root.txt" marker file.
+        # Create a unique results root for this profiling run. Its name is prefixed with a
+        # sortable timestamp, so the latest run is discoverable later as the lexicographically
+        # greatest subdirectory of `profiling_results_base` (see `utils.latest_run_root`).
         self.output_root = Path("profiling-results-export").resolve()
         if self.output_root.exists():
             shutil.rmtree(self.output_root)
@@ -299,7 +299,6 @@ class ProfilingCase:
         self.run_results_root = _make_unique_results_root(profiling_results_base, run_token)
 
         self.run_results_root.mkdir(parents=True, exist_ok=True)
-        write_latest_run_root(latest_results_root_path, self.run_results_root)
         print(f"Profiling run root: {self.run_results_root}")
 
         self.case_output_root = self.run_results_root / self.label
@@ -402,9 +401,6 @@ class ProfilingCase:
         )
         if packaged_dir is not None:
             print(f"Packaged profiling data for '{self.label}' into {packaged_dir}")
-            write_latest_run_root(latest_results_root_path, self.run_results_root)
-            print(f"Updated latest profiling root marker: {latest_results_root_path}")
-
             print(f"Packaged profiling data for '{self.label}' into {self.output_root}:")
             print(f" - {packaged_dir}")
             if upload:

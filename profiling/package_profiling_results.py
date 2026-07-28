@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from clusters import detect_machine_name
-from utils import _run_command, _slug, read_latest_run_root
+from utils import _run_command, _slug, latest_run_root
 
 # Written by `Simulation.run()`, one per `sim_ranks<N>` run directory.
 RUN_METADATA_FILE = "run_metadata.json"
@@ -139,11 +139,10 @@ def _ensure_testcase_parameters_file(testcase_dir: Path) -> Path | None:
 
 
 def _discover_results_root(search_root: Path) -> Path:
-    marker_path = search_root / "results" / "profiling" / "latest_run_root.txt"
-    marker_root = read_latest_run_root(marker_path)
-    if marker_root is not None:
-        print(f"Discovered results root from marker: {marker_root}")
-        return marker_root
+    latest = latest_run_root(search_root / "results" / "profiling")
+    if latest is not None:
+        print(f"Discovered results root: {latest}")
+        return latest
 
     candidates: set[Path] = set()
 
@@ -174,11 +173,15 @@ def _discover_results_root(search_root: Path) -> Path:
 
 
 def _resolve_results_root_arg(results_root: Path) -> Path:
-    marker_path = results_root / "latest_run_root.txt"
-    marker_root = read_latest_run_root(marker_path)
-    if marker_root is not None:
-        print(f"Resolved run results root from marker: {marker_root}")
-        return marker_root
+    """If `results_root` is the profiling results base (e.g. the default `results/profiling`,
+    holding one directory per run), resolve it to its most recent run. Otherwise
+    `results_root` already names a specific run and is returned unchanged.
+    """
+    if results_root.name == "profiling" and results_root.parent.name == "results":
+        latest = latest_run_root(results_root)
+        if latest is not None:
+            print(f"Resolved run results root to the latest run: {latest}")
+            return latest
     return results_root
 
 

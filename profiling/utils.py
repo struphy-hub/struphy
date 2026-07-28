@@ -36,20 +36,19 @@ def _run_command(command: list[str]) -> dict[str, Any]:
     }
 
 
-def write_latest_run_root(marker_path: Path, run_root: Path) -> None:
-    """Record `run_root` as the most recently produced profiling run, for later discovery."""
-    marker_path.parent.mkdir(parents=True, exist_ok=True)
-    marker_path.write_text(str(run_root), encoding="utf-8")
+def latest_run_root(base_dir: Path) -> Path | None:
+    """The most recent profiling run directory directly under `base_dir`, if any.
 
-
-def read_latest_run_root(marker_path: Path) -> Path | None:
-    """The run root last recorded via `write_latest_run_root`, if the marker still resolves."""
-    if not marker_path.exists():
+    Run directories are created by `_make_unique_results_root` as
+    `<timestamp>-<commit>[-<n>]`, so the lexicographically greatest name is also the
+    most recently created one — no separate "latest run" marker file needed.
+    """
+    if not base_dir.exists():
         return None
-    marker_root = Path(marker_path.read_text(encoding="utf-8").strip())
-    if not marker_root.is_absolute():
-        marker_root = (marker_path.parent / marker_root).resolve()
-    return marker_root if marker_root.exists() else None
+    run_dirs = [path for path in base_dir.iterdir() if path.is_dir()]
+    if not run_dirs:
+        return None
+    return max(run_dirs, key=lambda path: path.name)
 
 
 def _make_unique_results_root(base_dir: Path, run_token: str) -> Path:
