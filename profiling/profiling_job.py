@@ -195,7 +195,6 @@ class ProfilingCase:
         num_tasks: int = 1,
         num_nodes: int | None = None,
         param_flags: list[str] | None = None,
-        case_commands: list[str] | None = None,
         slurm_presets: dict[str, dict] | None = None,
     ) -> None:
         """Build, submit/launch, and record the run for a single rank count.
@@ -218,9 +217,6 @@ class ProfilingCase:
             param_flags: Extra CLI flags forwarded to `build_commands` and appended
                 to the `params_source` invocation, e.g. `["--ppc", "10"]`. Ignored if
                 `case_commands` is given.
-            case_commands: Full shell command list to use instead of
-                `build_commands(num_tasks, param_flags)` (e.g. to inject a step
-                `build_commands` has no hook for).
             slurm_presets: Candidate SLURM presets, keyed by cluster name; one is
                 picked via `detect_machine_name` on every call. Defaults to
                 `cluster_presets.SLURM_PRESETS`. Ignored outside SLURM.
@@ -235,11 +231,14 @@ class ProfilingCase:
                 print(f"Skipping '{self.label}' ({num_tasks} MPI ranks): exceeds the {available} local cores.")
                 return
 
-        if case_commands is None:
-            case_commands = self.build_commands(num_tasks, param_flags)
+        # Build the commands to run this case with the given rank count, and write/submit
+        case_commands = self.build_commands(num_tasks, param_flags)
+
+        # Increment the launch count and build a unique script filename for this run.
         self.launch_count += 1
         script_path = repo_root / f"job_profile_{self.label}_{self.launch_count:02d}.sh"
 
+        # Submit a SLURM script or run a local bash script, depending on whether SLURM is available.
         if self.use_slurm:
             cluster_name = detect_machine_name()
             if num_nodes is None:
@@ -280,6 +279,7 @@ class ProfilingCase:
             script_dict = None
             self.local_processes.append((num_tasks, process, script_path))
 
+        # Record the job/process info for `finalize_run` to wait on and package.
         self.job_infos.append(
             {
                 "ranks": num_tasks,
