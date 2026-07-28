@@ -66,7 +66,7 @@ class PushGuidingCenterParallel(Propagator):
         Attributes
         ----------
         ions : PICVariable
-            Guiding-center particle variable in ``"Particles5D"`` space.
+            Guiding-center particle variable in ``"Particles5Dvperp"`` space.
         """
 
         def __init__(self):
@@ -79,7 +79,7 @@ class PushGuidingCenterParallel(Propagator):
         @ions.setter
         def ions(self, new):
             assert isinstance(new, PICVariable)
-            assert new.space == "Particles5D"
+            assert new.space == "Particles5Dvperp"
             self._ions = new
 
     def __init__(

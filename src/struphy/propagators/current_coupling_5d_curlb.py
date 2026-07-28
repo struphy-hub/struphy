@@ -68,7 +68,7 @@ class CurrentCoupling5DCurlb(Propagator):
             Fluid-like FEEC variable in one of ``"Hcurl"``, ``"Hdiv"``, or
             ``"H1vec"``.
         energetic_ions : PICVariable
-            Energetic-ion particle variable in ``"Particles5D"`` space.
+            Energetic-ion particle variable in ``"Particles5Dvperp"`` space.
         """
 
         def __init__(self):
@@ -92,7 +92,7 @@ class CurrentCoupling5DCurlb(Propagator):
         @energetic_ions.setter
         def energetic_ions(self, new):
             assert isinstance(new, PICVariable)
-            assert new.space == "Particles5D"
+            assert new.space == "Particles5Dvperp"
             self._energetic_ions = new
 
     def __init__(self, b_tilde: FEECVariable = None):
