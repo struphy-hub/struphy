@@ -95,8 +95,8 @@ HARDWARE_INFO: dict[str, dict] = {
         "cpus_per_node": 72,
         "gpus_per_node": 4,
     },
-    "viper": {
+    "viper_cpu": {
         "cpus_per_node": 128,
-        "gpus_per_node": 4,
+        "gpus_per_node": 0,
     },
 }
