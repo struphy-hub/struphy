@@ -153,6 +153,9 @@ class ProfilingCase:
     job_ids: list[int] = field(init=False, default_factory=list)
     local_processes: list[tuple[int, subprocess.Popen, Path]] = field(init=False, default_factory=list)
 
+    # Incremented on every `launch` call, to give each run a unique script filename.
+    launch_count: int = field(init=False, default=0)
+
     def detect_cluster_name(self) -> str:
         """Pick the cluster preset for the current machine.
 
@@ -247,7 +250,8 @@ class ProfilingCase:
 
         if case_commands is None:
             case_commands = self.build_commands(num_tasks, param_flags)
-        script_path = repo_root / f"job_profile_{self.label}_ranks{num_tasks}.sh"
+        self.launch_count += 1
+        script_path = repo_root / f"job_profile_{self.label}_{self.launch_count:02d}.sh"
 
         if self.use_slurm:
             if num_tasks % num_nodes != 0:
