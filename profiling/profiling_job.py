@@ -239,12 +239,13 @@ class ProfilingCase:
         `"--ppc 10"`). Pass `case_commands` instead to fully override the generated
         commands (e.g. to inject a step `build_commands` has no hook for).
         """
+
         if case_commands is None:
             case_commands = self.build_commands(num_tasks, param_flags)
         script_path = repo_root / f"job_profile_{self.label}_ranks{num_tasks}.sh"
 
         if self.use_slurm:
-            cluster_kwargs = dict(self.cluster_preset)
+            
             if num_tasks % num_nodes != 0:
                 raise ValueError(f"ntasks ({num_tasks}) is not evenly divisible by nodes ({num_nodes}).")
 
@@ -252,7 +253,7 @@ class ProfilingCase:
                 job_name=f"profiling_{self.label}_ranks{num_tasks}",
                 ntasks_per_node=num_tasks // num_nodes,
                 custom_commands=case_commands,
-                **cluster_kwargs,
+                **self.cluster_preset,
             )
             script_text = str(script)
             job_id = script.submit_job(str(script_path))
