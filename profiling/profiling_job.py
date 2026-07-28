@@ -120,16 +120,21 @@ class ProfilingCase:
         Args:
             ntasks: Number of MPI ranks to run `params_source` with.
             param_flags: Extra CLI flags appended to the `params_source` invocation,
-                e.g. `["--ppc", "10"]`. Omit for none.
+                e.g. `["--ppc", "10"]`. Omit for none. `--id` is always passed on top
+                of these.
 
         Returns:
             The shell commands to run, in order, as one script.
         """
         output_root = self.case_output_root
         activate_path = self.venv_path / "bin" / "activate"
-        sim_dir = output_root / f"sim_ranks{ntasks}"
-        h5_file = sim_dir / "profiling_data.h5"
-        flags = " ".join(param_flags or [])
+        # Keyed on the launch counter alone: it already distinguishes every launch,
+        # including two that share a rank count but differ in something else. The rank
+        # count is recorded in the run's `run_metadata.json`, so it need not be spelled
+        # out here. `params_source` is passed the same counter as `--id` and names its
+        # output folder from it.
+        sim_dir = output_root / f"sim_{self.launch_count:02d}"
+        flags = " ".join(["--id", str(self.launch_count), *(param_flags or [])])
 
         return [
             # Environment modules only exist on the clusters, not on a laptop.
@@ -150,7 +155,7 @@ class ProfilingCase:
             f'echo "Struphy model used: {self.struphy_model_used}"',
             f'echo "Case directory: {output_root}"',
             'echo "----------------------------------------"',
-            f'mkdir -p "{output_root}"',
+            f'mkdir -p "{sim_dir}"',
             f'cp "{self.params_source}" "{output_root / "parameters.py"}"',
             f'ls -l "{output_root}"',
             "",
@@ -204,12 +209,13 @@ class ProfilingCase:
                 print(f"Skipping '{self.label}' ({num_tasks} MPI ranks): exceeds the {available} local cores.")
                 return
 
-        # Build the commands to run this case with the given rank count, and write/submit
-        case_commands = self.build_commands(num_tasks, param_flags)
-
-        # Increment the launch count and build a unique script filename for this run.
+        # Increment the launch count first: it identifies both the script filename and
+        # the run directory that `build_commands` writes into.
         self.launch_count += 1
         script_path = repo_root / f"job_profile_{self.label}_{self.launch_count:02d}.sh"
+
+        # Build the commands to run this case with the given rank count, and write/submit
+        case_commands = self.build_commands(num_tasks, param_flags)
 
         # Submit a SLURM script or run a local bash script, depending on whether SLURM is available.
         if self.use_slurm:
@@ -400,7 +406,7 @@ class ProfilingCase:
         name_counts: dict[str, int] = {}
         for source_h5 in h5_files:
             relative_source = source_h5.relative_to(testcase_dir)
-            ranks = _extract_ranks(relative_source)
+            ranks = _extract_ranks(source_h5)
             base_key = f"{_slug(testcase)}-ranks{ranks}-{_slug(case_language)}"
             output_name = _build_output_name(
                 testcase=testcase,

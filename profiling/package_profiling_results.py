@@ -1,4 +1,5 @@
 import ast
+import json
 import os
 import re
 import shutil
@@ -8,17 +9,25 @@ from typing import Any
 from clusters import detect_machine_name
 from utils import _run_command, _slug
 
-# Written by `Simulation.run()`, one per `sim_ranks<N>` run directory.
+# Written by `Simulation.run()`, one per `sim_<id>` run directory.
 RUN_METADATA_FILE = "run_metadata.json"
 
 
-def _extract_ranks(path: Path) -> str:
-    rank_match = re.search(r"(?:^|[-_])ranks?(\d+)(?:$|[-_])", str(path))
-    if rank_match:
-        return rank_match.group(1)
+def _extract_ranks(source_h5: Path) -> str:
+    """Rank count of the run that produced `source_h5`.
 
-    for part in path.parts:
-        part_match = re.search(r"sim_ranks(\d+)", part)
+    Read from the `run_metadata.json` Struphy writes next to it, since the run
+    directory is named after the run id alone and no longer carries the rank count.
+    Falls back to a rank count spelled out in the path, for older result trees.
+    """
+    metadata_path = source_h5.parent / RUN_METADATA_FILE
+    if metadata_path.exists():
+        mpi_ranks = json.loads(metadata_path.read_text(encoding="utf-8")).get("mpi_ranks")
+        if isinstance(mpi_ranks, int):
+            return str(mpi_ranks)
+
+    for part in source_h5.parts:
+        part_match = re.search(r"ranks(\d+)", part)
         if part_match:
             return part_match.group(1)
     return "unknown"
@@ -35,7 +44,7 @@ def _build_output_name(testcase: str, language: str, ranks: str, index: int) -> 
 def _copy_run_metadata(source_h5: Path, destination_h5: Path) -> tuple[str | None, str | None]:
     """Copy the `run_metadata.json` that Struphy wrote next to `source_h5`.
 
-    Each `sim_ranks<N>` run directory holds its own `run_metadata.json`, so it is
+    Each `sim_<id>` run directory holds its own `run_metadata.json`, so it is
     packaged per run, named after the corresponding `.h5` file. Returns
     ``(packaged file name, source path)``, both None if the run produced no metadata.
     """

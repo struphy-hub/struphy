@@ -23,9 +23,8 @@ DOI: 10.1140/epjd/e2014-50180-9
 # ------------------
 
 
+import argparse
 import logging
-
-from mpi4py import MPI
 
 from struphy import set_logging_level
 
@@ -76,9 +75,15 @@ model.kinetic_ions.var.save_data = False
 # --------------------------
 
 # Environment options
-num_ranks = MPI.COMM_WORLD.Get_size()
+# `--id` distinguishes runs that share a rank count but differ in something else; the
+# profiling driver passes its launch counter (see `ProfilingJob.build_commands`).
+# Unknown flags are ignored so the driver can forward other parameters as well.
+parser = argparse.ArgumentParser()
+parser.add_argument("--id", type=int, default=0, help="Run id, used to name the output folder.")
+args, _ = parser.parse_known_args()
+
 env = EnvironmentOptions(
-    sim_folder=f"sim_ranks{num_ranks}",
+    sim_folder=f"sim_{args.id:02d}",
     profiling_activated=True,
     profiling_trace=True,
     restart=False
