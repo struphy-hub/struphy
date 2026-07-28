@@ -163,6 +163,9 @@ class ProfilingCase:
         the preset keys ("pitagora", "tok", ...). Falls back to `default_cluster_name`
         when the machine is unknown or has no preset (e.g. when submitting from a
         laptop), so submission behaves as before.
+
+        Returns:
+            The key into `self.cluster_presets` to use for this run.
         """
         machine_name = detect_machine_name()
         if machine_name:
@@ -184,6 +187,14 @@ class ProfilingCase:
         count, by the caller's loop over rank counts, so this only ever covers one
         `ntasks` value. The comparison plot across rank counts is built separately,
         once every rank count has finished running.
+
+        Args:
+            ntasks: Number of MPI ranks to run `params_source` with.
+            param_flags: Extra CLI flags appended to the `params_source` invocation,
+                e.g. `["--ppc", "10"]`. Omit for none.
+
+        Returns:
+            The shell commands to run, in order, as one script.
         """
         output_root = self.case_output_root
         activate_path = self.venv_path / "bin" / "activate"
@@ -238,14 +249,24 @@ class ProfilingCase:
 
         Under SLURM, submits a `SlurmScript`; otherwise writes and runs a plain bash
         script locally. Either way, the resulting job/process is recorded on `self`
-        for `finalize_run` to wait on and package. `param_flags` is forwarded to
-        `build_commands` and appended to the `params_source` invocation (e.g.
-        `["--ppc", "10"]`). Pass `case_commands` instead to fully override the
-        generated commands (e.g. to inject a step `build_commands` has no hook for).
+        (`job_infos`, plus `job_ids` or `local_processes`) for `finalize_run` to wait
+        on and package. Each call gets a unique script filename via `launch_count`.
 
-        `num_nodes` overrides the cluster preset's node count (which defaults to 1,
-        i.e. all `num_tasks` ranks on a single node); `num_tasks` must then be evenly
-        divisible by `num_nodes`. Ignored outside SLURM.
+        Args:
+            num_tasks: Number of MPI ranks to run with.
+            num_nodes: Number of SLURM nodes to spread `num_tasks` ranks across (the
+                cluster preset's own node count is overridden with this). Ignored
+                outside SLURM, where every rank runs in a single local process group.
+            param_flags: Extra CLI flags forwarded to `build_commands` and appended
+                to the `params_source` invocation, e.g. `["--ppc", "10"]`. Ignored if
+                `case_commands` is given.
+            case_commands: Full shell command list to use instead of
+                `build_commands(num_tasks, param_flags)` (e.g. to inject a step
+                `build_commands` has no hook for).
+
+        Raises:
+            ValueError: If `num_tasks` is not evenly divisible by `num_nodes`
+                (SLURM only).
         """
 
         if case_commands is None:
@@ -294,8 +315,14 @@ class ProfilingCase:
         """Parse CLI args, validate the venv, compile Struphy, and create the results dirs.
 
         Called once per profiling run, before looping over rank counts. Stores
-        everything it computes as attributes on `self`, for the caller's loop and
-        `finalize_run` to read.
+        everything it computes as attributes on `self` (`args`, `venv_path`,
+        `compiler_instance`, `run_commit`, `output_root`, `run_results_root`,
+        `case_output_root`, `use_slurm`, `cluster_preset`, `use_modules`,
+        `launcher`), for the caller's loop and `finalize_run` to read.
+
+        Raises:
+            RuntimeError: If no virtual environment is active, or if no MPI
+                launcher (`srun`, `mpirun`, `mpiexec`) can be found.
         """
 
         # Parse command-line arguments and validate the virtual environment
@@ -349,7 +376,13 @@ class ProfilingCase:
     def finalize_run(self) -> None:
         """Wait for every rank count to finish, then build comparison plots and package/push results.
 
-        Called once per case, after every rank count has been submitted/launched via `launch`.
+        Called once per case, after every rank count has been submitted/launched via
+        `launch`. Writes `profiling_case_info.json` (case metadata plus `job_infos`)
+        into `case_output_root`, blocks until every SLURM job (`job_ids`) or local
+        process (`local_processes`) has finished, builds a comparison plot across
+        rank counts from the `profiling_data.h5` files produced (if any), and then
+        packages the case's results and pushes them if `self.args.upload` is set.
+        Does nothing beyond writing the metadata file if no output was produced.
         """
         print(
             f"Writing metadata for '{self.label}' to {self.case_output_root / 'profiling_case_info.json'}",
