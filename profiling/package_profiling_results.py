@@ -1,4 +1,3 @@
-import argparse
 import ast
 import json
 import os
@@ -138,13 +137,6 @@ def _ensure_testcase_parameters_file(testcase_dir: Path) -> Path | None:
     return testcase_parameters
 
 
-def _read_case_info(testcase_dir: Path) -> dict[str, Any]:
-    case_info_path = testcase_dir / "profiling_case_info.json"
-    if not case_info_path.exists():
-        return {}
-    return json.loads(case_info_path.read_text(encoding="utf-8"))
-
-
 def _collect_hardware_info() -> dict[str, Any]:
     """Description of the machine the profiling job ran on."""
     cluster_name = (
@@ -228,22 +220,20 @@ def _collect_job_info(case_info: dict[str, Any]) -> dict[str, Any]:
 def package_testcase(
     testcase_dir: Path,
     results_root: Path,
+    case_info: dict[str, Any],
     language: str | None,
     commit: str | None,
     output_root: Path,
     timestamp: datetime | None = None,
     verbose: bool = False,
-    case_info: dict[str, Any] | None = None,
 ) -> Path | None:
-    """Package a single testcase directory (e.g. one `ProfilingCase.output_root`) into `output_root`.
+    """Package a single testcase directory (e.g. one `ProfilingCase.case_output_root`) into `output_root`.
 
     Only packages the testcase if it actually produced `.h5` output, so a case whose
     SLURM job never ran (or failed before writing output) is silently skipped instead
     of being uploaded. Returns the created destination folder, or None if skipped.
 
-    `case_info` is normally read from `profiling_case_info.json` in `testcase_dir`
-    (written by `ProfilingCase.finalize_run`). Pass it explicitly to package a case
-    that is still live, in the same process that produced it, without a disk round-trip.
+    `case_info` is `ProfilingCase.case_info_dict()` for the case being packaged.
     """
     if verbose:
         print(f"Packaging testcase directory: {testcase_dir}")
@@ -259,8 +249,6 @@ def package_testcase(
 
     testcase = testcase_dir.name
     parameters_path = _ensure_testcase_parameters_file(testcase_dir)
-    if case_info is None:
-        case_info = _read_case_info(testcase_dir)
     case_language = case_info.get("pyccel_language") or language
     case_commit = case_info.get("struphy_commit") or commit
     if case_language is None:
@@ -350,53 +338,3 @@ def package_testcase(
         encoding="utf-8",
     )
     return destination_dir
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Package one testcase directory's profiling .h5 outputs into a "
-        "DATETIME-COMMIT-TESTCASE-LANGUAGE folder.",
-    )
-    parser.add_argument(
-        "testcase_dir",
-        type=Path,
-        help="Testcase directory to package, e.g. `results/profiling/<run>/<label>`.",
-    )
-    parser.add_argument(
-        "--language",
-        required=False,
-        help="Optional compile language fallback if not present in profiling_case_info.json.",
-    )
-    parser.add_argument(
-        "--commit",
-        required=False,
-        help="Optional commit SHA fallback if not present in profiling_case_info.json.",
-    )
-    parser.add_argument(
-        "--output-root",
-        type=Path,
-        default=Path("profiling-results-export"),
-        help="Folder where the packaged result folder is created.",
-    )
-    args = parser.parse_args()
-
-    testcase_dir = args.testcase_dir.resolve()
-    output_root = args.output_root.resolve()
-    output_root.mkdir(parents=True, exist_ok=True)
-
-    destination_dir = package_testcase(
-        testcase_dir=testcase_dir,
-        results_root=testcase_dir.parent,
-        language=args.language,
-        commit=args.commit,
-        output_root=output_root,
-        verbose=True,
-    )
-    if destination_dir is None:
-        raise RuntimeError(f"No .h5 profiling files found under: {testcase_dir}")
-
-    print(f"Packaged result folder: {destination_dir}")
-
-
-if __name__ == "__main__":
-    main()
