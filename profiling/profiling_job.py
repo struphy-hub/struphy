@@ -156,7 +156,7 @@ class ProfilingCase:
             "",
             f'echo "Running {self.label} with {ntasks} MPI ranks"',
             f'cd "{output_root}"',
-            f'{self.launcher} -n {ntasks} python {self.params_source} {flags} > "{output_root / "struphy.out"}" 2>&1',
+            f'{self.launcher} -n {ntasks} python {self.params_source} {flags} > "{sim_dir / "struphy.out"}" 2>&1',
             "",
             'echo "----------------------------------------"',
             f'echo "Completed profiling case: {self.label} ({ntasks} MPI ranks)"',
