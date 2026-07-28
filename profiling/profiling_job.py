@@ -13,7 +13,7 @@ and drives the run itself, looping over whichever rank counts it wants to profil
   which. Pass `case_commands` to override the default commands (e.g. to add a
   case-specific flag such as an arbitrary `ppc`) before they're wrapped in a script.
   Under SLURM, the cluster preset is picked on each call from
-  `cluster_presets.CLUSTER_PRESETS` unless a `cluster_presets` argument overrides it.
+  `cluster_presets.SLURM_PRESETS` unless a `cluster_presets` argument overrides it.
 - `ProfilingCase.finalize_run` waits for every rank count to finish, then builds the
   comparison plot and packages/uploads the results, once per case.
 
@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-from cluster_presets import CLUSTER_PRESETS
+from cluster_presets import SLURM_PRESETS, HARDWARE_INFO
 from package_profiling_results import (
     MACHINE_PARAMS_FILE,
     detect_machine_name,
@@ -128,31 +128,8 @@ class ProfilingCase:
     # Incremented on every `launch` call, to give each run a unique script filename.
     launch_count: int = field(init=False, default=0)
 
-    def detect_cluster_name(self, cluster_presets: dict[str, dict]) -> str:
-        """Pick the cluster preset for the current machine.
-
-        The detected machine name ("Pitagora (DCGP)", "TOK", ...) is matched against
-        the preset keys ("pitagora", "tok", ...). Falls back to `default_cluster_name`
-        when the machine is unknown or has no preset (e.g. when submitting from a
-        laptop), so submission behaves as before.
-
-        Args:
-            cluster_presets: Candidate presets, keyed by cluster name.
-
-        Returns:
-            The key into `cluster_presets` to use for this run.
-        """
-        machine_name = detect_machine_name()
-        if machine_name:
-            for preset_name in cluster_presets:
-                if preset_name.lower() in machine_name.lower():
-                    print(f"Detected machine '{machine_name}'; using cluster preset '{preset_name}'.")
-                    return preset_name
-
-        print(
-            f"No cluster preset matches the detected machine ({machine_name!r}); using '{default_cluster_name}'.",
-        )
-        return default_cluster_name
+    def __post_init__(self) -> None:
+        self.setup_run()
 
     def build_commands(self, ntasks: int, param_flags: list[str] | None = None) -> list[str]:
         """Build the shell commands that run this case with a single MPI rank count.
@@ -216,10 +193,10 @@ class ProfilingCase:
     def launch(
         self,
         num_tasks: int = 1,
-        num_nodes: int = 1,
+        num_nodes: int | None = None,
         param_flags: list[str] | None = None,
         case_commands: list[str] | None = None,
-        cluster_presets: dict[str, dict] | None = None,
+        slurm_presets: dict[str, dict] | None = None,
     ) -> None:
         """Build, submit/launch, and record the run for a single rank count.
 
@@ -244,9 +221,9 @@ class ProfilingCase:
             case_commands: Full shell command list to use instead of
                 `build_commands(num_tasks, param_flags)` (e.g. to inject a step
                 `build_commands` has no hook for).
-            cluster_presets: Candidate SLURM presets, keyed by cluster name; one is
-                picked via `detect_cluster_name` on every call. Defaults to
-                `cluster_presets.CLUSTER_PRESETS`. Ignored outside SLURM.
+            slurm_presets: Candidate SLURM presets, keyed by cluster name; one is
+                picked via `detect_machine_name` on every call. Defaults to
+                `cluster_presets.SLURM_PRESETS`. Ignored outside SLURM.
 
         Raises:
             ValueError: If `num_tasks` is not evenly divisible by `num_nodes`
@@ -264,12 +241,21 @@ class ProfilingCase:
         script_path = repo_root / f"job_profile_{self.label}_{self.launch_count:02d}.sh"
 
         if self.use_slurm:
+            cluster_name = detect_machine_name()
+            if num_nodes is None:
+                # Compute the number of nodes needed to run `num_tasks` ranks, given the cluster's hardware.
+                cpus_per_node = HARDWARE_INFO[cluster_name]["cpus_per_node"]
+                num_nodes = (num_tasks + cpus_per_node - 1) // cpus_per_node
             if num_tasks % num_nodes != 0:
                 raise ValueError(f"num_tasks ({num_tasks}) is not evenly divisible by num_nodes ({num_nodes}).")
 
-            presets = cluster_presets if cluster_presets is not None else CLUSTER_PRESETS
-            cluster_preset = presets[self.detect_cluster_name(presets)]
+            # Pick the cluster preset for this run, either from the caller's override or the default.
+            if slurm_presets is not None:
+                cluster_preset = slurm_presets[cluster_name]
+            else:
+                cluster_preset = SLURM_PRESETS[cluster_name]
 
+            # Build the slurm script
             script = SlurmScript(
                 job_name=f"profiling_{self.label}_ranks{num_tasks}",
                 ntasks_per_node=num_tasks // num_nodes,
