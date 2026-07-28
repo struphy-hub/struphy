@@ -17,7 +17,7 @@ and drives the run itself, looping over whichever rank counts it wants to profil
 
 The remaining module-level functions are generic helpers with no case-specific
 knowledge (installing `whereami`, detecting the MPI launcher/module system, parsing
-CLI args, filtering rank counts to what fits locally).
+CLI args).
 
 See `run_diocotron.py` for a template.
 """
@@ -91,24 +91,6 @@ def detect_launcher() -> str:
     raise RuntimeError(
         "No MPI launcher found; install an MPI implementation providing `mpirun` (or `mpiexec`).",
     )
-
-
-def local_ranks(ranks: tuple[int, ...]) -> tuple[int, ...]:
-    """Drop rank counts that exceed the number of local cores.
-
-    Oversubscribing simply makes `mpirun` refuse to start, so a case designed for a
-    64-core node still runs its small rank counts on a laptop.
-    """
-    available = os.cpu_count() or 1
-    usable = tuple(ntasks for ntasks in ranks if ntasks <= available)
-    skipped = [ntasks for ntasks in ranks if ntasks > available]
-    if skipped:
-        print(f"Skipping rank counts that exceed the {available} local cores: {skipped}")
-    if not usable:
-        raise RuntimeError(
-            f"None of the requested rank counts {list(ranks)} fit on {available} local cores.",
-        )
-    return usable
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -252,6 +234,11 @@ class ProfilingCase:
         (`job_infos`, plus `job_ids` or `local_processes`) for `finalize_run` to wait
         on and package. Each call gets a unique script filename via `launch_count`.
 
+        Without SLURM, `num_tasks` oversubscribing the local machine simply makes
+        `mpirun` refuse to start, so a run that exceeds the number of local cores is
+        skipped instead of being launched (a case designed for a 64-core node still
+        runs its small rank counts on a laptop).
+
         Args:
             num_tasks: Number of MPI ranks to run with.
             num_nodes: Number of SLURM nodes to spread `num_tasks` ranks across (the
@@ -268,6 +255,11 @@ class ProfilingCase:
             ValueError: If `num_tasks` is not evenly divisible by `num_nodes`
                 (SLURM only).
         """
+        if not self.use_slurm:
+            available = os.cpu_count() or 1
+            if num_tasks > available:
+                print(f"Skipping '{self.label}' ({num_tasks} MPI ranks): exceeds the {available} local cores.")
+                return
 
         if case_commands is None:
             case_commands = self.build_commands(num_tasks, param_flags)
