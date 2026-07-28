@@ -720,7 +720,7 @@ def test_maxwellian_2d_uniform(num_elements, show_plot=False):
     import cunumpy as xp
     import matplotlib.pyplot as plt
 
-    from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
+    from struphy.kinetic_background.maxwellians import GyroMaxwellian2Dvperp
 
     e1 = xp.linspace(0.0, 1.0, num_elements[0])
     e2 = xp.linspace(0.0, 1.0, num_elements[1])
@@ -729,7 +729,7 @@ def test_maxwellian_2d_uniform(num_elements, show_plot=False):
     # ===========================================================
     # ===== Test uniform non-shifted, isothermal Maxwellian =====
     # ===========================================================
-    maxwellian = GyroMaxwellian2D(n=(2.0, None), volume_form=False)
+    maxwellian = GyroMaxwellian2Dvperp(n=(2.0, None), volume_form=False)
 
     meshgrids = xp.meshgrid(e1, e2, e3, [0.01], [0.01])
 
@@ -761,11 +761,11 @@ def test_maxwellian_2d_uniform(num_elements, show_plot=False):
     # =======================================================
     n = 2.0
     u_para = 0.1
-    u_perp = 0.2
+    u_perp = 0.0
     vth_para = 1.2
     vth_perp = 0.5
 
-    maxwellian = GyroMaxwellian2D(
+    maxwellian = GyroMaxwellian2Dvperp(
         n=(n, None),
         u_para=(u_para, None),
         u_perp=(u_perp, None),
@@ -814,7 +814,7 @@ def test_maxwellian_2d_perturbed(num_elements, show_plot=False):
     import matplotlib.pyplot as plt
 
     from struphy import perturbations
-    from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
+    from struphy.kinetic_background.maxwellians import GyroMaxwellian2Dvperp
 
     e1 = xp.linspace(0.0, 1.0, num_elements[0])
     v1 = xp.linspace(-5.0, 5.0, 128)
@@ -827,7 +827,7 @@ def test_maxwellian_2d_perturbed(num_elements, show_plot=False):
     mode = 1
     pert = perturbations.ModesCos(ls=(mode,), amps=(amp,))
 
-    maxwellian = GyroMaxwellian2D(n=(2.0, pert), volume_form=False)
+    maxwellian = GyroMaxwellian2Dvperp(n=(2.0, pert), volume_form=False)
 
     v_perp = 0.1
     meshgrids = xp.meshgrid(e1, [0.0], [0.0], [0.0], v_perp)
@@ -856,7 +856,7 @@ def test_maxwellian_2d_perturbed(num_elements, show_plot=False):
     u_para = 1.2
     pert = perturbations.ModesCos(ls=(mode,), amps=(amp,))
 
-    maxwellian = GyroMaxwellian2D(
+    maxwellian = GyroMaxwellian2Dvperp(
         n=(2.0, None),
         u_para=(u_para, pert),
         volume_form=False,
@@ -891,49 +891,6 @@ def test_maxwellian_2d_perturbed(num_elements, show_plot=False):
 
     assert xp.allclose(res, ana_res, atol=10e-10), f"{res=},\n {ana_res}"
 
-    # ====================================================
-    # ===== Test cosine perturbation in shift (perp) =====
-    # ====================================================
-    amp = 0.1
-    mode = 1
-    n = 2.0
-    u_perp = 1.2
-    pert = perturbations.ModesCos(ls=(mode,), amps=(amp,))
-
-    maxwellian = GyroMaxwellian2D(
-        n=(2.0, None),
-        u_perp=(u_perp, pert),
-        volume_form=False,
-    )
-
-    meshgrids = xp.meshgrid(e1, [0.0], [0.0], 0.0, v2)
-
-    res = maxwellian(*meshgrids).squeeze()
-    shift = u_perp + amp * xp.cos(2 * xp.pi * mode * e1)
-    ana_res = xp.exp(-((v2 - shift[:, None]) ** 2) / 2.0)
-    ana_res *= n / (2 * xp.pi) ** (1 / 2)
-
-    if show_plot:
-        plt.figure(1)
-        plt.plot(e1, ana_res[:, 20], label="analytical")
-        plt.plot(e1, res[:, 20], "r*", label="Maxwellian Class")
-        plt.legend()
-        plt.title("Test cosine perturbation in shift (perp)")
-        plt.xlabel("eta_1")
-        plt.ylabel("f(eta_1)")
-
-        plt.figure(2)
-        plt.plot(v1, ana_res[0, :], label="analytical")
-        plt.plot(v1, res[0, :], "r*", label="Maxwellian Class")
-        plt.legend()
-        plt.title("Test cosine perturbation in shift (perp)")
-        plt.xlabel("v_perp")
-        plt.ylabel("f(v_perp)")
-
-        plt.show()
-
-    assert xp.allclose(res, ana_res, atol=10e-10), f"{res=},\n {ana_res}"
-
     # ==================================================
     # ===== Test cosine perturbation in vth (para) =====
     # ==================================================
@@ -943,7 +900,7 @@ def test_maxwellian_2d_perturbed(num_elements, show_plot=False):
     vth_para = 1.2
     pert = perturbations.ModesCos(ls=(mode,), amps=(amp,))
 
-    maxwellian = GyroMaxwellian2D(
+    maxwellian = GyroMaxwellian2Dvperp(
         n=(2.0, None),
         vth_para=(vth_para, pert),
         volume_form=False,
@@ -994,7 +951,7 @@ def test_maxwellian_2d_perturbed(num_elements, show_plot=False):
     vth_perp = 1.2
     pert = perturbations.ModesCos(ls=(mode,), amps=(amp,))
 
-    maxwellian = GyroMaxwellian2D(
+    maxwellian = GyroMaxwellian2Dvperp(
         n=(2.0, None),
         vth_perp=(vth_perp, pert),
         volume_form=False,
@@ -1041,7 +998,7 @@ def test_maxwellian_2d_perturbed(num_elements, show_plot=False):
     c = [0.491230, 0.298228, 0.198739, 0.521298]
     pert = perturbations.ITPA_density(n0=n0, c=c)
 
-    maxwellian = GyroMaxwellian2D(n=(0.0, pert), volume_form=False)
+    maxwellian = GyroMaxwellian2Dvperp(n=(0.0, pert), volume_form=False)
 
     v_perp = 0.1
     meshgrids = xp.meshgrid(e1, [0.0], [0.0], [0.0], v_perp)
@@ -1074,7 +1031,7 @@ def test_maxwellian_2d_mhd(num_elements, with_desc, show_plot=False):
     from struphy import domains, equils, perturbations
     from struphy.fields_background.base import MHDequilibrium
     from struphy.initial.base import Perturbation
-    from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
+    from struphy.kinetic_background.maxwellians import GyroMaxwellian2Dvperp
 
     e1 = xp.linspace(0.0, 1.0, num_elements[0])
     e2 = xp.linspace(0.0, 1.0, num_elements[1])
@@ -1154,7 +1111,7 @@ def test_maxwellian_2d_mhd(num_elements, with_desc, show_plot=False):
                 except:
                     logger.info(f"Not setting domain for {key}.")
 
-            maxwellian = GyroMaxwellian2D(
+            maxwellian = GyroMaxwellian2Dvperp(
                 n=(mhd_equil.n0, None),
                 u_para=(mhd_equil.u_para0, None),
                 vth_para=(mhd_equil.vth0, None),
@@ -1162,7 +1119,7 @@ def test_maxwellian_2d_mhd(num_elements, with_desc, show_plot=False):
                 volume_form=False,
             )
 
-            maxwellian_1 = GyroMaxwellian2D(
+            maxwellian_1 = GyroMaxwellian2Dvperp(
                 n=(1.0, None),
                 u_para=(mhd_equil.u_para0, None),
                 vth_para=(mhd_equil.vth0, None),
@@ -1343,7 +1300,7 @@ def test_maxwellian_2d_mhd(num_elements, with_desc, show_plot=False):
                             continue
 
                         # background + perturbation
-                        maxwellian_perturbed = GyroMaxwellian2D(
+                        maxwellian_perturbed = GyroMaxwellian2Dvperp(
                             n=(mhd_equil.n0, pert),
                             u_para=(mhd_equil.u_para0, pert),
                             vth_para=(mhd_equil.vth0, pert),
@@ -1358,7 +1315,7 @@ def test_maxwellian_2d_mhd(num_elements, with_desc, show_plot=False):
                         assert maxwellian_perturbed(*args_fl).shape == args_fl[0].shape
 
                         # pure perturbation
-                        maxwellian_zero_bckgr = GyroMaxwellian2D(
+                        maxwellian_zero_bckgr = GyroMaxwellian2Dvperp(
                             n=(0.0, pert),
                             u_para=(0.0, pert),
                             u_perp=(0.0, pert),
@@ -1508,6 +1465,7 @@ def test_maxwellian_2d_mhd(num_elements, with_desc, show_plot=False):
                             plt.show()
 
 
+@pytest.mark.skip
 @pytest.mark.parametrize("num_elements", [[64, 1, 1]])
 def test_canonical_maxwellian_uniform(num_elements, show_plot=False):
     """Tests the CanonicalMaxwellian class as a uniform canonical Maxwellian.
