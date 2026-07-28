@@ -461,16 +461,14 @@ class ProfilingCase:
         return destination_dir
 
     def finalize_run(self, upload: bool = False) -> None:
-        """Wait for every rank count to finish, then build comparison plots and package/push results.
+        """Wait for every rank count to finish, then package/push results.
 
         Called once per case, after every rank count has been submitted/launched via
         `launch`. Writes `profiling_case_info.json` (case metadata plus `job_infos`)
         into `case_output_root`, blocks until every SLURM job (`job_ids`) or local
-        process (`local_processes`) has finished, builds a comparison plot across
-        rank counts from the `profiling_data.h5` files produced (if any), and then
-        packages the case's results, pushing them to the profiling-data repo if
-        `upload` is set. Does nothing beyond writing the metadata file if no output
-        was produced.
+        process (`local_processes`) has finished, and then packages the case's results,
+        pushing them to the profiling-data repo if `upload` is set. Does nothing beyond
+        writing the metadata file if no output was produced.
 
         Args:
             upload: Whether to push the packaged results to the profiling-data repo.
