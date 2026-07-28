@@ -18,13 +18,13 @@ from struphy.utils.utils import __class_with_params_repr_no_defaults__
 
 class KineticBackground(metaclass=ABCMeta):
     r"""Base class for kinetic background distributions.
-    
+
     Kinetic backgrounds are mainly used for particle weight computation:
-    
-    * they appear as initial conditions in the numerator of particle weights 
+
+    * they appear as initial conditions in the numerator of particle weights
     * they are evaluated at particle coordinates in the control-variate method for noise reduction.
 
-    Kinetic backgrounds can be defined in arbitrary phase space coordinates. 
+    Kinetic backgrounds can be defined in arbitrary phase space coordinates.
     A determinant of the velocity Jacobian must be provided in the subclasses.
     """
 
@@ -44,7 +44,7 @@ class KineticBackground(metaclass=ABCMeta):
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
         """Jacobian determinant of the velocity coordinate transformation (starting from Cartesian velocity coordinates)."""
         pass
-    
+
     @property
     @abstractmethod
     def volume_form(self) -> bool:
@@ -117,7 +117,9 @@ class KineticBackground(metaclass=ABCMeta):
         elif self.velocity_coords == "vpara_mu":
             self._gauss_types = ("cartesian", "energy")
         else:
-            raise ValueError(f"Unknown velocity coordinates {self.velocity_coords}, must be one of ['cartesian', 'vpara_vperp', 'vpara_mu']")
+            raise ValueError(
+                f"Unknown velocity coordinates {self.velocity_coords}, must be one of ['cartesian', 'vpara_vperp', 'vpara_mu']"
+            )
         return self._gauss_types
 
     @property
@@ -574,7 +576,7 @@ class Maxwellian(KineticBackground):
           .. math::
               G_{\mathrm{polar}}(v) = \frac{1}{v_{\mathrm{th}}^2}\exp\left[-\frac{v^2}{2\,v_{\mathrm{th}}^2}\right]\,.
 
-        - ``"energy"``: :math:`v \geq 0` is an energy-like coordinate such as :math:`\mu|\mathbf B| = m v_\perp^2/2`, 
+        - ``"energy"``: :math:`v \geq 0` is an energy-like coordinate such as :math:`\mu|\mathbf B| = m v_\perp^2/2`,
         requires :math:`u=0`, ``volume_form`` must be ``False`` (its Jacobian depends on :math:`B^*`),
 
           .. math::
@@ -616,16 +618,20 @@ class Maxwellian(KineticBackground):
         elif type == "polar":
             assert xp.all(v >= 0.0)
             assert xp.all(u == 0.0)
-            out = 1.0 / vth**2 * xp.exp(-(v ** 2) / (2.0 * vth**2))
+            out = 1.0 / vth**2 * xp.exp(-(v**2) / (2.0 * vth**2))
             if volume_form:
-                out *= v   
+                out *= v
         elif type == "energy":
             assert xp.all(v >= 0.0)
             assert xp.all(u == 0.0)
-            assert not volume_form, "Jacobian determinant cannot be multiplied for energy coordinates, as it depends on the background magentic field (B^*)."
+            assert not volume_form, (
+                "Jacobian determinant cannot be multiplied for energy coordinates, as it depends on the background magentic field (B^*)."
+            )
             out = 1.0 / vth**2 * xp.exp(-v / vth**2)
         else:
-            raise ValueError(f"Unknown Gaussian coordinate type {type}. Must be one of ['cartesian', 'polar', 'energy'].")
+            raise ValueError(
+                f"Unknown Gaussian coordinate type {type}. Must be one of ['cartesian', 'polar', 'energy']."
+            )
 
         return out
 
@@ -725,7 +731,7 @@ class Maxwellian(KineticBackground):
         # collect arguments
         for n, coord in enumerate(coords):
             assert isinstance(coord, xp.ndarray)
-            if n== 0:
+            if n == 0:
                 shp = coord.shape
             else:
                 assert coord.shape == shp, f"Argument {n} has shape {coord.shape}, but must match {shp}."
@@ -790,4 +796,3 @@ class Maxwellian(KineticBackground):
     def add_perturbation(self, new):
         assert isinstance(new, bool)
         self._add_perturbation = new
-

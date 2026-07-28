@@ -57,7 +57,7 @@ class LiteralOptions:
 
     # fields backgrounds
     BackgroundTypes = Literal["LogicalConst", "FluidEquilibrium"]
-    
+
     # kinetic backgrounds
     VelocityCoordinates = Literal["cartesian", "vpara_mu", "vpara_vperp", "vpara_energy"]
     OptsGaussianCoordinate = Literal["cartesian", "polar", "energy"]

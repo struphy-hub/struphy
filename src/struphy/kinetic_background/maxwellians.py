@@ -121,10 +121,9 @@ class Maxwellian3D(Maxwellian):
 
 class GyroMaxwellian2D(Maxwellian):
     r"""A gyrotropic :class:`~struphy.kinetic_background.base.Maxwellian` depending on
-    two velocities :math:`(v_\parallel, v_\perp)`, :math:`n=2`,
-    where :math:`v_\parallel = \mathbf v \cdot \mathbf b_0` and :math:`v_\perp`
-    is the radial component of a polar coordinate system perpendicular
-    to the magentic direction :math:`\mathbf b_0`.
+    two velocities :math:`(v_\parallel, \mu)`, :math:`n=2`,
+    where :math:`v_\parallel = \mathbf v \cdot \mathbf b_0` and
+    :math:`\mu = v_\perp^2/(2B_0)` is the magnetic moment, with :math:`B_0` the background magnetic field strength.
 
     Parameters
     ----------
@@ -139,6 +138,9 @@ class GyroMaxwellian2D(Maxwellian):
         Whether to represent the Maxwellian as a volume form;
         if True it is multiplied by the Jacobian determinant |v_perp|
         of the polar coordinate transofrmation (default = False).
+
+    B0: float | Callable
+        Constant or callable background magnetic field strength (default = 2.0).
     """
 
     def __init__(
@@ -148,8 +150,8 @@ class GyroMaxwellian2D(Maxwellian):
         u_perp: tuple[float | Callable, Perturbation] = (0.0, None),
         vth_para: tuple[float | Callable, Perturbation] = (1.0, None),
         vth_perp: tuple[float | Callable, Perturbation] = (1.0, None),
-        equil: FluidEquilibriumWithB = None,
         volume_form: bool = True,
+        B0: float | Callable = 2.0,
     ):
         # use setter to store input parameters
         self.params = copy.deepcopy(locals())
@@ -158,7 +160,6 @@ class GyroMaxwellian2D(Maxwellian):
 
         # volume form represenation
         self._volume_form = volume_form
-        self._equil = equil
 
         # factors multiplied onto the defined moments n, u and vth (can be set via setter)
         self._moment_factors = {
@@ -177,8 +178,8 @@ class GyroMaxwellian2D(Maxwellian):
         """Velocity coordinates of the background."""
         return "vpara_mu"
 
-    def velocity_jacobian_det(self, eta1, eta2, eta3, v_para, v_perp):
-        r"""Jacobian determinant of the velocity coordinate transformation to :math:`(v_\parallel, v_\perp)`, is :math:`v_\perp`.
+    def velocity_jacobian_det(self, eta1, eta2, eta3, v_para, mu):
+        r"""Jacobian determinant of the velocity coordinate transformation to :math:`(v_\parallel, mu)`, is :math:`B_0`.
 
         Input parameters should be slice of 2d numpy marker array. (i.e. *self.phasespace_coords.T)
 
@@ -187,8 +188,8 @@ class GyroMaxwellian2D(Maxwellian):
         eta1, eta2, eta3 : array_like
             Logical evaluation points.
 
-        v_para, v_perp : array_like
-            Parallel and perpendicular velocity evaluation points.
+        v_para, mu : array_like
+            Parallel velocity and magnetic moment evaluation points.
 
         Returns
         -------
@@ -197,19 +198,16 @@ class GyroMaxwellian2D(Maxwellian):
         -------
         """
         assert eta1.ndim == eta2.ndim == eta3.ndim == 1
-        assert v_para.ndim == v_perp.ndim == 1
+        assert v_para.ndim == mu.ndim == 1
 
-        return v_perp
+        B0 = self.params["B0"]
+
+        return B0(eta1, eta2, eta3) if callable(B0) else B0 + 0 * eta1
 
     @property
     def volume_form(self) -> bool:
         """Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian |v_perp|)."""
         return self._volume_form
-
-    @property
-    def equil(self) -> FluidEquilibriumWithB:
-        """Fluid background with B-field."""
-        return self._equil
 
     @property
     def moment_factors(self):

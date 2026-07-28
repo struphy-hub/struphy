@@ -57,7 +57,7 @@ class ToyDrift(StruphyModel):
             epsilon: float = None,
             alpha: float = None,
         ):
-            self.var = PICVariable(space="Particles5D")
+            self.var = PICVariable(space="Particles5Dvperp")
             self.init_variables(
                 charge_number=charge_number,
                 mass_number=mass_number,

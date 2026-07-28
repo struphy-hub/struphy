@@ -71,7 +71,7 @@ logger = logging.getLogger("struphy")
 class Particles(metaclass=ABCMeta):
     r"""
     Base class for particle species.
-    
+
     The marker information is stored in a 2D numpy array.
     In ``markers[ip, j]`` The row index ``ip`` refers to a specific particle,
     the column index ``j`` to its attributes.
@@ -663,7 +663,7 @@ class Particles(metaclass=ABCMeta):
     def bufsize(self):
         """Relative size of buffer in markers array."""
         return self._bufsize
-    
+
     @property
     def n_mks_load(self):
         """Array of number of markers on each process at loading stage"""
@@ -827,7 +827,7 @@ class Particles(metaclass=ABCMeta):
         assert isinstance(new, xp.ndarray)
         assert new.shape == (self.n_mks_loc,)
         self._markers[self.valid_mks, self.index["ids"]] = new
-        
+
     @property
     def f_coords(self):
         """Coordinates of the distribution function."""
@@ -939,7 +939,7 @@ class Particles(metaclass=ABCMeta):
     def boxes_per_dim(self):
         """Tuple, number of sorting boxes per dimension."""
         return self._boxes_per_dim
-    
+
     @property
     def sorting_boxes(self):
         """The :class:`~struphy.pic.sorting.SortingBoxes` instance holding the
@@ -985,9 +985,9 @@ class Particles(metaclass=ABCMeta):
     # =================
 
     def draw_markers(
-            self,
-            sort: bool = True,
-        ):
+        self,
+        sort: bool = True,
+    ):
         r""" 
         Drawing markers 
         
@@ -1067,7 +1067,7 @@ class Particles(metaclass=ABCMeta):
         sort : Bool
             Wether to sort the particules in boxes after initial drawing (only if sorting params were passed)
         """
-        from struphy.pic.particles import Particles6D, Particles5D, Particles5Dvperp, ParticlesSPH
+        from struphy.pic.particles import Particles5D, Particles5Dvperp, Particles6D, ParticlesSPH
 
         # number of markers on the local process at loading stage
         n_mks_load_loc = self.n_mks_load[self.mpi_rank]
@@ -1223,7 +1223,7 @@ class Particles(metaclass=ABCMeta):
                         * v_th
                         + u_mean
                     )
-                # Particles5D: (1d Maxwellian, perp-energy Maxwellian as volume-form)
+                # Particles5D: (1d Maxwellian, muB0-Maxwellian as volume-form)
                 elif isinstance(self, Particles5D):
                     self._markers[:n_mks_load_loc, 3] = (
                         sp.erfinv(
@@ -1234,7 +1234,7 @@ class Particles(metaclass=ABCMeta):
                         + u_mean[0]
                     )
 
-                    self._markers[:n_mks_load_loc, 4] = - xp.log(1.0 - self.velocities[:, 1]) * v_th[1]**2 / B0
+                    self._markers[:n_mks_load_loc, 4] = -xp.log(1.0 - self.velocities[:, 1]) * v_th[1] ** 2 / B0
 
                     # mu is a magnetic moment and must be >= 0.
                     # A mean shift in this coordinate is not physically consistent.
@@ -1788,7 +1788,7 @@ class Particles(metaclass=ABCMeta):
         #     for i in valid_box_ids:
         #         n_mks_box = xp.count_nonzero(self._sorting_boxes._boxes[i] != -1)
         #         logger.info(f"Number of markers in box {i} is {n_mks_box}")
-    
+
     @profile
     def do_sort(self, use_numpy_argsort=False):
         """Assign the particles to their sorting boxes and reorder the markers array accordingly,

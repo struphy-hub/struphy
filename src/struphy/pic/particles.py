@@ -22,7 +22,7 @@ class Particles6D(Particles):
     Each marker carries a logical (curvilinear) position :math:`\\boldsymbol \\eta_p` together with a velocity
     :math:`\\mathbf v_p` expressed in the *Cartesian* velocity space attached to that position
     (i.e. velocities are not transformed by the curvilinear map, unlike positions).
-    
+
     See :class:`~struphy.pic.base.Particles` for the structure of the numpy marker array and the meaning of its columns.
     """
 
@@ -71,14 +71,15 @@ class Particles6D(Particles):
         """
         if not hasattr(self, "_svol"):
             # load sampling density svol (normalized to 1 in logical space)
-            self._svol = maxwellians.Maxwellian3D(n = (1.0, None),
-                u1 = (self.loading_params.moments[0], None),
-                u2 = (self.loading_params.moments[1], None),
-                u3 = (self.loading_params.moments[2], None),
-                vth1 = (self.loading_params.moments[3], None),
-                vth2 = (self.loading_params.moments[4], None),
-                vth3 = (self.loading_params.moments[5], None),
-                )
+            self._svol = maxwellians.Maxwellian3D(
+                n=(1.0, None),
+                u1=(self.loading_params.moments[0], None),
+                u2=(self.loading_params.moments[1], None),
+                u3=(self.loading_params.moments[2], None),
+                vth1=(self.loading_params.moments[3], None),
+                vth2=(self.loading_params.moments[4], None),
+                vth3=(self.loading_params.moments[5], None),
+            )
 
         if self.spatial == "uniform":
             return self._svol(eta1, eta2, eta3, vx, vy, vz)
@@ -218,7 +219,7 @@ class Particles6D(Particles):
 class DeltaFParticles6D(Particles6D):
     """
     A class for kinetic species in full 6D phase space that solve for delta_f = f - f0.
-    
+
     See :class:`~struphy.pic.particles.Particles6D` for more information.
     """
 
@@ -293,7 +294,9 @@ class Particles5D(Particles):
 
         # magnetic background
         if self.projected_equil is not None:
-            assert isinstance(self.projected_equil, ProjectedFluidEquilibriumWithB), "Particles5Dvperp needs background with magnetic field."
+            assert isinstance(self.projected_equil, ProjectedFluidEquilibriumWithB), (
+                "Particles5Dvperp needs background with magnetic field."
+            )
 
         self._absB0_h = self.projected_equil.absB0
         self._unit_b1_h = self.projected_equil.unit_b1
@@ -591,7 +594,9 @@ class Particles5Dvperp(Particles):
 
         # magnetic background
         if self.projected_equil is not None:
-            assert isinstance(self.projected_equil, ProjectedFluidEquilibriumWithB), "Particles5Dvperp needs background with magnetic field."
+            assert isinstance(self.projected_equil, ProjectedFluidEquilibriumWithB), (
+                "Particles5Dvperp needs background with magnetic field."
+            )
 
         self._absB0_h = self.projected_equil.absB0
         self._unit_b1_h = self.projected_equil.unit_b1
