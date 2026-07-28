@@ -4,11 +4,12 @@ import json
 import os
 import re
 import shutil
-import socket
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+from clusters import detect_machine_name
 
 # Written by `Simulation.run()`, one per `sim_ranks<N>` run directory.
 RUN_METADATA_FILE = "run_metadata.json"
@@ -215,54 +216,6 @@ def _read_case_info(testcase_dir: Path) -> dict[str, Any]:
     if not case_info_path.exists():
         return {}
     return json.loads(case_info_path.read_text(encoding="utf-8"))
-
-
-def detect_machine_name() -> str | None:
-    """Name of the current HPC machine
-
-    Returns None on an unrecognised machine (e.g. a laptop).
-    """
-    host = os.environ.get("HOST", "")
-    hostname = os.environ.get("HOSTNAME") or socket.gethostname()
-    lmod_admin_file = os.environ.get("LMOD_ADMIN_FILE", "")
-    hpc_system = os.environ.get("HPC_SYSTEM", "")
-    nersc_host = os.environ.get("NERSC_HOST", "")
-    runner_tags = os.environ.get("CI_RUNNER_TAGS", "")
-    partition = os.environ.get("PARTITION", "")
-
-    if "raven" in host:
-        return "raven"
-    if "viper12" in hostname:
-        return "viper_gpu"
-    if "viper" in hostname:
-        return "viper_cpu"
-    if "cobra" in host:
-        return "cobra"
-    if "lumi" in lmod_admin_file:
-        lumi_partition = partition or "LUMI-G"
-        if lumi_partition in ("LUMI-G", "LUMI-C", "LUMI-D"):
-            return lumi_partition.lower().replace("-", "_")
-        print(f"Unsupported LUMI partition: {lumi_partition}")
-        return None
-    if "leonardo" in hpc_system:
-        return "leonardo_booster" if (partition or "Booster") == "Booster" else "leonardo_dcgp"
-    if "marconi" in hpc_system:
-        return "marconi"
-    if "pitagora" in hpc_system:
-        return "pitagora_dcgp"
-    if "toki" in host:
-        return "toki"
-    if "vega" in hostname:
-        return "vega_gpu" if (partition or "GPU") == "GPU" else "vega_cpu"
-    if "perlmutter" in nersc_host:
-        return "perlmutter"
-    if "runner" in hostname:
-        if "nvidia-cc80" in runner_tags:
-            return "shared_gpu_runner_nvidia"
-        if "amd-mi200" in runner_tags:
-            return "shared_gpu_runner_amd"
-        return "shared_runner"
-    return None
 
 
 def _collect_hardware_info() -> dict[str, Any]:

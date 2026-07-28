@@ -13,7 +13,7 @@ and drives the run itself, looping over whichever rank counts it wants to profil
   which. Pass `case_commands` to override the default commands (e.g. to add a
   case-specific flag such as an arbitrary `ppc`) before they're wrapped in a script.
   Under SLURM, the cluster preset is picked on each call from
-  `cluster_presets.SLURM_PRESETS` unless a `cluster_presets` argument overrides it.
+  `clusters.SLURM_PRESETS` unless a `slurm_presets` argument overrides it.
 - `ProfilingCase.finalize_run` waits for every rank count to finish, then builds the
   comparison plot and packages/uploads the results, once per case.
 
@@ -31,11 +31,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-from cluster_presets import SLURM_PRESETS, HARDWARE_INFO
-from package_profiling_results import (
-    detect_machine_name,
-    package_testcase,
-)
+from clusters import SLURM_PRESETS, HARDWARE_INFO, detect_machine_name
+from package_profiling_results import package_testcase
 from slurm_script_generator.slurm_script import SlurmScript
 from slurm_script_generator.squeue import SQueue
 from upload import _push_profiling_data
@@ -187,7 +184,7 @@ class ProfilingCase:
                 `case_commands` is given.
             slurm_presets: Candidate SLURM presets, keyed by cluster name; one is
                 picked via `detect_machine_name` on every call. Defaults to
-                `cluster_presets.SLURM_PRESETS`. Ignored outside SLURM.
+                `clusters.SLURM_PRESETS`. Ignored outside SLURM.
 
         Raises:
             ValueError: If `num_tasks` is not evenly divisible by `num_nodes`

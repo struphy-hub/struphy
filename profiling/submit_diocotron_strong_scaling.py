@@ -2,7 +2,7 @@
 
 This file defines the diocotron profiling case (the `ProfilingCase`) and submits
 it: for each rank count, `ProfilingCase.launch` builds and submits a SLURM script
-(using `cluster_presets.CLUSTER_PRESETS` by default), or, without a batch system,
+(using `clusters.SLURM_PRESETS` by default), or, without a batch system,
 runs directly on this machine. Once every rank count has finished running, the
 comparison plot across rank counts is built, and the case is packaged/uploaded.
 Each generated script runs the simulation itself by invoking `params_diocotron.py`
