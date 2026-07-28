@@ -60,7 +60,7 @@ class LiteralOptions:
 
     # kinetic backgrounds
     VelocityCoordinates = Literal["cartesian", "vpara_mu", "vpara_vperp", "vpara_energy"]
-    OptsGaussianCoordinate = Literal["cartesian", "polar", "energy"]
+    OptsGaussianCoordinate = Literal["cartesian", "polar", "mu", "energy"]
     KineticDimensionsToPlot = Literal["e1", "e2", "e3", "v1", "v2", "v3"]
 
     # models

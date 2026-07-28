@@ -218,7 +218,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             / (2 * particles.Np)
             * xp.dot(
                 particles.weights**2,  # w_p^2
-                particles.sampling_density / self._f0_values[particles.valid_mks],  # s_{0,p} / f_{0,p}
+                particles.sampling_density_values / self._f0_values[particles.valid_mks],  # s_{0,p} / f_{0,p}
             )
         )
         return self._tmp[0]

@@ -112,7 +112,7 @@ class Particles(metaclass=ABCMeta):
     * :attr:`velocities` (columns ``3:3 + vdim``): marker velocities.
     * :attr:`phasespace_coords` (columns ``0:3 + vdim``): positions and velocities combined.
     * :attr:`weights` (column ``3 + vdim``): current weights :math:`w_k(t)`.
-    * :attr:`sampling_density` (column ``4 + vdim``): PDF :math:`s^0` at the particle position.
+    * :attr:`sampling_density_values` (column ``4 + vdim``): PDF :math:`s^0` at the particle position.
     * :attr:`weights0` (column ``5 + vdim``): initial weights :math:`w_0`.
     * :attr:`marker_ids` (column ``-1``): unique particle IDs.
 
@@ -796,12 +796,12 @@ class Particles(metaclass=ABCMeta):
         self._markers[self.valid_mks, self.index["weights"]] = new
 
     @property
-    def sampling_density(self):
+    def sampling_density_values(self):
         """Array holding the current marker 0form sampling density s0. The i-th row holds the i-th marker info."""
         return self.markers[self.valid_mks, self.index["s0"]]
 
-    @sampling_density.setter
-    def sampling_density(self, new):
+    @sampling_density_values.setter
+    def sampling_density_values(self, new):
         assert isinstance(new, xp.ndarray)
         assert new.shape == (self.n_mks_loc,)
         self._markers[self.valid_mks, self.index["s0"]] = new
@@ -1387,10 +1387,10 @@ class Particles(metaclass=ABCMeta):
                 )
 
             # compute s0 and save at vdim + 4
-            self.sampling_density = self.s0(*self.phasespace_coords.T, flat_eval=True)
+            self.sampling_density_values = self.s0(*self.phasespace_coords.T, flat_eval=True)
 
             # compute w0 and save at vdim + 5
-            self.weights0 = f_init / self.sampling_density / self.Np
+            self.weights0 = f_init / self.sampling_density_values / self.Np
 
         if self.reject_weights:
             reject = self.markers[:, self.index["w0"]] < self.threshold
@@ -1434,7 +1434,7 @@ class Particles(metaclass=ABCMeta):
         if self.is_volume_form[1]:
             f0 /= self.f0.velocity_jacobian_det(*self.f_jacobian_coords.T)
 
-        self.weights = self.weights0 - f0 / self.sampling_density / self.Np
+        self.weights = self.weights0 - f0 / self.sampling_density_values / self.Np
 
     @profile
     def binning(

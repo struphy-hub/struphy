@@ -255,22 +255,22 @@ class DeltaFParticles6D(Particles6D):
 class Particles5D(Particles):
     """
     Particles in the 5D guiding-center, drift-kinetic or gyro-kinetic phase space
-    :math:`(\\boldsymbol \\eta, v_\\parallel, v_\\perp) \\in [0, 1]^3 \\times \\mathbb R \\times \\mathbb R_{\\geq 0}`.
+    :math:`(\\boldsymbol \\eta, v_\\parallel, \mu) \\in [0, 1]^3 \\times \\mathbb R \\times \\mathbb R_{\\geq 0}`.
 
     Each marker carries a logical (curvilinear) position :math:`\\boldsymbol \\eta_p` together with the
-    parallel and perpendicular velocity coordinates
+    velocity coordinates
 
     .. math::
 
         v_{\\parallel, p} = \\mathbf v_p \\cdot \\mathbf b_0(\\boldsymbol \\eta_p) \\,, \\qquad
-        v_{\\perp, p} = \\left| \\mathbf v_p - v_{\\parallel, p} \\, \\mathbf b_0(\\boldsymbol \\eta_p) \\right| \\,,
+        \\mu_p = \\frac{1}{2 |\\mathbf B_0|} m |\\mathbf v_p|^2 - v_{\\parallel, p}^2 \\,,
 
     defined with respect to the equilibrium magnetic field :math:`\\mathbf B_0` and its unit vector
     :math:`\\mathbf b_0 = \\mathbf B_0 / |\\mathbf B_0|` (unlike :class:`Particles6D`, velocities are thus
     not Cartesian but expressed in a field-aligned basis that itself depends on :math:`\\boldsymbol \\eta_p`).
 
-    By default, three diagnostics columns are reserved (``default_n_cols["diagnostics"] = 3``), holding
-    each marker's guiding-center energy, magnetic moment and canonical toroidal momentum
+    By default, two diagnostics columns are reserved (``default_n_cols["diagnostics"] = 2``), holding
+    each marker's perpendicular energy and canonical toroidal momentum
     (see :meth:`save_constants_of_motion`).
 
     See :class:`~struphy.pic.base.Particles` for the structure of the numpy marker array and the meaning of its columns.
@@ -278,24 +278,24 @@ class Particles5D(Particles):
 
     # Class properties
     vdim = 2
-    """Dimension of the velocity space, here 2 (:math:`v_\\parallel, v_\\perp`)."""
-    default_background = maxwellians.GyroMaxwellian2Dvperp()
-    """Default sampling background is a gyrotropic Maxwellian in :math:`(v_\\parallel, v_\\perp)`."""
-    default_n_cols = {"diagnostics": 3, "aux": 12}
-    """Default number of buffer columns is 3 diagnostics (energy, magnetic moment, canonical toroidal
+    """Dimension of the velocity space, here 2 (:math:`v_\\parallel, \\mu`)."""
+    default_background = maxwellians.GyroMaxwellian2D()
+    """Default sampling background is a gyrotropic Maxwellian in :math:`(v_\\parallel, \\mu)`."""
+    default_n_cols = {"diagnostics": 2, "aux": 12}
+    """Default number of buffer columns is 2 diagnostics (perpendicular energy, canonical toroidal
     momentum, see :meth:`save_constants_of_motion`) and 12 auxiliary columns."""
 
     def __post_init__(self):
         """Retrieve the discrete equilibrium magnetic-field quantities (:math:`|B_0|`, unit 1-form
         :math:`\\mathbf b_0`, Derham complex) needed to project marker velocities onto
-        :math:`v_\\parallel, v_\\perp` and to evaluate diagnostics, and allocate the temporary
+        :math:`v_\\parallel, \\mu` and to evaluate diagnostics, and allocate the temporary
         FE coefficient vectors used for that."""
-        assert self.projected_equil is not None, "Particles5Dvperp needs a projected MHD equilibrium."
+        assert self.projected_equil is not None, "Particles5D needs a projected MHD equilibrium."
 
         # magnetic background
         if self.projected_equil is not None:
             assert isinstance(self.projected_equil, ProjectedFluidEquilibriumWithB), (
-                "Particles5Dvperp needs background with magnetic field."
+                "Particles5D needs background with magnetic field."
             )
 
         self._absB0_h = self.projected_equil.absB0
@@ -308,7 +308,7 @@ class Particles5D(Particles):
     @property
     def magn_bckgr(self):
         """Equilibrium fluid background carrying the magnetic field :math:`\\mathbf B_0` with respect to
-        which :math:`v_\\parallel, v_\\perp` are defined."""
+        which :math:`v_\\parallel, \\mu` are defined."""
         return self.equil
 
     @property
@@ -332,16 +332,16 @@ class Particles5D(Particles):
         """Discrete Derham complex of the projected equilibrium."""
         return self._derham
 
-    def svol(self, eta1, eta2, eta3, v_para, v_perp):
+    def svol(self, eta1, eta2, eta3, v_para, mu):
         """
         Sampling density function as volume form, used to draw markers via inverse transform/rejection
         sampling and to compute their initial weights (see :meth:`~struphy.pic.base.Particles.draw_markers`).
 
         This is a :class:`~struphy.kinetic_background.maxwellians.GyroMaxwellian2D` in
-        :math:`(v_\\parallel, v_\\perp)`, parametrized by the mean/thermal parallel and perpendicular velocities
-        in :attr:`loading_params` and by the equilibrium magnetic field :attr:`magn_bckgr`. It is normalized to
+        :math:`(v_\\parallel, \\mu)`, parametrized by the mean/thermal parallel velocity
+        and by the equilibrium magnetic field in :attr:`loading_params` . It is normalized to
         1 in logical space (i.e. uniform in ``eta1, eta2, eta3``) and already includes the polar-coordinate
-        Jacobian factor :math:`|v_\\perp|` (``volume_form=True``), further multiplied by ``2 * eta1`` if
+        Jacobian factor :math:`|\\mathbf B_0|` (``volume_form=True``), further multiplied by ``2 * eta1`` if
         :attr:`spatial` is ``"disc"``.
 
         Parameters
@@ -349,8 +349,8 @@ class Particles5D(Particles):
         eta1, eta2, eta3 : array_like
             Logical evaluation points.
 
-        v_para, v_perp : array_like
-            Parallel and perpendicular velocity evaluation points.
+        v_para, mu : array_like
+            Parallel velocity and magnetic moment evaluation points.
 
         Returns
         -------
@@ -360,21 +360,22 @@ class Particles5D(Particles):
         """
         if not hasattr(self, "_svol"):
             # load sampling density svol (normalized to 1 in logical space)
-            self._svol = maxwellians.GyroMaxwellian2Dvperp(
+            self._svol = maxwellians.GyroMaxwellian2D(
                 n=(1.0, None),
                 u_para=(self.loading_params.moments[0], None),
-                u_perp=(self.loading_params.moments[1], None),
+                u_perp=(0.0, None),
                 vth_para=(self.loading_params.moments[2], None),
                 vth_perp=(self.loading_params.moments[3], None),
                 volume_form=True,
                 equil=self.magn_bckgr,
+                B0=self.loading_params.B0,
             )
 
         if self.spatial == "uniform":
-            out = self._svol(eta1, eta2, eta3, v_para, v_perp)
+            out = self._svol(eta1, eta2, eta3, v_para, mu)
 
         elif self.spatial == "disc":
-            out = 2 * eta1 * self._svol(eta1, eta2, eta3, v_para, v_perp)
+            out = 2 * eta1 * self._svol(eta1, eta2, eta3, v_para, mu)
 
         else:
             raise NotImplementedError(
@@ -383,7 +384,7 @@ class Particles5D(Particles):
 
         return out
 
-    def s3(self, eta1, eta2, eta3, v_para, v_perp):
+    def s3(self, eta1, eta2, eta3, v_para, mu):
         """
         Sampling density function as 3-form, i.e. :meth:`svol` with the velocity-space
         (:math:`|v_\\perp|`) Jacobian factor divided back out via
@@ -395,8 +396,8 @@ class Particles5D(Particles):
         eta1, eta2, eta3 : array_like
             Logical evaluation points.
 
-        v_para, v_perp : array_like
-            Parallel and perpendicular velocity evaluation points.
+        v_para, mu : array_like
+            Parallel velocity and magnetic moment evaluation points.
 
         Returns
         -------
@@ -405,11 +406,11 @@ class Particles5D(Particles):
         -------
         """
 
-        return self.svol(eta1, eta2, eta3, v_para, v_perp) / self._svol.velocity_jacobian_det(
-            eta1, eta2, eta3, v_para, v_perp
+        return self.svol(eta1, eta2, eta3, v_para, mu) / self._svol.velocity_jacobian_det(
+            eta1, eta2, eta3, v_para, mu
         )
 
-    def s0(self, eta1, eta2, eta3, v_para, v_perp, flat_eval=False, remove_holes=True):
+    def s0(self, eta1, eta2, eta3, v_para, mu, flat_eval=False, remove_holes=True):
         """
         Sampling density function as 0-form, i.e. :meth:`s3` pushed forward to a pointwise density by
         dividing out the spatial metric Jacobian determinant via
@@ -421,8 +422,8 @@ class Particles5D(Particles):
         eta1, eta2, eta3 : array_like
             Logical evaluation points.
 
-        v_para, v_perp : array_like
-            Parallel and perpendicular velocity evaluation points.
+        v_para, mu : array_like
+            Parallel velocity and magnetic moment evaluation points.
 
         flat_eval : bool
             If true, perform flat (marker) evaluation (etas must be same size 1D).
@@ -438,24 +439,13 @@ class Particles5D(Particles):
         """
 
         return self.domain.transform(
-            self.s3(eta1, eta2, eta3, v_para, v_perp),
+            self.s3(eta1, eta2, eta3, v_para, mu),
             eta1,
             eta2,
             eta3,
             flat_eval=flat_eval,
             kind="3_to_0",
             remove_outside=remove_holes,
-        )
-
-    def draw_markers(self, sort: bool = True):
-        super().draw_markers(sort=sort)
-
-        # magnetic moment is an adiabatic invariant: evaluate once at draw time (diagnostics column 1)
-        utilities_kernels.eval_magnetic_moment_5d(
-            self.markers,
-            self.derham.args_derham,
-            self.first_diagnostics_idx,
-            self._absB0_h._data,
         )
 
     def save_constants_of_motion(self):
@@ -537,20 +527,7 @@ class Particles5D(Particles):
             self.first_diagnostics_idx,
             self.absB0_h._data,
         )
-
-    def save_magnetic_moment(self):
-        r"""
-        Calculate the magnetic moment of each marker and assign it into the magnetic-moment
-        diagnostics column (``self.first_diagnostics_idx + 1``).
-        """
-
-        utilities_kernels.eval_magnetic_moment_5d(
-            self.markers,
-            self.derham.args_derham,
-            self.first_diagnostics_idx,
-            self.absB0_h._data,
-        )
-
+        
 
 class Particles5Dvperp(Particles):
     """

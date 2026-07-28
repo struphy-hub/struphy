@@ -108,21 +108,6 @@ class KineticBackground(metaclass=ABCMeta):
         pass
 
     @property
-    def gauss_types(self) -> tuple[LiteralOptions.OptsGaussianCoordinate]:
-        """Velocity coordinate types of the Maxwellian (one per velocity dimension)."""
-        if self.velocity_coords == "cartesian":
-            self._gauss_types = ("cartesian",) * self.vdim
-        elif self.velocity_coords == "vpara_vperp":
-            self._gauss_types = ("cartesian", "polar")
-        elif self.velocity_coords == "vpara_mu":
-            self._gauss_types = ("cartesian", "energy")
-        else:
-            raise ValueError(
-                f"Unknown velocity coordinates {self.velocity_coords}, must be one of ['cartesian', 'vpara_vperp', 'vpara_mu']"
-            )
-        return self._gauss_types
-
-    @property
     def params(self) -> dict:
         """Parameters passed to __init__(), as dictionary."""
         if not hasattr(self, "_params"):
@@ -557,9 +542,26 @@ class Maxwellian(KineticBackground):
     #     for k, v in self.maxw_params.items():
     #         out += f"\n            {k}: {v}"
     #     return out
+    
+    @property
+    def gauss_types(self) -> tuple[LiteralOptions.OptsGaussianCoordinate]:
+        """Velocity coordinate types of the Maxwellian (one per velocity dimension)."""
+        if self.velocity_coords == "cartesian":
+            self._gauss_types = ("cartesian",) * self.vdim
+        elif self.velocity_coords == "vpara_vperp":
+            self._gauss_types = ("cartesian", "polar")
+        elif self.velocity_coords == "vpara_mu":
+            self._gauss_types = ("cartesian", "mu")
+        elif self.velocity_coords == "vpara_energy":
+            self._gauss_types = ("cartesian", "energy")
+        else:
+            raise ValueError(
+                f"Unknown velocity coordinates {self.velocity_coords}, must be one of ['cartesian', 'vpara_vperp', 'vpara_mu', 'vpara_energy']"
+            )
+        return self._gauss_types
 
     @classmethod
-    def gaussian(self, v, u=0.0, vth=1.0, type: LiteralOptions.OptsGaussianCoordinate = "cartesian", volume_form=False):
+    def gaussian(self, v, u=0.0, vth=1.0, B0=2.0, type: LiteralOptions.OptsGaussianCoordinate = "cartesian", volume_form=False):
         r"""1-dim. normal distribution, to which array-valued mean- and thermal velocities can be passed.
 
         The ``type`` selects the velocity coordinate of the Maxwellian:
@@ -594,13 +596,18 @@ class Maxwellian(KineticBackground):
             Velocity coordinate; must be non-negative if ``type`` is ``"polar"`` or ``"energy"``.
 
         u : float | array-like
-            Mean velocity evaluated at position array; must be 0 unless ``type == "cartesian"``.
+            Mean velocity evaluated at position array, same shape as v.
+            Must be 0 unless ``type == "cartesian"``.
 
         vth : float | array-like
-            Thermal velocity evaluated at position array, same shape as u.
+            Thermal velocity evaluated at position array, same shape as v.
+            
+        B0: float | array-like
+            Background magnetic field evaluated at position array, same shape as v. 
+            Only used for ``type == "mu"``.
 
         type : str
-            Velocity coordinate type, one of ``"cartesian"``, ``"polar"``, ``"energy"``.
+            Velocity coordinate type, one of ``"cartesian"``, ``"polar"``, ``"mu"``, ``"energy"``.
 
         volume_form : bool
             If True, multiply by the polar velocity Jacobian |v|. Only valid for ``type == "polar"``.
@@ -610,8 +617,13 @@ class Maxwellian(KineticBackground):
         An array of size(v).
         """
 
-        if isinstance(v, xp.ndarray) and isinstance(u, xp.ndarray):
-            assert v.shape == u.shape, f"{v.shape =} but {u.shape =}"
+        if isinstance(v, xp.ndarray):
+            if isinstance(u, xp.ndarray):
+                assert v.shape == u.shape, f"{v.shape =} but {u.shape =}"
+            if isinstance(vth, xp.ndarray):
+                assert v.shape == vth.shape, f"{v.shape =} but {vth.shape =}"
+            if isinstance(B0, xp.ndarray):
+                assert v.shape == B0.shape, f"{v.shape =} but {B0.shape =}"
 
         if type == "cartesian":
             out = 1.0 / vth * 1.0 / xp.sqrt(2.0 * xp.pi) * xp.exp(-((v - u) ** 2) / (2.0 * vth**2))
@@ -621,16 +633,19 @@ class Maxwellian(KineticBackground):
             out = 1.0 / vth**2 * xp.exp(-(v**2) / (2.0 * vth**2))
             if volume_form:
                 out *= v
+        elif type == "mu":
+            assert xp.all(v >= 0.0)
+            assert xp.all(u == 0.0)
+            out = 1.0 / vth**2 * xp.exp(-v*B0 / vth**2)
+            if volume_form:
+                out *= B0
         elif type == "energy":
             assert xp.all(v >= 0.0)
             assert xp.all(u == 0.0)
-            assert not volume_form, (
-                "Jacobian determinant cannot be multiplied for energy coordinates, as it depends on the background magentic field (B^*)."
-            )
             out = 1.0 / vth**2 * xp.exp(-v / vth**2)
         else:
             raise ValueError(
-                f"Unknown Gaussian coordinate type {type}. Must be one of ['cartesian', 'polar', 'energy']."
+                f"Unknown Gaussian coordinate type {type}. Must be one of ['cartesian', 'polar', 'mu', 'energy']."
             )
 
         return out
