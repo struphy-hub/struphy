@@ -37,7 +37,7 @@ def main() -> None:
     profiling_case.setup_run()
 
     # Launch one run per rank count
-    for num_tasks in (2, 4, 8, 16, 32, 64):
+    for num_tasks in (2, 4, 8, 16, 32, 64, 128, 256):
         profiling_case.launch(num_tasks)
 
     # --------------------------------------------------------------------- #
