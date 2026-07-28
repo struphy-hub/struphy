@@ -12,7 +12,7 @@ and drives the run itself, looping over whichever rank counts it wants to profil
   writes/launches a plain bash script (otherwise) — the caller doesn't need to know
   which. Pass `case_commands` to override the default commands (e.g. to add a
   case-specific flag such as an arbitrary `ppc`) before they're wrapped in a script.
-  Under SLURM, the cluster preset is picked (and cached) on the first call, from
+  Under SLURM, the cluster preset is picked on each call from
   `cluster_presets.CLUSTER_PRESETS` unless a `cluster_presets` argument overrides it.
 - `ProfilingCase.finalize_run` waits for every rank count to finish, then builds the
   comparison plot and packages/uploads the results, once per case.
@@ -115,7 +115,6 @@ class ProfilingCase:
     use_slurm: bool | None = field(init=False, default=None)
     use_modules: bool | None = field(init=False, default=None)
     launcher: str | None = field(init=False, default=None)
-    cluster_preset: dict | None = field(init=False, default=None)
 
     # Populated by `launch`, one entry per rank count; read by `finalize_run`.
     job_infos: list[dict] = field(init=False, default_factory=list)
@@ -242,9 +241,8 @@ class ProfilingCase:
                 `build_commands(num_tasks, param_flags)` (e.g. to inject a step
                 `build_commands` has no hook for).
             cluster_presets: Candidate SLURM presets, keyed by cluster name; one is
-                picked via `detect_cluster_name` and cached as `self.cluster_preset`
-                on the first SLURM launch. Defaults to `cluster_presets.CLUSTER_PRESETS`.
-                Ignored outside SLURM, and on any launch after the first.
+                picked via `detect_cluster_name` on every call. Defaults to
+                `cluster_presets.CLUSTER_PRESETS`. Ignored outside SLURM.
 
         Raises:
             ValueError: If `num_tasks` is not evenly divisible by `num_nodes`
@@ -265,15 +263,14 @@ class ProfilingCase:
             if num_tasks % num_nodes != 0:
                 raise ValueError(f"num_tasks ({num_tasks}) is not evenly divisible by num_nodes ({num_nodes}).")
 
-            if self.cluster_preset is None:
-                presets = cluster_presets if cluster_presets is not None else CLUSTER_PRESETS
-                self.cluster_preset = presets[self.detect_cluster_name(presets)]
+            presets = cluster_presets if cluster_presets is not None else CLUSTER_PRESETS
+            cluster_preset = presets[self.detect_cluster_name(presets)]
 
             script = SlurmScript(
                 job_name=f"profiling_{self.label}_ranks{num_tasks}",
                 ntasks_per_node=num_tasks // num_nodes,
                 custom_commands=case_commands,
-                **{**self.cluster_preset, "nodes": num_nodes},
+                **{**cluster_preset, "nodes": num_nodes},
             )
             script_text = str(script)
             job_id = script.submit_job(str(script_path))
@@ -309,8 +306,8 @@ class ProfilingCase:
         everything it computes as attributes on `self` (`venv_path`,
         `compiler_instance`, `run_commit`, `output_root`, `run_results_root`,
         `case_output_root`, `use_slurm`, `use_modules`, `launcher`), for the
-        caller's loop and `finalize_run` to read. `cluster_preset` is resolved
-        lazily by `launch`, since it needs the cluster presets passed there.
+        caller's loop and `finalize_run` to read. The cluster preset itself is
+        resolved by `launch`, since it needs the cluster presets passed there.
 
         Raises:
             RuntimeError: If no virtual environment is active, or if no MPI
