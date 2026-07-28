@@ -2,18 +2,16 @@
 
 A concrete profiling job (e.g. ``run_diocotron.py``) defines its own `ProfilingCase`
 and drives the run itself, looping over whichever rank counts it wants to profile.
-Keeping that loop in the caller (rather than behind one `ProfilingCase.run()` call)
-is deliberate: it is the place to tweak the per-rank shell commands with
-case-specific flags (e.g. an arbitrary `ppc`) before they are wrapped in a
-`SlurmScript` or plain bash script.
 
 - `ProfilingCase.setup_run` parses CLI args, validates the venv, compiles Struphy, and
   creates the results directories. It stores everything it computes as attributes on
   the case itself (`venv_path`, `use_slurm`, `launcher`, `case_output_root`, ...), so
   there's a single object to thread through the rest of the run.
-- For each rank count, the caller builds `ProfilingCase.build_commands` and either
-  constructs its own `SlurmScript` (under SLURM) or writes/launches a plain bash
-  script (otherwise) — see `run_diocotron.py` for the loop.
+- For each rank count, the caller calls `ProfilingCase.launch(ntasks)`, which builds
+  the per-rank shell commands and either submits a `SlurmScript` (under SLURM) or
+  writes/launches a plain bash script (otherwise) — the caller doesn't need to know
+  which. Pass `case_commands` to override the default commands (e.g. to add a
+  case-specific flag such as an arbitrary `ppc`) before they're wrapped in a script.
 - `ProfilingCase.finalize_run` waits for every rank count to finish, then builds the
   comparison plot and packages/uploads the results, once per case.
 
@@ -34,6 +32,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from package_profiling_results import MACHINE_PARAMS_FILE, detect_machine_name, package_testcase
+from slurm_script_generator.slurm_script import SlurmScript
 from slurm_script_generator.squeue import SQueue
 from upload import _push_profiling_data
 
@@ -149,6 +148,11 @@ class ProfilingCase:
     launcher: str | None = field(init=False, default=None)
     cluster_preset: dict | None = field(init=False, default=None)
 
+    # Populated by `launch`, one entry per rank count; read by `finalize_run`.
+    job_infos: list[dict] = field(init=False, default_factory=list)
+    job_ids: list[int] = field(init=False, default_factory=list)
+    local_processes: list[tuple[int, subprocess.Popen, Path]] = field(init=False, default_factory=list)
+
     def detect_cluster_name(self) -> str:
         """Pick the cluster preset for the current machine.
 
@@ -219,6 +223,64 @@ class ProfilingCase:
             'echo "----------------------------------------"',
         ]
 
+    def launch(
+        self,
+        num_tasks: int = 1,
+        num_nodes: int = 1,
+        param_flags: str = "",
+        case_commands: list[str] | None = None,
+    ) -> None:
+        """Build, submit/launch, and record the run for a single rank count.
+
+        Under SLURM, submits a `SlurmScript`; otherwise writes and runs a plain bash
+        script locally. Either way, the resulting job/process is recorded on `self`
+        for `finalize_run` to wait on and package. `param_flags` is forwarded to
+        `build_commands` and appended to the `params_source` invocation (e.g.
+        `"--ppc 10"`). Pass `case_commands` instead to fully override the generated
+        commands (e.g. to inject a step `build_commands` has no hook for).
+        """
+        if case_commands is None:
+            case_commands = self.build_commands(num_tasks, param_flags)
+        script_path = repo_root / f"job_profile_{self.label}_ranks{num_tasks}.sh"
+
+        if self.use_slurm:
+            cluster_kwargs = dict(self.cluster_preset)
+            if num_tasks % num_nodes != 0:
+                raise ValueError(f"ntasks ({num_tasks}) is not evenly divisible by nodes ({num_nodes}).")
+
+            script = SlurmScript(
+                job_name=f"profiling_{self.label}_ranks{num_tasks}",
+                ntasks_per_node=num_tasks // num_nodes,
+                custom_commands=case_commands,
+                **cluster_kwargs,
+            )
+            script_text = str(script)
+            job_id = script.submit_job(str(script_path))
+            print(f"Submitted '{self.label}' ({num_tasks} MPI ranks) as job {job_id}.")
+            script_dict = script.to_dict()
+            self.job_ids.append(job_id)
+        else:
+            script_text = "\n".join(["#!/bin/bash", *case_commands, ""])
+            script_path.write_text(script_text, encoding="utf-8")
+            script_path.chmod(0o755)
+
+            print(
+                f"No batch system found; launching '{self.label}' ({num_tasks} MPI ranks) "
+                f"locally via {script_path} ...",
+            )
+            process = subprocess.Popen(["bash", str(script_path)], cwd=repo_root)
+            script_dict = None
+            self.local_processes.append((num_tasks, process, script_path))
+
+        self.job_infos.append(
+            {
+                "ranks": num_tasks,
+                "job_script_path": str(script_path),
+                "job_script": script_text,
+                "slurm_dict": script_dict,
+            },
+        )
+
     def setup_run(self) -> None:
         """Parse CLI args, validate the venv, compile Struphy, and create the results dirs.
 
@@ -275,15 +337,10 @@ class ProfilingCase:
         self.use_modules = self.use_slurm and has_module_system()
         self.launcher = detect_launcher()
 
-    def finalize_run(
-        self,
-        job_infos: list[dict],
-        job_ids: list[int],
-        local_processes: list[tuple[int, subprocess.Popen, Path]],
-    ) -> None:
+    def finalize_run(self) -> None:
         """Wait for every rank count to finish, then build comparison plots and package/push results.
 
-        Called once per case, after every rank count has been submitted/launched.
+        Called once per case, after every rank count has been submitted/launched via `launch`.
         """
         print(
             f"Writing metadata for '{self.label}' to {self.case_output_root / 'profiling_case_info.json'}",
@@ -300,7 +357,7 @@ class ProfilingCase:
                     "compiler": self.compiler_instance.to_dict(),
                     "scheduler": "slurm" if self.use_slurm else "local",
                     "parameter_file": str(self.params_source),
-                    "jobs": job_infos,
+                    "jobs": self.job_infos,
                 },
                 indent=2,
             ),
@@ -310,12 +367,12 @@ class ProfilingCase:
         # Wait for every rank count to finish before packaging anything.
         if self.use_slurm:
             print(
-                f"Submitted {len(job_ids)} job(s) for '{self.label}'. Waiting for all of them to complete...",
+                f"Submitted {len(self.job_ids)} job(s) for '{self.label}'. Waiting for all of them to complete...",
             )
-            SQueue().wait_until_done(job_id=job_ids, poll_interval=10)
+            SQueue().wait_until_done(job_id=self.job_ids, poll_interval=10)
         else:
-            print(f"Waiting for {len(local_processes)} local run(s) of '{self.label}' to complete...")
-            for ntasks, process, script_path in local_processes:
+            print(f"Waiting for {len(self.local_processes)} local run(s) of '{self.label}' to complete...")
+            for ntasks, process, script_path in self.local_processes:
                 returncode = process.wait()
                 if returncode != 0:
                     print(

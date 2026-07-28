@@ -6,7 +6,8 @@ each `ProfilingCase`.
 
 CLUSTER_PRESETS: dict[str, dict] = {
     "pitagora": {
-        "nodes": 1,
+        # "nodes": 1, # Should be set by ProfilingCase.launch()
+        # "ntasks_per_node": 1,  # Should be set by ProfilingCase.launch()
         "cpus_per_task": 1,
         "mem": "480GB",
         "partition": "dcgp_fua_dbg",
@@ -17,7 +18,6 @@ CLUSTER_PRESETS: dict[str, dict] = {
         "time": "00:15:00",
     },
     "tok": {
-        "nodes": 1,
         "cpus_per_task": 1,
         "mem_per_cpu": "1GB",
         "partition": "s.tok",
