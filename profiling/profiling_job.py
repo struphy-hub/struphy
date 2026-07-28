@@ -366,25 +366,6 @@ class ProfilingCase:
                         f"exited with code {returncode}.",
                     )
 
-        # Comparison plot across all rank counts, now that every one of them has finished.
-        h5_files = sorted(self.case_output_root.glob("sim_ranks*/profiling_data.h5"))
-        if h5_files:
-            figures_dir = self.case_output_root / "figures"
-            subprocess.run(
-                [
-                    "scope-profiler",
-                    "pproc",
-                    *[str(h5_file) for h5_file in h5_files],
-                    "--rank",
-                    "0",
-                    "-o",
-                    str(figures_dir),
-                ],
-                check=False,
-            )
-        else:
-            print(f"No profiling_data.h5 produced for '{self.label}'; skipping comparison plots.")
-
         # Package the results of this profiling case and push to the profiling-data repo.
         # Packaging only what this job actually produced means a case that never ran
         # (or failed before writing output) is not packaged/uploaded.
