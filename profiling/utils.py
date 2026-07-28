@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import random
+import re
 import shutil
 import subprocess
 import tempfile
@@ -9,6 +10,30 @@ import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
+
+
+def _slug(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]+", "_", value).strip("._-") or "unknown"
+
+
+def _run_command(command: list[str]) -> dict[str, Any]:
+    try:
+        result = subprocess.run(
+            command,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except (FileNotFoundError, OSError) as exc:
+        # e.g. `lscpu` or `scontrol` are not available outside a Linux/SLURM machine.
+        return {"command": command, "returncode": 127, "stdout": "", "stderr": str(exc)}
+    return {
+        "command": command,
+        "returncode": result.returncode,
+        "stdout": result.stdout.strip(),
+        "stderr": result.stderr.strip(),
+    }
 
 
 def _make_unique_results_root(base_dir: Path, run_token: str) -> Path:

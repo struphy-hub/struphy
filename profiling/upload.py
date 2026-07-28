@@ -35,6 +35,7 @@ def _push_profiling_data(packaged_dirs: list[Path], run_commit: str) -> None:
         subprocess.run(["git", "-C", str(clone_dir), "add", "."], check=True)
         status = subprocess.run(
             ["git", "-C", str(clone_dir), "diff", "--cached", "--quiet"],
+            check=False,
         )
         if status.returncode == 0:
             print("No changes to push to profiling-data repo.")
@@ -53,7 +54,7 @@ def _push_profiling_data(packaged_dirs: list[Path], run_commit: str) -> None:
         )
 
         for attempt in range(5):
-            push_result = subprocess.run(["git", "-C", str(clone_dir), "push"])
+            push_result = subprocess.run(["git", "-C", str(clone_dir), "push"], check=False)
             if push_result.returncode == 0:
                 print(
                     f"Pushed {len(packaged_dirs)} profiling data folder(s) to {repo_url}.",
