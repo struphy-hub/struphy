@@ -18,7 +18,7 @@ and drives the run itself, looping over whichever rank counts it wants to profil
   comparison plot and packages/uploads the results, once per case.
 
 The remaining module-level functions are generic helpers with no case-specific
-knowledge (installing `whereami`, detecting the MPI launcher/module system).
+knowledge (detecting the MPI launcher/module system).
 
 See `profile_diocotron_scaling.py` for a template.
 """
@@ -33,7 +33,6 @@ from pathlib import Path
 
 from cluster_presets import SLURM_PRESETS, HARDWARE_INFO
 from package_profiling_results import (
-    MACHINE_PARAMS_FILE,
     detect_machine_name,
     package_testcase,
 )
@@ -50,33 +49,6 @@ profiling_results_base = repo_root / "results" / "profiling"
 latest_results_root_path = profiling_results_base / "latest_run_root.txt"
 
 default_cluster_name = "pitagora"
-
-# Installs `whereami` and `load_modules` into the directory passed to the script.
-whereami_install_url = "https://raw.githubusercontent.com/max-models/whereami/main/install.sh"
-
-
-def install_whereami(venv_path: Path) -> None:
-    """Install `whereami` into the venv's bin directory, from the login node.
-
-    Compute nodes have no outbound network, so this must happen before `sbatch`. The
-    venv lives on a shared filesystem, so the job picks the executable up from `PATH`
-    once it activates the same venv.
-
-    A failed install is not fatal: the job then produces no `machine_params.json` and
-    packaging records `machine_params_file: null`.
-    """
-    install_dir = venv_path / "bin"
-    print(f"Installing whereami into {install_dir} ...")
-    result = subprocess.run(
-        f'curl -fsSL {whereami_install_url} | bash -s -- "{install_dir}"',
-        shell=True,
-        check=False,
-    )
-    if result.returncode != 0:
-        print(
-            f"WARNING: installing whereami failed (exit code {result.returncode}); "
-            "the job will not record machine parameters.",
-        )
 
 
 def has_module_system() -> bool:
@@ -175,10 +147,6 @@ class ProfilingCase:
             'echo "----------------------------------------"',
             f'mkdir -p "{output_root}"',
             f'cp "{self.params_source}" "{output_root / "parameters.py"}"',
-            # Record the machine parameters of the node this job runs on. `whereami`
-            # was installed into the venv by `install_whereami` before submission,
-            # since compute nodes have no network access.
-            f'whereami --output "{output_root / MACHINE_PARAMS_FILE}"',
             f'ls -l "{output_root}"',
             "",
             f'echo "Running {self.label} with {ntasks} MPI ranks"',
@@ -311,10 +279,6 @@ class ProfilingCase:
                 "VIRTUAL_ENV is not set; activate a virtual environment before submitting the job.",
             )
         self.venv_path = Path(virtual_env)
-
-        # Install whereami here, on the login node: the compute nodes running the job
-        # have no outbound network access.
-        install_whereami(self.venv_path)
 
         # Compile Struphy kernels with the case's language and compiler
         self.compiler_instance = Compiler(language=self.language, compiler=self.compiler)

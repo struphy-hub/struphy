@@ -10,8 +10,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-# Written by `whereami` during the job, one per profiling case.
-MACHINE_PARAMS_FILE = "machine_params.json"
 # Written by `Simulation.run()`, one per `sim_ranks<N>` run directory.
 RUN_METADATA_FILE = "run_metadata.json"
 
@@ -267,37 +265,8 @@ def detect_machine_name() -> str | None:
     return None
 
 
-def _copy_machine_params(testcase_dir: Path, destination_dir: Path) -> str | None:
-    """Copy the `whereami` JSON export produced by the job next to the packaged data.
-
-    The file is stored verbatim, not parsed. If the job did not produce one (older
-    run, or `whereami` install failed), it is regenerated here as a best effort.
-    Returns the packaged file name, or None if no parameters could be obtained.
-    """
-    source = testcase_dir / MACHINE_PARAMS_FILE
-    destination = destination_dir / MACHINE_PARAMS_FILE
-
-    if not source.exists():
-        executable = shutil.which("whereami")
-        if executable is None:
-            print(f"No {MACHINE_PARAMS_FILE} in {testcase_dir} and `whereami` is not on PATH; skipping.")
-            return None
-        result = _run_command([executable, "--output", str(destination)])
-        if result["returncode"] != 0 or not destination.exists():
-            print(f"`whereami --output` failed: {result['stderr'] or result['stdout']}")
-            return None
-        return MACHINE_PARAMS_FILE
-
-    shutil.copy2(source, destination)
-    return MACHINE_PARAMS_FILE
-
-
 def _collect_hardware_info() -> dict[str, Any]:
-    """Description of the machine the profiling job ran on.
-
-    CPU/GPU details are not repeated here: they live in the `whereami` export
-    (`machine_params.json`) that is packaged alongside this metadata.
-    """
+    """Description of the machine the profiling job ran on."""
     cluster_name = (
         detect_machine_name()
         or os.environ.get("SLURM_CLUSTER_NAME")
@@ -463,10 +432,6 @@ def package_testcase(
         )
 
     hardware_information = _collect_hardware_info()
-    hardware_information["machine_params_file"] = _copy_machine_params(
-        testcase_dir=testcase_dir,
-        destination_dir=destination_dir,
-    )
 
     metadata = {
         "general_information": {
