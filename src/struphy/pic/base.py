@@ -414,14 +414,19 @@ class Particles(metaclass=ABCMeta):
         """Can be used for checks on the constructor arguments and for setting additional attributes in subclasses."""
         pass
 
+    @property
     @abstractmethod
-    def svol(self, eta1, eta2, eta3, *v):
-        r"""Marker sampling distribution function :math:`s^\textrm{vol}` as a volume form, see :ref:`monte_carlo`."""
+    def sampling_density(self):
+        """Marker sampling density function :math:`s^\textrm{vol}` as a volume form, see :ref:`monte_carlo`.
+        Must be normalized to 1. Its coordinates are the coordinates used in Monte-Carlo Integrals
+        approximated by the particles."""
         pass
 
     @abstractmethod
     def s0(self, eta1, eta2, eta3, *v, flat_eval=False, remove_holes=True):
-        r"""Marker sampling distribution function :math:`s^0` as 0-form, see :ref:`monte_carlo`."""
+        r"""0-form corresponding to :ref:`~struphy.pic.base.Particles.sampling_density`.
+        This is the quantity stored in each marker's ``s0`` column (see the class docstring) 
+        and used to compute initial weights ``w0 = f_init / s0 / Np``."""
         pass
 
     # ------------------------------------
@@ -1459,7 +1464,7 @@ class Particles(metaclass=ABCMeta):
             String literal used to determine weights in binning and the type of output
 
         divide_by_jac : bool
-            Whether to divide the weights by the Jacobian determinant for binning.
+            Whether to divide the weights by the Jacobian determinant for binning (default: True).
 
         Returns
         -------

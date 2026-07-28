@@ -98,7 +98,10 @@ def test_binning_6D_full_f(mapping, show_plot=False):
         plt.xlabel(r"$v_1$")
         plt.ylabel(r"$f(v_1)$")
         plt.legend()
+        
+        particles.f_init.plot_density_profile("v1")
         plt.show()
+        
 
     l2_error = xp.sqrt(xp.sum((ana_res - binned_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
 
@@ -1386,38 +1389,38 @@ if __name__ == "__main__":
             ],
             show_plot=True,
         )
-        test_binning_6D_delta_f(
-            mapping=[
-                "Cuboid",
-                # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
-                {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
-            ],
-            show_plot=True,
-        )
-        test_binning_current_6D_full_f(
-            mapping=[
-                "Cuboid",
-                # {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0},
-                {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
-            ],
-            show_plot=True,
-        )
-        test_binning_energy_tensor_6D_full_f(
-            mapping=[
-                "Cuboid",
-                # {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0},
-                {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
-            ],
-            show_plot=True,
-        )
-        test_binning_heat_flux_6D_full_f(
-            mapping=[
-                "Cuboid",
-                # {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0},
-                {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
-            ],
-            show_plot=True,
-        )
+        # test_binning_6D_delta_f(
+        #     mapping=[
+        #         "Cuboid",
+        #         # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
+        #         {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
+        #     ],
+        #     show_plot=True,
+        # )
+        # test_binning_current_6D_full_f(
+        #     mapping=[
+        #         "Cuboid",
+        #         # {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0},
+        #         {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
+        #     ],
+        #     show_plot=True,
+        # )
+        # test_binning_energy_tensor_6D_full_f(
+        #     mapping=[
+        #         "Cuboid",
+        #         # {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0},
+        #         {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
+        #     ],
+        #     show_plot=True,
+        # )
+        # test_binning_heat_flux_6D_full_f(
+        #     mapping=[
+        #         "Cuboid",
+        #         # {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0},
+        #         {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
+        #     ],
+        #     show_plot=True,
+        # )
     else:
         test_binning_6D_full_f_mpi(
             mapping=[

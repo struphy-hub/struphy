@@ -535,6 +535,10 @@ class Maxwellian(KineticBackground):
                 assert len(v) == 2
                 assert isinstance(v[0], (float, int, Callable))
                 assert isinstance(v[1], Perturbation) or v[1] is None
+                
+        # check for uniform drawing on disc
+        if self.params.get("uniform_on_disc", False):
+            assert self.params.get("n") == (1.0, None), "Uniform drawing on disc requires n=1.0 without perturbation."
 
     # def __repr__(self):
     #     out = f"    {self.__class__.__name__}:"
@@ -798,6 +802,13 @@ class Maxwellian(KineticBackground):
                 out += perturbation(*coords)
             else:
                 out += perturbation(*etas)
+                
+        # uniform density on disc (n=2 eta_1)
+        if name == "n" and self.params.get("uniform_on_disc", False):
+            if coords[0].ndim == 1:
+                out *= 2.0 * coords[0]
+            else:
+                out *= 2.0 * etas[0]
 
         return out
 

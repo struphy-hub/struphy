@@ -21,6 +21,9 @@ class Maxwellian3D(Maxwellian):
     n, ui, vthi : tuple
         Moments of the Maxwellian as tuples. The first entry defines the background
         (float for constant background or callable), the second entry defines a Perturbation (can be None).
+        
+    uniform_on_disc : bool
+        Whether the density n is uniform on the disc.
     """
 
     def __init__(
@@ -32,6 +35,7 @@ class Maxwellian3D(Maxwellian):
         vth1: tuple[float | Callable, Perturbation] = (1.0, None),
         vth2: tuple[float | Callable, Perturbation] = (1.0, None),
         vth3: tuple[float | Callable, Perturbation] = (1.0, None),
+        uniform_on_disc: bool = False,
     ):
         # use setter to store input parameters
         self.params = copy.deepcopy(locals())
@@ -141,6 +145,9 @@ class GyroMaxwellian2D(Maxwellian):
 
     B0: float | Callable
         Constant or callable background magnetic field strength (default = 2.0).
+        
+    uniform_on_disc : bool
+        Whether the density n is uniform on the disc.
     """
 
     def __init__(
@@ -152,6 +159,7 @@ class GyroMaxwellian2D(Maxwellian):
         vth_perp: tuple[float | Callable, Perturbation] = (1.0, None),
         volume_form: bool = True,
         B0: float | Callable = 2.0,
+        uniform_on_disc: bool = False,
     ):
         # use setter to store input parameters
         self.params = copy.deepcopy(locals())
@@ -295,6 +303,9 @@ class GyroMaxwellian2Dvperp(Maxwellian):
         Whether to represent the Maxwellian as a volume form;
         if True it is multiplied by the Jacobian determinant |v_perp|
         of the polar coordinate transofrmation (default = False).
+        
+    uniform_on_disc : bool
+        Whether the density n is uniform on the disc (default = False).
     """
 
     def __init__(
@@ -306,6 +317,7 @@ class GyroMaxwellian2Dvperp(Maxwellian):
         vth_perp: tuple[float | Callable, Perturbation] = (1.0, None),
         equil: FluidEquilibriumWithB = None,
         volume_form: bool = True,
+        uniform_on_disc: bool = False,
     ):
         # use setter to store input parameters
         self.params = copy.deepcopy(locals())
@@ -952,6 +964,7 @@ class ColdPlasma(Maxwellian):
         u2: tuple[float | Callable, Perturbation] = (0.0, None),
         u3: tuple[float | Callable, Perturbation] = (0.0, None),
         equil: FluidEquilibriumWithB = None,
+        uniform_on_disc: bool = False,
     ):
         # use setter to store input parameters
         self.params = copy.deepcopy(locals())
@@ -971,7 +984,7 @@ class ColdPlasma(Maxwellian):
     @property
     def velocity_coords(self) -> LiteralOptions.VelocityCoordinates:
         """Velocity coordinates of the background."""
-        return "cartesian"
+        return None
 
     @property
     def volume_form(self):
@@ -985,7 +998,7 @@ class ColdPlasma(Maxwellian):
 
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
         """Jacobian determinant of the velocity coordinate transformation."""
-        return 1.0
+        return 1.0 + 0.0 * eta1
 
     def n(self, eta1, eta2, eta3):
         """Zero-th moment (density)."""

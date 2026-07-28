@@ -30,7 +30,7 @@ class Particles6D(Particles):
     vdim = 3
     """Dimension of the (Cartesian) velocity space, here 3."""
     default_background = maxwellians.Maxwellian3D()
-    """Default sampling background is a 3D Cartesian Maxwellian."""
+    """Default kinetic background is a 3D Cartesian Maxwellian."""
     default_n_cols = {"diagnostics": 0, "aux": 5}
     """Default number of buffer columns reserved for diagnostics and auxiliary (pusher/free) use."""
 
@@ -44,8 +44,9 @@ class Particles6D(Particles):
             self._absB0_h = self.projected_equil.absB0
             self._b2_h = self.projected_equil.b2
             self._derham = self.projected_equil.derham
-
-    def svol(self, eta1, eta2, eta3, vx, vy, vz):
+            
+    @property
+    def sampling_density(self):
         """Sampling density function as volume form, used to draw markers via inverse transform/rejection
         sampling and to compute their initial weights (see :meth:`~struphy.pic.base.Particles.draw_markers`).
 
@@ -54,24 +55,9 @@ class Particles6D(Particles):
         with density normalized to 1 (i.e. uniform in ``eta1, eta2, eta3``), further multiplied by the
         Jacobian factor ``2 * eta1`` if :attr:`spatial` is ``"disc"`` (to sample uniformly in physical
         space on a disc, where ``eta1`` plays the role of a normalized radius).
-
-        Parameters
-        ----------
-        eta1, eta2, eta3 : array_like
-            Logical evaluation points.
-
-        vx, vy, vz : array_like
-            Cartesian velocity evaluation points.
-
-        Returns
-        -------
-        out : array-like
-            The volume-form sampling density.
-        -------
         """
-        if not hasattr(self, "_svol"):
-            # load sampling density svol (normalized to 1 in logical space)
-            self._svol = maxwellians.Maxwellian3D(
+        if not hasattr(self, "_sampling_density"):
+            self._sampling_density = maxwellians.Maxwellian3D(
                 n=(1.0, None),
                 u1=(self.loading_params.moments[0], None),
                 u2=(self.loading_params.moments[1], None),
@@ -79,23 +65,12 @@ class Particles6D(Particles):
                 vth1=(self.loading_params.moments[3], None),
                 vth2=(self.loading_params.moments[4], None),
                 vth3=(self.loading_params.moments[5], None),
+                uniform_on_disc=(self.spatial == "disc")
             )
-
-        if self.spatial == "uniform":
-            return self._svol(eta1, eta2, eta3, vx, vy, vz)
-
-        elif self.spatial == "disc":
-            return self._svol(eta1, eta2, eta3, vx, vy, vz) * 2 * eta1
-
-        else:
-            raise NotImplementedError(
-                f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.',
-            )
+        return self._sampling_density
 
     def s0(self, eta1, eta2, eta3, vx, vy, vz, flat_eval=False, remove_holes=True):
-        """Sampling density function as 0 form, i.e. :meth:`svol` pushed forward to a pointwise
-        (non-volume-form) density by dividing out the metric Jacobian determinant via
-        :meth:`~struphy.geometry.base.Domain.transform`. This is the quantity stored in each
+        """Sampling density function as 0 form. This is the quantity stored in each
         marker's ``s0`` column (see the class docstring) and used to compute initial weights
         ``w0 = f_init / s0 / Np``.
 
@@ -122,7 +97,7 @@ class Particles6D(Particles):
         assert self.domain, "self.domain must be set to call the sampling density 0-form."
 
         return self.domain.transform(
-            self.svol(eta1, eta2, eta3, vx, vy, vz),
+            self.sampling_density(eta1, eta2, eta3, vx, vy, vz),
             eta1,
             eta2,
             eta3,
@@ -280,7 +255,7 @@ class Particles5D(Particles):
     vdim = 2
     """Dimension of the velocity space, here 2 (:math:`v_\\parallel, \\mu`)."""
     default_background = maxwellians.GyroMaxwellian2D()
-    """Default sampling background is a gyrotropic Maxwellian in :math:`(v_\\parallel, \\mu)`."""
+    """Default kinetic background is a gyrotropic Maxwellian in :math:`(v_\\parallel, \\mu)`."""
     default_n_cols = {"diagnostics": 2, "aux": 12}
     """Default number of buffer columns is 2 diagnostics (perpendicular energy, canonical toroidal
     momentum, see :meth:`save_constants_of_motion`) and 12 auxiliary columns."""
@@ -332,35 +307,21 @@ class Particles5D(Particles):
         """Discrete Derham complex of the projected equilibrium."""
         return self._derham
 
-    def svol(self, eta1, eta2, eta3, v_para, mu):
+    @property
+    def sampling_density(self):
         """
         Sampling density function as volume form, used to draw markers via inverse transform/rejection
         sampling and to compute their initial weights (see :meth:`~struphy.pic.base.Particles.draw_markers`).
 
         This is a :class:`~struphy.kinetic_background.maxwellians.GyroMaxwellian2D` in
         :math:`(v_\\parallel, \\mu)`, parametrized by the mean/thermal parallel velocity
-        and by the equilibrium magnetic field in :attr:`loading_params` . It is normalized to
+        and by the equilibrium magnetic field in :attr:`loading_params`. It is normalized to
         1 in logical space (i.e. uniform in ``eta1, eta2, eta3``) and already includes the polar-coordinate
         Jacobian factor :math:`|\\mathbf B_0|` (``volume_form=True``), further multiplied by ``2 * eta1`` if
         :attr:`spatial` is ``"disc"``.
-
-        Parameters
-        ----------
-        eta1, eta2, eta3 : array_like
-            Logical evaluation points.
-
-        v_para, mu : array_like
-            Parallel velocity and magnetic moment evaluation points.
-
-        Returns
-        -------
-        out : array-like
-            The volume-form sampling density.
-        -------
         """
-        if not hasattr(self, "_svol"):
-            # load sampling density svol (normalized to 1 in logical space)
-            self._svol = maxwellians.GyroMaxwellian2D(
+        if not hasattr(self, "_sampling_density"):
+            self._sampling_density = maxwellians.GyroMaxwellian2D(
                 n=(1.0, None),
                 u_para=(self.loading_params.moments[0], None),
                 u_perp=(0.0, None),
@@ -369,26 +330,14 @@ class Particles5D(Particles):
                 volume_form=True,
                 equil=self.magn_bckgr,
                 B0=self.loading_params.B0,
+                uniform_on_disc=(self.spatial == "disc")
             )
-
-        if self.spatial == "uniform":
-            out = self._svol(eta1, eta2, eta3, v_para, mu)
-
-        elif self.spatial == "disc":
-            out = 2 * eta1 * self._svol(eta1, eta2, eta3, v_para, mu)
-
-        else:
-            raise NotImplementedError(
-                f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.',
-            )
-
-        return out
+        return self._sampling_density
 
     def s3(self, eta1, eta2, eta3, v_para, mu):
         """
-        Sampling density function as 3-form, i.e. :meth:`svol` with the velocity-space
-        (:math:`|v_\\perp|`) Jacobian factor divided back out via
-        :meth:`~struphy.kinetic_background.maxwellians.GyroMaxwellian2D.velocity_jacobian_det`,
+        Sampling density function as 3-form, i.e. :meth:`sampling_density` with the velocity-space
+        (:math:`B_0`) Jacobian factor divided back out,
         leaving a density that is a volume form in :math:`\\boldsymbol \\eta` only.
 
         Parameters
@@ -405,16 +354,14 @@ class Particles5D(Particles):
             The 3-form sampling density.
         -------
         """
-
-        return self.svol(eta1, eta2, eta3, v_para, mu) / self._svol.velocity_jacobian_det(
+        return self.sampling_density(eta1, eta2, eta3, v_para, mu) / self.sampling_density.velocity_jacobian_det(
             eta1, eta2, eta3, v_para, mu
         )
 
     def s0(self, eta1, eta2, eta3, v_para, mu, flat_eval=False, remove_holes=True):
         """
         Sampling density function as 0-form, i.e. :meth:`s3` pushed forward to a pointwise density by
-        dividing out the spatial metric Jacobian determinant via
-        :meth:`~struphy.geometry.base.Domain.transform`. This is the quantity stored in each marker's
+        dividing out the spatial metric Jacobian determinant. This is the quantity stored in each marker's
         ``s0`` column and used to compute initial weights ``w0 = f_init / s0 / Np``.
 
         Parameters
@@ -437,7 +384,6 @@ class Particles5D(Particles):
             The 0-form sampling density.
         -------
         """
-
         return self.domain.transform(
             self.s3(eta1, eta2, eta3, v_para, mu),
             eta1,
@@ -557,7 +503,7 @@ class Particles5Dvperp(Particles):
     vdim = 2
     """Dimension of the velocity space, here 2 (:math:`v_\\parallel, v_\\perp`)."""
     default_background = maxwellians.GyroMaxwellian2Dvperp()
-    """Default sampling background is a gyrotropic Maxwellian in :math:`(v_\\parallel, v_\\perp)`."""
+    """Default kinetic background is a gyrotropic Maxwellian in :math:`(v_\\parallel, v_\\perp)`."""
     default_n_cols = {"diagnostics": 3, "aux": 12}
     """Default number of buffer columns is 3 diagnostics (energy, magnetic moment, canonical toroidal
     momentum, see :meth:`save_constants_of_motion`) and 12 auxiliary columns."""
@@ -609,25 +555,18 @@ class Particles5Dvperp(Particles):
         """Discrete Derham complex of the projected equilibrium."""
         return self._derham
 
-    def svol(self, eta1, eta2, eta3, v_para, v_perp):
+    @property
+    def sampling_density(self):
         """
         Sampling density function as volume form, used to draw markers via inverse transform/rejection
         sampling and to compute their initial weights (see :meth:`~struphy.pic.base.Particles.draw_markers`).
 
-        This is a :class:`~struphy.kinetic_background.maxwellians.GyroMaxwellian2D` in
+        This is a :class:`~struphy.kinetic_background.maxwellians.GyroMaxwellian2Dvperp` in
         :math:`(v_\\parallel, v_\\perp)`, parametrized by the mean/thermal parallel and perpendicular velocities
-        in :attr:`loading_params` and by the equilibrium magnetic field :attr:`magn_bckgr`. It is normalized to
+        in :attr:`loading_params`. It is normalized to
         1 in logical space (i.e. uniform in ``eta1, eta2, eta3``) and already includes the polar-coordinate
         Jacobian factor :math:`|v_\\perp|` (``volume_form=True``), further multiplied by ``2 * eta1`` if
         :attr:`spatial` is ``"disc"``.
-
-        Parameters
-        ----------
-        eta1, eta2, eta3 : array_like
-            Logical evaluation points.
-
-        v_para, v_perp : array_like
-            Parallel and perpendicular velocity evaluation points.
 
         Returns
         -------
@@ -635,9 +574,8 @@ class Particles5Dvperp(Particles):
             The volume-form sampling density.
         -------
         """
-        if not hasattr(self, "_svol"):
-            # load sampling density svol (normalized to 1 in logical space)
-            self._svol = maxwellians.GyroMaxwellian2Dvperp(
+        if not hasattr(self, "_sampling_density"):
+            self._sampling_density = maxwellians.GyroMaxwellian2Dvperp(
                 n=(1.0, None),
                 u_para=(self.loading_params.moments[0], None),
                 u_perp=(self.loading_params.moments[1], None),
@@ -645,26 +583,14 @@ class Particles5Dvperp(Particles):
                 vth_perp=(self.loading_params.moments[3], None),
                 volume_form=True,
                 equil=self.magn_bckgr,
+                uniform_on_disc=(self.spatial == "disc")
             )
-
-        if self.spatial == "uniform":
-            out = self._svol(eta1, eta2, eta3, v_para, v_perp)
-
-        elif self.spatial == "disc":
-            out = 2 * eta1 * self._svol(eta1, eta2, eta3, v_para, v_perp)
-
-        else:
-            raise NotImplementedError(
-                f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.',
-            )
-
-        return out
+        return self._sampling_density
 
     def s3(self, eta1, eta2, eta3, v_para, v_perp):
         """
-        Sampling density function as 3-form, i.e. :meth:`svol` with the velocity-space
-        (:math:`|v_\\perp|`) Jacobian factor divided back out via
-        :meth:`~struphy.kinetic_background.maxwellians.GyroMaxwellian2D.velocity_jacobian_det`,
+        Sampling density function as 3-form, i.e. :meth:`sampling_density` with the velocity-space
+        (:math:`|v_\\perp|`) Jacobian factor divided back out,
         leaving a density that is a volume form in :math:`\\boldsymbol \\eta` only.
 
         Parameters
@@ -682,15 +608,14 @@ class Particles5Dvperp(Particles):
         -------
         """
 
-        return self.svol(eta1, eta2, eta3, v_para, v_perp) / self._svol.velocity_jacobian_det(
+        return self.sampling_density(eta1, eta2, eta3, v_para, v_perp) / self.sampling_density.velocity_jacobian_det(
             eta1, eta2, eta3, v_para, v_perp
         )
 
     def s0(self, eta1, eta2, eta3, v_para, v_perp, flat_eval=False, remove_holes=True):
         """
         Sampling density function as 0-form, i.e. :meth:`s3` pushed forward to a pointwise density by
-        dividing out the spatial metric Jacobian determinant via
-        :meth:`~struphy.geometry.base.Domain.transform`. This is the quantity stored in each marker's
+        dividing out the spatial metric Jacobian determinant. This is the quantity stored in each marker's
         ``s0`` column and used to compute initial weights ``w0 = f_init / s0 / Np``.
 
         Parameters
@@ -860,43 +785,26 @@ class Particles3D(Particles):
     vdim = 0
     """Dimension of the velocity space, here 0 (no velocity coordinates)."""
     default_background = maxwellians.ColdPlasma()
-    """Default sampling background is a cold-plasma (velocity-independent) density."""
+    """Default kinetic background is a cold-plasma (velocity-independent) density."""
     default_n_cols = {"diagnostics": 0, "aux": 5}
     """Default number of buffer columns reserved for diagnostics and auxiliary (pusher/free) use."""
 
     def __post_init__(self):
         """No additional setup is required for this class."""
 
-    def svol(self, eta1, eta2, eta3):
-        """Sampling density function as volume form.
-
-        Parameters
-        ----------
-        eta1, eta2, eta3 : array_like
-            Logical evaluation points.
-
-        Returns
-        -------
-        out : array-like
-            The volume-form sampling density.
-        -------
-        """
-
-        if self.spatial == "uniform":
-            return 1.0 + 0.0 * eta1
-
-        elif self.spatial == "disc":
-            return 2.0 * eta1
-
-        else:
-            raise NotImplementedError(
-                f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.',
+    @property
+    def sampling_density(self):
+        """Sampling density function as volume form."""
+        if not hasattr(self, "_sampling_density"):
+            self._sampling_density = maxwellians.ColdPlasma(
+                n=(1.0, None),
+                uniform_on_disc=(self.spatial == "disc")
             )
+        return self._sampling_density
 
     def s0(self, eta1, eta2, eta3, flat_eval=False, remove_holes=True):
-        """Sampling density function as 0 form, i.e. :meth:`svol` pushed forward to a pointwise
-        (non-volume-form) density by dividing out the metric Jacobian determinant via
-        :meth:`~struphy.geometry.base.Domain.transform`.
+        """Sampling density function as 0 form, i.e. :meth:`sampling_density` pushed forward to a pointwise
+        (non-volume-form) density by dividing out the metric Jacobian determinant.
 
         Parameters
         ----------
@@ -916,7 +824,7 @@ class Particles3D(Particles):
         -------
         """
         return self.domain.transform(
-            self.svol(eta1, eta2, eta3),
+            self.sampling_density(eta1, eta2, eta3),
             eta1,
             eta2,
             eta3,
@@ -930,7 +838,7 @@ class ParticlesSPH(Particles):
     """
     Particles for Smoothed Particle Hydrodynamics (SPH) models. The particle distribution itself lives
     in pure 3D configuration space :math:`\\boldsymbol \\eta \\in [0, 1]^3`, exactly as for :class:`Particles3D`
-    (:meth:`svol` and :meth:`s0` depend only on :math:`\\boldsymbol \\eta_p`).
+    (:meth:`sampling_density` and :meth:`s0` depend only on :math:`\\boldsymbol \\eta_p`).
 
     Each marker additionally carries a Cartesian velocity :math:`\\mathbf v_p` in its marker-array columns,
     but this is a per-particle *helper* quantity (e.g. the SPH velocity-field sample used by pushers and
@@ -951,7 +859,7 @@ class ParticlesSPH(Particles):
     vdim = 3
     """Dimension of the per-marker Cartesian velocity attribute, here 3 (not a sampled coordinate, see class docstring)."""
     default_background = equils.ConstantVelocity()
-    """Default background is a spatially constant velocity field."""
+    """Default fluid background is a spatially constant velocity field."""
     default_n_cols = {"diagnostics": 0, "aux": 24}
     """Default number of buffer columns reserved for diagnostics and auxiliary (pusher/free) use."""
 
@@ -961,43 +869,28 @@ class ParticlesSPH(Particles):
         assert self.clone_config is None, "SPH can only be launched with --nclones 1"
         self.background.domain = self.domain
 
-    def svol(self, eta1, eta2, eta3, *v):
+    @property
+    def sampling_density(self):
         """Sampling density function as volume form, used to draw markers via inverse transform/rejection
         sampling and to compute their initial weights (see :meth:`~struphy.pic.base.Particles.draw_markers`).
 
         This density is purely spatial: uniform (normalized to 1) if :attr:`spatial` is ``"uniform"``, or
         multiplied by the Jacobian factor ``2 * eta1`` if :attr:`spatial` is ``"disc"``.
-
-        Parameters
-        ----------
-        eta1, eta2, eta3 : array_like
-            Logical evaluation points.
-
-        *v : array_like
-            Accepted for a call signature compatible with generic phase-space evaluation
-            (e.g. via :attr:`~struphy.pic.base.Particles.phasespace_coords`), but unused: the marker
-            velocities are helper quantities, not coordinates of the sampled density.
-
-        Returns
-        -------
-        out : array-like
-            The volume-form sampling density.
-        -------
         """
-
-        if self.spatial == "uniform":
-            return 0 * eta1 + 1.0
-
-        elif self.spatial == "disc":
-            return 2 * eta1
-
-        else:
-            raise NotImplementedError(f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.')
+        if not hasattr(self, "_sampling_density"):
+            def func(eta1, eta2, eta3, *v):
+                if self.spatial == "uniform":
+                    return 0 * eta1 + 1.0
+                elif self.spatial == "disc":
+                    return 2 * eta1
+                else:
+                    raise NotImplementedError(f'Spatial drawing must be "uniform" or "disc", is {self.spatial}.')
+            self._sampling_density = func
+        return self._sampling_density
 
     def s0(self, eta1, eta2, eta3, *v, flat_eval=False, remove_holes=True):
-        """Sampling density function as 0 form, i.e. :meth:`svol` pushed forward to a pointwise
-        (non-volume-form) density by dividing out the metric Jacobian determinant via
-        :meth:`~struphy.geometry.base.Domain.transform`.
+        """Sampling density function as 0 form, i.e. :meth:`sampling_density` pushed forward to a pointwise
+        (non-volume-form) density by dividing out the metric Jacobian determinant.
 
         Parameters
         ----------
@@ -1006,7 +899,7 @@ class ParticlesSPH(Particles):
 
         *v : array_like
             Accepted for a call signature compatible with generic phase-space evaluation, but unused
-            (see :meth:`svol`).
+            (see :meth:`sampling_density`).
 
         flat_eval : bool
             If true, perform flat (marker) evaluation (etas must be same size 1D).
@@ -1021,7 +914,7 @@ class ParticlesSPH(Particles):
         -------
         """
         return self.domain.transform(
-            self.svol(eta1, eta2, eta3, *v),
+            self.sampling_density(eta1, eta2, eta3, *v),
             eta1,
             eta2,
             eta3,
