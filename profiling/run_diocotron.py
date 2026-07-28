@@ -38,8 +38,8 @@ def main() -> None:
     ranks = RANKS if profiling_case.use_slurm else local_ranks(RANKS)
 
     # Launch one run per rank count, without waiting for any of them yet, so they all
-    # run concurrently. Pass nodes=... to spread ranks across multiple nodes,
-    # param_flags="..." to forward CLI flags to params_diocotron.py, or
+    # run concurrently. Pass num_nodes=... to spread ranks across multiple nodes,
+    # param_flags=[...] to forward CLI flags to params_diocotron.py, or
     # case_commands=[...] to fully override the script.
     for ntasks in ranks:
         profiling_case.launch(ntasks)

@@ -173,7 +173,7 @@ class ProfilingCase:
         )
         return default_cluster_name
 
-    def build_commands(self, ntasks: int, param_flags: str = "") -> list[str]:
+    def build_commands(self, ntasks: int, param_flags: list[str] | None = None) -> list[str]:
         """Build the shell commands that run this case with a single MPI rank count.
 
         Reads the setup computed by `setup_run` (`case_output_root`, `venv_path`,
@@ -186,6 +186,7 @@ class ProfilingCase:
         activate_path = self.venv_path / "bin" / "activate"
         sim_dir = output_root / f"sim_ranks{ntasks}"
         h5_file = sim_dir / "profiling_data.h5"
+        flags = " ".join(param_flags or [])
 
         return [
             # Environment modules only exist on the clusters, not on a laptop.
@@ -216,7 +217,7 @@ class ProfilingCase:
             "",
             f'echo "Running {self.label} with {ntasks} MPI ranks"',
             f'cd "{output_root}"',
-            f"{self.launcher} -n {ntasks} python {self.params_source} {param_flags}",
+            f"{self.launcher} -n {ntasks} python {self.params_source} {flags}",
             "",
             'echo "----------------------------------------"',
             f'echo "Completed profiling case: {self.label} ({ntasks} MPI ranks)"',
@@ -227,7 +228,7 @@ class ProfilingCase:
         self,
         num_tasks: int = 1,
         num_nodes: int = 1,
-        param_flags: str = "",
+        param_flags: list[str] | None = None,
         case_commands: list[str] | None = None,
     ) -> None:
         """Build, submit/launch, and record the run for a single rank count.
@@ -236,8 +237,12 @@ class ProfilingCase:
         script locally. Either way, the resulting job/process is recorded on `self`
         for `finalize_run` to wait on and package. `param_flags` is forwarded to
         `build_commands` and appended to the `params_source` invocation (e.g.
-        `"--ppc 10"`). Pass `case_commands` instead to fully override the generated
-        commands (e.g. to inject a step `build_commands` has no hook for).
+        `["--ppc", "10"]`). Pass `case_commands` instead to fully override the
+        generated commands (e.g. to inject a step `build_commands` has no hook for).
+
+        `num_nodes` overrides the cluster preset's node count (which defaults to 1,
+        i.e. all `num_tasks` ranks on a single node); `num_tasks` must then be evenly
+        divisible by `num_nodes`. Ignored outside SLURM.
         """
 
         if case_commands is None:
@@ -245,15 +250,14 @@ class ProfilingCase:
         script_path = repo_root / f"job_profile_{self.label}_ranks{num_tasks}.sh"
 
         if self.use_slurm:
-            
             if num_tasks % num_nodes != 0:
-                raise ValueError(f"ntasks ({num_tasks}) is not evenly divisible by nodes ({num_nodes}).")
+                raise ValueError(f"num_tasks ({num_tasks}) is not evenly divisible by num_nodes ({num_nodes}).")
 
             script = SlurmScript(
                 job_name=f"profiling_{self.label}_ranks{num_tasks}",
                 ntasks_per_node=num_tasks // num_nodes,
                 custom_commands=case_commands,
-                **self.cluster_preset,
+                **{**self.cluster_preset, "nodes": num_nodes},
             )
             script_text = str(script)
             job_id = script.submit_job(str(script_path))
