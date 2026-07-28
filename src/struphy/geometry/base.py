@@ -1990,18 +1990,30 @@ class Domain(metaclass=DomainMeta):
             plt.show()
 
     def to_dict(self) -> dict:
+        params = {}
+        for key, value in self.params.items():
+            # params may hold e.g. a FluidEquilibrium object (not JSON serializable on its own)
+            if hasattr(value, "to_dict") and callable(value.to_dict):
+                params[key] = value.to_dict()
+            else:
+                params[key] = value
         return {
             "type": self.__class__.__name__,
-            "params": self.params,
+            "params": params,
         }
 
     @classmethod
     def from_dict(cls, dct):
+        from struphy.fields_background.base import FluidEquilibrium
         from struphy.geometry.utilities import get_domain_by_name
 
         name = dct["type"]
         domain_cls = get_domain_by_name(name)
-        return domain_cls(**dct["params"])
+        params = dict(dct["params"])
+        for key, value in params.items():
+            if isinstance(value, dict) and "type" in value and "params" in value:
+                params[key] = FluidEquilibrium.from_dict(value)
+        return domain_cls(**params)
 
     def __eq__(self, other: "Domain") -> bool:
         assert isinstance(other, Domain), f"Cannot compare Domain with {type(other)}."
