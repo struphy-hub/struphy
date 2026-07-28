@@ -1,28 +1,28 @@
 """Shared machinery for running profiling jobs.
 
-A concrete profiling job (e.g. ``run_diocotron.py``) defines its own `ProfilingCase`
+A concrete profiling job (e.g. ``profile_diocotron_scaling.py``) defines its own `ProfilingCase`
 and drives the run itself, looping over whichever rank counts it wants to profile.
 
-- `ProfilingCase.setup_run` parses CLI args, validates the venv, compiles Struphy, and
-  creates the results directories. It stores everything it computes as attributes on
-  the case itself (`venv_path`, `use_slurm`, `launcher`, `case_output_root`, ...), so
-  there's a single object to thread through the rest of the run.
+- `ProfilingCase.setup_run` validates the venv, compiles Struphy, and creates the
+  results directories. It stores everything it computes as attributes on the case
+  itself (`venv_path`, `use_slurm`, `launcher`, `case_output_root`, ...), so there's
+  a single object to thread through the rest of the run.
 - For each rank count, the caller calls `ProfilingCase.launch(ntasks)`, which builds
   the per-rank shell commands and either submits a `SlurmScript` (under SLURM) or
   writes/launches a plain bash script (otherwise) — the caller doesn't need to know
   which. Pass `case_commands` to override the default commands (e.g. to add a
   case-specific flag such as an arbitrary `ppc`) before they're wrapped in a script.
+  Under SLURM, the cluster preset is picked (and cached) on the first call, from
+  `cluster_presets.CLUSTER_PRESETS` unless a `cluster_presets` argument overrides it.
 - `ProfilingCase.finalize_run` waits for every rank count to finish, then builds the
   comparison plot and packages/uploads the results, once per case.
 
 The remaining module-level functions are generic helpers with no case-specific
-knowledge (installing `whereami`, detecting the MPI launcher/module system, parsing
-CLI args).
+knowledge (installing `whereami`, detecting the MPI launcher/module system).
 
-See `run_diocotron.py` for a template.
+See `profile_diocotron_scaling.py` for a template.
 """
 
-import argparse
 import json
 import os
 import shutil
@@ -31,6 +31,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
+from cluster_presets import CLUSTER_PRESETS
 from package_profiling_results import MACHINE_PARAMS_FILE, detect_machine_name, package_testcase
 from slurm_script_generator.slurm_script import SlurmScript
 from slurm_script_generator.squeue import SQueue
@@ -93,18 +94,6 @@ def detect_launcher() -> str:
     )
 
 
-def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description=("Submit profiling jobs to a SLURM cluster and package the results for upload.")
-    )
-    parser.add_argument(
-        "--upload",
-        action="store_true",
-        help="Upload the packaged profiling results to the profiling-data repo.",
-    )
-    return parser
-
-
 @dataclass
 class ProfilingCase:
     label: str
@@ -113,12 +102,10 @@ class ProfilingCase:
     physics_problem: str
     struphy_model_used: str
     params_source: Path
-    cluster_presets: dict[str, dict]
     language: str = "fortran"  # Pyccel language to compile the Struphy kernels with: "fortran" or "c".
     compiler: str = "GNU"  # Pyccel compiler family: "GNU", "intel", "PGI", "nvidia", or "LLVM".
 
     # Populated by `setup_run`; unset (None) until then. Not constructor arguments.
-    args: argparse.Namespace | None = field(init=False, default=None)
     venv_path: Path | None = field(init=False, default=None)
     compiler_instance: Compiler | None = field(init=False, default=None)
     run_commit: str | None = field(init=False, default=None)
@@ -138,7 +125,7 @@ class ProfilingCase:
     # Incremented on every `launch` call, to give each run a unique script filename.
     launch_count: int = field(init=False, default=0)
 
-    def detect_cluster_name(self) -> str:
+    def detect_cluster_name(self, cluster_presets: dict[str, dict]) -> str:
         """Pick the cluster preset for the current machine.
 
         The detected machine name ("Pitagora (DCGP)", "TOK", ...) is matched against
@@ -146,12 +133,15 @@ class ProfilingCase:
         when the machine is unknown or has no preset (e.g. when submitting from a
         laptop), so submission behaves as before.
 
+        Args:
+            cluster_presets: Candidate presets, keyed by cluster name.
+
         Returns:
-            The key into `self.cluster_presets` to use for this run.
+            The key into `cluster_presets` to use for this run.
         """
         machine_name = detect_machine_name()
         if machine_name:
-            for preset_name in self.cluster_presets:
+            for preset_name in cluster_presets:
                 if preset_name.lower() in machine_name.lower():
                     print(f"Detected machine '{machine_name}'; using cluster preset '{preset_name}'.")
                     return preset_name
@@ -226,6 +216,7 @@ class ProfilingCase:
         num_nodes: int = 1,
         param_flags: list[str] | None = None,
         case_commands: list[str] | None = None,
+        cluster_presets: dict[str, dict] | None = None,
     ) -> None:
         """Build, submit/launch, and record the run for a single rank count.
 
@@ -250,6 +241,10 @@ class ProfilingCase:
             case_commands: Full shell command list to use instead of
                 `build_commands(num_tasks, param_flags)` (e.g. to inject a step
                 `build_commands` has no hook for).
+            cluster_presets: Candidate SLURM presets, keyed by cluster name; one is
+                picked via `detect_cluster_name` and cached as `self.cluster_preset`
+                on the first SLURM launch. Defaults to `cluster_presets.CLUSTER_PRESETS`.
+                Ignored outside SLURM, and on any launch after the first.
 
         Raises:
             ValueError: If `num_tasks` is not evenly divisible by `num_nodes`
@@ -269,6 +264,10 @@ class ProfilingCase:
         if self.use_slurm:
             if num_tasks % num_nodes != 0:
                 raise ValueError(f"num_tasks ({num_tasks}) is not evenly divisible by num_nodes ({num_nodes}).")
+
+            if self.cluster_preset is None:
+                presets = cluster_presets if cluster_presets is not None else CLUSTER_PRESETS
+                self.cluster_preset = presets[self.detect_cluster_name(presets)]
 
             script = SlurmScript(
                 job_name=f"profiling_{self.label}_ranks{num_tasks}",
@@ -304,21 +303,19 @@ class ProfilingCase:
         )
 
     def setup_run(self) -> None:
-        """Parse CLI args, validate the venv, compile Struphy, and create the results dirs.
+        """Validate the venv, compile Struphy, and create the results dirs.
 
         Called once per profiling run, before looping over rank counts. Stores
-        everything it computes as attributes on `self` (`args`, `venv_path`,
+        everything it computes as attributes on `self` (`venv_path`,
         `compiler_instance`, `run_commit`, `output_root`, `run_results_root`,
-        `case_output_root`, `use_slurm`, `cluster_preset`, `use_modules`,
-        `launcher`), for the caller's loop and `finalize_run` to read.
+        `case_output_root`, `use_slurm`, `use_modules`, `launcher`), for the
+        caller's loop and `finalize_run` to read. `cluster_preset` is resolved
+        lazily by `launch`, since it needs the cluster presets passed there.
 
         Raises:
             RuntimeError: If no virtual environment is active, or if no MPI
                 launcher (`srun`, `mpirun`, `mpiexec`) can be found.
         """
-
-        # Parse command-line arguments and validate the virtual environment
-        self.args = build_arg_parser().parse_args()
 
         # Validate that a virtual environment is active
         virtual_env = os.environ.get("VIRTUAL_ENV")
@@ -361,11 +358,10 @@ class ProfilingCase:
         self.case_output_root.mkdir(parents=True, exist_ok=True)
 
         self.use_slurm = shutil.which("sbatch") is not None
-        self.cluster_preset = self.cluster_presets[self.detect_cluster_name()] if self.use_slurm else None
         self.use_modules = self.use_slurm and has_module_system()
         self.launcher = detect_launcher()
 
-    def finalize_run(self) -> None:
+    def finalize_run(self, upload: bool = False) -> None:
         """Wait for every rank count to finish, then build comparison plots and package/push results.
 
         Called once per case, after every rank count has been submitted/launched via
@@ -373,8 +369,12 @@ class ProfilingCase:
         into `case_output_root`, blocks until every SLURM job (`job_ids`) or local
         process (`local_processes`) has finished, builds a comparison plot across
         rank counts from the `profiling_data.h5` files produced (if any), and then
-        packages the case's results and pushes them if `self.args.upload` is set.
-        Does nothing beyond writing the metadata file if no output was produced.
+        packages the case's results, pushing them to the profiling-data repo if
+        `upload` is set. Does nothing beyond writing the metadata file if no output
+        was produced.
+
+        Args:
+            upload: Whether to push the packaged results to the profiling-data repo.
         """
         print(
             f"Writing metadata for '{self.label}' to {self.case_output_root / 'profiling_case_info.json'}",
@@ -451,7 +451,7 @@ class ProfilingCase:
 
             print(f"Packaged profiling data for '{self.label}' into {self.output_root}:")
             print(f" - {packaged_dir}")
-            if self.args.upload:
+            if upload:
                 print("Uploading packaged profiling data to the profiling-data repo ...")
                 _push_profiling_data([packaged_dir], self.run_commit)
             else:
