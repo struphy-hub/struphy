@@ -38,7 +38,7 @@ from slurm_script_generator.squeue import SQueue
 from upload import _push_profiling_data
 
 from struphy import Compiler
-from utils import _git_commit, _git_commit_short, _make_unique_results_root
+from utils import _git_commit, _git_commit_short, _make_unique_results_root, write_latest_run_root
 
 script_dir = Path(__file__).resolve().parent
 repo_root = script_dir.parent
@@ -299,7 +299,7 @@ class ProfilingCase:
         self.run_results_root = _make_unique_results_root(profiling_results_base, run_token)
 
         self.run_results_root.mkdir(parents=True, exist_ok=True)
-        latest_results_root_path.write_text(str(self.run_results_root), encoding="utf-8")
+        write_latest_run_root(latest_results_root_path, self.run_results_root)
         print(f"Profiling run root: {self.run_results_root}")
 
         self.case_output_root = self.run_results_root / self.label
@@ -308,6 +308,26 @@ class ProfilingCase:
         self.use_slurm = shutil.which("sbatch") is not None
         self.use_modules = self.use_slurm and has_module_system()
         self.launcher = detect_launcher()
+
+    def case_info_dict(self) -> dict:
+        """This case's metadata plus every submitted/launched job, as written to `profiling_case_info.json`.
+
+        Shared between `finalize_run` (which writes it to disk for later, standalone
+        packaging via `package_profiling_results.py`) and the immediate in-process
+        packaging call in `finalize_run` itself.
+        """
+        return {
+            "test_case_identifier": self.label,
+            "test_case_name": self.name,
+            "test_case_description": self.description,
+            "physics_problem": self.physics_problem,
+            "struphy_model_used": self.struphy_model_used,
+            "struphy_commit": self.run_commit,
+            "compiler": self.compiler_instance.to_dict(),
+            "scheduler": "slurm" if self.use_slurm else "local",
+            "parameter_file": str(self.params_source),
+            "jobs": self.job_infos,
+        }
 
     def finalize_run(self, upload: bool = False) -> None:
         """Wait for every rank count to finish, then build comparison plots and package/push results.
@@ -327,22 +347,9 @@ class ProfilingCase:
         print(
             f"Writing metadata for '{self.label}' to {self.case_output_root / 'profiling_case_info.json'}",
         )
+        case_info = self.case_info_dict()
         (self.case_output_root / "profiling_case_info.json").write_text(
-            json.dumps(
-                {
-                    "test_case_identifier": self.label,
-                    "test_case_name": self.name,
-                    "test_case_description": self.description,
-                    "physics_problem": self.physics_problem,
-                    "struphy_model_used": self.struphy_model_used,
-                    "struphy_commit": self.run_commit,
-                    "compiler": self.compiler_instance.to_dict(),
-                    "scheduler": "slurm" if self.use_slurm else "local",
-                    "parameter_file": str(self.params_source),
-                    "jobs": self.job_infos,
-                },
-                indent=2,
-            ),
+            json.dumps(case_info, indent=2),
             encoding="utf-8",
         )
 
@@ -391,10 +398,11 @@ class ProfilingCase:
             commit=self.run_commit,
             output_root=self.output_root,
             verbose=True,
+            case_info=case_info,
         )
         if packaged_dir is not None:
             print(f"Packaged profiling data for '{self.label}' into {packaged_dir}")
-            latest_results_root_path.write_text(str(self.run_results_root), encoding="utf-8")
+            write_latest_run_root(latest_results_root_path, self.run_results_root)
             print(f"Updated latest profiling root marker: {latest_results_root_path}")
 
             print(f"Packaged profiling data for '{self.label}' into {self.output_root}:")

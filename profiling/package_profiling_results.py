@@ -4,19 +4,15 @@ import json
 import os
 import re
 import shutil
-import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from clusters import detect_machine_name
+from utils import _run_command, _slug, read_latest_run_root
 
 # Written by `Simulation.run()`, one per `sim_ranks<N>` run directory.
 RUN_METADATA_FILE = "run_metadata.json"
-
-
-def _slug(value: str) -> str:
-    return re.sub(r"[^A-Za-z0-9._-]+", "_", value).strip("._-") or "unknown"
 
 
 def _extract_ranks(path: Path) -> str:
@@ -144,13 +140,10 @@ def _ensure_testcase_parameters_file(testcase_dir: Path) -> Path | None:
 
 def _discover_results_root(search_root: Path) -> Path:
     marker_path = search_root / "results" / "profiling" / "latest_run_root.txt"
-    if marker_path.exists():
-        marker_root = Path(marker_path.read_text(encoding="utf-8").strip())
-        if not marker_root.is_absolute():
-            marker_root = (marker_path.parent / marker_root).resolve()
-        if marker_root.exists():
-            print(f"Discovered results root from marker: {marker_root}")
-            return marker_root
+    marker_root = read_latest_run_root(marker_path)
+    if marker_root is not None:
+        print(f"Discovered results root from marker: {marker_root}")
+        return marker_root
 
     candidates: set[Path] = set()
 
@@ -182,33 +175,11 @@ def _discover_results_root(search_root: Path) -> Path:
 
 def _resolve_results_root_arg(results_root: Path) -> Path:
     marker_path = results_root / "latest_run_root.txt"
-    if marker_path.exists():
-        marker_root = Path(marker_path.read_text(encoding="utf-8").strip())
-        if not marker_root.is_absolute():
-            marker_root = (results_root / marker_root).resolve()
-        if marker_root.exists():
-            print(f"Resolved run results root from marker: {marker_root}")
-            return marker_root
+    marker_root = read_latest_run_root(marker_path)
+    if marker_root is not None:
+        print(f"Resolved run results root from marker: {marker_root}")
+        return marker_root
     return results_root
-
-
-def _run_command(command: list[str]) -> dict[str, Any]:
-    try:
-        result = subprocess.run(
-            command,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-    except (FileNotFoundError, OSError) as exc:
-        # e.g. `lscpu` or `scontrol` are not available outside a Linux/SLURM machine.
-        return {"command": command, "returncode": 127, "stdout": "", "stderr": str(exc)}
-    return {
-        "command": command,
-        "returncode": result.returncode,
-        "stdout": result.stdout.strip(),
-        "stderr": result.stderr.strip(),
-    }
 
 
 def _read_case_info(testcase_dir: Path) -> dict[str, Any]:
@@ -306,12 +277,17 @@ def package_testcase(
     output_root: Path,
     timestamp: datetime | None = None,
     verbose: bool = False,
+    case_info: dict[str, Any] | None = None,
 ) -> Path | None:
     """Package a single testcase directory (e.g. one `ProfilingCase.output_root`) into `output_root`.
 
     Only packages the testcase if it actually produced `.h5` output, so a case whose
     SLURM job never ran (or failed before writing output) is silently skipped instead
     of being uploaded. Returns the created destination folder, or None if skipped.
+
+    `case_info` is normally read from `profiling_case_info.json` in `testcase_dir`
+    (written by `ProfilingCase.finalize_run`). Pass it explicitly to package a case
+    that is still live, in the same process that produced it, without a disk round-trip.
     """
     if verbose:
         print(f"Packaging testcase directory: {testcase_dir}")
@@ -327,7 +303,8 @@ def package_testcase(
 
     testcase = testcase_dir.name
     parameters_path = _ensure_testcase_parameters_file(testcase_dir)
-    case_info = _read_case_info(testcase_dir)
+    if case_info is None:
+        case_info = _read_case_info(testcase_dir)
     case_language = case_info.get("pyccel_language") or language
     case_commit = case_info.get("struphy_commit") or commit
     if case_language is None:
