@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from clusters import detect_machine_name
-from utils import _run_command, _slug, latest_run_root
+from utils import _run_command, _slug
 
 # Written by `Simulation.run()`, one per `sim_ranks<N>` run directory.
 RUN_METADATA_FILE = "run_metadata.json"
@@ -136,53 +136,6 @@ def _ensure_testcase_parameters_file(testcase_dir: Path) -> Path | None:
 
     shutil.copy2(chosen_parameters, testcase_parameters)
     return testcase_parameters
-
-
-def _discover_results_root(search_root: Path) -> Path:
-    latest = latest_run_root(search_root / "results" / "profiling")
-    if latest is not None:
-        print(f"Discovered results root: {latest}")
-        return latest
-
-    candidates: set[Path] = set()
-
-    for h5_path in search_root.rglob("profiling_data.h5"):
-        parts = h5_path.parts
-        for idx in range(len(parts) - 1):
-            if parts[idx] == "profiling" and parts[idx + 1] == "results":
-                candidates.add(Path(*parts[: idx + 2]))
-                break
-            if idx + 2 < len(parts) and parts[idx] == "results" and parts[idx + 1] == "profiling":
-                candidates.add(Path(*parts[: idx + 3]))
-                break
-
-    if not candidates:
-        raise FileNotFoundError(
-            f"Results folder does not exist and no profiling_data.h5 files were found under: {search_root}",
-        )
-
-    if len(candidates) > 1:
-        discovered = "\n".join(f" - {path}" for path in sorted(candidates))
-        raise RuntimeError(
-            f"Found multiple possible profiling results roots; pass --results-root explicitly:\n{discovered}",
-        )
-
-    discovered_root = next(iter(candidates))
-    print(f"Discovered results root: {discovered_root}")
-    return discovered_root
-
-
-def _resolve_results_root_arg(results_root: Path) -> Path:
-    """If `results_root` is the profiling results base (e.g. the default `results/profiling`,
-    holding one directory per run), resolve it to its most recent run. Otherwise
-    `results_root` already names a specific run and is returned unchanged.
-    """
-    if results_root.name == "profiling" and results_root.parent.name == "results":
-        latest = latest_run_root(results_root)
-        if latest is not None:
-            print(f"Resolved run results root to the latest run: {latest}")
-            return latest
-    return results_root
 
 
 def _read_case_info(testcase_dir: Path) -> dict[str, Any]:
@@ -399,50 +352,15 @@ def package_testcase(
     return destination_dir
 
 
-def package_results(
-    results_root: Path,
-    language: str | None,
-    commit: str | None,
-    output_root: Path,
-) -> list[Path]:
-    results_root = _resolve_results_root_arg(results_root)
-    if not results_root.exists():
-        results_root = _discover_results_root(search_root=Path.cwd().resolve())
-
-    timestamp = datetime.now(UTC)
-    created_dirs: list[Path] = []
-
-    testcase_dirs = [path for path in sorted(results_root.iterdir()) if path.is_dir()]
-    for testcase_dir in testcase_dirs:
-        destination_dir = package_testcase(
-            testcase_dir=testcase_dir,
-            results_root=results_root,
-            language=language,
-            commit=commit,
-            output_root=output_root,
-            timestamp=timestamp,
-        )
-        if destination_dir is not None:
-            created_dirs.append(destination_dir)
-
-    if not created_dirs:
-        raise RuntimeError(f"No .h5 profiling files found under: {results_root}")
-
-    return created_dirs
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Package profiling .h5 outputs into DATETIME-COMMIT-TESTCASE-LANGUAGE folders.",
+        description="Package one testcase directory's profiling .h5 outputs into a "
+        "DATETIME-COMMIT-TESTCASE-LANGUAGE folder.",
     )
     parser.add_argument(
-        "--results-root",
+        "testcase_dir",
         type=Path,
-        default=Path("results/profiling"),
-        help=(
-            "Folder containing testcase result directories for one profiling run "
-            "(default: results/profiling; marker/discovery may resolve to latest run)."
-        ),
+        help="Testcase directory to package, e.g. `results/profiling/<run>/<label>`.",
     )
     parser.add_argument(
         "--language",
@@ -458,25 +376,26 @@ def main() -> None:
         "--output-root",
         type=Path,
         default=Path("profiling-results-export"),
-        help="Folder where packaged result folders are created.",
+        help="Folder where the packaged result folder is created.",
     )
     args = parser.parse_args()
 
+    testcase_dir = args.testcase_dir.resolve()
     output_root = args.output_root.resolve()
-    if output_root.exists():
-        shutil.rmtree(output_root)
     output_root.mkdir(parents=True, exist_ok=True)
 
-    created_dirs = package_results(
-        results_root=args.results_root.resolve(),
+    destination_dir = package_testcase(
+        testcase_dir=testcase_dir,
+        results_root=testcase_dir.parent,
         language=args.language,
         commit=args.commit,
         output_root=output_root,
+        verbose=True,
     )
+    if destination_dir is None:
+        raise RuntimeError(f"No .h5 profiling files found under: {testcase_dir}")
 
-    print("Packaged result folders:")
-    for path in created_dirs:
-        print(f" - {path}")
+    print(f"Packaged result folder: {destination_dir}")
 
 
 if __name__ == "__main__":

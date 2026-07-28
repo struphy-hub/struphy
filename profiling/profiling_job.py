@@ -283,9 +283,7 @@ class ProfilingCase:
             self.compiler_instance.compile()
         print("Done compiling Struphy kernels.")
 
-        # Create a unique results root for this profiling run. Its name is prefixed with a
-        # sortable timestamp, so the latest run is discoverable later as the lexicographically
-        # greatest subdirectory of `profiling_results_base` (see `utils.latest_run_root`).
+        # Create a unique results root for this profiling run.
         self.output_root = Path("profiling-results-export").resolve()
         if self.output_root.exists():
             shutil.rmtree(self.output_root)
