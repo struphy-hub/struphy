@@ -59,7 +59,7 @@ class LiteralOptions:
     BackgroundTypes = Literal["LogicalConst", "FluidEquilibrium"]
     
     # kinetic backgrounds
-    VelocityCoordinates = Literal["cartesian", "vpara_vperp", "vpara_mu"]
+    VelocityCoordinates = Literal["cartesian", "vpara_mu", "vpara_vperp", "vpara_energy"]
     OptsGaussianCoordinate = Literal["cartesian", "polar", "energy"]
     KineticDimensionsToPlot = Literal["e1", "e2", "e3", "v1", "v2", "v3"]
 
@@ -80,7 +80,7 @@ class LiteralOptions:
     OptsButcher = Literal["rk4", "forward_euler", "heun2", "rk2", "heun3", "3/8 rule"]
 
     # markers
-    OptsPICSpace = Literal["Particles6D", "DeltaFParticles6D", "Particles5D", "Particles3D"]
+    OptsPICSpace = Literal["Particles6D", "DeltaFParticles6D", "Particles5D", "Particles5Dvperp", "Particles3D"]
     OptsMarkerBC = Literal["periodic", "reflect", "remove", "refill"]
     OptsRecontructBC = Literal["periodic", "mirror", "fixed", "noslip"]
     OptsRefillBC = Literal["inner", "outer"]

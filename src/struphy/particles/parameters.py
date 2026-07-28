@@ -38,6 +38,9 @@ class LoadingParameters:
     moments : tuple, optional
         Mean velocities and temperatures defining the Gaussian velocity distribution.
         If None, automatically computed from the background distribution.
+        
+    B0 : float, optional
+        Reference magnetic field strength for mu-loading in guiding-center or drift-kinetic models (default: 2.0).
 
     spatial : LiteralOptions.OptsSpatialLoading, default="uniform"
         Spatial sampling method: 'uniform' samples uniformly in (eta1, eta2) coordinates,
@@ -72,6 +75,7 @@ class LoadingParameters:
     loading: LiteralOptions.OptsLoading = "pseudo_random"
     seed: int = None
     moments: tuple = None
+    B0: float = 2.0
     spatial: LiteralOptions.OptsSpatialLoading = "uniform"
     specific_markers: tuple[tuple] = None
     set_zero_velocity: tuple[bool] = (False, False, False)

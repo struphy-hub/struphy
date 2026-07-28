@@ -232,9 +232,9 @@ equil.n_xyz = n0_xyz
 
 
 perturbation = GenericPerturbation(pert_func)
-background = maxwellians.GyroMaxwellian2D(n=(n_init, None), equil=equil, vth_para=(vth_i,None), vth_perp=(vth_i,None))
+background = maxwellians.GyroMaxwellian2Dvperp(n=(n_init, None), equil=equil, vth_para=(vth_i,None), vth_perp=(vth_i,None))
 model.kinetic_ions.var.add_background(background)
-init = maxwellians.GyroMaxwellian2D(n=(n_init, perturbation), equil=equil, vth_para=(vth_i,None), vth_perp=(vth_i,None))
+init = maxwellians.GyroMaxwellian2Dvperp(n=(n_init, perturbation), equil=equil, vth_para=(vth_i,None), vth_perp=(vth_i,None))
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":

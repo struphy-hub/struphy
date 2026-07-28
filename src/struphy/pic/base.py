@@ -1034,7 +1034,7 @@ class Particles(metaclass=ABCMeta):
 
             v_i = \text{erfinv}(2r_i - 1)\sqrt{2}v_{\mathrm{th},i} + u_i \,.
 
-        In case of Particles5D, parallel velocity is sampled as a Maxwellian and perpendicular particle speed :math:`v_\perp = \sqrt{v_1^2 + v_2^2}` 
+        In case of Particles5Dvperp, parallel velocity is sampled as a Maxwellian and perpendicular particle speed :math:`v_\perp = \sqrt{v_1^2 + v_2^2}` 
         is sampled as a 2D Maxwellian in polar coordinates,
 
         .. math::
@@ -1067,7 +1067,7 @@ class Particles(metaclass=ABCMeta):
         sort : Bool
             Wether to sort the particules in boxes after initial drawing (only if sorting params were passed)
         """
-        from struphy.pic.particles import ParticlesSPH
+        from struphy.pic.particles import Particles6D, Particles5D, Particles5Dvperp, ParticlesSPH
 
         # number of markers on the local process at loading stage
         n_mks_load_loc = self.n_mks_load[self.mpi_rank]
@@ -1211,9 +1211,10 @@ class Particles(metaclass=ABCMeta):
 
                 u_mean = xp.array(self.loading_params.moments[: self.vdim])
                 v_th = xp.array(self.loading_params.moments[self.vdim :])
+                B0 = self.loading_params.B0
 
                 # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
-                if self.vdim == 3:
+                if isinstance(self, Particles6D):
                     self.velocities = (
                         sp.erfinv(
                             2 * self.velocities - 1,
@@ -1222,8 +1223,28 @@ class Particles(metaclass=ABCMeta):
                         * v_th
                         + u_mean
                     )
-                # Particles5D: (1d Maxwellian, polar Maxwellian as volume-form)
-                elif self.vdim == 2:
+                # Particles5D: (1d Maxwellian, perp-energy Maxwellian as volume-form)
+                elif isinstance(self, Particles5D):
+                    self._markers[:n_mks_load_loc, 3] = (
+                        sp.erfinv(
+                            2 * self.velocities[:, 0] - 1,
+                        )
+                        * xp.sqrt(2)
+                        * v_th[0]
+                        + u_mean[0]
+                    )
+
+                    self._markers[:n_mks_load_loc, 4] = - xp.log(1.0 - self.velocities[:, 1]) * v_th[1]**2 / B0
+
+                    # mu is a magnetic moment and must be >= 0.
+                    # A mean shift in this coordinate is not physically consistent.
+                    if abs(float(u_mean[1])) > 0.0:
+                        raise ValueError(
+                            "For Particles5D, the second velocity coordinate is polar "
+                            "(v_perp), so loading_params.moments[1] must be 0.0."
+                        )
+                # Particles5Dvperp: (1d Maxwellian, polar Maxwellian as volume-form)
+                elif isinstance(self, Particles5Dvperp):
                     self._markers[:n_mks_load_loc, 3] = (
                         sp.erfinv(
                             2 * self.velocities[:, 0] - 1,
@@ -1242,11 +1263,10 @@ class Particles(metaclass=ABCMeta):
                     )
 
                     # v_perp is a polar velocity coordinate and must be >= 0.
-                    # A mean shift in this coordinate is not physically consistent
-                    # with the polar Maxwellian used later in gaussian(..., polar=True).
+                    # A mean shift in this coordinate is not physically consistent.
                     if abs(float(u_mean[1])) > 0.0:
                         raise ValueError(
-                            "For Particles5D, the second velocity coordinate is polar "
+                            "For Particles5Dvperp, the second velocity coordinate is polar "
                             "(v_perp), so loading_params.moments[1] must be 0.0."
                         )
                 elif self.vdim == 0:

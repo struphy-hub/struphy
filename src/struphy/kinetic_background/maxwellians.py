@@ -13,7 +13,8 @@ from struphy.kinetic_background.base import Maxwellian
 
 
 class Maxwellian3D(Maxwellian):
-    r"""A :class:`~struphy.kinetic_background.base.Maxwellian` depending on three (:math:`n=3`) Cartesian velocities.
+    r"""A :class:`~struphy.kinetic_background.base.Maxwellian` depending :math:`(\eta_1, \eta_2, \eta_3)`
+    and on three (:math:`n=3`) Cartesian velocities.
 
     Parameters
     ----------
@@ -50,9 +51,9 @@ class Maxwellian3D(Maxwellian):
         return 3
 
     @property
-    def is_polar(self):
-        """Tuple of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp)."""
-        return (False, False, False)
+    def velocity_coords(self) -> LiteralOptions.VelocityCoordinates:
+        """Velocity coordinates of the background."""
+        return "cartesian"
 
     def velocity_jacobian_det(self, eta1, eta2, eta3, vx, vy, vz):
         """Jacobian determinant is 1 (Cartesian velocity coordinates).
@@ -172,9 +173,167 @@ class GyroMaxwellian2D(Maxwellian):
         return 2
 
     @property
-    def is_polar(self):
-        """Tuple of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp)."""
-        return (False, True)
+    def velocity_coords(self) -> LiteralOptions.VelocityCoordinates:
+        """Velocity coordinates of the background."""
+        return "vpara_mu"
+
+    def velocity_jacobian_det(self, eta1, eta2, eta3, v_para, v_perp):
+        r"""Jacobian determinant of the velocity coordinate transformation to :math:`(v_\parallel, v_\perp)`, is :math:`v_\perp`.
+
+        Input parameters should be slice of 2d numpy marker array. (i.e. *self.phasespace_coords.T)
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points.
+
+        v_para, v_perp : array_like
+            Parallel and perpendicular velocity evaluation points.
+
+        Returns
+        -------
+        out : array-like
+            The Jacobian determinant evaluated at given logical coordinates.
+        -------
+        """
+        assert eta1.ndim == eta2.ndim == eta3.ndim == 1
+        assert v_para.ndim == v_perp.ndim == 1
+
+        return v_perp
+
+    @property
+    def volume_form(self) -> bool:
+        """Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian |v_perp|)."""
+        return self._volume_form
+
+    @property
+    def equil(self) -> FluidEquilibriumWithB:
+        """Fluid background with B-field."""
+        return self._equil
+
+    @property
+    def moment_factors(self):
+        """Collection of factors multiplied onto the defined moments n, u, and vth."""
+        return self._moment_factors
+
+    @moment_factors.setter
+    def moment_factors(self, **kwargs):
+        for kw, arg in kwargs:
+            if kw in {"u", "vth"}:
+                assert len(arg) == 2
+            self._moment_factors[kw] = arg
+
+    def n(self, eta1, eta2, eta3):
+        """Zero-th moment (density)."""
+        out = self._evaluate_moment(eta1, eta2, eta3, name="n")
+        return out * self.moment_factors["n"]
+
+    def u(self, eta1, eta2, eta3):
+        """Mean velocities."""
+        out = []
+        out += [self._evaluate_moment(eta1, eta2, eta3, name="u_para")]
+        out += [self._evaluate_moment(eta1, eta2, eta3, name="u_perp")]
+        return [ou * mom_fac for ou, mom_fac in zip(out, self.moment_factors["u"])]
+
+    def vth(self, eta1, eta2, eta3):
+        """Thermal velocities."""
+        out = []
+        out += [self._evaluate_moment(eta1, eta2, eta3, name="vth_para")]
+        out += [self._evaluate_moment(eta1, eta2, eta3, name="vth_perp")]
+        return [ou * mom_fac for ou, mom_fac in zip(out, self.moment_factors["vth"])]
+
+    def plot_density_profile(
+        self,
+        dim_1: LiteralOptions.KineticDimensionsToPlot = "e1",
+        dim_2: LiteralOptions.KineticDimensionsToPlot | None = None,
+        v_lim: float = 5.0,
+        resol: int = 100,
+        integrate_resol: int = 10,
+        logical_coord: tuple[float] = (0.5, 0.5, 0.5),
+        in_physical: bool = False,
+        domain: Domain | None = None,
+        proj_axis: tuple[float,] = (0, 1),
+        plot_3D: bool = False,
+        title: str | None = None,
+        use_mu: bool = False,
+        equil: FluidEquilibriumWithB | None = None,
+    ):
+        if equil is None:
+            equil = self.equil
+        super().plot_density_profile(
+            dim_1,
+            dim_2,
+            v_lim,
+            resol,
+            integrate_resol,
+            logical_coord,
+            in_physical,
+            domain,
+            proj_axis,
+            plot_3D,
+            title,
+            use_mu=use_mu,
+            equil=equil,
+        )
+
+
+class GyroMaxwellian2Dvperp(Maxwellian):
+    r"""A gyrotropic :class:`~struphy.kinetic_background.base.Maxwellian` depending on
+    two velocities :math:`(v_\parallel, v_\perp)`, :math:`n=2`,
+    where :math:`v_\parallel = \mathbf v \cdot \mathbf b_0` and :math:`v_\perp`
+    is the radial component of a polar coordinate system perpendicular
+    to the magentic direction :math:`\mathbf b_0`.
+
+    Parameters
+    ----------
+    n, u_para, u_perp, vth_para, vth_perp : tuple
+        Moments of the Maxwellian as tuples. The first entry defines the background
+        (float for constant background or callable), the second entry defines a Perturbation (can be None).
+
+    equil : FluidEquilibriumWithB
+        Fluid background.
+
+    volume_form : bool
+        Whether to represent the Maxwellian as a volume form;
+        if True it is multiplied by the Jacobian determinant |v_perp|
+        of the polar coordinate transofrmation (default = False).
+    """
+
+    def __init__(
+        self,
+        n: tuple[float | Callable, Perturbation] = (1.0, None),
+        u_para: tuple[float | Callable, Perturbation] = (0.0, None),
+        u_perp: tuple[float | Callable, Perturbation] = (0.0, None),
+        vth_para: tuple[float | Callable, Perturbation] = (1.0, None),
+        vth_perp: tuple[float | Callable, Perturbation] = (1.0, None),
+        equil: FluidEquilibriumWithB = None,
+        volume_form: bool = True,
+    ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
+        self.check_maxw_params()
+
+        # volume form represenation
+        self._volume_form = volume_form
+        self._equil = equil
+
+        # factors multiplied onto the defined moments n, u and vth (can be set via setter)
+        self._moment_factors = {
+            "n": 1.0,
+            "u": [1.0, 1.0],
+            "vth": [1.0, 1.0],
+        }
+
+    @property
+    def vdim(self):
+        """Dimension of the velocity space."""
+        return 2
+
+    @property
+    def velocity_coords(self) -> LiteralOptions.VelocityCoordinates:
+        """Velocity coordinates of the background."""
+        return "vpara_vperp"
 
     def velocity_jacobian_det(self, eta1, eta2, eta3, v_para, v_perp):
         r"""Jacobian determinant of the velocity coordinate transformation to :math:`(v_\parallel, v_\perp)`, is :math:`v_\perp`.
@@ -503,7 +662,7 @@ class CanonicalMaxwellian(Maxwellian):
         self._add_perturbation = new
 
 
-class CanonicalMaxwellian2D(GyroMaxwellian2D):
+class CanonicalMaxwellian2D(GyroMaxwellian2Dvperp):
     r"""Canonical Maxwellian distribution function in constants-of-motion coordinates.
     Standard evaluation methods in :math:`(v_\parallel, v_\perp)` coordinates are available through :class:`~struphy.kinetic_background.maxwellians.GyroMaxwellian2D`.
 
@@ -812,9 +971,9 @@ class ColdPlasma(Maxwellian):
         return 0
 
     @property
-    def is_polar(self):
-        """Tuple of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp)."""
-        return ()
+    def velocity_coords(self) -> LiteralOptions.VelocityCoordinates:
+        """Velocity coordinates of the background."""
+        return "cartesian"
 
     @property
     def volume_form(self):
