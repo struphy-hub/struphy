@@ -24,6 +24,11 @@ knowledge (detecting the MPI launcher/module system).
 See `profile_diocotron_scaling.py` for a template.
 """
 
+import mpi4py
+
+mpi4py.rc.initialize = False
+mpi4py.rc.finalize = False
+
 import json
 import os
 import shutil
@@ -46,6 +51,8 @@ from package_profiling_results import (
 from slurm_script_generator.slurm_script import SlurmScript
 from slurm_script_generator.squeue import SQueue
 from upload import _push_profiling_data
+
+
 
 from struphy import Compiler
 from utils import _git_commit, _git_commit_short, _make_unique_results_root, _slug
@@ -148,6 +155,7 @@ class ProfilingCase:
                 if self.use_modules
                 else []
             ),
+            f"set -e",
             f"source {activate_path!s}",
             'echo "----------------------------------------"',
             f'echo "Running profiling case: {self.label} ({ntasks} MPI ranks)"',
@@ -165,7 +173,7 @@ class ProfilingCase:
             f'echo "Running {self.label} with {ntasks} MPI ranks"',
             # f'cd "{output_root}"',
             f'echo "hello world again"',
-            f'{self.launcher} -n {ntasks} {python} {self.params_source} {flags} > "{sim_dir / "struphy.out"}" 2>&1',
+            f'{self.launcher} -n {ntasks} {python} {self.params_source} {flags}', # > "{sim_dir / "struphy.out"}" 2>&1',
             "",
             'echo "----------------------------------------"',
             f'echo "Completed profiling case: {self.label} ({ntasks} MPI ranks)"',
@@ -258,7 +266,15 @@ class ProfilingCase:
                 f"No batch system found; running '{self.label}' ({num_tasks} MPI ranks) "
                 f"locally via {script_path} ...",
             )
-            result = subprocess.run(["bash", str(script_path)], cwd=repo_root, check=False)
+            # print(os.environ)
+            print(f"{script_path = }")
+            print(f"{repo_root = }")
+            print(f"{os.getcwd() = }")
+            print(f"{script_path = }")
+            result = subprocess.run(["bash", script_path], cwd=repo_root, check=False)
+            print(f"{result.stdout = }")
+            print(f"{result.stderr = }")
+            print(f"{result.returncode = }")
             if result.returncode != 0:
                 print(
                     f"WARNING: local run of '{self.label}' ({num_tasks} MPI ranks) via {script_path} "
