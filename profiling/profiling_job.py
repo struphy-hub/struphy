@@ -134,6 +134,7 @@ class ProfilingCase:
         # out here. `params_source` is passed the same counter as `--id` and names its
         # output folder from it.
         sim_dir = output_root / f"sim_{self.launch_count:02d}"
+        python = self.venv_path / "bin" / "python"
         flags = " ".join(["--id", str(self.launch_count), *(param_flags or [])])
 
         return [
@@ -163,9 +164,8 @@ class ProfilingCase:
             "",
             f'echo "Running {self.label} with {ntasks} MPI ranks"',
             # f'cd "{output_root}"',
-            # f'python {self.params_source}',
             f'echo "hello world again"',
-            f'{self.launcher} -n {ntasks} python {self.params_source} {flags} > "{sim_dir / "struphy.out"}" 2>&1',
+            f'{self.launcher} -n {ntasks} {python} {self.params_source} {flags} > "{sim_dir / "struphy.out"}" 2>&1',
             "",
             'echo "----------------------------------------"',
             f'echo "Completed profiling case: {self.label} ({ntasks} MPI ranks)"',
