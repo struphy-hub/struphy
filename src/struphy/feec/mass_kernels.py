@@ -823,7 +823,7 @@ def surface_kernel_3d_vec(
                     data[pads0 + i_local0, pads1 + i_local1, pads2 + i_local2] += value
 
 
-def surface_kernel_3d_mat(
+def surface_kernel_3d_mat_h1(
     spans1: "int[:]",
     spans2: "int[:]",
     pi0: int,
@@ -900,3 +900,59 @@ def surface_kernel_3d_mat(
                                 pads1 + j_local1,
                                 pads2 + j_local2,
                             ] += value
+
+
+def surface_kernel_3d_mat_hdiv(
+    spans1: "int[:]",
+    spans2: "int[:]",
+    pi0: int,
+    pi1: int,
+    pi2: int,
+    qi0: int,
+    qi1: int,
+    qi2: int,
+    starts0: int,
+    starts1: int,
+    starts2: int,
+    pads0: int,
+    pads1: int,
+    pads2: int,
+    w1: "float[:,:]",
+    w2: "float[:,:]",
+    bi1: "float[:,:,:,:]",
+    bi2: "float[:,:,:,:]",
+    bj1: "float[:,:,:,:]",
+    bj2: "float[:,:,:,:]",
+    boundary_index: int,
+    mat_fun: "float[:,:]",
+    data: "float[:,:,:,:,:,:]",
+):
+    pass
+
+
+def surface_kernel_3d_mat_hcurl(
+    spans1: "int[:]",
+    spans2: "int[:]",
+    pi0: int,
+    pi1: int,
+    pi2: int,
+    qi0: int,
+    qi1: int,
+    qi2: int,
+    starts0: int,
+    starts1: int,
+    starts2: int,
+    pads0: int,
+    pads1: int,
+    pads2: int,
+    w1: "float[:,:]",
+    w2: "float[:,:]",
+    bi1: "float[:,:,:,:]",
+    bi2: "float[:,:,:,:]",
+    bj1: "float[:,:,:,:]",
+    bj2: "float[:,:,:,:]",
+    boundary_index: int,
+    n_cross_weight: "float[:,:]",
+    data: "float[:,:,:,:,:,:]",
+):
+    pass
