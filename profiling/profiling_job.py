@@ -7,10 +7,10 @@ and drives the run itself, looping over whichever rank counts it wants to profil
   results directories. It stores everything it computes as attributes on the case
   itself (`venv_path`, `use_slurm`, `launcher`, `case_output_root`, ...), so there's
   a single object to thread through the rest of the run.
-- For each rank count, the caller calls `ProfilingCase.launch(ntasks)`, which builds
+- For each rank count, the caller calls `ProfilingCase.launch(ntasks, param_flags=None)`, which builds
   the per-rank shell commands and either submits a `SlurmScript` (under SLURM) or
   writes/launches a plain bash script (otherwise) — the caller doesn't need to know
-  which. Pass `case_commands` to override the default commands (e.g. to add a
+  which. Pass `param_flags` to override the default commands (e.g. to add a
   case-specific flag such as an arbitrary `ppc`) before they're wrapped in a script.
   Under SLURM, the cluster preset is picked on each call from
   `clusters.SLURM_PRESETS` unless a `slurm_presets` argument overrides it.
@@ -193,8 +193,7 @@ class ProfilingCase:
                 cluster preset's own node count is overridden with this). Ignored
                 outside SLURM, where every rank runs in a single local process group.
             param_flags: Extra CLI flags forwarded to `build_commands` and appended
-                to the `params_source` invocation, e.g. `["--ppc", "10"]`. Ignored if
-                `case_commands` is given.
+                to the `params_source` invocation, e.g. `["--ppc", "10"]`. 
             slurm_presets: Candidate SLURM presets, keyed by cluster name; one is
                 picked via `detect_machine_name` on every call. Defaults to
                 `clusters.SLURM_PRESETS`. Ignored outside SLURM.
