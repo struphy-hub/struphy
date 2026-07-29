@@ -404,7 +404,8 @@ class ProfilingCase:
         datetime_token = self.run_timestamp.strftime("%Y%m%dT%H%M%SZ")
 
         if self.destination_dir is None:
-            folder_name = f"{datetime_token}-{case_commit[:8]}-{_slug(testcase)}-{_slug(case_language)}"
+            # The Pyccel language is recorded in `case_metadata.json`, not in the name.
+            folder_name = f"{datetime_token}-{case_commit[:8]}-{_slug(testcase)}"
             self.destination_dir = self.output_root / folder_name
         self.destination_dir.mkdir(parents=True, exist_ok=True)
 
