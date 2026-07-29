@@ -1,8 +1,6 @@
 import copy
 import logging
 
-from feectools.ddm.mpi import mpi as MPI
-
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
@@ -26,9 +24,6 @@ from struphy.propagators.vlasov_ampere_coupling import VlasovAmpereCoupling
 from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
-
-rank = MPI.COMM_WORLD.Get_rank()
-
 
 class ColdPlasmaVlasov(StruphyModel):
     """Hybrid cold-plasma model: a cold electron fluid coupled with a hot kinetic species and Maxwell's equations.

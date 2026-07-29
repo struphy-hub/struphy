@@ -11,7 +11,7 @@ from struphy.models.species import (
 from struphy.models.variables import PICVariable
 from struphy.propagators.push_random_diffusion import PushRandomDiffusion
 
-rank = MPI.COMM_WORLD.Get_rank()
+
 
 
 class RandomParticleDiffusion(StruphyModel):

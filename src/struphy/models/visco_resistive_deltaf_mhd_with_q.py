@@ -21,7 +21,7 @@ from struphy.propagators.variational_qb_evolve import VariationalQBEvolve
 from struphy.propagators.variational_resistivity import VariationalResistivity
 from struphy.propagators.variational_viscosity import VariationalViscosity
 
-rank = MPI.COMM_WORLD.Get_rank()
+
 
 
 class ViscoResistiveDeltafMHD_with_q(StruphyModel):

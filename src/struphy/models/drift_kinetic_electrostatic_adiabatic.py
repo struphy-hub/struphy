@@ -23,7 +23,7 @@ from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBx
 from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
 from struphy.utils.pyccel import Pyccelkernel
 
-rank = MPI.COMM_WORLD.Get_rank()
+
 
 
 class DriftKineticElectrostaticAdiabatic(StruphyModel):

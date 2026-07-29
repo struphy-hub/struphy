@@ -19,7 +19,7 @@ from struphy.propagators.push_vin_viscous_potential import PushVinViscousPotenti
 from struphy.propagators.push_vxb import PushVxB
 from struphy.utils.pyccel import Pyccelkernel
 
-rank = MPI.COMM_WORLD.Get_rank()
+
 
 
 class IncompressibleNavierStokesSPH(StruphyModel):

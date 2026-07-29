@@ -7,10 +7,10 @@ and drives the run itself, looping over whichever rank counts it wants to profil
   results directories. It stores everything it computes as attributes on the case
   itself (`venv_path`, `use_slurm`, `launcher`, `case_output_root`, ...), so there's
   a single object to thread through the rest of the run.
-- For each rank count, the caller calls `ProfilingCase.launch(ntasks)`, which builds
+- For each rank count, the caller calls `ProfilingCase.launch(ntasks, param_flags=None)`, which builds
   the per-rank shell commands and either submits a `SlurmScript` (under SLURM) or
-  writes/launches a plain bash script (otherwise) — the caller doesn't need to know
-  which. Pass `case_commands` to override the default commands (e.g. to add a
+  writes and runs a plain bash script to completion (otherwise) — the caller doesn't
+  need to know which. Pass `param_flags` to override the default commands (e.g. to add a
   case-specific flag such as an arbitrary `ppc`) before they're wrapped in a script.
   Under SLURM, the cluster preset is picked on each call from
   `clusters.SLURM_PRESETS` unless a `slurm_presets` argument overrides it.
@@ -27,6 +27,11 @@ See `profile_diocotron_scaling.py` for a template.
 """
 
 import getpass
+import mpi4py
+
+mpi4py.rc.initialize = False
+mpi4py.rc.finalize = False
+
 import json
 import os
 import shutil
@@ -50,6 +55,8 @@ from package_profiling_results import (
 from slurm_script_generator.slurm_script import SlurmScript
 from slurm_script_generator.squeue import SQueue
 from upload import _push_profiling_data
+
+
 
 from struphy import Compiler
 from utils import _git_commit, _git_commit_short, _make_unique_results_root, _slug
@@ -143,6 +150,7 @@ class ProfilingCase:
         # recorded in the run's `run_metadata.json`. `params_source` is passed the same
         # counter as `--id` and names its output folder from it.
         sim_dir = output_root / f"sim_{self.launch_count:02d}"
+        python = self.venv_path / "bin" / "python"
         flags = " ".join(["--id", str(self.launch_count), *(param_flags or [])])
 
         return [
@@ -156,6 +164,7 @@ class ProfilingCase:
                 if self.use_modules
                 else []
             ),
+            f"set -e",
             f"source {activate_path!s}",
             'echo "----------------------------------------"',
             f'echo "Running profiling case: {self.label} ({ntasks} MPI ranks)"',
@@ -165,12 +174,15 @@ class ProfilingCase:
             f'echo "Case directory: {output_root}"',
             'echo "----------------------------------------"',
             f'mkdir -p "{sim_dir}"',
+            f'echo "hello"',
             f'cp "{self.params_source}" "{output_root / "parameters.py"}"',
+            f'echo "hello world"',
             f'ls -l "{output_root}"',
             "",
             f'echo "Running {self.label} with {ntasks} MPI ranks"',
             f'cd "{output_root}"',
-            f'{self.launcher} -n {ntasks} python {self.params_source} {flags} > "{sim_dir / "struphy.out"}" 2>&1',
+            f'echo "hello world again"',
+            f'{self.launcher} -n {ntasks} {python} {self.params_source} {flags}', # > "{sim_dir / "struphy.out"}" 2>&1',
             "",
             'echo "----------------------------------------"',
             f'echo "Completed profiling case: {self.label} ({ntasks} MPI ranks)"',
@@ -184,7 +196,7 @@ class ProfilingCase:
         param_flags: list[str] | None = None,
         slurm_presets: dict[str, dict] | None = None,
     ) -> None:
-        """Build, submit/launch, and record the run for a single rank count.
+        """Build, submit/run, and record the run for a single rank count.
 
         Under SLURM, submits a `SlurmScript`; otherwise writes and runs a plain bash
         script locally. Either way, the resulting job/process is recorded on `self`
@@ -202,8 +214,7 @@ class ProfilingCase:
                 cluster preset's own node count is overridden with this). Ignored
                 outside SLURM, where every rank runs in a single local process group.
             param_flags: Extra CLI flags forwarded to `build_commands` and appended
-                to the `params_source` invocation, e.g. `["--ppc", "10"]`. Ignored if
-                `case_commands` is given.
+                to the `params_source` invocation, e.g. `["--ppc", "10"]`. 
             slurm_presets: Candidate SLURM presets, keyed by cluster name; one is
                 picked via `detect_machine_name` on every call. Defaults to
                 `clusters.SLURM_PRESETS`. Ignored outside SLURM.
@@ -262,10 +273,23 @@ class ProfilingCase:
             script_path.chmod(0o755)
 
             print(
-                f"No batch system found; launching '{self.label}' ({num_tasks} MPI ranks) "
+                f"No batch system found; running '{self.label}' ({num_tasks} MPI ranks) "
                 f"locally via {script_path} ...",
             )
-            process = subprocess.Popen(["bash", str(script_path)], cwd=repo_root)
+            # print(os.environ)
+            print(f"{script_path = }")
+            print(f"{repo_root = }")
+            print(f"{os.getcwd() = }")
+            print(f"{script_path = }")
+            result = subprocess.run(["bash", script_path], cwd=repo_root, check=False)
+            print(f"{result.stdout = }")
+            print(f"{result.stderr = }")
+            print(f"{result.returncode = }")
+            if result.returncode != 0:
+                print(
+                    f"WARNING: local run of '{self.label}' ({num_tasks} MPI ranks) via {script_path} "
+                    f"exited with code {result.returncode}.",
+                )
             script_dict = None
 
         # Record the job/process info for `finalize_run` to wait on and package.
@@ -545,7 +569,7 @@ class ProfilingCase:
     def finalize_run(self, upload: bool = False, poll_interval: float = 10.0) -> None:
         """Package and push the case metadata up front, then each run as its job finishes.
 
-        Called once per case, after every rank count has been submitted/launched via
+        Called once per case, after every rank count has been submitted/run via
         `launch`. Writes `profiling_case_info.json` (case metadata plus `job_infos`)
         into `case_output_root`, then packages and pushes the case-level metadata
         (`parameters.py`, `case_metadata.json`) straight away, so the packaged folder

@@ -17,7 +17,7 @@ from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBx
 from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
 
 logger = logging.getLogger("struphy")
-rank = MPI.COMM_WORLD.Get_rank()
+
 
 
 class GuidingCenter(StruphyModel):
