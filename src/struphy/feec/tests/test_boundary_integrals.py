@@ -164,10 +164,6 @@ def test_boundary_mass_unit_cube_constant(num_elements, degree, bcs):
     bnd_mass = BoundaryMassOperator(mass_ops)
     v = bnd_mass.dot(alpha_h)
 
-    logger.info(f"bnd_mass._mat._data max = {xp.max(xp.abs(bnd_mass._mat._data))}")
-    logger.info(f"alpha_h max = {xp.max(xp.abs(alpha_h.toarray()))}")
-    logger.info(f"v max = {xp.max(xp.abs(v.toarray()))}")
-
     numerical = xp.sum(v.toarray())
 
     logger.info(f"numerical = {numerical}, exact = {exact}, error = {xp.abs(numerical - exact)}")

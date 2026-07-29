@@ -137,7 +137,13 @@ class BoundaryIntegralOperator:
             Output vector to accumulate into.
         """
 
-        boundary_index = 0 if face_idx < 3 else -1
+        normal_dir = face_idx % 3
+        fem_space = self._tensor_fem_spaces[0]
+        starts = [int(start) for start in fem_space.coeff_space.starts]
+        ends = [int(end) for end in fem_space.coeff_space.ends]
+        pads = fem_space.coeff_space.pads
+
+        boundary_index = starts[normal_dir] if face_idx < 3 else ends[normal_dir]
 
         fem_space = self._tensor_fem_spaces[0]
         starts = [int(start) for start in fem_space.coeff_space.starts]
@@ -418,7 +424,13 @@ class BoundaryMassOperator(LinOpWithTransp):
         mat : StencilMatrix
             Output matrix to accumulate into.
         """
-        boundary_index = 0 if face_idx < 3 else -1  # TODO apparently not working
+        normal_dir = face_idx % 3
+        fem_space = self._tensor_fem_spaces[0]
+        starts = [int(start) for start in fem_space.coeff_space.starts]
+        ends = [int(end) for end in fem_space.coeff_space.ends]
+        pads = fem_space.coeff_space.pads
+
+        boundary_index = starts[normal_dir] if face_idx < 3 else ends[normal_dir]
 
         fem_space = self._tensor_fem_spaces[0]
         starts = [int(start) for start in fem_space.coeff_space.starts]
