@@ -100,7 +100,7 @@ class ProfilingCase:
     # Populated by `launch`, one entry per rank count; read by `finalize_run`.
     job_infos: list[dict] = field(init=False, default_factory=list)
     job_ids: list[int] = field(init=False, default_factory=list)
-    local_processes: list[tuple[int, subprocess.Popen, Path]] = field(init=False, default_factory=list)
+    local_runs: list[tuple[int, int, Path]] = field(init=False, default_factory=list)
 
     # Incremented on every `launch` call, to give each run a unique script filename.
     launch_count: int = field(init=False, default=0)
@@ -172,10 +172,14 @@ class ProfilingCase:
     ) -> None:
         """Build, submit/launch, and record the run for a single rank count.
 
-        Under SLURM, submits a `SlurmScript`; otherwise writes and runs a plain bash
-        script locally. Either way, the resulting job/process is recorded on `self`
-        (`job_infos`, plus `job_ids` or `local_processes`) for `finalize_run` to wait
-        on and package. Each call gets a unique script filename via `launch_count`.
+        Under SLURM, submits a `SlurmScript` and returns immediately; `finalize_run`
+        then waits for every submitted job to complete. Without SLURM, the plain bash
+        script is run locally and synchronously, so this call blocks until that rank
+        count's run has finished before returning — rank counts are never run in the
+        background or simultaneously, only one at a time, in the order `launch` is
+        called. Either way, the resulting job/run is recorded on `self` (`job_infos`,
+        plus `job_ids` or `local_runs`) for `finalize_run` to read. Each call gets a
+        unique script filename via `launch_count`.
 
         Without SLURM, `num_tasks` oversubscribing the local machine simply makes
         `mpirun` refuse to start, so a run that exceeds the number of local cores is
@@ -245,12 +249,12 @@ class ProfilingCase:
             script_path.chmod(0o755)
 
             print(
-                f"No batch system found; launching '{self.label}' ({num_tasks} MPI ranks) "
-                f"locally via {script_path} ...",
+                f"No batch system found; running '{self.label}' ({num_tasks} MPI ranks) "
+                f"locally via {script_path} (blocking until it finishes) ...",
             )
-            process = subprocess.Popen(["bash", str(script_path)], cwd=repo_root)
+            result = subprocess.run(["bash", str(script_path)], cwd=repo_root, check=False)
             script_dict = None
-            self.local_processes.append((num_tasks, process, script_path))
+            self.local_runs.append((num_tasks, result.returncode, script_path))
 
         # Record the job/process info for `finalize_run` to wait on and package.
         self.job_infos.append(
@@ -461,16 +465,16 @@ class ProfilingCase:
         return destination_dir
 
     def finalize_run(self, upload: bool = False) -> None:
-        """Wait for every rank count to finish, then build comparison plots and package/push results.
+        """Wait for every SLURM rank count to finish, then build comparison plots and package/push results.
 
         Called once per case, after every rank count has been submitted/launched via
         `launch`. Writes `profiling_case_info.json` (case metadata plus `job_infos`)
-        into `case_output_root`, blocks until every SLURM job (`job_ids`) or local
-        process (`local_processes`) has finished, builds a comparison plot across
-        rank counts from the `profiling_data.h5` files produced (if any), and then
-        packages the case's results, pushing them to the profiling-data repo if
-        `upload` is set. Does nothing beyond writing the metadata file if no output
-        was produced.
+        into `case_output_root`, blocks until every SLURM job (`job_ids`) has finished
+        (local runs already finished synchronously inside `launch`, one at a time),
+        builds a comparison plot across rank counts from the `profiling_data.h5` files
+        produced (if any), and then packages the case's results, pushing them to the
+        profiling-data repo if `upload` is set. Does nothing beyond writing the
+        metadata file if no output was produced.
 
         Args:
             upload: Whether to push the packaged results to the profiling-data repo.
@@ -484,16 +488,15 @@ class ProfilingCase:
             encoding="utf-8",
         )
 
-        # Wait for every rank count to finish before packaging anything.
         if self.use_slurm:
+            # Wait for every rank count to finish before packaging anything.
             print(
                 f"Submitted {len(self.job_ids)} job(s) for '{self.label}'. Waiting for all of them to complete...",
             )
             SQueue().wait_until_done(job_id=self.job_ids, poll_interval=10)
         else:
-            print(f"Waiting for {len(self.local_processes)} local run(s) of '{self.label}' to complete...")
-            for ntasks, process, script_path in self.local_processes:
-                returncode = process.wait()
+            # Local runs already completed sequentially, one at a time, inside `launch`.
+            for ntasks, returncode, script_path in self.local_runs:
                 if returncode != 0:
                     print(
                         f"WARNING: local run of '{self.label}' ({ntasks} MPI ranks) via {script_path} "
