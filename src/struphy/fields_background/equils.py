@@ -43,17 +43,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("struphy")
 
-if isinstance(MPI, MockMPI):
-    comm = None
-    rank = 0
-    size = 1
-    Barrier = lambda: None
-else:
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    size = comm.Get_size()
-    Barrier = comm.Barrier
-
 
 class HomogenSlab(CartesianMHDequilibrium):
     r"""
@@ -1769,8 +1758,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         # default input file
         if file is None:
             file = "AUGNLED_g031213.00830.high"
-            if rank == 0:
-                logger.info(f"EQDSK: taking default file {file}.")
+            logger.info(f"EQDSK: taking default file {file}.")
 
         # units
         self._units = Units(base=base_units)
@@ -2132,11 +2120,9 @@ class GVECequilibrium(NumericalMHDequilibrium):
             import pytest
 
             with pytest.raises(SystemExit) as exc:
-                if rank == 0:
-                    logger.info("Simulation aborted, gvec must be installed (pip install gvec)!")
+                logger.info("Simulation aborted, gvec must be installed (pip install gvec)!")
                 sys.exit(1)
-            if rank == 0:
-                logger.info(f"{exc.value.code =}")
+            logger.info(f"{exc.value.code =}")
 
         import gvec
 
@@ -2401,9 +2387,8 @@ class DESCequilibrium(NumericalMHDequilibrium):
         desc_spec = importlib.util.find_spec("desc")
 
         if desc_spec is None:
-            if rank == 0:
-                logger.info("Simulation aborted, desc-opt must be installed!")
-                logger.info("Install with:\npip install desc-opt")
+            logger.info("Simulation aborted, desc-opt must be installed!")
+            logger.info("Install with:\npip install desc-opt")
             sys.exit(1)
 
         import desc
