@@ -134,6 +134,39 @@ class KineticBackground(metaclass=ABCMeta):
     def __repr_no_defaults__(self):
         return __class_with_params_repr_no_defaults__(self)
 
+    def reduced_eval(self, 
+                    dim_1: LiteralOptions.KineticDimensionsToPlot = "e1",
+                    dim_2: LiteralOptions.KineticDimensionsToPlot | None = None,
+                    v_lim: float = 5.0,
+                    resol: int | tuple[int] = 100,
+                    integrate_resol: tuple[int] | None = None,
+                    max_quad_points: int = 1e8
+            ):
+        """Evaluate a "reduced" version of the background, where all but 1 or 2 dimensions have been integrated out.
+        See :ref:`binning`.
+        
+        Integration is performed via a simple midpoint rule, with the number of integration points specified by ``integrate_resol``.
+        One can set a maximum for the total integration points in order to avoid memory issues (default is 100).
+        
+        Parameters
+        ----------
+        dim_1, dim_2 : LiteralOptions.KineticDimensionsToPlot = ["e1","e2","e3","v1","v2","v3"]
+            The axis (or axes) along which the reduced distribution is plotted (i.e. the axes that are not integrated out). 
+            They refere to logical space axes. 
+            If dim_2 is not defined the reduced distribution is 1D, otherwise it is 2D.
+
+        v_lim : float = 5.0
+            Limit value of the velocity axes.
+
+        resol : int | tuple[int]
+            Resolution of the plot along each axis. If a single integer is provided, the same resolution is used for all axes.
+
+        integrate_resol : tuple[int] | None
+            Number of quadrature points for integration along each axis. 
+            If None, is determined as :math:`max_quad_points^(1/N)` where :math:`N` is the number of axes to integrate out.
+            High number of quadrature points can lead to memory issues.
+        """
+
     def plot_density_profile(
         self,
         dim_1: LiteralOptions.KineticDimensionsToPlot = "e1",
