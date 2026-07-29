@@ -151,12 +151,14 @@ class KineticBackground(metaclass=ABCMeta):
         equil=None,
     ):
         """
-        Plots the density profile (slices) of the phase space background distribution. The slice can either be 1D or 2D, in logical or in Cartesian coordinates.
+        Plots the density profile (slices) of the phase space background distribution. 
+        The slice can either be 1D or 2D, in logical or in Cartesian coordinates.
 
         Parameters
         ----------
         dim_1, dim_2 : LiteralOptions.KineticDimensionsToPlot = ["e1","e2","e3","v1","v2","v3"]
-            The axes used in the projection, they refere to logical space axes. If dim_2 is not defined the projection is 1D, it is 2D if dim_2 is attributed.
+            The axes used in the projection, they refere to logical space axes. 
+            If dim_2 is not defined the projection is 1D, it is 2D if dim_2 is attributed.
 
         v_lim : float = 5.0
             Limit value of the velocity axes.
@@ -165,10 +167,13 @@ class KineticBackground(metaclass=ABCMeta):
             Resolution along each axes
 
         integrate_resol : int = 10
-            Resolution along not used velocity axes. The density is reduced (with a maximum function) over these axes before being plotted. High values (>50) may require much memory.
+            Resolution along not used velocity axes. 
+            The density is reduced (with a maximum function) over these axes before being plotted. 
+            High values (>50) may require much memory.
 
         logical_coord : tuple[float] = (0.5, 0.5, 0.5)
-            Refere to the default coordinate (in logical space) attributed to each axe which is not used in the projection.
+            Refere to the default coordinate (in logical space) attributed to each axe 
+            which is not used in the projection.
 
         in_physical : bool = False
             Specify if the result is plotted in logical coordinates or in Cartesian coordinates, has a effect in 2D plotting. If True, you must specify a domain.
@@ -184,6 +189,7 @@ class KineticBackground(metaclass=ABCMeta):
             Plots a surface in a 3D environment. Only for physical projection.
         """
         integrate_resol = min(integrate_resol, 100)  # to avoid memory issues
+        
         if in_physical:
             if not (dim_1 in ["e1", "e2", "e3"] and dim_2 in ["e1", "e2", "e3"]):
                 AssertionError(
@@ -191,7 +197,9 @@ class KineticBackground(metaclass=ABCMeta):
                 )
         if plot_3D and not in_physical:
             AssertionError("To perform a 3D plot you must plot in physical space (activate in_physical).")
+            
         assert 0 <= proj_axis[0] < proj_axis[1] < 3
+        
         if dim_2 is None:
             if dim_1 == "e1":
                 axe_to_plot = 0
@@ -207,20 +215,27 @@ class KineticBackground(metaclass=ABCMeta):
                 axe_to_plot = 5
             else:
                 AssertionError("dim_1argument must match an exiting dimension")
+                
             if axe_to_plot - 3 > self.vdim:
                 AssertionError("Coordinate " + dim_1 + " does not exist with this background")
+                
             linspace_space = xp.array([0.0])
             integrate_linspace_vel = xp.linspace(0.0, v_lim, integrate_resol)
+            
             if axe_to_plot < 3:
                 plot_linspace = xp.linspace(0.0, 1.0, resol)
             else:
                 plot_linspace = xp.linspace(-v_lim, v_lim, resol)
+                
             tabs = 3 * [linspace_space] + self.vdim * [integrate_linspace_vel]
+            
             for i in range(3):
                 tabs[i][0] = logical_coord[i]
             tabs[axe_to_plot] = plot_linspace
+            
             etas = xp.abs(xp.meshgrid(*tabs, indexing="ij"))
             total_density = self(*etas)
+            
             if use_mu and axe_to_plot == 4:
                 B_norm_tab = equil.absB0(
                     etas[0][tuple([slice(None), slice(None), slice(None)] + self.vdim * [0])],
