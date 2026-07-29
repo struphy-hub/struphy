@@ -23,6 +23,7 @@ DOI: 10.1140/epjd/e2014-50180-9
 # ------------------
 
 
+import argparse
 import logging
 
 from struphy import set_logging_level
@@ -74,7 +75,19 @@ model.kinetic_ions.var.save_data = False
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(sim_folder="sim_1", profiling_activated=True, profiling_trace=True, restart=False)
+# `--id` distinguishes runs that share a rank count but differ in something else; the
+# profiling driver passes its launch counter (see `ProfilingJob.build_commands`).
+# Unknown flags are ignored so the driver can forward other parameters as well.
+parser = argparse.ArgumentParser()
+parser.add_argument("--id", type=int, default=0, help="Run id, used to name the output folder.")
+args, _ = parser.parse_known_args()
+
+env = EnvironmentOptions(
+    sim_folder=f"sim_{args.id:02d}",
+    profiling_activated=True,
+    profiling_trace=True,
+    restart=False
+)
 
 # Time stepping
 time_opts = Time(dt=0.01, Tend=51.0, split_algo="LieTrotter")
@@ -86,7 +99,7 @@ domain = domains.HollowCylinder(a1=1.0, a2=10.0, Lz=10.0)
 equil = equils.HomogenSlab()
 
 # Grid
-grid = grids.TensorProductGrid(num_elements=(64, 128, 1), mpi_dims_mask=(False, True, False))
+grid = grids.TensorProductGrid(num_elements=(128, 1024, 1), mpi_dims_mask=(False, True, False))
 
 # Derham options
 derham_opts = DerhamOptions(
@@ -117,7 +130,7 @@ ppc = 100  # run with 1000 minimum
 loading_params = LoadingParameters(ppc=ppc, loading="sobol_standard", spatial="disc")
 weights_params = WeightsParameters(control_variate=True, reject_weights=True, threshold=0.0001)
 boundary_params = BoundaryParameters()
-sorting_params = SortingParameters(boxes_per_dim=(16, 16, 1), do_sort=True, sorting_frequency=5)
+sorting_params = SortingParameters(boxes_per_dim=(256, 256, 1), do_sort=True, sorting_frequency=5)
 
 # density binning
 eta_bin = BinningPlot(slice="e1_e2", n_bins=(128, 128), ranges=((0.0, 1.0), (0.0, 1.0)))
@@ -181,4 +194,4 @@ init = maxwellians.GyroMaxwellian2D(n=(n_init, perturbation), equil=equil)
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":
-    sim.run()
+    sim.run(one_time_step=True)

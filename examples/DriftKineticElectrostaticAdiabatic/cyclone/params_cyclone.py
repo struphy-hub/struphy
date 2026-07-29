@@ -143,9 +143,18 @@ model.kinetic_ions.set_markers(loading_params=loading_params,
 # Propagator options
 # ------------------
 
-model.propagators.gc_poisson.options = model.propagators.gc_poisson.Options(which_geometry="toroidal", solver_params=SolverParameters(tol=1e-12, maxiter=3000, recycle=False), particle_filter=FilterParameters("fourier_in_tor", (1,), repeat=1))
-model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(algo="explicit", evaluate_e_field=True, maxiter=100)
-model.propagators.push_gc_para.options = model.propagators.push_gc_para.Options(algo="explicit", evaluate_e_field=True, maxiter=100)
+model.propagators.gc_poisson.options = model.propagators.gc_poisson.Options(which_geometry="toroidal",
+                                                                            solver_params=SolverParameters(tol=1e-12,maxiter=3000, recycle=False),
+                                                                            filter_params={model.kinetic_ions.var: FilterParameters("fourier_in_tor", (1,), repeat=1)},
+                                                                            )
+model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(algo="explicit", 
+                                                                              evaluate_e_field=True, 
+                                                                              maxiter=100,
+                                                                              )
+model.propagators.push_gc_para.options = model.propagators.push_gc_para.Options(algo="explicit", 
+                                                                                evaluate_e_field=True, 
+                                                                                maxiter=100,
+                                                                                )
 
 # ------------------
 # Initial conditions
