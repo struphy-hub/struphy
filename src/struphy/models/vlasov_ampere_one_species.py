@@ -24,7 +24,7 @@ from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
 
-rank = MPI.COMM_WORLD.Get_rank()
+
 
 
 class VlasovAmpereOneSpecies(StruphyModel):

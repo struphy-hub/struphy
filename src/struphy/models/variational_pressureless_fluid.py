@@ -12,7 +12,7 @@ from struphy.models.variables import FEECVariable
 from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
 from struphy.propagators.variational_momentum_advection import VariationalMomentumAdvection
 
-rank = MPI.COMM_WORLD.Get_rank()
+
 
 
 class VariationalPressurelessFluid(StruphyModel):

@@ -14,7 +14,7 @@ from struphy.simulation.sim import Simulation
 
 logger = logging.getLogger("struphy")
 
-rank = MPI.COMM_WORLD.Get_rank()
+
 
 
 # generic function for calling model tests

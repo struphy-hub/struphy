@@ -25,7 +25,7 @@ from struphy.propagators.push_vxb import PushVxB
 from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
-rank = MPI.COMM_WORLD.Get_rank()
+
 
 
 class LinearVlasovAmpereOneSpecies(StruphyModel):

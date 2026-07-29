@@ -12,7 +12,7 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable
 from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
 
-rank = MPI.COMM_WORLD.Get_rank()
+
 
 
 class Maxwell(StruphyModel):

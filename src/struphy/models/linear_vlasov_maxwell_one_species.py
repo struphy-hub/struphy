@@ -18,7 +18,7 @@ from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vin_efield import PushVinEfield
 from struphy.propagators.push_vxb import PushVxB
 
-rank = MPI.COMM_WORLD.Get_rank()
+
 
 
 class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
