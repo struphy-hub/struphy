@@ -57,7 +57,7 @@ from utils import _git_commit, _git_commit_short, _make_unique_results_root, _sl
 
 script_dir = Path(__file__).resolve().parent
 repo_root = script_dir.parent
-profiling_results_base = repo_root / "results" / "profiling"
+profiling_results_base = repo_root / "_profiling_jobs"
 
 default_cluster_name = "pitagora"
 
@@ -218,7 +218,7 @@ class ProfilingCase:
         # Increment the launch count first: it identifies both the script filename and
         # the run directory that `build_commands` writes into.
         self.launch_count += 1
-        script_path = repo_root / f"job_profile_{self.label}_{self.launch_count:02d}.sh"
+        script_path = profiling_results_base / f"job_profile_{self.label}_{self.launch_count:02d}.sh"
 
         # Build the commands to run this case with the given rank count, and write/submit
         case_commands = self.build_commands(num_tasks, param_flags)
