@@ -1,7 +1,7 @@
 # -----------------------------
 # Description of the simulation
 # -----------------------------
-# Please fill in a verbal description of the simulation. 
+# Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
 name = "Poisson strong scaling on 3D cube"
@@ -12,7 +12,9 @@ Homogeneous Dirichlet boundary conditions are set in direction x.
 """
 
 import logging
+
 from struphy import set_logging_level
+
 set_logging_level(logging.WARNING)
 
 import argparse
@@ -20,7 +22,6 @@ import argparse
 # ------------------
 # Import Struphy API
 # ------------------
-
 from struphy import (
     BaseUnits,
     DerhamOptions,
@@ -37,7 +38,6 @@ from struphy import (
 # ---------------------
 # Instance of the model
 # ---------------------
-
 from struphy.models import Poisson
 
 # Units
@@ -76,7 +76,7 @@ time_opts = Time()
 Lx = 2.0
 Ly = 3.0
 Lz = 4.0
-domain = domains.Cuboid(r1=Lx, l2=-Ly/2.0, r2=Ly/2.0, r3=Lz)
+domain = domains.Cuboid(r1=Lx, l2=-Ly / 2.0, r2=Ly / 2.0, r3=Lz)
 
 # Fluid equilibrium (can be used as part of initial conditions)
 equil = None
@@ -117,18 +117,22 @@ model.propagators.poisson.options = model.propagators.poisson.Options(solver="pc
 model.em_fields.source.add_background(FieldsBackground())
 
 # Perturbations for (some) FEEC variables
-from struphy.initial.base import GenericPerturbation
 import numpy as np
 
+from struphy.initial.base import GenericPerturbation
+
+
 def exact_solution(x, y, z):
-    return np.sin(np.pi/Lx * x) * np.cos(8*np.pi/Ly * y) * np.sin(4*np.pi/Lz * z)
+    return np.sin(np.pi / Lx * x) * np.cos(8 * np.pi / Ly * y) * np.sin(4 * np.pi / Lz * z)
+
 
 def rhs(x, y, z):
-    return exact_solution(x, y, z) * ((np.pi/Lx)**2 + (8*np.pi/Ly)**2 + (4*np.pi/Lz)**2)
+    return exact_solution(x, y, z) * ((np.pi / Lx) ** 2 + (8 * np.pi / Ly) ** 2 + (4 * np.pi / Lz) ** 2)
+
 
 rhs_perturbation = GenericPerturbation(rhs, given_in_basis="physical")
 
 model.em_fields.source.add_perturbation(rhs_perturbation)
 
 if __name__ == "__main__":
-    sim.run(one_time_step=True) 
+    sim.run(one_time_step=True)

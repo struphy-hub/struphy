@@ -5,7 +5,9 @@ import logging.config
 import os
 
 from feectools.ddm.mpi import mpi as MPI
+
 from struphy.utils.mpi_launch import launched_under_mpi
+
 
 class RankZeroFilter(logging.Filter):
     def __init__(self, rank: int):

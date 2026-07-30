@@ -12,9 +12,8 @@ from struphy.io.setup import import_parameters_py
 from struphy.models.base import StruphyModel
 from struphy.simulation.sim import Simulation
 from struphy.utils.mpi_launch import launched_under_mpi
+
 logger = logging.getLogger("struphy")
-
-
 
 
 # generic function for calling model tests

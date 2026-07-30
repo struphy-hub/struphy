@@ -18,7 +18,6 @@ from struphy.propagators.poisson_solve import PoissonSolve
 logger = logging.getLogger("struphy")
 
 
-
 class HasegawaWakatani(StruphyModel):
     """Hasegawa-Wakatani equations in 2D for drift-wave turbulence.
 

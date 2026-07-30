@@ -27,7 +27,6 @@ from struphy.utils.pyccel import Pyccelkernel
 logger = logging.getLogger("struphy")
 
 
-
 class LinearVlasovAmpereOneSpecies(StruphyModel):
     """Linearized Vlasov-Ampère equations for one kinetic species around a Maxwellian background.
 

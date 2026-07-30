@@ -9,6 +9,7 @@ from struphy.models.species import (
 from struphy.models.variables import PICVariable
 from struphy.propagators.push_deterministic_diffusion import PushDeterministicDiffusion
 
+
 class DeterministicParticleDiffusion(StruphyModel):
     """Diffusion equation discretized with a deterministic particle method.
 

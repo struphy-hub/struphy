@@ -15,8 +15,6 @@ from struphy.propagators.push_vin_viscous_potential import PushVinViscousPotenti
 from struphy.propagators.push_vxb import PushVxB
 
 
-
-
 class ViscousEulerSPH(StruphyModel):
     """Euler equations with viscosity discretized with smoothed particle hydrodynamics (SPH).
 

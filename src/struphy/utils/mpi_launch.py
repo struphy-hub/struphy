@@ -108,10 +108,7 @@ def get_comm(use_mpi: bool | None = None):
         from mpi4py import MPI
     except ImportError:
         if use_mpi:
-            raise ImportError(
-                "MPI profiling was requested (use_mpi=True) but mpi4py is not "
-                "installed."
-            )
+            raise ImportError("MPI profiling was requested (use_mpi=True) but mpi4py is not installed.")
         # Launched by mpirun without mpi4py available: fall back to treating
         # this rank as a standalone process rather than failing the run.
         return None

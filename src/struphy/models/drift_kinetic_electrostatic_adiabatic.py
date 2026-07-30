@@ -24,8 +24,6 @@ from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterPa
 from struphy.utils.pyccel import Pyccelkernel
 
 
-
-
 class DriftKineticElectrostaticAdiabatic(StruphyModel):
     r"""Electrostatic drift-kinetic model for a single ion species with adiabatic electrons.
 

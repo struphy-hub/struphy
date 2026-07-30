@@ -19,8 +19,6 @@ from struphy.propagators.push_vin_efield import PushVinEfield
 from struphy.propagators.push_vxb import PushVxB
 
 
-
-
 class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
     """Linearized Vlasov-Maxwell equations for one kinetic species around a Maxwellian background.
 

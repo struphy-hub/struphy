@@ -19,7 +19,6 @@ from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterPa
 logger = logging.getLogger("struphy")
 
 
-
 class GuidingCenter(StruphyModel):
     """Guiding-center equation for a single species in a static background magnetic field.
 

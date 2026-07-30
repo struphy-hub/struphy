@@ -13,8 +13,6 @@ from struphy.propagators.variational_density_evolve import VariationalDensityEvo
 from struphy.propagators.variational_momentum_advection import VariationalMomentumAdvection
 
 
-
-
 class VariationalBarotropicFluid(StruphyModel):
     """Barotropic fluid equations discretized with a variational method.
 

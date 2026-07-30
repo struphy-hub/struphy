@@ -12,8 +12,6 @@ from struphy.models.variables import FEECVariable
 from struphy.propagators.two_fluid_quasi_neutral_full import TwoFluidQuasiNeutralFull
 
 
-
-
 class TwoFluidQuasiNeutralToy(StruphyModel):
     """Linearized, quasi-neutral two-fluid model with zero electron inertia.
 

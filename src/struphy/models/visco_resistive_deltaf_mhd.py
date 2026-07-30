@@ -22,8 +22,6 @@ from struphy.propagators.variational_resistivity import VariationalResistivity
 from struphy.propagators.variational_viscosity import VariationalViscosity
 
 
-
-
 class ViscoResistiveDeltafMHD(StruphyModel):
     """Delta-f visco-resistive MHD equations discretized with a variational method.
 

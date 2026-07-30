@@ -17,8 +17,6 @@ from struphy.propagators.magnetosonic import Magnetosonic
 from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
 
 
-
-
 class LinearMHD(StruphyModel):
     """Linear ideal MHD with zero-flow equilibrium for magnetohydrodynamic wave propagation.
 

@@ -37,7 +37,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-from clusters import SLURM_PRESETS, HARDWARE_INFO, detect_machine_name
+from clusters import HARDWARE_INFO, SLURM_PRESETS, detect_machine_name
 from package_profiling_results import (
     _build_output_name,
     _collect_hardware_info,
@@ -51,8 +51,6 @@ from package_profiling_results import (
 from slurm_script_generator.slurm_script import SlurmScript
 from slurm_script_generator.squeue import SQueue
 from upload import _push_profiling_data
-
-
 
 from struphy import Compiler
 from utils import _git_commit, _git_commit_short, _make_unique_results_root, _slug
@@ -173,7 +171,7 @@ class ProfilingCase:
             f'echo "Running {self.label} with {ntasks} MPI ranks"',
             f'cd "{output_root}"',
             f'echo "hello world again"',
-            f'{self.launcher} -n {ntasks} {python} {self.params_source} {flags}', # > "{sim_dir / "struphy.out"}" 2>&1',
+            f"{self.launcher} -n {ntasks} {python} {self.params_source} {flags}",  # > "{sim_dir / "struphy.out"}" 2>&1',
             "",
             'echo "----------------------------------------"',
             f'echo "Completed profiling case: {self.label} ({ntasks} MPI ranks)"',
@@ -206,7 +204,7 @@ class ProfilingCase:
                 cluster preset's own node count is overridden with this). Ignored
                 outside SLURM, where every rank runs in a single local process group.
             param_flags: Extra CLI flags forwarded to `build_commands` and appended
-                to the `params_source` invocation, e.g. `["--ppc", "10"]`. 
+                to the `params_source` invocation, e.g. `["--ppc", "10"]`.
             slurm_presets: Candidate SLURM presets, keyed by cluster name; one is
                 picked via `detect_machine_name` on every call. Defaults to
                 `clusters.SLURM_PRESETS`. Ignored outside SLURM.
@@ -263,8 +261,7 @@ class ProfilingCase:
             script_path.chmod(0o755)
 
             print(
-                f"No batch system found; running '{self.label}' ({num_tasks} MPI ranks) "
-                f"locally via {script_path} ...",
+                f"No batch system found; running '{self.label}' ({num_tasks} MPI ranks) locally via {script_path} ...",
             )
             # print(os.environ)
             print(f"{script_path = }")
