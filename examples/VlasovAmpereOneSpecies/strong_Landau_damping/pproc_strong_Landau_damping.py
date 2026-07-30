@@ -26,11 +26,7 @@ def main():
     model.units = units
     A_bulk = model.bulk_species.mass_number
     Z_bulk = model.bulk_species._charge_number
-    model.units.derive_units(
-        velocity_scale=model.velocity_scale,
-        A_bulk=A_bulk,
-        Z_bulk=Z_bulk
-    )
+    model.units.derive_units(velocity_scale=model.velocity_scale, A_bulk=A_bulk, Z_bulk=Z_bulk)
     unit_t = model.units.t
 
     # get scalar data (post processing not needed for scalar data)
@@ -50,8 +46,8 @@ def main():
         plt.ylabel("electric energy $E^2/2$ [a.u.]")
 
         plt.show()
-        
-    ### Binning distribution progression ###        
+
+    ### Binning distribution progression ###
     # post process raw data
     path = os.path.join(os.getcwd(), "sim_data")
     pp = PostProcessor(sim=params.sim)
@@ -68,25 +64,26 @@ def main():
     nrows = 3
     ncols = 4
     ntime = len(pdata.f.kinetic_ions.e1_v1_density.f_binned)
-    time_indices = [int( i/(nrows*ncols-1) * (ntime - 1) ) for i in range(nrows*ncols)]
+    time_indices = [int(i / (nrows * ncols - 1) * (ntime - 1)) for i in range(nrows * ncols)]
 
-    fig, axs = plt.subplots(nrows = nrows, ncols = ncols, figsize = (14,10), sharex=True, sharey=True)
+    fig, axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=(14, 10), sharex=True, sharey=True)
     for i in range(nrows):
         for j in range(ncols):
             ax_maxwellian = axs[i][j]
-            time_idx = time_indices[j + i*ncols]
+            time_idx = time_indices[j + i * ncols]
 
-            #maxwellian distribution plot
+            # maxwellian distribution plot
             color_mapped = pdata.f.kinetic_ions.e1_v1_density.f_binned[time_idx].T
-            pcm = ax_maxwellian.pcolor(e1_bins,v1_bins, color_mapped)
+            pcm = ax_maxwellian.pcolor(e1_bins, v1_bins, color_mapped)
 
             ax_maxwellian.set_xlabel(r"$\eta_1$")
             ax_maxwellian.set_ylabel(r"$v_x$")
-            ax_maxwellian.set_title(fr"full-$f$ at t = {pdata.t_grid[time_idx]*unit_t:4.2e} s")
-            fig.colorbar(pcm, ax = ax_maxwellian)
+            ax_maxwellian.set_title(rf"full-$f$ at t = {pdata.t_grid[time_idx] * unit_t:4.2e} s")
+            fig.colorbar(pcm, ax=ax_maxwellian)
 
     plt.tight_layout()
     plt.show()
-    
+
+
 if __name__ == "__main__":
     main()

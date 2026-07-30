@@ -103,7 +103,10 @@ def build_dependency_entry(entry, resolved_versions, project_name):
 
     resolved_version = resolved_versions.get(normalized_name)
     if resolved_version is None:
-        print(f"Warning: {requirement['name']} is not available in the tested dependency snapshot, skipping...", file=sys.stderr)
+        print(
+            f"Warning: {requirement['name']} is not available in the tested dependency snapshot, skipping...",
+            file=sys.stderr,
+        )
         return entry
 
     specifiers = get_preserved_specifiers(requirement)

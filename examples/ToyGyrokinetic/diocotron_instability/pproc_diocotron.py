@@ -54,6 +54,7 @@ FIELD_PLOTS = [
     },
 ]
 
+
 # ============================================================
 # Small utilities
 # ============================================================
@@ -185,7 +186,9 @@ def make_slider_plot(time_grid, xgrid, ygrid, data, *, title, xlabel, ylabel, vm
     plt.show()
 
 
-def plot_binned_quantity_slider(params, pdata, *, bin_name, quantity, in_physical=True, axes="RZ", vmin=None, vmax=None, title="density binned"):
+def plot_binned_quantity_slider(
+    params, pdata, *, bin_name, quantity, in_physical=True, axes="RZ", vmin=None, vmax=None, title="density binned"
+):
     data = get_binned_data(pdata, bin_name, quantity)
     xgrid, ygrid, xlabel, ylabel = get_binned_grids(params, pdata, bin_name, in_physical=in_physical, plot_axes=axes)
     make_slider_plot(
@@ -309,7 +312,6 @@ def plot_field_slider(
     plt.show()
 
 
-
 def load_marker_data(pdata, species="kinetic_ions", max_markers=200):
     orbs = getattr(pdata.orbits, species)
     nb_markers = min(orbs.shape[1], max_markers)
@@ -356,7 +358,7 @@ def plot_marker_trajectories_slider(
     lines = []
     if show_paths:
         for j in range(nmarkers):
-            line, = ax.plot(
+            (line,) = ax.plot(
                 x[: it0 + 1, j],
                 y[: it0 + 1, j],
                 z[: it0 + 1, j],
@@ -395,7 +397,7 @@ def plot_marker_trajectories_slider(
 
 # ------------------
 # Post process simulation data
-# In order to compare different simulations, execute this file as `python pproc_diocotron.py sim_1 sim_2 ...` 
+# In order to compare different simulations, execute this file as `python pproc_diocotron.py sim_1 sim_2 ...`
 # where `sim_1`, `sim_2`, etc. are the names of the simulation folders to be post-processed and plotted together.
 # If only one argument, the 2D plots will be shown. If multiple arguments, only the growth rate plot will be shown.
 # ------------------
@@ -428,45 +430,56 @@ def main():
         # time interval to determine growth rate
         ti, tf = 0.0, 42.0
         tf = min(tf, times[i][-1])
-        if ti>tf:
-            ti = tf/2
-        xi = xp.abs(pdata.t_grid - ti).argmin() # index of time 100 [a.lu.] (observed end of growth rate)
-        xf = xp.abs(pdata.t_grid - tf).argmin() + 1 # index of time 200 [a.lu.] (observed end of growth rate)
-        if xi==0:
-            xi=1 # avoid including t=0 in fit
+        if ti > tf:
+            ti = tf / 2
+        xi = xp.abs(pdata.t_grid - ti).argmin()  # index of time 100 [a.lu.] (observed end of growth rate)
+        xf = xp.abs(pdata.t_grid - tf).argmin() + 1  # index of time 200 [a.lu.] (observed end of growth rate)
+        if xi == 0:
+            xi = 1  # avoid including t=0 in fit
 
         sls.append(tuple([slice(xi, xf)]))
 
         if len(times[i]) > 3:
             fitting.append(True)
             # determine growth rate
-            fitting_func = lambda x,m,b,c0: xp.exp(m*x+b)+c0
-            jac_func = lambda x,m,b,c0: xp.array([x*xp.exp(m*x+b), xp.exp(m*x+b), xp.ones_like(x)]).transpose()
+            fitting_func = lambda x, m, b, c0: xp.exp(m * x + b) + c0
+            jac_func = lambda x, m, b, c0: xp.array(
+                [x * xp.exp(m * x + b), xp.exp(m * x + b), xp.ones_like(x)]
+            ).transpose()
 
-            params_opt, _ = sc.curve_fit(fitting_func, times[i][sls[i]], en_phis[i][sls[i]], p0=(1e-3, -5, en_phis[i][1]), jac=jac_func, maxfev=10000)#3.07e2
+            params_opt, _ = sc.curve_fit(
+                fitting_func,
+                times[i][sls[i]],
+                en_phis[i][sls[i]],
+                p0=(1e-3, -5, en_phis[i][1]),
+                jac=jac_func,
+                maxfev=10000,
+            )  # 3.07e2
             params_opts.append(params_opt)
 
             logging.info(f"Fitted growth rate for {sim_name}: {params_opt[0]:.4e}")
         else:
             fitting.append(False)
 
-    fig, ax = plt.subplots(1, figsize = (6, 4))
+    fig, ax = plt.subplots(1, figsize=(6, 4))
     for i in range(len(sim_names)):
-        ax.scatter(times[i][1:], en_phis[i][1:], marker='x', s=0.05, label=r"$\phi$")#_{"+sim_names[i][4:]+r"}$")
+        ax.scatter(times[i][1:], en_phis[i][1:], marker="x", s=0.05, label=r"$\phi$")  # _{"+sim_names[i][4:]+r"}$")
         if fitting[i]:
             ax.plot(
-                times[i][sls[i]], 
-                fitting_func(times[i][sls[i]], *params_opts[i]), 
+                times[i][sls[i]],
+                fitting_func(times[i][sls[i]], *params_opts[i]),
                 label=f"{ti=}, {tf=}, fitted growth_rate={params_opts[i][0]:.4e}",
-                c="orange"
+                c="orange",
             )
     ax.axvline(ti, color="gray", linestyle="--", alpha=0.5)
     ax.axvline(tf, color="gray", linestyle="--", alpha=0.5)
 
-    #ax.set_yscale('log')
+    # ax.set_yscale('log')
     ax.legend()
 
-    ax.set_title(f"{params.time_opts.dt=}, {params.time_opts.split_algo=}, {params.grid.num_elements=}, {params.derham_opts.degree=}, {params.loading_params.ppc=}")
+    ax.set_title(
+        f"{params.time_opts.dt=}, {params.time_opts.split_algo=}, {params.grid.num_elements=}, {params.derham_opts.degree=}, {params.loading_params.ppc=}"
+    )
     ax.set_xlabel("time")
     ax.set_ylabel("Energy [a.u.]")
 
@@ -502,7 +515,7 @@ def main():
                 vmax=cfg.get("vmax"),
                 title=cfg.get("title"),
             )
-    
+
     plot_marker_trajectories_slider(
         pdata=pdata,
         species="kinetic_ions",
@@ -511,7 +524,7 @@ def main():
     )
 
 
-if len(sys.argv)>1 and __name__ == "__main__":
+if len(sys.argv) > 1 and __name__ == "__main__":
     sim_names = sys.argv[1:]
     params_files = []
     sim_paths = []
@@ -527,6 +540,7 @@ if len(sys.argv)>1 and __name__ == "__main__":
 else:
     sim_names = ["sim_1"]
     import params_diocotron as params
+
     params_files = [params]
     sim_paths = [os.path.join(os.getcwd(), sim_names[0])]
 

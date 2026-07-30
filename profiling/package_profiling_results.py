@@ -223,4 +223,3 @@ def _collect_job_info(case_info: dict[str, Any]) -> dict[str, Any]:
             for job in case_info.get("jobs", [])
         ],
     }
-

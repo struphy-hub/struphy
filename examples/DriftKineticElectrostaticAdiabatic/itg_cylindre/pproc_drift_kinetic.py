@@ -16,7 +16,7 @@ from struphy import PlottingData, PostProcessor
 # User options
 # ============================================================
 FIT_T0 = 0.0
-FIT_T1 = None              # None -> last available time
+FIT_T1 = None  # None -> last available time
 FIT_QUANTITY = "phi_integral"  # or "en_phi" if this scalar exists in data_proc0.hdf5
 
 SHOW_EQUIL_PROFILE = False
@@ -66,7 +66,6 @@ FIELD_PLOTS = [
         "title": "Right-hand side of Poisson equation",
     },
 ]
-
 
 
 # ============================================================
@@ -260,7 +259,9 @@ def make_slider_plot(time_grid, xgrid, ygrid, data, *, title, xlabel, ylabel, vm
     plt.show()
 
 
-def plot_binned_quantity_slider(params, pdata, *, bin_name, quantity, in_physical=True, axes="RZ", vmin=None, vmax=None, title="density binned"):
+def plot_binned_quantity_slider(
+    params, pdata, *, bin_name, quantity, in_physical=True, axes="RZ", vmin=None, vmax=None, title="density binned"
+):
     data = get_binned_data(pdata, bin_name, quantity)
     xgrid, ygrid, xlabel, ylabel = get_binned_grids(params, pdata, bin_name, in_physical=in_physical, plot_axes=axes)
     make_slider_plot(
@@ -384,7 +385,6 @@ def plot_field_slider(
     plt.show()
 
 
-
 def load_marker_data(pdata, species="kinetic_ions", max_markers=200):
     orbs = getattr(pdata.orbits, species)
     nb_markers = min(orbs.shape[1], max_markers)
@@ -431,7 +431,7 @@ def plot_marker_trajectories_slider(
     lines = []
     if show_paths:
         for j in range(nmarkers):
-            line, = ax.plot(
+            (line,) = ax.plot(
                 x[: it0 + 1, j],
                 y[: it0 + 1, j],
                 z[: it0 + 1, j],
@@ -467,6 +467,7 @@ def plot_marker_trajectories_slider(
     slider.on_changed(update)
     plt.show()
 
+
 # ============================================================
 # Main
 # ============================================================
@@ -479,7 +480,7 @@ def main():
     params.domain.show()
 
     data_path = os.path.join(sim_path, "data")
-    
+
     time, en_phi = load_scalar(data_path, FIT_QUANTITY)
     plot_energy_fit(time, en_phi)
 
@@ -512,7 +513,7 @@ def main():
                 vmax=cfg.get("vmax"),
                 title=cfg.get("title"),
             )
-    
+
     plot_marker_trajectories_slider(
         pdata=pdata,
         species="kinetic_ions",
