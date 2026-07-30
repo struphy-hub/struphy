@@ -163,14 +163,10 @@ class ProfilingCase:
             f'echo "Case directory: {output_root}"',
             'echo "----------------------------------------"',
             f'mkdir -p "{sim_dir}"',
-            'echo "hello"',
             f'cp "{self.params_source}" "{output_root / "parameters.py"}"',
-            'echo "hello world"',
-            f'ls -l "{output_root}"',
             "",
             f'echo "Running {self.label} with {ntasks} MPI ranks"',
             f'cd "{output_root}"',
-            'echo "hello world again"',
             f"{self.launcher} -n {ntasks} {python} {self.params_source} {flags}",  # > "{sim_dir / "struphy.out"}" 2>&1',
             "",
             'echo "----------------------------------------"',
@@ -263,15 +259,9 @@ class ProfilingCase:
             print(
                 f"No batch system found; running '{self.label}' ({num_tasks} MPI ranks) locally via {script_path} ...",
             )
-            # print(os.environ)
-            print(f"{script_path = }")
-            print(f"{repo_root = }")
-            print(f"{os.getcwd() = }")
-            print(f"{script_path = }")
+
             result = subprocess.run(["bash", script_path], cwd=repo_root, check=False)
-            print(f"{result.stdout = }")
-            print(f"{result.stderr = }")
-            print(f"{result.returncode = }")
+
             if result.returncode != 0:
                 print(
                     f"WARNING: local run of '{self.label}' ({num_tasks} MPI ranks) via {script_path} "
