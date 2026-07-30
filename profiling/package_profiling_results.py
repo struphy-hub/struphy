@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from clusters import detect_machine_name
+
 from utils import _run_command, _slug
 
 # Written by `Simulation.run()`, one per `sim_<id>` run directory.
@@ -220,4 +221,3 @@ def _collect_job_info(case_info: dict[str, Any]) -> dict[str, Any]:
             for job in case_info.get("jobs", [])
         ],
     }
-

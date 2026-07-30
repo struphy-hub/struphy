@@ -27,6 +27,7 @@ See `profile_diocotron_scaling.py` for a template.
 """
 
 import getpass
+
 import mpi4py
 
 mpi4py.rc.initialize = False
