@@ -43,6 +43,7 @@ def main() -> None:
         params_source=params_dir / "params_diocotron.py",
         language="fortran",
         compiler="GNU",
+        upload=args.upload,
     )
 
     # Launch one run per rank count
@@ -50,7 +51,7 @@ def main() -> None:
         profiling_case.launch(num_tasks)
 
     # Package and push each run as its own job finishes.
-    profiling_case.finalize_run(upload=args.upload)
+    profiling_case.finalize_run()
 
 
 if __name__ == "__main__":

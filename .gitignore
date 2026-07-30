@@ -92,10 +92,9 @@ code_analysis_report.html
 params_*
 !profiling/examples/**/params_*.py
 
-# Profiling driver output: generated job scripts, run directories and the folder
-# packaged for the profiling-data repo.
+# Profiling driver output: generated job scripts, run directories and the
+# profiling-data clone the results are packaged into.
 /_profiling_jobs/
-/profiling-results-export/
 
 # I/O
 src/struphy/io/out/

@@ -16,7 +16,10 @@ and drives the run itself, looping over whichever rank counts it wants to profil
   `clusters.SLURM_PRESETS` unless a `slurm_presets` argument overrides it.
 - `ProfilingCase.finalize_run` packages and pushes the case-level metadata straight
   away, then waits on the runs one by one, packaging and pushing each run's results
-  into that same folder as soon as its own job finishes. Runs are identified by their
+  into that same folder as soon as its own job finishes. With `upload=True`, the
+  packaged folder lives inside a clone of the profiling-data repo (made by
+  `setup_run`), so a push is just a commit there — results are never staged in a
+  separate export folder first. Runs are identified by their
   launch id throughout — job scripts, SLURM job/log names, run directories and
   packaged files all carry it, and nothing is named after its rank count.
 
@@ -55,7 +58,7 @@ from package_profiling_results import (
 )
 from slurm_script_generator.slurm_script import SlurmScript
 from slurm_script_generator.squeue import SQueue
-from upload import _push_profiling_data
+from upload import _clone_profiling_data, _push_profiling_data
 
 from struphy import Compiler
 from utils import _git_commit, _git_commit_short, _make_unique_results_root, _slug
@@ -128,6 +131,10 @@ class ProfilingCase:
     params_source: Path
     language: str = "fortran"  # Pyccel language to compile the Struphy kernels with: "fortran" or "c".
     compiler: str = "GNU"  # Pyccel compiler family: "GNU", "intel", "PGI", "nvidia", or "LLVM".
+    # Whether the packaged results are pushed to the profiling-data repo. Set here rather
+    # than at `finalize_run` time because `setup_run` clones that repo up front, so a
+    # missing/unreachable repo fails before any job is submitted rather than after.
+    upload: bool = False
 
     # Populated by `setup_run`; unset (None) until then. Not constructor arguments.
     venv_path: Path | None = field(init=False, default=None)
@@ -353,12 +360,19 @@ class ProfilingCase:
             self.compiler_instance.compile()
         print("Done compiling Struphy kernels.")
 
-        # Create a unique results root for this profiling run.
-        self.output_root = Path("profiling-results-export").resolve()
-        if self.output_root.exists():
-            shutil.rmtree(self.output_root)
-        self.output_root.mkdir(parents=True, exist_ok=True)
         profiling_results_base.mkdir(parents=True, exist_ok=True)
+
+        # Results are packaged straight into a clone of the profiling-data repo, so
+        # pushing a run is just a commit — there is no intermediate export folder to
+        # copy out of. Without `--upload` the clone is pointless, so the packaged
+        # folders are simply written into the same, plain directory.
+        self.output_root = profiling_results_base / "profiling-data"
+        if self.upload:
+            _clone_profiling_data(self.output_root)
+        else:
+            if self.output_root.exists():
+                shutil.rmtree(self.output_root)
+            self.output_root.mkdir(parents=True, exist_ok=True)
 
         # Determine the current git commit hash for the Struphy repo
         self.run_commit = _git_commit(repo_root)
@@ -594,7 +608,7 @@ class ProfilingCase:
             # here every one of them has already finished, in launch order.
             yield from self.job_infos
 
-    def finalize_run(self, upload: bool = False, poll_interval: float = 10.0) -> None:
+    def finalize_run(self, poll_interval: float = 10.0) -> None:
         """Package and push the case metadata up front, then each run as its job finishes.
 
         Called once per case, after every rank count has been submitted/run via
@@ -606,8 +620,9 @@ class ProfilingCase:
         same folder and pushing it again as soon as that run's job finishes, rather than
         waiting for every run to complete first.
 
+        Whether the pushes happen at all is the case's `upload` flag, set at construction.
+
         Args:
-            upload: Whether to push the packaged results to the profiling-data repo.
             poll_interval: Seconds between polls for finished runs.
         """
         print(
@@ -623,9 +638,9 @@ class ProfilingCase:
         # packaged folder is already in place when the per-run pushes start updating it.
         self.package_case_metadata(case_info)
         print(f"Packaged case metadata for '{self.label}' into {self.destination_dir}")
-        if upload:
+        if self.upload:
             print("Uploading case metadata to the profiling-data repo ...")
-            _push_profiling_data([self.destination_dir], self.run_commit)
+            _push_profiling_data(self.output_root, self.run_commit)
 
         # Then package and push each run's results as soon as its own job finishes,
         # rather than waiting for every run to complete first.
@@ -642,14 +657,14 @@ class ProfilingCase:
             # Refresh `case_metadata.json` so it lists the runs packaged so far.
             self.package_case_metadata(case_info)
             print(f"Packaged '{self.label}' {run} into {self.destination_dir}")
-            if upload:
+            if self.upload:
                 print(f"Uploading '{self.label}' {run} to the profiling-data repo ...")
-                _push_profiling_data([self.destination_dir], self.run_commit)
+                _push_profiling_data(self.output_root, self.run_commit)
 
         if packaged_launch_ids:
             print(f"Packaged {len(packaged_launch_ids)} run(s) of '{self.label}' (ids {sorted(packaged_launch_ids)}):")
             print(f" - {self.destination_dir}")
-            if not upload:
+            if not self.upload:
                 print("Upload skipped; use --upload to push the packaged profiling data to the profiling-data repo.")
                 print("Plot the results locally by opening the HTML files in the packaged directories, e.g.:")
                 print(f"scope-profiler pproc {self.destination_dir / '*.h5'} --rank 0")
