@@ -102,8 +102,7 @@ class GuidingCenter(StruphyModel):
             n_lost_particles=LostMarkersPIC(self.kinetic_ions.var),
         )
 
-        if rank == 0:
-            logger.info("Done.")
+        logger.info("Done.")
 
     @property
     def bulk_species(self):
