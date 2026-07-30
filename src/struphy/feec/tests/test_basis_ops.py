@@ -295,9 +295,7 @@ def test_basis_ops_polar(num_elements, degree, bcs, mapping, show_plots=False):
 
     # mapping
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class(
-        num_elements=num_elements[:2], degree=degree[:2], a=mapping[1]["a"], Lz=mapping[1]["Lz"]
-    )
+    domain = domain_class(num_elements=num_elements[:2], degree=degree[:2], a=mapping[1]["a"], Lz=mapping[1]["Lz"])
 
     if show_plots:
         import matplotlib.pyplot as plt
@@ -306,7 +304,15 @@ def test_basis_ops_polar(num_elements, degree, bcs, mapping, show_plots=False):
 
     # load MHD equilibrium
     eq_mhd = ScrewPinch(
-        a=mapping[1]["a"], R0=3.0, B0=1.0, q0=1.05, q1=1.80, n1=3.0, n2=4.0, na=0.0, beta=0.1,
+        a=mapping[1]["a"],
+        R0=3.0,
+        B0=1.0,
+        q0=1.05,
+        q1=1.80,
+        n1=3.0,
+        n2=4.0,
+        na=0.0,
+        beta=0.1,
     )
 
     if show_plots:

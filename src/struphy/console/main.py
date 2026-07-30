@@ -683,7 +683,6 @@ class CustomFormatter(NoSubparsersMetavarFormatter, RawTextHelpFormatter):
     """
 
 
-
 def recursive_get_files(path, contains=(".yml", ".yaml"), out=None, prefix=None):
     if out is None:
         out = []

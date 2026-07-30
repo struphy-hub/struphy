@@ -1,4 +1,3 @@
-
 """
 Acccelerated functions for point-wise evaluation of tensor product B-splines.
 

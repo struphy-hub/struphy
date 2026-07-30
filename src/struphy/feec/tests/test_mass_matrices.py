@@ -599,9 +599,7 @@ def test_mass_polar(num_elements, degree, bcs, mapping, show_plots=False):
 
     # mapping
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class(
-        num_elements=num_elements[:2], degree=degree[:2], a=mapping[1]["a"], Lz=mapping[1]["Lz"]
-    )
+    domain = domain_class(num_elements=num_elements[:2], degree=degree[:2], a=mapping[1]["a"], Lz=mapping[1]["Lz"])
 
     if show_plots:
         import matplotlib.pyplot as plt
@@ -610,7 +608,15 @@ def test_mass_polar(num_elements, degree, bcs, mapping, show_plots=False):
 
     # load MHD equilibrium
     eq_mhd = ScrewPinch(
-        a=mapping[1]["a"], R0=mapping[1]["Lz"], B0=1.0, q0=1.05, q1=1.8, n1=3.0, n2=4.0, na=0.0, beta=0.1,
+        a=mapping[1]["a"],
+        R0=mapping[1]["Lz"],
+        B0=1.0,
+        q0=1.05,
+        q1=1.8,
+        n1=3.0,
+        n2=4.0,
+        na=0.0,
+        beta=0.1,
     )
 
     if show_plots:
@@ -744,12 +750,28 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
     # load MHD equilibrium
     if mapping[0] == "Cuboid":
         eq_mhd = ShearedSlab(
-            a=(mapping[1]["r1"] - mapping[1]["l1"]), R0=(mapping[1]["r3"] - mapping[1]["l3"]) / (2 * xp.pi), B0=1.0, q0=1.05, q1=1.8, n1=3.0, n2=4.0, na=0.0, beta=0.1,
+            a=(mapping[1]["r1"] - mapping[1]["l1"]),
+            R0=(mapping[1]["r3"] - mapping[1]["l3"]) / (2 * xp.pi),
+            B0=1.0,
+            q0=1.05,
+            q1=1.8,
+            n1=3.0,
+            n2=4.0,
+            na=0.0,
+            beta=0.1,
         )
 
     elif mapping[0] == "Colella":
         eq_mhd = ShearedSlab(
-            a=mapping[1]["Lx"], R0=mapping[1]["Lz"] / (2 * xp.pi), B0=1.0, q0=1.05, q1=1.8, n1=3.0, n2=4.0, na=0.0, beta=0.1,
+            a=mapping[1]["Lx"],
+            R0=mapping[1]["Lz"] / (2 * xp.pi),
+            B0=1.0,
+            q0=1.05,
+            q1=1.8,
+            n1=3.0,
+            n2=4.0,
+            na=0.0,
+            beta=0.1,
         )
 
         if show_plots:
@@ -757,7 +779,15 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
 
     elif mapping[0] == "HollowCylinder":
         eq_mhd = ScrewPinch(
-            a=mapping[1]["a2"], R0=3.0, B0=1.0, q0=1.05, q1=1.8, n1=3.0, n2=4.0, na=0.0, beta=0.1,
+            a=mapping[1]["a2"],
+            R0=3.0,
+            B0=1.0,
+            q0=1.05,
+            q1=1.8,
+            n1=3.0,
+            n2=4.0,
+            na=0.0,
+            beta=0.1,
         )
 
         if show_plots:
@@ -1005,9 +1035,7 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
 
     # mapping
     domain_class = getattr(domains, mapping[0])
-    domain = domain_class(
-        num_elements=num_elements[:2], degree=degree[:2], a=mapping[1]["a"], Lz=mapping[1]["Lz"]
-    )
+    domain = domain_class(num_elements=num_elements[:2], degree=degree[:2], a=mapping[1]["a"], Lz=mapping[1]["Lz"])
 
     if show_plots:
         import matplotlib.pyplot as plt
@@ -1016,7 +1044,15 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
 
     # load MHD equilibrium
     eq_mhd = ScrewPinch(
-        a=mapping[1]["a"], R0=mapping[1]["Lz"], B0=1.0, q0=1.05, q1=1.8, n1=3.0, n2=4.0, na=0.0, beta=0.1,
+        a=mapping[1]["a"],
+        R0=mapping[1]["Lz"],
+        B0=1.0,
+        q0=1.05,
+        q1=1.8,
+        n1=3.0,
+        n2=4.0,
+        na=0.0,
+        beta=0.1,
     )
 
     if show_plots:

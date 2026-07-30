@@ -15,7 +15,6 @@ Authors:
   Original code is available from http://people.sc.fsu.edu/~jburkardt/py_src/sobol/sobol.html
 """
 
-
 import logging
 
 import cunumpy as xp

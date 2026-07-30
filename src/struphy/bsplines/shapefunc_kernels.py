@@ -1,4 +1,3 @@
-
 """
 Basic functions for point-wise B-spline evaluation
 """

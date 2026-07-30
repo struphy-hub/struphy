@@ -1,4 +1,3 @@
-
 """
 1. Basic pull-back (physical --> logical) operations between scalar fields, vector fields and differential p-forms:
 

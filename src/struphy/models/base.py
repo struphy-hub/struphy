@@ -740,7 +740,10 @@ set_logging_level(logging.WARNING)\n""")
         file.write("""\n# ------------------
 # Propagator options
 # ------------------\n\n""")
-        file.writelines(f"model.propagators.{prop}.options = model.propagators.{prop}.Options()\n" for prop in self.propagators.__dict__)
+        file.writelines(
+            f"model.propagators.{prop}.options = model.propagators.{prop}.Options()\n"
+            for prop in self.propagators.__dict__
+        )
 
         file.write("""\n# ------------------
 # Initial conditions
