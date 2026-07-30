@@ -8,10 +8,10 @@ from typing import TYPE_CHECKING
 import cunumpy as xp
 import h5py
 import yaml
+from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 from pyevtk.hl import gridToVTK
 from tqdm import tqdm
-from feectools.ddm.mpi import MockComm
 
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.fields_background import equils
@@ -159,7 +159,7 @@ class ParamsIn:
             with open(os.path.join(path, "model_class.bin"), "rb") as f:
                 model_class: StruphyModel = pickle.load(f)
                 model = model_class()
-            sim = None 
+            sim = None
 
         else:
             raise FileNotFoundError(f"Neither of the paths {params_path} or {bin_path} exists.")
@@ -233,22 +233,20 @@ class PostProcessor:
             domain = sim.domain
             model = sim.model
             imported_sim = sim
-            
+
         # create post-processing folder
         self.path_out = path_out
         self.path_pproc = os.path.join(path_out, "post_processing")
-        
+
         # parallel post-processing (default: False)
         self.parallel_pproc = parallel_pproc
-        
+
         # struphy objects needed for post-processing
         self.domain = domain
         self.model = model
 
         if self.parallel_pproc:
-            assert imported_sim is not None, (
-                "Parallel post-processing only supported when the sim object is provided."
-            )
+            assert imported_sim is not None, "Parallel post-processing only supported when the sim object is provided."
             self.derham = sim.derham
             self.comm = self.derham.comm
             self.comm_size = self.comm.Get_size()
@@ -259,11 +257,11 @@ class PostProcessor:
                 self.derham = None
             else:
                 self.derham = Derham(
-                        grid,
-                        derham_opts,
-                        comm=None,
-                        domain=domain,
-                    )
+                    grid,
+                    derham_opts,
+                    comm=None,
+                    domain=domain,
+                )
             self.comm = MockComm()
             # get number of MPI ranks used in the simulation from meta.yml
             with open(os.path.join(path_out, "meta.yml"), "r") as f:
@@ -319,7 +317,6 @@ class PostProcessor:
 
         # check for fields and kinetic data in hdf5 file that need post processing
         with h5py.File(os.path.join(self.path_out, "data/", "data_proc0.hdf5"), "r") as file:
-            
             if self.rank == 0:
                 # save time grid at which post-processing data is created
                 xp.save(os.path.join(self.path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
@@ -421,8 +418,8 @@ class PostProcessor:
                 self._create_vtk(path_fields, t_grid, grids_phy, point_data)
                 if physical:
                     self._create_vtk(path_fields, t_grid, grids_phy, point_data_phy, physical=True)
-        self.comm.Barrier()        
-            
+        self.comm.Barrier()
+
     def process_particles(
         self,
         step: int = 1,
@@ -537,7 +534,7 @@ class PostProcessor:
                     )
 
         # get hdf5 data
-        logger.warning("")  
+        logger.warning("")
         for rank in self.range_ranks:
             # open hdf5 file
             with h5py.File(os.path.join(self.path_out, "data/", f"data_proc{rank}.hdf5"), "r") as file:
@@ -901,7 +898,7 @@ class PostProcessor:
                     ids = markers[n * step, :, -1].astype("int")
                     ids = ids[ids != -1]  # exclude holes
                     temp[ids] = markers[n * step, : ids.size, save_index]
-                    
+
             if self.parallel_pproc:
                 self.comm.reduce(
                     temp,
@@ -959,7 +956,7 @@ class PostProcessor:
             If True, compute and add background contribution to the saved binned data.
         """
         print(f"{self.rank} starting post-processing of distribution functions for {path_kinetic_species} ...")
-        
+
         species = path_kinetic_species.split("/")[-1]
         species_obj: ParticleSpecies = self.model.particle_species[species]
 
@@ -999,7 +996,7 @@ class PostProcessor:
                     if self.rank == 0:
                         xp.save(grid_path, grid[:])
                     self.comm.Barrier()
-        
+
         # compute distribution function
         for slice_name in tqdm(slice_names):
             logger.info(f"Processing slice {slice_name} for species {species}")
@@ -1022,9 +1019,9 @@ class PostProcessor:
                         else:
                             data += file["kinetic/" + species + "/f/" + slice_name][::step]
                             data_df += file["kinetic/" + species + "/df/" + slice_name][::step]
-                     
+
             print(f"{self.rank =} with {xp.sum(data) =} and {xp.sum(data_df) =}")
-                        
+
             if self.parallel_pproc:
                 if self.rank == 0:
                     self.comm.Reduce(
@@ -1052,7 +1049,7 @@ class PostProcessor:
                         op=MPI.SUM,
                         root=0,
                     )
-                
+
             print(f"{self.rank =} with {xp.sum(data) =} and {xp.sum(data_df) =}")
 
             print(f"{self.rank =} done.")
