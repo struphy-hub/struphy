@@ -6,7 +6,6 @@ import re
 import sys
 from pathlib import Path
 
-
 EXCLUDED_DEPENDENCIES = {"psydac"}
 DEFAULT_OPTIONAL_GROUPS = ["phys", "mpi"]
 UPPER_BOUND_OPERATORS = {"<", "<="}

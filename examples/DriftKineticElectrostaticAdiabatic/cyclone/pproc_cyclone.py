@@ -1,17 +1,16 @@
+import glob
 import importlib.util
 import os
 import sys
 
-from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
-import glob
-
+import cunumpy as xp
 import h5py
 import pyvista as pv
-import cunumpy as xp
 from matplotlib import pyplot as plt
 from matplotlib.widgets import Slider
-from struphy import PlottingData, PostProcessor
+from mpl_toolkits.mplot3d import Axes3D
 
+from struphy import PlottingData, PostProcessor
 
 # ============================================================
 # User options

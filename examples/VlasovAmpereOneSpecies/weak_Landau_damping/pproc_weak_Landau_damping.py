@@ -1,12 +1,13 @@
-import params_weak_Landau_damping as params
-
 import os
+
 import cunumpy as xp
 import h5py
+import params_weak_Landau_damping as params
 from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
+
+from struphy import PlottingData, PostProcessor
 from struphy.physics.physics import Units
-from struphy import PostProcessor, PlottingData
 
 
 def main():

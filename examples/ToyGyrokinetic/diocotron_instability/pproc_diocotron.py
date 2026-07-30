@@ -1,16 +1,16 @@
 import importlib.util
-from struphy import PlottingData, PostProcessor
-
 import os
 import sys
+
 import cunumpy as xp
+import h5py
+import pyvista as pv
 import scipy.optimize as sc
 from matplotlib import pyplot as plt
 from matplotlib.widgets import Slider
-import h5py
-import pyvista as pv
 
-from struphy import logging, set_logging_level
+from struphy import PlottingData, PostProcessor, logging, set_logging_level
+
 set_logging_level(logging.INFO)
 
 
@@ -427,7 +427,7 @@ def main():
 
         # time interval to determine growth rate
         ti, tf = 0.0, 42.0
-        if tf>times[i][-1]: tf = times[i][-1]
+        tf = min(tf, times[i][-1])
         if ti>tf:
             ti = tf/2
         xi = xp.abs(pdata.t_grid - ti).argmin() # index of time 100 [a.lu.] (observed end of growth rate)

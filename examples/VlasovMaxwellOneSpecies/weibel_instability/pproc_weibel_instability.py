@@ -3,9 +3,9 @@ import os
 import cunumpy as xp
 import h5py
 import params_weibel_instability as params
+from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 
-from feectools.ddm.mpi import mpi as MPI
 from struphy import PlottingData, PostProcessor
 from struphy.physics.physics import Units
 

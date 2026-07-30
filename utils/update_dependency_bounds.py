@@ -15,7 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from utils.set_release_dependencies import (  # noqa: E402
+from utils.set_release_dependencies import (
     dump_pyproject,
     format_requirement_name,
     get_preserved_specifiers,

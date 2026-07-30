@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-from clusters import SLURM_PRESETS, HARDWARE_INFO, detect_machine_name
+from clusters import HARDWARE_INFO, SLURM_PRESETS, detect_machine_name
 from package_profiling_results import (
     _build_output_name,
     _collect_hardware_info,

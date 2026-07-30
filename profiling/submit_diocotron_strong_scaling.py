@@ -16,6 +16,7 @@ from pathlib import Path
 
 from profiling_job import ProfilingCase
 
+
 def main() -> None:
 
     # Parse arguments, do not remove --upload

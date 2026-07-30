@@ -8,7 +8,6 @@ from pathlib import Path
 
 from doc_check_common import CheckConfig, get_documented_items, get_exported_names, run_check
 
-
 DOC_FILE = Path("doc/sections/subsections/models-all.rst")
 MODELS_INIT = Path("src/struphy/models/__init__.py")
 MODELS_DIR = Path("src/struphy/models")

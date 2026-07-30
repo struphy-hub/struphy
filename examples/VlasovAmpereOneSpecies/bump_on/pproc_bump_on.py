@@ -1,10 +1,11 @@
-import params_bump_on as params
-
 import os
+
 import h5py
+import params_bump_on as params
 from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
-from struphy import PostProcessor, PlottingData
+
+from struphy import PlottingData, PostProcessor
 from struphy.physics.physics import Units
 
 

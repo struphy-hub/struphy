@@ -8,7 +8,6 @@ from pathlib import Path
 
 from doc_check_common import CheckConfig, get_documented_items, get_python_modules, run_check
 
-
 DOC_FILE = Path("doc/sections/subsections/propagators-avail.rst")
 PROPAGATORS_DIR = Path("src/struphy/propagators")
 
