@@ -61,7 +61,7 @@ from utils import _git_commit, _git_commit_short, _make_unique_results_root, _sl
 
 script_dir = Path(__file__).resolve().parent
 repo_root = script_dir.parent
-profiling_results_base = repo_root / "results" / "profiling"
+profiling_results_base = repo_root / "_profiling_jobs"
 
 default_cluster_name = "pitagora"
 
@@ -172,14 +172,10 @@ class ProfilingCase:
             f'echo "Case directory: {output_root}"',
             'echo "----------------------------------------"',
             f'mkdir -p "{sim_dir}"',
-            'echo "hello"',
             f'cp "{self.params_source}" "{output_root / "parameters.py"}"',
-            'echo "hello world"',
-            f'ls -l "{output_root}"',
             "",
             f'echo "Running {self.label} with {ntasks} MPI ranks"',
             f'cd "{output_root}"',
-            'echo "hello world again"',
             f"{self.launcher} -n {ntasks} {python} {self.params_source} {flags}",  # > "{sim_dir / "struphy.out"}" 2>&1',
             "",
             'echo "----------------------------------------"',
@@ -230,7 +226,7 @@ class ProfilingCase:
         # Increment the launch count first: it identifies both the script filename and
         # the run directory that `build_commands` writes into.
         self.launch_count += 1
-        script_path = repo_root / f"job_profile_{self.label}_{self.launch_count:02d}.sh"
+        script_path = profiling_results_base / f"job_profile_{self.label}_{self.launch_count:02d}.sh"
 
         # Build the commands to run this case with the given rank count, and write/submit
         case_commands = self.build_commands(num_tasks, param_flags)
@@ -273,15 +269,9 @@ class ProfilingCase:
             print(
                 f"No batch system found; running '{self.label}' ({num_tasks} MPI ranks) locally via {script_path} ...",
             )
-            # print(os.environ)
-            print(f"{script_path = }")
-            print(f"{repo_root = }")
-            print(f"{os.getcwd() = }")
-            print(f"{script_path = }")
+
             result = subprocess.run(["bash", script_path], cwd=repo_root, check=False)
-            print(f"{result.stdout = }")
-            print(f"{result.stderr = }")
-            print(f"{result.returncode = }")
+
             if result.returncode != 0:
                 print(
                     f"WARNING: local run of '{self.label}' ({num_tasks} MPI ranks) via {script_path} "
