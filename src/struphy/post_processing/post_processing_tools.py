@@ -234,12 +234,6 @@ class PostProcessor:
             model = sim.model
             imported_sim = sim
             
-        # get number of MPI ranks used in the simulation from meta.yml
-        with open(os.path.join(path_out, "meta.yml"), "r") as f:
-            meta = yaml.load(f, Loader=yaml.FullLoader)
-        comm_size = meta["MPI processes"]
-        self.comm_size = comm_size
-            
         # create post-processing folder
         self.path_out = path_out
         self.path_pproc = os.path.join(path_out, "post_processing")
@@ -257,6 +251,7 @@ class PostProcessor:
             )
             self.derham = sim.derham
             self.comm = self.derham.comm
+            self.comm_size = self.comm.Get_size()
             self.rank = self.comm.Get_rank()
             self.range_ranks = range(self.rank, self.rank + 1)
         else:
@@ -270,6 +265,10 @@ class PostProcessor:
                         domain=domain,
                     )
             self.comm = MockComm()
+            # get number of MPI ranks used in the simulation from meta.yml
+            with open(os.path.join(path_out, "meta.yml"), "r") as f:
+                meta = yaml.load(f, Loader=yaml.FullLoader)
+            self.comm_size = meta["MPI processes"]
             self.rank = 0
             self.range_ranks = range(int(self.comm_size))
 
@@ -657,12 +656,43 @@ class PostProcessor:
 
                     # evaluate field locally on rank and send to rank 0 for collection
                     temp_val = field(*grids_log, local=True)
+                    print(f"{type(temp_val) = }")
                     if self.parallel_pproc:
-                        self.comm.reduce(
-                            temp_val,
-                            op=MPI.SUM,
-                            root=0,
-                        )
+                        if isinstance(temp_val, xp.ndarray):
+                            print(f"{self.rank = } before \n{temp_val.shape = }\n{temp_val = }")
+                            if self.rank == 0:
+                                self.comm.Reduce(
+                                    MPI.IN_PLACE,
+                                    temp_val,
+                                    op=MPI.SUM,
+                                    root=0,
+                                )
+                            else:
+                                self.comm.Reduce(
+                                    temp_val,
+                                    None,
+                                    op=MPI.SUM,
+                                    root=0,
+                                )
+                            print(f"{self.rank = } after\n {temp_val = }")
+                        else:
+                            for j in range(3):
+                                print(f"{self.rank = } before \n{temp_val[j].shape = }\n{temp_val[j] = }")
+                                if self.rank == 0:
+                                    self.comm.Reduce(
+                                        MPI.IN_PLACE,
+                                        temp_val[j],
+                                        op=MPI.SUM,
+                                        root=0,
+                                    )
+                                else:
+                                    self.comm.Reduce(
+                                        temp_val[j],
+                                        None,
+                                        op=MPI.SUM,
+                                        root=0,
+                                    )
+                                print(f"{self.rank = } after\n {temp_val[j] = }")
 
                     # point_data will stay an empty list on all ranks except rank 0
                     point_data[species][name][t] = []
@@ -998,16 +1028,32 @@ class PostProcessor:
             print(f"{self.rank =} with {xp.sum(data) =} and {xp.sum(data_df) =}")
                         
             if self.parallel_pproc:
-                self.comm.reduce(
-                    data,
-                    op=MPI.SUM,
-                    root=0,
-                )
-                self.comm.reduce(
-                    data_df,
-                    op=MPI.SUM,
-                    root=0,
-                )
+                if self.rank == 0:
+                    self.comm.Reduce(
+                        MPI.IN_PLACE,
+                        data,
+                        op=MPI.SUM,
+                        root=0,
+                    )
+                    self.comm.Reduce(
+                        MPI.IN_PLACE,
+                        data_df,
+                        op=MPI.SUM,
+                        root=0,
+                    )
+                else:
+                    self.comm.Reduce(
+                        data,
+                        None,
+                        op=MPI.SUM,
+                        root=0,
+                    )
+                    self.comm.Reduce(
+                        data_df,
+                        None,
+                        op=MPI.SUM,
+                        root=0,
+                    )
                 
             print(f"{self.rank =} with {xp.sum(data) =} and {xp.sum(data_df) =}")
 
@@ -1116,11 +1162,13 @@ class PostProcessor:
         # directory for .npy files
         path_n_sph = os.path.join(path_kinetic_species, "n_sph")
 
-        try:
-            os.mkdir(path_n_sph)
-        except:
-            shutil.rmtree(path_n_sph)
-            os.mkdir(path_n_sph)
+        if self.rank == 0:
+            try:
+                os.mkdir(path_n_sph)
+            except:
+                shutil.rmtree(path_n_sph)
+                os.mkdir(path_n_sph)
+        self.comm.Barrier()
 
         logger.warning("Evaluation of sph density for " + str(species))
 
