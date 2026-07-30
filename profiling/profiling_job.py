@@ -57,7 +57,7 @@ from package_profiling_results import (
     _read_sim_metadata_from_parameters,
 )
 from slurm_script_generator.slurm_script import SlurmScript
-from slurm_script_generator.squeue import SQueue
+from slurm_script_generator.squeue import SQueue, job_states
 from upload import _clone_profiling_data, _push_profiling_data
 
 from struphy import Compiler
@@ -87,38 +87,6 @@ def detect_launcher() -> str:
     raise RuntimeError(
         "No MPI launcher found; install an MPI implementation providing `mpirun` (or `mpiexec`).",
     )
-
-
-def _slurm_job_state(job_id: int) -> str | None:
-    """Final state of a finished SLURM job (`COMPLETED`, `FAILED`, ...), via `sacct`.
-
-    `squeue` only says whether a job is still in the queue, not how it ended, so this
-    is what distinguishes a crashed run from one that simply wrote no output. Returns
-    None when the state cannot be determined (no accounting configured, `sacct`
-    missing, or the job not yet in the accounting database), in which case the caller
-    should not report a failure.
-    """
-    if not shutil.which("sacct"):
-        return None
-    try:
-        result = subprocess.run(
-            ["sacct", "-j", str(job_id), "--format=State", "--noheader", "--parsable2"],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=30,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    if result.returncode != 0:
-        return None
-    # One line per step (`<id>`, `<id>.batch`, `<id>.0`, ...); the first is the job
-    # itself. States can carry a reason, e.g. "CANCELLED by 1234".
-    for line in result.stdout.splitlines():
-        state = line.strip()
-        if state:
-            return state.split()[0]
-    return None
 
 
 @dataclass
@@ -586,13 +554,17 @@ class ProfilingCase:
                 active = {job.job_id for job in queue.jobs() if job.is_active}
                 # A job that has left the queue is finished, including one that was
                 # already gone by the first poll.
-                for job_id in [job_id for job_id in pending if job_id not in active]:
+                finished = [job_id for job_id in pending if job_id not in active]
+                # Leaving the queue only means the job is over, not that it succeeded.
+                # Without the accounting state, a crashed job is indistinguishable from
+                # one that produced no output, and the scaling point is lost silently.
+                # `job_states` is one `sacct` call for however many finished this poll,
+                # and gives None when the state cannot be determined — which must not
+                # be reported as a failure.
+                states = job_states(finished)
+                for job_id in finished:
                     job_info = pending.pop(job_id)
-                    state = _slurm_job_state(job_id)
-                    # Leaving the queue only means the job is over, not that it
-                    # succeeded. Without this, a crashed job is indistinguishable from
-                    # one that produced no output, and the scaling point is lost
-                    # silently.
+                    state = states.get(job_id)
                     if state is not None and state != "COMPLETED":
                         print(
                             f"WARNING: job {job_id} for '{self.label}' ({job_info['ranks']} MPI ranks) "
