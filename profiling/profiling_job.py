@@ -192,10 +192,6 @@ class ProfilingCase:
                 if self.use_modules
                 else []
             ),
-            # `pipefail` so the run's exit code survives the `tee` below: without it a
-            # failing `mpirun` would be masked by `tee` succeeding, and `set -e` would
-            # let the script report success.
-            "set -eo pipefail",
             f"source {activate_path!s}",
             'echo "----------------------------------------"',
             f'echo "Running profiling case: {self.label} ({ntasks} MPI ranks)"',
@@ -209,10 +205,9 @@ class ProfilingCase:
             "",
             f'echo "Running {self.label} with {ntasks} MPI ranks"',
             f'cd "{output_root}"',
-            # `tee` keeps the run's own log next to its output (the local driver would
-            # otherwise leave no trace of it) while still letting the output through to
-            # the SLURM log / the terminal.
-            f'{self.launcher} -n {ntasks} {python} {self.params_source} {flags} 2>&1 | tee "{sim_dir / "struphy.out"}"',
+            # The run's log lives next to its output, so each run keeps its own record
+            # instead of sharing the driver's terminal or the SLURM log.
+            f'{self.launcher} -n {ntasks} {python} {self.params_source} {flags} > "{sim_dir / "struphy.out"}" 2>&1',
             "",
             'echo "----------------------------------------"',
             f'echo "Completed profiling case: {self.label} ({ntasks} MPI ranks)"',
