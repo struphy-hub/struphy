@@ -2,7 +2,6 @@ import copy
 import logging
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions

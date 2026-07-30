@@ -1,7 +1,6 @@
 import copy
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 
 from struphy import BaseUnits
 from struphy.feec.mass import AverageOperator, L2Projector
