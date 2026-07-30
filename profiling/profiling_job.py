@@ -116,9 +116,6 @@ class ProfilingCase:
 
     # Populated by `launch`, one entry per launch; read by `finalize_run`.
     job_infos: list[dict] = field(init=False, default_factory=list)
-    # Each entry pairs a `job_infos` entry with the process running it, so the local
-    # branch of `_iter_finished_runs` yields the same dicts as the SLURM branch.
-    local_processes: list[tuple[dict, subprocess.Popen]] = field(init=False, default_factory=list)
 
     # Incremented on every `launch` call, to give each run a unique script filename.
     launch_count: int = field(init=False, default=0)
@@ -194,9 +191,9 @@ class ProfilingCase:
         """Build, submit/run, and record the run for a single rank count.
 
         Under SLURM, submits a `SlurmScript`; otherwise writes and runs a plain bash
-        script locally. Either way, the resulting job/process is recorded on `self`
-        (`job_infos`, plus `local_processes` for a local run) for `finalize_run` to
-        wait on and package. Each call gets a unique script filename via `launch_count`.
+        script locally, blocking until it finishes. Either way, the resulting job is
+        recorded on `self` (`job_infos`) for `finalize_run` to wait on and package.
+        Each call gets a unique script filename via `launch_count`.
 
         Without SLURM, `num_tasks` oversubscribing the local machine simply makes
         `mpirun` refuse to start, so a run that exceeds the number of local cores is
@@ -292,8 +289,6 @@ class ProfilingCase:
             "slurm_dict": script_dict,
         }
         self.job_infos.append(job_info)
-        if not self.use_slurm:
-            self.local_processes.append((job_info, process))
 
     def setup_run(self) -> None:
         """Validate the venv, compile Struphy, and create the results dirs.
@@ -511,12 +506,14 @@ class ProfilingCase:
     def _iter_finished_runs(self, poll_interval: float = 10.0):
         """Yield each run's `job_infos` entry as soon as that run finishes, in completion order.
 
-        Polls the SLURM queue (or the local processes) instead of blocking on all of
-        them at once, so `finalize_run` can package and push each run while the others
-        are still running.
+        Under SLURM, polls the queue instead of blocking on all jobs at once, so
+        `finalize_run` can package and push each run while the others are still
+        running. Locally the runs are already done, since `launch` runs them
+        sequentially, and they are yielded in launch order.
 
         Args:
-            poll_interval: Seconds between polls.
+            poll_interval: Seconds between polls of the SLURM queue. Unused for
+                local runs.
 
         Yields:
             The `job_infos` entry of each run that has just finished.
@@ -538,22 +535,9 @@ class ProfilingCase:
                 if pending:
                     time.sleep(poll_interval)
         else:
-            pending_processes = list(self.local_processes)
-            while pending_processes:
-                still_running = []
-                for job_info, process in pending_processes:
-                    if process.poll() is None:
-                        still_running.append((job_info, process))
-                        continue
-                    if process.returncode != 0:
-                        print(
-                            f"WARNING: local run of '{self.label}' ({job_info['ranks']} MPI ranks) via "
-                            f"{job_info['job_script_path']} exited with code {process.returncode}.",
-                        )
-                    yield job_info
-                pending_processes = still_running
-                if pending_processes:
-                    time.sleep(poll_interval)
+            # Local runs are executed synchronously by `launch`, so by the time we get
+            # here every one of them has already finished, in launch order.
+            yield from self.job_infos
 
     def finalize_run(self, upload: bool = False, poll_interval: float = 10.0) -> None:
         """Package and push the case metadata up front, then each run as its job finishes.
@@ -590,7 +574,7 @@ class ProfilingCase:
 
         # Then package and push each run's results as soon as its own job finishes,
         # rather than waiting for every run to complete first.
-        num_runs = len(self.job_infos) if self.use_slurm else len(self.local_processes)
+        num_runs = len(self.job_infos)
         print(f"Waiting for {num_runs} run(s) of '{self.label}' to complete...")
         packaged_launch_ids = []
         for job_info in self._iter_finished_runs(poll_interval=poll_interval):
