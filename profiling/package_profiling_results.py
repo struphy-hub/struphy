@@ -13,19 +13,21 @@ from utils import _run_command, _slug
 RUN_METADATA_FILE = "run_metadata.json"
 
 
-def _read_mpi_ranks(source_h5: Path) -> str:
-    """Rank count of the run that produced `source_h5`.
+def _read_mpi_ranks(source_h5: Path) -> int | None:
+    """Rank count of the run that produced `source_h5`, or None if it cannot be read.
 
     Read from the `run_metadata.json` Struphy writes next to it. Nothing in the run's
     naming carries the rank count — runs are identified by their launch id — so this
     is the only place it comes from. Recorded as metadata only; it never names a file.
+    Returned as an `int` so it matches the `ranks` recorded per job in
+    `_collect_job_info`; the caller falls back to the requested rank count on None.
     """
     metadata_path = source_h5.parent / RUN_METADATA_FILE
     if metadata_path.exists():
         mpi_ranks = json.loads(metadata_path.read_text(encoding="utf-8")).get("mpi_ranks")
         if isinstance(mpi_ranks, int):
-            return str(mpi_ranks)
-    return "unknown"
+            return mpi_ranks
+    return None
 
 
 def _build_output_name(testcase: str, launch_id: int, index: int) -> str:
