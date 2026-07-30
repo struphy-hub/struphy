@@ -86,6 +86,38 @@ def detect_launcher() -> str:
     )
 
 
+def _slurm_job_state(job_id: int) -> str | None:
+    """Final state of a finished SLURM job (`COMPLETED`, `FAILED`, ...), via `sacct`.
+
+    `squeue` only says whether a job is still in the queue, not how it ended, so this
+    is what distinguishes a crashed run from one that simply wrote no output. Returns
+    None when the state cannot be determined (no accounting configured, `sacct`
+    missing, or the job not yet in the accounting database), in which case the caller
+    should not report a failure.
+    """
+    if not shutil.which("sacct"):
+        return None
+    try:
+        result = subprocess.run(
+            ["sacct", "-j", str(job_id), "--format=State", "--noheader", "--parsable2"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    # One line per step (`<id>`, `<id>.batch`, `<id>.0`, ...); the first is the job
+    # itself. States can carry a reason, e.g. "CANCELLED by 1234".
+    for line in result.stdout.splitlines():
+        state = line.strip()
+        if state:
+            return state.split()[0]
+    return None
+
+
 @dataclass
 class ProfilingCase:
     label: str
@@ -160,7 +192,10 @@ class ProfilingCase:
                 if self.use_modules
                 else []
             ),
-            "set -e",
+            # `pipefail` so the run's exit code survives the `tee` below: without it a
+            # failing `mpirun` would be masked by `tee` succeeding, and `set -e` would
+            # let the script report success.
+            "set -eo pipefail",
             f"source {activate_path!s}",
             'echo "----------------------------------------"',
             f'echo "Running profiling case: {self.label} ({ntasks} MPI ranks)"',
@@ -174,7 +209,11 @@ class ProfilingCase:
             "",
             f'echo "Running {self.label} with {ntasks} MPI ranks"',
             f'cd "{output_root}"',
-            f"{self.launcher} -n {ntasks} {python} {self.params_source} {flags}",  # > "{sim_dir / "struphy.out"}" 2>&1',
+            # `tee` keeps the run's own log next to its output (the local driver would
+            # otherwise leave no trace of it) while still letting the output through to
+            # the SLURM log / the terminal.
+            f"{self.launcher} -n {ntasks} {python} {self.params_source} {flags} "
+            f'2>&1 | tee "{sim_dir / "struphy.out"}"',
             "",
             'echo "----------------------------------------"',
             f'echo "Completed profiling case: {self.label} ({ntasks} MPI ranks)"',
@@ -464,7 +503,16 @@ class ProfilingCase:
 
         Returns:
             Whether any `.h5` output was found and packaged.
+
+        Raises:
+            RuntimeError: If called before `package_case_metadata` has created the
+                packaged folder this copies into.
         """
+        if self.destination_dir is None:
+            raise RuntimeError(
+                "package_run was called before package_case_metadata; the packaged folder does not exist yet.",
+            )
+
         testcase = self.case_output_root.name
         sim_dir = self.case_output_root / f"sim_{job_info['launch_id']:02d}"
 
@@ -494,8 +542,10 @@ class ProfilingCase:
                     "source": str(source_h5),
                     "relative_source": str(relative_source),
                     "launch_id": job_info["launch_id"],
-                    # Metadata only — the rank count no longer names anything.
-                    "ranks": _read_mpi_ranks(source_h5),
+                    # Metadata only — the rank count no longer names anything. Prefer
+                    # what the run itself recorded, and fall back to what was requested
+                    # when it wrote no `run_metadata.json`.
+                    "ranks": _read_mpi_ranks(source_h5) or job_info["ranks"],
                     "destination": output_name,
                     "run_metadata_source": run_metadata_source,
                     "run_metadata_destination": run_metadata_name,
@@ -530,7 +580,18 @@ class ProfilingCase:
                 # already gone by the first poll.
                 for job_id in [job_id for job_id in pending if job_id not in active]:
                     job_info = pending.pop(job_id)
-                    print(f"Job {job_id} for '{self.label}' ({job_info['ranks']} MPI ranks) finished.")
+                    state = _slurm_job_state(job_id)
+                    # Leaving the queue only means the job is over, not that it
+                    # succeeded. Without this, a crashed job is indistinguishable from
+                    # one that produced no output, and the scaling point is lost
+                    # silently.
+                    if state is not None and state != "COMPLETED":
+                        print(
+                            f"WARNING: job {job_id} for '{self.label}' ({job_info['ranks']} MPI ranks) "
+                            f"ended in state {state}.",
+                        )
+                    else:
+                        print(f"Job {job_id} for '{self.label}' ({job_info['ranks']} MPI ranks) finished.")
                     yield job_info
                 if pending:
                     time.sleep(poll_interval)
