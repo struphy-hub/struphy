@@ -17,7 +17,6 @@ from struphy.propagators.time_dependent_source import TimeDependentSource
 logger = logging.getLogger("struphy")
 
 
-
 class Poisson(StruphyModel):
     """Weak discretization of Poisson's equation with a diffusion matrix, stabilization and an optional time-dependent right-hand side.
 

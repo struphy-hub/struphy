@@ -13,8 +13,6 @@ from struphy.models.variables import FEECVariable
 from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
 
 
-
-
 class Maxwell(StruphyModel):
     """Maxwell's equations in vacuum for electromagnetic field evolution.
 

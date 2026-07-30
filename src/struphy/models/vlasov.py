@@ -14,8 +14,6 @@ from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vxb import PushVxB
 
 
-
-
 class Vlasov(StruphyModel):
     """Vlasov equation for a single species in a static background magnetic field.
 

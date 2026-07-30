@@ -20,8 +20,6 @@ from struphy.propagators.push_vxb import PushVxB
 from struphy.utils.pyccel import Pyccelkernel
 
 
-
-
 class IncompressibleNavierStokesSPH(StruphyModel):
     """Incompressible Navier-Stokes equations discretized with smoothed particle hydrodynamics (SPH).
 

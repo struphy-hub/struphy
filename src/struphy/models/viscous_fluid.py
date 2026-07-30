@@ -22,8 +22,6 @@ from struphy.propagators.variational_momentum_advection import VariationalMoment
 from struphy.propagators.variational_viscosity import VariationalViscosity
 
 
-
-
 class ViscousFluid(StruphyModel):
     """Full (non-linear) viscous Navier-Stokes equations discretized with a variational method.
 

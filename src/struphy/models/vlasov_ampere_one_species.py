@@ -25,8 +25,6 @@ from struphy.utils.pyccel import Pyccelkernel
 logger = logging.getLogger("struphy")
 
 
-
-
 class VlasovAmpereOneSpecies(StruphyModel):
     """Vlasov-Ampère system for a single kinetic species in an electric field.
 

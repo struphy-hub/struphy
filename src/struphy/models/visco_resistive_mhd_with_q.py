@@ -22,8 +22,6 @@ from struphy.propagators.variational_resistivity import VariationalResistivity
 from struphy.propagators.variational_viscosity import VariationalViscosity
 
 
-
-
 class ViscoResistiveMHD_with_q(StruphyModel):
     """Full (non-linear) visco-resistive MHD equations, with the q variable (square root of the pressure), discretized with a variational method.
 

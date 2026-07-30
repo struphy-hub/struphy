@@ -20,8 +20,6 @@ from struphy.propagators.variational_entropy_evolve import VariationalEntropyEvo
 from struphy.propagators.variational_momentum_advection import VariationalMomentumAdvection
 
 
-
-
 class VariationalCompressibleFluid(StruphyModel):
     """Fully compressible fluid equations discretized with a variational method.
 

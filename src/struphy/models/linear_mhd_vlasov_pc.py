@@ -24,7 +24,6 @@ from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
 logger = logging.getLogger("struphy")
 
 
-
 class LinearMHDVlasovPC(StruphyModel):
     """Hybrid linear MHD coupled with energetic ions (6D Vlasov) via the pressure-coupling scheme.
 

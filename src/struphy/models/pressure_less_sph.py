@@ -13,8 +13,6 @@ from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vin_efield import PushVinEfield
 
 
-
-
 class PressureLessSPH(StruphyModel):
     r"""Particle discretization of pressureless Euler flow with external forcing.
 

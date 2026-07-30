@@ -25,6 +25,7 @@ from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
 
+
 class ColdPlasmaVlasov(StruphyModel):
     """Hybrid cold-plasma model: a cold electron fluid coupled with a hot kinetic species and Maxwell's equations.
 

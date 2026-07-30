@@ -20,8 +20,6 @@ from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBx
 from struphy.utils.pyccel import Pyccelkernel
 
 
-
-
 class ToyDrift(StruphyModel):
     r"""Electrostatic drift toy model for a single ion species in a given background magnetic field.
 

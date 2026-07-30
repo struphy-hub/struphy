@@ -34,7 +34,6 @@ from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurr
 logger = logging.getLogger("struphy")
 
 
-
 class LinearMHDDriftkineticCC(StruphyModel):
     """Hybrid linear ideal MHD coupled with energetic ions (5D drift-kinetic) via the current-coupling scheme.
 

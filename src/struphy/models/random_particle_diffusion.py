@@ -12,8 +12,6 @@ from struphy.models.variables import PICVariable
 from struphy.propagators.push_random_diffusion import PushRandomDiffusion
 
 
-
-
 class RandomParticleDiffusion(StruphyModel):
     """Diffusion equation discretized with a random particle method, via a Wiener process.
 
