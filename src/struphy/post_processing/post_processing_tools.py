@@ -485,12 +485,12 @@ class PostProcessor:
                     compute_bckgr=compute_bckgr,
                 )
 
-            # # sph density
-            # if self.exist_particles["n_sph"]:
-            #     self._post_process_n_sph(
-            #         path_kinetics_species,
-            #         step,
-            #     )
+            # sph density
+            if self.exist_particles["n_sph"]:
+                self._post_process_n_sph(
+                    path_kinetics_species,
+                    step,
+                )
 
     def _create_femfields(self, step: int = 1):
         """Reconstruct FEEC spline field objects from HDF5 output files.
@@ -1019,9 +1019,7 @@ class PostProcessor:
                         if rank == 0:
                             data = file["kinetic/" + species + "/f/" + slice_name][::step].copy()
                             data_df = file["kinetic/" + species + "/df/" + slice_name][::step].copy()
-                        self.comm.Barrier()
-                        
-                        if rank != 0:
+                        else:
                             data += file["kinetic/" + species + "/f/" + slice_name][::step]
                             data_df += file["kinetic/" + species + "/df/" + slice_name][::step]
                      
@@ -1173,11 +1171,15 @@ class PostProcessor:
         logger.warning("Evaluation of sph density for " + str(species))
 
         with h5py.File(os.path.join(self.path_out, "data/data_proc0.hdf5"), "r") as file_0:
+            views = list(file_0["kinetic/" + species + "/n_sph"])
+
             # Create grids
-            for i, view in enumerate(file_0["kinetic/" + species + "/n_sph"]):
+            for view in views:
                 # create a new folder for each view
                 path_view = os.path.join(path_n_sph, view)
-                os.mkdir(path_view)
+                if self.rank == 0:
+                    os.mkdir(path_view)
+                self.comm.Barrier()
 
                 # build meshgrid and save
                 eta1 = file_0["kinetic/" + species + "/n_sph/" + view].attrs["eta1"]
@@ -1191,19 +1193,45 @@ class PostProcessor:
                     indexing="ij",
                 )
 
-                grid_path = os.path.join(
-                    path_view,
-                    "grid_n_sph.npy",
-                )
-                xp.save(grid_path, (ee1, ee2, ee3))
+                if self.rank == 0:
+                    grid_path = os.path.join(
+                        path_view,
+                        "grid_n_sph.npy",
+                    )
+                    xp.save(grid_path, (ee1, ee2, ee3))
 
-                # load n_sph data
-                data = file_0["kinetic/" + species + "/n_sph/" + view][::step].copy()
-                for rank in range(1, int(self.comm_size)):
-                    with h5py.File(os.path.join(self.path_out, "data/", f"data_proc{rank}.hdf5"), "r") as file:
-                        data += file["kinetic/" + species + "/n_sph/" + view][::step]
+        # compute sph density
+        for view in tqdm(views):
+            path_view = os.path.join(path_n_sph, view)
 
-                # save distribution functions
+            for rank in self.range_ranks:
+                with h5py.File(os.path.join(self.path_out, "data/", f"data_proc{rank}.hdf5"), "r") as file:
+                    if self.parallel_pproc:
+                        data = file["kinetic/" + species + "/n_sph/" + view][::step]
+                    else:
+                        if rank == 0:
+                            data = file["kinetic/" + species + "/n_sph/" + view][::step].copy()
+                        else:
+                            data += file["kinetic/" + species + "/n_sph/" + view][::step]
+
+            if self.parallel_pproc:
+                if self.rank == 0:
+                    self.comm.Reduce(
+                        MPI.IN_PLACE,
+                        data,
+                        op=MPI.SUM,
+                        root=0,
+                    )
+                else:
+                    self.comm.Reduce(
+                        data,
+                        None,
+                        op=MPI.SUM,
+                        root=0,
+                    )
+
+            if self.rank == 0:
+                # save sph density
                 xp.save(os.path.join(path_view, "n_sph.npy"), data)
 
 
