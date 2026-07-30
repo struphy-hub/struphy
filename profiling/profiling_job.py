@@ -212,8 +212,7 @@ class ProfilingCase:
             # `tee` keeps the run's own log next to its output (the local driver would
             # otherwise leave no trace of it) while still letting the output through to
             # the SLURM log / the terminal.
-            f"{self.launcher} -n {ntasks} {python} {self.params_source} {flags} "
-            f'2>&1 | tee "{sim_dir / "struphy.out"}"',
+            f'{self.launcher} -n {ntasks} {python} {self.params_source} {flags} 2>&1 | tee "{sim_dir / "struphy.out"}"',
             "",
             'echo "----------------------------------------"',
             f'echo "Completed profiling case: {self.label} ({ntasks} MPI ranks)"',
