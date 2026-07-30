@@ -3,8 +3,8 @@
 import json
 from typing import Literal, Optional
 
-import struphy.utils.utils as utils
 from struphy.console.compile import count_compiled_kernels, struphy_compile
+from struphy.utils import utils
 
 Language = Literal["fortran", "c"]
 CompilerFamily = Literal["GNU", "intel", "PGI", "nvidia", "LLVM"]
@@ -57,7 +57,7 @@ class Compiler:
         self,
         language: Language = "fortran",
         compiler: CompilerFamily = "GNU",
-        compiler_config: Optional[str] = None,
+        compiler_config: str | None = None,
         omp_pic: bool = False,
         omp_feec: bool = False,
         verbose: bool = False,
@@ -75,14 +75,14 @@ class Compiler:
 
     def compile(
         self,
-        language: Optional[Language] = None,
-        compiler: Optional[CompilerFamily] = None,
-        compiler_config: Optional[str] = None,
-        omp_pic: Optional[bool] = None,
-        omp_feec: Optional[bool] = None,
-        verbose: Optional[bool] = None,
-        time_execution: Optional[bool] = None,
-        yes: Optional[bool] = None,
+        language: Language | None = None,
+        compiler: CompilerFamily | None = None,
+        compiler_config: str | None = None,
+        omp_pic: bool | None = None,
+        omp_feec: bool | None = None,
+        verbose: bool | None = None,
+        time_execution: bool | None = None,
+        yes: bool | None = None,
     ) -> None:
         """Compile Struphy kernels. All files containing "kernels" are auto-detected and saved to state.yml.
 
@@ -227,7 +227,7 @@ class Compiler:
                 f.write(json_str)
         return json_str
 
-    def compiled(self, language: Optional[Language] = None) -> bool:
+    def compiled(self, language: Language | None = None) -> bool:
         """Check whether Struphy kernels have been compiled (i.e. .so files exist).
 
         Returns

@@ -243,9 +243,9 @@ def test_coaxial(do_plot: bool = False):
         Bz_tend = b_field_phy[t_grid[-1]][2][:, :, 0]
         Bz_exact = B_z(X, Y, grids_phy[0], modes, t_grid[-1])
 
-        error_Er = xp.max(xp.abs((to_E_r(X, Y, Ex_tend, Ey_tend) - Er_exact)))
-        error_Etheta = xp.max(xp.abs((to_E_theta(X, Y, Ex_tend, Ey_tend) - Etheta_exact)))
-        error_Bz = xp.max(xp.abs((Bz_tend - Bz_exact)))
+        error_Er = xp.max(xp.abs(to_E_r(X, Y, Ex_tend, Ey_tend) - Er_exact))
+        error_Etheta = xp.max(xp.abs(to_E_theta(X, Y, Ex_tend, Ey_tend) - Etheta_exact))
+        error_Bz = xp.max(xp.abs(Bz_tend - Bz_exact))
 
         rel_err_Er = error_Er / xp.max(xp.abs(Er_exact))
         rel_err_Etheta = error_Etheta / xp.max(xp.abs(Etheta_exact))

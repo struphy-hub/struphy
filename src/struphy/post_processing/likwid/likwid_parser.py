@@ -20,16 +20,16 @@ def csvtable2dict(table_str):
     # Create dict
     ddict = {"header": header}
     for irow, rowdata in enumerate(data):
-        metric = data[irow][0]
+        metric = rowdata[0]
         ddict[metric] = {}
 
-        for icol in range(1, len(data[irow])):
+        for icol in range(1, len(rowdata)):
             try:
                 # Attempt to convert the value to float and assign if successful
-                ddict[metric][header[icol]] = float(data[irow][icol])
+                ddict[metric][header[icol]] = float(rowdata[icol])
             except ValueError:
                 # Handle the case where the conversion fails
-                ddict[metric][header[icol]] = data[irow][icol]
+                ddict[metric][header[icol]] = rowdata[icol]
     return ddict
 
 
@@ -44,15 +44,15 @@ def asciitable2dict(table):
     # Create dict
     ddict = {"header": header}
     for irow, rowdata in enumerate(data):
-        metric = data[irow][0]
+        metric = rowdata[0]
         ddict[metric] = {}
-        for icol in range(1, len(data[irow])):
+        for icol in range(1, len(rowdata)):
             try:
                 # Attempt to convert the value to float and assign if successful
-                ddict[metric][header[icol]] = float(data[irow][icol])
+                ddict[metric][header[icol]] = float(rowdata[icol])
             except ValueError:
                 # Handle the case where the conversion fails
-                ddict[metric][header[icol]] = data[irow][icol]
+                ddict[metric][header[icol]] = rowdata[icol]
     return ddict
 
 

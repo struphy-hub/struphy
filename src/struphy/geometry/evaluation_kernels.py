@@ -6,12 +6,12 @@ corresponding to mappings (x, y, z) = F(eta_1, eta_2, eta_3).
 from numpy import empty, shape, zeros
 from pyccel.decorators import stack_array
 
-import struphy.geometry.mappings_kernels as mappings_kernels
+from struphy.geometry import mappings_kernels
 
 # do not remove; needed to identify dependencies
-import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels
-import struphy.linear_algebra.linalg_kernels as linalg_kernels
+from struphy.kernel_arguments import pusher_args_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
+from struphy.linear_algebra import linalg_kernels
 
 
 def f(
@@ -416,48 +416,21 @@ def df_inv(
             dfinv_out[2, 1] = 0.0
         elif args.kind_map == 2:
             dfinv_out[2, 2] = 0
-        elif args.kind_map == 10:
+        elif args.kind_map == 10 or args.kind_map == 11:
             dfinv_out[0, 1] = 0.0
             dfinv_out[0, 2] = 0.0
             dfinv_out[1, 0] = 0.0
             dfinv_out[1, 2] = 0.0
             dfinv_out[2, 0] = 0.0
             dfinv_out[2, 1] = 0.0
-        elif args.kind_map == 11:
-            dfinv_out[0, 1] = 0.0
-            dfinv_out[0, 2] = 0.0
-            dfinv_out[1, 0] = 0.0
-            dfinv_out[1, 2] = 0.0
-            dfinv_out[2, 0] = 0.0
-            dfinv_out[2, 1] = 0.0
-        elif args.kind_map == 12:
-            dfinv_out[0, 2] = 0.0
-            dfinv_out[1, 2] = 0.0
-            dfinv_out[2, 0] = 0.0
-            dfinv_out[2, 1] = 0.0
-        elif args.kind_map == 20:
-            dfinv_out[0, 2] = 0.0
-            dfinv_out[1, 2] = 0.0
-            dfinv_out[2, 0] = 0.0
-            dfinv_out[2, 1] = 0.0
-        elif args.kind_map == 21:
+        elif args.kind_map == 12 or args.kind_map == 20 or args.kind_map == 21:
             dfinv_out[0, 2] = 0.0
             dfinv_out[1, 2] = 0.0
             dfinv_out[2, 0] = 0.0
             dfinv_out[2, 1] = 0.0
         elif args.kind_map == 22:
             dfinv_out[2, 2] = 0.0
-        elif args.kind_map == 30:
-            dfinv_out[0, 2] = 0.0
-            dfinv_out[1, 2] = 0.0
-            dfinv_out[2, 0] = 0.0
-            dfinv_out[2, 1] = 0.0
-        elif args.kind_map == 31:
-            dfinv_out[0, 2] = 0.0
-            dfinv_out[1, 2] = 0.0
-            dfinv_out[2, 0] = 0.0
-            dfinv_out[2, 1] = 0.0
-        elif args.kind_map == 32:
+        elif args.kind_map == 30 or args.kind_map == 31 or args.kind_map == 32:
             dfinv_out[0, 2] = 0.0
             dfinv_out[1, 2] = 0.0
             dfinv_out[2, 0] = 0.0
@@ -505,24 +478,12 @@ def g(
 
     # set known (analytical) zero components manually to zero to avoid round-off error remainders!
     if avoid_round_off:
-        if args.kind_map == 1:
+        if args.kind_map == 1 or args.kind_map == 2:
             g_out[0, 2] = 0.0
             g_out[1, 2] = 0.0
             g_out[2, 0] = 0.0
             g_out[2, 1] = 0.0
-        elif args.kind_map == 2:
-            g_out[0, 2] = 0.0
-            g_out[1, 2] = 0.0
-            g_out[2, 0] = 0.0
-            g_out[2, 1] = 0.0
-        elif args.kind_map == 10:
-            g_out[0, 1] = 0.0
-            g_out[0, 2] = 0.0
-            g_out[1, 0] = 0.0
-            g_out[1, 2] = 0.0
-            g_out[2, 0] = 0.0
-            g_out[2, 1] = 0.0
-        elif args.kind_map == 11:
+        elif args.kind_map == 10 or args.kind_map == 11:
             g_out[0, 1] = 0.0
             g_out[0, 2] = 0.0
             g_out[1, 0] = 0.0
@@ -563,17 +524,7 @@ def g(
                 g_out[2, 0] = 0.0
                 g_out[2, 1] = 0.0
 
-        elif args.kind_map == 30:
-            g_out[0, 2] = 0.0
-            g_out[1, 2] = 0.0
-            g_out[2, 0] = 0.0
-            g_out[2, 1] = 0.0
-        elif args.kind_map == 31:
-            g_out[0, 2] = 0.0
-            g_out[1, 2] = 0.0
-            g_out[2, 0] = 0.0
-            g_out[2, 1] = 0.0
-        elif args.kind_map == 32:
+        elif args.kind_map == 30 or args.kind_map == 31 or args.kind_map == 32:
             g_out[0, 2] = 0.0
             g_out[1, 2] = 0.0
             g_out[2, 0] = 0.0
@@ -624,24 +575,12 @@ def g_inv(
 
     # set known (analytical) zero components manually to zero to avoid round-off error remainders!
     if avoid_round_off:
-        if args.kind_map == 1:
+        if args.kind_map == 1 or args.kind_map == 2:
             ginv_out[0, 2] = 0.0
             ginv_out[1, 2] = 0.0
             ginv_out[2, 0] = 0.0
             ginv_out[2, 1] = 0.0
-        elif args.kind_map == 2:
-            ginv_out[0, 2] = 0.0
-            ginv_out[1, 2] = 0.0
-            ginv_out[2, 0] = 0.0
-            ginv_out[2, 1] = 0.0
-        elif args.kind_map == 10:
-            ginv_out[0, 1] = 0.0
-            ginv_out[0, 2] = 0.0
-            ginv_out[1, 0] = 0.0
-            ginv_out[1, 2] = 0.0
-            ginv_out[2, 0] = 0.0
-            ginv_out[2, 1] = 0.0
-        elif args.kind_map == 11:
+        elif args.kind_map == 10 or args.kind_map == 11:
             ginv_out[0, 1] = 0.0
             ginv_out[0, 2] = 0.0
             ginv_out[1, 0] = 0.0
@@ -682,17 +621,7 @@ def g_inv(
                 ginv_out[2, 0] = 0.0
                 ginv_out[2, 1] = 0.0
 
-        elif args.kind_map == 30:
-            ginv_out[0, 2] = 0.0
-            ginv_out[1, 2] = 0.0
-            ginv_out[2, 0] = 0.0
-            ginv_out[2, 1] = 0.0
-        elif args.kind_map == 31:
-            ginv_out[0, 2] = 0.0
-            ginv_out[1, 2] = 0.0
-            ginv_out[2, 0] = 0.0
-            ginv_out[2, 1] = 0.0
-        elif args.kind_map == 32:
+        elif args.kind_map == 30 or args.kind_map == 31 or args.kind_map == 32:
             ginv_out[0, 2] = 0.0
             ginv_out[1, 2] = 0.0
             ginv_out[2, 0] = 0.0

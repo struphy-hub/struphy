@@ -382,7 +382,6 @@ def test_maxwellian_3d_mhd(num_elements, with_desc, show_plot=False):
                 logger.info("Attention: GVEC not tested here !!")
                 # logger.info("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
                 continue
-                pass
             else:
                 assert xp.allclose(maxwellian(*args_fl), mhd_equil.n0(e_args_fl) * maxwellian_1(*args_fl))
                 assert xp.allclose(maxwellian.n(e1_fl, e2_fl, e3_fl), mhd_equil.n0(e_args_fl))
@@ -1181,7 +1180,6 @@ def test_maxwellian_2d_mhd(num_elements, with_desc, show_plot=False):
                 logger.info("Attention: GVEC not tested here !!")
                 # logger.info("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
                 continue
-                pass
             else:
                 assert xp.allclose(maxwellian(*args_fl), mhd_equil.n0(e_args_fl) * maxwellian_1(*args_fl))
                 assert xp.allclose(maxwellian.n(e1_fl, e2_fl, e3_fl), mhd_equil.n0(e_args_fl))

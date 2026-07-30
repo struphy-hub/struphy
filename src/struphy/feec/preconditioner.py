@@ -167,7 +167,7 @@ class MassMatrixPreconditioner(LinearOperator):
                         fun = lambda e: xp.ones(e.size, dtype=float)
                     else:
                         raise TypeError(
-                            "weights needs to be callable, xp.ndarray or None but is{}".format(type(loc_weights)),
+                            f"weights needs to be callable, xp.ndarray or None but is{type(loc_weights)}",
                         )
                     fun = [[fun]]
                 else:

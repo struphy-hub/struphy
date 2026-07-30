@@ -1,4 +1,3 @@
-# coding: utf-8
 #
 # Copyright 2020 Florian Holderied (florian.holderied@ipp.mpg.de)
 
@@ -21,7 +20,7 @@ from typing import Final
 from numpy import empty, zeros
 from pyccel.decorators import pure, stack_array
 
-import struphy.bsplines.bsplines_kernels as bsplines_kernels
+from struphy.bsplines import bsplines_kernels
 
 
 @pure

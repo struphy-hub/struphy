@@ -1,8 +1,7 @@
 # do not remove; needed to identify dependencies
-import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels
-import struphy.pic.sorting_kernels as sorting_kernels
-import struphy.pic.sph_smoothing_kernels as sph_smoothing_kernels
+from struphy.kernel_arguments import pusher_args_kernels
 from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
+from struphy.pic import sorting_kernels, sph_smoothing_kernels
 
 
 def distance(x: "float", y: "float", periodic: "bool") -> float:

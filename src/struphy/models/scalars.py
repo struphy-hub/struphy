@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractmethod
-from typing import Callable, Union
+from collections.abc import Callable
+from typing import Union
 
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
@@ -31,12 +32,10 @@ class Scalar(metaclass=ABCMeta):
     @abstractmethod
     def _local_update(self):
         """Update self.local_value[0] on the current process."""
-        pass
 
     @abstractmethod
     def _mpi_sum(self):
         """Sum the local values over MPI processes."""
-        pass
 
     def update(self):
         """Update the scalar quantity by performing local update and then summing over MPI processes."""
@@ -59,7 +58,6 @@ class SumOfScalars(Scalar):
 
     def _local_update(self):
         "Local updates for each summands are performed in _mpi_sum via .update()."
-        pass
 
     def _mpi_sum(self):
         for scalar in self.variables:

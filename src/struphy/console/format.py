@@ -127,7 +127,7 @@ def check_omp_flags(file_path, verbose=False):
                     if line.lstrip().startswith("# $"):
                         print(f"Error on line {iline}: {line}")
             return all(not line.lstrip().startswith("# $") for line in f)
-    except (IOError, FileNotFoundError) as e:
+    except (OSError, FileNotFoundError) as e:
         raise ValueError(f"Error reading file: {e}")
 
 
@@ -321,7 +321,7 @@ def get_pylint_score(file_path, verbose=False, pass_score=8.0):
         check=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        universal_newlines=True,
+        text=True,
     )
     output = result.stdout
     score = None

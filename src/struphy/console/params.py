@@ -4,7 +4,7 @@ import sys
 import yaml
 from feectools.ddm.mpi import mpi as MPI
 
-import struphy.models as models
+from struphy import models
 from struphy.models.base import StruphyModel
 from struphy.models.utils import get_model_by_name
 

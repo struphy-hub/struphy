@@ -201,7 +201,6 @@ class PolarDerhamSpace(VectorSpace):
 
     def axpy(self, a, x, y):
         y += a * x
-        pass
 
     def inner(self, x, y):
         assert isinstance(x, PolarVector)
@@ -511,7 +510,6 @@ class PolarVector(Vector):
 
     def conjugate(self):
         """No need for complex conjugate"""
-        pass
 
 
 def set_tp_rings_to_zero(v, n_rings):

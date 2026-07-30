@@ -528,7 +528,7 @@ def test_basis_projection_operator_local(num_elements, plist, bcs, out_sp_key, i
         random_i2 = random.randrange(0, npts_in[2])
         starts_in = input.starts
         ends_in = input.ends
-        if starts_in[0] <= random_i0 and random_i0 <= ends_in[0]:
+        if starts_in[0] <= random_i0 <= ends_in[0]:
             input[random_i0, random_i1, random_i2] = 1.0
         input.update_ghost_regions()
     else:
@@ -539,7 +539,7 @@ def test_basis_projection_operator_local(num_elements, plist, bcs, out_sp_key, i
         random_i2 = random.randrange(0, npts_in[random_h][2])
         starts_in = xp.array([sp.starts for sp in derham.fem_spaces[in_sp_key].coeff_space.spaces])
         ends_in = xp.array([sp.ends for sp in derham.fem_spaces[in_sp_key].coeff_space.spaces])
-        if starts_in[random_h][0] <= random_i0 and random_i0 <= ends_in[random_h][0]:
+        if starts_in[random_h][0] <= random_i0 <= ends_in[random_h][0]:
             input[random_h][random_i0, random_i1, random_i2] = 1.0
         input.update_ghost_regions()
 
@@ -1096,7 +1096,7 @@ def test_basis_projection_operator_local_new(num_elements, plist, bcs, out_sp_ke
         random_i2 = random.randrange(0, npts_in[2])
         starts = input.starts
         ends = input.ends
-        if starts[0] <= random_i0 and random_i0 <= ends[0]:
+        if starts[0] <= random_i0 <= ends[0]:
             input[random_i0, random_i1, random_i2] = 1.0
         input.update_ghost_regions()
     else:
@@ -1107,7 +1107,7 @@ def test_basis_projection_operator_local_new(num_elements, plist, bcs, out_sp_ke
         random_i2 = random.randrange(0, npts_in[random_h][2])
         starts = xp.array([sp.starts for sp in derham.fem_spaces[in_sp_key].coeff_space.spaces])
         ends = xp.array([sp.ends for sp in derham.fem_spaces[in_sp_key].coeff_space.spaces])
-        if starts[random_h][0] <= random_i0 and random_i0 <= ends[random_h][0]:
+        if starts[random_h][0] <= random_i0 <= ends[random_h][0]:
             input[random_h][random_i0, random_i1, random_i2] = 1.0
         input.update_ghost_regions()
 
@@ -1484,8 +1484,7 @@ def aux_test_spline_evaluation(num_elements, plist, bcs):
 
                 auxerror = xp.max(error(*meshgrid))
 
-                if auxerror > maxerrorB:
-                    maxerrorB = auxerror
+                maxerrorB = max(maxerrorB, auxerror)
                 inputB[col0, col1, col2] = 0.0
 
     logger.info(f"{maxerrorB =}")
@@ -1512,8 +1511,7 @@ def aux_test_spline_evaluation(num_elements, plist, bcs):
 
                 auxerror = xp.max(error(*meshgrid))
 
-                if auxerror > maxerrorD:
-                    maxerrorD = auxerror
+                maxerrorD = max(maxerrorD, auxerror)
                 inputD[col0, col1, col2] = 0.0
 
     logger.info(f"{maxerrorD =}")

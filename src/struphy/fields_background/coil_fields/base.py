@@ -27,7 +27,6 @@ class CoilMagneticField(metaclass=ABCMeta):
     @abstractmethod
     def b_xyz(self, x, y, z):
         """Cartesian equilibrium magnetic field in physical space. Must return the components as a tuple."""
-        pass
 
     def absB0(self, *etas, squeeze_out=False):
         """0-form absolute value of equilibrium magnetic field on logical cube [0, 1]^3."""

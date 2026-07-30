@@ -15,7 +15,6 @@ Authors:
   Original code is available from http://people.sc.fsu.edu/~jburkardt/py_src/sobol/sobol.html
 """
 
-from __future__ import division
 
 import logging
 
@@ -24,7 +23,7 @@ from scipy.stats import norm
 
 logger = logging.getLogger("struphy")
 
-__all__ = ["i4_bit_hi1", "i4_bit_lo0", "i4_sobol_generate", "i4_sobol", "i4_uniform", "prime_ge", "is_prime"]
+__all__ = ["i4_bit_hi1", "i4_bit_lo0", "i4_sobol", "i4_sobol_generate", "i4_uniform", "is_prime", "prime_ge"]
 
 
 def i4_bit_hi1(n):
@@ -550,8 +549,7 @@ def i4_sobol(dim_num, seed):
 
     seed = int(xp.floor(seed))
 
-    if seed < 0:
-        seed = 0
+    seed = max(seed, 0)
 
     l = 1
     if seed == 0:

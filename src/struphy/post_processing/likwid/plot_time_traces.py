@@ -316,7 +316,7 @@ def plot_gantt_chart_plotly(
 if __name__ == "__main__":
     import argparse
 
-    import struphy.utils.utils as utils
+    from struphy.utils import utils
 
     # Read struphy state file
     state = utils.read_state()

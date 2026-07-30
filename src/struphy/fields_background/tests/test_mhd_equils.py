@@ -216,7 +216,7 @@ def test_equils(equil_domain_pair):
     # asserts
     kind = "point"
 
-    for i in range(0, 5):
+    for i in range(5):
         assert_scalar(results[i], kind, *pt)
 
     for i in range(5, 17):
@@ -265,7 +265,7 @@ def test_equils(equil_domain_pair):
     # asserts
     kind = "markers"
 
-    for i in range(0, 5):
+    for i in range(5):
         assert_scalar(results[i], kind, markers)
 
     for i in range(5, 17):
@@ -307,7 +307,7 @@ def test_equils(equil_domain_pair):
     results.append(eq_mhd.unit_b_cart(e1, e2_pt, e3_pt, squeeze_out=True))
 
     # asserts
-    for i in range(0, 5):
+    for i in range(5):
         assert_scalar(results[i], kind, e1, e2_pt, e3_pt)
 
     for i in range(5, 17):
@@ -353,7 +353,7 @@ def test_equils(equil_domain_pair):
     # asserts
     kind = "e2"
 
-    for i in range(0, 5):
+    for i in range(5):
         assert_scalar(results[i], kind, e1_pt, e2, e3_pt)
 
     for i in range(5, 17):
@@ -399,7 +399,7 @@ def test_equils(equil_domain_pair):
     # asserts
     kind = "e3"
 
-    for i in range(0, 5):
+    for i in range(5):
         assert_scalar(results[i], kind, e1_pt, e2_pt, e3)
 
     for i in range(5, 17):
@@ -444,7 +444,7 @@ def test_equils(equil_domain_pair):
     # asserts
     kind = "e1_e2"
 
-    for i in range(0, 5):
+    for i in range(5):
         assert_scalar(results[i], kind, e1, e2, e3_pt)
 
     for i in range(5, 17):
@@ -489,7 +489,7 @@ def test_equils(equil_domain_pair):
     # asserts
     kind = "e1_e3"
 
-    for i in range(0, 5):
+    for i in range(5):
         assert_scalar(results[i], kind, e1, e2_pt, e3)
 
     for i in range(5, 17):
@@ -534,7 +534,7 @@ def test_equils(equil_domain_pair):
     # asserts
     kind = "e2_e3"
 
-    for i in range(0, 5):
+    for i in range(5):
         assert_scalar(results[i], kind, e1_pt, e2, e3)
 
     for i in range(5, 17):
@@ -577,7 +577,7 @@ def test_equils(equil_domain_pair):
     # asserts
     kind = "e1_e2_e3"
 
-    for i in range(0, 5):
+    for i in range(5):
         assert_scalar(results[i], kind, e1, e2, e3)
 
     for i in range(5, 17):
@@ -627,7 +627,7 @@ def test_equils(equil_domain_pair):
     # asserts
     kind = "e1_e2_m"
 
-    for i in range(0, 5):
+    for i in range(5):
         assert_scalar(results[i], kind, mat_12_1, mat_12_2, e3_pt)
 
     for i in range(5, 17):
@@ -670,7 +670,7 @@ def test_equils(equil_domain_pair):
     # asserts
     kind = "e1_e3_m"
 
-    for i in range(0, 5):
+    for i in range(5):
         assert_scalar(results[i], kind, mat_13_1, e2_pt, mat_13_3)
 
     for i in range(5, 17):
@@ -713,7 +713,7 @@ def test_equils(equil_domain_pair):
     # asserts
     kind = "e2_e3_m"
 
-    for i in range(0, 5):
+    for i in range(5):
         assert_scalar(results[i], kind, e1_pt, mat_23_2, mat_23_3)
 
     for i in range(5, 17):
@@ -754,7 +754,7 @@ def test_equils(equil_domain_pair):
     # asserts
     kind = "e1_e2_e3_m"
 
-    for i in range(0, 5):
+    for i in range(5):
         assert_scalar(results[i], kind, mat_123_1, mat_123_2, mat_123_3)
 
     for i in range(5, 17):
@@ -797,7 +797,7 @@ def test_equils(equil_domain_pair):
     # asserts
     kind = "e1_e2_e3_m_sparse"
 
-    for i in range(0, 5):
+    for i in range(5):
         assert_scalar(results[i], kind, mat_123_1_sp, mat_123_2_sp, mat_123_3_sp)
 
     for i in range(5, 17):
@@ -876,11 +876,7 @@ def assert_scalar(result, kind, *etas):
                 assert result.shape == (etas[0].shape[0], etas[2].shape[1])
 
             # 123-matrix
-            elif kind == "e1_e2_e3_m":
-                assert result.shape == (etas[0].shape[0], etas[1].shape[1], etas[2].shape[2])
-
-            # 123-matrix (sparse)
-            elif kind == "e1_e2_e3_m_sparse":
+            elif kind == "e1_e2_e3_m" or kind == "e1_e2_e3_m_sparse":
                 assert result.shape == (etas[0].shape[0], etas[1].shape[1], etas[2].shape[2])
 
 
@@ -948,11 +944,7 @@ def assert_vector(result, kind, *etas):
                 assert result.shape == (3, etas[0].shape[0], etas[2].shape[1])
 
             # 123-matrix
-            elif kind == "e1_e2_e3_m":
-                assert result.shape == (3, etas[0].shape[0], etas[1].shape[1], etas[2].shape[2])
-
-            # 123-matrix (sparse)
-            elif kind == "e1_e2_e3_m_sparse":
+            elif kind == "e1_e2_e3_m" or kind == "e1_e2_e3_m_sparse":
                 assert result.shape == (3, etas[0].shape[0], etas[1].shape[1], etas[2].shape[2])
 
 

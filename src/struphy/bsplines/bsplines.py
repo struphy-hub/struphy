@@ -1,4 +1,3 @@
-# coding: utf-8
 #
 # Copyright 2018 Yaman Güçlü
 
@@ -19,19 +18,19 @@ References
 import cunumpy as xp
 
 __all__ = [
-    "find_span",
-    "scaling_vector",
+    "basis_ders_on_quad_grid",
     "basis_funs",
     "basis_funs_1st_der",
     "basis_funs_all_ders",
-    "collocation_matrix",
-    "histopolation_matrix",
     "breakpoints",
-    "greville",
+    "collocation_matrix",
     "elements_spans",
+    "find_span",
+    "greville",
+    "histopolation_matrix",
     "make_knots",
     "quadrature_grid",
-    "basis_ders_on_quad_grid",
+    "scaling_vector",
 ]
 
 
@@ -275,11 +274,11 @@ def basis_funs_all_ders(knots, degree, x, span, n):
     # up to degree, which are needed to compute derivatives.
     # Store values in 2D temporary array 'ndu' (square matrix).
     ndu[0, 0] = 1.0
-    for j in range(0, degree):
+    for j in range(degree):
         left[j] = x - knots[span - j]
         right[j] = knots[span + 1 + j] - x
         saved = 0.0
-        for r in range(0, j + 1):
+        for r in range(j + 1):
             # compute inverse of knot differences and save them into lower triangular part of ndu
             ndu[j + 1, r] = 1.0 / (right[r] + left[j - r])
             # compute basis functions and save them into upper triangular part of ndu
@@ -290,7 +289,7 @@ def basis_funs_all_ders(knots, degree, x, span, n):
 
     # Compute derivatives in 2D output array 'ders'
     ders[0, :] = ndu[:, degree]
-    for r in range(0, degree + 1):
+    for r in range(degree + 1):
         s1 = 0
         s2 = 1
         a[0, 0] = 1.0

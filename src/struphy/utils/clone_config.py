@@ -216,8 +216,8 @@ class CloneConfig:
                     Np_clone = self.get_Np_clone(Np, clone_id=i_clone)
                     ppc_clone = Np_clone / n_cells_clone
 
-                    row += f"| {str(Np_clone):30} "
-                    row += f"| {str(ppc_clone):30} "
+                    row += f"| {Np_clone!s:30} "
+                    row += f"| {ppc_clone!s:30} "
 
                     column_sums[species_name]["Np"] += Np_clone
                     column_sums[species_name]["ppc"] += ppc_clone
@@ -233,7 +233,7 @@ class CloneConfig:
                         params_value = self.params["kinetic"][species_name]["markers"][marker_key]
                         if params_value is not None:
                             assert sum_value == params_value, f"{sum_value =} and {params_value =}"
-                    sum_row += f"| {str(sum_value):30} "
+                    sum_row += f"| {sum_value!s:30} "
 
             # Print the final message
             message = header + breakline + rows + breakline + sum_row

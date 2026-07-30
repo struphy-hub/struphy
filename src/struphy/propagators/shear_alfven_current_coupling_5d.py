@@ -191,7 +191,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         _T = getattr(self.basis_ops, id_T)
         M2 = self.mass_ops.M2
         curl = self.derham.curl
-        PB = getattr(self.basis_ops, "PB")
+        PB = self.basis_ops.PB
 
         # define Accumulator and arguments
         self._ACC = AccumulatorVector(

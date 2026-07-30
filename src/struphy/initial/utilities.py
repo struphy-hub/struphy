@@ -26,7 +26,7 @@ class InitFromOutput:
     """
 
     def __init__(self, derham, name, species, **params):
-        import struphy.utils.utils as utils
+        from struphy.utils import utils
 
         # Read struphy state file
         state = utils.read_state()

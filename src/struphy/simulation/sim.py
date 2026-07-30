@@ -251,17 +251,17 @@ class Simulation(SimulationBase):
         """
         print(f"\nNew instance of Simulation from file\n{self.params_path}\n")
         print(self.model)
-        print("")
+        print()
         print(self.env)
-        print("")
+        print()
         print(self.time_opts)
-        print("")
+        print()
         print(self.domain)
-        print("")
+        print()
         print(self.equil)
-        print("")
+        print()
         print(self.grid)
-        print("")
+        print()
         print(self.derham_opts)
 
     def show_propagator_options(self):
@@ -588,10 +588,7 @@ RESTARTing from:
                     if isinstance(val, Particles):
                         val.do_sort()
                 t1 = time.time()
-                message = "Particles sorted | wall clock [s]: {0:8.4f} | sorting duration [s]: {1:8.4f}".format(
-                    run_time_now * 60,
-                    t1 - t0,
-                )
+                message = f"Particles sorted | wall clock [s]: {run_time_now * 60:8.4f} | sorting duration [s]: {t1 - t0:8.4f}"
                 logger.info(message)
                 logger.info("")
 
@@ -645,8 +642,8 @@ RESTARTing from:
                         Tend * self.model.units.t,
                     ).rjust(25)
                 )
-                message += "\n" + "wall clock time [s]:".ljust(25) + "{0:8.4f}".format(run_time_now * 60).rjust(25)
-                message += "\n" + "last step duration [s]:".ljust(25) + "{0:8.4f}".format(t1 - t0).rjust(25)
+                message += "\n" + "wall clock time [s]:".ljust(25) + f"{run_time_now * 60:8.4f}".rjust(25)
+                message += "\n" + "last step duration [s]:".ljust(25) + f"{t1 - t0:8.4f}".rjust(25)
 
                 logger.info(message)
                 if logger.level <= logging.INFO and self.rank == 0:
@@ -823,19 +820,19 @@ RESTARTing from:
 
         logger.info("\nPLASMA PARAMETERS:")
         logger.info(
-            "Plasma volume:".ljust(25) + "{:4.3e}".format(plasma_volume) + units_affix["plasma volume"],
+            "Plasma volume:".ljust(25) + f"{plasma_volume:4.3e}" + units_affix["plasma volume"],
         )
         logger.info(
-            "Transit length:".ljust(25) + "{:4.3e}".format(transit_length) + units_affix["transit length"],
+            "Transit length:".ljust(25) + f"{transit_length:4.3e}" + units_affix["transit length"],
         )
         logger.info(
-            "Avg. magnetic field:".ljust(25) + "{:4.3e}".format(magnetic_field) + units_affix["magnetic field"],
+            "Avg. magnetic field:".ljust(25) + f"{magnetic_field:4.3e}" + units_affix["magnetic field"],
         )
         logger.info(
-            "Max magnetic field:".ljust(25) + "{:4.3e}".format(B_max) + units_affix["magnetic field"],
+            "Max magnetic field:".ljust(25) + f"{B_max:4.3e}" + units_affix["magnetic field"],
         )
         logger.info(
-            "Min magnetic field:".ljust(25) + "{:4.3e}".format(B_min) + units_affix["magnetic field"],
+            "Min magnetic field:".ljust(25) + f"{B_min:4.3e}" + units_affix["magnetic field"],
         )
 
     def spawn_sister(
@@ -1526,7 +1523,7 @@ from struphy.models import {self.model.__class__.__name__}
                 sim_setup += f"equil = equils.{self.equil.__repr_no_defaults__()}\n"
             sim_class_def += "equil=equil,"
         if self.params_path is not None:
-            sim_class_def += f"params_path={repr(self.params_path)},\n"
+            sim_class_def += f"params_path={self.params_path!r},\n"
 
         sim_class_def += ")\n"
 

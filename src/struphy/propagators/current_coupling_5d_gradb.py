@@ -210,7 +210,7 @@ class CurrentCoupling5DGradB(Propagator):
         # call operatros
         id_M = "M" + self.derham.space_to_form[self.options.u_space] + "n"
         self._A = getattr(self.mass_ops, id_M)
-        self._PB = getattr(self.basis_ops, "PB")
+        self._PB = self.basis_ops.PB
 
         # Preconditioner
         if self.options.precond is None:
@@ -623,7 +623,7 @@ class CurrentCoupling5DGradB(Propagator):
                 markers[~holes, first_free_idx : first_free_idx + 3] = markers[~holes, 0:3]
 
                 # calculate denominator ||z^{n+1, k} - z^n||^2
-                sum_u_diff_loc = xp.sum((u_diff.toarray() ** 2))
+                sum_u_diff_loc = xp.sum(u_diff.toarray() ** 2)
 
                 sum_H_diff_loc = xp.sum(
                     (markers[~holes, :3] - markers[~holes, first_init_idx : first_init_idx + 3]) ** 2,

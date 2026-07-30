@@ -141,12 +141,12 @@ class Units:
             " kg/m³",
             " A/m²",
         )
-        print("")
+        print()
         for (k, v), u in zip(self.__dict__.items(), units_used):
             if v is None:
                 print(f"Unit of {k[1:]} not specified.")
             else:
                 print(
                     f"Unit of {k[1:]}:".ljust(25),
-                    "{:4.3e}".format(v) + u,
+                    f"{v:4.3e}" + u,
                 )

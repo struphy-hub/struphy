@@ -135,7 +135,6 @@ class StruphyModel(metaclass=StruphyModelMeta):
     @abstractmethod
     def model_type(cls) -> LiteralOptions.ModelTypes:
         """Model type (Fluid, Kinetic, Hybrid, or Toy)"""
-        pass
 
     @abstractmethod
     class Propagators:
@@ -324,7 +323,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
         for key, scalar in self.scalars.dct.items():
             val = scalar.value[0]
             assert not xp.isnan(val), f"Scalar {key} is {val}."
-            sq_str += f"{key}:".ljust(25) + "{:4.2e}\n".format(val).rjust(26)
+            sq_str += f"{key}:".ljust(25) + f"{val:4.2e}\n".rjust(26)
         print(sq_str)
 
     def setup_equation_params(self, base_units: BaseUnits):
@@ -741,8 +740,7 @@ set_logging_level(logging.WARNING)\n""")
         file.write("""\n# ------------------
 # Propagator options
 # ------------------\n\n""")
-        for prop in self.propagators.__dict__:
-            file.write(f"model.propagators.{prop}.options = model.propagators.{prop}.Options()\n")
+        file.writelines(f"model.propagators.{prop}.options = model.propagators.{prop}.Options()\n" for prop in self.propagators.__dict__)
 
         file.write("""\n# ------------------
 # Initial conditions

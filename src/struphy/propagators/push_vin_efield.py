@@ -1,8 +1,8 @@
 "Only particle variables are updated."
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 from line_profiler import profile
 

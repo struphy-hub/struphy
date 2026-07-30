@@ -1,7 +1,7 @@
 import inspect
 import logging
+from collections.abc import Callable
 from copy import deepcopy
-from typing import Callable
 
 import cunumpy as xp
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
@@ -2087,9 +2087,7 @@ class WeightedMassOperator(LinOpWithTransp):
                         mat_w = loc_weight
                     elif loc_weight is not None:
                         raise TypeError(
-                            "weights must be callable or xp.ndarray or None but is {}".format(
-                                type(self._weights[a][b]),
-                            ),
+                            f"weights must be callable or xp.ndarray or None but is {type(self._weights[a][b])}",
                         )
 
                     if loc_weight is not None:
@@ -2446,7 +2444,7 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
         )
 
         shape = tuple(e - s + 1 for s, e in zip(V.coeff_space.starts, V.coeff_space.ends))
-        self._diag_tmp = xp.zeros((shape))
+        self._diag_tmp = xp.zeros(shape)
 
         # knot span indices of elements of local domain
         self._codomain_spans = [

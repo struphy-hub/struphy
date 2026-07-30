@@ -199,7 +199,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._en_fB = xp.empty(1, dtype=float)
         self._en_tot = xp.empty(1, dtype=float)
 
-        self._PB = getattr(Propagator.basis_ops, "PB")
+        self._PB = Propagator.basis_ops.PB
         self._PBb = self._PB.codomain.zeros()
 
     def _compute_en_fB(self):

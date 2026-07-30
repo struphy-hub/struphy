@@ -104,7 +104,7 @@ class Pusher:
         args_kernel: tuple,
         args_domain: DomainArguments,
         *,
-        alpha_in_kernel: float | int | tuple | list,
+        alpha_in_kernel: float | tuple | list,
         init_kernels: list = [],
         eval_kernels: list = [],
         n_stages: int = 1,

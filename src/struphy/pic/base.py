@@ -378,24 +378,20 @@ class Particles(metaclass=ABCMeta):
     @abstractmethod
     def type(self):
         """Particle type: 'full_f', 'delta_f' or 'sph'."""
-        pass
 
     @property
     @abstractmethod
     def vdim(self):
         """Dimension of the velocity space."""
-        pass
 
     @property
     @abstractmethod
     def default_background(cls):
         """The default background (of type Maxwellian)."""
-        pass
 
     @property
     def default_n_cols(self):
         "Dictionary of the form {'diagnostics': 3, 'aux': 12} for default number of columns."
-        pass
 
     @abstractmethod
     def __post_init__(self):
@@ -404,12 +400,10 @@ class Particles(metaclass=ABCMeta):
     @abstractmethod
     def svol(self, eta1, eta2, eta3, *v):
         r"""Marker sampling distribution function :math:`s^\textrm{vol}` as a volume form, see :ref:`monte_carlo`."""
-        pass
 
     @abstractmethod
     def s0(self, eta1, eta2, eta3, *v, flat_eval=False, remove_holes=True):
         r"""Marker sampling distribution function :math:`s^0` as 0-form, see :ref:`monte_carlo`."""
-        pass
 
     @property
     def n_cols_diagnostics(self):
@@ -751,7 +745,7 @@ class Particles(metaclass=ABCMeta):
         out["com"]["5D"] = slice(8, 11)  # constants of motion (Particles5D)
         out["pos+energy"] = {}
         out["pos+energy"]["6D"] = slice(9, 13)  # positions + energy
-        out["pos+energy"]["5D"] = list(range(0, 3)) + [8]  # positions + energy
+        out["pos+energy"]["5D"] = list(range(3)) + [8]  # positions + energy
         out["weights"] = 3 + self.vdim  # weights
         out["s0"] = 4 + self.vdim  # sampling density at t=0
         out["w0"] = 5 + self.vdim  # weights at t=0
@@ -1758,7 +1752,7 @@ class Particles(metaclass=ABCMeta):
     def mpi_sort_markers(
         self,
         apply_bc: bool = True,
-        alpha: tuple | list | int | float = 1.0,
+        alpha: tuple | list | float = 1.0,
         do_test: bool = False,
         remove_ghost: bool = True,
     ):
@@ -4541,7 +4535,7 @@ class Tesselation:
 
     def __init__(
         self,
-        tiles_pb: int | float,
+        tiles_pb: float,
         *,
         comm: Intracomm = None,
         domain_array: xp.ndarray = None,

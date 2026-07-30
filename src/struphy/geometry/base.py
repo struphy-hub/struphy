@@ -1,4 +1,3 @@
-# coding: utf-8
 "Base classes for mapped domains (single patch)."
 
 import copy

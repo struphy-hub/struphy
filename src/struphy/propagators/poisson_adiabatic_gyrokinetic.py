@@ -1,5 +1,6 @@
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Literal
+from typing import Literal
 
 from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.stencil import StencilVector

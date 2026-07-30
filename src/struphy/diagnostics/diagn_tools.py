@@ -5,8 +5,8 @@ import shutil
 import subprocess
 
 import cunumpy as xp
-import matplotlib.colors as colors
 import matplotlib.pyplot as plt
+from matplotlib import colors
 from scipy.fft import fftfreq, fftn
 from scipy.signal import argrelextrema
 from tqdm import tqdm
@@ -236,11 +236,9 @@ def power_spectrum_2d(
             vals = xp.real(branch)
             ax.plot(kvec, vals, "--", label=key)
             tmp = xp.min(vals)
-            if tmp < set_min:
-                set_min = tmp
+            set_min = min(set_min, tmp)
             tmp = xp.max(vals)
-            if tmp > set_max:
-                set_max = tmp
+            set_max = max(set_max, tmp)
 
         ax.legend()
         ax.set_xlim(0, kvec[-1])

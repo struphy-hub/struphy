@@ -104,8 +104,7 @@ def dict_to_yaml(dictionary: dict, output: str):
 def kernels_to_txt(kernels: list, output: str):
     """Write state[kernels] to .txt file for pyccel make."""
     with open(output, "w") as file:
-        for ker in kernels:
-            file.write(f"{ker}\n")
+        file.writelines(f"{ker}\n" for ker in kernels)
     # logger.info(f"kernels written to {output}.")
 
 
@@ -151,7 +150,7 @@ def __dataclass_repr_no_defaults__(obj):
             continue
         default_value = obj.__dataclass_fields__[k].default
         if v != default_value:
-            out += f"{k}={repr(v)}, "
+            out += f"{k}={v!r}, "
     out = out.rstrip(", ") + ")"
     return out
 
@@ -162,7 +161,7 @@ def __dataclass_repr_all_stacked__(obj):
         if k not in obj.__dataclass_fields__:
             continue
         out += " " * 4
-        out += f"{k}={repr(v)},\n"
+        out += f"{k}={v!r},\n"
     out = out.rstrip(", ") + ")"
     return out
 

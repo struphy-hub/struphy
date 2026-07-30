@@ -1,6 +1,7 @@
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Literal
+from typing import Literal
 
 import cunumpy as xp
 from feectools.linalg.basic import IdentityOperator

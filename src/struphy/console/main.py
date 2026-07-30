@@ -682,7 +682,6 @@ class CustomFormatter(NoSubparsersMetavarFormatter, RawTextHelpFormatter):
     Removes redundant COMMANDS printing in help message of argument parser and enables line breaks.
     """
 
-    pass
 
 
 def recursive_get_files(path, contains=(".yml", ".yaml"), out=None, prefix=None):

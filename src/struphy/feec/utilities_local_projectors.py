@@ -401,7 +401,7 @@ def get_sparsity_pattern_clamped(degree, B_nbasis, S_nbasis, starts, ends, modr,
             aux_indices.append(starts + degree + modr + cont)
             cont += 1
     elif stuck and starts == 0:
-        aux_indices = list(range(0, starts + 1 + degree + modr + 1))
+        aux_indices = list(range(starts + 1 + degree + modr + 1))
         cont = 1
         for j in range(starts + 2, ends + 1):
             if j >= bordr:

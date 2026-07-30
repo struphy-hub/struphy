@@ -1,4 +1,3 @@
-# coding: utf-8
 
 """
 Acccelerated functions for point-wise evaluation of tensor product B-splines.
@@ -22,8 +21,8 @@ Possible combinations for tensor product (BBB):
 from numpy import empty, shape, zeros
 from pyccel.decorators import stack_array
 
-import struphy.bsplines.bsplines_kernels as bsplines_kernels
-import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels
+from struphy.bsplines import bsplines_kernels
+from struphy.kernel_arguments import pusher_args_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 
 #################################
@@ -1101,7 +1100,7 @@ def eval_spline_derivative_mpi_kernel(
 
     spline_value = 0.0
 
-    if direction == int(1):
+    if direction == 1:
         for il1 in range(p1 + 1):
             i1 = span1 + il1 - starts[0]
             for il2 in range(p2 + 1):
@@ -1113,7 +1112,7 @@ def eval_spline_derivative_mpi_kernel(
                         (_data[i1 + 1, i2, i3] - _data[i1, i2, i3]) * basis1[il1] * basis2[il2] * basis3[il3]
                     )
 
-    if direction == int(2):
+    if direction == 2:
         for il1 in range(p1 + 1):
             i1 = span1 + il1 - starts[0]
             for il2 in range(p2 + 1):
@@ -1125,7 +1124,7 @@ def eval_spline_derivative_mpi_kernel(
                         (_data[i1, i2 + 1, i3] - _data[i1, i2, i3]) * basis1[il1] * basis2[il2] * basis3[il3]
                     )
 
-    if direction == int(3):
+    if direction == 3:
         for il1 in range(p1 + 1):
             i1 = span1 + il1 - starts[0]
             for il2 in range(p2 + 1):

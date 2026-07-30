@@ -78,7 +78,6 @@ class Variable(metaclass=ABCMeta):
     @abstractmethod
     def space(self):
         """The function space of the variable, e.g. 'H1' for finite element variables or 'Particles6D' for PIC variables."""
-        pass
 
     @abstractmethod
     def allocate(self):

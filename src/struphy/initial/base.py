@@ -1,6 +1,6 @@
 import logging
 from abc import ABCMeta, abstractmethod
-from typing import Callable
+from collections.abc import Callable
 
 import cunumpy as xp
 
@@ -66,7 +66,6 @@ class Perturbation(metaclass=ABCMeta):
             Perturbation field values at the given coordinates, with shape matching
             the input coordinates (or flattened if flat_eval=True).
         """
-        pass
 
     def prepare_eval_pts(self):
         # TODO: we could prepare the arguments via a method in this base class (flat_eval, sparse meshgrid, etc.).

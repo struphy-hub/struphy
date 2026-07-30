@@ -3,13 +3,12 @@
 from numpy import shape, zeros
 from pyccel.decorators import stack_array
 
-import struphy.bsplines.bsplines_kernels as bsplines_kernels
-import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
-import struphy.geometry.evaluation_kernels as evaluation_kernels
-import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
-import struphy.linear_algebra.linalg_kernels as linalg_kernels
-import struphy.pic.sph_eval_kernels as sph_eval_kernels
+from struphy.bsplines import bsplines_kernels, evaluation_kernels_3d
+from struphy.geometry import evaluation_kernels
+from struphy.kernel_arguments import pusher_args_kernels  # do not remove; needed to identify dependencies
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
+from struphy.linear_algebra import linalg_kernels
+from struphy.pic import sph_eval_kernels
 
 
 @stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")

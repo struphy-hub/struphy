@@ -11,8 +11,8 @@ import h5py
 import yaml
 
 import struphy
-import struphy.utils.utils as utils
 from struphy.diagnostics.diagn_tools import plot_distr_fun, plot_scalars, plots_videos_2d
+from struphy.utils import utils
 
 logger = logging.getLogger("struphy")
 
@@ -228,7 +228,7 @@ def main():
 
     # Get model name
     with open(path + "/meta.txt", "r") as file:
-        for line in file.readlines():
+        for line in file:
             if line[0:10] == "model_name":
                 model_name = line.split(":")[1].strip()
 
@@ -258,7 +258,7 @@ def main():
         # iterate over species
         for species in params["kinetic"].keys():
             # Get model class
-            import struphy.models as models
+            from struphy import models
 
             try:
                 model_class = getattr(models, model_name)
@@ -310,7 +310,7 @@ def main():
             for k in range(1, 4):
                 if grid_slices["v" + str(k)] is None:
                     key = "u" + str(k)
-                    if key in eval_params.keys():
+                    if key in eval_params:
                         grid_slices["v" + str(k)] = eval_params[key]
 
             # Plot the distribution function

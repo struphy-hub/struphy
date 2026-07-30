@@ -3,15 +3,7 @@
 from numpy import cos, empty, floor, log, shape, sin, sqrt, zeros
 from pyccel.decorators import stack_array
 
-import struphy.bsplines.bsplines_kernels as bsplines_kernels
-import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
-import struphy.geometry.evaluation_kernels as evaluation_kernels
-
-# do not remove; needed to identify dependencies
-import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels
-import struphy.linear_algebra.linalg_kernels as linalg_kernels
-import struphy.pic.pushing.pusher_utilities_kernels as pusher_utilities_kernels
-import struphy.pic.sph_eval_kernels as sph_eval_kernels
+from struphy.bsplines import bsplines_kernels, evaluation_kernels_3d
 from struphy.bsplines.evaluation_kernels_3d import (
     eval_0form_spline_mpi,
     eval_1form_spline_mpi,
@@ -20,7 +12,14 @@ from struphy.bsplines.evaluation_kernels_3d import (
     eval_vectorfield_spline_mpi,
     get_spans,
 )
+from struphy.geometry import evaluation_kernels
+
+# do not remove; needed to identify dependencies
+from struphy.kernel_arguments import pusher_args_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
+from struphy.linear_algebra import linalg_kernels
+from struphy.pic import sph_eval_kernels
+from struphy.pic.pushing import pusher_utilities_kernels
 
 
 @stack_array("dfm", "dfinv", "dfinvt", "e_form", "e_cart")
@@ -884,9 +883,7 @@ def push_hybrid_xp_ap(
             span3,
             a1_1,
             args_derham.starts,
-            int(
-                1,
-            ),
+            1,
         )
         a_xx[0, 1] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
             args_derham.pn[0] - 1,
@@ -900,9 +897,7 @@ def push_hybrid_xp_ap(
             span3,
             a1_1,
             args_derham.starts,
-            int(
-                2,
-            ),
+            2,
         )
         a_xx[0, 2] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
             args_derham.pn[0] - 1,
@@ -916,7 +911,7 @@ def push_hybrid_xp_ap(
             span3,
             a1_1,
             args_derham.starts,
-            int(3),
+            3,
         )
 
         a_xx[1, 0] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
@@ -931,9 +926,7 @@ def push_hybrid_xp_ap(
             span3,
             a1_2,
             args_derham.starts,
-            int(
-                1,
-            ),
+            1,
         )
         a_xx[1, 1] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
             args_derham.pn[0],
@@ -947,9 +940,7 @@ def push_hybrid_xp_ap(
             span3,
             a1_2,
             args_derham.starts,
-            int(
-                2,
-            ),
+            2,
         )
         a_xx[1, 2] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
             args_derham.pn[0],
@@ -963,7 +954,7 @@ def push_hybrid_xp_ap(
             span3,
             a1_2,
             args_derham.starts,
-            int(3),
+            3,
         )
 
         a_xx[2, 0] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
@@ -978,7 +969,7 @@ def push_hybrid_xp_ap(
             span3,
             a1_3,
             args_derham.starts,
-            int(1),
+            1,
         )
         a_xx[2, 1] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
             args_derham.pn[0],
@@ -992,7 +983,7 @@ def push_hybrid_xp_ap(
             span3,
             a1_3,
             args_derham.starts,
-            int(2),
+            2,
         )
         a_xx[2, 2] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
             args_derham.pn[0],
@@ -1006,7 +997,7 @@ def push_hybrid_xp_ap(
             span3,
             a1_3,
             args_derham.starts,
-            int(3),
+            3,
         )
 
         linalg_kernels.transpose(a_xx, a_xxtrans)

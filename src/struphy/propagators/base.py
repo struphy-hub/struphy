@@ -283,7 +283,7 @@ class Propagator(metaclass=ABCMeta):
         column_nr: int,
         comps: tuple | int,
         args_eval: tuple,
-        alpha: float | int | tuple | list = 1.0,
+        alpha: float | tuple | list = 1.0,
     ):
         """Add an evaluation kernel to self.eval_kernels.
 

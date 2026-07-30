@@ -162,7 +162,7 @@ class ShearAlfvenB1(Propagator):
             pc = None
         else:
             pc_class = getattr(preconditioner, self.options.precond)
-            pc = pc_class(getattr(self.mass_ops, "M2n"))
+            pc = pc_class(self.mass_ops.M2n)
 
         # instantiate Schur solver (constant in this case)
         _BC = self._B @ self._C

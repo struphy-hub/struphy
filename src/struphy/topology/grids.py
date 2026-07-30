@@ -24,8 +24,8 @@ class TensorProductGrid(OptionsBase):
         If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
     """
 
-    num_elements: Tuple[int, int, int] = (24, 10, 1)
-    mpi_dims_mask: Tuple[bool, bool, bool] = (True, True, True)
+    num_elements: tuple[int, int, int] = (24, 10, 1)
+    mpi_dims_mask: tuple[bool, bool, bool] = (True, True, True)
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)

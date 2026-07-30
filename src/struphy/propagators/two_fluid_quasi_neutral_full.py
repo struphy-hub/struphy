@@ -1,6 +1,7 @@
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, get_args
+from typing import get_args
 from warnings import warn
 
 from feectools.api.essential_bc import apply_essential_bc_stencil
@@ -199,10 +200,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 # clamped in v0 but not in derham => this is a lifted (inhom Dirichlet) face
                 unclamped = not bc[d][s]
                 clamped_v0 = bc_v0[d][s] if bc_v0 is not None else False
-                if unclamped and clamped_v0:
-                    faces.append((d, side))
-                # clamped in both => homogeneous Dirichlet, also need to zero DOFs
-                elif bc[d][s] and clamped_v0:
+                if unclamped and clamped_v0 or bc[d][s] and clamped_v0:
                     faces.append((d, side))
         return faces
 

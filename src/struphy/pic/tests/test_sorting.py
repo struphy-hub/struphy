@@ -143,7 +143,7 @@ def test_sorting(num_elements, degree, bcs, mapping, Np):
     time_end = time()
     time_sorting = time_end - time_start
 
-    logger.info("Rank : {0} | Sorting time : {1:8.6f}".format(rank, time_sorting))
+    logger.info(f"Rank : {rank} | Sorting time : {time_sorting:8.6f}")
 
     box_markers = particles.markers[:, -2]
     assert all(box_markers[i] <= box_markers[i + 1] for i in range(len(box_markers) - 1))

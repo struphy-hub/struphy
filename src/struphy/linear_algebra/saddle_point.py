@@ -84,9 +84,9 @@ class SaddlePointSolver:
 
     def __init__(
         self,
-        A: Union[list, LinearOperator, BlockLinearOperator],
-        B: Union[list, LinearOperator, BlockLinearOperator],
-        F: Union[list, Vector, BlockVector],
+        A: list | LinearOperator | BlockLinearOperator,
+        B: list | LinearOperator | BlockLinearOperator,
+        F: list | Vector | BlockVector,
         Apre: list = None,
         method_to_solve: str = "DirectNPInverse",
         preconditioner: bool = False,

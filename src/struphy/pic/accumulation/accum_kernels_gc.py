@@ -11,14 +11,7 @@ These kernels are passed to :class:`struphy.pic.accumulation.particles_to_grid.A
 from numpy import empty, mod, shape, zeros
 from pyccel.decorators import stack_array
 
-import struphy.bsplines.bsplines_kernels as bsplines_kernels
-import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
-import struphy.geometry.evaluation_kernels as evaluation_kernels
-
-# do not remove; needed to identify dependencies
-import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels
-import struphy.linear_algebra.linalg_kernels as linalg_kernels
-import struphy.pic.accumulation.particle_to_mat_kernels as particle_to_mat_kernels
+from struphy.bsplines import bsplines_kernels, evaluation_kernels_3d
 from struphy.bsplines.evaluation_kernels_3d import (
     eval_0form_spline_mpi,
     eval_1form_spline_mpi,
@@ -27,7 +20,13 @@ from struphy.bsplines.evaluation_kernels_3d import (
     eval_vectorfield_spline_mpi,
     get_spans,
 )
+from struphy.geometry import evaluation_kernels
+
+# do not remove; needed to identify dependencies
+from struphy.kernel_arguments import pusher_args_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
+from struphy.linear_algebra import linalg_kernels
+from struphy.pic.accumulation import particle_to_mat_kernels
 
 
 def gc_density_0form(

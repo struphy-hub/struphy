@@ -69,9 +69,9 @@ class FaradayExtended(Propagator):
 
         self._nqs = params["quad_number"]
 
-        self.size1 = int(self.derham.domain_array[self.rank, int(2)])
-        self.size2 = int(self.derham.domain_array[self.rank, int(5)])
-        self.size3 = int(self.derham.domain_array[self.rank, int(8)])
+        self.size1 = int(self.derham.domain_array[self.rank, 2])
+        self.size2 = int(self.derham.domain_array[self.rank, 5])
+        self.size3 = int(self.derham.domain_array[self.rank, 8])
 
         self.weight_1 = zeros(
             (self.size1 * self._nqs[0], self.size2 * self._nqs[1], self.size3 * self._nqs[2]),

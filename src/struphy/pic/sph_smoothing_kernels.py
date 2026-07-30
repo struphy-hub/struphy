@@ -581,27 +581,21 @@ def smoothing_kernel(
         out = trigonometric_1d(r1, r2, r3, h1, h2, h3)
     elif kernel_type == 101:
         out = grad_trigonometric_1d(r1, r2, r3, h1, h2, h3)
-    elif kernel_type == 102:
-        out = 0.0
-    elif kernel_type == 103:
+    elif kernel_type == 102 or kernel_type == 103:
         out = 0.0
 
     elif kernel_type == 110:
         out = gaussian_1d(r1, r2, r3, h1, h2, h3)
     elif kernel_type == 111:
         out = grad_gaussian_1d(r1, r2, r3, h1, h2, h3)
-    elif kernel_type == 112:
-        out = 0.0
-    elif kernel_type == 113:
+    elif kernel_type == 112 or kernel_type == 113:
         out = 0.0
 
     elif kernel_type == 120:
         out = linear_1d(r1, r2, r3, h1, h2, h3)
     elif kernel_type == 121:
         out = grad_linear_1d(r1, r2, r3, h1, h2, h3)
-    elif kernel_type == 122:
-        out = 0.0
-    elif kernel_type == 123:
+    elif kernel_type == 122 or kernel_type == 123:
         out = 0.0
 
     # 2d kernels

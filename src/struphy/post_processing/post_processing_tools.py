@@ -254,7 +254,6 @@ class PostProcessor:
         path_time_trace = os.path.join(self.path_out, "profiling_time_trace.pkl")
         plot_time_vs_duration(path_time_trace, output_path=self.path_pproc)
         plot_gantt_chart_plotly(path_time_trace, output_path=self.path_pproc)
-        return
 
     def process(
         self,
@@ -776,17 +775,17 @@ class PostProcessor:
             vdim = cls.vdim
             break
 
-        log_nt = int(xp.log10(int(((nt - 1) / step)))) + 1
+        log_nt = int(xp.log10(int((nt - 1) / step))) + 1
 
         # directory for .txt files and marker index which will be saved
         path_orbits = os.path.join(path_kinetic_species, "orbits")
 
         if vdim == 2:
-            save_index = list(range(0, 6)) + [10] + [-1]
+            save_index = list(range(6)) + [10] + [-1]
         elif vdim == 3:
-            save_index = list(range(0, 7)) + [-1]
+            save_index = list(range(7)) + [-1]
         else:
-            save_index = list(range(0, 4)) + [-1]
+            save_index = list(range(4)) + [-1]
 
         try:
             os.mkdir(path_orbits)

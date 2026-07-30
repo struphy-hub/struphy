@@ -1,7 +1,7 @@
 "Maxwellian (Gaussian) distributions in velocity space."
 
 import copy
-from typing import Callable
+from collections.abc import Callable
 
 import cunumpy as xp
 

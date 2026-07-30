@@ -1,7 +1,8 @@
 import logging
 import os
+from collections.abc import Callable
 from dataclasses import dataclass, fields
-from typing import Any, Callable, Literal
+from typing import Any, Literal
 
 from struphy.utils.utils import (
     __class_with_params_repr_no_defaults__,

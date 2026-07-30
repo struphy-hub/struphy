@@ -3232,9 +3232,7 @@ class CircularTokamak(AxisymmMHDequilibrium):
                 out = self.params["R0"] * self.params["Bp"] * (R - self.params["R0"]) / (self.params["a"])
             elif dR == 0 and dZ == 1:
                 out = self.params["R0"] * self.params["Bp"] * (Z) / (self.params["a"])
-            elif dR == 2 and dZ == 0:
-                out = self.params["R0"] * self.params["Bp"] / (self.params["a"])
-            elif dR == 0 and dZ == 2:
+            elif dR == 2 and dZ == 0 or dR == 0 and dZ == 2:
                 out = self.params["R0"] * self.params["Bp"] / (self.params["a"])
             elif dR == 1 and dZ == 1:
                 out = 0 * R + 0 * Z

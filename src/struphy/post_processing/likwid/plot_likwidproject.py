@@ -76,7 +76,7 @@ def get_data(
         # logger.info(f"{groups = }")
         for group in groups:
             group_dict = {
-                "simulation_name": project.name,  #
+                "simulation_name": project.name,
                 "description": project.get_description(group),
                 "job_name": project.name,
                 "group": group,
@@ -160,7 +160,6 @@ def plot_roofline(
                 name=roof["label"],
             ),
         )
-        pass
 
     # Read the data paths and add the data to the point in the roofline plot
     data = []
@@ -218,7 +217,6 @@ def plot_roofline(
     mply.format_grid(fig)
     fig.update_traces(marker=dict(size=8))
     fig.update_layout(title=f"{title}")
-    #
 
     os.makedirs(f"{output_path}", exist_ok=True)
     file_path_html = f"{output_path}/roofline.html"
@@ -707,7 +705,7 @@ def plot_files(
     groups_include=["*"],
     groups_skip=[],
 ):
-    metrics = [  #
+    metrics = [
         "Runtime (RDTSC) [s] STAT",
         # "Runtime unhalted [s] STAT",
         # "Clock [MHz] STAT",

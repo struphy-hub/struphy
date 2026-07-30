@@ -114,7 +114,7 @@ def struphy_compile(
 
     import struphy
     import struphy.dependencies as depmod
-    import struphy.utils.utils as utils
+    from struphy.utils import utils
 
     libpath = STRUPHY_LIBPATH
 
@@ -192,7 +192,7 @@ def struphy_compile(
         # update status
         count_c, count_f90, list_not_compiled = count_compiled_kernels(state)
         n_kernels = len(state["kernels"])
-        print("")
+        print()
         print(f"{count_c} of {n_kernels} Struphy kernels are compiled with language C.")
         print(
             f"{count_f90} of {n_kernels} Struphy kernels are compiled with language Fortran.",

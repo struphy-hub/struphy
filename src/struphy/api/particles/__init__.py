@@ -9,11 +9,11 @@ from struphy.particles.parameters import (
 )
 
 __all__ = [
-    "LoadingParameters",
-    "WeightsParameters",
-    "SortingParameters",
-    "SavingParameters",
-    "BoundaryParameters",
     "BinningPlot",
+    "BoundaryParameters",
     "KernelDensityPlot",
+    "LoadingParameters",
+    "SavingParameters",
+    "SortingParameters",
+    "WeightsParameters",
 ]

@@ -131,7 +131,7 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
             plt.figure(figsize=(10, 8))
             interval = Nt / 10
             plot_ct = 0
-            for i in range(0, Nt + 1):
+            for i in range(Nt + 1):
                 if i % interval == 0:
                     logger.info(f"{i =}")
                     plot_ct += 1

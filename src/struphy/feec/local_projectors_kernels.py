@@ -1,7 +1,7 @@
 from numpy import shape, zeros
 from pyccel.decorators import stack_array
 
-import struphy.kernel_arguments.local_projectors_args_kernels as local_projectors_args_kernels
+from struphy.kernel_arguments import local_projectors_args_kernels
 from struphy.kernel_arguments.local_projectors_args_kernels import LocalProjectorsArguments
 
 
@@ -540,14 +540,14 @@ def select_quasi_points(i: int, p: int, Nbasis: int, periodic: bool):
             if i <= 1:
                 start = int((p + 1) * i)
                 end = int((p + 1) * (i + 1))
-            elif 1 < i and i <= (p - 2):
+            elif 1 < i <= (p - 2):
                 start = int(i * p + ((i - 1) * i) / 2 + 1)
                 end = int(start + p + i)
-            elif (p - 1) <= i and i <= (Nbasis - p):
+            elif (p - 1) <= i <= (Nbasis - p):
                 start = int(p * p + ((p - 3) * (p - 2)) / 2 - 1)
                 start += int(2 * (i - p + 1))
                 end = int(start + 2 * p - 1)
-            elif (Nbasis - p) < i and i < (Nbasis - 1):
+            elif (Nbasis - p) < i < (Nbasis - 1):
                 start = int((p - 2) * p + ((p - 3) * (p - 2)) / 2 + 2 * Nbasis)
                 start += int(2 * (i + p - Nbasis - 1) * (p - 1) - ((i - Nbasis + p - 2) * (i - Nbasis + p - 1)) / 2)
                 end = int(start + Nbasis + p - i - 1)
@@ -558,12 +558,12 @@ def select_quasi_points(i: int, p: int, Nbasis: int, periodic: bool):
                 i = Nbasis - 2
                 if i <= 1:
                     start = int((p + 1) * i)
-                elif 1 < i and i <= (p - 2):
+                elif 1 < i <= (p - 2):
                     start = int(i * p + ((i - 1) * i) / 2 + 1)
-                elif (p - 1) <= i and i <= (Nbasis - p):
+                elif (p - 1) <= i <= (Nbasis - p):
                     start = int(p * p + ((p - 3) * (p - 2)) / 2 - 1)
                     start += int(2 * (i - p + 1))
-                elif (Nbasis - p) < i and i < (Nbasis - 1):
+                elif (Nbasis - p) < i < (Nbasis - 1):
                     start = int((p - 2) * p + ((p - 3) * (p - 2)) / 2 + 2 * Nbasis)
                     start += int(2 * (i + p - Nbasis - 1) * (p - 1) - ((i - Nbasis + p - 2) * (i - Nbasis + p - 1)) / 2)
                 #############################################
@@ -1114,11 +1114,7 @@ def get_rows(
             if BoD:
                 count = 0
                 for row in range(starts, ends + 1):
-                    if row >= 0 and row <= (p - 2) and col >= 0 and col <= row + p - 1:
-                        aux[count] = 1
-                    elif row >= (p - 1) and row < (Nbasis + 1 - p) and col >= (row - p + 1) and col <= (row + p - 1):
-                        aux[count] = 1
-                    elif (
+                    if row >= 0 and row <= (p - 2) and col >= 0 and col <= row + p - 1 or row >= (p - 1) and row < (Nbasis + 1 - p) and col >= (row - p + 1) and col <= (row + p - 1) or (
                         row >= (Nbasis + 1 - p) and row <= (Nbasis - 1) and col >= (row - p + 1) and col <= (Nbasis - 1)
                     ):
                         aux[count] = 1
@@ -1127,11 +1123,7 @@ def get_rows(
             if not BoD:
                 count = 0
                 for row in range(starts, ends + 1):
-                    if row >= 0 and row <= (p - 2) and col >= 0 and col <= (row + p):
-                        aux[count] = 1
-                    elif row >= (p - 1) and row < (Nbasis - p) and col >= (row - p + 1) and col <= (row + p):
-                        aux[count] = 1
-                    elif row >= (Nbasis - p) and row <= (Nbasis - 2) and col >= (row - p + 1) and col <= (Nbasis - 1):
+                    if row >= 0 and row <= (p - 2) and col >= 0 and col <= (row + p) or row >= (p - 1) and row < (Nbasis - p) and col >= (row - p + 1) and col <= (row + p) or row >= (Nbasis - p) and row <= (Nbasis - 2) and col >= (row - p + 1) and col <= (Nbasis - 1):
                         aux[count] = 1
                     count += 1
         # Interpolation
@@ -1140,30 +1132,14 @@ def get_rows(
             if BoD:
                 count = 0
                 for row in range(starts, ends + 1):
-                    if row == 0 and col <= (p - 1):
-                        aux[count] = 1
-                    elif row > 0 and row < (p - 1) and col <= (row + p - 2):
-                        aux[count] = 1
-                    elif row >= (p - 1) and row <= (Nbasis + 1 - p) and col >= (row - p + 1) and col <= (row + p - 2):
-                        aux[count] = 1
-                    elif row > (Nbasis + 1 - p) and row < Nbasis and col >= (row - p + 1) and col <= (Nbasis - 1):
-                        aux[count] = 1
-                    elif row == Nbasis and col >= (Nbasis - p) and col <= (Nbasis - 1):
+                    if row == 0 and col <= (p - 1) or row > 0 and row < (p - 1) and col <= (row + p - 2) or row >= (p - 1) and row <= (Nbasis + 1 - p) and col >= (row - p + 1) and col <= (row + p - 2) or row > (Nbasis + 1 - p) and row < Nbasis and col >= (row - p + 1) and col <= (Nbasis - 1) or row == Nbasis and col >= (Nbasis - p) and col <= (Nbasis - 1):
                         aux[count] = 1
                     count += 1
             # B-splines
             if not BoD:
                 count = 0
                 for row in range(starts, ends + 1):
-                    if row == 0 and col <= p:
-                        aux[count] = 1
-                    elif row > 0 and row < (p - 1) and col <= (row + p - 1):
-                        aux[count] = 1
-                    elif row >= (p - 1) and row <= (Nbasis - p) and col >= (row - p + 1) and col <= (row + p - 1):
-                        aux[count] = 1
-                    elif row > (Nbasis - p) and row < (Nbasis - 1) and col >= (row - p + 1) and col <= (Nbasis - 1):
-                        aux[count] = 1
-                    elif row == (Nbasis - 1) and col >= (Nbasis - p - 1) and col <= (Nbasis - 1):
+                    if row == 0 and col <= p or row > 0 and row < (p - 1) and col <= (row + p - 1) or row >= (p - 1) and row <= (Nbasis - p) and col >= (row - p + 1) and col <= (row + p - 1) or row > (Nbasis - p) and row < (Nbasis - 1) and col >= (row - p + 1) and col <= (Nbasis - 1) or row == (Nbasis - 1) and col >= (Nbasis - p - 1) and col <= (Nbasis - 1):
                         aux[count] = 1
                     count += 1
 

@@ -1248,13 +1248,7 @@ def test_sph_velocity_evaluation_2d(
 
         return xp.max(xp.abs(num - exact)) / max_exact
 
-    if derivative == 0:
-        err_ux = abs_err(all_velo1, v1_e)
-        err_uy = abs_err(all_velo2, v2_e)
-    elif derivative == 1:
-        err_ux = abs_err(all_velo1, v1_e)
-        err_uy = abs_err(all_velo2, v2_e)
-    elif derivative == 2:
+    if derivative == 0 or derivative == 1 or derivative == 2:
         err_ux = abs_err(all_velo1, v1_e)
         err_uy = abs_err(all_velo2, v2_e)
 

@@ -22,13 +22,13 @@ v0vec and v3vec denote discrete spaces of vector-valued functions where every co
 
 from pyccel.decorators import pure, stack_array
 
-import struphy.bsplines.bsplines_kernels as bsplines_kernels
+from struphy.bsplines import bsplines_kernels
+from struphy.bsplines.evaluation_kernels_3d import get_spans
 
 # do not remove; needed to identify dependencies
-import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels
-import struphy.pic.accumulation.filler_kernels as filler_kernels
-from struphy.bsplines.evaluation_kernels_3d import get_spans
+from struphy.kernel_arguments import pusher_args_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
+from struphy.pic.accumulation import filler_kernels
 
 
 def mat_fill_b_v1_diag(

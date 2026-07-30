@@ -2,7 +2,7 @@
 
 import copy
 from abc import ABCMeta, abstractmethod
-from typing import Callable
+from collections.abc import Callable
 
 import cunumpy as xp
 import matplotlib.pyplot as plt
@@ -35,30 +35,25 @@ class KineticBackground(metaclass=ABCMeta):
     @abstractmethod
     def coords(self):
         """Coordinates of the distribution."""
-        pass
 
     @property
     @abstractmethod
     def vdim(self):
         """Dimension of the velocity space (vdim = n)."""
-        pass
 
     @property
     @abstractmethod
     def is_polar(self):
         """List of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp)."""
-        pass
 
     @property
     @abstractmethod
     def volume_form(self) -> bool:
         """True if the background is represented as a volume form (thus including the velocity Jacobian)."""
-        pass
 
     @abstractmethod
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
         """Jacobian determinant of the velocity coordinate transformation."""
-        pass
 
     @abstractmethod
     def n(self, *etas):
@@ -73,7 +68,6 @@ class KineticBackground(metaclass=ABCMeta):
         -------
         A numpy.array with the density evaluated at evaluation points (same shape as etas).
         """
-        pass
 
     @abstractmethod
     def u(self, *etas):
@@ -88,7 +82,6 @@ class KineticBackground(metaclass=ABCMeta):
         -------
         A list[float] (background values) or a list[numpy.array] of the evaluated velocities.
         """
-        pass
 
     @abstractmethod
     def __call__(self, *args):
@@ -114,7 +107,6 @@ class KineticBackground(metaclass=ABCMeta):
         f0 : xp.ndarray
             The evaluated background.
         """
-        pass
 
     @property
     def params(self) -> dict:
@@ -634,7 +626,6 @@ class Maxwellian(KineticBackground):
         -------
         A list[float] (background values) or a list[numpy.array] of the evaluated thermal velocities.
         """
-        pass
 
     def check_maxw_params(self):
         for k, v in self.params.items():

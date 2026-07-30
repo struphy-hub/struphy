@@ -1,4 +1,3 @@
-# coding: utf-8
 
 """
 Basic functions for point-wise B-spline evaluation
@@ -255,11 +254,11 @@ def basis_funs_all_ders(
     # up to degree, which are needed to compute derivatives.
     # Store values in 2D temporary array 'ndu' (square matrix).
     ndu[0, 0] = 1.0
-    for j in range(0, degree):
+    for j in range(degree):
         left[j] = eta - knots[span - j]
         right[j] = knots[span + 1 + j] - eta
         saved = 0.0
-        for r in range(0, j + 1):
+        for r in range(j + 1):
             # compute inverse of knot differences and save them into lower triangular part of ndu
             ndu[j + 1, r] = 1.0 / (right[r] + left[j - r])
             # compute basis functions and save them into upper triangular part of ndu
@@ -270,7 +269,7 @@ def basis_funs_all_ders(
 
     # Compute derivatives in 2D output array 'ders'
     ders[0, :] = ndu[:, degree]
-    for r in range(0, degree + 1):
+    for r in range(degree + 1):
         s1 = 0
         s2 = 1
         a[0, 0] = 1.0

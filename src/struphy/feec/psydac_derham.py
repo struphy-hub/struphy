@@ -3871,7 +3871,7 @@ def get_weights_local_projector(pts, fem_space):
                         else:
                             whats.append(0.0)
 
-                elif 0 < i and i < (degree - 1):
+                elif 0 < i < (degree - 1):
                     for j in range(maxjwhij[d]):
                         if j <= (degree + i - 2):
                             sumval = 0.0
@@ -3880,7 +3880,7 @@ def get_weights_local_projector(pts, fem_space):
                             whats.append(-1.0 * sumval)
                         elif j == (degree + i - 1):
                             whats.append(0.0)
-                        elif (degree + i) <= j and j <= (2 * degree + 2 * i - 1):
+                        elif (degree + i) <= j <= (2 * degree + 2 * i - 1):
                             sumval = 0.0
                             for q in range(j - degree - i + 1, degree + i + 1):
                                 sumval += wijaux[i + 1][q]
@@ -3888,13 +3888,13 @@ def get_weights_local_projector(pts, fem_space):
                         else:
                             whats.append(0.0)
 
-                elif (degree - 1) <= i and i < (Nbasis - degree):
+                elif (degree - 1) <= i < (Nbasis - degree):
                     for j in range(maxjwhij[d]):
                         if j == 0:
                             whats.append(wijaux[i][0])
                         elif j == 1:
                             whats.append(wijaux[i][0] + wijaux[i][1])
-                        elif 2 <= j and j <= (2 * degree - 2):
+                        elif 2 <= j <= (2 * degree - 2):
                             sumval = 0.0
                             for q in range(j - 1):
                                 sumval += wijaux[i][q] - wijaux[i + 1][q]
@@ -3911,7 +3911,7 @@ def get_weights_local_projector(pts, fem_space):
                         else:
                             whats.append(0.0)
 
-                elif (Nbasis - degree) <= i and i < (Nbasis - 2):
+                elif (Nbasis - degree) <= i < (Nbasis - 2):
                     for j in range(maxjwhij[d]):
                         if j <= (Nbasis + degree - i - 3):
                             sumval = 0.0
@@ -3922,7 +3922,7 @@ def get_weights_local_projector(pts, fem_space):
                         elif j == (Nbasis + degree - i - 2):
                             whats.append(0.0)
 
-                        elif (Nbasis + degree - i - 1) <= j and j <= (2 * Nbasis + 2 * degree - 2 * i - 5):
+                        elif (Nbasis + degree - i - 1) <= j <= (2 * Nbasis + 2 * degree - 2 * i - 5):
                             sumval = 0.0
                             for q in range(j - Nbasis - degree + i + 2):
                                 sumval += wijaux[i + 1][q]

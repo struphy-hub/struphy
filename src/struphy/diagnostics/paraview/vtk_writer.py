@@ -57,7 +57,7 @@ class vtkWriter:
             self.writer = self.vtr_writer
         # Others not implemented.
         else:
-            raise NotImplementedError(".{} ParaView file format not implemented.".format(format))
+            raise NotImplementedError(f".{format} ParaView file format not implemented.")
 
     def write(self, directory: str, filename: str, ugrid):
         """Write the `vtkUnstructuredGrid` object into a `.vtu` file.

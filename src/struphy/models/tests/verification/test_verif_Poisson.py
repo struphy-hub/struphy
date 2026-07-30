@@ -103,8 +103,7 @@ def test_poisson_1d(do_plot=False):
             phi_h = phi[t][0][:, 0, 0]
             phi_e = phi_exact(x, 0, 0, t)
             new_err = xp.abs(xp.max(phi_h - phi_e)) / (amp / (l * 2 * xp.pi / Lx) ** 2)
-            if new_err > err:
-                err = new_err
+            err = max(err, new_err)
 
             if do_plot and i % interval == 0:
                 plt.subplot(5, 2, 2 * c + 1)

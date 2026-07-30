@@ -172,7 +172,7 @@ class PushGuidingCenterBxEstar(Propagator):
             self._B_dot_b = self.derham.V0.zeros()
             self._grad_b_full = self.derham.V1.zeros()
 
-            self._PB = getattr(self.basis_ops, "PB")
+            self._PB = self.basis_ops.PB
 
             B_dot_b = self._PB.dot(self.b_tilde.spline.vector, out=self._B_dot_b)
             B_dot_b.update_ghost_regions()

@@ -396,7 +396,7 @@ def test_pullback():
     def fun(x, y, z):
         return xp.exp(x) * xp.sin(y) * xp.cos(z)
 
-    domain_class = getattr(domains, "Colella")
+    domain_class = domains.Colella
     domain = domain_class()
     logger.info("")
     logger.info("Domain object set.")
@@ -556,7 +556,7 @@ def test_pushforward():
     def fun(e1, e2, e3):
         return xp.exp(e1) * xp.sin(e2) * xp.cos(e3)
 
-    domain_class = getattr(domains, "Colella")
+    domain_class = domains.Colella
     domain = domain_class()
     logger.info("")
     logger.info("Domain object set.")
@@ -716,7 +716,7 @@ def test_transform():
     def fun(e1, e2, e3):
         return xp.exp(e1) * xp.sin(e2) * xp.cos(e3)
 
-    domain_class = getattr(domains, "Colella")
+    domain_class = domains.Colella
     domain = domain_class()
     logger.info("")
     logger.info("Domain object set.")

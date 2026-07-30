@@ -366,17 +366,14 @@ class CartesianFluidEquilibrium(FluidEquilibrium):
     def u_xyz(self, x, y, z):
         """Cartesian velocity in physical space.
         Must return the components as a tuple."""
-        pass
 
     @abstractmethod
     def p_xyz(self, x, y, z):
         """Equilibrium pressure in physical space."""
-        pass
 
     @abstractmethod
     def n_xyz(self, x, y, z):
         """Equilibrium number density in physical space."""
-        pass
 
     @FluidEquilibrium.domain.setter
     def domain(self, new_domain):
@@ -398,17 +395,14 @@ class LogicalFluidEquilibrium(FluidEquilibrium):
         """Contra-variant (vector field) velocity on logical cube [0, 1]^3.
         Must return the components as a tuple.
         """
-        pass
 
     @abstractmethod
     def p0(self, *etas, squeeze_out=False):
         """0-form pressure on logical cube [0, 1]^3."""
-        pass
 
     @abstractmethod
     def n0(self, *etas, squeeze_out=False):
         """0-form density on logical cube [0, 1]^3."""
-        pass
 
     @FluidEquilibrium.domain.setter
     def domain(self, new_domain):
@@ -429,7 +423,6 @@ class NumericalFluidEquilibrium(LogicalFluidEquilibrium):
     def numerical_domain(self):
         """Numerically computed mapping from the logical cube [0, 1]^3 to the physical domain
         in the form of a :class:`~struphy.geometry.base.Domain` object."""
-        pass
 
     @property
     def domain(self):
@@ -763,12 +756,10 @@ class CartesianFluidEquilibriumWithB(CartesianFluidEquilibrium, FluidEquilibrium
     def b_xyz(self, x, y, z):
         """Cartesian magnetic field in physical space.
         Must return the components as a tuple."""
-        pass
 
     @abstractmethod
     def gradB_xyz(self, x, y, z):
         """Cartesian gradient of magnetic field strength in physical space. Must return the components as a tuple."""
-        pass
 
     @CartesianFluidEquilibrium.domain.setter
     def domain(self, new_domain):
@@ -788,14 +779,12 @@ class LogicalFluidEquilibriumWithB(LogicalFluidEquilibrium, FluidEquilibriumWith
         """Contra-variant (vector field) magnetic field on logical cube [0, 1]^3.
         Must return the components as a tuple.
         """
-        pass
 
     @abstractmethod
     def gradB1(self, *etas, squeeze_out=False):
         """Co-variant (1-from) gradient of magnetic field strength on logical cube [0, 1]^3.
         Must return the components as a tuple.
         """
-        pass
 
     @LogicalFluidEquilibrium.domain.setter
     def domain(self, new_domain):
@@ -815,7 +804,6 @@ class NumericalFluidEquilibriumWithB(LogicalFluidEquilibriumWithB):
     def numerical_domain(self):
         """Numerically computed mapping from the logical cube [0, 1]^3 to the physical domain
         in the form of a :class:`~struphy.geometry.base.Domain` object."""
-        pass
 
     @property
     def domain(self):
@@ -1160,7 +1148,7 @@ class MHDequilibrium(FluidEquilibriumWithB):
             ax.set_ylabel(l2)
             ax.axis("equal")
             ax.set_title(
-                r"Poloidal plane at $\eta_3$={0:4.3f}".format(e3[int(n * jump)]),
+                rf"Poloidal plane at $\eta_3$={e3[int(n * jump)]:4.3f}",
             )
 
         # top view
@@ -1243,7 +1231,7 @@ class MHDequilibrium(FluidEquilibriumWithB):
             ax.set_ylabel(l2)
             ax.axis("equal")
             ax.set_title(
-                r"Jacobian determinant at $\eta_3$={0:4.3f}".format(e3[int(n * jump)]),
+                rf"Jacobian determinant at $\eta_3$={e3[int(n * jump)]:4.3f}",
             )
             fig.colorbar(map, ax=ax, location="right")
 
@@ -1273,7 +1261,7 @@ class MHDequilibrium(FluidEquilibriumWithB):
             ax.set_ylabel(l2)
             ax.axis("equal")
             ax.set_title(
-                r"Pressure at $\eta_3$={0:4.3f}".format(e3[int(n * jump)]),
+                rf"Pressure at $\eta_3$={e3[int(n * jump)]:4.3f}",
             )
             fig.colorbar(map, ax=ax, location="right")
 
@@ -1303,7 +1291,7 @@ class MHDequilibrium(FluidEquilibriumWithB):
             ax.set_ylabel(l2)
             ax.axis("equal")
             ax.set_title(
-                r"Equilibrium density at $\eta_3$={0:4.3f}".format(e3[int(n * jump)]),
+                rf"Equilibrium density at $\eta_3$={e3[int(n * jump)]:4.3f}",
             )
             fig.colorbar(map, ax=ax, location="right")
 
@@ -1333,7 +1321,7 @@ class MHDequilibrium(FluidEquilibriumWithB):
             ax.set_ylabel(l2)
             ax.axis("equal")
             ax.set_title(
-                r"Magnetic field strength at $\eta_3$={0:4.3f}".format(e3[int(n * jump)]),
+                rf"Magnetic field strength at $\eta_3$={e3[int(n * jump)]:4.3f}",
             )
             fig.colorbar(map, ax=ax, location="right")
 
@@ -1363,7 +1351,7 @@ class MHDequilibrium(FluidEquilibriumWithB):
             ax.set_ylabel(l2)
             ax.axis("equal")
             ax.set_title(
-                r"Current density (abs) at $\eta_3$={0:4.3f}".format(e3[int(n * jump)]),
+                rf"Current density (abs) at $\eta_3$={e3[int(n * jump)]:4.3f}",
             )
             fig.colorbar(map, ax=ax, location="right")
 
@@ -1382,29 +1370,24 @@ class CartesianMHDequilibrium(MHDequilibrium):
     def b_xyz(self, x, y, z):
         """Cartesian magnetic field in physical space.
         Must return the components as a tuple."""
-        pass
 
     @abstractmethod
     def j_xyz(self, x, y, z):
         """Cartesian current (curl of magnetic field) in physical space.
         Must return the components as a tuple."""
-        pass
 
     @abstractmethod
     def p_xyz(self, x, y, z):
         """Equilibrium pressure in physical space."""
-        pass
 
     @abstractmethod
     def n_xyz(self, x, y, z):
         """Equilibrium number density in physical space."""
-        pass
 
     @abstractmethod
     def gradB_xyz(self, x, y, z):
         """Cartesian gradient of magnetic field strength in physical space.
         Must return the components as a tuple."""
-        pass
 
     @MHDequilibrium.domain.setter
     def domain(self, new_domain):
@@ -1429,34 +1412,28 @@ class AxisymmMHDequilibrium(CartesianMHDequilibrium):
     @abstractmethod
     def psi(self, R, Z, dR=0, dZ=0):
         """Poloidal flux function per radian. First AND second derivatives dR=0,1,2 and dZ=0,1,2 must be implemented."""
-        pass
 
     @abstractmethod
     def g_tor(self, R, Z, dR=0, dZ=0):
         """Toroidal field function. First derivatives dR=0,1 and dZ=0,1 must be implemented."""
-        pass
 
     @property
     @abstractmethod
     def psi_range(self):
         """Psi on-axis and at plasma boundary returned as list [psi_axis, psi_boundary]."""
-        pass
 
     @property
     @abstractmethod
     def psi_axis_RZ(self):
         """Location of magnetic axis in R-Z-coordinates returned as list [psi_axis_R, psi_axis_Z]."""
-        pass
 
     @abstractmethod
     def p_xyz(self, x, y, z):
         """Equilibrium pressure in physical space."""
-        pass
 
     @abstractmethod
     def n_xyz(self, x, y, z):
         """Equilibrium number density in physical space."""
-        pass
 
     def b_xyz(self, x, y, z):
         """Cartesian B-field components calculated as BR = -(dpsi/dZ)/R, BPhi = g_tor/R, BZ = (dpsi/dR)/R."""
@@ -1559,33 +1536,28 @@ class LogicalMHDequilibrium(MHDequilibrium):
         """Contra-variant (vector field) magnetic field on logical cube [0, 1]^3.
         Must return the components as a tuple.
         """
-        pass
 
     @abstractmethod
     def jv(self, *etas, squeeze_out=False):
         """Contra-variant (vector field) current density (=curl B) on logical cube [0, 1]^3.
         Must return the components as a tuple.
         """
-        pass
 
     @abstractmethod
     def p0(self, *etas, squeeze_out=False):
         """0-form pressure on logical cube [0, 1]^3.
         Must return the components as a tuple.
         """
-        pass
 
     @abstractmethod
     def n0(self, *etas, squeeze_out=False):
         """0-form density on logical cube [0, 1]^3."""
-        pass
 
     @abstractmethod
     def gradB1(self, *etas, squeeze_out=False):
         """1-form gradient of magnetic field strength strength on logical cube [0, 1]^3.
         Must return the components as a tuple.
         """
-        pass
 
     @MHDequilibrium.domain.setter
     def domain(self, new_domain):
@@ -1605,7 +1577,6 @@ class NumericalMHDequilibrium(LogicalMHDequilibrium):
     def numerical_domain(self):
         """Numerically computed mapping from the logical cube [0, 1]^3 to the physical domain
         in the form of a :class:`~struphy.geometry.base.Domain` object."""
-        pass
 
     @property
     def domain(self) -> Domain:

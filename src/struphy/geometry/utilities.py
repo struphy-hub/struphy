@@ -2,7 +2,7 @@
 "Domain-related utility functions."
 
 import logging
-from typing import Callable
+from collections.abc import Callable
 
 import cunumpy as xp
 import numpy as np
@@ -27,7 +27,7 @@ def get_domain_by_name(domain_name: str) -> type["Domain"]:
     from struphy.geometry import domains
 
     try:
-        domain_class: type["Domain"] = getattr(domains, domain_name)
+        domain_class: type[Domain] = getattr(domains, domain_name)
         if not issubclass(domain_class, Domain):
             raise TypeError(f"{domain_name} is not a Domain subclass.")
         else:

@@ -439,7 +439,7 @@ class VariationalViscosity(Propagator):
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and needed to compute the bracket term"""
 
-        Xv = getattr(self.basis_ops, "Xv")
+        Xv = self.basis_ops.Xv
         Pcoord0 = CoordinateProjector(
             0,
             self.derham.Vvpol,

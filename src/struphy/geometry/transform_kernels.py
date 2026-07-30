@@ -1,4 +1,3 @@
-# coding: utf-8
 
 """
 1. Basic pull-back (physical --> logical) operations between scalar fields, vector fields and differential p-forms:
@@ -46,10 +45,10 @@
 from numpy import empty, shape, sqrt, zeros
 from pyccel.decorators import stack_array
 
-import struphy.geometry.evaluation_kernels as evaluation_kernels
-import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
-import struphy.linear_algebra.linalg_kernels as linalg_kernels
+from struphy.geometry import evaluation_kernels
+from struphy.kernel_arguments import pusher_args_kernels  # do not remove; needed to identify dependencies
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
+from struphy.linear_algebra import linalg_kernels
 
 
 @stack_array("dfmat1", "dfmat2")

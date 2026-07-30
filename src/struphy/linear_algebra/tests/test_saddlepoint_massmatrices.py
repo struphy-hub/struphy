@@ -150,7 +150,7 @@ def test_saddlepointsolver(method_for_solving, num_elements, degree, bcs, mappin
                 + nue * (Dnp.T @ M3np @ Dnp + S21np.T @ Cnp.T @ M2np @ Cnp @ S21np)
                 + M2Bnp
             )
-            +nue * (Dnp.T @ M3np @ Dnp) + stab_sigma * sc.sparse.identity(A22np.shape[0], format="csr")  #
+            +nue * (Dnp.T @ M3np @ Dnp) + stab_sigma * sc.sparse.identity(A22np.shape[0], format="csr")
             # Preconditioner
             _A22np_pre = stab_sigma * sc.sparse.identity(A22np.shape[0], format="csr")  # + nue*(Dnp.T @ M3np @ Dnp)
             _A22np_pre = _A22np_pre.tocsr()
