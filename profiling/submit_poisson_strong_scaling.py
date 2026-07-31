@@ -1,14 +1,12 @@
-"""Diocotron profiling case.
+"""Poisson strong scaling profiling case.
 
-This file defines the diocotron profiling case (the `ProfilingCase`) and submits
-it: for each rank count, `ProfilingCase.launch` builds and submits a SLURM script
-(using `clusters.SLURM_PRESETS` by default), or, without a batch system,
-runs directly on this machine. Once every rank count has finished running, the
-comparison plot across rank counts is built, and the case is packaged/uploaded.
-Each generated script runs the simulation itself by invoking `params_diocotron.py`
+This file defines the Poisson strong scaling profiling case (the `ProfilingCase`)
+and submits it: for each rank count, `ProfilingCase.launch` builds and submits a
+SLURM script (using `clusters.SLURM_PRESETS` by default), or, without a batch
+system, runs directly on this machine. `finalize_run` then packages and uploads
+each run as soon as its own job finishes.
+Each generated script runs the simulation itself by invoking `params_poisson.py`
 directly (its `__main__` block is the worker).
-
-Use this file as a template for defining other profiling cases.
 """
 
 import argparse
@@ -43,17 +41,15 @@ def main() -> None:
         params_source=params_dir / "params_poisson.py",
         language="fortran",
         compiler="GNU",
+        upload=args.upload,
     )
 
     # Launch one run per rank count
-    for num_tasks in (
-        1,
-        2,
-    ):  # 4, 8, 16, 32, 64, 128, 256):
+    for num_tasks in (1, 2, 4, 8, 16, 32, 64, 128, 256):
         profiling_case.launch(num_tasks)
 
-    # Wait for all jobs to finish, and then build the comparison plot and package the case.
-    profiling_case.finalize_run(upload=args.upload)
+    # Package and push each run as its own job finishes.
+    profiling_case.finalize_run()
 
 
 if __name__ == "__main__":

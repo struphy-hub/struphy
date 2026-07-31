@@ -10,8 +10,6 @@ from time import time
 from typing import TYPE_CHECKING
 
 import cunumpy as xp
-from feectools.ddm.mpi import MockMPI
-from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
 from scipy.integrate import odeint, quad
 from scipy.interpolate import RectBivariateSpline, UnivariateSpline

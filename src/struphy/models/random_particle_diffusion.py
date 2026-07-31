@@ -1,7 +1,5 @@
 import copy
 
-from feectools.ddm.mpi import mpi as MPI
-
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
