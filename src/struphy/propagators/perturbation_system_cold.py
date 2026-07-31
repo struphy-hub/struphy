@@ -5,10 +5,11 @@ from warnings import warn
 
 from feectools.api.essential_bc import apply_essential_bc_stencil
 from feectools.ddm.mpi import mpi as MPI
-from feectools.linalg.basic import IdentityOperator
+from feectools.linalg.basic import IdentityOperator, ZeroOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from feectools.linalg.solvers import inverse
 
+from struphy.feec.preconditioner import MassMatrixPreconditioner
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import L2Projector, WeightedMassOperators
 from struphy.feec.utilities import LocalRotationMatrix
@@ -22,18 +23,10 @@ logger = logging.getLogger("struphy")
 
 
 class ColdPlasmaPerturbation(Propagator):
-    r""":ref:`FEEC <gempic>` discretization of the following equations:
-    find :math:`\mathbf u \in H(\textnormal{div})`, :math:`\mathbf u_e \in H(\textnormal{div})` and  :math:`\mathbf \phi \in L^2` such that
-
-    .. math::
-
-        \int_{\Omega} \partial_t  \mathbf{u}\cdot \mathbf{v} \, \textrm d\mathbf{x} &=  \int_{\Omega}  \phi \nabla \! \cdot \! \mathbf{v} \, \textrm d\mathbf{x}  + \int_{\Omega}  \mathbf{u}\! \times \! \mathbf{B}_0 \cdot \mathbf{v} \, \textrm d\mathbf{x} + \nu \int_{\Omega} \nabla \mathbf{u}\! : \! \nabla \mathbf{v} \, \textrm d\mathbf{x} + \int_{\Omega} f \mathbf{v} \, \textrm d\mathbf{x} \qquad \forall \, \mathbf{v} \in H(\textrm{div}) \,.
-        \\[2mm]
-        0 &= - \int_{\Omega} \phi \nabla \! \cdot \! \mathbf{v_e} \, \textrm d\mathbf{x} - \int_{\Omega} \mathbf{u_e} \! \times \! \mathbf{B}_0 \cdot \mathbf{v_e} \, \textrm d\mathbf{x}  + \nu_e \int_{\Omega} \nabla \mathbf{u_e}  \!: \! \nabla \mathbf{v_e} \, \textrm d\mathbf{x} + \int_{\Omega} f_e \mathbf{v_e} \, \textrm d\mathbf{x} \qquad \forall \ \mathbf{v_e} \in H(\textrm{div}) \,.
-        \\[2mm]
-        0 &= \int_{\Omega} \psi \nabla \cdot (\mathbf{u}-\mathbf{u_e}) \, \textrm d\mathbf{x} \qquad \forall \, \psi \in L^2 \,.
-
-    :ref:`time_discret`: fully implicit.
+    r""":ref:`FEEC <gempic>` discretization of a linearized cold plasma fluid system perturbed by a source of frequency :math:`\omega`.
+    The state variables are the first-order components of the oscillations in electron density, electron velocity, electric field and magnetic field.
+    Their oscillation-average counterparts (making up the plasma bulk) are passed as parameters of the solver.
+    Each variable is split into a real (cosine) and imaginary (sine) part to represent the complex quantity fully.
     """
 
     # =========================================================================
@@ -147,7 +140,7 @@ class ColdPlasmaPerturbation(Propagator):
         def Bcos(self) -> FEECVariable | None:
             return self._Bcos
 
-        @ucos.setter
+        @Bcos.setter
         def Bcos(self, new):
             assert isinstance(new, FEECVariable)
             assert new.space == "Hdiv"
@@ -171,8 +164,10 @@ class ColdPlasmaPerturbation(Propagator):
             Cosine component of the source term.
         omega : float, default=1.0
             Source term oscillation frequency.
-        curlcurl_lambda : float, default=1.0
-            Coefficient in the curl-curl operator.
+        c0 : float, default=1.0
+            First coefficient in the curl-curl operator.
+        c1 : float, default=1.0
+            Second coefficient in the curl-curl operator.
         mass : float, default=1.0
             Electron mass in relative unis.
         mu : Callable or float, default=1.0
@@ -193,7 +188,8 @@ class ColdPlasmaPerturbation(Propagator):
 
         J: FEECVariable | list = None
         omega: float = 1.0
-        curlcurl_lambda: float = 1.0
+        c0: float = 1.0
+        c1: float = 1.0
         mass: float = 1.0
         mu: Callable | float = 1.0
         nu: Callable | float = 1.0
@@ -237,18 +233,28 @@ class ColdPlasmaPerturbation(Propagator):
                     assert isinstance(ei, Callable)
             
             # --- physical parameter sanity checks ---
+            if not isinstance(self.omega, float):
+                raise TypeError(f"omega must be a float, recieved {type(self.omega)}")
             if self.omega <= 0:
                 raise ValueError(f"omega must be positive, got {self.omega}")
-            if self.curlcurl_lambda <= 0:
-                raise ValueError(f"curlcurl_lambda must be positive, got {self.curlcurl_lambda}")
+            if not isinstance(self.c0, float):
+                raise TypeError(f"c0 must be a float, recieved {type(self.c0)}")
+            if self.c0 <= 0:
+                raise ValueError(f"c0 must be positive, got {self.c0}")
+            if not isinstance(self.c1, float):
+                raise TypeError(f"c1 must be a float, recieved {type(self.c1)}")
+            if self.c1 <= 0:
+                raise ValueError(f"c1 must be positive, got {self.c1}")
+            if not isinstance(self.mass, float):
+                raise TypeError(f"mass must be a float, recieved {type(self.mass)}")
             if self.mass <= 0:
                 raise ValueError(f"mass must be positive, got {self.mass}")
-            if isinstance(mu, float) and self.mu < 0:
+            if isinstance(self.mu, float) and self.mu < 0:
                 raise ValueError(f"mu must be non-negative, got {self.mu}")
-            if isinstance(nu, float) and self.nu < 0:
+            if isinstance(self.nu, float) and self.nu < 0:
                 raise ValueError(f"nu must be non-negative, got {self.nu}")
 
-            check_option(self.solver, LiteralOptions.OptsGenSolver, LiteralOptions.OptsSaddlePointSolver)
+            check_option(self.solver, LiteralOptions.OptsGenSolver, LiteralOptions.OptsSaddlePointSolver, LiteralOptions.OptsDirectSolver)
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
 
@@ -277,6 +283,11 @@ class ColdPlasmaPerturbation(Propagator):
             self._j = self._options.J.spline.vector
         else:
             self._j = self.derham.P1(self._options.J) # works if J is a list of Callables
+        
+        zeroes = lambda x,y,z: 0. * (x+y+z)
+        self._zerovectorV1 = self.derham.P1([zeroes,zeroes,zeroes]) # need this for RHS assembly
+        self._zerovectorV2 = self.derham.P2([zeroes,zeroes,zeroes])
+        self._zerofield = self.derham.P0(zeroes)
 
         # ---- unconstrained operators (for RHS assembly) ----------------------
 
@@ -293,10 +304,22 @@ class ColdPlasmaPerturbation(Propagator):
             self._M0,
             "pcg",
             pc=_M0preconditioner,
-            tol=self._options.solver_params.tol,
+            tol=1e-12,
             maxiter=self._options.solver_params.maxiter,
             verbose = False,
             recycle = self._options.solver_params.recycle,
+        )
+
+        _M1preconditioner = MassMatrixPreconditioner(self.mass_ops.M1)
+            
+        self._M1inv = inverse(
+            self._M1,
+            "pcg",
+            pc=_M1preconditioner,
+            tol=1e-12,
+            maxiter=self._options.solver_params.maxiter,
+            verbose=False,
+            recycle=self._options.solver_params.recycle,
         )
 
         self._M1mu: WeightedMassOperators = None
@@ -304,9 +327,14 @@ class ColdPlasmaPerturbation(Propagator):
         self._M3mu: WeightedMassOperators = None
 
         if isinstance(self._options.mu, float):
-            self._M1mu = self._options.mu * self._M1
-            self._M2mu = self._options.mu * self._M2
-            self._M3mu = self._options.mu * self.mass_ops.M3
+            if self._options.mu == 0.:
+                self._M1mu = ZeroOperator(self.derham.V1,self.derham.V1)
+                self._M2mu = ZeroOperator(self.derham.V2,self.derham.V2)
+                self._M3mu = ZeroOperator(self.derham.V3,self.derham.V3)
+            else:
+                self._M1mu = self._options.mu * self._M1
+                self._M2mu = self._options.mu * self._M2
+                self._M3mu = self._options.mu * self.mass_ops.M3
         else:
             self._M1mu = self.mass_ops.create_weighted_mass(
             "Hcurl",
@@ -354,29 +382,44 @@ class ColdPlasmaPerturbation(Propagator):
         )
         
         if isinstance(self._options.rhobar, float):
-            self._M1rho = self._options.rhobar * self.mass_ops.M1
-            self._M1xrhoB = self.mass_ops.create_weighted_mass(
-                "Hcurl",
-                "Hcurl",
-                weights=(
-                    rot_B,
+            if self._options.rhobar == 0.:
+                self._M1rho = ZeroOperator(self.derham.V1,self.derham.V1)
+                self._M1xrhoB = ZeroOperator(self.derham.V1,self.derham.V1)
+            else:
+                rhoarray = lambda e1,e2,e3: self._options.rhobar + 0.*(e1+e2+e3)
+                self._M1rho = self.mass_ops.create_weighted_mass(
+                    "Hcurl",
+                    "Hcurl",
+                    weights=(
+                        "Ginv",
+                        "sqrt_g",
+                        rhoarray,
+                    ),
+                    name = "M1rho",
+                    assemble = True,
+                )
+                self._M1xrhoB = self.mass_ops.create_weighted_mass(
+                    "Hcurl",
+                    "Hcurl",
+                    weights=(
+                        rot_B,
+                        rhoarray,
                     ),
                     name = "M1_xrhoB",
                     assemble = True,
-            )
-            self._M1xrhoB *= self._options.rhobar
+                )
             
         if isinstance(self._options.rhobar, Callable):
             self._M1rho = self.mass_ops.create_weighted_mass(
-            "Hcurl",
-            "Hcurl",
-            weights=(
-                "Ginv",
-                "sqrt_g",
-                self._options.rhobar,
-            ),
-            name = "M1rho",
-            assemble = True,
+                "Hcurl",
+                "Hcurl",
+                weights=(
+                    "Ginv",
+                    "sqrt_g",
+                    self._options.rhobar,
+                ),
+                name = "M1rho",
+                assemble = True,
             )
 
             self._M1xrhoB = self.mass_ops.create_weighted_mass(
@@ -392,16 +435,16 @@ class ColdPlasmaPerturbation(Propagator):
         
         if isinstance(self._options.rhobar,FEECVariable):
             self._M1rho = self.mass_ops.create_weighted_mass(
-            "Hcurl",
-            "Hcurl",
-            weights=(
-                "Ginv",
-                "sqrt_g",
-                self._options.rhobar.spline,
-            ),
-            name = "M1rho",
-            assemble = True,
-            )
+                "Hcurl",
+                "Hcurl",
+                weights=(
+                    "Ginv",
+                    "sqrt_g",
+                    self._options.rhobar.spline,
+                ),
+                name = "M1rho",
+                assemble = True,
+                )
             
             self._M1xrhoB = self.mass_ops.create_weighted_mass(
                 "Hcurl",
@@ -409,57 +452,66 @@ class ColdPlasmaPerturbation(Propagator):
                 weights=(
                     rot_B,
                     self._options.rhobar.spline,
-                    ),
-                    name = "M1_xrhoB",
-                    assemble = True,
+                ),
+                name = "M1_xrhoB",
+                assemble = True,
             )
         
-        _M1rhopreconditioner = MassMatrixPreconditioner(self._M1rho)
-        
-        self._M1rho_inv = inverse(
-            self._M1rho,
-            "pcg",
-            pc=_M1rhopreconditioner,
-            tol=self._options.solver_params.tol,
-            maxiter=self._options.solver_params.maxiter,
-            verbose=False,
-            recycle=self._options.solver_params.recycle,
-        )
-        
+        # if not isinstance(self._options.rhobar,float):
+        #     _M1rhopreconditioner = MassMatrixPreconditioner(self._M1rho)
+            
+        #     self._M1rho_inv = inverse(
+        #         self._M1rho,
+        #         "pcg",
+        #         pc=_M1rhopreconditioner,
+        #         tol=1e-12,
+        #         maxiter=self._options.solver_params.maxiter,
+        #         verbose=False,
+        #         recycle=self._options.solver_params.recycle,
+        #     )
 
         self._M1nurho: WeightedMassOperators = None
 
         assert isinstance(self._options.nu, (Callable, float))
 
-        if isinstance(self._options.nu, float):
-            self._M1nurho = self._options.nu * self._M1rho
+        self._M1nurho = ZeroOperator(self.derham.V1,self.derham.V1)
 
-        if isinstance(self._options.nu, Callable):
-            nurho: Callable = None
-            if isinstance(self._options.rhobar, float):
-                nurho = lambda *etas: self._options.nu(*etas) * self._options.rhobar
-            if isinstance(self._options.rhobar,Callable):
-                nurho = lambda *etas: self._options.nu(*etas) * self._options.rhobar(*etas)
-            if isinstance(self._options.rhobar,FEECVariable):
-                nurho = lambda *etas: self._options.nu(*etas) * self._options.rhobar.spline(*etas)
+        if self._options.rhobar != 0.:
+            if isinstance(self._options.nu, float):
+                if self._options.nu == 0.:
+                    self._M1nurho = ZeroOperator(self.derham.V1,self.derham.V1)
+                else:
+                    self._M1nurho = self._options.nu * self._M1rho
 
-            self._M1nurho = self.mass_ops.create_weighted_mass(
-            "Hcurl",
-            "Hcurl",
-            weights=(
-                "Ginv",
-                "sqrt_g",
-                nurho,
-            ),
-            name = "M1nurho",
-            assemble = True,
-            )
+            if isinstance(self._options.nu, Callable):
+                nurho: Callable = None
+                if isinstance(self._options.rhobar, float):
+                    nurho = lambda *etas: self._options.nu(*etas) * self._options.rhobar
+                if isinstance(self._options.rhobar,Callable):
+                    nurho = lambda *etas: self._options.nu(*etas) * self._options.rhobar(*etas)
+                if isinstance(self._options.rhobar,FEECVariable):
+                    nurho = lambda *etas: self._options.nu(*etas) * self._options.rhobar.spline(*etas)
+
+                self._M1nurho = self.mass_ops.create_weighted_mass(
+                "Hcurl",
+                "Hcurl",
+                weights=(
+                    "Ginv",
+                    "sqrt_g",
+                    nurho,
+                ),
+                name = "M1nurho",
+                assemble = True,
+                )
 
 
         self._P00theta: BasisProjectionOperators = None
 
         if isinstance(self._options.theta, float):
-            self._P00theta = self._options.theta * IdentityOperator(self.derham.V0)
+            if self._options.theta == 0.:
+                self._P00theta = ZeroOperator(self.derham.V0,self.derham.V0)
+            else:
+                self._P00theta = self._options.theta * IdentityOperator(self.derham.V0)
         
         if isinstance(self._options.theta, Callable):
             self._P00theta = self.basis_ops.create_basis_op(
@@ -507,190 +559,153 @@ class ColdPlasmaPerturbation(Propagator):
         ones = lambda e1, e2, e3: 1.0 + 0.*(e1 + e2 + e3)
         zeroes = lambda e1, e2, e3: 0.*(e1 + e2 + e3)
 
-        self._P12 = self.basis_ops.create_basis_op(
-            [[ones, zeroes, zeroes],
-            [zeroes, ones, zeroes],
-            [zeroes, zeroes, ones]],
-            "Hcurl",
-            "Hdiv",
-            assemble = True,
-            name = "P12",
+        # self._P12 = self.basis_ops.create_basis_op(
+        #     [[ones, zeroes, zeroes],
+        #     [zeroes, ones, zeroes],
+        #     [zeroes, zeroes, ones]],
+        #     "Hcurl",
+        #     "Hdiv",
+        #     assemble = True,
+        #     name = "P12",
+        # )
+
+
+        # self._O1 = self.basis_ops.create_basis_op(
+        #     [[ones, zeroes, zeroes]],
+        #     "Hcurl",
+        #     "H1",
+        #     assemble = True,
+        #     name = "O1",
+        # )
+        # self._O2 = self.basis_ops.create_basis_op(
+        #     [[zeroes, ones, zeroes]],
+        #     "Hcurl",
+        #     "H1",
+        #     assemble = True,
+        #     name = "O2",
+        # )
+        # self._O3 = self.basis_ops.create_basis_op(
+        #     [[zeroes, zeroes, ones]],
+        #     "Hcurl",
+        #     "H1",
+        #     assemble = True,
+        #     name = "O3",
+        # )
+
+
+        self._Acurlcurl = self._options.c0 * self._curl.T @ self._M2 @ self._curl - self._options.c1 * self._M1
+
+        # self._divPi = - self._curl.T @ self._M2mu @ self._curl \
+        #             - 2/3 * self._P12.T @ self._div.T @ self._M3mu @ self._div @ self._P12 \
+        #                 + 2 * self._O1.T @ self._grad.T @ self._M1mu @ self._grad @ self._O1 \
+        #                 + 2 * self._O2.T @ self._grad.T @ self._M1mu @ self._grad @ self._O2 \
+        #                 + 2 * self._O3.T @ self._grad.T @ self._M1mu @ self._grad @ self._O3
+        self._divPi = - self._curl.T @ self._M2mu @ self._curl + 4/3 * self._M1mu @ self._grad @ self._M0inv @ self._grad.T @ self._M1
+
+        # ---- block Schur solve system ----------------------------------------
+
+        self._V0squared = BlockVectorSpace(self.derham.V0, self.derham.V0)
+        self._V1squared = BlockVectorSpace(self.derham.V1, self.derham.V1)
+        self._V2squared = BlockVectorSpace(self.derham.V2, self.derham.V2)
+
+        self._space_block1 = BlockVectorSpace(self._V0squared, self._V1squared)
+        self._space_block2 = BlockVectorSpace(self._V1squared, self._V2squared)
+
+        self._source = BlockVector(self._V1squared, blocks=[self._zerovectorV1, self._options.omega * self._M1.dot(self._j)])
+        self._zerovectorV2squared = BlockVector(self._V2squared, blocks=[self._zerovectorV2, self._zerovectorV2])
+        self._block_source = BlockVector(self._space_block2, blocks=[self._source, self._zerovectorV2squared])
+
+        self._block_M0 = BlockLinearOperator(
+            self._V0squared, self._V0squared, blocks=[[None, - self._M0], [self._M0, None]]
         )
 
-
-        self._O1 = self.basis_ops.create_basis_op(
-            [[ones, zeroes, zeroes]],
-            "Hcurl",
-            "H1",
-            assemble = True,
-            name = "O1",
-        )
-        self._O2 = self.basis_ops.create_basis_op(
-            [[zeroes, ones, zeroes]],
-            "Hcurl",
-            "H1",
-            assemble = True,
-            name = "O2",
-        )
-        self._O3 = self.basis_ops.create_basis_op(
-            [[zeroes, zeroes, ones]],
-            "Hcurl",
-            "H1",
-            assemble = True,
-            name = "O3",
-        )
-
-
-        self._Acurlcurl = self._curl.T @ self._M2 @ self._curl - self._options.curlcurl_lambda * self._M1
-
-        self._divPi = - self._curl.T @ self._M2mu @ self._curl \
-                    - 2/3 * self._P12.T @ self._div.T @ self._M3mu @ self._div @ self._P12 \
-                        + 2 * self._O1.T @ self._grad.T @ self._M1mu @ self._grad @ self._O1 \
-                        + 2 * self._O2.T @ self._grad.T @ self._M1mu @ self._grad @ self._O2 \
-                        + 2 * self._O3.T @ self._grad.T @ self._M1mu @ self._grad @ self._O3
-
-        # ---- block saddle-point system ----------------------------------------
-
-        self._block_V0 = BlockVectorSpace(self.derham.V0, self.derham.V0)
-        self._block_V1 = BlockVectorSpace(self.derham.V1, self.derham.V1)
-        self._block_V2 = BlockVectorSpace(self.derham.V2, self.derham.V2)
-
-        self._block_source = BlockVector(self._block_V1, blocks=[self._M1.dot(self._j), None])
-
-        self._block_M = BlockLinearOperator(
-            self._block_V0, self._block_V0, blocks=[[self._M0, None], [None, self._M0]]
+        self._block_M1 = BlockLinearOperator(
+            self._V1squared, self._V1squared, blocks=[[None, - self._M1], [self._M1, None]]
         )
 
         self._block_Divergence = BlockLinearOperator(
-            self._block_V1, self._block_V0, blocks=[[None, - self._grad.T @ self._M1rho], [self._grad.T @ self._M1rho, None]]
+            self._V1squared, self._V0squared, blocks=[[self._grad.T @ self._M1rho, None], [None, self._grad.T @ self._M1rho]]
         )
 
         self._block_curl = BlockLinearOperator(
-            self._block_V1, self._block_V2, blocks=[[None, - self._curl], [self._curl, None]]
+            self._V1squared, self._V2squared, blocks=[[self._curl, None], [None, self._curl]]
+        )
+
+        self._block_curlV2 = BlockLinearOperator(
+            self._V2squared, self._V1squared, blocks=[[self._curl.T @ self._M2, None], [None, self._curl.T @ self._M2]]
+        )
+
+        self._block_ImV2 = BlockLinearOperator(
+            self._V2squared, self._V2squared, blocks=[[None, - IdentityOperator(self.derham.V2)], [IdentityOperator(self.derham.V2), None]]
         )
 
         self._block_Acurlcurl = BlockLinearOperator(
-            self.block_V, self._block_V1, blocks=[[self._Acurlcurl, None], [None, self._Acurlcurl]]
+            self._V1squared, self._V1squared, blocks=[[self._Acurlcurl, None], [None, self._Acurlcurl]]
         )
 
-        self._block_B = BlockLinearOperator(
-            self._block_V1, self._block_V1, blocks=[[None, - self._M1rho / self._options.mass], [self._M1rho / self._options.mass, None]]
+        self._block_M1rho = BlockLinearOperator(
+            self._V1squared, self._V1squared, blocks=[[self._M1rho, None], [None, self._M1rho]]
+        )
+
+        self._block_iM1rho = BlockLinearOperator(
+            self._V1squared, self._V1squared, blocks=[[None, - self._M1rho], [self._M1rho, None]]
         )
 
         self._block_P = BlockLinearOperator(
-            self._block_V0, self._block_V1, 
-            blocks=[[None, self._M1 @ (self._grad @ self._P00theta + self._P01Ebar) / self._options.mass], 
-            [self._M1 @ (self._grad @ self._P00theta + self._P01Ebar) / self._options.mass, None]]
+            self._V0squared, self._V1squared, 
+            blocks=[[self._M1 @ (self._grad @ self._P00theta + self._P01Ebar) / self._options.mass, None], 
+            [None, self._M1 @ (self._grad @ self._P00theta + self._P01Ebar) / self._options.mass]]
         )
 
         self._block_Q = BlockLinearOperator(
-            self._block_V1, self._block_V1,
-            blocks=[[self._options.omega * self._M1rho, self._divPi - (self._M1xrhoB / self._options.mass) + self._M1nurho], 
-            [self._divPi - self._M1xrhoB / self._options.mass + self._M1nurho, - self._options.omega * self._M1rho]]
+            self._V1squared, self._V1squared,
+            blocks=[[self._divPi - (self._M1xrhoB / self._options.mass) + self._M1nurho, self._options.omega * self._M1rho], 
+            [- self._options.omega * self._M1rho, self._divPi - (self._M1xrhoB / self._options.mass) + self._M1nurho]]
         )
 
-        self._block_R = BlockLinearOperator(
-            self._block_V1, self._block_V1, blocks=[[None, self._M1rho / self._options.mass], [self._M1rho / self._options.mass, None]]
+        # constru
+        self._block_A = BlockLinearOperator(
+            self._space_block1, self._space_block1,
+            blocks=[[self._options.omega * self._block_M0, self._block_Divergence], [self._block_P, self._block_Q]]
         )
 
-        self._block_Minv = BlockLinearOperator(
-            self._block_V0, self._block_V0, blocks=[[self._M0inv, None], [None, self._M0inv]]
+        self._block_B = BlockLinearOperator(
+            self._space_block2, self._space_block1,
+            blocks=[[None, None], [self._block_M1rho / self._options.mass, None]]
         )
 
-        self._block_rhomatrix = - self._block_Minv @ self._block_Divergence / self._options.omega
-
-        self._block_umatrix = self._block_Q + self._block_P @ self._block_rhomatrix 
-
-        # construction of the initial guess
-
-        _block_Ematrix_inv_approx = BlockLinearOperator(
-            self._block_V1, self._block_V1, 
-            blocks=[[-self._options.omega * self._M1rho_inv / (self._options.curlcurl_lambda + 1/(self._options.mass*self._options.mass)), None],\
-                        [None, -self._options.omega * self._M1rho_inv / (self._options.curlcurl_lambda - 1/(self._options.mass*self._options.mass))]]
+        self._block_D = BlockLinearOperator(
+            self._space_block1, self._space_block2,
+            blocks=[[None, self._options.omega * self._block_iM1rho / self.options.mass], [None, None]]
         )
 
-        _block_E_initialguess = _block_Ematrix_inv_approx.dot(self._block_source)
-
-        _block_umatrix_inv_approx = BlockLinearOperator(
-            self._block_V1, self._block_V1, 
-            blocks=[[-IdentityOperator(self.derham.V1)/(self._options.mass * self._options.omega), None],\
-                    [None, IdentityOperator(self.derham.V1)/(self._options.mass * self._options.omega)]]
+        self._block_C = BlockLinearOperator(
+            self._space_block2, self._space_block2,
+            blocks=[[self._block_Acurlcurl, None],
+            [self._block_curl, - self._options.omega * self._block_ImV2]]
         )
 
-        _block_u_initialguess = _block_umatrix_inv_approx.dot(_block_E_initialguess)
-
-        self._block_umatrix_inv = inverse(
-            self._block_umatrix,
+        self._block_Cinv = inverse(
+            self._block_C,
             "gmres",
-            x0=_block_u_initialguess,
-            tol=self._options.solver_params.tol,
+            x0=None,
+            tol=1e-10,
             maxiter=self._options.solver_params.maxiter,
-            verbose = False,
+            verbose = True,
             recycle = self._options.solver_params.recycle,
         )
 
-        self._block_Ematrix = self._block_Acurlcurl / self._options.omega - self._block_B @ self._block_umatrix_inv @ self._block_R
+        self._block_A_schur = self._block_A - self._block_B @ self._block_Cinv @ self._block_D
 
-        self._block_Ematrix_inv = inverse(
-            self._block_Ematrix,
+        self._block_A_schur_inv = inverse(
+            self._block_A_schur,
             "gmres",
-            x0=_block_E_initialguess,
+            x0=None,
             tol=self._options.solver_params.tol,
             maxiter=self._options.solver_params.maxiter,
-            verbose = False,
+            verbose = True,
             recycle = self._options.solver_params.recycle,
         )
-
-        # self._coupled_equations_matrix = BlockLinearOperator(
-        #     self._block_domain, self._block_codomain, blocks=[[self._A, -self._B], [self._B, self._A]]
-        # )
-
-        # M1rhoinv_j = self._M1rho_inv.solve(self._j)
-        # A_j = self._A.dot(M1rhoinv_j)
-        # minusB_j = - self.B.dot(M1rhoinv_j)
-
-        # self._calEsin0: StencilVector = None
-        # self._calEcos0: StencilVector = None
-
-        # # --- copy current state ---
-        # Esin0 = self.variables.Esin.spline.vector
-        # Ecos0 = self.variables.Ecos.spline.vector
-
-        # self._calEsin0 = self._M1rho_inv.dot(self._options.mass * self._Acurlcurl.dot(Esin0))
-        # self._calEcos0 = self._M1rho_inv.dot(self._options.mass * self._Acurlcurl.dot(Ecos0))
-
-        # self._calE0 = BlockVector(self._block_domain, blocks=[self._calEsin0, self._calEcos0])
-
-        # self._coupled_equations_matrix_inverse = inverse(
-        #     self._coupled_equations_matrix,
-        #     solver="gmres",
-        #     x0=self._calE0,
-        #     tol=self._options.solver_params.tol,
-        #     maxiter=self._options.solver_params.maxiter,
-        #     verbose=False,
-        #     recycle=True,
-        # )
-
-        # # --- build inverses of the curl-curl matrices with good initial guesses ---
-        # self._Acurlcurl_inv_sin = inverse(
-        #     self._Acurlcurl,
-        #     solver="pcg",
-        #     x0=Esin0,
-        #     tol=self._options.solver_params.tol,
-        #     maxiter=self._options.solver_params.maxiter,
-        #     verbose=False,
-        #     recycle=True,
-        # )
-
-        # self._Acurlcurl_inv_cos = inverse(
-        #     self._Acurlcurl,
-        #     solver="pcg",
-        #     x0=Ecos0,
-        #     tol=self._options.solver_params.tol,
-        #     maxiter=self._options.solver_params.maxiter,
-        #     verbose=False,
-        #     recycle=True,
-        # )
 
 
     # =========================================================================
@@ -699,21 +714,26 @@ class ColdPlasmaPerturbation(Propagator):
 
     def __call__(self, dt):
 
-        # --- calculate auxilliary vectors ---
-        block_E = self._block_Ematrix_inv.solve(self._block_source)
+        tmp_z = self._block_Cinv.solve(self._block_source)
 
-        block_B = self._block_curl.dot(block_E) / self._options.omega
+        rhs_x1 = - self._block_B.dot(tmp_z)
 
-        tmp = - self._block_R.dot(block_E)
+        tmp_x1 = self._block_A_schur_inv.solve(rhs_x1)
 
-        block_u = self._block_umatrix_inv.solve(tmp)
+        tmp_x2 = tmp_z - self._block_Cinv.solve(self._block_D.dot(tmp_x1))
 
-        block_rho = self._block_rhomatrix.dot(block_u)
+        comp_rho = tmp_x1[0]
+
+        comp_u = tmp_x1[1]
+
+        comp_E = tmp_x2[0]
+
+        comp_B = tmp_x2[1]
 
         # --- update FEEC variables ---
         self.update_feec_variables(
-            rhosin=block_rho[0], rhocos=block_rho[1],
-            usin=block_u[0], ucos=block_u[1],
-            Esin=block_E[0], Ecos=block_E[1],
-            Bsin=block_B[0], Bcos=Block_B[1])
+            rhosin=comp_rho[1], rhocos=comp_rho[0],
+            usin=comp_u[1], ucos=comp_u[0],
+            Esin=comp_E[1], Ecos=comp_E[0],
+            Bsin=comp_B[1], Bcos=comp_B[0])
 
