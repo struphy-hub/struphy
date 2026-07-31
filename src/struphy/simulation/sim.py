@@ -474,7 +474,7 @@ class Simulation(SimulationBase):
             If True, only perform one time step (useful for testing).
         """
 
-        logger.warning(f"\nStarting run for model {self.model_name} ...")
+        logger.warning(f"\nStarting run for model {self.model_name} on {self.comm_size} ranks ...")
         if self.name != "":
             logger.info(f"Simulation name: {self.name}")
         if self.description != "":
@@ -694,6 +694,7 @@ RESTARTing from:
         classify: bool = False,
         create_vtk: bool = True,
         time_trace: bool = False,
+        parallel_pproc: bool = False,
     ):
         """Run post-processing on saved simulation data.
 
@@ -702,20 +703,35 @@ RESTARTing from:
         """
 
         # setup post processor and plotting
-        if not hasattr(self, "_post_processor") and self.rank == 0:
-            self._post_processor = PostProcessor(sim=self)
+        if parallel_pproc:
+            self._post_processor = PostProcessor(sim=self, parallel_pproc=True)
 
-        if time_trace:
-            self.post_processor.plot_time_traces()
+            if time_trace:
+                self.post_processor.plot_time_traces()
 
-        self.post_processor.process(
-            step=step,
-            celldivide=celldivide,
-            physical=physical,
-            guiding_center=guiding_center,
-            classify=classify,
-            create_vtk=create_vtk,
-        )
+            self.post_processor.process(
+                step=step,
+                celldivide=celldivide,
+                physical=physical,
+                guiding_center=guiding_center,
+                classify=classify,
+                create_vtk=create_vtk,
+            )
+        else:
+            if self.rank == 0:
+                self._post_processor = PostProcessor(sim=self, parallel_pproc=False)
+
+                if time_trace:
+                    self.post_processor.plot_time_traces()
+
+                self.post_processor.process(
+                    step=step,
+                    celldivide=celldivide,
+                    physical=physical,
+                    guiding_center=guiding_center,
+                    classify=classify,
+                    create_vtk=create_vtk,
+                )
 
     def load_plotting_data(self):
         """Load plotting datasets produced by post-processing.
