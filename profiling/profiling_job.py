@@ -19,9 +19,9 @@ and drives the run itself, looping over whichever rank counts it wants to profil
   into that same folder as soon as its own job finishes. With `upload=True`, the
   packaged folder lives inside a clone of the profiling-data repo (made by
   `setup_run`), so a push is just a commit there — results are never staged in a
-  separate export folder first. Runs are identified by their
-  launch id throughout — job scripts, SLURM job/log names, run directories and
-  packaged files all carry it, and nothing is named after its rank count.
+  separate export folder first. Runs are identified by their launch id throughout —
+  job scripts, SLURM job/log names, run directories and packaged files all carry it,
+  and nothing is named after its rank count.
 
 The remaining module-level functions are generic helpers with no case-specific
 knowledge (detecting the MPI launcher/module system).
@@ -167,6 +167,7 @@ class ProfilingCase:
                 if self.use_modules
                 else []
             ),
+            "set -e",
             f"source {activate_path!s}",
             'echo "----------------------------------------"',
             f'echo "Running profiling case: {self.label} ({ntasks} MPI ranks)"',
