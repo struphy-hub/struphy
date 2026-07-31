@@ -3,7 +3,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 

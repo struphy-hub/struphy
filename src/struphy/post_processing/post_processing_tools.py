@@ -247,7 +247,7 @@ class PostProcessor:
 
         if self.parallel_pproc:
             assert imported_sim is not None, "Parallel post-processing only supported when the sim object is provided."
-            self.derham = sim.derham
+            self.derham = imported_sim.derham
             self.comm = self.derham.comm
             self.comm_size = self.comm.Get_size()
             self.rank = self.comm.Get_rank()
@@ -653,10 +653,8 @@ class PostProcessor:
 
                     # evaluate field locally on rank and send to rank 0 for collection
                     temp_val = field(*grids_log, local=True)
-                    print(f"{type(temp_val) = }")
                     if self.parallel_pproc:
                         if isinstance(temp_val, xp.ndarray):
-                            print(f"{self.rank = } before \n{temp_val.shape = }\n{temp_val = }")
                             if self.rank == 0:
                                 self.comm.Reduce(
                                     MPI.IN_PLACE,
@@ -671,10 +669,8 @@ class PostProcessor:
                                     op=MPI.SUM,
                                     root=0,
                                 )
-                            print(f"{self.rank = } after\n {temp_val = }")
                         else:
                             for j in range(3):
-                                print(f"{self.rank = } before \n{temp_val[j].shape = }\n{temp_val[j] = }")
                                 if self.rank == 0:
                                     self.comm.Reduce(
                                         MPI.IN_PLACE,
@@ -689,7 +685,6 @@ class PostProcessor:
                                         op=MPI.SUM,
                                         root=0,
                                     )
-                                print(f"{self.rank = } after\n {temp_val[j] = }")
 
                     # point_data will stay an empty list on all ranks except rank 0
                     point_data[species][name][t] = []
@@ -900,11 +895,10 @@ class PostProcessor:
                     temp[ids] = markers[n * step, : ids.size, save_index]
 
             if self.parallel_pproc:
-                self.comm.reduce(
-                    temp,
-                    op=MPI.SUM,
-                    root=0,
-                )
+                if self.rank == 0:
+                    self.comm.Reduce(MPI.IN_PLACE, temp, op=MPI.SUM, root=0)
+                else:
+                    self.comm.Reduce(temp, None, op=MPI.SUM, root=0)
 
             # sorting out lost particles
             ids = temp[:, -1].astype("int")
