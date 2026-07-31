@@ -32,14 +32,14 @@ _LAUNCHER_ENV_VARS = (
 
 # Escape hatch: force the decision either way without touching code, e.g. for
 # a launcher whose variables are not listed above.
-_OVERRIDE_ENV_VAR = "SCOPE_PROFILER_MPI"
+_OVERRIDE_ENV_VAR = "STRUPHY_MPI"
 
 _TRUE_VALUES = ("1", "true", "yes", "on")
 _FALSE_VALUES = ("0", "false", "no", "off")
 
 
 def _override() -> bool | None:
-    """Value of ``SCOPE_PROFILER_MPI``, or None if unset/unrecognized."""
+    """Value of ``STRUPHY_MPI``, or None if unset/unrecognized."""
     value = os.environ.get(_OVERRIDE_ENV_VAR)
     if value is None:
         return None
@@ -59,7 +59,7 @@ def launched_under_mpi() -> bool:
     bool
         True if a launcher's per-rank environment variable is present, or if
         the application itself already initialized MPI (in which case using
-        the communicator is free). ``SCOPE_PROFILER_MPI=0``/``1`` overrides
+        the communicator is free). ``STRUPHY_MPI=0``/``1`` overrides
         the detection.
     """
     override = _override()
@@ -80,37 +80,3 @@ def launched_under_mpi() -> bool:
             return False
 
     return False
-
-
-def get_comm(use_mpi: bool | None = None):
-    """Return ``MPI.COMM_WORLD``, or None when MPI must not be used.
-
-    Parameters
-    ----------
-    use_mpi : bool or None, optional
-        None (default) decides via :func:`launched_under_mpi`. True forces the
-        communicator (and fails loudly if mpi4py is missing); False disables
-        MPI unconditionally.
-
-    Returns
-    -------
-    mpi4py.MPI.Intracomm or None
-        The world communicator, or None if this is not an MPI run or mpi4py
-        is unavailable.
-    """
-    if use_mpi is False:
-        return None
-
-    if use_mpi is None and not launched_under_mpi():
-        return None
-
-    try:
-        from mpi4py import MPI
-    except ImportError:
-        if use_mpi:
-            raise ImportError("MPI profiling was requested (use_mpi=True) but mpi4py is not installed.")
-        # Launched by mpirun without mpi4py available: fall back to treating
-        # this rank as a standalone process rather than failing the run.
-        return None
-
-    return MPI.COMM_WORLD

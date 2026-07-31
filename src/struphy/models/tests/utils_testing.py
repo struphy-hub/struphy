@@ -20,9 +20,15 @@ logger = logging.getLogger("struphy")
 def call_test(model: StruphyModel, test_profiling: bool = False):
     model_name = model.name()
 
+    # Every communicator access goes through this one check: without an MPI launcher
+    # the test still runs, as a single process, and must not touch MPI at all.
+    comm = MPI.COMM_WORLD if launched_under_mpi() else None
+    rank = comm.Get_rank() if comm is not None else 0
+    size = comm.Get_size() if comm is not None else 1
+
     # exceptions
-    if model_name == "TwoFluidQuasiNeutralToy" and MPI.COMM_WORLD.Get_size() > 1:
-        logger.info(f"WARNING: Model {model_name} cannot be tested for {MPI.COMM_WORLD.Get_size() =}")
+    if model_name == "TwoFluidQuasiNeutralToy" and size > 1:
+        logger.info(f"WARNING: Model {model_name} cannot be tested for {size = }")
         return
 
     assert isinstance(model, StruphyModel), f"{model} of {type(model) = } is not a StruphyModel"
@@ -41,7 +47,8 @@ def call_test(model: StruphyModel, test_profiling: bool = False):
     if rank == 0:
         model.generate_default_parameter_file(path=path, prompt=False)
         del model
-    MPI.COMM_WORLD.Barrier()
+    if comm is not None:
+        comm.Barrier()
 
     # set environment options
     env = EnvironmentOptions(
@@ -121,9 +128,11 @@ def call_test(model: StruphyModel, test_profiling: bool = False):
 
     sim.run()
 
-    MPI.COMM_WORLD.Barrier()
+    if comm is not None:
+        comm.Barrier()
     if rank == 0:
         sim.pproc()
         sim.load_plotting_data()
         shutil.rmtree(test_folder)
-    MPI.COMM_WORLD.Barrier()
+    if comm is not None:
+        comm.Barrier()
