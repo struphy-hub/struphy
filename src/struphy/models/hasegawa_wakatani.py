@@ -1,7 +1,6 @@
 import copy
 import logging
 
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.stencil import StencilVector
 
 from struphy.io.options import BaseUnits, LiteralOptions
