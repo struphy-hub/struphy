@@ -19,8 +19,6 @@ from struphy.propagators.variational_density_evolve import VariationalDensityEvo
 from struphy.propagators.variational_entropy_evolve import VariationalEntropyEvolve
 from struphy.propagators.variational_momentum_advection import VariationalMomentumAdvection
 
-rank = MPI.COMM_WORLD.Get_rank()
-
 
 class VariationalCompressibleFluid(StruphyModel):
     """Fully compressible fluid equations discretized with a variational method.

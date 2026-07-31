@@ -32,23 +32,24 @@ def main() -> None:
 
     # Paths relative to this script's location, so it can be run from anywhere.
     script_dir = Path(__file__).resolve().parent
-    params_dir = script_dir / "examples" / "ToyGyrokinetic" / "diocotron_instability"
+    params_dir = script_dir / "examples" / "Poisson" / "cube_strong_scaling"
 
     profiling_case = ProfilingCase(
-        label="diocotron_instability",
-        name="Diocotron instability",
-        description="Scaling test running the diocotron profiling setup with multiple MPI ranks.",
-        physics_problem="Diocotron instability in a non-neutral plasma.",
-        struphy_model_used="ToyDrift",
-        params_source=params_dir / "params_diocotron.py",
+        label="poisson_cube_strong_scaling",
+        name="Poisson on cube strong scaling test",
+        description="Strong scaling of the Poisson model with manufactured solution on 3D cube.",
+        physics_problem="Occurs in many plasma applications.",
+        struphy_model_used="Poisson",
+        params_source=params_dir / "params_poisson.py",
         language="fortran",
         compiler="GNU",
     )
 
-    profiling_case.use_slurm = False
-
     # Launch one run per rank count
-    for num_tasks in (2, 4):  # , 8, 16, 32, 64, 128, 256):
+    for num_tasks in (
+        1,
+        2,
+    ):  # 4, 8, 16, 32, 64, 128, 256):
         profiling_case.launch(num_tasks)
 
     # Wait for all jobs to finish, and then build the comparison plot and package the case.

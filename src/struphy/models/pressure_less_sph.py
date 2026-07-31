@@ -12,8 +12,6 @@ from struphy.models.variables import SPHVariable
 from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vin_efield import PushVinEfield
 
-rank = MPI.COMM_WORLD.Get_rank()
-
 
 class PressureLessSPH(StruphyModel):
     r"""Particle discretization of pressureless Euler flow with external forcing.

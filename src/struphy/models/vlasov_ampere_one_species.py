@@ -24,8 +24,6 @@ from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
 
-rank = MPI.COMM_WORLD.Get_rank()
-
 
 class VlasovAmpereOneSpecies(StruphyModel):
     """Vlasov-Ampère system for a single kinetic species in an electric field.

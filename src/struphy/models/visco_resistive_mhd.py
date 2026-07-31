@@ -24,8 +24,6 @@ from struphy.propagators.variational_momentum_advection import VariationalMoment
 from struphy.propagators.variational_resistivity import VariationalResistivity
 from struphy.propagators.variational_viscosity import VariationalViscosity
 
-rank = MPI.COMM_WORLD.Get_rank()
-
 
 class ViscoResistiveMHD(StruphyModel):
     """Full (non-linear) visco-resistive MHD equations discretized with a variational method.
