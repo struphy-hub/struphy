@@ -13,8 +13,6 @@ from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
 
-rank = MPI.COMM_WORLD.Get_rank()
-
 
 class ShearAlfven(StruphyModel):
     """Shear-Alfvén part of :class:`~struphy.models.linear_mhd.LinearMHD` with zero-flow equilibrium.

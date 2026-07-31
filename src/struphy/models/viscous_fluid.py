@@ -21,8 +21,6 @@ from struphy.propagators.variational_entropy_evolve import VariationalEntropyEvo
 from struphy.propagators.variational_momentum_advection import VariationalMomentumAdvection
 from struphy.propagators.variational_viscosity import VariationalViscosity
 
-rank = MPI.COMM_WORLD.Get_rank()
-
 
 class ViscousFluid(StruphyModel):
     """Full (non-linear) viscous Navier-Stokes equations discretized with a variational method.

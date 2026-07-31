@@ -25,8 +25,6 @@ from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
 
-rank = MPI.COMM_WORLD.Get_rank()
-
 
 class VlasovMaxwellOneSpecies(StruphyModel):
     """Vlasov-Maxwell equations for one kinetic species.

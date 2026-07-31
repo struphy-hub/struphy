@@ -32,7 +32,6 @@ from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterPa
 from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
 
 logger = logging.getLogger("struphy")
-rank = MPI.COMM_WORLD.Get_rank()
 
 
 class LinearMHDDriftkineticCC(StruphyModel):

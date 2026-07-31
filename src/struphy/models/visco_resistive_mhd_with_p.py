@@ -21,8 +21,6 @@ from struphy.propagators.variational_pb_evolve import VariationalPBEvolve
 from struphy.propagators.variational_resistivity import VariationalResistivity
 from struphy.propagators.variational_viscosity import VariationalViscosity
 
-rank = MPI.COMM_WORLD.Get_rank()
-
 
 class ViscoResistiveMHD_with_p(StruphyModel):
     """Full (non-linear) visco-resistive MHD equations, with the pressure variable, discretized with a variational method.
