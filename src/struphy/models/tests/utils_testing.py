@@ -11,10 +11,9 @@ from struphy import EnvironmentOptions
 from struphy.io.setup import import_parameters_py
 from struphy.models.base import StruphyModel
 from struphy.simulation.sim import Simulation
+from struphy.utils.mpi_launch import launched_under_mpi
 
 logger = logging.getLogger("struphy")
-
-rank = MPI.COMM_WORLD.Get_rank()
 
 
 # generic function for calling model tests
@@ -31,6 +30,13 @@ def call_test(model: StruphyModel, test_profiling: bool = False):
     # generate paramater file for testing
     test_folder = os.path.join(os.getcwd(), "struphy_model_test")
     path = os.path.join(test_folder, f"params_{model_name}.py")
+
+    if launched_under_mpi():
+        rank = MPI.COMM_WORLD.Get_rank()
+    else:
+        # If not launched with mpirun,
+        # we can still run the test in a single process.
+        rank = 0
 
     if rank == 0:
         model.generate_default_parameter_file(path=path, prompt=False)

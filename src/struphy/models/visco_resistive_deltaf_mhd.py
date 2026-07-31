@@ -21,8 +21,6 @@ from struphy.propagators.variational_pb_evolve import VariationalPBEvolve
 from struphy.propagators.variational_resistivity import VariationalResistivity
 from struphy.propagators.variational_viscosity import VariationalViscosity
 
-rank = MPI.COMM_WORLD.Get_rank()
-
 
 class ViscoResistiveDeltafMHD(StruphyModel):
     """Delta-f visco-resistive MHD equations discretized with a variational method.

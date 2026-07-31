@@ -19,8 +19,6 @@ from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
 from struphy.utils.pyccel import Pyccelkernel
 
-rank = MPI.COMM_WORLD.Get_rank()
-
 
 class ToyDrift(StruphyModel):
     r"""Electrostatic drift toy model for a single ion species in a given background magnetic field.

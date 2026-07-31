@@ -20,8 +20,6 @@ from struphy.propagators.variational_qb_evolve import VariationalQBEvolve
 from struphy.propagators.variational_resistivity import VariationalResistivity
 from struphy.propagators.variational_viscosity import VariationalViscosity
 
-rank = MPI.COMM_WORLD.Get_rank()
-
 
 class ViscoResistiveLinearMHD_with_q(StruphyModel):
     """Linear visco-resistive MHD equations, with the q variable (square root of the pressure), discretized with a variational method.

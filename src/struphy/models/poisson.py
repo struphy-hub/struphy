@@ -15,7 +15,6 @@ from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.time_dependent_source import TimeDependentSource
 
 logger = logging.getLogger("struphy")
-rank = MPI.COMM_WORLD.Get_rank()
 
 
 class Poisson(StruphyModel):

@@ -14,8 +14,6 @@ from struphy.propagators.push_vin_sph_pressure import PushVinSPHpressure
 from struphy.propagators.push_vin_viscous_potential import PushVinViscousPotential
 from struphy.propagators.push_vxb import PushVxB
 
-rank = MPI.COMM_WORLD.Get_rank()
-
 
 class ViscousEulerSPH(StruphyModel):
     """Euler equations with viscosity discretized with smoothed particle hydrodynamics (SPH).

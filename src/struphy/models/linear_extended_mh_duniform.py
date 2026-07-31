@@ -17,8 +17,6 @@ from struphy.propagators.hall import Hall
 from struphy.propagators.magnetosonic_uniform import MagnetosonicUniform
 from struphy.propagators.shear_alfven_b1 import ShearAlfvenB1
 
-rank = MPI.COMM_WORLD.Get_rank()
-
 
 class LinearExtendedMHDuniform(StruphyModel):
     """Linear extended MHD with zero-flow equilibrium, for uniform background conditions only.
