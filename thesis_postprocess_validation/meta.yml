@@ -1,0 +1,7 @@
+{platform: linux-x86_64, python version: '3.12', model name: ColdPlasmaVlasov, parameter file: /home/anishojha/Research/struphy/params_thesis_postprocess_validation.py,
+
+    output folder: /home/anishojha/Research/struphy/thesis_postprocess_validation,
+
+    MPI processes: 1, use MPI.COMM_WORLD: false, number of domain clones: 1, restart: false,
+
+    'max wall-clock [min]': 300, 'save interval [steps]': 1, 'wall-clock time[min]': 0.5471725225448608}

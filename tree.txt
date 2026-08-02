@@ -1,0 +1,268 @@
+src/struphy
+├── __init__.py
+├── api
+│   ├── __init__.py
+│   ├── domains
+│   ├── equils
+│   ├── grids
+│   ├── maxwellians
+│   ├── models
+│   ├── ode
+│   ├── options
+│   ├── particles
+│   ├── perturbations
+│   ├── post_processing
+│   └── simulation
+├── bsplines
+│   ├── __init__.py
+│   ├── bsplines.py
+│   ├── bsplines_kernels.py
+│   ├── evaluation_kernels_1d.py
+│   ├── evaluation_kernels_2d.py
+│   ├── evaluation_kernels_3d.py
+│   ├── shapefunc_kernels.py
+│   └── tests
+├── compile_struphy.mk
+├── conftest.py
+├── console
+│   ├── __init__.py
+│   ├── compile.py
+│   ├── format.py
+│   ├── likwid.py
+│   ├── main.py
+│   ├── params.py
+│   ├── parsers.py
+│   ├── profile.py
+│   ├── test.py
+│   └── tests
+├── dependencies.py
+├── diagnostics
+│   ├── __init__.py
+│   ├── console_diagn.py
+│   ├── diagn_tools.py
+│   ├── diagnostics_pic.ipynb
+│   └── paraview
+├── dispersion_relations
+│   ├── __init__.py
+│   ├── analytic.py
+│   ├── base.py
+│   └── utilities.py
+├── eigenvalue_solvers
+│   └── derivatives.py
+├── examples
+│   ├── _draw_parallel.py
+│   └── restelli2018
+├── feec
+│   ├── __init__.py
+│   ├── banded_to_stencil_kernels.py
+│   ├── basis_projection_kernels.py
+│   ├── basis_projection_ops.py
+│   ├── linear_operators.py
+│   ├── local_projectors_kernels.py
+│   ├── mass.py
+│   ├── mass_kernels.py
+│   ├── preconditioner.py
+│   ├── projectors.py
+│   ├── psydac_derham.py
+│   ├── tests
+│   ├── utilities.py
+│   ├── utilities_kernels.py
+│   ├── utilities_local_projectors.py
+│   └── variational_utilities.py
+├── fields_background
+│   ├── __init__.py
+│   ├── base.py
+│   ├── coil_fields
+│   ├── equils.py
+│   ├── mhd_equil
+│   ├── projected_equils.py
+│   └── tests
+├── geometry
+│   ├── __init__.py
+│   ├── base.py
+│   ├── domains.py
+│   ├── evaluation_kernels.py
+│   ├── map_coef
+│   ├── mappings_kernels.py
+│   ├── tests
+│   ├── transform_kernels.py
+│   ├── utilities.py
+│   └── utilities_kernels.py
+├── initial
+│   ├── __init__.py
+│   ├── base.py
+│   ├── eigenfunctions.py
+│   ├── perturbations.py
+│   ├── tests
+│   └── utilities.py
+├── io
+│   ├── __init__.py
+│   ├── options.py
+│   ├── output_handling.py
+│   └── setup.py
+├── kernel_arguments
+│   ├── __init__.py
+│   ├── local_projectors_args_kernels.py
+│   └── pusher_args_kernels.py
+├── kinetic_background
+│   ├── __init__.py
+│   ├── base.py
+│   ├── maxwellians.py
+│   ├── moment_functions.py
+│   └── tests
+├── linear_algebra
+│   ├── __init__.py
+│   ├── linalg_kernels.py
+│   ├── linalg_kron.py
+│   ├── saddle_point.py
+│   ├── schur_solver.py
+│   ├── solver.py
+│   ├── stencil_dot_kernels.py
+│   ├── stencil_transpose_kernels.py
+│   └── tests
+├── models
+│   ├── __init__.py
+│   ├── base.py
+│   ├── cold_plasma.py
+│   ├── cold_plasma_vlasov.py
+│   ├── deterministic_particle_diffusion.py
+│   ├── drift_kinetic_electrostatic_adiabatic.py
+│   ├── guiding_center.py
+│   ├── hasegawa_wakatani.py
+│   ├── linear_extended_mh_duniform.py
+│   ├── linear_mhd.py
+│   ├── linear_mhd_driftkinetic_cc.py
+│   ├── linear_mhd_vlasov_cc.py
+│   ├── linear_mhd_vlasov_pc.py
+│   ├── linear_vlasov_ampere_one_species.py
+│   ├── linear_vlasov_maxwell_one_species.py
+│   ├── maxwell.py
+│   ├── poisson.py
+│   ├── pressure_less_sph.py
+│   ├── random_particle_diffusion.py
+│   ├── scalars.py
+│   ├── shear_alfven.py
+│   ├── species.py
+│   ├── tests
+│   ├── toy_drift.py
+│   ├── two_fluid_quasi_neutral_toy.py
+│   ├── utils.py
+│   ├── variables.py
+│   ├── variational_barotropic_fluid.py
+│   ├── variational_compressible_fluid.py
+│   ├── variational_pressureless_fluid.py
+│   ├── visco_resistive_deltaf_mhd.py
+│   ├── visco_resistive_deltaf_mhd_with_q.py
+│   ├── visco_resistive_linear_mhd.py
+│   ├── visco_resistive_linear_mhd_with_q.py
+│   ├── visco_resistive_mhd.py
+│   ├── visco_resistive_mhd_with_p.py
+│   ├── visco_resistive_mhd_with_q.py
+│   ├── viscous_euler_sph.py
+│   ├── viscous_fluid.py
+│   ├── vlasov.py
+│   ├── vlasov_ampere_one_species.py
+│   └── vlasov_maxwell_one_species.py
+├── ode
+│   ├── __init__.py
+│   ├── solvers.py
+│   ├── tests
+│   └── utils.py
+├── particles
+│   ├── __init__.py
+│   └── parameters.py
+├── physics
+│   ├── __init__.py
+│   └── physics.py
+├── pic
+│   ├── __init__.py
+│   ├── accumulation
+│   ├── base.py
+│   ├── particles.py
+│   ├── pushing
+│   ├── sampling_kernels.py
+│   ├── sobol_seq.py
+│   ├── sorting_kernels.py
+│   ├── sph_eval_kernels.py
+│   ├── sph_smoothing_kernels.py
+│   ├── tests
+│   ├── utilities.py
+│   └── utilities_kernels.py
+├── polar
+│   ├── __init__.py
+│   ├── basic.py
+│   ├── extraction_operators.py
+│   ├── linear_operators.py
+│   └── tests
+├── post_processing
+│   ├── __init__.py
+│   ├── cprofile_analyser.py
+│   ├── likwid
+│   ├── orbits
+│   ├── post_processing_tools.py
+│   ├── profile_struphy.py
+│   └── tests
+├── propagators
+│   ├── __init__.py
+│   ├── adiabatic_phi.py
+│   ├── base.py
+│   ├── curl_curl_solve.py
+│   ├── current_coupling_5d_curlb.py
+│   ├── current_coupling_5d_density.py
+│   ├── current_coupling_5d_gradb.py
+│   ├── current_coupling_6d_current.py
+│   ├── current_coupling_6d_density.py
+│   ├── efield_weights_coupling.py
+│   ├── faraday_extended.py
+│   ├── hall.py
+│   ├── hasegawa_wakatani_step.py
+│   ├── implicit_diffusion.py
+│   ├── jxb_cold.py
+│   ├── magnetosonic.py
+│   ├── magnetosonic_uniform.py
+│   ├── maxwell_weak_ampere.py
+│   ├── ohm_cold.py
+│   ├── poisson_solve.py
+│   ├── pressure_coupling_6d.py
+│   ├── push_deterministic_diffusion.py
+│   ├── push_eta.py
+│   ├── push_eta_pc.py
+│   ├── push_guiding_center_bx_estar.py
+│   ├── push_guiding_center_parallel.py
+│   ├── push_random_diffusion.py
+│   ├── push_vin_efield.py
+│   ├── push_vin_sph_pressure.py
+│   ├── push_vin_viscous_potential.py
+│   ├── push_vxb.py
+│   ├── shear_alfven_b1.py
+│   ├── shear_alfven_current_coupling_5d.py
+│   ├── shear_alfven_propagator.py
+│   ├── tests
+│   ├── time_dependent_source.py
+│   ├── two_fluid_quasi_neutral_full.py
+│   ├── variational_density_evolve.py
+│   ├── variational_entropy_evolve.py
+│   ├── variational_mag_field_evolve.py
+│   ├── variational_momentum_advection.py
+│   ├── variational_pb_evolve.py
+│   ├── variational_qb_evolve.py
+│   ├── variational_resistivity.py
+│   ├── variational_viscosity.py
+│   └── vlasov_ampere_coupling.py
+├── simulation
+│   ├── __init__.py
+│   ├── base.py
+│   └── sim.py
+├── topology
+│   ├── __init__.py
+│   └── grids.py
+└── utils
+    ├── __init__.py
+    ├── clone_config.py
+    ├── cupy_vs_numpy.py
+    ├── docstring_converter.py
+    ├── pyccel.py
+    ├── test_clone_config.py
+    └── utils.py
+
+61 directories, 205 files

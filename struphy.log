@@ -1,0 +1,70 @@
+[INFO|sim|L634] 2026-08-02T19:55:06+0000: time step:                                   68/80
+normalized time:               8.50e-01 / 1.00e+00
+physical time [s]:             2.84e-09 / 3.34e-09
+wall clock time [s]:                       27.7793
+last step duration [s]:                     0.2785
+[INFO|sim|L634] 2026-08-02T19:55:07+0000: time step:                                   69/80
+normalized time:               8.63e-01 / 1.00e+00
+physical time [s]:             2.88e-09 / 3.34e-09
+wall clock time [s]:                       28.1797
+last step duration [s]:                     0.2813
+[INFO|sim|L634] 2026-08-02T19:55:07+0000: time step:                                   70/80
+normalized time:               8.75e-01 / 1.00e+00
+physical time [s]:             2.92e-09 / 3.34e-09
+wall clock time [s]:                       28.5813
+last step duration [s]:                     0.2892
+[INFO|sim|L634] 2026-08-02T19:55:08+0000: time step:                                   71/80
+normalized time:               8.87e-01 / 1.00e+00
+physical time [s]:             2.96e-09 / 3.34e-09
+wall clock time [s]:                       28.9983
+last step duration [s]:                     0.2952
+[INFO|sim|L634] 2026-08-02T19:55:08+0000: time step:                                   72/80
+normalized time:               9.00e-01 / 1.00e+00
+physical time [s]:             3.00e-09 / 3.34e-09
+wall clock time [s]:                       29.3976
+last step duration [s]:                     0.2809
+[INFO|sim|L634] 2026-08-02T19:55:08+0000: time step:                                   73/80
+normalized time:               9.12e-01 / 1.00e+00
+physical time [s]:             3.04e-09 / 3.34e-09
+wall clock time [s]:                       29.7946
+last step duration [s]:                     0.2790
+[INFO|sim|L634] 2026-08-02T19:55:09+0000: time step:                                   74/80
+normalized time:               9.25e-01 / 1.00e+00
+physical time [s]:             3.09e-09 / 3.34e-09
+wall clock time [s]:                       30.1928
+last step duration [s]:                     0.2774
+[INFO|sim|L634] 2026-08-02T19:55:09+0000: time step:                                   75/80
+normalized time:               9.38e-01 / 1.00e+00
+physical time [s]:             3.13e-09 / 3.34e-09
+wall clock time [s]:                       30.5953
+last step duration [s]:                     0.2870
+[INFO|sim|L634] 2026-08-02T19:55:10+0000: time step:                                   76/80
+normalized time:               9.50e-01 / 1.00e+00
+physical time [s]:             3.17e-09 / 3.34e-09
+wall clock time [s]:                       31.0078
+last step duration [s]:                     0.2845
+[INFO|sim|L634] 2026-08-02T19:55:10+0000: time step:                                   77/80
+normalized time:               9.63e-01 / 1.00e+00
+physical time [s]:             3.21e-09 / 3.34e-09
+wall clock time [s]:                       31.4255
+last step duration [s]:                     0.2946
+[INFO|sim|L634] 2026-08-02T19:55:10+0000: time step:                                   78/80
+normalized time:               9.75e-01 / 1.00e+00
+physical time [s]:             3.25e-09 / 3.34e-09
+wall clock time [s]:                       31.8208
+last step duration [s]:                     0.2748
+[INFO|sim|L634] 2026-08-02T19:55:11+0000: time step:                                   79/80
+normalized time:               9.88e-01 / 1.00e+00
+physical time [s]:             3.29e-09 / 3.34e-09
+wall clock time [s]:                       32.2345
+last step duration [s]:                     0.2954
+[INFO|sim|L634] 2026-08-02T19:55:11+0000: time step:                                   80/80
+normalized time:               1.00e+00 / 1.00e+00
+physical time [s]:             3.34e-09 / 3.34e-09
+wall clock time [s]:                       32.6277
+last step duration [s]:                     0.2793
+[INFO|sim|L563] 2026-08-02T19:55:11+0000: 
+Time steps done: 80
+[INFO|sim|L564] 2026-08-02T19:55:11+0000: wall-clock time of simulation [sec]: 32.83035135269165
+[INFO|sim|L565] 2026-08-02T19:55:11+0000: 
+[WARNING|sim|L664] 2026-08-02T19:55:11+0000: Struphy run finished.
