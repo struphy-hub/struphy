@@ -333,18 +333,21 @@ class Simulation(SimulationBase):
         logger.debug("\nEstimating memory usage ...")
 
         if self.grid is None or self.derham_opts is None:
-            derham = None
-        else:
-            if self.clone_config is None:
-                derham_comm = MPI.COMM_WORLD
-            else:
-                derham_comm = self.clone_config.sub_comm
-            derham = Derham(
-                self.grid,
-                self.derham_opts,
-                comm=derham_comm,
-                domain=self.domain,
+            raise RuntimeError(
+                "Simulation.estimate_mem() requires 'grid' and 'derham_opts' to be set (needed to build a Derham sequence for FEEC variable sizing)."
             )
+
+        if self.clone_config is None:
+            derham_comm = MPI.COMM_WORLD
+        else:
+            derham_comm = self.clone_config.sub_comm
+
+        derham = Derham(
+            self.grid,
+            self.derham_opts,
+            comm=derham_comm,
+            domain=self.domain,
+        )
 
         mem = {}
 
