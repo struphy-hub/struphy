@@ -86,15 +86,7 @@ class Poisson(StruphyModel):
 
         :meta private:
         """
-        # # use setter to assign source
-        # self.propagators.poisson.rho = Propagator.mass_ops.M0.dot(self.em_fields.source.spline.vector)
-
-        # Solve with dt=1. and compute electric field
-        logger.info("\nSolving initial Poisson problem...")
-
-        self.propagators.poisson(1.0)
-
-        logger.info("... Done.")
+        pass
 
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
