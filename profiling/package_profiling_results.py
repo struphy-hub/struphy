@@ -36,13 +36,17 @@ def _read_mpi_ranks(source_h5: Path) -> int | None:
     return None
 
 
-def _build_output_name(testcase: str, launch_id: int, index: int) -> str:
+def _build_output_name(launch_id: int, index: int) -> str:
     """Name of a packaged `.h5`, identifying its run by launch id.
+
+    Named after the run alone (`run02.h5`), matching the `results-run02` folder of the
+    same run: the test case is already the packaged folder's name, so repeating it in
+    every file inside only makes the names longer.
 
     `index` disambiguates a run that produced more than one `.h5` file; the first keeps
     the plain name.
     """
-    base = f"{_slug(testcase)}-run{launch_id:02d}"
+    base = f"run{launch_id:02d}"
     if index > 0:
         base = f"{base}-{index}"
     return f"{base}.h5"
@@ -51,16 +55,17 @@ def _build_output_name(testcase: str, launch_id: int, index: int) -> str:
 def _copy_run_metadata(source_h5: Path, destination_h5: Path) -> tuple[str | None, str | None]:
     """Copy the `run_metadata.json` that Struphy wrote next to `source_h5`.
 
-    Each `sim_<id>` run directory holds its own `run_metadata.json`, so it is
-    packaged per run, named after the corresponding `.h5` file. Returns
-    ``(packaged file name, source path)``, both None if the run produced no metadata.
+    Each `sim_<id>` run directory holds its own `run_metadata.json`, so it is packaged
+    per run, named after the corresponding `.h5` file (`run02.h5` -> `run02.json`).
+    Returns ``(packaged file name, source path)``, both None if the run produced no
+    metadata.
     """
     source = source_h5.parent / RUN_METADATA_FILE
     if not source.exists():
         print(f"No {RUN_METADATA_FILE} next to {source_h5}; skipping.")
         return None, None
 
-    output_name = f"{destination_h5.stem}-{RUN_METADATA_FILE}"
+    output_name = f"{destination_h5.stem}.json"
     shutil.copy2(source, destination_h5.parent / output_name)
     return output_name, str(source)
 
@@ -81,6 +86,10 @@ def _copy_run_results(sim_dir: Path, destination_dir: Path) -> dict[str, Any] | 
     directory. Every run of a case writes its own, so they are packaged into a per-run
     subfolder (`results-run03`) instead of being merged into the flat case folder.
 
+    Any subfolder structure of `results` is kept, and `files` lists every packaged file
+    by its path relative to the packaged folder, so a consumer can open them without
+    reconstructing any names.
+
     Returns the packaged entry for `case_metadata.json`, or None if the run wrote no
     such files.
     """
@@ -89,21 +98,25 @@ def _copy_run_results(sim_dir: Path, destination_dir: Path) -> dict[str, Any] | 
         return None
 
     sources = sorted(
-        path for path in source_dir.iterdir() if path.is_file() and path.suffix.lower() in RESULTS_FILE_SUFFIXES
+        path for path in source_dir.rglob("*") if path.is_file() and path.suffix.lower() in RESULTS_FILE_SUFFIXES
     )
     if not sources:
         return None
 
     output_name = f"{RESULTS_DIR_NAME}-{_run_token(sim_dir.name)}"
     destination = destination_dir / output_name
-    destination.mkdir(parents=True, exist_ok=True)
+    relative_paths = []
     for source in sources:
-        shutil.copy2(source, destination / source.name)
+        relative_path = source.relative_to(source_dir)
+        target = destination / relative_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        relative_paths.append(str(target.relative_to(destination_dir)))
 
     return {
         "source": str(source_dir),
         "destination": output_name,
-        "files": [source.name for source in sources],
+        "files": relative_paths,
     }
 
 

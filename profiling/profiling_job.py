@@ -497,7 +497,6 @@ class ProfilingCase:
                 "package_run was called before package_case_metadata; the packaged folder does not exist yet.",
             )
 
-        testcase = self.case_output_root.name
         sim_dir = self.case_output_root / f"sim_{job_info['launch_id']:02d}"
 
         h5_files = sorted(sim_dir.rglob("*.h5")) if sim_dir.is_dir() else []
@@ -509,7 +508,6 @@ class ProfilingCase:
         for index, source_h5 in enumerate(h5_files):
             relative_source = source_h5.relative_to(self.case_output_root)
             output_name = _build_output_name(
-                testcase=testcase,
                 launch_id=job_info["launch_id"],
                 index=index,
             )
