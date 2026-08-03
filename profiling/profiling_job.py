@@ -57,6 +57,7 @@ from package_profiling_results import (
     _ensure_testcase_parameters_file,
     _read_mpi_ranks,
     _read_sim_metadata_from_parameters,
+    _run_folder_name,
 )
 from slurm_script_generator.slurm_script import SlurmScript
 from slurm_script_generator.squeue import SQueue, job_states
@@ -469,17 +470,18 @@ class ProfilingCase:
     def package_run(self, job_info: dict, verbose: bool = False) -> bool:
         """Copy one finished run's output into the packaged folder.
 
-        That is its `.h5` files and run metadata, plus anything the parameter file
-        post-processed into `sim_<launch_id>/results` (`.png` figures, `.npy` arrays),
-        which goes into a per-run `results-run<launch_id>` subfolder so the runs of a
-        case stay apart. Only packages what that run actually produced, so a run whose
-        job never started (or failed before writing output) is skipped instead of being
+        Everything one run produced goes into a folder of its own,
+        `results-run<launch_id>`: its `.h5` files and run metadata, plus anything the
+        parameter file post-processed into `sim_<launch_id>/results` (`.png` figures,
+        `.npy` arrays). Only packages what that run actually produced, so a run whose job
+        never started (or failed before writing output) is skipped instead of being
         uploaded. Appends to `packaged_files`/`packaged_results`, which the next
-        `package_case_metadata` call writes into `case_metadata.json`.
+        `package_case_metadata` call writes into `case_metadata.json`, with every
+        destination given relative to the packaged case folder.
 
         The run is located and named by its `launch_id`: `build_commands` names each run
-        directory `sim_<launch_id>`, and the packaged `.h5` files follow the same id, so
-        two launches sharing a rank count stay separate.
+        directory `sim_<launch_id>`, and the packaged folder and `.h5` files follow the
+        same id, so two launches sharing a rank count stay separate.
 
         Args:
             job_info: The `job_infos` entry of the run that just finished.
@@ -498,6 +500,7 @@ class ProfilingCase:
             )
 
         sim_dir = self.case_output_root / f"sim_{job_info['launch_id']:02d}"
+        run_dir = self.destination_dir / _run_folder_name(job_info["launch_id"])
 
         h5_files = sorted(sim_dir.rglob("*.h5")) if sim_dir.is_dir() else []
         if verbose:
@@ -511,7 +514,8 @@ class ProfilingCase:
                 launch_id=job_info["launch_id"],
                 index=index,
             )
-            destination_h5 = self.destination_dir / output_name
+            run_dir.mkdir(parents=True, exist_ok=True)
+            destination_h5 = run_dir / output_name
             shutil.copy2(source_h5, destination_h5)
             run_metadata_name, run_metadata_source = _copy_run_metadata(
                 source_h5=source_h5,
@@ -526,25 +530,33 @@ class ProfilingCase:
                     # what the run itself recorded, and fall back to what was requested
                     # when it wrote no `run_metadata.json`.
                     "ranks": _read_mpi_ranks(source_h5) or job_info["ranks"],
-                    "destination": output_name,
+                    "destination": f"{run_dir.name}/{output_name}",
                     "run_metadata_source": run_metadata_source,
-                    "run_metadata_destination": run_metadata_name,
+                    "run_metadata_destination": (
+                        f"{run_dir.name}/{run_metadata_name}" if run_metadata_name is not None else None
+                    ),
                 },
             )
 
         # Whatever the parameter file post-processed into `sim_dir/results` (figures,
-        # small arrays) is packaged into its own per-run subfolder of the same folder.
-        results_entry = _copy_run_results(sim_dir, self.destination_dir)
-        if results_entry is not None:
-            results_entry["launch_id"] = job_info["launch_id"]
-            self.packaged_results.append(results_entry)
+        # small arrays) joins the run's `.h5` and metadata in the same folder.
+        results_files = _copy_run_results(sim_dir, run_dir)
+        if results_files:
+            self.packaged_results.append(
+                {
+                    "source": str(sim_dir / RESULTS_DIR_NAME),
+                    "destination": run_dir.name,
+                    "files": results_files,
+                    "launch_id": job_info["launch_id"],
+                },
+            )
             if verbose:
                 print(
-                    f"Packaged {len(results_entry['files'])} results file(s) from "
-                    f"{sim_dir / RESULTS_DIR_NAME} into {results_entry['destination']}/",
+                    f"Packaged {len(results_files)} results file(s) from "
+                    f"{sim_dir / RESULTS_DIR_NAME} into {run_dir.name}/",
                 )
 
-        return bool(h5_files) or results_entry is not None
+        return bool(h5_files) or bool(results_files)
 
     def _iter_finished_runs(self, poll_interval: float = 10.0):
         """Yield each run's `job_infos` entry as soon as that run finishes, in completion order.
@@ -656,6 +668,6 @@ class ProfilingCase:
             if not self.upload:
                 print("Upload skipped; use --upload to push the packaged profiling data to the profiling-data repo.")
                 print("Plot the results locally by opening the HTML files in the packaged directories, e.g.:")
-                print(f"scope-profiler pproc {self.destination_dir / '*.h5'} --rank 0")
+                print(f"scope-profiler pproc {self.destination_dir / _run_folder_name(1) / '*.h5'} --rank 0")
         else:
             print(f"No profiling output found for '{self.label}'; nothing to package.")

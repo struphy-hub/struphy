@@ -1,14 +1,13 @@
 import ast
 import json
 import os
-import re
 import shutil
 from pathlib import Path
 from typing import Any
 
 from clusters import detect_machine_name
 
-from utils import _run_command, _slug
+from utils import _run_command
 
 # Written by `Simulation.run()`, one per `sim_<id>` run directory.
 RUN_METADATA_FILE = "run_metadata.json"
@@ -70,54 +69,44 @@ def _copy_run_metadata(source_h5: Path, destination_h5: Path) -> tuple[str | Non
     return output_name, str(source)
 
 
-def _run_token(sim_dir_name: str) -> str:
-    """`sim_03` -> `run03`; any other run directory name is slugged as it is."""
-    match = re.fullmatch(r"sim_?(\d+)", sim_dir_name)
-    if match:
-        return f"run{match.group(1)}"
-    return _slug(sim_dir_name)
+def _run_folder_name(launch_id: int) -> str:
+    """Name of a run's own folder inside the packaged case folder: `results-run03`.
+
+    Everything a run produced lives in there together: its `.h5` files, its run
+    metadata, and whatever the parameter file post-processed into `results`.
+    """
+    return f"{RESULTS_DIR_NAME}-run{launch_id:02d}"
 
 
-def _copy_run_results(sim_dir: Path, destination_dir: Path) -> dict[str, Any] | None:
-    """Package the figures and arrays a run wrote into `<sim_dir>/results`.
+def _copy_run_results(sim_dir: Path, destination_dir: Path) -> list[str]:
+    """Copy the figures and arrays a run wrote into `<sim_dir>/results`.
 
     The parameter file of a case may post-process its own output (see the Poisson
     example), writing `.png`/`.npy` files into a `results` folder inside its run
-    directory. Every run of a case writes its own, so they are packaged into a per-run
-    subfolder (`results-run03`) instead of being merged into the flat case folder.
+    directory. They are copied straight into `destination_dir`, the run's own packaged
+    folder, next to its `.h5` and run metadata; any subfolder structure of `results` is
+    kept.
 
-    Any subfolder structure of `results` is kept, and `files` lists every packaged file
-    by its path relative to the packaged folder, so a consumer can open them without
-    reconstructing any names.
-
-    Returns the packaged entry for `case_metadata.json`, or None if the run wrote no
-    such files.
+    Returns the packaged files as paths relative to the case folder
+    (`destination_dir.parent`), so a consumer can open them without reconstructing any
+    names. Empty if the run wrote no such files.
     """
     source_dir = sim_dir / RESULTS_DIR_NAME
     if not source_dir.is_dir():
-        return None
+        return []
 
     sources = sorted(
         path for path in source_dir.rglob("*") if path.is_file() and path.suffix.lower() in RESULTS_FILE_SUFFIXES
     )
-    if not sources:
-        return None
 
-    output_name = f"{RESULTS_DIR_NAME}-{_run_token(sim_dir.name)}"
-    destination = destination_dir / output_name
     relative_paths = []
     for source in sources:
-        relative_path = source.relative_to(source_dir)
-        target = destination / relative_path
+        target = destination_dir / source.relative_to(source_dir)
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
-        relative_paths.append(str(target.relative_to(destination_dir)))
+        relative_paths.append(str(target.relative_to(destination_dir.parent)))
 
-    return {
-        "source": str(source_dir),
-        "destination": output_name,
-        "files": relative_paths,
-    }
+    return relative_paths
 
 
 def _extract_string_node(node: ast.AST, constants: dict[str, str]) -> str | None:
