@@ -185,7 +185,7 @@ class Simulation(SimulationBase):
                     pass
             # save simulation configuration as JSON
             else:
-                with open(os.path.join(path_out, "config.json"), "w") as f:
+                with open(os.path.join(path_out, "config.json"), "w", encoding="utf-8") as f:
                     json.dump(self.to_dict(), f, indent=4)
 
         # config clones
