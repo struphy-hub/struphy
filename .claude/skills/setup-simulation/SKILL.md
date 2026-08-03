@@ -153,6 +153,3 @@ post-processing needed, as shown in `examples/VlasovAmpereOneSpecies/two_stream/
   the species variable like field perturbations do.
 - `sim.run()` must stay behind `if __name__ == "__main__":` so the params file can be
   safely imported for post-processing.
-- Use `struphy params <ModelName> --check-file <file>.yml` to validate parameters if
-  the user is working from a legacy YAML-style params file rather than the current
-  Python API.
