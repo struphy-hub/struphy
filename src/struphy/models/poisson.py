@@ -86,7 +86,15 @@ class Poisson(StruphyModel):
 
         :meta private:
         """
-        pass
+        # # use setter to assign source
+        # self.propagators.poisson.rho = Propagator.mass_ops.M0.dot(self.em_fields.source.spline.vector)
+
+        # Solve to get initial potential (before time stepping)
+        logger.info("\nSolving initial Poisson problem (before time stepping)...")
+
+        self.propagators.poisson(1.0)
+
+        logger.info("... Done.")
 
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
