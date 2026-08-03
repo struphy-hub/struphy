@@ -1,7 +1,6 @@
 import copy
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
@@ -18,8 +17,6 @@ from struphy.propagators.base import Propagator
 from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
 from struphy.utils.pyccel import Pyccelkernel
-
-rank = MPI.COMM_WORLD.Get_rank()
 
 
 class ToyDrift(StruphyModel):
