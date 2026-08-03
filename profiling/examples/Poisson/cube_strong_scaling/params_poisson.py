@@ -83,8 +83,8 @@ equil = None
 
 # Grid
 grid = grids.TensorProductGrid(
-        # num_elements=(256, 256, 256),
-        num_elements=(64, 128, 128),
+        num_elements=(256, 256, 256),
+        # num_elements=(64, 128, 128),
         mpi_dims_mask=(True, True, True))
 
 # Derham options
