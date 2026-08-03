@@ -13,6 +13,8 @@ from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.geometry.base import Domain
 from struphy.utils.pyccel import Pyccelkernel
 
+from feectools.linalg.block import BlockLinearOperator, BlockVector
+
 
 class BoundaryIntegralOperators:
     """
@@ -90,23 +92,6 @@ class BoundaryIntegralOperators:
         if not hasattr(self, "_S1"):
             self._S1 = BoundaryMassOperatorHCurl(self._mass_ops, self._active_faces)
         return self._S1
-
-    ##################################################
-    # H(div) boundary operators (normal trace)       #
-    ##################################################
-
-    @property
-    def S2(self) -> "BoundaryMassOperatorHDiv":
-        """
-        Boundary mass matrix for H(div):
-
-            S2_{(mu,ijk),(nu,lmn)} = int_{partial Omega} Lambda^2_{mu,ijk} . n  Lambda^2_{nu,lmn} . n sqrt(g) |DF^-T n| dS
-
-        Encodes the bilinear form for the normal trace u . n against H(div) test functions.
-        """
-        if not hasattr(self, "_S2"):
-            self._S2 = BoundaryMassOperatorHDiv(self._mass_ops, self._active_faces)
-        return self._S2
 
 
 class BoundaryMassOperatorH1(LinOpWithTransp):
@@ -384,9 +369,13 @@ class BoundaryMassOperatorHCurl(LinOpWithTransp):
 
     Computes the surface integrals
 
-        S1_{(mu,ijk),(nu,lmn)} = int_{partial Omega} (Lambda^1_{mu,ijk} x n) . Lambda^1_{nu,lmn} sqrt(g) |DF^-T n| dS
+        W^{mu,nu}_{ijk,lmn} = int_{partial Omega} hat_Lambda^1_{mu,ijk} hat_R_n^{mu,nu} hat_Lambda^1_{nu,lmn} dS
 
-    such that I = u^T S1 alpha for any discrete H(curl) functions u_h and alpha_h.
+    where hat_R_n is the pullback of [n]_x to logical coordinates.
+
+    The result is a 3x3 BlockLinearOperator where diagonal blocks are zero
+    (skew-symmetry of [n]_x) and off-diagonal blocks are assembled via
+    surface_kernel_3d_mat_h1.
 
     Parameters
     ----------
@@ -424,24 +413,53 @@ class BoundaryMassOperatorHCurl(LinOpWithTransp):
         self._V_boundary_op_T = self._V_boundary_op.T
         self._W_boundary_op_T = self._W_boundary_op.T
 
-        # TODO: initialize BlockLinearOperator (3x3 blocks)
-        self._mat = None
-        self._M = None
-        self._M0 = None
-        self._domain = None
-        self._codomain = None
-        self._dtype = None
+        V = self._space
+        W = self._space
 
-        self._surface_quad_grid_meshes = []
-        self._surface_geom_weights = []
+        blocks = [
+            [
+                StencilMatrix(
+                    Vs.coeff_space,
+                    Ws.coeff_space,
+                    backend=PSYDAC_BACKEND_GPYCCEL,
+                    precompiled=True,
+                )
+                if i != j
+                else None
+                for j, Vs in enumerate(V.spaces)
+            ]
+            for i, Ws in enumerate(W.spaces)
+        ]
+
+        self._mat = BlockLinearOperator(
+            V.coeff_space,
+            W.coeff_space,
+            blocks=blocks,
+        )
+
+        self._M = self._W_extraction_op @ self._mat @ self._V_extraction_op_T
+        self._M0 = self._W_boundary_op @ self._M @ self._V_boundary_op_T
+
+        self._domain = self._M0.domain
+        self._codomain = self._M0.codomain
+        self._dtype = self._tensor_fem_spaces[0].coeff_space.dtype
+
+        # allocate temporaries
+        self._temp_VB = self._V_boundary_op.domain.zeros()
+        self._temp_VE = self._V_extraction_op.domain.zeros()
+        self._temp_WB = self._W_boundary_op.domain.zeros()
+        self._temp_WE = self._W_extraction_op.domain.zeros()
+        self._temp_mat = self._mat.domain.zeros()
+
+        # for each active face extract surface data
+        self._surface_R_n = []
         self._surface_spans = []
         self._surface_wts = []
         self._surface_bases = []
 
         for face_idx in range(6):
             if not self._active_faces[face_idx]:
-                self._surface_quad_grid_meshes.append(None)
-                self._surface_geom_weights.append(None)
+                self._surface_R_n.append(None)
                 self._surface_spans.append(None)
                 self._surface_wts.append(None)
                 self._surface_bases.append(None)
@@ -451,27 +469,50 @@ class BoundaryMassOperatorHCurl(LinOpWithTransp):
             surf_dirs = [d for d in range(3) if d != normal_dir]
             fixed_val = 0.0 if face_idx < 3 else 1.0
 
-            # TODO: use correct component quadrature points for H(curl)
-            surf_pts_1d = [self._quad_grid_pts[0][d].flatten() for d in surf_dirs]
+            # compute R_n using surf_dirs[0] quadrature points
+            surf_pts_1d = [self._quad_grid_pts[surf_dirs[0]][d].flatten() for d in surf_dirs]
             e_1d = [None, None, None]
             e_1d[surf_dirs[0]] = surf_pts_1d[0]
             e_1d[surf_dirs[1]] = surf_pts_1d[1]
             e_1d[normal_dir] = xp.array([fixed_val])
 
-            sqrt_g = xp.abs(self._domain_obj.jacobian_det(*e_1d))
             DFinv = self._domain_obj.jacobian_inv(*e_1d, change_out_order=True)
-            DFinv_n = DFinv[..., normal_dir, :]
-            norm_DFinv_n = xp.sqrt(xp.sum(DFinv_n**2, axis=-1))
-            self._surface_geom_weights.append(xp.squeeze(sqrt_g * norm_DFinv_n))
+            DFinv_n = xp.squeeze(DFinv[..., normal_dir, :])
+            norm_DFinv_n = xp.sqrt(xp.sum(DFinv_n**2, axis=-1, keepdims=True))
+            n_phys = DFinv_n / norm_DFinv_n
+            if face_idx >= 3:
+                n_phys = -n_phys
 
-            # TODO: surface meshes, spans, wts, bases per component
-            self._surface_quad_grid_meshes.append(None)
-            self._surface_spans.append(None)
-            self._surface_wts.append(None)
-            self._surface_bases.append(None)
+            n0 = n_phys[..., 0]
+            n1 = n_phys[..., 1]
+            n2 = n_phys[..., 2]
 
-        # TODO: load assembly kernel
-        self._assembly_kernel = None
+            R_n = xp.zeros((*n0.shape, 3, 3))
+            R_n[..., 0, 1] = -n2
+            R_n[..., 0, 2] =  n1
+            R_n[..., 1, 0] =  n2
+            R_n[..., 1, 2] = -n0
+            R_n[..., 2, 0] = -n1
+            R_n[..., 2, 1] =  n0
+            self._surface_R_n.append(R_n)
+
+            # only extract for tangential components mu != normal_dir
+            surface_spans_per_mu = [None, None, None]
+            surface_wts_per_mu = [None, None, None]
+            surface_bases_per_mu = [None, None, None]
+
+            for mu in surf_dirs:
+                surface_spans_per_mu[mu] = [self._spans_l[mu][d] for d in surf_dirs]
+                surface_wts_per_mu[mu] = [self._wts_l[mu][d] for d in surf_dirs]
+                surface_bases_per_mu[mu] = [self._bases_l[mu][d] for d in surf_dirs]
+
+            self._surface_spans.append(surface_spans_per_mu)
+            self._surface_wts.append(surface_wts_per_mu)
+            self._surface_bases.append(surface_bases_per_mu)
+
+        self._assembly_kernel = Pyccelkernel(mass_kernels.surface_kernel_3d_mat_h1)
+
+        self.assemble()
 
     @property
     def domain(self):
@@ -486,155 +527,110 @@ class BoundaryMassOperatorHCurl(LinOpWithTransp):
         return self._dtype
 
     def _assemble_face(self, face_idx: int, mat):
-        # TODO
-        pass
+        """
+        Assembles the contribution of a single face to the H(curl) boundary mass matrix.
+        Calls surface_kernel_3d_mat_h1 for each nonzero (mu, nu) block.
+        """
+        normal_dir = face_idx % 3
+        surf_dirs = [d for d in range(3) if d != normal_dir]
+
+        R_n = self._surface_R_n[face_idx]  # shape (nq1, nq2, 3, 3)
+
+        for mu, nu, n_comp in [(0, 1, 2), (0, 2, 1), (1, 2, 0)]:
+            if mu == normal_dir or nu == normal_dir:
+                continue
+
+            fem_space_mu = self._tensor_fem_spaces[mu]
+            fem_space_nu = self._tensor_fem_spaces[nu]
+
+            starts_mu = [int(s) for s in fem_space_mu.coeff_space.starts]
+            ends_mu = [int(e) for e in fem_space_mu.coeff_space.ends]
+            pads_mu = fem_space_mu.coeff_space.pads
+
+            starts_nu = [int(s) for s in fem_space_nu.coeff_space.starts]
+            ends_nu = [int(e) for e in fem_space_nu.coeff_space.ends]
+            pads_nu = fem_space_nu.coeff_space.pads
+
+            boundary_index_mu = starts_mu[normal_dir] if face_idx < 3 else ends_mu[normal_dir]
+            boundary_index_nu = starts_nu[normal_dir] if face_idx < 3 else ends_nu[normal_dir]
+
+            mat_fun_mu_nu = R_n[..., mu, nu]  # shape (nq1, nq2)
+            mat_fun_nu_mu = R_n[..., nu, mu]  # = -mat_fun_mu_nu
+
+            # assemble (mu, nu) block: row=mu, col=nu
+            self._assembly_kernel(
+                *self._surface_spans[face_idx][mu],
+                *fem_space_mu.degree,
+                *fem_space_nu.degree,
+                *starts_mu,
+                *pads_mu,
+                *self._surface_wts[face_idx][mu],
+                *self._surface_bases[face_idx][mu],
+                *self._surface_bases[face_idx][nu],
+                boundary_index_mu,
+                normal_dir,
+                mat_fun_mu_nu,
+                mat.blocks[mu][nu]._data,
+            )
+
+            # assemble (nu, mu) block: row=nu, col=mu
+            self._assembly_kernel(
+                *self._surface_spans[face_idx][nu],
+                *fem_space_nu.degree,
+                *fem_space_mu.degree,
+                *starts_nu,
+                *pads_nu,
+                *self._surface_wts[face_idx][nu],
+                *self._surface_bases[face_idx][nu],
+                *self._surface_bases[face_idx][mu],
+                boundary_index_nu,
+                normal_dir,
+                mat_fun_nu_mu,
+                mat.blocks[nu][mu]._data,
+            )
 
     def assemble(self, clear: bool = True):
-        # TODO
-        pass
-
-    def dot(self, v, out=None, apply_bc=True):
-        # TODO
-        raise NotImplementedError
-
-    def transpose(self, conjugate=False):
-        return self
-
-    def toarray(self):
-        # TODO
-        raise NotImplementedError
-
-    def tosparse(self):
-        # TODO
-        raise NotImplementedError
-
-
-class BoundaryMassOperatorHDiv(LinOpWithTransp):
-    """
-    Assembles the boundary mass matrix for H(div) basis functions.
-
-    Computes the surface integrals
-
-        S2_{(mu,ijk),(nu,lmn)} = int_{partial Omega} (Lambda^2_{mu,ijk} . n) (Lambda^2_{nu,lmn} . n) sqrt(g) |DF^-T n| dS
-
-    such that I = u^T S2 alpha for any discrete H(div) functions u_h and alpha_h.
-
-    Parameters
-    ----------
-    mass_ops : WeightedMassOperators
-        Mass operators object, contains geometry and derham.
-    active_faces : list[bool]
-        Which of the six faces to integrate over.
-    """
-
-    def __init__(
-        self,
-        mass_ops: WeightedMassOperators,
-        active_faces: list[bool],
-    ):
-        self._mass_ops = mass_ops
-        self._derham = mass_ops.derham
-        self._domain_obj = mass_ops.domain
-        self._active_faces = active_faces
-
-        self._space_key = "2"
-        self._space = self._derham.fem_spaces[self._space_key]
-        self._quad_grid_pts = self._derham.spline_attributes[self._space_key].quad_grid_pts
-        self._spans_l = self._derham.spline_attributes[self._space_key].quad_grid_spans
-        self._wts_l = self._derham.spline_attributes[self._space_key].quad_grid_wts
-        self._bases_l = self._derham.spline_attributes[self._space_key].quad_grid_bases
-        self._tensor_fem_spaces = self._derham.spline_attributes[self._space_key].tensor_spaces
-
-        self._V_extraction_op = self._derham.extraction_ops[self._space_key]
-        self._W_extraction_op = self._derham.extraction_ops[self._space_key]
-        self._V_boundary_op = self._derham.boundary_ops[self._space_key]
-        self._W_boundary_op = self._derham.boundary_ops[self._space_key]
-
-        self._V_extraction_op_T = self._V_extraction_op.T
-        self._W_extraction_op_T = self._W_extraction_op.T
-        self._V_boundary_op_T = self._V_boundary_op.T
-        self._W_boundary_op_T = self._W_boundary_op.T
-
-        # TODO: initialize BlockLinearOperator (3x3 blocks, only diagonal nonzero)
-        self._mat = None
-        self._M = None
-        self._M0 = None
-        self._domain = None
-        self._codomain = None
-        self._dtype = None
-
-        self._surface_quad_grid_meshes = []
-        self._surface_geom_weights = []
-        self._surface_spans = []
-        self._surface_wts = []
-        self._surface_bases = []
+        """Assembles the H(curl) boundary mass matrix."""
+        if clear:
+            for mu in range(3):
+                for nu in range(3):
+                    if mu != nu:
+                        self._mat.blocks[mu][nu]._data[:] = 0.0
 
         for face_idx in range(6):
             if not self._active_faces[face_idx]:
-                self._surface_quad_grid_meshes.append(None)
-                self._surface_geom_weights.append(None)
-                self._surface_spans.append(None)
-                self._surface_wts.append(None)
-                self._surface_bases.append(None)
                 continue
+            self._assemble_face(face_idx, self._mat)
 
-            normal_dir = face_idx % 3
-            surf_dirs = [d for d in range(3) if d != normal_dir]
-            fixed_val = 0.0 if face_idx < 3 else 1.0
-
-            # TODO: use correct component quadrature points for H(div)
-            surf_pts_1d = [self._quad_grid_pts[normal_dir][d].flatten() for d in surf_dirs]
-            e_1d = [None, None, None]
-            e_1d[surf_dirs[0]] = surf_pts_1d[0]
-            e_1d[surf_dirs[1]] = surf_pts_1d[1]
-            e_1d[normal_dir] = xp.array([fixed_val])
-
-            sqrt_g = xp.abs(self._domain_obj.jacobian_det(*e_1d))
-            DFinv = self._domain_obj.jacobian_inv(*e_1d, change_out_order=True)
-            DFinv_n = DFinv[..., normal_dir, :]
-            norm_DFinv_n = xp.sqrt(xp.sum(DFinv_n**2, axis=-1))
-            self._surface_geom_weights.append(xp.squeeze(sqrt_g * norm_DFinv_n))
-
-            # TODO: surface meshes, spans, wts, bases for normal_dir component only
-            self._surface_quad_grid_meshes.append(None)
-            self._surface_spans.append(None)
-            self._surface_wts.append(None)
-            self._surface_bases.append(None)
-
-        # TODO: load assembly kernel
-        self._assembly_kernel = None
-
-    @property
-    def domain(self):
-        return self._domain
-
-    @property
-    def codomain(self):
-        return self._codomain
-
-    @property
-    def dtype(self):
-        return self._dtype
-
-    def _assemble_face(self, face_idx: int, mat):
-        # TODO
-        pass
-
-    def assemble(self, clear: bool = True):
-        # TODO
-        pass
+        for mu in range(3):
+            for nu in range(3):
+                if mu != nu:
+                    self._mat.blocks[mu][nu].exchange_assembly_data()
+                    self._mat.blocks[mu][nu].update_ghost_regions()
 
     def dot(self, v, out=None, apply_bc=True):
-        # TODO
-        raise NotImplementedError
+        """Applies the H(curl) boundary mass matrix to a BlockVector."""
+        if out is None:
+            out = self.codomain.zeros()
+
+        if apply_bc:
+            self._V_boundary_op_T.dot(v, out=self._temp_VB)
+            self._V_extraction_op_T.dot(self._temp_VB, out=self._temp_mat)
+            self._mat.dot(self._temp_mat, out=self._temp_WE)
+            self._W_extraction_op.dot(self._temp_WE, out=self._temp_WB)
+            self._W_boundary_op.dot(self._temp_WB, out=out)
+        else:
+            self._V_extraction_op_T.dot(v, out=self._temp_mat)
+            self._mat.dot(self._temp_mat, out=self._temp_WE)
+            self._W_extraction_op.dot(self._temp_WE, out=out)
+
+        return out
 
     def transpose(self, conjugate=False):
         return self
 
     def toarray(self):
-        # TODO
-        raise NotImplementedError
+        return self._M0.toarray()
 
     def tosparse(self):
-        # TODO
-        raise NotImplementedError
+        return self._M0.tosparse()

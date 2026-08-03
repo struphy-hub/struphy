@@ -180,6 +180,41 @@ def test_boundary_mass_hollow_cylinder_nonconstant(num_elements, degree, bcs):
     assert xp.abs(numerical - exact) < 1e-2
 
 
+@pytest.mark.parametrize("num_elements", [[8, 8, 8]])
+@pytest.mark.parametrize("degree", [[2, 2, 2]])
+@pytest.mark.parametrize("bcs", [(("free", "free"), ("free", "free"), ("free", "free"))])
+@pytest.mark.parametrize("active_faces, exact", [
+    ([True, False, False, False, False, False], 1.0),
+    ([False, False, False, True, False, False], -1.0),
+])
+def test_boundary_mass_hcurl_per_face(num_elements, degree, bcs, active_faces, exact):
+    comm = MPI.COMM_WORLD
+
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
+
+    domain = domains.Cuboid(l1=0.0, r1=1.0, l2=0.0, r2=1.0, l3=0.0, r3=1.0)
+    mass_ops = WeightedMassOperators(derham, domain)
+
+    u0 = lambda e1, e2, e3: xp.zeros_like(e1)
+    u1 = lambda e1, e2, e3: xp.ones_like(e1)
+    u2 = lambda e1, e2, e3: xp.zeros_like(e1)
+
+    v0 = lambda e1, e2, e3: xp.zeros_like(e1)
+    v1 = lambda e1, e2, e3: xp.zeros_like(e1)
+    v2 = lambda e1, e2, e3: xp.ones_like(e1)
+
+    P = L2Projector("Hcurl", mass_ops)
+    u_h = P([u0, u1, u2])
+    v_h = P([v0, v1, v2])
+
+    bnd_ops = BoundaryIntegralOperators(mass_ops, active_faces=active_faces)
+    numerical = xp.dot(v_h.toarray(), bnd_ops.S1.dot(u_h).toarray())
+
+    print(f"active_faces={active_faces}: numerical = {numerical}, exact = {exact}")
+
+
 if __name__ == "__main__":
     from struphy import set_logging_level
     set_logging_level(logging.INFO)
@@ -189,7 +224,7 @@ if __name__ == "__main__":
         [1, 2, 3],
         (("free", "free"), ("free", "free"), ("free", "free")),
     )
-    
+
     test_boundary_mass_unit_cube_nonconstant(
         [8, 9, 10],
         [1, 2, 3],
@@ -206,3 +241,10 @@ if __name__ == "__main__":
         [1, 2, 3],
         (("free", "free"), None, ("free", "free")),
     )
+
+    test_boundary_mass_hcurl_per_face(
+    [16, 16, 16],
+    [2, 2, 2],
+    (("free", "free"), ("free", "free"), ("free", "free")),
+    [True, False, False, False, False, False],
+    1.0)
