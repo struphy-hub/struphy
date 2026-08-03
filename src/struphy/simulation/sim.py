@@ -310,6 +310,103 @@ class Simulation(SimulationBase):
 
         logger.debug("... Done.")
 
+    def estimate_mem(self, print_report: bool = True) -> dict:
+        """Estimate the memory footprint of all model variables, in bytes, BEFORE calling :meth:`allocate`.
+
+        Builds a throwaway Derham sequence (cheap: metadata only, no mass/basis operators) to obtain
+        the FEEC coefficient space sizes and MPI domain decomposition, then calls ``estimate_mem()`` on
+        every model variable, mirroring the loop in :meth:`_allocate_variables`. The throwaway Derham is
+        discarded afterward -- calling :meth:`allocate` still performs the full allocation from scratch.
+
+        Parameters
+        ----------
+        print_report : bool
+            If True (default), print a breakdown of the estimated memory usage of each variable on
+            MPI rank 0: both local (this rank) and global (summed over all ranks) values.
+
+        Returns
+        -------
+        dict
+            Mapping ``{"species.variable": local_bytes}`` (bytes on the *current* MPI rank), plus a
+            ``"total"`` entry with the local sum over all variables.
+        """
+        logger.debug("\nEstimating memory usage ...")
+
+        if self.grid is None or self.derham_opts is None:
+            derham = None
+        else:
+            if self.clone_config is None:
+                derham_comm = MPI.COMM_WORLD
+            else:
+                derham_comm = self.clone_config.sub_comm
+            derham = Derham(
+                self.grid,
+                self.derham_opts,
+                comm=derham_comm,
+                domain=self.domain,
+            )
+
+        mem = {}
+
+        if self.model.field_species:
+            for species, spec in self.model.field_species.items():
+                for k, v in spec.variables.items():
+                    assert isinstance(v, FEECVariable)
+                    mem[f"{species}.{k}"] = v.estimate_mem(derham=derham)
+
+        if self.model.fluid_species:
+            for species, spec in self.model.fluid_species.items():
+                for k, v in spec.variables.items():
+                    assert isinstance(v, FEECVariable)
+                    mem[f"{species}.{k}"] = v.estimate_mem(derham=derham)
+
+        if self.model.particle_species:
+            for species, spec in self.model.particle_species.items():
+                for k, v in spec.variables.items():
+                    if isinstance(v, PICVariable):
+                        mem[f"{species}.{k}"] = v.estimate_mem(
+                            clone_config=self.clone_config,
+                            derham=derham,
+                            domain=self.domain,
+                            equil=self.equil,
+                        )
+                    elif isinstance(v, SPHVariable):
+                        mem[f"{species}.{k}"] = v.estimate_mem(
+                            derham=derham,
+                            domain=self.domain,
+                            equil=self.equil,
+                        )
+
+        if self.model.diagnostic_species:
+            for species, spec in self.model.diagnostic_species.items():
+                for k, v in spec.variables.items():
+                    assert isinstance(v, FEECVariable)
+                    mem[f"{species}.{k}"] = v.estimate_mem(derham=derham)
+
+        total_local = sum(mem.values())
+        mem["total"] = total_local
+
+        if print_report:
+            if self.comm is not None:
+                total_global = self.comm.allreduce(total_local, op=MPI.SUM)
+            else:
+                total_global = total_local
+
+            if self.rank == 0:
+                print("\nESTIMATED MEMORY USAGE (before allocate()):")
+                for name, nbytes in mem.items():
+                    if name == "total":
+                        continue
+                    print(f"  {name}: {nbytes / 1e6:.2f} MB (local, rank 0)")
+                print(
+                    f"  TOTAL: {total_local / 1e6:.2f} MB (local, rank 0), "
+                    f"{total_global / 1e6:.2f} MB (global, summed over {self.comm_size} rank(s))"
+                )
+
+        logger.debug("... Done.")
+
+        return mem
+
     def save_geometry_and_equil_vtk(self):
         """Write a VTK file with geometry and (projected) equilibrium fields.
 
