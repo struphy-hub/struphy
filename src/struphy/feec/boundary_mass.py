@@ -14,7 +14,7 @@ from struphy.geometry.base import Domain
 from struphy.utils.pyccel import Pyccelkernel
 
 
-class BoundaryOperators:
+class BoundaryIntegralOperators:
     """
     Collection of boundary integral operators and boundary mass operators
     for the H1, H(curl) and H(div) spaces.
@@ -230,7 +230,7 @@ class BoundaryMassOperatorH1(LinOpWithTransp):
             self._surface_bases.append([self._bases_l[0][d] for d in surf_dirs])
 
         # load assembly kernel
-        self._assembly_kernel = Pyccelkernel(mass_kernels.surface_kernel_3d_mat)
+        self._assembly_kernel = Pyccelkernel(mass_kernels.surface_kernel_3d_mat_h1)
 
         self.assemble()
 
@@ -284,6 +284,7 @@ class BoundaryMassOperatorH1(LinOpWithTransp):
             *self._surface_bases[face_idx],
             *self._surface_bases[face_idx],
             boundary_index,
+            normal_dir,
             self._surface_geom_weights[face_idx],
             mat._data,
         )

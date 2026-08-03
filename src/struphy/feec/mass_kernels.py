@@ -21,7 +21,7 @@ def kernel_1d_mat(
     data: "float[:,:]",
 ):
     """
-    Performs the integration of Lambda_i * mat_fun(eta1) * Lambda_l for the basis functions (i, l) available on the calling process.
+    Performs the integration of Lambda_i * mat_fun(eta1) * Lambda_j for the basis functions (i, j) available on the calling process.
 
     The results are written into data (attention: data is NOT set to zero first, but the results are added to data).
     """
@@ -845,6 +845,7 @@ def surface_kernel_3d_mat_h1(
     bj1: "float[:,:,:,:]",
     bj2: "float[:,:,:,:]",
     boundary_index: int,
+    normal_dir: int,
     mat_fun: "float[:,:]",
     data: "float[:,:,:,:,:,:]",
 ):
@@ -854,22 +855,43 @@ def surface_kernel_3d_mat_h1(
     nq1 = shape(w1)[1]
     nq2 = shape(w2)[1]
 
-    i_local0 = boundary_index - starts0
+    starts = [starts0, starts1, starts2]
+    pads = [pads0, pads1, pads2]
+    pi = [pi0, pi1, pi2]
+    qi = [qi0, qi1, qi2]
+
+    surf_dirs = [d for d in range(3) if d != normal_dir]
+
+    pi_s1 = pi[surf_dirs[0]]
+    pi_s2 = pi[surf_dirs[1]]
+
+    qi_s1 = qi[surf_dirs[0]]
+    qi_s2 = qi[surf_dirs[1]]
+
+    starts_n = starts[normal_dir]
+    starts_s1 = starts[surf_dirs[0]]
+    starts_s2 = starts[surf_dirs[1]]
+
+    pads_n = pads[normal_dir]
+    pads_s1 = pads[surf_dirs[0]]
+    pads_s2 = pads[surf_dirs[1]]
+
+    i_local_n = boundary_index - starts_n
 
     for iel1 in range(ne1):
         for iel2 in range(ne2):
-            for il1 in range(pi1 + 1):
-                for il2 in range(pi2 + 1):
-                    i_global1 = spans1[iel1] - pi1 + il1
-                    i_global2 = spans2[iel2] - pi2 + il2
+            for il1 in range(pi_s1 + 1):
+                for il2 in range(pi_s2 + 1):
+                    i_global1 = spans1[iel1] - pi_s1 + il1
+                    i_global2 = spans2[iel2] - pi_s2 + il2
 
-                    i_local1 = i_global1 - starts1
-                    i_local2 = i_global2 - starts2
+                    i_local1 = i_global1 - starts_s1
+                    i_local2 = i_global2 - starts_s2
 
-                    for jl1 in range(qi1 + 1):
-                        for jl2 in range(qi2 + 1):
-                            j_global1 = spans1[iel1] - qi1 + jl1
-                            j_global2 = spans2[iel2] - qi2 + jl2
+                    for jl1 in range(qi_s1 + 1):
+                        for jl2 in range(qi_s2 + 1):
+                            j_global1 = spans1[iel1] - qi_s1 + jl1
+                            j_global2 = spans2[iel2] - qi_s2 + jl2
 
                             j_local1 = j_global1 - i_global1
                             j_local2 = j_global2 - i_global2
@@ -892,42 +914,33 @@ def surface_kernel_3d_mat_h1(
                                         * bj2[iel2, jl2, 0, q2]
                                     )
 
-                            data[
-                                pads0 + i_local0,
-                                pads1 + i_local1,
-                                pads2 + i_local2,
-                                pads0,
-                                pads1 + j_local1,
-                                pads2 + j_local2,
-                            ] += value
-
-
-def surface_kernel_3d_mat_hdiv(
-    spans1: "int[:]",
-    spans2: "int[:]",
-    pi0: int,
-    pi1: int,
-    pi2: int,
-    qi0: int,
-    qi1: int,
-    qi2: int,
-    starts0: int,
-    starts1: int,
-    starts2: int,
-    pads0: int,
-    pads1: int,
-    pads2: int,
-    w1: "float[:,:]",
-    w2: "float[:,:]",
-    bi1: "float[:,:,:,:]",
-    bi2: "float[:,:,:,:]",
-    bj1: "float[:,:,:,:]",
-    bj2: "float[:,:,:,:]",
-    boundary_index: int,
-    mat_fun: "float[:,:]",
-    data: "float[:,:,:,:,:,:]",
-):
-    pass
+                            if normal_dir == 0:
+                                data[
+                                    pads_n + i_local_n,
+                                    pads_s1 + i_local1,
+                                    pads_s2 + i_local2,
+                                    pads_n,
+                                    pads_s1 + j_local1,
+                                    pads_s2 + j_local2,
+                                ] += value
+                            elif normal_dir == 1:
+                                data[
+                                    pads_s1 + i_local1,
+                                    pads_n + i_local_n,
+                                    pads_s2 + i_local2,
+                                    pads_s1 + j_local1,
+                                    pads_n,
+                                    pads_s2 + j_local2,
+                                ] += value
+                            else:
+                                data[
+                                    pads_s1 + i_local1,
+                                    pads_s2 + i_local2,
+                                    pads_n + i_local_n,
+                                    pads_s1 + j_local1,
+                                    pads_s2 + j_local2,
+                                    pads_n,
+                                ] += value
 
 
 def surface_kernel_3d_mat_hcurl(
