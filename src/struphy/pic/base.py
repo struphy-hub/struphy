@@ -1153,8 +1153,8 @@ class Particles(metaclass=ABCMeta):
         self._n_rows = round(n_mks_load_loc * (1 + bufsize))
 
         # Have at least 3 spare places in markers array
-        assert self.first_free_idx + 2 < self.n_cols - 1, (
-            f"{self.first_free_idx + 2} is not smaller than {self.n_cols - 1 =}; not enough columns in marker array !!"
+        assert self.first_free_idx + 2 < self.n_cols - 2, (
+            f"{self.first_free_idx + 2} is not smaller than {self.n_cols - 2 =}; not enough columns in marker array !!"
         )
 
         if dry_run:
