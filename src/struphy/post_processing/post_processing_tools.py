@@ -3,6 +3,7 @@ import logging
 import os
 import pickle
 import shutil
+from contextlib import ExitStack
 from typing import TYPE_CHECKING
 
 import cunumpy as xp
@@ -34,6 +35,9 @@ if TYPE_CHECKING:
     from struphy.simulation.sim import Simulation
 
 logger = logging.getLogger("struphy")
+
+# push-forward of each de Rham space to Cartesian components, see Domain.push
+PUSH_KINDS = {"H1": "0", "Hcurl": "1", "Hdiv": "2", "L2": "3", "H1vec": "v"}
 
 
 class SplineValues:
@@ -368,18 +372,71 @@ class PostProcessor:
         physical: bool = False,
         create_vtk: bool = True,
     ):
+        """Evaluate the FEEC fields of all saved time steps and write them to disk.
+
+        The time steps are processed one after another: only the spline coefficients of a
+        single snapshot are held in memory, and each rank evaluates only those points of the
+        evaluation grid that lie in its own MPI domain. Arrays of the size of the global
+        evaluation grid therefore only ever exist on rank 0, where they are needed for output.
+
+        Parameters
+        ----------
+        step : int
+            Interval of saved time steps to post-process (1 = every step, 2 = every second step, ...).
+        celldivide : int
+            Grid refinement factor when evaluating FEM fields.
+        physical : bool
+            If True, also compute push-forwarded physical (x,y,z) components of fields.
+        create_vtk : bool
+            If True, create VTK files for visualisation.
+        """
         if not self.exist_fields:
             logger.warning("\nNo feec fields found in hdf5 file, skipping post-processing of fields.")
             return
 
+        # one set of spline functions, re-used for every time step
         fields, t_grid = self._create_femfields(step=step)
-        point_data, grids_log, grids_phy = self._eval_femfields(fields, celldivide=[celldivide] * 3)
-        if physical:
-            point_data_phy, _, _ = self._eval_femfields(
-                fields,
-                celldivide=[celldivide] * 3,
-                physical=True,
-            )
+
+        # evaluation grid; each rank only ever evaluates the points of its own domain
+        grids_log, grid_slices = self._create_eval_grids(celldivide=[celldivide] * 3)
+        grids_log_loc = [grid[sl] for grid, sl in zip(grids_log, grid_slices[self.rank])]
+        glob_shape = tuple(grid.size for grid in grids_log)
+
+        # the physical grid is only needed for output, hence it is only built on rank 0
+        if self.rank == 0:
+            grids_phy = list(self.domain(*grids_log))
+        else:
+            grids_phy = None
+
+        # point_data[species][var][t] stays an empty list on all ranks except rank 0
+        point_data = {species: {name: {} for name in vars} for species, vars in fields.items()}
+        point_data_phy = {species: {name: {} for name in vars} for species, vars in fields.items()}
+
+        logger.warning("\nEvaluating fields ...")
+        with ExitStack() as stack:
+            # hdf5 files of the simulation ranks whose data is read by this rank
+            files = [
+                stack.enter_context(
+                    h5py.File(os.path.join(self.path_out, "data/", f"data_proc{rank}.hdf5"), "r"),
+                )
+                for rank in self.range_ranks
+            ]
+
+            for n, t in enumerate(tqdm(t_grid)):
+                self._load_femfields(fields, files, n, step=step)
+
+                vals, vals_phy = self._eval_femfields(
+                    fields,
+                    grids_log_loc,
+                    grid_slices,
+                    glob_shape,
+                    physical=physical,
+                )
+
+                for species, vars in vals.items():
+                    for name, val in vars.items():
+                        point_data[species][name][t] = val
+                        point_data_phy[species][name][t] = vals_phy[species][name]
 
         # directory for field data
         path_fields = os.path.join(self.path_pproc, "fields_data")
@@ -490,11 +547,11 @@ class PostProcessor:
                 )
 
     def _create_femfields(self, step: int = 1):
-        """Reconstruct FEEC spline field objects from HDF5 output files.
+        """Allocate one FEEC spline field object per saved variable.
 
-        The method reads the distributed HDF5 files written by Struphy, builds one
-        :class:`SplineFunction` per saved variable and fills their DOF vectors from the
-        per-rank datasets.
+        Only a single set of fields is allocated, no matter how many time steps are
+        post-processed; the coefficients of the individual snapshots are read into it one
+        after another by :meth:`_load_femfields`.
 
         Parameters
         ----------
@@ -504,9 +561,9 @@ class PostProcessor:
         Returns
         -------
         fields : dict
-            Nested dictionary mapping time -> species -> variable -> ``SplineFunction``.
+            Nested dictionary mapping species -> variable -> ``SplineFunction``.
         t_grid : xp.ndarray
-            Array of times at which fields were reconstructed.
+            Array of times at which the fields were saved.
         """
         # get fields names, space IDs and time grid from 0-th rank hdf5 file
         with h5py.File(os.path.join(self.path_out, "data/", "data_proc0.hdf5"), "r") as file:
@@ -521,108 +578,97 @@ class PostProcessor:
 
             t_grid = file["time/value"][::step].copy()
 
-        # create one FemField for each snapshot
+        # create one FemField for each variable, re-used for all snapshots
         fields = {}
-        for t in t_grid:
-            fields[t] = {}
-            for species, vars in space_ids.items():
-                fields[t][species] = {}
-                for var, id in vars.items():
-                    fields[t][species][var] = self.derham.create_spline_function(
-                        var,
-                        id,
-                    )
-
-        # get hdf5 data
-        logger.warning("")
-        for rank in self.range_ranks:
-            # open hdf5 file
-            with h5py.File(os.path.join(self.path_out, "data/", f"data_proc{rank}.hdf5"), "r") as file:
-                for species, dset in file["feec"].items():
-                    for var, ddset in tqdm(dset.items()):
-                        # get global start indices, end indices and pads
-                        gl_s = ddset.attrs["starts"]
-                        gl_e = ddset.attrs["ends"]
-                        pads = ddset.attrs["pads"]
-
-                        assert gl_s.shape == (3,) or gl_s.shape == (3, 3)
-                        assert gl_e.shape == (3,) or gl_e.shape == (3, 3)
-                        assert pads.shape == (3,) or pads.shape == (3, 3)
-
-                        # loop over time
-                        for n, t in enumerate(t_grid):
-                            # scalar field
-                            if gl_s.shape == (3,):
-                                s1, s2, s3 = gl_s
-                                e1, e2, e3 = gl_e
-                                p1, p2, p3 = pads
-
-                                data = ddset[n * step, p1:-p1, p2:-p2, p3:-p3].copy()
-
-                                fields[t][species][var].vector[
-                                    s1 : e1 + 1,
-                                    s2 : e2 + 1,
-                                    s3 : e3 + 1,
-                                ] = data
-                                # update after each data addition, can be made more efficient
-                                fields[t][species][var].vector.update_ghost_regions()
-
-                            # vector-valued field
-                            else:
-                                for comp in range(3):
-                                    s1, s2, s3 = gl_s[comp]
-                                    e1, e2, e3 = gl_e[comp]
-                                    p1, p2, p3 = pads[comp]
-
-                                    data = ddset[str(comp + 1)][
-                                        n * step,
-                                        p1:-p1,
-                                        p2:-p2,
-                                        p3:-p3,
-                                    ].copy()
-
-                                    fields[t][species][var].vector[comp][
-                                        s1 : e1 + 1,
-                                        s2 : e2 + 1,
-                                        s3 : e3 + 1,
-                                    ] = data
-                                # update after each data addition, can be made more efficient
-                                fields[t][species][var].vector.update_ghost_regions()
+        for species, vars in space_ids.items():
+            fields[species] = {}
+            for var, id in vars.items():
+                fields[species][var] = self.derham.create_spline_function(
+                    var,
+                    id,
+                )
 
         logger.warning("Creation of Struphy Fields done.")
 
         return fields, t_grid
 
-    def _eval_femfields(
-        self,
-        fields: dict,
-        *,
-        celldivide: list = [1, 1, 1],
-        physical: bool = False,
-    ):
-        """Evaluate spline fields on a regular logical grid and optionally push to physical coords.
+    def _load_femfields(self, fields: dict, files: list, n: int, step: int = 1):
+        """Read the spline coefficients of one snapshot into ``fields`` (in-place).
 
         Parameters
         ----------
         fields : dict
-            Nested dictionary as returned by :meth:`_create_femfields` (time -> species -> var -> SplineFunction).
-        celldivide : list of int, optional
+            Nested dictionary species -> variable -> ``SplineFunction``, as returned
+            by :meth:`_create_femfields`.
+        files : list
+            Open hdf5 files, one for each simulation rank processed by this rank.
+        n : int
+            Index of the snapshot in the (strided) time grid.
+        step : int
+            Time-step stride of the saved snapshots.
+        """
+        for file in files:
+            for species, dset in file["feec"].items():
+                for var, ddset in dset.items():
+                    # get global start indices, end indices and pads
+                    gl_s = ddset.attrs["starts"]
+                    gl_e = ddset.attrs["ends"]
+                    pads = ddset.attrs["pads"]
+
+                    assert gl_s.shape == (3,) or gl_s.shape == (3, 3)
+                    assert gl_e.shape == (3,) or gl_e.shape == (3, 3)
+                    assert pads.shape == (3,) or pads.shape == (3, 3)
+
+                    vector = fields[species][var].vector
+
+                    # scalar field
+                    if gl_s.shape == (3,):
+                        s1, s2, s3 = gl_s
+                        e1, e2, e3 = gl_e
+                        p1, p2, p3 = pads
+
+                        vector[
+                            s1 : e1 + 1,
+                            s2 : e2 + 1,
+                            s3 : e3 + 1,
+                        ] = ddset[n * step, p1:-p1, p2:-p2, p3:-p3]
+
+                    # vector-valued field
+                    else:
+                        for comp in range(3):
+                            s1, s2, s3 = gl_s[comp]
+                            e1, e2, e3 = gl_e[comp]
+                            p1, p2, p3 = pads[comp]
+
+                            vector[comp][
+                                s1 : e1 + 1,
+                                s2 : e2 + 1,
+                                s3 : e3 + 1,
+                            ] = ddset[str(comp + 1)][n * step, p1:-p1, p2:-p2, p3:-p3]
+
+                    vector.update_ghost_regions()
+
+    def _create_eval_grids(self, celldivide: list = [1, 1, 1]):
+        """Build the logical evaluation grids and distribute them over the MPI ranks.
+
+        The grid points are split among the ranks exactly as
+        :meth:`~struphy.feec.psydac_derham.SplineFunction._flag_pts_not_on_proc` does,
+        such that every point is evaluated by exactly one rank. This allows each rank
+        to allocate only its own part of the evaluation grid.
+
+        Parameters
+        ----------
+        celldivide : list of int
             Refinement factor in each logical direction; length must be 3.
-        physical : bool, optional
-            If True, return mapped physical components (x,y,z) using the domain mapping.
 
         Returns
         -------
-        point_data : dict
-            Nested dictionary point_data[species][var][time] -> list of arrays (scalar or per-component).
         grids_log : list
-            Logical 1D grids for each eta direction.
-        grids_phy : list
-            Physical coordinate arrays corresponding to the logical grids (domain(*grids_log)).
+            The three global logical 1d grids.
+        grid_slices : list
+            One entry per rank, holding the three slices of ``grids_log`` owned by that rank.
+            The slices of all ranks tile the global grid exactly.
         """
-
-        # create logical and physical grids
-        assert isinstance(fields, dict)
         assert isinstance(celldivide, list)
         assert len(celldivide) == 3
 
@@ -631,123 +677,163 @@ class PostProcessor:
         grids_log = [
             xp.linspace(0.0, 1.0, num_elements_i * n_i + 1) for num_elements_i, n_i in zip(num_elements, celldivide)
         ]
-        grids_phy = [
-            self.domain(*grids_log)[0],
-            self.domain(*grids_log)[1],
-            self.domain(*grids_log)[2],
-        ]
 
-        # evaluate fields at evaluation grid and push-forward
-        point_data = {}
-        for species, vars in fields[list(fields.keys())[0]].items():
-            point_data[species] = {}
+        # domain decomposition of the pproc communicator (one row per rank), see Derham.domain_array
+        dom_arr = self.derham.domain_array
+
+        grid_slices = []
+        for rank in range(dom_arr.shape[0]):
+            slices = []
+            for n, grid in enumerate(grids_log):
+                left = dom_arr[rank, 3 * n + 0]
+                right = dom_arr[rank, 3 * n + 1]
+
+                # points on an interior boundary are shifted into the process to the right of it
+                shifted = grid.copy()
+                if left != 0.0:
+                    shifted[shifted == left] += 1e-8
+                if right != 1.0:
+                    shifted[shifted == right] += 1e-8
+
+                inds = xp.nonzero(xp.logical_and(shifted >= left, shifted <= right))[0]
+                assert inds.size > 0, f"Rank {rank} has no evaluation point in direction {n + 1}."
+                assert inds.size == inds[-1] - inds[0] + 1, "Evaluation points of a rank must be contiguous."
+
+                slices += [slice(int(inds[0]), int(inds[-1]) + 1)]
+
+            grid_slices += [tuple(slices)]
+
+        # the local grids must tile the global evaluation grid exactly
+        n_points = sum(
+            (sl[0].stop - sl[0].start) * (sl[1].stop - sl[1].start) * (sl[2].stop - sl[2].start) for sl in grid_slices
+        )
+        assert n_points == grids_log[0].size * grids_log[1].size * grids_log[2].size, (
+            "The MPI domains do not tile the evaluation grid exactly."
+        )
+
+        return grids_log, grid_slices
+
+    def _collect_on_root(self, loc_val: xp.ndarray, grid_slices: list, glob_shape: tuple):
+        """Assemble the local parts of an evaluation-grid array on rank 0.
+
+        Only rank 0 allocates an array of the size of the global evaluation grid;
+        all other ranks just send the points they own.
+
+        Parameters
+        ----------
+        loc_val : xp.ndarray
+            Values on the evaluation points owned by this rank.
+        grid_slices : list
+            Slices of the global grid owned by each rank, see :meth:`_create_eval_grids`.
+        glob_shape : tuple
+            Number of points of the global evaluation grid in each direction.
+
+        Returns
+        -------
+        xp.ndarray or None
+            The global array on rank 0, None on all other ranks.
+        """
+        if not self.parallel_pproc:
+            return loc_val
+
+        if self.rank == 0:
+            glob_val = xp.empty(glob_shape, dtype=float)
+            glob_val[grid_slices[0]] = loc_val
+
+            for rank in range(1, len(grid_slices)):
+                sl = grid_slices[rank]
+                buf = xp.empty(
+                    tuple(sl_i.stop - sl_i.start for sl_i in sl),
+                    dtype=float,
+                )
+                self.comm.Recv(buf, source=rank, tag=rank)
+                glob_val[sl] = buf
+
+            return glob_val
+
+        else:
+            self.comm.Send(xp.ascontiguousarray(loc_val), dest=0, tag=self.rank)
+            return None
+
+    def _eval_femfields(
+        self,
+        fields: dict,
+        grids_log_loc: list,
+        grid_slices: list,
+        glob_shape: tuple,
+        *,
+        physical: bool = False,
+    ):
+        """Evaluate the spline fields of one snapshot on the evaluation grid.
+
+        Each rank evaluates only the grid points of its own MPI domain, the values are
+        then collected on rank 0.
+
+        Parameters
+        ----------
+        fields : dict
+            Nested dictionary species -> var -> ``SplineFunction`` holding the coefficients
+            of one snapshot, see :meth:`_load_femfields`.
+        grids_log_loc : list
+            The three logical 1d grids restricted to the domain of this rank.
+        grid_slices : list
+            Slices of the global grid owned by each rank, see :meth:`_create_eval_grids`.
+        glob_shape : tuple
+            Number of points of the global evaluation grid in each direction.
+        physical : bool, optional
+            If True, also compute the push-forwarded physical (x,y,z) components.
+
+        Returns
+        -------
+        vals, vals_phy : dict
+            Nested dictionaries species -> var -> list of arrays (one entry for scalar-valued
+            and three entries for vector-valued spaces). The arrays are only assembled on
+            rank 0, the lists stay empty on all other ranks. ``vals_phy`` holds empty lists
+            if ``physical`` is False.
+        """
+        vals = {}
+        vals_phy = {}
+        for species, vars in fields.items():
+            vals[species] = {}
+            vals_phy[species] = {}
             for name, field in vars.items():
-                point_data[species][name] = {}
+                assert isinstance(field, SplineFunction)
 
-        logger.warning("\nEvaluating fields ...")
-        for t in tqdm(fields):
-            for species, vars in fields[t].items():
-                for name, field in vars.items():
-                    assert isinstance(field, SplineFunction)
-                    space_id = field.space_id
+                vals[species][name] = []
+                vals_phy[species][name] = []
 
-                    # evaluate field locally on rank and send to rank 0 for collection
-                    temp_val = field(*grids_log, local=True)
-                    if self.parallel_pproc:
-                        if isinstance(temp_val, xp.ndarray):
-                            if self.rank == 0:
-                                self.comm.Reduce(
-                                    MPI.IN_PLACE,
-                                    temp_val,
-                                    op=MPI.SUM,
-                                    root=0,
-                                )
-                            else:
-                                self.comm.Reduce(
-                                    temp_val,
-                                    None,
-                                    op=MPI.SUM,
-                                    root=0,
-                                )
-                        else:
-                            for j in range(3):
-                                if self.rank == 0:
-                                    self.comm.Reduce(
-                                        MPI.IN_PLACE,
-                                        temp_val[j],
-                                        op=MPI.SUM,
-                                        root=0,
-                                    )
-                                else:
-                                    self.comm.Reduce(
-                                        temp_val[j],
-                                        None,
-                                        op=MPI.SUM,
-                                        root=0,
-                                    )
+                # evaluate the field on the grid points of this rank only
+                loc_val = field(*grids_log_loc, local=True)
 
-                    # point_data will stay an empty list on all ranks except rank 0
-                    point_data[species][name][t] = []
+                if physical:
+                    # push-forward
+                    loc_val_phy = self.domain.push(
+                        loc_val,
+                        *grids_log_loc,
+                        kind=PUSH_KINDS[field.space_id],
+                    )
 
+                # scalar spaces
+                if isinstance(loc_val, xp.ndarray):
+                    comps = [loc_val]
+                    comps_phy = [loc_val_phy] if physical else []
+                # vector-valued spaces
+                else:
+                    comps = [loc_val[j] for j in range(3)]
+                    comps_phy = [loc_val_phy[j] for j in range(3)] if physical else []
+
+                # collect the values of all ranks on rank 0
+                for comp in comps:
+                    glob_val = self._collect_on_root(comp, grid_slices, glob_shape)
                     if self.rank == 0:
-                        # scalar spaces
-                        if isinstance(temp_val, xp.ndarray):
-                            if physical:
-                                # push-forward
-                                if space_id == "H1":
-                                    point_data[species][name][t].append(
-                                        self.domain.push(
-                                            temp_val,
-                                            *grids_log,
-                                            kind="0",
-                                        ),
-                                    )
-                                elif space_id == "L2":
-                                    point_data[species][name][t].append(
-                                        self.domain.push(
-                                            temp_val,
-                                            *grids_log,
-                                            kind="3",
-                                        ),
-                                    )
+                        vals[species][name] += [glob_val]
 
-                            else:
-                                point_data[species][name][t].append(temp_val)
+                for comp in comps_phy:
+                    glob_val = self._collect_on_root(comp, grid_slices, glob_shape)
+                    if self.rank == 0:
+                        vals_phy[species][name] += [glob_val]
 
-                        # vector-valued spaces
-                        else:
-                            for j in range(3):
-                                if physical:
-                                    # push-forward
-                                    if space_id == "Hcurl":
-                                        point_data[species][name][t].append(
-                                            self.domain.push(
-                                                temp_val,
-                                                *grids_log,
-                                                kind="1",
-                                            )[j],
-                                        )
-                                    elif space_id == "Hdiv":
-                                        point_data[species][name][t].append(
-                                            self.domain.push(
-                                                temp_val,
-                                                *grids_log,
-                                                kind="2",
-                                            )[j],
-                                        )
-                                    elif space_id == "H1vec":
-                                        point_data[species][name][t].append(
-                                            self.domain.push(
-                                                temp_val,
-                                                *grids_log,
-                                                kind="v",
-                                            )[j],
-                                        )
-
-                                else:
-                                    point_data[species][name][t].append(temp_val[j])
-
-        return point_data, grids_log, grids_phy
+        return vals, vals_phy
 
     def _create_vtk(
         self,
