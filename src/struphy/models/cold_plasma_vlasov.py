@@ -218,6 +218,9 @@ class ColdPlasmaVlasov(StruphyModel):
         phi = self.initial_poisson.variables.phi.spline.vector
         Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
         logger.info("... Done.")
+        
+        # reset particle weights
+        particles.weights = particles.weights_at_t0.copy()
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
