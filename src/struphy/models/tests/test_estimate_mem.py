@@ -30,15 +30,15 @@ def test_simulation_estimate_mem_returns_total():
             return 30
 
     sim = Simulation.__new__(Simulation)
-    sim.grid = object()
-    sim.derham_opts = object()
-    sim.clone_config = None
-    sim.domain = object()
-    sim.equil = object()
+    sim._grid = object()
+    sim._derham_opts = object()
+    sim._clone_config = None
+    sim._domain = object()
+    sim._equil = object()
     sim.comm = None
     sim.rank = 0
     sim.comm_size = 1
-    sim.model = SimpleNamespace(
+    sim._model = SimpleNamespace(
         field_species={"f": SimpleNamespace(variables={"u": DummyFEECVariable()})},
         fluid_species={},
         particle_species={"p": SimpleNamespace(variables={"v": DummyPICVariable(), "w": DummySPHVariable()})},
