@@ -3,7 +3,6 @@ import glob
 import json
 import logging
 import os
-import pickle
 import shutil
 import sysconfig
 import time
@@ -184,29 +183,10 @@ class Simulation(SimulationBase):
                     )
                 except shutil.SameFileError:
                     pass
-            # pickle struphy objects
+            # save simulation configuration as JSON
             else:
-                with open(os.path.join(path_out, "env.bin"), "wb") as f:
-                    pickle.dump(env, f, pickle.HIGHEST_PROTOCOL)
-                with open(os.path.join(path_out, "time_opts.bin"), "wb") as f:
-                    pickle.dump(time_opts, f, pickle.HIGHEST_PROTOCOL)
-                with open(os.path.join(path_out, "domain.bin"), "wb") as f:
-                    # WORKAROUND: cannot pickle pyccelized classes at the moment
-                    tmp_dct = {"name": domain.__class__.__name__, "params": domain.params}
-                    pickle.dump(tmp_dct, f, pickle.HIGHEST_PROTOCOL)
-                with open(os.path.join(path_out, "equil.bin"), "wb") as f:
-                    # WORKAROUND: cannot pickle pyccelized classes at the moment
-                    if equil is not None:
-                        tmp_dct = {"name": equil.__class__.__name__, "params": equil.params}
-                    else:
-                        tmp_dct = {}
-                    pickle.dump(tmp_dct, f, pickle.HIGHEST_PROTOCOL)
-                with open(os.path.join(path_out, "grid.bin"), "wb") as f:
-                    pickle.dump(grid, f, pickle.HIGHEST_PROTOCOL)
-                with open(os.path.join(path_out, "derham_opts.bin"), "wb") as f:
-                    pickle.dump(derham_opts, f, pickle.HIGHEST_PROTOCOL)
-                with open(os.path.join(path_out, "model_class.bin"), "wb") as f:
-                    pickle.dump(model.__class__, f, pickle.HIGHEST_PROTOCOL)
+                with open(os.path.join(path_out, "config.json"), "w") as f:
+                    json.dump(self.to_dict(), f, indent=4)
 
         # config clones
         if self.comm is None:
