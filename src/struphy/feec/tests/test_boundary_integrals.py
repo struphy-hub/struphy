@@ -180,8 +180,8 @@ def test_boundary_mass_hollow_cylinder_nonconstant(num_elements, degree, bcs):
     assert xp.abs(numerical - exact) < 1e-2
 
 
-@pytest.mark.parametrize("num_elements", [[8, 8, 8]])
-@pytest.mark.parametrize("degree", [[2, 2, 2]])
+@pytest.mark.parametrize("num_elements", [[8, 9, 10]])
+@pytest.mark.parametrize("degree", [[1, 2, 3]])
 @pytest.mark.parametrize("bcs", [(("free", "free"), ("free", "free"), ("free", "free"))])
 @pytest.mark.parametrize("active_faces, exact", [
     ([True, False, False, False, False, False], 1.0),
@@ -212,7 +212,10 @@ def test_boundary_mass_hcurl_per_face(num_elements, degree, bcs, active_faces, e
     bnd_ops = BoundaryIntegralOperators(mass_ops, active_faces=active_faces)
     numerical = xp.dot(v_h.toarray(), bnd_ops.S1.dot(u_h).toarray())
 
-    print(f"active_faces={active_faces}: numerical = {numerical}, exact = {exact}")
+    logger.info(f"numerical = {numerical}, exact = {exact}, error = {xp.abs(numerical - exact)}")
+
+    assert xp.abs(numerical - exact) < 1e-1
+
 
 
 if __name__ == "__main__":
@@ -243,8 +246,9 @@ if __name__ == "__main__":
     )
 
     test_boundary_mass_hcurl_per_face(
-    [16, 16, 16],
-    [2, 2, 2],
-    (("free", "free"), ("free", "free"), ("free", "free")),
-    [True, False, False, False, False, False],
-    1.0)
+        [16, 16, 16],
+        [2, 2, 2],
+        (("free", "free"), ("free", "free"), ("free", "free")),
+        [True, False, False, False, False, False],
+        1.0
+    )
