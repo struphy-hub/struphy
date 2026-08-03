@@ -31,7 +31,11 @@ jobs:
           FEECTOOLS_URL="https://github.com/struphy-hub/feectools.git"
 
           SUBMOD_SHA=$(git rev-parse HEAD:feectools)
-          LATEST_SHA=$(git ls-remote "$FEECTOOLS_URL" refs/heads/devel-tiny | cut -f1)
+LATEST_SHA=$(git ls-remote "$FEECTOOLS_URL" refs/heads/devel-tiny | cut -f1)
+if [[ -z "$LATEST_SHA" ]]; then
+  echo "## :x: Unable to resolve latest devel-tiny SHA from $FEECTOOLS_URL" | tee -a "$GITHUB_STEP_SUMMARY"
+  exit 1
+fi
 
           echo "Submodule commit:        $SUBMOD_SHA"
           echo "Latest devel-tiny commit: $LATEST_SHA"
