@@ -50,6 +50,11 @@ jobs:
           echo "::error::check_dependency_bounds.py reported lookup/configuration errors, see the previous step's log."
           exit 1
 
+      - name: Fail on unexpected check errors
+        if: steps.check.outputs.exit_code != '0' && steps.check.outputs.exit_code != '1' && steps.check.outputs.exit_code != '2'
+        run: |
+          echo "::error::check_dependency_bounds.py exited with unexpected code ${{ steps.check.outputs.exit_code }}."
+          exit 1
       - name: Update dependency bounds
         if: steps.check.outputs.exit_code == '1'
         run: python utils/update_dependency_bounds.py
