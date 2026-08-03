@@ -60,9 +60,15 @@ def _write_run_metadata(
     """Write the run's metadata file, the one place run-specific data lives.
 
     Starts from the `run_metadata.json` Struphy wrote in `sim_dir` (empty if the run
-    never got that far), and adds what only packaging knows: the job that produced the
-    run, and where its files ended up. The case metadata just references this file, so
-    nothing about a single run is spelled out twice.
+    never got that far), and adds what only packaging knows: the script the run was
+    submitted as, and where its files ended up. The case metadata just references this
+    file, so nothing about a single run is spelled out twice.
+
+    `slurm_script` is `SlurmScript.to_dict()` as it stands — `pragmas`, `modules` and
+    `custom_commands`, everything the submitted script was built from — and nothing
+    else. It is None for a run that was not submitted to SLURM but run locally.
+    `slurm_script_str` is the script as it was written to disk and run, `str(script)`
+    under SLURM and the plain bash script of a local run.
 
     Packaged paths are relative to the case folder (`run_dir.parent`), the same base the
     case metadata uses.
@@ -79,7 +85,8 @@ def _write_run_metadata(
     # Struphy records the rank count it actually ran with; fall back to the requested one
     # for a run that wrote no metadata of its own.
     metadata.setdefault("mpi_ranks", job_info.get("ranks"))
-    metadata["job"] = _job_description(job_info)
+    metadata["slurm_script"] = job_info.get("slurm_dict")
+    metadata["slurm_script_str"] = job_info.get("job_script")
     metadata["packaged_files"] = {
         "profiling_data": profiling_data[0] if profiling_data else None,
         "additional_profiling_data": profiling_data[1:],
@@ -261,22 +268,4 @@ def _collect_software_info(
         "python_environment_pip_freeze": _run_command(
             ["python", "-m", "pip", "freeze"],
         )["stdout"],
-    }
-
-
-def _job_description(job_info: dict[str, Any]) -> dict[str, Any]:
-    """Description of the job that ran one launch, for that run's metadata file.
-
-    Covers both schedulers: a SLURM batch script with `pragmas`, or the plain bash
-    script of a local run (no pragmas). Each launch is submitted (or run locally) as its
-    own job/script, so this belongs to the run rather than to the case.
-    ``slurm_dict["custom_commands"]`` is dropped because those commands are already
-    part of ``script``, and the `SLURM_*` variables because scope-profiler stores them
-    in every `profiling_data.h5`.
-    """
-    return {
-        "ranks": job_info.get("ranks"),
-        "script_path": job_info.get("job_script_path"),
-        "script": job_info.get("job_script"),
-        "pragmas": (job_info.get("slurm_dict") or {}).get("pragmas"),
     }
