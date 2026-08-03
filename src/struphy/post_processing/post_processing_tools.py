@@ -141,9 +141,34 @@ class ParamsIn:
             env = EnvironmentOptions.from_dict(dct["env"])
             time_opts = Time.from_dict(dct["time_opts"])
             domain: Domain = Domain.from_dict(dct["domain"])
-            equil: FluidEquilibrium = FluidEquilibrium.from_dict(dct["equil"])
-            grid = TensorProductGrid.from_dict(dct["grid"]) if dct["grid"] is not None else None
-            derham_opts = DerhamOptions.from_dict(dct["derham_opts"]) if dct["derham_opts"] is not None else None
+            equil = FluidEquilibrium.from_dict(dct.get("equil"))
+
+            grid_dct = dct.get("grid")
+            if grid_dct is not None:
+                grid_dct = dict(grid_dct)
+                if "num_elements" in grid_dct and grid_dct["num_elements"] is not None:
+                    grid_dct["num_elements"] = tuple(grid_dct["num_elements"])
+                if "mpi_dims_mask" in grid_dct and grid_dct["mpi_dims_mask"] is not None:
+                    grid_dct["mpi_dims_mask"] = tuple(grid_dct["mpi_dims_mask"])
+                grid = TensorProductGrid.from_dict(grid_dct)
+            else:
+                grid = None
+
+            derham_dct = dct.get("derham_opts")
+            if derham_dct is not None:
+                derham_dct = dict(derham_dct)
+                if "degree" in derham_dct and derham_dct["degree"] is not None:
+                    derham_dct["degree"] = tuple(derham_dct["degree"])
+                if "bcs" in derham_dct and derham_dct["bcs"] is not None:
+                    derham_dct["bcs"] = tuple(None if bc is None else tuple(bc) for bc in derham_dct["bcs"])
+                if "nquads" in derham_dct and derham_dct["nquads"] is not None:
+                    derham_dct["nquads"] = tuple(derham_dct["nquads"])
+                if "nquads_proj" in derham_dct and derham_dct["nquads_proj"] is not None:
+                    derham_dct["nquads_proj"] = tuple(derham_dct["nquads_proj"])
+                derham_opts = DerhamOptions.from_dict(derham_dct)
+            else:
+                derham_opts = None
+
             model: StruphyModel = StruphyModel.from_dict(dct["model"])
             sim = None
 
