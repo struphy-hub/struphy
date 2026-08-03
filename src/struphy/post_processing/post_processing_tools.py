@@ -119,7 +119,7 @@ class ParamsIn:
         self,
         path: str,
     ):
-        logger.info(f"\nReading in paramters from {path} ... ")
+        logger.info(f"\nReading in parameters from {path} ... ")
 
         params_path = os.path.join(path, "parameters.py")
         json_path = os.path.join(path, "config.json")
