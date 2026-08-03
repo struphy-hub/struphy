@@ -1,6 +1,7 @@
 import ast
 import json
 import os
+import re
 import shutil
 from pathlib import Path
 from typing import Any
@@ -11,6 +12,11 @@ from utils import _run_command, _slug
 
 # Written by `Simulation.run()`, one per `sim_<id>` run directory.
 RUN_METADATA_FILE = "run_metadata.json"
+
+# Written by the parameter file itself (see the Poisson example), one per `sim_<id>` run
+# directory: post-processing figures and small arrays, next to the profiling output.
+RESULTS_DIR_NAME = "results"
+RESULTS_FILE_SUFFIXES = (".png", ".npy")
 
 
 def _read_mpi_ranks(source_h5: Path) -> int | None:
@@ -57,6 +63,48 @@ def _copy_run_metadata(source_h5: Path, destination_h5: Path) -> tuple[str | Non
     output_name = f"{destination_h5.stem}-{RUN_METADATA_FILE}"
     shutil.copy2(source, destination_h5.parent / output_name)
     return output_name, str(source)
+
+
+def _run_token(sim_dir_name: str) -> str:
+    """`sim_03` -> `run03`; any other run directory name is slugged as it is."""
+    match = re.fullmatch(r"sim_?(\d+)", sim_dir_name)
+    if match:
+        return f"run{match.group(1)}"
+    return _slug(sim_dir_name)
+
+
+def _copy_run_results(sim_dir: Path, destination_dir: Path) -> dict[str, Any] | None:
+    """Package the figures and arrays a run wrote into `<sim_dir>/results`.
+
+    The parameter file of a case may post-process its own output (see the Poisson
+    example), writing `.png`/`.npy` files into a `results` folder inside its run
+    directory. Every run of a case writes its own, so they are packaged into a per-run
+    subfolder (`results-run03`) instead of being merged into the flat case folder.
+
+    Returns the packaged entry for `case_metadata.json`, or None if the run wrote no
+    such files.
+    """
+    source_dir = sim_dir / RESULTS_DIR_NAME
+    if not source_dir.is_dir():
+        return None
+
+    sources = sorted(
+        path for path in source_dir.iterdir() if path.is_file() and path.suffix.lower() in RESULTS_FILE_SUFFIXES
+    )
+    if not sources:
+        return None
+
+    output_name = f"{RESULTS_DIR_NAME}-{_run_token(sim_dir.name)}"
+    destination = destination_dir / output_name
+    destination.mkdir(parents=True, exist_ok=True)
+    for source in sources:
+        shutil.copy2(source, destination / source.name)
+
+    return {
+        "source": str(source_dir),
+        "destination": output_name,
+        "files": [source.name for source in sources],
+    }
 
 
 def _extract_string_node(node: ast.AST, constants: dict[str, str]) -> str | None:

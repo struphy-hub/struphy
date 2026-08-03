@@ -47,11 +47,13 @@ from pathlib import Path
 
 from clusters import HARDWARE_INFO, SLURM_PRESETS, detect_machine_name
 from package_profiling_results import (
+    RESULTS_DIR_NAME,
     _build_output_name,
     _collect_hardware_info,
     _collect_job_info,
     _collect_software_info,
     _copy_run_metadata,
+    _copy_run_results,
     _ensure_testcase_parameters_file,
     _read_mpi_ranks,
     _read_sim_metadata_from_parameters,
@@ -120,6 +122,7 @@ class ProfilingCase:
     # read by `package_case_metadata` when it (re)writes `case_metadata.json`.
     destination_dir: Path | None = field(init=False, default=None)
     packaged_files: list[dict] = field(init=False, default_factory=list)
+    packaged_results: list[dict] = field(init=False, default_factory=list)
 
     # Populated by `launch`, one entry per launch; read by `finalize_run`.
     job_infos: list[dict] = field(init=False, default_factory=list)
@@ -455,6 +458,7 @@ class ProfilingCase:
             ),
             "job_information": _collect_job_info(case_info),
             "files": self.packaged_files,
+            "results": self.packaged_results,
         }
         (self.destination_dir / "case_metadata.json").write_text(
             json.dumps(metadata, indent=2),
@@ -463,12 +467,15 @@ class ProfilingCase:
         return self.destination_dir
 
     def package_run(self, job_info: dict, verbose: bool = False) -> bool:
-        """Copy one finished run's `.h5` files and run metadata into the packaged folder.
+        """Copy one finished run's output into the packaged folder.
 
-        Only packages what that run actually produced, so a run whose job never started
-        (or failed before writing output) is skipped instead of being uploaded. Appends
-        to `packaged_files`, which the next `package_case_metadata` call writes into
-        `case_metadata.json`.
+        That is its `.h5` files and run metadata, plus anything the parameter file
+        post-processed into `sim_<launch_id>/results` (`.png` figures, `.npy` arrays),
+        which goes into a per-run `results-run<launch_id>` subfolder so the runs of a
+        case stay apart. Only packages what that run actually produced, so a run whose
+        job never started (or failed before writing output) is skipped instead of being
+        uploaded. Appends to `packaged_files`/`packaged_results`, which the next
+        `package_case_metadata` call writes into `case_metadata.json`.
 
         The run is located and named by its `launch_id`: `build_commands` names each run
         directory `sim_<launch_id>`, and the packaged `.h5` files follow the same id, so
@@ -479,7 +486,7 @@ class ProfilingCase:
             verbose: Print what is being packaged.
 
         Returns:
-            Whether any `.h5` output was found and packaged.
+            Whether any output (`.h5` files or `results` artifacts) was found and packaged.
 
         Raises:
             RuntimeError: If called before `package_case_metadata` has created the
@@ -496,8 +503,6 @@ class ProfilingCase:
         h5_files = sorted(sim_dir.rglob("*.h5")) if sim_dir.is_dir() else []
         if verbose:
             print(f"Found {len(h5_files)} .h5 file(s) in {sim_dir}")
-        if not h5_files:
-            return False
 
         # The launch id is unique per run, so the files of this run cannot collide with
         # those of any other; `index` only separates several `.h5` files of this one run.
@@ -528,7 +533,20 @@ class ProfilingCase:
                     "run_metadata_destination": run_metadata_name,
                 },
             )
-        return True
+
+        # Whatever the parameter file post-processed into `sim_dir/results` (figures,
+        # small arrays) is packaged into its own per-run subfolder of the same folder.
+        results_entry = _copy_run_results(sim_dir, self.destination_dir)
+        if results_entry is not None:
+            results_entry["launch_id"] = job_info["launch_id"]
+            self.packaged_results.append(results_entry)
+            if verbose:
+                print(
+                    f"Packaged {len(results_entry['files'])} results file(s) from "
+                    f"{sim_dir / RESULTS_DIR_NAME} into {results_entry['destination']}/",
+                )
+
+        return bool(h5_files) or results_entry is not None
 
     def _iter_finished_runs(self, poll_interval: float = 10.0):
         """Yield each run's `job_infos` entry as soon as that run finishes, in completion order.
