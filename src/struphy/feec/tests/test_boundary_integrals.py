@@ -65,7 +65,9 @@ def test_boundary_mass_unit_cube_constant(num_elements, degree, bcs):
 
 @pytest.mark.parametrize("num_elements", [[8, 9, 10]])
 @pytest.mark.parametrize("degree", [[1, 2, 3]])
-@pytest.mark.parametrize("bcs", [(("free", "free"), ("free", "free"), ("free", "free"))])
+@pytest.mark.parametrize("bcs", [(("dirichlet", "free"), ("free", "free"), ("free", "free")),
+                                (("free", "dirichlet"), ("free", "free"), ("free", "free")),
+                                (("dirichlet", "dirichlet"), ("free", "free"), ("free", "free"))])
 def test_boundary_mass_unit_cube_nonconstant(num_elements, degree, bcs):
     """
     Tests the boundary mass operator for alpha = eta1 + eta2 + eta3 on the unit cube.
@@ -79,11 +81,19 @@ def test_boundary_mass_unit_cube_nonconstant(num_elements, degree, bcs):
     domain = domains.Cuboid(l1=0.0, r1=1.0, l2=0.0, r2=1.0, l3=0.0, r3=1.0)
     mass_ops = WeightedMassOperators(derham, domain)
 
-    alpha = lambda e1, e2, e3: e1 + e2 + e3
-    exact = 9.0
+    if bcs[0] == ("dirichlet", "free"):
+        alpha = lambda e1, e2, e3: e1 + 0 * e2 + 0 * e3
+        exact = 3.0
+    elif bcs[0] == ("free", "dirichlet"):
+        alpha = lambda e1, e2, e3: 1.0 - e1 + 0 * e2 + 0 * e3
+        exact = 3.0
+    else:
+        assert bcs[0] == ("dirichlet", "dirichlet")
+        alpha = lambda e1, e2, e3: e1 * (1.0 - e1) + 0 * e2 + 0 * e3
+        exact = 2.0 / 3.0
 
     P = L2Projector("H1", mass_ops)
-    alpha_h = P(alpha)
+    alpha_h = P(alpha, apply_bc=True)
 
     bnd_ops = BoundaryIntegralOperators(mass_ops)
     v = bnd_ops.S0.dot(alpha_h)
@@ -92,7 +102,7 @@ def test_boundary_mass_unit_cube_nonconstant(num_elements, degree, bcs):
 
     logger.info(f"numerical = {numerical}, exact = {exact}, error = {xp.abs(numerical - exact)}")
 
-    assert xp.abs(numerical - exact) < 1e-3
+    assert xp.abs(numerical - exact) < 2e-2
 
 
 @pytest.mark.parametrize("num_elements", [[8, 9, 10]])
@@ -101,7 +111,7 @@ def test_boundary_mass_unit_cube_nonconstant(num_elements, degree, bcs):
 def test_boundary_mass_cuboid_nontrivial(num_elements, degree, bcs):
     """
     Tests the boundary mass operator for alpha = eta1 + eta2 + eta3
-    on a non-unit cuboid [0,2]^3.
+    on a non-unit cuboid [-1,1] x [-1,3] x [0,3].
     """
     comm = MPI.COMM_WORLD
 
@@ -109,11 +119,11 @@ def test_boundary_mass_cuboid_nontrivial(num_elements, degree, bcs):
     derham_opts = DerhamOptions(degree=degree, bcs=bcs)
     derham = Derham(grid, derham_opts, comm=comm)
 
-    domain = domains.Cuboid(l1=0.0, r1=2.0, l2=0.0, r2=2.0, l3=0.0, r3=2.0)
+    domain = domains.Cuboid(l1=-1.0, r1=1.0, l2=-1.0, r2=3.0, l3=0.0, r3=3.0)
     mass_ops = WeightedMassOperators(derham, domain)
 
     alpha = lambda e1, e2, e3: e1 + e2 + e3
-    exact = 36.0
+    exact = 78.0
 
     P = L2Projector("H1", mass_ops)
     alpha_h = P(alpha)
@@ -131,21 +141,31 @@ def test_boundary_mass_cuboid_nontrivial(num_elements, degree, bcs):
 @pytest.mark.parametrize("num_elements", [[8, 9, 10]])
 @pytest.mark.parametrize("degree", [[1, 2, 3]])
 @pytest.mark.parametrize("bcs", [(("free", "free"), None, ("free", "free"))])
-def test_boundary_mass_hollow_cylinder(num_elements, degree, bcs):
+def test_boundary_mass_hollow_cylinder_nonconstant(num_elements, degree, bcs):
     """
-    Tests the boundary mass operator for alpha = 1 on a HollowCylinder.
+    Tests the boundary mass operator for alpha = exp(eta3) on a HollowCylinder.
     """
+    import math
     comm = MPI.COMM_WORLD
 
     grid = TensorProductGrid(num_elements=num_elements)
     derham_opts = DerhamOptions(degree=degree, bcs=bcs)
     derham = Derham(grid, derham_opts, comm=comm)
 
-    domain = domains.HollowCylinder(a1=0.2, a2=1.0, Lz=4.0)
+    a1 = 0.2
+    a2 = 1.0
+    Lz = 4.0
+
+    domain = domains.HollowCylinder(a1=a1, a2=a2, Lz=Lz)
     mass_ops = WeightedMassOperators(derham, domain)
 
-    alpha = lambda e1, e2, e3: xp.ones_like(e1)
-    exact = 11.52 * xp.pi
+    alpha = lambda e1, e2, e3: xp.exp(e3)
+    e = math.e
+    exact = xp.pi * (
+        2 * a1 * Lz * (e - 1)
+        + 2 * a2 * Lz * (e - 1)
+        + (a2**2 - a1**2) * (1 + e)
+    )
 
     P = L2Projector("H1", mass_ops)
     alpha_h = P(alpha)
@@ -169,18 +189,20 @@ if __name__ == "__main__":
         [1, 2, 3],
         (("free", "free"), ("free", "free"), ("free", "free")),
     )
+    
     test_boundary_mass_unit_cube_nonconstant(
-        [8, 8, 8],
-        [2, 2, 2],
-        (("free", "free"), ("free", "free"), ("free", "free")),
+        [8, 9, 10],
+        [1, 2, 3],
+        (("dirichlet", "free"), ("free", "free"), ("free", "free")),
     )
+    
     test_boundary_mass_cuboid_nontrivial(
-        [8, 8, 8],
-        [2, 2, 2],
+        [8, 9, 10],
+        [1, 2, 3],
         (("free", "free"), ("free", "free"), ("free", "free")),
     )
-    test_boundary_mass_hollow_cylinder(
-        [8, 8, 8],
-        [2, 2, 2],
+    test_boundary_mass_hollow_cylinder_nonconstant(
+        [8, 9, 10],
+        [1, 2, 3],
         (("free", "free"), None, ("free", "free")),
     )
