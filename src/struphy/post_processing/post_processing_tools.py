@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import cunumpy as xp
 import h5py
 import yaml
+from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 from pyevtk.hl import gridToVTK
 from tqdm import tqdm
@@ -133,6 +134,7 @@ class ParamsIn:
             grid = params_in.grid
             derham_opts = params_in.derham_opts
             model = params_in.model
+            sim = params_in.sim
 
         elif os.path.exists(bin_path):
             with open(os.path.join(path, "env.bin"), "rb") as f:
@@ -157,6 +159,7 @@ class ParamsIn:
             with open(os.path.join(path, "model_class.bin"), "rb") as f:
                 model_class: StruphyModel = pickle.load(f)
                 model = model_class()
+            sim = None
 
         else:
             raise FileNotFoundError(f"Neither of the paths {params_path} or {bin_path} exists.")
@@ -170,6 +173,7 @@ class ParamsIn:
         self.grid = grid
         self.derham_opts = derham_opts
         self.model = model
+        self.sim = sim
 
 
 class PostProcessor:
@@ -185,6 +189,8 @@ class PostProcessor:
         Simulation object of a finished run. If provided, its metadata and output paths are used.
     path_out : str, optional
         Path to the Struphy output folder. Required if ``sim`` is not given.
+    parallel_pproc : bool, optional
+        Whether to run post-processing in parallel using MPI. Default is False (serial post-processing).
 
     Attributes
     ----------
@@ -206,9 +212,10 @@ class PostProcessor:
         self,
         sim: "Simulation" = None,
         path_out: str = None,
+        parallel_pproc: bool = False,
     ):
 
-        # create post-processing folder
+        # import simulation parameters from sim object or from path_out
         if sim is None:
             assert path_out is not None, (
                 "If no sim object is provided, a path_out must be given to retrieve the parameters of the run to post-process."
@@ -218,37 +225,59 @@ class PostProcessor:
             derham_opts = params_in.derham_opts
             domain = params_in.domain
             model = params_in.model
+            imported_sim = params_in.sim
         else:
             path_out = sim.env.path_out
             grid = sim.grid
             derham_opts = sim.derham_opts
             domain = sim.domain
             model = sim.model
+            imported_sim = sim
 
-        with open(os.path.join(path_out, "meta.yml"), "r") as f:
-            meta = yaml.load(f, Loader=yaml.FullLoader)
-        comm_size = meta["MPI processes"]
-
+        # create post-processing folder
         self.path_out = path_out
         self.path_pproc = os.path.join(path_out, "post_processing")
-        if grid is None or derham_opts is None:
-            self.derham = None
-        else:
-            self.derham = Derham(
-                grid,
-                derham_opts,
-                comm=None,
-                domain=domain,
-            )
+
+        # parallel post-processing (default: False)
+        self.parallel_pproc = parallel_pproc
+
+        # struphy objects needed for post-processing
         self.domain = domain
         self.model = model
-        self.comm_size = comm_size
 
-        try:
-            os.mkdir(self.path_pproc)
-        except:
-            shutil.rmtree(self.path_pproc)
-            os.mkdir(self.path_pproc)
+        if self.parallel_pproc:
+            assert imported_sim is not None, "Parallel post-processing only supported when the sim object is provided."
+            self.derham = imported_sim.derham
+            self.comm = self.derham.comm
+            self.comm_size = self.comm.Get_size()
+            self.rank = self.comm.Get_rank()
+            self.range_ranks = range(self.rank, self.rank + 1)
+        else:
+            if grid is None or derham_opts is None:
+                self.derham = None
+            else:
+                self.derham = Derham(
+                    grid,
+                    derham_opts,
+                    comm=None,
+                    domain=domain,
+                )
+            self.comm = MockComm()
+            # get number of MPI ranks used in the simulation from meta.yml
+            with open(os.path.join(path_out, "meta.yml"), "r") as f:
+                meta = yaml.load(f, Loader=yaml.FullLoader)
+            self.comm_size = meta["MPI processes"]
+            self.rank = 0
+            self.range_ranks = range(int(self.comm_size))
+
+        # create or remove output paths
+        if self.rank == 0:
+            try:
+                os.mkdir(self.path_pproc)
+            except:
+                shutil.rmtree(self.path_pproc)
+                os.mkdir(self.path_pproc)
+        self.comm.Barrier()
 
     def plot_time_traces(self):
         path_time_trace = os.path.join(self.path_out, "profiling_time_trace.pkl")
@@ -287,8 +316,9 @@ class PostProcessor:
 
         # check for fields and kinetic data in hdf5 file that need post processing
         with h5py.File(os.path.join(self.path_out, "data/", "data_proc0.hdf5"), "r") as file:
-            # save time grid at which post-processing data is created
-            xp.save(os.path.join(self.path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
+            if self.rank == 0:
+                # save time grid at which post-processing data is created
+                xp.save(os.path.join(self.path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
 
             if "feec" in file.keys():
                 self.exist_fields = True
@@ -353,39 +383,41 @@ class PostProcessor:
         # directory for field data
         path_fields = os.path.join(self.path_pproc, "fields_data")
 
-        try:
-            os.mkdir(path_fields)
-        except:
-            shutil.rmtree(path_fields)
-            os.mkdir(path_fields)
+        if self.rank == 0:
+            try:
+                os.mkdir(path_fields)
+            except:
+                shutil.rmtree(path_fields)
+                os.mkdir(path_fields)
 
-        # save data dicts for each field
-        for species, vars in point_data.items():
-            for name, val in vars.items():
-                try:
-                    os.mkdir(os.path.join(path_fields, species))
-                except:
-                    pass
+            # save data dicts for each field
+            for species, vars in point_data.items():
+                for name, val in vars.items():
+                    try:
+                        os.mkdir(os.path.join(path_fields, species))
+                    except:
+                        pass
 
-                with open(os.path.join(path_fields, species, name + "_log.bin"), "wb") as handle:
-                    pickle.dump(val, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                    with open(os.path.join(path_fields, species, name + "_log.bin"), "wb") as handle:
+                        pickle.dump(val, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
+                    if physical:
+                        with open(os.path.join(path_fields, species, name + "_phy.bin"), "wb") as handle:
+                            pickle.dump(point_data_phy[species][name], handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+            # save grids
+            with open(os.path.join(path_fields, "grids_log.bin"), "wb") as handle:
+                pickle.dump(grids_log, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+            with open(os.path.join(path_fields, "grids_phy.bin"), "wb") as handle:
+                pickle.dump(grids_phy, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+            # create vtk files
+            if create_vtk:
+                self._create_vtk(path_fields, t_grid, grids_phy, point_data)
                 if physical:
-                    with open(os.path.join(path_fields, species, name + "_phy.bin"), "wb") as handle:
-                        pickle.dump(point_data_phy[species][name], handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-        # save grids
-        with open(os.path.join(path_fields, "grids_log.bin"), "wb") as handle:
-            pickle.dump(grids_log, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-        with open(os.path.join(path_fields, "grids_phy.bin"), "wb") as handle:
-            pickle.dump(grids_phy, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-        # create vtk files
-        if create_vtk:
-            self._create_vtk(path_fields, t_grid, grids_phy, point_data)
-            if physical:
-                self._create_vtk(path_fields, t_grid, grids_phy, point_data_phy, physical=True)
+                    self._create_vtk(path_fields, t_grid, grids_phy, point_data_phy, physical=True)
+        self.comm.Barrier()
 
     def process_particles(
         self,
@@ -401,22 +433,26 @@ class PostProcessor:
         # directory for kinetic data
         path_kinetics = os.path.join(self.path_pproc, "kinetic_data")
 
-        try:
-            os.mkdir(path_kinetics)
-        except:
-            shutil.rmtree(path_kinetics)
-            os.mkdir(path_kinetics)
+        if self.rank == 0:
+            try:
+                os.mkdir(path_kinetics)
+            except:
+                shutil.rmtree(path_kinetics)
+                os.mkdir(path_kinetics)
+        self.comm.Barrier()
 
         # kinetic post-processing for each species
         for n, species in enumerate(self.kinetic_species):
             # directory for each species
             path_kinetics_species = os.path.join(path_kinetics, species)
 
-            try:
-                os.mkdir(path_kinetics_species)
-            except:
-                shutil.rmtree(path_kinetics_species)
-                os.mkdir(path_kinetics_species)
+            if self.rank == 0:
+                try:
+                    os.mkdir(path_kinetics_species)
+                except:
+                    shutil.rmtree(path_kinetics_species)
+                    os.mkdir(path_kinetics_species)
+            self.comm.Barrier()
 
             # markers
             if self.exist_particles["markers"]:
@@ -498,7 +534,7 @@ class PostProcessor:
 
         # get hdf5 data
         logger.warning("")
-        for rank in range(int(self.comm_size)):
+        for rank in self.range_ranks:
             # open hdf5 file
             with h5py.File(os.path.join(self.path_out, "data/", f"data_proc{rank}.hdf5"), "r") as file:
                 for species, dset in file["feec"].items():
@@ -614,67 +650,101 @@ class PostProcessor:
                     assert isinstance(field, SplineFunction)
                     space_id = field.space_id
 
-                    # field evaluation
-                    temp_val = field(*grids_log)
+                    # evaluate field locally on rank and send to rank 0 for collection
+                    temp_val = field(*grids_log, local=True)
+                    if self.parallel_pproc:
+                        if isinstance(temp_val, xp.ndarray):
+                            if self.rank == 0:
+                                self.comm.Reduce(
+                                    MPI.IN_PLACE,
+                                    temp_val,
+                                    op=MPI.SUM,
+                                    root=0,
+                                )
+                            else:
+                                self.comm.Reduce(
+                                    temp_val,
+                                    None,
+                                    op=MPI.SUM,
+                                    root=0,
+                                )
+                        else:
+                            for j in range(3):
+                                if self.rank == 0:
+                                    self.comm.Reduce(
+                                        MPI.IN_PLACE,
+                                        temp_val[j],
+                                        op=MPI.SUM,
+                                        root=0,
+                                    )
+                                else:
+                                    self.comm.Reduce(
+                                        temp_val[j],
+                                        None,
+                                        op=MPI.SUM,
+                                        root=0,
+                                    )
 
+                    # point_data will stay an empty list on all ranks except rank 0
                     point_data[species][name][t] = []
 
-                    # scalar spaces
-                    if isinstance(temp_val, xp.ndarray):
-                        if physical:
-                            # push-forward
-                            if space_id == "H1":
-                                point_data[species][name][t].append(
-                                    self.domain.push(
-                                        temp_val,
-                                        *grids_log,
-                                        kind="0",
-                                    ),
-                                )
-                            elif space_id == "L2":
-                                point_data[species][name][t].append(
-                                    self.domain.push(
-                                        temp_val,
-                                        *grids_log,
-                                        kind="3",
-                                    ),
-                                )
-
-                        else:
-                            point_data[species][name][t].append(temp_val)
-
-                    # vector-valued spaces
-                    else:
-                        for j in range(3):
+                    if self.rank == 0:
+                        # scalar spaces
+                        if isinstance(temp_val, xp.ndarray):
                             if physical:
                                 # push-forward
-                                if space_id == "Hcurl":
+                                if space_id == "H1":
                                     point_data[species][name][t].append(
                                         self.domain.push(
                                             temp_val,
                                             *grids_log,
-                                            kind="1",
-                                        )[j],
+                                            kind="0",
+                                        ),
                                     )
-                                elif space_id == "Hdiv":
+                                elif space_id == "L2":
                                     point_data[species][name][t].append(
                                         self.domain.push(
                                             temp_val,
                                             *grids_log,
-                                            kind="2",
-                                        )[j],
-                                    )
-                                elif space_id == "H1vec":
-                                    point_data[species][name][t].append(
-                                        self.domain.push(
-                                            temp_val,
-                                            *grids_log,
-                                            kind="v",
-                                        )[j],
+                                            kind="3",
+                                        ),
                                     )
 
                             else:
-                                point_data[species][name][t].append(temp_val[j])
+                                point_data[species][name][t].append(temp_val)
+
+                        # vector-valued spaces
+                        else:
+                            for j in range(3):
+                                if physical:
+                                    # push-forward
+                                    if space_id == "Hcurl":
+                                        point_data[species][name][t].append(
+                                            self.domain.push(
+                                                temp_val,
+                                                *grids_log,
+                                                kind="1",
+                                            )[j],
+                                        )
+                                    elif space_id == "Hdiv":
+                                        point_data[species][name][t].append(
+                                            self.domain.push(
+                                                temp_val,
+                                                *grids_log,
+                                                kind="2",
+                                            )[j],
+                                        )
+                                    elif space_id == "H1vec":
+                                        point_data[species][name][t].append(
+                                            self.domain.push(
+                                                temp_val,
+                                                *grids_log,
+                                                kind="v",
+                                            )[j],
+                                        )
+
+                                else:
+                                    point_data[species][name][t].append(temp_val[j])
 
         return point_data, grids_log, grids_phy
 
@@ -787,11 +857,13 @@ class PostProcessor:
         else:
             save_index = list(range(4)) + [-1]
 
-        try:
-            os.mkdir(path_orbits)
-        except:
-            shutil.rmtree(path_orbits)
-            os.mkdir(path_orbits)
+        if self.rank == 0:
+            try:
+                os.mkdir(path_orbits)
+            except:
+                shutil.rmtree(path_orbits)
+                os.mkdir(path_orbits)
+        self.comm.Barrier()
 
         # temporary array
         temp = xp.empty((n_markers, len(save_index)), order="C")
@@ -814,12 +886,18 @@ class PostProcessor:
                 species + "_{0:0{1}d}.txt".format(n, log_nt),
             )
 
-            for i in range(int(self.comm_size)):
-                with h5py.File(os.path.join(self.path_out, "data/", f"data_proc{i}.hdf5"), "r") as file:
+            for rank in self.range_ranks:
+                with h5py.File(os.path.join(self.path_out, "data/", f"data_proc{rank}.hdf5"), "r") as file:
                     markers = file["kinetic/" + species + "/markers"]
                     ids = markers[n * step, :, -1].astype("int")
                     ids = ids[ids != -1]  # exclude holes
                     temp[ids] = markers[n * step, : ids.size, save_index]
+
+            if self.parallel_pproc:
+                if self.rank == 0:
+                    self.comm.Reduce(MPI.IN_PLACE, temp, op=MPI.SUM, root=0)
+                else:
+                    self.comm.Reduce(temp, None, op=MPI.SUM, root=0)
 
             # sorting out lost particles
             ids = temp[:, -1].astype("int")
@@ -840,11 +918,13 @@ class PostProcessor:
             pos_phys = self.domain(xp.array(temp[~lost_particles_mask, :3]), change_out_order=True)
             temp[~lost_particles_mask, :3] = pos_phys
 
-            # save numpy
-            xp.save(file_npy, temp)
-            # move ids to first column and save txt
-            temp = xp.roll(temp, 1, axis=1)
-            xp.savetxt(file_txt, temp[:, (0, 1, 2, 3, -1)], fmt="%12.6f", delimiter=", ")
+            if self.rank == 0:
+                # save numpy
+                xp.save(file_npy, temp)
+                # move ids to first column and save txt
+                temp = xp.roll(temp, 1, axis=1)
+                xp.savetxt(file_txt, temp[:, (0, 1, 2, 3, -1)], fmt="%12.6f", delimiter=", ")
+            self.comm.Barrier()
 
     def _post_process_f(
         self,
@@ -868,54 +948,105 @@ class PostProcessor:
         compute_bckgr : bool, optional
             If True, compute and add background contribution to the saved binned data.
         """
+        print(f"{self.rank} starting post-processing of distribution functions for {path_kinetic_species} ...")
+
         species = path_kinetic_species.split("/")[-1]
         species_obj: ParticleSpecies = self.model.particle_species[species]
 
         # directory for .npy files
         path_distr = os.path.join(path_kinetic_species, "distribution_function")
 
-        try:
-            os.mkdir(path_distr)
-        except:
-            shutil.rmtree(path_distr)
-            os.mkdir(path_distr)
+        if self.rank == 0:
+            try:
+                os.mkdir(path_distr)
+            except:
+                shutil.rmtree(path_distr)
+                os.mkdir(path_distr)
+        self.comm.Barrier()
 
         logger.warning("Evaluation of distribution functions for " + str(species))
 
         # Create grids
         with h5py.File(os.path.join(self.path_out, "data/data_proc0.hdf5"), "r") as file_0:
+            slice_names = []
             for slice_name in tqdm(file_0["kinetic/" + species + "/f"]):
+                slice_names += [slice_name]
                 # create a new folder for each slice
                 path_slice = os.path.join(path_distr, slice_name)
-                os.mkdir(path_slice)
+                if self.rank == 0:
+                    os.mkdir(path_slice)
+                self.comm.Barrier()
 
                 # Find out all names of slices
-                slice_names = slice_name.split("_")
+                slice_splits = slice_name.split("_")
 
                 # save grid
                 for n_gr, (_, grid) in enumerate(file_0["kinetic/" + species + "/f/" + slice_name].attrs.items()):
                     grid_path = os.path.join(
                         path_slice,
-                        "grid_" + slice_names[n_gr] + ".npy",
+                        "grid_" + slice_splits[n_gr] + ".npy",
                     )
-                    xp.save(grid_path, grid[:])
+                    if self.rank == 0:
+                        xp.save(grid_path, grid[:])
+                    self.comm.Barrier()
 
-            # compute distribution function
-            for slice_name in tqdm(file_0["kinetic/" + species + "/f"]):
-                # path to folder of slice
-                path_slice = os.path.join(path_distr, slice_name)
+        # compute distribution function
+        for slice_name in tqdm(slice_names):
+            logger.info(f"Processing slice {slice_name} for species {species}")
+            # path to folder of slice
+            path_slice = os.path.join(path_distr, slice_name)
 
-                # Find out all names of slices
-                slice_names = slice_name.split("_")
+            # Find out all names of slices
+            slice_splits = slice_name.split("_")
 
-                # load full-f data
-                data = file_0["kinetic/" + species + "/f/" + slice_name][::step].copy()
-                data_df = file_0["kinetic/" + species + "/df/" + slice_name][::step].copy()
-                for rank in range(1, int(self.comm_size)):
-                    with h5py.File(os.path.join(self.path_out, "data/", f"data_proc{rank}.hdf5"), "r") as file:
-                        data += file["kinetic/" + species + "/f/" + slice_name][::step]
-                        data_df += file["kinetic/" + species + "/df/" + slice_name][::step]
+            for rank in self.range_ranks:
+                print(f"{rank = } ----------------------------")
+                with h5py.File(os.path.join(self.path_out, "data/", f"data_proc{rank}.hdf5"), "r") as file:
+                    if self.parallel_pproc:
+                        data = file["kinetic/" + species + "/f/" + slice_name][::step]
+                        data_df = file["kinetic/" + species + "/df/" + slice_name][::step]
+                    else:
+                        if rank == 0:
+                            data = file["kinetic/" + species + "/f/" + slice_name][::step].copy()
+                            data_df = file["kinetic/" + species + "/df/" + slice_name][::step].copy()
+                        else:
+                            data += file["kinetic/" + species + "/f/" + slice_name][::step]
+                            data_df += file["kinetic/" + species + "/df/" + slice_name][::step]
 
+            print(f"{self.rank =} with {xp.sum(data) =} and {xp.sum(data_df) =}")
+
+            if self.parallel_pproc:
+                if self.rank == 0:
+                    self.comm.Reduce(
+                        MPI.IN_PLACE,
+                        data,
+                        op=MPI.SUM,
+                        root=0,
+                    )
+                    self.comm.Reduce(
+                        MPI.IN_PLACE,
+                        data_df,
+                        op=MPI.SUM,
+                        root=0,
+                    )
+                else:
+                    self.comm.Reduce(
+                        data,
+                        None,
+                        op=MPI.SUM,
+                        root=0,
+                    )
+                    self.comm.Reduce(
+                        data_df,
+                        None,
+                        op=MPI.SUM,
+                        root=0,
+                    )
+
+            print(f"{self.rank =} with {xp.sum(data) =} and {xp.sum(data_df) =}")
+
+            print(f"{self.rank =} done.")
+            if self.rank == 0:
                 # save distribution functions
                 xp.save(os.path.join(path_slice, "f_binned.npy"), data)
                 xp.save(os.path.join(path_slice, "delta_f_binned.npy"), data_df)
@@ -957,7 +1088,7 @@ class PostProcessor:
                         )
 
                         # check if file exists and is in slice_name
-                        if os.path.exists(filename) and current_slice in slice_names:
+                        if os.path.exists(filename) and current_slice in slice_splits:
                             grid_tot += [xp.load(filename)]
 
                         # otherwise evaluate at zero
@@ -973,7 +1104,7 @@ class PostProcessor:
                         )
 
                         # check if file exists and is in slice_name
-                        if os.path.exists(filename) and current_slice in slice_names:
+                        if os.path.exists(filename) and current_slice in slice_splits:
                             grid_tot += [xp.load(filename)]
 
                         # otherwise evaluate at zero
@@ -1019,20 +1150,26 @@ class PostProcessor:
         # directory for .npy files
         path_n_sph = os.path.join(path_kinetic_species, "n_sph")
 
-        try:
-            os.mkdir(path_n_sph)
-        except:
-            shutil.rmtree(path_n_sph)
-            os.mkdir(path_n_sph)
+        if self.rank == 0:
+            try:
+                os.mkdir(path_n_sph)
+            except:
+                shutil.rmtree(path_n_sph)
+                os.mkdir(path_n_sph)
+        self.comm.Barrier()
 
         logger.warning("Evaluation of sph density for " + str(species))
 
         with h5py.File(os.path.join(self.path_out, "data/data_proc0.hdf5"), "r") as file_0:
+            views = list(file_0["kinetic/" + species + "/n_sph"])
+
             # Create grids
-            for i, view in enumerate(file_0["kinetic/" + species + "/n_sph"]):
+            for view in views:
                 # create a new folder for each view
                 path_view = os.path.join(path_n_sph, view)
-                os.mkdir(path_view)
+                if self.rank == 0:
+                    os.mkdir(path_view)
+                self.comm.Barrier()
 
                 # build meshgrid and save
                 eta1 = file_0["kinetic/" + species + "/n_sph/" + view].attrs["eta1"]
@@ -1046,19 +1183,45 @@ class PostProcessor:
                     indexing="ij",
                 )
 
-                grid_path = os.path.join(
-                    path_view,
-                    "grid_n_sph.npy",
-                )
-                xp.save(grid_path, (ee1, ee2, ee3))
+                if self.rank == 0:
+                    grid_path = os.path.join(
+                        path_view,
+                        "grid_n_sph.npy",
+                    )
+                    xp.save(grid_path, (ee1, ee2, ee3))
 
-                # load n_sph data
-                data = file_0["kinetic/" + species + "/n_sph/" + view][::step].copy()
-                for rank in range(1, int(self.comm_size)):
-                    with h5py.File(os.path.join(self.path_out, "data/", f"data_proc{rank}.hdf5"), "r") as file:
-                        data += file["kinetic/" + species + "/n_sph/" + view][::step]
+        # compute sph density
+        for view in tqdm(views):
+            path_view = os.path.join(path_n_sph, view)
 
-                # save distribution functions
+            for rank in self.range_ranks:
+                with h5py.File(os.path.join(self.path_out, "data/", f"data_proc{rank}.hdf5"), "r") as file:
+                    if self.parallel_pproc:
+                        data = file["kinetic/" + species + "/n_sph/" + view][::step]
+                    else:
+                        if rank == 0:
+                            data = file["kinetic/" + species + "/n_sph/" + view][::step].copy()
+                        else:
+                            data += file["kinetic/" + species + "/n_sph/" + view][::step]
+
+            if self.parallel_pproc:
+                if self.rank == 0:
+                    self.comm.Reduce(
+                        MPI.IN_PLACE,
+                        data,
+                        op=MPI.SUM,
+                        root=0,
+                    )
+                else:
+                    self.comm.Reduce(
+                        data,
+                        None,
+                        op=MPI.SUM,
+                        root=0,
+                    )
+
+            if self.rank == 0:
+                # save sph density
                 xp.save(os.path.join(path_view, "n_sph.npy"), data)
 
 

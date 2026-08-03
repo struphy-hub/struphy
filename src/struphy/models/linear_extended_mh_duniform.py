@@ -1,6 +1,5 @@
 import copy
 
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector
 
 from struphy.io.options import BaseUnits, LiteralOptions
@@ -16,8 +15,6 @@ from struphy.propagators.base import Propagator
 from struphy.propagators.hall import Hall
 from struphy.propagators.magnetosonic_uniform import MagnetosonicUniform
 from struphy.propagators.shear_alfven_b1 import ShearAlfvenB1
-
-rank = MPI.COMM_WORLD.Get_rank()
 
 
 class LinearExtendedMHDuniform(StruphyModel):

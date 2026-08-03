@@ -1,7 +1,5 @@
 import copy
 
-from feectools.ddm.mpi import mpi as MPI
-
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, Scalars
@@ -12,8 +10,6 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
-
-rank = MPI.COMM_WORLD.Get_rank()
 
 
 class ShearAlfven(StruphyModel):
