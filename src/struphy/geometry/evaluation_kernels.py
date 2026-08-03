@@ -6,12 +6,12 @@ corresponding to mappings (x, y, z) = F(eta_1, eta_2, eta_3).
 from numpy import empty, shape, zeros
 from pyccel.decorators import stack_array
 
-from struphy.geometry import mappings_kernels
+import struphy.geometry.mappings_kernels as mappings_kernels  # noqa: PLR0402
 
 # do not remove; needed to identify dependencies
-from struphy.kernel_arguments import pusher_args_kernels
+import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels  # noqa: PLR0402
+import struphy.linear_algebra.linalg_kernels as linalg_kernels  # noqa: PLR0402
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
-from struphy.linear_algebra import linalg_kernels
 
 
 def f(

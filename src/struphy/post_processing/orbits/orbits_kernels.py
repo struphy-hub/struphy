@@ -1,7 +1,7 @@
 from numpy import abs, empty, log, pi, shape, sign, sqrt, zeros
 from pyccel.decorators import stack_array
 
-from struphy.linear_algebra import linalg_kernels
+import struphy.linear_algebra.linalg_kernels as linalg_kernels  # noqa: PLR0402
 
 
 @stack_array("x", "v", "B", "unit_B", "vperp", "temp", "Larmor_r")

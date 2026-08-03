@@ -17,7 +17,7 @@ from typing import Final
 from numpy import empty, zeros
 from pyccel.decorators import pure, stack_array
 
-from struphy.bsplines import bsplines_kernels
+import struphy.bsplines.bsplines_kernels as bsplines_kernels  # noqa: PLR0402
 
 
 # =============================================================================

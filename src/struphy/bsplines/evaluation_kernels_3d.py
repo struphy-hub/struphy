@@ -20,8 +20,8 @@ Possible combinations for tensor product (BBB):
 from numpy import empty, shape, zeros
 from pyccel.decorators import stack_array
 
-from struphy.bsplines import bsplines_kernels
-from struphy.kernel_arguments import pusher_args_kernels
+import struphy.bsplines.bsplines_kernels as bsplines_kernels  # noqa: PLR0402
+import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels  # noqa: PLR0402
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 
 #################################

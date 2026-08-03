@@ -44,10 +44,10 @@
 from numpy import empty, shape, sqrt, zeros
 from pyccel.decorators import stack_array
 
-from struphy.geometry import evaluation_kernels
-from struphy.kernel_arguments import pusher_args_kernels  # do not remove; needed to identify dependencies
+import struphy.geometry.evaluation_kernels as evaluation_kernels  # noqa: PLR0402
+import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies  # noqa: PLR0402
+import struphy.linear_algebra.linalg_kernels as linalg_kernels  # noqa: PLR0402
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
-from struphy.linear_algebra import linalg_kernels
 
 
 @stack_array("dfmat1", "dfmat2")

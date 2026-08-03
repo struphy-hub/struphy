@@ -1,7 +1,7 @@
 from numpy import shape, zeros
 from pyccel.decorators import stack_array
 
-from struphy.kernel_arguments import local_projectors_args_kernels
+import struphy.kernel_arguments.local_projectors_args_kernels as local_projectors_args_kernels  # noqa: PLR0402
 from struphy.kernel_arguments.local_projectors_args_kernels import LocalProjectorsArguments
 
 

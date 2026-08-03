@@ -1,14 +1,14 @@
 from numpy import empty, floor, sqrt, zeros
 from pyccel.decorators import pure, stack_array
 
-from struphy.bsplines import bsplines_kernels
-from struphy.bsplines.evaluation_kernels_3d import get_spans
-from struphy.geometry import evaluation_kernels
+import struphy.bsplines.bsplines_kernels as bsplines_kernels  # noqa: PLR0402
+import struphy.geometry.evaluation_kernels as evaluation_kernels  # noqa: PLR0402
 
 # do not remove; needed to identify dependencies
-from struphy.kernel_arguments import pusher_args_kernels
+import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels  # noqa: PLR0402
+import struphy.linear_algebra.linalg_kernels as linalg_kernels  # noqa: PLR0402
+from struphy.bsplines.evaluation_kernels_3d import get_spans
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
-from struphy.linear_algebra import linalg_kernels
 
 
 @stack_array("dfm", "dfinv", "eta", "v", "v_logical")

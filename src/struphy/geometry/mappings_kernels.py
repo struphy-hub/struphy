@@ -1,8 +1,10 @@
 from numpy import arcsin, arctan, cos, pi, sin, sqrt, tan, zeros
 from pyccel.decorators import pure, stack_array
 
-from struphy.bsplines import bsplines_kernels, evaluation_kernels_2d, evaluation_kernels_3d
-from struphy.kernel_arguments import pusher_args_kernels  # do not remove; needed to identify dependencies
+import struphy.bsplines.bsplines_kernels as bsplines_kernels  # noqa: PLR0402
+import struphy.bsplines.evaluation_kernels_2d as evaluation_kernels_2d  # noqa: PLR0402
+import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d  # noqa: PLR0402
+import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies  # noqa: PLR0402
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 
 
