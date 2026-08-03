@@ -944,7 +944,7 @@ class SPHVariable(Variable):
         but with ``dry_run=True`` so that only the marker array sizing
         (:attr:`~struphy.pic.base.Particles.n_rows`, :attr:`~struphy.pic.base.Particles.n_cols`) is computed."""
         assert isinstance(self.backgrounds, FluidEquilibrium), (
-            "List input not allowed, you can sum Kineticbackgrounds before passing them to add_background."
+            "List input not allowed; you can sum FluidEquilibrium objects before passing them to add_background."
         )
 
         if derham is None:
