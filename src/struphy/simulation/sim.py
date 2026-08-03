@@ -102,6 +102,10 @@ class Simulation(SimulationBase):
         Spatial grid used for FEEC variables.
     derham_opts : DerhamOptions
         Options for discrete differential operators.
+    comm: MPI.Intracomm, optional
+        MPI communicator for parallel execution. If None, uses MPI.COMM_WORLD.
+    logging_level : int, optional
+        Logging level (e.g., logging.INFO, logging.DEBUG). If None, uses default.
     """
 
     def __init__(
@@ -116,6 +120,7 @@ class Simulation(SimulationBase):
         equil: FluidEquilibrium = None,
         grid: grids.TensorProductGrid = grids.TensorProductGrid(),
         derham_opts: DerhamOptions = DerhamOptions(),
+        comm: MPI.Intracomm = None,
         logging_level: int | None = None,
     ):
         if logging_level is not None:
@@ -125,23 +130,11 @@ class Simulation(SimulationBase):
         self._description = description
         self._model = model
         self._params_path = params_path
-        self._env = env
+        self.env = env
         self._time_opts = time_opts
         self._setup_domain_and_equil(domain, equil)
         self._grid = grid
         self._derham_opts = derham_opts
-
-        # setup profiling agent
-        ProfileManager.setup(
-            profiling_activated=env.profiling_activated,
-            time_trace=env.profiling_trace,
-            use_likwid=False,
-            file_path=os.path.join(
-                env.out_folders,
-                env.sim_folder,
-                "profiling_data.h5",
-            ),
-        )
 
         # mpi info
         if isinstance(MPI, MockMPI):
@@ -150,7 +143,10 @@ class Simulation(SimulationBase):
             self.comm_size = 1
             self.Barrier = lambda: None
         else:
-            self.comm = MPI.COMM_WORLD
+            if comm is None:
+                self.comm = MPI.COMM_WORLD
+            else:
+                self.comm = comm
             self.rank = self.comm.Get_rank()
             self.comm_size = self.comm.Get_size()
             self.Barrier = self.comm.Barrier
@@ -175,9 +171,6 @@ class Simulation(SimulationBase):
         # meta-data
         path_out = env.path_out
         num_clones = env.num_clones
-
-        # creating output folders
-        self._setup_folders()
 
         # save parameter file
         if self.rank == 0:
@@ -237,6 +230,19 @@ class Simulation(SimulationBase):
     # ----------------
     # Abstract methods
     # ----------------
+
+    def _setup_profiling(self):
+        # setup profiling agent
+        ProfileManager.setup(
+            profiling_activated=self.env.profiling_activated,
+            time_trace=self.env.profiling_trace,
+            use_likwid=False,
+            file_path=os.path.join(
+                self.env.out_folders,
+                self.env.sim_folder,
+                "profiling_data.h5",
+            ),
+        )
 
     def show_parameters(self):
         """Print the current simulation configuration to stdout.
@@ -468,7 +474,7 @@ class Simulation(SimulationBase):
             If True, only perform one time step (useful for testing).
         """
 
-        logger.warning(f"\nStarting run for model {self.model_name} ...")
+        logger.warning(f"\nStarting run for model {self.model_name} on {self.comm_size} ranks ...")
         if self.name != "":
             logger.info(f"Simulation name: {self.name}")
         if self.description != "":
@@ -478,6 +484,7 @@ class Simulation(SimulationBase):
 
         # equation paramters
         self.allocate()
+        self._write_run_metadata(one_time_step=one_time_step)
 
         # output
         self.initialize_data_storage()
@@ -489,6 +496,16 @@ class Simulation(SimulationBase):
         self.compute_plasma_params()
 
         # print info on mpi procs
+        if self.comm_size < 32:
+            if self.derham is not None:
+                logger.info(f"\nderham.domain_array:\n{self.derham.domain_array}")
+            else:
+                for _, species in self.model.species.items():
+                    for _, variable in species.variables.items():
+                        if isinstance(variable, (PICVariable, SPHVariable)):
+                            logger.info(f"\nparticle domain_array:\n{variable.particles.domain_array}")
+                            break
+
         if self.rank < 32:
             logger.debug("")
             logger.debug(f"Rank {self.rank}: executing run() for model {self.model_name} ...")
@@ -677,6 +694,7 @@ RESTARTing from:
         classify: bool = False,
         create_vtk: bool = True,
         time_trace: bool = False,
+        parallel_pproc: bool = False,
     ):
         """Run post-processing on saved simulation data.
 
@@ -685,20 +703,35 @@ RESTARTing from:
         """
 
         # setup post processor and plotting
-        if not hasattr(self, "_post_processor") and self.rank == 0:
-            self._post_processor = PostProcessor(sim=self)
+        if parallel_pproc:
+            self._post_processor = PostProcessor(sim=self, parallel_pproc=True)
 
-        if time_trace:
-            self.post_processor.plot_time_traces()
+            if time_trace:
+                self.post_processor.plot_time_traces()
 
-        self.post_processor.process(
-            step=step,
-            celldivide=celldivide,
-            physical=physical,
-            guiding_center=guiding_center,
-            classify=classify,
-            create_vtk=create_vtk,
-        )
+            self.post_processor.process(
+                step=step,
+                celldivide=celldivide,
+                physical=physical,
+                guiding_center=guiding_center,
+                classify=classify,
+                create_vtk=create_vtk,
+            )
+        else:
+            if self.rank == 0:
+                self._post_processor = PostProcessor(sim=self, parallel_pproc=False)
+
+                if time_trace:
+                    self.post_processor.plot_time_traces()
+
+                self.post_processor.process(
+                    step=step,
+                    celldivide=celldivide,
+                    physical=physical,
+                    guiding_center=guiding_center,
+                    classify=classify,
+                    create_vtk=create_vtk,
+                )
 
     def load_plotting_data(self):
         """Load plotting datasets produced by post-processing.
@@ -1260,6 +1293,17 @@ RESTARTing from:
 
         return save_keys_all, save_keys_end
 
+    def _write_run_metadata(self, one_time_step: bool = False):
+        """Write run-specific JSON metadata for each sim.run() event, reusing to_json()."""
+        if self.rank != 0:
+            return
+
+        self.to_json(
+            file_path=os.path.join(self.env.path_out, "run_metadata.json"),
+            started_at_epoch_s=self.start_time,
+            one_time_step=one_time_step,
+        )
+
     def _add_time_state(self, time_state):
         """Add a pointer to the time variable of the dynamics ('t')
         to the model and to all propagators of the model.
@@ -1314,9 +1358,66 @@ RESTARTing from:
             "time_opts": self.time_opts.to_dict(),
             "domain": self.domain.to_dict(),
             "equil": self.equil.to_dict() if self.equil is not None else None,
-            "grid": self.grid.to_dict(),
-            "derham_opts": self.derham_opts.to_dict(),
+            "grid": self.grid.to_dict() if self.grid is not None else None,
+            "derham_opts": self.derham_opts.to_dict() if self.derham_opts is not None else None,
         }
+
+    def _collect_particle_metadata(self) -> dict:
+        """Collect per-species marker metadata (Np, ppc, ppb) for the current sim."""
+        particle_metadata = {}
+        for species_name, species in self.model.particle_species.items():
+            species_metadata = {}
+            for variable_name, variable in species.variables.items():
+                if isinstance(variable, PICVariable | SPHVariable) and hasattr(variable, "_particles"):
+                    particles = variable.particles
+                    species_metadata[variable_name] = {
+                        "Np": particles.Np,
+                        "ppc": particles.ppc,
+                        "ppb": particles.ppb,
+                    }
+            if species_metadata:
+                particle_metadata[species_name] = species_metadata
+        return particle_metadata
+
+    def to_json(self, file_path: str = None, **extra_data) -> str:
+        """Assemble the run's data and metadata by hand and serialize to a JSON string.
+
+        Parameters
+        ----------
+        file_path : str, optional
+            If given, also write the JSON string to this file.
+
+        **extra_data
+            Additional key/value pairs merged into the "data" section,
+            e.g. call-specific facts like a start timestamp.
+
+        Returns
+        -------
+        str
+            The JSON-encoded simulation configuration.
+        """
+        config = {
+            "name": self.name,
+            "description": self.description,
+            "model_name": self.model_name,
+            "parameter_file": self.params_path,
+            "mpi_ranks": self.comm_size,
+            "use_mpi_comm_world": self.comm is not None,
+            "env": self.env.to_dict(),
+            "time_opts": self.time_opts.to_dict(),
+            "domain": self.domain.to_dict(),
+            "equil": self.equil.to_dict() if self.equil is not None else None,
+            "grid": self.grid.to_dict() if self.grid is not None else None,
+            "derham_opts": self.derham_opts.to_dict() if self.derham_opts is not None else None,
+            "particle_species": self._collect_particle_metadata(),
+            **extra_data,
+        }
+
+        json_str = json.dumps(config, indent=4)
+        if file_path is not None:
+            with open(file_path, "w") as f:
+                f.write(json_str)
+        return json_str
 
     @classmethod
     def from_dict(cls, dct) -> "Simulation":
@@ -1492,9 +1593,18 @@ if __name__ == "__main__":
         return self._params_path
 
     @property
-    def env(self):
+    def env(self) -> EnvironmentOptions:
         """EnvironmentOptions object containing options related to the environment of the run."""
         return self._env
+
+    @env.setter
+    def env(self, value: EnvironmentOptions):
+        """Update the environment options for the simulation."""
+        self._env = value
+
+        # create output folders
+        self._setup_folders()
+        self._setup_profiling()
 
     @property
     def time_opts(self):

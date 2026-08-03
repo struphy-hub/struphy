@@ -1,7 +1,6 @@
 import copy
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 
 from struphy import BaseUnits
 from struphy.feec.mass import AverageOperator, L2Projector
@@ -16,14 +15,12 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels_gc
-from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.propagators.base import Propagator
 from struphy.propagators.poisson_adiabatic_gyrokinetic import PoissonAdiabaticGyrokinetic
 from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
 from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
 from struphy.utils.pyccel import Pyccelkernel
-
-rank = MPI.COMM_WORLD.Get_rank()
 
 
 class DriftKineticElectrostaticAdiabatic(StruphyModel):
@@ -88,7 +85,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         def __init__(
             self,
             phi: FEECVariable = None,
-            rho: PICVariable = None,
+            rho: ParticlesToGrid = None,
             epsilon: float = 1.0,
             Z: int = 1,
             diagnostic: FEECVariable | None = None,
@@ -132,8 +129,13 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
             epsilon = self.params["epsilon"] = self.kinetic_ions.var.species.equation_params.epsilon
 
         # 3. instantiate all propagators
+        rho = ParticlesToGrid(
+            self.kinetic_ions.var,
+            "H1",
+            Pyccelkernel(accum_kernels_gc.gc_density_0form),
+        )
         self.propagators = self.Propagators(
-            phi=self.em_fields.phi, rho=self.kinetic_ions.var, epsilon=epsilon, Z=charge_number, diagnostic=diagnostic
+            phi=self.em_fields.phi, rho=rho, epsilon=epsilon, Z=charge_number, diagnostic=diagnostic
         )
 
         # 4. assign variables to propagators

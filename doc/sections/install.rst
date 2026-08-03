@@ -1,7 +1,7 @@
 .. _install:
 
-Install
-=======
+Installation
+============
 
 .. _require:
 

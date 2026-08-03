@@ -6,6 +6,8 @@ import os
 
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy.utils.mpi_launch import launched_under_mpi
+
 
 class RankZeroFilter(logging.Filter):
     def __init__(self, rank: int):
@@ -14,6 +16,7 @@ class RankZeroFilter(logging.Filter):
 
     def filter(self, record):
         return self.rank == 0
+
 
 # logger configuration
 config = {
@@ -80,7 +83,16 @@ def setup_logging(logging_level: int = logging.WARNING):
     set_logging_level(logging_level)
 
     # Add RankZeroFilter to all handlers
-    rank = MPI.COMM_WORLD.Get_rank()
+    # This helper function figures out whether
+    # the current process is launched with mpirun
+    # or not without importing mpi4py, which would initialize MPI
+    # and cause issues if imported prematurely.
+    # Instead, it checks for the presence of certain environment
+    # variables that are typically set by MPI launchers (like mpirun or mpiexec).
+    if not launched_under_mpi():
+        rank = 0
+    else:
+        rank = MPI.COMM_WORLD.Get_rank()
     rank_filter = RankZeroFilter(rank)
 
     # Apply filter to struphy logger handlers
@@ -109,6 +121,7 @@ setup_logging(logging_level=logging.WARNING)
 logger.info(f"Logging setup complete, log-file at {config['handlers']['file']['filename']}")
 
 # Import API components
+from struphy.api.compiler import Compiler
 from struphy.api.domains import domains
 from struphy.api.equils import equils
 from struphy.api.grids import grids
@@ -135,6 +148,7 @@ from struphy.api.post_processing import PlottingData, PostProcessor
 from struphy.api.simulation import Simulation
 
 __all__ = [
+    "Compiler",
     "domains",
     "equils",
     "grids",

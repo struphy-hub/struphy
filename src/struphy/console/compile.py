@@ -1,8 +1,57 @@
 import logging
+import os
+import sysconfig
 
 from struphy.utils.utils import STRUPHY_LIBPATH, subp_run
 
 logger = logging.getLogger("struphy")
+from struphy import set_logging_level
+
+set_logging_level(logging.WARNING)
+so_suffix = sysconfig.get_config_var("EXT_SUFFIX")
+
+
+def count_compiled_kernels(state):
+    """Count the number of compiled kernels in the state dictionary."""
+    count_c = 0
+    count_f90 = 0
+    list_not_compiled = [s for s in state["kernels"]]
+    for subdir, _, files in os.walk(STRUPHY_LIBPATH):
+        # logger.info(f'{subdir = }')
+        if subdir[-10:] == "__pyccel__" and "__epyccel__" not in subdir:
+            dir_stem = "/".join(subdir.split("/")[:-1])
+            # logger.info(f'{dir_stem = }')
+            for file in files:
+                if file[-2:] == ".c" and "wrapper" not in file and "bind_c_" not in file:
+                    stem = file[:-2]
+                    is_c = True
+                elif file[-4:] == ".f90" and "wrapper" not in file and "bind_c_" not in file:
+                    stem = file[:-4]
+                    is_c = False
+                else:
+                    continue
+
+                py_file = stem + ".py"
+                matches = [ker for ker in state["kernels"] if py_file in ker and dir_stem in ker]
+                # logger.info(f'{matches = }')
+                matching = None
+                for match in matches:
+                    py_ker = match.split("/")[-1]
+                    if py_ker == py_file:
+                        matching = match
+                if matching is None:
+                    continue
+                matching_so = matching.replace(".py", so_suffix)
+                # logger.info(f'{matching_so = }')
+                if os.path.isfile(matching_so):
+                    if is_c and state["last_used_language"] == "c":
+                        count_c += 1
+                    elif not is_c and state["last_used_language"] == "fortran":
+                        count_f90 += 1
+                    if matching in list_not_compiled:
+                        list_not_compiled.remove(matching)
+
+    return count_c, count_f90, list_not_compiled
 
 
 def struphy_compile(
@@ -59,9 +108,7 @@ def struphy_compile(
 
     import importlib.metadata
     import importlib.util
-    import os
     import re
-    import sysconfig
 
     import pyccel
 
@@ -83,9 +130,11 @@ def struphy_compile(
 
     # collect kernels
     if "kernels" not in state:
-        state["kernels"] = []
+        tmp = []
         for subdir, dirs, files in os.walk(libpath):
+            logger.debug(f"\n{subdir = }")
             for file in files:
+                logger.debug(f"{file = }")
                 if (
                     "kernels" in file
                     and ".py" in file
@@ -94,7 +143,9 @@ def struphy_compile(
                     and "__pycache__" not in subdir
                     and "__pyccel__" not in subdir
                 ):
-                    state["kernels"] += [os.path.join(subdir, file)]
+                    tmp += [os.path.join(subdir, file)]
+
+        state["kernels"] = sorted(tmp)
 
         # set initial compiler infos to None
         state["last_used_language"] = None
@@ -139,42 +190,7 @@ def struphy_compile(
 
     elif status:
         # update status
-        count_c = 0
-        count_f90 = 0
-        list_not_compiled = [s for s in state["kernels"]]
-        for subdir, _, files in os.walk(libpath):
-            # logger.info(f'{subdir = }')
-            if subdir[-10:] == "__pyccel__" and "__epyccel__" not in subdir:
-                dir_stem = "/".join(subdir.split("/")[:-1])
-                # logger.info(f'{dir_stem = }')
-                for file in files:
-                    if file[-2:] == ".c" and "wrapper" not in file and "bind_c_" not in file:
-                        stem = file[:-2]
-                        is_c = True
-                    elif file[-4:] == ".f90" and "wrapper" not in file and "bind_c_" not in file:
-                        stem = file[:-4]
-                        is_c = False
-                    else:
-                        continue
-
-                    py_file = stem + ".py"
-                    matches = [ker for ker in state["kernels"] if py_file in ker and dir_stem in ker]
-                    # logger.info(f'{matches = }')
-                    matching = None
-                    for match in matches:
-                        py_ker = match.split("/")[-1]
-                        if py_ker == py_file:
-                            matching = match
-                    matching_so = matching.replace(".py", so_suffix)
-                    # logger.info(f'{matching_so = }')
-                    if os.path.isfile(matching_so):
-                        if is_c and state["last_used_language"] == "c":
-                            count_c += 1
-                        elif not is_c and state["last_used_language"] == "fortran":
-                            count_f90 += 1
-                        if matching in list_not_compiled:
-                            list_not_compiled.remove(matching)
-
+        count_c, count_f90, list_not_compiled = count_compiled_kernels(state)
         n_kernels = len(state["kernels"])
         print("")
         print(f"{count_c} of {n_kernels} Struphy kernels are compiled with language C.")
