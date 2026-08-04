@@ -7,6 +7,7 @@ import pickle
 import shutil
 import sysconfig
 import time
+from collections.abc import Sequence
 
 import cunumpy as xp
 import h5py
@@ -688,7 +689,7 @@ RESTARTing from:
     def pproc(
         self,
         step: int = 1,
-        celldivide: int = 1,
+        celldivide: int | Sequence[int] = 1,
         physical: bool = False,
         guiding_center: bool = False,
         classify: bool = False,
