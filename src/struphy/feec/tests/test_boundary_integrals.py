@@ -180,14 +180,18 @@ def test_boundary_mass_hollow_cylinder_nonconstant(num_elements, degree, bcs):
     assert xp.abs(numerical - exact) < 1e-2
 
 
-@pytest.mark.parametrize("num_elements", [[8, 9, 10]])
-@pytest.mark.parametrize("degree", [[1, 2, 3]])
+@pytest.mark.parametrize("num_elements", [[10, 10, 10]])
+@pytest.mark.parametrize("degree", [[2, 2, 2]])
 @pytest.mark.parametrize("bcs", [(("free", "free"), ("free", "free"), ("free", "free"))])
-@pytest.mark.parametrize("active_faces, exact", [
-    ([True, False, False, False, False, False], 1.0),
-    ([False, False, False, True, False, False], -1.0),
+@pytest.mark.parametrize("active_faces, u_idx, v_idx, exact", [
+    ([True,  False, False, False, False, False], 1, 2,  1.0),
+    ([False, True,  False, False, False, False], 2, 0,  1.0),
+    ([False, False, True,  False, False, False], 0, 1,  1.0),
+    ([False, False, False, True,  False, False], 1, 2, -1.0),
+    ([False, False, False, False, True,  False], 2, 0, -1.0),
+    ([False, False, False, False, False, True], 0, 1, -1.0),
 ])
-def test_boundary_mass_hcurl_per_face(num_elements, degree, bcs, active_faces, exact):
+def test_boundary_mass_hcurl_per_face(num_elements, degree, bcs, active_faces, u_idx, v_idx, exact):
     comm = MPI.COMM_WORLD
 
     grid = TensorProductGrid(num_elements=num_elements)
@@ -197,22 +201,80 @@ def test_boundary_mass_hcurl_per_face(num_elements, degree, bcs, active_faces, e
     domain = domains.Cuboid(l1=0.0, r1=1.0, l2=0.0, r2=1.0, l3=0.0, r3=1.0)
     mass_ops = WeightedMassOperators(derham, domain)
 
-    u0 = lambda e1, e2, e3: xp.zeros_like(e1)
-    u1 = lambda e1, e2, e3: xp.ones_like(e1)
-    u2 = lambda e1, e2, e3: xp.zeros_like(e1)
+    u_funs = [
+        lambda e1, e2, e3: xp.ones_like(e1) if 0 == u_idx else xp.zeros_like(e1),
+        lambda e1, e2, e3: xp.ones_like(e1) if 1 == u_idx else xp.zeros_like(e1),
+        lambda e1, e2, e3: xp.ones_like(e1) if 2 == u_idx else xp.zeros_like(e1),
+    ]
 
-    v0 = lambda e1, e2, e3: xp.zeros_like(e1)
-    v1 = lambda e1, e2, e3: xp.zeros_like(e1)
-    v2 = lambda e1, e2, e3: xp.ones_like(e1)
+    v_funs = [
+        lambda e1, e2, e3: xp.ones_like(e1) if 0 == v_idx else xp.zeros_like(e1),
+        lambda e1, e2, e3: xp.ones_like(e1) if 1 == v_idx else xp.zeros_like(e1),
+        lambda e1, e2, e3: xp.ones_like(e1) if 2 == v_idx else xp.zeros_like(e1),
+    ]
 
     P = L2Projector("Hcurl", mass_ops)
-    u_h = P([u0, u1, u2])
-    v_h = P([v0, v1, v2])
+    u_h = P(u_funs)
+    v_h = P(v_funs)
 
     bnd_ops = BoundaryIntegralOperators(mass_ops, active_faces=active_faces)
     numerical = xp.dot(v_h.toarray(), bnd_ops.S1.dot(u_h).toarray())
 
-    logger.info(f"numerical = {numerical}, exact = {exact}, error = {xp.abs(numerical - exact)}")
+    print(f"numerical = {numerical}, exact = {exact}, error = {xp.abs(numerical - exact)}")
+
+    assert xp.abs(numerical - exact) < 1e-1
+
+
+@pytest.mark.parametrize("num_elements", [[8, 9, 10]])
+@pytest.mark.parametrize("degree", [[1, 2, 3]])
+@pytest.mark.parametrize("bcs", [(("free", "free"), ("free", "free"), ("free", "free"))])
+@pytest.mark.parametrize("active_faces, u_idx, v_idx, exact", [
+    ([True,  False, False, False, False, False], 1, 2,  12.0),
+    ([False, True,  False, False, False, False], 2, 0,   6.0),
+    ([False, False, True,  False, False, False], 0, 1,   8.0),
+    ([False, False, False, True,  False, False], 1, 2, -12.0),
+    ([False, False, False, False, True,  False], 2, 0,  -6.0),
+    ([False, False, False, False, False, True ], 0, 1,  -8.0),
+])
+def test_boundary_mass_hcurl_cuboid_nontrivial(num_elements, degree, bcs, active_faces, u_idx, v_idx, exact):
+    """
+    Tests the H(curl) boundary mass operator on a non-unit cuboid [-1,1] x [-1,3] x [0,3]
+    with constant unit vector fields u = e_{u_idx} and v = e_{v_idx}.
+    """
+    comm = MPI.COMM_WORLD
+
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
+
+    domain = domains.Cuboid(l1=-1.0, r1=1.0, l2=-1.0, r2=3.0, l3=0.0, r3=3.0)
+    mass_ops = WeightedMassOperators(derham, domain)
+
+    u_funs = [
+        lambda e1, e2, e3: xp.ones_like(e1) if 0 == u_idx else xp.zeros_like(e1),
+        lambda e1, e2, e3: xp.ones_like(e1) if 1 == u_idx else xp.zeros_like(e1),
+        lambda e1, e2, e3: xp.ones_like(e1) if 2 == u_idx else xp.zeros_like(e1),
+    ]
+
+    v_funs = [
+        lambda e1, e2, e3: xp.ones_like(e1) if 0 == v_idx else xp.zeros_like(e1),
+        lambda e1, e2, e3: xp.ones_like(e1) if 1 == v_idx else xp.zeros_like(e1),
+        lambda e1, e2, e3: xp.ones_like(e1) if 2 == v_idx else xp.zeros_like(e1),
+    ]
+
+    P = L2Projector("Hcurl", mass_ops)
+    u_h = P(u_funs)
+    v_h = P(v_funs)
+
+    print(f"u_h P1 coeffs: {u_h.toarray()[:5]}")
+    u_h_l2 = P(u_funs)
+    print(f"u_h L2 coeffs: {u_h_l2.toarray()[:5]}")
+    print(f"ratio: {u_h.toarray()[u_h.toarray() != 0][:5] / u_h_l2.toarray()[u_h_l2.toarray() != 0][:5]}")
+
+    bnd_ops = BoundaryIntegralOperators(mass_ops, active_faces=active_faces)
+    numerical = xp.dot(v_h.toarray(), bnd_ops.S1.dot(u_h).toarray())
+
+    print(f"numerical = {numerical}, exact = {exact}, error = {xp.abs(numerical - exact)}")
 
     assert xp.abs(numerical - exact) < 1e-1
 
@@ -250,5 +312,15 @@ if __name__ == "__main__":
         [2, 2, 2],
         (("free", "free"), ("free", "free"), ("free", "free")),
         [True, False, False, False, False, False],
+        1, 2,
         1.0
+    )
+
+    test_boundary_mass_hcurl_cuboid_nontrivial(
+        [8, 9, 10],
+        [1, 2, 3],
+        (("free", "free"), ("free", "free"), ("free", "free")),
+        [True, False, False, False, False, False],
+        1, 2,
+        12.0,
     )

@@ -467,36 +467,30 @@ class BoundaryMassOperatorHCurl(LinOpWithTransp):
 
             normal_dir = face_idx % 3
             surf_dirs = [d for d in range(3) if d != normal_dir]
-            fixed_val = 0.0 if face_idx < 3 else 1.0
 
-            # compute R_n using surf_dirs[0] quadrature points
-            surf_pts_1d = [self._quad_grid_pts[surf_dirs[0]][d].flatten() for d in surf_dirs]
-            e_1d = [None, None, None]
-            e_1d[surf_dirs[0]] = surf_pts_1d[0]
-            e_1d[surf_dirs[1]] = surf_pts_1d[1]
-            e_1d[normal_dir] = xp.array([fixed_val])
+            sign = 1.0 if face_idx < 3 else -1.0
+            n_hat = xp.zeros(3)
+            n_hat[normal_dir] = sign
 
-            DFinv = self._domain_obj.jacobian_inv(*e_1d, change_out_order=True)
-            DFinv_n = xp.squeeze(DFinv[..., normal_dir, :])
-            norm_DFinv_n = xp.sqrt(xp.sum(DFinv_n**2, axis=-1, keepdims=True))
-            n_phys = DFinv_n / norm_DFinv_n
-            if face_idx >= 3:
-                n_phys = -n_phys
+            # constant skew-symmetric cross-product matrix R_n such that R_n v = n_hat x v
+            R_n_const = xp.zeros((3, 3))
+            R_n_const[0, 1] = -n_hat[2]
+            R_n_const[0, 2] =  n_hat[1]
+            R_n_const[1, 0] =  n_hat[2]
+            R_n_const[1, 2] = -n_hat[0]
+            R_n_const[2, 0] = -n_hat[1]
+            R_n_const[2, 1] =  n_hat[0]
 
-            n0 = n_phys[..., 0]
-            n1 = n_phys[..., 1]
-            n2 = n_phys[..., 2]
+            # store R_n per component mu on its own quadrature grid shape
+            surface_R_n_per_mu = [None, None, None]
+            for mu in surf_dirs:
+                nq1 = self._spans_l[mu][surf_dirs[0]].size * self._wts_l[mu][surf_dirs[0]].shape[1]
+                nq2 = self._spans_l[mu][surf_dirs[1]].size * self._wts_l[mu][surf_dirs[1]].shape[1]
+                R_n_mu = xp.zeros((nq1, nq2, 3, 3))
+                R_n_mu[..., :, :] = R_n_const
+                surface_R_n_per_mu[mu] = R_n_mu
 
-            R_n = xp.zeros((*n0.shape, 3, 3))
-            R_n[..., 0, 1] = -n2
-            R_n[..., 0, 2] =  n1
-            R_n[..., 1, 0] =  n2
-            R_n[..., 1, 2] = -n0
-            R_n[..., 2, 0] = -n1
-            R_n[..., 2, 1] =  n0
-            self._surface_R_n.append(R_n)
-
-            # only extract for tangential components mu != normal_dir
+            self._surface_R_n.append(surface_R_n_per_mu)
             surface_spans_per_mu = [None, None, None]
             surface_wts_per_mu = [None, None, None]
             surface_bases_per_mu = [None, None, None]
@@ -527,67 +521,57 @@ class BoundaryMassOperatorHCurl(LinOpWithTransp):
         return self._dtype
 
     def _assemble_face(self, face_idx: int, mat):
-        """
-        Assembles the contribution of a single face to the H(curl) boundary mass matrix.
-        Calls surface_kernel_3d_mat_h1 for each nonzero (mu, nu) block.
-        """
         normal_dir = face_idx % 3
         surf_dirs = [d for d in range(3) if d != normal_dir]
 
-        R_n = self._surface_R_n[face_idx]  # shape (nq1, nq2, 3, 3)
+        mu, nu = surf_dirs[0], surf_dirs[1]
 
-        for mu, nu, n_comp in [(0, 1, 2), (0, 2, 1), (1, 2, 0)]:
-            if mu == normal_dir or nu == normal_dir:
-                continue
+        fem_space_mu = self._tensor_fem_spaces[mu]
+        fem_space_nu = self._tensor_fem_spaces[nu]
 
-            fem_space_mu = self._tensor_fem_spaces[mu]
-            fem_space_nu = self._tensor_fem_spaces[nu]
+        starts_mu = [int(s) for s in fem_space_mu.coeff_space.starts]
+        ends_mu = [int(e) for e in fem_space_mu.coeff_space.ends]
+        pads_mu = fem_space_mu.coeff_space.pads
 
-            starts_mu = [int(s) for s in fem_space_mu.coeff_space.starts]
-            ends_mu = [int(e) for e in fem_space_mu.coeff_space.ends]
-            pads_mu = fem_space_mu.coeff_space.pads
+        starts_nu = [int(s) for s in fem_space_nu.coeff_space.starts]
+        ends_nu = [int(e) for e in fem_space_nu.coeff_space.ends]
+        pads_nu = fem_space_nu.coeff_space.pads
 
-            starts_nu = [int(s) for s in fem_space_nu.coeff_space.starts]
-            ends_nu = [int(e) for e in fem_space_nu.coeff_space.ends]
-            pads_nu = fem_space_nu.coeff_space.pads
+        boundary_index_mu = starts_mu[normal_dir] if face_idx < 3 else ends_mu[normal_dir]
+        boundary_index_nu = starts_nu[normal_dir] if face_idx < 3 else ends_nu[normal_dir]
 
-            boundary_index_mu = starts_mu[normal_dir] if face_idx < 3 else ends_mu[normal_dir]
-            boundary_index_nu = starts_nu[normal_dir] if face_idx < 3 else ends_nu[normal_dir]
+        mat_fun_mu_nu = self._surface_R_n[face_idx][mu][..., mu, nu]
+        mat_fun_nu_mu = self._surface_R_n[face_idx][nu][..., nu, mu]
 
-            mat_fun_mu_nu = R_n[..., mu, nu]  # shape (nq1, nq2)
-            mat_fun_nu_mu = R_n[..., nu, mu]  # = -mat_fun_mu_nu
+        self._assembly_kernel(
+            *self._surface_spans[face_idx][mu],
+            *fem_space_mu.degree,
+            *fem_space_nu.degree,
+            *starts_mu,
+            *pads_mu,
+            *self._surface_wts[face_idx][mu],
+            *self._surface_bases[face_idx][mu],
+            *self._surface_bases[face_idx][nu],
+            boundary_index_mu,
+            normal_dir,
+            mat_fun_mu_nu,
+            mat.blocks[mu][nu]._data,
+        )
 
-            # assemble (mu, nu) block: row=mu, col=nu
-            self._assembly_kernel(
-                *self._surface_spans[face_idx][mu],
-                *fem_space_mu.degree,
-                *fem_space_nu.degree,
-                *starts_mu,
-                *pads_mu,
-                *self._surface_wts[face_idx][mu],
-                *self._surface_bases[face_idx][mu],
-                *self._surface_bases[face_idx][nu],
-                boundary_index_mu,
-                normal_dir,
-                mat_fun_mu_nu,
-                mat.blocks[mu][nu]._data,
-            )
-
-            # assemble (nu, mu) block: row=nu, col=mu
-            self._assembly_kernel(
-                *self._surface_spans[face_idx][nu],
-                *fem_space_nu.degree,
-                *fem_space_mu.degree,
-                *starts_nu,
-                *pads_nu,
-                *self._surface_wts[face_idx][nu],
-                *self._surface_bases[face_idx][nu],
-                *self._surface_bases[face_idx][mu],
-                boundary_index_nu,
-                normal_dir,
-                mat_fun_nu_mu,
-                mat.blocks[nu][mu]._data,
-            )
+        self._assembly_kernel(
+            *self._surface_spans[face_idx][nu],
+            *fem_space_nu.degree,
+            *fem_space_mu.degree,
+            *starts_nu,
+            *pads_nu,
+            *self._surface_wts[face_idx][nu],
+            *self._surface_bases[face_idx][nu],
+            *self._surface_bases[face_idx][mu],
+            boundary_index_nu,
+            normal_dir,
+            mat_fun_nu_mu,
+            mat.blocks[nu][mu]._data,
+        )
 
     def assemble(self, clear: bool = True):
         """Assembles the H(curl) boundary mass matrix."""
