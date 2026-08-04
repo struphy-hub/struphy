@@ -474,7 +474,7 @@ class Simulation(SimulationBase):
             If True, only perform one time step (useful for testing).
         """
 
-        logger.warning(f"\nStarting run for model {self.model_name} on {self.comm_size} ranks ...")
+        logger.info(f"\nStarting run for model {self.model_name} on {self.comm_size} ranks ...")
         if self.name != "":
             logger.info(f"Simulation name: {self.name}")
         if self.description != "":
@@ -683,7 +683,7 @@ RESTARTing from:
                 "wall-clock time[min]": (end_time - self.start_time) / 60,
             }
             dict_to_yaml(meta, os.path.join(self.env.path_out, "meta.yml"))
-        logger.warning("Struphy run finished.")
+        logger.info("Struphy run finished.")
 
         if self.clone_config is not None:
             self.clone_config.free()
