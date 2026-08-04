@@ -293,7 +293,7 @@ class PostProcessor:
     def process(
         self,
         step: int = 1,
-        celldivide: Sequence[int] = (1, 1, 1),
+        celldivide: int | Sequence[int] = (1, 1, 1),
         physical: bool = False,
         guiding_center: bool = False,
         classify: bool = False,
@@ -305,9 +305,9 @@ class PostProcessor:
         ----------
         step : int
             Interval of saved time steps to post-process (1 = every step, 2 = every second step, ...).
-        celldivide : sequence of int
-            Grid refinement factor when evaluating FEM fields (e.g. ``celldivide=(1, 1, 1)`` evaluates two
-            points per cell in each logical direction).
+        celldivide : int or sequence of int
+            Grid refinement factor when evaluating FEM fields (e.g. ``celldivide=(2, 2, 2)`` evaluates two
+            points per cell in each logical direction). A single int is applied to all three directions.
         physical : bool
             If True, also compute push-forwarded physical (x,y,z) components of fields.
         guiding_center : bool
@@ -369,7 +369,7 @@ class PostProcessor:
     def process_fields(
         self,
         step: int = 1,
-        celldivide: Sequence[int] = (1, 1, 1),
+        celldivide: int | Sequence[int] = (1, 1, 1),
         physical: bool = False,
         create_vtk: bool = True,
     ):
@@ -384,8 +384,9 @@ class PostProcessor:
         ----------
         step : int
             Interval of saved time steps to post-process (1 = every step, 2 = every second step, ...).
-        celldivide : sequence of int
-            Grid refinement factor when evaluating FEM fields.
+        celldivide : int or sequence of int
+            Grid refinement factor when evaluating FEM fields. A single int is applied to all
+            three directions.
         physical : bool
             If True, also compute push-forwarded physical (x,y,z) components of fields.
         create_vtk : bool
@@ -650,7 +651,7 @@ class PostProcessor:
 
                     vector.update_ghost_regions()
 
-    def _create_eval_grids(self, celldivide: Sequence[int] = (1, 1, 1)):
+    def _create_eval_grids(self, celldivide: int | Sequence[int] = (1, 1, 1)):
         """Build the logical evaluation grids and distribute them over the MPI ranks.
 
         The grid points are split among the ranks exactly as
@@ -660,8 +661,9 @@ class PostProcessor:
 
         Parameters
         ----------
-        celldivide : sequence of int
-            Refinement factor in each logical direction; length must be 3.
+        celldivide : int or sequence of int
+            Refinement factor in each logical direction; a single int is applied to all
+            three directions, a sequence must have length three.
 
         Returns
         -------
@@ -671,6 +673,9 @@ class PostProcessor:
             One entry per rank, holding the three slices of ``grids_log`` owned by that rank.
             The slices of all ranks tile the global grid exactly.
         """
+        if isinstance(celldivide, int):
+            celldivide = (celldivide,) * 3
+
         assert isinstance(celldivide, Sequence)
         assert len(celldivide) == 3
 
