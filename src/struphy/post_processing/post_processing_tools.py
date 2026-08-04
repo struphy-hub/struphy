@@ -13,7 +13,6 @@ import yaml
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 from pyevtk.hl import gridToVTK
-from tqdm import tqdm
 
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.fields_background import equils
@@ -31,6 +30,7 @@ from struphy.pic.base import Particles
 from struphy.post_processing.likwid.plot_time_traces import plot_gantt_chart_plotly, plot_time_vs_duration
 from struphy.post_processing.orbits import orbits_tools
 from struphy.topology.grids import TensorProductGrid
+from struphy.utils.progress import tqdm
 
 if TYPE_CHECKING:
     from struphy.simulation.sim import Simulation

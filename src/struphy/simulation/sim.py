@@ -19,7 +19,6 @@ from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
 from pyevtk.hl import gridToVTK
 from scope_profiler import ProfileManager
-from tqdm import tqdm
 
 # api imports
 from struphy import (
@@ -67,6 +66,7 @@ from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.simulation.base import SimulationBase
 from struphy.utils.clone_config import CloneConfig
+from struphy.utils.progress import tqdm
 from struphy.utils.utils import dict_to_yaml, ruff_autofix_and_format
 
 logger = logging.getLogger("struphy")
@@ -475,7 +475,7 @@ class Simulation(SimulationBase):
             If True, only perform one time step (useful for testing).
         """
 
-        logger.warning(f"\nStarting run for model {self.model_name} on {self.comm_size} ranks ...")
+        logger.info(f"\nStarting run for model {self.model_name} on {self.comm_size} ranks ...")
         if self.name != "":
             logger.info(f"Simulation name: {self.name}")
         if self.description != "":
@@ -566,7 +566,12 @@ RESTARTing from:
         # time loop
         run_time_now = 0.0
         show_progress_bar = logger.getEffectiveLevel() <= logging.WARNING and self.rank == 0
-        pbar = tqdm(total=total_steps, disable=not show_progress_bar, desc="Time stepping", unit="step")
+        pbar = tqdm(
+            total=total_steps,
+            disable=not show_progress_bar,
+            desc="Time stepping",
+            unit="step",
+        )
         while True:
             self.Barrier()
 
@@ -679,7 +684,7 @@ RESTARTing from:
                 "wall-clock time[min]": (end_time - self.start_time) / 60,
             }
             dict_to_yaml(meta, os.path.join(self.env.path_out, "meta.yml"))
-        logger.warning("Struphy run finished.")
+        logger.info("Struphy run finished.")
 
         if self.clone_config is not None:
             self.clone_config.free()
