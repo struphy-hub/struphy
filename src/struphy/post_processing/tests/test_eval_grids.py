@@ -72,6 +72,18 @@ def test_celldivide_refines_each_direction():
     assert grids_log[2].size == 2 * 1 + 1
 
 
+def test_scalar_celldivide_applies_to_all_directions():
+    """``Simulation.pproc`` passes a plain int, which is broadcast to all three directions."""
+    pproc = make_pproc(NUM_ELEMENTS, DOM_ARR_1_RANK)
+
+    grids_scalar, slices_scalar = pproc._create_eval_grids(celldivide=2)
+    grids_seq, slices_seq = pproc._create_eval_grids(celldivide=[2, 2, 2])
+
+    for g_scalar, g_seq in zip(grids_scalar, grids_seq):
+        assert np.array_equal(g_scalar, g_seq)
+    assert slices_scalar == slices_seq
+
+
 def test_single_rank_owns_the_whole_grid():
     pproc = make_pproc(NUM_ELEMENTS, DOM_ARR_1_RANK)
 
