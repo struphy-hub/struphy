@@ -738,15 +738,20 @@ class PostProcessor:
             return loc_val
 
         if self.rank == 0:
-            glob_val = xp.empty(glob_shape, dtype=float)
+            glob_val = xp.empty(glob_shape, dtype=loc_val.dtype)
             glob_val[grid_slices[0]] = loc_val
+
+            # cache receive buffers to avoid repeated allocations in tight loops
+            if not hasattr(self, "_collect_recv_bufs"):
+                self._collect_recv_bufs = {}
 
             for rank in range(1, len(grid_slices)):
                 sl = grid_slices[rank]
-                buf = xp.empty(
-                    tuple(sl_i.stop - sl_i.start for sl_i in sl),
-                    dtype=float,
-                )
+                shape = tuple(sl_i.stop - sl_i.start for sl_i in sl)
+                buf = self._collect_recv_bufs.get((rank, shape, loc_val.dtype))
+                if buf is None:
+                    buf = xp.empty(shape, dtype=loc_val.dtype)
+                    self._collect_recv_bufs[(rank, shape, loc_val.dtype)] = buf
                 self.comm.Recv(buf, source=rank, tag=rank)
                 glob_val[sl] = buf
 
