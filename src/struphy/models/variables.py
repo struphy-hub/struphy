@@ -10,6 +10,7 @@ import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.feec.linear_operators import BoundaryOperator
+from struphy.feec.memory import coeff_space_nbytes
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
@@ -28,18 +29,6 @@ if TYPE_CHECKING:
     from struphy.models.species import FieldSpecies, FluidSpecies, ParticleSpecies, Species
 
 logger = logging.getLogger("struphy")
-
-
-def _coeff_space_nbytes(space, float_size: int = 8) -> int:
-    """Local (per-MPI-rank) memory footprint, in bytes, of a psydac coefficient space
-    (:class:`~psydac.linalg.stencil.StencilVectorSpace` or :class:`~psydac.linalg.block.BlockVectorSpace`),
-    computed from its (metadata-only) local array ``shape`` -- no array is allocated."""
-    if hasattr(space, "spaces"):
-        return sum(_coeff_space_nbytes(s, float_size=float_size) for s in space.spaces)
-    nbytes = float_size
-    for n in space.shape:
-        nbytes *= n
-    return int(nbytes)
 
 
 class Variable(metaclass=ABCMeta):
@@ -420,7 +409,7 @@ class FEECVariable(Variable):
         Uses the (cheap, metadata-only) local array shape of ``derham.coeff_spaces[self.space]``.
         If a lifting function is set, ``allocate()`` additionally creates ``spline_lift``, ``spline_0``
         and ``boundary_spline`` of the same space, so the estimate is scaled by a factor of 4."""
-        nbytes = _coeff_space_nbytes(derham.coeff_spaces[self.space])
+        nbytes = coeff_space_nbytes(derham.coeff_spaces[self.space])
         if self.lifting_function is not None:
             nbytes *= 4  # spline + spline_lift + spline_0 + boundary_spline
         return nbytes

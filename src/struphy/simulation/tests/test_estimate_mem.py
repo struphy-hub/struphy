@@ -75,6 +75,28 @@ def test_estimate_mem_feec_only_matches_allocation(out_folders):
 
     assert mem_before["total"] == sum(v for k, v in mem_before.items() if k != "total")
 
+    # the FEEC matrices (much bigger than the coefficient vectors) are part of the estimate ...
+    matrices = {k: v for k, v in mem_before.items() if k.startswith("matrices.")}
+    assert set(matrices) == {f"matrices.{name}" for name in ("derivatives", "M0", "M1", "M2", "M3", "Mv")}
+    assert matrices["matrices.M1"] > mem_before["em_fields.e_field"]
+
+    # ... and the mass matrices this model really uses are estimated exactly
+    allocated = sim.mass_ops.allocated_mem()
+    assert set(allocated) == {"M1", "M2"}
+    for name, nbytes in allocated.items():
+        assert mem_before[f"matrices.{name}"] == nbytes
+
+    # report_mem() sees all allocated stencil matrices, i.e. at least the mass matrices
+    report = sim.report_mem(print_report=False)
+    assert report["feec_matrices"] >= sum(allocated.values())
+    assert report["spline_coeffs"] == sum(
+        _real_vector_nbytes(v.spline.vector)
+        for spec in sim.model.field_species.values()
+        for v in spec.variables.values()
+    )
+    assert report["markers"] == 0
+    assert report["total"] == sum(v for k, v in report.items() if k != "total")
+
 
 def test_estimate_mem_hybrid_feec_and_pic(out_folders):
     """estimate_mem() on a model with both FEEC and PIC variables: FEEC estimates match
@@ -128,6 +150,7 @@ def test_estimate_mem_hybrid_feec_and_pic(out_folders):
             actual = _real_vector_nbytes(v.spline.vector)
             assert estimated == actual, f"{species}.{k}: estimated {estimated} != actual {actual}"
 
+    markers = 0
     for species, spec in sim.model.particle_species.items():
         for k, v in spec.variables.items():
             estimated = mem_before[f"{species}.{k}"]
@@ -135,3 +158,8 @@ def test_estimate_mem_hybrid_feec_and_pic(out_folders):
             if v.n_to_save > 0:
                 actual += v.saved_markers.nbytes
             assert estimated == actual, f"{species}.{k}: estimated {estimated} != actual {actual}"
+            markers += actual
+
+    report = sim.report_mem(print_report=False)
+    assert report["markers"] == markers
+    assert report["feec_matrices"] >= sum(sim.mass_ops.allocated_mem().values()) > 0

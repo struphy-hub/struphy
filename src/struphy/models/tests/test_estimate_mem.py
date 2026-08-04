@@ -13,6 +13,17 @@ def test_simulation_estimate_mem_returns_total():
             self.derham_opts = derham_opts
             self.comm = comm
             self.domain = domain
+            # derivative operators are matrix-free (no data), see linop_nbytes
+            self.grad = None
+            self.curl = None
+            self.div = None
+
+    class DummyMassOperators:
+        def __init__(self, derham, domain, eq_mhd=None):
+            assert isinstance(derham, DummyDerham)
+
+        def estimate_mem(self):
+            return {"M1": 7}
 
     class DummyFEECVariable:
         def estimate_mem(self, derham):
@@ -47,6 +58,7 @@ def test_simulation_estimate_mem_returns_total():
 
     with (
         patch.object(sim_module, "Derham", DummyDerham),
+        patch.object(sim_module, "WeightedMassOperators", DummyMassOperators),
         patch.object(sim_module, "FEECVariable", DummyFEECVariable),
         patch.object(sim_module, "PICVariable", DummyPICVariable),
         patch.object(sim_module, "SPHVariable", DummySPHVariable),
@@ -57,7 +69,9 @@ def test_simulation_estimate_mem_returns_total():
     assert mem["p.v"] == 20
     assert mem["p.w"] == 30
     assert mem["d.z"] == 10
-    assert mem["total"] == 70
+    assert mem["matrices.derivatives"] == 0
+    assert mem["matrices.M1"] == 7
+    assert mem["total"] == 77
     assert mem["total"] >= 0
 
 

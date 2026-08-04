@@ -15,6 +15,7 @@ import pyvista as pv
 import yaml
 from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
+from feectools.linalg.memory import stencil_matrix_memory
 from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
 from pyevtk.hl import gridToVTK
@@ -37,6 +38,7 @@ from struphy import (
 # core imports
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
+from struphy.feec.memory import linop_nbytes, vector_nbytes
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.base import (
     FluidEquilibrium,
@@ -312,12 +314,31 @@ class Simulation(SimulationBase):
         logger.debug("... Done.")
 
     def estimate_mem(self, print_report: bool = True) -> dict:
-        """Estimate the memory footprint of all model variables, in bytes, BEFORE calling :meth:`allocate`.
+        """Estimate the memory footprint of all model variables and FEEC matrices, in bytes,
+        BEFORE calling :meth:`allocate`.
 
         Builds a throwaway Derham sequence (cheap: metadata only, no mass/basis operators) to obtain
         the FEEC coefficient space sizes and MPI domain decomposition, then calls ``estimate_mem()`` on
         every model variable, mirroring the loop in :meth:`_allocate_variables`. The throwaway Derham is
         discarded afterward -- calling :meth:`allocate` still performs the full allocation from scratch.
+
+        On top of the variables, the following FEEC matrices are estimated (they are usually much
+        larger than the spline coefficient vectors):
+
+        * the derivative matrices (grad, curl, div) of the Derham sequence (matrix-free, hence
+          essentially free of charge),
+        * the standard mass matrices M0, M1, M2, M3 and Mv, created with ``dry_run=True`` so that
+          only their sizes (including the zero-block structure) are computed, see
+          :meth:`~struphy.feec.mass.WeightedMassOperators.estimate_mem`.
+
+        Note
+        ----
+        Which matrices a model really allocates is only known once the propagators have been
+        allocated (they fetch and build their operators in ``allocate()``, partly under names
+        assembled at run time). The standard mass matrices are therefore used as a baseline:
+        a model may not need all of them, but it may also build additional weighted mass matrices
+        (e.g. ``M2n``), basis projection operators and preconditioners which are *not* included here.
+        Use :meth:`report_mem` after :meth:`allocate` for the exact numbers.
 
         Parameters
         ----------
@@ -328,8 +349,9 @@ class Simulation(SimulationBase):
         Returns
         -------
         dict
-            Mapping ``{"species.variable": local_bytes}`` (bytes on the *current* MPI rank), plus a
-            ``"total"`` entry with the local sum over all variables.
+            Mapping ``{"species.variable": local_bytes}`` for the model variables and
+            ``{"matrices.<name>": local_bytes}`` for the FEEC matrices (bytes on the *current*
+            MPI rank), plus a ``"total"`` entry with the local sum over all entries.
         """
         logger.debug("\nEstimating memory usage ...")
 
@@ -387,6 +409,14 @@ class Simulation(SimulationBase):
                     assert isinstance(v, FEECVariable)
                     mem[f"{species}.{k}"] = v.estimate_mem(derham=derham)
 
+        # FEEC matrices: derivative matrices (already allocated by the throwaway Derham) ...
+        mem["matrices.derivatives"] = sum(linop_nbytes(op) for op in (derham.grad, derham.curl, derham.div))
+
+        # ... and the standard mass matrices (dry run, i.e. sized but not allocated)
+        mass_ops = WeightedMassOperators(derham, self.domain, eq_mhd=self.equil)
+        for name, nbytes in mass_ops.estimate_mem().items():
+            mem[f"matrices.{name}"] = nbytes
+
         total_local = sum(mem.values())
         mem["total"] = total_local
 
@@ -408,6 +438,69 @@ class Simulation(SimulationBase):
                 )
 
         logger.debug("... Done.")
+
+        return mem
+
+    def report_mem(self, print_report: bool = True) -> dict:
+        """Actual local (per-MPI-rank) memory footprint of the big arrays, in bytes,
+        AFTER calling :meth:`allocate`.
+
+        In contrast to :meth:`estimate_mem`, nothing is estimated here: the spline coefficient
+        vectors and marker arrays are measured on the allocated objects, and the FEEC matrices are
+        obtained from the (weak) registry of all allocated stencil matrices,
+        :data:`~feectools.linalg.memory.stencil_matrix_memory`. The matrix number therefore
+        includes mass matrices, basis projection operators, preconditioners and any other
+        stencil matrix built by the propagators.
+
+        Parameters
+        ----------
+        print_report : bool
+            If True (default), print the breakdown on MPI rank 0.
+
+        Returns
+        -------
+        dict
+            Mapping ``{"feec_matrices": ..., "spline_coeffs": ..., "markers": ..., "total": ...}``
+            with the local number of bytes.
+        """
+        mem = {"feec_matrices": stencil_matrix_memory.nbytes, "spline_coeffs": 0, "markers": 0}
+
+        for species in (
+            self.model.field_species,
+            self.model.fluid_species,
+            self.model.particle_species,
+            self.model.diagnostic_species,
+        ):
+            if not species:
+                continue
+            for spec in species.values():
+                for v in spec.variables.values():
+                    if isinstance(v, FEECVariable):
+                        mem["spline_coeffs"] += vector_nbytes(v.spline.vector)
+                    elif isinstance(v, (PICVariable, SPHVariable)):
+                        mem["markers"] += v.particles.nbytes_local
+                        if v.n_to_save > 0:
+                            mem["markers"] += v.saved_markers.nbytes
+
+        total_local = sum(mem.values())
+        mem["total"] = total_local
+
+        if print_report:
+            if self.comm is not None:
+                total_global = self.comm.allreduce(total_local, op=MPI.SUM)
+            else:
+                total_global = total_local
+
+            if self.rank == 0:
+                print("\nMEMORY USAGE (after allocate()):")
+                for name, nbytes in mem.items():
+                    if name == "total":
+                        continue
+                    print(f"  {name}: {nbytes / 1e6:.2f} MB (local, rank 0)")
+                print(
+                    f"  TOTAL: {total_local / 1e6:.2f} MB (local, rank 0), "
+                    f"{total_global / 1e6:.2f} MB (global, summed over {self.comm_size} rank(s))"
+                )
 
         return mem
 
