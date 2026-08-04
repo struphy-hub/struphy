@@ -126,7 +126,7 @@ def _copy_run_results(sim_dir: Path, destination_dir: Path) -> list[str]:
         target = destination_dir / source.relative_to(source_dir)
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
-        relative_paths.append(str(target.relative_to(destination_dir.parent)))
+        relative_paths.append(target.relative_to(destination_dir.parent).as_posix())
 
     return relative_paths
 
