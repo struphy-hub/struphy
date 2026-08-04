@@ -221,14 +221,17 @@ def test_boundary_mass_hollow_cylinder_nonconstant(num_elements, degree, bcs):
 @pytest.mark.parametrize("num_elements", [[10, 10, 10]])
 @pytest.mark.parametrize("degree", [[2, 2, 2]])
 @pytest.mark.parametrize("bcs", [(("free", "free"), ("free", "free"), ("free", "free"))])
-@pytest.mark.parametrize("active_faces, u_idx, v_idx, exact", [
-    ([True,  False, False, False, False, False], 1, 2,  1.0),
-    ([False, True,  False, False, False, False], 2, 0,  1.0),
-    ([False, False, True,  False, False, False], 0, 1,  1.0),
-    ([False, False, False, True,  False, False], 1, 2, -1.0),
-    ([False, False, False, False, True,  False], 2, 0, -1.0),
-    ([False, False, False, False, False, True], 0, 1, -1.0),
-])
+@pytest.mark.parametrize(
+    "active_faces, u_idx, v_idx, exact",
+    [
+        ([True, False, False, False, False, False], 1, 2, 1.0),
+        ([False, True, False, False, False, False], 2, 0, 1.0),
+        ([False, False, True, False, False, False], 0, 1, 1.0),
+        ([False, False, False, True, False, False], 1, 2, -1.0),
+        ([False, False, False, False, True, False], 2, 0, -1.0),
+        ([False, False, False, False, False, True], 0, 1, -1.0),
+    ],
+)
 def test_boundary_mass_hcurl_per_face(num_elements, degree, bcs, active_faces, u_idx, v_idx, exact):
     comm = MPI.COMM_WORLD
 
@@ -256,7 +259,7 @@ def test_boundary_mass_hcurl_per_face(num_elements, degree, bcs, active_faces, u
     v_h = P(v_funs)
 
     bnd_ops = BoundaryIntegralOperators(mass_ops, active_faces=active_faces)
-    numerical = xp.dot(v_h.toarray(), bnd_ops.S1.dot(u_h).toarray())
+    numerical = bnd_ops.S1.dot_inner(u_h, v_h)
 
     logger.info(f"numerical = {numerical}, exact = {exact}, error = {xp.abs(numerical - exact)}")
 
@@ -266,14 +269,17 @@ def test_boundary_mass_hcurl_per_face(num_elements, degree, bcs, active_faces, u
 @pytest.mark.parametrize("num_elements", [[10, 10, 10]])
 @pytest.mark.parametrize("degree", [[2, 2, 2]])
 @pytest.mark.parametrize("bcs", [(("free", "free"), ("free", "free"), ("free", "free"))])
-@pytest.mark.parametrize("active_faces, u_idx, v_idx, exact", [
-    ([True,  False, False, False, False, False], 1, 2,  12.0),
-    ([False, True,  False, False, False, False], 2, 0,   6.0),
-    ([False, False, True,  False, False, False], 0, 1,   8.0),
-    ([False, False, False, True,  False, False], 1, 2, -12.0),
-    ([False, False, False, False, True,  False], 2, 0,  -6.0),
-    ([False, False, False, False, False, True ], 0, 1,  -8.0),
-])
+@pytest.mark.parametrize(
+    "active_faces, u_idx, v_idx, exact",
+    [
+        ([True, False, False, False, False, False], 1, 2, 12.0),
+        ([False, True, False, False, False, False], 2, 0, 6.0),
+        ([False, False, True, False, False, False], 0, 1, 8.0),
+        ([False, False, False, True, False, False], 1, 2, -12.0),
+        ([False, False, False, False, True, False], 2, 0, -6.0),
+        ([False, False, False, False, False, True], 0, 1, -8.0),
+    ],
+)
 def test_boundary_mass_hcurl_cuboid_nontrivial(num_elements, degree, bcs, active_faces, u_idx, v_idx, exact):
     """
     Tests the H(curl) boundary mass operator on a non-unit cuboid [-1,1] x [-1,3] x [0,3]
@@ -294,8 +300,10 @@ def test_boundary_mass_hcurl_cuboid_nontrivial(num_elements, degree, bcs, active
             lambda x, y, z: xp.ones_like(x) if 1 == idx else xp.zeros_like(x),
             lambda x, y, z: xp.ones_like(x) if 2 == idx else xp.zeros_like(x),
         ]
+
         def pulled(*etas):
             return domain.pull(phys_funs, *etas, kind="1")
+
         return [
             lambda *etas, p=pulled: p(*etas)[0],
             lambda *etas, p=pulled: p(*etas)[1],
@@ -347,8 +355,9 @@ if __name__ == "__main__":
         [2, 2, 2],
         (("free", "free"), ("free", "free"), ("free", "free")),
         [True, False, False, False, False, False],
-        1, 2,
-        1.0
+        1,
+        2,
+        1.0,
     )
 
     test_boundary_mass_hcurl_cuboid_nontrivial(
@@ -356,6 +365,7 @@ if __name__ == "__main__":
         [1, 2, 3],
         (("free", "free"), ("free", "free"), ("free", "free")),
         [True, False, False, False, False, False],
-        1, 2,
+        1,
+        2,
         12.0,
     )

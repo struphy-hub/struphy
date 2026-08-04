@@ -398,6 +398,7 @@ class BoundaryMassOperatorHCurl(LinOpWithTransp):
         self._wts_l = self._derham.spline_attributes[self._space_key].quad_grid_wts
         self._bases_l = self._derham.spline_attributes[self._space_key].quad_grid_bases
         self._tensor_fem_spaces = self._derham.spline_attributes[self._space_key].tensor_spaces
+        self._nbasis = self._derham.spline_attributes[self._space_key].nbasis
 
         self._V_extraction_op = self._derham.extraction_ops[self._space_key]
         self._W_extraction_op = self._derham.extraction_ops[self._space_key]
@@ -471,11 +472,11 @@ class BoundaryMassOperatorHCurl(LinOpWithTransp):
             # constant skew-symmetric cross-product matrix R_n such that R_n v = n_hat x v
             R_n_const = xp.zeros((3, 3))
             R_n_const[0, 1] = -n_hat[2]
-            R_n_const[0, 2] =  n_hat[1]
-            R_n_const[1, 0] =  n_hat[2]
+            R_n_const[0, 2] = n_hat[1]
+            R_n_const[1, 0] = n_hat[2]
             R_n_const[1, 2] = -n_hat[0]
             R_n_const[2, 0] = -n_hat[1]
-            R_n_const[2, 1] =  n_hat[0]
+            R_n_const[2, 1] = n_hat[0]
 
             # store R_n per component mu on its own quadrature grid shape
             surface_R_n_per_mu = [None, None, None]
@@ -516,7 +517,11 @@ class BoundaryMassOperatorHCurl(LinOpWithTransp):
     def dtype(self):
         return self._dtype
 
-    def _assemble_face(self, face_idx: int, mat):
+    def _assemble_face(
+        self,
+        face_idx: int,
+        mat: BlockLinearOperator,
+    ):
         normal_dir = face_idx % 3
         surf_dirs = [d for d in range(3) if d != normal_dir]
 
@@ -533,41 +538,48 @@ class BoundaryMassOperatorHCurl(LinOpWithTransp):
         ends_nu = [int(e) for e in fem_space_nu.coeff_space.ends]
         pads_nu = fem_space_nu.coeff_space.pads
 
-        boundary_index_mu = starts_mu[normal_dir] if face_idx < 3 else ends_mu[normal_dir]
-        boundary_index_nu = starts_nu[normal_dir] if face_idx < 3 else ends_nu[normal_dir]
+        boundary_index_mu = 0 if face_idx < 3 else self._nbasis[mu][normal_dir] - 1
+        boundary_index_nu = 0 if face_idx < 3 else self._nbasis[nu][normal_dir] - 1
+
+        logger.debug(f"{normal_dir=}, {face_idx=} {boundary_index_mu=}, {starts_mu=}, {ends_mu=}, {pads_mu=}")
+        logger.debug(f"{normal_dir=}, {face_idx=} {boundary_index_nu=}, {starts_nu=}, {ends_nu=}, {pads_nu=}")
 
         mat_fun_mu_nu = self._surface_R_n[face_idx][mu][..., mu, nu]
         mat_fun_nu_mu = self._surface_R_n[face_idx][nu][..., nu, mu]
 
-        self._assembly_kernel(
-            *self._surface_spans[face_idx][mu],
-            *fem_space_mu.degree,
-            *fem_space_nu.degree,
-            *starts_mu,
-            *pads_mu,
-            *self._surface_wts[face_idx][mu],
-            *self._surface_bases[face_idx][mu],
-            *self._surface_bases[face_idx][nu],
-            boundary_index_mu,
-            normal_dir,
-            mat_fun_mu_nu,
-            mat.blocks[mu][nu]._data,
-        )
+        if starts_mu[normal_dir] == boundary_index_mu or ends_mu[normal_dir] == boundary_index_mu:
+            logger.debug(f"Assembling face {face_idx} for block ({mu},{nu})")
+            self._assembly_kernel(
+                *self._surface_spans[face_idx][mu],
+                *fem_space_mu.degree,
+                *fem_space_nu.degree,
+                *starts_mu,
+                *pads_mu,
+                *self._surface_wts[face_idx][mu],
+                *self._surface_bases[face_idx][mu],
+                *self._surface_bases[face_idx][nu],
+                boundary_index_mu,
+                normal_dir,
+                mat_fun_mu_nu,
+                mat.blocks[mu][nu]._data,
+            )
 
-        self._assembly_kernel(
-            *self._surface_spans[face_idx][nu],
-            *fem_space_nu.degree,
-            *fem_space_mu.degree,
-            *starts_nu,
-            *pads_nu,
-            *self._surface_wts[face_idx][nu],
-            *self._surface_bases[face_idx][nu],
-            *self._surface_bases[face_idx][mu],
-            boundary_index_nu,
-            normal_dir,
-            mat_fun_nu_mu,
-            mat.blocks[nu][mu]._data,
-        )
+        if starts_nu[normal_dir] == boundary_index_nu or ends_nu[normal_dir] == boundary_index_nu:
+            logger.debug(f"Assembling face {face_idx} for block ({nu},{mu})")
+            self._assembly_kernel(
+                *self._surface_spans[face_idx][nu],
+                *fem_space_nu.degree,
+                *fem_space_mu.degree,
+                *starts_nu,
+                *pads_nu,
+                *self._surface_wts[face_idx][nu],
+                *self._surface_bases[face_idx][nu],
+                *self._surface_bases[face_idx][mu],
+                boundary_index_nu,
+                normal_dir,
+                mat_fun_nu_mu,
+                mat.blocks[nu][mu]._data,
+            )
 
     def assemble(self, clear: bool = True):
         """Assembles the H(curl) boundary mass matrix."""
