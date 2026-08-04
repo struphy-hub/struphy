@@ -77,7 +77,7 @@ def set_logging_level(level: int = logging.WARNING):
     * logging.CRITICAL: for critical errors that likely cause the simulation to stop or produce invalid results.
 
     Which handler a record ends up in is fixed by the configuration and not changed here:
-    DEBUG/INFO go to stdout, WARNING and above to stderr, everything to the log file.
+    DEBUG/INFO go to stdout, WARNING and above to stderr; records that pass the logger level are also written to the log file.
     """
     logger = logging.getLogger("struphy")
     logger.setLevel(level)
