@@ -662,6 +662,6 @@ class ProfilingCase:
                 print("Push this case later, exactly as packaged, without re-running it:")
                 print(f"    python {script_dir / 'upload.py'} {self.destination_dir}")
                 print("Or plot the results locally by opening the HTML files in the packaged directories, e.g.:")
-                print(f"    scope-profiler pproc {self.destination_dir / _run_folder_name(1) / '*.h5'} --rank 0")
+                print(f"    scope-profiler pproc {self.destination_dir / _run_folder_name(sorted(packaged_launch_ids)[0]) / '*.h5'} --rank 0")
         else:
             print(f"No profiling output found for '{self.label}'; nothing to package.")
