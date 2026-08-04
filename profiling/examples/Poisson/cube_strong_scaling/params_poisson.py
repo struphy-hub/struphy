@@ -82,10 +82,7 @@ domain = domains.Cuboid(r1=Lx, l2=-Ly/2, r2=Ly/2, r3=Lz)
 equil = None
 
 # Grid
-grid = grids.TensorProductGrid(
-        num_elements=(256, 256, 256),
-        # num_elements=(64, 128, 128),
-        mpi_dims_mask=(True, True, True))
+grid = grids.TensorProductGrid(num_elements=(256, 256, 256), mpi_dims_mask=(True, True, True))
 
 # Derham options
 derham_opts = DerhamOptions(degree=(1, 2, 3), bcs=(("dirichlet", "dirichlet"), None, None))

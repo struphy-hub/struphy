@@ -1,0 +1,72 @@
+name: PR - feectools submodule freshness
+
+on:
+  pull_request:
+    branches:
+      - devel
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  check-feectools-submodule:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check feectools submodule points to latest devel-tiny
+        run: |
+          set -eo pipefail
+
+          FEECTOOLS_URL="https://github.com/struphy-hub/feectools.git"
+
+          SUBMOD_SHA=$(git rev-parse HEAD:feectools)
+LATEST_SHA=$(git ls-remote "$FEECTOOLS_URL" refs/heads/devel-tiny | cut -f1)
+if [[ -z "$LATEST_SHA" ]]; then
+  echo "## :x: Unable to resolve latest devel-tiny SHA from $FEECTOOLS_URL" | tee -a "$GITHUB_STEP_SUMMARY"
+  exit 1
+fi
+
+          echo "Submodule commit:        $SUBMOD_SHA"
+          echo "Latest devel-tiny commit: $LATEST_SHA"
+
+          if [[ "$SUBMOD_SHA" == "$LATEST_SHA" ]]; then
+            echo "The feectools submodule is up to date with devel-tiny." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          {
+            echo "## :x: feectools submodule is out of date"
+            echo
+            echo "The \`feectools\` submodule in this repository points to:"
+            echo
+            echo "    $SUBMOD_SHA"
+            echo
+            echo "but the latest commit on \`devel-tiny\` in [feectools](https://github.com/struphy-hub/feectools) is:"
+            echo
+            echo "    $LATEST_SHA"
+            echo
+            echo "Please merge your changes into \`devel-tiny\` on feectools first, then update the submodule pointer in struphy. Run the following commands locally and copy-paste them as-is:"
+            echo
+            echo '```bash'
+            echo "cd feectools"
+            echo "git checkout devel-tiny"
+            echo "git pull origin devel-tiny"
+            echo "cd .."
+            echo "git add feectools"
+            echo 'git commit -m "Update feectools submodule to latest devel-tiny"'
+            echo "git push"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+          exit 1
