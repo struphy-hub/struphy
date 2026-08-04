@@ -1128,9 +1128,9 @@ def surface_kernel_3d_mat_h1(
     pi0: int,
     pi1: int,
     pi2: int,
-    qi0: int,
-    qi1: int,
-    qi2: int,
+    pj0: int,
+    pj1: int,
+    pj2: int,
     starts0: int,
     starts1: int,
     starts2: int,
@@ -1162,13 +1162,13 @@ def surface_kernel_3d_mat_h1(
         Arrays of span indices in the two tangential grid directions used for the surface quadrature (as
         determined by normal_dir); the span is the index of the last non-vanishing spline on each grid element.
     pi0, pi1, pi2 : int
-        Degree of the codomain basis functions along Cartesian axes 0, 1 and 2.
-    qi0, qi1, qi2 : int
-        Degree of the domain basis functions along Cartesian axes 0, 1 and 2.
+        Degree of the codomain basis functions along logical axes 0, 1 and 2.
+    pj0, pj1, pj2 : int
+        Degree of the domain basis functions along logical axes 0, 1 and 2.
     starts0, starts1, starts2 : int
-        Starting index on the current rank along Cartesian axes 0, 1 and 2.
+        Starting index on the current rank along logical axes 0, 1 and 2.
     pads0, pads1, pads2 : int
-        Padding (=spline degree) for ghost regions in data, along Cartesian axes 0, 1 and 2.
+        Padding (=spline degree) for ghost regions in data, along logical axes 0, 1 and 2.
     w1, w2 : "float[:,:]"
         Quadrature weights in the two tangential directions. The indexing is [global element, quadrature point].
     bi1, bi2 : "float[:,:,:,:]"
@@ -1179,15 +1179,12 @@ def surface_kernel_3d_mat_h1(
     boundary_index : int
         Global index along normal_dir at which the boundary surface is located.
     normal_dir : int
-        Cartesian direction (0, 1 or 2) normal to the surface; the remaining two directions are the tangential
+        Logical direction (0, 1 or 2) normal to the surface; the remaining two directions are the tangential
         directions used for the surface integration.
     mat_fun : "float[:,:]"
         Function under the integral evaluated at surface quadrature points (flattened in each tangential direction).
     data : "float[:,:,:,:,:,:]"
-        _data array of StencilMatrix to store the results. Rows are fixed at the boundary index in normal_dir;
-        columns are offset by (j_global - i_global) in the tangential directions and fixed to zero offset in
-        normal_dir, following the standard banded StencilMatrix storage convention. The axis order of the
-        stored indices depends on normal_dir (0, 1 or 2).
+        _data array of StencilMatrix to store the results. 
     """
 
     ne1 = spans1.size
@@ -1199,15 +1196,15 @@ def surface_kernel_3d_mat_h1(
     starts = [starts0, starts1, starts2]
     pads = [pads0, pads1, pads2]
     pi = [pi0, pi1, pi2]
-    qi = [qi0, qi1, qi2]
+    pj = [pj0, pj1, pj2]
 
     surf_dirs = [d for d in range(3) if d != normal_dir]
 
     pi_s1 = pi[surf_dirs[0]]
     pi_s2 = pi[surf_dirs[1]]
 
-    qi_s1 = qi[surf_dirs[0]]
-    qi_s2 = qi[surf_dirs[1]]
+    pj_s1 = pj[surf_dirs[0]]
+    pj_s2 = pj[surf_dirs[1]]
 
     starts_n = starts[normal_dir]
     starts_s1 = starts[surf_dirs[0]]
@@ -1229,13 +1226,10 @@ def surface_kernel_3d_mat_h1(
                     i_local1 = i_global1 - starts_s1
                     i_local2 = i_global2 - starts_s2
 
-                    for jl1 in range(qi_s1 + 1):
-                        for jl2 in range(qi_s2 + 1):
-                            j_global1 = spans1[iel1] - qi_s1 + jl1
-                            j_global2 = spans2[iel2] - qi_s2 + jl2
-
-                            j_local1 = j_global1 - i_global1
-                            j_local2 = j_global2 - i_global2
+                    for jl1 in range(pj_s1 + 1):
+                        for jl2 in range(pj_s2 + 1):
+                            j_local1 = jl1 - il1
+                            j_local2 = jl2 - il2
 
                             value = 0.0
 
