@@ -1,7 +1,6 @@
 import copy
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 
 from struphy import BaseUnits
 from struphy.feec.mass import AverageOperator, L2Projector
@@ -22,8 +21,6 @@ from struphy.propagators.poisson_adiabatic_gyrokinetic import PoissonAdiabaticGy
 from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
 from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
 from struphy.utils.pyccel import Pyccelkernel
-
-rank = MPI.COMM_WORLD.Get_rank()
 
 
 class DriftKineticElectrostaticAdiabatic(StruphyModel):
