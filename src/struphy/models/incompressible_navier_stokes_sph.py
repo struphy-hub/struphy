@@ -1,7 +1,5 @@
 import copy
 
-from feectools.ddm.mpi import mpi as MPI
-
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.scalars import KineticEnergySPH, Scalars
@@ -18,8 +16,6 @@ from struphy.propagators.push_vin_efield import PushVinEfield
 from struphy.propagators.push_vin_viscous_potential import PushVinViscousPotential
 from struphy.propagators.push_vxb import PushVxB
 from struphy.utils.pyccel import Pyccelkernel
-
-rank = MPI.COMM_WORLD.Get_rank()
 
 
 class IncompressibleNavierStokesSPH(StruphyModel):
