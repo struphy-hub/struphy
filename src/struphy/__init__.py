@@ -18,6 +18,13 @@ class RankZeroFilter(logging.Filter):
         return self.rank == 0
 
 
+class BelowWarningFilter(logging.Filter):
+    """Let only DEBUG and INFO records pass (WARNING and above go to stderr)."""
+
+    def filter(self, record):
+        return record.levelno < logging.WARNING
+
+
 # logger configuration
 config = {
     "version": 1,
@@ -29,7 +36,17 @@ config = {
             "datefmt": "%Y-%m-%dT%H:%M:%S%z",
         },
     },
+    "filters": {
+        "below_warning": {"()": BelowWarningFilter},
+    },
     "handlers": {
+        "stdout": {
+            "class": "logging.StreamHandler",
+            "level": "DEBUG",
+            "formatter": "simple",
+            "filters": ["below_warning"],
+            "stream": "ext://sys.stdout",
+        },
         "stderr": {
             "class": "logging.StreamHandler",
             "level": "WARNING",
@@ -38,14 +55,14 @@ config = {
         },
         "file": {
             "class": "logging.handlers.RotatingFileHandler",
-            "level": "WARNING",
+            "level": "DEBUG",
             "formatter": "detailed",
             "filename": "struphy.log",
             "maxBytes": 10000,
             "backupCount": 3,
         },
     },
-    "loggers": {"struphy": {"level": "WARNING", "handlers": ["stderr", "file"]}},
+    "loggers": {"struphy": {"level": "WARNING", "handlers": ["stdout", "stderr", "file"]}},
 }
 
 
@@ -58,11 +75,12 @@ def set_logging_level(level: int = logging.WARNING):
     * logging.WARNING: for warnings about potential issues that do not stop the simulation.
     * logging.ERROR: for errors that occur during the simulation, which may affect results but do not necessarily stop the simulation.
     * logging.CRITICAL: for critical errors that likely cause the simulation to stop or produce invalid results.
+
+    Which handler a record ends up in is fixed by the configuration and not changed here:
+    DEBUG/INFO go to stdout, WARNING and above to stderr; records that pass the logger level are also written to the log file.
     """
     logger = logging.getLogger("struphy")
     logger.setLevel(level)
-    for handler in logger.handlers:
-        handler.setLevel(level)
 
     logger.debug(
         f"\nNew logger level: {logger.level}, effective: {logger.getEffectiveLevel()}, propagate: {logger.propagate}"
