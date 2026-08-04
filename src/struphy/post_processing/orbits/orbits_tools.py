@@ -5,10 +5,10 @@ import shutil
 import cunumpy as xp
 import h5py
 import yaml
-from tqdm import tqdm
 
 from struphy.io.setup import import_parameters_py
 from struphy.post_processing.orbits.orbits_kernels import calculate_guiding_center_from_6d
+from struphy.utils.progress import tqdm
 
 logger = logging.getLogger("struphy")
 
