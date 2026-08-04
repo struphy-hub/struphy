@@ -293,7 +293,7 @@ class PostProcessor:
     def process(
         self,
         step: int = 1,
-        celldivide: int = 1,
+        celldivide: Sequence[int] = (1, 1, 1),
         physical: bool = False,
         guiding_center: bool = False,
         classify: bool = False,
@@ -305,8 +305,8 @@ class PostProcessor:
         ----------
         step : int
             Interval of saved time steps to post-process (1 = every step, 2 = every second step, ...).
-        celldivide : int
-            Grid refinement factor when evaluating FEM fields (e.g. ``celldivide=2`` evaluates two
+        celldivide : sequence of int
+            Grid refinement factor when evaluating FEM fields (e.g. ``celldivide=(1, 1, 1)`` evaluates two
             points per cell in each logical direction).
         physical : bool
             If True, also compute push-forwarded physical (x,y,z) components of fields.
@@ -369,7 +369,7 @@ class PostProcessor:
     def process_fields(
         self,
         step: int = 1,
-        celldivide: int = 1,
+        celldivide: Sequence[int] = (1, 1, 1),
         physical: bool = False,
         create_vtk: bool = True,
     ):
@@ -384,7 +384,7 @@ class PostProcessor:
         ----------
         step : int
             Interval of saved time steps to post-process (1 = every step, 2 = every second step, ...).
-        celldivide : int
+        celldivide : sequence of int
             Grid refinement factor when evaluating FEM fields.
         physical : bool
             If True, also compute push-forwarded physical (x,y,z) components of fields.
@@ -399,7 +399,7 @@ class PostProcessor:
         fields, t_grid = self._create_femfields(step=step)
 
         # evaluation grid; each rank only ever evaluates the points of its own domain
-        grids_log, grid_slices = self._create_eval_grids(celldivide=[celldivide] * 3)
+        grids_log, grid_slices = self._create_eval_grids(celldivide=celldivide)
         grids_log_loc = [grid[sl] for grid, sl in zip(grids_log, grid_slices[self.rank])]
         glob_shape = tuple(grid.size for grid in grids_log)
 
