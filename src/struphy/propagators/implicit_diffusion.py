@@ -466,6 +466,6 @@ class ImplicitDiffusion(Propagator):
         info = self._solver._info
 
         if self._info:
-            logger.info(info)
+            logger.warning(f"\nSolver info: {info}")
 
         self.update_feec_variables(phi=out)
