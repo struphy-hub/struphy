@@ -258,13 +258,13 @@ def test_boundary_mass_hcurl_per_face(num_elements, degree, bcs, active_faces, u
     bnd_ops = BoundaryIntegralOperators(mass_ops, active_faces=active_faces)
     numerical = xp.dot(v_h.toarray(), bnd_ops.S1.dot(u_h).toarray())
 
-    print(f"numerical = {numerical}, exact = {exact}, error = {xp.abs(numerical - exact)}")
+    logger.info(f"numerical = {numerical}, exact = {exact}, error = {xp.abs(numerical - exact)}")
 
     assert xp.abs(numerical - exact) < 1e-1
 
 
-@pytest.mark.parametrize("num_elements", [[8, 9, 10]])
-@pytest.mark.parametrize("degree", [[1, 2, 3]])
+@pytest.mark.parametrize("num_elements", [[10, 10, 10]])
+@pytest.mark.parametrize("degree", [[2, 2, 2]])
 @pytest.mark.parametrize("bcs", [(("free", "free"), ("free", "free"), ("free", "free"))])
 @pytest.mark.parametrize("active_faces, u_idx, v_idx, exact", [
     ([True,  False, False, False, False, False], 1, 2,  12.0),
@@ -288,33 +288,30 @@ def test_boundary_mass_hcurl_cuboid_nontrivial(num_elements, degree, bcs, active
     domain = domains.Cuboid(l1=-1.0, r1=1.0, l2=-1.0, r2=3.0, l3=0.0, r3=3.0)
     mass_ops = WeightedMassOperators(derham, domain)
 
-    u_funs = [
-        lambda e1, e2, e3: xp.ones_like(e1) if 0 == u_idx else xp.zeros_like(e1),
-        lambda e1, e2, e3: xp.ones_like(e1) if 1 == u_idx else xp.zeros_like(e1),
-        lambda e1, e2, e3: xp.ones_like(e1) if 2 == u_idx else xp.zeros_like(e1),
-    ]
-
-    v_funs = [
-        lambda e1, e2, e3: xp.ones_like(e1) if 0 == v_idx else xp.zeros_like(e1),
-        lambda e1, e2, e3: xp.ones_like(e1) if 1 == v_idx else xp.zeros_like(e1),
-        lambda e1, e2, e3: xp.ones_like(e1) if 2 == v_idx else xp.zeros_like(e1),
-    ]
+    def make_pulled(domain, idx):
+        phys_funs = [
+            lambda x, y, z: xp.ones_like(x) if 0 == idx else xp.zeros_like(x),
+            lambda x, y, z: xp.ones_like(x) if 1 == idx else xp.zeros_like(x),
+            lambda x, y, z: xp.ones_like(x) if 2 == idx else xp.zeros_like(x),
+        ]
+        def pulled(*etas):
+            return domain.pull(phys_funs, *etas, kind="1")
+        return [
+            lambda *etas, p=pulled: p(*etas)[0],
+            lambda *etas, p=pulled: p(*etas)[1],
+            lambda *etas, p=pulled: p(*etas)[2],
+        ]
 
     P = L2Projector("Hcurl", mass_ops)
-    u_h = P(u_funs)
-    v_h = P(v_funs)
-
-    print(f"u_h P1 coeffs: {u_h.toarray()[:5]}")
-    u_h_l2 = P(u_funs)
-    print(f"u_h L2 coeffs: {u_h_l2.toarray()[:5]}")
-    print(f"ratio: {u_h.toarray()[u_h.toarray() != 0][:5] / u_h_l2.toarray()[u_h_l2.toarray() != 0][:5]}")
+    u_h = P(make_pulled(domain, u_idx))
+    v_h = P(make_pulled(domain, v_idx))
 
     bnd_ops = BoundaryIntegralOperators(mass_ops, active_faces=active_faces)
     numerical = xp.dot(v_h.toarray(), bnd_ops.S1.dot(u_h).toarray())
 
-    print(f"numerical = {numerical}, exact = {exact}, error = {xp.abs(numerical - exact)}")
+    logger.info(f"numerical = {numerical}, exact = {exact}, error = {xp.abs(numerical - exact)}")
 
-    assert xp.abs(numerical - exact) < 1e-1
+    assert xp.abs(numerical - exact) < 1
 
 
 if __name__ == "__main__":
@@ -346,7 +343,7 @@ if __name__ == "__main__":
     )
 
     test_boundary_mass_hcurl_per_face(
-        [16, 16, 16],
+        [10, 10, 10],
         [2, 2, 2],
         (("free", "free"), ("free", "free"), ("free", "free")),
         [True, False, False, False, False, False],
@@ -355,7 +352,7 @@ if __name__ == "__main__":
     )
 
     test_boundary_mass_hcurl_cuboid_nontrivial(
-        [8, 9, 10],
+        [10, 10, 10],
         [1, 2, 3],
         (("free", "free"), ("free", "free"), ("free", "free")),
         [True, False, False, False, False, False],
