@@ -76,7 +76,7 @@ def make_mpi_pproc(comm, num_elements=NUM_ELEMENTS):
 def global_array(shape, dtype=float, offset=0):
     """A deterministic array every rank can compute, so no reference has to be sent."""
     values = xp.arange(xp.prod(xp.array(shape)), dtype=float) + offset
-    if dtype == complex:
+    if dtype is complex:
         values = values + 1j * values
     return values.reshape(shape).astype(dtype)
 
