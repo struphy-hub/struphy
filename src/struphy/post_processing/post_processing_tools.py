@@ -434,10 +434,11 @@ class PostProcessor:
                     physical=physical,
                 )
 
-                for species, vars in vals.items():
-                    for name, val in vars.items():
-                        point_data[species][name][t] = val
-                        point_data_phy[species][name][t] = vals_phy[species][name]
+                if self.rank == 0:
+                    for species, vars in vals.items():
+                        for name, val in vars.items():
+                            point_data[species][name][t] = val
+                            point_data_phy[species][name][t] = vals_phy[species][name]
 
         # directory for field data
         path_fields = os.path.join(self.path_pproc, "fields_data")
