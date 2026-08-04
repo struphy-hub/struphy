@@ -373,7 +373,7 @@ class Particles(metaclass=ABCMeta):
         self._generate_sampling_moments()
 
         # create buffers for mpi_sort_markers
-        self._sorting_etas = xp.zeros(self.markers.shape, dtype=float)
+        self._sorting_etas = xp.zeros((self.markers.shape[0], 3), dtype=float)
         self._is_on_proc_domain = xp.zeros((self.markers.shape[0], 3), dtype=bool)
         self._can_stay = xp.zeros(self.markers.shape[0], dtype=bool)
         self._reqs = [None] * self.mpi_size
@@ -494,7 +494,7 @@ class Particles(metaclass=ABCMeta):
 
         nbytes = 0
         nbytes += n_rows * n_cols * float_size  # markers
-        nbytes += n_rows * n_cols * float_size  # sorting_etas (mpi_sort_markers buffer)
+        nbytes += n_rows * 3 * float_size  # sorting_etas (mpi_sort_markers buffer)
         nbytes += n_rows * 3 * bool_size  # is_on_proc_domain
         nbytes += n_rows * bool_size  # can_stay
         # holes, ghost_particles, valid_mks, is_outside_right, is_outside_left, is_outside
@@ -4371,10 +4371,11 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         assert alpha.size == 3
         assert xp.all(alpha >= 0.0) and xp.all(alpha <= 1.0)
         bi = self.first_pusher_idx
-        self._sorting_etas = xp.mod(
+        xp.mod(
             alpha * (self.markers[:, :3] + self.markers[:, bi + 3 + self.vdim : bi + 3 + self.vdim + 3])
             + (1.0 - alpha) * self.markers[:, bi : bi + 3],
             1.0,
+            out=self._sorting_etas,
         )
 
         # check which particles are on the current process domain
