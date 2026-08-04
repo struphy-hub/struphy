@@ -24,7 +24,7 @@ def kernel_1d_mat(
     Performs the integration of Lambda_(i1) * mat_fun(eta1) * Lambda_(j1) for the basis functions (i1, j1) available on the calling process.
 
     The results are written into data (attention: data is NOT set to zero first, but the results are added to data).
-    
+
     Parameters
     ----------
     spans1 : array[int]
@@ -1109,15 +1109,9 @@ def surface_kernel_3d_vec(
 
                     for q1 in range(nq1):
                         for q2 in range(nq2):
-                            wvol = (
-                                w1[iel1, q1]
-                                * w2[iel2, q2]
-                                * mat_fun[iel1 * nq1 + q1, iel2 * nq2 + q2]
-                            )
+                            wvol = w1[iel1, q1] * w2[iel2, q2] * mat_fun[iel1 * nq1 + q1, iel2 * nq2 + q2]
 
-                            value += (
-                                wvol * bi1[iel1, il1, 0, q1] * bi2[iel2, il2, 0, q2]
-                            )
+                            value += wvol * bi1[iel1, il1, 0, q1] * bi2[iel2, il2, 0, q2]
 
                     data[pads0 + i_local0, pads1 + i_local1, pads2 + i_local2] += value
 
@@ -1184,7 +1178,7 @@ def surface_kernel_3d_mat_h1(
     mat_fun : "float[:,:]"
         Function under the integral evaluated at surface quadrature points (flattened in each tangential direction).
     data : "float[:,:,:,:,:,:]"
-        _data array of StencilMatrix to store the results. 
+        _data array of StencilMatrix to store the results.
     """
 
     ne1 = spans1.size
@@ -1235,11 +1229,7 @@ def surface_kernel_3d_mat_h1(
 
                             for q1 in range(nq1):
                                 for q2 in range(nq2):
-                                    wvol = (
-                                        w1[iel1, q1]
-                                        * w2[iel2, q2]
-                                        * mat_fun[iel1 * nq1 + q1, iel2 * nq2 + q2]
-                                    )
+                                    wvol = w1[iel1, q1] * w2[iel2, q2] * mat_fun[iel1 * nq1 + q1, iel2 * nq2 + q2]
 
                                     value += (
                                         wvol

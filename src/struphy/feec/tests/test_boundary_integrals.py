@@ -15,14 +15,22 @@ from struphy.topology.grids import TensorProductGrid
 logger = logging.getLogger("struphy")
 
 
-@pytest.mark.parametrize("num_elements", [[8, 9, 10]],)
+@pytest.mark.parametrize(
+    "num_elements",
+    [[8, 9, 10]],
+)
 @pytest.mark.parametrize("degree", [[1, 2, 3]])
-@pytest.mark.parametrize("bcs", [(None, None, None),
-                                 (("free", "free"), None, None),
-                                 (None, ("free", "free"), None),
-                                 (None, None, ("free", "free")),
-                                 (("free", "free"), ("free", "free"), None),
-                                 (("free", "free"), ("free", "free"),  ("free", "free")),])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (None, None, None),
+        (("free", "free"), None, None),
+        (None, ("free", "free"), None),
+        (None, None, ("free", "free")),
+        (("free", "free"), ("free", "free"), None),
+        (("free", "free"), ("free", "free"), ("free", "free")),
+    ],
+)
 def test_boundary_mass_unit_cube_constant(num_elements, degree, bcs):
     """
     Tests the boundary mass operator for alpha = 1 on the unit cube.
@@ -55,8 +63,15 @@ def test_boundary_mass_unit_cube_constant(num_elements, degree, bcs):
 
     bnd_ops = BoundaryIntegralOperators(mass_ops)
     v = bnd_ops.S0.dot(alpha_h)
+    arr = v.toarray()
 
-    numerical = xp.sum(v.toarray())
+    if comm is None:
+        coeffs = arr
+    else:
+        coeffs = xp.zeros_like(arr)
+        comm.Allreduce(arr, coeffs, op=MPI.SUM)
+
+    numerical = xp.sum(coeffs)
 
     logger.info(f"numerical = {numerical}, exact = {exact}, error = {xp.abs(numerical - exact)}")
 
@@ -65,9 +80,14 @@ def test_boundary_mass_unit_cube_constant(num_elements, degree, bcs):
 
 @pytest.mark.parametrize("num_elements", [[8, 9, 10]])
 @pytest.mark.parametrize("degree", [[1, 2, 3]])
-@pytest.mark.parametrize("bcs", [(("dirichlet", "free"), ("free", "free"), ("free", "free")),
-                                (("free", "dirichlet"), ("free", "free"), ("free", "free")),
-                                (("dirichlet", "dirichlet"), ("free", "free"), ("free", "free"))])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("dirichlet", "free"), ("free", "free"), ("free", "free")),
+        (("free", "dirichlet"), ("free", "free"), ("free", "free")),
+        (("dirichlet", "dirichlet"), ("free", "free"), ("free", "free")),
+    ],
+)
 def test_boundary_mass_unit_cube_nonconstant(num_elements, degree, bcs):
     """
     Tests the boundary mass operator for alpha = eta1 + eta2 + eta3 on the unit cube.
@@ -97,8 +117,15 @@ def test_boundary_mass_unit_cube_nonconstant(num_elements, degree, bcs):
 
     bnd_ops = BoundaryIntegralOperators(mass_ops)
     v = bnd_ops.S0.dot(alpha_h)
+    arr = v.toarray()
 
-    numerical = xp.sum(v.toarray())
+    if comm is None:
+        coeffs = arr
+    else:
+        coeffs = xp.zeros_like(arr)
+        comm.Allreduce(arr, coeffs, op=MPI.SUM)
+
+    numerical = xp.sum(coeffs)
 
     logger.info(f"numerical = {numerical}, exact = {exact}, error = {xp.abs(numerical - exact)}")
 
@@ -130,8 +157,15 @@ def test_boundary_mass_cuboid_nontrivial(num_elements, degree, bcs):
 
     bnd_ops = BoundaryIntegralOperators(mass_ops)
     v = bnd_ops.S0.dot(alpha_h)
+    arr = v.toarray()
 
-    numerical = xp.sum(v.toarray())
+    if comm is None:
+        coeffs = arr
+    else:
+        coeffs = xp.zeros_like(arr)
+        comm.Allreduce(arr, coeffs, op=MPI.SUM)
+
+    numerical = xp.sum(coeffs)
 
     logger.info(f"numerical = {numerical}, exact = {exact}, error = {xp.abs(numerical - exact)}")
 
@@ -146,6 +180,7 @@ def test_boundary_mass_hollow_cylinder_nonconstant(num_elements, degree, bcs):
     Tests the boundary mass operator for alpha = exp(eta3) on a HollowCylinder.
     """
     import math
+
     comm = MPI.COMM_WORLD
 
     grid = TensorProductGrid(num_elements=num_elements)
@@ -161,19 +196,22 @@ def test_boundary_mass_hollow_cylinder_nonconstant(num_elements, degree, bcs):
 
     alpha = lambda e1, e2, e3: xp.exp(e3)
     e = math.e
-    exact = xp.pi * (
-        2 * a1 * Lz * (e - 1)
-        + 2 * a2 * Lz * (e - 1)
-        + (a2**2 - a1**2) * (1 + e)
-    )
+    exact = xp.pi * (2 * a1 * Lz * (e - 1) + 2 * a2 * Lz * (e - 1) + (a2**2 - a1**2) * (1 + e))
 
     P = L2Projector("H1", mass_ops)
     alpha_h = P(alpha)
 
     bnd_ops = BoundaryIntegralOperators(mass_ops)
     v = bnd_ops.S0.dot(alpha_h)
+    arr = v.toarray()
 
-    numerical = xp.sum(v.toarray())
+    if comm is None:
+        coeffs = arr
+    else:
+        coeffs = xp.zeros_like(arr)
+        comm.Allreduce(arr, coeffs, op=MPI.SUM)
+
+    numerical = xp.sum(coeffs)
 
     logger.info(f"numerical = {numerical}, exact = {exact}, error = {xp.abs(numerical - exact)}")
 
@@ -279,9 +317,9 @@ def test_boundary_mass_hcurl_cuboid_nontrivial(num_elements, degree, bcs, active
     assert xp.abs(numerical - exact) < 1e-1
 
 
-
 if __name__ == "__main__":
     from struphy import set_logging_level
+
     set_logging_level(logging.INFO)
 
     test_boundary_mass_unit_cube_constant(
@@ -295,7 +333,7 @@ if __name__ == "__main__":
         [1, 2, 3],
         (("dirichlet", "free"), ("free", "free"), ("free", "free")),
     )
-    
+
     test_boundary_mass_cuboid_nontrivial(
         [8, 9, 10],
         [1, 2, 3],

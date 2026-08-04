@@ -3,7 +3,7 @@ from typing import Callable
 
 import cunumpy as xp
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
-from feectools.linalg.block import BlockVector
+from feectools.linalg.block import BlockLinearOperator, BlockVector
 from feectools.linalg.stencil import StencilMatrix, StencilVector
 
 from struphy.feec import mass_kernels
@@ -13,7 +13,7 @@ from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.geometry.base import Domain
 from struphy.utils.pyccel import Pyccelkernel
 
-from feectools.linalg.block import BlockLinearOperator, BlockVector
+logger = logging.getLogger("struphy")
 
 
 class BoundaryIntegralOperators:
@@ -34,7 +34,7 @@ class BoundaryIntegralOperators:
         mass_ops: WeightedMassOperators,
         active_faces: list[bool] | None = None,
     ):
-        
+
         self._mass_ops = mass_ops
         self._derham = mass_ops.derham
         self._domain = mass_ops.domain
@@ -114,11 +114,7 @@ class BoundaryMassOperatorH1(LinOpWithTransp):
         Mass operators object, contains geometry and derham.
     """
 
-    def __init__(
-        self,
-        mass_ops: WeightedMassOperators,
-        active_faces: list[bool]
-    ):
+    def __init__(self, mass_ops: WeightedMassOperators, active_faces: list[bool]):
         self._mass_ops = mass_ops
         self._derham = mass_ops.derham
         self._domain_obj = mass_ops.domain
@@ -133,6 +129,7 @@ class BoundaryMassOperatorH1(LinOpWithTransp):
         self._wts_l = self._derham.spline_attributes[self._space_key].quad_grid_wts
         self._bases_l = self._derham.spline_attributes[self._space_key].quad_grid_bases
         self._tensor_fem_spaces = self._derham.spline_attributes[self._space_key].tensor_spaces
+        self._nbasis = self._derham.spline_attributes[self._space_key].nbasis
 
         # boundary and extraction operators
         self._V_extraction_op = self._derham.extraction_ops[self._space_key]
@@ -253,26 +250,27 @@ class BoundaryMassOperatorH1(LinOpWithTransp):
         ends = [int(end) for end in fem_space.coeff_space.ends]
         pads = fem_space.coeff_space.pads
 
-        boundary_index = starts[normal_dir] if face_idx < 3 else ends[normal_dir]
+        boundary_index = 0 if face_idx < 3 else self._nbasis[0][normal_dir] - 1
 
-        fem_space = self._tensor_fem_spaces[0]
-        starts = [int(start) for start in fem_space.coeff_space.starts]
-        pads = fem_space.coeff_space.pads
+        logger.debug(f"{normal_dir=}, {face_idx=} {boundary_index=}, {starts=}, {ends=}, {pads=}")
 
-        self._assembly_kernel(
-            *self._surface_spans[face_idx],
-            *fem_space.degree,
-            *fem_space.degree,
-            *starts,
-            *pads,
-            *self._surface_wts[face_idx],
-            *self._surface_bases[face_idx],
-            *self._surface_bases[face_idx],
-            boundary_index,
-            normal_dir,
-            self._surface_geom_weights[face_idx],
-            mat._data,
-        )
+        # only assemble if current rank is a true boundary (not an interior partition boundary)
+        if starts[normal_dir] == boundary_index or ends[normal_dir] == boundary_index:
+            logger.debug("Assembling face", face_idx)
+            self._assembly_kernel(
+                *self._surface_spans[face_idx],
+                *fem_space.degree,
+                *fem_space.degree,
+                *starts,
+                *pads,
+                *self._surface_wts[face_idx],
+                *self._surface_bases[face_idx],
+                *self._surface_bases[face_idx],
+                boundary_index,
+                normal_dir,
+                self._surface_geom_weights[face_idx],
+                mat._data,
+            )
 
     def assemble(
         self,
@@ -354,10 +352,8 @@ class BoundaryMassOperatorH1(LinOpWithTransp):
         self.assemble(clear=clear)
         return self
 
-
     def toarray(self):
         return self._M0.toarray()
-
 
     def tosparse(self):
         return self._M0.tosparse()
