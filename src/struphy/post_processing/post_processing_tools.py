@@ -3,6 +3,7 @@ import logging
 import os
 import pickle
 import shutil
+from collections.abc import Sequence
 from contextlib import ExitStack
 from typing import TYPE_CHECKING
 
@@ -648,7 +649,7 @@ class PostProcessor:
 
                     vector.update_ghost_regions()
 
-    def _create_eval_grids(self, celldivide: list = [1, 1, 1]):
+    def _create_eval_grids(self, celldivide: Sequence[int] = (1, 1, 1)):
         """Build the logical evaluation grids and distribute them over the MPI ranks.
 
         The grid points are split among the ranks exactly as
@@ -658,7 +659,7 @@ class PostProcessor:
 
         Parameters
         ----------
-        celldivide : list of int
+        celldivide : sequence of int
             Refinement factor in each logical direction; length must be 3.
 
         Returns
@@ -669,7 +670,7 @@ class PostProcessor:
             One entry per rank, holding the three slices of ``grids_log`` owned by that rank.
             The slices of all ranks tile the global grid exactly.
         """
-        assert isinstance(celldivide, list)
+        assert isinstance(celldivide, Sequence)
         assert len(celldivide) == 3
 
         num_elements = self.derham.num_elements
