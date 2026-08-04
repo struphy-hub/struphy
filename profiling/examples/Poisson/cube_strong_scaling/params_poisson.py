@@ -237,7 +237,10 @@ if __name__ == "__main__":
         assert rel_err_phi < 1e-2, f"The computed solution does not match the exact solution, max rel error = {rel_err_phi}."
 
         import os
-        results_dir = os.path.join(sim.env.sim_folder, "results")
+        # `path_out` is the run's output folder; `sim_folder` alone is a bare name
+        # resolved against the CWD. The profiling packaging picks these files up from
+        # here and uploads them as `results-run<id>`.
+        results_dir = os.path.join(sim.env.path_out, "results")
         os.makedirs(results_dir, exist_ok=True)
 
         np.save(os.path.join(results_dir, "rel_err_rhs.npy"), rel_err_rhs)
