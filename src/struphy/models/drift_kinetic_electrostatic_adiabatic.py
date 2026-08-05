@@ -20,7 +20,7 @@ from struphy.propagators.base import Propagator
 from struphy.propagators.poisson_adiabatic_gyrokinetic import PoissonAdiabaticGyrokinetic
 from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
 from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
-from struphy.utils.pyccel import Pyccelkernel
+from cunumpy import Pyccelkernel
 
 
 class DriftKineticElectrostaticAdiabatic(StruphyModel):

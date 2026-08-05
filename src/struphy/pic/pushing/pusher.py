@@ -9,7 +9,7 @@ from scope_profiler import ProfileManager
 
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
-from struphy.utils.pyccel import Pyccelkernel
+from cunumpy import Pyccelkernel
 
 logger = logging.getLogger("struphy")
 

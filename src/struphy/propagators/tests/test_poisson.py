@@ -26,7 +26,7 @@ from struphy.pic.particles import Particles6D
 from struphy.propagators.base import Propagator
 from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.topology.grids import TensorProductGrid
-from struphy.utils.pyccel import Pyccelkernel
+from cunumpy import Pyccelkernel
 
 logger = logging.getLogger("struphy")
 

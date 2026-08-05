@@ -17,7 +17,7 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Domain
 from struphy.models.variables import PICVariable, SPHVariable
 from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
 from struphy.pic.base import Particles
-from struphy.utils.pyccel import Pyccelkernel
+from cunumpy import Pyccelkernel
 from struphy.utils.utils import __dataclass_repr_no_defaults__, check_option
 
 
@@ -759,7 +759,7 @@ class ParticlesToGrid:
     >>> from struphy.pic.accumulation import accum_kernels
     >>> from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
     >>> from struphy.propagators.poisson_solve import PoissonSolve
-    >>> from struphy.utils.pyccel import Pyccelkernel
+    >>> from cunumpy import Pyccelkernel
     >>> rho = ParticlesToGrid(
     ...     kinetic_ions.var,
     ...     "H1",

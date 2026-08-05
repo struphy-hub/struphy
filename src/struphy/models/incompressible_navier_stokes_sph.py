@@ -15,7 +15,7 @@ from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vin_efield import PushVinEfield
 from struphy.propagators.push_vin_viscous_potential import PushVinViscousPotential
 from struphy.propagators.push_vxb import PushVxB
-from struphy.utils.pyccel import Pyccelkernel
+from cunumpy import Pyccelkernel
 
 
 class IncompressibleNavierStokesSPH(StruphyModel):

@@ -20,7 +20,7 @@ from struphy.geometry.base import Domain
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.docstring_converter import auto_convert_docstring
-from struphy.utils.pyccel import Pyccelkernel
+from cunumpy import Pyccelkernel
 
 logger = logging.getLogger("struphy")
 

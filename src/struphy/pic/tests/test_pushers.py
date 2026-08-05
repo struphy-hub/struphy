@@ -2,7 +2,7 @@ import logging
 
 import pytest
 
-from struphy.utils.pyccel import Pyccelkernel
+from cunumpy import Pyccelkernel
 
 logger = logging.getLogger("struphy")
 
