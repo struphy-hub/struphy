@@ -23,7 +23,7 @@ from struphy.models.two_fluid_quasi_neutral_toy import TwoFluidQuasiNeutralToy
 
 # ------------------ args ------------------
 parser = argparse.ArgumentParser()
-parser.add_argument("bc", choices=["periodic", "dirichlet_hom", "dirichlet_inhom"])
+parser.add_argument("bc", choices=["periodic", "dirichlet_hom", "dirichlet_inhom", "dirichlet_inhom_2"])
 args = parser.parse_args()
 BC = args.bc
 
@@ -32,7 +32,7 @@ name = f"runs/sim_2D_{BC}"
 # ------------------ setup ------------------
 env = EnvironmentOptions(sim_folder=name)
 
-B0 = 1
+B0 = 0
 nu = 10.0
 nu_e = 1.0
 Nel = (20, 20, 1)
@@ -64,6 +64,18 @@ elif BC == "dirichlet_inhom":
 
     lifting_function_u = [
         GenericPerturbation(lambda x, y, z: -xp.sin(2*pi*x)*xp.sin(2*pi*y), comp=0, given_in_basis="physical"),
+        GenericPerturbation(lambda x, y, z: -xp.sin(2*pi*x)*xp.cos(2*pi*y), comp=1, given_in_basis="physical"),
+    ]
+    lifting_function_ue = [
+        GenericPerturbation(lambda x, y, z: -xp.sin(2*pi*x)*xp.sin(2*pi*y), comp=0, given_in_basis="physical"),
+        GenericPerturbation(lambda x, y, z: -xp.sin(2*pi*x)*xp.cos(2*pi*y), comp=1, given_in_basis="physical"),
+    ]
+
+elif BC == "dirichlet_inhom_2":
+    derham_opts = DerhamOptions(degree=p, bcs=(("dirichlet", "dirichlet"), ("dirichlet", "dirichlet"), None))
+
+    lifting_function_u = [
+        GenericPerturbation(lambda x, y, z: -xp.sin(2*pi*x)*xp.sin(2*pi*y), comp=0, given_in_basis="physical"),
         GenericPerturbation(lambda x, y, z: -xp.cos(2*pi*x)*xp.cos(2*pi*y), comp=1, given_in_basis="physical"),
     ]
     lifting_function_ue = [
@@ -77,12 +89,12 @@ if BC == "periodic":
 
     def mms_phi(x, y, z):
         return xp.cos(2 * pi * x) + xp.sin(2 * pi * y), xp.zeros_like(x), xp.zeros_like(x)
-
+    
     def mms_ion_u(x, y, z):
-        return -xp.sin(2 * pi * x) * xp.sin(2 * pi * y), -xp.cos(2 * pi * x) * xp.cos(2 * pi * y), xp.zeros_like(x)
+        return -xp.sin(2*pi*x)*xp.sin(2*pi*y), -xp.sin(2*pi*x)*xp.sin(2*pi*y), xp.zeros_like(x)
 
     def mms_electron_u(x, y, z):
-        return -xp.sin(4 * pi * x) * xp.sin(4 * pi * y), -xp.cos(4 * pi * x) * xp.cos(4 * pi * y), xp.zeros_like(x)
+        return -xp.sin(2*pi*x)*xp.sin(2*pi*y), -xp.sin(2*pi*x)*xp.sin(2*pi*y), xp.zeros_like(x)
 
 
 
@@ -104,41 +116,45 @@ elif BC == "dirichlet_inhom":
         return xp.cos(2*pi*x) + xp.sin(2*pi*y), xp.zeros_like(x), xp.zeros_like(x)
 
     def mms_ion_u(x, y, z):
-        return -xp.sin(2*pi*x)*xp.sin(2*pi*y), -xp.cos(2*pi*x)*xp.cos(2*pi*y), xp.zeros_like(x)
+        return -xp.sin(2*pi*x)*xp.sin(2*pi*y), -xp.sin(2*pi*x)*xp.cos(2*pi*y), xp.zeros_like(x)
 
     def mms_electron_u(x, y, z):
+        return -xp.sin(2*pi*x)*xp.sin(2*pi*y), -xp.sin(2*pi*x)*xp.cos(2*pi*y), xp.zeros_like(x)
+
+elif BC == "dirichlet_inhom_2":
+    def mms_phi(x, y, z):
+        return xp.cos(2*pi*x) + xp.sin(2*pi*y), xp.zeros_like(x), xp.zeros_like(x)
+    def mms_ion_u(x, y, z):
+        return -xp.sin(2*pi*x)*xp.sin(2*pi*y), -xp.cos(2*pi*x)*xp.cos(2*pi*y), xp.zeros_like(x)
+    def mms_electron_u(x, y, z):
         return -xp.sin(4*pi*x)*xp.sin(4*pi*y), -xp.cos(4*pi*x)*xp.cos(4*pi*y), xp.zeros_like(x)
-
-
 
 # ------------------ source terms ------------------
 if BC == "periodic":
 
     def source_function_u(x, y, z):
         fx = (
-            -2 * pi * xp.sin(2 * pi * x)
-            + B0 / epsilon * xp.cos(2 * pi * x) * xp.cos(2 * pi * y)
-            - nu * 8 * pi**2 * xp.sin(2 * pi * x) * xp.sin(2 * pi * y)
+            -2*pi*xp.sin(2*pi*x)
+            - B0/epsilon * xp.sin(2*pi*x)*xp.sin(2*pi*y)
+            - nu*8*pi**2 * xp.sin(2*pi*x)*xp.sin(2*pi*y)
         )
         fy = (
-            2 * pi * xp.cos(2 * pi * y)
-            - B0 / epsilon * xp.sin(2 * pi * x) * xp.sin(2 * pi * y)
-            - nu * 8 * pi**2 * xp.cos(2 * pi * x) * xp.cos(2 * pi * y)
+            2*pi*xp.cos(2*pi*y)
+            + B0/epsilon * xp.sin(2*pi*x)*xp.sin(2*pi*y)
+            - nu*8*pi**2 * xp.sin(2*pi*x)*xp.sin(2*pi*y)
         )
         return fx, fy, zeros_like(x)
 
     def source_function_ue(x, y, z):
         fx = (
-            2 * pi * xp.sin(2 * pi * x)
-            - B0 / epsilon * xp.cos(4 * pi * x) * xp.cos(4 * pi * y)
-            - nu_e * 32 * pi**2 * xp.sin(4 * pi * x) * xp.sin(4 * pi * y)
-            + sigma * xp.sin(4 * pi * x) * xp.sin(4 * pi * y)
+            2*pi*xp.sin(2*pi*x)
+            - B0/epsilon * xp.sin(2*pi*x)*xp.sin(2*pi*y)
+            - nu_e*8*pi**2 * xp.sin(2*pi*x)*xp.sin(2*pi*y)
         )
         fy = (
-            -2 * pi * xp.cos(2 * pi * y)
-            + B0 / epsilon * xp.sin(4 * pi * x) * xp.sin(4 * pi * y)
-            - nu_e * 32 * pi**2 * xp.cos(4 * pi * x) * xp.cos(4 * pi * y)
-            + sigma * xp.cos(4 * pi * x) * xp.cos(4 * pi * y)
+            -2*pi*xp.cos(2*pi*y)
+            - B0/epsilon * xp.sin(2*pi*x)*xp.sin(2*pi*y)
+            - nu_e*8*pi**2 * xp.sin(2*pi*x)*xp.sin(2*pi*y)
         )
         return fx, fy, zeros_like(x)
 
@@ -178,6 +194,33 @@ elif BC == "dirichlet_inhom":
     def source_function_u(x, y, z):
         fx = (
             -2*pi*xp.sin(2*pi*x)
+            - B0/epsilon * xp.sin(2*pi*x)*xp.cos(2*pi*y)      # u×B: B0*(u_y component)
+            - nu * 8*pi**2 * xp.sin(2*pi*x)*xp.sin(2*pi*y)
+        )
+        fy = (
+            2*pi*xp.cos(2*pi*y)
+            + B0/epsilon * xp.sin(2*pi*x)*xp.sin(2*pi*y)      # u×B: B0*(-u_x component)
+            - nu * 8*pi**2 * xp.sin(2*pi*x)*xp.cos(2*pi*y)
+        )
+        return fx, fy, zeros_like(x)
+
+    def source_function_ue(x, y, z):
+        fx = (
+            2*pi*xp.sin(2*pi*x)
+            + B0/epsilon * xp.sin(2*pi*x)*xp.cos(2*pi*y)      # u_e×B term
+            - nu_e * 8*pi**2 * xp.sin(2*pi*x)*xp.sin(2*pi*y)
+        )
+        fy = (
+            -2*pi*xp.cos(2*pi*y)
+            - B0/epsilon * xp.sin(2*pi*x)*xp.sin(2*pi*y)      # u_e×B term
+            - nu_e * 8*pi**2 * xp.sin(2*pi*x)*xp.cos(2*pi*y)
+        )
+        return fx, fy, zeros_like(x)
+
+elif BC == "dirichlet_inhom_2":
+    def source_function_u(x, y, z):
+        fx = (
+            -2*pi*xp.sin(2*pi*x)
             + B0/epsilon * xp.cos(2*pi*x) * xp.cos(2*pi*y)
             - nu*8*pi**2 * xp.sin(2*pi*x) * xp.sin(2*pi*y)
         )
@@ -187,7 +230,6 @@ elif BC == "dirichlet_inhom":
             - nu*8*pi**2 * xp.cos(2*pi*x) * xp.cos(2*pi*y)
         )
         return fx, fy, zeros_like(x)
-
     def source_function_ue(x, y, z):
         fx = (
             2*pi*xp.sin(2*pi*x)
@@ -202,8 +244,7 @@ elif BC == "dirichlet_inhom":
             + sigma * xp.cos(4*pi*x) * xp.cos(4*pi*y)
         )
         return fx, fy, zeros_like(x)
-
-
+    
 
 class MMSIonVelocity(perturbations.Perturbation):
     def __init__(self, comp=0):
@@ -245,7 +286,7 @@ model.propagators.qn_full.options = model.propagators.qn_full.Options(
     solver_params=SolverParameters(info=True, tol=tol),
 )
 
-if BC == "dirichlet_inhom":
+if BC in ("dirichlet_inhom", "dirichlet_inhom_2"):
     model.ions.u.lifting_function = lifting_function_u
     model.electrons.u.lifting_function = lifting_function_ue
 
@@ -289,14 +330,19 @@ if __name__ == "__main__":
         for f in glob.glob(f"{name}/plots/*.png"):
             os.remove(f)
 
-        def save_plot(numerical, analytical, title, fname, t):
-            fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+        def save_plot(numerical, analytical_fn, title, fname, t):
+            analytical = analytical_fn(X, Y, 0 * X)
+            diff = numerical - analytical
+            fig, axes = plt.subplots(1, 3, figsize=(15, 4))
             im0 = axes[0].contourf(X, Y, numerical, levels=50)
             axes[0].set_title("numerical")
             plt.colorbar(im0, ax=axes[0])
-            im1 = axes[1].contourf(Xf, Yf, analytical, levels=50)
+            im1 = axes[1].contourf(X, Y, analytical, levels=50)
             axes[1].set_title("manufactured")
             plt.colorbar(im1, ax=axes[1])
+            im2 = axes[2].contourf(X, Y, diff, levels=50)
+            axes[2].set_title("difference")
+            plt.colorbar(im2, ax=axes[2])
             fig.suptitle(f"{title} at t={t:.3f}")
             plt.savefig(f"{name}/plots/{fname}_{t:.3f}.png", dpi=300)
             plt.close(fig)
@@ -312,7 +358,7 @@ if __name__ == "__main__":
             uex_plot = u_electrons[0][:, :, 0]
             uey_plot = u_electrons[1][:, :, 0]
 
-            if BC == "dirichlet_inhom":
+            if BC in ("dirichlet_inhom", "dirichlet_inhom_2"):
                 e1 = xp.array(n1_vals)
                 e2 = xp.array(n2_vals)
                 e3 = xp.array([0.5])
@@ -348,12 +394,11 @@ if __name__ == "__main__":
             mms_ion_ux, mms_ion_uy, _ = mms_ion_u(Xf, Yf, 0 * Xf)
             mms_el_ux, mms_el_uy, _   = mms_electron_u(Xf, Yf, 0 * Xf)
 
-            save_plot(phi_plot,  mms_phi_x,  "φ",    "plot_phi", t)
-            save_plot(uix_plot,  mms_ion_ux, "u_ix", "plot_uix", t)
-            save_plot(uiy_plot,  mms_ion_uy, "u_iy", "plot_uiy", t)
-            save_plot(uex_plot,  mms_el_ux,  "u_ex", "plot_uex", t)
-            save_plot(uey_plot,  mms_el_uy,  "u_ey", "plot_uey", t)
-
+            save_plot(phi_plot,  lambda x, y, z: mms_phi(x, y, z)[0],         "φ",    "plot_phi", t)
+            save_plot(uix_plot,  lambda x, y, z: mms_ion_u(x, y, z)[0],       "u_ix", "plot_uix", t)
+            save_plot(uiy_plot,  lambda x, y, z: mms_ion_u(x, y, z)[1],       "u_iy", "plot_uiy", t)
+            save_plot(uex_plot,  lambda x, y, z: mms_electron_u(x, y, z)[0],  "u_ex", "plot_uex", t)
+            save_plot(uey_plot,  lambda x, y, z: mms_electron_u(x, y, z)[1],  "u_ey", "plot_uey", t)
 
         # ---- source diagnostics ----
         prop = model.propagators.qn_full
@@ -389,7 +434,7 @@ if __name__ == "__main__":
             plt.close(fig)
             print(f"  -> saved {out}")
 
-        if BC == "dirichlet_inhom":
+        if BC in ("dirichlet_inhom", "dirichlet_inhom_2"):
             y_check = xp.linspace(0, 1, 80)
             x_check = xp.linspace(0, 1, 80)
             z_check = xp.array([0.5])
