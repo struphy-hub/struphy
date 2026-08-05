@@ -20,7 +20,7 @@ from struphy.propagators.base import Propagator
 from struphy.propagators.poisson_adiabatic_gyrokinetic import PoissonAdiabaticGyrokinetic
 from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
 from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
-from cunumpy import Pyccelkernel
+from cunumpy import PyccelKernel
 
 
 class DriftKineticElectrostaticAdiabatic(StruphyModel):
@@ -132,7 +132,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         rho = ParticlesToGrid(
             self.kinetic_ions.var,
             "H1",
-            Pyccelkernel(accum_kernels_gc.gc_density_0form),
+            PyccelKernel(accum_kernels_gc.gc_density_0form),
         )
         self.propagators = self.Propagators(
             phi=self.em_fields.phi, rho=rho, epsilon=epsilon, Z=charge_number, diagnostic=diagnostic

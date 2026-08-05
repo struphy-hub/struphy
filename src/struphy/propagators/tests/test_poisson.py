@@ -26,7 +26,7 @@ from struphy.pic.particles import Particles6D
 from struphy.propagators.base import Propagator
 from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.topology.grids import TensorProductGrid
-from cunumpy import Pyccelkernel
+from cunumpy import PyccelKernel
 
 logger = logging.getLogger("struphy")
 
@@ -344,7 +344,7 @@ def test_poisson_accum_1d(mapping, do_plot=False):
     particles.initialize_weights()
 
     # particle to grid coupling
-    kernel = Pyccelkernel(charge_density_0form)
+    kernel = PyccelKernel(charge_density_0form)
     # control_variate=True, so no PICVariable.species is needed to build the analytical background term
     pic_var = PICVariable(space="Particles6D")
     pic_var._particles = particles

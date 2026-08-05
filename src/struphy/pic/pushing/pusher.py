@@ -9,7 +9,7 @@ from scope_profiler import ProfileManager
 
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
-from cunumpy import Pyccelkernel
+from cunumpy import PyccelKernel
 
 logger = logging.getLogger("struphy")
 
@@ -100,7 +100,7 @@ class Pusher:
     def __init__(
         self,
         particles: Particles,
-        kernel: Pyccelkernel,
+        kernel: PyccelKernel,
         args_kernel: tuple,
         args_domain: DomainArguments,
         *,
@@ -113,7 +113,7 @@ class Pusher:
         mpi_sort: str = None,
     ):
         self._particles = particles
-        assert isinstance(kernel, Pyccelkernel), f"{kernel} is not of type Pyccelkernel"
+        assert isinstance(kernel, PyccelKernel), f"{kernel} is not of type PyccelKernel"
         self._kernel = kernel
         self._newton = "newton" in kernel.name
         self._args_kernel = args_kernel

@@ -23,7 +23,7 @@ from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.propagators.curl_curl_solve import CurlCurlSolve
 from struphy.topology.grids import TensorProductGrid
-from cunumpy import Pyccelkernel
+from cunumpy import PyccelKernel
 
 logger = logging.getLogger("struphy")
 set_logging_level(logging.INFO)

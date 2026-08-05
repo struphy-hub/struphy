@@ -20,7 +20,7 @@ from struphy.geometry.base import Domain
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.docstring_converter import auto_convert_docstring
-from cunumpy import Pyccelkernel
+from cunumpy import PyccelKernel
 
 logger = logging.getLogger("struphy")
 
@@ -2044,7 +2044,7 @@ class BasisProjectionOperator(LinOpWithTransp):
                         )
                         dofs_mat = self._dof_mat[i, j]
 
-                    kernel = Pyccelkernel(
+                    kernel = PyccelKernel(
                         getattr(
                             basis_projection_kernels,
                             "assemble_dofs_for_weighted_basisfuns_" + str(V.ldim) + "d",

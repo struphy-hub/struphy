@@ -13,7 +13,7 @@ from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.particles_to_grid import Accumulator
 from struphy.propagators.base import Propagator
-from cunumpy import Pyccelkernel
+from cunumpy import PyccelKernel
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -184,7 +184,7 @@ class CurrentCoupling6DDensity(Propagator):
         self._accumulator = Accumulator(
             particles,
             self.options.u_space,
-            Pyccelkernel(accum_kernels.cc_lin_mhd_6d_1),
+            PyccelKernel(accum_kernels.cc_lin_mhd_6d_1),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=False,

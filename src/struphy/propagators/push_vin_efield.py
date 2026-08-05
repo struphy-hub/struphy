@@ -11,7 +11,7 @@ from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.pic.pushing import pusher_kernels
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
-from cunumpy import Pyccelkernel
+from cunumpy import PyccelKernel
 
 logger = logging.getLogger("struphy")
 
@@ -136,7 +136,7 @@ class PushVinEfield(Propagator):
 
             self._pusher = Pusher(
                 self.variables.var.particles,
-                Pyccelkernel(pusher_kernels.push_v_with_efield),
+                PyccelKernel(pusher_kernels.push_v_with_efield),
                 args_kernel,
                 self.domain.args_domain,
                 alpha_in_kernel=1.0,

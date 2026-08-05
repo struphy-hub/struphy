@@ -21,7 +21,7 @@ from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vin_efield import PushVinEfield
 from struphy.propagators.push_vxb import PushVxB
-from cunumpy import Pyccelkernel
+from cunumpy import PyccelKernel
 
 logger = logging.getLogger("struphy")
 
@@ -148,7 +148,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         particles_to_grid = ParticlesToGrid(
             self.kinetic_ions.var,
             "H1",
-            Pyccelkernel(accum_kernels.charge_density_0form),
+            PyccelKernel(accum_kernels.charge_density_0form),
         )
 
         self.initial_poisson = PoissonSolve(

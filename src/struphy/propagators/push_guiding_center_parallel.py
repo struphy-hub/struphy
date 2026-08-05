@@ -12,7 +12,7 @@ from struphy.ode.utils import ButcherTableau
 from struphy.pic.pushing import eval_kernels_gc, pusher_kernels_gc
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
-from cunumpy import Pyccelkernel
+from cunumpy import PyccelKernel
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -325,7 +325,7 @@ class PushGuidingCenterParallel(Propagator):
                     )
 
                     # pusher kernel
-                    kernel = Pyccelkernel(pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order_newton)
+                    kernel = PyccelKernel(pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order_newton)
 
                     alpha_in_kernel = 1.0  # evaluate at eta^{n+1,k} and save
                     args_kernel = (
@@ -358,7 +358,7 @@ class PushGuidingCenterParallel(Propagator):
                     )  # evaluate at Z^{n+1,k} and save
 
                     # pusher kernel
-                    kernel = Pyccelkernel(pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order)
+                    kernel = PyccelKernel(pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order)
 
                     alpha_in_kernel = 0.5  # evaluate at mid-point
                     args_kernel = (
@@ -404,7 +404,7 @@ class PushGuidingCenterParallel(Propagator):
                 )  # evaluate at Z^{n+1,k} and save
 
                 # pusher kernel
-                kernel = Pyccelkernel(pusher_kernels_gc.push_gc_Bstar_discrete_gradient_2nd_order)
+                kernel = PyccelKernel(pusher_kernels_gc.push_gc_Bstar_discrete_gradient_2nd_order)
 
                 alpha_in_kernel = 0.5  # evaluate at mid-point
                 args_kernel = (
@@ -448,7 +448,7 @@ class PushGuidingCenterParallel(Propagator):
                 butcher = self.options.butcher
             # temp fix due to refactoring of ButcherTableau:
 
-            kernel = Pyccelkernel(pusher_kernels_gc.push_gc_Bstar_explicit_multistage)
+            kernel = PyccelKernel(pusher_kernels_gc.push_gc_Bstar_explicit_multistage)
 
             args_kernel = (
                 self.derham.args_derham,

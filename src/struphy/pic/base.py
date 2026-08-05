@@ -63,7 +63,7 @@ from struphy.pic.sph_eval_kernels import (
 )
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
-from cunumpy import Pyccelkernel
+from cunumpy import PyccelKernel
 
 logger = logging.getLogger("struphy")
 
@@ -3998,7 +3998,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
         self.put_particles_in_boxes()
 
-        func = Pyccelkernel(eval_kernels_sph.sph_mean_velocity_coeffs)
+        func = PyccelKernel(eval_kernels_sph.sph_mean_velocity_coeffs)
 
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
@@ -4110,7 +4110,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         self.put_particles_in_boxes()
 
         # 1st kernel
-        func = Pyccelkernel(eval_kernels_sph.sph_mean_velocity_coeffs)
+        func = PyccelKernel(eval_kernels_sph.sph_mean_velocity_coeffs)
         comps = xp.array((0, 1, 2))
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
@@ -4131,7 +4131,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         )
 
         # 2nd kernel
-        func = Pyccelkernel(eval_kernels_sph.sph_viscosity_tensor)
+        func = PyccelKernel(eval_kernels_sph.sph_viscosity_tensor)
         comps = xp.arange(9)
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
@@ -4255,7 +4255,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
         if fast:
             if len(_shp) == 1:
-                func = Pyccelkernel(box_based_evaluation_flat)
+                func = PyccelKernel(box_based_evaluation_flat)
             elif len(_shp) == 3:
                 if _shp[0] > 1:
                     assert eta1[0, 0, 0] != eta1[1, 0, 0], "Meshgrids must be obtained with indexing='ij'!"
@@ -4263,7 +4263,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                     assert eta2[0, 0, 0] != eta2[0, 1, 0], "Meshgrids must be obtained with indexing='ij'!"
                 if _shp[2] > 1:
                     assert eta3[0, 0, 0] != eta3[0, 0, 1], "Meshgrids must be obtained with indexing='ij'!"
-                func = Pyccelkernel(box_based_evaluation_meshgrid)
+                func = PyccelKernel(box_based_evaluation_meshgrid)
 
             func(
                 self.args_markers,
@@ -4289,9 +4289,9 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             )
         else:
             if len(_shp) == 1:
-                func = Pyccelkernel(naive_evaluation_flat)
+                func = PyccelKernel(naive_evaluation_flat)
             elif len(_shp) == 3:
-                func = Pyccelkernel(naive_evaluation_meshgrid)
+                func = PyccelKernel(naive_evaluation_meshgrid)
             func(
                 self.args_markers,
                 eta1,

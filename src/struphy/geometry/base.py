@@ -17,7 +17,7 @@ import struphy.bsplines.bsplines as bsp
 from struphy.geometry import evaluation_kernels, transform_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
-from cunumpy import Pyccelkernel
+from cunumpy import PyccelKernel
 from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default, all_subclasses
 
 logger = logging.getLogger("struphy")
@@ -947,7 +947,7 @@ class Domain(metaclass=DomainMeta):
 
             # to keep C-ordering the (3, 3)-part is in the last indices
             out = xp.empty((markers.shape[0], 3, 3), dtype=float)
-            kernel = Pyccelkernel(evaluation_kernels.kernel_evaluate_pic)
+            kernel = PyccelKernel(evaluation_kernels.kernel_evaluate_pic)
             n_inside = kernel(
                 markers,
                 which,
@@ -991,7 +991,7 @@ class Domain(metaclass=DomainMeta):
                 (E1.shape[0], E2.shape[1], E3.shape[2], 3, 3),
                 dtype=float,
             )
-            kernel = Pyccelkernel(evaluation_kernels.kernel_evaluate)
+            kernel = PyccelKernel(evaluation_kernels.kernel_evaluate)
             kernel(
                 E1,
                 E2,

@@ -13,7 +13,7 @@ from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.pic.pushing import pusher_kernels
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
-from cunumpy import Pyccelkernel
+from cunumpy import PyccelKernel
 
 logger = logging.getLogger("struphy")
 
@@ -119,7 +119,7 @@ class PushDeterministicDiffusion(Propagator):
         self._u_on_grid = AccumulatorVector(
             particles,
             "H1",
-            Pyccelkernel(accum_kernels.charge_density_0form),
+            PyccelKernel(accum_kernels.charge_density_0form),
             self.mass_ops,
             self.domain.args_domain,
         )
@@ -139,7 +139,7 @@ class PushDeterministicDiffusion(Propagator):
 
         self._pusher = Pusher(
             particles,
-            Pyccelkernel(pusher_kernels.push_deterministic_diffusion_stage),
+            PyccelKernel(pusher_kernels.push_deterministic_diffusion_stage),
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,

@@ -17,7 +17,7 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Domain
 from struphy.models.variables import PICVariable, SPHVariable
 from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
 from struphy.pic.base import Particles
-from cunumpy import Pyccelkernel
+from cunumpy import PyccelKernel
 from struphy.utils.utils import __dataclass_repr_no_defaults__, check_option
 
 
@@ -96,7 +96,7 @@ class Accumulator:
         self,
         particles: Particles,
         space_id: str,
-        kernel: Pyccelkernel,
+        kernel: PyccelKernel,
         mass_ops: WeightedMassOperators,
         args_domain: DomainArguments,
         *,
@@ -106,7 +106,7 @@ class Accumulator:
     ):
         self._particles = particles
         self._space_id = space_id
-        assert isinstance(kernel, Pyccelkernel), f"{kernel} is not of type Pyccelkernel"
+        assert isinstance(kernel, PyccelKernel), f"{kernel} is not of type PyccelKernel"
         self._kernel = kernel
         self._derham = mass_ops.derham
         self._args_domain = args_domain
@@ -323,7 +323,7 @@ class Accumulator:
         return self._particles
 
     @property
-    def kernel(self) -> Pyccelkernel:
+    def kernel(self) -> PyccelKernel:
         """The accumulation kernel."""
         return self._kernel
 
@@ -480,14 +480,14 @@ class AccumulatorVector:
         self,
         particles: Particles,
         space_id: str,
-        kernel: Pyccelkernel,
+        kernel: PyccelKernel,
         mass_ops: WeightedMassOperators,
         args_domain: DomainArguments,
         filter_params: FilterParameters = None,
     ):
         self._particles = particles
         self._space_id = space_id
-        assert isinstance(kernel, Pyccelkernel), f"{kernel} is not of type Pyccelkernel"
+        assert isinstance(kernel, PyccelKernel), f"{kernel} is not of type PyccelKernel"
         self._kernel = kernel
         self._derham = mass_ops.derham
         self._args_domain = args_domain
@@ -619,7 +619,7 @@ class AccumulatorVector:
         return self._particles
 
     @property
-    def kernel(self) -> Pyccelkernel:
+    def kernel(self) -> PyccelKernel:
         """The accumulation kernel."""
         return self._kernel
 
@@ -750,33 +750,33 @@ class ParticlesToGrid:
     accum_space : {"H1", "Hcurl", "Hdiv", "L2", "H1vec"}
         FEEC space identifier of the vector to accumulate into.
 
-    accum_kernel : Pyccelkernel
+    accum_kernel : PyccelKernel
         Pyccelized accumulation kernel matching ``accum_space``, for example
-        ``Pyccelkernel(accum_kernels.charge_density_0form)``.
+        ``PyccelKernel(accum_kernels.charge_density_0form)``.
 
     Examples
     --------
     >>> from struphy.pic.accumulation import accum_kernels
     >>> from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
     >>> from struphy.propagators.poisson_solve import PoissonSolve
-    >>> from cunumpy import Pyccelkernel
+    >>> from cunumpy import PyccelKernel
     >>> rho = ParticlesToGrid(
     ...     kinetic_ions.var,
     ...     "H1",
-    ...     Pyccelkernel(accum_kernels.charge_density_0form),
+    ...     PyccelKernel(accum_kernels.charge_density_0form),
     ... )
     >>> poisson = PoissonSolve(rho=rho, rho_coeffs=alpha**2 / epsilon)
     """
 
     pic_variable: PICVariable | SPHVariable = None
     accum_space: LiteralOptions.OptsFEECSpace = None
-    accum_kernel: Pyccelkernel = None
+    accum_kernel: PyccelKernel = None
 
     def __post_init__(self):
         if self.accum_space is not None:
             check_option(self.accum_space, LiteralOptions.OptsFEECSpace)
 
-        assert isinstance(self.accum_kernel, Pyccelkernel) or self.accum_kernel is None
+        assert isinstance(self.accum_kernel, PyccelKernel) or self.accum_kernel is None
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
