@@ -26,6 +26,6 @@ runs:
         pip list
         struphy -h
         PYTHON=$(which python)
-        STRUPHY_PATH=$($PYTHON -c "import struphy; print(struphy.__path__[0])")
+        STRUPHY_PATH=$($PYTHON -c 'import importlib.util; import os; print(os.path.dirname(importlib.util.find_spec("struphy").origin))')
         echo "Struphy is installed at: $STRUPHY_PATH"
         echo "STRUPHY_PATH=${STRUPHY_PATH}" >> $GITHUB_ENV
