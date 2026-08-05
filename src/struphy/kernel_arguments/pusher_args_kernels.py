@@ -1,5 +1,7 @@
 # from numpy import copy
-import cunumpy as xp
+# NOTE: This file must use ONLY numpy for pyccel compilation compatibility.
+# Backend conversion (NumPy/CuPy) happens at the Python wrapper level.
+import numpy as np
 
 
 class MarkerArguments:
@@ -99,12 +101,12 @@ class DerhamArguments:
         self.tn3 = tn3
         self.starts = starts
 
-        self.bn1 = xp.empty(int(pn[0] + 1), dtype=float)
-        self.bn2 = xp.empty(int(pn[1] + 1), dtype=float)
-        self.bn3 = xp.empty(int(pn[2] + 1), dtype=float)
-        self.bd1 = xp.empty(int(pn[0]), dtype=float)
-        self.bd2 = xp.empty(int(pn[1]), dtype=float)
-        self.bd3 = xp.empty(int(pn[2]), dtype=float)
+        self.bn1 = np.empty(int(pn[0] + 1), dtype=float)
+        self.bn2 = np.empty(int(pn[1] + 1), dtype=float)
+        self.bn3 = np.empty(int(pn[2] + 1), dtype=float)
+        self.bd1 = np.empty(int(pn[0]), dtype=float)
+        self.bd2 = np.empty(int(pn[1]), dtype=float)
+        self.bd3 = np.empty(int(pn[2]), dtype=float)
 
 
 class DomainArguments:

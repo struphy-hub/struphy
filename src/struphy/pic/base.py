@@ -68,6 +68,14 @@ from struphy.utils.pyccel import Pyccelkernel
 logger = logging.getLogger("struphy")
 
 
+def _to_numpy_for_kernel(value):
+    """Convert CuPy arrays to NumPy for compiled kernel calls."""
+    if hasattr(value, 'get'):
+        # This is a CuPy array
+        return value.get()
+    return value
+
+
 class Particles(metaclass=ABCMeta):
     """Base class for particle species."""
 
@@ -1133,16 +1141,16 @@ class Particles(metaclass=ABCMeta):
 
         # arguments for kernels
         self._args_markers = MarkerArguments(
-            self.markers,
-            self.valid_mks,
-            self.Np,
-            self.vdim,
-            self.index["weights"],
-            self.first_diagnostics_idx,
-            self.first_pusher_idx,
-            self.first_shift_idx,
-            self.residual_idx,
-            self.first_free_idx,
+            _to_numpy_for_kernel(self.markers),
+            _to_numpy_for_kernel(self.valid_mks),
+            _to_numpy_for_kernel(self.Np),
+            _to_numpy_for_kernel(self.vdim),
+            _to_numpy_for_kernel(self.index["weights"]),
+            _to_numpy_for_kernel(self.first_diagnostics_idx),
+            _to_numpy_for_kernel(self.first_pusher_idx),
+            _to_numpy_for_kernel(self.first_shift_idx),
+            _to_numpy_for_kernel(self.residual_idx),
+            _to_numpy_for_kernel(self.first_free_idx),
         )
 
         # Have at least 3 spare places in markers array

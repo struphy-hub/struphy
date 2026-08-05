@@ -43,7 +43,7 @@
 - 2-form --> vector : (a_1, a_2, a_3) =          (a^2_1, a^2_2, a^2_3) / |det(DF)|
 """
 
-from cunumpy import empty, shape, sqrt, zeros
+from numpy import empty, shape, sqrt, zeros
 
 from pyccel.decorators import stack_array
 

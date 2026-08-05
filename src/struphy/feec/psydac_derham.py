@@ -57,6 +57,14 @@ space_to_form = {
 logger = logging.getLogger("struphy")
 
 
+def _to_numpy_for_kernel(value):
+    """Convert CuPy arrays to NumPy for compiled kernel calls."""
+    if hasattr(value, 'get'):
+        # This is a CuPy array
+        return value.get()
+    return value
+
+
 class DiscreteDerham:
     """Discrete 3D de Rham sequence built from four FE spaces.
 
@@ -885,11 +893,11 @@ class Derham:
 
         # collect arguments for kernels
         self._args_derham = DerhamArguments(
-            xp.array(self.degree),
-            self.V0fem.knots[0],
-            self.V0fem.knots[1],
-            self.V0fem.knots[2],
-            xp.array(self.V0.starts),
+            _to_numpy_for_kernel(xp.array(self.degree)),
+            _to_numpy_for_kernel(self.V0fem.knots[0]),
+            _to_numpy_for_kernel(self.V0fem.knots[1]),
+            _to_numpy_for_kernel(self.V0fem.knots[2]),
+            _to_numpy_for_kernel(xp.array(self.V0.starts)),
         )
 
         logger.debug("\nDERHAM:")
