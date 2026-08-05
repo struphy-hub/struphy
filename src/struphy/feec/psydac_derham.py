@@ -3425,7 +3425,9 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
     histopol_loc = space_1d.histopolation_grid[start : end + 2].copy()
 
     # make sure that greville points used for interpolation are in [0, 1]
-    assert xp.all(xp.logical_and(greville_loc >= 0.0, greville_loc <= 1.0))
+    # Use numpy for comparison since greville points are NumPy arrays
+    greville_loc_np = greville_loc.get() if hasattr(greville_loc, 'get') else greville_loc
+    assert np.all(np.logical_and(greville_loc_np >= 0.0, greville_loc_np <= 1.0))
 
     # interpolation
     if space_1d.basis == "B":
