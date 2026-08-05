@@ -72,6 +72,21 @@ from struphy.utils.utils import dict_to_yaml, ruff_autofix_and_format
 logger = logging.getLogger("struphy")
 
 
+class CuPyJSONEncoder(json.JSONEncoder):
+    """JSON encoder that handles CuPy arrays and NumPy arrays."""
+    def default(self, obj):
+        # Check if it has a .get() method (CuPy array)
+        if hasattr(obj, 'get'):
+            return obj.get().tolist() if hasattr(obj.get(), 'tolist') else obj.get()
+        # Handle NumPy arrays and scalars
+        import numpy as np
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if isinstance(obj, (np.integer, np.floating)):
+            return float(obj) if isinstance(obj, np.floating) else int(obj)
+        return super().default(obj)
+
+
 class Simulation(SimulationBase):
     """Top-level class to configure and run a Struphy simulation.
 
@@ -1426,7 +1441,7 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
             **extra_data,
         }
 
-        json_str = json.dumps(config, indent=4)
+        json_str = json.dumps(config, indent=4, cls=CuPyJSONEncoder)
         if file_path is not None:
             with open(file_path, "w") as f:
                 f.write(json_str)
