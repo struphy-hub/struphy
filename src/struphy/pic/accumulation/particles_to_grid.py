@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 import cunumpy as xp
+from cunumpy import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilMatrix, StencilVector
@@ -17,7 +18,6 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Domain
 from struphy.models.variables import PICVariable, SPHVariable
 from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
 from struphy.pic.base import Particles
-from cunumpy import PyccelKernel
 from struphy.utils.utils import __dataclass_repr_no_defaults__, check_option
 
 

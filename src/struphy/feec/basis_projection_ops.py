@@ -1,7 +1,8 @@
 import logging
 
-import numpy as np
 import cunumpy as xp
+import numpy as np
+from cunumpy import PyccelKernel
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.ddm.mpi import mpi as MPI
 from feectools.fem.basic import FemSpace
@@ -20,7 +21,6 @@ from struphy.geometry.base import Domain
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.docstring_converter import auto_convert_docstring
-from cunumpy import PyccelKernel
 
 logger = logging.getLogger("struphy")
 
@@ -54,9 +54,7 @@ class BasisProjectionOperators:
 
         self._rank = derham.comm.Get_rank() if derham.comm is not None else 0
 
-        if any(
-            [degree == 1 and num_elements > 1 for degree, num_elements in zip(derham.degree, derham.num_elements)]
-        ):
+        if any([degree == 1 and num_elements > 1 for degree, num_elements in zip(derham.degree, derham.num_elements)]):
             logger.warning(
                 f'WARNING: Class "BasisProjectionOperators" called with degree={derham.degree} (interpolation of piece-wise constants should be avoided).',
             )

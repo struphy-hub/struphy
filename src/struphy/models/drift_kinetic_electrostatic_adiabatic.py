@@ -1,6 +1,7 @@
 import copy
 
 import cunumpy as xp
+from cunumpy import PyccelKernel
 
 from struphy import BaseUnits
 from struphy.feec.mass import AverageOperator, L2Projector
@@ -20,7 +21,6 @@ from struphy.propagators.base import Propagator
 from struphy.propagators.poisson_adiabatic_gyrokinetic import PoissonAdiabaticGyrokinetic
 from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
 from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
-from cunumpy import PyccelKernel
 
 
 class DriftKineticElectrostaticAdiabatic(StruphyModel):

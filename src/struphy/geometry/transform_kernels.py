@@ -44,7 +44,6 @@
 """
 
 from numpy import empty, shape, sqrt, zeros
-
 from pyccel.decorators import stack_array
 
 import struphy.geometry.evaluation_kernels as evaluation_kernels

@@ -2,6 +2,7 @@ import copy
 import logging
 
 import cunumpy as xp
+from cunumpy import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import BaseUnits
@@ -21,7 +22,6 @@ from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vxb import PushVxB
 from struphy.propagators.vlasov_ampere_coupling import VlasovAmpereCoupling
-from cunumpy import PyccelKernel
 
 logger = logging.getLogger("struphy")
 

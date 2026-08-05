@@ -1,12 +1,12 @@
+# import model, set verbosity
+from struphy.models.hybrid import LinearMHDDriftkineticCC
+
 from struphy import main
 from struphy.fields_background import equils
 from struphy.geometry import domains
 from struphy.initial import perturbations
 from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, FieldsBackground, Time
 from struphy.kinetic_background import maxwellians
-
-# import model, set verbosity
-from struphy.models.hybrid import LinearMHDDriftkineticCC
 from struphy.pic.utilities import (
     BinningPlot,
     BoundaryParameters,

@@ -73,12 +73,14 @@ logger = logging.getLogger("struphy")
 
 class CuPyJSONEncoder(json.JSONEncoder):
     """JSON encoder that handles CuPy arrays and NumPy arrays."""
+
     def default(self, obj):
         # Check if it has a .get() method (CuPy array)
-        if hasattr(obj, 'get'):
-            return obj.get().tolist() if hasattr(obj.get(), 'tolist') else obj.get()
+        if hasattr(obj, "get"):
+            return obj.get().tolist() if hasattr(obj.get(), "tolist") else obj.get()
         # Handle NumPy arrays and scalars
         import numpy as np
+
         if isinstance(obj, np.ndarray):
             return obj.tolist()
         if isinstance(obj, (np.integer, np.floating)):

@@ -3,6 +3,7 @@
 import logging
 from dataclasses import dataclass
 
+from cunumpy import PyccelKernel
 from line_profiler import profile
 from numpy import array, random
 
@@ -12,7 +13,6 @@ from struphy.ode.utils import ButcherTableau
 from struphy.pic.pushing import pusher_kernels
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
-from cunumpy import PyccelKernel
 
 logger = logging.getLogger("struphy")
 

@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass
 
 import cunumpy as xp
+from cunumpy import PyccelKernel
 from line_profiler import profile
 
 from struphy.feec import preconditioner
@@ -16,7 +17,6 @@ from struphy.pic.accumulation.particles_to_grid import Accumulator
 from struphy.pic.pushing import pusher_kernels
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
-from cunumpy import PyccelKernel
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")

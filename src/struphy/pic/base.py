@@ -16,6 +16,7 @@ except ModuleNotFoundError:
 
 
 import cunumpy as xp
+from cunumpy import PyccelKernel
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
@@ -63,14 +64,13 @@ from struphy.pic.sph_eval_kernels import (
 )
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
-from cunumpy import PyccelKernel
 
 logger = logging.getLogger("struphy")
 
 
 def _to_numpy_for_kernel(value):
     """Convert CuPy arrays to NumPy for compiled kernel calls."""
-    if hasattr(value, 'get'):
+    if hasattr(value, "get"):
         # This is a CuPy array
         return value.get()
     return value

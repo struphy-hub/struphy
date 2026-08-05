@@ -59,7 +59,7 @@ logger = logging.getLogger("struphy")
 
 def _to_numpy_for_kernel(value):
     """Convert CuPy arrays to NumPy for compiled kernel calls."""
-    if hasattr(value, 'get'):
+    if hasattr(value, "get"):
         # This is a CuPy array
         return value.get()
     return value
@@ -3434,7 +3434,7 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
 
     # make sure that greville points used for interpolation are in [0, 1]
     # Use numpy for comparison since greville points are NumPy arrays
-    greville_loc_np = greville_loc.get() if hasattr(greville_loc, 'get') else greville_loc
+    greville_loc_np = greville_loc.get() if hasattr(greville_loc, "get") else greville_loc
     assert np.all(np.logical_and(greville_loc_np >= 0.0, greville_loc_np <= 1.0))
 
     # interpolation

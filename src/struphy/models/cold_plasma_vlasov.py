@@ -1,6 +1,8 @@
 import copy
 import logging
 
+from cunumpy import PyccelKernel
+
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
@@ -21,7 +23,6 @@ from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vxb import PushVxB
 from struphy.propagators.vlasov_ampere_coupling import VlasovAmpereCoupling
-from cunumpy import PyccelKernel
 
 logger = logging.getLogger("struphy")
 

@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass
 from typing import Literal
 
+from cunumpy import PyccelKernel
 from feectools.linalg.basic import LinearOperator
 from feectools.linalg.block import BlockVector
 from line_profiler import profile
@@ -13,7 +14,6 @@ from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.pic.pushing import pusher_kernels
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
-from cunumpy import PyccelKernel
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")

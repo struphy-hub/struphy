@@ -3,6 +3,7 @@ import logging
 import cunumpy as xp
 import matplotlib.pyplot as plt
 import pytest
+from cunumpy import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import (
@@ -23,7 +24,6 @@ from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.propagators.curl_curl_solve import CurlCurlSolve
 from struphy.topology.grids import TensorProductGrid
-from cunumpy import PyccelKernel
 
 logger = logging.getLogger("struphy")
 set_logging_level(logging.INFO)

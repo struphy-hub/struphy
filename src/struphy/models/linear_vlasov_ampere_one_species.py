@@ -2,6 +2,7 @@ import copy
 import logging
 
 import cunumpy as xp
+from cunumpy import PyccelKernel
 
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
@@ -21,7 +22,6 @@ from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vin_efield import PushVinEfield
 from struphy.propagators.push_vxb import PushVxB
-from cunumpy import PyccelKernel
 
 logger = logging.getLogger("struphy")
 

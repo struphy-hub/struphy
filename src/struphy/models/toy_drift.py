@@ -1,6 +1,7 @@
 import copy
 
 import cunumpy as xp
+from cunumpy import PyccelKernel
 
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
@@ -16,7 +17,6 @@ from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.propagators.base import Propagator
 from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
-from cunumpy import PyccelKernel
 
 
 class ToyDrift(StruphyModel):

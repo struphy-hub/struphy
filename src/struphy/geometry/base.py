@@ -9,6 +9,7 @@ from abc import ABCMeta, abstractmethod
 import cunumpy as xp
 import h5py
 import numpy as np
+from cunumpy import PyccelKernel
 from pyvista import Plotter, StructuredGrid
 from scipy.sparse import csc_matrix, kron
 from scipy.sparse.linalg import splu, spsolve
@@ -17,7 +18,6 @@ import struphy.bsplines.bsplines as bsp
 from struphy.geometry import evaluation_kernels, transform_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
-from cunumpy import PyccelKernel
 from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default, all_subclasses
 
 logger = logging.getLogger("struphy")
@@ -25,7 +25,7 @@ logger = logging.getLogger("struphy")
 
 def _to_numpy_for_kernel(value):
     """Convert CuPy arrays to NumPy for passing to compiled kernels."""
-    if hasattr(value, 'get'):  # CuPy array
+    if hasattr(value, "get"):  # CuPy array
         return value.get()
     return value
 
@@ -1149,7 +1149,7 @@ class Domain(metaclass=DomainMeta):
                 out_np,
                 _to_numpy_for_kernel(remove_outside),
             )
-            
+
             # Convert back to current backend if needed
             out = xp.asarray(out_np)
 
@@ -1211,7 +1211,7 @@ class Domain(metaclass=DomainMeta):
                 _to_numpy_for_kernel(is_sparse_meshgrid),
                 out_np,
             )
-            
+
             # Convert back to current backend if needed
             out = xp.asarray(out_np)
 

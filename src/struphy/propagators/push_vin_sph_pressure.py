@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
+from cunumpy import PyccelKernel
 from line_profiler import profile
 
 from struphy.io.options import LiteralOptions, OptionsBase
@@ -12,7 +13,6 @@ from struphy.models.variables import SPHVariable
 from struphy.pic.pushing import eval_kernels_sph, pusher_kernels_sph
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
-from cunumpy import PyccelKernel
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")

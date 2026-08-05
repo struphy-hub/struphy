@@ -1,7 +1,6 @@
 import logging
 
 import pytest
-
 from cunumpy import PyccelKernel
 
 logger = logging.getLogger("struphy")

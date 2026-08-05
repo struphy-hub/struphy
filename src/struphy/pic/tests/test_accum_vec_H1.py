@@ -1,9 +1,9 @@
 import logging
 
 import pytest
+from cunumpy import PyccelKernel
 
 from struphy import set_logging_level
-from cunumpy import PyccelKernel
 
 logger = logging.getLogger("struphy")
 set_logging_level(logging.INFO)
