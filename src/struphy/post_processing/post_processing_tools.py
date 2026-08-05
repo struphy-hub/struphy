@@ -1,4 +1,5 @@
 import inspect
+import json
 import logging
 import os
 import pickle
@@ -15,11 +16,9 @@ from feectools.ddm.mpi import mpi as MPI
 from pyevtk.hl import gridToVTK
 
 from struphy.feec.psydac_derham import Derham, SplineFunction
-from struphy.fields_background import equils
 from struphy.fields_background.base import FluidEquilibrium
-from struphy.geometry import domains
 from struphy.geometry.base import Domain
-from struphy.io.options import BaseUnits, EnvironmentOptions, Time
+from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time
 from struphy.io.setup import import_parameters_py
 from struphy.kinetic_background import maxwellians
 from struphy.kinetic_background.base import KineticBackground
@@ -125,10 +124,10 @@ class ParamsIn:
         self,
         path: str,
     ):
-        logger.info(f"\nReading in paramters from {path} ... ")
+        logger.info(f"\nReading in parameters from {path} ... ")
 
         params_path = os.path.join(path, "parameters.py")
-        bin_path = os.path.join(path, "env.bin")
+        json_path = os.path.join(path, "config.json")
 
         if os.path.exists(params_path):
             params_in = import_parameters_py(params_path)
@@ -141,33 +140,45 @@ class ParamsIn:
             model = params_in.model
             sim = params_in.sim
 
-        elif os.path.exists(bin_path):
-            with open(os.path.join(path, "env.bin"), "rb") as f:
-                env = pickle.load(f)
-            with open(os.path.join(path, "time_opts.bin"), "rb") as f:
-                time_opts = pickle.load(f)
-            with open(os.path.join(path, "domain.bin"), "rb") as f:
-                # WORKAROUND: cannot pickle pyccelized classes at the moment
-                domain_dct = pickle.load(f)
-                domain: Domain = getattr(domains, domain_dct["name"])(**domain_dct["params"])
-            with open(os.path.join(path, "equil.bin"), "rb") as f:
-                # WORKAROUND: cannot pickle pyccelized classes at the moment
-                equil_dct = pickle.load(f)
-                if equil_dct:
-                    equil: FluidEquilibrium = getattr(equils, equil_dct["name"])(**equil_dct["params"])
-                else:
-                    equil = None
-            with open(os.path.join(path, "grid.bin"), "rb") as f:
-                grid = pickle.load(f)
-            with open(os.path.join(path, "derham_opts.bin"), "rb") as f:
-                derham_opts = pickle.load(f)
-            with open(os.path.join(path, "model_class.bin"), "rb") as f:
-                model_class: StruphyModel = pickle.load(f)
-                model = model_class()
+        elif os.path.exists(json_path):
+            with open(json_path, "r") as f:
+                dct = json.load(f)
+            env = EnvironmentOptions.from_dict(dct["env"])
+            time_opts = Time.from_dict(dct["time_opts"])
+            domain: Domain = Domain.from_dict(dct["domain"])
+            equil = FluidEquilibrium.from_dict(dct.get("equil"))
+
+            grid_dct = dct.get("grid")
+            if grid_dct is not None:
+                grid_dct = dict(grid_dct)
+                if "num_elements" in grid_dct and grid_dct["num_elements"] is not None:
+                    grid_dct["num_elements"] = tuple(grid_dct["num_elements"])
+                if "mpi_dims_mask" in grid_dct and grid_dct["mpi_dims_mask"] is not None:
+                    grid_dct["mpi_dims_mask"] = tuple(grid_dct["mpi_dims_mask"])
+                grid = TensorProductGrid.from_dict(grid_dct)
+            else:
+                grid = None
+
+            derham_dct = dct.get("derham_opts")
+            if derham_dct is not None:
+                derham_dct = dict(derham_dct)
+                if "degree" in derham_dct and derham_dct["degree"] is not None:
+                    derham_dct["degree"] = tuple(derham_dct["degree"])
+                if "bcs" in derham_dct and derham_dct["bcs"] is not None:
+                    derham_dct["bcs"] = tuple(None if bc is None else tuple(bc) for bc in derham_dct["bcs"])
+                if "nquads" in derham_dct and derham_dct["nquads"] is not None:
+                    derham_dct["nquads"] = tuple(derham_dct["nquads"])
+                if "nquads_proj" in derham_dct and derham_dct["nquads_proj"] is not None:
+                    derham_dct["nquads_proj"] = tuple(derham_dct["nquads_proj"])
+                derham_opts = DerhamOptions.from_dict(derham_dct)
+            else:
+                derham_opts = None
+
+            model: StruphyModel = StruphyModel.from_dict(dct["model"])
             sim = None
 
         else:
-            raise FileNotFoundError(f"Neither of the paths {params_path} or {bin_path} exists.")
+            raise FileNotFoundError(f"Neither of the paths {params_path} or {json_path} exists.")
 
         logger.info("... Done.")
 
