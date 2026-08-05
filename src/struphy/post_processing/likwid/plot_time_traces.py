@@ -20,22 +20,6 @@ def glob_to_regex(pat: str) -> str:
     return "^" + esc.replace(r"\*", ".*").replace(r"\?", ".") + "$"
 
 
-def plot_region(region_name, groups_include=["*"], groups_skip=[]):
-    # skips first
-    for pat in groups_skip:
-        rx = glob_to_regex(pat)
-        if re.fullmatch(rx, region_name):
-            return False
-
-    # includes next
-    for pat in groups_include:
-        rx = glob_to_regex(pat)
-        if re.fullmatch(rx, region_name):
-            return True
-
-    return False
-
-
 def plot_time_vs_duration(
     reader,
     output_path,

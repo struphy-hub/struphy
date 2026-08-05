@@ -18,7 +18,7 @@ logger = logging.getLogger("struphy")
 @pytest.mark.parametrize("ny", [16, 80])
 @pytest.mark.parametrize("nz", [32, 90])
 @pytest.mark.parametrize("algo", ["fortran_ordering", "c_ordering"])
-def test_flattening(nx, ny, nz, algo):
+def test_flattening_fortran(nx, ny, nz, algo):
     from struphy.pic.sorting_kernels import flatten_index, unflatten_index
 
     n1s = xp.array(xp.random.rand(10) * (nx + 1), dtype=int)
@@ -38,7 +38,7 @@ def test_flattening(nx, ny, nz, algo):
 @pytest.mark.parametrize("ny", [16, 80])
 @pytest.mark.parametrize("nz", [32, 90])
 @pytest.mark.parametrize("algo", ["fortran_ordering", "c_ordering"])
-def test_flattening(nx, ny, nz, algo):
+def test_flattening_c(nx, ny, nz, algo):
     from struphy.pic.sorting_kernels import flatten_index, unflatten_index
 
     n1s = xp.array(xp.random.rand(10) * (nx + 1), dtype=int)
@@ -58,7 +58,7 @@ def test_flattening(nx, ny, nz, algo):
 @pytest.mark.parametrize("ny", [16, 80])
 @pytest.mark.parametrize("nz", [32, 90])
 @pytest.mark.parametrize("algo", ["fortran_ordering", "c_ordering"])
-def test_flattening(nx, ny, nz, algo):
+def test_flattening_roundtrip(nx, ny, nz, algo):
     from struphy.pic.sorting_kernels import flatten_index, unflatten_index
 
     n1s = xp.array(xp.random.rand(10) * (nx + 1), dtype=int)
@@ -150,7 +150,7 @@ def test_sorting(num_elements, degree, bcs, mapping, Np):
 
 
 if __name__ == "__main__":
-    test_flattening(8, 8, 8, "c_orderwding")
+    test_flattening_roundtrip(8, 8, 8, "c_ordering")
     # test_sorting(
     #     [8, 9, 10],
     #     [2, 3, 4],

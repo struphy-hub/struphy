@@ -382,11 +382,6 @@ class MassMatrixPreconditioner(LinearOperator):
         return self._codomain
 
     @property
-    def domain(self):
-        """The domain of the linear operator - an element of Vectorspace"""
-        return self._domain
-
-    @property
     def dtype(self):
         return self._dtype
 
@@ -765,11 +760,6 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
     def codomain(self):
         """The codomain of the linear operator - an element of Vectorspace"""
         return self._codomain
-
-    @property
-    def domain(self):
-        """The domain of the linear operator - an element of Vectorspace"""
-        return self._domain
 
     @property
     def dtype(self):
