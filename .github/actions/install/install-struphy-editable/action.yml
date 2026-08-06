@@ -14,4 +14,4 @@ runs:
         pip install -U --upgrade-strategy eager -e ".[phys,mpi]"
         pip install -e ".[dev,doc]" 
         pip list
-        struphy -h
+        # struphy -h
