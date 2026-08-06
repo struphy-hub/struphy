@@ -532,7 +532,6 @@ and how:
         guiding_center=False,  # compute guiding-center coordinates for markers
         classify=False,      # classify particles by trapping/passing etc.
         create_vtk=True,     # write VTK files for 3D visualization
-        time_trace=False,    # plot scalar diagnostics time traces
     )
 
 All arguments are optional and default to the values shown above.
@@ -791,40 +790,99 @@ inside regions such as ``model.integrate`` via
 
 Example configuration:
 
+The quickest way to try this out is to generate a default parameter file for
+a model and enable profiling on its ``env``. For example, with the
+``Vlasov`` model:
+
+.. code-block:: bash
+
+    struphy params Vlasov
+
+This writes ``params_Vlasov.py`` in the current directory. Everything in that
+file can stay at its default — only the ``env`` line needs to change, from:
+
 .. code-block:: python
 
-    from struphy import EnvironmentOptions, Simulation
+    env = EnvironmentOptions()
+
+to:
+
+.. code-block:: python
 
     env = EnvironmentOptions(
-        out_folders="./runs",
-        sim_folder="vm1s_profile",
         profiling_activated=True,
         profiling_trace=True,
     )
 
-    sim = Simulation(model=model, env=env)
-    sim.run()
+Then run the file as usual:
+
+.. code-block:: bash
+
+    python params_Vlasov.py
 
 When profiling is enabled, Struphy writes the main profiling data to
 ``profiling_data.h5`` in the simulation output folder. If ``profiling_trace``
-is enabled, the run also stores ``profiling_time_trace.pkl``.
+is enabled, this file also contains the per-call timestamps needed for
+time-based plots such as Gantt charts; without it, only call counts are
+recorded.
 
-To read the time-trace output, call post-processing with ``time_trace=True``:
+Note that ``profiling_data.h5`` is a plain ``scope-profiler`` output file, so
+it is post-processed with ``scope-profiler`` itself rather than with
+``sim.pproc()`` — the two are independent post-processing paths.
 
-.. code-block:: python
 
-    sim.pproc(time_trace=True)
+Post-processing with the ``scope-profiler`` CLI
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This generates profiling plots in the post-processing directory, including a
-time-versus-duration view and an interactive Gantt chart. Those plots are the
-easiest way to identify which profiling regions dominate runtime. The data
-reader behind them consumes ``profiling_data.h5`` and groups timings by region
-and MPI rank, so the output is suitable for both serial and parallel runs.
+``scope-profiler`` ships its own post-processing command, ``scope-profiler
+pproc``, which turns one or more ``profiling_data.h5`` files into Gantt
+charts, flame graphs, duration bar charts, a duration-over-time view, and a
+``region_statistics.json`` summary — without writing any code:
 
-If you need a quick sanity check, look for the total runtime of the dominant
-regions and compare them across ranks. A large imbalance between ranks usually
-means the expensive section is load-dependent rather than purely algorithmic.
+.. code-block:: bash
 
-   
+    scope-profiler pproc sim_1/profiling_data.h5 -o figures
+
+The two figures below were generated exactly this way, from the
+``params_Vlasov.py`` example above (default grid and time stepping,
+3 saved steps, 1 MPI rank).
+
+The Gantt chart places one lane per ``(region, rank)`` pair and is the view to
+reach for when the question is *when* things happened — startup cost, gaps
+between steps, ranks drifting apart:
+
+.. figure:: ../pics/profiling_gantt_chart.png
+    :figwidth: 100%
+    :alt: Gantt chart of profiling regions across MPI ranks
+
+    Gantt chart produced by ``scope-profiler pproc`` for the ``Vlasov``
+    example, one lane per region.
+
+The flame graph instead answers *where the time went*: the call stack is
+reconstructed from timestamp containment, so nested regions such as
+``kernel: push_vxb_analytic`` inside ``prop: PushVxB`` inside
+``model.integrate`` are drawn as stacked levels rather than separate lanes:
+
+.. figure:: ../pics/profiling_flame_graph.png
+    :figwidth: 100%
+    :alt: Flame graph of profiling regions for a single MPI rank
+
+    Flame graph for the same run, rank 0, showing nested profiling regions.
+
+Passing several ``profiling_data.h5`` files (e.g. from runs at different MPI
+rank counts) additionally produces a per-region speedup plot, and
+``--x-field`` can compare runs along other metadata fields such as
+``omp_num_threads``. Filtering regions with ``--include``/``--exclude``,
+selecting ranks with ``--ranks``, switching to interactive HTML output with
+``--backend plotly``, and exporting the underlying data or ``.prof`` /
+speedscope files for external viewers are all covered in the
+`postprocessing CLI guide <https://max-models.github.io/scope-profiler/guide/postprocessing_cli.html>`_.
+This documentation page is not meant to duplicate that guide — see the link
+for the full set of flags and examples.
+
+If you need a quick sanity check without the CLI, look at
+``region_statistics.json`` for the total runtime of the dominant regions and
+compare them across ranks. A large imbalance between ranks usually means the
+expensive section is load-dependent rather than purely algorithmic.
 
 
