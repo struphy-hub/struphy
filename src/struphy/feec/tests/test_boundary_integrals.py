@@ -3,8 +3,8 @@ from typing import Callable
 
 import cunumpy as xp
 import pytest
-from feectools.ddm.mpi import mpi as MPI
 from feectools.ddm.mpi import MockComm
+from feectools.ddm.mpi import mpi as MPI
 
 from struphy import domains
 from struphy.feec.boundary_mass import BoundaryIntegralOperators
@@ -316,7 +316,7 @@ def test_boundary_mass_hcurl_cuboid_nontrivial(num_elements, degree, bcs, active
     v_h = P(make_pulled(domain, v_idx))
 
     bnd_ops = BoundaryIntegralOperators(mass_ops, active_faces=active_faces)
-    numerical = xp.dot(v_h.toarray(), bnd_ops.S1.dot(u_h).toarray())
+    numerical = bnd_ops.S1.dot_inner(u_h, v_h)
 
     logger.info(f"numerical = {numerical}, exact = {exact}, error = {xp.abs(numerical - exact)}")
 
