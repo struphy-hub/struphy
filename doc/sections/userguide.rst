@@ -845,7 +845,8 @@ charts, flame graphs, duration bar charts, a duration-over-time view, and a
 
 The two figures below were generated exactly this way, from the
 ``params_Vlasov.py`` example above (default grid and time stepping,
-3 saved steps, 1 MPI rank).
+3 saved steps, 1 MPI rank). To regenerate them, run
+``doc/generate_profiling_figures.sh`` from the repository root.
 
 The Gantt chart places one lane per ``(region, rank)`` pair and is the view to
 reach for when the question is *when* things happened — startup cost, gaps
