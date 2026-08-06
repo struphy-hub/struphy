@@ -507,22 +507,30 @@ class SplineAttributes1D:
 
     @property
     def quad_grid_pts(self) -> tuple[tuple[xp.ndarray]]:
-        """Tuple of quadrature grid points in each direction for each component of the vector space."""
+        """Tuple of quadrature grid points in each direction for each component of the vector space.
+        The indexing is [global element, local quadrature point].
+        The length of the first dimension is the number of elements (cells)."""
         return self._quad_grid_pts
 
     @property
     def quad_grid_wts(self) -> tuple[tuple[xp.ndarray]]:
-        """Tuple of quadrature grid weights in each direction for each component of the vector space."""
+        """Tuple of quadrature grid weights in each direction for each component of the vector space.
+        The indexing is [global element, local quadrature point].
+        The length of the first dimension is the number of elements (cells)."""
         return self._quad_grid_wts
 
     @property
     def quad_grid_spans(self) -> tuple[tuple[xp.ndarray]]:
-        """Tuple of quadrature grid basis function spans in each direction for each component of the vector space."""
+        """Tuple of quadrature grid basis function spans in each direction for each component of the vector space.
+        The span is the index of the last non-vanishing spline on each grid element
+        (cell). The length of the returned array is the number of elements (cells)."""
         return self._quad_grid_spans
 
     @property
     def quad_grid_bases(self) -> tuple[tuple[xp.ndarray]]:
-        """Tuple of quadrature grid basis function values in each direction for each component of the vector space."""
+        """Tuple of quadrature grid basis function values in each direction for each component of the vector space.
+        Indexing is [global element, basis function, derivative, local quadrature point].
+        The length of the first dimension is the number of elements (cells)."""
         return self._quad_grid_bases
 
 
