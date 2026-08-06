@@ -2,6 +2,7 @@ import logging
 from typing import Callable
 
 import cunumpy as xp
+from cunumpy import PyccelKernel
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.linalg.block import BlockLinearOperator, BlockVector
 from feectools.linalg.stencil import StencilMatrix, StencilVector
@@ -11,7 +12,6 @@ from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.geometry.base import Domain
-from cunumpy import PyccelKernel
 
 logger = logging.getLogger("struphy")
 
