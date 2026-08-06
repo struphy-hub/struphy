@@ -26,7 +26,6 @@ from struphy.models.base import StruphyModel
 from struphy.models.species import ParticleSpecies
 from struphy.models.variables import PICVariable, SPHVariable
 from struphy.pic.base import Particles
-from struphy.post_processing.likwid.plot_time_traces import plot_gantt_chart_plotly, plot_time_vs_duration
 from struphy.post_processing.orbits import orbits_tools
 from struphy.topology.grids import TensorProductGrid
 from struphy.utils.progress import tqdm
@@ -294,12 +293,6 @@ class PostProcessor:
                 shutil.rmtree(self.path_pproc)
                 os.mkdir(self.path_pproc)
         self.comm.Barrier()
-
-    def plot_time_traces(self):
-        path_time_trace = os.path.join(self.path_out, "profiling_time_trace.pkl")
-        plot_time_vs_duration(path_time_trace, output_path=self.path_pproc)
-        plot_gantt_chart_plotly(path_time_trace, output_path=self.path_pproc)
-        return
 
     def process(
         self,
