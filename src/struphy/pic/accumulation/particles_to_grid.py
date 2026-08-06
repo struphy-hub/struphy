@@ -1,5 +1,7 @@
 "Base classes for particle deposition (accumulation) on the grid."
 
+from dataclasses import dataclass
+
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector
@@ -10,10 +12,13 @@ import struphy.pic.accumulation.accum_kernels as accums
 import struphy.pic.accumulation.accum_kernels_gc as accums_gc
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
+from struphy.io.options import LiteralOptions
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
+from struphy.models.variables import PICVariable, SPHVariable
 from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
 from struphy.pic.base import Particles
 from struphy.utils.pyccel import Pyccelkernel
+from struphy.utils.utils import __dataclass_repr_no_defaults__, check_option
 
 
 class Accumulator:
@@ -727,3 +732,51 @@ class AccumulatorVector:
             f'Spline field accumulated with the kernel "{self.kernel}"',
         )
         plt.show()
+
+
+@dataclass
+class ParticlesToGrid:
+    r"""Lightweight, serializable description of a particle-to-grid coupling
+    (for example charge- or current deposition) into FEEC degrees of freedom.
+
+    A ``ParticlesToGrid`` does not perform any accumulation itself: it simply bundles
+    the pieces needed to build an :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector`.
+
+    Parameters
+    ----------
+    pic_variable : PICVariable | SPHVariable
+        The kinetic variable whose markers (``pic_variable.particles``) are deposited on the grid.
+
+    accum_space : {"H1", "Hcurl", "Hdiv", "L2", "H1vec"}
+        FEEC space identifier of the vector to accumulate into.
+
+    accum_kernel : Pyccelkernel
+        Pyccelized accumulation kernel matching ``accum_space``, for example
+        ``Pyccelkernel(accum_kernels.charge_density_0form)``.
+
+    Examples
+    --------
+    >>> from struphy.pic.accumulation import accum_kernels
+    >>> from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
+    >>> from struphy.propagators.poisson_solve import PoissonSolve
+    >>> from struphy.utils.pyccel import Pyccelkernel
+    >>> rho = ParticlesToGrid(
+    ...     kinetic_ions.var,
+    ...     "H1",
+    ...     Pyccelkernel(accum_kernels.charge_density_0form),
+    ... )
+    >>> poisson = PoissonSolve(rho=rho, rho_coeffs=alpha**2 / epsilon)
+    """
+
+    pic_variable: PICVariable | SPHVariable = None
+    accum_space: LiteralOptions.OptsFEECSpace = None
+    accum_kernel: Pyccelkernel = None
+
+    def __post_init__(self):
+        if self.accum_space is not None:
+            check_option(self.accum_space, LiteralOptions.OptsFEECSpace)
+
+        assert isinstance(self.accum_kernel, Pyccelkernel) or self.accum_kernel is None
+
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_no_defaults__(self)

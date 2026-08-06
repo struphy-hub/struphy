@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from typing import Callable, Literal
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilVector
@@ -12,16 +11,15 @@ from line_profiler import profile
 from struphy.feec.mass import L2Projector, WeightedMassOperator
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
-from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation import accum_kernels
+from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.pic.accumulation.filter import FilterParameters
-from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
-from struphy.pic.base import Particles
+from struphy.pic.accumulation.particles_to_grid import AccumulatorVector, ParticlesToGrid
 from struphy.propagators.base import Propagator
-from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
+
+opts_feec_space = LiteralOptions.OptsFEECSpace
 
 
 class ImplicitDiffusion(Propagator):
@@ -47,6 +45,40 @@ class ImplicitDiffusion(Propagator):
     where :math:`M^0_{n_0}` and :math:`M^1_{D_0}` are :class:`WeightedMassOperators <struphy.feec.mass.WeightedMassOperators>`
     and :math:`\sigma_1, \sigma_2, \sigma_3 \in \mathbb R` are artificial parameters that can be tuned to
     change the model (see Notes).
+
+    Parameters
+    ----------
+    rho : FEECVariable or Callable or ParticlesToGrid or list, default=None
+        Source term(s) :math:`\rho_i` on the right-hand side. Several entries can be combined
+        by passing a ``list``; each is weighted by the corresponding entry of ``rho_coeffs``.
+        Accepted entries are:
+
+        - ``None``: zero source.
+        - ``FEECVariable`` in ``H1``: its coefficients are mass-multiplied by :math:`M^0` on the fly.
+        - ``Callable`` :math:`\rho_i(\mathbf x)`, projected to ``H1`` via ``L2Projector``.
+        - :class:`~struphy.pic.accumulation.particles_to_grid.ParticlesToGrid`, describing a
+            particle-to-grid deposition. An
+            :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` is built from
+            it at ``allocate()`` and re-accumulated at every call. Its ``accum_space`` selects
+            what is deposited:
+
+            - ``"H1"``: the kernel deposits a scalar density directly, used as-is.
+            - ``"Hcurl"``: the kernel deposits a 1-form (vector) quantity :math:`\mathbf w`,
+              e.g. :math:`n\mathbf u`; the propagator then applies the weak divergence
+              :math:`-\mathbb G^\top` to it before adding it to the right-hand side. This is
+              used in the Chorin-projection scheme for example.
+        - a ``list`` containing any mix of the entries above.
+
+    rho_coeffs : float or list, default=None
+        Multiplicative coefficient(s) for ``rho`` sources.
+        If a scalar is provided, it is applied to a single source.
+        If a sequence is provided, its length must match the number of
+        collected sources.
+        If ``None``, all coefficients default to ``1.0``.
+
+    diagnostic : FEECVariable, default=None
+        If not None, updates at each call to the propagator, takes the value of the right-hand side.
+        Otherwise does not provide diagnostic.
 
     Notes
     -----
@@ -79,37 +111,19 @@ class ImplicitDiffusion(Propagator):
 
     def __init__(
         self,
-        rho: FEECVariable | Callable | tuple[AccumulatorVector, Particles] | list = None,
+        rho: FEECVariable | ParticlesToGrid | Callable | list = None,
         rho_coeffs: float | list = None,
         diagnostic: FEECVariable | None = None,
     ):
-        """
-        Parameters
-        ----------
-        rho : FEECVariable or Callable or tuple or list, default=None
-            Source term(s) on the right-hand side.
-            Accepted entries are:
+        if isinstance(rho, list):
+            for r in rho:
+                if isinstance(r, ParticlesToGrid):
+                    assert r.accum_space is not None, "If rho contains a PICVariable, accum_space must be provided."
+                    assert r.accum_kernel is not None, "If rho contains a PICVariable, accum_kernel must be provided."
+        elif isinstance(rho, ParticlesToGrid):
+            assert rho.accum_space is not None, "If rho is a PICVariable, accum_space must be provided."
+            assert rho.accum_kernel is not None, "If rho is a PICVariable, accum_kernel must be provided."
 
-            - ``None``: zero source.
-            - ``FEECVariable`` in ``H1``.
-            - ``Callable`` to be projected to ``H1`` via ``L2Projector``.
-            - ``AccumulatorVector``.
-            - a ``list`` containing any mix of the entries above.
-
-            The tuple form is accepted by typing for compatibility with other
-            propagator interfaces that pair particle data with accumulators.
-
-        rho_coeffs : float or list, default=None
-            Multiplicative coefficient(s) for ``rho`` sources.
-            If a scalar is provided, it is applied to a single source.
-            If a sequence is provided, its length must match the number of
-            collected sources.
-            If ``None``, all coefficients default to ``1.0``.
-
-        diagnostic : FEECVariable, default=None
-            If not None, updates at each call to the propagator, takes the value of the right-hand side.
-            Otherwise does not provide diagnostic.
-        """
         self.variables = self.Variables()
         self.rho = rho
         self.rho_coeffs = rho_coeffs
@@ -176,13 +190,16 @@ class ImplicitDiffusion(Propagator):
             ``verbose``, ``info``, ``recycle``).
             If ``None``, defaults to ``SolverParameters()``.
 
-        param_kernel : Pyccelkernel
-            Contain the kernel to use for AccumulatorVector creation if rho is or contains particles
-            for example Pyccelkernel(accum_kernels.gc_density_0form).
+        filter_params : dict[PICVariable | SPHVariable, FilterParameters], default=None
+            If not None, specifies a filter to the accumulation of a specific variable.
+            Keyed by the ``pic_variable`` of the corresponding
+            :class:`~struphy.pic.accumulation.particles_to_grid.ParticlesToGrid` source in ``rho``.
 
-        particle_filter : FilterParameters, default=None
-            If a particle is provided as source, the AccumulatorVector applies this filter.
-            If None, no filter is applied.
+        Note
+        ----
+        The accumulation kernel for a particle source is not configured here:
+        it is carried by the :class:`~struphy.pic.accumulation.particles_to_grid.ParticlesToGrid`
+        instance passed as (part of) ``rho``.
         """
 
         # specific literals
@@ -199,8 +216,7 @@ class ImplicitDiffusion(Propagator):
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
-        param_kernel: Pyccelkernel = Pyccelkernel(accum_kernels.charge_density_0form)
-        particle_filter: FilterParameters = None
+        filter_params: dict[PICVariable | SPHVariable, FilterParameters] = None
 
         def __post_init__(self):
             # checks
@@ -242,35 +258,40 @@ class ImplicitDiffusion(Propagator):
 
         # collect rhs
         def verify_rhs(rho) -> StencilVector | FEECVariable | AccumulatorVector:
-            """Perform preliminary operations on rho to comute the rhs and return the result."""
-            if isinstance(rho, PICVariable):
-                rho = rho.particles
+            """Perform preliminary operations on rho to compute the rhs and return the result."""
+
             if rho is None:
                 rhs = phi.space.zeros()
+
             elif isinstance(rho, FEECVariable):
                 assert rho.space == "H1"
                 rhs = rho
-            elif isinstance(rho, AccumulatorVector):
-                rhs = rho
-            elif isinstance(rho, Particles):
-                params = self.options.param_kernel
+
+            elif isinstance(rho, ParticlesToGrid):
+                filter_params = None
+                if self.options.filter_params is not None:
+                    filter_params = self.options.filter_params.get(rho.pic_variable)
+
                 rhs = AccumulatorVector(
-                    rho,
-                    "H1",
-                    params,
+                    rho.pic_variable.particles,
+                    rho.accum_space,
+                    rho.accum_kernel,
                     Propagator.mass_ops,
                     Propagator.domain.args_domain,
-                    filter_params=self.options.particle_filter,
+                    filter_params=filter_params,
                 )
-                if not rho.control_variate:
+
+                if not rhs.particles.control_variate and rhs.space_id == "H1":
                     l2_proj = L2Projector("H1", Propagator.mass_ops)
-                    f0e = self.Z * rho.f0
+                    f0e = -rho.pic_variable.species.charge_number * rhs.particles.f0
                     rho_eh = FEECVariable(space="H1")
                     rho_eh.allocate(derham=Propagator.derham, domain=Propagator.domain)
                     rho_eh.spline.vector = l2_proj.get_dofs(f0e.n)
                     return [rhs, rho_eh]
+
             elif isinstance(rho, Callable):
                 rhs = L2Projector("H1", self.mass_ops).get_dofs(rho, apply_bc=True)
+
             else:
                 raise TypeError(f"{type(rho) =} is not accepted.")
 
@@ -279,10 +300,19 @@ class ImplicitDiffusion(Propagator):
         rho = self.rho
         if isinstance(rho, list):
             self._sources = []
-            for r in rho:
-                self._sources += verify_rhs(r)
+            for n, r in enumerate(rho):
+                tmp = verify_rhs(r)
+                if len(tmp) == 2 and self.rho_coeffs is not None:
+                    assert isinstance(self.rho_coeffs, list), "If rho is a list, rho_coeffs must be a list too."
+                    if len(self.rho_coeffs) < len(rho):
+                        self.rho_coeffs.insert(n + 1, self.rho_coeffs[n])
+                self._sources += tmp
         else:
-            self._sources = verify_rhs(rho)
+            tmp = verify_rhs(rho)
+            if len(tmp) == 2 and self.rho_coeffs is not None:
+                if not isinstance(self.rho_coeffs, (list, tuple)):
+                    self.rho_coeffs = [self.rho_coeffs, self.rho_coeffs]
+            self._sources = tmp
 
         # coeffs of rhs
         if self.rho_coeffs is not None:
@@ -412,8 +442,25 @@ class ImplicitDiffusion(Propagator):
             elif isinstance(src, AccumulatorVector):
                 if src.particles.control_variate:
                     src.particles.update_weights()
-                src()  # accumulate
-                self._rhs2 += sig_3 * coeff * src.vectors[0]
+
+                if src.space_id == "H1":
+                    src()  # accumulate
+                    vec = src.vectors[0]
+                elif src.space_id == "Hcurl":
+                    # 1. update density at marker positions
+                    eta = src.particles.positions
+                    valid_mks = src.particles.valid_mks
+                    first_free_idx = src.particles.first_free_idx
+                    density = src.particles.f0.n0(eta)
+                    src.particles.markers[valid_mks, first_free_idx] = density
+                    # 2. accumulate
+                    src()
+                    # 3. take weak divergence
+                    vec = -self.derham.grad.T.dot(src.vectors[0], out=self._tmp_src)
+                else:
+                    raise ValueError(f"Unsupported source space {src.space_id}.")
+
+                self._rhs2 += sig_3 * coeff * vec
 
         rhs += self._rhs2
 
@@ -429,6 +476,6 @@ class ImplicitDiffusion(Propagator):
         info = self._solver._info
 
         if self._info:
-            logger.info(info)
+            logger.warning(f"\nSolver info: {info}")
 
         self.update_feec_variables(phi=out)

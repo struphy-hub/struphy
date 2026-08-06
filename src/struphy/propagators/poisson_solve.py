@@ -6,7 +6,9 @@ from feectools.linalg.stencil import StencilVector
 
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
-from struphy.models.variables import FEECVariable
+from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
+from struphy.pic.accumulation.filter import FilterParameters
+from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.propagators.implicit_diffusion import ImplicitDiffusion
 from struphy.utils.utils import check_option
 
@@ -74,6 +76,9 @@ class PoissonSolve(ImplicitDiffusion):
             ``verbose``, ``info``, ``recycle``).
             If ``None``, defaults to ``SolverParameters()``.
 
+        filter_params : dict[PICVariable | SPHVariable, FilterParameters], default=None
+            If not None, specifies a filter to the accumulation of a specific variable.
+
         Notes
         -----
         ``Poisson.Options`` reuses :class:`ImplicitDiffusion` internals by
@@ -93,6 +98,7 @@ class PoissonSolve(ImplicitDiffusion):
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
+        filter_params: dict[PICVariable | SPHVariable, FilterParameters] = None
 
         def __post_init__(self):
             # checks
@@ -113,20 +119,21 @@ class PoissonSolve(ImplicitDiffusion):
 
     def __init__(
         self,
-        rho: FEECVariable | Callable | list = None,
+        rho: FEECVariable | Callable | ParticlesToGrid | list = None,
         rho_coeffs: float | list = None,
     ):
         """
         Parameters
         ----------
-        rho : FEECVariable or Callable or list, default=None
+        rho : FEECVariable or Callable or ParticlesToGrid or list, default=None
             Right-hand side source term(s) of the Poisson problem.
             Accepted entries are:
 
             - ``None``: zero source.
             - ``FEECVariable`` in ``H1``.
             - ``Callable`` to be projected to ``H1`` via ``L2Projector``.
-            - ``AccumulatorVector``.
+            - :class:`~struphy.pic.accumulation.particles_to_grid.ParticlesToGrid`, describing a
+              particle-to-grid (charge/current) deposition.
             - a ``list`` containing any mix of the entries above.
 
         rho_coeffs : float or list, default=None
