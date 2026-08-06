@@ -4,6 +4,7 @@ from typing import Callable
 import cunumpy as xp
 import pytest
 from feectools.ddm.mpi import mpi as MPI
+from feectools.ddm.mpi import MockComm
 
 from struphy import domains
 from struphy.feec.boundary_mass import BoundaryIntegralOperators
@@ -65,7 +66,7 @@ def test_boundary_mass_unit_cube_constant(num_elements, degree, bcs):
     v = bnd_ops.S0.dot(alpha_h)
     arr = v.toarray()
 
-    if comm is None:
+    if isinstance(comm, MockComm):
         coeffs = arr
     else:
         coeffs = xp.zeros_like(arr)
@@ -119,7 +120,7 @@ def test_boundary_mass_unit_cube_nonconstant(num_elements, degree, bcs):
     v = bnd_ops.S0.dot(alpha_h)
     arr = v.toarray()
 
-    if comm is None:
+    if isinstance(comm, MockComm):
         coeffs = arr
     else:
         coeffs = xp.zeros_like(arr)
@@ -159,7 +160,7 @@ def test_boundary_mass_cuboid_nontrivial(num_elements, degree, bcs):
     v = bnd_ops.S0.dot(alpha_h)
     arr = v.toarray()
 
-    if comm is None:
+    if isinstance(comm, MockComm):
         coeffs = arr
     else:
         coeffs = xp.zeros_like(arr)
@@ -205,7 +206,7 @@ def test_boundary_mass_hollow_cylinder_nonconstant(num_elements, degree, bcs):
     v = bnd_ops.S0.dot(alpha_h)
     arr = v.toarray()
 
-    if comm is None:
+    if isinstance(comm, MockComm):
         coeffs = arr
     else:
         coeffs = xp.zeros_like(arr)
