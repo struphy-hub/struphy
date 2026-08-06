@@ -57,6 +57,10 @@ file = "LICENSE"
 mpi = [
     "mpi4py<=4.1.1",
 ]
+petsc = [
+    "petsc",
+    "petsc4py",
+]
 phys = [
     "gvec>=1.1.0, <=1.4.1",
     "desc-opt<=0.17.1",
@@ -106,6 +110,7 @@ all = [
     "struphy[mpi]",
     "struphy[doc]",
     "struphy[likwid]",
+    "struphy[petsc]",
 ]
 
 [project.urls]
