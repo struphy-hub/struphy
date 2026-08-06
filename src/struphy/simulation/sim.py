@@ -292,7 +292,7 @@ class Simulation(SimulationBase):
 
         logger.debug("... Done.")
 
-    def estimate_mem(self, print_report: bool = True) -> dict:
+    def estimate_mem(self, print_report: bool = False) -> dict:
         """Estimate the memory footprint of all model variables and FEEC matrices, in bytes,
         BEFORE calling :meth:`allocate`.
 
@@ -322,7 +322,7 @@ class Simulation(SimulationBase):
         Parameters
         ----------
         print_report : bool
-            If True (default), print a breakdown of the estimated memory usage of each variable on
+            If True, print a breakdown of the estimated memory usage of each variable on
             MPI rank 0: both local (this rank) and global (summed over all ranks) values.
 
         Returns
