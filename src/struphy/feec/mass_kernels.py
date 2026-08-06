@@ -1116,7 +1116,7 @@ def surface_kernel_3d_vec(
                     data[pads0 + i_local0, pads1 + i_local1, pads2 + i_local2] += value
 
 
-def surface_kernel_3d_mat_h1(
+def surface_kernel_3d_mat(
     spans1: "int[:]",
     spans2: "int[:]",
     pi0: int,
@@ -1143,7 +1143,7 @@ def surface_kernel_3d_mat_h1(
     data: "float[:,:,:,:,:,:]",
 ):
     """
-    Computes a boundary (surface) H1 mass matrix: the integration of Lambda_i * mat_fun(eta_s1, eta_s2) * Lambda_j
+    Assembles a boundary (surface) mass matrix: the integration of Lambda_i * mat_fun(eta_s1, eta_s2) * Lambda_j
     over the boundary surface at the fixed global index boundary_index in the normal_dir direction, for the
     codomain ("i") and domain ("j") basis functions available on the calling process in the two tangential
     directions orthogonal to normal_dir.
@@ -1266,69 +1266,3 @@ def surface_kernel_3d_mat_h1(
                                     pads_s2 + j_local2,
                                     pads_n,
                                 ] += value
-
-
-def surface_kernel_3d_mat_hcurl(
-    spans1: "int[:]",
-    spans2: "int[:]",
-    pi0: int,
-    pi1: int,
-    pi2: int,
-    qi0: int,
-    qi1: int,
-    qi2: int,
-    starts0: int,
-    starts1: int,
-    starts2: int,
-    pads0: int,
-    pads1: int,
-    pads2: int,
-    w1: "float[:,:]",
-    w2: "float[:,:]",
-    bi1: "float[:,:,:,:]",
-    bi2: "float[:,:,:,:]",
-    bj1: "float[:,:,:,:]",
-    bj2: "float[:,:,:,:]",
-    boundary_index: int,
-    n_cross_weight: "float[:,:]",
-    data: "float[:,:,:,:,:,:]",
-):
-    """
-    Computes a boundary (surface) H(curl) mass matrix: the integration of (n x Lambda_i) * mat_fun(eta_s1, eta_s2)
-    * (n x Lambda_j), weighted by n_cross_weight, over the boundary surface at the fixed global index
-    boundary_index, for the codomain ("i") and domain ("j") tangential-trace basis functions available on the
-    calling process. Mirrors surface_kernel_3d_mat_h1, but for H(curl) spaces where only the tangential
-    components of the basis functions couple through the cross product with the surface normal n.
-
-    The results are written into data (attention: data is NOT set to zero first, but the results are added to data).
-
-    Parameters
-    ----------
-    spans1, spans2 : array[int]
-        Arrays of span indices in the two tangential grid directions used for the surface quadrature; the span
-        is the index of the last non-vanishing spline on each grid element.
-    pi0, pi1, pi2 : int
-        Degree of the codomain basis functions along Cartesian axes 0, 1 and 2.
-    qi0, qi1, qi2 : int
-        Degree of the domain basis functions along Cartesian axes 0, 1 and 2.
-    starts0, starts1, starts2 : int
-        Starting index on the current rank along Cartesian axes 0, 1 and 2.
-    pads0, pads1, pads2 : int
-        Padding (=spline degree) for ghost regions in data, along Cartesian axes 0, 1 and 2.
-    w1, w2 : "float[:,:]"
-        Quadrature weights in the two tangential directions. The indexing is [global element, quadrature point].
-    bi1, bi2 : "float[:,:,:,:]"
-        Values of codomain basis functions in the two tangential directions. The indexing is
-        [global element, local basis function, derivative, quadrature point].
-    bj1, bj2 : "float[:,:,:,:]"
-        Values of domain basis functions in the two tangential directions, same indexing convention as bi1, bi2.
-    boundary_index : int
-        Global index in the normal direction at which the boundary surface is located.
-    n_cross_weight : "float[:,:]"
-        Weight from the cross product with the surface normal n (and mat_fun) evaluated at surface quadrature
-        points, indexed like mat_fun in surface_kernel_3d_mat_h1.
-    data : "float[:,:,:,:,:,:]"
-        _data array of StencilMatrix to store the results, following the same storage convention as in
-        surface_kernel_3d_mat_h1.
-    """
-    pass

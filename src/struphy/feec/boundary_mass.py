@@ -94,7 +94,188 @@ class BoundaryIntegralOperators:
         return self._S1
 
 
-class BoundaryMassOperatorH1(LinOpWithTransp):
+class BoundaryMassOperator(LinOpWithTransp):
+    """
+    Base class for boundary mass operators (surface integrals over the six
+    faces of the logical cube), assembled analogously to WeightedMassOperators
+    but restricted to the active (free) boundary faces.
+
+    Builds the composite operator S = B * E * M * E^T * B^T, where M is the
+    raw boundary mass matrix, E are the extraction operators and B the
+    boundary operators associated to the underlying FE space.
+
+    Subclasses must set the class attribute ``_space_key`` and implement:
+
+    - ``_build_mat()``: construct the empty matrix container for M.
+    - ``_setup_surface_data()``: precompute per-face geometric/quadrature data.
+    - ``_assemble_face(face_idx, mat)``: accumulate one face's contribution.
+    - ``_clear_mat()`` / ``_finalize_mat()``: zero / finalize (ghost exchange) M.
+    - ``transpose()``: symmetry of the underlying bilinear form differs per space.
+
+    Parameters
+    ----------
+    mass_ops : WeightedMassOperators
+        Mass operators object, contains geometry and derham.
+    active_faces : list[bool]
+        Which of the six faces to integrate over.
+    """
+
+    _space_key: str
+
+    def __init__(
+        self,
+        mass_ops: WeightedMassOperators,
+        active_faces: list[bool],
+    ):
+        self._mass_ops = mass_ops
+        self._derham = mass_ops.derham
+        self._domain_obj = mass_ops.domain
+        self._active_faces = active_faces
+
+        self._space = self._derham.fem_spaces[self._space_key]
+        self._quad_grid_pts = self._derham.spline_attributes[self._space_key].quad_grid_pts
+        self._spans_l = self._derham.spline_attributes[self._space_key].quad_grid_spans
+        self._wts_l = self._derham.spline_attributes[self._space_key].quad_grid_wts
+        self._bases_l = self._derham.spline_attributes[self._space_key].quad_grid_bases
+        self._tensor_fem_spaces = self._derham.spline_attributes[self._space_key].tensor_spaces
+        self._nbasis = self._derham.spline_attributes[self._space_key].nbasis
+
+        # boundary and extraction operators
+        self._V_extraction_op = self._derham.extraction_ops[self._space_key]
+        self._W_extraction_op = self._derham.extraction_ops[self._space_key]
+        self._V_boundary_op = self._derham.boundary_ops[self._space_key]
+        self._W_boundary_op = self._derham.boundary_ops[self._space_key]
+
+        self._V_extraction_op_T = self._V_extraction_op.T
+        self._W_extraction_op_T = self._W_extraction_op.T
+        self._V_boundary_op_T = self._V_boundary_op.T
+        self._W_boundary_op_T = self._W_boundary_op.T
+
+        # initialize raw boundary mass matrix container (StencilMatrix / BlockLinearOperator / ...)
+        self._mat = self._build_mat()
+
+        # build composite operator B * E * M * E^T * B^T
+        self._M = self._W_extraction_op @ self._mat @ self._V_extraction_op_T
+        self._M0 = self._W_boundary_op @ self._M @ self._V_boundary_op_T
+
+        # set domain and codomain
+        self._domain = self._M0.domain
+        self._codomain = self._M0.codomain
+        self._dtype = self._tensor_fem_spaces[0].coeff_space.dtype
+
+        # allocate temporaries
+        self._temp_WB = self._W_boundary_op.domain.zeros()
+        self._temp_WE = self._W_extraction_op.domain.zeros()
+        self._temp_VB = self._V_boundary_op.domain.zeros()
+        self._temp_VE = self._V_extraction_op.domain.zeros()
+        self._temp_mat = self._mat.domain.zeros()
+
+        # for each active face, precompute per-space surface quadrature/geometric data
+        self._setup_surface_data()
+
+        # load assembly kernel
+        self._assembly_kernel = Pyccelkernel(mass_kernels.surface_kernel_3d_mat)
+
+        self.assemble()
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    def _build_mat(self):
+        """Construct and return the empty raw boundary mass matrix container."""
+        raise NotImplementedError
+
+    def _setup_surface_data(self):
+        """Precompute per-face geometric/quadrature data needed by ``_assemble_face``."""
+        raise NotImplementedError
+
+    def _assemble_face(self, face_idx: int, mat):
+        """Assemble the contribution of a single face into ``mat``."""
+        raise NotImplementedError
+
+    def _clear_mat(self):
+        """Zero out the raw boundary mass matrix before assembly."""
+        raise NotImplementedError
+
+    def _finalize_mat(self):
+        """Finalize the raw boundary mass matrix after assembly (ghost region exchange)."""
+        raise NotImplementedError
+
+    def assemble(
+        self,
+        clear: bool = True,
+    ):
+        """
+        Assembles the boundary mass matrix.
+
+        Parameters
+        ----------
+        clear : bool, optional
+            Whether to zero the matrix before assembly.
+        """
+        if clear:
+            self._clear_mat()
+
+        for face_idx in range(6):
+            if not self._active_faces[face_idx]:
+                continue
+            self._assemble_face(face_idx, self._mat)
+
+        self._finalize_mat()
+
+    def dot(self, v, out=None, apply_bc=True):
+        """
+        Applies the boundary mass matrix to a vector.
+
+        Parameters
+        ----------
+        v : StencilVector | BlockVector
+            Input vector (spline coefficients of alpha_h).
+
+        out : StencilVector | BlockVector, optional
+            Output vector. If None, a new zero vector is created.
+
+        apply_bc : bool
+            Whether to apply boundary operators.
+
+        Returns
+        -------
+        out : StencilVector | BlockVector
+            The result S * v.
+        """
+        if out is None:
+            out = self.codomain.zeros()
+
+        if apply_bc:
+            self._V_boundary_op_T.dot(v, out=self._temp_VB)
+            self._V_extraction_op_T.dot(self._temp_VB, out=self._temp_mat)
+            self._mat.dot(self._temp_mat, out=self._temp_WE)
+            self._W_extraction_op.dot(self._temp_WE, out=self._temp_WB)
+            self._W_boundary_op.dot(self._temp_WB, out=out)
+        else:
+            self._V_extraction_op_T.dot(v, out=self._temp_mat)
+            self._mat.dot(self._temp_mat, out=self._temp_WE)
+            self._W_extraction_op.dot(self._temp_WE, out=out)
+
+        return out
+
+    def toarray(self):
+        return self._M0.toarray()
+
+    def tosparse(self):
+        return self._M0.tosparse()
+
+
+class BoundaryMassOperatorH1(BoundaryMassOperator):
     """
     Assembles the boundary mass matrix for H1 basis functions.
 
@@ -114,63 +295,18 @@ class BoundaryMassOperatorH1(LinOpWithTransp):
         Mass operators object, contains geometry and derham.
     """
 
-    def __init__(self, mass_ops: WeightedMassOperators, active_faces: list[bool]):
-        self._mass_ops = mass_ops
-        self._derham = mass_ops.derham
-        self._domain_obj = mass_ops.domain
+    _space_key = "0"
 
-        # H1 space info
-        self._space = self._derham.fem_spaces["0"]
-        self._space_key = "0"
-
-        # 3D quadrature grid info for H1 space
-        self._quad_grid_pts = self._derham.spline_attributes[self._space_key].quad_grid_pts
-        self._spans_l = self._derham.spline_attributes[self._space_key].quad_grid_spans
-        self._wts_l = self._derham.spline_attributes[self._space_key].quad_grid_wts
-        self._bases_l = self._derham.spline_attributes[self._space_key].quad_grid_bases
-        self._tensor_fem_spaces = self._derham.spline_attributes[self._space_key].tensor_spaces
-        self._nbasis = self._derham.spline_attributes[self._space_key].nbasis
-
-        # boundary and extraction operators
-        self._V_extraction_op = self._derham.extraction_ops[self._space_key]
-        self._W_extraction_op = self._derham.extraction_ops[self._space_key]
-        self._V_boundary_op = self._derham.boundary_ops[self._space_key]
-        self._W_boundary_op = self._derham.boundary_ops[self._space_key]
-
-        self._V_extraction_op_T = self._V_extraction_op.T
-        self._W_extraction_op_T = self._W_extraction_op.T
-        self._V_boundary_op_T = self._V_boundary_op.T
-        self._W_boundary_op_T = self._W_boundary_op.T
-
-        # initialize StencilMatrix
+    def _build_mat(self):
         fem_space = self._tensor_fem_spaces[0]
-        self._mat = StencilMatrix(
+        return StencilMatrix(
             fem_space.coeff_space,
             fem_space.coeff_space,
             backend=PSYDAC_BACKEND_GPYCCEL,
             precompiled=True,
         )
 
-        # build composite operator B * E * M * E^T * B^T
-        self._M = self._W_extraction_op @ self._mat @ self._V_extraction_op_T
-        self._M0 = self._W_boundary_op @ self._M @ self._V_boundary_op_T
-
-        # set domain and codomain
-        self._domain = self._M0.domain
-        self._codomain = self._M0.codomain
-        self._dtype = fem_space.coeff_space.dtype
-
-        # allocate temporaries
-        self._temp_WB = self._W_boundary_op.domain.zeros()
-        self._temp_WE = self._W_extraction_op.domain.zeros()
-        self._temp_VB = self._V_boundary_op.domain.zeros()
-        self._temp_VE = self._V_extraction_op.domain.zeros()
-        self._temp_mat = self._mat.domain.zeros()
-
-        # determine which faces to integrate over based on bcs
-        self._active_faces = active_faces
-
-        # for each active face, extract surface quadrature grid and geometric weights
+    def _setup_surface_data(self):
         self._surface_quad_grid_meshes = []
         self._surface_geom_weights = []
         self._surface_spans = []
@@ -210,23 +346,6 @@ class BoundaryMassOperatorH1(LinOpWithTransp):
             self._surface_spans.append([self._spans_l[0][d] for d in surf_dirs])
             self._surface_wts.append([self._wts_l[0][d] for d in surf_dirs])
             self._surface_bases.append([self._bases_l[0][d] for d in surf_dirs])
-
-        # load assembly kernel
-        self._assembly_kernel = Pyccelkernel(mass_kernels.surface_kernel_3d_mat_h1)
-
-        self.assemble()
-
-    @property
-    def domain(self):
-        return self._domain
-
-    @property
-    def codomain(self):
-        return self._codomain
-
-    @property
-    def dtype(self):
-        return self._dtype
 
     def _assemble_face(
         self,
@@ -272,64 +391,12 @@ class BoundaryMassOperatorH1(LinOpWithTransp):
                 mat._data,
             )
 
-    def assemble(
-        self,
-        clear: bool = True,
-    ):
-        """
-        Assembles the boundary mass matrix.
+    def _clear_mat(self):
+        self._mat._data[:] = 0.0
 
-        Parameters
-        ----------
-        clear : bool, optional
-            Whether to zero the matrix before assembly.
-        """
-        if clear:
-            self._mat._data[:] = 0.0
-
-        for face_idx in range(6):
-            if not self._active_faces[face_idx]:
-                continue
-            self._assemble_face(face_idx, self._mat)
-
+    def _finalize_mat(self):
         self._mat.exchange_assembly_data()
         self._mat.update_ghost_regions()
-
-    def dot(self, v, out=None, apply_bc=True):
-        """
-        Applies the boundary mass matrix to a vector.
-
-        Parameters
-        ----------
-        v : StencilVector
-            Input vector (spline coefficients of alpha_h).
-
-        out : StencilVector, optional
-            Output vector. If None, a new zero vector is created.
-
-        apply_bc : bool
-            Whether to apply boundary operators.
-
-        Returns
-        -------
-        out : StencilVector
-            The result S * v.
-        """
-        if out is None:
-            out = self.codomain.zeros()
-
-        if apply_bc:
-            self._V_boundary_op_T.dot(v, out=self._temp_VB)
-            self._V_extraction_op_T.dot(self._temp_VB, out=self._temp_mat)
-            self._mat.dot(self._temp_mat, out=self._temp_WE)
-            self._W_extraction_op.dot(self._temp_WE, out=self._temp_WB)
-            self._W_boundary_op.dot(self._temp_WB, out=out)
-        else:
-            self._V_extraction_op_T.dot(v, out=self._temp_mat)
-            self._mat.dot(self._temp_mat, out=self._temp_WE)
-            self._W_extraction_op.dot(self._temp_WE, out=out)
-
-        return out
 
     def transpose(self, conjugate=False):
         """
@@ -337,29 +404,8 @@ class BoundaryMassOperatorH1(LinOpWithTransp):
         """
         return self
 
-    def __call__(
-        self,
-        clear: bool = True,
-    ):
-        """
-        Assembles the boundary mass matrix.
 
-        Parameters
-        ----------
-        clear : bool, optional
-            Whether to zero the matrix before assembly.
-        """
-        self.assemble(clear=clear)
-        return self
-
-    def toarray(self):
-        return self._M0.toarray()
-
-    def tosparse(self):
-        return self._M0.tosparse()
-
-
-class BoundaryMassOperatorHCurl(LinOpWithTransp):
+class BoundaryMassOperatorHCurl(BoundaryMassOperator):
     """
     Assembles the boundary mass matrix for H(curl) basis functions.
 
@@ -381,35 +427,9 @@ class BoundaryMassOperatorHCurl(LinOpWithTransp):
         Which of the six faces to integrate over.
     """
 
-    def __init__(
-        self,
-        mass_ops: WeightedMassOperators,
-        active_faces: list[bool],
-    ):
-        self._mass_ops = mass_ops
-        self._derham = mass_ops.derham
-        self._domain_obj = mass_ops.domain
-        self._active_faces = active_faces
+    _space_key = "1"
 
-        self._space_key = "1"
-        self._space = self._derham.fem_spaces[self._space_key]
-        self._quad_grid_pts = self._derham.spline_attributes[self._space_key].quad_grid_pts
-        self._spans_l = self._derham.spline_attributes[self._space_key].quad_grid_spans
-        self._wts_l = self._derham.spline_attributes[self._space_key].quad_grid_wts
-        self._bases_l = self._derham.spline_attributes[self._space_key].quad_grid_bases
-        self._tensor_fem_spaces = self._derham.spline_attributes[self._space_key].tensor_spaces
-        self._nbasis = self._derham.spline_attributes[self._space_key].nbasis
-
-        self._V_extraction_op = self._derham.extraction_ops[self._space_key]
-        self._W_extraction_op = self._derham.extraction_ops[self._space_key]
-        self._V_boundary_op = self._derham.boundary_ops[self._space_key]
-        self._W_boundary_op = self._derham.boundary_ops[self._space_key]
-
-        self._V_extraction_op_T = self._V_extraction_op.T
-        self._W_extraction_op_T = self._W_extraction_op.T
-        self._V_boundary_op_T = self._V_boundary_op.T
-        self._W_boundary_op_T = self._W_boundary_op.T
-
+    def _build_mat(self):
         V = self._space
         W = self._space
 
@@ -428,27 +448,13 @@ class BoundaryMassOperatorHCurl(LinOpWithTransp):
             for i, Ws in enumerate(W.spaces)
         ]
 
-        self._mat = BlockLinearOperator(
+        return BlockLinearOperator(
             V.coeff_space,
             W.coeff_space,
             blocks=blocks,
         )
 
-        self._M = self._W_extraction_op @ self._mat @ self._V_extraction_op_T
-        self._M0 = self._W_boundary_op @ self._M @ self._V_boundary_op_T
-
-        self._domain = self._M0.domain
-        self._codomain = self._M0.codomain
-        self._dtype = self._tensor_fem_spaces[0].coeff_space.dtype
-
-        # allocate temporaries
-        self._temp_VB = self._V_boundary_op.domain.zeros()
-        self._temp_VE = self._V_extraction_op.domain.zeros()
-        self._temp_WB = self._W_boundary_op.domain.zeros()
-        self._temp_WE = self._W_extraction_op.domain.zeros()
-        self._temp_mat = self._mat.domain.zeros()
-
-        # for each active face extract surface data
+    def _setup_surface_data(self):
         self._surface_R_n = []
         self._surface_spans = []
         self._surface_wts = []
@@ -500,22 +506,6 @@ class BoundaryMassOperatorHCurl(LinOpWithTransp):
             self._surface_spans.append(surface_spans_per_mu)
             self._surface_wts.append(surface_wts_per_mu)
             self._surface_bases.append(surface_bases_per_mu)
-
-        self._assembly_kernel = Pyccelkernel(mass_kernels.surface_kernel_3d_mat_h1)
-
-        self.assemble()
-
-    @property
-    def domain(self):
-        return self._domain
-
-    @property
-    def codomain(self):
-        return self._codomain
-
-    @property
-    def dtype(self):
-        return self._dtype
 
     def _assemble_face(
         self,
@@ -581,48 +571,18 @@ class BoundaryMassOperatorHCurl(LinOpWithTransp):
                 mat.blocks[nu][mu]._data,
             )
 
-    def assemble(self, clear: bool = True):
-        """Assembles the H(curl) boundary mass matrix."""
-        if clear:
-            for mu in range(3):
-                for nu in range(3):
-                    if mu != nu:
-                        self._mat.blocks[mu][nu]._data[:] = 0.0
+    def _clear_mat(self):
+        for mu in range(3):
+            for nu in range(3):
+                if mu != nu:
+                    self._mat.blocks[mu][nu]._data[:] = 0.0
 
-        for face_idx in range(6):
-            if not self._active_faces[face_idx]:
-                continue
-            self._assemble_face(face_idx, self._mat)
-
+    def _finalize_mat(self):
         for mu in range(3):
             for nu in range(3):
                 if mu != nu:
                     self._mat.blocks[mu][nu].exchange_assembly_data()
                     self._mat.blocks[mu][nu].update_ghost_regions()
 
-    def dot(self, v, out=None, apply_bc=True):
-        """Applies the H(curl) boundary mass matrix to a BlockVector."""
-        if out is None:
-            out = self.codomain.zeros()
-
-        if apply_bc:
-            self._V_boundary_op_T.dot(v, out=self._temp_VB)
-            self._V_extraction_op_T.dot(self._temp_VB, out=self._temp_mat)
-            self._mat.dot(self._temp_mat, out=self._temp_WE)
-            self._W_extraction_op.dot(self._temp_WE, out=self._temp_WB)
-            self._W_boundary_op.dot(self._temp_WB, out=out)
-        else:
-            self._V_extraction_op_T.dot(v, out=self._temp_mat)
-            self._mat.dot(self._temp_mat, out=self._temp_WE)
-            self._W_extraction_op.dot(self._temp_WE, out=out)
-
-        return out
-
     def transpose(self, conjugate=False):
         return -self
-
-    def toarray(self):
-        return self._M0.toarray()
-
-    def tosparse(self):
-        return self._M0.tosparse()
