@@ -30,8 +30,11 @@ jobs:
   struphy_lint_all:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: true  # This is crucial!
+          fetch-depth: 5
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
