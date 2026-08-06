@@ -3,7 +3,6 @@ import glob
 import json
 import logging
 import os
-import pickle
 import shutil
 import sysconfig
 import time
@@ -185,29 +184,9 @@ class Simulation(SimulationBase):
                     )
                 except shutil.SameFileError:
                     pass
-            # pickle struphy objects
+            # save simulation configuration as JSON
             else:
-                with open(os.path.join(path_out, "env.bin"), "wb") as f:
-                    pickle.dump(env, f, pickle.HIGHEST_PROTOCOL)
-                with open(os.path.join(path_out, "time_opts.bin"), "wb") as f:
-                    pickle.dump(time_opts, f, pickle.HIGHEST_PROTOCOL)
-                with open(os.path.join(path_out, "domain.bin"), "wb") as f:
-                    # WORKAROUND: cannot pickle pyccelized classes at the moment
-                    tmp_dct = {"name": domain.__class__.__name__, "params": domain.params}
-                    pickle.dump(tmp_dct, f, pickle.HIGHEST_PROTOCOL)
-                with open(os.path.join(path_out, "equil.bin"), "wb") as f:
-                    # WORKAROUND: cannot pickle pyccelized classes at the moment
-                    if equil is not None:
-                        tmp_dct = {"name": equil.__class__.__name__, "params": equil.params}
-                    else:
-                        tmp_dct = {}
-                    pickle.dump(tmp_dct, f, pickle.HIGHEST_PROTOCOL)
-                with open(os.path.join(path_out, "grid.bin"), "wb") as f:
-                    pickle.dump(grid, f, pickle.HIGHEST_PROTOCOL)
-                with open(os.path.join(path_out, "derham_opts.bin"), "wb") as f:
-                    pickle.dump(derham_opts, f, pickle.HIGHEST_PROTOCOL)
-                with open(os.path.join(path_out, "model_class.bin"), "wb") as f:
-                    pickle.dump(model.__class__, f, pickle.HIGHEST_PROTOCOL)
+                self.export(os.path.join(path_out, "config.json"))
 
         # config clones
         if self.comm is None:
@@ -1300,11 +1279,11 @@ RESTARTing from:
         return save_keys_all, save_keys_end
 
     def _write_run_metadata(self, one_time_step: bool = False):
-        """Write run-specific JSON metadata for each sim.run() event, reusing to_json()."""
+        """Write run-specific JSON metadata for each sim.run() event, reusing to_run_metadata()."""
         if self.rank != 0:
             return
 
-        self.to_json(
+        self.to_run_metadata(
             file_path=os.path.join(self.env.path_out, "run_metadata.json"),
             started_at_epoch_s=self.start_time,
             one_time_step=one_time_step,
@@ -1385,8 +1364,13 @@ RESTARTing from:
                 particle_metadata[species_name] = species_metadata
         return particle_metadata
 
-    def to_json(self, file_path: str = None, **extra_data) -> str:
-        """Assemble the run's data and metadata by hand and serialize to a JSON string.
+    def to_run_metadata(self, file_path: str = None, **extra_data) -> str:
+        """Snapshot of the reconstructible config (see :meth:`to_dict`) plus run-specific,
+        non-reconstructible facts (MPI layout, live particle counts, caller-supplied
+        timestamps, ...), serialized to a JSON string.
+
+        This is metadata for humans/logging, not a serialization meant to be fed back
+        into :meth:`from_dict` — use :meth:`to_dict`/:meth:`export` for that.
 
         Parameters
         ----------
@@ -1394,30 +1378,24 @@ RESTARTing from:
             If given, also write the JSON string to this file.
 
         **extra_data
-            Additional key/value pairs merged into the "data" section,
+            Additional key/value pairs merged into the config,
             e.g. call-specific facts like a start timestamp.
 
         Returns
         -------
         str
-            The JSON-encoded simulation configuration.
+            The JSON-encoded simulation metadata.
         """
-        config = {
-            "name": self.name,
-            "description": self.description,
-            "model_name": self.model_name,
-            "parameter_file": self.params_path,
-            "mpi_ranks": self.comm_size,
-            "use_mpi_comm_world": self.comm is not None,
-            "env": self.env.to_dict(),
-            "time_opts": self.time_opts.to_dict(),
-            "domain": self.domain.to_dict(),
-            "equil": self.equil.to_dict() if self.equil is not None else None,
-            "grid": self.grid.to_dict() if self.grid is not None else None,
-            "derham_opts": self.derham_opts.to_dict() if self.derham_opts is not None else None,
-            "particle_species": self._collect_particle_metadata(),
-            **extra_data,
-        }
+        config = self.to_dict()
+        config.update(
+            {
+                "model_name": self.model_name,
+                "mpi_ranks": self.comm_size,
+                "use_mpi_comm_world": self.comm is not None,
+                "particle_species": self._collect_particle_metadata(),
+                **extra_data,
+            },
+        )
 
         json_str = json.dumps(config, indent=4)
         if file_path is not None:
