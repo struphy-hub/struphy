@@ -705,7 +705,6 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
         guiding_center: bool = False,
         classify: bool = False,
         create_vtk: bool = True,
-        time_trace: bool = False,
         parallel_pproc: bool = False,
     ):
         """Run post-processing on saved simulation data.
@@ -718,9 +717,6 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
         if parallel_pproc:
             self._post_processor = PostProcessor(sim=self, parallel_pproc=True)
 
-            if time_trace:
-                self.post_processor.plot_time_traces()
-
             self.post_processor.process(
                 step=step,
                 celldivide=celldivide,
@@ -732,9 +728,6 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
         else:
             if self.rank == 0:
                 self._post_processor = PostProcessor(sim=self, parallel_pproc=False)
-
-                if time_trace:
-                    self.post_processor.plot_time_traces()
 
                 self.post_processor.process(
                     step=step,
