@@ -220,6 +220,10 @@ class VariationalEntropyEvolve(Propagator):
             self._compute_init_linear_form()
 
     def __call__(self, dt):
+        pc = self._Mrho_inv._options["pc"]
+        if isinstance(pc, MassMatrixDiagonalPreconditioner):
+            pc.update_mass_operator(self._Mrho)
+    
         self.__call_newton(dt)
 
     def __call_newton(self, dt):

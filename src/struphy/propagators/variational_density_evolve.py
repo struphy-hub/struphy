@@ -191,46 +191,84 @@ class VariationalDensityEvolve(Propagator):
     def allocate(self):
         if self.options.model == "full":
             assert self.s is not None
-
+    
         self._model = self.options.model
         self._gamma = self.options.gamma
         self._lin_solver = self.options.solver_params
         self._nonlin_solver = self.options.nonlin_solver
         self._linearize = self.options.nonlin_solver.linearize
-
-        self._info = self.options.nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
-
+    
+        self._info = (
+            self.options.nonlin_solver.info
+            and MPI.COMM_WORLD.Get_rank() == 0
+        )
+    
+        # Obtain variables before assembling the density-weighted matrix.
+        rho = self.variables.rho.spline.vector
+        u = self.variables.u.spline.vector
+    
         self._Mrho = self.mass_ops.WMMnew
+    
+        # Select the total density used to weight WMMnew.
+        if self._model in ["linear", "linear_q"]:
+            rhotmp = self.projected_equil.n3
+    
+        elif self._model in ["deltaf", "deltaf_q"]:
+            self._tmp_rho_deltaf = rho.space.zeros()
+            rhotmp = rho.copy(out=self._tmp_rho_deltaf)
+            rhotmp += self.projected_equil.n3
+    
+        else:
+            # pressureless, barotropic, full, full_p, full_q
+            rhotmp = rho
+    
+        # IMPORTANT:
+        # Assemble WMMnew before constructing its diagonal preconditioner.
+        self._Mrho.spline_functions["l2_field"].vector = rhotmp
+        self._Mrho.assemble()
+    
         pc = MassMatrixDiagonalPreconditioner(self._Mrho)
+    
         self._Mrho_inv = inverse(
             self._Mrho,
             "pcg",
             pc=pc,
             tol=1e-16,
             maxiter=500,
-            recycle=True,
+            recycle=False,
         )
-
-        # Femfields for the projector
-        self.rhof = self.derham.create_spline_function("rhof", "L2")
-        self.rhof1 = self.derham.create_spline_function("rhof1", "L2")
-
-        rho = self.variables.rho.spline.vector
-        u = self.variables.u.spline.vector
-
-        # Projector
-        self._energy_evaluator = InternalEnergyEvaluator(self.derham, self._gamma)
-        self._kinetic_evaluator = KineticEnergyEvaluator(self.derham, self.domain, self.mass_ops)
+    
+        # FEM fields used by the projector.
+        self.rhof = self.derham.create_spline_function(
+            "rhof",
+            "L2",
+        )
+        self.rhof1 = self.derham.create_spline_function(
+            "rhof1",
+            "L2",
+        )
+    
+        # Projectors/evaluators.
+        self._energy_evaluator = InternalEnergyEvaluator(
+            self.derham,
+            self._gamma,
+        )
+        self._kinetic_evaluator = KineticEnergyEvaluator(
+            self.derham,
+            self.domain,
+            self.mass_ops,
+        )
         self._initialize_projectors_and_mass()
-        if self._model in ["linear", "linear_q"]:
-            rhotmp = self.projected_equil.n3
-        elif self._model in ["deltaf", "deltaf_q"]:
-            self._tmp_rho_deltaf = rho.space.zeros()
-            rhotmp = rho.copy(out=self._tmp_rho_deltaf)
-            rhotmp += self.projected_equil.n3
-        else:
-            rhotmp = rho
-        self._update_weighted_MM(rhotmp)
+        
+        # if self._model in ["linear", "linear_q"]:
+        #     rhotmp = self.projected_equil.n3
+        # elif self._model in ["deltaf", "deltaf_q"]:
+        #     self._tmp_rho_deltaf = rho.space.zeros()
+        #     rhotmp = rho.copy(out=self._tmp_rho_deltaf)
+        #     rhotmp += self.projected_equil.n3
+        # else:
+        #     rhotmp = rho
+        # self._update_weighted_MM(rhotmp)
 
         # bunch of temporaries to avoid allocating in the loop
         self._tmp_un1 = u.space.zeros()
@@ -468,7 +506,7 @@ class VariationalDensityEvolve(Propagator):
             tol=self._lin_solver.tol,
             maxiter=self._lin_solver.maxiter,
             verbose=self._lin_solver.verbose,
-            recycle=True,
+            recycle=False,
         )
 
         # self._inv_Jacobian = inverse(self._Jacobian,
@@ -523,13 +561,24 @@ class VariationalDensityEvolve(Propagator):
         self.divPirhoT.update_coeffs(rho)
 
     def _update_weighted_MM(self, rho):
-        """update the weighted mass matrix operator"""
+        """Update the density-weighted velocity mass matrix."""
+    
         self._Mrho.spline_functions["l2_field"].vector = rho
         self._Mrho.assemble()
-
-        logger.debug(f"In VariationalDensityEvolve: {self._Mrho_inv._options['pc'] = }")
-        if hasattr(self, "_Mrho_inv") and isinstance(self._Mrho_inv._options["pc"], MassMatrixDiagonalPreconditioner):
-            self._Mrho_inv._options["pc"].update_mass_operator(self._Mrho)
+    
+        if hasattr(self, "_Mrho_inv"):
+            pc = self._Mrho_inv._options.get("pc")
+    
+            logger.debug(
+                "In VariationalDensityEvolve: "
+                f"preconditioner = {pc}"
+            )
+    
+            if isinstance(
+                pc,
+                MassMatrixDiagonalPreconditioner,
+            ):
+                pc.update_mass_operator(self._Mrho)
 
     def _update_linear_form_dl_drho(self, rhon, rhon1, un, un1, sn):
         """Update the linearform representing integration in V3 against kinetic energy"""

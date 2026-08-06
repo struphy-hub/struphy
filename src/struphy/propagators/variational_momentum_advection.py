@@ -165,6 +165,10 @@ class VariationalMomentumAdvection(Propagator):
         )
 
     def __call__(self, dt):
+        pc = self._Mrho_inv._options["pc"]
+        if isinstance(pc, MassMatrixDiagonalPreconditioner):
+            pc.update_mass_operator(self._Mrho)
+    
         if self._nonlin_solver.type == "Newton":
             self.__call_newton(dt)
         elif self._nonlin_solver.type == "Picard":

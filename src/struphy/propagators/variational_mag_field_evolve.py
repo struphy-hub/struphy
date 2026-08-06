@@ -204,6 +204,10 @@ class VariationalMagFieldEvolve(Propagator):
             self._extracted_b2 = self.derham.extraction_ops["2"].dot(self.projected_equil.b2)
 
     def __call__(self, dt):
+        pc = self._Mrho_inv._options["pc"]
+        if isinstance(pc, MassMatrixDiagonalPreconditioner):
+            pc.update_mass_operator(self._Mrho)
+    
         self.__call_newton(dt)
 
     def __call_newton(self, dt):

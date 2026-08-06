@@ -1633,7 +1633,7 @@ class WeightedMassOperator(LinOpWithTransp):
                                 PTS = xp.meshgrid(*pts, indexing="ij")
                                 mat_w = loc_weight(*PTS).copy()
                             elif isinstance(loc_weight, xp.ndarray):
-                                mat_w = loc_weight
+                                mat_w = loc_weight.copy()
                             else:
                                 raise TypeError(f"Invalid weight type: {type(loc_weight)}")
 
@@ -2109,7 +2109,7 @@ class WeightedMassOperator(LinOpWithTransp):
                                     f"The spline weight {name} is close to zero at all quadrature points in the assembly of the weighted mass matrix {self.name}. Weights are not multiplied."
                                 )
                                 continue
-                            mat_w *= values
+                            mat_w =mat_w * values
                     else:
                         logger.debug(f"No weight for block {a, b}, setting mat_w to None.")
                         mat_w = None
