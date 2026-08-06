@@ -85,7 +85,7 @@ class BoundaryIntegralOperators:
         """
         Boundary mass matrix for H(curl):
 
-            S1_{(mu,ijk),(nu,lmn)} = int_{partial Omega} (Lambda^1_{mu,ijk} x n) . Lambda^1_{nu,lmn} sqrt(g) |DF^-T n| dS
+            S1_{(mu,ijk),(nu,lmn)} = int_{partial Omega} (Lambda^1_{mu,ijk} x n) . Lambda^1_{nu,lmn} dS
 
         Encodes the bilinear form for the tangential trace u x n against H(curl) test functions.
         """
@@ -256,7 +256,7 @@ class BoundaryMassOperatorH1(LinOpWithTransp):
 
         # only assemble if current rank is a true boundary (not an interior partition boundary)
         if starts[normal_dir] == boundary_index or ends[normal_dir] == boundary_index:
-            logger.debug("Assembling face", face_idx)
+            logger.debug(f"Assembling face {face_idx}")
             self._assembly_kernel(
                 *self._surface_spans[face_idx],
                 *fem_space.degree,
@@ -619,7 +619,7 @@ class BoundaryMassOperatorHCurl(LinOpWithTransp):
         return out
 
     def transpose(self, conjugate=False):
-        return self
+        return -self
 
     def toarray(self):
         return self._M0.toarray()
