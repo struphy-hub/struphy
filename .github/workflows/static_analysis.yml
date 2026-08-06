@@ -47,6 +47,9 @@ jobs:
 
       - name: Install struphy
         uses: ./.github/actions/install/install-struphy-editable
+      
+      - name: Reinstall feectools from submodule
+        uses: ./.github/actions/install/install-feectools-submodule
 
       - name: Lint the repo
         run: |
