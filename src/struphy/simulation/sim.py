@@ -871,7 +871,6 @@ RESTARTing from:
         guiding_center: bool = False,
         classify: bool = False,
         create_vtk: bool = True,
-        time_trace: bool = False,
         parallel_pproc: bool = False,
     ):
         """Run post-processing on saved simulation data.
@@ -884,9 +883,6 @@ RESTARTing from:
         if parallel_pproc:
             self._post_processor = PostProcessor(sim=self, parallel_pproc=True)
 
-            if time_trace:
-                self.post_processor.plot_time_traces()
-
             self.post_processor.process(
                 step=step,
                 celldivide=celldivide,
@@ -898,9 +894,6 @@ RESTARTing from:
         else:
             if self.rank == 0:
                 self._post_processor = PostProcessor(sim=self, parallel_pproc=False)
-
-                if time_trace:
-                    self.post_processor.plot_time_traces()
 
                 self.post_processor.process(
                     step=step,
