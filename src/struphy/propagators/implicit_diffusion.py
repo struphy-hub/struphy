@@ -370,6 +370,11 @@ class ImplicitDiffusion(Propagator):
         self._rhs2 = phi.space.zeros()
         self._tmp_src = phi.space.zeros()
 
+        # cache for the lhs operator (see __call__): avoids rebuilding (and re-assembling, for
+        # e.g. solver="petsc") a fresh operator every call when sig_1 (hence dt) is unchanged
+        self._lhs_op = None
+        self._lhs_op_sig_1 = None
+
     @property
     def sources(self) -> list[StencilVector | FEECVariable | AccumulatorVector]:
         """
@@ -457,8 +462,13 @@ class ImplicitDiffusion(Propagator):
             proj = L2Projector("H1", self.mass_ops)
             self.diagnostic.spline.vector = proj.solve(rhs)
 
-        # compute lhs
-        self._solver.linop = sig_1 * self._stab_mat + self._diffusion_op
+        # compute lhs (reuse the cached operator when sig_1 is unchanged, e.g. constant dt --
+        # this lets InverseLinearOperator subclasses that cache on `linop` identity, such as
+        # PETScSolver, avoid re-assembling the operator on every call)
+        if self._lhs_op is None or sig_1 != self._lhs_op_sig_1:
+            self._lhs_op = sig_1 * self._stab_mat + self._diffusion_op
+            self._lhs_op_sig_1 = sig_1
+        self._solver.linop = self._lhs_op
 
         # solve
         out = self._solver.solve(rhs, out=self._tmp)
