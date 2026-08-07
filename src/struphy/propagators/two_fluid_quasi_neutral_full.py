@@ -457,7 +457,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                     self._M2_u.dot(self._src_u.vector)
                     - self._A11_u.dot(self._boundary_spline_u)
                     - self._M2_u.dot(self._boundary_spline_u) / dt
-                    + self._M2_u.dot(self._curl_u.dot(self._M1inv_u.dot(self._S1_u.dot(self._natural_u.vector))))
+                    + self.options.nu * self._M2_u.dot(self._curl_u.dot(self._M1inv_u.dot(self._S1_u.dot(self._natural_u.vector))))
                 )
             )
             + self._M2.dot(self._u_0.vector) / dt
@@ -465,7 +465,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
         self._rhs_vec_ue.vector = self._b_op_ue.dot(
             (self._M2_ue.dot(self._src_ue.vector) - self._A22_ue.dot(self._boundary_spline_ue))
-            + self._M2_ue.dot(self._curl_ue.dot(self._M1inv_ue.dot(self._S1_ue.dot(self._natural_ue.vector))))
+            + self.options.nu_e * self._M2_ue.dot(self._curl_ue.dot(self._M1inv_ue.dot(self._S1_ue.dot(self._natural_ue.vector))))
         )
 
         self._div_boundary_u.vector = self._div_u.dot(self._boundary_spline_u)
@@ -486,6 +486,13 @@ class TwoFluidQuasiNeutralFull(Propagator):
             ),
             out=self._SOL,
         )
+
+        import numpy as np
+
+        print(f"ion      RHS norm = {np.linalg.norm(self._rhs_vec_u.vector.toarray()):.6e}")
+        print(f"ion      SOL norm = {np.linalg.norm(self._SOL[0][0].toarray()):.6e}")
+        print(f"electron RHS norm = {np.linalg.norm(self._rhs_vec_ue.vector.toarray()):.6e}")
+        print(f"electron SOL norm = {np.linalg.norm(self._SOL[0][1].toarray()):.6e}")
 
         info = self._Minv.get_info()
 

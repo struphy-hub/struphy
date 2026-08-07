@@ -33,10 +33,10 @@ name = f"runs/sim_2D_{BC}"
 # ------------------ setup ------------------
 env = EnvironmentOptions(sim_folder=name)
 
-B0 = 0
+B0 = 1
 nu = 10.0
 nu_e = 1.0
-Nel = (10, 10, 1)
+Nel = (20, 20, 1)
 p = (2, 2, 1)
 epsilon = 1.0
 dt = 1
