@@ -1,8 +1,7 @@
 import logging
 
 import pytest
-
-from struphy.utils.pyccel import Pyccelkernel
+from cunumpy import PyccelKernel
 
 logger = logging.getLogger("struphy")
 
@@ -99,7 +98,7 @@ def test_push_vxb_analytic(num_elements, degree, bcs, mapping, show_plots=False)
 
     pusher_psy = Pusher_psy(
         particles,
-        Pyccelkernel(pusher_kernels.push_vxb_analytic),
+        PyccelKernel(pusher_kernels.push_vxb_analytic),
         (
             derham.args_derham,
             b2_eq_psy[0]._data + b2_psy[0]._data,
@@ -214,7 +213,7 @@ def test_push_bxu_Hdiv(num_elements, degree, bcs, mapping, show_plots=False):
 
     pusher_psy = Pusher_psy(
         particles,
-        Pyccelkernel(pusher_kernels.push_bxu_Hdiv),
+        PyccelKernel(pusher_kernels.push_bxu_Hdiv),
         (
             derham.args_derham,
             b2_eq_psy[0]._data + b2_psy[0]._data,
@@ -333,7 +332,7 @@ def test_push_bxu_Hcurl(num_elements, degree, bcs, mapping, show_plots=False):
 
     pusher_psy = Pusher_psy(
         particles,
-        Pyccelkernel(pusher_kernels.push_bxu_Hcurl),
+        PyccelKernel(pusher_kernels.push_bxu_Hcurl),
         (
             derham.args_derham,
             b2_eq_psy[0]._data + b2_psy[0]._data,
@@ -452,7 +451,7 @@ def test_push_bxu_H1vec(num_elements, degree, bcs, mapping, show_plots=False):
 
     pusher_psy = Pusher_psy(
         particles,
-        Pyccelkernel(pusher_kernels.push_bxu_H1vec),
+        PyccelKernel(pusher_kernels.push_bxu_H1vec),
         (
             derham.args_derham,
             b2_eq_psy[0]._data + b2_psy[0]._data,
@@ -578,7 +577,7 @@ def test_push_bxu_Hdiv_pauli(num_elements, degree, bcs, mapping, show_plots=Fals
 
     pusher_psy = Pusher_psy(
         particles,
-        Pyccelkernel(pusher_kernels.push_bxu_Hdiv_pauli),
+        PyccelKernel(pusher_kernels.push_bxu_Hdiv_pauli),
         (
             derham.args_derham,
             *derham.degree,
@@ -688,7 +687,7 @@ def test_push_eta_rk4(num_elements, degree, bcs, mapping, show_plots=False):
 
     pusher_psy = Pusher_psy(
         particles,
-        Pyccelkernel(pusher_kernels.push_eta_stage),
+        PyccelKernel(pusher_kernels.push_eta_stage),
         (butcher.a_stage, butcher.b, butcher.c),
         domain.args_domain,
         alpha_in_kernel=1.0,

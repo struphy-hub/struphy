@@ -475,7 +475,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
                     h2 = 1 / obj.boxes_per_dim[1]
                     h3 = 1 / obj.boxes_per_dim[2]
 
-                    ndim = xp.count_nonzero([d > 1 for d in obj.boxes_per_dim])
+                    ndim = xp.count_nonzero(xp.array([d > 1 for d in obj.boxes_per_dim]))
                     if ndim == 0:
                         kernel_type = "gaussian_3d"
                     else:

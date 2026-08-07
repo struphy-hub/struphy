@@ -73,6 +73,7 @@ def struphy_test(
             cmd = [
                 "pytest",
                 "--testmon",
+                "-xvs",
             ] + list_of_tests
 
         if with_desc:
@@ -156,7 +157,6 @@ def struphy_test(
             "pytest",
             "-m",
             "single",
-            "-xvs",
             # "--with-mpi",
             "--model-name",
             group,
