@@ -157,7 +157,6 @@ def struphy_test(
             "pytest",
             "-m",
             "single",
-            "-xvs",
             # "--with-mpi",
             "--model-name",
             group,
