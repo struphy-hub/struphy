@@ -3,6 +3,7 @@ import logging
 import cunumpy as xp
 import matplotlib.pyplot as plt
 import pytest
+from cunumpy import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import (
@@ -28,7 +29,6 @@ from struphy.pic.particles import Particles6D
 from struphy.propagators.base import Propagator
 from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.topology.grids import TensorProductGrid
-from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
 set_logging_level(logging.WARNING)
@@ -393,7 +393,7 @@ def test_poisson_accum_1d(mapping, do_plot=False):
     particles.initialize_weights()
 
     # particle to grid coupling
-    kernel = Pyccelkernel(charge_density_0form)
+    kernel = PyccelKernel(charge_density_0form)
     # control_variate=True, so no PICVariable.species is needed to build the analytical background term
     pic_var = PICVariable(space="Particles6D")
     pic_var._particles = particles

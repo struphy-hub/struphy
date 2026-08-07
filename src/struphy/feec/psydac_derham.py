@@ -4,6 +4,7 @@ import logging
 
 import cunumpy as xp
 import feectools.core.bsplines as bsp
+import numpy as np
 from feectools.ddm.cart import DomainDecomposition
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
@@ -54,6 +55,14 @@ space_to_form = {
 }
 
 logger = logging.getLogger("struphy")
+
+
+def _to_numpy_for_kernel(value):
+    """Convert CuPy arrays to NumPy for compiled kernel calls."""
+    if hasattr(value, "get"):
+        # This is a CuPy array
+        return value.get()
+    return value
 
 
 class DiscreteDerham:
@@ -892,11 +901,11 @@ class Derham:
 
         # collect arguments for kernels
         self._args_derham = DerhamArguments(
-            xp.array(self.degree),
-            self.V0fem.knots[0],
-            self.V0fem.knots[1],
-            self.V0fem.knots[2],
-            xp.array(self.V0.starts),
+            _to_numpy_for_kernel(xp.array(self.degree)),
+            _to_numpy_for_kernel(self.V0fem.knots[0]),
+            _to_numpy_for_kernel(self.V0fem.knots[1]),
+            _to_numpy_for_kernel(self.V0fem.knots[2]),
+            _to_numpy_for_kernel(xp.array(self.V0.starts)),
         )
 
         logger.debug("\nDERHAM:")
@@ -3432,7 +3441,9 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
     histopol_loc = space_1d.histopolation_grid[start : end + 2].copy()
 
     # make sure that greville points used for interpolation are in [0, 1]
-    assert xp.all(xp.logical_and(greville_loc >= 0.0, greville_loc <= 1.0))
+    # Use numpy for comparison since greville points are NumPy arrays
+    greville_loc_np = greville_loc.get() if hasattr(greville_loc, "get") else greville_loc
+    assert np.all(np.logical_and(greville_loc_np >= 0.0, greville_loc_np <= 1.0))
 
     # interpolation
     if space_1d.basis == "B":
@@ -3455,12 +3466,17 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
             union_breaks = space_1d.breaks[:-1]
 
         # Make union of Greville and break points
-        tmp = set(xp.round(space_1d.histopolation_grid, decimals=14)).union(
-            xp.round(union_breaks, decimals=14),
-        )
+        # tmp = set(xp.round(space_1d.histopolation_grid, decimals=14)).union(
+        #     xp.round(union_breaks, decimals=14),
+        # )
+        # tmp = list(tmp)
+        # tmp.sort()
+        # tmp_a = xp.array(tmp)
 
-        tmp = list(tmp)
-        tmp.sort()
+        tmp = set(xp.round(space_1d.histopolation_grid, decimals=14).tolist()).union(
+            xp.round(union_breaks, decimals=14).tolist()
+        )
+        tmp = sorted(tmp)
         tmp_a = xp.array(tmp)
 
         x_grid = tmp_a[
@@ -3488,7 +3504,13 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
             # products of basis functions are integrated exactly
             n_quad = space_1d.degree + 1
 
-        pts_loc, wts_loc = xp.polynomial.legendre.leggauss(n_quad)
+        pts_loc, wts_loc = np.polynomial.legendre.leggauss(n_quad)
+
+        if "cupy" in xp.__name__:
+            import cupy as cp
+
+            pts_loc = cp.array(pts_loc)
+            wts_loc = cp.array(wts_loc)
 
         x, wts = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
 
