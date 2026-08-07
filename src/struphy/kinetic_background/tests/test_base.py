@@ -88,7 +88,7 @@ def test_kinetic_background_magics(show_plot=False):
 
 
 @pytest.mark.mpi_skip
-def test_plotting_function():
+def test_plotting_function(show=False):
 
     import cunumpy as xp
 
@@ -117,29 +117,30 @@ def test_plotting_function():
         return 1 + 0.2 * xp.cos(2 * xp.pi * e1 * l) * xp.cos(2 * xp.pi * e2 * m) * xp.cos(2 * xp.pi * e3 * n)
 
     # Testing with GyroMaxwellian2Dvperp:
-    background = maxwellians.GyroMaxwellian2Dvperp(
-        n=(n_init, None), vth_para=(vth, None), vth_perp=(vth, None), equil=equil
-    )
-    background.plot("e1")
-    background.plot("e2")
-    background.plot("e3")
-    background.plot("v1")
-    background.plot("v2")
-    background.plot("e1", "e2")
-    background.plot("e1", "e2", domain=domains.HollowCylinder(), proj_axis=("x", "y"))
-    background.plot("e1", "e2", domain=domains.HollowTorus(), proj_axis=("y", "z"))
-    background.plot("e1", "e2", domain=domains.HollowTorus(), proj_axis=("x", "z"), plot_3D=True)
-    background.plot("e2", "e3", domain=domains.HollowTorus(), proj_axis=("y", "z"), plot_3D=True)
-    background.plot("v1", "v2")
-    # background.plot("v1", "v2", use_mu=True)
+    if show:
+        background = maxwellians.GyroMaxwellian2Dvperp(
+            n=(n_init, None), vth_para=(vth, None), vth_perp=(vth, None), equil=equil
+        )
+        background.plot("e1")
+        background.plot("e2")
+        background.plot("e3")
+        background.plot("v1")
+        background.plot("v2")
+        background.plot("e1", "e2")
+        background.plot("e1", "e2", domain=domains.HollowCylinder(), proj_axis=("x", "y"))
+        background.plot("e1", "e2", domain=domains.HollowTorus(), proj_axis=("y", "z"))
+        background.plot("e1", "e2", domain=domains.HollowTorus(), proj_axis=("x", "z"), plot_3D=True)
+        background.plot("e2", "e3", domain=domains.HollowTorus(), proj_axis=("y", "z"), plot_3D=True)
+        background.plot("v1", "v2")
+        # background.plot("v1", "v2", use_mu=True)
 
-    # Testing with Maxwellian3D:
-    background = maxwellians.Maxwellian3D(n=(n_init, None), vth1=(vth, None), vth2=(vth, None), vth3=(vth, None))
-    background.plot("v1", "v2")
-    background.plot("v1", "v3")
-    background.plot("e1", "v3")
+        # Testing with Maxwellian3D:
+        background = maxwellians.Maxwellian3D(n=(n_init, None), vth1=(vth, None), vth2=(vth, None), vth3=(vth, None))
+        background.plot("v1", "v2")
+        background.plot("v1", "v3")
+        background.plot("e1", "v3")
 
 
 if __name__ == "__main__":
     # test_kinetic_background_magics(show_plot=True)
-    test_plotting_function()
+    test_plotting_function(show=True)

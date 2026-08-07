@@ -16,6 +16,7 @@ except ModuleNotFoundError:
 
 
 import cunumpy as xp
+from cunumpy import PyccelKernel
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
@@ -63,9 +64,16 @@ from struphy.pic.sph_eval_kernels import (
 )
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
+
+
+def _to_numpy_for_kernel(value):
+    """Convert CuPy arrays to NumPy for compiled kernel calls."""
+    if hasattr(value, "get"):
+        # This is a CuPy array
+        return value.get()
+    return value
 
 
 class Particles(metaclass=ABCMeta):
@@ -285,7 +293,7 @@ class Particles(metaclass=ABCMeta):
             assert all([nboxes % nproc == 0 for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]), (
                 f"Number of boxes {self.boxes_per_dim =} must be divisible by number of processes {self.nprocs =} in each direction."
             )
-            n_boxes = xp.prod(self.boxes_per_dim, dtype=int) * self.num_clones
+            n_boxes = xp.prod(xp.array(self.boxes_per_dim), dtype=int) * self.num_clones
 
         # total number of markers (Np) and particles per cell (ppc)
         Np = self.loading_params.Np
@@ -2372,8 +2380,8 @@ class Particles(metaclass=ABCMeta):
         n_mks_load_loc = self.n_mks_load[self._mpi_rank]
         bufsize = self.bufsize + 1.0 / xp.sqrt(n_mks_load_loc)
 
-        # size of markers array (3 x positions, vdim x velocities, weight, s0, w0, ..., ID) with buffer
-        self._n_rows = round(n_mks_load_loc * (1 + bufsize))
+        # allocate markers array (3 x positions, vdim x velocities, weight, s0, w0, ..., ID) with buffer
+        self._n_rows = round(float(n_mks_load_loc * (1 + bufsize)))
 
         # Have at least 3 spare places in markers array
         assert self.first_free_idx + 2 < self.n_cols - 2, (
@@ -2399,16 +2407,16 @@ class Particles(metaclass=ABCMeta):
 
         # arguments for kernels
         self._args_markers = MarkerArguments(
-            self.markers,
-            self.valid_mks,
-            self.Np,
-            self.vdim,
-            self.index["weights"],
-            self.first_diagnostics_idx,
-            self.first_pusher_idx,
-            self.first_shift_idx,
-            self.residual_idx,
-            self.first_free_idx,
+            _to_numpy_for_kernel(self.markers),
+            _to_numpy_for_kernel(self.valid_mks),
+            _to_numpy_for_kernel(self.Np),
+            _to_numpy_for_kernel(self.vdim),
+            _to_numpy_for_kernel(self.index["weights"]),
+            _to_numpy_for_kernel(self.first_diagnostics_idx),
+            _to_numpy_for_kernel(self.first_pusher_idx),
+            _to_numpy_for_kernel(self.first_shift_idx),
+            _to_numpy_for_kernel(self.residual_idx),
+            _to_numpy_for_kernel(self.first_free_idx),
         )
 
     def _initialize_sorting_boxes(self):
@@ -2914,7 +2922,17 @@ class Particles(metaclass=ABCMeta):
         """Check whether the box array has enough columns (detect load imbalance wrt to sorting boxes),
         and then assign the particles to boxes."""
 
-        bcount = xp.bincount(xp.int64(self.markers_wo_holes[:, -2]))
+        from cunumpy.xp import array_backend
+
+        if array_backend.backend == "numpy":
+            bcount = xp.bincount(xp.int64(self.markers_wo_holes[:, -2]))
+        else:
+            import cupy as cp
+
+            indices = self.markers_wo_holes[:, -2]
+            indices = indices.astype(cp.int64)
+            bcount = cp.bincount(indices)
+
         max_in_box = xp.max(bcount)
         if max_in_box > self._sorting_boxes.boxes.shape[1]:
             warnings.warn(
@@ -4143,7 +4161,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
         if fast:
             if len(_shp) == 1:
-                func = Pyccelkernel(box_based_evaluation_flat)
+                func = PyccelKernel(box_based_evaluation_flat)
             elif len(_shp) == 3:
                 if _shp[0] > 1:
                     assert eta1[0, 0, 0] != eta1[1, 0, 0], "Meshgrids must be obtained with indexing='ij'!"
@@ -4151,7 +4169,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                     assert eta2[0, 0, 0] != eta2[0, 1, 0], "Meshgrids must be obtained with indexing='ij'!"
                 if _shp[2] > 1:
                     assert eta3[0, 0, 0] != eta3[0, 0, 1], "Meshgrids must be obtained with indexing='ij'!"
-                func = Pyccelkernel(box_based_evaluation_meshgrid)
+                func = PyccelKernel(box_based_evaluation_meshgrid)
 
             func(
                 self.args_markers,
@@ -4177,9 +4195,9 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             )
         else:
             if len(_shp) == 1:
-                func = Pyccelkernel(naive_evaluation_flat)
+                func = PyccelKernel(naive_evaluation_flat)
             elif len(_shp) == 3:
-                func = Pyccelkernel(naive_evaluation_meshgrid)
+                func = PyccelKernel(naive_evaluation_meshgrid)
             func(
                 self.args_markers,
                 eta1,
