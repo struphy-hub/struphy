@@ -3,6 +3,7 @@
 import logging
 from dataclasses import dataclass
 
+from cunumpy import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
 
@@ -17,7 +18,6 @@ from struphy.pic.accumulation.particles_to_grid import Accumulator
 from struphy.pic.pushing import pusher_kernels_gc
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
-from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -203,7 +203,7 @@ class CurrentCoupling5DCurlb(Propagator):
         self._ACC = Accumulator(
             self.variables.energetic_ions.particles,
             self.options.u_space,
-            Pyccelkernel(accum_kernels_gc.cc_lin_mhd_5d_curlb),
+            PyccelKernel(accum_kernels_gc.cc_lin_mhd_5d_curlb),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,
@@ -228,11 +228,11 @@ class CurrentCoupling5DCurlb(Propagator):
 
         # define Pusher
         if self.options.u_space == "Hcurl":
-            pusher_kernel = Pyccelkernel(pusher_kernels_gc.push_gc_cc_J1_Hcurl)
+            pusher_kernel = PyccelKernel(pusher_kernels_gc.push_gc_cc_J1_Hcurl)
         elif self.options.u_space == "Hdiv":
-            pusher_kernel = Pyccelkernel(pusher_kernels_gc.push_gc_cc_J1_Hdiv)
+            pusher_kernel = PyccelKernel(pusher_kernels_gc.push_gc_cc_J1_Hdiv)
         elif self.options.u_space == "H1vec":
-            pusher_kernel = Pyccelkernel(pusher_kernels_gc.push_gc_cc_J1_H1vec)
+            pusher_kernel = PyccelKernel(pusher_kernels_gc.push_gc_cc_J1_H1vec)
         else:
             raise ValueError(
                 f'{self.options.u_space  =} not valid, choose from "Hcurl", "Hdiv" or "H1vec.',

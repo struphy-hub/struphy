@@ -109,7 +109,8 @@ class ButcherTableau:
         self._a = xp.tri(self.n_stages, k=-1)
         for l, st in enumerate(a):
             assert len(st) == l + 1
-            self._a[l + 1, : l + 1] = st
+
+            self._a[l + 1, : l + 1] = xp.array(st)
 
         self._a_stage = xp.zeros(self.n_stages)
         self._a_stage[:-1] = xp.diag(self._a, k=-1)
