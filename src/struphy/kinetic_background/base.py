@@ -8,6 +8,7 @@ import cunumpy as xp
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.colors import Normalize
+import logging
 
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.geometry.base import Domain
@@ -15,6 +16,7 @@ from struphy.initial.base import Perturbation
 from struphy.io.options import LiteralOptions
 from struphy.utils.utils import __class_with_params_repr_no_defaults__
 
+logger = logging.getLogger("struphy")
 
 class KineticBackground(metaclass=ABCMeta):
     r"""Base class for kinetic background distributions.
@@ -171,7 +173,7 @@ class KineticBackground(metaclass=ABCMeta):
         dim_2: LiteralOptions.KineticDimensionsToPlot | None = None,
         v_lim: float | tuple[float] = 5.0,
         resol: int | tuple[int] = 100,
-        integrate_resol: tuple[int] | None = None,
+        integrate_resol: tuple[int | float] | None = None,
         max_points: int = 1e8,
         domain: Domain | None = None,
     ):
@@ -200,12 +202,13 @@ class KineticBackground(metaclass=ABCMeta):
             Resolution of the evaluation grid along the plotted axis (axes). If a single integer is provided,
             it is used for both dim_1 and dim_2.
 
-        integrate_resol : tuple[int] | None
+        integrate_resol : tuple[int | float] | None
             Number of quadrature points for integration along each phase space axis.
             If None, is determined as :math:`max\\_points^{1/N}` where :math:`N` is the number of axes to integrate out.
             If tuple, length must be the dimension of the phase space (3 + vdim), where the plotted axes (dim_1, dim_2)
-            must hold the value None.
-            Example: integrate_resol=(None, 10, 20, None, 15, 15) for a 4D integral and dim_1="e1", dim_2="v1" in 6D phase space.
+            must hold the value None. A float value means evaluation at that point rather than intgration.
+            Example: integrate_resol=(None, 0.5, 20, None, 15, 15) for a 3D integral in (eta_3, vy, vz),
+            evaluated at eta_2=0.5, and dim_1="e1", dim_2="v1" for 2D evaluation.
             High number of quadrature points can lead to memory issues.
 
         max_points : int = 1e8
@@ -288,19 +291,28 @@ class KineticBackground(metaclass=ABCMeta):
                 f"Too many quadrature points for integration, reduce integrate_resol or increase max_points (current: {cp} > {max_quad_points})"
             )
 
+        logger.info(f"Reduced evaluation with {integrate_resol = }")
+        velocity_space_volume = 1.0
         for i, tab in enumerate(tabs):
             if tab is None:
                 if i < 3:
-                    tabs[i] = xp.linspace(0.0, 1.0, integrate_resol[i])
+                    if isinstance(integrate_resol[i], float):
+                        tabs[i] = xp.array([integrate_resol[i]])
+                    else:
+                        raise NotImplementedError("Integration over spatial axes is not implemented yet.")
+                        tabs[i] = xp.linspace(0.0, 1.0, integrate_resol[i])
                 else:
                     if i == 3:  # Cartesian and v_parallel
                         tabs[i] = xp.linspace(-v_lim[0], v_lim[0], integrate_resol[i])
+                        velocity_space_volume *= 2 * v_lim[0]
                     else:
                         if self.velocity_coords == "cartesian":  # Cartesian
                             tabs[i] = xp.linspace(-v_lim[0], v_lim[0], integrate_resol[i])
+                            velocity_space_volume *= 2 * v_lim[0]
                         else:  # v_perp, mu and energy
                             assert i == 4
                             tabs[i] = xp.linspace(0.0, v_lim[0], integrate_resol[i])
+                            velocity_space_volume *= v_lim[0]
 
         # push to physical position space if needed
         if domain is not None:
@@ -330,6 +342,7 @@ class KineticBackground(metaclass=ABCMeta):
             axes_to_integrate.remove(axe_to_plot2)
 
         reduced_density = xp.mean(total_density, tuple(axes_to_integrate))
+        reduced_density *= velocity_space_volume
 
         return reduced_density, plot_pts1, plot_pts2, physical_coords
 
@@ -404,7 +417,7 @@ class KineticBackground(metaclass=ABCMeta):
         dim_2: LiteralOptions.KineticDimensionsToPlot | None = None,
         v_lim: float = 5.0,
         resol: int | tuple[int] = 100,
-        integrate_resol: tuple[int] | None = None,
+        integrate_resol: tuple[int | float] | None = None,
         max_points: int = 1e7,
         domain: Domain | None = None,
         proj_axis: tuple[str,] = ("x", "y"),
@@ -430,9 +443,10 @@ class KineticBackground(metaclass=ABCMeta):
             Resolution of the plot along each plotted axis. If a single integer is provided, it is used
             for both dim_1 and dim_2.
 
-        integrate_resol : tuple[int] | None = None
+        integrate_resol : tuple[int | float] | None = None
             Number of quadrature points for integration along each phase space axis that is not plotted.
             See :meth:`reduced_eval` for details; if None it is chosen automatically from max_points.
+            A float value means evaluation at that point rather than intgration.
 
         max_points : int = 1e7
             Maximum number of points to evaluate the background on, to avoid memory issues.

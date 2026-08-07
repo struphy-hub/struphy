@@ -97,9 +97,11 @@ def test_binning_6D_full_f(mapping, show_plot=False):
         plt.title(r"Full-$f$: Maxwellian in $v_1$-direction")
         plt.xlabel(r"$v_1$")
         plt.ylabel(r"$f(v_1)$")
-        plt.legend()
 
-        particles.f_init.plot("v1")
+        integrate_resol = (0.5, 0.5, 0.5, None, 100, 100)
+        reduced_density, plot_pts1, _, __ = particles.f_init.reduced_eval("v1", integrate_resol=integrate_resol)
+        plt.plot(plot_pts1, reduced_density, "g--", label="Reduced f_init")
+        plt.legend()
         plt.show()
 
     l2_error = xp.sqrt(xp.sum((ana_res - binned_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
