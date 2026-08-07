@@ -18,6 +18,8 @@ from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
 from struphy.feec.preconditioner import MassMatrixPreconditioner
+from struphy.feec.boundary_mass import BoundaryIntegralOperators
+from struphy.initial.base import Perturbation
 
 logger = logging.getLogger("struphy")
 
@@ -134,6 +136,9 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
         source_u: Callable | None = None
         source_ue: Callable | None = None
+
+        natural_u: list[Perturbation] | Perturbation | None = None
+        natural_ue: list[Perturbation] | Perturbation | None = None
 
         stab_sigma: float = 0.0
         solver: LiteralOptions.OptsGenSolver = "gmres"
@@ -253,6 +258,31 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 ]
                 rhs.vector = derham_lift.projectors["2"](fun)
 
+        # ---- tangential boundary conditions -----------------
+        self._natural_u = self._derham_lift_u.create_spline_function("natural_u", space_id="Hcurl")
+        self._natural_ue = self._derham_lift_ue.create_spline_function("natural_ue", space_id="Hcurl")
+
+        for natural_spline, natural_source, derham_lift in [
+            (self._natural_u, self.options.natural_u, self._derham_lift_u),
+            (self._natural_ue, self.options.natural_ue, self._derham_lift_ue),
+        ]:
+            if natural_source is not None:
+                natural_list = natural_source if isinstance(natural_source, list) else [natural_source]
+                fun_vec = [None] * 3
+                for ptb in natural_list:
+                    fun_vec[ptb.comp] = ptb
+                fun = [
+                    TransformedPformComponent(
+                        fun_vec,
+                        fun_vec[comp].given_in_basis if fun_vec[comp] is not None else natural_list[0].given_in_basis,
+                        "1",  # Hcurl
+                        comp=comp,
+                        domain=self.domain,
+                    )
+                    for comp in range(3)
+                ]
+                natural_spline.vector = derham_lift.projectors["1"](fun)
+
         # ---- unconstrained mass/basis operators (for RHS assembly) -----------
 
         self._mass_ops_lift_u = WeightedMassOperators(
@@ -328,11 +358,13 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._mass_pc = MassMatrixPreconditioner(mass_operator=self._M1)
         self._M1inv = inverse(self._M1, "pcg", pc=self._mass_pc, tol=1e-10, maxiter=1000, recycle=True)
 
-        # self._lapl_v0 = (
-        #     self._div.T @ self._M3 @ self._div + self._S21.T @ self._curl.T @ self._M2 @ self._curl @ self._S21
-        # )
         self._lapl_v0 = self._div.T @ self._M3 @ self._div + self._M2 @ self._curl @ self._M1inv @ self._curl.T @ self._M2
 
+        bnd_ops_u = BoundaryIntegralOperators(self._mass_ops_lift_u, active_faces=[True] * 6)
+        self._S1_u = bnd_ops_u.S1
+
+        bnd_ops_ue = BoundaryIntegralOperators(self._mass_ops_lift_ue, active_faces=[True] * 6)
+        self._S1_ue = bnd_ops_ue.S1
 
         self._A11 = -self._M2B / self.options.eps_norm + self.options.nu * self._lapl_v0
         self._A22 = (
@@ -425,6 +457,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                     self._M2_u.dot(self._src_u.vector)
                     - self._A11_u.dot(self._boundary_spline_u)
                     - self._M2_u.dot(self._boundary_spline_u) / dt
+                    + self._M2_u.dot(self._curl_u.dot(self._M1inv_u.dot(self._S1_u.dot(self._natural_u.vector))))
                 )
             )
             + self._M2.dot(self._u_0.vector) / dt
@@ -432,6 +465,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
         self._rhs_vec_ue.vector = self._b_op_ue.dot(
             (self._M2_ue.dot(self._src_ue.vector) - self._A22_ue.dot(self._boundary_spline_ue))
+            + self._M2_ue.dot(self._curl_ue.dot(self._M1inv_ue.dot(self._S1_ue.dot(self._natural_ue.vector))))
         )
 
         self._div_boundary_u.vector = self._div_u.dot(self._boundary_spline_u)

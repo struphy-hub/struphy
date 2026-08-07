@@ -1,4 +1,4 @@
-from cunumpy import pi, cos, sin, zeros_like, ones_like
+from numpy import pi, cos, sin, zeros_like, ones_like
 from struphy.io.options import EnvironmentOptions, BaseUnits, Time
 from struphy.geometry import domains
 from struphy.fields_background import equils
@@ -14,10 +14,11 @@ logging.getLogger("struphy").setLevel(logging.DEBUG)
 import argparse
 import os
 import glob
-import cunumpy as xp
+import numpy as np
 import matplotlib.pyplot as plt
 
 from mpi4py import MPI
+
 
 from struphy.models.two_fluid_quasi_neutral_toy import TwoFluidQuasiNeutralToy
 
@@ -35,7 +36,7 @@ env = EnvironmentOptions(sim_folder=name)
 B0 = 0
 nu = 10.0
 nu_e = 1.0
-Nel = (20, 20, 1)
+Nel = (10, 10, 1)
 p = (2, 2, 1)
 epsilon = 1.0
 dt = 1
@@ -63,24 +64,24 @@ elif BC == "dirichlet_inhom":
     # derham_opts = DerhamOptions(degree=p, bcs=(None, None, None))
 
     lifting_function_u = [
-        GenericPerturbation(lambda x, y, z: -xp.sin(2*pi*x)*xp.sin(2*pi*y), comp=0, given_in_basis="physical"),
-        GenericPerturbation(lambda x, y, z: -xp.sin(2*pi*x)*xp.cos(2*pi*y), comp=1, given_in_basis="physical"),
+        GenericPerturbation(lambda x, y, z: -np.sin(2*pi*x)*np.sin(2*pi*y), comp=0, given_in_basis="physical"),
+        GenericPerturbation(lambda x, y, z: -np.sin(2*pi*x)*np.cos(2*pi*y), comp=1, given_in_basis="physical"),
     ]
     lifting_function_ue = [
-        GenericPerturbation(lambda x, y, z: -xp.sin(2*pi*x)*xp.sin(2*pi*y), comp=0, given_in_basis="physical"),
-        GenericPerturbation(lambda x, y, z: -xp.sin(2*pi*x)*xp.cos(2*pi*y), comp=1, given_in_basis="physical"),
+        GenericPerturbation(lambda x, y, z: -np.sin(2*pi*x)*np.sin(2*pi*y), comp=0, given_in_basis="physical"),
+        GenericPerturbation(lambda x, y, z: -np.sin(2*pi*x)*np.cos(2*pi*y), comp=1, given_in_basis="physical"),
     ]
 
 elif BC == "dirichlet_inhom_2":
     derham_opts = DerhamOptions(degree=p, bcs=(("dirichlet", "dirichlet"), ("dirichlet", "dirichlet"), None))
 
     lifting_function_u = [
-        GenericPerturbation(lambda x, y, z: -xp.sin(2*pi*x)*xp.sin(2*pi*y), comp=0, given_in_basis="physical"),
-        GenericPerturbation(lambda x, y, z: -xp.cos(2*pi*x)*xp.cos(2*pi*y), comp=1, given_in_basis="physical"),
+        GenericPerturbation(lambda x, y, z: -np.sin(2*pi*x)*np.sin(2*pi*y), comp=0, given_in_basis="physical"),
+        GenericPerturbation(lambda x, y, z: -np.cos(2*pi*x)*np.cos(2*pi*y), comp=1, given_in_basis="physical"),
     ]
     lifting_function_ue = [
-        GenericPerturbation(lambda x, y, z: -xp.sin(4*pi*x)*xp.sin(4*pi*y), comp=0, given_in_basis="physical"),
-        GenericPerturbation(lambda x, y, z: -xp.cos(4*pi*x)*xp.cos(4*pi*y), comp=1, given_in_basis="physical"),
+        GenericPerturbation(lambda x, y, z: -np.sin(4*pi*x)*np.sin(4*pi*y), comp=0, given_in_basis="physical"),
+        GenericPerturbation(lambda x, y, z: -np.cos(4*pi*x)*np.cos(4*pi*y), comp=1, given_in_basis="physical"),
     ]
 
 
@@ -88,73 +89,73 @@ elif BC == "dirichlet_inhom_2":
 if BC == "periodic":
 
     def mms_phi(x, y, z):
-        return xp.cos(2 * pi * x) + xp.sin(2 * pi * y), xp.zeros_like(x), xp.zeros_like(x)
+        return np.cos(2 * pi * x) + np.sin(2 * pi * y), np.zeros_like(x), np.zeros_like(x)
     
     def mms_ion_u(x, y, z):
-        return -xp.sin(2*pi*x)*xp.sin(2*pi*y), -xp.sin(2*pi*x)*xp.sin(2*pi*y), xp.zeros_like(x)
+        return -np.sin(2*pi*x)*np.sin(2*pi*y), -np.sin(2*pi*x)*np.sin(2*pi*y), np.zeros_like(x)
 
     def mms_electron_u(x, y, z):
-        return -xp.sin(2*pi*x)*xp.sin(2*pi*y), -xp.sin(2*pi*x)*xp.sin(2*pi*y), xp.zeros_like(x)
+        return -np.sin(2*pi*x)*np.sin(2*pi*y), -np.sin(2*pi*x)*np.sin(2*pi*y), np.zeros_like(x)
 
 
 
 elif BC == "dirichlet_hom":
 
     def mms_phi(x, y, z):
-        return xp.cos(2 * pi * x) + xp.sin(2 * pi * y), xp.zeros_like(x), xp.zeros_like(x)
+        return np.cos(2 * pi * x) + np.sin(2 * pi * y), np.zeros_like(x), np.zeros_like(x)
 
     def mms_ion_u(x, y, z):
-        return -xp.sin(2 * pi * x) * xp.cos(2 * pi * y), xp.cos(2 * pi * x) * xp.sin(2 * pi * y), xp.zeros_like(x)
+        return -np.sin(2 * pi * x) * np.cos(2 * pi * y), np.cos(2 * pi * x) * np.sin(2 * pi * y), np.zeros_like(x)
 
     def mms_electron_u(x, y, z):
-        return -xp.sin(4 * pi * x) * xp.cos(4 * pi * y), xp.cos(4 * pi * x) * xp.sin(4 * pi * y), xp.zeros_like(x)
+        return -np.sin(4 * pi * x) * np.cos(4 * pi * y), np.cos(4 * pi * x) * np.sin(4 * pi * y), np.zeros_like(x)
 
 
 elif BC == "dirichlet_inhom":
 
     def mms_phi(x, y, z):
-        return xp.cos(2*pi*x) + xp.sin(2*pi*y), xp.zeros_like(x), xp.zeros_like(x)
+        return np.cos(2*pi*x) + np.sin(2*pi*y), np.zeros_like(x), np.zeros_like(x)
 
     def mms_ion_u(x, y, z):
-        return -xp.sin(2*pi*x)*xp.sin(2*pi*y), -xp.sin(2*pi*x)*xp.cos(2*pi*y), xp.zeros_like(x)
+        return -np.sin(2*pi*x)*np.sin(2*pi*y), -np.sin(2*pi*x)*np.cos(2*pi*y), np.zeros_like(x)
 
     def mms_electron_u(x, y, z):
-        return -xp.sin(2*pi*x)*xp.sin(2*pi*y), -xp.sin(2*pi*x)*xp.cos(2*pi*y), xp.zeros_like(x)
+        return -np.sin(2*pi*x)*np.sin(2*pi*y), -np.sin(2*pi*x)*np.cos(2*pi*y), np.zeros_like(x)
 
 elif BC == "dirichlet_inhom_2":
     def mms_phi(x, y, z):
-        return xp.cos(2*pi*x) + xp.sin(2*pi*y), xp.zeros_like(x), xp.zeros_like(x)
+        return np.cos(2*pi*x) + np.sin(2*pi*y), np.zeros_like(x), np.zeros_like(x)
     def mms_ion_u(x, y, z):
-        return -xp.sin(2*pi*x)*xp.sin(2*pi*y), -xp.cos(2*pi*x)*xp.cos(2*pi*y), xp.zeros_like(x)
+        return -np.sin(2*pi*x)*np.sin(2*pi*y), -np.cos(2*pi*x)*np.cos(2*pi*y), np.zeros_like(x)
     def mms_electron_u(x, y, z):
-        return -xp.sin(4*pi*x)*xp.sin(4*pi*y), -xp.cos(4*pi*x)*xp.cos(4*pi*y), xp.zeros_like(x)
+        return -np.sin(4*pi*x)*np.sin(4*pi*y), -np.cos(4*pi*x)*np.cos(4*pi*y), np.zeros_like(x)
 
 # ------------------ source terms ------------------
 if BC == "periodic":
 
     def source_function_u(x, y, z):
         fx = (
-            -2*pi*xp.sin(2*pi*x)
-            - B0/epsilon * xp.sin(2*pi*x)*xp.sin(2*pi*y)
-            - nu*8*pi**2 * xp.sin(2*pi*x)*xp.sin(2*pi*y)
+            -2*pi*np.sin(2*pi*x)
+            - B0/epsilon * np.sin(2*pi*x)*np.sin(2*pi*y)
+            - nu*8*pi**2 * np.sin(2*pi*x)*np.sin(2*pi*y)
         )
         fy = (
-            2*pi*xp.cos(2*pi*y)
-            + B0/epsilon * xp.sin(2*pi*x)*xp.sin(2*pi*y)
-            - nu*8*pi**2 * xp.sin(2*pi*x)*xp.sin(2*pi*y)
+            2*pi*np.cos(2*pi*y)
+            + B0/epsilon * np.sin(2*pi*x)*np.sin(2*pi*y)
+            - nu*8*pi**2 * np.sin(2*pi*x)*np.sin(2*pi*y)
         )
         return fx, fy, zeros_like(x)
 
     def source_function_ue(x, y, z):
         fx = (
-            2*pi*xp.sin(2*pi*x)
-            - B0/epsilon * xp.sin(2*pi*x)*xp.sin(2*pi*y)
-            - nu_e*8*pi**2 * xp.sin(2*pi*x)*xp.sin(2*pi*y)
+            2*pi*np.sin(2*pi*x)
+            - B0/epsilon * np.sin(2*pi*x)*np.sin(2*pi*y)
+            - nu_e*8*pi**2 * np.sin(2*pi*x)*np.sin(2*pi*y)
         )
         fy = (
-            -2*pi*xp.cos(2*pi*y)
-            - B0/epsilon * xp.sin(2*pi*x)*xp.sin(2*pi*y)
-            - nu_e*8*pi**2 * xp.sin(2*pi*x)*xp.sin(2*pi*y)
+            -2*pi*np.cos(2*pi*y)
+            - B0/epsilon * np.sin(2*pi*x)*np.sin(2*pi*y)
+            - nu_e*8*pi**2 * np.sin(2*pi*x)*np.sin(2*pi*y)
         )
         return fx, fy, zeros_like(x)
 
@@ -163,29 +164,29 @@ elif BC == "dirichlet_hom":
 
     def source_function_u(x, y, z):
         fx = (
-            -2 * pi * xp.sin(2 * pi * x)
-            - B0 / epsilon * xp.cos(2 * pi * x) * xp.sin(2 * pi * y)
-            - nu * 8 * pi**2 * xp.sin(2 * pi * x) * xp.cos(2 * pi * y)
+            -2 * pi * np.sin(2 * pi * x)
+            - B0 / epsilon * np.cos(2 * pi * x) * np.sin(2 * pi * y)
+            - nu * 8 * pi**2 * np.sin(2 * pi * x) * np.cos(2 * pi * y)
         )
         fy = (
-            2 * pi * xp.cos(2 * pi * y)
-            - B0 / epsilon * xp.sin(2 * pi * x) * xp.cos(2 * pi * y)
-            + nu * 8 * pi**2 * xp.cos(2 * pi * x) * xp.sin(2 * pi * y)
+            2 * pi * np.cos(2 * pi * y)
+            - B0 / epsilon * np.sin(2 * pi * x) * np.cos(2 * pi * y)
+            + nu * 8 * pi**2 * np.cos(2 * pi * x) * np.sin(2 * pi * y)
         )
         return fx, fy, zeros_like(x)
 
     def source_function_ue(x, y, z):
         fx = (
-            2 * pi * xp.sin(2 * pi * x)
-            + B0 / epsilon * xp.cos(4 * pi * x) * xp.sin(4 * pi * y)
-            - nu_e * 32 * pi**2 * xp.sin(4 * pi * x) * xp.cos(4 * pi * y)
-            + sigma * xp.sin(4 * pi * x) * xp.cos(4 * pi * y)
+            2 * pi * np.sin(2 * pi * x)
+            + B0 / epsilon * np.cos(4 * pi * x) * np.sin(4 * pi * y)
+            - nu_e * 32 * pi**2 * np.sin(4 * pi * x) * np.cos(4 * pi * y)
+            + sigma * np.sin(4 * pi * x) * np.cos(4 * pi * y)
         )
         fy = (
-            -2 * pi * xp.cos(2 * pi * y)
-            + B0 / epsilon * xp.sin(4 * pi * x) * xp.cos(4 * pi * y)
-            + nu_e * 32 * pi**2 * xp.cos(4 * pi * x) * xp.sin(4 * pi * y)
-            - sigma * xp.cos(4 * pi * x) * xp.sin(4 * pi * y)
+            -2 * pi * np.cos(2 * pi * y)
+            + B0 / epsilon * np.sin(4 * pi * x) * np.cos(4 * pi * y)
+            + nu_e * 32 * pi**2 * np.cos(4 * pi * x) * np.sin(4 * pi * y)
+            - sigma * np.cos(4 * pi * x) * np.sin(4 * pi * y)
         )
         return fx, fy, zeros_like(x)
 
@@ -193,55 +194,55 @@ elif BC == "dirichlet_hom":
 elif BC == "dirichlet_inhom":
     def source_function_u(x, y, z):
         fx = (
-            -2*pi*xp.sin(2*pi*x)
-            - B0/epsilon * xp.sin(2*pi*x)*xp.cos(2*pi*y)      # u×B: B0*(u_y component)
-            - nu * 8*pi**2 * xp.sin(2*pi*x)*xp.sin(2*pi*y)
+            -2*pi*np.sin(2*pi*x)
+            - B0/epsilon * np.sin(2*pi*x)*np.cos(2*pi*y)      # u×B: B0*(u_y component)
+            - nu * 8*pi**2 * np.sin(2*pi*x)*np.sin(2*pi*y)
         )
         fy = (
-            2*pi*xp.cos(2*pi*y)
-            + B0/epsilon * xp.sin(2*pi*x)*xp.sin(2*pi*y)      # u×B: B0*(-u_x component)
-            - nu * 8*pi**2 * xp.sin(2*pi*x)*xp.cos(2*pi*y)
+            2*pi*np.cos(2*pi*y)
+            + B0/epsilon * np.sin(2*pi*x)*np.sin(2*pi*y)      # u×B: B0*(-u_x component)
+            - nu * 8*pi**2 * np.sin(2*pi*x)*np.cos(2*pi*y)
         )
         return fx, fy, zeros_like(x)
 
     def source_function_ue(x, y, z):
         fx = (
-            2*pi*xp.sin(2*pi*x)
-            + B0/epsilon * xp.sin(2*pi*x)*xp.cos(2*pi*y)      # u_e×B term
-            - nu_e * 8*pi**2 * xp.sin(2*pi*x)*xp.sin(2*pi*y)
+            2*pi*np.sin(2*pi*x)
+            + B0/epsilon * np.sin(2*pi*x)*np.cos(2*pi*y)      # u_e×B term
+            - nu_e * 8*pi**2 * np.sin(2*pi*x)*np.sin(2*pi*y)
         )
         fy = (
-            -2*pi*xp.cos(2*pi*y)
-            - B0/epsilon * xp.sin(2*pi*x)*xp.sin(2*pi*y)      # u_e×B term
-            - nu_e * 8*pi**2 * xp.sin(2*pi*x)*xp.cos(2*pi*y)
+            -2*pi*np.cos(2*pi*y)
+            - B0/epsilon * np.sin(2*pi*x)*np.sin(2*pi*y)      # u_e×B term
+            - nu_e * 8*pi**2 * np.sin(2*pi*x)*np.cos(2*pi*y)
         )
         return fx, fy, zeros_like(x)
 
 elif BC == "dirichlet_inhom_2":
     def source_function_u(x, y, z):
         fx = (
-            -2*pi*xp.sin(2*pi*x)
-            + B0/epsilon * xp.cos(2*pi*x) * xp.cos(2*pi*y)
-            - nu*8*pi**2 * xp.sin(2*pi*x) * xp.sin(2*pi*y)
+            -2*pi*np.sin(2*pi*x)
+            + B0/epsilon * np.cos(2*pi*x) * np.cos(2*pi*y)
+            - nu*8*pi**2 * np.sin(2*pi*x) * np.sin(2*pi*y)
         )
         fy = (
-            2*pi*xp.cos(2*pi*y)
-            - B0/epsilon * xp.sin(2*pi*x) * xp.sin(2*pi*y)
-            - nu*8*pi**2 * xp.cos(2*pi*x) * xp.cos(2*pi*y)
+            2*pi*np.cos(2*pi*y)
+            - B0/epsilon * np.sin(2*pi*x) * np.sin(2*pi*y)
+            - nu*8*pi**2 * np.cos(2*pi*x) * np.cos(2*pi*y)
         )
         return fx, fy, zeros_like(x)
     def source_function_ue(x, y, z):
         fx = (
-            2*pi*xp.sin(2*pi*x)
-            - B0/epsilon * xp.cos(4*pi*x) * xp.cos(4*pi*y)
-            - nu_e*32*pi**2 * xp.sin(4*pi*x) * xp.sin(4*pi*y)
-            + sigma * xp.sin(4*pi*x) * xp.sin(4*pi*y)
+            2*pi*np.sin(2*pi*x)
+            - B0/epsilon * np.cos(4*pi*x) * np.cos(4*pi*y)
+            - nu_e*32*pi**2 * np.sin(4*pi*x) * np.sin(4*pi*y)
+            + sigma * np.sin(4*pi*x) * np.sin(4*pi*y)
         )
         fy = (
-            -2*pi*xp.cos(2*pi*y)
-            + B0/epsilon * xp.sin(4*pi*x) * xp.sin(4*pi*y)
-            - nu_e*32*pi**2 * xp.cos(4*pi*x) * xp.cos(4*pi*y)
-            + sigma * xp.cos(4*pi*x) * xp.cos(4*pi*y)
+            -2*pi*np.cos(2*pi*y)
+            + B0/epsilon * np.sin(4*pi*x) * np.sin(4*pi*y)
+            - nu_e*32*pi**2 * np.cos(4*pi*x) * np.cos(4*pi*y)
+            + sigma * np.cos(4*pi*x) * np.cos(4*pi*y)
         )
         return fx, fy, zeros_like(x)
     
@@ -282,6 +283,8 @@ model.propagators.qn_full.options = model.propagators.qn_full.Options(
     stab_sigma=sigma,
     source_u=source_function_u,
     source_ue=source_function_ue,
+    natural_u=lifting_function_u,
+    natural_ue=lifting_function_ue,
     solver="gmres",
     solver_params=SolverParameters(info=True, tol=tol),
 )
@@ -320,11 +323,11 @@ if __name__ == "__main__":
 
         n1_vals = simdata.grids_log[0]
         n2_vals = simdata.grids_log[1]
-        X, Y = xp.meshgrid(n1_vals, n2_vals, indexing="ij")
+        X, Y = np.meshgrid(n1_vals, n2_vals, indexing="ij")
 
-        x = xp.linspace(0, 1, 100)
-        y = xp.linspace(0, 1, 100)
-        Xf, Yf = xp.meshgrid(x, y, indexing="ij")
+        x = np.linspace(0, 1, 100)
+        y = np.linspace(0, 1, 100)
+        Xf, Yf = np.meshgrid(x, y, indexing="ij")
 
         os.makedirs(f"{name}/plots", exist_ok=True)
         for f in glob.glob(f"{name}/plots/*.png"):
@@ -359,9 +362,9 @@ if __name__ == "__main__":
             uey_plot = u_electrons[1][:, :, 0]
 
             if BC in ("dirichlet_inhom", "dirichlet_inhom_2"):
-                e1 = xp.array(n1_vals)
-                e2 = xp.array(n2_vals)
-                e3 = xp.array([0.5])
+                e1 = np.array(n1_vals)
+                e2 = np.array(n2_vals)
+                e3 = np.array([0.5])
                 lift_u  = model.ions.u.boundary_spline(e1, e2, e3, squeeze_out=True)
                 lift_ue = model.electrons.u.boundary_spline(e1, e2, e3, squeeze_out=True)
                 uix_plot = uix_plot + lift_u[0]
@@ -402,11 +405,11 @@ if __name__ == "__main__":
 
         # ---- source diagnostics ----
         prop = model.propagators.qn_full
-        e1 = xp.linspace(0, 1, 80)
-        e2 = xp.linspace(0, 1, 80)
-        e3 = xp.array([0.5])
-        E1, E2 = xp.meshgrid(e1, e2, indexing="ij")
-        zeros_E = xp.zeros_like(E1)
+        e1 = np.linspace(0, 1, 80)
+        e2 = np.linspace(0, 1, 80)
+        e3 = np.array([0.5])
+        E1, E2 = np.meshgrid(e1, e2, indexing="ij")
+        zeros_E = np.zeros_like(E1)
 
         for label, spline, src_fn, comp in [
             ("ion_source_x",      prop._src_u,  prop.options.source_u,  0),
@@ -435,26 +438,26 @@ if __name__ == "__main__":
             print(f"  -> saved {out}")
 
         if BC in ("dirichlet_inhom", "dirichlet_inhom_2"):
-            y_check = xp.linspace(0, 1, 80)
-            x_check = xp.linspace(0, 1, 80)
-            z_check = xp.array([0.5])
+            y_check = np.linspace(0, 1, 80)
+            x_check = np.linspace(0, 1, 80)
+            z_check = np.array([0.5])
 
             for x_bnd, label in [(0.0, "x=0"), (1.0, "x=1")]:
-                x_bnd_arr = xp.array([x_bnd])
+                x_bnd_arr = np.array([x_bnd])
                 mms_vals  = mms_ion_u(x_bnd_arr, y_check, z_check)[0]
                 lift_vals = model.ions.u.spline_lift(x_bnd_arr, y_check, z_check, squeeze_out=True)[0]
-                print(f"ion ux normal trace diff at {label}: max={xp.max(xp.abs(mms_vals - lift_vals)):.3e}")
+                print(f"ion ux normal trace diff at {label}: max={np.max(np.abs(mms_vals - lift_vals)):.3e}")
 
                 mms_vals  = mms_electron_u(x_bnd_arr, y_check, z_check)[0]
                 lift_vals = model.electrons.u.spline_lift(x_bnd_arr, y_check, z_check, squeeze_out=True)[0]
-                print(f"elec ux normal trace diff at {label}: max={xp.max(xp.abs(mms_vals - lift_vals)):.3e}")
+                print(f"elec ux normal trace diff at {label}: max={np.max(np.abs(mms_vals - lift_vals)):.3e}")
 
             for y_bnd, label in [(0.0, "y=0"), (1.0, "y=1")]:
-                y_bnd_arr = xp.array([y_bnd])
+                y_bnd_arr = np.array([y_bnd])
                 mms_vals  = mms_ion_u(x_check, y_bnd_arr, z_check)[1]
                 lift_vals = model.ions.u.spline_lift(x_check, y_bnd_arr, z_check, squeeze_out=True)[1]
-                print(f"ion uy normal trace diff at {label}: max={xp.max(xp.abs(mms_vals - lift_vals)):.3e}")
+                print(f"ion uy normal trace diff at {label}: max={np.max(np.abs(mms_vals - lift_vals)):.3e}")
 
                 mms_vals  = mms_electron_u(x_check, y_bnd_arr, z_check)[1]
                 lift_vals = model.electrons.u.spline_lift(x_check, y_bnd_arr, z_check, squeeze_out=True)[1]
-                print(f"elec uy normal trace diff at {label}: max={xp.max(xp.abs(mms_vals - lift_vals)):.3e}")
+                print(f"elec uy normal trace diff at {label}: max={np.max(np.abs(mms_vals - lift_vals)):.3e}")
