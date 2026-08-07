@@ -492,9 +492,7 @@ def get_python_files(input_type, path=None):
 
         # python_files = [f for f in files if f.endswith(".py") and os.path.isfile(f)]
         python_files = [
-            os.path.join(repopath, f)
-            for f in files
-            if (f.endswith(".py") or f.endswith(".ipynb")) and os.path.isfile(os.path.join(repopath, f))
+            os.path.join(repopath, f) for f in files if f.endswith(".py") and os.path.isfile(os.path.join(repopath, f))
         ]
 
         if not python_files:

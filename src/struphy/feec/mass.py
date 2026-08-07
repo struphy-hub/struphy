@@ -4,6 +4,7 @@ from copy import deepcopy
 from typing import Callable
 
 import cunumpy as xp
+from cunumpy import PyccelKernel
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
@@ -26,7 +27,6 @@ from struphy.linear_algebra.solver import SolverParameters
 from struphy.polar.basic import PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.docstring_converter import auto_convert_docstring, info
-from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import __class_with_params_repr_no_defaults__
 
 logger = logging.getLogger("struphy")
@@ -1856,7 +1856,7 @@ class WeightedMassOperator(LinOpWithTransp):
 
         # load assembly kernel
         if not self._matrix_free:
-            self._assembly_kernel = Pyccelkernel(
+            self._assembly_kernel = PyccelKernel(
                 getattr(
                     mass_kernels,
                     "kernel_" + str(self._V.ldim) + "d_mat",
@@ -2457,7 +2457,7 @@ class WeightedMassOperator(LinOpWithTransp):
                 assert isinstance(out, (list, tuple))
 
         # load assembly kernel
-        kernel = Pyccelkernel(getattr(mass_kernels, "kernel_" + str(W.ldim) + "d_eval"))
+        kernel = PyccelKernel(getattr(mass_kernels, "kernel_" + str(W.ldim) + "d_eval"))
 
         # loop over components
         for a, wspace in enumerate(Wspaces):
@@ -2555,14 +2555,14 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
         self._nquads = nquads
 
         self._dtype = V.coeff_space.dtype
-        self._dot_kernel = Pyccelkernel(
+        self._dot_kernel = PyccelKernel(
             getattr(
                 mass_kernels,
                 "kernel_" + str(self._V.ldim) + "d_matrixfree",
             ),
         )
 
-        self._diag_kernel = Pyccelkernel(
+        self._diag_kernel = PyccelKernel(
             getattr(
                 mass_kernels,
                 "kernel_" + str(self._V.ldim) + "d_diag",
