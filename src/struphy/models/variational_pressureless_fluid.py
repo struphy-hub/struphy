@@ -1,7 +1,5 @@
 import copy
 
-from feectools.ddm.mpi import mpi as MPI
-
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.scalars import BilinearEnergyFEEC, Scalars
@@ -11,8 +9,6 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable
 from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
 from struphy.propagators.variational_momentum_advection import VariationalMomentumAdvection
-
-rank = MPI.COMM_WORLD.Get_rank()
 
 
 class VariationalPressurelessFluid(StruphyModel):

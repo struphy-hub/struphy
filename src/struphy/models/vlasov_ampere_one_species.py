@@ -2,7 +2,6 @@ import copy
 import logging
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
@@ -23,8 +22,6 @@ from struphy.propagators.vlasov_ampere_coupling import VlasovAmpereCoupling
 from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
-
-rank = MPI.COMM_WORLD.Get_rank()
 
 
 class VlasovAmpereOneSpecies(StruphyModel):

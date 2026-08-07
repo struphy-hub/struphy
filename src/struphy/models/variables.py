@@ -10,6 +10,7 @@ import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.feec.linear_operators import BoundaryOperator
+from struphy.feec.memory import coeff_space_nbytes
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
@@ -83,6 +84,11 @@ class Variable(metaclass=ABCMeta):
     @abstractmethod
     def allocate(self):
         """Alocate object and memory for variable."""
+
+    @abstractmethod
+    def estimate_mem(self) -> int:
+        """Estimate the local (per-MPI-rank) memory footprint of this variable, in bytes,
+        without actually allocating it. Can be called before :meth:`allocate`."""
 
     def __repr__(self):
         return f"{self.__class__.__name__} ({self.space})"
@@ -396,6 +402,18 @@ class FEECVariable(Variable):
 
             self.compute_boundary_spline()
 
+    def estimate_mem(self, derham: Derham) -> int:
+        """Estimate the local (per-MPI-rank) memory footprint of the spline coefficient vector(s)
+        of this variable, in bytes, without creating a :class:`~struphy.feec.psydac_derham.SplineFunction`.
+
+        Uses the (cheap, metadata-only) local array shape of ``derham.coeff_spaces[self.space]``.
+        If a lifting function is set, ``allocate()`` additionally creates ``spline_lift``, ``spline_0``
+        and ``boundary_spline`` of the same space, so the estimate is scaled by a factor of 4."""
+        nbytes = coeff_space_nbytes(derham.coeff_spaces[self.space])
+        if self.lifting_function is not None:
+            nbytes *= 4  # spline + spline_lift + spline_0 + boundary_spline
+        return nbytes
+
     def compute_boundary_spline(self, spline_lift: SplineFunction | None = None):
         """Compute boundary_spline = spline_lift - spline_0. If spline_lift is None, uses self.spline_lift from the initial condition.
         This method can be used to update the boundary spline during the simulation if the lifting function changes in time."""
@@ -606,6 +624,74 @@ class PICVariable(Variable):
 
         # other data (wave-particle power exchange, etc.)
         # TODO
+
+    def estimate_mem(
+        self,
+        clone_config: CloneConfig = None,
+        derham: Derham = None,
+        domain: Domain = None,
+        equil: FluidEquilibrium = None,
+        projected_equil: ProjectedFluidEquilibrium = None,
+    ) -> int:
+        """Estimate the local (per-MPI-rank) memory footprint of this variable's marker arrays, in bytes,
+        without allocating them.
+
+        Constructs the same :class:`~struphy.pic.base.Particles` object as :meth:`allocate` would, but with
+        ``dry_run=True`` so that only the marker array sizing (:attr:`~struphy.pic.base.Particles.n_rows`,
+        :attr:`~struphy.pic.base.Particles.n_cols`) is computed."""
+        assert isinstance(self.backgrounds, KineticBackground), (
+            "List input not allowed, you can sum Kineticbackgrounds before passing them to add_background."
+        )
+
+        if derham is None:
+            domain_decomp = None
+        else:
+            domain_array = derham.domain_array
+            nprocs = derham.domain_decomposition.nprocs
+            domain_decomp = (domain_array, nprocs)
+
+        kinetic_class = getattr(particles, self.space)
+
+        comm_world = MPI.COMM_WORLD
+        if comm_world.Get_size() == 1:
+            comm_world = None
+
+        dummy_particles: Particles = kinetic_class(
+            comm_world=comm_world,
+            clone_config=clone_config,
+            domain_decomp=domain_decomp,
+            name=self.species.__class__.__name__,
+            loading_params=self.species.loading_params,
+            weights_params=self.species.weights_params,
+            boundary_params=self.species.boundary_params,
+            sorting_params=self.species.sorting_params,
+            bufsize=self.species.bufsize,
+            domain=domain,
+            equil=equil,
+            projected_equil=projected_equil,
+            background=self.backgrounds,
+            initial_condition=self.initial_condition,
+            n_as_volume_form=self.n_as_volume_form,
+            equation_params=self.species.equation_params,
+            dry_run=True,
+        )
+
+        nbytes = dummy_particles.nbytes_local
+
+        # marker array for saving trajectories (approximated with Np since n_mks_global
+        # is only known after markers have actually been drawn)
+        n_markers = self.species.saving_params.n_markers
+        if isinstance(n_markers, float):
+            if n_markers > 1.0:
+                n_to_save = int(n_markers)
+            else:
+                n_to_save = int(dummy_particles.Np * n_markers)
+        else:
+            n_to_save = n_markers
+        if n_to_save > 0:
+            nbytes += n_to_save * dummy_particles.n_cols * 8
+
+        return nbytes
 
     @property
     def n_to_save(self) -> int:
@@ -830,6 +916,70 @@ class SPHVariable(Variable):
 
         # other data (wave-particle power exchange, etc.)
         # TODO
+
+    def estimate_mem(
+        self,
+        derham: Derham = None,
+        domain: Domain = None,
+        equil: FluidEquilibrium = None,
+        projected_equil: ProjectedFluidEquilibrium = None,
+    ) -> int:
+        """Estimate the local (per-MPI-rank) memory footprint of this variable's marker arrays, in bytes,
+        without allocating them.
+
+        Constructs the same :class:`~struphy.pic.particles.ParticlesSPH` object as :meth:`allocate` would,
+        but with ``dry_run=True`` so that only the marker array sizing
+        (:attr:`~struphy.pic.base.Particles.n_rows`, :attr:`~struphy.pic.base.Particles.n_cols`) is computed."""
+        assert isinstance(self.backgrounds, FluidEquilibrium), (
+            "List input not allowed; you can sum FluidEquilibrium objects before passing them to add_background."
+        )
+
+        if derham is None:
+            domain_decomp = None
+        else:
+            domain_array = derham.domain_array
+            nprocs = derham.domain_decomposition.nprocs
+            domain_decomp = (domain_array, nprocs)
+
+        comm_world = MPI.COMM_WORLD
+        if comm_world.Get_size() == 1:
+            comm_world = None
+
+        dummy_particles: ParticlesSPH = ParticlesSPH(
+            comm_world=comm_world,
+            domain_decomp=domain_decomp,
+            name=self.species.__class__.__name__,
+            loading_params=self.species.loading_params,
+            weights_params=self.species.weights_params,
+            boundary_params=self.species.boundary_params,
+            sorting_params=self.species.sorting_params,
+            bufsize=self.species.bufsize,
+            domain=domain,
+            equil=equil,
+            projected_equil=projected_equil,
+            background=self.backgrounds,
+            n_as_volume_form=self.n_as_volume_form,
+            perturbations=self.perturbations,
+            equation_params=self.species.equation_params,
+            dry_run=True,
+        )
+
+        nbytes = dummy_particles.nbytes_local
+
+        # marker array for saving trajectories (approximated with Np since n_mks_global
+        # is only known after markers have actually been drawn)
+        n_markers = self.species.saving_params.n_markers
+        if isinstance(n_markers, float):
+            if n_markers > 1.0:
+                n_to_save = int(n_markers)
+            else:
+                n_to_save = int(dummy_particles.Np * n_markers)
+        else:
+            n_to_save = n_markers
+        if n_to_save > 0:
+            nbytes += n_to_save * dummy_particles.n_cols * 8
+
+        return nbytes
 
     @property
     def n_to_save(self) -> int:

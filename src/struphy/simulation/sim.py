@@ -3,10 +3,10 @@ import glob
 import json
 import logging
 import os
-import pickle
 import shutil
 import sysconfig
 import time
+from collections.abc import Sequence
 
 import cunumpy as xp
 import h5py
@@ -14,11 +14,11 @@ import pyvista as pv
 import yaml
 from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
+from feectools.linalg.memory import stencil_matrix_memory
 from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
 from pyevtk.hl import gridToVTK
 from scope_profiler import ProfileManager
-from tqdm import tqdm
 
 # api imports
 from struphy import (
@@ -37,6 +37,7 @@ from struphy import (
 # core imports
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
+from struphy.feec.memory import linop_nbytes, vector_nbytes
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.base import (
     FluidEquilibrium,
@@ -66,6 +67,7 @@ from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.simulation.base import SimulationBase
 from struphy.utils.clone_config import CloneConfig
+from struphy.utils.progress import tqdm
 from struphy.utils.utils import dict_to_yaml, ruff_autofix_and_format
 
 logger = logging.getLogger("struphy")
@@ -102,6 +104,10 @@ class Simulation(SimulationBase):
         Spatial grid used for FEEC variables.
     derham_opts : DerhamOptions
         Options for discrete differential operators.
+    comm: MPI.Intracomm, optional
+        MPI communicator for parallel execution. If None, uses MPI.COMM_WORLD.
+    logging_level : int, optional
+        Logging level (e.g., logging.INFO, logging.DEBUG). If None, uses default.
     """
 
     def __init__(
@@ -116,6 +122,7 @@ class Simulation(SimulationBase):
         equil: FluidEquilibrium = None,
         grid: grids.TensorProductGrid = grids.TensorProductGrid(),
         derham_opts: DerhamOptions = DerhamOptions(),
+        comm: MPI.Intracomm = None,
         logging_level: int | None = None,
     ):
         if logging_level is not None:
@@ -138,7 +145,10 @@ class Simulation(SimulationBase):
             self.comm_size = 1
             self.Barrier = lambda: None
         else:
-            self.comm = MPI.COMM_WORLD
+            if comm is None:
+                self.comm = MPI.COMM_WORLD
+            else:
+                self.comm = comm
             self.rank = self.comm.Get_rank()
             self.comm_size = self.comm.Get_size()
             self.Barrier = self.comm.Barrier
@@ -176,29 +186,9 @@ class Simulation(SimulationBase):
                     )
                 except shutil.SameFileError:
                     pass
-            # pickle struphy objects
+            # save simulation configuration as JSON
             else:
-                with open(os.path.join(path_out, "env.bin"), "wb") as f:
-                    pickle.dump(env, f, pickle.HIGHEST_PROTOCOL)
-                with open(os.path.join(path_out, "time_opts.bin"), "wb") as f:
-                    pickle.dump(time_opts, f, pickle.HIGHEST_PROTOCOL)
-                with open(os.path.join(path_out, "domain.bin"), "wb") as f:
-                    # WORKAROUND: cannot pickle pyccelized classes at the moment
-                    tmp_dct = {"name": domain.__class__.__name__, "params": domain.params}
-                    pickle.dump(tmp_dct, f, pickle.HIGHEST_PROTOCOL)
-                with open(os.path.join(path_out, "equil.bin"), "wb") as f:
-                    # WORKAROUND: cannot pickle pyccelized classes at the moment
-                    if equil is not None:
-                        tmp_dct = {"name": equil.__class__.__name__, "params": equil.params}
-                    else:
-                        tmp_dct = {}
-                    pickle.dump(tmp_dct, f, pickle.HIGHEST_PROTOCOL)
-                with open(os.path.join(path_out, "grid.bin"), "wb") as f:
-                    pickle.dump(grid, f, pickle.HIGHEST_PROTOCOL)
-                with open(os.path.join(path_out, "derham_opts.bin"), "wb") as f:
-                    pickle.dump(derham_opts, f, pickle.HIGHEST_PROTOCOL)
-                with open(os.path.join(path_out, "model_class.bin"), "wb") as f:
-                    pickle.dump(model.__class__, f, pickle.HIGHEST_PROTOCOL)
+                self.export(os.path.join(path_out, "config.json"))
 
         # config clones
         if self.comm is None:
@@ -301,6 +291,197 @@ class Simulation(SimulationBase):
         self.model.allocate_helpers()
 
         logger.debug("... Done.")
+
+    def estimate_mem(self, print_report: bool = False) -> dict:
+        """Estimate the memory footprint of all model variables and FEEC matrices, in bytes,
+        BEFORE calling :meth:`allocate`.
+
+        Builds a throwaway Derham sequence (cheap: metadata only, no mass/basis operators) to obtain
+        the FEEC coefficient space sizes and MPI domain decomposition, then calls ``estimate_mem()`` on
+        every model variable, mirroring the loop in :meth:`_allocate_variables`. The throwaway Derham is
+        discarded afterward -- calling :meth:`allocate` still performs the full allocation from scratch.
+
+        On top of the variables, the following FEEC matrices are estimated (they are usually much
+        larger than the spline coefficient vectors):
+
+        * the derivative matrices (grad, curl, div) of the Derham sequence (matrix-free, hence
+          essentially free of charge),
+        * the standard mass matrices M0, M1, M2, M3 and Mv, created with ``dry_run=True`` so that
+          only their sizes (including the zero-block structure) are computed, see
+          :meth:`~struphy.feec.mass.WeightedMassOperators.estimate_mem`.
+
+        Note
+        ----
+        Which matrices a model really allocates is only known once the propagators have been
+        allocated (they fetch and build their operators in ``allocate()``, partly under names
+        assembled at run time). The standard mass matrices are therefore used as a baseline:
+        a model may not need all of them, but it may also build additional weighted mass matrices
+        (e.g. ``M2n``), basis projection operators and preconditioners which are *not* included here.
+        Use :meth:`report_mem` after :meth:`allocate` for the exact numbers.
+
+        Parameters
+        ----------
+        print_report : bool
+            If True, print a breakdown of the estimated memory usage of each variable on
+            MPI rank 0: both local (this rank) and global (summed over all ranks) values.
+
+        Returns
+        -------
+        dict
+            Mapping ``{"species.variable": local_bytes}`` for the model variables and
+            ``{"matrices.<name>": local_bytes}`` for the FEEC matrices (bytes on the *current*
+            MPI rank), plus a ``"total"`` entry with the local sum over all entries.
+        """
+        logger.debug("\nEstimating memory usage ...")
+
+        if self.grid is None or self.derham_opts is None:
+            raise RuntimeError(
+                "Simulation.estimate_mem() requires 'grid' and 'derham_opts' to be set (needed to build a Derham sequence for FEEC variable sizing)."
+            )
+
+        if self.clone_config is None:
+            derham_comm = MPI.COMM_WORLD
+        else:
+            derham_comm = self.clone_config.sub_comm
+
+        derham = Derham(
+            self.grid,
+            self.derham_opts,
+            comm=derham_comm,
+            domain=self.domain,
+        )
+
+        mem = {}
+
+        if self.model.field_species:
+            for species, spec in self.model.field_species.items():
+                for k, v in spec.variables.items():
+                    assert isinstance(v, FEECVariable)
+                    mem[f"{species}.{k}"] = v.estimate_mem(derham=derham)
+
+        if self.model.fluid_species:
+            for species, spec in self.model.fluid_species.items():
+                for k, v in spec.variables.items():
+                    assert isinstance(v, FEECVariable)
+                    mem[f"{species}.{k}"] = v.estimate_mem(derham=derham)
+
+        if self.model.particle_species:
+            for species, spec in self.model.particle_species.items():
+                for k, v in spec.variables.items():
+                    if isinstance(v, PICVariable):
+                        mem[f"{species}.{k}"] = v.estimate_mem(
+                            clone_config=self.clone_config,
+                            derham=derham,
+                            domain=self.domain,
+                            equil=self.equil,
+                        )
+                    elif isinstance(v, SPHVariable):
+                        mem[f"{species}.{k}"] = v.estimate_mem(
+                            derham=derham,
+                            domain=self.domain,
+                            equil=self.equil,
+                        )
+
+        if self.model.diagnostic_species:
+            for species, spec in self.model.diagnostic_species.items():
+                for k, v in spec.variables.items():
+                    assert isinstance(v, FEECVariable)
+                    mem[f"{species}.{k}"] = v.estimate_mem(derham=derham)
+
+        # FEEC matrices: derivative matrices (already allocated by the throwaway Derham) ...
+        mem["matrices.derivatives"] = sum(linop_nbytes(op) for op in (derham.grad, derham.curl, derham.div))
+
+        # ... and the standard mass matrices (dry run, i.e. sized but not allocated)
+        mass_ops = WeightedMassOperators(derham, self.domain, eq_mhd=self.equil)
+        for name, nbytes in mass_ops.estimate_mem().items():
+            mem[f"matrices.{name}"] = nbytes
+
+        total_local = sum(mem.values())
+        mem["total"] = total_local
+
+        if print_report:
+            if self.comm is not None:
+                total_global = self.comm.allreduce(total_local, op=MPI.SUM)
+            else:
+                total_global = total_local
+
+            if self.rank == 0:
+                print("\nESTIMATED MEMORY USAGE (before allocate()):")
+                for name, nbytes in mem.items():
+                    if name == "total":
+                        continue
+                    print(f"  {name}: {nbytes / 1e6:.2f} MB (local, rank 0)")
+                print(
+                    f"  TOTAL: {total_local / 1e6:.2f} MB (local, rank 0), "
+                    f"{total_global / 1e6:.2f} MB (global, summed over {self.comm_size} rank(s))"
+                )
+
+        logger.debug("... Done.")
+
+        return mem
+
+    def report_mem(self, print_report: bool = True) -> dict:
+        """Actual local (per-MPI-rank) memory footprint of the big arrays, in bytes,
+        AFTER calling :meth:`allocate`.
+
+        In contrast to :meth:`estimate_mem`, nothing is estimated here: the spline coefficient
+        vectors and marker arrays are measured on the allocated objects, and the FEEC matrices are
+        obtained from the (weak) registry of all allocated stencil matrices,
+        :data:`~feectools.linalg.memory.stencil_matrix_memory`. The matrix number therefore
+        includes mass matrices, basis projection operators, preconditioners and any other
+        stencil matrix built by the propagators.
+
+        Parameters
+        ----------
+        print_report : bool
+            If True (default), print the breakdown on MPI rank 0.
+
+        Returns
+        -------
+        dict
+            Mapping ``{"feec_matrices": ..., "spline_coeffs": ..., "markers": ..., "total": ...}``
+            with the local number of bytes.
+        """
+        mem = {"feec_matrices": stencil_matrix_memory.nbytes, "spline_coeffs": 0, "markers": 0}
+
+        for species in (
+            self.model.field_species,
+            self.model.fluid_species,
+            self.model.particle_species,
+            self.model.diagnostic_species,
+        ):
+            if not species:
+                continue
+            for spec in species.values():
+                for v in spec.variables.values():
+                    if isinstance(v, FEECVariable):
+                        mem["spline_coeffs"] += vector_nbytes(v.spline.vector)
+                    elif isinstance(v, (PICVariable, SPHVariable)):
+                        mem["markers"] += v.particles.nbytes_local
+                        if v.n_to_save > 0:
+                            mem["markers"] += v.saved_markers.nbytes
+
+        total_local = sum(mem.values())
+        mem["total"] = total_local
+
+        if print_report:
+            if self.comm is not None:
+                total_global = self.comm.allreduce(total_local, op=MPI.SUM)
+            else:
+                total_global = total_local
+
+            if self.rank == 0:
+                print("\nMEMORY USAGE (after allocate()):")
+                for name, nbytes in mem.items():
+                    if name == "total":
+                        continue
+                    print(f"  {name}: {nbytes / 1e6:.2f} MB (local, rank 0)")
+                print(
+                    f"  TOTAL: {total_local / 1e6:.2f} MB (local, rank 0), "
+                    f"{total_global / 1e6:.2f} MB (global, summed over {self.comm_size} rank(s))"
+                )
+
+        return mem
 
     def save_geometry_and_equil_vtk(self):
         """Write a VTK file with geometry and (projected) equilibrium fields.
@@ -466,7 +647,7 @@ class Simulation(SimulationBase):
             If True, only perform one time step (useful for testing).
         """
 
-        logger.warning(f"\nStarting run for model {self.model_name} ...")
+        logger.info(f"\nStarting run for model {self.model_name} on {self.comm_size} ranks ...")
         if self.name != "":
             logger.info(f"Simulation name: {self.name}")
         if self.description != "":
@@ -557,7 +738,12 @@ RESTARTing from:
         # time loop
         run_time_now = 0.0
         show_progress_bar = logger.getEffectiveLevel() <= logging.WARNING and self.rank == 0
-        pbar = tqdm(total=total_steps, disable=not show_progress_bar, desc="Time stepping", unit="step")
+        pbar = tqdm(
+            total=total_steps,
+            disable=not show_progress_bar,
+            desc="Time stepping",
+            unit="step",
+        )
         while True:
             self.Barrier()
 
@@ -670,7 +856,7 @@ RESTARTing from:
                 "wall-clock time[min]": (end_time - self.start_time) / 60,
             }
             dict_to_yaml(meta, os.path.join(self.env.path_out, "meta.yml"))
-        logger.warning("Struphy run finished.")
+        logger.info("Struphy run finished.")
 
         if self.clone_config is not None:
             self.clone_config.free()
@@ -680,12 +866,12 @@ RESTARTing from:
     def pproc(
         self,
         step: int = 1,
-        celldivide: int = 1,
+        celldivide: int | Sequence[int] = 1,
         physical: bool = False,
         guiding_center: bool = False,
         classify: bool = False,
         create_vtk: bool = True,
-        time_trace: bool = False,
+        parallel_pproc: bool = False,
     ):
         """Run post-processing on saved simulation data.
 
@@ -694,20 +880,29 @@ RESTARTing from:
         """
 
         # setup post processor and plotting
-        if not hasattr(self, "_post_processor") and self.rank == 0:
-            self._post_processor = PostProcessor(sim=self)
+        if parallel_pproc:
+            self._post_processor = PostProcessor(sim=self, parallel_pproc=True)
 
-        if time_trace:
-            self.post_processor.plot_time_traces()
+            self.post_processor.process(
+                step=step,
+                celldivide=celldivide,
+                physical=physical,
+                guiding_center=guiding_center,
+                classify=classify,
+                create_vtk=create_vtk,
+            )
+        else:
+            if self.rank == 0:
+                self._post_processor = PostProcessor(sim=self, parallel_pproc=False)
 
-        self.post_processor.process(
-            step=step,
-            celldivide=celldivide,
-            physical=physical,
-            guiding_center=guiding_center,
-            classify=classify,
-            create_vtk=create_vtk,
-        )
+                self.post_processor.process(
+                    step=step,
+                    celldivide=celldivide,
+                    physical=physical,
+                    guiding_center=guiding_center,
+                    classify=classify,
+                    create_vtk=create_vtk,
+                )
 
     def load_plotting_data(self):
         """Load plotting datasets produced by post-processing.
@@ -1270,11 +1465,11 @@ RESTARTing from:
         return save_keys_all, save_keys_end
 
     def _write_run_metadata(self, one_time_step: bool = False):
-        """Write run-specific JSON metadata for each sim.run() event, reusing to_json()."""
+        """Write run-specific JSON metadata for each sim.run() event, reusing to_run_metadata()."""
         if self.rank != 0:
             return
 
-        self.to_json(
+        self.to_run_metadata(
             file_path=os.path.join(self.env.path_out, "run_metadata.json"),
             started_at_epoch_s=self.start_time,
             one_time_step=one_time_step,
@@ -1355,8 +1550,13 @@ RESTARTing from:
                 particle_metadata[species_name] = species_metadata
         return particle_metadata
 
-    def to_json(self, file_path: str = None, **extra_data) -> str:
-        """Assemble the run's data and metadata by hand and serialize to a JSON string.
+    def to_run_metadata(self, file_path: str = None, **extra_data) -> str:
+        """Snapshot of the reconstructible config (see :meth:`to_dict`) plus run-specific,
+        non-reconstructible facts (MPI layout, live particle counts, caller-supplied
+        timestamps, ...), serialized to a JSON string.
+
+        This is metadata for humans/logging, not a serialization meant to be fed back
+        into :meth:`from_dict` — use :meth:`to_dict`/:meth:`export` for that.
 
         Parameters
         ----------
@@ -1364,30 +1564,24 @@ RESTARTing from:
             If given, also write the JSON string to this file.
 
         **extra_data
-            Additional key/value pairs merged into the "data" section,
+            Additional key/value pairs merged into the config,
             e.g. call-specific facts like a start timestamp.
 
         Returns
         -------
         str
-            The JSON-encoded simulation configuration.
+            The JSON-encoded simulation metadata.
         """
-        config = {
-            "name": self.name,
-            "description": self.description,
-            "model_name": self.model_name,
-            "parameter_file": self.params_path,
-            "mpi_ranks": self.comm_size,
-            "use_mpi_comm_world": self.comm is not None,
-            "env": self.env.to_dict(),
-            "time_opts": self.time_opts.to_dict(),
-            "domain": self.domain.to_dict(),
-            "equil": self.equil.to_dict() if self.equil is not None else None,
-            "grid": self.grid.to_dict() if self.grid is not None else None,
-            "derham_opts": self.derham_opts.to_dict() if self.derham_opts is not None else None,
-            "particle_species": self._collect_particle_metadata(),
-            **extra_data,
-        }
+        config = self.to_dict()
+        config.update(
+            {
+                "model_name": self.model_name,
+                "mpi_ranks": self.comm_size,
+                "use_mpi_comm_world": self.comm is not None,
+                "particle_species": self._collect_particle_metadata(),
+                **extra_data,
+            },
+        )
 
         json_str = json.dumps(config, indent=4)
         if file_path is not None:

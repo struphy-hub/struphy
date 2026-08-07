@@ -173,6 +173,12 @@ class Particles(metaclass=ABCMeta):
 
     equation_params : dict
         Normalization parameters (epsilon, alpha, ...)
+        
+    dry_run : bool
+        If True, only compute the sizing of the marker array (:attr:`n_rows`, :attr:`n_cols`, ...)
+        and return early, without allocating any of the (potentially large) marker/sorting/buffer
+        arrays. Used by :attr:`nbytes_local` to estimate the memory footprint before actually
+        allocating the particles, see :meth:`~struphy.models.variables.PICVariable.estimate_mem`.
     """
 
     def __init__(
@@ -199,6 +205,7 @@ class Particles(metaclass=ABCMeta):
         perturbations: dict[str, Perturbation] = None,
         n_as_volume_form: bool = False,
         equation_params: dict = None,
+        dry_run: bool = False,
     ):
 
         self._clone_config = clone_config
@@ -301,7 +308,10 @@ class Particles(metaclass=ABCMeta):
 
         # create marker array
         self._bufsize = bufsize
-        self._allocate_marker_array()
+        self._allocate_marker_array(dry_run=dry_run)
+
+        if dry_run:
+            return
 
         # boundary conditions
         bc = boundary_params.bc
@@ -376,7 +386,7 @@ class Particles(metaclass=ABCMeta):
         self._generate_sampling_moments()
 
         # create buffers for mpi_sort_markers
-        self._sorting_etas = xp.zeros(self.markers.shape, dtype=float)
+        self._sorting_etas = xp.zeros((self.markers.shape[0], 3), dtype=float)
         self._is_on_proc_domain = xp.zeros((self.markers.shape[0], 3), dtype=bool)
         self._can_stay = xp.zeros(self.markers.shape[0], dtype=bool)
         self._reqs = [None] * self.mpi_size
@@ -497,6 +507,31 @@ class Particles(metaclass=ABCMeta):
     def mean_velocity_index(self):
         """Index in marker array where mean velocity for noslip BC is stored."""
         return self._mean_velocity_index
+    
+    def nbytes_local(self) -> int:
+        """Estimated local (per-MPI-rank) memory footprint, in bytes, of all marker-related arrays
+        (markers, sorting buffers, lost-marker container). Only depends on :attr:`n_rows` and
+        :attr:`n_cols`, so it is valid whether or not the arrays were actually allocated
+        (see the ``dry_run`` argument of :meth:`__init__`)."""
+        float_size = 8  # dtype=float
+        bool_size = 1  # dtype=bool
+        n_rows = self.n_rows
+        n_cols = self.n_cols
+
+        nbytes = 0
+        nbytes += n_rows * n_cols * float_size  # markers
+        nbytes += n_rows * 3 * float_size  # sorting_etas (mpi_sort_markers buffer)
+        nbytes += n_rows * 3 * bool_size  # is_on_proc_domain
+        nbytes += n_rows * bool_size  # can_stay
+        # holes, ghost_particles, valid_mks, is_outside_right, is_outside_left, is_outside
+        nbytes += n_rows * bool_size * 6
+        nbytes += int(n_rows * 0.5) * 10 * float_size  # lost_markers
+        return int(nbytes)
+
+    @property
+    def kinds(self):
+        """Name of the class."""
+        return self.__class__.__name__
 
     @property
     def index(self):
@@ -2325,8 +2360,11 @@ class Particles(metaclass=ABCMeta):
 
         return n_mks_load, Np_per_clone
 
-    def _allocate_marker_array(self):
-        """Create marker array :attr:`~struphy.pic.base.Particles.markers`."""
+    def _allocate_marker_array(self, dry_run: bool = False):
+        """Create marker array :attr:`~struphy.pic.base.Particles.markers`.
+
+        If dry_run is True, only :attr:`n_rows` (and :attr:`n_cols`) are computed and no array
+        is actually allocated; see :attr:`nbytes_local`."""
         if not hasattr(self, "_n_mks_load"):
             self._n_mks_load, self._Np_per_clone = self._n_mks_load_and_Np_per_clone()
 
@@ -2334,8 +2372,17 @@ class Particles(metaclass=ABCMeta):
         n_mks_load_loc = self.n_mks_load[self._mpi_rank]
         bufsize = self.bufsize + 1.0 / xp.sqrt(n_mks_load_loc)
 
-        # allocate markers array (3 x positions, vdim x velocities, weight, s0, w0, ..., ID) with buffer
+        # size of markers array (3 x positions, vdim x velocities, weight, s0, w0, ..., ID) with buffer
         self._n_rows = round(n_mks_load_loc * (1 + bufsize))
+
+        # Have at least 3 spare places in markers array
+        assert self.first_free_idx + 2 < self.n_cols - 2, (
+            f"{self.first_free_idx + 2} is not smaller than {self.n_cols - 2 =}; not enough columns in marker array !!"
+        )
+
+        if dry_run:
+            return
+
         self._markers = xp.zeros((self.n_rows, self.n_cols), dtype=float)
 
         # allocate auxiliary arrays
@@ -2362,11 +2409,6 @@ class Particles(metaclass=ABCMeta):
             self.first_shift_idx,
             self.residual_idx,
             self.first_free_idx,
-        )
-
-        # Have at least 3 spare places in markers array
-        assert self.args_markers.first_free_idx + 2 < self.n_cols - 1, (
-            f"{self.args_markers.first_free_idx + 2} is not smaller than {self.n_cols - 1 =}; not enough columns in marker array !!"
         )
 
     def _initialize_sorting_boxes(self):
@@ -4187,10 +4229,11 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         assert alpha.size == 3
         assert xp.all(alpha >= 0.0) and xp.all(alpha <= 1.0)
         bi = self.first_pusher_idx
-        self._sorting_etas = xp.mod(
+        xp.mod(
             alpha * (self.markers[:, :3] + self.markers[:, bi + 3 + self.vdim : bi + 3 + self.vdim + 3])
             + (1.0 - alpha) * self.markers[:, bi : bi + 3],
             1.0,
+            out=self._sorting_etas,
         )
 
         # check which particles are on the current process domain

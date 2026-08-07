@@ -47,7 +47,7 @@ dependencies = [
     "pytest-testmon<=2.2.0",
     "ruff==0.15.0, <=0.16.0",
     "line_profiler<=5.0.2",
-    "scope-profiler>=0.2.3, <=0.2.3",
+    "scope-profiler==0.2.6, <=0.2.6",
 ]
 
 [project.license]
@@ -76,7 +76,7 @@ dev = [
     "tomli-w",
     "kaleido",
     "pandas",
-    "slurm-script-generator>=0.3.4",
+    "slurm-script-generator>=0.3.6",
 ]
 doc = [
     "struphy[phys]",
