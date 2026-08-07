@@ -1,16 +1,16 @@
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Literal
+from typing import Literal
 
 import cunumpy as xp
 from feectools.linalg.basic import IdentityOperator
-from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
 
 from struphy.feec.mass import L2Projector, WeightedMassOperator
 from struphy.io.options import LiteralOptions, OptionsBase
-from struphy.linear_algebra.solver import SolverParameters
+from struphy.linear_algebra.solver import SolverParameters, inverse
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector, ParticlesToGrid

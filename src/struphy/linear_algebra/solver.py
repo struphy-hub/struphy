@@ -20,10 +20,10 @@ def inverse(A, solver: str, **kwargs):
     Parameters
     ----------
     A : feectools.linalg.basic.LinearOperator
-        Left-hand-side matrix of the linear system. For ``solver="petsc"``, ``A``
-        must be (or expose via ``A.matrix``) an assembled
-        ``StencilMatrix``/``BlockLinearOperator``, see
-        :class:`~struphy.linear_algebra.petsc_solver.PETScSolver`.
+        Left-hand-side matrix of the linear system. For ``solver="petsc"``, see
+        :func:`struphy.linear_algebra.petsc_solver._assemble_petsc_matrix` for the
+        supported operator types -- this includes plain assembled matrices as well as
+        composite operators such as ``grad.T @ M @ grad``.
 
     solver : str
         Preferred iterative solver, one of feectools' options ('cg', 'pcg',
@@ -40,12 +40,11 @@ def inverse(A, solver: str, **kwargs):
         if kwargs.get("pc") is not None:
             logger.debug("PETScSolver ignores the feectools 'pc' preconditioner; use 'pc_type' instead.")
 
-        matrix = getattr(A, "matrix", A)
         petsc_kwargs = {k: v for k, v in kwargs.items() if k in _PETSC_SOLVER_KWARGS}
         petsc_kwargs.setdefault("ksp_type", "cg")
         petsc_kwargs.setdefault("pc_type", "jacobi")
 
-        return PETScSolver(matrix, **petsc_kwargs)
+        return PETScSolver(A, **petsc_kwargs)
 
     from feectools.linalg.solvers import inverse as feectools_inverse
 

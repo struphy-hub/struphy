@@ -1,28 +1,214 @@
 import logging
 
-from feectools.linalg.basic import InverseLinearOperator, Vector
-from feectools.linalg.block import BlockLinearOperator
+import cunumpy as xp
+from feectools.feec.derivatives import DirectionalDerivativeOperator
+from feectools.linalg.basic import (
+    ComposedLinearOperator,
+    IdentityOperator,
+    InverseLinearOperator,
+    LinearOperator,
+    ScaledLinearOperator,
+    SumLinearOperator,
+    Vector,
+)
+from feectools.linalg.block import BlockLinearOperator, BlockVectorSpace
 from feectools.linalg.stencil import StencilMatrix
-from feectools.linalg.topetsc import mat_topetsc, vec_topetsc
+from feectools.linalg.topetsc import get_npts_local, mat_topetsc, vec_topetsc
 from feectools.linalg.utilities import petsc_to_psydac
 
 logger = logging.getLogger("struphy")
 
 
-class PETScSolver(InverseLinearOperator):
-    """(Approximate) inverse of an assembled operator, computed via a PETSc ``KSP`` Krylov solver.
+def _directional_derivative_to_stencil_matrix(op):
+    """ Build a :class:`~feectools.linalg.stencil.StencilMatrix` equivalent to a
+    (matrix-free) :class:`~feectools.feec.derivatives.DirectionalDerivativeOperator`, so it can
+    be handed to :func:`feectools.linalg.topetsc.mat_topetsc`.
 
-    ``A`` is converted to a ``PETSc.Mat`` via :func:`feectools.linalg.topetsc.mat_topetsc`
-    and the right-hand side is converted to a ``PETSc.Vec`` via
-    :func:`feectools.linalg.topetsc.vec_topetsc`; the solve itself is delegated to
-    ``petsc4py.PETSc.KSP``. Requires the optional ``petsc4py`` dependency
+    ``DirectionalDerivativeOperator.dot`` computes, along its differentiation axis
+    ``diffdir`` (identity along every other axis):
+
+    - ``out = v[..., k+1, ...] - v[..., k, ...]``   if not negative, not transposed
+    - ``out = v[..., k, ...] - v[..., k+1, ...]``   if negative, not transposed
+    - ``out = v[..., k-1, ...] - v[..., k, ...]``   if not negative, transposed
+    - ``out = v[..., k, ...] - v[..., k-1, ...]``   if negative, transposed
+
+    i.e. a plain two-point (identity, shift-by-one) stencil.
+
+    Note
+    ----
+    Only verified for a *periodic* differentiation axis. For a non-periodic axis under a
+    parallel (MPI-comm-attached) space -- which is how struphy always builds its Derham
+    complex, even with a single rank -- this construction (and feectools' own
+    ``DirectionalDerivativeOperator.tokronstencil().tostencil()``) was found to disagree with
+    the operator's actual ``.dot()`` at the two boundary planes along that axis. The root
+    cause was not identified; rather than risk silently wrong results, this case raises
+    ``NotImplementedError``.
+    """
+    assert isinstance(op, DirectionalDerivativeOperator)
+
+    V = op.domain
+    W = op.codomain
+    ndim = V.ndim
+    diffdir = op._diffdir
+    negative = op._negative
+    transposed = op._transposed
+
+    if not V.periods[diffdir]:
+        raise NotImplementedError(
+            "PETScSolver cannot (yet) assemble a DirectionalDerivativeOperator along a "
+            f"non-periodic axis (diffdir={diffdir}, periods={V.periods}) of a parallel "
+            "(MPI-comm-attached) space: this was found to disagree with the operator's actual "
+            "action at the domain boundary, for a reason not yet root-caused. Only fully "
+            "periodic operators (e.g. derham.grad on a fully periodic domain) are supported."
+        )
+
+    M = StencilMatrix(V, W)
+
+    def off(o):
+        return slice(o, o + 1)
+
+    rows = tuple(slice(None) for _ in range(ndim))
+    identity_key = tuple(off(0) for _ in range(ndim))
+
+    shift = -1 if transposed else 1
+    shifted_key = tuple(off(shift) if d == diffdir else off(0) for d in range(ndim))
+
+    if negative:
+        M[rows + identity_key] = 1.0
+        M[rows + shifted_key] = -1.0
+    else:
+        M[rows + identity_key] = -1.0
+        M[rows + shifted_key] = 1.0
+
+    M.remove_spurious_entries()
+    return M
+
+
+def _assemble_leaf_operator(A):
+    """ Return an operator equivalent to `A` that is directly convertible via
+    :func:`feectools.linalg.topetsc.mat_topetsc` (i.e. a ``StencilMatrix`` or a
+    ``BlockLinearOperator`` whose blocks are all ``StencilMatrix``), replacing any
+    ``DirectionalDerivativeOperator`` (block or bare) by its assembled equivalent.
+    """
+    if isinstance(A, DirectionalDerivativeOperator):
+        return _directional_derivative_to_stencil_matrix(A)
+
+    if isinstance(A, BlockLinearOperator):
+        out = BlockLinearOperator(A.domain, A.codomain)
+        for i, j in A.nonzero_block_indices:
+            block = A[i, j]
+            out[i, j] = _directional_derivative_to_stencil_matrix(block) if isinstance(
+                block, DirectionalDerivativeOperator
+            ) else block
+        return out
+
+    return A
+
+
+def _comm_of(space):
+    """ MPI communicator of a StencilVectorSpace/BlockVectorSpace, matching mat_topetsc's convention. """
+    if isinstance(space, BlockVectorSpace):
+        return space.spaces[0].cart.global_comm
+    return space.cart.global_comm
+
+
+def _identity_petsc_mat(space):
+    """ Build a PETSc.Mat representing the identity operator on `space`. """
+    from petsc4py import PETSc
+
+    comm = _comm_of(space)
+    localsize = int(xp.sum(xp.prod(get_npts_local(space), axis=1)))
+    globalsize = space.dimension
+
+    gmat = PETSc.Mat().create(comm=comm)
+    gmat.setSizes(size=((localsize, globalsize), (localsize, globalsize)))
+    gmat.setType("mpiaij" if comm else "seqaij")
+    gmat.setUp()
+
+    ones = space.zeros()
+    ones._data[:] = 1.0
+    gmat.setDiagonal(vec_topetsc(ones))
+    gmat.assemble()
+
+    return gmat
+
+
+def _assemble_petsc_matrix(A):
+    """ Recursively assemble a ``PETSc.Mat`` for a (possibly composite) feectools
+    ``LinearOperator``, by converting every assembled leaf via
+    :func:`feectools.linalg.topetsc.mat_topetsc` and combining the pieces with PETSc's own
+    matrix algebra (``matMult`` for composition, ``axpy`` for sums, ``scale`` for scalar
+    multiples). This lets algebraic preconditioners (jacobi, gamg, ...) work on operators such
+    as ``grad.T @ M @ grad`` that are not themselves a ``StencilMatrix``/``BlockLinearOperator``.
+
+    Parameters
+    ----------
+    A : feectools.linalg.basic.LinearOperator
+        Operator to assemble. Supported: ``StencilMatrix``, ``BlockLinearOperator``, any operator
+        exposing an assembled ``.matrix`` (e.g. ``WeightedMassOperator``), ``IdentityOperator``,
+        ``ScaledLinearOperator``, ``SumLinearOperator`` and ``ComposedLinearOperator`` built out of
+        the above (as produced e.g. by ``derham.grad.T @ mass_ops.M1 @ derham.grad``).
+
+    Returns
+    -------
+    gmat : PETSc.Mat
+    """
+    if isinstance(A, (StencilMatrix, BlockLinearOperator, DirectionalDerivativeOperator)):
+        return mat_topetsc(_assemble_leaf_operator(A))
+
+    matrix = getattr(A, "matrix", None)
+    if isinstance(matrix, (StencilMatrix, BlockLinearOperator, DirectionalDerivativeOperator)):
+        return mat_topetsc(_assemble_leaf_operator(matrix))
+
+    if isinstance(A, IdentityOperator):
+        return _identity_petsc_mat(A.domain)
+
+    if isinstance(A, ScaledLinearOperator):
+        gmat = _assemble_petsc_matrix(A.operator)
+        gmat.scale(A.scalar)
+        return gmat
+
+    if isinstance(A, ComposedLinearOperator):
+        from petsc4py import PETSc
+
+        mats = [_assemble_petsc_matrix(m) for m in A.multiplicants]
+        gmat = mats[0]
+        for m in mats[1:]:
+            gmat = gmat.matMult(m)
+        return gmat
+
+    if isinstance(A, SumLinearOperator):
+        from petsc4py import PETSc
+
+        mats = [_assemble_petsc_matrix(a) for a in A.addends]
+        gmat = mats[0].copy()
+        for m in mats[1:]:
+            gmat.axpy(1.0, m, structure=PETSc.Mat.Structure.DIFFERENT_NONZERO_PATTERN)
+        return gmat
+
+    raise NotImplementedError(
+        f"PETScSolver cannot assemble a PETSc matrix for operator of type {type(A)}. "
+        "Supported: StencilMatrix, BlockLinearOperator, operators exposing an assembled "
+        "'.matrix', IdentityOperator, and Scaled/Sum/Composed combinations thereof."
+    )
+
+
+class PETScSolver(InverseLinearOperator):
+    """(Approximate) inverse of a feectools ``LinearOperator``, computed via a PETSc ``KSP``
+    Krylov solver.
+
+    ``A`` is assembled into a ``PETSc.Mat`` (see :func:`_assemble_petsc_matrix` -- this also
+    handles composite operators such as ``grad.T @ M @ grad``, not just plain
+    ``StencilMatrix``/``BlockLinearOperator``) and the right-hand side is converted to a
+    ``PETSc.Vec`` via :func:`feectools.linalg.topetsc.vec_topetsc`; the solve itself is delegated
+    to ``petsc4py.PETSc.KSP``. Requires the optional ``petsc4py`` dependency
     (``pip install struphy[petsc]``).
 
     Parameters
     ----------
-    A : feectools.linalg.stencil.StencilMatrix | feectools.linalg.block.BlockLinearOperator
-        Left-hand-side matrix of the linear system. Only assembled operators can be
-        converted to a ``PETSc.Mat``, see :func:`feectools.linalg.topetsc.mat_topetsc`.
+    A : feectools.linalg.basic.LinearOperator
+        Left-hand-side matrix of the linear system, see :func:`_assemble_petsc_matrix` for the
+        supported operator types.
 
     x0 : feectools.linalg.basic.Vector, default=None
         Kept for interface compatibility with the other
@@ -44,7 +230,8 @@ class PETScSolver(InverseLinearOperator):
         PETSc Krylov solver type, see ``petsc4py.PETSc.KSP.Type``.
 
     pc_type : str, default="none"
-        PETSc preconditioner type, see ``petsc4py.PETSc.PC.Type``.
+        PETSc preconditioner type, see ``petsc4py.PETSc.PC.Type``. E.g. ``"gamg"`` (algebraic
+        multigrid) for large, ill-conditioned elliptic systems.
     """
 
     def __init__(
@@ -59,9 +246,7 @@ class PETScSolver(InverseLinearOperator):
         ksp_type="cg",
         pc_type="none",
     ):
-        assert isinstance(A, (StencilMatrix, BlockLinearOperator)), (
-            f"PETScSolver only supports assembled operators (StencilMatrix or BlockLinearOperator), got {type(A)}."
-        )
+        assert isinstance(A, LinearOperator), f"PETScSolver requires a LinearOperator, got {type(A)}."
 
         self._options = {
             "x0": x0,
@@ -86,7 +271,7 @@ class PETScSolver(InverseLinearOperator):
 
         A = self._A
         if self._ksp is None or self._ksp_linop is not A:
-            gmat = mat_topetsc(A)
+            gmat = _assemble_petsc_matrix(A)
 
             if self._ksp is None:
                 self._ksp = PETSc.KSP().create(comm=gmat.getComm())
