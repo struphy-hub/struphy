@@ -98,10 +98,9 @@ def test_binning_6D_full_f(mapping, show_plot=False):
         plt.xlabel(r"$v_1$")
         plt.ylabel(r"$f(v_1)$")
         plt.legend()
-        
-        particles.f_init.plot_density_profile("v1")
+
+        particles.f_init.plot("v1")
         plt.show()
-        
 
     l2_error = xp.sqrt(xp.sum((ana_res - binned_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
 

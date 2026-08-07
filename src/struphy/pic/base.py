@@ -173,7 +173,7 @@ class Particles(metaclass=ABCMeta):
 
     equation_params : dict
         Normalization parameters (epsilon, alpha, ...)
-        
+
     dry_run : bool
         If True, only compute the sizing of the marker array (:attr:`n_rows`, :attr:`n_cols`, ...)
         and return early, without allocating any of the (potentially large) marker/sorting/buffer
@@ -435,7 +435,7 @@ class Particles(metaclass=ABCMeta):
     @abstractmethod
     def s0(self, eta1, eta2, eta3, *v, flat_eval=False, remove_holes=True):
         r"""0-form corresponding to :ref:`~struphy.pic.base.Particles.sampling_density`.
-        This is the quantity stored in each marker's ``s0`` column (see the class docstring) 
+        This is the quantity stored in each marker's ``s0`` column (see the class docstring)
         and used to compute initial weights ``w0 = f_init / s0 / Np``."""
         pass
 
@@ -507,7 +507,7 @@ class Particles(metaclass=ABCMeta):
     def mean_velocity_index(self):
         """Index in marker array where mean velocity for noslip BC is stored."""
         return self._mean_velocity_index
-    
+
     def nbytes_local(self) -> int:
         """Estimated local (per-MPI-rank) memory footprint, in bytes, of all marker-related arrays
         (markers, sorting buffers, lost-marker container). Only depends on :attr:`n_rows` and

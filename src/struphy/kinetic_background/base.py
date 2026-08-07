@@ -125,6 +125,13 @@ class KineticBackground(metaclass=ABCMeta):
 
     @property
     def axes_transform(self) -> dict:
+        """Mapping from logical dimension key to its LaTeX-formatted axis label, used for plot labeling.
+
+        Keys are "e1", "e2", "e3" (always :math:`\\eta_1, \\eta_2, \\eta_3`) and "v1", "v2", "v3", whose labels
+        depend on :attr:`velocity_coords`: "cartesian" (:math:`v_x, v_y, v_z`), "vpara_mu"
+        (:math:`v_\\parallel, \\mu`), "vpara_vperp" (:math:`v_\\parallel, v_\\perp`), or "vpara_energy"
+        (:math:`v_\\parallel, E`). The "v3" entry is None unless velocity_coords is "cartesian".
+        """
         dct = {}
         dct["e1"] = "$\\eta_1$"
         dct["e2"] = "$\\eta_2$"
@@ -158,64 +165,90 @@ class KineticBackground(metaclass=ABCMeta):
     def __repr_no_defaults__(self):
         return __class_with_params_repr_no_defaults__(self)
 
-    def reduced_eval(self, 
-                    dim_1: LiteralOptions.KineticDimensionsToPlot = "e1",
-                    dim_2: LiteralOptions.KineticDimensionsToPlot | None = None,
-                    v_lim: float | tuple[float] = 5.0,
-                    resol: int | tuple[int] = 100,
-                    integrate_resol: tuple[int] | None = None,
-                    max_points: int = 1e8,
-                    domain: Domain | None = None,
-            ):
+    def reduced_eval(
+        self,
+        dim_1: LiteralOptions.KineticDimensionsToPlot = "e1",
+        dim_2: LiteralOptions.KineticDimensionsToPlot | None = None,
+        v_lim: float | tuple[float] = 5.0,
+        resol: int | tuple[int] = 100,
+        integrate_resol: tuple[int] | None = None,
+        max_points: int = 1e8,
+        domain: Domain | None = None,
+    ):
         """Evaluate a "reduced" version of the background, where all but 1 or 2 dimensions have been integrated out.
         See :ref:`binning`.
-        
+
         Integration is performed via a simple midpoint rule, with the number of integration points specified by ``integrate_resol``.
-        One can set a maximum for the total evaluation points in order to avoid memory issues (default is 1e8 corresponfing to ~1 GB for double precision).
-        
+        One can set a maximum for the total evaluation points in order to avoid memory issues (default is 1e8, corresponding to ~1 GB for double precision).
+
         Parameters
         ----------
         dim_1, dim_2 : LiteralOptions.KineticDimensionsToPlot = ["e1","e2","e3","v1","v2","v3"]
-            The axis (or axes) along which the reduced distribution is plotted (i.e. the axes that are not integrated out). 
-            They refere to logical space axes. 
+            The axis (or axes) along which the reduced distribution is evaluated (i.e. the axes that are not integrated out).
+            They refere to logical phase space axes.
             If dim_2 is not defined the reduced distribution is 1D, otherwise it is 2D.
 
         v_lim : float | tuple[float]
-            Limit values for velocities, one for each velocity axes (default: 5.0). For a Cartesian velocity coordinate (and v_parallel), 
-            the limits are [-v_lim, v_lim]. For a positive velocity coordinate (such as mu), the limits are [0, v_lim].
+            Limit values for the velocity axes (default: 5.0), given as ``(v_lim_1, v_lim_2)`` for ``dim_1`` and
+            ``dim_2`` respectively (a single float is broadcast to both entries). ``v_lim[0]`` also sets the
+            integration bounds of any velocity axis that is integrated out (i.e. neither ``dim_1`` nor ``dim_2``);
+            ``v_lim[1]`` is only used when ``dim_2`` is itself a velocity axis.
+            For a Cartesian velocity coordinate (and v_parallel), the limits are [-v_lim, v_lim]. For a positive
+            velocity coordinate (such as mu or v_perp), the limits are [0, v_lim].
 
         resol : int | tuple[int]
-            Resolution of the plot along each axis. If a single integer is provided, the same resolution is used for all axes.
+            Resolution of the evaluation grid along the plotted axis (axes). If a single integer is provided,
+            it is used for both dim_1 and dim_2.
 
         integrate_resol : tuple[int] | None
-            Number of quadrature points for integration along each axis. 
-            If None, is determined as :math:`max_points^(1/N)` where :math:`N` is the number of axes to integrate out.
-            If tuple, length must be the dimension of the phase space, where non-integration axes must hold the value None.
+            Number of quadrature points for integration along each phase space axis.
+            If None, is determined as :math:`max\\_points^{1/N}` where :math:`N` is the number of axes to integrate out.
+            If tuple, length must be the dimension of the phase space (3 + vdim), where the plotted axes (dim_1, dim_2)
+            must hold the value None.
             Example: integrate_resol=(None, 10, 20, None, 15, 15) for a 4D integral and dim_1="e1", dim_2="v1" in 6D phase space.
             High number of quadrature points can lead to memory issues.
-            
+
         max_points : int = 1e8
-            Maximum number of points to evaluate the background on (default is 1e8 corresponfing to ~1 GB for double precision). 
+            Maximum number of points to evaluate the background on (default is 1e8, corresponding to ~1 GB for double precision).
+
+        domain : Domain | None = None
+            Mapping to physical space. If given, dim_1 and dim_2 must both be space axes (["e1","e2","e3"]) and the
+            returned ``physical_coords`` holds the corresponding "x", "y", "z" arrays; otherwise ``physical_coords``
+            is None.
+
+        Returns
+        -------
+        reduced_density : xp.ndarray
+            The background integrated over all axes except dim_1 (and dim_2, if given); 1D if dim_2 is None, else 2D.
+
+        plot_pts1, plot_pts2 : xp.ndarray | None
+            Evaluation points along dim_1 and dim_2. ``plot_pts2`` is None if dim_2 is not given.
+
+        physical_coords : dict | None
+            Dictionary with keys "x", "y", "z" holding the domain-mapped position arrays (broadcast to the shape
+            of ``reduced_density``), or None if no domain was given.
         """
-        
+
         if domain is not None:
-            assert dim_1 in ["e1", "e2", "e3"] and dim_2 in ["e1", "e2", "e3"], 'To perform a plot in physical space you must use two space axes (dim_1, dim_2 in ["e1","e2","e3"]).'
-        
+            assert dim_1 in ["e1", "e2", "e3"] and dim_2 in ["e1", "e2", "e3"], (
+                'To perform a plot in physical space you must use two space axes (dim_1, dim_2 in ["e1","e2","e3"]).'
+            )
+
         n_axes_plot = 1 + (dim_2 is not None)
         n_v_to_plot = ("v" in dim_1) + ("v" in dim_2 if dim_2 is not None else 0)
-        
+
         if isinstance(v_lim, float):
             v_lim = (v_lim, v_lim)
         else:
             assert isinstance(v_lim, tuple)
             if len(v_lim) == 1:
                 v_lim = (v_lim[0], v_lim[0])
-            
+
         if isinstance(resol, int):
             resol = (resol,) * n_axes_plot
-        
+
         n_axes_integration = 3 + self.vdim - n_axes_plot
-        max_quad_points = max_points 
+        max_quad_points = max_points
         for r in resol:
             max_quad_points //= r
 
@@ -223,7 +256,7 @@ class KineticBackground(metaclass=ABCMeta):
         tabs = [None] * (3 + self.vdim)
         axe_to_plot1, plot_pts1 = self._get_plot_pts(dim_1, v_lim[0], resol[0])
         tabs[axe_to_plot1] = plot_pts1
-        
+
         if dim_2 is not None:
             axe_to_plot2, plot_pts2 = self._get_plot_pts(dim_2, v_lim[1], resol[1])
             assert axe_to_plot2 != axe_to_plot1, "You must specify different dimensions for dim_1 and dim_2"
@@ -231,36 +264,44 @@ class KineticBackground(metaclass=ABCMeta):
         else:
             axe_to_plot2 = None
             plot_pts2 = None
-        
+
         # add integration points for the axes that are not plotted
         if integrate_resol is None:
             n_int = int(max_quad_points ** (1 / n_axes_integration))
             integrate_resol = (n_int,) * (3 + self.vdim)
         else:
-            assert len(integrate_resol) == 3 + self.vdim, f"integrate_resol must have length {3 + self.vdim} for this background"
-            assert integrate_resol[axe_to_plot1] is None, f"integrate_resol must be None for the axis {dim_1} that is plotted"
+            assert len(integrate_resol) == 3 + self.vdim, (
+                f"integrate_resol must have length {3 + self.vdim} for this background"
+            )
+            assert integrate_resol[axe_to_plot1] is None, (
+                f"integrate_resol must be None for the axis {dim_1} that is plotted"
+            )
             if axe_to_plot2 is not None:
-                assert integrate_resol[axe_to_plot2] is None, f"integrate_resol must be None for the axis {dim_2} that is plotted"
+                assert integrate_resol[axe_to_plot2] is None, (
+                    f"integrate_resol must be None for the axis {dim_2} that is plotted"
+                )
             cp = 1
             for r in integrate_resol:
                 if r is not None:
                     cp *= r
-            assert cp <= max_quad_points, f"Too many quadrature points for integration, reduce integrate_resol or increase max_points (current: {cp} > {max_quad_points})"
-        
+            assert cp <= max_quad_points, (
+                f"Too many quadrature points for integration, reduce integrate_resol or increase max_points (current: {cp} > {max_quad_points})"
+            )
+
         for i, tab in enumerate(tabs):
             if tab is None:
                 if i < 3:
                     tabs[i] = xp.linspace(0.0, 1.0, integrate_resol[i])
                 else:
-                    if i == 3: # Cartesian and v_parallel
+                    if i == 3:  # Cartesian and v_parallel
                         tabs[i] = xp.linspace(-v_lim[0], v_lim[0], integrate_resol[i])
                     else:
-                        if self.velocity_coords == "cartesian": # Cartesian
+                        if self.velocity_coords == "cartesian":  # Cartesian
                             tabs[i] = xp.linspace(-v_lim[0], v_lim[0], integrate_resol[i])
-                        else: # v_perp, mu and energy
+                        else:  # v_perp, mu and energy
                             assert i == 4
                             tabs[i] = xp.linspace(0.0, v_lim[0], integrate_resol[i])
-                            
+
         # push to physical position space if needed
         if domain is not None:
             tmp = domain(*tabs[:3])
@@ -282,59 +323,82 @@ class KineticBackground(metaclass=ABCMeta):
         # memory intensive evaluation of the background on the phase space grid
         phase_space_mesh = xp.meshgrid(*tabs, indexing="ij")
         total_density = self(*phase_space_mesh)
-        
+
         axes_to_integrate = [i for i in range(3 + self.vdim)]
         axes_to_integrate.remove(axe_to_plot1)
         if dim_2 is not None:
             axes_to_integrate.remove(axe_to_plot2)
-        
+
         reduced_density = xp.mean(total_density, tuple(axes_to_integrate))
-        
+
         return reduced_density, plot_pts1, plot_pts2, physical_coords
-            
-    def _get_plot_pts(self, 
-                      dim: LiteralOptions.KineticDimensionsToPlot, 
-                    v_lim: float, 
-                    resol: int,
-                    ):
-            
-            if dim == "e1":
-                axe_to_plot = 0
-            elif dim == "e2":
-                axe_to_plot = 1
-            elif dim == "e3":
-                axe_to_plot = 2
-            elif dim == "v1":
-                axe_to_plot = 3
-            elif dim == "v2":
-                axe_to_plot = 4
-            elif dim == "v3":
-                axe_to_plot = 5
-            else:
-                AssertionError("dim argument must match an exiting dimension")
-                
-            if axe_to_plot - 3 > self.vdim:
-                AssertionError("Coordinate " + dim + " does not exist with this background")
-                
-            if axe_to_plot == 3: # Cartesian and v_parallel
+
+    def _get_plot_pts(
+        self,
+        dim: LiteralOptions.KineticDimensionsToPlot,
+        v_lim: float,
+        resol: int,
+    ):
+        """Resolve a single dimension key to its phase-space axis index and its array of evaluation points.
+
+        Parameters
+        ----------
+        dim : LiteralOptions.KineticDimensionsToPlot
+            The axis to resolve, one of "e1", "e2", "e3", "v1", "v2", "v3".
+
+        v_lim : float
+            Limit value for the axis if it is a velocity axis (ignored for logical space axes, which always
+            span [0, 1]). For a Cartesian velocity coordinate (and v_parallel) the range is [-v_lim, v_lim];
+            for a positive velocity coordinate (such as mu or v_perp) the range is [0, v_lim].
+
+        resol : int
+            Number of evaluation points along the axis.
+
+        Returns
+        -------
+        axe_to_plot : int
+            Index of ``dim`` in the phase space (0, 1, 2 for e1, e2, e3 and 3, 4, 5 for v1, v2, v3).
+
+        plot_pts : xp.ndarray
+            Array of ``resol`` evaluation points spanning the axis range.
+        """
+        if dim == "e1":
+            axe_to_plot = 0
+        elif dim == "e2":
+            axe_to_plot = 1
+        elif dim == "e3":
+            axe_to_plot = 2
+        elif dim == "v1":
+            axe_to_plot = 3
+        elif dim == "v2":
+            axe_to_plot = 4
+        elif dim == "v3":
+            axe_to_plot = 5
+        else:
+            AssertionError("dim argument must match an exiting dimension")
+
+        if axe_to_plot - 3 > self.vdim:
+            AssertionError("Coordinate " + dim + " does not exist with this background")
+
+        if axe_to_plot == 3:  # Cartesian and v_parallel
+            v_left = -v_lim
+            v_right = v_lim
+        else:
+            if self.velocity_coords == "cartesian":  # Cartesian
                 v_left = -v_lim
                 v_right = v_lim
-            else:
-                if self.velocity_coords == "cartesian": # Cartesian
-                    v_left = -v_lim
-                    v_right = v_lim
-                else: # v_perp, mu and energy
-                    v_left = 0.0
-                    v_right = v_lim
-                    
-            if axe_to_plot < 3:
-                plot_pts = xp.linspace(0.0, 1.0, resol)
-            else:
-                plot_pts = xp.linspace(v_left, v_right, resol)
-                
-            return axe_to_plot, plot_pts
+            else:  # v_perp, mu and energy
+                v_left = 0.0
+                v_right = v_lim
 
-    def plot_density_profile(
+        if axe_to_plot < 3:
+            plot_pts = xp.linspace(0.0, 1.0, resol)
+        else:
+            plot_pts = xp.linspace(v_left, v_right, resol)
+
+        return axe_to_plot, plot_pts
+
+    def plot(
         self,
         dim_1: LiteralOptions.KineticDimensionsToPlot = "e1",
         dim_2: LiteralOptions.KineticDimensionsToPlot | None = None,
@@ -347,49 +411,52 @@ class KineticBackground(metaclass=ABCMeta):
         plot_3D: bool = False,
     ):
         """
-        Plots the density profile (slices) of the phase space background distribution. 
-        The slice can either be 1D or 2D, in logical or in Cartesian coordinates.
+        Plots the density profile (slice) of the phase space background distribution.
+        The slice can be 1D or 2D, in logical coordinates. If a domain is given, the 2D slice is also plotted
+        in physical (Cartesian) coordinates, and optionally as a 3D surface.
+
+        See :meth:`reduced_eval` for how the profile is computed.
 
         Parameters
         ----------
         dim_1, dim_2 : LiteralOptions.KineticDimensionsToPlot = ["e1","e2","e3","v1","v2","v3"]
-            The axes used in the projection, they refere to logical space axes. 
+            The axes used in the projection, they refere to logical phase space axes.
             If dim_2 is not defined the projection is 1D, it is 2D if dim_2 is attributed.
 
         v_lim : float = 5.0
-            Limit value of the velocity axes.
+            Limit value of the velocity axes (broadcast to dim_1 and dim_2, see :meth:`reduced_eval`).
 
-        resol : int = 100
-            Resolution along each axes
+        resol : int | tuple[int] = 100
+            Resolution of the plot along each plotted axis. If a single integer is provided, it is used
+            for both dim_1 and dim_2.
 
-        integrate_resol : int = 10
-            Resolution along not used velocity axes. 
-            The density is reduced (with a maximum function) over these axes before being plotted. 
-            High values (>50) may require much memory.
+        integrate_resol : tuple[int] | None = None
+            Number of quadrature points for integration along each phase space axis that is not plotted.
+            See :meth:`reduced_eval` for details; if None it is chosen automatically from max_points.
 
-        logical_coord : tuple[float] = (0.5, 0.5, 0.5)
-            Refere to the default coordinate (in logical space) attributed to each axe 
-            which is not used in the projection.
-
-        in_physical : bool = False
-            Specify if the result is plotted in logical coordinates or in Cartesian coordinates, has a effect in 2D plotting. If True, you must specify a domain.
+        max_points : int = 1e7
+            Maximum number of points to evaluate the background on, to avoid memory issues.
 
         domain : Domain | None = None
-            Domain used to plot the density if in_physical=True.
+            Domain used to map the plot to physical (Cartesian) space, producing an additional 2D plot (and,
+            if plot_3D=True, a 3D surface plot) alongside the logical-space plot. If given, dim_1 and dim_2
+            must both be space axes (["e1", "e2", "e3"]).
 
         proj_axis : tuple[str] = ("x", "y")
-            Axes of the Cartesian coordinates used to plot the density: "x", "y", "z".
-            I you do not see the density profile in 2D, you may change these axes.
+            The two Cartesian axes ("x", "y", "z") used for the 2D physical-space plot (only used if domain
+            is given). If you do not see the density profile in 2D, you may change these axes.
 
         plot_3D : bool = False
-            Plots a surface in a 3D environment. Only for physical projection.
+            Also plot the density as a colored surface in 3D physical space. Requires domain to be given.
         """
-        
+
         if plot_3D:
             assert domain is not None, "To perform a 3D plot you must provide a domain."
-            
-        assert all([pa in ["x", "y", "z"] for pa in proj_axis]), f"proj_axis must be a tuple of two axes among ['x', 'y', 'z'], but is {proj_axis}"
-        
+
+        assert all([pa in ["x", "y", "z"] for pa in proj_axis]), (
+            f"proj_axis must be a tuple of two axes among ['x', 'y', 'z'], but is {proj_axis}"
+        )
+
         reduced_density, plot_pts1, plot_pts2, physical_coords = self.reduced_eval(
             dim_1=dim_1,
             dim_2=dim_2,
@@ -399,7 +466,7 @@ class KineticBackground(metaclass=ABCMeta):
             max_points=max_points,
             domain=domain,
         )
-        
+
         fig, ax = plt.subplots(1, 1)
         if dim_2 is None:
             ax.plot(plot_pts1, reduced_density)
@@ -413,15 +480,17 @@ class KineticBackground(metaclass=ABCMeta):
             ax.set_ylabel(self.axes_transform[dim_2])
             fig.colorbar(for_color)
             ax.set_title("Kinetic background profile (logical space)")
-            
+
             if physical_coords is not None:
                 fig, ax = plt.subplots(1, 1)
-                for_color_phys = ax.pcolor(physical_coords[proj_axis[0]], physical_coords[proj_axis[1]], reduced_density)
+                for_color_phys = ax.pcolor(
+                    physical_coords[proj_axis[0]], physical_coords[proj_axis[1]], reduced_density
+                )
                 ax.set_xlabel(proj_axis[0])
                 ax.set_ylabel(proj_axis[1])
                 fig.colorbar(for_color_phys)
                 ax.set_title("Kinetic background profile (physical space)")
-                
+
             if plot_3D:
                 fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
                 norm = Normalize(reduced_density.min(), reduced_density.max() + 0.01)
@@ -598,7 +667,7 @@ class Maxwellian(KineticBackground):
                 assert len(v) == 2
                 assert isinstance(v[0], (float, int, Callable))
                 assert isinstance(v[1], Perturbation) or v[1] is None
-                
+
         # check for uniform drawing on disc
         if self.params.get("uniform_on_disc", False):
             assert self.params.get("n") == (1.0, None), "Uniform drawing on disc requires n=1.0 without perturbation."
@@ -609,7 +678,7 @@ class Maxwellian(KineticBackground):
     #     for k, v in self.maxw_params.items():
     #         out += f"\n            {k}: {v}"
     #     return out
-    
+
     @property
     def gauss_types(self) -> tuple[LiteralOptions.OptsGaussianCoordinate]:
         """Velocity coordinate types of the Maxwellian (one per velocity dimension)."""
@@ -628,7 +697,9 @@ class Maxwellian(KineticBackground):
         return self._gauss_types
 
     @classmethod
-    def gaussian(self, v, u=0.0, vth=1.0, B0=2.0, type: LiteralOptions.OptsGaussianCoordinate = "cartesian", volume_form=False):
+    def gaussian(
+        self, v, u=0.0, vth=1.0, B0=2.0, type: LiteralOptions.OptsGaussianCoordinate = "cartesian", volume_form=False
+    ):
         r"""1-dim. normal distribution, to which array-valued mean- and thermal velocities can be passed.
 
         The ``type`` selects the velocity coordinate of the Maxwellian:
@@ -668,9 +739,9 @@ class Maxwellian(KineticBackground):
 
         vth : float | array-like
             Thermal velocity evaluated at position array, same shape as v.
-            
+
         B0: float | array-like
-            Background magnetic field evaluated at position array, same shape as v. 
+            Background magnetic field evaluated at position array, same shape as v.
             Only used for ``type == "mu"``.
 
         type : str
@@ -703,7 +774,7 @@ class Maxwellian(KineticBackground):
         elif type == "mu":
             assert xp.all(v >= 0.0)
             assert xp.all(u == 0.0)
-            out = 1.0 / vth**2 * xp.exp(-v*B0 / vth**2)
+            out = 1.0 / vth**2 * xp.exp(-v * B0 / vth**2)
             if volume_form:
                 out *= B0
         elif type == "energy":
@@ -865,7 +936,7 @@ class Maxwellian(KineticBackground):
                 out += perturbation(*coords)
             else:
                 out += perturbation(*etas)
-                
+
         # uniform density on disc (n=2 eta_1)
         if name == "n" and self.params.get("uniform_on_disc", False):
             if coords[0].ndim == 1:

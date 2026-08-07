@@ -44,7 +44,7 @@ class Particles6D(Particles):
             self._absB0_h = self.projected_equil.absB0
             self._b2_h = self.projected_equil.b2
             self._derham = self.projected_equil.derham
-            
+
     @property
     def sampling_density(self):
         """Sampling density function as volume form, used to draw markers via inverse transform/rejection
@@ -65,7 +65,7 @@ class Particles6D(Particles):
                 vth1=(self.loading_params.moments[3], None),
                 vth2=(self.loading_params.moments[4], None),
                 vth3=(self.loading_params.moments[5], None),
-                uniform_on_disc=(self.spatial == "disc")
+                uniform_on_disc=(self.spatial == "disc"),
             )
         return self._sampling_density
 
@@ -330,7 +330,7 @@ class Particles5D(Particles):
                 volume_form=True,
                 equil=self.magn_bckgr,
                 B0=self.loading_params.B0,
-                uniform_on_disc=(self.spatial == "disc")
+                uniform_on_disc=(self.spatial == "disc"),
             )
         return self._sampling_density
 
@@ -473,7 +473,7 @@ class Particles5D(Particles):
             self.first_diagnostics_idx,
             self.absB0_h._data,
         )
-        
+
 
 class Particles5Dvperp(Particles):
     """
@@ -583,7 +583,7 @@ class Particles5Dvperp(Particles):
                 vth_perp=(self.loading_params.moments[3], None),
                 volume_form=True,
                 equil=self.magn_bckgr,
-                uniform_on_disc=(self.spatial == "disc")
+                uniform_on_disc=(self.spatial == "disc"),
             )
         return self._sampling_density
 
@@ -796,10 +796,7 @@ class Particles3D(Particles):
     def sampling_density(self):
         """Sampling density function as volume form."""
         if not hasattr(self, "_sampling_density"):
-            self._sampling_density = maxwellians.ColdPlasma(
-                n=(1.0, None),
-                uniform_on_disc=(self.spatial == "disc")
-            )
+            self._sampling_density = maxwellians.ColdPlasma(n=(1.0, None), uniform_on_disc=(self.spatial == "disc"))
         return self._sampling_density
 
     def s0(self, eta1, eta2, eta3, flat_eval=False, remove_holes=True):
@@ -878,6 +875,7 @@ class ParticlesSPH(Particles):
         multiplied by the Jacobian factor ``2 * eta1`` if :attr:`spatial` is ``"disc"``.
         """
         if not hasattr(self, "_sampling_density"):
+
             def func(eta1, eta2, eta3, *v):
                 if self.spatial == "uniform":
                     return 0 * eta1 + 1.0
@@ -885,6 +883,7 @@ class ParticlesSPH(Particles):
                     return 2 * eta1
                 else:
                     raise NotImplementedError(f'Spatial drawing must be "uniform" or "disc", is {self.spatial}.')
+
             self._sampling_density = func
         return self._sampling_density
 

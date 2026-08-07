@@ -21,7 +21,7 @@ class Maxwellian3D(Maxwellian):
     n, ui, vthi : tuple
         Moments of the Maxwellian as tuples. The first entry defines the background
         (float for constant background or callable), the second entry defines a Perturbation (can be None).
-        
+
     uniform_on_disc : bool
         Whether the density n is uniform on the disc.
     """
@@ -145,7 +145,7 @@ class GyroMaxwellian2D(Maxwellian):
 
     B0: float | Callable
         Constant or callable background magnetic field strength (default = 2.0).
-        
+
     uniform_on_disc : bool
         Whether the density n is uniform on the disc.
     """
@@ -248,7 +248,7 @@ class GyroMaxwellian2D(Maxwellian):
         out += [self._evaluate_moment(eta1, eta2, eta3, name="vth_perp")]
         return [ou * mom_fac for ou, mom_fac in zip(out, self.moment_factors["vth"])]
 
-    def plot_density_profile(
+    def plot(
         self,
         dim_1: LiteralOptions.KineticDimensionsToPlot = "e1",
         dim_2: LiteralOptions.KineticDimensionsToPlot | None = None,
@@ -266,7 +266,7 @@ class GyroMaxwellian2D(Maxwellian):
     ):
         if equil is None:
             equil = self.equil
-        super().plot_density_profile(
+        super().plot(
             dim_1,
             dim_2,
             v_lim,
@@ -303,7 +303,7 @@ class GyroMaxwellian2Dvperp(Maxwellian):
         Whether to represent the Maxwellian as a volume form;
         if True it is multiplied by the Jacobian determinant |v_perp|
         of the polar coordinate transofrmation (default = False).
-        
+
     uniform_on_disc : bool
         Whether the density n is uniform on the disc (default = False).
     """
