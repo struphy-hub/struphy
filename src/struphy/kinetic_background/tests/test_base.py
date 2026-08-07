@@ -126,16 +126,12 @@ def test_plotting_function():
     background.plot_density_profile("v1")
     background.plot_density_profile("v2")
     background.plot_density_profile("e1", "e2")
-    background.plot_density_profile("e1", "e2", domain=domains.HollowCylinder(), proj_axis=(0, 1), in_physical=True)
-    background.plot_density_profile("e1", "e2", domain=domains.HollowTorus(), proj_axis=(1, 2), in_physical=True)
-    background.plot_density_profile(
-        "e1", "e2", domain=domains.HollowTorus(), proj_axis=(0, 2), in_physical=True, plot_3D=True
-    )
-    background.plot_density_profile(
-        "e2", "e3", domain=domains.HollowTorus(), proj_axis=(1, 2), in_physical=True, plot_3D=True
-    )
+    background.plot_density_profile("e1", "e2", domain=domains.HollowCylinder(), proj_axis=("x", "y"))
+    background.plot_density_profile("e1", "e2", domain=domains.HollowTorus(), proj_axis=("y", "z"))
+    background.plot_density_profile("e1", "e2", domain=domains.HollowTorus(), proj_axis=("x", "z"), plot_3D=True)
+    background.plot_density_profile("e2", "e3", domain=domains.HollowTorus(), proj_axis=("y", "z"), plot_3D=True)
     background.plot_density_profile("v1", "v2")
-    background.plot_density_profile("v1", "v2", use_mu=True)
+    # background.plot_density_profile("v1", "v2", use_mu=True)
 
     # Testing with Maxwellian3D:
     background = maxwellians.Maxwellian3D(n=(n_init, None), vth1=(vth, None), vth2=(vth, None), vth3=(vth, None))

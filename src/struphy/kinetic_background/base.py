@@ -123,6 +123,30 @@ class KineticBackground(metaclass=ABCMeta):
             new.pop("__class__")
         self._params = new
 
+    @property
+    def axes_transform(self) -> dict:
+        dct = {}
+        dct["e1"] = "$\\eta_1$"
+        dct["e2"] = "$\\eta_2$"
+        dct["e3"] = "$\\eta_3$"
+        if self.velocity_coords == "cartesian":
+            dct["v1"] = "$v_x$"
+            dct["v2"] = "$v_y$"
+            dct["v3"] = "$v_z$"
+        elif self.velocity_coords == "vpara_mu":
+            dct["v1"] = "$v_\\parallel$"
+            dct["v2"] = "$\\mu$"
+            dct["v3"] = None
+        elif self.velocity_coords == "vpara_vperp":
+            dct["v1"] = "$v_\\parallel$"
+            dct["v2"] = "$v_\\perp$"
+            dct["v3"] = None
+        elif self.velocity_coords == "vpara_energy":
+            dct["v1"] = "$v_\\parallel$"
+            dct["v2"] = "$E$"
+            dct["v3"] = None
+        return dct
+
     def __repr__(self):
         out = f"{self.__class__.__name__}(\n"
         for k, v in self.params.items():
@@ -137,16 +161,17 @@ class KineticBackground(metaclass=ABCMeta):
     def reduced_eval(self, 
                     dim_1: LiteralOptions.KineticDimensionsToPlot = "e1",
                     dim_2: LiteralOptions.KineticDimensionsToPlot | None = None,
-                    v_lim: float = 5.0,
+                    v_lim: float | tuple[float] = 5.0,
                     resol: int | tuple[int] = 100,
                     integrate_resol: tuple[int] | None = None,
-                    max_points: int = 1e8
+                    max_points: int = 1e8,
+                    domain: Domain | None = None,
             ):
         """Evaluate a "reduced" version of the background, where all but 1 or 2 dimensions have been integrated out.
         See :ref:`binning`.
         
         Integration is performed via a simple midpoint rule, with the number of integration points specified by ``integrate_resol``.
-        One can set a maximum for the total integration points in order to avoid memory issues (default is 100).
+        One can set a maximum for the total evaluation points in order to avoid memory issues (default is 1e8 corresponfing to ~1 GB for double precision).
         
         Parameters
         ----------
@@ -155,8 +180,9 @@ class KineticBackground(metaclass=ABCMeta):
             They refere to logical space axes. 
             If dim_2 is not defined the reduced distribution is 1D, otherwise it is 2D.
 
-        v_lim : float = 5.0
-            Limit value of the velocity axes.
+        v_lim : float | tuple[float]
+            Limit values for velocities, one for each velocity axes (default: 5.0). For a Cartesian velocity coordinate (and v_parallel), 
+            the limits are [-v_lim, v_lim]. For a positive velocity coordinate (such as mu), the limits are [0, v_lim].
 
         resol : int | tuple[int]
             Resolution of the plot along each axis. If a single integer is provided, the same resolution is used for all axes.
@@ -164,218 +190,161 @@ class KineticBackground(metaclass=ABCMeta):
         integrate_resol : tuple[int] | None
             Number of quadrature points for integration along each axis. 
             If None, is determined as :math:`max_points^(1/N)` where :math:`N` is the number of axes to integrate out.
+            If tuple, length must be the dimension of the phase space, where non-integration axes must hold the value None.
+            Example: integrate_resol=(None, 10, 20, None, 15, 15) for a 4D integral and dim_1="e1", dim_2="v1" in 6D phase space.
             High number of quadrature points can lead to memory issues.
+            
+        max_points : int = 1e8
+            Maximum number of points to evaluate the background on (default is 1e8 corresponfing to ~1 GB for double precision). 
         """
         
-        if dim_2 is None:
-            if dim_1 == "e1":
+        if domain is not None:
+            assert dim_1 in ["e1", "e2", "e3"] and dim_2 in ["e1", "e2", "e3"], 'To perform a plot in physical space you must use two space axes (dim_1, dim_2 in ["e1","e2","e3"]).'
+        
+        n_axes_plot = 1 + (dim_2 is not None)
+        n_v_to_plot = ("v" in dim_1) + ("v" in dim_2 if dim_2 is not None else 0)
+        
+        if isinstance(v_lim, float):
+            v_lim = (v_lim, v_lim)
+        else:
+            assert isinstance(v_lim, tuple)
+            if len(v_lim) == 1:
+                v_lim = (v_lim[0], v_lim[0])
+            
+        if isinstance(resol, int):
+            resol = (resol,) * n_axes_plot
+        
+        n_axes_integration = 3 + self.vdim - n_axes_plot
+        max_quad_points = max_points 
+        for r in resol:
+            max_quad_points //= r
+
+        # phase space grid, first add plotting points for the axes that are plotted
+        tabs = [None] * (3 + self.vdim)
+        axe_to_plot1, plot_pts1 = self._get_plot_pts(dim_1, v_lim[0], resol[0])
+        tabs[axe_to_plot1] = plot_pts1
+        
+        if dim_2 is not None:
+            axe_to_plot2, plot_pts2 = self._get_plot_pts(dim_2, v_lim[1], resol[1])
+            assert axe_to_plot2 != axe_to_plot1, "You must specify different dimensions for dim_1 and dim_2"
+            tabs[axe_to_plot2] = plot_pts2
+        else:
+            axe_to_plot2 = None
+            plot_pts2 = None
+        
+        # add integration points for the axes that are not plotted
+        if integrate_resol is None:
+            n_int = int(max_quad_points ** (1 / n_axes_integration))
+            integrate_resol = (n_int,) * (3 + self.vdim)
+        else:
+            assert len(integrate_resol) == 3 + self.vdim, f"integrate_resol must have length {3 + self.vdim} for this background"
+            assert integrate_resol[axe_to_plot1] is None, f"integrate_resol must be None for the axis {dim_1} that is plotted"
+            if axe_to_plot2 is not None:
+                assert integrate_resol[axe_to_plot2] is None, f"integrate_resol must be None for the axis {dim_2} that is plotted"
+            cp = 1
+            for r in integrate_resol:
+                if r is not None:
+                    cp *= r
+            assert cp <= max_quad_points, f"Too many quadrature points for integration, reduce integrate_resol or increase max_points (current: {cp} > {max_quad_points})"
+        
+        for i, tab in enumerate(tabs):
+            if tab is None:
+                if i < 3:
+                    tabs[i] = xp.linspace(0.0, 1.0, integrate_resol[i])
+                else:
+                    if i == 3: # Cartesian and v_parallel
+                        tabs[i] = xp.linspace(-v_lim[0], v_lim[0], integrate_resol[i])
+                    else:
+                        if self.velocity_coords == "cartesian": # Cartesian
+                            tabs[i] = xp.linspace(-v_lim[0], v_lim[0], integrate_resol[i])
+                        else: # v_perp, mu and energy
+                            assert i == 4
+                            tabs[i] = xp.linspace(0.0, v_lim[0], integrate_resol[i])
+                            
+        # push to physical position space if needed
+        if domain is not None:
+            tmp = domain(*tabs[:3])
+            physical_coords = {}
+
+            # keep the plotted spatial axes (e1, e2, e3) as full slices, fix the rest at index 0
+            idx = [0, 0, 0]
+            for axe_to_plot in (axe_to_plot1, axe_to_plot2):
+                if axe_to_plot is not None and axe_to_plot < 3:
+                    idx[axe_to_plot] = slice(None)
+            idx = tuple(idx)
+
+            physical_coords["x"] = tmp[(0,) + idx]
+            physical_coords["y"] = tmp[(1,) + idx]
+            physical_coords["z"] = tmp[(2,) + idx]
+        else:
+            physical_coords = None
+
+        # memory intensive evaluation of the background on the phase space grid
+        phase_space_mesh = xp.meshgrid(*tabs, indexing="ij")
+        total_density = self(*phase_space_mesh)
+        
+        axes_to_integrate = [i for i in range(3 + self.vdim)]
+        axes_to_integrate.remove(axe_to_plot1)
+        if dim_2 is not None:
+            axes_to_integrate.remove(axe_to_plot2)
+        
+        reduced_density = xp.mean(total_density, tuple(axes_to_integrate))
+        
+        return reduced_density, plot_pts1, plot_pts2, physical_coords
+            
+    def _get_plot_pts(self, 
+                      dim: LiteralOptions.KineticDimensionsToPlot, 
+                    v_lim: float, 
+                    resol: int,
+                    ):
+            
+            if dim == "e1":
                 axe_to_plot = 0
-            elif dim_1 == "e2":
+            elif dim == "e2":
                 axe_to_plot = 1
-            elif dim_1 == "e3":
+            elif dim == "e3":
                 axe_to_plot = 2
-            elif dim_1 == "v1":
+            elif dim == "v1":
                 axe_to_plot = 3
-            elif dim_1 == "v2":
+            elif dim == "v2":
                 axe_to_plot = 4
-            elif dim_1 == "v3":
+            elif dim == "v3":
                 axe_to_plot = 5
             else:
-                AssertionError("dim_1argument must match an exiting dimension")
+                AssertionError("dim argument must match an exiting dimension")
                 
             if axe_to_plot - 3 > self.vdim:
-                AssertionError("Coordinate " + dim_1 + " does not exist with this background")
+                AssertionError("Coordinate " + dim + " does not exist with this background")
                 
-            n_axes_integration = 3 + self.vdim - 1
-            max_quad_points = max_points // resol
-            
-            if integrate_resol is None:
-                n_int = int(max_quad_points ** (1 / n_axes_integration))
-                integrate_resol = n_axes_integration * (n_int,)
-                
-            if self.velocity_coords == "cartesian":
+            if axe_to_plot == 3: # Cartesian and v_parallel
                 v_left = -v_lim
                 v_right = v_lim
             else:
-                v_left = 0.0
-                v_right = v_lim
-               
+                if self.velocity_coords == "cartesian": # Cartesian
+                    v_left = -v_lim
+                    v_right = v_lim
+                else: # v_perp, mu and energy
+                    v_left = 0.0
+                    v_right = v_lim
+                    
             if axe_to_plot < 3:
                 plot_pts = xp.linspace(0.0, 1.0, resol)
             else:
                 plot_pts = xp.linspace(v_left, v_right, resol)
                 
-            tabs = [None] * (3 + self.vdim)
-            tabs[axe_to_plot] = plot_pts
-                
-            quad_pts_eta = xp.linspace(0.0, 1.0, integrate_resol)
-            quad_pts_vel = xp.linspace(0.0, v_lim, integrate_resol)      
-                
-            for i, tab in enumerate(tabs):
-                if tab is None:
-                    if i < 3:
-                        tabs[i] = quad_pts_eta
-                    else:
-                        tabs[i] = quad_pts_vel
-           
-            phase_space_mesh = xp.abs(xp.meshgrid(*tabs, indexing="ij"))
-            total_density = self(*phase_space_mesh)
-            
-            axes_to_integrate = [i for i in range(3 + self.vdim)]
-            axes_to_integrate.remove(axe_to_plot)
-            
-            total_density = xp.mean(total_density, tuple(axes_to_integrate))
-            
-            fig, ax = plt.subplots(1, 1)
-            ax.plot(plot_pts, total_density)
-            ax.set_xlabel(dim_1)
-            ax.set_ylabel("density")
-            ax.set_title("background profile")
-            plt.show(block=True)
-            
-        else:
-            if dim_1 == "e1":
-                axe_to_plot1 = 0
-            elif dim_1 == "e2":
-                axe_to_plot1 = 1
-            elif dim_1 == "e3":
-                axe_to_plot1 = 2
-            elif dim_1 == "v1":
-                axe_to_plot1 = 3
-            elif dim_1 == "v2":
-                axe_to_plot1 = 4
-            elif dim_1 == "v3":
-                axe_to_plot1 = 5
-            else:
-                AssertionError("dim_1 argument must match an existing dimension")
-            if dim_2 == "e1":
-                axe_to_plot2 = 0
-            elif dim_2 == "e2":
-                axe_to_plot2 = 1
-            elif dim_2 == "e3":
-                axe_to_plot2 = 2
-            elif dim_2 == "v1":
-                axe_to_plot2 = 3
-            elif dim_2 == "v2":
-                axe_to_plot2 = 4
-            elif dim_2 == "v3":
-                axe_to_plot2 = 5
-            else:
-                AssertionError("dim_2 argument must match an existing dimension")
-            if axe_to_plot2 == axe_to_plot1:
-                AssertionError("You must specify different dimensions for dim_1 and dim_2")
-            integrate_linspace_vel = xp.linspace(0.0, v_lim, integrate_resol)
-            tabs = [xp.array([logical_coord[i]]) for i in range(3)] + self.vdim * [integrate_linspace_vel]
-            if axe_to_plot1 < 3:
-                plot_linspace1 = xp.linspace(0.0, 1.0, resol)
-            elif axe_to_plot1 != 4 or (not use_mu):
-                plot_linspace1 = xp.linspace(-v_lim, v_lim, resol)
-            else:
-                plot_linspace1 = xp.linspace(0.0, xp.sqrt(v_lim), resol)
-            if axe_to_plot2 < 3:
-                plot_linspace2 = xp.linspace(0.0, 1.0, resol)
-            elif axe_to_plot2 != 4 or (not use_mu):
-                plot_linspace2 = xp.linspace(-v_lim, v_lim, resol)
-            else:
-                plot_linspace2 = xp.linspace(0.0, xp.sqrt(v_lim), resol)
-            tabs[axe_to_plot1] = plot_linspace1
-            tabs[axe_to_plot2] = plot_linspace2
-            etas = xp.meshgrid(*tabs, indexing="ij")
-            if in_physical:
-                physical_coords = domain(*tabs[:3])
-                physical_coords = list(physical_coords)
-                for i in range(3):
-                    physical_coords[i] = physical_coords[i][tuple([...] + self.vdim * [None])]
-                    physical_coords[i] = xp.broadcast_to(physical_coords[i], etas[0].shape)
-                for i in range(self.vdim):
-                    physical_coords.append(etas[i + 3])
-                total_density = self(*xp.abs(etas))
-            else:
-                physical_coords = list(etas)
-                total_density = self(*xp.abs(etas))
-            if use_mu:
-                if axe_to_plot1 == 4 or axe_to_plot2 == 4:
-                    B_norm_tab = equil.absB0(
-                        etas[0][tuple([slice(None), slice(None), slice(None)] + self.vdim * [0])],
-                        etas[1][tuple([slice(None), slice(None), slice(None)] + self.vdim * [0])],
-                        etas[2][tuple([slice(None), slice(None), slice(None)] + self.vdim * [0])],
-                    )
-                    B_norm_tab = xp.broadcast_to(
-                        B_norm_tab[
-                            tuple(
-                                [
-                                    ...,
-                                ]
-                                + self.vdim * [None]
-                            )
-                        ],
-                        etas[0].shape,
-                    )
-                    total_density *= B_norm_tab / etas[4]
-                    physical_coords[4] = physical_coords[4] ** 2
-            axes_to_integrate = [i for i in range(3 + self.vdim)]
-            axes_to_integrate.remove(axe_to_plot1)
-            axes_to_integrate.remove(axe_to_plot2)
-            total_density = xp.mean(total_density, tuple(axes_to_integrate))
-            id_dim = [0] * len(etas)
-            id_dim[axe_to_plot1] = slice(None)
-            id_dim[axe_to_plot2] = slice(None)
-            if not plot_3D:
-                if in_physical:
-                    X = physical_coords[proj_axis[0]][tuple(id_dim)]
-                    Y = physical_coords[proj_axis[1]][tuple(id_dim)]
-                else:
-                    X = physical_coords[axe_to_plot1][tuple(id_dim)]
-                    Y = physical_coords[axe_to_plot2][tuple(id_dim)]
-                fig, ax = plt.subplots()
-                for_color = ax.pcolor(X, Y, total_density)
-                if in_physical:
-                    ax.set_xlabel(["x", "y", "z"][proj_axis[0]])
-                    ax.set_ylabel(["x", "y", "z"][proj_axis[1]])
-                else:
-                    if use_mu:
-                        if dim_1 == "v2":
-                            dim_1 = "mu"
-                        if dim_2 == "v2":
-                            dim_2 = "mu"
-                    ax.set_xlabel(dim_1)
-                    ax.set_ylabel(dim_2)
-            else:
-                norm = Normalize(total_density.min(), total_density.max() + 0.01)
-                colors = cm.viridis(norm(total_density))
-                fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-                for_color = ax.plot_surface(
-                    X=physical_coords[0][tuple(id_dim)],
-                    Y=physical_coords[1][tuple(id_dim)],
-                    Z=physical_coords[2][tuple(id_dim)],
-                    facecolors=colors,
-                )
-                ax.set_xlabel("x")
-                ax.set_ylabel("y")
-                ax.set_zlabel("z")
-            if title is None:
-                ax.set_title(f"Density in ({dim_1}, {dim_2}) space")
-            else:
-                ax.set_title(title)
-            fig.colorbar(for_color)
-            plt.show(block=True)
-
+            return axe_to_plot, plot_pts
 
     def plot_density_profile(
         self,
         dim_1: LiteralOptions.KineticDimensionsToPlot = "e1",
         dim_2: LiteralOptions.KineticDimensionsToPlot | None = None,
         v_lim: float = 5.0,
-        resol: int = 100,
-        integrate_resol: int = 50,
-        logical_coord: tuple[float] = (0.5, 0.5, 0.5),
-        in_physical: bool = False,
+        resol: int | tuple[int] = 100,
+        integrate_resol: tuple[int] | None = None,
+        max_points: int = 1e7,
         domain: Domain | None = None,
-        proj_axis: tuple[float,] = (0, 1),
+        proj_axis: tuple[str,] = ("x", "y"),
         plot_3D: bool = False,
-        title: str | None = None,
-        use_mu=False,
-        equil=None,
     ):
         """
         Plots the density profile (slices) of the phase space background distribution. 
@@ -408,215 +377,67 @@ class KineticBackground(metaclass=ABCMeta):
         domain : Domain | None = None
             Domain used to plot the density if in_physical=True.
 
-        proj_axis : tuple[float] = (0,1)
-            Axes of the Cartesian coordinates used to plot the density: 0->x, 1->y, 2->z.
+        proj_axis : tuple[str] = ("x", "y")
+            Axes of the Cartesian coordinates used to plot the density: "x", "y", "z".
             I you do not see the density profile in 2D, you may change these axes.
 
         plot_3D : bool = False
             Plots a surface in a 3D environment. Only for physical projection.
         """
-        integrate_resol = min(integrate_resol, 100)  # to avoid memory issues
         
-        if in_physical:
-            if not (dim_1 in ["e1", "e2", "e3"] and dim_2 in ["e1", "e2", "e3"]):
-                AssertionError(
-                    'To perform a plot in physical space you must use two space axes (dim_1, dim_2 in ["e1","e2","e3"]).'
-                )
-        if plot_3D and not in_physical:
-            AssertionError("To perform a 3D plot you must plot in physical space (activate in_physical).")
+        if plot_3D:
+            assert domain is not None, "To perform a 3D plot you must provide a domain."
             
-        assert 0 <= proj_axis[0] < proj_axis[1] < 3
+        assert all([pa in ["x", "y", "z"] for pa in proj_axis]), f"proj_axis must be a tuple of two axes among ['x', 'y', 'z'], but is {proj_axis}"
         
+        reduced_density, plot_pts1, plot_pts2, physical_coords = self.reduced_eval(
+            dim_1=dim_1,
+            dim_2=dim_2,
+            v_lim=v_lim,
+            resol=resol,
+            integrate_resol=integrate_resol,
+            max_points=max_points,
+            domain=domain,
+        )
+        
+        fig, ax = plt.subplots(1, 1)
         if dim_2 is None:
-            if dim_1 == "e1":
-                axe_to_plot = 0
-            elif dim_1 == "e2":
-                axe_to_plot = 1
-            elif dim_1 == "e3":
-                axe_to_plot = 2
-            elif dim_1 == "v1":
-                axe_to_plot = 3
-            elif dim_1 == "v2":
-                axe_to_plot = 4
-            elif dim_1 == "v3":
-                axe_to_plot = 5
-            else:
-                AssertionError("dim_1argument must match an exiting dimension")
-                
-            if axe_to_plot - 3 > self.vdim:
-                AssertionError("Coordinate " + dim_1 + " does not exist with this background")
-                
-            linspace_space = xp.array([0.0])
-            integrate_linspace_vel = xp.linspace(0.0, v_lim, integrate_resol)
-            
-            if axe_to_plot < 3:
-                plot_linspace = xp.linspace(0.0, 1.0, resol)
-            else:
-                plot_linspace = xp.linspace(-v_lim, v_lim, resol)
-                
-            tabs = 3 * [linspace_space] + self.vdim * [integrate_linspace_vel]
-            
-            for i in range(3):
-                tabs[i][0] = logical_coord[i]
-            tabs[axe_to_plot] = plot_linspace
-            
-            etas = xp.abs(xp.meshgrid(*tabs, indexing="ij"))
-            total_density = self(*etas)
-            
-            if use_mu and axe_to_plot == 4:
-                B_norm_tab = equil.absB0(
-                    etas[0][tuple([slice(None), slice(None), slice(None)] + self.vdim * [0])],
-                    etas[1][tuple([slice(None), slice(None), slice(None)] + self.vdim * [0])],
-                    etas[2][tuple([slice(None), slice(None), slice(None)] + self.vdim * [0])],
-                )
-                B_norm_tab = xp.broadcast_to(
-                    B_norm_tab[
-                        tuple(
-                            [
-                                ...,
-                            ]
-                            + self.vdim * [None]
-                        )
-                    ],
-                    etas[0].shape,
-                )
-                total_density *= B_norm_tab / etas[4]
-                plot_linspace = plot_linspace**2
-            axes_to_integrate = [i for i in range(3 + self.vdim)]
-            axes_to_integrate.remove(axe_to_plot)
-            total_density = xp.mean(total_density, tuple(axes_to_integrate))
-            fig, ax = plt.subplots(1, 1)
-            ax.plot(plot_linspace, total_density)
-            ax.set_xlabel(dim_1)
+            ax.plot(plot_pts1, reduced_density)
+            ax.set_xlabel(self.axes_transform[dim_1])
             ax.set_ylabel("density")
-            ax.set_title("background profile")
-            plt.show(block=True)
+            ax.set_title("Kinetic background profile")
         else:
-            if dim_1 == "e1":
-                axe_to_plot1 = 0
-            elif dim_1 == "e2":
-                axe_to_plot1 = 1
-            elif dim_1 == "e3":
-                axe_to_plot1 = 2
-            elif dim_1 == "v1":
-                axe_to_plot1 = 3
-            elif dim_1 == "v2":
-                axe_to_plot1 = 4
-            elif dim_1 == "v3":
-                axe_to_plot1 = 5
-            else:
-                AssertionError("dim_1 argument must match an existing dimension")
-            if dim_2 == "e1":
-                axe_to_plot2 = 0
-            elif dim_2 == "e2":
-                axe_to_plot2 = 1
-            elif dim_2 == "e3":
-                axe_to_plot2 = 2
-            elif dim_2 == "v1":
-                axe_to_plot2 = 3
-            elif dim_2 == "v2":
-                axe_to_plot2 = 4
-            elif dim_2 == "v3":
-                axe_to_plot2 = 5
-            else:
-                AssertionError("dim_2 argument must match an existing dimension")
-            if axe_to_plot2 == axe_to_plot1:
-                AssertionError("You must specify different dimensions for dim_1 and dim_2")
-            integrate_linspace_vel = xp.linspace(0.0, v_lim, integrate_resol)
-            tabs = [xp.array([logical_coord[i]]) for i in range(3)] + self.vdim * [integrate_linspace_vel]
-            if axe_to_plot1 < 3:
-                plot_linspace1 = xp.linspace(0.0, 1.0, resol)
-            elif axe_to_plot1 != 4 or (not use_mu):
-                plot_linspace1 = xp.linspace(-v_lim, v_lim, resol)
-            else:
-                plot_linspace1 = xp.linspace(0.0, xp.sqrt(v_lim), resol)
-            if axe_to_plot2 < 3:
-                plot_linspace2 = xp.linspace(0.0, 1.0, resol)
-            elif axe_to_plot2 != 4 or (not use_mu):
-                plot_linspace2 = xp.linspace(-v_lim, v_lim, resol)
-            else:
-                plot_linspace2 = xp.linspace(0.0, xp.sqrt(v_lim), resol)
-            tabs[axe_to_plot1] = plot_linspace1
-            tabs[axe_to_plot2] = plot_linspace2
-            etas = xp.meshgrid(*tabs, indexing="ij")
-            if in_physical:
-                physical_coords = domain(*tabs[:3])
-                physical_coords = list(physical_coords)
-                for i in range(3):
-                    physical_coords[i] = physical_coords[i][tuple([...] + self.vdim * [None])]
-                    physical_coords[i] = xp.broadcast_to(physical_coords[i], etas[0].shape)
-                for i in range(self.vdim):
-                    physical_coords.append(etas[i + 3])
-                total_density = self(*xp.abs(etas))
-            else:
-                physical_coords = list(etas)
-                total_density = self(*xp.abs(etas))
-            if use_mu:
-                if axe_to_plot1 == 4 or axe_to_plot2 == 4:
-                    B_norm_tab = equil.absB0(
-                        etas[0][tuple([slice(None), slice(None), slice(None)] + self.vdim * [0])],
-                        etas[1][tuple([slice(None), slice(None), slice(None)] + self.vdim * [0])],
-                        etas[2][tuple([slice(None), slice(None), slice(None)] + self.vdim * [0])],
-                    )
-                    B_norm_tab = xp.broadcast_to(
-                        B_norm_tab[
-                            tuple(
-                                [
-                                    ...,
-                                ]
-                                + self.vdim * [None]
-                            )
-                        ],
-                        etas[0].shape,
-                    )
-                    total_density *= B_norm_tab / etas[4]
-                    physical_coords[4] = physical_coords[4] ** 2
-            axes_to_integrate = [i for i in range(3 + self.vdim)]
-            axes_to_integrate.remove(axe_to_plot1)
-            axes_to_integrate.remove(axe_to_plot2)
-            total_density = xp.mean(total_density, tuple(axes_to_integrate))
-            id_dim = [0] * len(etas)
-            id_dim[axe_to_plot1] = slice(None)
-            id_dim[axe_to_plot2] = slice(None)
-            if not plot_3D:
-                if in_physical:
-                    X = physical_coords[proj_axis[0]][tuple(id_dim)]
-                    Y = physical_coords[proj_axis[1]][tuple(id_dim)]
-                else:
-                    X = physical_coords[axe_to_plot1][tuple(id_dim)]
-                    Y = physical_coords[axe_to_plot2][tuple(id_dim)]
-                fig, ax = plt.subplots()
-                for_color = ax.pcolor(X, Y, total_density)
-                if in_physical:
-                    ax.set_xlabel(["x", "y", "z"][proj_axis[0]])
-                    ax.set_ylabel(["x", "y", "z"][proj_axis[1]])
-                else:
-                    if use_mu:
-                        if dim_1 == "v2":
-                            dim_1 = "mu"
-                        if dim_2 == "v2":
-                            dim_2 = "mu"
-                    ax.set_xlabel(dim_1)
-                    ax.set_ylabel(dim_2)
-            else:
-                norm = Normalize(total_density.min(), total_density.max() + 0.01)
-                colors = cm.viridis(norm(total_density))
+            X, Y = xp.meshgrid(plot_pts1, plot_pts2, indexing="ij")
+            for_color = ax.pcolor(X, Y, reduced_density)
+            ax.set_xlabel(self.axes_transform[dim_1])
+            ax.set_ylabel(self.axes_transform[dim_2])
+            fig.colorbar(for_color)
+            ax.set_title("Kinetic background profile (logical space)")
+            
+            if physical_coords is not None:
+                fig, ax = plt.subplots(1, 1)
+                for_color_phys = ax.pcolor(physical_coords[proj_axis[0]], physical_coords[proj_axis[1]], reduced_density)
+                ax.set_xlabel(proj_axis[0])
+                ax.set_ylabel(proj_axis[1])
+                fig.colorbar(for_color_phys)
+                ax.set_title("Kinetic background profile (physical space)")
+                
+            if plot_3D:
                 fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-                for_color = ax.plot_surface(
-                    X=physical_coords[0][tuple(id_dim)],
-                    Y=physical_coords[1][tuple(id_dim)],
-                    Z=physical_coords[2][tuple(id_dim)],
+                norm = Normalize(reduced_density.min(), reduced_density.max() + 0.01)
+                colors = cm.viridis(norm(reduced_density))
+                ax.plot_surface(
+                    X=physical_coords["x"],
+                    Y=physical_coords["y"],
+                    Z=physical_coords["z"],
                     facecolors=colors,
                 )
                 ax.set_xlabel("x")
                 ax.set_ylabel("y")
                 ax.set_zlabel("z")
-            if title is None:
-                ax.set_title(f"Density in ({dim_1}, {dim_2}) space")
-            else:
-                ax.set_title(title)
-            fig.colorbar(for_color)
-            plt.show(block=True)
+                ax.set_title("Kinetic background profile (physical space)")
+
+        plt.show(block=True)
 
     def __add__(self, other_f0):
         return SumKineticBackground(self, other_f0)
