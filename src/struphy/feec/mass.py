@@ -11,7 +11,6 @@ from feectools.fem.tensor import FemSpace, TensorFemSpace
 from feectools.fem.vector import VectorFemSpace
 from feectools.linalg.basic import IdentityOperator, InverseLinearOperator, LinearOperator, Vector
 from feectools.linalg.block import BlockLinearOperator, BlockVector
-from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilVector
 
 from struphy import equils
@@ -22,7 +21,7 @@ from struphy.feec.utilities import LocalProjectionMatrix, LocalRotationMatrix, g
 from struphy.fields_background.base import MHDequilibrium
 from struphy.geometry.base import Domain
 from struphy.io.options import LiteralOptions
-from struphy.linear_algebra.solver import SolverParameters
+from struphy.linear_algebra.solver import SolverParameters, inverse
 from struphy.polar.basic import PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.docstring_converter import auto_convert_docstring, info

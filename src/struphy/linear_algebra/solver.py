@@ -5,6 +5,52 @@ from struphy.io.options import LiteralOptions
 
 logger = logging.getLogger("struphy")
 
+# kwargs accepted by struphy.linear_algebra.petsc_solver.PETScSolver.__init__
+_PETSC_SOLVER_KWARGS = ("x0", "tol", "maxiter", "verbose", "recycle", "ksp_type", "pc_type")
+
+
+def inverse(A, solver: str, **kwargs):
+    """Create an (approximate) inverse of ``A``.
+
+    Thin wrapper around :func:`feectools.linalg.solvers.inverse` that additionally
+    supports ``solver="petsc"``, dispatching to
+    :class:`~struphy.linear_algebra.petsc_solver.PETScSolver`. For all other solver
+    names this simply delegates to the feectools implementation.
+
+    Parameters
+    ----------
+    A : feectools.linalg.basic.LinearOperator
+        Left-hand-side matrix of the linear system. For ``solver="petsc"``, ``A``
+        must be (or expose via ``A.matrix``) an assembled
+        ``StencilMatrix``/``BlockLinearOperator``, see
+        :class:`~struphy.linear_algebra.petsc_solver.PETScSolver`.
+
+    solver : str
+        Preferred iterative solver, one of feectools' options ('cg', 'pcg',
+        'bicg', 'bicgstab', 'pbicgstab', 'minres', 'lsmr', 'gmres') or 'petsc'.
+
+    Returns
+    -------
+    obj : feectools.linalg.basic.InverseLinearOperator
+        A linear operator acting as the (approximate) inverse of A.
+    """
+    if solver == "petsc":
+        from struphy.linear_algebra.petsc_solver import PETScSolver
+
+        if kwargs.get("pc") is not None:
+            logger.debug("PETScSolver ignores the feectools 'pc' preconditioner; use 'pc_type' instead.")
+
+        matrix = getattr(A, "matrix", A)
+        petsc_kwargs = {k: v for k, v in kwargs.items() if k in _PETSC_SOLVER_KWARGS}
+        petsc_kwargs.setdefault("ksp_type", "cg")
+        petsc_kwargs.setdefault("pc_type", "jacobi")
+
+        return PETScSolver(matrix, **petsc_kwargs)
+
+    from feectools.linalg.solvers import inverse as feectools_inverse
+
+    return feectools_inverse(A, solver, **kwargs)
+
 
 @dataclass
 class SolverParameters:
