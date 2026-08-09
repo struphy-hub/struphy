@@ -145,34 +145,17 @@ class Simulation(SimulationBase):
         if logging_level is not None:
             set_logging_level(logging_level)
 
-        self._name = name
-        self._description = description
-        self._model = model
-        self._params_path = params_path
+        self.model = model
+        self.name = name
+        self.description = description
+        self.params_path = params_path
         self.env = env
-        self._time_opts = time_opts
-        self._setup_domain_and_equil(domain, equil)
-        self._grid = grid
-        self._derham_opts = derham_opts
-
-        # mpi info
-        if isinstance(MPI, MockMPI):
-            self.comm = None
-            self.rank = 0
-            self.comm_size = 1
-            self.Barrier = lambda: None
-        else:
-            if comm is None:
-                self.comm = MPI.COMM_WORLD
-            else:
-                self.comm = comm
-            self.rank = self.comm.Get_rank()
-            self.comm_size = self.comm.Get_size()
-            self.Barrier = self.comm.Barrier
-
-        logger.info(f"\nMPI comm: {self.comm}")
-        logger.info(f"MPI size: {self.comm_size} processes")
-        logger.info(f"MPI rank: {self.rank}")
+        self.time_opts = time_opts
+        self.domain = domain
+        self.equil = equil
+        self.grid = grid
+        self.derham_opts = derham_opts
+        self.comm = comm
 
         if logger.level <= logging.INFO and self.rank == 0:
             self.show_parameters()
@@ -183,47 +166,8 @@ class Simulation(SimulationBase):
         self.Barrier()
         self.start_time = time.time()
 
-        # check model
-        assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
-        self.model_name = model.__class__.__name__
-
-        # meta-data
-        path_out = env.path_out
-        num_clones = env.num_clones
-
-        # save parameter file
-        if self.rank == 0:
-            # save python param file
-            if self.params_path is not None:
-                assert self.params_path[-3:] == ".py"
-                try:
-                    shutil.copy2(
-                        self.params_path,
-                        os.path.join(path_out, "parameters.py"),
-                    )
-                except shutil.SameFileError:
-                    pass
-            # save simulation configuration as JSON
-            else:
-                self.export(os.path.join(path_out, "config.json"))
-
-        # config clones
-        if self.comm is None:
-            clone_config = None
-        else:
-            if num_clones == 1:
-                clone_config = None
-            else:
-                # Setup domain cloning communicators
-                # MPI.COMM_WORLD     : comm
-                # within a clone:    : sub_comm
-                # between the clones : inter_comm
-                clone_config = CloneConfig(comm=self.comm, params=None, num_clones=num_clones)
-                clone_config.print_clone_config()
-                if model.particle_species:
-                    clone_config.print_particle_config()
-
-        self.clone_config = model.clone_config = clone_config
+        self._save_config()
+        self.clone_config = self._create_clone_config()
         self.Barrier()
 
     # ----------------
@@ -1149,27 +1093,37 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                     if n < 10:  # print only ten statements in case of many processes
                         logger.info("Removed existing file " + file)
 
-    def _setup_domain_and_equil(self, domain: Domain, equil: FluidEquilibrium):
-        """If a numerical equilibirum is used, the domain is taken from this equilibirum."""
-        if equil is not None:
-            if isinstance(equil, NumericalMHDequilibrium):
-                self._domain = equil.domain
-            else:
-                self._domain = domain
-                equil.domain = domain
+    def _save_config(self):
+        """Save the parameter file (or, if there is none, the configuration as JSON) to the output folder."""
+        if self.rank != 0:
+            return
 
-            if hasattr(equil, "units"):
-                assert isinstance(equil.units, Units)
-                equil.units.derive_units(
-                    velocity_scale=self.model.velocity_scale,
-                    A_bulk=self.model.bulk_species.mass_number,
-                    Z_bulk=self.model.bulk_species.charge_number,
+        if self.params_path is not None:
+            try:
+                shutil.copy2(
+                    self.params_path,
+                    os.path.join(self.env.path_out, "parameters.py"),
                 )
-
+            except shutil.SameFileError:
+                pass
         else:
-            self._domain = domain
+            self.export(os.path.join(self.env.path_out, "config.json"))
 
-        self._equil = equil
+    def _create_clone_config(self) -> CloneConfig | None:
+        """Setup domain cloning communicators, None if there is only one clone (or no MPI).
+
+        MPI.COMM_WORLD     : comm
+        within a clone:    : sub_comm
+        between the clones : inter_comm
+        """
+        if self.comm is None or self.env.num_clones == 1:
+            return None
+
+        clone_config = CloneConfig(comm=self.comm, params=None, num_clones=self.env.num_clones)
+        clone_config.print_clone_config()
+        if self.model.particle_species:
+            clone_config.print_particle_config()
+        return clone_config
 
     @profile
     def _allocate_feec(self, grid: grids.TensorProductGrid, derham_opts: DerhamOptions):
@@ -1776,20 +1730,43 @@ if __name__ == "__main__":
         """StruphyModel object containing the PDE of the model."""
         return self._model
 
+    @model.setter
+    def model(self, value: StruphyModel):
+        assert hasattr(value, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
+        self._model = value
+        self._model_name = value.__class__.__name__
+
     @property
     def name(self) -> str:
         """Name of the simulation."""
         return self._name
+
+    @name.setter
+    def name(self, value: str):
+        assert isinstance(value, str)
+        self._name = value
 
     @property
     def description(self) -> str:
         """Description of the simulation."""
         return self._description
 
+    @description.setter
+    def description(self, value: str):
+        assert isinstance(value, str)
+        self._description = value
+
     @property
     def params_path(self):
         """Path to parameter file used for the run. Can be None if Simulation is instantiated in a notebook environment (no parameter file in this case)."""
         return self._params_path
+
+    @params_path.setter
+    def params_path(self, value: str | None):
+        if value is not None:
+            assert isinstance(value, str)
+            assert value[-3:] == ".py", f"Parameter file must be a Python file, got {value}."
+        self._params_path = value
 
     @property
     def env(self) -> EnvironmentOptions:
@@ -1799,6 +1776,7 @@ if __name__ == "__main__":
     @env.setter
     def env(self, value: EnvironmentOptions):
         """Update the environment options for the simulation."""
+        assert isinstance(value, EnvironmentOptions)
         self._env = value
 
         # create output folders
@@ -1810,29 +1788,134 @@ if __name__ == "__main__":
         """Time object containing time stepping parameters."""
         return self._time_opts
 
+    @time_opts.setter
+    def time_opts(self, value: Time):
+        assert isinstance(value, Time)
+        self._time_opts = value
+
     @property
     def domain(self):
         """Domain object, see :ref:`avail_mappings`."""
         return self._domain
+
+    @domain.setter
+    def domain(self, value: Domain):
+        """Set the domain. If an equilibrium is already set, the domain is passed on to it
+        (unless the equilibrium is numerical, in which case it dictates the domain, see :attr:`equil`)."""
+        assert isinstance(value, Domain)
+        equil = getattr(self, "_equil", None)
+        if isinstance(equil, NumericalMHDequilibrium):
+            self._domain = equil.domain
+        else:
+            self._domain = value
+            if equil is not None:
+                equil.domain = value
 
     @property
     def equil(self):
         """Fluid equilibrium object, see :ref:`fluid_equil`."""
         return self._equil
 
+    @equil.setter
+    def equil(self, value: FluidEquilibrium | None):
+        """Set the fluid equilibrium and link it to the domain and the model units.
+        If a numerical equilibrium is used, the domain is taken from this equilibrium."""
+        assert value is None or isinstance(value, FluidEquilibrium)
+        self._equil = value
+
+        if value is None:
+            return
+
+        if isinstance(value, NumericalMHDequilibrium):
+            self._domain = value.domain
+        else:
+            value.domain = self.domain
+
+        if hasattr(value, "units"):
+            assert isinstance(value.units, Units)
+            value.units.derive_units(
+                velocity_scale=self.model.velocity_scale,
+                A_bulk=self.model.bulk_species.mass_number,
+                Z_bulk=self.model.bulk_species.charge_number,
+            )
+
     @property
     def grid(self):
         """Grid object, see :ref:`grids`."""
         return self._grid
+
+    @grid.setter
+    def grid(self, value: grids.TensorProductGrid | None):
+        assert value is None or isinstance(value, grids.TensorProductGrid)
+        self._grid = value
 
     @property
     def derham_opts(self):
         """DerhamOptions object containing options for the setup of the 3d Derham sequence."""
         return self._derham_opts
 
+    @derham_opts.setter
+    def derham_opts(self, value: DerhamOptions | None):
+        assert value is None or isinstance(value, DerhamOptions)
+        self._derham_opts = value
+
+    @property
+    def comm(self):
+        """MPI communicator of the run, None if MPI is not available."""
+        return self._comm
+
+    @comm.setter
+    def comm(self, value: MPI.Intracomm | None):
+        """Set the MPI communicator; this also updates :attr:`rank`, :attr:`comm_size` and :attr:`Barrier`.
+        If None is passed, MPI.COMM_WORLD is used (unless MPI is not available)."""
+        if isinstance(MPI, MockMPI):
+            self._comm = None
+            self._rank = 0
+            self._comm_size = 1
+            self._barrier = lambda: None
+        else:
+            self._comm = MPI.COMM_WORLD if value is None else value
+            self._rank = self._comm.Get_rank()
+            self._comm_size = self._comm.Get_size()
+            self._barrier = self._comm.Barrier
+
+        logger.info(f"\nMPI comm: {self._comm}")
+        logger.info(f"MPI size: {self._comm_size} processes")
+        logger.info(f"MPI rank: {self._rank}")
+
+    @property
+    def start_time(self) -> float:
+        """Wall-clock time (epoch seconds) at which the simulation was set up."""
+        return self._start_time
+
+    @start_time.setter
+    def start_time(self, value: float):
+        assert isinstance(value, float)
+        self._start_time = value
+
     # -----------------------------------------------------------------
     # Common properties (derived from the above properties, no setters)
     # -----------------------------------------------------------------
+
+    @property
+    def rank(self) -> int:
+        """Rank of the current process in :attr:`comm`."""
+        return self._rank
+
+    @property
+    def comm_size(self) -> int:
+        """Number of processes in :attr:`comm`."""
+        return self._comm_size
+
+    @property
+    def Barrier(self):
+        """Barrier of :attr:`comm` (a no-op if MPI is not available)."""
+        return self._barrier
+
+    @property
+    def model_name(self) -> str:
+        """Class name of the model."""
+        return self._model_name
 
     @property
     def derham(self):
@@ -1871,5 +1954,7 @@ if __name__ == "__main__":
 
     @clone_config.setter
     def clone_config(self, new):
+        """Set the clone config, both here and on the model."""
         assert isinstance(new, CloneConfig) or new is None
         self._clone_config = new
+        self.model.clone_config = new
