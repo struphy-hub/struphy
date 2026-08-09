@@ -1,3 +1,4 @@
+import os
 # -----------------------------
 # Description of the simulation
 # -----------------------------
@@ -16,35 +17,31 @@ Vlasov-Ampère system and the accuracy of particle-in-cell methods.
 # Import Struphy API
 # ------------------
 
+# For particles:
 from struphy import (
     BaseUnits,
+    BinningPlot,
+    BoundaryParameters,
     DerhamOptions,
     EnvironmentOptions,
     FieldsBackground,
+    KernelDensityPlot,
+    LoadingParameters,
+    SavingParameters,
     Simulation,
+    SortingParameters,
     Time,
+    WeightsParameters,
     domains,
     equils,
     grids,
-    perturbations,
-)
-
-# For particles:
-from struphy import (
-    BinningPlot,
-    BoundaryParameters,
-    KernelDensityPlot,
-    LoadingParameters,
-    WeightsParameters,
-    SortingParameters,
-    SavingParameters,
     maxwellians,
+    perturbations,
 )
 
 # ---------------------
 # Instance of the model
 # ---------------------
-
 from struphy.models import VlasovAmpereOneSpecies
 
 # Units
@@ -63,7 +60,7 @@ model.kinetic_ions.var.save_data = True
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(sim_folder="sim_data_petsc")
+env = EnvironmentOptions(sim_folder="sim_data_petsc", out_folders=os.environ.get("STRUPHY_PROFILING_OUT_FOLDERS", os.getcwd()))
 
 # Time stepping
 time_opts = Time(dt = 0.05, Tend = 20.0, split_algo = "LieTrotter")
@@ -99,7 +96,7 @@ sim = Simulation(
 loading_params = LoadingParameters(ppc=20, seed=42)
 weights_params = WeightsParameters(control_variate= True)
 boundary_params = BoundaryParameters()
-sorting_params = SortingParameters(boxes_per_dim=(16, 1, 1), do_sort=True)
+sorting_params = SortingParameters(boxes_per_dim=(4, 4, 4), do_sort=True)
 
 binplot = BinningPlot(slice='e1_v1', n_bins= (128, 128), ranges= ((0.,1.), (-5.,5.)))
 saving_params = SavingParameters(binning_plots=(binplot,))

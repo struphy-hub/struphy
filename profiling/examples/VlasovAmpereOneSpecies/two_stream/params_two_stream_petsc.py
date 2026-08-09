@@ -1,3 +1,4 @@
+import os
 # -----------------------------
 # Description of the simulation
 # -----------------------------
@@ -17,35 +18,31 @@ of the particle-in-cell method in capturing mode coupling and energy transfer ph
 # Import Struphy API
 # ------------------
 
+# For particles:
 from struphy import (
     BaseUnits,
+    BinningPlot,
+    BoundaryParameters,
     DerhamOptions,
     EnvironmentOptions,
     FieldsBackground,
+    KernelDensityPlot,
+    LoadingParameters,
+    SavingParameters,
     Simulation,
+    SortingParameters,
     Time,
+    WeightsParameters,
     domains,
     equils,
     grids,
-    perturbations,
-)
-
-# For particles:
-from struphy import (
-    BinningPlot,
-    BoundaryParameters,
-    KernelDensityPlot,
-    LoadingParameters,
-    WeightsParameters,
-    SortingParameters,
-    SavingParameters,
     maxwellians,
+    perturbations,
 )
 
 # ---------------------
 # Instance of the model
 # ---------------------
-
 from struphy.models import VlasovAmpereOneSpecies
 
 # Units
@@ -64,7 +61,7 @@ model.kinetic_ions.var.save_data = True
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(sim_folder="sim_data_petsc")
+env = EnvironmentOptions(sim_folder="sim_data_petsc", out_folders=os.environ.get("STRUPHY_PROFILING_OUT_FOLDERS", os.getcwd()))
 
 # Time stepping
 time_opts = Time(dt = 0.1, Tend = 50.0, split_algo = "LieTrotter")
@@ -100,7 +97,7 @@ sim = Simulation(
 loading_params = LoadingParameters(ppc=20, seed=42, moments=(0.0, 0.0, 0.0, 3.0, 1.0, 1.0))
 weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters()
-sorting_params = SortingParameters(boxes_per_dim=(16, 1, 1), do_sort=True)
+sorting_params = SortingParameters(boxes_per_dim=(4, 4, 4), do_sort=True)
 
 binplot = BinningPlot(slice='e1_v1', n_bins= (128, 128), ranges= ((0.,1.), (-10.0,10.0)))
 saving_params = SavingParameters(binning_plots=(binplot,))
