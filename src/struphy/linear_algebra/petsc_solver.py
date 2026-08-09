@@ -215,7 +215,11 @@ class PETScSolver(InverseLinearOperator):
         :class:`~feectools.linalg.basic.InverseLinearOperator` subclasses; unused by PETSc's KSP.
 
     tol : float, default=1e-6
-        Relative tolerance, passed to ``KSP.setTolerances(rtol=tol)``.
+        Relative tolerance, passed to ``KSP.setTolerances(rtol=tol)``. Note this differs from
+        feectools' own solvers, whose ``tol`` is an *absolute* tolerance on the residual norm --
+        for a poorly-scaled system (e.g. a right-hand side far from order 1) the two are not
+        directly comparable; see git history for a reverted attempt to unify them via
+        ``atol``, which caused severe slowdowns/inaccuracy for such systems.
 
     maxiter : int, default=1000
         Maximum number of KSP iterations.
