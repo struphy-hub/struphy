@@ -1865,7 +1865,8 @@ if __name__ == "__main__":
         return self._comm
 
     @comm.setter
-    def comm(self, value: MPI.Intracomm | None):
+    # NOTE: string annotation, MPI.Intracomm is a dummy function if mpi4py is not installed (MockMPI)
+    def comm(self, value: "MPI.Intracomm | None"):
         """Set the MPI communicator; this also updates :attr:`rank`, :attr:`comm_size` and :attr:`Barrier`.
         If None is passed, MPI.COMM_WORLD is used (unless MPI is not available)."""
         if isinstance(MPI, MockMPI):
