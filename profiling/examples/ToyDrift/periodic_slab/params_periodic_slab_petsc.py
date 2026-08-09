@@ -86,12 +86,12 @@ domain = domains.Cuboid()
 equil = equils.HomogenSlab(B0z=1.0, n0=1.0)
 
 # Grid
-grid = grids.TensorProductGrid(num_elements=(16, 16, 16))
+grid = grids.TensorProductGrid(num_elements=(24, 24, 24))
 
 # Derham options -- fully periodic (required: PETScSolver cannot (yet) assemble
 # DirectionalDerivativeOperator along a non-periodic axis, see
 # struphy.linear_algebra.petsc_solver._directional_derivative_to_stencil_matrix)
-derham_opts = DerhamOptions(degree=(2, 2, 2), bcs=(None, None, None))
+derham_opts = DerhamOptions(degree=(3, 3, 3), bcs=(None, None, None))
 
 # Simulation object
 sim = Simulation(
@@ -109,7 +109,7 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-loading_params = LoadingParameters(ppc=20, seed=42)
+loading_params = LoadingParameters(ppc=5, seed=42)
 weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters()
 sorting_params = SortingParameters(boxes_per_dim=(4, 4, 4), do_sort=True)
