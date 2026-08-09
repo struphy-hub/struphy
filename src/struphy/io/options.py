@@ -330,6 +330,12 @@ class EnvironmentOptions(OptionsBase):
 
     profiling_trace: bool, optional
         Save time-trace of each profiling region (default=False)
+
+    profiling_label: str, optional
+        Short name for this run, forwarded to ``ProfileManager.setup(label=...)`` (default=None,
+        i.e. scope-profiler falls back to the output file's stem). Used by scope-profiler's
+        post-processing (chart legends, summary heading, ``scope-profiler inspect``, JSON
+        statistics) to distinguish several runs being compared, e.g. ``"petsc, 4 ranks"``.
     """
 
     out_folders: str = os.getcwd()
@@ -341,6 +347,7 @@ class EnvironmentOptions(OptionsBase):
     num_clones: int = 1
     profiling_activated: bool = False
     profiling_trace: bool = False
+    profiling_label: str | None = None
 
     def __post_init__(self):
         self.path_out: str = os.path.join(self.out_folders, self.sim_folder)

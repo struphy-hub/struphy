@@ -214,14 +214,14 @@ class Simulation(SimulationBase):
     def _setup_profiling(self):
         # setup profiling agent
         ProfileManager.setup(
-            profiling_activated=self.env.profiling_activated,
-            time_trace=self.env.profiling_trace,
+            deactivate_profiling=not self.env.profiling_activated,
             use_likwid=False,
             file_path=os.path.join(
                 self.env.out_folders,
                 self.env.sim_folder,
                 "profiling_data.h5",
             ),
+            label=self.env.profiling_label,
         )
 
     def show_parameters(self):

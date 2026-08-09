@@ -74,11 +74,20 @@ parser.add_argument(
 )
 args, _ = parser.parse_known_args()
 
+# scope-profiler label: distinguishes solver/rank-count combinations in post-processing
+# (chart legends, `scope-profiler inspect`), see EnvironmentOptions.profiling_label.
+from feectools.ddm.mpi import mpi as MPI
+
+_comm = MPI.COMM_WORLD
+_num_ranks = _comm.Get_size() if _comm is not None else 1
+_profiling_label = f"{args.solver}, {_num_ranks} rank" + ("s" if _num_ranks != 1 else "")
+
 env = EnvironmentOptions(
     sim_folder=f"sim_{args.id:02d}",
     out_folders=os.environ.get("STRUPHY_PROFILING_OUT_FOLDERS", os.getcwd()),
     profiling_activated=True,
     profiling_trace=True,
+    profiling_label=_profiling_label,
 )
 
 # Time stepping
