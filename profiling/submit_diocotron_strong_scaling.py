@@ -15,20 +15,11 @@ import argparse
 from pathlib import Path
 
 from profiling_job import ProfilingCase
-
+from utils import _get_profiling_args
 
 def main() -> None:
 
-    # Parse arguments, do not remove --upload
-    parser = argparse.ArgumentParser(
-        description=("Submit profiling jobs to a SLURM cluster and package the results for upload."),
-    )
-    parser.add_argument(
-        "--upload",
-        action="store_true",
-        help="Upload the packaged profiling results to the profiling-data repo.",
-    )
-    args = parser.parse_args()
+    args = _get_profiling_args()
 
     # Paths relative to this script's location, so it can be run from anywhere.
     script_dir = Path(__file__).resolve().parent
