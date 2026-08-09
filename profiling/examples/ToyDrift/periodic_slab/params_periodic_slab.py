@@ -66,6 +66,9 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--id", type=int, default=0, help="Run id, used to name the output folder.")
+parser.add_argument(
+    "--solver", type=str, default="pcg", choices=["pcg", "petsc"], help="Solver for the Poisson-type solve."
+)
 args, _ = parser.parse_known_args()
 
 # Environment options
@@ -126,7 +129,7 @@ model.kinetic_ions.set_markers(
 # Propagator options
 # ------------------
 
-model.propagators.gc_poisson.options.solver = "petsc"
+model.propagators.gc_poisson.options.solver = args.solver
 model.propagators.gc_poisson.options.solver_params = SolverParameters(tol=1e-10, maxiter=20_000)
 model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(
     algo="explicit",

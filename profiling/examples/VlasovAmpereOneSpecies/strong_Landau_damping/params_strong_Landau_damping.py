@@ -1,16 +1,18 @@
 import os
+
 # -----------------------------
 # Description of the simulation
 # -----------------------------
-# Please fill in a verbal description of the simulation. 
+# Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
 description = """
-Weak Landau damping: A linear test case for the VlasovAmpereOneSpecies model.
-This test involves a small amplitude electrostatic perturbation in a uniform, collisionless plasma.
-The perturbation is damped due to phase mixing effects (Landau damping) as particles interact with 
-the self-consistent electric field. This benchmark validates the numerical discretization of the 
-Vlasov-Ampère system and the accuracy of particle-in-cell methods.
+Strong (nonlinear) Landau damping: A nonlinear test case for the VlasovAmpereOneSpecies model.
+This test involves a large amplitude electrostatic perturbation in a uniform, collisionless plasma.
+Unlike weak Landau damping, the nonlinear regime exhibits trapping of particles in the potential wells
+of the self-consistent electric field, leading to vortex formation and complex phase space structures.
+This benchmark tests the ability of the particle-in-cell method to capture nonlinear kinetic effects
+and validates the long-term stability and accuracy of the Vlasov-Ampère discretization.
 """
 
 # ------------------
@@ -48,7 +50,7 @@ from struphy.models import VlasovAmpereOneSpecies
 base_units = BaseUnits()
 
 # Model instance
-model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0 = False)
+model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False)
 
 # List all variables and decide whether to save their data
 model.em_fields.e_field.save_data = True
@@ -59,14 +61,31 @@ model.kinetic_ions.var.save_data = True
 # Instance of the simulation
 # --------------------------
 
+# `--id` distinguishes runs that share a rank count but differ in something else; the
+# profiling driver passes its launch counter (see `ProfilingJob.build_commands`).
+# Unknown flags are ignored so the driver can forward other parameters as well.
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--id", type=int, default=0, help="Run id, used to name the output folder.")
+parser.add_argument(
+    "--solver", type=str, default="pcg", choices=["pcg", "petsc"], help="Solver for the Poisson-type solve."
+)
+args, _ = parser.parse_known_args()
+
 # Environment options
-env = EnvironmentOptions(sim_folder="sim_data_pcg", out_folders=os.environ.get("STRUPHY_PROFILING_OUT_FOLDERS", os.getcwd()))
+env = EnvironmentOptions(
+    sim_folder=f"sim_{args.id:02d}",
+    out_folders=os.environ.get("STRUPHY_PROFILING_OUT_FOLDERS", os.getcwd()),
+    profiling_activated=True,
+    profiling_trace=True,
+)
 
 # Time stepping
-time_opts = Time(dt = 0.05, Tend = 20.0, split_algo = "LieTrotter")
+time_opts = Time(dt=0.05, Tend=75.0, split_algo="LieTrotter")
 
 # Geometry
-domain = domains.Cuboid(r1 = 12.56) # r1 -> pi * 4 -> k = 0.5
+domain = domains.Cuboid(r1=12.56)
 
 # Fluid equilibrium (can be used as part of initial conditions)
 equil = None
@@ -75,7 +94,7 @@ equil = None
 grid = grids.TensorProductGrid(num_elements=(16, 16, 16))
 
 # Derham options
-derham_opts = DerhamOptions(degree=(3, 1, 1))
+derham_opts = DerhamOptions()
 
 # Simulation object
 sim = Simulation(
@@ -94,31 +113,31 @@ sim = Simulation(
 # -------------------
 
 loading_params = LoadingParameters(ppc=20, seed=42)
-weights_params = WeightsParameters(control_variate= True)
+weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters()
 sorting_params = SortingParameters(boxes_per_dim=(4, 4, 4), do_sort=True)
 
-binplot = BinningPlot(slice='e1_v1', n_bins= (128, 128), ranges= ((0.,1.), (-5.,5.)))
+binplot = BinningPlot(slice="e1_v1", n_bins=(128, 128), ranges=((0.0, 1.0), (-5.0, 5.0)))
 saving_params = SavingParameters(binning_plots=(binplot,))
 
-model.kinetic_ions.set_markers(loading_params=loading_params,
-                               weights_params=weights_params,
-                               boundary_params=boundary_params,
-                               sorting_params=sorting_params,
-                               saving_params=saving_params,
-                               bufsize = 0.4,
-                               )
+model.kinetic_ions.set_markers(
+    loading_params=loading_params,
+    weights_params=weights_params,
+    boundary_params=boundary_params,
+    sorting_params=sorting_params,
+    saving_params=saving_params,
+    bufsize=0.4,
+)
 
 # ------------------
 # Propagator options
 # ------------------
 
-model.propagators.push_eta.options = model.propagators.push_eta.Options() 
+model.propagators.push_eta.options = model.propagators.push_eta.Options()
 if model.with_B0:
     model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
-
 model.propagators.coupling_va.options = model.propagators.coupling_va.Options()
-model.initial_poisson.options = model.initial_poisson.Options(stab_mat="M0", solver="pcg")
+model.initial_poisson.options = model.initial_poisson.Options(stab_mat="M0", solver=args.solver)
 
 # ------------------
 # Initial conditions
@@ -135,9 +154,13 @@ background = maxwellians.Maxwellian3D(n=(1.0, None))
 model.kinetic_ions.var.add_background(background)
 
 # Perturbations for (some) kinetic species
-perturbation = perturbations.ModesCos(amps = (0.001,), ls = (1,))
-init = maxwellians.Maxwellian3D(n = (1.0,perturbation))
+perturbation = perturbations.ModesCos(amps=(0.5,), ls=(1,))
+init = maxwellians.Maxwellian3D(n=(1.0, perturbation))
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":
-    sim.run()
+    # one_time_step=True isolates the initial Poisson solve (the only part of this model that
+    # solver= affects -- the field then evolves via VlasovAmpereCoupling, unrelated to
+    # PETScSolver) from the ~1500 identical transport steps a full Tend=75.0 run would otherwise
+    # dilute the comparison with.
+    sim.run(one_time_step=True)
