@@ -27,7 +27,6 @@ def main() -> None:
         compiler="GNU",
         upload=args.upload,
     )
-    profiling_case.use_slurm = False
 
     # Launch one run per (rank count, solver) combination, same rank counts for both solvers so
     # they are directly comparable. Each launch gets its own `--id` (hence its own `sim_<id>`

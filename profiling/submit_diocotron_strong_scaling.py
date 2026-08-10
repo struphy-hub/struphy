@@ -37,7 +37,6 @@ def main() -> None:
         upload=args.upload,
     )
 
-    profiling_case.use_slurm = False
 
     # Launch one run per rank count
     for num_tasks in (2, 4):  # , 8, 16, 32, 64, 128, 256):
