@@ -10,7 +10,7 @@ from matplotlib import cm
 from matplotlib.colors import Normalize
 import logging
 
-from struphy.fields_background.base import FluidEquilibriumWithB
+from struphy.fields_background.base import FluidEquilibriumWithB, FluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.initial.base import Perturbation
 from struphy.io.options import LiteralOptions
@@ -887,12 +887,12 @@ class Maxwellian(KineticBackground):
 
         return res
 
-    def _evaluate_moment(self, *coords, name: str = "n", add_perturbation: bool = None):
+    def _evaluate_moment(self, eta1, eta2, eta3, *, name: str = "n", add_perturbation: bool = None):
         """Scalar moment evaluation as background + perturbation.
 
         Parameters
         ----------
-        coords : numpy.arrays
+        eta1, eta2, eta3 : numpy.arrays
             Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
 
         name : str
@@ -907,38 +907,48 @@ class Maxwellian(KineticBackground):
         """
 
         # collect arguments
-        for n, coord in enumerate(coords):
-            assert isinstance(coord, xp.ndarray)
-            if n == 0:
-                shp = coord.shape
-            else:
-                assert coord.shape == shp, f"Argument {n} has shape {coord.shape}, but must match {shp}."
+        assert isinstance(eta1, xp.ndarray)
+        assert isinstance(eta2, xp.ndarray)
+        assert isinstance(eta3, xp.ndarray)
+        assert eta1.shape == eta2.shape == eta3.shape
 
         params = self.params[name]
         assert isinstance(params, tuple)
         assert len(params) == 2
 
         # flat evaluation for markers
-        if coords[0].ndim == 1:
+        if eta1.ndim == 1:
             etas = [
                 xp.concatenate(
-                    [coord[:, None] for coord in coords],
+                    (eta1[:, None], eta2[:, None], eta3[:, None]),
                     axis=1,
                 ),
             ]
         # assuming that input comes from meshgrid.
-        elif coords[0].ndim == 4:
-            etas = tuple(coord[:, :, :, 0] for coord in coords)
-        elif coords[0].ndim == 5:
-            etas = tuple(coord[:, :, :, 0, 0] for coord in coords)
-        elif coords[0].ndim == 6:
-            etas = tuple(coord[:, :, :, 0, 0, 0] for coord in coords)
+        elif eta1.ndim == 4:
+            etas = (
+                eta1[:, :, :, 0],
+                eta2[:, :, :, 0],
+                eta3[:, :, :, 0],
+            )
+        elif eta1.ndim == 5:
+            etas = (
+                eta1[:, :, :, 0, 0],
+                eta2[:, :, :, 0, 0],
+                eta3[:, :, :, 0, 0],
+            )
+        elif eta1.ndim == 6:
+            etas = (
+                eta1[:, :, :, 0, 0, 0],
+                eta2[:, :, :, 0, 0, 0],
+                eta3[:, :, :, 0, 0, 0],
+            )
         else:
-            etas = coords
+            etas = (eta1, eta2, eta3)
 
         # initialize output
-        if coords[0].ndim == 1:
-            out = 0.0 * coords[0]
+        if eta1.ndim == 1:
+            out = 0.0 * eta1
         else:
             out = 0.0 * etas[0]
 
@@ -947,7 +957,7 @@ class Maxwellian(KineticBackground):
         if isinstance(background, (float, int)):
             out += background
         else:
-            assert callable(background)
+            assert isinstance(background, FluidEquilibrium)
             out += background(*etas)
 
         # add perturbation
@@ -957,15 +967,15 @@ class Maxwellian(KineticBackground):
         perturbation = params[1]
         if perturbation is not None and add_perturbation:
             assert isinstance(perturbation, Perturbation)
-            if coords[0].ndim == 1:
-                out += perturbation(*coords)
+            if eta1.ndim == 1:
+                out += perturbation(eta1, eta2, eta3)
             else:
                 out += perturbation(*etas)
 
         # uniform density on disc (n=2 eta_1)
         if name == "n" and self.params.get("uniform_on_disc", False):
-            if coords[0].ndim == 1:
-                out *= 2.0 * coords[0]
+            if eta1.ndim == 1:
+                out *= 2.0 * eta1
             else:
                 out *= 2.0 * etas[0]
 
