@@ -1,21 +1,20 @@
-"""ToyDrift periodic slab, higher resolution: PETSc vs. pcg at a larger, more realistic size.
+"""ToyDrift periodic slab (32^3): PETSc vs. pcg, the largest gap in this benchmark suite.
 
-This is a scaled-up variant of ``submit_toydrift_petsc.py``'s case (see
-``profiling/examples/ToyDrift/periodic_slab_hires/params_periodic_slab_hires.py`` for the full
-story): a 32^3 grid, 32768 dofs (vs. periodic_slab's 24^3, 13824 dofs) with PETSc's preconditioner
-explicitly set to ``"gamg"`` (algebraic multigrid, via ``SolverParameters.pc_type`` -- see
+See ``profiling/examples/ToyDrift/periodic_slab_hires/params_periodic_slab_hires.py`` for the
+full story: a 32^3 grid (32768 dofs) with PETSc's preconditioner explicitly set to ``"gamg"``
+(algebraic multigrid, via ``SolverParameters.pc_type`` -- see
 ``struphy.linear_algebra.solver.SolverParameters``) instead of the default ``"jacobi"``.
 
 Measured via ``struphy.linear_algebra.petsc_examples_benchmark``'s repeated-solve methodology
 (isolates just the solve, amortizing gamg's one-time multigrid setup across several calls at
 fixed dt -- see that module's docstring): pcg needs ~190 CG iterations per solve (~10.9s) at this
-size, against PETSc+gamg's ~2 iterations (~0.29s) -- a ~38x difference, essentially the same
-*ratio* periodic_slab already shows (~36x at 13824 dofs): this near-singular system is
-ill-conditioned mainly through its weakly constrained DC mode, not primarily through resolution,
-so the ratio does not grow much further with grid size. What does grow is the *absolute* cost:
-pcg's ~11 seconds per solve here is the practically relevant "huge difference" once multiplied
-over the many timesteps of a real simulation. See ``submit_toydrift_petsc.py`` and
-``submit_strong_landau_damping_petsc.py`` for the smaller-scale comparisons.
+size, against PETSc+gamg's ~2 iterations (~0.29s) -- a ~38x difference. This near-singular system
+is ill-conditioned mainly through its weakly constrained DC mode, not primarily through
+resolution, so the ratio does not grow much further with grid size -- but the *absolute* cost
+does: pcg's ~11 seconds per solve here is the practically relevant "huge difference" once
+multiplied over the many timesteps of a real simulation. See
+``submit_strong_landau_damping_petsc.py`` and ``submit_vlasov_maxwell_petsc.py`` for the
+smaller-scale (3-10x) comparisons.
 
 Each launch runs one 32^3-grid, one-time-step simulation (``params_periodic_slab_hires.py``'s
 ``__main__`` calls ``sim.run(one_time_step=True)``); note that a *single* one-time-step run still

@@ -15,20 +15,18 @@ Uses the committed parameter files under
   re-invokes ``model.initial_poisson`` directly after ``sim.run()`` rather than relying on the
   model's own (single-shot) usage of it.
 
-- ``ToyDrift/periodic_slab``: no periodic ToyDrift example exists under ``examples/`` (the real
-  one, ``examples/ToyGyrokinetic/diocotron_instability``, needs a physically non-periodic
+- ``ToyDrift/periodic_slab_hires``: no periodic ToyDrift example exists under ``examples/`` (the
+  real one, ``examples/ToyGyrokinetic/diocotron_instability``, needs a physically non-periodic
   HollowCylinder domain), so this one is written from scratch with a periodic Cuboid domain
   instead -- which works because ToyDrift's field solve is a plain ``PoissonSolve`` with no
   geometry-coupled averaging (unlike ``PoissonAdiabaticGyrokinetic``, used by
   ``DriftKineticElectrostaticAdiabatic``, which diverges outright on a periodic domain regardless
   of options -- tried first, not usable here). Unlike VlasovAmpereOneSpecies, ToyDrift's
   ``gc_poisson`` runs as a *regular per-step propagator*, so no re-invocation workaround is needed.
-
-- ``ToyDrift/periodic_slab_hires``: same setup as ``periodic_slab``, scaled up to a 32^3 grid
-  (vs. 24^3) to push feectools' unpreconditioned CG into several hundred iterations per solve
-  while PETSc+gamg (``pc_type="gamg"``, set explicitly via ``SolverParameters.pc_type`` -- see
-  ``struphy.linear_algebra.solver.SolverParameters``) stays at a handful, regardless of grid size.
-  The most lopsided case in this suite by design; see its own params file's docstring.
+  Uses a 32^3 grid to push feectools' unpreconditioned CG into several hundred iterations per
+  solve while PETSc+gamg (``pc_type="gamg"``, set explicitly via ``SolverParameters.pc_type`` --
+  see ``struphy.linear_algebra.solver.SolverParameters``) stays at a handful, regardless of grid
+  size. The most lopsided case in this suite by design; see its own params file's docstring.
 
 - ``VlasovMaxwellOneSpecies/weibel_instability``: plain copy of
   ``examples/VlasovMaxwellOneSpecies/weibel_instability/params_weibel_instability.py``, scaled up
@@ -89,7 +87,6 @@ CASES = (
     ("VlasovAmpereOneSpecies", "weak_Landau_damping"),
     ("VlasovAmpereOneSpecies", "two_stream"),
     ("VlasovAmpereOneSpecies", "bump_on"),
-    ("ToyDrift", "periodic_slab"),
     ("ToyDrift", "periodic_slab_hires"),
     ("VlasovMaxwellOneSpecies", "weibel_instability"),
 )

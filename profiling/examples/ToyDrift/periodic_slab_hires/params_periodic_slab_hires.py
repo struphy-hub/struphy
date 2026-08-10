@@ -5,28 +5,34 @@ import os
 # -----------------------------
 
 description = """
-Higher-resolution variant of ToyDrift/periodic_slab (see that case's own description for the
-model/domain background): a 32^3 grid with degree-3 splines (32768 dofs vs. periodic_slab's
-24^3 grid's 13824) with PETSc's preconditioner set explicitly to algebraic multigrid
-(`pc_type="gamg"`, via `SolverParameters.pc_type` -- see struphy.linear_algebra.solver.
-SolverParameters), instead of the default `"jacobi"`.
+Periodic-slab variant of the ToyDrift model (the model behind
+examples/ToyGyrokinetic/diocotron_instability, which uses a physically non-periodic
+HollowCylinder domain -- radial confinement is inherent to the diocotron instability). This case
+swaps in a periodic Cuboid domain instead: unlike PoissonAdiabaticGyrokinetic (used by
+DriftKineticElectrostaticAdiabatic), ToyDrift's field solve is a plain PoissonSolve with no
+geometry-coupled averaging, so it works correctly on a periodic domain out of the box. Unlike
+VlasovAmpereOneSpecies (which only solves Poisson once, as an initial condition), gc_poisson runs
+as a *regular per-step propagator* here, so a single `sim.run(one_time_step=True)` call already
+times one full, representative solve.
+
+Grid: 32^3 elements, degree-3 splines (32768 dofs), with PETSc's preconditioner set explicitly to
+algebraic multigrid (`pc_type="gamg"`, via `SolverParameters.pc_type` -- see
+struphy.linear_algebra.solver.SolverParameters), instead of the default `"jacobi"`. This
+resolution is deliberately large enough to push feectools' unpreconditioned CG into several
+hundred iterations per solve.
 
 Measured via struphy.linear_algebra.petsc_examples_benchmark's repeated-solve methodology (which
 isolates just the solve, amortizing one-time matrix/preconditioner setup across several calls --
 see that module's docstring): feectools' unpreconditioned CG took ~10.9 s/solve (190 iterations)
-against PETSc+gamg's ~0.29 s/solve (2 iterations) here -- a ~38x difference. This is essentially
-the same *ratio* periodic_slab already shows (~36x at 13824 dofs): the near-singular Poisson
-system these ToyDrift cases solve (`stab_eps` clamped to ~1e-14 by ImplicitDiffusion's "always
-stabilize" logic, see PETScSolver's docstring) is ill-conditioned mainly through its weakly
-constrained constant/DC mode, not primarily through raw grid resolution, so pcg's iteration count
-does not grow much further with size in this regime -- while gamg's convergence stays
-essentially grid-independent regardless. What *does* grow with size is the absolute cost: at this
-larger, more realistic problem size, pcg's ~11 seconds per Poisson solve is the practically
-relevant "huge difference" -- multiplied over the many timesteps of a real simulation, it is the
-difference between a run finishing in minutes and one taking hours.
-
-Like periodic_slab, gc_poisson runs as a *regular per-step propagator*, so a single
-`sim.run(one_time_step=True)` call already times one full, representative solve.
+against PETSc+gamg's ~0.29 s/solve (2 iterations) here -- a ~38x difference, the largest gap in
+this benchmark suite. The near-singular Poisson system ToyDrift solves (`stab_eps` clamped to
+~1e-14 by ImplicitDiffusion's "always stabilize" logic, see PETScSolver's docstring) is
+ill-conditioned mainly through its weakly constrained constant/DC mode, not primarily through raw
+grid resolution, so pcg's iteration count does not grow much further with size in this regime --
+while gamg's convergence stays essentially grid-independent regardless. What *does* grow with
+size is the absolute cost: at this larger, more realistic problem size, pcg's ~11 seconds per
+Poisson solve is the practically relevant "huge difference" -- multiplied over the many timesteps
+of a real simulation, it is the difference between a run finishing in minutes and one taking hours.
 """
 
 # ------------------
@@ -108,8 +114,8 @@ domain = domains.Cuboid()
 # Fluid equilibrium: straight B field, homogeneous density (default n0=1.0)
 equil = equils.HomogenSlab(B0z=1.0, n0=1.0)
 
-# Grid -- 32^3, ~2x periodic_slab's 24^3 per direction (~2.4x the dofs at fixed degree): large
-# enough for pcg's iteration count (hence cost) to blow up while PETSc+gamg stays flat.
+# Grid -- 32^3: large enough for pcg's iteration count (hence cost) to blow up while PETSc+gamg
+# stays flat.
 grid = grids.TensorProductGrid(num_elements=(32, 32, 32))
 
 # Derham options -- fully periodic (required: PETScSolver cannot (yet) assemble
