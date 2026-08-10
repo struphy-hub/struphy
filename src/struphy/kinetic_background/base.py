@@ -890,7 +890,17 @@ class Maxwellian(KineticBackground):
                 u = us[i]
                 vth = vths[i]
 
-            res *= self.gaussian(v, u=u, vth=vth, type=self.gauss_types[i], volume_form=self.volume_form)
+            # local field strength, needed by the "mu" velocity-Gaussian type
+            B0 = 2.0
+            if self.gauss_types[i] == "mu" and xp.ndim(args[0]) == 1:
+                B0_param = self.params.get("B0", 2.0)
+                if callable(B0_param):
+                    etas = xp.concatenate([a[:, None] for a in args[:3]], axis=1)
+                    B0 = B0_param(etas)
+                else:
+                    B0 = B0_param
+
+            res *= self.gaussian(v, u=u, vth=vth, B0=B0, type=self.gauss_types[i], volume_form=self.volume_form)
 
         return res
 

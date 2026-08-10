@@ -381,8 +381,9 @@ class GyroMaxwellian2Dvperp(Maxwellian):
 
 
 class CanonicalMaxwellian2D(GyroMaxwellian2D):
-    r"""Canonical Maxwellian distribution function in constants-of-motion coordinates.
-    Standard evaluation methods in :math:`(v_\parallel, v_\perp)` coordinates are available through :class:`~struphy.kinetic_background.maxwellians.GyroMaxwellian2D`.
+    r"""Canonical Maxwellian distribution function in 
+    :math:`(\eta_1, \eta_2, \eta_3, v_\parallel, \mu)` coordinates.
+    Uses caching for evaluation of the canonical toroidal momentum in these coordinates.
 
     The distribution is parameterized by the density and thermal speed as functions of the
     canonical toroidal momentum :math:`\psi_c`:
@@ -440,20 +441,22 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         equil: AxisymmMHDequilibrium = None,
         epsilon: float = 1.0,
     ):
+        assert isinstance(equil, AxisymmMHDequilibrium)
+
         super().__init__(n=n,
                             u_para=(0.0, None),
                             u_perp=(0.0, None),
                             vth_para=vth,
                             vth_perp=vth,
                             volume_form=volume_form,
-                            B0=self.equil.absB0 if equil is not None else 2.0,
+                            B0=equil.absB0,
                             uniform_on_disc=uniform_on_disc,
                             )
 
         # volume form represenation
-        assert isinstance(equil, AxisymmMHDequilibrium)
         self._equil = equil
         self._epsilon = epsilon
+        self.params["vth"] = vth
 
         # factors multiplied onto the defined moments n and vth (can be set via setter)
         self._moment_factors = {
@@ -542,7 +545,7 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         else:
             assert callable(background)
             sig = signature(background)
-            assert len(sig.parameters) == 1, f"Background fueta1, eta2, eta3, v_parallel, munction {background} must take one argument (psi_c), but takes {len(sig.parameters)}."
+            assert len(sig.parameters) == 1, f"Background function {background} must take one argument (psi_c), but takes {len(sig.parameters)}."
             
             cached = self._check_psi_c_cached(*coords)
             logger.debug(f"{'Using cached psi_c' if cached else 'Evaluating psi_c'} for background evaluation.")
@@ -680,13 +683,14 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         return out * self.moment_factors["n"]
 
     def u(self, eta1, eta2, eta3, vparallel, mu):
-        """Mean velocities."""
-        pass
+        """Mean velocities (zero for the canonical Maxwellian)."""
+        return [0.0 * eta1, 0.0 * eta1]
 
     def vth(self, eta1, eta2, eta3, vparallel, mu):
         """Thermal velocities."""
         out = self._evaluate_moment(eta1, eta2, eta3, vparallel, mu, name="vth")
-        return out * self.moment_factors["vth"]
+        out = out * self.moment_factors["vth"]
+        return [out, out]
 
 
 class ColdPlasma(Maxwellian):
