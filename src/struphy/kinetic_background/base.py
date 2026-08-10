@@ -303,15 +303,15 @@ class KineticBackground(metaclass=ABCMeta):
                         tabs[i] = xp.linspace(0.0, 1.0, integrate_resol[i])
                 else:
                     if i == 3:  # Cartesian and v_parallel
-                        tabs[i] = xp.linspace(-v_lim[0], v_lim[0], integrate_resol[i])
+                        tabs[i] = self._midpoint_pts(-v_lim[0], v_lim[0], integrate_resol[i])
                         velocity_space_volume *= 2 * v_lim[0]
                     else:
                         if self.velocity_coords == "cartesian":  # Cartesian
-                            tabs[i] = xp.linspace(-v_lim[0], v_lim[0], integrate_resol[i])
+                            tabs[i] = self._midpoint_pts(-v_lim[0], v_lim[0], integrate_resol[i])
                             velocity_space_volume *= 2 * v_lim[0]
                         else:  # v_perp, mu and energy
                             assert i == 4
-                            tabs[i] = xp.linspace(0.0, v_lim[0], integrate_resol[i])
+                            tabs[i] = self._midpoint_pts(0.0, v_lim[0], integrate_resol[i])
                             velocity_space_volume *= v_lim[0]
 
         # push to physical position space if needed
@@ -345,6 +345,17 @@ class KineticBackground(metaclass=ABCMeta):
         reduced_density *= velocity_space_volume
 
         return reduced_density, plot_pts1, plot_pts2, physical_coords
+
+    @staticmethod
+    def _midpoint_pts(left: float, right: float, n: int):
+        """``n`` midpoints of the ``n`` equal-width sub-intervals of ``[left, right]``, for the midpoint quadrature
+        rule used in :meth:`reduced_eval`.
+
+        Using ``xp.linspace(left, right, n)`` instead (endpoint-inclusive) would place the samples on ``n - 1``
+        intervals and bias the ``mean(f) * (right - left)`` quadrature low by a factor ``(n - 1) / n``.
+        """
+        dx = (right - left) / n
+        return left + dx * (xp.arange(n) + 0.5)
 
     def _get_plot_pts(
         self,
