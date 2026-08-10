@@ -14,6 +14,7 @@ import pyvista as pv
 import yaml
 from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
+from feectools.linalg.memory import stencil_matrix_memory
 from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
 from pyevtk.hl import gridToVTK
@@ -36,6 +37,7 @@ from struphy import (
 # core imports
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
+from struphy.feec.memory import linop_nbytes, vector_nbytes
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.base import (
     FluidEquilibrium,
@@ -69,6 +71,23 @@ from struphy.utils.progress import tqdm
 from struphy.utils.utils import dict_to_yaml, ruff_autofix_and_format
 
 logger = logging.getLogger("struphy")
+
+
+class CuPyJSONEncoder(json.JSONEncoder):
+    """JSON encoder that handles CuPy arrays and NumPy arrays."""
+
+    def default(self, obj):
+        # Check if it has a .get() method (CuPy array)
+        if hasattr(obj, "get"):
+            return obj.get().tolist() if hasattr(obj.get(), "tolist") else obj.get()
+        # Handle NumPy arrays and scalars
+        import numpy as np
+
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if isinstance(obj, (np.integer, np.floating)):
+            return float(obj) if isinstance(obj, np.floating) else int(obj)
+        return super().default(obj)
 
 
 class Simulation(SimulationBase):
@@ -290,6 +309,197 @@ class Simulation(SimulationBase):
 
         logger.debug("... Done.")
 
+    def estimate_mem(self, print_report: bool = False) -> dict:
+        """Estimate the memory footprint of all model variables and FEEC matrices, in bytes,
+        BEFORE calling :meth:`allocate`.
+
+        Builds a throwaway Derham sequence (cheap: metadata only, no mass/basis operators) to obtain
+        the FEEC coefficient space sizes and MPI domain decomposition, then calls ``estimate_mem()`` on
+        every model variable, mirroring the loop in :meth:`_allocate_variables`. The throwaway Derham is
+        discarded afterward -- calling :meth:`allocate` still performs the full allocation from scratch.
+
+        On top of the variables, the following FEEC matrices are estimated (they are usually much
+        larger than the spline coefficient vectors):
+
+        * the derivative matrices (grad, curl, div) of the Derham sequence (matrix-free, hence
+          essentially free of charge),
+        * the standard mass matrices M0, M1, M2, M3 and Mv, created with ``dry_run=True`` so that
+          only their sizes (including the zero-block structure) are computed, see
+          :meth:`~struphy.feec.mass.WeightedMassOperators.estimate_mem`.
+
+        Note
+        ----
+        Which matrices a model really allocates is only known once the propagators have been
+        allocated (they fetch and build their operators in ``allocate()``, partly under names
+        assembled at run time). The standard mass matrices are therefore used as a baseline:
+        a model may not need all of them, but it may also build additional weighted mass matrices
+        (e.g. ``M2n``), basis projection operators and preconditioners which are *not* included here.
+        Use :meth:`report_mem` after :meth:`allocate` for the exact numbers.
+
+        Parameters
+        ----------
+        print_report : bool
+            If True, print a breakdown of the estimated memory usage of each variable on
+            MPI rank 0: both local (this rank) and global (summed over all ranks) values.
+
+        Returns
+        -------
+        dict
+            Mapping ``{"species.variable": local_bytes}`` for the model variables and
+            ``{"matrices.<name>": local_bytes}`` for the FEEC matrices (bytes on the *current*
+            MPI rank), plus a ``"total"`` entry with the local sum over all entries.
+        """
+        logger.debug("\nEstimating memory usage ...")
+
+        if self.grid is None or self.derham_opts is None:
+            raise RuntimeError(
+                "Simulation.estimate_mem() requires 'grid' and 'derham_opts' to be set (needed to build a Derham sequence for FEEC variable sizing)."
+            )
+
+        if self.clone_config is None:
+            derham_comm = MPI.COMM_WORLD
+        else:
+            derham_comm = self.clone_config.sub_comm
+
+        derham = Derham(
+            self.grid,
+            self.derham_opts,
+            comm=derham_comm,
+            domain=self.domain,
+        )
+
+        mem = {}
+
+        if self.model.field_species:
+            for species, spec in self.model.field_species.items():
+                for k, v in spec.variables.items():
+                    assert isinstance(v, FEECVariable)
+                    mem[f"{species}.{k}"] = v.estimate_mem(derham=derham)
+
+        if self.model.fluid_species:
+            for species, spec in self.model.fluid_species.items():
+                for k, v in spec.variables.items():
+                    assert isinstance(v, FEECVariable)
+                    mem[f"{species}.{k}"] = v.estimate_mem(derham=derham)
+
+        if self.model.particle_species:
+            for species, spec in self.model.particle_species.items():
+                for k, v in spec.variables.items():
+                    if isinstance(v, PICVariable):
+                        mem[f"{species}.{k}"] = v.estimate_mem(
+                            clone_config=self.clone_config,
+                            derham=derham,
+                            domain=self.domain,
+                            equil=self.equil,
+                        )
+                    elif isinstance(v, SPHVariable):
+                        mem[f"{species}.{k}"] = v.estimate_mem(
+                            derham=derham,
+                            domain=self.domain,
+                            equil=self.equil,
+                        )
+
+        if self.model.diagnostic_species:
+            for species, spec in self.model.diagnostic_species.items():
+                for k, v in spec.variables.items():
+                    assert isinstance(v, FEECVariable)
+                    mem[f"{species}.{k}"] = v.estimate_mem(derham=derham)
+
+        # FEEC matrices: derivative matrices (already allocated by the throwaway Derham) ...
+        mem["matrices.derivatives"] = sum(linop_nbytes(op) for op in (derham.grad, derham.curl, derham.div))
+
+        # ... and the standard mass matrices (dry run, i.e. sized but not allocated)
+        mass_ops = WeightedMassOperators(derham, self.domain, eq_mhd=self.equil)
+        for name, nbytes in mass_ops.estimate_mem().items():
+            mem[f"matrices.{name}"] = nbytes
+
+        total_local = sum(mem.values())
+        mem["total"] = total_local
+
+        if print_report:
+            if self.comm is not None:
+                total_global = self.comm.allreduce(total_local, op=MPI.SUM)
+            else:
+                total_global = total_local
+
+            if self.rank == 0:
+                print("\nESTIMATED MEMORY USAGE (before allocate()):")
+                for name, nbytes in mem.items():
+                    if name == "total":
+                        continue
+                    print(f"  {name}: {nbytes / 1e6:.2f} MB (local, rank 0)")
+                print(
+                    f"  TOTAL: {total_local / 1e6:.2f} MB (local, rank 0), "
+                    f"{total_global / 1e6:.2f} MB (global, summed over {self.comm_size} rank(s))"
+                )
+
+        logger.debug("... Done.")
+
+        return mem
+
+    def report_mem(self, print_report: bool = True) -> dict:
+        """Actual local (per-MPI-rank) memory footprint of the big arrays, in bytes,
+        AFTER calling :meth:`allocate`.
+
+        In contrast to :meth:`estimate_mem`, nothing is estimated here: the spline coefficient
+        vectors and marker arrays are measured on the allocated objects, and the FEEC matrices are
+        obtained from the (weak) registry of all allocated stencil matrices,
+        :data:`~feectools.linalg.memory.stencil_matrix_memory`. The matrix number therefore
+        includes mass matrices, basis projection operators, preconditioners and any other
+        stencil matrix built by the propagators.
+
+        Parameters
+        ----------
+        print_report : bool
+            If True (default), print the breakdown on MPI rank 0.
+
+        Returns
+        -------
+        dict
+            Mapping ``{"feec_matrices": ..., "spline_coeffs": ..., "markers": ..., "total": ...}``
+            with the local number of bytes.
+        """
+        mem = {"feec_matrices": stencil_matrix_memory.nbytes, "spline_coeffs": 0, "markers": 0}
+
+        for species in (
+            self.model.field_species,
+            self.model.fluid_species,
+            self.model.particle_species,
+            self.model.diagnostic_species,
+        ):
+            if not species:
+                continue
+            for spec in species.values():
+                for v in spec.variables.values():
+                    if isinstance(v, FEECVariable):
+                        mem["spline_coeffs"] += vector_nbytes(v.spline.vector)
+                    elif isinstance(v, (PICVariable, SPHVariable)):
+                        mem["markers"] += v.particles.nbytes_local
+                        if v.n_to_save > 0:
+                            mem["markers"] += v.saved_markers.nbytes
+
+        total_local = sum(mem.values())
+        mem["total"] = total_local
+
+        if print_report:
+            if self.comm is not None:
+                total_global = self.comm.allreduce(total_local, op=MPI.SUM)
+            else:
+                total_global = total_local
+
+            if self.rank == 0:
+                print("\nMEMORY USAGE (after allocate()):")
+                for name, nbytes in mem.items():
+                    if name == "total":
+                        continue
+                    print(f"  {name}: {nbytes / 1e6:.2f} MB (local, rank 0)")
+                print(
+                    f"  TOTAL: {total_local / 1e6:.2f} MB (local, rank 0), "
+                    f"{total_global / 1e6:.2f} MB (global, summed over {self.comm_size} rank(s))"
+                )
+
+        return mem
+
     def save_geometry_and_equil_vtk(self):
         """Write a VTK file with geometry and (projected) equilibrium fields.
 
@@ -305,20 +515,24 @@ class Simulation(SimulationBase):
             ]
 
             tmp = self.domain(*grids_log)
-            grids_phy = [tmp[0], tmp[1], tmp[2]]
+            grids_phy = [
+                DataContainer._as_numpy_array(tmp[0]),
+                DataContainer._as_numpy_array(tmp[1]),
+                DataContainer._as_numpy_array(tmp[2]),
+            ]
 
             pointData = {}
             det_df = self.domain.jacobian_det(*grids_log)
-            pointData["det_df"] = det_df
+            pointData["det_df"] = DataContainer._as_numpy_array(det_df)
 
             if self.equil is not None:
                 p0 = self.equil.p0(*grids_log)
-                pointData["p0"] = p0
+                pointData["p0"] = DataContainer._as_numpy_array(p0)
                 n0 = self.equil.n0(*grids_log)
-                pointData["n0"] = n0
+                pointData["n0"] = DataContainer._as_numpy_array(n0)
                 if isinstance(self.equil, FluidEquilibriumWithB):
                     absB0 = self.equil.absB0(*grids_log)
-                    pointData["absB0"] = absB0
+                    pointData["absB0"] = DataContainer._as_numpy_array(absB0)
 
             gridToVTK(os.path.join(self.env.path_out, "geometry"), *grids_phy, pointData=pointData)
 
@@ -345,21 +559,25 @@ class Simulation(SimulationBase):
         ]
 
         tmp = self.domain(*grids_log)
-        grids_phy = [tmp[0], tmp[1], tmp[2]]
+        grids_phy = [
+            DataContainer._as_numpy_array(tmp[0]),
+            DataContainer._as_numpy_array(tmp[1]),
+            DataContainer._as_numpy_array(tmp[2]),
+        ]
 
         # Create PyVista structured grid
         mesh = pv.StructuredGrid(grids_phy[0], grids_phy[1], grids_phy[2])
 
         # Add point data
         det_df = self.domain.jacobian_det(*grids_log)
-        mesh["det_df"] = det_df.ravel(order="F")
+        mesh["det_df"] = DataContainer._as_numpy_array(det_df).ravel(order="F")
 
         if self.equil is not None:
             p0 = self.equil.p0(*grids_log)
-            mesh["p0"] = p0.ravel(order="F")
+            mesh["p0"] = DataContainer._as_numpy_array(p0).ravel(order="F")
             if isinstance(self.equil, FluidEquilibriumWithB):
                 absB0 = self.equil.absB0(*grids_log)
-                mesh["absB0"] = absB0.ravel(order="F")
+                mesh["absB0"] = DataContainer._as_numpy_array(absB0).ravel(order="F")
 
         return mesh
 
@@ -511,12 +729,12 @@ class Simulation(SimulationBase):
                 self.time_state["index"][0] = file["restart/time/index"][-1]
                 start_step = file["restart/time/index"][-1]
 
-            total_steps = int(round((Tend - self.time_state["value"][0]) / dt))
+            total_steps = int(round((Tend - float(self.time_state["value"][0])) / dt))
             logger.info(f"""\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 RESTARTing from:
-{self.time_state["value"][0]=}
-{self.time_state["value_sec"][0]=}
-{self.time_state["index"][0]=}
+self.time_state["value"][0]={float(self.time_state["value"][0])}
+self.time_state["value_sec"][0]={float(self.time_state["value_sec"][0])}
+self.time_state["index"][0]={int(self.time_state["index"][0])}
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 """)
         else:
@@ -555,19 +773,19 @@ RESTARTing from:
             self.Barrier()
 
             # stop time loop?
-            break_cond_1 = self.time_state["value"][0] >= Tend
+            break_cond_1 = float(self.time_state["value"][0]) >= Tend
             break_cond_2 = run_time_now > self.env.max_runtime
 
             if break_cond_1 or break_cond_2:
                 # save restart data (other data already saved below)
                 self.data.save_data(keys=save_keys_end)
                 end_time = time.time()
-                logger.info(f"\nTime steps done: {self.time_state['index'][0]}")
+                logger.info(f"\nTime steps done: {int(self.time_state['index'][0])}")
                 logger.info(f"wall-clock time of simulation [sec]: {end_time - self.start_time}")
                 logger.info("")
                 break
 
-            if self.env.sort_step and self.time_state["index"][0] % self.env.sort_step == 0:
+            if self.env.sort_step and int(self.time_state["index"][0]) % self.env.sort_step == 0:
                 t0 = time.time()
                 for key, val in self.model.pointer.items():
                     if isinstance(val, Particles):
@@ -581,8 +799,10 @@ RESTARTing from:
                 logger.info("")
 
             # update time and index (round time to 10 decimals for a clean time grid!)
-            self.time_state["value"][0] = round(self.time_state["value"][0] + dt, 14)
-            self.time_state["value_sec"][0] = round(self.time_state["value_sec"][0] + dt * self.model.units.t, 14)
+            self.time_state["value"][0] = round(float(self.time_state["value"][0]) + dt, 14)
+            self.time_state["value_sec"][0] = round(
+                float(self.time_state["value_sec"][0]) + dt * self.model.units.t, 14
+            )
             self.time_state["index"][0] += 1
 
             # perform one time step dt
@@ -594,7 +814,7 @@ RESTARTing from:
             run_time_now = (time.time() - self.start_time) / 60
 
             # update diagnostics data and save data
-            if self.time_state["index"][0] % self.env.save_step == 0:
+            if int(self.time_state["index"][0]) % self.env.save_step == 0:
                 # compute scalars and kinetic data
                 self.model.update_scalar_quantities()
                 self.model.update_markers_to_be_saved()
@@ -614,19 +834,19 @@ RESTARTing from:
                 self.data.save_data(keys=save_keys_all)
 
                 # print current time and scalar quantities to screen
-                step = str(self.time_state["index"][0]).zfill(len(total_steps_str))
+                step = str(int(self.time_state["index"][0])).zfill(len(total_steps_str))
 
                 message = "time step:".ljust(25) + f"{step}/{total_steps + start_step}".rjust(25)
                 message += (
                     "\n"
                     + "normalized time:".ljust(25)
-                    + "{0:4.2e} / {1:4.2e}".format(self.time_state["value"][0], Tend).rjust(25)
+                    + "{0:4.2e} / {1:4.2e}".format(float(self.time_state["value"][0]), Tend).rjust(25)
                 )
                 message += (
                     "\n"
                     + "physical time [s]:".ljust(25)
                     + "{0:4.2e} / {1:4.2e}".format(
-                        self.time_state["value_sec"][0],
+                        float(self.time_state["value_sec"][0]),
                         Tend * self.model.units.t,
                     ).rjust(25)
                 )
@@ -1152,9 +1372,9 @@ RESTARTing from:
             # store grid_info only for runs with 512 ranks or smaller
             if self.model.scalars.dct and self.derham is not None:
                 if size <= 512:
-                    file["scalar"].attrs["grid_info"] = self.derham.domain_array
+                    file["scalar"].attrs["grid_info"] = DataContainer._as_numpy_array(self.derham.domain_array)
                 else:
-                    file["scalar"].attrs["grid_info"] = self.derham.domain_array[0]
+                    file["scalar"].attrs["grid_info"] = DataContainer._as_numpy_array(self.derham.domain_array[0])
             else:
                 pass
 
@@ -1191,9 +1411,9 @@ RESTARTing from:
 
                         # save field meta data
                         file[key_field].attrs["space_id"] = spline.space_id
-                        file[key_field].attrs["starts"] = spline.starts
-                        file[key_field].attrs["ends"] = spline.ends
-                        file[key_field].attrs["pads"] = spline.pads
+                        file[key_field].attrs["starts"] = DataContainer._as_numpy_array(spline.starts)
+                        file[key_field].attrs["ends"] = DataContainer._as_numpy_array(spline.ends)
+                        file[key_field].attrs["pads"] = DataContainer._as_numpy_array(spline.pads)
 
                     # save numpy array to be updated only at the end of the simulation for restart.
                     key_field_restart = os.path.join(species_path_restart, variable)
@@ -1241,7 +1461,9 @@ RESTARTing from:
                     data.add_data({key_df: bin_plot.df})
 
                     for dim, be in enumerate(bin_plot.bin_edges):
-                        file[key_f].attrs["bin_centers" + "_" + str(dim + 1)] = be[:-1] + (be[1] - be[0]) / 2
+                        file[key_f].attrs["bin_centers" + "_" + str(dim + 1)] = DataContainer._as_numpy_array(
+                            be[:-1] + (be[1] - be[0]) / 2
+                        )
 
                 for i, kd_plot in enumerate(species.saving_params.kernel_density_plots):
                     key_n = os.path.join(key_spec, "n_sph", f"view_{i}")
@@ -1251,9 +1473,9 @@ RESTARTing from:
                     eta1 = kd_plot.plot_pts[0][:, 0, 0]
                     eta2 = kd_plot.plot_pts[1][0, :, 0]
                     eta3 = kd_plot.plot_pts[2][0, 0, :]
-                    file[key_n].attrs["eta1"] = eta1
-                    file[key_n].attrs["eta2"] = eta2
-                    file[key_n].attrs["eta3"] = eta3
+                    file[key_n].attrs["eta1"] = DataContainer._as_numpy_array(eta1)
+                    file[key_n].attrs["eta2"] = DataContainer._as_numpy_array(eta2)
+                    file[key_n].attrs["eta3"] = DataContainer._as_numpy_array(eta3)
 
                 # TODO: maybe add other data
                 # else:
@@ -1390,7 +1612,7 @@ RESTARTing from:
             },
         )
 
-        json_str = json.dumps(config, indent=4)
+        json_str = json.dumps(config, indent=4, cls=CuPyJSONEncoder)
         if file_path is not None:
             with open(file_path, "w") as f:
                 f.write(json_str)

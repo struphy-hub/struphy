@@ -372,14 +372,14 @@ class MassMatrixPreconditioner(LinearOperator):
         return self._solver
 
     @property
+    def domain(self):
+        """The domain of the linear operator - an element of Vectorspace"""
+        return self._space
+
+    @property
     def codomain(self):
         """The codomain of the linear operator - an element of Vectorspace"""
         return self._codomain
-
-    @property
-    def domain(self):
-        """The domain of the linear operator - an element of Vectorspace"""
-        return self._domain
 
     @property
     def dtype(self):
@@ -750,6 +750,9 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
     def solver(self):
         """KroneckerLinearSolver or BlockDiagonalSolver for exactly inverting the approximate mass matrix self.matrix."""
         return self._solver
+
+    @property
+    def domain(self):
         """The domain of the linear operator - an element of Vectorspace"""
         return self._space
 
@@ -757,11 +760,6 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
     def codomain(self):
         """The codomain of the linear operator - an element of Vectorspace"""
         return self._codomain
-
-    @property
-    def domain(self):
-        """The domain of the linear operator - an element of Vectorspace"""
-        return self._domain
 
     @property
     def dtype(self):

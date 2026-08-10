@@ -16,6 +16,7 @@ except ModuleNotFoundError:
 
 
 import cunumpy as xp
+from cunumpy import PyccelKernel
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
@@ -63,9 +64,16 @@ from struphy.pic.sph_eval_kernels import (
 )
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
+
+
+def _to_numpy_for_kernel(value):
+    """Convert CuPy arrays to NumPy for compiled kernel calls."""
+    if hasattr(value, "get"):
+        # This is a CuPy array
+        return value.get()
+    return value
 
 
 class Particles(metaclass=ABCMeta):
@@ -97,6 +105,7 @@ class Particles(metaclass=ABCMeta):
         perturbations: dict[str, Perturbation] = None,
         n_as_volume_form: bool = False,
         equation_params: dict = None,
+        dry_run: bool = False,
     ):
         r"""
         The marker information is stored in a 2D numpy array.
@@ -172,6 +181,12 @@ class Particles(metaclass=ABCMeta):
 
         equation_params : dict
             Normalization parameters (epsilon, alpha, ...)
+
+        dry_run : bool
+            If True, only compute the sizing of the marker array (:attr:`n_rows`, :attr:`n_cols`, ...)
+            and return early, without allocating any of the (potentially large) marker/sorting/buffer
+            arrays. Used by :attr:`nbytes_local` to estimate the memory footprint before actually
+            allocating the particles, see :meth:`~struphy.models.variables.PICVariable.estimate_mem`.
         """
 
         self._clone_config = clone_config
@@ -251,7 +266,7 @@ class Particles(metaclass=ABCMeta):
             assert all([nboxes % nproc == 0 for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]), (
                 f"Number of boxes {self.boxes_per_dim =} must be divisible by number of processes {self.nprocs =} in each direction."
             )
-            n_boxes = xp.prod(self.boxes_per_dim, dtype=int) * self.num_clones
+            n_boxes = xp.prod(xp.array(self.boxes_per_dim), dtype=int) * self.num_clones
 
         # total number of markers (Np) and particles per cell (ppc)
         Np = self.loading_params.Np
@@ -274,7 +289,10 @@ class Particles(metaclass=ABCMeta):
 
         # create marker array
         self._bufsize = bufsize
-        self._allocate_marker_array()
+        self._allocate_marker_array(dry_run=dry_run)
+
+        if dry_run:
+            return
 
         # boundary conditions
         bc = boundary_params.bc
@@ -363,7 +381,7 @@ class Particles(metaclass=ABCMeta):
         self._generate_sampling_moments()
 
         # create buffers for mpi_sort_markers
-        self._sorting_etas = xp.zeros(self.markers.shape, dtype=float)
+        self._sorting_etas = xp.zeros((self.markers.shape[0], 3), dtype=float)
         self._is_on_proc_domain = xp.zeros((self.markers.shape[0], 3), dtype=bool)
         self._can_stay = xp.zeros(self.markers.shape[0], dtype=bool)
         self._reqs = [None] * self.mpi_size
@@ -470,6 +488,27 @@ class Particles(metaclass=ABCMeta):
             input("\nWarning: marker array not yet created, creating now ...")
             self._allocate_marker_array()
         return self._n_rows
+
+    @property
+    def nbytes_local(self) -> int:
+        """Estimated local (per-MPI-rank) memory footprint, in bytes, of all marker-related arrays
+        (markers, sorting buffers, lost-marker container). Only depends on :attr:`n_rows` and
+        :attr:`n_cols`, so it is valid whether or not the arrays were actually allocated
+        (see the ``dry_run`` argument of :meth:`__init__`)."""
+        float_size = 8  # dtype=float
+        bool_size = 1  # dtype=bool
+        n_rows = self.n_rows
+        n_cols = self.n_cols
+
+        nbytes = 0
+        nbytes += n_rows * n_cols * float_size  # markers
+        nbytes += n_rows * 3 * float_size  # sorting_etas (mpi_sort_markers buffer)
+        nbytes += n_rows * 3 * bool_size  # is_on_proc_domain
+        nbytes += n_rows * bool_size  # can_stay
+        # holes, ghost_particles, valid_mks, is_outside_right, is_outside_left, is_outside
+        nbytes += n_rows * bool_size * 6
+        nbytes += int(n_rows * 0.5) * 10 * float_size  # lost_markers
+        return int(nbytes)
 
     @property
     def kinds(self):
@@ -1106,8 +1145,11 @@ class Particles(metaclass=ABCMeta):
 
         return n_mks_load, Np_per_clone
 
-    def _allocate_marker_array(self):
-        """Create marker array :attr:`~struphy.pic.base.Particles.markers`."""
+    def _allocate_marker_array(self, dry_run: bool = False):
+        """Create marker array :attr:`~struphy.pic.base.Particles.markers`.
+
+        If dry_run is True, only :attr:`n_rows` (and :attr:`n_cols`) are computed and no array
+        is actually allocated; see :attr:`nbytes_local`."""
         if not hasattr(self, "_n_mks_load"):
             self._n_mks_load, self._Np_per_clone = self._n_mks_load_and_Np_per_clone()
 
@@ -1116,7 +1158,16 @@ class Particles(metaclass=ABCMeta):
         bufsize = self.bufsize + 1.0 / xp.sqrt(n_mks_load_loc)
 
         # allocate markers array (3 x positions, vdim x velocities, weight, s0, w0, ..., ID) with buffer
-        self._n_rows = round(n_mks_load_loc * (1 + bufsize))
+        self._n_rows = round(float(n_mks_load_loc * (1 + bufsize)))
+
+        # Have at least 3 spare places in markers array
+        assert self.first_free_idx + 2 < self.n_cols - 2, (
+            f"{self.first_free_idx + 2} is not smaller than {self.n_cols - 2 =}; not enough columns in marker array !!"
+        )
+
+        if dry_run:
+            return
+
         self._markers = xp.zeros((self.n_rows, self.n_cols), dtype=float)
 
         # allocate auxiliary arrays
@@ -1133,21 +1184,16 @@ class Particles(metaclass=ABCMeta):
 
         # arguments for kernels
         self._args_markers = MarkerArguments(
-            self.markers,
-            self.valid_mks,
-            self.Np,
-            self.vdim,
-            self.index["weights"],
-            self.first_diagnostics_idx,
-            self.first_pusher_idx,
-            self.first_shift_idx,
-            self.residual_idx,
-            self.first_free_idx,
-        )
-
-        # Have at least 3 spare places in markers array
-        assert self.args_markers.first_free_idx + 2 < self.n_cols - 1, (
-            f"{self.args_markers.first_free_idx + 2} is not smaller than {self.n_cols - 1 =}; not enough columns in marker array !!"
+            _to_numpy_for_kernel(self.markers),
+            _to_numpy_for_kernel(self.valid_mks),
+            _to_numpy_for_kernel(self.Np),
+            _to_numpy_for_kernel(self.vdim),
+            _to_numpy_for_kernel(self.index["weights"]),
+            _to_numpy_for_kernel(self.first_diagnostics_idx),
+            _to_numpy_for_kernel(self.first_pusher_idx),
+            _to_numpy_for_kernel(self.first_shift_idx),
+            _to_numpy_for_kernel(self.residual_idx),
+            _to_numpy_for_kernel(self.first_free_idx),
         )
 
     def _initialize_sorting_boxes(self):
@@ -1989,7 +2035,7 @@ class Particles(metaclass=ABCMeta):
             The reconstructed delta-f distribution function.
         """
 
-        assert xp.count_nonzero(components) == len(bin_edges)
+        assert xp.count_nonzero(xp.array(components)) == len(bin_edges)
 
         # volume of a bin
         bin_vol = 1.0
@@ -2510,7 +2556,7 @@ class Particles(metaclass=ABCMeta):
             n_particles = self._markers_shape[0]
             n_mkr = int(n_particles / n_box_in) + 1
             n_cols = round(
-                n_mkr * (1 + 1 / xp.sqrt(n_mkr) + self._box_bufsize),
+                float(n_mkr) * (1 + 1 / float(xp.sqrt(n_mkr)) + self._box_bufsize),
             )
 
             # cartesian boxes
@@ -2722,7 +2768,17 @@ class Particles(metaclass=ABCMeta):
         """Check whether the box array has enough columns (detect load imbalance wrt to sorting boxes),
         and then assigne the particles to boxes."""
 
-        bcount = xp.bincount(xp.int64(self.markers_wo_holes[:, -2]))
+        from cunumpy.xp import array_backend
+
+        if array_backend.backend == "numpy":
+            bcount = xp.bincount(xp.int64(self.markers_wo_holes[:, -2]))
+        else:
+            import cupy as cp
+
+            indices = self.markers_wo_holes[:, -2]
+            indices = indices.astype(cp.int64)
+            bcount = cp.bincount(indices)
+
         max_in_box = xp.max(bcount)
         if max_in_box > self._sorting_boxes.boxes.shape[1]:
             warnings.warn(
@@ -3980,7 +4036,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
         self.put_particles_in_boxes()
 
-        func = Pyccelkernel(eval_kernels_sph.sph_mean_velocity_coeffs)
+        func = PyccelKernel(eval_kernels_sph.sph_mean_velocity_coeffs)
 
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
@@ -4092,7 +4148,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         self.put_particles_in_boxes()
 
         # 1st kernel
-        func = Pyccelkernel(eval_kernels_sph.sph_mean_velocity_coeffs)
+        func = PyccelKernel(eval_kernels_sph.sph_mean_velocity_coeffs)
         comps = xp.array((0, 1, 2))
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
@@ -4113,7 +4169,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         )
 
         # 2nd kernel
-        func = Pyccelkernel(eval_kernels_sph.sph_viscosity_tensor)
+        func = PyccelKernel(eval_kernels_sph.sph_viscosity_tensor)
         comps = xp.arange(9)
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
@@ -4237,7 +4293,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
         if fast:
             if len(_shp) == 1:
-                func = Pyccelkernel(box_based_evaluation_flat)
+                func = PyccelKernel(box_based_evaluation_flat)
             elif len(_shp) == 3:
                 if _shp[0] > 1:
                     assert eta1[0, 0, 0] != eta1[1, 0, 0], "Meshgrids must be obtained with indexing='ij'!"
@@ -4245,7 +4301,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                     assert eta2[0, 0, 0] != eta2[0, 1, 0], "Meshgrids must be obtained with indexing='ij'!"
                 if _shp[2] > 1:
                     assert eta3[0, 0, 0] != eta3[0, 0, 1], "Meshgrids must be obtained with indexing='ij'!"
-                func = Pyccelkernel(box_based_evaluation_meshgrid)
+                func = PyccelKernel(box_based_evaluation_meshgrid)
 
             func(
                 self.args_markers,
@@ -4271,9 +4327,9 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             )
         else:
             if len(_shp) == 1:
-                func = Pyccelkernel(naive_evaluation_flat)
+                func = PyccelKernel(naive_evaluation_flat)
             elif len(_shp) == 3:
-                func = Pyccelkernel(naive_evaluation_meshgrid)
+                func = PyccelKernel(naive_evaluation_meshgrid)
             func(
                 self.args_markers,
                 eta1,
@@ -4333,10 +4389,11 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         assert alpha.size == 3
         assert xp.all(alpha >= 0.0) and xp.all(alpha <= 1.0)
         bi = self.first_pusher_idx
-        self._sorting_etas = xp.mod(
+        xp.mod(
             alpha * (self.markers[:, :3] + self.markers[:, bi + 3 + self.vdim : bi + 3 + self.vdim + 3])
             + (1.0 - alpha) * self.markers[:, bi : bi + 3],
             1.0,
+            out=self._sorting_etas,
         )
 
         # check which particles are on the current process domain
@@ -4483,6 +4540,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         _tmp[self.mpi_rank] = scalar
 
         if self.mpi_comm is not None:
+            print(f"{self.mpi_comm = }")
             self.mpi_comm.Allgather(
                 _tmp[self.mpi_rank],
                 _tmp,
