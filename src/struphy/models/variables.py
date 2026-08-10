@@ -581,7 +581,7 @@ class PICVariable(Variable):
         self.particles.draw_markers(sort=sort)
 
         # set zero velocity according to loading_params
-        zero_index = xp.nonzero(self.particles.loading_params.set_zero_velocity)[0].flatten()
+        zero_index = xp.nonzero(xp.asarray(self.particles.loading_params.set_zero_velocity))[0].flatten()
         self.particles.set_velocities_comp(velocity=0.0, comp=zero_index)
 
         self.particles.initialize_weights()
