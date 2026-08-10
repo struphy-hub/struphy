@@ -49,7 +49,7 @@ def main() -> None:
 
     profiling_case = ProfilingCase(
         label="toydrift_periodic_slab_hires_petsc",
-        name="ToyDrift periodic slab (32^3, hires): pcg vs. PETSc+gamg at a larger problem size",
+        name="ToyDrift periodic slab: PCG vs. PETSc+GAMG",
         description=(
             "Higher-resolution (32^3 grid, 32768 dofs, degree-3 splines) periodic-slab ToyDrift "
             "setup, solving the per-step guiding-center Poisson problem with either feectools' "
