@@ -836,6 +836,8 @@ class Maxwellian(KineticBackground):
         f : xp.ndarray
             The evaluated Maxwellian.
         """
+        from struphy.kinetic_background.maxwellians import CanonicalMaxwellian2D
+        
         args = phase_space_coords
 
         # Check that all args have the same shape
@@ -847,12 +849,17 @@ class Maxwellian(KineticBackground):
             )  # flat or meshgrid evaluation
 
         # Get result evaluated at eta's
-        res = self.n(*args[: -self.vdim])
-        us = self.u(*args[: -self.vdim])
-        vths = self.vth(*args[: -self.vdim])
+        if isinstance(self, CanonicalMaxwellian2D):
+            res = self.n(*args)
+            us = self.u(*args)
+            vths = self.vth(*args)
+        else:
+            res = self.n(*args[: -self.vdim])
+            us = self.u(*args[: -self.vdim])
+            vths = self.vth(*args[: -self.vdim])
 
         # take care of correct broadcasting, assuming args come from phase space meshgrid
-        if xp.ndim(args[0]) > 3:
+        if xp.ndim(args[0]) > 3 and not isinstance(self, CanonicalMaxwellian2D):
             # move eta axes to the back
             arg_t = xp.moveaxis(args[0], 0, -1)
             arg_t = xp.moveaxis(arg_t, 0, -1)
@@ -869,7 +876,7 @@ class Maxwellian(KineticBackground):
         # Multiply result with gaussian in v's
         for i, v in enumerate(args[-self.vdim :]):
             # correct broadcasting
-            if xp.ndim(args[0]) > 3:
+            if xp.ndim(args[0]) > 3 and not isinstance(self, CanonicalMaxwellian2D):
                 u_broad = us[i] + 0.0 * arg_t
                 u = xp.moveaxis(u_broad, -1, 0)
                 u = xp.moveaxis(u, -1, 0)
@@ -889,6 +896,8 @@ class Maxwellian(KineticBackground):
 
     def _evaluate_moment(self, eta1, eta2, eta3, *, name: str = "n", add_perturbation: bool = None):
         """Scalar moment evaluation as background + perturbation.
+        This method is overridden in CanonicalMaxwellian2D to feature 
+        the canonical toroidal momentum in the evaluation.
 
         Parameters
         ----------
@@ -957,7 +966,7 @@ class Maxwellian(KineticBackground):
         if isinstance(background, (float, int)):
             out += background
         else:
-            assert isinstance(background, FluidEquilibrium)
+            assert callable(background)
             out += background(*etas)
 
         # add perturbation

@@ -38,7 +38,7 @@ from struphy.io.options import LiteralOptions
 from struphy.io.output_handling import DataContainer
 from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
 from struphy.kinetic_background.base import KineticBackground, Maxwellian
-from struphy.kinetic_background.maxwellians import CanonicalMaxwellian
+from struphy.kinetic_background.maxwellians import CanonicalMaxwellian2D
 from struphy.particles.parameters import (
     BoundaryParameters,
     LoadingParameters,
