@@ -79,6 +79,11 @@ class SchurSolver:
 
         kwargs = solver_params.__dict__.copy()
         kwargs.pop("info")
+        # pc_type is petsc-only (see struphy.linear_algebra.solver.SolverParameters); this
+        # module always goes through feectools' own `inverse` (imported directly above, not
+        # struphy's petsc-aware wrapper), whose InverseLinearOperator subclasses forward
+        # unknown kwargs straight to their constructor and would raise on it.
+        kwargs.pop("pc_type", None)
         if precond is not None:
             kwargs["pc"] = precond
 

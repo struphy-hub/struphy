@@ -46,6 +46,12 @@ def inverse(A, solver: str, **kwargs):
 
         return PETScSolver(A, **petsc_kwargs)
 
+    # pc_type/ksp_type are petsc-only (see _PETSC_SOLVER_KWARGS above); feectools'
+    # InverseLinearOperator subclasses forward unknown kwargs straight to their
+    # constructor and would raise on them, so they never reach this branch.
+    kwargs.pop("pc_type", None)
+    kwargs.pop("ksp_type", None)
+
     from feectools.linalg.solvers import inverse as feectools_inverse
 
     return feectools_inverse(A, solver, **kwargs)
@@ -59,6 +65,11 @@ class SolverParameters:
     maxiter: int = 3000
     info: bool = False
     recycle: bool = True
+    pc_type: LiteralOptions.OptsPETScPrecond = "jacobi"
+    """Preconditioner for ``solver="petsc"`` only (ignored otherwise): PETSc's ``PCType``
+    name, e.g. ``"jacobi"`` (cheap, diagonal) or ``"gamg"`` (algebraic multigrid -- far
+    stronger for large, ill-conditioned systems, but with more setup overhead per matrix
+    assembly)."""
 
     def __post_init__(self):
         self.verbose = False

@@ -362,6 +362,7 @@ class ImplicitDiffusion(Propagator):
             maxiter=self.options.solver_params.maxiter,
             verbose=self.options.solver_params.verbose,
             recycle=self.options.solver_params.recycle,
+            pc_type=self.options.solver_params.pc_type,
         )
 
         # allocate memory for solution

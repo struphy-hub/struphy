@@ -67,7 +67,7 @@ def main() -> None:
     # Launch one run per (rank count, solver) combination, same rank counts for both solvers so
     # they are directly comparable. Each launch gets its own `--id` (hence its own `sim_<id>`
     # output folder), so the two solvers never collide even at the same rank count.
-    for num_tasks in (1, 2, 4):
+    for num_tasks in (1, ): #2, 4):
         for solver in ("pcg", "petsc"):
             profiling_case.launch(num_tasks, param_flags=["--solver", solver])
 
