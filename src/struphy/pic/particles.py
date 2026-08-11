@@ -194,6 +194,7 @@ class Particles6D(Particles):
     def mu_index(self):
         return self.first_diagnostics_idx
 
+
 class DeltaFParticles6D(Particles6D):
     """
     A class for kinetic species in full 6D phase space that solve for delta_f = f - f0.

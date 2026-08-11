@@ -1,6 +1,7 @@
 "Base classes for kinetic backgrounds."
 
 import copy
+import logging
 from abc import ABCMeta, abstractmethod
 from typing import Callable
 
@@ -8,15 +9,15 @@ import cunumpy as xp
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.colors import Normalize
-import logging
 
-from struphy.fields_background.base import FluidEquilibriumWithB, FluidEquilibrium
+from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
 from struphy.geometry.base import Domain
 from struphy.initial.base import Perturbation
 from struphy.io.options import LiteralOptions
 from struphy.utils.utils import __class_with_params_repr_no_defaults__
 
 logger = logging.getLogger("struphy")
+
 
 class KineticBackground(metaclass=ABCMeta):
     r"""Base class for kinetic background distributions.
@@ -837,7 +838,7 @@ class Maxwellian(KineticBackground):
             The evaluated Maxwellian.
         """
         from struphy.kinetic_background.maxwellians import CanonicalMaxwellian2D
-        
+
         args = phase_space_coords
 
         # Check that all args have the same shape
@@ -906,7 +907,7 @@ class Maxwellian(KineticBackground):
 
     def _evaluate_moment(self, eta1, eta2, eta3, *, name: str = "n", add_perturbation: bool = None):
         """Scalar moment evaluation as background + perturbation.
-        This method is overridden in CanonicalMaxwellian2D to feature 
+        This method is overridden in CanonicalMaxwellian2D to feature
         the canonical toroidal momentum in the evaluation.
 
         Parameters

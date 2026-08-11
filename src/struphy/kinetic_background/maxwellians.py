@@ -1,19 +1,20 @@
 "Maxwellian (Gaussian) distributions in velocity space."
 
 import copy
-from typing import Callable
-from inspect import signature
 import logging
+from inspect import signature
+from typing import Callable
 
 import cunumpy as xp
 
-from struphy.fields_background.base import FluidEquilibriumWithB, AxisymmMHDequilibrium
+from struphy.fields_background.base import AxisymmMHDequilibrium, FluidEquilibriumWithB
 from struphy.geometry.base import Domain
 from struphy.initial.base import Perturbation
 from struphy.io.options import LiteralOptions
 from struphy.kinetic_background.base import Maxwellian
 
 logger = logging.getLogger("struphy")
+
 
 class Maxwellian3D(Maxwellian):
     r"""A :class:`~struphy.kinetic_background.base.Maxwellian` depending :math:`(\eta_1, \eta_2, \eta_3)`
@@ -250,7 +251,7 @@ class GyroMaxwellian2D(Maxwellian):
         out += [self._evaluate_moment(eta1, eta2, eta3, name="vth_para")]
         out += [self._evaluate_moment(eta1, eta2, eta3, name="vth_perp")]
         return [ou * mom_fac for ou, mom_fac in zip(out, self.moment_factors["vth"])]
-    
+
 
 class GyroMaxwellian2Dvperp(Maxwellian):
     r"""A gyrotropic :class:`~struphy.kinetic_background.base.Maxwellian` depending on
@@ -381,7 +382,7 @@ class GyroMaxwellian2Dvperp(Maxwellian):
 
 
 class CanonicalMaxwellian2D(GyroMaxwellian2D):
-    r"""Canonical Maxwellian distribution function in 
+    r"""Canonical Maxwellian distribution function in
     :math:`(\eta_1, \eta_2, \eta_3, v_\parallel, \mu)` coordinates.
     Uses caching for evaluation of the canonical toroidal momentum in these coordinates.
 
@@ -430,7 +431,7 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
     volume_form : bool, default=True
         If ``True``, represent the distribution as a volume form and include the appropriate
         velocity-space Jacobian when evaluating it.
-        
+
     cache_size : int, optional
         Number of rows in the cache buffer for :math:`\psi_c` evaluation. If ``None``, no caching is used.
         Must be able to accomodate all markers on the current process.
@@ -448,15 +449,16 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
     ):
         assert isinstance(equil, AxisymmMHDequilibrium)
 
-        super().__init__(n=n,
-                            u_para=(0.0, None),
-                            u_perp=(0.0, None),
-                            vth_para=vth,
-                            vth_perp=vth,
-                            volume_form=volume_form,
-                            B0=equil.absB0,
-                            uniform_on_disc=uniform_on_disc,
-                            )
+        super().__init__(
+            n=n,
+            u_para=(0.0, None),
+            u_perp=(0.0, None),
+            vth_para=vth,
+            vth_perp=vth,
+            volume_form=volume_form,
+            B0=equil.absB0,
+            uniform_on_disc=uniform_on_disc,
+        )
 
         # store additional parameters
         self._equil = equil
@@ -471,7 +473,7 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
             "n": 1.0,
             "vth": 1.0,
         }
-        
+
         # create cache for psi_c evaluation
         if cache_size is not None:
             self.cbufs = {}
@@ -503,16 +505,17 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         """Epsilon parameter in the canonical toroidal momentum."""
         return self._epsilon
 
-    def _evaluate_moment(self, 
-                         eta1,
-                         eta2,
-                         eta3,
-                         v_parallel,
-                         mu,
-                         *,
-                         name: str = "n", 
-                         add_perturbation: bool = None,
-                         ):
+    def _evaluate_moment(
+        self,
+        eta1,
+        eta2,
+        eta3,
+        v_parallel,
+        mu,
+        *,
+        name: str = "n",
+        add_perturbation: bool = None,
+    ):
         """Scalar moment evaluation as background + perturbation.
         Incontrast to standard Maxwellians, here the moments are evaluated
         at the phase space coordinates.
@@ -538,7 +541,7 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         assert isinstance(eta2, xp.ndarray)
         assert isinstance(eta3, xp.ndarray)
         assert isinstance(v_parallel, xp.ndarray)
-        assert isinstance(mu, xp.ndarray) 
+        assert isinstance(mu, xp.ndarray)
         assert eta1.shape == eta2.shape == eta3.shape == v_parallel.shape == mu.shape
 
         params = self.params[name]
@@ -572,11 +575,13 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         else:
             assert callable(background)
             sig = signature(background)
-            assert len(sig.parameters) == 1, f"Background function {background} must take one argument (psi_c), but takes {len(sig.parameters)}."
-            
+            assert len(sig.parameters) == 1, (
+                f"Background function {background} must take one argument (psi_c), but takes {len(sig.parameters)}."
+            )
+
             cached = self._check_psi_c_cached(*coords)
             logger.debug(f"{'Using cached psi_c' if cached else 'Evaluating psi_c'} for background evaluation.")
-            
+
             if not cached:
                 self.psi_c = self.eval_psic(*coords)
             out += background(self.psi_c)
@@ -601,7 +606,7 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
                 out *= 2.0 * coords[0]
 
         return out
-    
+
     def _check_psi_c_cached(self, *coords):
         """Check if psi_c has been cached for the given coordinates."""
         cached = False
@@ -624,15 +629,17 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
 
     def eval_psic(self, *coords):
         r"""Shifted canonical toroidal momentum evaluated at given particle positions and velocities."""
-        
+
         a1 = self.equil.domain.params["a1"]
         B0 = self.equil.params["B0"]
         R0 = self.equil.params["R0"]
-        
+
         if len(coords) == 1:
             if self.cbufs is None:
-                logger.warning(f"Initialize {self.__class__.__name__} with `cache_size` for faster psi_c evaluation for markers!")
-            etas = coords[0][:, :3] # these are views (no mem allocation)
+                logger.warning(
+                    f"Initialize {self.__class__.__name__} with `cache_size` for faster psi_c evaluation for markers!"
+                )
+            etas = coords[0][:, :3]  # these are views (no mem allocation)
             vparallel = coords[0][:, 3]
             mu = coords[0][:, 4]
             n_markers = etas.shape[0]
@@ -657,13 +664,13 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
             x, y, z = self.equil.domain(*etas)
             vparallel = coords[3]
             mu = coords[4]
-          
-        if self.cbufs is None or len(coords) != 1: 
+
+        if self.cbufs is None or len(coords) != 1:
             R, P, Z = self.equil.inverse_map(x, y, z)
             psi = self.equil.psi(R, Z)
             if len(coords) != 1:
                 psi = psi[:, :, :, None, None]
-                
+
             energy = 1 / 2 * vparallel**2 + mu * absB0
 
             psi_c = psi - self._epsilon * B0 * R0 / absB0 * vparallel
@@ -686,12 +693,12 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
             psi_c = self.cbufs["psic"][:n_markers]
             positive_mask = self.cbufs["positive_mask"][:n_markers]
             correction = self.cbufs["correction"][:n_markers]
-            
+
             R[:], P[:], Z[:] = self.equil.inverse_map(x, y, z)
             psi[:] = self.equil.psi(R, Z)
-        
+
             energy[:] = 1 / 2 * vparallel**2 + mu * absB0
-                        
+
             psi_c[:] = psi - self._epsilon * B0 * R0 / absB0 * vparallel
 
             positive_mask[:] = (energy - mu * B0) > 0
@@ -704,8 +711,6 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
             )
             psi_c[:] += correction
         return psi_c
-
-
 
     def eval_rc(self, eta1, eta2, eta3, vparallel, mu):
         r""" Square root of radially normalized canonical toroidal momentum.

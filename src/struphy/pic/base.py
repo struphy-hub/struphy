@@ -419,7 +419,7 @@ class Particles(metaclass=ABCMeta):
     # @abstractmethod
     # def mu_index(self):
     #     """Index of the column in the marker array where the magnetic moment is stored."""
-    #     pass   
+    #     pass
 
     @property
     @abstractmethod
@@ -522,6 +522,7 @@ class Particles(metaclass=ABCMeta):
         """Index in marker array where mean velocity for noslip BC is stored."""
         return self._mean_velocity_index
 
+    @property
     def nbytes_local(self) -> int:
         """Estimated local (per-MPI-rank) memory footprint, in bytes, of all marker-related arrays
         (markers, sorting buffers, lost-marker container). Only depends on :attr:`n_rows` and
