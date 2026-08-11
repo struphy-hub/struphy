@@ -161,8 +161,10 @@ def push_vxb_analytic(
     n_markers = args_markers.n_markers
     first_init_idx = args_markers.first_init_idx
 
-    # -- removed omp: #$ omp parallel private (ip, e1, e2, e3, v, dfm, det_df, span1, span2, span3, b_form, b_cart, b_abs, b_norm, vpar, vxb_norm, vperp, b_normxvperp)
-    # -- removed omp: #$ omp for
+    # fmt: off
+    #$ omp parallel private (ip, e1, e2, e3, v, dfm, det_df, span1, span2, span3, b_form, b_cart, b_abs, b_norm, vpar, vxb_norm, vperp, b_normxvperp)
+    #$ omp for
+    # fmt: on
     for ip in range(n_markers):
         # check if marker is a hole
         if markers[ip, first_init_idx] == -1.0 or markers[ip, -1] == -2.0:
@@ -225,7 +227,9 @@ def push_vxb_analytic(
             # analytic rotation
             markers[ip, 3:6] = vpar * b_norm + cos(b_abs * dt) * vperp - sin(b_abs * dt) * b_normxvperp
 
-    # -- removed omp: #$ omp end parallel
+    # fmt: off
+    #$ omp end parallel
+    # fmt: on
 
 
 @stack_array("dfm", "b_form", "b_cart", "b_prod", "v", "identity", "rhs", "lhs", "lhs_inv", "vec", "res")
@@ -285,8 +289,10 @@ def push_vxb_implicit(
     n_markers = args_markers.n_markers
     first_init_idx = args_markers.first_init_idx
 
-    # -- removed omp: #$ omp parallel firstprivate(b_prod) private (ip, v, dfm, det_df, span1, span2, span3, b_form, b_cart, rhs, lhs, lhs_inv, vec, res)
-    # -- removed omp: #$ omp for
+    # fmt: off
+    #$ omp parallel firstprivate(b_prod) private (ip, v, dfm, det_df, span1, span2, span3, b_form, b_cart, rhs, lhs, lhs_inv, vec, res)
+    #$ omp for
+    # fmt: on
     for ip in range(n_markers):
         # check if marker is a hole
         if markers[ip, first_init_idx] == -1.0:
@@ -349,7 +355,9 @@ def push_vxb_implicit(
 
         markers[ip, 3:6] = res
 
-    # -- removed omp: #$ omp end parallel
+    # fmt: off
+    #$ omp end parallel
+    # fmt: on
 
 
 @stack_array(
@@ -1906,8 +1914,10 @@ def push_eta_stage(
     else:
         last = 0.0
 
-    # -- removed omp: #$ omp parallel private(ip, v, dfm, dfinv, k)
-    # -- removed omp: #$ omp for
+    # fmt: off
+    #$ omp parallel private(ip, v, dfm, dfinv, k)
+    #$ omp for
+    # fmt: on
     for ip in range(n_markers):
         # check if marker is a hole or a boundary particle
         if markers[ip, first_init_idx] == -1.0 or markers[ip, -1] == -2.0:
@@ -1943,7 +1953,9 @@ def push_eta_stage(
             + last * markers[ip, first_free_idx : first_free_idx + 3]
         )
 
-    # -- removed omp: #$ omp end parallel
+    # fmt: off
+    #$ omp end parallel
+    # fmt: on
 
 
 @stack_array("dfm", "dfinv", "dfinv_t", "ginv", "v", "u", "k", "k_v", "k_u")
