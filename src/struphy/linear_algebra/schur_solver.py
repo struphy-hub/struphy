@@ -110,6 +110,12 @@ class SchurSolver:
             # the real one via `self._solver.linop` before solving.
             self._solver = struphy_inverse(A, solver_name, **kwargs)
         else:
+            # pc_type is petsc-only (see struphy.linear_algebra.solver.SolverParameters); this
+            # branch goes straight to feectools' own `inverse` (imported directly above, not
+            # struphy's petsc-aware wrapper, which would otherwise strip it), whose
+            # InverseLinearOperator subclasses forward unknown kwargs straight to their
+            # constructor and would raise on it.
+            kwargs.pop("pc_type", None)
             self._solver = inverse(A, solver_name, **kwargs)
 
         # right-hand side vector (avoids temporary memory allocation!)

@@ -20,7 +20,7 @@ logger = logging.getLogger("struphy")
 
 
 def _directional_derivative_to_stencil_matrix(op):
-    """ Build a :class:`~feectools.linalg.stencil.StencilMatrix` equivalent to a
+    """Build a :class:`~feectools.linalg.stencil.StencilMatrix` equivalent to a
     (matrix-free) :class:`~feectools.feec.derivatives.DirectionalDerivativeOperator`, so it can
     be handed to :func:`feectools.linalg.topetsc.mat_topetsc`.
 
@@ -84,36 +84,60 @@ def _directional_derivative_to_stencil_matrix(op):
     return M
 
 
+def _materialize_block(block):
+    """Turn a ``BlockLinearOperator`` block entry into a concrete matrix (``StencilMatrix`` or
+    ``None``) that :func:`feectools.linalg.topetsc.mat_topetsc` can handle directly.
+
+    Blocks of a topological operator such as ``derham.curl`` are not always plain
+    ``StencilMatrix``: sign conventions are sometimes expressed via ``ScaledLinearOperator``
+    wrapping a ``StencilMatrix``/``DirectionalDerivativeOperator`` rather than baking the sign
+    into the matrix data (observed e.g. for ``derham.curl.T``, whose transposed blocks land on
+    this path). ``mat_topetsc`` calls ``.update_ghost_regions()`` on every block, which only
+    concrete matrix types implement -- so any such wrapper must be resolved to a concrete matrix
+    first. Recurses through nested ``ScaledLinearOperator``s.
+    """
+    if block is None:
+        return None
+    if isinstance(block, DirectionalDerivativeOperator):
+        return _directional_derivative_to_stencil_matrix(block)
+    if isinstance(block, ScaledLinearOperator):
+        inner = _materialize_block(block.operator)
+        if inner is None:
+            return None
+        scaled = inner.copy()
+        scaled *= block.scalar
+        return scaled
+    return block
+
+
 def _assemble_leaf_operator(A):
-    """ Return an operator equivalent to `A` that is directly convertible via
+    """Return an operator equivalent to `A` that is directly convertible via
     :func:`feectools.linalg.topetsc.mat_topetsc` (i.e. a ``StencilMatrix`` or a
     ``BlockLinearOperator`` whose blocks are all ``StencilMatrix``), replacing any
-    ``DirectionalDerivativeOperator`` (block or bare) by its assembled equivalent.
+    ``DirectionalDerivativeOperator``/``ScaledLinearOperator`` (block or bare) by its assembled
+    equivalent -- see :func:`_materialize_block`.
     """
-    if isinstance(A, DirectionalDerivativeOperator):
-        return _directional_derivative_to_stencil_matrix(A)
+    if isinstance(A, (DirectionalDerivativeOperator, ScaledLinearOperator)):
+        return _materialize_block(A)
 
     if isinstance(A, BlockLinearOperator):
         out = BlockLinearOperator(A.domain, A.codomain)
         for i, j in A.nonzero_block_indices:
-            block = A[i, j]
-            out[i, j] = _directional_derivative_to_stencil_matrix(block) if isinstance(
-                block, DirectionalDerivativeOperator
-            ) else block
+            out[i, j] = _materialize_block(A[i, j])
         return out
 
     return A
 
 
 def _comm_of(space):
-    """ MPI communicator of a StencilVectorSpace/BlockVectorSpace, matching mat_topetsc's convention. """
+    """MPI communicator of a StencilVectorSpace/BlockVectorSpace, matching mat_topetsc's convention."""
     if isinstance(space, BlockVectorSpace):
         return space.spaces[0].cart.global_comm
     return space.cart.global_comm
 
 
 def _identity_petsc_mat(space):
-    """ Build a PETSc.Mat representing the identity operator on `space`. """
+    """Build a PETSc.Mat representing the identity operator on `space`."""
     from petsc4py import PETSc
 
     comm = _comm_of(space)
@@ -134,7 +158,7 @@ def _identity_petsc_mat(space):
 
 
 def _assemble_petsc_matrix(A):
-    """ Recursively assemble a ``PETSc.Mat`` for a (possibly composite) feectools
+    """Recursively assemble a ``PETSc.Mat`` for a (possibly composite) feectools
     ``LinearOperator``, by converting every assembled leaf via
     :func:`feectools.linalg.topetsc.mat_topetsc` and combining the pieces with PETSc's own
     matrix algebra (``matMult`` for composition, ``axpy`` for sums, ``scale`` for scalar

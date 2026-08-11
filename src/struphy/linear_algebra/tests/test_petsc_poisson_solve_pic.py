@@ -1,5 +1,6 @@
 import cunumpy as xp
 import pytest
+from cunumpy import PyccelKernel
 
 pytest.importorskip("petsc4py")
 
@@ -18,7 +19,6 @@ from struphy.pic.particles import Particles6D
 from struphy.propagators.base import Propagator
 from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.topology.grids import TensorProductGrid
-from struphy.utils.pyccel import Pyccelkernel
 
 
 class _FakePICVariable:
@@ -75,7 +75,7 @@ def test_poisson_solve_petsc_matches_pcg_with_real_pic_deposition():
         rho = ParticlesToGrid(
             _FakePICVariable(particles),
             "H1",
-            Pyccelkernel(accum_kernels.charge_density_0form),
+            PyccelKernel(accum_kernels.charge_density_0form),
         )
 
         phi = FEECVariable(space="H1")
