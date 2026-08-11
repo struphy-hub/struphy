@@ -228,7 +228,7 @@ class GyroMaxwellian2D(Maxwellian):
 
     @moment_factors.setter
     def moment_factors(self, **kwargs):
-        for kw, arg in kwargs:
+        for kw, arg in kwargs.items():
             if kw in {"u", "vth"}:
                 assert len(arg) == 2
             self._moment_factors[kw] = arg
