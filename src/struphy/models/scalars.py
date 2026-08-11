@@ -15,18 +15,19 @@ _DUMMY_VARIABLE = object()
 
 
 class Scalar(metaclass=ABCMeta):
-    """Abstract base class for scalar quantities in MPI parallel simulations.
-
-    Parameters
-    ----------
-    variables : Variable or Scalar
-        The variable(s) associated with the scalar, or scalars for summation."""
-
     def __init__(self, *variables: Union[Variable, "Scalar"]):
         self.variables = variables
         self.local_value = xp.empty(1, dtype=float)
         self.value = xp.empty(1, dtype=float)
         self.uptodate = False
+
+    def invalidate(self):
+        """Mark this scalar and all scalar dependencies as outdated."""
+        self.uptodate = False
+
+        for variable in self.variables:
+            if isinstance(variable, Scalar):
+                variable.invalidate()
 
     @abstractmethod
     def _local_update(self):
@@ -39,7 +40,7 @@ class Scalar(metaclass=ABCMeta):
         pass
 
     def update(self):
-        """Update the scalar quantity by performing local update and then summing over MPI processes."""
+        """Update this scalar if its cached value is outdated."""
         if not self.uptodate:
             self._local_update()
             self._mpi_sum()
@@ -136,30 +137,28 @@ class SPHScalar(Scalar):
             op=MPI.SUM,
         )
 
-
 class Scalars:
-    """Container for multiple Scalar objects.
-    Calling .update() on this container will update all contained scalars."""
+    """Container for multiple Scalar objects."""
 
     def __init__(self, **scalars: dict[str, Scalar]):
         for name, scalar in scalars.items():
             assert isinstance(scalar, Scalar)
-        if scalars:
-            self._dct = scalars
-        else:
-            self._dct = {}
+
+        self._dct = scalars if scalars else {}
 
     @property
     def dct(self) -> dict[str, Scalar]:
         return self._dct
 
     def update(self):
+        # Evaluate all requested scalar quantities.
         for scalar in self.dct.values():
             scalar.update()
-        # reset status to False for next update
-        for scalar in self.dct.values():
-            scalar.uptodate = False
 
+        # Recursively invalidate top-level and nested composite scalars
+        # so that all quantities are recomputed on the next call.
+        for scalar in self.dct.values():
+            scalar.invalidate()
 
 @auto_convert_docstring
 class BilinearEnergyFEEC(Scalar):
@@ -339,7 +338,6 @@ class KineticEnergySPH(SPHScalar):
         energy = self.normalization * 0.5 / self.Np * xp.sum(self.weights * xp.sum(self.velocities**2, axis=1))
         self.local_value[0] = energy
 
-
 class FunctionScalarSPH(SPHScalar):
     """Scalar defined by a callable working on a SPH variable."""
 
@@ -353,3 +351,4 @@ class FunctionScalarSPH(SPHScalar):
 
     def _local_update(self):
         self.local_value[0] = float(self.function())
+

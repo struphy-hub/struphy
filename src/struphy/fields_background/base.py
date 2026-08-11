@@ -774,7 +774,6 @@ class CartesianFluidEquilibriumWithB(CartesianFluidEquilibrium, FluidEquilibrium
     def domain(self, new_domain):
         super(CartesianFluidEquilibriumWithB, type(self)).domain.fset(self, new_domain)
 
-
 class LogicalFluidEquilibriumWithB(LogicalFluidEquilibrium, FluidEquilibriumWithB):
     r"""
     Specialization for fluid equilibria with magnetic field on the logical cube [0, 1]^3.
