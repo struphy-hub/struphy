@@ -233,13 +233,8 @@ class SortingBoxes:
             n_mkr * (1 + 1 / xp.sqrt(n_mkr) + self._box_bufsize),
         )
 
-        # cartesian boxes
-        self._boxes = xp.zeros((self._n_boxes + 1, n_cols), dtype=int)
-
-        # TODO: there is still a bug here
-        # the row number in self._boxes should not be n_boxes + 1; this is just a temporary fix to avoid an error that I dont understand.
-        # Must be fixed soon!
-
+        # cartesian boxes (extra last row stores holes/outside particles)
+        self._boxes = xp.full((self._n_boxes + 1, n_cols), -1, dtype=int)
         self._next_index = xp.zeros((self._n_boxes + 1), dtype=int)
         self._cumul_next_index = xp.zeros((self._n_boxes + 2), dtype=int)
         self._neighbours = xp.zeros((self._n_boxes, 27), dtype=int)
