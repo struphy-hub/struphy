@@ -8,6 +8,7 @@ from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from feectools.linalg.solvers import inverse
+from struphy.feec.linear_operators import BoundaryOperator
 
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import L2Projector, WeightedMassOperators
@@ -217,15 +218,29 @@ class TwoFluidQuasiNeutralFull(Propagator):
         )
 
         # boundary operators
-        self._b_op_u = (
+        self._hdiv_b_op_u = (
             self.variables.u.boundary_op_lift
             if self._has_lifting_u
             else IdentityOperator(self.derham.coeff_spaces["2"])
         )
-        self._b_op_ue = (
+        self._hdiv_b_op_ue = (
             self.variables.ue.boundary_op_lift
             if self._has_lifting_ue
             else IdentityOperator(self.derham.coeff_spaces["2"])
+        )
+
+        self._hcurl_b_op_u = BoundaryOperator(
+            self._derham_lift_u.coeff_spaces["1"],
+            "Hcurl",
+            self.derham.dirichlet_bc,
+            codomain=self.derham.coeff_spaces["1"],
+        )
+
+        self._hcurl_b_op_ue = BoundaryOperator(
+            self._derham_lift_ue.coeff_spaces["1"],
+            "Hcurl",
+            self.derham.dirichlet_bc,
+            codomain=self.derham.coeff_spaces["1"],
         )
 
         # pre-allocated RHS vectors (constrained, after boundary operator)
@@ -452,20 +467,21 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
         # --- assemble RHS fully in unconstrained space, then enforce essential BCs ---
         self._rhs_vec_u.vector = (
-            self._b_op_u.dot(
-                (
-                    self._M2_u.dot(self._src_u.vector)
-                    - self._A11_u.dot(self._boundary_spline_u)
-                    - self._M2_u.dot(self._boundary_spline_u) / dt
-                    + self.options.nu * self._M2_u.dot(self._curl_u.dot(self._M1inv_u.dot(self._S1_u.dot(self._natural_u.vector))))
-                )
+            self._hdiv_b_op_u.dot(
+                self._M2_u.dot(self._src_u.vector)
+                - self._A11_u.dot(self._boundary_spline_u)
+                - self._M2_u.dot(self._boundary_spline_u) / dt
             )
             + self._M2.dot(self._u_0.vector) / dt
+            + self.options.nu * self._M2.dot(self._curl.dot(self._M1inv.dot(self._hcurl_b_op_u.dot(self._S1_u.dot(self._natural_u.vector)))))
         )
 
-        self._rhs_vec_ue.vector = self._b_op_ue.dot(
-            (self._M2_ue.dot(self._src_ue.vector) - self._A22_ue.dot(self._boundary_spline_ue))
-            + self.options.nu_e * self._M2_ue.dot(self._curl_ue.dot(self._M1inv_ue.dot(self._S1_ue.dot(self._natural_ue.vector))))
+        self._rhs_vec_ue.vector = (
+            self._hdiv_b_op_ue.dot(
+                self._M2_ue.dot(self._src_ue.vector)
+                - self._A22_ue.dot(self._boundary_spline_ue)
+            )
+            + self.options.nu_e * self._M2.dot(self._curl.dot(self._M1inv.dot(self._hcurl_b_op_ue.dot(self._S1_ue.dot(self._natural_ue.vector)))))
         )
 
         self._div_boundary_u.vector = self._div_u.dot(self._boundary_spline_u)

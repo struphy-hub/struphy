@@ -509,11 +509,17 @@ class BoundaryOperator(LinOpWithTransp):
         assert isinstance(v, Vector)
         assert v.space == self._domain
 
-        if self._space_id == "Hcurl":  # TODO :3
+        if self._space_id == "Hcurl":  # TODO
             if out is not None:
+                assert isinstance(out, Vector)
+                assert out.space == self._codomain
                 v.copy(out=out)
-                return out
-            return v.copy()
+            elif self._cross_space:
+                out = self._codomain.zeros()
+                v.copy(out=out)
+            else:
+                out = v.copy()
+            return out
 
 
         if out is not None:
