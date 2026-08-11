@@ -65,7 +65,7 @@ class PushGuidingCenterBxEstar(Propagator):
         @ions.setter
         def ions(self, new):
             assert isinstance(new, PICVariable)
-            assert new.space == "Particles5Dvperp"
+            assert "Particles5D" in new.space
             self._ions = new
 
     def __init__(

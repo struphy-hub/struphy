@@ -334,7 +334,7 @@ class Particles5D(Particles):
                 vth_para=(self.loading_params.moments[2], None),
                 vth_perp=(self.loading_params.moments[3], None),
                 volume_form=True,
-                equil=self.magn_bckgr,
+                # equil=self.magn_bckgr,
                 B0=self.loading_params.B0,
                 uniform_on_disc=(self.spatial == "disc"),
             )
@@ -407,20 +407,22 @@ class Particles5D(Particles):
         the marker array:
 
         * ``first_diagnostics_idx + 0``: energy
-        * ``first_diagnostics_idx + 1``: magnetic moment (set once in :meth:`draw_markers`, unchanged here
-          since it is an adiabatic invariant)
-        * ``first_diagnostics_idx + 2``: canonical toroidal momentum
+        * ``first_diagnostics_idx + 1``: canonical toroidal momentum
+
+        The magnetic moment itself is not a diagnostics column here (unlike in
+        :class:`Particles5Dvperp`) since it is already a phase-space coordinate, see :attr:`mu_idx`.
         """
 
         assert isinstance(self.equil, FluidEquilibriumWithB), "Constants of motion need background with magnetic field."
 
         # idx and slice
-        idx_can_momentum = self.first_diagnostics_idx + 2
+        idx_can_momentum = self.first_diagnostics_idx + 1
 
         utilities_kernels.eval_energy_5d(
             self.markers,
             self.derham.args_derham,
             self.first_diagnostics_idx,
+            self.mu_idx,
             self.absB0_h._data,
         )
 
@@ -436,6 +438,8 @@ class Particles5D(Particles):
             self.markers,
             self.derham.args_derham,
             self.first_diagnostics_idx,
+            self.mu_idx,
+            idx_can_momentum,
             self.equation_params.epsilon,
             B0,
             R0,
@@ -462,6 +466,7 @@ class Particles5D(Particles):
             self.derham.args_derham,
             self.domain.args_domain,
             self.first_diagnostics_idx,
+            self.mu_idx,
             self.absB0_h._data,
             PBbt._data,
         )
@@ -477,6 +482,7 @@ class Particles5D(Particles):
             self.derham.args_derham,
             self.domain.args_domain,
             self.first_diagnostics_idx,
+            self.mu_idx,
             self.absB0_h._data,
         )
 
@@ -691,6 +697,7 @@ class Particles5Dvperp(Particles):
             self.markers,
             self.derham.args_derham,
             self.first_diagnostics_idx,
+            self.mu_idx,
             self.absB0_h._data,
         )
 
@@ -706,6 +713,8 @@ class Particles5Dvperp(Particles):
             self.markers,
             self.derham.args_derham,
             self.first_diagnostics_idx,
+            self.mu_idx,
+            idx_can_momentum,
             self.equation_params.epsilon,
             B0,
             R0,
@@ -732,6 +741,7 @@ class Particles5Dvperp(Particles):
             self.derham.args_derham,
             self.domain.args_domain,
             self.first_diagnostics_idx,
+            self.mu_idx,
             self.absB0_h._data,
             PBbt._data,
         )
@@ -747,6 +757,7 @@ class Particles5Dvperp(Particles):
             self.derham.args_derham,
             self.domain.args_domain,
             self.first_diagnostics_idx,
+            self.mu_idx,
             self.absB0_h._data,
         )
 
