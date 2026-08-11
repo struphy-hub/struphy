@@ -71,7 +71,7 @@ model.energetic_ions.var.save_data = True
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions()
+env = EnvironmentOptions(profiling_activated=True, profiling_trace=True)
 
 # Time stepping
 time_opts = Time()

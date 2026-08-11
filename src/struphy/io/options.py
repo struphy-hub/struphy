@@ -341,6 +341,7 @@ class EnvironmentOptions(OptionsBase):
     num_clones: int = 1
     profiling_activated: bool = False
     profiling_trace: bool = False
+    profiling_label: str | None = None
 
     def __post_init__(self):
         self.path_out: str = os.path.join(self.out_folders, self.sim_folder)
