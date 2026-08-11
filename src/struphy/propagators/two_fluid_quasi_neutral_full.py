@@ -503,13 +503,6 @@ class TwoFluidQuasiNeutralFull(Propagator):
             out=self._SOL,
         )
 
-        import numpy as np
-
-        print(f"ion      RHS norm = {np.linalg.norm(self._rhs_vec_u.vector.toarray()):.6e}")
-        print(f"ion      SOL norm = {np.linalg.norm(self._SOL[0][0].toarray()):.6e}")
-        print(f"electron RHS norm = {np.linalg.norm(self._rhs_vec_ue.vector.toarray()):.6e}")
-        print(f"electron SOL norm = {np.linalg.norm(self._SOL[0][1].toarray()):.6e}")
-
         info = self._Minv.get_info()
 
         # --- update FEEC variables ---
