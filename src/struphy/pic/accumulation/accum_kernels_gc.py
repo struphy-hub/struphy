@@ -90,6 +90,7 @@ def gc_mag_density_0form(
     """
 
     markers = args_markers.markers
+    mu_idx = args_markers.mu_idx
 
     # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, filling)
     # -- removed omp: #$ omp for reduction ( + :vec)
@@ -105,7 +106,7 @@ def gc_mag_density_0form(
 
         # marker weight and magnetic moment
         weight = markers[ip, 5]
-        mu = markers[ip, 9]
+        mu = markers[ip, mu_idx]
 
         # filling =mu*w_p/N
         filling = mu * weight * scale
@@ -550,6 +551,7 @@ def cc_lin_mhd_5d_M(
     """
 
     markers = args_markers.markers
+    mu_idx = args_markers.mu_idx
 
     # allocate for a field evaluation
     norm_b1 = empty(3, dtype=float)
@@ -578,7 +580,7 @@ def cc_lin_mhd_5d_M(
 
         # marker weight and velocity
         weight = markers[ip, 5]
-        mu = markers[ip, 9]
+        mu = markers[ip, mu_idx]
 
         # b-field evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
@@ -624,6 +626,7 @@ def cc_lin_mhd_5d_M(
     "curl_norm_b",
     "norm_b1",
     "grad_PB",
+    "grad_PBeq",
 )
 def cc_lin_mhd_5d_gradB(
     args_markers: "MarkerArguments",
@@ -652,6 +655,9 @@ def cc_lin_mhd_5d_gradB(
     grad_PB1: "float[:,:,:]",
     grad_PB2: "float[:,:,:]",
     grad_PB3: "float[:,:,:]",
+    grad_PBeq1: "float[:,:,:]",
+    grad_PBeq2: "float[:,:,:]",
+    grad_PBeq3: "float[:,:,:]",
     basis_u: "int",
 ):
     r"""Accumulation kernel for the propagator :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DGradB`.
@@ -684,6 +690,9 @@ def cc_lin_mhd_5d_gradB(
     """
 
     markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    first_init_idx = args_markers.first_init_idx
+    mu_idx = args_markers.mu_idx
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -693,6 +702,7 @@ def cc_lin_mhd_5d_gradB(
     curl_norm_b = empty(3, dtype=float)
     norm_b1 = empty(3, dtype=float)
     grad_PB = empty(3, dtype=float)
+    grad_PBeq = empty(3, dtype=float)
 
     # allocate for metric coeffs
     dfm = empty((3, 3), dtype=float)
@@ -706,12 +716,13 @@ def cc_lin_mhd_5d_gradB(
 
     tmp_v = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers_loc = shape(markers)[0]
-
-    for ip in range(n_markers_loc):
+    for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
+            continue
+
+        # if particle is refilled
+        if markers[ip, first_init_idx] == -1.0:
             continue
 
         # marker positions
@@ -722,7 +733,7 @@ def cc_lin_mhd_5d_gradB(
         # marker weight and velocity
         weight = markers[ip, 5]
         v = markers[ip, 3]
-        mu = markers[ip, 9]
+        mu = markers[ip, mu_idx]
 
         # b-field evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
@@ -748,6 +759,9 @@ def cc_lin_mhd_5d_gradB(
 
         # grad_PB; 1form
         eval_1form_spline_mpi(span1, span2, span3, args_derham, grad_PB1, grad_PB2, grad_PB3, grad_PB)
+
+        # grad_PBeq; 1form
+        eval_1form_spline_mpi(span1, span2, span3, args_derham, grad_PBeq1, grad_PBeq2, grad_PBeq3, grad_PBeq)
 
         # b_star; 2form transformed into H1vec
         b_star[:] = b + curl_norm_b * v * epsilon
@@ -778,19 +792,12 @@ def cc_lin_mhd_5d_gradB(
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.vec_fill_v0vec(
-                args_derham,
-                span1,
-                span2,
-                span3,
-                vec1,
-                vec2,
-                vec3,
-                filling_v[0],
-                filling_v[1],
-                filling_v[2],
+                args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
             )
 
         elif basis_u == 2:
+            grad_PB += grad_PBeq
+
             linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
             linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
 
@@ -798,16 +805,7 @@ def cc_lin_mhd_5d_gradB(
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.vec_fill_v2(
-                args_derham,
-                span1,
-                span2,
-                span3,
-                vec1,
-                vec2,
-                vec3,
-                filling_v[0],
-                filling_v[1],
-                filling_v[2],
+                args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
             )
 
 
@@ -862,6 +860,7 @@ def cc_lin_mhd_5d_gradB_dg_init(
     r"""TODO"""
 
     markers = args_markers.markers
+    mu_idx = args_markers.mu_idx
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -903,7 +902,7 @@ def cc_lin_mhd_5d_gradB_dg_init(
         # marker weight and velocity
         weight = markers[ip, 5]
         v = markers[ip, 3]
-        mu = markers[ip, 9]
+        mu = markers[ip, mu_idx]
 
         # b-field evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
@@ -1091,6 +1090,8 @@ def cc_lin_mhd_5d_gradB_dg(
     r"""TODO"""
 
     markers = args_markers.markers
+    mu_idx = args_markers.mu_idx
+    first_init_idx = args_markers.first_init_idx
 
     # allocate for magnetic field evaluation
     eta_diff = empty(3, dtype=float)
@@ -1127,15 +1128,15 @@ def cc_lin_mhd_5d_gradB_dg(
             continue
 
         # marker positions, mid point
-        eta_mid[:] = (markers[ip, 0:3] + markers[ip, 11:14]) / 2.0
+        eta_mid[:] = (markers[ip, 0:3] + markers[ip, first_init_idx : first_init_idx + 3]) / 2.0
         eta_mid[:] = mod(eta_mid[:], 1.0)
 
-        eta_diff[:] = markers[ip, 0:3] - markers[ip, 11:14]
+        eta_diff[:] = markers[ip, 0:3] - markers[ip, first_init_idx : first_init_idx + 3]
 
         # marker weight and velocity
         weight = markers[ip, 5]
         v = markers[ip, 3]
-        mu = markers[ip, 9]
+        mu = markers[ip, mu_idx]
 
         # b-field evaluation
         span1, span2, span3 = get_spans(eta_mid[0], eta_mid[1], eta_mid[2], args_derham)
@@ -1226,16 +1227,7 @@ def cc_lin_mhd_5d_gradB_dg(
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.vec_fill_v0vec(
-                args_derham,
-                span1,
-                span2,
-                span3,
-                vec1,
-                vec2,
-                vec3,
-                filling_v[0],
-                filling_v[1],
-                filling_v[2],
+                args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
             )
 
         elif basis_u == 2:
@@ -1273,14 +1265,5 @@ def cc_lin_mhd_5d_gradB_dg(
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.vec_fill_v2(
-                args_derham,
-                span1,
-                span2,
-                span3,
-                vec1,
-                vec2,
-                vec3,
-                filling_v[0],
-                filling_v[1],
-                filling_v[2],
+                args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
             )

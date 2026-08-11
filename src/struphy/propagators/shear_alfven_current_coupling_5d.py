@@ -317,6 +317,10 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         else:
             self._ode_solver(0.0, dt)
 
+        # update_weights
+        if self.energetic_ions.species.weights_params.control_variate:
+            self.energetic_ions.particles.update_weights()
+
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
             if self.options.algo == "implicit":
                 logger.info(f"Status     for ShearAlfvenCurrentCoupling5D: {info['success']}")

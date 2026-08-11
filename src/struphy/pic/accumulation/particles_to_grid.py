@@ -236,7 +236,7 @@ class Accumulator:
                 vec.update_ghost_regions()
 
                 self.accfilter(vec)
-                vec_finished = True
+            vec_finished = True
 
         if self.particles.clone_config is None:
             num_clones = 1
