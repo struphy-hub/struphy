@@ -166,7 +166,7 @@ def n_init(etas, r_minus=r_minus, r_plus=r_plus):
 
 
 # Background for kinetic species
-background = maxwellians.GyroMaxwellian2D(n=(0.0, None), B0=equil.absB0)
+background = maxwellians.GyroMaxwellian2D(n=(0.0, None),)# B0=equil.absB0)
 model.kinetic_ions.var.add_background(background)
 
 
