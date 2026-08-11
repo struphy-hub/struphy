@@ -34,6 +34,10 @@ class Particles6D(Particles):
     default_n_cols = {"diagnostics": 0, "aux": 5}
     """Default number of buffer columns reserved for diagnostics and auxiliary (pusher/free) use."""
 
+    @property
+    def mu_idx(self):
+        return self.first_diagnostics_idx + 4
+
     def __post_init__(self):
         """If the background is a :class:`~struphy.kinetic_background.maxwellians.CanonicalMaxwellian`,
         set up the discrete magnetic field (needed to evaluate canonical invariants) from the projected equilibrium."""
@@ -190,10 +194,6 @@ class Particles6D(Particles):
             self.mpi_sort_markers()
         self.markers[~self.holes, self.first_pusher_idx : self.first_pusher_idx + 3] = 0
 
-    @property
-    def mu_index(self):
-        return self.first_diagnostics_idx
-
 
 class DeltaFParticles6D(Particles6D):
     """
@@ -258,6 +258,8 @@ class Particles5D(Particles):
     # Class properties
     vdim = 2
     """Dimension of the velocity space, here 2 (:math:`v_\\parallel, \\mu`)."""
+    mu_idx = 4
+    """Column index of particle magnetic moment."""
     default_background = maxwellians.GyroMaxwellian2D()
     """Default kinetic background is a gyrotropic Maxwellian in :math:`(v_\\parallel, \\mu)`."""
     default_n_cols = {"diagnostics": 2, "aux": 12}
@@ -511,6 +513,10 @@ class Particles5Dvperp(Particles):
     default_n_cols = {"diagnostics": 3, "aux": 12}
     """Default number of buffer columns is 3 diagnostics (energy, magnetic moment, canonical toroidal
     momentum, see :meth:`save_constants_of_motion`) and 12 auxiliary columns."""
+
+    @property
+    def mu_idx(self):
+        return self.first_diagnostics_idx + 1
 
     def __post_init__(self):
         """Retrieve the discrete equilibrium magnetic-field quantities (:math:`|B_0|`, unit 1-form
@@ -793,6 +799,10 @@ class Particles3D(Particles):
     default_n_cols = {"diagnostics": 0, "aux": 5}
     """Default number of buffer columns reserved for diagnostics and auxiliary (pusher/free) use."""
 
+    @property
+    def mu_idx(self):
+        return self.first_free_idx
+
     def __post_init__(self):
         """No additional setup is required for this class."""
 
@@ -863,6 +873,10 @@ class ParticlesSPH(Particles):
     """Default fluid background is a spatially constant velocity field."""
     default_n_cols = {"diagnostics": 0, "aux": 24}
     """Default number of buffer columns reserved for diagnostics and auxiliary (pusher/free) use."""
+
+    @property
+    def mu_idx(self):
+        return self.first_free_idx
 
     def __post_init__(self):
         """Attach the domain to the background (needed to evaluate it at marker positions).

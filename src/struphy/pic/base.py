@@ -415,11 +415,11 @@ class Particles(metaclass=ABCMeta):
         """Dimension of the velocity space."""
         pass
 
-    # @property
-    # @abstractmethod
-    # def mu_index(self):
-    #     """Index of the column in the marker array where the magnetic moment is stored."""
-    #     pass
+    @property
+    @abstractmethod
+    def mu_idx(self):
+        """Index of the column in the marker array where the magnetic moment is stored."""
+        pass
 
     @property
     @abstractmethod
@@ -555,17 +555,12 @@ class Particles(metaclass=ABCMeta):
         out["pos"] = slice(0, 3)  # positions
         out["vel"] = slice(3, 3 + self.vdim)  # velocities
         out["coords"] = slice(0, 3 + self.vdim)  # phasespace_coords
-        out["com"] = {}
-        out["com"]["6D"] = slice(12, 15)  # constants of motion (Particles6D)
-        out["com"]["5D"] = slice(8, 11)  # constants of motion (Particles5D)
-        out["pos+energy"] = {}
-        out["pos+energy"]["6D"] = slice(9, 13)  # positions + energy
-        out["pos+energy"]["5D"] = list(range(0, 3)) + [8]  # positions + energy
         out["weights"] = 3 + self.vdim  # weights
         out["s0"] = 4 + self.vdim  # sampling density at t=0
         out["w0"] = 5 + self.vdim  # weights at t=0
         out["box"] = -2  # sorting box index
         out["ids"] = -1  # marker_inds
+        out["mu"] = self.mu_idx  # magnetic moment
         return out
 
     @property
@@ -2424,6 +2419,7 @@ class Particles(metaclass=ABCMeta):
             _to_numpy_for_kernel(self.first_shift_idx),
             _to_numpy_for_kernel(self.residual_idx),
             _to_numpy_for_kernel(self.first_free_idx),
+            _to_numpy_for_kernel(self.mu_idx),
         )
 
     def _initialize_sorting_boxes(self):
