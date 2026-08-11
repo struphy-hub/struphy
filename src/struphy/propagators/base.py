@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
+from cunumpy import PyccelKernel
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilVector
 
@@ -270,7 +271,7 @@ class Propagator(metaclass=ABCMeta):
 
         self._init_kernels += [
             (
-                kernel,
+                kernel if isinstance(kernel, PyccelKernel) else PyccelKernel(kernel),
                 column_nr,
                 comps,
                 args_init,
@@ -324,7 +325,7 @@ class Propagator(metaclass=ABCMeta):
 
         self._eval_kernels += [
             (
-                kernel,
+                kernel if isinstance(kernel, PyccelKernel) else PyccelKernel(kernel),
                 alpha,
                 column_nr,
                 comps,

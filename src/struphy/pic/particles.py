@@ -1,6 +1,7 @@
 import copy
 
 import cunumpy as xp
+from cunumpy import PyccelKernel
 
 from struphy.fields_background import equils
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
@@ -148,7 +149,7 @@ class Particles6D(Particles):
         )
 
         # eval guiding center phase space
-        utilities_kernels.eval_guiding_center_from_6d(
+        PyccelKernel(utilities_kernels.eval_guiding_center_from_6d)(
             self.markers,
             self._derham.args_derham,
             self.domain.args_domain,
@@ -190,7 +191,7 @@ class Particles6D(Particles):
         if self.mpi_comm is not None:
             self.mpi_sort_markers(alpha=1)
 
-        utilities_kernels.eval_canonical_toroidal_moment_6d(
+        PyccelKernel(utilities_kernels.eval_canonical_toroidal_moment_6d)(
             self.markers,
             self._derham.args_derham,
             self.first_diagnostics_idx,
@@ -408,7 +409,7 @@ class Particles5D(Particles):
     def draw_markers(self, sort: bool = True):
         super().draw_markers(sort=sort)
 
-        utilities_kernels.eval_magnetic_moment_5d(
+        PyccelKernel(utilities_kernels.eval_magnetic_moment_5d)(
             self.markers,
             self.derham.args_derham,
             self.first_diagnostics_idx,
@@ -434,7 +435,7 @@ class Particles5D(Particles):
         # idx and slice
         idx_can_momentum = self.first_diagnostics_idx + 2
 
-        utilities_kernels.eval_energy_5d(
+        PyccelKernel(utilities_kernels.eval_energy_5d)(
             self.markers,
             self.derham.args_derham,
             self.first_diagnostics_idx,
@@ -451,7 +452,7 @@ class Particles5D(Particles):
 
         self._epsilon = self.equation_params["epsilon"]
 
-        utilities_kernels.eval_canonical_toroidal_moment_5d(
+        PyccelKernel(utilities_kernels.eval_canonical_toroidal_moment_5d)(
             self.markers,
             self.derham.args_derham,
             self.first_diagnostics_idx,
@@ -476,7 +477,7 @@ class Particles5D(Particles):
         PBbt = E0T.dot(PBb, out=self._tmp0)
         PBbt.update_ghost_regions()
 
-        utilities_kernels.eval_magnetic_energy_PBb(
+        PyccelKernel(utilities_kernels.eval_magnetic_energy_PBb)(
             self.markers,
             self.derham.args_derham,
             self.domain.args_domain,
@@ -491,7 +492,7 @@ class Particles5D(Particles):
         The result is stored at markers[:, self.first_diagnostics_idx,].
         """
 
-        utilities_kernels.eval_magnetic_background_energy(
+        PyccelKernel(utilities_kernels.eval_magnetic_background_energy)(
             self.markers,
             self.derham.args_derham,
             self.domain.args_domain,
@@ -504,7 +505,7 @@ class Particles5D(Particles):
         Calculate magnetic moment of each particles and assign it into markers[:,self.first_diagnostics_idx,+1].
         """
 
-        utilities_kernels.eval_magnetic_moment_5d(
+        PyccelKernel(utilities_kernels.eval_magnetic_moment_5d)(
             self.markers,
             self.derham.args_derham,
             self.first_diagnostics_idx,
