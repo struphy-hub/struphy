@@ -415,6 +415,12 @@ class Particles(metaclass=ABCMeta):
         """Dimension of the velocity space."""
         pass
 
+    # @property
+    # @abstractmethod
+    # def mu_index(self):
+    #     """Index of the column in the marker array where the magnetic moment is stored."""
+    #     pass   
+
     @property
     @abstractmethod
     def default_background(cls):
@@ -1416,8 +1422,8 @@ class Particles(metaclass=ABCMeta):
             if not isinstance(self, ParticlesSPH):
                 self._set_initial_condition()
 
-                if isinstance(self.f_init, CanonicalMaxwellian):
-                    self.save_constants_of_motion()
+                # if isinstance(self.f_init, CanonicalMaxwellian):
+                #     self.save_constants_of_motion()
 
             # evaluate initial distribution function
             if isinstance(self, ParticlesSPH):
@@ -1471,8 +1477,8 @@ class Particles(metaclass=ABCMeta):
             f0 = self.f0.n0(self.positions)
         else:
             # in case of CanonicalMaxwellian, evaluate constants_of_motion
-            if isinstance(self.f0, CanonicalMaxwellian):
-                self.save_constants_of_motion()
+            # if isinstance(self.f0, CanonicalMaxwellian):
+            #     self.save_constants_of_motion()
             f0 = self.f0(*self.f_coords.T)
 
         # if f_init is vol-form, transform to 0-form

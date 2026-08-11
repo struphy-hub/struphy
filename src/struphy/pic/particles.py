@@ -37,9 +37,9 @@ class Particles6D(Particles):
     def __post_init__(self):
         """If the background is a :class:`~struphy.kinetic_background.maxwellians.CanonicalMaxwellian`,
         set up the discrete magnetic field (needed to evaluate canonical invariants) from the projected equilibrium."""
-        if isinstance(self.background, maxwellians.CanonicalMaxwellian):
+        if isinstance(self.background, maxwellians.CanonicalMaxwellian2D):
             assert isinstance(self.projected_equil, ProjectedFluidEquilibriumWithB), (
-                "CanonicalMaxwellian needs background with magnetic field."
+                "CanonicalMaxwellian2D needs background with magnetic field."
             )
             self._absB0_h = self.projected_equil.absB0
             self._b2_h = self.projected_equil.b2
@@ -190,6 +190,9 @@ class Particles6D(Particles):
             self.mpi_sort_markers()
         self.markers[~self.holes, self.first_pusher_idx : self.first_pusher_idx + 3] = 0
 
+    @property
+    def mu_index(self):
+        return self.first_diagnostics_idx
 
 class DeltaFParticles6D(Particles6D):
     """
