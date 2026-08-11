@@ -1732,6 +1732,7 @@ if __name__ == "__main__":
 
     @model.setter
     def model(self, value: StruphyModel):
+        assert isinstance(value, StruphyModel)
         assert hasattr(value, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
         self._model = value
         self._model_name = value.__class__.__name__
