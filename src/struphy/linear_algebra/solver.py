@@ -6,7 +6,7 @@ from struphy.io.options import LiteralOptions
 logger = logging.getLogger("struphy")
 
 # kwargs accepted by struphy.linear_algebra.petsc_solver.PETScSolver.__init__
-_PETSC_SOLVER_KWARGS = ("x0", "tol", "maxiter", "verbose", "recycle", "ksp_type", "pc_type")
+_PETSC_SOLVER_KWARGS = ("x0", "tol", "maxiter", "verbose", "recycle", "ksp_type", "pc_type", "near_null_space")
 
 
 def inverse(A, solver: str, **kwargs):
@@ -46,11 +46,12 @@ def inverse(A, solver: str, **kwargs):
 
         return PETScSolver(A, **petsc_kwargs)
 
-    # pc_type/ksp_type are petsc-only (see _PETSC_SOLVER_KWARGS above); feectools'
-    # InverseLinearOperator subclasses forward unknown kwargs straight to their
+    # pc_type/ksp_type/near_null_space are petsc-only (see _PETSC_SOLVER_KWARGS above);
+    # feectools' InverseLinearOperator subclasses forward unknown kwargs straight to their
     # constructor and would raise on them, so they never reach this branch.
     kwargs.pop("pc_type", None)
     kwargs.pop("ksp_type", None)
+    kwargs.pop("near_null_space", None)
 
     from feectools.linalg.solvers import inverse as feectools_inverse
 

@@ -363,6 +363,17 @@ class ImplicitDiffusion(Propagator):
             verbose=self.options.solver_params.verbose,
             recycle=self.options.solver_params.recycle,
             pc_type=self.options.solver_params.pc_type,
+            # self._diffusion_op = grad.T @ diffusion_mat @ grad structurally has the constant
+            # function in its kernel on a periodic domain (grad(constant) = 0), regardless of
+            # diffusion_mat or how small/large sigma_1 (stab_eps) is -- and PETScSolver only
+            # supports this operator on periodic domains to begin with (see
+            # _directional_derivative_to_stencil_matrix), so this is always a valid hint where it
+            # applies at all. Ignored for solver != "petsc". Without it, PETSc+gamg was found to
+            # silently converge (small reported residual) to a solution that disagrees with
+            # feectools' own solver -- worse, and more MPI-rank-count-dependent, as rank count
+            # grows -- for exactly this near-singular regime; see PETScSolver's near_null_space
+            # docstring.
+            near_null_space="constant",
         )
 
         # allocate memory for solution

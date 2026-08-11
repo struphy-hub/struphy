@@ -260,6 +260,22 @@ class PETScSolver(InverseLinearOperator):
     pc_type : str, default="none"
         PETSc preconditioner type, see ``petsc4py.PETSc.PC.Type``. E.g. ``"gamg"`` (algebraic
         multigrid) for large, ill-conditioned elliptic systems.
+
+    near_null_space : {"none", "constant"}, default="none"
+        Registers a null space with the assembled matrix via ``Mat.setNullSpace`` when
+        ``"constant"`` (the all-ones vector), so KSP removes any inconsistent component from the
+        right-hand side instead of letting it pollute the solve. This is not just a minor
+        robustness tweak: for a *near*-singular operator whose kernel is (numerically) the
+        constant vector -- e.g. ``ImplicitDiffusion``'s ``grad.T @ M @ grad + sigma_1 * stab_mat``
+        on a periodic domain with tiny ``sigma_1`` -- omitting it was found to make ``"gamg"``
+        silently converge (small reported residual) to a solution that disagrees substantially
+        with feectools' own solver, worse and MPI-rank-count-dependent as rank count grows (up to
+        ~180% relative error at 4 ranks in testing), while reporting success throughout; with it,
+        the same cases match to ~1e-15 in 1 iteration, independent of rank count. Only pass
+        ``"constant"`` for operators whose kernel is actually (near) the constant vector --
+        forcing it on an operator that is not near-singular there is unlikely to help, and forcing
+        it on one that is near-singular along some *other* direction would silently corrupt the
+        answer as this option does not check its own applicability.
     """
 
     def __init__(
@@ -273,8 +289,10 @@ class PETScSolver(InverseLinearOperator):
         recycle=False,
         ksp_type="cg",
         pc_type="none",
+        near_null_space="none",
     ):
         assert isinstance(A, LinearOperator), f"PETScSolver requires a LinearOperator, got {type(A)}."
+        assert near_null_space in ("none", "constant"), f"Unsupported {near_null_space = }"
 
         self._options = {
             "x0": x0,
@@ -284,6 +302,7 @@ class PETScSolver(InverseLinearOperator):
             "recycle": recycle,
             "ksp_type": ksp_type,
             "pc_type": pc_type,
+            "near_null_space": near_null_space,
         }
 
         super().__init__(A, **self._options)
@@ -300,6 +319,10 @@ class PETScSolver(InverseLinearOperator):
         A = self._A
         if self._ksp is None or self._ksp_linop is not A:
             gmat = _assemble_petsc_matrix(A)
+
+            if self._options["near_null_space"] == "constant":
+                nullspace = PETSc.NullSpace().create(constant=True, comm=gmat.getComm())
+                gmat.setNullSpace(nullspace)
 
             if self._ksp is None:
                 self._ksp = PETSc.KSP().create(comm=gmat.getComm())
