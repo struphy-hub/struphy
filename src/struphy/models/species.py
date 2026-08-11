@@ -305,7 +305,6 @@ class ParticleSpecies(Species):
 
         bufsize : float
             Size of buffer (as multiple of total size, default=.25) in markers array.
-        ----------
         """
 
         # defaults
