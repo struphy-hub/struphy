@@ -1993,7 +1993,7 @@ class Particles(metaclass=ABCMeta):
 
         self.put_particles_in_boxes()
 
-        func = Pyccelkernel(eval_kernels_sph.sph_mean_velocity_coeffs)
+        func = PyccelKernel(eval_kernels_sph.sph_mean_velocity_coeffs)
 
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
@@ -2105,7 +2105,7 @@ class Particles(metaclass=ABCMeta):
         self.put_particles_in_boxes()
 
         # 1st kernel
-        func = Pyccelkernel(eval_kernels_sph.sph_mean_velocity_coeffs)
+        func = PyccelKernel(eval_kernels_sph.sph_mean_velocity_coeffs)
         comps = xp.array((0, 1, 2))
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
@@ -2126,7 +2126,7 @@ class Particles(metaclass=ABCMeta):
         )
 
         # 2nd kernel
-        func = Pyccelkernel(eval_kernels_sph.sph_viscosity_tensor)
+        func = PyccelKernel(eval_kernels_sph.sph_viscosity_tensor)
         comps = xp.arange(9)
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
