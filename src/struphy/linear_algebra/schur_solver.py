@@ -269,7 +269,12 @@ class SchurSolverFull:
 
         self._S = self._A - self._B @ self._C
 
-        self._solver = inverse(self._S, solver_name, **solver_params)
+        # struphy_inverse dispatches solver_name="petsc" to PETScSolver and safely strips
+        # petsc-only kwargs (e.g. pc_type) for every other solver -- see SchurSolver, which needs
+        # this same dispatch but (unlike this class) also has to handle a stale-cache hazard from
+        # in-place operator mutation; no such hazard here since callers rebuild this whole object
+        # fresh each call rather than mutating `self._S` in place.
+        self._solver = struphy_inverse(self._S, solver_name, **solver_params)
 
         # right-hand side vector (avoids temporary memory allocation!)
         self._rhs = self._A.codomain.zeros()
@@ -386,7 +391,8 @@ class SchurSolverFull3:
 
         self._S = self._A - self._B @ self._C - self._D @ self._E
 
-        self._solver = inverse(self._S, solver_name, **solver_params)
+        # see SchurSolverFull.__init__'s note on struphy_inverse
+        self._solver = struphy_inverse(self._S, solver_name, **solver_params)
 
         # right-hand side vector (avoids temporary memory allocation!)
         self._rhs = self._A.codomain.zeros()
