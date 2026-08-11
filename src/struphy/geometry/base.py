@@ -235,7 +235,7 @@ class Domain(metaclass=DomainMeta):
         """Build runtime mapping arguments used by compiled evaluation kernels."""
         return DomainArguments(
             self.kind_map,
-            self.params_numpy,
+            _to_numpy_for_kernel(self.params_numpy),
             _to_numpy_for_kernel(xp.array(self.degree)),
             _to_numpy_for_kernel(self.T[0]),
             _to_numpy_for_kernel(self.T[1]),
