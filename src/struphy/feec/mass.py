@@ -2900,6 +2900,9 @@ class L2Projector:
         self._spans_l = self.mass_ops.derham.spline_attributes[self.space_key].quad_grid_spans
         self._bases_l = self.mass_ops.derham.spline_attributes[self.space_key].quad_grid_bases
 
+        # Pyccel-compiled kernel only understands NumPy arrays
+        self._kernel_3d_vec = PyccelKernel(mass_kernels.kernel_3d_vec, outputs=(-1,))
+
         # Preconditioner
         if precond_name is None:
             pc = None
@@ -3136,7 +3139,7 @@ class L2Projector:
             pads = fem_space.coeff_space.pads
 
             if isinstance(dofs, StencilVector):
-                mass_kernels.kernel_3d_vec(
+                self._kernel_3d_vec(
                     *spans,
                     *fem_space.degree,
                     *starts,
@@ -3147,7 +3150,7 @@ class L2Projector:
                     dofs._data,
                 )
             elif isinstance(dofs, PolarVector):
-                mass_kernels.kernel_3d_vec(
+                self._kernel_3d_vec(
                     *spans,
                     *fem_space.degree,
                     *starts,
@@ -3158,7 +3161,7 @@ class L2Projector:
                     dofs.tp._data,
                 )
             else:
-                mass_kernels.kernel_3d_vec(
+                self._kernel_3d_vec(
                     *spans,
                     *fem_space.degree,
                     *starts,

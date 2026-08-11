@@ -699,12 +699,18 @@ def test_push_eta_rk4(num_elements, degree, bcs, mapping, show_plots=False):
 
     pusher_psy(dt)
 
-    n_mks_load = xp.zeros(size, dtype=int)
+    # MPI communication buffers/counts must be host (NumPy) arrays regardless
+    # of the active cunumpy backend.
+    import numpy as np
 
-    comm.Allgather(xp.array(xp.shape(particles.markers)[0]), n_mks_load)
+    from cunumpy.xp import to_numpy
 
-    sendcounts = xp.zeros(size, dtype=int)
-    displacements = xp.zeros(size, dtype=int)
+    n_mks_load = np.zeros(size, dtype=int)
+
+    comm.Allgather(np.array(xp.shape(particles.markers)[0]), n_mks_load)
+
+    sendcounts = np.zeros(size, dtype=int)
+    displacements = np.zeros(size, dtype=int)
     accum_sendcounts = 0.0
 
     for i in range(size):
@@ -712,10 +718,10 @@ def test_push_eta_rk4(num_elements, degree, bcs, mapping, show_plots=False):
         displacements[i] = accum_sendcounts
         accum_sendcounts += sendcounts[i]
 
-    all_particles_psy = xp.zeros((int(accum_sendcounts) * 3,), dtype=float)
+    all_particles_psy = np.zeros((int(accum_sendcounts) * 3,), dtype=float)
 
     comm.Barrier()
-    comm.Allgatherv(xp.array(particles.markers[:, :3]), [all_particles_psy, sendcounts, displacements, MPI.DOUBLE])
+    comm.Allgatherv(to_numpy(particles.markers[:, :3]), [all_particles_psy, sendcounts, displacements, MPI.DOUBLE])
     comm.Barrier()
 
 

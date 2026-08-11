@@ -26,8 +26,17 @@ from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockVector, BlockVectorSpace
 from feectools.linalg.stencil import StencilVector, StencilVectorSpace
 
+from cunumpy import PyccelKernel
+
 from struphy.bsplines import evaluation_kernels_3d as eval_3d
 from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
+
+# Pyccel kernels only understand NumPy arrays; wrap the ones called directly
+# in this module so they also work with CuPy arrays (see cunumpy.kernel).
+eval_3d.eval_spline_mpi_sparse_meshgrid = PyccelKernel(eval_3d.eval_spline_mpi_sparse_meshgrid)
+eval_3d.eval_spline_mpi_markers = PyccelKernel(eval_3d.eval_spline_mpi_markers)
+eval_3d.eval_spline_mpi_matrix = PyccelKernel(eval_3d.eval_spline_mpi_matrix)
+eval_spline_mpi_tensor_product_fixed = PyccelKernel(eval_spline_mpi_tensor_product_fixed)
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.local_projectors_kernels import get_local_problem_size, select_quasi_points
 from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
@@ -2155,21 +2164,26 @@ class Derham:
             2d array of pn values of D-splines indexed by (eta, spline value).
         """
 
+        from cunumpy.xp import to_cunumpy, to_numpy
+
         from struphy.bsplines import bsplines_kernels
 
-        # Extract knot vectors, degree and kind of basis
-        Tn = Nspace.knots
+        # bsplines_kernels.find_span/b_d_splines_slim are Pyccel-compiled and
+        # only understand NumPy; this is a per-point Python loop, so convert
+        # once up front rather than wrapping every individual kernel call.
+        Tn = to_numpy(Nspace.knots)
         pn = Nspace.degree
+        etas_np = to_numpy(etas)
 
-        spans = xp.zeros(etas.size, dtype=int)
-        bns = xp.zeros((etas.size, pn + 1), dtype=float)
-        bds = xp.zeros((etas.size, pn), dtype=float)
-        bn = xp.zeros(pn + 1, dtype=float)
-        bd = xp.zeros(pn, dtype=float)
+        spans = np.zeros(etas_np.size, dtype=int)
+        bns = np.zeros((etas_np.size, pn + 1), dtype=float)
+        bds = np.zeros((etas_np.size, pn), dtype=float)
+        bn = np.zeros(pn + 1, dtype=float)
+        bd = np.zeros(pn, dtype=float)
 
-        for n in range(etas.size):
+        for n in range(etas_np.size):
             # avoid 1. --> 0. for clamped interpolation
-            eta = etas[n] % (1.0 + 1e-14)
+            eta = etas_np[n] % (1.0 + 1e-14)
             span = bsplines_kernels.find_span(Tn, pn, eta)
             bsplines_kernels.b_d_splines_slim(Tn, pn, eta, span, bn, bd)
             # correct span for mpi spline eval
@@ -2179,7 +2193,7 @@ class Derham:
             bns[n] = bn
             bds[n] = bd
 
-        return spans, bns, bds
+        return to_cunumpy(spans), to_cunumpy(bns), to_cunumpy(bds)
 
 
 class SplineFunction:
