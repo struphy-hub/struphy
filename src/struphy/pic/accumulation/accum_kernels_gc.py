@@ -90,6 +90,7 @@ def gc_mag_density_0form(
     """
 
     markers = args_markers.markers
+    mu_idx = args_markers.mu_idx
 
     # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, filling)
     # -- removed omp: #$ omp for reduction ( + :vec)
@@ -105,7 +106,7 @@ def gc_mag_density_0form(
 
         # marker weight and magnetic moment
         weight = markers[ip, 5]
-        mu = markers[ip, 9]
+        mu = markers[ip, mu_idx]
 
         # filling =mu*w_p/N
         filling = mu * weight * scale
@@ -550,6 +551,7 @@ def cc_lin_mhd_5d_M(
     """
 
     markers = args_markers.markers
+    mu_idx = args_markers.mu_idx
 
     # allocate for a field evaluation
     norm_b1 = empty(3, dtype=float)
@@ -578,7 +580,7 @@ def cc_lin_mhd_5d_M(
 
         # marker weight and velocity
         weight = markers[ip, 5]
-        mu = markers[ip, 9]
+        mu = markers[ip, mu_idx]
 
         # b-field evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
@@ -690,6 +692,7 @@ def cc_lin_mhd_5d_gradB(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     first_init_idx = args_markers.first_init_idx
+    mu_idx = args_markers.mu_idx
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -730,7 +733,7 @@ def cc_lin_mhd_5d_gradB(
         # marker weight and velocity
         weight = markers[ip, 5]
         v = markers[ip, 3]
-        mu = markers[ip, 9]
+        mu = markers[ip, mu_idx]
 
         # b-field evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
@@ -857,6 +860,7 @@ def cc_lin_mhd_5d_gradB_dg_init(
     r"""TODO"""
 
     markers = args_markers.markers
+    mu_idx = args_markers.mu_idx
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -898,7 +902,7 @@ def cc_lin_mhd_5d_gradB_dg_init(
         # marker weight and velocity
         weight = markers[ip, 5]
         v = markers[ip, 3]
-        mu = markers[ip, 9]
+        mu = markers[ip, mu_idx]
 
         # b-field evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
@@ -1086,6 +1090,8 @@ def cc_lin_mhd_5d_gradB_dg(
     r"""TODO"""
 
     markers = args_markers.markers
+    mu_idx = args_markers.mu_idx
+    first_init_idx = args_markers.first_init_idx
 
     # allocate for magnetic field evaluation
     eta_diff = empty(3, dtype=float)
@@ -1122,15 +1128,15 @@ def cc_lin_mhd_5d_gradB_dg(
             continue
 
         # marker positions, mid point
-        eta_mid[:] = (markers[ip, 0:3] + markers[ip, 11:14]) / 2.0
+        eta_mid[:] = (markers[ip, 0:3] + markers[ip, first_init_idx : first_init_idx + 3]) / 2.0
         eta_mid[:] = mod(eta_mid[:], 1.0)
 
-        eta_diff[:] = markers[ip, 0:3] - markers[ip, 11:14]
+        eta_diff[:] = markers[ip, 0:3] - markers[ip, first_init_idx : first_init_idx + 3]
 
         # marker weight and velocity
         weight = markers[ip, 5]
         v = markers[ip, 3]
-        mu = markers[ip, 9]
+        mu = markers[ip, mu_idx]
 
         # b-field evaluation
         span1, span2, span3 = get_spans(eta_mid[0], eta_mid[1], eta_mid[2], args_derham)
