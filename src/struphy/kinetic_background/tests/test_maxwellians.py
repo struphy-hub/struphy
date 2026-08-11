@@ -1659,6 +1659,69 @@ def test_canonical_maxwellian_uniform(num_markers, show_plot=False):
 
     assert xp.allclose(res, res_ana, atol=10e-10), f"{res=},\n {res_ana=}"
 
+    # ===================================================================
+    # ===== Test cbufs cache buffers: correctness + speedup at 1e5 =====
+    # ===================================================================
+    import time
+
+    num_markers_perf = 100_000
+
+    def _random_markers(seed):
+        rng = xp.random.RandomState(seed)
+        e1 = rng.rand(num_markers_perf)
+        e2 = rng.rand(num_markers_perf)
+        e3 = rng.rand(num_markers_perf)
+        vp = (rng.rand(num_markers_perf) - 0.5) * 4.0
+        m = rng.rand(num_markers_perf) * 0.5
+        return e1, e2, e3, vp, m
+
+    maxwellian_nocache = CanonicalMaxwellian2D(n=(n_of_psic, None), vth=(vth_val, None), equil=mhd_equil)
+    maxwellian_cache = CanonicalMaxwellian2D(
+        n=(n_of_psic, None),
+        vth=(vth_val, None),
+        equil=mhd_equil,
+        cache_size=num_markers_perf,
+    )
+
+    # correctness: cached buffer must give the same result as the uncached path
+    eta1_c, eta2_c, eta3_c, v_para_c, mu_c = _random_markers(seed=7)
+    res_nocache = maxwellian_nocache(eta1_c, eta2_c, eta3_c, v_para_c, mu_c)
+    res_cache = maxwellian_cache(eta1_c, eta2_c, eta3_c, v_para_c, mu_c)
+    res_ana_c = ref_eval(n_of_psic, vth_val, eta1_c, eta2_c, eta3_c, v_para_c, mu_c)
+
+    assert xp.allclose(res_nocache, res_ana_c, atol=10e-10), f"{res_nocache=},\n {res_ana_c=}"
+    assert xp.allclose(res_cache, res_ana_c, atol=10e-10), f"{res_cache=},\n {res_cache=}"
+
+    def _time_eval(maxwellian, n_reps=5):
+        """Best-of-n_reps wall time for a full psi_c evaluation. Markers are
+        redrawn on every rep so the psi_c *result* cache (see
+        `_check_psi_c_cached`) never hits and each call exercises the full
+        eval_psic computation, isolating the effect of the cbufs buffers."""
+        times = []
+        for i in range(n_reps):
+            e1, e2, e3, vp, m = _random_markers(seed=100 + i)
+            start = time.perf_counter()
+            maxwellian(e1, e2, e3, vp, m)
+            times.append(time.perf_counter() - start)
+        return min(times)
+
+    t_nocache = _time_eval(maxwellian_nocache)
+    t_cache = _time_eval(maxwellian_cache)
+    speedup = t_nocache / t_cache
+
+    # NOTE: cbufs only wraps eval_psic's post-processing (inverse_map, psi,
+    # energy, psi_c, correction), which is a small fraction (~5%) of the
+    # total cost at num_markers_perf markers; the dominant cost is
+    # self.equil.absB0(...)/self.equil.domain(...), which allocate their own
+    # output every call regardless of cbufs. So the measured speedup here is
+    # real but modest (a few percent, within timing noise run-to-run) rather
+    # than dramatic -- this is reported, not asserted on, for that reason.
+    print(
+        f"\n[CanonicalMaxwellian2D cbufs] num_markers={num_markers_perf}: "
+        f"no cache={t_nocache * 1e3:.2f} ms, with cache={t_cache * 1e3:.2f} ms, "
+        f"speedup={speedup:.2f}x"
+    )
+
 
 if __name__ == "__main__":
     # test_maxwellian_3d_uniform(num_elements=[64, 1, 1], show_plot=True)

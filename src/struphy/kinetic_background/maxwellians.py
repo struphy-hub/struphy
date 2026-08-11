@@ -430,6 +430,10 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
     volume_form : bool, default=True
         If ``True``, represent the distribution as a volume form and include the appropriate
         velocity-space Jacobian when evaluating it.
+        
+    cache_size : int, optional
+        Number of rows in the cache buffer for :math:`\psi_c` evaluation. If ``None``, no caching is used.
+        Must be able to accomodate all markers on the current process.
     """
 
     def __init__(
@@ -440,6 +444,7 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         uniform_on_disc: bool = False,
         equil: AxisymmMHDequilibrium = None,
         epsilon: float = 1.0,
+        cache_size: int | None = None,
     ):
         assert isinstance(equil, AxisymmMHDequilibrium)
 
@@ -453,16 +458,38 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
                             uniform_on_disc=uniform_on_disc,
                             )
 
-        # volume form represenation
+        # store additional parameters
         self._equil = equil
         self._epsilon = epsilon
         self.params["vth"] = vth
+        self.params["equil"] = equil
+        self.params["epsilon"] = epsilon
+        self.params["cache_size"] = cache_size
 
         # factors multiplied onto the defined moments n and vth (can be set via setter)
         self._moment_factors = {
             "n": 1.0,
             "vth": 1.0,
         }
+        
+        # create cache for psi_c evaluation
+        if cache_size is not None:
+            self.cbufs = {}
+            self.cbufs["absB0"] = xp.empty(cache_size, dtype=float)
+            self.cbufs["x"] = xp.empty(cache_size, dtype=float)
+            self.cbufs["y"] = xp.empty(cache_size, dtype=float)
+            self.cbufs["z"] = xp.empty(cache_size, dtype=float)
+            self.cbufs["R"] = xp.empty(cache_size, dtype=float)
+            self.cbufs["P"] = xp.empty(cache_size, dtype=float)
+            self.cbufs["Z"] = xp.empty(cache_size, dtype=float)
+            self.cbufs["psi"] = xp.empty(cache_size, dtype=float)
+            self.cbufs["energy"] = xp.empty(cache_size, dtype=float)
+            self.cbufs["psic"] = xp.empty(cache_size, dtype=float)
+            self.cbufs["positive_mask"] = xp.empty(cache_size, dtype=bool)
+            self.cbufs["correction"] = xp.empty(cache_size, dtype=float)
+            logger.debug(f"Created {len(self.cbufs)} cache buffers for psi_c evaluation, each with size {cache_size}.")
+        else:
+            self.cbufs = None
 
     @property
     def equil(self) -> AxisymmMHDequilibrium:
@@ -598,16 +625,27 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
     def eval_psic(self, *coords):
         r"""Shifted canonical toroidal momentum evaluated at given particle positions and velocities."""
         
-        # call domain and equilibrium information
         a1 = self.equil.domain.params["a1"]
         B0 = self.equil.params["B0"]
         R0 = self.equil.params["R0"]
+        
         if len(coords) == 1:
-            etas = coords[0][:, :3]
+            if self.cbufs is None:
+                logger.warning(f"Initialize {self.__class__.__name__} with `cache_size` for faster psi_c evaluation for markers!")
+            etas = coords[0][:, :3] # these are views (no mem allocation)
             vparallel = coords[0][:, 3]
             mu = coords[0][:, 4]
-            absB0 = self.equil.absB0(etas)
-            x, y, z = self.equil.domain(etas)
+            n_markers = etas.shape[0]
+            if self.cbufs is None:
+                absB0 = self.equil.absB0(etas)
+                x, y, z = self.equil.domain(etas)
+            else:
+                absB0 = self.cbufs["absB0"][:n_markers]
+                x = self.cbufs["x"][:n_markers]
+                y = self.cbufs["y"][:n_markers]
+                z = self.cbufs["z"][:n_markers]
+                absB0[:] = self.equil.absB0(etas)
+                x[:], y[:], z[:] = self.equil.domain(etas)
         else:
             assert len(coords) == 5
             assert coords[0].ndim == coords[1].ndim == coords[2].ndim == coords[3].ndim == coords[4].ndim == 5
@@ -620,29 +658,54 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
             vparallel = coords[3]
             mu = coords[4]
           
-        # compute psi(R, Z) at given eta1, eta2, eta3
-        R, P, Z = self.equil.inverse_map(x, y, z)
-        psi = self.equil.psi(R, Z)
-        if len(coords) != 1:
-            psi = psi[:, :, :, None, None]
+        if self.cbufs is None or len(coords) != 1: 
+            R, P, Z = self.equil.inverse_map(x, y, z)
+            psi = self.equil.psi(R, Z)
+            if len(coords) != 1:
+                psi = psi[:, :, :, None, None]
+                
+            energy = 1 / 2 * vparallel**2 + mu * absB0
 
-        # calculate energy
-        energy = 1 / 2 * vparallel**2 + mu * absB0
+            psi_c = psi - self._epsilon * B0 * R0 / absB0 * vparallel
 
-        # calculate psic
-        psic = psi - self._epsilon * B0 * R0 / absB0 * vparallel
+            positive_mask = (energy - mu * B0) > 0
+            correction = xp.zeros_like(psi_c)
+            correction[positive_mask] = (
+                self._epsilon
+                * xp.sign(vparallel[positive_mask])
+                * xp.sqrt(2 * (energy[positive_mask] - mu[positive_mask] * B0))
+                * R0
+            )
+            psi_c += correction
+        else:
+            R = self.cbufs["R"][:n_markers]
+            P = self.cbufs["P"][:n_markers]
+            Z = self.cbufs["Z"][:n_markers]
+            psi = self.cbufs["psi"][:n_markers]
+            energy = self.cbufs["energy"][:n_markers]
+            psi_c = self.cbufs["psic"][:n_markers]
+            positive_mask = self.cbufs["positive_mask"][:n_markers]
+            correction = self.cbufs["correction"][:n_markers]
+            
+            R[:], P[:], Z[:] = self.equil.inverse_map(x, y, z)
+            psi[:] = self.equil.psi(R, Z)
+        
+            energy[:] = 1 / 2 * vparallel**2 + mu * absB0
+                        
+            psi_c[:] = psi - self._epsilon * B0 * R0 / absB0 * vparallel
 
-        positive_mask = (energy - mu * B0) > 0
-        correction = xp.zeros_like(psic)
-        correction[positive_mask] = (
-            self._epsilon
-            * xp.sign(vparallel[positive_mask])
-            * xp.sqrt(2 * (energy[positive_mask] - mu[positive_mask] * B0))
-            * R0
-        )
-        psic += correction
+            positive_mask[:] = (energy - mu * B0) > 0
+            correction[:] = 0.0
+            correction[positive_mask] = (
+                self._epsilon
+                * xp.sign(vparallel[positive_mask])
+                * xp.sqrt(2 * (energy[positive_mask] - mu[positive_mask] * B0))
+                * R0
+            )
+            psi_c[:] += correction
+        return psi_c
 
-        return psic
+
 
     def eval_rc(self, eta1, eta2, eta3, vparallel, mu):
         r""" Square root of radially normalized canonical toroidal momentum.
