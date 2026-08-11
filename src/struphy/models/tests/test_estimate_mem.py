@@ -46,9 +46,6 @@ def test_simulation_estimate_mem_returns_total():
     sim._clone_config = None
     sim._domain = object()
     sim._equil = object()
-    sim.comm = None
-    sim.rank = 0
-    sim.comm_size = 1
     sim._model = SimpleNamespace(
         field_species={"f": SimpleNamespace(variables={"u": DummyFEECVariable()})},
         fluid_species={},
