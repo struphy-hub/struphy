@@ -222,7 +222,7 @@ def pert_func(*etas):
     return n_r(r)*amps*xp.exp(-(r-r0)**2/delta_r**2)*xp.cos(ms*teta - ns*phi)
 
 # Background for kinetic species
-background = maxwellians.GyroMaxwellian2D(n=(n_init, None), vth_para=(vth_init, None), vth_perp=(vth_init, None), B0=equil.absB0)
+background = maxwellians.GyroMaxwellian2D(n=(n_init, None), vth_para=(vth_init, None), vth_perp=(vth_init, None),)# B0=equil.absB0)
 model.kinetic_ions.var.add_background(background)
 #background.plot_density_profile("e1", "e2", domain=domain, plot_3D=True, in_physical=True)
 #background.plot_density_profile("e1", "v1", domain=domain)
@@ -230,7 +230,7 @@ model.kinetic_ions.var.add_background(background)
 
 from struphy.initial.base import GenericPerturbation
 perturbation = GenericPerturbation(pert_func, given_in_basis="0")
-init = maxwellians.GyroMaxwellian2D(n=(n_init, perturbation), vth_para=(vth_init, None), vth_perp=(vth_init, None), B0=equil.absB0)
+init = maxwellians.GyroMaxwellian2D(n=(n_init, perturbation), vth_para=(vth_init, None), vth_perp=(vth_init, None),)# B0=equil.absB0)
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":
