@@ -103,7 +103,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         Parameters
         ----------
         energetic_ions : PICVariable, default=None
-            Energetic-ion particle distribution (``"Particles5Dvperp"`` space) providing
+            Energetic-ion particle distribution (``"Particles5D"`` space) providing
             the current source for the shear Alfvén wave coupling.
         """
         self.variables = self.Variables()

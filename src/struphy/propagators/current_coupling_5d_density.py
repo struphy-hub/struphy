@@ -68,7 +68,7 @@ class CurrentCoupling5DDensity(Propagator):
         Parameters
         ----------
         energetic_ions : PICVariable, default=None
-            Energetic-ion particle distribution (``"Particles5Dvperp"`` space) providing
+            Energetic-ion particle distribution (``"Particles5D"`` space) providing
             the density source term.
         b_tilde : FEECVariable, default=None
             Magnetic perturbation 1-form (``"Hcurl"`` space) entering the coupling term.

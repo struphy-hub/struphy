@@ -66,7 +66,7 @@ class PushGuidingCenterParallel(Propagator):
         Attributes
         ----------
         ions : PICVariable
-            Guiding-center particle variable in ``"Particles5Dvperp"`` space.
+            Guiding-center particle variable in ``"Particles5D"`` space.
         """
 
         def __init__(self):
