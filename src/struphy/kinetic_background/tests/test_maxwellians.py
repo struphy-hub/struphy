@@ -1572,7 +1572,9 @@ def test_canonical_maxwellian_uniform(num_elements, show_plot=False):
     psi = mhd_equil.psi_r(r)
 
     psic = psi - epsilon * B0 * R0 / absB * v_para
-    psic += epsilon * xp.sign(v_para) * xp.sqrt(2 * (energy - mu * B0)) * R0 * xp.heaviside(energy - mu * B0, 0)
+    psic += (
+        epsilon * xp.sign(xp.asarray(v_para)) * xp.sqrt(2 * (energy - mu * B0)) * R0 * xp.heaviside(energy - mu * B0, 0)
+    )
 
     # ===========================================================
     # ===== Test uniform, isothermal canonical Maxwellian =====
@@ -1610,7 +1612,9 @@ def test_canonical_maxwellian_uniform(num_elements, show_plot=False):
     psi = mhd_equil.psi_r(r)
 
     psic = psi - epsilon * B0 * R0 / absB * v_para
-    psic += epsilon * xp.sign(v_para) * xp.sqrt(2 * (energy - mu * B0)) * R0 * xp.heaviside(energy - mu * B0, 0)
+    psic += (
+        epsilon * xp.sign(xp.asarray(v_para)) * xp.sqrt(2 * (energy - mu * B0)) * R0 * xp.heaviside(energy - mu * B0, 0)
+    )
 
     com_meshgrids = xp.meshgrid(energy, mu, psic)
 
@@ -1653,7 +1657,9 @@ def test_canonical_maxwellian_uniform(num_elements, show_plot=False):
     psi = mhd_equil.psi_r(r)
 
     psic = psi - epsilon * B0 * R0 / absB * v_para
-    psic += epsilon * xp.sign(v_para) * xp.sqrt(2 * (energy - mu * B0)) * R0 * xp.heaviside(energy - mu * B0, 0)
+    psic += (
+        epsilon * xp.sign(xp.asarray(v_para)) * xp.sqrt(2 * (energy - mu * B0)) * R0 * xp.heaviside(energy - mu * B0, 0)
+    )
 
     com_meshgrids = xp.meshgrid(energy, mu, psic)
 
@@ -1714,7 +1720,9 @@ def test_canonical_maxwellian_uniform(num_elements, show_plot=False):
     psi = mhd_equil.psi_r(r[0, :, 0])
 
     psic = psi - epsilon * B0 * R0 / absB * v_para
-    psic += epsilon * xp.sign(v_para) * xp.sqrt(2 * (energy - mu * B0)) * R0 * xp.heaviside(energy - mu * B0, 0)
+    psic += (
+        epsilon * xp.sign(xp.asarray(v_para)) * xp.sqrt(2 * (energy - mu * B0)) * R0 * xp.heaviside(energy - mu * B0, 0)
+    )
 
     com_meshgrids = xp.meshgrid(energy, mu, psic)
     res = maxwellian(energy, mu, psic).squeeze()
