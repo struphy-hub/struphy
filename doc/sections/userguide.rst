@@ -785,8 +785,24 @@ The relevant switches live in :class:`~struphy.EnvironmentOptions`:
 
 The profiler is set up automatically in ``Simulation.__init__()`` and finalized
 when ``Simulation.run()`` finishes. The simulation code already wraps key work
-inside regions such as ``model.integrate`` via
-``ProfileManager.profile_region(...)``.
+inside regions via ``ProfileManager.profile_region(...)``. Since the profiler is
+active from the end of ``Simulation.__init__()``, the setup phase is covered as
+well, and the following regions are recorded out of the box:
+
+1. Setup: ``setup: allocate`` (total allocation time), with the nested regions
+   ``setup: feec`` (``setup: derham``, ``setup: mass ops``, ``setup: basis ops``,
+   ``setup: projected equil``), ``setup: variables`` (one
+   ``setup var: <species>.<variable>`` region per model variable, so that e.g.
+   marker drawing shows up per particle species), ``setup: propagators`` (one
+   ``setup prop: <PropagatorName>`` region per propagator) and
+   ``setup: helpers``.
+2. Remaining run preparation: ``setup: run metadata``, ``setup: data storage``,
+   ``setup: geometry vtk``, ``setup: plasma params``,
+   ``setup: initial diagnostics``, ``setup: hdf5 datasets`` and, for restarted
+   runs, ``setup: restart``.
+3. Time loop: ``model.integrate`` (with the nested ``prop: <PropagatorName>``
+   and ``kernel: <kernel_name>`` regions), ``diagnostics``, ``save data`` and
+   ``sort particles``.
 
 Example configuration:
 
