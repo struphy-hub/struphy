@@ -92,7 +92,7 @@ class CurrentCoupling5DCurlb(Propagator):
         @energetic_ions.setter
         def energetic_ions(self, new):
             assert isinstance(new, PICVariable)
-            assert new.space == "Particles5D"
+            assert "Particles5D" in new.space
             self._energetic_ions = new
 
     def __init__(self, b_tilde: FEECVariable = None):
@@ -188,7 +188,7 @@ class CurrentCoupling5DCurlb(Propagator):
 
         # magnetic equilibrium field
         unit_b1 = self.projected_equil.unit_b1
-        curl_unit_b1 = self.projected_equil.curl_unit_b1
+        curl_unit_b2 = self.projected_equil.curl_unit_b2
         self._b2 = self.projected_equil.b2
 
         # scaling factor
@@ -220,9 +220,9 @@ class CurrentCoupling5DCurlb(Propagator):
             unit_b1[0]._data,
             unit_b1[1]._data,
             unit_b1[2]._data,
-            curl_unit_b1[0]._data,
-            curl_unit_b1[1]._data,
-            curl_unit_b1[2]._data,
+            curl_unit_b2[0]._data,
+            curl_unit_b2[1]._data,
+            curl_unit_b2[2]._data,
             self._u_form_int,
         )
 
@@ -247,9 +247,9 @@ class CurrentCoupling5DCurlb(Propagator):
             unit_b1[0]._data,
             unit_b1[1]._data,
             unit_b1[2]._data,
-            curl_unit_b1[0]._data,
-            curl_unit_b1[1]._data,
-            curl_unit_b1[2]._data,
+            curl_unit_b2[0]._data,
+            curl_unit_b2[1]._data,
+            curl_unit_b2[2]._data,
             self._u_avg[0]._data,
             self._u_avg[1]._data,
             self._u_avg[2]._data,
