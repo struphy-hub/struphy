@@ -850,10 +850,27 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
 
         # ProfileManager.finalize(verbose=True)
         results = ProfileManager.finalize(return_results=True, verbose=False)
-        results.print_summary(include=r"^setup:", title="Setup", suppress_notes=True)
-        results.print_summary(include=[r"^model.integrate", r"^prop:"], title="Model propagation",suppress_notes=True)
-        results.print_summary(include=r"^pusher:", title="Pusher", suppress_notes=True)
-        results.print_summary(include=r"^kernel:", title="Kernel", suppress_notes=True)
+
+        # one table per region family; the last group catches everything not matched above,
+        # so that no recorded region is silently missing from the printed summary
+        groups = (
+            ("Setup", [r"^setup:", r"^setup prop:", r"^setup var:"]),
+            ("Model propagation", [r"^model\.integrate", r"^prop:"]),
+            ("Pusher", [r"^pusher:"]),
+            ("Kernel", [r"^kernel:"]),
+            ("Accumulation", [r"^accum:", r"^accum comm:"]),
+            ("Linear solves", [r"^solve:"]),
+            (
+                "Particle sorting and communication",
+                [r"^mpi_sort_markers$", r"^apply_kinetic_bc$", r"^put_particles_in_boxes$", r"^do_sort$"],
+            ),
+        )
+        all_patterns = [pattern for _, include in groups for pattern in include]
+        for title, include in groups + (("Other", None),):
+            kwargs = {"include": include} if include is not None else {"exclude": all_patterns}
+            if not results.get_regions(**kwargs):
+                continue
+            results.print_summary(title=title, suppress_notes=True, **kwargs)
 
     def pproc(
         self,
