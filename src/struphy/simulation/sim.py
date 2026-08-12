@@ -848,8 +848,12 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
         if self.clone_config is not None:
             self.clone_config.free()
 
-        ProfileManager.finalize(verbose=True)
-        print('done')
+        # ProfileManager.finalize(verbose=True)
+        results = ProfileManager.finalize(return_results=True, verbose=False)
+        results.print_summary(include=r"^setup:", title="Setup", suppress_notes=True)
+        results.print_summary(include=[r"^model.integrate", r"^prop:"], title="Model propagation",suppress_notes=True)
+        results.print_summary(include=r"^pusher:", title="Pusher", suppress_notes=True)
+        results.print_summary(include=r"^kernel:", title="Kernel", suppress_notes=True)
 
     def pproc(
         self,
